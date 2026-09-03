@@ -84,7 +84,11 @@ S2 reachable.**
    `ut-ants-server` contains none of the three. **The rule is about
    those two programs and no others** — `ut-bake`, `ut-dump` and `ut-ed`
    are tools, they link whatever they need, and the test does not name
-   them.
+   them. **The same test asserts `ut-ants-server`'s closure contains no
+   `urender`, `uaudio` or `uui`.** Rule 4 forbids the edge out of
+   `uworld` and nothing forbids `ugame` reaching them, so without this a
+   dedicated server links Vulkan transitively and fails to start on a
+   machine with no graphics driver.
 3. **`ubundle`, `unav` and `urecipe` are the content vocabularies
    shared across the seam, along with `umap`, and there are no
    others.** The baker writes
@@ -145,25 +149,36 @@ S2 reachable.**
     program can link no package reader and still write a baked map into
     the repository.
 
-    **Every bundle records its origin, and that field is what both the
-    guard and the server read.** `ubake` writes it: `stock` when the
-    source package is one Epic shipped, `community` when it is not, and
-    `authored` for a bundle `ued` made from nothing. **The test is which
-    package the content came from, never which directory** — the 610
-    Monster Hunt maps sit inside the player's own Unreal Tournament
-    install, so a path test would call every one of them Epic's and
-    refuse to serve the rotation this project exists for. What Epic
-    shipped is a finite list of package names and hashes; it is our own
-    factual data, it ships with the baker, and it is versioned with it
-    like the material library. **ADR-0006's § Consequences reads that
-    test as *what the baker read out of the install*, which does not
-    hold here for exactly that reason; this rule is the correction.**
+    **Every bundle records an origin, and it has two values.**
+    `authored` means nothing out of anybody's Unreal Tournament install
+    contributed to it; `derived` means something did. **Whichever tool
+    writes a bundle writes the field, inherited from the most
+    restrictive input** — so a `ued` edit of a baked map is `derived`,
+    and only a bundle built from our own material and models is
+    `authored`.
 
-    **Its check is a guard in `.githooks/pre-push` and in CI** that
-    fails on an Unreal asset anywhere, or on a `.utab` whose origin is
-    `stock` staged outside `content/`. **`unet` reads the same field and
-    never sends a `stock` bundle**, which is what ADR-0006's decision
-    needs to be buildable.
+    **Two values rather than three, because a bundle has many sources.**
+    A community Monster Hunt map draws on Epic's stock texture packages,
+    so a per-map judgement would stamp it not-Epic's while its materials
+    are Epic's throughout. `derived` is the honest answer for anything
+    that touched an install, and the only one a tool can compute without
+    judgement.
+
+    **The guard fails on an Unreal asset anywhere, and on any `.utab`
+    outside `content/` that is not `authored`.**
+
+    **And bundles do not travel.** `unet` sends a map as the community's
+    own package plus our recipe, and the joining player's machine bakes
+    it against their own install — ADR-0003 § Consequences, a clause
+    ADR-0006 did not supersede. Epic's content never moves because the
+    player already has it. **An `authored` bundle is the one exception
+    and is sent whole**, since there is no install to bake it against;
+    that is the route a `ued` character and an original map take, and
+    what **S6** needs. **ADR-0006's § Consequences reads the
+    Epic-versus-community test as *what the baker read out of the
+    install*, which cannot hold here — the community's own maps sit
+    inside that install alongside Epic's, and this rule is the
+    correction.**
 16. **The runtime never reads the player's Unreal Tournament install
     directly. It shells out to `ut-bake`, which already links the
     package reader.** **Both runtime targets do this, not just the
@@ -229,8 +244,13 @@ S2 reachable.**
   simulation nowhere true rather than merely stated, and it is why these
   are the player's own setting and on by default.
 
+  **UT99's own step-up height is not an assist.** It is one of the
+  constants ADR-0001 names as carrying the feel, so it is an always-on
+  `uworld` fidelity value, measured like run speed and dodge impulse.
+  Only step-up *beyond* that height is optional.
+
   Assists that change what the body does — a grace window after leaving
-  a ledge, mantling onto one, step-up over small obstacles — are
+  a ledge, mantling onto one, step-up above UT99's own height — are
   **physical**: they live in `uworld` and are a server setting
   replicated on join like every other rule (rule 14). **They default off
   everywhere, including Monster Hunt.** **S11** asks a UT99 player to
@@ -260,8 +280,15 @@ S2 reachable.**
   why a baker change invalidates caches rather than silently producing a
   different world. **Every other bake input must be covered by one of
   the three, or the name is a lie** — which is why `umat`'s curated
-  library ships with the baker and is versioned with it, as does the
-  global class-override list ADR-0004 provides for. A library that
+  library ships with the baker and is versioned with it.
+
+  **ADR-0004's global class-override list is NOT a bake input**, and
+  bumping the baker for it would invalidate every cached bake on a large
+  rotation to fix one monster. A bundle stores each placed actor's class
+  name, its ancestry and its defaults; `ugame` resolves that to one of
+  ours when it spawns. So the list is game data, shipped with the game,
+  changed without rebaking anything — and a per-map override in
+  `urecipe` beats it, because the map's author knows the map. A library that
   could change independently would let two players compute one name for
   two different worlds. **A `.utab` with no source map — one `ued`
   authored, a character included — is named by the hash of its own

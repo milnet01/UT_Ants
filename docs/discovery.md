@@ -20,7 +20,8 @@ The request this was drawn from is kept verbatim at
 
 Unreal Tournament (1999) is still being played, and its community map
 library is still growing — one Monster Hunt server on this machine
-carries 610 of them, most made by people who have never met each other.
+carried 515 community Monster Hunt maps when this was written, in an
+install of 612, most made by people who have never met each other.
 The maps are alive. The engine is not.
 
 Three specific hurts follow from that.
@@ -39,8 +40,8 @@ walk into the closed door and stay there. So a Monster Hunt server with
 fewer than a full team of humans stalls, and the fix today is a human
 babysitting the bots through every puzzle.
 
-**The map library is trapped.** Those 610 maps only run on an engine
-nobody can change, in a game nobody can legally buy any more. Every year
+**The map library is trapped.** Those maps only run on an engine nobody
+can change, in a game nobody can legally buy any more. Every year
 that passes, running them gets harder rather than easier.
 
 ## Who it is for
@@ -68,8 +69,9 @@ reading a commit log.
   shafts cut through the fog.
 - **S2** — A UT99 player runs, dodges, hammer-jumps and shock-combos on
   muscle memory alone, and nothing surprises their hands.
-- **S3** — A Monster Hunt map pulled from the existing 610 loads with its
-  monsters in place — including custom ones nobody wrote code for here.
+- **S3** — A Monster Hunt map pulled from the existing library loads
+  with its monsters in place — including custom ones nobody wrote code
+  for here.
 - **S4** — Bots clear a door puzzle with no human present: they find the
   switch, press it, go through, and where a plate must be held, one of
   them stays behind and holds it.

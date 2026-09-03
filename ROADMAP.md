@@ -114,8 +114,11 @@ model, no weapon and no opponent until 0.2.0.
   The container for everything shipped as content: a baked map or an authored
   character. Owns the file layout and its version, never the meaning of a
   section's contents.
-  Carries the origin field rule 15 requires -- stock, community or authored --
-  which both the quarantine guard and unet read. Depends on unav and umap for
+  Carries the origin field rule 15 requires -- authored when nothing out of
+  anybody's UT install contributed, derived when something did, inherited from
+  the most restrictive input. Two values, because a bundle has many sources: a
+  community map draws on Epic's stock textures, so a per-map judgement would
+  call it not-Epic's while its materials are Epic's throughout. Depends on unav and umap for
   their model types, never the reverse.
   **Layman:** Our own file format for a finished level -- and the field that records where its content came from, which is what keeps Epic's material off the network.
   Kind: implement.
@@ -165,10 +168,10 @@ model, no weapon and no opponent until 0.2.0.
   Lanes: upkg.
 
 - 📋 [UTA-0013] **The quarantine guard, in .githooks/pre-push and in CI.**
-  Fails on an Unreal asset anywhere, or on a .utab whose origin field reads
-  stock staged outside content/. Reads the field ubake writes rather than
-  guessing from the path -- the community maps live inside the player's own
-  install, so a path test would misclassify all 610 of them.
+  Fails on an Unreal asset anywhere, and on any .utab staged outside content/
+  that is not authored. Reads the origin field rather than guessing from the
+  path -- the community's own maps live inside the player's UT install
+  alongside Epic's, so a path test cannot tell them apart.
   This is what makes ADR-0003 true in code (rule 15).
   Blocked-by: the .utab origin field.
   **Layman:** An automatic check that stops anything of Epic's being committed to the public repository. One careless commit is permanent in a public history.
@@ -287,8 +290,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: uui, urender.
 
 - 📋 [UTA-0022] **uworld: the physical platforming assists, defaulting off.**
-  Coyote time, mantling and step-up. Physical, so they live in uworld and are a
-  server setting replicated on join like every other rule (rule 14).
+  Coyote time, mantling, and step-up ABOVE UT99's own step-up height. Physical,
+  so they live in uworld and are a server setting replicated on join like every
+  other rule (rule 14).
+  UT99's own step-up height is not one of these. ADR-0001 names it among the
+  constants that carry the feel, so it is an always-on fidelity value measured
+  in UTA-0017 -- defaulting it off would stop a player at every staircase and
+  fail S2 at the defaults S11 is measured at.
   They default OFF everywhere, Monster Hunt included. S11 asks a UT99 player to
   check S2 on the same server the platforming is happening on, so a physical
   assist on by default would fail S11's second half by construction.
@@ -311,7 +319,10 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   fixes notorious cases; a per-map recipe override beats it (ADR-0004).
   When resolution lands on a distant ancestor the game says so in its log, or the
   same disappointment is rediscovered by every player independently.
-  The global list ships with the baker and is versioned with it.
+  The global list is NOT a bake input: resolution happens when an actor spawns,
+  so the bundle stores each placed actor's class name, ancestry and defaults,
+  and this list is game data shipped with the game. Bumping the baker for it
+  would invalidate every cached bake on a large rotation to fix one monster.
   Blocked-by: UTA-0005.
   **Layman:** When a Monster Hunt map asks for a monster nobody here has ever heard of, work out what it descends from and what its numbers are, and spawn our version of it configured to match.
   Kind: implement.
@@ -408,9 +419,11 @@ to.
 - 📋 [UTA-0030] **Content download from the host, and baking ahead of need.**
   The server advertises a manifest of what a map needs with fingerprints; the
   client fetches what it lacks into a per-server cache and bakes it.
-  unet reads the origin field and never sends a bundle marked stock -- Epic's
-  content comes from the joining player's own install, community work travels
-  (ADR-0006, rule 15).
+  Bundles do not travel. A map is sent as the community's own package plus our
+  recipe, and the joining player's machine bakes it against their own install --
+  ADR-0003's model, which ADR-0006 did not supersede. Epic's content never moves
+  because the player already has it. An authored bundle is the one exception and
+  is sent whole, since there is no install to bake it against.
   Baking happens ahead of need wherever there is warning: the vote settles the
   next map before it starts, and the server browser names a rotation before anyone
   connects. A map nobody has prepared costs a wait, and the player is told so.
@@ -532,7 +545,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Each failure it finds is its own item; this one is the campaign that finds them.
   This is what S8 is measured on, and S8 with S6 is the 1.0 exit condition.
   Blocked-by: the 0.4.0 and 0.6.0 milestones.
-  **Layman:** The real test: switch the actual server over, run the actual 610-map rotation with actual players, and see whether anyone wants to go back.
+  **Layman:** The real test: switch the actual server over, run the whole actual rotation with actual players, and see whether anyone wants to go back.
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, unet.
