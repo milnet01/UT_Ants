@@ -62,3 +62,24 @@ screenshot*.png
 # True high-water mark is the highest ID across ROADMAP.md +
 # CHANGELOG.md + docs/roadmap/*.md (roadmap-format.md § 3.5.1).
 .roadmap-counter
+
+# ── Content quarantine ────────────────────────────────────────────────
+# Nothing under content/ is committed, published, or served to another
+# player -- and anything DERIVED from a file under content/ is itself
+# under content/. A baked, re-lit, PBR version of an Epic map is still
+# Epic's map underneath. See docs/design.md.
+/content/
+
+# Belt and braces: Unreal Engine 1 asset formats, anywhere in the tree.
+# The reader's tests use SYNTHETIC packages built by the tests
+# themselves; real assets live in content/ and are never committed.
+*.unr
+*.utx
+*.uax
+*.umx
+*.usx
+*.u
+*.int
+*.det
+*.dll
+*.exe

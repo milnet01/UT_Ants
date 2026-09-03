@@ -29,4 +29,4 @@ what problem this addresses and how we would know it is working.
 
 ## License
 
-[MIT](LICENSE).
+[GPL-3.0](LICENSE).
