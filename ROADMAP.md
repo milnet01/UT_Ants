@@ -187,6 +187,19 @@ model, no weapon and no opponent until 0.2.0.
   the guard, or the two drift and the guard passes what git was ignoring.
   This is what makes ADR-0003 true in code (rule 15).
   Blocked-by: the .utab origin field.
+  Progress (2026-09-04): two of the three checks are live in
+  scripts/quarantine-guard.sh, brought forward by UTA-0041 because the
+  gate is what has to carry them -- no tracked path under content/, and
+  no tracked path matching the quarantined extensions. It reads the
+  INDEX, so under the pre-push hook it inspects the commits being pushed
+  rather than the working tree, which on this machine holds the player's
+  own install. The single extension list is honoured: the guard parses
+  it out of .gitignore between two markers, and refuses loudly rather
+  than passing if the markers are gone. Still open, and the reason this
+  stays planned: the third check -- no tracked .utab outside content/
+  whose origin is not authored -- needs the .utab origin field, which
+  does not exist yet. Also still open: the guard runs over the
+  repository, and UTA-0042's release path needs its own check.
   **Layman:** An automatic check that stops anything of Epic's being committed to the public repository. One careless commit is permanent in a public history.
   Kind: implement.
   Source: design-2026-09-03.
@@ -245,7 +258,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-03.
   Lanes: urender, umat.
 
-- 📋 [UTA-0041] **The CI pipeline, and the local gate that shares its steps.**
+- ✅ [UTA-0041] **The CI pipeline, and the local gate that shares its steps.**
   scripts/ci.sh owns the step list; .github/workflows/ci.yml CALLS it and
   duplicates nothing. local-gate.md 3 is explicit that a hand-written mirror the
   workflow does not call is what drifts, and a drifted mirror returns green for a
@@ -273,6 +286,19 @@ model, no weapon and no opponent until 0.2.0.
   the extension: a doc the suite asserts against is a pipeline input whatever it
   is called, and every uncertain case runs the full gate.
   Blocked-by: the build system.
+  Resolved (2026-09-04): scripts/ci.sh owns the steps;
+  .github/workflows/ci.yml calls it and duplicates none. The three
+  ants.gate.* keys are set, docsGlob among them. Proved rather than
+  assumed: a push to a local bare repo ran the gate in a detached
+  worktree over the pushed commits and passed; a docs-only push selected
+  --docs; a push carrying a broken documentation link was ABORTED and
+  the remote tip did not move. Full run about seventeen seconds cold,
+  docs mode under a tenth of a second. The gate found a real defect on
+  its first run -- a dead case pattern in .githooks/pre-commit -- which
+  is fixed. Windows joins Linux as a first-class target at the user's
+  direction, so the matrix builds and tests on both; the Windows half is
+  unproven until a remote exists for Actions to run on, and that is
+  stated rather than claimed.
   **Layman:** One script that checks the project. GitHub runs it on every push, and the same script runs on your machine before a push -- so a green run here means a green run there.
   Kind: chore.
   Source: user-request-2026-09-03.
@@ -630,3 +656,60 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: perf.
   Source: design-2026-09-03.
   Lanes: urender.
+
+- 📋 [UTA-0042] **The game updates itself, signed and opt-in.**
+  Modelled on finbreak, which ships this on Linux and Windows and has the
+  post-mortems to prove where it goes wrong. Its spec is the reference:
+  /mnt/Games/Scripts/Linux/finbreak/docs/specs/FIBR-0054.md.
+
+  Signature before anything is swapped. An Ed25519 detached signature over
+  the exact downloaded bytes, verified against a public key compiled into the
+  binary. It fails CLOSED: an unparseable version, an asset the platform
+  match does not resolve to exactly one file, or a missing signature is no
+  offer at all rather than an unverified install.
+
+  Opt-in, checked at launch, never polled and never silent. The player is
+  asked. That is also what makes an outbound connection defensible in a game
+  that otherwise makes none.
+
+  The relaunch is the hard part, and it is where the reference project lost
+  four separate releases. Three rules come straight off those post-mortems:
+  spawn a detached waiter that blocks until the old process has exited rather
+  than swapping in place; pass the binary path as an argv element and NEVER
+  interpolate it into a shell script, because one apostrophe in an install
+  directory bricked an update; and restore the loader environment the bundle
+  overrode, or the helper you spawn loads the bundle's libraries and dies
+  before it can relaunch. On Windows the running executable is locked, so the
+  helper waits on the image PATH rather than a pid -- Windows recycles pids,
+  and a onefile build is a parent/child pair -- and moves the file only once
+  the process is gone.
+
+  A truncated download is its own error and never a signature failure. Left
+  alone, a flaky network reports as tampering, which teaches a player to
+  dismiss the one alarm that matters.
+
+  The quarantine still holds. The updater distributes the engine and never
+  content: a release asset carrying a map is exactly the breach ADR-0003 and
+  rule 15 exist to stop, and UTA-0013's guard runs over the repository rather
+  than over a release, so the release path needs its own check.
+
+  Version skew is ours to answer because the protocol is ours (ADR-0005). A
+  client and a server on different versions must say so plainly and refuse,
+  rather than desync.
+
+  Deliberately NOT in the first cut, each an accepted risk rather than an
+  oversight: rollback if the new build does not start, delta downloads, and
+  key rotation. A signature proves the build is authentic, not that it runs.
+
+  Two things this item does not settle. Whether the updater is a new part in
+  docs/design.md, which would be a design amendment and its own gate. And
+  whether 1.0.0 is the right milestone -- it is filed here because that is
+  when players other than the author run it, and it moves earlier if a public
+  build ships sooner.
+
+  Blocked-by: the release pipeline, and a decision on where the updater lives
+  in the design.
+  **Layman:** The game can update itself: it notices a new version, asks you first, checks the download really came from us, and restarts into the new one.
+  Kind: feature.
+  Source: user-request-2026-09-04.
+  Lanes: core, ci.

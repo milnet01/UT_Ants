@@ -2,8 +2,8 @@
 
 ## Where this project is
 
-**State:** 1 — Unstated. Nothing has been written about what this is for.
-**Next:** discovery (`~/.claude/workflow.md` § 3).
+**State:** 5 — on an item. Discovery and design are agreed and gated.
+**Next:** `UTA-0002` — core: error type, logging, filesystem, job system.
 **In flight:** nothing.
 
 > Keep the three lines above true, and keep them to three lines. They are
