@@ -11,49 +11,106 @@ be things you could actually observe.
 `~/.claude/workflow.md` § 2. It passes when a stranger could read it and
 say whether a given feature serves it.
 
-**Status:** not started.
+**Status:** drafted 2026-09-03, awaiting sign-off.
+
+The request this was drawn from is kept verbatim at
+[docs/request-2026-09-03.md](request-2026-09-03.md).
 
 ## The problem
 
-> What hurt is this addressing? Specific, not aspirational. *"I lose
-> context between sessions and re-explain the project every time"* is the
-> right level; *"better productivity"* is not.
+Unreal Tournament (1999) is still being played, and its community map
+library is still growing — one Monster Hunt server on this machine
+carries 610 of them, most made by people who have never met each other.
+The maps are alive. The engine is not.
+
+Three specific hurts follow from that.
+
+**The visuals cannot be fixed from inside.** UT99 bakes its lighting
+into flat lightmaps at build time and draws 8-bit palettised textures.
+There are no moving shadows, no material depth, no fog volumes, no light
+shafts. Epic never released the engine source and delisted the game in
+January 2023, so no patch will ever change this — the ceiling is fixed
+at 1999.
+
+**The bots cannot play Monster Hunt.** MH maps are built around switches
+that open doors, plates that must be held while others pass, and counters
+that need three levers pulled. UT99's bots understand none of it: they
+walk into the closed door and stay there. So a Monster Hunt server with
+fewer than a full team of humans stalls, and the fix today is a human
+babysitting the bots through every puzzle.
+
+**The map library is trapped.** Those 610 maps only run on an engine
+nobody can change, in a game nobody can legally buy any more. Every year
+that passes, running them gets harder rather than easier.
 
 ## Who it is for
 
-> One to three, each written as "a person who…". Concrete, not a
-> category. Often that is you — say so, it is useful.
+- **A person who runs a Monster Hunt server** and wants the rotation they
+  already have to keep working — the same maps, the same custom monsters —
+  while looking like a game made this decade.
+- **A person who still plays UT99** and would move to something better
+  looking, but only if dodging, hammer-jumping and shock-comboing feel
+  exactly the way their hands already expect.
+- **A person who makes UT content** — maps, monsters, player characters —
+  and wants their work to reach other players without asking anyone's
+  permission or shipping anyone a zip file.
+
+The first of those is the author, and saying so is useful: this project
+has one live server it must eventually be good enough to replace.
 
 ## Signs it is working
 
-> Not *shipped* — working. Each written so that you could tell, by using
-> the thing, whether it is true yet. If you cannot imagine the moment you
-> would observe it, it is not one of these.
->
-> **Each gets a LABEL, because the roadmap gate points back at it** —
-> every sign must be claimed by at least one item before the queue is
-> agreed (`~/.claude/workflow.md` § 5). Without one there is nothing to
-> point at, and the gate becomes two lists a human matches by eye.
->
-> **`S<n>` is the default offered below, not a requirement.** The scheme
-> is yours, and `check-queue` reads whatever label your roadmap actually
-> cites its signs by rather than choosing one for you. Keep `S1`, `S2` or
-> replace them — what matters is that the roadmap uses the same spelling.
-> Swept 2026-08-25: this template mandated `S<n>` while `workflow.md` § 3
-> and `check-queue` both call it a default, so a scaffolded project was
-> given one instruction and the gate another.
->
-> **Ids are never reused and never renumbered.** Delete a sign and its id
-> retires with it — the next one still takes the next unused number.
-> Renumbering is the one way this can fail, because every citation
-> elsewhere keeps pointing at whatever now holds the old number, and
-> nothing announces it.
+Each is written so it could be observed by using the thing, not by
+reading a commit log.
 
-- **S1** — <something you could observe, in one line>.
-- **S2** — <another>.
+- **S1** — You open one of your own UT maps and recognise it instantly,
+  while shadows move as you move, surfaces have real depth, and light
+  shafts cut through the fog.
+- **S2** — A UT99 player runs, dodges, hammer-jumps and shock-combos on
+  muscle memory alone, and nothing surprises their hands.
+- **S3** — A Monster Hunt map pulled from the existing 610 loads with its
+  monsters in place — including custom ones nobody wrote code for here.
+- **S4** — Bots clear a door puzzle with no human present: they find the
+  switch, press it, go through, and where a plate must be held, one of
+  them stays behind and holds it.
+- **S5** — A player who has never seen a map joins a server and is
+  playing on it within a minute, having taken everything they needed from
+  the host.
+- **S6** — Someone other than the author builds a map and a player
+  character, hosts them, and other players see both correctly without
+  installing anything by hand.
+- **S7** — A stranger clones the public repository with no Unreal
+  Tournament on their machine, and the build and the test suite both
+  pass.
+- **S8** — The live Monster Hunt server runs on this instead of UT99, and
+  nobody wants to switch back.
+
+S8 is deliberately the last one, and it is the bar this project's `1.0`
+is measured against — see `docs/standards/versioning-overrides.md`.
 
 ## What it deliberately does not do
 
-> The only line that catches scope creep, which is the main way a project
-> stops being what was wanted. An empty section is a fair answer, but the
-> heading is worth answering rather than deleting.
+- **No single-player campaign.** No story, no ladder, no cutscenes.
+- **No modes beyond Deathmatch, Team Deathmatch and Monster Hunt** before
+  `1.0`. Not Capture the Flag, not Assault, not Domination. They are
+  plausible afterwards and nothing in the design should block them, but
+  building them is not this.
+- **It does not talk to UT99 servers or clients.** Matching a 1999 wire
+  protocol byte for byte would constrain every other decision here. The
+  question may be reopened later; it is closed for `1.0`.
+- **It does not run UnrealScript.** No bytecode interpreter. A custom
+  class is understood by reading what it descends from and what its
+  settings are, and is then played by our own equivalent — so a map using
+  genuinely exotic scripted behaviour degrades rather than breaks.
+- **It does not redistribute Epic's content.** Players bring their own
+  copy of Unreal Tournament; the game reads it locally and refuses to
+  start without it. Nothing Epic owns is committed, published, or sent
+  over the network.
+- **It is not a general-purpose engine.** It exists to play UT-derived
+  content well. A decision that would serve some other game and cost this
+  one is the wrong decision here.
+- **It is not a 3D modelling tool.** Characters and models are made in
+  Blender or its equivalents; this project imports them and sets them up.
+- **No ray tracing required.** The visual target is reachable on the
+  hardware that exists — dynamic lights, shadow maps, baked bounce light,
+  volumetrics. Ray tracing is not a goal and is not a fallback plan.
