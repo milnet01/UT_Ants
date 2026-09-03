@@ -30,9 +30,9 @@ enforced, not merely described — see *What may depend on what*.
 
 | Part | Responsible for |
 |---|---|
-| `ubundle` | The map bundle **container**, read and write. Geometry, materials, collision, lights, baked indirect light, entity placements, and a section holding the graphs `unav` defines. It owns the file layout and the versioning of it, never the meaning of what a section holds |
+| `ubundle` | The container format for everything this project ships as content — a baked map, or a character `ued` authored — written `.utab`. Owns the file layout and its version, never the meaning of what a section holds. A map carries geometry, materials, collision, lights, baked indirect light, entity placements and the graphs `unav` defines; a character carries its mesh, skeleton, skins and attachment points |
 | `unav` | The two graphs a bot reasons over — *where you can go*, and *what opens what*. Owns their **types and their queries**; `ubundle` owns how they are written to a file. Built at bake time, read at runtime |
-| `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints and rule defaults. Read by the baker as an input and by `ugame` for its rule defaults, so it crosses the seam like the two above. The one thing this project distributes that describes somebody else's map (ADR-0003) |
+| `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints, rule defaults, and the **class overrides** ADR-0004 requires so a badly-resolved custom actor can be given a better answer once rather than rediscovered by every player. Read by the baker as an input and by `ugame` for its rule defaults, so it crosses the seam like the two above. The one thing this project distributes that describes somebody else's map (ADR-0003) |
 
 ### Runtime
 
@@ -48,7 +48,7 @@ enforced, not merely described — see *What may depend on what*.
 | `ugame` | The rules. Deathmatch, Team Deathmatch, Monster Hunt, weapons, monsters, pickups, mutators, chat, map voting. The only part that knows what a frag is |
 | `uui` | Menus, HUD, scoreboard, map browser, settings, and the weapon wheel |
 
-### Tools — not runtime, and never shipped to a player
+### Tools — not runtime targets
 
 | Part | Responsible for |
 |---|---|
@@ -60,8 +60,13 @@ enforced, not merely described — see *What may depend on what*.
 (convert a map), `ut-dump` (inspect a package), `ut-ed` (editor).
 
 **`ut-ants` and `ut-ants-server` are the runtime targets, and they are
-the only two.** `ut-bake`, `ut-dump` and `ut-ed` are tools. Rule 2 is
-written about the runtime targets by name, so it does not reach them.
+the only two.** `ut-bake`, `ut-dump` and `ut-ed` are tools, and rule 2
+is written about the runtime targets by name, so it does not reach them.
+
+**Being a tool says nothing about who gets it.** `ut-bake` **ships with
+the client**, because rule 16 has `ut-ants` run it. `ut-ed` **ships to
+anyone authoring content**, which is what **S6** asks for. `ut-dump` is
+a developer tool and ships with neither.
 
 ## What may depend on what
 
@@ -79,8 +84,10 @@ S2 reachable.**
    them.
 3. **`ubundle`, `unav` and `urecipe` are the content vocabularies
    shared across the seam, and there are no others.** The baker writes
-   bundles and reads recipes; the runtime and the editor read both. A
-   change to what a bundle contains is a change to `ubundle`.
+   bundles and reads recipes; the runtime reads both; `ued` reads and
+   writes both, which is the whole of the `0.5.0` and `0.6.0`
+   milestones. A change to what a bundle contains is a change to
+   `ubundle`.
 4. **`uworld` must not depend on `urender`, `uaudio` or `uui`.** The
    dedicated server links no Vulkan and opens no audio device. This is
    the rule that keeps the simulation pure, and it is checked the same
@@ -119,31 +126,42 @@ S2 reachable.**
     client on map change. Rule 8 is why: if a recipe could set a rule
     outright, the rules would live in two places and a downloaded file
     would be able to change how a server plays.
-15. **Nothing writes outside `content/` except code and recipes.** Every
-    bake output, download and cache goes under `content/`, whatever
-    produced it. This is the rule that makes ADR-0003's quarantine true
-    in code, and rule 2 does not do it — a program can link no package
-    reader and still write a baked map into the repository. **Its check
-    is a guard in `.githooks/pre-push` and in CI** that fails on an
-    Unreal asset, or on anything a bake produced, staged outside
+15. **Everything derived from the player's Unreal Tournament install
+    lives under `content/`, and nothing under `content/` is committed or
+    published from this repository.** That is the install itself, every
+    `.utab` baked from it, and the host-download cache. **Everything
+    authored here lives outside it** — code, recipes, material
+    definitions, and the maps and characters `ued` writes, which
+    **S6** requires be distributable. Configuration and logs are
+    neither, and live where the platform puts them. This is what makes
+    ADR-0003's quarantine true in code, and rule 2 does not do it: a
+    program can link no package reader and still write a baked map into
+    the repository. **What a running SERVER may send is a different
+    question and ADR-0006 owns it** — community work travels, Epic's
+    does not, and where a file is cached decides neither. **Its check is a guard in `.githooks/pre-push` and
+    in CI** that fails on an Unreal asset or a `.utab` staged outside
     `content/`.
 16. **The runtime never reads the player's Unreal Tournament install
-    directly. It shells out.** `ut-ants` validates the install and
-    triggers a bake by running `ut-bake` as a separate process, so
-    neither happens inside a runtime target and rule 2 survives both.
-    **Validity is defined as what the runtime can check without
-    `upkg`** — the expected package files present, by name and by
-    content hash, against a manifest `ut-bake` writes. That is what
-    ADR-0003's *refuse to start and say plainly why* is checking, and
-    what **S5**'s bake-on-join runs.
+    directly. It shells out to `ut-bake`, which already links the
+    package reader.** `ut-ants` validates an install by running
+    `ut-bake --check <path>` and reports what it says; it triggers a
+    bake the same way. Neither happens inside a runtime target, so rule
+    2 survives both, and there is no separate manifest format for the
+    two programs to disagree about. This is what ADR-0003's *refuse to
+    start and say plainly why* runs, and what **S5**'s bake runs.
 17. **`unav` owns the graph types; `ubundle` owns their bytes on
     disk.** So `ubundle` depends on `unav`, never the reverse. Adding an
     edge type is a change to `unav` and a bundle-format version bump;
     changing how a section is framed is `ubundle` alone.
+18. **Any dependency these rules do not prohibit is allowed.** The rules
+    above are prohibitions, not a whitelist, so the check that enforces
+    them is a check for forbidden edges — never a list of permitted
+    ones. Without this line rule 10's *"may depend on anything"* implies
+    a whitelist, and half the rules above become redundant under it.
 
 ## What every part does the same way
 
-- **Baking happens ahead of need, never at the moment of need.** A bake
+- **Baking happens ahead of need wherever there is warning.** A bake
   is expensive on purpose (ADR-0002), and **S5** gives a joining player
   one minute — so a bake on the join path cannot meet it. The client
   fetches and bakes the **next** map while the current one is still
@@ -153,6 +171,21 @@ S2 reachable.**
   is not hidden**: a player joining a map nobody has baked waits, is
   told what is happening and how far along it is, and **S5** is measured
   against the ordinary case rather than that one.
+- **A movement assist is either visual or physical, and the two are
+  built differently.** First-person platforming fails because the player
+  cannot see their feet, and Metroid Prime's answer is mostly *showing*
+  rather than *changing*: a marker on the ground where the current arc
+  lands, and a small automatic downward pitch on take-off so the landing
+  is in frame. Those are **visual**, live in `uui` and `urender`, are the
+  player's own setting, and touch the simulation nowhere — so they cost
+  **S2** nothing and are on by default. Assists that change what the
+  body does — a grace window after leaving a ledge, mantling onto one,
+  step-up over small obstacles — are **physical**: they live in
+  `uworld`, are a server setting replicated on join like every other
+  rule (rule 14), and are **off in Deathmatch and Team Deathmatch and on
+  in Monster Hunt**, because that is where the platforming is and where
+  **S2** is not being measured. **S11** is written to fail if either
+  half is got wrong.
 - **Weapons, monsters and pickups are data, not code.** A weapon is a
   definition — damage, fire rate, projectile, spread, ammo, model,
   sounds — and a **weapon set** is a named collection of them, selectable
@@ -177,7 +210,9 @@ S2 reachable.**
   the three, or the name is a lie** — which is why `umat`'s curated
   library ships with the baker and is versioned with it. A library that
   could change independently would let two players compute one name for
-  two different worlds.
+  two different worlds. **A `.utab` with no source map — one `ued`
+  authored, a character included — is named by the hash of its own
+  contents and the baker version.**
 - **Units and axes.** Unreal units, X forward, Y right, Z up — inherited
   deliberately, so a movement constant measured against the original
   game transfers with no conversion and no rounding. **S2** is a
@@ -256,3 +291,4 @@ what `uworld` ticks.
 | [ADR-0003](decisions/ADR-0003-ship-the-recipe-not-the-content.md) | Distribute recipes and code; never Epic's content |
 | [ADR-0004](decisions/ADR-0004-resolve-classes-by-ancestry.md) | Understand custom actors by ancestry, not by running UnrealScript |
 | [ADR-0005](decisions/ADR-0005-own-network-protocol.md) | Our own protocol, not UT99 wire compatibility |
+| [ADR-0006](decisions/ADR-0006-community-content-may-be-served.md) | The quarantine restricts Epic-derived content; community work may be served |

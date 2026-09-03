@@ -1,6 +1,9 @@
 # ADR-0003: Distribute recipes and code; never Epic's content, in the repository or over the network
 
-- **Status:** Accepted
+- **Status:** Accepted — the *"served to another player"* clause of
+  § Decision is superseded by
+  [ADR-0006](ADR-0006-community-content-may-be-served.md); the rest
+  stands
 - **Date:** 2026-09-03
 
 ## Context
