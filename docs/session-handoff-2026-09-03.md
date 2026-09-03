@@ -1,5 +1,8 @@
 # Where this project stands — 2026-09-03
 
+> **Superseded by `session-handoff-2026-09-04.md`.** Kept as a dated record
+> of that session; read the newer one for where things stand.
+
 Written at the end of the first session so the next one starts from the
 record. **Everything below is checkable from the repository and the
 roadmap store; nothing here is the only copy of anything.**
