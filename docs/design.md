@@ -33,7 +33,7 @@ enforced, not merely described — see *What may depend on what*.
 | `ubundle` | The container format for everything this project ships as content — a baked map, or a character `ued` authored — written `.utab`. Owns the file layout and its version, never the meaning of what a section holds. A map carries geometry, materials, collision, lights, baked indirect light, entity placements, the graphs `unav` defines, and the **level-map** section `umap` defines; a character carries its mesh, skeleton, skins and attachment points |
 | `umap` | The **level map** — the simplified, room-partitioned model of a level that the in-game map screen draws, and the rule for which room a position falls in. Built at bake time from the level's own zones, read at runtime. Owns the model and the lookup; `ubundle` owns its bytes, and `uui` owns how it is drawn |
 | `unav` | The two graphs a bot reasons over — *where you can go*, and *what opens what*. Owns their **types and their queries**; `ubundle` owns how they are written to a file. Built at bake time, read at runtime |
-| `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints, rule defaults, and the **class overrides** ADR-0004 requires so a badly-resolved custom actor can be given a better answer once rather than rediscovered by every player. Read by the baker as an input and by `ugame` for its rule defaults, so it crosses the seam like the two above. The one thing this project distributes that describes somebody else's map (ADR-0003) |
+| `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints, rule defaults, and the **class overrides** ADR-0004 requires so a badly-resolved custom actor can be given a better answer once rather than rediscovered by every player. Read by the baker as an input and by `ugame` for its rule defaults and its class overrides, so it crosses the seam like the two above. The one thing this project distributes that describes somebody else's map (ADR-0003) |
 
 ### Runtime
 
@@ -142,8 +142,10 @@ S2 reachable.**
     published from this repository.** That is the install itself, every
     `.utab` baked from it, and the host-download cache. **Everything
     authored here lives outside it** — code, recipes, material
-    definitions, and the maps and characters `ued` writes, which
-    **S6** requires be distributable. Configuration and logs are
+    definitions, and the maps and characters `ued` **authors**, which
+    **S6** requires be distributable. A bundle `ued` writes by editing a
+    `derived` one is itself `derived` and is written under `content/`
+    like any other bake. Configuration and logs are
     neither, and live where the platform puts them. This is what makes
     ADR-0003's quarantine true in code, and rule 2 does not do it: a
     program can link no package reader and still write a baked map into
@@ -164,8 +166,14 @@ S2 reachable.**
     that touched an install, and the only one a tool can compute without
     judgement.
 
-    **The guard fails on an Unreal asset anywhere, and on any `.utab`
-    outside `content/` that is not `authored`.**
+    **The guard runs over tracked and staged paths only** — never the
+    working tree, which holds the player's own install under
+    `content/ut99/` and would block every push. Three checks: no tracked
+    path under `content/`; no tracked path matching the Unreal asset
+    extensions; no tracked `.utab` outside `content/` whose origin is
+    not `authored`. **The extension list is written once and read by
+    both `.gitignore` and the guard**, or the two drift and the guard
+    passes what git was ignoring.
 
     **And bundles do not travel.** `unet` sends a map as the community's
     own package plus our recipe, and the joining player's machine bakes
@@ -174,7 +182,31 @@ S2 reachable.**
     player already has it. **An `authored` bundle is the one exception
     and is sent whole**, since there is no install to bake it against;
     that is the route a `ued` character and an original map take, and
-    what **S6** needs. **ADR-0006's § Consequences reads the
+    what **S6** needs.
+
+    **A package on the wire is classified by the stock manifest, which
+    is a second test and not the origin field.** Origin is a property of
+    a bundle, and what travels for a map is a package — so the two
+    questions need two answers, and one field answering both is what
+    made the last attempt wrong. **The game ships a stock manifest**:
+    the names and hashes of the packages Epic shipped, our own factual
+    data, game data rather than a bake input. **`unet` sends only a
+    package the manifest does not list, and refuses to send one it
+    cannot identify.** Failing closed is deliberate — an unrecognised
+    package withheld costs a player a map, and an unrecognised package
+    sent is the breach ADR-0006 § Decision forbids. This is the
+    per-package test ADR-0006 § Consequences asks for and the origin
+    field cannot give.
+
+    **A `derived` bundle is never published, and `ued` does not try.**
+    Editing somebody else's map produces a **recipe** — materials,
+    atmosphere, bot hints, class overrides — which is precisely *our
+    changes on top of their map*, is small, and is already the thing
+    that travels. **Editing geometry produces an `authored` bundle**,
+    which is a new map rather than an edit of theirs, and it may not
+    carry geometry read out of an install. So `0.5.0`'s *built, hosted,
+    downloaded and played by someone else* is a recipe for their map or
+    a bundle of your own, and never a re-publication of Epic's. **ADR-0006's § Consequences reads the
     Epic-versus-community test as *what the baker read out of the
     install*, which cannot hold here — the community's own maps sit
     inside that install alongside Epic's, and this rule is the
@@ -217,7 +249,9 @@ S2 reachable.**
   fetches and bakes the **next** map while the current one is still
   being played, which Monster Hunt makes easy because the map vote
   settles the next map before it starts, and the server browser names a
-  server's rotation before anyone connects. **The cold case is real and
+  server's rotation before anyone connects — which is enough to pre-bake
+  any map the client already holds, though a map it lacks cannot be
+  fetched until it connects. **The cold case is real and
   is not hidden**: a player joining a map nobody has baked waits, is
   told what is happening and how far along it is. **S5** carries that
   qualifier itself; this document does not add one.
@@ -271,16 +305,26 @@ S2 reachable.**
   program in `Programs` above may terminate the process.
 - **Logging.** One logger, in `core`, with a category per part and
   levels. No `printf`, no `std::cout` outside a program's own startup.
-- **Configuration.** One TOML file per user, one per server. Any setting
-  that changes gameplay is replicated to clients on join, so both sides
-  simulate under the same numbers.
+- **Configuration.** One TOML file per user, one per server. **Any
+  setting that changes gameplay is replicated on join, and re-resolved
+  and re-replicated on every map change**, so both sides always simulate
+  under the same numbers. Both events are required: a per-map setting
+  sent only at join never reaches a player who was already connected
+  when the rotation advanced, which is **S10** failing for everyone who
+  did not reconnect. Rule 14 and the movement-assist bullet both defer
+  to this sentence.
 - **Content addressing.** A bundle is named by the hash of its source
   map, its recipe and the baker version. Those three are what let two
   players confirm they are on the same level (ADR-0002), and they are
   why a baker change invalidates caches rather than silently producing a
   different world. **Every other bake input must be covered by one of
   the three, or the name is a lie** — which is why `umat`'s curated
-  library ships with the baker and is versioned with it.
+  library ships with the baker and is versioned with it. **The recipe
+  enters the hash by its bake-relevant fields only** — material
+  assignments, atmosphere, and anything else `ubake` reads. Its rule
+  defaults, friendly name and bot hints are read at runtime and change
+  no pixel, so a server operator switching a weapon set must not
+  invalidate every client's cached bake of that map.
 
   **ADR-0004's global class-override list is NOT a bake input**, and
   bumping the baker for it would invalidate every cached bake on a large
@@ -290,9 +334,12 @@ S2 reachable.**
   changed without rebaking anything — and a per-map override in
   `urecipe` beats it, because the map's author knows the map. A library that
   could change independently would let two players compute one name for
-  two different worlds. **A `.utab` with no source map — one `ued`
-  authored, a character included — is named by the hash of its own
-  contents and the baker version.** **The `ubundle` format version is
+  two different worlds. **A `.utab` that any tool other than `ubake`
+  wrote — a `ued` map, a character, an edited bundle — is named by the
+  hash of its own contents and the content-tool version, which `ubake`
+  and `ued` share.** Naming an edited bundle by its source map would
+  give two different worlds one name, which is the harm this bullet
+  exists to prevent. **The `ubundle` format version is
   one of the baker's own inputs**, so a framing change bumps the baker
   version and therefore every name — which is what
   `versioning-overrides.md` means when it says a bundle-format change
@@ -351,10 +398,17 @@ when it is settled — at the release shown, using the version labels
 `docs/standards/versioning-overrides.md` defines. **Each is settled at the
 START of the release that names it, against a prototype, and before the
 work it constrains is written** — not after that release, because each
-changes something the release itself builds: the tick's inputs for two
-of them, and `ugame`'s difficulty constants for the third. Settling them
-*before* the release is not possible for two, whose whole reason for
-waiting is that the thing to judge does not exist yet.
+changes something the release itself builds: the fixed tick's own inputs
+for the weapon wheel, `ugame`'s difficulty constants for the bot model,
+and the client's aim path for the assist. Settling them *before* the
+release is not possible for two, whose whole reason for waiting is that
+the thing to judge does not exist yet.
+
+**Aim assist is not a tick input**, which is why it can wait for
+`0.3.0` while the wheel cannot: it transforms the view angles the input
+command already carries, before that command is sent, so the struct
+rules 9 and 12 turn on does not change and the server's simulation is
+untouched.
 
 - **Aim assist for gamepads (`0.3.0`).** An arena shooter played on a stick is
   at a real disadvantage against a mouse, and the three answers —

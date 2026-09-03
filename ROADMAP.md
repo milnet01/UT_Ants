@@ -168,10 +168,13 @@ model, no weapon and no opponent until 0.2.0.
   Lanes: upkg.
 
 - 📋 [UTA-0013] **The quarantine guard, in .githooks/pre-push and in CI.**
-  Fails on an Unreal asset anywhere, and on any .utab staged outside content/
-  that is not authored. Reads the origin field rather than guessing from the
-  path -- the community's own maps live inside the player's UT install
-  alongside Epic's, so a path test cannot tell them apart.
+  Runs over TRACKED AND STAGED paths only, never the working tree -- the working
+  tree holds the player's own install under content/ut99/, and a guard scanning
+  it would block every push.
+  Three checks: no tracked path under content/; no tracked path matching the
+  Unreal asset extensions; no tracked .utab outside content/ whose origin is not
+  authored. The extension list is written ONCE and read by both .gitignore and
+  the guard, or the two drift and the guard passes what git was ignoring.
   This is what makes ADR-0003 true in code (rule 15).
   Blocked-by: the .utab origin field.
   **Layman:** An automatic check that stops anything of Epic's being committed to the public repository. One careless commit is permanent in a public history.
@@ -421,9 +424,14 @@ to.
   client fetches what it lacks into a per-server cache and bakes it.
   Bundles do not travel. A map is sent as the community's own package plus our
   recipe, and the joining player's machine bakes it against their own install --
-  ADR-0003's model, which ADR-0006 did not supersede. Epic's content never moves
-  because the player already has it. An authored bundle is the one exception and
-  is sent whole, since there is no install to bake it against.
+  ADR-0003's model, which ADR-0006 did not supersede. An authored bundle is the
+  one exception and is sent whole, since there is no install to bake it against.
+  A package is classified by the STOCK MANIFEST, not by the bundle origin field:
+  origin describes a bundle and what travels for a map is a package, so the two
+  questions take two answers. The game ships the names and hashes of the packages
+  Epic shipped; unet sends only a package the manifest does not list, and refuses
+  one it cannot identify. Failing closed is deliberate -- a package withheld
+  costs a player a map, and a package wrongly sent is the ADR-0006 breach.
   Baking happens ahead of need wherever there is warning: the vote settles the
   next map before it starts, and the server browser names a rotation before anyone
   connects. A map nobody has prepared costs a wait, and the player is told so.
@@ -486,9 +494,13 @@ here is hosted, downloaded and played by someone else.
   nothing may depend on it (rule 11).
   It is a tool, not a runtime target, so rule 2 does not reach it -- but it ships
   to anyone authoring content, which S6 requires.
-  A bundle it authors has no source map, so it is named by the hash of its own
-  contents and the baker version, and its origin field reads authored -- which is
-  what keeps the quarantine guard from blocking it.
+  Any bundle a tool other than ubake wrote is named by the hash of its own
+  contents and the content-tool version ubake and ued share.
+  Editing somebody else's map produces a RECIPE, not a bundle -- our changes on
+  top of their map, which is small and is already the thing that travels.
+  Editing geometry produces an authored bundle, which is a new map rather than an
+  edit of theirs and may carry no geometry read out of an install. A derived
+  bundle is a local artefact and is never published.
   Blocked-by: ubundle, ubake.
   **Layman:** The map editor. Open a converted level, change it, or build one from nothing -- and save it in our own format.
   Kind: implement.

@@ -68,6 +68,9 @@ something that used to work stop working. For this project that is:
 - **The network protocol version.** A client and server that can no
   longer talk is the most visible break available.
 - **The content-download manifest**, for the same reason.
+- **The stock manifest** of packages Epic shipped. `unet` sends only a
+  package it does not list, so a wrong entry either withholds a map from
+  every joining player or serves content this project must not serve.
 - **Server configuration keys**, and the defaults of any key that changes
   gameplay.
 - **Key and gamepad bindings**, and the action names they bind to. A
