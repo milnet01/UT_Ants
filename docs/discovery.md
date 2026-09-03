@@ -84,6 +84,9 @@ reading a commit log.
   pass.
 - **S8** — The live Monster Hunt server runs on this instead of UT99, and
   nobody wants to switch back.
+- **S9** — A full Monster Hunt round is played on a PS4 controller
+  without touching keyboard or mouse, and changing weapon never means
+  scrolling through them one at a time.
 
 S8 is deliberately the last one, and it is the bar this project's `1.0`
 is measured against — see `docs/standards/versioning-overrides.md`.
