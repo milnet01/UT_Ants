@@ -75,7 +75,9 @@ reading a commit log.
   them stays behind and holds it.
 - **S5** — A player who has never seen a map joins a server and is
   playing on it within a minute, having taken everything they needed from
-  the host.
+  the host — on any map the client had warning of, which on a rotation is
+  every map after the first. A map nobody has prepared costs a wait, and
+  the player is told so rather than left guessing.
 - **S6** — Someone other than the author builds a map and a player
   character, hosts them, and other players see both correctly without
   installing anything by hand.

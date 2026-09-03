@@ -43,7 +43,7 @@ enforced, not merely described — see *What may depend on what*.
 | `uworld` | The simulation. Entities, collision, movement, physics, the fixed tick. Knows how a body moves; knows nothing about scoring |
 | `urender` | Vulkan. Draws a bundle: dynamic lights and shadows, PBR materials, volumetrics, light shafts, ambient occlusion, post-processing |
 | `uaudio` | Sound playback, positional mixing, music |
-| `unet` | Transport, replication, and content transfer against a fingerprint manifest |
+| `unet` | Transport, replication, server discovery and query, and content transfer against a fingerprint manifest |
 | `uai` | Bots. Navigation, combat, and the planner that gets them through door puzzles |
 | `ugame` | The rules. Deathmatch, Team Deathmatch, Monster Hunt, weapons, monsters, pickups, mutators, chat, map voting. The only part that knows what a frag is |
 | `uui` | Menus, HUD, scoreboard, map browser, settings, and the weapon wheel |
@@ -64,9 +64,11 @@ the only two.** `ut-bake`, `ut-dump` and `ut-ed` are tools, and rule 2
 is written about the runtime targets by name, so it does not reach them.
 
 **Being a tool says nothing about who gets it.** `ut-bake` **ships with
-the client**, because rule 16 has `ut-ants` run it. `ut-ed` **ships to
-anyone authoring content**, which is what **S6** asks for. `ut-dump` is
-a developer tool and ships with neither.
+both runtime targets**, because rule 16 has each of them run it. `ut-ed`
+**ships to anyone authoring content**, which is what **S6** asks for.
+`ut-dump` ships to developers, who build it from source — which is why
+`versioning-overrides.md` still counts its command line a breaking
+surface.
 
 ## What may depend on what
 
@@ -90,8 +92,11 @@ S2 reachable.**
    `ubundle`.
 4. **`uworld` must not depend on `urender`, `uaudio` or `uui`.** The
    dedicated server links no Vulkan and opens no audio device. This is
-   the rule that keeps the simulation pure, and it is checked the same
-   way rule 2 is.
+   the rule that keeps the simulation pure. **It is checked as a
+   forbidden module edge, not as a link closure** — the client links
+   `urender` and must, per rule 5, so a closure test over `ut-ants`
+   would fail the day it was written. The link-closure form belongs to
+   rule 2 and to `ut-ants-server`.
 5. **`urender` reads `uworld`; it never writes to it.** Rendering has no
    opinions about where anything is.
 6. **`uai` depends on `uworld` and `unav`, never on `urender`.** A bot
@@ -138,17 +143,24 @@ S2 reachable.**
     program can link no package reader and still write a baked map into
     the repository. **What a running SERVER may send is a different
     question and ADR-0006 owns it** — community work travels, Epic's
-    does not, and where a file is cached decides neither. **Its check is a guard in `.githooks/pre-push` and
-    in CI** that fails on an Unreal asset or a `.utab` staged outside
-    `content/`.
+    does not, and where a file is cached decides neither. **Its check is a guard in `.githooks/pre-push`
+    and in CI** that fails on an Unreal asset anywhere, or on a `.utab`
+    **baked from a file under `content/`** staged outside it. Origin is
+    what the guard reads, never the extension: an authored bundle and a
+    baked one share `.utab` by design, and § Content addressing already
+    tells them apart — a bake from an install is named with its source
+    map's hash, and an authored bundle has no source map to name.
 16. **The runtime never reads the player's Unreal Tournament install
     directly. It shells out to `ut-bake`, which already links the
-    package reader.** `ut-ants` validates an install by running
-    `ut-bake --check <path>` and reports what it says; it triggers a
-    bake the same way. Neither happens inside a runtime target, so rule
-    2 survives both, and there is no separate manifest format for the
-    two programs to disagree about. This is what ADR-0003's *refuse to
-    start and say plainly why* runs, and what **S5**'s bake runs.
+    package reader.** **Both runtime targets do this, not just the
+    client.** Each validates an install by running `ut-bake --check
+    <path>` and reports what it says, and each triggers a bake the same
+    way — a dedicated server bakes its own rotation, so **S8**'s host
+    needs an install exactly as a player does. Neither act happens
+    inside a runtime target, so rule 2 survives both, and there is no
+    separate manifest format for the two programs to disagree about.
+    This is what ADR-0003's *refuse to start and say plainly why*
+    runs.
 17. **`unav` owns the graph types; `ubundle` owns their bytes on
     disk.** So `ubundle` depends on `unav`, never the reverse. Adding an
     edge type is a change to `unav` and a bundle-format version bump;
@@ -169,23 +181,30 @@ S2 reachable.**
   settles the next map before it starts, and the server browser names a
   server's rotation before anyone connects. **The cold case is real and
   is not hidden**: a player joining a map nobody has baked waits, is
-  told what is happening and how far along it is, and **S5** is measured
-  against the ordinary case rather than that one.
+  told what is happening and how far along it is. **S5** carries that
+  qualifier itself; this document does not add one.
 - **A movement assist is either visual or physical, and the two are
   built differently.** First-person platforming fails because the player
   cannot see their feet, and Metroid Prime's answer is mostly *showing*
   rather than *changing*: a marker on the ground where the current arc
   lands, and a small automatic downward pitch on take-off so the landing
-  is in frame. Those are **visual**, live in `uui` and `urender`, are the
-  player's own setting, and touch the simulation nowhere — so they cost
-  **S2** nothing and are on by default. Assists that change what the
-  body does — a grace window after leaving a ledge, mantling onto one,
-  step-up over small obstacles — are **physical**: they live in
-  `uworld`, are a server setting replicated on join like every other
-  rule (rule 14), and are **off in Deathmatch and Team Deathmatch and on
-  in Monster Hunt**, because that is where the platforming is and where
-  **S2** is not being measured. **S11** is written to fail if either
-  half is got wrong.
+  is in frame. Those are **visual** and live in `uui` and `urender`.
+  **The pitch offsets the render camera only — the view angles in the
+  input command are untouched, and the crosshair stays on the aim ray**,
+  so it travels down the screen while the shot goes exactly where the
+  player pointed. That is what makes the claim of touching the
+  simulation nowhere true rather than merely stated, and it is why these
+  are the player's own setting and on by default.
+
+  Assists that change what the body does — a grace window after leaving
+  a ledge, mantling onto one, step-up over small obstacles — are
+  **physical**: they live in `uworld` and are a server setting
+  replicated on join like every other rule (rule 14). **They default off
+  everywhere, including Monster Hunt.** **S11** asks a UT99 player to
+  check **S2** on the same server the platforming is happening on, so a
+  physical assist on by default would fail **S11**'s second half by
+  construction. Turning one on is a server operator's deliberate trade,
+  and **S11** is measured at the defaults.
 - **Weapons, monsters and pickups are data, not code.** A weapon is a
   definition — damage, fire rate, projectile, spread, ammo, model,
   sounds — and a **weapon set** is a named collection of them, selectable
@@ -208,7 +227,8 @@ S2 reachable.**
   why a baker change invalidates caches rather than silently producing a
   different world. **Every other bake input must be covered by one of
   the three, or the name is a lie** — which is why `umat`'s curated
-  library ships with the baker and is versioned with it. A library that
+  library ships with the baker and is versioned with it, as does the
+  global class-override list ADR-0004 provides for. A library that
   could change independently would let two players compute one name for
   two different worlds. **A `.utab` with no source map — one `ued`
   authored, a character included — is named by the hash of its own
@@ -247,6 +267,8 @@ S2 reachable.**
 | **Dear ImGui** | Editor and developer overlays, vendored | Nothing else is close for this job |
 | **Assimp** | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
 | **Catch2 v3** | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |
+| **SDL3 audio** | `uaudio` mixes and spatialises on SDL3's device, which is already a dependency — no second audio stack, and nothing new to check against GPL-3.0 | OpenAL Soft |
+| **In-house in-game UI** | `uui` draws the HUD, menus, map browser and weapon wheel through `urender`. Dear ImGui is for the editor and developer overlays and is **never** in a shipped game's UI | Dear ImGui everywhere |
 
 **What this rules out.** No scripting virtual machine of any kind
 (ADR-0004). No managed runtime. No OpenGL fallback path — a machine
@@ -263,8 +285,9 @@ are available.
 Named here so they are not mistaken for oversights. Each becomes an ADR
 when it is settled — at the release shown, using the version labels
 `docs/standards/versioning-overrides.md` defines. **Each must be settled
-before that release is built, not during it**, because all three change
-what `uworld` ticks.
+before that release is built, not during it**, because each changes
+something already built by then: the tick's inputs for two of them, and
+`ugame`'s difficulty constants for the third.
 
 - **Aim assist for gamepads (`0.3.0`).** An arena shooter played on a stick is
   at a real disadvantage against a mouse, and the three answers —
