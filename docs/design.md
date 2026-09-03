@@ -45,6 +45,7 @@ enforced, not merely described — see *What may depend on what*.
 | `unet` | Transport, replication, and content transfer against a fingerprint manifest |
 | `uai` | Bots. Navigation, combat, and the planner that gets them through door puzzles |
 | `ugame` | The rules. Deathmatch, Team Deathmatch, Monster Hunt, weapons, monsters, pickups, mutators, chat, map voting. The only part that knows what a frag is |
+| `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints and rule defaults. The one thing this project distributes that describes somebody else's map (ADR-0003) |
 | `uui` | Menus, HUD, scoreboard, map browser, settings, and the weapon wheel |
 | `ued` | The editor. Maps, enemies, player characters, and the packaging that makes them downloadable |
 
@@ -55,7 +56,7 @@ enforced, not merely described — see *What may depend on what*.
 
 ## What may depend on what
 
-Thirteen rules. The first three are what make ADR-0002 and ADR-0003 true
+Fourteen rules. The first three are what make ADR-0002 and ADR-0003 true
 in code rather than in prose; rules 4, 9 and 12 are what make **S2**
 reachable.
 
@@ -98,9 +99,24 @@ reachable.
     drawn.** The wheel's contents are the player's inventory and the
     server's rules about it, so the rules half stays in `ugame` like
     every other rule.
+14. **A recipe expresses defaults; the server decides.** `urecipe` may
+    say a map *wants* the super weapons, because its author knows the
+    map. The running server's rotation configuration overrides that and
+    is authoritative, and the resolved answer is replicated to every
+    client on map change. Rule 8 is why: if a recipe could set a rule
+    outright, the rules would live in two places and a downloaded file
+    would be able to change how a server plays.
 
 ## What every part does the same way
 
+- **Weapons, monsters and pickups are data, not code.** A weapon is a
+  definition — damage, fire rate, projectile, spread, ammo, model,
+  sounds — and a **weapon set** is a named collection of them, selectable
+  per map (**S10**). Behaviour that genuinely differs gets code behind a
+  small set of firing archetypes; everything else is numbers. This is
+  what lets a super-weapon set be a table rather than a parallel
+  codebase, and it is the same mechanism ADR-0004 uses to give a custom
+  class read out of a package somewhere to land.
 - **Errors.** `std::expected<T, Error>` across every module boundary.
   Exceptions may be used inside a part and must never escape one. Only a
   program in `Programs` above may terminate the process.

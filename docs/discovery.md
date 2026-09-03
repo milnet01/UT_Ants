@@ -87,6 +87,9 @@ reading a commit log.
 - **S9** — A full Monster Hunt round is played on a PS4 controller
   without touching keyboard or mouse, and changing weapon never means
   scrolling through them one at a time.
+- **S10** — A server operator turns the super weapons on for one map in
+  the rotation and off for the next, without restarting the server and
+  without editing either map.
 
 S8 is deliberately the last one, and it is the bar this project's `1.0`
 is measured against — see `docs/standards/versioning-overrides.md`.
