@@ -370,7 +370,7 @@ S2 reachable.**
 | Choice | Why | Runner-up |
 |---|---|---|
 | **C++23** | `std::expected` is the error model above, not a nicety | C++20, which would need a hand-rolled equivalent |
-| **CMake + Ninja** | What the machine already runs; hooks and CI are trivial | Meson |
+| **CMake + Ninja** | What the machine already runs; hooks and CI are trivial. Ninja on Linux; on Windows the Visual Studio generator, which finds MSVC without a developer command prompt | Meson |
 | **Vulkan 1.3** | Explicit control of the exact features the renderer needs; already proven on this GPU by `DOOM_Ants` | `wgpu`, rejected for putting a layer between us and those features |
 | **SDL3** | Window, input and gamepads in one dependency — its controller database already knows a DualShock 4 (**S9**) | GLFW, which has no gamepad database |
 | **glm** | Well understood, header-only, matches the maths in every reference | Our own, later, if it earns it |
@@ -381,12 +381,20 @@ S2 reachable.**
 | **SDL3 audio** | `uaudio` mixes and spatialises on SDL3's device, which is already a dependency — no second audio stack, and nothing new to check against GPL-3.0 | OpenAL Soft |
 | **In-house in-game UI** | `uui` draws the HUD, menus, map browser and weapon wheel through `urender`. Dear ImGui is for the editor and developer overlays and is **never** in a shipped game's UI | Dear ImGui everywhere |
 
+**Linux and Windows are both first-class targets.** Neither is the
+primary one. Every release is built and its tests run on both, and a
+change that breaks either is a broken change — so a platform-specific
+API in any part needs its counterpart written at the same time, not a
+stated port path to be walked later. **Windows builds with MSVC**, which
+is why the compiler floor below names three compilers and not two: the
+code must satisfy all three, and the third is the one whose diagnostics
+differ most. macOS is neither supported nor ruled out, and is not built.
+
 **What this rules out.** No scripting virtual machine of any kind
 (ADR-0004). No managed runtime. No OpenGL fallback path — a machine
-without Vulkan 1.3 does not run this. No compiler older than GCC 14 or
-Clang 18. **Linux is the primary target**; nothing in `core` may use a
-Linux-only API without a stated port path, but Windows is not tested
-before `1.0`. And ray tracing is neither required nor planned — the
+without Vulkan 1.3 does not run this. No compiler older than GCC 14,
+Clang 18 or MSVC 19.40 (Visual Studio 2022 17.10). And ray tracing is
+neither required nor planned — the
 visual target is reached with shadow maps, baked indirect light and
 volumetrics, so no feature may be designed on the assumption that rays
 are available.

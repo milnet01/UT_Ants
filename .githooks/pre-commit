@@ -54,7 +54,7 @@ for f in $staged; do
         [ -n "$p" ] || continue
         case "$p" in
             *'<'*|*'>'*|*'{{'*|*'*'*|http*|'#'*) continue ;;
-            *-|*/-) continue ;;
+            *-) continue ;;
         esac
         [ -e "$p" ] || [ -e "$dir/$p" ] && continue
         # A dated line was true when written and is not a claim about now.

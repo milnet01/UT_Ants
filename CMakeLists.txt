@@ -20,6 +20,21 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_L
     message(FATAL_ERROR "GCC 14 or newer is required (found ${CMAKE_CXX_COMPILER_VERSION}); see docs/design.md")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
     message(FATAL_ERROR "Clang 18 or newer is required (found ${CMAKE_CXX_COMPILER_VERSION}); see docs/design.md")
+elseif(MSVC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.40)
+    message(FATAL_ERROR "MSVC 19.40 / Visual Studio 2022 17.10 or newer is required (found ${CMAKE_CXX_COMPILER_VERSION}); see docs/design.md")
+endif()
+
+# Windows is a first-class target (docs/design.md § The stack), so MSVC's two
+# defaults that differ from every other compiler here are set once, globally.
+if(MSVC)
+    # Without /utf-8 MSVC reads sources in the machine's ANSI code page and the
+    # non-ASCII in this project's own comments becomes a warning storm or a
+    # mojibake string literal. It is not a style choice: the other two
+    # compilers assume UTF-8 and this one has to be told.
+    add_compile_options(/utf-8)
+    # The traditional preprocessor is not conforming and breaks variadic macros
+    # the same way for every library that uses them, Catch2 included.
+    add_compile_options(/Zc:preprocessor)
 endif()
 
 option(UTA_BUILD_TESTS "Build the test suite" ON)

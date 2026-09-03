@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# The pipeline. ONE list of steps, run in two places.
+#
+# .github/workflows/ci.yml CALLS this file and duplicates none of it, because a
+# hand-written mirror of a pipeline is correct on the day it is written and
+# drifts from then on -- and a drifted mirror returns green for a pipeline that
+# will fail (local-gate.md § 3). .githooks/pre-push runs the same file, over the
+# commits being pushed, before they go.
+#
+#   scripts/ci.sh          everything
+#   scripts/ci.sh --docs   the documentation checks only
+#
+# WHY --docs EXISTS. A documentation-only push runs the DOCUMENTATION checks:
+# not nothing, and not the full run either. Skipping outright is how a prose
+# typo reaches a repository whose own suite forbids it; running all of it for a
+# typo is how a person learns to reach for --no-verify. Note which checks are
+# in both modes: the quarantine guard is one of them, because a path under
+# content/ can be a .md file and would otherwise ride in on a "docs-only" push.
+#
+# WHERE IT RUNS. Linux and Windows, both first-class. On Windows this is Git
+# Bash, which ships with Git for Windows, and the Visual Studio generator is
+# used so no developer command prompt is needed. Everything here is POSIX shell
+# plus git; a check whose tool is absent SAYS SO and is not silently dropped.
+set -Eeuo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+MODE=full
+case "${1:-}" in
+    --docs) MODE=docs ;;
+    --help | -h)
+        sed -n '2,20p' "$0"
+        exit 0
+        ;;
+    "") ;;
+    *)
+        printf 'ci: unknown argument %q (try --help)\n' "$1" >&2
+        exit 2
+        ;;
+esac
+
+case "$(uname -s)" in
+    MINGW* | MSYS* | CYGWIN*) IS_WINDOWS=true ;;
+    *) IS_WINDOWS=false ;;
+esac
+
+BUILD_DIR=${UTA_CI_BUILD_DIR:-build-ci}
+CONFIG=${UTA_CI_CONFIG:-Release}
+# Ninja on Linux, per docs/design.md. On Windows the Visual Studio generator
+# finds MSVC by itself; Ninja would need cl.exe already on PATH, which means a
+# developer command prompt locally and a third-party action in CI.
+if $IS_WINDOWS; then
+    GENERATOR=${UTA_CI_GENERATOR:-Visual Studio 17 2022}
+else
+    GENERATOR=${UTA_CI_GENERATOR:-Ninja}
+fi
+
+skipped=()
+step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
+skip() {
+    printf '   SKIPPED: %s\n' "$1"
+    skipped+=("$1")
+}
+
+# ── Documentation checks — run in BOTH modes ────────────────────────────────
+
+step "quarantine guard"
+./scripts/quarantine-guard.sh
+
+step "documentation: relative links resolve"
+link_failures=0
+while IFS= read -r file; do
+    dir=$(dirname "$file")
+    while IFS= read -r target; do
+        [[ -z $target ]] && continue
+        # Off-tree and in-page links are not this check's business.
+        [[ $target =~ ^([a-zA-Z][a-zA-Z0-9+.-]*): ]] && continue
+        [[ $target == \#* ]] && continue
+        target=${target%%#*} # drop an anchor; the path is what must exist
+        target=${target%% *} # drop a "path 'title'" suffix
+        [[ -z $target ]] && continue
+        resolved=$target
+        [[ $target != /* ]] && resolved="$dir/$target"
+        if [[ ! -e $resolved ]]; then
+            printf '   %s -> %s does not exist\n' "$file" "$target" >&2
+            link_failures=$((link_failures + 1))
+        fi
+    done < <(grep -oE '\]\([^)]+\)' "$file" | sed -E 's/^\]\(//; s/\)$//')
+done < <(git ls-files '*.md')
+if [[ $link_failures -gt 0 ]]; then
+    printf 'ci: %d broken relative link(s) in the documentation.\n' "$link_failures" >&2
+    exit 1
+fi
+printf '   %d markdown files, every relative link resolves.\n' "$(git ls-files '*.md' | wc -l)"
+
+if [[ $MODE == docs ]]; then
+    step "documentation-only run complete"
+    [[ ${#skipped[@]} -gt 0 ]] && printf '   %d check(s) skipped, listed above.\n' "${#skipped[@]}"
+    exit 0
+fi
+
+# ── Everything else ─────────────────────────────────────────────────────────
+
+step "shell scripts"
+# Two lists, and the difference is deliberate. shellcheck finds DEFECTS, so it
+# reads the git hooks too -- they run on every commit and push, and its first
+# run here found a dead case pattern in one. shfmt enforces a house FORMAT, and
+# the hooks arrive from ~/.claude/skeleton written in another one; reformatting
+# them would be a large diff tracing to nothing and would fork them from the
+# skeleton they are maintained in. A format difference is not a defect.
+mapfile -t ANALYSE < <(git ls-files 'scripts/*.sh' '.githooks/*')
+mapfile -t FORMAT < <(git ls-files 'scripts/*.sh')
+if [[ ${#ANALYSE[@]} -eq 0 || ${#FORMAT[@]} -eq 0 ]]; then
+    # Not "clean". These files are tracked; an empty list means the checkout is
+    # not what this script thinks it is, and passing two linters no arguments
+    # would report exactly that as success.
+    printf 'ci: no tracked shell scripts found — this is not the repository ci.sh belongs to.\n' >&2
+    exit 2
+fi
+if command -v shellcheck >/dev/null; then
+    shellcheck "${ANALYSE[@]}"
+    printf '   shellcheck clean (%d files).\n' "${#ANALYSE[@]}"
+else
+    skip "shellcheck is not installed — the shell scripts were not analysed"
+fi
+if command -v shfmt >/dev/null; then
+    shfmt --diff --indent 4 --case-indent "${FORMAT[@]}"
+    printf '   shfmt clean (%d files, the hooks excluded).\n' "${#FORMAT[@]}"
+else
+    skip "shfmt is not installed — shell formatting was not checked"
+fi
+
+step "workflows"
+if command -v actionlint >/dev/null; then
+    actionlint
+    printf '   actionlint clean.\n'
+else
+    skip "actionlint is not installed — the workflows were not analysed"
+fi
+if command -v yamllint >/dev/null; then
+    yamllint .github/workflows
+    printf '   yamllint clean.\n'
+else
+    skip "yamllint is not installed — the workflow YAML was not linted"
+fi
+
+step "configure ($GENERATOR, $CONFIG)"
+configure=(-S . -B "$BUILD_DIR" -G "$GENERATOR")
+case $GENERATOR in
+    "Visual Studio"* | Xcode | "Ninja Multi-Config") ;; # multi-config: the config is chosen at build time
+    *) configure+=(-DCMAKE_BUILD_TYPE="$CONFIG") ;;
+esac
+cmake "${configure[@]}"
+
+step "build"
+cmake --build "$BUILD_DIR" --config "$CONFIG"
+
+step "test"
+# The default tier only. UTA_REAL_ASSET_TESTS needs an Unreal Tournament
+# install, which no runner and no stranger's clone has -- that separation is
+# what S7 is measured on, so the gate must never quietly turn it on.
+ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure
+
+step "green"
+if [[ ${#skipped[@]} -gt 0 ]]; then
+    printf '   ...with %d check(s) skipped:\n' "${#skipped[@]}"
+    printf '     - %s\n' "${skipped[@]}"
+fi

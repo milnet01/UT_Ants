@@ -1,0 +1,21 @@
+---
+# yamllint for this repository. Three departures from the default, each with a
+# reason -- a config that just turns rules off until the tool is quiet is not a
+# check.
+extends: default
+
+rules:
+  # GitHub Actions' `on:` key is the YAML 1.1 boolean `on`. It is spelled that
+  # way by the schema and cannot be renamed, so the rule fires on every
+  # workflow that exists. Keys are exempt; VALUES are still checked.
+  truthy:
+    check-keys: false
+
+  # 80 is narrower than this project writes elsewhere (.editorconfig, and the
+  # prose wraps at 72). A pinned action SHA plus its version comment does not
+  # fit in 80 and must not be split.
+  line-length:
+    max: 100
+
+  # A workflow is not a multi-document stream and GitHub does not want one.
+  document-start: disable

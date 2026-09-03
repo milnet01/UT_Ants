@@ -73,6 +73,13 @@ screenshot*.png
 # Belt and braces: Unreal Engine 1 asset formats, anywhere in the tree.
 # The reader's tests use SYNTHETIC packages built by the tests
 # themselves; real assets live in content/ and are never committed.
+#
+# THIS LIST IS READ TWICE. git ignores these paths; scripts/quarantine-guard.sh
+# parses the lines between the two markers below and refuses a COMMITTED one.
+# Two copies would drift, and the drift is silent in the direction that matters
+# -- the guard passing what git was quietly ignoring. Add an extension once,
+# here, between the markers.
+# BEGIN-QUARANTINE-EXTENSIONS
 *.unr
 *.utx
 *.uax
@@ -83,6 +90,7 @@ screenshot*.png
 *.det
 *.dll
 *.exe
+# END-QUARANTINE-EXTENSIONS
 
 # ── Build output ──────────────────────────────────────────────────────
 # Arrives with the build system (UTA-0001). /build*/ covers the sibling

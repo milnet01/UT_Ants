@@ -1,0 +1,58 @@
+# The pipeline runs scripts/ci.sh and duplicates none of its steps.
+#
+# Everything below the toolchain setup is one line per job, deliberately: the
+# checks live in the script so the run here and the run on a developer's
+# machine cannot drift (local-gate.md § 3). Provisioning a compiler IS the
+# runner's job and is not a check, which is why the apt lines are not a
+# duplicated step.
+#
+# Linux and Windows are both first-class (docs/design.md § The stack), so a
+# change that breaks either breaks the build. Windows uses MSVC through the
+# Visual Studio generator; the script picks that by itself.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux (GCC 14)
+            os: ubuntu-24.04
+          - name: Windows (MSVC)
+            os: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The quarantine guard reads the index, and the link check reads
+          # every tracked markdown file. A shallow checkout is enough for both;
+          # neither walks history.
+          fetch-depth: 1
+
+      - name: Install the Linux toolchain
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            g++-14 ninja-build shellcheck yamllint
+          echo "CXX=g++-14" >> "$GITHUB_ENV"
+          echo "CC=gcc-14" >> "$GITHUB_ENV"
+
+      - name: Run the gate
+        shell: bash
+        run: ./scripts/ci.sh
