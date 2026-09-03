@@ -32,7 +32,7 @@ Read a UT package, bake a level into a .utab bundle, and walk through it with
 modern lighting. Closes S1 and S7. Nothing here plays: there is no movement
 model, no weapon and no opponent until 0.2.0.
 
-- 🚧 [UTA-0001] **Build system, test harness and the synthetic-package fixtures.**
+- ✅ [UTA-0001] **Build system, test harness and the synthetic-package fixtures.**
   CMake + Ninja, C++23, Catch2 v3 fetched by the build rather than installed.
   The fixtures are the load-bearing part: upkg's tests construct valid UE1
   packages byte by byte in the test itself, so the suite passes on a clone with
@@ -41,6 +41,14 @@ model, no weapon and no opponent until 0.2.0.
   This is what S7 is measured on.
   Started 2026-09-03. No spec: spec-format.md 1's test says no -- one
   subsystem, obvious shape, cheap to redo, and nothing else binds to it.
+  Resolved (2026-09-03): CMake + Ninja, C++23, Catch2 v3.16.0 fetched by
+  the build. 11 tests green on a clone with no Unreal Tournament
+  present, which is S7; 13 with UTA_REAL_ASSET_TESTS pointed at a real
+  install, and that option refuses to configure without a path. Fixtures
+  ship an encoder only, so UTA-0003's decoder is an independent
+  implementation. Assertions proved able to fail: a six-to-seven bit
+  shift reddened three tests with 64 encoding as {0}. Two of the
+  hand-computed vectors were wrong and the run caught both.
   **Layman:** The scaffolding: how the project compiles, how tests run, and fake UT files the tests can use so nobody needs the real game to check our work.
   Kind: implement.
   Source: design-2026-09-03.
@@ -220,6 +228,55 @@ model, no weapon and no opponent until 0.2.0.
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
+
+- 📋 [UTA-0040] **urender: parallax occlusion mapping on baked surfaces.**
+  POM steps a ray through the height map umat already generates (UTA-0009), so
+  the input exists and this is the renderer half.
+  Three decisions it must make rather than leave open, because each changes what
+  ships: how many steps at what distance (POM is a per-pixel loop and a UT map's
+  wall area is large), whether silhouettes are corrected at edges or left flat,
+  and whether surfaces self-shadow under the dynamic lights.
+  It is a per-surface material property, not a global switch: a 1999 texture with
+  no real depth reads worse with POM than without, so the curated library
+  (UTA-0010) decides per material and the generated fallback is conservative.
+  Blocked-by: the bundle draw path, PBR generation.
+  **Layman:** Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
+  Kind: implement.
+  Source: user-request-2026-09-03.
+  Lanes: urender, umat.
+
+- 📋 [UTA-0041] **The CI pipeline, and the local gate that shares its steps.**
+  scripts/ci.sh owns the step list; .github/workflows/ci.yml CALLS it and
+  duplicates nothing. local-gate.md 3 is explicit that a hand-written mirror the
+  workflow does not call is what drifts, and a drifted mirror returns green for a
+  pipeline that will fail.
+  .githooks/pre-push already delegates to the machine-wide gate; this wires that
+  gate to scripts/ci.sh and sets git config ants.gate.docsGlob, which local-gate
+  6.1 requires and which an untold hook falls back from into an extension list
+  that file forbids.
+  Steps: configure, build, run the default test tier -- and the quarantine guard
+  (UTA-0013), which is the one check that must run on a public repository before
+  every push rather than after it.
+  It runs before EVERY push, via the hook, not as a habit somebody remembers.
+  A docs-only push runs the DOCUMENTATION checks, not nothing and not a subset
+  the gate does not offer -- local-gate 6 calls a blanket skip and a full
+  ninety-second run wrong in the same way, the second because that is how a
+  person learns to reach for --no-verify. So scripts/ci.sh takes a --docs mode
+  and the hook selects it by the paths in the push.
+  Three git config keys, and each costs something different if unset:
+  ants.gate.command says where the script is, or the repository is reported as
+  having no gate at all; ants.gate.docsGlob says which paths count as
+  documentation, and untold the hook falls back to an extension list that 6.1
+  forbids by name -- so a repository relying on the shared hook without it has
+  NOT satisfied the standard; ants.gate.docsMode names our --docs flag.
+  Deciding what counts as documentation is by what the PIPELINE READS, never by
+  the extension: a doc the suite asserts against is a pipeline input whatever it
+  is called, and every uncertain case runs the full gate.
+  Blocked-by: the build system.
+  **Layman:** One script that checks the project. GitHub runs it on every push, and the same script runs on your machine before a push -- so a green run here means a green run there.
+  Kind: chore.
+  Source: user-request-2026-09-03.
+  Lanes: ci.
 
 ## 0.2.0 — Movement and weapons
 
