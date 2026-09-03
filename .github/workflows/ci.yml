@@ -14,6 +14,9 @@ name: CI
 on:
   push:
     branches: [main]
+    # A release is a tag, and docs/design.md says every release is built and
+    # tested on both platforms. Without this that sentence is false.
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -32,8 +35,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Three compilers, because the design's floor names three. Clang
+          # gets g++-14 alongside it for libstdc++, not as its compiler.
           - name: Linux (GCC 14)
             os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+            apt: g++-14
+          - name: Linux (Clang 18)
+            os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
+            apt: clang-18 g++-14
           - name: Windows (MSVC)
             os: windows-2022
     steps:
@@ -46,12 +59,20 @@ jobs:
 
       - name: Install the Linux toolchain
         if: runner.os == 'Linux'
+        env:
+          # Through the environment rather than interpolated into the script:
+          # a ${{ }} expansion inside run: is expanded before the shell sees
+          # it, so it is the shape template-injection warnings are about.
+          APT_PACKAGES: ${{ matrix.apt }}
+          CC_NAME: ${{ matrix.cc }}
+          CXX_NAME: ${{ matrix.cxx }}
         run: |
           sudo apt-get update
+          # shellcheck disable=SC2086  # the package list is deliberately split
           sudo apt-get install --no-install-recommends -y \
-            g++-14 ninja-build shellcheck yamllint
-          echo "CXX=g++-14" >> "$GITHUB_ENV"
-          echo "CC=gcc-14" >> "$GITHUB_ENV"
+            $APT_PACKAGES ninja-build shellcheck yamllint
+          echo "CC=$CC_NAME" >> "$GITHUB_ENV"
+          echo "CXX=$CXX_NAME" >> "$GITHUB_ENV"
 
       - name: Run the gate
         shell: bash

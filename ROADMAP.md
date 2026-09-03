@@ -304,6 +304,38 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-03.
   Lanes: ci.
 
+- 📋 [UTA-0043] **Decide how dependencies are acquired, on both platforms.**
+  Raised by the design gate and deliberately NOT settled inside it, because
+  picking the mechanism is a decision rather than a wording fix.
+
+  The stack table settles acquisition for two entries only: Catch2 is fetched
+  by the build, Dear ImGui is vendored. SDL3, glm, shaderc, Assimp and the
+  Vulkan SDK have no stated answer. Under the old Linux-primary text a distro
+  package was the unspoken default. Windows is now first-class and has no such
+  default, so the gap became load-bearing rather than tidy.
+
+  S7 is what makes it urgent: a stranger clones the repository and the build
+  and the suite both pass. That is cut at 0.1.0 and it now has to be true on
+  two platforms.
+
+  Three candidate answers, and they are not equally good per dependency.
+  FetchContent, as Catch2 already uses -- fine for a small header-mostly
+  library, poor for the Vulkan SDK. A vcpkg manifest, which is the
+  conventional Windows answer and adds a tool. find_package plus written
+  install instructions, which is honest on Linux and weakest against S7 on
+  Windows. The likely answer is a split by dependency, and the split is what
+  needs deciding.
+
+  Whatever is chosen has to hold in three places at once or it has not been
+  decided: CMakeLists.txt, .github/workflows/ci.yml, and what a contributor
+  does on a fresh clone.
+
+  Blocked-by: nothing. This wants doing before the first dependency lands.
+  **Layman:** Decide how the project gets the outside libraries it needs, in a way that works the same on Linux and Windows -- so a newcomer can clone it and build without a shopping list.
+  Kind: investigate.
+  Source: design-gate-2026-09-04.
+  Lanes: core, ci.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

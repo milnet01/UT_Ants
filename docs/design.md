@@ -114,7 +114,10 @@ S2 reachable.**
 8. **`ugame` is the only home for rules.** If a constant decides who
    wins, it lives here.
 9. **Client and server compile `uworld` and `ugame` from the same
-   sources with the same flags.** No `#ifdef CLIENT` inside either.
+   sources.** No `#ifdef CLIENT` inside either, and no build setting that
+   changes a result — which across two toolchains means the numeric
+   contract in § What every part does the same way, since MSVC and GCC
+   have no flags in common.
    Prediction is only correct when both sides run the same simulation,
    and a divergence introduced by a conditional is invisible until it
    costs somebody a match.
@@ -190,9 +193,9 @@ S2 reachable.**
     questions need two answers, and one field answering both is what
     made the last attempt wrong. **The game ships a stock manifest**:
     the names and hashes of the packages Epic shipped, our own factual
-    data, game data rather than a bake input. **`unet` sends only a
-    package the manifest does not list, and refuses to send one it
-    cannot identify.** Failing closed is deliberate — an unrecognised
+    data, game data rather than a bake input. **`unet` withholds any
+    package whose *name* the manifest lists, whatever its hash; withholds
+    any whose name and hash it cannot read; and sends the rest.** Failing closed is deliberate — an unrecognised
     package withheld costs a player a map, and an unrecognised package
     sent is the breach ADR-0006 § Decision forbids. This is the
     per-package test ADR-0006 § Consequences asks for and the origin
@@ -202,9 +205,11 @@ S2 reachable.**
     Editing somebody else's map produces a **recipe** — materials,
     atmosphere, bot hints, class overrides — which is precisely *our
     changes on top of their map*, is small, and is already the thing
-    that travels. **Editing geometry produces an `authored` bundle**,
-    which is a new map rather than an edit of theirs, and it may not
-    carry geometry read out of an install. So `0.5.0`'s *built, hosted,
+    that travels. **Origin is inherited from the input bundle, never from
+    what was edited**: a map started empty is `authored` however much
+    geometry it gains, and a `derived` one stays `derived` however much is
+    changed in it — so editing a baked map's geometry gives a `derived`
+    bundle, which is never published. So `0.5.0`'s *built, hosted,
     downloaded and played by someone else* is a recipe for their map or
     a bundle of your own, and never a re-publication of Epic's. **ADR-0006's § Consequences reads the
     Epic-versus-community test as *what the baker read out of the
@@ -270,7 +275,10 @@ S2 reachable.**
   cannot see their feet, and Metroid Prime's answer is mostly *showing*
   rather than *changing*: a marker on the ground where the current arc
   lands, and a small automatic downward pitch on take-off so the landing
-  is in frame. Those are **visual** and live in `uui` and `urender`.
+  is in frame. Those are **visual** and live in `uui` and `urender`,
+  which draw an arc `uworld` projects and expose: gravity, jump impulse
+  and air control are its fidelity constants, so a second integrator
+  elsewhere would drift from them the first time one is tuned.
   **The pitch offsets the render camera only — the view angles in the
   input command are untouched, and the crosshair stays on the aim ray**,
   so it rises up the screen as the camera tips down, while the shot goes
@@ -322,7 +330,8 @@ S2 reachable.**
   library ships with the baker and is versioned with it. **The recipe
   enters the hash by its bake-relevant fields only** — material
   assignments, atmosphere, and anything else `ubake` reads. Its rule
-  defaults, friendly name and bot hints are read at runtime and change
+  defaults, friendly name, bot hints and class overrides are read at
+  runtime and change
   no pixel, so a server operator switching a weapon set must not
   invalidate every client's cached bake of that map.
 
@@ -356,7 +365,12 @@ S2 reachable.**
 - **Determinism.** Given the same starting state and the same inputs,
   `uworld` produces the same result. No global mutable state except the
   logger, no reading of frame timing, no dependence on iteration order
-  of unordered containers.
+  of unordered containers. **And a numeric contract, because two
+  first-class toolchains do not agree by default:** floating-point
+  contraction and fast-math off, and no platform maths library in the
+  simulation or the baker. `ubake` is bound by it too — ADR-0002 needs
+  one map, recipe and baker version to hash to one bundle on any machine,
+  and that now spans two compilers.
 - **Threading.** One job system, in `core`. Simulation is single-threaded
   and deterministic. Rendering, asset loading and baking use jobs.
 - **Tests.** Catch2 v3, fetched by the build rather than installed.
@@ -384,11 +398,12 @@ S2 reachable.**
 **Linux and Windows are both first-class targets.** Neither is the
 primary one. Every release is built and its tests run on both, and a
 change that breaks either is a broken change — so a platform-specific
-API in any part needs its counterpart written at the same time, not a
-stated port path to be walked later. **Windows builds with MSVC**, which
-is why the compiler floor below names three compilers and not two: the
-code must satisfy all three, and the third is the one whose diagnostics
-differ most. macOS is neither supported nor ruled out, and is not built.
+API needs its counterpart written at the same time rather than a stated
+port path to be walked later, and rule 1 still holds, so `core` is not
+where one goes. **Windows builds with MSVC**, so the floor below names it
+alongside GCC and Clang, and the gate builds all three: GCC and Clang on
+Linux, MSVC on Windows. A floor no job exercises is not a floor. macOS is
+neither supported nor ruled out, and is not built.
 
 **What this rules out.** No scripting virtual machine of any kind
 (ADR-0004). No managed runtime. No OpenGL fallback path — a machine
