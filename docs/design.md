@@ -86,7 +86,8 @@ S2 reachable.**
    are tools, they link whatever they need, and the test does not name
    them.
 3. **`ubundle`, `unav` and `urecipe` are the content vocabularies
-   shared across the seam, and there are no others.** The baker writes
+   shared across the seam, along with `umap`, and there are no
+   others.** The baker writes
    bundles and reads recipes; the runtime reads both; `ued` reads and
    writes both, which is the whole of the `0.5.0` and `0.6.0`
    milestones. A change to what a bundle contains is a change to
@@ -142,15 +143,27 @@ S2 reachable.**
     neither, and live where the platform puts them. This is what makes
     ADR-0003's quarantine true in code, and rule 2 does not do it: a
     program can link no package reader and still write a baked map into
-    the repository. **What a running SERVER may send is a different
-    question and ADR-0006 owns it** — community work travels, Epic's
-    does not, and where a file is cached decides neither. **Its check is a guard in `.githooks/pre-push`
-    and in CI** that fails on an Unreal asset anywhere, or on a `.utab`
-    **baked from a file under `content/`** staged outside it. Origin is
-    what the guard reads, never the extension: an authored bundle and a
-    baked one share `.utab` by design, and § Content addressing already
-    tells them apart — a bake from an install is named with its source
-    map's hash, and an authored bundle has no source map to name.
+    the repository.
+
+    **Every bundle records its origin, and that field is what both the
+    guard and the server read.** `ubake` writes it: `stock` when the
+    source package is one Epic shipped, `community` when it is not, and
+    `authored` for a bundle `ued` made from nothing. **The test is which
+    package the content came from, never which directory** — the 610
+    Monster Hunt maps sit inside the player's own Unreal Tournament
+    install, so a path test would call every one of them Epic's and
+    refuse to serve the rotation this project exists for. What Epic
+    shipped is a finite list of package names and hashes; it is our own
+    factual data, it ships with the baker, and it is versioned with it
+    like the material library. **ADR-0006's § Consequences reads that
+    test as *what the baker read out of the install*, which does not
+    hold here for exactly that reason; this rule is the correction.**
+
+    **Its check is a guard in `.githooks/pre-push` and in CI** that
+    fails on an Unreal asset anywhere, or on a `.utab` whose origin is
+    `stock` staged outside `content/`. **`unet` reads the same field and
+    never sends a `stock` bundle**, which is what ADR-0006's decision
+    needs to be buildable.
 16. **The runtime never reads the player's Unreal Tournament install
     directly. It shells out to `ut-bake`, which already links the
     package reader.** **Both runtime targets do this, not just the
@@ -162,10 +175,11 @@ S2 reachable.**
     separate manifest format for the two programs to disagree about.
     This is what ADR-0003's *refuse to start and say plainly why*
     runs.
-17. **`unav` owns the graph types; `ubundle` owns their bytes on
-    disk.** So `ubundle` depends on `unav`, never the reverse. Adding an
-    edge type is a change to `unav` and a bundle-format version bump;
-    changing how a section is framed is `ubundle` alone.
+17. **`unav` and `umap` own their model types; `ubundle` owns those
+    types' bytes on disk.** So `ubundle` depends on both, never the
+    reverse. Adding a graph edge type or a room attribute is a change to
+    `unav` or `umap` and a bundle-format version bump; changing how a
+    section is framed is `ubundle` alone.
 18. **Whose exploration you may see is `ugame`'s, and the answer is
     your team's.** A room another player has entered is intelligence
     about that player, so the server sends a client only its own team's
@@ -210,8 +224,8 @@ S2 reachable.**
   is in frame. Those are **visual** and live in `uui` and `urender`.
   **The pitch offsets the render camera only — the view angles in the
   input command are untouched, and the crosshair stays on the aim ray**,
-  so it travels down the screen while the shot goes exactly where the
-  player pointed. That is what makes the claim of touching the
+  so it rises up the screen as the camera tips down, while the shot goes
+  exactly where the player pointed. That is what makes the claim of touching the
   simulation nowhere true rather than merely stated, and it is why these
   are the player's own setting and on by default.
 
@@ -251,7 +265,11 @@ S2 reachable.**
   could change independently would let two players compute one name for
   two different worlds. **A `.utab` with no source map — one `ued`
   authored, a character included — is named by the hash of its own
-  contents and the baker version.**
+  contents and the baker version.** **The `ubundle` format version is
+  one of the baker's own inputs**, so a framing change bumps the baker
+  version and therefore every name — which is what
+  `versioning-overrides.md` means when it says a bundle-format change
+  invalidates every cached bake.
 - **Units and axes.** Unreal units, X forward, Y right, Z up — inherited
   deliberately, so a movement constant measured against the original
   game transfers with no conversion and no rounding. **S2** is a
@@ -303,26 +321,32 @@ are available.
 
 Named here so they are not mistaken for oversights. Each becomes an ADR
 when it is settled — at the release shown, using the version labels
-`docs/standards/versioning-overrides.md` defines. **Each must be settled
-before that release is built, not during it**, because each changes
-something already built by then: the tick's inputs for two of them, and
-`ugame`'s difficulty constants for the third.
+`docs/standards/versioning-overrides.md` defines. **Each is settled at the
+START of the release that names it, against a prototype, and before the
+work it constrains is written** — not after that release, because each
+changes something the release itself builds: the tick's inputs for two
+of them, and `ugame`'s difficulty constants for the third. Settling them
+*before* the release is not possible for two, whose whole reason for
+waiting is that the thing to judge does not exist yet.
 
 - **Aim assist for gamepads (`0.3.0`).** An arena shooter played on a stick is
   at a real disadvantage against a mouse, and the three answers —
   assist for everyone, assist only in Monster Hunt and against bots, or
   no assist and accept it — have different consequences for competitive
-  play. Settling it now would be guessing; **S9** only requires that the
-  controller is *playable*, and that is achievable either way. `0.3.0`
+  play. Settling it now would be guessing, and `0.2.0`'s own criterion
+  — that it plays as well on a gamepad as on a mouse — is met by
+  bindings, dead zones and response curves, without an assist. `0.3.0`
   is where there is first something to aim at.
 - **Bot difficulty model (`0.3.0`).** Whether bots are made harder by
   better decisions or by tighter aim, and where the honest ceiling sits.
   `0.3.0` is where bots first ship.
 - **Whether the weapon wheel pauses or slows time (`0.2.0`).** UT99 has
   no precedent and the answer changes how the game plays, not just how
-  it looks. It is `0.2.0` because **S9** makes the wheel a `0.2.0` cut
-  criterion, and because a time scale the server must agree on is an
-  input to the fixed tick — added later it would cross rules 9 and 12.
+  it looks. It is `0.2.0` because a time scale the server must agree on
+  is an input to the fixed tick, and adding one later would cross rules
+  9 and 12. **Not because of S9** — `versioning-overrides.md` cuts
+  **S9** at `0.4.0`, where the Monster Hunt round it asks for exists,
+  and that table owns what a release contains.
 
 ## Close calls
 

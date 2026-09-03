@@ -1,6 +1,9 @@
 # ADR-0006: The quarantine restricts Epic-derived content; community-authored content may be served onward
 
-- **Status:** Accepted
+- **Status:** Accepted — § Consequences' test, *"anything the baker read
+  out of the player's install is Epic's"*, does not hold on this
+  project's own facts and is corrected by rule 15 of
+  [docs/design.md](../design.md). The decision stands
 - **Date:** 2026-09-03
 - **Supersedes:** the *"served to another player"* clause of
   [ADR-0003](ADR-0003-ship-the-recipe-not-the-content.md) § Decision. The

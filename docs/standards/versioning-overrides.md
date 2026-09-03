@@ -60,7 +60,7 @@ required rather than encouraged:
 a list. Something breaks if a user or a server operator who upgrades has
 something that used to work stop working. For this project that is:
 
-- **The map bundle format**, and the hash triple that names a bundle. A
+- **The map bundle format**, and the inputs that name a bundle. A
   change here invalidates every cached bake — expected, and it must be
   announced, because on a big rotation it is a long wait.
 - **The recipe format.** Recipes are authored by hand and by other
