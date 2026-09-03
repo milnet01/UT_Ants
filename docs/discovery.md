@@ -100,7 +100,12 @@ reading a commit log.
 S8 is deliberately the last one, and it is the bar this project's `1.0`
 is measured against — see `docs/standards/versioning-overrides.md`.
 
-The last one has two halves on purpose. First-person platforming is
+- **S12** — Opening the level map mid-game shows where you have been,
+  where your team has been, and which parts of the level nobody has
+  reached yet — and on a Deathmatch server it tells you nothing about
+  an opponent.
+
+The S11 sign has two halves on purpose. First-person platforming is
 bad in most shooters because the player cannot see where they will land,
 and Metroid Prime is the game that solved it. Taking that solution must
 not cost **S2**, which is why the sign is written so that failing either

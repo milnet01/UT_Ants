@@ -30,7 +30,8 @@ enforced, not merely described — see *What may depend on what*.
 
 | Part | Responsible for |
 |---|---|
-| `ubundle` | The container format for everything this project ships as content — a baked map, or a character `ued` authored — written `.utab`. Owns the file layout and its version, never the meaning of what a section holds. A map carries geometry, materials, collision, lights, baked indirect light, entity placements and the graphs `unav` defines; a character carries its mesh, skeleton, skins and attachment points |
+| `ubundle` | The container format for everything this project ships as content — a baked map, or a character `ued` authored — written `.utab`. Owns the file layout and its version, never the meaning of what a section holds. A map carries geometry, materials, collision, lights, baked indirect light, entity placements, the graphs `unav` defines, and the **level-map** section `umap` defines; a character carries its mesh, skeleton, skins and attachment points |
+| `umap` | The **level map** — the simplified, room-partitioned model of a level that the in-game map screen draws, and the rule for which room a position falls in. Built at bake time from the level's own zones, read at runtime. Owns the model and the lookup; `ubundle` owns its bytes, and `uui` owns how it is drawn |
 | `unav` | The two graphs a bot reasons over — *where you can go*, and *what opens what*. Owns their **types and their queries**; `ubundle` owns how they are written to a file. Built at bake time, read at runtime |
 | `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints, rule defaults, and the **class overrides** ADR-0004 requires so a badly-resolved custom actor can be given a better answer once rather than rediscovered by every player. Read by the baker as an input and by `ugame` for its rule defaults, so it crosses the seam like the two above. The one thing this project distributes that describes somebody else's map (ADR-0003) |
 
@@ -40,13 +41,13 @@ enforced, not merely described — see *What may depend on what*.
 |---|---|
 | `core` | Types, math, memory, error type, logging, filesystem, job system. Depends on nothing |
 | `uinput` | Devices to actions. Keyboard, mouse and gamepad are three sources of one action set, with per-device bindings, dead zones and response curves |
-| `uworld` | The simulation. Entities, collision, movement, physics, the fixed tick. Knows how a body moves; knows nothing about scoring |
+| `uworld` | The simulation. Entities, collision, movement, physics, the fixed tick, and which room of the level map each body currently occupies. Knows how a body moves; knows nothing about scoring |
 | `urender` | Vulkan. Draws a bundle: dynamic lights and shadows, PBR materials, volumetrics, light shafts, ambient occlusion, post-processing |
 | `uaudio` | Sound playback, positional mixing, music |
 | `unet` | Transport, replication, server discovery and query, and content transfer against a fingerprint manifest |
 | `uai` | Bots. Navigation, combat, and the planner that gets them through door puzzles |
 | `ugame` | The rules. Deathmatch, Team Deathmatch, Monster Hunt, weapons, monsters, pickups, mutators, chat, map voting. The only part that knows what a frag is |
-| `uui` | Menus, HUD, scoreboard, map browser, settings, and the weapon wheel |
+| `uui` | Menus, HUD, scoreboard, settings, the weapon wheel, the between-match map browser, and the level-map screen |
 
 ### Tools — not runtime targets
 
@@ -165,7 +166,15 @@ S2 reachable.**
     disk.** So `ubundle` depends on `unav`, never the reverse. Adding an
     edge type is a change to `unav` and a bundle-format version bump;
     changing how a section is framed is `ubundle` alone.
-18. **Any dependency these rules do not prohibit is allowed.** The rules
+18. **Whose exploration you may see is `ugame`'s, and the answer is
+    your team's.** A room another player has entered is intelligence
+    about that player, so the server sends a client only its own team's
+    exploration — which in Monster Hunt is everyone, and in Deathmatch
+    is nobody but you. **`uui` draws what it is given and never asks for
+    more**, so a client cannot reveal what the server declined to send.
+    Without this the level map is a wallhack on any competitive server,
+    and **S12** is written to fail if it is.
+19. **Any dependency these rules do not prohibit is allowed.** The rules
     above are prohibitions, not a whitelist, so the check that enforces
     them is a check for forbidden edges — never a list of permitted
     ones. Without this line rule 10's *"may depend on anything"* implies
@@ -183,6 +192,16 @@ S2 reachable.**
   is not hidden**: a player joining a map nobody has baked waits, is
   told what is happening and how far along it is. **S5** carries that
   qualifier itself; this document does not add one.
+- **Exploration is per-room, recorded by the server, and shown three
+  ways.** `umap` partitions a level into rooms from the level's own
+  zones; `uworld` reports which room each body is in; the server keeps a
+  bit per player per room. The map screen then draws a room as **yours**
+  (you have been in it), **your team's** (a teammate has, subject to
+  rule 18), or **unreached** (nobody on your team has). **The whole
+  layout is drawn from the first moment** — the level is somebody else's
+  1999 map, not a secret we are keeping — so an unreached room is
+  visibly there and visibly unreached, which is what **S12** asks for
+  and what makes the map worth opening in Monster Hunt.
 - **A movement assist is either visual or physical, and the two are
   built differently.** First-person platforming fails because the player
   cannot see their feet, and Metroid Prime's answer is mostly *showing*
