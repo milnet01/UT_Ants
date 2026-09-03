@@ -83,3 +83,12 @@ screenshot*.png
 *.det
 *.dll
 *.exe
+
+# ── Build output ──────────────────────────────────────────────────────
+# Arrives with the build system (UTA-0001). /build*/ covers the sibling
+# trees a second configure makes, and _deps/ under them holds Catch2's
+# fetched source -- somebody else's repository, which must never be
+# committed into this one.
+/build*/
+compile_commands.json
+.cache/

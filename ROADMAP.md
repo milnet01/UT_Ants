@@ -32,13 +32,15 @@ Read a UT package, bake a level into a .utab bundle, and walk through it with
 modern lighting. Closes S1 and S7. Nothing here plays: there is no movement
 model, no weapon and no opponent until 0.2.0.
 
-- 📋 [UTA-0001] **Build system, test harness and the synthetic-package fixtures.**
+- 🚧 [UTA-0001] **Build system, test harness and the synthetic-package fixtures.**
   CMake + Ninja, C++23, Catch2 v3 fetched by the build rather than installed.
   The fixtures are the load-bearing part: upkg's tests construct valid UE1
   packages byte by byte in the test itself, so the suite passes on a clone with
   no Unreal Tournament present. A second tier, off by default behind a CMake
   option pointing at a real install, runs the same readers against real files.
   This is what S7 is measured on.
+  Started 2026-09-03. No spec: spec-format.md 1's test says no -- one
+  subsystem, obvious shape, cheap to redo, and nothing else binds to it.
   **Layman:** The scaffolding: how the project compiles, how tests run, and fake UT files the tests can use so nobody needs the real game to check our work.
   Kind: implement.
   Source: design-2026-09-03.
