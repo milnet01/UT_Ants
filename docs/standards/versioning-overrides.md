@@ -70,8 +70,9 @@ something that used to work stop working. For this project that is:
   written down.
 - **The command-line interface** of `ut-bake`, `ut-dump` and
   `ut-ants-server` — flags and output shape both.
-- **The editor's project format**, once maps and characters exist that
-  were saved in it.
+- **The character package format** `ut-ed` writes, once characters exist
+  that were saved in it. The editor has no project format of its own — it
+  edits bundles and recipes, both already named above.
 
 Not surfaces: internal C++ APIs between the parts in `docs/design.md`,
 and the shape of a bundle's *contents* where the format version already

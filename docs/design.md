@@ -11,27 +11,28 @@ touch.
 **Status:** drafted 2026-09-03, awaiting the `review-contract` gate.
 
 What this is for is [docs/discovery.md](discovery.md); the signs of
-success cited below as **S1**–**S8** live there.
+success cited below live there.
 
 ## The parts
 
-Three groups. The split between the first two is load-bearing and is
+The split between build-time and runtime is load-bearing and is
 enforced, not merely described — see *What may depend on what*.
 
-### Build-time only — never linked into the game
+### Build-time only — never linked into a runtime target
 
 | Part | Responsible for |
 |---|---|
 | `upkg` | Reading Unreal Engine 1 packages: `.unr`, `.utx`, `.uax`, `.umx`, `.u`. Names, imports, exports, object serialisation, class tables and default properties. Data in, structures out |
-| `umat` | Turning a 1999 texture into a PBR material — resolving the curated library first, generating base colour, normal, roughness, metallic, height and emissive otherwise |
+| `umat` | Turning a 1999 texture into a PBR material — resolving the curated library first, generating base colour, normal, roughness, metallic, height and emissive otherwise. **The curated library ships with the baker**: it holds our own material definitions and any art we have the right to distribute, it lives in the repository rather than under `content/`, and changing it is a baker version change |
 | `ubake` | The map baker. Drives `upkg`, `umat` and the graph builders, and writes one map bundle |
 
 ### The bundle — the seam between the two halves
 
 | Part | Responsible for |
 |---|---|
-| `ubundle` | The map bundle format, read and write. Geometry, materials, collision, lights, baked indirect light, entity placements, and the two graphs. The only content vocabulary the runtime knows |
-| `unav` | The two graphs a bot reasons over — *where you can go*, and *what opens what* — plus the queries over them. Built at bake time, read at runtime |
+| `ubundle` | The map bundle **container**, read and write. Geometry, materials, collision, lights, baked indirect light, entity placements, and a section holding the graphs `unav` defines. It owns the file layout and the versioning of it, never the meaning of what a section holds |
+| `unav` | The two graphs a bot reasons over — *where you can go*, and *what opens what*. Owns their **types and their queries**; `ubundle` owns how they are written to a file. Built at bake time, read at runtime |
+| `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints and rule defaults. Read by the baker as an input and by `ugame` for its rule defaults, so it crosses the seam like the two above. The one thing this project distributes that describes somebody else's map (ADR-0003) |
 
 ### Runtime
 
@@ -45,8 +46,12 @@ enforced, not merely described — see *What may depend on what*.
 | `unet` | Transport, replication, and content transfer against a fingerprint manifest |
 | `uai` | Bots. Navigation, combat, and the planner that gets them through door puzzles |
 | `ugame` | The rules. Deathmatch, Team Deathmatch, Monster Hunt, weapons, monsters, pickups, mutators, chat, map voting. The only part that knows what a frag is |
-| `urecipe` | The recipe format, read and write — per-map material assignments, atmosphere, friendly name, bot hints and rule defaults. The one thing this project distributes that describes somebody else's map (ADR-0003) |
 | `uui` | Menus, HUD, scoreboard, map browser, settings, and the weapon wheel |
+
+### Tools — not runtime, and never shipped to a player
+
+| Part | Responsible for |
+|---|---|
 | `ued` | The editor. Maps, enemies, player characters, and the packaging that makes them downloadable |
 
 ### Programs
@@ -54,20 +59,28 @@ enforced, not merely described — see *What may depend on what*.
 `ut-ants` (client), `ut-ants-server` (dedicated, headless), `ut-bake`
 (convert a map), `ut-dump` (inspect a package), `ut-ed` (editor).
 
+**`ut-ants` and `ut-ants-server` are the runtime targets, and they are
+the only two.** `ut-bake`, `ut-dump` and `ut-ed` are tools. Rule 2 is
+written about the runtime targets by name, so it does not reach them.
+
 ## What may depend on what
 
-Fourteen rules. The first three are what make ADR-0002 and ADR-0003 true
-in code rather than in prose; rules 4, 9 and 12 are what make **S2**
-reachable.
+**Rules 2 and 3 make ADR-0002 true in code rather than in prose; rules
+15 and 16 do the same for ADR-0003. Rules 4, 9 and 12 are what make
+S2 reachable.**
 
 1. **`core` depends on nothing** beyond the C++ standard library.
-2. **No runtime target links `upkg`, `umat` or `ubake`.** The game cannot
-   read a `.unr` file even by accident, because the code to do so is not
-   in it. A test asserts the link closure of `ut-ants` and
-   `ut-ants-server` contains none of the three.
-3. **`ubundle` is the only content vocabulary shared across the seam.**
-   The baker writes it; the runtime and the editor read it. A change to
-   what a bundle contains is a change to this one part.
+2. **Neither runtime target links `upkg`, `umat` or `ubake`.** The game
+   cannot read a `.unr` file even by accident, because the code to do so
+   is not in it. A test asserts the link closure of `ut-ants` and
+   `ut-ants-server` contains none of the three. **The rule is about
+   those two programs and no others** — `ut-bake`, `ut-dump` and `ut-ed`
+   are tools, they link whatever they need, and the test does not name
+   them.
+3. **`ubundle`, `unav` and `urecipe` are the content vocabularies
+   shared across the seam, and there are no others.** The baker writes
+   bundles and reads recipes; the runtime and the editor read both. A
+   change to what a bundle contains is a change to `ubundle`.
 4. **`uworld` must not depend on `urender`, `uaudio` or `uui`.** The
    dedicated server links no Vulkan and opens no audio device. This is
    the rule that keeps the simulation pure, and it is checked the same
@@ -106,9 +119,40 @@ reachable.
     client on map change. Rule 8 is why: if a recipe could set a rule
     outright, the rules would live in two places and a downloaded file
     would be able to change how a server plays.
+15. **Nothing writes outside `content/` except code and recipes.** Every
+    bake output, download and cache goes under `content/`, whatever
+    produced it. This is the rule that makes ADR-0003's quarantine true
+    in code, and rule 2 does not do it — a program can link no package
+    reader and still write a baked map into the repository. **Its check
+    is a guard in `.githooks/pre-push` and in CI** that fails on an
+    Unreal asset, or on anything a bake produced, staged outside
+    `content/`.
+16. **The runtime never reads the player's Unreal Tournament install
+    directly. It shells out.** `ut-ants` validates the install and
+    triggers a bake by running `ut-bake` as a separate process, so
+    neither happens inside a runtime target and rule 2 survives both.
+    **Validity is defined as what the runtime can check without
+    `upkg`** — the expected package files present, by name and by
+    content hash, against a manifest `ut-bake` writes. That is what
+    ADR-0003's *refuse to start and say plainly why* is checking, and
+    what **S5**'s bake-on-join runs.
+17. **`unav` owns the graph types; `ubundle` owns their bytes on
+    disk.** So `ubundle` depends on `unav`, never the reverse. Adding an
+    edge type is a change to `unav` and a bundle-format version bump;
+    changing how a section is framed is `ubundle` alone.
 
 ## What every part does the same way
 
+- **Baking happens ahead of need, never at the moment of need.** A bake
+  is expensive on purpose (ADR-0002), and **S5** gives a joining player
+  one minute — so a bake on the join path cannot meet it. The client
+  fetches and bakes the **next** map while the current one is still
+  being played, which Monster Hunt makes easy because the map vote
+  settles the next map before it starts, and the server browser names a
+  server's rotation before anyone connects. **The cold case is real and
+  is not hidden**: a player joining a map nobody has baked waits, is
+  told what is happening and how far along it is, and **S5** is measured
+  against the ordinary case rather than that one.
 - **Weapons, monsters and pickups are data, not code.** A weapon is a
   definition — damage, fire rate, projectile, spread, ammo, model,
   sounds — and a **weapon set** is a named collection of them, selectable
@@ -126,10 +170,14 @@ reachable.
   that changes gameplay is replicated to clients on join, so both sides
   simulate under the same numbers.
 - **Content addressing.** A bundle is named by the hash of its source
-  map, its recipe and the baker version. That triple is what lets two
-  players confirm they are on the same level (ADR-0002), and it is why a
-  baker change invalidates caches rather than silently producing a
-  different world.
+  map, its recipe and the baker version. Those three are what let two
+  players confirm they are on the same level (ADR-0002), and they are
+  why a baker change invalidates caches rather than silently producing a
+  different world. **Every other bake input must be covered by one of
+  the three, or the name is a lie** — which is why `umat`'s curated
+  library ships with the baker and is versioned with it. A library that
+  could change independently would let two players compute one name for
+  two different worlds.
 - **Units and axes.** Unreal units, X forward, Y right, Z up — inherited
   deliberately, so a movement constant measured against the original
   game transfers with no conversion and no rounding. **S2** is a
@@ -162,7 +210,7 @@ reachable.
 | **glm** | Well understood, header-only, matches the maths in every reference | Our own, later, if it earns it |
 | **shaderc** | Compile GLSL to SPIR-V at build time | Hand-run `glslangValidator` |
 | **Dear ImGui** | Editor and developer overlays, vendored | Nothing else is close for this job |
-| **Assimp** | Model import for character authoring — **build-time only**, never linked into the game | Writing a glTF reader |
+| **Assimp** | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
 | **Catch2 v3** | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |
 
 **What this rules out.** No scripting virtual machine of any kind
@@ -178,19 +226,26 @@ are available.
 ## Decided later, deliberately
 
 Named here so they are not mistaken for oversights. Each becomes an ADR
-when it is settled, at the milestone shown.
+when it is settled — at the release shown, using the version labels
+`docs/standards/versioning-overrides.md` defines. **Each must be settled
+before that release is built, not during it**, because all three change
+what `uworld` ticks.
 
-- **Aim assist for gamepads (M6).** An arena shooter played on a stick is
+- **Aim assist for gamepads (`0.3.0`).** An arena shooter played on a stick is
   at a real disadvantage against a mouse, and the three answers —
   assist for everyone, assist only in Monster Hunt and against bots, or
   no assist and accept it — have different consequences for competitive
   play. Settling it now would be guessing; **S9** only requires that the
-  controller is *playable*, and that is achievable either way.
-- **Bot difficulty model (M6).** Whether bots are made harder by better
-  decisions or by tighter aim, and where the honest ceiling sits.
-- **Whether the weapon wheel pauses or slows time (M6).** UT99 has no
-  precedent and the answer changes how the game plays, not just how it
-  looks.
+  controller is *playable*, and that is achievable either way. `0.3.0`
+  is where there is first something to aim at.
+- **Bot difficulty model (`0.3.0`).** Whether bots are made harder by
+  better decisions or by tighter aim, and where the honest ceiling sits.
+  `0.3.0` is where bots first ship.
+- **Whether the weapon wheel pauses or slows time (`0.2.0`).** UT99 has
+  no precedent and the answer changes how the game plays, not just how
+  it looks. It is `0.2.0` because **S9** makes the wheel a `0.2.0` cut
+  criterion, and because a time scale the server must agree on is an
+  input to the fixed tick — added later it would cross rules 9 and 12.
 
 ## Close calls
 
