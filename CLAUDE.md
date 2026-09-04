@@ -4,8 +4,7 @@
 
 **State:** 5 — on an item. Discovery and design are agreed and gated.
 **Next:** `UTA-0003` — `upkg`: the package container (spec drafted, ungated).
-**In flight:** `UTA-0049` — numeric contract enforced and tested, awaiting
-the matrix.
+**In flight:** nothing.
 
 > Keep the three lines above true, and keep them to three lines. They are
 > the only position this project records. Everything else about where
@@ -32,8 +31,8 @@ rather than in a standard.
 ### Stack
 
 C++23, CMake, Catch2 v3 fetched by the build. Linux and Windows are both
-first-class; the gate builds GCC, Clang and MSVC. `docs/design.md` § The
-stack owns the reasoning and the version floors — read it there.
+first-class; GitHub's matrix builds GCC, Clang and MSVC. `docs/design.md`
+§ The stack owns the reasoning and the version floors — read it there.
 
 ### Build and test
 
@@ -43,8 +42,17 @@ cmake --build build
 ctest --test-dir build -L unit
 ```
 
-`./scripts/ci.sh` is the whole gate and is what `.githooks/pre-push`
-runs. `./scripts/ci.sh --docs` is what a documentation-only push runs.
+`./scripts/ci.sh` is the whole gate. `.githooks/pre-push` does not run it:
+it delegates to `~/.claude/githooks/pre-push` (or `$ANTS_GLOBAL_HOOKS`),
+which decides from `git config ants.gate.docsGlob` whether the push is
+documentation-only, then runs the gate over the pushed commits in a
+detached worktree — not over what happens to be on disk.
+
+**With no machine-wide hook the delegator prints `NOTHING WAS CHECKED`
+and exits 0**, so a green push is not evidence the gate ran. `docsGlob`
+lives in `.git/config` and does not survive a clone; here it is
+`docs/*|*.md|LICENSE`, and unset it falls back to a wider default — so a
+fresh clone gates differently without saying so.
 
 **A local green is one leg of three.** GitHub runs GCC, Clang and MSVC;
 a local run uses whatever `CXX` resolves to, and the gate says which at
@@ -91,10 +99,17 @@ The user's standing priority order, given 2026-09-04:
 2. Open roadmap items that reach v1.0.0.
 3. Open roadmap items for the version after.
 
-A review finding therefore outranks a roadmap item, including the one the
-**Next:** line above names. When a finding is taken ahead of that item,
-say so on the item's bullet so the deferral is recorded rather than
-looking like a session that lost its place.
+**Rule 1's set is the open items whose `Source:` names a review** — that
+is the only handle a session has, so a finding filed without it is
+invisible to this order and gets worked last. File it that way.
+
+**`Next:` names the next roadmap item.** A rule-1 finding taken ahead of
+it moves `In flight:` and leaves `Next:` alone, so the two lines stay
+true together. Record the deferral on the deferred item, in the roadmap
+store — not by editing `ROADMAP.md`, which is generated from the store
+and drops a hand edit without saying so. Clear that note when the item is
+picked up: a note nobody clears is the lying record the block at the top
+of this file warns about.
 
 ### Roadmap IDs
 
@@ -106,3 +121,8 @@ are `<ID>: <description>`, per `commits.md`.
 Any place this project deliberately departs from a global standard goes
 in `docs/standards/`, with the reason. If that directory is empty, there
 are none.
+
+### This file's own review history
+
+Kept outside this file, so every session does not pay for it:
+`docs/claude-md-review-2026-09-04.md`.
