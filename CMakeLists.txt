@@ -51,8 +51,7 @@ if(UTA_REAL_ASSET_TESTS AND NOT UTA_UT_INSTALL_DIR)
         "Point it at an Unreal Tournament install, or leave both at their defaults.")
 endif()
 
-# src/ holds no sources yet -- UTA-0002 onward add them. Adding an empty
-# subdirectory here would be a build rule for nothing.
+add_subdirectory(src)
 
 if(UTA_BUILD_TESTS)
     enable_testing()
