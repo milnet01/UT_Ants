@@ -404,3 +404,113 @@ TEST_CASE("no variable and no fallback is NotFound", "[core][fs]") {
     CHECK(cacheDir.error().code() == ErrorCode::NotFound);
     CHECK(logDir.error().code() == ErrorCode::NotFound);
 }
+
+// (d) Both platforms: a variable that is SET but RELATIVE is treated as
+// unset. Without this case the rule is asserted by nothing, and deleting the
+// branch leaves the suite green while a user's config lands under whatever
+// directory the process happened to start in (INV-8).
+TEST_CASE("a relative variable is treated as unset", "[core][fs]") {
+#ifdef _WIN32
+    // Windows has no fallback, so an ignored variable becomes NotFound.
+    const EnvScope appData("APPDATA", "relative\\not\\absolute");
+
+    const auto configDir = uta::fs::configDirectory();
+    REQUIRE_FALSE(configDir.has_value());
+    CHECK(configDir.error().code() == ErrorCode::NotFound);
+#else
+    const TempDir home;
+    const EnvScope homeVar("HOME", home.path().string().c_str());
+    const EnvScope config("XDG_CONFIG_HOME", "relative/not/absolute");
+
+    const auto configDir = uta::fs::configDirectory();
+    REQUIRE(configDir.has_value());
+    // The fallback, not the relative value.
+    CHECK(configDir->is_absolute());
+    CHECK(*configDir == home.path() / ".config" / "ut-ants");
+#endif
+}
+
+// INV-6 -- a root spelled with a trailing separator is accepted. Whether
+// weakly_canonical keeps the empty final element differs between standard
+// libraries (measured: libstdc++ 16.2 strips it), so this is the case that
+// proves the behaviour per leg rather than arguing it from one of them.
+TEST_CASE("a root written with a trailing separator is accepted", "[core][fs]") {
+    const TempDir dir;
+    const fs::path withSeparator = dir.path().string() + std::string(1, fs::path::preferred_separator);
+
+    const auto result = uta::fs::resolveUnder(withSeparator, "maps/DM-Deck16.unr");
+    REQUIRE(result.has_value());
+    CHECK(result->string().starts_with(dir.path().string()));
+}
+
+// INV-15 -- the lexical pass over the relative path's components. Enforced on
+// EVERY platform, not only Windows: a rule that holds on one and not the other
+// means a Linux server and a Windows client disagree about which content is
+// safe, and unet moves content between exactly those.
+TEST_CASE("a Win32 reserved device name is refused, on every platform", "[core][fs]") {
+    const TempDir dir;
+
+    // Bare, with an extension, lower case, and nested -- a device name
+    // resolves to a device in ANY directory on Win32, extension included.
+    for (const char* relative : {"CON", "NUL", "COM1", "LPT9",
+                                 "COM1.txt", "com1", "lpt9.log",
+                                 "maps/AUX", "maps/PRN.unr"}) {
+        const auto result = uta::fs::resolveUnder(dir.path(), relative);
+        INFO("relative = " << relative);
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().code() == ErrorCode::InvalidArgument);
+    }
+}
+
+TEST_CASE("a component ending in a dot or a space is refused", "[core][fs]") {
+    const TempDir dir;
+
+    // Win32 strips both, so "a." and "a" are one file after a check has
+    // passed on two names.
+    for (const char* relative : {"a.", "a ", "maps/deck.", "maps /x.unr"}) {
+        const auto result = uta::fs::resolveUnder(dir.path(), relative);
+        INFO("relative = " << relative);
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().code() == ErrorCode::InvalidArgument);
+    }
+}
+
+TEST_CASE("a component containing a colon is refused", "[core][fs]") {
+    const TempDir dir;
+
+    // "a.txt:s" is an alternate data stream on Win32, which an extension
+    // check cannot see; "C:foo" is drive-relative, so is_absolute() does not
+    // catch it.
+    for (const char* relative : {"a.txt:s", "C:foo", "maps/deck.unr:hidden"}) {
+        const auto result = uta::fs::resolveUnder(dir.path(), relative);
+        INFO("relative = " << relative);
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().code() == ErrorCode::InvalidArgument);
+    }
+}
+
+// INV-15's ORDER half. Every other case above fails whether the lexical pass
+// runs before or after canonicalisation, so none of them can falsify the
+// ordering. This one can: weakly_canonical resolves "COM1/../safe.unr" to
+// "<root>/safe.unr" (measured, libstdc++ 16.2), so an implementation that
+// canonicalises first never sees COM1 and accepts.
+TEST_CASE("the lexical pass runs before canonicalisation", "[core][fs]") {
+    const TempDir dir;
+
+    const auto result = uta::fs::resolveUnder(dir.path(), "COM1/../safe.unr");
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code() == ErrorCode::InvalidArgument);
+}
+
+// The rules must not refuse ordinary names, or every caller works around them.
+TEST_CASE("ordinary names still resolve", "[core][fs]") {
+    const TempDir dir;
+
+    for (const char* relative : {"maps/DM-Deck16.unr", "Textures/SkyCity.utx",
+                                 "a.b.c", "CONSOLE", "COM10", "com1x",
+                                 "LPT0", "nullify.unr"}) {
+        const auto result = uta::fs::resolveUnder(dir.path(), relative);
+        INFO("relative = " << relative);
+        CHECK(result.has_value());
+    }
+}

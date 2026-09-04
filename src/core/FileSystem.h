@@ -32,8 +32,10 @@ namespace uta::fs {
 /// Windows: %LOCALAPPDATA%\UT_Ants\logs.
 [[nodiscard]] Result<std::filesystem::path> logDirectory();
 //
-// For all three: the variable is honoured as the user set it, wherever it
-// points -- core does not police the platform's own configuration. What is
+// For all three: the variable is honoured as the user set it, provided it is
+// ABSOLUTE -- core does not otherwise police the platform's own
+// configuration. One that is set but relative is treated as unset, so the
+// platform's fallback applies, or NotFound where it has none. What is
 // guaranteed is that every FALLBACK is absolute, so an unset variable can
 // never put configuration or logs somewhere relative to the current working
 // directory. Windows has no fallback beyond its own variables, so a function

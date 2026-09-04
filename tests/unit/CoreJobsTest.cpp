@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <numeric>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "core/Jobs.h"
@@ -174,4 +175,93 @@ TEST_CASE("a default-constructed handle is already complete", "[core][jobs]") {
     CHECK(empty.done());
     jobs.wait(empty);  // must return immediately
     SUCCEED("waiting on an empty handle returned");
+}
+
+// INV-16 -- containing a job's exception must not make a failed job
+// indistinguishable from a successful one. For ubake that difference is a
+// wrong bundle reported as a good one: docs/design.md requires baking to use
+// jobs, and ADR-0002 requires one map, recipe and baker version to hash to one
+// bundle on any machine.
+TEST_CASE("a job whose body throws is reported as failed", "[core][jobs]") {
+    JobSystem jobs(2);
+
+    const JobHandle threw = jobs.submit([] { throw std::runtime_error("boom"); });
+    const JobHandle fine = jobs.submit([] {});
+
+    jobs.wait(threw);
+    jobs.wait(fine);
+
+    CHECK(threw.done());
+    CHECK(threw.failed());
+
+    CHECK(fine.done());
+    CHECK_FALSE(fine.failed());
+}
+
+TEST_CASE("a default-constructed handle ran nothing and did not fail", "[core][jobs]") {
+    const JobHandle none;
+    CHECK(none.done());
+    CHECK_FALSE(none.failed());
+}
+
+TEST_CASE("parallelFor returns how many bodies threw", "[core][jobs]") {
+    JobSystem jobs(4);
+
+    constexpr std::size_t kCount = 64;
+    // Every third index throws: a count rather than a flag, so an
+    // implementation reporting "some failed" as 1 is caught.
+    const std::size_t expected = [] {
+        std::size_t n = 0;
+        for (std::size_t i = 0; i < kCount; ++i)
+            if (i % 3 == 0) ++n;
+        return n;
+    }();
+
+    const std::size_t failures = jobs.parallelFor(kCount, [](std::size_t i) {
+        if (i % 3 == 0) throw std::runtime_error("boom");
+    });
+
+    CHECK(failures == expected);
+}
+
+TEST_CASE("parallelFor returns zero when every body succeeds", "[core][jobs]") {
+    JobSystem jobs(4);
+    std::vector<std::atomic<int>> seen(32);
+
+    const std::size_t failures =
+        jobs.parallelFor(seen.size(), [&seen](std::size_t i) { ++seen[i]; });
+
+    CHECK(failures == 0);
+}
+
+// INV-16's ORDER half. The cases above pass whichever order `failed` and
+// `done` are published in. This one reads `failed()` from another thread the
+// moment `done()` turns true, so a flag stored AFTER done is published can be
+// observed as false. It is probabilistic -- INV-13's ThreadSanitizer leg is
+// what makes the order visible rather than merely likely, and section 10
+// marks INV-16 partial for exactly that reason.
+TEST_CASE("failed() is visible as soon as done() is", "[core][jobs]") {
+    constexpr int kRounds = 200;
+
+    for (int round = 0; round < kRounds; ++round) {
+        JobSystem jobs(2);
+
+        std::atomic<bool> release{false};
+        const JobHandle threw = jobs.submit([&release] {
+            while (!release.load(std::memory_order_acquire)) {}
+            throw std::runtime_error("boom");
+        });
+
+        std::atomic<bool> observedDoneWithoutFailure{false};
+        std::thread watcher([&threw, &observedDoneWithoutFailure] {
+            while (!threw.done()) {}
+            if (!threw.failed()) observedDoneWithoutFailure.store(true);
+        });
+
+        release.store(true, std::memory_order_release);
+        watcher.join();
+        jobs.wait(threw);
+
+        REQUIRE_FALSE(observedDoneWithoutFailure.load());
+    }
 }

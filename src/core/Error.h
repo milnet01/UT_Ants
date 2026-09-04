@@ -38,6 +38,12 @@ enum class ErrorCode : std::uint16_t {
 /// for a player. Never empty.
 [[nodiscard]] std::string_view errorCodeName(ErrorCode code) noexcept;
 
+/// Map a C-library errno to the code chosen for it, rather than one code
+/// standing for every cause. Shared because two module boundaries report an
+/// fopen failure -- uta::fs and Log.h's fileSink -- and two copies of this
+/// mapping are two mappings that will disagree.
+[[nodiscard]] ErrorCode errorCodeFromErrno(int value) noexcept;
+
 /// A failure crossing a module boundary: why it failed, and a sentence saying
 /// so. Both are always present -- there is no default constructor, so an
 /// Error cannot exist without a caller having chosen both.

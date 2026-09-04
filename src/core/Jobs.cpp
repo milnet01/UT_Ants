@@ -83,9 +83,9 @@ JobHandle JobSystem::submit(std::function<void()> job) {
     return JobHandle(std::move(state));
 }
 
-void JobSystem::parallelFor(std::size_t count,
-                            const std::function<void(std::size_t)>& body) {
-    if (count == 0) return;
+std::size_t JobSystem::parallelFor(std::size_t count,
+                                   const std::function<void(std::size_t)>& body) {
+    if (count == 0) return 0;
 
     std::vector<JobHandle> handles;
     handles.reserve(count);
@@ -105,14 +105,25 @@ void JobSystem::parallelFor(std::size_t count,
     }
 
     for (const JobHandle& handle : handles) wait(handle);
+
+    // Counted after every job has completed, so each handle's outcome is
+    // published. A count rather than a flag: a caller deciding whether a bake
+    // is usable needs to know how much of it failed.
+    std::size_t failures = 0;
+    for (const JobHandle& handle : handles)
+        if (handle.failed()) ++failures;
+    return failures;
 }
 
 void JobSystem::runJob(Job& job) noexcept {
+    bool threw = false;
     try {
         if (job.body) job.body();
     } catch (const std::exception& e) {
+        threw = true;
         logContainedFailure(e.what());
     } catch (...) {
+        threw = true;
         logContainedFailure("a non-exception type");
     }
 
@@ -120,6 +131,9 @@ void JobSystem::runJob(Job& job) noexcept {
     // then wait past the notification.
     {
         const std::lock_guard lock(mutex_);
+        // failed BEFORE done, and the release store on done is what publishes
+        // it: a waiter that sees completion sees the outcome with it (INV-16).
+        job.state->failed.store(threw, std::memory_order_relaxed);
         job.state->done.store(true, std::memory_order_release);
     }
     cv_.notify_all();

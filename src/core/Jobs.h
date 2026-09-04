@@ -46,11 +46,29 @@ public:
         return state_ == nullptr || state_->done.load(std::memory_order_acquire);
     }
 
+    /// Whether the job's body threw. Meaningful once done() is true; false
+    /// for a default-constructed handle, which ran nothing.
+    ///
+    /// Containing an exception must not make a failed job indistinguishable
+    /// from a successful one. ubake bakes on jobs and ADR-0002 requires one
+    /// map, recipe and baker version to hash to one bundle on any machine, so
+    /// a batch that threw and reported completion is a wrong bundle presented
+    /// as a good one. A log line is not a reporting channel: nothing
+    /// downstream reads it.
+    [[nodiscard]] bool failed() const noexcept {
+        return state_ != nullptr && state_->failed.load(std::memory_order_acquire);
+    }
+
 private:
     friend class JobSystem;
 
     struct State {
         std::atomic<bool> done{false};
+
+        /// Published BEFORE done, under the same lock (INV-16): a waiter woken
+        /// by done must see the outcome with it, or the failure is reported
+        /// correctly under a debugger and not under load.
+        std::atomic<bool> failed{false};
         /// Which JobSystem submitted this. A handle carries no owner
         /// otherwise, and both branches of wait() sleep on the waiting
         /// system's own condition variable -- so waiting on a foreign handle
@@ -91,8 +109,13 @@ public:
     /// -- which is a bug in that caller.
     [[nodiscard]] JobHandle submit(std::function<void()> job);
 
-    /// Submit `count` jobs, one per index, and wait for all of them.
-    void parallelFor(std::size_t count, const std::function<void(std::size_t)>& body);
+    /// Submit `count` jobs, one per index, wait for all of them, and return
+    /// how many bodies threw -- 0 when every one succeeded.
+    ///
+    /// nodiscard because a count nobody reads is exactly the defect this
+    /// return exists to close.
+    [[nodiscard]] std::size_t parallelFor(std::size_t count,
+                                          const std::function<void(std::size_t)>& body);
 
     /// Block until `handle`'s job has run.
     ///

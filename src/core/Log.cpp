@@ -1,5 +1,6 @@
 #include "core/Log.h"
 
+#include <cerrno>
 #include <cstdio>
 #include <exception>
 #include <memory>
@@ -126,25 +127,30 @@ LogSink consoleSink() {
     };
 }
 
-LogSink fileSink(const std::filesystem::path& path) {
+Result<LogSink> fileSink(const std::filesystem::path& path) {
     // Opened once and shared by every copy of the returned sink, and closed
     // when the last copy goes -- the shared_ptr's deleter is what owns it, so
     // there is no paired open/close for anyone to get wrong.
     //
-    // A failure to open yields a null handle and the sink then does nothing.
-    // The logger has no channel to report its own failure through, which is
-    // the same reason write() swallows a throwing sink.
+    // A failure to open is REPORTED, unlike a throwing sink inside write().
+    // write() is called from everywhere and has no channel; this is a factory
+    // called once at startup by a caller that has one, and it sits on a module
+    // boundary where docs/design.md requires std::expected (INV-17).
+    errno = 0;
     std::FILE* raw =
 #ifdef _WIN32
         _wfopen(path.c_str(), L"ab");
 #else
         std::fopen(path.c_str(), "ab");
 #endif
+    if (raw == nullptr)
+        return fail(errorCodeFromErrno(errno),
+                    "cannot open log file " + path.string());
+
     const std::shared_ptr<std::FILE> stream(
         raw, [](std::FILE* f) { if (f != nullptr) (void)std::fclose(f); });
 
-    return [stream](const LogRecord& record) {
-        if (!stream) return;
+    return LogSink{[stream](const LogRecord& record) {
         const std::string text = sanitised(record.text);
         (void)std::fprintf(stream.get(), "[%.*s] %.*s: %.*s\n",
                      static_cast<int>(logLevelName(record.level).size()),
@@ -152,7 +158,7 @@ LogSink fileSink(const std::filesystem::path& path) {
                      static_cast<int>(record.category.size()), record.category.data(),
                      static_cast<int>(text.size()), text.data());
         (void)std::fflush(stream.get());
-    };
+    }};
 }
 
 }  // namespace uta

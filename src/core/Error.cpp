@@ -1,6 +1,20 @@
 #include "core/Error.h"
 
+#include <cerrno>
+
 namespace uta {
+
+ErrorCode errorCodeFromErrno(int value) noexcept {
+    switch (value) {
+    case EACCES:
+    case EPERM:  return ErrorCode::PermissionDenied;
+    case ENOENT: return ErrorCode::NotFound;
+    case EEXIST: return ErrorCode::AlreadyExists;
+    case EISDIR: return ErrorCode::InvalidArgument;
+    case ENOMEM: return ErrorCode::OutOfMemory;
+    default:     return ErrorCode::IoFailure;
+    }
+}
 
 std::string_view errorCodeName(ErrorCode code) noexcept {
     switch (code) {

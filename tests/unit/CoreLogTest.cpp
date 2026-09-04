@@ -194,7 +194,9 @@ TEST_CASE("a shipped sink escapes control bytes in the message", "[core][log]") 
 
     const auto path = std::filesystem::temp_directory_path() /
                       ("uta-log-test-" + std::to_string(std::random_device{}()) + ".log");
-    Logger::instance().addSink(uta::fileSink(path));
+    const auto sink = uta::fileSink(path);
+    REQUIRE(sink.has_value());
+    Logger::instance().addSink(*sink);
 
     LogCategory cat{"inject", LogLevel::Trace};
     UTA_LOG(cat, LogLevel::Error, "{}", "a\n[error] core: forged\x1b[2J");
@@ -217,4 +219,57 @@ TEST_CASE("a shipped sink escapes control bytes in the message", "[core][log]") 
     CHECK(std::count(written.begin(), written.end(), '\n') == 1);
     CHECK(written.find("\\x0a") != std::string::npos);
     CHECK(written.find("\\x1b") != std::string::npos);
+}
+
+// INV-17 -- fileSink reports why it could not open. write() stays silent
+// because it is called from everywhere including noexcept functions and has
+// no channel; fileSink is a factory called once at startup by a caller that
+// HAS one, and it sits on a module boundary, where docs/design.md requires
+// std::expected. The failure path is ordinary rather than exotic: on a first
+// run the log directory does not exist.
+TEST_CASE("fileSink says why it could not open its file", "[core][log]") {
+    namespace fs = std::filesystem;
+
+    static const unsigned long long salt = std::random_device{}();
+    const fs::path missing = fs::temp_directory_path() /
+                             ("uta-log-absent-" + std::to_string(salt)) /
+                             "engine.log";
+    REQUIRE_FALSE(fs::exists(missing.parent_path()));
+
+    const auto sink = uta::fileSink(missing);
+    REQUIRE_FALSE(sink.has_value());
+    // The code is chosen for the errno, not one code standing for every
+    // cause: a missing directory is ENOENT, so NotFound.
+    CHECK(sink.error().code() == uta::ErrorCode::NotFound);
+    CHECK_FALSE(sink.error().message().empty());
+}
+
+TEST_CASE("fileSink returns a working sink when it can open", "[core][log]") {
+    namespace fs = std::filesystem;
+
+    static const unsigned long long salt = std::random_device{}();
+    static int counter = 0;
+    const fs::path dir = fs::temp_directory_path() /
+                         ("uta-log-" + std::to_string(salt) + "-" +
+                          std::to_string(counter++));
+    fs::create_directories(dir);
+    const fs::path file = dir / "engine.log";
+
+    {
+        const SinkScope scope;
+        const auto sink = uta::fileSink(file);
+        REQUIRE(sink.has_value());
+        Logger::instance().addSink(*sink);
+
+        LogCategory cat{"filesink", LogLevel::Trace};
+        UTA_LOG(cat, LogLevel::Error, "written through the sink");
+    }
+
+    std::ifstream in(file);
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    CHECK(buffer.str().find("written through the sink") != std::string::npos);
+
+    std::error_code ec;
+    fs::remove_all(dir, ec);
 }

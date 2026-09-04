@@ -39,10 +39,35 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **A job that fails can be seen to have failed** (UTA-0047)
+  JobHandle::failed() reports whether the work threw, and parallelFor
+  returns how many of its bodies did. Previously a job whose body threw was
+  caught, logged and then marked complete exactly like a successful one, so
+  a batch in which everything failed reported success. That matters for the
+  map baker: a half-failed bake reported as good is a wrong map file
+  presented as a correct one.
+
 - **Windows is now a first-class target alongside Linux**
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
 
+- **fileSink says why it could not open its log file** (UTA-0048)
+  It returned a sink that silently did nothing, so a first run with no log
+  directory left the game running with logging switched off and no way to
+  find out. It now reports the reason, with the error code chosen for the
+  cause rather than one code standing for every failure.
+
 - **A dead pattern in the commit hook's link check**
   Found by the new gate on its first run.
+
+### Security
+
+- **resolveUnder refuses names that are unsafe on Windows, on every platform** (UTA-0046)
+  A downloaded file called COM1 opens a serial port rather than a file, and
+  can block with no timeout; "a." and "a" are one file on Windows after a
+  check has passed on two names; and "a.txt:s" writes a hidden data stream
+  an extension check cannot see. All three are now refused by name, before
+  any filesystem call. The rule is enforced on Linux too, deliberately: a
+  rule that holds on one platform and not the other means a server and a
+  client disagree about which content is safe.

@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "core/Error.h"
+
 namespace uta {
 
 enum class LogLevel : std::uint8_t {
@@ -117,9 +119,19 @@ private:
 /// Writes to stderr. A program installs this at startup; nothing else does.
 [[nodiscard]] LogSink consoleSink();
 
-/// Appends to `path`, opening it once. A failure to open is reported by the
-/// returned sink doing nothing rather than by throwing, for the reason above.
-[[nodiscard]] LogSink fileSink(const std::filesystem::path& path);
+/// Appends to `path`, opening it once, and says why when it cannot.
+///
+/// This returns a Result where write() does not, and the difference is not an
+/// inconsistency. write() is called from everywhere, including noexcept
+/// functions, and has no channel of its own. fileSink is a factory called once
+/// at startup by a caller that HAS one, and it sits on a module boundary,
+/// where docs/design.md requires std::expected. Its failure path is ordinary
+/// rather than exotic: on a first run the log directory does not exist, and a
+/// sink that silently does nothing leaves a program running with logging off
+/// and no way to find out.
+///
+/// The code is errorCodeFromErrno's, so a missing directory is NotFound.
+[[nodiscard]] Result<LogSink> fileSink(const std::filesystem::path& path);
 
 /// core's own category.
 extern LogCategory logCore;

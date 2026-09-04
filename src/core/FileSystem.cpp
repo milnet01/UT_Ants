@@ -80,17 +80,83 @@ void syncToDevice(std::FILE* file) noexcept {
 }
 
 /// Map errno to a code chosen for the failure. One code standing for every
-/// cause does not satisfy INV-1.
-[[nodiscard]] ErrorCode codeForErrno(int e) noexcept {
-    switch (e) {
-    case EACCES:
-    case EPERM:  return ErrorCode::PermissionDenied;
-    case ENOENT: return ErrorCode::NotFound;
-    case EEXIST: return ErrorCode::AlreadyExists;
-    case EISDIR: return ErrorCode::InvalidArgument;
-    case ENOMEM: return ErrorCode::OutOfMemory;
-    default:     return ErrorCode::IoFailure;
+/// cause does not satisfy INV-1. Lives in Error.h because fileSink reports an
+/// fopen failure through the same rule, and two copies would disagree.
+using uta::errorCodeFromErrno;
+
+/// ASCII only, and deliberately not std::toupper: that one is locale
+/// dependent, and a name's safety must not depend on the machine's locale.
+[[nodiscard]] constexpr char upperAscii(char c) noexcept {
+    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
+}
+
+/// A Win32 reserved device name resolves to a device in ANY directory, and
+/// does so with an extension too -- so COM1.txt is the same device. The test
+/// is on the component's text up to its first '.', case-insensitively.
+[[nodiscard]] bool isReservedDeviceName(std::string_view component) noexcept {
+    static constexpr std::string_view kReserved[] = {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
+    const std::string_view stem = component.substr(0, component.find('.'));
+    for (const std::string_view reserved : kReserved) {
+        if (stem.size() != reserved.size()) continue;
+        bool same = true;
+        for (std::size_t i = 0; i < stem.size(); ++i) {
+            if (upperAscii(stem[i]) != reserved[i]) {
+                same = false;
+                break;
+            }
+        }
+        if (same) return true;
     }
+    return false;
+}
+
+/// INV-15's lexical pass, over `relative`'s own components and BEFORE any
+/// filesystem call. Running it after weakly_canonical would be a different
+/// rule: canonicalisation erases a barred component that a later ".." undoes,
+/// so "COM1/../safe.unr" would reach the filesystem unexamined.
+///
+/// Enforced on every platform, not only Windows. A rule holding on one and
+/// not the other means a Linux server and a Windows client disagree about
+/// which content is safe, and unet moves content between exactly those; and a
+/// lexical rule is testable on all three legs, where a Windows-only one is
+/// checked by one leg and by no local run at all.
+[[nodiscard]] Result<void> checkComponentNames(const std::filesystem::path& root,
+                                               const std::filesystem::path& relative) {
+    const auto refuse = [&](const std::string& component, const char* why) {
+        return fail(ErrorCode::InvalidArgument,
+                    "component \"" + component + "\" of " + relative.string() +
+                        " " + why + ", under " + root.string());
+    };
+
+    for (const std::filesystem::path& part : relative) {
+        const std::string component = part.string();
+
+        // An empty component is a trailing separator; "." and ".." are
+        // navigation, and ".." would otherwise trip the trailing-dot rule.
+        // Containment, not naming, is what answers ".." -- INV-6's job.
+        if (component.empty() || component == "." || component == "..") continue;
+
+        // On Win32 "a.txt:s" writes an alternate data stream, which an
+        // extension check cannot see, and "C:foo" is drive-relative rather
+        // than absolute, so is_absolute() does not catch it.
+        if (component.find(':') != std::string::npos)
+            return refuse(component, "contains a colon");
+
+        // Win32 strips both, so "a." and "a" are one file after the check
+        // has passed on two names.
+        if (component.back() == '.' || component.back() == ' ')
+            return refuse(component, "ends in a dot or a space");
+
+        if (isReservedDeviceName(component))
+            return refuse(component, "is a reserved device name");
+    }
+
+    return {};
 }
 
 [[nodiscard]] Error missing(const char* what) {
@@ -193,7 +259,7 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     errno = 0;
     std::FILE* file = openNative(path, "rb");
     if (file == nullptr)
-        return fail(codeForErrno(errno), "cannot open " + path.string());
+        return fail(errorCodeFromErrno(errno), "cannot open " + path.string());
 
     const std::size_t read =
         bytes.empty() ? 0 : std::fread(bytes.data(), 1, bytes.size(), file);
@@ -229,7 +295,7 @@ Result<void> writeFileAtomically(const std::filesystem::path& path,
         errno = 0;
         file = openNative(temporary, "wbx");
         if (file == nullptr && errno != EEXIST)
-            return fail(codeForErrno(errno),
+            return fail(errorCodeFromErrno(errno),
                         "cannot create a temporary beside " + path.string());
     }
     if (file == nullptr)
@@ -274,6 +340,10 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
                     "absolute path not allowed under " + root.string() + ": " +
                         relative.string());
 
+    // Before any filesystem call: INV-15. See checkComponentNames for why the
+    // order is load-bearing rather than tidy.
+    UTA_CHECK(checkComponentNames(root, relative));
+
     std::error_code ec;
     const auto canonicalRoot = std::filesystem::weakly_canonical(root, ec);
     if (ec)
@@ -286,12 +356,20 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
 
     // Compare by path elements rather than by string prefix: a string compare
     // would accept "/data-other" as being under "/data".
+    //
+    // An EMPTY element is skipped rather than compared: a root spelled with a
+    // trailing separator yields one, and whether weakly_canonical keeps it
+    // differs between standard libraries -- measured, libstdc++ 16.2 strips
+    // it. Comparing it would refuse such a root on whichever library keeps
+    // it, which INV-6 forbids on every leg.
     auto rootIt = canonicalRoot.begin();
     auto candidateIt = candidate.begin();
-    for (; rootIt != canonicalRoot.end(); ++rootIt, ++candidateIt) {
+    for (; rootIt != canonicalRoot.end(); ++rootIt) {
+        if (rootIt->empty()) continue;
         if (candidateIt == candidate.end() || *candidateIt != *rootIt)
             return fail(ErrorCode::InvalidArgument,
                         relative.string() + " escapes " + root.string());
+        ++candidateIt;
     }
 
     // weakly_canonical resolves only the leading elements that EXIST, and it
