@@ -265,6 +265,14 @@ model, no weapon and no opponent until 0.2.0.
   does not pre-empt it.
   This is what S1 is measured on.
   Blocked-by: the renderer and ut-bake.
+  Note (2026-09-04): a throwaway spike to get crude geometry on screen
+  before this item was PROPOSED and DECLINED by the user. Nothing is
+  visible until this item lands, fourteen items after UTA-0003, and the
+  suggestion was that an early spike would prove the design chain
+  sooner. The user's call was to keep the order: the design has already
+  been cold-reviewed, and a spike costs days it does not repay if the
+  design holds. Do not re-propose it without new evidence that the chain
+  is wrong.
   **Layman:** The first thing you can actually run -- open one of your maps and move through it. No guns, no bots, no rules yet.
   Kind: implement.
   Source: design-2026-09-03.

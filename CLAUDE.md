@@ -60,6 +60,19 @@ and its jobs render as ✗. Check the run whose `headSha` is HEAD:
 gh run list --limit 5 --json headSha,conclusion
 ```
 
+**A path test must not compare against a raw temp path.** The Windows
+runner's temp directory is a short 8.3 name that `weakly_canonical`
+expands, so `result->string().starts_with(dir.path().string())` compares
+two spellings of one directory and fails on MSVC alone. Assert the
+property instead — resolve under both spellings and compare the results.
+Cost one red MSVC leg on 2026-09-04; both Linux legs were green.
+
+**`spec_lint` reports `surfaces_checked: false` on this project, always.**
+It resolves test surfaces only in a `tests/features/<name>/` layout and
+this project uses `tests/unit/`, so `findings: []` is SILENT about test
+surfaces rather than a pass — read the flag before the count, and check
+the `*Test:*` clauses by hand. Upstream ANTS-4393 / ANTS-4679.
+
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
 measured; the gate runs it as its own step on Linux, and refuses on
