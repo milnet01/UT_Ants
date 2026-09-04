@@ -342,9 +342,9 @@ Three things implementation proved that the draft did not say:
   it is `InvalidArgument`, and a failed allocation is `OutOfMemory`. The
   figure is stated rather than left to the implementation because `upkg`
   (UTA-0003) reads every package through `readFile`, and its author has
-  to know which sizes are supported: the largest package in the Unreal
-  Tournament install this project is developed against is about 400 MB,
-  which 4 GiB clears by an order of magnitude.
+  to know which sizes are supported. `scripts/package-census.py` reports
+  the largest package in any given install; across the content this
+  project is developed against, that stays well under a gigabyte.
 - **Files are opened by their native path**, never `path::string()`. That is
   UTF-8 on Windows while `fopen` decodes the ANSI code page, so every
   non-ASCII path — `%APPDATA%` for a non-ASCII user name among them — would

@@ -70,13 +70,13 @@ the install on this machine:
 |---|---|
 | Versions 61–69 cover almost the whole library; a small tail sits at 76, 79, 118 and 128 | The version gate is real work, not a formality — the tail is UE2-era content that must be refused rather than mis-read |
 | Packages below version 64 are a minority but not rare, and are mostly textures, music and sounds rather than maps | The pre-64 null-terminated name table is supported here (§4.5), not deferred |
-| The largest single package is roughly 400 MB; the median is under 2 MB | Whole-file reading cannot be forced on the caller (§3.2) |
+| A few packages are very much larger than the median, and how much larger depends on which content is installed | Whole-file reading cannot be forced on the caller (§3.2) |
 
 The figures themselves are deliberately not restated here: they are a
 property of one install and differ on another. The script is what
 reproduces them, which is why it is committed rather than quoted.
 
-## 3. Scope decisions
+## 3. Scope decisions (agreed with the user)
 
 ### 3.1 The generic property reader is in scope — user, 2026-09-04
 
@@ -97,8 +97,8 @@ to the user; each is reversible behind the API.
 
 1. **`upkg` opens no files.** Every entry point takes a
    `std::span<const std::byte>`. The caller decides how the bytes arrive
-   — `uta::fs::readFile` today, a memory map later. With ~400 MB
-   packages in a real install, a reader that forces whole-file reading
+   — `uta::fs::readFile` today, a memory map later. §2.1 measured how
+   far package sizes spread, so a reader that forces whole-file reading
    makes that decision for every future caller; with a span it makes it
    for none. It also removes file I/O from every test.
 2. **Versions 61–69 are accepted, including the pre-64 name table.** The
@@ -171,8 +171,11 @@ public:
 };
 ```
 
-Every reader returns `IoFailure` when fewer bytes remain than the read
-needs, and never moves the cursor on failure. Multi-byte integers are
+Every reader returns `MalformedData` when fewer bytes remain than the
+read needs, and never moves the cursor on failure — the cursor holds
+bytes rather than a file (§3.2 item 1), so a short read is a malformed
+package and not an I/O failure. That is the one code for a short read
+anywhere in `upkg`, which §4.5, §6 and INV-9 all rely on. Multi-byte integers are
 little-endian and are assembled byte by byte rather than by casting a
 pointer, so an unaligned offset — which the format allows everywhere — is
 not undefined behaviour. Floats are assembled the same way and
@@ -208,9 +211,9 @@ struct PackageHeader {
 ```
 
 Read in order: a `std::uint32_t` signature that must equal `0x9E2A83C1`
-(`MalformedData` otherwise), the two version words, the flags, then six
-`std::uint32_t` count/offset pairs for the name, export and import
-tables. Below version 68 a heritage count and offset follow and are
+(`MalformedData` otherwise), the two version words, the flags, then a
+`std::uint32_t` count and a `std::uint32_t` offset for each of the name,
+export and import tables, in that order — six words in all. Below version 68 a heritage count and offset follow and are
 skipped; at 68 and above a 16-byte GUID and a generation list follow, and
 the generation list is skipped after its count is validated.
 
@@ -320,10 +323,10 @@ lifetime, which the header states.
 
 An object's serialised data begins with a list of tagged properties,
 terminated by the name `None`. Objects whose flags include
-`HasStack` (`0x02000000`) prefix it with an execution-stack frame:
-two object references, a `std::int64_t` probe mask, a `std::int32_t`
-latent action, and — only when the first reference is non-null — a
-compact-index offset. That frame is read and discarded; skipping it is
+`HasStack` (`0x02000000`) prefix it with an execution-stack frame: two
+object references written as compact indices, a `std::int64_t` probe
+mask, a `std::int32_t` latent action, and — only when the first
+reference is non-null — a compact-index offset. That frame is read and discarded; skipping it is
 not optional, and it is common in real maps.
 
 A tag is read in this order, and the order is not rearrangeable:
@@ -350,7 +353,7 @@ struct NameRef  { std::uint32_t index = 0; };
 struct Vector3  { float x = 0, y = 0, z = 0; };
 struct Rotator  { std::int32_t pitch = 0, yaw = 0, roll = 0; };
 
-using PropertyValue = std::variant<std::monostate,       // Bool carries no bytes
+using PropertyValue = std::variant<std::monostate,       // the default; nothing read yet
                                    std::uint8_t,         // Byte
                                    std::int32_t,         // Int
                                    bool,                 // Bool
@@ -376,14 +379,19 @@ struct Property {
 ```
 
 **A `Bool`'s value comes from the info byte and consumes no value
-bytes.** The size code is still present and is ignored. Consuming the
-size desynchronises everything after it.
+bytes.** It is still a value: a `Bool` property holds the `bool`
+alternative, never `std::monostate`. The size code is present and is
+ignored; consuming it desynchronises everything after it.
 
 **Values decoded here:** `Byte`, `Int`, `Bool`, `Float`, `Object`,
 `Class`, `Name`, `Str` (a compact-index length then that many bytes
 including the terminator), `String` (exactly `size` bytes), and the two
-structs whose layout is fixed by the format — `Vector` and `Rotator`,
-which arrive as `Struct` with those struct names.
+structs whose layout is fixed by the format — `Vector` and `Rotator`.
+
+**Those two arrive spelled either way, and both decode identically.** A
+tag may carry `Vector` or `Rotator` in its type field, or `Struct` with
+that struct name. `structNameIndex` is meaningful only in the second
+spelling, and is zero in the first.
 
 **Everything else is returned as its raw bytes**, with the type and
 struct name intact: any other struct, and `Array`, `Map` and
@@ -400,8 +408,9 @@ returning nonsense. Class objects are UTA-0005.
 ### 4.9 The fixture builder grows
 
 `tests/support/UnrealPackageBuilder` gains: import and export entries,
-per-export serialised data, a tagged-property writer, pre-64
-null-terminated name tables, and the ability to write a header whose
+per-export serialised data, a tagged-property writer, an
+execution-stack frame writer for the `HasStack` exports INV-12 needs,
+pre-64 null-terminated name tables, and the ability to write a header whose
 counts and offsets deliberately disagree with the body — which is what
 the malformed-input tests need and what a self-consistent builder cannot
 produce. It remains an encoder with no decode path.
@@ -411,8 +420,11 @@ produce. It remains an encoder with no decode path.
 - **INV-1** — No `upkg` entry point throws, terminates or reads outside
   its span, for any input bytes.
   *Test:* `tests/unit/PackageMalformedTest.cpp` drives a corpus of
-  truncations and lying headers built by the fixture builder, and the
-  ThreadSanitizer and address-sanitizer legs of `scripts/ci.sh` run it.
+  truncations and lying headers built by the fixture builder. Nothing
+  else checks it. `scripts/ci.sh`'s one sanitizer leg is
+  ThreadSanitizer, which finds races rather than out-of-span reads, and
+  `CMakeLists.txt` records why AddressSanitizer is not offered. §10
+  grades this invariant on that.
   *Breaks when:* a length or offset from the file is used before it is
   checked — the class §2 names as attacker-controlled.
 
@@ -539,7 +551,7 @@ produce. It remains an encoder with no decode path.
   The failure would be inventing a layout for it.
 - **The caller frees the bytes while a `Package` lives.** Undefined, and
   not defended against — the alternative is copying every package,
-  including the 400 MB ones. Stated in the header, and the reason §3.2
+  including the largest. Stated in the header, and the reason §3.2
   item 1 keeps the choice with the caller.
 
 ## 7. Tests
@@ -577,8 +589,8 @@ a missing symbol first, then against the failure it names, per
 ## 8. Alternatives considered (and rejected)
 
 - **Take a file path and read the file.** Rejected: it forces whole-file
-  reading on every caller, and §2.1 measured packages where that costs
-  hundreds of megabytes. A span defers the choice at no cost.
+  reading on every caller, and §2.1 measured how large packages get. A
+  span defers the choice at no cost.
 - **Memory-map the file inside `upkg`.** Rejected for now, not on merit:
   it is platform code with no measurement behind it yet, and the span
   API is what lets it be added later as a caller's choice rather than a
@@ -621,7 +633,7 @@ a missing symbol first, then against the failure it names, per
 
 | Rule | What catches a breach |
 |------|----------------------|
-| INV-1 | **Partial:** `tests/unit/PackageMalformedTest.cpp` under the sanitizer leg; an input shape the corpus does not contain is caught by nothing until a fuzzer exists |
+| INV-1 | **Partial:** `tests/unit/PackageMalformedTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists |
 | INV-2 | `tests/unit/PackageMalformedTest.cpp`, a Catch2 unit test |
 | INV-3 | `tests/unit/CompactIndexTest.cpp`, a Catch2 unit test |
 | INV-4 | `tests/unit/CompactIndexTest.cpp`, a Catch2 unit test |
@@ -636,7 +648,7 @@ a missing symbol first, then against the failure it names, per
 | INV-13 | `src/upkg/CMakeLists.txt`, a configure-time property assertion |
 | §4.8 "the two independent implementations must disagree visibly" | **Partial:** the real-asset tier is the only thing that reads bytes this project did not write, and it is off by default, so a fixture-only run proves agreement with ourselves |
 | §4.5 "a name is exposed as bytes, not transcoded" | **nothing** — no test asserts a non-ASCII name survives; UT99 content is ASCII in practice and no fixture carries a counter-example |
-| §6 "the caller must keep the bytes alive" | **nothing** — a lifetime rule a header states and no check enforces; the address sanitizer would catch a use-after-free only if a test wrote one |
+| §6 "the caller must keep the bytes alive" | **nothing** — a lifetime rule a header states and no check enforces, and there is no AddressSanitizer leg that would catch a use-after-free |
 | §3.2 item 3 "decode lazily" | **nothing** — nothing measures that opening a package does not read every export's data; it is visible in the code and not in a test |
 
 ## 11. Cross-doc impact
@@ -651,6 +663,7 @@ a missing symbol first, then against the failure it names, per
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| 1 | 2026-09-04 | 3, cold — genre pinned `spec`; packet carried a re-run install census and the build's sanitizer configuration | 2 | 2 | 4 | 0 | **Eight verified, eight fixed, plus one mechanical (`spec_lint` `missing_section`); two dismissed.** **All three lanes independently found the same Q1, and it is the run's most consequential:** INV-1's *Test:* clause named an address-sanitizer leg of `scripts/ci.sh`. There is none — `UTA_SANITIZE` accepts `""` or `"thread"`, and `CMakeLists.txt` records why AddressSanitizer was declined — and ThreadSanitizer finds races rather than out-of-span reads. So the bounds clause of the invariant this spec's untrusted-input argument rests on was checked by nothing while reading as gated. §10 now says so; whether CI should gain a memory checker is surfaced, not decided, being a build change. **All three also found the `PropertyValue` variant annotating both `std::monostate` and `bool` as the `Bool` case**, against INV-10 — a caller would have read every boolean as absent, silently. **Two lanes found the reason-code split:** §4.2 made a short read `IoFailure` where §4.5, §6 and INV-9 make the same event `MalformedData`, on the API UTA-0004, UTA-0005 and `ut-dump` branch on. **Two found `Vector` and `Rotator` falling between the decoded and undecoded lists** — declared as tag types, described only as `Struct`-named — which is what UTA-0004 reads actor placements off. **Two found "six `std::uint32_t` count/offset pairs" for three tables**, whose literal reading over-consumes the header and desynchronises everything after it. Single-lane: the execution-stack frame's two object references had no stated encoding in a document that uses both, and §4.9's builder list omitted the frame writer INV-12's test needs. **The stale-figure class cost three sections** — §2.1 declared its figures deliberately not restated and then restated them, and "roughly 400 MB" was measured this day at 95.7 MiB for the base install, the ~385 MiB belonging to a separate content pack. Figures removed rather than corrected. **Collateral, repaired in the neighbouring document:** `UTA-0002` carried the same 400 MB claim, which is where this one came from. **Dismissed as true but immaterial:** §10 attributes two quoted rules to sections not containing them, and §7 leaves the real-asset executable's `uta_upkg` link unstated — a link error settled on sight. |
 
 ## 13. Resource cost
 
