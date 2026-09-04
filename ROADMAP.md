@@ -201,6 +201,11 @@ model, no weapon and no opponent until 0.2.0.
   texture's PolyFlags say which surfaces are glass, water, sky or self-lit, so
   those are read rather than guessed.
   Runs at bake time, so slow and high quality is affordable (ADR-0002).
+  Note (2026-09-04): UTA-0052 wants to land first. This item upscales and
+  then derives five maps per texture, which multiplies video memory to the
+  point where the 2 GB development card decides whether the result runs.
+  Block compression and a per-material upscale cap are cheaper to build in
+  than to retrofit, because retrofitting regenerates every material.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -286,6 +291,11 @@ model, no weapon and no opponent until 0.2.0.
   No ray tracing: the target is reached with shadow maps, baked indirect light
   and volumetrics.
   Blocked-by: the bundle draw path.
+  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
+  default chosen here. True volumetrics are among the most expensive
+  things on this roadmap; cheap analytic height fog carries most of the
+  atmosphere at a fraction of the cost, so the two probably sit at
+  different tiers rather than one being cut.
   **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
   Kind: implement.
   Source: design-2026-09-03.
@@ -322,6 +332,11 @@ model, no weapon and no opponent until 0.2.0.
   no real depth reads worse with POM than without, so the curated library
   (UTA-0010) decides per material and the generated fallback is conservative.
   Blocked-by: the bundle draw path, PBR generation.
+  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
+  default chosen here. Parallax occlusion is a per-pixel loop over a UT
+  map's large wall area, so it also wants a distance cutoff -- the step
+  count question this item already names, answered against the tier rather
+  than in isolation.
   **Layman:** Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
   Kind: implement.
   Source: user-request-2026-09-03.
@@ -437,6 +452,10 @@ model, no weapon and no opponent until 0.2.0.
   versioning-overrides.md).
 
   Blocked-by: the design edit, and UTA-0010 for the library it lands in.
+  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
+  default chosen here. Curated materials only, so the cost is bounded by
+  how many of them exist -- but on the target laptops it is still a tier
+  decision rather than an always-on effect.
   **Layman:** Skin, wax, marble and leaves stop looking like painted plastic -- light passes a little way through them instead of stopping dead at the surface.
   Kind: feature.
   Source: user-request-2026-09-04.
@@ -464,6 +483,11 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0044, and one pass can carry both.
 
   Depends on UTA-0014 for the deferred buffers it reads.
+  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
+  default chosen here. Screen-space reflections are the most likely of the
+  four expensive effects to be off at every tier the target hardware
+  reaches, and on 1999 geometry they can read worse than no reflection at
+  all -- which is a quality judgement to make when it is built, not now.
   **Layman:** Wet floors, polished metal and glass pick up the room around them -- sharply where the surface is smooth, blurred where it is rough -- instead of being flatly lit.
   Kind: feature.
   Source: user-request-2026-09-04.
@@ -693,6 +717,126 @@ model, no weapon and no opponent until 0.2.0.
   **Layman:** Cut the waiting time when rebuilding, especially after wiping the build folder, without needing a bigger machine.
   Kind: perf.
   Source: user-request-2026-09-04.
+
+- 📋 [UTA-0051] **urender: quality tiers and dynamic resolution, so the engine scales to the hardware.**
+  The development machine is a GTX 1050 with 2 GB, and the people this is
+  built for play on old laptops. Every renderer item after the draw path
+  adds cost, and with nowhere to declare that cost each one either ships
+  on by default and breaks those machines, or ships off and is never seen.
+
+  Named tiers, where every visual feature declares the tier it switches on
+  at rather than owning a toggle of its own. That is the part other items
+  bind to, so it wants settling BEFORE UTA-0015, UTA-0040, UTA-0044 and
+  UTA-0045 rather than after -- those four are the expensive ones and each
+  needs a tier assigned rather than a default invented locally.
+
+  Dynamic resolution driven by a frame-time target, with the sharpening
+  pass picking up the difference. Rendering at 70 to 80 per cent and
+  sharpening buys more frames on a weak laptop than switching off any
+  single effect, and costs less of the look.
+
+  The default tier is detected rather than asked for, and always
+  overridable.
+
+  This is the mechanism. UTA-0039 is the measurement that proves it holds,
+  and stays where it is.
+
+  Likely needs a spec before code: it is a contract several later items
+  bind to, which is spec-format.md section 1's first trigger.
+
+  Blocked-by: the bundle draw path.
+  **Layman:** One quality setting that actually works: the game picks a sensible level for your machine, leaves the expensive effects off on weak hardware, and quietly lowers resolution rather than stuttering.
+  Kind: implement.
+  Source: user-request-2026-09-04.
+  Lanes: urender.
+
+- 📋 [UTA-0052] **umat: a texture memory budget, with block compression and a per-material upscale cap.**
+  UTA-0009 turns one 1999 texture into five -- albedo, normal, roughness,
+  height and emissive -- and upscales before deriving them. Upscaling
+  256x256 to 1024x1024 is sixteen times the pixels, so five maps at
+  sixteen times is up to eighty times the memory the original texture
+  used. The development card has 2 GB and the target laptops have less, so
+  this is the constraint that decides whether the result runs at all.
+
+  Two mechanisms, both at bake time and so costing no frames:
+
+  - Block compression -- BC7 for colour, BC5 for two-channel normals.
+    Roughly a quarter of the memory, decoded by the GPU for free.
+  - An upscale factor decided per material rather than globally. A blurry
+    wall texture gains nothing from four times; a hero surface might.
+
+  The budget is per map and measured rather than assumed: the baker
+  reports the working set it produced and refuses a bake that exceeds the
+  tier's budget.
+
+  Wanted BEFORE UTA-0009. Retrofitting compression means regenerating
+  every material and changing what a bundle stores.
+
+  Blocked-by: ubundle.
+  **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
+  Kind: implement.
+  Source: user-request-2026-09-04.
+  Lanes: umat, ubundle.
+
+- 📋 [UTA-0053] **urender: the cheap post-processing set -- bloom, colour grading, anti-aliasing and sharpening.**
+  Four effects that together do most of the visual modernisation and cost
+  under a millisecond between them on the development card.
+
+  - Emissive-only bloom at quarter resolution. UT99 is full of glowing
+    panels, lava, ammo and muzzle flashes, and the PolyFlags UTA-0009
+    already reads say which surfaces are self-lit, so the mask is free.
+  - A colour grading lookup table chosen per map at bake time. One texture
+    fetch, and the largest single change in how modern the result reads.
+  - Anti-aliasing. 1999 geometry is hard edges and thin railings, which
+    alias badly. FXAA or SMAA rather than a temporal filter, which needs
+    motion vectors and history the first draw path does not have.
+  - A sharpening pass. This is what makes rendering below native
+    resolution acceptable, so it is the enabler for the quality tiers
+    rather than an effect in its own right.
+
+  Blocked-by: the bundle draw path.
+  **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
+  Kind: implement.
+  Source: user-request-2026-09-04.
+  Lanes: urender.
+
+- 📋 [UTA-0054] **urender: cheap surface detail -- detail normals, dithered alpha, contact shadows and interior windows.**
+  Four more sub-millisecond effects, each aimed at one way 1999 content
+  reads as old.
+
+  - A single shared tiling detail normal applied close to the camera, so a
+    256x256 wall stops looking flat when you stand against it. One extra
+    fetch, and negligible memory because every material shares the one
+    texture.
+  - Dithered alpha for masked surfaces, resolved so it does not shimmer.
+    UT99 uses masked textures for every grate, fence and tree, and the
+    shimmer is a large part of why they read as cheap.
+  - Screen-space contact shadows: a short ray march that grounds an object
+    where a shadow map's resolution runs out. Much cheaper than adding a
+    cascade.
+  - Interior cubemap parallax on windows, so a window is not a flat pane.
+
+  Blocked-by: the bundle draw path.
+  **Layman:** Walls look detailed close up, fences stop shimmering, objects stop looking like they float, and windows gain depth.
+  Kind: implement.
+  Source: user-request-2026-09-04.
+  Lanes: urender, umat.
+
+- 📋 [UTA-0055] **urender: vertex-animated banners, flags and water.**
+  Movement costs nothing on the GPU and reads as life. UT99 hangs banners
+  and flags throughout its maps and its water surfaces are static
+  geometry.
+
+  The work is not the vertex shader. It is deciding WHICH surfaces move,
+  which is a bake-time tag on the material -- from the original texture
+  name and PolyFlags where those say so, and from the curated library
+  (UTA-0010) where they do not.
+
+  Blocked-by: the bundle draw path.
+  **Layman:** Make the flags and the water move instead of standing still.
+  Kind: implement.
+  Source: user-request-2026-09-04.
+  Lanes: urender, umat.
 
 ## 0.2.0 — Movement and weapons
 
