@@ -14,6 +14,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <functional>
@@ -42,7 +43,13 @@ enum class LogLevel : std::uint8_t {
 /// settable at runtime and read on every log call, so it is atomic.
 class LogCategory {
 public:
-    constexpr explicit LogCategory(std::string_view name,
+    /// Takes const char*, not std::string_view, on purpose. The name is
+    /// BORROWED and read on every log line, so it must outlive the category --
+    /// a literal, or anything with static storage duration. A string_view
+    /// parameter would silently accept a std::string temporary and then print
+    /// freed memory; with const char* a std::string needs an explicit
+    /// .c_str(), which is a visible act at the call site.
+    constexpr explicit LogCategory(const char* name,
                                    LogLevel minimum = LogLevel::Info)
         : name_(name), minimum_(minimum) {}
 
@@ -124,11 +131,21 @@ extern LogCategory logCore;
 /// The level test happens BEFORE std::format is called, so a suppressed
 /// message costs a relaxed load and a branch and does not evaluate its
 /// arguments (INV-4).
+///
+/// The format call runs in the CALLER's expression, outside write()'s
+/// noexcept, and std::format can throw -- so it is caught here rather than at
+/// each call site. Without that, logging from any noexcept function is a
+/// std::terminate waiting for an allocation failure, and every such caller
+/// has to rediscover it.
 #define UTA_LOG(category, level, ...)                                        \
     do {                                                                     \
         const ::uta::LogCategory& utaCat = (category);                       \
         const ::uta::LogLevel utaLvl = (level);                              \
-        if (utaCat.enabled(utaLvl))                                          \
-            ::uta::Logger::instance().write(utaCat, utaLvl,                  \
-                                            ::std::format(__VA_ARGS__));     \
+        if (utaCat.enabled(utaLvl)) {                                        \
+            try {                                                            \
+                ::uta::Logger::instance().write(utaCat, utaLvl,              \
+                                                ::std::format(__VA_ARGS__)); \
+            } catch (...) {                                                  \
+            }                                                                \
+        }                                                                    \
     } while (false)

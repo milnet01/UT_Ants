@@ -47,7 +47,17 @@ public:
         : code_(code), message_(std::move(message)) {}
 
     [[nodiscard]] ErrorCode code() const noexcept { return code_; }
-    [[nodiscard]] std::string_view message() const noexcept { return message_; }
+
+    /// Ref-qualified, and the rvalue overload is deleted on purpose. The view
+    /// aliases message_, and withContext() returns a prvalue -- so the chained
+    /// shape this header's own example teaches
+    ///     auto m = err.withContext("...").message();
+    /// would leave m pointing into an Error destroyed at the end of the full
+    /// expression. Measured: it printed nothing, and ASan did not flag it,
+    /// because a short message lives inside the object rather than on the
+    /// heap. Deleting the overload makes that a compile error instead.
+    [[nodiscard]] std::string_view message() const& noexcept { return message_; }
+    std::string_view message() const&& = delete;
 
     /// Prepend context, keeping the code:
     ///   readFile -> Error{NotFound, "no such file: dm-deck16.unr"}
@@ -77,31 +87,45 @@ using Result = std::expected<T, Error>;
 }  // namespace uta
 
 // Propagation. std::expected's and_then and transform cover chained
-// transformations; these two cover the imperative case, and core defines no
-// other macros.
+// transformations; the two below cover the imperative case. They are core's
+// only PROPAGATION macros -- UTA_LOG is Log.h's.
 //
-// No statement expressions -- MSVC has none. The temporary is named from
-// __LINE__ through two levels of indirection, which is what makes the inner
-// macro expand its argument before pasting.
+// No statement expressions -- MSVC has none. The temporary is named through
+// two levels of indirection, which is what makes the inner macro expand its
+// argument before pasting.
 
 #define UTA_DETAIL_CAT_(a, b) a##b
 #define UTA_DETAIL_CAT(a, b) UTA_DETAIL_CAT_(a, b)
 
+// __COUNTER__ rather than __LINE__. UTA_TRY declares in the ENCLOSING scope,
+// so two on one physical line would redefine one name; and MSVC's
+// edit-and-continue build does not expand __LINE__ to a pasteable token, which
+// matters here because MSVC is the whole reason this shape exists. GCC, Clang
+// and MSVC all provide __COUNTER__; __LINE__ remains the fallback.
+#ifdef __COUNTER__
+#define UTA_DETAIL_UNIQUE(base) UTA_DETAIL_CAT(base, __COUNTER__)
+#else
+#define UTA_DETAIL_UNIQUE(base) UTA_DETAIL_CAT(base, __LINE__)
+#endif
+
 /// Bind, or return the error to the caller.
 ///   UTA_TRY(auto bytes, uta::fs::readFile(path));
+///
+/// This declares in the enclosing scope, so it must sit at block-statement
+/// position: brace the body of any if or loop that uses it.
 #define UTA_TRY(declaration, expression)                                     \
-    auto UTA_DETAIL_CAT(utaResult_, __LINE__) = (expression);                \
-    if (!UTA_DETAIL_CAT(utaResult_, __LINE__).has_value())                   \
-        return std::unexpected(                                              \
-            std::move(UTA_DETAIL_CAT(utaResult_, __LINE__)).error());        \
-    declaration = *std::move(UTA_DETAIL_CAT(utaResult_, __LINE__))
+    UTA_DETAIL_TRY(declaration, expression, UTA_DETAIL_UNIQUE(utaResult_))
+
+#define UTA_DETAIL_TRY(declaration, expression, tmp)                         \
+    auto tmp = (expression);                                                 \
+    if (!tmp.has_value()) return std::unexpected(std::move(tmp).error());    \
+    declaration = *std::move(tmp)
 
 /// Run for effect, or return the error to the caller.
 ///   UTA_CHECK(uta::fs::writeFileAtomically(path, bytes));
 #define UTA_CHECK(expression)                                                \
     do {                                                                     \
-        auto UTA_DETAIL_CAT(utaStatus_, __LINE__) = (expression);            \
-        if (!UTA_DETAIL_CAT(utaStatus_, __LINE__).has_value())               \
-            return std::unexpected(                                          \
-                std::move(UTA_DETAIL_CAT(utaStatus_, __LINE__)).error());    \
+        auto utaStatus = (expression);                                       \
+        if (!utaStatus.has_value())                                          \
+            return std::unexpected(std::move(utaStatus).error());            \
     } while (false)

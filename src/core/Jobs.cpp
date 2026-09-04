@@ -13,16 +13,11 @@ namespace {
 
 /// Reports a job failure that was contained.
 ///
-/// Never throws, and that is the point: it is called from a noexcept context,
-/// where std::format allocating and failing would call std::terminate -- so
-/// the containment would kill the process it exists to protect. Found by
-/// clang-tidy's bugprone-exception-escape.
+/// No local try/catch: UTA_LOG contains its own throw now, so every noexcept
+/// caller is covered rather than each one rediscovering the hazard. This
+/// wrapper is kept for the shared message.
 void logContainedFailure(std::string_view detail) noexcept {
-    try {
-        UTA_LOG(logCore, LogLevel::Error, "a job threw and was contained: {}", detail);
-    } catch (...) {
-        // Even reporting failed. There is nothing above this to tell.
-    }
+    UTA_LOG(logCore, LogLevel::Error, "a job threw and was contained: {}", detail);
 }
 
 /// The worker count, with the underflow guard the arithmetic needs.
@@ -41,8 +36,27 @@ void logContainedFailure(std::string_view detail) noexcept {
 JobSystem::JobSystem(unsigned workerCount) {
     const unsigned count = resolveWorkerCount(workerCount);
     workers_.reserve(count);
-    for (unsigned i = 0; i < count; ++i)
-        workers_.emplace_back([this] { workerLoop(); });
+    try {
+        for (unsigned i = 0; i < count; ++i)
+            workers_.emplace_back([this] { workerLoop(); });
+    } catch (...) {
+        // std::thread's constructor throws when the OS refuses a thread, and
+        // an abandoned constructor never runs ~JobSystem -- so workers_ would
+        // be destroyed holding JOINABLE threads, which is defined to call
+        // std::terminate. Measured: the process aborted with "terminate called
+        // without an active exception" and no diagnostic at all.
+        //
+        // So stop and join what did start, then let the caller see the real
+        // exception.
+        {
+            const std::lock_guard lock(mutex_);
+            stopping_ = true;
+        }
+        cv_.notify_all();
+        for (std::thread& worker : workers_)
+            if (worker.joinable()) worker.join();
+        throw;
+    }
 }
 
 JobSystem::~JobSystem() {
@@ -60,6 +74,7 @@ JobSystem::~JobSystem() {
 
 JobHandle JobSystem::submit(std::function<void()> job) {
     auto state = std::make_shared<JobHandle::State>();
+    state->owner = this;
     {
         const std::lock_guard lock(mutex_);
         queue_.push_back(Job{std::move(job), state});
@@ -74,8 +89,20 @@ void JobSystem::parallelFor(std::size_t count,
 
     std::vector<JobHandle> handles;
     handles.reserve(count);
-    for (std::size_t i = 0; i < count; ++i)
-        handles.push_back(submit([&body, i] { body(i); }));
+
+    // `body` is captured by REFERENCE, so every job queued here must finish
+    // before this frame goes. submit() allocates and can throw, so on a throw
+    // part-way through, the jobs already queued would still hold that
+    // reference -- and a caller passing a temporary lambda, which is the
+    // natural shape, destroys it at the end of the full expression while
+    // workers are still calling it. Wait for what was queued, then rethrow.
+    try {
+        for (std::size_t i = 0; i < count; ++i)
+            handles.push_back(submit([&body, i] { body(i); }));
+    } catch (...) {
+        for (const JobHandle& handle : handles) wait(handle);
+        throw;
+    }
 
     for (const JobHandle& handle : handles) wait(handle);
 }
@@ -122,6 +149,18 @@ void JobSystem::workerLoop() {
 
 void JobSystem::wait(const JobHandle& handle) {
     if (handle.done()) return;
+
+    // A handle from another JobSystem is completed by that system's condition
+    // variable, never this one, so waiting here would block until something
+    // unrelated woke us -- on an idle pool, forever. Say so and return rather
+    // than hang: a worker parked this way never returns to its loop, and the
+    // destructor's join would then never return either.
+    if (handle.state_ != nullptr && handle.state_->owner != this) {
+        UTA_LOG(logCore, LogLevel::Error,
+                "wait() was given a JobHandle from a different JobSystem; "
+                "returning without waiting");
+        return;
+    }
 
     std::unique_lock lock(mutex_);
 

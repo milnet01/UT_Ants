@@ -51,6 +51,16 @@ private:
 
     struct State {
         std::atomic<bool> done{false};
+        /// Which JobSystem submitted this. A handle carries no owner
+        /// otherwise, and both branches of wait() sleep on the waiting
+        /// system's own condition variable -- so waiting on a foreign handle
+        /// would block until something unrelated happened to wake it, and on
+        /// an idle system, forever. A worker parked that way never returns to
+        /// its loop, so the destructor's join never returns either.
+        ///
+        /// Not owning, and never dereferenced: it is compared and nothing
+        /// else, so a handle outliving its system stays safe.
+        const JobSystem* owner = nullptr;
     };
 
     explicit JobHandle(std::shared_ptr<State> state) : state_(std::move(state)) {}

@@ -239,6 +239,24 @@ TEST_CASE("resolveUnder refuses a sibling whose name merely shares a prefix",
 }
 
 #ifndef _WIN32
+// A DANGLING symlink is the case weakly_canonical does not resolve: status()
+// follows links, so a link to a missing target reads as not_found and its own
+// name is appended unresolved. It would pass containment while still pointing
+// outside root, and a caller creating through it writes outside root.
+TEST_CASE("resolveUnder refuses a dangling symlink", "[core][fs]") {
+    const TempDir dir;
+    const fs::path root = dir.path() / "root";
+    fs::create_directory(root);
+
+    std::error_code ec;
+    fs::create_symlink(dir.path() / "does-not-exist-yet", root / "dangling", ec);
+    if (ec) SUCCEED("symlinks unavailable here");
+
+    const auto result = uta::fs::resolveUnder(root, "dangling");
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code() == ErrorCode::InvalidArgument);
+}
+
 TEST_CASE("resolveUnder refuses an escape through a symlink", "[core][fs]") {
     const TempDir dir;
     const fs::path root = dir.path() / "root";
@@ -340,6 +358,21 @@ TEST_CASE("an unset XDG variable falls back to an absolute path", "[core][fs]") 
     CHECK(configDir->is_absolute());
     CHECK(cacheDir->is_absolute());
     CHECK(logDir->is_absolute());
+}
+#endif
+
+#ifndef _WIN32
+TEST_CASE("a relative XDG value is ignored, not honoured", "[core][fs]") {
+    const TempDir dir;
+    // XDG requires a relative value to be ignored, and INV-8 promises every
+    // fallback is absolute -- which a relative HOME would otherwise break.
+    const EnvScope config("XDG_CONFIG_HOME", "relative/not/absolute");
+    const EnvScope home("HOME", dir.path().string().c_str());
+
+    const auto configDir = uta::fs::configDirectory();
+    REQUIRE(configDir.has_value());
+    CHECK(configDir->is_absolute());
+    CHECK(configDir->string().starts_with(dir.path().string()));
 }
 #endif
 

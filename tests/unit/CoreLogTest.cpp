@@ -5,10 +5,15 @@
 
 #include <algorithm>
 #include <atomic>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
+
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 #include "core/Log.h"
 
@@ -156,4 +161,53 @@ TEST_CASE("a record carries the category, level and text it was logged with",
     CHECK(seenCategory == "upkg");
     CHECK(seenLevel == LogLevel::Warning);
     CHECK(seenText == "42 names in DM-Deck16.unr");
+}
+
+// A sink that logs is the first thing a sink author reaches for when its own
+// write fails. The lock is held across sink calls (INV-5 needs that), so
+// without a guard this self-locks a non-recursive mutex and hangs the process.
+// The CTest TIMEOUT is what would turn that hang into a failure.
+TEST_CASE("a sink that logs does not deadlock the logger", "[core][log]") {
+    const SinkScope scope;
+    LogCategory cat{"reentrant", LogLevel::Trace};
+
+    std::atomic<int> calls{0};
+    Logger::instance().addSink([&](const LogRecord&) {
+        ++calls;
+        // Re-entering write() from inside a sink.
+        UTA_LOG(cat, LogLevel::Error, "from inside the sink");
+    });
+
+    UTA_LOG(cat, LogLevel::Info, "outer");
+
+    // Reaching here at all is the assertion. The nested line is dropped, so
+    // the sink is entered once rather than recursing.
+    CHECK(calls.load() == 1);
+}
+
+// CWE-117. Log text carries filesystem paths now and package bytes later, so
+// an embedded newline could forge a log line and an escape sequence could
+// rewrite the terminal or hide the message being reported.
+TEST_CASE("a shipped sink escapes control bytes in the message", "[core][log]") {
+    const SinkScope scope;
+
+    const auto path = std::filesystem::temp_directory_path() /
+                      ("uta-log-test-" + std::to_string(std::random_device{}()) + ".log");
+    Logger::instance().addSink(uta::fileSink(path));
+
+    LogCategory cat{"inject", LogLevel::Trace};
+    UTA_LOG(cat, LogLevel::Error, "{}", "a\n[error] core: forged\x1b[2J");
+
+    Logger::instance().clearSinks();  // closes the file
+
+    std::ifstream in(path);
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    const std::string written = buffer.str();
+    std::filesystem::remove(path);
+
+    // Exactly one line, and the control bytes are rendered rather than acted on.
+    CHECK(std::count(written.begin(), written.end(), '\n') == 1);
+    CHECK(written.find("\\x0a") != std::string::npos);
+    CHECK(written.find("\\x1b") != std::string::npos);
 }
