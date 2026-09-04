@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <system_error>
 
 #include "core/Log.h"
 
@@ -200,11 +201,17 @@ TEST_CASE("a shipped sink escapes control bytes in the message", "[core][log]") 
 
     Logger::instance().clearSinks();  // closes the file
 
-    std::ifstream in(path);
-    std::stringstream buffer;
-    buffer << in.rdbuf();
-    const std::string written = buffer.str();
-    std::filesystem::remove(path);
+    std::string written;
+    {
+        // Scoped: Windows refuses to delete a file that is still open, and
+        // Linux does not -- so an unscoped reader passes here and fails there.
+        std::ifstream in(path);
+        std::stringstream buffer;
+        buffer << in.rdbuf();
+        written = buffer.str();
+    }
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
 
     // Exactly one line, and the control bytes are rendered rather than acted on.
     CHECK(std::count(written.begin(), written.end(), '\n') == 1);

@@ -140,7 +140,12 @@ TEST_CASE("a write whose parent is a regular file fails and creates nothing",
         uta::fs::writeFileAtomically(parentAsFile / "child.utab", bytesOf("x"));
 
     REQUIRE_FALSE(result.has_value());
-    CHECK(result.error().code() == ErrorCode::IoFailure);
+    // Either code is correct and the platform picks: opening under a file
+    // parent sets ENOTDIR on Linux and ENOENT on Windows. What INV-7 asserts
+    // is that it failed and left nothing behind, not which of the two it is.
+    CHECK((result.error().code() == ErrorCode::IoFailure ||
+           result.error().code() == ErrorCode::NotFound));
+    CHECK_FALSE(result.error().message().empty());
     CHECK(listing(dir.path()) == before);
 }
 
