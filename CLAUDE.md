@@ -4,7 +4,8 @@
 
 **State:** 5 — on an item. Discovery and design are agreed and gated.
 **Next:** `UTA-0003` — `upkg`: the package container (spec drafted, ungated).
-**In flight:** nothing.
+**In flight:** `UTA-0049` — numeric contract enforced and tested, awaiting
+the matrix.
 
 > Keep the three lines above true, and keep them to three lines. They are
 > the only position this project records. Everything else about where
@@ -80,6 +81,20 @@ MSVC, which has no ThreadSanitizer. `-DUTA_REAL_ASSET_TESTS=ON` with
 `-DUTA_UT_INSTALL_DIR=<path>` adds the second test tier, off by default
 so a clone with no Unreal Tournament still builds and tests clean —
 that separation is what **S7** is measured on.
+
+### Which item comes next
+
+The user's standing priority order, given 2026-09-04:
+
+1. Outstanding fixes from any review — test, debt, codebase or document,
+   including backlogged ones.
+2. Open roadmap items that reach v1.0.0.
+3. Open roadmap items for the version after.
+
+A review finding therefore outranks a roadmap item, including the one the
+**Next:** line above names. When a finding is taken ahead of that item,
+say so on the item's bullet so the deferral is recorded rather than
+looking like a session that lost its place.
 
 ### Roadmap IDs
 
