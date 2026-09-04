@@ -594,7 +594,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-decision-2026-09-04.
   Lanes: core, ci.
 
-- 📋 [UTA-0050] **Make the build faster on a memory-limited machine.**
+- 🚧 [UTA-0050] **Make the build faster on a memory-limited machine.**
   Measured 2026-09-04 on the author's machine (12 cores, ~8 GB free of 31,
   GCC 16.2.0, Ninja); three review lanes were running, so wall times carry
   noise and the ranking is what matters rather than the absolute figures.
@@ -630,6 +630,9 @@ model, no weapon and no opponent until 0.2.0.
   sweep came back non-monotonic, which is noise rather than a signal.
 
   Blocked-by: nothing. Independent of UTA-0003.
+  Progress (2026-09-04): picked up on the user's decision to wire both
+  ccache and mold, each guarded so a machine without them builds
+  identically.
   **Layman:** Cut the waiting time when rebuilding, especially after wiping the build folder, without needing a bigger machine.
   Kind: perf.
   Source: user-request-2026-09-04.

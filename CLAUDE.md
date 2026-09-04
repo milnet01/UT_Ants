@@ -108,6 +108,16 @@ this project uses `tests/unit/`, so `findings: []` is SILENT about test
 surfaces rather than a pass — read the flag before the count, and check
 the `*Test:*` clauses by hand. Upstream ANTS-4393 / ANTS-4679.
 
+**`ccache` and `mold` are used if installed and ignored if not**, and change
+nothing about the output. ccache needs two settings before it helps across
+build directories — untold, it hashes the build path into the key and mostly
+misses:
+
+```sh
+ccache --set-config base_dir=/
+ccache --set-config hash_dir=false
+```
+
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
 measured; the gate runs it as its own step on Linux, and refuses on

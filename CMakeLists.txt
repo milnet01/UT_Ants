@@ -128,6 +128,43 @@ endforeach()
 unset(_uta_unsafe_fp_pattern)
 unset(_uta_fp_flags_var)
 
+# Build speed. Both tools are OPTIONAL and detected: a machine without either
+# produces the same binaries, just slower, so a clone still builds and tests
+# clean and S7 is untouched. Measured on ROADMAP UTA-0050, which carries the
+# figures and their date rather than repeating them here.
+#
+# ccache is the one that pays on this project. Nearly every object in a cold
+# build is Catch2, which never changes, so a wiped build directory recompiles
+# the test framework for nothing; with a warm cache a fresh build directory
+# is close to instant. It needs two settings CMake cannot make for you --
+# ccache's defaults hash the build directory into the key, which scores badly
+# across two of them:
+#
+#     ccache --set-config base_dir=/
+#     ccache --set-config hash_dir=false
+#
+# The flags above are part of the compile line, so the cache key changes with
+# them: a build that alters the numeric contract cannot hit an entry compiled
+# under the old one.
+find_program(UTA_CCACHE ccache)
+if(UTA_CCACHE)
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${UTA_CCACHE}")
+    message(STATUS "Compiler launcher: ${UTA_CCACHE}")
+endif()
+
+# mold saves almost nothing TODAY -- this project links one static library and
+# one test executable, so there is barely a link step to speed up. It is wired
+# now because that stops being true once urender and the third-party
+# dependencies arrive, and a detected flag costs nothing in the meantime.
+# Not on MSVC, which has no -fuse-ld.
+if(NOT MSVC)
+    find_program(UTA_MOLD mold)
+    if(UTA_MOLD)
+        add_link_options(-fuse-ld=mold)
+        message(STATUS "Linker: mold (${UTA_MOLD})")
+    endif()
+endif()
+
 # The job system is the first threaded code in this project, and ordinary
 # test runs do not see data races. This is what INV-13 of
 # docs/specs/UTA-0002-core-foundations.md is measured with.
