@@ -428,7 +428,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: urender.
 
-- 🚧 [UTA-0046] **core: the Windows path hazards resolveUnder does not yet cover.**
+- ✅ [UTA-0046] **core: the Windows path hazards resolveUnder does not yet cover.**
   resolveUnder is the trust boundary unet and ubake bind to, and its
   Linux behaviour is now tested. Three Windows-specific shapes are not
   covered, and none can be checked from Linux:
@@ -457,12 +457,24 @@ model, no weapon and no opponent until 0.2.0.
   ctest on the MSVC leg, so a Windows-only test runs in CI without
   needing the Windows box to build. Taken with UTA-0047 and UTA-0048 as
   one UTA-0002 spec amendment plus three fixes.
+  Resolved (2026-09-04): resolveUnder gains a lexical pass over the
+  relative path's components -- reserved device names with or without an
+  extension, a trailing dot or space, a colon -- running BEFORE any
+  filesystem call, and containment now skips an empty trailing element.
+  Shipped WIDER than filed: the rules are enforced on every platform,
+  not only Windows, because a rule holding on one and not the other
+  means a Linux server and a Windows client disagree about which content
+  is safe, and unet moves content between exactly those. That also makes
+  it checkable on all three legs instead of one, so the Windows box was
+  not needed. INV-15 in docs/specs/UTA-0002-core-foundations.md, with an
+  order-distinguishing case (COM1/../safe.unr, which canonicalisation
+  erases). Green on GCC 14, Clang 19 and MSVC, run e4fedc0.
   **Layman:** Close the Windows-only ways a downloaded file could be named so it lands somewhere it should not, or opens a device instead of a file.
   Kind: security.
   Source: review-code-2026-09-04 filesystem lane.
   Lanes: core.
 
-- 🚧 [UTA-0047] **core: make a job's failure observable to whoever waited on it.**
+- ✅ [UTA-0047] **core: make a job's failure observable to whoever waited on it.**
   A job body that throws is contained and logged, and its handle is then
   marked done exactly as a successful one is. So JobHandle::done() is
   true either way, wait() returns normally, and parallelFor reports
@@ -484,12 +496,19 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-04): picked up alongside UTA-0046 and UTA-0048. The
   contract is what has no failure surface, so the UTA-0002 spec
   amendment comes before the code.
+  Resolved (2026-09-04): JobHandle::failed() reports whether the body
+  threw, published BEFORE done under the same lock so a waiter woken by
+  done sees the outcome with it; parallelFor returns how many bodies
+  threw and is nodiscard. The ordering has its own probabilistic test
+  spinning on done() from another thread, with the ThreadSanitizer leg
+  as the real check -- section 10 marks INV-16 partial for exactly that.
+  INV-16. Green on all three legs, run e4fedc0.
   **Layman:** If a piece of background work fails, the code that asked for it should be able to find out, rather than being told everything went fine.
   Kind: enhancement.
   Source: review-code-2026-09-04 job-system lane.
   Lanes: core.
 
-- 🚧 [UTA-0048] **core: fileSink says why it could not open its file.**
+- ✅ [UTA-0048] **core: fileSink says why it could not open its file.**
   fileSink returns a sink that does nothing when the open fails, and the
   caller cannot tell. The failure path is ordinary rather than exotic:
   the log directory does not exist on a first run.
@@ -511,6 +530,14 @@ model, no weapon and no opponent until 0.2.0.
   Includes the related spec drift the same review lane found --
   Logger::write's noexcept, and clearSinks and errorCodeName missing
   from the spec's class sketches.
+  Resolved (2026-09-04): fileSink returns Result<LogSink>, with the code
+  chosen by errno rather than one code standing for every cause. The
+  errno mapping moved from FileSystem.cpp's anonymous namespace to
+  Error.h as errorCodeFromErrno, because the spec requires both fopen
+  sites to use one rule and two copies would drift. The related spec
+  drift the same lane found is folded in too: errorCodeName, clearSinks
+  and Logger::write's noexcept now appear in the class sketches. INV-17.
+  Green on all three legs, run e4fedc0.
   **Layman:** If the game cannot open its log file it should say so at startup, instead of running with logging silently switched off.
   Kind: fix.
   Source: review-code-2026-09-04 logger lane.

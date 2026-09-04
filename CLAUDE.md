@@ -4,7 +4,7 @@
 
 **State:** 5 — on an item. Discovery and design are agreed and gated.
 **Next:** `UTA-0003` — `upkg`: the package container (spec drafted, ungated).
-**In flight:** `UTA-0046`, `UTA-0047`, `UTA-0048` — UTA-0002 review findings.
+**In flight:** nothing.
 
 > Keep the three lines above true, and keep them to three lines. They are
 > the only position this project records. Everything else about where
