@@ -98,6 +98,18 @@ model, no weapon and no opponent until 0.2.0.
   install census three of its design decisions rest on. Paused under the
   user's stated priority order of 2026-09-04: outstanding review
   findings come before new roadmap items.
+  Progress (2026-09-04): the spec is GATED and accepted, superseding the
+  parked note above. review-contract ran both loops of a spec's cap with
+  three cold lanes each; sixteen verified findings, all fixed, and the cap
+  was calm. Two were settled only by parsing real packages: a class export
+  is recognised by a NULL class reference, not by one naming `Class`, and
+  a Bool tag's size code is written as 5, so its trailing size byte must
+  be consumed. The spec may now be built from.
+  One question is open for the user and does NOT block the build: INV-1's
+  out-of-span clause is checked by nothing, because the only sanitizer leg
+  is ThreadSanitizer and CMakeLists.txt records a deliberate decision not
+  to offer AddressSanitizer. Adding a memory-checker leg or a fuzzer is a
+  build change a docs gate must not make.
   **Layman:** Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format.
   Kind: implement.
   Source: design-2026-09-03.

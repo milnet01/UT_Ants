@@ -3,7 +3,7 @@
 ## Where this project is
 
 **State:** 4 — between items. Discovery and design are agreed and gated.
-**Next:** `UTA-0003` — `upkg`: the package container (spec drafted, ungated).
+**Next:** `UTA-0003` — `upkg`: the package container (spec gated, accepted).
 **In flight:** nothing.
 
 > Keep the three lines above true, and keep them to three lines.
