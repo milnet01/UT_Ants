@@ -145,6 +145,16 @@ else
 fi
 
 step "configure ($GENERATOR, $CONFIG)"
+# Name the compiler. This script IS the pipeline -- GitHub calls this same
+# file -- but GitHub calls it once PER COMPILER, and a developer's machine
+# runs it once with whatever CXX resolves to. So the STEPS never drift, and
+# the MATRIX does: a local green covers one leg of three, and saying which
+# one is the difference between that being understood and being missed.
+#
+# To run another leg locally, set CC and CXX the way the workflow does:
+#   CC=clang-19 CXX=clang++-19 ./scripts/ci.sh
+printf '   compiler: %s\n' "${CXX:-the CMake default}"
+
 configure=(-S . -B "$BUILD_DIR" -G "$GENERATOR")
 case $GENERATOR in
     "Visual Studio"* | Xcode | "Ninja Multi-Config") ;; # multi-config: the config is chosen at build time
@@ -173,9 +183,14 @@ if $IS_WINDOWS; then
     skip "MSVC has no ThreadSanitizer — the race detector did not run"
 else
     TSAN_DIR="${BUILD_DIR}-tsan"
+    # Output is NOT swallowed. An earlier version sent configure and build to
+    # /dev/null, and when the Clang leg failed here it printed nothing at all
+    # -- ninja writes its FAILED lines to stdout, so the one thing needed to
+    # diagnose the failure was the thing being discarded. A gate that cannot
+    # say why it failed is not a gate.
     cmake -S . -B "$TSAN_DIR" -G "$GENERATOR" \
-        -DCMAKE_BUILD_TYPE=Debug -DUTA_SANITIZE=thread >/dev/null
-    cmake --build "$TSAN_DIR" >/dev/null
+        -DCMAKE_BUILD_TYPE=Debug -DUTA_SANITIZE=thread
+    cmake --build "$TSAN_DIR"
     ctest --test-dir "$TSAN_DIR" --output-on-failure
     printf '   clean under ThreadSanitizer.\n'
 fi
@@ -184,4 +199,8 @@ step "green"
 if [[ ${#skipped[@]} -gt 0 ]]; then
     printf '   ...with %d check(s) skipped:\n' "${#skipped[@]}"
     printf '     - %s\n' "${skipped[@]}"
+fi
+if [[ -z ${GITHUB_ACTIONS:-} ]]; then
+    printf '   This was ONE leg (%s). GitHub runs GCC, Clang and MSVC.\n' \
+        "${CXX:-the CMake default}"
 fi

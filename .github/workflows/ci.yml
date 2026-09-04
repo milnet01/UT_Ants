@@ -46,7 +46,11 @@ jobs:
             os: ubuntu-24.04
             cc: clang-19
             cxx: clang++-19
-            apt: clang-19 g++-14
+            # libclang-rt-19-dev is the ThreadSanitizer runtime. It is a
+            # RECOMMENDED dependency of clang-19, and this job installs with
+            # --no-install-recommends, so without naming it the race-detector
+            # step fails to link: "cannot find libclang_rt.tsan.a".
+            apt: clang-19 g++-14 libclang-rt-19-dev
           - name: Windows (MSVC)
             os: windows-2022
     steps:
