@@ -22,6 +22,14 @@ Unreal Tournament (1999) is still being played, and its community map
 library is still growing — one Monster Hunt server on this machine
 carried 515 community Monster Hunt maps when this was written, in an
 install of 612, most made by people who have never met each other.
+Re-measured 2026-09-04: 622 of 719, the stock set unchanged at 97, so the
+growth is all community. **Any figure here is a snapshot of a moving
+number** — re-derive it rather than quoting one:
+
+```sh
+find "<install>/Maps" -maxdepth 1 -iname 'MH-*.unr' | wc -l
+```
+
 The maps are alive. The engine is not.
 
 Three specific hurts follow from that.
