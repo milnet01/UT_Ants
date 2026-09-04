@@ -45,6 +45,21 @@ ctest --test-dir build -L unit
 `./scripts/ci.sh` is the whole gate and is what `.githooks/pre-push`
 runs. `./scripts/ci.sh --docs` is what a documentation-only push runs.
 
+**A local green is one leg of three.** GitHub runs GCC, Clang and MSVC;
+a local run uses whatever `CXX` resolves to, and the gate says which at
+the start and the end. `CC=clang CXX=clang++ ./scripts/ci.sh` runs
+another leg. **Flip a roadmap item on the matrix, not on the local
+leg** — done once the other way round on 2026-09-04, and the item read
+shipped while Windows was red.
+
+**A `cancelled` CI run is not a failure.** `.github/workflows/ci.yml`
+sets `cancel-in-progress`, so each push cancels the run still in flight
+and its jobs render as ✗. Check the run whose `headSha` is HEAD:
+
+```sh
+gh run list --limit 5 --json headSha,conclusion
+```
+
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
 measured; the gate runs it as its own step on Linux, and refuses on
