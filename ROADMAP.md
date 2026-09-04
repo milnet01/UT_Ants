@@ -377,6 +377,33 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
 
+- 📋 [UTA-0045] **urender: screen-space reflections, weighted by material roughness.**
+  Screen-space, per the user's direction: reflections are traced against
+  the depth and colour buffers already on hand, not against the world.
+  That is deliberate and its limits are known -- anything off-screen or
+  behind another surface cannot reflect, and the usual fallback is a
+  cubemap or simply nothing. ADR-0001's no-ray-tracing rule makes SSR the
+  only option that fits the design rather than one of several.
+
+  Roughness drives it. umat already generates a roughness map (UTA-0009
+  lists base colour, normal, roughness, metallic, height and emissive),
+  so unlike UTA-0044 this needs no new material channel and no bundle
+  format change: a smooth surface gets a sharp ray, a rough one a widened
+  cone or a blurred mip, and a fully rough one is not worth tracing.
+
+  Blocked by a design change: docs/design.md lists urender's
+  responsibilities -- dynamic lights and shadows, PBR materials,
+  volumetrics, light shafts, ambient occlusion, post-processing -- and
+  reflections are not among them, so adding them changes what a conformer
+  builds and the edit runs the rule 14 gate first. The same gate covers
+  UTA-0044, and one pass can carry both.
+
+  Depends on UTA-0014 for the deferred buffers it reads.
+  **Layman:** Wet floors, polished metal and glass pick up the room around them -- sharply where the surface is smooth, blurred where it is rough -- instead of being flatly lit.
+  Kind: feature.
+  Source: user-request-2026-09-04.
+  Lanes: urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
