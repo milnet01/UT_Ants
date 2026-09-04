@@ -54,12 +54,16 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: core.
 
-- 📋 [UTA-0002] **core: error type, logging, filesystem and the job system.**
+- 🚧 [UTA-0002] **core: error type, logging, filesystem and the job system.**
   std::expected<T, Error> across every module boundary; exceptions may be used
   inside a part and never escape one. One logger with a category per part. A job
   system for rendering, asset loading and baking; the simulation stays
   single-threaded and deterministic.
   Depends on nothing beyond the standard library (rule 1).
+  Picked 2026-09-04. Spec required per spec-format.md § 1: the error
+  type is a contract every other module binds to, the job system is the
+  concurrency case, and how much an Error carries is a real design
+  choice.
   **Layman:** The shared foundations every other part uses -- how errors are reported, how things get logged, and how work is spread across processor cores.
   Kind: implement.
   Source: design-2026-09-03.
