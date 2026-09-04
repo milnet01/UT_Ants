@@ -1,0 +1,39 @@
+# Line endings are LF in the working tree on every platform, Windows
+# included.
+#
+# WHY THIS EXISTS. GitHub's Windows runners check out with core.autocrlf
+# set, which rewrites every text file to CRLF. Two things in this
+# repository break when that happens, and the first one did:
+#
+#   - yamllint's new-lines rule requires \n and fails the workflow files,
+#     so `scripts/ci.sh` exits non-zero before it ever configures a build.
+#     That is what the Windows leg's first real run reported, on
+#     2026-09-04: `1:68 [new-lines] wrong new line character: expected \n`.
+#   - the shell scripts are run by Git Bash. A CRLF script fails in ways
+#     that read as anything but a line-ending problem, because the \r
+#     becomes part of the last argument on the line.
+#
+# `text=auto eol=lf` normalises on commit and checks out LF everywhere,
+# so both hazards go away for every file at once rather than per
+# extension. The binary rules below stop that normalisation touching
+# files where a byte is a byte.
+
+* text=auto eol=lf
+
+# Content this project reads but never writes. Unreal package formats are
+# binary; a normalisation pass through one would corrupt it. Nothing under
+# content/ is committed (docs/design.md rule 15), so these are here to be
+# correct rather than because a match is expected.
+*.unr binary
+*.utx binary
+*.uax binary
+*.umx binary
+*.u   binary
+*.utab binary
+
+# Baked and captured artefacts.
+*.png binary
+*.jpg binary
+*.gif binary
+*.mp4 binary
+*.ico binary

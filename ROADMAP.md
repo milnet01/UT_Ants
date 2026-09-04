@@ -303,6 +303,16 @@ model, no weapon and no opponent until 0.2.0.
   direction, so the matrix builds and tests on both; the Windows half is
   unproven until a remote exists for Actions to run on, and that is
   stated rather than claimed.
+  Progress (2026-09-04): the Windows leg ran for the first time, on the
+  first push to the new public remote, and failed in 12 seconds.
+  GitHub's Windows runners check out with core.autocrlf set, so
+  yamllint's new-lines rule rejected every workflow file and
+  scripts/ci.sh exited before configuring a build. Both Linux legs
+  passed. Fixed by adding .gitattributes with `* text=auto eol=lf`;
+  renormalising rewrote nothing, so the repository was always LF and
+  only the checkout was wrong. This is the first evidence the Windows
+  leg works at all -- until this run it was written, lint-clean and
+  unexecuted.
   **Layman:** One script that checks the project. GitHub runs it on every push, and the same script runs on your machine before a push -- so a green run here means a green run there.
   Kind: chore.
   Source: user-request-2026-09-03.
