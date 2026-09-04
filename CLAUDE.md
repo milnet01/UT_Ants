@@ -6,22 +6,20 @@
 **Next:** `UTA-0003` — `upkg`: the package container (spec drafted, ungated).
 **In flight:** nothing.
 
-> Keep the three lines above true, and keep them to three lines. **All
-> three move together**: picking an item sets `In flight:` and `State:` to
-> 5, finishing it clears `In flight:` and returns `State:` to 4. `State:`
-> and `In flight:` cannot disagree — `workflow.md` § 1 defines state 4 as
-> nothing in flight. Everything else about where work stands is read off
-> things that
-> are harder to falsify — whether a spec exists, what `git status` says,
-> whether the tests pass **on the matrix**. A recorded step number starts
-> lying the first time a session forgets to update it, and still reads as
-> authoritative.
+> Keep the three lines above true, and keep them to three lines.
+> **`State:` and `In flight:` move together**: picking an item sets both,
+> finishing clears `In flight:` and returns `State:` to 4 — `workflow.md`
+> § 1 defines state 4 as nothing in flight. `Next:` advances when the item
+> it names is picked up, and stays put when a rule-1 finding is taken
+> ahead of it (§ Which item comes next, which also owns the deferral note
+> — the one other position kept by hand).
 >
-> The roadmap bullet is a record, not a signal: it says 🚧 or ✅ because
-> somebody set it, and § Build and test below records a session setting it
-> to ✅ while Windows was red. Confirm it against the thing it claims.
-> The one other position kept by hand is § Which item comes next's
-> deferral note, which that section owns.
+> Everything else is read off things harder to falsify: whether a spec
+> exists, what `git status` says, whether the tests pass **on the matrix**.
+> The roadmap bullet is not one of them — it says ✅ because somebody set
+> it, and § Build and test records a session setting it so while Windows
+> was red. A hand-kept record starts lying the first time somebody forgets
+> it, and still reads as authoritative.
 
 ## How work is done here
 
@@ -56,31 +54,36 @@ ctest --test-dir build -L unit
 `./scripts/ci.sh --docs` — a reduced run in which no compiler leg fires.
 
 `.githooks/pre-push` runs neither directly. It delegates to
-`$ANTS_GLOBAL_HOOKS` if that names a hooks *directory*, otherwise
-`~/.claude/githooks/`. That machine-wide hook picks the gate, decides
-documentation-only, and runs it over the pushed commits in a detached
-worktree — not over what happens to be on disk.
+`$ANTS_GLOBAL_HOOKS/pre-push` whenever that variable is set to anything at
+all, else `~/.claude/githooks/pre-push`; a set-but-wrong value is not
+corrected, it just disables the gate. The machine-wide hook then picks the
+gate script, decides documentation-only, and runs it over the pushed
+commits in a detached worktree — not over what is on disk.
 
-**Three `git config` keys drive it, they live in `.git/config`, and none
-survives a clone:**
+**Four settings drive that, all in `.git/config`, none surviving a
+clone:**
 
 ```sh
-git config ants.gate.command  ./scripts/ci.sh          # without this, NO gate
-git config ants.gate.docsMode --docs
+git config core.hooksPath      .githooks         # unset: no hook runs
+git config ants.gate.command   ./scripts/ci.sh   # unset: no gate runs
+git config ants.gate.docsMode  --docs
 git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
 ```
 
-`ants.gate.command` is the load-bearing one. Unset, the hook falls back to
-a fixed discovery list — `scripts/local-ci.sh`, `ci-local.sh` and similar
-— and `scripts/ci.sh` **is not in it**, so a fresh clone takes the no-gate
-branch and exits 0. **A green push is not evidence the gate ran**: look
-for `NOTHING WAS CHECKED` (no machine-wide hook) or a line saying the repo
-has a pipeline but no local gate (keys unset).
+**A green push is not evidence the gate ran.** Three ways it passes having
+checked nothing, and only two announce themselves: `NOTHING WAS CHECKED`
+(the resolved hook is missing), a line naming a pipeline but no local gate
+(`ants.gate.command` unset — the hook's fallback list does not contain
+`scripts/ci.sh`), and **no hook output at all** (`core.hooksPath` unset).
+An unset `docsGlob` is silent too, and widens what counts as
+documentation. Confirm with
+`git config --get-regexp 'hooksPath|^ants\.gate\.'`.
 
 **A local green is one leg of three.** GitHub runs GCC, Clang and MSVC;
 a local run uses whatever `CXX` resolves to, and the gate says which at
-the start and the end. `CC=clang CXX=clang++ ./scripts/ci.sh` runs
-another leg. **Flip a roadmap item on the matrix, not on the local
+the start and the end. `CC=clang CXX=clang++ ./scripts/ci.sh` runs a
+second leg with whatever clang is installed — which is not CI's leg: the
+matrix pins `clang-19`, and this machine has no `clang-19` binary at all. **Flip a roadmap item on the matrix, not on the local
 leg** — done once the other way round on 2026-09-04, and the item read
 shipped while Windows was red.
 
@@ -122,24 +125,19 @@ The user's standing priority order, given 2026-09-04:
 2. Open roadmap items that reach v1.0.0.
 3. Open roadmap items for the version after.
 
-**Rule 1's set is the open items whose `Source:` carries one of the
-review tokens in `roadmap-format.md` § 3.5.3** —
-`audit-<date>` (`check-code`), `code-quality-review-<date>`
-(`review-code`), `debt-sweep-<date>`. Match the tokens, not the word
-"review": two of the three do not contain it, and they are the debt and
-codebase findings rule 1 puts first. A finding filed under none of them
-is invisible to this order and gets worked last.
+**Rule 1's set is every open item whose `Source:` records the review that
+produced it** — `audit-<date>`, `debt-sweep-<date>`,
+`code-quality-review-<date>` (`roadmap-format.md` § 3.5.3), plus this
+project's own `review-code-<date>`. Match on the `Source:` recording a
+review, not on the word: two of those do not contain it. Where a review
+has no token that fits, file the item with the nearest one and name the
+review in the body — a `Source:` that records nothing puts the item
+outside this order, which is where it is least likely to be found.
 
-**This project has also written `review-code-<date>`, which § 3.5.3 does
-not list.** Match it too, and file new findings under the standard's
-spelling.
-
-**`Next:` names the next roadmap item.** A rule-1 finding taken ahead of
-it moves `In flight:` and `State:`, and leaves `Next:` alone. Record the deferral on the deferred item, in the roadmap
-store — not by editing `ROADMAP.md`, which is generated from the store
-and drops a hand edit without saying so. Clear that note when the item is
-picked up: a note nobody clears is the lying record the block at the top
-of this file warns about.
+**A rule-1 finding taken ahead of `Next:` leaves `Next:` alone.** Record
+the deferral on the deferred item, in the roadmap store — not by editing
+`ROADMAP.md`, which is generated from it and drops a hand edit without
+saying so. Clear the note when that item is picked up.
 
 ### Roadmap IDs
 

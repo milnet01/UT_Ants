@@ -17,6 +17,33 @@ session picks up, so rule 14's gate was owed.
 
 | 2 | 2026-09-04 | 3, identical brief, packet rebuilt from disk | 2 | 3 | 1 | n/a | **Six verified, six fixed, plus three more found by my own sweep before dispatching loop 3.** **The most consequential finding of the whole gate came from one lane here**, and it is pre-existing rather than collateral: the push gate is driven by *three* `git config` keys, not the one loop 1 named, and `ants.gate.command` is load-bearing — unset, the machine-wide hook falls back to a fixed discovery list (`scripts/local-ci.sh`, `ci-local.sh` and similar) that **does not contain `scripts/ci.sh`**, so a fresh clone takes the no-gate branch and exits 0. Loop 1 had rewritten this very paragraph and missed it. **Two lanes independently found a defect loop 1 introduced**: `In flight:` was set to `nothing` while `State:` stayed 5, and `workflow.md` § 1 defines state 4 as exactly "nothing is in flight" — both lanes verified it against the standard rather than asserting it. The rest were loop 1's collateral: the rewritten gate paragraph had dropped the fact that a documentation-only push runs `ci.sh --docs` at all, so a green docs-only push read as a compiled green; the delegation was stated with `$ANTS_GLOBAL_HOOKS` as the fallback when it is the override, and as a file when it names a directory; and rule 1's handle said `Source:` "names a review", which **excludes two of the three review tokens** in `roadmap-format.md` § 3.5.3 — `audit-<date>` and `debt-sweep-<date>` — the debt and codebase findings rule 1 puts first. **Step 3 caught two errors in this loop's own fixes before they landed**: the claim that `--docs` fires no compiler leg was unverified when written (it is true — `ci.sh` exits at its docs branch before the build), and the citation named a heading that does not exist, the token table being a bold label inside § 3.5.3. **The sweep then found three more**: "the two cannot disagree" left over from a three-line rule, a deferral paragraph still moving one position line when the block above now moves two, and — the one that mattered — the newly-named tokens do not include `review-code-<date>`, which is what this project has actually been writing, so the new rule would have matched none of its own review items. |
 
+| 3 | 2026-09-04 | 3, identical brief, packet rebuilt from disk | 3 | 3 | 1 | n/a | **Seven verified, seven fixed. Cap reached (3 for a standard) — and a VIOLENT cap: six of the seven landed on text this run wrote.** **The best finding of the whole gate came here, from two lanes independently, and it is pre-existing**: `core.hooksPath` is a FOURTH `.git/config` setting, it does not survive a clone either, and without it `.githooks/pre-push` never executes — so neither of the two failure strings the document told a reader to look for is printed, and the run's own advice read silence as a gate that had passed. Loop 2 had rewritten that paragraph and asserted "three keys". **The sharpest Q2 came from one lane**: rule 1 names four kinds of review — test, debt, codebase, document — while the token list loop 2 wrote covers fewer, so a fix from a *document* review was rule-1-first and "worked last" at once. Live rather than hypothetical: this record is a document review. The rest were loop 2's own: the delegation sentence claimed `$ANTS_GLOBAL_HOOKS` is validated and falls back, when `${VAR:-default}` substitutes only on unset-or-empty and a set-but-wrong value silently disables the gate; "All three move together" contradicted the paragraph that leaves `Next:` alone, and never said what `Next:` does on a normal pick; `review-code-<date>` was simultaneously matched and worked-last; and an unset `docsGlob` was folded into a plural "(keys unset)" gloss when it is the one key that fails silently. **Step 3 caught one more of this loop's own fixes before it landed**: a corrected instruction to run `CC=clang-19` for CI's leg, on a machine that has no `clang-19` binary at all. **The fixes were deletions rather than additions**, the document ending this loop shorter than it began, because the oscillation's cause was diagnosed as assertive prose accreting each loop. **Two lane open questions settled by running them, neither a defect**: `git config ants.gate.docsMode --docs` parses and stores correctly despite the leading `--`, and `read_region` on `§ The stack` resolves. **Dismissed for the third time**: `docs/standards/`'s "if that directory is empty" test is unreachable past its README — every lane that raised it flagged its own low confidence, `docs/standards/README.md` carries the identical idiom, and nothing anyone does today changes. |
+
+## At the cap — the two shares, and what they say
+
+**A violent cap, not a calm one.** Almost every loop-3 finding anchored on
+text this run had written, and loop 2's largest class was loop 1's fixes.
+Each loop was mostly repairing the one before, and nothing suggested a
+fourth would stop.
+
+**So this document's review ends here.** Per `review-contract` § At the
+cap, a violent cap forbids re-running the gate on the document as it
+stands; the bar lapses at the next authoring edit that changes direction.
+The fixes landed and the tail is empty.
+
+**The second share matters more.** About half this run's findings anchored
+inside the change that armed the gate — the priority order and the
+position lines. The rest landed on the § Build and test gate description,
+pre-existing text no trigger would have opened, and that half produced the
+run's three best findings: the push hook never ran `ci.sh`,
+`ants.gate.command` is load-bearing with a fallback list omitting this
+project's script, and `core.hooksPath` fails silently. A small trigger
+bought an audit that found the push gate described three ways and correct
+in none.
+
+No consequence attaches. It is recorded so that audit can later be
+triggered deliberately rather than taken as a side effect.
+
 ## A limitation of this gate, worth knowing before the next one
 
 All three lanes disclosed that the harness injects the project
