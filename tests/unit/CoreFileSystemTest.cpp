@@ -438,9 +438,19 @@ TEST_CASE("a root written with a trailing separator is accepted", "[core][fs]") 
     const TempDir dir;
     const fs::path withSeparator = dir.path().string() + std::string(1, fs::path::preferred_separator);
 
-    const auto result = uta::fs::resolveUnder(withSeparator, "maps/DM-Deck16.unr");
-    REQUIRE(result.has_value());
-    CHECK(result->string().starts_with(dir.path().string()));
+    // Asserted as "the separator makes no difference" rather than as a string
+    // prefix of dir.path(). A prefix test fails on Windows for a reason that
+    // has nothing to do with this invariant: the CI runner's temp directory is
+    // a short (8.3) path, and weakly_canonical expands it -- measured, the
+    // MSVC leg went red on exactly that while resolveUnder had accepted the
+    // root correctly. Comparing the two spellings against each other depends
+    // on no platform's idea of how a path is written.
+    const auto withTrailing = uta::fs::resolveUnder(withSeparator, "maps/DM-Deck16.unr");
+    const auto without = uta::fs::resolveUnder(dir.path(), "maps/DM-Deck16.unr");
+
+    REQUIRE(withTrailing.has_value());
+    REQUIRE(without.has_value());
+    CHECK(*withTrailing == *without);
 }
 
 // INV-15 -- the lexical pass over the relative path's components. Enforced on
