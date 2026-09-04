@@ -2,9 +2,9 @@
 
 ## Where this project is
 
-**State:** 3 — building an item.
+**State:** 4 — between items.
 **Next:** `UTA-0004` — `upkg`: typed level content.
-**In flight:** `UTA-0003` — `upkg`: the package container.
+**In flight:** nothing.
 
 > Keep the three lines above true, and keep them to three lines.
 > **`State:` and `In flight:` move together**: picking an item sets both,

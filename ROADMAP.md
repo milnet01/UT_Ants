@@ -80,7 +80,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: core.
 
-- 🚧 [UTA-0003] **upkg: read the Unreal Engine 1 package container.**
+- ✅ [UTA-0003] **upkg: read the Unreal Engine 1 package container.**
   Header, name table, import and export tables, the compact index encoding, and
   object serialisation. Data in, structures out -- no graphics, no game.
   Build-time only: no runtime target may link it (rule 2).
@@ -115,6 +115,22 @@ model, no weapon and no opponent until 0.2.0.
   items and UTA-0049 are all shipped -- so this is picked up under rule 2.
   Tests are written before the code they lock, per languages/cpp.md
   § Tests.
+  Resolved (2026-09-04): src/upkg/ builds as uta_upkg linking uta_core
+  alone -- ByteReader, Package and the tagged property reader. Tests were
+  written first and seen to fail against missing symbols; then each of the
+  twelve testable invariants was broken on its own and its named test had
+  to redden, with INV-13 proved by adding a second link entry and watching
+  configure refuse. That pass found INV-2's test did not check what it
+  claimed -- deleting the count check left it green -- so it now asserts
+  the refusal names the check. The real-asset tier reads every package in
+  the configured install: all but one opened, and Textures/M1.utx is
+  genuinely truncated, so the tier makes a failing file prove itself
+  truncated from its own header rather than tolerating failures at large.
+  That run widens the census too: the UE2-era tail is versions 76, 79, 118
+  and 128. Green on GCC 14, Clang 19 and MSVC, run 33895079138.
+  INV-1's out-of-span clause is still checked by nothing -- the only
+  sanitizer leg is ThreadSanitizer. That question stays open for the user
+  and blocks nothing.
   **Layman:** Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format.
   Kind: implement.
   Source: design-2026-09-03.
