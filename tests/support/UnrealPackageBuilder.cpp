@@ -1,6 +1,6 @@
 #include "support/UnrealPackageBuilder.h"
 
-#include <cstring>
+#include <bit>
 
 namespace uta::test {
 namespace {
@@ -16,10 +16,58 @@ void appendU32(std::vector<std::uint8_t>& out, std::uint32_t value) {
     }
 }
 
+void appendI32(std::vector<std::uint8_t>& out, std::int32_t value) {
+    appendU32(out, static_cast<std::uint32_t>(value));
+}
+
+void appendU64(std::vector<std::uint8_t>& out, std::uint64_t value) {
+    for (int shift = 0; shift < 64; shift += 8) {
+        out.push_back(static_cast<std::uint8_t>((value >> shift) & 0xFFu));
+    }
+}
+
+void appendFloat(std::vector<std::uint8_t>& out, float value) {
+    appendU32(out, std::bit_cast<std::uint32_t>(value));
+}
+
+void appendIndex(std::vector<std::uint8_t>& out, std::int32_t value) {
+    const std::vector<std::uint8_t> encoded = encodeCompactIndex(value);
+    out.insert(out.end(), encoded.begin(), encoded.end());
+}
+
+void appendAll(std::vector<std::uint8_t>& out, const std::vector<std::uint8_t>& bytes) {
+    out.insert(out.end(), bytes.begin(), bytes.end());
+}
+
 void writeU32At(std::vector<std::uint8_t>& out, std::size_t offset, std::uint32_t value) {
     for (int i = 0; i < 4; ++i) {
         out[offset + static_cast<std::size_t>(i)] =
             static_cast<std::uint8_t>((value >> (8 * i)) & 0xFFu);
+    }
+}
+
+/// The size code for a property body of `size` bytes, and the extra size field
+/// the code implies. Codes 0 to 4 name a fixed width; 5, 6 and 7 mean the size
+/// follows as a u8, u16 or u32.
+void appendSizeField(std::vector<std::uint8_t>& out, std::uint8_t& sizeCode,
+                     std::size_t size) {
+    switch (size) {
+    case 1: sizeCode = 0; return;
+    case 2: sizeCode = 1; return;
+    case 4: sizeCode = 2; return;
+    case 12: sizeCode = 3; return;
+    case 16: sizeCode = 4; return;
+    default: break;
+    }
+    if (size <= 0xFFu) {
+        sizeCode = 5;
+        out.push_back(static_cast<std::uint8_t>(size));
+    } else if (size <= 0xFFFFu) {
+        sizeCode = 6;
+        appendU16(out, static_cast<std::uint16_t>(size));
+    } else {
+        sizeCode = 7;
+        appendU32(out, static_cast<std::uint32_t>(size));
     }
 }
 
@@ -59,6 +107,204 @@ std::vector<std::uint8_t> encodeCompactIndex(std::int32_t value) {
     return out;
 }
 
+std::vector<std::uint8_t> encodeArrayIndex(std::uint32_t value) {
+    // The marker bits lead and the value's high bits follow, so this writes
+    // most-significant byte first -- the one place the format is not
+    // little-endian.
+    if (value < 0x80u) {
+        return {static_cast<std::uint8_t>(value)};
+    }
+    if (value < 0x4000u) {
+        // Bit 7 set and bit 6 clear marks the two-byte form.
+        return {static_cast<std::uint8_t>(0x80u | (value >> 8)),
+                static_cast<std::uint8_t>(value & 0xFFu)};
+    }
+    // Both marker bits set marks the four-byte form, leaving six value bits in
+    // the leading byte.
+    return {static_cast<std::uint8_t>(0xC0u | ((value >> 24) & 0x3Fu)),
+            static_cast<std::uint8_t>((value >> 16) & 0xFFu),
+            static_cast<std::uint8_t>((value >> 8) & 0xFFu),
+            static_cast<std::uint8_t>(value & 0xFFu)};
+}
+
+std::span<const std::byte> asBytes(const std::vector<std::uint8_t>& bytes) noexcept {
+    return {reinterpret_cast<const std::byte*>(bytes.data()), bytes.size()};
+}
+
+// --- TaggedPropertyWriter ---------------------------------------------------
+
+TaggedPropertyWriter& TaggedPropertyWriter::addRaw(std::int32_t nameIndex, PropertyType type,
+                                                   const std::vector<std::uint8_t>& body) {
+    appendIndex(body_, nameIndex);
+
+    std::vector<std::uint8_t> sizeField;
+    std::uint8_t sizeCode = 0;
+    appendSizeField(sizeField, sizeCode, body.size());
+
+    body_.push_back(static_cast<std::uint8_t>(static_cast<std::uint8_t>(type) |
+                                              static_cast<std::uint8_t>(sizeCode << 4)));
+    appendAll(body_, sizeField);
+    appendAll(body_, body);
+    return *this;
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addByte(std::int32_t nameIndex,
+                                                    std::uint8_t value) {
+    return addRaw(nameIndex, PropertyType::Byte, {value});
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addInt(std::int32_t nameIndex,
+                                                   std::int32_t value) {
+    std::vector<std::uint8_t> body;
+    appendI32(body, value);
+    return addRaw(nameIndex, PropertyType::Int, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addFloat(std::int32_t nameIndex, float value) {
+    std::vector<std::uint8_t> body;
+    appendFloat(body, value);
+    return addRaw(nameIndex, PropertyType::Float, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addObject(std::int32_t nameIndex,
+                                                      std::int32_t reference) {
+    std::vector<std::uint8_t> body = encodeCompactIndex(reference);
+    return addRaw(nameIndex, PropertyType::Object, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addClass(std::int32_t nameIndex,
+                                                     std::int32_t reference) {
+    std::vector<std::uint8_t> body = encodeCompactIndex(reference);
+    return addRaw(nameIndex, PropertyType::Class, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addName(std::int32_t nameIndex,
+                                                    std::int32_t valueNameIndex) {
+    std::vector<std::uint8_t> body = encodeCompactIndex(valueNameIndex);
+    return addRaw(nameIndex, PropertyType::Name, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addStr(std::int32_t nameIndex,
+                                                   std::string_view value) {
+    std::vector<std::uint8_t> body =
+        encodeCompactIndex(static_cast<std::int32_t>(value.size() + 1));
+    body.insert(body.end(), value.begin(), value.end());
+    body.push_back(0);
+    return addRaw(nameIndex, PropertyType::Str, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addString(std::int32_t nameIndex,
+                                                      std::string_view value) {
+    std::vector<std::uint8_t> body(value.begin(), value.end());
+    body.push_back(0);
+    return addRaw(nameIndex, PropertyType::String, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addVector(std::int32_t nameIndex, float x,
+                                                      float y, float z) {
+    std::vector<std::uint8_t> body;
+    appendFloat(body, x);
+    appendFloat(body, y);
+    appendFloat(body, z);
+    return addRaw(nameIndex, PropertyType::Vector, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addRotator(std::int32_t nameIndex,
+                                                       std::int32_t pitch, std::int32_t yaw,
+                                                       std::int32_t roll) {
+    std::vector<std::uint8_t> body;
+    appendI32(body, pitch);
+    appendI32(body, yaw);
+    appendI32(body, roll);
+    return addRaw(nameIndex, PropertyType::Rotator, body);
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addBool(std::int32_t nameIndex, bool value) {
+    appendIndex(body_, nameIndex);
+
+    // Size code 5 with a declared size of zero: the value is in bit 7 of the
+    // info byte and no value bytes follow, but the size byte itself is
+    // present, exactly as every Bool tag in real content writes it.
+    std::uint8_t info = static_cast<std::uint8_t>(PropertyType::Bool) |
+                        static_cast<std::uint8_t>(5u << 4);
+    if (value) {
+        info |= 0x80u;
+    }
+    body_.push_back(info);
+    body_.push_back(0);
+    return *this;
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addIntAt(std::int32_t nameIndex,
+                                                     std::uint32_t arrayIndex,
+                                                     std::int32_t value) {
+    appendIndex(body_, nameIndex);
+
+    std::vector<std::uint8_t> body;
+    appendI32(body, value);
+
+    std::vector<std::uint8_t> sizeField;
+    std::uint8_t sizeCode = 0;
+    appendSizeField(sizeField, sizeCode, body.size());
+
+    // Bit 7 is the array flag for every type but Bool.
+    body_.push_back(static_cast<std::uint8_t>(static_cast<std::uint8_t>(PropertyType::Int) |
+                                              static_cast<std::uint8_t>(sizeCode << 4) |
+                                              0x80u));
+    appendAll(body_, sizeField);
+    appendAll(body_, encodeArrayIndex(arrayIndex));
+    appendAll(body_, body);
+    return *this;
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::addUndecodedStruct(
+    std::int32_t nameIndex, std::int32_t structNameIndex,
+    const std::vector<std::uint8_t>& raw) {
+    appendIndex(body_, nameIndex);
+
+    std::vector<std::uint8_t> sizeField;
+    std::uint8_t sizeCode = 0;
+    appendSizeField(sizeField, sizeCode, raw.size());
+
+    body_.push_back(static_cast<std::uint8_t>(static_cast<std::uint8_t>(PropertyType::Struct) |
+                                              static_cast<std::uint8_t>(sizeCode << 4)));
+    // The struct name comes between the info byte and the size field.
+    appendIndex(body_, structNameIndex);
+    appendAll(body_, sizeField);
+    appendAll(body_, raw);
+    return *this;
+}
+
+TaggedPropertyWriter& TaggedPropertyWriter::setStackFrame(std::int32_t node,
+                                                          std::int32_t stateNode,
+                                                          std::int64_t probeMask,
+                                                          std::int32_t latentAction,
+                                                          std::int32_t offset) {
+    stackFrame_.clear();
+    appendIndex(stackFrame_, node);
+    appendIndex(stackFrame_, stateNode);
+    appendU64(stackFrame_, static_cast<std::uint64_t>(probeMask));
+    appendI32(stackFrame_, latentAction);
+    if (node != 0) {
+        appendIndex(stackFrame_, offset);
+    }
+    return *this;
+}
+
+std::vector<std::uint8_t> TaggedPropertyWriter::buildWithoutTerminator() const {
+    std::vector<std::uint8_t> out = stackFrame_;
+    appendAll(out, body_);
+    return out;
+}
+
+std::vector<std::uint8_t> TaggedPropertyWriter::build(std::int32_t noneNameIndex) const {
+    std::vector<std::uint8_t> out = buildWithoutTerminator();
+    appendIndex(out, noneNameIndex);
+    return out;
+}
+
+// --- UnrealPackageBuilder ---------------------------------------------------
+
 UnrealPackageBuilder& UnrealPackageBuilder::setPackageVersion(std::uint16_t version) {
     packageVersion_ = version;
     return *this;
@@ -74,55 +320,149 @@ UnrealPackageBuilder& UnrealPackageBuilder::setPackageFlags(std::uint32_t flags)
     return *this;
 }
 
-UnrealPackageBuilder& UnrealPackageBuilder::addName(std::string_view name, std::uint32_t flags) {
+UnrealPackageBuilder& UnrealPackageBuilder::addName(std::string_view name,
+                                                    std::uint32_t flags) {
     names_.push_back(NameEntry{std::string(name), flags});
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::addImport(ImportEntry entry) {
+    imports_.push_back(std::move(entry));
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::addExport(ExportEntry entry) {
+    exports_.push_back(std::move(entry));
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::overrideSignature(std::uint32_t value) {
+    signatureOverride_ = value;
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::overrideNameCount(std::uint32_t value) {
+    nameCountOverride_ = value;
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::overrideNameOffset(std::uint32_t value) {
+    nameOffsetOverride_ = value;
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::overrideExportCount(std::uint32_t value) {
+    exportCountOverride_ = value;
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::overrideExportOffset(std::uint32_t value) {
+    exportOffsetOverride_ = value;
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::overrideImportCount(std::uint32_t value) {
+    importCountOverride_ = value;
+    return *this;
+}
+
+UnrealPackageBuilder& UnrealPackageBuilder::overrideImportOffset(std::uint32_t value) {
+    importOffsetOverride_ = value;
     return *this;
 }
 
 std::vector<std::uint8_t> UnrealPackageBuilder::build() const {
     std::vector<std::uint8_t> out;
 
-    appendU32(out, SIGNATURE);
+    appendU32(out, signatureOverride_.value_or(SIGNATURE));
     appendU16(out, packageVersion_);
     appendU16(out, licenseeVersion_);
     appendU32(out, packageFlags_);
 
-    appendU32(out, static_cast<std::uint32_t>(names_.size()));
+    appendU32(out, nameCountOverride_.value_or(static_cast<std::uint32_t>(names_.size())));
     const std::size_t nameOffsetField = out.size();
     appendU32(out, 0); // patched once the table's position is known
 
-    appendU32(out, 0); // export count
+    appendU32(out,
+              exportCountOverride_.value_or(static_cast<std::uint32_t>(exports_.size())));
     const std::size_t exportOffsetField = out.size();
     appendU32(out, 0);
 
-    appendU32(out, 0); // import count
+    appendU32(out,
+              importCountOverride_.value_or(static_cast<std::uint32_t>(imports_.size())));
     const std::size_t importOffsetField = out.size();
     appendU32(out, 0);
 
-    // Version 68 and up carry a GUID and a generation list where older
-    // packages carried a heritage list.
-    for (int i = 0; i < 16; ++i) {
-        out.push_back(0);
+    if (packageVersion_ < 68) {
+        // Older packages carry a heritage list where 68 and up carry a GUID
+        // and generations. A reader skips it, so an empty one is enough.
+        appendU32(out, 0); // heritage count
+        appendU32(out, 0); // heritage offset
+    } else {
+        for (int i = 0; i < 16; ++i) {
+            out.push_back(0); // GUID
+        }
+        appendU32(out, 1); // one generation
+        appendU32(out, static_cast<std::uint32_t>(exports_.size()));
+        appendU32(out, static_cast<std::uint32_t>(names_.size()));
     }
-    appendU32(out, 1); // one generation
-    appendU32(out, 0); // its export count
-    appendU32(out, static_cast<std::uint32_t>(names_.size()));
 
-    // The name table. Each entry is the length as a compact index, the
-    // characters, a terminating null, then the entry's flags.
-    writeU32At(out, nameOffsetField, static_cast<std::uint32_t>(out.size()));
+    // Each export's serialised bytes, before the table that names them, so
+    // every offset is known by the time it is written.
+    std::vector<std::uint32_t> serialOffsets(exports_.size(), 0);
+    for (std::size_t i = 0; i < exports_.size(); ++i) {
+        if (exports_[i].serialData.empty()) {
+            continue;
+        }
+        serialOffsets[i] = static_cast<std::uint32_t>(out.size());
+        appendAll(out, exports_[i].serialData);
+    }
+
+    // The name table. At version 64 and up each entry is its length as a
+    // compact index, the characters, a terminating null, then the flags;
+    // below 64 the length prefix is absent and the null alone ends the name.
+    const auto nameTableOffset = static_cast<std::uint32_t>(out.size());
     for (const NameEntry& entry : names_) {
-        const auto length = static_cast<std::int32_t>(entry.name.size() + 1);
-        const std::vector<std::uint8_t> encoded = encodeCompactIndex(length);
-        out.insert(out.end(), encoded.begin(), encoded.end());
+        if (packageVersion_ >= 64) {
+            appendIndex(out, static_cast<std::int32_t>(entry.name.size() + 1));
+        }
         out.insert(out.end(), entry.name.begin(), entry.name.end());
         out.push_back(0);
         appendU32(out, entry.flags);
     }
+    writeU32At(out, nameOffsetField, nameOffsetOverride_.value_or(nameTableOffset));
 
-    // Both tables are empty, so each offset points at where it would start.
-    writeU32At(out, exportOffsetField, static_cast<std::uint32_t>(out.size()));
-    writeU32At(out, importOffsetField, static_cast<std::uint32_t>(out.size()));
+    // The export table. Serial offset is written only when serial size is
+    // greater than zero -- reading it unconditionally is what desynchronises
+    // the table from the first sizeless export onward.
+    const auto exportTableOffset = static_cast<std::uint32_t>(out.size());
+    for (std::size_t i = 0; i < exports_.size(); ++i) {
+        const ExportEntry& entry = exports_[i];
+        appendIndex(out, entry.objectClass);
+        appendIndex(out, entry.super);
+        appendI32(out, entry.outer);
+        appendIndex(out, entry.objectName);
+        appendU32(out, entry.objectFlags);
+
+        const std::uint32_t size = entry.serialSizeOverride.value_or(
+            static_cast<std::uint32_t>(entry.serialData.size()));
+        appendIndex(out, static_cast<std::int32_t>(size));
+        if (size > 0) {
+            appendIndex(out, static_cast<std::int32_t>(
+                                 entry.serialOffsetOverride.value_or(serialOffsets[i])));
+        }
+    }
+    writeU32At(out, exportOffsetField, exportOffsetOverride_.value_or(exportTableOffset));
+
+    // The import table.
+    const auto importTableOffset = static_cast<std::uint32_t>(out.size());
+    for (const ImportEntry& entry : imports_) {
+        appendIndex(out, entry.classPackage);
+        appendIndex(out, entry.className);
+        appendI32(out, entry.outer);
+        appendIndex(out, entry.objectName);
+    }
+    writeU32At(out, importOffsetField, importOffsetOverride_.value_or(importTableOffset));
 
     return out;
 }
