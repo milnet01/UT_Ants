@@ -551,7 +551,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-04 logger lane.
   Lanes: core.
 
-- 📋 [UTA-0049] **Prove the numeric contract holds across GCC, Clang and MSVC.**
+- 🚧 [UTA-0049] **Prove the numeric contract holds across GCC, Clang and MSVC.**
   docs/design.md § What every part does the same way requires floating-point
   contraction and fast-math off with no platform maths library in the
   simulation or the baker, and ADR-0002 requires one map, recipe and baker
@@ -564,6 +564,17 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0011, where the whole bake pipeline sits on top of the assumption.
 
   Wanted before UTA-0011.
+  Progress (2026-09-04): picked up under the user's standing priority
+  order (review findings before new roadmap items). Scope widened on
+  measurement: the contract is not merely untested, it is unenforced --
+  CMakeLists.txt sets no floating-point flags at all. Measured here, GCC
+  and Clang both fold a*b+c into a single FMA once the target has one,
+  and -ffp-contract=off suppresses it; the legs agree today only because
+  nothing passes -march. So this item sets the flags and then locks them
+  with a test. Transcendental bit patterns are deliberately NOT
+  asserted: three libms are not bit-identical and design.md forbids
+  depending on any of them, so such an assert would lock in something
+  untrue.
   **Layman:** Check that the same sum gives the exact same answer on all three compilers, so a map baked on Linux and on Windows produces one identical file rather than two that disagree.
   Kind: test.
   Source: user-decision-2026-09-04.
