@@ -594,6 +594,46 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-decision-2026-09-04.
   Lanes: core, ci.
 
+- 📋 [UTA-0050] **Make the build faster on a memory-limited machine.**
+  Measured 2026-09-04 on the author's machine (12 cores, ~8 GB free of 31,
+  GCC 16.2.0, Ninja); three review lanes were running, so wall times carry
+  noise and the ranking is what matters rather than the absolute figures.
+
+  Where the time goes: 108 of the 120 object files in a cold build are
+  Catch2, which never changes. The four slowest translation units are all
+  Catch2; the project's own slowest is CoreLogTest.cpp.
+
+  What was measured, best payoff first.
+
+  1. ccache with base_dir=/ and hash_dir=false. A second fresh build
+     directory went from ~27 s to 1.01 s, 120 of 120 cache hits. At
+     ccache's default settings the same experiment hit only 13.75%,
+     because the compile line carries build-directory paths -- so the
+     config is the whole benefit, not the tool being present. Wire it as
+     CMAKE_CXX_COMPILER_LAUNCHER, guarded on ccache being found.
+
+  2. Debug for the edit-test loop. One real source edit rebuilt in 2.43 s
+     under Debug against 4.40 s under Release. The gate stays Release.
+
+  3. mold. Relink dropped from 0.12 s to 0.06 s and a full incremental
+     from 3.60 s to 3.50 s -- 60 ms, because this project links one small
+     static library and one test binary. Worth wiring conditionally now so
+     the benefit arrives on its own once urender, SDL3, Assimp and the
+     Vulkan SDK land and the link step stops being trivial. Not worth
+     claiming as a speed-up today.
+
+  What was measured and does NOT help. ccache does nothing for a real edit
+  (4.56 s against 4.62 s without it): the edited file has to be compiled,
+  and Ninja rebuilds only what changed. Peak resident size of the largest
+  compile is ~364 MB, so twelve parallel jobs sit near 4.4 GB and fit in
+  the free memory -- RAM is not the binding constraint, and the job-count
+  sweep came back non-monotonic, which is noise rather than a signal.
+
+  Blocked-by: nothing. Independent of UTA-0003.
+  **Layman:** Cut the waiting time when rebuilding, especially after wiping the build folder, without needing a bigger machine.
+  Kind: perf.
+  Source: user-request-2026-09-04.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
