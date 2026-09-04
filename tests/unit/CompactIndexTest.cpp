@@ -5,6 +5,7 @@
 // from the implementation's own output can only prove it is consistent.
 
 #include "support/UnrealPackageBuilder.h"
+#include "upkg/ByteReader.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -72,4 +73,68 @@ TEST_CASE("every encoding terminates, and the two uses of bit 7 do not collide",
             }
         }
     }
+}
+
+// --- The decoder ------------------------------------------------------------
+//
+// Everything above proves the encoder against hand-computed vectors. What
+// follows proves upkg's decoder against the encoder, which is evidence only
+// because the two were written independently from the format (INV-3).
+
+TEST_CASE("readIndex is the exact inverse of encodeCompactIndex", "[compact-index]") {
+    // The boundaries are where an encoding changes width or sign handling,
+    // and the extremes are where a 32-bit accumulator overflows.
+    for (std::int32_t value : {0, 1, -1, 63, -63, 64, -64, 8191, -8191, 8192, -8192,
+                               70000, -70000, 2147483647, -2147483647 - 1}) {
+        const Bytes encoded = encodeCompactIndex(value);
+        uta::upkg::ByteReader reader{uta::test::asBytes(encoded)};
+
+        const auto decoded = reader.readIndex();
+        REQUIRE(decoded.has_value());
+        CHECK(*decoded == value);
+        // The cursor must land exactly on the end: a decoder that reads one
+        // byte too few round-trips the value and desynchronises the caller.
+        CHECK(reader.remaining() == 0);
+    }
+}
+
+TEST_CASE("readIndex round-trips a deterministic sample of the range", "[compact-index]") {
+    // A fixed sequence rather than a random one: a failure has to be
+    // reproducible from the source alone.
+    std::uint32_t state = 0x1234567u;
+    for (int i = 0; i < 2000; ++i) {
+        state = state * 1664525u + 1013904223u;
+        const auto value = static_cast<std::int32_t>(state);
+
+        const Bytes encoded = encodeCompactIndex(value);
+        uta::upkg::ByteReader reader{uta::test::asBytes(encoded)};
+
+        const auto decoded = reader.readIndex();
+        REQUIRE(decoded.has_value());
+        REQUIRE(*decoded == value);
+    }
+}
+
+TEST_CASE("a sixth continuation byte is malformed, not a longer value", "[compact-index]") {
+    // Six value bits plus four times seven already exceeds 32, so a fifth
+    // continuation cannot contribute. Without the cap this run of 0xFF reads
+    // until it falls off the end of the span (INV-4).
+    const Bytes runOfContinuations(16, 0xFF);
+    uta::upkg::ByteReader reader{uta::test::asBytes(runOfContinuations)};
+
+    const auto decoded = reader.readIndex();
+    REQUIRE_FALSE(decoded.has_value());
+    CHECK(decoded.error().code() == uta::ErrorCode::MalformedData);
+}
+
+TEST_CASE("an index whose continuation runs off the end is malformed", "[compact-index]") {
+    // Bit 6 promises a second byte that is not there.
+    const Bytes truncated{0x40};
+    uta::upkg::ByteReader reader{uta::test::asBytes(truncated)};
+
+    const auto decoded = reader.readIndex();
+    REQUIRE_FALSE(decoded.has_value());
+    CHECK(decoded.error().code() == uta::ErrorCode::MalformedData);
+    // Never move the cursor on failure.
+    CHECK(reader.position() == 0);
 }
