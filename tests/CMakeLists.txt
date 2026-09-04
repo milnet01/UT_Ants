@@ -22,6 +22,7 @@ add_executable(uta_unit_tests
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
     unit/CoreFileSystemTest.cpp
+    unit/CoreJobsTest.cpp
     unit/CoreLogTest.cpp
     unit/PackageBuilderTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_test_support Catch2::Catch2WithMain)

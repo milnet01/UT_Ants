@@ -350,6 +350,33 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-gate-2026-09-04.
   Lanes: core, ci.
 
+- 📋 [UTA-0044] **urender and umat: subsurface scattering on curated materials.**
+  Blocked by a design change: docs/design.md lists urender's
+  responsibilities and subsurface scattering is not among them, so adding
+  it changes what a conformer builds and the design edit runs the rule 14
+  gate first.
+
+  The constraint that shapes this: a 1999 texture carries no thickness
+  data, and thickness is what SSS needs. It cannot be derived the way
+  roughness and normals are (UTA-0009). So the parameters live in umat's
+  CURATED library (UTA-0010), which ships with the baker and is versioned
+  with it -- our own material definitions opt in, generated ones default
+  to none. That also keeps the bake hash honest, since the curated
+  library is already a baker input.
+
+  Scope when it is written: a thickness/transmission parameter on a
+  curated material, its slot in the bundle's material section, and one
+  screen-space or wrap-lighting pass in urender. Note that adding a
+  material parameter is a ubundle format change and therefore a baker
+  version bump, which invalidates every cached bake (see
+  versioning-overrides.md).
+
+  Blocked-by: the design edit, and UTA-0010 for the library it lands in.
+  **Layman:** Skin, wax, marble and leaves stop looking like painted plastic -- light passes a little way through them instead of stopping dead at the surface.
+  Kind: feature.
+  Source: user-request-2026-09-04.
+  Lanes: urender, umat.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

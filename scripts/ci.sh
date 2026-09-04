@@ -161,6 +161,25 @@ step "test"
 # what S7 is measured on, so the gate must never quietly turn it on.
 ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure
 
+step "race detector"
+# The job system is the first threaded code here, and an ordinary test run
+# does not see data races -- a racy suite passes green. This is what INV-13 of
+# docs/specs/UTA-0002-core-foundations.md is measured with.
+#
+# A SECOND configure and build, not a re-run of the one above: the
+# instrumentation is a compile option, so it cannot be applied to an existing
+# build tree.
+if $IS_WINDOWS; then
+    skip "MSVC has no ThreadSanitizer — the race detector did not run"
+else
+    TSAN_DIR="${BUILD_DIR}-tsan"
+    cmake -S . -B "$TSAN_DIR" -G "$GENERATOR" \
+        -DCMAKE_BUILD_TYPE=Debug -DUTA_SANITIZE=thread >/dev/null
+    cmake --build "$TSAN_DIR" >/dev/null
+    ctest --test-dir "$TSAN_DIR" --output-on-failure
+    printf '   clean under ThreadSanitizer.\n'
+fi
+
 step "green"
 if [[ ${#skipped[@]} -gt 0 ]]; then
     printf '   ...with %d check(s) skipped:\n' "${#skipped[@]}"

@@ -30,11 +30,28 @@ rather than in a standard.
 
 ### Stack
 
-(Decided in design — `docs/design.md`. Until then, undecided.)
+C++23, CMake, Catch2 v3 fetched by the build. Linux and Windows are both
+first-class; the gate builds GCC, Clang and MSVC. `docs/design.md` § The
+stack owns the reasoning and the version floors — read it there.
 
 ### Build and test
 
-(Filled once the stack exists.)
+```sh
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build -L unit
+```
+
+`./scripts/ci.sh` is the whole gate and is what `.githooks/pre-push`
+runs. `./scripts/ci.sh --docs` is what a documentation-only push runs.
+
+Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
+ThreadSanitizer, which is how the job system's thread-safety is
+measured; the gate runs it as its own step on Linux, and refuses on
+MSVC, which has no ThreadSanitizer. `-DUTA_REAL_ASSET_TESTS=ON` with
+`-DUTA_UT_INSTALL_DIR=<path>` adds the second test tier, off by default
+so a clone with no Unreal Tournament still builds and tests clean —
+that separation is what **S7** is measured on.
 
 ### Roadmap IDs
 

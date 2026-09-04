@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **core: the error type, the logger, the filesystem and the job system** (UTA-0002)
+  The shared foundation every other part is built on. Failures cross a
+  module boundary as std::expected<T, Error>; one logger carries a
+  category per part; configuration, cache and logs resolve to where the
+  platform puts them; and one job system spreads work across cores while
+  the simulation stays single-threaded. The build gains a ThreadSanitizer
+  step, which is how the job system's thread-safety is measured.
+
 - **Queued: the game updates itself, signed and opt-in** (UTA-0042)
   Filed as planned work, not shipped. Modelled on finbreak, whose post-mortems record four releases lost to the relaunch step alone.
 
