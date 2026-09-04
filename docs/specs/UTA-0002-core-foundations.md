@@ -117,7 +117,13 @@ public:
     Error(ErrorCode code, std::string message);
 
     [[nodiscard]] ErrorCode code() const noexcept;
-    [[nodiscard]] std::string_view message() const noexcept;
+
+    /// Ref-qualified, with the rvalue overload deleted. The view aliases the
+    /// message, and withContext returns a prvalue, so the chained shape below
+    /// would otherwise dangle -- and ASan does not catch it, because a short
+    /// message lives inside the object.
+    [[nodiscard]] std::string_view message() const& noexcept;
+    std::string_view message() const&& = delete;
 
     /// Prepend context, keeping the code:
     ///   readFile -> Error{NotFound, "no such file: dm-deck16.unr"}
@@ -154,10 +160,14 @@ no others:
 #define UTA_CHECK(expression) ...
 ```
 
-Both expand to a uniquely named temporary (`__LINE__`, two-level
-concatenation), a `has_value()` test returning `std::unexpected` on
-failure, and — for `UTA_TRY` — a move out of the temporary. No statement
-expressions, because MSVC has none.
+Both expand to a uniquely named temporary, a `has_value()` test returning
+`std::unexpected` on failure, and — for `UTA_TRY` — a move out of it. No
+statement expressions, because MSVC has none.
+
+The uniquifier is `__COUNTER__`, not `__LINE__`. `UTA_TRY` declares in the
+enclosing scope, so two on one physical line would redefine one name, and
+MSVC's edit-and-continue build does not expand `__LINE__` to a pasteable
+token — which matters precisely because MSVC is why this shape exists.
 
 ### 4.3 Logging — `src/core/Log.h`
 
@@ -169,7 +179,10 @@ enum class LogLevel : std::uint8_t { Trace, Debug, Info, Warning, Error, Off };
 /// One per part, declared once at that part's own scope.
 class LogCategory {
 public:
-    explicit LogCategory(std::string_view name, LogLevel minimum = LogLevel::Info);
+    /// const char*, not string_view: the name is borrowed and read on every
+    /// line, and a string_view parameter would silently accept a std::string
+    /// temporary and then print freed memory.
+    constexpr explicit LogCategory(const char* name, LogLevel minimum = LogLevel::Info);
 
     [[nodiscard]] std::string_view name() const noexcept;
     [[nodiscard]] LogLevel minimum() const noexcept;
@@ -211,8 +224,27 @@ public:
 #define UTA_LOG(category, level, ...) ...
 ```
 
-`core`'s own category is `uta::logCore`, named `"core"`. A program's
-startup installs the sinks; nothing else does.
+`core`'s own category is `uta::logCore`, named `"core"`, and is `constinit`
+so it takes no part in static-initialisation order.
+
+**`UTA_LOG` catches its own throw.** `std::format` runs in the caller's
+expression, outside `write`'s `noexcept`, so logging from any `noexcept`
+function would otherwise be a `std::terminate` waiting for an allocation
+failure — and every such caller would have to rediscover it.
+
+**`Logger::instance()` leaks deliberately.** A function-local static is
+destroyed before every static constructed earlier than the first call, so a
+static whose destructor logs would touch a destroyed mutex.
+
+**A sink is invoked under the lock, and a sink that logs is dropped rather
+than allowed to re-enter** — the mutex is not recursive, so re-entry would
+hang the process, and nothing detects that: ThreadSanitizer does not do
+deadlock detection.
+
+**Both shipped sinks escape control bytes** (CWE-117). Message text carries
+filesystem paths now and package bytes once `upkg` lands.
+
+A program's startup installs the sinks; nothing else does.
 
 ### 4.4 Filesystem — `src/core/FileSystem.h`
 
@@ -254,8 +286,36 @@ namespace uta::fs {
 ```
 
 `resolveUnder` compares `std::filesystem::weakly_canonical` of the joined
-path against `weakly_canonical(root)`, so symlink escapes are caught
-along with lexical ones.
+path against `weakly_canonical(root)`, **element-wise rather than by string
+prefix**, so `/data-other` is not accepted as being under `/data`.
+
+Three things implementation proved that the draft did not say:
+
+- **A dangling symlink needs its own check.** `weakly_canonical` resolves
+  only the leading elements that exist, and `status` follows links — so a
+  link to a missing target is appended unresolved and passes containment
+  while still pointing outside `root`. Rejected explicitly.
+- **`readFile` caps the size it will allocate.** The size is
+  attacker-influenced wherever the path came through `resolveUnder`, and an
+  unguarded allocation throws `bad_alloc` straight out of `uta::fs` against
+  INV-3. Over the cap is `InvalidArgument`; a failed allocation is
+  `OutOfMemory`.
+- **Files are opened by their native path**, never `path::string()`. That is
+  UTF-8 on Windows while `fopen` decodes the ANSI code page, so every
+  non-ASCII path — `%APPDATA%` for a non-ASCII user name among them — would
+  fail to open.
+
+An `fopen` failure maps `errno` to a code chosen for it, rather than one code
+standing for every cause.
+
+`writeFileAtomically`'s temporary carries the process id and is created
+exclusively, because two processes writing one destination is a designed-in
+shape (design rule 16) and a shared name would let them interleave into one
+file and each rename it into place. The bytes are flushed to the device
+before the rename, so a power loss cannot commit the rename ahead of them.
+
+An environment variable that is **relative** is ignored, which the XDG
+specification requires and INV-8's absolute-fallback promise needs.
 
 ### 4.5 The job system — `src/core/Jobs.h`
 
@@ -641,6 +701,7 @@ test is used once to confirm the leg fails, and is not committed.
 |------|------|-------|----|----|----|----|---------|
 | 1 | 2026-09-04 | 3, cold — genre pinned `spec` | 2 | 9 | 2 | 1 | **Fourteen findings, twelve verified and fixed, two dismissed as immaterial.** Nine of the twelve were Q2 — the draft contradicting itself or the design — which is the shape a first cold read of a four-surface spec produces. **The most consequential:** §4.5 said nothing whose result must be reproducible may use the job system, while `docs/design.md` requires baking to use jobs AND requires one map, recipe and baker version to hash to one bundle on any machine. An implementer of `ubake` would have kept it off jobs. The real invariant is that no *result* may depend on completion order; the baker combines in submission order and both hold. **Two lanes independently found the same broken fixture (Q4):** INV-7's test was to write to a destination whose parent is a regular file, then compare the bytes of an existing destination and list its directory — the fixture excludes its own preconditions. It was collateral from this session's own earlier fix, which swapped the fixture and left the assertions describing the old one. Now two cases, both permission-independent. **INV-14 would have failed the build it was written to protect:** it asserted `LINK_LIBRARIES` empty, which forbids `Threads::Threads` — how CMake spells the standard library's threading support, and exactly what `std::thread` needs on GCC. **INV-8 asserted XDG behaviour with no platform qualifier**, and `scripts/ci.sh` runs `ctest` on Windows, so a correct implementation would have gone red there. Both Q3s were inventions other code binds to: who owns the one `JobSystem`, and whether a `LogRecord`'s views survive the sink call. **Dismissed as true but immaterial:** the casing sentence attributes the trailing-underscore convention to `languages/cpp.md`, which does not state it, and §3 reads as though UTA-0041 shipped the root `CMakeLists.txt`. Neither changes a line anyone builds. **Lane-side facts confirmed, not taken on trust:** all three lanes re-read `CMakeLists.txt`, `tests/CMakeLists.txt`, `scripts/ci.sh` and the cited `docs/design.md` bullets; two opened `cpp.md` to settle citations the packet had not windowed. |
 | 2 | 2026-09-04 | 3, cold — identical brief, packet rebuilt from disk | 0 | 5 | 2 | 2 | **Nine verified, nine fixed, none dismissed. Cap reached (2 for a spec); the run files its tail — which is empty — and exits. Not one Q1.** **A calm cap, not a violent one:** three of the nine landed on text loop 1 wrote, so the majority were defects the draft always held and the cap simply ran out of loops for. (The second share is degenerate here and worth saying so: the gate was armed by the document being NEW, so every finding falls inside the armed span by construction.) **The finding of the run came from one lane and was proven by running rather than argued:** §4.5 prescribed `hardware_concurrency() - 1` floored at 1, and the return is `unsigned` — compiled and run, a report of 0 gives 4,294,967,295 workers, and `std::max` against `UINT_MAX` changes nothing, so §6's promise of one worker was false and the constructor would have tried to spawn four billion threads. The subtraction now comes after the 0-or-1 test. **All three lanes independently found two others.** §6's rename bullet was headed with the negative stated as fact — an implementer taking the heading at face value writes `remove()` before `rename()`, which destroys the crash-safety property §4.4 sells and INV-7 locks. And INV-8's second half was called platform-independent while Windows has no fallback at all, so on the Windows leg — which runs `ctest`, and went green for the first time today — a correct implementation fails, and the likelier repair is to invent a hardcoded path §6 forbids. **Two Q4s, both clauses that could not fail:** INV-5 asserted no line is spliced, but a sink is handed one whole `LogRecord` per call and sees intact text whether or not `write` locks — it now asserts sink calls do not overlap, which is what the lock actually buys; and INV-10 cited a CTest timeout nothing in the item set, so its deadlock would have hung the run rather than failed it. **Both Q3s were the orchestrator's, from lane open questions:** the sanitizer offered `address` while describing only the GCC/Clang spelling (dropped rather than specified — nothing here runs it), and never said which targets it instruments, which decides whether the leg checks the job tests at all or nothing. **Packet defect, mine:** its header still read 574 lines against the brief's 623; all three lanes raised it and none was misled, since the placeholder sits below every citation. **Resolved clean, not in the tally:** `ci.sh`'s green step does print the skipped list, so a skipped sanitizer leg is visible in the run output. |
+| impl | 2026-09-04 | none dispatched — implementation, not a review loop | n/a | n/a | n/a | n/a | **Fold-back from building it, and from the `review-code` sweep that followed. NO reviewer was dispatched for this row; it records what the code proved.** The gate had converged at its cap, and every correction below is a clause implementation falsified rather than a change of direction — so under `CLAUDE.md` rule 14 this records what was built and does not re-arm the gate. **What the contract got wrong. § 4.2's `message()` returned a view into the object while `withContext` returns a prvalue, so the chained shape the spec's own example teaches read freed memory** — measured: it printed nothing, and ASan missed it because a short message lives inside the object rather than on the heap. Ref-qualified now, with the rvalue overload deleted. The macros' `__LINE__` uniquifier could not survive two `UTA_TRY` on one line, nor MSVC's edit-and-continue build — which is the compiler the whole macro shape exists for. § 4.3's `UTA_LOG` ran `std::format` in the caller's expression, outside `write`'s `noexcept`, so logging from any `noexcept` function was a `std::terminate` waiting for an allocation failure; `Jobs.cpp` had already had to hand-wrap it once, which is the evidence the fix belonged in the macro. `LogCategory` took a `string_view` name it borrows forever. § 4.4's `resolveUnder` — the project's trust boundary — accepted a DANGLING symlink, because `weakly_canonical` resolves only what exists and `status` follows links; `readFile` allocated from an attacker-influenced size with no cap; files were opened by `path::string()`, which is UTF-8 on Windows while `fopen` decodes the ANSI code page, so `%APPDATA%` for a non-ASCII user name would never have opened; and the atomic write's temporary carried no process id, so two processes — which design rule 16 makes a designed-in shape — could interleave into one file and each rename it into place. **Three findings were queued rather than folded in**, because each needs a contract decision or a platform this machine is not: UTA-0046 (Windows reserved device names and trailing-separator roots), UTA-0047 (a thrown job is indistinguishable from a successful one, which for `ubake` means a wrong bundle reported as good), UTA-0048 (`fileSink` cannot report why it failed to open, against the design's `std::expected` rule at a module boundary). **Not folded in and deliberately so:** the spec's INV wording is unchanged — every fix above satisfies the invariants as written, and none of them needed the contract loosened. |
 
 ## 13. Resource cost
 

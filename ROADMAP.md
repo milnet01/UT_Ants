@@ -54,7 +54,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: core.
 
-- 🚧 [UTA-0002] **core: error type, logging, filesystem and the job system.**
+- ✅ [UTA-0002] **core: error type, logging, filesystem and the job system.**
   std::expected<T, Error> across every module boundary; exceptions may be used
   inside a part and never escape one. One logger with a category per part. A job
   system for rendering, asset loading and baking; the simulation stays
@@ -64,6 +64,17 @@ model, no weapon and no opponent until 0.2.0.
   type is a contract every other module binds to, the job system is the
   concurrency case, and how much an Error carries is a real design
   choice.
+  Resolved (2026-09-04): src/core/ builds as uta_core, linking nothing
+  but Threads::Threads, which a configure-time assertion checks
+  (INV-14). 52 unit tests green under GCC, Clang and MSVC, and clean
+  under ThreadSanitizer -- a leg proven able to REPORT, using a
+  throwaway racy test that was not committed. The spec was gated to its
+  cap before any code was written, then check-code and a four-lane
+  review-code sweep ran over the result; findings not fixed here are
+  UTA-0046, UTA-0047 and UTA-0048. Three defects only the pipeline could
+  find: the project's Clang floor was wrong (18 cannot compile
+  std::expected), .gitignore was silently swallowing src/core, and the
+  Windows Clang leg lacked the ThreadSanitizer runtime.
   **Layman:** The shared foundations every other part uses -- how errors are reported, how things get logged, and how work is spread across processor cores.
   Kind: implement.
   Source: design-2026-09-03.
@@ -403,6 +414,83 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-04.
   Lanes: urender.
+
+- 📋 [UTA-0046] **core: the Windows path hazards resolveUnder does not yet cover.**
+  resolveUnder is the trust boundary unet and ubake bind to, and its
+  Linux behaviour is now tested. Three Windows-specific shapes are not
+  covered, and none can be checked from Linux:
+
+  Reserved device names -- CON, NUL, AUX, PRN, COM1-COM9, LPT1-LPT9 and
+  their extended forms such as CON.txt -- resolve to devices in ANY
+  directory, so a remote-named COM1 passes containment and then reads
+  from a serial port, which can block indefinitely.
+
+  Win32 strips trailing dots and spaces, so "a." and "a" collide after
+  the check passes. And "a.txt:s" writes an alternate data stream that a
+  later extension check would not see -- which matters for the quarantine
+  guard's extension list.
+
+  Separately: the containment loop compares path elements, and a path
+  ending in a separator yields a trailing empty element that
+  lexically_normal may preserve. A root written with a trailing slash
+  would then be refused. It fails closed, so it is availability rather
+  than a hole, but a trust-boundary decision should not rest on behaviour
+  that differs between standard library implementations.
+
+  Needs the Windows test machine, which runs binaries but cannot build --
+  so this wants either a CI job that runs the check or a binary built by
+  CI and executed there.
+  **Layman:** Close the Windows-only ways a downloaded file could be named so it lands somewhere it should not, or opens a device instead of a file.
+  Kind: security.
+  Source: review-code-2026-09-04 filesystem lane.
+  Lanes: core.
+
+- 📋 [UTA-0047] **core: make a job's failure observable to whoever waited on it.**
+  A job body that throws is contained and logged, and its handle is then
+  marked done exactly as a successful one is. So JobHandle::done() is
+  true either way, wait() returns normally, and parallelFor reports
+  completion for a batch in which every body threw. The only trace is a
+  log line.
+
+  That is what the spec says to do, so the code is not in breach -- the
+  CONTRACT is what has no failure surface, and changing it is a spec
+  amendment before it is a code change.
+
+  Why it matters here rather than in general: ADR-0002 requires one map,
+  recipe and baker version to hash to one bundle on any machine, and the
+  design requires baking to use jobs. A silently half-failed parallelFor
+  is a wrong bundle reported as a good one.
+
+  Shape when it is written: an error count or a failure flag on the
+  handle's shared state, and a parallelFor that reports how many bodies
+  threw.
+  **Layman:** If a piece of background work fails, the code that asked for it should be able to find out, rather than being told everything went fine.
+  Kind: enhancement.
+  Source: review-code-2026-09-04 job-system lane.
+  Lanes: core.
+
+- 📋 [UTA-0048] **core: fileSink says why it could not open its file.**
+  fileSink returns a sink that does nothing when the open fails, and the
+  caller cannot tell. The failure path is ordinary rather than exotic:
+  the log directory does not exist on a first run.
+
+  docs/design.md requires std::expected across every module boundary, and
+  this is one. The justification in the code -- that the logger has no
+  channel to report its own failure through -- is write()'s reason and
+  does not transfer: fileSink is a factory called once at startup by a
+  caller that does have a channel.
+
+  So: Result<LogSink>, carrying errno. The spec carries the current
+  signature, so the amendment goes through review-contract first.
+
+  Related spec drift found in the same lane, worth settling in one pass:
+  Logger::write is declared noexcept in the code and without it in the
+  spec, and clearSinks and errorCodeName are public surface the spec's
+  class sketches do not mention.
+  **Layman:** If the game cannot open its log file it should say so at startup, instead of running with logging silently switched off.
+  Kind: fix.
+  Source: review-code-2026-09-04 logger lane.
+  Lanes: core.
 
 ## 0.2.0 — Movement and weapons
 

@@ -3,8 +3,8 @@
 ## Where this project is
 
 **State:** 5 — on an item. Discovery and design are agreed and gated.
-**Next:** `UTA-0003` — `upkg`: read an Unreal Engine 1 package.
-**In flight:** `UTA-0002` — core: error type, logging, filesystem, job system.
+**Next:** `UTA-0003` — `upkg`: read the Unreal Engine 1 package container.
+**In flight:** nothing.
 
 > Keep the three lines above true, and keep them to three lines. They are
 > the only position this project records. Everything else about where
