@@ -589,6 +589,16 @@ model, no weapon and no opponent until 0.2.0.
   four ways; and transcendentals are deliberately not asserted by bit
   pattern, since three libms are not bit-identical and design.md forbids
   depending on any of them.
+  Note (2026-09-04): this item's Source reads user-decision, though it
+  came out of the UTA-0046 code review. CLAUDE.md's priority order,
+  written later the same day, defines rule 1's set as the items whose
+  Source records a review -- so this item would have been invisible to
+  its own priority rule. Left as written rather than corrected: a Source
+  records what a past session believed, and rewriting shipped provenance
+  to match a rule made afterwards is what makes records untrustworthy.
+  Recorded because it is a live example of the trap that rule describes,
+  and because the question of whether to correct it was raised with the
+  user and not ruled on.
   **Layman:** Check that the same sum gives the exact same answer on all three compilers, so a map baked on Linux and on Windows produces one identical file rather than two that disagree.
   Kind: test.
   Source: user-decision-2026-09-04.
