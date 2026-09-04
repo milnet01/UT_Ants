@@ -85,10 +85,12 @@ src/core/FileSystem.h  FileSystem.cpp
 src/core/Jobs.h   Jobs.cpp
 ```
 
-`uta_core` is a static library. It names no `target_link_libraries`
-entry, which is design rule 1 expressed where the build can see it.
-The root `CMakeLists.txt` gains `add_subdirectory(src)`, replacing the
-comment that currently stands in for it.
+`uta_core` is a static library. Its only link entry is
+`Threads::Threads`, which is how CMake spells the standard library's own
+threading support and is what `std::thread` needs on GCC and Clang; any
+other entry would breach design rule 1, and INV-14 is that rule
+expressed where the build can see it. The root `CMakeLists.txt` gains
+`add_subdirectory(src)`, replacing the comment that stands in for it.
 
 ### 4.2 The error type — `src/core/Error.h`
 
@@ -186,8 +188,12 @@ struct LogRecord {
 using LogSink = std::function<void(const LogRecord&)>;
 
 /// The one global the design sanctions ("no global mutable state except
-/// the logger"). Formats and dispatches under a mutex, so two threads
-/// cannot interleave one line.
+/// the logger"). The macro formats the message; this stamps, locks and
+/// dispatches, so two threads cannot interleave one line.
+///
+/// A sink is called synchronously, under that lock. The views in a
+/// LogRecord are valid for that call only — a sink that keeps anything
+/// copies it.
 class Logger {
 public:
     static Logger& instance() noexcept;
@@ -217,7 +223,13 @@ namespace uta::fs {
 /// follows the XDG base-directory variables, falling back to
 /// ~/.config, ~/.cache and ~/.local/state, each under "ut-ants".
 /// Windows uses %APPDATA%\UT_Ants and %LOCALAPPDATA%\UT_Ants\{cache,logs}.
-/// None of them is ever inside the repository or under content/.
+///
+/// A variable is honoured as the user set it, wherever it points; core
+/// does not police the platform's own configuration. What core does
+/// guarantee is that every FALLBACK is absolute, so an unset variable
+/// can never put configuration or logs somewhere relative to the
+/// current working directory -- which for a test run is the build tree,
+/// and for a launch from a clone would be the repository.
 [[nodiscard]] Result<std::filesystem::path> configDirectory();
 [[nodiscard]] Result<std::filesystem::path> cacheDirectory();
 [[nodiscard]] Result<std::filesystem::path> logDirectory();
@@ -286,8 +298,17 @@ worker loop is a thread boundary, which is where `languages/cpp.md`
 permits `catch (...)`.
 
 **Completion order is unspecified**, and jobs run on unspecified
-threads. Nothing whose result must be reproducible may use this, which
-is what keeps the design's single-threaded simulation single-threaded.
+threads. So no *result* may depend on the order jobs finish in. That is
+a constraint on callers, not a ban on reproducible work: `docs/design.md`
+requires baking to use jobs and also requires one map, recipe and baker
+version to hash to one bundle on any machine, so `ubake` combines its
+job results in submission order and both hold. The simulation is
+single-threaded because the design says so, not because this forbids it.
+
+**Who owns the instance.** A program constructs the `JobSystem` and
+passes it by reference to the parts that need it. `core` offers no
+global accessor: the logger is the one global the design sanctions, and
+a second would need its own argument.
 
 **The sanitizer leg.** `CMakeLists.txt` gains a cache variable:
 
@@ -322,8 +343,11 @@ with a printed reason on Windows, through the existing `skip` helper.
 - **INV-3** — No `uta::fs` or `uta::Logger` entry point lets an exception
   escape; a documented failure comes back as an `Error`.
   *Test:* `tests/unit/CoreFileSystemTest.cpp` drives each documented
-  failure path — missing file, unreadable file, absent parent directory —
-  and asserts a returned error rather than a throw.
+  failure path and asserts a returned error rather than a throw. Every
+  case is permission-independent — a missing file, a directory passed
+  where a file is expected, an absent parent directory — because a run
+  as root defeats a permission fixture, which is the ground INV-7 gives
+  for rejecting one.
   *Breaks when:* a `std::filesystem` call is made without the
   `error_code` overload, so it throws `filesystem_error` at the caller.
 
@@ -344,33 +368,42 @@ with a printed reason on Windows, through the existing `skip` helper.
   moved inside a sink that appends to a shared buffer.
 
 - **INV-6** — `resolveUnder` returns `InvalidArgument` for every input
-  resolving outside `root`, and a path under `root` for every input that
-  does not.
+  resolving outside `root`, and for every absolute or empty input; it
+  returns a path under `root` for every relative, non-empty input that
+  resolves inside it.
   *Test:* `tests/unit/CoreFileSystemTest.cpp`, including `..` escapes,
   absolute paths, an empty path, and a symlink inside `root` pointing
   outside it.
   *Breaks when:* the check is lexical only — `root/link/../..` escapes
   through a symlink that `lexically_normal` resolves as text.
 
-- **INV-7** — A failed `writeFileAtomically` leaves the destination
-  byte-identical to before it was called and no temporary behind.
-  *Test:* `tests/unit/CoreFileSystemTest.cpp` writes to a destination
-  whose parent is a regular file, then compares the bytes of an existing
-  destination and lists its directory. That fixture is chosen over an
-  unwritable directory because a run as root can write to one anyway,
-  and the test would then fail to fail.
+- **INV-7** — A failed `writeFileAtomically` leaves no temporary behind
+  and leaves the destination as it was.
+  *Test:* `tests/unit/CoreFileSystemTest.cpp`, two cases, both
+  permission-independent — a run as root defeats an unwritable-directory
+  fixture, and the test then fails to fail. (a) The destination's parent
+  is a regular file, so no temporary can be created: assert the error.
+  (b) The destination is an existing directory, so the rename fails
+  *after* the temporary is written: assert the error, that the parent's
+  listing is what it was, and that a pre-existing sibling file still
+  holds its original bytes.
   *Breaks when:* the implementation truncates the destination before
   writing, or returns early on a write error without unlinking its
-  temporary.
+  temporary — case (b) is the one that catches the second.
 
 - **INV-8** — `configDirectory`, `cacheDirectory` and `logDirectory`
-  honour the XDG variables where set, and none of the three resolves
-  inside the repository or under `content/`.
-  *Test:* `tests/unit/CoreFileSystemTest.cpp` sets the variables to a
-  temporary directory and asserts the result; the second half is
-  asserted against the repository root.
+  honour the platform's own variables where set — XDG on Linux,
+  `%APPDATA%` and `%LOCALAPPDATA%` on Windows — and every fallback they
+  return when a variable is unset is an absolute path.
+  *Test:* `tests/unit/CoreFileSystemTest.cpp`. The first half is
+  per-platform: it sets whichever variables that platform reads and
+  asserts the result, so the case is compiled for the platform under
+  test rather than asserting XDG behaviour on Windows, where `ci.sh`
+  runs `ctest` too. The second half is platform-independent — clear the
+  variables and assert each result `is_absolute()`.
   *Breaks when:* a fallback is written relative to the current working
-  directory, which for a test run is the build tree.
+  directory, which for a test run is the build tree and for a launch
+  from a clone would be the repository.
 
 - **INV-9** — Every submitted job runs exactly once.
   *Test:* `tests/unit/CoreJobsTest.cpp` submits many jobs each
@@ -398,9 +431,12 @@ with a printed reason on Windows, through the existing `skip` helper.
 
 - **INV-12** — `~JobSystem` returns only after every submitted job has
   run and every worker has been joined.
-  *Test:* `tests/unit/CoreJobsTest.cpp` submits jobs that append to a
-  vector owned outside the pool, lets the pool leave scope without
-  waiting, and asserts afterwards that every submission is present.
+  *Test:* `tests/unit/CoreJobsTest.cpp` preallocates a vector outside the
+  pool and has each job write its own index, lets the pool leave scope
+  without waiting, and asserts afterwards that every slot was written.
+  Its own slot, not a shared `push_back`: concurrent appends would be a
+  race in the fixture, and INV-13 would then report the test rather than
+  the pool.
   *Breaks when:* workers are detached, or the stop flag is set without
   waking threads blocked on the condition variable — either way the
   vector comes back short, or the process crashes writing to it.
@@ -414,21 +450,28 @@ with a printed reason on Windows, through the existing `skip` helper.
 - **INV-14** — `uta_core` links nothing beyond the standard library
   (design rule 1).
   *Test:* `src/core/CMakeLists.txt` asserts at configure time that the
-  target's `LINK_LIBRARIES` property is empty.
+  target's `LINK_LIBRARIES` property holds nothing but
+  `Threads::Threads`. That one entry is the standard library's own
+  threading support rather than an exception to the rule; an empty
+  assertion would fail the moment `std::thread` is linked on GCC.
   *Breaks when:* somebody adds a convenient third-party dependency to
   `core`, which is the rule every later part inherits its independence
   from.
 
 ## 6. Failure modes
 
-- **The XDG variables are unset and `HOME` is too.** All three directory
-  functions return `NotFound` rather than guessing at the current
-  directory. A program that cannot find where to write says so.
+- **The platform's variables give nothing to fall back to** — the XDG
+  variables and `HOME` both unset on Linux, `%APPDATA%` or
+  `%LOCALAPPDATA%` unset on Windows. All three directory functions
+  return `NotFound` rather than guessing at the current directory. A
+  program that cannot find where to write says so.
 - **`std::filesystem::rename` does not replace an existing destination.**
   The standard requires replacement for a non-directory destination, and
   the MSVC standard library implements it; if a platform were to differ,
-  `writeFileAtomically` returns the error and leaves both files rather
-  than reporting a success it did not achieve.
+  `writeFileAtomically` unlinks its temporary and returns the error,
+  leaving the destination as it was rather than reporting a success it
+  did not achieve. Unlinking is INV-7's contract on every failure path
+  the function can reach; the bullet below is the one it cannot.
 - **A crash between the temporary write and the rename.** The
   destination keeps its old bytes; a temporary is left in its directory.
   This is the trade the design accepts — no test can reach it, and §10
@@ -536,7 +579,8 @@ test is used once to confirm the leg fails, and is not committed.
 | INV-13 | **Partial:** `scripts/ci.sh`'s ThreadSanitizer step, on Linux only; MSVC has no ThreadSanitizer, so the Windows leg checks nothing here |
 | INV-14 | `src/core/CMakeLists.txt`, a configure-time property assertion |
 | §4.3 "no `printf` or `std::cout` outside a program's startup" | **nothing** — no check greps for them; `core` ships no program, so the rule has no in-repo violator to catch yet |
-| §4.5 "completion order is unspecified, so the simulation may not use jobs" | **nothing** — `uworld` does not exist; design rule 4's forbidden-edge check is the eventual catcher, and §9 records that it is out of scope here |
+| §4.5 "no result may depend on the order jobs finish in" | **nothing** — the callers that could breach it (`ubake`, `uworld`) do not exist yet, and no check can see an ordering dependence from `core`'s side |
+| §4.5 "a program owns the `JobSystem` and passes it by reference" | **nothing** — `core` offering no accessor is what makes a global inconvenient rather than impossible; the first part to want one would have to add it, and nothing stops that |
 | §6 "a crash between the temporary write and the rename" | **nothing** — no test can crash a process mid-call; the design accepts the leftover temporary |
 
 ## 11. Cross-doc impact
@@ -546,23 +590,28 @@ test is used once to confirm the leg fails, and is not committed.
   reads "(Filled once the stack exists.)".
 - `README.md` — only if its build instructions change; the CMake
   invocation does not.
-- `docs/design.md` — no change. This spec implements it and contradicts
-  nothing in it.
+- `docs/design.md` — no change. This spec implements it. The one place
+  the draft did contradict it — a job-system clause that would have kept
+  the baker off jobs, which § *What every part does the same way*
+  requires it to use — was a defect in this document and was fixed here
+  rather than there.
 
 ## 12. Cold-eyes loop log
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| 1 | 2026-09-04 | 3, cold — genre pinned `spec` | 2 | 9 | 2 | 1 | **Fourteen findings, twelve verified and fixed, two dismissed as immaterial.** Nine of the twelve were Q2 — the draft contradicting itself or the design — which is the shape a first cold read of a four-surface spec produces. **The most consequential:** §4.5 said nothing whose result must be reproducible may use the job system, while `docs/design.md` requires baking to use jobs AND requires one map, recipe and baker version to hash to one bundle on any machine. An implementer of `ubake` would have kept it off jobs. The real invariant is that no *result* may depend on completion order; the baker combines in submission order and both hold. **Two lanes independently found the same broken fixture (Q4):** INV-7's test was to write to a destination whose parent is a regular file, then compare the bytes of an existing destination and list its directory — the fixture excludes its own preconditions. It was collateral from this session's own earlier fix, which swapped the fixture and left the assertions describing the old one. Now two cases, both permission-independent. **INV-14 would have failed the build it was written to protect:** it asserted `LINK_LIBRARIES` empty, which forbids `Threads::Threads` — how CMake spells the standard library's threading support, and exactly what `std::thread` needs on GCC. **INV-8 asserted XDG behaviour with no platform qualifier**, and `scripts/ci.sh` runs `ctest` on Windows, so a correct implementation would have gone red there. Both Q3s were inventions other code binds to: who owns the one `JobSystem`, and whether a `LogRecord`'s views survive the sink call. **Dismissed as true but immaterial:** the casing sentence attributes the trailing-underscore convention to `languages/cpp.md`, which does not state it, and §3 reads as though UTA-0041 shipped the root `CMakeLists.txt`. Neither changes a line anyone builds. **Lane-side facts confirmed, not taken on trust:** all three lanes re-read `CMakeLists.txt`, `tests/CMakeLists.txt`, `scripts/ci.sh` and the cited `docs/design.md` bullets; two opened `cpp.md` to settle citations the packet had not windowed. |
 
 ## 13. Resource cost
 
 `uta_core` is a new build target: a static library, with no runtime
 state of its own beyond the two below.
 
-- **The logger** holds its sinks and formats into a reused buffer under
-  its lock. Its memory is the sinks plus one line; nothing accumulates.
-  A file sink's growth is the log file, which is a program's concern
-  rather than the logger's, and no program exists yet to set a policy.
+- **The logger** holds its sinks and nothing else. A line costs one
+  `LogRecord` and one temporary string, both in the calling thread, both
+  gone when the call returns; nothing accumulates. A file sink's growth
+  is the log file, which is a program's concern rather than the
+  logger's, and no program exists yet to set a policy.
 - **The job system** holds one `std::deque` of pending jobs. It is
   unbounded by design: `submit` never blocks and never drops work, and
   the cap is the caller's own submission rate. The named consequence is
