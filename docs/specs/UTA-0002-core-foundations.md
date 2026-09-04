@@ -112,6 +112,10 @@ enum class ErrorCode : std::uint16_t {
 
 /// A failure crossing a module boundary: why it failed, and a sentence
 /// saying so. Both are always present.
+/// The short, stable name of a code -- for logs and test failure output,
+/// never for a player. Never empty.
+[[nodiscard]] std::string_view errorCodeName(ErrorCode code) noexcept;
+
 class Error {
 public:
     Error(ErrorCode code, std::string message);
@@ -211,11 +215,22 @@ class Logger {
 public:
     static Logger& instance() noexcept;
     void addSink(LogSink sink);
-    void write(const LogCategory& category, LogLevel level, std::string_view text);
+
+    /// Drops every sink. For tests, and for a program tearing down its
+    /// own logging deliberately.
+    void clearSinks();
+
+    /// noexcept, and it reports no failure: a logger that could fail
+    /// would turn every log line into a branch. A throwing sink is
+    /// caught here and the sinks after it still run.
+    void write(const LogCategory& category, LogLevel level,
+               std::string_view text) noexcept;
 };
 
 [[nodiscard]] LogSink consoleSink();
-[[nodiscard]] LogSink fileSink(const std::filesystem::path& path);
+
+/// Opens `path` for append, once, and says why when it cannot.
+[[nodiscard]] Result<LogSink> fileSink(const std::filesystem::path& path);
 
 }  // namespace uta
 
@@ -231,6 +246,17 @@ so it takes no part in static-initialisation order.
 expression, outside `write`'s `noexcept`, so logging from any `noexcept`
 function would otherwise be a `std::terminate` waiting for an allocation
 failure — and every such caller would have to rediscover it.
+
+**`fileSink` reports its failure; `write` does not, and the difference is
+not an inconsistency.** `write` is called from everywhere, including
+`noexcept` functions, and has no channel of its own — a logger that
+reported failure would put a branch on every log line. `fileSink` is a
+factory called once at startup by a caller that *does* have a channel,
+and it sits on a module boundary, where `docs/design.md` requires
+`std::expected`. Its failure path is ordinary rather than exotic: on a
+first run the log directory does not exist. Returning a sink that
+silently does nothing leaves a program running with logging off and no
+way to find out.
 
 **`Logger::instance()` leaks deliberately.** A function-local static is
 destroyed before every static constructed earlier than the first call, so a
@@ -274,11 +300,13 @@ namespace uta::fs {
 [[nodiscard]] Result<void> writeFileAtomically(const std::filesystem::path& path,
                                                std::span<const std::byte> bytes);
 
-/// Join `relative` under `root` and refuse anything that escapes it.
+/// Join `relative` under `root` and refuse anything that escapes it,
+/// and anything whose NAME is unsafe on either platform.
 /// This is the trust boundary: `unet` will name files from a remote
 /// server, and `ubake` writes under content/. Absolute inputs, empty
 /// inputs and paths that resolve outside `root` — through `..`, a
-/// symlink, or both — are InvalidArgument.
+/// symlink, or both — are InvalidArgument, as is any component barred
+/// by the lexical pass below.
 [[nodiscard]] Result<std::filesystem::path> resolveUnder(
     const std::filesystem::path& root, const std::filesystem::path& relative);
 
@@ -305,6 +333,42 @@ Three things implementation proved that the draft did not say:
   non-ASCII path — `%APPDATA%` for a non-ASCII user name among them — would
   fail to open.
 
+**A lexical pass over `relative`'s components runs first, before any
+filesystem call, and it is enforced on every platform rather than only on
+Windows.** Three shapes are safe on Linux and are not names at all on
+Windows, and `resolveUnder` is where a remote server's chosen filename
+arrives:
+
+- **Reserved device names** — `CON`, `NUL`, `AUX`, `PRN`, `COM1`–`COM9`,
+  `LPT1`–`LPT9` — resolve to devices in *any* directory on Win32, and do
+  so with an extension too, so `COM1.txt` is the same device. A remote
+  file named `COM1` passes containment and then reads from a serial
+  port, which can block with no timeout. Matched case-insensitively, on
+  the component's text up to its first `.`.
+- **A trailing dot or space on any component.** Win32 strips them, so
+  `a.` and `a` are one file after the check has passed on two names.
+- **A colon anywhere in a component.** On Win32 `a.txt:s` writes an
+  alternate data stream, which the quarantine guard's extension check
+  cannot see, and `C:foo` is drive-relative rather than absolute — so
+  `is_absolute()` does not catch it.
+
+**Enforcing all three everywhere is a deliberate choice, and it is
+stricter than the platform requires.** Two reasons. A rule that holds on
+one platform and not the other means a Linux server and a Windows client
+disagree about which content is safe, and `unet` moves content between
+exactly those. And a lexical rule is testable on every leg of the matrix,
+where a Windows-only rule is checked by one leg and by no local run at
+all. The cost is that a legitimate Linux filename containing a colon or a
+trailing dot is refused; no Unreal Tournament content uses one.
+
+**The containment comparison ignores an empty trailing element.** A
+`root` written with a trailing separator yields one, and whether
+`lexically_normal` preserves it differs between standard library
+implementations — so a root spelled with a trailing slash would be
+refused on some and accepted on others. It fails closed, so it is
+availability rather than a hole, but a trust boundary must not rest on
+an implementation difference.
+
 An `fopen` failure maps `errno` to a code chosen for it, rather than one code
 standing for every cause.
 
@@ -324,7 +388,14 @@ namespace uta {
 
 /// Handle to submitted work. Copyable; outliving its JobSystem is a
 /// programming error the destructor's join makes impossible in practice.
-class JobHandle { ... };
+class JobHandle {
+public:
+    [[nodiscard]] bool done() const noexcept;
+
+    /// Whether the body threw. Meaningful once done() is true; false
+    /// for a default-constructed handle, which ran nothing.
+    [[nodiscard]] bool failed() const noexcept;
+};
 
 class JobSystem {
 public:
@@ -340,8 +411,11 @@ public:
 
     [[nodiscard]] JobHandle submit(std::function<void()> job);
 
-    /// Submit `count` jobs and wait for all of them.
-    void parallelFor(std::size_t count, const std::function<void(std::size_t)>& body);
+    /// Submit `count` jobs, wait for all of them, and return how many
+    /// bodies threw -- 0 when every one succeeded. nodiscard, because a
+    /// count nobody reads is the defect this return exists to close.
+    [[nodiscard]] std::size_t parallelFor(std::size_t count,
+                                          const std::function<void(std::size_t)>& body);
 
     /// Block until `handle`'s job has run. Called from a worker thread,
     /// this runs pending jobs while it waits instead of blocking, so a
@@ -359,6 +433,18 @@ One `std::deque` of jobs behind one `std::mutex` and one
 body throws, logs it against `logCore` at `Error`, and carries on — the
 worker loop is a thread boundary, which is where `languages/cpp.md`
 permits `catch (...)`.
+
+**Containing a failure is not the same as hiding it, and the handle
+records which happened.** Catching keeps one bad job from calling
+`std::terminate`; it must not make a failed job indistinguishable from a
+successful one. `JobHandle::failed()` is set before `done()`, under the
+same lock, so a waiter that sees completion sees the outcome with it.
+`parallelFor` returns how many bodies threw. The reason this matters
+here rather than in general is `ubake`: `docs/design.md` requires baking
+to use jobs, and ADR-0002 requires one map, recipe and baker version to
+hash to one bundle on any machine — so a batch in which every body threw,
+reported as complete, is a wrong bundle presented as a good one. A log
+line is not a reporting channel: nothing downstream reads it.
 
 **Completion order is unspecified**, and jobs run on unspecified
 threads. So no *result* may depend on the order jobs finish in. That is
@@ -550,6 +636,41 @@ with a printed reason on Windows, through the existing `skip` helper.
   `core`, which is the rule every later part inherits its independence
   from.
 
+- **INV-15** — `resolveUnder` returns `InvalidArgument` for any relative
+  path with a component that is a Win32 reserved device name (with or
+  without an extension, any case), ends in a dot or a space, or contains
+  a colon — on every platform, and before any filesystem call.
+  *Test:* `tests/unit/CoreFileSystemTest.cpp`, one case per shape,
+  including `COM1.txt` and a name differing from a safe one only by a
+  trailing dot. It runs on all three legs, which is what the rule being
+  platform-independent buys.
+  *Breaks when:* the check is guarded by `#ifdef _WIN32`, so the Linux
+  and Clang legs assert nothing and the rule is proven by one leg; or it
+  is applied to the joined path after `weakly_canonical`, which has
+  already resolved the name it was supposed to inspect.
+
+- **INV-16** — A job whose body throws is reported as failed:
+  `JobHandle::failed()` is true once `done()` is, and `parallelFor`
+  returns the number of bodies that threw.
+  *Test:* `tests/unit/CoreJobsTest.cpp` waits on a handle whose body
+  throws and asserts `done()` and `failed()` are both true; and runs a
+  `parallelFor` in which a known subset of bodies throw, asserting the
+  returned count.
+  *Breaks when:* the flag is stored after `done` is published, so a
+  waiter woken by `done` can read the outcome before it is written — the
+  failure is then reported correctly under a debugger and not under
+  load.
+
+- **INV-17** — `fileSink` returns an `Error` naming the reason when it
+  cannot open its file, and a working sink when it can.
+  *Test:* `tests/unit/CoreLogTest.cpp` asks for a sink under a directory
+  that does not exist and asserts the error and a non-empty message,
+  then asks for one under a temporary directory and asserts a line
+  written through it arrives.
+  *Breaks when:* the failure is folded back into a do-nothing sink — the
+  call then succeeds, the program runs with logging off, and the only
+  evidence is the absence of output.
+
 ## 6. Failure modes
 
 - **The variables one directory function reads give nothing to fall back
@@ -597,9 +718,9 @@ library.
 | File | Locks |
 |---|---|
 | `tests/unit/CoreErrorTest.cpp` | INV-1, INV-2 |
-| `tests/unit/CoreLogTest.cpp` | INV-3 (its `Logger` half), INV-4, INV-5 |
-| `tests/unit/CoreFileSystemTest.cpp` | INV-3 (its `uta::fs` half), INV-6, INV-7, INV-8 |
-| `tests/unit/CoreJobsTest.cpp` | INV-9, INV-10, INV-11, INV-12, INV-13 |
+| `tests/unit/CoreLogTest.cpp` | INV-3 (its `Logger` half), INV-4, INV-5, INV-17 |
+| `tests/unit/CoreFileSystemTest.cpp` | INV-3 (its `uta::fs` half), INV-6, INV-7, INV-8, INV-15 |
+| `tests/unit/CoreJobsTest.cpp` | INV-9, INV-10, INV-11, INV-12, INV-13, INV-16 |
 
 INV-14 is deliberately absent from that table: its surface is
 `src/core/CMakeLists.txt`, not a test file. §10 carries it.
@@ -677,6 +798,10 @@ test is used once to confirm the leg fails, and is not committed.
 | INV-12 | `tests/unit/CoreJobsTest.cpp`, a Catch2 unit test |
 | INV-13 | **Partial:** `scripts/ci.sh`'s ThreadSanitizer step, on Linux only; MSVC has no ThreadSanitizer, so the Windows leg checks nothing here |
 | INV-14 | `src/core/CMakeLists.txt`, a configure-time property assertion |
+| INV-15 | `tests/unit/CoreFileSystemTest.cpp`, a Catch2 unit test, on all three legs |
+| INV-16 | `tests/unit/CoreJobsTest.cpp`, a Catch2 unit test |
+| INV-17 | `tests/unit/CoreLogTest.cpp`, a Catch2 unit test |
+| §4.4 "a name barred on Win32 but legal here" | **Partial:** INV-15 covers the three shapes named; a Win32 naming rule nobody has thought of is caught by nothing, and no Windows-native path test exists — the rule is lexical precisely so this gap does not depend on the platform |
 | §4.3 "no `printf` or `std::cout` outside a program's startup" | **nothing** — no check greps for them; `core` ships no program, so the rule has no in-repo violator to catch yet |
 | §4.5 "no result may depend on the order jobs finish in" | **nothing** — the callers that could breach it (`ubake`, `uworld`) do not exist yet, and no check can see an ordering dependence from `core`'s side |
 | §4.5 "a program owns the `JobSystem` and passes it by reference" | **nothing** — `core` offering no accessor is what makes a global inconvenient rather than impossible; the first part to want one would have to add it, and nothing stops that |
