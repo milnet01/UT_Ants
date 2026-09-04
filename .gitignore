@@ -46,9 +46,15 @@ coverage.*
 .coverage
 lcov.info
 
-# Core dumps
-core
-core.*
+# Core dumps.
+#
+# `/core` and not `core`: an unanchored pattern matches a DIRECTORY of that
+# name at any depth, and this project has src/core -- so the bare form
+# silently excluded the whole core library from every `git add`. The push
+# gate caught it on 2026-09-04 by building a clean worktree, which is the
+# only place the absence was visible.
+/core
+core.[0-9]*
 *.core
 vgcore.*
 
