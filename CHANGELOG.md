@@ -46,6 +46,13 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **Make the build faster on a memory-limited machine.** (UTA-0050)
+  The build now uses ccache and the mold linker when they are installed,
+  and ignores them when they are not, so nothing is required to build. With
+  ccache configured as the build docs describe, rebuilding after wiping the
+  build folder is close to instant instead of recompiling the test
+  framework from scratch.
+
 - **A job that fails can be seen to have failed** (UTA-0047)
   JobHandle::failed() reports whether the work threw, and parallelFor
   returns how many of its bodies did. Previously a job whose body threw was

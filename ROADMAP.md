@@ -594,7 +594,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-decision-2026-09-04.
   Lanes: core, ci.
 
-- 🚧 [UTA-0050] **Make the build faster on a memory-limited machine.**
+- ✅ [UTA-0050] **Make the build faster on a memory-limited machine.**
   Measured 2026-09-04 on the author's machine (12 cores, ~8 GB free of 31,
   GCC 16.2.0, Ninja); three review lanes were running, so wall times carry
   noise and the ranking is what matters rather than the absolute figures.
@@ -633,6 +633,20 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-04): picked up on the user's decision to wire both
   ccache and mold, each guarded so a machine without them builds
   identically.
+  Resolved (2026-09-04): CMakeLists.txt detects ccache and mold with
+  find_program and uses each only if present, so a machine without
+  either builds identically -- verified by configuring and building with
+  both forced to NOTFOUND. CLAUDE.md names the two ccache settings
+  (base_dir=/ and hash_dir=false) without which the cache mostly misses
+  across build directories. Checked against the two specs governing this
+  file: INV-7 of UTA-0049 still holds (the floating-point flags are on
+  the real compile line and the refuse guard still fires) and INV-13 of
+  UTA-0002 still holds (the ThreadSanitizer build works alongside mold).
+  Green on all three legs. COVERAGE LIMIT: CI installs only the
+  compilers with --no-install-recommends, so the runners exercise the
+  tools-absent path; the ccache and mold paths are verified on this
+  machine only. The Debug-for-iteration finding needs no code and is not
+  implemented -- it is a choice at configure time.
   **Layman:** Cut the waiting time when rebuilding, especially after wiping the build folder, without needing a bigger machine.
   Kind: perf.
   Source: user-request-2026-09-04.
