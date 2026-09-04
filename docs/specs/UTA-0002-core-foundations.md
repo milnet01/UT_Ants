@@ -262,10 +262,12 @@ way to find out.
 destroyed before every static constructed earlier than the first call, so a
 static whose destructor logs would touch a destroyed mutex.
 
-**A sink is invoked under the lock, and a sink that logs is dropped rather
-than allowed to re-enter** — the mutex is not recursive, so re-entry would
-hang the process, and nothing detects that: ThreadSanitizer does not do
-deadlock detection.
+**A sink is invoked under the lock, and a log call made from inside a sink
+is discarded — `Logger::write` is not re-entrant.** A thread-local guard is
+what discards it. Without one the mutex, which is not recursive, would
+deadlock the process, and nothing would detect that: ThreadSanitizer does
+not do deadlock detection. So a sink author may log without hanging the
+program, and their line is dropped rather than written.
 
 **Both shipped sinks escape control bytes** (CWE-117). Message text carries
 filesystem paths now and package bytes once `upkg` lands.
@@ -282,8 +284,10 @@ namespace uta::fs {
 /// ~/.config, ~/.cache and ~/.local/state, each under "ut-ants".
 /// Windows uses %APPDATA%\UT_Ants and %LOCALAPPDATA%\UT_Ants\{cache,logs}.
 ///
-/// A variable is honoured as the user set it, wherever it points; core
-/// does not police the platform's own configuration. What core does
+/// A variable is honoured as the user set it, provided it is ABSOLUTE;
+/// core does not otherwise police the platform's own configuration. One
+/// that is set but relative is treated as unset, so the platform's
+/// fallback applies -- or NotFound where it has none. What core does
 /// guarantee is that every FALLBACK is absolute, so an unset variable
 /// can never put configuration or logs somewhere relative to the
 /// current working directory -- which for a test run is the build tree,
@@ -326,8 +330,13 @@ Three things implementation proved that the draft did not say:
 - **`readFile` caps the size it will allocate.** The size is
   attacker-influenced wherever the path came through `resolveUnder`, and an
   unguarded allocation throws `bad_alloc` straight out of `uta::fs` against
-  INV-3. Over the cap is `InvalidArgument`; a failed allocation is
-  `OutOfMemory`.
+  INV-3. **The cap is 4 GiB**, a named constant in `FileSystem.cpp`; over
+  it is `InvalidArgument`, and a failed allocation is `OutOfMemory`. The
+  figure is stated rather than left to the implementation because `upkg`
+  (UTA-0003) reads every package through `readFile`, and its author has
+  to know which sizes are supported: the largest package in the Unreal
+  Tournament install this project is developed against is about 400 MB,
+  which 4 GiB clears by an order of magnitude.
 - **Files are opened by their native path**, never `path::string()`. That is
   UTF-8 on Windows while `fopen` decodes the ANSI code page, so every
   non-ASCII path — `%APPDATA%` for a non-ASCII user name among them — would
@@ -361,13 +370,17 @@ where a Windows-only rule is checked by one leg and by no local run at
 all. The cost is that a legitimate Linux filename containing a colon or a
 trailing dot is refused; no Unreal Tournament content uses one.
 
-**The containment comparison ignores an empty trailing element.** A
-`root` written with a trailing separator yields one, and whether
-`lexically_normal` preserves it differs between standard library
-implementations — so a root spelled with a trailing slash would be
-refused on some and accepted on others. It fails closed, so it is
-availability rather than a hole, but a trust boundary must not rest on
-an implementation difference.
+**The containment comparison must not depend on whether a `root` spelled
+with a trailing separator yields an empty final element.** Measured on
+libstdc++ 16.2: `weakly_canonical` strips it, so containment already
+holds there and no code change is needed on that leg — it is
+`lexically_normal` that preserves it, and this function does not call
+that. libc++ and MSVC's standard library were **not** measured, because
+this machine cannot run them. So the property is locked by INV-6's test
+case on every leg rather than argued from the one implementation that
+could be tried. Refusing such a root fails closed, so it is availability
+rather than a hole; a trust boundary should not rest on an untested
+difference in either direction.
 
 An `fopen` failure maps `errno` to a code chosen for it, rather than one code
 standing for every cause.
@@ -386,8 +399,9 @@ specification requires and INV-8's absolute-fallback promise needs.
 ```cpp
 namespace uta {
 
-/// Handle to submitted work. Copyable; outliving its JobSystem is a
-/// programming error the destructor's join makes impossible in practice.
+/// Handle to submitted work. Copyable, and safe to outlive its
+/// JobSystem: the completion state is shared-owned by the handle, and
+/// the JobSystem pointer it carries is compared, never dereferenced.
 class JobHandle {
 public:
     [[nodiscard]] bool done() const noexcept;
@@ -541,10 +555,12 @@ with a printed reason on Windows, through the existing `skip` helper.
 - **INV-6** — `resolveUnder` returns `InvalidArgument` for every input
   resolving outside `root`, and for every absolute or empty input; it
   returns a path under `root` for every relative, non-empty input that
-  resolves inside it.
+  resolves inside it, passes INV-15's lexical pass, and is not an
+  unresolved symlink. A `root` spelled with a trailing separator is
+  accepted, on every standard library.
   *Test:* `tests/unit/CoreFileSystemTest.cpp`, including `..` escapes,
-  absolute paths, an empty path, and a symlink inside `root` pointing
-  outside it.
+  absolute paths, an empty path, a symlink inside `root` pointing
+  outside it, and a `root` written with a trailing separator.
   *Breaks when:* the check is lexical only — `root/link/../..` escapes
   through a symlink that `lexically_normal` resolves as text.
 
@@ -564,7 +580,8 @@ with a printed reason on Windows, through the existing `skip` helper.
 
 - **INV-8** — `configDirectory`, `cacheDirectory` and `logDirectory`
   honour the platform's own variables where set — XDG on Linux,
-  `%APPDATA%` and `%LOCALAPPDATA%` on Windows. Where a variable is unset
+  `%APPDATA%` and `%LOCALAPPDATA%` on Windows. A variable that is set but
+  **relative** is treated as unset. Where a variable is unset
   and the platform has a fallback, that fallback is an absolute path;
   where it has none, the function returns `NotFound`.
   *Test:* `tests/unit/CoreFileSystemTest.cpp`, three cases. (a) Both
@@ -642,8 +659,13 @@ with a printed reason on Windows, through the existing `skip` helper.
   a colon — on every platform, and before any filesystem call.
   *Test:* `tests/unit/CoreFileSystemTest.cpp`, one case per shape,
   including `COM1.txt` and a name differing from a safe one only by a
-  trailing dot. It runs on all three legs, which is what the rule being
-  platform-independent buys.
+  trailing dot — plus one case that distinguishes the ORDER: a barred
+  component under a `root` that cannot be canonicalised, which must
+  return `InvalidArgument` rather than the `IoFailure` a
+  filesystem-first implementation returns. Without that case every other
+  input fails either way and the ordering half is unfalsifiable. It runs
+  on all three legs, which is what the rule being platform-independent
+  buys.
   *Breaks when:* the check is guarded by `#ifdef _WIN32`, so the Linux
   and Clang legs assert nothing and the rule is proven by one leg; or it
   is applied to the joined path after `weakly_canonical`, which has
@@ -801,6 +823,8 @@ test is used once to confirm the leg fails, and is not committed.
 | INV-15 | `tests/unit/CoreFileSystemTest.cpp`, a Catch2 unit test, on all three legs |
 | INV-16 | `tests/unit/CoreJobsTest.cpp`, a Catch2 unit test |
 | INV-17 | `tests/unit/CoreLogTest.cpp`, a Catch2 unit test |
+| §4.3 "a log call made from inside a sink is discarded" | `tests/unit/CoreLogTest.cpp`, "a sink that logs does not deadlock the logger", which asserts the sink is entered once; the `TIMEOUT 30` is what turns the guard's removal into a failure rather than a hang |
+| §4.4 "the `readFile` cap is 4 GiB" | **nothing** — no fixture asserts the boundary, because a file over the cap is impractical to create in the suite; the constant can be changed without breaking a test, and `upkg` binds to it |
 | §4.4 "a name barred on Win32 but legal here" | **Partial:** INV-15 covers the three shapes named; a Win32 naming rule nobody has thought of is caught by nothing, and no Windows-native path test exists — the rule is lexical precisely so this gap does not depend on the platform |
 | §4.3 "no `printf` or `std::cout` outside a program's startup" | **nothing** — no check greps for them; `core` ships no program, so the rule has no in-repo violator to catch yet |
 | §4.5 "no result may depend on the order jobs finish in" | **nothing** — the callers that could breach it (`ubake`, `uworld`) do not exist yet, and no check can see an ordering dependence from `core`'s side |
@@ -827,6 +851,7 @@ test is used once to confirm the leg fails, and is not committed.
 | 1 | 2026-09-04 | 3, cold — genre pinned `spec` | 2 | 9 | 2 | 1 | **Fourteen findings, twelve verified and fixed, two dismissed as immaterial.** Nine of the twelve were Q2 — the draft contradicting itself or the design — which is the shape a first cold read of a four-surface spec produces. **The most consequential:** §4.5 said nothing whose result must be reproducible may use the job system, while `docs/design.md` requires baking to use jobs AND requires one map, recipe and baker version to hash to one bundle on any machine. An implementer of `ubake` would have kept it off jobs. The real invariant is that no *result* may depend on completion order; the baker combines in submission order and both hold. **Two lanes independently found the same broken fixture (Q4):** INV-7's test was to write to a destination whose parent is a regular file, then compare the bytes of an existing destination and list its directory — the fixture excludes its own preconditions. It was collateral from this session's own earlier fix, which swapped the fixture and left the assertions describing the old one. Now two cases, both permission-independent. **INV-14 would have failed the build it was written to protect:** it asserted `LINK_LIBRARIES` empty, which forbids `Threads::Threads` — how CMake spells the standard library's threading support, and exactly what `std::thread` needs on GCC. **INV-8 asserted XDG behaviour with no platform qualifier**, and `scripts/ci.sh` runs `ctest` on Windows, so a correct implementation would have gone red there. Both Q3s were inventions other code binds to: who owns the one `JobSystem`, and whether a `LogRecord`'s views survive the sink call. **Dismissed as true but immaterial:** the casing sentence attributes the trailing-underscore convention to `languages/cpp.md`, which does not state it, and §3 reads as though UTA-0041 shipped the root `CMakeLists.txt`. Neither changes a line anyone builds. **Lane-side facts confirmed, not taken on trust:** all three lanes re-read `CMakeLists.txt`, `tests/CMakeLists.txt`, `scripts/ci.sh` and the cited `docs/design.md` bullets; two opened `cpp.md` to settle citations the packet had not windowed. |
 | 2 | 2026-09-04 | 3, cold — identical brief, packet rebuilt from disk | 0 | 5 | 2 | 2 | **Nine verified, nine fixed, none dismissed. Cap reached (2 for a spec); the run files its tail — which is empty — and exits. Not one Q1.** **A calm cap, not a violent one:** three of the nine landed on text loop 1 wrote, so the majority were defects the draft always held and the cap simply ran out of loops for. (The second share is degenerate here and worth saying so: the gate was armed by the document being NEW, so every finding falls inside the armed span by construction.) **The finding of the run came from one lane and was proven by running rather than argued:** §4.5 prescribed `hardware_concurrency() - 1` floored at 1, and the return is `unsigned` — compiled and run, a report of 0 gives 4,294,967,295 workers, and `std::max` against `UINT_MAX` changes nothing, so §6's promise of one worker was false and the constructor would have tried to spawn four billion threads. The subtraction now comes after the 0-or-1 test. **All three lanes independently found two others.** §6's rename bullet was headed with the negative stated as fact — an implementer taking the heading at face value writes `remove()` before `rename()`, which destroys the crash-safety property §4.4 sells and INV-7 locks. And INV-8's second half was called platform-independent while Windows has no fallback at all, so on the Windows leg — which runs `ctest`, and went green for the first time today — a correct implementation fails, and the likelier repair is to invent a hardcoded path §6 forbids. **Two Q4s, both clauses that could not fail:** INV-5 asserted no line is spliced, but a sink is handed one whole `LogRecord` per call and sees intact text whether or not `write` locks — it now asserts sink calls do not overlap, which is what the lock actually buys; and INV-10 cited a CTest timeout nothing in the item set, so its deadlock would have hung the run rather than failed it. **Both Q3s were the orchestrator's, from lane open questions:** the sanitizer offered `address` while describing only the GCC/Clang spelling (dropped rather than specified — nothing here runs it), and never said which targets it instruments, which decides whether the leg checks the job tests at all or nothing. **Packet defect, mine:** its header still read 574 lines against the brief's 623; all three lanes raised it and none was misled, since the placeholder sits below every citation. **Resolved clean, not in the tally:** `ci.sh`'s green step does print the skipped list, so a skipped sanitizer leg is visible in the run output. |
 | impl | 2026-09-04 | none dispatched — implementation, not a review loop | n/a | n/a | n/a | n/a | **Fold-back from building it, and from the `review-code` sweep that followed. NO reviewer was dispatched for this row; it records what the code proved.** The gate had converged at its cap, and every correction below is a clause implementation falsified rather than a change of direction — so under `CLAUDE.md` rule 14 this records what was built and does not re-arm the gate. **What the contract got wrong. § 4.2's `message()` returned a view into the object while `withContext` returns a prvalue, so the chained shape the spec's own example teaches read freed memory** — measured: it printed nothing, and ASan missed it because a short message lives inside the object rather than on the heap. Ref-qualified now, with the rvalue overload deleted. The macros' `__LINE__` uniquifier could not survive two `UTA_TRY` on one line, nor MSVC's edit-and-continue build — which is the compiler the whole macro shape exists for. § 4.3's `UTA_LOG` ran `std::format` in the caller's expression, outside `write`'s `noexcept`, so logging from any `noexcept` function was a `std::terminate` waiting for an allocation failure; `Jobs.cpp` had already had to hand-wrap it once, which is the evidence the fix belonged in the macro. `LogCategory` took a `string_view` name it borrows forever. § 4.4's `resolveUnder` — the project's trust boundary — accepted a DANGLING symlink, because `weakly_canonical` resolves only what exists and `status` follows links; `readFile` allocated from an attacker-influenced size with no cap; files were opened by `path::string()`, which is UTF-8 on Windows while `fopen` decodes the ANSI code page, so `%APPDATA%` for a non-ASCII user name would never have opened; and the atomic write's temporary carried no process id, so two processes — which design rule 16 makes a designed-in shape — could interleave into one file and each rename it into place. **Three findings were queued rather than folded in**, because each needs a contract decision or a platform this machine is not: UTA-0046 (Windows reserved device names and trailing-separator roots), UTA-0047 (a thrown job is indistinguishable from a successful one, which for `ubake` means a wrong bundle reported as good), UTA-0048 (`fileSink` cannot report why it failed to open, against the design's `std::expected` rule at a module boundary). **Not folded in and deliberately so:** the spec's INV wording is unchanged — every fix above satisfies the invariants as written, and none of them needed the contract loosened. |
+| 3 | 2026-09-04 | 3, cold — genre pinned `spec`; gate armed by the UTA-0046/0047/0048 amendment | 2 | 2 | 2 | 1 | **Seven verified, seven fixed, three dismissed as immaterial.** The gate was armed by an amendment changing three contracts for work not yet built, so the packet named those three regions and told lanes a spec-vs-code difference there was expected. **All three lanes independently found the same two Q2s**, which is the strongest agreement this document has produced. **The most consequential is a contradiction the amendment itself created:** INV-6 promised `resolveUnder` returns a path for *every* relative, non-empty input resolving inside `root`, and new INV-15 refuses `COM1`, `a.` and `a:b`, which are all three of those things. §7 gives both invariants one test file, so a builder writes one assertion that the other's implementation must fail — and the security rule is the likelier one to be dropped as the older statement. The same absolute wording had been swallowing the dangling-symlink rejection since the previous run. **The second is older and not the amendment's:** §4.4's declaration comment says a variable is honoured *wherever it points* while §4.4's prose and the shipped code both ignore a relative one, and INV-8 sided with the comment — so `XDG_CONFIG_HOME=cfg` yields the build tree on one reading and `~/.config` on the other, with INV-8's own test passing either way. **Two lanes found the `readFile` cap unpinned:** the prose describes a cap and names no figure, no invariant and no §10 row, while the code had already chosen 4 GiB. That is a contract UTA-0003 binds to — `upkg` reads every package through `readFile` — so the figure is now stated, with an honest `nothing` row, since a fixture over the cap is impractical. **One lane found a false claim in my own amendment**, and running it then refuted the lane's diagnosis too: I had written *the containment comparison ignores an empty trailing element* in the present tense for unbuilt work, and named `lexically_normal`, which the function never calls. Measured on libstdc++ 16.2, `weakly_canonical` strips the element and containment already holds, so nothing is broken on that leg; libc++ and MSVC cannot be run here. The property is now locked by an INV-6 test case on every leg rather than argued from the one implementation available — an unrunnable region stated rather than looped on. **One lane found the §4.5 sketch contradicting the header it describes**, calling a handle outliving its `JobSystem` a programming error where `Jobs.h` says the shared state makes it safe and the owner pointer is compared, never dereferenced — material because UTA-0047's implementer is exactly who reads that line before adding `failed()`. **The Q4:** INV-15's own test could not falsify its *before any filesystem call* half, since every listed input fails whether the check runs before or after canonicalisation; a case under an uncanonicalisable root now distinguishes them. **Dismissed as true but immaterial:** §1's *no `src/` sources at all*, §11's *(Filled once the stack exists.)*, and the `LogRecord` sketch omitting a default the shipped struct sets. **Four lane open questions resolved clean and are not in the tally:** `logCore` is `constinit`, the re-entrancy guard exists and is covered by a test asserting the sink is entered once, `xdgDirectory` does apply `ut-ants` to all three Linux paths, and the code's cap is real. |
 
 ## 13. Resource cost
 
