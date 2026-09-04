@@ -17,6 +17,13 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Prove the numeric contract holds across GCC, Clang and MSVC.** (UTA-0049)
+  The build now sets floating-point contraction and fast-math off on every
+  compiler, and refuses to configure if a conflicting flag is passed in. A
+  test locks the result by exact bit pattern on GCC, Clang and MSVC, so a
+  map baked on one machine cannot quietly differ from the same map baked on
+  another.
+
 - **core: the error type, the logger, the filesystem and the job system** (UTA-0002)
   The shared foundation every other part is built on. Failures cross a
   module boundary as std::expected<T, Error>; one logger carries a

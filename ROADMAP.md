@@ -551,7 +551,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-04 logger lane.
   Lanes: core.
 
-- 🚧 [UTA-0049] **Prove the numeric contract holds across GCC, Clang and MSVC.**
+- ✅ [UTA-0049] **Prove the numeric contract holds across GCC, Clang and MSVC.**
   docs/design.md § What every part does the same way requires floating-point
   contraction and fast-math off with no platform maths library in the
   simulation or the baker, and ADR-0002 requires one map, recipe and baker
@@ -575,6 +575,20 @@ model, no weapon and no opponent until 0.2.0.
   asserted: three libms are not bit-identical and design.md forbids
   depending on any of them, so such an assert would lock in something
   untrue.
+  Resolved (2026-09-04): CMakeLists.txt now sets -ffp-contract=off
+  -fno-fast-math on GCC and Clang and /fp:precise on MSVC, and refuses
+  at configure time if a fast-math flag arrives through CMAKE_CXX_FLAGS.
+  tests/unit/NumericContractTest.cpp locks INV-1..6 by exact bit
+  pattern. Proven red before green: a worktree at the pre-fix commit
+  plus -march=native failed exactly the contraction case, printing
+  separate == fused == 0x3c3eb851eb851eb8; the fix returned 73/73. Green
+  on all three legs of run 1748777 -- GCC 14, Clang 19 and MSVC. Three
+  gaps stated rather than left to be found: INV-1 cannot discriminate at
+  the default no-march target because there is no FMA to contract into;
+  the configure-time guard has no automated test and was hand-verified
+  four ways; and transcendentals are deliberately not asserted by bit
+  pattern, since three libms are not bit-identical and design.md forbids
+  depending on any of them.
   **Layman:** Check that the same sum gives the exact same answer on all three compilers, so a map baked on Linux and on Windows produces one identical file rather than two that disagree.
   Kind: test.
   Source: user-decision-2026-09-04.
