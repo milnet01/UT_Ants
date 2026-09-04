@@ -85,6 +85,19 @@ model, no weapon and no opponent until 0.2.0.
   object serialisation. Data in, structures out -- no graphics, no game.
   Build-time only: no runtime target may link it (rule 2).
   Verified against synthetic packages the tests build themselves.
+  Progress (2026-09-04): picked up. spec-format.md §1 triggers 1, 4 and
+  5 all fire -- a file format other code binds to, a new on-disk read
+  path, and malformed-input edge cases -- so this gets a spec before
+  code.
+  Progress (2026-09-04): parked, not abandoned. The spec is drafted at
+  docs/specs/UTA-0003-package-container.md and has NOT been through
+  review-contract, so it must not be built from yet. Its format
+  description was verified against real bytes (a v68 map parses: tables,
+  serial ranges, property lists) and against three community sources
+  plus one working implementation; scripts/package-census.py records the
+  install census three of its design decisions rest on. Paused under the
+  user's stated priority order of 2026-09-04: outstanding review
+  findings come before new roadmap items.
   **Layman:** Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format.
   Kind: implement.
   Source: design-2026-09-03.
@@ -415,7 +428,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: urender.
 
-- 📋 [UTA-0046] **core: the Windows path hazards resolveUnder does not yet cover.**
+- 🚧 [UTA-0046] **core: the Windows path hazards resolveUnder does not yet cover.**
   resolveUnder is the trust boundary unet and ubake bind to, and its
   Linux behaviour is now tested. Three Windows-specific shapes are not
   covered, and none can be checked from Linux:
@@ -440,12 +453,16 @@ model, no weapon and no opponent until 0.2.0.
   Needs the Windows test machine, which runs binaries but cannot build --
   so this wants either a CI job that runs the check or a binary built by
   CI and executed there.
+  Progress (2026-09-04): picked up. Route settled: scripts/ci.sh runs
+  ctest on the MSVC leg, so a Windows-only test runs in CI without
+  needing the Windows box to build. Taken with UTA-0047 and UTA-0048 as
+  one UTA-0002 spec amendment plus three fixes.
   **Layman:** Close the Windows-only ways a downloaded file could be named so it lands somewhere it should not, or opens a device instead of a file.
   Kind: security.
   Source: review-code-2026-09-04 filesystem lane.
   Lanes: core.
 
-- 📋 [UTA-0047] **core: make a job's failure observable to whoever waited on it.**
+- 🚧 [UTA-0047] **core: make a job's failure observable to whoever waited on it.**
   A job body that throws is contained and logged, and its handle is then
   marked done exactly as a successful one is. So JobHandle::done() is
   true either way, wait() returns normally, and parallelFor reports
@@ -464,12 +481,15 @@ model, no weapon and no opponent until 0.2.0.
   Shape when it is written: an error count or a failure flag on the
   handle's shared state, and a parallelFor that reports how many bodies
   threw.
+  Progress (2026-09-04): picked up alongside UTA-0046 and UTA-0048. The
+  contract is what has no failure surface, so the UTA-0002 spec
+  amendment comes before the code.
   **Layman:** If a piece of background work fails, the code that asked for it should be able to find out, rather than being told everything went fine.
   Kind: enhancement.
   Source: review-code-2026-09-04 job-system lane.
   Lanes: core.
 
-- 📋 [UTA-0048] **core: fileSink says why it could not open its file.**
+- 🚧 [UTA-0048] **core: fileSink says why it could not open its file.**
   fileSink returns a sink that does nothing when the open fails, and the
   caller cannot tell. The failure path is ordinary rather than exotic:
   the log directory does not exist on a first run.
@@ -487,10 +507,32 @@ model, no weapon and no opponent until 0.2.0.
   Logger::write is declared noexcept in the code and without it in the
   spec, and clearSinks and errorCodeName are public surface the spec's
   class sketches do not mention.
+  Progress (2026-09-04): picked up alongside UTA-0046 and UTA-0047.
+  Includes the related spec drift the same review lane found --
+  Logger::write's noexcept, and clearSinks and errorCodeName missing
+  from the spec's class sketches.
   **Layman:** If the game cannot open its log file it should say so at startup, instead of running with logging silently switched off.
   Kind: fix.
   Source: review-code-2026-09-04 logger lane.
   Lanes: core.
+
+- 📋 [UTA-0049] **Prove the numeric contract holds across GCC, Clang and MSVC.**
+  docs/design.md § What every part does the same way requires floating-point
+  contraction and fast-math off with no platform maths library in the
+  simulation or the baker, and ADR-0002 requires one map, recipe and baker
+  version to hash to one bundle on any machine. Nothing tests either.
+
+  A unit test that computes a fixed set of expressions -- fused-multiply-add
+  bait, transcendentals, accumulation order -- and asserts an exact bit
+  pattern, run on every matrix leg. Cheap now, because the matrix is green
+  and there is almost no arithmetic to disagree about. Expensive at
+  UTA-0011, where the whole bake pipeline sits on top of the assumption.
+
+  Wanted before UTA-0011.
+  **Layman:** Check that the same sum gives the exact same answer on all three compilers, so a map baked on Linux and on Windows produces one identical file rather than two that disagree.
+  Kind: test.
+  Source: user-decision-2026-09-04.
+  Lanes: core, ci.
 
 ## 0.2.0 — Movement and weapons
 
