@@ -14,12 +14,23 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# This project uses no C++20 modules. Left on, CMake writes GCC's module
+# scanning flags -- -fmodules-ts, -fmodule-mapper=, -fdeps-format= -- into
+# compile_commands.json, and no clang-based tool can parse them: clang-tidy
+# reports them as errors and an editor's clangd fails to index the file at
+# all. Turning it off costs nothing here and makes the compilation database
+# usable by the tools that read it.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 # docs/design.md § The stack rules out anything older. Checked here rather
 # than left to a confusing template error four thousand lines into a build.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14)
     message(FATAL_ERROR "GCC 14 or newer is required (found ${CMAKE_CXX_COMPILER_VERSION}); see docs/design.md")
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
-    message(FATAL_ERROR "Clang 18 or newer is required (found ${CMAKE_CXX_COMPILER_VERSION}); see docs/design.md")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
+    # 19, not 18: Clang 18 reports __cpp_concepts as 201907L and libstdc++
+    # gates std::expected on 202002L, so <expected> compiles away entirely.
+    # Measured in an ubuntu:24.04 container on 2026-09-04 against both.
+    message(FATAL_ERROR "Clang 19 or newer is required (found ${CMAKE_CXX_COMPILER_VERSION}); see docs/design.md")
 elseif(MSVC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.40)
     message(FATAL_ERROR "MSVC 19.40 / Visual Studio 2022 17.10 or newer is required (found ${CMAKE_CXX_COMPILER_VERSION}); see docs/design.md")
 endif()

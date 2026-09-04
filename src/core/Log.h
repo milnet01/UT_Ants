@@ -42,7 +42,8 @@ enum class LogLevel : std::uint8_t {
 /// settable at runtime and read on every log call, so it is atomic.
 class LogCategory {
 public:
-    explicit LogCategory(std::string_view name, LogLevel minimum = LogLevel::Info)
+    constexpr explicit LogCategory(std::string_view name,
+                                   LogLevel minimum = LogLevel::Info)
         : name_(name), minimum_(minimum) {}
 
     LogCategory(const LogCategory&) = delete;
@@ -72,7 +73,9 @@ private:
 /// call and no longer -- a sink that keeps anything copies it.
 struct LogRecord {
     std::string_view category;
-    LogLevel level;
+    // Defaulted so a caller constructing one by hand cannot read an
+    // indeterminate level; every record this library makes sets it.
+    LogLevel level = LogLevel::Info;
     std::string_view text;
     std::chrono::system_clock::time_point time;
     std::thread::id thread;

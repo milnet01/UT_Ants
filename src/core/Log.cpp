@@ -6,7 +6,10 @@
 
 namespace uta {
 
-LogCategory logCore{"core"};
+// constinit: the design sanctions exactly one global, so that one is
+// constructed at compile time and cannot participate in static
+// initialisation order at all.
+constinit LogCategory logCore{"core"};
 
 std::string_view logLevelName(LogLevel level) noexcept {
     switch (level) {
@@ -69,7 +72,7 @@ LogSink consoleSink() {
         // stderr, not stdout: a program's own output is stdout's, and a log
         // line interleaved into it is the thing design rule "no printf"
         // exists to stop.
-        std::fprintf(stderr, "[%.*s] %.*s: %.*s\n",
+        (void)std::fprintf(stderr, "[%.*s] %.*s: %.*s\n",
                      static_cast<int>(logLevelName(record.level).size()),
                      logLevelName(record.level).data(),
                      static_cast<int>(record.category.size()), record.category.data(),
@@ -92,16 +95,16 @@ LogSink fileSink(const std::filesystem::path& path) {
         std::fopen(path.c_str(), "ab");
 #endif
     const std::shared_ptr<std::FILE> stream(
-        raw, [](std::FILE* f) { if (f != nullptr) std::fclose(f); });
+        raw, [](std::FILE* f) { if (f != nullptr) (void)std::fclose(f); });
 
     return [stream](const LogRecord& record) {
         if (!stream) return;
-        std::fprintf(stream.get(), "[%.*s] %.*s: %.*s\n",
+        (void)std::fprintf(stream.get(), "[%.*s] %.*s: %.*s\n",
                      static_cast<int>(logLevelName(record.level).size()),
                      logLevelName(record.level).data(),
                      static_cast<int>(record.category.size()), record.category.data(),
                      static_cast<int>(record.text.size()), record.text.data());
-        std::fflush(stream.get());
+        (void)std::fflush(stream.get());
     };
 }
 

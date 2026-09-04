@@ -408,7 +408,10 @@ neither supported nor ruled out, and is not built.
 **What this rules out.** No scripting virtual machine of any kind
 (ADR-0004). No managed runtime. No OpenGL fallback path — a machine
 without Vulkan 1.3 does not run this. No compiler older than GCC 14,
-Clang 18 or MSVC 19.40 (Visual Studio 2022 17.10). And ray tracing is
+Clang 19 or MSVC 19.40 (Visual Studio 2022 17.10) -- Clang 18 reports
+`__cpp_concepts` as 201907L, and libstdc++ gates `std::expected` on
+202002L, so it compiles the header away and this project cannot build
+under it at all. And ray tracing is
 neither required nor planned — the
 visual target is reached with shadow maps, baked indirect light and
 volumetrics, so no feature may be designed on the assumption that rays

@@ -109,7 +109,7 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     const std::size_t read =
         bytes.empty() ? 0 : std::fread(bytes.data(), 1, bytes.size(), file);
     const bool failed = std::ferror(file) != 0;
-    std::fclose(file);
+    (void)std::fclose(file);  // read path: nothing to flush, nothing to report
 
     if (failed || read != bytes.size())
         return fail(ErrorCode::IoFailure, "short read on " + path.string());
@@ -171,7 +171,7 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
     if (ec)
         return fail(ErrorCode::IoFailure, "cannot resolve root " + root.string());
 
-    const auto candidate = std::filesystem::weakly_canonical(root / relative, ec);
+    auto candidate = std::filesystem::weakly_canonical(root / relative, ec);
     if (ec)
         return fail(ErrorCode::IoFailure,
                     "cannot resolve " + relative.string() + " under " + root.string());
@@ -186,7 +186,7 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
                         relative.string() + " escapes " + root.string());
     }
 
-    return candidate;
+    return candidate;  // not const: a const local cannot be moved out
 }
 
 }  // namespace uta::fs

@@ -11,6 +11,20 @@ thread_local JobSystem* JobSystem::currentSystem_ = nullptr;
 
 namespace {
 
+/// Reports a job failure that was contained.
+///
+/// Never throws, and that is the point: it is called from a noexcept context,
+/// where std::format allocating and failing would call std::terminate -- so
+/// the containment would kill the process it exists to protect. Found by
+/// clang-tidy's bugprone-exception-escape.
+void logContainedFailure(std::string_view detail) noexcept {
+    try {
+        UTA_LOG(logCore, LogLevel::Error, "a job threw and was contained: {}", detail);
+    } catch (...) {
+        // Even reporting failed. There is nothing above this to tell.
+    }
+}
+
 /// The worker count, with the underflow guard the arithmetic needs.
 [[nodiscard]] unsigned resolveWorkerCount(unsigned requested) {
     if (requested != 0) return requested;
@@ -70,9 +84,9 @@ void JobSystem::runJob(Job& job) noexcept {
     try {
         if (job.body) job.body();
     } catch (const std::exception& e) {
-        UTA_LOG(logCore, LogLevel::Error, "a job threw and was contained: {}", e.what());
+        logContainedFailure(e.what());
     } catch (...) {
-        UTA_LOG(logCore, LogLevel::Error, "a job threw a non-exception and was contained");
+        logContainedFailure("a non-exception type");
     }
 
     // Marked under the mutex so a waiter cannot check the flag, miss it, and

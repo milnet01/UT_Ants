@@ -42,11 +42,11 @@ jobs:
             cc: gcc-14
             cxx: g++-14
             apt: g++-14
-          - name: Linux (Clang 18)
+          - name: Linux (Clang 19)
             os: ubuntu-24.04
-            cc: clang-18
-            cxx: clang++-18
-            apt: clang-18 g++-14
+            cc: clang-19
+            cxx: clang++-19
+            apt: clang-19 g++-14
           - name: Windows (MSVC)
             os: windows-2022
     steps:
