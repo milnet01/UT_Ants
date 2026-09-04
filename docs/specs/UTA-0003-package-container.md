@@ -1,6 +1,6 @@
 # UTA-0003 — `upkg`: read the Unreal Engine 1 package container
 
-**Status:** spec draft (2026-09-04).
+**Status:** accepted (2026-09-04).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0003 (design-2026-09-03).
 **Blocker for:** UTA-0004, UTA-0005 — both read through this reader.
@@ -132,10 +132,12 @@ src/upkg/Properties.h  .cpp     the tagged property list
 
 `src/CMakeLists.txt` gains `add_subdirectory(upkg)`. `uta_upkg` is a
 static library whose only link entry is `uta_core`; `src/core`'s
-configure-time link assertion is copied for it, which is design rule 2
-expressed where the build can see it. No runtime target links it — but
-`ut-ants` and `ut-ants-server` do not exist, so the link-closure test
-rule 2 requires belongs to whichever item first builds one (§9).
+configure-time link assertion is copied for it, which is INV-13 — §1's
+"linking `uta_core` and nothing else" — expressed where the build can
+see it. It says nothing about design rule 2, which constrains what the
+*runtime targets* link. `ut-ants` and `ut-ants-server` do not exist, so
+rule 2 is unexpressed in the build until one does, and the link-closure
+test it requires belongs to whichever item first builds one (§9).
 
 ### 4.2 The cursor — `ByteReader`
 
@@ -287,7 +289,11 @@ public:
 ```
 
 A positive value is the export at `value - 1`; a negative value is the
-import at `-value - 1`; zero is null. The off-by-one is the format's, and
+import at `-value - 1`; zero is null. Negate through a wider type —
+`-static_cast<std::int64_t>(raw) - 1`, narrowed once — because `raw` can
+be `INT32_MIN`, whose magnitude no `std::int32_t` holds; §4.3's
+accumulator is widened for the same reason, and INV-1 covers any input
+bytes. The off-by-one is the format's, and
 it is why this is a type rather than a bare `std::int32_t`: subtracting
 one at each call site is subtracting it in some of them.
 
@@ -341,7 +347,10 @@ A tag is read in this order, and the order is not rearrangeable:
 5. **Array index**, only when bit 7 is set and the type is not `Bool`.
    This is *not* a compact index: a first byte below `0x80` is the whole
    value; `(byte & 0xC0) == 0x80` means two bytes carrying 15 bits; and
-   `(byte & 0xC0) == 0xC0` means four bytes carrying 30 bits.
+   `(byte & 0xC0) == 0xC0` means four bytes carrying 30 bits. The marker
+   bits occupy the leading byte and the value's high bits follow them, so
+   these read most-significant byte first — the one place §4.2's
+   little-endian rule does not apply.
 
 ```cpp
 enum class PropertyType : std::uint8_t {
@@ -380,8 +389,13 @@ struct Property {
 
 **A `Bool`'s value comes from the info byte and consumes no value
 bytes.** It is still a value: a `Bool` property holds the `bool`
-alternative, never `std::monostate`. The size code is present and is
-ignored; consuming it desynchronises everything after it.
+alternative, never `std::monostate`.
+
+**Step 4 still runs for a `Bool`.** Only the *value* bytes are skipped,
+never the size field itself: every `Bool` tag measured in real content
+carries size code 5, so a trailing `std::uint8_t` is present and must be
+consumed. Skipping it desynchronises every property after the first
+`Bool`, in a list that still parses.
 
 **Values decoded here:** `Byte`, `Int`, `Bool`, `Float`, `Object`,
 `Class`, `Name`, `Str` (a compact-index length then that many bytes
@@ -401,16 +415,22 @@ knowable from the class table (UTA-0005). The tag's size field is what
 makes the undecoded case safe, and this is the whole reason the size is
 read even for types whose width is fixed.
 
-An export whose class is `Class` does not begin with a property list at
-all; `readProperties` refuses it with `InvalidArgument` rather than
-returning nonsense. Class objects are UTA-0005.
+A class object does not begin with a property list at all, and its
+export is recognised by a **null** class reference — not by one naming
+`Class`, which no package writes. `readProperties` refuses such an
+export with `InvalidArgument` rather than returning nonsense. Class
+objects are UTA-0005.
+
+An export with no serialised data has no list either: `readProperties`
+returns an empty vector and succeeds.
 
 ### 4.9 The fixture builder grows
 
 `tests/support/UnrealPackageBuilder` gains: import and export entries,
 per-export serialised data, a tagged-property writer, an
 execution-stack frame writer for the `HasStack` exports INV-12 needs,
-pre-64 null-terminated name tables, and the ability to write a header whose
+pre-68 headers and pre-64 null-terminated name tables — it writes the
+68-and-up shape unconditionally today — and the ability to write a header whose
 counts and offsets deliberately disagree with the body — which is what
 the malformed-input tests need and what a self-consistent builder cannot
 produce. It remains an encoder with no decode path.
@@ -433,7 +453,9 @@ produce. It remains an encoder with no decode path.
   present.
   *Test:* `tests/unit/PackageMalformedTest.cpp` opens a package whose
   header declares counts far larger than the file, and asserts an
-  `Error` returns promptly.
+  `Error`. That the error arrives *before* the allocation is not
+  observable from outside the reader, so the test bounds the failure and
+  not the ordering; §10 grades it on that.
   *Breaks when:* a table vector is reserved from the header's count
   before the count is validated — a four-byte edit then asks for
   gigabytes.
@@ -492,7 +514,8 @@ produce. It remains an encoder with no decode path.
 
 - **INV-9** — A property list ends at the name `None` and at no other
   condition. Reaching the end of the export's serial bytes without one is
-  `MalformedData`.
+  `MalformedData`. An export with no serialised data has no list to end
+  and is outside this invariant (§4.8).
   *Test:* `tests/unit/PackagePropertiesTest.cpp` writes a list with its
   terminator removed and asserts the error.
   *Breaks when:* the loop stops at the end of the buffer and returns what
@@ -634,7 +657,7 @@ a missing symbol first, then against the failure it names, per
 | Rule | What catches a breach |
 |------|----------------------|
 | INV-1 | **Partial:** `tests/unit/PackageMalformedTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists |
-| INV-2 | `tests/unit/PackageMalformedTest.cpp`, a Catch2 unit test |
+| INV-2 | **Partial:** `tests/unit/PackageMalformedTest.cpp` shows the error is returned, not that it precedes the allocation — a reserve-then-validate reader passes the same assertion. Bounding that needs a counting allocator no harness here has |
 | INV-3 | `tests/unit/CompactIndexTest.cpp`, a Catch2 unit test |
 | INV-4 | `tests/unit/CompactIndexTest.cpp`, a Catch2 unit test |
 | INV-5 | `tests/unit/PackageReaderTest.cpp`, a Catch2 unit test |
@@ -650,6 +673,7 @@ a missing symbol first, then against the failure it names, per
 | §4.5 "a name is exposed as bytes, not transcoded" | **nothing** — no test asserts a non-ASCII name survives; UT99 content is ASCII in practice and no fixture carries a counter-example |
 | §6 "the caller must keep the bytes alive" | **nothing** — a lifetime rule a header states and no check enforces, and there is no AddressSanitizer leg that would catch a use-after-free |
 | §3.2 item 3 "decode lazily" | **nothing** — nothing measures that opening a package does not read every export's data; it is visible in the code and not in a test |
+| §4.4 pre-68 heritage header, §4.5 pre-64 name table | **nothing** — no invariant names either branch, and §4.9's builder writes the 68-and-up header unconditionally, so a fixture for the older shape has to be built before a test can exist |
 
 ## 11. Cross-doc impact
 
@@ -664,6 +688,7 @@ a missing symbol first, then against the failure it names, per
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
 | 1 | 2026-09-04 | 3, cold — genre pinned `spec`; packet carried a re-run install census and the build's sanitizer configuration | 2 | 2 | 4 | 0 | **Eight verified, eight fixed, plus one mechanical (`spec_lint` `missing_section`); two dismissed.** **All three lanes independently found the same Q1, and it is the run's most consequential:** INV-1's *Test:* clause named an address-sanitizer leg of `scripts/ci.sh`. There is none — `UTA_SANITIZE` accepts `""` or `"thread"`, and `CMakeLists.txt` records why AddressSanitizer was declined — and ThreadSanitizer finds races rather than out-of-span reads. So the bounds clause of the invariant this spec's untrusted-input argument rests on was checked by nothing while reading as gated. §10 now says so; whether CI should gain a memory checker is surfaced, not decided, being a build change. **All three also found the `PropertyValue` variant annotating both `std::monostate` and `bool` as the `Bool` case**, against INV-10 — a caller would have read every boolean as absent, silently. **Two lanes found the reason-code split:** §4.2 made a short read `IoFailure` where §4.5, §6 and INV-9 make the same event `MalformedData`, on the API UTA-0004, UTA-0005 and `ut-dump` branch on. **Two found `Vector` and `Rotator` falling between the decoded and undecoded lists** — declared as tag types, described only as `Struct`-named — which is what UTA-0004 reads actor placements off. **Two found "six `std::uint32_t` count/offset pairs" for three tables**, whose literal reading over-consumes the header and desynchronises everything after it. Single-lane: the execution-stack frame's two object references had no stated encoding in a document that uses both, and §4.9's builder list omitted the frame writer INV-12's test needs. **The stale-figure class cost three sections** — §2.1 declared its figures deliberately not restated and then restated them, and "roughly 400 MB" was measured this day at 95.7 MiB for the base install, the ~385 MiB belonging to a separate content pack. Figures removed rather than corrected. **Collateral, repaired in the neighbouring document:** `UTA-0002` carried the same 400 MB claim, which is where this one came from. **Dismissed as true but immaterial:** §10 attributes two quoted rules to sections not containing them, and §7 leaves the real-asset executable's `uta_upkg` link unstated — a link error settled on sight. |
+| 2 | 2026-09-04 | 3, cold — identical brief, packet rebuilt from disk | 3 | 1 | 2 | 2 | **Eight verified, eight fixed. Cap reached (2 for a spec); the run files its tail and exits. A CALM cap** — one of the eight landed on text this run wrote, the rest were pre-existing, so the document held more defects than the cap held loops and shipping is right. The gate was armed by the commit that drafted this document whole, so all findings of both loops fall inside the gated span: this run was a gate, with no audit half to separate. **Two findings were settled by RUNNING a parser over real packages, and neither was decidable by reading.** §4.8 refused a class object by "an export whose class is `Class`" — no export in four packages across two versions names `Class`, because a class export carries a **null** class reference, so the guard never fired and `readProperties` would have parsed a class body as a property list, which is the nonsense the sentence existed to prevent. And §4.8 said a `Bool`'s size code "is ignored", leaving open whether step 4 runs: every `Bool` tag measured in real content carries size code 5, so a trailing size byte is present and skipping it desynchronises every property after the first `Bool` — invisibly, since the fixture writer would share the same wrong assumption, which is the cancellation §2 exists to prevent. **All three lanes found INV-2's test clause unfalsifiable:** "asserts an `Error` returns promptly" has no observable, a reserve-then-validate reader passes it, and §10 graded INV-2 unqualified beside a Partial INV-1. Now graded Partial with the reason. **Two lanes found INV-9 making every sizeless export an error**, against §4.7's empty span and INV-7 — ordinary iteration by UTA-0004 would have errored. Also fixed: §4.1 called the copied link assertion "design rule 2 expressed where the build can see it" while the same paragraph disclaimed it (it is INV-13; rule 2 constrains the runtime targets); the array index's byte order was unstated where §4.2 sets little-endian as the default, though only a most-significant-first read yields the 15- and 30-bit widths §4.8 itself states; `ObjectReference` negated a raw `INT32_MIN` in `std::int32_t`, undefined against INV-1's "any input bytes"; and the pre-68 header and pre-64 name-table branches had no invariant, no test and no §10 row. **Open questions resolved clean, none a finding:** `Result<void>` is documented in `Error.h` and already used; the fixture builder does emit the v68+ GUID and generation list; and both non-zero-licensee packages parse under the stated layout. |
 
 ## 13. Resource cost
 
