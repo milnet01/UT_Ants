@@ -1,6 +1,6 @@
 # UTA-0002 — build `core`: the error type, logging, filesystem and job system
 
-**Status:** spec draft (2026-09-04).
+**Status:** accepted (2026-09-04).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0002 (design-2026-09-03).
 **Blocker for:** every later item — `core` is what they are built on.
@@ -268,8 +268,11 @@ class JobHandle { ... };
 
 class JobSystem {
 public:
-    /// 0 workers means hardware_concurrency() - 1, floored at 1: the
-    /// submitting thread is usually doing work too.
+    /// 0 means one fewer than hardware_concurrency(), because the
+    /// submitting thread is usually working too -- and one worker where
+    /// that reports 0 or 1. NOT `hardware_concurrency() - 1` clamped to
+    /// 1: the return is unsigned, so 0 - 1 is UINT_MAX and a std::max
+    /// against it changes nothing. Subtract only after the 0-or-1 test.
     explicit JobSystem(unsigned workerCount = 0);
     ~JobSystem();                                  // drains, then joins
     JobSystem(const JobSystem&) = delete;
@@ -313,13 +316,22 @@ a second would need its own argument.
 **The sanitizer leg.** `CMakeLists.txt` gains a cache variable:
 
 ```cmake
-set(UTA_SANITIZE "" CACHE STRING "Sanitizer to build with: empty, thread, or address")
+set(UTA_SANITIZE "" CACHE STRING "Sanitizer to build with: empty or thread")
 ```
 
-It applies the matching `-fsanitize=` compile and link options on GCC
-and Clang. MSVC has no ThreadSanitizer, so the option refuses `thread`
-there with a configure error rather than building something that does
-not check what it claims. `scripts/ci.sh` gains one step after `test`:
+`thread` and nothing else. AddressSanitizer is not offered here because
+MSVC spells it `/fsanitize=address` and takes no link flag, so a second
+value would need a second spelling for a build nothing in this item
+runs; an item that wants it can add it with its own contract.
+
+The option applies `-fsanitize=thread` as a compile and link option **at
+the top level**, so `uta_core`, the test executable and the Catch2 the
+build fetches are all instrumented. Instrumenting `uta_core` alone would
+produce a leg that reports nothing about the job tests, which is what
+INV-13 is actually about. MSVC has no ThreadSanitizer, so the option
+refuses `thread` there with a configure error rather than building
+something that does not check what it claims. `scripts/ci.sh` gains one
+step after `test`:
 a second configure-build-test with `-DUTA_SANITIZE=thread`, skipped
 with a printed reason on Windows, through the existing `skip` helper.
 
@@ -341,15 +353,23 @@ with a printed reason on Windows, through the existing `skip` helper.
   prints it.
 
 - **INV-3** — No `uta::fs` or `uta::Logger` entry point lets an exception
-  escape; a documented failure comes back as an `Error`.
-  *Test:* `tests/unit/CoreFileSystemTest.cpp` drives each documented
-  failure path and asserts a returned error rather than a throw. Every
-  case is permission-independent — a missing file, a directory passed
-  where a file is expected, an absent parent directory — because a run
-  as root defeats a permission fixture, which is the ground INV-7 gives
-  for rejecting one.
+  escape. The two report differently and the difference is deliberate: a
+  `uta::fs` failure comes back as an `Error`, while `Logger`'s entry
+  points return `void`, so a throwing sink is caught and dropped rather
+  than reported — §6 owns why.
+  *Test:* two files. `tests/unit/CoreFileSystemTest.cpp` drives each
+  documented `uta::fs` failure path and asserts a returned error rather
+  than a throw; every case is permission-independent — a missing file, a
+  directory passed where a file is expected, an absent parent directory
+  — because a run as root defeats a permission fixture, which is the
+  ground INV-7 gives for rejecting one.
+  `tests/unit/CoreLogTest.cpp` installs a throwing sink followed by a
+  recording one, and asserts `write` returns normally and the second
+  sink still received the record.
   *Breaks when:* a `std::filesystem` call is made without the
-  `error_code` overload, so it throws `filesystem_error` at the caller.
+  `error_code` overload, so it throws `filesystem_error` at the caller;
+  or `Logger::write` calls its sinks outside a `try`, so one bad sink
+  takes down every call site and stops the sinks after it.
 
 - **INV-4** — A message below its category's minimum level is not
   formatted: arguments to `UTA_LOG` are not evaluated.
@@ -360,12 +380,17 @@ with a printed reason on Windows, through the existing `skip` helper.
   reason and pass.
   *Breaks when:* the macro formats first and tests the level afterwards.
 
-- **INV-5** — Concurrent logging produces whole lines: with many threads
-  logging at once, every line a sink receives is one complete message
-  and no two are spliced.
-  *Test:* `tests/unit/CoreLogTest.cpp`.
-  *Breaks when:* the sink is called outside the lock, or formatting is
-  moved inside a sink that appends to a shared buffer.
+- **INV-5** — `Logger::write` invokes sinks serially: no two sink calls
+  overlap, whatever the calling threads do. Stated as overlap rather
+  than as "no line is spliced", because a sink is handed one whole
+  `LogRecord` per call and so sees intact text either way — a test
+  asserting intact text passes against a `write` that never locks, and
+  would be a green check on an unimplemented property.
+  *Test:* `tests/unit/CoreLogTest.cpp`. Many threads log at once; the
+  sink increments a counter on entry and decrements on exit, and asserts
+  the counter is never above one.
+  *Breaks when:* the sink is called outside the lock — which is exactly
+  what the counter sees and intact text does not.
 
 - **INV-6** — `resolveUnder` returns `InvalidArgument` for every input
   resolving outside `root`, and for every absolute or empty input; it
@@ -393,17 +418,22 @@ with a printed reason on Windows, through the existing `skip` helper.
 
 - **INV-8** — `configDirectory`, `cacheDirectory` and `logDirectory`
   honour the platform's own variables where set — XDG on Linux,
-  `%APPDATA%` and `%LOCALAPPDATA%` on Windows — and every fallback they
-  return when a variable is unset is an absolute path.
-  *Test:* `tests/unit/CoreFileSystemTest.cpp`. The first half is
-  per-platform: it sets whichever variables that platform reads and
-  asserts the result, so the case is compiled for the platform under
-  test rather than asserting XDG behaviour on Windows, where `ci.sh`
-  runs `ctest` too. The second half is platform-independent — clear the
-  variables and assert each result `is_absolute()`.
+  `%APPDATA%` and `%LOCALAPPDATA%` on Windows. Where a variable is unset
+  and the platform has a fallback, that fallback is an absolute path;
+  where it has none, the function returns `NotFound`.
+  *Test:* `tests/unit/CoreFileSystemTest.cpp`, three cases. (a) Both
+  platforms: set whichever variables that platform reads and assert the
+  result — compiled for the platform under test rather than asserting
+  XDG behaviour on Windows, where `ci.sh` runs `ctest` too. (b) Linux
+  only, because it is the only platform with a fallback: clear the XDG
+  variables with `HOME` set, and assert each result `is_absolute()`.
+  (c) Both platforms: clear everything the function reads — on Linux
+  `HOME` as well — and assert `NotFound`, which is §6's rule and would
+  otherwise be locked by nothing.
   *Breaks when:* a fallback is written relative to the current working
   directory, which for a test run is the build tree and for a launch
-  from a clone would be the repository.
+  from a clone would be the repository; or a Windows implementation
+  invents a hardcoded absolute path to satisfy (b), which §6 forbids.
 
 - **INV-9** — Every submitted job runs exactly once.
   *Test:* `tests/unit/CoreJobsTest.cpp` submits many jobs each
@@ -417,8 +447,10 @@ with a printed reason on Windows, through the existing `skip` helper.
   submits a job and waits on it, on a pool of one worker — the case a
   blocking `wait` cannot survive. The pool size is what isolates the
   rule: with spare workers, another worker takes the inner job and a
-  blocking `wait` passes. A CTest timeout is what turns the deadlock
-  into a failure rather than a hung run.
+  blocking `wait` passes. The `TIMEOUT` §7 adds to
+  `catch_discover_tests` is what turns the deadlock into a failure
+  rather than a hung run; without it this invariant cannot be falsified,
+  only waited on.
   *Breaks when:* `wait` blocks on the condition variable unconditionally
   instead of helping to run pending jobs.
 
@@ -460,12 +492,15 @@ with a printed reason on Windows, through the existing `skip` helper.
 
 ## 6. Failure modes
 
-- **The platform's variables give nothing to fall back to** — the XDG
-  variables and `HOME` both unset on Linux, `%APPDATA%` or
-  `%LOCALAPPDATA%` unset on Windows. All three directory functions
-  return `NotFound` rather than guessing at the current directory. A
-  program that cannot find where to write says so.
-- **`std::filesystem::rename` does not replace an existing destination.**
+- **The variables one directory function reads give nothing to fall back
+  to.** On Linux that is its XDG variable and `HOME` both unset; on
+  Windows it is `%APPDATA%` for `configDirectory`, or `%LOCALAPPDATA%`
+  for `cacheDirectory` and `logDirectory` — and Windows has no fallback
+  beyond those. **That function** returns `NotFound` rather than guessing
+  at the current directory; the other two are unaffected, since they read
+  different variables. A program that cannot find where to write says so.
+- **A platform whose `rename` refuses to replace an existing
+  destination.**
   The standard requires replacement for a non-directory destination, and
   the MSVC standard library implements it; if a platform were to differ,
   `writeFileAtomically` unlinks its temporary and returns the error,
@@ -493,13 +528,17 @@ with a printed reason on Windows, through the existing `skip` helper.
 New test files join the existing `uta_unit_tests` executable in
 `tests/CMakeLists.txt`, which already discovers with
 `catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast")`
-alongside `CompactIndexTest.cpp` and `PackageBuilderTest.cpp`:
+alongside `CompactIndexTest.cpp` and `PackageBuilderTest.cpp`. That call
+gains `TIMEOUT 30`: INV-10's breaking case is a deadlock, and without a
+bound it hangs the run instead of failing it, so the invariant could
+never be falsified. The executable also gains `uta_core` as a link
+library.
 
 | File | Locks |
 |---|---|
 | `tests/unit/CoreErrorTest.cpp` | INV-1, INV-2 |
-| `tests/unit/CoreLogTest.cpp` | INV-4, INV-5 |
-| `tests/unit/CoreFileSystemTest.cpp` | INV-3, INV-6, INV-7, INV-8 |
+| `tests/unit/CoreLogTest.cpp` | INV-3 (its `Logger` half), INV-4, INV-5 |
+| `tests/unit/CoreFileSystemTest.cpp` | INV-3 (its `uta::fs` half), INV-6, INV-7, INV-8 |
 | `tests/unit/CoreJobsTest.cpp` | INV-9, INV-10, INV-11, INV-12, INV-13 |
 
 INV-14 is deliberately absent from that table: its surface is
@@ -566,7 +605,7 @@ test is used once to confirm the leg fails, and is not committed.
 |------|----------------------|
 | INV-1 | `tests/unit/CoreErrorTest.cpp`, a Catch2 unit test |
 | INV-2 | `tests/unit/CoreErrorTest.cpp`, a Catch2 unit test |
-| INV-3 | **Partial:** `tests/unit/CoreFileSystemTest.cpp` drives the documented failure paths; an undocumented one added later is caught by nothing |
+| INV-3 | **Partial:** `tests/unit/CoreFileSystemTest.cpp` and `tests/unit/CoreLogTest.cpp`, Catch2 unit tests, cover the `uta::fs` and `Logger` halves respectively; an undocumented failure path added later is caught by nothing |
 | INV-4 | `tests/unit/CoreLogTest.cpp`, a Catch2 unit test |
 | INV-5 | **Partial:** `tests/unit/CoreLogTest.cpp` plus INV-13's ThreadSanitizer leg; a splice needing a rarer interleaving than either produces is caught by nothing |
 | INV-6 | `tests/unit/CoreFileSystemTest.cpp`, a Catch2 unit test |
@@ -601,6 +640,7 @@ test is used once to confirm the leg fails, and is not committed.
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
 | 1 | 2026-09-04 | 3, cold — genre pinned `spec` | 2 | 9 | 2 | 1 | **Fourteen findings, twelve verified and fixed, two dismissed as immaterial.** Nine of the twelve were Q2 — the draft contradicting itself or the design — which is the shape a first cold read of a four-surface spec produces. **The most consequential:** §4.5 said nothing whose result must be reproducible may use the job system, while `docs/design.md` requires baking to use jobs AND requires one map, recipe and baker version to hash to one bundle on any machine. An implementer of `ubake` would have kept it off jobs. The real invariant is that no *result* may depend on completion order; the baker combines in submission order and both hold. **Two lanes independently found the same broken fixture (Q4):** INV-7's test was to write to a destination whose parent is a regular file, then compare the bytes of an existing destination and list its directory — the fixture excludes its own preconditions. It was collateral from this session's own earlier fix, which swapped the fixture and left the assertions describing the old one. Now two cases, both permission-independent. **INV-14 would have failed the build it was written to protect:** it asserted `LINK_LIBRARIES` empty, which forbids `Threads::Threads` — how CMake spells the standard library's threading support, and exactly what `std::thread` needs on GCC. **INV-8 asserted XDG behaviour with no platform qualifier**, and `scripts/ci.sh` runs `ctest` on Windows, so a correct implementation would have gone red there. Both Q3s were inventions other code binds to: who owns the one `JobSystem`, and whether a `LogRecord`'s views survive the sink call. **Dismissed as true but immaterial:** the casing sentence attributes the trailing-underscore convention to `languages/cpp.md`, which does not state it, and §3 reads as though UTA-0041 shipped the root `CMakeLists.txt`. Neither changes a line anyone builds. **Lane-side facts confirmed, not taken on trust:** all three lanes re-read `CMakeLists.txt`, `tests/CMakeLists.txt`, `scripts/ci.sh` and the cited `docs/design.md` bullets; two opened `cpp.md` to settle citations the packet had not windowed. |
+| 2 | 2026-09-04 | 3, cold — identical brief, packet rebuilt from disk | 0 | 5 | 2 | 2 | **Nine verified, nine fixed, none dismissed. Cap reached (2 for a spec); the run files its tail — which is empty — and exits. Not one Q1.** **A calm cap, not a violent one:** three of the nine landed on text loop 1 wrote, so the majority were defects the draft always held and the cap simply ran out of loops for. (The second share is degenerate here and worth saying so: the gate was armed by the document being NEW, so every finding falls inside the armed span by construction.) **The finding of the run came from one lane and was proven by running rather than argued:** §4.5 prescribed `hardware_concurrency() - 1` floored at 1, and the return is `unsigned` — compiled and run, a report of 0 gives 4,294,967,295 workers, and `std::max` against `UINT_MAX` changes nothing, so §6's promise of one worker was false and the constructor would have tried to spawn four billion threads. The subtraction now comes after the 0-or-1 test. **All three lanes independently found two others.** §6's rename bullet was headed with the negative stated as fact — an implementer taking the heading at face value writes `remove()` before `rename()`, which destroys the crash-safety property §4.4 sells and INV-7 locks. And INV-8's second half was called platform-independent while Windows has no fallback at all, so on the Windows leg — which runs `ctest`, and went green for the first time today — a correct implementation fails, and the likelier repair is to invent a hardcoded path §6 forbids. **Two Q4s, both clauses that could not fail:** INV-5 asserted no line is spliced, but a sink is handed one whole `LogRecord` per call and sees intact text whether or not `write` locks — it now asserts sink calls do not overlap, which is what the lock actually buys; and INV-10 cited a CTest timeout nothing in the item set, so its deadlock would have hung the run rather than failed it. **Both Q3s were the orchestrator's, from lane open questions:** the sanitizer offered `address` while describing only the GCC/Clang spelling (dropped rather than specified — nothing here runs it), and never said which targets it instruments, which decides whether the leg checks the job tests at all or nothing. **Packet defect, mine:** its header still read 574 lines against the brief's 623; all three lanes raised it and none was misled, since the placeholder sits below every citation. **Resolved clean, not in the tally:** `ci.sh`'s green step does print the skipped list, so a skipped sanitizer leg is visible in the run output. |
 
 ## 13. Resource cost
 
@@ -618,6 +658,7 @@ state of its own beyond the two below.
   that a caller submitting without waiting can grow it without limit —
   which is a bug in that caller, and `parallelFor` (the shape every
   early caller will use) submits a bounded batch and waits.
-- **Worker threads:** `hardware_concurrency() - 1`, floored at one.
+- **Worker threads:** one fewer than `hardware_concurrency()`, and one
+  where that reports 0 or 1 — §4.5 says why the subtraction comes second.
 - **No new external dependency.** Design rule 1 forbids one, and INV-14
   checks it.
