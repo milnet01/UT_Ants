@@ -80,7 +80,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: core.
 
-- 📋 [UTA-0003] **upkg: read the Unreal Engine 1 package container.**
+- 🚧 [UTA-0003] **upkg: read the Unreal Engine 1 package container.**
   Header, name table, import and export tables, the compact index encoding, and
   object serialisation. Data in, structures out -- no graphics, no game.
   Build-time only: no runtime target may link it (rule 2).
@@ -110,6 +110,11 @@ model, no weapon and no opponent until 0.2.0.
   is ThreadSanitizer and CMakeLists.txt records a deliberate decision not
   to offer AddressSanitizer. Adding a memory-checker leg or a fuzzer is a
   build change a docs gate must not make.
+  Progress (2026-09-04): build started. Rule 1 of the priority order was
+  checked first and its queue is empty -- the three review-code-2026-09-04
+  items and UTA-0049 are all shipped -- so this is picked up under rule 2.
+  Tests are written before the code they lock, per languages/cpp.md
+  § Tests.
   **Layman:** Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format.
   Kind: implement.
   Source: design-2026-09-03.

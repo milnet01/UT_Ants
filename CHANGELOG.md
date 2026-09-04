@@ -17,6 +17,9 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **upkg: read the Unreal Engine 1 package container.** (UTA-0003)
+  Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format.
+
 - **Prove the numeric contract holds across GCC, Clang and MSVC.** (UTA-0049)
   The build now sets floating-point contraction and fast-math off on every
   compiler, and refuses to configure if a conflicting flag is passed in. A

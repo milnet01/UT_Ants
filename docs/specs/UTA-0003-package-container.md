@@ -17,8 +17,8 @@ nothing else. Given the bytes of a `.unr`, `.utx`, `.uax`, `.umx` or `.u`
 package it returns the header, the name, import and export tables, the
 byte range of any export's serialised data, and the tagged property list
 that data begins with — reporting every malformed input as an `Error`
-rather than a crash. Today nothing in the repository can read a package:
-`src/` holds `core` alone.
+rather than a crash. When this was written nothing in the repository could
+read a package: `src/` held `core` alone. Section 14 records the build.
 
 ## 2. Problem
 
@@ -657,7 +657,7 @@ a missing symbol first, then against the failure it names, per
 | Rule | What catches a breach |
 |------|----------------------|
 | INV-1 | **Partial:** `tests/unit/PackageMalformedTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists |
-| INV-2 | **Partial:** `tests/unit/PackageMalformedTest.cpp` shows the error is returned, not that it precedes the allocation — a reserve-then-validate reader passes the same assertion. Bounding that needs a counting allocator no harness here has |
+| INV-2 | **Partial:** `tests/unit/PackageMalformedTest.cpp` asserts the refusal *names the count check*, so deleting that check is detectable — the test then fails on the message. That bounds which check refuses, not the allocation: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has |
 | INV-3 | `tests/unit/CompactIndexTest.cpp`, a Catch2 unit test |
 | INV-4 | `tests/unit/CompactIndexTest.cpp`, a Catch2 unit test |
 | INV-5 | `tests/unit/PackageReaderTest.cpp`, a Catch2 unit test |
@@ -669,11 +669,11 @@ a missing symbol first, then against the failure it names, per
 | INV-11 | `tests/unit/PackagePropertiesTest.cpp`, a Catch2 unit test |
 | INV-12 | `tests/unit/PackagePropertiesTest.cpp`, a Catch2 unit test |
 | INV-13 | `src/upkg/CMakeLists.txt`, a configure-time property assertion |
-| §4.8 "the two independent implementations must disagree visibly" | **Partial:** the real-asset tier is the only thing that reads bytes this project did not write, and it is off by default, so a fixture-only run proves agreement with ourselves |
+| §4.8 "the two independent implementations must disagree visibly" | **Partial:** the real-asset tier is the only thing that reads bytes this project did not write. It now points `upkg` at every package in the configured install, and was run clean on 2026-09-04 — but it is off by default, so an ordinary run still proves agreement with ourselves |
 | §4.5 "a name is exposed as bytes, not transcoded" | **nothing** — no test asserts a non-ASCII name survives; UT99 content is ASCII in practice and no fixture carries a counter-example |
 | §6 "the caller must keep the bytes alive" | **nothing** — a lifetime rule a header states and no check enforces, and there is no AddressSanitizer leg that would catch a use-after-free |
 | §3.2 item 3 "decode lazily" | **nothing** — nothing measures that opening a package does not read every export's data; it is visible in the code and not in a test |
-| §4.4 pre-68 heritage header, §4.5 pre-64 name table | **nothing** — no invariant names either branch, and §4.9's builder writes the 68-and-up header unconditionally, so a fixture for the older shape has to be built before a test can exist |
+| §4.4 pre-68 heritage header, §4.5 pre-64 name table | **Partial:** the builder now writes both older shapes and `tests/unit/PackageReaderTest.cpp` opens a version 62 package; the real-asset tier reads real content below 64. Still no invariant names either branch, so neither is gated by one |
 
 ## 11. Cross-doc impact
 
@@ -704,3 +704,43 @@ a missing symbol first, then against the failure it names, per
 - **The caller owns the bytes**, so the peak cost of reading a package is
   the caller's choice, not this library's. §2.1 is why that matters.
 - **No new external dependency.** Design rule 1 and INV-13.
+
+## 14. What was built (2026-09-04)
+
+An amendment recording the build, not a change of direction: nothing a
+conformer would do differently, and the gate is not re-armed.
+
+`src/upkg/` landed as specified — `ByteReader`, `Package`, `Properties`
+and the `uta_upkg` target linking `uta_core` alone. The four test files
+of §7 were written before the code they lock and seen to fail against
+missing symbols first.
+
+**Every invariant was then shown to fail for the reason it names.** Each
+was broken on its own, one at a time, and the named test had to redden
+and the suite return green once the break was undone; INV-13 was proved
+by adding a second link entry and watching configure refuse. Breaking
+the whole feature at once was avoided deliberately — identical failures
+everywhere read as coverage while proving nothing about any part.
+
+Two things that pass changed as a result.
+
+- **INV-2's test did not check what it claimed.** Deleting the count
+  check left it green: the read failed later anyway, one oversized
+  reserve further on. The test now asserts the refusal names the count
+  check, which makes the ordering observable from outside — §10's row is
+  updated to say what that does and does not bound.
+- **The real-asset tier found a damaged package.** Pointed at the
+  reference install, `upkg` read every package but one; `Textures/M1.utx`
+  is truncated, its header naming tables far beyond its own end. The
+  tier does not tolerate failures in general — it re-reads the header
+  itself, without going through `upkg`, and requires a file that failed
+  to prove itself truncated.
+
+That run also widens §2.1: the UE2-era tail is versions 76, 79, 118 and
+128, and the pre-64 branch is exercised by real content rather than by
+fixtures alone.
+
+**Still unchecked, and unchanged by this build:** INV-1's out-of-span
+clause. The only sanitizer leg is ThreadSanitizer. Whether `scripts/ci.sh`
+gains a memory-checker leg or a fuzzer is a build decision open for the
+user; it does not block anything already shipped.
