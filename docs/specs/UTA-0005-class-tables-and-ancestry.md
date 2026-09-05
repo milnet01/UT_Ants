@@ -1,6 +1,6 @@
 # UTA-0005 — `upkg`: class tables, default properties and ancestry
 
-**Status:** draft (2026-09-05).
+**Status:** accepted (2026-09-05).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0005 (design-2026-09-03).
 **Blocked by:** UTA-0003 — every reader here reads through that container,
@@ -259,26 +259,32 @@ this: § 2.1's fourth finding is that a wrong script end still leaves a
 property list that parses and ends where it should, so the acceptance rule
 in § 4.8 cannot see it.
 
-**`ScriptSize` is read as a `std::int32_t` and a negative value is
-`MalformedData`**, refused before the walk begins rather than converted to
-a large unsigned count.
+**`ScriptSize` stays signed all the way in, and a negative value is
+`MalformedData`** — refused by `skipScript` as its first act, before the
+walk begins. Narrowing it to an unsigned type at the call site is what this
+forbids: `-1` then arrives as four billion and is caught, if at all, by the
+export bound rather than by the rule that means to catch it.
 
 ```cpp
 /// Advance the cursor past a compiled script. Executes nothing: each
 /// instruction's operands are read only to learn its length.
 [[nodiscard]] Result<void> skipScript(const Package&, ByteReader&,
-                                      std::uint32_t scriptSize);
+                                      std::int32_t scriptSize);
 ```
 
 Three rules make it safe.
 
-**The memory widths are fixed constants, not `sizeof`.** An object
-reference counts as four memory bytes and so does a name, because
-`ScriptSize` was computed by a 32-bit compiler in 1999. Writing
-`sizeof(void*)` gives four on a 32-bit host and eight on every host this
-project actually builds on, and the resulting walk overshoots on the first
-object reference. The constants are named and commented where they are
-defined.
+**An instruction's memory cost is one byte for the opcode itself, plus
+the memory widths of its operands.** The opcode byte is easy to leave out
+and nothing else in the walk restores it: an instruction carrying one
+object reference costs five, not four, so a walker that charges operands
+alone reaches 12 where the file says 15.
+
+**Those widths are fixed constants, not `sizeof`.** An object reference
+counts as four memory bytes and so does a name, because `ScriptSize` was
+computed by a 32-bit compiler in 1999. Writing `sizeof(void*)` gives four
+on a 32-bit host and eight on every host this project actually builds on.
+The constants are named and commented where they are defined.
 
 **An unrecognised instruction is `MalformedData`.** The walker never
 guesses a length, and never resynchronises by scanning.
@@ -342,18 +348,25 @@ struct Ancestry {
                                             const PackageResolver&);
 ```
 
-**Names are matched case-insensitively**, because the engine's own package
-and class names are.
+**`readAncestry` folds the name before it calls the resolver, and a
+resolver may assume folded input.** The engine's own package and class
+names are case-insensitive, and the resolvers are written by other items —
+§ 3.3 item 1 names two, plus the tests' own. Leaving the obligation
+unstated is how one side folds and the other does an exact filesystem
+lookup, so `botpack` misses `BotPack.u` on Linux and the walk ends
+`PackageMissing` — reporting a mod as absent when it is installed, which is
+the failure INV-7 exists to prevent.
 
 **The resolver owns the lifetime of what it returns.** `Ancestry` holds
 pointers into packages the resolver keeps alive, the same bargain
 `Package` already makes with the caller's bytes.
 
 **A cycle is `MalformedData`.** A well-formed chain terminates at a class
-with no parent. The walk carries a depth cap and refuses beyond it; the
-deepest chain in the reference install is comfortably inside any sane cap,
-so a cap that fires is evidence of a malformed package rather than of an
-unusually deep hierarchy.
+with no parent. The walk carries a depth cap and refuses beyond it. The
+number is the implementation's, but it has a floor: the deepest chain in
+the reference install is 12, so any cap comfortably above that makes a cap
+that fires evidence of a malformed package rather than of an unusually deep
+hierarchy. `scripts/class-census.py` re-derives the depth.
 
 **Two ends are successful, and they are different facts.**
 `PackageMissing` is the resolver declining to supply a package: both
@@ -392,6 +405,11 @@ applies to package and class names, and for the same reason: the engine's
 own names are case-insensitive, so a child spelling a property differently
 from its parent must still override it rather than adding a second entry.
 
+**`name` carries the spelling of the class nearest the leaf that set the
+value**, since that is the one an author last wrote. Callers compare it
+case-insensitively, as the merge does; the field is not normalised, because
+a normalised name is not a name anyone would recognise in a log.
+
 **`origin` is not optional bookkeeping.** A `Property` whose value is an
 object reference is meaningful only against the package it was read from.
 Dropping `origin` would produce a merged set whose object-valued entries
@@ -420,9 +438,19 @@ and § 10 grades it on that.
 export: the § 4.3 field order, a caller-supplied script body, and a
 default property list. It must be able to write a class whose parent is an
 import, so cross-package resolution is testable without the reference
-install. It must also be able to write a **deliberately malformed** class
-— an unknown opcode, a `ScriptSize` that runs past the export, an ancestry
-cycle — because the failure modes in § 6 are otherwise untestable.
+install.
+
+**The invariants need it to write things a self-consistent package would
+not contain**, and each is named because a builder that derives them from
+one another cannot produce the fixture at all:
+
+- the in-data `SuperField` **independently of** the export-table `super`
+  column, so INV-2's fixture can make the two differ;
+- a negative `ScriptSize`, an unknown opcode, and a script whose
+  instructions cannot sum to `ScriptSize` exactly — INV-3's three fixtures;
+- a property name at a **chosen** index in the name table, and in a chosen
+  case, and property tags carrying a chosen array index — INV-8's three;
+- an ancestry cycle and a chain past the depth cap — INV-6's.
 
 ## 5. Invariants
 
@@ -455,14 +483,14 @@ promise, and no fixture can demonstrate the absence of an interpreter.
 
 **INV-4.** `skipScript` computes memory widths from fixed constants, so
 its result does not depend on the host's pointer size.
-*Test:* `tests/unit/PackageScriptTest.cpp` — a script of **three**
-instructions each carrying an object reference, with `ScriptSize` 15, walks
-to a literal disk position on every platform in the matrix. Three is the
-smallest count that discriminates: with one instruction a walker charging
-eight memory bytes instead of four still consumes it and still stops, so
-the disk position is identical and the test passes against the defect it
-exists to catch. At three, the wrong width reaches 15 after two and stops
-one instruction early.
+*Test:* `tests/unit/PackageScriptTest.cpp` — one instruction carrying an
+object reference, with `ScriptSize` 5, walks to a literal disk position and
+succeeds, on every platform in the matrix. A walker using `sizeof(void*)`
+charges nine on the 64-bit hosts this project builds on, steps past 5, and
+is refused by § 4.4's exactness rule — so the fixture fails on the defect
+rather than landing somewhere else. Asserting the literal position as well
+as success is what catches a wrong width that happens to sum to
+`ScriptSize` anyway.
 
 **INV-5.** No reader reads outside its export's byte range, for any input
 bytes.
@@ -479,10 +507,13 @@ state that says which fact was true: `PackageMissing` when the resolver
 declines to supply the package, `ClassMissing` when a package opened and
 does not hold the class. Neither is an error, and `missingPackage` is
 empty in the second.
-*Test:* `tests/unit/PackageAncestryTest.cpp`, two fixtures — a resolver
-that supplies nothing, and a resolver that supplies a package from which
-the parent class is absent. One fixture cannot isolate both, and a reader
-collapsing the two states passes whichever is written alone.
+*Test:* `tests/unit/PackageAncestryTest.cpp`, three fixtures — a resolver
+that supplies nothing; a resolver that supplies a package from which the
+parent class is absent; and an import naming its package in a different
+case from the resolver's own key, which must resolve rather than end
+`PackageMissing`. The first two cannot be collapsed into one, because a
+reader that treats both ends alike passes whichever is written alone; the
+third is the only surface the folding rule has.
 
 **INV-8.** `effectiveDefaults` merges on the property's name as text,
 case-insensitively, and on its array index — so a child in one package
@@ -537,10 +568,13 @@ deliberately not the surface: two decoders that agree would pass it.
 into the existing Catch2 unit executable with the `unit;fast` label:
 `PackageClassTest.cpp`, `PackageScriptTest.cpp`, `PackageAncestryTest.cpp`,
 and additions to `PackageMalformedTest.cpp`. Between them they cover
-INV-2, INV-3, INV-3a, INV-4, INV-5, INV-6, INV-7, INV-8, INV-9 and
-INV-10. Every
+INV-2, INV-3, INV-4, INV-5, INV-6, INV-7, INV-8, INV-9 and INV-10. Every
 fixture is written by the § 4.9 builder, so no Epic content enters the
 repository — `ADR-0003` and UTA-0013's guard.
+
+**INV-3a and INV-12 are reading checks rather than tests**, each for the
+reason stated with it: no fixture can show that an interpreter is absent,
+and none can show that a decoder exists only once.
 
 **INV-11 has no test file.** Its surface is the configure-time assertion
 already in `src/upkg/CMakeLists.txt`, which fails the build rather than a
@@ -548,13 +582,14 @@ test, and adding a test beside it would check the assertion rather than the
 link closure.
 
 **`PackagePropertiesTest.cpp` gains the § 4.3 step 11 entry point**, so the
-existing property tests and the new one exercise the same decoder. INV-12
-is a reading check rather than a test, for the reason stated with it.
+existing property tests and the new one exercise the same decoder.
 
 **One branch of § 4.3 is fixture-only, and it is worth saying so.** Every
-class export in the reference install sits at package version 68 or 69, so
-step 10's *version 62 and above* condition is true for all of them and its
-false arm is never taken. INV-1 therefore says nothing about it. A fixture
+class export in the reference install sits at package version 68 or 69 —
+counted across its `.u`, `.unr`, `.utx`, `.uax` and `.umx` packages alike,
+not the `.u` files alone, and re-derivable with `scripts/class-census.py`.
+So step 10's *version 62 and above* condition is true for all of them and
+its false arm is never taken. INV-1 therefore says nothing about it. A fixture
 at a version below 62 is what covers that arm, and it is named here because
 the real-asset tier's breadth otherwise reads as covering everything.
 
@@ -563,9 +598,11 @@ pass: read every class export in every package under
 `UTA_UT_INSTALL_DIR`, assert exact consumption, and walk each class's
 ancestry with a resolver backed by the install. It asserts that the number
 consumed exactly equals the number attempted, so a reader that starts
-refusing content fails rather than quietly reporting fewer successes. This
-is INV-1, and it is the only test that reads content this project did not
-write.
+refusing individual exports fails rather than quietly reporting fewer
+successes — **and it asserts the number of packages opened as well**,
+because a regression that refuses a whole package lowers both export counts
+together and would otherwise pass. This is INV-1, and it is the only test
+that reads content this project did not write.
 
 **The census script.** `scripts/class-census.py` reports, over an install,
 how many class exports there are, how many carry a script, and how many
@@ -628,8 +665,8 @@ tier run with no disk.
 | The walk does not depend on the host | INV-4 | asserted against a literal, on GCC, Clang and MSVC |
 | No reader leaves its export | INV-5 | `ByteReader` is built over the export's span; a malformed `ScriptSize` refuses |
 | The ancestry walk terminates | INV-6 | a cycle fixture and an over-deep chain |
-| A missing package is legible, not an error | INV-7 | a resolver that supplies nothing |
-| Merging works across packages | INV-8 | two packages whose name tables disagree on an index |
+| Unreachable content is legible, not an error | INV-7 | three fixtures: nothing supplied, the class absent from a package that opened, and a package named in another case |
+| Merging works across packages | INV-8 | three fixtures: name tables disagreeing on an index, a name spelled in another case, and two array indices of one property |
 | A merged value stays resolvable | INV-9 | each entry's `origin` |
 | A non-class export is refused | INV-10 | `readClass` on an ordinary export, and on a sizeless one |
 | The link closure does not move | INV-11 | the configure-time assertion |

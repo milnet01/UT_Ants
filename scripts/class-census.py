@@ -380,39 +380,40 @@ class Installation:
 
 
 def walk_ancestry(installation, package, entry):
-    """Returns 'root', 'missing', 'cycle' or 'malformed'."""
+    """Returns ('root'|'missing'|'cycle'|'malformed', chain length)."""
     seen = set()
-    for _ in range(MAX_DEPTH):
+    for depth in range(1, MAX_DEPTH + 1):
         key = (package.path, entry["name"])
         if key in seen:
-            return "cycle"
+            return "cycle", depth
         seen.add(key)
         try:
             reference, _, _ = read_class(package, entry)
         except (ValueError, IndexError, struct.error):
-            return "malformed"
+            return "malformed", depth
         if reference == 0:
-            return "root"
+            return "root", depth
         if reference > 0:
             if reference - 1 >= len(package.exports):
-                return "malformed"
+                return "malformed", depth
             entry = package.exports[reference - 1]
             continue
         if -reference - 1 >= len(package.imports):
-            return "malformed"
+            return "malformed", depth
         _, _, _, object_name = package.imports[-reference - 1]
         owner = package.import_package(reference)
         found = installation.find_class(owner, package.names[object_name]) if owner else None
         if found is None:
-            return "missing"
+            return "missing", depth
         package, entry = found
-    return "cycle"
+    return "cycle", MAX_DEPTH
 
 
 def census(root):
     installation = Installation(root)
     tally = Counter()
     packages = 0
+    deepest = 0
     for path in sorted(set(installation.index.values())):
         try:
             package = Package(path)
@@ -433,12 +434,16 @@ def census(root):
                   else "  layout: WRONG LENGTH"] += 1
             if had_script:
                 tally["  carrying a script of their own"] += 1
-            tally["  ancestry: " + walk_ancestry(installation, package, entry)] += 1
+            end, depth = walk_ancestry(installation, package, entry)
+            tally["  ancestry: " + end] += 1
+            if end == "root":
+                deepest = max(deepest, depth)
 
     print(f"install: {root}")
     print(f"packages read: {packages}")
     for key in sorted(tally):
         print(f"  {key}: {tally[key]}")
+    print(f"deepest ancestry chain reaching a root: {deepest}")
     exact = tally["  layout: consumed exactly"]
     total = tally["class exports"]
     if total:
