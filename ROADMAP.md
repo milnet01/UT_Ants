@@ -206,6 +206,14 @@ model, no weapon and no opponent until 0.2.0.
   scripts/class-census.py re-derives the format findings over the
   reference install and exits non-zero if exact consumption stops
   holding.
+  Progress (2026-09-05): session ut-ants-f8 ended here and is no longer
+  live, so this marker is resumable by the next session under the
+  two-session rule 2. It stays in progress rather than going back to
+  planned because the spec is accepted and the item is genuinely
+  part-built; nothing is half-written in the tree. Implementation has
+  not started: no src/upkg/Script or src/upkg/Class, and none of the
+  three new unit test files. Handoff at
+  docs/session-handoff-2026-09-05.md.
   **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later.
   Kind: implement.
   Source: design-2026-09-03.
