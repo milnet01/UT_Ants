@@ -1068,6 +1068,17 @@ to.
   what it is rather than as its filename. The mapping is our own data and travels
   with the recipe.
   Blocked-by: Monster Hunt rules.
+  Scope addition (user, 2026-09-05): the vote is not only between
+  matches. A player stuck on a map they dislike can open the voting window
+  DURING a match, and that path needs a consent step the between-match
+  vote does not: the other players are first asked whether to vote at all
+  -- "agree, let's vote" against "stay on this map" -- and the map vote
+  itself only opens if that carries. So there are two polls, not one, and
+  the first exists so a single player cannot pull everyone else out of a
+  round in progress. With no other players present the consent step has
+  nobody to ask and the map vote opens directly. What carries the consent
+  step, and whether it is a majority or a threshold, is undecided and is
+  this item's to settle.
   **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
   Kind: implement.
   Source: design-2026-09-03.
