@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **upkg reads typed level content: polygons, palettes, textures and sounds** (UTA-0004)
+  Reads a package's brush polygons with their textures and surface flags,
+  its palettes, its textures -- including the second block-compressed image
+  set later packages carry -- and its sounds. Every reader either consumes
+  its object's bytes exactly or reports the file as malformed; it never
+  returns half an answer. Proven against a full Unreal Tournament install
+  on Linux and Windows.
+
 - **upkg: read the Unreal Engine 1 package container.** (UTA-0003)
   Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format.
 

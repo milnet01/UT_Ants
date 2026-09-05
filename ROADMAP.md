@@ -136,7 +136,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 🚧 [UTA-0004] **upkg: read level geometry, textures, sounds and actor placements.**
+- ✅ [UTA-0004] **upkg: read level geometry, textures, sounds and actor placements.**
   The Model (BSP) geometry, palettised textures with their PolyFlags (masked,
   translucent, unlit, environment -- free information about glass, water, sky and
   lava), sounds, and the actor list with each actor's class, position and
@@ -144,6 +144,42 @@ model, no weapon and no opponent until 0.2.0.
   Blocked-by: the container reader.
   Progress (2026-09-05): picked up. Blocker cleared -- the container
   reader shipped as UTA-0003.
+  Resolved (2026-09-05): `upkg` reads `Polys` (textured polygons with
+  their PolyFlags), `Palette`, the `Texture` family -- `Texture`,
+  `WetTexture`, `IceTexture`, `ScriptedTexture` and `FireTexture`,
+  including the second block-compressed mip chain -- and `Sound`. The
+  actor-list half of `Level` is specified and verified but ships with
+  UTA-0057, which carries the rest of that record.
+
+  The design centres on one rule (spec SS 4.3): a reader that models a
+  layout correctly ends EXACTLY at its export's end, and anything else is
+  `MalformedData` with no partial result. That oracle is total and is
+  checkable against content this project did not write, which is what
+  UTA-0003 SS 2 says fixtures cannot supply. Against the configured
+  install it passes over 552,989 `Polys`, 40,606 `Palette`, 50,386
+  Texture-family and 8,898 `Sound` exports, with 39 refusals across two
+  community files -- each proven per export, and capped in total, because
+  a wrong offset term would push every texture into a named shape and each
+  would still prove itself.
+
+  Three things the published documentation does not carry, found by
+  decoding the reference install rather than reading about it: stock
+  content spans package versions 61 to 69 and two fields exist only from
+  63; a texture may store a SECOND compressed mip chain, and missing it
+  desynchronises the read rather than losing an extra; and the array order
+  the community reference implies for `Model` is wrong.
+
+  `upkg` also gained `readPropertyList`, which reports where the property
+  list ends -- every typed reader starts there, and recomputing it per
+  reader would have been a second decoder of the one format UTA-0003 owns.
+
+  Green on GCC 14, Clang 19 and MSVC, run b6f8c48. Each new assertion was
+  proven able to fail by mutating the rule it covers.
+
+  Split (2026-09-05): `Model` and the post-actor-array half of `Level` move
+  to UTA-0057 -- their layouts could not be derived, and the user chose to
+  make that work visible rather than leave it inside a nearly-finished
+  item.
   **Layman:** Pull the actual level out of the file -- its walls, its textures, and the list of everything the designer placed in it.
   Kind: implement.
   Source: design-2026-09-03.
@@ -859,6 +895,38 @@ model, no weapon and no opponent until 0.2.0.
   Kind: implement.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
+
+- 📋 [UTA-0057] **upkg: derive the Model BSP tables and the rest of Level.**
+  Split out of UTA-0004 (user, 2026-09-05), which shipped the four readers
+  whose layouts could be established: `Polys`, `Palette`, the `Texture`
+  family and `Sound`. These two could not.
+
+  What is known, and it is not nothing. A `Model` begins with 41 bytes of
+  `FBox` + `FSphere`, carries an object reference to its `Polys`, and ends
+  with two `i32`. Between and after those sit runs of compact-index-prefixed
+  arrays whose ORDER is what is unknown -- the member set is knowable, and
+  the order the community documentation implies is measurably wrong: read
+  that way, `DM-Deck16][.unr` yields five nodes and thirty-nine surfaces for
+  a `Model` export of over 450 kB. A `Level` is an `i32` count, an `i32`
+  capacity, that many actor references and then an `FURL` -- all verified --
+  followed by tens of kilobytes this project has not described.
+
+  The method is the one UTA-0004 was researched with, and the acceptance is
+  already built: `docs/specs/UTA-0004-typed-level-content.md` SS 4.3 says a
+  reader that models a layout correctly ends exactly at its export's end,
+  and `tests/real/RealInstallTest.cpp` runs that over the whole install. So
+  the layout is right when the real-asset tier consumes every `Model` and
+  every `Level` export exactly, and is not right before then.
+
+  Not on the critical path for the items that were blocked behind UTA-0004:
+  `unav` needs the actor list and `umat` needs textures, and both shipped.
+  `ubake` (UTA-0011) is what actually needs the BSP.
+
+  Blocked-by: nothing. UTA-0004 shipped the container work this rests on.
+  **Layman:** Work out the last two file layouts by experiment -- the level's shape, and the tail of the level record -- because nobody has written them down correctly.
+  Kind: implement.
+  Source: user-decision-2026-09-05.
+  Lanes: upkg.
 
 ## 0.2.0 — Movement and weapons
 

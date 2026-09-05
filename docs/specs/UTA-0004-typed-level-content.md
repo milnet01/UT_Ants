@@ -328,10 +328,10 @@ this spec was researched with, and § 4.3 is the acceptance: the order is
 right when `readModel` consumes every `Model` export in the reference
 install exactly. Deriving it is the largest single risk in this item.
 
-**If it cannot be derived, that is a decision to bring back, not to
-absorb.** The other five readers are independent of it and ship on their
-own; whether `Model` is deferred to its own item is the user's call and
-not the implementer's.
+**It could not be derived, and the decision came back.** The other five
+readers were independent of it and shipped on their own; on 2026-09-05
+the user split `Model` out as **UTA-0057**, which carries this section as
+its brief. § 14 records what shipped here.
 
 ### 4.6 `Texture`, and the family that shares its layout
 
@@ -446,8 +446,9 @@ level's URL, and the actor list is what the blocked items want.
 They must still be *consumed*, because § 4.3 admits no partial read. So
 the remainder is derived exactly as § 4.5's tables are, with § 4.3 as its
 acceptance, and § 4.10 does not build a `Level` fixture beyond the actor
-array until it is. If it cannot be derived, that is the same decision
-§ 4.5 names: bring it back rather than absorb it.
+array until it is. **That derivation is UTA-0057's**, split out with
+§ 4.5's on 2026-09-05; `readLevel` is not among the readers § 14 records
+as shipped.
 
 ### 4.10 The fixture builder grows
 
@@ -774,3 +775,26 @@ No new library and no new dependency; six readers added to `uta_upkg`.
 - **The real-asset tier is the expensive part**, running six readers over
   every export of every package in an install. It is off by default and
   is not on the ordinary gate.
+
+## 14. What was built (2026-09-05)
+
+Four of the six readers § 4.1 names shipped: `readPolys`, `readPalette`,
+`readTexture` and `readSound`, in `src/upkg/Geometry.*`, `Texture.*` and
+`Sound.*`. `readModel` and `readLevel` did not — § 4.5 and § 4.9 explain
+why, and **UTA-0057** carries them.
+
+`upkg` gained one thing this spec did not anticipate: `readPropertyList`,
+reporting the property list *and* the offset at which native data begins.
+Every reader here starts there, and § 11 records that this made UTA-0003
+change after all.
+
+What the build proved that no reading had: the four layouts hold across
+the whole reference install under § 4.3's rule, the version-63 branch is
+taken by stock content rather than being an edge case, and INV-3's
+original test clause was false. § 12's implementation row has the detail.
+
+**What is checked, honestly.** The real-asset tier is off by default, so
+an ordinary run proves the four readers against this project's own
+fixtures and nothing else; the install run is what proves them against
+1999. § 10 grades every invariant on that split, and three rows there say
+`nothing`.

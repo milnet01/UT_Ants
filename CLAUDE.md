@@ -2,24 +2,29 @@
 
 ## Where this project is
 
-**State:** 5 — building.
+**State:** 4 — between items.
 **Next:** `UTA-0005` — `upkg`: class tables, defaults and ancestry.
-**In flight:** `UTA-0004` — `upkg`: typed level content.
+**In flight:** whatever the roadmap marks 🚧.
 
-> Keep the three lines above true, and keep them to three lines.
-> **`State:` and `In flight:` move together**: picking an item sets both,
-> finishing clears `In flight:` and returns `State:` to 4 — `workflow.md`
-> § 1 defines state 4 as nothing in flight. `Next:` advances when the item
-> it names is picked up, and stays put when a rule-1 finding is taken
-> ahead of it (§ Which item comes next, which also owns the deferral note
-> — the one other position kept by hand).
+> **`In flight:` is not kept by hand.** Ask the roadmap:
+> `roadmap_query status:"in-progress"`. It was a hand-kept line until
+> 2026-09-05, when the project began running two sessions at once and one
+> line could no longer name what two sessions held. A line that must be
+> right in two places at once is a line that will be wrong in one of them.
+>
+> **`State:` follows from that answer** — 4 when the roadmap holds nothing
+> 🚧, 5 otherwise (`workflow.md` § 1). `Next:` is still kept by hand: it
+> is a decision rather than an observation. It advances when the item it
+> names is picked up, and stays put when a rule-1 finding is taken ahead
+> of it (§ Which item comes next, which also owns the deferral note).
 >
 > Everything else is read off things harder to falsify: whether a spec
 > exists, what `git status` says, whether the tests pass **on the matrix**.
-> The roadmap bullet is not one of them — it says ✅ because somebody set
-> it, and § Build and test records a session setting it so while Windows
-> was red. A hand-kept record starts lying the first time somebody forgets
-> it, and still reads as authoritative.
+> The roadmap's ✅ is not one of them — it says ✅ because somebody set it,
+> and § Build and test records a session setting it so while Windows was
+> red. **Its 🚧 is different**: a session sets it when it picks work up,
+> minutes before doing the work, so it is the freshest thing available and
+> the only one that can name two items at once.
 
 ## How work is done here
 
@@ -148,6 +153,38 @@ outside this order, which is where it is least likely to be found.
 the deferral on the deferred item, in the roadmap store — not by editing
 `ROADMAP.md`, which is generated from it and drops a hand edit without
 saying so. Clear the note when that item is picked up.
+
+### Running two sessions at once
+
+Two Claude Code sessions may work this project simultaneously. There is no
+orchestrator: nothing schedules them, and neither can block the other.
+What keeps them apart is the roadmap, which both write through
+`roadmap_log` and which is the only state both must consult.
+
+**Four rules, and the first is what makes the rest work.**
+
+1. **Flip the item to 🚧 BEFORE starting work, not after.** That flip is
+   the claim, and it is how the other session learns the item is taken.
+   A session that works first and records afterwards has told nobody.
+2. **Check what is already 🚧 before picking anything up.** One call:
+   `roadmap_query status:"in-progress"`. An item another session holds is
+   not available, whatever the priority order says about it.
+3. **Each session works in its own git worktree** (`claude -w <name>`).
+   Never two sessions in one checkout. `.git/config` is shared across
+   worktrees, so `core.hooksPath` and the four `ants.gate.*` settings
+   apply in a new one without being set again — verified 2026-09-05.
+4. **Take items that do not share a directory.** The roadmap stops two
+   sessions taking the same item; it does not stop them editing the same
+   file from different items. Lanes are the cheap signal: two items whose
+   `Lanes:` differ rarely collide.
+
+**`ROADMAP.md` is generated from the store, so never hand-edit it** — that
+is already true for one session and merely bites harder with two.
+
+**Sessions can message each other** (`ListAgents`, then `SendMessage` by
+name), which is worth knowing and is not a coordination mechanism: a
+message is read when the other session next looks, and nothing makes it
+look.
 
 ### Roadmap IDs
 
