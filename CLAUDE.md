@@ -172,7 +172,15 @@ What keeps them apart is the roadmap, which both write through
 3. **Each session works in its own git worktree** (`claude -w <name>`).
    Never two sessions in one checkout. `.git/config` is shared across
    worktrees, so `core.hooksPath` and the four `ants.gate.*` settings
-   apply in a new one without being set again — verified 2026-09-05.
+   apply in a new one without being set again — verified 2026-09-05, and
+   it is the thing most likely to be assumed rather than checked, because
+   a missing gate is silent.
+
+   **A worktree brings its own branch, because git refuses to check one
+   branch out twice.** So the second session works on a branch and merges
+   to `main`; the `pre-push` gate sits on the push either way, so nothing
+   reaches the remote ungated. Its build directory is its own too, which
+   is why the two do not fight over `build/`.
 4. **Take items that do not share a directory.** The roadmap stops two
    sessions taking the same item; it does not stop them editing the same
    file from different items. Lanes are the cheap signal: two items whose
