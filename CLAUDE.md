@@ -2,7 +2,7 @@
 
 ## Where this project is
 
-**State:** 4 — between items.
+**State:** 4 if nothing is 🚧, else 5.
 **Next:** `UTA-0005` — `upkg`: class tables, defaults and ancestry.
 **In flight:** whatever the roadmap marks 🚧.
 
@@ -12,8 +12,9 @@
 > line could no longer name what two sessions held. A line that must be
 > right in two places at once is a line that will be wrong in one of them.
 >
-> **`State:` follows from that answer** — 4 when the roadmap holds nothing
-> 🚧, 5 otherwise (`workflow.md` § 1). `Next:` is still kept by hand: it
+> **`State:` is written as the formula, not as its answer** — so no
+> session owes it an edit, and it cannot disagree with the roadmap
+> (`workflow.md` § 1). `Next:` is still kept by hand: it
 > is a decision rather than an observation. It advances when the item it
 > names is picked up, and stays put when a rule-1 finding is taken ahead
 > of it (§ Which item comes next, which also owns the deferral note).
@@ -59,17 +60,26 @@ ctest --test-dir build -L unit
 `./scripts/ci.sh --docs` — a reduced run in which no compiler leg fires.
 
 `.githooks/pre-push` runs neither directly. It delegates to
-`$ANTS_GLOBAL_HOOKS/pre-push` whenever that variable is set to anything at
-all, else `~/.claude/githooks/pre-push`; a set-but-wrong value is not
-corrected, it just disables the gate. The machine-wide hook then picks the
+`$ANTS_GLOBAL_HOOKS/pre-push` whenever that variable is set to a
+**non-empty** value — the hook uses `${ANTS_GLOBAL_HOOKS:-...}`, so an
+empty one falls back exactly as an unset one does — else
+`~/.claude/githooks/pre-push`, and the resolved path must be
+executable. A set-but-wrong value is not corrected, it just disables the
+gate. The machine-wide hook then picks the
 gate script, decides documentation-only, and runs it over the pushed
 commits in a detached worktree — not over what is on disk.
 
-**Four settings drive that, all in `.git/config`, none surviving a
-clone:**
+**Four settings drive that. Three are `ants.gate.*` and live only in
+`.git/config`, so a clone has none of them. `core.hooksPath` is the
+exception** — ~/.gitconfig sets it machine-wide to ~/.claude/githooks, and the
+repository value below overrides it. So unsetting the repository value
+does **not** disable the gate: it falls back to the machine-wide hook,
+losing this repository's own hooks rather than the push gate. Corrected
+2026-09-05, measured with
+`git config --show-origin --get-all core.hooksPath`.
 
 ```sh
-git config core.hooksPath      .githooks         # unset: no hook runs
+git config core.hooksPath      .githooks         # see the note below
 git config ants.gate.command   ./scripts/ci.sh   # unset: no gate runs
 git config ants.gate.docsMode  --docs
 git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
@@ -79,7 +89,9 @@ git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
 checked nothing, and only two announce themselves: `NOTHING WAS CHECKED`
 (the resolved hook is missing), a line naming a pipeline but no local gate
 (`ants.gate.command` unset — the hook's fallback list does not contain
-`scripts/ci.sh`), and **no hook output at all** (`core.hooksPath` unset).
+`scripts/ci.sh`), and **no hook output at all**, which on this machine
+means `core.hooksPath` naming a directory with no `pre-push` rather than
+being unset.
 An unset `docsGlob` is silent too, and widens what counts as
 documentation. Confirm with
 `git config --get-regexp 'hooksPath|^ants\.gate\.'`.
@@ -156,10 +168,16 @@ saying so. Clear the note when that item is picked up.
 
 ### Running two sessions at once
 
-Two Claude Code sessions may work this project simultaneously. There is no
-orchestrator: nothing schedules them, and neither can block the other.
-What keeps them apart is the roadmap, which both write through
-`roadmap_log` and which is the only state both must consult.
+Two Claude Code sessions may work this project simultaneously. **This
+departs from `workflow.md` § 1, which allows exactly one item in flight,
+and the departure is recorded in `docs/standards/workflow-overrides.md`
+with the reason** — § Overrides is what requires that, and the short
+version is that the standard's objection was to a project state somebody
+remembers, which this project stopped keeping.
+
+There is no orchestrator: nothing schedules the sessions, and neither can
+block the other. What keeps them apart is the roadmap, which both write
+through `roadmap_log` and which is the only state both must consult.
 
 **Four rules, and the first is what makes the rest work.**
 
@@ -171,7 +189,7 @@ What keeps them apart is the roadmap, which both write through
    not available, whatever the priority order says about it.
 3. **Each session works in its own git worktree** (`claude -w <name>`).
    Never two sessions in one checkout. `.git/config` is shared across
-   worktrees, so `core.hooksPath` and the four `ants.gate.*` settings
+   worktrees, so `core.hooksPath` and the three `ants.gate.*` settings
    apply in a new one without being set again — verified 2026-09-05, and
    it is the thing most likely to be assumed rather than checked, because
    a missing gate is silent.
@@ -185,6 +203,14 @@ What keeps them apart is the roadmap, which both write through
    sessions taking the same item; it does not stop them editing the same
    file from different items. Lanes are the cheap signal: two items whose
    `Lanes:` differ rarely collide.
+
+5. **Clear 🚧 before the session ends** — ✅ when the item is done on the
+   matrix, back to 📋 when it is abandoned. Rule 2 binds the other session
+   to whatever you leave behind, so a stale 🚧 silently removes an item
+   from its queue and nothing detects it.
+6. **Only the session picking up the item `Next:` names advances
+   `Next:`.** Every other pick-up leaves that line alone. It is one line
+   both sessions can see, so without this they overwrite each other.
 
 **`ROADMAP.md` is generated from the store, so never hand-edit it** — that
 is already true for one session and merely bites harder with two.

@@ -1,0 +1,31 @@
+# `CLAUDE.md` — contract-gate record, 2026-09-05
+
+The loop log for this project's `CLAUDE.md` lives here rather than in the
+document, for the reason `docs/claude-md-review-2026-09-04.md` gives: the
+file is read in full by every session on every turn.
+
+**This is a new run, and the loop numbers continue that record's** — they
+are the document's history, not this run's. The 2026-09-04 run reached a
+violent cap, which ends the review of the text it was measured against;
+it does not attach to the document forever. An authoring edit that changes
+direction re-arms the gate normally, and this is one.
+
+**Trigger.** `In flight:` stopped being kept by hand and now reads off the
+roadmap, and a § Running two sessions at once was added. A conformer now
+records position differently and must check the roadmap before picking
+work up, so rule 14's gate was owed.
+
+## Loop log
+
+| Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
+|------|------|-------|----|----|----|----|---------|
+| 4 | 2026-09-05 | 3, cold — genre pinned `standard`; packet carried the measured `git config` output for both worktrees, the `pre-push` source, `workflow.md` § 1 and `scripts/ci.sh`'s head | 3 | 2 | 2 | n/a | **Seven verified, seven fixed; none dismissed.** **All three lanes independently found the same defect, and it is the one the author missed entirely:** § Running two sessions at once permits two items in flight, and `workflow.md` § 1 says *"Exactly one item is in flight at a time. A second waits."* — a standard this very file cites as its authority two sections earlier, and whose departures § Overrides requires to be recorded in `docs/standards/`. Nothing was recorded. A second session reading the standard waits; reading this file it starts. The override is now stated in the section and filed as `docs/standards/workflow-overrides.md`, which answers the standard's actual objection rather than asserting an exemption: § 1's worry is that project state becomes unanswerable, and that is an objection to state being a scalar somebody remembers — once `In flight:` is a query, a set of two is as answerable as a set of one. **All three also found `State:` left as a stored literal** (`4 — between items`) three lines above prose calling it derived, which is the same two-places-at-once failure the rewrite claimed to have removed, now doubled across two sessions. It is written as the formula. **All three found a pre-existing Q1 that this session's own measurement had already falsified without the author noticing:** the document says an unset `core.hooksPath` means no hook runs, and on this machine `~/.gitconfig` sets it machine-wide, so unsetting the repository value falls back to the machine-wide gate rather than silencing it — and the same fact breaks *"all in `.git/config`, none surviving a clone"* for that one key. A session diagnosing a silent push was being sent after a cause that cannot produce silence. **Two lanes found the new section double-counting the settings** — *"the four `ants.gate.*` settings"*, where four is the total including `core.hooksPath` and there are three — in the same paragraph that warns a missing gate is silent. **Two found `${ANTS_GLOBAL_HOOKS:-...}` substitutes on empty as well as unset**, so *"set to anything at all"* is wrong, and one added that the resolved path must also be executable. **Two Q3s were gaps the new section opened and nobody could have breached knowingly:** nothing said when 🚧 is cleared or by whom, so a stale marker silently removes an item from the other session's queue; and nothing said what `Next:` does when a session picks up an item that line does not name. Both are now rules 5 and 6. **Open questions settled, none a finding:** `Lanes:` is a real field on this project's items, so rule 4 has a signal; and `--docs` firing no compiler leg was confirmed by observation earlier the same day, a documentation-only push running the quarantine guard and the link check and nothing else. |
+
+## The same harness limitation as the 2026-09-04 run
+
+That record's closing section applies unchanged: the harness injects the
+project `CLAUDE.md` into every subagent's system context, so the lanes
+were **not fully cold** on this document. What they held was the version
+at session start — the pre-change text — so every finding above was still
+made against text they had to read fresh, and the strongest finding of
+the run was a contradiction with a *different* document.
