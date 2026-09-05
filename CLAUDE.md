@@ -168,64 +168,85 @@ saying so. Clear the note when that item is picked up.
 
 ### Running two sessions at once
 
-Two Claude Code sessions may work this project simultaneously. **This
-departs from `workflow.md` § 1, which allows exactly one item in flight,
-and the departure is recorded in `docs/standards/workflow-overrides.md`
-with the reason** — § Overrides is what requires that, and the short
-version is that the standard's objection was to a project state somebody
-remembers, which this project stopped keeping.
+Two Claude Code sessions may work this project simultaneously, and **two
+is the cap** — two sessions, therefore at most two items in flight.
+**This departs from `workflow.md` § 1, which allows exactly one item in
+flight, and the departure is recorded in
+`docs/standards/workflow-overrides.md` with the reason** — § Overrides is
+what requires that.
 
 There is no orchestrator: nothing schedules the sessions, and neither can
-block the other. What keeps them apart is the roadmap, which both write
-through `roadmap_log` and which is the only state both must consult.
+block the other.
 
-**Six rules, and the first is what makes the rest work.**
+**The roadmap store is what keeps them apart, and reaching it takes one
+deliberate step.** The store is keyed to the MAIN checkout. A worktree is
+a different path, the store has no row for it, and `roadmap_log` there
+silently falls back to patching that worktree's own `ROADMAP.md` — which
+the next render from the main checkout overwrites. Measured 2026-09-05: a
+query from the worktree answered `source: "markdown"` where the main
+checkout answers `source: "store"`, and a dry-run flip reported
+`write_path: "patch"`.
 
-1. **Flip the item to 🚧 BEFORE starting work, not after.** That flip is
-   the claim, and it is how the other session learns the item is taken.
-   A session that works first and records afterwards has told nobody.
-2. **One item per session, and check what is already 🚧 before picking
-   anything up.** One call: `roadmap_query status:"in-progress"`. An item
-   another session holds is not available, whatever the priority order
-   says about it — and a session that already holds one does not take a
-   second. The override buys two sessions one item each, not two items
-   each; `docs/standards/workflow-overrides.md` is where that cap is set,
-   and exceeding it breaches `workflow.md` § 1 with no cover.
-3. **The session already in the main checkout keeps it; every additional
-   session gets its own git worktree** (`claude -w <name>`). Never two
-   sessions in one checkout. `.git/config` is shared across
-   worktrees, so `core.hooksPath` and the three `ants.gate.*` settings
-   apply in a new one without being set again — verified 2026-09-05, and
-   it is the thing most likely to be assumed rather than checked, because
-   a missing gate is silent.
+> **So every roadmap verb passes the MAIN checkout as `caller_cwd`,
+> whatever worktree you are working in**, and **only the main checkout
+> ever commits `ROADMAP.md`.** A worktree session that commits it commits
+> a stale render.
+
+**Seven rules, and the first is what makes the rest work.**
+
+1. **Flip the item to 🚧 BEFORE starting work, and name yourself in the
+   note.** That flip is the claim, and it is how the other session learns
+   the item is taken. **The marker records that an item is held and not by
+   whom**, so put your session name (`ListAgents` reports it) in the
+   progress note — without it a 🚧 left by a dead session is
+   indistinguishable from a live claim, and rule 5 makes 🚧 outlive a
+   session deliberately.
+2. **One item per session, two in total.** `roadmap_query
+   status:"in-progress"` — an item another session holds is not
+   available, whatever the priority order says about it; a session
+   already holding one does not take a second; and **if two are already
+   🚧, nothing is available to anyone**. A 🚧 whose named holder is not in
+   `ListAgents` is abandoned and may be resumed.
+3. **The session already in the main checkout keeps it; a second session
+   gets its own git worktree** (`claude -w <name>`). Never two sessions in
+   one checkout. **Check at start-up, because nothing else will**:
+   `git worktree list` and `ListAgents`. A session started the ordinary
+   way in the main checkout while another already holds it has breached
+   before it read this line.
+
+   `.git/config` is shared across worktrees, so `core.hooksPath` and the
+   three `ants.gate.*` settings apply in a new one without being set
+   again — verified 2026-09-05, and it is the thing most likely to be
+   assumed rather than checked, because a missing gate is silent.
 
    **A worktree brings its own branch, because git refuses to check one
    branch out twice.** That also rules out merging *into* `main` from the
-   worktree: `main` is checked out elsewhere, and a push at it is refused.
-   So the additional session **pushes its own branch** and the session
-   holding `main` merges it. The `pre-push` gate sits on the push either
-   way — measured from the second worktree on 2026-09-05, where it ran
-   `ci.sh --docs` and announced the commit it was gating, so this is not
-   inferred from the settings being present. Its build directory is its
-   own too, which is why the two do not fight over `build/`.
-4. **Take items that do not share a directory.** The roadmap stops two
-   sessions taking the same item; it does not stop them editing the same
-   file from different items. Lanes are the cheap signal: two items whose
-   `Lanes:` differ rarely collide.
-
+   worktree: `main` is checked out elsewhere, so a local push at it is
+   refused by git's checked-out-branch protection. So the worktree
+   session **pushes its own branch to `origin`** and the session holding
+   `main` merges it. The `pre-push` gate sits on that push — measured
+   from the second worktree on 2026-09-05, where it ran `ci.sh --docs`
+   and named the commit it was gating, so this is not inferred from the
+   settings being present. Its build directory is its own too, which is
+   why the two do not fight over `build/`.
+4. **Take items that do not share a directory** — and this outranks the
+   priority order, as rule 2 does. Where the next item § Which item comes
+   next would give you shares a directory with one in flight, take the
+   next one that does not, and say why in the flip note. The roadmap
+   stops two sessions taking the same item; it does not stop them editing
+   one file from two items. `Lanes:` is the cheap signal.
 5. **Clear 🚧 when the item is settled** — ✅ when it is done on the
    matrix, back to 📋 when it is abandoned. **A session boundary is not
    one of those**: work still under way stays 🚧 across it, which is
    `workflow.md` § 1's state 5 persisting, and 📋 would tell the other
-   session by rule 2 that a half-built item is free. What rule 5 forbids
-   is leaving 🚧 on an item you have in fact abandoned, because rule 2
-   binds the other session to it and nothing detects that.
-6. **Only the session picking up the item `Next:` names advances
-   `Next:`.** Every other pick-up leaves that line alone. It is one line
-   both sessions can see, so without this they overwrite each other.
-
-**`ROADMAP.md` is generated from the store, so never hand-edit it** — that
-is already true for one session and merely bites harder with two.
+   session by rule 2 that a half-built item is free.
+6. **Only the session in the main checkout advances `Next:`.** It is not
+   one shared line: each worktree has its own checkout of this file on
+   its own branch, so two sessions editing it produce two copies that
+   diverge silently until they merge. A worktree session that thinks
+   `Next:` should move says so and leaves the line alone.
+7. **A worktree session does not commit `ROADMAP.md`.** Its copy is a
+   render of a store it cannot reach; the main checkout owns that file.
 
 **Sessions can message each other** (`ListAgents`, then `SendMessage` by
 name), which is worth knowing and is not a coordination mechanism: a
@@ -239,9 +260,11 @@ are `<ID>: <description>`, per `commits.md`.
 
 ### Overrides
 
-Any place this project deliberately departs from a global standard goes
-in `docs/standards/`, with the reason. If that directory is empty, there
-are none.
+Any place this project deliberately departs from a global standard **or
+from `~/.claude/workflow.md`** goes in `docs/standards/`, with the
+reason. `docs/standards/README.md` owns what else may live there. **If
+that directory holds nothing but its own `README.md`, there are no
+overrides** — it is never empty, so emptiness is not the test.
 
 ### This file's own review history
 

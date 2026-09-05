@@ -13,7 +13,8 @@ unmodified.
 
 **This project.** Two items may be in flight at once, at most one per
 session, from 2026-09-05. Decided by the user to get more work done in
-parallel.
+parallel. **Two sessions is the cap, so two items is the total** — a
+third session finding two already 🚧 picks nothing up.
 
 ## Why the standard's objection does not bite here
 
@@ -41,8 +42,14 @@ protecting is gone.
 
 ## What this override does NOT relax
 
-- **Two sessions may not hold the same item.** Rule 2 of `CLAUDE.md`
-  § Running two sessions at once.
+- **Two sessions may not hold the same item**, and no session holds two.
+  Rule 2 of `CLAUDE.md` § Running two sessions at once.
+- **The roadmap store is reachable only from the main checkout.** That is
+  a mechanical fact rather than a policy, and `CLAUDE.md` § Running two
+  sessions at once states it: a roadmap verb called from a worktree
+  patches that worktree's own `ROADMAP.md` instead of the store. If the
+  second session gets this wrong, the coordination this override rests on
+  does not happen at all.
 - **A session still finishes what it starts, or hands it back.** An
   abandoned item returns to 📋 rather than sitting 🚧.
 - **Nothing about the gates.** Every push is gated, and an item is still

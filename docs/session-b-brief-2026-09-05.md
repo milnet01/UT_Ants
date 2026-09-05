@@ -41,14 +41,36 @@ session is working, and neither shares a lane with it.
 - **`CLAUDE.md`'s `Next:` line** — it is a decision, and changing it
   changes what the other session picks up next.
 
+## The one thing that will silently break if you get it wrong
+
+**Every roadmap verb must pass the MAIN checkout as `caller_cwd`:**
+
+```
+caller_cwd: /mnt/Games/Scripts/Linux/UT_Ants
+```
+
+Not your worktree. The roadmap store is keyed to the main checkout; your
+worktree is a different path with no store row, and `roadmap_log` there
+falls back to patching your own copy of `ROADMAP.md` — which the next
+render from the main checkout overwrites. Your claim on an item would
+vanish and nothing would say so. Measured 2026-09-05: a query from this
+worktree answers `source: "markdown"`, the main checkout answers
+`source: "store"`.
+
+**And never commit `ROADMAP.md` from here.** Your copy is a render of a
+store you cannot reach. The main checkout owns that file.
+
 ## Before you start anything
 
-1. `roadmap_query status:"in-progress"` — an item already 🚧 is held by
-   the other session, whatever the priority order says about it.
-2. Flip your item to 🚧 **before** working on it, with a progress note.
-   That flip is your claim, and it is the only way the other session
-   learns the item is taken. Working first and recording afterwards has
-   told nobody.
+1. `git worktree list` and `ListAgents` — confirm nobody else is in this
+   worktree and who else is running.
+2. `roadmap_query status:"in-progress"` (main checkout path) — an item
+   already 🚧 is held, whatever the priority order says about it. If two
+   are already 🚧, nothing is available to you.
+3. Flip your item to 🚧 **before** working on it, **and name yourself in
+   the note** — `ListAgents` reports your session name. The marker says
+   an item is held, not by whom, so without your name a marker left by a
+   dead session cannot be told from a live claim.
 
 ## When you are done
 
