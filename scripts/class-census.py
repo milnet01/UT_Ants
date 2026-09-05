@@ -68,7 +68,13 @@ class Cursor:
                     break
             else:
                 raise ValueError("compact index too long")
-        return -value if first & 0x80 else value
+        # Narrow to 32 bits, as the package format's readers do: the value is
+        # accumulated unsigned and converted once, so a five-byte encoding with
+        # bit 31 set is a negative reference rather than a huge positive one.
+        value &= 0xFFFFFFFF
+        if first & 0x80:
+            return -value
+        return value - (1 << 32) if value & 0x80000000 else value
 
 
 class Package:

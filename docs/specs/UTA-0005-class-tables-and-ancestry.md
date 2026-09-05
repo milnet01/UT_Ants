@@ -29,8 +29,8 @@ It resolves nothing onto this engine's own classes. That is UTA-0023.
 
 A `.u` package holds compiled bytecode and a class table. `ADR-0004` rests
 on the class table being readable without a virtual machine, and it is.
-But the naive reading of it is wrong in four ways, and three of them are
-silent: they produce a plausible answer rather than a failure.
+But the naive reading of it is wrong in ways that mostly do not announce
+themselves: they produce a plausible answer rather than a failure.
 
 Every layout claim in § 4 was checked by decoding the reference install
 with a throwaway probe written independently of `upkg` — a different
@@ -41,14 +41,15 @@ UTA-0004 § 2.1 did. The install is the one `UTA_UT_INSTALL_DIR` points at.
 
 The probe read every class export in the install: the `System` tree's
 packages, and the class exports embedded in maps, texture and sound
-packages. Four findings changed the design.
+packages. Three findings changed the design, and one correction is
+recorded below them because the method is the item's only oracle.
 
-**A class export carries its own parent, and the export table's copy is
-not always readable.** Every export entry has a `super` column, and each
-class also serialises a `SuperField` of its own. Where both are in range
-they agree — with no exception found. Where they differ, it is because the
-table's column is out of range and the object's own field is valid, never
-the reverse. So the object's own field is the one to read. § 4.5.
+**A class's parent is recorded twice, and the container has already
+validated one of them.** Every export entry carries a `super` column, and
+each class also serialises a `SuperField` of its own. They agree on every
+class export in the install. `Package::open` validates the table column
+(UTA-0003 § 4.6), so a reader taking the parent from there inherits that
+guarantee and validates nothing itself. § 4.5.
 
 **`ScriptSize` is a memory size, not a file size.** A class's compiled
 script is serialised expression by expression, and an object reference or
@@ -73,6 +74,18 @@ sufficient to *find* the script's end by search: for `Actor`, dozens of
 different assumed script lengths each leave a property list that parses
 and terminates exactly at the export end. The script has to be walked.
 § 8 records that as the rejected alternative it is.
+
+**A probe that disagrees with the shipped reader is evidence about the
+probe.** An earlier draft of this section claimed the export table's
+`super` column was out of range on some community packages and that the
+object's own field had to be preferred. It was the probe: it accumulated
+the format's compact index without narrowing to 32 bits, where
+`ByteReader::readIndex` narrows once at the end (UTA-0003 § 4.3), so a
+five-byte encoding with bit 31 set read as a large positive rather than a
+small negative. Re-run with the narrowing, no class export in the install
+has an out-of-range parent in either place. The claim reached a draft and
+was caught by this document's review gate; it is recorded because the
+probe is what every other claim in this section rests on.
 
 ## 3. Scope decisions (agreed with the user)
 
@@ -122,9 +135,11 @@ member layouts — a second traversal, for values nothing in the 0.1.0 or
 2. **A merged default carries its name as text.** Name and object indices
    are per-package, so a value read from `Engine.u` and a value read from
    a mod package cannot be compared by index. § 4.7.
-3. **A missing package is not an error.** The walk stops and says which
-   package it wanted. `ADR-0004` requires the fallback to be legible, and
-   an install that lacks a mod is the ordinary case, not a malformed one.
+3. **Content the walk cannot reach is not an error.** The walk stops and
+   says what it wanted, distinguishing a package the resolver has not got
+   from a class absent within one it has. `ADR-0004` requires the fallback
+   to be legible, and an install that lacks a mod is the ordinary case,
+   not a malformed one.
 
 ## 4. Design
 
@@ -193,11 +208,13 @@ Read in this order from the start of the export's serialised bytes:
    needs no new accessor for it.
 7. **`ClassFlags`**, a `std::uint32_t`, then a 16-byte GUID.
 8. **The dependency list**: a compact-index count, then that many entries
-   of an object reference, a `std::int32_t` and a `std::uint32_t`.
-9. **The package-import list**: a compact-index count, then that many
-   compact indices.
-10. **`ClassWithin`** and **`ClassConfigName`**, only at package version
-    62 and above.
+   of an object reference **as a compact index**, a `std::int32_t` and a
+   `std::uint32_t`.
+9. **The package-import list**: a compact-index count, then that many name
+   indices, each a compact index.
+10. **`ClassWithin`**, an object reference as a compact index, and
+    **`ClassConfigName`**, a name index as a compact index — both only at
+    package version 62 and above.
 11. **The default properties**, a tagged property list in exactly the form
     UTA-0003 § 4.8 reads, terminated by `None`.
 
@@ -235,6 +252,17 @@ number of **memory** bytes, and the walk continues until that running
 total reaches `ScriptSize`. The file position advances by the disk
 encoding, which is shorter.
 
+**The total must land on `ScriptSize` exactly.** A walk whose running total
+steps *past* it has mis-read an instruction's width and stopped
+mid-instruction, so it returns `MalformedData`. Nothing downstream catches
+this: § 2.1's fourth finding is that a wrong script end still leaves a
+property list that parses and ends where it should, so the acceptance rule
+in § 4.8 cannot see it.
+
+**`ScriptSize` is read as a `std::int32_t` and a negative value is
+`MalformedData`**, refused before the walk begins rather than converted to
+a large unsigned count.
+
 ```cpp
 /// Advance the cursor past a compiled script. Executes nothing: each
 /// instruction's operands are read only to learn its length.
@@ -266,18 +294,23 @@ calls, whose parameters run to the same marker. Nested expressions recurse,
 so the walker is bounded in depth as well — a depth cap returns
 `MalformedData` rather than exhausting the stack on hostile input.
 
-### 4.5 The parent comes from the object's own `SuperField`
+### 4.5 The parent comes from the export table, which is already validated
 
-`readClass` reports `super` from step 2 of § 4.3 and never from
-`ExportEntry::super`. § 2.1 measured why: the two agree wherever both are
-in range, and where they do not, the export table's column is the one that
-is out of range.
+`readClass` reports the parent from `ExportEntry::super`, not from the
+`SuperField` inside the object's bytes.
 
-This is not a validation the container can do for us. UTA-0003 validates
-every reference *it* reads, and an export whose `super` column is out of
-range would have failed the package open — so the packages this affects
-open successfully today, and their class exports read correctly, purely
-because nothing has read that column yet.
+The reason is that the container has already done the work. UTA-0003
+§ 4.6 has `Package::open` validate every reference in both tables against
+the table it names, so for any package that opened, that column is in
+range — and `readClass` performs no reference validation of its own. The
+in-data `SuperField` carries no such guarantee: nothing has read it, so a
+reader taking the parent from there owes a bounds check the container
+already paid for.
+
+The `SuperField` is still **consumed** — § 4.3 step 2 has to read past it
+to reach the fields after it — and is not used. § 2.1 records that the two
+agree on every class export in the reference install, and how a first
+probe made it look otherwise.
 
 ### 4.6 Resolving a parent in another package
 
@@ -296,13 +329,13 @@ struct ResolvedClass {
     const ExportEntry* entry   = nullptr;
 };
 
-enum class AncestryEnd { Root, PackageMissing, Truncated };
+enum class AncestryEnd { Root, PackageMissing, ClassMissing };
 
 struct Ancestry {
     std::vector<ResolvedClass> chain;   // the class itself first, root last
     AncestryEnd end = AncestryEnd::Root;
-    std::string missingPackage;         // set only when end is PackageMissing
-    std::string missingClass;           // set only when end is PackageMissing
+    std::string missingPackage;         // set on PackageMissing only
+    std::string missingClass;           // set on PackageMissing and ClassMissing
 };
 
 [[nodiscard]] Result<Ancestry> readAncestry(const Package&, const ExportEntry&,
@@ -322,9 +355,14 @@ deepest chain in the reference install is comfortably inside any sane cap,
 so a cap that fires is evidence of a malformed package rather than of an
 unusually deep hierarchy.
 
-**A package the resolver cannot supply ends the walk as `PackageMissing`,
-successfully**, with the package and class named so a caller can say which
-content is absent. `ADR-0004` requires exactly that legibility.
+**Two ends are successful, and they are different facts.**
+`PackageMissing` is the resolver declining to supply a package: both
+`missingPackage` and `missingClass` are set, and a caller can say which
+content the install lacks. `ClassMissing` is a package that opened and does
+not contain the class: `missingClass` is set and `missingPackage` is
+**empty**, because naming a package that is present would report the
+opposite of what happened. `ADR-0004` requires exactly that legibility, and
+one state covering both cases would defeat it.
 
 ### 4.7 Effective defaults are a merge up the chain
 
@@ -344,19 +382,23 @@ struct EffectiveProperty {
 effectiveDefaults(const Ancestry&);
 ```
 
-**The merge key is the property's name as text, together with its array
-index** — never the name index. A name index is a position in one
-package's name table; the same property is a different number in every
-package, so merging by index silently fails to override anything across a
-package boundary, and the caller gets the base class's value.
+**The merge key is the property's name as text, compared
+case-insensitively, together with its array index** — never the name
+index. A name index is a position in one package's name table; the same
+property is a different number in every package, so merging by index
+silently fails to override anything across a package boundary, and the
+caller gets the base class's value. The case rule is the same one § 4.6
+applies to package and class names, and for the same reason: the engine's
+own names are case-insensitive, so a child spelling a property differently
+from its parent must still override it rather than adding a second entry.
 
 **`origin` is not optional bookkeeping.** A `Property` whose value is an
 object reference is meaningful only against the package it was read from.
 Dropping `origin` would produce a merged set whose object-valued entries
 cannot be resolved at all.
 
-An ancestry that ended `PackageMissing` still merges, over the part of the
-chain that resolved. The result is honest but incomplete, and the caller
+An ancestry that ended `PackageMissing` or `ClassMissing` still merges,
+over the part of the chain that resolved. The result is honest but incomplete, and the caller
 knows which case it is from `Ancestry::end`.
 
 ### 4.8 Every reader here ends exactly where its export ends
@@ -389,22 +431,38 @@ exactly: the reader finishes at `serialOffset + serialSize`, for every
 class export in every readable package.
 *Test:* `tests/real/RealInstallTest.cpp`, the real-asset tier.
 
-**INV-2.** `readClass` reports the parent from the class's own
-`SuperField` and never from `ExportEntry::super`.
-*Test:* `tests/unit/PackageClassTest.cpp` — a fixture whose export-table
-`super` column and whose `SuperField` differ; the reported parent is the
-latter.
+**INV-2.** `readClass` reports the parent from `ExportEntry::super`, and
+performs no reference validation of its own.
+*Test:* `tests/unit/PackageClassTest.cpp` — a fixture whose in-data
+`SuperField` is out of range while its export-table `super` column is
+valid. The package opens, because UTA-0003 validates the tables and not an
+object's bytes; `readClass` returns the table's parent and does not fail.
+A reader taking the in-data field fails or returns garbage, so the fixture
+isolates this rule and no other.
 
-**INV-3.** `skipScript` executes nothing and returns `MalformedData` on an
-unrecognised opcode.
-*Test:* `tests/unit/PackageScriptTest.cpp` — a script containing an opcode
-outside the table returns `MalformedData`.
+**INV-3.** `skipScript` returns `MalformedData` on an unrecognised opcode,
+on a walk that overshoots `ScriptSize`, and on a negative `ScriptSize`.
+*Test:* `tests/unit/PackageScriptTest.cpp` — three fixtures, one per clause:
+an opcode outside the table; a script whose instructions cannot sum to
+`ScriptSize` exactly; and a negative `ScriptSize`.
+
+**INV-3a.** `skipScript` executes nothing.
+*Test:* a reading check over `src/upkg/Script.cpp` — the walker takes no
+interpreter state, holds no stack, and calls nothing outside `ByteReader`
+and the name table. There is no output to paste, and it is declared as a
+reading check for INV-12's reason: this is `ADR-0004`'s load-bearing
+promise, and no fixture can demonstrate the absence of an interpreter.
 
 **INV-4.** `skipScript` computes memory widths from fixed constants, so
 its result does not depend on the host's pointer size.
-*Test:* `tests/unit/PackageScriptTest.cpp` — a script whose only
-instruction carries an object reference walks to the same disk position on
-every platform in the matrix, asserted against a literal.
+*Test:* `tests/unit/PackageScriptTest.cpp` — a script of **three**
+instructions each carrying an object reference, with `ScriptSize` 15, walks
+to a literal disk position on every platform in the matrix. Three is the
+smallest count that discriminates: with one instruction a walker charging
+eight memory bytes instead of four still consumes it and still stops, so
+the disk position is identical and the test passes against the defect it
+exists to catch. At three, the wrong width reaches 15 after two and stops
+one instruction early.
 
 **INV-5.** No reader reads outside its export's byte range, for any input
 bytes.
@@ -416,16 +474,26 @@ exceeds its export returns `MalformedData`.
 *Test:* `tests/unit/PackageAncestryTest.cpp` — a two-class cycle, and a
 chain past the cap.
 
-**INV-7.** A parent whose package the resolver cannot supply ends the walk
-as `PackageMissing`, with the package and class named, and is not an
-error.
-*Test:* `tests/unit/PackageAncestryTest.cpp` — a resolver that supplies
-nothing.
+**INV-7.** A parent the walk cannot reach ends it successfully, in the
+state that says which fact was true: `PackageMissing` when the resolver
+declines to supply the package, `ClassMissing` when a package opened and
+does not hold the class. Neither is an error, and `missingPackage` is
+empty in the second.
+*Test:* `tests/unit/PackageAncestryTest.cpp`, two fixtures — a resolver
+that supplies nothing, and a resolver that supplies a package from which
+the parent class is absent. One fixture cannot isolate both, and a reader
+collapsing the two states passes whichever is written alone.
 
-**INV-8.** `effectiveDefaults` merges on the property's name as text and
-its array index, so a child in one package overrides a parent in another.
-*Test:* `tests/unit/PackageAncestryTest.cpp` — two packages whose name
-tables place the same property name at different indices.
+**INV-8.** `effectiveDefaults` merges on the property's name as text,
+case-insensitively, and on its array index — so a child in one package
+overrides a parent in another, and two elements of one property do not
+collapse into each other.
+*Test:* `tests/unit/PackageAncestryTest.cpp`, three fixtures, because the
+invariant states three rules and one fixture isolates one of them: two
+packages placing the same property name at different name-table indices;
+a child spelling the name in a different case from its parent; and a parent
+and child setting *different array indices* of one property, where both
+must survive the merge.
 
 **INV-9.** Every `EffectiveProperty` carries the package its value's
 indices are relative to.
@@ -457,7 +525,9 @@ deliberately not the surface: two decoders that agree would pass it.
 | Script walk ends past the export | `MalformedData` (§ 4.8) |
 | Property list does not end at the export end | `MalformedData` (§ 4.8) |
 | Parent's package not available | `PackageMissing`, walk ends, no error (INV-7) |
-| Parent's class absent from a package that opened | `PackageMissing`, with the class named |
+| Parent's class absent from a package that opened | `ClassMissing`, walk ends, no error (INV-7) |
+| Script walk overshoots `ScriptSize` | `MalformedData` (INV-3) |
+| `ScriptSize` is negative | `MalformedData` (INV-3) |
 | Ancestry cycle, or chain past the depth cap | `MalformedData` (INV-6) |
 | Resolver itself fails | that error, propagated unchanged |
 
@@ -467,7 +537,8 @@ deliberately not the surface: two decoders that agree would pass it.
 into the existing Catch2 unit executable with the `unit;fast` label:
 `PackageClassTest.cpp`, `PackageScriptTest.cpp`, `PackageAncestryTest.cpp`,
 and additions to `PackageMalformedTest.cpp`. Between them they cover
-INV-2, INV-3, INV-4, INV-5, INV-6, INV-7, INV-8, INV-9 and INV-10. Every
+INV-2, INV-3, INV-3a, INV-4, INV-5, INV-6, INV-7, INV-8, INV-9 and
+INV-10. Every
 fixture is written by the § 4.9 builder, so no Epic content enters the
 repository — `ADR-0003` and UTA-0013's guard.
 
@@ -479,6 +550,13 @@ link closure.
 **`PackagePropertiesTest.cpp` gains the § 4.3 step 11 entry point**, so the
 existing property tests and the new one exercise the same decoder. INV-12
 is a reading check rather than a test, for the reason stated with it.
+
+**One branch of § 4.3 is fixture-only, and it is worth saying so.** Every
+class export in the reference install sits at package version 68 or 69, so
+step 10's *version 62 and above* condition is true for all of them and its
+false arm is never taken. INV-1 therefore says nothing about it. A fixture
+at a version below 62 is what covers that arm, and it is named here because
+the real-asset tier's breadth otherwise reads as covering everything.
 
 **Real-asset tier, off by default.** `RealInstallTest.cpp` gains a class
 pass: read every class export in every package under
@@ -494,6 +572,12 @@ how many class exports there are, how many carry a script, and how many
 walk to a root — the numbers § 2.1 rests on, so they are re-derived rather
 than trusted. It reads packages and writes nothing, like
 `scripts/package-census.py`.
+
+**It exits non-zero on exactly one of those numbers**: when any class
+export is not consumed exactly, which is § 4.8's rule and the only one with
+a right answer that does not move. The rest are reported for a reader to
+compare; a script asserting them would go red every time the install gains
+a mod.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -538,8 +622,9 @@ tier run with no disk.
 |---|---|---|
 | § 4.3's field order is right | INV-1 | the real-asset tier, over every class export in the install |
 | § 4.4's walker is right | INV-1 | the same; a wrong walk lands mid-property-list and fails |
-| § 4.5's choice of parent source | INV-2 | a fixture whose two records disagree; and INV-1 over the packages whose table column is out of range |
-| Nothing is executed | INV-3 | `skipScript` takes no state and returns none; an unknown opcode refuses |
+| § 4.5's choice of parent source | INV-2 | a fixture whose in-data field is out of range while the table column is valid |
+| The walker refuses what it cannot read | INV-3 | an unknown opcode, an overshoot, and a negative `ScriptSize` |
+| Nothing is executed | INV-3a | a reading check — no fixture can show an interpreter is absent |
 | The walk does not depend on the host | INV-4 | asserted against a literal, on GCC, Clang and MSVC |
 | No reader leaves its export | INV-5 | `ByteReader` is built over the export's span; a malformed `ScriptSize` refuses |
 | The ancestry walk terminates | INV-6 | a cycle fixture and an over-deep chain |
@@ -549,7 +634,8 @@ tier run with no disk.
 | A non-class export is refused | INV-10 | `readClass` on an ordinary export, and on a sizeless one |
 | The link closure does not move | INV-11 | the configure-time assertion |
 | One property decoder, not two | INV-12 | a reading check — see the invariant for why not a test |
-| § 2.1's numbers | none | `scripts/class-census.py`, which exits non-zero if they stop holding |
+| § 2.1's exact-consumption claim | none | `scripts/class-census.py`, which exits non-zero when any class export is not consumed exactly |
+| § 2.1's other numbers | none | reported by `scripts/class-census.py`; compared by a reader, asserted by nothing |
 
 **What none of this checks.** Exact consumption proves a reader agrees
 with the file about where fields end, not that it assigned them to the
