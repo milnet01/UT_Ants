@@ -208,6 +208,19 @@ model, no weapon and no opponent until 0.2.0.
   point where the 2 GB development card decides whether the result runs.
   Block compression and a per-material upscale cap are cheaper to build in
   than to retrofit, because retrofitting regenerates every material.
+  Scope note (user, 2026-09-05): upgrading the original 1999 texture is
+  the preferred route, and a replacement sourced from the Internet is
+  allowed as well. So this item generates from the original where it can,
+  and must not assume the original is the only possible input.
+
+  Flagged, not decided: an Internet-sourced texture is third-party content,
+  which ADR-0003 (ship the recipe, not the content) and design rule 15
+  (everything derived from the player's install lives under content/ and is
+  not published from this repository) both bear on. A replacement we do not
+  hold the rights to cannot ship with the baker -- that is what UTA-0010's
+  curated library is for -- so the likely shape is that a replacement is
+  referenced by the recipe and fetched or supplied locally, never committed.
+  Whoever picks this up settles that with the user before building it.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -220,6 +233,13 @@ model, no weapon and no opponent until 0.2.0.
   Ships WITH the baker and is versioned with it -- a library that could change
   independently would let two players compute one bundle name for two different
   worlds.
+  Scope note (user, 2026-09-05): see the same note on UTA-0009. The user
+  wants Internet-sourced texture replacements permitted alongside upgrades
+  of the original. This item is the one that decides what may actually SHIP
+  with the baker, because its own headline says the library holds "our own
+  material definitions and any art we have the right to distribute" -- so
+  the licensing line is this item's to draw, and a replacement without
+  distribution rights belongs outside the library rather than in it.
   **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
   Kind: implement.
   Source: design-2026-09-03.
@@ -931,6 +951,39 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uworld.
+
+- 📋 [UTA-0056] **uaudio: the mixer, with a priority rule that keeps speech audible.**
+  `uaudio` has no item until this one: the design names the part
+  (`docs/design.md` § The parts -- "Sound playback, positional mixing,
+  music") and nothing in the queue built it. Filed because a requirement
+  arrived that needs a home.
+
+  The requirement (user, 2026-09-05): UT99 lets a loud weapon drown out the
+  announcer -- the super flak cannon is the case named -- and this engine
+  must not. So the mixer is not a free-for-all where the loudest source
+  wins: categories carry a priority, and a higher-priority category
+  ducks the ones below it rather than competing with them. Speech --
+  announcer, warnings, objectives -- is the category that must stay
+  intelligible while anything else is playing.
+
+  What is NOT decided here and is this item's to settle: which categories
+  exist, whether ducking is per-category gain or a compressor keyed on the
+  speech bus, how fast it recovers, and whether the player can turn it
+  off. What IS decided is that "it got quieter because something loud
+  happened" is a defect and not a mixing accident.
+
+  Measurable, so it is not a matter of opinion: with the loudest weapon in
+  the game firing continuously, an announcer line is still audible.
+  Whoever builds this states the measurement -- a level difference on the
+  speech bus is the obvious one -- so the rule can be regression-tested
+  rather than re-argued.
+
+  Blocked-by: the core weapon set, which is what produces a sound loud
+  enough to test against.
+  **Layman:** Make sure the important sounds -- the announcer, warnings -- are still audible when a loud weapon is firing, instead of being buried.
+  Kind: implement.
+  Source: user-request-2026-09-05.
+  Lanes: uaudio.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
