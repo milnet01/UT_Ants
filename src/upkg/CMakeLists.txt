@@ -2,8 +2,11 @@
 
 add_library(uta_upkg STATIC
     ByteReader.cpp
+    Geometry.cpp
     Package.cpp
-    Properties.cpp)
+    Properties.cpp
+    Sound.cpp
+    Texture.cpp)
 
 target_link_libraries(uta_upkg PUBLIC uta_core)
 

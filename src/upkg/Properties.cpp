@@ -160,8 +160,8 @@ Result<PropertyValue> readValue(ByteReader& reader, const Package& package,
 
 } // namespace
 
-Result<std::vector<Property>> readProperties(const Package& package,
-                                             const ExportEntry& entry) {
+Result<PropertyList> readPropertyList(const Package& package,
+                                      const ExportEntry& entry) {
     // A class object does not begin with a property list at all, and its
     // export is recognised by a NULL class reference -- not by one naming
     // `Class`, which no package writes. Class objects are UTA-0005.
@@ -173,9 +173,9 @@ Result<std::vector<Property>> readProperties(const Package& package,
     }
 
     UTA_TRY(const std::span<const std::byte> data, package.serialBytes(entry));
-    std::vector<Property> properties;
+    PropertyList list;
     if (data.empty()) {
-        return properties;
+        return list;
     }
 
     ByteReader reader{data};
@@ -197,7 +197,8 @@ Result<std::vector<Property>> readProperties(const Package& package,
         // stopped at the end of the buffer would return a truncated object as
         // a complete one (INV-9).
         if (tagName == "None") {
-            return properties;
+            list.nativeOffset = reader.position();
+            return list;
         }
 
         Property property;
@@ -234,7 +235,7 @@ Result<std::vector<Property>> readProperties(const Package& package,
         if (property.type == PropertyType::Bool) {
             // The value is bit 7 of the info byte, and no value bytes follow.
             property.value = (info & HIGH_BIT) != 0;
-            properties.push_back(std::move(property));
+            list.properties.push_back(std::move(property));
             continue;
         }
 
@@ -267,8 +268,14 @@ Result<std::vector<Property>> readProperties(const Package& package,
         UTA_CHECK(reader.seek(bodyStart));
         UTA_CHECK(reader.skip(size));
 
-        properties.push_back(std::move(property));
+        list.properties.push_back(std::move(property));
     }
+}
+
+Result<std::vector<Property>> readProperties(const Package& package,
+                                             const ExportEntry& entry) {
+    UTA_TRY(PropertyList list, readPropertyList(package, entry));
+    return std::move(list.properties);
 }
 
 } // namespace uta::upkg

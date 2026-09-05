@@ -26,6 +26,7 @@ add_executable(uta_unit_tests
     unit/CoreLogTest.cpp
     unit/NumericContractTest.cpp
     unit/PackageBuilderTest.cpp
+    unit/PackageContentTest.cpp
     unit/PackageMalformedTest.cpp
     unit/PackagePropertiesTest.cpp
     unit/PackageReaderTest.cpp)

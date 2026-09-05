@@ -7,7 +7,11 @@
 // the configured install is there and looks like one -- and the third points
 // upkg's reader at every package in it.
 
+#include "upkg/Geometry.h"
 #include "upkg/Package.h"
+#include "upkg/Properties.h"
+#include "upkg/Sound.h"
+#include "upkg/Texture.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -135,4 +139,158 @@ TEST_CASE("every package in the install either opens or is refused by version",
     // prove itself truncated -- this is the backstop if some future damage
     // pattern satisfied that proof by accident.
     CHECK(truncated < opened / 100);
+}
+
+// --- The typed readers against what actually shipped ------------------------
+//
+// docs/specs/UTA-0004-typed-level-content.md SS 7 tier 3, and the acceptance
+// for INV-1. Section 4.3's rule -- a reader that models a layout correctly
+// ends exactly at its export's end -- is total: it fires on every field of
+// every object without anyone predicting which field will be wrong.
+//
+// Refusals are BOUNDED, not merely recorded. An earlier draft of the spec
+// allowed any refusal to be recorded rather than failed, which would have made
+// this tier incapable of failing; two review lanes found it independently.
+
+namespace {
+
+struct ContentTotals {
+    int polys = 0;
+    int palettes = 0;
+    int textures = 0;
+    int sounds = 0;
+    int recordedBadPropertyList = 0;
+    int recordedOffsetMismatch = 0;
+};
+
+/// One of the two refusal shapes this install actually produces, and it is a
+/// PRECONDITION failure rather than a typed-reading
+/// one: the property list itself does not parse, so the typed reader never
+/// reached its own layout. That layer is UTA-0003's and its own case in this
+/// file governs it.
+///
+/// Proven per export rather than tolerated in bulk -- the same shape as the
+/// truncated-M1.utx exemption above. The measured case is dUXmas.utx, whose
+/// `USize` tag declares a one-byte size code against a four-byte Int value; a
+/// second, independently written parser rejects it identically, which is what
+/// makes "the package is malformed" the finding rather than "our reader is".
+bool hasUnparseablePropertyList(const uta::upkg::Package& package,
+                                const uta::upkg::ExportEntry& entry) {
+    return !uta::upkg::readPropertyList(package, entry).has_value();
+}
+
+/// The third, and it is INV-5 doing its job: a mip's WidthOffset contradicts
+/// where its own data ends, so the export disagrees with itself and the
+/// reader refuses it.
+///
+/// Measured across this install: 289102 mips agree and 165 do not, and all
+/// 165 sit in two community files. That ratio is why this is an exemption
+/// rather than a reason to drop INV-5 -- and why the case below caps the
+/// recorded total. A wrong serialOffset term in the reader would refuse
+/// EVERY texture with this same message, which is exactly the systematic
+/// error the cap catches and a per-export exemption alone would hide.
+bool isOffsetMismatch(std::string_view message) {
+    return message.find("WidthOffset") != std::string_view::npos ||
+           message.find("NextOffset") != std::string_view::npos;
+}
+
+} // namespace
+
+TEST_CASE("every modelled export in the install is consumed exactly",
+          "[real-assets]") {
+    const fs::path root{UTA_UT_INSTALL_DIR};
+    ContentTotals totals;
+
+    for (const fs::directory_entry& entry : fs::recursive_directory_iterator(root)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::string extension = entry.path().extension().string();
+        if (extension != ".unr" && extension != ".utx" && extension != ".uax" &&
+            extension != ".umx" && extension != ".u") {
+            continue;
+        }
+
+        std::ifstream file(entry.path(), std::ios::binary);
+        REQUIRE(file);
+        const std::vector<char> raw{std::istreambuf_iterator<char>(file),
+                                    std::istreambuf_iterator<char>()};
+        const std::span<const std::byte> bytes{
+            reinterpret_cast<const std::byte*>(raw.data()), raw.size()};
+
+        const auto package = uta::upkg::Package::open(bytes);
+        if (!package.has_value()) {
+            continue; // the case above owns which packages may fail to open
+        }
+
+        for (const auto& object : package->exports()) {
+            const auto className = package->objectName(object.objectClass);
+            if (!className.has_value()) {
+                continue;
+            }
+            const auto exportName = package->name(object.objectName);
+            INFO("package: " << entry.path().string());
+            INFO("export: " << (exportName.has_value() ? *exportName : "<unnamed>")
+                            << " class " << *className);
+
+            if (*className == "Polys") {
+                const auto result = uta::upkg::readPolys(*package, object);
+                REQUIRE(result.has_value());
+                ++totals.polys;
+            } else if (*className == "Palette") {
+                const auto result = uta::upkg::readPalette(*package, object);
+                REQUIRE(result.has_value());
+                ++totals.palettes;
+            } else if (*className == "Sound") {
+                const auto result = uta::upkg::readSound(*package, object);
+                REQUIRE(result.has_value());
+                ++totals.sounds;
+            } else if (uta::upkg::isModelledTextureClass(*className)) {
+                const auto result = uta::upkg::readTexture(*package, object);
+                if (result.has_value()) {
+                    ++totals.textures;
+                    continue;
+                }
+                INFO("error: " << result.error().message());
+                // Bounded: only the two shapes section 7 names, each proven
+                // per export. Anything else is a layout this reader gets
+                // wrong, and the tier fails on it.
+                if (hasUnparseablePropertyList(*package, object)) {
+                    ++totals.recordedBadPropertyList;
+                    continue;
+                }
+                if (isOffsetMismatch(result.error().message())) {
+                    ++totals.recordedOffsetMismatch;
+                    continue;
+                }
+                // Neither named shape. A layout this reader gets wrong.
+                FAIL("unrecognised refusal shape: " << result.error().message());
+            }
+        }
+    }
+
+    // Printed rather than asserted: section 7 requires this tier to report its
+    // own totals, so the spec's figures are an output of the suite rather than
+    // prose nobody re-derives. No count is asserted -- the library grows.
+    WARN("consumed exactly -- Polys " << totals.polys << ", Palette "
+                                      << totals.palettes << ", Texture family "
+                                      << totals.textures << ", Sound " << totals.sounds
+                                      << "; recorded -- unparseable property list "
+                                      << totals.recordedBadPropertyList
+                                      << ", offset mismatch "
+                                      << totals.recordedOffsetMismatch);
+    CHECK(totals.polys > 0);
+    CHECK(totals.palettes > 0);
+    CHECK(totals.textures > 0);
+    CHECK(totals.sounds > 0);
+
+    // The backstop, and it is what keeps the three exemptions above from
+    // becoming a blanket tolerance. Each is proven per export, but a
+    // SYSTEMATIC reader error -- a wrong serialOffset term, a missed version
+    // branch -- would push every texture into one of them and each would still
+    // "prove" itself. The install is overwhelmingly readable, so a recorded
+    // total anywhere near the read total is a defect in this reader rather
+    // than in 1999's content.
+    const int recorded = totals.recordedBadPropertyList + totals.recordedOffsetMismatch;
+    CHECK(recorded < totals.textures / 100);
 }

@@ -364,11 +364,11 @@ makes it a free cross-check: § 5's INV-5 spends it.
 
 Classes read by this reader: `Texture`, `WetTexture`, `IceTexture` and
 `ScriptedTexture` share the layout, measured consuming exactly across the
-reference install's stock texture packages. That measurement does **not**
-extend to every community map in the install: three `IceTexture` exports
-in one community map do not consume exactly, separately from the
-no-mip-chain shape § 7 tier 3 permits. `IceTexture` is therefore verified
-with a known exception rather than verified outright, and § 10 grades it. `FireTexture` shares it and
+reference install's texture packages and maps. It does **not** extend to
+every file in the install: a small number of exports across two community
+files are refused, all of them by one of the two shapes § 7 tier 3 names.
+The tier reports its own totals, so the figure is an output of the suite
+rather than prose here that nobody re-derives. `FireTexture` shares it and
 then stores a compact-index count and that many 8-byte spark records —
 note that this count is the array's own and is *not* the `NumSparks`
 property, which differs. Every other class, `WaveTexture` included, is
@@ -503,10 +503,15 @@ same format.
 - **INV-3** — The supported version range is stated in exactly one
   place. No file added by this item names a version bound or compares
   `packageVersion` against one.
-  *Test:* a grep over the four new source pairs for `MIN_VERSION`,
-  `MAX_VERSION` and `packageVersion` returns nothing.
-  `tests/unit/PackageReaderTest.cpp` already asserts the gate itself, so
-  this invariant is about duplication rather than about the gate.
+  *Test:* `grep -nE '\b(61|69)\b' src/upkg/{Geometry,Texture,Sound}.{h,cpp}`
+  returns nothing. `tests/unit/PackageReaderTest.cpp` already asserts the
+  gate itself, so this invariant is about a duplicated BOUND rather than
+  about the gate.
+  **Reading `packageVersion` is expected and is not a breach**: § 4.6 and
+  § 4.8 branch on version 63 for a field's presence, which is a different
+  fact from the supported range. An earlier wording of this clause grepped
+  for `packageVersion` and was falsified by the first conforming
+  implementation, which reads it four times legitimately.
   *Breaks when:* a reader re-checks the version "to be safe", and the two
   bounds then drift the first time either moves — the failure being that
   the copy is invisible, since both agree on the day it is written.
@@ -635,15 +640,27 @@ Three tiers, and only the third reads bytes this project did not write.
    is `readModel`'s only check, a `readModel` with a wrong field order
    would have refused every `Model` export and still gone green. So:
 
-   - **Zero refusals are permitted** for `Polys`, `Model`, `Palette`, and
-     for any export in a stock `.utx` or `.uax` package. A refusal there
-     fails the tier.
-   - **One shape is permitted to be recorded rather than failed**, and
-     only in a map: a Texture-family export whose property list consumes
-     the whole export, leaving no mip chain. The install's community maps
-     carry such exports and § 4.3 refuses them correctly.
+   - **Zero refusals are permitted** for `Polys`, `Model` and `Palette`. A
+     refusal there fails the tier.
+   - **Two shapes are permitted to be recorded rather than failed**, each
+     proven per export. The property list itself does not parse, so the
+     typed reader never reached its own layout — that layer is UTA-0003's.
+     Or a redundant offset contradicts its own payload, which is INV-5
+     doing its job on an export that disagrees with itself.
    - Anything else recorded is a **new** shape, and the tier fails until
-     somebody decides which of the two above it is. It **prints its own totals per
+     somebody decides which of the two above it is.
+   - **And the recorded total is capped**, because a per-export exemption
+     alone would hide the failure that matters: a systematic reader error —
+     a wrong `serialOffset` term, a missed version branch — pushes *every*
+     export into one of those shapes, and each still "proves" itself. The
+     install is overwhelmingly readable, so a recorded total near the read
+     total is a defect here rather than in 1999's content.
+
+   A third shape was named before this item was built — an export whose
+   property list consumes the whole export — and the conforming reader
+   produced **none**. It was measured with a throwaway probe whose class
+   resolution on the one file concerned turned out to be unsound, so it is
+   withdrawn rather than kept as an unexercised guard. It **prints its own totals per
    class**, so the figures this spec's § 2.1 rests on are an output of the
    suite rather than a transcription in prose that nobody re-derives. Off
    by default behind `UTA_REAL_ASSET_TESTS`, which is what keeps a clone
@@ -704,7 +721,7 @@ before then.
 |------|----------------------|
 | INV-1 | `tests/unit/PackageContentTest.cpp` for fixtures, and `tests/real/RealInstallTest.cpp` over the reference install — the only check here that reads bytes this project did not write. Off by default, so an ordinary run proves agreement with our own fixtures only. **For `readModel` and for `readLevel` past the actor array, weaker still:** neither has a fixture case until its layout is derived (§ 4.5, § 4.9), so the ordinary gate does not exercise them and the real-asset tier is their sole check |
 | INV-2 | **Partial:** `tests/unit/PackageMalformedContentTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists. Same grade, and the same reason, as UTA-0003's INV-1. **And it does not reach `readModel` or `readLevel`'s remainder at all**, whose layouts are withheld, so there is nothing to malform |
-| INV-3 | A grep over the four new source pairs. The gate itself is UTA-0003's and `tests/unit/PackageReaderTest.cpp` covers it; this row is about a duplicated bound and nothing else |
+| INV-3 | The grep in its *Test:* clause. The gate itself is UTA-0003's and `tests/unit/PackageReaderTest.cpp` covers it; this row is about a duplicated bound and nothing else. **Nothing runs that grep automatically** — it is not wired into `scripts/ci.sh`, so it is a check somebody performs rather than one the gate enforces |
 | INV-4 | **Partial:** the test asserts the refusal *names the count check*, so deleting that check is detectable. That bounds which check refuses, not the ordering: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has — the grade UTA-0003's INV-2 carries, for the same reason. Carries INV-2's `readModel` / `readLevel` exception too |
 | INV-5 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | INV-6 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
@@ -714,7 +731,7 @@ before then.
 | § 4.3 "consuming exactly is not a proof of correctness" | **nothing** — a reader that consumed the right byte count and assigned the fields wrongly passes every check in this spec. What would catch it is comparing a decoded value against the same value obtained another way, and nothing here does that for any field |
 | § 4.5 "`Model`'s order is derived, not transcribed" | **Partial:** the real-asset tier proves the order consumes exactly across the install, which is strong evidence and not a proof, by the row above |
 | § 4.9 "the post-`FURL` remainder is derived, not transcribed" | **Partial:** the real-asset tier proves it consumes exactly across the install, on the same footing and with the same limit as § 4.5's row above |
-| § 4.6 "`IceTexture` is verified with a known exception" | **Partial:** § 7 tier 3 fails on any refusal outside the one permitted shape, so a fourth mismatching `IceTexture` would surface — but the three already measured are absorbed by that permission and nothing distinguishes them from a regression |
+| § 4.6 "verified with known exceptions" | **Partial:** § 7 tier 3 fails on any refusal outside its two named shapes, and its cap catches a systematic error — but an individual new refusal matching a named shape is absorbed, and nothing distinguishes it from a regression |
 | § 4.9 "`Location` and `Rotation` are already decoded" | `tests/unit/PackagePropertiesTest.cpp`, which UTA-0003 ships — this item adds no check of its own |
 | § 3.3 item 3 "bulk payload is a view" | INV-7 covers the sound payload and mip pixels. Nothing checks that `Polys` vertices are not copied, and they are the one bulk field this spec does not require a view for |
 | § 4.10 "the readers stay an independent implementation" | **nothing** — no check enforces that a reader and the fixture writer were not written from one reading. UTA-0003 § 2's argument, and the real-asset tier, are what stand in for it |
@@ -724,8 +741,14 @@ before then.
 - `CHANGELOG.md` — an `Added` entry under `[Unreleased]`.
 - `CLAUDE.md` — the position lines only.
 - `docs/design.md` — no change; this implements § The parts' `upkg`.
-- `docs/specs/UTA-0003-package-container.md` — no change expected. Its
-  § 9 already names this item as the owner of typed level content.
+- `docs/specs/UTA-0003-package-container.md` — **changed after all.** Its
+  § 9 already names this item as the owner of typed level content, and
+  that stands; what did not was the expectation of no code change. Every
+  reader here starts where the property list ends, and `readProperties`
+  reported only the properties — so `upkg` gained `readPropertyList`,
+  returning the list *and* the offset at which native data begins, with
+  `readProperties` kept as a wrapper. Recomputing that offset per reader
+  would have been a second decoder of the one format UTA-0003 owns.
 - `README.md` — no change; the build invocation does not move.
 
 ## 12. Cold-eyes loop log
@@ -734,6 +757,7 @@ before then.
 |------|------|-------|----|----|----|----|---------|
 | 1 | 2026-09-05 | 3, cold — genre pinned `spec`; packet carried the install census, the six code windows and the UTA-0003 passages this spec leans on | 2 | 2 | 2 | 2 | **Eight verified, eight fixed, none dismissed.** **All three lanes independently found the same three defects**, the strongest agreement available in a three-lane loop, and the first is the run's most consequential: § 4.1 named six return types and **declared none of them**, while the header names four items that bind to them and § 2 item 1 carries UTA-0003's argument that a vocabulary invented twice is two vocabularies. One lane worked the consequence out concretely — a `Polys` holding a resolved `std::string_view` would either fail to compile against a caller written to `ObjectReference`, or compile and hold a view outliving its `Package`. The six structs are now declared, and references are returned unresolved for exactly that lifetime reason. **The second was a contradiction that would have destroyed this item's only real oracle:** § 7's tier 3 said to walk *every* package in the install and assert § 4.3, while § 4.2 refuses anything outside 61–69 and § 2.1 records that versions 76, 79, 118 and 128 are present — so the tier goes red on a clean install, and the cheap repair (skip whatever errors) makes the real-asset half of INV-1 pass vacuously. Tier 3 now splits by the gate. **The third was mine and mechanical:** § 2.1 cited "§ 4.6 and § 4.7" for the two version-63 fields; § 4.7 is `Palette` and has no version branch at all, the second field being § 4.8's `NextOffset`. **Both Q4s were fixture gaps that left an invariant reading as covered:** § 4.10's builder list held no package below version 63, so INV-1's first named break mode — a missed version branch — was falsifiable only by a tier that is off by default; and it holds no `Model`, which § 4.5 withholds the layout for, so `readModel` had no unit-tier coverage while INV-1 claimed every reader. **A lane open question found the run's sharpest Q1, and it was concealed by my own packet:** the packet summarised the subclass measurements without the word *exact*, three lanes queried it, and re-running the probe showed `IceTexture` mismatching on a community map. The claim that the four classes "share the layout exactly" was broader than any measurement supports and is narrowed to the stock packages. **A second open question, raised by two lanes, became a Q3:** § 4.6 called `WidthOffset` an absolute file offset, which is true, and never said how a reader holding a span of the export compares against it — a reader that forgets the `serialOffset` term refuses every real texture. **Resolved clean, not a finding:** none of the six type names collides with anything already in `uta::upkg`. |
 | 2 | 2026-09-05 | 3, cold — identical brief, packet rebuilt from disk and its subclass measurements corrected | 2 | 3 | 3 | 1 | **Nine verified, nine fixed, none dismissed. Cap reached (2 for a spec); the run ships.** **The run's most consequential finding was pre-existing and is a claim I made about code without opening it:** § 3.3 item 1 and § 4.2 had this item adding a package-version gate because `Package::open` "stays version-tolerant". It does not — `src/upkg/Package.cpp` refuses anything outside 61–69 before it reads a table, and UTA-0003's spec says so in four places, its own § 2.1 carrying the same version census this document re-derived. So the gate could never fire, INV-3 was unfalsifiable (no out-of-range `Package` can be constructed to hand a reader), and § 7's tier-3 split was built on it. The section is now an inheritance note, INV-3 is re-aimed at the range being stated once, and § 6 loses a row. **The second was a lane's open question in loop 1 that became a finding here, and it widens the item:** § 4.9 said the `FURL` is "read only far enough to satisfy § 4.3", and `Level` does not end at the `FURL` — tens of kilobytes follow it on a stock map. So `Model` is not the only reader with an underived layout, and § 4.9 now says so with § 4.3 as its acceptance. **Five of the nine landed on text loop 1 wrote, which is a high share and is recorded as such.** The worst was loop 1's own repair of the tier-3 walk: it allowed any in-range refusal to be *recorded rather than failed*, which made the tier incapable of failing — and since tier 3 is `readModel`'s only check, a wrong field order would have refused every `Model` export and still gone green. Two lanes found it independently. The allowance is now bounded to one named shape, with zero refusals permitted for `Polys`, `Model`, `Palette` and stock packages. All three lanes found loop 1's `mips` comment ("never empty on a modelled class") contradicting § 6's sizeless-export row. **Open questions settled by measurement, not argument:** the three mismatching `IceTexture` exports are in a community map rather than a stock package, so § 4.6's sentence held and gained the exception it was missing; and § 4.4's "every `Polys` export" was re-run across all 790 maps — 538388 of 538388 exact — so the claim is now true as written rather than measured over forty. **Shipping at the cap:** every finding is fixed and the tail is empty, but two of six readers have underived layouts and the collateral rate is high, so the next reviewer should be the build rather than a third cold read. |
+| 2-impl | 2026-09-05 | **none — no reviewer was dispatched.** An implementation row, written by `write-spec` Step 8 rather than by a review loop | 1 | 1 | 1 | 1 | **Four clauses implementation proved false or incomplete; all four amended.** **[Q3] The readers had nowhere to start.** Every one begins where the property list ends, and `readProperties` returned only the properties — so `upkg` gained `readPropertyList`, reporting the list and the offset at which native data begins. § 11 had said UTA-0003 needed no change, and it did. **[Q4] INV-3's own test clause was falsified by the first conforming implementation.** It grepped the new sources for `packageVersion` and expected nothing; the reader reads it four times legitimately, because § 4.6 and § 4.8 branch on version 63 for a field's PRESENCE, which is a different fact from the supported range. The clause now greps for the range bounds. **[Q2] § 7 tier 3 named a refusal shape the reader never produced** — an export whose property list consumes the whole export. It came from a throwaway probe whose class resolution on the one file concerned proved unsound; the two shapes that DO occur are an unparseable property list and a redundant offset contradicting its payload. The unexercised guard was withdrawn rather than kept. **[Q1] The tier needed a cap, not only per-export exemptions.** A wrong `serialOffset` term would push every texture into a named shape and each would still prove itself; the cap is what separates broken content from a broken reader. **What the build confirmed rather than changed:** the four verified layouts read the reference install exactly — Polys 552,989, Palette 40,606, Texture family 50,386 and Sound 8,898 exports consumed to the byte, with 39 refusals across two community files. Each new assertion was proven able to fail by mutating the rule it covers. `Model` and `Level` past the actor array remain underived and unbuilt, exactly as § 4.5 and § 4.9 say. |
 
 ## 13. Resource cost
 

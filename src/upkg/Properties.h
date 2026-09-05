@@ -78,6 +78,22 @@ struct Property {
     PropertyValue value;
 };
 
+/// A property list, and where it ended.
+///
+/// `nativeOffset` is the offset WITHIN the export's serialised bytes at which
+/// the object's native data begins -- the byte after the list's `None`
+/// terminator. Every typed reader in UTA-0004 needs it, and none of them can
+/// recompute it without re-parsing the list, which would be a second decoder
+/// of the one format this file owns.
+struct PropertyList {
+    std::vector<Property> properties;
+    std::size_t nativeOffset = 0;
+};
+
+/// As `readProperties`, but also reporting where the list ended.
+[[nodiscard]] Result<PropertyList> readPropertyList(const Package& package,
+                                                    const ExportEntry& entry);
+
 /// Read the tagged property list an export's serialised data begins with,
 /// skipping the execution-stack frame where the object carries one.
 ///
