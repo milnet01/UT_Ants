@@ -1,6 +1,6 @@
 # UTA-0004 — `upkg`: typed level content
 
-**Status:** spec draft (2026-09-05).
+**Status:** accepted (2026-09-05).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0004 (design-2026-09-03).
 **Blocked by:** UTA-0003 — every reader here reads through that container.
@@ -74,9 +74,8 @@ for f in "$UT"/{Maps,Textures,Sounds,Music,System}/*; do
   od -An -tu2 -j4 -N2 "$f"; done | sort -n | uniq -c
 ```
 
-UT99's own content runs from version 61 to 69, not the 68 and 69 a
-map-only sample suggests: dozens of the stock texture packages are below
-68, and the oldest are at 61. That matters because two fields in § 4.6 and
+UT99's own content runs from version 61 to 69: dozens of the stock
+texture packages are below 68, and the oldest are at 61. That matters because two fields in § 4.6 and
 § 4.8 exist only from version 63, so the older branch is exercised by
 stock content rather than being an edge case. Packages at versions 76, 79, 118 and 128 are also
 present — later-engine content that has been dropped into the install and
@@ -124,12 +123,11 @@ a change to a caller.
 
 ### 3.3 The remaining calls are mine, with reasons
 
-1. **The typed readers gate on package version; the container does not.**
-   `Package::open` stays version-tolerant, because `ut-dump` (UTA-0012)
-   has a legitimate reason to list the tables of a package this project
-   cannot otherwise read. The gate sits on the typed readers, which are
-   the things that would misread. § 4.2 sets the admitted range; § 2.1 is
-   where it was measured.
+1. **This item adds no version gate, because UTA-0003 already built
+   one.** `Package::open` refuses anything outside 61 to 69 before it
+   reads a table, and UTA-0003 § 4.4 and its INV-9 own that rule. So a
+   `Package` outside the range cannot be constructed, and a gate on the
+   typed readers could never fire. § 4.2 says what this item inherits.
 2. **A class this item does not model is refused by name, not partly
    read.** `WaveTexture` is the measured case: it shares `Texture`'s mip
    chain and then stores something further that this item does not
@@ -201,7 +199,7 @@ struct Mip {
     std::uint8_t  bitsWidth = 0, bitsHeight = 0;
 };
 struct Texture {
-    std::vector<Mip> mips;              // never empty on a modelled class
+    std::vector<Mip> mips;              // empty only for a sizeless export
     std::vector<Mip> compressedMips;    // empty unless bHasComp (INV-6)
 };
 
@@ -239,16 +237,22 @@ struct Model {
 
 Its BSP index tables are `std::vector` members added by the
 implementation that derives their order — the member *set* is knowable
-from the file, their serialisation order is what § 4.5 says is not. No
-other item binds to them before `ubake`.
+from the file, their serialisation order is what § 4.5 says is not. **The
+implementation names those members, and UTA-0007 binds to them**: `umap`
+partitions on the level's zones, which live in the BSP tables and not in
+`Polys`. UTA-0006 and UTA-0009 consume only `Polys` and the actor list.
 
-### 4.2 The version gate
+### 4.2 The version gate is inherited, not rebuilt
 
-Each entry point above refuses before reading anything when
-`package.header().packageVersion` is outside 61 to 69 inclusive, with
-`ErrorCode::UnsupportedVersion` and a message naming the version. § 2.1 measured
-the range; § 3.3 item 1 says why the gate is here rather than in
-`Package::open`.
+Every reader here takes an already-opened `Package`, and
+`Package::open` refuses a `packageVersion` outside 61 to 69 with
+`ErrorCode::UnsupportedVersion` before reading any table — the constants
+are `MIN_VERSION` and `MAX_VERSION` in `src/upkg/Package.cpp`. So the
+later-engine packages § 2.1 found are already unreachable from here, and
+**no reader in § 4.1 repeats the check**.
+
+Stating this is not redundant: the range must exist in exactly one place
+or the two copies drift, and INV-3 is what holds that.
 
 ### 4.3 Every reader ends exactly where the export ends
 
@@ -290,8 +294,9 @@ i32           Max              allocated size; not used
     i16       PanU, PanV
 ```
 
-`Texture` is an object reference resolved through
-`Package::objectName`; `ItemName` is a name index. `PolyFlags` is the
+`Texture` is an object reference, returned unresolved per § 4.1 — a
+caller that wants its name calls `Package::objectName`. `ItemName` is a
+name index. `PolyFlags` is the
 field ROADMAP UTA-0004 calls "free information about glass, water, sky and
 lava", and it arrives here per polygon, already paired with the texture it
 applies to.
@@ -301,8 +306,8 @@ certain.
 
 ### 4.5 `Model` — the BSP tables
 
-`Model` is the one reader whose full layout this spec does not state,
-because it could not be verified, and stating an unverified layout is what
+`Model` is the reader whose layout this spec states least, because it
+could not be verified, and stating an unverified layout is what
 `~/.claude/skills/write-spec/references/drafting-rules.md` forbids.
 
 What is verified:
@@ -360,8 +365,10 @@ makes it a free cross-check: § 5's INV-5 spends it.
 Classes read by this reader: `Texture`, `WetTexture`, `IceTexture` and
 `ScriptedTexture` share the layout, measured consuming exactly across the
 reference install's stock texture packages. That measurement does **not**
-extend to every community map in the install — see § 7 tier 3, which
-records such refusals rather than failing on them. `FireTexture` shares it and
+extend to every community map in the install: three `IceTexture` exports
+in one community map do not consume exactly, separately from the
+no-mip-chain shape § 7 tier 3 permits. `IceTexture` is therefore verified
+with a known exception rather than verified outright, and § 10 grades it. `FireTexture` shares it and
 then stores a compact-index count and that many 8-byte spark records —
 note that this count is the array's own and is *not* the `NumSparks`
 property, which differs. Every other class, `WaveTexture` included, is
@@ -427,8 +434,20 @@ not re-implement property reading, and it does not interpret any actor
 class — resolving what a custom class *means* is UTA-0023, and its
 ancestry is UTA-0005.
 
-The `FURL` that follows the array is read only far enough to satisfy
-§ 4.3, and is not returned: nothing in the roadmap consumes a level's URL.
+**What follows the actor array is NOT fully derived, and `Model` is not
+the only reader in that position.** An `FURL` comes next and decodes
+cleanly across the install's maps — four compact-index-prefixed strings
+(protocol, host, map, portal), a string array of options, then `i32` port
+and `i32` valid — but a substantial remainder follows *it*, tens of
+kilobytes on a stock map, which this spec does not describe. Neither the
+`FURL` nor that remainder is returned; nothing in the roadmap consumes a
+level's URL, and the actor list is what the blocked items want.
+
+They must still be *consumed*, because § 4.3 admits no partial read. So
+the remainder is derived exactly as § 4.5's tables are, with § 4.3 as its
+acceptance, and § 4.10 does not build a `Level` fixture beyond the actor
+array until it is. If it cannot be derived, that is the same decision
+§ 4.5 names: bring it back rather than absorb it.
 
 ### 4.10 The fixture builder grows
 
@@ -443,9 +462,10 @@ so without a pre-63 fixture the older branch is exercised by nothing on the
 default gate — and INV-1 names a missed version branch as its first break
 mode. § 2.1 measured that stock content takes that branch.
 
-**It does not build a `Model`.** § 4.5 withholds that layout, so there is
-nothing to encode against; § 7 says what covers `readModel` until the
-layout is derived. It ships an
+**It does not build a `Model`, and it builds a `Level` only as far as the
+actor array.** § 4.5 and § 4.9 withhold those layouts, so there is nothing
+to encode against; § 7 and § 10 say what covers them until each is
+derived. It ships an
 encoder and no decoder, for the reason `tests/support/UnrealPackageBuilder.h`
 states, so the readers here remain an independent implementation of the
 same format.
@@ -470,32 +490,36 @@ same format.
 - **INV-2** — No typed reader throws, terminates, or reads outside the
   export's span, for any input bytes.
   *Test:* `tests/unit/PackageMalformedContentTest.cpp` drives truncations
-  and lying counts built by the fixture builder. Nothing else checks it:
+  and lying counts built by the fixture builder — for every reader but
+  `readModel` and the post-actor-array half of `readLevel`, whose layouts
+  § 4.5 and § 4.9 withhold, so there is nothing to malform. Those two are
+  covered here only once their layouts are derived, and § 10 says so.
+  Nothing else checks it:
   `scripts/ci.sh`'s only sanitizer leg is ThreadSanitizer, which finds
   races rather than out-of-span reads. § 10 grades this on that.
   *Breaks when:* a count or size from the file is used to advance or to
   size a view before it is checked against the bytes present.
 
-- **INV-3** — A package whose `packageVersion` is outside 61 to 69 is
-  refused by every entry point in § 4.1, with
-  `ErrorCode::UnsupportedVersion`,
-  before any byte of the export is interpreted.
-  *Test:* `tests/unit/PackageContentTest.cpp` builds a version 128 package
-  and asserts each entry point refuses.
-  *Breaks when:* a reader is added without the gate, or the gate is placed
-  after the first field read — at which point a later-engine package is
-  parsed as a UT99 one.
-  *Isolates:* the gate refuses on the header alone, before any export byte
-  is interpreted, so the fixture needs only a version-128 header and not a
-  well-formed version-128 body — which the builder, writing the 68-and-up
-  shape, could not produce. Nothing but the gate can reject it.
+- **INV-3** — The supported version range is stated in exactly one
+  place. No file added by this item names a version bound or compares
+  `packageVersion` against one.
+  *Test:* a grep over the four new source pairs for `MIN_VERSION`,
+  `MAX_VERSION` and `packageVersion` returns nothing.
+  `tests/unit/PackageReaderTest.cpp` already asserts the gate itself, so
+  this invariant is about duplication rather than about the gate.
+  *Breaks when:* a reader re-checks the version "to be safe", and the two
+  bounds then drift the first time either moves — the failure being that
+  the copy is invisible, since both agree on the day it is written.
+  *Isolates:* the gate is UTA-0003's and passes with or without this
+  invariant, so only a duplicated bound fails it.
 
 - **INV-4** — No allocation and no span is sized by a count or length read
   from the file before that value has been checked against the bytes
   remaining in the export.
   *Test:* `tests/unit/PackageMalformedContentTest.cpp` builds a `Palette`
   declaring a count far larger than the file and asserts an `Error` whose
-  message names the count check. That the refusal precedes the allocation
+  message names the count check — with the same `readModel` and
+  `readLevel` exception INV-2 carries, for the same reason. That the refusal precedes the allocation
   is not observable from outside; § 10 grades it on that.
   *Breaks when:* a polygon or mip loop reserves from the file's count
   first — a four-byte edit then asks for gigabytes.
@@ -555,7 +579,6 @@ none is a partial result.
 
 | Cause | Code |
 |-------|------|
-| Package version outside 61–69 | `UnsupportedVersion` |
 | Object class not modelled by this item | `InvalidArgument` |
 | Count or length exceeds the bytes present | `MalformedData` |
 | Reader did not end at the export's end (§ 4.3) | `MalformedData` |
@@ -563,7 +586,12 @@ none is a partial result.
 | Export has no serialised data | empty result, not an error |
 
 The last row follows UTA-0003's INV-7: a sizeless export is ordinary and
-iterating a package must not error on one.
+iterating a package must not error on one. For a modelled class that
+means a default-constructed result — an empty `mips`, no polygons — and
+never a refusal; § 4.1's struct comments say the same.
+
+**A package version outside 61–69 is not in this table**, because it
+never reaches a reader here: `Package::open` refuses it first (§ 4.2).
 
 A short read is `MalformedData` and never `IoFailure`, because these
 readers hold bytes rather than a file — the same rule, and the same
@@ -578,8 +606,8 @@ Three tiers, and only the third reads bytes this project did not write.
    gate, the two mip chains, the sparse actor array, the redundant-offset
    check, and the view-not-copy check — including the pre-63 `Texture` and
    `Sound` pair § 4.10 requires. Covers **INV-1** (fixture half, for every
-   reader except `readModel`), **INV-3**, **INV-5**, **INV-6**, **INV-7**,
-   **INV-8** and **INV-9**. Label `unit;fast`, in the existing Catch2
+   reader except `readModel`), **INV-5**, **INV-6**, **INV-7**, **INV-8**
+   and **INV-9**. INV-3 is a grep rather than a case here. Label `unit;fast`, in the existing Catch2
    executable.
 
    **`readModel` has no fixture case here until its layout is derived**
@@ -595,20 +623,27 @@ Three tiers, and only the third reads bytes this project did not write.
 
 3. **`tests/real/RealInstallTest.cpp`** — covers **INV-1** over content
    this project did not write. Extended to walk every package under
-   `UTA_UT_INSTALL_DIR` and split them by § 4.2's gate: a package inside
-   61–69 has every export of a modelled class read and asserted against
-   § 4.3; one outside it is asserted to be **refused** with
-   `UnsupportedVersion`, which is where the install's version 76, 79, 118
-   and 128 packages land. Asserting § 4.3 over all of them instead would
-   go red on a clean install, and the cheap repair for that — skipping
-   whatever errors — is what would make this tier pass vacuously.
+   `UTA_UT_INSTALL_DIR`. A package outside 61–69 does not open at all
+   (§ 4.2), so the walk asserts `Package::open` refuses it with
+   `UnsupportedVersion` — that is where the install's version 76, 79, 118
+   and 128 packages land — and reads every export of a modelled class in
+   the rest, asserting § 4.3 on each.
 
-   A modelled-class export inside the range that is nonetheless refused is
-   **recorded and reported, not failed**: the install's community maps
-   carry Texture-classed exports whose property list consumes the whole
-   export, leaving no mip chain, and § 4.3 refuses them correctly. The
-   tier's job is that no export is *misread*, not that every export in
-   somebody's map is readable. It **prints its own totals per
+   **Refusals are bounded, not merely recorded.** An earlier draft of this
+   section allowed any in-range refusal to be recorded rather than failed,
+   which would have made the tier incapable of failing — and since tier 3
+   is `readModel`'s only check, a `readModel` with a wrong field order
+   would have refused every `Model` export and still gone green. So:
+
+   - **Zero refusals are permitted** for `Polys`, `Model`, `Palette`, and
+     for any export in a stock `.utx` or `.uax` package. A refusal there
+     fails the tier.
+   - **One shape is permitted to be recorded rather than failed**, and
+     only in a map: a Texture-family export whose property list consumes
+     the whole export, leaving no mip chain. The install's community maps
+     carry such exports and § 4.3 refuses them correctly.
+   - Anything else recorded is a **new** shape, and the tier fails until
+     somebody decides which of the two above it is. It **prints its own totals per
    class**, so the figures this spec's § 2.1 rests on are an output of the
    suite rather than a transcription in prose that nobody re-derives. Off
    by default behind `UTA_REAL_ASSET_TESTS`, which is what keeps a clone
@@ -667,10 +702,10 @@ before then.
 
 | Rule | What catches a breach |
 |------|----------------------|
-| INV-1 | `tests/unit/PackageContentTest.cpp` for fixtures, and `tests/real/RealInstallTest.cpp` over the reference install — the only check here that reads bytes this project did not write. Off by default, so an ordinary run proves agreement with our own fixtures only. **For `readModel`, weaker still:** it has no fixture case until its layout is derived (§ 4.5, § 7 tier 1), so the ordinary gate exercises it not at all and the real-asset tier is its sole check |
-| INV-2 | **Partial:** `tests/unit/PackageMalformedContentTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists. Same grade, and the same reason, as UTA-0003's INV-1 |
-| INV-3 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
-| INV-4 | **Partial:** the test asserts the refusal *names the count check*, so deleting that check is detectable. That bounds which check refuses, not the ordering: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has — the grade UTA-0003's INV-2 carries, for the same reason |
+| INV-1 | `tests/unit/PackageContentTest.cpp` for fixtures, and `tests/real/RealInstallTest.cpp` over the reference install — the only check here that reads bytes this project did not write. Off by default, so an ordinary run proves agreement with our own fixtures only. **For `readModel` and for `readLevel` past the actor array, weaker still:** neither has a fixture case until its layout is derived (§ 4.5, § 4.9), so the ordinary gate does not exercise them and the real-asset tier is their sole check |
+| INV-2 | **Partial:** `tests/unit/PackageMalformedContentTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists. Same grade, and the same reason, as UTA-0003's INV-1. **And it does not reach `readModel` or `readLevel`'s remainder at all**, whose layouts are withheld, so there is nothing to malform |
+| INV-3 | A grep over the four new source pairs. The gate itself is UTA-0003's and `tests/unit/PackageReaderTest.cpp` covers it; this row is about a duplicated bound and nothing else |
+| INV-4 | **Partial:** the test asserts the refusal *names the count check*, so deleting that check is detectable. That bounds which check refuses, not the ordering: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has — the grade UTA-0003's INV-2 carries, for the same reason. Carries INV-2's `readModel` / `readLevel` exception too |
 | INV-5 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | INV-6 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | INV-7 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
@@ -678,6 +713,8 @@ before then.
 | INV-9 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | § 4.3 "consuming exactly is not a proof of correctness" | **nothing** — a reader that consumed the right byte count and assigned the fields wrongly passes every check in this spec. What would catch it is comparing a decoded value against the same value obtained another way, and nothing here does that for any field |
 | § 4.5 "`Model`'s order is derived, not transcribed" | **Partial:** the real-asset tier proves the order consumes exactly across the install, which is strong evidence and not a proof, by the row above |
+| § 4.9 "the post-`FURL` remainder is derived, not transcribed" | **Partial:** the real-asset tier proves it consumes exactly across the install, on the same footing and with the same limit as § 4.5's row above |
+| § 4.6 "`IceTexture` is verified with a known exception" | **Partial:** § 7 tier 3 fails on any refusal outside the one permitted shape, so a fourth mismatching `IceTexture` would surface — but the three already measured are absorbed by that permission and nothing distinguishes them from a regression |
 | § 4.9 "`Location` and `Rotation` are already decoded" | `tests/unit/PackagePropertiesTest.cpp`, which UTA-0003 ships — this item adds no check of its own |
 | § 3.3 item 3 "bulk payload is a view" | INV-7 covers the sound payload and mip pixels. Nothing checks that `Polys` vertices are not copied, and they are the one bulk field this spec does not require a view for |
 | § 4.10 "the readers stay an independent implementation" | **nothing** — no check enforces that a reader and the fixture writer were not written from one reading. UTA-0003 § 2's argument, and the real-asset tier, are what stand in for it |
@@ -696,6 +733,7 @@ before then.
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
 | 1 | 2026-09-05 | 3, cold — genre pinned `spec`; packet carried the install census, the six code windows and the UTA-0003 passages this spec leans on | 2 | 2 | 2 | 2 | **Eight verified, eight fixed, none dismissed.** **All three lanes independently found the same three defects**, the strongest agreement available in a three-lane loop, and the first is the run's most consequential: § 4.1 named six return types and **declared none of them**, while the header names four items that bind to them and § 2 item 1 carries UTA-0003's argument that a vocabulary invented twice is two vocabularies. One lane worked the consequence out concretely — a `Polys` holding a resolved `std::string_view` would either fail to compile against a caller written to `ObjectReference`, or compile and hold a view outliving its `Package`. The six structs are now declared, and references are returned unresolved for exactly that lifetime reason. **The second was a contradiction that would have destroyed this item's only real oracle:** § 7's tier 3 said to walk *every* package in the install and assert § 4.3, while § 4.2 refuses anything outside 61–69 and § 2.1 records that versions 76, 79, 118 and 128 are present — so the tier goes red on a clean install, and the cheap repair (skip whatever errors) makes the real-asset half of INV-1 pass vacuously. Tier 3 now splits by the gate. **The third was mine and mechanical:** § 2.1 cited "§ 4.6 and § 4.7" for the two version-63 fields; § 4.7 is `Palette` and has no version branch at all, the second field being § 4.8's `NextOffset`. **Both Q4s were fixture gaps that left an invariant reading as covered:** § 4.10's builder list held no package below version 63, so INV-1's first named break mode — a missed version branch — was falsifiable only by a tier that is off by default; and it holds no `Model`, which § 4.5 withholds the layout for, so `readModel` had no unit-tier coverage while INV-1 claimed every reader. **A lane open question found the run's sharpest Q1, and it was concealed by my own packet:** the packet summarised the subclass measurements without the word *exact*, three lanes queried it, and re-running the probe showed `IceTexture` mismatching on a community map. The claim that the four classes "share the layout exactly" was broader than any measurement supports and is narrowed to the stock packages. **A second open question, raised by two lanes, became a Q3:** § 4.6 called `WidthOffset` an absolute file offset, which is true, and never said how a reader holding a span of the export compares against it — a reader that forgets the `serialOffset` term refuses every real texture. **Resolved clean, not a finding:** none of the six type names collides with anything already in `uta::upkg`. |
+| 2 | 2026-09-05 | 3, cold — identical brief, packet rebuilt from disk and its subclass measurements corrected | 2 | 3 | 3 | 1 | **Nine verified, nine fixed, none dismissed. Cap reached (2 for a spec); the run ships.** **The run's most consequential finding was pre-existing and is a claim I made about code without opening it:** § 3.3 item 1 and § 4.2 had this item adding a package-version gate because `Package::open` "stays version-tolerant". It does not — `src/upkg/Package.cpp` refuses anything outside 61–69 before it reads a table, and UTA-0003's spec says so in four places, its own § 2.1 carrying the same version census this document re-derived. So the gate could never fire, INV-3 was unfalsifiable (no out-of-range `Package` can be constructed to hand a reader), and § 7's tier-3 split was built on it. The section is now an inheritance note, INV-3 is re-aimed at the range being stated once, and § 6 loses a row. **The second was a lane's open question in loop 1 that became a finding here, and it widens the item:** § 4.9 said the `FURL` is "read only far enough to satisfy § 4.3", and `Level` does not end at the `FURL` — tens of kilobytes follow it on a stock map. So `Model` is not the only reader with an underived layout, and § 4.9 now says so with § 4.3 as its acceptance. **Five of the nine landed on text loop 1 wrote, which is a high share and is recorded as such.** The worst was loop 1's own repair of the tier-3 walk: it allowed any in-range refusal to be *recorded rather than failed*, which made the tier incapable of failing — and since tier 3 is `readModel`'s only check, a wrong field order would have refused every `Model` export and still gone green. Two lanes found it independently. The allowance is now bounded to one named shape, with zero refusals permitted for `Polys`, `Model`, `Palette` and stock packages. All three lanes found loop 1's `mips` comment ("never empty on a modelled class") contradicting § 6's sizeless-export row. **Open questions settled by measurement, not argument:** the three mismatching `IceTexture` exports are in a community map rather than a stock package, so § 4.6's sentence held and gained the exception it was missing; and § 4.4's "every `Polys` export" was re-run across all 790 maps — 538388 of 538388 exact — so the claim is now true as written rather than measured over forty. **Shipping at the cap:** every finding is fixed and the tail is empty, but two of six readers have underived layouts and the collateral rate is high, so the next reviewer should be the build rather than a third cold read. |
 
 ## 13. Resource cost
 
