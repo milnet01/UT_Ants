@@ -1,0 +1,605 @@
+# UTA-0005 — `upkg`: class tables, default properties and ancestry
+
+**Status:** draft (2026-09-05).
+**Kind:** implement.
+**Source:** ROADMAP UTA-0005 (design-2026-09-03).
+**Blocked by:** UTA-0003 — every reader here reads through that container,
+and reuses its property-list reader.
+**Blocker for:** UTA-0023, UTA-0024, UTA-0029 — resolving a custom actor
+onto one of ours, the stock bestiary, and the Monster Hunt rules all read
+what this item returns.
+
+Read a class out of a package: what it descends from, and the values its
+author set on it. Walk that ancestry across packages, so a monster defined
+in one file can be followed to a base class in another. No compiled code is
+executed.
+
+## 1. Goal
+
+`ADR-0004` decided that this engine understands a custom actor by its
+ancestry and its default properties rather than by running its
+UnrealScript. This item is the half that reads. It returns, for any class
+export: its parent, its own default properties, and — given a way to open
+other packages — the whole chain up to `Object` with the defaults merged
+along it.
+
+It resolves nothing onto this engine's own classes. That is UTA-0023.
+
+## 2. Problem
+
+A `.u` package holds compiled bytecode and a class table. `ADR-0004` rests
+on the class table being readable without a virtual machine, and it is.
+But the naive reading of it is wrong in four ways, and three of them are
+silent: they produce a plausible answer rather than a failure.
+
+Every layout claim in § 4 was checked by decoding the reference install
+with a throwaway probe written independently of `upkg` — a different
+language, from the format rather than from this project's code — as
+UTA-0004 § 2.1 did. The install is the one `UTA_UT_INSTALL_DIR` points at.
+
+### 2.1 What the reference install actually contains
+
+The probe read every class export in the install: the `System` tree's
+packages, and the class exports embedded in maps, texture and sound
+packages. Four findings changed the design.
+
+**A class export carries its own parent, and the export table's copy is
+not always readable.** Every export entry has a `super` column, and each
+class also serialises a `SuperField` of its own. Where both are in range
+they agree — with no exception found. Where they differ, it is because the
+table's column is out of range and the object's own field is valid, never
+the reverse. So the object's own field is the one to read. § 4.5.
+
+**`ScriptSize` is a memory size, not a file size.** A class's compiled
+script is serialised expression by expression, and an object reference or
+a name inside it occupies a compact index on disk but a wider fixed field
+in memory. `ScriptSize` counts the memory form, so a reader that skips
+that many bytes lands in the wrong place — usually inside the default
+properties, which then parse as nonsense. There is no stored on-disk
+length: if there were, the classes that carry no script would not consume
+exactly, and they do. § 4.4.
+
+**Most classes carry no script, and the ones that do are the ones that
+matter.** Only about a twentieth of class exports have a non-empty script
+of their own — a `replication` block. But they include `Actor`, `Pawn`,
+`PlayerPawn`, `Inventory`, `Weapon`, `LevelInfo` and `ZoneInfo`: the base
+classes every monster inherits from, and where the inherited numbers live.
+Re-derive the split with `scripts/class-census.py`.
+
+**The exact-consumption rule cannot recover the script length on its
+own.** UTA-0004 § 4.3 made "a reader ends exactly where its export ends"
+the acceptance test, and it is still the acceptance test here. It is not
+sufficient to *find* the script's end by search: for `Actor`, dozens of
+different assumed script lengths each leave a property list that parses
+and terminates exactly at the export end. The script has to be walked.
+§ 8 records that as the rejected alternative it is.
+
+## 3. Scope decisions (agreed with the user)
+
+### 3.1 The script skipper is in scope — user, 2026-09-05
+
+Reaching the default properties requires stepping over the compiled
+script, which requires knowing the operand shape of every instruction. The
+user was given the choice of building that inside this item, splitting it
+into its own roadmap item, or shipping without it and reading only the
+classes that carry no script. The decision was to build it here, on the
+ground that this item cannot return correct numbers for any monster
+without it: a class's defaults are stored as a difference from its
+parent's, and the parents all carry scripts.
+
+**Nothing is executed.** The walker reads each instruction's operands to
+learn its length and discards them. It does not evaluate, branch, or call.
+`ADR-0004`'s "no bytecode is executed, and no UnrealScript VM is written"
+holds: this is a length calculation, and the item ships no interpreter,
+no stack and no native function surface.
+
+### 3.2 Struct-typed default values stay undecoded — mine, with reasons
+
+UTA-0003 § 4.8 carries any struct it does not name through as raw bytes
+with its type and struct name intact, and says a struct's layout is
+knowable only from the class table, which is this item. This item does
+**not** decode them, and § 11 records the correction that sentence needs.
+
+The reason is measured. Struct-typed values are a small share of all
+default properties, and once `Vector` and `Rotator` — which UTA-0003
+already decodes, in both spellings — are set aside, what remains is
+dominated by mod bookkeeping: map-vote lists, mute lists, admin stacks.
+None of it is what `ADR-0004` reads. The properties that decide how a
+monster looks and fights are objects, floats, bytes, bools, ints and
+names, and all six are already decoded.
+
+Decoding the rest means reading each class's `Children` chain to recover
+member layouts — a second traversal, for values nothing in the 0.1.0 or
+0.3.0 line consumes. It is filed rather than built.
+
+### 3.3 The remaining calls are mine, with reasons
+
+1. **Opening other packages is the caller's job, injected.** This item
+   takes a resolver rather than reaching for the filesystem. A search path
+   is a property of an installation, not of a package format; `ut-dump`
+   (UTA-0012) and the baker (UTA-0011) will want different ones, and the
+   tests want one backed by fixtures and no disk at all.
+2. **A merged default carries its name as text.** Name and object indices
+   are per-package, so a value read from `Engine.u` and a value read from
+   a mod package cannot be compared by index. § 4.7.
+3. **A missing package is not an error.** The walk stops and says which
+   package it wanted. `ADR-0004` requires the fallback to be legible, and
+   an install that lacks a mod is the ordinary case, not a malformed one.
+
+## 4. Design
+
+### 4.1 Layout and the build
+
+Two new pairs in `src/upkg/`, added to the existing `uta_upkg` target:
+
+```
+src/upkg/Script.h  .cpp   the compiled-script walker
+src/upkg/Class.h   .cpp   class reading, ancestry, merged defaults
+```
+
+**`Properties` gains one entry point, and § 4.3 step 11 says why it must.**
+That is a change to UTA-0003's surface, recorded in § 11.
+
+The link closure does not move: `uta_upkg` still links `uta_core` and
+nothing else, which `src/upkg/CMakeLists.txt` already asserts at configure
+time for UTA-0003's INV-13.
+
+Entry points take the opened `Package` and one `ExportEntry` and return
+`Result<T>`, the shape UTA-0003 and UTA-0004 use:
+
+```cpp
+struct ClassInfo {
+    ObjectReference super;                  // the parent; null on Object
+    std::uint32_t   friendlyName = 0;       // name index
+    std::uint32_t   classFlags   = 0;
+    std::array<std::byte, 16> classGuid{};
+    ObjectReference within;                 // version 62 and above
+    std::uint32_t   configName   = 0;       // name index, version 62 and above
+    std::vector<Property> defaults;         // this class's OWN defaults
+};
+
+[[nodiscard]] Result<ClassInfo> readClass(const Package&, const ExportEntry&);
+```
+
+`defaults` is a difference against the parent, not the effective set —
+that is what the file holds, and § 4.7 is what combines them.
+
+### 4.2 A class export is recognised by a null class reference
+
+UTA-0003 § 4.8 established this and `readProperties` already refuses such
+an export. `readClass` is the mirror: given an export whose class
+reference is **not** null, it returns `InvalidArgument`. Given one with no
+serialised data it returns `InvalidArgument` too — a class with no bytes
+has no parent to report, and returning an empty `ClassInfo` would hand the
+caller a null parent indistinguishable from `Object`'s.
+
+### 4.3 The class layout
+
+Read in this order from the start of the export's serialised bytes:
+
+1. **The execution-stack frame**, only when the export's flags include
+   `HasStack` (`0x02000000`), read and discarded exactly as UTA-0003
+   § 4.8 describes it.
+2. **`SuperField`** and **`Next`**, object references as compact indices.
+3. **`ScriptText`** and **`Children`**, object references as compact
+   indices.
+4. **`FriendlyName`** (name index), then `Line` and `TextPos`, two
+   `std::int32_t`.
+5. **`ScriptSize`**, a `std::int32_t`, then the script — § 4.4.
+6. **`ProbeMask`** and **`IgnoreMask`**, two `std::int64_t`; then
+   `LabelTableOffset`, a 16-bit field; then `StateFlags`, a
+   `std::int32_t`. All four are consumed and none is interpreted, so the
+   16-bit field's signedness does not reach the reader and `ByteReader`
+   needs no new accessor for it.
+7. **`ClassFlags`**, a `std::uint32_t`, then a 16-byte GUID.
+8. **The dependency list**: a compact-index count, then that many entries
+   of an object reference, a `std::int32_t` and a `std::uint32_t`.
+9. **The package-import list**: a compact-index count, then that many
+   compact indices.
+10. **`ClassWithin`** and **`ClassConfigName`**, only at package version
+    62 and above.
+11. **The default properties**, a tagged property list in exactly the form
+    UTA-0003 § 4.8 reads, terminated by `None`.
+
+Steps 6 and 7 are the state and class fields the format inherits through
+its own class hierarchy; they are listed flat here because that is the
+order the bytes arrive in, and a reader has no use for the hierarchy.
+
+**Step 11 cannot use either property entry point `upkg` already has.**
+`readProperties` and `readPropertyList` both take an `ExportEntry`, start
+at the beginning of its serialised bytes and skip an execution-stack
+frame — because for every object UTA-0003 and UTA-0004 read, the list is
+the *first* thing in the export. A class's list is the *last* thing, and
+by then the cursor is ten fields and a compiled script downstream.
+
+`Properties` therefore gains an entry point that reads a list from a
+cursor the caller already holds:
+
+```cpp
+/// Read a tagged property list at the cursor's current position.
+/// The list's extent is bounded by the reader's own span, so a caller
+/// that built one over a single export cannot read beyond it.
+[[nodiscard]] Result<std::vector<Property>> readPropertiesAt(const Package&,
+                                                             ByteReader&);
+```
+
+`readProperties` and `readPropertyList` become callers of it. That is the
+point: `Properties.h` already warns, in its own comment on `PropertyList`, that a
+second path would mean a second decoder of the one format that file owns.
+This item must not become one. INV-12 is that rule.
+
+### 4.4 The compiled script is walked, never skipped by `ScriptSize`
+
+The walker reads one instruction at a time. Each instruction contributes a
+number of **memory** bytes, and the walk continues until that running
+total reaches `ScriptSize`. The file position advances by the disk
+encoding, which is shorter.
+
+```cpp
+/// Advance the cursor past a compiled script. Executes nothing: each
+/// instruction's operands are read only to learn its length.
+[[nodiscard]] Result<void> skipScript(const Package&, ByteReader&,
+                                      std::uint32_t scriptSize);
+```
+
+Three rules make it safe.
+
+**The memory widths are fixed constants, not `sizeof`.** An object
+reference counts as four memory bytes and so does a name, because
+`ScriptSize` was computed by a 32-bit compiler in 1999. Writing
+`sizeof(void*)` gives four on a 32-bit host and eight on every host this
+project actually builds on, and the resulting walk overshoots on the first
+object reference. The constants are named and commented where they are
+defined.
+
+**An unrecognised instruction is `MalformedData`.** The walker never
+guesses a length, and never resynchronises by scanning.
+
+**The walk is bounded by the export.** A walk that would read past the
+export's end returns `MalformedData` before reading, so a corrupt
+`ScriptSize` cannot drive an unbounded read.
+
+Instructions divide into three groups: a fixed table of primary opcodes
+with known operands; extended-native calls, whose second byte completes an
+index and whose parameters run to an end-of-parameters marker; and native
+calls, whose parameters run to the same marker. Nested expressions recurse,
+so the walker is bounded in depth as well — a depth cap returns
+`MalformedData` rather than exhausting the stack on hostile input.
+
+### 4.5 The parent comes from the object's own `SuperField`
+
+`readClass` reports `super` from step 2 of § 4.3 and never from
+`ExportEntry::super`. § 2.1 measured why: the two agree wherever both are
+in range, and where they do not, the export table's column is the one that
+is out of range.
+
+This is not a validation the container can do for us. UTA-0003 validates
+every reference *it* reads, and an export whose `super` column is out of
+range would have failed the package open — so the packages this affects
+open successfully today, and their class exports read correctly, purely
+because nothing has read that column yet.
+
+### 4.6 Resolving a parent in another package
+
+A parent reference that names an import is a class in another package. The
+import entry gives the class's name; the package it lives in is found by
+following the import's outer chain to its root.
+
+```cpp
+/// Open a package by name, or report that it is not available.
+/// Returns nullptr, with no error, when the package simply is not present.
+using PackageResolver =
+    std::function<Result<const Package*>(std::string_view packageName)>;
+
+struct ResolvedClass {
+    const Package*     package = nullptr;
+    const ExportEntry* entry   = nullptr;
+};
+
+enum class AncestryEnd { Root, PackageMissing, Truncated };
+
+struct Ancestry {
+    std::vector<ResolvedClass> chain;   // the class itself first, root last
+    AncestryEnd end = AncestryEnd::Root;
+    std::string missingPackage;         // set only when end is PackageMissing
+    std::string missingClass;           // set only when end is PackageMissing
+};
+
+[[nodiscard]] Result<Ancestry> readAncestry(const Package&, const ExportEntry&,
+                                            const PackageResolver&);
+```
+
+**Names are matched case-insensitively**, because the engine's own package
+and class names are.
+
+**The resolver owns the lifetime of what it returns.** `Ancestry` holds
+pointers into packages the resolver keeps alive, the same bargain
+`Package` already makes with the caller's bytes.
+
+**A cycle is `MalformedData`.** A well-formed chain terminates at a class
+with no parent. The walk carries a depth cap and refuses beyond it; the
+deepest chain in the reference install is comfortably inside any sane cap,
+so a cap that fires is evidence of a malformed package rather than of an
+unusually deep hierarchy.
+
+**A package the resolver cannot supply ends the walk as `PackageMissing`,
+successfully**, with the package and class named so a caller can say which
+content is absent. `ADR-0004` requires exactly that legibility.
+
+### 4.7 Effective defaults are a merge up the chain
+
+A class's stored defaults are a difference against its parent's. The
+effective set is built by walking the chain from the root down, each class
+overriding what it names.
+
+```cpp
+struct EffectiveProperty {
+    std::string    name;        // resolved text, so it compares across packages
+    const Package* origin;      // the package whose name and object
+                                // indices this value is relative to
+    Property       property;
+};
+
+[[nodiscard]] Result<std::vector<EffectiveProperty>>
+effectiveDefaults(const Ancestry&);
+```
+
+**The merge key is the property's name as text, together with its array
+index** — never the name index. A name index is a position in one
+package's name table; the same property is a different number in every
+package, so merging by index silently fails to override anything across a
+package boundary, and the caller gets the base class's value.
+
+**`origin` is not optional bookkeeping.** A `Property` whose value is an
+object reference is meaningful only against the package it was read from.
+Dropping `origin` would produce a merged set whose object-valued entries
+cannot be resolved at all.
+
+An ancestry that ended `PackageMissing` still merges, over the part of the
+chain that resolved. The result is honest but incomplete, and the caller
+knows which case it is from `Ancestry::end`.
+
+### 4.8 Every reader here ends exactly where its export ends
+
+UTA-0004 § 4.3's rule is inherited unchanged and is again this item's
+acceptance test:
+
+> A typed reader that does not end exactly at the end of its export
+> returns `MalformedData`. It never returns a partial result.
+
+It is what makes § 4.3's layout and § 4.4's walker checkable against
+content this project did not write. It is not a proof of correctness — a
+reader can consume the right bytes and assign them to the wrong fields —
+and § 10 grades it on that.
+
+### 4.9 The fixture builder grows
+
+`tests/support/UnrealPackageBuilder.h` gains the ability to write a class
+export: the § 4.3 field order, a caller-supplied script body, and a
+default property list. It must be able to write a class whose parent is an
+import, so cross-package resolution is testable without the reference
+install. It must also be able to write a **deliberately malformed** class
+— an unknown opcode, a `ScriptSize` that runs past the export, an ancestry
+cycle — because the failure modes in § 6 are otherwise untestable.
+
+## 5. Invariants
+
+**INV-1.** Every class export in the reference install is consumed
+exactly: the reader finishes at `serialOffset + serialSize`, for every
+class export in every readable package.
+*Test:* `tests/real/RealInstallTest.cpp`, the real-asset tier.
+
+**INV-2.** `readClass` reports the parent from the class's own
+`SuperField` and never from `ExportEntry::super`.
+*Test:* `tests/unit/PackageClassTest.cpp` — a fixture whose export-table
+`super` column and whose `SuperField` differ; the reported parent is the
+latter.
+
+**INV-3.** `skipScript` executes nothing and returns `MalformedData` on an
+unrecognised opcode.
+*Test:* `tests/unit/PackageScriptTest.cpp` — a script containing an opcode
+outside the table returns `MalformedData`.
+
+**INV-4.** `skipScript` computes memory widths from fixed constants, so
+its result does not depend on the host's pointer size.
+*Test:* `tests/unit/PackageScriptTest.cpp` — a script whose only
+instruction carries an object reference walks to the same disk position on
+every platform in the matrix, asserted against a literal.
+
+**INV-5.** No reader reads outside its export's byte range, for any input
+bytes.
+*Test:* `tests/unit/PackageMalformedTest.cpp` — a class whose `ScriptSize`
+exceeds its export returns `MalformedData`.
+
+**INV-6.** `readAncestry` terminates on any input: a cycle returns
+`MalformedData`, and a chain beyond the depth cap returns `MalformedData`.
+*Test:* `tests/unit/PackageAncestryTest.cpp` — a two-class cycle, and a
+chain past the cap.
+
+**INV-7.** A parent whose package the resolver cannot supply ends the walk
+as `PackageMissing`, with the package and class named, and is not an
+error.
+*Test:* `tests/unit/PackageAncestryTest.cpp` — a resolver that supplies
+nothing.
+
+**INV-8.** `effectiveDefaults` merges on the property's name as text and
+its array index, so a child in one package overrides a parent in another.
+*Test:* `tests/unit/PackageAncestryTest.cpp` — two packages whose name
+tables place the same property name at different indices.
+
+**INV-9.** Every `EffectiveProperty` carries the package its value's
+indices are relative to.
+*Test:* `tests/unit/PackageAncestryTest.cpp` — a merged set whose entries
+come from two packages; each `origin` is the package that supplied it.
+
+**INV-10.** `readClass` returns `InvalidArgument` for an export whose
+class reference is not null, and for one with no serialised data.
+*Test:* `tests/unit/PackageClassTest.cpp`.
+
+**INV-11.** `uta_upkg` gains no link dependency.
+*Test:* the configure-time assertion already in `src/upkg/CMakeLists.txt`.
+
+**INV-12.** `upkg` holds one tagged-property-list decoder, not two:
+`readProperties` and `readPropertyList` are implemented in terms of
+`readPropertiesAt`.
+*Test:* a reading check over `src/upkg/Properties.cpp` — the tag-decoding
+loop appears once, and the two older entry points call the new one. There
+is no output to paste, and an equivalence test between the entry points is
+deliberately not the surface: two decoders that agree would pass it.
+
+## 6. Failure modes
+
+| What happens | What the reader does |
+|---|---|
+| Export's class reference is not null | `InvalidArgument` (INV-10) |
+| Unknown opcode in a script | `MalformedData` (INV-3) |
+| `ScriptSize` runs past the export | `MalformedData` (INV-5) |
+| Script walk ends past the export | `MalformedData` (§ 4.8) |
+| Property list does not end at the export end | `MalformedData` (§ 4.8) |
+| Parent's package not available | `PackageMissing`, walk ends, no error (INV-7) |
+| Parent's class absent from a package that opened | `PackageMissing`, with the class named |
+| Ancestry cycle, or chain past the depth cap | `MalformedData` (INV-6) |
+| Resolver itself fails | that error, propagated unchanged |
+
+## 7. Tests
+
+**Unit, on fixtures, no install required.** Four new files, each built
+into the existing Catch2 unit executable with the `unit;fast` label:
+`PackageClassTest.cpp`, `PackageScriptTest.cpp`, `PackageAncestryTest.cpp`,
+and additions to `PackageMalformedTest.cpp`. Between them they cover
+INV-2, INV-3, INV-4, INV-5, INV-6, INV-7, INV-8, INV-9 and INV-10. Every
+fixture is written by the § 4.9 builder, so no Epic content enters the
+repository — `ADR-0003` and UTA-0013's guard.
+
+**INV-11 has no test file.** Its surface is the configure-time assertion
+already in `src/upkg/CMakeLists.txt`, which fails the build rather than a
+test, and adding a test beside it would check the assertion rather than the
+link closure.
+
+**`PackagePropertiesTest.cpp` gains the § 4.3 step 11 entry point**, so the
+existing property tests and the new one exercise the same decoder. INV-12
+is a reading check rather than a test, for the reason stated with it.
+
+**Real-asset tier, off by default.** `RealInstallTest.cpp` gains a class
+pass: read every class export in every package under
+`UTA_UT_INSTALL_DIR`, assert exact consumption, and walk each class's
+ancestry with a resolver backed by the install. It asserts that the number
+consumed exactly equals the number attempted, so a reader that starts
+refusing content fails rather than quietly reporting fewer successes. This
+is INV-1, and it is the only test that reads content this project did not
+write.
+
+**The census script.** `scripts/class-census.py` reports, over an install,
+how many class exports there are, how many carry a script, and how many
+walk to a root — the numbers § 2.1 rests on, so they are re-derived rather
+than trusted. It reads packages and writes nothing, like
+`scripts/package-census.py`.
+
+## 8. Alternatives considered (and rejected)
+
+**Find the script's end by searching for a property list that terminates
+exactly at the export end.** This needs no opcode table at all, and it is
+the reason § 2.1's fourth finding was measured rather than assumed: for
+`Actor`, dozens of candidate script lengths each yield a property list
+that parses and ends exactly where it should. The exact-consumption rule
+is a strong check on a layout that is otherwise determined; it is not
+strong enough to determine one. Rejected as unsound, not as slow.
+
+**Read only the classes that carry no script.** This is most of them, and
+it was offered to the user as an option. Rejected because the classes it
+skips are the base classes every monster inherits from, so the numbers it
+did return would be silently incomplete.
+
+**Take `ScriptSize` as the on-disk length.** This is what the community
+documentation implies. Rejected on measurement: it desynchronises every
+class that carries a script, and it is the failure that produced this
+item's first probe result.
+
+**Decode struct-typed default values.** Deferred, with the measurement, in
+§ 3.2.
+
+**Have this item open packages itself.** Rejected in § 3.3: the search
+path belongs to an installation, and injecting it is what lets the unit
+tier run with no disk.
+
+## 9. Out of scope
+
+- Executing bytecode, and any part of an UnrealScript VM (`ADR-0004`).
+- Resolving a custom class onto one of this engine's own — UTA-0023.
+- Reading the `Children` chain, and with it struct member layouts and
+  function signatures (§ 3.2).
+- Any use of what is read: the bestiary, spawning, mutators.
+- The override list `ADR-0004` mentions for notorious classes. That is a
+  resolution policy, so it belongs with UTA-0023.
+
+## 10. What checks this
+
+| Claim | Invariant | What checks it |
+|---|---|---|
+| § 4.3's field order is right | INV-1 | the real-asset tier, over every class export in the install |
+| § 4.4's walker is right | INV-1 | the same; a wrong walk lands mid-property-list and fails |
+| § 4.5's choice of parent source | INV-2 | a fixture whose two records disagree; and INV-1 over the packages whose table column is out of range |
+| Nothing is executed | INV-3 | `skipScript` takes no state and returns none; an unknown opcode refuses |
+| The walk does not depend on the host | INV-4 | asserted against a literal, on GCC, Clang and MSVC |
+| No reader leaves its export | INV-5 | `ByteReader` is built over the export's span; a malformed `ScriptSize` refuses |
+| The ancestry walk terminates | INV-6 | a cycle fixture and an over-deep chain |
+| A missing package is legible, not an error | INV-7 | a resolver that supplies nothing |
+| Merging works across packages | INV-8 | two packages whose name tables disagree on an index |
+| A merged value stays resolvable | INV-9 | each entry's `origin` |
+| A non-class export is refused | INV-10 | `readClass` on an ordinary export, and on a sizeless one |
+| The link closure does not move | INV-11 | the configure-time assertion |
+| One property decoder, not two | INV-12 | a reading check — see the invariant for why not a test |
+| § 2.1's numbers | none | `scripts/class-census.py`, which exits non-zero if they stop holding |
+
+**What none of this checks.** Exact consumption proves a reader agrees
+with the file about where fields end, not that it assigned them to the
+right names. A field pair of the same width transposed — `Line` and
+`TextPos`, `ProbeMask` and `IgnoreMask` — consumes identically and is
+wrong. Nothing here catches that, and the first thing that would is a
+caller using the values: UTA-0023 reading a monster's numbers and getting
+a monster that behaves like the one in the original game.
+
+## 11. Cross-doc impact
+
+**UTA-0003's `Properties` surface grows by one entry point.** § 4.3 step 11
+says why: both existing entry points begin at an export's start, and a
+class's default properties are at its end. `readPropertiesAt` is additive —
+no existing signature changes and no existing behaviour does — but it is a
+change to a shipped item's surface, and UTA-0003 § 4.8 should name it when
+this item lands.
+
+**UTA-0003 § 4.8 needs a correction.** It says a struct's layout "is only
+knowable from the class table (UTA-0005)", which reads as a promise that
+this item supplies it. § 3.2 records that it does not, with the
+measurement. That sentence should name the item that will, once one
+exists, rather than this one. The correction is not made here: this spec
+is a draft until its gate passes, and amending a shipped spec on the
+strength of a draft is backwards.
+
+**`ADR-0004` is unchanged.** § 3.1 records why the script walker does not
+breach its "no bytecode is executed" line, and the ADR's requirement that
+a fallback be legible is met by INV-7.
+
+**`CLAUDE.md` is unchanged.** Nothing here changes how the project is
+built, tested or gated.
+
+## 12. Cold-eyes loop log
+
+`docs/reviews/UTA-0005-class-tables-and-ancestry-loop-log.md`.
+
+The rows live outside this document, per `spec-format.md` § 6. The sibling
+specs keep theirs inline; that predates the rule rather than overriding it,
+and `docs/standards/` carries no spec-format override.
+
+## 13. Resource cost
+
+The walker is a table of instruction shapes and a recursive descent over
+it — the largest single piece of this item, and bounded: the instruction
+set is fixed and 1999-vintage, and the exact-consumption rule over the
+whole install grades it in one run.
+
+Reading a class allocates its default property list and nothing else; the
+script is walked without being stored. An ancestry walk holds pointers
+into packages the resolver owns, so its cost is the resolver's caching
+policy rather than this item's. The merged default set is the only place
+this item copies a string per property, and it copies names only.

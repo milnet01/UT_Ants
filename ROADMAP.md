@@ -185,12 +185,15 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 📋 [UTA-0005] **upkg: read class tables, default properties and ancestry across packages.**
+- 🚧 [UTA-0005] **upkg: read class tables, default properties and ancestry across packages.**
   The class table and defaultproperties, with the parent chain resolved across
   imports so a class in one package can be walked to a base class in another.
   No bytecode is read and no interpreter is written (ADR-0004). This item only
   EXTRACTS; resolving an unknown class onto one of ours is 0.3.0's.
   Blocked-by: the container reader.
+  Progress (2026-09-05): picked up by session ut-ants-f8, working in the
+  main checkout on branch main. Nothing else was in flight at pick-up;
+  the upkg lane is held by this session alone.
   **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later.
   Kind: implement.
   Source: design-2026-09-03.
