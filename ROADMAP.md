@@ -194,6 +194,18 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-05): picked up by session ut-ants-f8, working in the
   main checkout on branch main. Nothing else was in flight at pick-up;
   the upkg lane is held by this session alone.
+  Progress (2026-09-05): spec accepted at
+  docs/specs/UTA-0005-class-tables-and-ancestry.md after two
+  review-contract loops (22 findings, 22 fixed, cap reached; record in
+  docs/reviews/). Implementation not started. Scope grew: reaching a
+  class's default properties needs the compiled script walked
+  instruction by instruction, because the only length the file stores is
+  the size the script occupies in memory, not on disk. The user scoped
+  that walker into this item rather than splitting it, since every
+  monster inherits from classes that carry one. Nothing is executed.
+  scripts/class-census.py re-derives the format findings over the
+  reference install and exits non-zero if exact consumption stops
+  holding.
   **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later.
   Kind: implement.
   Source: design-2026-09-03.
