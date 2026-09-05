@@ -136,12 +136,14 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 📋 [UTA-0004] **upkg: read level geometry, textures, sounds and actor placements.**
+- 🚧 [UTA-0004] **upkg: read level geometry, textures, sounds and actor placements.**
   The Model (BSP) geometry, palettised textures with their PolyFlags (masked,
   translucent, unlit, environment -- free information about glass, water, sky and
   lava), sounds, and the actor list with each actor's class, position and
   properties.
   Blocked-by: the container reader.
+  Progress (2026-09-05): picked up. Blocker cleared -- the container
+  reader shipped as UTA-0003.
   **Layman:** Pull the actual level out of the file -- its walls, its textures, and the list of everything the designer placed in it.
   Kind: implement.
   Source: design-2026-09-03.
@@ -1121,6 +1123,12 @@ here is hosted, downloaded and played by someone else.
   edit of theirs and may carry no geometry read out of an install. A derived
   bundle is a local artefact and is never published.
   Blocked-by: ubundle, ubake.
+  Constraint (user, 2026-09-05): the editor's interface must be
+  user-friendly to the point of being idiot-proof, and the user is the
+  reader it must work for -- someone who does not program. That is a
+  requirement on this item, not a polish pass afterwards: it decides the
+  defaults, how much is hidden, and whether a wrong action is possible at
+  all rather than merely undoable.
   **Layman:** The map editor. Open a converted level, change it, or build one from nothing -- and save it in our own format.
   Kind: implement.
   Source: design-2026-09-03.
@@ -1130,6 +1138,9 @@ here is hosted, downloaded and played by someone else.
   Stats, model, sounds and a behaviour archetype, on the same footing as the
   stock bestiary. Not a scripting language: the archetypes are the vocabulary.
   Blocked-by: the stock bestiary, the editor.
+  Constraint (user, 2026-09-05): authoring an enemy must be usable by a
+  non-programmer -- see the same note on UTA-0034. Data authoring is where
+  a form of raw fields is most tempting and least usable.
   **Layman:** Make your own monster -- its stats, its model, how it behaves -- by filling in a form rather than by writing code.
   Kind: implement.
   Source: design-2026-09-03.
@@ -1148,6 +1159,9 @@ points, and package it so other players download it automatically. Closes S6.
   We are not building a modelling tool. The model is made elsewhere; this is the
   setup and packaging half, which is the part that is actually missing.
   Blocked-by: the editor.
+  Constraint (user, 2026-09-05): model import and setup must be usable by a
+  non-programmer -- see the same note on UTA-0034. Import is the step most
+  likely to fail with a message only its author understands.
   **Layman:** Bring a character you made in Blender into the game -- attach it to our animations, set up its skins and team colours, and see it before you ship it.
   Kind: implement.
   Source: design-2026-09-03.

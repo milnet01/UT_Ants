@@ -2,9 +2,9 @@
 
 ## Where this project is
 
-**State:** 4 — between items.
-**Next:** `UTA-0004` — `upkg`: typed level content.
-**In flight:** nothing.
+**State:** 5 — building.
+**Next:** `UTA-0005` — `upkg`: class tables, defaults and ancestry.
+**In flight:** `UTA-0004` — `upkg`: typed level content.
 
 > Keep the three lines above true, and keep them to three lines.
 > **`State:` and `In flight:` move together**: picking an item sets both,
