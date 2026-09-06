@@ -10,11 +10,14 @@
 #   scripts/ci.sh          everything
 #   scripts/ci.sh --docs   the documentation checks only
 #
-# WHY --docs EXISTS. A documentation-only push runs the DOCUMENTATION checks:
-# not nothing, and not the full run either. Skipping outright is how a prose
-# typo reaches a repository whose own suite forbids it; running all of it for a
-# typo is how a person learns to reach for --no-verify. Note which checks are
-# in both modes: the quarantine guard is one of them, because a path under
+# WHY --docs EXISTS. Skipping outright is how a prose typo reaches a repository
+# whose own suite forbids it; rebuilding and re-testing for a typo is how a
+# person learns to reach for --no-verify. So --docs omits the compiler legs and
+# NOTHING ELSE: every check that does not need a compiler runs in both modes,
+# because ci.yml calls this script with no argument and GitHub therefore applies
+# the full run to a documentation-only push. A mode cheaper than the pipeline is
+# fine; one that checks LESS of what the pipeline checks is a green that lies.
+# The quarantine guard is in both modes for its own reason -- a path under
 # content/ can be a .md file and would otherwise ride in on a "docs-only" push.
 #
 # WHERE IT RUNS. Linux and Windows, both first-class. On Windows this is Git
@@ -93,21 +96,14 @@ if [[ $link_failures -gt 0 ]]; then
 fi
 printf '   %d markdown files, every relative link resolves.\n' "$(git ls-files '*.md' | wc -l)"
 
-if [[ $MODE == docs ]]; then
-    step "documentation-only run complete"
-    [[ ${#skipped[@]} -gt 0 ]] && printf '   %d check(s) skipped, listed above.\n' "${#skipped[@]}"
-    # GITHUB DOES NOT TAKE THIS MODE. ci.yml calls this script with no argument,
-    # so a documentation-only push is gated THERE by the full run -- shellcheck,
-    # yamllint, configure, build, test and the race detector included. Said out
-    # loud for the same reason a missing tool is: a green that is narrower than
-    # the one the pipeline will apply must not read as the same green.
-    printf '   NOTE: this mode is narrower than the pipeline. ci.yml runs the\n'
-    printf '         FULL gate on every push, including a documentation-only\n'
-    printf '         one. Run scripts/ci.sh with no argument to reproduce it.\n'
-    exit 0
-fi
-
-# ── Everything else ─────────────────────────────────────────────────────────
+# ── Static analysis ─ also BOTH modes ─────────────────────────────
+#
+# These are here, above the documentation-only exit, because GitHub runs them
+# on a documentation-only push: ci.yml calls this script with NO argument, so
+# there is no docs mode on that side. Anything cheap enough to run on a typo
+# therefore belongs in both modes, or a local green means less than the green
+# the pipeline will apply. They cost about a second between them; the compiler
+# legs are what --docs exists to skip.
 
 step "shell scripts"
 # Two lists, and the difference is deliberate. shellcheck finds DEFECTS, so it
@@ -151,6 +147,26 @@ if command -v yamllint >/dev/null; then
 else
     skip "yamllint is not installed — the workflow YAML was not linted"
 fi
+
+if [[ $MODE == docs ]]; then
+    step "documentation-only run complete"
+    [[ ${#skipped[@]} -gt 0 ]] && printf '   %d check(s) skipped, listed above.\n' "${#skipped[@]}"
+    # GITHUB DOES NOT TAKE THIS MODE -- ci.yml calls this script with no
+    # argument -- so what this mode omits is worth naming rather than leaving to
+    # be inferred. It is now exactly the compiler legs, and a change matching the
+    # documentation glob cannot reach them. Said out loud for the same reason a
+    # missing tool is: a green narrower than the pipeline's must not read as the
+    # same green.
+    printf '   Omitted, and ONLY these: configure, build, test, race detector.\n'
+    printf '   GitHub runs the full gate on every push. Reproduce it with\n'
+    printf '   scripts/ci.sh and no argument.\n'
+    exit 0
+fi
+
+# ── The compiler legs — full mode only ──────────────────────────────────────
+#
+# The only checks a documentation-only change cannot affect, which is why they
+# are the only ones below the exit above.
 
 step "configure ($GENERATOR, $CONFIG)"
 # Name the compiler. This script IS the pipeline -- GitHub calls this same
