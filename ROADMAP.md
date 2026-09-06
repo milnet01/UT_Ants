@@ -1119,6 +1119,29 @@ model, no weapon and no opponent until 0.2.0.
   First acceptance step stands as written: verify that Paths[16] are
   indices into the ReachSpec array, rather than building on the
   consuming session's withdrawn claim.
+  Progress (2026-09-06): spec accepted at
+  docs/specs/UTA-0057-level-tail-and-reachspecs.md. Two review-contract
+  loops, three cold lanes each, nineteen verified findings all fixed, cap
+  reached. Status stays in-progress: the spec is the contract, not the work.
+
+  What the gate changed about the item, beyond the document. UTA-0005 is now
+  a blocker for the acceptance test: no export of literal class
+  NavigationPoint carries a Paths entry on any map measured, so the filter
+  must walk ancestry and a name list cannot be complete while maps define
+  their own subclasses. UTA-0004 owes three amendments when this lands --
+  struct Level gains a member in the document that declares the type,
+  SS 7's zero-refusal list gains Level, and SS 10's INV-1 and INV-2 rows go
+  false. Two further UTA-0004 pointers were false already and were corrected
+  in place (0e28168).
+
+  Known weakness, recorded rather than solved: a ReachSpec's collision
+  radius and height are returned and bound to by UTA-0006, and no invariant
+  reaches them -- transposed, they consume the same bytes and name the same
+  nodes. SS 10 grades them nothing.
+
+  The cap was violent: six of loop 2's nine findings landed on text loop 1
+  had written. Per the gate's own rule this document is not re-gated as it
+  stands; the next reviewer is the build.
   **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
   Kind: implement.
   Source: user-decision-2026-09-05.
