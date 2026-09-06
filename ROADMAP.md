@@ -1197,6 +1197,62 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-06.
   Lanes: ugame, ci, uinput.
 
+- 📋 [UTA-0067] **A developer console that takes typed commands, and a script of them.**
+  A command surface in the running game: type a command, it happens.
+  UT99 has one on the tilde key, so this is an expected shape rather
+  than an invention, and players already know to look for it.
+
+  Proposed by the user as the way to reach a game state without playing
+  to it -- start a match, then issue a command to finish the map. That
+  use is UTA-0066's; this item is the surface those commands arrive on.
+
+  **Filed separately from UTA-0066, and in an earlier release, because
+  it pays before matches exist.** Walking a baked map is already the
+  point of 0.1.0, and the first things wanted there are a console's
+  ordinary fare: put me at that spot, show me the collision, tell me
+  which room this is, take a screenshot. Tying the console to
+  match-state control would hold it until 0.3.0 and leave the earlier
+  work with no way to ask the engine anything.
+
+  **The authority question is the real design constraint, not the
+  parser.** This engine has an authoritative server. A console command
+  that changes the world must be EXECUTED by the server, with the client
+  console only a way to ask -- a console that mutates client state
+  directly produces a client that disagrees with the server, which is
+  the classic bug this shape invites and the hardest kind to
+  diagnose later.
+
+  **So the commands fall into two classes and they are not alike.**
+  Local ones change only what this client shows -- a debug view, a
+  screenshot, a stat readout -- and need nobody's permission. World ones
+  change the game and must be asked of the server, refused by default,
+  and gated behind something a player cannot present. UTA-0066 records
+  why: "end the round now" on a server meant to run unattended is a
+  grief vector, and the gating belongs with the command surface rather
+  than with each command.
+
+  **It has to be usable without a keyboard.** A session driving this
+  reads and writes text, not a screen, so commands want to arrive from a
+  file, from standard input or over a local socket as well as from the
+  tilde key -- and each command should say what it did in a form that
+  can be read back. That is what makes UTA-0065's harness able to use
+  this rather than needing a second control path, and a `screenshot`
+  command is the obvious trigger for the in-engine capture that item
+  requires.
+
+  **What ships is a decision, not an afterthought.** UT99 shipped its
+  console and the game is better for it; the question is which commands
+  survive into a release build and which are gated out, and it is
+  cheaper to answer while the classes above are being drawn than to
+  audit a command list later.
+
+  Blocked-by: something to run the commands against -- the game loading
+  a bundle.
+  **Layman:** The drop-down command box UT99 has on the tilde key. Type a command and something happens -- jump to a spot, show a debug view, take a screenshot, end the match. It is how a test reaches a situation directly instead of playing until it happens.
+  Kind: implement.
+  Source: user-request-2026-09-06.
+  Lanes: uui, ugame, unet.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -1492,6 +1548,28 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   saying its shape must not preclude this.
 
   Blocked-by: a match to drive -- the game rules and their lifecycle.
+  User proposal (2026-09-06): expose this through a developer console --
+  start a match, then type a command to finish the map, so no run
+  through the level is needed to reach the end-of-match state.
+
+  That is the right shape and it is now UTA-0067, filed in 0.1.0
+  because a console pays before matches exist: walking a baked map
+  wants one immediately for putting the camera somewhere, showing a
+  debug view and triggering a screenshot. Holding it here would delay
+  it to 0.3.0 and leave the earlier work with no way to ask the engine
+  anything.
+
+  What that leaves THIS item is the commands rather than the surface --
+  which values the rules read, what each one does to a running match,
+  and which of them a server must refuse. The console carries the
+  gating, since a per-command answer to "may a player do this" is how
+  one of them ends up ungated.
+
+  It does not change this item's central rule. A console command that
+  sets the score to the limit and lets the real end-of-match path run
+  is the one worth having; a command that opens the vote window
+  directly tests the window and would pass a match that ends without
+  ever offering one.
   **Layman:** So a test can jump straight to the interesting moment -- the end of a match, a nearly-empty level, a team one point behind -- instead of playing for twenty minutes to get there. That is how you check something like the map-vote screen actually appears when a match finishes.
   Kind: test.
   Source: user-request-2026-09-06.
