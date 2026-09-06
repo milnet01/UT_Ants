@@ -501,7 +501,7 @@ this file is a second place for a routing decision to live.
 | A reach spec's endpoint is not a navigation node | Edge discarded and counted — § 4.5, INV-2. Not a refusal |
 | An `Event` names a tag no actor carries | Recorded in `dangling` — § 4.5, INV-4. Not a refusal |
 | A level with no reach specs at all | An empty navigation graph, which is what the file states. UTA-0057 already refuses a level whose tail it cannot read, so an empty array here is content |
-| An actor's property list does not parse | Inherited from `readProperties`; that layer is UTA-0003's |
+| An actor's property list does not parse | Propagated; that layer is UTA-0003's. Recorded on implementation, because *inherited* left two readings and the class-export row beside it says *skipped, not propagated*: no non-class export in the reference install trips this, so propagating refuses no real map |
 | A **class** export is met while scanning for `Tag`/`Event` | Skipped, not propagated — § 4.3. `readProperties` refuses one with `InvalidArgument`, so a scan that does not skip it fails on any map defining its own classes |
 | A reach-spec endpoint that is `Null` or `Import` | Discarded and counted — § 4.2, § 4.5. Null endpoints are real content; an unguarded `index()` would silently alias them onto export 0 |
 | The ancestry walk cannot reach `NavigationPoint` because the install lacks a package | `AncestryEnd::PackageMissing`, which UTA-0005 INV-7 makes a successful end. The actor is not a navigation node and the reason is legible |
