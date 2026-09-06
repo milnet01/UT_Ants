@@ -246,6 +246,103 @@ private:
     std::vector<std::uint8_t> defaults_;
 };
 
+/// Writes the serialised bytes of a `Level` export -- the field order of
+/// docs/specs/UTA-0057-level-tail-and-reachspecs.md SS 4.5, which UTA-0004
+/// SS 4.9 supplies the first half of.
+///
+/// The builder emitted no `Level` at all before UTA-0057, so this is written
+/// from scratch rather than extended. Several setters write what a
+/// self-consistent level never would, because that is the only way to reach
+/// the refusals of that spec's SS 6:
+///
+///   - `setActorSlotCountOverride` declares more actor slots than are
+///     written, so the array runs past the export;
+///   - `setReachSpecCountOverride` declares a reach-spec count the remaining
+///     bytes cannot hold, which is INV-4's breaking case;
+///   - `addTrailerByte` appends bytes after the trailer's own fields, so a
+///     test can distinguish the zero run the reader tolerates from the
+///     non-zero byte it refuses.
+class LevelExportWriter {
+public:
+    /// The tagged property list, as built by TaggedPropertyWriter::build.
+    LevelExportWriter& setProperties(std::vector<std::uint8_t> propertyList);
+
+    /// One actor slot. A reference of 0 is a NULL slot, which a stock map's
+    /// array is largely made of and which UTA-0004 INV-9 requires be counted
+    /// and dropped rather than returned.
+    LevelExportWriter& addActor(std::int32_t reference);
+
+    /// Declare an actor-slot count the written slots do not match.
+    LevelExportWriter& setActorSlotCountOverride(std::int32_t count);
+
+    /// The level's URL. Four strings, then the options, then port and valid.
+    /// Consumed by the reader and not returned, so what matters to a test is
+    /// that a non-trivial one is skipped correctly rather than what it says.
+    LevelExportWriter& setURL(std::string_view protocol, std::string_view host,
+                              std::string_view map, std::string_view portal,
+                              const std::vector<std::string>& options,
+                              std::int32_t port, std::int32_t valid);
+
+    /// The level's Model, as an object reference.
+    LevelExportWriter& setModel(std::int32_t reference);
+
+    /// One reach spec, in file order. Position `i` in this call sequence is
+    /// the file's index `i`, which is what INV-1 is about.
+    LevelExportWriter& addReachSpec(std::int32_t distance, std::int32_t start,
+                                    std::int32_t end, std::int32_t collisionRadius,
+                                    std::int32_t collisionHeight, std::int32_t reachFlags,
+                                    std::uint8_t pruned);
+
+    /// Declare a reach-spec count the written records do not match.
+    LevelExportWriter& setReachSpecCountOverride(std::int32_t count);
+
+    /// The float the trailer opens with, which reads as the level's elapsed
+    /// time and is consumed rather than returned.
+    LevelExportWriter& setTrailerFloat(float value);
+
+    /// One of the trailer's compact indices, by slot. On real content the
+    /// only non-null slot seen carries a `TextBuffer` object reference.
+    LevelExportWriter& setTrailerIndex(int slot, std::int32_t value);
+
+    /// A byte appended after the trailer's own fields. The reader tolerates a
+    /// run of ZERO bytes there, which one map in the reference install needs,
+    /// and refuses a non-zero one.
+    LevelExportWriter& addTrailerByte(std::uint8_t value);
+
+    [[nodiscard]] std::vector<std::uint8_t> build() const;
+
+    /// The number of compact indices the trailer carries after its float.
+    static constexpr int TRAILER_INDEX_COUNT = 18;
+
+private:
+    struct Spec {
+        std::int32_t distance = 0;
+        std::int32_t start = 0;
+        std::int32_t end = 0;
+        std::int32_t collisionRadius = 0;
+        std::int32_t collisionHeight = 0;
+        std::int32_t reachFlags = 0;
+        std::uint8_t pruned = 0;
+    };
+
+    std::vector<std::uint8_t> properties_;
+    std::vector<std::int32_t> actors_;
+    std::optional<std::int32_t> actorSlotCountOverride_;
+    std::string protocol_ = "unreal";
+    std::string host_;
+    std::string map_ = "Fixture.unr";
+    std::string portal_;
+    std::vector<std::string> options_;
+    std::int32_t port_ = 7777;
+    std::int32_t valid_ = 1;
+    std::int32_t model_ = 0;
+    std::vector<Spec> specs_;
+    std::optional<std::int32_t> reachSpecCountOverride_;
+    float trailerFloat_ = 0.0F;
+    std::array<std::int32_t, TRAILER_INDEX_COUNT> trailerIndices_{};
+    std::vector<std::uint8_t> trailerBytes_;
+};
+
 /// Compiled-script instructions, for the walker's fixtures. Each returns the
 /// DISK bytes; the memory cost each contributes is named beside it, because
 /// ScriptSize counts the memory form and a test has to state both.

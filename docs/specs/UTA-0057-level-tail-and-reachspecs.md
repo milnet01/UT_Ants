@@ -59,13 +59,14 @@ UTA-0004 § 4.9 owns both claims and this spec does not restate them.
 **Not described anywhere in this project.** What follows the `FURL` — tens of
 kilobytes on a stock map. `ReachSpecs` is expected to be in it.
 
-**Believed, not verified, and the distinction is load-bearing.** That
-`NavigationPoint.Paths[16]` holds indices into a level-wide reach-spec array,
-and that a spec carries a start node, an end node and the collision radius
-and height it was built for. This comes from the Unreal Engine 1 class
-structure as the community documents it. **No one on this project has read a
-reach spec**, and UTA-0004 § 4.5 records what stating an unverified layout
-costs. § 4.6 is how this item settles it rather than assuming it.
+**Believed when this was written; DERIVED on 2026-09-06 and recorded in
+§ 4.5 and § 4.6.** That `NavigationPoint.Paths[16]` holds indices into a
+level-wide reach-spec array, and that a spec carries a start node, an end node
+and the collision radius and height it was built for. It came from the Unreal
+Engine 1 class structure as the community documents it, and no one on this
+project had read a reach spec. Both halves now hold against the reference
+install; the sections that fixed them own the evidence, and the wording above
+is kept so a reader can see what was assumed and what replaced it.
 
 ### 2.2 The circumstantial evidence, measured here
 
@@ -206,32 +207,37 @@ which is INV-9 there and is not restated here:
 
 ```cpp
 struct ReachSpec {
-    // Field set believed from the engine's class structure; ORDER and widths
-    // are what SS 4.5 derives. The implementation names these members.
-    // Its start and end node fields are returned AS STORED -- see below.
+    std::int32_t distance = 0;
+    ObjectReference start;                    // an ACTOR, not a node index
+    ObjectReference end;                      // an ACTOR, not a node index
+    std::int32_t collisionRadius = 0;
+    std::int32_t collisionHeight = 0;
+    std::int32_t reachFlags = 0;
+    std::uint8_t pruned = 0;
 };
 
 struct Level {
     std::vector<ObjectReference> actors;      // non-null only -- UTA-0004 INV-9
     std::uint32_t rawSlotCount = 0;           // including nulls -- UTA-0004 INV-9
     std::vector<ReachSpec> reachSpecs;        // file order, stored indexing
-
-    // CONDITIONAL, and SS 4.5's derivation decides whether it exists: present
-    // only if a ReachSpec names its nodes by raw actor-slot index rather than
-    // by object reference. Absent otherwise. See below.
-    // std::vector<std::uint32_t> actorSlotOfIndex;
 };
 ```
+
+**Folded back 2026-09-06.** The member set above is what § 4.5's derivation
+produced. The conditional `actorSlotOfIndex` is **absent**: a spec names its
+nodes by object reference, so that branch did not fire. `pruned` is the file's
+own byte rather than a bool, because nothing has measured that it is only ever
+0 or 1.
 
 **A spec's node fields are returned as the file stores them, and if they are
 raw actor-slot indices the returned type must be able to express that.**
 `actors` drops the null slots and keeps only their count, so a raw slot index
 cannot be joined against it — the mapping from slot to returned position is
-gone. Which form the file uses is not known here and § 4.5 derives it. If it
-is an object reference, nothing more is needed. **If it is a slot index, the
-reader returns the slot-to-actor mapping alongside, not merely
-`rawSlotCount`.** Settling this silently is how UTA-0006 ends up with node
-identities it cannot join to anything, and UTA-0006 binds to this type.
+gone. **§ 4.5 derived it as an object reference, so nothing more is needed.**
+Had it been a slot index the reader would have returned the slot-to-actor
+mapping alongside `rawSlotCount`; settling that silently is how UTA-0006 ends
+up with node identities it cannot join to anything, and UTA-0006 binds to
+this type.
 
 ### 4.2 What this item inherits and must not restate
 
@@ -285,9 +291,48 @@ states no field order — UTA-0004 § 4.5 is the precedent, and the reason is
 that a stated-but-unverified layout reads as verified to everyone
 downstream.
 
-What the implementation must record when it lands is the layout it derived,
-in this section, with the evidence that fixed it. That is a Step 8 fold-back
-and § 12's log is where it is announced.
+**Derived 2026-09-06, and this is that fold-back.** After the `FURL` comes an
+object reference to the level's `Model`, then a compact-index count, then that
+many records of:
+
+```
+i32    Distance
+index  Start              an object reference to an ACTOR
+index  End                an object reference to an ACTOR
+i32    CollisionRadius
+i32    CollisionHeight
+i32    ReachFlags
+u8     bPruned
+```
+
+`Start` and `End` are object references, not indices into any node array, so
+§ 4.1's conditional `actorSlotOfIndex` member is **not** built — that branch
+of this section's derivation did not fire.
+
+After the array comes a float, then eighteen compact indices, then a run of
+zero bytes to the end of the export.
+
+**Evidence.** `readLevel` consumes all 837 `Level` exports in the reference
+install exactly, with no refusals — which is § 4.3's acceptance and is what
+fixes every field width above. Two further measurements fix the trailer, which
+exact consumption alone would not:
+
+- The eighteen indices are a derivation rather than a fit. The bytes left after
+  the array are 22, 23 or 24 — a spread of two, which is one compact index at
+  one, two or three bytes. Reading a float and eighteen indices lands exactly
+  at the export's end on 836 of the 837.
+- One of those indices is an **object reference to a `TextBuffer`** on every
+  one of the 200 maps where it is not null, which identifies the region as the
+  engine's editor text blocks rather than merely fitting its width. No map
+  carries more than one non-null index there.
+
+**The one map that does not fit is recorded rather than modelled.**
+`MH-SPNaliRescue` carries one more zero byte than every other map. Nothing in
+its bytes says what that byte is, and inventing a field for it would be the
+stated-but-unverified layout this section exists to avoid. So the reader
+requires the trailing run to be **zero** and consumes it, and refuses a
+non-zero byte there as a layout it does not describe. § 7 tier 1 locks both
+halves of that rule.
 
 ### 4.6 Settling the indexing claim, rather than assuming it
 
@@ -357,19 +402,65 @@ their assertions, this item still ships the layout — the derivation is worth
 having either way — and UTA-0006's blocked-by is what changes. Recording that
 in the fold-back is what stops the item quietly widening.
 
+### 4.6a The answer, measured 2026-09-06
+
+**Yes, and neither branch above is the one that fired.** Over the reference
+install, resolving every non-empty `Paths` entry on every export descending
+from `NavigationPoint`:
+
+- Question 1, in range: **99.96%** of entries.
+- Question 2, the spec at that index has the listing node as its start:
+  **99.54%**.
+- Every entry answers both on **816 of the 831** maps that carry one at all.
+
+So the claim is true and the layout is right. What the two branches above did
+not anticipate is a **third disposition**, and the measurement is what forces
+it: the residue is not spread thinly across the library, it is concentrated in
+fifteen maps, and it decomposes.
+
+Most of the out-of-range entries are on **eight maps that carry `Paths` values
+and no reach-spec array at all** — one intro map and the six end-of-level
+maps, whose networks were never built or were stripped. Every value on those
+is trivially out of range. The rest is one map. The failures of question 2 sit
+in seven maps and are **not** explained by pruning: they fall on unpruned
+specs four times as often as on pruned ones, which rules out the obvious
+guess.
+
+**That is content disagreeing with itself, which § 6 already refuses to treat
+as a refusal.** A path network built and then edited leaves stale `Paths`
+values on the nodes; the reader has no way to tell that from the bytes, and
+rejecting those levels would reject maps the rest of the library agrees are
+sound.
+
+**So INV-2 and INV-3 are amended to rates rather than withdrawn**, and the
+reason is that a rate still catches what they exist for. A reader that
+partitions the array wrongly, or that transposes a spec's start and end, does
+not lose a few tenths of a percent — it loses nearly all of them. The gap
+between what is measured and what a defect produces is what makes a floor
+stable, and a rate does not go stale as the library grows, which a floor on a
+count would. § 7's texture backstop is the same shape and the precedent for it.
+
+**Two answers settled in passing, both recorded so they are not re-asked.**
+No `Paths` value anywhere in the install is negative, and only a small
+fraction of navigation points return all sixteen slots — so there is **no
+sentinel**, and this section's rule that an unused slot is an absent property
+stands. The class filter resolves through ancestry as § 4.6 requires; an exact
+name match would have surfaced nothing at all.
+
 ### 4.7 Fixtures
 
-**`tests/support/UnrealPackageBuilder` emits no `Level` export at all**
-today — measured 2026-09-06, `grep -n Level` over its header and source
-returns nothing. UTA-0004 § 4.10 describes what a `Level` fixture would not
-cover, not one that exists. So this item writes the `Level` fixture from
-scratch rather than extending one: an actor array interleaving null and
+**`tests/support/UnrealPackageBuilder` emitted no `Level` export at all** when
+this was written; UTA-0004 § 4.10 describes what a `Level` fixture would not
+cover, not one that exists. So this item wrote the `Level` fixture from
+scratch rather than extending one — `LevelExportWriter`, landed 2026-09-06: an actor array interleaving null and
 non-null slots (UTA-0004's INV-9, whose case is owed here per § 4.2), an
 `FURL`, and a tail carrying a small reach-spec array with known contents at
 known sparse indices, so the unit tier can exercise the reader without the
-reference install. The
-builder is the only way to construct the refusal cases in § 6: real content
-does not supply a truncated array on demand.
+reference install. The builder is the only way to construct the refusal cases
+in § 6: real content does not supply a truncated array on demand. It also
+supplies the two trailing-byte cases § 4.5 needs — the zero run that is
+tolerated and the non-zero byte that is not — which no map in the install can
+be made to produce on demand either.
 
 ## 5. Invariants
 
@@ -385,32 +476,35 @@ does not supply a truncated array on demand.
   points at the wrong spec, and nothing in § 4.3 notices because the byte
   count is unchanged.
 
-**INV-2 and INV-3 hold only if § 4.6 answers yes.** They state the indexing
-claim as a contract, and § 4.6 is what settles whether that claim is true. If
-it answers no, both are withdrawn in the fold-back rather than left failing.
+**INV-2 and INV-3 were conditional on § 4.6, which answered yes on
+2026-09-06.** They are stated below as rates rather than as universal claims,
+and § 4.6a owns why: the claim holds, and the maps that break it break it as
+whole maps whose path network disagrees with their own navigation points.
 
-- **INV-2** — Every non-empty `Paths` entry on an export descending from
-  `NavigationPoint`, in the reference install, resolves to a position within
-  the returned array.
-  *Test:* `tests/real/RealInstallTest.cpp` walks each map's navigation points
-  and asserts every non-empty `Paths` value is in range for that level's
+- **INV-2** — Non-empty `Paths` entries on exports descending from
+  `NavigationPoint` resolve to a position within the returned array, for at
+  least 99% of the entries in the reference install.
+  *Test:* `tests/real/RealInstallTest.cpp` walks each map's navigation points,
+  counts how many non-empty `Paths` values are in range for that level's
   returned array, and fails outright if the number of entries it resolved is
   zero (§ 7 tier 3).
   *Breaks when:* the reader consumes the export exactly and still partitions
   the array wrongly — reading two records as one, say — which halves its
-  length and puts the largest indices out of range. A wrong element size that
-  also changes the byte total is caught earlier and more cheaply by UTA-0004's
-  INV-1; this invariant exists for the case that one cannot see, which § 2.2
-  predicts is reachable since the maximum index measured is more than twice
-  the count of distinct ones.
+  length and puts the largest indices out of range. That takes the rate to
+  near zero rather than near the floor, which is what makes the floor a check
+  and not a tolerance. A wrong element size that also changes the byte total
+  is caught earlier and more cheaply by UTA-0004's INV-1; this invariant
+  exists for the case that one cannot see.
 
-- **INV-3** — A spec named by node A's `Paths` has A as its start node.
+- **INV-3** — A spec named by node A's `Paths` has A as its start node, for at
+  least 99% of the entries in the reference install.
   *Test:* `tests/real/RealInstallTest.cpp` resolves each non-empty `Paths`
-  entry and asserts the spec's start resolves to the actor that listed it.
+  entry and counts those whose spec's start is the actor that listed it.
   *Breaks when:* the start and end fields are transposed, or a neighbouring
   integer field is read as one of them — a reader that consumes its export
-  exactly and is still wrong, which is the case § 4.3 explicitly cannot
-  catch.
+  exactly and is still wrong, which is the case § 4.3 explicitly cannot catch.
+  A transposition matches by accident on nothing, so this too fails far below
+  the floor rather than just under it.
 
 - **INV-4** — `readLevel` refuses a level whose tail it cannot interpret,
   and never returns a `Level` whose `reachSpecs` is empty because the reader
@@ -447,7 +541,9 @@ it answers no, both are withdrawn in the fold-back rather than left failing.
 | Array length implies a walk past the export's end | `MalformedData` — the walk's end is UTA-0003's validated range, § 4.4 |
 | Export's property list unparseable | Inherited from UTA-0003's `readPropertyList` |
 | Package version outside 61–69 | Refused by `Package::open` before this reader is reachable, § 4.2 |
-| A `Paths` value out of range in real content | INV-2 fails — this is a finding about the layout, not content to tolerate |
+| A trailing byte after the trailer that is not zero | `MalformedData` — § 4.5. The zero run is tolerated because one map needs it; a byte carrying a value is a layout this reader does not describe |
+| A `Level` export with no serialised data | `MalformedData`, which is where this reader departs from `readPolys`. INV-4 returns an empty array only when the file STATES one, and an export with no bytes states nothing. Every map in the reference install carries a `Level` export with data, so this refuses no real content |
+| A `Paths` value out of range in real content | **Not a refusal.** Measured 2026-09-06 (§ 4.6a): the entries that do not resolve sit on maps carrying `Paths` values with no reach-spec array, or with a network built and then edited. INV-2's rate is what catches a layout defect, which fails far below its floor |
 | The `Paths`/`upstreamPaths` set mismatch of § 2.2 | **Not a refusal.** It is unexplained, it occurs on maps that are otherwise sound, and a reader that rejects those levels rejects most of the library |
 | A navigation point with no `Paths` entry at all | **Not a refusal, and not a defect.** Five classes in the corpus carry `nextNavigationPoint` and no `Paths` — unpathed nodes in maps never rebuilt. A reader or test asserting that every navigation point is pathed is wrong about real content |
 
@@ -496,11 +592,14 @@ Both quantify over the non-empty `Paths` entries found in the install, and a
 reader that surfaced none — a property-reading regression, or the exact-name
 class filter § 4.6 measured as resolving zero — satisfies both by checking
 nothing while the tier stays green. **So the tier records how many entries it
-resolved and fails on zero.** That is the assertion, and it is the only one:
-§ 2.2's 8,511 across three maps is a human sanity check on the recorded
-figure, not a threshold the test enforces. A magnitude floor would have to be
-re-tuned every time the install grows, which is the thing § 2.2 says about
-every figure here.
+resolved and fails on zero.**
+
+That was written as the tier's only assertion, and § 4.6a's measurement added
+one more: the two rates INV-2 and INV-3 now carry. The reasoning that ruled a
+threshold out is unchanged and is what shapes the ones that were added. A
+magnitude floor would have to be re-tuned every time the install grows, so
+none is asserted; a **rate** is scale-free and does not. § 2.2's figures stay
+a human sanity check on what the tier reports, not a threshold it enforces.
 
 **This tier is the item's only oracle for real content, and it is off by
 default** — an ordinary gate run proves agreement with our own fixtures.
@@ -548,14 +647,14 @@ rejecting them would cost.
 | Invariant | What actually checks it |
 |---|---|
 | INV-1 | `tests/unit/PackageContentTest.cpp` against a fixture with known sparse indices. A fixture asserts what the builder was told, so this proves the reader does not reorder; it says nothing about real content |
-| INV-2 | `tests/real/RealInstallTest.cpp` only, off by default. On an ordinary gate run: **nothing** |
-| INV-3 | `tests/real/RealInstallTest.cpp` only, off by default. On an ordinary gate run: **nothing** |
+| INV-2 | `tests/real/RealInstallTest.cpp` only, off by default, as a rate with a population floor (§ 4.6a). On an ordinary gate run: **nothing** |
+| INV-3 | `tests/real/RealInstallTest.cpp` only, off by default, as a rate (§ 4.6a). On an ordinary gate run: **nothing** |
 | INV-4 | `tests/unit/PackageContentTest.cpp`, both directions |
 | UTA-0004 INV-9 (inherited, its test owed here) | `tests/unit/PackageContentTest.cpp` — the sparse actor-array case, written for the first time by this item |
 | UTA-0004 INV-1 (exact consumption) | `tests/unit/PackageContentTest.cpp` at fixture level on every ordinary run, and `tests/real/RealInstallTest.cpp` over the install with zero refusals permitted (§ 7 tier 3) |
 | INV-5 | A declared reading check. No mechanical catcher — **nothing** stops a member being added later |
 | A `ReachSpec`'s non-node fields — the collision radius and height § 1 promises | **Nothing.** INV-3 checks the start node, which pins the two node fields; no invariant reaches the rest. Transposed radius and height, or either read from a neighbouring integer, consume the same bytes and name the same nodes. UTA-0006 binds to them |
-| The derived layout of the rest of the tail | **Nothing beyond exact consumption.** § 4.3 says why that is weaker than it looks, and this item returns none of that data, so a wrong reading of it is invisible until something consumes it |
+| The derived layout of the rest of the tail | **Exact consumption, plus one identification.** § 4.5's `TextBuffer` check fixes what one trailer field IS rather than only how wide it is; the other seventeen indices and the float are checked by width alone. This item returns none of that data, so a wrong reading of the rest is invisible until something consumes it |
 
 **Ungraded on an ordinary gate run: INV-2, INV-3, INV-5, the `ReachSpec`
 collision fields, and the rest of the derived tail.** Graded: INV-1, INV-4

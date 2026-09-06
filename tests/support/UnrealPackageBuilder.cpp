@@ -624,6 +624,123 @@ std::vector<std::uint8_t> ClassExportWriter::build(std::uint16_t packageVersion)
     return out;
 }
 
+LevelExportWriter& LevelExportWriter::setProperties(std::vector<std::uint8_t> propertyList) {
+    properties_ = std::move(propertyList);
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::addActor(std::int32_t reference) {
+    actors_.push_back(reference);
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::setActorSlotCountOverride(std::int32_t count) {
+    actorSlotCountOverride_ = count;
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::setURL(std::string_view protocol, std::string_view host,
+                                             std::string_view map, std::string_view portal,
+                                             const std::vector<std::string>& options,
+                                             std::int32_t port, std::int32_t valid) {
+    protocol_ = std::string{protocol};
+    host_ = std::string{host};
+    map_ = std::string{map};
+    portal_ = std::string{portal};
+    options_ = options;
+    port_ = port;
+    valid_ = valid;
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::setModel(std::int32_t reference) {
+    model_ = reference;
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::addReachSpec(std::int32_t distance, std::int32_t start,
+                                                   std::int32_t end,
+                                                   std::int32_t collisionRadius,
+                                                   std::int32_t collisionHeight,
+                                                   std::int32_t reachFlags,
+                                                   std::uint8_t pruned) {
+    specs_.push_back(Spec{distance, start, end, collisionRadius, collisionHeight, reachFlags,
+                          pruned});
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::setReachSpecCountOverride(std::int32_t count) {
+    reachSpecCountOverride_ = count;
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::setTrailerFloat(float value) {
+    trailerFloat_ = value;
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::setTrailerIndex(int slot, std::int32_t value) {
+    if (slot >= 0 && slot < TRAILER_INDEX_COUNT) {
+        trailerIndices_[static_cast<std::size_t>(slot)] = value;
+    }
+    return *this;
+}
+
+LevelExportWriter& LevelExportWriter::addTrailerByte(std::uint8_t value) {
+    trailerBytes_.push_back(value);
+    return *this;
+}
+
+std::vector<std::uint8_t> LevelExportWriter::build() const {
+    // A length-prefixed string: the length INCLUDES the terminator, which is
+    // how the format writes every string this export carries.
+    const auto appendString = [](std::vector<std::uint8_t>& out, const std::string& value) {
+        appendIndex(out, static_cast<std::int32_t>(value.size() + 1));
+        for (const char character : value) {
+            out.push_back(static_cast<std::uint8_t>(character));
+        }
+        out.push_back(0);
+    };
+
+    std::vector<std::uint8_t> out = properties_;
+
+    appendI32(out, actorSlotCountOverride_.value_or(static_cast<std::int32_t>(actors_.size())));
+    appendI32(out, static_cast<std::int32_t>(actors_.size())); // Max, unused by the reader
+    for (const std::int32_t actor : actors_) {
+        appendIndex(out, actor);
+    }
+
+    appendString(out, protocol_);
+    appendString(out, host_);
+    appendString(out, map_);
+    appendString(out, portal_);
+    appendIndex(out, static_cast<std::int32_t>(options_.size()));
+    for (const std::string& option : options_) {
+        appendString(out, option);
+    }
+    appendI32(out, port_);
+    appendI32(out, valid_);
+
+    appendIndex(out, model_);
+    appendIndex(out, reachSpecCountOverride_.value_or(static_cast<std::int32_t>(specs_.size())));
+    for (const Spec& spec : specs_) {
+        appendI32(out, spec.distance);
+        appendIndex(out, spec.start);
+        appendIndex(out, spec.end);
+        appendI32(out, spec.collisionRadius);
+        appendI32(out, spec.collisionHeight);
+        appendI32(out, spec.reachFlags);
+        out.push_back(spec.pruned);
+    }
+
+    appendFloat(out, trailerFloat_);
+    for (const std::int32_t value : trailerIndices_) {
+        appendIndex(out, value);
+    }
+    appendAll(out, trailerBytes_);
+    return out;
+}
+
 namespace script {
 
 std::vector<std::uint8_t> nothing() {

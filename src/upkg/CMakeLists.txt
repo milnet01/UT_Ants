@@ -4,6 +4,7 @@ add_library(uta_upkg STATIC
     ByteReader.cpp
     Class.cpp
     Geometry.cpp
+    Level.cpp
     Package.cpp
     Properties.cpp
     Script.cpp

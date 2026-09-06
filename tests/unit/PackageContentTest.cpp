@@ -19,6 +19,7 @@
 
 #include "support/UnrealPackageBuilder.h"
 #include "upkg/Geometry.h"
+#include "upkg/Level.h"
 #include "upkg/Package.h"
 #include "upkg/Sound.h"
 #include "upkg/Texture.h"
@@ -529,4 +530,172 @@ TEST_CASE("mip pixels and sound payload are views into the caller's bytes",
         CHECK(sound->data.data() >= base);
         CHECK(sound->data.data() < base + bytes.size());
     }
+}
+
+// --- Level ------------------------------------------------------------------
+//
+// docs/specs/UTA-0057-level-tail-and-reachspecs.md SS 7 tier 1. These cases
+// cover that spec's INV-1 and INV-4, UTA-0004's INV-9 (whose fixture case is
+// owed here because this is the first item to implement the actor array), and
+// UTA-0004's INV-1 at fixture level. None can be exercised by real content:
+// the install supplies no truncated array and no known-wrong length.
+
+namespace {
+
+using uta::test::LevelExportWriter;
+
+/// A level with a small actor array interleaving null and non-null slots, and
+/// a reach-spec array whose entries are distinguishable by their distance.
+LevelExportWriter levelWithSpecs(int specCount) {
+    LevelExportWriter writer;
+    writer.setProperties(emptyProperties());
+    // Interleaved, so a reader that compacted the array or counted wrongly
+    // disagrees on both members -- UTA-0004 INV-9.
+    writer.addActor(1).addActor(0).addActor(2).addActor(0).addActor(0).addActor(3);
+    writer.setURL("unreal", "host", "CTF-Fixture.unr", "portal", {"Game=Fixture", "Mutator=None"},
+                  7777, 1);
+    writer.setModel(9);
+    for (int index = 0; index < specCount; ++index) {
+        // distance is the label: position i in the file carries 1000 + i.
+        writer.addReachSpec(1000 + index, 20 + index, 40 + index, 50 + index, 70 + index,
+                            index, static_cast<std::uint8_t>(index % 2));
+    }
+    // The one trailer slot real content ever fills carries a TextBuffer
+    // reference. Set here so a reader that stops before it, or reads it as a
+    // fixed-width field, ends in the wrong place.
+    writer.setTrailerFloat(24.17F).setTrailerIndex(7, 3000);
+    return writer;
+}
+
+} // namespace
+
+TEST_CASE("a Level reads back its actors, its slot count and its reach specs", "[upkg]") {
+    const std::vector<std::uint8_t> bytes =
+        packageWithObject(68, "Level", levelWithSpecs(10).build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE(level.has_value());
+
+    // UTA-0004 INV-9: the null slots are counted, not returned.
+    CHECK(level->rawSlotCount == 6u);
+    REQUIRE(level->actors.size() == 3);
+    CHECK(level->actors[0].raw() == 1);
+    CHECK(level->actors[1].raw() == 2);
+    CHECK(level->actors[2].raw() == 3);
+
+    // INV-1: file order and file indexing, nothing dropped or renumbered. The
+    // positions checked are spread across the array, so a reader that lost or
+    // reordered one entry disagrees at the ones after it.
+    REQUIRE(level->reachSpecs.size() == 10);
+    CHECK(level->reachSpecs[0].distance == 1000);
+    CHECK(level->reachSpecs[4].distance == 1004);
+    CHECK(level->reachSpecs[9].distance == 1009);
+
+    // The two fields the graph rests on, and the two nothing else checks --
+    // SS 4.3 says the collision pair is graded by no invariant, so a fixture
+    // is the only place their order is pinned at all.
+    const uta::upkg::ReachSpec& fifth = level->reachSpecs[4];
+    CHECK(fifth.start.raw() == 24);
+    CHECK(fifth.end.raw() == 44);
+    CHECK(fifth.collisionRadius == 54);
+    CHECK(fifth.collisionHeight == 74);
+    CHECK(fifth.reachFlags == 4);
+    CHECK(fifth.pruned == 0u);
+    CHECK(level->reachSpecs[5].pruned == 1u);
+}
+
+TEST_CASE("a Level stating a zero-length reach-spec array succeeds with an empty one",
+          "[upkg]") {
+    // INV-4: an empty array is returned when the FILE states one, and this is
+    // the case that distinguishes that from a reader giving up.
+    const std::vector<std::uint8_t> bytes =
+        packageWithObject(68, "Level", levelWithSpecs(0).build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE(level.has_value());
+    CHECK(level->reachSpecs.empty());
+    CHECK(level->rawSlotCount == 6u);
+}
+
+TEST_CASE("a Level declaring more reach specs than the export can hold is refused",
+          "[upkg]") {
+    // INV-4's breaking case: the count is checked against the bytes present
+    // before anything is reserved from it. A reader that instead treated the
+    // short array as "no paths" and seeked to the end would consume its export
+    // exactly and report an unpathed level, which UTA-0004 INV-1 cannot see.
+    LevelExportWriter writer = levelWithSpecs(0);
+    writer.setReachSpecCountOverride(0x00FFFFFF);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Level", writer.build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE_FALSE(level.has_value());
+    CHECK(level.error().code() == ErrorCode::MalformedData);
+    CHECK(level.error().message().find("more than the") != std::string_view::npos);
+}
+
+TEST_CASE("a Level declaring more actor slots than the export can hold is refused",
+          "[upkg]") {
+    LevelExportWriter writer = levelWithSpecs(2);
+    writer.setActorSlotCountOverride(0x00FFFFFF);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Level", writer.build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE_FALSE(level.has_value());
+    CHECK(level.error().code() == ErrorCode::MalformedData);
+    CHECK(level.error().message().find("more than the") != std::string_view::npos);
+}
+
+TEST_CASE("a Level whose trailer ends in extra ZERO bytes is read", "[upkg]") {
+    // The shape one map in the reference install carries: one more zero byte
+    // than every other map. It is not explained, so it is not modelled as a
+    // field -- what the reader requires is that the run be zero.
+    LevelExportWriter writer = levelWithSpecs(3);
+    writer.addTrailerByte(0).addTrailerByte(0);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Level", writer.build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE(level.has_value());
+    CHECK(level->reachSpecs.size() == 3);
+}
+
+TEST_CASE("a Level whose trailer ends in a NON-zero byte is refused", "[upkg]") {
+    // UTA-0004 INV-1 at fixture level. The zero-run tolerance above is exactly
+    // as wide as the content needs and no wider: a byte carrying a value is a
+    // layout this reader does not describe, and is refused rather than
+    // skipped to reach the export's end.
+    LevelExportWriter writer = levelWithSpecs(3);
+    writer.addTrailerByte(0).addTrailerByte(0x7Fu);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Level", writer.build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE_FALSE(level.has_value());
+    CHECK(level.error().code() == ErrorCode::MalformedData);
+    CHECK(level.error().message().find("not zero") != std::string_view::npos);
+}
+
+TEST_CASE("a Level export with no serialised data is refused", "[upkg]") {
+    // INV-4 again, in the shape a sizeless export takes: an export with no
+    // bytes states no array, so returning an empty one would be the reader
+    // giving up. This is where readLevel departs from readPolys, which returns
+    // an empty result for a sizeless export.
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Level", {});
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE_FALSE(level.has_value());
+    CHECK(level.error().code() == ErrorCode::MalformedData);
+    CHECK(level.error().message().find("no serialised data") != std::string_view::npos);
 }

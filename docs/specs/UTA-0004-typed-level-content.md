@@ -214,8 +214,14 @@ struct Sound {
 struct Level {
     std::vector<ObjectReference> actors;   // non-null only, in file order
     std::uint32_t rawSlotCount = 0;        // including the nulls (INV-9)
+    std::vector<ReachSpec> reachSpecs;     // UTA-0057, in file order
 };
 ```
+
+**`ReachSpec` is UTA-0057's and is declared there**, not here — that item
+derived the level's tail and owns the record's field order. `Level` carries
+the array because four later items bind to this type and would otherwise read
+a superseded declaration.
 
 **An object reference is returned unresolved**, as `ObjectReference` rather
 than as a name. `Package::objectName` returns a `std::string_view` whose
@@ -646,8 +652,9 @@ Three tiers, and only the third reads bytes this project did not write.
    is `readModel`'s only check, a `readModel` with a wrong field order
    would have refused every `Model` export and still gone green. So:
 
-   - **Zero refusals are permitted** for `Polys`, `Model` and `Palette`. A
-     refusal there fails the tier.
+   - **Zero refusals are permitted** for `Polys`, `Model`, `Palette` and —
+     from 2026-09-06, per UTA-0057 § 7 — `Level`. A refusal there fails the
+     tier.
    - **Two shapes are permitted to be recorded rather than failed**, each
      proven per export. The property list itself does not parse, so the
      typed reader never reached its own layout — that layer is UTA-0003's.
@@ -725,10 +732,10 @@ before then.
 
 | Rule | What catches a breach |
 |------|----------------------|
-| INV-1 | `tests/unit/PackageContentTest.cpp` for fixtures, and `tests/real/RealInstallTest.cpp` over the reference install — the only check here that reads bytes this project did not write. Off by default, so an ordinary run proves agreement with our own fixtures only. **For `readModel` and for `readLevel` past the actor array, weaker still:** neither has a fixture case until its layout is derived (§ 4.5, § 4.9), so the ordinary gate does not exercise them and the real-asset tier is their sole check |
-| INV-2 | **Partial:** `tests/unit/PackageMalformedContentTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists. Same grade, and the same reason, as UTA-0003's INV-1. **And it does not reach `readModel` or `readLevel`'s remainder at all**, whose layouts are withheld, so there is nothing to malform |
+| INV-1 | `tests/unit/PackageContentTest.cpp` for fixtures, and `tests/real/RealInstallTest.cpp` over the reference install — the only check here that reads bytes this project did not write. Off by default, so an ordinary run proves agreement with our own fixtures only. **For `readModel`, weaker still:** it has no fixture case until its layout is derived (§ 4.5), so the ordinary gate does not exercise it and the real-asset tier is its sole check. `readLevel` was in that position until UTA-0057 derived its tail on 2026-09-06 and built the fixture; it is now exercised on every ordinary run |
+| INV-2 | **Partial:** `tests/unit/PackageMalformedContentTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists. Same grade, and the same reason, as UTA-0003's INV-1. **And it does not reach `readModel` at all**, whose layout is withheld, so there is nothing to malform. `readLevel`'s remainder left that category when UTA-0057 derived it |
 | INV-3 | The grep in its *Test:* clause. The gate itself is UTA-0003's and `tests/unit/PackageReaderTest.cpp` covers it; this row is about a duplicated bound and nothing else. **Nothing runs that grep automatically** — it is not wired into `scripts/ci.sh`, so it is a check somebody performs rather than one the gate enforces |
-| INV-4 | **Partial:** the test asserts the refusal *names the count check*, so deleting that check is detectable. That bounds which check refuses, not the ordering: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has — the grade UTA-0003's INV-2 carries, for the same reason. Carries INV-2's `readModel` / `readLevel` exception too |
+| INV-4 | **Partial:** the test asserts the refusal *names the count check*, so deleting that check is detectable. That bounds which check refuses, not the ordering: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has — the grade UTA-0003's INV-2 carries, for the same reason. Carries INV-2's `readModel` exception too |
 | INV-5 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | INV-6 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | INV-7 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
