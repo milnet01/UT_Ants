@@ -240,7 +240,11 @@ implementation that derives their order — the member *set* is knowable
 from the file, their serialisation order is what § 4.5 says is not. **The
 implementation names those members, and UTA-0007 binds to them**: `umap`
 partitions on the level's zones, which live in the BSP tables and not in
-`Polys`. UTA-0006 and UTA-0009 consume only `Polys` and the actor list.
+`Polys`. UTA-0009 consumes only `Polys`. **UTA-0006 consumes the actor list
+AND the reach-spec array in § 4.9's tail**, which UTA-0057 derives: a node's
+`Paths` entries index into it, so the actor list alone gives `unav` nodes and
+no edges. Corrected 2026-09-06; this sentence had said both items needed only
+`Polys` and the actor list.
 
 ### 4.2 The version gate is inherited, not rebuilt
 
@@ -330,8 +334,9 @@ install exactly. Deriving it is the largest single risk in this item.
 
 **It could not be derived, and the decision came back.** The other five
 readers were independent of it and shipped on their own; on 2026-09-05
-the user split `Model` out as **UTA-0057**, which carries this section as
-its brief. § 14 records what shipped here.
+the user split `Model` out, and on 2026-09-06 that item was itself split:
+the `Model` half is **UTA-0069**, which carries this section as its brief,
+and **UTA-0057** keeps the `Level` tail of § 4.9. § 14 records what shipped here.
 
 ### 4.6 `Texture`, and the family that shares its layout
 
