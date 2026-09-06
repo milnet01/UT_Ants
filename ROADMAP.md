@@ -1592,6 +1592,60 @@ to.
   Source: user-request-2026-09-06.
   Lanes: ubake, umat, unav.
 
+- 📋 [UTA-0064] **An on-demand route indicator to the next thing that advances the map.**
+  Press a key, and the game shows the route to whatever advances the
+  level from where you are standing: the switch that opens the door
+  ahead, the lift, the portal, the last enemy on a level that gates on
+  killing them all, or the exit.
+
+  **The engine already computes this answer for the bots, and it must
+  not be computed twice.** UTA-0028's planner holds a goal, finds what
+  blocks it and works backwards to the trigger. UTA-0060 turns a
+  destination into a route. Between them that IS "what do I do next and
+  how do I get there" -- so this item is that answer rendered for a
+  human, and a second planner written for the player is the shape this
+  project keeps refusing. What is genuinely new here is the presentation
+  and the moment it appears, not the reasoning behind it.
+
+  **The stance is already the project's.** design.md's movement-assist
+  bullet holds that an assist is either visual or physical, that the two
+  are built differently, and that the good answer is mostly SHOWING
+  rather than CHANGING. This is a pure showing assist: it moves nothing,
+  opens nothing and changes no simulation, which is what keeps it on the
+  right side of that line. It sits with the level map, which already
+  draws the whole layout on the same reasoning -- the level is somebody
+  else's 1999 map, not a secret being kept.
+
+  **On demand, and deliberately not a permanent HUD line.** The request
+  was a button, and the constraint is worth keeping rather than
+  softening later: a route always on screen removes the exploration the
+  level map is built to make legible, and turns a Monster Hunt level
+  into a corridor. A moment's help when someone is lost is a different
+  thing from a rail.
+
+  **It has to be honest when it has no answer.** A planner that cannot
+  find a route -- a broken map, a monster the level has made
+  unreachable, a trigger nothing wired up -- must say so rather than
+  point at a wall, which is the same requirement UTA-0061 carries for
+  the same reason: a confident wrong direction costs more than an
+  admitted gap.
+
+  **In co-op it follows the level map's visibility rule**, rather than
+  inventing a second answer to the same question about what a team may
+  share.
+
+  Open, and for a prototype in a real level: whether the route is drawn
+  on the floor as Dead Space does it, or as a marker on the objective, a
+  compass, or a path on the level map. The floor line is the one that
+  was asked for and is the one to try first; the others are cheap to
+  compare once the routing exists.
+
+  Blocked-by: the bot planner and the routing it uses, and uui to draw it.
+  **Layman:** Dead Space has a button that draws a line on the floor to where you need to go next. Ours should do the same -- point you at the switch, the portal, the door or the last monster standing between you and the way on -- when you ask for it, and not before.
+  Kind: implement.
+  Source: user-request-2026-09-06.
+  Lanes: uui, uai, unav.
+
 ## 0.5.0 — Map editor
 
 Edit a baked bundle, build a new level, and author enemies as data. A map built
