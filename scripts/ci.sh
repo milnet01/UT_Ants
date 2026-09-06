@@ -96,6 +96,14 @@ printf '   %d markdown files, every relative link resolves.\n' "$(git ls-files '
 if [[ $MODE == docs ]]; then
     step "documentation-only run complete"
     [[ ${#skipped[@]} -gt 0 ]] && printf '   %d check(s) skipped, listed above.\n' "${#skipped[@]}"
+    # GITHUB DOES NOT TAKE THIS MODE. ci.yml calls this script with no argument,
+    # so a documentation-only push is gated THERE by the full run -- shellcheck,
+    # yamllint, configure, build, test and the race detector included. Said out
+    # loud for the same reason a missing tool is: a green that is narrower than
+    # the one the pipeline will apply must not read as the same green.
+    printf '   NOTE: this mode is narrower than the pipeline. ci.yml runs the\n'
+    printf '         FULL gate on every push, including a documentation-only\n'
+    printf '         one. Run scripts/ci.sh with no argument to reproduce it.\n'
     exit 0
 fi
 
