@@ -1306,6 +1306,43 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
 
+- 📋 [UTA-0062] **Bots get out of the way when a player walks into them.**
+  A bot that a player is pushing against should recognise it is blocking
+  and move, rather than holding its ground while the player slides off
+  its collision cylinder.
+
+  Nothing else owns this. UTA-0025 is combat -- aim, weapon choice, and
+  movement while fighting something. This is the opposite situation:
+  nobody is shooting, the bot is doing something reasonable, and it
+  happens to be standing where a teammate needs to be. It is a small
+  behaviour with a loud failure mode, which is why it is filed rather
+  than assumed.
+
+  Where it bites hardest is doorways, lift platforms and the top of
+  ladders -- anywhere the level is one body wide. A Monster Hunt team
+  moving through a corridor is the case to test against, not an open
+  arena, because in the open the player simply walks around.
+
+  The first decision is which subsystem answers, and the two are not
+  equivalent. It can be uai: the bot notices sustained contact from
+  behind or from a teammate and steps aside deliberately, which reads as
+  courtesy and can be made to look natural. Or it can be uworld: player
+  and bot displace each other physically, which is simpler, needs no
+  intelligence at all, and cannot distinguish a player asking to pass
+  from a monster shoving. UT99 answers neither way, which is why its
+  bots feel like furniture. Lanes are both until that is settled.
+
+  What has to be true either way: a bot that yields must not yield off a
+  ledge, into lava, or out of a fight it was holding a position in --
+  and it has to stop yielding once the player has passed, or two bots in
+  a corridor push each other along it indefinitely.
+
+  Blocked-by: bots existing at all.
+  **Layman:** In UT99 a bot standing in a doorway is a wall. You push, it does not move, and you go the long way round. Ours should notice it is in your way and step aside.
+  Kind: implement.
+  Source: user-request-2026-09-06.
+  Lanes: uai, uworld.
+
 ## 0.4.0 — Monster Hunt
 
 A real rotation: puzzle-solving bots, map voting with friendly names, mutators
