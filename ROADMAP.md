@@ -1170,6 +1170,38 @@ model, no weapon and no opponent until 0.2.0.
   The indexing claim SS 4.6 exists to settle is now testable rather than
   believed -- the array reads, so Paths values can be resolved against it.
   Not yet run.
+  Progress (2026-09-06), the trailer measurements, so the next session does
+  not re-derive them.
+
+  Bytes remaining after the ReachSpec array, over all 837 maps: 22 on 640
+  maps, 23 on 190, 24 on 7. Nothing else. So the trailer is 21 fixed bytes
+  plus one compact index of one to three bytes.
+
+  Hex, taken after the array ends:
+
+    MH-Village1 (23)  a1 5c c1 41 00 00 00 00 00 00 00 78 2e 00 00 00
+                      00 00 00 00 00 00 00
+    DM-Deck16 (23)    0e e1 3e 43 00 00 00 00 00 00 00 61 11 00 00 00
+                      00 00 00 00 00 00 00
+    MH-AncientCavesTorus (22)  all 22 bytes zero
+    MH-Dust2-BP (22)           all 22 bytes zero
+
+  Reading: bytes 0-3 are a float -- 24.1702 on Village1, 190.879 on
+  Deck16, 0.0 on the two all-zero maps, which reads as a level time in
+  seconds. Bytes 4-10 are zero on every map seen. The variable compact
+  index sits at byte 11 (Village1 `78 2e` = 3000; Deck16 `61 11` = 1121;
+  zero elsewhere, one byte). The rest is zero. That accounts for 22/23/24
+  exactly, and is a reading rather than a derivation -- an all-zero
+  trailer cannot distinguish field boundaries, so the two non-zero maps
+  are carrying the whole inference and more non-zero samples are wanted
+  before this is written into the spec.
+
+  The probe that produced all of this is a scratchpad file, not repo
+  source, and its path is session-scoped:
+  /tmp/claude-1000/-mnt-Games-Scripts-Linux-UT-Ants/ceedba0d-fc4e-4662-bb1b-a01f6b0dd9fc/scratchpad/level-tail-probe.cpp
+  It is about 130 lines and rebuildable from the layout recorded above in
+  minutes; build with
+  g++ -std=c++23 -O1 -I src probe.cpp build/src/upkg/libuta_upkg.a build/src/core/libuta_core.a
   **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
   Kind: implement.
   Source: user-decision-2026-09-05.
