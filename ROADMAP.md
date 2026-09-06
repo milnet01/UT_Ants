@@ -1248,18 +1248,29 @@ model, no weapon and no opponent until 0.2.0.
 
   Blocked-by: something to run the commands against -- the game loading
   a bundle.
-  User decision (2026-09-06): this console is for TESTING only. UT99
-  ships one and ours does not -- it must not be available to players
-  after 1.0.0 ships. That settles the "what ships is a decision" line
-  above, and the answer is none of it.
+  User decision (2026-09-06), corrected the same day: there are TWO
+  consoles and only one of them is this item's. A NORMAL console, the
+  kind UT99 ships, stays available to players. A DEV console -- the
+  state-driving commands this bullet is about -- is for testing only and
+  must not be available to players after 1.0.0. Until then testers use
+  it, which is the whole reason it exists.
+
+  That settles the "what ships is a decision" line above: the surface
+  ships, the dev commands do not. An earlier version of this note said
+  the answer was "none of it", which would have taken the player console
+  with it; the distinction is recorded rather than quietly rewritten
+  because it changes what somebody builds.
 
   **Compile it out rather than hide it.** A console behind an
   undocumented key, a hidden flag or a stripped menu entry is still in
   the binary, and this is a community that has been finding things in
   UT99 binaries for twenty-five years. "Not available to players" means
-  the code is not in the build they run. That also collapses the
-  authority problem this bullet spends most of its length on: a command
-  that does not exist cannot be gated wrongly.
+  the dev COMMANDS are not in the build they run -- the console itself
+  stays, carrying the player commands. That also collapses the authority
+  problem this bullet spends most of its length on for the shipped
+  build: a command that does not exist cannot be gated wrongly. It does
+  NOT collapse it before 1.0.0, or for the player commands, which still
+  need the local-versus-world split above.
 
   **The cost is real and is worth stating rather than discovering.** If
   the console is absent from release builds, then UTA-0065 and UTA-0066
@@ -2089,9 +2100,17 @@ docs/standards/versioning-overrides.md. Closes S8.
 
   **It checks the ARTIFACT, not the source.** A guard around the source
   is what is supposed to work; this is the check that it did. So it
-  reads the built binary players receive -- no console command table, no
-  key bound to it, no socket or stdin path listening for commands -- and
-  fails the release rather than reporting.
+  reads the built binary players receive and fails the release rather
+  than reporting.
+
+  **What it looks for is the DEV commands, not the console.** The normal
+  console the player uses stays -- UT99 ships one and so do we, which is
+  the user's correction of 2026-09-06. So the check cannot simply assert
+  that no console exists, and a check written that way would fail a
+  correct build while a build carrying every dev command but no player
+  console would pass it. What must be absent is the state-driving set:
+  the commands that end a match, set a score, move a body or spawn
+  something, and any socket or stdin path that accepts them.
 
   **It also checks the dev build still HAS one**, which sounds redundant
   and is not: a check that only looks for absence passes just as well
