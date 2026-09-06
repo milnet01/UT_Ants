@@ -19,16 +19,31 @@ The request this was drawn from is kept verbatim at
 ## The problem
 
 Unreal Tournament (1999) is still being played, and its community map
-library is still growing — one Monster Hunt server on this machine
+library is still growing — the Monster Hunt server on this machine
 carried 515 community Monster Hunt maps when this was written, in an
 install of 612, most made by people who have never met each other.
-Re-measured 2026-09-04: 622 of 719, the stock set unchanged at 97, so the
+Re-measured 2026-09-06: 740 of 837, the stock set unchanged at 97, so the
 growth is all community. **Any figure here is a snapshot of a moving
-number** — re-derive it rather than quoting one:
+number** — re-derive it rather than quoting one.
+
+**Library and rotation are different numbers, and a sign is measured
+against one or the other.** The library is every Monster Hunt map the
+install carries. The rotation is what a player can actually vote for:
+where both `X.unr` and `X-BP.unr` exist the `-BP` rebuild is the one
+served and the original is superseded. On 2026-09-06 that is 740 in the
+library, 183 superseded, 557 votable — and the server generates the
+second figure itself, so it is read rather than computed. **S3** is
+measured against the library (a map *pulled from* it); **S8** and
+UTA-0038 are measured against the rotation.
 
 ```sh
-find "<install>/Maps" -maxdepth 1 -iname 'MH-*.unr' | wc -l
+find "<install>/Maps" -maxdepth 1 -iname 'MH-*.unr' | wc -l  # library
+grep '^NumFacts=' ~/.utpg/System/MHVoteData.ini              # rotation
 ```
+
+`Maps-broken/` is a **sibling** of `Maps/` and holds maps that are
+deliberately never served, two of them missing packages outright. Both
+scans stay non-recursive for that reason.
 
 The maps are alive. The engine is not.
 
