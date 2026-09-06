@@ -1203,7 +1203,9 @@ model, no weapon and no opponent until 0.2.0.
   minutes; build with
   g++ -std=c++23 -O1 -I src probe.cpp build/src/upkg/libuta_upkg.a build/src/core/libuta_core.a
   Progress (2026-09-06): readLevel is implemented and both open
-  questions are answered. Commit 6ade64c, held by session ut-ants-f0.
+  questions are answered. Commit 6ade64c, held by session ut-ants-64. (The earlier progress note
+  above names ut-ants-f0, which was the previous session; this session
+  copied that name by mistake and corrected it here.)
 
   The trailer is derived, not read from a narrow sample. After the array:
   a float, eighteen compact indices, then a run of zero bytes. The
