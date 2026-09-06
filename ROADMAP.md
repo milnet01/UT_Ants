@@ -1036,9 +1036,40 @@ model, no weapon and no opponent until 0.2.0.
   it was not is withdrawn.** Every `NavigationPoint` serialises
   `Paths[16]` as integers and the Properties reader gets those today, but
   they are indices into this array -- without it UTA-0006 reads the nodes
-  and not the edges. That indexing claim is the consuming session's
-  measurement plus known engine structure, not something measured here:
-  verify it first rather than building on it.
+  and not the edges. That indexing claim is NOT established. The
+  consuming session withdrew its strength on 2026-09-06: it has never
+  read a ReachSpec, and the claim rested on a T3D export showing
+  `Paths(0)=334` as a bare integer plus known engine structure.
+  Verifying it is this item's first acceptance step, and nothing below
+  removes that step.
+
+  What it did produce is circumstantial evidence gathered without
+  touching the array, over three maps from the live install, recorded at
+  /mnt/Games/Scripts/Linux/ut-map-deps/paths-index-evidence.md. Four
+  results, and the third is the most valuable because it is negative:
+
+  - Uniqueness holds perfectly. No index repeats within `Paths`, nor
+    within `upstreamPaths`, anywhere in a level -- across 8,511 outgoing
+    and 8,472 incoming entries. Little but an index into a level-wide
+    array behaves that way.
+  - The two sets match EXACTLY on one map of three (MH-Dust2-BP, 6,579
+    distinct) and not on the other two (1202 vs 1274, 730 vs 619). That
+    residue is unexplained and must not be assumed away.
+  - **The 16-slot cap does not explain the residue, so do not spend time
+    on it.** The map with the largest mismatch has zero nodes at the cap;
+    the map that matches exactly is the only one where the cap bites at
+    all. The hypothesis is already dead, and finding that out is what it
+    cost them.
+  - Indices are sparse, not 0..n. MH-Dust2-BP references 6,579 distinct
+    with a maximum of 14,322, so the array is larger than the set
+    referenced and a reader must not assume a dense range. Pruned specs
+    still occupying slots is the obvious guess and is a guess.
+
+  Results 1 and 2 give a cross-check to run beside the exact-consumption
+  test, and it is the sharper of the two: the reader is wrong if any
+  index resolves to a spec whose start is not the node that listed it,
+  and wrong differently if that residue turns out to have a mundane cause
+  the layout should have predicted.
 
   No other source of truth exists. Measured by that session 2026-09-06:
   `PATHS DEFINE` and `PATHS BUILD` both ignore blocking actors entirely
@@ -1425,8 +1456,19 @@ model, no weapon and no opponent until 0.2.0.
   failure out of the log, at 45-60 seconds each -- and a missing package
   is the commonest single reason a community map is unplayable.
 
-  That tool was offered to this project rather than left in a scratch
+  That tool was handed over on 2026-09-06 and sits at
+  /mnt/Games/Scripts/Linux/ut-map-deps/ -- `ut-map-deps.cpp` plus a
+  README with the build line and the measurements, verified to build and
+  run from that copy rather than only from its author's scratch
   directory. Take it as the first consumer to shape the call against.
+
+  Two things carry over with it. It needs `-std=c++23`, because
+  `uta::Result` is `std::expected` and under 20 it fails with a
+  misleading error. And its whole filter is a single judgement: an import
+  whose outer is null names a PACKAGE, anything else names an object
+  inside one. That is the line to argue with if a result ever looks
+  wrong, so it belongs in this call's own contract rather than being
+  re-decided by each caller.
 
   Blocked-by: nothing. The container reader shipped.
   **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load.
