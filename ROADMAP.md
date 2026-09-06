@@ -1248,6 +1248,44 @@ model, no weapon and no opponent until 0.2.0.
 
   Blocked-by: something to run the commands against -- the game loading
   a bundle.
+  User decision (2026-09-06): this console is for TESTING only. UT99
+  ships one and ours does not -- it must not be available to players
+  after 1.0.0 ships. That settles the "what ships is a decision" line
+  above, and the answer is none of it.
+
+  **Compile it out rather than hide it.** A console behind an
+  undocumented key, a hidden flag or a stripped menu entry is still in
+  the binary, and this is a community that has been finding things in
+  UT99 binaries for twenty-five years. "Not available to players" means
+  the code is not in the build they run. That also collapses the
+  authority problem this bullet spends most of its length on: a command
+  that does not exist cannot be gated wrongly.
+
+  **The cost is real and is worth stating rather than discovering.** If
+  the console is absent from release builds, then UTA-0065 and UTA-0066
+  drive a binary players do not run, and a test suite that only
+  exercises the dev build is testing something nobody plays. Two things
+  keep that honest. The difference between the two builds should be
+  exactly this one thing, so nothing else diverges under cover of it.
+  And whatever the harness can do through a path a player also has --
+  scripted input, which is just keys -- should be run against the
+  RELEASE build too, so the shipped artifact is exercised rather than
+  assumed.
+
+  **Before 1.0.0 it is available, which is the point.** Every release up
+  to it is where this earns its keep, and the deadline is what stops
+  "we'll strip it later" becoming "it shipped".
+
+  **The server case does not go away.** A dedicated server may run a dev
+  build during development, and UTA-0038's runs unattended, so the
+  refuse-by-default gating on world commands is still needed for the
+  period the console exists rather than being made moot by its eventual
+  removal.
+
+  The check that this actually happened is filed against 1.0.0, where it
+  bites, rather than left in this bullet -- an obligation recorded only
+  in a 0.1.0 item shipped long before the deadline is one nobody is
+  reading on the day.
   **Layman:** The drop-down command box UT99 has on the tilde key. Type a command and something happens -- jump to a spot, show a debug view, take a screenshot, end the match. It is how a test reaches a situation directly instead of playing until it happens.
   Kind: implement.
   Source: user-request-2026-09-06.
@@ -2035,3 +2073,40 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-09-04.
   Lanes: core, ci.
+
+- 📋 [UTA-0068] **Prove the developer console is absent from the shipped build.**
+  UTA-0067's console is a testing tool, and the user's decision is that
+  it is not available to players after 1.0.0. This is the check that it
+  is not, run before the release goes out.
+
+  **Why it is an item rather than a line in that bullet.** UTA-0067 is a
+  0.1.0 item and the obligation bites at 1.0.0, so recording it only
+  there means it sits in a bullet nobody re-reads on the day. And an
+  intention with no observable is indistinguishable from having
+  forgotten: a build that still carries the console and a build that
+  does not look identical from the outside, which is exactly the
+  condition that ships one.
+
+  **It checks the ARTIFACT, not the source.** A guard around the source
+  is what is supposed to work; this is the check that it did. So it
+  reads the built binary players receive -- no console command table, no
+  key bound to it, no socket or stdin path listening for commands -- and
+  fails the release rather than reporting.
+
+  **It also checks the dev build still HAS one**, which sounds redundant
+  and is not: a check that only looks for absence passes just as well
+  when the console was accidentally removed from both builds, and the
+  first anyone would know is a test session with no way to drive
+  anything.
+
+  Deliberately not scoped here: whether other development surfaces
+  follow the same rule. This is about the console the user named. A
+  blanket sweep for dev tooling in release builds is a different and
+  larger job, and inventing it under this item's name would be scope
+  that nobody asked for.
+
+  Blocked-by: the console existing, and a release build to check.
+  **Layman:** A check that the testing console really is gone from what players download, rather than a note saying we meant to remove it.
+  Kind: test.
+  Source: user-decision-2026-09-06.
+  Lanes: ci, ugame.
