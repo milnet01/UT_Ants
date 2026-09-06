@@ -1094,6 +1094,79 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-contract-2026-09-06 ADR-0007 cap.
   Lanes: docs.
 
+- 📋 [UTA-0065] **Drive a player through any map unattended, and report what happened.**
+  A harness that walks a player through a map with no human at the
+  keyboard, captures screenshots, writes a machine-readable record of
+  what it did and saw, and reports whether the map behaved.
+
+  **It drives the real game, not a model of it.** That is the whole
+  design constraint and the one thing that would quietly waste the
+  work: a harness that simulates movement against the bundle validates
+  something nobody plays, and would pass a map the actual engine falls
+  through. It feeds the same input path a player uses -- which is why
+  uinput is a lane here -- and reads the same world.
+
+  **Automated, because the target is 610 maps.** A tool needing a person
+  per map is a debugging aid, not a test system, and the rotation is the
+  scale that matters. That points at two modes rather than one. A
+  HEADLESS pass with no rendering, cheap enough to run over the whole
+  library: is the exit reachable, does the navigation graph connect, did
+  anything error, did the player fall out of the world. And a RENDERED
+  pass that captures frames, necessarily slower and run over a sample or
+  on demand, because nobody will run a gate that renders 610 maps.
+
+  **Capture must be in-engine.** A desktop screen grab is not a fallback
+  for it: under Wayland the X11 tools fail silently or hang against a
+  native window, and a full-screen grab captures the user's own desktop
+  rather than the game. The engine writes the frame itself, to a named
+  path, at a moment the script asked for.
+
+  **The consumer is a session like this one, so the output is for
+  reading by machine first.** Structured records that grep and diff --
+  position, room, what was reached, what was not, what errored, with
+  timings -- alongside images. A GUI report would be the wrong artifact:
+  the point is that a run can be compared against the previous run
+  without a person in the loop, and that a failure names its own
+  location.
+
+  **The criteria are not all written yet, so the check set has to be
+  open.** The frame-rate floor is UTA-0039's, the Monster Hunt
+  progression rules are UTA-0029's, and neither exists. Building this
+  against today's list would mean rebuilding it for each one that
+  arrives; it wants a shape where a new check is added rather than the
+  harness rewritten.
+
+  **Three items already need this and none of them owns it.** UTA-0039
+  holds a frame-rate floor across the map library, which is a
+  measurement over every map. UTA-0038 runs the live rotation and keeps
+  it running. UTA-0011's --check validates an install. All three assume
+  something that can exercise a map unattended, and this is that thing --
+  which is the argument for building it early rather than at the point
+  the first of them needs it.
+
+  **Reproducibility comes free and is worth protecting.** ADR-0002 and
+  the numeric contract already require one machine's results to match
+  another's, so a replayed input sequence that diverges across machines
+  is a contract failure rather than harness flakiness -- which makes
+  this a useful detector for that contract as well as a consumer of it.
+
+  **Where it lives is a real decision, not a detail.** design.md rule 2
+  constrains what a runtime target may link, and test scaffolding must
+  not end up on a shipped path. A mode of the game binary, a separate
+  target, and an external driver process are three different answers
+  with different consequences for that rule.
+
+  **What it cannot do, stated so a green run is not over-trusted.** It
+  can say a map is traversable, does not error, holds a frame rate and
+  opens its progression gates. It cannot say the map is any good.
+
+  Blocked-by: something to drive -- the game loading a bundle and
+  walking through it.
+  **Layman:** A way to send a robot player through a level on its own, take pictures along the way, and write down what it found -- so a map can be checked without somebody playing it, and so the answer is something a machine can read rather than a person's impression.
+  Kind: test.
+  Source: user-request-2026-09-06.
+  Lanes: ugame, ci, uinput.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
