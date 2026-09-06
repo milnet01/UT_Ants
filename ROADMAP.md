@@ -309,6 +309,40 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-06): picked up by session ut-ants-64, in the main
   checkout. Taken as the Next: item now that UTA-0057 has unblocked it.
   First step is the spec-format SS 1 decision, not code.
+  Progress (2026-09-06): spec accepted at
+  docs/specs/UTA-0006-navigation-and-wiring-graphs.md. Two review-contract
+  loops, three cold lanes each, fifteen verified findings all fixed, cap
+  reached. Status stays in-progress: the spec is the contract, not the work.
+
+  Two things the research settled that the bullet above had only believed.
+  The wiring graph IS Event -> Tag: 94.9% of events in the reference
+  install name a Tag some actor in the same map carries, it is many-to-many
+  in both directions, and the remaining 5.1% dangle. And class-default Tags
+  do NOT explain the dangle -- almost none match -- so the wiring half does
+  not need UTA-0005's effectiveDefaults and reads an actor's own property
+  list only. Exact matching was checked against case-insensitive: identical
+  results, none recovered, so the spec's exact rule stands.
+
+  Two measurements the spec now rests on, both new: 99.87% of reach-spec
+  endpoints resolve to a NavigationPoint descendant, and 0.12% of endpoints
+  are null with none an import.
+
+  What the gate changed about the item, beyond the document. The subsystem
+  ships TWO libraries, not one: docs/design.md rule 2 forbids either runtime
+  target linking upkg while rule 6 makes uai depend on unav, so a single
+  uta_unav linking uta_upkg would have pulled the package reader into the
+  game binary through this item. A graph node therefore carries a bare
+  export index rather than an ObjectReference.
+
+  Known weakness, recorded rather than solved: two index spaces exist -- an
+  export index and a node position -- both std::uint32_t, so a consumer
+  passing the wrong one compiles and gets another actor's edges. nodeOf is
+  the declared bridge; nothing here catches a consumer that skips it, and
+  the consumers are UTA-0025's and UTA-0028's.
+
+  The cap was violent: seven of loop 2's eight findings landed on text loop
+  1 had written. Per the gate's own rule this document is not re-gated as it
+  stands; the next reviewer is the build.
   **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
   Kind: implement.
   Source: design-2026-09-03.
