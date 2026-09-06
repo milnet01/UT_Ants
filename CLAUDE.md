@@ -160,6 +160,23 @@ MSVC, which has no ThreadSanitizer. `-DUTA_REAL_ASSET_TESTS=ON` with
 so a clone with no Unreal Tournament still builds and tests clean —
 that separation is what **S7** is measured on.
 
+**There is no `UTA_SANITIZE=address`.** That option takes `''` or
+`'thread'` and refuses anything else with a `FATAL_ERROR`, so reach for
+the flags directly in a build directory of their own:
+
+```sh
+cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+```
+
+Worth knowing because a bounds check is the shape a plain test cannot
+grade: remove one and the case is undefined behaviour rather than a wrong
+answer, so it passes. UTA-0006 § 4.5's check was proved load-bearing this
+way — without it that fixture is a heap-buffer-overflow. Address and
+thread cannot share a binary, which is why this is a separate directory
+rather than a flag on the gate.
+
 ### Which item comes next
 
 The user's standing priority order, given 2026-09-04:
