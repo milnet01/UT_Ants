@@ -293,13 +293,25 @@ evidence is circumstantial; the array itself is the thing that settles it.
 measured on 2026-09-06 rather than assumed.
 
 *Which actors:* **no export of literal class `NavigationPoint` carries a
-`Paths` entry at all.** Across MH-AncientCavesTorus, MH-Village1 and
-MH-Dust2-BP the classes that do are `Spawnpoint`, `InventorySpot`,
-`PathNode`, `Teleporter`, `VisibleTeleporter`, `PlayerStart` and `QueenDest`
-— every one a subclass, and the last a map's own. So the filter is *every
+`Paths` entry at all** — every one is a subclass. So the filter is *every
 export whose class descends from `NavigationPoint`*, which needs UTA-0005's
-ancestry walk; an exact name match resolves zero and a hand-written name list
-cannot be complete while community maps define their own subclasses.
+ancestry walk. An exact name match resolves nothing.
+
+**A name list is not a fallback, because the class set does not close.**
+Measured over the whole Monster Hunt corpus on 2026-09-06 (643 T3D exports,
+re-derived here rather than taken from the survey): 73 distinct classes carry
+a `Paths` entry, 35 of them in exactly one map, and the distinct-class count
+was still rising in the last tenth of the corpus — 72 after 580 exports, 73
+after 643. A corpus still introducing classes at that point will introduce
+more with the next map, so no finite list closes and ancestry is the only
+approach that survives.
+
+Two corroborations from the same run. Every `Paths`-carrying class also
+exports `nextNavigationPoint`, so nothing in the corpus carries `Paths`
+without being a navigation point — corpus evidence, not proof of descent,
+which needs the `.u` export tables' `SuperField` links and is what UTA-0005
+walks. And the survey independently hit the substring trap this section warns
+about above, over-counting by millions of lines.
 
 *Which entries:* a slot is **empty when `readProperties` returns no property
 for that `arrayIndex`**. `Paths[16]` is a static array carried in the actor's
@@ -432,6 +444,7 @@ it answers no, both are withdrawn in the fold-back rather than left failing.
 | Package version outside 61–69 | Refused by `Package::open` before this reader is reachable, § 4.2 |
 | A `Paths` value out of range in real content | INV-2 fails — this is a finding about the layout, not content to tolerate |
 | The `Paths`/`upstreamPaths` set mismatch of § 2.2 | **Not a refusal.** It is unexplained, it occurs on maps that are otherwise sound, and a reader that rejects those levels rejects most of the library |
+| A navigation point with no `Paths` entry at all | **Not a refusal, and not a defect.** Five classes in the corpus carry `nextNavigationPoint` and no `Paths` — unpathed nodes in maps never rebuilt. A reader or test asserting that every navigation point is pathed is wrong about real content |
 
 ## 7. Tests
 
