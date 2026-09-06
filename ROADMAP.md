@@ -281,6 +281,31 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0057's to verify and this item's to depend on.
 
   Blocked-by: reading actor placements; UTA-0057 for the ReachSpec array.
+  Unblocked (2026-09-06): UTA-0057 shipped the ReachSpec array, and the
+  indexing this item was told to confirm before scheduling is confirmed.
+
+  Measured over the whole reference install: 99.96% of non-empty Paths
+  values are valid indices into the level's reach-spec array, and 99.54%
+  name the listing node as the spec's start. Every entry answers both on
+  816 of the 831 maps carrying one. The residue is fifteen maps whose
+  path network disagrees with their own navigation points -- eight of
+  them carry Paths values with no reach-spec array at all -- so this item
+  must expect a node whose edges do not resolve and must not treat that
+  as a reader fault. UTA-0057 SS 4.6a has the decomposition.
+
+  What upkg hands over: reachSpecs in file order with file indexing, each
+  carrying distance, start, end, collision radius, collision height,
+  reach flags and a pruned byte. Start and end are object references to
+  ACTORS, not node indices, so joining them to the node set needs the
+  export table rather than a position in the actor array.
+
+  Two things this item still owns. The graph types and the queries are
+  this item's, not upkg's -- UTA-0057 INV-5 keeps a resolved graph out of
+  the reader deliberately. And the collision radius and height are
+  returned but graded by no invariant anywhere; UTA-0057 SS 10 records
+  that finding an independent source for them is this item's.
+
+  Blocked-by now reads: reading actor placements.
   **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
   Kind: implement.
   Source: design-2026-09-03.
@@ -1030,7 +1055,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
 
-- 🚧 [UTA-0057] **upkg: derive the rest of Level, including the ReachSpec path graph.**
+- ✅ [UTA-0057] **upkg: derive the rest of Level, including the ReachSpec path graph.**
   Split on 2026-09-06 at the request of the Monster Hunt server work on
   this machine, a consumer of upkg; UTA-0069 keeps the Model/BSP half.
   The two have different consumers and very different unblocking value.
@@ -1232,6 +1257,28 @@ model, no weapon and no opponent until 0.2.0.
 
   Not yet done: the CI matrix. Local gate green including TSan, real tier
   green on all seven cases, but the item is not shipped on one leg.
+  Resolved (2026-09-06): shipped at ac26f72, green on all three matrix
+  legs -- Linux GCC 14, Linux Clang 19, Windows MSVC.
+
+  Acceptance, each item checked rather than assumed. UTA-0004 SS 4.3:
+  readLevel consumes all 837 Level exports in the reference install
+  exactly, no refusals, and Level joined that spec's zero-refusal set.
+  SS 4.6: answered yes, and SS 4.6a records the measurement. Tier 1: the
+  fixture builder gained LevelExportWriter and the unit tier covers
+  INV-1, INV-4 both ways, UTA-0004's INV-9 and both trailing-byte cases.
+  Tier 2: INV-5's declared reading check performed -- Level.h returns
+  actors, a raw slot count and the reach specs, with no resolved graph,
+  no adjacency list and no name resolved from a reference. Tier 3: green
+  on all seven cases.
+
+  Two things a later reader should not re-derive. The conditional
+  actorSlotOfIndex member was NOT built: a spec names its nodes by
+  object reference, so that branch of SS 4.5 never fired. And INV-2 and
+  INV-3 ship as RATES rather than as universal claims -- fifteen maps
+  disagree with their own path networks, which is content rather than
+  layout, and SS 4.6a owns the reasoning.
+
+  UTA-0006 is unblocked by this.
   **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
   Kind: implement.
   Source: user-decision-2026-09-05.

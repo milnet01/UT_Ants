@@ -3,10 +3,10 @@
 ## Where this project is
 
 **State:** 4 if nothing is 🚧, else 5.
-**Next:** `UTA-0057` — `upkg`: the rest of `Level`, including the
-ReachSpec path graph. It moved ahead of `UTA-0006` on 2026-09-06: the
-`Paths[16]` integers `unav` reads are indices into the ReachSpec array,
-so `UTA-0006` would extract nodes and no edges.
+**Next:** `UTA-0006` — `unav`: the navigation graph and the event-wiring
+graph. `UTA-0057` shipped on 2026-09-06 and unblocked it: the `Paths[16]`
+integers `unav` reads are indices into the ReachSpec array, which that
+item derived and `readLevel` now returns.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
