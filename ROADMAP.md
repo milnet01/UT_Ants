@@ -1142,6 +1142,34 @@ model, no weapon and no opponent until 0.2.0.
   The cap was violent: six of loop 2's nine findings landed on text loop 1
   had written. Per the gate's own rule this document is not re-gated as it
   stands; the next reviewer is the build.
+  Progress (2026-09-06): the ReachSpec array's layout is DERIVED and holds
+  over the whole library. The item's largest risk is retired; what remains
+  is a 21-byte trailer and the reader itself.
+
+  After the FURL the Level tail is: an object reference to the level's
+  Model, a compact-index count, then that many records of
+  { i32 Distance, index Start, index End, i32 CollisionRadius,
+  i32 CollisionHeight, i32 ReachFlags, u8 bPruned }. Start and End are
+  object references to actors, not node indices.
+
+  Evidence. A scratchpad probe against libuta_upkg parsed that array on
+  837 of 837 maps in the reference install, zero failures, landing 22, 23
+  or 24 bytes short of each export's end -- a spread of exactly two, which
+  is one compact index at one, two or three bytes. On MH-Village1 the
+  count is 1150 and the highest Paths value measured independently from
+  T3D is 1149, so an array indexed 0..1149 is an exact fit. Spot values
+  decode sanely: distance 100, radius and height 150, flags 32, 406 of
+  1150 pruned.
+
+  Not yet done, and the item is not accepted until it is: the 21 fixed
+  trailer bytes are undescribed, so exact consumption (UTA-0004 SS 4.3)
+  is NOT yet met. First bytes are a float that reads as a time in seconds
+  (24.17 on Village1, 190.88 on DM-Deck16), then zeros, then the variable
+  index, then zeros.
+
+  The indexing claim SS 4.6 exists to settle is now testable rather than
+  believed -- the array reads, so Paths values can be resolved against it.
+  Not yet run.
   **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
   Kind: implement.
   Source: user-decision-2026-09-05.
