@@ -1069,7 +1069,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-decision-2026-09-05.
   Lanes: upkg.
 
-- 🚧 [UTA-0058] **Settle the Monster Hunt map count the ADRs cite.**
+- ✅ [UTA-0058] **Settle the Monster Hunt map count the ADRs cite.**
   The design gate reported this on 2026-09-04 as out of scope for the
   document it was reviewing -- "the ADRs' to settle" -- and it was never
   filed, so it sat outside the priority order entirely. Filed 2026-09-06
@@ -1114,6 +1114,28 @@ model, no weapon and no opponent until 0.2.0.
   ADR-0004 alone -- they record what was believed when written, which is
   what an ADR is for -- and give docs/discovery.md both numbers with their
   derivations.
+  Resolved (2026-09-06) in b819bcd, green on all three legs at 4fe951e
+  (Linux GCC 14, Linux Clang 19, Windows MSVC).
+
+  The finding was not a stale number. Library size and served rotation are
+  two different measurements and the docs carried one, while S3 is
+  measured against the library ("a map pulled from the existing library")
+  and S8 and UTA-0038 against the rotation. Measured in the live server's
+  own install: 740 MH-*.unr in Maps/, 183 of them -BP rebuilds whose
+  original survives and is superseded, leaving 557 votable -- matching
+  NumFacts=557 in ~/.utpg/System/MHVoteData.ini exactly. Stock set 97.
+
+  docs/discovery.md now gives both numbers a derivation each, and records
+  that Maps-broken/ is a sibling of Maps/ holding maps never served, so
+  the scans stay non-recursive.
+
+  ADR-0002, ADR-0003 and ADR-0004 keep their bare 610 by the server
+  owner's decision: an accepted ADR records what was believed when it was
+  written, and docs/decisions/README.md forbids editing one. The second
+  question this item raised -- whether citations should carry a date -- is
+  answered in practice rather than by rule: discovery.md dates its figures
+  and ships the command to re-derive them, so the live answer has one home
+  and no bare number in it can go stale silently.
   **Layman:** Three decision documents say the server has 610 maps and the discovery notes say 515. Somebody has to say which is right, because a promise about "all of them" is measured against that number.
   Kind: doc-fix.
   Source: design-gate-2026-09-04.
