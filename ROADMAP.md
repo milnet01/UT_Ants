@@ -267,7 +267,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 📋 [UTA-0006] **unav: extract the navigation graph and the event-wiring graph.**
+- 🚧 [UTA-0006] **unav: extract the navigation graph and the event-wiring graph.**
   The navigation graph comes from the PathNodes the level designer placed. The
   wiring graph comes from Tag/Event links between actors -- a button stores the
   tag of the door it fires -- which is what lets 0.4.0's bots solve door puzzles.
@@ -306,6 +306,9 @@ model, no weapon and no opponent until 0.2.0.
   that finding an independent source for them is this item's.
 
   Blocked-by now reads: reading actor placements.
+  Progress (2026-09-06): picked up by session ut-ants-64, in the main
+  checkout. Taken as the Next: item now that UTA-0057 has unblocked it.
+  First step is the spec-format SS 1 decision, not code.
   **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
   Kind: implement.
   Source: design-2026-09-03.

@@ -1,6 +1,6 @@
 # UTA-0006 — `unav`: the navigation graph and the event-wiring graph
 
-**Status:** spec draft (2026-09-06).
+**Status:** accepted (2026-09-06).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0006 (design-2026-09-03).
 **Blocked by:** UTA-0057 for the reach-spec array, which shipped 2026-09-06.
@@ -108,9 +108,13 @@ Splitting them would put that join in whichever consumer needed it first.
 - **The subsystem ships two libraries, not one** (§ 4.1). This is not a
   preference: `docs/design.md` rule 2 forbids the runtime linking `upkg`, and a
   single library would breach it through this item.
-- **Unresolvable edges are returned and marked, never dropped** (§ 4.5),
-  following UTA-0057 INV-4's reasoning: a level with a broken edge must not be
-  indistinguishable from a level that never had one.
+- **Neither graph silently loses an unresolvable edge, and the two do it
+  differently** (§ 4.5). An unresolvable reach-spec endpoint is **dropped and
+  counted**; a dangling `Event` is **returned** in `dangling`. Both follow
+  UTA-0057 INV-4's reasoning — a level with a broken edge must not be
+  indistinguishable from one that never had it — and they differ because a
+  dangling event names something an author wrote, which is worth keeping,
+  while a broken endpoint names nothing.
 - **The graphs own their strings** (§ 4.6), because `ubundle` serialises them
   after the `Package` they were read from may be gone.
 
@@ -135,9 +139,14 @@ has `ubake` *"drives `upkg`, `umat` and the graph builders"*.
 - **`uta_unav_build`** — `buildNavGraph` and `buildWiringGraph`. Links
   `uta_unav` and `uta_upkg`. Bake-side only; no runtime target may link it.
 
-Each `CMakeLists.txt` asserts its own closure at configure time, as
-`src/upkg/CMakeLists.txt` already does for UTA-0003's INV-13. The
-runtime-closure test design rule 2 names does not exist yet — no runtime
+**One directory, `src/unav/`, with one `CMakeLists.txt` defining both
+targets**, which asserts **both** closures at configure time in the form
+`src/upkg/CMakeLists.txt` already uses for UTA-0003's INV-13 — `uta_unav`
+against `uta_core`, and `uta_unav_build` against `uta_unav;uta_upkg`. One
+directory because two would make the split a build-layout fact the root build
+file and every test target binds to, where it is a link-closure fact.
+
+The runtime-closure test design rule 2 names does not exist yet — no runtime
 target does — and building it stays with whichever item first ships one.
 
 ```cpp
@@ -146,6 +155,8 @@ struct NavNode {
     std::uint32_t exportIndex = 0;  // the actor's slot in the package's
                                     // export table -- SS 4.2
     std::string className;          // owned -- see SS 4.6
+    std::uint32_t firstEdge = 0;    // offset into NavGraph::edges
+    std::uint32_t edgeCount = 0;
 };
 
 struct NavEdge {
@@ -159,14 +170,22 @@ struct NavEdge {
 };
 
 struct NavGraph {
+    // Each node carries the offset and length of its own run in `edges`,
+    // which is what makes SS 4.7's queries a span rather than a search.
     std::vector<NavNode> nodes;
-    std::vector<NavEdge> edges;             // grouped by `from`
-    std::uint32_t discardedEndpoints = 0;   // INV-2
+    std::vector<NavEdge> edges;             // grouped by `from`, runs per node
+    // Counts unresolvable ENDPOINTS, not specs -- a spec with two bad
+    // endpoints adds 2. SS 4.5, INV-2, and the denominator SS 2.1 measures.
+    std::uint32_t discardedEndpoints = 0;
 };
 
 struct WiringNode {
     std::uint32_t exportIndex = 0;
     std::string tag;                // empty when the actor only fires
+    std::uint32_t firstOutgoing = 0;  // offset into WiringGraph::edges
+    std::uint32_t outgoingCount = 0;
+    std::uint32_t firstIncoming = 0;  // offset into WiringGraph::incoming
+    std::uint32_t incomingCount = 0;
 };
 
 struct WiringEdge {
@@ -266,10 +285,22 @@ the import's outer chain to its root for the package name, resolve that
 package, and find the class export of that name in it. `upkg` exposes no such
 call, so this is the builder's own step.
 
+**Fold the package name to lower case before calling the resolver.**
+`src/upkg/Class.h` states the contract: *"`readAncestry` folds the name to
+lower case before calling this, so a resolver may assume folded input and must
+not do an exact filesystem lookup on it"*. This builder calls the resolver
+**outside** `readAncestry`, so the fold is the builder's own and nothing else
+performs it. Skip it and `BotPack` misses `BotPack.u` on a case-sensitive
+filesystem: every actor of a class in that package fails the descent test, its
+nodes vanish, and its reach specs are then discarded as naming non-nodes — a
+nearly empty navigation graph, with no error, on Linux only, which this
+project treats as first-class.
+
 **It is not new code to design.** `tests/real/RealInstallTest.cpp` already does
-exactly this for UTA-0057's own tier-3 check, and that is the shape to follow.
-Resolving it per class rather than per actor is what makes it affordable — a
-map holds thousands of actors of a few dozen classes.
+exactly this for UTA-0057's own tier-3 check, folding the name before it calls
+the resolver, and that is the shape to follow. Resolving it per class rather
+than per actor is what makes it affordable — a map holds thousands of actors of
+a few dozen classes.
 
 **Wiring graph:** every export carrying an explicit `Tag` or `Event`. No
 ancestry walk, per § 2.1's dead hypothesis.
@@ -306,9 +337,20 @@ edge per actor carrying that tag.
 Both graphs meet edges that name something absent, and neither is a refusal.
 
 A reach spec whose `start` or `end` does not resolve to a node is **dropped
-from the edge list and counted in `NavGraph::discardedEndpoints`**. Three cases
-reach that path and § 4.2 owns the first two: the reference is `Null`, it is an
-`Import`, or it is an `Export` that is not a navigation node. A dangling
+from the edge list and counted in `NavGraph::discardedEndpoints`**. **Four**
+cases reach that path and § 4.2 owns the first two: the reference is `Null`, it
+is an `Import`, it is an `Export` that is not a navigation node, or it is an
+`Export` whose index is past the end of the export table.
+
+**The fourth is not reachable from measured content and is still required.**
+`Package::open` validates every reference in the three tables, so *"a package
+that opened cannot later hand out an out-of-range index"* — but a reach spec's
+endpoints live in an export's serialised **data**, which that validation does
+not cover. Measured over the reference install on 2026-09-06, **no endpoint is
+out of range** (same command as § 4.2's null figure). So a builder that indexes
+without the bound check passes the whole library and reads out of bounds on the
+first malformed file, which is UTA-0003 § 4.2's reason for owning bounds in one
+place. A dangling
 `Event` is returned in `WiringGraph::dangling` rather than as an edge, because
 it is the only record that an author wired something and the target went away.
 
@@ -375,25 +417,34 @@ this file is a second place for a routing decision to live.
 
 ## 5. Invariants
 
-- **INV-1** — Every edge in a returned graph has `from` and `to` in range for
-  that graph's own node list.
-  *Test:* `tests/unit/NavGraphTest.cpp` builds a level whose reach specs name
-  an actor that is not a navigation node, and asserts the returned edge list
-  holds no edge referencing it while the discard count reports it.
+- **INV-1** — An edge names the actors its reach spec named: the node at
+  `edge.from` carries the `exportIndex` the spec's `start` resolved to, and
+  likewise `edge.to` for `end`. In range is not enough.
+  *Test:* `tests/unit/NavGraphTest.cpp` builds a level whose actor array
+  interleaves null slots — so a slot position and an export index disagree —
+  with a reach spec joining two known actors, and asserts the returned edge's
+  endpoints carry **those two export indices**.
   *Breaks when:* the builder maps a spec's endpoint through the wrong index
   space — `Level::actors` rather than the export table (§ 4.2), or a node
   position where an export index was meant (§ 4.7) — at which point every edge
-  on a sparse map points at the wrong actor. This fixture isolates that rule:
-  the level's actor array is built with null slots so the two index spaces
-  disagree, and no other rule rejects it.
+  on a sparse map points at the wrong actor.
+  **A range check cannot see this and that is why the claim is an identity
+  one.** § 4.2 says the wrong index space yields *a well-formed edge to the
+  wrong actor*, because the index it produces is usually a real node — so
+  `from < nodes.size()` passes on exactly the defect this invariant exists to
+  catch. This fixture isolates that rule: the null slots make the two spaces
+  disagree, and nothing else rejects it.
 
 - **INV-2** — A reach spec whose endpoint does not resolve to a node is
-  counted in `discardedEndpoints`, and the count is non-zero only when such a
-  spec was seen. All three of § 4.5's cases count.
-  *Test:* `tests/unit/NavGraphTest.cpp`, four fixtures — one whose specs all
-  resolve, asserting the count is zero; and one each for an endpoint that is
-  `Null`, one that is an `Import`, and one that is an `Export` naming a
-  non-node, each asserting the count is one and no edge was produced.
+  counted in `discardedEndpoints`, which counts **endpoints and not specs**,
+  and the count is non-zero only when such an endpoint was seen. All four of
+  § 4.5's cases count.
+  *Test:* `tests/unit/NavGraphTest.cpp`, six fixtures — one whose specs all
+  resolve, asserting the count is zero; one each for an endpoint that is
+  `Null`, an `Import`, an `Export` naming a non-node, and an `Export` past the
+  table's end, each asserting the count is one and no edge was produced; and
+  one spec whose **both** endpoints are unresolvable, asserting the count is
+  **two**, which is the fixture that pins the unit.
   *Breaks when:* the builder drops an edge without counting, which makes a
   level whose specs were all discarded indistinguishable from one that stated
   none — the shape UTA-0057 INV-4 exists to prevent, arriving one layer up.
@@ -433,10 +484,11 @@ this file is a second place for a routing decision to live.
 
 - **INV-6** — `uta_unav` links `uta_core` and nothing else, and `unav` reads
   no package bytes of its own.
-  *Test:* a configure-time assertion in `src/unav/CMakeLists.txt` on the first
-  half, in the form `src/upkg/CMakeLists.txt` already uses for UTA-0003's
-  INV-13; a declared reading check on the second — `src/unav/` is read against
-  this clause and constructs no `ByteReader`.
+  *Test:* two configure-time assertions in `src/unav/CMakeLists.txt` on the
+  first half — `uta_unav`'s closure against `uta_core` and `uta_unav_build`'s
+  against `uta_unav;uta_upkg` — in the form `src/upkg/CMakeLists.txt` already
+  uses for UTA-0003's INV-13; a declared reading check on the second, where
+  `src/unav/` is read against this clause and constructs no `ByteReader`.
   *Breaks when:* a query needs a property nobody passed in and the easy fix is
   either to link `uta_upkg` from the type library — which the configure-time
   assertion catches — or to re-read the export inside the builder, which it
@@ -459,7 +511,16 @@ this file is a second place for a routing decision to live.
 
 **Tier 1 — unit, always on.** `tests/unit/NavGraphTest.cpp` and
 `tests/unit/WiringGraphTest.cpp`, against `UnrealPackageBuilder` and the
-`LevelExportWriter` UTA-0057 added. Covers INV-1, INV-2, INV-3 and INV-4,
+`LevelExportWriter` UTA-0057 added.
+
+**The builder already supplies every fixture these tiers need**, which is worth
+stating because none of it is obvious from the writer names. `LevelExportWriter`
+takes raw `std::int32_t` endpoints, so a null, an import and an out-of-range
+export are all expressible; `TaggedPropertyWriter::addName` writes the `Tag` and
+`Event` properties INV-3 and INV-4 need onto any export; and `ClassExportWriter`
+with `setSuperField` builds the class chain the § 4.3 node filter walks, which
+`tests/unit/PackageAncestryTest.cpp` already does. No new fixture machinery is
+owed by this item. Covers INV-1, INV-2, INV-3 and INV-4,
 each of which needs content constructed to be wrong in one named way — an endpoint that resolves
 to nothing, a tag carried by exactly three actors, an event naming an absent
 tag. Real content supplies none of those on demand.
@@ -478,11 +539,18 @@ line rather than as a stale sentence.
 
 **What it asserts is a population and two rates**, following UTA-0057 § 4.6a
 rather than inventing a second convention: the run fails if it built no graph
-or resolved no event; if the share of events that resolve falls below **90%**,
+or resolved no event; if — **aggregated over the whole install, never per
+map** — the share of events that resolve falls below **90%**,
 a floor under § 2.1's measured 94.9%; and if the share of reach-spec endpoints
 resolving to a navigation node falls below **95%**, a floor under the 99.87%
 § 2.1 measures. Both floors sit well under their measurement and well over what
-a defect produces. A
+a defect produces.
+
+**Aggregate, because per-map is a different and wrong assertion.** UTA-0057
+§ 4.6a names maps carrying `Paths` values with no reach-spec array at all, and
+§ 2.1 measures maps whose events all dangle; a per-map floor fails the tier on
+those, which is content disagreeing with itself rather than a builder defect —
+the disposition § 6 already settles. A
 magnitude floor would need re-tuning as the library grows; a rate does not,
 and a builder using the wrong index space does not lose a few percent but
 nearly all of them.
@@ -514,7 +582,7 @@ nearly all of them.
 - Interpreting what a class *does* when fired — UTA-0023.
 - The collision radius and height a reach spec carries are passed through
   ungraded; UTA-0057 § 10 records that finding an independent source for them
-  falls to this item, and § 15 keeps it open.
+  falls to this item, and § 14 keeps it open.
 
 ## 10. What checks this
 
@@ -526,10 +594,10 @@ nearly all of them.
 | INV-4 | `tests/unit/WiringGraphTest.cpp` — the absent-tag fixture |
 | INV-5 | A declared reading check. **Nothing** mechanical stops a member becoming a view later |
 | § 4.7's two index spaces — that a query takes a node position, not an export index | **Nothing.** Both are `std::uint32_t`, so a consumer passing the wrong one compiles and returns another actor's edges. `nodeOf` is what makes the right call easy; no test here catches a consumer that skips it, and the consumers are UTA-0025's and UTA-0028's |
-| INV-6 | Its first half is caught mechanically — the configure-time link assertion in `src/unav/CMakeLists.txt` fails the build if `uta_unav` gains a dependency. Its second half is a declared reading check: **nothing** stops a `ByteReader` inside the builder, where linking `uta_upkg` is legitimate |
+| INV-6 | Its first half is caught mechanically — the two configure-time link assertions in `src/unav/CMakeLists.txt` fail the build if either target's closure changes. Its second half is a declared reading check: **nothing** stops a `ByteReader` inside the builder, where linking `uta_upkg` is legitimate |
 | `docs/design.md` rule 2 — that no runtime target links `upkg` through `unav` | **Nothing yet.** The closure test that rule names needs a runtime target and none exists; § 4.1's split is what makes the rule satisfiable, not what enforces it |
 | § 2.1's measured figures | `tests/real/RealInstallTest.cpp`, off by default — it prints them, so they are an output rather than a transcription |
-| The collision radius and height | **Nothing.** They are passed through from UTA-0057, which grades them nothing either; tracked by § 15 |
+| The collision radius and height | **Nothing.** They are passed through from UTA-0057, which grades them nothing either; tracked by § 14 |
 | That an edge means what the engine means by it | **Nothing here.** The graph is checked for structure, never against the running game. UTA-0057's roadmap bullet records an in-engine ground-truth offer, and taking it is UTA-0025's |
 
 **Five of the eleven rows say `nothing` outright, and a sixth says it of half
