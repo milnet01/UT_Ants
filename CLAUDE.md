@@ -125,6 +125,19 @@ this project uses `tests/unit/`, so `findings: []` is SILENT about test
 surfaces rather than a pass — read the flag before the count, and check
 the `*Test:*` clauses by hand. Upstream ANTS-4393 / ANTS-4679.
 
+**Write a spec's invariants in the bullet form, or no tool can see them.**
+`spec-format.md` § 3.7 defines `- **INV-1** — <claim>. *Test:* … *Breaks
+when:* …` and a GFM table, and nothing else. A paragraph form
+(`**INV-1.** <claim>`) parses to ZERO invariants -- and `spec_lint` then
+returns `findings: []`, `sections_checked: true` and
+`test_coverage_checked: true`, which is indistinguishable from a clean
+document. `invariant_no_test` "always runs" and ran over an empty set.
+Measured 2026-09-06: UTA-0005 shipped as accepted, through two full
+`review-contract` loops, with thirteen invariants invisible to
+`spec_query`, `invariant_check` and `spec_lint` alike. Check
+`spec_query` returns a non-zero `invariants_count` before trusting a
+clean lint.
+
 **`ccache` and `mold` are used if installed and ignored if not**, and change
 nothing about the output. ccache needs two settings before it helps across
 build directories — untold, it hashes the build path into the key and mostly
