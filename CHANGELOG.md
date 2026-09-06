@@ -17,6 +17,13 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`upkg` reads a level's bot path graph** (UTA-0057)
+  `readLevel` returns a map's actors and its reach specs -- the directed
+  connections between navigation points, each carrying the collision size
+  it was built for. A navigation point's `Paths` entries index that array,
+  which is what lets the connections between waypoints be read without
+  running the game.
+
 - **upkg reads class tables, default properties and ancestry across packages** (UTA-0005)
   Works out what a custom actor IS -- what it descends from, and the
   values its author set on it -- by reading the class table rather than

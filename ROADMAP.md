@@ -1202,6 +1202,34 @@ model, no weapon and no opponent until 0.2.0.
   It is about 130 lines and rebuildable from the layout recorded above in
   minutes; build with
   g++ -std=c++23 -O1 -I src probe.cpp build/src/upkg/libuta_upkg.a build/src/core/libuta_core.a
+  Progress (2026-09-06): readLevel is implemented and both open
+  questions are answered. Commit 6ade64c, held by session ut-ants-f0.
+
+  The trailer is derived, not read from a narrow sample. After the array:
+  a float, eighteen compact indices, then a run of zero bytes. The
+  eighteen is fixed by the remainder spanning exactly two bytes -- one
+  compact index at one to three -- and one of those indices resolves to a
+  TextBuffer export on every one of the 200 maps where it is not null,
+  which identifies the region rather than merely fitting its width. The
+  earlier "two non-zero samples of four" weakness is retired: 540 of 837
+  maps carry a non-zero trailer. One map, MH-SPNaliRescue, has one extra
+  zero byte that nothing explains, so it is not modelled as a field --
+  the reader requires the run to be zero and refuses a byte with a value.
+
+  readLevel consumes all 837 Level exports exactly, no refusals, which is
+  UTA-0004 SS 4.3's acceptance.
+
+  SS 4.6 answers YES. Over 2.4M Paths entries on 837 maps: 99.96% in
+  range, 99.54% with the listing node as the spec's start, and every
+  entry clean on 816 of the 831 maps carrying one. The residue is fifteen
+  maps whose network disagrees with their own nav points -- eight carry
+  Paths values with NO reach-spec array at all. Pruning does not explain
+  the start mismatches. So INV-2 and INV-3 became rates rather than being
+  withdrawn; a wrong partition or a transposed node pair fails far below
+  the floor. No negative Paths value anywhere, so no sentinel.
+
+  Not yet done: the CI matrix. Local gate green including TSan, real tier
+  green on all seven cases, but the item is not shipped on one leg.
   **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
   Kind: implement.
   Source: user-decision-2026-09-05.
