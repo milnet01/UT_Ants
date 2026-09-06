@@ -1260,6 +1260,24 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   START of this release, against a prototype, and becomes an ADR.
   Aim assist for gamepads is settled here too: this is where there is first
   something to aim at.
+  User request (2026-09-06): bots should have the intelligence to try
+  and dodge enemy fire. Recorded here rather than filed separately
+  because this item already names combat movement -- dodging, strafing,
+  cover, retreating -- and two owners for one job is how the two
+  disagree later.
+
+  What the request sharpens is the trigger. "Dodging" as written could
+  be read as movement that merely happens to be evasive: strafing while
+  firing, which UT99 bots do and which is cheap. What was asked for is
+  reactive -- seeing a projectile or a shot coming and getting out of
+  its way. That is a different input, and on this engine it is available:
+  the server simulates the projectile, so a bot can be given the fact
+  without the renderer (rule 6) and without cheating any more than a
+  human does by watching a rocket.
+
+  Worth settling with the difficulty model this item already defers to a
+  prototype, since perfect evasion is exactly the kind of tighter-aim
+  substitute that makes a bot unpleasant rather than good.
   **Layman:** Opponents worth playing against. The levels already contain invisible waypoints the original designers placed, so the hardest part of shooter AI is inherited rather than built.
   Kind: implement.
   Source: design-2026-09-03.
@@ -1308,6 +1326,23 @@ to.
   what it observed a human do.
   This is what S4 is measured on.
   Blocked-by: combat bots, the wiring graph.
+  User request (2026-09-06): bots should navigate the map by using
+  buttons to open doors, lifts and portals. Recorded here rather than
+  filed separately because this item is that planner -- hold a goal,
+  find what blocks it, work backwards to the trigger.
+
+  Two of the three named are not spelled out in the text above, and both
+  are worth naming because they behave differently from a door. A LIFT
+  is not an obstacle to be removed but a vehicle to be ridden: the bot
+  has to call it, wait, board it, and stay on it while it moves, and
+  "the way is now open" is the wrong model for it. A PORTAL moves the
+  bot somewhere the path network may not connect to where it started, so
+  a route that treats it as an ordinary edge has to know its exit
+  before committing to it.
+
+  Both are things unav's wiring graph should be able to say, so the ask
+  lands mostly on what UTA-0006 extracts rather than on this planner --
+  worth checking when that item is specced, while it is still cheap.
   **Layman:** UT99's bots walk into a closed door and stay there. Ours read the level's own wiring, find the switch that opens it, press it, and carry on -- and where a plate must be held, one of them stays behind and holds it.
   Kind: implement.
   Source: design-2026-09-03.
@@ -1401,6 +1436,74 @@ to.
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uinput, uui.
+
+- 📋 [UTA-0060] **uai: route across the whole level, not just to the next waypoint.**
+  A routing layer over the graph unav extracts: given a destination
+  anywhere in the level, produce a route to it and follow it, rather than
+  stepping to whichever waypoint comes next.
+
+  This is NOT what UTA-0025 delivers, and the difference is the point.
+  That item navigates the maps' own waypoints, which is the right
+  foundation and is why shooter AI is largely inherited here rather than
+  built. But author-placed waypoints are a local instruction -- go here
+  next -- and a community map's coverage is whatever its author bothered
+  with. A bot that only follows them cannot answer "how do I get from
+  this room to that one", and on a large Monster Hunt level that is the
+  question it needs answered most.
+
+  What this has to add over UTA-0025. A route to an arbitrary point
+  rather than to the next node. Knowing when the graph does not reach
+  the destination, and saying so, rather than walking into geometry.
+  Re-routing when the level changes under it -- a door closes, a lift
+  moves, a bridge is destroyed. And some answer for the gaps, because a
+  sparse or broken waypoint set is the normal case in community content
+  rather than the exception.
+
+  Open, and worth settling against a prototype rather than in advance:
+  whether the route is computed over the waypoint graph alone, or over
+  something coarser derived from the level's own rooms -- UTA-0007
+  partitions a level into rooms and answers which room a point is in,
+  which is close to the shape a route planner wants and may already be
+  most of the answer.
+
+  Blocked-by: the navigation graph, and combat bots to route for.
+  **Layman:** Give bots something like satnav. Instead of only following the breadcrumb trail the 1999 designer laid down, a bot works out where it is, where it needs to be, and a route between them -- so it can still get somewhere when the breadcrumbs run out.
+  Kind: implement.
+  Source: user-request-2026-09-06.
+  Lanes: uai.
+
+- 📋 [UTA-0061] **uai: hunt down the last enemies when a level gates on killing them all.**
+  On a level whose progression gate is "kill everything", a bot should
+  actively seek the survivors rather than wait to be shot at.
+
+  This is not combat AI and UTA-0025 does not cover it. That item makes a
+  bot good at fighting something it can already see. This one is about
+  the minutes AFTER the fight, when the gate has not opened and nobody
+  knows why -- which is the single most common way a Monster Hunt round
+  stops being fun, because the remaining monster is usually stuck on
+  scenery, asleep in an unvisited corner, or somewhere the path network
+  never went.
+
+  What it needs. Knowing that this level HAS such a gate and that it is
+  unmet, which is a question for the Monster Hunt rules rather than for
+  the bot. Some memory of where the level has and has not been searched,
+  which is close to what the level-map item already tracks for players.
+  A search that prefers where a monster plausibly is over sweeping the
+  whole level. And an honest end: when the sweep finds nothing, say so,
+  because a monster the map has made unreachable is a map bug and
+  pretending otherwise leaves a round that can never finish.
+
+  Deliberately not scoped here: what the server does about an
+  unreachable monster. Forgiving the gate, respawning the monster and
+  letting the round stall are three different answers with different
+  consequences for a rotation that has to run unattended, and that is a
+  decision rather than an implementation detail.
+
+  Blocked-by: the Monster Hunt rules, which own what the gate is.
+  **Layman:** Some levels do not let you move on until every monster is dead. Right now that ends with everyone wandering the map for ten minutes looking for one monster stuck behind a crate. Bots should go and find it.
+  Kind: implement.
+  Source: user-request-2026-09-06.
+  Lanes: uai.
 
 ## 0.5.0 — Map editor
 
