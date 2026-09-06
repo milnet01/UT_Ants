@@ -373,6 +373,14 @@ model, no weapon and no opponent until 0.2.0.
 
   Rebuild cost is minutes; the ancestry half is the only fiddly part and
   tests/real/RealInstallTest.cpp already ships that shape.
+  Progress (2026-09-06): resumed by session ut-ants-d4 in the main
+  checkout on branch main, under two-session rule 2 -- the previous
+  holder ut-ants-64 is no longer in ListAgents. This session is the only
+  one in the project, so the unav lane is held by it alone. Rule 1 of the
+  priority order was checked first: the only open review-sourced item is
+  UTA-0059, whose own body schedules it behind UTA-0014, so nothing under
+  rule 1 is implementable now. Starting implementation from the accepted
+  spec.
   **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
   Kind: implement.
   Source: design-2026-09-03.
