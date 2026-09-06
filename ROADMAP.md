@@ -389,6 +389,16 @@ model, no weapon and no opponent until 0.2.0.
   call. The third means nothing until UTA-0057 derives the ReachSpec
   array the `Paths` integers index into.
 
+  That third query also validates this mode rather than merely using it.
+  The consuming session's Paths evidence
+  (/mnt/Games/Scripts/Linux/ut-map-deps/paths-index-evidence.md) was
+  gathered by grepping T3D exports, and its four results are reproducible
+  from any reader that can list each NavigationPoint's used `Paths` and
+  `upstreamPaths` slots. Running it both ways and getting the same
+  answers checks `ut-dump`: a reader that consumes its bytes correctly
+  but misreads `Paths` shows up as a divergence in the uniqueness result,
+  which is the tightest of the four.
+
   Blocked-by: the container reader.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
@@ -1020,7 +1030,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
 
-- 📋 [UTA-0057] **upkg: derive the rest of Level, including the ReachSpec path graph.**
+- 🚧 [UTA-0057] **upkg: derive the rest of Level, including the ReachSpec path graph.**
   Split on 2026-09-06 at the request of the Monster Hunt server work on
   this machine, a consumer of upkg; UTA-0069 keeps the Model/BSP half.
   The two have different consumers and very different unblocking value.
@@ -1095,6 +1105,19 @@ model, no weapon and no opponent until 0.2.0.
   SIGKILLed run leaves empty output files.
 
   Blocked-by: nothing. UTA-0004 shipped the container work this rests on.
+  Progress (2026-09-06): held by session ut-ants-f0, in the main checkout.
+
+  Picked up ahead of UTA-0006 because this item unblocks it -- see the
+  body. spec-format.md SS 1 says a spec is required: the ReachSpec types
+  are a contract UTA-0006, UTA-0012's third query and ubundle all bind
+  to, there is a real design choice in how sparse indices and the
+  unexplained Paths/upstreamPaths residue are represented, and an on-disk
+  reading shape is hard to reverse once consumers exist. Siblings
+  UTA-0004 and UTA-0005 both went through specs.
+
+  First acceptance step stands as written: verify that Paths[16] are
+  indices into the ReachSpec array, rather than building on the
+  consuming session's withdrawn claim.
   **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
   Kind: implement.
   Source: user-decision-2026-09-05.
