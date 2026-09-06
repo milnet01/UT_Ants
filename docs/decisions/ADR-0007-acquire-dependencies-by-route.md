@@ -55,28 +55,41 @@ rather than re-argued.
 Each ships a CMake build that stands alone, and each is ordinary code the
 compiler can build from source: SDL3 *calls* the platform's window, input and
 audio interfaces, but nothing about it has to match a version already
-installed. Fetching puts both platforms on one version with no instructions to
-follow, which is the shortest route to **S7**.
+installed. Fetching puts both platforms on one version, which is what a
+route-1 dependency buys.
+
+**It does not follow that a fetched dependency needs no system packages, and
+SDL3 is the case that proves it.** SDL's own `docs/README-linux.md` lists the
+development headers its X11, Wayland and audio backends are compiled against;
+without them SDL3 still builds and those backends are simply absent. So route 1
+removes a *version* decision, not a package list, and the Linux prerequisite
+line covers SDL3's headers as well as Vulkan's.
 
 **Route 2 — vendored in the repository.** Dear ImGui, as already decided. It
 ships no build system; its sources are compiled into the target that uses it,
 so fetching would buy nothing a copy does not already give.
 
-**Route 3 — required from the platform, found and never fetched.** Four things,
-acquired together: the Vulkan **headers**, a **loader**, the **validation
-layers**, and a **GLSL-to-SPIR-V compiler**, which is `glslc`. Route 3 is
-satisfied by any acquisition supplying all four at Vulkan **1.3 or newer**, the
-level `docs/design.md` requires. On Windows that is the LunarG SDK, which is
-the only one. On Linux it is LunarG's SDK or the distribution's own packages —
-Ubuntu 24.04 carries `libvulkan-dev` and `vulkan-validationlayers` at
-`1.3.275.0` and `glslc` separately at `2023.8`, and that combination qualifies.
+**Route 3 — required from the platform, found and never fetched.** Three build
+inputs: the Vulkan **headers**, a **loader**, and a **GLSL-to-SPIR-V
+compiler**, which is `glslc`. Route 3 is satisfied by any acquisition supplying
+all three at Vulkan **1.3 or newer**, the level `docs/design.md` requires — the
+LunarG SDK on either platform, or on Linux the distribution's own packages,
+Ubuntu 24.04 carrying `libvulkan-dev` at `1.3.275.0` and `glslc` separately at
+`2023.8`.
+
+**The validation layers are a development prerequisite of this route and are
+deliberately not one of the three.** They are loaded by the loader at run time
+rather than linked, and CMake's `FindVulkan` has no result that reports them,
+so a gate cannot assert them the way it asserts the other three. The README
+names them; nothing checks them, and this paragraph is where that is admitted
+rather than left for someone to discover from a gate that passes.
 
 **The graphics driver is not part of this and is never acquired.** It is the
 machine's, and `docs/design.md` already rules out one below Vulkan 1.3.
 
 **A floor rather than an exact version, deliberately — and the reason is worth
 stating, because the opposite is easy to argue.** Nothing route 3 supplies ends
-up inside a bundle. `docs/design.md` § What each part does lists what a map
+up inside a bundle. `docs/design.md` § The parts lists what a map
 bundle carries — geometry, materials, collision, lights, baked indirect light,
 entity placements and the graphs — and compiled shaders are not among them;
 they are built into the engine binary. So `ADR-0002`'s requirement that one
@@ -87,8 +100,11 @@ arithmetic the baker *runs*, and its results do go into the bundle.
 
 **Route 4 — fetched, but only for the target that needs it.** Assimp, which
 `ut-ed` links and no runtime target may — `docs/design.md` § The stack says so
-in the entry itself, rule 2 naming only this project's own parts. A
-runtime-only build does not pay to fetch or compile it.
+in the entry itself, rule 2 naming only this project's own parts. **What
+selects it is whether the editor target is in the build**, so the fetch is
+guarded by that and by nothing new: a build configured without `ut-ed` does not
+pay to fetch or compile Assimp. The option's name and default arrive with
+`ut-ed`, and are its to choose.
 
 **The question a new dependency is asked, in this order.**
 
@@ -96,12 +112,17 @@ runtime-only build does not pay to fetch or compile it.
    graphics driver's ICD, a kernel ABI, a vendor runtime? Route 3. The test is
    the matching, not whether the library talks to hardware: SDL3 opens input
    and audio devices and is still route 1, because any recent SDL3 drives them.
-2. **Is it already carried by a route-3 acquisition?** Route 3, on that
-   acquisition's back, with no acquisition of its own. `glslc` is the case.
-3. **Is it unbuildable on its own, and carried by nothing?** Route 2 — vendored
-   with the sibling sources it needs, and the sync step recorded beside them.
-   This is the branch `shaderc` would take if the SDK did not already carry
-   `glslc`, and it exists so that answer is written down rather than invented.
+2. **Does a route-3 acquisition supply it?** Route 3, named alongside the rest
+   of that acquisition rather than given one of its own. `glslc` is the case,
+   and it is the case in both spellings: the LunarG SDK ships it, and on Linux
+   the distribution ships it as a separate package installed beside the loader.
+   *Supplied by* is not *free* — on the distribution route it still has to be
+   named in the install line.
+3. **Does building it need sources it does not ship?** Route 2 — vendored with
+   the sibling sources it needs, and the sync step recorded beside them. This
+   is the branch `shaderc` would take if nothing already supplied `glslc`, and
+   it is worded about the sources rather than about a build system because
+   `shaderc` ships a perfectly good CMake build and still cannot stand alone.
 4. **Does it ship no build system of its own?** Route 2.
 5. **Is it linked by exactly one target, and that target not a runtime one?**
    Route 4. A test-only dependency is the exception and stays route 1: Catch2
@@ -152,9 +173,11 @@ workflow, as the compiler lines there already do. What the shared gate script
 owns is the *assertion*, and it reads what CMake reads: `find_package(Vulkan)`
 resolves the headers and loader and reports `Vulkan_VERSION`, and locates
 `glslc` as `Vulkan::glslc`. The gate fails when either is absent or when the
-version is below the floor. That is one observable rather than a choice between
-`$VULKAN_SDK` and a system path, so the gate, CMake and the README cannot each
-pick a different one. The local gate and the pipeline share the script so
+version is below the floor. That is one observable for the three build inputs
+rather than a choice between `$VULKAN_SDK` and a system path, so the gate,
+CMake and the README cannot each pick a different one. **It asserts three of
+route 3's components and not the validation layers**, for the reason that route
+gives: no CMake result reports them. The local gate and the pipeline share the script so
 neither can drift (`local-gate.md` § 3), and a developer whose machine is short
 a component finds out from their own gate rather than from a red pipeline.
 
