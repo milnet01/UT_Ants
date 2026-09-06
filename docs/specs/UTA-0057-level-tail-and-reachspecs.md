@@ -1,6 +1,6 @@
 # UTA-0057 — `upkg`: the rest of `Level`, and the ReachSpec path graph
 
-**Status:** draft (2026-09-06).
+**Status:** accepted (2026-09-06).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0057 (user-decision-2026-09-05; narrowed to this half
 by consumer-request-2026-09-06).
@@ -84,9 +84,14 @@ Re-measured here on 2026-09-06 over that project's T3D exports, rather than
 taken from the report:
 
 ```sh
-# per map, over /mnt/Games/mh-t3d-work/t3d/<map>.t3d
+# per map, over <corpus>/<map>.t3d -- the corpus was at
+# /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/t3d/ on 2026-09-06 and has
+# already moved once, so re-locate it rather than trusting this path.
 grep -oE '^[[:space:]]*Paths\([0-9]+\)=-?[0-9]+'         "$f" | grep -oE '=-?[0-9]+$' | tr -d '='
 grep -oE '^[[:space:]]*upstreamPaths\([0-9]+\)=-?[0-9]+' "$f" | grep -oE '=-?[0-9]+$' | tr -d '='
+# the cap columns -- the anchor is load-bearing, see below
+grep -cE '^[[:space:]]*Paths\(15\)='         "$f"
+grep -cE '^[[:space:]]*upstreamPaths\(15\)=' "$f"
 ```
 
 | map | `Paths` | distinct | `upstreamPaths` | distinct | max index | residue | at cap (P/u) |
@@ -97,8 +102,14 @@ grep -oE '^[[:space:]]*upstreamPaths\([0-9]+\)=-?[0-9]+' "$f" | grep -oE '=-?[0-
 
 The last two columns were measured with the same run: the residue is the
 difference between the two distinct counts, and the cap columns count actors
-filling the sixteenth slot (`grep -c 'Paths(15)='`, and the same for
-`upstreamPaths`).
+filling the sixteenth slot.
+
+**The `^[[:space:]]*` anchor on those two commands is load-bearing.**
+Unanchored, `Paths(15)=` is a substring of `upstreamPaths(15)=` and of every
+other array whose name ends in `Paths`, so it counts them all: measured on
+this corpus it returns 155, 68 and 298 against the anchored 0, 0 and 7.
+Anyone re-deriving this table with the unanchored form will conclude the
+table is wrong.
 
 Three things this settles, and one it does not.
 
@@ -184,8 +195,9 @@ The entry point is the one UTA-0004 declared, unchanged:
 [[nodiscard]] Result<Level> readLevel(const Package&, const ExportEntry&);
 ```
 
-`Level` gains one member. The two UTA-0004 declared keep their meaning and
-their contract, which is INV-9 there and is not restated here:
+`Level` gains one member, and conditionally a second — § 4.5's derivation
+decides. The two UTA-0004 declared keep their meaning and their contract,
+which is INV-9 there and is not restated here:
 
 ```cpp
 struct ReachSpec {
@@ -198,6 +210,11 @@ struct Level {
     std::vector<ObjectReference> actors;      // non-null only -- UTA-0004 INV-9
     std::uint32_t rawSlotCount = 0;           // including nulls -- UTA-0004 INV-9
     std::vector<ReachSpec> reachSpecs;        // file order, stored indexing
+
+    // CONDITIONAL, and SS 4.5's derivation decides whether it exists: present
+    // only if a ReachSpec names its nodes by raw actor-slot index rather than
+    // by object reference. Absent otherwise. See below.
+    // std::vector<std::uint32_t> actorSlotOfIndex;
 };
 ```
 
@@ -238,8 +255,11 @@ reference install exactly. That check is total — it fires on every field
 without anyone predicting which will be wrong — and it runs against content
 this project did not write. It is not a proof of correctness: a reader can
 consume the right number of bytes and assign them to the wrong fields. § 4.6
-is what covers that gap for the one array this item exists for, and § 10
-grades the rest of the tail as ungraded.
+narrows that gap for the two fields the graph rests on — a spec's start and
+end nodes — and closes it for nothing else. **A `ReachSpec`'s collision
+radius and height are returned, are bound to by UTA-0006, and are checked by
+nothing here**; § 10 grades them, and finding an independent source for them
+is left to UTA-0006 rather than invented in this item.
 
 ### 4.4 The tail, and what a reader may assume about it
 
@@ -281,12 +301,21 @@ export whose class descends from `NavigationPoint`*, which needs UTA-0005's
 ancestry walk; an exact name match resolves zero and a hand-written name list
 cannot be complete while community maps define their own subclasses.
 
-*Which entries:* a slot is **empty** when it holds the file's own unused-slot
-sentinel, and § 4.5's derivation is what identifies that value. The T3D
-exports cannot settle it — they emit only the slots in use, and carry no
-negative `Paths` value on any of the three maps — so the binary is the only
-place the answer exists. Until it is identified, no entry may be dropped as
-empty on a guess.
+*Which entries:* a slot is **empty when `readProperties` returns no property
+for that `arrayIndex`**. `Paths[16]` is a static array carried in the actor's
+tagged property list, and `src/upkg/Properties.h`'s `Property` carries an
+`arrayIndex` member — so per-slot presence is already observable, and an
+unused slot is an absent property rather than a stored sentinel. **This is
+not § 4.5's to derive**: that section derives the reach-spec array in the
+`Level` tail, which contains nothing about an actor's property list.
+
+The T3D exports agree as far as they can — they emit only the slots in use,
+and carry no negative `Paths` value on any of the three maps — but they
+cannot rule out a sentinel, because an exporter that skips unused slots and
+one that never had them look identical. **So the first read of a real actor
+settles it**: if every `NavigationPoint` descendant returns sixteen
+properties for `Paths`, a sentinel exists and this rule is wrong. Record
+which it was in the fold-back; until then, drop no entry on a guess.
 
 Then, for every such actor, resolve each non-empty `Paths` entry against the
 returned array. This is answered over the whole reference install, not over a
@@ -313,10 +342,15 @@ in the fold-back is what stops the item quietly widening.
 
 ### 4.7 Fixtures
 
-UTA-0004 § 4.10's builder does not build a `Level` beyond the actor array,
-because until now no layout existed to build against. It grows to emit a
-level whose tail carries a small reach-spec array with known contents, so
-the unit tier can exercise the reader without the reference install. The
+**`tests/support/UnrealPackageBuilder` emits no `Level` export at all**
+today — measured 2026-09-06, `grep -n Level` over its header and source
+returns nothing. UTA-0004 § 4.10 describes what a `Level` fixture would not
+cover, not one that exists. So this item writes the `Level` fixture from
+scratch rather than extending one: an actor array interleaving null and
+non-null slots (UTA-0004's INV-9, whose case is owed here per § 4.2), an
+`FURL`, and a tail carrying a small reach-spec array with known contents at
+known sparse indices, so the unit tier can exercise the reader without the
+reference install. The
 builder is the only way to construct the refusal cases in § 6: real content
 does not supply a truncated array on demand.
 
@@ -380,8 +414,10 @@ it answers no, both are withdrawn in the fold-back rather than left failing.
   member of `Level` holds a resolved graph, an adjacency list, or a name
   resolved from an object reference.
   *Test:* declared reading check — `src/upkg/Level.h` is read against this
-  clause; the returned type carries no member whose type is a graph or map
-  keyed by node.
+  clause; the returned type carries no resolved graph, no adjacency list and
+  no name resolved from an object reference. **The § 4.1 slot-to-actor
+  mapping is exempt by name**: it is the file's own indexing made usable, not
+  a graph, and § 4.1 requires it on one branch of § 4.5's derivation.
   *Breaks when:* the reader grows a convenience graph, at which point UTA-0006
   binds to it, two vocabularies for one thing exist, and the lifetime problem
   UTA-0004 § 4.1 avoids by returning references unresolved comes back.
@@ -423,11 +459,19 @@ not write, and a fixture would only assert what the fixture builder was told.
 **`Level` joins UTA-0004 § 7's zero-refusal set, and that is a decision this
 item makes.** That list names `Polys`, `Model` and `Palette`, and a refusal
 there fails the tier; `Level` was absent because `readLevel` did not exist.
-It joins them: every map in the install has a `Level` export, the reader has
-no version branch of its own (§ 4.2), and the recorded-rather-failed
-allowance exists for community content that is genuinely malformed in a named
-shape. A `Level` refusal is a reader defect until shown otherwise, so zero
-refusals are permitted and one fails the tier.
+It joins them **for the refusals this reader owns** — a tail it cannot
+interpret, an array length that overruns the export, a layout that ends
+anywhere but the export's end. Every map in the install has a `Level` export
+and the reader has no version branch of its own (§ 4.2), so a refusal of that
+kind is a reader defect until shown otherwise: zero are permitted and one
+fails the tier.
+
+**UTA-0004 § 7's two recorded-rather-failed shapes still apply**, because
+neither is this reader's. A property list that does not parse never reaches
+this layout at all — that layer is UTA-0003's, and § 6 keeps the row saying
+so. A redundant offset contradicting its own payload is likewise an export
+disagreeing with itself. Those stay recorded per export; everything else
+fails.
 
 **The tier asserts its own population, or INV-2 and INV-3 pass vacuously.**
 Both quantify over the non-empty `Paths` entries found in the install, and a
@@ -474,7 +518,9 @@ rejecting them would cost.
 - The `Model` BSP tables — UTA-0069.
 - The graph types and the queries over them — UTA-0006.
 - Interpreting what a custom `NavigationPoint` subclass means — UTA-0023,
-  with its ancestry from UTA-0005.
+  with its ancestry from UTA-0005. **Using** that ancestry to decide whether
+  an export is a navigation point at all is in scope and is § 4.6's filter;
+  what it means is not.
 - Returning the `FURL` or anything else in the tail — § 3.2 items 2 and 3.
 - Explaining the `Paths`/`upstreamPaths` residue. This item records it,
   refuses to reject content for it, and does not claim to know its cause.
@@ -490,19 +536,20 @@ rejecting them would cost.
 | UTA-0004 INV-9 (inherited, its test owed here) | `tests/unit/PackageContentTest.cpp` — the sparse actor-array case, written for the first time by this item |
 | UTA-0004 INV-1 (exact consumption) | `tests/unit/PackageContentTest.cpp` at fixture level on every ordinary run, and `tests/real/RealInstallTest.cpp` over the install with zero refusals permitted (§ 7 tier 3) |
 | INV-5 | A declared reading check. No mechanical catcher — **nothing** stops a member being added later |
+| A `ReachSpec`'s non-node fields — the collision radius and height § 1 promises | **Nothing.** INV-3 checks the start node, which pins the two node fields; no invariant reaches the rest. Transposed radius and height, or either read from a neighbouring integer, consume the same bytes and name the same nodes. UTA-0006 binds to them |
 | The derived layout of the rest of the tail | **Nothing beyond exact consumption.** § 4.3 says why that is weaker than it looks, and this item returns none of that data, so a wrong reading of it is invisible until something consumes it |
 
-Recounted against the table above: eight rows. Of this spec's five
-invariants, three say `nothing` on an ordinary gate run (INV-2, INV-3,
-INV-5) and two are covered by the unit tier (INV-1, INV-4). The two
-inherited UTA-0004 rows are covered on an ordinary run. The last row, for
-the rest of the derived tail, has exact consumption and nothing else.
+**Ungraded on an ordinary gate run: INV-2, INV-3, INV-5, the `ReachSpec`
+collision fields, and the rest of the derived tail.** Graded: INV-1, INV-4
+and the two inherited UTA-0004 rows. That majority is this item's honest
+error budget.
 
-That is this item's honest error budget, and it is worse than UTA-0004's for
-a structural reason rather than a fixable one: the two invariants that
-establish the item's whole point — that the indices mean what § 2.1 believes
-they mean — are claims about content this project did not write, so no
-fixture can settle them and the tier that can is off by default.
+It is worse than UTA-0004's for a structural reason rather than a fixable
+one. The invariants establishing the item's whole point — that the indices
+mean what § 2.1 believes they mean — are claims about content this project
+did not write, so no fixture can settle them and the tier that can is off by
+default. The collision fields are worse still: they are returned, UTA-0006
+binds to them, and nothing here checks them at all.
 
 ## 11. Cross-doc impact
 
@@ -515,6 +562,19 @@ fixture can settle them and the tier that can is off by default.
   2026-09-06.
 - **UTA-0004 § 4.9** remains correct: the derivation of the tail is this
   item's.
+- **UTA-0004 § 4.1's `struct Level` gains `reachSpecs`** (and conditionally
+  the slot mapping). That document declares the type "rather than left to
+  the implementation, because … four later items bind to them", so the
+  declaration there must gain the member or the next item binding to `Level`
+  reads a superseded one.
+- **UTA-0004 § 7 tier 3's zero-refusal list gains `Level`**, per § 7 here.
+  That list currently names `Polys`, `Model` and `Palette`, and it is the
+  section that actually defines the tier's refusal policy — an implementer
+  building the harness reads it, not this spec.
+- **UTA-0004 § 10's INV-1 and INV-2 rows become false when this ships.**
+  They say `readLevel` "past the actor array" has no fixture case and that
+  the malform tier "does not reach … `readLevel`'s remainder at all". § 4.7
+  builds that fixture, so both rows need the exception removed.
 - **UTA-0006** gains a blocked-by on this item, recorded in the roadmap.
 - **UTA-0012's** third day-one query depends on this item, and re-running
   § 2.2's measurement through `ut-dump` is a check on `ut-dump`.
