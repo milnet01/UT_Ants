@@ -4,8 +4,11 @@
 **Kind:** implement.
 **Source:** ROADMAP UTA-0057 (user-decision-2026-09-05; narrowed to this half
 by consumer-request-2026-09-06).
-**Blocked by:** UTA-0003 for the container, UTA-0004 for the actor array this
-extends. Both shipped.
+**Blocked by:** UTA-0003 for the container. UTA-0004 for the actor array's
+*contract* — but not its code: `readLevel` was declared there and never
+built, so this item is the first to implement it and inherits INV-9's test
+obligation with it (§ 4.2). UTA-0005 for class ancestry, which § 4.6 needs to
+identify a navigation point at all.
 **Blocker for:** UTA-0006 — `unav` reads a node's `Paths` entries and cannot
 resolve one without the array this item returns. UTA-0012's third query is
 blocked for the same reason.
@@ -81,11 +84,16 @@ grep -oE '^[[:space:]]*Paths\([0-9]+\)=-?[0-9]+'         "$f" | grep -oE '=-?[0-
 grep -oE '^[[:space:]]*upstreamPaths\([0-9]+\)=-?[0-9]+' "$f" | grep -oE '=-?[0-9]+$' | tr -d '='
 ```
 
-| map | `Paths` | distinct | `upstreamPaths` | distinct | max index | sets equal |
-|---|---|---|---|---|---|---|
-| MH-AncientCavesTorus | 1202 | 1202 | 1274 | 1274 | 2816 | no |
-| MH-Village1 | 730 | 730 | 619 | 619 | 1149 | no |
-| MH-Dust2-BP | 6579 | 6579 | 6579 | 6579 | 14322 | yes |
+| map | `Paths` | distinct | `upstreamPaths` | distinct | max index | residue | at cap (P/u) |
+|---|---|---|---|---|---|---|---|
+| MH-AncientCavesTorus | 1202 | 1202 | 1274 | 1274 | 2816 | 72 | 0 / 0 |
+| MH-Village1 | 730 | 730 | 619 | 619 | 1149 | 111 | 0 / 1 |
+| MH-Dust2-BP | 6579 | 6579 | 6579 | 6579 | 14322 | 0 | 7 / 4 |
+
+The last two columns were measured with the same run: the residue is the
+difference between the two distinct counts, and the cap columns count actors
+filling the sixteenth slot (`grep -c 'Paths(15)='`, and the same for
+`upstreamPaths`).
 
 Three things this settles, and one it does not.
 
@@ -98,12 +106,15 @@ distinct indices with a maximum of 14322, so a reader must not assume the
 indices are a dense `0..n`. Pruned specs still occupying slots is the obvious
 explanation and is a guess.
 
-**The 16-slot cap does not explain the set mismatch.** The obvious reading of
-the last column is that busy nodes overflow their fixed 16 slots. It does not
-survive: MH-AncientCavesTorus has the largest mismatch and no node at the
-cap, while MH-Dust2-BP is the only map where the cap binds and the only one
-whose sets match. Recorded so this item does not spend time on a hypothesis
-already eliminated.
+**The 16-slot cap does not explain the residue.** The obvious reading is that
+busy nodes overflow their fixed 16 slots. It does not survive the last two
+columns: no map's capped-node count is remotely near its residue.
+MH-AncientCavesTorus carries a residue of 72 with **no node at either cap**,
+which alone is fatal — truncation cannot drop entries where nothing was
+truncated. MH-Village1 has the largest residue at 111 and one capped node.
+MH-Dust2-BP is the only map where the cap really binds and the only one with
+no residue at all, which is the opposite of what the hypothesis predicts.
+Recorded so this item does not spend time on a hypothesis already eliminated.
 
 **What it does not settle** is anything about the array's position, its
 element size or its field order — which is the whole of § 4.4 and § 4.5.
@@ -175,6 +186,7 @@ their contract, which is INV-9 there and is not restated here:
 struct ReachSpec {
     // Field set believed from the engine's class structure; ORDER and widths
     // are what SS 4.5 derives. The implementation names these members.
+    // Its start and end node fields are returned AS STORED -- see below.
 };
 
 struct Level {
@@ -184,6 +196,16 @@ struct Level {
 };
 ```
 
+**A spec's node fields are returned as the file stores them, and if they are
+raw actor-slot indices the returned type must be able to express that.**
+`actors` drops the null slots and keeps only their count, so a raw slot index
+cannot be joined against it — the mapping from slot to returned position is
+gone. Which form the file uses is not known here and § 4.5 derives it. If it
+is an object reference, nothing more is needed. **If it is a slot index, the
+reader returns the slot-to-actor mapping alongside, not merely
+`rawSlotCount`.** Settling this silently is how UTA-0006 ends up with node
+identities it cannot join to anything, and UTA-0006 binds to this type.
+
 ### 4.2 What this item inherits and must not restate
 
 Three contracts already govern this reader and are cited rather than
@@ -192,7 +214,12 @@ repeated, per `spec-format.md` § 5.2:
 - **Exact consumption** — UTA-0004 § 4.3 and its INV-1. A reader that does
   not end at `serialOffset + serialSize` returns `MalformedData` and never a
   partial result.
-- **The actor array** — UTA-0004 INV-9.
+- **The actor array** — UTA-0004 INV-9. **Its contract is inherited; its
+  test is not yet written.** `readLevel` never shipped, so
+  `tests/unit/PackageContentTest.cpp` carries no case for it today (measured
+  2026-09-06: `grep -c Level` over that file returns 0). This item is the
+  first to implement the actor array, so INV-9's fixture case is owed here —
+  § 7 tier 1 and § 10 carry it.
 - **The supported package version range** — UTA-0003, inherited through
   `Package::open`, which refuses anything outside 61–69 before a table is
   read. This item adds no version gate.
@@ -237,9 +264,30 @@ and § 12's log is where it is announced.
 This is the item's first acceptance step and it is not optional. § 2.2's
 evidence is circumstantial; the array itself is the thing that settles it.
 
-Once the array reads, take a map from the reference install and, for every
-`NavigationPoint` actor in it, resolve each non-empty `Paths` entry against
-the returned array. Two questions, and both must be answered before this
+**Which actors, and which entries.** Neither is obvious and both were
+measured on 2026-09-06 rather than assumed.
+
+*Which actors:* **no export of literal class `NavigationPoint` carries a
+`Paths` entry at all.** Across MH-AncientCavesTorus, MH-Village1 and
+MH-Dust2-BP the classes that do are `Spawnpoint`, `InventorySpot`,
+`PathNode`, `Teleporter`, `VisibleTeleporter`, `PlayerStart` and `QueenDest`
+— every one a subclass, and the last a map's own. So the filter is *every
+export whose class descends from `NavigationPoint`*, which needs UTA-0005's
+ancestry walk; an exact name match resolves zero and a hand-written name list
+cannot be complete while community maps define their own subclasses.
+
+*Which entries:* a slot is **empty** when it holds the file's own unused-slot
+sentinel, and § 4.5's derivation is what identifies that value. The T3D
+exports cannot settle it — they emit only the slots in use, and carry no
+negative `Paths` value on any of the three maps — so the binary is the only
+place the answer exists. Until it is identified, no entry may be dropped as
+empty on a guess.
+
+Then, for every such actor, resolve each non-empty `Paths` entry against the
+returned array. This is answered over the whole reference install, not over a
+sample: it is the same population INV-2's test walks, and answering it on one
+map would leave the shipped assertion resting on a narrower check than the
+one that settled it. Two questions, and both must be answered before this
 item is called done:
 
 1. **Is every non-empty `Paths` value a valid index into the array?** If any
@@ -249,9 +297,14 @@ item is called done:
    is the check that separates a reader consuming the right bytes from one
    assigning them to the right fields, which § 4.3 cannot do.
 
-If the claim turns out false, this item still ships the layout — the
-derivation is worth having either way — and UTA-0006's blocked-by is what
-changes. Say so in the fold-back rather than quietly widening the item.
+**One disposition, so an out-of-range value never means two things.** Until
+§ 4.6 is answered, an out-of-range value fails tier 3 and is chased as a
+layout defect — the array's own length says whether that is plausible. If
+§ 4.6 answers *no*, the indexing claim is false: INV-2 and INV-3 are then
+**withdrawn in the fold-back**, not left standing and failing, tier 3 drops
+their assertions, this item still ships the layout — the derivation is worth
+having either way — and UTA-0006's blocked-by is what changes. Recording that
+in the fold-back is what stops the item quietly widening.
 
 ### 4.7 Fixtures
 
@@ -276,12 +329,17 @@ does not supply a truncated array on demand.
   points at the wrong spec, and nothing in § 4.3 notices because the byte
   count is unchanged.
 
-- **INV-2** — Every non-empty `Paths` entry on a `NavigationPoint` in the
-  reference install resolves to a position within the returned array.
+**INV-2 and INV-3 hold only if § 4.6 answers yes.** They state the indexing
+claim as a contract, and § 4.6 is what settles whether that claim is true. If
+it answers no, both are withdrawn in the fold-back rather than left failing.
+
+- **INV-2** — Every non-empty `Paths` entry on an export descending from
+  `NavigationPoint`, in the reference install, resolves to a position within
+  the returned array.
   *Test:* `tests/real/RealInstallTest.cpp` walks each map's navigation points
   and asserts every non-empty `Paths` value is in range for that level's
-  returned array, and that the number of entries it resolved is non-zero
-  (§ 7 tier 3).
+  returned array, and fails outright if the number of entries it resolved is
+  zero (§ 7 tier 3).
   *Breaks when:* the reader consumes the export exactly and still partitions
   the array wrongly — reading two records as one, say — which halves its
   length and puts the largest indices out of range. A wrong element size that
@@ -338,8 +396,12 @@ does not supply a truncated array on demand.
 
 **Tier 1 — unit, always on.** `tests/unit/PackageContentTest.cpp` against the
 fixture builder of § 4.7. Covers INV-1 and INV-4, both of which need content
-constructed to be wrong in one named way. Neither can be exercised by real
-content, which supplies no truncated arrays.
+constructed to be wrong in one named way; UTA-0004's INV-9, whose fixture
+case is owed here because this item is the first to implement the actor
+array (§ 4.2); and **UTA-0004's INV-1 at fixture level** — the reader ends at
+`serialOffset + serialSize` on a fixture whose length the builder knows. None
+of the three can be exercised by real content, which supplies no truncated
+arrays and no known-wrong lengths.
 
 **Tier 2 — declared reading check.** INV-5 has no fixture: no test can
 demonstrate the absence of a member that was never added. It is checked by
@@ -353,17 +415,33 @@ consumed exactly — and this spec's INV-2 and INV-3, which have no fixture
 that could establish them: they are claims about content this project did
 not write, and a fixture would only assert what the fixture builder was told.
 
+**`Level` joins UTA-0004 § 7's zero-refusal set, and that is a decision this
+item makes.** That list names `Polys`, `Model` and `Palette`, and a refusal
+there fails the tier; `Level` was absent because `readLevel` did not exist.
+It joins them: every map in the install has a `Level` export, the reader has
+no version branch of its own (§ 4.2), and the recorded-rather-failed
+allowance exists for community content that is genuinely malformed in a named
+shape. A `Level` refusal is a reader defect until shown otherwise, so zero
+refusals are permitted and one fails the tier.
+
 **The tier asserts its own population, or INV-2 and INV-3 pass vacuously.**
 Both quantify over the non-empty `Paths` entries found in the install, and a
-reader that surfaced none — a property-reading regression, a class filter
-that matches nothing — satisfies both by checking nothing, while the tier
-stays green. So the tier records how many entries it resolved and fails on
-zero. § 2.2's re-measurement is the floor to sanity-check it against: three
-maps alone carry 8,511 outgoing entries.
+reader that surfaced none — a property-reading regression, or the exact-name
+class filter § 4.6 measured as resolving zero — satisfies both by checking
+nothing while the tier stays green. **So the tier records how many entries it
+resolved and fails on zero.** That is the assertion, and it is the only one:
+§ 2.2's 8,511 across three maps is a human sanity check on the recorded
+figure, not a threshold the test enforces. A magnitude floor would have to be
+re-tuned every time the install grows, which is the thing § 2.2 says about
+every figure here.
 
-**This tier is the item's only real oracle, and it is off by default.** The
-same position UTA-0004 § 7 records for `readModel`: an ordinary gate run
-proves agreement with our own fixtures. § 10 grades that.
+**This tier is the item's only oracle for real content, and it is off by
+default** — an ordinary gate run proves agreement with our own fixtures.
+`readLevel` is NOT in `readModel`'s position, which UTA-0004 § 7 calls "the
+one reader the ordinary gate does not exercise": § 4.7 grows a fixture here,
+so exact consumption, ordering and refusal are all checked on an ordinary
+run. What only this tier can reach is whether the layout is right about
+content nobody here wrote. § 10 grades that.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -404,13 +482,16 @@ rejecting them would cost.
 | INV-2 | `tests/real/RealInstallTest.cpp` only, off by default. On an ordinary gate run: **nothing** |
 | INV-3 | `tests/real/RealInstallTest.cpp` only, off by default. On an ordinary gate run: **nothing** |
 | INV-4 | `tests/unit/PackageContentTest.cpp`, both directions |
+| UTA-0004 INV-9 (inherited, its test owed here) | `tests/unit/PackageContentTest.cpp` — the sparse actor-array case, written for the first time by this item |
+| UTA-0004 INV-1 (exact consumption) | `tests/unit/PackageContentTest.cpp` at fixture level on every ordinary run, and `tests/real/RealInstallTest.cpp` over the install with zero refusals permitted (§ 7 tier 3) |
 | INV-5 | A declared reading check. No mechanical catcher — **nothing** stops a member being added later |
 | The derived layout of the rest of the tail | **Nothing beyond exact consumption.** § 4.3 says why that is weaker than it looks, and this item returns none of that data, so a wrong reading of it is invisible until something consumes it |
 
-Recounted against the table above: of the five invariant rows, three say
-`nothing` on an ordinary gate run (INV-2, INV-3, INV-5) and two are covered
-by the unit tier (INV-1, INV-4). The sixth row, for the rest of the derived
-tail, has exact consumption and nothing else.
+Recounted against the table above: eight rows. Of this spec's five
+invariants, three say `nothing` on an ordinary gate run (INV-2, INV-3,
+INV-5) and two are covered by the unit tier (INV-1, INV-4). The two
+inherited UTA-0004 rows are covered on an ordinary run. The last row, for
+the rest of the derived tail, has exact consumption and nothing else.
 
 That is this item's honest error budget, and it is worse than UTA-0004's for
 a structural reason rather than a fixable one: the two invariants that
@@ -440,8 +521,16 @@ Kept outside this file per `~/.claude/standards/spec-format.md` § 6:
 
 ## 13. Resource cost
 
-One reader in one existing library, no new dependency and no change to the
-link closure. The cost is not code volume, it is derivation: the layout is
-unknown, the only oracle runs over an install of hundreds of maps, and
+One reader in one existing library, no new external dependency and no change
+to the link closure — UTA-0005's ancestry walk, which § 4.6's class filter
+needs, is already inside `uta_upkg`.
+
+The cost is not code volume, it is derivation: the layout is unknown, and the
+only oracle for real content runs over an install of hundreds of maps.
 UTA-0004 records deriving one such layout as the largest single risk in that
 item — where it failed and came back as this one.
+
+Two costs this item carries that its brief did not predict. It is the first
+to implement the actor array, so UTA-0004's INV-9 fixture case is owed here
+rather than inherited. And § 4.6's filter needs the ancestry walk, so the
+real-asset tier depends on UTA-0005 as well as on this reader.
