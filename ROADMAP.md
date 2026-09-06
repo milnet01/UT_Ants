@@ -1542,6 +1542,56 @@ to.
   Source: user-request-2026-09-06.
   Lanes: uai.
 
+- 📋 [UTA-0063] **Bake a hidden passage into a visible opening with a frame.**
+  A 1999 map hides a passage by putting a surface over the opening that
+  LOOKS like the wall around it and does not block movement. The baker
+  should recognise those and emit a visible opening with a frame instead
+  of a wall you have to know about.
+
+  This is a deliberate departure from what the original author built,
+  and the position is already the project's rather than new: design.md
+  says of the level map that "the level is somebody else's 1999 map, not
+  a secret we are keeping", and draws the whole layout from the first
+  moment. This is that same stance applied to the geometry instead of
+  to the map screen.
+
+  **The decision to settle first, because it changes what gets built.**
+  Not every hidden surface hides the way forward. Some hide a stash of
+  ammo, which is a reward rather than an obstruction, and turning every
+  one of them into a signposted doorway strips something worth keeping.
+  The request was about the way FORWARD, so the two cases want telling
+  apart -- and there is a computable test rather than a judgement:
+  a hidden passage gates progression when removing it leaves the
+  level's exit unreachable from its start. The navigation graph already
+  answers reachability, so the baker can ask. Recommended default is to
+  open the ones that gate and leave the rest, with the recipe able to
+  override per map either way, because a heuristic run over hundreds of
+  community maps will be wrong somewhere.
+
+  **What must not be caught by it.** A non-blocking surface is not the
+  signal on its own -- waterfalls, force fields, fog sheets and steam
+  are all walk-through and all meant to be seen. The signal is a
+  walk-through surface that is visually CONTINUOUS with the blocking
+  wall around it: same or matching texture, aligned, coplanar. A
+  detector built on "does not block" alone would delete every waterfall
+  in the rotation.
+
+  **The frame is invented geometry, and that is new for the baker.**
+  Everything ubake does today converts what it read; this synthesises
+  something the source does not contain, and it has to sit correctly in
+  the surrounding wall and take a material that belongs there. A frame
+  that reads as a mistake is worse than the fake wall, because the fake
+  wall at least looked deliberate. Whether the opening is framed, or
+  merely lit and unobstructed, is worth deciding against a prototype in
+  a real map rather than in advance.
+
+  Blocked-by: the baker and the geometry it emits, and the navigation
+  graph for the reachability test.
+  **Layman:** Some levels hide the way on behind a patch of wall you can simply walk through, with nothing to tell you it is there. We are not interested in making players guess, so the baker should find those and turn them into openings you can see, framed like a doorway.
+  Kind: implement.
+  Source: user-request-2026-09-06.
+  Lanes: ubake, umat, unav.
+
 ## 0.5.0 — Map editor
 
 Edit a baked bundle, build a new level, and author enemies as data. A map built
