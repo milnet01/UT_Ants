@@ -454,97 +454,147 @@ one another cannot produce the fixture at all:
 
 ## 5. Invariants
 
-**INV-1.** Every class export in the reference install is consumed
-exactly: the reader finishes at `serialOffset + serialSize`, for every
-class export in every readable package.
-*Test:* `tests/real/RealInstallTest.cpp`, the real-asset tier.
+- **INV-1** — Every class export in the reference install is consumed
+  exactly: the reader finishes at `serialOffset + serialSize`, for every
+  class export in every readable package.
+  *Test:* `tests/real/RealInstallTest.cpp`, the real-asset tier → every
+  class export attempted is consumed exactly, and the counts of packages
+  and of exports both match what was attempted.
+  *Breaks when:* any field in § 4.3 is read at the wrong width or skipped —
+  `LabelTableOffset` as 32 bits, say — or the script walk ends anywhere but
+  the first byte after the script, so the property list starts mid-field
+  and the reader finishes away from the export's end.
 
-**INV-2.** `readClass` reports the parent from `ExportEntry::super`, and
-performs no reference validation of its own.
-*Test:* `tests/unit/PackageClassTest.cpp` — a fixture whose in-data
-`SuperField` is out of range while its export-table `super` column is
-valid. The package opens, because UTA-0003 validates the tables and not an
-object's bytes; `readClass` returns the table's parent and does not fail.
-A reader taking the in-data field fails or returns garbage, so the fixture
-isolates this rule and no other.
+- **INV-2** — `readClass` reports the parent from `ExportEntry::super`, and
+  performs no reference validation of its own.
+  *Test:* `tests/unit/PackageClassTest.cpp` — a fixture whose in-data
+  `SuperField` is out of range while its export-table `super` column is
+  valid. The package opens, because UTA-0003 validates the tables and not an
+  object's bytes; `readClass` returns the table's parent and does not fail.
+  A reader taking the in-data field fails or returns garbage, so the fixture
+  isolates this rule and no other.
+  *Breaks when:* the parent is taken from the in-data `SuperField`, which
+  nothing has validated — so an out-of-range value reaches the caller, and a
+  package whose two records disagree reports the wrong parent.
 
-**INV-3.** `skipScript` returns `MalformedData` on an unrecognised opcode,
-on a walk that overshoots `ScriptSize`, and on a negative `ScriptSize`.
-*Test:* `tests/unit/PackageScriptTest.cpp` — three fixtures, one per clause:
-an opcode outside the table; a script whose instructions cannot sum to
-`ScriptSize` exactly; and a negative `ScriptSize`.
+- **INV-3** — `skipScript` returns `MalformedData` on an unrecognised opcode,
+  on a walk that overshoots `ScriptSize`, and on a negative `ScriptSize`.
+  *Test:* `tests/unit/PackageScriptTest.cpp` — three fixtures, one per clause:
+  an opcode outside the table; a script whose instructions cannot sum to
+  `ScriptSize` exactly; and a negative `ScriptSize` → `MalformedData` from
+  each.
+  *Breaks when:* an unknown opcode is charged a guessed length, the running
+  total is compared with `>=` rather than tested for equality at the end, or
+  `ScriptSize` is narrowed to an unsigned type at the call site — where `-1`
+  arrives as four billion and is caught, if at all, by the export bound.
 
-**INV-3a.** `skipScript` executes nothing.
-*Test:* a reading check over `src/upkg/Script.cpp` — the walker takes no
-interpreter state, holds no stack, and calls nothing outside `ByteReader`
-and the name table. There is no output to paste, and it is declared as a
-reading check for INV-12's reason: this is `ADR-0004`'s load-bearing
-promise, and no fixture can demonstrate the absence of an interpreter.
+- **INV-3a** — `skipScript` executes nothing.
+  *Test:* a reading check over `src/upkg/Script.cpp` — the walker takes no
+  interpreter state, holds no stack, and calls nothing outside `ByteReader`
+  and the name table. There is no output to paste, and it is declared as a
+  reading check for INV-12's reason: this is `ADR-0004`'s load-bearing
+  promise, and no fixture can demonstrate the absence of an interpreter.
+  *Breaks when:* the walker gains anything that depends on an operand's
+  *value* rather than its width — a jump taken on a computed offset, a stack
+  of evaluated results, a call into a native function table.
 
-**INV-4.** `skipScript` computes memory widths from fixed constants, so
-its result does not depend on the host's pointer size.
-*Test:* `tests/unit/PackageScriptTest.cpp` — one instruction carrying an
-object reference, with `ScriptSize` 5, walks to a literal disk position and
-succeeds, on every platform in the matrix. A walker using `sizeof(void*)`
-charges nine on the 64-bit hosts this project builds on, steps past 5, and
-is refused by § 4.4's exactness rule — so the fixture fails on the defect
-rather than landing somewhere else. Asserting the literal position as well
-as success is what catches a wrong width that happens to sum to
-`ScriptSize` anyway.
+- **INV-4** — `skipScript` computes memory widths from fixed constants, so
+  its result does not depend on the host's pointer size.
+  *Test:* `tests/unit/PackageScriptTest.cpp` — one instruction carrying an
+  object reference, with `ScriptSize` 5, walks to a literal disk position and
+  succeeds, on every platform in the matrix. A walker using `sizeof(void*)`
+  charges nine on the 64-bit hosts this project builds on, steps past 5, and
+  is refused by § 4.4's exactness rule — so the fixture fails on the defect
+  rather than landing somewhere else. Asserting the literal position as well
+  as success is what catches a wrong width that happens to sum to
+  `ScriptSize` anyway.
+  *Breaks when:* an operand's memory width is written as `sizeof(void*)` or
+  `sizeof` of any host type, so the same package walks differently on a
+  32-bit and a 64-bit build.
 
-**INV-5.** No reader reads outside its export's byte range, for any input
-bytes.
-*Test:* `tests/unit/PackageMalformedTest.cpp` — a class whose `ScriptSize`
-exceeds its export returns `MalformedData`.
+- **INV-5** — No reader reads outside its export's byte range, for any input
+  bytes.
+  *Test:* `tests/unit/PackageMalformedTest.cpp` — a class whose `ScriptSize`
+  exceeds its export returns `MalformedData`.
+  *Breaks when:* a reader is built over the whole package rather than over
+  one export's span, or a length read from the file is trusted as a count
+  before it is compared with what remains.
 
-**INV-6.** `readAncestry` terminates on any input: a cycle returns
-`MalformedData`, and a chain beyond the depth cap returns `MalformedData`.
-*Test:* `tests/unit/PackageAncestryTest.cpp` — a two-class cycle, and a
-chain past the cap.
+- **INV-6** — `readAncestry` terminates on any input: a cycle returns
+  `MalformedData`, and a chain beyond the depth cap returns `MalformedData`.
+  *Test:* `tests/unit/PackageAncestryTest.cpp` — a two-class cycle, and a
+  chain past the cap → `MalformedData` from each.
+  *Breaks when:* the walk follows parent references with no depth cap, so a
+  class whose parent chain returns to a class already visited never
+  terminates.
 
-**INV-7.** A parent the walk cannot reach ends it successfully, in the
-state that says which fact was true: `PackageMissing` when the resolver
-declines to supply the package, `ClassMissing` when a package opened and
-does not hold the class. Neither is an error, and `missingPackage` is
-empty in the second.
-*Test:* `tests/unit/PackageAncestryTest.cpp`, three fixtures — a resolver
-that supplies nothing; a resolver that supplies a package from which the
-parent class is absent; and an import naming its package in a different
-case from the resolver's own key, which must resolve rather than end
-`PackageMissing`. The first two cannot be collapsed into one, because a
-reader that treats both ends alike passes whichever is written alone; the
-third is the only surface the folding rule has.
+- **INV-7** — A parent the walk cannot reach ends it successfully, in the
+  state that says which fact was true: `PackageMissing` when the resolver
+  declines to supply the package, `ClassMissing` when a package opened and
+  does not hold the class. Neither is an error, and `missingPackage` is
+  empty in the second.
+  *Test:* `tests/unit/PackageAncestryTest.cpp`, three fixtures — a resolver
+  that supplies nothing; a resolver that supplies a package from which the
+  parent class is absent; and an import naming its package in a different
+  case from the resolver's own key, which must resolve rather than end
+  `PackageMissing`. The first two cannot be collapsed into one, because a
+  reader that treats both ends alike passes whichever is written alone; the
+  third is the only surface the folding rule has.
+  *Breaks when:* an unreachable parent is reported as an error, so an
+  install that simply lacks a mod reads as a malformed package; or one state
+  covers both ends, so a caller cannot tell a missing file from a missing
+  class; or the name is passed to the resolver unfolded, so `botpack` misses
+  `BotPack.u` on a case-sensitive filesystem.
 
-**INV-8.** `effectiveDefaults` merges on the property's name as text,
-case-insensitively, and on its array index — so a child in one package
-overrides a parent in another, and two elements of one property do not
-collapse into each other.
-*Test:* `tests/unit/PackageAncestryTest.cpp`, three fixtures, because the
-invariant states three rules and one fixture isolates one of them: two
-packages placing the same property name at different name-table indices;
-a child spelling the name in a different case from its parent; and a parent
-and child setting *different array indices* of one property, where both
-must survive the merge.
+- **INV-8** — `effectiveDefaults` merges on the property's name as text,
+  case-insensitively, and on its array index — so a child in one package
+  overrides a parent in another, and two elements of one property do not
+  collapse into each other.
+  *Test:* `tests/unit/PackageAncestryTest.cpp`, three fixtures, because the
+  invariant states three rules and one fixture isolates one of them: two
+  packages placing the same property name at different name-table indices;
+  a child spelling the name in a different case from its parent; and a parent
+  and child setting *different array indices* of one property, where both
+  must survive the merge.
+  *Breaks when:* the merge keys on the name index — where the same property
+  is a different number in every package, so a child silently fails to
+  override its parent and the caller gets the base class's value; or it
+  compares spellings exactly; or it ignores the array index, so element 1
+  overwrites element 0.
 
-**INV-9.** Every `EffectiveProperty` carries the package its value's
-indices are relative to.
-*Test:* `tests/unit/PackageAncestryTest.cpp` — a merged set whose entries
-come from two packages; each `origin` is the package that supplied it.
+- **INV-9** — Every `EffectiveProperty` carries the package its value's
+  indices are relative to.
+  *Test:* `tests/unit/PackageAncestryTest.cpp` — a merged set whose entries
+  come from two packages; each `origin` is the package that supplied it.
+  *Breaks when:* `origin` is dropped, or set to the leaf package for every
+  entry — either way an object-valued default inherited from another package
+  resolves against the wrong name and export tables.
 
-**INV-10.** `readClass` returns `InvalidArgument` for an export whose
-class reference is not null, and for one with no serialised data.
-*Test:* `tests/unit/PackageClassTest.cpp`.
+- **INV-10** — `readClass` returns `InvalidArgument` for an export whose
+  class reference is not null, and for one with no serialised data.
+  *Test:* `tests/unit/PackageClassTest.cpp` → `InvalidArgument` from each.
+  *Breaks when:* `readClass` parses whatever export it is handed, so a
+  texture's serialised bytes are read as a class table and a plausible
+  parent, GUID and property list are returned from nothing.
 
-**INV-11.** `uta_upkg` gains no link dependency.
-*Test:* the configure-time assertion already in `src/upkg/CMakeLists.txt`.
+- **INV-11** — `uta_upkg` gains no link dependency.
+  *Test:* the configure-time assertion already in `src/upkg/CMakeLists.txt`
+  → CMake fails with the INV-13 message if the closure is anything but
+  `uta_core`.
+  *Breaks when:* a convenience dependency is added to the target — the
+  boundary `docs/design.md` rule 2 sets stops being checkable at the moment
+  it stops being asserted.
 
-**INV-12.** `upkg` holds one tagged-property-list decoder, not two:
-`readProperties` and `readPropertyList` are implemented in terms of
-`readPropertiesAt`.
-*Test:* a reading check over `src/upkg/Properties.cpp` — the tag-decoding
-loop appears once, and the two older entry points call the new one. There
-is no output to paste, and an equivalence test between the entry points is
-deliberately not the surface: two decoders that agree would pass it.
+- **INV-12** — `upkg` holds one tagged-property-list decoder, not two:
+  `readProperties` and `readPropertyList` are implemented in terms of
+  `readPropertiesAt`.
+  *Test:* a reading check over `src/upkg/Properties.cpp` — the tag-decoding
+  loop appears once, and the two older entry points call the new one. There
+  is no output to paste, and an equivalence test between the entry points is
+  deliberately not the surface: two decoders that agree would pass it.
+  *Breaks when:* the new entry point is written beside the existing loop
+  rather than under it, so the file holds two decoders of one format and a
+  fix to either leaves the other wrong.
 
 ## 6. Failure modes
 
