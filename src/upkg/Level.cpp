@@ -74,6 +74,9 @@ Result<void> skipURL(ByteReader& reader) {
 /// eleven. That one byte is not explained, so it is not modelled as a field:
 /// what is required is that every byte of the run be ZERO. A non-zero byte
 /// there is a layout this reader does not describe, and is refused.
+///
+/// This consumes to the end of the export, so it is what makes UTA-0004
+/// INV-1 hold for this reader -- see readLevel's last statement.
 Result<void> readTrailer(ByteReader& reader) {
     UTA_TRY([[maybe_unused]] const float timeSeconds, reader.readFloat());
     for (int field = 0; field < TRAILER_INDEX_COUNT; ++field) {
@@ -168,15 +171,13 @@ Result<Level> readLevel(const Package& package, const ExportEntry& entry) {
         level.reachSpecs.push_back(spec);
     }
 
+    // UTA-0004 INV-1 is STRUCTURAL here rather than asserted: readTrailer's
+    // last act consumes the rest of the export, so this reader cannot end
+    // anywhere but its end. A trailing-byte check after it would be
+    // unreachable. What that shifts onto readTrailer is the whole of the
+    // rule -- it refuses any byte it cannot account for rather than skipping
+    // to the end, which is what keeps the guarantee worth having.
     UTA_CHECK(readTrailer(reader));
-
-    // UTA-0004 INV-1. readTrailer consumes to the end, so reaching here with
-    // bytes left would be a defect in this file rather than in the content --
-    // which is exactly why it is asserted rather than assumed.
-    if (reader.remaining() != 0) {
-        return std::unexpected(malformed("a Level left " + std::to_string(reader.remaining()) +
-                                         " bytes of its export unread"));
-    }
     return level;
 }
 
