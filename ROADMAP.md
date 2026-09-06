@@ -977,6 +977,38 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-decision-2026-09-05.
   Lanes: upkg.
 
+- 📋 [UTA-0058] **Settle the Monster Hunt map count the ADRs cite.**
+  The design gate reported this on 2026-09-04 as out of scope for the
+  document it was reviewing -- "the ADRs' to settle" -- and it was never
+  filed, so it sat outside the priority order entirely. Filed 2026-09-06
+  after a rule-1 sweep found it in the review record rather than on the
+  roadmap.
+
+  ADR-0002, ADR-0003 and ADR-0004 each cite 610 community Monster Hunt
+  maps. docs/discovery.md says 515 community Monster Hunt maps in an
+  install of 612. docs/design.md cites no count at all, which is why its
+  own gate could not settle this.
+
+  The number is not decoration: S3 and S8 are both measured against "the
+  rotation", ADR-0003's quarantine reasoning counts what may be served,
+  and UTA-0038 promises to run the live rotation. A figure wrong by
+  ninety-five maps is a promise nobody can check.
+
+  Two things need deciding, and only the server's owner can do the first.
+  Which figure is true today -- and whether the roadmap's own citations
+  should carry a date, since a live server's rotation grows and any bare
+  number goes stale the same way this one did.
+
+  An ADR is never edited after it is accepted (docs/decisions/README.md),
+  so the repair is not an edit to the three. Either a superseding note, or
+  -- more likely and cheaper -- correct docs/discovery.md if that is the
+  stale one, and leave the ADRs recording what was believed when they were
+  written, which is what they are for.
+  **Layman:** Three decision documents say the server has 610 maps and the discovery notes say 515. Somebody has to say which is right, because a promise about "all of them" is measured against that number.
+  Kind: doc-fix.
+  Source: design-gate-2026-09-04.
+  Lanes: docs.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
