@@ -2,3 +2,4 @@
 # their roadmap items land, and the order here is that order.
 add_subdirectory(core)
 add_subdirectory(upkg)
+add_subdirectory(unav)
