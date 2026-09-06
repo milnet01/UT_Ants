@@ -343,6 +343,36 @@ model, no weapon and no opponent until 0.2.0.
   The cap was violent: seven of loop 2's eight findings landed on text loop
   1 had written. Per the gate's own rule this document is not re-gated as it
   stands; the next reviewer is the build.
+  Probe provenance (2026-09-06), recorded because the spec's SS 7 floors
+  rest on these figures and the probes are scratchpad files on a
+  session-scoped path that is already gone. Same trap UTA-0057's bullet
+  records. Nothing in the repo produces these numbers until this item's
+  tier 3 exists -- which is the point of building it.
+
+  Three probes, each about 60-130 lines against libuta_upkg, all over the
+  reference install's Maps directory:
+
+  - wiring probe: for every non-class export, read the property list and
+    collect Tag and Event as Name properties; build tag -> actors per map;
+    count Events matching at least one Tag. Gave 94.9% resolve / 5.1%
+    dangle, the many-to-many counts, and the dead class-default hypothesis
+    (compare each dangling Event against the map's class names and object
+    names).
+  - case probe: the same, resolving each Event twice -- exact, then
+    lower-cased both sides. Gave the identical-results answer that keeps
+    SS 4.4's exact rule.
+  - endpoint probe: readLevel per map, then for every reach spec tally
+    start and end by ObjectReference::kind(), and for Export kinds whether
+    the index is in range and whether it is a NavigationPoint descendant
+    (ancestry via readAncestry, cached per class, package name FOLDED
+    before the resolver -- the loop-2 finding). Gave 0.12% null, zero
+    imports, zero out-of-range, 99.87% resolving to a node.
+
+  Build line for any of them:
+  g++ -std=c++23 -O1 -I src probe.cpp build/src/upkg/libuta_upkg.a build/src/core/libuta_core.a
+
+  Rebuild cost is minutes; the ancestry half is the only fiddly part and
+  tests/real/RealInstallTest.cpp already ships that shape.
   **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
   Kind: implement.
   Source: design-2026-09-03.
