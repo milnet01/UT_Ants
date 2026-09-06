@@ -1009,6 +1009,39 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-gate-2026-09-04.
   Lanes: docs.
 
+- 📋 [UTA-0059] **Split ADR-0007's operating procedure out of the decision.**
+  Routed here by ADR-0007's own review gate, which reached its cap of
+  three loops for an ADR. The record is
+  docs/reviews/ADR-0007-acquire-dependencies-by-route-loop-log.md.
+
+  The cap was a violent one: the three loops found 5, 6 and 7 findings,
+  five of loop 3's seven landed on text the run itself had written, and
+  the document grew from 125 to 204 lines. Sibling ADRs run 43 to 64
+  lines, so this is over three times the largest.
+
+  The diagnosis is in what kept breaking. The decision half -- the four
+  routes, why each, what was rejected -- was settled in loop 1 and never
+  found again. Every later finding fell on the operating half: the
+  routing question's steps, the observable the gate reads, the split
+  between the workflow and the shared gate script, and the prerequisite
+  list. That half is a specification wearing an ADR's clothes, and a
+  cold read keeps catching it because it is the part with implementation
+  detail to get wrong.
+
+  The decision itself is sound and is accepted. Nothing here reopens it,
+  and per the gate's own rule the review is not re-run on the document
+  as it stands.
+
+  Do this when the first dependency actually lands, which is the
+  renderer (UTA-0014). The procedure then has code to attach to and can
+  be checked by building rather than by reading, which is the reviewer
+  an ADR does not get. Until then a split would move prose between two
+  documents and change nothing anyone builds.
+  **Layman:** The dependency-acquisition decision document grew three times the size of every other decision in the project, because it also carries the step-by-step procedure. Separate the two when the renderer lands and the procedure has real code to attach to.
+  Kind: doc.
+  Source: review-contract-2026-09-06 ADR-0007 cap.
+  Lanes: docs.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
