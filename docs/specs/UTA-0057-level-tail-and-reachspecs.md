@@ -69,11 +69,16 @@ costs. § 4.6 is how this item settles it rather than assuming it.
 
 ### 2.2 The circumstantial evidence, measured here
 
-The Monster Hunt server work on this machine
-(`/mnt/Games/Scripts/Linux/ut-map-deps/paths-index-evidence.md`) tested the
-indexing claim without reading the array, by a prediction that follows from
-it: if an index names one directed spec, it appears at most once across a
-level's `Paths` arrays and at most once across its `upstreamPaths` arrays.
+The Monster Hunt server work on this machine tested the indexing claim
+without reading the array, by a prediction that follows from it: if an index
+names one directed spec, it appears at most once across a level's `Paths`
+arrays and at most once across its `upstreamPaths` arrays.
+
+**Its write-up lives outside this repository and has already moved once**
+(`UT_MonsterHunt/ut-map-deps/paths-index-evidence.md` under
+`/mnt/Games/Scripts/Linux/` as of 2026-09-06). So it is cited as provenance
+only: every figure this section relies on is reproduced below with the
+command that produces it, and nothing here needs that file to be found.
 
 Re-measured here on 2026-09-06 over that project's T3D exports, rather than
 taken from the report:

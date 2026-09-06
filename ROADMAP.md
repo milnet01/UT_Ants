@@ -391,7 +391,7 @@ model, no weapon and no opponent until 0.2.0.
 
   That third query also validates this mode rather than merely using it.
   The consuming session's Paths evidence
-  (/mnt/Games/Scripts/Linux/ut-map-deps/paths-index-evidence.md) was
+  (/mnt/Games/Scripts/Linux/UT_MonsterHunt/ut-map-deps/paths-index-evidence.md) was
   gathered by grepping T3D exports, and its four results are reproducible
   from any reader that can list each NavigationPoint's used `Paths` and
   `upstreamPaths` slots. Running it both ways and getting the same
@@ -1055,7 +1055,8 @@ model, no weapon and no opponent until 0.2.0.
 
   What it did produce is circumstantial evidence gathered without
   touching the array, over three maps from the live install, recorded at
-  /mnt/Games/Scripts/Linux/ut-map-deps/paths-index-evidence.md. Four
+  /mnt/Games/Scripts/Linux/UT_MonsterHunt/ut-map-deps/paths-index-evidence.md.
+  Four
   results, and the third is the most valuable because it is negative:
 
   - Uniqueness holds perfectly. No index repeats within `Paths`, nor
@@ -1480,7 +1481,8 @@ model, no weapon and no opponent until 0.2.0.
   is the commonest single reason a community map is unplayable.
 
   That tool was handed over on 2026-09-06 and sits at
-  /mnt/Games/Scripts/Linux/ut-map-deps/ -- `ut-map-deps.cpp` plus a
+  /mnt/Games/Scripts/Linux/UT_MonsterHunt/ut-map-deps/ -- `ut-map-deps.cpp`
+  plus a
   README with the build line and the measurements, verified to build and
   run from that copy rather than only from its author's scratch
   directory. Take it as the first consumer to shape the call against.
