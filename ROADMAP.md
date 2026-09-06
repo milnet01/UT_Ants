@@ -185,7 +185,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 🚧 [UTA-0005] **upkg: read class tables, default properties and ancestry across packages.**
+- ✅ [UTA-0005] **upkg: read class tables, default properties and ancestry across packages.**
   The class table and defaultproperties, with the parent chain resolved across
   imports so a class in one package can be walked to a base class in another.
   No bytecode is read and no interpreter is written (ADR-0004). This item only
@@ -239,6 +239,29 @@ model, no weapon and no opponent until 0.2.0.
   on which map count is true, and UTA-0059 is scheduled for when the
   renderer lands the first dependency. This item is again the only one
   in flight. Restoring the parked work from git stash.
+  Resolved (2026-09-06): src/upkg/Script.{h,cpp} walks a compiled script
+  instruction by instruction; src/upkg/Class.{h,cpp} reads a class export,
+  walks its ancestry across packages through an injected resolver, and
+  merges the defaults up the chain. Nothing is executed.
+
+  Properties gained TWO entry points rather than the one the spec
+  predicted -- readPropertiesAt, and skipExecutionStackFrame, which a
+  class needs too and whose only alternative was a second copy of one
+  format shape. Both amendments are folded back into the specs.
+
+  Verified on the reference install: 18,428 class exports across 889
+  packages, every one consumed exactly (INV-1); 13,814 ancestry chains
+  walked, 13,797 reaching a root and 17 ending incomplete, which is the
+  same 17 the independent Python probe reports.
+
+  That pass found a real UTA-0003 defect only class defaults reach: a
+  Str's length counts characters and a negative one means 16-bit
+  characters, where the reader had refused them as malformed. Fixed and
+  amended into UTA-0003 SS 4.8.
+
+  Flipped on the matrix, not a local leg: the run for ae58cf8 is
+  completed success on all three legs -- Linux GCC 14, Linux Clang 19
+  and Windows MSVC.
   **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later.
   Kind: implement.
   Source: design-2026-09-03.

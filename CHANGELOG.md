@@ -17,6 +17,25 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **upkg reads class tables, default properties and ancestry across packages** (UTA-0005)
+  Works out what a custom actor IS -- what it descends from, and the
+  values its author set on it -- by reading the class table rather than
+  by running any of its code. The parent chain is followed across
+  package boundaries, so a monster defined in one file can be walked to
+  a base class in another, and the defaults are merged down that chain
+  the way the engine itself resolves them.
+
+  Reaching those defaults meant walking each class's compiled script
+  instruction by instruction, because the only length the file records
+  is the size the script occupies in memory rather than on disk. Nothing
+  is executed: each instruction's operands are read only to learn how
+  wide it is.
+
+  Proven against a full Unreal Tournament install: 18,428 class exports
+  across 889 packages, every one consumed exactly, and 13,814 ancestry
+  chains walked. A package whose content is missing ends the walk
+  saying which file or class it wanted, rather than failing.
+
 - **upkg reads typed level content: polygons, palettes, textures and sounds** (UTA-0004)
   Reads a package's brush polygons with their textures and surface flags,
   its palettes, its textures -- including the second block-compressed image
