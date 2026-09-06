@@ -1162,6 +1162,36 @@ model, no weapon and no opponent until 0.2.0.
 
   Blocked-by: something to drive -- the game loading a bundle and
   walking through it.
+  User clarification (2026-09-06), two parts, both about how far this
+  has to reach.
+
+  **It must be able to put the game into a STATE, not only move a
+  player through a level.** The example given was checking that the
+  map-vote window appears when a match ends, which no amount of walking
+  reaches. That is filed as UTA-0066, because it cannot exist before
+  there are matches to drive and this item is wanted long before then.
+  What lands HERE is the constraint: this harness's shape must not
+  preclude it. A design that assumes the only input is movement will be
+  rewritten rather than extended, which is the same reasoning that keeps
+  the check set open.
+
+  **A scripted route is a first-class way to drive the player**, not a
+  lesser one, and the item should not assume autonomous navigation. The
+  three ways differ in what they are good for and the harness wants more
+  than one. An authored route is deterministic and reviewable, so a
+  failure is reproducible and a diff against the last run means
+  something. A recorded human run is realistic in a way an authored one
+  is not, and catches what a straight line misses. Autonomous navigation
+  is the only one that scales to maps nobody has scripted, which is most
+  of 610. Hand-scripting the rotation is not on; scripting the maps that
+  matter most and letting navigation cover the rest is.
+
+  **The standing principle behind both, in the user's own framing:** the
+  deliverable is that anything worth checking can be reached and
+  observed, and the mechanism is chosen per case rather than fixed in
+  advance. That is a reason to keep the driving surface and the check
+  surface separate -- a new way to drive should not need a new way to
+  report, and a new check should not care how the state was reached.
   **Layman:** A way to send a robot player through a level on its own, take pictures along the way, and write down what it found -- so a map can be checked without somebody playing it, and so the answer is something a machine can read rather than a person's impression.
   Kind: test.
   Source: user-request-2026-09-06.
@@ -1415,6 +1445,57 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uai, uworld.
+
+- 📋 [UTA-0066] **Put a match into any state a test needs, without playing it out.**
+  The harness in UTA-0065 drives a PLAYER. This drives the MATCH: set
+  the score, wind the clock, remove the remaining monsters, end the
+  round -- so a test can reach a state directly instead of playing its
+  way there.
+
+  The case that prompted it: checking the map-vote window appears when a
+  match ends. Reaching that by play means a full match every time, which
+  is slow enough that nobody runs it and flaky enough that a failure is
+  not trusted. There are also states play cannot reach on demand at all
+  -- a rare rule branch, a tie, a timeout with one player left.
+
+  **The trap, and it decides the whole design. Force the INPUTS to the
+  rules, never the outcome.** A control that simply shows the vote
+  window tests the window; a control that sets the score to the limit
+  and lets the real end-of-match path run tests the thing that actually
+  breaks. The second finds a match that ends without ever offering a
+  vote; the first passes while it does. So the surface should reach the
+  same values the rules already read -- score, time remaining, players
+  alive, monsters remaining -- and let the rules react, rather than
+  letting a test assert a state the running game can never produce.
+
+  **It must not be reachable on a live server.** An "end the round now"
+  control is a grief vector on a server this project intends to run
+  unattended, and the server is authoritative by design, so a client
+  must not be able to ask for this at all. Build-gated, or gated behind
+  something a player cannot present. That is a decision to make
+  deliberately rather than a flag to add and tidy later.
+
+  **A scenario should be describable and replayable**, so a failure can
+  be handed to somebody else as the state it happened in rather than as
+  a sequence of things to do. That pairs with UTA-0065's machine-first
+  output: the record of a run says which scenario produced it.
+
+  **The set of scenarios stays open**, for the same reason UTA-0065's
+  check set does -- the rules it will be asked to drive belong to items
+  that do not exist yet, so this wants a shape where a new scenario is
+  added rather than the surface rewritten.
+
+  Filed here rather than folded into UTA-0065 because the two are
+  blocked by different things and land in different releases: that one
+  needs only a bundle to walk and is wanted early, this one cannot exist
+  before there are matches to put into a state. UTA-0065 carries a note
+  saying its shape must not preclude this.
+
+  Blocked-by: a match to drive -- the game rules and their lifecycle.
+  **Layman:** So a test can jump straight to the interesting moment -- the end of a match, a nearly-empty level, a team one point behind -- instead of playing for twenty minutes to get there. That is how you check something like the map-vote screen actually appears when a match finishes.
+  Kind: test.
+  Source: user-request-2026-09-06.
+  Lanes: ugame, unet, ci.
 
 ## 0.4.0 — Monster Hunt
 
