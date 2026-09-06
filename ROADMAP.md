@@ -214,6 +214,25 @@ model, no weapon and no opponent until 0.2.0.
   not started: no src/upkg/Script or src/upkg/Class, and none of the
   three new unit test files. Handoff at
   docs/session-handoff-2026-09-05.md.
+  Progress (2026-09-06): resumed by session ut-ants-a3 in the main
+  checkout on branch main, under two-session rule 2 -- the previous
+  holder is not in ListAgents, so the marker was abandoned rather than
+  live. Nothing else is in flight; the upkg lane is held by this
+  session alone. Starting implementation from the accepted spec.
+  Deferred (2026-09-06) to UTA-0043, on the user restating the priority
+  order mid-session. UTA-0043's `Source:` records the design gate and
+  the item is open, so rule 1 outranks this one -- and the 2026-09-04
+  note on UTA-0003 declaring rule 1's queue empty had matched only
+  review-code-* provenance, so a document review's item went unseen.
+  It stays in progress rather than going back to planned: the spec is
+  accepted and there is real work parked, so 📋 would tell another
+  session a half-built item is free. Parked in `git stash` on main as
+  "UTA-0005 WIP: Script.{h,cpp} walker + readPropertiesAt refactor, no
+  tests yet" -- src/upkg/Script.{h,cpp} written whole and
+  src/upkg/Properties.{h,cpp} refactored so the two existing entry
+  points call a new readPropertiesAt, which is INV-12. Neither is wired
+  into the build and neither has a test, which is why it is parked
+  rather than committed. Clear this note when the item is resumed.
   **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later.
   Kind: implement.
   Source: design-2026-09-03.
@@ -479,7 +498,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-03.
   Lanes: ci.
 
-- 📋 [UTA-0043] **Decide how dependencies are acquired, on both platforms.**
+- 🚧 [UTA-0043] **Decide how dependencies are acquired, on both platforms.**
   Raised by the design gate and deliberately NOT settled inside it, because
   picking the mechanism is a decision rather than a wording fix.
 
@@ -506,6 +525,13 @@ model, no weapon and no opponent until 0.2.0.
   does on a fresh clone.
 
   Blocked-by: nothing. This wants doing before the first dependency lands.
+  Progress (2026-09-06): picked up by session ut-ants-a3 in the main
+  checkout on branch main, under rule 1 of the priority order -- this
+  item's Source records the design gate, which is a document review,
+  and it has been open since. It pre-empts UTA-0005, which this
+  session had started and has parked; both markers are held by this
+  one session, which is the two-item cap rather than two sessions.
+  The core and ci lanes do not overlap the parked upkg work.
   **Layman:** Decide how the project gets the outside libraries it needs, in a way that works the same on Linux and Windows -- so a newcomer can clone it and build without a shopping list.
   Kind: investigate.
   Source: design-gate-2026-09-04.

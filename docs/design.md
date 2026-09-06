@@ -381,19 +381,29 @@ S2 reachable.**
 
 ## The stack, and what it rules out
 
-| Choice | Why | Runner-up |
-|---|---|---|
-| **C++23** | `std::expected` is the error model above, not a nicety | C++20, which would need a hand-rolled equivalent |
-| **CMake + Ninja** | What the machine already runs; hooks and CI are trivial. Ninja on Linux; on Windows the Visual Studio generator, which finds MSVC without a developer command prompt | Meson |
-| **Vulkan 1.3** | Explicit control of the exact features the renderer needs; already proven on this GPU by `DOOM_Ants` | `wgpu`, rejected for putting a layer between us and those features |
-| **SDL3** | Window, input and gamepads in one dependency — its controller database already knows a DualShock 4 (**S9**) | GLFW, which has no gamepad database |
-| **glm** | Well understood, header-only, matches the maths in every reference | Our own, later, if it earns it |
-| **shaderc** | Compile GLSL to SPIR-V at build time | Hand-run `glslangValidator` |
-| **Dear ImGui** | Editor and developer overlays, vendored | Nothing else is close for this job |
-| **Assimp** | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
-| **Catch2 v3** | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |
-| **SDL3 audio** | `uaudio` mixes and spatialises on SDL3's device, which is already a dependency — no second audio stack, and nothing new to check against GPL-3.0 | OpenAL Soft |
-| **In-house in-game UI** | `uui` draws the HUD, menus, map browser and weapon wheel through `urender`. Dear ImGui is for the editor and developer overlays and is **never** in a shipped game's UI | Dear ImGui everywhere |
+| Choice | How it is acquired | Why | Runner-up |
+|---|---|---|---|
+| **C++23** | — | `std::expected` is the error model above, not a nicety | C++20, which would need a hand-rolled equivalent |
+| **CMake + Ninja** | — | What the machine already runs; hooks and CI are trivial. Ninja on Linux; on Windows the Visual Studio generator, which finds MSVC without a developer command prompt | Meson |
+| **Vulkan 1.3** | Installed SDK | Explicit control of the exact features the renderer needs; already proven on this GPU by `DOOM_Ants` | `wgpu`, rejected for putting a layer between us and those features |
+| **SDL3** | Fetched | Window, input and gamepads in one dependency — its controller database already knows a DualShock 4 (**S9**) | GLFW, which has no gamepad database |
+| **glm** | Fetched | Well understood, header-only, matches the maths in every reference | Our own, later, if it earns it |
+| **shaderc** | From the Vulkan SDK | Compile GLSL to SPIR-V at build time | Hand-run `glslangValidator` |
+| **Dear ImGui** | Vendored | Editor and developer overlays, vendored | Nothing else is close for this job |
+| **Assimp** | Fetched, `ut-ed` only | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
+| **Catch2 v3** | Fetched | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |
+| **SDL3 audio** | With SDL3 | `uaudio` mixes and spatialises on SDL3's device, which is already a dependency — no second audio stack, and nothing new to check against GPL-3.0 | OpenAL Soft |
+| **In-house in-game UI** | Ours | `uui` draws the HUD, menus, map browser and weapon wheel through `urender`. Dear ImGui is for the editor and developer overlays and is **never** in a shipped game's UI | Dear ImGui everywhere |
+
+**`ADR-0007` owns the acquisition rule and the reasons**, including the
+question a dependency that is not in this table is asked. The column above
+is an index into it, not a second statement of it. In short: a library that
+ships a CMake build and talks to no system component is fetched at an exact
+tag; the Vulkan SDK is installed and found, because its loader dispatches
+into the graphics driver and because it carries the `glslc` this project
+compiles shaders with; Dear ImGui is vendored because it ships no build
+system. **Installing that SDK is a prerequisite on both platforms**, which
+is the one step **S7** does not cover and the README has to state.
 
 **Linux and Windows are both first-class targets.** Neither is the
 primary one. Every release is built and its tests run on both, and a
