@@ -6,7 +6,16 @@
 // community actually shipped. The first two cases assert the harness -- that
 // the configured install is there and looks like one -- and the third points
 // upkg's reader at every package in it.
+//
+// UTA-0006 SS 7 tier 3 adds the last case: it builds both graphs for every map
+// and PRINTS the figures that spec's SS 2.1 asserts, so those numbers are an
+// output of the suite rather than a transcription in a document. What it
+// asserts is a population and two rates, aggregated over the whole install --
+// never per map, because a level whose path network disagrees with its own
+// nodes is content rather than a builder defect.
 
+#include "unav/Build.h"
+#include "unav/Graphs.h"
 #include "upkg/Class.h"
 #include "upkg/Geometry.h"
 #include "upkg/Level.h"
@@ -17,6 +26,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -24,6 +34,7 @@
 #include <iterator>
 #include <cctype>
 #include <map>
+#include <set>
 #include <span>
 #include <utility>
 #include <variant>
@@ -774,4 +785,138 @@ TEST_CASE("a navigation point's Paths entries index the level's reach-spec array
     // lower. The gap between those two is what makes the floor stable.
     CHECK(inRange * 100 >= entries * 99);
     CHECK(startIsTheNode * 100 >= entries * 99);
+}
+
+TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold",
+          "[real-assets]") {
+    const fs::path maps = fs::path{UTA_UT_INSTALL_DIR} / "Maps";
+    const fs::path system = fs::path{UTA_UT_INSTALL_DIR} / "System";
+    if (!fs::exists(maps) || !fs::exists(system)) {
+        SUCCEED("no Maps or System directory in this install");
+        return;
+    }
+
+    std::map<std::string, fs::path> systemPackages;
+    for (const fs::directory_entry& entry : fs::directory_iterator(system)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".u") {
+            systemPackages.emplace(foldCase(entry.path().stem().string()), entry.path());
+        }
+    }
+    REQUIRE_FALSE(systemPackages.empty());
+
+    // Built the same way as the Paths case above rather than shared with it:
+    // folding the two together would edit that case to serve this one, and a
+    // second copy is not yet a third.
+    std::map<std::string, std::vector<char>> systemBytes;
+    std::map<std::string, uta::upkg::Package> systemOpened;
+    const uta::upkg::PackageResolver resolver =
+        [&](std::string_view name) -> uta::Result<const uta::upkg::Package*> {
+        const std::string key{name}; // already folded by the caller
+        if (const auto cached = systemOpened.find(key); cached != systemOpened.end()) {
+            return &cached->second;
+        }
+        const auto path = systemPackages.find(key);
+        if (path == systemPackages.end()) {
+            return nullptr; // not present: an ordinary case, not an error
+        }
+        auto& raw = systemBytes[key];
+        raw = readWhole(path->second);
+        auto package = uta::upkg::Package::open(viewOf(raw));
+        if (!package.has_value()) {
+            return nullptr;
+        }
+        return &systemOpened.emplace(key, std::move(*package)).first->second;
+    };
+
+    long long levels = 0;
+    long long navNodes = 0;
+    long long navEdges = 0;
+    long long endpoints = 0;
+    long long discardedEndpoints = 0;
+    long long wiringNodes = 0;
+    long long wiringEdges = 0;
+    long long resolvedEvents = 0;
+    long long danglingEvents = 0;
+    // SS 13: the per-map maxima are printed here rather than asserted in the
+    // document, which is what keeps the worst case a measurement.
+    long long widestNavMap = 0;
+    long long widestWiringMap = 0;
+
+    for (const fs::directory_entry& entry : fs::directory_iterator(maps)) {
+        if (!entry.is_regular_file() || foldCase(entry.path().extension().string()) != ".unr") {
+            continue;
+        }
+        const std::vector<char> raw = readWhole(entry.path());
+        const auto package = uta::upkg::Package::open(viewOf(raw));
+        if (!package.has_value()) {
+            continue; // an earlier case owns which packages may fail to open
+        }
+        INFO("map: " << entry.path().string());
+
+        const uta::upkg::ExportEntry* levelExport = nullptr;
+        for (const auto& object : package->exports()) {
+            const auto className = package->objectName(object.objectClass);
+            if (className.has_value() && *className == "Level") {
+                levelExport = &object;
+                break;
+            }
+        }
+        if (levelExport == nullptr) {
+            continue;
+        }
+        const auto level = uta::upkg::readLevel(*package, *levelExport);
+        REQUIRE(level.has_value());
+        ++levels;
+
+        const auto nav = uta::unav::buildNavGraph(*package, *level, resolver);
+        REQUIRE(nav.has_value());
+        const auto wiring = uta::unav::buildWiringGraph(*package);
+        REQUIRE(wiring.has_value());
+
+        navNodes += static_cast<long long>(nav->nodes.size());
+        navEdges += static_cast<long long>(nav->edges.size());
+        // Two per spec, which is the denominator SS 2.1 measures against.
+        endpoints += 2 * static_cast<long long>(level->reachSpecs.size());
+        discardedEndpoints += nav->discardedEndpoints;
+        widestNavMap = std::max(widestNavMap, static_cast<long long>(nav->edges.size()));
+
+        wiringNodes += static_cast<long long>(wiring->nodes.size());
+        wiringEdges += static_cast<long long>(wiring->edges.size());
+        danglingEvents += static_cast<long long>(wiring->dangling.size());
+        widestWiringMap =
+            std::max(widestWiringMap, static_cast<long long>(wiring->edges.size()));
+
+        // An event that resolved yields ONE EDGE PER TARGET (INV-3), so the
+        // edge count is not the event count. The distinct (source, event) pairs
+        // are, which is also how a consumer would recover them.
+        std::set<std::pair<std::uint32_t, std::string>> firedAndResolved;
+        for (const uta::unav::WiringEdge& edge : wiring->edges) {
+            firedAndResolved.emplace(edge.from, edge.event);
+        }
+        resolvedEvents += static_cast<long long>(firedAndResolved.size());
+    }
+
+    const long long resolvedEndpoints = endpoints - discardedEndpoints;
+    const long long events = resolvedEvents + danglingEvents;
+
+    WARN("levels " << levels << "; nav nodes " << navNodes << ", edges " << navEdges
+                   << ", endpoints " << endpoints << ", discarded " << discardedEndpoints
+                   << ", widest map " << widestNavMap << " edges"
+                   << "; wiring nodes " << wiringNodes << ", edges " << wiringEdges
+                   << ", events " << events << ", resolved " << resolvedEvents
+                   << ", dangling " << danglingEvents << ", widest map " << widestWiringMap
+                   << " edges");
+
+    // SS 7: the tier asserts its own population, or every rate below passes
+    // vacuously. A node filter that resolves nothing, or a property-reading
+    // regression, surfaces no graph and satisfies a rate by checking nothing.
+    REQUIRE(levels > 0);
+    REQUIRE(navEdges > 0);
+    REQUIRE(resolvedEvents > 0);
+
+    // Both floors sit well under their measurement and well over what a defect
+    // produces: a builder using the wrong index space does not lose a few
+    // percent of endpoints but nearly all of them.
+    CHECK(resolvedEndpoints * 100 >= endpoints * 95);
+    CHECK(resolvedEvents * 100 >= events * 90);
 }
