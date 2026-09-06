@@ -233,6 +233,12 @@ model, no weapon and no opponent until 0.2.0.
   points call a new readPropertiesAt, which is INV-12. Neither is wired
   into the build and neither has a test, which is why it is parked
   rather than committed. Clear this note when the item is resumed.
+  Progress (2026-09-06): resumed by session ut-ants-a3. The deferral
+  note above is cleared -- UTA-0043 is shipped, so rule 1's queue holds
+  nothing this session can implement: UTA-0058 needs the user's answer
+  on which map count is true, and UTA-0059 is scheduled for when the
+  renderer lands the first dependency. This item is again the only one
+  in flight. Restoring the parked work from git stash.
   **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later.
   Kind: implement.
   Source: design-2026-09-03.
@@ -498,7 +504,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-03.
   Lanes: ci.
 
-- 🚧 [UTA-0043] **Decide how dependencies are acquired, on both platforms.**
+- ✅ [UTA-0043] **Decide how dependencies are acquired, on both platforms.**
   Raised by the design gate and deliberately NOT settled inside it, because
   picking the mechanism is a decision rather than a wording fix.
 
@@ -532,6 +538,29 @@ model, no weapon and no opponent until 0.2.0.
   session had started and has parked; both markers are held by this
   one session, which is the two-item cap rather than two sessions.
   The core and ci lanes do not overlap the parked upkg work.
+  Resolved (2026-09-06): decided and recorded as
+  docs/decisions/ADR-0007-acquire-dependencies-by-route.md, with
+  docs/design.md's stack table gaining an acquisition column indexing it.
+  Fetched at a pinned tag: SDL3, glm, Catch2. Vendored: Dear ImGui.
+  Installed and found: the Vulkan headers, loader and glslc at 1.3 or
+  newer, with the validation layers a prerequisite the gate does not
+  assert. Fetched for one target: Assimp, with ut-ed. The user chose
+  this over vcpkg-for-everything, and chose the decision alone over
+  decision-plus-wiring, since no dependency has landed and CMake for
+  libraries nothing links would be untestable.
+
+  Two of the three candidate mechanisms failed on measurement rather
+  than on taste: SDL3 is absent from ubuntu-24.04 entirely, and
+  shaderc's own build refuses without three sibling repositories synced
+  beside it.
+
+  Three review-contract loops, nineteen findings, nineteen fixed, none
+  deferred; record in docs/reviews/. The cap was violent, and the split
+  it routes to is filed as UTA-0059 rather than attempted at a cap.
+
+  Flipped on the matrix, not a local leg: run for 499553e is completed
+  success, and the pre-push gate ran ci.sh --docs naming the commit it
+  gated.
   **Layman:** Decide how the project gets the outside libraries it needs, in a way that works the same on Linux and Windows -- so a newcomer can clone it and build without a shopping list.
   Kind: investigate.
   Source: design-gate-2026-09-04.
