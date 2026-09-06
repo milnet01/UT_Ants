@@ -104,12 +104,17 @@ The last two columns were measured with the same run: the residue is the
 difference between the two distinct counts, and the cap columns count actors
 filling the sixteenth slot.
 
-**The `^[[:space:]]*` anchor on those two commands is load-bearing.**
-Unanchored, `Paths(15)=` is a substring of `upstreamPaths(15)=` and of every
-other array whose name ends in `Paths`, so it counts them all: measured on
-this corpus it returns 155, 68 and 298 against the anchored 0, 0 and 7.
-Anyone re-deriving this table with the unanchored form will conclude the
-table is wrong.
+**The `^[[:space:]]*` anchor on every command here is load-bearing, and it
+is a property of the format rather than a quirk of one grep.** T3D property
+names nest by suffix: four end in `Paths` — `Paths`, `upstreamPaths`,
+`PrunedPaths` and `VisNoReachPaths` — so an unanchored `Paths(` matches all
+four. Measured on this corpus, unanchored counting returns 26,828 where the
+anchored count is 6,579 on one map, and the cap columns come back 155, 68
+and 298 against the anchored 0, 0 and 7.
+
+Anyone re-deriving this table without the anchor will conclude the table is
+wrong. Two projects made this mistake independently on 2026-09-06, in
+opposite directions, so it is recorded as a rule and not as an example.
 
 Three things this settles, and one it does not.
 
