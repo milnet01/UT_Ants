@@ -399,9 +399,10 @@ S2 reachable.**
 question a dependency that is not in this table is asked. The column above
 is an index into it, not a second statement of it. In short: a library the compiler can build
 from source, whose version need not match anything already on the machine, is
-fetched at an exact tag; the LunarG Vulkan SDK is installed and found, because
-it carries the headers, loader, validation layers and the `glslc` this project
-compiles shaders with as one set at one version; Dear ImGui is vendored because
+fetched at an exact tag; the Vulkan headers, loader, validation
+layers and `glslc` are installed and found rather than fetched, at Vulkan 1.3
+or newer — the LunarG SDK on Windows, either that or the distribution's
+packages on Linux; Dear ImGui is vendored because
 it ships no build system. **Installing that SDK is a prerequisite on both platforms**, which
 is the one step **S7** does not cover and the README has to state.
 

@@ -5,10 +5,11 @@
 
 ## Context
 
-`docs/design.md` § The stack names every library this project will use and
-settles how two of them are obtained: Catch2 is fetched by the build, Dear
-ImGui is vendored. SDL3, glm, shaderc, Assimp and the Vulkan SDK have no
-stated answer.
+`docs/design.md` § The stack names every library this project will use. Before
+this decision it settled how two of them were obtained — Catch2 fetched by the
+build, Dear ImGui vendored — and SDL3, glm, shaderc, Assimp and the Vulkan SDK
+had no stated answer. The acquisition column that section now carries is an
+index into this ADR, added by this change.
 
 That gap was tolerable while Linux was the primary target, because a distro
 package was the unspoken default. Windows is now first-class and has no such
@@ -38,10 +39,11 @@ fetched on its own**: its `third_party/CMakeLists.txt` fails with
 SPIRV-Tools and SPIRV-Headers are synced beside it by its own
 `utils/git-sync-deps`, so building it from source is a four-repository
 lockstep pin — for something this design uses as a build-time *tool* rather
-than as a library to link. And **the Vulkan SDK is one acquisition carrying four
-things** — headers, loader, validation layers and `glslc` — where fetching
-them means four pins that must agree, against an installed graphics driver
-this project never supplies and `docs/design.md` already requires.
+than as a library to link. And **the Vulkan components come as a set the
+platform already publishes** — headers, loader, validation layers and
+`glslc` — where fetching them means four pins that must agree, against an
+installed graphics driver this project never supplies and `docs/design.md`
+already requires.
 
 ## Decision
 
@@ -60,21 +62,28 @@ follow, which is the shortest route to **S7**.
 ships no build system; its sources are compiled into the target that uses it,
 so fetching would buy nothing a copy does not already give.
 
-**Route 3 — required from the platform, found and never fetched.** The **LunarG
-Vulkan SDK, 1.3.275 or newer, on both platforms**: the headers, the loader, the
-validation layers and the `glslc` this project compiles its shaders with. The
-floor is the version Ubuntu 24.04 packages, so it is not set above the older of
-the two platforms this project builds on. The graphics *driver* is the
-machine's, is never acquired, and `docs/design.md` already rules out a machine
-whose driver is below Vulkan 1.3.
+**Route 3 — required from the platform, found and never fetched.** Four things,
+acquired together: the Vulkan **headers**, a **loader**, the **validation
+layers**, and a **GLSL-to-SPIR-V compiler**, which is `glslc`. Route 3 is
+satisfied by any acquisition supplying all four at Vulkan **1.3 or newer**, the
+level `docs/design.md` requires. On Windows that is the LunarG SDK, which is
+the only one. On Linux it is LunarG's SDK or the distribution's own packages —
+Ubuntu 24.04 carries `libvulkan-dev` and `vulkan-validationlayers` at
+`1.3.275.0` and `glslc` separately at `2023.8`, and that combination qualifies.
 
-**Naming LunarG rather than "the Vulkan SDK" is the whole point of this
-paragraph**, because on Linux that phrase is not one thing: the loader, the
-layers and `glslc` are three separate distro packages, and Ubuntu's `glslc` is
-`2023.8` against the SDK's own much later build. `glslc` output is SPIR-V, and
-SPIR-V goes into a bundle whose hash `ADR-0002` requires to be equal across
-machines — so two compilers is the same defect as two glm versions, one step
-further down the pipeline. One acquisition, one version, both platforms.
+**The graphics driver is not part of this and is never acquired.** It is the
+machine's, and `docs/design.md` already rules out one below Vulkan 1.3.
+
+**A floor rather than an exact version, deliberately — and the reason is worth
+stating, because the opposite is easy to argue.** Nothing route 3 supplies ends
+up inside a bundle. `docs/design.md` § What each part does lists what a map
+bundle carries — geometry, materials, collision, lights, baked indirect light,
+entity placements and the graphs — and compiled shaders are not among them;
+they are built into the engine binary. So `ADR-0002`'s requirement that one
+map, recipe and baker version hash to one bundle on any machine does not reach
+`glslc`, and two contributors on two SDK versions produce the same bundles. The
+glm pin below is not the same case and is not weakened by this one: glm is
+arithmetic the baker *runs*, and its results do go into the bundle.
 
 **Route 4 — fetched, but only for the target that needs it.** Assimp, which
 `ut-ed` links and no runtime target may — `docs/design.md` § The stack says so
@@ -87,17 +96,21 @@ runtime-only build does not pay to fetch or compile it.
    graphics driver's ICD, a kernel ABI, a vendor runtime? Route 3. The test is
    the matching, not whether the library talks to hardware: SDL3 opens input
    and audio devices and is still route 1, because any recent SDL3 drives them.
-2. **Is it already carried by a route-3 acquisition, or unbuildable on its
-   own?** Route 3, on that acquisition's back. `glslc` is both.
-3. **Does it ship no build system of its own?** Route 2.
-4. **Is it linked by exactly one target, and that target not a runtime one?**
+2. **Is it already carried by a route-3 acquisition?** Route 3, on that
+   acquisition's back, with no acquisition of its own. `glslc` is the case.
+3. **Is it unbuildable on its own, and carried by nothing?** Route 2 — vendored
+   with the sibling sources it needs, and the sync step recorded beside them.
+   This is the branch `shaderc` would take if the SDK did not already carry
+   `glslc`, and it exists so that answer is written down rather than invented.
+4. **Does it ship no build system of its own?** Route 2.
+5. **Is it linked by exactly one target, and that target not a runtime one?**
    Route 4. A test-only dependency is the exception and stays route 1: Catch2
    is fetched for the whole suite rather than for one target, and the test
    build is not a shipped artefact whose weight anyone carries.
-5. **Otherwise route 1.**
+6. **Otherwise route 1.**
 
-Question 2 is what stops the question answering *route 1* for `glslc`, which
-this document has just shown cannot be fetched.
+Questions 2 and 3 are what stop the question answering *route 1* for `glslc`
+and for `shaderc`, which this document has just shown cannot be fetched.
 
 **glm is fetched rather than found even though a package exists**, and the
 reason is not its age. `ADR-0002` requires one map, recipe and baker version to
@@ -121,8 +134,9 @@ the same treatment.
 
 ## Consequences
 
-**Installing the Vulkan SDK is a prerequisite on both platforms, and the
-README must say so before `0.1.0` ships.** This is the cost, and it is real —
+**The Vulkan components are a prerequisite on both platforms — the LunarG SDK
+on Windows, that or the distribution's packages on Linux — and the README must
+say so before `0.1.0` ships.** This is the cost, and it is real —
 but it does not change **S7**, whose subject is a machine with no Unreal
 Tournament on it rather than a machine with no toolchain. The SDK step sits
 outside that sign and is a README obligation, which is what
@@ -132,13 +146,17 @@ install the SDK could not have run the result. It is not defensible if it stays
 undocumented, and a fresh clone is what settles that, not a reading of this
 file.
 
-**`ci.yml` installs the SDK; `scripts/ci.sh` checks which one it found.**
-Provisioning a toolchain is the runner's job and stays in the workflow, as the
-compiler lines there already do. What the shared gate script owns is the
-*assertion* — that an SDK is present and that it satisfies the floor above —
-because the local gate and the pipeline share that script so neither can drift
-(`local-gate.md` § 3), and a developer whose machine has a different SDK must
-find out from their own gate rather than from a red pipeline.
+**`ci.yml` installs the Vulkan components; `scripts/ci.sh` asserts they are
+there.** Provisioning a toolchain is the runner's job and stays in the
+workflow, as the compiler lines there already do. What the shared gate script
+owns is the *assertion*, and it reads what CMake reads: `find_package(Vulkan)`
+resolves the headers and loader and reports `Vulkan_VERSION`, and locates
+`glslc` as `Vulkan::glslc`. The gate fails when either is absent or when the
+version is below the floor. That is one observable rather than a choice between
+`$VULKAN_SDK` and a system path, so the gate, CMake and the README cannot each
+pick a different one. The local gate and the pipeline share the script so
+neither can drift (`local-gate.md` § 3), and a developer whose machine is short
+a component finds out from their own gate rather than from a red pipeline.
 
 **The first configure needs the network, and an offline clone cannot
 configure.** That is already true of Catch2 and this widens it to SDL3, glm and
