@@ -3,7 +3,10 @@
 ## Where this project is
 
 **State:** 4 if nothing is 🚧, else 5.
-**Next:** `UTA-0006` — `unav`: the navigation and event-wiring graphs.
+**Next:** `UTA-0057` — `upkg`: the rest of `Level`, including the
+ReachSpec path graph. It moved ahead of `UTA-0006` on 2026-09-06: the
+`Paths[16]` integers `unav` reads are indices into the ReachSpec array,
+so `UTA-0006` would extract nodes and no edges.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:

@@ -273,7 +273,14 @@ model, no weapon and no opponent until 0.2.0.
   tag of the door it fires -- which is what lets 0.4.0's bots solve door puzzles.
   Owns the graph TYPES and the queries over them; ubundle owns their bytes
   (rule 17).
-  Blocked-by: reading actor placements.
+  The nodes are readable today; the edges are not. A `NavigationPoint`
+  serialises `Paths[16]` as integers, and those are indices into the
+  `Level` tail's ReachSpec array, which UTA-0057 derives. Without it this
+  item extracts nodes with no connectivity, no collision radius and no
+  height. Confirm that indexing before scheduling the work -- it is
+  UTA-0057's to verify and this item's to depend on.
+
+  Blocked-by: reading actor placements; UTA-0057 for the ReachSpec array.
   **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
   Kind: implement.
   Source: design-2026-09-03.
@@ -364,8 +371,24 @@ model, no weapon and no opponent until 0.2.0.
   Lanes: ubake.
 
 - 📋 [UTA-0012] **ut-dump: inspect a package from the command line.**
-  Ships to developers, who build it from source. Its command line is a breaking
-  surface even so.
+  Ships to developers, who build it from source. Its command line is a
+  breaking surface even so.
+
+  **It needs a machine-readable mode, not only a human one.** Requested
+  2026-09-06 by the Monster Hunt server work on this machine, whose
+  consumer is a script over a 740-map library rather than a person
+  reading one file. Every analysis tool it has today works from a T3D
+  export produced by driving the editor headlessly: 4.9 GB unpacked, slow
+  to produce, and routinely deleted and rebuilt from a tarball. A `--json`
+  or tab-separated mode over the name, import and export tables and an
+  actor's properties retires that pipeline.
+
+  Shape it against that consumer's three day-one queries: every package a
+  map imports; every actor of a given class with its properties; and each
+  `NavigationPoint` with its `Paths` entries. The first is UTA-0070's
+  call. The third means nothing until UTA-0057 derives the ReachSpec
+  array the `Paths` integers index into.
+
   Blocked-by: the container reader.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
@@ -997,39 +1020,56 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
 
-- 📋 [UTA-0057] **upkg: derive the Model BSP tables and the rest of Level.**
-  Split out of UTA-0004 (user, 2026-09-05), which shipped the four readers
-  whose layouts could be established: `Polys`, `Palette`, the `Texture`
-  family and `Sound`. These two could not.
+- 📋 [UTA-0057] **upkg: derive the rest of Level, including the ReachSpec path graph.**
+  Split on 2026-09-06 at the request of the Monster Hunt server work on
+  this machine, a consumer of upkg; UTA-0069 keeps the Model/BSP half.
+  The two have different consumers and very different unblocking value.
+  Originally split out of UTA-0004 (user, 2026-09-05).
 
-  What is known, and it is not nothing. A `Model` begins with 41 bytes of
-  `FBox` + `FSphere`, carries an object reference to its `Polys`, and ends
-  with two `i32`. Between and after those sit runs of compact-index-prefixed
-  arrays whose ORDER is what is unknown -- the member set is knowable, and
-  the order the community documentation implies is measurably wrong: read
-  that way, `DM-Deck16][.unr` yields five nodes and thirty-nine surfaces for
-  a `Model` export of over 450 kB. A `Level` is an `i32` count, an `i32`
-  capacity, that many actor references and then an `FURL` -- all verified --
-  followed by tens of kilobytes this project has not described.
+  A `Level` is an `i32` count, an `i32` capacity, that many actor
+  references and then an `FURL` -- all verified -- followed by tens of
+  kilobytes this project has not described. `ReachSpecs` sits in that
+  tail: the bot path graph, each entry carrying the two nodes it joins
+  and the collision radius and height it was built for.
 
-  The method is the one UTA-0004 was researched with, and the acceptance is
-  already built: `docs/specs/UTA-0004-typed-level-content.md` SS 4.3 says a
-  reader that models a layout correctly ends exactly at its export's end,
-  and `tests/real/RealInstallTest.cpp` runs that over the whole install. So
-  the layout is right when the real-asset tier consumes every `Model` and
-  every `Level` export exactly, and is not right before then.
+  **This is on unav's critical path, and this item's earlier claim that
+  it was not is withdrawn.** Every `NavigationPoint` serialises
+  `Paths[16]` as integers and the Properties reader gets those today, but
+  they are indices into this array -- without it UTA-0006 reads the nodes
+  and not the edges. That indexing claim is the consuming session's
+  measurement plus known engine structure, not something measured here:
+  verify it first rather than building on it.
 
-  Not on the critical path for the items that were blocked behind UTA-0004:
-  `unav` needs the actor list and `umat` needs textures, and both shipped.
-  `ubake` (UTA-0011) is what actually needs the BSP.
+  No other source of truth exists. Measured by that session 2026-09-06:
+  `PATHS DEFINE` and `PATHS BUILD` both ignore blocking actors entirely
+  -- a 400-unit `BlockPlayer` on the busiest node of
+  MH-AncientCavesTorus changed 0 of 4453 links under DEFINE and 0 of 4449
+  under BUILD. Their offline model from actor positions and brush
+  geometry reached about 90% accuracy per sample point, which over a
+  900-unit hop needing ~22 consecutive samples succeeds about a tenth of
+  the time.
+
+  The method is UTA-0004's and the acceptance is already built:
+  `docs/specs/UTA-0004-typed-level-content.md` SS 4.3 says a reader that
+  models a layout correctly ends exactly at its export's end, and
+  `tests/real/RealInstallTest.cpp` runs that over the whole install. The
+  layout is right when the real-asset tier consumes every `Level` export
+  exactly, and is not right before then.
+
+  In-engine ground truth is on offer if that is not enough -- surface
+  solidity by trace and monster/geometry intersection, over a 740-map
+  corpus. Two toolchain facts came with the offer: `ucc` silently skips a
+  build when the package already exists in any of three directories, and
+  the engine buffers its log and flushes only on a clean exit, so a
+  SIGKILLed run leaves empty output files.
 
   Blocked-by: nothing. UTA-0004 shipped the container work this rests on.
-  **Layman:** Work out the last two file layouts by experiment -- the level's shape, and the tail of the level record -- because nobody has written them down correctly.
+  **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
   Kind: implement.
   Source: user-decision-2026-09-05.
   Lanes: upkg.
 
-- 📋 [UTA-0058] **Settle the Monster Hunt map count the ADRs cite.**
+- 🚧 [UTA-0058] **Settle the Monster Hunt map count the ADRs cite.**
   The design gate reported this on 2026-09-04 as out of scope for the
   document it was reviewing -- "the ADRs' to settle" -- and it was never
   filed, so it sat outside the priority order entirely. Filed 2026-09-06
@@ -1056,6 +1096,24 @@ model, no weapon and no opponent until 0.2.0.
   -- more likely and cheaper -- correct docs/discovery.md if that is the
   stale one, and leave the ADRs recording what was believed when they were
   written, which is what they are for.
+  Progress (2026-09-06): held by session ut-ants-f0. The server owner
+  settled it, and the answer moves the finding: the install at
+  /mnt/Games/PC Games/UT/UnrealTournament-469 IS the live server, but
+  counting MH-*.unr there does NOT give what the server serves. Measured
+  2026-09-06: 740 MH-*.unr in Maps/, of which 183 are -BP rebuilds whose
+  original also survives and is superseded, leaving 557 votable -- which
+  matches NumFacts=557 in ~/.utpg/System/MHVoteData.ini exactly. Stock set
+  97, unchanged. Maps-broken/ is a SIBLING of Maps/ holding 10 parked
+  maps, so the scan must stay non-recursive.
+
+  So the defect is not a stale number. It is that library size and served
+  rotation are two different measurements and the docs carry only one,
+  while S3, S8 and UTA-0038 are all measured against "the rotation".
+
+  Repair, per the server owner's decision: leave ADR-0002, ADR-0003 and
+  ADR-0004 alone -- they record what was believed when written, which is
+  what an ADR is for -- and give docs/discovery.md both numbers with their
+  derivations.
   **Layman:** Three decision documents say the server has 610 maps and the discovery notes say 515. Somebody has to say which is right, because a promise about "all of them" is measured against that number.
   Kind: doc-fix.
   Source: design-gate-2026-09-04.
@@ -1301,6 +1359,58 @@ model, no weapon and no opponent until 0.2.0.
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uui, ugame, unet.
+
+- 📋 [UTA-0069] **upkg: derive the Model BSP tables.**
+  Split from UTA-0057 on 2026-09-06; that item keeps the `Level` tail.
+
+  A `Model` begins with 41 bytes of `FBox` + `FSphere`, carries an object
+  reference to its `Polys`, and ends with two `i32`. Between and after
+  those sit runs of compact-index-prefixed arrays whose ORDER is unknown
+  -- the member set is knowable, and the order the community
+  documentation implies is measurably wrong: read that way,
+  `DM-Deck16][.unr` yields five nodes and thirty-nine surfaces for a
+  `Model` export of over 450 kB.
+
+  `ubake` (UTA-0011) is what needs this. It also answers a question the
+  Monster Hunt server work cannot answer offline today: real `PolyFlags`
+  on BUILT surfaces rather than on brushes. The two drift apart when a
+  surface is edited after the last build -- measured by that session
+  2026-09-06, of 202 candidate surfaces flagged from brush data only 42
+  were actually solid in the running game, and on MH-Village1 it was 6 of
+  6 wrong.
+
+  That half saves them a server boot. The `Level` tail unblocks work they
+  cannot do at all, which is why it goes first.
+
+  Acceptance is UTA-0004's: the real-asset tier consumes every `Model`
+  export exactly.
+
+  Blocked-by: nothing. UTA-0004 shipped the container work this rests on.
+  **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
+  Kind: implement.
+  Source: consumer-request-2026-09-06 games-drive.
+  Lanes: upkg.
+
+- 📋 [UTA-0070] **upkg: answer which packages a package needs, as a supported call.**
+  Requested 2026-09-06 by the Monster Hunt server work, which already
+  reassembles this from `imports()` and `name()`. The import entries
+  whose outer is null are the packages this one needs.
+
+  It is load-bearing outside this project already. A ~60-line tool built
+  against `libuta_upkg.a` walked all 837 maps in that install in 15
+  seconds and named exactly what two of the ten parked maps are missing.
+  The comparison is booting a dedicated server per map and reading the
+  failure out of the log, at 45-60 seconds each -- and a missing package
+  is the commonest single reason a community map is unplayable.
+
+  That tool was offered to this project rather than left in a scratch
+  directory. Take it as the first consumer to shape the call against.
+
+  Blocked-by: nothing. The container reader shipped.
+  **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load.
+  Kind: implement.
+  Source: consumer-request-2026-09-06 games-drive.
+  Lanes: upkg.
 
 ## 0.2.0 — Movement and weapons
 
