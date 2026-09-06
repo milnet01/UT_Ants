@@ -17,6 +17,25 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`unav` extracts a level's navigation graph and its event-wiring graph** (UTA-0006)
+  Two graphs every UT99 level already contains, pulled out as data: where
+  a player can walk, and which switch opens which door. The first joins
+  the level's reach specs onto the navigation points a designer placed;
+  the second matches an actor's `Event` onto every actor carrying that
+  `Tag`. Neither needs the original engine running.
+
+  An event reaches EVERY actor carrying the tag, not the first -- one
+  switch commonly opens a bank of movers, so a single target would be
+  wrong about most of the map library. An event naming a tag no actor
+  carries is kept and reported rather than dropped, because it is the only
+  record that an author wired something and the target went away.
+
+  It ships as two libraries. The graph types and their queries link
+  nothing but the core, so the game can hold a graph without the package
+  reader; the builders link the reader and run at bake time only. Both
+  link closures are checked when the build is configured, which is what
+  keeps that boundary honest rather than aspirational.
+
 - **`upkg` reads a level's bot path graph** (UTA-0057)
   `readLevel` returns a map's actors and its reach specs -- the directed
   connections between navigation points, each carrying the collision size

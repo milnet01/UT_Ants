@@ -267,7 +267,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 🚧 [UTA-0006] **unav: extract the navigation graph and the event-wiring graph.**
+- ✅ [UTA-0006] **unav: extract the navigation graph and the event-wiring graph.**
   The navigation graph comes from the PathNodes the level designer placed. The
   wiring graph comes from Tag/Event links between actors -- a button stores the
   tag of the door it fires -- which is what lets 0.4.0's bots solve door puzzles.
@@ -381,6 +381,48 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0059, whose own body schedules it behind UTA-0014, so nothing under
   rule 1 is implementable now. Starting implementation from the accepted
   spec.
+  Resolved (2026-09-06): src/unav/ builds two libraries from one
+  directory. uta_unav holds the graph types and the three queries and links
+  uta_core alone; uta_unav_build holds buildNavGraph and buildWiringGraph and
+  links uta_unav and uta_upkg. Both closures are asserted at configure time,
+  which is INV-6's first half and the split's only mechanical guard --
+  docs/design.md rule 2 keeps upkg out of every runtime target, and a single
+  library would have breached it through this item.
+
+  Flipped on the matrix, not a local leg: the run for f100280 is completed
+  success on Linux GCC 14, Linux Clang 19 and Windows MSVC, and the pre-push
+  gate ran ci.sh naming the commit it gated.
+
+  Tier 1 is thirteen cases over INV-1 to INV-4. Each was proved able to
+  fail: eight mutations of the builder were killed by an assertion rather
+  than by a broken build, and the section 4.5 bound check needed a sanitizer
+  to prove -- without it the out-of-range case is a heap-buffer-overflow
+  rather than a wrong answer. The whole suite is clean under
+  ASan+UBSan. The navigation fixture puts a node at export 0
+  deliberately, because index() returns 0 for a null reference: with a class
+  export there instead, the case passes with section 4.2's guard removed.
+
+  Tier 3 builds both graphs for all 837 levels in the reference install and
+  prints what the spec's section 2.1 asserts, so those figures are an output
+  of the suite. It reproduces them: 99.87% of reach-spec endpoints resolve to
+  a node and 94.85% of events resolve, against install-wide floors of 95% and
+  90%.
+
+  INV-5 and INV-6 are declared reading checks and both were performed.
+  Graphs.h includes no upkg header at all and no member of any graph type is
+  a view, a pointer or an upkg type -- the only spans are the three queries'
+  return types, over the graph's own storage. Nothing under src/unav/
+  constructs a ByteReader or calls serialBytes.
+
+  The spec needed one amendment, recording what the build settled rather
+  than changing direction: section 6 called an unparseable property list
+  "inherited from readProperties", which left two readings. The builder
+  propagates, and the real-asset tier measures that no non-class export in
+  the reference install trips it.
+
+  Left open, as the spec's section 14 already records: nothing checks a reach
+  spec's collision radius and height, and whether the reverse wiring query
+  earns its storage is undecided.
   **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
   Kind: implement.
   Source: design-2026-09-03.
@@ -2077,7 +2119,8 @@ to.
   Per-map bot hints in the recipe cover what remains, and the server can record
   what it observed a human do.
   This is what S4 is measured on.
-  Blocked-by: combat bots, the wiring graph.
+  Blocked-by: combat bots, and UTA-0006 for the wiring graph, which shipped
+  2026-09-06.
   User request (2026-09-06): bots should navigate the map by using
   buttons to open doors, lifts and portals. Recorded here rather than
   filed separately because this item is that planner -- hold a goal,
@@ -2218,7 +2261,8 @@ to.
   which is close to the shape a route planner wants and may already be
   most of the answer.
 
-  Blocked-by: the navigation graph, and combat bots to route for.
+  Blocked-by: UTA-0006 for the navigation graph, which shipped 2026-09-06,
+  and combat bots to route for.
   **Layman:** Give bots something like satnav. Instead of only following the breadcrumb trail the 1999 designer laid down, a bot works out where it is, where it needs to be, and a route between them -- so it can still get somewhere when the breadcrumbs run out.
   Kind: implement.
   Source: user-request-2026-09-06.

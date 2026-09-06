@@ -3,10 +3,11 @@
 ## Where this project is
 
 **State:** 4 if nothing is 🚧, else 5.
-**Next:** `UTA-0006` — `unav`: the navigation graph and the event-wiring
-graph. `UTA-0057` shipped on 2026-09-06 and unblocked it: the `Paths[16]`
-integers `unav` reads are indices into the ReachSpec array, which that
-item derived and `readLevel` now returns.
+**Next:** `UTA-0069` — `upkg`: derive the `Model` BSP tables. Its own
+bullet records nothing blocking it, and it is what `UTA-0007` needs: that
+item partitions a level from the BSP zones, and `UTA-0004` withheld the
+`Model` layout. It also unblocks `UTA-0011` and answers a question the
+Monster Hunt server work cannot answer offline.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
