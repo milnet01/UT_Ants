@@ -25,11 +25,14 @@ add_executable(uta_unit_tests
     unit/CoreJobsTest.cpp
     unit/CoreLogTest.cpp
     unit/NumericContractTest.cpp
+    unit/PackageAncestryTest.cpp
     unit/PackageBuilderTest.cpp
+    unit/PackageClassTest.cpp
     unit/PackageContentTest.cpp
     unit/PackageMalformedTest.cpp
     unit/PackagePropertiesTest.cpp
-    unit/PackageReaderTest.cpp)
+    unit/PackageReaderTest.cpp
+    unit/PackageScriptTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_test_support Catch2::Catch2WithMain)
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a

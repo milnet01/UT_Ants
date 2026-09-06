@@ -7,6 +7,7 @@
 // the configured install is there and looks like one -- and the third points
 // upkg's reader at every package in it.
 
+#include "upkg/Class.h"
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
@@ -20,7 +21,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <cctype>
+#include <map>
 #include <span>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -293,4 +297,203 @@ TEST_CASE("every modelled export in the install is consumed exactly",
     // than in 1999's content.
     const int recorded = totals.recordedBadPropertyList + totals.recordedOffsetMismatch;
     CHECK(recorded < totals.textures / 100);
+}
+
+// --- UTA-0005: the class table against what actually shipped ----------------
+//
+// INV-1: every class export in the install is consumed exactly -- the reader
+// finishes at serialOffset + serialSize. That rule is what makes SS 4.3's
+// field order and SS 4.4's script walker checkable against content this
+// project did not write, and it is the only check the walker's silent failure
+// mode cannot slip past: a wrong script end still leaves a property list that
+// parses and terminates where it should.
+
+namespace {
+
+/// Read a file whole. The Package holds a VIEW of these bytes, so the caller
+/// keeps them alive.
+std::vector<char> readWhole(const fs::path& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        return {};
+    }
+    return std::vector<char>{std::istreambuf_iterator<char>(file),
+                             std::istreambuf_iterator<char>()};
+}
+
+std::span<const std::byte> viewOf(const std::vector<char>& raw) {
+    return std::span<const std::byte>{
+        reinterpret_cast<const std::byte*>(raw.data()), raw.size()};
+}
+
+bool isPackageExtension(const std::string& extension) {
+    return extension == ".unr" || extension == ".utx" || extension == ".uax" ||
+           extension == ".umx" || extension == ".u";
+}
+
+bool isClassExport(const uta::upkg::ExportEntry& entry) {
+    return entry.objectClass.kind() == uta::upkg::ObjectReferenceKind::Null &&
+           entry.serialSize > 0;
+}
+
+} // namespace
+
+TEST_CASE("every class export in the install is consumed exactly", "[real-assets]") {
+    const fs::path root{UTA_UT_INSTALL_DIR};
+
+    int packagesWithClasses = 0;
+    int packagesFullyConsumed = 0;
+    int attempted = 0;
+    int consumed = 0;
+
+    for (const fs::directory_entry& entry : fs::recursive_directory_iterator(root)) {
+        if (!entry.is_regular_file() ||
+            !isPackageExtension(entry.path().extension().string())) {
+            continue;
+        }
+
+        const std::vector<char> raw = readWhole(entry.path());
+        const auto package = uta::upkg::Package::open(viewOf(raw));
+        if (!package.has_value()) {
+            // Whether a package SHOULD open is the case above, which proves
+            // each failure per file. Here a package that did not open simply
+            // contributes nothing.
+            continue;
+        }
+
+        int here = 0;
+        int hereConsumed = 0;
+        for (const auto& object : package->exports()) {
+            if (!isClassExport(object)) {
+                continue;
+            }
+            ++here;
+            const auto info = uta::upkg::readClass(*package, object);
+            if (info.has_value()) {
+                ++hereConsumed;
+                continue;
+            }
+            INFO("package: " << entry.path().string());
+            INFO("class: " << package->name(object.objectName).value_or("?"));
+            INFO("error: " << info.error().message());
+            FAIL("a class export was not consumed exactly");
+        }
+
+        if (here > 0) {
+            ++packagesWithClasses;
+            attempted += here;
+            consumed += hereConsumed;
+            if (here == hereConsumed) {
+                ++packagesFullyConsumed;
+            }
+        }
+    }
+
+    INFO("class exports attempted: " << attempted);
+    INFO("packages carrying classes: " << packagesWithClasses);
+
+    // The install really does carry classes, so a reader that silently
+    // recognised none of them cannot pass this.
+    CHECK(attempted > 0);
+    CHECK(packagesWithClasses > 0);
+
+    // Consumed must equal attempted: a reader that starts refusing individual
+    // exports has to FAIL rather than quietly report fewer successes.
+    CHECK(consumed == attempted);
+
+    // And the per-package tally, because a regression that refused a whole
+    // package would lower attempted and consumed together and pass the line
+    // above. No literal count is asserted -- the library grows, and a census
+    // here would go stale the first time a map or mod is added -- so what is
+    // checked is that every package carrying classes had ALL of them consumed.
+    // A package that stops opening at all is caught by the case above, which
+    // proves each failure against the file's own header.
+    CHECK(packagesFullyConsumed == packagesWithClasses);
+}
+
+TEST_CASE("class ancestry resolves across the install's own packages", "[real-assets]") {
+    // Scoped to System/*.u, which is where the class hierarchy lives. The
+    // resolver holds every package it opens alive for the duration, so
+    // widening this to the whole install would mean holding the texture and
+    // sound packages in memory as well for no extra coverage of the walk.
+    const fs::path system = fs::path{UTA_UT_INSTALL_DIR} / "System";
+    if (!fs::exists(system)) {
+        SUCCEED("no System directory in this install");
+        return;
+    }
+
+    std::map<std::string, fs::path> byName;
+    for (const fs::directory_entry& entry : fs::directory_iterator(system)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".u") {
+            continue;
+        }
+        std::string stem = entry.path().stem().string();
+        for (char& character : stem) {
+            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+        }
+        byName.emplace(stem, entry.path());
+    }
+    REQUIRE_FALSE(byName.empty());
+
+    // The resolver owns the lifetime of what it returns, which is the bargain
+    // SS 4.6 states. These two maps are that ownership.
+    std::map<std::string, std::vector<char>> bytes;
+    std::map<std::string, uta::upkg::Package> opened;
+
+    const uta::upkg::PackageResolver resolver =
+        [&](std::string_view name) -> uta::Result<const uta::upkg::Package*> {
+        const std::string key{name}; // already folded by readAncestry
+        if (const auto cached = opened.find(key); cached != opened.end()) {
+            return &cached->second;
+        }
+        const auto path = byName.find(key);
+        if (path == byName.end()) {
+            return nullptr; // not present: an ordinary case, not an error
+        }
+        auto& raw = bytes[key];
+        raw = readWhole(path->second);
+        auto package = uta::upkg::Package::open(viewOf(raw));
+        if (!package.has_value()) {
+            return nullptr;
+        }
+        return &opened.emplace(key, std::move(*package)).first->second;
+    };
+
+    int walked = 0;
+    int reachedRoot = 0;
+    int incomplete = 0;
+
+    for (const auto& [name, path] : byName) {
+        const std::vector<char> raw = readWhole(path);
+        const auto package = uta::upkg::Package::open(viewOf(raw));
+        if (!package.has_value()) {
+            continue;
+        }
+        for (const auto& object : package->exports()) {
+            if (!isClassExport(object)) {
+                continue;
+            }
+            const auto ancestry = uta::upkg::readAncestry(*package, object, resolver);
+            INFO("package: " << path.string());
+            INFO("class: " << package->name(object.objectName).value_or("?"));
+            // Terminating is the invariant. A chain that cannot be completed
+            // ends SUCCESSFULLY in the state saying which content is absent --
+            // an install that lacks a mod is the ordinary case.
+            REQUIRE(ancestry.has_value());
+            ++walked;
+            if (ancestry->end == uta::upkg::AncestryEnd::Root) {
+                ++reachedRoot;
+            } else {
+                ++incomplete;
+            }
+        }
+    }
+
+    INFO("chains walked: " << walked);
+    INFO("reached a root: " << reachedRoot);
+    INFO("ended incomplete: " << incomplete);
+    CHECK(walked > 0);
+    // Most of the hierarchy resolves within the install; the rest names
+    // content it does not carry, which is legible rather than an error.
+    CHECK(reachedRoot > 0);
 }

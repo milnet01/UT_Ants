@@ -13,6 +13,7 @@
 
 #include "support/UnrealPackageBuilder.h"
 #include "upkg/ByteReader.h"
+#include "upkg/Class.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
 
@@ -278,4 +279,34 @@ TEST_CASE("an empty span is readable and yields nothing", "[package-malformed]")
     CHECK(reader.remaining() == 0);
     CHECK_FALSE(reader.readU8().has_value());
     CHECK(reader.readBytes(0).has_value());
+}
+
+// UTA-0005 INV-5: no reader reads outside its export's byte range, for any
+// input bytes. A class whose ScriptSize runs past the export is the case that
+// would otherwise drive an unbounded read.
+TEST_CASE("a class whose ScriptSize exceeds its export is MalformedData") {
+    uta::test::UnrealPackageBuilder builder;
+    builder.addName("None");
+    builder.addName("Runaway");
+
+    uta::test::ClassExportWriter writer;
+    writer.setFriendlyName(1)
+        .setDefaults(uta::test::TaggedPropertyWriter{}.build(0))
+        // The body is empty and the declared size is enormous, so the walk
+        // runs out of bytes rather than reading on.
+        .setScriptSizeOverride(1 << 20);
+
+    uta::test::ExportEntry entry;
+    entry.objectClass = 0;
+    entry.objectName = 1;
+    entry.serialData = writer.build(68);
+    builder.addExport(entry);
+
+    const std::vector<std::uint8_t> bytes = builder.build();
+    const auto package = uta::upkg::Package::open(uta::test::asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto info = uta::upkg::readClass(*package, package->exports()[0]);
+    REQUIRE_FALSE(info.has_value());
+    CHECK(info.error().code() == uta::ErrorCode::MalformedData);
 }

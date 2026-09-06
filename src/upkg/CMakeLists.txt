@@ -2,9 +2,11 @@
 
 add_library(uta_upkg STATIC
     ByteReader.cpp
+    Class.cpp
     Geometry.cpp
     Package.cpp
     Properties.cpp
+    Script.cpp
     Sound.cpp
     Texture.cpp)
 

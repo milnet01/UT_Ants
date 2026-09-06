@@ -467,4 +467,187 @@ std::vector<std::uint8_t> UnrealPackageBuilder::build() const {
     return out;
 }
 
+// --- the class export -------------------------------------------------
+//
+// Field order is docs/specs/UTA-0005-class-tables-and-ancestry.md SS 4.3.
+// Written flat, in the order the bytes arrive, because a reader has no use
+// for the hierarchy the format inherits these fields through.
+
+ClassExportWriter& ClassExportWriter::setSuperField(std::int32_t reference) {
+    superField_ = reference;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setNext(std::int32_t reference) {
+    next_ = reference;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setScriptText(std::int32_t reference) {
+    scriptText_ = reference;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setChildren(std::int32_t reference) {
+    children_ = reference;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setFriendlyName(std::int32_t nameIndex) {
+    friendlyName_ = nameIndex;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setLine(std::int32_t line) {
+    line_ = line;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setTextPos(std::int32_t textPos) {
+    textPos_ = textPos;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setScript(std::vector<std::uint8_t> body,
+                                                std::int32_t memorySize) {
+    script_ = std::move(body);
+    scriptSize_ = memorySize;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setScriptSizeOverride(std::int32_t scriptSize) {
+    scriptSizeOverride_ = scriptSize;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setClassFlags(std::uint32_t flags) {
+    classFlags_ = flags;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setClassGuid(const std::vector<std::uint8_t>& guid) {
+    classGuid_ = guid;
+    classGuid_.resize(16, 0);
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::addDependency(std::int32_t reference,
+                                                    std::int32_t depth,
+                                                    std::uint32_t scriptTextCrc) {
+    dependencies_.push_back({static_cast<std::int64_t>(reference),
+                             static_cast<std::int64_t>(depth),
+                             static_cast<std::int64_t>(scriptTextCrc)});
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::addPackageImport(std::int32_t nameIndex) {
+    packageImports_.push_back(nameIndex);
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setWithin(std::int32_t reference) {
+    within_ = reference;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setConfigName(std::int32_t nameIndex) {
+    configName_ = nameIndex;
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setDefaults(std::vector<std::uint8_t> propertyList) {
+    defaults_ = std::move(propertyList);
+    return *this;
+}
+
+ClassExportWriter& ClassExportWriter::setStackFrame(std::int32_t node,
+                                                    std::int32_t stateNode,
+                                                    std::int64_t probeMask,
+                                                    std::int32_t latentAction,
+                                                    std::int32_t offset) {
+    stackFrame_.clear();
+    appendIndex(stackFrame_, node);
+    appendIndex(stackFrame_, stateNode);
+    appendU64(stackFrame_, static_cast<std::uint64_t>(probeMask));
+    appendI32(stackFrame_, latentAction);
+    // The format writes the trailing offset only for a non-null first
+    // reference, and the reader keys on the same condition.
+    if (node != 0) {
+        appendIndex(stackFrame_, offset);
+    }
+    return *this;
+}
+
+std::vector<std::uint8_t> ClassExportWriter::build(std::uint16_t packageVersion) const {
+    std::vector<std::uint8_t> out;
+    appendAll(out, stackFrame_);
+
+    appendIndex(out, superField_);
+    appendIndex(out, next_);
+    appendIndex(out, scriptText_);
+    appendIndex(out, children_);
+    appendIndex(out, friendlyName_);
+    appendI32(out, line_);
+    appendI32(out, textPos_);
+
+    appendI32(out, scriptSizeOverride_ ? *scriptSizeOverride_ : scriptSize_);
+    appendAll(out, script_);
+
+    appendU64(out, 0);            // ProbeMask
+    appendU64(out, 0);            // IgnoreMask
+    appendU16(out, 0);            // LabelTableOffset
+    appendI32(out, 0);            // StateFlags
+    appendU32(out, classFlags_);
+    appendAll(out, classGuid_);
+
+    appendIndex(out, static_cast<std::int32_t>(dependencies_.size()));
+    for (const auto& dependency : dependencies_) {
+        appendIndex(out, static_cast<std::int32_t>(dependency[0]));
+        appendI32(out, static_cast<std::int32_t>(dependency[1]));
+        appendU32(out, static_cast<std::uint32_t>(dependency[2]));
+    }
+
+    appendIndex(out, static_cast<std::int32_t>(packageImports_.size()));
+    for (const std::int32_t nameIndex : packageImports_) {
+        appendIndex(out, nameIndex);
+    }
+
+    // Version 62 is the format's own boundary, not this project's. Every class
+    // export in the reference install is at 68 or 69, so the false arm here is
+    // covered by fixtures alone (SS 7).
+    if (packageVersion >= 62) {
+        appendIndex(out, within_);
+        appendIndex(out, configName_);
+    }
+
+    appendAll(out, defaults_);
+    return out;
+}
+
+namespace script {
+
+std::vector<std::uint8_t> nothing() {
+    return {0x0B};
+}
+
+std::vector<std::uint8_t> objectConst(std::int32_t reference) {
+    std::vector<std::uint8_t> out{0x20};
+    appendIndex(out, reference);
+    return out;
+}
+
+std::vector<std::uint8_t> intConst(std::int32_t value) {
+    std::vector<std::uint8_t> out{0x1D};
+    appendI32(out, value);
+    return out;
+}
+
+std::vector<std::uint8_t> unknownOpcode() {
+    // 0x03 sits inside the primary range and the walker's table does not
+    // define it, which is exactly the case INV-3 is about.
+    return {0x03};
+}
+
+} // namespace script
+
 } // namespace uta::test

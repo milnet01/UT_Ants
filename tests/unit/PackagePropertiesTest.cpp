@@ -11,6 +11,7 @@
 // be is the property after it reading correctly.
 
 #include "support/UnrealPackageBuilder.h"
+#include "upkg/ByteReader.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
 
@@ -331,4 +332,46 @@ TEST_CASE("a class export has no property list and is refused", "[package-proper
     const auto properties = readProperties(*package, package->exports()[0]);
     REQUIRE_FALSE(properties.has_value());
     CHECK(properties.error().code() == ErrorCode::InvalidArgument);
+}
+
+// UTA-0005 SS 4.3 step 11 / INV-12: the one decoder is reachable from a cursor
+// the caller already holds, and the two older entry points are written in
+// terms of it. A class's defaults are the LAST thing in its export, so they
+// cannot be reached by an entry point that starts at an export's beginning.
+TEST_CASE("readPropertiesAt reads a list at the cursor's current position") {
+    UnrealPackageBuilder builder;
+    builder.addName("None");
+    builder.addName("First");
+    builder.addName("Second");
+
+    // A list preceded by bytes that are not part of it, which is the shape a
+    // class export has.
+    std::vector<std::uint8_t> body{0xDE, 0xAD, 0xBE, 0xEF};
+    const auto list = TaggedPropertyWriter{}.addInt(1, 7).addInt(2, 9).build(0);
+    body.insert(body.end(), list.begin(), list.end());
+
+    ExportEntry entry;
+    entry.objectClass = 1;
+    entry.objectName = 1;
+    entry.serialData = body;
+    builder.addExport(entry);
+    builder.addExport(entry);
+
+    const std::vector<std::uint8_t> bytes = builder.build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    const auto data = package->serialBytes(package->exports()[0]);
+    REQUIRE(data.has_value());
+
+    uta::upkg::ByteReader reader{*data};
+    REQUIRE(reader.skip(4).has_value());
+
+    const auto properties = uta::upkg::readPropertiesAt(*package, reader);
+    REQUIRE(properties.has_value());
+    REQUIRE(properties->size() == 2);
+    CHECK((*properties)[0].nameIndex == 1);
+    CHECK((*properties)[1].nameIndex == 2);
+    // The cursor is left on the byte after the terminator, which is what lets
+    // a class reader check that it ended exactly where its export ends.
+    CHECK(reader.position() == data->size());
 }

@@ -61,22 +61,6 @@ Result<std::uint32_t> readArrayIndex(ByteReader& reader) {
            static_cast<std::uint32_t>(static_cast<std::uint8_t>(rest[2]));
 }
 
-/// The execution-stack frame an object carrying HasStack is prefixed by. Read
-/// and discarded -- but skipping it is not optional, and it is common in real
-/// maps: ignore it and the first property name is read out of the frame's
-/// bytes, which usually decodes as some other name rather than failing.
-Result<void> skipStackFrame(ByteReader& reader) {
-    UTA_TRY(const std::int32_t node, reader.readIndex());
-    UTA_TRY([[maybe_unused]] const std::int32_t stateNode, reader.readIndex());
-    UTA_TRY([[maybe_unused]] const std::int64_t probeMask, reader.readI64());
-    UTA_TRY([[maybe_unused]] const std::int32_t latentAction, reader.readI32());
-    // The trailing offset is present only when the first reference is non-null.
-    if (node != 0) {
-        UTA_TRY([[maybe_unused]] const std::int32_t offset, reader.readIndex());
-    }
-    return {};
-}
-
 std::string readCountedString(std::span<const std::byte> chars) {
     std::string text;
     text.reserve(chars.size());
@@ -86,6 +70,43 @@ std::string readCountedString(std::span<const std::byte> chars) {
             break; // the terminator, and anything after it, is not the name
         }
         text.push_back(static_cast<char>(value));
+    }
+    return text;
+}
+
+/// The UTF-16 form of a counted string, encoded to UTF-8. A Str whose length
+/// is NEGATIVE is this: the magnitude counts 16-bit code units rather than
+/// bytes, so the body is twice as long as the count.
+///
+/// Measured 2026-09-06 against `MapVoteULv1_2_SB.u` in the reference install,
+/// where a map-vote list stores its entries this way -- and every one of them
+/// satisfies `declared size == 1 + 2 * count`, which is what confirms the
+/// reading rather than the shape merely looking plausible. Class defaults are
+/// where this form shows up: UTA-0004 read level content and never met it.
+///
+/// Surrogate pairs are not recombined. Nothing in this content carries one,
+/// and inventing a pairing rule for a case no measurement has seen would be a
+/// guess in a decoder that otherwise only writes down what was observed.
+std::string readCountedString16(std::span<const std::byte> units) {
+    std::string text;
+    text.reserve(units.size());
+    for (std::size_t at = 0; at + 1 < units.size(); at += 2) {
+        const auto low = static_cast<std::uint32_t>(static_cast<std::uint8_t>(units[at]));
+        const auto high = static_cast<std::uint32_t>(static_cast<std::uint8_t>(units[at + 1]));
+        const std::uint32_t unit = low | (high << 8);
+        if (unit == 0) {
+            break; // the terminator, and anything after it, is not the name
+        }
+        if (unit < 0x80) {
+            text.push_back(static_cast<char>(unit));
+        } else if (unit < 0x800) {
+            text.push_back(static_cast<char>(0xC0u | (unit >> 6)));
+            text.push_back(static_cast<char>(0x80u | (unit & 0x3Fu)));
+        } else {
+            text.push_back(static_cast<char>(0xE0u | (unit >> 12)));
+            text.push_back(static_cast<char>(0x80u | ((unit >> 6) & 0x3Fu)));
+            text.push_back(static_cast<char>(0x80u | (unit & 0x3Fu)));
+        }
     }
     return text;
 }
@@ -122,11 +143,16 @@ Result<PropertyValue> readValue(ByteReader& reader, const Package& package,
         return PropertyValue{NameRef{static_cast<std::uint32_t>(index)}};
     }
     case PropertyType::Str: {
-        // A length as a compact index, then that many bytes including the
-        // terminator.
+        // A length as a compact index, then that many CHARACTERS including the
+        // terminator. A negative length is not malformed: it means the
+        // characters are 16 bits wide, so the body is twice the magnitude.
         UTA_TRY(const std::int32_t length, reader.readIndex());
         if (length < 0) {
-            return std::unexpected(malformed("a Str property declares a negative length"));
+            // Negate through a wider type: the magnitude of INT32_MIN does not
+            // fit in an int32_t, and this value comes from the file.
+            const auto units = static_cast<std::size_t>(-static_cast<std::int64_t>(length));
+            UTA_TRY(const std::span<const std::byte> chars, reader.readBytes(units * 2));
+            return PropertyValue{readCountedString16(chars)};
         }
         UTA_TRY(const std::span<const std::byte> chars,
                 reader.readBytes(static_cast<std::size_t>(length)));
@@ -160,29 +186,21 @@ Result<PropertyValue> readValue(ByteReader& reader, const Package& package,
 
 } // namespace
 
-Result<PropertyList> readPropertyList(const Package& package,
-                                      const ExportEntry& entry) {
-    // A class object does not begin with a property list at all, and its
-    // export is recognised by a NULL class reference -- not by one naming
-    // `Class`, which no package writes. Class objects are UTA-0005.
-    if (entry.objectClass.kind() == ObjectReferenceKind::Null) {
-        return std::unexpected(Error(
-            ErrorCode::InvalidArgument,
-            "this export is a class, whose serialised data is a class table rather "
-            "than a property list"));
+Result<void> skipExecutionStackFrame(ByteReader& reader) {
+    UTA_TRY(const std::int32_t node, reader.readIndex());
+    UTA_TRY([[maybe_unused]] const std::int32_t stateNode, reader.readIndex());
+    UTA_TRY([[maybe_unused]] const std::int64_t probeMask, reader.readI64());
+    UTA_TRY([[maybe_unused]] const std::int32_t latentAction, reader.readI32());
+    // The trailing offset is present only when the first reference is non-null.
+    if (node != 0) {
+        UTA_TRY([[maybe_unused]] const std::int32_t offset, reader.readIndex());
     }
+    return {};
+}
 
-    UTA_TRY(const std::span<const std::byte> data, package.serialBytes(entry));
-    PropertyList list;
-    if (data.empty()) {
-        return list;
-    }
-
-    ByteReader reader{data};
-    if ((entry.objectFlags & OBJECT_FLAG_HAS_STACK) != 0) {
-        UTA_CHECK(skipStackFrame(reader));
-    }
-
+Result<std::vector<Property>> readPropertiesAt(const Package& package,
+                                               ByteReader& reader) {
+    std::vector<Property> properties;
     for (;;) {
         UTA_TRY(const std::int32_t rawName, reader.readIndex());
         if (rawName < 0 || static_cast<std::size_t>(rawName) >= package.names().size()) {
@@ -197,8 +215,7 @@ Result<PropertyList> readPropertyList(const Package& package,
         // stopped at the end of the buffer would return a truncated object as
         // a complete one (INV-9).
         if (tagName == "None") {
-            list.nativeOffset = reader.position();
-            return list;
+            return properties;
         }
 
         Property property;
@@ -235,7 +252,7 @@ Result<PropertyList> readPropertyList(const Package& package,
         if (property.type == PropertyType::Bool) {
             // The value is bit 7 of the info byte, and no value bytes follow.
             property.value = (info & HIGH_BIT) != 0;
-            list.properties.push_back(std::move(property));
+            properties.push_back(std::move(property));
             continue;
         }
 
@@ -268,8 +285,39 @@ Result<PropertyList> readPropertyList(const Package& package,
         UTA_CHECK(reader.seek(bodyStart));
         UTA_CHECK(reader.skip(size));
 
-        list.properties.push_back(std::move(property));
+        properties.push_back(std::move(property));
     }
+}
+
+Result<PropertyList> readPropertyList(const Package& package,
+                                      const ExportEntry& entry) {
+    // A class object does not begin with a property list at all, and its
+    // export is recognised by a NULL class reference -- not by one naming
+    // `Class`, which no package writes. Class objects are UTA-0005, which
+    // reaches their defaults through readPropertiesAt above.
+    if (entry.objectClass.kind() == ObjectReferenceKind::Null) {
+        return std::unexpected(Error(
+            ErrorCode::InvalidArgument,
+            "this export is a class, whose serialised data is a class table rather "
+            "than a property list"));
+    }
+
+    UTA_TRY(const std::span<const std::byte> data, package.serialBytes(entry));
+    PropertyList list;
+    if (data.empty()) {
+        return list;
+    }
+
+    ByteReader reader{data};
+    if ((entry.objectFlags & OBJECT_FLAG_HAS_STACK) != 0) {
+        UTA_CHECK(skipExecutionStackFrame(reader));
+    }
+
+    UTA_TRY(list.properties, readPropertiesAt(package, reader));
+    // Where the list ended IS the cursor's position, so nothing re-parses to
+    // recompute it.
+    list.nativeOffset = reader.position();
+    return list;
 }
 
 Result<std::vector<Property>> readProperties(const Package& package,

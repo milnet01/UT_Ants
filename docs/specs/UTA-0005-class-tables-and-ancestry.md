@@ -734,20 +734,24 @@ a monster that behaves like the one in the original game.
 
 ## 11. Cross-doc impact
 
-**UTA-0003's `Properties` surface grows by one entry point.** § 4.3 step 11
-says why: both existing entry points begin at an export's start, and a
-class's default properties are at its end. `readPropertiesAt` is additive —
-no existing signature changes and no existing behaviour does — but it is a
-change to a shipped item's surface, and UTA-0003 § 4.8 should name it when
-this item lands.
+**UTA-0003's `Properties` surface grows by TWO entry points, not one.**
+§ 4.3 step 11 predicted `readPropertiesAt`, and the build found a second:
+`skipExecutionStackFrame`. A class export carries that frame exactly as any
+other object does (§ 4.3 step 1), and the skip lived in `Properties.cpp`'s
+anonymous namespace, so reaching it meant either exposing it or writing a
+second copy of one format shape — which is INV-12's rule applied to its
+neighbour. Both are additive: no existing signature changes and no existing
+behaviour does. *Amended 2026-09-06, recording what was built.*
 
-**UTA-0003 § 4.8 needs a correction.** It says a struct's layout "is only
-knowable from the class table (UTA-0005)", which reads as a promise that
-this item supplies it. § 3.2 records that it does not, with the
-measurement. That sentence should name the item that will, once one
-exists, rather than this one. The correction is not made here: this spec
-is a draft until its gate passes, and amending a shipped spec on the
-strength of a draft is backwards.
+**UTA-0003 § 4.8 needed two corrections, and both are now made there.** The
+first is the one this section predicted: it said a struct's layout "is only
+knowable from the class table (UTA-0005)", which read as a promise this item
+supplies. § 3.2 records that it does not. The second was found by the build
+rather than by reading — a `Str`'s length counts characters, and a negative
+one means 16-bit characters, where § 4.8 said "that many bytes". The reader
+refused those as malformed, so a class carrying one could not be read at all.
+Class defaults are where the form appears, which is why UTA-0004 never met
+it. *Amended 2026-09-06.*
 
 **`ADR-0004` is unchanged.** § 3.1 records why the script walker does not
 breach its "no bytecode is executed" line, and the ADR's requirement that

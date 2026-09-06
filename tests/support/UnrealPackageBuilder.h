@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -162,6 +163,106 @@ private:
     std::vector<std::uint8_t> body_;
     std::vector<std::uint8_t> stackFrame_;
 };
+
+/// Writes the serialised bytes of a CLASS export -- the field order of
+/// docs/specs/UTA-0005-class-tables-and-ancestry.md SS 4.3.
+///
+/// A class export is recognised by a NULL class reference, so the ExportEntry
+/// holding these bytes leaves `objectClass` at 0.
+///
+/// Several setters exist so a test can write what a self-consistent package
+/// never would, which is the only way to isolate some of UTA-0005's
+/// invariants (SS 4.9):
+///
+///   - `setSuperField` writes the IN-DATA parent independently of the export
+///     table's own `super` column, so the two can be made to disagree (INV-2);
+///   - `setScriptSizeOverride` writes a ScriptSize the script body does not
+///     sum to, including a negative one (INV-3);
+///   - `setPackageVersion` below 62 omits ClassWithin and ClassConfigName,
+///     the branch no package in the reference install takes (SS 7).
+class ClassExportWriter {
+public:
+    /// The in-data SuperField. Independent of the export table on purpose.
+    ClassExportWriter& setSuperField(std::int32_t reference);
+    ClassExportWriter& setNext(std::int32_t reference);
+    ClassExportWriter& setScriptText(std::int32_t reference);
+    ClassExportWriter& setChildren(std::int32_t reference);
+    ClassExportWriter& setFriendlyName(std::int32_t nameIndex);
+    ClassExportWriter& setLine(std::int32_t line);
+    ClassExportWriter& setTextPos(std::int32_t textPos);
+
+    /// The compiled script. `memorySize` is what ScriptSize will say -- the
+    /// bytes the instructions occupy IN MEMORY, which is not `body.size()`.
+    ClassExportWriter& setScript(std::vector<std::uint8_t> body, std::int32_t memorySize);
+
+    /// Write a ScriptSize the body does not sum to. Overrides setScript's.
+    ClassExportWriter& setScriptSizeOverride(std::int32_t scriptSize);
+
+    ClassExportWriter& setClassFlags(std::uint32_t flags);
+    ClassExportWriter& setClassGuid(const std::vector<std::uint8_t>& guid);
+
+    /// One dependency-list entry: an object reference as a compact index, an
+    /// int32 and a uint32.
+    ClassExportWriter& addDependency(std::int32_t reference, std::int32_t depth,
+                                     std::uint32_t scriptTextCrc);
+    /// One package-import-list entry: a name index as a compact index.
+    ClassExportWriter& addPackageImport(std::int32_t nameIndex);
+
+    /// Written only at package version 62 and above.
+    ClassExportWriter& setWithin(std::int32_t reference);
+    ClassExportWriter& setConfigName(std::int32_t nameIndex);
+
+    /// The default properties, as built by TaggedPropertyWriter::build.
+    ClassExportWriter& setDefaults(std::vector<std::uint8_t> propertyList);
+
+    /// Prefix an execution-stack frame, as an object carrying
+    /// OBJECT_FLAG_HAS_STACK does.
+    ClassExportWriter& setStackFrame(std::int32_t node, std::int32_t stateNode,
+                                     std::int64_t probeMask, std::int32_t latentAction,
+                                     std::int32_t offset);
+
+    /// `packageVersion` decides whether ClassWithin and ClassConfigName are
+    /// written; it must match the package these bytes go into.
+    [[nodiscard]] std::vector<std::uint8_t> build(std::uint16_t packageVersion) const;
+
+private:
+    std::vector<std::uint8_t> stackFrame_;
+    std::int32_t superField_ = 0;
+    std::int32_t next_ = 0;
+    std::int32_t scriptText_ = 0;
+    std::int32_t children_ = 0;
+    std::int32_t friendlyName_ = 0;
+    std::int32_t line_ = 0;
+    std::int32_t textPos_ = 0;
+    std::vector<std::uint8_t> script_;
+    std::int32_t scriptSize_ = 0;
+    std::optional<std::int32_t> scriptSizeOverride_;
+    std::uint32_t classFlags_ = 0;
+    std::vector<std::uint8_t> classGuid_ = std::vector<std::uint8_t>(16, 0);
+    std::vector<std::array<std::int64_t, 3>> dependencies_;
+    std::vector<std::int32_t> packageImports_;
+    std::int32_t within_ = 0;
+    std::int32_t configName_ = 0;
+    std::vector<std::uint8_t> defaults_;
+};
+
+/// Compiled-script instructions, for the walker's fixtures. Each returns the
+/// DISK bytes; the memory cost each contributes is named beside it, because
+/// ScriptSize counts the memory form and a test has to state both.
+namespace script {
+
+/// EX_Nothing. 1 disk byte, 1 memory byte.
+[[nodiscard]] std::vector<std::uint8_t> nothing();
+/// EX_ObjectConst plus a compact-index reference. 1 memory byte for the
+/// opcode plus 4 for the reference, whatever the index encodes to on disk --
+/// which is what INV-4 turns on.
+[[nodiscard]] std::vector<std::uint8_t> objectConst(std::int32_t reference);
+/// EX_IntConst plus a 32-bit literal. 5 disk bytes, 5 memory bytes.
+[[nodiscard]] std::vector<std::uint8_t> intConst(std::int32_t value);
+/// An opcode the walker's table does not define (INV-3).
+[[nodiscard]] std::vector<std::uint8_t> unknownOpcode();
+
+} // namespace script
 
 /// Assembles a package whose header, name table, import table and export table
 /// are internally consistent -- offsets and counts included, which is the part

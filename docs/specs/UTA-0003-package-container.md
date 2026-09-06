@@ -398,14 +398,34 @@ consumed. Skipping it desynchronises every property after the first
 `Bool`, in a list that still parses.
 
 **Values decoded here:** `Byte`, `Int`, `Bool`, `Float`, `Object`,
-`Class`, `Name`, `Str` (a compact-index length then that many bytes
-including the terminator), `String` (exactly `size` bytes), and the two
+`Class`, `Name`, `Str`, `String` (exactly `size` bytes), and the two
 structs whose layout is fixed by the format — `Vector` and `Rotator`.
+
+**Amended 2026-09-06, by measurement: a `Str`'s compact-index length counts
+CHARACTERS, and a NEGATIVE length means those characters are 16 bits wide.**
+This section previously said "that many bytes including the terminator",
+which is right only for the positive case. UTA-0005's real-asset pass found
+the other one: a map-vote mod's class defaults store their entries as UTF-16,
+and every such value satisfies `declared size == 1 + 2 * magnitude`, which is
+what confirms the reading rather than the shape merely looking plausible. The
+reader had been refusing them as malformed, so an export carrying one could
+not be read at all. Class defaults are where this form appears — UTA-0004 read
+level content and never met it.
 
 **Those two arrive spelled either way, and both decode identically.** A
 tag may carry `Vector` or `Rotator` in its type field, or `Struct` with
 that struct name. `structNameIndex` is meaningful only in the second
 spelling, and is zero in the first.
+
+**Amended 2026-09-06: the class table does not supply a struct's layout,
+and UTA-0005 does not decode struct-typed values.** That item measured the
+question and scoped it out — struct-typed defaults are a small share of all
+defaults, and once `Vector` and `Rotator` are set aside what remains is
+dominated by mod bookkeeping nothing in the 0.1.0 or 0.3.0 line consumes.
+Recovering a struct's member layout means reading each class's `Children`
+chain, which is a second traversal and belongs to whichever item first needs
+those values. Until then the carry-through below is the whole answer, not a
+placeholder for UTA-0005.
 
 **Everything else is returned as its raw bytes**, with the type and
 struct name intact: any other struct, and `Array`, `Map` and
