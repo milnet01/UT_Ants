@@ -12,9 +12,11 @@ stated answer.
 
 That gap was tolerable while Linux was the primary target, because a distro
 package was the unspoken default. Windows is now first-class and has no such
-default, so the gap became load-bearing. **S7** is what makes it urgent: a
-stranger clones the repository and the build and the suite both pass — cut at
-`0.1.0`, and now true on two platforms or not at all.
+default, so the gap became load-bearing. **S7** is what makes it urgent —
+*"a stranger clones the public repository with no Unreal Tournament on their
+machine, and the build and the test suite both pass"* — a sign this project
+must satisfy at `0.1.0`, which has not been cut, and now on two platforms
+rather than one.
 
 The three candidate mechanisms are not equally good per dependency, and two of
 them fail on facts rather than on taste. Measured 2026-09-06, against an
@@ -36,9 +38,10 @@ fetched on its own**: its `third_party/CMakeLists.txt` fails with
 SPIRV-Tools and SPIRV-Headers are synced beside it by its own
 `utils/git-sync-deps`, so building it from source is a four-repository
 lockstep pin — for something this design uses as a build-time *tool* rather
-than as a library to link. And **the Vulkan loader is a system component**: it
-dispatches into the installed graphics driver, so a copy the build fetched for
-itself is wrong by construction rather than merely redundant.
+than as a library to link. And **the Vulkan SDK is one acquisition carrying four
+things** — headers, loader, validation layers and `glslc` — where fetching
+them means four pins that must agree, against an installed graphics driver
+this project never supplies and `docs/design.md` already requires.
 
 ## Decision
 
@@ -47,29 +50,54 @@ question a new dependency is asked is written down so the answer is mechanical
 rather than re-argued.
 
 **Route 1 — fetched by the build, pinned to an exact tag.** Catch2, glm, SDL3.
-Each ships a CMake build, is self-contained, and talks to no system component.
-Fetching puts both platforms on one version with no instructions to follow,
-which is the shortest route to **S7**.
+Each ships a CMake build that stands alone, and each is ordinary code the
+compiler can build from source: SDL3 *calls* the platform's window, input and
+audio interfaces, but nothing about it has to match a version already
+installed. Fetching puts both platforms on one version with no instructions to
+follow, which is the shortest route to **S7**.
 
 **Route 2 — vendored in the repository.** Dear ImGui, as already decided. It
 ships no build system; its sources are compiled into the target that uses it,
 so fetching would buy nothing a copy does not already give.
 
-**Route 3 — required from the platform, found and never fetched.** The Vulkan
-SDK: the loader, the headers, the validation layers, and the `glslc` this
-project compiles its shaders with. The loader must match the installed driver,
-and the SDK carries `glslc`, so one acquisition settles both and the four-repo
-shaderc pin is never taken.
+**Route 3 — required from the platform, found and never fetched.** The **LunarG
+Vulkan SDK, 1.3.275 or newer, on both platforms**: the headers, the loader, the
+validation layers and the `glslc` this project compiles its shaders with. The
+floor is the version Ubuntu 24.04 packages, so it is not set above the older of
+the two platforms this project builds on. The graphics *driver* is the
+machine's, is never acquired, and `docs/design.md` already rules out a machine
+whose driver is below Vulkan 1.3.
+
+**Naming LunarG rather than "the Vulkan SDK" is the whole point of this
+paragraph**, because on Linux that phrase is not one thing: the loader, the
+layers and `glslc` are three separate distro packages, and Ubuntu's `glslc` is
+`2023.8` against the SDK's own much later build. `glslc` output is SPIR-V, and
+SPIR-V goes into a bundle whose hash `ADR-0002` requires to be equal across
+machines — so two compilers is the same defect as two glm versions, one step
+further down the pipeline. One acquisition, one version, both platforms.
 
 **Route 4 — fetched, but only for the target that needs it.** Assimp, which
 `ut-ed` links and no runtime target may — `docs/design.md` § The stack says so
 in the entry itself, rule 2 naming only this project's own parts. A
 runtime-only build does not pay to fetch or compile it.
 
-**The question a new dependency is asked, in this order.** Does it contain or
-dispatch into a system component — a driver, a kernel interface, a device? Then
-route 3. Does it ship no build system of its own? Route 2. Is it needed by one
-non-runtime target only? Route 4. Otherwise route 1.
+**The question a new dependency is asked, in this order.**
+
+1. **Must its version match something already installed on this machine** — a
+   graphics driver's ICD, a kernel ABI, a vendor runtime? Route 3. The test is
+   the matching, not whether the library talks to hardware: SDL3 opens input
+   and audio devices and is still route 1, because any recent SDL3 drives them.
+2. **Is it already carried by a route-3 acquisition, or unbuildable on its
+   own?** Route 3, on that acquisition's back. `glslc` is both.
+3. **Does it ship no build system of its own?** Route 2.
+4. **Is it linked by exactly one target, and that target not a runtime one?**
+   Route 4. A test-only dependency is the exception and stays route 1: Catch2
+   is fetched for the whole suite rather than for one target, and the test
+   build is not a shipped artefact whose weight anyone carries.
+5. **Otherwise route 1.**
+
+Question 2 is what stops the question answering *route 1* for `glslc`, which
+this document has just shown cannot be fetched.
 
 **glm is fetched rather than found even though a package exists**, and the
 reason is not its age. `ADR-0002` requires one map, recipe and baker version to
@@ -79,28 +107,38 @@ machine happens to carry puts a version difference inside that contract, where
 two contributors bake one map and get two bundles. Pinning it is part of
 determinism, not tidiness.
 
-**vcpkg is rejected**, having been the strongest alternative: it is already on
-the Windows runner and it is the conventional Windows answer. It adds a tool to
-every contributor's loop, and its Vulkan port is find-only — it expects an
-installed SDK rather than providing one — so the single manual step it would
-have justified itself by removing remains either way.
+**vcpkg is rejected on cost, not on capability**, and the distinction matters
+because the capability argument is the tempting one and it is false. vcpkg
+carries real `vulkan-loader`, `vulkan-headers`, `shaderc` and `glslang` ports
+that build from source; only its `vulkan` metaport is find-only, and citing
+that alone would misrepresent what the tool can do. It was the strongest
+alternative — already on the Windows runner, and the conventional Windows
+answer. What it costs is a tool and a manifest in every contributor's loop, and
+a first build that compiles the whole set from source, to replace one SDK
+installer on Windows and one `apt` line on Linux. That trade is not worth
+taking here, and it is worth re-opening the moment a second dependency needs
+the same treatment.
 
 ## Consequences
 
 **Installing the Vulkan SDK is a prerequisite on both platforms, and the
-README must say so before `0.1.0` ships.** This is the cost, and it is real:
-**S7** now reads "clone, install one SDK, build" rather than "clone, build".
-It is defensible only because `docs/design.md` already rules out any machine
-without Vulkan 1.3 — a contributor who cannot install the SDK could not have
-run the result. It is not defensible if it stays undocumented, and a fresh
-clone is what settles that, not a reading of this file.
+README must say so before `0.1.0` ships.** This is the cost, and it is real —
+but it does not change **S7**, whose subject is a machine with no Unreal
+Tournament on it rather than a machine with no toolchain. The SDK step sits
+outside that sign and is a README obligation, which is what
+`docs/design.md` § The stack says. It is defensible only because that document
+already rules out any machine without Vulkan 1.3 — a contributor who cannot
+install the SDK could not have run the result. It is not defensible if it stays
+undocumented, and a fresh clone is what settles that, not a reading of this
+file.
 
-**CI must acquire the SDK on both runners, and not only in `ci.yml`.** The
-local gate and the pipeline share `scripts/ci.sh` so neither can drift
-(`local-gate.md` § 3), so an acquisition step that exists only in the workflow
-would be a check a developer's machine never performs. Provisioning is the
-runner's job and stays in `ci.yml`; what must not diverge is which SDK the
-build then finds.
+**`ci.yml` installs the SDK; `scripts/ci.sh` checks which one it found.**
+Provisioning a toolchain is the runner's job and stays in the workflow, as the
+compiler lines there already do. What the shared gate script owns is the
+*assertion* — that an SDK is present and that it satisfies the floor above —
+because the local gate and the pipeline share that script so neither can drift
+(`local-gate.md` § 3), and a developer whose machine has a different SDK must
+find out from their own gate rather than from a red pipeline.
 
 **The first configure needs the network, and an offline clone cannot
 configure.** That is already true of Catch2 and this widens it to SDL3, glm and

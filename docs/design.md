@@ -397,12 +397,12 @@ S2 reachable.**
 
 **`ADR-0007` owns the acquisition rule and the reasons**, including the
 question a dependency that is not in this table is asked. The column above
-is an index into it, not a second statement of it. In short: a library that
-ships a CMake build and talks to no system component is fetched at an exact
-tag; the Vulkan SDK is installed and found, because its loader dispatches
-into the graphics driver and because it carries the `glslc` this project
-compiles shaders with; Dear ImGui is vendored because it ships no build
-system. **Installing that SDK is a prerequisite on both platforms**, which
+is an index into it, not a second statement of it. In short: a library the compiler can build
+from source, whose version need not match anything already on the machine, is
+fetched at an exact tag; the LunarG Vulkan SDK is installed and found, because
+it carries the headers, loader, validation layers and the `glslc` this project
+compiles shaders with as one set at one version; Dear ImGui is vendored because
+it ships no build system. **Installing that SDK is a prerequisite on both platforms**, which
 is the one step **S7** does not cover and the README has to state.
 
 **Linux and Windows are both first-class targets.** Neither is the
