@@ -1,6 +1,6 @@
 # UTA-0069 — `upkg`: the `Model` BSP tables
 
-**Status:** draft (2026-09-07).
+**Status:** accepted (2026-09-07). Two `review-contract` loops, the cap for a spec; the loop log is `docs/reviews/UTA-0069-model-bsp-tables-loop-log.md`.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0069 (consumer-request-2026-09-06 games-drive; split
 from UTA-0057 on 2026-09-06, which keeps the `Level` tail).
@@ -145,9 +145,8 @@ section said the implementation would add, named in § 3.2.
 **The zone records ARE returned**, as `std::vector<ZoneProperties> zones`, and
 so is `numSharedSides`. UTA-0007 partitions a level on its zones and they live
 nowhere else, so consuming them silently would leave this reader's one stated
-consumer unable to ask. **This is where the item departs from `Level.h`**,
-which consumes its tail and returns nothing: that tail had no consumer, and
-this one does.
+consumer unable to ask. `Level.h` is the precedent for returning out of a tail
+rather than against it: it returns its `reachSpecs` and consumes the rest.
 
 ### 4.2 What this item inherits and must not restate
 
@@ -168,10 +167,11 @@ The method of § 2.2, and UTA-0004 § 4.3's acceptance.
 The layout is right when `readModel` consumes every `Model` export in the
 reference install exactly. It is not a proof of correctness: a reader can
 consume the right number of bytes and assign them to the wrong fields. Two
-independent checks narrow that gap, and close it for nothing else — the `Polys`
+independent check narrows that gap, and closes it for nothing else: the `Polys`
 reference must resolve to a `Polys`-classed export (§ 2.2 measured this at
-100% of walked exports), and the node and surface counts must be plausible for
-the level's size (§ 2.2 measured Deck16).
+100% of walked exports), which is INV-5. § 2.2's Deck16 node and surface counts
+are a derivation observation and not a second check — no bound is stated that
+they could fail, and no invariant carries them.
 
 **The residue is the work.** § 2.2 reached 98.06%; § 4.6 names what is left,
 and INV-4 states the bar: every export, no tolerance.
@@ -208,9 +208,11 @@ raw `i32` between the two runs** — the part that was unknown, and the part the
 community order gets wrong.
 
 **One of those verified facts is superseded here.** UTA-0004 § 4.5 records "a
-second, shorter run of arrays". The second run is shorter in BYTES on a brush
-model — six zero bytes against the first run's thirteen — but it holds **six**
-arrays against the first run's five. An implementer reading "shorter" as a
+second, shorter run of arrays". The second run holds **six** arrays against the
+first run's five, so it is longer in count — and on a brush model, where every
+table costs one zero byte, longer in bytes too. "Shorter" holds only of a
+populated level model, whose geometry sits in the first run's `Nodes`, `Surfs`
+and `Verts`. An implementer reading "shorter" as a
 count reads four arrays after `Polys` and misassigns every field from there.
 § 11 records the supersession.
 
@@ -220,17 +222,25 @@ therefore **68 payload bytes plus the width of its `Polys` index**, which
 `ByteReader::readIndex` gives as one to five bytes depending on the export
 slot.
 
-**Do not assert 70.** Measured 2026-09-07 over the install, the all-empty class
-weighs 69 bytes 18 times, 70 bytes 411,969 times and 71 bytes 121,665 times —
-the one-, two- and three-byte index widths. A fixture pinned at 70 rejects
-valid brush models.
+**Do not assert 70.** Measured 2026-09-07 over the install, `Model` payloads
+under 90 bytes fall in four buckets — 65 bytes (198), 69 (18), 70 (411,969),
+71 (121,665). The last three are the one-, two- and three-byte index widths;
+65 is § 4.6's unexplained class, which 68-plus-an-index cannot produce. A
+fixture pinned at 70 rejects valid brush models, and one pinned to 69–71
+rejects the 65-byte class.
+
+**That threshold selects on size, not on every table being empty**, so these
+buckets are not a partition of § 2.2's exactly-consuming count and the two
+totals are not expected to reconcile.
 
 ### 4.5 The element layouts that are settled
 
 Each was confirmed the same way: the failure count at that table collapsed when
 the layout was corrected, and no earlier table's count moved.
 
-**`FBspNode`** — `FPlane` (16 bytes), `ZoneMask` (`u64`), `NodeFlags` (`u8`),
+**`FBspNode`** — `FPlane` (16 bytes), `ZoneMask` (a 64-bit mask; `ByteReader`
+offers `readI64` and no `readU64`, so read it as `i64` and cast, as `readPolys`
+does for `PanU`/`PanV`), `NodeFlags` (`u8`),
 then seven compact indices (`iVertPool`, `iSurf`, `iFront`, `iBack`, `iPlane`,
 `iCollisionBound`, `iRenderBound`), then `iZone[2]` and `NumVertices` as three
 bytes, then **`iLeaf[2]` as two raw `i32`**.
@@ -253,9 +263,13 @@ Pan`, `float UScale`, `float VScale`, `i32 UClamp`, `i32 VClamp`. Reading
 
 The residue of § 2.2 is two classes, and both are this item's work.
 
-**9,645 exports where the walk stops**, named by the table it stops at: the
-zone record after `NumZones`, and the element layouts of `LightBits`,
-`Bounds`, `LeafHulls`, `Leaves` and `Lights`.
+**9,645 exports where the walk stops.** Most stop at a table with no stated
+layout: the zone record after `NumZones`, and the element layouts of
+`LightBits`, `Bounds`, `LeafHulls`, `Leaves` and `Lights`. A remainder stops at
+tables § 4.5 settles — 3 at `Nodes`, 1 at `Surfs`, 32 at `LightMap` — and 230
+stop at `Vectors` or `Points`, the two earliest tables of all. **Those last
+belong to the unexplained class below rather than to the six layouts**, so
+closing all six leaves them, and INV-4 still fails.
 
 **1,155 exports that complete at the wrong offset.** The harder half: the walk
 consumed a plausible number of bytes and still landed wrong, so no table
@@ -317,12 +331,13 @@ constructed content:
   end. This is UTA-0004 § 4.3's rule applied to this reader, and it is the only
   check that fires on a field nobody predicted would be wrong.
 
-- **INV-2** — A `Model` whose declared table count would walk past the export's
-  end is refused with `MalformedData`, and no allocation is sized from that
-  count before it is checked.
+- **INV-2** — A `Model` whose declared table count is negative, or would walk
+  past the export's end, is refused with `MalformedData`, and no allocation is
+  sized from that count before it is checked.
   *Test:* `tests/unit/PackageMalformedTest.cpp` builds a `Model`
-  declaring a node count far larger than the file and asserts an `Error` naming
-  the count check.
+  declaring a node count far larger than the file, and a second declaring a
+  negative one — `ByteReader::readIndex` takes the sign from bit 7 of the first
+  byte, so it is encodable — and asserts an `Error` naming the count check.
   *Breaks when:* the reader reserves from the file's own count — the
   four-byte edit that asks for gigabytes, which is UTA-0004 INV-4's reason and
   applies unchanged to every count in § 4.4: eleven arrays and the zone record
@@ -457,14 +472,21 @@ a running walk. The reader is the derivation tool.
 - **UTA-0004 § 4.5** is this item's brief and says the layout could not be
   derived there. Its narrative stays as written — it is a true record of that
   item — but **one of its verified facts is superseded**: the second run of
-  arrays is shorter in bytes on a brush model and LONGER in count, six against
-  five. § 4.4 owns the correction. Its § 14 already points here.
+  arrays is LONGER in count, six against five, and on a brush model longer in
+  bytes as well. § 4.4 owns the correction. Its § 14 already points here.
+- **UTA-0004 § 4.10 and § 7 are superseded on fixtures**, for the settled
+  tables only. That item's builder "does not build a `Model`" and its § 7 gives
+  `readModel` no fixture case until the layout is derived. § 4.4 and § 4.5
+  derive it, so § 4.7 owes tier 1 now. A fixture exercising § 4.6's tables and
+  the zone record still waits, and there UTA-0004's rule stands unchanged.
 - **UTA-0004 § 7's zero-refusal set is NOT amended.** `Model` stays in it and
   INV-4 states the same rule rather than a weaker one. UTA-0057 § 7 amended
   that list for `Level`; this item has no equivalent need, because its residue
   is unfinished derivation rather than content disagreeing with itself.
-- **UTA-0007** binds to the member names of § 4.4 and § 4.5. This is the first
-  document to state them, so that item's zone partition has something to name.
+- **UTA-0007** binds to the member names § 4.4 and § 4.5 state, and this is the
+  first document to state them. `ZoneProperties` is named but its fields are
+  not — § 4.6 leaves the zone record underived — so that item can bind to the
+  member `zones` and to nothing inside it until § 4.6 closes.
 - **`src/upkg/Geometry.h`**'s header comment cites UTA-0004 § 4.4 and § 4.5;
   it gains this spec once the reader lands.
 - **ROADMAP UTA-0069** carries the acceptance in one line; this spec is the
@@ -483,8 +505,8 @@ closure.
 
 The cost is derivation, and § 2.2 has already spent most of it: the order is
 settled and four element layouts with it. What remains (§ 4.6) is bounded — six
-tables, each measured by the same total check, each independent once the one
-before it is right.
+tables and the `UPrimitive` prefix branch, each measured by the same total
+check, each independent once the one before it is right.
 
 The standing cost is the oracle. `readModel` has no tier-1 case until § 4.7,
 so every claim here rests on a tier that is off by default and needs an
