@@ -1,9 +1,9 @@
 # Session handoff — 2026-09-07
 
-Records what is on disk, what is not, and where to pick up. Rewritten late
-in the day by session `ut-ants-84`; the earlier version was written after a
-mid-item terminal restart and told the reader to go and write `readModel`,
-which has since shipped.
+Records what is on disk, what is not, and where to pick up. Rewritten by
+session `ut-ants-b2`, which resumed the 🚧 left by `ut-ants-b8` /
+`ut-ants-4e` and closed § 4.6's version-61 class. The version it replaces
+told the reader to start on the `Vectors` failures; there are none left.
 
 ## Where UTA-0069 stands
 
@@ -12,146 +12,162 @@ the reference install consumed exactly, no tolerance — and the tier-3 run
 is red. Per `CLAUDE.md` § Running two sessions at once rule 5, that is the
 correct state to leave it in.
 
-**`readModel` is written, committed and pushed** in
-`src/upkg/Geometry.{h,cpp}` at `15cd182`, green on the full matrix (GCC,
-Clang, MSVC). It implements § 4.4's table order and § 4.5's nine element
-layouts, and § 4.1's rule that `leaves` is neither returned nor stepped
-over.
+`readModel` is in `src/upkg/Geometry.{h,cpp}`, green on the full matrix. It
+implements § 4.4's table order and § 4.5's nine element layouts, refuses a
+populated `Leaves` per § 4.1, and now refuses a `Model` below package
+version 62 by name.
 
-**Tier 1 exists**: six cases across `tests/unit/PackageContentTest.cpp` and
-`tests/unit/PackageMalformedTest.cpp` — § 4.7's four, plus a
-bytes-left-over case and a populated-`Leaves` refusal. The fixtures
-populate every table § 4.5 settles, at distinct counts with a per-index
-label.
+Tier 1 is in `tests/unit/PackageContentTest.cpp` and
+`tests/unit/PackageMalformedTest.cpp`. Tier 3 is
+`tests/real/RealInstallTest.cpp`; it tallies rather than asserting per
+export so the residue prints, and asserts INV-4 at the end.
 
-**Tier 3 exists and is RED**, in `tests/real/RealInstallTest.cpp`. It
-tallies rather than asserting per export so the residue prints, and
-asserts INV-4 at zero refusals at the end.
+## What this session settled
 
-## The finding that should change the plan
+**Version 61 is a different serialisation, not a wrong field width.** A
+`Model` there holds no inline BSP tables. It holds six object references —
+`Vectors`, `Points` (a second `Vectors`), `BspNodes`, `BspSurfs`, `Verts`,
+`Polys` — behind a 37-byte prefix (`FBox`, then a 12-byte vector with no
+sphere radius), ahead of eight index-prefixed arrays and the two trailing
+`i32`. There is no `NumSharedSides` and no `NumZones`.
 
-**Of the 847 packages holding a `Model`, only FOUR have their largest
-`Model` parse.**
+Two independent proofs, both in `MH-SPNaliRescue.unr`, the corpus's only
+version-61 package. The export-class histogram gives one `BspNodes`, one
+`BspSurfs`, one `Verts` and one `Polys` per `Model`, and `Vectors` twice.
+And the six indices resolve by name to exactly those exports, on every
+export sampled.
 
-A map carries hundreds of `Model` exports, one per editor brush, nearly all
-empty stubs. The level's BSP geometry — what UTA-0007 and UTA-0011 need —
-is the largest one. So the spec's headline figure of 98% exact consumption
-is carried almost entirely by trivia, and the content this item exists for
-parses almost nowhere.
+That is why the handoff's 37-byte lead "changed nothing" when it was first
+measured: the prefix was right and the whole second half was wrong.
 
-**That has a methodological consequence for § 4.5**, and it is why the
-derivation stalled. Its later layouts were each chosen by maximising exact
-consumption across ALL exports — a population dominated by ~550,000 empty
-models that never reach those tables. A wrong width in `LightMap`,
-`Bounds`, `LeafHulls` or `Lights` barely moves that figure, so the metric
-hardly constrains the layouts it was used to settle.
+**Under the derived layout 223 of the 234 version-61 `Model` exports
+consume exactly, against none before.** The last two of the eight arrays
+are not determined by this corpus — sweeping both widths to 48, the best
+pair beats almost every other pair by one export, which is § 4.6's own
+alias warning for `Leaves`. No width is stated for them.
 
-**Derive against the new metric instead**: packages whose largest `Model`
-parses, printed by the tier-3 walk. It starts at 4 of 847 and has signal.
+**The user ruled the implementation out of this item.** It is `UTA-0072`,
+in the 0.4.0 section, and it carries the derivation. `readModel` refuses
+version 61 with `ErrorCode::UnsupportedVersion` instead — the bytes are not
+malformed, they are a layout this reader does not describe, which is
+§ 4.1's `Leaves` ruling applied to a whole export. The boundary is 62
+rather than 63 because that is the smallest claim the measurement
+supports: 61 is the only version below 62 the container accepts, and 62
+appears nowhere in the reference install.
 
-**This is recorded on the ROADMAP bullet, not in the spec.** Editing the
-spec would re-arm its review gate; do that deliberately, if at all, and not
-as a side effect.
+## The spec is now stale in two places, deliberately
 
-## Where the failures are
+§ 4.6's version-61 paragraph describes the class as unexplained, and its
+residue list names `Vectors`, `Points`, `Nodes` and `Surfs` as stop
+positions. Measured 2026-09-07 with the refusal in place, those four
+buckets are **empty across all 847 packages** — their counts summed to
+exactly the version-61 export count, so every refusal at the first four
+tables in the whole install was that one class.
 
-Tier 3 prints a per-table histogram. Every refusal now names the part it
-stopped in — the table, or the prefix, count or reference between tables —
-through `Error::withContext`, added at `69805f9`. Unclassified refusals
-went from 3,751 to zero.
+Amending § 4.6 re-arms the review gate under `CLAUDE.md` rule 14. It was
+left alone rather than edited as a side effect. The `UTA-0069` ROADMAP
+bullet carries the current numbers. **Decide the amendment deliberately;
+do not fold it into unrelated work.**
 
-**The histogram reconciles with § 4.6 table for table.** `Vectors`,
-`Points`, `Nodes`, `Surfs` and the trailing `i32` are identical; the rest
-differ by +1 to +116 and sum to exactly 180, against a population 4,900
-larger that splits 4,720 exact and 180 refused. So the reader is faithful
-to the spec's derivation. Do not treat a difference against § 2.2 as a
-regression — run the histogram and compare.
+## Where the failures are now
+
+Run the walk and read its histogram rather than trusting any figure here:
+
+```sh
+cmake -S . -B build-real -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DUTA_REAL_ASSET_TESTS=ON \
+  -DUTA_UT_INSTALL_DIR="/mnt/Games/PC Games/UT/UnrealTournament-469"
+./build-real/tests/uta_real_asset_tests \
+  "every modelled export in the install is consumed exactly"
+```
+
+As of 2026-09-07 the mass is `bounds`, then `lightmap bytes`, then `leaf
+hulls` and `leaves`, with a smaller class completing at the wrong offset.
+Total refusals did not move this session: the same exports refuse, and only
+their classification did.
 
 ## The immediate next action
 
-Work the residue in § 4.6's file order, which that section requires and
-gives its reason for. In order:
+**`bounds`, then `lightmap bytes`.** That is where the mass is, and it is
+what the level geometry is stuck behind — only four of 847 packages have
+their largest `Model` parse.
 
-1. **`Vectors`, 215 failures.** A failure at the first array means the
-cursor was already wrong on arrival, so the fault is in the prefix. § 4.6
-scopes a version-61 branch at 198 exports in a single package, and 215 is
-close to it. Start there — it is the smallest, most bounded class.
-2. **`LightMap`, then `LightBits` (1,849) and `Bounds` (5,237).** This is
-where the mass begins, and where the § 4.5 method problem above bites
-hardest, because these tables are exercised only by the large models the
-old metric could not see.
+§ 4.6's file-order rule still governs *within* one walk: a wrong element
+width upstream garbles every later count, so fixing out of order attributes
+one table's failures to another. It does **not** link version 61 to this
+work — that was a disjoint population, one package, and closing it moved
+none of these buckets.
 
-An unverified arithmetic lead on the version-61 class, offered as a
-hypothesis and nothing more: a 37-byte prefix (`FBox` 25 + a 12-byte
-`FVector` with no sphere radius) plus 28 bytes of empty tables and scalars
-sums to the observed 65. § 4.6 records that dropping `FSphere`'s `W` was
-measured and changed nothing, so this either is wrong or was measured
-against a different second half. Re-measure; do not assume.
+**Derive against "packages whose largest `Model` parses", not against
+exact consumption.** A map holds hundreds of `Model` exports, one per
+editor brush, nearly all empty stubs; the level geometry is the largest
+one. § 4.5's later layouts were each chosen by maximising exact
+consumption over a population dominated by empty models that never reach
+those tables, so that metric hardly constrains the layouts it settled. The
+tier-3 walk prints the better metric.
+
+The anchor sweep is the method that made this session's answer a
+measurement rather than a guess: walk to the position, sweep the span to a
+signature you can recognise — the end of the payload, or a reference that
+must resolve to a known class — and accept a span only where the signature
+holds. It needs no hypothesis about the layout and self-checks wherever the
+answer is known in advance.
 
 ## Checks already run, so they need not be repeated
 
-- Gate green at `69805f9`: 172 unit tests, ThreadSanitizer clean.
-- The suite is also clean under AddressSanitizer + UndefinedBehaviorSanitizer,
-  built per `CLAUDE.md`'s recipe. That is the leg that grades a bounds
-  check rather than a wrong answer.
-- Seven mutation routes probed against the tier-1 tests, all seven killed:
-  `iLeaf`, `LeafHulls` and `LightMapIndex::uClamp` each read as a compact
-  index, both INV-2 count guards, INV-1's exact-consumption check, and
-  § 4.1's `Leaves` refusal.
-- `spec_query` — 5 invariants parse. This is the project trap `CLAUDE.md`
-  warns about; it is clear.
-- `spec_lint` — no findings, `sections_checked: true`; `surfaces_checked:
-  false` as always here, so it is silent about test surfaces.
-- `doc_integrity` — clean.
+- Local gate green at `cc80cad`: 173 unit tests, ThreadSanitizer clean.
+- The tier-1 version refusal was mutated to `if (false && ...)` and the
+  test fails, so it is not vacuous.
+- Earlier in the item: the suite clean under AddressSanitizer +
+  UndefinedBehaviorSanitizer, and seven mutation routes probed against the
+  tier-1 tests, all seven killed.
+- `spec_query` returns five invariants — the project trap `CLAUDE.md` warns
+  about is clear.
 
 ## Do not redo or reopen
 
-- **The review gate.** It reached its cap (2 for a spec) and the spec is
-  accepted. Route it to implementation, not to a third loop.
+- **The review gate.** It reached its cap and the spec is accepted. Route
+  it to implementation, not to a third loop.
 - **`leaves` returned, or given a placeholder element type.** The user
-  ruled twice. An empty table is consumed, a populated one refused, and
-  there is now a test for the refusal.
-- **Reading `UClamp`/`VClamp` as compact indices** — measured and refuted,
-  and the mutation probe re-confirms the test catches it.
-- **A 37-byte `UPrimitive` prefix for version 61** was measured once and
-  changed nothing. The lead above is a different arithmetic, not a licence
-  to re-run the same experiment blind.
+  ruled twice, and a test locks the refusal.
+- **`UClamp`/`VClamp` as compact indices** — measured and refuted.
+- **The version-61 derivation.** It is done and recorded on `UTA-0072`.
+  What is open there is the last two arrays' widths and the four export
+  classes, not the layout.
+- **A 37-byte `UPrimitive` prefix as a fix for version 61.** The prefix was
+  never the problem on its own.
 
-## Two things noticed and deliberately not acted on
+## Noticed and deliberately not acted on
 
-**`tests/unit/PackageMalformedContentTest.cpp` is named in sibling specs and
-resolves to nothing.** UTA-0004 and others cite it; the real file is
+**`tests/unit/PackageMalformedContentTest.cpp` is named in sibling specs
+and resolves to nothing.** UTA-0004 and others cite it; the real file is
 `PackageMalformedTest.cpp`. Not this item's to fix — recorded so it is not
 rediscovered as new.
 
-**UTA-0059 is the only open review-sourced item, and its own body defers it**
-until the renderer (UTA-0014) lands. Priority rule 1 was checked and is
-genuinely clear.
+**`UTA-0059` is the only open review-sourced item, and its own body defers
+it** until the renderer lands. Priority rule 1 was checked and is clear.
+
+**The `UTA-0069` bullet's `Evidence:` field holds prose fragments, not
+paths.** The field is comma-split, so a sentence written there is stored as
+several fragments. Cosmetic; `roadmap_log op:"amend_field"` fixes it.
 
 ## Open question for the user
 
-**Milestone scope for v0.1.0.** It holds 39 items, 15 shipped. Nine of the
-24 open ones are `urender` work, and they are not equal: `UTA-0014` (Vulkan
-bring-up) and `UTA-0016` (load a bundle and walk through it) are what the
-milestone means, while eight others are visual polish on a renderer that
-does not exist yet — `UTA-0040`, `UTA-0044`, `UTA-0045`, `UTA-0051`,
-`UTA-0052`, `UTA-0053`, `UTA-0054`, `UTA-0055`. Moving those eight to
-0.2.0 would cut the remaining work by a third without changing what 0.1.0
-delivers. **Proposed and not decided** — the user's call, raised
-2026-09-07 and awaiting an answer.
+**Milestone scope for v0.1.0.** Eight of its open items are visual polish
+on a renderer that does not exist yet — `UTA-0040`, `UTA-0044`, `UTA-0045`,
+`UTA-0051`, `UTA-0052`, `UTA-0053`, `UTA-0054`, `UTA-0055`. Moving them to
+0.2.0 would cut the remaining work substantially without changing what
+0.1.0 delivers. **Proposed and not decided** — raised 2026-09-07 and still
+awaiting an answer. Do not act on it unprompted.
 
 ## Ants MCP feedback
 
-Two entries in
-`/mnt/Games/Scripts/Linux/Ants_MCP_Feedback_Files/UT_Ants_Ants_MCP_Feedback.md`.
+In `/mnt/Games/Scripts/Linux/Ants_MCP_Feedback_Files/UT_Ants_Ants_MCP_Feedback.md`.
 
-`ANTS-4900` was confirmed fixed earlier: `feedback_log` with no `path`
-derives correctly.
-
-**New, and it cost real data:** `roadmap_log` op:`annotate` discarded a
-note it had itself written minutes earlier, reporting
-`discarded_external_edits: true` inside an `ok: true` envelope. Nothing
-external had edited the file. The text survived only because an
-intervening commit happened to include it; it was re-recorded. Treat a
-successful `roadmap_log` write as needing verification — grep the file for
-what you just wrote.
+`roadmap_log` op:`annotate` once discarded a note it had itself written,
+reporting `discarded_external_edits: true` inside an `ok: true` envelope.
+It did **not** recur this session — three writes all reported
+`discarded_external_edits: false` and all three verified present. Still
+grep for what you wrote before trusting the success; note that the stored
+text is hard-wrapped, so a grep phrase spanning a wrap finds nothing and
+looks exactly like a lost write.
