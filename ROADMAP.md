@@ -1714,7 +1714,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-06.
   Lanes: uui, ugame, unet.
 
-- 📋 [UTA-0069] **upkg: derive the Model BSP tables.**
+- 🚧 [UTA-0069] **upkg: derive the Model BSP tables.**
   Split from UTA-0057 on 2026-09-06; that item keeps the `Level` tail.
 
   A `Model` begins with 41 bytes of `FBox` + `FSphere`, carries an object
@@ -1740,6 +1740,8 @@ model, no weapon and no opponent until 0.2.0.
   export exactly.
 
   Blocked-by: nothing. UTA-0004 shipped the container work this rests on.
+  Progress (2026-09-07): claimed by session ut-ants-b8, main checkout.
+  Starting with the spec-need decision under spec-format.md § 1.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
