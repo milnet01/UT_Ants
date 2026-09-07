@@ -1753,6 +1753,50 @@ model, no weapon and no opponent until 0.2.0.
   empty. The gate is OWED and has not run. A later session may resume
   this claim: docs/session-handoff-2026-09-07.md carries the resume
   point.
+  Progress (2026-09-07): claim resumed by session ut-ants-4e, main
+  checkout, after the restart the note above describes. That note is
+  superseded on one point: loop 1 DID complete, at 44d85f0. The review
+  gate is now COMPLETE -- loops 1 and 2, the cap for a spec, logged in
+  docs/reviews/UTA-0069-model-bsp-tables-loop-log.md -- and the spec is
+  accepted (2026-09-07) at 85e51dc. Loop 2 fixed seven verified findings
+  plus two corrections; re-running the payload probe showed the spec's
+  all-empty histogram was a size-threshold selection presented as a
+  partition, which no lane could have seen because the probe is not in
+  the tree. Still open, and this item is NOT done until they close: the
+  element layouts of spec SS 4.6 plus the UPrimitive prefix version
+  branch, then readModel itself, then tier 1 fixtures and a tier-3 run
+  with zero refusals, which is this item's stated acceptance.
+  Derivation progress (2026-09-07), session ut-ants-4e. The probe was
+  rebuilt and re-run, reproducing spec SS 2.2 exactly: 545,652 exact,
+  1,155 wrong offset, 9,645 failing to walk. Three results worth not
+  rediscovering.
+
+  1. The 9,645 broken down by the table it stops at: Vectors 215, Points
+  15, Nodes 3, Surfs 1, zone record 735, LightMap 32, LightBits 1,734,
+  Bounds 4,924, LeafHulls 1,152, Leaves 580, Lights 253, trailing i32 1.
+  This MEASURES what loop 2 of the review argued from the spec's own
+  figures -- 266 of them stop at tables SS 4.5 calls settled, so closing
+  SS 4.6's six layouts cannot reach zero refusals. Bounds is the largest
+  single class by far and is the best next target after the zone record.
+
+  2. The UPrimitive version branch is now SCOPED, where the spec could
+  only call it a hypothesis. Every one of the 198 65-byte exports is in
+  ONE package, MH-SPNaliRescue.unr, the corpus's only version-61 map; it
+  holds 234 Model exports and ALL of them fail. No other version has a
+  short payload class. So the branch is real, is version 61, and costs
+  0.04% of the corpus -- and it is a Monster Hunt map, which is this
+  item's stated consumer.
+
+  3. Its layout is NOT simply four bytes shorter. A dumped v61 all-empty
+  export reads FBox(25) then twelve zero bytes, then twelve bytes that
+  decode as six compact indices with values in the hundreds to
+  thousands, then NumSharedSides=0, NumZones=0, RootOutside=1,
+  Linked=1. Dropping FSphere's W to make a 37-byte prefix was measured
+  and changed nothing. Whatever v61 does differs by more than the prefix.
+
+  Not attempted here: the zone record, LightBits, Bounds, LeafHulls,
+  Leaves, Lights. The zone-count sanity guard in the probe was tested and
+  is NOT the cause of the 735 -- relaxing it moved nothing.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
