@@ -2139,6 +2139,53 @@ model, no weapon and no opponent until 0.2.0.
   Gate green: 172 tests, ThreadSanitizer clean. The suite is also clean
   under AddressSanitizer + UndefinedBehaviorSanitizer, which is the leg
   that grades a bounds check rather than a wrong answer.
+  Progress (2026-09-07, session ut-ants-b2): resumed the 🚧 left by
+  ut-ants-b8/ut-ants-4e, neither of which is live in ListAgents. § 4.6's
+  version-61 class is now EXPLAINED rather than scoped, and it is not a
+  width difference.
+
+  In version 61 a Model does not hold its BSP tables inline. It holds six
+  OBJECT REFERENCES, to separate exports: Vectors, Points (a second
+  Vectors), BspNodes, BspSurfs, Verts, Polys. Two independent proofs, both
+  in MH-SPNaliRescue.unr, the corpus's only version-61 package. The class
+  histogram: Model 234, BspNodes 234, BspSurfs 234, Verts 234, Polys 234,
+  Vectors 468 -- one of each per Model, Vectors twice. And the six indices
+  resolve by name to exactly those exports, on every export sampled
+  (Vectors54/Vectors55/BspNodes27/BspSurfs27/Verts27/Polys23 for one).
+
+  The prefix is 37 bytes, not 41: FBox then a 12-byte vector with no sphere
+  radius. The references start at payload offset 37 and resolve there; at
+  41 they do not. That is the handoff's unverified lead, now measured -- and
+  it is why the earlier 37-byte experiment "changed nothing": the prefix was
+  right and the whole second half was wrong.
+
+  After the references sit EIGHT index-prefixed arrays, then RootOutside and
+  Linked as i32. No NumSharedSides and no NumZones. Derived element widths
+  in file order: 30, 1, 25 (an FBox), 4, never-populated, 1, undetermined,
+  undetermined. Every array boundary in the smallest populated export lands
+  exactly on the next count.
+
+  Measured: 223 of the 234 version-61 Model exports consume exactly under
+  that layout, against 0 today.
+
+  The last two arrays are NOT determined by this corpus, and the evidence
+  says so rather than being absent. Sweeping both widths to 48, the best
+  pair improves on almost every other pair by ONE export. That is § 4.6's
+  own alias warning for Leaves, so no width is stated for them.
+
+  Consequence for § 4.6's file-order rule: the version-61 class is a
+  DISJOINT population, one package, not upstream of anything. The cascade
+  argument does not link it to the bounds/lightbits mass, which is version
+  68/69. Closing either does not move the other.
+
+  Current tier-3 baseline, this session: 550,372 consumed exactly, 10,980
+  refused; vectors 215, bounds 5,237, lightmap bytes 1,849, leaf hulls
+  1,212, leaves 1,030, wrong end offset 933. Packages whose LARGEST Model
+  parses: 4 of 847.
+
+  Not implemented. The scope question -- whether transcribing the six
+  references belongs to this item, and whether reading those four export
+  classes is its own item -- is with the user.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
