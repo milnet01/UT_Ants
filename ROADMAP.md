@@ -1999,6 +1999,46 @@ model, no weapon and no opponent until 0.2.0.
   Next: amend SS 3.2, SS 4.1, SS 4.5, SS 4.6 and SS 11 for the five
   derived layouts and the omission, run the rule-14 gate on the amended
   spec, then write readModel.
+  Review gate on the amendment: COMPLETE (2026-09-07). Two loops, the
+  cap for a spec, logged as rows 3 and 4 of
+  docs/reviews/UTA-0069-model-bsp-tables-loop-log.md. 24 verified
+  findings, 24 fixed. The spec is accepted and ready to implement.
+
+  The gate earned its cost twice, both times on claims no re-reading
+  would have caught. Loop 1: SS 4.6 said all 9,346 walk-stops sit at a
+  table SS 4.5 settles, when Leaves is exactly the one it does not, and
+  the list summed to 9,343 -- I had read the probe's failure histogram
+  through a line cap that hid its last row, the stage names sorting with
+  lowercase last. Loop 2: every residue figure in the document described
+  the derivation PROBE, which steps over Leaves at an unverified
+  four-byte width, rather than the reader SS 4.1 specifies, which refuses
+  a populated one. Re-measured under the specified reader the split is
+  922 at the wrong offset and 9,878 failing, with Leaves 1,197; the exact
+  count is unchanged at 545,652, because no export with a populated
+  Leaves consumes exactly under either reading.
+
+  That second one also shows why an empirical claim is re-run rather than
+  argued: all three lanes concluded 545,652 was unreachable by a
+  conforming reader, and the measurement refuted that while confirming
+  the real defect underneath it.
+
+  The cap was VIOLENT by the skill's measure -- four of loop 2's seven
+  findings landed on text loop 1 wrote -- so the spec is NOT re-gated as
+  it stands. It goes to implementation, which exercises the contract
+  against real code.
+
+  TAIL, filed rather than fixed, for whoever implements: SS 2.2's 533,685
+  empty-only figure and SS 4.4's payload-bucket census do not reconcile.
+  An all-empty Model cannot exceed 73 bytes, so the census should bound
+  the empty-only run from above, and it is 33 short. Both figures predate
+  this session and neither was re-measured; SS 4.4 already warns the two
+  are not a partition, which may or may not be the whole answer. Also
+  unverified here: SS 4.5's claim that 10,361 exactly-consuming exports
+  carry a non-empty LightMap.
+
+  Next: write readModel. The spec now states nine element layouts, gives
+  Plane and Box as code, and settles that `leaves` is neither returned
+  nor stepped over -- an empty one is consumed, a populated one refused.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
