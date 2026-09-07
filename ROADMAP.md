@@ -1797,6 +1797,37 @@ model, no weapon and no opponent until 0.2.0.
   Not attempted here: the zone record, LightBits, Bounds, LeafHulls,
   Leaves, Lights. The zone-count sanity guard in the probe was tested and
   is NOT the cause of the 735 -- relaxing it moved nothing.
+  Derivation, second pass (2026-09-07), session ut-ants-4e. Five results
+  that narrow SS 4.6 and are worth not re-deriving.
+
+  1. LightMap's element layout is GENUINELY verified, which SS 4.5 could
+  not claim on its own evidence: 10,361 of the exactly-consuming models
+  have a non-empty LightMap. So it is exercised, not merely unexercised
+  and therefore silent.
+
+  2. Reading UClamp/VClamp as compact indices instead of raw i32 was
+  measured and is REFUTED -- exact consumption falls to 96.20%. The
+  spec's raw-i32 reading is right.
+
+  3. The failures are CONTENT-dependent, not version-dependent, and this
+  is the useful discriminator. Real-content models by package version,
+  exact/failed/wrong-offset: v61 0/234/0, v63 22/18/3, v68 214/298/39,
+  v69 11,731/9,095/1,113. So v61 is a total branch, while inside v69 --
+  the bulk of the corpus -- 56% parse and 44% do not. No version rule
+  explains that.
+
+  4. At every stage from LightBits onward the dominant failure is a
+  declared count that is large and NEGATIVE, so the cursor is already
+  misaligned when it arrives; the wrong width is upstream of the table
+  that reports the error, not at it. With LightMap verified by (1), the
+  misalignment begins at or just after LightBits.
+
+  5. Putting (3) and (4) together: the models that fail are the ones that
+  POPULATE SS 4.6's tables, which the parsing models leave empty. That is
+  where the remaining work is, and Bounds is the largest class.
+
+  Still not attempted: the zone record, and the element layouts of
+  LightBits, Bounds, LeafHulls, Leaves and Lights.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
