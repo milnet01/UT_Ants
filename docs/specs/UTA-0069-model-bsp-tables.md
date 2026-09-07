@@ -29,8 +29,8 @@ could not be derived there, and the item came back as this one.
 
 **This spec derives that order and states it, because it was measured here.**
 § 2.2 is the measurement and § 4.4 is the answer. What remains unfinished is
-named in § 4.6 rather than hidden: several element layouts inside the later
-tables are still open, and § 4.3's acceptance is what closes them.
+named in § 4.6 rather than hidden: one element layout inside the later tables
+is still open, and § 4.3's acceptance is what closes it.
 
 ## 2. Problem
 
@@ -81,7 +81,7 @@ refinement below exercises: a table read in the wrong slot consumes wrongly
 one pair where that leaves nothing checking at all.
 
 Refining the element layouts of § 4.5 took exact consumption to **534,024**.
-Deriving four of § 4.6's later tables on 2026-09-07 took it to **545,652**
+Deriving the zone record and four later tables on 2026-09-07 took it to **545,652**
 (98.06%), with 1,454 completing at the wrong offset and 9,346 failing to walk.
 § 4.6 owns what is left.
 
@@ -128,10 +128,25 @@ is reserved so that adding it later is not a rename; every other name in the
 list is a member from the reader's first version.
 
 Element structs take the engine's name without Unreal's `F`: `BspNode`,
-`BspSurf`, `Vert`, `ZoneProperties`, `LightMapIndex` — `Level.h`'s `ReachSpec`
-is the precedent. `BspSurf::texture` and `BspSurf::actor` are
-`ObjectReference`, returned unresolved exactly as `Polygon::texture` already
-is; every other index field is the file's own integer.
+`BspSurf`, `Vert`, `ZoneProperties`, `LightMapIndex`, `Box` — `Level.h`'s
+`ReachSpec` is the precedent. **Three of the later tables need no struct**:
+§ 4.5 gives `lightBits` a `std::uint8_t` element, `leafHulls` an
+`std::int32_t`, and `lights` an `ObjectReference`. **`bounds` needs `Box`**,
+whose element § 4.5 settles as the prefix's own `FBox`; UTA-0004 § 4.1 flattened
+that shape into `boundsMin`, `boundsMax` and `boundsValid` rather than declaring
+a type, so `Box` spells those three the same way and the prefix keeps the
+flattened members it already has.
+
+**Object references are `ObjectReference`, and there are four**:
+`BspSurf::texture`, `BspSurf::actor`, `ZoneProperties::zoneActor`, and every
+element of `lights`. Each is returned unresolved exactly as `Polygon::texture`
+already is. Every other index field is the file's own integer.
+
+**The lowerCamel rule reaches element FIELDS, not just members.** § 4.5 spells
+a field as the engine does — `ZoneActor`, `Connectivity`, `PolyFlags` — because
+that is what names it in the file; the member is `zoneActor`, `connectivity`,
+`polyFlags`. § 11 lets UTA-0007 bind to what is inside a zone, so the field
+spellings are a contract too.
 
 **Index fields stay as the file's own integers, and are not resolved into
 pointers or references between tables.** A node names its surface by index; a
@@ -157,22 +172,32 @@ section said the implementation would add, named in § 3.2.
 
 **The zone records ARE returned**, as `std::vector<ZoneProperties> zones`, and
 so is `numSharedSides`. UTA-0007 partitions a level on its zones and they live
-nowhere else, so consuming them silently would leave this reader's one stated
-consumer unable to ask. `Level.h` is the precedent for returning out of a tail
+nowhere else, so consuming them silently would leave the consumer that needs
+them unable to ask. `Level.h` is the precedent for returning out of a tail
 rather than against it: it returns its `reachSpecs` and consumes the rest.
 § 4.5 derives `ZoneProperties`, so the member has a complete element type.
 
-**`leaves` is NOT returned, and is consumed like the rest of the tail.** Its
-element layout is § 4.6's one remaining gap, and a `std::vector` needs a
-complete element type — so returning it would mean either stating a layout
-nothing has verified, which § 4.6 forbids, or shipping an empty element struct
-that reads as finished. The user ruled on it (2026-09-07), having been asked
-the same question about `zones` and answered it the other way, by deriving.
-The asymmetry is deliberate: `zones` was derivable in one pass, where `Leaves`
-waits on § 4.6's residues. UTA-0007, this reader's stated consumer, partitions
-a level on its **zones** and does not name leaves, so nothing downstream is
-blocked. **When § 4.6 closes, `leaves` becomes a returned member** — § 3.2
-reserves the name so that adding it is not a rename.
+**`leaves` is NOT returned.** A `std::vector` needs a complete element type,
+and § 4.6 leaves that layout underived — so returning it would mean either
+stating a layout nothing has verified, which § 4.6 forbids, or shipping an
+empty element struct that reads as finished. The user ruled on it (2026-09-07),
+having been asked the same question about `zones` and answered it the other
+way, by deriving. The asymmetry is deliberate: `zones` was derivable in one
+pass, where `Leaves` waits on § 4.6's residues.
+
+**Nor is it stepped over when it is populated.** An empty `Leaves` costs one
+zero byte and is consumed like any other empty table; a non-empty one is
+`MalformedData` and fails the tier-3 run, which is § 6's row for a table this
+reader does not yet describe. Stepping over it would need the very width § 4.6
+withholds. So the omission narrows what this reader RETURNS without widening
+what it ACCEPTS.
+
+**No stated consumer is blocked by it.** UTA-0007 partitions a level on its
+**zones**; UTA-0011 bakes the built surfaces; UTA-0012 dumps a package through
+this reader. None of the three names leaves, and only the third reaches every
+table — so a dump is short by this one until § 4.6 closes, and by nothing else.
+**When it closes, `leaves` becomes a returned member** — § 3.2 reserves the
+name so that adding it is not a rename.
 
 ### 4.2 What this item inherits and must not restate
 
@@ -192,7 +217,7 @@ The method of § 2.2, and UTA-0004 § 4.3's acceptance.
 
 The layout is right when `readModel` consumes every `Model` export in the
 reference install exactly. It is not a proof of correctness: a reader can
-consume the right number of bytes and assign them to the wrong fields. Two
+consume the right number of bytes and assign them to the wrong fields. One
 independent check narrows that gap, and closes it for nothing else: the `Polys`
 reference must resolve to a `Polys`-classed export (§ 2.2 measured this at
 100% of walked exports), which is INV-5. § 2.2's Deck16 node and surface counts
@@ -282,10 +307,12 @@ changed.
 **`FVert`** — index `pVertex`, index `iSide`.
 
 **`FLightMapIndex`** — index `DataOffset`, **index `iLightActors`**, `FVector
-Pan`, `float UScale`, `float VScale`, `i32 UClamp`, `i32 VClamp`. Reading
-`iLightActors` as a raw `i32` failed 4,408 exports; as a compact index, 32.
-Reading `UClamp` and `VClamp` as compact indices instead was measured on
-2026-09-07 and is refuted — exact consumption falls to 96.20%. This table is
+Pan`, `float UScale`, `float VScale`, `i32 UClamp`, `i32 VClamp`. Both
+readings were re-measured 2026-09-07 **under the layouts this section now
+states**, so they reproduce against it: `iLightActors` as a raw `i32` fails
+5,195 exports at this table and takes exact consumption to 535,360; as a
+compact index, 98 and 545,652. Reading `UClamp` and `VClamp` as compact indices
+is refuted the same way — 535,291 exact, 96.20%. This table is
 genuinely exercised rather than merely silent: 10,361 of the exactly-consuming
 exports carry a non-empty `LightMap`.
 
@@ -341,10 +368,11 @@ pair as agreement.
 By the cascade rule below, that puts the misalignment UPSTREAM of `Leaves`, in
 the residues named next, so it cannot be settled until those close.
 
-**9,346 exports where the walk stops**, every one at a table § 4.5 now settles:
-`Bounds` 5,121, `LightBits` 1,830, `LeafHulls` 1,196, `Leaves` 530, `Lights`
-334, `LightMap` 98, and 234 at `Vectors`, `Points`, `Nodes` or `Surfs`, the
-earliest tables of all. In each the declared count is implausible, so the
+**9,346 exports where the walk stops**, at a position § 4.4 places: `Bounds`
+5,121, `LightBits` 1,830, `LeafHulls` 1,196, `Leaves` 530, `Lights` 334,
+`LightMap` 98, 234 at `Vectors`, `Points`, `Nodes` or `Surfs`, the earliest
+tables of all, and 3 at the trailing `i32`. **All but the 530 sit at a table
+§ 4.5 settles** — `Leaves` is the gap above, on its own footing. In each the declared count is implausible, so the
 cursor was already misaligned when it arrived: **the wrong width is upstream of
 the table that reports the error, not at it.** Those 234 belong to the version
 class below.
@@ -360,7 +388,8 @@ corpus's only one at version 61 — and every `Model` export in that package
 fails. No other version has a short payload class. So the branch is real, it is
 version 61, and it costs 0.04% of the corpus. **Its layout is not simply four
 bytes shorter**: a dumped export reads `FBox`, then twelve zero bytes, then
-twelve bytes decoding as six compact indices, then the two scalars. Dropping
+twelve bytes decoding as six compact indices, then `NumSharedSides` and
+`NumZones`, then the two trailing `i32` — 25 + 12 + 12 + 8 + 8, the 65. Dropping
 `FSphere`'s `W` for a 37-byte prefix was measured and changed nothing.
 
 Outside that package the failures are **content-dependent rather than
@@ -384,17 +413,21 @@ right (§ 4.3). § 4.1 says what the reader does in the meantime.
 **Tier 1 is owed now, not once § 4.6 closes.** § 4.4 and § 4.5 state every
 field a fixture needs for the settled tables, and an empty table costs one zero
 byte — so a `Model` with populated `Nodes`, `Surfs` and `Verts`, zero zones and
-every later table empty is encodable today. Only a fixture exercising § 4.6's
-five tables and the zone record waits, and UTA-0004 § 7's rule that a builder
-cannot encode a withheld layout reaches those alone.
+every later table empty is encodable today. **§ 4.5 now settles the zone
+record, `LightBits`, `Bounds`, `LeafHulls` and `Lights`, so a fixture may
+populate those too.** Only `Leaves` waits, and UTA-0004 § 7's rule that a
+builder cannot encode a withheld layout reaches it alone.
 
-Three cases in the builder of UTA-0004 § 4.10, one per invariant needing
+Four cases in the builder of UTA-0004 § 4.10, one per branch needing
 constructed content:
 
 - **INV-1** — a `Model` with tables at known counts, whose total length the
   builder knows.
-- **INV-2** — the same, with a node count declaring far more than the file
-  holds.
+- **INV-2, an oversized count** — the same, with a node count declaring far
+  more than the file holds.
+- **INV-2, a negative count** — a second fixture declaring one. INV-2's test
+  clause names both and § 6 gives each its own failure row, so one fixture
+  leaves half the invariant unexercised.
 - **INV-3** — a `Model` whose nodes and surfs are **distinguishable per
   index**. Known counts do not give this, which is why it is its own case: a
   reader that compacts or reorders a table passes a count check.
@@ -541,7 +574,7 @@ a running walk. The reader is the derivation tool.
 | Which of `Vectors` and `Points` is which | `nothing`. Both are arrays of 12-byte `FVector`, so the two are byte-identical under transposition and no consumption check can ever separate them. § 4.6 does not close this — it is open on its own footing, and UTA-0007 binds to the names |
 | The `Polys` field's position specifically | INV-5 — the one check that separates a correct assignment from an adding-up byte count |
 | The element layouts of § 4.5 | INV-1 and INV-4 only. Each was settled by the residue moving, and nothing checks a *named field* inside a node or surf against an independent source |
-| The 1,155 exports of § 4.6 that complete at the wrong offset | INV-4, which fails on them. Nothing localises them to a table, and § 4.6 says so |
+| The 1,454 exports of § 4.6 that complete at the wrong offset | INV-4, which fails on them. Nothing localises them to a table, and § 4.6 says so |
 | The tables' order and indexing (INV-3) | Tier 1 fixture, once § 4.7 exists. `nothing` until then |
 | Refusal before allocation (INV-2) | Tier 1 fixture. That the refusal *precedes* the allocation is not observable from outside — the same gap UTA-0004 records for its INV-4 |
 | The residue of § 4.6 | `nothing`, by construction — it is the open work, and INV-4 is what says when it is closed |
@@ -554,12 +587,16 @@ a running walk. The reader is the derivation tool.
   derived there. Its narrative stays as written — it is a true record of that
   item — but **one of its verified facts is superseded**: the second run of
   arrays is LONGER in count, six against five, and on a brush model longer in
-  bytes as well. § 4.4 owns the correction. Its § 14 already points here.
+  bytes as well. § 4.4 owns the correction. **Its § 4.5 already points here;
+  its § 14 does not** — that section is a dated record of what shipped on
+  2026-09-05, before the split, so it routes `readModel` to UTA-0057 and is
+  left as written.
 - **UTA-0004 § 4.10 and § 7 are superseded on fixtures**, for the settled
   tables only. That item's builder "does not build a `Model`" and its § 7 gives
   `readModel` no fixture case until the layout is derived. § 4.4 and § 4.5
-  derive it, so § 4.7 owes tier 1 now. A fixture exercising § 4.6's tables and
-  the zone record still waits, and there UTA-0004's rule stands unchanged.
+  derive it, so § 4.7 owes tier 1 now — and § 4.5 settles the zone record too,
+  so a fixture may populate it. Only a fixture exercising `Leaves` still waits,
+  and there UTA-0004's rule stands unchanged.
 - **UTA-0004 § 7's zero-refusal set is NOT amended.** `Model` stays in it and
   INV-4 states the same rule rather than a weaker one. UTA-0057 § 7 amended
   that list for `Level`; this item has no equivalent need, because its residue
@@ -585,9 +622,9 @@ One reader in an existing file, no new dependency and no change to the link
 closure.
 
 The cost is derivation, and § 2.2 has already spent most of it: the order is
-settled and four element layouts with it. What remains (§ 4.6) is bounded — six
-tables and the `UPrimitive` prefix branch, each measured by the same total
-check, each independent once the one before it is right.
+settled and nine element layouts with it. What remains (§ 4.6) is bounded —
+`Leaves`, the 1,454 exports that end at the wrong offset, and the version-61
+prefix branch, each measured by the same total check.
 
 The standing cost is the oracle. `readModel` has no tier-1 case until § 4.7,
 so every claim here rests on a tier that is off by default and needs an
