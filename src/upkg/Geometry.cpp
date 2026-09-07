@@ -79,18 +79,43 @@ Result<void> checkCount(const ByteReader& reader, std::int32_t count,
     return {};
 }
 
+/// Name the part of a `Model` a failure happened in, for SS 4.6's file-order
+/// derivation. `readTable` names its own; this is for everything between the
+/// tables, which otherwise reports ByteReader's message and names nothing.
+template <typename T>
+Result<T> inModel(Result<T> result, std::string_view where) {
+    if (!result.has_value()) {
+        return std::unexpected(
+            std::move(result).error().withContext("in a Model's " + std::string(where)));
+    }
+    return result;
+}
+
 /// Every table in SS 4.4 is prefixed by a compact index giving its element
 /// count, so an empty table costs one zero byte.
 template <typename Element, typename ReadElement>
 Result<std::vector<Element>> readTable(ByteReader& reader, std::size_t elementBytes,
                                        std::string_view what, ReadElement readElement) {
-    UTA_TRY(const std::int32_t count, reader.readIndex());
+    // The count prefix itself, named too: a misaligned cursor most often runs
+    // out of bytes HERE rather than inside an element, and an unnamed failure
+    // cannot be attributed to a table at all.
+    UTA_TRY(const std::int32_t count, inModel(reader.readIndex(), what));
     UTA_CHECK(checkCount(reader, count, elementBytes, what));
     std::vector<Element> table;
     table.reserve(static_cast<std::size_t>(count));
     for (std::int32_t element = 0; element < count; ++element) {
-        UTA_TRY(Element value, readElement(reader));
-        table.push_back(std::move(value));
+        auto value = readElement(reader);
+        if (!value.has_value()) {
+            // SS 4.6 derives the residue in FILE ORDER, and that needs to know
+            // which table the walk stopped in. A short read inside an element
+            // otherwise reports ByteReader's own message, which names no
+            // table -- so the failure cannot be attributed and the ordering
+            // rule cannot be applied. The count-check path above already
+            // names the table, so only this one needs the context.
+            return std::unexpected(
+                std::move(value).error().withContext("in a Model's " + std::string(what)));
+        }
+        table.push_back(*std::move(value));
     }
     return table;
 }
@@ -275,8 +300,10 @@ Result<Polys> readPolys(const Package& package, const ExportEntry& entry) {
 }
 
 Result<Model> readModel(const Package& package, const ExportEntry& entry) {
-    UTA_TRY(const PropertyList list, readPropertyList(package, entry));
-    UTA_TRY(const std::span<const std::byte> data, package.serialBytes(entry));
+    UTA_TRY(const PropertyList list,
+            inModel(readPropertyList(package, entry), "property list"));
+    UTA_TRY(const std::span<const std::byte> data,
+            inModel(package.serialBytes(entry), "serialised bytes"));
 
     Model model;
     if (data.empty()) {
@@ -286,12 +313,12 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     ByteReader reader{data, list.nativeOffset};
 
     // The 41-byte prefix: FBox then FSphere. UTA-0004 SS 4.5 verified both.
-    UTA_TRY(model.boundsMin, readVector(reader));
-    UTA_TRY(model.boundsMax, readVector(reader));
-    UTA_TRY(const std::uint8_t boundsValid, reader.readU8());
+    UTA_TRY(model.boundsMin, inModel(readVector(reader), "bounding prefix"));
+    UTA_TRY(model.boundsMax, inModel(readVector(reader), "bounding prefix"));
+    UTA_TRY(const std::uint8_t boundsValid, inModel(reader.readU8(), "bounding prefix"));
     model.boundsValid = boundsValid != 0;
-    UTA_TRY(model.sphereCentre, readVector(reader));
-    UTA_TRY(model.sphereRadius, reader.readFloat());
+    UTA_TRY(model.sphereCentre, inModel(readVector(reader), "bounding prefix"));
+    UTA_TRY(model.sphereRadius, inModel(reader.readFloat(), "bounding prefix"));
 
     // The first run of arrays. SS 4.4 derived which is which; SS 10 records
     // that nothing can separate Vectors from Points, both being FVector.
@@ -307,18 +334,22 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     // Two raw i32 between the runs, not index-prefixed arrays. This is the
     // part the community order gets wrong (SS 4.4), and NumZones counts the
     // records that follow it rather than prefixing an array of its own.
-    UTA_TRY(model.numSharedSides, reader.readI32());
-    UTA_TRY(const std::int32_t zones, reader.readI32());
+    UTA_TRY(model.numSharedSides, inModel(reader.readI32(), "shared-side count"));
+    UTA_TRY(const std::int32_t zones, inModel(reader.readI32(), "zone count"));
     UTA_CHECK(checkCount(reader, zones, ZONE_MIN_BYTES, "zones"));
     model.zones.reserve(static_cast<std::size_t>(zones));
     for (std::int32_t zone = 0; zone < zones; ++zone) {
-        UTA_TRY(const ZoneProperties properties, readZoneProperties(reader));
-        model.zones.push_back(properties);
+        auto properties = readZoneProperties(reader);
+        if (!properties.has_value()) {
+            return std::unexpected(
+                std::move(properties).error().withContext("in a Model's zones"));
+        }
+        model.zones.push_back(*properties);
     }
 
     // INV-5 is what checks this field's position: a byte count that merely
     // adds up cannot tell a correct assignment from a wrong one.
-    UTA_TRY(model.polys, readReference(reader));
+    UTA_TRY(model.polys, inModel(readReference(reader), "Polys reference"));
 
     // The second run. It holds SIX arrays against the first run's five --
     // UTA-0004 SS 4.5 called it "shorter", and SS 4.4 supersedes that.
@@ -337,7 +368,7 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     // costs one zero byte and is consumed like any other; a populated one is
     // a table this reader does not yet describe, and stepping over it would
     // need the very element width SS 4.6 withholds.
-    UTA_TRY(const std::int32_t leaves, reader.readIndex());
+    UTA_TRY(const std::int32_t leaves, inModel(reader.readIndex(), "leaves count"));
     if (leaves != 0) {
         return std::unexpected(malformed(
             "a Model declares " + std::to_string(leaves) +
@@ -347,8 +378,18 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     UTA_TRY(model.lights,
             readTable<ObjectReference>(reader, LIGHT_MIN_BYTES, "lights", readReference));
 
-    UTA_TRY(model.rootOutside, reader.readI32());
-    UTA_TRY(model.linked, reader.readI32());
+    auto rootOutside = reader.readI32();
+    if (!rootOutside.has_value()) {
+        return std::unexpected(
+            std::move(rootOutside).error().withContext("in a Model's trailing fields"));
+    }
+    model.rootOutside = *rootOutside;
+    auto linked = reader.readI32();
+    if (!linked.has_value()) {
+        return std::unexpected(
+            std::move(linked).error().withContext("in a Model's trailing fields"));
+    }
+    model.linked = *linked;
 
     // SS 4.3: a reader that models the layout correctly ends exactly here.
     // Anywhere else means a field's width is wrong, and a partial result is

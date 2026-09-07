@@ -182,9 +182,46 @@ struct ContentTotals {
     int modelsRefused = 0;
     int modelPolysResolved = 0;
     int modelPolysNull = 0;
+    int packagesWithAModel = 0;
+    int packagesWhoseLargestModelParsed = 0;
     int recordedBadPropertyList = 0;
     int recordedOffsetMismatch = 0;
 };
+
+/// Which table a refused `Model` stopped in.
+///
+/// UTA-0069 SS 4.6 derives its residue in FILE ORDER, and says why: fixing
+/// the tables out of order attributes one table's failures to another, which
+/// is what makes a residue look irreducible when it is not. That ordering
+/// needs the failures sorted, so this is the derivation's instrument rather
+/// than a diagnostic nicety.
+///
+/// The reader names the table in every refusal -- the count check writes it,
+/// and a short read inside an element carries it as context.
+std::string modelRefusalBucket(std::string_view message) {
+    // Longest-first where one name contains another: "leaves count" is a
+    // short read on the count itself, "leaves" the refusal of a populated
+    // table, and they are different findings.
+    static constexpr std::string_view TABLES[] = {
+        "property list",     "serialised bytes", "bounding prefix",
+        "shared-side count", "zone count",       "Polys reference",
+        "leaves count",      "vectors",          "points",
+        "nodes",             "surfs",            "verts",
+        "zones",             "lightmap entries", "lightmap bytes",
+        "bounds",            "leaf hulls",       "leaves",
+        "lights",            "trailing fields"};
+    for (const std::string_view table : TABLES) {
+        if (message.find(table) != std::string_view::npos) {
+            return std::string(table);
+        }
+    }
+    // SS 4.6's second class: the walk consumed a plausible number of bytes and
+    // still landed wrong, so no table reports an error.
+    if (message.find("unread") != std::string_view::npos) {
+        return "completed at the wrong offset";
+    }
+    return "unclassified";
+}
 
 /// The class of whatever a reference points at, or nothing for a null one.
 ///
@@ -247,6 +284,9 @@ TEST_CASE("every modelled export in the install is consumed exactly",
           "[real-assets]") {
     const fs::path root{UTA_UT_INSTALL_DIR};
     ContentTotals totals;
+    std::map<std::string, int> modelRefusalsByTable;
+    std::set<std::string> packagesHoldingAModel;
+    std::set<std::string> packagesWithARefusedModel;
 
     for (const fs::directory_entry& entry : fs::recursive_directory_iterator(root)) {
         if (!entry.is_regular_file()) {
@@ -269,6 +309,14 @@ TEST_CASE("every modelled export in the install is consumed exactly",
         if (!package.has_value()) {
             continue; // the case above owns which packages may fail to open
         }
+
+        // A map holds hundreds of Models -- one per editor brush -- but its
+        // geometry lives in the LARGEST one. Whether THAT one parses is the
+        // question UTA-0007 and UTA-0011 turn on; a refused brush model costs
+        // them nothing. The export count cannot answer it, so track it here.
+        std::uint32_t largestModelBytes = 0;
+        bool largestModelParsed = false;
+        bool sawAModel = false;
 
         for (const auto& object : package->exports()) {
             const auto className = package->objectName(object.objectClass);
@@ -301,9 +349,17 @@ TEST_CASE("every modelled export in the install is consumed exactly",
                 // that the residue is printed -- SS 4.6 is open, and the
                 // figure is the derivation's instrument. INV-4 is the bar and
                 // it is asserted at the end of this case, at zero.
+                packagesHoldingAModel.insert(entry.path().string());
                 const auto result = uta::upkg::readModel(*package, object);
+                sawAModel = true;
+                if (object.serialSize >= largestModelBytes) {
+                    largestModelBytes = object.serialSize;
+                    largestModelParsed = result.has_value();
+                }
                 if (!result.has_value()) {
                     ++totals.modelsRefused;
+                    ++modelRefusalsByTable[modelRefusalBucket(result.error().message())];
+                    packagesWithARefusedModel.insert(entry.path().string());
                     continue;
                 }
                 ++totals.models;
@@ -346,6 +402,13 @@ TEST_CASE("every modelled export in the install is consumed exactly",
                 FAIL("unrecognised refusal shape: " << result.error().message());
             }
         }
+
+        if (sawAModel) {
+            ++totals.packagesWithAModel;
+            if (largestModelParsed) {
+                ++totals.packagesWhoseLargestModelParsed;
+            }
+        }
     }
 
     // Printed rather than asserted: section 7 requires this tier to report its
@@ -383,6 +446,19 @@ TEST_CASE("every modelled export in the install is consumed exactly",
                                       << totals.modelPolysResolved << " resolved to a "
                                       << "Polys-classed object, " << totals.modelPolysNull
                                       << " null");
+    // Where the walk stops, sorted by table -- SS 4.6's file-order rule needs
+    // this, and it is what says which table to derive next.
+    for (const auto& [table, count] : modelRefusalsByTable) {
+        WARN("Model refusals at " << table << ": " << count);
+    }
+    // How much of the LIBRARY the residue costs, which the export count does
+    // not say: one refused Model can make a whole map unusable to a consumer.
+    WARN("packages whose LARGEST Model parses -- "
+         << totals.packagesWhoseLargestModelParsed << " of " << totals.packagesWithAModel);
+    WARN("packages holding a Model -- " << packagesHoldingAModel.size() << ", of which "
+                                        << packagesWithARefusedModel.size()
+                                        << " hold at least one refused Model");
+
     CHECK(totals.models > 0);
     // UTA-0069 INV-4, and it is the item's acceptance rather than a progress
     // measure: every Model export in the install, no tolerance. This is RED

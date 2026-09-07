@@ -2072,38 +2072,73 @@ model, no weapon and no opponent until 0.2.0.
   consumed, a populated one is `MalformedData`). Tier 1 (§ 4.7's four
   fixture cases) is in authoring. Tier 3 has not been run, so INV-4 is
   unmeasured and the item stays 🚧.
-  Progress (2026-09-07, session ut-ants-84): `readModel` lands with tier 1
-  and tier 3. Tier 1 is six cases across `PackageContentTest.cpp` and
-  `PackageMalformedTest.cpp` — § 4.7's four, plus a bytes-left-over case
-  and a populated-`Leaves` refusal. Tier 3 joins the consumption walk in
-  `RealInstallTest.cpp`, tallying rather than asserting per export so the
-  residue prints, with INV-4 asserted at zero refusals at the end.
+  Finding (2026-09-07, session ut-ants-84): THE ACCEPTANCE METRIC IS
+  NEARLY BLIND TO THE CONTENT THIS ITEM EXISTS FOR. Measured: of the 847
+  packages holding a `Model`, only **4** have their LARGEST `Model` parse.
+  A map carries hundreds of `Model` exports — one per editor brush — and
+  its BSP geometry lives in the largest. So the 98% exact-consumption
+  figure is carried almost entirely by tiny brush models whose tables are
+  all empty, while the level geometry UTA-0007 and UTA-0011 need parses
+  almost nowhere.
 
-  MEASURED over the reference install: 550,372 `Model` exports consumed
-  exactly, 10,980 refused. INV-5 is clean at zero violations — every one
-  of the 550,372 `Polys` references resolved to a `Polys`-classed object,
-  none null. INV-4 is RED, which § 6 states as the honest outcome while
-  § 4.6's residue is open. The item stays 🚧.
+  That has a methodological consequence for § 4.5. Its later layouts were
+  each chosen by maximising exact consumption over ALL exports — a
+  population dominated by ~550,000 trivial models that never reach those
+  tables at all. A wrong width in `LightMap`, `Bounds`, `LeafHulls` or
+  `Lights` moves that figure by a fraction of a percent, so the metric
+  barely constrains the very layouts it was used to settle. The failure
+  concentration is consistent with this: nodes/surfs/verts fail 3/1/0
+  times, and the mass sits at `LightBits` and after.
 
-  THESE FIGURES DO NOT RECONCILE WITH § 2.2 and neither set has been
-  re-derived. § 2.2 records 545,652 exact of 556,452; this walk sees
-  550,372 of 561,352 — both the population and the residue differ. The
-  probe behind § 2.2 is not in the tree, so the two cannot be diffed. The
-  tier-3 numbers are the reproducible ones from here on: they are printed
-  by a test in the repository. Do not read a difference against § 2.2 as a
-  regression until the population definitions are compared.
+  PROPOSED next metric: packages whose largest `Model` parses, now printed
+  by the tier-3 walk beside the export counts. It starts at 4 of 847 and
+  has real signal, where exact-consumption does not.
 
-  Seven mutation routes were probed against the tier-1 tests and all seven
-  are killed: `iLeaf`, `LeafHulls` and `LightMapIndex::uClamp` each read as
-  a compact index (the three readings § 4.5 refuted by measurement), both
-  INV-2 count guards, INV-1's exact-consumption check, and § 4.1's
-  `Leaves` refusal. Gate green (172 tests, ThreadSanitizer clean); the
-  suite is also clean under AddressSanitizer + UndefinedBehaviorSanitizer.
+  RECONCILED, and § 2.2 needs no correction. The per-table residue
+  histogram now printed by tier 3 matches § 4.6 table for table —
+  `Vectors` 215, `Points` 15, `Nodes` 3, `Surfs` 1, trailing `i32` 1 are
+  identical, and the rest differ by +1 to +116, summing to exactly 180.
+  This walk covers 4,900 more exports than § 2.2's probe, splitting 4,720
+  exact and 180 refused. So the earlier note's unreconciled-figures
+  warning is withdrawn: the reader reproduces the spec's derivation on the
+  shared population, and the difference was scope alone.
 
-  REMAINING for this item: § 4.6 only — the `Leaves` layout, the 922
-  exports completing at the wrong offset, and the version-61 prefix
-  branch. The reader is now the derivation instrument § 8 said it would
-  be.
+  Also landed: every `Model` refusal now names the part it stopped in —
+  the table, or the prefix, count or reference between tables — through
+  `Error::withContext`. § 4.6 requires the residue be derived in file
+  order, and that cannot be done while a short read reports a message
+  naming no table. Unclassified refusals went from 3,751 to zero.
+  Delivered (2026-09-07, session ut-ants-84) — re-recorded, because the
+  note carrying this was discarded by a `roadmap_log` write that reported
+  `discarded_external_edits`. The original text is in commit 15cd182.
+
+  `readModel` shipped in `src/upkg/Geometry.{h,cpp}` at 15cd182, with tier
+  1 and tier 3. Tier 1 is six cases across `PackageContentTest.cpp` and
+  `PackageMalformedTest.cpp`: § 4.7's four, plus a bytes-left-over case
+  and a populated-`Leaves` refusal. The fixtures populate every table
+  § 4.5 settles, at distinct counts with a per-index label — all-empty
+  tables left six of the nine derived layouts byte-identical under a swap.
+
+  Tier 3 joins the install walk in `RealInstallTest.cpp`, tallying rather
+  than asserting per export so the residue prints, with INV-4 asserted at
+  zero refusals at the end.
+
+  MEASURED: 550,372 `Model` exports consumed exactly, 10,980 refused.
+  INV-5 is clean at zero violations — every one of the 550,372 `Polys`
+  references resolved to a `Polys`-classed object, none null. INV-4 is
+  RED, which § 6 states as the honest outcome while § 4.6 is open.
+
+  Seven mutation routes probed against the tier-1 tests, all seven killed:
+  `iLeaf`, `LeafHulls` and `LightMapIndex::uClamp` each read as a compact
+  index (the three readings § 4.5 refuted by measurement), both INV-2
+  count guards, INV-1's exact-consumption check, and § 4.1's `Leaves`
+  refusal. One earlier probe reported the INV-2 oversize guard surviving;
+  that was a faulty mutation — `count > remaining * 1000` still fires on a
+  small export — and the corrected `if (false && ...)` mutation kills it.
+
+  Gate green: 172 tests, ThreadSanitizer clean. The suite is also clean
+  under AddressSanitizer + UndefinedBehaviorSanitizer, which is the leg
+  that grades a bounds check rather than a wrong answer.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
