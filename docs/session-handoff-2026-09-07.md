@@ -14,15 +14,24 @@ be resumed. Resume it — do not re-file it.
 **The spec is drafted, committed and mechanically clean.**
 `docs/specs/UTA-0069-model-bsp-tables.md`, committed at `a6053d2`.
 
-**The review gate has NOT run.** Three `review-lane` subagents were dispatched
-and were lost with the terminal before any returned.
-`docs/reviews/UTA-0069-model-bsp-tables-loop-log.md` is correctly still empty —
-an empty log means nobody has looked, and that is the truth here. Do not write
-a row for the loop that did not finish.
+**Loop 1 of the review gate HAS run**, at `44d85f0`: three cold lanes,
+fourteen verified findings, fourteen fixed, three collateral. The row is in
+`docs/reviews/UTA-0069-model-bsp-tables-loop-log.md`.
 
-**So the resume point is `write-spec` Step 5:** run
-`review-contract docs/specs/UTA-0069-model-bsp-tables.md --genre spec`, from
-loop 1. Steps 1–4 are done and need not be repeated.
+**Loop 2 is owed and has NOT run.** It was dispatched and then deliberately
+stopped, because the user needed to restart the terminal and a loop whose
+results arrive after the restart is pure waste. Nothing was folded in from it
+and no row was written for it.
+
+**So the resume point is `review-contract` loop 2**, run as
+`review-contract docs/specs/UTA-0069-model-bsp-tables.md --genre spec`. **The
+cap for a spec is 2, so loop 2 is the last one** — at the cap the run files any
+tail and ships, and the spec takes `accepted (DATE)`. Brief loop 2 cold: no
+list of what loop 1 fixed, because the cold re-read is what verifies the fixes
+held.
+
+The packet is still on disk at `/tmp/review-contract-uta0069/` and may not
+survive a reboot; regenerating it is Phase 1b and costs nothing but time.
 
 ## What the derivation established
 
@@ -47,6 +56,19 @@ and count `reader.remaining() == 0` at the end. Two things cost a full
 iteration each and are worth not rediscovering: `iLeaf[2]` in `FBspNode` is two
 raw `i32` and not compact indices, and `iLightActors` in `FLightMapIndex` *is*
 a compact index and not a raw `i32`.
+
+## What loop 1 changed, in one line each
+
+INV-4 stated a 99% floor where UTA-0004 § 7 requires zero refusals of `Model` —
+the floor was this session's unfinished derivation written in as a permanent
+tolerance, and INV-4 now states the acceptance the ROADMAP already carried.
+`Vectors` and `Points` are byte-identical under transposition, so § 10 now
+records that nothing checks which is which. Member and element-struct names are
+spelled out, because UTA-0007 binds to them. UTA-0004 § 4.5's "second, shorter
+run" is superseded — shorter in bytes, longer in count. Tier 1 is owed now
+rather than after § 4.6. INV-5 gained a failure condition. And re-measuring the
+brush-model size refuted my own correction: 69/70/71 bytes, plus 198 exports at
+65 bytes that point at a version branch, now recorded in § 4.6 as a lead.
 
 ## Checks already run, so they need not be repeated
 
