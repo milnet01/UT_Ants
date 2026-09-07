@@ -41,7 +41,7 @@ element layouts that are settled, § 4.6 what is still open.
 
 The headline: UTA-0004 § 4.5 recorded the array order as underivable and called
 it "the largest single risk in this item". It is now derived. Measured over the
-reference install's 838 map packages and 556,452 `Model` exports, 545,652
+reference install's 837 map packages and 556,452 `Model` exports, 545,652
 consume their export exactly under the derived order, and every walked export's
 `Polys` reference resolves to a `Polys`-classed export. The community order
 yields five nodes for `DM-Deck16][.unr`'s 464,396-byte `Model`; this one yields
@@ -76,7 +76,7 @@ brush-model size refuted my own correction: 69/70/71 bytes, plus 198 exports at
   about (bullet form, or `spec_query` sees zero while the lint still reads
   clean). It is clear.
 - `spec_lint` — no findings; `sections_checked: true` against
-  `~/.claude/standards/spec-format.md`; 411 lines. `surfaces_checked: false`
+  `~/.claude/standards/spec-format.md`. `surfaces_checked: false`
   as always on this project, so that result is silent about test surfaces —
   the three test paths were resolved by hand instead and all exist.
 - `doc_integrity` — 0 broken links, 0 dead anchors, 0 heading-sequence defects.
@@ -100,5 +100,7 @@ genuinely clear; that is why UTA-0069 was picked under rule 2.
 `ANTS-4900` was confirmed fixed on the running binary: `feedback_log` with no
 `path` now derives to
 `/mnt/Games/Scripts/Linux/Ants_MCP_Feedback_Files/UT_Ants_Ants_MCP_Feedback.md`
-rather than stranding a new file at the shared root. Not yet written up in the
-feedback file — that write is still owed.
+rather than stranding a new file at the shared root. **Written up** in the
+feedback file, through the derived path with no `path` argument, which is itself
+the confirmation. Nothing further owed there. The project memory saying to
+always pass `path` explicitly was corrected the same day: it had become false.
