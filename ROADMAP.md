@@ -1984,6 +1984,21 @@ model, no weapon and no opponent until 0.2.0.
   Bounds and Leaves -- and accept a span only where the signature holds.
   It needs no hypothesis about the layout, and it self-checks wherever the
   answer is known in advance, as zero-zone models pin the zone span at 0.
+  Second open question ANSWERED by the user (2026-09-07): `leaves` is
+  LEFT OUT of what readModel returns until its layout is derived. So the
+  reader is written now with every other table, zones included. The empty
+  placeholder was offered again and rejected again, on the same grounds as
+  for zones; do not reopen it. Chasing the upstream residues first was
+  also declined as open-ended.
+
+  The precedent is SS 4.1's own -- Level.h returns its reachSpecs and
+  consumes the rest -- and UTA-0007, the item waiting on this, partitions
+  a level by ZONES and does not name leaves, so nothing downstream is
+  blocked by the omission.
+
+  Next: amend SS 3.2, SS 4.1, SS 4.5, SS 4.6 and SS 11 for the five
+  derived layouts and the omission, run the rule-14 gate on the amended
+  spec, then write readModel.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
@@ -2021,6 +2036,42 @@ model, no weapon and no opponent until 0.2.0.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
   Lanes: upkg.
+
+- 📋 [UTA-0071] **CI: move the runner images to the current ones, or hold them on the record.**
+  .github/workflows/ci.yml runs ubuntu-24.04 and windows-2022. Measured
+  2026-09-07 against actions/runner-images: the win25 and ubuntu26 image
+  families both exist and are actively rebuilt, most recently the same
+  week. So both legs sit below the current image.
+
+  dependencies.md SS 2 counts a CI runner image as a dependency and SS 1
+  makes latest stable the default, framed as a SECURITY rule rather than a
+  feature one -- an image nobody chose is an image nobody can defend.
+  So this is a compliance gap, not a preference.
+
+  Everything else on the version surface was checked at the same time and
+  is already current, so it is not re-checked: Catch2 is pinned v3.16.0
+  and that is the latest release; actions/checkout is pinned to the commit
+  for v7.0.1, the latest, and the SHA pin is the form security.md wants.
+  cmake_minimum_required 3.28 is a FLOOR, not a hold -- dependencies.md
+  SS 4 says floors stay out of the ledger.
+
+  Do not bump blind. The matrix pins clang-19 and g++-14 deliberately, and
+  docs/design.md SS The stack owns the compiler floors -- a newer image
+  changes the default toolchain under those pins, and the apt package
+  names may not exist on it. Read the floors first, then move one leg at a
+  time so a red leg names itself.
+
+  Where a bump genuinely breaks, dependencies.md SS 3 is what to do
+  instead: a ledger row carrying what is held, held-at, BROKE-AT, what
+  breaks concretely, what would release it, and the dates. The broke-at
+  version is the retest trigger and is the point of the row -- without it
+  a hold becomes permanent by accident. This project has no hold ledger
+  today because it has had no holds; SS 3 says where one goes if this
+  produces the first.
+  **Layman:** Move the machines GitHub builds on to the current versions, so we get their security fixes instead of staying on older ones by accident.
+  Kind: chore.
+  Source: user-request-2026-09-07 standing-dependency-rule.
+  Lanes: ci.
 
 ## 0.2.0 — Movement and weapons
 

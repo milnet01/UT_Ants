@@ -80,9 +80,18 @@ refinement below exercises: a table read in the wrong slot consumes wrongly
 *unless* the slot it swapped with has the same element width. § 10 records the
 one pair where that leaves nothing checking at all.
 
-Refining the element layouts of § 4.5 took exact consumption to **545,652**
-(98.06%), with 1,155 completing at the wrong offset and 9,645 failing to walk.
-§ 4.6 owns both classes.
+Refining the element layouts of § 4.5 took exact consumption to **534,024**.
+Deriving four of § 4.6's later tables on 2026-09-07 took it to **545,652**
+(98.06%), with 1,454 completing at the wrong offset and 9,346 failing to walk.
+§ 4.6 owns what is left.
+
+**Those were one step when this figure was first recorded, and the document did
+not say so.** 545,652 was attributed to § 4.5 alone, while reaching it in fact
+required element widths for `LightBits`, `Bounds`, `LeafHulls` and `Lights`
+that § 4.6 called underived and no section stated — so no reader could
+reproduce the number from this document. Re-measured 2026-09-07 with §§ 4.4 and
+4.5 exactly as written and the later tables left unstated, it is 534,024.
+§ 4.5 now states those widths, and the figure is reproducible.
 
 And the published figure is overturned. Under this order `DM-Deck16][.unr`'s
 464,396-byte `Model` yields **1,720 nodes and 830 surfaces**, against the five
@@ -113,6 +122,10 @@ them** — the engine's word, lowerCamel: `vectors`, `points`, `nodes`, `surfs`,
 `polys`, `rootOutside` and `linked` that way, and `Geometry.h` and `Level.h`
 spell every member so. **UTA-0007 binds to these names**, so they are a
 contract rather than a convenience.
+
+**`leaves` is named here but is not a member yet** — § 4.1 says why. The name
+is reserved so that adding it later is not a rename; every other name in the
+list is a member from the reader's first version.
 
 Element structs take the engine's name without Unreal's `F`: `BspNode`,
 `BspSurf`, `Vert`, `ZoneProperties`, `LightMapIndex` — `Level.h`'s `ReachSpec`
@@ -147,6 +160,19 @@ so is `numSharedSides`. UTA-0007 partitions a level on its zones and they live
 nowhere else, so consuming them silently would leave this reader's one stated
 consumer unable to ask. `Level.h` is the precedent for returning out of a tail
 rather than against it: it returns its `reachSpecs` and consumes the rest.
+§ 4.5 derives `ZoneProperties`, so the member has a complete element type.
+
+**`leaves` is NOT returned, and is consumed like the rest of the tail.** Its
+element layout is § 4.6's one remaining gap, and a `std::vector` needs a
+complete element type — so returning it would mean either stating a layout
+nothing has verified, which § 4.6 forbids, or shipping an empty element struct
+that reads as finished. The user ruled on it (2026-09-07), having been asked
+the same question about `zones` and answered it the other way, by deriving.
+The asymmetry is deliberate: `zones` was derivable in one pass, where `Leaves`
+waits on § 4.6's residues. UTA-0007, this reader's stated consumer, partitions
+a level on its **zones** and does not name leaves, so nothing downstream is
+blocked. **When § 4.6 closes, `leaves` becomes a returned member** — § 3.2
+reserves the name so that adding it is not a rename.
 
 ### 4.2 What this item inherits and must not restate
 
@@ -258,45 +284,100 @@ changed.
 **`FLightMapIndex`** — index `DataOffset`, **index `iLightActors`**, `FVector
 Pan`, `float UScale`, `float VScale`, `i32 UClamp`, `i32 VClamp`. Reading
 `iLightActors` as a raw `i32` failed 4,408 exports; as a compact index, 32.
+Reading `UClamp` and `VClamp` as compact indices instead was measured on
+2026-09-07 and is refuted — exact consumption falls to 96.20%. This table is
+genuinely exercised rather than merely silent: 10,361 of the exactly-consuming
+exports carry a non-empty `LightMap`.
+
+The five below were derived on 2026-09-07, in the file order § 4.6 requires.
+
+**`FZoneProperties`** — index `ZoneActor`, `i64 Connectivity`, `i64
+Visibility`. Seventeen bytes where `ZoneActor` is null, wider as that index
+widens. It was derived **without assuming a layout**: the span between
+`NumZones` and the following `Polys` reference was swept, and a span accepted
+only where the index there resolved to a `Polys`-classed export and the
+`LightMap` count after it was sane. The method self-checks where the answer is
+known in advance — on zero-zone exports the span must be 0, and was.
+
+**Its field ORDER is settled by content, not by width**, which matters because
+a fixed field and a variable one summing correctly cannot be told apart by byte
+count. Down consecutive records the middle eight bytes read 1, 2, 4, 8, 0x10,
+0x20, 0x40, 0x80: a mask whose set bit tracks the record's own ordinal. That
+identifies `Connectivity` as a zone mask and fixes the leading field as what
+precedes it. Implementing the layout took the zone-record failure class to
+**zero**.
+
+**`LightBits`** — one byte per element. 15,251 exports carry a non-empty
+`LightBits`, so with no stated layout every one of them stops there; at one
+byte per element the failures at that table are 1,830.
+
+**`Bounds`** — `FBox`, 25 bytes, the prefix's own shape. Failures at it fell
+from 18,022 to 5,121. It carries the largest residue, so it was confirmed a
+**second time by an independent method**: sweeping its element width against
+the end of the payload put 11,541 exports at 25 bytes, against 643 at the next
+candidate.
+
+**`LeafHulls`** — four bytes per element. Failures at it fell from 13,010 to
+1,196, and exact consumption is 538,456 against 534,542 for a compact index —
+which is what separates the two candidates, since both are plausible widths.
+
+**`Lights`** — one compact index per element, an object reference. As a compact
+index its own failures are 334 and exact consumption 545,652; as a raw four-byte
+read, 6,916 and 538,456.
 
 ### 4.6 What is not yet derived
 
-The residue of § 2.2 is two classes, and both are this item's work.
+**One element layout is left: `Leaves`.** It is genuinely populated rather
+than an artefact of misalignment — 680 exports reach it with a non-empty count,
+and those counts are small and plausible, the large majority declaring sixteen
+or fewer. But no shape lands. Sweeping *k* compact indices plus *f* fixed bytes
+against the end of the payload, for *k* up to four and *f* up to thirty-two,
+the best candidate accounts for 35 of the 680. **The apparent runners-up are
+aliases rather than corroboration**: an index whose value is zero occupies one
+byte, so "two indices plus nine bytes" and "three indices plus eight bytes" are
+one shape counted twice, which is why they score identically. Do not read that
+pair as agreement.
 
-**9,645 exports where the walk stops.** Most stop at a table with no stated
-layout: the zone record after `NumZones`, and the element layouts of
-`LightBits`, `Bounds`, `LeafHulls`, `Leaves` and `Lights`. A remainder stops at
-tables § 4.5 settles — 3 at `Nodes`, 1 at `Surfs`, 32 at `LightMap` — and 230
-stop at `Vectors` or `Points`, the two earliest tables of all. **Those last
-belong to the unexplained class below rather than to the six layouts**, so
-closing all six leaves them, and INV-4 still fails.
+By the cascade rule below, that puts the misalignment UPSTREAM of `Leaves`, in
+the residues named next, so it cannot be settled until those close.
 
-**1,155 exports that complete at the wrong offset.** The harder half: the walk
-consumed a plausible number of bytes and still landed wrong, so no table
-reports an error and only the end offset says anything. Expect them to resolve
-as the five layouts above settle — a wrong element width that happens to sum
-correctly for one export is what this class is made of — but a residue
-surviving after those close means a field *inside* an otherwise-correct table
-is mis-sized.
+**9,346 exports where the walk stops**, every one at a table § 4.5 now settles:
+`Bounds` 5,121, `LightBits` 1,830, `LeafHulls` 1,196, `Leaves` 530, `Lights`
+334, `LightMap` 98, and 234 at `Vectors`, `Points`, `Nodes` or `Surfs`, the
+earliest tables of all. In each the declared count is implausible, so the
+cursor was already misaligned when it arrived: **the wrong width is upstream of
+the table that reports the error, not at it.** Those 234 belong to the version
+class below.
 
-**And one class is unexplained, which is a lead rather than a defect.** 198
-all-empty exports weigh 65 payload bytes, which 68-plus-an-index cannot
-produce — so the prefix or the array count differs on those. § 2.2's walk
-failed 215 exports at `Vectors` and 15 at `Points`, its two earliest tables, on
-packages at versions 61 and 63; a version branch in the `UPrimitive` prefix is
-the obvious hypothesis and is **not** measured here. Settle it before reading a
-stubborn residue as an element-width problem.
+**1,454 exports that complete at the wrong offset.** The walk consumed a
+plausible number of bytes and still landed wrong, so no table reports an error
+and only the end offset says anything. A field *inside* an otherwise-correct
+table is mis-sized.
 
-These cascade — a wrong element width in `LightBits` makes every later count
-garbage — so they are derived in file order, each one measured by § 4.3's
-check before moving to the next. **That ordering is the method, not an
-observation**: fixing them out of order attributes one table's failures to
-another, which is what makes a residue look irreducible when it is not.
+**One class is now scoped rather than unexplained.** Every one of the 198
+all-empty exports weighing 65 payload bytes sits in a single package — the
+corpus's only one at version 61 — and every `Model` export in that package
+fails. No other version has a short payload class. So the branch is real, it is
+version 61, and it costs 0.04% of the corpus. **Its layout is not simply four
+bytes shorter**: a dumped export reads `FBox`, then twelve zero bytes, then
+twelve bytes decoding as six compact indices, then the two scalars. Dropping
+`FSphere`'s `W` for a 37-byte prefix was measured and changed nothing.
 
-**No layout for these is stated here**, deliberately, and UTA-0004 § 4.5 is the
-precedent: a stated-but-unverified layout reads as verified to everyone
-downstream. What is stated is where they sit (§ 4.4) and how to know when each
-is right (§ 4.3).
+Outside that package the failures are **content-dependent rather than
+version-dependent**, which is the useful discriminator: within the version
+holding the bulk of the corpus, a little over half of the real-content models
+parse and the rest do not, and no version rule separates them.
+
+These cascade — a wrong element width makes every later count garbage — so they
+are derived in file order, each measured by § 4.3's check before the next.
+**That ordering is the method, not an observation**: fixing them out of order
+attributes one table's failures to another, which is what makes a residue look
+irreducible when it is not.
+
+**No layout for `Leaves` is stated here**, deliberately, and UTA-0004 § 4.5 is
+the precedent: a stated-but-unverified layout reads as verified to everyone
+downstream. What is stated is where it sits (§ 4.4) and how to know when it is
+right (§ 4.3). § 4.1 says what the reader does in the meantime.
 
 ### 4.7 Fixtures
 
@@ -484,9 +565,9 @@ a running walk. The reader is the derivation tool.
   that list for `Level`; this item has no equivalent need, because its residue
   is unfinished derivation rather than content disagreeing with itself.
 - **UTA-0007** binds to the member names § 4.4 and § 4.5 state, and this is the
-  first document to state them. `ZoneProperties` is named but its fields are
-  not — § 4.6 leaves the zone record underived — so that item can bind to the
-  member `zones` and to nothing inside it until § 4.6 closes.
+  first document to state them. **`ZoneProperties`'s fields are now stated**
+  (§ 4.5, derived 2026-09-07), so that item may bind to `zones` and to what is
+  inside it. It does not name leaves, the one member § 4.1 withholds.
 - **`src/upkg/Geometry.h`**'s header comment cites UTA-0004 § 4.4 and § 4.5;
   it gains this spec once the reader lands.
 - **ROADMAP UTA-0069** carries the acceptance in one line; this spec is the
