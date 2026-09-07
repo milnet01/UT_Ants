@@ -14,12 +14,14 @@
 #include "support/UnrealPackageBuilder.h"
 #include "upkg/ByteReader.h"
 #include "upkg/Class.h"
+#include "upkg/Geometry.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <vector>
 
@@ -59,6 +61,103 @@ std::vector<std::uint8_t> healthyPackage() {
     builder.addExport(entry);
 
     return builder.build();
+}
+
+void appendU8(std::vector<std::uint8_t>& into, std::uint8_t value) {
+    into.push_back(value);
+}
+
+void appendU32(std::vector<std::uint8_t>& into, std::uint32_t value) {
+    for (int shift = 0; shift < 32; shift += 8) {
+        into.push_back(static_cast<std::uint8_t>((value >> shift) & 0xFFu));
+    }
+}
+
+void appendFloat(std::vector<std::uint8_t>& into, float value) {
+    std::uint32_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    appendU32(into, bits);
+}
+
+void appendIndex(std::vector<std::uint8_t>& into, std::int32_t value) {
+    const std::vector<std::uint8_t> encoded = uta::test::encodeCompactIndex(value);
+    into.insert(into.end(), encoded.begin(), encoded.end());
+}
+
+void appendVector(std::vector<std::uint8_t>& into, float x, float y, float z) {
+    appendFloat(into, x);
+    appendFloat(into, y);
+    appendFloat(into, z);
+}
+
+/// A package holding one export whose bytes are `data`. The class arrives as
+/// an import, as `healthyPackage` above does: a null `objectClass` reads as
+/// "this export IS a class" and `readPropertyList` refuses it outright,
+/// before `readModel` ever sees the count this fixture exists to exercise.
+std::vector<std::uint8_t> packageWithExport(const std::vector<std::uint8_t>& data) {
+    UnrealPackageBuilder builder;
+    builder.addName("None").addName("FirstProperty");
+
+    uta::test::ImportEntry import;
+    import.classPackage = NAME_NONE;
+    import.className = NAME_FIRST;
+    import.objectName = NAME_FIRST;
+    builder.addImport(import);
+
+    ExportEntry entry;
+    entry.objectName = NAME_FIRST;
+    entry.objectClass = -1; // import 0
+    entry.serialData = data;
+    builder.addExport(entry);
+    return builder.build();
+}
+
+/// A `Model` body (UTA-0069 SS 4.4) that declares `nodeCount` in the `Nodes`
+/// table's index prefix and stops right there. `checkCount` refuses before
+/// reading a single element, so nothing past this point is ever reached --
+/// the two count-check fixtures need nothing else.
+std::vector<std::uint8_t> modelDeclaringNodeCount(std::int32_t nodeCount) {
+    std::vector<std::uint8_t> data = TaggedPropertyWriter{}.build(NAME_NONE);
+    appendVector(data, 0.0F, 0.0F, 0.0F); // BoundingBox.min
+    appendVector(data, 0.0F, 0.0F, 0.0F); // BoundingBox.max
+    appendU8(data, 0);                    // BoundingBox.valid
+    appendVector(data, 0.0F, 0.0F, 0.0F); // BoundingSphere centre
+    appendFloat(data, 0.0F);              // BoundingSphere radius
+    appendIndex(data, 0);                 // Vectors: empty
+    appendIndex(data, 0);                 // Points: empty
+    appendIndex(data, nodeCount);         // Nodes: the declared count
+    return data;
+}
+
+/// A `Model` body (UTA-0069 SS 4.4) that is well-formed all the way up to
+/// `Leaves` -- every table before it (Vectors, Points, Nodes, Surfs, Verts,
+/// the zone run, `Polys`, LightMap, LightBits, Bounds, LeafHulls) declares
+/// itself empty, so the cursor arrives at `Leaves` honestly rather than by
+/// accident -- and then declares `leavesCount` there and stops. SS 4.1: a
+/// non-zero count is a table this reader does not yet describe (SS 4.6), and
+/// `readModel` refuses before ever reading `Lights`, so nothing past this
+/// point is needed.
+std::vector<std::uint8_t> modelDeclaringLeavesCount(std::int32_t leavesCount) {
+    std::vector<std::uint8_t> data = TaggedPropertyWriter{}.build(NAME_NONE);
+    appendVector(data, 0.0F, 0.0F, 0.0F); // BoundingBox.min
+    appendVector(data, 0.0F, 0.0F, 0.0F); // BoundingBox.max
+    appendU8(data, 0);                    // BoundingBox.valid
+    appendVector(data, 0.0F, 0.0F, 0.0F); // BoundingSphere centre
+    appendFloat(data, 0.0F);              // BoundingSphere radius
+    appendIndex(data, 0);                 // Vectors: empty
+    appendIndex(data, 0);                 // Points: empty
+    appendIndex(data, 0);                 // Nodes: empty
+    appendIndex(data, 0);                 // Surfs: empty
+    appendIndex(data, 0);                 // Verts: empty
+    appendU32(data, 0);                   // NumSharedSides -- a raw i32
+    appendU32(data, 0);                   // NumZones -- a raw i32, zero records
+    appendIndex(data, 0);                 // Polys: null
+    appendIndex(data, 0);                 // LightMap: empty
+    appendIndex(data, 0);                 // LightBits: empty
+    appendIndex(data, 0);                 // Bounds: empty
+    appendIndex(data, 0);                 // LeafHulls: empty
+    appendIndex(data, leavesCount);       // Leaves: the declared count
+    return data;
 }
 
 } // namespace
@@ -170,6 +269,84 @@ TEST_CASE("a header claiming more exports or imports than the file holds is refu
         CHECK(package.error().message().find("claims 100000000 entries") !=
               std::string_view::npos);
     }
+}
+
+TEST_CASE("a Model declaring more nodes than the export can hold is refused",
+          "[package-malformed]") {
+    // UTA-0069 INV-2, oversized: the same shape as the two header-count cases
+    // above, applied to one of Model's eleven tables. The count is checked
+    // against what is left before anything is reserved.
+    //
+    // Both assertions below name the OVERSIZE branch's own wording, and
+    // neither is satisfied by the negative branch's message ("a Model
+    // declares N nodes", with no suffix) -- a mutation that disables this
+    // branch and lets the walk fall through to a per-element short read
+    // produces neither substring, and a mutation that disables the OTHER
+    // (negative) branch and lets it fall through to THIS one is caught by
+    // the sibling test below, whose assertion this wording cannot satisfy.
+    const std::vector<std::uint8_t> bytes =
+        packageWithExport(modelDeclaringNodeCount(0x00FFFFFF));
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE_FALSE(model.has_value());
+    CHECK(model.error().code() == ErrorCode::MalformedData);
+    CHECK(model.error().message().find("more than the") != std::string_view::npos);
+    CHECK(model.error().message().find("bytes remaining can hold") != std::string_view::npos);
+    CHECK(model.error().message().find("nodes") != std::string_view::npos);
+}
+
+TEST_CASE("a Model declaring a negative node count is refused", "[package-malformed]") {
+    // UTA-0069 INV-2, negative: readIndex takes the sign from bit 7 of the
+    // first byte, so a negative count is encodable and must be refused
+    // before any reserve. SS 4.7 names this as its own fixture, separate
+    // from the oversized one, because a fixture holding only one leaves half
+    // the invariant unexercised.
+    //
+    // The assertion is an EXACT match on the count<0 branch's own message --
+    // "a Model declares -1 nodes", with no trailing text -- rather than a
+    // substring the oversize branch's wording could also satisfy. That
+    // branch's message for the same count is "a Model declares -1 nodes,
+    // more than the ... bytes remaining can hold": a strict prefix of it, so
+    // a `find` on either half would pass whichever branch actually fired.
+    // A mutation that disables the count<0 branch and lets -1 fall through
+    // to the oversize check (checkCount's static_cast<size_t>(-1) wraps to
+    // SIZE_MAX, which is always "more than" any remaining) produces exactly
+    // that longer message, and the exact-equality check below refuses it.
+    const std::vector<std::uint8_t> bytes = packageWithExport(modelDeclaringNodeCount(-1));
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE_FALSE(model.has_value());
+    CHECK(model.error().code() == ErrorCode::MalformedData);
+    CHECK(model.error().message() == "a Model declares -1 nodes");
+    CHECK(model.error().message().find("more than the") == std::string_view::npos);
+}
+
+TEST_CASE("a Model declaring a non-empty Leaves table is refused", "[package-malformed]") {
+    // UTA-0069 SS 4.1 and SS 6: an empty `Leaves` costs one zero byte and is
+    // consumed like any other table; a populated one is a table this reader
+    // does not yet describe (SS 4.6) and MUST be refused rather than silently
+    // stepped over. SS 4.1's whole argument for leaving `leaves` out of the
+    // returned struct is that doing so narrows what the reader RETURNS
+    // without widening what it ACCEPTS -- this is the test of the second
+    // half, and nothing exercised it before now.
+    //
+    // `Leaves` sits between `LeafHulls` and `Lights` in SS 4.4's order, so
+    // the fixture is well-formed everywhere before it (every earlier table
+    // empty) so the cursor arrives there honestly rather than by an
+    // upstream accident. The message assertion names "leaves" specifically,
+    // so this cannot be satisfied by some earlier table refusing instead.
+    const std::vector<std::uint8_t> bytes = packageWithExport(modelDeclaringLeavesCount(1));
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE_FALSE(model.has_value());
+    CHECK(model.error().code() == ErrorCode::MalformedData);
+    CHECK(model.error().message().find("leaves") != std::string_view::npos);
 }
 
 TEST_CASE("a table offset outside the file is refused", "[package-malformed]") {

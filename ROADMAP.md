@@ -2064,6 +2064,46 @@ model, no weapon and no opponent until 0.2.0.
   uta_core static libraries and reads the install path from an argument,
   so it has no new dependency; the reason it is out of the tree is scope,
   not cost.
+  Progress (2026-09-07, session ut-ants-84): held by this session, which
+  resumed the item after the spec amendment gate closed. `readModel` is
+  written in `src/upkg/Geometry.{h,cpp}` and builds clean — the nine
+  element layouts of § 4.5, the § 4.4 order, and § 4.1's rule that
+  `leaves` is neither returned nor stepped over (an empty table is
+  consumed, a populated one is `MalformedData`). Tier 1 (§ 4.7's four
+  fixture cases) is in authoring. Tier 3 has not been run, so INV-4 is
+  unmeasured and the item stays 🚧.
+  Progress (2026-09-07, session ut-ants-84): `readModel` lands with tier 1
+  and tier 3. Tier 1 is six cases across `PackageContentTest.cpp` and
+  `PackageMalformedTest.cpp` — § 4.7's four, plus a bytes-left-over case
+  and a populated-`Leaves` refusal. Tier 3 joins the consumption walk in
+  `RealInstallTest.cpp`, tallying rather than asserting per export so the
+  residue prints, with INV-4 asserted at zero refusals at the end.
+
+  MEASURED over the reference install: 550,372 `Model` exports consumed
+  exactly, 10,980 refused. INV-5 is clean at zero violations — every one
+  of the 550,372 `Polys` references resolved to a `Polys`-classed object,
+  none null. INV-4 is RED, which § 6 states as the honest outcome while
+  § 4.6's residue is open. The item stays 🚧.
+
+  THESE FIGURES DO NOT RECONCILE WITH § 2.2 and neither set has been
+  re-derived. § 2.2 records 545,652 exact of 556,452; this walk sees
+  550,372 of 561,352 — both the population and the residue differ. The
+  probe behind § 2.2 is not in the tree, so the two cannot be diffed. The
+  tier-3 numbers are the reproducible ones from here on: they are printed
+  by a test in the repository. Do not read a difference against § 2.2 as a
+  regression until the population definitions are compared.
+
+  Seven mutation routes were probed against the tier-1 tests and all seven
+  are killed: `iLeaf`, `LeafHulls` and `LightMapIndex::uClamp` each read as
+  a compact index (the three readings § 4.5 refuted by measurement), both
+  INV-2 count guards, INV-1's exact-consumption check, and § 4.1's
+  `Leaves` refusal. Gate green (172 tests, ThreadSanitizer clean); the
+  suite is also clean under AddressSanitizer + UndefinedBehaviorSanitizer.
+
+  REMAINING for this item: § 4.6 only — the `Leaves` layout, the 922
+  exports completing at the wrong offset, and the version-61 prefix
+  branch. The reader is now the derivation instrument § 8 said it would
+  be.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.

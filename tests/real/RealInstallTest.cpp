@@ -34,6 +34,7 @@
 #include <iterator>
 #include <cctype>
 #include <map>
+#include <optional>
 #include <set>
 #include <span>
 #include <utility>
@@ -177,9 +178,37 @@ struct ContentTotals {
     int textures = 0;
     int sounds = 0;
     int levels = 0;
+    int models = 0;
+    int modelsRefused = 0;
+    int modelPolysResolved = 0;
+    int modelPolysNull = 0;
     int recordedBadPropertyList = 0;
     int recordedOffsetMismatch = 0;
 };
+
+/// The class of whatever a reference points at, or nothing for a null one.
+///
+/// An export names its class by reference and an import by name index, so the
+/// two tables answer this differently and INV-5 has to reach both.
+std::optional<std::string_view> referencedClass(const uta::upkg::Package& package,
+                                                uta::upkg::ObjectReference reference) {
+    if (reference.kind() == uta::upkg::ObjectReferenceKind::Null) {
+        return std::nullopt;
+    }
+    if (reference.kind() == uta::upkg::ObjectReferenceKind::Export) {
+        if (reference.index() >= package.exports().size()) {
+            return std::nullopt;
+        }
+        const auto name =
+            package.objectName(package.exports()[reference.index()].objectClass);
+        return name.has_value() ? std::optional{*name} : std::nullopt;
+    }
+    if (reference.index() >= package.imports().size()) {
+        return std::nullopt;
+    }
+    const auto name = package.name(package.imports()[reference.index()].className);
+    return name.has_value() ? std::optional{*name} : std::nullopt;
+}
 
 /// One of the two refusal shapes this install actually produces, and it is a
 /// PRECONDITION failure rather than a typed-reading
@@ -266,6 +295,31 @@ TEST_CASE("every modelled export in the install is consumed exactly",
                 const auto result = uta::upkg::readLevel(*package, object);
                 REQUIRE(result.has_value());
                 ++totals.levels;
+            } else if (*className == "Model") {
+                // UTA-0069 SS 7 tier 3: INV-1 at install scale, INV-4 and
+                // INV-5. A refusal is TALLIED rather than asserted here so
+                // that the residue is printed -- SS 4.6 is open, and the
+                // figure is the derivation's instrument. INV-4 is the bar and
+                // it is asserted at the end of this case, at zero.
+                const auto result = uta::upkg::readModel(*package, object);
+                if (!result.has_value()) {
+                    ++totals.modelsRefused;
+                    continue;
+                }
+                ++totals.models;
+
+                // INV-5, and it is the one check that separates a correct
+                // field assignment from a byte count that merely adds up.
+                // Null is legitimate -- SS 6 -- and a Model need not own
+                // brush polygons.
+                const auto polysClass = referencedClass(*package, result->polys);
+                if (!polysClass.has_value()) {
+                    ++totals.modelPolysNull;
+                } else {
+                    INFO("Polys reference resolves to class " << *polysClass);
+                    REQUIRE(*polysClass == "Polys");
+                    ++totals.modelPolysResolved;
+                }
             } else if (*className == "Sound") {
                 const auto result = uta::upkg::readSound(*package, object);
                 REQUIRE(result.has_value());
@@ -301,6 +355,7 @@ TEST_CASE("every modelled export in the install is consumed exactly",
                                       << totals.palettes << ", Texture family "
                                       << totals.textures << ", Sound " << totals.sounds
                                       << ", Level " << totals.levels
+                                      << ", Model " << totals.models
                                       << "; recorded -- unparseable property list "
                                       << totals.recordedBadPropertyList
                                       << ", offset mismatch "
@@ -320,6 +375,21 @@ TEST_CASE("every modelled export in the install is consumed exactly",
     // than in 1999's content.
     const int recorded = totals.recordedBadPropertyList + totals.recordedOffsetMismatch;
     CHECK(recorded < totals.textures / 100);
+
+    // UTA-0069 SS 7: this tier prints the figures that spec asserts, so they
+    // are an output of the suite rather than prose nobody re-derives.
+    WARN("Model -- consumed exactly " << totals.models << ", refused "
+                                      << totals.modelsRefused << "; Polys reference -- "
+                                      << totals.modelPolysResolved << " resolved to a "
+                                      << "Polys-classed object, " << totals.modelPolysNull
+                                      << " null");
+    CHECK(totals.models > 0);
+    // UTA-0069 INV-4, and it is the item's acceptance rather than a progress
+    // measure: every Model export in the install, no tolerance. This is RED
+    // while SS 4.6's residue is open, which SS 6 states as the honest
+    // outcome -- a rate written in here would freeze unfinished derivation
+    // into a permanent tolerance.
+    CHECK(totals.modelsRefused == 0);
 }
 
 // --- UTA-0005: the class table against what actually shipped ----------------

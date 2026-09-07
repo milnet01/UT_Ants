@@ -8,9 +8,12 @@
 //
 // docs/specs/UTA-0004-typed-level-content.md SS 7 tier 1.
 //
-// `readModel` has no case here: SS 4.5 withholds that layout, so the fixture
-// builder has nothing to encode against, and SS 10 records that the real-asset
-// tier is its only check.
+// `readModel`'s tier-1 cases are here too, and in PackageMalformedTest.cpp:
+// docs/specs/UTA-0069-model-bsp-tables.md SS 4.7 names four fixtures for
+// INV-1, INV-2 (oversized and negative) and INV-3. SS 4.6's `Leaves` table
+// is still underived -- SS 4.7 says a fixture for it waits on that -- so these
+// cases populate every table SS 4.4 and SS 4.5 settle and leave `Leaves` at
+// its empty, always-legal count of zero.
 //
 // Two versions run throughout. SS 4.6's WidthOffset and SS 4.8's NextOffset
 // exist only from package version 63, and SS 2.1 measured that stock content
@@ -157,6 +160,233 @@ std::vector<std::uint8_t> polysData(std::int32_t polygonCount, std::int32_t vert
     return data;
 }
 
+void appendI64(std::vector<std::uint8_t>& into, std::int64_t value) {
+    const auto bits = static_cast<std::uint64_t>(value);
+    appendU32(into, static_cast<std::uint32_t>(bits & 0xFFFFFFFFu));
+    appendU32(into, static_cast<std::uint32_t>(bits >> 32));
+}
+
+/// One `BspNode` in UTA-0069 SS 4.5's layout. `nodeFlags` carries a
+/// caller-chosen label -- nothing else in the layout uses that byte -- so
+/// INV-3 can tell which node landed at which returned position. Every other
+/// field is zero.
+std::vector<std::uint8_t> oneBspNode(std::uint8_t nodeFlagsLabel) {
+    std::vector<std::uint8_t> body;
+    appendVector(body, 0.0F, 0.0F, 1.0F); // plane.normal
+    appendFloat(body, 0.0F);              // plane.w
+    appendI64(body, 0);                   // zoneMask
+    appendU8(body, nodeFlagsLabel);       // nodeFlags -- the label
+    appendIndex(body, 0);                 // iVertPool
+    appendIndex(body, 0);                 // iSurf
+    appendIndex(body, 0);                 // iFront
+    appendIndex(body, 0);                 // iBack
+    appendIndex(body, 0);                 // iPlane
+    appendIndex(body, 0);                 // iCollisionBound
+    appendIndex(body, 0);                 // iRenderBound
+    appendU8(body, 0);                    // iZone[0]
+    appendU8(body, 0);                    // iZone[1]
+    appendU8(body, 0);                    // numVertices
+    appendU32(body, 0);                   // iLeaf[0] -- raw i32, SS 4.5
+    appendU32(body, 0);                   // iLeaf[1]
+    return body;
+}
+
+/// `count` nodes, labelled 0, 1, 2, ... in file order -- so a reader that
+/// drops, reorders or compacts the table disagrees at the first position it
+/// touches.
+std::vector<std::uint8_t> bspNodes(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        const std::vector<std::uint8_t> node = oneBspNode(static_cast<std::uint8_t>(index));
+        body.insert(body.end(), node.begin(), node.end());
+    }
+    return body;
+}
+
+/// One `BspSurf` in UTA-0069 SS 4.5's layout. `polyFlagsLabel` is the marker.
+std::vector<std::uint8_t> oneBspSurf(std::uint32_t polyFlagsLabel) {
+    std::vector<std::uint8_t> body;
+    appendIndex(body, 0);          // texture: null
+    appendU32(body, polyFlagsLabel); // polyFlags -- the label
+    appendIndex(body, 0);          // pBase
+    appendIndex(body, 0);          // vNormal
+    appendIndex(body, 0);          // vTextureU
+    appendIndex(body, 0);          // vTextureV
+    appendIndex(body, 0);          // iLightMap
+    appendIndex(body, 0);          // iBrushPoly
+    appendU16(body, 0);            // panU
+    appendU16(body, 0);            // panV
+    appendIndex(body, 0);          // actor: null
+    return body;
+}
+
+/// `count` surfs, labelled 100, 200, 300, ... in file order -- a different
+/// label range from `bspNodes` so a test mixing the two up would show it.
+std::vector<std::uint8_t> bspSurfs(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        const std::vector<std::uint8_t> surf =
+            oneBspSurf(static_cast<std::uint32_t>(100 * (index + 1)));
+        body.insert(body.end(), surf.begin(), surf.end());
+    }
+    return body;
+}
+
+/// One `ZoneProperties` in UTA-0069 SS 4.5's layout. `connectivity` carries
+/// the label -- SS 4.5 identified this very field by its content down
+/// consecutive records, so labelling it here exercises the thing that found
+/// it, not just its width.
+std::vector<std::uint8_t> oneZoneProperties(std::int64_t connectivityLabel) {
+    std::vector<std::uint8_t> body;
+    appendIndex(body, 0);               // zoneActor: null
+    appendI64(body, connectivityLabel); // connectivity -- the label
+    appendI64(body, 0);                 // visibility
+    return body;
+}
+
+/// `count` zone records, labelled 1000, 1001, 1002, ... in file order.
+std::vector<std::uint8_t> zoneRecords(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        const std::vector<std::uint8_t> zone = oneZoneProperties(1000 + index);
+        body.insert(body.end(), zone.begin(), zone.end());
+    }
+    return body;
+}
+
+/// One index-prefixed table: a compact-index count, then the caller's
+/// element bytes verbatim.
+void appendTable(std::vector<std::uint8_t>& into, std::int32_t count,
+                 const std::vector<std::uint8_t>& elements) {
+    appendIndex(into, count);
+    into.insert(into.end(), elements.begin(), elements.end());
+}
+
+/// One `LightMapIndex` in UTA-0069 SS 4.5's layout. `dataOffset` carries the
+/// label.
+std::vector<std::uint8_t> oneLightMapIndex(std::int32_t dataOffsetLabel) {
+    std::vector<std::uint8_t> body;
+    appendIndex(body, dataOffsetLabel);   // dataOffset -- the label
+    appendIndex(body, 0);                 // iLightActors
+    appendVector(body, 0.0F, 0.0F, 0.0F); // pan
+    appendFloat(body, 1.0F);              // uScale
+    appendFloat(body, 1.0F);              // vScale
+    appendU32(body, 0);                   // uClamp -- raw i32, SS 4.5
+    appendU32(body, 0);                   // vClamp
+    return body;
+}
+
+/// `count` lightmap entries, labelled 10, 20, 30, ... in file order.
+std::vector<std::uint8_t> lightMapEntries(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        const std::vector<std::uint8_t> entry = oneLightMapIndex(10 * (index + 1));
+        body.insert(body.end(), entry.begin(), entry.end());
+    }
+    return body;
+}
+
+/// `count` `LightBits` bytes, labelled 0x10, 0x11, 0x12, ... in file order.
+/// One byte per element (SS 4.5), so the label is the whole element.
+std::vector<std::uint8_t> lightBitsBytes(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        appendU8(body, static_cast<std::uint8_t>(0x10 + index));
+    }
+    return body;
+}
+
+/// One `Box` (`FBox`, SS 4.5's shape for `Bounds`). `min.x` carries the
+/// label; `max` and `valid` are fixed.
+std::vector<std::uint8_t> oneBox(float minXLabel) {
+    std::vector<std::uint8_t> body;
+    appendVector(body, minXLabel, 0.0F, 0.0F); // min -- the label
+    appendVector(body, 1.0F, 1.0F, 1.0F);      // max
+    appendU8(body, 1);                          // valid
+    return body;
+}
+
+/// `count` bounds boxes, labelled 1.0, 2.0, 3.0, ... in file order.
+std::vector<std::uint8_t> boundsBoxes(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        const std::vector<std::uint8_t> box = oneBox(static_cast<float>(index + 1));
+        body.insert(body.end(), box.begin(), box.end());
+    }
+    return body;
+}
+
+/// `count` `LeafHulls` entries, labelled 500, 501, 502, ... in file order.
+/// A raw `i32` per element (SS 4.5), so the label is the whole element.
+std::vector<std::uint8_t> leafHullEntries(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        appendU32(body, static_cast<std::uint32_t>(500 + index));
+    }
+    return body;
+}
+
+/// `count` `Lights` entries -- an `ObjectReference` compact index per
+/// element (SS 4.5) -- labelled 7, 8, 9, ... in file order. `readModel`
+/// never validates a light reference against the package's own tables, so
+/// an arbitrary non-zero raw value is a legitimate label.
+std::vector<std::uint8_t> lightsEntries(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        appendIndex(body, 7 + index);
+    }
+    return body;
+}
+
+/// A `Model` body in UTA-0069 SS 4.4's order: the 41-byte prefix, `Nodes`
+/// and `Surfs` encoded from the caller's bytes, the zone run and the five
+/// trailing tables SS 4.5 settles populated at their own DISTINCT counts,
+/// and `Leaves` at its always-legal empty count (SS 4.1, SS 4.6 -- no
+/// fixture populates it, and none should until that section closes).
+///
+/// `nodeCount` and `surfCount` are the DECLARED counts written into each
+/// table's index prefix; `nodes` and `surfs` are the elements' own encoded
+/// bytes. Passing a count that disagrees with what `nodes`/`surfs` actually
+/// hold is how the malformed cases are built -- SS 4.7's oversized and
+/// negative fixtures declare a count and supply no matching bytes at all.
+/// The other six tables always declare their own true count: nothing here
+/// needs them to disagree.
+std::vector<std::uint8_t> modelData(std::int32_t nodeCount, const std::vector<std::uint8_t>& nodes,
+                                    std::int32_t surfCount, const std::vector<std::uint8_t>& surfs,
+                                    std::int32_t zoneCount, std::int32_t lightMapCount,
+                                    std::int32_t lightBitsCount, std::int32_t boundsCount,
+                                    std::int32_t leafHullsCount, std::int32_t lightsCount) {
+    std::vector<std::uint8_t> data = emptyProperties();
+    appendVector(data, -1.0F, -2.0F, -3.0F); // BoundingBox.min
+    appendVector(data, 1.0F, 2.0F, 3.0F);    // BoundingBox.max
+    appendU8(data, 1);                       // BoundingBox.valid
+    appendVector(data, 0.0F, 0.0F, 0.0F);    // BoundingSphere centre
+    appendFloat(data, 5.0F);                 // BoundingSphere radius
+    appendIndex(data, 0);                    // Vectors: empty
+    appendIndex(data, 0);                    // Points: empty
+    appendIndex(data, nodeCount);
+    data.insert(data.end(), nodes.begin(), nodes.end());
+    appendIndex(data, surfCount);
+    data.insert(data.end(), surfs.begin(), surfs.end());
+    appendIndex(data, 0); // Verts: empty
+    appendU32(data, 3u);  // NumSharedSides -- a raw i32, not a table
+    // NumZones is a raw i32 too (SS 4.4), not a compact-index table count --
+    // the field the community order gets wrong.
+    appendU32(data, static_cast<std::uint32_t>(zoneCount));
+    const std::vector<std::uint8_t> zones = zoneRecords(zoneCount);
+    data.insert(data.end(), zones.begin(), zones.end());
+    appendIndex(data, 0); // Polys: null
+    appendTable(data, lightMapCount, lightMapEntries(lightMapCount));
+    appendTable(data, lightBitsCount, lightBitsBytes(lightBitsCount));
+    appendTable(data, boundsCount, boundsBoxes(boundsCount));
+    appendTable(data, leafHullsCount, leafHullEntries(leafHullsCount));
+    appendIndex(data, 0); // Leaves: empty -- SS 4.1/4.6, never populated by a fixture
+    appendTable(data, lightsCount, lightsEntries(lightsCount));
+    appendU32(data, 1u); // RootOutside
+    appendU32(data, 0u); // Linked
+    return data;
+}
+
 /// One mip. `widthOffset` is written verbatim so a test can make it disagree;
 /// a value of 0 with version >= 63 means "fill in the correct one later".
 void appendMip(std::vector<std::uint8_t>& into, std::uint16_t version,
@@ -240,6 +470,153 @@ TEST_CASE("a Polys declaring more polygons than the export can hold is refused",
     REQUIRE_FALSE(polys.has_value());
     CHECK(polys.error().code() == ErrorCode::MalformedData);
     CHECK(polys.error().message().find("more than the") != std::string_view::npos);
+}
+
+// --- Model --------------------------------------------------------------------
+//
+// docs/specs/UTA-0069-model-bsp-tables.md SS 4.7 tier 1. INV-2's malformed
+// cases live in PackageMalformedTest.cpp beside Polys' and Palette's, which
+// they follow in shape.
+
+TEST_CASE("a Model export reads back its tables at known counts", "[upkg]") {
+    // UTA-0069 INV-1: the fixture's length is exactly what the builder wrote,
+    // and every table SS 4.4 and SS 4.5 settle sits where SS 4.4 places it --
+    // a wrong width anywhere upstream would leave bytes unread or run the
+    // cursor off the end before it gets here. The zone run and the five
+    // trailing tables SS 4.5 settles are populated at their own distinct
+    // counts, so a wrong width or a swap among THEM is no longer
+    // byte-identical to this fixture either.
+    const std::vector<std::uint8_t> bytes = packageWithObject(
+        68, "Model", modelData(2, bspNodes(2), 1, bspSurfs(1),
+                               /*zoneCount=*/2, /*lightMapCount=*/3, /*lightBitsCount=*/4,
+                               /*boundsCount=*/5, /*leafHullsCount=*/6, /*lightsCount=*/7));
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE(model.has_value());
+    CHECK(model->nodes.size() == 2);
+    CHECK(model->surfs.size() == 1);
+    CHECK(model->verts.empty());
+    CHECK(model->numSharedSides == 3);
+    CHECK(model->polys.raw() == 0);
+    CHECK(model->rootOutside == 1);
+    CHECK(model->linked == 0);
+    CHECK(model->boundsMin.x == -1.0F);
+    CHECK(model->boundsMax.z == 3.0F);
+    CHECK(model->boundsValid);
+    CHECK(model->sphereRadius == 5.0F);
+
+    REQUIRE(model->zones.size() == 2);
+    CHECK(model->zones[0].connectivity == 1000);
+    CHECK(model->zones[1].connectivity == 1001);
+
+    REQUIRE(model->lightMap.size() == 3);
+    CHECK(model->lightMap[0].dataOffset == 10);
+    CHECK(model->lightMap[1].dataOffset == 20);
+    CHECK(model->lightMap[2].dataOffset == 30);
+
+    REQUIRE(model->lightBits.size() == 4);
+    CHECK(model->lightBits[0] == 0x10u);
+    CHECK(model->lightBits[3] == 0x13u);
+
+    REQUIRE(model->bounds.size() == 5);
+    CHECK(model->bounds[0].min.x == 1.0F);
+    CHECK(model->bounds[4].min.x == 5.0F);
+
+    REQUIRE(model->leafHulls.size() == 6);
+    CHECK(model->leafHulls[0] == 500);
+    CHECK(model->leafHulls[5] == 505);
+
+    REQUIRE(model->lights.size() == 7);
+    CHECK(model->lights[0].raw() == 7);
+    CHECK(model->lights[6].raw() == 13);
+}
+
+TEST_CASE("a Model's element tables land at the file's own indices", "[upkg]") {
+    // UTA-0069 INV-3. Known counts alone (the case above) cannot tell a
+    // reader that compacts or reorders a table from one that does not; these
+    // labels are distinct per position in every table SS 4.5 settles, so a
+    // swap, a drop or a renumbering shows up at the position it happens --
+    // not just in Nodes and Surfs, but in the zone run and every one of the
+    // five trailing tables too.
+    const std::vector<std::uint8_t> bytes = packageWithObject(
+        68, "Model", modelData(3, bspNodes(3), 2, bspSurfs(2),
+                               /*zoneCount=*/2, /*lightMapCount=*/3, /*lightBitsCount=*/4,
+                               /*boundsCount=*/5, /*leafHullsCount=*/6, /*lightsCount=*/7));
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE(model.has_value());
+
+    REQUIRE(model->nodes.size() == 3);
+    CHECK(model->nodes[0].nodeFlags == 0);
+    CHECK(model->nodes[1].nodeFlags == 1);
+    CHECK(model->nodes[2].nodeFlags == 2);
+
+    REQUIRE(model->surfs.size() == 2);
+    CHECK(model->surfs[0].polyFlags == 100u);
+    CHECK(model->surfs[1].polyFlags == 200u);
+
+    // The three SS 4.7 names explicitly: `connectivity` is the field that
+    // identified ZoneProperties' layout in the first place (SS 4.5).
+    REQUIRE(model->zones.size() == 2);
+    CHECK(model->zones[0].connectivity == 1000);
+    CHECK(model->zones[1].connectivity == 1001);
+
+    REQUIRE(model->leafHulls.size() == 6);
+    for (std::size_t index = 0; index < model->leafHulls.size(); ++index) {
+        CHECK(model->leafHulls[index] == 500 + static_cast<std::int32_t>(index));
+    }
+
+    REQUIRE(model->lightBits.size() == 4);
+    for (std::size_t index = 0; index < model->lightBits.size(); ++index) {
+        CHECK(model->lightBits[index] ==
+              static_cast<std::uint8_t>(0x10 + index));
+    }
+
+    // Not named by SS 4.7 as required, but labelled anyway (modelData gives
+    // every settled table a per-index value) -- closing the same gap for
+    // LightMap, Bounds and Lights costs nothing extra here.
+    REQUIRE(model->lightMap.size() == 3);
+    for (std::size_t index = 0; index < model->lightMap.size(); ++index) {
+        CHECK(model->lightMap[index].dataOffset ==
+              10 * (static_cast<std::int32_t>(index) + 1));
+    }
+
+    REQUIRE(model->bounds.size() == 5);
+    for (std::size_t index = 0; index < model->bounds.size(); ++index) {
+        CHECK(model->bounds[index].min.x == static_cast<float>(index + 1));
+    }
+
+    REQUIRE(model->lights.size() == 7);
+    for (std::size_t index = 0; index < model->lights.size(); ++index) {
+        CHECK(model->lights[index].raw() == 7 + static_cast<std::int32_t>(index));
+    }
+}
+
+TEST_CASE("a Model export with bytes left over is refused", "[upkg]") {
+    // UTA-0069 INV-1, the other half of the "known counts" case above: the
+    // layout is right only when the reader ends EXACTLY at the export's end.
+    // One trailing byte is the smallest possible disagreement -- the same
+    // shape as "a Polys export with bytes left over is refused" above, and
+    // the case that proves the exact-consumption check fires at all: without
+    // it, every Model fixture in this file ends where the reader expects and
+    // the check is never exercised.
+    std::vector<std::uint8_t> data =
+        modelData(1, bspNodes(1), 0, {}, /*zoneCount=*/0, /*lightMapCount=*/0,
+                  /*lightBitsCount=*/0, /*boundsCount=*/0, /*leafHullsCount=*/0,
+                  /*lightsCount=*/0);
+    data.push_back(0x00u);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Model", data);
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE_FALSE(model.has_value());
+    CHECK(model.error().code() == ErrorCode::MalformedData);
+    CHECK(model.error().message().find("unread") != std::string_view::npos);
 }
 
 // --- Palette ----------------------------------------------------------------
