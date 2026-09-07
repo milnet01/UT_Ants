@@ -1828,6 +1828,34 @@ model, no weapon and no opponent until 0.2.0.
 
   Still not attempted: the zone record, and the element layouts of
   LightBits, Bounds, LeafHulls, Leaves and Lights.
+  OPEN QUESTION for the user, blocking readModel (2026-09-07,
+  ut-ants-4e). The accepted spec cannot be implemented as written on one
+  point. SS 4.1 requires the zone records be RETURNED, as
+  std::vector&lt;ZoneProperties&gt; zones. SS 4.6 leaves the zone record
+  underived, and SS 4.6's own rule forbids stating a layout that is not
+  verified. A vector needs a complete element type, so the two cannot both
+  be honoured. Review loop 2 narrowed SS 11's claim about this but did not
+  resolve it, and the loop cap was reached. Three ways out, none of them
+  mine to pick: declare ZoneProperties with no fields for now; omit the
+  zones member until SS 4.6 closes; or derive the zone record before
+  writing any of the reader. Do NOT resolve this silently in a diff.
+
+  Two notes for whoever picks this up.
+
+  The derivation probes are NOT in the tree and are NOT reconstructible
+  in full from the spec -- SS 4.4 and SS 4.5 give the base walk, but the
+  diagnostics that produced the recent findings (per-stage declared-count
+  histograms, the per-version real-content breakdown, the payload
+  cross-tab) were written this session. They were left in that session's
+  scratchpad under /tmp/claude-1000/, which does not survive. Expect to
+  rebuild them; the notes above say what each one measured so the results
+  need not be re-derived, only the tooling.
+
+  Considered and REJECTED, so it is not reopened: committing the probe to
+  the tree so reviewers can check SS 2.2's install-scale figures. Review
+  loop 2 showed the figures were unverifiable by any reader, which is a
+  real gap -- but SS 7 already has tier 3 print those same figures, so it
+  closes when readModel ships rather than needing a second mechanism.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
