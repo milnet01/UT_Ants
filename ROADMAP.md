@@ -1856,6 +1856,134 @@ model, no weapon and no opponent until 0.2.0.
   loop 2 showed the figures were unverifiable by any reader, which is a
   real gap -- but SS 7 already has tier 3 print those same figures, so it
   closes when readModel ships rather than needing a second mechanism.
+  Open question ANSWERED by the user (2026-09-07): derive the zone
+  record layout BEFORE writing any of readModel. So the SS 4.1 / SS 4.6
+  conflict is resolved by closing SS 4.6's first table rather than by
+  weakening SS 4.1's promise -- ZoneProperties gets real fields, and
+  neither an empty placeholder struct nor omitting the zones member was
+  taken. Both alternatives are closed; do not reopen them in a diff.
+  This also matches SS 4.6's own file-order rule, and the zone record is
+  already the next target the first derivation pass named.
+  DERIVED (2026-09-07, session ut-ants-4e): the zone record, closing the
+  first of SS 4.6's six layouts and the SS 4.1 conflict the user ruled on.
+
+  FZoneProperties = compact index ZoneActor, i64 Connectivity, i64
+  Visibility. 17 bytes when ZoneActor is null, wider as that index widens.
+
+  Derived without assuming a layout, by anchor sweep: walk to NumZones,
+  then sweep the byte span to the following Polys object reference,
+  accepting a span only where the index there resolves to an export whose
+  class is Polys and the LightMap count after it is sane. Self-checked on
+  zero-zone models, where the span must be 0 and was, for every one
+  sampled. Spans came out at ~17 per zone with occasional +1 -- the
+  signature of a compact index inside an otherwise fixed record.
+
+  Confirmed by CONTENT, not by byte count alone, which is what settles
+  field ORDER: down the records of one model the middle eight bytes read
+  1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80 -- a bitmask whose set bit tracks the
+  record's own ordinal, so Connectivity is a zone mask and the leading
+  field is what precedes it. Visibility read all-ones on every record
+  dumped. The leading index widened to two bytes exactly where the span
+  grew by one.
+
+  Confirmed at install scale: implementing the layout took the zone-record
+  failure class to ZERO, with 538,586 of 561,352 Model exports consuming
+  exactly and 4 at a wrong offset. Every remaining failure is at a table
+  SS 4.6 still leaves open: LightBits 17,366, Bounds 5,012, LightMap 99,
+  LeafHulls 38, Lights 8, Leaves 5, plus the 234 early-table failures
+  (Vectors 215, Points 15, Nodes 3, Surfs 1) that SS 4.6 assigns to the
+  version-61 class.
+
+  Two caveats on comparing these to SS 2.2. This probe sweeps more file
+  extensions, so its corpus is 561,352 Model exports against SS 2.2's
+  556,452 -- the totals are not the same population. And it requires
+  SS 4.6's undrived tables to be EMPTY rather than carrying a partial
+  layout, which moves failures out of "wrong offset" into "failed"; that
+  is why wrong-offset reads 4 here against SS 2.2's 1,155. Neither figure
+  supersedes SS 2.2; they answer different questions.
+
+  The spec is NOT yet amended. Doing it once, after the remaining
+  layouts are derived, so SS 4.6 takes one review gate rather than one per
+  table -- SS 4.6's own file-order rule is what makes that safe.
+  Next target: LightBits, the largest class and the earliest still open.
+  Derivation, third pass (2026-09-07, ut-ants-4e). Four more of SS 4.6's
+  six layouts measured, in the file order SS 4.6 requires. Each was
+  confirmed by SS 4.5's own method -- the failure count at that table
+  collapsed and no earlier table's count moved.
+
+  LightBits -- one byte per element. Failures 17,366 -> 1,849.
+  Bounds -- FBox, 25 bytes, the same shape as the prefix. 18,297 -> 5,237.
+  LeafHulls -- four bytes per element. Exact consumption 543,062 against
+    539,107 for a compact index, so the two candidates are separated.
+  Lights -- one compact index per element (an object reference). Its own
+    failures 244-338 against about 7,000 for a four-byte read.
+
+  Bounds was additionally confirmed by a SECOND and independent method,
+  because it carried the largest residue: sweeping its element width
+  against the end of the payload, 11,690 models land exactly at width 25
+  and 645 at the next best. Two methods, one answer.
+
+  Leaves is NOT derived and must not be stated. It is barely exercised --
+  685 models reach it with a non-empty count -- and NONE of them consume
+  exactly, which is why a four-byte element and a compact index score
+  identically and neither is evidence. Sweeping its width against the end
+  of the payload gave no winner: the best candidate took 14 models of 685.
+  By SS 4.6's cascade rule that means the misalignment is UPSTREAM of
+  Leaves, in the residues at LightBits and Bounds, so Leaves cannot be
+  settled until those close. Do not read the scatter as a narrow result.
+
+  State after this pass, over 561,352 Model exports: 550,372 consume
+  exactly, 1,466 end at the wrong offset, 9,514 fail -- Bounds 5,237,
+  LightBits 1,849, LeafHulls 1,212, Leaves 542, Lights 338, LightMap 99,
+  plus the 234 early-table failures SS 4.6 assigns to the version-61 class.
+
+  One thing worth knowing before re-deriving. These residues are close to
+  the per-table figures the FIRST pass recorded (LightBits 1,734, Bounds
+  4,924, LeafHulls 1,152, Leaves 580, Lights 253), so that probe was
+  evidently already WALKING these tables at these widths while SS 4.6
+  declined to state them -- correctly, since nothing had verified them.
+  What this pass adds is the verification, and the zone record, where the
+  same comparison shows a real gain: 735 failures then, zero now.
+
+  Searched and found nothing, so it is not re-searched: the user's Vestige
+  engine (/mnt/Games/Scripts/Linux/Vestige) and asset library
+  (/mnt/Games/3D Engine Assets). No UE1 format knowledge, no Unreal
+  parsing code, no UE1 fixtures -- a zero match for every UE1 struct name
+  across the whole indexed tree. Vestige delegates container parsing to
+  tinygltf and has no binary cursor at all. The one item worth borrowing
+  is the untrusted-count hardening in its engine/environment/terrain.cpp
+  loadHeightmap: an absolute byte cap independent of the declared count,
+  an exact expected-size check, and a short-read guard -- the shape these
+  count-prefixed tables need.
+  Leaves, run to ground (2026-09-07, ut-ants-4e). Three results, so the
+  next session does not repeat the attempt.
+
+  1. It is GENUINELY POPULATED, not a misalignment artefact. Of the 685
+  models reaching a non-empty Leaves the declared counts are small and
+  plausible -- 1, 2, 3, 6, 14 dominate and 539 of the 685 declare 16 or
+  fewer. So the table carries real data and the layout is a real gap.
+
+  2. A FIXED element width does not explain it, and neither does an
+  index-bearing one. Sweeping (k compact indices + f fixed bytes) against
+  the end of the payload for k up to 4 and f up to 32, the best shape took
+  35 of 685. The apparent runners-up are ALIASES rather than independent
+  evidence: an index whose value is zero occupies one byte, so "2 idx + 9
+  bytes" and "3 idx + 8 bytes" are one shape counted twice, which is why
+  they score identically. Do not read that pair as corroboration.
+
+  3. So the misalignment is upstream, per SS 4.6's cascade rule, and
+  Leaves cannot be settled until the residues at LightBits and Bounds
+  close. Those residues are the version-61 branch and the
+  content-dependent class the first pass measured -- open-ended work, not
+  a next step of this derivation.
+
+  Method note for whoever rebuilds the probe: the anchor sweep is what
+  makes these answers measurements rather than guesses. Walk to the table,
+  then sweep the byte span to a signature you can recognise -- the Polys
+  object reference for the zone record, the exact end of the payload for
+  Bounds and Leaves -- and accept a span only where the signature holds.
+  It needs no hypothesis about the layout, and it self-checks wherever the
+  answer is known in advance, as zero-zone models pin the zone span at 0.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
