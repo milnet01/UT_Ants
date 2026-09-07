@@ -1742,6 +1742,17 @@ model, no weapon and no opponent until 0.2.0.
   Blocked-by: nothing. UTA-0004 shipped the container work this rests on.
   Progress (2026-09-07): claimed by session ut-ants-b8, main checkout.
   Starting with the spec-need decision under spec-format.md § 1.
+  Progress (2026-09-07): spec drafted and committed at a6053d2 as
+  docs/specs/UTA-0069-model-bsp-tables.md. The top-level Model
+  serialisation order is DERIVED and measured over the reference
+  install; four element layouts are settled. See the spec SS 2.2, SS 4.4
+  and SS 4.5. Still open: the element layouts of SS 4.6, and the review
+  gate. Held by session ut-ants-b8, which was terminated by a deliberate
+  terminal restart before review-contract loop 1 completed -- three
+  lanes were dispatched and lost, and the loop log is correctly still
+  empty. The gate is OWED and has not run. A later session may resume
+  this claim: docs/session-handoff-2026-09-07.md carries the resume
+  point.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
