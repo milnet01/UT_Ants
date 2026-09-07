@@ -2039,6 +2039,31 @@ model, no weapon and no opponent until 0.2.0.
   Next: write readModel. The spec now states nine element layouts, gives
   Plane and Box as code, and settles that `leaves` is neither returned
   nor stepped over -- an empty one is consumed, a populated one refused.
+  Evidence AGAINST the recorded rejection of committing the probe
+  (2026-09-07). Not a reversal -- the rejection stands until someone
+  decides otherwise -- but the ground has moved and the next session
+  should know before it re-reads that note as settled.
+
+  The probe has now been rebuilt from scratch TWICE, by two sessions, and
+  each rebuild cost real time before any derivation could start. The
+  rejection's reason was that tier 3 already prints SS 2.2's figures, so a
+  second mechanism was unnecessary. That reason covers the FIGURES and
+  does not cover the TOOLING: the diagnostics that produced this session's
+  results -- the anchor sweep against a recognisable signature, the
+  per-stage failure histogram, the element-width sweeps, the
+  non-empty-count instrumentation -- are not what tier 3 prints and are
+  not reconstructible from the spec.
+
+  Concretely, what tier 3 gives you is a pass/fail count. What the probe
+  gives you is WHERE the walk stopped and WHAT WIDTH would fix it, which
+  is the only instrument that closes SS 4.6. Those are different tools
+  answering different questions, and only one of them exists in the tree.
+
+  Weigh that against the original objection when SS 4.6's residues are
+  next picked up. The probe links only against the existing uta_upkg and
+  uta_core static libraries and reads the install path from an argument,
+  so it has no new dependency; the reason it is out of the tree is scope,
+  not cost.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
