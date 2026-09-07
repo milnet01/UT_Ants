@@ -14,24 +14,20 @@ be resumed. Resume it — do not re-file it.
 **The spec is drafted, committed and mechanically clean.**
 `docs/specs/UTA-0069-model-bsp-tables.md`, committed at `a6053d2`.
 
-**Loop 1 of the review gate HAS run**, at `44d85f0`: three cold lanes,
-fourteen verified findings, fourteen fixed, three collateral. The row is in
+**The review gate is COMPLETE.** Loops 1 and 2 ran, which is the cap for a
+spec, and the spec is accepted (2026-09-07). The rows are in
 `docs/reviews/UTA-0069-model-bsp-tables-loop-log.md`.
 
-**Loop 2 is owed and has NOT run.** It was dispatched and then deliberately
-stopped, because the user needed to restart the terminal and a loop whose
-results arrive after the restart is pure waste. Nothing was folded in from it
-and no row was written for it.
+Loop 2's most consequential finding: the spec's all-empty payload histogram
+was a size-threshold selection (`payload < 90`) presented as a partition of
+the exactly-consuming count. Re-running the probe returned four buckets, not
+three. All three lanes derived the resulting gap independently and none could
+see its cause, because the probe is not in the tree.
 
-**So the resume point is `review-contract` loop 2**, run as
-`review-contract docs/specs/UTA-0069-model-bsp-tables.md --genre spec`. **The
-cap for a spec is 2, so loop 2 is the last one** — at the cap the run files any
-tail and ships, and the spec takes `accepted (DATE)`. Brief loop 2 cold: no
-list of what loop 1 fixed, because the cold re-read is what verifies the fixes
-held.
-
-The packet is still on disk at `/tmp/review-contract-uta0069/` and may not
-survive a reboot; regenerating it is Phase 1b and costs nothing but time.
+**What remains, and this item is not done until it closes:** the element
+layouts of spec § 4.6 plus the `UPrimitive` prefix version branch, then
+`readModel` itself, then tier 1 fixtures and a tier-3 run with zero refusals
+-- the item's stated acceptance. The roadmap bullet carries the same state.
 
 ## What the derivation established
 
