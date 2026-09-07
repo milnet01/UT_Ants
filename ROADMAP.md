@@ -2186,6 +2186,39 @@ model, no weapon and no opponent until 0.2.0.
   Not implemented. The scope question -- whether transcribing the six
   references belongs to this item, and whether reading those four export
   classes is its own item -- is with the user.
+  Progress (2026-09-07, session ut-ants-b2): the user ruled that version 61
+  is its own item. Filed as UTA-0072. readModel now refuses a Model below
+  package version 62 by name, with ErrorCode::UnsupportedVersion -- the
+  bytes are not malformed, they are a layout this reader does not describe,
+  which is § 4.1's Leaves ruling applied to a whole export. The boundary is
+  62 rather than 63 because that is the smallest claim the measurement
+  supports: 61 is the only version below 62 the container accepts, and 62
+  appears nowhere in the reference install.
+
+  The refusal is locked by a tier-1 test that reads the SAME bytes at both
+  versions -- consumed exactly at the builder's default, refused at 61 --
+  so it measures the version and nothing else. Mutated to
+  `if (false && ...)`: the test fails. 173 unit tests pass.
+
+  And the walk says something § 4.6 does not. Refusals at vectors (215),
+  points (15), nodes (3) and surfs (1) sum to exactly 234, the count of
+  version-61 Model exports -- and all four buckets are now EMPTY across all
+  847 packages. Every refusal at the first four tables in the whole install
+  was this one class. § 4.6 lists them as residue positions and they are
+  not residue at all.
+
+  What is left, measured this session with the refusal in place: bounds
+  5,237, lightmap bytes 1,849, leaf hulls 1,212, leaves 1,030, wrong end
+  offset 933, lights 202, leaves count 183, lightmap entries 99, trailing
+  fields 1, package version below 62 234. Consumed exactly 550,372,
+  refused 10,980 -- unchanged, since the same exports refuse and only their
+  classification moved. Packages whose LARGEST Model parses: 4 of 847.
+
+  § 4.6 is now stale in two ways -- its version-61 paragraph, and its
+  residue list naming four tables that carry none. Amending it re-arms the
+  review gate under rule 14, so it is left for a deliberate decision rather
+  than taken as a side effect. The ROADMAP carries the current numbers
+  meanwhile.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
@@ -2886,6 +2919,48 @@ to.
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uui, uai, unav.
+
+- 📋 [UTA-0072] **upkg: read a version-61 Model, whose BSP tables are separate exports.**
+  Split from UTA-0069 on 2026-09-07 by the user's ruling, after that item
+  derived the layout and measured it. UTA-0069 refuses version 61 with a
+  named reason instead; this item is what lifts the refusal.
+
+  In version 61 a Model holds no inline BSP tables. It holds six object
+  references -- Vectors, Points (a second Vectors), BspNodes, BspSurfs,
+  Verts, Polys -- behind a 37-byte prefix (FBox, then a 12-byte vector with
+  no sphere radius), ahead of eight index-prefixed arrays and the two
+  trailing i32. There is no NumSharedSides and no NumZones. UTA-0069's
+  ROADMAP bullet carries the derivation, its two proofs and the measured
+  counts.
+
+  Three pieces of work, and the first two are separable.
+
+  1. Transcribe the Model. Add the six references behind a version branch.
+  Measured 2026-09-07: 223 of the 234 version-61 Model exports consume
+  exactly under the derived layout, against 0 before it.
+
+  2. The last two of the eight arrays. Their element widths are NOT
+  determined by the reference install: sweeping both to 48, the best pair
+  beats almost every other pair by one export. That is UTA-0069 SS 4.6's
+  alias warning for Leaves, so a width must not be stated on that evidence.
+  Nine exports carry a non-empty seventh array and five a non-empty eighth.
+  Without these, eleven exports still refuse.
+
+  3. Readers for the four export classes -- Vectors, BspNodes, BspSurfs,
+  Verts. Until these exist the geometry is not reachable, only referenced,
+  so 1 alone gains a consumer nothing. Polys already has a reader and is
+  the precedent for the shape.
+
+  Worth it because the corpus's only version-61 package is a Monster Hunt
+  map, MH-SPNaliRescue.unr, which is this milestone's own subject. It is
+  also the whole population: 1 package of 847, 234 Model exports.
+
+  Blocked-by: nothing. UTA-0069 shipped the container work and the
+  derivation.
+  **Layman:** Read the level shape out of very old maps, which store it in a different place inside the file.
+  Kind: implement.
+  Source: in-session-2026-09-07 split-from-UTA-0069.
+  Lanes: upkg.
 
 ## 0.5.0 — Map editor
 

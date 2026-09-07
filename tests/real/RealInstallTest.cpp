@@ -210,6 +210,12 @@ std::string modelRefusalBucket(std::string_view message) {
         "zones",             "lightmap entries", "lightmap bytes",
         "bounds",            "leaf hulls",       "leaves",
         "lights",            "trailing fields"};
+    // Not a table at all, and checked first so no table can claim it: SS 4.6's
+    // version-61 class, where the tables are separate exports rather than
+    // inline and the reader refuses the export by name. UTA-0072 reads it.
+    if (message.find("package version") != std::string_view::npos) {
+        return "package version below 62";
+    }
     for (const std::string_view table : TABLES) {
         if (message.find(table) != std::string_view::npos) {
             return std::string(table);

@@ -3,6 +3,7 @@
 #include "upkg/ByteReader.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -28,6 +29,10 @@ constexpr std::size_t LIGHT_BITS_BYTES = 1;
 constexpr std::size_t BOX_BYTES = 25;
 constexpr std::size_t LEAF_HULL_BYTES = 4;
 constexpr std::size_t LIGHT_MIN_BYTES = 1;
+
+/// The version from which a Model carries its BSP tables inline. Below it the
+/// tables are separate exports the Model only references -- see readModel.
+constexpr std::uint16_t VERSION_INLINE_BSP_TABLES = 62;
 
 Result<Vector3> readVector(ByteReader& reader) {
     Vector3 value;
@@ -300,6 +305,27 @@ Result<Polys> readPolys(const Package& package, const ExportEntry& entry) {
 }
 
 Result<Model> readModel(const Package& package, const ExportEntry& entry) {
+    // Below version 62 a Model holds no inline BSP tables at all: it holds six
+    // object references, to separate Vectors, Points, BspNodes, BspSurfs,
+    // Verts and Polys exports, behind a 37-byte prefix rather than 41. Walking
+    // it as the layout below would blames the first table for a difference
+    // that is the whole shape of the export, so it is refused by name.
+    //
+    // UTA-0072 is what lifts this, and UTA-0069's ROADMAP bullet carries the
+    // derivation and its two proofs. The boundary is 62 rather than 63 because
+    // that is the smallest claim the measurement supports: version 61 is the
+    // only version below 62 the container accepts (Package.cpp MIN_VERSION),
+    // and version 62 appears nowhere in the reference install, so nothing here
+    // asserts which side of the change it falls on.
+    if (package.header().packageVersion < VERSION_INLINE_BSP_TABLES) {
+        return std::unexpected(
+            Error(ErrorCode::UnsupportedVersion,
+                  "a Model at package version " +
+                      std::to_string(package.header().packageVersion) +
+                      " keeps its BSP tables in separate exports rather than "
+                      "inline; that layout is UTA-0072's, not this reader's"));
+    }
+
     UTA_TRY(const PropertyList list,
             inModel(readPropertyList(package, entry), "property list"));
     UTA_TRY(const std::span<const std::byte> data,

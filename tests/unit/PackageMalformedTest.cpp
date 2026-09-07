@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -94,8 +95,15 @@ void appendVector(std::vector<std::uint8_t>& into, float x, float y, float z) {
 /// an import, as `healthyPackage` above does: a null `objectClass` reads as
 /// "this export IS a class" and `readPropertyList` refuses it outright,
 /// before `readModel` ever sees the count this fixture exists to exercise.
-std::vector<std::uint8_t> packageWithExport(const std::vector<std::uint8_t>& data) {
+/// `packageVersion` is left alone unless a caller asks for one, so the number
+/// the builder defaults to is stated in one place -- there -- rather than
+/// restated here where it would drift.
+std::vector<std::uint8_t> packageWithExport(const std::vector<std::uint8_t>& data,
+                                            std::optional<std::uint16_t> packageVersion = {}) {
     UnrealPackageBuilder builder;
+    if (packageVersion.has_value()) {
+        builder.setPackageVersion(*packageVersion);
+    }
     builder.addName("None").addName("FirstProperty");
 
     uta::test::ImportEntry import;
@@ -157,6 +165,17 @@ std::vector<std::uint8_t> modelDeclaringLeavesCount(std::int32_t leavesCount) {
     appendIndex(data, 0);                 // Bounds: empty
     appendIndex(data, 0);                 // LeafHulls: empty
     appendIndex(data, leavesCount);       // Leaves: the declared count
+    return data;
+}
+
+/// A complete, well-formed `Model` body: every table empty, both trailing
+/// `i32` present. The reader consumes this exactly, which is what lets the
+/// version test below vary the VERSION and nothing else.
+std::vector<std::uint8_t> emptyModelBody() {
+    std::vector<std::uint8_t> data = modelDeclaringLeavesCount(0);
+    appendIndex(data, 0); // Lights: empty
+    appendU32(data, 1u);  // RootOutside
+    appendU32(data, 0u);  // Linked
     return data;
 }
 
@@ -347,6 +366,39 @@ TEST_CASE("a Model declaring a non-empty Leaves table is refused", "[package-mal
     REQUIRE_FALSE(model.has_value());
     CHECK(model.error().code() == ErrorCode::MalformedData);
     CHECK(model.error().message().find("leaves") != std::string_view::npos);
+}
+
+TEST_CASE("a Model below package version 62 is refused by name", "[package-malformed]") {
+    // Measured 2026-09-07 over MH-SPNaliRescue.unr, the reference install's
+    // only version-61 package: a Model there holds no inline BSP tables at
+    // all. It holds six object references -- Vectors, Points, BspNodes,
+    // BspSurfs, Verts, Polys -- behind a 37-byte prefix rather than 41, and
+    // the class histogram corroborates it (one BspNodes, BspSurfs, Verts and
+    // Polys export per Model, two Vectors). UTA-0072 is what reads that
+    // layout; this reader must say so rather than blaming its first table for
+    // a difference that is the whole shape of the export.
+    //
+    // The SAME bytes are read at both versions, so the only thing this can be
+    // measuring is the version. Without the first half, a refusal that came
+    // from a malformed body would look identical to the one under test.
+    const std::vector<std::uint8_t> body = emptyModelBody();
+
+    const std::vector<std::uint8_t> modern = packageWithExport(body);
+    const auto modernPackage = Package::open(asBytes(modern));
+    REQUIRE(modernPackage.has_value());
+    REQUIRE(uta::upkg::readModel(*modernPackage, modernPackage->exports()[0]).has_value());
+
+    const std::vector<std::uint8_t> old = packageWithExport(body, 61);
+    const auto oldPackage = Package::open(asBytes(old));
+    REQUIRE(oldPackage.has_value());
+
+    const auto model = uta::upkg::readModel(*oldPackage, oldPackage->exports()[0]);
+    REQUIRE_FALSE(model.has_value());
+    // UnsupportedVersion rather than MalformedData: the bytes are not
+    // malformed, they are a layout this reader does not describe.
+    CHECK(model.error().code() == ErrorCode::UnsupportedVersion);
+    CHECK(model.error().message().find("61") != std::string_view::npos);
+    CHECK(model.error().message().find("separate exports") != std::string_view::npos);
 }
 
 TEST_CASE("a table offset outside the file is refused", "[package-malformed]") {
