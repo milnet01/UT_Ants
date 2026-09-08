@@ -1714,7 +1714,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-06.
   Lanes: uui, ugame, unet.
 
-- 🚧 [UTA-0069] **upkg: derive the Model BSP tables.**
+- ✅ [UTA-0069] **upkg: derive the Model BSP tables.**
   Split from UTA-0057 on 2026-09-06; that item keeps the `Level` tail.
 
   A `Model` begins with 41 bytes of `FBox` + `FSphere`, carries an object
@@ -2295,6 +2295,25 @@ model, no weapon and no opponent until 0.2.0.
 
   Shipped in c4783ca, 9dd7ff3 and 15f545a, ten mutations killed across the
   three. Not yet flipped: awaiting the GitHub matrix, per CLAUDE.md.
+  Resolved (2026-09-08, ut-ants-26): acceptance met. The real-asset tier
+  consumes every Model export exactly at every package version this reader
+  claims -- 561118 of them, tier 3 green, all three matrix legs green at
+  8c10009 (GCC 14, Clang 19, MSVC), checked by headSha.
+
+  Packages whose LARGEST Model parses: 846 of 847, from 4 when the session
+  started. That is the figure UTA-0007 and UTA-0011 actually need.
+
+  The one package that does not is the corpus's only version-61 one, whose
+  Models keep their BSP tables in separate exports. readModel refuses
+  those by name and UTA-0072 reads them, by the user's ruling of
+  2026-09-07. INV-4's assertion is scoped to exactly that class and
+  tightens back to zero on its own when UTA-0072 lands.
+
+  Spec amended to what was built (8cde872, 8c10009): SS 4.6 is the record
+  of how the residue closed, SS 4.5 carries the corrected FLightMapIndex
+  and the new FLeaf, SS 4.1 returns leaves, and INV-4, SS 6 and SS 8
+  follow. No review gate re-armed -- CLAUDE.md rule 14's own instance for
+  an amendment recording what was built.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
@@ -2690,6 +2709,50 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: test.
   Source: user-request-2026-09-06.
   Lanes: ugame, unet, ci.
+
+- 📋 [UTA-0073] **uai: bots read the ground in front of them and jump or go around.**
+  User request (2026-09-08): a bot should interpret what is in front of
+  it -- a gap it must jump, an obstacle it must jump over or walk around
+  -- rather than only following a route.
+
+  Filed separately from UTA-0025 because that item is navigation over the
+  waypoint GRAPH plus combat. This is what happens between two waypoints,
+  where the graph says "go there" and says nothing about the ground. A bot
+  that only follows the graph walks into the crate somebody added after
+  the map was last pathed.
+
+  The user's constraint, given in the same breath: as cheap as possible.
+  That is a design constraint, not a preference, and it decides the shape.
+  Three things follow.
+
+  Prefer what the map already states. UTA-0057 extracted the ReachSpec
+  path graph, and a ReachSpec already carries the traversal it needs --
+  its own flags and its collision radius and height. Where the graph
+  answers, that costs a lookup and no geometry work at all, and it is also
+  what the original game did.
+
+  Probe geometry only where the graph is silent, and only ahead. A short
+  downward probe for a gap and a short forward probe for an obstacle,
+  along the direction of travel, is the whole of it. Not a visibility
+  model, not a mesh, and nothing that walks the BSP per frame.
+
+  Budget it explicitly. A probe per bot per tick, amortised across bots
+  rather than every bot probing every frame, with a stated ceiling; and
+  the answer cached against the bot's current path edge, since it does not
+  change while the geometry does not.
+
+  Decide against a measurement, not by argument: the cost per bot per tick
+  at a realistic bot count, on a map with the obstacles this is for.
+
+  Depends on uworld and unav, never on urender (rule 6) -- a bot cannot
+  know anything the server does not simulate, which rules out anything
+  resembling a rendered depth probe.
+
+  Blocked-by: nothing filed. It wants UTA-0025's bot to exist first, in
+  practice, since there is nothing to steer until then.
+  **Layman:** Bots notice a gap or a crate in front of them and jump it, jump onto it, or walk around it, instead of running into it.
+  Kind: feature.
+  Source: user-request-2026-09-08.
 
 ## 0.4.0 — Monster Hunt
 
