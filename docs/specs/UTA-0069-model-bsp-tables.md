@@ -324,9 +324,22 @@ the layout was corrected, and no earlier table's count moved.
 `ZoneMask` (a 64-bit mask; `ByteReader`
 offers `readI64` and no `readU64`, so read it as `i64` and cast, as `readPolys`
 does for `PanU`/`PanV`), `NodeFlags` (`u8`),
-then seven compact indices (`iVertPool`, `iSurf`, `iFront`, `iBack`, `iPlane`,
-`iCollisionBound`, `iRenderBound`), then `iZone[2]` and `NumVertices` as three
-bytes, then **`iLeaf[2]` as two raw `i32`**.
+then seven compact indices (`iVertPool`, `iSurf`, **`iBack`, `iFront`**,
+`iPlane`, `iCollisionBound`, `iRenderBound`), then `iZone[2]` and
+`NumVertices` as three bytes, then **`iLeaf[2]` as two raw `i32`**.
+
+**`iBack` comes before `iFront`, and this section had them the other way round
+until 2026-09-08.** The correction is UTA-0078. It matters here rather than in
+that item because it is this section's METHOD that could not see it: swapping
+two adjacent fields of the same wire type changes no byte count and no failure
+count, so the collapsing-failure-count test above is blind to it by
+construction. The order was taken from the field names, which is the one part
+of a layout that test never reaches — and the same blindness applies to every
+other adjacent same-type pair stated below.
+
+What saw it was UTA-0007's INV-2, which holds a BSP descent against each node's
+own zone record: 0 of 11451 probes on one map agreed with the old order, and
+11406 with this one.
 
 That last field is the one that matters. Read as compact indices it failed
 22,536 exports; read as raw `i32` it failed **3**. Nothing else in the walk

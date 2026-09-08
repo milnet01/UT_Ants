@@ -159,8 +159,16 @@ Result<BspNode> readBspNode(ByteReader& reader) {
     UTA_TRY(node.nodeFlags, reader.readU8());
     UTA_TRY(node.iVertPool, reader.readIndex());
     UTA_TRY(node.iSurf, reader.readIndex());
-    UTA_TRY(node.iFront, reader.readIndex());
+    // iBack comes FIRST, and this is measured rather than read off the field
+    // names. Swapping two adjacent compact indices changes no byte count, so
+    // the parse-success walk UTA-0069 SS 4.5 settled this table with cannot
+    // see the difference -- it read them the other way round and stayed green.
+    // What sees it is UTA-0007 INV-2, which holds the descent against each
+    // node's OWN zone record: 0 of 11451 probes agreed on one map with these
+    // two the other way round, and 11406 agreed with them this way.
+    // Corrected 2026-09-08 under UTA-0078.
     UTA_TRY(node.iBack, reader.readIndex());
+    UTA_TRY(node.iFront, reader.readIndex());
     UTA_TRY(node.iPlane, reader.readIndex());
     UTA_TRY(node.iCollisionBound, reader.readIndex());
     UTA_TRY(node.iRenderBound, reader.readIndex());
