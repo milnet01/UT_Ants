@@ -2388,6 +2388,34 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-07 standing-dependency-rule.
   Lanes: ci.
 
+- 📋 [UTA-0074] **UTA-0004's spec cites a test file that does not exist, and one claim in it is stale.**
+  docs/specs/UTA-0004-typed-level-content.md names
+  tests/unit/PackageMalformedContentTest.cpp in four places. No such file
+  exists; the real one is tests/unit/PackageMalformedTest.cpp.
+
+  Two of the four are INV *Test:* clauses, which is what makes this more
+  than cosmetic: an invariant whose test clause points at nothing cannot
+  be verified from the document, and spec_lint cannot catch it on this
+  project -- it reports surfaces_checked false here, because it resolves
+  surfaces only in a tests/features/<name>/ layout and this project uses
+  tests/unit/. The other two are the test inventory and INV-2's grade row.
+
+  Separately, INV-2's grade row says the malformed tier "does not reach
+  readModel at all, whose layout is withheld". That was true when it was
+  written and is not now: UTA-0069 shipped on 2026-09-08, no table is
+  withheld, and tier 1 reaches readModel through both content and
+  malformed cases. Re-grade the row rather than only re-pointing the path.
+
+  Found while closing UTA-0069, and filed rather than fixed there: it is
+  UTA-0004's document, and a drive-by edit to another item's spec is the
+  change nobody reviews. The earlier session recorded it in a session
+  handoff, which is not a place work survives.
+
+  Blocked-by: nothing.
+  **Layman:** A design document points at a test file by the wrong name, so nobody can check the promises it makes.
+  Kind: doc-fix.
+  Source: in-session-2026-09-08.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
