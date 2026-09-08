@@ -475,9 +475,10 @@ default gate — and INV-1 names a missed version branch as its first break
 mode. § 2.1 measured that stock content takes that branch.
 
 **It does not build a `Model`, and it builds a `Level` only as far as the
-actor array.** § 4.5 and § 4.9 withhold those layouts, so there is nothing
-to encode against; § 7 and § 10 say what covers them until each is
-derived. It ships an
+actor array.** Both layouts are derived now — `Model` by UTA-0069, the
+`Level` tail by UTA-0057 — so the reason is no longer that there is
+nothing to encode against. The `Model` fixtures live in the unit-test
+files' own helpers instead; § 7 and § 10 say what covers each. It ships an
 encoder and no decoder, for the reason `tests/support/UnrealPackageBuilder.h`
 states, so the readers here remain an independent implementation of the
 same format.
@@ -501,11 +502,12 @@ same format.
 
 - **INV-2** — No typed reader throws, terminates, or reads outside the
   export's span, for any input bytes.
-  *Test:* `tests/unit/PackageMalformedContentTest.cpp` drives truncations
-  and lying counts built by the fixture builder — for every reader but
-  `readModel` and the post-actor-array half of `readLevel`, whose layouts
-  § 4.5 and § 4.9 withhold, so there is nothing to malform. Those two are
-  covered here only once their layouts are derived, and § 10 says so.
+  *Test:* `tests/unit/PackageMalformedTest.cpp` drives truncations
+  and lying counts — for every reader, `readModel` now included. Its cases
+  declare more nodes than the export can hold, a negative node count, and
+  more leaves than it holds. Both exceptions this clause carried are gone:
+  UTA-0069 derived `Model`'s layout on 2026-09-08, and `readLevel`'s
+  remainder left the same category when UTA-0057 derived it.
   Nothing else checks it:
   `scripts/ci.sh`'s only sanitizer leg is ThreadSanitizer, which finds
   races rather than out-of-span reads. § 10 grades this on that.
@@ -516,14 +518,20 @@ same format.
   place. No file added by this item names a version bound or compares
   `packageVersion` against one.
   *Test:* `grep -nE '\b(61|69)\b' src/upkg/{Geometry,Texture,Sound}.{h,cpp}`
-  returns nothing. `tests/unit/PackageReaderTest.cpp` already asserts the
-  gate itself, so this invariant is about a duplicated BOUND rather than
-  about the gate.
+  returns no line that compares against 61 or 69. **It is not empty**, and
+  was not when this clause said it should be: `Geometry.cpp` carries a
+  comment explaining why `readModel`'s version boundary is 62, and prose
+  naming a version is not a bound. `tests/unit/PackageReaderTest.cpp`
+  already asserts the gate itself, so this invariant is about a duplicated
+  BOUND rather than about the gate.
   **Reading `packageVersion` is expected and is not a breach**: § 4.6 and
   § 4.8 branch on version 63 for a field's presence, which is a different
   fact from the supported range. An earlier wording of this clause grepped
   for `packageVersion` and was falsified by the first conforming
-  implementation, which reads it four times legitimately.
+  implementation, which reads it four times legitimately. The wording that
+  replaced it was falsified in turn, on 2026-09-08, by the comment above --
+  twice now this clause has been written tighter than the invariant it
+  tests.
   *Breaks when:* a reader re-checks the version "to be safe", and the two
   bounds then drift the first time either moves — the failure being that
   the copy is invisible, since both agree on the day it is written.
@@ -533,10 +541,10 @@ same format.
 - **INV-4** — No allocation and no span is sized by a count or length read
   from the file before that value has been checked against the bytes
   remaining in the export.
-  *Test:* `tests/unit/PackageMalformedContentTest.cpp` builds a `Palette`
+  *Test:* `tests/unit/PackageMalformedTest.cpp` builds a `Palette`
   declaring a count far larger than the file and asserts an `Error` whose
-  message names the count check — with the same `readModel` and
-  `readLevel` exception INV-2 carries, for the same reason. That the refusal precedes the allocation
+  message names the count check. `Model` is reached here too, by the
+  lying-count cases INV-2 names. That the refusal precedes the allocation
   is not observable from outside; § 10 grades it on that.
   *Breaks when:* a polygon or mip loop reserves from the file's count
   first — a four-byte edit then asks for gigabytes.
@@ -627,13 +635,14 @@ Three tiers, and only the third reads bytes this project did not write.
    and **INV-9**. INV-3 is a grep rather than a case here. Label `unit;fast`, in the existing Catch2
    executable.
 
-   **`readModel` has no fixture case here until its layout is derived**
-   (§ 4.5), because the fixture builder cannot encode a layout the spec
-   withholds. Until then tier 3 is its only check, and it is off by
-   default — so `readModel` is the one reader the ordinary gate does not
-   exercise. § 10's INV-1 row carries that.
+   **`readModel` has fixture cases here from 2026-09-08**, when UTA-0069
+   derived its layout (§ 4.5): one reading its tables back at known counts,
+   one placing its elements at the file's own indices, and one refused for
+   bytes left over. They are built by helpers local to this file rather
+   than by the shared builder, which still has no `Model` writer (§ 4.10).
+   Tier 3 is no longer its only check.
 
-2. **`tests/unit/PackageMalformedContentTest.cpp`** — truncations, lying
+2. **`tests/unit/PackageMalformedTest.cpp`** — truncations, lying
    counts, and a payload whose declared size runs past the export. Every
    case asserts an `Error` rather than a crash. Covers **INV-2** and
    **INV-4**.
@@ -732,10 +741,10 @@ before then.
 
 | Rule | What catches a breach |
 |------|----------------------|
-| INV-1 | `tests/unit/PackageContentTest.cpp` for fixtures, and `tests/real/RealInstallTest.cpp` over the reference install — the only check here that reads bytes this project did not write. Off by default, so an ordinary run proves agreement with our own fixtures only. **For `readModel`, weaker still:** it has no fixture case until its layout is derived (§ 4.5), so the ordinary gate does not exercise it and the real-asset tier is its sole check. `readLevel` was in that position until UTA-0057 derived its tail on 2026-09-06 and built the fixture; it is now exercised on every ordinary run |
-| INV-2 | **Partial:** `tests/unit/PackageMalformedContentTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists. Same grade, and the same reason, as UTA-0003's INV-1. **And it does not reach `readModel` at all**, whose layout is withheld, so there is nothing to malform. `readLevel`'s remainder left that category when UTA-0057 derived it |
+| INV-1 | `tests/unit/PackageContentTest.cpp` for fixtures, and `tests/real/RealInstallTest.cpp` over the reference install — the only check here that reads bytes this project did not write. Off by default, so an ordinary run proves agreement with our own fixtures only. `readModel` was in that position until UTA-0069 derived its layout on 2026-09-08; it now has fixture cases in both unit-tier files and is exercised on every ordinary run. `readLevel` left the same position when UTA-0057 derived its tail on 2026-09-06 |
+| INV-2 | **Partial:** `tests/unit/PackageMalformedTest.cpp` and its assertions alone. No memory checker runs it — the only sanitizer leg is ThreadSanitizer — so an out-of-span read the corpus does not provoke is caught by nothing until an AddressSanitizer leg or a fuzzer exists. Same grade, and the same reason, as UTA-0003's INV-1. **It reaches every reader named here**: `readModel` joined when UTA-0069 derived its layout on 2026-09-08, and `readLevel`'s remainder left that category when UTA-0057 derived it |
 | INV-3 | The grep in its *Test:* clause. The gate itself is UTA-0003's and `tests/unit/PackageReaderTest.cpp` covers it; this row is about a duplicated bound and nothing else. **Nothing runs that grep automatically** — it is not wired into `scripts/ci.sh`, so it is a check somebody performs rather than one the gate enforces |
-| INV-4 | **Partial:** the test asserts the refusal *names the count check*, so deleting that check is detectable. That bounds which check refuses, not the ordering: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has — the grade UTA-0003's INV-2 carries, for the same reason. Carries INV-2's `readModel` exception too |
+| INV-4 | **Partial:** the test asserts the refusal *names the count check*, so deleting that check is detectable. That bounds which check refuses, not the ordering: a reader that reserved first and still produced this message would pass. Bounding the allocation needs a counting allocator no harness here has — the grade UTA-0003's INV-2 carries, for the same reason. Reaches `readModel` too, by INV-2's route |
 | INV-5 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | INV-6 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |
 | INV-7 | `tests/unit/PackageContentTest.cpp`, a Catch2 unit test |

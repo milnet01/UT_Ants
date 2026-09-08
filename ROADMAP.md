@@ -434,6 +434,13 @@ model, no weapon and no opponent until 0.2.0.
   (rule 17), uui draws it (rule 18), and the exploration state that fills it in is
   0.4.0's.
   Blocked-by: reading level geometry.
+  Progress (2026-09-08): picked up by session ut-ants-c7. Unblocked by
+  UTA-0069, which shipped the Model BSP tables this reads.
+  Progress (2026-09-08): claimed then released by ut-ants-c7 without
+  starting work. UTA-0074 taken ahead of it on the user's priority order,
+  restated this session: outstanding fixes from any review come first,
+  backlogged ones included. Nothing was built here; this item is
+  untouched and still unblocked.
   **Layman:** Chop the level into rooms so the in-game map has something to draw, using the room divisions the original level already has.
   Kind: implement.
   Source: design-2026-09-03.
@@ -2388,7 +2395,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-07 standing-dependency-rule.
   Lanes: ci.
 
-- 📋 [UTA-0074] **UTA-0004's spec cites a test file that does not exist, and one claim in it is stale.**
+- 🚧 [UTA-0074] **UTA-0004's spec cites a test file that does not exist, and one claim in it is stale.**
   docs/specs/UTA-0004-typed-level-content.md names
   tests/unit/PackageMalformedContentTest.cpp in four places. No such file
   exists; the real one is tests/unit/PackageMalformedTest.cpp.
@@ -2412,6 +2419,8 @@ model, no weapon and no opponent until 0.2.0.
   handoff, which is not a place work survives.
 
   Blocked-by: nothing.
+  Progress (2026-09-08): picked up by session ut-ants-c7, ahead of
+  UTA-0007, on the user's restated priority order.
   **Layman:** A design document points at a test file by the wrong name, so nobody can check the promises it makes.
   Kind: doc-fix.
   Source: in-session-2026-09-08.
