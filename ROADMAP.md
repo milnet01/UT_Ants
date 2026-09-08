@@ -475,6 +475,33 @@ model, no weapon and no opponent until 0.2.0.
   - INV-3 says "within nodes.size() plane tests" where SS 4.3 says "past
     nodes.size()". An off-by-one in prose; the named test asserts termination
     only, so nothing builds differently.
+  Progress (2026-09-08): the build half landed by session ut-ants-c9 --
+  src/umap/Build.{h,cpp}, uta_umap_build with its own configure-time
+  closure assertion, tier-1 cases in tests/unit/RoomBuildTest.cpp, INV-7's
+  grep wired into scripts/ci.sh, and SS 7's tier-3 case in
+  tests/real/RealInstallTest.cpp. Item stays in-progress pending the gate
+  and the matrix.
+
+  Every tier-1 case was mutation-graded rather than trusted for passing.
+  Twenty-six mutations of the builder, all killed; five survived at first
+  and every one was a fixture that never reached the rule it named -- the
+  zone-0 guard (no leaf named zone 0), the corner tie-break (no component
+  touched itself), the refusedZones dedup (one refusal), the band
+  half-open edge (no room stood on one), and the node's own iZone record
+  (every fixture stopped at a leaf). Fixtures were added for each. Two
+  bounds checks were separately graded under AddressSanitizer.
+
+  The build was the third reviewer, as review-contract SS At the cap says.
+  It found a defect in SHIPPED code -- UTA-0078, upkg reading a BSP node's
+  front and back children the wrong way round -- and four things this spec
+  had not settled, all now recorded in it: SS 4.4's cell extent, SS 4.5's
+  missing band 0 when no room is sampled, INV-2's probe set needing two
+  more exclusions, and SS 7's argument for the hard form being falsified by
+  measurement (UTA-0079 carries what that leaves open).
+
+  Of the deferred tail, Model::boundsValid is settled: an invalid box is
+  not a measurement, so it yields no samples, which is the state SS 4.4
+  step 3 already defines. The other four are untouched.
   **Layman:** Chop the level into rooms so the in-game map has something to draw, using the room divisions the original level already has.
   Kind: implement.
   Source: design-2026-09-03.
@@ -2685,6 +2712,79 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: ci.
 
+- ✅ [UTA-0078] **upkg read a BSP node's front and back children the wrong way round.**
+  UE1's FBspNode stores iBack BEFORE iFront. readBspNode read them in the
+  opposite order.
+
+  Why nothing caught it. UTA-0069 SS 4.5 settled each table by a
+  parse-success walk -- the failure count at that table collapsing when the
+  layout was corrected. Swapping two ADJACENT fields of the same wire type
+  changes no byte count and no failure count, so that method is blind to it
+  by construction. The order was taken from the field names, which is the
+  one part of the layout the walk never tested. The same blindness applies
+  to every other adjacent same-type pair in these layouts.
+
+  What caught it was UTA-0007's INV-2, written today: the descent held
+  against each node's OWN zone record, which is a ground truth no descent
+  produced. On one map, 0 of 11451 probes agreed before the swap and 11406
+  after. Across the reference install, 21803383 disagreements of 24304564
+  became 30399 of 11126404.
+
+  No unit test can detect this. tests/support/UnrealPackageBuilder writes
+  what the reader reads, so a round trip through it agrees with itself
+  whichever order both use. The real-asset tier is the only detector, it is
+  off by default, and UTA-0007 SS 10 already said this defect is invisible
+  to every check that runs by default.
+
+  Nothing else in the tree reads these fields: iFront and iBack appear only
+  in src/upkg/Geometry.{cpp,h}, src/umap/{Build,Rooms}.cpp, the tests and
+  two specs. Corroborated independently by session ut-monsterhunt-08, which
+  searched its own ut-dump corpus tooling and found the only hit to be an
+  unrelated wiring-graph array.
+  **Layman:** The code that reads a level's shape had two fields swapped, so anything asking "which room is this point in?" got the wrong answer almost every time. Found and fixed.
+  Kind: fix.
+  Source: in-session-2026-09-08.
+  Lanes: upkg.
+
+- 📋 [UTA-0079] **0.27% of INV-2 probes disagree for no reason yet found.**
+  UTA-0007 SS 7 asks INV-2 for the HARD form -- zero disagreeing probes
+  across the install. After the UTA-0078 field-order fix the count is 30399
+  of 11126404, so the tier-3 case asserts under 1% instead and says so in
+  place.
+
+  That substitution is defensible on a measurement SS 7 did not have. Its
+  argument against a rate was that a swapped convention would still score
+  near 100%; measured, it scores ZERO. The defect is catastrophic rather
+  than marginal, so a 1% ceiling catches it with a factor of three hundred
+  to spare. What a rate does NOT catch is a small future regression, which
+  is the cost being accepted here.
+
+  Four hypotheses were tested and each is excluded -- the count moved by at
+  most one across all of them:
+
+  1. Nodes the descent cannot reach. Coplanar detail hung off the tree by
+     iPlane is ~36% of a map's nodes, and so is any subtree whose own root
+     is one of those. Excluded by a walk from node 0; residual unchanged.
+  2. Probes not strictly inside their own cell. Verified against every
+     ancestor plane for side and for a margin of one nudge. Residual
+     unchanged. Measuring the path the probe TOOK is the wrong test and was
+     the first attempt; the ancestry walk replaced it.
+  3. A shared BSP subtree making the ancestry ambiguous. Measured: every
+     node has at most one parent, so the graph is a tree and the ancestry
+     is exact.
+  4. Leaf or zone indices out of range. The census reports 0 of 5720281
+     leaves out of range and 0 naming zone 0, and 0 builds refused.
+
+  Worth trying next: whether the residual concentrates in particular maps
+  or is spread evenly, which separates content from a systematic cause; and
+  whether roomAt's float plane test and the probe's double one disagree at
+  large coordinates, which the margin was sized to prevent but which was
+  not measured directly.
+  **Layman:** Our check that the room lookup agrees with the level file is right 99.7% of the time. The last 0.3% is unexplained, so the check is set just below it rather than claiming perfection.
+  Kind: investigate.
+  Source: in-session-2026-09-08.
+  Lanes: umap.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -3600,3 +3700,53 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: test.
   Source: user-decision-2026-09-06.
   Lanes: ci, ugame.
+
+- 📋 [UTA-0080] **A client joining a server fetches the maps it does not have.**
+  Asked for by the user on 2026-09-08, with both decisions taken then.
+
+  BOTH routes, redirect preferred and the in-game channel as the fallback.
+  An HTTP redirect is what nearly every live UT99 server actually uses: the
+  server hands the client a web address and the file comes from there, which
+  is fast and keeps file serving out of the game protocol. The native
+  channel carries the file down the game connection itself and needs no web
+  host, which is what makes it the fallback rather than the omission.
+
+  1.0.0, alongside UTA-0038. A player joining the live Monster Hunt
+  rotation without the map is exactly the problem that milestone exists to
+  solve, and it needs client/server networking that no earlier milestone
+  builds.
+
+  THE SECURITY PROBLEM IS THE DESIGN PROBLEM, and it is why this wants a
+  spec before any code. UT99's own version of this feature is a known
+  malware route: a server hands a client arbitrary package files, and a
+  UT99 `.u` package carries executable UnrealScript. A client that accepts
+  whatever a server sends has given that server code execution. Three
+  things follow and none is optional:
+
+  - Accept only the file the server actually named, to a path the client
+    chose, never a path from the wire.
+  - Decide what a downloaded package is ALLOWED to be. A map is content; a
+    code package is not the same risk and probably is not accepted at all.
+  - Design rule 18's shape applies here too -- a client cannot be made to
+    trust what the server sends just because the server sent it.
+
+  Blocked-by: client/server networking, which no item builds yet.
+  Timing, from the user 2026-09-08: in UT99 the download happens AT MAP
+  CHANGE, during a session -- the server switches to the next map in the
+  rotation and the client fetches it then, behind the loading screen. It is
+  not a pre-join or lobby step.
+
+  That places this on the map-change path rather than beside the connect
+  handshake, and it sets what the player sees: a wait between maps, with
+  progress, and a way for the fetch to fail without dropping the player
+  from the server. A client that cannot get the map is the case to design
+  for, not the exception -- UT99's own answer is that the player is
+  disconnected, which is the behaviour worth improving on.
+
+  It also means the download budget is a map change, not a first join: the
+  rotation keeps moving, so a slow fetch holds up one player rather than
+  the server.
+  **Layman:** If you join a server running a map you have never played, the game gets it for you instead of turning you away -- the way UT99 does.
+  Kind: feature.
+  Source: user-request-2026-09-08.
+  Lanes: unet, ubundle.
