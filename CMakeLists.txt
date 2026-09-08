@@ -195,6 +195,11 @@ endif()
 
 option(UTA_BUILD_TESTS "Build the test suite" ON)
 
+# The command-line tools. ON by default: they link only libraries this
+# build already produces, so a clone with no Unreal Tournament builds them
+# exactly as it builds everything else, which is what S7 is measured on.
+option(UTA_BUILD_TOOLS "Build the command-line tools" ON)
+
 # The second test tier. OFF by default so a clone with no Unreal Tournament
 # builds and tests clean, which is what S7 is measured on. Turning it on
 # without a path is a configure error rather than a silently empty run.
@@ -208,6 +213,10 @@ if(UTA_REAL_ASSET_TESTS AND NOT UTA_UT_INSTALL_DIR)
 endif()
 
 add_subdirectory(src)
+
+if(UTA_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
 
 if(UTA_BUILD_TESTS)
     enable_testing()
