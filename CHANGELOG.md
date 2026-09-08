@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`ubundle` defines the `.utab` container and the origin field that travels with it** (UTA-0008)
+  Our own file format for a finished level -- and the one field that
+  records whether any of its content came out of somebody's copy of
+  Unreal Tournament. A tool that must not link the engine can read the
+  first sixteen bytes and answer that question alone.
+
 - **`umap` partitions a level into rooms and answers which room a point is in** (UTA-0007)
   A level's own zones become rooms, each with a traced 2D outline and a
   floor band, plus a lookup that answers which room any point falls in.

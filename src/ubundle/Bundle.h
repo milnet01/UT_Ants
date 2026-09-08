@@ -1,0 +1,119 @@
+// The `.utab` container: the header, the section table, and the origin field.
+//
+// docs/specs/UTA-0008-bundle-container-and-origin.md.
+//
+// SCOPE: the file layout and its version, never the meaning of a section's
+// contents. This library links uta_core, uta_umap and uta_unav and NOTHING
+// else -- INV-10, asserted at configure time in src/ubundle/CMakeLists.txt.
+// It must not reach uta_upkg: docs/design.md rule 2 keeps the package reader
+// out of every runtime target, and ut-ants links this library to load a
+// bundle (UTA-0016).
+//
+// NO FILE I/O HAPPENS HERE. `read` takes bytes the caller owns and `write`
+// returns a vector; opening files is uta::fs's. That is what lets every case
+// in tests/unit/ run without a filesystem.
+//
+// FAIL CLOSED. Origin::Derived is the ZERO value, deliberately -- SS 3
+// decision 4. A byte zeroed by a partial write therefore reads as the
+// restrictive value, so the failure it produces is a bundle wrongly withheld
+// rather than one wrongly published (docs/design.md rule 15).
+
+#pragma once
+
+#include "core/Error.h"
+#include "umap/Rooms.h"
+#include "unav/Graphs.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <span>
+#include <vector>
+
+namespace uta::ubundle {
+
+/// The only version this reader accepts. SS 4.3 checks it for EQUALITY, not
+/// as a lower bound: there is no such thing as a later version's file this
+/// reader should tolerate, so a mismatch is UnsupportedVersion before the
+/// section table is read.
+inline constexpr std::uint32_t FORMAT_VERSION = 1;
+
+/// The header's own size, and the offset the section table begins at. There
+/// is no table-offset field in the format -- SS 4.3 -- because a field whose
+/// value is always 16 is a field that can be wrong.
+inline constexpr std::size_t HEADER_SIZE = 16;
+
+/// One section descriptor -- SS 4.4.
+inline constexpr std::size_t SECTION_DESCRIPTOR_SIZE = 24;
+
+/// Where a bundle's content came from -- SS 4.5, docs/design.md rule 15.
+enum class Origin : std::uint8_t {
+    Derived = 0,  ///< something out of somebody's UT install contributed
+    Authored = 1, ///< nothing did
+};
+
+/// The most restrictive of two origins. Derived wins.
+///
+/// NOT a maximum and NOT a bitwise OR over the numeric values: with
+/// Derived = 0 both return Authored for (Authored, Derived) -- the
+/// publishable value, from an input that touched an install. INV-12.
+[[nodiscard]] constexpr Origin combine(Origin a, Origin b) noexcept {
+    return (a == Origin::Authored && b == Origin::Authored) ? Origin::Authored
+                                                            : Origin::Derived;
+}
+
+/// What the container holds. `Character` names no sections in this version;
+/// the byte is present now because adding it later would bump the format
+/// version, and docs/standards/versioning-overrides.md SS Breaking surfaces
+/// records what that costs -- SS 4.3.
+enum class BundleKind : std::uint8_t { Map = 0, Character = 1 };
+
+struct BundleHeader {
+    std::uint32_t formatVersion = FORMAT_VERSION;
+    Origin origin = Origin::Derived;
+    BundleKind kind = BundleKind::Map;
+};
+
+/// A bundle's contents.
+///
+/// A section absent from the file is an empty optional, which is DISTINCT
+/// from a present but empty one -- SS 4.4. An empty NavGraph says the level
+/// was examined and had no navigation points; an absent NAVG says nothing.
+struct Bundle {
+    BundleHeader header;
+    std::optional<umap::RoomMap> rooms;
+    std::optional<unav::NavGraph> nav;
+    std::optional<unav::WiringGraph> wiring;
+};
+
+/// Decode a whole bundle.
+///
+/// Total: every input returns. Never throws, never reads outside `bytes`,
+/// and never sizes an allocation from a count the file supplied before that
+/// count has been checked against the bytes remaining in its own section
+/// (INV-1, INV-2). A successful result satisfies every structural rule
+/// SS 4.9 lists (INV-3).
+[[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
+
+/// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
+/// WIRG, omitting absent ones, and the output is byte-identical for equal
+/// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
+/// names a bundle by the hash of its own contents.
+///
+/// A bundle whose structures violate SS 4.9 is refused with InvalidArgument
+/// rather than written, so a bad bundle cannot be produced here and then
+/// blamed on the reader.
+[[nodiscard]] Result<std::vector<std::byte>> write(const Bundle& bundle);
+
+/// The header alone, from the first 16 bytes -- UTA-0013's entry point.
+///
+/// It validates the header's OWN fields and nothing else: magic,
+/// formatVersion, origin, kind and reserved. It does NOT apply SS 4.4's
+/// sectionCount bound, and must not -- that rule needs the file's total size,
+/// which a caller holding sixteen bytes does not have. A readHeader that
+/// applied it would refuse every valid bundle, and under SS 4.5's fail-closed
+/// rule every refusal reads as "not authored", so the quarantine guard would
+/// block every push of an authored bundle while looking like it was working.
+[[nodiscard]] Result<BundleHeader> readHeader(std::span<const std::byte> bytes);
+
+} // namespace uta::ubundle

@@ -554,6 +554,12 @@ model, no weapon and no opponent until 0.2.0.
   compressed in version 1. Still held by session ut-ants-c8;
   implementation has not started, so the item stays in-progress rather
   than returning to planned.
+  Progress (2026-09-08): resumed by session ut-ants-02. The prior
+  holder ut-ants-c8 is not in ListAgents, so the 🚧 was abandoned per
+  CLAUDE.md § Running two sessions rule 2. Item stays 🚧, now held by
+  ut-ants-02. Implementing from the accepted spec: src/ubundle/,
+  tests/unit/BundleFormatTest.cpp and BundleMalformedTest.cpp. Lane is
+  still ubundle, sharing no directory with UTA-0012's upkg.
   **Layman:** Our own file format for a finished level -- and the field that records where its content came from, which is what keeps Epic's material off the network.
   Kind: implement.
   Source: design-2026-09-03.

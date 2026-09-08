@@ -19,6 +19,8 @@ add_library(uta_test_support STATIC support/UnrealPackageBuilder.cpp)
 target_include_directories(uta_test_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_executable(uta_unit_tests
+    unit/BundleFormatTest.cpp
+    unit/BundleMalformedTest.cpp
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
     unit/CoreFileSystemTest.cpp
@@ -38,8 +40,8 @@ add_executable(uta_unit_tests
     unit/RoomMapTest.cpp
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
-                                            uta_umap uta_umap_build uta_test_support
-                                            Catch2::Catch2WithMain)
+                                            uta_umap uta_umap_build uta_ubundle
+                                            uta_test_support Catch2::Catch2WithMain)
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
 # deadlock, and without a bound it hangs the run instead of failing it.
