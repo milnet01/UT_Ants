@@ -591,6 +591,13 @@ model, no weapon and no opponent until 0.2.0.
   hundreds.
   Reads uworld and never writes to it (rule 5).
   Blocked-by: ubundle.
+  Constraint (2026-09-08): UTA-0075 requires this render path to carry a
+  sub-pixel camera jitter and write a per-pixel motion-vector buffer, and
+  to composite the UI after upscaling rather than into it. Those are the
+  shared inputs of every temporal upscaler and of TAA. A velocity buffer
+  is written by every draw that moves, so it is not a post-process that
+  can be bolted on afterwards -- read UTA-0075 before settling the render
+  graph, or adding it later touches every pass.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
@@ -2424,6 +2431,79 @@ model, no weapon and no opponent until 0.2.0.
   **Layman:** A design document points at a test file by the wrong name, so nobody can check the promises it makes.
   Kind: doc-fix.
   Source: in-session-2026-09-08.
+
+- 📋 [UTA-0075] **urender: jitter the camera and produce a motion-vector buffer.**
+  The prerequisite every temporal upscaler shares, filed separately from the
+  integration because it is a constraint on UTA-0014's render graph rather
+  than a feature.
+
+  FSR, XeSS and DLSS take the SAME three inputs: a sub-pixel camera jitter
+  applied to the projection matrix each frame, a per-pixel motion-vector
+  buffer, and depth. All three also want a negative texture mip bias to match
+  the lower render resolution, and all three need the UI composited AFTER
+  upscaling rather than drawn into the upscaled image. Verified against
+  Intel's XeSS-SR developer guide and AMD's FSR documentation, which agree on
+  the input set and on motion vectors excluding jitter-induced motion.
+
+  So the choice of upscaler decides almost nothing here, and picking one
+  later costs nothing extra. What costs is building the first draw path
+  without provision for these: a velocity buffer is not a post-process bolted
+  on at the end, it is written by every draw that moves, and adding it after
+  the render graph is settled touches every pass.
+
+  It pays even if no upscaler is ever integrated: these are also exactly the
+  inputs temporal anti-aliasing needs, and TAA is wanted regardless.
+
+  Blocked-by: UTA-0014.
+  Note (2026-09-08): filed in 0.1.0 because it constrains the renderer built
+  there. It may move to a later milestone freely PROVIDED it lands before the
+  render graph has passes built on top of it -- the ordering is the point,
+  not the milestone.
+  **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit.
+  Kind: implement.
+  Source: user-request-2026-09-08.
+  Lanes: urender.
+
+- 📋 [UTA-0076] **Temporal upscaling: FSR 3.1 first, XeSS second.**
+  Integration, once the inputs item has landed. Researched 2026-09-08; the
+  ordering below is forced by this project's own constraints, not by quality
+  rankings.
+
+  **FSR 4 is ruled out and this is the load-bearing finding.** It is
+  DirectX 12 only and cannot be integrated into a Vulkan title. design.md
+  pins Vulkan 1.3 with no OpenGL fallback, so the newest and best-looking
+  AMD upscaler is simply unavailable to us. Do not spend time on it; check
+  whether that has changed before acting on this item, since it is the one
+  fact here most likely to move.
+
+  **FSR 3.1 is the first choice.** It is the release that added Vulkan
+  support, it is cross-vendor, and it is permissively licensed and shipped as
+  source rather than a signed binary -- which matters for a project that
+  builds on Linux and Windows from one tree.
+
+  **XeSS is the second.** It has a Vulkan path, and from SDK 2.1 its
+  networks run on non-Intel GPUs through DP4a, so it is not Arc-only. Its
+  Vulkan path does not support the external-descriptor-heap flag; that is a
+  note for whoever integrates, not an obstacle.
+
+  **DLSS is optional and last.** Vulkan-capable but NVIDIA hardware only and
+  proprietary, so it can never be the baseline -- it is an addition for the
+  players who have the hardware, worth doing only once one cross-vendor path
+  is working.
+
+  **Honest caveat on the premise.** Upscaling buys frames by rendering fewer
+  pixels, so it repays only where the GPU is the bottleneck. A UT99 map at
+  1999 geometry densities may well not be, and the renderer does not exist
+  yet to measure. What makes it plausible here is what UTA-0014 plans on top
+  of that geometry -- dynamic lights with shadow maps, PBR, volumetrics,
+  light shafts, ambient occlusion. Measure before integrating; the
+  prerequisite item is worth doing either way, this one is not.
+
+  Blocked-by: the motion-vector and jitter item, and UTA-0014.
+  **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
+  Kind: implement.
+  Source: user-request-2026-09-08.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
