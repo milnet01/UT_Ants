@@ -2224,6 +2224,41 @@ model, no weapon and no opponent until 0.2.0.
   ListAgents, so its claim was abandoned rather than damaged (CLAUDE.md
   rule 2). Nothing was left half-written. Next: the bounds residue, then
   lightmap bytes, per SS 4.6 file order.
+  Progress (2026-09-08, ut-ants-26): the lightmap element is a fixed
+  thirty bytes, and SS 4.5's layout for it is wrong in three ways at once.
+  Measured order: DataOffset as a raw i32, Pan, UClamp and VClamp one byte
+  each, UScale, VScale, iLightActors as a raw i32. SS 4.5 states two
+  leading compact indices and four-byte clamps.
+
+  Reading DataOffset as a compact index stranded the cursor for the whole
+  second run of tables: a first byte of 0x85 decodes to -5 and consumes
+  one byte where the field is four. So the walk reached the later tables
+  misaligned and blamed whichever one it stopped in. bounds carried the
+  largest bucket while being correct -- of the exports refusing there,
+  2191 declared zero bounds and 2047 a negative count, and no element
+  width explained more than six.
+
+  Derivation: swept the element width against a signature requiring the
+  rest of the export to land exactly on its final byte. Thirty is the sole
+  fit for 9455 exports, against eighteen for the runner-up, so this is not
+  the alias trap. Corroborated semantically as well -- DataOffset lands
+  inside the export's own LightBits array and never decreases,
+  iLightActors is -1 or indexes Lights, and both scales are finite and
+  positive, on all 306706 entries in the reference install. Reading the
+  scales two bytes earlier holds for 31 percent of them.
+
+  Install-wide: consumed exactly 550372 to 559932, refused 10980 to 1420.
+  The lightmap entries bucket is empty. Residue now, in file order --
+  lightmap bytes 408, bounds 195, leaf hulls 156, leaves 174, leaves count
+  19, lights 49, wrong end offset 185, package version below 62 234.
+  Packages whose largest Model parses 4 to 6 of 847, so INV-4 stays red.
+
+  Roughly 1.4 refusals per package now, across 842 of 847. That shape says
+  the residue is the one large level Model per map rather than a spread.
+
+  Shipped in c4783ca with three mutations killed. SS 4.5 and SS 4.6 now
+  disagree with the code; the amendment is a deliberate decision, not
+  folded into that commit.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
