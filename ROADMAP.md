@@ -428,7 +428,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: unav.
 
-- 📋 [UTA-0007] **umap: partition a level into rooms and answer which room a point is in.**
+- 🚧 [UTA-0007] **umap: partition a level into rooms and answer which room a point is in.**
   Built from the level's own BSP zones, so no map needs hand-authoring. Owns the
   simplified room model and the point-in-room lookup; ubundle owns its bytes
   (rule 17), uui draws it (rule 18), and the exploration state that fills it in is
@@ -441,6 +441,12 @@ model, no weapon and no opponent until 0.2.0.
   restated this session: outstanding fixes from any review come first,
   backlogged ones included. Nothing was built here; this item is
   untouched and still unblocked.
+  Progress (2026-09-08): picked up by session ut-ants-c7, in the main
+  checkout. Clears the release note above -- UTA-0074 was taken ahead of it
+  and shipped at 290252c. Starting with the spec: spec-format.md SS 1 fires
+  on three triggers here (a contract ubundle serialises and uui draws per
+  design rule 17, an on-disk shape that is hard to reverse, and a real
+  design choice about what a room IS).
   **Layman:** Chop the level into rooms so the in-game map has something to draw, using the room divisions the original level already has.
   Kind: implement.
   Source: design-2026-09-03.
