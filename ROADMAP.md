@@ -2947,6 +2947,78 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: docs.
 
+- 📋 [UTA-0082] **0.1.0's planned count includes seven items deferred out of its cut condition.**
+  UTA-0044, UTA-0045, UTA-0053, UTA-0054, UTA-0055, UTA-0075 and UTA-0076
+  each carry a "Deferred out of 0.1.0" annotation, made on the user's
+  call. They still sit in this section, so anyone COUNTING its planned
+  items gets a number seven too high. Anyone READING them sees the truth,
+  which is why this is a presentation defect and not a lost decision.
+
+  The agreed fix (user, 2026-09-08) was one line in this section's intro
+  saying so. That is not writable: the intro is held in the roadmap store
+  and no roadmap_log op amends it, and a hand edit is discarded by the
+  next render of any kind -- measured, with `discarded_text` naming the
+  inserted line, and the file verified byte-identical afterwards. Filed
+  in the Ants MCP feedback file as a request for an amend_intro op.
+
+  Moving the seven is the other route and is blocked on the same tooling:
+  there is no op to move an item between sections. Re-filing them with
+  new ids in a later section would fix the count and break the
+  cross-references in their bodies, which is why the user was asked and
+  has deliberately not chosen it.
+
+  So this item is the note, standing in for the intro line until either
+  op exists. Do it by writing that line and deleting this, not by
+  re-filing seven items.
+  **Layman:** The list of work for the first release counts seven things that were already decided not to be in it, so the release looks further away than it is.
+  Kind: doc.
+  Source: in-session-2026-09-08.
+  Lanes: docs.
+
+- 📋 [UTA-0083] **Generalise the mutation probe past its hand-written mutation list.**
+  scripts/mutation-probe.py shipped 2026-09-08 with one subject, ubundle,
+  and 57 mutations written out by hand. It earned its place immediately:
+  it found four fixtures grading a rule OTHER than the one they named,
+  all four passing, all four reading correctly. CLAUDE.md SS Build and
+  test records the same failure from UTA-0007, so this is a defect class
+  this project keeps hitting rather than a one-off.
+
+  The problem is the list. Fifty-seven string literals matched against
+  source text go stale the moment the source is reformatted, and the
+  NOT-APPLIED and NOT-UNIQUE states exist only to say so out loud. A hand
+  list also never grows: nobody writes 57 more for umat.
+
+  What is already right and should not be redone: the three traps are
+  paid for and encoded -- restore by rewriting and touching (an older
+  mtime lets ninja skip the rebuild), baseline the FILTER and not just
+  the suite (a Catch2 tag matching nothing exits non-zero, so every
+  mutation reads as killed), and never a ulimit around a sanitizer binary
+  (ASan's shadow map needs terabytes of address space; a cap kills it at
+  startup, which also reads as killed). Also right: expected_survivors,
+  which distinguishes a redundant rule from an ungraded one, and the
+  non-zero exit on a NEW survivor, which is what makes it CI-able.
+
+  Two directions, and the second is the cheaper one to try first.
+
+  1. Generate the mutations from the source rather than listing them --
+     swap adjacent same-width same-type field reads, negate a comparison,
+     delete a guarded return. That is a small C++-aware rewriter, and
+     getting it wrong produces mutations that do not compile rather than
+     wrong answers, so the failure mode is cheap.
+
+  2. Leave the lists hand-written and make writing one cheap: a spec's
+     invariants already name their rules, and spec_query returns them.
+     A probe keyed to invariant ids would report per-INV rather than per
+     string, which is the number a reader wants anyway.
+
+  Not for CI as it stands: the ubundle run is 57 rebuilds. Per-subsystem,
+  on demand, before flipping an item to shipped, is the cadence it was
+  used at and is affordable.
+  **Layman:** We have a tool that deliberately breaks one rule at a time and checks a test notices. It works, but the list of things to break is written out by hand for one subsystem, so nobody will keep it up.
+  Kind: test.
+  Source: in-session-2026-09-08.
+  Lanes: tests.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
