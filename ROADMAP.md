@@ -3178,6 +3178,32 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
 
   Blocked-by: the core weapon set, which is what produces a sound loud
   enough to test against.
+  Widened (user, 2026-09-08): the same complaint, raised again with the
+  same weapon, but "it overwhelms the sound" has a second reading this
+  item did not cover and both are wanted.
+
+  The requirement as filed is about PRIORITY -- speech ducking a loud
+  weapon so the announcer stays audible. That is one half. The other is
+  VOICE COUNT: the flak cannon's shrapnel spawns many near-simultaneous
+  impact sounds, and dozens of voices summing at once saturate the master
+  bus. That clips and muddies the mix EVEN IF the ducking works
+  perfectly, because nothing is competing for priority -- it is one
+  category drowning itself.
+
+  So this item owns both, and they need different mechanisms. Priority is
+  category gain or a compressor keyed on the speech bus. Voice count is a
+  polyphony cap per sound cue with priority-based stealing, plus
+  near-coincident identical impacts collapsing to one voice rather than
+  N. A mixer that solves one and not the other still has the defect the
+  user reported.
+
+  Measurable in the same spirit as the existing rule, and worth stating
+  separately: firing the loudest weapon continuously, the master bus does
+  not clip and the shrapnel reads as one dense impact rather than a
+  wall. Whoever builds this states both measurements.
+
+  Still 0.2.0 and still blocked by the core weapon set -- there is no
+  weapon to overwhelm anything with yet.
   **Layman:** Make sure the important sounds -- the announcer, warnings -- are still audible when a loud weapon is firing, instead of being buried.
   Kind: implement.
   Source: user-request-2026-09-05.
