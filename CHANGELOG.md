@@ -17,6 +17,24 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`umap` partitions a level into rooms and answers which room a point is in** (UTA-0007)
+  A level's own zones become rooms, each with a traced 2D outline and a
+  floor band, plus a lookup that answers which room any point falls in.
+  The map screen has something to draw and the server has something to
+  record exploration against; neither needs the package reader.
+
+  Outlines are traced from the level's own geometry rather than drawn as
+  rectangles, and rooms are split into floor bands, so a tower reads as
+  floors rather than as one flattened blur. A zone occupying two separate
+  volumes is one room with two parts. A room too thin to catch a sample is
+  kept and reported rather than dropped silently.
+
+  Two libraries from one directory: the runtime links the room types and
+  the lookup alone, and the builder that reads packages is bake-side only.
+  Both link closures are asserted when the build is configured, because a
+  convenience dependency added later is how that boundary stops being
+  checkable with nothing else failing.
+
 - **`unav` extracts a level's navigation graph and its event-wiring graph** (UTA-0006)
   Two graphs every UT99 level already contains, pulled out as data: where
   a player can walk, and which switch opens which door. The first joins
@@ -121,6 +139,25 @@ appears once something has actually shipped.)
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **A BSP node's front and back children were read the wrong way round** (UTA-0078)
+  The package reader took a level's two branch links in the opposite order
+  to the one the file stores them in, so every "which room is this point
+  in?" answer was wrong. Shipped since the BSP tables landed and invisible
+  until now.
+
+  Nothing could have caught it earlier. That layout was verified by
+  checking the file parses cleanly, and swapping two neighbouring fields of
+  the same width changes nothing about parsing -- the order came from the
+  field names, which is the one thing that check never tests. No unit test
+  can see it either, because the test package writer writes what the reader
+  reads and a round trip agrees with itself whichever order both use.
+
+  What found it is UTA-0007's new check against the real game install,
+  which holds the lookup against what each node of the level file itself
+  records. Before the fix, 0 of 11451 probes on one map agreed; after,
+  11406. Across the reference install, 21803383 disagreements of 24304564
+  became 30399 of 11126404.
 
 - **fileSink says why it could not open its log file** (UTA-0048)
   It returned a sink that silently did nothing, so a first run with no log

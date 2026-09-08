@@ -2807,6 +2807,30 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: umap.
 
+- 📋 [UTA-0081] **Four shipped items have no CHANGELOG entry.**
+  Found 2026-09-08 by comparing the ids CHANGELOG.md cites against the ids
+  ROADMAP.md marks shipped. Missing: UTA-0043, UTA-0058, UTA-0069 and
+  UTA-0074. UTA-0007 and UTA-0078 shipped the same day and were written up
+  in that session, so they are not in this list.
+
+  Not written up here because they are not this session's work, and
+  releases.md SS 7 calls drafting a changelog from a commit range an
+  anti-pattern -- an entry says what a change MEANS to a reader, which the
+  diff does not carry. Each wants the session that shipped it, or the user,
+  to say what it delivered.
+
+  UTA-0069 is the one to do first. It shipped the Model BSP tables that
+  UTA-0007 and UTA-0078 both build on, and the release notes for this
+  milestone read oddly without it.
+
+  Worth a check rather than a habit: the comparison above is two greps and
+  it caught four misses, so it belongs in the release pre-flight rather
+  than in a person's memory. cut-release --check is where that would sit.
+  **Layman:** Four finished pieces of work were never written up in the list of what changed, so anyone reading that list would think they had not happened.
+  Kind: doc.
+  Source: in-session-2026-09-08.
+  Lanes: docs.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
