@@ -2386,6 +2386,24 @@ model, no weapon and no opponent until 0.2.0.
   and the new FLeaf, SS 4.1 returns leaves, and INV-4, SS 6 and SS 8
   follow. No review gate re-armed -- CLAUDE.md rule 14's own instance for
   an amendment recording what was built.
+  Corroboration (2026-09-08), REPORTED NOT VERIFIED HERE. The
+  ut-monsterhunt-bc session ran readModel and readLevel over 1110 freshly
+  downloaded maps -- content that has never been in the reference install and
+  that neither this item's tests nor UTA-0057's have ever seen. Every one
+  opened, every one yielded a readable Level, in 84 seconds, zero failures;
+  1037 were judged clean enough to play. Earlier the same session put the whole
+  reference install at 67s cold and 14s warm for both graphs plus the full
+  read, ~1 GB peak RSS.
+
+  Recorded because it is the strongest external evidence these readers have --
+  the install is the corpus they were derived FROM, so agreement there is
+  partly circular, and this is not. It is filed here rather than in the spec
+  for two reasons: this session did not run it and cannot point at a command or
+  an output that backs it, and UTA-0069's spec is accepted with its gate
+  complete. Treat it as a lead worth re-measuring, not as a figure to cite.
+
+  Same caveat applies to UTA-0057, whose readLevel tail the run exercised
+  equally.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
