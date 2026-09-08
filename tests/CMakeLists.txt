@@ -34,10 +34,11 @@ add_executable(uta_unit_tests
     unit/PackagePropertiesTest.cpp
     unit/PackageReaderTest.cpp
     unit/PackageScriptTest.cpp
+    unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
-                                            uta_umap uta_test_support
+                                            uta_umap uta_umap_build uta_test_support
                                             Catch2::Catch2WithMain)
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
@@ -46,7 +47,7 @@ catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
 
 if(UTA_REAL_ASSET_TESTS)
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp)
-    target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_unav_build
+    target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        Catch2::Catch2WithMain)
     target_compile_definitions(uta_real_asset_tests
         PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}")

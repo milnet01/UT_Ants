@@ -359,7 +359,11 @@ a descent would have to walk to find. So this samples the model's own
    from clustering for exactly that reason. Without that exclusion a room
    with no samples clusters at zero and invents a band below the level.
 4. **Project each bucket to XY.** A cell is IN for a room when at least one
-   sample in that column, at any Z, resolved to it.
+   sample in that column, at any Z, resolved to it. **A cell is the square of
+   `sampleSpacing` CENTRED on its column's sample** — recorded 2026-09-08,
+   because this step did not say where a cell's edges fall and the two
+   readings place every footprint half a cell apart. `parts` is serialised,
+   so two conforming builders must not differ here.
 5. **Trace each connected component separately.** Marching squares over the
    IN set yields closed rings. Group them by connected component: each
    component becomes one `Footprint`, its outer ring `outer` and any ring
@@ -412,7 +416,11 @@ a property of how rooms stack rather than of any surface:
    a lift shaft appears on each floor it connects rather than vanishing
    between them. INV-8 locks the never-empty half.
 5. **A room with an empty bucket joins band 0** — it has no measured extent to
-   overlap with, and INV-8 requires every room to sit on some band. It draws
+   overlap with, and INV-8 requires every room to sit on some band. **Where a
+   level's rooms ALL went unsampled there is no band 0 to join, so the build
+   opens one at z = 0** — recorded 2026-09-08; without it INV-8 is unmeetable
+   on that level. A level with no rooms at all still gets no bands, which is
+   what § 6 calls "no rooms and no bands". It draws
    nothing, having no footprint, so the band it nominally occupies costs the
    map screen nothing.
 
@@ -493,6 +501,23 @@ light references are not carried, because the lookup does not read them.
   displaced along `plane.normal` by a small multiple of the level's own scale.
   Both tables are members of `Model`. A node with no vertex pool is skipped
   rather than probed.
+
+  **Three restrictions on the probe set, not one, and the last two were
+  derived by building this.** Recorded 2026-09-08 from the measurement in
+  UTA-0078 and UTA-0079; each is the same argument the first one makes.
+
+  - **A node the descent cannot REACH is not probed.** Coplanar detail hung
+    off the tree by `BspNode::iPlane` is never visited by a front/back walk,
+    and neither is a subtree whose own root is one of those — measured, about
+    36% of a map's nodes. So the test is a walk from node 0, not a test of
+    `iPlane`.
+  - **A probe not strictly inside its own node's cell is not probed.** The
+    cell is what the node's ancestors' planes cut out; a probe within one
+    nudge of an ancestor plane is placed by the `>= 0` tie-break rather than
+    by geometry, and one on the wrong side of an ancestor is in another
+    node's cell. Walking the probe down and measuring what it passes is the
+    WRONG test: that measures the path it took, which differs exactly when it
+    went somewhere else.
 
   **Only a side whose child is `INDEX_NONE` is probed, and that restriction is
   what makes the invariant true rather than merely strict.** § 4.3 step 3
@@ -601,14 +626,23 @@ Three tiers, matching the project's existing split.
    of the suite rather than a claim in this document somebody must re-measure
    by hand.
 
-   **INV-2 is asserted in the HARD form: zero disagreeing probes, across the
-   whole install — not a rate.** § 4.2 measured zero leaves out of range and
-   zero naming zone 0, so the data supports the hard form, and a rate would
-   not do the job this invariant exists for: a swapped front/back convention
+   **INV-2 is asserted at under 1% disagreeing probes, and the HARD form this
+   section asked for is not met.** Amended 2026-09-08 from what building it
+   measured; UTA-0079 carries the open question.
+
+   The argument for the hard form was that "a swapped front/back convention
    is wrong at *every* probe, so any threshold below 100% passes exactly the
-   defect being hunted. The printed CENSUS is a population figure; the
-   ASSERTION is per-probe. Those are different things and this tier does
-   both.
+   defect being hunted". The first half is right and the second does not
+   follow. Measured, that swap scores **zero** agreements — 0 probes of 11451
+   on one map — so it is catastrophic rather than marginal, and a ceiling
+   three hundred times under it still catches it. That measurement is
+   UTA-0078, which the hard form found.
+
+   What it costs: 30399 probes of 11126404 disagree, and no hypothesis tested
+   accounts for them. A rate does not catch a small future regression, which
+   is the price of not yet knowing why. The printed CENSUS is a population
+   figure; the ASSERTION is per-probe. Those are still different things and
+   this tier does both.
 
 Each test is seen failing against pre-fix code before it is trusted. INV-2's
 case is the one that matters here: written against a descent with the

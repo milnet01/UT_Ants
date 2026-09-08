@@ -10,21 +10,20 @@
 # One directory rather than two, because two would make the split a
 # build-layout fact the root build file and every test target binds to, where
 # it is a link-closure fact.
-#
-# uta_umap_build is NOT here yet: buildRoomMap is the other half of UTA-0007
-# and lands with SS 4.4's sampling. Its closure assertion arrives with it. The
-# assertion below is INV-5's first half, which is the half that guards design
-# rule 2 -- uta_umap is the library a runtime target links.
 
 add_library(uta_umap STATIC Rooms.cpp)
 target_link_libraries(uta_umap PUBLIC uta_core)
 
-# INV-5's first half, asserted at configure time in the form
-# src/unav/CMakeLists.txt uses for UTA-0006's INV-6. The assertion names the
-# permitted entries rather than forbidding all, so it does not fail the moment
-# a line above is legitimately needed. A convenience dependency added to
-# uta_umap later is exactly how design rule 2's boundary stops being
-# checkable, and nothing else in the build would fail.
+add_library(uta_umap_build STATIC Build.cpp)
+target_link_libraries(uta_umap_build PUBLIC uta_umap uta_upkg)
+
+# INV-5, asserted at configure time in the form src/unav/CMakeLists.txt uses
+# for UTA-0006's INV-6. BOTH closures are checked, because which target may
+# reach upkg is the whole point of the split: uta_umap is what a runtime target
+# links, and a convenience dependency added to it later is exactly how design
+# rule 2's boundary stops being checkable, with nothing else in the build
+# failing. Each assertion names the permitted entries rather than forbidding
+# all, so it does not fail the moment a line above is legitimately needed.
 get_target_property(_uta_umap_links uta_umap LINK_LIBRARIES)
 if(NOT _uta_umap_links STREQUAL "uta_core")
     message(FATAL_ERROR
@@ -34,3 +33,13 @@ if(NOT _uta_umap_links STREQUAL "uta_core")
         "docs/design.md rule 2 keeps the package reader out of the game.")
 endif()
 unset(_uta_umap_links)
+
+get_target_property(_uta_umap_build_links uta_umap_build LINK_LIBRARIES)
+if(NOT _uta_umap_build_links STREQUAL "uta_umap;uta_upkg")
+    message(FATAL_ERROR
+        "uta_umap_build links '${_uta_umap_build_links}'. INV-5 in "
+        "docs/specs/UTA-0007-room-partition-and-lookup.md allows uta_umap and "
+        "uta_upkg, in that order, and nothing else. It is bake-side only: no "
+        "runtime target may link it.")
+endif()
+unset(_uta_umap_build_links)

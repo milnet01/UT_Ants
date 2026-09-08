@@ -105,6 +105,26 @@ printf '   %d markdown files, every relative link resolves.\n' "$(git ls-files '
 # the pipeline will apply. They cost about a second between them; the compiler
 # legs are what --docs exists to skip.
 
+step "umap holds no per-player state"
+# UTA-0007 INV-7, and design rule 18 is what it protects: a `visited` flag on
+# Room would be serialised into the bundle every client holds, which is the
+# wallhack that rule exists to prevent. Nothing else in the build would fail.
+#
+# The comment filter is load-bearing, not decoration. Any header documenting
+# why this state is absent must use the very words this hunts, so a pattern
+# matching every line would be falsified by the sentence documenting the rule.
+# UTA-0004's INV-3 failed exactly that way.
+#
+# It runs in BOTH modes. A grep costs nothing, and a guard that runs only on
+# the compiler legs is one a change can be routed around.
+if inv7=$(grep -nE '\b(visited|explored|seen|player|team)\b' src/umap/Rooms.h |
+    grep -vE ':[[:space:]]*(//|\*)'); then
+    printf 'ci: src/umap/Rooms.h carries per-player state, against UTA-0007 INV-7:\n' >&2
+    printf '%s\n' "$inv7" >&2
+    exit 1
+fi
+printf '   src/umap/Rooms.h clean.\n'
+
 step "shell scripts"
 # Two lists, and the difference is deliberate. shellcheck finds DEFECTS, so it
 # reads the git hooks too -- they run on every commit and push, and its first
