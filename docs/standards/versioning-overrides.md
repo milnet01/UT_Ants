@@ -54,6 +54,31 @@ required rather than encouraged:
 - A release whose section contains one leads with it, per
   `releases.md` § 2.
 
+## Which release an item belongs to
+
+**An item lands in the release whose FORMAT must carry it, not the release
+whose feature uses it.** `umap` (UTA-0007) and `unav` (UTA-0006) are both
+`0.1.0` work and neither is used by `0.1.0`: the level map is **S12**, which
+the table above cuts at `0.4.0`, and the wiring graph is what lets `0.4.0`'s
+bots solve door puzzles. They land at `0.1.0` because `ubundle` serialises
+both, and the map bundle format is the first breaking surface below — a change
+to it invalidates every cached bake. Deferring them to the release that uses
+them would mean re-baking every map at that point.
+
+**The test is narrow, and it is not licence to pull work forward.** Ask
+whether a format *this* release freezes has to carry the work. If it does, it
+lands here whatever uses it later. Work that merely relates to a later
+milestone, or that is simply convenient to do now, belongs to the release that
+names it. Without the narrowing this rule justifies anything, since almost any
+work can be argued to be cheaper now than later.
+
+**An item filed in a release's section is not evidence that the release needs
+it.** A release is cut on the signs of success its row names and on nothing
+else, so an item its row does not reach is not a reason to hold the release.
+Where an item has been deferred out of a release's cut condition, that is
+recorded in the item's own body — so read the bodies before counting a
+section's open items as work the release is waiting on.
+
 ## Breaking surfaces
 
 `versioning.md` § 3 asks each project to name its own, rather than borrow
