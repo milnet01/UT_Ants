@@ -3019,6 +3019,45 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: tests.
 
+- 📋 [UTA-0084] **A third session cannot tell that two already hold this project.**
+  `CLAUDE.md` § Running two sessions at once caps the project at two
+  sessions, and rule 3 gives the start-up test as `git worktree list` and
+  `ListAgents`. Neither answers the question the cap asks.
+
+  **`ListAgents` is machine-wide, not project-scoped.** Measured
+  2026-09-08 during the workflow-overrides gate: it returned
+  `ut-monsterhunt-05`, `claude-39`, `pressless-dd` and `ants-terminal-82`.
+  None works this project, and `claude-39` names no project at all. So a
+  starting session cannot read a count of this project's sessions off it.
+
+  `git worktree list` is project-scoped but answers a different question:
+  a worktree outlives the session that made it, so its presence proves
+  nothing about a live holder.
+
+  **The route that does work is already in the file, spread across two
+  rules.** Rule 1 has each session name itself in the 🚧 progress note;
+  rule 2 has `roadmap_query status:"in-progress"` list the held items, and
+  a holder not in `ListAgents` is abandoned. Together those identify live
+  holders BY NAME. Rule 3 does not say so, and a session following rule 3
+  alone learns nothing.
+
+  This is why the item is `investigate` rather than `doc-fix`: rewriting
+  rule 3 to name the 🚧-notes route is a change to the coordination
+  protocol, not a correction of a false sentence, and it should be decided
+  rather than patched. Worth settling first: whether a session name is
+  required to encode its project — nothing enforces that today, and
+  `claude-39` is the counter-example — because the whole route rests on
+  matching names.
+
+  **Not urgent, and the cap has held.** No third session has started, and
+  this session correctly detected an abandoned `UTA-0008` holder by
+  exactly the rules-1-and-2 route. The gap is that nothing DETECTS a
+  breach; it is prevented by each session checking honestly.
+  **Layman:** Two sessions may work this project at once. Nothing reliably tells a third one that the two slots are taken, so the limit rests on each session checking honestly rather than on anything that can detect a breach.
+  Kind: investigate.
+  Source: review-contract-2026-09-08 workflow-overrides loop 3.
+  Lanes: docs.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

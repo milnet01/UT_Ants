@@ -230,9 +230,15 @@ Two Claude Code sessions may work this project simultaneously, and **two
 is the cap** — two sessions, therefore at most two items in flight.
 **`workflow.md` § 1 already allows several sessions to work one project
 from separate worktrees, each holding one item, and sets no ceiling on
-how many. What this project adds is the ceiling of two**, recorded in
-`docs/standards/workflow-overrides.md` — § Overrides is what requires
-that. Corrected 2026-09-08: this read *"departs from `workflow.md` § 1,
+how many. What this project adds is the ceiling of two**, and this
+section is where it is stated — the ceiling is stricter than § 1 rather
+than a departure from it, so it needs no override file. **This is the
+only home for the rules below; do not restate them elsewhere.** A
+`docs/standards/workflow-overrides.md` carried them until 2026-09-08 and
+was retired at its own review gate, which found the second copy
+diverging from this one on every loop —
+`docs/reviews/workflow-overrides-loop-log.md` is the record.
+Corrected 2026-09-08: this read *"departs from `workflow.md` § 1,
 which allows exactly one item in flight"*, which was true when written
 and stopped being so when § 1's own gate changed the rule to *per
 session* on 2026-09-07.
