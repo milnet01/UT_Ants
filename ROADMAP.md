@@ -529,7 +529,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: umap.
 
-- 📋 [UTA-0008] **ubundle: define the .utab container, with its origin field and version.**
+- 🚧 [UTA-0008] **ubundle: define the .utab container, with its origin field and version.**
   The container for everything shipped as content: a baked map or an authored
   character. Owns the file layout and its version, never the meaning of a
   section's contents.
@@ -539,6 +539,12 @@ model, no weapon and no opponent until 0.2.0.
   community map draws on Epic's stock textures, so a per-map judgement would
   call it not-Epic's while its materials are Epic's throughout. Depends on unav and umap for
   their model types, never the reverse.
+  Progress (2026-09-08): held by session ut-ants-c8. Writing the spec
+  first -- spec-format.md § 1 fires on this four ways (a contract other
+  code binds to, a new on-disk shape, a real design choice in the origin
+  field, and version/forward-compatibility edge cases), and its closing
+  line settles the one-subsystem question outright. Lane is ubundle,
+  which shares no directory with UTA-0012's upkg.
   **Layman:** Our own file format for a finished level -- and the field that records where its content came from, which is what keeps Epic's material off the network.
   Kind: implement.
   Source: design-2026-09-03.
