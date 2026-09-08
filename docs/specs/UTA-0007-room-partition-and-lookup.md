@@ -1,6 +1,6 @@
 # UTA-0007 — `umap`: partition a level into rooms, and answer which room a point is in
 
-**Status:** spec draft (2026-09-08).
+**Status:** accepted (2026-09-08).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0007 (design-2026-09-03).
 
@@ -154,13 +154,16 @@ struct RoomMap {
 };
 
 inline constexpr std::uint32_t NO_ROOM = 0xFFFFFFFFu;
+/// Stored in leafZone for a leaf whose zone the build refused. Resolves to
+/// NO_ROOM, never to a room -- SS 4.6, SS 6.
+inline constexpr std::uint8_t ZONE_REFUSED = 0xFFu;
 
 /// What the bake may vary. Every default is ABSOLUTE: none is computed from
 /// another field, so two conforming builders given the same options produce
 /// the same map. SS 4.4 and SS 4.5 say what each one does.
 struct RoomBuildOptions {
-    /// A quarter of UT99's nominal 64-unit player width, so a doorway is
-    /// several cells across.
+    /// Half UT99's nominal 64-unit player width, so a doorway is several
+    /// cells across.
     float sampleSpacing     = 32.0f;
     /// Half the default spacing -- but a LITERAL, not a computation. A
     /// caller raising sampleSpacing does NOT move this, because a tolerance
@@ -176,7 +179,9 @@ struct RoomBuildOptions {
 /// `ubundle` writes -- it is bake diagnostics, and design rule 17 governs the
 /// room model rather than this.
 struct RoomBuildReport {
-    /// Zone indices that had samples but produced no footprint -- SS 4.4.
+    /// Zone indices of rooms that caught NO sample, so have no footprint
+    /// -- SS 4.4. A room that caught samples always traces (INV-6), so this
+    /// is the unsampled population and not a trace-failure population.
     std::vector<std::uint32_t> roomsWithoutFootprint;
     /// Zone indices named by a leaf but outside the zone table -- SS 6.
     std::vector<std::uint32_t> refusedZones;
@@ -298,7 +303,16 @@ The descent, stated once so the implementation and § 5 agree:
    of `leaves[n.iLeaf[side]]`.
 5. Otherwise the answer is `n.iZone[side]`.
 6. Zone 0 is **not** a room: it resolves to `NO_ROOM`. Any other zone maps
-   through `roomForZone`.
+   through `roomForZone`, **and a zone at or past `roomForZone.size()` is
+   `NO_ROOM`** rather than an index into it.
+
+**Every index this descent takes from the file is bounded before it is used.**
+A child index outside `nodes`, a leaf index outside `leafZone`, and a zone
+outside `roomForZone` each yield `NO_ROOM`. The iteration counter of the next
+paragraph bounds a *cycle*; it does not bound a *range*, and the two failures
+are different — a cyclic graph loops forever, an out-of-range index reads
+memory that is not ours. Both arrive from a file this project did not write.
+INV-3 covers both.
 
 **The descent is bounded by the node count.** A `Model` whose child indices
 form a cycle is malformed input from a file this project did not write, and an
@@ -321,9 +335,13 @@ Per § 3.1 the footprint follows the level's geometry. It is derived by **one
 sampling pass over the level, bucketed by room**, then a boundary trace — not
 by an exact polygon union of projected surfaces (§ 8), and **not from per-leaf
 geometry, because there is none**. `Leaf` carries `iZone`, `iPermeating`,
-`iVolumetric` and `visibleZones` and no extent of any kind; the only box the
-tables offer is the model's own `boundsMin` / `boundsMax`, and that is what
-this samples.
+`iVolumetric` and `visibleZones` and no extent of any kind. **The tables do
+carry per-NODE boxes** — `Model::bounds`, indexed by `BspNode::iCollisionBound`
+and `iRenderBound` — and they are deliberately not used here: they are keyed by
+node, the buckets wanted are keyed by zone, and a zone's nodes are exactly what
+a descent would have to walk to find. So this samples the model's own
+`boundsMin` / `boundsMax` instead. Bounding the grid per subtree from
+`Model::bounds` is a real optimisation and § 14 leaves it open.
 
 1. **One grid over the whole level.** Take `model.boundsMin` and
    `model.boundsMax` and sample a regular lattice at `options.sampleSpacing`
@@ -335,7 +353,11 @@ this samples.
    do not carry.
 3. **`minZ` and `maxZ` are the lowest and highest sample Z in the room's own
    bucket**, so a room's vertical extent is an output of this pass rather
-   than an input to it. § 4.5 clusters on those values.
+   than an input to it. § 4.5 clusters on those values. **A room whose bucket
+   is empty has no extent to report** — its `minZ` and `maxZ` keep their
+   struct defaults, which are not a measurement, and § 4.5 step 1 excludes it
+   from clustering for exactly that reason. Without that exclusion a room
+   with no samples clusters at zero and invents a band below the level.
 4. **Project each bucket to XY.** A cell is IN for a room when at least one
    sample in that column, at any Z, resolved to it.
 5. **Trace each connected component separately.** Marching squares over the
@@ -373,14 +395,26 @@ bands.
 Bands are derived from the rooms, not from the geometry, because a "floor" is
 a property of how rooms stack rather than of any surface:
 
-1. Collect every room's vertical midpoint.
+1. Collect the vertical midpoint of every room **whose sample bucket is
+   non-empty**. A room with no bucket has no measured extent (§ 4.4 step 3),
+   so it does not vote on where the bands fall; step 5 says where it lands.
 2. Cluster them on Z with single-linkage, splitting wherever consecutive
    sorted midpoints differ by more than `options.floorSeparation`, whose
    default and its reasoning are stated with the option in § 4.1.
-3. Each cluster is a band. `bands` holds the lower edge of each, ascending.
+3. Each cluster is a band. **`bands[i]` is the LOWEST midpoint in cluster
+   i**, and the bands are ascending. That rule is stated because "the lower
+   edge" has two readings — the cluster's own minimum, or the halfway point of
+   the gap beneath it — and they place a room differently at every boundary.
+   `bands` and `floors` are both serialised, so two conforming builders must
+   not be able to disagree here. **The topmost band is unbounded above**, so
+   the last band covers everything from its own edge upward.
 4. A room joins **every** band its `[minZ, maxZ]` overlaps, so a stairwell or
    a lift shaft appears on each floor it connects rather than vanishing
    between them. INV-8 locks the never-empty half.
+5. **A room with an empty bucket joins band 0** — it has no measured extent to
+   overlap with, and INV-8 requires every room to sit on some band. It draws
+   nothing, having no footprint, so the band it nominally occupies costs the
+   map screen nothing.
 
 **A level with one cluster has one band**, which is the flattened view — so
 the 26 single-room maps of § 4.2 and any single-storey level degrade to
@@ -403,9 +437,13 @@ travel with it. `RoomMap` gains:
     };
     std::vector<Node> nodes;
     /// leafZone[i] is leaves[i].iZone in the source Model, narrowed.
-    /// The narrowing is SAFE ONLY BECAUSE the build refuses an out-of-range
-    /// iZone first (SS 6) and the engine caps a level at 64 zones (SS 4.2).
-    /// Leaf::iZone is i32 in upkg; do not narrow before that refusal runs.
+    /// Leaf::iZone is i32 in upkg. TWO refusals stand between it and this
+    /// byte, and BOTH are required (SS 6): the build refuses a Model whose
+    /// zone table exceeds the engine's 64-zone ceiling, and it refuses a leaf
+    /// naming a zone outside that table. A leaf whose zone was refused stores
+    /// ZONE_REFUSED here, which resolves to NO_ROOM.
+    /// Membership alone does NOT make the narrowing safe: a file declaring
+    /// 300 zones passes a membership test and aliases zone 300 onto 44.
     std::vector<std::uint8_t> leafZone;
 ```
 
@@ -456,11 +494,31 @@ light references are not carried, because the lookup does not read them.
   Both tables are members of `Model`. A node with no vertex pool is skipped
   rather than probed.
 
-- **INV-3** — `roomAt` returns within `nodes.size()` plane tests for every
-  input, including a `RoomMap` whose child indices form a cycle.
-  *Test:* `tests/unit/RoomMapTest.cpp`, "a cyclic node graph terminates".
-  *Breaks when:* the descent trusts `iFront`/`iBack` without counting its
-  iterations, and a malformed map hangs the bake instead of refusing.
+  **Only a side whose child is `INDEX_NONE` is probed, and that restriction is
+  what makes the invariant true rather than merely strict.** § 4.3 step 3
+  consults a node's own `iLeaf`/`iZone` record ONLY where the descent stops
+  there; on a side with a child it descends, and the zone it returns belongs
+  to some node further down. Probing a side with a child would therefore
+  compare the descent's answer against a record the descent never reads, and
+  the hard-form assertion of § 7 would go red on correct code. **A swapped
+  front/back convention is still caught**, because a stopping side is exactly
+  where the swap sends the probe down the wrong branch.
+
+  **A record naming zone 0, or a zone `roomForZone` maps to `NO_ROOM`, must
+  return `NO_ROOM`, and that counts as agreement.** § 4.2 creates a room only
+  for a zone some leaf names, so a node side may legitimately record a zone
+  that has none; demanding "the room for" it would fail an implementation
+  that is behaving exactly as § 4.2 requires.
+
+- **INV-3** — `roomAt` returns `NO_ROOM` rather than looping or reading out of
+  range, for every input: a `RoomMap` whose child indices form a cycle, one
+  whose child index is outside `nodes`, one whose leaf index is outside
+  `leafZone`, and one whose zone is outside `roomForZone`.
+  *Test:* `tests/unit/RoomMapTest.cpp`, "a cyclic node graph terminates" and
+  "an out-of-range index resolves to no room".
+  *Breaks when:* the descent counts iterations but never bounds an index — the
+  cycle case then passes while a single out-of-range child reads memory that
+  is not ours. The two failures are different and a counter catches only one.
 
 - **INV-4** — A point resolving to zone 0, and a point in a `RoomMap` with no
   nodes, both return `NO_ROOM` rather than a room index.
@@ -515,11 +573,12 @@ light references are not carried, because the lookup does not read them.
 
 | Assumption | When it breaks | What happens |
 |---|---|---|
-| The `Model` parses | A version-61 package (UTA-0072) | `buildRoomMap` returns the reader's error unchanged; `ubake` refuses that map and says which |
-| The zone table is non-empty | 2 maps in the install have an empty zone table (§ 4.2) | No leaf can name a zone, so no room is created. A valid `RoomMap` with no rooms and no bands; `roomForZone` is empty, `roomAt` returns `NO_ROOM` everywhere (INV-4), and `ubake` bakes a level with no map screen rather than refusing |
+| The `Model` parses | A version-61 package (UTA-0072) | `readModel` fails **before** `buildRoomMap` is called — this builder takes a `Model`, never a package, so it has no reader error of its own to return. `ubake` refuses that map and says which |
+| The zone table is within the engine's ceiling | A malformed or hostile file declaring more zones than the engine allows | The build refuses the `Model`. **Required, and membership testing does not cover it**: a table of 300 zones passes every per-leaf membership check and then aliases zone 300 onto 44 through § 4.6's narrowing |
+| The zone table is non-empty | 2 maps in the install have an empty zone table (§ 4.2) | No leaf can name a zone, so no room is created. A valid `RoomMap` with no rooms and no bands; `roomForZone` is empty, so every zone is at or past its size and `roomAt` returns `NO_ROOM` everywhere — by INV-3's range bound, which is what makes an empty table safe, with INV-4 covering zone 0 and the empty node table. `ubake` bakes a level with no map screen rather than refusing |
 | Leaves name more than one zone | 26 maps name exactly one (§ 4.2) | One room covering the level. Drawn, and legitimately so — those levels really are one zone. **Not the same measurement as the row above**: their zone tables are multi-entry, and the room-creation rule of § 4.2 is what reduces them to one room |
 | Every room catches a sample | A crawlspace or trim volume thinner than `sampleSpacing` in all three axes | No `parts`. The room is kept, listed in `RoomBuildReport::roomsWithoutFootprint`, and `uui` skips a room with no footprint rather than drawing a degenerate one (INV-6) |
-| A leaf's `iZone` is inside its own zone table | Malformed or hostile file; § 4.2 measured none in the install | The build refuses that zone, records it in `RoomBuildReport::refusedZones`, and creates no room for it. It does not clamp — a clamped index silently moves a room |
+| A leaf's `iZone` is inside its own zone table | Malformed or hostile file; § 4.2 measured none in the install | The build refuses that zone, records it in `RoomBuildReport::refusedZones`, creates no room for it, and stores `ZONE_REFUSED` in `leafZone` for every leaf that named it. It does not clamp — a clamped index silently moves a room, which is the harm, and storing the raw value would do the same through the narrowing |
 | Child indices are in range | Malformed or hostile file | The descent's iteration bound returns `NO_ROOM` rather than looping (INV-3), so a malformed map degrades instead of hanging the bake |
 | Rooms stack into distinguishable bands | A ramped level with no flat floors | One band. The map degrades to the flattened view, which is § 4.5's stated behaviour rather than a defect |
 
@@ -603,7 +662,7 @@ front/back convention deliberately swapped, it must go red.
 |------|----------------------|
 | INV-1 | `tests/unit/RoomMapTest.cpp`, "a room exists for each zone a leaf names, and for no other" |
 | INV-2 | **Partial:** `tests/real/RealInstallTest.cpp`, "every node's own zone record agrees with the descent" — and that tier is **off by default**, so an ordinary gate run proves this invariant not at all. It is the only check reading geometry this project did not write, and the front/back defect it exists to catch is invisible to every check that does run. Unlike UTA-0004's INV-1 there is no fixture half carrying it on the default gate; adding one is worth doing when the builder lands |
-| INV-3 | `tests/unit/RoomMapTest.cpp`, "a cyclic node graph terminates" |
+| INV-3 | `tests/unit/RoomMapTest.cpp`, "a cyclic node graph terminates" and "an out-of-range index resolves to no room" |
 | INV-4 | `tests/unit/RoomMapTest.cpp`, "zone zero and an empty map are not rooms" |
 | INV-5 | The configure-time assertions in `src/umap/CMakeLists.txt` |
 | INV-6 | **Partial:** `tests/unit/RoomMapTest.cpp`, "every sampled room has a closed footprint, and every unsampled one is reported", plus the install case on real geometry (off by default). Neither proves a footprint is *correct* — that it follows the walls a player sees is a judgement no assertion here makes, and the first real check is looking at the drawn map in UTA-0016 |
@@ -652,6 +711,13 @@ avoids a geometry library on the runtime side of design rule 2.
   width, not measured, and § 13 gives the cubic cost of lowering it. The first
   level drawn in UTA-0016 will answer it, and it is an option rather than a
   constant so that answering it is a configuration change.
+- **Should the sample grid be bounded per subtree from `Model::bounds`?**
+  § 4.4 samples the whole level box once. Per-node boxes exist and are
+  indexed by `BspNode::iCollisionBound` / `iRenderBound`, so a descent could
+  bound the grid to the part of the level a zone actually occupies. That is a
+  real saving on a large sparse level and it is left out because it buys
+  nothing correctness-wise and costs a second traversal to get wrong. Revisit
+  when § 13's cost is measured on a real bake rather than reasoned about.
 - **Should `simplifyTolerance` track `sampleSpacing` instead of standing
   alone?** § 4.1 fixes it as a literal so two builders cannot disagree, which
   is the safe call and not obviously the right one: a caller who doubles the
