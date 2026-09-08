@@ -15,9 +15,17 @@ unmodified.
 > in two states at once.
 
 **This project.** Two sessions at most, from 2026-09-05, decided by the
-user to get more work done in parallel. Each holds one item, so two
-items is the total — a third session finding two already 🚧 picks
-nothing up.
+user to get more work done in parallel. Each holds one item, so at most
+two items are in flight.
+
+**The cap is on SESSIONS. The item count follows from it and does not
+stand in for it.** A third session does not start, whatever the roadmap
+shows — `CLAUDE.md` rule 3 gives the test, `ListAgents` and
+`git worktree list` at start-up. A 🚧 count is not that test: a live
+session between items holds no bullet, so a third session counting
+bullets finds room the cap does not give it. Within the two sessions
+that have started, an item already 🚧 and not parked on `Waiting-on:`
+is unavailable.
 
 **The delta is the cap, and it is stricter than the global rule rather
 than a departure from it.** `workflow.md` § 1 already provides for
@@ -40,8 +48,7 @@ adds is the ceiling of two, which § 1 does not impose.
   once. **A 🚧 bullet parked on `Waiting-on:` does not count against
   either limit** — `workflow.md` § 1 makes it the exception, and
   `roadmap-format.md` § 3.5.4 has the session skip it and take the next
-  workable item. This project's roadmap carries no parked bullet today,
-  so the carve-out is stated rather than exercised.
+  workable item.
 - **The roadmap store is keyed to the main checkout, and a worktree
   reaches it by saying so.** `CLAUDE.md` § Running two sessions at once
   states both halves: every roadmap verb passes the main checkout as
@@ -51,12 +58,14 @@ adds is the ceiling of two, which § 1 does not impose.
   rule. A session that reads it as the rule never flips 🚧, and that
   flip is the claim the whole coordination rests on.
 - **A session boundary does not end an item.** Work still under way
-  stays 🚧 across it, naming its holder — `CLAUDE.md` rule 5. 📋 is for
-  a deliberate abandonment only, because 📋 tells the other session by
-  rule 2 that a half-built item is free. A 🚧 whose named holder is no
-  longer live is abandoned and may be resumed.
-- **Nothing about the gates.** Every push is gated, and an item is still
-  flipped ✅ on the matrix rather than on a local leg.
+  stays 🚧 across it (`CLAUDE.md` rule 5), naming its holder (rule 1).
+  📋 is for a deliberate abandonment only, because 📋 tells the other
+  session by rule 2 that a half-built item is free. A 🚧 whose named
+  holder is no longer live is abandoned and may be resumed (rule 2).
+- **Nothing about the gates.** This override touches none of them. The
+  push gate and the matrix rule stand exactly as `CLAUDE.md` § Build and
+  test states them — including its three ways a green push can have
+  checked nothing, which this file neither repeats nor relaxes.
 
 ## The cost, accepted
 

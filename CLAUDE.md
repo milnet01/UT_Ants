@@ -271,8 +271,7 @@ checkout answers `source: "store"`, and a dry-run flip reported
    `ListAgents` is abandoned and may be resumed. **A 🚧 parked on
    `Waiting-on:` counts against neither limit** — `workflow.md` § 1 makes
    it the exception and `roadmap-format.md` § 3.5.4 excludes it from
-   selection, so skip it and take the next workable item. No bullet here
-   carries one today.
+   selection, so skip it and take the next workable item.
 3. **The session already in the main checkout keeps it; a second session
    gets its own git worktree** (`claude -w <name>`). Never two sessions in
    one checkout. **Check at start-up, because nothing else will**:
