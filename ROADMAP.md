@@ -2611,6 +2611,55 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-08.
   Lanes: urender.
 
+- 📋 [UTA-0077] **Run the real-asset tier on Windows, against a real install.**
+  The real-asset tier is the ONLY check on upkg's readers against content this
+  project did not write, and it has never run on Windows. Every Model and Level
+  layout in UTA-0004, UTA-0057 and UTA-0069 was derived and verified on Linux.
+  CI's MSVC leg builds and runs the UNIT suite; it has no Unreal Tournament
+  install, so it cannot run this tier at all.
+
+  Attempted 2026-09-08 and it did not land. What was learned is worth keeping,
+  because each finding costs an hour to rediscover.
+
+  The Windows machine has a real install at C:\UnrealTournament -- 96 maps and
+  83 System packages, measured with `dir`. That is a DIFFERENT corpus from the
+  Linux reference install's 837 maps, which makes it worth more than a copy
+  would be.
+
+  Two things block it, and neither is the code.
+
+  1. There is no MSVC binary to run. `.github/workflows/ci.yml` uploads no
+     artifacts, and the Windows machine has no compiler (`where cl.exe cmake.exe`
+     finds nothing). A mingw cross-build from Linux DOES produce a working
+     binary -- x86_64-w64-mingw32-g++ 16.2.0 clears the GCC 14 floor, and both
+     test executables linked once mold was disabled. But it is NOT a faithful
+     stand-in: the mingw run failed 3 of 169 unit cases, all in
+     writeFileAtomically, because that function opens its temporary with the
+     C11 exclusive-create mode "wbx" and mingw's msvcrt does not support the
+     "x". MSVC's UCRT does, which is why CI is green on the same tests. So a
+     mingw binary silently tests a different CRT.
+  2. Windows Defender quarantines the copied binary. It ran once, then both
+     .exe files were deleted from C:\Users\Public, and a re-copy was refused
+     with "The system cannot execute the specified program". An exclusion needs
+     admin on the user's own machine and was not taken unilaterally.
+
+  So the shape of the fix is: upload the MSVC leg's test binaries as a CI
+  artifact, download that, and run it on the Windows machine against its own
+  install, with one Defender exclusion for the drop directory. That gets the
+  same toolchain CI already tests rather than an approximation.
+
+  Found while here, unrelated and minor: the mold block in CMakeLists.txt is
+  guarded `if(NOT MSVC)`, which does not exclude a PE/COFF target generally, so
+  any mingw cross-build trips `mold: fatal: unknown -m argument: i386pep`.
+  Cross-compiling is not a supported path, so this is a note rather than a
+  defect -- but the guard is about the LINKER's target, not about MSVC.
+
+  Blocked-by: nothing.
+  **Layman:** Our readers have only ever been checked against real game files on Linux. Half the players are on Windows. Check them there too.
+  Kind: test.
+  Source: in-session-2026-09-08.
+  Lanes: ci.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
