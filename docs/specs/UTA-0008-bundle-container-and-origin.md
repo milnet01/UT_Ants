@@ -1,6 +1,6 @@
 # UTA-0008 — `ubundle`: the `.utab` container, its origin field and its version
 
-**Status:** spec draft (2026-09-08).
+**Status:** accepted (2026-09-08) — `review-contract` reached its cap of 2 for a spec; both loops converged their findings and the tail is empty.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0008 (design-2026-09-03).
 
@@ -69,10 +69,14 @@ Three subsystems have finished halves that cannot meet.
    when compression arrives.
 
 3. **One format version covers both the framing and the section payloads.**
-   Mine, following `docs/design.md` rule 17, which assigns *both* kinds of
-   change to *"a bundle-format version bump"*: adding a room attribute is
-   `umap`'s change, reframing a section is `ubundle`'s, and each bumps the
-   same number. § 8 records the per-section version that lost to it.
+   Mine. `docs/design.md` rule 17 ties a *model-type* change to the format
+   version outright — *"Adding a graph edge type or a room attribute is a
+   change to `unav` or `umap` and a bundle-format version bump"* — so one
+   number already spans both owners. What it says of the other kind,
+   *"changing how a section is framed is `ubundle` alone"*, is an ownership
+   statement and does not name a version at all, so rule 17 is a warrant for
+   one version and not a proof of it. § 8 carries the argument that decides
+   the rest, and the per-section version that lost.
 
 4. **`Derived` is the zero value of the origin enum, not `Authored`.** Mine,
    following `docs/design.md` rule 15's own fail-closed reasoning: *"an
@@ -223,9 +227,14 @@ Five rules on the table, all checked before any payload is read:
   fixed rather than incidental.
 - No id appears twice.
 - Every section's `[offset, offset + size)` lies within the file, computed so
-  that `offset + size` cannot overflow, and begins at or after the end of the
-  section table.
-- No two sections overlap.
+  that `offset + size` cannot overflow.
+- No two sections overlap, and the sections **tile the file exactly**: the
+  first begins at the end of the table, each next begins where the last ended,
+  and the last ends at the end of the file. A gap between two sections, or
+  bytes trailing the last, is `MalformedData`. `write` never produces either,
+  so accepting them would be one reader tolerating what another refuses — and
+  it is the same rule as § 6's *a section ends with bytes unread*, applied to
+  the file instead of to a section.
 
 A section whose id this version does not define is **refused**, not skipped.
 Under § 4.3's exact version match there is no such thing as a file from a
@@ -264,6 +273,15 @@ the inputs are**; this decides what their combination is.
 guard of UTA-0013, which runs inside a git hook over every tracked `.utab` and
 must answer one question without decoding a level. It reads the first sixteen
 bytes and stops.
+
+**It validates the header's own fields and nothing else** — `magic`,
+`formatVersion`, `origin`, `kind` and `reserved`. It does **not** apply
+§ 4.4's `sectionCount` bound, and must not: that rule needs the file's total
+size, which a caller holding sixteen bytes does not have. A `readHeader` that
+applied it would refuse every valid bundle, and under the fail-closed rule
+below every refusal reads as *not authored* — so the guard would block every
+push of an `authored` bundle while looking like it was working.
+`sectionCount` is therefore read but unchecked here, and `read` bounds it.
 
 **The guard's failure direction is fixed here rather than left to it.** Any
 result other than a successfully read header carrying `Origin::Authored` means
@@ -362,13 +380,14 @@ reachFlags       i32
 pruned           u8
 ```
 
-`collisionRadius` precedes `collisionHeight`, and both are `i32` — another
-adjacent same-width pair, and INV-6's *Breaks when* names every one of them in
-this format rather than counting them.
+`distance`, `collisionRadius`, `collisionHeight` and `reachFlags` are four
+consecutive `i32` fields — the longest same-type run in this format, and the
+one where a transposition is least visible. INV-6's *Breaks when* gives the
+rule that generates every such run rather than listing them.
 
 `pruned` is stored as the file's own byte rather than a bit, because
 `src/unav/Graphs.h` records that nothing has measured it to be only ever 0 or
-1, and UTA-0006 § 4.5's reasoning is that `ubundle` fixing a one-bit field for
+1, and UTA-0006 § 4.1's reasoning is that `ubundle` fixing a one-bit field for
 a byte of unmeasured range is how a value gets silently lost.
 
 ### 4.8 The `WIRG` section — `uta::unav::WiringGraph`
@@ -540,9 +559,15 @@ the same defect one layer along.
 
 - **INV-2** — No allocation is sized by a value read from the file before
   that value has been checked against the bytes remaining in its section.
-  *Test:* `tests/unit/BundleMalformedTest.cpp` decodes a bundle whose `rooms`
-  count is `0xFFFFFFFF` in a section of a few dozen bytes, and asserts an
-  `Error` rather than an allocation. No arrow: the surface does not exist yet.
+  *Test:* `tests/unit/BundleMalformedTest.cpp`, **two cases, one per half of
+  the *Breaks when* below**. A bundle whose `rooms` count is `0xFFFFFFFF` in a
+  section of a few dozen bytes grades the unvalidated-reserve half. It does
+  **not** grade the multiplication half: `0xFFFFFFFF * 20` wraps to
+  `4294967276`, still far above the bytes remaining, so a multiplying reader
+  rejects it too. The second case uses a count whose product wraps *small* —
+  `0xCCCCCCCD` against a `Room`'s 20-byte minimum wraps to `4`, which a
+  multiplying check waves through and a dividing check refuses. No arrow: the
+  surface does not exist yet.
   *Breaks when:* a vector is reserved from the count before the count is
   validated, or the check multiplies rather than divides and overflows.
 
@@ -575,23 +600,44 @@ the same defect one layer along.
   makes an unreadable origin indistinguishable from a declared one — and under
   § 4.5 the guard must be able to fail closed on the difference.
 
-- **INV-6** — A hand-authored golden byte array, carrying one instance of
-  **every type §§ 4.6–4.8 encode** — `Point2`, `Point3`, `Footprint`, `Room`,
+- **INV-6** — A hand-authored golden byte array, carrying **every type
+  §§ 4.6–4.8 encode** — `Point2`, `Point3`, `Footprint`, `Room`,
   `RoomMap::Node`, `NavNode`, `NavEdge`, `WiringNode`, `WiringEdge` and
-  `DanglingEvent` — in which every field holds a value distinct from every
-  other field's in the array, decodes to exactly those values, field by field.
+  `DanglingEvent` — decodes to exactly the values it encodes, field by field.
   Every type, because a fixture covering a subset cannot catch a swap in the
-  types it omits, and the *Breaks when* list below reaches four of them.
+  types it omits.
+
+  **Two constraints on the fixture, and § 4.9 forces both.** *Multiplicity:*
+  at least two `NavNode`s and two `WiringNode`s, with at least two edges in
+  each graph, and at least three `nodes` and three `leafZone` entries in the
+  `ROOM` section. At one instance each, § 4.9 pins the values — with a single
+  `NavNode`, `nodes.size()` is 1, so every edge's `from` and `to` must both be
+  `0` and the transposition below is undetectable; with a single `Node` and one
+  `leafZone` entry, `iFront`, `iBack` and both `iLeaf` slots draw from the
+  two-value set `{INDEX_NONE, 0}`. *Distinctness:* every field the fixture is
+  free to choose holds a value distinct from every other's. **Scoped to the
+  free fields**, because § 4.9 pins some — a run's `from` must equal its node's
+  position — and a fixture that ignored those would be refused by `read` rather
+  than decoded, INV-3 requiring a successful `read` to satisfy § 4.9.
   *Test:* `tests/unit/BundleFormatTest.cpp`, asserting each field against its
   own literal. No arrow: the surface does not exist yet.
-  *Breaks when:* two adjacent same-width fields are swapped in the reader.
-  This is the complete list for this format, and the fixture must distinguish
-  every pair on it: `iFront` with `iBack`; `iLeaf[0]` with `iLeaf[1]`;
-  `iZone[0]` with `iZone[1]`; `collisionRadius` with `collisionHeight`; `minZ`
-  with `maxZ`; a `Point2`'s `x` with its `y`; a `Point3`'s `x`, `y` and `z`
-  with one another; `NavNode`'s `firstEdge` with its `edgeCount`;
-  `WiringNode`'s `firstOutgoing`/`outgoingCount` pair with its
-  `firstIncoming`/`incomingCount` pair; and any edge's `from` with its `to`.
+  *Breaks when:* two adjacent fields of the same width and type are
+  transposed in the reader.
+  **The set is given by a rule rather than a list, because a list goes stale
+  the moment a layout gains a field**: take every run of two or more
+  consecutive fields in §§ 4.6–4.8 that share a width and a type, and the
+  fixture must give every field in such a run a distinct value, so that any
+  transposition within it changes what decodes. Same width *and* type, because
+  a transposition of two different types is a compile error rather than a
+  silent defect. The runs that rule produces today include a `Point2`'s `x`
+  and `y`; a `Point3`'s `x`, `y` and `z`, **which continue into `Node::w`** —
+  four consecutive `f32`; `iFront`, `iBack`, `iLeaf[0]` and `iLeaf[1]` — four
+  consecutive `i32`; `iZone[0]` and `iZone[1]`; `Room`'s `minZ` and `maxZ`;
+  `NavNode`'s `firstEdge` and `edgeCount`; `NavEdge`'s `from` and `to`, and
+  separately its `distance`, `collisionRadius`, `collisionHeight` and
+  `reachFlags` — four consecutive `i32`; `WiringNode`'s `firstOutgoing`,
+  `outgoingCount`, `firstIncoming` and `incomingCount`; and `WiringEdge`'s
+  `from` and `to`.
   **A round-trip test cannot break this and that
   is why the fixture is authored by hand:** a swap present in both the writer
   and the reader round-trips perfectly. The golden bytes are written from
@@ -613,8 +659,14 @@ the same defect one layer along.
 
 - **INV-8** — `write` is deterministic: the same `Bundle` produces
   byte-identical output every time it is encoded.
-  *Test:* `tests/unit/BundleFormatTest.cpp` encodes one bundle twice and
-  compares. No arrow: the surface does not exist yet.
+  *Test:* `tests/unit/BundleFormatTest.cpp` encodes **two independently
+  constructed, equal `Bundle` values** and compares the outputs. No arrow: the
+  surface does not exist yet.
+  **Two separately built objects, not one encoded twice.** Encoding one object
+  twice reads the same padding bytes both times, so a `memcpy`ing writer emits
+  identical output on both calls and the case never goes red under the very
+  defect named below. Two objects built by different paths may differ in their
+  padding, which is what makes that defect observable here.
   **Cross-compiler byte-identity is INV-7's, not this invariant's.** Encoding
   twice inside one process compares each compiler's output against its own and
   can never observe GCC's bytes differing from MSVC's — and INV-8's named
@@ -651,11 +703,17 @@ the same defect one layer along.
   stops being checkable, since `ut-ants` links this library.
 
 - **INV-11** — Reading a bundle whose section table declares a section id this
-  version does not define, two sections with the same id, a section whose byte
-  range lies outside the file, or two whose ranges overlap, is
+  version does not define, two sections with the same id, descriptors **not in
+  ascending `offset` order**, a section whose byte range lies outside the file,
+  a gap or trailing bytes between the sections, or two whose ranges overlap, is
   `MalformedData`. The whole table is validated before any section is decoded.
   *Test:* `tests/unit/BundleMalformedTest.cpp`, one case each. No arrow: the
   surface does not exist yet.
+  **The ordering case is not decoration.** § 4.4's overlap check is a single
+  linear pass, which detects overlap only in an ordered table — so without the
+  ordering case an implementer may drop that rule, keep the linear pass, and
+  let an out-of-order table with overlapping sections decode cleanly, making
+  the rest of this invariant false.
   *Breaks when:* the table is trusted and each section is decoded from its own
   descriptor without a pass over the whole table first. Overlapping sections
   otherwise decode without error and one of them is wrong.
@@ -689,6 +747,8 @@ the same defect one layer along.
 | `sectionCount` overruns the file | `MalformedData`, checked before the table is read |
 | Table not in ascending offset order | `MalformedData` |
 | Section extent outside the file, or overlapping | `MalformedData` (INV-11) |
+| Descriptors not in ascending `offset` order | `MalformedData` (INV-11) — the overlap check is a linear pass and assumes it |
+| A gap between sections, or bytes after the last | `MalformedData` (INV-11) — the sections tile the file exactly (§ 4.4) |
 | Unknown or duplicated section id | `MalformedData` (INV-11) |
 | `compression` non-zero | `UnsupportedVersion` — the byte is defined and its value is not |
 | A count exceeds its section's remaining bytes | `MalformedData`, before allocating (INV-2) |
@@ -738,13 +798,17 @@ cannot grade.
   producer yet — `umat` is UTA-0009 and UTA-0010, the baker is UTA-0011 — so
   their layouts would be invented against nothing and rewritten on contact.
 
-- **A version per section, instead of one for the file.** Rejected because
-  `docs/design.md` rule 17 assigns both kinds of change to *"a bundle-format
-  version bump"*: a room attribute is `umap`'s change and reframing a section
-  is `ubundle`'s, and rule 17 gives them the same number. A second version
-  space would also make which combinations of section versions anyone has
-  tested a real question, for a format whose files are regenerated by
-  re-baking.
+- **A version per section, instead of one for the file.** Rejected on two
+  grounds, and the second is the one that decides it. `docs/design.md` rule 17
+  already ties a model-type change to *"a bundle-format version bump"*, so a
+  `umap` change moves the file's own number; a second number for framing would
+  mean two version spaces where rule 17 names one — though rule 17 does not
+  itself say what a framing change bumps, so it warrants this rather than
+  proving it. **And a second space makes the set of tested combinations a real
+  question:** every pairing of section versions becomes a configuration
+  somebody has to have exercised, for a format whose files are regenerated by
+  re-baking and whose readers refuse anything but the version they were built
+  for (§ 14). The cost buys support for mixing versions that never coexist.
 
 - **Reuse `upkg`'s `ByteReader`.** Rejected on `docs/design.md` rule 2:
   `ut-ants` links this library, so it cannot reach `uta_upkg`. The two
@@ -819,14 +883,26 @@ Rows live in `../reviews/UTA-0008-bundle-container-and-origin-loop-log.md`.
 
 ## 13. Resource cost
 
-`read` holds the caller's bytes and the structures it decodes from them, so
-peak memory is roughly twice the file size for the duration of the call. There
-is no cache, no eviction and no state held between calls.
+`read` holds the caller's bytes and the structures it decodes from them, for
+the duration of the call. There is no cache, no eviction and no state held
+between calls.
 
-The bound on that allocation is the file itself: § 4.2's division rule means
-no count can license more elements than its section has bytes to hold, so a
-file of *N* bytes cannot cause more than *O(N)* allocation. There is no
-separate size cap, and none is needed — the caller chose to read the file.
+**The decoded structures are several times the encoded bytes, not comparable
+to them.** Every element carrying a `std::string` or a nested `vector` pays
+fixed in-memory overhead the file does not: a `NavNode` is 16 bytes at its
+encoded minimum against a `u32`, a `std::string` and two more `u32`s in
+memory, and a `DanglingEvent` is 8 encoded bytes against a `u32` and a
+`std::string`. A graph-heavy bundle is the worst case. So size the working set
+from the decoded structures, never from the file — this said *roughly twice
+the file size* until a cold read caught it, and UTA-0016 loads bundles into
+`ut-ants` against whatever this section says.
+
+The bound is still the file: § 4.2's division rule means no count can license
+more elements than its section has bytes to hold, so a file of *N* bytes
+cannot cause more than *O(N)* allocation — the constant is several, and it is
+bounded. There is no separate size cap, and none is needed, because the caller
+chose to read the file and the multiplier is a constant rather than a function
+of its contents.
 
 No new external dependency. Nothing is added to the build beyond one static
 library and two test files.
