@@ -13,7 +13,12 @@ owns a standard outright.
 Two things belong here, and nothing else:
 
 1. **Overrides** — a deltas-only file naming where this project departs
-   from a global standard, and why.
+   from a global standard, or from the machine-wide `workflow.md`, and
+   why. `CLAUDE.md` § Overrides routes both here. `workflow.md` is a
+   foundation document rather than a standard, so without naming it this
+   list said "two things and nothing else" while admitting neither the
+   workflow override sitting beside this file nor the rule that put it
+   there.
 2. **Standards this project owns outright** — a rule that is genuinely
    about this project and has no global equivalent.
 

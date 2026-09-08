@@ -18,20 +18,11 @@ unmodified.
 user to get more work done in parallel. Each holds one item, so at most
 two items are in flight.
 
-**The cap is on SESSIONS. The item count follows from it and does not
-stand in for it.** A third session does not start, whatever the roadmap
-shows — `CLAUDE.md` rule 3 gives the test, `ListAgents` and
-`git worktree list` at start-up. A 🚧 count is not that test: a live
-session between items holds no bullet, so a third session counting
-bullets finds room the cap does not give it. Within the two sessions
-that have started, an item already 🚧 and not parked on `Waiting-on:`
-is unavailable.
-
 **The delta is the cap, and it is stricter than the global rule rather
-than a departure from it.** `workflow.md` § 1 already provides for
-several sessions each holding one item and sets no ceiling on how many.
-One item per session is that rule followed unchanged. What this file
-adds is the ceiling of two, which § 1 does not impose.
+than a departure from it.** § 1 already provides for several sessions
+each holding one item and sets no ceiling on how many. One item per
+session is that rule followed unchanged. What this file adds is the
+ceiling of two, which § 1 does not impose.
 
 > **Corrected 2026-09-08.** This section previously quoted § 1 as
 > *"Exactly one item is in flight at a time"* and presented one item per
@@ -41,27 +32,30 @@ adds is the ceiling of two, which § 1 does not impose.
 > multi-worktree provision quoted above. A reader was therefore told the
 > global standard forbids something it expressly allows.
 
+## The mechanics are not in this file
+
+**How a session learns the cap is reached, which item is available, what
+a 🚧 parked on `Waiting-on:` means, what an abandoned 🚧 means, and what
+survives a session boundary, is `CLAUDE.md` § Running two sessions at
+once.** This file states the delta and stops.
+
+**That is a repair rather than a preference.** Earlier drafts restated
+those mechanics here, and each cold read found a restatement saying
+something its original does not — a parked bullet reading as claimable
+when § 3.5.4 says skip it, an item held by a dead session reading as
+unavailable when rule 2 says resume it, and a cap on SESSIONS tested by
+counting ITEMS, which passes for a third session whenever a live session
+happens to hold none. One rule stated twice is two rules that will
+disagree, and the second copy is the one nobody maintains.
+
 ## What this override does NOT relax
 
-- **Two sessions may not hold the same item, and no session holds two
-  un-parked items.** Rule 2 of `CLAUDE.md` § Running two sessions at
-  once. **A 🚧 bullet parked on `Waiting-on:` does not count against
-  either limit** — `workflow.md` § 1 makes it the exception, and
-  `roadmap-format.md` § 3.5.4 has the session skip it and take the next
-  workable item.
-- **The roadmap store is keyed to the main checkout, and a worktree
-  reaches it by saying so.** `CLAUDE.md` § Running two sessions at once
-  states both halves: every roadmap verb passes the main checkout as
-  `caller_cwd` whatever worktree you are in, and a verb given the
-  worktree's own path instead falls back silently to patching that
-  worktree's `ROADMAP.md`. The fallback is the failure mode, not the
-  rule. A session that reads it as the rule never flips 🚧, and that
-  flip is the claim the whole coordination rests on.
-- **A session boundary does not end an item.** Work still under way
-  stays 🚧 across it (`CLAUDE.md` rule 5), naming its holder (rule 1).
-  📋 is for a deliberate abandonment only, because 📋 tells the other
-  session by rule 2 that a half-built item is free. A 🚧 whose named
-  holder is no longer live is abandoned and may be resumed (rule 2).
+- **The roadmap store is keyed to the main checkout.** `CLAUDE.md`
+  § Running two sessions at once has every roadmap verb pass the main
+  checkout as `caller_cwd`, whatever worktree you are in, and records
+  what `roadmap_log` does when given the worktree's own path instead. A
+  session that skips that step never flips 🚧, and that flip is the
+  claim the coordination in this file rests on.
 - **Nothing about the gates.** This override touches none of them. The
   push gate and the matrix rule stand exactly as `CLAUDE.md` § Build and
   test states them — including its three ways a green push can have
