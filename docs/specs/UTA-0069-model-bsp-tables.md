@@ -511,8 +511,9 @@ field a fixture needs for the settled tables, and an empty table costs one zero
 byte — so a `Model` with populated `Nodes`, `Surfs` and `Verts`, zero zones and
 every later table empty is encodable today. **§ 4.5 now settles the zone
 record, `LightBits`, `Bounds`, `LeafHulls` and `Lights`, so a fixture may
-populate those too.** Only `Leaves` waits, and UTA-0004 § 7's rule that a
-builder cannot encode a withheld layout reaches it alone.
+populate those too.** `Leaves` waited on § 4.6, under UTA-0004 § 7's rule that
+a builder cannot encode a withheld layout; § 4.5 settled it on 2026-09-08 and
+the fixture populates it like any other table. No table is withheld now.
 
 Four cases in the builder of UTA-0004 § 4.10, one per branch needing
 constructed content:
