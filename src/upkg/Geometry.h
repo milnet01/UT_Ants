@@ -141,14 +141,19 @@ struct ZoneProperties {
 ///
 /// This reader returns the table's indices and offsets; what the lightmap
 /// DATA means is a renderer question and out of scope (UTA-0069 SS 9).
+/// The members are in the order the file writes them, which is not the order
+/// SS 4.5 states. `dataOffset` and `iLightActors` are raw `i32`, and the two
+/// clamps are the lightmap's texel dimensions and are one byte each, so the
+/// element is a fixed thirty bytes rather than a variable twenty-eight-plus.
+/// UTA-0069's ROADMAP bullet carries the derivation and its corroboration.
 struct LightMapIndex {
-    std::int32_t dataOffset = 0;
-    std::int32_t iLightActors = 0;
+    std::int32_t dataOffset = 0; // an offset INTO lightBits, not a compact index
     Vector3 pan;
+    std::uint8_t uClamp = 0;
+    std::uint8_t vClamp = 0;
     float uScale = 0;
     float vScale = 0;
-    std::int32_t uClamp = 0;
-    std::int32_t vClamp = 0;
+    std::int32_t iLightActors = 0; // -1 where the surface is lit by nothing
 };
 
 /// A `Model` export: the BSP tables, in the file's own order and indexing.

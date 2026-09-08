@@ -2219,6 +2219,11 @@ model, no weapon and no opponent until 0.2.0.
   review gate under rule 14, so it is left for a deliberate decision rather
   than taken as a side effect. The ROADMAP carries the current numbers
   meanwhile.
+  Progress (2026-09-08): resumed by session ut-ants-26. The previous
+  holder ut-ants-b2 ended in a deliberate terminal restart and is not in
+  ListAgents, so its claim was abandoned rather than damaged (CLAUDE.md
+  rule 2). Nothing was left half-written. Next: the bounds residue, then
+  lightmap bytes, per SS 4.6 file order.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.

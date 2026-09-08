@@ -262,17 +262,21 @@ void appendTable(std::vector<std::uint8_t>& into, std::int32_t count,
     into.insert(into.end(), elements.begin(), elements.end());
 }
 
-/// One `LightMapIndex` in UTA-0069 SS 4.5's layout. `dataOffset` carries the
-/// label.
+/// One `LightMapIndex`, thirty fixed bytes in the order the file writes them.
+/// `dataOffset` carries the label; every other field carries a value distinct
+/// from its neighbours' so a test can tell a correct placement from a shifted
+/// one. `dataOffset` is deliberately larger than a one-byte compact index can
+/// hold, so reading it as an index -- the layout this replaced -- misaligns
+/// the cursor rather than happening to agree.
 std::vector<std::uint8_t> oneLightMapIndex(std::int32_t dataOffsetLabel) {
     std::vector<std::uint8_t> body;
-    appendIndex(body, dataOffsetLabel);   // dataOffset -- the label
-    appendIndex(body, 0);                 // iLightActors
-    appendVector(body, 0.0F, 0.0F, 0.0F); // pan
-    appendFloat(body, 1.0F);              // uScale
-    appendFloat(body, 1.0F);              // vScale
-    appendU32(body, 0);                   // uClamp -- raw i32, SS 4.5
-    appendU32(body, 0);                   // vClamp
+    appendU32(body, static_cast<std::uint32_t>(dataOffsetLabel)); // raw i32
+    appendVector(body, 1.5F, 2.5F, 3.5F);                        // pan
+    appendU8(body, 7);                                           // uClamp
+    appendU8(body, 9);                                           // vClamp
+    appendFloat(body, 32.0F);                                    // uScale
+    appendFloat(body, 64.0F);                                    // vScale
+    appendU32(body, 0xFFFFFFFFu);                                // iLightActors, -1
     return body;
 }
 
@@ -280,7 +284,7 @@ std::vector<std::uint8_t> oneLightMapIndex(std::int32_t dataOffsetLabel) {
 std::vector<std::uint8_t> lightMapEntries(std::int32_t count) {
     std::vector<std::uint8_t> body;
     for (std::int32_t index = 0; index < count; ++index) {
-        const std::vector<std::uint8_t> entry = oneLightMapIndex(10 * (index + 1));
+        const std::vector<std::uint8_t> entry = oneLightMapIndex(1000 * (index + 1));
         body.insert(body.end(), entry.begin(), entry.end());
     }
     return body;
@@ -512,9 +516,20 @@ TEST_CASE("a Model export reads back its tables at known counts", "[upkg]") {
     CHECK(model->zones[1].connectivity == 1001);
 
     REQUIRE(model->lightMap.size() == 3);
-    CHECK(model->lightMap[0].dataOffset == 10);
-    CHECK(model->lightMap[1].dataOffset == 20);
-    CHECK(model->lightMap[2].dataOffset == 30);
+    CHECK(model->lightMap[0].dataOffset == 1000);
+    CHECK(model->lightMap[1].dataOffset == 2000);
+    CHECK(model->lightMap[2].dataOffset == 3000);
+    // Every field of one element, so the check is of the LAYOUT rather than
+    // of the element's width: a placement shifted by any number of bytes
+    // still consumes thirty and still reaches the end of the export.
+    CHECK(model->lightMap[0].pan.x == 1.5F);
+    CHECK(model->lightMap[0].pan.y == 2.5F);
+    CHECK(model->lightMap[0].pan.z == 3.5F);
+    CHECK(model->lightMap[0].uClamp == 7);
+    CHECK(model->lightMap[0].vClamp == 9);
+    CHECK(model->lightMap[0].uScale == 32.0F);
+    CHECK(model->lightMap[0].vScale == 64.0F);
+    CHECK(model->lightMap[0].iLightActors == -1);
 
     REQUIRE(model->lightBits.size() == 4);
     CHECK(model->lightBits[0] == 0x10u);
@@ -582,7 +597,7 @@ TEST_CASE("a Model's element tables land at the file's own indices", "[upkg]") {
     REQUIRE(model->lightMap.size() == 3);
     for (std::size_t index = 0; index < model->lightMap.size(); ++index) {
         CHECK(model->lightMap[index].dataOffset ==
-              10 * (static_cast<std::int32_t>(index) + 1));
+              1000 * (static_cast<std::int32_t>(index) + 1));
     }
 
     REQUIRE(model->bounds.size() == 5);
