@@ -193,9 +193,8 @@ and each was decided by something other than the rule it named — a table entry
 that already returned the refusal, a range check that subsumed the guard, and
 the loop bound above. None of that is visible from reading the test.
 
-Address and
-thread cannot share a binary, which is why this is a separate directory
-rather than a flag on the gate.
+Address and thread cannot share a binary, which is why this is a separate
+directory rather than a flag on the gate.
 
 ### Which item comes next
 
