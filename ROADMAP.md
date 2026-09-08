@@ -2259,6 +2259,42 @@ model, no weapon and no opponent until 0.2.0.
   Shipped in c4783ca with three mutations killed. SS 4.5 and SS 4.6 now
   disagree with the code; the amendment is a deliberate decision, not
   folded into that commit.
+  Progress (2026-09-08, ut-ants-26): SS 4.6's residue is closed. Every
+  Model export at package version 62 or above in the reference install is
+  consumed exactly. Tier 3 is green.
+
+  Two more findings after the lightmap element's width and order.
+
+  The clamps are compact, not fixed-width. UClamp and VClamp are compact
+  indices: 0x40 is the continue bit, so a clamp of 64 or more takes two
+  bytes where 16 or 32 takes one. Read at a fixed thirty the element
+  consumed 9560 exports and then shifted every later element of any export
+  holding a large clamp. Seen directly rather than swept, in one
+  MH-TheBoxWorld2 Model whose elements drift a byte at a time and where
+  the element starting the drift reads 04 40 01 against its neighbours' 10
+  10. This does NOT reopen the earlier ruling that the clamps are not
+  compact: that was measured against SS 4.5's layout, where the clamps
+  trail two LEADING compact indices, and it is correct there. The section
+  has the pair the wrong way round -- the offsets are the raw fields.
+
+  Leaves is derived. Three compact indices, iZone, iPermeating and
+  iVolumetric, then a 64-bit zone mask. Eleven bytes at its smallest. Sole
+  fit for all 842 exports that populate the table, every permutation of
+  the same four fields fits none of them, and iZone indexes the export's
+  own zone table on all 2784273 leaves. SS 4.1 reserved the name against
+  this, so adding the member is not a rename.
+
+  Install-wide across the whole session: consumed exactly 550372 to
+  561118, refused 10980 to 234. Packages whose largest Model parses 4 to
+  846 of 847. The 234 are the version-61 class in one package, which the
+  user scoped into UTA-0072 on 2026-09-07.
+
+  INV-4's assertion now reads "every refusal is that scoped-out class and
+  there is no other" rather than "refused equals zero". It tightens back
+  to zero on its own when UTA-0072 lands, because the bucket empties.
+
+  Shipped in c4783ca, 9dd7ff3 and 15f545a, ten mutations killed across the
+  three. Not yet flipped: awaiting the GitHub matrix, per CLAUDE.md.
   **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.

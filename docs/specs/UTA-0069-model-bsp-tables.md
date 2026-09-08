@@ -29,7 +29,7 @@ could not be derived there, and the item came back as this one.
 
 **This spec derives that order and states it, because it was measured here.**
 § 2.2 is the measurement and § 4.4 is the answer. What remains unfinished is
-named in § 4.6 rather than hidden: one element layout inside the later tables
+named in § 4.6 rather than hidden — and closed there on 2026-09-08: one element layout inside the later tables
 is still open, and § 4.3's acceptance is what closes it.
 
 ## 2. Problem
@@ -83,7 +83,8 @@ one pair where that leaves nothing checking at all.
 Refining the element layouts of § 4.5 took exact consumption to **534,024**.
 Deriving the zone record and four later tables on 2026-09-07 took it to **545,652**
 (98.06%), with 922 completing at the wrong offset and 9,878 failing to walk.
-§ 4.6 owns what is left.
+§ 4.6 owns what was left, and records its close on 2026-09-08 at
+**561,118** consumed exactly — every `Model` at package version 62 or above.
 
 **That split is the SPECIFIED reader's**, the one § 4.1 describes: it refuses a
 populated `Leaves`. The derivation probe steps over `Leaves` at four bytes —
@@ -196,27 +197,35 @@ them unable to ask. `Level.h` is the precedent for returning out of a tail
 rather than against it: it returns its `reachSpecs` and consumes the rest.
 § 4.5 derives `ZoneProperties`, so the member has a complete element type.
 
-**`leaves` is NOT returned.** A `std::vector` needs a complete element type,
-and § 4.6 leaves that layout underived — so returning it would mean either
-stating a layout nothing has verified, which § 4.6 forbids, or shipping an
-empty element struct that reads as finished. The user ruled on it (2026-09-07),
-having been asked the same question about `zones` and answered it the other
-way, by deriving. The asymmetry is deliberate: `zones` was derivable in one
-pass, where `Leaves` waits on § 4.6's residues.
+**`leaves` IS returned, from 2026-09-08.** This section ruled it out while
+§ 4.6 had the layout underived, on the ground that returning it would mean
+either stating a layout nothing had verified, which § 4.6 forbade, or shipping
+an empty element struct that reads as finished. The user ruled on it
+(2026-09-07), having been asked the same question about `zones` and answered it
+the other way, by deriving. The asymmetry was in the cost, not the principle:
+`zones` was derivable in one pass, where `Leaves` waited on § 4.6's residues.
 
-**Nor is it stepped over when it is populated.** An empty `Leaves` costs one
-zero byte and is consumed like any other empty table; a non-empty one is
-`MalformedData` and fails the tier-3 run, which is § 6's row for a table this
-reader does not yet describe. Stepping over it would need the very width § 4.6
-withholds. So the omission narrows what this reader RETURNS without widening
-what it ACCEPTS.
+Those residues closed, and § 4.6 records how. `FLeaf`'s layout is in § 4.5 with
+what it was measured against, so neither branch of the ruling applies any more
+and the member is returned. **The ruling still governs its own question** — a
+table whose layout is underived is not returned and not stepped over — and
+nothing in the reader states a layout on weaker evidence than this one carries.
+
+**A populated table was refused in the meantime**, rather than stepped over: an
+empty `Leaves` cost one zero byte and was consumed like any other empty table,
+and a non-empty one was `MalformedData` and failed the tier-3 run, which is
+§ 6's row for a table this reader does not yet describe. That narrowed what the
+reader RETURNED without widening what it ACCEPTED. The tier-1 case that locked
+it now locks the count check instead — the fixture declares a leaf and supplies
+no bytes for it — and says so.
 
 **No stated consumer is blocked by it.** UTA-0007 partitions a level on its
 **zones**; UTA-0011 bakes the built surfaces; UTA-0012 dumps a package through
 this reader. None of the three names leaves, and only the third reaches every
-table — so a dump is short by this one until § 4.6 closes, and by nothing else.
-**When it closes, `leaves` becomes a returned member** — § 3.2 reserves the
-name so that adding it is not a rename.
+table — so a dump was short by this one while § 4.6 was open, and by nothing else.
+**It closed on 2026-09-08 and `leaves` is a returned member** — § 3.2 reserved
+the name, so adding it was not a rename, and UTA-0012's dump is short by
+nothing.
 
 ### 4.2 What this item inherits and must not restate
 
@@ -245,8 +254,9 @@ fails content this reader must accept. § 2.2's Deck16 node and surface counts
 are a derivation observation and not a second check — no bound is stated that
 they could fail, and no invariant carries them.
 
-**The residue is the work.** § 2.2 reached 98.06%; § 4.6 names what is left,
-and INV-4 states the bar: every export, no tolerance.
+**The residue was the work.** § 2.2 reached 98.06%; § 4.6 records what was
+left and how it closed on 2026-09-08, and INV-4 states the bar: every export
+this reader claims, no tolerance.
 
 ### 4.4 The derived order
 
@@ -328,15 +338,45 @@ changed.
 
 **`FVert`** — index `pVertex`, index `iSide`.
 
-**`FLightMapIndex`** — index `DataOffset`, **index `iLightActors`**, `FVector
-Pan`, `float UScale`, `float VScale`, `i32 UClamp`, `i32 VClamp`. Both
-readings were re-measured 2026-09-07 **under the layouts this section now
-states**, so they reproduce against it: `iLightActors` as a raw `i32` fails
-5,195 exports at this table and takes exact consumption to 535,360; as a
-compact index, 98 and 545,652. Reading `UClamp` and `VClamp` as compact indices
-is refuted the same way — 535,291 exact, 96.20%. This table is
-genuinely exercised rather than merely silent: 10,361 of the exactly-consuming
-exports carry a non-empty `LightMap`.
+**`FLightMapIndex`** — `i32 DataOffset`, `FVector Pan`, **index `UClamp`**,
+**index `VClamp`**, `float UScale`, `float VScale`, `i32 iLightActors`. Thirty
+bytes when both clamps fit one byte, which is the common case. Corrected
+2026-09-08; the layout stated here before was wrong in three ways at once — the
+two leading fields, the position of `iLightActors`, and the width of the
+clamps.
+
+**The measurement that produced the wrong one is worth keeping, because the way
+it failed is general.** Both readings were re-measured 2026-09-07 *under the
+layouts this section then stated*, so they reproduced against it: `iLightActors`
+as a raw `i32` failed 5,195 exports at this table where a compact index failed
+98, and reading the clamps as compact indices was refuted the same way. Every
+one of those figures is correct, and all of them were taken with `DataOffset`
+already fixed as a compact index — the field that was actually wrong. A sweep
+that holds one field's reading fixed can only find the best layout **containing
+that reading**, and reports it with the same confidence as a true one.
+
+The 2026-09-08 derivation carries no such premise. It swept the element's WIDTH
+against a signature requiring the rest of the export to land exactly on its
+final byte: thirty is the sole fit for 9,455 exports, against eighteen for the
+runner-up. The field placement was then read off the bytes and corroborated
+semantically rather than by that fit — `DataOffset` lands inside the export's
+own `LightBits` array and never decreases, `iLightActors` is −1 or indexes
+`Lights`, and both scales are finite and positive, on **all 306,706** entries in
+the reference install. Reading the scales two bytes earlier holds for 31% of
+them.
+
+**The clamps are compact and the offsets are not** — this section had the pair
+the wrong way round. A clamp is a lightmap's texel dimension, usually 16 or 32,
+which fits a compact index's one byte; 64 or more takes two, because `0x40` is
+the continue bit. That is why a fixed thirty-byte element consumed 9,560 exports
+before shifting every later element of any export holding a large clamp.
+Reading `DataOffset` as a compact index is what stranded the cursor for the
+whole second run of tables: a first byte of `0x85` decodes to −5 and consumes
+one byte where the field is four.
+
+This table is genuinely exercised rather than merely silent: 10,361 of the
+exactly-consuming exports carried a non-empty `LightMap` on 2026-09-07, before
+any of this was corrected.
 
 The five below were derived on 2026-09-07, in the file order § 4.6 requires.
 **Each *fell from* figure is the failure count at that table with that table
@@ -378,67 +418,95 @@ which is what separates the two candidates, since both are plausible widths.
 index its own failures are 334 and exact consumption 545,652; as a raw four-byte
 read, 6,916 and 538,456.
 
-### 4.6 What is not yet derived
+**`FLeaf`** — index `iZone`, index `iPermeating`, index `iVolumetric`, `i64
+VisibleZones`. Eleven bytes at its smallest. Derived 2026-09-08, last of the
+element layouts and only once every table before it was right — which is § 4.3's
+ordering rule paying off rather than a coincidence.
 
-**One element layout is left: `Leaves`.** It is genuinely populated rather
-than an artefact of misalignment — 680 exports reach it with a non-empty count
-**under the stepping probe, which is the only configuration that can reach past
-it at all**,
-and those counts are small and plausible, the large majority declaring sixteen
-or fewer. But no shape lands. Sweeping *k* compact indices plus *f* fixed bytes
-against the end of the payload, for *k* up to four and *f* up to thirty-two,
-the best candidate accounts for 35 of the 680. **The apparent runners-up are
-aliases rather than corroboration**: an index whose value is zero occupies one
-byte, so "two indices plus nine bytes" and "three indices plus eight bytes" are
-one shape counted twice, which is why they score identically. Do not read that
-pair as agreement.
+Swept as candidate layouts against a signature requiring `Lights` and the two
+trailing `i32` to land exactly on the export's final byte. It is **the sole fit
+for all 842** exports that populate the table, **every permutation of the same
+four fields fits none of them**, and no populated export is left unexplained.
+The permutation test is what separates this from a byte-count argument: four
+fields of these widths always total the same when each index is one byte, so a
+fit that survives every reordering would have proved only the width.
+Corroborated further by `iZone` indexing the export's own zone table on **all
+2,784,273** leaves.
 
-By the cascade rule below, that puts the misalignment UPSTREAM of `Leaves`, in
-the residues named next, so it cannot be settled until those close.
+### 4.6 The residue, and how it closed
 
-**9,878 exports where the walk stops**, at a position § 4.4 places: `Bounds`
-5,121, `LightBits` 1,830, `Leaves` 1,197, `LeafHulls` 1,196, `Vectors` 215,
-`Lights` 201, `LightMap` 98, `Points` 15, `Nodes` 3, `Surfs` 1, and 1 at the
-trailing `i32`. **All but the 1,197 sit at a table § 4.5 settles** — `Leaves`
-is the gap above, refused rather than walked, on its own footing. In each the declared count is implausible, so the
-cursor was already misaligned when it arrived: **the wrong width is upstream of
-the table that reports the error, not at it.** Those 234 belong to the version
-class below.
+**Closed 2026-09-08.** Every `Model` export in the reference install at package
+version 62 or above is consumed exactly: 561,118 of them, with 234 refused and
+every one of those the version-61 class scoped out below. Packages whose
+LARGEST `Model` parses — the figure that says what the library can actually be
+used for — went from 4 of 847 to 846 of 847. Tier 3 is green. What follows is
+the record of what the residue turned out to be, kept because the way it misled
+is more useful than the numbers.
 
-**922 exports that complete at the wrong offset.** The walk consumed a
-plausible number of bytes and still landed wrong, so no table reports an error
-and only the end offset says anything. A field *inside* an otherwise-correct
-table is mis-sized.
+**Almost all of it was one defect, and it was not at any of the tables that
+reported it.** § 4.5 had `FLightMapIndex` wrong, `DataOffset` above all: read as
+a compact index, a first byte of `0x85` decodes to −5 and consumes one byte
+where the field is four. Every table after `LightMap` then received a misaligned
+cursor and blamed whichever one it happened to stop in. Correcting that one
+field, and then the clamps' width, took the refusals from 10,980 to 1,076 and
+emptied eight of the ten buckets outright.
 
-**One class is now scoped rather than unexplained.** Every one of the 198
-all-empty exports weighing 65 payload bytes sits in a single package — the
-corpus's only one at version 61 — and every `Model` export in that package
-fails. No other version has a short payload class. So the branch is real, it is
-version 61, and it costs 0.04% of the corpus. **Its layout is not simply four
-bytes shorter**: a dumped export reads `FBox`, then twelve zero bytes, then
-twelve bytes decoding as six compact indices, then `NumSharedSides` and
-`NumZones`, then the two trailing `i32` — 25 + 12 + 12 + 8 + 8, the 65. Dropping
-`FSphere`'s `W` for a 37-byte prefix was measured and changed nothing.
+**`Bounds` carried the largest bucket while being correct.** It was the obvious
+place to look — 5,121 failures, more than any other table — and `FBox` at 25
+bytes was right the whole time. What settled it was refusing to sweep for a
+better width and measuring the count instead: of the exports refusing there,
+2,191 declared **zero** bounds, where an element width cannot be the cause at
+all, and 2,047 declared a negative count, mostly values of the form −(2ᵏ−1) —
+the signature of a compact index read off a misaligned cursor. No width
+explained more than six. **A bucket's size says where the walk stopped, never
+where the defect is**, and the cascade rule below is what turns the first into
+the second.
 
-Outside that package the failures are **content-dependent rather than
-version-dependent**, which is the useful discriminator: within the version
-holding the bulk of the corpus, a little over half of the real-content models
-parse and the rest do not, and no version rule separates them.
+**`Leaves` could not be derived until everything before it was right**, which is
+that rule stated forward rather than as a warning. The 2026-09-07 attempt swept
+*k* compact indices plus *f* fixed bytes for *k* up to four and *f* up to
+thirty-two and found nothing better than 35 of 680, and read that as evidence
+the shape was exotic. It was `iiiq` — the plainest candidate in the space — and
+the sweep could not see it because the cursor reaching `Leaves` was wrong. The
+same sweep run after the lightmap fix returns it as the sole fit for every
+populated export. § 4.5 has the layout.
 
-These cascade — a wrong element width makes every later count garbage — so they
-are derived in file order, each measured by § 4.3's check before the next.
-**That ordering is the method, not an observation**: fixing them out of order
-attributes one table's failures to another, which is what makes a residue look
-irreducible when it is not.
+**The alias trap held and is worth keeping.** An index whose value is zero
+occupies one byte, so "two indices plus nine bytes" and "three indices plus
+eight bytes" are one shape counted twice and score identically. Apparent
+runners-up are not corroboration. The 2026-09-08 derivations answer it by not
+resting on a fit count: the lightmap element was corroborated on four semantic
+invariants over 306,706 entries, and `FLeaf` by a permutation test that a
+byte-count argument cannot pass.
 
-**No layout for `Leaves` is stated here**, deliberately, and UTA-0004 § 4.5 is
-the precedent: a stated-but-unverified layout reads as verified to everyone
-downstream. What is stated is where it sits (§ 4.4) and how to know when it is
-right (§ 4.3). § 4.1 says what the reader does in the meantime.
+**A sweep that holds one field fixed can only find the best layout containing
+that field's reading.** § 4.5 records this against the measurement it cost. It
+is the reason the residue survived a full derivation pass and two
+`review-contract` loops: every figure taken on 2026-09-07 was correct, and all
+of them were conditioned on a premise nothing had tested.
+
+**One class remains, scoped rather than unexplained.** Every one of the 234
+refusals sits in a single package — the corpus's only one at version 61 — and
+every `Model` export in it fails. Its layout is not a shorter version of this
+one: a `Model` there holds no inline BSP tables at all, but six object
+references to separate `Vectors`, `Points`, `BspNodes`, `BspSurfs`, `Verts` and
+`Polys` exports, behind a 37-byte prefix, ahead of eight index-prefixed arrays
+and the two trailing `i32`. `readModel` refuses it by name with
+`UnsupportedVersion` — the bytes are not malformed, they are a layout this
+reader does not describe, which is § 4.1's ruling applied to a whole export.
+**UTA-0072 reads it**, by the user's ruling of 2026-09-07, and INV-4's assertion
+is scoped to match: every refusal must be that class and there must be no other,
+which tightens back to zero on its own when that item lands.
+
+**The cascade rule is the method, not an observation.** A wrong element width
+makes every later count garbage, so the tables are derived in file order, each
+measured by § 4.3's check before the next. Fixing them out of order attributes
+one table's failures to another — which is what made this residue look
+irreducible when it was one field.
 
 ### 4.7 Fixtures
 
-**Tier 1 is owed now, not once § 4.6 closes.** § 4.4 and § 4.5 state every
+**Tier 1 was owed before § 4.6 closed, not after.** § 4.4 and § 4.5 state every
 field a fixture needs for the settled tables, and an empty table costs one zero
 byte — so a `Model` with populated `Nodes`, `Surfs` and `Verts`, zero zones and
 every later table empty is encodable today. **§ 4.5 now settles the zone
@@ -497,7 +565,9 @@ constructed content:
   count is unchanged.
 
 - **INV-4** — `readModel` consumes **every** `Model` export in the reference
-  install exactly. Zero refusals.
+  install exactly, at every package version it claims. Zero refusals, and the
+  only exports it does not claim are those below package version 62, which it
+  refuses by name (**UTA-0072**).
   *Test:* `tests/real/RealInstallTest.cpp`, which already requires exactly this
   of `Polys`, `Palette` and `Level` (§ 7 tier 3).
   *Breaks when:* any table's element layout is wrong — § 2.2 measured a single
@@ -506,8 +576,15 @@ constructed content:
   `Model` in its zero-refusal set, and the ROADMAP bullet states the same
   acceptance. § 2.2's 98.06% is how far the derivation has got, not a floor
   anyone may ship against: a rate written into the contract would freeze this
-  item's unfinished work into a permanent tolerance. § 4.6 is the work, and
-  this invariant is what says when it is done.
+  item's unfinished work into a permanent tolerance. § 4.6 was the work, and
+  this invariant is what said when it was done.
+
+  **Met 2026-09-08 for every version this reader claims**, and scoped rather
+  than relaxed to get there. Below package version 62 a `Model` keeps its BSP
+  tables in separate exports; `readModel` refuses those by name and **UTA-0072**
+  reads them, by the user's ruling of 2026-09-07. So the assertion reads *every
+  refusal is that class and there is no other* — not a rate, and it tightens
+  back to zero on its own when that item lands, because the bucket empties.
 
 - **INV-5** — A `Model`'s `Polys` reference resolves to a `Polys`-classed
   export, or is null.
@@ -532,7 +609,8 @@ constructed content:
 | Package version outside 61–69 | Refused by `Package::open` before this reader is reachable — § 4.2 |
 | A `Model` export with no serialised data | An empty `Model`, as `readPolys` does for a sizeless `Polys`. UTA-0003 INV-7 makes a sizeless export ordinary. Measured 2026-09-07: the install's maps hold **no** such export, so this row is reachable only by content outside it |
 | A `Polys` reference that is null | **Not a refusal.** `ObjectReference` makes null a legitimate value and a `Model` need not own brush polygons. § 2.2 did not separate null from resolved, so this rests on the type rather than on a measurement |
-| A table this reader does not yet describe (§ 4.6) | `MalformedData`, and the tier-3 run FAILS. Until § 4.6 closes this reader does not satisfy INV-4 and the item is not done — the honest state, and why INV-4 states no tolerance. A reader that guessed the layout instead is what UTA-0004 § 4.5 forbids |
+| A table this reader does not yet describe | `MalformedData`, and the tier-3 run FAILS. No table is in this state from 2026-09-08 — § 4.6 records how the last of them closed — but the row stands, because it is what a future table gets and what stopped this reader guessing a layout, which UTA-0004 § 4.5 forbids |
+| A `Model` below package version 62 | `UnsupportedVersion`, named, and NOT `MalformedData`: the bytes are well formed and the layout is one this reader does not describe. That is the row above applied to a whole export. **UTA-0072** reads it; INV-4 is scoped to it and to nothing else |
 
 ## 7. Tests
 
@@ -550,8 +628,10 @@ install scale, INV-4 and INV-5.
 prefers a test that prints a spec's numbers over a command recorded beside
 them, and this spec's argument rests entirely on measurement. The
 exact-consumption count, the population and the `Polys` class tally become an
-output rather than a transcription. **The count is a diagnostic while § 4.6 is
-open, never a bar** — INV-4 is the bar, and it admits no tolerance.
+output rather than a transcription. **The count was a diagnostic while § 4.6 was
+open, never a bar** — INV-4 is the bar. The tier also prints where the walk
+stops, by table, which is what named the residue in file order; from 2026-09-08
+that histogram has one row.
 
 **Tier 3 is off by default**, so until § 4.7's cases land `readModel` is the
 one reader the ordinary gate does not exercise — which UTA-0004 § 7 already
@@ -602,10 +682,10 @@ a running walk. The reader is the derivation tool.
 | Which of `Vectors` and `Points` is which | `nothing`. Both are arrays of 12-byte `FVector`, so the two are byte-identical under transposition and no consumption check can ever separate them. § 4.6 does not close this — it is open on its own footing, and UTA-0007 binds to the names |
 | The `Polys` field's position specifically | INV-5 — the one check that separates a correct assignment from an adding-up byte count |
 | The element layouts of § 4.5 | INV-1 and INV-4 only. Each was settled by the residue moving, and nothing checks a *named field* inside a node or surf against an independent source |
-| The 922 exports of § 4.6 that complete at the wrong offset | INV-4, which fails on them. Nothing localises them to a table, and § 4.6 says so |
+| The exports § 4.6 recorded as completing at the wrong offset | INV-4, which failed on them. Nothing localised them to a table, and correcting `FLightMapIndex` removed them along with the rest of the cascade — there are none from 2026-09-08 |
 | The tables' order and indexing (INV-3) | Tier 1 fixture, once § 4.7 exists. `nothing` until then |
 | Refusal before allocation (INV-2) | Tier 1 fixture. That the refusal *precedes* the allocation is not observable from outside — the same gap UTA-0004 records for its INV-4 |
-| The residue of § 4.6 | `nothing`, by construction — it is the open work, and INV-4 is what says when it is closed |
+| The version-61 class § 4.6 scopes out | `nothing` here, by construction — it is **UTA-0072**'s work, and INV-4 is scoped to admit exactly that class and no other |
 | That a node's `iZone` names the zone a renderer would agree with | `nothing`. No independent oracle exists offline, and inventing one is UTA-0007's problem rather than this reader's |
 | § 2.2's figures | Tier 3 prints them (§ 7) |
 
@@ -649,10 +729,11 @@ Kept outside this file per `~/.claude/standards/spec-format.md` § 6:
 One reader in an existing file, no new dependency and no change to the link
 closure.
 
-The cost is derivation, and § 2.2 has already spent most of it: the order is
-settled and nine element layouts with it. What remains (§ 4.6) is bounded —
-`Leaves`, the 922 exports that end at the wrong offset, and the version-61
-prefix branch, each measured by the same total check.
+The cost was derivation, and § 2.2 had already spent most of it: the order is
+settled, and ten element layouts with it. What remained (§ 4.6) closed on
+2026-09-08 — `Leaves` derived, the exports ending at the wrong offset gone with
+the rest of the lightmap cascade, and the version-61 branch scoped to
+**UTA-0072** rather than left open. Each was measured by the same total check.
 
 The standing cost is the oracle. `readModel` has no tier-1 case until § 4.7,
 so every claim here rests on a tier that is off by default and needs an
