@@ -174,7 +174,26 @@ cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug \
 Worth knowing because a bounds check is the shape a plain test cannot
 grade: remove one and the case is undefined behaviour rather than a wrong
 answer, so it passes. UTA-0006 § 4.5's check was proved load-bearing this
-way — without it that fixture is a heap-buffer-overflow. Address and
+way — without it that fixture is a heap-buffer-overflow.
+
+**The sanitizer is half the answer; the FIXTURE has to reach the code.**
+Measured 2026-09-08 on UTA-0007's `roomAt`: removing its child-index range
+check survived the tests under AddressSanitizer, because the descent is
+bounded by `nodes.size()` and a one-node fixture exits that loop before it
+ever dereferences the bad index. The loop bound was rejecting the fixture
+before the rule under test was reached, so ASAN had nothing to see. Padding
+the fixture to three nodes turned the same mutation into a reported
+heap-buffer-overflow. **So when a mutation survives under a sanitizer, suspect
+the fixture before concluding the check is unnecessary** — ask which rule makes
+this fixture fail, and whether it is the rule you meant to test.
+
+**And mutate before trusting a green test at all.** Three of that item's four
+tier-1 cases were vacuous on first writing: each passed, each read correctly,
+and each was decided by something other than the rule it named — a table entry
+that already returned the refusal, a range check that subsumed the guard, and
+the loop bound above. None of that is visible from reading the test.
+
+Address and
 thread cannot share a binary, which is why this is a separate directory
 rather than a flag on the gate.
 
