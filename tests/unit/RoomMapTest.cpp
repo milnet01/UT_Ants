@@ -154,11 +154,21 @@ TEST_CASE("an out-of-range index resolves to no room", "[umap]") {
     // INV-3, the range half -- and it is a DIFFERENT failure from the cycle
     // above. An iteration counter stops a loop and does nothing about an
     // index outside its table, which reads memory that is not ours.
+    // Both sections below carry PADDING nodes, and the padding is the whole
+    // point of them. The descent is bounded by nodes.size(), so on a
+    // one-node map it exits after the first step and never dereferences the
+    // bad index -- the loop bound rejects the fixture before the range check
+    // is reached, and the test passes whether the check exists or not. That
+    // was the first version of these cases, and removing the range check
+    // survived them under AddressSanitizer. With room to take a second step,
+    // the unguarded read is a real out-of-bounds access.
     SECTION("a child index outside the node table") {
         RoomMap map;
         RoomMap::Node node;
         node.normal = Point3{0.0F, 0.0F, 1.0F};
         node.iFront = 99;
+        map.nodes.push_back(node);
+        map.nodes.push_back(node); // padding -- see above
         map.nodes.push_back(node);
 
         CHECK(roomAt(map, Point3{0.0F, 0.0F, 1.0F}) == NO_ROOM);
@@ -169,6 +179,8 @@ TEST_CASE("an out-of-range index resolves to no room", "[umap]") {
         RoomMap::Node node;
         node.normal = Point3{0.0F, 0.0F, 1.0F};
         node.iFront = -7;
+        map.nodes.push_back(node);
+        map.nodes.push_back(node); // padding -- see above
         map.nodes.push_back(node);
 
         CHECK(roomAt(map, Point3{0.0F, 0.0F, 1.0F}) == NO_ROOM);
