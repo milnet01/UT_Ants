@@ -428,7 +428,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: unav.
 
-- 🚧 [UTA-0007] **umap: partition a level into rooms and answer which room a point is in.**
+- ✅ [UTA-0007] **umap: partition a level into rooms and answer which room a point is in.**
   Built from the level's own BSP zones, so no map needs hand-authoring. Owns the
   simplified room model and the point-in-room lookup; ubundle owns its bytes
   (rule 17), uui draws it (rule 18), and the exploration state that fills it in is
@@ -502,6 +502,28 @@ model, no weapon and no opponent until 0.2.0.
   Of the deferred tail, Model::boundsValid is settled: an invalid box is
   not a measurement, so it yields no samples, which is the state SS 4.4
   step 3 already defines. The other four are untouched.
+  Resolved (2026-09-08): shipped at 5e66335 on the matrix -- GCC 14, Clang
+  19 and MSVC all green, checked by headSha. Both libraries, all three
+  test tiers, and INV-7's grep in scripts/ci.sh.
+
+  Every invariant has a test. INV-1, INV-3, INV-4, INV-6 and INV-8 in
+  tests/unit/{RoomBuild,RoomMap}Test.cpp; INV-5 at configure time in
+  src/umap/CMakeLists.txt, both closures; INV-7 in scripts/ci.sh; INV-2
+  and INV-6 again on real geometry in tests/real/RealInstallTest.cpp.
+
+  INV-2 does NOT hold in the hard form SS 7 asked for, and that is
+  recorded rather than papered over: 30399 probes of 11126404 disagree and
+  the case asserts under 1%. UTA-0079 is open on it, and the spec now
+  carries why -- that section's argument against a rate assumed a swapped
+  convention would score near 100%, where it measured zero.
+
+  The build was the third reviewer and earned it. It found UTA-0078, a
+  field-order defect in shipped upkg code that no unit test could have
+  seen, and settled four things the spec had left open.
+
+  Deferred tail: Model::boundsValid is settled here. The other four --
+  Model::leafHulls, the leaf-census discrepancy, SS 4.2's wiki citation,
+  and INV-3's off-by-one prose -- are untouched and stay filed.
   **Layman:** Chop the level into rooms so the in-game map has something to draw, using the room divisions the original level already has.
   Kind: implement.
   Source: design-2026-09-03.

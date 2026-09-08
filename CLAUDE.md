@@ -3,12 +3,12 @@
 ## Where this project is
 
 **State:** 4 if nothing is 🚧, else 5.
-**Next:** `UTA-0007` — `umap`: partition a level into rooms and answer
-which room a point is in. `UTA-0069` shipped on 2026-09-08 and was the
-thing withholding the `Model` layout this needs, so the item is
-unblocked; `UTA-0011` is behind it. Priority rule 1 is clear: `UTA-0059`
-is the only open review-sourced item and its own body defers it until
-the renderer lands.
+**Next:** `UTA-0008` — `ubundle`: define the `.utab` container, with its
+origin field and version. `UTA-0007` shipped on 2026-09-08, so `umap`
+now produces a room map with nothing to write it into; `UTA-0011`
+(`ubake`) drives both and sits behind this. Priority rule 1 is still
+clear: `UTA-0059` remains the only open review-sourced item and its own
+body defers it until the renderer lands.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
