@@ -6,9 +6,13 @@ pattern this project already uses for its specs. `review-contract` writes one
 row per loop as it closes. Rows are never back-filled and a landed row is
 never edited.
 
-**The document was ungated before 2026-09-08.** Its sibling
-`docs/standards/workflow-overrides.md` still is. That is a gap in the record,
-not evidence that either document was reviewed and passed.
+**The document was ungated before 2026-09-08.** That is a gap in the record,
+not evidence that it was reviewed and passed.
+
+Its sibling `docs/standards/workflow-overrides.md` was gated later the same
+day; its rows are in `workflow-overrides-loop-log.md`. This paragraph said
+that sibling was still ungated, which stopped being true within hours of
+being written.
 
 ## Cold-eyes loop log
 

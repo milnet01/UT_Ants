@@ -2,7 +2,9 @@
 
 ## Where this project is
 
-**State:** 4 if nothing is 🚧, else 5.
+**State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
+— `workflow.md` § 1 puts a project whose every 🚧 is parked between
+items. Else 5.
 **Next:** `UTA-0009` — `umat`: generate a PBR material from a 1999
 texture. `UTA-0008` shipped on 2026-09-08, so `UTA-0011` (`ubake`) now
 has a container to write a bake into and is blocked only by `umat`,
@@ -226,10 +228,14 @@ saying so. Clear the note when that item is picked up.
 
 Two Claude Code sessions may work this project simultaneously, and **two
 is the cap** — two sessions, therefore at most two items in flight.
-**This departs from `workflow.md` § 1, which allows exactly one item in
-flight, and the departure is recorded in
-`docs/standards/workflow-overrides.md` with the reason** — § Overrides is
-what requires that.
+**`workflow.md` § 1 already allows several sessions to work one project
+from separate worktrees, each holding one item, and sets no ceiling on
+how many. What this project adds is the ceiling of two**, recorded in
+`docs/standards/workflow-overrides.md` — § Overrides is what requires
+that. Corrected 2026-09-08: this read *"departs from `workflow.md` § 1,
+which allows exactly one item in flight"*, which was true when written
+and stopped being so when § 1's own gate changed the rule to *per
+session* on 2026-09-07.
 
 There is no orchestrator: nothing schedules the sessions, and neither can
 block the other.
@@ -262,7 +268,11 @@ checkout answers `source: "store"`, and a dry-run flip reported
    available, whatever the priority order says about it; a session
    already holding one does not take a second; and **if two are already
    🚧, nothing is available to anyone**. A 🚧 whose named holder is not in
-   `ListAgents` is abandoned and may be resumed.
+   `ListAgents` is abandoned and may be resumed. **A 🚧 parked on
+   `Waiting-on:` counts against neither limit** — `workflow.md` § 1 makes
+   it the exception and `roadmap-format.md` § 3.5.4 excludes it from
+   selection, so skip it and take the next workable item. No bullet here
+   carries one today.
 3. **The session already in the main checkout keeps it; a second session
    gets its own git worktree** (`claude -w <name>`). Never two sessions in
    one checkout. **Check at start-up, because nothing else will**:
