@@ -15,7 +15,7 @@ spot in the level, which room you are standing in.
 ## 1. Goal
 
 After this ships, a baked level carries a **room map**: a list of rooms
-derived from the level's own BSP zones, each with a traced 2D outline and a
+derived from the level's own BSP zones, each with a traced 2D footprint and a
 floor band, plus a lookup that answers which room any point in the level falls
 in. `uui` has something to draw and `uworld` has something to ask; neither
 needs the package reader, and no map is hand-authored.
@@ -109,26 +109,30 @@ pair of floats serialises more simply than a package-reader type.
 ```cpp
 // src/umap/Rooms.h -- links uta_core only
 
-/// A point on the map plane. `umap`'s own, because `upkg`'s Vector3 is not
-/// linkable from here (design rule 2).
-struct Point2 {
-    float x = 0;
-    float y = 0;
+/// A point on the map plane, and a point in the level. `umap`'s own, because
+/// `upkg`'s Vector3 is not linkable from here (design rule 2).
+struct Point2 { float x = 0, y = 0; };
+struct Point3 { float x = 0, y = 0, z = 0; };
+
+/// One connected piece of a room's floor plan: an outer ring and its holes.
+/// Every ring is closed with its first vertex NOT repeated at the end.
+struct Footprint {
+    std::vector<Point2> outer;
+    std::vector<std::vector<Point2>> holes;
 };
 
-/// One room: a zone of the level, its traced outline, and where it sits.
+/// One room: a zone of the level, its footprint, and where it sits.
 struct Room {
     /// The zone index this room was built from, in the source Model's own
     /// numbering. Never 0 -- SS 4.3.
     std::uint32_t zoneIndex = 0;
 
-    /// The traced boundary, in order, first vertex NOT repeated at the end.
-    /// A room may also carry holes -- SS 4.4.
-    std::vector<Point2> outline;
-    /// Each hole is a closed ring inside `outline`.
-    std::vector<std::vector<Point2>> holes;
+    /// One entry per CONNECTED component of the room -- SS 4.4. A zone used
+    /// twice in a level (two pools of one water zone) is one room with two
+    /// parts, not two rooms and not one self-intersecting ring.
+    std::vector<Footprint> parts;
 
-    /// Vertical extent, in the level's own units.
+    /// Vertical extent, from the room's own samples -- SS 4.4.
     float minZ = 0;
     float maxZ = 0;
 
@@ -145,11 +149,38 @@ struct RoomMap {
     std::vector<float> bands;
     /// Maps a source zone index to a position in `rooms`, or NO_ROOM.
     /// Sized to the source Model's zone table, so index 0 is present and
-    /// always NO_ROOM.
+    /// always NO_ROOM, as is every zone no leaf names -- SS 4.2.
     std::vector<std::uint32_t> roomForZone;
 };
 
 inline constexpr std::uint32_t NO_ROOM = 0xFFFFFFFFu;
+
+/// What the bake may vary. Every default is ABSOLUTE: none is computed from
+/// another field, so two conforming builders given the same options produce
+/// the same map. SS 4.4 and SS 4.5 say what each one does.
+struct RoomBuildOptions {
+    /// A quarter of UT99's nominal 64-unit player width, so a doorway is
+    /// several cells across.
+    float sampleSpacing     = 32.0f;
+    /// Half the default spacing -- but a LITERAL, not a computation. A
+    /// caller raising sampleSpacing does NOT move this, because a tolerance
+    /// that tracked another field would differ between two builders that
+    /// both read this document (SS 14 asks whether it should).
+    float simplifyTolerance = 16.0f;
+    /// Twice UT99's nominal player height, so a room and the gallery above
+    /// it separate while a stepped floor does not.
+    float floorSeparation   = 128.0f;
+};
+
+/// What the build could not do, on the success path. NOT part of what
+/// `ubundle` writes -- it is bake diagnostics, and design rule 17 governs the
+/// room model rather than this.
+struct RoomBuildReport {
+    /// Zone indices that had samples but produced no footprint -- SS 4.4.
+    std::vector<std::uint32_t> roomsWithoutFootprint;
+    /// Zone indices named by a leaf but outside the zone table -- SS 6.
+    std::vector<std::uint32_t> refusedZones;
+};
 ```
 
 **`RoomMap` carries no per-player and no exploration state, and that is a
@@ -163,9 +194,19 @@ The builder lives in the other library and takes what `upkg` already returns:
 
 ```cpp
 // src/umap/Build.h -- links uta_umap and uta_upkg, bake-side only
-[[nodiscard]] Result<RoomMap> buildRoomMap(const uta::upkg::Model& model,
-                                           const RoomBuildOptions& options = {});
+struct RoomBuildResult {
+    RoomMap map;
+    RoomBuildReport report;
+};
+
+[[nodiscard]] Result<RoomBuildResult> buildRoomMap(
+    const uta::upkg::Model& model, const RoomBuildOptions& options = {});
 ```
+
+**The report rides on the success path, not on `Result`'s error channel.**
+`Result`'s error arm means the build REFUSED; a room with no footprint is a
+built map with a note attached, and the two must not share a channel or
+`ubake` cannot tell a degraded map from a rejected one.
 
 It takes the `Model` UTA-0069 returns rather than re-reading the package,
 because re-reading it here would be a second decoder of a layout that spec
@@ -189,6 +230,7 @@ walks every modelled export:
 | Maps walked / with a parsing `Model` | 837 / 836 |
 | Maps whose zone table has more than one entry | 834 |
 | Maps whose zone table has **exactly** one entry | 0 |
+| Maps whose zone table is **empty** | 2 |
 | Largest zone table | 64 |
 | Leaves examined | 2 759 160 |
 | Leaves naming zone 0 | 0 |
@@ -200,15 +242,30 @@ having them transcribed here.
 
 Four things follow, and each is used below:
 
-1. **The partition is useful.** No map has a one-entry zone table.
+1. **The partition is useful.** No map has a one-entry zone table, and
+   834 of 836 have more than one. **Two have an empty one**, which is
+   836 = 834 + 0 + 2; § 6 carries that case.
 2. **Zone 0 is reserved.** Not one leaf of 2 759 160 names it. This matches
    the engine's own `FBspNode::iZone` documentation, where the array is
    *"Visibility zone in 1=front, 0=back"* and index 0 is the null zone.
    Source: <https://beyondunrealwiki.github.io/pages/standard-unreal-object-defi.html>
 3. **Leaf zone indices need no clamping**, only a refusal — nothing in the
    install is out of range, so a reader that refuses one costs nothing.
-4. **26 maps partition to a single room.** That is a real output, not a
-   failure; § 6 says what the map screen does with it.
+4. **26 maps partition to a single room, and the reason is the room-creation
+   rule below rather than their zone tables** — every one of them has a
+   multi-entry table and leaves naming only one zone.
+
+**The room-creation rule, stated because the census does not imply it.** A
+zone gets a `Room` **only where at least one leaf of the source `Model` names
+it**. Every other entry of `roomForZone` — index 0, and any zone the level
+declares but no leaf occupies — is `NO_ROOM`.
+
+The alternative is one room per zone-table entry, and it is wrong here: on
+those 26 maps it emits up to 63 rooms that no point can ever resolve to, which
+`ubundle` then serialises, `uui` draws as empty footprints, and the server keeps
+exploration bits against for rooms nobody can enter. The count of rooms is the
+bundle-format shape (§ 2 consequence 3), so this is not a detail the
+implementer may settle locally.
 
 The 64-zone ceiling is the engine's, documented on the Unreal wiki as *"A
 level can only have 64 zones"*, and the measurement reaches it.
@@ -258,36 +315,55 @@ the runtime library. `RoomMap` therefore carries the descent tables it needs;
 § 4.6 says which, and that is the one place this design pays for design rule 2
 in bytes rather than in structure.
 
-### 4.4 Tracing a room's outline
+### 4.4 Tracing a room's footprint
 
-Per § 3.1 the outline follows the level's geometry. It is derived by
-**sampling occupancy and tracing the boundary**, not by an exact polygon
-union of projected surfaces — § 8 records why.
+Per § 3.1 the footprint follows the level's geometry. It is derived by **one
+sampling pass over the level, bucketed by room**, then a boundary trace — not
+by an exact polygon union of projected surfaces (§ 8), and **not from per-leaf
+geometry, because there is none**. `Leaf` carries `iZone`, `iPermeating`,
+`iVolumetric` and `visibleZones` and no extent of any kind; the only box the
+tables offer is the model's own `boundsMin` / `boundsMax`, and that is what
+this samples.
 
-For each room:
+1. **One grid over the whole level.** Take `model.boundsMin` and
+   `model.boundsMax` and sample a regular lattice at `options.sampleSpacing`
+   in all three axes.
+2. **Resolve every sample once** through § 4.3, and bucket it by the room
+   returned. `NO_ROOM` samples are discarded. This is the only pass: no room
+   is sampled separately, and **no room needs an extent of its own
+   beforehand**, which is what removes the dependency on geometry the leaves
+   do not carry.
+3. **`minZ` and `maxZ` are the lowest and highest sample Z in the room's own
+   bucket**, so a room's vertical extent is an output of this pass rather
+   than an input to it. § 4.5 clusters on those values.
+4. **Project each bucket to XY.** A cell is IN for a room when at least one
+   sample in that column, at any Z, resolved to it.
+5. **Trace each connected component separately.** Marching squares over the
+   IN set yields closed rings. Group them by connected component: each
+   component becomes one `Footprint`, its outer ring `outer` and any ring
+   enclosed by it one of its `holes`. **A zone occupying two disjoint
+   volumes** — two pools of one water zone, a zone reused at both ends of a
+   level — is therefore one room with two `parts`, never one
+   self-intersecting ring and never two rooms.
+6. **Simplify every ring** with Ramer–Douglas–Peucker at
+   `options.simplifyTolerance`, removing the grid staircase without moving a
+   vertex further than that tolerance. **The simplifier never reduces a ring
+   below three vertices**: where the tolerance would, the ring keeps its
+   three most extreme vertices. Without that rule INV-6 would turn on an
+   implementer's `>` versus `>=` at a one-cell room.
 
-1. Take the room's zone extent in X and Y from the leaves that name it.
-2. Sample a grid over that extent at `options.sampleSpacing` (default 32
-   level units, one quarter of UT99's 64-unit nominal player width, so a
-   doorway is several cells across). A cell is IN when a point at its centre,
-   swept over the room's Z extent at the same spacing, resolves to this room
-   by § 4.3.
-3. Trace the boundary of the IN set with marching squares, producing one
-   closed ring per connected boundary. The outermost ring is `outline`; any
-   ring enclosed by it is a hole.
-4. Simplify each ring with Ramer–Douglas–Peucker at
-   `options.simplifyTolerance` (default half the sample spacing), which
-   removes the staircase the grid introduces without moving a vertex more
-   than that tolerance.
-
-**Sampling reuses § 4.3's lookup as its primitive**, so the outline cannot
+**Sampling reuses § 4.3's lookup as its primitive**, so the footprint cannot
 disagree with the lookup about which room a spot belongs to — the two would
-otherwise be two independent answers to one question.
+otherwise be independent answers to one question.
 
-**Resolution is a stated approximation, not an accident.** A room narrower
-than the sample spacing in both axes produces no IN cells and therefore no
-outline; § 6 says what happens to it, and INV-6 makes that case observable
-rather than silent.
+**Cost is bounded by the level box and not by the room count** — one pass,
+and adding a room adds no pass. § 13 carries the budget.
+
+**Resolution is a stated approximation, not an accident.** A volume thinner
+than `sampleSpacing` in all three axes catches no sample, so it gets no
+bucket and no `parts`. It is still a room: § 6 says what happens,
+`RoomBuildReport::roomsWithoutFootprint` names it, and INV-6 makes the case
+observable rather than silent.
 
 ### 4.5 Floor bands
 
@@ -299,9 +375,8 @@ a property of how rooms stack rather than of any surface:
 
 1. Collect every room's vertical midpoint.
 2. Cluster them on Z with single-linkage, splitting wherever consecutive
-   sorted midpoints differ by more than `options.floorSeparation` (default
-   128 level units, twice UT99's nominal player height, so a room and the
-   gallery above it separate while a stepped floor does not).
+   sorted midpoints differ by more than `options.floorSeparation`, whose
+   default and its reasoning are stated with the option in § 4.1.
 3. Each cluster is a band. `bands` holds the lower edge of each, ascending.
 4. A room joins **every** band its `[minZ, maxZ]` overlaps, so a stairwell or
    a lift shaft appears on each floor it connects rather than vanishing
@@ -327,7 +402,10 @@ travel with it. `RoomMap` gains:
         std::uint8_t iZone[2] = {0, 0};
     };
     std::vector<Node> nodes;
-    /// leafZone[i] is leaves[i].iZone in the source Model.
+    /// leafZone[i] is leaves[i].iZone in the source Model, narrowed.
+    /// The narrowing is SAFE ONLY BECAUSE the build refuses an out-of-range
+    /// iZone first (SS 6) and the engine caps a level at 64 zones (SS 4.2).
+    /// Leaf::iZone is i32 in upkg; do not narrow before that refusal runs.
     std::vector<std::uint8_t> leafZone;
 ```
 
@@ -340,20 +418,43 @@ light references are not carried, because the lookup does not read them.
 
 ## 5. Invariants
 
-- **INV-1** — Every room in a `RoomMap` names a distinct zone index in
-  `[1, model.zones.size())`, and no room names zone 0.
-  *Test:* `tests/unit/RoomMapTest.cpp`, "a built room map names every zone but
-  zero".
-  *Breaks when:* the builder walks the zone table from 0, which yields a room
-  no leaf can ever resolve to and shifts every subsequent `roomForZone` entry.
+- **INV-1** — Every room names a distinct zone index in
+  `[1, model.zones.size())` that **at least one leaf of the source `Model`
+  names**; no room names zone 0; and `roomForZone` is `NO_ROOM` at every index
+  no room was created for, index 0 included.
+  *Test:* `tests/unit/RoomMapTest.cpp`, "a room exists for each zone a leaf
+  names, and for no other".
+  *Breaks when:* the builder walks the zone table rather than the leaves — it
+  then emits a room for every declared zone, including ones no point can
+  resolve to. On the 26 single-zone maps of § 4.2 that is up to 63 phantom
+  rooms, each serialised, drawn, and tracked for exploration.
 
-- **INV-2** — For every leaf in the source `Model`, a point inside that leaf
-  resolves through `roomAt` to the room built from that leaf's `iZone`.
-  *Test:* `tests/real/RealInstallTest.cpp`, "every leaf resolves to its own
-  zone's room", over the install.
+- **INV-2** — For every node of the source `Model` carrying a vertex pool,
+  and for each side of its plane, a probe point just off the plane on that
+  side resolves through `roomAt` to the room for the zone **that node's own
+  record gives for that side** — `leaves[node.iLeaf[side]].iZone` where that
+  side is a leaf, otherwise `node.iZone[side]`.
+  *Test:* `tests/real/RealInstallTest.cpp`, "every node's own zone record
+  agrees with the descent", over the install.
   *Breaks when:* the descent takes `iFront` on the back side — the front/back
   convention of § 4.3 is an array index, so swapping it compiles, returns a
   plausible room for most points, and is wrong for all of them.
+
+  **The ground truth is read from the node record, never produced by a
+  descent, and that is the whole point of this invariant's shape.** The
+  obvious phrasing — *a point inside each leaf resolves to that leaf's zone* —
+  cannot be written: `Leaf` carries no geometry (§ 4.4), so the only way to
+  obtain a point inside a given leaf is to descend to it, and a test that
+  descends and then checks `roomAt`'s descent asserts the convention against
+  itself. **A consistently swapped convention passes such a test**, and § 10
+  makes this the only check of that defect, so a circular form would leave it
+  caught by nothing.
+
+  **The probe point** is the centroid of the node's polygon — its `numVertices`
+  entries from `verts` starting at `iVertPool`, each naming a `points` entry —
+  displaced along `plane.normal` by a small multiple of the level's own scale.
+  Both tables are members of `Model`. A node with no vertex pool is skipped
+  rather than probed.
 
 - **INV-3** — `roomAt` returns within `nodes.size()` plane tests for every
   input, including a `RoomMap` whose child indices form a cycle.
@@ -376,23 +477,27 @@ light references are not carried, because the lookup does not read them.
   *Breaks when:* a convenience dependency is added to `uta_umap`, which
   breaches design rule 2 silently — nothing else in the build would fail.
 
-- **INV-6** — Every room whose sampled occupancy is non-empty has an
-  `outline` of at least three vertices, and every ring in `outline` and
-  `holes` is closed without repeating its first vertex.
-  *Test:* `tests/unit/RoomMapTest.cpp`, "every traced room has a closed
-  outline", and the install case of INV-2 asserts it over real maps.
-  *Breaks when:* a room is narrower than `sampleSpacing` in both axes, so the
-  trace has nothing to walk. § 6 states the handling; this makes it visible.
+- **INV-6** — Every room whose sample bucket is non-empty has at least one
+  `Footprint`; every `outer` ring and every hole ring has at least three
+  vertices and is closed without repeating its first vertex; and every room
+  with an empty bucket appears in `RoomBuildReport::roomsWithoutFootprint`.
+  *Test:* `tests/unit/RoomMapTest.cpp`, "every sampled room has a closed
+  footprint, and every unsampled one is reported".
+  *Breaks when:* a room thinner than `sampleSpacing` in all three axes is
+  dropped silently instead of being kept and reported — or the simplifier
+  reduces a one-cell ring below three vertices, which § 4.4 step 6 forbids
+  precisely so this invariant does not turn on a comparison operator.
 
 - **INV-7** — No type in `src/umap/Rooms.h` carries per-player or exploration
   state.
   *Test:* `grep -nE '\b(visited|explored|seen|player|team)\b' src/umap/Rooms.h | grep -vE ':\s*(//|\*)'`
-  returns nothing. **The comment filter is load-bearing, not decoration:** the
-  doc comment in § 4.1 explaining why this state is absent uses the words
-  themselves, so a clause matching every line would be falsified by the
-  sentence that documents the rule. UTA-0004's INV-3 failed exactly this way
-  and was repaired on 2026-09-08 under UTA-0074; this clause is written
-  already knowing that.
+  returns nothing. **The comment filter is load-bearing, not decoration.**
+  Any header documenting why this state is absent must use the very words the
+  grep hunts, so a clause matching every line would be falsified by the
+  sentence documenting the rule. UTA-0004's INV-3 failed exactly this way and
+  was repaired on 2026-09-08 under UTA-0074; this clause is written already
+  knowing it. (§ 4.1's explanation is spec prose, not a header comment — the
+  filter is for the header the implementer writes.)
   *Breaks when:* a `visited` flag is added to `Room` for convenience. It would
   then be serialised into the bundle every client holds, making design rule
   18's *"a client cannot reveal what the server declined to send"* false, and
@@ -411,9 +516,11 @@ light references are not carried, because the lookup does not read them.
 | Assumption | When it breaks | What happens |
 |---|---|---|
 | The `Model` parses | A version-61 package (UTA-0072) | `buildRoomMap` returns the reader's error unchanged; `ubake` refuses that map and says which |
-| The zone table has more than one entry | 26 maps in the install name one distinct zone | One room covering the level. Drawn, and legitimately so — the level really is one zone |
-| A room is wider than the sample spacing | A crawlspace or a thin trim volume | No outline. The room is kept, with an empty `outline`, and reported in the build result so `ubake` can log it; `uui` skips a room with no outline rather than drawing a degenerate one |
-| Child indices are in range | Malformed or hostile file | The descent's iteration bound returns `NO_ROOM` (INV-3). The build refuses a `Model` whose `iZone` is out of range (§ 4.2 measured none) |
+| The zone table is non-empty | 2 maps in the install have an empty zone table (§ 4.2) | No leaf can name a zone, so no room is created. A valid `RoomMap` with no rooms and no bands; `roomForZone` is empty, `roomAt` returns `NO_ROOM` everywhere (INV-4), and `ubake` bakes a level with no map screen rather than refusing |
+| Leaves name more than one zone | 26 maps name exactly one (§ 4.2) | One room covering the level. Drawn, and legitimately so — those levels really are one zone. **Not the same measurement as the row above**: their zone tables are multi-entry, and the room-creation rule of § 4.2 is what reduces them to one room |
+| Every room catches a sample | A crawlspace or trim volume thinner than `sampleSpacing` in all three axes | No `parts`. The room is kept, listed in `RoomBuildReport::roomsWithoutFootprint`, and `uui` skips a room with no footprint rather than drawing a degenerate one (INV-6) |
+| A leaf's `iZone` is inside its own zone table | Malformed or hostile file; § 4.2 measured none in the install | The build refuses that zone, records it in `RoomBuildReport::refusedZones`, and creates no room for it. It does not clamp — a clamped index silently moves a room |
+| Child indices are in range | Malformed or hostile file | The descent's iteration bound returns `NO_ROOM` rather than looping (INV-3), so a malformed map degrades instead of hanging the bake |
 | Rooms stack into distinguishable bands | A ramped level with no flat floors | One band. The map degrades to the flattened view, which is § 4.5's stated behaviour rather than a defect |
 
 ## 7. Tests
@@ -425,14 +532,24 @@ Three tiers, matching the project's existing split.
    `Model` values written in the test, not real packages, so each case
    isolates one rule.
 2. **`src/umap/CMakeLists.txt`** — the configure-time link-closure
-   assertions of INV-5, plus the `grep` of INV-7 which `scripts/ci.sh` runs.
+   assertions of INV-5. **INV-7's `grep` is a new step this item adds to
+   `scripts/ci.sh`**, alongside the ones already there; it is not wired
+   today, and wiring it is part of this work rather than an existing
+   check being relied on.
 3. **`tests/real/RealInstallTest.cpp`** — one case over the install, locking
    INV-2 and re-asserting INV-6 on real geometry. **It prints § 4.2's table
    rather than asserting transcribed figures**, so those numbers are an output
-   of the suite rather than a claim in this document that somebody must
-   re-measure by hand. It asserts a population and a rate, never a per-map
-   figure: a level whose zoning disagrees with its own leaves is content
-   rather than a builder defect.
+   of the suite rather than a claim in this document somebody must re-measure
+   by hand.
+
+   **INV-2 is asserted in the HARD form: zero disagreeing probes, across the
+   whole install — not a rate.** § 4.2 measured zero leaves out of range and
+   zero naming zone 0, so the data supports the hard form, and a rate would
+   not do the job this invariant exists for: a swapped front/back convention
+   is wrong at *every* probe, so any threshold below 100% passes exactly the
+   defect being hunted. The printed CENSUS is a population figure; the
+   ASSERTION is per-probe. Those are different things and this tier does
+   both.
 
 Each test is seen failing against pre-fix code before it is trusted. INV-2's
 case is the one that matters here: written against a descent with the
@@ -458,7 +575,12 @@ front/back convention deliberately swapped, it must go red.
   middle option and declined (§ 3.2).
 - **Rooms from a hand-authored map file.** Rejected by the roadmap bullet:
   *"Built from the level's own BSP zones, so no map needs hand-authoring."*
-  610 maps is the scale that rules it out.
+  The scale is what rules it out — the server's Monster Hunt rotation, which
+  ADR-0002 to ADR-0004 put at 610 maps. **That is a different population from
+  § 4.2's 837**, which counts `.unr` files in the reference install's `Maps`
+  directory; the two figures do not disagree, and the rotation's own count is
+  contested by a separate roadmap item. Either way no one is hand-authoring
+  hundreds of maps.
 - **Merging or splitting zones to even out room sizes.** Rejected for now:
   the level author's zoning is the best available statement of what a room is,
   and § 4.2 shows it is not degenerate. Revisit only with a map where it
@@ -479,16 +601,17 @@ front/back convention deliberately swapped, it must go red.
 
 | Rule | What catches a breach |
 |------|----------------------|
-| INV-1 | `tests/unit/RoomMapTest.cpp`, "a built room map names every zone but zero" |
-| INV-2 | **Partial:** `tests/real/RealInstallTest.cpp`, "every leaf resolves to its own zone's room" — and that tier is **off by default**, so an ordinary gate run proves this invariant not at all. It is the only check reading geometry this project did not write, and the front/back defect it exists to catch is invisible to every check that does run. Unlike UTA-0004's INV-1, there is no fixture half carrying it on the default gate; adding one is worth doing when the builder lands |
+| INV-1 | `tests/unit/RoomMapTest.cpp`, "a room exists for each zone a leaf names, and for no other" |
+| INV-2 | **Partial:** `tests/real/RealInstallTest.cpp`, "every node's own zone record agrees with the descent" — and that tier is **off by default**, so an ordinary gate run proves this invariant not at all. It is the only check reading geometry this project did not write, and the front/back defect it exists to catch is invisible to every check that does run. Unlike UTA-0004's INV-1 there is no fixture half carrying it on the default gate; adding one is worth doing when the builder lands |
 | INV-3 | `tests/unit/RoomMapTest.cpp`, "a cyclic node graph terminates" |
-| INV-4 | `tests/unit/RoomMapTest.cpp`, "zero zone and an empty map are not rooms" |
+| INV-4 | `tests/unit/RoomMapTest.cpp`, "zone zero and an empty map are not rooms" |
 | INV-5 | The configure-time assertions in `src/umap/CMakeLists.txt` |
-| INV-6 | **Partial:** the unit case proves a traced room closes its rings; the install case proves it over real geometry, and is off by default. Neither proves the outline is *correct* — that it follows the walls a player sees is a judgement no assertion here makes, and the first real check is looking at the drawn map in UTA-0016 |
-| INV-7 | **Partial:** the `grep` in its *Test:* clause, wired into `scripts/ci.sh`. It catches a field named for what it holds; it cannot catch per-player state smuggled in under a neutral name, which no grep can |
+| INV-6 | **Partial:** `tests/unit/RoomMapTest.cpp`, "every sampled room has a closed footprint, and every unsampled one is reported", plus the install case on real geometry (off by default). Neither proves a footprint is *correct* — that it follows the walls a player sees is a judgement no assertion here makes, and the first real check is looking at the drawn map in UTA-0016 |
+| INV-7 | **Partial:** the `grep` in its *Test:* clause, as a step this item adds to `scripts/ci.sh` (§ 7). It catches a field named for what it holds; it cannot catch per-player state smuggled in under a neutral name, which no grep can |
 | INV-8 | `tests/unit/RoomMapTest.cpp`, "every room sits on at least one floor" |
-| § 4.4's sampling tolerance | **nothing** — no test asserts the traced outline is within `simplifyTolerance` of the true boundary, because this document defines no independent source of the true boundary to compare against. Revisit if § 8's exact-union alternative is ever built |
-| § 4.5's band separation default | **nothing** — 128 units is reasoned from UT99's player height, not measured against the map library. A level whose floors sit closer merges them silently |
+| § 4.4's sampling tolerance | **nothing** — no test asserts a traced footprint is within `simplifyTolerance` of the true boundary, because this document defines no independent source of the true boundary to compare against. Revisit if § 8's exact-union alternative is ever built |
+| § 4.5's band separation default | **nothing** — the default is reasoned from UT99's player height, not measured against the map library. A level whose floors sit closer merges them silently |
+| § 4.4's one-pass sampling cost | **nothing** — no test bounds the bake time or the sample count on a large level. § 13 states the shape of the cost; nothing enforces it, and the first evidence will be `ubake` running on the install |
 
 ## 11. Cross-doc impact
 
@@ -512,8 +635,12 @@ source `Model`'s node count, and the largest table in the install is what
 bounds it in practice; the tier-3 case of § 7 prints that figure alongside
 § 4.2's so the budget is measured rather than asserted.
 
-Bake-time sampling (§ 4.4) is bounded by the level's XY extent divided by
-`sampleSpacing`, per room. It runs in `ubake` and never at runtime.
+Bake-time sampling (§ 4.4) is ONE pass over the level's own bounding box on a
+three-axis lattice at `sampleSpacing` — so its cost is the box's volume over
+that spacing cubed, and it does **not** scale with the room count. It runs in
+`ubake` and never at runtime. **Halving `sampleSpacing` multiplies the sample
+count by eight**, which is the number to know before tuning it, and § 14 is
+where that tuning is still open.
 
 **No new external dependency.** Marching squares and Ramer–Douglas–Peucker
 are both short and are written here rather than pulled in, which is also what
@@ -521,10 +648,15 @@ avoids a geometry library on the runtime side of design rule 2.
 
 ## 14. Open questions
 
-- **Is 32 units the right sample spacing?** It is reasoned from UT99's player
-  width, not measured. The first level drawn in UTA-0016 will answer it, and
-  it is an option rather than a constant so that answering it is a
-  configuration change.
+- **Is `sampleSpacing`'s default right?** It is reasoned from UT99's player
+  width, not measured, and § 13 gives the cubic cost of lowering it. The first
+  level drawn in UTA-0016 will answer it, and it is an option rather than a
+  constant so that answering it is a configuration change.
+- **Should `simplifyTolerance` track `sampleSpacing` instead of standing
+  alone?** § 4.1 fixes it as a literal so two builders cannot disagree, which
+  is the safe call and not obviously the right one: a caller who doubles the
+  spacing probably wants the tolerance to follow. Left absolute until someone
+  tunes the pair on a real level.
 - **Should a room spanning many bands be drawn on all of them, or only where
   it opens?** § 4.5 draws it on all, which is the conservative choice. A
   lift shaft through six floors may look like clutter; the map screen is the
