@@ -2402,7 +2402,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-07 standing-dependency-rule.
   Lanes: ci.
 
-- 🚧 [UTA-0074] **UTA-0004's spec cites a test file that does not exist, and one claim in it is stale.**
+- ✅ [UTA-0074] **UTA-0004's spec cites a test file that does not exist, and one claim in it is stale.**
   docs/specs/UTA-0004-typed-level-content.md names
   tests/unit/PackageMalformedContentTest.cpp in four places. No such file
   exists; the real one is tests/unit/PackageMalformedTest.cpp.
@@ -2428,6 +2428,36 @@ model, no weapon and no opponent until 0.2.0.
   Blocked-by: nothing.
   Progress (2026-09-08): picked up by session ut-ants-c7, ahead of
   UTA-0007, on the user's restated priority order.
+  Resolved (2026-09-08) by ut-ants-c7 at 290252c, matrix green.
+
+  The four citations now name tests/unit/PackageMalformedTest.cpp, and every
+  tests/ and src/ path the spec cites resolves on disk.
+
+  The stale claim was in seven passages, not one. "readModel's layout is
+  withheld, so there is nothing to malform" was the shared premise of INV-2's
+  and INV-4's test clauses, the INV-1, INV-2 and INV-4 grade rows, the test
+  inventory's tier-1 entry, and SS 4.10's builder note. Fixing only the row
+  this bullet named would have left the document asserting both that readModel
+  has no fixture case and that it has three.
+
+  Regraded against measurement. The content tier reads a Model's tables back at
+  known counts, places its elements at the file's own indices, and refuses one
+  with bytes left over; the malformed tier declares more nodes than the export
+  holds, a negative node count, and more leaves than it holds, and asserts a
+  valid fixture-built Model parses. SS 4.10's claim that the SHARED builder
+  builds no Model is still true and was kept -- only its reason had died, the
+  Model fixtures living in the unit-test files' own helpers.
+
+  A third defect of the same class was found and fixed here: INV-3's clause said
+  its grep returns nothing, and it now returns a Geometry.cpp comment. The
+  invariant is untouched -- no line compares against 61 or 69 -- and the clause
+  records that this is the second time it was written tighter than what it tests.
+
+  The cold-eyes loop-log row carries the same dead premise and was deliberately
+  left as written.
+
+  No gate: every edit corrects a citation or records what UTA-0069 built.
+  No CHANGELOG entry: internal document hygiene, not a notable change.
   **Layman:** A design document points at a test file by the wrong name, so nobody can check the promises it makes.
   Kind: doc-fix.
   Source: in-session-2026-09-08.
