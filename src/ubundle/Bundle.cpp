@@ -769,9 +769,17 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_NAVG) {
             UTA_TRY(bundle.nav, readNavGraph(payload));
             UTA_CHECK(validateNavGraph(*bundle.nav, ErrorCode::MalformedData));
-        } else {
+        } else if (descriptor.id == ID_WIRG) {
             UTA_TRY(bundle.wiring, readWiringGraph(payload));
             UTA_CHECK(validateWiringGraph(*bundle.wiring, ErrorCode::MalformedData));
+        } else {
+            // Unreachable: knownId() refused every other id while the table
+            // was being validated. Named rather than folded into the WIRG arm
+            // so that each id appears in exactly ONE arm -- an `else` standing
+            // for WIRG decodes a NEW section id as a WiringGraph the moment
+            // one is added to knownId() and not to this dispatch, and that is
+            // silent. Refusing is loud and wrong in the safe direction.
+            return fail(ErrorCode::MalformedData, "a section id has no decoder");
         }
 
         // Trailing bytes mean the layout was misread, not that there is
