@@ -529,7 +529,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: umap.
 
-- 🚧 [UTA-0008] **ubundle: define the .utab container, with its origin field and version.**
+- ✅ [UTA-0008] **ubundle: define the .utab container, with its origin field and version.**
   The container for everything shipped as content: a baked map or an authored
   character. Owns the file layout and its version, never the meaning of a
   section's contents.
@@ -560,6 +560,32 @@ model, no weapon and no opponent until 0.2.0.
   ut-ants-02. Implementing from the accepted spec: src/ubundle/,
   tests/unit/BundleFormatTest.cpp and BundleMalformedTest.cpp. Lane is
   still ubundle, sharing no directory with UTA-0012's upkg.
+  Resolved (2026-09-08): shipped by session ut-ants-02 at e9c623e, green
+  on the matrix -- GCC 14, Clang 19 and MSVC all success. src/ubundle/
+  holds Bundle.h, Bundle.cpp and a CMakeLists.txt whose INV-10 link
+  assertion was proved to fire by adding uta_upkg. Tests are
+  tests/unit/BundleFormatTest.cpp and BundleMalformedTest.cpp.
+
+  Mutation-probed before believed: 57 mutations, one per rule the spec
+  names, 54 killed. That found FOUR fixtures grading a rule other than
+  the one they named -- the UTA-0007 failure this project's CLAUDE.md
+  records -- and each was rebuilt. The tiling rule needed a fixture
+  built for it, two sections declaring the same offset, because a gap or
+  a backwards overlap is caught by the trailing-bytes check first.
+
+  Two survivors are redundancies in the spec rather than gaps, recorded
+  at their own cases: the ascending-offset rule is subsumed by tiling,
+  and the zone-zero rule by the index-0 rule plus table agreement. No
+  fixture can isolate either; both checks stay, being the spec's.
+
+  INV-1 and INV-2 are bounds properties a plain test cannot grade, so
+  they were measured under AddressSanitizer in a build directory of
+  their own -- removing readBytes' bound reports a heap-buffer-overflow,
+  and removing the allocation count check reports a 275 GB allocation
+  request. Both invisible in the Release leg.
+
+  UTA-0011 (ubake) is now unblocked, as are UTA-0013's origin check and
+  UTA-0016's bundle load.
   **Layman:** Our own file format for a finished level -- and the field that records where its content came from, which is what keeps Epic's material off the network.
   Kind: implement.
   Source: design-2026-09-03.
