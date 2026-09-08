@@ -3,3 +3,4 @@
 add_subdirectory(core)
 add_subdirectory(upkg)
 add_subdirectory(unav)
+add_subdirectory(umap)
