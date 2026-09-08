@@ -24,7 +24,7 @@ constexpr std::size_t BSP_NODE_MIN_BYTES = 43;
 constexpr std::size_t BSP_SURF_MIN_BYTES = 16;
 constexpr std::size_t VERT_MIN_BYTES = 2;
 constexpr std::size_t ZONE_MIN_BYTES = 17;
-constexpr std::size_t LIGHT_MAP_BYTES = 30; // fixed, not a minimum -- readLightMapIndex
+constexpr std::size_t LIGHT_MAP_MIN_BYTES = 30;
 constexpr std::size_t LIGHT_BITS_BYTES = 1;
 constexpr std::size_t BOX_BYTES = 25;
 constexpr std::size_t LEAF_HULL_BYTES = 4;
@@ -208,26 +208,34 @@ Result<ZoneProperties> readZoneProperties(ByteReader& reader) {
     return zone;
 }
 
-/// Thirty bytes, every field fixed-width. SS 4.5 states two leading compact
-/// indices and four-byte clamps; both are wrong, and reading `dataOffset` as
-/// a compact index is what stranded the cursor for the whole second run of
-/// tables -- a first byte of 0x85 decodes to -5 and consumes one byte where
-/// the field is four. The order here is the file's, not SS 4.5's.
+/// Thirty bytes at its smallest, and SS 4.5's layout for it is wrong in every
+/// part: it states two LEADING compact indices and four-byte clamps. The
+/// offsets are raw `i32` and the CLAMPS are the compact ones, in the order
+/// written here, which is the file's.
+///
+/// Reading `dataOffset` as a compact index is what stranded the cursor for
+/// the whole second run of tables -- a first byte of 0x85 decodes to -5 and
+/// consumes one byte where the field is four -- so the walk reached the later
+/// tables misaligned and blamed whichever one it stopped in.
+///
+/// The clamps are a lightmap's texel dimensions, so they are usually 16 or 32
+/// and fit a compact index's one byte; the element is thirty bytes whenever
+/// they do. A clamp of 64 or more takes two, because 0x40 is the continue
+/// bit, and that is the whole of the difference -- an element read at a fixed
+/// thirty consumes 9560 exports and then shifts every later element of any
+/// export holding one.
 ///
 /// Derived by sweeping the element width against a signature that requires
-/// the rest of the export to land exactly on its final byte: width thirty is
-/// the sole fit for 9455 of the exports it explains, against eighteen for the
-/// runner-up. Corroborated semantically rather than by that count alone --
-/// `dataOffset` lands inside the export's own `lightBits` array and never
-/// decreases, `iLightActors` is -1 or indexes `lights`, and both scales are
-/// finite and positive, on every one of 306706 entries in the reference
-/// install. Reading the scales two bytes earlier holds for 31% of them.
+/// the rest of the export to land exactly on its final byte. Corroborated
+/// semantically rather than by that fit alone -- `dataOffset` lands inside
+/// the export's own `lightBits` array and never decreases, `iLightActors` is
+/// -1 or indexes `lights`, and both scales are finite and positive.
 Result<LightMapIndex> readLightMapIndex(ByteReader& reader) {
     LightMapIndex entry;
     UTA_TRY(entry.dataOffset, reader.readI32());
     UTA_TRY(entry.pan, readVector(reader));
-    UTA_TRY(entry.uClamp, reader.readU8());
-    UTA_TRY(entry.vClamp, reader.readU8());
+    UTA_TRY(entry.uClamp, reader.readIndex());
+    UTA_TRY(entry.vClamp, reader.readIndex());
     UTA_TRY(entry.uScale, reader.readFloat());
     UTA_TRY(entry.vScale, reader.readFloat());
     UTA_TRY(entry.iLightActors, reader.readI32());
@@ -392,7 +400,7 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
 
     // The second run. It holds SIX arrays against the first run's five --
     // UTA-0004 SS 4.5 called it "shorter", and SS 4.4 supersedes that.
-    UTA_TRY(model.lightMap, readTable<LightMapIndex>(reader, LIGHT_MAP_BYTES,
+    UTA_TRY(model.lightMap, readTable<LightMapIndex>(reader, LIGHT_MAP_MIN_BYTES,
                                                      "lightmap entries",
                                                      readLightMapIndex));
     UTA_TRY(model.lightBits,

@@ -262,18 +262,22 @@ void appendTable(std::vector<std::uint8_t>& into, std::int32_t count,
     into.insert(into.end(), elements.begin(), elements.end());
 }
 
-/// One `LightMapIndex`, thirty fixed bytes in the order the file writes them.
-/// `dataOffset` carries the label; every other field carries a value distinct
-/// from its neighbours' so a test can tell a correct placement from a shifted
-/// one. `dataOffset` is deliberately larger than a one-byte compact index can
-/// hold, so reading it as an index -- the layout this replaced -- misaligns
-/// the cursor rather than happening to agree.
+/// One `LightMapIndex`, in the order the file writes them. `dataOffset`
+/// carries the label; every other field carries a value distinct from its
+/// neighbours' so a test can tell a correct placement from a shifted one.
+///
+/// Two of those values are chosen against a specific wrong reading.
+/// `dataOffset` is larger than a one-byte compact index can hold, so reading
+/// it as an index misaligns the cursor rather than happening to agree. And
+/// `vClamp` is over 63, so it takes two bytes -- the clamps ARE compact, and
+/// a lightmap's texel dimensions are usually small enough that a fixed-width
+/// read of them agrees by accident.
 std::vector<std::uint8_t> oneLightMapIndex(std::int32_t dataOffsetLabel) {
     std::vector<std::uint8_t> body;
     appendU32(body, static_cast<std::uint32_t>(dataOffsetLabel)); // raw i32
     appendVector(body, 1.5F, 2.5F, 3.5F);                        // pan
-    appendU8(body, 7);                                           // uClamp
-    appendU8(body, 9);                                           // vClamp
+    appendIndex(body, 7);                                        // uClamp, compact
+    appendIndex(body, 100);                                      // vClamp, two bytes
     appendFloat(body, 32.0F);                                    // uScale
     appendFloat(body, 64.0F);                                    // vScale
     appendU32(body, 0xFFFFFFFFu);                                // iLightActors, -1
@@ -526,7 +530,7 @@ TEST_CASE("a Model export reads back its tables at known counts", "[upkg]") {
     CHECK(model->lightMap[0].pan.y == 2.5F);
     CHECK(model->lightMap[0].pan.z == 3.5F);
     CHECK(model->lightMap[0].uClamp == 7);
-    CHECK(model->lightMap[0].vClamp == 9);
+    CHECK(model->lightMap[0].vClamp == 100);
     CHECK(model->lightMap[0].uScale == 32.0F);
     CHECK(model->lightMap[0].vScale == 64.0F);
     CHECK(model->lightMap[0].iLightActors == -1);
