@@ -607,6 +607,31 @@ model, no weapon and no opponent until 0.2.0.
   spec -- writing one before a consumer binds to the shape is the cheaper
   order. The project is pre-0.1.0 with no release cut, so nothing is
   broken by settling it later.
+  Note (2026-09-08), recorded by ut-ants-c7 so a cross-session agreement
+  does not die with a chat window. This item was built by the
+  ut-monsterhunt-bc session, which committed it into this checkout directly;
+  it is on origin and the matrix is green on GCC 14, Clang 19 and MSVC.
+
+  Agreed with that session, and it still stands:
+
+  - It stays 🚧 and does NOT flip shipped without a short spec settling the
+    ut-dump JSON shape, plus a test pinning it. Reason:
+    docs/standards/versioning-overrides.md makes the ut-dump CLI and its output
+    a versioned surface, and their consumer is a script over 740 maps -- so
+    spec-format.md SS 1 trigger 1 fires, a contract something else binds to.
+  - They are drafting that spec from the CONSUMER side, because they know what
+    their script binds to and this project does not, and will hand it here for
+    the review gate rather than landing it.
+  - The contract they intend to pin is deliberately narrow: importedPackages
+    (outermost names, de-duplicated), classCounts over the export table,
+    level {actors, rawSlots, reachSpecs}, and nav/wiring counts plus the
+    dangling list with its actor class. Everything else in the current output
+    is incidental and is NOT to be pinned.
+
+  Verified here rather than taken on trust: the outer-chain defect they hit in
+  their own tool is not latent anywhere else in this tree. src/upkg/Class.cpp,
+  src/unav/Build.cpp and tests/real/RealInstallTest.cpp all walk an import's
+  outer chain to the root already, with a termination guard.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
