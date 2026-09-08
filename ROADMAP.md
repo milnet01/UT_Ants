@@ -525,7 +525,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ubake.
 
-- 📋 [UTA-0012] **ut-dump: inspect a package from the command line.**
+- 🚧 [UTA-0012] **ut-dump: inspect a package from the command line.**
   Ships to developers, who build it from source. Its command line is a
   breaking surface even so.
 
@@ -555,6 +555,30 @@ model, no weapon and no opponent until 0.2.0.
   which is the tightest of the four.
 
   Blocked-by: the container reader.
+  Progress (2026-09-08): the tool exists and answers all three day-one
+  queries, in 0fcaae2. tools/ut-dump, linking uta_unav_build so no new
+  path runs from a runtime target into upkg. JSON only; no human mode,
+  having no user for one. The third query was unblocked by UTA-0057.
+
+  Measured over the requesting consumer's own library: 837 packages read
+  whole -- imports, actor classes, Level, nav graph, wiring graph -- in 67
+  seconds cold and 14 warm. It replaces a server boot per map, measured at
+  48 seconds each on that machine.
+
+  A defect worth keeping: walking an import's outer ONE link yields the
+  GROUP, not the package, because a texture reference is
+  Package.Group.Texture. It reported 587 maps as needing a package called
+  "Base". Walking to the outermost fixed it, and the check that settles it
+  is that an install which loads must have its dependencies met -- the
+  count over 740 installed maps went from 732 to zero.
+
+  Two things are deliberately NOT done, and the item is not shipped.
+  Nothing has run on the matrix, only the CMake default leg (173/173, TSan
+  clean). And there is no test, because the output shape is a surface
+  versioning-overrides.md names by name, and this item has never had a
+  spec -- writing one before a consumer binds to the shape is the cheaper
+  order. The project is pre-0.1.0 with no release cut, so nothing is
+  broken by settling it later.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
