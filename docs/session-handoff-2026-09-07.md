@@ -113,9 +113,27 @@ must resolve to a known class — and accept a span only where the signature
 holds. It needs no hypothesis about the layout and self-checks wherever the
 answer is known in advance.
 
+## The state this session ended in
+
+**Clean, and at a boundary rather than mid-edit.** Working tree clean,
+nothing unpushed, every claim above already on `origin/main`. The session
+(`ut-ants-b2`) then ended in a deliberate terminal restart, so the 🚧 on
+`UTA-0069` names a holder that no longer exists: by § Running two sessions
+at once rule 2 that claim is abandoned and may be resumed. Nothing was
+left half-written — resume it, do not repair it.
+
+**The probes that produced the version-61 derivation were throwaway and
+are NOT in the tree.** They lived in the session scratchpad and are gone.
+Do not go looking for them. `UTA-0072`'s body states the layout in full —
+the prefix, the six references, the eight arrays and the five derived
+widths — and § The immediate next action below states the anchor-sweep
+method, which is what makes rebuilding one cheap.
+
 ## Checks already run, so they need not be repeated
 
 - Local gate green at `cc80cad`: 173 unit tests, ThreadSanitizer clean.
+- GitHub green at `cc80cad` on all three legs — GCC 14, Clang 19, MSVC.
+  Checked by `headSha`, per `CLAUDE.md`'s cancelled-run warning.
 - The tier-1 version refusal was mutated to `if (false && ...)` and the
   test fails, so it is not vacuous.
 - Earlier in the item: the suite clean under AddressSanitizer +
