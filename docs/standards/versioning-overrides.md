@@ -51,8 +51,10 @@ required rather than encouraged:
 
 - Every breaking change is a `### Changed` or `### Removed` entry in
   `CHANGELOG.md` that says, in its first clause, what stops working.
-- A release whose section contains one leads with it, per
-  `releases.md` § 2.
+- A release whose section contains one leads with it. **This project's own
+  addition**: `releases.md` § 2 makes the changelog section the single
+  description of a release and says nothing about the order of the entries
+  inside it, so the ordering is stated here rather than cited to there.
 
 ## Which release an item belongs to
 
@@ -66,18 +68,38 @@ to it invalidates every cached bake. Deferring them to the release that uses
 them would mean re-baking every map at that point.
 
 **The test is narrow, and it is not licence to pull work forward.** Ask
-whether a format *this* release freezes has to carry the work. If it does, it
-lands here whatever uses it later. Work that merely relates to a later
-milestone, or that is simply convenient to do now, belongs to the release that
-names it. Without the narrowing this rule justifies anything, since almost any
-work can be argued to be cheaper now than later.
+whether adding the work later would invalidate content already baked or
+published under one of this release's own formats. If it would, the work lands
+here whatever uses it later. Work that merely relates to a later milestone, or
+that is simply convenient to do now, belongs to the release that names it.
+Without the narrowing this rule justifies anything, since almost any work can
+be argued to be cheaper now than later.
+
+**The test is that cost, and deliberately not the word *frozen*.** Nothing in
+this document says which release freezes which format, and § Override's own
+cost clause allows a breaking format change later in `0.x` so long as the
+changelog announces it — so a rule keyed on freezing would have no answer here.
+The cost is checkable against § Breaking surfaces, which is the list of things
+whose change breaks something a user already has.
 
 **An item filed in a release's section is not evidence that the release needs
-it.** A release is cut on the signs of success its row names and on nothing
-else, so an item its row does not reach is not a reason to hold the release.
-Where an item has been deferred out of a release's cut condition, that is
-recorded in the item's own body — so read the bodies before counting a
-section's open items as work the release is waiting on.
+it.** A release is cut on the cut condition its row states and on nothing else
+— the signs of success that row names, **and any further condition in the same
+cell**. Three rows carry such a condition and `0.5.0`'s names no sign at all,
+so a rule reading only the signs would leave that release gated by nothing.
+
+**Two things hold a release, and only these two: its row's cut condition, and
+work one of this release's formats has to carry** — the class the first
+paragraph describes. Without that second one a conformer cuts `0.1.0` on
+**S1** and **S7** alone while the bundle format is still missing the sections
+`umap` and `unav` fill, which is the re-baking cost this whole section exists
+to prevent.
+
+**Whoever defers an item out of a release's cut condition records that in the
+item's own body, in the roadmap store.** An obligation, not a description:
+without the note the next session counts the item as work the release is
+waiting on, which is the harm above. So read the bodies before counting a
+section's open items.
 
 ## Breaking surfaces
 
@@ -111,3 +133,16 @@ are named above.
 Not surfaces: internal C++ APIs between the parts in `docs/design.md`,
 and the shape of a bundle's *contents* where the format version already
 covers it.
+
+**That second exemption is from being listed separately here, never from
+being announced.** `docs/design.md` rule 17 makes any new room attribute or
+graph edge type a bundle-format version bump — so it is a change to the first
+surface above, and it is announced under that one. Only a contents change that
+bumps no version is outside this list entirely. Without the distinction a
+conformer adds a room attribute, reads *contents are not a surface*, ships no
+`### Changed` entry, and every server operator re-bakes a rotation with no
+warning.
+
+## Cold-eyes loop log
+
+Rows live in `../reviews/versioning-overrides-loop-log.md`.
