@@ -467,11 +467,20 @@ TEST_CASE("every modelled export in the install is consumed exactly",
 
     CHECK(totals.models > 0);
     // UTA-0069 INV-4, and it is the item's acceptance rather than a progress
-    // measure: every Model export in the install, no tolerance. This is RED
-    // while SS 4.6's residue is open, which SS 6 states as the honest
-    // outcome -- a rate written in here would freeze unfinished derivation
-    // into a permanent tolerance.
-    CHECK(totals.modelsRefused == 0);
+    // measure: every Model export this reader CLAIMS, no tolerance.
+    //
+    // One class is scoped out, by the user's ruling of 2026-09-07 rather than
+    // by this test's judgement: below package version 62 a Model keeps its
+    // BSP tables in separate exports, readModel refuses it by name, and
+    // UTA-0072 is the item that reads it. So the bar is that every refusal is
+    // THAT class and there is no other. It is not a rate -- a rate would
+    // freeze unfinished derivation into a permanent tolerance -- and it
+    // tightens to zero on its own when UTA-0072 lands, because the bucket
+    // empties and this reads `refused == 0`.
+    const auto scopedOut = modelRefusalsByTable.find("package version below 62");
+    const int refusedForVersion =
+        scopedOut == modelRefusalsByTable.end() ? 0 : scopedOut->second;
+    CHECK(totals.modelsRefused == refusedForVersion);
 }
 
 // --- UTA-0005: the class table against what actually shipped ----------------

@@ -143,8 +143,8 @@ std::vector<std::uint8_t> modelDeclaringNodeCount(std::int32_t nodeCount) {
 /// itself empty, so the cursor arrives at `Leaves` honestly rather than by
 /// accident -- and then declares `leavesCount` there and stops. SS 4.1: a
 /// non-zero count is a table this reader does not yet describe (SS 4.6), and
-/// `readModel` refuses before ever reading `Lights`, so nothing past this
-/// point is needed.
+/// `readModel` refuses before ever reading `Lights` whenever the count
+/// cannot be honoured, so nothing past this point is needed.
 std::vector<std::uint8_t> modelDeclaringLeavesCount(std::int32_t leavesCount) {
     std::vector<std::uint8_t> data = TaggedPropertyWriter{}.build(NAME_NONE);
     appendVector(data, 0.0F, 0.0F, 0.0F); // BoundingBox.min
@@ -344,14 +344,14 @@ TEST_CASE("a Model declaring a negative node count is refused", "[package-malfor
     CHECK(model.error().message().find("more than the") == std::string_view::npos);
 }
 
-TEST_CASE("a Model declaring a non-empty Leaves table is refused", "[package-malformed]") {
-    // UTA-0069 SS 4.1 and SS 6: an empty `Leaves` costs one zero byte and is
-    // consumed like any other table; a populated one is a table this reader
-    // does not yet describe (SS 4.6) and MUST be refused rather than silently
-    // stepped over. SS 4.1's whole argument for leaving `leaves` out of the
-    // returned struct is that doing so narrows what the reader RETURNS
-    // without widening what it ACCEPTS -- this is the test of the second
-    // half, and nothing exercised it before now.
+TEST_CASE("a Model declaring more leaves than it holds is refused",
+          "[package-malformed]") {
+    // This locked SS 4.1's DESIGN refusal -- a populated `Leaves` was a table
+    // the reader did not describe -- until 2026-09-08, when SS 4.6's element
+    // was derived and the table became readable. What it locks now is the
+    // count check (INV-2): the fixture declares one leaf and supplies no
+    // bytes for it, and an element is eleven bytes at its smallest, so the
+    // count cannot be honoured. The refusal is the same and its cause is not.
     //
     // `Leaves` sits between `LeafHulls` and `Lights` in SS 4.4's order, so
     // the fixture is well-formed everywhere before it (every earlier table

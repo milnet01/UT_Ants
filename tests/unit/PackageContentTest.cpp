@@ -284,6 +284,22 @@ std::vector<std::uint8_t> oneLightMapIndex(std::int32_t dataOffsetLabel) {
     return body;
 }
 
+/// `count` BSP leaves, labelled 1, 2, 3, ... in `iZone`. `iPermeating` is
+/// over 63 so it takes two compact bytes: the three leading fields are
+/// compact and the mask is not, and a fixed-width read of the element would
+/// otherwise agree with this fixture by accident.
+std::vector<std::uint8_t> leafEntries(std::int32_t count) {
+    std::vector<std::uint8_t> body;
+    for (std::int32_t index = 0; index < count; ++index) {
+        appendIndex(body, index + 1);   // iZone -- the label
+        appendIndex(body, 200);         // iPermeating, two bytes
+        appendIndex(body, -1);          // iVolumetric
+        appendU32(body, 0xEFBEADDEu);   // visibleZones, low word
+        appendU32(body, 0x0DF0FECAu);   // visibleZones, high word
+    }
+    return body;
+}
+
 /// `count` lightmap entries, labelled 10, 20, 30, ... in file order.
 std::vector<std::uint8_t> lightMapEntries(std::int32_t count) {
     std::vector<std::uint8_t> body;
@@ -347,10 +363,12 @@ std::vector<std::uint8_t> lightsEntries(std::int32_t count) {
 }
 
 /// A `Model` body in UTA-0069 SS 4.4's order: the 41-byte prefix, `Nodes`
-/// and `Surfs` encoded from the caller's bytes, the zone run and the five
-/// trailing tables SS 4.5 settles populated at their own DISTINCT counts,
-/// and `Leaves` at its always-legal empty count (SS 4.1, SS 4.6 -- no
-/// fixture populates it, and none should until that section closes).
+/// and `Surfs` encoded from the caller's bytes, and the zone run and the six
+/// trailing tables populated at their own DISTINCT counts. `leavesCount`
+/// trails the others because it was added after them: SS 4.1 kept `Leaves`
+/// empty in every fixture while SS 4.6 had not derived the element, and it
+/// defaults to that so the call sites written under that rule still read as
+/// they did.
 ///
 /// `nodeCount` and `surfCount` are the DECLARED counts written into each
 /// table's index prefix; `nodes` and `surfs` are the elements' own encoded
@@ -363,7 +381,8 @@ std::vector<std::uint8_t> modelData(std::int32_t nodeCount, const std::vector<st
                                     std::int32_t surfCount, const std::vector<std::uint8_t>& surfs,
                                     std::int32_t zoneCount, std::int32_t lightMapCount,
                                     std::int32_t lightBitsCount, std::int32_t boundsCount,
-                                    std::int32_t leafHullsCount, std::int32_t lightsCount) {
+                                    std::int32_t leafHullsCount, std::int32_t lightsCount,
+                                    std::int32_t leavesCount = 0) {
     std::vector<std::uint8_t> data = emptyProperties();
     appendVector(data, -1.0F, -2.0F, -3.0F); // BoundingBox.min
     appendVector(data, 1.0F, 2.0F, 3.0F);    // BoundingBox.max
@@ -388,7 +407,7 @@ std::vector<std::uint8_t> modelData(std::int32_t nodeCount, const std::vector<st
     appendTable(data, lightBitsCount, lightBitsBytes(lightBitsCount));
     appendTable(data, boundsCount, boundsBoxes(boundsCount));
     appendTable(data, leafHullsCount, leafHullEntries(leafHullsCount));
-    appendIndex(data, 0); // Leaves: empty -- SS 4.1/4.6, never populated by a fixture
+    appendTable(data, leavesCount, leafEntries(leavesCount));
     appendTable(data, lightsCount, lightsEntries(lightsCount));
     appendU32(data, 1u); // RootOutside
     appendU32(data, 0u); // Linked
@@ -493,11 +512,13 @@ TEST_CASE("a Model export reads back its tables at known counts", "[upkg]") {
     // cursor off the end before it gets here. The zone run and the five
     // trailing tables SS 4.5 settles are populated at their own distinct
     // counts, so a wrong width or a swap among THEM is no longer
-    // byte-identical to this fixture either.
+    // byte-identical to this fixture either. `Leaves` joined them on
+    // 2026-09-08, when SS 4.6's element was derived.
     const std::vector<std::uint8_t> bytes = packageWithObject(
         68, "Model", modelData(2, bspNodes(2), 1, bspSurfs(1),
                                /*zoneCount=*/2, /*lightMapCount=*/3, /*lightBitsCount=*/4,
-                               /*boundsCount=*/5, /*leafHullsCount=*/6, /*lightsCount=*/7));
+                               /*boundsCount=*/5, /*leafHullsCount=*/6, /*lightsCount=*/7,
+                               /*leavesCount=*/8));
     const auto package = Package::open(asBytes(bytes));
     REQUIRE(package.has_value());
 
@@ -538,6 +559,16 @@ TEST_CASE("a Model export reads back its tables at known counts", "[upkg]") {
     REQUIRE(model->lightBits.size() == 4);
     CHECK(model->lightBits[0] == 0x10u);
     CHECK(model->lightBits[3] == 0x13u);
+
+    // Every field of one leaf, for the reason the lightmap element gets the
+    // same treatment: a placement shifted within the element still consumes
+    // the element and still reaches the end of the export.
+    REQUIRE(model->leaves.size() == 8);
+    CHECK(model->leaves[0].iZone == 1);
+    CHECK(model->leaves[7].iZone == 8);
+    CHECK(model->leaves[0].iPermeating == 200);
+    CHECK(model->leaves[0].iVolumetric == -1);
+    CHECK(model->leaves[0].visibleZones == 0x0DF0FECAEFBEADDEuLL);
 
     REQUIRE(model->bounds.size() == 5);
     CHECK(model->bounds[0].min.x == 1.0F);

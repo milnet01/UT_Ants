@@ -28,6 +28,7 @@ constexpr std::size_t LIGHT_MAP_MIN_BYTES = 30;
 constexpr std::size_t LIGHT_BITS_BYTES = 1;
 constexpr std::size_t BOX_BYTES = 25;
 constexpr std::size_t LEAF_HULL_BYTES = 4;
+constexpr std::size_t LEAF_MIN_BYTES = 11;
 constexpr std::size_t LIGHT_MIN_BYTES = 1;
 
 /// The version from which a Model carries its BSP tables inline. Below it the
@@ -198,6 +199,25 @@ Result<Vert> readVert(ByteReader& reader) {
     UTA_TRY(vert.pVertex, reader.readIndex());
     UTA_TRY(vert.iSide, reader.readIndex());
     return vert;
+}
+
+/// Eleven bytes at its smallest: three compact indices then a sixty-four-bit
+/// zone mask. Derived by sweeping candidate layouts against a signature that
+/// requires `Lights` and the two trailing fields to land exactly on the
+/// export's final byte -- this is the sole fit for all 842 exports in the
+/// reference install that populate the table, and every permutation of the
+/// same four fields fits none. Corroborated by `iZone` indexing the export's
+/// own zone table on all 2784273 leaves.
+Result<Leaf> readLeaf(ByteReader& reader) {
+    Leaf leaf;
+    UTA_TRY(leaf.iZone, reader.readIndex());
+    UTA_TRY(leaf.iPermeating, reader.readIndex());
+    UTA_TRY(leaf.iVolumetric, reader.readIndex());
+    // Read signed and reinterpreted, as readBspNode does for ZoneMask:
+    // ByteReader offers readI64 and no readU64.
+    UTA_TRY(const std::int64_t visible, reader.readI64());
+    leaf.visibleZones = static_cast<std::uint64_t>(visible);
+    return leaf;
 }
 
 Result<ZoneProperties> readZoneProperties(ByteReader& reader) {
@@ -411,16 +431,10 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
             readTable<std::int32_t>(reader, LEAF_HULL_BYTES, "leaf hulls",
                                     [](ByteReader& bytes) { return bytes.readI32(); }));
 
-    // SS 4.1: Leaves is neither returned nor stepped over. An empty table
-    // costs one zero byte and is consumed like any other; a populated one is
-    // a table this reader does not yet describe, and stepping over it would
-    // need the very element width SS 4.6 withholds.
-    UTA_TRY(const std::int32_t leaves, inModel(reader.readIndex(), "leaves count"));
-    if (leaves != 0) {
-        return std::unexpected(malformed(
-            "a Model declares " + std::to_string(leaves) +
-            " leaves, whose layout UTA-0069 SS 4.6 has not derived"));
-    }
+    // SS 4.1 refused a populated Leaves while SS 4.6 withheld the element's
+    // layout. readLeaf carries that layout and what it was measured against,
+    // so the table is read like any other from 2026-09-08.
+    UTA_TRY(model.leaves, readTable<Leaf>(reader, LEAF_MIN_BYTES, "leaves", readLeaf));
 
     UTA_TRY(model.lights,
             readTable<ObjectReference>(reader, LIGHT_MIN_BYTES, "lights", readReference));

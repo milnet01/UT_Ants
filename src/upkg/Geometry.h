@@ -155,17 +155,32 @@ struct LightMapIndex {
     std::int32_t iLightActors = 0; // -1 where the surface is lit by nothing
 };
 
+/// One BSP leaf. Three compact indices and a sixty-four-bit zone mask.
+///
+/// SS 4.6 withheld this layout and SS 4.1 had the reader refuse a populated
+/// table rather than state one nothing had verified. It is derived now: this
+/// shape is the SOLE fit for all 842 exports in the reference install that
+/// populate the table, where every permutation of the same four fields fits
+/// none of them, and `iZone` indexes the export's own zone table on all
+/// 2784273 leaves. UTA-0069's ROADMAP bullet carries the derivation.
+struct Leaf {
+    std::int32_t iZone = 0;       // indexes the Model's own zones
+    std::int32_t iPermeating = 0;
+    std::int32_t iVolumetric = 0;
+    std::uint64_t visibleZones = 0;
+};
+
 /// A `Model` export: the BSP tables, in the file's own order and indexing.
 ///
 /// The scalar fields are UTA-0004 SS 4.1's, unchanged. The tables are the
 /// members that item said the implementation would add; UTA-0069 SS 4.4 and
 /// SS 4.5 derive them, and UTA-0007 binds to these names (SS 3.2).
 ///
-/// `leaves` is NOT a member. UTA-0069 SS 4.6 has not derived that table's
-/// layout, and SS 4.1 rules that returning it would mean either stating a
-/// layout nothing has verified or shipping an empty element struct that reads
-/// as finished. An empty `Leaves` is consumed; a populated one is refused.
-/// The name is reserved, so adding it later is not a rename.
+/// `leaves` IS a member from 2026-09-08. SS 4.1 kept it out while SS 4.6 had
+/// not derived the layout, on the ground that returning it would mean either
+/// stating a layout nothing had verified or shipping an empty element struct
+/// that reads as finished. Neither applies now -- see `Leaf` -- and that
+/// section reserved the name against this, so adding it is not a rename.
 struct Model {
     Vector3 boundsMin, boundsMax;       // FBox
     bool boundsValid = false;
@@ -183,6 +198,7 @@ struct Model {
     std::vector<std::uint8_t> lightBits;
     std::vector<Box> bounds;
     std::vector<std::int32_t> leafHulls;
+    std::vector<Leaf> leaves;
     std::vector<ObjectReference> lights;
     std::int32_t rootOutside = 0;
     std::int32_t linked = 0;
