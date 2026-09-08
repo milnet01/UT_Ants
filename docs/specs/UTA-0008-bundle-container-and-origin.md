@@ -117,8 +117,18 @@ producing files nothing else can read.
 | `u8`, `u16`, `u32`, `u64` | unsigned, little-endian |
 | `i32` | two's complement, little-endian |
 | `f32` | IEEE-754 `binary32`, little-endian, moved through `std::bit_cast<std::uint32_t>` |
-| `string` | `u32` byte length, then exactly that many bytes of UTF-8; no terminator |
+| `string` | `u32` byte length, then exactly that many bytes; no terminator. Assumed UTF-8, **not validated** — see below |
 | `vector<T>` | `u32` element count, then that many encodings of `T` |
+
+**String bytes are opaque and are round-tripped verbatim.** `read` does not
+check that they are well-formed UTF-8, and `write` does not refuse a string
+that is not. The three strings this format carries — `NavNode::className`,
+`WiringNode::tag` and `WiringEdge::event` — are copied out of a UE1 name
+table, and nothing in that file format guarantees an encoding, so a validating
+reader would refuse bundles for maps that exist. UTF-8 above names what a
+consumer should assume, not a rule the reader enforces. Stated because
+otherwise one implementation validates and another passes bytes through, and a
+bundle written by the second is unreadable by the first.
 
 Three rules govern every read, and they are the whole of this format's
 robustness argument.
@@ -201,15 +211,20 @@ get wrong and a hex dump reads it left to right.
 
 Five rules on the table, all checked before any payload is read:
 
-- `16 + 24 * sectionCount` must not exceed the file size — checked before the
-  table itself is read, by the § 4.2 division rule.
+- `sectionCount` must not exceed `(fileSize - 16) / 24`, checked once the file
+  is known to hold at least 16 bytes and before the table itself is read.
+  **Written as a division because § 4.2 rule 1 requires it**:
+  `16 + 24 * sectionCount <= fileSize` is precisely the overflow that rule
+  forbids — `sectionCount` is a `u32`, `24 * 0xAAAAAAAB` wraps to 8, and the
+  test then passes on a file of any size while the reader walks 2,863,311,531
+  descriptors.
 - Descriptors are in **ascending `offset` order**. This makes the overlap
   check below a single linear pass, and it makes `write`'s output ordering
   fixed rather than incidental.
 - No id appears twice.
 - Every section's `[offset, offset + size)` lies within the file, computed so
-  that `offset + size` cannot overflow, and begins at or after
-  `16 + 24 * sectionCount`.
+  that `offset + size` cannot overflow, and begins at or after the end of the
+  section table.
 - No two sections overlap.
 
 A section whose id this version does not define is **refused**, not skipped.
@@ -302,8 +317,9 @@ iZone[0]  u8
 iZone[1]  u8
 ```
 
-**The order of the four pairs above is the whole hazard of this section, and
-it is written out element by element for that reason.** `iFront` precedes
+**The order of the adjacent same-width pairs above is the whole hazard of this
+section, and each is written out element by element for that reason.**
+`iFront` precedes
 `iBack`; `iLeaf[0]` and `iZone[0]` are the **back** side, index 1 the front,
 per the engine's own convention as recorded on `RoomMap::Node::iLeaf` in
 `src/umap/Rooms.h`. UTA-0078 was exactly this defect one layer down — `upkg`
@@ -346,8 +362,9 @@ reachFlags       i32
 pruned           u8
 ```
 
-`collisionRadius` precedes `collisionHeight`, and both are `i32` — the second
-same-width adjacent pair in this format, and INV-6 covers it with the first.
+`collisionRadius` precedes `collisionHeight`, and both are `i32` — another
+adjacent same-width pair, and INV-6's *Breaks when* names every one of them in
+this format rather than counting them.
 
 `pruned` is stored as the file's own byte rather than a bit, because
 `src/unav/Graphs.h` records that nothing has measured it to be only ever 0 or
@@ -410,13 +427,28 @@ for later.
   non-empty, § 4.2 there makes index 0 present and always `NO_ROOM`. A rule
   requiring it non-empty would refuse a bundle those two maps legitimately
   produce;
-- every `Room::zoneIndex` is non-zero (§ 4.3 there);
+- every `Room::zoneIndex` is non-zero, is less than `roomForZone.size()`, and
+  is **distinct from every other room's** — UTA-0007's INV-1 requires each room
+  to name a distinct zone in `[1, model.zones.size())` — and
+  `roomForZone[room.zoneIndex]` is that room's own position, so the two tables
+  cannot disagree about which room owns a zone;
 - every `Room::floors` is non-empty, and every entry is less than
   `bands.size()`;
 - `bands` is in ascending order;
 - every `leafZone[i]` is `ZONE_REFUSED` or less than `roomForZone.size()`;
 - every `Node::iFront`, `iBack` is `INDEX_NONE` or a valid index into `nodes`;
 - every `Node::iLeaf[k]` is `INDEX_NONE` or a valid index into `leafZone`.
+
+**`Node::iZone[k]` is deliberately NOT checked here, and it is the one stored
+index that is not.** `roomAt` reaches it only through `roomForZone(map, zone)`
+in `src/umap/Rooms.cpp`, which returns `NO_ROOM` for zone 0, for
+`ZONE_REFUSED`, and for any zone at or past `roomForZone.size()` — so an
+out-of-range zone byte is already total at the accessor, and UTA-0007's INV-3
+makes `roomAt` total over exactly this case. A load-time refusal would reject a
+bundle the runtime handles correctly. **This is the difference from
+`uta::unav::edgesFrom`**, which builds a `std::span` from a node's run with no
+guard of its own; there the check has to happen here or nowhere. INV-3's wording is
+scoped to what this list bounds for the same reason.
 
 **`NAVG`**, against `docs/specs/UTA-0006-navigation-and-wiring-graphs.md`:
 
@@ -476,23 +508,35 @@ struct Bundle {
 
 `write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, omitting
 absent ones. Fixed rather than incidental because `docs/design.md` § Close
-calls requires a bundle no other tool wrote to be *"named by the hash of its
-own contents"*, and a hash over an incidentally-ordered file names one world
-two things.
+calls requires a `.utab` *"that any tool other than `ubake` wrote"* to be
+named by the hash of its own contents, and a hash over an
+incidentally-ordered file names one world two things. Determinism is not
+scoped to those bundles: a bake `ubake` writes is named from the baker's own
+inputs, and a cache whose contents shift between runs of one baker version is
+the same defect one layer along.
 
 ## 5. Invariants
 
 - **INV-1** — `read` and `readHeader` are total: for any input bytes they
   return a `Result` and never throw, terminate, or read outside the caller's
   span.
-  *Test:* `tests/unit/BundleMalformedTest.cpp`, over a corpus of truncations
-  at every byte offset of a valid bundle, and of headers whose counts, offsets
-  and sizes lie. No arrow: the surface does not exist yet.
-  *Breaks when:* a length or offset from the file is used before it is
-  checked. **The fixture isolates this rule and not the allocator's:** each
-  case is a *short* file whose declared extents exceed it, so the only rule
-  that can reject it is the § 4.2 bounds check — a build with that check
-  removed reads past the span rather than failing some earlier test.
+  *Test:* `tests/unit/BundleMalformedTest.cpp`, over the two corpora below. No
+  arrow: the surface does not exist yet.
+  *Breaks when:* a length or offset from the file is used before it is checked.
+
+  **The two corpora grade different rules, and separating them is what stops
+  the second being vacuous.** Truncating a valid bundle at every byte offset
+  grades § 4.4's **table** rules: a truncation shortens the file, so the
+  section-extent check rejects it before a payload byte is read, and § 4.2's
+  per-read bound is never reached. That corpus proves totality and nothing
+  more — delete § 4.2's bound and every case in it still goes red, so on its
+  own it would report a mutation as killed that in fact survived. **The cases
+  that isolate § 4.2's bound have a section table wholly consistent with the
+  file size, and a payload that runs out mid-element** — a `vector` count or a
+  `string` length larger than the bytes left in its own section. Only the
+  § 4.2 check can reject those. This project's `CLAUDE.md` § Build and test
+  records the same failure from UTA-0007: the fixture was rejected by a rule
+  other than the one under test, so the sanitizer had nothing to see.
 
 - **INV-2** — No allocation is sized by a value read from the file before
   that value has been checked against the bytes remaining in its section.
@@ -504,8 +548,9 @@ two things.
 
 - **INV-3** — A `Bundle` returned by a successful `read` satisfies every
   structural rule § 4.9 lists. No span built from a returned node's run
-  reaches past its vector, and no index stored in one of its tables is out of
-  range for the table it names.
+  reaches past its vector, and every index § 4.9 bounds is in range for the
+  table it names. It is scoped to that list rather than to every stored index,
+  because § 4.9 states one deliberate exception and gives its reason.
   *Test:* `tests/unit/BundleMalformedTest.cpp`, one case per bullet in § 4.9,
   each a bundle that decodes cleanly and violates exactly that rule. No arrow:
   the surface does not exist yet.
@@ -530,15 +575,24 @@ two things.
   makes an unreadable origin indistinguishable from a declared one — and under
   § 4.5 the guard must be able to fail closed on the difference.
 
-- **INV-6** — A hand-authored golden byte array, in which every field of a
-  `Node`, a `NavEdge` and a `WiringNode` holds a value distinct from every
-  other field's, decodes to exactly those values, field by field.
+- **INV-6** — A hand-authored golden byte array, carrying one instance of
+  **every type §§ 4.6–4.8 encode** — `Point2`, `Point3`, `Footprint`, `Room`,
+  `RoomMap::Node`, `NavNode`, `NavEdge`, `WiringNode`, `WiringEdge` and
+  `DanglingEvent` — in which every field holds a value distinct from every
+  other field's in the array, decodes to exactly those values, field by field.
+  Every type, because a fixture covering a subset cannot catch a swap in the
+  types it omits, and the *Breaks when* list below reaches four of them.
   *Test:* `tests/unit/BundleFormatTest.cpp`, asserting each field against its
   own literal. No arrow: the surface does not exist yet.
-  *Breaks when:* two adjacent same-width fields are swapped in the reader —
-  `iFront` with `iBack`, `iLeaf[0]` with `iLeaf[1]`, `iZone[0]` with
-  `iZone[1]`, `collisionRadius` with `collisionHeight`, `minZ` with `maxZ`, a
-  `Point2`'s `x` with its `y`. **A round-trip test cannot break this and that
+  *Breaks when:* two adjacent same-width fields are swapped in the reader.
+  This is the complete list for this format, and the fixture must distinguish
+  every pair on it: `iFront` with `iBack`; `iLeaf[0]` with `iLeaf[1]`;
+  `iZone[0]` with `iZone[1]`; `collisionRadius` with `collisionHeight`; `minZ`
+  with `maxZ`; a `Point2`'s `x` with its `y`; a `Point3`'s `x`, `y` and `z`
+  with one another; `NavNode`'s `firstEdge` with its `edgeCount`;
+  `WiringNode`'s `firstOutgoing`/`outgoingCount` pair with its
+  `firstIncoming`/`incomingCount` pair; and any edge's `from` with its `to`.
+  **A round-trip test cannot break this and that
   is why the fixture is authored by hand:** a swap present in both the writer
   and the reader round-trips perfectly. The golden bytes are written from
   § 4.6–4.8 rather than produced by `write`, so they are an independent
@@ -547,18 +601,27 @@ two things.
 
 - **INV-7** — `write` applied to the structure INV-6 decodes produces exactly
   INV-6's golden bytes.
-  *Test:* `tests/unit/BundleFormatTest.cpp`. No arrow: the surface does not
-  exist yet.
+  *Test:* `tests/unit/BundleFormatTest.cpp`. **This is also the cross-compiler
+  check** — the golden array is a literal fixed in the source, so the CI matrix
+  runs one comparison against one constant on GCC, Clang and MSVC alike, and
+  any leg whose bytes differ goes red on its own. No arrow: the surface does
+  not exist yet.
   *Breaks when:* the same swap exists in the writer. **The fixture isolates
   the writer specifically:** INV-6 grades the reader against the golden bytes
   and this grades the writer against them, so neither can be satisfied by a
   compensating error in the other.
 
 - **INV-8** — `write` is deterministic: the same `Bundle` produces
-  byte-identical output, within a run and across the three compilers.
+  byte-identical output every time it is encoded.
   *Test:* `tests/unit/BundleFormatTest.cpp` encodes one bundle twice and
-  compares; the cross-compiler half is the CI matrix running the same
-  assertion. No arrow: the surface does not exist yet.
+  compares. No arrow: the surface does not exist yet.
+  **Cross-compiler byte-identity is INV-7's, not this invariant's.** Encoding
+  twice inside one process compares each compiler's output against its own and
+  can never observe GCC's bytes differing from MSVC's — and INV-8's named
+  defect below is per-compiler, so it would pass on all three legs. INV-7
+  grades `write` against a byte array fixed in the source and identical on
+  every leg, so it is INV-7 that the CI matrix turns into a cross-compiler
+  check.
   *Breaks when:* a struct is `memcpy`d, so padding bytes reach the file; or a
   container with unspecified iteration order is written in that order.
   Determinism is what lets `docs/design.md` § Close calls name a bundle by the
@@ -567,8 +630,13 @@ two things.
 - **INV-9** — Every `f32` written is recovered bit-identically, including
   negative zero, both infinities, a quiet NaN and a subnormal.
   *Test:* `tests/unit/BundleFormatTest.cpp`, comparing
-  `std::bit_cast<std::uint32_t>` of each value before and after. No arrow: the
-  surface does not exist yet.
+  `std::bit_cast<std::uint32_t>` of each value before and after. **The NaN and
+  infinity cases use fields § 4.9 does not constrain** — a `Footprint`'s
+  `Point2` coordinates and a `Node`'s `normal` and `w`. They may not use
+  `bands`, which § 4.9 requires to be ascending: a NaN there is refused by
+  that rule rather than round-tripped, so a fixture built on `bands` would
+  test the validator and report on the codec. No arrow: the surface does not
+  exist yet.
   *Breaks when:* a float is converted through a wider type, or compared with
   `==` instead of by bit pattern — under which `-0.0` reads as preserved when
   it has been replaced by `+0.0`, the case
@@ -582,14 +650,31 @@ two things.
   `uta_unav_build` is added — which is how `docs/design.md` rule 2's boundary
   stops being checkable, since `ut-ants` links this library.
 
-- **INV-11** — Reading a bundle that declares a section id this version does
-  not define, or two sections with the same id, or two whose byte ranges
-  overlap, is `MalformedData`.
+- **INV-11** — Reading a bundle whose section table declares a section id this
+  version does not define, two sections with the same id, a section whose byte
+  range lies outside the file, or two whose ranges overlap, is
+  `MalformedData`. The whole table is validated before any section is decoded.
   *Test:* `tests/unit/BundleMalformedTest.cpp`, one case each. No arrow: the
   surface does not exist yet.
   *Breaks when:* the table is trusted and each section is decoded from its own
   descriptor without a pass over the whole table first. Overlapping sections
   otherwise decode without error and one of them is wrong.
+
+- **INV-12** — `combine` returns `Derived` for all three input pairs
+  containing a `Derived`, and `Authored` only for (`Authored`, `Authored`).
+  And a header whose `kind` is neither `0` nor `1`, whose `reserved` field is
+  non-zero, or whose section `compression` byte is non-zero, is refused rather
+  than accepted with a default.
+  *Test:* `tests/unit/BundleFormatTest.cpp`, asserting all four `combine`
+  pairs and one refusal per field. No arrow: the surface does not exist yet.
+  *Breaks when:* `combine` is written as a maximum or a bitwise OR over the
+  enum's numeric values. **With `Derived = 0` and `Authored = 1` both give
+  `Authored` for (`Authored`, `Derived`)** — the publishable value, from an
+  input that touched an install, which is the precise inversion § 3 decision 4
+  chose the encoding to make loud. **The fixture isolates this rule:** the
+  three mixed pairs must all return `Derived`, so a max or an OR fails two of
+  them, while a fixture asserting only (`Authored`, `Authored`) and
+  (`Derived`, `Derived`) passes under either implementation.
 
 ## 6. Failure modes
 
@@ -619,7 +704,7 @@ executable gains `uta_ubundle` as a link library.
 
 | File | Locks |
 |---|---|
-| `tests/unit/BundleFormatTest.cpp` | INV-4, INV-5, INV-6, INV-7, INV-8, INV-9 |
+| `tests/unit/BundleFormatTest.cpp` | INV-4, INV-5, INV-6, INV-7, INV-8, INV-9, INV-12 |
 | `tests/unit/BundleMalformedTest.cpp` | INV-1, INV-2, INV-3, INV-11 |
 | `src/ubundle/CMakeLists.txt` | INV-10, at configure time |
 
@@ -706,11 +791,12 @@ cannot grade.
 | INV-4 | `tests/unit/BundleFormatTest.cpp` |
 | INV-5 | `tests/unit/BundleFormatTest.cpp` |
 | INV-6 | `tests/unit/BundleFormatTest.cpp`, against hand-authored bytes |
-| INV-7 | `tests/unit/BundleFormatTest.cpp`, against the same bytes |
-| INV-8 | `tests/unit/BundleFormatTest.cpp` for the within-run half; the CI matrix for the cross-compiler half |
+| INV-7 | `tests/unit/BundleFormatTest.cpp`, against the same bytes — and, run on every leg of the CI matrix against a literal fixed in the source, it is what makes cross-compiler byte-identity observable |
+| INV-8 | `tests/unit/BundleFormatTest.cpp`. Cross-compiler byte-identity is **INV-7's row, not this one** — INV-7's golden array is fixed in the source, so the CI matrix grades it on every leg; a self-comparison never could |
 | INV-9 | `tests/unit/BundleFormatTest.cpp` |
 | INV-10 | `src/ubundle/CMakeLists.txt`, at configure time |
 | INV-11 | `tests/unit/BundleMalformedTest.cpp` |
+| INV-12 | `tests/unit/BundleFormatTest.cpp` — all four `combine` pairs, and one refusal per header field |
 | `incoming` is a permutation of `edges` (§ 4.9) | **Partial:** only the size equality is checked. A permutation check is `O(E log E)` on every load and the wrong half of the trade while `unav` still holds UTA-0006 § 14's question about whether the field survives |
 | The format version is one of the baker's inputs | **nothing** — `ubake` does not exist; `docs/design.md` § Close calls states it and UTA-0011 owns it |
 | A `.utab` outside `content/` is `authored` | **nothing** — this provides `readHeader` and fixes § 4.5's failure direction; the check itself is UTA-0013's and is tracked there |
