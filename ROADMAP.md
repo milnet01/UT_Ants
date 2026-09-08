@@ -545,6 +545,15 @@ model, no weapon and no opponent until 0.2.0.
   field, and version/forward-compatibility edge cases), and its closing
   line settles the one-subsystem question outright. Lane is ubundle,
   which shares no directory with UTA-0012's upkg.
+  Progress (2026-09-08): spec accepted at
+  docs/specs/UTA-0008-bundle-container-and-origin.md. review-contract
+  reached its cap of 2 loops for a spec, six cold lanes, 19 verified
+  findings all fixed and 3 dismissed; the tail is empty and the loop log
+  carries both rows. Scope was settled by the user: the envelope plus
+  the sections for RoomMap, NavGraph and WiringGraph, with nothing
+  compressed in version 1. Still held by session ut-ants-c8;
+  implementation has not started, so the item stays in-progress rather
+  than returning to planned.
   **Layman:** Our own file format for a finished level -- and the field that records where its content came from, which is what keeps Epic's material off the network.
   Kind: implement.
   Source: design-2026-09-03.
