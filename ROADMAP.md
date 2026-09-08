@@ -951,6 +951,17 @@ model, no weapon and no opponent until 0.2.0.
   default chosen here. Curated materials only, so the cost is bounded by
   how many of them exist -- but on the target laptops it is still a tier
   decision rather than an always-on effect.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. This item is additionally blocked by a design edit that has not
+  been made -- design.md does not list subsurface scattering among
+  urender's responsibilities.
   **Layman:** Skin, wax, marble and leaves stop looking like painted plastic -- light passes a little way through them instead of stopping dead at the surface.
   Kind: feature.
   Source: user-request-2026-09-04.
@@ -983,6 +994,16 @@ model, no weapon and no opponent until 0.2.0.
   four expensive effects to be off at every tier the target hardware
   reaches, and on 1999 geometry they can read worse than no reflection at
   all -- which is a quality judgement to make when it is built, not now.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. Blocked behind UTA-0014 regardless, so it is not selectable
+  before the renderer exists.
   **Layman:** Wet floors, polished metal and glass pick up the room around them -- sharply where the surface is smooth, blurred where it is rough -- instead of being flatly lit.
   Kind: feature.
   Source: user-request-2026-09-04.
@@ -1290,6 +1311,16 @@ model, no weapon and no opponent until 0.2.0.
     rather than an effect in its own right.
 
   Blocked-by: the bundle draw path.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. Blocked behind UTA-0014 regardless, so it is not selectable
+  before the renderer exists.
   **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -1312,6 +1343,16 @@ model, no weapon and no opponent until 0.2.0.
   - Interior cubemap parallax on windows, so a window is not a flat pane.
 
   Blocked-by: the bundle draw path.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. Blocked behind UTA-0014 regardless, so it is not selectable
+  before the renderer exists.
   **Layman:** Walls look detailed close up, fences stop shimmering, objects stop looking like they float, and windows gain depth.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -1328,6 +1369,16 @@ model, no weapon and no opponent until 0.2.0.
   (UTA-0010) where they do not.
 
   Blocked-by: the bundle draw path.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. Blocked behind UTA-0014 regardless, so it is not selectable
+  before the renderer exists.
   **Layman:** Make the flags and the water move instead of standing still.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -2654,6 +2705,16 @@ model, no weapon and no opponent until 0.2.0.
   there. It may move to a later milestone freely PROVIDED it lands before the
   render graph has passes built on top of it -- the ordering is the point,
   not the milestone.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 says nothing about resolution or frame rate. Do not
+  count this item when judging what is left for the release. It remains
+  filed under 0.1.0 only because no roadmap verb moves an item between
+  sections and the store reverts a hand edit to ROADMAP.md; a re-section
+  op is requested in the Ants MCP feedback file. Its own body argues it
+  is cheap now and expensive to retrofit; that argument is worth
+  revisiting when UTA-0014 lands, and it is an argument about ordering
+  rather than about the release condition.
   **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit.
   Kind: implement.
   Source: user-request-2026-09-08.
@@ -2695,6 +2756,14 @@ model, no weapon and no opponent until 0.2.0.
   prerequisite item is worth doing either way, this one is not.
 
   Blocked-by: the motion-vector and jitter item, and UTA-0014.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 says nothing about resolution or frame rate. Do not
+  count this item when judging what is left for the release. It remains
+  filed under 0.1.0 only because no roadmap verb moves an item between
+  sections and the store reverts a hand edit to ROADMAP.md; a re-section
+  op is requested in the Ants MCP feedback file. Blocked behind UTA-0075
+  for its inputs.
   **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
   Kind: implement.
   Source: user-request-2026-09-08.
