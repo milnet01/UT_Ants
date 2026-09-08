@@ -447,6 +447,34 @@ model, no weapon and no opponent until 0.2.0.
   on three triggers here (a contract ubundle serialises and uui draws per
   design rule 17, an on-disk shape that is hard to reverse, and a real
   design choice about what a room IS).
+  Progress (2026-09-08): spec accepted at 794f6da --
+  docs/specs/UTA-0007-room-partition-and-lookup.md, two review loops, twenty
+  verified findings all fixed. Item stays in-progress; implementation is next.
+
+  The gate hit its cap of two and the cap was a VIOLENT one: seven of loop 2's
+  nine findings landed on text loop 1 had written. Per review-contract SS At the
+  cap that ends the review of the document as it stands, so do NOT re-run the
+  gate on it. The build is the third reviewer.
+
+  Deferred tail, filed rather than fixed, all from lane open questions:
+  - Model::boundsValid is never handled. SS 4.4 samples between boundsMin and
+    boundsMax unconditionally, and that flag can be false. Two lanes raised it.
+    Settle it when the builder is written; it is a precondition, not a design
+    fork.
+  - Model::leafHulls appears in Geometry.h and nowhere in the spec. If it
+    carries per-leaf hull planes it would weaken SS 4.4's argument for
+    whole-level sampling. Semantics were not checkable from the packet.
+  - The census counted 2759160 leaves over the largest parsing Model per map,
+    where Geometry.h's Leaf comment says 2784273 over all populated exports.
+    Plausibly different populations; unverified, and neither figure is
+    reproducible from the tree.
+  - SS 4.2 cites the Unreal wiki's "1=front, 0=back" for zone 0 being the null
+    zone. That string is about ARRAY indexing, not zone numbering. The
+    conclusion stands on the measurement -- no leaf of 2759160 names zone 0 --
+    rather than on the citation.
+  - INV-3 says "within nodes.size() plane tests" where SS 4.3 says "past
+    nodes.size()". An off-by-one in prose; the named test asserts termination
+    only, so nothing builds differently.
   **Layman:** Chop the level into rooms so the in-game map has something to draw, using the room divisions the original level already has.
   Kind: implement.
   Source: design-2026-09-03.
