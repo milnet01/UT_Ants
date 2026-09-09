@@ -25,16 +25,11 @@ moment an item is filed or closed, which is the same reason `In flight:`
 is not kept by hand. What is worth recording is the standing deferral:
 `UTA-0059` defers itself until the renderer lands. `UTA-0079` and
 `UTA-0081` are `Source: in-session-`, so rule 1 does not reach them.
-Corrected 2026-09-09: this read that `UTA-0059` was the only open
-review-sourced item, which stopped being true the moment `UTA-0084` was
-filed.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
-> `roadmap_query status:"in-progress"`. It was a hand-kept line until
-> 2026-09-05, when the project began running two sessions at once and one
-> line could no longer name what two sessions held. A line that must be
-> right in two places at once is a line that will be wrong in one of them.
+> `roadmap_query status:"in-progress"`. A line that must be right in two
+> places at once is a line that will be wrong in one of them.
 >
 > **`State:` is written as the formula, not as its answer** — so no
 > session owes it an edit, and it cannot disagree with the roadmap
@@ -98,9 +93,7 @@ commits in a detached worktree — not over what is on disk.
 exception** — ~/.gitconfig sets it machine-wide to ~/.claude/githooks, and the
 repository value below overrides it. So unsetting the repository value
 does **not** disable the gate: it falls back to the machine-wide hook,
-losing this repository's own hooks rather than the push gate. Corrected
-2026-09-05, measured with
-`git config --show-origin --get-all core.hooksPath`.
+losing this repository's own hooks rather than the push gate.
 
 ```sh
 git config core.hooksPath      .githooks         # see the note below
@@ -124,9 +117,8 @@ documentation. Confirm with
 a local run uses whatever `CXX` resolves to, and the gate says which at
 the start and the end. `CC=clang CXX=clang++ ./scripts/ci.sh` runs a
 second leg with whatever clang is installed — which is not CI's leg: the
-matrix pins `clang-19`, and this machine has no `clang-19` binary at all. **Flip a roadmap item on the matrix, not on the local
-leg** — done once the other way round on 2026-09-04, and the item read
-shipped while Windows was red.
+matrix pins `clang-19`, and this machine has no `clang-19` binary at all.
+**Flip a roadmap item on the matrix, never on the local leg.**
 
 **A `cancelled` CI run is not a failure.** `.github/workflows/ci.yml`
 sets `cancel-in-progress`, so each push cancels the run still in flight
@@ -135,32 +127,6 @@ and its jobs render as ✗. Check the run whose `headSha` is HEAD:
 ```sh
 gh run list --limit 5 --json headSha,conclusion
 ```
-
-**A path test must not compare against a raw temp path.** The Windows
-runner's temp directory is a short 8.3 name that `weakly_canonical`
-expands, so `result->string().starts_with(dir.path().string())` compares
-two spellings of one directory and fails on MSVC alone. Assert the
-property instead — resolve under both spellings and compare the results.
-Cost one red MSVC leg on 2026-09-04; both Linux legs were green.
-
-**`spec_lint` reports `surfaces_checked: false` on this project, always.**
-It resolves test surfaces only in a `tests/features/<name>/` layout and
-this project uses `tests/unit/`, so `findings: []` is SILENT about test
-surfaces rather than a pass — read the flag before the count, and check
-the `*Test:*` clauses by hand. Upstream ANTS-4393 / ANTS-4679.
-
-**Write a spec's invariants in the bullet form, or no tool can see them.**
-`spec-format.md` § 3.7 defines `- **INV-1** — <claim>. *Test:* … *Breaks
-when:* …` and a GFM table, and nothing else. A paragraph form
-(`**INV-1.** <claim>`) parses to ZERO invariants -- and `spec_lint` then
-returns `findings: []`, `sections_checked: true` and
-`test_coverage_checked: true`, which is indistinguishable from a clean
-document. `invariant_no_test` "always runs" and ran over an empty set.
-Measured 2026-09-06: UTA-0005 shipped as accepted, through two full
-`review-contract` loops, with thirteen invariants invisible to
-`spec_query`, `invariant_check` and `spec_lint` alike. Check
-`spec_query` returns a non-zero `invariants_count` before trusting a
-clean lint.
 
 **`ccache` and `mold` are used if installed and ignored if not**, and change
 nothing about the output. ccache needs two settings before it helps across
@@ -190,30 +156,37 @@ cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
 ```
 
-Worth knowing because a bounds check is the shape a plain test cannot
-grade: remove one and the case is undefined behaviour rather than a wrong
-answer, so it passes. UTA-0006 § 4.5's check was proved load-bearing this
-way — without it that fixture is a heap-buffer-overflow.
-
-**The sanitizer is half the answer; the FIXTURE has to reach the code.**
-Measured 2026-09-08 on UTA-0007's `roomAt`: removing its child-index range
-check survived the tests under AddressSanitizer, because the descent is
-bounded by `nodes.size()` and a one-node fixture exits that loop before it
-ever dereferences the bad index. The loop bound was rejecting the fixture
-before the rule under test was reached, so ASAN had nothing to see. Padding
-the fixture to three nodes turned the same mutation into a reported
-heap-buffer-overflow. **So when a mutation survives under a sanitizer, suspect
-the fixture before concluding the check is unnecessary** — ask which rule makes
-this fixture fail, and whether it is the rule you meant to test.
-
-**And mutate before trusting a green test at all.** Three of that item's four
-tier-1 cases were vacuous on first writing: each passed, each read correctly,
-and each was decided by something other than the rule it named — a table entry
-that already returned the refusal, a range check that subsumed the guard, and
-the loop bound above. None of that is visible from reading the test.
-
 Address and thread cannot share a binary, which is why this is a separate
 directory rather than a flag on the gate.
+
+**Five rules this project paid for.
+[`docs/build-and-test-lessons.md`](docs/build-and-test-lessons.md) holds
+what each one cost — read it before deciding one no longer earns its
+place.**
+
+- **Mutate before trusting a green test.** A test that passes and reads
+  correctly may still be graded by something other than the rule it names.
+  `./scripts/mutation-probe.py <lane>` asks mechanically; a new survivor
+  exits non-zero.
+- **When a mutation survives under a sanitizer, suspect the FIXTURE before
+  concluding the check is unnecessary.** Ask which rule makes this fixture
+  fail, and whether it is the rule you meant to test. A bounds check is the
+  shape a plain test cannot grade — remove one and the case is undefined
+  behaviour rather than a wrong answer, so it passes.
+- **A path test must not compare against a raw temp path.** The Windows
+  runner's temp directory is an 8.3 name that `weakly_canonical` expands.
+  Assert the property instead: resolve under both spellings, compare the
+  results.
+- **Write a spec's invariants in `spec-format.md` § 3.7's bullet form.** A
+  paragraph form parses to ZERO invariants, and `spec_lint` then returns
+  `findings: []` with its section and coverage flags true — indistinguishable
+  from a clean document. Check `spec_query` reports a non-zero
+  `invariants_count` before trusting a clean lint.
+- **`spec_lint` reports `surfaces_checked: false` on this project, always.**
+  It resolves test surfaces only in a `tests/features/<name>/` layout and
+  this project uses `tests/unit/`, so `findings: []` is SILENT about test
+  surfaces rather than a pass. Read the flag before the count and check the
+  `*Test:*` clauses by hand. Upstream ANTS-4393 / ANTS-4679.
 
 ### Which item comes next
 
@@ -242,11 +215,6 @@ Match on the `Source:` recording a review, not on the word — `audit-` and
 prefixes, so one call returns the open review-sourced items and needs no
 token enumerated correctly first.
 
-Corrected 2026-09-09 by UTA-0084's own gate, found by two lanes: the list
-named four tokens and omitted `review-contract-<date>`, which is the only
-one either open review-sourced item carries. A conformer following it
-found rule 1's set empty and went to rule 2, skipping both.
-
 Where a review has no token that fits, file the item with the nearest one
 and name the review in the body — a `Source:` that records nothing puts the
 item outside this order, which is where it is least likely to be found.
@@ -259,21 +227,15 @@ saying so. Clear the note when that item is picked up.
 ### Running two sessions at once
 
 Two Claude Code sessions may work this project simultaneously, and **two
-is the cap** — two sessions, therefore at most two items in flight.
-**`workflow.md` § 1 already allows several sessions to work one project
-from separate worktrees, each holding one item, and sets no ceiling on
-how many. What this project adds is the ceiling of two**, and this
-section is where it is stated — the ceiling is stricter than § 1 rather
-than a departure from it, so it needs no override file. **This is the
-only home for the rules below; do not restate them elsewhere.** A
-`docs/standards/workflow-overrides.md` carried them until 2026-09-08 and
-was retired at its own review gate, which found the second copy
-diverging from this one on every loop —
-`docs/reviews/workflow-overrides-loop-log.md` is the record.
-Corrected 2026-09-08: this read *"departs from `workflow.md` § 1,
-which allows exactly one item in flight"*, which was true when written
-and stopped being so when § 1's own gate changed the rule to *per
-session* on 2026-09-07.
+is the cap** — therefore at most two items in flight. `workflow.md` § 1
+allows several sessions from separate worktrees, each holding one item,
+and sets no ceiling. **The ceiling of two is this project's addition.** It
+is stricter than § 1 rather than a departure from it, so it needs no
+override file.
+
+**This is the only home for these rules; do not restate them elsewhere.**
+A second copy was tried and retired — it diverged from this one on every
+loop of its own review gate.
 
 There is no orchestrator: nothing schedules the sessions, and neither can
 block the other.
@@ -282,10 +244,9 @@ block the other.
 deliberate step.** The store is keyed to the MAIN checkout. A worktree is
 a different path, the store has no row for it, and `roadmap_log` there
 silently falls back to patching that worktree's own `ROADMAP.md` — which
-the next render from the main checkout overwrites. Measured 2026-09-05: a
-query from the worktree answered `source: "markdown"` where the main
-checkout answers `source: "store"`, and a dry-run flip reported
-`write_path: "patch"`.
+the next render from the main checkout overwrites, taking the claim with
+it and reporting nothing. Measured; see
+[`docs/session-coordination-history.md`](docs/session-coordination-history.md).
 
 > **So every roadmap verb passes the MAIN checkout as `caller_cwd`,
 > whatever worktree you are working in**, and **only the main checkout
@@ -305,7 +266,7 @@ checkout answers `source: "store"`, and a dry-run flip reported
    **Name the checkout you are working in as well.** Nothing on this
    machine reports which checkout a session occupies, so this note is the
    only place that fact exists — and rule 3 needs it to tell a second
-   session from a first. Added 2026-09-09 (UTA-0084).
+   session from a first.
 2. **One item per session, two in total.** `roadmap_query
    status:"in-progress"` — an item another session holds is not
    available, whatever the priority order says about it; a session
@@ -328,15 +289,15 @@ checkout answers `source: "store"`, and a dry-run flip reported
    2 lets you resume it.
 
    **Neither command counts this project's sessions, which is why the
-   test is written this way.** `ListAgents` is machine-wide: measured
-   2026-09-09, it returned `ants-terminal-ff` and `ut-monsterhunt-b9`,
-   neither working this project. `git worktree list` enumerates the
-   worktrees that EXIST and reports no occupancy at all — the main
-   checkout is listed whether or not a session sits in it, and a worktree
-   outlives the session that made it. **So no command answers "is the main
-   checkout free?", which is why rule 1 has the holder write its
-   checkout down.** A live holder whose note names the main checkout means
-   you are the second session: take a worktree.
+   test is written this way.** `ListAgents` is machine-wide, so its count
+   is the machine's sessions and not this project's. `git worktree list`
+   enumerates the worktrees that EXIST and reports no occupancy at all —
+   the main checkout is listed whether or not a session sits in it.
+
+   **So no command answers "is the main checkout free?", which is why rule
+   1 has the holder write its checkout down.** A live holder whose note
+   names the main checkout means you are the second session: take a
+   worktree.
 
    **What this route cannot do is detect a breach.** It finds a holder
    that named itself. A session that takes an item without flipping it,
@@ -344,28 +305,20 @@ checkout answers `source: "store"`, and a dry-run flip reported
    rests on rule 1 being followed, and rule 1 is what makes this rule
    work at all.
 
-   Corrected 2026-09-09 (UTA-0084), in two passes. The test was
-   `git worktree list` and `ListAgents`, and a session following it
-   learned nothing about who held what. The replacement then claimed
-   `git worktree list` showed whether the main checkout was free — all
-   three lanes of this rule's own gate caught that, and a session trusting
-   it would have seen one entry, concluded main was free, and stayed in it.
-
    `.git/config` is shared across worktrees, so `core.hooksPath` and the
    three `ants.gate.*` settings apply in a new one without being set
-   again — verified 2026-09-05, and it is the thing most likely to be
-   assumed rather than checked, because a missing gate is silent.
+   again. Verified, not assumed — a missing gate is silent, which makes
+   this the thing most likely to be taken on trust.
 
    **A worktree brings its own branch, because git refuses to check one
    branch out twice.** That also rules out merging *into* `main` from the
    worktree: `main` is checked out elsewhere, so a local push at it is
    refused by git's checked-out-branch protection. So the worktree
    session **pushes its own branch to `origin`** and the session holding
-   `main` merges it. The `pre-push` gate sits on that push — measured
-   from the second worktree on 2026-09-05, where it ran `ci.sh --docs`
-   and named the commit it was gating, so this is not inferred from the
-   settings being present. Its build directory is its own too, which is
-   why the two do not fight over `build/`.
+   `main` merges it. The `pre-push` gate sits on that push, measured from
+   a worktree rather than inferred from the settings being present. Its
+   build directory is its own too, which is why the two do not fight over
+   `build/`.
 4. **Take items that do not share a directory** — and this outranks the
    priority order, as rule 2 does. Where the next item § Which item comes
    next would give you shares a directory with one in flight, take the
@@ -403,9 +356,19 @@ reason. `docs/standards/README.md` owns what else may live there. **If
 that directory holds nothing but its own `README.md`, there are no
 overrides** — it is never empty, so emptiness is not the test.
 
-### This file's own review history
+### History
 
-Kept outside this file, so every session does not pay for it:
-`docs/claude-md-review-<date>.md`, one record per run, loop rows numbered
-continuously across them. Corrected 2026-09-09: this named the first
-record alone, so the runs after it were unreachable from here.
+Kept outside this file, because every session pays for every line here on
+every turn and reads this history almost never. Split by kind:
+
+| File | What it holds |
+|---|---|
+| [`docs/build-and-test-lessons.md`](docs/build-and-test-lessons.md) | What each § Build and test rule cost — the vacuous tests, the ASan fixture, the red MSVC leg, the invisible invariants |
+| [`docs/session-coordination-history.md`](docs/session-coordination-history.md) | What was measured about worktrees, the roadmap store and the push gate |
+| [`docs/claude-md-history.md`](docs/claude-md-history.md) | How this document changed, and what it used to say |
+| `docs/claude-md-review-<date>.md` | The contract-gate loop logs, one record per run, rows numbered continuously across them |
+
+**Rules live here; their evidence lives there.** A rule in this file is
+meant to be followed without reading its history. Follow the link before
+deciding a rule no longer earns its place — each was paid for once
+already.
