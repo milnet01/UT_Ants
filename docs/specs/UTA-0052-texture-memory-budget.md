@@ -118,7 +118,7 @@ that breaks content addressing before it breaks a test.
    `.c` file compiled into `uta_umat`. **ADR-0007's question 4 is worded for a
    repository with no build system rather than one whose build system builds
    something else, and that is a defect in that ADR rather than in this
-   document** — filed for its owner, not corrected here.
+   document** — filed as UTA-0088, not corrected here.
 
 5. **The section descriptor's `compression` byte stays zero, and this item
    does not use it.** Mine, and it **contradicts the roadmap body**, which

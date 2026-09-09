@@ -3595,6 +3595,40 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-09.
   Lanes: docs.
 
+- 📋 [UTA-0088] **ADR-0007 question 4 mis-routes a dependency whose build system builds something else.**
+  Found by `UTA-0052`'s `review-contract` gate, loop 2, from a lane's open
+  question. Not corrected there: it is that ADR's rule, not that spec's.
+
+  `docs/decisions/ADR-0007-acquire-dependencies-by-route.md` § Decision asks,
+  as question 4, **"Does it ship no build system of its own?"** and routes a
+  yes to route 2 (vendored).
+
+  `bc7enc` ships a `CMakeLists.txt` — its repository root holds one, read
+  2026-09-09 via `gh api repos/richgel999/bc7enc/contents`. So question 4's
+  literal answer is no, and the question set falls through to question 5,
+  which routes it to route 4: fetched, guarded by the one target that needs
+  it.
+
+  **That is the wrong answer.** What that `CMakeLists.txt` builds is a demo
+  executable from `test.cpp` and a bundled `lodepng`, not a library anyone
+  links. Route 2's own stated ground is what fits — *"its sources are
+  compiled into the target that uses it, so fetching would buy nothing a copy
+  does not already give"* — and `UTA-0052` § 3 decision 4 takes route 2 on
+  that ground, saying so in place.
+
+  **The question is worded for a repository with no build system, and the
+  test it means to apply is whether the build system produces something you
+  would link.** Dear ImGui, the ADR's own route-2 example, happens to satisfy
+  both readings, so the gap was invisible until a second candidate arrived.
+
+  Fix is a rewording of question 4 and nothing else — no route changes, and
+  `UTA-0052`'s decision stands either way. Gate the edit under `CLAUDE.md`
+  rule 14 at genre `adr`: a conformer answering question 4 about the next
+  library of this shape builds a different acquisition.
+  **Layman:** A rule for deciding how we obtain outside code asks the wrong question, so it gives the wrong answer for a library that ships a demo program.
+  Kind: doc-fix.
+  Source: review-contract-2026-09-09.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
