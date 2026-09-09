@@ -3161,6 +3161,31 @@ model, no weapon and no opponent until 0.2.0.
   useful than UT99's. This item is the enabling step, not the bots
   themselves -- UTA-0025 is waypoint parity, and UTA-0073 and UTA-0028 are
   what beat it.
+  Signal from the consuming session (2026-09-09), and it bears directly on
+  what this item must decode.
+
+  **Their route probe reports `ctrlhops=16` on some maps, and 16 is also the
+  NavigationPoint path-array slot count.** They do not yet know whether that
+  is a coincidence or one cap surfacing twice.
+
+  That matters here for two reasons. The withdrawn result 3 of their
+  paths-index-evidence.md was the measurement that ELIMINATED the
+  16-slot-cap hypothesis — so with it withdrawn, that hypothesis is live
+  again rather than settled. And an edge list with ungraded flags could not
+  tell the two apart, which is an independent argument for decoding the
+  flags before exposing the graph.
+
+  So: when validating, treat 16 as a number to watch rather than an
+  incidental. If a decoded traversal rule explains a 16-hop ceiling, that is
+  a result; if the slot count explains it, that is a different result with
+  different consequences for the baker.
+
+  **An independent oracle exists for part of this.**
+  `/mnt/Games/Scripts/Linux/UT_MonsterHunt/analysis/pkgnames.py` parses a
+  package's name and export tables in pure Python with no dependencies, and
+  was validated against Textures/Wood.utx's real 190-entry name table.
+  Diffing our reader against it on those two tables is a cheap check that
+  shares none of our code.
   **Layman:** Work out what each bot path actually allows -- walk, jump, swim, or a door that must be opened first. We already read the number; nothing yet knows what it means.
   Kind: implement.
   Source: user-request-2026-09-09.
@@ -3196,6 +3221,45 @@ model, no weapon and no opponent until 0.2.0.
 
   Blocked-by: the reach-flag decode, which is what makes an edge's fields
   mean anything.
+  A whole-library validation route exists (2026-09-09), which is a far
+  stronger check than the four evidence results.
+
+  `/mnt/Games/Scripts/Linux/UT_MonsterHunt/analysis/loadsweep.py` batches map
+  loads through one editor process: 0.16s per map batched against 2.42s
+  one-at-a-time, measured over the same 40 maps. Its module docstring is
+  longer than its code and carries the reasoning — read that first.
+
+  **What it answers is WEAKER than what this item needs.** It asks whether
+  the engine can open a package. It says nothing about whether a map plays,
+  and deliberately does not count a substituted missing texture as a failure.
+  So it is a cross-check on our reader's ability to open the library, not on
+  the graph we extract from it.
+
+  The cautions its author gives, each paid for already:
+
+  - **The exit code is a lie.** The engine exits 0 and logs
+    "Success - 0 error(s)" after failing to load a map. Only the log is a
+    witness — it judges on a "New File, Existing Package" trace for a load
+    and a "Failed to load" trace for a failure.
+  - **A map in a batch with NEITHER trace was never reached**; the engine
+    died partway. Retry it alone rather than reporting it. Losing maps
+    silently has bitten that project three times.
+  - `--maps` takes a DIRECTORY and the path must be ABSOLUTE — the engine's
+    cwd is inside the install, so a relative path reports every map missing.
+    Symlinks work, which is how a subset is swept.
+  - `-log=` silently ignores any path containing a space, so the log cannot
+    live under `/mnt/Games/PC Games/...`. Not `/tmp` either: it is a tmpfs
+    and a path builder wrote 1.1 GB there once.
+  - `--batch` bounds MEMORY, not time. The engine does not collect garbage
+    between loads.
+  - Point `--out` somewhere new. Do not overwrite
+    `work/loadsweep/results.jsonl` — verified 2026-09-09 to hold 2028 rows,
+    and it is that project's current baseline.
+
+  The consuming session is **NOT blocked** on this item. Its route census
+  works today from T3D exports. This would remove a 4.9 GB intermediate,
+  which is an improvement rather than a dependency — stated plainly by them
+  so that it does not reorder this queue.
   **Layman:** Print a map's bot paths from the command line, so they can be checked across the whole map library without loading the game.
   Kind: implement.
   Source: consumer-request-2026-09-09.
@@ -3226,6 +3290,33 @@ model, no weapon and no opponent until 0.2.0.
   about what the ADRs cite. And prefer a dated measurement with the command
   that produced it over a bare number, because this figure has now been
   wrong twice.
+  Reconciliation (2026-09-09), and the trap is worth more than the numbers.
+
+  The 45 renamed maps are a STATUS change with no count effect, and must not
+  be added to any total. They were named `Maps\MH-Foo.unr` — still ending in
+  `.unr`, so `find -name '*.unr'` counted every one of them before the rename
+  as well as after. Renaming changed what the ENGINE can open, not what the
+  filesystem holds. **"Became loadable" is not "was added",** and the same 45
+  will look like an increase in any before/after run against an older sweep.
+
+  This session got that wrong first: it added the 45 and reported a
+  mismatch that did not exist. Recorded because the error is the natural one.
+
+  The chain over all `.unr`, confirmed against the disk measurement above:
+
+        1874  before the promotion
+        +153  path-repaired -BP maps promoted 2026-09-09
+        =2027  the population the load sweep swept, the 45 included
+          -5  byte-identical duplicates deleted 2026-09-09
+        =2022
+
+  All 45 renamed and all 5 deleted maps carry the `MH-` prefix, so on the
+  MH-only denominator this week is +153 and −5.
+
+  **The deltas above do NOT bridge 740 → 1923.** That gap is earlier intake
+  work predating this week. So 740 → 1923 is the right headline and this
+  week's arithmetic is not its explanation — do not present them as one
+  chain, which is the second way this figure can be got wrong.
   **Layman:** The roadmap and the decision documents say the map library holds 740 maps. It holds far more now, and several figures derived from that number are wrong.
   Kind: doc-fix.
   Source: in-session-2026-09-09.
