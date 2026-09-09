@@ -104,21 +104,23 @@ that breaks content addressing before it breaks a test.
    **Upstream claims no determinism**, so § 5 proves it rather than assuming
    it. § 8 records what lost.
 
-   **Route 2 on ADR-0007's *rationale*, and its question 4 does not reach
-   this case.** That question asks whether a dependency ships no build system
-   of its own; `bc7enc` ships a `CMakeLists.txt` (its repository root holds
-   one, read 2026-09-09 via `gh api repos/richgel999/bc7enc/contents`), so the
-   literal answer is no. What that file builds is a **demo executable** from
-   `test.cpp` and a bundled `lodepng`, not a library anyone links.
+   **Route 2, and ADR-0007's question 4 reaches this case.** That question
+   asks whether a dependency's build system produces anything anyone would
+   link. `bc7enc` ships a `CMakeLists.txt` (its repository root holds one,
+   read 2026-09-09 via `gh api repos/richgel999/bc7enc/contents`), and what
+   that file builds is a **demo executable** from `test.cpp` and a bundled
+   `lodepng`, not a library anyone links. So question 4 routes it to route 2.
    `docs/decisions/ADR-0007-acquire-dependencies-by-route.md`'s route 2 states
-   its own ground, and that is what applies:
+   the same ground:
    *"its sources are compiled into the target that uses it, so fetching would
    buy nothing a copy does not already give"* — exactly true here: the
    encoder is two headers and a
-   `.c` file compiled into `uta_umat`. **ADR-0007's question 4 is worded for a
-   repository with no build system rather than one whose build system builds
-   something else, and that is a defect in that ADR rather than in this
-   document** — filed as UTA-0088, not corrected here.
+   `.c` file compiled into `uta_umat`. **When this document was gated,
+   question 4 asked whether a dependency shipped no build system of its
+   own**, which answered no for `bc7enc` and routed it away from route 2.
+   That was a defect in the ADR rather than in this document; it was filed as
+   UTA-0088 and fixed there on 2026-09-09. The route this document takes
+   never changed.
 
 5. **The section descriptor's `compression` byte stays zero, and this item
    does not use it.** Mine, and it **contradicts the roadmap body**, which
@@ -1130,9 +1132,11 @@ awk '/^\| INV-|^\| § /' docs/specs/UTA-0052-texture-memory-budget.md \
   route 2), with `ispc_texcomp`/`bc7e` as the runner-up. No rule changes:
   rule 2 already names `umat` build-time only and rule 17's version-bump
   clause is what § 4.7 obeys.
-- **`docs/decisions/ADR-0007-acquire-dependencies-by-route.md`** — no change.
-  Question 4 already routes a library shipping no build system to route 2;
-  this is a second instance, not a new rule.
+- **`docs/decisions/ADR-0007-acquire-dependencies-by-route.md`** — changed by
+  UTA-0088 on 2026-09-09, not by this item. Question 4 now asks what a
+  dependency's build system produces rather than whether it ships one, and
+  route 2 names `bc7enc` beside Dear ImGui. No route changed, and no rule
+  here follows from the edit.
 - **`README.md`** — no change. Nothing new is a prerequisite: the vendored
   sources are in the repository and need no installed package.
 - **`CLAUDE.md`** — no change. § Build and test's commands and options are

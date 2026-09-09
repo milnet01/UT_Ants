@@ -1503,8 +1503,7 @@ model, no weapon and no opponent until 0.2.0.
 
   **3. The block encoder is VENDORED `bc7enc`** — `bc7enc.c`/`.h` for BC7 and
   `rgbcx.h` for BC1–BC5, from `richgel999/bc7enc`, MIT or public domain, pinned
-  at an exact commit. `ADR-0007` question 4 routes it to route 2 (vendored, like
-  Dear ImGui): it ships no build system of its own, so nothing new enters the
+  at an exact commit. `ADR-0007` question 4 routes it to route 2 (vendored, like Dear ImGui): its build system builds a demo executable rather than a library anyone links, so nothing new enters the
   toolchain. Its BC7 encoder is scalar and not vectorized and it threads
   nothing itself, so parallelising over 4×4 blocks with `core`'s job system
   cannot change the bytes. Upstream claims NO determinism, so the spec proves it
@@ -1565,6 +1564,11 @@ model, no weapon and no opponent until 0.2.0.
   enumerates `bc7enc.c` and not its header — and must be settled before the
   file is copied in; and whether the vendored encoder reaches a platform maths
   function, which `docs/design.md` rules out of the baker.
+  Deferred (2026-09-09) behind `UTA-0088`, which the priority order's rule 1
+  puts first: it is review-sourced and open. `CLAUDE.md`'s `Next:` still
+  names this item and is left alone, per § Which item comes next. Clear
+  this note when implementation starts. Nothing is half-built yet — the
+  spec is written and gated, no code exists.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -3595,7 +3599,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-09.
   Lanes: docs.
 
-- 📋 [UTA-0088] **ADR-0007 question 4 mis-routes a dependency whose build system builds something else.**
+- 🚧 [UTA-0088] **ADR-0007 question 4 mis-routes a dependency whose build system builds something else.**
   Found by `UTA-0052`'s `review-contract` gate, loop 2, from a lane's open
   question. Not corrected there: it is that ADR's rule, not that spec's.
 
@@ -3625,6 +3629,11 @@ model, no weapon and no opponent until 0.2.0.
   `UTA-0052`'s decision stands either way. Gate the edit under `CLAUDE.md`
   rule 14 at genre `adr`: a conformer answering question 4 about the next
   library of this shape builds a different acquisition.
+  Progress (2026-09-09): taken by session `ut-ants-2d`, working in the
+  MAIN checkout `/mnt/Games/Scripts/Linux/UT_Ants`. Taken ahead of
+  `UTA-0052` under the user's priority order rule 1 — it is the only
+  open review-sourced item not standing deferred (`UTA-0059` defers
+  itself until the renderer lands).
   **Layman:** A rule for deciding how we obtain outside code asks the wrong question, so it gives the wrong answer for a library that ships a demo program.
   Kind: doc-fix.
   Source: review-contract-2026-09-09.

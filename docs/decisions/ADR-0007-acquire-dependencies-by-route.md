@@ -67,7 +67,10 @@ line covers SDL3's headers as well as Vulkan's.
 
 **Route 2 — vendored in the repository.** Dear ImGui, as already decided. It
 ships no build system; its sources are compiled into the target that uses it,
-so fetching would buy nothing a copy does not already give.
+so fetching would buy nothing a copy does not already give. `bc7enc` takes the
+same route on the same ground, per
+`docs/specs/UTA-0052-texture-memory-budget.md` § 3 decision 4: its build system
+builds a demo executable, not a library.
 
 **Route 3 — required from the platform, found and never fetched.** Three build
 inputs: the Vulkan **headers**, a **loader**, and a **GLSL-to-SPIR-V
@@ -123,7 +126,14 @@ pay to fetch or compile Assimp. The option's name and default arrive with
    is the branch `shaderc` would take if nothing already supplied `glslc`, and
    it is worded about the sources rather than about a build system because
    `shaderc` ships a perfectly good CMake build and still cannot stand alone.
-4. **Does it ship no build system of its own?** Route 2.
+4. **Does its build system produce nothing anyone would link?** Route 2 — its
+   sources are compiled into the target that uses it. The test is what the
+   build system *produces*, not whether one exists. Dear ImGui ships none and
+   passes trivially; `bc7enc` ships a root `CMakeLists.txt` that builds a demo
+   executable from `test.cpp` and a bundled `lodepng`, and no library, so it
+   passes too. Worded as *ships no build system* the question answered no for
+   `bc7enc` and fell through to question 5 — route 4, a guarded fetch of
+   sources that are compiled into the target regardless.
 5. **Is it linked by exactly one target, and that target not a runtime one?**
    Route 4. A test-only dependency is the exception and stays route 1: Catch2
    is fetched for the whole suite rather than for one target, and the test
