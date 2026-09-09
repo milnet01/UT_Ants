@@ -3326,6 +3326,27 @@ model, no weapon and no opponent until 0.2.0.
 
   The earlier note on this item said the file held 2028 rows without knowing
   what the extra one was. It is not a defect.
+  Correction (2026-09-09): **ping the PROJECT, not a session.**
+
+  The note above says to ask them for a fresh sweep. The session that offered
+  it has since ended, so a future session addressing `ut-monsterhunt-b9` by
+  name would reach nothing and read the silence as a refusal.
+
+  The commitment is written down instead, at **`GAME-0032`** in
+  `/mnt/Games/Scripts/Linux/UT_MonsterHunt/ROADMAP.md` — verified present
+  2026-09-09. It records what a session with no memory of the exchange would
+  need: that the sweep is generated AT ping time rather than copied from
+  `work/loadsweep/results.jsonl`, that this freshness is the whole substance
+  of the promise, the command to run, and the instruction to write to a NEW
+  `--out` rather than overwrite the baseline. It also records our build order
+  and its reasoning, and that they are **not** blocked on `UTA-0085` or this
+  item — so a later session there cannot cite a blocker to reorder our queue.
+
+  **The general lesson is worth more than this instance.** A cross-session
+  message is read when the other session next looks, and nothing makes it
+  look. An arrangement that lives only in two sessions' contexts dies with
+  whichever ends first. Put it in both projects' roadmaps and address the
+  project.
   **Layman:** Print a map's bot paths from the command line, so they can be checked across the whole map library without loading the game.
   Kind: implement.
   Source: consumer-request-2026-09-09.
