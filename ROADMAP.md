@@ -1488,6 +1488,48 @@ model, no weapon and no opponent until 0.2.0.
   texture payload therefore crosses as bytes `ubundle` does not interpret,
   which matches its stated scope — the file layout, never the meaning of a
   section's contents.
+  Progress (2026-09-09): resumed by session `ut-ants-36`, working in the
+  MAIN checkout at `/mnt/Games/Scripts/Linux/UT_Ants`. The previous holder
+  `ut-ants-17` is absent from `ListAgents`, so its claim was abandoned and
+  rule 2 makes the item resumable. `ListAgents` shows two live peers,
+  `ants-terminal-ff` and `ut-monsterhunt-b9`, neither of which is a
+  UT_Ants session — so no live peer holds the main checkout and rule 3
+  allows keeping it.
+
+  Next action unchanged: `write-spec` for UTA-0052, then its
+  `review-contract` gate at genre `spec`.
+  Three more decisions settled (user, 2026-09-09), before §4 was drafted. Each
+  was raised because the body left it open and it changes what gets built.
+
+  **3. The block encoder is VENDORED `bc7enc`** — `bc7enc.c`/`.h` for BC7 and
+  `rgbcx.h` for BC1–BC5, from `richgel999/bc7enc`, MIT or public domain, pinned
+  at an exact commit. `ADR-0007` question 4 routes it to route 2 (vendored, like
+  Dear ImGui): it ships no build system of its own, so nothing new enters the
+  toolchain. Its BC7 encoder is scalar and not vectorized and it threads
+  nothing itself, so parallelising over 4×4 blocks with `core`'s job system
+  cannot change the bytes. Upstream claims NO determinism, so the spec proves it
+  with a golden byte array on all three CI legs rather than assuming it —
+  `UTA-0008`'s INV-7 pattern.
+
+  Rejected: writing our own (BC7 mode selection and endpoint fitting are weeks
+  of work and would stall `UTA-0009`); a split of our own BC4/BC5 plus a
+  vendored BC7 (two deterministic code paths and two fixtures to save a few
+  hundred lines); and ISPC (`bc7e`, `ispc_texcomp`), which needs Intel's ISPC
+  compiler as a fourth compiler and whose own README says determinism across
+  Intel and AMD needs the targets limited to SSE with fast math off — that makes
+  determinism a build-configuration argument rather than a property.
+
+  **4. The first budget figure is 1024 MB of texture working set per baked
+  map** — half the GTX 1050's 2 GB, leaving the other half for the G-buffer and
+  depth at 1080p, shadow maps, geometry, volumetric grids and the desktop
+  compositor. The body's "the development card's 2 GB" is the CARD, not the
+  texture budget: spending all of it on textures leaves the renderer nothing and
+  the guard could never refuse a bake that will not run. `UTA-0051` re-declares
+  the figure per tier when it lands.
+
+  **5. `UTA-0084` gets no CHANGELOG entry.** It changed how sessions coordinate,
+  not anything a player or a server operator can see. `UTA-0081` settles the bar
+  for the other four shipped items separately.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
