@@ -1603,6 +1603,33 @@ model, no weapon and no opponent until 0.2.0.
   **§ 15's licence question is now a blocker rather than a note.** The spec
   requires `bc7enc.h`'s coverage settled BEFORE the file is copied into this
   GPL-3.0 repository, and the vendoring is the next step.
+  Progress (2026-09-09), superseding the note above: **the licence question
+  is SETTLED and the vendoring is DONE.** That note called it a blocker; it
+  is not one. `bc7enc.h` carries its own dual-licence notice on its first
+  line and the pointer resolves to the full text at `bc7enc.c`'s tail, so
+  the upstream `LICENSE`'s omission is shorthand. `third_party/bc7enc/` is
+  in at commit `f66c2e48` with a `README.md` recording repository, commit,
+  date and a sha256 per file.
+
+  **§ 15's OTHER question is settled too, and the answer needs the user.**
+  `bc7enc.c` includes `<math.h>`, so the LETTER of `docs/design.md`'s
+  Determinism bullet — *no platform maths library in the simulation or the
+  baker* — is breached by this dependency. What it calls is `sqrtf` twice,
+  `floor`/`floorf` five times and `fabs`/`fabsf` four times, with **no**
+  `pow`, `exp`, `log`, `sin`, `cos`, `tan`, `atan2`, `cbrt` or `hypot`;
+  `rgbcx.h` calls `fabs` alone. IEEE-754 pins every one of those exactly,
+  so `ADR-0002`'s cross-compiler hash equality — that rule's own stated
+  ground — holds while its wording does not.
+
+  Recorded in `docs/specs/UTA-0052-texture-memory-budget.md` § 15 and in
+  `third_party/bc7enc/README.md`, not resolved silently. The alternatives
+  are patching vendored source or reopening § 3 decision 4. INV-6 is the
+  grader either way. **Proceeding on that reading; the user may overturn
+  it.**
+
+  **Next: `src/umat/` — `Material.h`/`.cpp`, `CMakeLists.txt` with INV-8's
+  and INV-12's configure-time assertions, `add_subdirectory(umat)`, and
+  `tests/unit/MaterialCompressTest.cpp` for INV-6 to INV-12 and INV-14.**
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
