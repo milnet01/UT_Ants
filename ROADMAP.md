@@ -3302,6 +3302,30 @@ model, no weapon and no opponent until 0.2.0.
   works today from T3D exports. This would remove a 4.9 GB intermediate,
   which is an improvement rather than a dependency — stated plainly by them
   so that it does not reorder this queue.
+  Correction (2026-09-09), from the tool's author, and it reverses the advice
+  above: **do NOT validate against `work/loadsweep/results.jsonl`.**
+
+  That file describes a library of 2027 that no longer exists, against a disk
+  now holding 2022. Since the run that produced it: two maps it calls BROKEN
+  now load (a `U4eMedigun` substitution fixed `MH-()mG-FourGhostsV2` and
+  `MH-()mG-monsterthatrockTest5`), five of its rows are maps since deleted,
+  and 45 of its rows carry the old `Maps\...` names — those maps now load
+  under stripped names and appear nowhere under them.
+
+  Diffing our reader against it would surface disagreements that are the
+  baseline's, not ours. Regenerating takes minutes. **Ask them to generate a
+  fresh sweep when this item is close**, so the cross-check is current rather
+  than a second stale artefact. They offered.
+
+  **The row count is 2028 and the population is 2027.** The extra row is
+  loadsweep's own completion sentinel, `{"batch": "done"}`, written only when
+  a run finishes — so its presence is what distinguishes a completed sweep
+  from one that died partway, the failure that has bitten that project three
+  times. It is load-bearing: do not strip it, and **count the `map` key
+  rather than lines.** That baseline reads 1972 loads and 55 broken.
+
+  The earlier note on this item said the file held 2028 rows without knowing
+  what the extra one was. It is not a defect.
   **Layman:** Print a map's bot paths from the command line, so they can be checked across the whole map library without loading the game.
   Kind: implement.
   Source: consumer-request-2026-09-09.
