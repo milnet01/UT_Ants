@@ -614,6 +614,22 @@ model, no weapon and no opponent until 0.2.0.
   curated library is for -- so the likely shape is that a replacement is
   referenced by the recipe and fetched or supplied locally, never committed.
   Whoever picks this up settles that with the user before building it.
+  Scope settled (user, 2026-09-09). The flagged-not-decided question above
+  is now decided, and this item may be built without re-asking it.
+
+  An Internet-sourced replacement is REFERENCED by the recipe and fetched
+  or supplied locally at bake time. It is never committed. The bake it
+  feeds is derived and lands under content/ like every other bake, which
+  is what design rule 15 and ADR-0003 already require -- so this needs no
+  override file.
+
+  A replacement may ship inside the curated library only where a licence
+  permitting redistribution can be pointed at. Drawing that line is
+  UTA-0010's, and it carries the matching note.
+
+  For this item the consequence is narrow: the input contract admits the
+  original 1999 texture AND a locally-supplied replacement, and must not
+  assume the original is the only input.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -633,6 +649,17 @@ model, no weapon and no opponent until 0.2.0.
   material definitions and any art we have the right to distribute" -- so
   the licensing line is this item's to draw, and a replacement without
   distribution rights belongs outside the library rather than in it.
+  Scope settled (user, 2026-09-09). This item owns the rights check, and
+  the matching note is on UTA-0009.
+
+  The library may hold a replacement texture only where a licence
+  permitting redistribution can be pointed at. Everything else is
+  referenced by the recipe and supplied locally at bake time, never
+  committed.
+
+  So the absence of a demonstrable licence is what puts an asset outside
+  the library, rather than its provenance. Art we authored and art under a
+  permissive licence are on the same footing here.
   **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
   Kind: implement.
   Source: design-2026-09-03.
@@ -3019,7 +3046,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: tests.
 
-- 📋 [UTA-0084] **A third session cannot tell that two already hold this project.**
+- 🚧 [UTA-0084] **A third session cannot tell that two already hold this project.**
   `CLAUDE.md` § Running two sessions at once caps the project at two
   sessions, and rule 3 gives the start-up test as `git worktree list` and
   `ListAgents`. Neither answers the question the cap asks.
@@ -3053,6 +3080,21 @@ model, no weapon and no opponent until 0.2.0.
   this session correctly detected an abandoned `UTA-0008` holder by
   exactly the rules-1-and-2 route. The gap is that nothing DETECTS a
   breach; it is prevented by each session checking honestly.
+  Progress (2026-09-09): held by session ut-ants-17, sole session on this
+  project -- git worktree list shows one checkout and ListAgents shows no
+  other UT_Ants session.
+
+  Taken as a doc-fix on the user's call (2026-09-09), ahead of UTA-0052.
+  The item's own diagnosis is accepted and is not being re-derived: the
+  route that works is already in rules 1 and 2, and rule 3 does not name
+  it. The fix is to make rule 3 name it.
+
+  ListAgents being machine-wide was re-confirmed this session rather than
+  taken from the item body: it returned ants-terminal-ff and
+  ut-monsterhunt-b9, neither of which works this project.
+
+  Being a change to a contract document, this runs CLAUDE.md rule 14's
+  gate before it lands.
   **Layman:** Two sessions may work this project at once. Nothing reliably tells a third one that the two slots are taken, so the limit rests on each session checking honestly rather than on anything that can detect a breach.
   Kind: investigate.
   Source: review-contract-2026-09-08 workflow-overrides loop 3.
