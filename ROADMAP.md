@@ -1351,12 +1351,29 @@ model, no weapon and no opponent until 0.2.0.
   bind to, which is spec-format.md section 1's first trigger.
 
   Blocked-by: the bundle draw path.
+  Note (2026-09-09), from UTA-0052's scope decision: **the texture memory
+  budget binds to this item, and this item does not block it.**
+
+  UTA-0052's body said the baker refuses a bake exceeding "the tier's
+  budget", which read as though it waited on the tiers defined here. It does
+  not, and waiting would have been wrong — this item is blocked behind the
+  bundle draw path, so the texture budget would have been pushed past the
+  whole renderer, with UTA-0009 stalled behind it.
+
+  Settled the other way by the user: UTA-0052 defines the budget as an
+  absolute megabyte figure for a map's texture working set, starting from the
+  development card's 2 GB. **When this item lands, it declares which tier
+  maps to which figure.** That is a value this item supplies, not a contract
+  it imposes.
+
+  Nothing here changes. Recorded so a session building the tiers knows the
+  budget number already exists and does not invent a second one.
   **Layman:** One quality setting that actually works: the game picks a sensible level for your machine, leaves the expensive effects off on weak hardware, and quietly lowers resolution rather than stuttering.
   Kind: implement.
   Source: user-request-2026-09-04.
   Lanes: urender.
 
-- 📋 [UTA-0052] **umat: a texture memory budget, with block compression and a per-material upscale cap.**
+- 🚧 [UTA-0052] **umat: a texture memory budget, with block compression and a per-material upscale cap.**
   UTA-0009 turns one 1999 texture into five -- albedo, normal, roughness,
   height and emissive -- and upscales before deriving them. Upscaling
   256x256 to 1024x1024 is sixteen times the pixels, so five maps at
@@ -1379,6 +1396,98 @@ model, no weapon and no opponent until 0.2.0.
   every material and changing what a bundle stores.
 
   Blocked-by: ubundle.
+  Progress (2026-09-09): held by session `ut-ants-17`, working in the MAIN
+  checkout at `/mnt/Games/Scripts/Linux/UT_Ants`. Sole live session on this
+  project — `ListAgents` shows no peer that could be working it, which is the
+  condition rule 3 requires before keeping the main checkout.
+
+  Taken as `Next:` on the user's call (2026-09-09), ahead of `UTA-0009`.
+  Both items' bodies already recorded that this one wants to land first, and
+  its `Blocked-by: ubundle` cleared when `UTA-0008` shipped on 2026-09-08.
+
+  **Starting position, measured rather than assumed.** There is no
+  `src/umat/` yet, so this is greenfield. `src/ubundle/Bundle.h` emits
+  sections in the fixed order ROOM, NAVG, WIRG — a material or texture
+  section does not exist, so this item decides what a bundle stores as well
+  as how a texture is compressed. That is why `UTA-0052` is wanted before
+  `UTA-0009`: retrofitting would regenerate every material and change the
+  container.
+
+  **A spec is owed and will be written first.** `spec-format.md` § 1 fires
+  several ways — a contract other code binds to (the bundle's own layout),
+  more than one subsystem (`umat` and `ubundle`, per this item's own
+  `Lanes:`), and a real design choice in the budget's shape. Not a case where
+  the roadmap bullet plus `write-code` is the whole contract.
+
+  Next action: `write-spec` for `UTA-0052`, then its `review-contract` gate
+  before any code.
+  Scope settled (user, 2026-09-09), before the spec was drafted. Two
+  questions, both raised because this body referred to something that does
+  not exist.
+
+  **1. The budget is ABSOLUTE MEGABYTES of texture working set per baked
+  map.** This body said the baker "refuses a bake that exceeds the tier's
+  budget", and tiers are `UTA-0051` — which is 📋 and itself blocked behind
+  the renderer, two items away. So the budget was defined against something
+  unbuilt and this item's `Blocked-by:` never said so.
+
+  **The dependency runs the other way and this item does not wait.**
+  `UTA-0051` later declares which tier maps to which megabyte figure; it
+  binds to this number, not the reverse. The first value is the development
+  card's 2 GB. The mechanism — compress, cap the upscale, measure, refuse —
+  is unchanged whatever the number becomes, which is why it can be settled
+  now.
+
+  **2. Over budget, the bake REFUSES and reports what it measured** — the
+  working set it produced and the budget it exceeded. Not automatic
+  degradation. Two people baking one map must not silently get different
+  quality, and a reduction nobody was told about is the failure that surfaces
+  months later on somebody else's laptop. An opt-in `--fit-budget` was
+  offered and NOT taken; do not add one without asking again.
+
+  **Also settled by reading the code rather than assuming.** There is no
+  `src/umat/` yet and `Bundle.h` emits sections in the fixed order ROOM,
+  NAVG, WIRG with no material or texture section. `FORMAT_VERSION` is 1 and
+  is checked for EQUALITY, and that header's own comment records that adding
+  a byte later bumps the version at a cost `versioning-overrides.md` owns. So
+  where the texture data lives is a breaking-surface decision this item's
+  spec must make deliberately, not an implementation detail.
+  Constraints found by reading UTA-0008's shipped invariants (2026-09-09),
+  before drafting. `invariant_check` named that spec as governing
+  `src/ubundle/Bundle.h`; these are its clauses, not new decisions.
+
+  **The container already reserves a `compression` byte, and v1 requires it
+  to be ZERO.** UTA-0008's INV-12 refuses a section whose `compression` byte
+  is non-zero. So this item does not add the field — it defines what a
+  non-zero value means, which is a smaller and better-shaped job than the
+  body assumed.
+
+  **A texture section forces a format version bump.** INV-4 checks
+  `formatVersion` for EQUALITY against 1, before the section table is read,
+  and INV-11 makes an undefined section id `MalformedData`. So a v1 reader
+  refuses a bundle carrying textures, by design. The bump is a breaking
+  surface `docs/standards/versioning-overrides.md` governs, and UTA-0008's
+  INV-4 needs amending in the same change rather than left contradicting it.
+
+  **The block compressor MUST be deterministic and identical across
+  compilers, and this is the constraint most likely to be missed.** INV-8
+  requires `write` to be byte-identical for equal input. INV-7 pins `write`
+  against a golden byte array fixed in the source, which the CI matrix runs
+  on GCC, Clang and MSVC alike — any leg whose bytes differ goes red on its
+  own. `docs/design.md` § Close calls then names a bundle by the hash of its
+  contents, so a non-deterministic encoder breaks content addressing as well
+  as the tests.
+
+  Many BC7 encoders are neither: they are multithreaded, heuristic, and
+  tuned per platform. **So the encoder is a spec-level decision, not an
+  implementation detail** — it must be selected or written for reproducible
+  output, and the spec has to say how that is verified rather than assumed.
+
+  **`ubundle` may not link `umat`.** INV-10 pins its link entries to
+  `uta_core`, `uta_umap` and `uta_unav`, asserted at configure time. The
+  texture payload therefore crosses as bytes `ubundle` does not interpret,
+  which matches its stated scope — the file layout, never the meaning of a
+  section's contents.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
