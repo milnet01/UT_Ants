@@ -137,8 +137,16 @@ that breaks content addressing before it breaks a test.
 ### 4.1 What `umat` is, and what it may link
 
 A new directory `src/umat/` holding `Material.h`/`Material.cpp`, producing
-**one** static library `uta_umat` that links `uta_core`, `uta_upkg` and
-`uta_ubundle` and nothing else.
+**one** static library `uta_umat` that links `uta_core` and `uta_ubundle` and
+nothing else.
+
+**It does not link `uta_upkg`, and that is deliberate rather than an
+oversight.** Nothing in § 4.9's API takes a package: `compress` is handed
+`Image` levels somebody else decoded, and § 7 says in its own words that
+nothing here reads a package byte. Reading a source texture out of a `.utx`
+is UTA-0009's, and **UTA-0009 adds the link and amends INV-12 in the same
+change**. Listing it now would make INV-12 refuse to configure the correct
+minimal implementation of this document.
 
 **One library rather than two, unlike `umap` and `unav`.**
 `src/ubundle/CMakeLists.txt` already carries the reasoning for the
@@ -152,16 +160,34 @@ nothing to separate.
 `src/CMakeLists.txt` gains `add_subdirectory(umat)` after `ubundle`, matching
 that file's stated rule that the order is the order items land in.
 
-`src/umat/CMakeLists.txt` asserts the link list at configure time, in the
-form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10 — naming the
-permitted entries rather than forbidding all, so it does not fail the moment
-a line above is legitimately needed.
+`src/umat/CMakeLists.txt` asserts **two** properties at configure time, both
+in the form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10 — naming
+what is permitted rather than forbidding all, so neither fails the moment a
+line above is legitimately needed. The first is the link list (INV-12). The
+second is `uta_umat`'s `COMPILE_OPTIONS`, which must carry none of
+`-ffp-contract`, `-ffast-math`, `-Ofast` or `/fp:` (INV-8).
+
+**The second assertion is needed because the root guard cannot see a target.**
+The root `CMakeLists.txt` refuses a fast-math flag arriving through
+`CMAKE_CXX_FLAGS` and its four per-config variants, and those are cache
+variables: a `target_compile_options(uta_umat PRIVATE -ffast-math)` is
+invisible to it and configures green. That is INV-8's own breaking case, so
+without a target-level assertion the invariant would be graded by nothing.
 
 **The vendored encoder lives in `third_party/bc7enc/`** with its upstream
 `LICENSE` copied beside it and a `README.md` recording the exact upstream
 commit, since a vendored copy *is* its own pin. Its sources are compiled
 into `uta_umat` rather than into a library of their own, so nothing else in
 the build can reach them.
+
+**`bc7enc.c` is compiled as C++, and the root project stays `LANGUAGES CXX`.**
+`src/umat/CMakeLists.txt` sets `LANGUAGE CXX` on it with
+`set_source_files_properties`. Enabling `C` in the root `project()` call is
+the alternative and it is worse: the numeric-contract guard scans the
+`CMAKE_CXX_FLAGS` family only, so a C translation unit would sit outside the
+one check that holds INV-6's determinism, and `add_compile_options`' own flags
+would be the only thing reaching it. One language, one guard, one set of
+flags.
 
 ### 4.2 The format matrix
 
@@ -227,6 +253,15 @@ having no table-offset field. Source dimensions are stored because nothing
 else in the bundle records them, so without them the cap in § 4.5 would not
 be auditable after a bake.
 
+**So the source dimensions are constrained too, and INV-2 refuses a bundle
+that breaks the derivation.** `sourceWidth` and `sourceHeight` are non-zero,
+and `width / sourceWidth` and `height / sourceHeight` are equal, exact, and a
+power of two in `[1, MAX_UPSCALE_FACTOR]`. Without those clauses a
+`sourceWidth` of `0` divides by zero and one larger than `width` yields a
+factor of `0` under integer division — in both cases the fields exist and
+record nothing, which is the one thing they are stored for. `umat` never
+downscales (§ 4.5), so a factor below 1 is not a state this format has.
+
 **Levels are consecutive halvings, floored at one.** Level *l* measures
 `max(1, width >> l)` by `max(1, height >> l)`. So the bytes one element's
 `blocks` must hold are exactly
@@ -239,6 +274,16 @@ and a payload of any other length is `MalformedData` (INV-1). **This is the
 one rule that makes the section self-describing**: without it a reader takes
 the declared length on trust and starts the next element wherever the last
 one happened to stop.
+
+**Blocks within a level are row-major** — left to right along a row of blocks,
+then top to bottom — and a level whose width or height is not a multiple of
+four has its right and bottom edge blocks padded by repeating the last real
+texel. **This is wire format and it is stated because nothing validates it.**
+`ubundle` treats `blocks` as opaque bytes (§ 4.8), so a producer writing
+column-major and a consumer reading row-major satisfy INV-1, INV-2 and each
+other's byte counts exactly, and the disagreement first appears as a scrambled
+texture in a renderer nobody has built yet. UTA-0009 writes these bytes and
+UTA-0016 uploads them; both bind to this sentence.
 
 **Power-of-two dimensions are required, and this is a real constraint rather
 than a convention.** They make `mipCount`'s upper bound exactly
@@ -275,20 +320,27 @@ per-target flag that would re-enable either (INV-8). Without this a vendored
 C file compiled under contraction folds a multiply-add differently on one
 compiler and the golden bytes of INV-6 diverge on that leg alone.
 
-**The perceptual metric is off.** `bc7enc`'s optional perceptual mode
-computes error in a weighted YCbCr space, which means a colour-space
-transform this document has not established to be free of the transcendental
-functions `docs/design.md` § What every part does the same way rules out of
-the baker. Linear RGB error is what is used. § 15 records the check that is
-still owed on the vendored source.
+**The perceptual metric is off.** `bc7enc`'s optional perceptual mode computes
+error in a weighted YCbCr space, which is a colour-space transform this
+document has not established to be free of `<cmath>`. Linear RGB error is
+what is used. § 15 records the check that is still owed on the vendored source.
+
+**What `docs/design.md` rules out is "no platform maths library in the
+simulation or the baker", and that is narrower than banning a transcendental.**
+A `pow` computed from our own table satisfies that rule; a `powf` from the
+platform's libm does not, because two machines' libm may differ in the last
+bit. So the constraint this item takes is design.md's, and § 15's open
+question is about which of the two the vendored source falls under — not
+about a transcendental being forbidden outright.
 
 ### 4.5 The per-material upscale cap
 
 Two constants and one pure function.
 
 ```cpp
-/// The largest edge `umat` will produce, and the largest factor it will
-/// apply. Whichever binds first wins.
+/// The largest edge `umat` will UPSCALE TO, and the largest factor it will
+/// apply. Whichever binds first wins. Neither is a ceiling on the SOURCE:
+/// see the over-size case below.
 inline constexpr std::uint32_t MAX_OUTPUT_EDGE = 1024;
 inline constexpr std::uint32_t MAX_UPSCALE_FACTOR = 4;
 
@@ -303,6 +355,19 @@ It returns the largest power of two that is at most `requested`, at most
 `MAX_UPSCALE_FACTOR`, and leaves both output edges at or below
 `MAX_OUTPUT_EDGE`. Where no factor qualifies it returns `1`, and it never
 returns `0` (INV-11).
+
+**A source already larger than `MAX_OUTPUT_EDGE` is passed through at factor
+1, and `umat` never downscales.** § 4.3 admits a base level up to 8192 and
+UTA-0009's scope note admits a locally-supplied replacement, so this case is
+reachable rather than theoretical — a 2048×2048 replacement gets factor 1 and
+is stored at 2048. **Two reasons the cap does not clamp it.** Downscaling
+somebody's higher-resolution replacement is a quality decision this item has
+no basis for taking silently, and it is the same silent degradation § 3
+decision 3 rules out one layer along. And the memory guard is the budget,
+not the cap: a 2048 texture that does not fit is refused by § 4.6 with a
+report naming it, which is a decision somebody sees. So `MAX_OUTPUT_EDGE`
+bounds *upscaling* and nothing else, which is what the constant's comment
+now says.
 
 **Per material means the caller supplies `requested` per texture**, which is
 what makes the cap per-material from the first line of code rather than
@@ -373,7 +438,9 @@ rather than to this item — § 15 records it as reopenable.
 question anyone asks of a refused bake is which texture to cap, and an
 unordered list of several hundred entries does not answer it. The order is by
 `bytes` descending, then by `name` ascending so the result is total and does
-not depend on the input order.
+not depend on the input order. **INV-14 grades it, and not INV-10** — the
+order is produced by `measure`, so an invariant whose test only calls
+`enforceBudget` could never fail on it.
 
 **Printing the report is `ubake`'s (UTA-0011).** This item returns it. So the
 tests below grade the measurement and the refusal, and not what a user sees —
@@ -488,9 +555,17 @@ struct Image {
 `compress` refuses with `InvalidArgument` for an empty `levels`, a level
 whose `pixels` size disagrees with its own dimensions, a chain that is not
 consecutive halvings, a base level that is not a power of two in
-`[1, 8192]`, more levels than `log2(max(width, height)) + 1`, or a
+`[1, 8192]`, more levels than `log2(max(width, height)) + 1`, a
 `channels` count the requested format cannot carry — BC4 needs 1, BC5 needs
-at least 2, BC7 needs at least 3.
+at least 2, BC7 needs at least 3 — **or a source pair INV-2 would refuse**: a
+zero `sourceWidth` or `sourceHeight`, or a ratio against the base level that
+is not one exact power of two in `[1, MAX_UPSCALE_FACTOR]` in both axes.
+
+**That last one is checked here as well as at `read`, deliberately.** INV-2
+stops such a bundle being *decoded*; this stops one being *written*, so a bad
+texture cannot be produced by the only writer there is and then blamed on the
+reader — the same argument `src/ubundle/Bundle.h` already gives for `write`
+refusing a structure that violates UTA-0008 § 4.9.
 
 ## 5. Invariants
 
@@ -512,19 +587,30 @@ at least 2, BC7 needs at least 3.
   are entirely correct, with a per-element length that disagrees with the
   element's own declared dimensions, can reach it.
 
-- **INV-2** — `width` and `height` are powers of two in `[1, 8192]` and
-  `mipCount` is in `[1, log2(max(width, height)) + 1]`. Any other value is
-  `MalformedData`, refused before a payload byte is read.
+- **INV-2** — `width` and `height` are powers of two in `[1, 8192]`;
+  `mipCount` is in `[1, log2(max(width, height)) + 1]`; `sourceWidth` and
+  `sourceHeight` are non-zero; and `width / sourceWidth` equals
+  `height / sourceHeight` exactly and is a power of two in
+  `[1, MAX_UPSCALE_FACTOR]`. Any other value is `MalformedData`, refused
+  before a payload byte is read.
   *Test:* `tests/unit/BundleTextureTest.cpp`, one case each for a zero
   dimension, a non-power-of-two dimension, a dimension above 8192, a
-  `mipCount` of zero, and a `mipCount` one past the chain's length. No arrow:
-  the surface does not exist yet.
+  `mipCount` of zero, a `mipCount` one past the chain's length, a
+  `sourceWidth` of zero, a `sourceWidth` larger than `width`, a source pair
+  whose two ratios disagree, and a ratio of 8. No arrow: the surface does not
+  exist yet.
   *Breaks when:* `mipCount` is trusted and the level loop walks past the
   payload; or a zero dimension is admitted, which makes INV-1's product zero
-  and therefore satisfied by a zero-length payload.
+  and therefore satisfied by a zero-length payload; or the source dimensions
+  are stored without being checked, after which § 4.3's derived factor is a
+  division by zero or an integer `0`.
   **The zero-dimension case is why this cannot be folded into INV-1.** With
   `width` zero the expected byte count is zero, so INV-1 passes on it and
   only a dimension check can refuse it.
+  **The source clauses have no other grader anywhere.** `sourceWidth` and
+  `sourceHeight` are read by nothing in `ubundle` — they exist so the cap
+  stays auditable — so INV-1's length arithmetic never touches them and a
+  bundle carrying nonsense there decodes cleanly under every other rule.
 
 - **INV-3** — a `format` byte outside `{0, 1, 2}` is `MalformedData` and is
   never defaulted to a value.
@@ -539,9 +625,14 @@ at least 2, BC7 needs at least 3.
   undefined byte reaching it yields 16 — a payload sized for that passes
   INV-1, and only the range check can refuse it.
 
-- **INV-4** — a hand-authored golden byte array for a `TEXS` section, carrying
-  **at least one texture of each of BC4, BC5 and BC7**, decodes to exactly
-  the values it encodes, field by field.
+- **INV-4** — a hand-authored golden byte array for a **whole `.utab` file** —
+  the sixteen-byte header at `formatVersion` 2, a one-entry section table, and
+  a `TEXS` section carrying **at least one texture of each of BC4, BC5 and
+  BC7** — decodes to exactly the values it encodes, field by field.
+  **A whole file rather than the payload alone**, for two reasons: INV-13
+  asserts the `compression` byte, which lives in the section *descriptor* and
+  so is absent from a payload-only fixture; and INV-5 compares `write`'s
+  output against these bytes, and `write` emits a file.
   *Test:* `tests/unit/BundleTextureTest.cpp`, asserting each field against
   its own literal. No arrow: the surface does not exist yet.
   *Breaks when:* two adjacent fields of the same width and type are
@@ -608,15 +699,21 @@ at least 2, BC7 needs at least 3.
 - **INV-8** — `uta_umat` adds no compile option that re-enables
   floating-point contraction or fast-math for any translation unit it
   compiles, the vendored sources included.
-  *Test:* `src/umat/CMakeLists.txt` carries no `target_compile_options`
-  touching `-ffp-contract`, `-ffast-math`, `-Ofast` or `/fp:`, and the root
-  `CMakeLists.txt`'s existing configure-time guard still refuses those from
-  `CMAKE_CXX_FLAGS` — the guard
-  `docs/specs/UTA-0049-numeric-contract.md`'s INV-7 records. No arrow: the
-  file does not exist yet.
+  *Test:* `src/umat/CMakeLists.txt` reads `uta_umat`'s `COMPILE_OPTIONS`
+  property and stops with a `FATAL_ERROR` where any entry matches
+  `-ffp-contract|-ffast-math|-Ofast|/fp:` — the assertion form
+  `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10. **Prove it by
+  breaking it once**: add `target_compile_options(uta_umat PRIVATE
+  -ffast-math)` and configure, which must stop. No arrow: the file does not
+  exist yet.
   *Breaks when:* a per-target flag is added to make the vendored C compile
   faster, after which a multiply-add folds on one compiler and not another
   and INV-6 fails on one leg with nothing saying why.
+  **The root guard cannot grade this and the assertion is not redundant with
+  it.** That guard scans `CMAKE_CXX_FLAGS` and its four per-config variants,
+  which are cache variables — a target property is invisible to it, so the
+  breaking case above configures green under the root guard alone. The two
+  cover different arrival routes for one flag.
   **This is defence in depth and INV-6 is the contract.** A determinism
   failure shows up in INV-6's golden array however it was caused; this
   invariant removes the commonest cause, and does so at configure time where
@@ -633,10 +730,8 @@ at least 2, BC7 needs at least 3.
   pass a bake sitting at the budget and have it fail on the card.
 
 - **INV-10** — `enforceBudget` returns `InvalidArgument` when
-  `workingSetBytes` exceeds `budgetBytes` and succeeds otherwise; the report
-  it was given names both figures and every texture, ordered by `bytes`
-  descending then `name` ascending; and nothing is dropped, resized or
-  re-compressed.
+  `workingSetBytes` exceeds `budgetBytes` and succeeds otherwise, and nothing
+  is dropped, resized or re-compressed.
   *Test:* `tests/unit/MaterialCompressTest.cpp`, three cases — one byte under
   the budget, exactly at it, one byte over — asserting the outcome, and
   asserting the texture set is unchanged across the call. No arrow: the
@@ -644,24 +739,37 @@ at least 2, BC7 needs at least 3.
   *Breaks when:* an implementation "helps" by dropping the top mip of the
   largest texture and reporting success, which is the silent degradation § 3
   decision 3 rules out. Or the comparison is written `>=`, refusing a map
-  that fits exactly.
+  that fits exactly — which the at-budget case is there to catch.
 
 - **INV-11** — `upscaleFactor` returns the largest power of two that is at
-  most `requested`, at most `MAX_UPSCALE_FACTOR`, and leaves both output
-  edges at or below `MAX_OUTPUT_EDGE`; `1` where none qualifies; never `0`.
+  most `requested` and at most `MAX_UPSCALE_FACTOR` and that does not take an
+  edge **above** `MAX_OUTPUT_EDGE` that was at or below it. It returns `1`
+  where no factor above 1 qualifies, and never `0`. **A source edge already
+  above `MAX_OUTPUT_EDGE` yields `1` and is not reduced** — `1` is the floor,
+  so the function never downscales.
   *Test:* `tests/unit/MaterialCompressTest.cpp`, including a 512×512 source
   asking for 4 (answer 2, the edge limit binding), a 1024×1024 source asking
-  for 4 (answer 1), a 64×64 asking for 8 (answer 4, `MAX_UPSCALE_FACTOR`
+  for 4 (answer 1), a **2048×2048 source asking for 4 (answer 1, and 2048 is
+  stored unchanged)**, a 64×64 asking for 8 (answer 4, `MAX_UPSCALE_FACTOR`
   binding), a 64×64 asking for 3 (answer 2, rounding down to a power of two),
   and a 64×64 asking for 0 (answer 1). No arrow: the surface does not exist
   yet.
   *Breaks when:* the factor cap is applied before the edge test, so a 512×512
   source asking for 4 yields 2048 and blows `MAX_OUTPUT_EDGE`. Or `requested`
   of 0 propagates, producing a zero-sized output that INV-2 then refuses at
-  the container with no explanation of where it came from.
+  the container with no explanation of where it came from. Or the edge rule
+  is written as a clamp on the RESULT rather than on the upscale, which makes
+  a 2048 source return a factor below 1 — a value the return type cannot
+  carry and § 4.3's stored ratio cannot express.
+  **The 2048 case is what separates the two readings**, and every other case
+  in the list passes under both. Without it an implementer may write the
+  clamp and only discover it when `width / sourceWidth` truncates to `0`.
 
-- **INV-12** — `uta_umat`'s link entries are exactly `uta_core`, `uta_upkg`
-  and `uta_ubundle`.
+- **INV-12** — `uta_umat`'s link entries are exactly `uta_core` and
+  `uta_ubundle`. **Not `uta_upkg`** — nothing in § 4.9's API takes a package,
+  so listing it would make this assertion refuse the correct minimal
+  implementation of this document. UTA-0009 adds it and amends this invariant
+  in the same change.
   *Test:* `src/umat/CMakeLists.txt`, a configure-time property assertion in
   the form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10. No arrow:
   the file does not exist yet.
@@ -693,6 +801,22 @@ at least 2, BC7 needs at least 3.
   asserting it here would grade UTA-0008's reader, not this item's writer.
   What is new is the two-format round-trip, which is the only case that
   distinguishes a per-texture `format` field from a per-section byte.
+
+- **INV-14** — `measure` returns a report whose `workingSetBytes` and
+  `budgetBytes` are the figures it was given, and whose `byTexture` names
+  **every** texture, ordered by `bytes` descending and, where two are equal,
+  by `name` ascending.
+  *Test:* `tests/unit/MaterialCompressTest.cpp`, over a set with textures of
+  differing sizes and one tied pair, asserting the full sequence. No arrow:
+  the surface does not exist yet.
+  *Breaks when:* `byTexture` is left in input order, or truncated to the
+  largest few, or the tie is broken by input order — after which the order is
+  stable on the author's fixture and arbitrary on a real map.
+  **Split out of INV-10 rather than stated there, because `enforceBudget` does
+  not produce the order — `measure` does.** An invariant whose test only ever
+  calls `enforceBudget` cannot fail on it, and § 4.6 calls the ordering part
+  of the contract rather than presentation: the first question anyone asks of
+  a refused bake is which texture to cap.
 
 ## 6. Failure modes
 
@@ -743,10 +867,13 @@ Two new files, both in the existing `uta_unit_tests` target in
 | File | Locks |
 |---|---|
 | `tests/unit/BundleTextureTest.cpp` | INV-1, INV-2, INV-3, INV-4, INV-5, INV-13 — the container half |
-| `tests/unit/MaterialCompressTest.cpp` | INV-6, INV-7, INV-9, INV-10, INV-11 — the encoder and budget half |
+| `tests/unit/MaterialCompressTest.cpp` | INV-6, INV-7, INV-9, INV-10, INV-11, INV-14 — the encoder and budget half |
 
 INV-8 and INV-12 are configure-time assertions in `src/umat/CMakeLists.txt`
-and are graded by the build failing, not by a Catch2 case.
+and are graded by the build failing, not by a Catch2 case. **Both are real
+assertions over a target property** — INV-12 over `LINK_LIBRARIES`, INV-8
+over `COMPILE_OPTIONS` — and each must be seen to fire once, by making the
+breaking change its own clause names and confirming configure stops.
 
 **Every case must be seen to fail against pre-change code**, per
 `~/.claude/standards/testing.md`. For most of these the pre-change state is
@@ -862,10 +989,11 @@ this item tests from synthetic images built in the test itself.
 | INV-11 | `tests/unit/MaterialCompressTest.cpp` |
 | INV-12 | **Partial:** `src/umat/CMakeLists.txt` asserts the link list; nothing asserts `ut-ants` and `ut-ants-server` exclude it, both being absent until UTA-0016 |
 | INV-13 | `tests/unit/BundleTextureTest.cpp` |
+| INV-14 | `tests/unit/MaterialCompressTest.cpp` |
 | § 4.2's ratio arithmetic | **nothing** — the table is derivable from the BC block sizes but no test computes it; a wrong cell misleads a budget argument and nothing fails |
 | § 4.6's 1024 MiB figure being right for the hardware | **nothing** — no measurement exists on a real card; UTA-0039 is where a frame-rate floor is held across the library, and UTA-0051 is where a tier declares a figure |
 | § 4.6's report reaching a user | **Partial:** the report's contents are asserted by INV-10; nothing prints it until UTA-0011 |
-| § 4.7's version bump reaching UTA-0008 | `mcp__ants__spec_query`, an invariant-parse verb, run on UTA-0008 and read for an INV-4 naming version 2; and `check-doc-facts` `quotes`, a quoted-fragment check, over both specs. A stale INV-4 is a corpus stating two versions |
+| § 4.7's version bump reaching UTA-0008 | **Partial:** `check-doc-facts` `quotes`, a quoted-fragment check, over both specs catches a quotation of UTA-0008 that this bump falsified, and `mcp__ants__spec_query`, an invariant-parse verb, run on UTA-0008 shows whether INV-4 names version 2. Neither reads § 4.3's table, § 4.4, § 4.2's size table, § 4.10 or § 14, so five of § 11's six UTA-0008 edits are checked by a reader alone. A stale one is a corpus stating two versions |
 | § 4.1's vendored `LICENSE` being shipped | **nothing** — no gate reads `third_party/`; the MIT notice is a redistribution obligation nobody checks |
 | § 3 decision 3's no-degradation rule | **Partial:** INV-10 asserts the texture set is unchanged across `enforceBudget`; nothing prevents a future caller degrading before it calls in |
 
@@ -894,10 +1022,23 @@ awk '/^\| INV-|^\| § /' docs/specs/UTA-0052-texture-memory-budget.md \
     bytes, the figure § 4.3 derives.
   - **§ 4.10** — `Bundle` gains `textures` and the `write` order becomes
     `ROOM`, `NAVG`, `WIRG`, `TEXS`.
-  - **INV-10, INV-11 and INV-12 are unchanged**, and that is a finding rather
-    than an omission: `ubundle` gains no link (§ 3 decision 6), the
-    unknown-id rule needs no edit because only the defined set grew, and the
-    `compression` byte stays zero (§ 3 decision 5).
+  - **§ 14** — its opening sentences read *"**A reader accepts
+    `formatVersion == 1` and nothing else.** It does not accept a range."*
+    That is UTA-0008's whole compatibility argument stated in version terms,
+    and left alone it makes the corpus state two versions — the harm § 4.7
+    names. The rule is unchanged and only the number moves: the reader accepts
+    `formatVersion == 2` and nothing else.
+  - **INV-10, INV-11, INV-12, § 4.9 and INV-3 are unchanged**, and that is a
+    finding rather than an omission. `ubundle` gains no link (§ 3 decision 6);
+    the unknown-id rule needs no edit because only the defined set grew; the
+    `compression` byte stays zero (§ 3 decision 5); and **§ 4.9 gains no
+    texture rule.** That section lists *post-decode* structural relations
+    between decoded tables — a node run reaching past its edge vector, a zone
+    naming a room that does not exist — and INV-3 is scoped to what it lists.
+    This document's INV-1 and INV-2 are *decode-time* refusals in § 4.4's
+    class, checked before a `Bundle` is returned at all. Copying them into
+    § 4.9 would make two documents own one rule, which is the drift
+    `documentation.md` § 2.1 forbids.
 - **`CHANGELOG.md`** — a `### Changed` entry leading with what stops working:
   the bundle format version moves to 2 and every cached bake is invalidated.
   `docs/standards/versioning-overrides.md` § Override requires the entry and
