@@ -21,6 +21,7 @@ target_include_directories(uta_test_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
 add_executable(uta_unit_tests
     unit/BundleFormatTest.cpp
     unit/BundleMalformedTest.cpp
+    unit/BundleTextureTest.cpp
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
     unit/CoreFileSystemTest.cpp

@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace uta::ubundle {
@@ -36,7 +37,12 @@ namespace uta::ubundle {
 /// as a lower bound: there is no such thing as a later version's file this
 /// reader should tolerate, so a mismatch is UnsupportedVersion before the
 /// section table is read.
-inline constexpr std::uint32_t FORMAT_VERSION = 1;
+///
+/// 2 since UTA-0052 added the TEXS section -- that item's SS 4.7. Nothing
+/// else about the framing moved: the header is still sixteen bytes and the
+/// descriptor twenty-four. No .utab exists that this orphans, 0.1.0 not
+/// having been cut.
+inline constexpr std::uint32_t FORMAT_VERSION = 2;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -74,6 +80,59 @@ struct BundleHeader {
     BundleKind kind = BundleKind::Map;
 };
 
+/// Which block format a stored texture uses -- UTA-0052 SS 4.3. A byte
+/// outside this set is MalformedData and is never defaulted (that item's
+/// INV-3).
+enum class BlockFormat : std::uint8_t { BC4 = 0, BC5 = 1, BC7 = 2 };
+
+/// The largest upscale a stored texture may record -- UTA-0052 SS 4.3.
+///
+/// HERE rather than in umat, because that item's INV-2 is a DECODE-TIME rule:
+/// `read` refuses a texture whose stored ratio exceeds it, and ubundle may not
+/// depend on umat (UTA-0052's INV-12 runs umat -> ubundle and never back).
+/// umat re-uses this constant rather than declaring a second one, or the
+/// writer and the reader drift and umat produces bundles its own reader
+/// refuses.
+inline constexpr std::uint32_t MAX_UPSCALE_FACTOR = 4;
+
+/// Bytes one 4x4 block occupies in `format`.
+[[nodiscard]] constexpr std::size_t bytesPerBlock(BlockFormat format) noexcept {
+    return format == BlockFormat::BC4 ? 8u : 16u;
+}
+
+/// One block-compressed texture and its mip chain -- UTA-0052 SS 4.3.
+///
+/// SCOPE: every field here is LAYOUT. `blocks` is opaque to this library --
+/// it is validated for LENGTH against the fields above it (UTA-0052's INV-1)
+/// and never read. What a texel means is umat's, and umat is build-time only,
+/// so nothing here may reach it (INV-10).
+struct CompressedTexture {
+    std::string name;
+    BlockFormat format = BlockFormat::BC7;
+    std::uint16_t width = 0;
+    std::uint16_t height = 0;
+    /// The dimensions of the image handed to umat::compress -- after any
+    /// resample, before any upscale. Stored because nothing else in the
+    /// bundle records them, so without them the cap is not auditable after a
+    /// bake. The applied factor is `width / sourceWidth`, DERIVED and never
+    /// stored: a stored copy is a field that can disagree with the two it
+    /// comes from.
+    std::uint16_t sourceWidth = 0;
+    std::uint16_t sourceHeight = 0;
+    std::uint8_t mipCount = 1;
+    std::vector<std::byte> blocks;
+};
+
+/// The bytes `blocks` must hold for the fields beside it -- UTA-0052 SS 4.3.
+///
+/// Levels are consecutive halvings floored at one, so level l measures
+/// max(1, width >> l) by max(1, height >> l), and each contributes
+/// ceil(w/4) * ceil(h/4) * bytesPerBlock(format).
+///
+/// Zero for a combination the format does not permit, which UTA-0052's INV-2
+/// refuses first. A caller must not read a zero as "no bytes required".
+[[nodiscard]] std::uint64_t expectedBlockBytes(const CompressedTexture& texture) noexcept;
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -84,6 +143,7 @@ struct Bundle {
     std::optional<umap::RoomMap> rooms;
     std::optional<unav::NavGraph> nav;
     std::optional<unav::WiringGraph> wiring;
+    std::optional<std::vector<CompressedTexture>> textures;
 };
 
 /// Decode a whole bundle.
@@ -96,7 +156,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

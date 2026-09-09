@@ -30,6 +30,8 @@
 
 #include "ubundle/Bundle.h"
 
+#include "Bytes.h"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <bit>
@@ -48,39 +50,7 @@ using uta::umap::ZONE_REFUSED;
 namespace {
 
 /// Emits SS 4.2's primitives. Knows no layout and checks nothing.
-class Bytes {
-public:
-    void u8(std::uint8_t value) { data_.push_back(static_cast<std::byte>(value)); }
-    void u16(std::uint16_t value) { little(value, 2); }
-    void u32(std::uint32_t value) { little(value, 4); }
-    void u64(std::uint64_t value) { little(value, 8); }
-    void i32(std::int32_t value) { u32(static_cast<std::uint32_t>(value)); }
-    void f32(float value) { u32(std::bit_cast<std::uint32_t>(value)); }
-
-    void id(std::string_view four) {
-        for (const char part : four) u8(static_cast<std::uint8_t>(part));
-    }
-
-    void str(std::string_view value) {
-        u32(static_cast<std::uint32_t>(value.size()));
-        for (const char part : value) u8(static_cast<std::uint8_t>(part));
-    }
-
-    void append(const Bytes& other) {
-        data_.insert(data_.end(), other.data_.begin(), other.data_.end());
-    }
-
-    [[nodiscard]] std::size_t size() const noexcept { return data_.size(); }
-    [[nodiscard]] const std::vector<std::byte>& data() const noexcept { return data_; }
-
-private:
-    void little(std::uint64_t value, std::size_t count) {
-        for (std::size_t i = 0; i < count; ++i)
-            data_.push_back(static_cast<std::byte>((value >> (8U * i)) & 0xFFU));
-    }
-
-    std::vector<std::byte> data_;
-};
+using uta::testing::Bytes;
 
 struct Section {
     std::string id;
@@ -93,7 +63,7 @@ struct Section {
 std::vector<std::byte> file(const std::vector<Section>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(1);
+    out.u32(2); // formatVersion -- 2 since UTA-0052 added TEXS
     out.u8(1); // origin: Authored
     out.u8(0); // kind: Map
     out.u16(0);
@@ -407,7 +377,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
 
         Bytes out;
         out.id("UTAB");
-        out.u32(1);
+        out.u32(2); // formatVersion -- 2 since UTA-0052 added TEXS
         out.u8(1);
         out.u8(0);
         out.u16(0);
@@ -450,7 +420,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
         const Bytes room = roomPayload({});
         Bytes out;
         out.id("UTAB");
-        out.u32(1);
+        out.u32(2); // formatVersion -- 2 since UTA-0052 added TEXS
         out.u8(1);
         out.u8(0);
         out.u16(0);
@@ -480,7 +450,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
         const Bytes nav = navPayload({});
         Bytes out;
         out.id("UTAB");
-        out.u32(1);
+        out.u32(2); // formatVersion -- 2 since UTA-0052 added TEXS
         out.u8(1);
         out.u8(0);
         out.u16(0);
@@ -518,7 +488,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
         // begins where the last ended" can see it.
         Bytes out;
         out.id("UTAB");
-        out.u32(1);
+        out.u32(2); // formatVersion -- 2 since UTA-0052 added TEXS
         out.u8(1);
         out.u8(0);
         out.u16(0);

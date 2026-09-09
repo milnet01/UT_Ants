@@ -23,6 +23,8 @@
 
 #include "ubundle/Bundle.h"
 
+#include "Bytes.h"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <bit>
@@ -47,44 +49,7 @@ using uta::umap::ZONE_REFUSED;
 
 namespace {
 
-/// Emits primitives in SS 4.2's encoding. Deliberately layout-ignorant: what
-/// order the fields go in is said by the caller.
-class Bytes {
-public:
-    void u8(std::uint8_t value) { data_.push_back(static_cast<std::byte>(value)); }
-    void u16(std::uint16_t value) { little(value, 2); }
-    void u32(std::uint32_t value) { little(value, 4); }
-    void u64(std::uint64_t value) { little(value, 8); }
-    void i32(std::int32_t value) { u32(static_cast<std::uint32_t>(value)); }
-    void f32(float value) { u32(std::bit_cast<std::uint32_t>(value)); }
-
-    /// Four literal bytes -- a section id or the magic. SS 4.4: a byte
-    /// sequence and not an integer, so there is no endianness to get wrong.
-    void id(std::string_view four) {
-        for (const char part : four) u8(static_cast<std::uint8_t>(part));
-    }
-
-    /// SS 4.2: a u32 byte length, then exactly that many bytes; no terminator.
-    void str(std::string_view value) {
-        u32(static_cast<std::uint32_t>(value.size()));
-        for (const char part : value) u8(static_cast<std::uint8_t>(part));
-    }
-
-    void append(const Bytes& other) {
-        data_.insert(data_.end(), other.data_.begin(), other.data_.end());
-    }
-
-    [[nodiscard]] std::size_t size() const noexcept { return data_.size(); }
-    [[nodiscard]] const std::vector<std::byte>& data() const noexcept { return data_; }
-
-private:
-    void little(std::uint64_t value, std::size_t count) {
-        for (std::size_t i = 0; i < count; ++i)
-            data_.push_back(static_cast<std::byte>((value >> (8U * i)) & 0xFFU));
-    }
-
-    std::vector<std::byte> data_;
-};
+using uta::testing::Bytes;
 
 // The fixture's values. Every field the fixture is free to choose holds a
 // value distinct from every other's, so that transposing any two adjacent
@@ -328,7 +293,7 @@ std::vector<std::byte> goldenBytes() {
 
     Bytes out;
     out.id("UTAB");
-    out.u32(1); // formatVersion
+    out.u32(2); // formatVersion -- 2 since UTA-0052 added TEXS
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -547,7 +512,7 @@ TEST_CASE("the header is sixteen little-endian bytes naming the file", "[ubundle
 
     const std::uint8_t expected[16] = {
         'U', 'T', 'A', 'B',    // magic -- a hex dump of a bundle names itself
-        0x01, 0x00, 0x00, 0x00, // formatVersion = 1
+        0x02, 0x00, 0x00, 0x00, // formatVersion = 2 -- UTA-0052 SS 4.7
         0x01,                   // origin = Authored
         0x00,                   // kind = Map
         0x00, 0x00,             // reserved
@@ -571,7 +536,8 @@ TEST_CASE("a bad magic and an unsupported version are refused before anything el
     }
 
     SECTION("a later version") {
-        const std::vector<std::byte> bytes = goldenWithByte(4, 2);
+        // 3, not 2: 2 is the current version since UTA-0052 added TEXS.
+        const std::vector<std::byte> bytes = goldenWithByte(4, 3);
         const auto result = read(bytes);
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::UnsupportedVersion);
@@ -625,7 +591,7 @@ TEST_CASE("readHeader reads the first sixteen bytes and stops", "[ubundle]") {
 
     const auto header = readHeader(justTheHeader);
     REQUIRE(header.has_value());
-    CHECK(header->formatVersion == 1);
+    CHECK(header->formatVersion == 2);
     CHECK(header->origin == Origin::Authored);
     CHECK(header->kind == BundleKind::Map);
 
@@ -641,7 +607,7 @@ TEST_CASE("the golden bytes decode field by field to the values they encode", "[
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 1);
+    CHECK(bundle.header.formatVersion == 2);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 
