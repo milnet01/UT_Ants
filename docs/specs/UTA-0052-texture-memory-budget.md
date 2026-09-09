@@ -205,8 +205,10 @@ invisible to it and configures green. That is INV-8's own breaking case, so
 without a target-level assertion the invariant would be graded by nothing.
 
 **The vendored encoder lives in `third_party/bc7enc/`** with its upstream
-`LICENSE` copied beside it and a `README.md` recording the exact upstream
-commit, since a vendored copy *is* its own pin. Its sources are compiled
+`LICENSE` copied beside it and a `README.md` recording the upstream repository
+and the exact commit, since a vendored copy *is* its own pin. That is
+`docs/decisions/ADR-0007-acquire-dependencies-by-route.md`'s route-2 layout,
+which this is the first instance of. Its sources are compiled
 into `uta_umat` rather than into a library of their own, so nothing else in
 the build can reach them.
 

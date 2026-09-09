@@ -73,10 +73,16 @@ same route on the same ground, per
 `docs/specs/UTA-0052-texture-memory-budget.md` § 3 decision 4: its build system
 builds a demo executable, not a library.
 
-**A vendored copy records its upstream repository and its exact commit beside
-the sources**, so the copy is its own pin and staleness is a question somebody
-can ask of it. Route 1 states the same obligation as an exact tag, and a copy
-with no provenance is one nobody can tell is behind.
+**A vendored copy lives in `third_party/<name>/`, with the upstream licence
+file beside it and a `README.md` recording the upstream repository and the
+exact commit.** The copy is then its own pin, and route 1's exact tag has a
+route-2 twin; a copy with no provenance is one nobody can tell is behind.
+`docs/specs/UTA-0052-texture-memory-budget.md` § 4.1 is the first instance and
+states the same layout. **Nothing reads that record.** `check-dependencies`
+covers the fetched manifests, and neither `scripts/ci.sh` nor
+`.githooks/pre-push` mentions `third_party` at all, so a vendored copy going
+stale is a question somebody asks by hand — the same admission route 3 makes
+about the validation layers, and made here for the same reason.
 
 **Route 3 — required from the platform, found and never fetched.** Three build
 inputs: the Vulkan **headers**, a **loader**, and a **GLSL-to-SPIR-V
@@ -193,18 +199,26 @@ file.
 `scripts/ci.sh` will assert they are there.** Neither does today. Provisioning
 a toolchain is the runner's job and stays in the
 workflow, as the compiler lines there already do. What the shared gate script
-owns is the *assertion*, and it reads what CMake reads: `find_package(Vulkan)`
-resolves the headers and loader and reports `Vulkan_VERSION`, and locates
-`glslc` as `Vulkan::glslc`.
+owns is the *assertion*, and it owns it by configuring the project rather than
+by probing for itself: **the `find_package(Vulkan 1.3 REQUIRED COMPONENTS
+glslc)` call lives in the top-level `CMakeLists.txt`, and `scripts/ci.sh` adds
+no Vulkan step of its own.** `find_package` resolves the headers and loader and
+reports `Vulkan_VERSION`, and locates `glslc` as `Vulkan::glslc` — an imported
+executable it defines when it finds one. So a contributor with no SDK cannot
+configure at all, which is the intended failure rather than a side effect:
+`docs/design.md` already rules out a machine below Vulkan 1.3.
 
 **`glslc` has to be asserted by name.** `FindVulkan` appends `glslc` to the
 component list itself rather than the caller requesting it, so
 `find_package_handle_standard_args` never treats it as required and a bare
 `find_package(Vulkan REQUIRED)` succeeds on a machine with no `glslc` at all —
-its `REQUIRED_VARS` are the loader and the headers and nothing else. Measured
-against the CMake this machine carries, 4.4.3. So the gate names
-`COMPONENTS glslc`, or reads `Vulkan_glslc_FOUND`, and fails when the headers,
-the loader or `glslc` is absent or the version is below the floor.
+its `REQUIRED_VARS` are the loader and the headers and nothing else. Both
+directions were measured against the CMake this machine carries, 4.4.3, on a
+stand-in module of the same shape: with the component appended by the module
+the configure succeeds, and with the caller naming it in `COMPONENTS` the
+configure stops with that component reported missing. That is why the call
+above names it, and configuration then fails when the headers, the loader or
+`glslc` is absent, or the version is below the floor.
 
 That is one observable for the three build inputs
 rather than a choice between `$VULKAN_SDK` and a system path, so the gate,
