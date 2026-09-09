@@ -280,10 +280,31 @@ checkout answers `source: "store"`, and a dry-run flip reported
    selection, so skip it and take the next workable item.
 3. **The session already in the main checkout keeps it; a second session
    gets its own git worktree** (`claude -w <name>`). Never two sessions in
-   one checkout. **Check at start-up, because nothing else will**:
-   `git worktree list` and `ListAgents`. A session started the ordinary
-   way in the main checkout while another already holds it has breached
-   before it read this line.
+   one checkout. A session started the ordinary way in the main checkout
+   while another already holds it has breached before it read this line.
+
+   **Check at start-up, because nothing else will — and the check is the
+   roadmap, not the process list.** `roadmap_query status:"in-progress"`
+   lists the held items; rule 1 put the holder's session name in each
+   one's progress note. `ListAgents` then says which of those names is
+   live. A named holder that is absent has abandoned its item, and rule 2
+   lets you resume it.
+
+   **Neither command counts this project's sessions, which is why the
+   test is written this way.** `ListAgents` is machine-wide: measured
+   2026-09-09, it returned `ants-terminal-ff` and `ut-monsterhunt-b9`,
+   neither working this project. `git worktree list` is project-scoped,
+   but a worktree outlives the session that made it, so its presence
+   proves nothing about a live holder — run it to see whether the main
+   checkout is free, never as a session count.
+
+   **What this route cannot do is detect a breach.** It finds a holder
+   that named itself. A session that takes an item without flipping it,
+   or flips it without naming itself, is invisible to it. So the cap
+   rests on rule 1 being followed, and rule 1 is what makes this rule
+   work at all. Corrected 2026-09-09 (UTA-0084): the test was
+   `git worktree list` and `ListAgents`, and a session following it
+   learned nothing about who held what.
 
    `.git/config` is shared across worktrees, so `core.hooksPath` and the
    three `ants.gate.*` settings apply in a new one without being set
