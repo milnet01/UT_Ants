@@ -1095,12 +1095,18 @@ awk '/^\| INV-|^\| § /' docs/specs/UTA-0052-texture-memory-budget.md \
 ## 11. Cross-doc impact
 
 - **`docs/specs/UTA-0008-bundle-container-and-origin.md`** — amended in the
-  same change, never renumbered:
+  same change, never renumbered. **Every edit below has landed**; the list is
+  kept as the record of what was changed and why, rather than as work
+  outstanding:
   - **INV-4** annotated `amended by UTA-0052` and its version raised from `1`
     to `2`. Its `*Breaks when:*` is unchanged, the equality check being the
     thing it protects.
   - **INV-6 and INV-7's golden byte array** regenerated for the new
-    `formatVersion` byte. Their claims do not change; the constant does.
+    `formatVersion` byte. Their claims do not change; the constant does. The
+    array is literal in `tests/unit/BundleFormatTest.cpp`, so this edit landed
+    there rather than in the spec, along with five hand-rolled version-1
+    headers in `tests/unit/BundleMalformedTest.cpp` that the same bump would
+    otherwise have left asserting a refusal for the wrong reason.
   - **§ 4.3's header table** — `formatVersion` value `1` becomes `2`.
   - **§ 4.4** — `id`'s "four bytes, § 4.6–4.8" extended to name this
     document's § 4.3 as well, so *a section id this version defines* still
@@ -1109,12 +1115,14 @@ awk '/^\| INV-|^\| § /' docs/specs/UTA-0052-texture-memory-budget.md \
     bytes, the figure § 4.3 derives.
   - **§ 4.10** — `Bundle` gains `textures` and the `write` order becomes
     `ROOM`, `NAVG`, `WIRG`, `TEXS`.
-  - **§ 14** — its opening sentences read *"**A reader accepts
-    `formatVersion == 1` and nothing else.** It does not accept a range."*
-    That is UTA-0008's whole compatibility argument stated in version terms,
-    and left alone it makes the corpus state two versions — the harm § 4.7
-    names. The rule is unchanged and only the number moves: the reader accepts
-    `formatVersion == 2` and nothing else.
+  - **§ 14** — its opening sentence stated UTA-0008's whole compatibility
+    argument in version terms, naming version 1 as the only one a reader
+    accepts. Left alone it would make the corpus state two versions — the harm
+    § 4.7 names. The rule is unchanged and only the number moved: the reader
+    accepts `formatVersion == 2` and nothing else. **The superseded wording is
+    deliberately not quoted here.** A verbatim quotation of text this very
+    edit replaced can never resolve against the live file again, so it would
+    fail `doc_citations` for the life of the document — measured, it did.
   - **INV-10, INV-11, INV-12, § 4.9 and INV-3 are unchanged**, and that is a
     finding rather than an omission. `ubundle` gains no link (§ 3 decision 6);
     the unknown-id rule needs no edit because only the defined set grew; the

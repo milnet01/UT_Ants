@@ -60,8 +60,10 @@ Three subsystems have finished halves that cannot meet.
    The alternatives offered were an envelope-only item and specifying the
    whole format at once; § 8 records why each lost.
 
-2. **Nothing is compressed in version 1, and each section carries a
-   compression byte anyway.** **User, 2026-09-08.** The byte is *not* a
+2. **No section is compressed, and each one carries a compression byte
+   anyway.** **User, 2026-09-08.** *(Read `version 1` here until UTA-0052,
+   which kept the byte zero at version 2 for its own reason — that item's
+   § 3 decision 5. The decision was never about one version.)* The byte is *not* a
    forward-compatibility device — § 14 explains why version gating makes that
    impossible — and it is kept on a narrower ground the user's decision still
    supports: it makes compression a per-section property, so the choice to
@@ -170,6 +172,7 @@ layouts in §§ 4.6–4.8:
 | `WiringNode` | 24 |
 | `WiringEdge` | 12 |
 | `DanglingEvent` | 8 |
+| `CompressedTexture` | 18 — **added by UTA-0052**, whose § 4.3 derives it |
 
 ### 4.3 The header
 
@@ -178,7 +181,7 @@ Sixteen bytes, at offset 0.
 | Offset | Size | Field | Value |
 |---|---|---|---|
 | 0 | 4 | `magic` | the bytes `U`, `T`, `A`, `B` — `0x55 0x54 0x41 0x42` |
-| 4 | 4 | `formatVersion` | `u32`, `1` in this version |
+| 4 | 4 | `formatVersion` | `u32`, `2` in this version — **raised from `1` by UTA-0052**, which added the `TEXS` section |
 | 8 | 1 | `origin` | `u8`, § 4.5 |
 | 9 | 1 | `kind` | `u8`, `0` = map, `1` = character |
 | 10 | 2 | `reserved` | `u16`, must be `0` |
@@ -204,10 +207,10 @@ field, because a field whose value is always 16 is a field that can be wrong.
 
 | Offset | Size | Field | Value |
 |---|---|---|---|
-| 0 | 4 | `id` | four bytes, § 4.6–4.8 |
+| 0 | 4 | `id` | four bytes, §§ 4.6–4.8 and **UTA-0052 § 4.3** for `TEXS` |
 | 4 | 8 | `offset` | `u64`, from the start of the file |
 | 12 | 8 | `size` | `u64`, payload bytes |
-| 20 | 1 | `compression` | `u8`, `0` = none; version 1 defines no other value |
+| 20 | 1 | `compression` | `u8`, `0` = none; no version defines another value. **UTA-0052 § 3 decision 5 kept it zero**: block format is carried per texture, not per section |
 | 21 | 3 | `reserved` | three bytes, must be `0` |
 
 `id` is a **byte sequence and not an integer**, so there is no endianness to
@@ -495,7 +498,7 @@ the check it is not.
 ```cpp
 namespace uta::ubundle {
 
-inline constexpr std::uint32_t FORMAT_VERSION = 1;
+inline constexpr std::uint32_t FORMAT_VERSION = 2;  // 2 since UTA-0052
 
 enum class BundleKind : std::uint8_t { Map = 0, Character = 1 };
 
@@ -512,6 +515,8 @@ struct Bundle {
     std::optional<umap::RoomMap>       rooms;
     std::optional<unav::NavGraph>      nav;
     std::optional<unav::WiringGraph>   wiring;
+    // Added by UTA-0052, whose § 4.8 owns CompressedTexture.
+    std::optional<std::vector<CompressedTexture>> textures;
 };
 
 /// Total: every input returns. Never throws, never reads outside `bytes`.
@@ -525,8 +530,9 @@ struct Bundle {
 }  // namespace uta::ubundle
 ```
 
-`write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, omitting
-absent ones. Fixed rather than incidental because `docs/design.md` § Close
+`write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, `TEXS`,
+omitting absent ones. **`TEXS` was APPENDED by UTA-0052 rather than inserted**,
+so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
 calls requires a `.utab` *"that any tool other than `ubake` wrote"* to be
 named by the hash of its own contents, and a hash over an
 incidentally-ordered file names one world two things. Determinism is not
@@ -583,9 +589,11 @@ the same defect one layer along.
   builds a span past the end of `edges` for a run the file declared and
   nothing checked.
 
-- **INV-4** — A header whose `magic` is not `U`,`T`,`A`,`B` is
-  `MalformedData`; one whose `formatVersion` is not `1` is
-  `UnsupportedVersion`. Neither is read further.
+- **INV-4** — *(amended by UTA-0052: the version is `2`.)* A header whose
+  `magic` is not `U`,`T`,`A`,`B` is
+  `MalformedData`; one whose `formatVersion` is not `2` is
+  `UnsupportedVersion`. Neither is read further. The equality check is the
+  thing this invariant protects and it is unchanged; only the number moved.
   *Test:* `tests/unit/BundleFormatTest.cpp`. No arrow: the surface does not
   exist yet.
   *Breaks when:* the version is checked after the section table is read, or
@@ -740,7 +748,7 @@ the same defect one layer along.
 |---|---|
 | Fewer than 16 bytes | `MalformedData`; `readHeader` fails the same way |
 | `magic` wrong | `MalformedData`, before anything else is read (INV-4) |
-| `formatVersion` != 1 | `UnsupportedVersion`, before the table is read (INV-4) |
+| `formatVersion` != 2 | `UnsupportedVersion`, before the table is read (INV-4) |
 | `origin` not 0 or 1 | `MalformedData` (INV-5); callers treat it as not authored (§ 4.5) |
 | `kind` not 0 or 1 | `MalformedData` — an undefined kind names sections this version cannot know |
 | Either `reserved` non-zero | `MalformedData`; it is the only thing that makes a reserved field a contract |
@@ -911,8 +919,9 @@ library and two test files.
 
 This is a new format; there is no old data.
 
-**A reader accepts `formatVersion == 1` and nothing else.** It does not accept
-a range. Two things make an exact match right here and now, and one makes it
+**A reader accepts `formatVersion == 2` and nothing else.** It does not accept
+a range. *(UTA-0052 raised the number from `1`; the rule below is unchanged,
+and no `.utab` was orphaned because `0.1.0` had not been cut.)* Two things make an exact match right here and now, and one makes it
 wrong later.
 
 Right now: a bundle is a bake output, and

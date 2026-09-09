@@ -126,6 +126,16 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **Every cached bake is invalidated: the map bundle format moves to version 2.** (UTA-0052)
+  A `.utab` can now carry block-compressed textures, in a new `TEXS`
+  section, so the format version moves from 1 to 2. A reader accepts
+  version 2 and nothing else, which is deliberate — so any bundle baked
+  before this must be baked again. Nothing is lost but the time: a bundle
+  is a bake output, and the format version is one of the baker's own
+  inputs, so a version change renames every bundle anyway.
+
+  No released bundle is orphaned. `0.1.0` has not been cut.
+
 - **Make the build faster on a memory-limited machine.** (UTA-0050)
   The build now uses ccache and the mold linker when they are installed,
   and ignores them when they are not, so nothing is required to build. With

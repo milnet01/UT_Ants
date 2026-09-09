@@ -1569,6 +1569,19 @@ model, no weapon and no opponent until 0.2.0.
   names this item and is left alone, per § Which item comes next. Clear
   this note when implementation starts. Nothing is half-built yet — the
   spec is written and gated, no code exists.
+  Progress (2026-09-09): **the deferral above is cleared** — `UTA-0088`
+  shipped, rule 1's set is empty apart from `UTA-0059`, which defers itself
+  until the renderer lands. Implementation starts now.
+
+  Held by session `ut-ants-2d` in the MAIN checkout
+  `/mnt/Games/Scripts/Linux/UT_Ants`. No peer session is working this
+  project; `UTA-0012` is 🚧 from an earlier session whose name is no longer
+  live, so it is abandoned and resumable rather than a live claim.
+
+  Build order per the spec's § 11: the container half first — `ubundle`'s
+  `CompressedTexture` and `BlockFormat`, the `TEXS` section, `FORMAT_VERSION`
+  1 to 2, and `UTA-0008`'s seven amendments — then the encoder half, because
+  the encoder writes into the container.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
