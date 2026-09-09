@@ -3077,7 +3077,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: tests.
 
-- 🚧 [UTA-0084] **A third session cannot tell that two already hold this project.**
+- ✅ [UTA-0084] **A third session cannot tell that two already hold this project.**
   `CLAUDE.md` § Running two sessions at once caps the project at two
   sessions, and rule 3 gives the start-up test as `git worktree list` and
   `ListAgents`. Neither answers the question the cap asks.
@@ -3126,6 +3126,48 @@ model, no weapon and no opponent until 0.2.0.
 
   Being a change to a contract document, this runs CLAUDE.md rule 14's
   gate before it lands.
+  Resolved 2026-09-09 by session ut-ants-17, main checkout.
+
+  Rule 3's start-up test now names the route that answers it:
+  `roadmap_query status:"in-progress"` for the held items, each carrying its
+  holder's session name and checkout from rule 1, then `ListAgents` for which
+  of those names is live.
+
+  **The item asked for a coordination-protocol change and got one.** Rule 1
+  now records the holder's CHECKOUT beside its session name, because nothing
+  on this machine reports which checkout a session occupies — that note is
+  the only place the fact exists.
+
+  **What the gate added that this item did not anticipate**, each found by
+  cold lanes over three loops:
+
+  - An empty in-progress list is not evidence the main checkout is free. A
+    session between items holds nothing, which is state 4 and this project's
+    ordinary state, so the roadmap is silent while somebody sits in main.
+  - Defaulting to a worktree cannot be unconditional. A sole session that
+    relocates leaves nobody able to merge, commit `ROADMAP.md` (rule 7) or
+    advance `Next:` (rule 6). The default now fires only when a live peer
+    cannot be ruled out, and names the route back.
+  - Rule 5's reason for keeping 🚧 across a session boundary contradicted
+    rule 2's abandonment test. The marker records a state, not a claim.
+
+  **The gap this item named is narrowed, not closed, and the document now
+  says so.** No command answers "is the main checkout free?", so the cap
+  still rests on rule 1 being followed honestly. What changed is that a
+  session following rule 3 now learns who holds what, instead of learning
+  nothing.
+
+  **The gate hit its cap of three loops.** Rule 3 was repaired in every one
+  and each repair produced the next finding — an oscillation confined to that
+  rule, which is evidence about the rule rather than the review: it answers a
+  question no command supports, and it now defers to a judgement instead of
+  pretending to a test. Thirteen verified findings, thirteen fixed, one
+  dismissed. Record: `docs/claude-md-review-2026-09-09.md`.
+
+  **Also recorded there: a lane cannot be cold on this document.** The
+  harness injects the live `CLAUDE.md` into every session, subagents
+  included, and all three lanes disclosed it. The scrubbed copy still
+  withholds the review history; it cannot withhold the document.
   **Layman:** Two sessions may work this project at once. Nothing reliably tells a third one that the two slots are taken, so the limit rests on each session checking honestly rather than on anything that can detect a breach.
   Kind: investigate.
   Source: review-contract-2026-09-08 workflow-overrides loop 3.
