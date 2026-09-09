@@ -1530,6 +1530,41 @@ model, no weapon and no opponent until 0.2.0.
   **5. `UTA-0084` gets no CHANGELOG entry.** It changed how sessions coordinate,
   not anything a player or a server operator can see. `UTA-0081` settles the bar
   for the other four shipped items separately.
+  Spec written and gated (2026-09-09).
+  `docs/specs/UTA-0052-texture-memory-budget.md`, `accepted (2026-09-09)`.
+  Loop log: `docs/reviews/UTA-0052-texture-memory-budget-loop-log.md`.
+
+  `review-contract` at genre `spec`, three cold lanes per loop, **cap of 2
+  reached**. Nineteen verified, nineteen fixed, one dismissed. Loop 1 eleven
+  (Q1 1 / Q2 5 / Q3 3 / Q4 2), loop 2 eight (Q1 3 / Q2 2 / Q3 2 / Q4 1).
+  Deferred tail: empty.
+
+  **The cap was oscillating rather than calm.** Five of loop 2's eight
+  findings landed on text loop 1 wrote — including an INV-8 assertion that
+  would have stopped configuration on every CI leg of a correct tree, found
+  by all three lanes and reproduced with a throwaway CMake project. So this
+  gate is not re-run on the document as it stands: a spec's cap routes to
+  implementation, which exercises the contract against real code.
+
+  **What the spec decides, beyond the five scope decisions above.** A `TEXS`
+  section in the `.utab`, `FORMAT_VERSION` 2, with a per-texture format tag
+  rather than the section `compression` byte. BC7 for colour, BC5 for
+  two-channel normals, **BC4 for the single-channel roughness and height maps**
+  — the roadmap named two formats and the third follows from the same
+  argument. The honest ratio across the five maps is **one third**, not the
+  quarter this body states: a quarter is BC7 against `RGBA8`, true per format
+  and not true of the set.
+
+  **Next action: implement it.** `src/umat/` is greenfield; the build order is
+  the container half (`ubundle`'s `CompressedTexture`, `TEXS`, the version
+  bump and UTA-0008's seven amendments) before the encoder half, because the
+  second writes into the first. `UTA-0009` is unblocked once this lands.
+
+  **Two things the spec leaves for whoever builds it**, both in its § 15:
+  `bc7enc.h`'s licence coverage is unsettled — the upstream `LICENSE`
+  enumerates `bc7enc.c` and not its header — and must be settled before the
+  file is copied in; and whether the vendored encoder reaches a platform maths
+  function, which `docs/design.md` rules out of the baker.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
