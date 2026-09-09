@@ -166,8 +166,12 @@ place.**
 
 - **Mutate before trusting a green test.** A test that passes and reads
   correctly may still be graded by something other than the rule it names.
-  `./scripts/mutation-probe.py <lane>` asks mechanically; a new survivor
-  exits non-zero.
+  `./scripts/mutation-probe.py ubundle` asks mechanically, and a new
+  survivor exits non-zero. **`ubundle` is its only subject** — the
+  mutations are written out by hand, so **every other lane is mutated by
+  hand too**, and the rule still applies there. `UTA-0083` generalises it.
+  Add `--asan` for a rule the Release leg cannot see, such as a bounds
+  check.
 - **When a mutation survives under a sanitizer, suspect the FIXTURE before
   concluding the check is unnecessary.** Ask which rule makes this fixture
   fail, and whether it is the rule you meant to test. A bounds check is the
@@ -211,13 +215,32 @@ and `review-contract-<date>`, the second being what a rule 14 gate files.
 Match on the `Source:` recording a review, not on the word — `audit-` and
 `debt-sweep-` do not contain it.
 
-**Ask the store, not the list.** `roadmap_query` takes a `source` array of
-prefixes, so one call returns the open review-sourced items and needs no
-token enumerated correctly first.
+**Ask the store — and know what the query cannot do.** `roadmap_query`
+takes a `source` array of prefixes and returns the open items matching any
+of them. That is still a literal token match, only a cheaper one: it cannot
+find an item filed under a prefix you did not pass.
 
-Where a review has no token that fits, file the item with the nearest one
-and name the review in the body — a `Source:` that records nothing puts the
-item outside this order, which is where it is least likely to be found.
+```
+roadmap_query status:"active"
+  source:["review-", "audit-", "debt-sweep-", "code-quality-review-",
+          "doc-review-", "indie-review-"]
+```
+
+**So when that comes back empty or thin, do not conclude the set is
+empty.** List every open item, read each `Source:` and apply the sentence
+above. That is the only complete route, and it is what catches a token
+nobody thought to enumerate.
+
+**`review-code-<date>` and `review-contract-<date>` are adopted here**, and
+are what those two reviews file. Do not substitute a § 3.5.3 value for
+either: `doc-review-` looks like a fit for a contract gate and is a
+different row, which a prefix query built from § 3.5.3 alone would find
+while missing the real one.
+
+The fallback is for a review with no adopted token at all: file the item
+with the nearest one and name the review in the body. A `Source:` that
+records nothing puts the item outside this order, which is where it is
+least likely to be found.
 
 **A rule-1 finding taken ahead of `Next:` leaves `Next:` alone.** Record
 the deferral on the deferred item, in the roadmap store — not by editing
@@ -299,6 +322,17 @@ it and reporting nothing. Measured; see
    names the main checkout means you are the second session: take a
    worktree.
 
+   **An empty in-progress list is NOT evidence that the main checkout is
+   free.** Rule 1 records a checkout on a HELD item, and a session between
+   items holds none — which is state 4, the ordinary state of this project.
+   So the roadmap is silent while somebody is sitting in the main checkout,
+   and a session reading that silence as permission breaches this rule
+   while following its check exactly.
+
+   **Default to a worktree.** Take the main checkout only if you know you
+   are this project's first live session. `ListAgents` names the live peers
+   and `SendMessage` reaches them, which is the one way to ask.
+
    **What this route cannot do is detect a breach.** It finds a holder
    that named itself. A session that takes an item without flipping it,
    or flips it without naming itself, is invisible to it. So the cap
@@ -326,10 +360,15 @@ it and reporting nothing. Measured; see
    stops two sessions taking the same item; it does not stop them editing
    one file from two items. `Lanes:` is the cheap signal.
 5. **Clear 🚧 when the item is settled** — ✅ when it is done on the
-   matrix, back to 📋 when it is abandoned. **A session boundary is not
-   one of those**: work still under way stays 🚧 across it, which is
-   `workflow.md` § 1's state 5 persisting, and 📋 would tell the other
-   session by rule 2 that a half-built item is free.
+   matrix, back to 📋 when it is abandoned. **A session boundary is not one
+   of those**: work still under way stays 🚧 across it, which is
+   `workflow.md` § 1's state 5 persisting.
+
+   **That 🚧 does not reserve the item, and rule 2 is what decides.** Once
+   your name is gone from `ListAgents` the item is resumable by anyone,
+   yourself included. What the marker buys is not a claim but a state: it
+   says half-built rather than not started, so whoever picks it up knows
+   there is work already there. 📋 would lose that.
 6. **Only the session in the main checkout advances `Next:`.** It is not
    one shared line: each worktree has its own checkout of this file on
    its own branch, so two sessions editing it produce two copies that
