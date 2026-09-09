@@ -105,8 +105,8 @@ that breaks content addressing before it breaks a test.
    it. § 8 records what lost.
 
    **Route 2, and ADR-0007's question 4 reaches this case.** That question
-   asks whether a dependency's build system produces anything anyone would
-   link. `bc7enc` ships a `CMakeLists.txt` (its repository root holds one,
+   asks what a dependency's build system produces, not whether it ships one.
+   `bc7enc` ships a `CMakeLists.txt` (its repository root holds one,
    read 2026-09-09 via `gh api repos/richgel999/bc7enc/contents`), and what
    that file builds is a **demo executable** from `test.cpp` and a bundled
    `lodepng`, not a library anyone links. So question 4 routes it to route 2.

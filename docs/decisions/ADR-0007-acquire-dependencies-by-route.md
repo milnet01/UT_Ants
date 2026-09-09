@@ -5,7 +5,8 @@
 
 ## Context
 
-`docs/design.md` § The stack names every library this project will use. Before
+`docs/design.md` § The stack names this project's libraries, and its own prose
+sends a dependency that is not in that table here. Before
 this decision it settled how two of them were obtained — Catch2 fetched by the
 build, Dear ImGui vendored — and SDL3, glm, shaderc, Assimp and the Vulkan SDK
 had no stated answer. The acquisition column that section now carries is an
@@ -62,8 +63,8 @@ route-1 dependency buys.
 SDL3 is the case that proves it.** SDL's own `docs/README-linux.md` lists the
 development headers its X11, Wayland and audio backends are compiled against;
 without them SDL3 still builds and those backends are simply absent. So route 1
-removes a *version* decision, not a package list, and the Linux prerequisite
-line covers SDL3's headers as well as Vulkan's.
+removes a *version* decision, not a package list, and the Consequences below
+are where the README's obligation is set.
 
 **Route 2 — vendored in the repository.** Dear ImGui, as already decided. It
 ships no build system; its sources are compiled into the target that uses it,
@@ -71,6 +72,11 @@ so fetching would buy nothing a copy does not already give. `bc7enc` takes the
 same route on the same ground, per
 `docs/specs/UTA-0052-texture-memory-budget.md` § 3 decision 4: its build system
 builds a demo executable, not a library.
+
+**A vendored copy records its upstream repository and its exact commit beside
+the sources**, so the copy is its own pin and staleness is a question somebody
+can ask of it. Route 1 states the same obligation as an exact tag, and a copy
+with no provenance is one nobody can tell is behind.
 
 **Route 3 — required from the platform, found and never fetched.** Three build
 inputs: the Vulkan **headers**, a **loader**, and a **GLSL-to-SPIR-V
@@ -143,6 +149,11 @@ pay to fetch or compile Assimp. The option's name and default arrive with
 Questions 2 and 3 are what stop the question answering *route 1* for `glslc`
 and for `shaderc`, which this document has just shown cannot be fetched.
 
+**A dependency routed here is added to `docs/design.md`'s acquisition column**,
+which is that table's index into this ADR. `bc7enc` is the open case: it is
+routed above and has no row yet, and `docs/specs/UTA-0052-texture-memory-budget.md`
+is what brings one.
+
 **glm is fetched rather than found even though a package exists**, and the
 reason is not its age. `ADR-0002` requires one map, recipe and baker version to
 hash to one bundle on any machine, and `docs/specs/UTA-0049-numeric-contract.md`
@@ -166,8 +177,9 @@ the same treatment.
 ## Consequences
 
 **The Vulkan components are a prerequisite on both platforms — the LunarG SDK
-on Windows, that or the distribution's packages on Linux — and the README must
-say so before `0.1.0` ships.** This is the cost, and it is real —
+on Windows, that or the distribution's packages on Linux — and on Linux SDL3's
+X11, Wayland and audio development headers are one too, for the reason route 1
+gives. The README must name both before `0.1.0` ships.** This is the cost, and it is real —
 but it does not change **S7**, whose subject is a machine with no Unreal
 Tournament on it rather than a machine with no toolchain. The SDK step sits
 outside that sign and is a README obligation, which is what
@@ -177,17 +189,31 @@ install the SDK could not have run the result. It is not defensible if it stays
 undocumented, and a fresh clone is what settles that, not a reading of this
 file.
 
-**`ci.yml` installs the Vulkan components; `scripts/ci.sh` asserts they are
-there.** Provisioning a toolchain is the runner's job and stays in the
+**When the renderer lands, `ci.yml` will install the Vulkan components and
+`scripts/ci.sh` will assert they are there.** Neither does today. Provisioning
+a toolchain is the runner's job and stays in the
 workflow, as the compiler lines there already do. What the shared gate script
 owns is the *assertion*, and it reads what CMake reads: `find_package(Vulkan)`
 resolves the headers and loader and reports `Vulkan_VERSION`, and locates
-`glslc` as `Vulkan::glslc`. The gate fails when either is absent or when the
-version is below the floor. That is one observable for the three build inputs
+`glslc` as `Vulkan::glslc`.
+
+**`glslc` has to be asserted by name.** `FindVulkan` appends `glslc` to the
+component list itself rather than the caller requesting it, so
+`find_package_handle_standard_args` never treats it as required and a bare
+`find_package(Vulkan REQUIRED)` succeeds on a machine with no `glslc` at all —
+its `REQUIRED_VARS` are the loader and the headers and nothing else. Measured
+against the CMake this machine carries, 4.4.3. So the gate names
+`COMPONENTS glslc`, or reads `Vulkan_glslc_FOUND`, and fails when the headers,
+the loader or `glslc` is absent or the version is below the floor.
+
+That is one observable for the three build inputs
 rather than a choice between `$VULKAN_SDK` and a system path, so the gate,
 CMake and the README cannot each pick a different one. **It asserts three of
 route 3's components and not the validation layers**, for the reason that route
-gives: no CMake result reports them. The local gate and the pipeline share the script so
+gives: no CMake result reports them on the platforms this project builds.
+**The assertion sits in the gate's configure step**, which `--docs` exits
+before reaching, so a documentation-only push from a machine with no Vulkan SDK
+still passes its own gate — which is what that mode exists for. The local gate and the pipeline share the script so
 neither can drift (`local-gate.md` § 3), and a developer whose machine is short
 a component finds out from their own gate rather than from a red pipeline.
 
@@ -208,7 +234,10 @@ project without a commit saying so.
 glm for the fetched one without editing the build, and that is deliberate for
 glm, where the substitution would break `ADR-0002`.
 
-**What has to be true, and is not yet:** none of these dependencies has landed.
-This ADR is the rule their arrival follows; the CMake and CI machinery is
-written when the first one arrives with the renderer, and the route table above
-is what that work conforms to.
+**What has to be true, and is not yet:** none of these dependencies has landed
+except Catch2, which `tests/CMakeLists.txt` already fetches at an exact tag and
+which therefore already conforms to route 1. Dear ImGui's route was settled
+before this decision and it has not landed either — the repository has no
+vendored copy of it. This ADR is the rule the rest follow; the CMake and CI
+machinery is written when the first one arrives with the renderer, and the
+route table above is what that work conforms to.
