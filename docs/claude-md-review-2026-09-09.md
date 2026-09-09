@@ -38,6 +38,46 @@ a spec.
 
 | 8 | 2026-09-09 | 3, cold — identical brief; packet rebuilt from disk after the history restructure, extended with the three new history files in full, and fact 8 corrected | 1 | 2 | 2 | n/a | **Five verified, five fixed; none dismissed.** **Two of the five landed on text loop 7 wrote, and all three lanes found both** — the collateral pattern this loop exists to catch. First: *"needs no token enumerated correctly first"* was false. A `source` array of prefixes IS a literal token match, only a cheaper one, so the sentence contradicted the *"tokens are examples"* rule two paragraphs above and reinstated the failure loop 7 had just fixed. Now states what the query cannot do, gives the call verbatim, and names listing every open item as the only complete route. Second, and worse: loop 7 put the occupancy fact on the HELD ITEM's note, but a session between items holds nothing — which is state 4, this project's ordinary state. So `roadmap_query status:"in-progress"` returns empty while somebody sits in the main checkout, and a conformer reads that silence as permission. Rule 3 now says an empty list is not evidence, and defaults to taking a worktree. **Three pre-existing:** rule 5's stated reason for keeping 🚧 across a session boundary contradicted rule 2's abandonment test — the marker records a STATE (half-built) rather than a claim, and rule 5 now says so; `./scripts/mutation-probe.py <lane>` implied any lane works when `SUBJECTS` holds only `ubundle`, which matters because the next item is in another lane (two lanes dropped this as immaterial on argparse `choices`, one kept it — kept, because the RULE has no route outside `ubundle` and the document never said to mutate by hand); and `review-contract-` sat beside a *"file with the nearest one"* fallback that makes `doc-review-` look correct for a rule 14 gate. |
 
+| 9 | 2026-09-09 | 3, cold — identical brief; packet rebuilt from disk after the history restructure and extended with facts settling the three open questions loop 8's lanes could not (`roadmap_query`'s `source` array, `mutation-probe.py`'s single subject, the measured map counts) | 1 | 2 | 1 | n/a | **Four verified, four fixed; none dismissed. CAP REACHED (3 for a standard); the run ships.** Two lanes found the same pointer defect and it is collateral of the history restructure, not of a gate fix: § Where this project is still said *"§ Build and test records a session setting it so while Windows was red"* after that record moved to `docs/build-and-test-lessons.md`, so the in-document pointer led nowhere — the exact failure the restructure's own rule warns about. Worse, and the same class: `docs/claude-md-history.md` asserted *"the measurements … were not moved"* and quoted three, **all three of which are absent from `CLAUDE.md`** — left standing it would have told a maintainer to duplicate the lessons back inline. **The sharpest finding was one lane's and lands on loop 8's own fix:** *"Default to a worktree. Take the main checkout only if you know you are this project's first live session"* is unconditional in practice, because the same rule removes every route to that knowledge — so a SOLE session vacates `main`, and rules 6 and 7 then leave nobody able to merge, commit `ROADMAP.md`, or advance `Next:`. Now conditioned on ruling out a live peer, with the sole-session case named and a route back. One pre-existing Q3: git skips a non-executable hook in silence, a fourth way a green push checks nothing, and the prescribed confirmation read config only — the mode is not config. `.githooks/pre-push` is executable today, so this was latent. |
+
+## The cap — which kind it was
+
+**Calm on the document; oscillating on rule 3.** Both measurements, so a
+reader can disagree.
+
+**Share of the final loop landing on text this run wrote: 3 of 4.** Read
+alone that is a violent cap. It is not, and the split matters: two of those
+three (the dead pointer, the false "were not moved" paragraph) are
+collateral of the **history restructure**, a large user-requested change
+that landed between loops 8 and 9 — not of the gate repairing its own
+repairs. **Gate-fix collateral alone is 1 of 4.**
+
+**Share of the whole run landing inside the gated span** (1c's record:
+rule 3, `6251f85`): **3 of 13** verified findings across the three loops.
+The other ten were pre-existing defects this run found because every lane
+reads the whole document. So the run was mostly audit, and the audit paid.
+
+**But rule 3 was repaired in all three loops, and each repair produced the
+next finding** — the start-up test, then the empty-list case, then the
+sole-session case. That is a genuine oscillation, confined to one rule, and
+it is evidence about the rule rather than about the review: rule 3 is
+trying to answer a question no command on this machine supports, which is
+what UTA-0084 said in the first place. It now says so itself, and defers to
+a judgement instead of pretending to a test.
+
+**Verdict taken: ship.** A fourth loop would land on rule 3 again.
+
+**Size:** `CLAUDE.md` is not oversized for its genre and the cap is not a
+size signal here. It grew across the run (343 → 430 lines) while 245 lines
+of history moved out to three files.
+
+**The final 4b sweep, run before exiting rather than counted as a loop,
+yielded ZERO.** Every prose pointer claiming another document records
+something was re-checked, the three history files were checked for further
+claims about what `CLAUDE.md` contains, and five moved measurements were
+confirmed absent from `CLAUDE.md` rather than duplicated. Reported because
+a sweep that found nothing is otherwise the same artefact as one never run.
+
 ## What the deterministic pass found
 
 `doc_integrity` returned zero findings before and after the fixes.

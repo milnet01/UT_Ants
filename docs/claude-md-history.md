@@ -7,11 +7,18 @@ every session on every turn and this is read when somebody asks.
 **This is history, not instruction. Nothing here governs.** Where a line
 disagrees with `CLAUDE.md`, `CLAUDE.md` is right and this file is stale.
 
-**What stayed in `CLAUDE.md` deliberately: the measurements.** *"Cost one
-red MSVC leg on 2026-09-04"*, *"Measured 2026-09-08 on UTA-0007's
-`roomAt`"*, and the rest of that class are the evidence a rule exists at
-all — a session that cannot see the cost will fix the rule back. Those are
-not history and were not moved.
+**The measurements moved too, and `CLAUDE.md` keeps the RULE without
+them.** *"Cost one red MSVC leg on 2026-09-04"*, *"Measured 2026-09-08 on
+UTA-0007's `roomAt`"* and the rest of that class are in
+`docs/build-and-test-lessons.md` and `docs/session-coordination-history.md`.
+They are the evidence a rule exists at all, so a session that cannot see
+the cost will fix the rule back — which is why every rule that lost its
+measurement carries a link to it.
+
+An earlier draft of this file claimed those measurements had stayed inline.
+They had not. Corrected 2026-09-09 at the gate's third loop, found by two
+lanes: left standing, it would have told a maintainer to duplicate the
+lessons back into `CLAUDE.md`.
 
 The per-run loop logs are separate again: `docs/claude-md-review-<date>.md`.
 

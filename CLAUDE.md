@@ -41,8 +41,9 @@ is not kept by hand. What is worth recording is the standing deferral:
 > Everything else is read off things harder to falsify: whether a spec
 > exists, what `git status` says, whether the tests pass **on the matrix**.
 > The roadmap's ✅ is not one of them — it says ✅ because somebody set it,
-> and § Build and test records a session setting it so while Windows was
-> red. **Its 🚧 is different**: a session sets it when it picks work up,
+> and [`docs/build-and-test-lessons.md`](docs/build-and-test-lessons.md)
+> records a session setting it so while Windows was red. **Its 🚧 is
+> different**: a session sets it when it picks work up,
 > minutes before doing the work, so it is the freshest thing available and
 > the only one that can name two items at once.
 
@@ -102,16 +103,24 @@ git config ants.gate.docsMode  --docs
 git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
 ```
 
-**A green push is not evidence the gate ran.** Three ways it passes having
+**A green push is not evidence the gate ran.** Four ways it passes having
 checked nothing, and only two announce themselves: `NOTHING WAS CHECKED`
 (the resolved hook is missing), a line naming a pipeline but no local gate
 (`ants.gate.command` unset — the hook's fallback list does not contain
-`scripts/ci.sh`), and **no hook output at all**, which on this machine
+`scripts/ci.sh`), **no hook output at all**, which on this machine
 means `core.hooksPath` naming a directory with no `pre-push` rather than
-being unset.
+being unset, and **`.githooks/pre-push` not being executable** — git skips
+a non-executable hook in silence.
 An unset `docsGlob` is silent too, and widens what counts as
-documentation. Confirm with
-`git config --get-regexp 'hooksPath|^ants\.gate\.'`.
+documentation.
+
+**Config alone cannot answer this, because the mode is not config.** Check
+both:
+
+```sh
+git config --get-regexp 'hooksPath|^ants\.gate\.'
+test -x .githooks/pre-push && echo "hook executable" || echo "HOOK NOT EXECUTABLE"
+```
 
 **A local green is one leg of three.** GitHub runs GCC, Clang and MSVC;
 a local run uses whatever `CXX` resolves to, and the gate says which at
@@ -329,9 +338,18 @@ it and reporting nothing. Measured; see
    and a session reading that silence as permission breaches this rule
    while following its check exactly.
 
-   **Default to a worktree.** Take the main checkout only if you know you
-   are this project's first live session. `ListAgents` names the live peers
-   and `SendMessage` reaches them, which is the one way to ask.
+   **Default to a worktree when you cannot rule out a live peer.** Take the
+   main checkout when `ListAgents` shows no live session that could be
+   working this project — by name, or by asking one. That is a judgement
+   and this rule cannot remove it: nothing on this machine reports
+   occupancy, so *I am the first session* is concluded, never measured.
+
+   **Do not take a worktree merely because you are unsure and alone.** A
+   worktree session cannot merge into `main` — git refuses a second
+   checkout of one branch — cannot commit `ROADMAP.md` (rule 7) and cannot
+   advance `Next:` (rule 6). Every one of those needs a session in the main
+   checkout. So a sole session that relocates leaves those jobs with
+   nobody. If you took a worktree and no peer ever appears, move back.
 
    **What this route cannot do is detect a breach.** It finds a holder
    that named itself. A session that takes an item without flipping it,
