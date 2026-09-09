@@ -1,6 +1,6 @@
 # UTA-0052 — `umat`: a texture memory budget, block compression and a per-material upscale cap
 
-**Status:** spec draft (2026-09-09).
+**Status:** accepted (2026-09-09).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0052 (user-request-2026-09-04).
 
@@ -98,13 +98,27 @@ that breaks content addressing before it breaks a test.
    `github.com/richgel999/bc7enc`. Its `LICENSE` offers each of `rgbcx.h`,
    `bc7decomp.cpp/h` and `bc7enc.c` under a choice of MIT or the Unlicense
    (read 2026-09-09 via `gh api repos/richgel999/bc7enc/contents/LICENSE`),
-   either of which this project's GPL-3.0 `LICENSE` can absorb. ADR-0007's
-   question 4 routes it: it ships no build system of its own, so it is
-   route 2 — vendored, as Dear ImGui already is — and nothing new enters the
-   toolchain. Its BC7 encoder is scalar and not vectorized and it threads
-   nothing itself, so § 4.4's parallel-over-blocks arrangement cannot change
-   the bytes. **Upstream claims no determinism**, so § 5 proves it rather
-   than assuming it. § 8 records what lost.
+   either of which this project's GPL-3.0 `LICENSE` can absorb. Its BC7
+   encoder is scalar and not vectorized and it threads nothing itself, so
+   § 4.4's parallel-over-blocks arrangement cannot change the bytes.
+   **Upstream claims no determinism**, so § 5 proves it rather than assuming
+   it. § 8 records what lost.
+
+   **Route 2 on ADR-0007's *rationale*, and its question 4 does not reach
+   this case.** That question asks whether a dependency ships no build system
+   of its own; `bc7enc` ships a `CMakeLists.txt` (its repository root holds
+   one, read 2026-09-09 via `gh api repos/richgel999/bc7enc/contents`), so the
+   literal answer is no. What that file builds is a **demo executable** from
+   `test.cpp` and a bundled `lodepng`, not a library anyone links.
+   `docs/decisions/ADR-0007-acquire-dependencies-by-route.md`'s route 2 states
+   its own ground, and that is what applies:
+   *"its sources are compiled into the target that uses it, so fetching would
+   buy nothing a copy does not already give"* — exactly true here: the
+   encoder is two headers and a
+   `.c` file compiled into `uta_umat`. **ADR-0007's question 4 is worded for a
+   repository with no build system rather than one whose build system builds
+   something else, and that is a defect in that ADR rather than in this
+   document** — filed for its owner, not corrected here.
 
 5. **The section descriptor's `compression` byte stays zero, and this item
    does not use it.** Mine, and it **contradicts the roadmap body**, which
@@ -164,8 +178,22 @@ that file's stated rule that the order is the order items land in.
 in the form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10 — naming
 what is permitted rather than forbidding all, so neither fails the moment a
 line above is legitimately needed. The first is the link list (INV-12). The
-second is `uta_umat`'s `COMPILE_OPTIONS`, which must carry none of
-`-ffp-contract`, `-ffast-math`, `-Ofast` or `/fp:` (INV-8).
+second is `uta_umat`'s `COMPILE_OPTIONS`, which must carry no entry matching
+the root guard's own pattern, `(-ffast-math|-Ofast|/fp:fast|-ffp-contract=fast)`
+(INV-8).
+
+**That pattern is the root guard's verbatim, and matching a wider one would
+refuse the correct build.** A target's `COMPILE_OPTIONS` property is
+initialised from the directory property `add_compile_options` sets, so
+`uta_umat`'s property *already carries* `-ffp-contract=off` and
+`-fno-fast-math` on GCC and Clang, and `/fp:precise` on MSVC — the flags that
+enforce the contract. Measured 2026-09-09 with a throwaway CMake project:
+`add_compile_options(-ffp-contract=off -fno-fast-math)` at the top level,
+`get_target_property` on a library in a subdirectory, and the property read
+back `-ffp-contract=off;-fno-fast-math`. A pattern matching bare
+`-ffp-contract` or `/fp:` therefore stops configuration on every leg of a
+correct tree. **The assertion forbids the *enabling* spellings only**, and
+the inherited entries above are expected to be present.
 
 **The second assertion is needed because the root guard cannot see a target.**
 The root `CMakeLists.txt` refuses a fast-math flag arriving through
@@ -236,8 +264,8 @@ The section payload is one `vector<CompressedTexture>`. Each element:
 | `format` | `u8` | `0` = BC4, `1` = BC5, `2` = BC7. No other value is defined |
 | `width` | `u16` | Base level width, a power of two in `[1, 8192]` |
 | `height` | `u16` | Base level height, same constraint |
-| `sourceWidth` | `u16` | The original texture's width, before any upscale |
-| `sourceHeight` | `u16` | The original texture's height |
+| `sourceWidth` | `u16` | The width of the image handed to `compress` — after any resample, before any upscale |
+| `sourceHeight` | `u16` | The height of the same image |
 | `mipCount` | `u8` | Levels stored, `1` upward. `1` means base level only |
 | `blocks` | `vector<u8>` | Every stored level's block bytes, base level first |
 
@@ -252,6 +280,17 @@ disagree with the two it is computed from — UTA-0008 § 4.3's own reason for
 having no table-offset field. Source dimensions are stored because nothing
 else in the bundle records them, so without them the cap in § 4.5 would not
 be auditable after a bake.
+
+**They are the dimensions entering compression, not the dimensions of the
+1999 original.** UTA-0009 admits a locally-supplied replacement and resamples
+a non-power-of-two one before compression, so a 1000×1000 replacement reaches
+`compress` at 1024×1024 and stores `sourceWidth` 1024. Recording 1000 instead
+would make the ratio `1024/1000`, which is neither exact nor a power of two,
+so INV-2 would refuse a texture the resampling path is supposed to produce —
+the whole route § 9 defers to UTA-0009 would be unbakeable. **What this
+loses is the resample factor**, which the bundle does not record and § 9
+names as out of scope; what it keeps is the upscale factor, which is the one
+§ 4.5 caps and this field exists to audit.
 
 **So the source dimensions are constrained too, and INV-2 refuses a bundle
 that breaks the derivation.** `sourceWidth` and `sourceHeight` are non-zero,
@@ -335,14 +374,15 @@ about a transcendental being forbidden outright.
 
 ### 4.5 The per-material upscale cap
 
-Two constants and one pure function.
+One constant and one pure function, plus one constant `ubundle` owns.
 
 ```cpp
-/// The largest edge `umat` will UPSCALE TO, and the largest factor it will
-/// apply. Whichever binds first wins. Neither is a ceiling on the SOURCE:
+/// The largest edge `umat` will UPSCALE TO. Not a ceiling on the SOURCE:
 /// see the over-size case below.
 inline constexpr std::uint32_t MAX_OUTPUT_EDGE = 1024;
-inline constexpr std::uint32_t MAX_UPSCALE_FACTOR = 4;
+
+// MAX_UPSCALE_FACTOR is NOT declared here -- it lives in
+// src/ubundle/Bundle.h beside CompressedTexture, and § 4.8 says why.
 
 /// The factor actually applied to a source of these dimensions, given the
 /// factor the caller asks for. Pure, and the same on every machine.
@@ -352,7 +392,7 @@ inline constexpr std::uint32_t MAX_UPSCALE_FACTOR = 4;
 ```
 
 It returns the largest power of two that is at most `requested`, at most
-`MAX_UPSCALE_FACTOR`, and leaves both output edges at or below
+`ubundle::MAX_UPSCALE_FACTOR`, and leaves both output edges at or below
 `MAX_OUTPUT_EDGE`. Where no factor qualifies it returns `1`, and it never
 returns `0` (INV-11).
 
@@ -367,7 +407,7 @@ decision 3 rules out one layer along. And the memory guard is the budget,
 not the cap: a 2048 texture that does not fit is refused by § 4.6 with a
 report naming it, which is a decision somebody sees. So `MAX_OUTPUT_EDGE`
 bounds *upscaling* and nothing else, which is what the constant's comment
-now says.
+says.
 
 **Per material means the caller supplies `requested` per texture**, which is
 what makes the cap per-material from the first line of code rather than
@@ -375,7 +415,7 @@ global. A blurry wall texture gains nothing from four times and a hero
 surface might, and the caller is what knows which is which.
 
 **Where `requested` comes from is deferred, and the default is the cap.**
-Called with `MAX_UPSCALE_FACTOR`, the function yields the largest factor the
+Called with `ubundle::MAX_UPSCALE_FACTOR`, the function yields the largest factor the
 edge limit allows — so a bake that asks for nothing in particular gets a
 uniform, predictable answer. The per-material figure belongs in the recipe,
 whose format is not yet queued as a roadmap item (§ 9), and UTA-0010's
@@ -428,6 +468,16 @@ rather than an estimate, which is what lets the refusal be a hard one.
 level, so a measurement of the base alone reports three quarters of the truth
 — enough to pass a bake at the limit and fail it on the card (INV-9).
 
+**`enforceBudget` takes the report and not the textures, and that is the
+no-degradation guarantee rather than an accident of convenience.** § 3
+decision 3 rules out silent degradation, and a function that cannot reach a
+texture cannot degrade one — the guarantee is in the signature, where no
+implementation can breach it. **That is also why it is not an invariant:** a
+test asserting the texture set is unchanged across a call that never receives
+it passes for every possible implementation, so INV-10 states the refusal
+alone and § 10 records the rule as unchecked. What is left uncovered is a
+*caller* that degrades before calling in, and nothing here can see that.
+
 **`InvalidArgument` rather than `OutOfMemory`.** Nothing failed to allocate:
 the refusal is a policy decision taken at bake time, on a machine that may
 have no GPU at all. `src/core/Error.h`'s `ErrorCode` offers no
@@ -477,6 +527,15 @@ namespace uta::ubundle {
 /// Which block format a stored texture uses -- § 4.3. A byte outside this
 /// set is MalformedData and is never defaulted (INV-3).
 enum class BlockFormat : std::uint8_t { BC4 = 0, BC5 = 1, BC7 = 2 };
+
+/// The largest upscale a stored texture may record -- § 4.3, INV-2.
+///
+/// HERE rather than in `umat`, because INV-2 is a DECODE-TIME rule: `read`
+/// refuses a texture whose stored ratio exceeds it, and `ubundle` may not
+/// depend on `umat` (INV-12 runs `umat` -> `ubundle` and never back). `umat`
+/// re-uses this constant rather than declaring a second one, or the writer
+/// and the reader drift and `umat` produces bundles its own reader refuses.
+inline constexpr std::uint32_t MAX_UPSCALE_FACTOR = 4;
 
 /// Bytes one 4x4 block occupies in `format`.
 [[nodiscard]] constexpr std::size_t bytesPerBlock(BlockFormat format) noexcept {
@@ -700,12 +759,20 @@ refusing a structure that violates UTA-0008 § 4.9.
   floating-point contraction or fast-math for any translation unit it
   compiles, the vendored sources included.
   *Test:* `src/umat/CMakeLists.txt` reads `uta_umat`'s `COMPILE_OPTIONS`
-  property and stops with a `FATAL_ERROR` where any entry matches
-  `-ffp-contract|-ffast-math|-Ofast|/fp:` — the assertion form
-  `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10. **Prove it by
-  breaking it once**: add `target_compile_options(uta_umat PRIVATE
-  -ffast-math)` and configure, which must stop. No arrow: the file does not
-  exist yet.
+  property and stops with a `FATAL_ERROR` where any entry matches the root
+  guard's own pattern, `(-ffast-math|-Ofast|/fp:fast|-ffp-contract=fast)` —
+  the assertion form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10.
+  **Prove it by breaking it once**: add `target_compile_options(uta_umat
+  PRIVATE -ffast-math)` and configure, which must stop. No arrow: the file
+  does not exist yet.
+  **The pattern must be the enabling spellings only.** The property is
+  initialised from the directory property `add_compile_options` sets, so it
+  already carries `-ffp-contract=off`, `-fno-fast-math` or `/fp:precise` on a
+  correct tree (§ 4.1 carries the measurement). A pattern matching bare
+  `-ffp-contract` or `/fp:` refuses that tree on every leg, and the
+  break-it-once step above cannot tell that from the assertion working,
+  because configuration has already stopped before the breaking change is
+  made.
   *Breaks when:* a per-target flag is added to make the vendored C compile
   faster, after which a multiply-add folds on one compiler and not another
   and INV-6 fails on one leg with nothing saying why.
@@ -730,23 +797,29 @@ refusing a structure that violates UTA-0008 § 4.9.
   pass a bake sitting at the budget and have it fail on the card.
 
 - **INV-10** — `enforceBudget` returns `InvalidArgument` when
-  `workingSetBytes` exceeds `budgetBytes` and succeeds otherwise, and nothing
-  is dropped, resized or re-compressed.
+  `workingSetBytes` exceeds `budgetBytes`, and succeeds otherwise.
   *Test:* `tests/unit/MaterialCompressTest.cpp`, three cases — one byte under
-  the budget, exactly at it, one byte over — asserting the outcome, and
-  asserting the texture set is unchanged across the call. No arrow: the
-  surface does not exist yet.
-  *Breaks when:* an implementation "helps" by dropping the top mip of the
-  largest texture and reporting success, which is the silent degradation § 3
-  decision 3 rules out. Or the comparison is written `>=`, refusing a map
-  that fits exactly — which the at-budget case is there to catch.
+  the budget, exactly at it, one byte over — asserting the outcome. No arrow:
+  the surface does not exist yet.
+  *Breaks when:* the comparison is written `>=`, refusing a map that fits
+  exactly — which the at-budget case is there to catch. Or the sense is
+  inverted, which the two one-byte cases catch between them.
+  **The no-degradation half of § 3 decision 3 is deliberately NOT an
+  invariant here, because this signature cannot express its breach.**
+  `enforceBudget` takes a `BudgetReport` and never sees a texture, so no
+  implementation of it can drop, resize or re-compress one — an assertion
+  that the texture set is unchanged across the call passes for every possible
+  implementation and could never go red. § 4.6 states the guarantee where it
+  actually lives, in the shape of the signature, and § 10 records the rule as
+  unchecked rather than claiming it.
 
 - **INV-11** — `upscaleFactor` returns the largest power of two that is at
-  most `requested` and at most `MAX_UPSCALE_FACTOR` and that does not take an
-  edge **above** `MAX_OUTPUT_EDGE` that was at or below it. It returns `1`
-  where no factor above 1 qualifies, and never `0`. **A source edge already
-  above `MAX_OUTPUT_EDGE` yields `1` and is not reduced** — `1` is the floor,
-  so the function never downscales.
+  most `requested`, at most `MAX_UPSCALE_FACTOR`, and leaves both output
+  edges at or below `MAX_OUTPUT_EDGE` — § 4.5's rule, word for word. Where no
+  factor qualifies it returns `1`, and it never returns `0`. **`1` is the
+  floor, so a source edge already above `MAX_OUTPUT_EDGE` yields `1` and is
+  stored unreduced**: the function never downscales, and the budget rather
+  than the cap is what refuses an over-size texture.
   *Test:* `tests/unit/MaterialCompressTest.cpp`, including a 512×512 source
   asking for 4 (answer 2, the edge limit binding), a 1024×1024 source asking
   for 4 (answer 1), a **2048×2048 source asking for 4 (answer 1, and 2048 is
@@ -758,12 +831,16 @@ refusing a structure that violates UTA-0008 § 4.9.
   source asking for 4 yields 2048 and blows `MAX_OUTPUT_EDGE`. Or `requested`
   of 0 propagates, producing a zero-sized output that INV-2 then refuses at
   the container with no explanation of where it came from. Or the edge rule
-  is written as a clamp on the RESULT rather than on the upscale, which makes
-  a 2048 source return a factor below 1 — a value the return type cannot
-  carry and § 4.3's stored ratio cannot express.
-  **The 2048 case is what separates the two readings**, and every other case
-  in the list passes under both. Without it an implementer may write the
+  is written as a clamp on the RESULT rather than as a bound on the upscale,
+  which makes a 2048 source return a factor below 1 — a value the return type
+  cannot carry and § 4.3's stored ratio cannot express.
+  **The 2048 case is what separates those two readings**, and every other
+  case in the list passes under both. Without it an implementer may write the
   clamp and only discover it when `width / sourceWidth` truncates to `0`.
+  **This clause restates § 4.5 rather than paraphrasing it, deliberately.** A
+  reworded version of the same rule is a second rule, and the two disagree on
+  the case neither author had in mind — here, whether a bound that was never
+  crossed still binds.
 
 - **INV-12** — `uta_umat`'s link entries are exactly `uta_core` and
   `uta_ubundle`. **Not `uta_upkg`** — nothing in § 4.9's API takes a package,
@@ -954,7 +1031,10 @@ this item tests from synthetic images built in the test itself.
 - Deriving the five maps from a 1999 texture, and generating mip chains —
   tracked by UTA-0009.
 - Resampling a locally-supplied replacement texture to a power of two before
-  compression — tracked by UTA-0009, constrained by § 4.3.
+  compression — tracked by UTA-0009, constrained by § 4.3. **The resample
+  factor is not recorded anywhere**: `sourceWidth` is the post-resample
+  figure, so a bundle cannot say what the file on disk originally measured.
+  Deferred; not yet queued.
 - The curated material library and the licence line for a redistributable
   replacement — tracked by UTA-0010.
 - Calling the budget check, and printing its report — tracked by UTA-0011.
@@ -971,6 +1051,9 @@ this item tests from synthetic images built in the test itself.
   Emissive is 8-bit here, which is what a 1999 source provides.
 - Compressing any other section's payload with a stream codec, which is what
   UTA-0008's `compression` byte is reserved for — deferred; not yet queued.
+- Refusing a bake at the first texture that crosses the budget, rather than
+  after the whole set is compressed and resident — deferred; not yet queued.
+  § 13 carries what it would cost and why it is not taken here.
 
 ## 10. What checks this
 
@@ -993,9 +1076,9 @@ this item tests from synthetic images built in the test itself.
 | § 4.2's ratio arithmetic | **nothing** — the table is derivable from the BC block sizes but no test computes it; a wrong cell misleads a budget argument and nothing fails |
 | § 4.6's 1024 MiB figure being right for the hardware | **nothing** — no measurement exists on a real card; UTA-0039 is where a frame-rate floor is held across the library, and UTA-0051 is where a tier declares a figure |
 | § 4.6's report reaching a user | **Partial:** the report's contents are asserted by INV-10; nothing prints it until UTA-0011 |
-| § 4.7's version bump reaching UTA-0008 | **Partial:** `check-doc-facts` `quotes`, a quoted-fragment check, over both specs catches a quotation of UTA-0008 that this bump falsified, and `mcp__ants__spec_query`, an invariant-parse verb, run on UTA-0008 shows whether INV-4 names version 2. Neither reads § 4.3's table, § 4.4, § 4.2's size table, § 4.10 or § 14, so five of § 11's six UTA-0008 edits are checked by a reader alone. A stale one is a corpus stating two versions |
+| § 4.7's version bump reaching UTA-0008 | **Partial:** `check-doc-facts` `quotes`, a quoted-fragment check, over both specs catches a quotation of UTA-0008 that this bump falsified, and `mcp__ants__spec_query`, an invariant-parse verb, run on UTA-0008 shows whether INV-4 names version 2. Neither reads § 4.3's header table, § 4.4's `id` row, § 4.2's minimum-size table, § 4.10 or § 14 — every edit § 11 lists except INV-4 and the INV-6/INV-7 golden array — so those are checked by a reader alone. A stale one is a corpus stating two versions |
 | § 4.1's vendored `LICENSE` being shipped | **nothing** — no gate reads `third_party/`; the MIT notice is a redistribution obligation nobody checks |
-| § 3 decision 3's no-degradation rule | **Partial:** INV-10 asserts the texture set is unchanged across `enforceBudget`; nothing prevents a future caller degrading before it calls in |
+| § 3 decision 3's no-degradation rule | **nothing** — it is guaranteed structurally rather than checked: `enforceBudget` takes a `BudgetReport` and never sees a texture, so no implementation of it can degrade one (§ 4.6). Nothing catches a *caller* that degrades before calling in, and nothing catches a later signature change handing it the textures |
 
 Count with:
 
@@ -1067,11 +1150,24 @@ cache, no eviction and no state between calls. Peak inside one call is the
 caller's levels plus the output — for a 1024×1024 `RGBA8` base with a full
 chain, about 5.3 MiB in and 1.3 MiB out.
 
-**The accumulation is the caller's, and its cap is the budget.** A whole
-map's textures are held together so they can be measured, so the peak is the
-working set — bounded at `TEXTURE_BUDGET_BYTES`, 1024 MiB, by the refusal in
-§ 4.6. That is the named cap, and it is the only unbounded growth this item
-could have had.
+**The accumulation is the caller's, and the budget does NOT bound it.**
+`measure` and `enforceBudget` take a span of every texture, so a whole map's
+compressed set is resident before either runs. The peak is therefore the
+working set the map actually produced, and on the case this item exists for —
+a map several times over budget — that peak *exceeds* `TEXTURE_BUDGET_BYTES`
+by construction. **The refusal is post-hoc**: it reports what was produced,
+it does not stop it being produced.
+
+**So the honest statement is that this item names a cap it does not enforce
+at allocation time**, and an implementer who builds accumulate-then-measure
+believing memory is capped will exhaust a 2 GB laptop on exactly the bake
+that should have printed the report naming the largest contributors. The
+remedy — a running total checked against `budgetBytes` as each texture is
+compressed, refusing at the first texture that crosses it — is a real design
+and is **deferred, not yet queued** (§ 9). It is deferred rather than taken
+because it changes what the report can say: an early refusal names the
+texture that crossed the line and cannot name the ones after it, which is
+less useful than the full ordered list § 4.6 promises.
 
 **`ubundle`'s side grows by the section it decodes.** `read` already holds
 the caller's bytes and the structures decoded from them; `TEXS` adds a copy
@@ -1128,6 +1224,13 @@ document already describes.
   `OutOfMemory` would be a lie. Adding a value is UTA-0002's contract to
   amend, and one caller is thin justification. Reopen if a second refusal of
   this shape appears.
+
+- **Whether `bc7enc.h` is covered by the upstream dual licence.** That file's
+  `LICENSE` enumerates `rgbcx.h`, `bc7decomp.cpp/h` and `bc7enc.c` by name
+  and does not name `bc7enc.h`, which § 4.1 vendors alongside them. Almost
+  certainly an omission rather than a reservation — a `.c` file's own header
+  — but it is a licence question on a GPL-3.0 repository, so settle it with
+  upstream or by inspection before the file is copied in, not after.
 
 - **Whether `mipCount` should be required rather than permitted.** A texture
   with one level shimmers at distance, so every production texture will carry
