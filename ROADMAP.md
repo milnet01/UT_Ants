@@ -755,6 +755,37 @@ model, no weapon and no opponent until 0.2.0.
   their own tool is not latent anywhere else in this tree. src/upkg/Class.cpp,
   src/unav/Build.cpp and tests/real/RealInstallTest.cpp all walk an import's
   outer chain to the root already, with a termination guard.
+  Correction (2026-09-09), from the consuming session. **This body tells you
+  to validate against their paths-index-evidence.md and to reproduce its four
+  results. Result 3 is WITHDRAWN — do not reproduce it.**
+
+  It eliminated the 16-slot-cap hypothesis. Re-measured 2026-09-09 by
+  re-exporting and re-running: Village1 and Dust2-BP reproduced their earlier
+  numbers exactly, which establishes the method is unchanged.
+  AncientCavesTorus did not — it previously read 1202 Paths / 1274
+  upstreamPaths with no actors at either 16-slot cap, and now reads 4453/4453
+  with 45 and 49 actors AT the caps. The map's own export changed, not the
+  measurement. Reproducing result 3 would mean reproducing something nobody
+  believes any more.
+
+  Results 1, 2 and 4 are unretracted and remain the right target.
+
+  Two further hazards they measured, both of which this reader will meet.
+  `strings` is not evidence about a package: it reported 14,441 names in
+  Textures/Wood.utx whose real name table holds 190, because compressed pixel
+  data matches identifier patterns. Their analysis/pkgnames.py parses the
+  header tables and was validated against that 190 — so where our reader
+  disagrees with a `strings`-derived figure in any document, our reader is
+  probably right. And two unrelated packages may share a name, with the
+  `Paths=` search order deciding which wins: Textures/wonderland.utx shadowed
+  Sounds/wonderland.uax for ten maps because Default.ini searches Textures
+  first. Resolution is search-order dependent, not name dependent.
+
+  The `--json` / TSV work this body records is unchanged. The bot-path half
+  is now split out as UTA-0086, with the shape the consumer confirmed: edge
+  list first, node list beside it.
+
+  The 740-map figure in this body is stale — see UTA-0087.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
@@ -3098,6 +3129,106 @@ model, no weapon and no opponent until 0.2.0.
   **Layman:** Two sessions may work this project at once. Nothing reliably tells a third one that the two slots are taken, so the limit rests on each session checking honestly rather than on anything that can detect a breach.
   Kind: investigate.
   Source: review-contract-2026-09-08 workflow-overrides loop 3.
+  Lanes: docs.
+
+- 📋 [UTA-0085] **unav: decode and validate the ReachSpec reach flags.**
+  UTA-0006 shipped `NavEdge` carrying `reachFlags`, and `Graphs.h` says of
+  it: "Passed through ungraded. Nothing here or in UTA-0057 checks these
+  against an independent source; UTA-0006 SS 14 keeps that open." So the
+  number travels into the bundle and nothing can act on it.
+
+  That is the gap between having the bot-path data and being able to use
+  it. The flags are what separate a walk from a jump, a swim, a flight and
+  a door that must be opened first -- and with `collisionRadius` and
+  `collisionHeight`, they decide whether a given pawn may traverse an edge
+  at all. A bot planner without them can only treat every edge as equal,
+  which is what UT99 largely did.
+
+  **Validate against a real install, not against the UT99 source's
+  constants alone.** A constant list says what the flags were meant to
+  mean; only a real map says what they are. The second test tier
+  (`UTA_REAL_ASSET_TESTS`) is where that check belongs.
+
+  **Do not validate against result 3 of the Monster Hunt session's
+  paths-index-evidence.md.** It was WITHDRAWN on 2026-09-09, not repaired:
+  AncientCavesTorus previously read 1202/1274 Paths with no actors at the
+  16-slot cap and now reads 4453/4453 with 45 and 49 actors at it, while
+  Village1 and Dust2-BP reproduced their earlier numbers exactly. The map's
+  export changed, not the measurement. Results 1, 2 and 4 are unretracted
+  and are the right target.
+
+  Requested by the user 2026-09-09: bots in this engine are to be far more
+  useful than UT99's. This item is the enabling step, not the bots
+  themselves -- UTA-0025 is waypoint parity, and UTA-0073 and UTA-0028 are
+  what beat it.
+  **Layman:** Work out what each bot path actually allows -- walk, jump, swim, or a door that must be opened first. We already read the number; nothing yet knows what it means.
+  Kind: implement.
+  Source: user-request-2026-09-09.
+  Lanes: unav, upkg.
+
+- 📋 [UTA-0086] **ut-dump: emit the bot-path graph as an edge list and a node list.**
+  UTA-0012's third day-one query, split out now that UTA-0057 has shipped
+  the ReachSpec graph it was blocked on.
+
+  **Shape confirmed by the consumer on 2026-09-09: both, and the EDGE LIST
+  is the half that is actually needed.** Its question is reachability --
+  can a bot get from PlayerStart to MonsterEnd -- which needs from-node,
+  to-node and the ReachSpec's own fields, because the reach flags and the
+  collision radius and height decide whether a given pawn may traverse an
+  edge at all. Node rows are wanted alongside, because node CLASS matters:
+  InventorySpot, PathNode, Spawnpoint and MonsterEnd are not
+  interchangeable. "A node list without edges tells me nothing I cannot
+  already get."
+
+  So: edge list first, node list beside it, separate keys.
+
+  This retires a 4.9 GB T3D-export intermediate that is repeatedly deleted
+  and rebuilt, and replaces a route census currently derived by grepping
+  those exports.
+
+  **Two hazards the consumer measured and this reader will meet.** `strings`
+  is not evidence about a package: it reported 14,441 names in
+  Textures/Wood.utx whose real name table holds 190. And two unrelated
+  packages may share a name, with the `Paths=` search order deciding which
+  wins -- Textures/wonderland.utx shadowed Sounds/wonderland.uax for ten
+  maps because Default.ini searches Textures first. Resolution is
+  search-order dependent, not name dependent.
+
+  Blocked-by: the reach-flag decode, which is what makes an edge's fields
+  mean anything.
+  **Layman:** Print a map's bot paths from the command line, so they can be checked across the whole map library without loading the game.
+  Kind: implement.
+  Source: consumer-request-2026-09-09.
+  Lanes: upkg.
+
+- 📋 [UTA-0087] **The 740-map figure is stale everywhere it is cited.**
+  UTA-0058 settled a Monster Hunt map count that the ADRs cite. That
+  figure has been overtaken.
+
+  **Measured directly on 2026-09-09** at
+  `/mnt/Games/PC Games/UT/UnrealTournament-469/Maps`:
+
+  - 2022 `.unr` files in total
+  - 1923 matching `MH-*.unr`
+  - 337 matching `MH-*BP*.unr`
+
+  ROADMAP.md cites 740 in several bodies, and 183 as the `-BP` count.
+  Both are wrong, and one derived figure -- "count over 740 installed maps
+  went from 732 to zero" -- rests on the old denominator.
+
+  The Monster Hunt session reports the library moved three times in one
+  week: 153 path-repaired `-BP` maps promoted, 45 maps that were always
+  present but unopenable because a literal `Maps\` prefix from a Windows
+  path survived extraction, and 5 byte-identical duplicates deleted. None
+  of those `Maps\`-prefixed files remain -- verified here.
+
+  **Fix the ADRs as well as the roadmap**, since UTA-0058's own headline is
+  about what the ADRs cite. And prefer a dated measurement with the command
+  that produced it over a bare number, because this figure has now been
+  wrong twice.
+  **Layman:** The roadmap and the decision documents say the map library holds 740 maps. It holds far more now, and several figures derived from that number are wrong.
+  Kind: doc-fix.
+  Source: in-session-2026-09-09.
   Lanes: docs.
 
 ## 0.2.0 — Movement and weapons
