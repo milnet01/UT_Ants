@@ -3599,7 +3599,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-09.
   Lanes: docs.
 
-- 🚧 [UTA-0088] **ADR-0007 question 4 mis-routes a dependency whose build system builds something else.**
+- ✅ [UTA-0088] **ADR-0007 question 4 mis-routes a dependency whose build system builds something else.**
   Found by `UTA-0052`'s `review-contract` gate, loop 2, from a lane's open
   question. Not corrected there: it is that ADR's rule, not that spec's.
 
@@ -3634,6 +3634,38 @@ model, no weapon and no opponent until 0.2.0.
   `UTA-0052` under the user's priority order rule 1 — it is the only
   open review-sourced item not standing deferred (`UTA-0059` defers
   itself until the renderer lands).
+  Resolved (2026-09-09). Question 4 now asks whether a dependency's build
+  system produces anything anyone would link, rather than whether it ships
+  one. Dear ImGui ships none and still passes, so no existing route moved;
+  route 2 names `bc7enc` beside it and pins the vendoring layout.
+
+  Gated under `CLAUDE.md` rule 14 at genre `adr`: `review-contract`, three
+  cold lanes per loop, cap of 3 reached. Thirteen verified, thirteen fixed,
+  one dismissed. Loops 4, 5 and 6 of the document's log,
+  `docs/reviews/ADR-0007-acquire-dependencies-by-route-loop-log.md`.
+
+  **A CALM cap**, unlike `UTA-0052`'s: one of the final loop's three
+  findings landed on text this run wrote, against two of two the loop
+  before. Two of the thirteen fall inside the arming span, so the run was
+  overwhelmingly the AUDIT half rather than the gate half — a fifteen-line
+  trigger returned eleven defects in text it never touched.
+
+  The most valuable was not the routing defect this item filed. The ADR
+  said `find_package(Vulkan)` locates `glslc` and that the gate fails when
+  either is absent. It does not: `FindVulkan` appends `glslc` to the
+  component list itself, so `find_package_handle_standard_args` never
+  treats it as required. Measured both directions on a stand-in module —
+  appended, the package is FOUND with the component FALSE; named in
+  `COMPONENTS`, configuration stops. A gate built as described would have
+  been green on a machine with no shader compiler.
+
+  Collateral corrected outside this document: `UTA-0052`'s spec and
+  `docs/design.md` each still stated question 4's old wording, and the
+  spec's § 4.1 pinned a `README.md` recording the commit but not the
+  repository, which did not satisfy the general rule this run wrote.
+
+  No CHANGELOG entry: an internal decision record, invisible to a player or
+  a server operator.
   **Layman:** A rule for deciding how we obtain outside code asks the wrong question, so it gives the wrong answer for a library that ships a demo program.
   Kind: doc-fix.
   Source: review-contract-2026-09-09.
