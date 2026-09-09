@@ -1582,6 +1582,27 @@ model, no weapon and no opponent until 0.2.0.
   `CompressedTexture` and `BlockFormat`, the `TEXS` section, `FORMAT_VERSION`
   1 to 2, and `UTA-0008`'s seven amendments — then the encoder half, because
   the encoder writes into the container.
+  Progress (2026-09-09): **the container half is done.** `ubundle` carries
+  the `TEXS` section at `FORMAT_VERSION` 2, with `BlockFormat`,
+  `MAX_UPSCALE_FACTOR`, `bytesPerBlock`, `CompressedTexture` and
+  `expectedBlockBytes`. INV-1 to INV-5 and INV-13 are covered by
+  `tests/unit/BundleTextureTest.cpp`. UTA-0008's seven amendments have
+  landed and the CHANGELOG entry is filed. Full gate green on the local
+  leg, ThreadSanitizer included; 219 unit tests.
+
+  **Every new guard was mutated and confirmed graded** — ten mutations, ten
+  killed, no survivors. Two of the tests were mis-graded when first written
+  and only mutation found them: the power-of-two case declared 32 block
+  bytes where its own dimensions need 48, so INV-1 refused it first, and the
+  `sourceWidth > width` case is caught by the axes-agree clause rather than
+  the exact-multiple one.
+
+  Remaining: the `umat` half — `third_party/bc7enc/`, `src/umat/`, and
+  INV-6 to INV-12 and INV-14.
+
+  **§ 15's licence question is now a blocker rather than a note.** The spec
+  requires `bc7enc.h`'s coverage settled BEFORE the file is copied into this
+  GPL-3.0 repository, and the vendoring is the next step.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
