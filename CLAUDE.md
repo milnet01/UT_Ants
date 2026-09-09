@@ -5,15 +5,29 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0009` — `umat`: generate a PBR material from a 1999
-texture. `UTA-0008` shipped on 2026-09-08, so `UTA-0011` (`ubake`) now
-has a container to write a bake into and is blocked only by `umat`,
-which is `UTA-0009` and `UTA-0010`. Priority rule 1 is still clear:
-`UTA-0059` remains the only open review-sourced item and its own body
-defers it until the renderer lands. `UTA-0079` and `UTA-0081` are
-`Source: in-session-`, so rule 1 does not reach them. `UTA-0013`'s
-quarantine guard was unblocked by the same item and is the alternative
-if the guard is wanted before the baker.
+**Next:** `UTA-0052` — `umat`: a texture memory budget, with block
+compression and a per-material upscale cap. It moved ahead of `UTA-0009`
+on the user's call (2026-09-09). Both items' bodies already recorded that
+it wants to land first, and its `Blocked-by: ubundle` cleared when
+`UTA-0008` shipped on 2026-09-08. Retrofitting compression regenerates
+every material, which is the cost that order avoids.
+
+`UTA-0009` and `UTA-0010` follow it. The third-party-texture question
+`UTA-0009`'s body required be settled before anyone builds it was answered
+on 2026-09-09 and is recorded on both items. `UTA-0011` (`ubake`) has a
+container to write a bake into and is blocked only by `umat`. `UTA-0013`'s
+quarantine guard was unblocked by the same item and is the alternative if
+the guard is wanted before the baker.
+
+**Rule 1's set is not listed here — ask the roadmap**, which § Which item
+comes next gives the call for. A hand-kept list of it goes stale the
+moment an item is filed or closed, which is the same reason `In flight:`
+is not kept by hand. What is worth recording is the standing deferral:
+`UTA-0059` defers itself until the renderer lands. `UTA-0079` and
+`UTA-0081` are `Source: in-session-`, so rule 1 does not reach them.
+Corrected 2026-09-09: this read that `UTA-0059` was the only open
+review-sourced item, which stopped being true the moment `UTA-0084` was
+filed.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
@@ -211,13 +225,31 @@ The user's standing priority order, given 2026-09-04:
 3. Open roadmap items for the version after.
 
 **Rule 1's set is every open item whose `Source:` records the review that
-produced it** — `audit-<date>`, `debt-sweep-<date>`,
-`code-quality-review-<date>` (`roadmap-format.md` § 3.5.3), plus this
-project's own `review-code-<date>`. Match on the `Source:` recording a
-review, not on the word: two of those do not contain it. Where a review
-has no token that fits, file the item with the nearest one and name the
-review in the body — a `Source:` that records nothing puts the item
-outside this order, which is where it is least likely to be found.
+produced it.** That sentence is the test. The tokens below are examples,
+and a session that matches them literally instead of applying the
+sentence will miss items.
+
+The review-recording values `roadmap-format.md` § 3.5.3 defines are
+`audit-<date>`, `code-quality-review-<date>`, `debt-sweep-<date>` and
+`doc-review-<date>`. It defines `user-<date>` as well, which records no
+review and is outside rule 1 — as this project's own `user-request-<date>`
+and `in-session-<date>` are. This project also writes `review-code-<date>`
+and `review-contract-<date>`, the second being what a rule 14 gate files.
+Match on the `Source:` recording a review, not on the word — `audit-` and
+`debt-sweep-` do not contain it.
+
+**Ask the store, not the list.** `roadmap_query` takes a `source` array of
+prefixes, so one call returns the open review-sourced items and needs no
+token enumerated correctly first.
+
+Corrected 2026-09-09 by UTA-0084's own gate, found by two lanes: the list
+named four tokens and omitted `review-contract-<date>`, which is the only
+one either open review-sourced item carries. A conformer following it
+found rule 1's set empty and went to rule 2, skipping both.
+
+Where a review has no token that fits, file the item with the nearest one
+and name the review in the body — a `Source:` that records nothing puts the
+item outside this order, which is where it is least likely to be found.
 
 **A rule-1 finding taken ahead of `Next:` leaves `Next:` alone.** Record
 the deferral on the deferred item, in the roadmap store — not by editing
@@ -265,10 +297,15 @@ checkout answers `source: "store"`, and a dry-run flip reported
 1. **Flip the item to 🚧 BEFORE starting work, and name yourself in the
    note.** That flip is the claim, and it is how the other session learns
    the item is taken. **The marker records that an item is held and not by
-   whom**, so put your session name (`ListAgents` reports it) in the
-   progress note — without it a 🚧 left by a dead session is
-   indistinguishable from a live claim, and rule 5 makes 🚧 outlive a
-   session deliberately.
+   whom**, so put your session name (`ListAgents` reports it on its first
+   line, above the peer list) in the progress note — without it a 🚧 left
+   by a dead session is indistinguishable from a live claim, and rule 5
+   makes 🚧 outlive a session deliberately.
+
+   **Name the checkout you are working in as well.** Nothing on this
+   machine reports which checkout a session occupies, so this note is the
+   only place that fact exists — and rule 3 needs it to tell a second
+   session from a first. Added 2026-09-09 (UTA-0084).
 2. **One item per session, two in total.** `roadmap_query
    status:"in-progress"` — an item another session holds is not
    available, whatever the priority order says about it; a session
@@ -285,26 +322,34 @@ checkout answers `source: "store"`, and a dry-run flip reported
 
    **Check at start-up, because nothing else will — and the check is the
    roadmap, not the process list.** `roadmap_query status:"in-progress"`
-   lists the held items; rule 1 put the holder's session name in each
-   one's progress note. `ListAgents` then says which of those names is
-   live. A named holder that is absent has abandoned its item, and rule 2
-   lets you resume it.
+   lists the held items; rule 1 put the holder's session name and checkout
+   in each one's progress note. `ListAgents` then says which of those names
+   is live. A named holder that is absent has abandoned its item, and rule
+   2 lets you resume it.
 
    **Neither command counts this project's sessions, which is why the
    test is written this way.** `ListAgents` is machine-wide: measured
    2026-09-09, it returned `ants-terminal-ff` and `ut-monsterhunt-b9`,
-   neither working this project. `git worktree list` is project-scoped,
-   but a worktree outlives the session that made it, so its presence
-   proves nothing about a live holder — run it to see whether the main
-   checkout is free, never as a session count.
+   neither working this project. `git worktree list` enumerates the
+   worktrees that EXIST and reports no occupancy at all — the main
+   checkout is listed whether or not a session sits in it, and a worktree
+   outlives the session that made it. **So no command answers "is the main
+   checkout free?", which is why rule 1 has the holder write its
+   checkout down.** A live holder whose note names the main checkout means
+   you are the second session: take a worktree.
 
    **What this route cannot do is detect a breach.** It finds a holder
    that named itself. A session that takes an item without flipping it,
    or flips it without naming itself, is invisible to it. So the cap
    rests on rule 1 being followed, and rule 1 is what makes this rule
-   work at all. Corrected 2026-09-09 (UTA-0084): the test was
+   work at all.
+
+   Corrected 2026-09-09 (UTA-0084), in two passes. The test was
    `git worktree list` and `ListAgents`, and a session following it
-   learned nothing about who held what.
+   learned nothing about who held what. The replacement then claimed
+   `git worktree list` showed whether the main checkout was free — all
+   three lanes of this rule's own gate caught that, and a session trusting
+   it would have seen one entry, concluded main was free, and stayed in it.
 
    `.git/config` is shared across worktrees, so `core.hooksPath` and the
    three `ants.gate.*` settings apply in a new one without being set
@@ -361,4 +406,6 @@ overrides** — it is never empty, so emptiness is not the test.
 ### This file's own review history
 
 Kept outside this file, so every session does not pay for it:
-`docs/claude-md-review-2026-09-04.md`.
+`docs/claude-md-review-<date>.md`, one record per run, loop rows numbered
+continuously across them. Corrected 2026-09-09: this named the first
+record alone, so the runs after it were unreachable from here.
