@@ -1227,11 +1227,30 @@ document already describes.
   UTA-0039 is where a frame-rate floor is held across the map library; either
   could move this number. The mechanism does not change when it does.
 
-- **Whether the vendored encoder uses a transcendental from `<cmath>`.**
-  `docs/design.md` rules a platform maths library out of the baker, and this
-  document has not read `bc7enc.c` to confirm it uses none. § 4.4 disables
-  the perceptual path, which is the likely user of one. The check is owed at
-  vendoring time; INV-6 is what would catch the consequence either way.
+- **~~Whether the vendored encoder uses a transcendental from `<cmath>`.~~
+  SETTLED 2026-09-09 at vendoring time, and the answer is not the one this
+  question expected.** `bc7enc.c` DOES include `<math.h>`, so the letter of
+  `docs/design.md`'s *"no platform maths library in the simulation or the
+  baker"* is breached by this dependency.
+
+  **What it calls is the part that decides.** Measured over the vendored copy
+  at commit `f66c2e48`: `sqrtf` twice, `floor`/`floorf` five times,
+  `fabs`/`fabsf` four times — and **no `pow`, `exp`, `log`, `sin`, `cos`,
+  `tan`, `atan2`, `cbrt` or `hypot`**, which is the family that genuinely
+  differs between libm implementations. `rgbcx.h`, the BC4 and BC5 path,
+  calls `fabs` and nothing else. Every function in that list is pinned
+  exactly by IEEE-754, which mandates correctly-rounded `sqrt` and makes
+  `floor` and `fabs` exact.
+
+  So the rule's own stated ground — `ADR-0002`'s requirement that one map,
+  recipe and baker version hash to one bundle across two compilers — holds,
+  while its wording does not. **Recorded rather than resolved silently: this
+  is a departure from a `docs/design.md` rule and the user may want it
+  decided differently.** The alternatives are patching vendored source, which
+  is worse, or a different BC7 encoder, which reopens § 3 decision 4.
+  **INV-6 is the grader either way** — a golden array on three compilers —
+  so a wrong reading here goes red rather than shipping quietly.
+  `third_party/bc7enc/README.md` carries the same finding beside the code.
 
 - **Whether `core` should gain a resource-exhausted `ErrorCode`.** § 4.6 uses
   `InvalidArgument` because `src/core/Error.h` offers nothing closer and
@@ -1239,12 +1258,20 @@ document already describes.
   amend, and one caller is thin justification. Reopen if a second refusal of
   this shape appears.
 
-- **Whether `bc7enc.h` is covered by the upstream dual licence.** That file's
-  `LICENSE` enumerates `rgbcx.h`, `bc7decomp.cpp/h` and `bc7enc.c` by name
-  and does not name `bc7enc.h`, which § 4.1 vendors alongside them. Almost
-  certainly an omission rather than a reservation — a `.c` file's own header
-  — but it is a licence question on a GPL-3.0 repository, so settle it with
-  upstream or by inspection before the file is copied in, not after.
+- **~~Whether `bc7enc.h` is covered by the upstream dual licence.~~
+  SETTLED 2026-09-09, by inspection, before the file was copied in.** The
+  header carries its own notice on its first line: *"File: bc7enc.h - Richard
+  Geldreich, Jr. - MIT license or public domain (see end of bc7enc.c)"*, and
+  that pointer resolves — `bc7enc.c`'s tail holds the full dual MIT-or-
+  Unlicense text. So the file is licensed by its own terms and the `LICENSE`
+  file's omission is shorthand, not a reservation.
+
+  **The asymmetry that made this worth asking is real and is the reason it
+  reads as an oversight.** `LICENSE` writes `bc7decomp.cpp/h` when it means a
+  pair, and writes `bc7enc.c` alone — so the enumeration is not a list that
+  simply forgot the convention. What settles it is the header itself rather
+  than a reading of the enumeration. Upstream was not contacted; none was
+  needed once the file spoke for itself.
 
 - **Whether `mipCount` should be required rather than permitted.** A texture
   with one level shimmers at distance, so every production texture will carry
