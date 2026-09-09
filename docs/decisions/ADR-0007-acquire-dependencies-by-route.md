@@ -94,10 +94,11 @@ Ubuntu 24.04 carrying `libvulkan-dev` at `1.3.275.0` and `glslc` separately at
 
 **The validation layers are a development prerequisite of this route and are
 deliberately not one of the three.** They are loaded by the loader at run time
-rather than linked, and CMake's `FindVulkan` has no result that reports them,
-so a gate cannot assert them the way it asserts the other three. The README
-names them; nothing checks them, and this paragraph is where that is admitted
-rather than left for someone to discover from a gate that passes.
+rather than linked, and `FindVulkan` searches for a validation-layer library
+only under `IOS`, so no CMake result reports them on the platforms this project
+builds and a gate cannot assert them the way it asserts the other three. **The
+README must name them; nothing checks them**, and this paragraph is where that
+is admitted rather than left for someone to discover from a gate that passes.
 
 **The graphics driver is not part of this and is never acquired.** It is the
 machine's, and `docs/design.md` already rules out one below Vulkan 1.3.
@@ -132,7 +133,12 @@ pay to fetch or compile Assimp. The option's name and default arrive with
    and it is the case in both spellings: the LunarG SDK ships it, and on Linux
    the distribution ships it as a separate package installed beside the loader.
    *Supplied by* is not *free* — on the distribution route it still has to be
-   named in the install line.
+   named in the install line. **The test is whether this project would
+   otherwise acquire it separately, not whether the acquisition happens to
+   carry it.** A route-3 acquisition may bundle a library this project pins for
+   its own reasons — glm is the case, pinned below because `ADR-0002` requires
+   one arithmetic across machines — and a bundled copy does not move it to
+   route 3.
 3. **Does building it need sources it does not ship?** Route 2 — vendored with
    the sibling sources it needs, and the sync step recorded beside them. This
    is the branch `shaderc` would take if nothing already supplied `glslc`, and
@@ -185,7 +191,8 @@ the same treatment.
 **The Vulkan components are a prerequisite on both platforms — the LunarG SDK
 on Windows, that or the distribution's packages on Linux — and on Linux SDL3's
 X11, Wayland and audio development headers are one too, for the reason route 1
-gives. The README must name both before `0.1.0` ships.** This is the cost, and it is real —
+gives. The README must name all three before `0.1.0` ships — those two and the
+validation layers, which route 3 admits nothing checks.** This is the cost, and it is real —
 but it does not change **S7**, whose subject is a machine with no Unreal
 Tournament on it rather than a machine with no toolchain. The SDK step sits
 outside that sign and is a README obligation, which is what
@@ -201,8 +208,10 @@ a toolchain is the runner's job and stays in the
 workflow, as the compiler lines there already do. What the shared gate script
 owns is the *assertion*, and it owns it by configuring the project rather than
 by probing for itself: **the `find_package(Vulkan 1.3 REQUIRED COMPONENTS
-glslc)` call lives in the top-level `CMakeLists.txt`, and `scripts/ci.sh` adds
-no Vulkan step of its own.** `find_package` resolves the headers and loader and
+glslc)` call belongs in the top-level `CMakeLists.txt`, and `scripts/ci.sh`
+adds no Vulkan step of its own.** No such call exists yet: the tree's only
+`find_package` today is `Threads`, in `src/core/CMakeLists.txt`.
+`find_package` resolves the headers and loader and
 reports `Vulkan_VERSION`, and locates `glslc` as `Vulkan::glslc` — an imported
 executable it defines when it finds one. So a contributor with no SDK cannot
 configure at all, which is the intended failure rather than a side effect:
@@ -224,7 +233,7 @@ That is one observable for the three build inputs
 rather than a choice between `$VULKAN_SDK` and a system path, so the gate,
 CMake and the README cannot each pick a different one. **It asserts three of
 route 3's components and not the validation layers**, for the reason that route
-gives: no CMake result reports them on the platforms this project builds.
+gives.
 **The assertion sits in the gate's configure step**, which `--docs` exits
 before reaching, so a documentation-only push from a machine with no Vulkan SDK
 still passes its own gate — which is what that mode exists for. The local gate and the pipeline share the script so
