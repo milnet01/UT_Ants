@@ -44,8 +44,8 @@ inline constexpr std::int64_t NORMAL_STRENGTH = 1;
 [[nodiscard]] Image normalOf(const Image& height, std::uint32_t factor, std::uint32_t level);
 
 /// One channel: baseRoughness + (128 - height) / 4, clamped to [0, 255].
-/// A heuristic -- darker texels rougher -- that the curated library and the
-/// recipe override.
+/// A heuristic -- darker texels rougher. The curated library and the recipe
+/// set only baseRoughness, which this adds to.
 [[nodiscard]] Image roughnessOf(const Image& height, std::uint8_t baseRoughness);
 
 /// RGBA: the base colour where the height is at or above `threshold`, black

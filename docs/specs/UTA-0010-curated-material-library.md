@@ -239,6 +239,29 @@ setting they give. Its source is `MetalSound` if that rule met, else
 **A `Play` entry is added by hand, and replaces any seed entry at its
 fingerprint** — INV-4 allows one entry per fingerprint.
 
+### 4.8 As built (2026-09-10)
+
+Recorded after the build. None of it changes a contract above.
+
+- `CuratedOverride` also declares a defaulted `==`. The census and the
+  tests compare with it.
+- FNV-1a is `detail::Fnv1a` in `src/umat/Fingerprint.h`, shared by the
+  fingerprint and the digest.
+- The table's rows name one of three settings, `METAL`, `GLOW` and
+  `METAL_GLOW`, defined beside it in `src/umat/CuratedMaterials.cpp`.
+- § 4.7's rules and `SEED_BRIGHT_SHARE` live in the census case *the
+  curated seed is what its rules derive over the install*, in
+  `tests/real/RealInstallTest.cpp`. It prints each missing seed entry as
+  a row the table takes as it stands.
+- An entry's `note` names its picture's first copy in sorted file order.
+  Some install files are named with a Windows path, `Textures\X.utx`,
+  and that backslash reaches the note.
+- INV-9's census covers `Textures/*.utx` and `Maps/*.unr`. Its second
+  hash is `std::hash<std::string>` over the fingerprint's input, written
+  out again.
+- § 4.2's `Format` backstop: the census prints how many textures carry a
+  `Format` property and how many of those are one byte a texel.
+
 ## 5. Invariants
 
 - **INV-1** — `pictureFingerprint` on a fixed synthetic level and palette

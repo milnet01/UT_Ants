@@ -257,9 +257,10 @@ never averaged: an averaged normal is no longer unit length.
 
 `umat::materialId` returns the part before the colon, which becomes
 `Material::id`. UTA-0011 builds `<path>` from the export's `outer` chain
-and passes it already joined; UTA-0010's library writes ids in the same
-form. Two textures sharing a name in different groups of one package
-therefore differ.
+and passes it already joined. UTA-0010's library is keyed by a picture
+fingerprint; only an entry's audit-only `note` uses this form. Two
+textures sharing a name in different groups of one package therefore
+differ.
 Each map's `ubundle::CompressedTexture::name` is the whole string. UT99
 resolves names case-insensitively, hence the lower case. **The bundle and the renderer look maps up by this name**, which is
 why it is fixed here. A replacement keeps the identity of the texture it
@@ -545,7 +546,7 @@ on then come out of the tree, not a scratch run.
 | INV-7, INV-8, INV-9, INV-10, INV-11 | `tests/unit/MaterialGenerateTest.cpp` |
 | INV-12 | `src/umat/CMakeLists.txt` configure-time assertion |
 | INV-13 | `Partial:` `tests/real/RealInstallTest.cpp` — local-only by design (S7), so no CI leg runs it |
-| The roughness heuristic suits a material | **nothing** — a heuristic; the curated library and recipe override it |
+| The roughness heuristic suits a material | **nothing** — a heuristic; the curated library and recipe set only its `baseRoughness` |
 | The enlarger looks right, not only scores right | **nothing** — PSNR measures faithfulness, not appearance |
 
 ## 11. Cross-doc impact

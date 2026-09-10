@@ -23,7 +23,7 @@ enforced, not merely described — see *What may depend on what*.
 | Part | Responsible for |
 |---|---|
 | `upkg` | Reading Unreal Engine 1 packages: `.unr`, `.utx`, `.uax`, `.umx`, `.u`. Names, imports, exports, object serialisation, class tables and default properties. Data in, structures out |
-| `umat` | Turning a 1999 texture into a PBR material — resolving the curated library first, generating base colour, normal, roughness, height and emissive maps otherwise. Metallic is one value per material, never a map (UTA-0009). **The curated library ships with the baker**: it holds our own material definitions and any art we have the right to distribute, it lives in the repository rather than under `content/`, and changing it is a baker version change |
+| `umat` | Turning a 1999 texture into a PBR material — generating base colour, normal, roughness, height and emissive maps, with settings the curated library adjusts where it holds an entry for the texture's picture (UTA-0010). Metallic is one value per material, never a map (UTA-0009). **The curated library ships with the baker**: it holds our own material definitions and any art we have the right to distribute, it lives in the repository rather than under `content/`, and a change its digest covers is a baker version change |
 | `ubake` | The map baker. Drives `upkg`, `umat` and the graph builders, and writes one map bundle |
 
 ### The bundle — the seam between the two halves

@@ -17,7 +17,11 @@
 #include "core/FileSystem.h"
 #include "umap/Build.h"
 #include "umap/Rooms.h"
+#include "umat/Derive.h"
 #include "umat/Enlarge.h"
+#include "umat/Fingerprint.h"
+#include "umat/Generate.h"
+#include "umat/Library.h"
 #include "umat/Resolve.h"
 #include "core/Jobs.h"
 #include "unav/Build.h"
@@ -40,6 +44,9 @@
 #include <filesystem>
 #include <cctype>
 #include <cmath>
+#include <format>
+#include <functional>
+#include <iostream>
 #include <map>
 #include <optional>
 #include <set>
@@ -1679,4 +1686,314 @@ TEST_CASE("surfaces sharing a texture disagree on their flags", "[real-assets][u
         WARN("SS 2 item 3 -- " << flag.name << ": " << flag.disagree << " of " << flag.flagged
                                << " shared textures that set it on some surface disagree ("
                                << flag.shared << " shared textures, " << mapsRead << " maps)");
+}
+
+// UTA-0010's census: INV-8, INV-9, and the figures that spec's SS 2 item 2 and
+// SS 4.2 rest on, printed so they are an output of the tree.
+
+namespace {
+
+using uta::umat::CuratedEntry;
+using uta::umat::CuratedOverride;
+using uta::umat::CurationSource;
+
+/// SS 4.7's image check: at least one texel in this many is bright.
+constexpr std::size_t SEED_BRIGHT_SHARE = 100;
+
+constexpr std::array<std::string_view, 5> METAL_SOUND_WORDS{"stepmetal", "hitmetal", "fs_metal",
+                                                            "metalstep", "metwalk"};
+constexpr std::array<std::string_view, 3> METAL_GROUPS{"metal", "metals", "steel"};
+constexpr std::array<std::string_view, 15> GLOW_GROUPS{
+    "light",       "lights", "lamp", "lamps",  "lightbox", "baselight",   "carlights", "gothiclight",
+    "glowpanels",  "lava",   "neon", "screen", "screens",  "panelscreen", "monitors"};
+
+bool isOneOf(std::string_view value, std::span<const std::string_view> set) {
+    return std::ranges::find(set, value) != set.end();
+}
+
+/// A `Texture` export carrying no Format property whose base level has a
+/// fingerprint: SS 4.7's population, in whatever package holds it.
+struct CensusTexture {
+    std::uint64_t fingerprint = 0;
+    std::size_t secondHash = 0; // INV-9's independent hash of the same bytes
+    std::string name;           // folded
+    std::string group;          // the export `outer` names, folded
+    std::vector<std::string> sounds; // FootstepSound and HitSound object names, folded
+    std::string note;           // materialId's form
+    bool bright = false;        // SS 4.7's image check; run only in a glow group
+};
+
+struct FormatFigures {
+    long long carrying = 0;
+    long long oneByteATexel = 0;
+};
+
+/// materialId's `path`: each group holding `entry`, outermost first, then its
+/// name. Bounded by the export count, so a cyclic outer chain cannot hang it.
+std::string exportPath(const uta::upkg::Package& package, const uta::upkg::ExportEntry& entry) {
+    std::string path{package.name(entry.objectName).value_or("")};
+    uta::upkg::ObjectReference outer = entry.outer;
+    for (std::size_t depth = 0; outer.kind() == uta::upkg::ObjectReferenceKind::Export
+                                && depth < package.exports().size();
+         ++depth) {
+        const uta::upkg::ExportEntry& group = package.exports()[outer.index()];
+        path = std::string{package.name(group.objectName).value_or("")} + "." + path;
+        outer = group.outer;
+    }
+    return path;
+}
+
+/// Every census texture in one package, adding its Format figures to `format`.
+std::vector<CensusTexture> censusTextures(const uta::upkg::Package& package,
+                                          std::string_view packageName, FormatFigures& format) {
+    std::vector<CensusTexture> out;
+    for (const auto& object : package.exports()) {
+        const auto className = package.objectName(object.objectClass);
+        if (!className.has_value() || *className != "Texture") continue;
+        const auto properties = uta::upkg::readProperties(package, object);
+        if (!properties.has_value()) continue;
+
+        CensusTexture texture;
+        std::optional<uta::upkg::ObjectReference> paletteReference;
+        bool hasFormat = false;
+        for (const auto& property : *properties) {
+            const auto name = package.name(property.nameIndex);
+            if (!name.has_value()) continue;
+            const auto* reference = std::get_if<uta::upkg::ObjectReference>(&property.value);
+            if (*name == "Format") hasFormat = true;
+            if (*name == "Palette" && reference != nullptr) paletteReference = *reference;
+            if ((*name == "FootstepSound" || *name == "HitSound") && reference != nullptr
+                && reference->kind() != uta::upkg::ObjectReferenceKind::Null)
+                if (const auto sound = package.objectName(*reference); sound.has_value())
+                    texture.sounds.push_back(foldCase(*sound));
+        }
+
+        const auto read = uta::upkg::readTexture(package, object);
+        if (!read.has_value() || read->mips.empty()) continue;
+        const uta::upkg::Mip& base = read->mips[0];
+        if (hasFormat) {
+            ++format.carrying;
+            if (base.pixels.size() == std::size_t{base.width} * base.height) ++format.oneByteATexel;
+            continue;
+        }
+        if (!paletteReference.has_value()
+            || paletteReference->kind() != uta::upkg::ObjectReferenceKind::Export)
+            continue;
+        const auto palette =
+            uta::upkg::readPalette(package, package.exports()[paletteReference->index()]);
+        if (!palette.has_value()) continue;
+        const auto fingerprint = uta::umat::pictureFingerprint(base, *palette);
+        if (!fingerprint.has_value()) continue;
+
+        // The fingerprint's input, written out again here and hashed by a
+        // different algorithm, so a narrowed fingerprint shows as a collision.
+        std::string picture;
+        for (const std::uint32_t dimension : {base.width, base.height})
+            for (int shift = 0; shift < 32; shift += 8)
+                picture.push_back(static_cast<char>(dimension >> shift));
+        for (const std::byte index : base.pixels) picture.push_back(static_cast<char>(index));
+        for (const auto& entry : palette->entries)
+            picture.append({static_cast<char>(entry.r), static_cast<char>(entry.g),
+                            static_cast<char>(entry.b)});
+
+        texture.fingerprint = *fingerprint;
+        texture.secondHash = std::hash<std::string>{}(picture);
+        texture.name = foldCase(package.name(object.objectName).value_or(""));
+        texture.group = foldCase(package.objectName(object.outer).value_or(""));
+        texture.note = uta::umat::materialId(packageName, exportPath(package, object), false);
+        if (isOneOf(texture.group, GLOW_GROUPS)) {
+            const auto rgba = uta::umat::resolve(base, *palette, false);
+            if (rgba.has_value()) {
+                const Image luma = uta::umat::heightOf(*rgba);
+                const std::uint8_t threshold = uta::umat::MaterialSettings{}.emissiveThreshold;
+                const auto bright = std::ranges::count_if(luma.pixels, [threshold](std::byte l) {
+                    return std::to_integer<std::uint8_t>(l) >= threshold;
+                });
+                texture.bright =
+                    static_cast<std::size_t>(bright) * SEED_BRIGHT_SHARE >= luma.pixels.size();
+            }
+        }
+        out.push_back(std::move(texture));
+    }
+    return out;
+}
+
+/// The package files with `extension` directly under `directory`, sorted, so
+/// "the first copy" names the same one on every run.
+std::vector<fs::path> sortedPackages(const fs::path& directory, std::string_view extension) {
+    std::vector<fs::path> out;
+    for (const fs::directory_entry& entry : fs::directory_iterator(directory))
+        if (entry.is_regular_file() && entry.path().extension() == extension)
+            out.push_back(entry.path());
+    std::ranges::sort(out);
+    return out;
+}
+
+/// One row of CuratedMaterials.cpp's table.
+std::string seedRow(std::uint64_t fingerprint, std::string_view note,
+                    const CuratedOverride& settings, CurationSource source) {
+    CuratedOverride metal;
+    metal.metallic = true;
+    CuratedOverride glow;
+    glow.emissive = true;
+    CuratedOverride both = metal;
+    both.emissive = true;
+    const char* shape = settings == metal  ? "METAL"
+                        : settings == glow ? "GLOW"
+                        : settings == both ? "METAL_GLOW"
+                                           : "/* not a seed shape */";
+    const char* why = source == CurationSource::MetalSound  ? "MetalSound"
+                      : source == CurationSource::GroupName ? "GroupName"
+                                                            : "Play";
+    // Some install files are named with a Windows path, `Textures\X.utx`, and
+    // that backslash reaches the note.
+    std::string literal;
+    for (const char character : note) {
+        if (character == '\\' || character == '"') literal.push_back('\\');
+        literal.push_back(character);
+    }
+    return std::format("    {{0x{:016x}ULL, \"{}\", CurationSource::{}, {}}},", fingerprint,
+                       literal, why, shape);
+}
+
+} // namespace
+
+TEST_CASE("the curated seed is what its rules derive over the install", "[real-assets][umat]") {
+    // UTA-0010 INV-8 and INV-9, and the figures SS 2 item 2 and SS 4.2 rest
+    // on. Every seed entry the table lacks is printed to stdout as a row
+    // CuratedMaterials.cpp can take as it stands.
+    struct Packaged {
+        std::string note; // the first copy in sorted file order
+        std::set<std::string> names;
+        bool metalSound = false;
+        bool metalGroup = false;
+        bool glowGroup = false;
+        bool glow = false; // a glow group AND the image check
+    };
+    const fs::path root{UTA_UT_INSTALL_DIR};
+    FormatFigures format;
+    std::map<std::uint64_t, std::size_t> secondHashes;
+    long long collisions = 0;
+    const auto recordHash = [&](const CensusTexture& texture) {
+        const auto [at, inserted] = secondHashes.try_emplace(texture.fingerprint, texture.secondHash);
+        if (inserted || at->second == texture.secondHash) return;
+        ++collisions;
+        WARN("INV-9 -- fingerprint " << std::format("{:016x}", texture.fingerprint)
+                                     << " carries two pictures, one of them " << texture.note);
+    };
+
+    std::map<std::uint64_t, Packaged> packaged;
+    long long population = 0;
+    for (const fs::path& path : sortedPackages(root / "Textures", ".utx")) {
+        const auto read = uta::fs::readFile(path);
+        REQUIRE(read.has_value());
+        const auto package = uta::upkg::Package::open(std::span<const std::byte>{*read});
+        if (!package.has_value()) continue;
+        for (const CensusTexture& texture : censusTextures(*package, path.stem().string(), format)) {
+            ++population;
+            recordHash(texture);
+            Packaged& picture = packaged[texture.fingerprint];
+            if (picture.note.empty()) picture.note = texture.note;
+            picture.names.insert(texture.name);
+            for (const std::string& sound : texture.sounds)
+                for (const std::string_view word : METAL_SOUND_WORDS)
+                    if (sound.find(word) != std::string::npos) picture.metalSound = true;
+            if (isOneOf(texture.group, METAL_GROUPS)) picture.metalGroup = true;
+            if (isOneOf(texture.group, GLOW_GROUPS)) {
+                picture.glowGroup = true;
+                if (texture.bright) picture.glow = true;
+            }
+        }
+    }
+
+    long long embedded = 0;
+    long long copies = 0;
+    long long renamed = 0;
+    long long mapsRead = 0;
+    long long mapsHoldingACopy = 0;
+    for (const fs::path& path : sortedPackages(root / "Maps", ".unr")) {
+        const auto read = uta::fs::readFile(path);
+        REQUIRE(read.has_value());
+        const auto package = uta::upkg::Package::open(std::span<const std::byte>{*read});
+        if (!package.has_value()) continue;
+        ++mapsRead;
+        bool holdsACopy = false;
+        for (const CensusTexture& texture : censusTextures(*package, path.stem().string(), format)) {
+            ++embedded;
+            recordHash(texture);
+            const auto found = packaged.find(texture.fingerprint);
+            if (found == packaged.end()) continue;
+            ++copies;
+            holdsACopy = true;
+            if (!found->second.names.contains(texture.name)) ++renamed;
+        }
+        if (holdsACopy) ++mapsHoldingACopy;
+    }
+
+    // SS 4.7's seed, derived; then both sides with every Play fingerprint removed.
+    std::map<std::uint64_t, std::pair<CuratedOverride, CurationSource>> derived;
+    long long metalBySound = 0;
+    long long metalByGroup = 0;
+    long long glowCandidates = 0;
+    long long glowing = 0;
+    for (const auto& [fingerprint, picture] : packaged) {
+        metalBySound += picture.metalSound ? 1 : 0;
+        metalByGroup += picture.metalGroup ? 1 : 0;
+        glowCandidates += picture.glowGroup ? 1 : 0;
+        glowing += picture.glow ? 1 : 0;
+        if (!picture.metalSound && !picture.metalGroup && !picture.glow) continue;
+        CuratedOverride settings;
+        if (picture.metalSound || picture.metalGroup) settings.metallic = true;
+        if (picture.glow) settings.emissive = true;
+        derived.emplace(fingerprint,
+                        std::pair{settings, picture.metalSound ? CurationSource::MetalSound
+                                                               : CurationSource::GroupName});
+    }
+    std::map<std::uint64_t, const CuratedEntry*> table;
+    std::set<std::uint64_t> play;
+    for (const CuratedEntry& entry : uta::umat::curatedLibrary()) {
+        if (entry.source == CurationSource::Play) play.insert(entry.fingerprint);
+        else table.emplace(entry.fingerprint, &entry);
+    }
+    for (const std::uint64_t fingerprint : play) {
+        derived.erase(fingerprint);
+        table.erase(fingerprint);
+    }
+
+    long long missing = 0;
+    long long extra = 0;
+    for (const auto& [fingerprint, want] : derived) {
+        const auto found = table.find(fingerprint);
+        if (found != table.end() && found->second->settings == want.first
+            && found->second->source == want.second)
+            continue;
+        ++missing;
+        std::cout << seedRow(fingerprint, packaged.at(fingerprint).note, want.first, want.second)
+                  << '\n';
+    }
+    for (const auto& [fingerprint, entry] : table)
+        if (!derived.contains(fingerprint)) {
+            ++extra;
+            std::cout << "extra: "
+                      << seedRow(fingerprint, entry->note, entry->settings, entry->source) << '\n';
+        }
+
+    WARN("SS 4.7 population -- " << population << " textures, " << packaged.size()
+                                 << " pictures; metal by sound " << metalBySound
+                                 << ", metal by group " << metalByGroup << ", glow group "
+                                 << glowCandidates << " of which " << glowing
+                                 << " pass the image check");
+    WARN("SS 2 item 2 -- embedded textures copying a packaged picture: "
+         << copies << " of " << embedded << ", renamed " << renamed << ", in "
+         << mapsHoldingACopy << " of " << mapsRead << " maps");
+    WARN("SS 4.2 -- textures carrying a Format property: " << format.carrying
+                                                           << ", of those one byte a texel: "
+                                                           << format.oneByteATexel);
+    WARN("INV-8 -- seed entries missing " << missing << ", extra " << extra << "; Play entries "
+                                          << play.size());
+
+    REQUIRE(population > 0);
+    CHECK(collisions == 0);
+    CHECK(missing == 0);
+    CHECK(extra == 0);
 }

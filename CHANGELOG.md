@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **umat: a curated material library, found by a fingerprint of each texture's picture** (UTA-0010)
+  An entry marks a texture metal or glowing, and reaches every copy of
+  its picture, renamed or not. It ships with a seed derived from what
+  the textures say about themselves. Its digest is the baker version's
+  share (UTA-0011).
+
 - **umat turns a 1999 texture into a modern material** (UTA-0009)
   Each texture is enlarged with a Lanczos filter and gains normal,
   roughness and height maps derived from it, plus a glow map where marked,
