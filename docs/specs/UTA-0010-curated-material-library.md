@@ -103,10 +103,17 @@ over these bytes, in this order:
 2. every index byte of `base`, row by row;
 3. every palette entry's `r`, `g` and `b`, in entry order.
 
-**These are exactly the bytes `umat::resolve` reads**, and palette alpha is
-left out because `resolve` ignores it (`src/umat/Resolve.h`). So two
-textures resolve to the same picture exactly when they share a
-fingerprint, collisions aside — INV-9 grades those. `core` has no hash
+**These are the bytes `umat::resolve` reads, plus any palette entries no
+index names.** Palette alpha is left out because `resolve` ignores it
+(`src/umat/Resolve.h`). So two textures sharing a fingerprint resolve to
+the same picture, collisions aside — INV-9 grades those. Two copies that
+differ only in an unused palette entry do not match, which the user's
+decision — pixels and palette — accepts.
+
+**The caller passes only a texture carrying no `Format` property.** The
+byte-count check is a backstop: a block format storing one byte per texel
+would pass it. § 7's census prints how many textures carry a `Format`
+property and how many of those pass the check. `core` has no hash
 function, so this one is `umat`'s. The source gives the two constants in
 decimal, as 14695981039346656037 and 1099511628211.
 Source: <https://www.isthe.com/chongo/tech/comp/fnv/index.html>.
@@ -163,7 +170,10 @@ replaces that picture.
 
 **Generated defaults, then the library, then the recipe.** The baker
 starts from `MaterialSettings{}`, applies the library's entry, then the
-map recipe's own material assignment. The recipe wins because the map's
+map recipe's own material assignment. The recipe's assignment is applied
+the way an entry is, through `applied`: only the fields it sets replace
+anything, so a recipe setting only `metallic` keeps a library `emissive`.
+The recipe wins because the map's
 author knows the map — the reason `docs/design.md` gives for a recipe's
 class override beating the global list.
 
@@ -187,8 +197,10 @@ how this library is "versioned with" the baker.
 
 ### 4.7 The seed
 
-The seed's population is every `Texture`-class export in the reference
-install's `Textures/*.utx` whose base level has a fingerprint. Copies
+The seed's population is every export whose class is exactly `Texture` —
+not the procedural classes `upkg::isModelledTextureClass` also accepts —
+in the reference install's `Textures/*.utx`, carrying no `Format`
+property, whose base level has a fingerprint. Copies
 collapse to one entry per fingerprint, and a picture qualifies when any
 of its copies does.
 
@@ -205,14 +217,18 @@ of its copies does.
   `panelscreen` or `monitors`, lower-cased — **and** the image check
   passes. Sets `emissive`.
 - **The image check**: at least `SEED_BRIGHT_SHARE`, one texel in a
-  hundred, of the resolved base level has a Rec. 709 luma at or above
+  hundred, of the base level resolved as the opaque variant has a Rec. 709
+  luma at or above
   `MaterialSettings{}.emissiveThreshold`, computed as UTA-0009's
   `heightOf` computes it. A group named like a light whose picture has no
   bright texels would give an all-black emissive map.
 
-A picture meeting a metal rule and the glow rule gets both settings, and
-takes the metal rule's source. Everything else stays with the generated
-defaults.
+A picture meeting several rules, through one copy or several, gets every
+setting they give. Its source is `MetalSound` if that rule met, else
+`GroupName`. Everything else stays with the generated defaults.
+
+**A `Play` entry is added by hand, and replaces any seed entry at its
+fingerprint** — INV-4 allows one entry per fingerprint.
 
 ## 5. Invariants
 
@@ -257,9 +273,9 @@ defaults.
   *Breaks when:* the search is off by one at either end.
 
 - **INV-6** — `applied` replaces exactly the fields an entry sets.
-  *Test:* `tests/unit/MaterialLibraryTest.cpp`, an override setting only
-  `metallic` and one setting only `emissiveThreshold`, each applied to
-  non-default settings. No arrow: the surface does not exist yet.
+  *Test:* `tests/unit/MaterialLibraryTest.cpp`: an override per field
+  setting it alone, and one setting all four, each applied to settings that
+  differ from it in every field. No arrow: the surface does not exist yet.
   *Breaks when:* an empty field resets its setting to the default instead
   of keeping it.
 
@@ -273,13 +289,14 @@ defaults.
   Content addressing bullet names.
 
 - **INV-8** — over the reference install, § 4.7's rules produce exactly
-  the table's `MetalSound` and `GroupName` entries, with the same
-  settings. `Play` entries are exempt.
+  the table's `MetalSound` and `GroupName` entries — fingerprint, settings
+  and source — once every fingerprint a `Play` entry holds is removed from
+  both sides.
   *Test:* a census case in `tests/real/RealInstallTest.cpp` that
   re-derives the seed and prints every missing or extra entry as a table
   row. Real-asset tier only. No arrow: the case does not exist yet.
-  *Breaks when:* a seed entry is edited by hand, or a rule changes without
-  the table following — either way the seed stops being what § 4.7 says
+  *Breaks when:* a seed entry is edited by hand instead of replaced by a
+  `Play` entry, or a rule changes without the table following — either way the seed stops being what § 4.7 says
   it is.
 
 - **INV-9** — no two different pictures in the reference install share a
@@ -302,8 +319,8 @@ defaults.
   install. Outside it, a collision applies one picture's settings to
   another, and nothing detects it.
 - **A seed rule that is wrong for a picture** — a metal-sounding texture
-  that is painted wood. A `Play` entry with the right settings, or the
-  recipe, overrides it.
+  that is painted wood. A `Play` entry with the right settings replaces
+  the seed entry, or the recipe overrides it.
 
 ## 7. Tests
 
@@ -320,7 +337,8 @@ and test.
 **The census case also prints § 2 item 2's figures** — how many textures
 embedded in maps copy a packaged picture, how many were renamed, and how
 many maps hold one — so the measurement behind § 3 decision 1 is an
-output of the tree, not a scratch run.
+output of the tree, not a scratch run. It prints § 4.2's `Format` figures
+too.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -364,7 +382,12 @@ output of the tree, not a scratch run.
 - ROADMAP UTA-0010 — its body's "keyed by texture name" is replaced by
   § 3 decision 1, already recorded on the item.
 - ROADMAP UTA-0011 — gains the obligation to fold `libraryDigest()` into
-  the baker version, and § 4.5's order.
+  the baker version, § 4.5's order, and § 4.2's `Format` rule.
+- `docs/design.md` § The parts — the `umat` row says the library is
+  resolved first and generation runs otherwise, and that changing it is a
+  baker version change. Under this spec an entry adjusts the settings
+  generation runs with, and only a change the digest covers is a baker
+  version change. The row is reworded to say so.
 - `CHANGELOG.md` — an Added entry when this ships.
 
 ## 12. Cold-eyes loop log
