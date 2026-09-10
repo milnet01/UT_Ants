@@ -3822,6 +3822,25 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: uworld.
 
+- 📋 [UTA-0091] **ubundle: split Bundle.cpp by section, so work on one section does not share a file with another.**
+  The user's standing request (2026-09-10): refactor files at every
+  opportunity, because Ants Terminal is building a way for several sessions
+  to work one project at once, and two sessions editing one file collide.
+
+  src/ubundle/Bundle.cpp holds three reasons to change in one file: the
+  container framing (header, section table, read and write), the ROOM,
+  NAVG and WIRG section codecs (which move when umap or unav do --
+  UTA-0085 will change NAVG), and the TEXS codec (which moves with umat --
+  UTA-0052, then UTA-0009). Its history already shows two items editing
+  it. That is coding.md section 1.8's seam, not a line count.
+
+  Behaviour must not move. UTA-0008's and UTA-0052's golden byte arrays
+  grade every section's bytes, so the whole existing suite is the check.
+  **Layman:** Break the bundle file-format code into one file per part of the format, so two people or sessions working on different parts do not trip over each other.
+  Kind: refactor.
+  Source: user-request-2026-09-10.
+  Lanes: ubundle.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -4213,6 +4232,49 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   **Layman:** Bots notice a gap or a crate in front of them and jump it, jump onto it, or walk around it, instead of running into it.
   Kind: feature.
   Source: user-request-2026-09-08.
+
+- 📋 [UTA-0092] **Give every baked map more than one player spawn point.**
+  The user's requirement (2026-09-10): when a map is imported, check
+  that it has more than one spawn point. Where it has only one, add more,
+  even if the new ones sit right next to the original.
+
+  In UT99 a spawn point is a PlayerStart actor. The bake counts them.
+  Where it finds one, it places extra starts beside it, each tested
+  against the level's collision so nobody spawns inside a wall. The added
+  starts go in the bundle, never into the player's own map file.
+
+  Open for whoever picks this up: how many to add, and whether a map with
+  no PlayerStart at all is refused or given one.
+
+  Filed under 0.3.0 because that is where several players first spawn
+  together (UTA-0027). The bake side is UTA-0011's, and placing a start
+  clear of walls needs UTA-0017's collision.
+
+  Blocked-by: UTA-0011.
+  **Layman:** If a map only has one place for players to appear, add a few more beside it, so several players joining together are not all dropped on the same spot.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: ubake, ugame.
+
+- 📋 [UTA-0093] **Spawn protection: a few seconds of safety after a player appears.**
+  The user's requirement (2026-09-10): a spawn protection timer of about
+  three seconds, so a player gets their bearings even when monsters have
+  chased the players or bots back into the spawn room.
+
+  Three seconds is the user's starting figure, not a measured one. It is
+  a rule default a server operator can change, on the same footing as the
+  other per-map rule settings (S10).
+
+  Open for whoever picks this up: whether protection ends early when the
+  player fires or picks something up, as it does in many shooters, and
+  how a protected player looks to others.
+
+  Filed under 0.3.0 beside Deathmatch (UTA-0027), where it first matters.
+  Monster Hunt (UTA-0029) uses the same rule.
+  **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: ugame.
 
 ## 0.4.0 — Monster Hunt
 

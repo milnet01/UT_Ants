@@ -97,6 +97,11 @@ A new static library `uta_ubundle` from `src/ubundle/`, holding
 `uta_umap` for `RoomMap`, and `uta_unav` for the two graphs — and nothing
 else.
 
+**As built (2026-09-10, UTA-0091):** `Bundle.cpp` keeps the header, the
+section table, and `read` and `write`. Each section's codec is a file of its
+own beside it, because each changes for its own reason. Nothing about the
+format or the link list moved.
+
 It must **not** link `uta_upkg`. `docs/design.md` rule 2 keeps the package
 reader out of every runtime target, and `ut-ants` links this library in order
 to load a bundle (UTA-0016). It must also link `uta_umap` and `uta_unav`

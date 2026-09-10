@@ -16,7 +16,7 @@
 // The `Bytes` helper below emits primitives; it does NOT know the layout. The
 // LAYOUT -- which field follows which -- is stated by the call order in
 // goldenBytes(), read off SS 4.6 to SS 4.8, and that is what is independent
-// of src/ubundle/Bundle.cpp.
+// of src/ubundle/'s codecs.
 //
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator, so
 // a name carrying one silently matches nothing when run by name.

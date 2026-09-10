@@ -3,7 +3,7 @@
 // Emits the primitives UTA-0008 SS 4.2 defines and NOTHING about the layout:
 // which field follows which is said by the CALL ORDER at each call site, read
 // off the spec. That separation is what makes a golden fixture independent of
-// src/ubundle/Bundle.cpp -- a helper that knew the layout would agree with the
+// src/ubundle/'s codecs -- a helper that knew the layout would agree with the
 // reader by construction, and a swap present in both would round-trip
 // perfectly.
 //

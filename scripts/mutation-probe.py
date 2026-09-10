@@ -68,55 +68,55 @@ SUBJECTS = {
             # -- SS 4.6 to SS 4.8: two adjacent fields of one width and type,
             # transposed. INV-6 and INV-7. A round trip cannot see these; only
             # the hand-authored golden array can.
-            ("swap Node iLeaf[0] and iLeaf[1]", "src/ubundle/Bundle.cpp",
+            ("swap Node iLeaf[0] and iLeaf[1]", "src/ubundle/RoomSection.cpp",
              "    UTA_TRY(node.iLeaf[0], cursor.readI32());\n    UTA_TRY(node.iLeaf[1], cursor.readI32());",
              "    UTA_TRY(node.iLeaf[1], cursor.readI32());\n    UTA_TRY(node.iLeaf[0], cursor.readI32());"),
-            ("swap Node normal.x and normal.y", "src/ubundle/Bundle.cpp",
+            ("swap Node normal.x and normal.y", "src/ubundle/RoomSection.cpp",
              "    UTA_TRY(node.normal.x, cursor.readF32());\n    UTA_TRY(node.normal.y, cursor.readF32());",
              "    UTA_TRY(node.normal.y, cursor.readF32());\n    UTA_TRY(node.normal.x, cursor.readF32());"),
-            ("swap Node normal.z and w", "src/ubundle/Bundle.cpp",
+            ("swap Node normal.z and w", "src/ubundle/RoomSection.cpp",
              "    UTA_TRY(node.normal.z, cursor.readF32());\n    UTA_TRY(node.w, cursor.readF32());",
              "    UTA_TRY(node.w, cursor.readF32());\n    UTA_TRY(node.normal.z, cursor.readF32());"),
-            ("swap Node iZone[0] and iZone[1]", "src/ubundle/Bundle.cpp",
+            ("swap Node iZone[0] and iZone[1]", "src/ubundle/RoomSection.cpp",
              "    UTA_TRY(node.iZone[0], cursor.readU8());\n    UTA_TRY(node.iZone[1], cursor.readU8());",
              "    UTA_TRY(node.iZone[1], cursor.readU8());\n    UTA_TRY(node.iZone[0], cursor.readU8());"),
-            ("swap Room minZ and maxZ", "src/ubundle/Bundle.cpp",
+            ("swap Room minZ and maxZ", "src/ubundle/RoomSection.cpp",
              "    UTA_TRY(room.minZ, cursor.readF32());\n    UTA_TRY(room.maxZ, cursor.readF32());",
              "    UTA_TRY(room.maxZ, cursor.readF32());\n    UTA_TRY(room.minZ, cursor.readF32());"),
-            ("swap Point2 x and y", "src/ubundle/Bundle.cpp",
+            ("swap Point2 x and y", "src/ubundle/RoomSection.cpp",
              "    UTA_TRY(point.x, cursor.readF32());\n    UTA_TRY(point.y, cursor.readF32());",
              "    UTA_TRY(point.y, cursor.readF32());\n    UTA_TRY(point.x, cursor.readF32());"),
-            ("swap NavNode firstEdge and edgeCount", "src/ubundle/Bundle.cpp",
+            ("swap NavNode firstEdge and edgeCount", "src/ubundle/NavSection.cpp",
              "    UTA_TRY(node.firstEdge, cursor.readU32());\n    UTA_TRY(node.edgeCount, cursor.readU32());",
              "    UTA_TRY(node.edgeCount, cursor.readU32());\n    UTA_TRY(node.firstEdge, cursor.readU32());"),
-            ("swap NavEdge distance and collisionRadius", "src/ubundle/Bundle.cpp",
+            ("swap NavEdge distance and collisionRadius", "src/ubundle/NavSection.cpp",
              "    UTA_TRY(edge.distance, cursor.readI32());\n    UTA_TRY(edge.collisionRadius, cursor.readI32());",
              "    UTA_TRY(edge.collisionRadius, cursor.readI32());\n    UTA_TRY(edge.distance, cursor.readI32());"),
-            ("swap NavEdge collisionHeight and reachFlags", "src/ubundle/Bundle.cpp",
+            ("swap NavEdge collisionHeight and reachFlags", "src/ubundle/NavSection.cpp",
              "    UTA_TRY(edge.collisionHeight, cursor.readI32());\n    UTA_TRY(edge.reachFlags, cursor.readI32());",
              "    UTA_TRY(edge.reachFlags, cursor.readI32());\n    UTA_TRY(edge.collisionHeight, cursor.readI32());"),
-            ("swap WiringNode firstIncoming and incomingCount", "src/ubundle/Bundle.cpp",
+            ("swap WiringNode firstIncoming and incomingCount", "src/ubundle/WiringSection.cpp",
              "    UTA_TRY(node.firstIncoming, cursor.readU32());\n    UTA_TRY(node.incomingCount, cursor.readU32());",
              "    UTA_TRY(node.incomingCount, cursor.readU32());\n    UTA_TRY(node.firstIncoming, cursor.readU32());"),
-            ("swap WiringNode firstOutgoing and outgoingCount", "src/ubundle/Bundle.cpp",
+            ("swap WiringNode firstOutgoing and outgoingCount", "src/ubundle/WiringSection.cpp",
              "    UTA_TRY(node.firstOutgoing, cursor.readU32());\n    UTA_TRY(node.outgoingCount, cursor.readU32());",
              "    UTA_TRY(node.outgoingCount, cursor.readU32());\n    UTA_TRY(node.firstOutgoing, cursor.readU32());"),
-            ("swap the RoomMap bands and roomForZone order", "src/ubundle/Bundle.cpp",
+            ("swap the RoomMap bands and roomForZone order", "src/ubundle/RoomSection.cpp",
              '    UTA_TRY(map.bands, readVector<float>(cursor, MIN_F32, "bands", readF32Element));',
              '    UTA_TRY(map.roomForZone,\n            readVector<std::uint32_t>(cursor, MIN_U32, "x", readU32Element));\n'
              '    UTA_TRY(map.bands, readVector<float>(cursor, MIN_F32, "bands", readF32Element));'),
-            ("the WRITER swaps iFront and iBack", "src/ubundle/Bundle.cpp",
+            ("the WRITER swaps iFront and iBack", "src/ubundle/RoomSection.cpp",
              "    sink.putI32(node.iFront);\n    sink.putI32(node.iBack);",
              "    sink.putI32(node.iBack);\n    sink.putI32(node.iFront);"),
 
             # -- SS 4.2 rule 1: the allocation bound. INV-1 and INV-2.
-            ("the count bound multiplies instead of dividing", "src/ubundle/Bundle.cpp",
+            ("the count bound multiplies instead of dividing", "src/ubundle/Codec.h",
              "    if (count > cursor.remaining() / minElement)",
              "    if (static_cast<std::uint32_t>(count * minElement) > cursor.remaining())"),
-            ("the count bound is removed", "src/ubundle/Bundle.cpp",
+            ("the count bound is removed", "src/ubundle/Codec.h",
              "    if (count > cursor.remaining() / minElement)",
              "    if (count > 0xFFFFFFFFU)"),
-            ("readBytes' own bound is removed", "src/ubundle/Bundle.cpp",
+            ("readBytes' own bound is removed", "src/ubundle/Codec.h",
              '        if (remaining() < count) return shortRead("byte run");',
              "        // removed"),
 
@@ -182,106 +182,106 @@ SUBJECTS = {
              "        // removed"),
 
             # -- SS 4.9: structural validation of ROOM. INV-3.
-            ("the roomForZone entry bound is removed", "src/ubundle/Bundle.cpp",
+            ("the roomForZone entry bound is removed", "src/ubundle/RoomSection.cpp",
              "        if (room != umap::NO_ROOM && room >= roomCount)\n"
              '            return fail(code, "ROOM: a roomForZone entry names no room");',
              "        (void)room;"),
-            ("the roomForZone[0] rule is removed", "src/ubundle/Bundle.cpp",
+            ("the roomForZone[0] rule is removed", "src/ubundle/RoomSection.cpp",
              "    if (!map.roomForZone.empty() && map.roomForZone[0] != umap::NO_ROOM)\n"
              '        return fail(code, "ROOM: roomForZone[0] is not NO_ROOM");',
              "    // removed"),
-            ("the zone-zero rule is removed", "src/ubundle/Bundle.cpp",
+            ("the zone-zero rule is removed", "src/ubundle/RoomSection.cpp",
              '        if (room.zoneIndex == 0) return fail(code, "ROOM: a room names zone 0");',
              "        // removed"),
-            ("the zoneIndex bound is removed", "src/ubundle/Bundle.cpp",
+            ("the zoneIndex bound is removed", "src/ubundle/RoomSection.cpp",
              "        if (room.zoneIndex >= zoneCount)\n"
              '            return fail(code, "ROOM: a room\'s zoneIndex is outside roomForZone");',
              "        if (room.zoneIndex >= zoneCount) continue;"),
-            ("the two-table agreement rule is removed", "src/ubundle/Bundle.cpp",
+            ("the two-table agreement rule is removed", "src/ubundle/RoomSection.cpp",
              "        if (static_cast<std::uint64_t>(map.roomForZone[room.zoneIndex]) != position)\n"
              '            return fail(code, "ROOM: roomForZone and rooms disagree about which room owns a zone");',
              "        // removed"),
-            ("the empty-floors rule is removed", "src/ubundle/Bundle.cpp",
+            ("the empty-floors rule is removed", "src/ubundle/RoomSection.cpp",
              '        if (room.floors.empty()) return fail(code, "ROOM: a room\'s floors is empty");',
              "        // removed"),
-            ("the floor-band bound is removed", "src/ubundle/Bundle.cpp",
+            ("the floor-band bound is removed", "src/ubundle/RoomSection.cpp",
              "            if (floor >= map.bands.size())\n"
              '                return fail(code, "ROOM: a room names a floor band that does not exist");',
              "            (void)floor;"),
-            ("the bands-ascending rule is removed", "src/ubundle/Bundle.cpp",
+            ("the bands-ascending rule is removed", "src/ubundle/RoomSection.cpp",
              "        if (!(map.bands[i] >= map.bands[i - 1]))\n"
              '            return fail(code, "ROOM: bands are not in ascending order");',
              "        (void)i;"),
-            ("the leafZone bound is removed", "src/ubundle/Bundle.cpp",
+            ("the leafZone bound is removed", "src/ubundle/RoomSection.cpp",
              "        if (zone != umap::ZONE_REFUSED && zone >= zoneCount)\n"
              '            return fail(code, "ROOM: a leafZone entry is outside roomForZone");',
              "        (void)zone;"),
-            ("the node child-index bound is removed", "src/ubundle/Bundle.cpp",
+            ("the node child-index bound is removed", "src/ubundle/RoomSection.cpp",
              "        if (!indexOrNone(node.iFront, map.nodes.size())\n"
              "            || !indexOrNone(node.iBack, map.nodes.size()))\n"
              '            return fail(code, "ROOM: a node\'s child index is out of range");',
              "        // removed"),
-            ("the node leaf-index bound is removed", "src/ubundle/Bundle.cpp",
+            ("the node leaf-index bound is removed", "src/ubundle/RoomSection.cpp",
              "        if (!indexOrNone(node.iLeaf[0], map.leafZone.size())\n"
              "            || !indexOrNone(node.iLeaf[1], map.leafZone.size()))\n"
              '            return fail(code, "ROOM: a node\'s leaf index is out of range");',
              "        // removed"),
 
             # -- SS 4.9: NAVG.
-            ("the NAVG ascending-exportIndex rule is removed", "src/ubundle/Bundle.cpp",
+            ("the NAVG ascending-exportIndex rule is removed", "src/ubundle/NavSection.cpp",
              "        if (graph.nodes[i].exportIndex <= graph.nodes[i - 1].exportIndex)\n"
              '            return fail(code, "NAVG: nodes are not in strictly ascending exportIndex order");',
              "        // removed"),
-            ("the NAVG ascending rule becomes non-strict", "src/ubundle/Bundle.cpp",
+            ("the NAVG ascending rule becomes non-strict", "src/ubundle/NavSection.cpp",
              "        if (graph.nodes[i].exportIndex <= graph.nodes[i - 1].exportIndex)\n"
              '            return fail(code, "NAVG: nodes are not in strictly ascending exportIndex order");',
              "        if (graph.nodes[i].exportIndex < graph.nodes[i - 1].exportIndex)\n"
              '            return fail(code, "NAVG: nodes are not in ascending exportIndex order");'),
-            ("the NAVG run bound is removed", "src/ubundle/Bundle.cpp",
+            ("the NAVG run bound is removed", "src/ubundle/NavSection.cpp",
              "        if (!runWithin(node.firstEdge, node.edgeCount, graph.edges.size()))\n"
              '            return fail(code, "NAVG: a node\'s edge run reaches past the edge table");',
              "        if (!runWithin(node.firstEdge, node.edgeCount, graph.edges.size())) continue;"),
-            ("the NAVG run-membership rule is removed", "src/ubundle/Bundle.cpp",
+            ("the NAVG run-membership rule is removed", "src/ubundle/NavSection.cpp",
              "            if (graph.edges[static_cast<std::size_t>(node.firstEdge) + j].from != i)\n"
              '                return fail(code, "NAVG: an edge in a node\'s run does not name that node");',
              "            (void)j;"),
-            ("the NAVG endpoint bound is removed", "src/ubundle/Bundle.cpp",
+            ("the NAVG endpoint bound is removed", "src/ubundle/NavSection.cpp",
              "        if (edge.from >= graph.nodes.size() || edge.to >= graph.nodes.size())\n"
              '            return fail(code, "NAVG: an edge endpoint names no node");',
              "        // removed"),
 
             # -- SS 4.9: WIRG.
-            ("the WIRG ascending-exportIndex rule is removed", "src/ubundle/Bundle.cpp",
+            ("the WIRG ascending-exportIndex rule is removed", "src/ubundle/WiringSection.cpp",
              "        if (graph.nodes[i].exportIndex <= graph.nodes[i - 1].exportIndex)\n"
              '            return fail(code, "WIRG: nodes are not in strictly ascending exportIndex order");',
              "        // removed"),
-            ("the WIRG incoming/edges size equality is removed", "src/ubundle/Bundle.cpp",
+            ("the WIRG incoming/edges size equality is removed", "src/ubundle/WiringSection.cpp",
              "    if (graph.incoming.size() != graph.edges.size())\n"
              '        return fail(code, "WIRG: incoming and edges hold different numbers of edges");',
              "    // removed"),
-            ("the WIRG outgoing run bound is removed", "src/ubundle/Bundle.cpp",
+            ("the WIRG outgoing run bound is removed", "src/ubundle/WiringSection.cpp",
              "        if (!runWithin(node.firstOutgoing, node.outgoingCount, graph.edges.size()))\n"
              '            return fail(code, "WIRG: a node\'s outgoing run reaches past the edge table");',
              "        if (!runWithin(node.firstOutgoing, node.outgoingCount, graph.edges.size())) continue;"),
-            ("the WIRG outgoing membership rule is removed", "src/ubundle/Bundle.cpp",
+            ("the WIRG outgoing membership rule is removed", "src/ubundle/WiringSection.cpp",
              "            if (graph.edges[static_cast<std::size_t>(node.firstOutgoing) + j].from != i)\n"
              '                return fail(code, "WIRG: an edge in a node\'s outgoing run does not name that node");',
              "            (void)j;"),
-            ("the WIRG incoming run bound is removed", "src/ubundle/Bundle.cpp",
+            ("the WIRG incoming run bound is removed", "src/ubundle/WiringSection.cpp",
              "        if (!runWithin(node.firstIncoming, node.incomingCount, graph.incoming.size()))\n"
              '            return fail(code, "WIRG: a node\'s incoming run reaches past the incoming table");',
              "        if (!runWithin(node.firstIncoming, node.incomingCount, graph.incoming.size())) continue;"),
-            ("the WIRG incoming membership rule is removed", "src/ubundle/Bundle.cpp",
+            ("the WIRG incoming membership rule is removed", "src/ubundle/WiringSection.cpp",
              "            if (graph.incoming[static_cast<std::size_t>(node.firstIncoming) + j].to != i)\n"
              '                return fail(code, "WIRG: an edge in a node\'s incoming run does not name that node");',
              "            (void)j;"),
-            ("the WIRG dangling bound is removed", "src/ubundle/Bundle.cpp",
+            ("the WIRG dangling bound is removed", "src/ubundle/WiringSection.cpp",
              "        if (dangling.from >= graph.nodes.size())\n"
              '            return fail(code, "WIRG: a dangling event names no node");',
              "        // removed"),
 
             # -- SS 4.2 and SS 4.10: floats and the writer. INV-9, INV-8.
-            ("a float is moved through a wider type", "src/ubundle/Bundle.cpp",
+            ("a float is moved through a wider type", "src/ubundle/Codec.h",
              "        UTA_TRY(const std::uint32_t bits, readU32());\n        return std::bit_cast<float>(bits);",
              "        UTA_TRY(const std::uint32_t bits, readU32());\n"
              "        const double wide = static_cast<double>(std::bit_cast<float>(bits));\n"

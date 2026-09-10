@@ -6,7 +6,15 @@
 # must reach uta_upkg; nothing here reads a package byte, so there is no
 # bake-side half to separate.
 
-add_library(uta_ubundle STATIC Bundle.cpp)
+# Bundle.cpp is the framing; each section's codec is a file of its own, because
+# each changes for its own reason (UTA-0091). Codec.h and Sections.h are
+# internal to this library.
+add_library(uta_ubundle STATIC
+    Bundle.cpp
+    RoomSection.cpp
+    NavSection.cpp
+    WiringSection.cpp
+    TextureSection.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
 
 # INV-10, asserted at configure time in the form src/umap/CMakeLists.txt uses
