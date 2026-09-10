@@ -822,6 +822,10 @@ model, no weapon and no opponent until 0.2.0.
   mutation of the new guards is killed except one, which is inert over
   the reference install: the word steel in the metal-group rule decides
   no entry there.
+  Decided by the user (2026-09-10): docs/design.md's umat row, reworded
+  in b90ee8f so entries adjust generation's settings rather than replace
+  it, gets no separate review-contract gate. It records what was built,
+  and UTA-0010's own gated spec directed the change. Do not reopen.
   **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
   Kind: implement.
   Source: design-2026-09-03.
