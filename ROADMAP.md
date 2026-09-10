@@ -4439,12 +4439,16 @@ model, no weapon and no opponent until 0.2.0.
   engine combines those with each surface's own PolyFlags is
   unmeasured here. Settle it before fixing how a surface's kind is
   derived.
+  Decided by the user (2026-09-11), for UTA-0109: the geometry section
+  stores each surface's raw PolyFlags now. This item adds the project's
+  own surface kinds beside them later, which changes the bundle format
+  once more.
   **Layman:** Every imported map follows the same rules for how its textures, surfaces and everything else are stored and used, so two maps by different creators are never read differently or clash.
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: ubake, ubundle, urecipe.
 
-- 📋 [UTA-0109] **ubake: turn the level's BSP tables into triangles, and write the geometry section.**
+- 🚧 [UTA-0109] **ubake: turn the level's BSP tables into triangles, and write the geometry section.**
   Split out of UTA-0011 by the user on 2026-09-10.
   Turning the Model tables UTA-0069 returns into triangles is the
   baker's decision, per UTA-0004 § 3.1 and UTA-0069. This item makes it,
@@ -4453,6 +4457,47 @@ model, no weapon and no opponent until 0.2.0.
   How a surface's kind is stored is UTA-0104's map standard; settle the
   two together. UTA-0014 draws what this writes.
   Blocked-by: UTA-0011.
+  Progress (2026-09-10): claimed by session ut-ants-48 in the main
+  checkout. Rule 1's set holds UTA-0059, UTA-0098 and UTA-0100, and each
+  defers itself, so this is Next:. Starting with write-spec.
+  Progress (2026-09-11), session ut-ants-48, main checkout. The spec is
+  not drafted yet. write-spec's first question is answered yes: a new
+  bundle section the renderer binds to is a contract and hard to reverse.
+
+  Settled so far:
+  - User decision (2026-09-11): keep UT's raw PolyFlags per surface in
+    the geometry now. UTA-0104 adds the project's own surface kinds
+    beside them later.
+  - Measured over the reference install (2,021 maps, the Model each
+    Level names). The scratch programs are not in the repository.
+    - Winding: 19,041,122 of 19,044,067 drawable nodes wind so that
+      (b-a)x(c-a) points along the surface's vNormal; 2,436 point the
+      other way; 509 have zero area. Plan: keep file order, reverse the
+      ones that disagree, drop zero-area nodes.
+    - Pan sign: on seams (surfaces sharing an edge, a texture, U, V and
+      normal) whose pan differs so that only one sign can line up, plus
+      lines up 892 times against 51 on U and 777 against 42 on V.
+      Equal-pan seams line up about 95% of the time. So
+      u = ((P - Base).TextureU + PanU) / (USize * scale), v likewise.
+      This agrees with UT 4.32's public OpenGL driver, which subtracts
+      Info.Pan.
+    - Scale: no texture carries a Scale property; 217 of 57,176 texture
+      exports carry DrawScale (0.04 to 6). The driver divides by
+      UScale * USize. That UScale is DrawScale is unverified.
+    - Drawable nodes: 154,453 Invisible, 99,143 Portal without
+      Invisible, 294,592 sky. Plan: drop Invisible; keep everything else
+      with its flags verbatim. Whether a portal is drawn is UTA-0014's
+      call.
+  - Draft plan: a GEOM section appended after MATS (vertices of
+    position, normal, u, v; u32 indices; batches keyed by material id
+    and flags, ascending, tiling the indices). An empty material id
+    means no material, with u = v = 0. FORMAT_VERSION 4, BAKER_REVISION
+    2. buildGeometry lives in src/ubake, takes a Model and a material
+    lookup, and refuses a bad index. Ship the measurements as a printed
+    real-asset test.
+
+  Next: draft docs/specs/UTA-0109-map-geometry.md and its loop log, then
+  run review-contract.
   **Layman:** Rebuild each level's walls, floors and ceilings as modern 3D geometry the renderer can draw.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
