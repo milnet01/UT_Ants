@@ -4506,6 +4506,19 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: urecipe, ubake.
 
+- 📋 [UTA-0117] **Decide which Unreal Tournament versions ut-bake --check accepts.**
+  Deferred by UTA-0011's spec, § 9. `--check` today asks only that Core,
+  Engine and Botpack exist and open as packages (that spec's § 4.9). It
+  says nothing about the install's version, and the reference install is
+  469. `upkg` already refuses a version-61 Model (UTA-0072), so a
+  check that passes an install can still leave maps that will not bake.
+  Decide which versions are supported, and whether `--check` names the
+  version it found. UTA-0016 binds to `--check`'s output.
+  **Layman:** Say which versions of Unreal Tournament the game will run from, so an older install is told plainly rather than half-working.
+  Kind: investigate.
+  Source: user-request-2026-09-10.
+  Lanes: ubake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -5888,3 +5901,16 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-09-08.
   Lanes: unet, ubundle.
+
+- 📋 [UTA-0118] **Decode textures that carry a Format property, which the baker now skips.**
+  Deferred by UTA-0011's spec, § 9. A texture with a Format property is
+  skipped under UTA-0010 § 4.2's rule, because `umat` decodes palettised
+  textures only and a block format storing one byte a texel would
+  otherwise be read as palette indices. The bake names each one in its
+  skipped list, and `ut-bake` prints it. The real-asset census in
+  `tests/real/RealInstallTest.cpp` prints how many textures in an install
+  carry the property. Decode them, and state which formats.
+  **Layman:** Some textures are stored in a newer compressed form; the baker leaves them out today, so those surfaces have no material until this lands.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: umat, ubake.

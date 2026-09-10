@@ -819,10 +819,8 @@ in resolution order, and read a `MATS` `metallic` byte of `2` as `true`. Each mu
 - Moving a procedural texture — tracked by UTA-0105.
 - The link-closure test keeping `ubake` out of the runtime targets — tracked
   by UTA-0016, the first item to build one.
-- Decoding a texture that carries a `Format` property — deferred; not yet
-  queued.
-- Which Unreal Tournament versions an install may be — deferred; not yet
-  queued.
+- Decoding a texture that carries a `Format` property — tracked by UTA-0118.
+- Which Unreal Tournament versions an install may be — tracked by UTA-0117.
 
 ## 10. What checks this
 
