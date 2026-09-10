@@ -787,7 +787,8 @@ model, no weapon and no opponent until 0.2.0.
   Lanes umat; UTA-0012 (the other held item) is upkg and tools, so no
   directory is shared. The body's "keyed by texture name" predates
   UTA-0009, whose accepted spec keys a material by package and group
-  path (materialId); the spec for this item takes that identity.
+  path (materialId); the user's later decision, below, replaced that identity with a
+  picture fingerprint.
   Decided by the user (2026-09-10), on a measurement over the reference
   install: of the textures embedded in maps, a large share are exact
   pixel-and-palette copies of a packaged texture, half of them renamed,
@@ -798,6 +799,20 @@ model, no weapon and no opponent until 0.2.0.
   about themselves (metal, lights and screens, lava and the like),
   checked against the image data rather than by eye, growing as surfaces
   are found wrong in play.
+  Progress (2026-09-10, ut-ants-b3, main checkout): spec accepted after
+  two cold review loops -- docs/specs/UTA-0010-curated-material-library.md,
+  loop log in docs/reviews/. Next: build it with write-code. Suggested
+  order: Fingerprint and Library first with MaterialLibraryTest; then
+  the INV-8 census case in tests/real/RealInstallTest.cpp, written to
+  print every missing seed entry as a C++ table row -- that output IS
+  the seed, so CuratedMaterials.cpp is filled from it and no scratch
+  generator is needed. A scratch run of the same rules gave roughly six
+  hundred entries, the glow rule dropping about two in five candidates
+  on the image check. Also owed by the build: src/umat/Derive.h's
+  roughnessOf comment says the library and recipe override the
+  heuristic, but they set only baseRoughness, which it adds to; and the
+  design.md umat row and UTA-0009 SS 4.6 amendments the spec's SS 11
+  lists.
   **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
   Kind: implement.
   Source: design-2026-09-03.
@@ -809,6 +824,13 @@ model, no weapon and no opponent until 0.2.0.
   --check validates an install, which is what both runtime targets run at startup
   rather than linking the package reader themselves (rule 16). Ships with both.
   Blocked-by: upkg, umat, unav, umap, ubundle.
+  Obligations from UTA-0010's accepted spec
+  (docs/specs/UTA-0010-curated-material-library.md): fold
+  umat::libraryDigest() into the baker version (its § 4.6); apply
+  settings in the order generated defaults, then the curated library,
+  then the recipe, each through umat::applied (§ 4.5), with a recipe's
+  requested upscale set directly (§ 4.3); pass pictureFingerprint only a
+  texture with no Format property (§ 4.2).
   **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament.
   Kind: implement.
   Source: design-2026-09-03.

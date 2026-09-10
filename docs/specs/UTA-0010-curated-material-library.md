@@ -1,13 +1,13 @@
 # UTA-0010 — `umat`: the curated material library
 
-**Status:** spec draft (2026-09-10).
+**Status:** accepted (2026-09-10).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0010 (design-2026-09-03; scope settled with the
 user 2026-09-05, 2026-09-09 and 2026-09-10).
 
 **Pairs with:** UTA-0009 (generates the material this library adjusts),
-UTA-0104 (the map standard), UTA-0106 (replacement images, which bring art
-into the library).
+UTA-0104 (the map standard), UTA-0106 (locally supplied replacement
+images).
 **Blocker for:** UTA-0011 (`ubake` looks every texture up here, and folds
 the library into its baker version).
 
@@ -57,14 +57,16 @@ by rules over what the textures say about themselves.
 2. **The first version ships a small seed, grown in play.** *Decided by
    the user, 2026-09-10*, offered against *empty* and *a big pass before
    release*. The seed comes from what textures say about themselves,
-   checked against their image data rather than by eye (§ 4.7). Entries
+   chosen by machine rather than by eye, with the glow rule checked
+   against the image data (§ 4.7). Entries
    are added when a surface is found wrong in play.
 
 3. **The library holds settings, not art, in this version.** *User,
-   2026-09-10*: replacement images come after the first version, as
-   UTA-0106. *User, 2026-09-09*, recorded on this item: when art arrives,
-   the library holds a replacement only where a licence permitting
-   redistribution can be pointed at.
+   2026-09-10*: replacement images come after the first version; locally
+   supplied ones are UTA-0106. *User, 2026-09-09*, recorded on this item:
+   art shipped IN the library is this item's own later extension, and
+   holds a replacement only where a licence permitting redistribution can
+   be pointed at.
 
 4. **Entries are C++ data compiled into the baker.** A data file would
    need a parser — `src` has none — or a new dependency, which ADR-0007's
@@ -148,8 +150,10 @@ struct CuratedEntry {
 
 `src/umat/CuratedMaterials.cpp` defines the table as a `constexpr
 std::array<CuratedEntry, N>` and `static_assert`s that it is sorted and
-unique. `requestedUpscale` has no field: the upscale is a memory question,
-UTA-0052's, not a question of what a surface is made of.
+unique. `requestedUpscale` has no field in this version. UTA-0052's § 4.5
+gives the library its own figure "for the materials it ships", which
+arrives with library art (§ 9). A recipe's requested factor sets
+`MaterialSettings::requestedUpscale` directly, not through `applied`.
 
 ### 4.4 Lookup and applying an entry
 
@@ -173,6 +177,7 @@ starts from `MaterialSettings{}`, applies the library's entry, then the
 map recipe's own material assignment. The recipe's assignment is applied
 the way an entry is, through `applied`: only the fields it sets replace
 anything, so a recipe setting only `metallic` keeps a library `emissive`.
+Its requested upscale factor is the exception, set directly (§ 4.3).
 The recipe wins because the map's
 author knows the map — the reason `docs/design.md` gives for a recipe's
 class override beating the global list.
@@ -222,6 +227,10 @@ of its copies does.
   `MaterialSettings{}.emissiveThreshold`, computed as UTA-0009's
   `heightOf` computes it. A group named like a light whose picture has no
   bright texels would give an all-black emissive map.
+
+**The metal rules carry no image check.** A picture's pixels do not show
+whether it is metal — UTA-0009's § 3 decision 3 declined to guess metal
+texel by texel — so the check belongs to the glow rule alone.
 
 A picture meeting several rules, through one copy or several, gets every
 setting they give. Its source is `MetalSound` if that rule met, else
@@ -357,7 +366,9 @@ too.
 
 ## 9. Out of scope
 
-- Replacement art in the library — tracked by UTA-0106.
+- Locally supplied replacement images — tracked by UTA-0106.
+- Licensed art shipped in the library, and the upscale figure it brings —
+  a later extension of this item; not yet queued.
 - The recipe format and its material assignments — deferred; not yet
   queued.
 - The baker version itself, and folding the digest into it — tracked by
@@ -388,6 +399,10 @@ too.
   baker version change. Under this spec an entry adjusts the settings
   generation runs with, and only a change the digest covers is a baker
   version change. The row is reworded to say so.
+- `docs/specs/UTA-0009-material-from-texture.md` § 4.6 — says UTA-0010's
+  library writes ids in `materialId`'s form. The library is keyed by
+  picture fingerprint, and only an entry's audit-only `note` uses that
+  form. The sentence is amended to say so.
 - `CHANGELOG.md` — an Added entry when this ships.
 
 ## 12. Cold-eyes loop log
