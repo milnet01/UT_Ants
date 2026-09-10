@@ -28,6 +28,7 @@ add_executable(uta_unit_tests
     unit/CoreJobsTest.cpp
     unit/CoreLogTest.cpp
     unit/MaterialCompressTest.cpp
+    unit/MaterialGenerateTest.cpp
     unit/NavGraphTest.cpp
     unit/NumericContractTest.cpp
     unit/PackageAncestryTest.cpp

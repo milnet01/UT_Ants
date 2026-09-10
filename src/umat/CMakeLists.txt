@@ -11,8 +11,14 @@
 
 set(_uta_bc7enc_dir "${PROJECT_SOURCE_DIR}/third_party/bc7enc")
 
-add_library(uta_umat STATIC Material.cpp "${_uta_bc7enc_dir}/bc7enc.c")
-target_link_libraries(uta_umat PUBLIC uta_core uta_ubundle)
+add_library(uta_umat STATIC
+    Material.cpp
+    Resolve.cpp
+    Enlarge.cpp
+    Derive.cpp
+    Generate.cpp
+    "${_uta_bc7enc_dir}/bc7enc.c")
+target_link_libraries(uta_umat PUBLIC uta_core uta_ubundle uta_upkg)
 target_include_directories(uta_umat PRIVATE "${_uta_bc7enc_dir}")
 
 # bc7enc.c is C, compiled as C++. The root project stays LANGUAGES CXX: the
@@ -20,16 +26,16 @@ target_include_directories(uta_umat PRIVATE "${_uta_bc7enc_dir}")
 # translation unit would sit outside the one check that holds INV-6.
 set_source_files_properties("${_uta_bc7enc_dir}/bc7enc.c" PROPERTIES LANGUAGE CXX)
 
-# INV-12, in the form src/ubundle/CMakeLists.txt uses for UTA-0008's INV-10.
-# Not uta_upkg: nothing here reads a package, and UTA-0009 adds that link and
-# amends INV-12 in the same change. A convenience dependency on a bake-side
+# INV-12 of both UTA-0052 and UTA-0009, in the form src/ubundle/CMakeLists.txt
+# uses for UTA-0008's INV-10. uta_upkg joined with UTA-0009, whose resolve()
+# takes a package's palettised level. A convenience dependency on a bake-side
 # library is how docs/design.md rule 2's boundary stops being checkable.
 get_target_property(_uta_umat_links uta_umat LINK_LIBRARIES)
-if(NOT _uta_umat_links STREQUAL "uta_core;uta_ubundle")
+if(NOT _uta_umat_links STREQUAL "uta_core;uta_ubundle;uta_upkg")
     message(FATAL_ERROR
         "uta_umat links '${_uta_umat_links}'. INV-12 in "
-        "docs/specs/UTA-0052-texture-memory-budget.md allows uta_core and "
-        "uta_ubundle, in that order, and nothing else.")
+        "docs/specs/UTA-0009-material-from-texture.md allows uta_core, "
+        "uta_ubundle and uta_upkg, in that order, and nothing else.")
 endif()
 unset(_uta_umat_links)
 

@@ -4,9 +4,9 @@
 // docs/specs/UTA-0052-texture-memory-budget.md.
 //
 // BUILD-TIME ONLY. docs/design.md rule 2 keeps this library out of every
-// runtime target. It links uta_core and uta_ubundle and NOTHING else --
-// INV-12, asserted at configure time in src/umat/CMakeLists.txt. Reading a
-// source texture out of a package is UTA-0009's, which adds uta_upkg then.
+// runtime target. It links uta_core, uta_ubundle and, since UTA-0009,
+// uta_upkg, and NOTHING else -- INV-12, asserted at configure time in
+// src/umat/CMakeLists.txt. Generating a material is Generate.h's.
 //
 // DETERMINISTIC. One chain and one format give one byte sequence on every
 // compiler (INV-6) and every worker count (INV-7). The vendored encoders are
