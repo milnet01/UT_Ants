@@ -6,8 +6,8 @@
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
 **Next:** `UTA-0109` — the map's geometry, the first piece split out of
-the baker on 2026-09-10. It waits on `UTA-0011`, the baker itself, which
-is in flight.
+the baker on 2026-09-10. The baker it plugs into, `UTA-0011`, shipped the
+same day.
 
 `UTA-0013`'s quarantine guard is the alternative, and a second session
 can take it now: it shares no directory with the baker.

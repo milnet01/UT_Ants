@@ -831,7 +831,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: umat.
 
-- 🚧 [UTA-0011] **ubake and the ut-bake CLI, including --check.**
+- ✅ [UTA-0011] **ubake and the ut-bake CLI, including --check.**
   Drives upkg, umat, unav and umap and writes one bundle, content-addressed by
   its source map, its recipe and the baker version.
   --check validates an install, which is what both runtime targets run at startup
@@ -862,6 +862,16 @@ model, no weapon and no opponent until 0.2.0.
   no baked map exists yet. Next: build it (write-code).
   Resumed 2026-09-10 by session ut-ants-cf, in the main checkout
   (ut-ants-ec has ended). Building to the accepted spec.
+  Shipped 2026-09-10 by ut-ants-cf in f5748f9: ubake and ut-bake with
+  --check, SHA-256 in core, the MATS section at bundle format 3, and
+  Level::model. CI run 34512296434 green on GCC 14, Clang 19 and MSVC,
+  the golden bake included, so the bytes match across all three compilers.
+  Local gate green with ThreadSanitizer. The hand mutations, each killed by
+  the invariant it names, are listed in f5748f9's commit body.
+  Not done: the real-asset case (name every map, bake one stock map twice)
+  was stopped twice by the session's low-memory guard, with the machine
+  short on memory from other processes, and has not completed. It runs
+  with -DUTA_REAL_ASSET_TESTS=ON.
   **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament.
   Kind: implement.
   Source: design-2026-09-03.
