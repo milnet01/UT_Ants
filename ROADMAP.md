@@ -758,7 +758,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: umat.
 
-- 📋 [UTA-0010] **umat: the curated material library, shipped with the baker.**
+- 🚧 [UTA-0010] **umat: the curated material library, shipped with the baker.**
   Keyed by texture name, resolved before the generated fallback. Holds our own
   material definitions and any art we have the right to distribute; lives in the
   repository, not under content/.
@@ -783,6 +783,21 @@ model, no weapon and no opponent until 0.2.0.
   So the absence of a demonstrable licence is what puts an asset outside
   the library, rather than its provenance. Art we authored and art under a
   permissive licence are on the same footing here.
+  Claimed (2026-09-10) by ut-ants-b3, working in the main checkout.
+  Lanes umat; UTA-0012 (the other held item) is upkg and tools, so no
+  directory is shared. The body's "keyed by texture name" predates
+  UTA-0009, whose accepted spec keys a material by package and group
+  path (materialId); the spec for this item takes that identity.
+  Decided by the user (2026-09-10), on a measurement over the reference
+  install: of the textures embedded in maps, a large share are exact
+  pixel-and-palette copies of a packaged texture, half of them renamed,
+  spread over roughly a quarter of the maps. So a curated entry matches
+  the PICTURE itself (a fingerprint of its pixels and palette), not a
+  package or texture name -- replacing this body's "keyed by texture
+  name". First entries: a small seed chosen from what the textures say
+  about themselves (metal, lights and screens, lava and the like),
+  checked against the image data rather than by eye, growing as surfaces
+  are found wrong in play.
   **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
   Kind: implement.
   Source: design-2026-09-03.

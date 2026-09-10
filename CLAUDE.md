@@ -5,14 +5,13 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0010` — `umat`: the curated material library, shipped
-with the baker. `UTA-0009`, which generates a material from a 1999
-texture, was picked up on 2026-09-10 and is in flight; the library
-follows it because both resolve a texture to a material and the library
-is consulted first.
+**Next:** `UTA-0011` — `ubake`: the map baker, which drives `upkg`,
+`umat` and the graph builders into one bundle. `UTA-0010`, the curated
+material library, was picked up on 2026-09-10 and is in flight; the
+baker follows it because it is blocked only by `umat`.
 
-`UTA-0011` (`ubake`) is blocked only by `umat`. `UTA-0013`'s quarantine
-guard is the alternative if the guard is wanted before the baker.
+`UTA-0013`'s quarantine guard is the alternative if the guard is wanted
+before the baker.
 
 **Rule 1's set is not listed here — ask the roadmap**, which § Which item
 comes next gives the call for. A hand-kept list of it goes stale the
