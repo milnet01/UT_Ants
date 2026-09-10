@@ -827,7 +827,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: umat.
 
-- 📋 [UTA-0011] **ubake and the ut-bake CLI, including --check.**
+- 🚧 [UTA-0011] **ubake and the ut-bake CLI, including --check.**
   Drives upkg, umat, unav and umap and writes one bundle, content-addressed by
   its source map, its recipe and the baker version.
   --check validates an install, which is what both runtime targets run at startup
@@ -840,6 +840,8 @@ model, no weapon and no opponent until 0.2.0.
   then the recipe, each through umat::applied (§ 4.5), with a recipe's
   requested upscale set directly (§ 4.3); pass pictureFingerprint only a
   texture with no Format property (§ 4.2).
+  Claimed 2026-09-10 by session ut-ants-ec, in the main checkout.
+  Rule-1 items UTA-0059, UTA-0098 and UTA-0100 all defer themselves.
   **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament.
   Kind: implement.
   Source: design-2026-09-03.
@@ -4637,6 +4639,15 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Design lesson: give landing damage its own kind here, never a name
   shared with leaving the world, so this setting can target it without
   inferring it from who caused it.
+  From UT_MonsterHunt (ut-monsterhunt-71, 2026-09-10): its GAME-0077 is
+  withdrawn. The "zombie kills without damage" were landing damage:
+  Pawn.TakeFallingDamage calls TakeDamage(1000, None, 'Fell'), which a
+  damage hook sees. One landing is unexplained: a bot landed at
+  vz=-45261 with no logged hit that accounts for it, so something no
+  damage hook sees set that velocity. It still arrived as 'Fell', so a
+  landing-damage setting absorbs it. One more death that bypasses every
+  damage hook: bpak.BPulseGun kills its own holder via
+  Died(None, 'Fell') at 1000 health (their GAME-0080).
   **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4989,6 +5000,15 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Lesson: friendly fire off still pushes, and an anti-boost that tests
   for human players misses bots. That project's fix extends anti-boost
   to every pair of players and bots; monsters still push everyone.
+  From UT_MonsterHunt (ut-monsterhunt-71, 2026-09-10): the push that
+  throws bots into lethal landings is mostly bpak.BFlakCannon's BBelch
+  fireballs, each running HurtRadius(400, 150, None, 60000) every 0.02 s.
+  The bot's own fireballs and its teammates' both do it. A team hit under
+  FriendlyFireScale=0 does no damage but still pushes. Their fix,
+  MHMonsterHealth.bBotAntiBoost (default True), zeroes the momentum
+  between every pair of players and bots; in test on their side.
+  For our design: decide whether friendly fire off also removes the push.
+  UT99's answer is no, and that is what throws bots off ledges.
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
