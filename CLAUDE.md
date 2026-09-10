@@ -7,8 +7,8 @@
 items. Else 5.
 **Next:** `UTA-0011` — `ubake`: the map baker, which drives `upkg`,
 `umat` and the graph builders into one bundle. `UTA-0010`, the curated
-material library, was picked up on 2026-09-10 and is in flight; the
-baker follows it because it is blocked only by `umat`.
+material library the baker was waiting on in `umat`, shipped on
+2026-09-10.
 
 `UTA-0013`'s quarantine guard is the alternative if the guard is wanted
 before the baker.

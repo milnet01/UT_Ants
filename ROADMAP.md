@@ -758,7 +758,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: umat.
 
-- 🚧 [UTA-0010] **umat: the curated material library, shipped with the baker.**
+- ✅ [UTA-0010] **umat: the curated material library, shipped with the baker.**
   Keyed by texture name, resolved before the generated fallback. Holds our own
   material definitions and any art we have the right to distribute; lives in the
   repository, not under content/.
@@ -816,6 +816,12 @@ model, no weapon and no opponent until 0.2.0.
   Resumed (2026-09-10) by ut-ants-0c, working in the main checkout;
   ut-ants-b3 is no longer in ListAgents. Building to the accepted spec
   in the suggested order above.
+  Shipped (2026-09-10, ut-ants-0c): green on the CI matrix at 01341f1,
+  run 34486670530 -- GCC 14, Clang 19 and MSVC. The census reproduces
+  the seed exactly and finds no fingerprint collision. Every hand
+  mutation of the new guards is killed except one, which is inert over
+  the reference install: the word steel in the metal-group rule decides
+  no entry there.
   **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
   Kind: implement.
   Source: design-2026-09-03.
