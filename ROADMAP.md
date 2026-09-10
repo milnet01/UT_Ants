@@ -849,6 +849,13 @@ model, no weapon and no opponent until 0.2.0.
   (UTA-0109), lights and actor placements (UTA-0110), collision
   (UTA-0111), baked indirect light (UTA-0112) and the recipe format
   (UTA-0113). Until UTA-0113 lands, every map bakes with no recipe.
+  Spec accepted 2026-09-10: docs/specs/UTA-0011-map-baker.md. The
+  review-contract gate ran two cold loops of three lanes each and fixed
+  all 15 verified findings; it reached its cap with an empty tail. Rows
+  are in docs/reviews/UTA-0011-map-baker-loop-log.md.
+  Beyond the split, the spec adds a MATS bundle section for each
+  material's metallic value, which moves the bundle format to version 3;
+  no baked map exists yet. Next: build it (write-code).
   **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament.
   Kind: implement.
   Source: design-2026-09-03.
