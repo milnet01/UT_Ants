@@ -636,6 +636,10 @@ model, no weapon and no opponent until 0.2.0.
   from PolyFlags, which its body already plans, and carrying that tag
   into the material so the renderer can act on it. The appearance is
   UTA-0089 and the behaviour is UTA-0090.
+  Deferred (2026-09-10): still `Next:`, but rule 1 of the user's order
+  takes the review-sourced items first -- UTA-0094 to UTA-0100, filed that
+  day from the optimisation pass. UTA-0098 and UTA-0100 defer themselves.
+  Clear this note when this item is picked up.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -792,6 +796,12 @@ model, no weapon and no opponent until 0.2.0.
   list first, node list beside it.
 
   The 740-map figure in this body is stale — see UTA-0087.
+  Request from UT_MonsterHunt (2026-09-10), its first priority: a
+  per-actor dump -- class, location, Tag, Event, and zone and trigger
+  damage properties -- for actors within a radius of a point in one map.
+  This is the second day-one query in this item's body, and `ut-dump`
+  today emits counts only. A one-off scratch dump was run for them the
+  same day; the supported mode is still owed here.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
@@ -3826,12 +3836,15 @@ model, no weapon and no opponent until 0.2.0.
   filed it took one section for both items, and no roadmap verb moves an
   item between sections. Do not count it when judging what is left for
   0.1.0.
+  Asked UT_MonsterHunt (2026-09-10) to measure UT99's real water-zone
+  behaviour with its in-game probe pattern: swim speed, climbing out,
+  zone velocity. That is how this item gets measured, not guessed.
   **Layman:** Jumping into water should mean swimming, slower movement and a way to climb back out, the way the original game does it.
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uworld.
 
-- 📋 [UTA-0091] **ubundle: split Bundle.cpp by section, so work on one section does not share a file with another.**
+- ✅ [UTA-0091] **ubundle: split Bundle.cpp by section, so work on one section does not share a file with another.**
   The user's standing request (2026-09-10): refactor files at every
   opportunity, because Ants Terminal is building a way for several sessions
   to work one project at once, and two sessions editing one file collide.
@@ -3845,10 +3858,146 @@ model, no weapon and no opponent until 0.2.0.
 
   Behaviour must not move. UTA-0008's and UTA-0052's golden byte arrays
   grade every section's bytes, so the whole existing suite is the check.
+  Shipped (2026-09-10) at `357bdc6`, on the matrix: CI run 34463029760
+  is green on Linux GCC 14, Linux Clang 19 and Windows MSVC. The code moved
+  verbatim and no byte of the format changed -- UTA-0008's and UTA-0052's
+  golden arrays pass unchanged. The ubundle mutation probe, pointed at the
+  new files, kills 55 of 57, and its two survivors are the declared ones.
   **Layman:** Break the bundle file-format code into one file per part of the format, so two people or sessions working on different parts do not trip over each other.
   Kind: refactor.
   Source: user-request-2026-09-10.
   Lanes: ubundle.
+
+- 🚧 [UTA-0094] **ut-dump reads each file one character at a time; read it in one call.**
+  Found by the optimisation pass the user asked for on 2026-09-10, and
+  checked against the source before filing.
+
+  `readWhole` in tools/ut-dump/main.cpp builds its vector from an
+  `istreambuf_iterator`, one character at a time with repeated growth.
+  Measured by the pass: 55% of ut-dump's CPU; a warm whole-library run
+  fell from 34.2 s to 21.1 s with only that swapped for one read, and the
+  JSON was byte-identical. `uta::fs::readFile` already does one read and
+  is already linked.
+
+  The same resolver never remembers a System package that failed to
+  open, so it re-reads that file on every lookup. Remember the failure.
+
+  Verify: time a warm run over Maps/ before and after, and `cmp` the two
+  JSON outputs. UT_MonsterHunt runs this tool over its whole library, so
+  the gain is theirs as much as ours.
+
+  Not part of 0.1.0's cut condition.
+  Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
+  `/mnt/Games/Scripts/Linux/UT_Ants`. Taken ahead of `Next:` (UTA-0009)
+  because it is review-sourced -- rule 1 of the user's order.
+  **Layman:** Make the map-inspection tool read files in one go instead of letter by letter, so a whole-library check takes about a third less time.
+  Kind: perf.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: upkg.
+
+- 📋 [UTA-0095] **The real-asset tests read files one character at a time; read them in one call.**
+  Found by the optimisation pass of 2026-09-10 and checked against the
+  source: tests/real/RealInstallTest.cpp has four readers built on
+  `istreambuf_iterator`.
+
+  Measured by the pass: a cold run of the tier took 582 s wall for 220 s
+  of CPU, and the read was 83.5% of CPU in one test and 54% in another.
+  Replace all four with `uta::fs::readFile`. Wall time improves mostly
+  with a warm page cache, because the Maps drive is a spinning disk.
+
+  Not part of 0.1.0's cut condition.
+  **Layman:** Speed up the slow test tier that checks real game files by reading each file in one go.
+  Kind: chore.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: tests.
+
+- 📋 [UTA-0096] **upkg reads the lightmap byte table one byte at a time; read it as one run.**
+  Found by the optimisation pass of 2026-09-10 and checked against the
+  source: src/upkg/Geometry.cpp reads `lightBits` through
+  `readTable<std::uint8_t>` with a per-byte lambda.
+
+  Measured by the pass: the table is 100 to 350 KB per map, and it plus
+  `readU8` is about 9% of CPU in the zone-descent profile. Read the count,
+  keep the size check, then take the run with one `readBytes`. That is
+  exactly what ubundle's TextureSection.cpp does for block data, and its
+  comment says why.
+
+  The bounds check is kept, because `readBytes` performs it.
+
+  Not part of 0.1.0's cut condition.
+  **Layman:** Read one big block of lighting data from a map in a single step instead of byte by byte.
+  Kind: optimize.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: upkg.
+
+- 📋 [UTA-0097] **CI rebuilds Catch2 from scratch on every Linux leg; cache compiler output between runs.**
+  Found by the optimisation pass of 2026-09-10 and checked against the
+  source: .github/workflows/ci.yml provisions no compiler cache, and
+  scripts/ci.sh builds a second, ThreadSanitizer tree.
+
+  Measured locally by the pass, with ccache off: 108 of 155 objects are
+  Catch2, and each of the two Linux builds costs about 350 CPU-seconds.
+  The CMake launcher is already wired, so this is provisioning only:
+  ccache on the apt line, and `actions/cache` keyed on compiler and
+  Catch2 tag, with `CCACHE_BASEDIR` and `CCACHE_NOHASHDIR`.
+
+  Pin `actions/cache` by SHA and resolve its current release when this is
+  built, per dependencies.md. The compile flags are part of the cache key,
+  so the numeric contract is safe. The MSVC leg is unchanged.
+
+  Not part of 0.1.0's cut condition.
+  **Layman:** Let the online build reuse work from its last run, so each push goes green sooner.
+  Kind: chore.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: ci.
+
+- 📋 [UTA-0098] **umap room sampling grows with the level box and runs on one thread; dormant until the box is real.**
+  Found by the optimisation pass of 2026-09-10. The mechanism is checked
+  against the source: src/umap/Build.cpp samples a lattice over the
+  level's box, calls `roomAt` per point on one thread, and samples nothing
+  when `boundsValid` is false.
+
+  Measured by the pass on copies given a real box: AS-Frigate 2.72 s at
+  the default 32-unit spacing, and CTF-Face refused outright at 3.3e9
+  samples, its box being mostly sky. Its census found 1,258 maps would
+  need over 1e8 samples.
+
+  Decide WHICH box to sample first -- the playable area, not the sky --
+  because that matters more than any code change. Then split the loop into
+  y-row bands with `JobSystem::parallelFor`, merged in band order, one job
+  per band. Determinism must hold byte for byte at 1, 2 and N workers.
+
+  Defers itself: nothing to do until a real box reaches this code. Not
+  part of 0.1.0's cut condition.
+  **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
+  Kind: investigate.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: umap.
+
+- 📋 [UTA-0099] **A real-asset umap test checks nothing on almost every map, because no sample is ever taken.**
+  Found by the optimisation pass of 2026-09-10. The mechanism is checked
+  against the source: src/umap/Build.cpp returns an empty sample lattice
+  when `Model::boundsValid` is false, and tests/real/RealInstallTest.cpp's
+  "every node's own zone record agrees with the descent" relies on that
+  lattice for its ring checks.
+
+  The pass measured only 3 of 2,021 maps in the reference library with a
+  valid box. So on nearly every map the ring checks run over nothing and
+  pass. A test that cannot fail is a defect in the test. The number is the
+  pass's measurement, taken with a scratch tool that did not survive the
+  session; re-measure it before relying on it.
+
+  The fix is the test's: find a box source that real maps carry, or have
+  the test count and assert how many maps it actually checked. Its
+  comment about choosing a 512-unit spacing assumes a box that is empty.
+  Worth reading beside UTA-0079.
+
+  Not part of 0.1.0's cut condition, but it is S7-adjacent: the real tier
+  reports green here without evidence.
+  **Layman:** One of the real-map tests has been passing without actually checking anything; make it check something, or say plainly what it cannot check.
+  Kind: test.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: umap, tests.
 
 ## 0.2.0 — Movement and weapons
 
@@ -4120,6 +4269,8 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   a corridor push each other along it indefinitely.
 
   Blocked-by: bots existing at all.
+  Same feature as UT_MonsterHunt's GAME-0015 (a bot steps out of a
+  player's way). Share what works rather than solve it twice.
   **Layman:** In UT99 a bot standing in a doorway is a wall. You push, it does not move, and you go the long way round. Ours should notice it is in your way and step aside.
   Kind: implement.
   Source: user-request-2026-09-06.
@@ -4260,6 +4411,16 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   clear of walls needs UTA-0017's collision.
 
   Blocked-by: UTA-0011.
+  Evidence (2026-09-10): a ut-dump sweep of the reference library found
+  23 Monster Hunt maps with one PlayerStart or none, one of them with
+  none. A custom PlayerStart subclass is counted under its own class, so
+  the list is candidates, not verdicts. Shared with UT_MonsterHunt, which
+  can fix the same maps on the live server.
+  Confirmed in play (UT_MonsterHunt, 2026-09-10). Its own reader, a
+  parse of each map's export table, found the same 23 one-start maps,
+  name for name. On 2026-09-09 the user played MH-AirForce-BaseRemidas,
+  which has one PlayerStart: in about 13 minutes bots respawned 40, 38
+  and 27 times, each spawn killing whoever stood on the start.
   **Layman:** If a map only has one place for players to appear, add a few more beside it, so several players joining together are not all dropped on the same spot.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4280,10 +4441,48 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
 
   Filed under 0.3.0 beside Deathmatch (UTA-0027), where it first matters.
   Monster Hunt (UTA-0029) uses the same rule.
+  Twin in UT_MonsterHunt (2026-09-10): GAME-0066, "Nothing protects a
+  respawn". That project can fix the live UT99 server with a mutator
+  first; what it learns in real play -- whether three seconds is right,
+  whether firing should end protection early -- is the evidence this item
+  should build on rather than guess. Asked for by message from session
+  ut-ants-b3.
+  Evidence from UT_MonsterHunt's live server (2026-09-10), for whoever
+  designs this:
+  - Its default is 5 s; the user told us about 3 s. It is collecting
+    real-play numbers on the window and will send them.
+  - Protection deliberately does NOT end when the player fires: this is
+    co-op against monsters, so nobody is spawn-camped.
+  - In UT99, health is also lost WITHOUT passing through TakeDamage
+    (MH-KillThemAllEG-BP), so a damage hook alone cannot protect
+    everything. Our protection must cover every path health leaves by.
+  - Bots take self-damage and players do not; they zero it for bots.
+  - The user wants team awards (Invulnerability, Damage Amplifier, 30 s)
+    to survive a death while the award is still running.
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: ugame.
+
+- 📋 [UTA-0100] **upkg's effectiveDefaults merges in quadratic time; index it if UTA-0023 calls it per actor.**
+  Found by the optimisation pass of 2026-09-10 and checked against the
+  source: src/upkg/Class.cpp's `effectiveDefaults` searches the merged
+  vector with `find_if`, folding every candidate name.
+
+  Measured by the pass: about 1 ms per class on average, worst 5.9 ms, and
+  merges reach 4,282 properties. All 506 BotPack classes took 555 ms.
+  Nothing calls it outside tests today.
+
+  If UTA-0023 calls it per class it costs about 50 ms a bake and is not
+  worth changing. If it calls it per actor, add a side index keyed on
+  (folded name, array index), and never build the output by iterating an
+  unordered index, or the output order changes.
+
+  Defers itself until UTA-0023 is designed.
+  **Layman:** Working out a game object's settings slows down on big class trees; only worth fixing once the code that calls it often exists.
+  Kind: investigate.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: upkg.
 
 ## 0.4.0 — Monster Hunt
 
@@ -4531,6 +4730,10 @@ to.
 
   Blocked-by: the baker and the geometry it emits, and the navigation
   graph for the reachability test.
+  Data source (2026-09-10): UT_MonsterHunt's docs/fakewalls-report.txt
+  and GAME-0014 hold the walls a player is MEANT to walk through,
+  confirmed in the running game -- exactly the set this item bakes into
+  visible openings.
   **Layman:** Some levels hide the way on behind a patch of wall you can simply walk through, with nothing to tell you it is there. We are not interested in making players guess, so the baker should find those and turn them into openings you can see, framed like a doorway.
   Kind: implement.
   Source: user-request-2026-09-06.

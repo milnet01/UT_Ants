@@ -17,6 +17,7 @@
 // the run continues to the next one. That is deliberate: the library this was
 // written for holds files that do not open, and finding out which is the job.
 
+#include "core/FileSystem.h"
 #include "unav/Build.h"
 #include "unav/Graphs.h"
 #include "upkg/Class.h"
@@ -27,7 +28,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -80,17 +80,12 @@ std::string foldCase(std::string_view text) {
     return folded;
 }
 
-std::vector<char> readWhole(const fs::path& path) {
-    std::ifstream file{path, std::ios::binary};
-    if (!file) {
-        return {};
-    }
-    return std::vector<char>{std::istreambuf_iterator<char>{file},
-                             std::istreambuf_iterator<char>{}};
-}
-
-std::span<const std::byte> viewOf(const std::vector<char>& raw) {
-    return std::as_bytes(std::span{raw});
+/// The whole file in one read, or empty when it cannot be read. uta::fs owns
+/// the reading; a character-at-a-time stream was over half of this tool's
+/// CPU on a library run (UTA-0094).
+std::vector<std::byte> readWhole(const fs::path& path) {
+    auto bytes = uta::fs::readFile(path);
+    return bytes.has_value() ? std::move(*bytes) : std::vector<std::byte>{};
 }
 
 // ------------------------------------------------------------- the resolver
@@ -121,13 +116,17 @@ public:
                 return &cached->second;
             }
             const auto path = paths_.find(key);
-            if (path == paths_.end()) {
+            if (path == paths_.end() || failed_.contains(key)) {
                 return nullptr; // absent is an ordinary answer, not an error
             }
             auto& raw = bytes_[key];
             raw = readWhole(path->second);
-            auto package = uta::upkg::Package::open(viewOf(raw));
+            auto package = uta::upkg::Package::open(raw);
             if (!package.has_value()) {
+                // Remembered, so a package that will not open is read once
+                // rather than on every lookup for the rest of the run.
+                failed_.insert(key);
+                bytes_.erase(key);
                 return nullptr;
             }
             return &opened_.emplace(key, std::move(*package)).first->second;
@@ -136,8 +135,9 @@ public:
 
 private:
     std::map<std::string, fs::path> paths_;
-    std::map<std::string, std::vector<char>> bytes_;
+    std::map<std::string, std::vector<std::byte>> bytes_;
     std::map<std::string, uta::upkg::Package> opened_;
+    std::set<std::string> failed_;
 };
 
 // ------------------------------------------------------------ one package
@@ -190,13 +190,13 @@ void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system
     out << " {\n  \"file\": ";
     writeJsonString(out, path.string());
 
-    const std::vector<char> raw = readWhole(path);
+    const std::vector<std::byte> raw = readWhole(path);
     if (raw.empty()) {
         out << ",\n  \"ok\": false,\n  \"error\": \"unreadable or empty\"\n }";
         return;
     }
 
-    const auto package = uta::upkg::Package::open(viewOf(raw));
+    const auto package = uta::upkg::Package::open(raw);
     if (!package.has_value()) {
         out << ",\n  \"ok\": false,\n  \"error\": ";
         writeJsonString(out, "package did not open");
