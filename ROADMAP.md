@@ -591,7 +591,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ubundle.
 
-- 📋 [UTA-0009] **umat: generate a PBR material from a 1999 texture.**
+- 🚧 [UTA-0009] **umat: generate a PBR material from a 1999 texture.**
   Upscale, then derive normal, roughness, height and emissive. The original
   texture's PolyFlags say which surfaces are glass, water, sky or self-lit, so
   those are read rather than guessed.
@@ -640,6 +640,33 @@ model, no weapon and no opponent until 0.2.0.
   takes the review-sourced items first -- UTA-0094 to UTA-0100, filed that
   day from the optimisation pass. UTA-0098 and UTA-0100 defer themselves.
   Clear this note when this item is picked up.
+  Decided by the user (2026-09-10): how a texture is enlarged.
+
+  The baker enlarges with a classic, non-AI method built into it, suited to
+  low-resolution game art. AI upscaling is an optional SEPARATE tool whose
+  output is a replacement texture that a map's recipe points at -- the
+  locally-supplied replacement this item's input contract already admits.
+  No AI runs inside the baker.
+
+  Why: docs/design.md's Content addressing requires every bake input to be
+  covered by the map, the recipe or the baker version, and its Determinism
+  bullet forbids platform maths libraries in the baker. ADR-0002 requires
+  one map, recipe and baker version to produce the same bundle on any
+  machine. AI inference usually differs by graphics card and depends on
+  exactly those libraries, so running it inside the baker would have meant
+  changing a design rule, adding a large dependency, and tracking model
+  licences. Offered as three options (classic plus optional AI, classic
+  only, AI in the baker); this is the one chosen.
+
+  For the spec: the enlarger is subject to the numeric contract and needs
+  a golden-bytes test on all three compilers, as UTA-0052's INV-6 is for
+  compression. A replacement texture's bytes must enter the bundle's name
+  through the recipe, or the name is a lie.
+  Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
+  `/mnt/Games/Scripts/Linux/UT_Ants`. The rule-1 deferral recorded above is
+  cleared: every open review-sourced item now defers itself (UTA-0059,
+  UTA-0098, UTA-0100), so this is `Next:` under rule 2. Starting with the
+  spec, around the user's upscaler decision of the same day.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -3278,6 +3305,12 @@ model, no weapon and no opponent until 0.2.0.
   whether roomAt's float plane test and the probe's double one disagree at
   large coordinates, which the margin was sized to prevent but which was
   not measured directly.
+  Current figure (2026-09-10): the real tier's INV-2 census over today's
+  install made 11,945,148 probes, 36,016 disagreeing -- 0.30%. The test's
+  comment records 30,399 of 11,126,404 (0.27%) from an earlier, smaller
+  install. The rate moved as the library grew, so whatever explains the
+  disagreements should be tested against a fresh figure, not the one in
+  the comment. Still well under the test's 1% ceiling.
   **Layman:** Our check that the room lookup agrees with the level file is right 99.7% of the time. The last 0.3% is unexplained, so the check is set just below it rather than claiming perfection.
   Kind: investigate.
   Source: in-session-2026-09-08.
@@ -4026,7 +4059,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: umap.
 
-- 🚧 [UTA-0099] **A real-asset umap test has ring checks that examine nothing, on every map, because no sample is ever taken.**
+- ✅ [UTA-0099] **A real-asset umap test has ring checks that examine nothing, on every map, because no sample is ever taken.**
   Found by the optimisation pass of 2026-09-10. The mechanism is checked
   against the source: src/umap/Build.cpp returns an empty sample lattice
   when `Model::boundsValid` is false, and tests/real/RealInstallTest.cpp's
@@ -4068,6 +4101,15 @@ model, no weapon and no opponent until 0.2.0.
   `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0097 closed. Rule 1 of the
   user's order: review-sourced. The fix is the one this body settles on:
   count the rings examined, report it every run, correct the comment.
+  Shipped (2026-09-10) at `9f6d576`. The zone-record test now counts the
+  rings its real-geometry INV-6 checks examine and WARNs the count every
+  run -- "outer rings examined 0" today -- and its comment says plainly
+  that the ring half examines nothing until the lattice has a box
+  (UTA-0098). Passes 1/1 locally.
+
+  CI run 34468884284 is green on GCC 14, Clang 19 and MSVC, but as with
+  UTA-0095 the real-asset tier is local-only by design (S7), so no CI leg
+  compiles this file; the local run is the only evidence.
   **Layman:** One of the real-map tests has been passing without actually checking anything; make it check something, or say plainly what it cannot check.
   Kind: test.
   Source: review-code-2026-09-10 optimisation pass.
@@ -5223,7 +5265,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: user-decision-2026-09-06.
   Lanes: ci, ugame.
 
-- 📋 [UTA-0080] **A client joining a server fetches the maps it does not have.**
+- 📋 [UTA-0080] **Players' machines fetch any content they lack from each other -- maps, characters, monster models and the rest.**
   Asked for by the user on 2026-09-08, with both decisions taken then.
 
   BOTH routes, redirect preferred and the in-game channel as the fallback.
@@ -5268,7 +5310,55 @@ docs/standards/versioning-overrides.md. Closes S8.
   It also means the download budget is a map change, not a first join: the
   rotation keeps moving, so a slow fetch holds up one player rather than
   the server.
-  **Layman:** If you join a server running a map you have never played, the game gets it for you instead of turning you away -- the way UT99 does.
+  Scope widened by the user (2026-09-10): not maps alone. Anything one
+  player's machine has and another's lacks travels -- maps, characters,
+  monster models, and every other kind of content -- and in BOTH
+  directions: from the host to a joining player, and from a player to the
+  host and on to the others (a player's own character, say).
+
+  The limit that does not move: ADR-0003 and ADR-0006. Nothing Epic made is
+  ever sent. Every player owns Unreal Tournament, so Epic's content is
+  already on every machine; "anything the other lacks" is community content
+  in practice, and UTA-0030's stock manifest is what enforces it -- a
+  package on the manifest is withheld whatever its hash, one that cannot be
+  identified is refused, and an authored bundle (a ued character) is sent
+  whole.
+
+  Two points the spec must settle, both raised by the widening:
+
+  - Custom monsters live in `.u` packages, and the body above says a code
+    package is "probably not accepted at all". This engine never executes
+    UnrealScript (ADR-0004): a `.u` is data to it, read by upkg, whose
+    readers are total and never read outside their input. So the risk of
+    accepting one is an attack on the reader, not code execution. Decide
+    that deliberately; do not inherit UT99's refusal by reflex.
+  - The reverse direction is new: a host receiving a player's content and
+    serving it onward. The same rules apply the other way -- the host
+    chooses the path, never the wire; it accepts only what it asked for;
+    and nothing a client sends is trusted because the client sent it.
+
+  Related: UTA-0030 builds the manifest-and-bake mechanism for host to
+  player (0.4.0); UTA-0037 packages a character for download (0.6.0). This
+  item is the whole of it, in both directions, at 1.0.0.
+  Timing decided by the user (2026-09-10). This SUPERSEDES the "Timing,
+  from the user 2026-09-08" paragraph above, which placed the download at
+  map change and said it was not a pre-join step. Build to this instead:
+
+  - At join, the two machines compare what each has, and the player sees
+    a short list of what will be downloaded.
+  - The map being played downloads first, straight away, with a progress
+    bar and no prompt -- the player is told nothing else about it.
+  - The rest of the rotation downloads quietly in the background, so a
+    later map change does not wait. Map change is only the fallback, for
+    anything the background fetch has not reached yet.
+  - Characters and monster models download automatically as well, exactly
+    like maps: no prompt, just the list and the progress. Offered as an
+    option to ask first; declined.
+
+  The old paragraph's design points still hold wherever the fallback is
+  used: a fetch that fails must not drop the player from the server, and
+  a slow fetch holds up one player, never the server.
+  **Layman:** If a server has a map, a character or a monster you have never seen, the game fetches it for you instead of turning you away -- and anything of yours the others lack reaches them too.
   Kind: feature.
   Source: user-request-2026-09-08.
   Lanes: unet, ubundle.
