@@ -136,6 +136,11 @@ colours.
 The bake asks for the masked variant only where a surface uses the
 texture masked. The two variants are two materials (§ 4.6).
 
+**A replacement image carries its own alpha, and no fill runs on it.**
+Its masked variant keeps that alpha as given; its opaque variant has
+alpha set to 255. UTA-0011 prepares the variant before calling
+`generate`, which takes its base as given.
+
 ### 4.3 Enlarging: a fixed table, integer arithmetic, wrap edges
 
 The factor is `umat::upscaleFactor(width, height, requested)`: 1, 2 or
@@ -149,8 +154,11 @@ The factor is `umat::upscaleFactor(width, height, requested)`: 1, 2 or
   table in the source.** They are generated offline from the Lanczos
   kernel, so the baker calls no `sin`. That keeps the Determinism bullet
   true by construction.
-- **Weights are fixed-point.** Each phase's taps sum to exactly
-  `WEIGHT_ONE`, the largest tap absorbing the rounding remainder.
+- **Weights are the normalised kernel in fixed point.** The raw kernel
+  does not sum to 1 at a fractional offset, so each phase's values are
+  divided by their sum, scaled by `WEIGHT_ONE` and rounded. The largest
+  tap absorbs the rounding remainder, so each phase sums to exactly
+  `WEIGHT_ONE`.
 - **Separable.** A horizontal pass writes an 8-bit intermediate, then a
   vertical pass writes the output. Each pass sums texel times weight in
   `std::int64_t`, adds half of `WEIGHT_ONE`, shifts, and clamps to
@@ -161,7 +169,7 @@ The factor is `umat::upscaleFactor(width, height, requested)`: 1, 2 or
 
 ```cpp
 namespace uta::umat::detail {
-inline constexpr int LANCZOS_A = 3;              // § 15
+inline constexpr int LANCZOS_A = 3;
 inline constexpr std::int32_t WEIGHT_ONE = 1 << 14;
 /// kWeights2[phase][tap] and kWeights4[phase][tap], 2 * LANCZOS_A taps.
 }
@@ -189,23 +197,27 @@ Source: <https://en.wikipedia.org/wiki/Luma_(video)>.
 
 ```text
 Gx = [-1 0 +1; -2 0 +2; -1 0 +1]      Gy = [-1 -2 -1; 0 0 0; +1 +2 +1]
-g  = 255 * 2^l                        at mip level l
-n  = normalize(-s * Gx / g, s * Gy / g, 1)
+v   = (-s * k * Gx,  s * k * Gy,  255 * 2^l)    k: the applied factor
+len = isqrt(vx² + vy² + vz²)                   l: the mip level
 ```
 
 Source: <https://en.wikipedia.org/wiki/Sobel_operator>.
 
-- **Dividing by `2^l` keeps one surface's slope the same at every
-  level.** A texel at level `l` spans `2^l` level-0 texels.
+- **`k` and `2^l` keep one surface's slope the same at every factor and
+  level.** A texel at level `l` of a base enlarged by `k` spans `2^l / k`
+  texels of the image handed to `generate`.
 - **The axes are pinned, because the renderer binds to them.** X is
   +right. Y is +toward row 0, the top of the image — so the `Gy` term is
   positive, `Gy` being measured downward.
 - **Storage** follows glTF 2.0's mapping of a channel's [0, 1] to
   [−1, 1]. X and Y go into BC5's two channels as
-  `floor(127.5 * c + 128.0)`, and Z is reconstructed as UTA-0052's § 4.2
-  says. Source: <https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/Specification.adoc>.
-- **Arithmetic is `double` using `sqrt` and `floor` only.** UTA-0052's
-  § 15 records that IEEE-754 makes both exact, and INV-6 grades it.
+  `(255 * vc + 256 * len) / (2 * len)` for component `vc` — the integer
+  form of `127.5 * c + 128`, rounded down. Z is reconstructed as
+  UTA-0052's § 4.2 says. Source: <https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/Specification.adoc>.
+- **Integer arithmetic throughout.** `s` is an integer constant, and
+  `isqrt` is an integer square root, rounded down, written in `umat`. No
+  floating point and no maths library, so the Determinism bullet holds
+  here by construction, as in § 4.3.
 
 **Roughness** is a heuristic, and is stated as one — darker texels
 rougher, lighter texels smoother:
@@ -237,14 +249,16 @@ never averaged: an averaged normal is no longer unit length.
 ### 4.6 Identity
 
 ```text
-<package>.<texture>[#masked]:<map>        ASCII, lower-cased
-<map> is one of base | normal | rough | height | emit
+<package>.<path>[#masked]:<map>        ASCII, lower-cased
+<path> is each group holding the texture, outermost first, then its name
+<map>  is one of base | normal | rough | height | emit
 ```
 
 `umat::materialId` returns the part before the colon, which becomes
-`Material::id`. Each map's `ubundle::CompressedTexture::name` is the
-whole string. UT99 resolves names case-insensitively, hence the lower
-case. **The bundle and the renderer look maps up by this name**, which is
+`Material::id`. `<path>` is built from the export's `outer` chain, so
+two textures sharing a name in different groups of one package differ.
+Each map's `ubundle::CompressedTexture::name` is the whole string. UT99
+resolves names case-insensitively, hence the lower case. **The bundle and the renderer look maps up by this name**, which is
 why it is fixed here. A replacement keeps the identity of the texture it
 replaces.
 
@@ -282,7 +296,7 @@ struct Material {
 
 /// Generate.h -- § 4.6.
 [[nodiscard]] std::string materialId(std::string_view package,
-                                     std::string_view texture, bool masked);
+                                     std::string_view path, bool masked);
 
 /// Generate.h -- one material from an RGBA8 base level: a resolved texture
 /// or a replacement. Its dimensions become every map's sourceWidth and
@@ -326,16 +340,18 @@ material, never returning part of one.
   as `sourceWidth` and `sourceHeight`. At factor 1 the output bytes equal
   the input.
   *Test:* `tests/unit/MaterialGenerateTest.cpp`: a 64×64 base at requested
-  1, 2 and 4, and a 2048×2048 base at requested 4. No arrow: the surface
-  does not exist yet.
+  1, 2 and 4, and a 2048×4 base at requested 4 — above `MAX_OUTPUT_EDGE`,
+  so factor 1, and cheap to encode. No arrow: the surface does not exist
+  yet.
   *Breaks when:* the requested factor is applied instead of
   `upscaleFactor`'s, or the 2048 case is shrunk rather than passed through.
 
 - **INV-3** — each Lanczos phase's taps sum to exactly `WEIGHT_ONE`. Each
-  weight is within one unit of the kernel's value at that offset. A
-  constant image enlarges to the same constant.
-  *Test:* `tests/unit/MaterialGenerateTest.cpp`, recomputing the kernel
-  with `std::sin` in the test, never in the engine. No arrow: the surface
+  weight is within one unit of `WEIGHT_ONE` times the normalised kernel:
+  the kernel's values at that phase, divided by their sum. A constant
+  image enlarges to the same constant.
+  *Test:* `tests/unit/MaterialGenerateTest.cpp`, recomputing the
+  normalised kernel with `std::sin` in the test, never in the engine. No arrow: the surface
   does not exist yet.
   *Breaks when:* the table is generated for the wrong `a`, or left
   unnormalised, which brightens or darkens every enlarged texture.
@@ -361,9 +377,8 @@ material, never returning part of one.
   *Test:* `tests/unit/MaterialGenerateTest.cpp`, arrays literal in the
   source. **This item's cross-compiler check**: one constant, every CI
   leg. No arrow: the surface does not exist yet.
-  *Breaks when:* a step uses floating point under contraction, calls a
-  platform maths function beyond `sqrt` and `floor`, or depends on
-  iteration order.
+  *Breaks when:* a step uses floating point or the maths library, or
+  depends on iteration order.
 
 - **INV-7** — `generate` output does not depend on the worker count. One
   worker, two, and `hardware_concurrency()` give identical materials.
@@ -383,8 +398,9 @@ material, never returning part of one.
 
 - **INV-9** — every map's `mipCount` is `bit_width(max(width, height))`.
   Base colour level `l + 1` is the rounded 2×2 box average of level `l`.
-  *Test:* `tests/unit/MaterialGenerateTest.cpp`, `mipChain` on an 8×8
-  base. No arrow: the surface does not exist yet.
+  *Test:* `tests/unit/MaterialGenerateTest.cpp`: `mipChain` on an 8×8
+  base, and `generate` on it with `emissive` set, checking every map's
+  `mipCount`. No arrow: the surface does not exist yet.
   *Breaks when:* the chain stops early, or rounds down instead of to
   nearest.
 
@@ -400,10 +416,11 @@ material, never returning part of one.
   surface.
 
 - **INV-11** — `materialId` follows § 4.6. Two textures named alike in
-  different packages get different ids, and the masked variant differs
-  from the opaque one.
+  different packages, or in different groups of one package, get
+  different ids, and the masked variant differs from the opaque one.
   *Test:* `tests/unit/MaterialGenerateTest.cpp`: packages `A` and `B`
-  each holding `Wall`, plus `A`'s masked variant, in mixed case. No arrow:
+  each holding `Wall`, groups `G1` and `G2` of `A` each holding `Door`,
+  and `A`'s masked variant, in mixed case. No arrow:
   the surface does not exist yet.
   *Breaks when:* the id is the bare texture name — the collision UTA-0104
   exists to prevent.
@@ -426,9 +443,11 @@ material, never returning part of one.
 
 ## 6. Failure modes
 
-- **A texture class `upkg` cannot read.** `upkg::isModelledTextureClass`
-  refuses `WaveTexture` and its kin, so `generate` never sees one. The
-  bake's fallback is UTA-0011's.
+- **A procedural texture.** `upkg::isModelledTextureClass` refuses
+  `WaveTexture` but accepts `WetTexture`, `IceTexture`, `ScriptedTexture`
+  and `FireTexture` beside `Texture` — `MODELLED_CLASSES` in
+  `src/upkg/Texture.cpp`. `generate` cannot tell a class apart, so which
+  of those count as procedural, and are skipped (§ 9), is UTA-0011's.
 - **A palette shorter than the indices.** `resolve` refuses; nothing
   reads past it.
 - **A base that is not a power of two.** Refused, naming the texture
@@ -526,10 +545,6 @@ Time is bake time.
 
 ## 15. Open questions
 
-- **`a = 2` or `a = 3`.** § 3 decision 2 measured 3. Wikipedia's *Lanczos
-  resampling* says *"For a = 2 (a three-lobed kernel) the ringing is
-  < 1%."* INV-13's census measures both on this implementation, and the
-  table is fixed to the winner.
 - **The normal strength `s`, and the `settings` defaults.** Starting
   values, set on seeing real materials. Each is one constant.
 - **How UTA-0104 tells apart two packages sharing a name.** Its answer
