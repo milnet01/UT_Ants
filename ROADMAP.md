@@ -813,6 +813,9 @@ model, no weapon and no opponent until 0.2.0.
   heuristic, but they set only baseRoughness, which it adds to; and the
   design.md umat row and UTA-0009 SS 4.6 amendments the spec's SS 11
   lists.
+  Resumed (2026-09-10) by ut-ants-0c, working in the main checkout;
+  ut-ants-b3 is no longer in ListAgents. Building to the accepted spec
+  in the suggested order above.
   **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
   Kind: implement.
   Source: design-2026-09-03.
@@ -4593,6 +4596,31 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-10.
   Lanes: tools.
 
+- 📋 [UTA-0108] **A rule setting that turns off landing damage, while leaving the world still kills.**
+  The user's requirement (2026-09-10): a setting that turns off landing
+  damage, the harm from hitting the ground too fast. Falling off the edge
+  of the world must still kill.
+
+  Decided with the user (2026-09-10):
+  - It spares players and bots. Monsters keep landing damage.
+  - Whoever runs the game sets it, on the footing of the other per-map
+    rule settings (S10). The default is UT99's: landing damage on.
+
+  The robustness requirement is a separation. Landing damage and leaving
+  the world are two different ways to die, and the setting reaches only
+  the first. In UT99 the second is a kill zone or falling outside every
+  zone. Our engine keeps that split: a pawn in a kill zone, or below the
+  world, dies whatever this setting says. Landing damage belongs to the
+  movement model (UTA-0017), which measures UT99's threshold rather than
+  recalling it.
+
+  Twin in UT_MonsterHunt: asked for by message from ut-ants-0c on
+  2026-09-10, for the live UT99 server first.
+  **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: uworld, ugame.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
@@ -4917,6 +4945,16 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   (GAME-0073, which that project reduced to 10 HP a shot in its own
   subclass) that is two paths. Protection here must hold on every path by
   which a pawn loses health or dies, not only on damage.
+  Correction (UT_MonsterHunt, 2026-09-10, by message to ut-ants-0c):
+  the GAME-0077 paragraph above is withdrawn. Those deaths were engine
+  landing damage -- Pawn.TakeFallingDamage calls TakeDamage(1000,
+  'Fell') -- which a damage hook DOES see. qZombie writes only its own
+  Health. The pawns were bots launched by their own blasts: the mutator
+  zeroed bot self-damage but not self-momentum, so point-blank self-hits
+  stacked into a launch. Design lesson: cancelling damage without
+  cancelling its momentum turns a self-kill into a falling death. BPak's
+  direct Health write (GAME-0073) remains the one known path around a
+  damage hook.
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
