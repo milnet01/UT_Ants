@@ -14,6 +14,7 @@
 // never per map, because a level whose path network disagrees with its own
 // nodes is content rather than a builder defect.
 
+#include "core/FileSystem.h"
 #include "umap/Build.h"
 #include "umap/Rooms.h"
 #include "unav/Build.h"
@@ -32,8 +33,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <cctype>
 #include <cmath>
 #include <map>
@@ -98,12 +97,10 @@ TEST_CASE("every package in the install either opens or is refused by version",
             continue;
         }
 
-        std::ifstream file(entry.path(), std::ios::binary);
-        REQUIRE(file);
-        const std::vector<char> raw{std::istreambuf_iterator<char>(file),
-                                    std::istreambuf_iterator<char>()};
-        const std::span<const std::byte> bytes{
-            reinterpret_cast<const std::byte*>(raw.data()), raw.size()};
+        const auto read = uta::fs::readFile(entry.path());
+        REQUIRE(read.has_value());
+        const std::vector<std::byte>& raw = *read;
+        const std::span<const std::byte> bytes{raw};
 
         const auto package = uta::upkg::Package::open(bytes);
         if (package.has_value()) {
@@ -307,12 +304,10 @@ TEST_CASE("every modelled export in the install is consumed exactly",
             continue;
         }
 
-        std::ifstream file(entry.path(), std::ios::binary);
-        REQUIRE(file);
-        const std::vector<char> raw{std::istreambuf_iterator<char>(file),
-                                    std::istreambuf_iterator<char>()};
-        const std::span<const std::byte> bytes{
-            reinterpret_cast<const std::byte*>(raw.data()), raw.size()};
+        const auto read = uta::fs::readFile(entry.path());
+        REQUIRE(read.has_value());
+        const std::vector<std::byte>& raw = *read;
+        const std::span<const std::byte> bytes{raw};
 
         const auto package = uta::upkg::Package::open(bytes);
         if (!package.has_value()) {
@@ -499,16 +494,14 @@ namespace {
 
 /// Read a file whole. The Package holds a VIEW of these bytes, so the caller
 /// keeps them alive.
-std::vector<char> readWhole(const fs::path& path) {
-    std::ifstream file(path, std::ios::binary);
-    if (!file) {
-        return {};
-    }
-    return std::vector<char>{std::istreambuf_iterator<char>(file),
-                             std::istreambuf_iterator<char>()};
+std::vector<std::byte> readWhole(const fs::path& path) {
+    // One read through uta::fs, not a character-at-a-time stream: the stream
+    // was most of this tier's CPU (UTA-0095).
+    auto bytes = uta::fs::readFile(path);
+    return bytes.has_value() ? std::move(*bytes) : std::vector<std::byte>{};
 }
 
-std::span<const std::byte> viewOf(const std::vector<char>& raw) {
+std::span<const std::byte> viewOf(const std::vector<std::byte>& raw) {
     return std::span<const std::byte>{
         reinterpret_cast<const std::byte*>(raw.data()), raw.size()};
 }
@@ -539,7 +532,7 @@ TEST_CASE("every class export in the install is consumed exactly", "[real-assets
             continue;
         }
 
-        const std::vector<char> raw = readWhole(entry.path());
+        const std::vector<std::byte> raw = readWhole(entry.path());
         const auto package = uta::upkg::Package::open(viewOf(raw));
         if (!package.has_value()) {
             // Whether a package SHOULD open is the case above, which proves
@@ -624,7 +617,7 @@ TEST_CASE("class ancestry resolves across the install's own packages", "[real-as
 
     // The resolver owns the lifetime of what it returns, which is the bargain
     // SS 4.6 states. These two maps are that ownership.
-    std::map<std::string, std::vector<char>> bytes;
+    std::map<std::string, std::vector<std::byte>> bytes;
     std::map<std::string, uta::upkg::Package> opened;
 
     const uta::upkg::PackageResolver resolver =
@@ -651,7 +644,7 @@ TEST_CASE("class ancestry resolves across the install's own packages", "[real-as
     int incomplete = 0;
 
     for (const auto& [name, path] : byName) {
-        const std::vector<char> raw = readWhole(path);
+        const std::vector<std::byte> raw = readWhole(path);
         const auto package = uta::upkg::Package::open(viewOf(raw));
         if (!package.has_value()) {
             continue;
@@ -824,7 +817,7 @@ TEST_CASE("a navigation point's Paths entries index the level's reach-spec array
 
     // The resolver owns the lifetime of what it returns, as the ancestry case
     // above does.
-    std::map<std::string, std::vector<char>> systemBytes;
+    std::map<std::string, std::vector<std::byte>> systemBytes;
     std::map<std::string, uta::upkg::Package> systemOpened;
     const uta::upkg::PackageResolver resolver =
         [&](std::string_view name) -> uta::Result<const uta::upkg::Package*> {
@@ -857,7 +850,7 @@ TEST_CASE("a navigation point's Paths entries index the level's reach-spec array
         if (!entry.is_regular_file() || foldCase(entry.path().extension().string()) != ".unr") {
             continue;
         }
-        const std::vector<char> raw = readWhole(entry.path());
+        const std::vector<std::byte> raw = readWhole(entry.path());
         const auto package = uta::upkg::Package::open(viewOf(raw));
         if (!package.has_value()) {
             continue; // an earlier case owns which packages may fail to open
@@ -971,7 +964,7 @@ TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold"
     // Built the same way as the Paths case above rather than shared with it:
     // folding the two together would edit that case to serve this one, and a
     // second copy is not yet a third.
-    std::map<std::string, std::vector<char>> systemBytes;
+    std::map<std::string, std::vector<std::byte>> systemBytes;
     std::map<std::string, uta::upkg::Package> systemOpened;
     const uta::upkg::PackageResolver resolver =
         [&](std::string_view name) -> uta::Result<const uta::upkg::Package*> {
@@ -1010,7 +1003,7 @@ TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold"
         if (!entry.is_regular_file() || foldCase(entry.path().extension().string()) != ".unr") {
             continue;
         }
-        const std::vector<char> raw = readWhole(entry.path());
+        const std::vector<std::byte> raw = readWhole(entry.path());
         const auto package = uta::upkg::Package::open(viewOf(raw));
         if (!package.has_value()) {
             continue; // an earlier case owns which packages may fail to open
@@ -1178,12 +1171,10 @@ TEST_CASE("every node's own zone record agrees with the descent", "[real-assets]
         if (!entry.is_regular_file() || entry.path().extension() != ".unr") continue;
         ++census.maps;
 
-        std::ifstream file(entry.path(), std::ios::binary);
-        REQUIRE(file);
-        const std::vector<char> raw{std::istreambuf_iterator<char>(file),
-                                    std::istreambuf_iterator<char>()};
-        const std::span<const std::byte> bytes{
-            reinterpret_cast<const std::byte*>(raw.data()), raw.size()};
+        const auto read = uta::fs::readFile(entry.path());
+        REQUIRE(read.has_value());
+        const std::vector<std::byte>& raw = *read;
+        const std::span<const std::byte> bytes{raw};
         const auto package = uta::upkg::Package::open(bytes);
         if (!package.has_value()) continue;
 
