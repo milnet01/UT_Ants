@@ -1379,7 +1379,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: urender.
 
-- 🚧 [UTA-0052] **umat: a texture memory budget, with block compression and a per-material upscale cap.**
+- ✅ [UTA-0052] **umat: a texture memory budget, with block compression and a per-material upscale cap.**
   UTA-0009 turns one 1999 texture into five -- albedo, normal, roughness,
   height and emissive -- and upscales before deriving them. Upscaling
   256x256 to 1024x1024 is sixteen times the pixels, so five maps at
@@ -1658,6 +1658,15 @@ model, no weapon and no opponent until 0.2.0.
 
   Remaining: re-mutate those three, the Clang leg, the full gate, and the
   matrix.
+  Shipped (2026-09-10), on the matrix: CI run 34461826976 at `10a42ad`
+  is green on Linux GCC 14, Linux Clang 19 and Windows MSVC. INV-6's golden
+  arrays were captured on GCC, so the two other legs passing is the
+  cross-compiler check the invariant exists for. The design.md Determinism
+  reading recorded in the spec's SS 15 stands: bc7enc's `sqrtf`, `floor`
+  and `fabs` did not move a byte between compilers.
+
+  Local leg: 226/226, ThreadSanitizer clean, full `./scripts/ci.sh` green
+  through the pre-push gate.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.

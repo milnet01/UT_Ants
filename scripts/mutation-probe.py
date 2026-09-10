@@ -63,7 +63,7 @@ SUBJECTS = {
         "target": "uta_unit_tests",
         "binary": "tests/uta_unit_tests",
         "filter": "[ubundle]",
-        "cases": 21,
+        "cases": 29,
         "mutations": [
             # -- SS 4.6 to SS 4.8: two adjacent fields of one width and type,
             # transposed. INV-6 and INV-7. A round trip cannot see these; only
