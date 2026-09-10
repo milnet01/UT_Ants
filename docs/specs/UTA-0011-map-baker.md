@@ -1,6 +1,6 @@
 # UTA-0011 — `ubake` and `ut-bake`: bake a map, and check an install
 
-**Status:** spec draft (2026-09-10).
+**Status:** accepted (2026-09-10).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0011 (design-2026-09-03; scope narrowed with the
 user 2026-09-10).
@@ -100,8 +100,9 @@ of a bundle plugs into this baker rather than starting a second one.
 | `tools/ut-bake/Cli.h/.cpp` | the command line as a function (§ 4.8) |
 | `tools/ut-bake/main.cpp` | calls it |
 
-`uta_ubake` links `uta_core`, `uta_upkg`, `uta_umat`, `uta_unav`,
-`uta_umap` and `uta_ubundle`. `docs/design.md` rule 2 keeps it out of both
+`uta_ubake` links `uta_core`, `uta_upkg`, `uta_umat`, `uta_unav_build`,
+`uta_umap_build` and `uta_ubundle`. The two `_build` libraries hold the
+graph and room builders. `docs/design.md` rule 2 keeps it out of both
 runtime targets. The link-closure test that asserts so belongs to the first
 item that builds a runtime target (§ 9).
 
@@ -119,7 +120,7 @@ public:
     /// NotFound when `root` is not a directory.
     [[nodiscard]] static Result<Install> open(const std::filesystem::path& root);
 
-    /// Folds its input to lower case, then looks the name up in § 4.2's order.
+    /// Folds its input as § 4.4 defines, then looks it up in § 4.2's order.
     /// A name that is absent, or whose file does not open as a package, gives
     /// nullptr and no error. Each package is read and opened at most once.
     /// Valid for the lifetime of the Install, across a move of it.
@@ -159,7 +160,8 @@ different settings would then name one map differently (§ 8).
 ```cpp
 namespace uta::ubake {
 
-/// Bumped by hand whenever the baker's own code changes what it writes.
+/// Bumped by hand whenever any code a bake runs -- `ubake`, `umat`, `umap`,
+/// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
 inline constexpr std::uint32_t BAKER_REVISION = 1;
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
@@ -171,7 +173,7 @@ inline constexpr std::uint32_t BAKER_REVISION = 1;
 ```
 
 It covers the three bake inputs that are neither the map nor the recipe:
-the baker's code, the framing (`docs/design.md` § Content addressing, *"The
+the code a bake runs, the framing (`docs/design.md` § Content addressing, *"The
 `ubundle` format version is one of the baker's own inputs"*), and the
 curated library (UTA-0010 § 4.6).
 
@@ -248,7 +250,9 @@ is the byte `0x0A`:
 package those name, until no new name appears. An import names a package
 where its outermost outer is null — `ut-dump`'s `importedPackages` rule,
 which walks the outer chain rather than stopping at the immediate outer.
-Names are folded. The map itself is left out. A package the resolver returns none for contributes its name and `0x00`,
+Names are folded: ASCII `A`–`Z` become `a`–`z`, every other byte is
+kept, and a name is hashed as its UTF-8 bytes. The map's stem in item 4 is
+folded the same way. The map itself is left out. A package the resolver returns none for contributes its name and `0x00`,
 so installing or repairing it later renames the bake.
 
 **Why the closure, and why before the bake.** *"Every other bake input must
@@ -329,6 +333,10 @@ In order:
 5. **`TEXS`** and **`MATS`** are § 4.6's materials.
 6. **`budget`** is `umat::measure` over every map of every material, against
    the budget given.
+
+**Every section in the steps above is written, and empty where the level
+has none**, so a present but empty section says the level was examined
+(UTA-0008 § 4.4).
 
 The header's origin is `Origin::Derived`, since a bake read an install
 (`docs/design.md` rule 15), and its kind is `BundleKind::Map`.
@@ -510,11 +518,11 @@ struct CheckReport {
 `ok` is true when there are no problems. The problems:
 
 - `root` is not a directory.
-- Each of `Core`, `Engine` and `Botpack` that does not resolve through the
-  install: *"System/Botpack.u is missing, so this is not an Unreal
+- Each of `Core`, `Engine` and `Botpack` for which `Install::pathOf`
+  returns empty: *"System/Botpack.u is missing, so this is not an Unreal
   Tournament install."*
-- Each of those that resolves to a file `upkg::Package::open` refuses, with
-  that refusal's message.
+- Each of those whose file, read and handed to `upkg::Package::open`, is
+  refused, with that refusal's message.
 
 `Core` and `Engine` hold the classes a level's actors descend from; `ut-dump`
 records a map's `Teleporter` descending from `NavigationPoint` in
@@ -703,8 +711,8 @@ reads another's meaning; the baker guarantees the pairing (INV-17).
   let a crafted map write outside `outDir`.
 
 - **INV-17** — Every `MATS` id has a `TEXS` map named `<id>:base`, every
-  `TEXS` map's name before its colon is a `MATS` id, and `TEXS`'s names
-  ascend bytewise.
+  `TEXS` map's name before its colon is a `MATS` id, and `TEXS` holds its
+  materials in ascending id, each one's maps in `MapKind` order (§ 4.6).
   *Test:* `tests/unit/BakeTest.cpp`, over INV-8's fixture with its surfaces
   naming its textures in descending id order, plus one texture that is
   skipped.
@@ -821,6 +829,10 @@ in resolution order, and read a `MATS` `metallic` byte of `2` as `true`. Each mu
   as the code, as UTA-0052 did for `TEXS`: § 4.10's API and section order
   gain `MATS`, § 4.2's minimum-size table gains `MaterialRecord`, and INV-4
   is annotated in place with version `3`.
+- `docs/specs/UTA-0008-bundle-container-and-origin.md` § 4.4 — its example,
+  that a level with no navigation points carries no `NAVG`, becomes an empty
+  one, matching the same paragraph's own distinction. Corrected in the same
+  change as the code.
 - `CHANGELOG.md` — an `### Added` entry for `ut-bake`, and a `### Changed`
   entry for the bundle format's version `3`, as
   `docs/standards/versioning-overrides.md` § Override requires of a breaking
