@@ -591,7 +591,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ubundle.
 
-- 🚧 [UTA-0009] **umat: generate a PBR material from a 1999 texture.**
+- ✅ [UTA-0009] **umat: generate a PBR material from a 1999 texture.**
   Upscale, then derive normal, roughness, height and emissive. The original
   texture's PolyFlags say which surfaces are glass, water, sky or self-lit, so
   those are read rather than guessed.
@@ -748,6 +748,11 @@ model, no weapon and no opponent until 0.2.0.
   the new guards is killed, INV-12 refuses configure when broken, and the
   census keeps Lanczos at or above bicubic and above nearest. Open until
   the CI matrix is green.
+  Shipped (2026-09-10): green on the CI matrix (GCC 14, Clang 19,
+  MSVC) at cfe1e66, run 34477101077. Spec accepted after two cold
+  review loops; every hand mutation of the new guards killed; INV-12
+  seen to refuse configure; INV-13's census holds the ranking on the
+  reference install (local-only tier, not on the matrix by design).
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
