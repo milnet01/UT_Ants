@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Textures are block-compressed, and a map's texture memory is measured against a budget.** (UTA-0052)
+  The baker's texture step can squash a texture into the compressed
+  formats a graphics card reads directly (BC4, BC5 and BC7), limit how far a
+  small texture is enlarged, and add up the video memory a map's textures
+  need. A map over the budget is refused with its textures listed largest
+  first; nothing is quietly shrunk to make it fit. Nothing calls this yet:
+  the baker that will is UTA-0011.
+
 - **`ubundle` defines the `.utab` container and the origin field that travels with it** (UTA-0008)
   Our own file format for a finished level -- and the one field that
   records whether any of its content came out of somebody's copy of

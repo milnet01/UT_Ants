@@ -610,7 +610,7 @@ struct Image {
     ubundle::BlockFormat format,
     std::uint16_t sourceWidth,
     std::uint16_t sourceHeight,
-    core::JobSystem& jobs);
+    JobSystem& jobs);
 
 }  // namespace uta::umat
 ```
@@ -629,6 +629,14 @@ stops such a bundle being *decoded*; this stops one being *written*, so a bad
 texture cannot be produced by the only writer there is and then blamed on the
 reader — the same argument `src/ubundle/Bundle.h` already gives for `write`
 refusing a structure that violates UTA-0008 § 4.9.
+
+**As built (2026-09-10), three details this section did not settle.** The
+job system is `uta::JobSystem` from `src/core/Jobs.h`: `core` names the
+part, not a namespace, and an earlier draft of the signature above spelled
+it `core::JobSystem`. `compress` also refuses a `channels` count outside 1,
+2 or 4, which `Image`'s own comment names — so BC7's minimum of 3 is met
+only by 4. And it refuses a `format` outside the enum, since a value cast
+in from elsewhere would otherwise encode nothing and succeed.
 
 ## 5. Invariants
 
@@ -769,6 +777,11 @@ refusing a structure that violates UTA-0008 § 4.9.
   **Prove it by breaking it once**: add `target_compile_options(uta_umat
   PRIVATE -ffast-math)` and configure, which must stop. No arrow: the file
   does not exist yet.
+  **As built (2026-09-10), the assertion also reads each of `uta_umat`'s
+  sources' `COMPILE_OPTIONS` and `COMPILE_FLAGS`.** A flag set on one file
+  with `set_source_files_properties` never reaches the target property, and
+  a vendored C file is exactly where such a flag gets added. Broken once as
+  well: `COMPILE_OPTIONS -ffast-math` on `bc7enc.c` stops configure.
   **The pattern must be the enabling spellings only.** The property is
   initialised from the directory property `add_compile_options` sets, so it
   already carries `-ffp-contract=off`, `-fno-fast-math` or `/fp:precise` on a
