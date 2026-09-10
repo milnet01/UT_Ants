@@ -1,6 +1,6 @@
 # UTA-0009 — `umat`: generate a PBR material from a 1999 texture
 
-**Status:** spec draft (2026-09-10).
+**Status:** accepted (2026-09-10).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0009 (design-2026-09-03; scope settled with the
 user 2026-09-05, 2026-09-09 and 2026-09-10).
@@ -250,21 +250,26 @@ never averaged: an averaged normal is no longer unit length.
 
 ```text
 <package>.<path>[#masked]:<map>        ASCII, lower-cased
-<path> is each group holding the texture, outermost first, then its name
+<path> is each group holding the texture, outermost first, then its
+       name, joined by .
 <map>  is one of base | normal | rough | height | emit
 ```
 
 `umat::materialId` returns the part before the colon, which becomes
-`Material::id`. `<path>` is built from the export's `outer` chain, so
-two textures sharing a name in different groups of one package differ.
+`Material::id`. UTA-0011 builds `<path>` from the export's `outer` chain
+and passes it already joined; UTA-0010's library writes ids in the same
+form. Two textures sharing a name in different groups of one package
+therefore differ.
 Each map's `ubundle::CompressedTexture::name` is the whole string. UT99
 resolves names case-insensitively, hence the lower case. **The bundle and the renderer look maps up by this name**, which is
 why it is fixed here. A replacement keeps the identity of the texture it
 replaces.
 
 `<package>` is the package name as UT99 resolves it. Two creators can
-ship different packages under one name (§ 3 decision 5). Telling them
-apart is UTA-0104's, and only `materialId` changes when it does (§ 15).
+ship different packages under one name (§ 3 decision 5). *Decided by the
+user, 2026-09-10*: they are told apart by a fingerprint of each
+package's contents. Its form is UTA-0104's, and only the `<package>`
+segment changes when it lands (§ 15).
 
 ### 4.7 The API
 
@@ -289,7 +294,8 @@ struct Material {
     std::vector<ubundle::CompressedTexture> maps;
 };
 
-/// Resolve.h -- one palettised level to RGBA8 (§ 4.2).
+/// Resolve.h -- one palettised level to RGBA8, the masked fill included
+/// (§ 4.2).
 [[nodiscard]] Result<Image> resolve(const upkg::Mip& level,
                                     const upkg::Palette& palette,
                                     bool masked);
@@ -324,8 +330,10 @@ material, never returning part of one.
 
 ## 5. Invariants
 
-- **INV-1** — `resolve` maps each texel to its palette entry's `r`, `g`
-  and `b`. The opaque variant's alpha is 255 everywhere. The masked
+- **INV-1** — `resolve` gives every texel of the opaque variant, and
+  every non-index-0 texel of the masked one, its palette entry's `r`,
+  `g` and `b`. The masked variant's index-0 texels carry § 4.2's fill.
+  The opaque variant's alpha is 255 everywhere. The masked
   variant's is 0 exactly on index-0 texels and 255 elsewhere.
   *Test:* `tests/unit/MaterialGenerateTest.cpp`, a 4×4 palettised fixture
   with index 0 in known cells, resolved both ways. No arrow: the surface
@@ -406,8 +414,8 @@ material, never returning part of one.
 
 - **INV-10** — a flat height gives the normal (0, 0, 1) everywhere. A
   height rising to the right tilts X negative. A height rising toward row
-  0 tilts Y negative. A linear ramp gives the same interior normal at
-  levels 0 and 1.
+  0 tilts Y negative. A linear ramp's interior normal bytes at levels 0
+  and 1 differ by at most one, because the integer square root rounds.
   *Test:* `tests/unit/MaterialGenerateTest.cpp`, `normalOf` on a constant,
   a horizontal ramp and a vertical ramp, plus the ramp's level 1. No
   arrow: the surface does not exist yet.
@@ -420,7 +428,8 @@ material, never returning part of one.
   different ids, and the masked variant differs from the opaque one.
   *Test:* `tests/unit/MaterialGenerateTest.cpp`: packages `A` and `B`
   each holding `Wall`, groups `G1` and `G2` of `A` each holding `Door`,
-  and `A`'s masked variant, in mixed case. No arrow:
+  and `A`'s masked variant, in mixed case. One id is compared as an
+  exact string: `materialId("A", "G1.Door", true)` is `a.g1.door#masked`. No arrow:
   the surface does not exist yet.
   *Breaks when:* the id is the bare texture name — the collision UTA-0104
   exists to prevent.
@@ -446,8 +455,10 @@ material, never returning part of one.
 - **A procedural texture.** `upkg::isModelledTextureClass` refuses
   `WaveTexture` but accepts `WetTexture`, `IceTexture`, `ScriptedTexture`
   and `FireTexture` beside `Texture` — `MODELLED_CLASSES` in
-  `src/upkg/Texture.cpp`. `generate` cannot tell a class apart, so which
-  of those count as procedural, and are skipped (§ 9), is UTA-0011's.
+  `src/upkg/Texture.cpp`. `generate` cannot tell a class apart. *Decided
+  by the user, 2026-09-10*: the first version shows each procedural
+  texture as a still picture where one exists. Which image stands in is
+  UTA-0011's; motion is UTA-0105's.
 - **A palette shorter than the indices.** `resolve` refuses; nothing
   reads past it.
 - **A base that is not a power of two.** Refused, naming the texture
@@ -504,11 +515,11 @@ on then come out of the tree, not a scratch run.
 - Writing materials into the bundle and picking each surface's variant —
   tracked by UTA-0011.
 - Rendering water and glass — tracked by UTA-0089.
-- Decoding a replacement image file into an `Image` — deferred; not yet
-  queued.
-- The optional AI upscaling tool — deferred; not yet queued.
-- Procedural textures (`FireTexture`, `WaveTexture` and kin) — deferred;
-  not yet queued.
+- Decoding a replacement PNG into an `Image`, and the recipe field naming
+  it — tracked by UTA-0106.
+- The optional AI upscaling tool — tracked by UTA-0107.
+- Animating procedural textures (`FireTexture`, `WaveTexture` and kin) —
+  tracked by UTA-0105.
 
 ## 10. What checks this
 
@@ -547,5 +558,5 @@ Time is bake time.
 
 - **The normal strength `s`, and the `settings` defaults.** Starting
   values, set on seeing real materials. Each is one constant.
-- **How UTA-0104 tells apart two packages sharing a name.** Its answer
-  changes `materialId`'s `<package>` segment and nothing else here.
+- **The form of UTA-0104's package fingerprint.** It changes
+  `materialId`'s `<package>` segment and nothing else here.

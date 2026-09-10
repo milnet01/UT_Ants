@@ -736,6 +736,11 @@ model, no weapon and no opponent until 0.2.0.
   material is identified by the package its texture came from, never by a
   bare texture name, so two creators' textures sharing a name never
   collide.
+  Three decisions by the user (2026-09-10) bearing on this item.
+  Animated textures show as a still picture in the first version, with
+  animation filed separately. Replacement images and the AI enlarger
+  come after the first version, replacements as PNG. Same-named
+  packages are told apart by a content fingerprint, owned by UTA-0104.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -3919,6 +3924,18 @@ model, no weapon and no opponent until 0.2.0.
   portal 51% of the time. So the bake carries the flags per surface into
   the bundle, and this item reads them there. UTA-0009 does not supply a
   per-material water or glass tag.
+  The user's requirement (2026-09-10), in their words: "For water,
+  please use modernised graphics techniques to show waters / liquids.
+  But please do it as cheaply as possible."
+
+  Candidates for this item's spec to settle by research and
+  measurement, cheapest first: two scrolling normal maps for moving
+  ripples; a Fresnel blend, more reflective at glancing angles;
+  reflection from a pre-baked environment map rather than an extra
+  scene render; refraction by sampling the already-rendered scene with
+  a small ripple offset; depth-based tint so deep water reads darker;
+  a soft fade where water meets geometry. The user cannot judge looks
+  by eye, so the choice rests on sources and numbers.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4321,6 +4338,17 @@ model, no weapon and no opponent until 0.2.0.
   Needs a spec, and probably a project standard beside it, since
   everything the baker writes is built under it. UTA-0009's materials are
   the first thing bound by it.
+  Decided by the user (2026-09-10): two packages sharing a name are
+  told apart by a short fingerprint of each package's contents, so two
+  different files get different names automatically and identical
+  copies are recognised as one. The fingerprint's form is this item's
+  to fix; UTA-0009's material names carry it in their package segment.
+
+  Open question for this item's spec, raised by the UTA-0009 contract
+  review: textures carry bool flags such as bMasked, and whether the
+  engine combines those with each surface's own PolyFlags is
+  unmeasured here. Settle it before fixing how a surface's kind is
+  derived.
   **Layman:** Every imported map follows the same rules for how its textures, surfaces and everything else are stored and used, so two maps by different creators are never read differently or clash.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4476,6 +4504,45 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: implement.
   Source: user-request-2026-09-05.
   Lanes: uaudio.
+
+- 📋 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
+  Decided by the user 2026-09-10: the first version shows these
+  as a still picture where one exists, and real animation is its own
+  item, linked to the water-and-glass rendering work (UTA-0089).
+
+  upkg reads FireTexture, WetTexture and IceTexture today and refuses
+  WaveTexture, whose extra data it does not describe. So this item
+  starts by reading WaveTexture, then decides per class whether the
+  motion is recomputed at run time or baked into frames. UTA-0009's
+  spec defers these classes to here.
+  **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: umat, upkg, render.
+
+- 📋 [UTA-0106] **Replacement images: a locally supplied PNG stands in for a texture.**
+  Decided by the user 2026-09-10: after the first version, PNG
+  files. The recipe references the replacement and the file is
+  supplied locally, never committed. UTA-0009's spec already takes a
+  replacement as an RGBA image and keeps the replaced texture's
+  identity; this item adds decoding the file and the recipe field, and
+  the replacement's bytes must reach the bundle's name through the
+  recipe (design.md, Content addressing).
+  **Layman:** A better picture for a texture, supplied on your own machine as a PNG file, is used in place of the original when a map is imported.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: umat, urecipe.
+
+- 📋 [UTA-0107] **Optional AI enlarging tool that produces replacement images.**
+  Decided by the user 2026-09-10: the baker keeps its built-in
+  classic enlarger, and AI enlarging is an optional separate tool
+  whose output is a replacement image. It runs after the replacement
+  image item, which it depends on. It is a tool, not part of the
+  baker, so bake determinism is unaffected.
+  **Layman:** An optional tool uses AI to make sharper versions of the original textures, saved as replacement pictures the importer can use.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: tools.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
