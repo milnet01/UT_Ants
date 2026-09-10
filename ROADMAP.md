@@ -5113,6 +5113,15 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   between every pair of players and bots; in test on their side.
   For our design: decide whether friendly fire off also removes the push.
   UT99's answer is no, and that is what throws bots off ledges.
+  Real-play figures (UT_MonsterHunt ut-monsterhunt-4b, 2026-09-10, by message;
+  its GAME-0066): their server protects for 3 s, absorbing damage, and
+  firing does not end it. Over one evening on five Monster Hunt maps, bots
+  and humans alike, no death came within 8 s of a respawn; every human
+  death came at 30 s or later. Log: that project's
+  work/playlogs/2026-09-10/mhserver-20260910-185605.log, the after= field
+  of its DEATH lines. Their caveat: no spawn-room map was played, so this
+  shows 3 s was never the limit that night, not that 3 s is enough where
+  spawn-killing was reported (MH-KillThemAllEG-BP).
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
