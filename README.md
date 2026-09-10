@@ -50,11 +50,15 @@ foundation the baker and the game will stand on:
   on the graphics card. In progress.
 - **Shared plumbing** — error reporting, logging, file handling and
   running work on several processor cores at once.
+- **The baker, `ut-bake`** — turns one of your maps into a bundle, and
+  checks that a folder really holds Unreal Tournament. A bake holds the
+  room map, the bot paths and the materials so far.
 
 `ut-dump`, a developer tool for looking inside a map file, is partly
 built.
 
-Next come the baker itself and the renderer, which draws the result.
+Next come the rest of the baker — the level's shape, its lights and its
+collision — and the renderer, which draws the result.
 [ROADMAP.md](ROADMAP.md) is the up-to-date list; this section is a summary
 of it.
 
@@ -81,8 +85,21 @@ files.
 
 ## Using it
 
-Not yet. The first program you will be able to run is the baker,
-`ut-bake`, followed by the game itself, `ut-ants`.
+The baker, `ut-bake`, is the first program you can run. It is built with
+everything else, into `build/tools/ut-bake/`.
+
+```sh
+ut-bake --check "<your Unreal Tournament folder>"      # is this a usable install?
+ut-bake --install "<your Unreal Tournament folder>" --out bakes "<a map file>"
+```
+
+The first command says whether the folder holds Unreal Tournament, and what
+is missing if not. The second bakes one map into the `bakes` folder. The file
+is named from everything it was baked from, so baking the same map again finds
+the first bake instead of repeating it; add `--force` to bake it anyway. Each
+command prints one line of JSON saying what happened.
+
+Nothing plays a baked map yet — that is the game itself, `ut-ants`.
 
 ## Documentation
 

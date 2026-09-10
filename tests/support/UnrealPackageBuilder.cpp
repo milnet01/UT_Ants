@@ -741,6 +741,111 @@ std::vector<std::uint8_t> LevelExportWriter::build() const {
     return out;
 }
 
+ModelExportWriter& ModelExportWriter::setProperties(std::vector<std::uint8_t> propertyList) {
+    properties_ = std::move(propertyList);
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::setBounds(std::array<float, 3> min, std::array<float, 3> max,
+                                                bool valid) {
+    boundsMin_ = min;
+    boundsMax_ = max;
+    boundsValid_ = valid;
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::addNode(const Node& node) {
+    nodes_.push_back(node);
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::addSurf(std::int32_t texture, std::uint32_t polyFlags) {
+    surfs_.push_back(Surf{texture, polyFlags});
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::setZoneCount(std::int32_t count) {
+    zoneCount_ = count;
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::addLeaf(std::int32_t iZone) {
+    leaves_.push_back(iZone);
+    return *this;
+}
+
+std::vector<std::uint8_t> ModelExportWriter::build() const {
+    const auto appendVector = [](std::vector<std::uint8_t>& out, const std::array<float, 3>& v) {
+        appendFloat(out, v[0]);
+        appendFloat(out, v[1]);
+        appendFloat(out, v[2]);
+    };
+
+    std::vector<std::uint8_t> out = properties_.value_or(TaggedPropertyWriter{}.build(0));
+    appendVector(out, boundsMin_);                    // BoundingBox
+    appendVector(out, boundsMax_);
+    out.push_back(boundsValid_ ? 1 : 0);
+    appendVector(out, {0.0F, 0.0F, 0.0F});            // BoundingSphere centre
+    appendFloat(out, 0.0F);                           //   and radius
+    appendIndex(out, 0);                              // Vectors
+    appendIndex(out, 0);                              // Points
+
+    appendIndex(out, static_cast<std::int32_t>(nodes_.size()));
+    for (const Node& node : nodes_) {
+        appendVector(out, node.normal);
+        appendFloat(out, node.w);
+        appendU64(out, 0);                            // zoneMask
+        out.push_back(0);                             // nodeFlags
+        appendIndex(out, 0);                          // iVertPool
+        appendIndex(out, node.iSurf);
+        appendIndex(out, node.iFront);
+        appendIndex(out, node.iBack);
+        appendIndex(out, 0);                          // iPlane
+        appendIndex(out, 0);                          // iCollisionBound
+        appendIndex(out, 0);                          // iRenderBound
+        out.push_back(node.iZone[0]);
+        out.push_back(node.iZone[1]);
+        out.push_back(0);                             // numVertices
+        appendI32(out, node.iLeaf[0]);                // raw i32, UTA-0069 SS 4.5
+        appendI32(out, node.iLeaf[1]);
+    }
+
+    appendIndex(out, static_cast<std::int32_t>(surfs_.size()));
+    for (const Surf& surf : surfs_) {
+        appendIndex(out, surf.texture);
+        appendU32(out, surf.polyFlags);
+        for (int field = 0; field < 6; ++field) appendIndex(out, 0); // pBase to iBrushPoly
+        appendU16(out, 0);                            // panU
+        appendU16(out, 0);                            // panV
+        appendIndex(out, 0);                          // actor
+    }
+
+    appendIndex(out, 0);                              // Verts
+    appendU32(out, 0);                                // NumSharedSides -- a raw i32
+    appendI32(out, zoneCount_);                       // NumZones -- a raw i32
+    for (std::int32_t zone = 0; zone < zoneCount_; ++zone) {
+        appendIndex(out, 0);                          // zoneActor
+        appendU64(out, 0);                            // connectivity
+        appendU64(out, 0);                            // visibility
+    }
+    appendIndex(out, 0);                              // Polys: null
+    appendIndex(out, 0);                              // LightMap
+    appendIndex(out, 0);                              // LightBits
+    appendIndex(out, 0);                              // Bounds
+    appendIndex(out, 0);                              // LeafHulls
+    appendIndex(out, static_cast<std::int32_t>(leaves_.size()));
+    for (const std::int32_t zone : leaves_) {
+        appendIndex(out, zone);                       // iZone
+        appendIndex(out, 0);                          // iPermeating
+        appendIndex(out, -1);                         // iVolumetric
+        appendU64(out, 0);                            // visibleZones
+    }
+    appendIndex(out, 0);                              // Lights
+    appendU32(out, 1);                                // RootOutside
+    appendU32(out, 0);                                // Linked
+    return out;
+}
+
 namespace script {
 
 std::vector<std::uint8_t> nothing() {

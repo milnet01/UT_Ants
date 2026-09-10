@@ -38,11 +38,11 @@ namespace uta::ubundle {
 /// reader should tolerate, so a mismatch is UnsupportedVersion before the
 /// section table is read.
 ///
-/// 2 since UTA-0052 added the TEXS section -- that item's SS 4.7. Nothing
-/// else about the framing moved: the header is still sixteen bytes and the
-/// descriptor twenty-four. No .utab exists that this orphans, 0.1.0 not
-/// having been cut.
-inline constexpr std::uint32_t FORMAT_VERSION = 2;
+/// 3 since UTA-0011 added the MATS section -- that item's SS 4.10. 2 came
+/// with UTA-0052's TEXS section, its SS 4.7. Nothing else about the framing
+/// moved: the header is still sixteen bytes and the descriptor twenty-four.
+/// No .utab exists that this orphans, 0.1.0 not having been cut.
+inline constexpr std::uint32_t FORMAT_VERSION = 3;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -133,6 +133,17 @@ struct CompressedTexture {
 /// refuses first. A caller must not read a zero as "no bytes required".
 [[nodiscard]] std::uint64_t expectedBlockBytes(const CompressedTexture& texture) noexcept;
 
+/// One material's own values -- UTA-0011 SS 4.10. Its maps are the TEXS
+/// entries named `<id>:<map>`.
+///
+/// SCOPE: `id` is opaque here, as a texture's blocks are. This library does
+/// not check that a record has maps: a section never reads another's meaning,
+/// and the baker guarantees the pairing (UTA-0011 INV-17).
+struct MaterialRecord {
+    std::string id;
+    bool metallic = false;
+};
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -144,6 +155,8 @@ struct Bundle {
     std::optional<unav::NavGraph> nav;
     std::optional<unav::WiringGraph> wiring;
     std::optional<std::vector<CompressedTexture>> textures;
+    /// In strictly ascending bytewise `id` order -- UTA-0011 SS 4.10.
+    std::optional<std::vector<MaterialRecord>> materials;
 };
 
 /// Decode a whole bundle.
@@ -156,7 +169,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

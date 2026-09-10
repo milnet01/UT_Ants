@@ -219,9 +219,14 @@ struct ReachSpec {
 struct Level {
     std::vector<ObjectReference> actors;      // non-null only -- UTA-0004 INV-9
     std::uint32_t rawSlotCount = 0;           // including nulls -- UTA-0004 INV-9
+    ObjectReference model;                    // the world BSP -- added by UTA-0011
     std::vector<ReachSpec> reachSpecs;        // file order, stored indexing
 };
 ```
+
+**Amended by UTA-0011 (2026-09-10).** `model` is returned rather than
+consumed: that item's § 4.5 builds rooms from the export it names, and its
+INV-13 locks it. The field's place in the file is unchanged.
 
 **Folded back 2026-09-06.** The member set above is what § 4.5's derivation
 produced. The conditional `actorSlotOfIndex` is **absent**: a spec names its

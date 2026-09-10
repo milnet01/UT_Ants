@@ -408,7 +408,7 @@ too.
 | INV-4 | `src/umat/CuratedMaterials.cpp`'s `static_assert`, and `tests/unit/MaterialLibraryTest.cpp` |
 | INV-5, INV-6, INV-7 | `tests/unit/MaterialLibraryTest.cpp` |
 | INV-8, INV-9 | `Partial:` `tests/real/RealInstallTest.cpp` — local-only by design (S7), so no CI leg runs it |
-| UTA-0011 folds the digest into the baker version | **nothing yet** — UTA-0011's own contract |
+| UTA-0011 folds the digest into the baker version | `tests/unit/BakeTest.cpp` — `bakerVersion()` carries `libraryDigest()`, and UTA-0011 INV-3 is that a changed baker version renames a bake |
 | A seed rule suits a picture | **nothing** — the rules are heuristics, and `Play` entries correct them |
 
 ## 11. Cross-doc impact

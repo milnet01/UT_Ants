@@ -14,7 +14,8 @@ add_library(uta_ubundle STATIC
     RoomSection.cpp
     NavSection.cpp
     WiringSection.cpp
-    TextureSection.cpp)
+    TextureSection.cpp
+    MaterialSection.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
 
 # INV-10, asserted at configure time in the form src/umap/CMakeLists.txt uses

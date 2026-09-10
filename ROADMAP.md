@@ -860,6 +860,8 @@ model, no weapon and no opponent until 0.2.0.
   Beyond the split, the spec adds a MATS bundle section for each
   material's metallic value, which moves the bundle format to version 3;
   no baked map exists yet. Next: build it (write-code).
+  Resumed 2026-09-10 by session ut-ants-cf, in the main checkout
+  (ut-ants-ec has ended). Building to the accepted spec.
   **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament.
   Kind: implement.
   Source: design-2026-09-03.

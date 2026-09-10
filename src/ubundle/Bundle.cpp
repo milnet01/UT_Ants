@@ -1,9 +1,9 @@
 // The .utab framing: the header, the section table, and read and write.
 //
 // Each section's own layout is its codec's -- RoomSection.cpp,
-// NavSection.cpp, WiringSection.cpp and TextureSection.cpp, declared in
-// Sections.h (UTA-0091). What stays here is what every section shares: where
-// it sits in the file, and in what order.
+// NavSection.cpp, WiringSection.cpp, TextureSection.cpp and
+// MaterialSection.cpp, declared in Sections.h (UTA-0091). What stays here is
+// what every section shares: where it sits in the file, and in what order.
 
 #include "ubundle/Bundle.h"
 
@@ -82,7 +82,7 @@ struct Descriptor {
 };
 
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
-    return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS;
+    return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS;
 }
 
 } // namespace
@@ -197,6 +197,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             // than SS 4.9's -- that item's SS 11 says so and says why the
             // rules are not copied into SS 4.9.
             UTA_TRY(bundle.textures, readTextures(payload));
+        } else if (descriptor.id == ID_MATS) {
+            UTA_TRY(bundle.materials, readMaterials(payload));
+            UTA_CHECK(validateMaterials(*bundle.materials, ErrorCode::MalformedData));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -222,8 +225,9 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.rooms) UTA_CHECK(validateRoomMap(*bundle.rooms, ErrorCode::InvalidArgument));
     if (bundle.nav) UTA_CHECK(validateNavGraph(*bundle.nav, ErrorCode::InvalidArgument));
     if (bundle.wiring) UTA_CHECK(validateWiringGraph(*bundle.wiring, ErrorCode::InvalidArgument));
+    if (bundle.materials) UTA_CHECK(validateMaterials(*bundle.materials, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS. Fixed rather than incidental because
+    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -236,6 +240,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // small graph sections near the front of a file whose largest section is
     // by far this one.
     if (bundle.textures) sections.emplace_back(ID_TEXS, encodeTextures(*bundle.textures));
+    // MATS is appended after TEXS for the same reason -- UTA-0011 SS 4.10.
+    if (bundle.materials) sections.emplace_back(ID_MATS, encodeMaterials(*bundle.materials));
 
     Sink sink;
     sink.putId(MAGIC);

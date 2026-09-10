@@ -83,6 +83,7 @@ src/core/Error.h  Error.cpp
 src/core/Log.h    Log.cpp
 src/core/FileSystem.h  FileSystem.cpp
 src/core/Jobs.h   Jobs.cpp
+src/core/Sha256.h Sha256.cpp    added by UTA-0011; its § 4.4 owns it
 ```
 
 `uta_core` is a static library. Its only link entry is

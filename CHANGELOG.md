@@ -17,6 +17,15 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`ut-bake` bakes a map from your install into a bundle, and checks an install** (UTA-0011)
+  `ut-bake --check <folder>` says whether a folder holds Unreal Tournament,
+  and what is missing if not. `ut-bake --install <folder> --out <dir> <map>`
+  bakes one map into a `.utab` holding its room map, both bot graphs and
+  its materials. A bake is named by the SHA-256 of the map, the packages it
+  draws on and the baker version, so an unchanged map is found in the
+  cache rather than baked again. Standard output is one JSON object. The
+  level's shape, lights, collision and baked light come in later items.
+
 - **umat: a curated material library, found by a fingerprint of each texture's picture** (UTA-0010)
   An entry marks a texture metal or glowing, and reaches every copy of
   its picture, renamed or not. It ships with a seed derived from what
@@ -147,6 +156,14 @@ appears once something has actually shipped.)
   CMake + Ninja, C++23, Catch2 v3.16.0 fetched by the build rather than installed. The suite passes on a clone with no Unreal Tournament present, which is what S7 is measured on; a second tier behind UTA_REAL_ASSET_TESTS runs against a real install and refuses to configure without a path.
 
 ### Changed
+
+- **Every cached bake is invalidated: the map bundle format moves to version 3.** (UTA-0011)
+  A `.utab` now records each material's metallic value in a new `MATS`
+  section, so the format version moves from 2 to 3. A reader accepts
+  version 3 and nothing else, so a bundle baked before this is refused
+  and baked again.
+
+  No released bundle is orphaned. `0.1.0` has not been cut.
 
 - **Every cached bake is invalidated: the map bundle format moves to version 2.** (UTA-0052)
   A `.utab` can now carry block-compressed textures, in a new `TEXS`

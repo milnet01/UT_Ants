@@ -576,6 +576,30 @@ carries compatibility.
 **`ubundle` does not check that each record has maps.** A section never
 reads another's meaning; the baker guarantees the pairing (INV-17).
 
+### 4.11 As built (2026-09-10)
+
+Recorded after the build; nothing above changed direction.
+
+- **Each invariant's test was seen failing by mutating the code it locks, after
+  that code existed.** § 7 asked for the red run before the code. The
+  exception is INV-5: its golden value was left empty and seen failing before
+  it was recorded. The mutations and what killed each are in the commit that
+  shipped this item.
+- **Additions beyond § 4's API, none of which a § 4 caller binds to.**
+  `Install` gains move operations. `Install.h` gains `detail::fold` and
+  `detail::utf8`. `Name.h` gains `detail::mapNameOf`, a `detail::bakeName`
+  over bytes the caller holds, and `detail::hex`.
+- **An `Install` is one per bake.** It keeps every package it opened (§ 13).
+  The real-asset case first named every map in the reference library through
+  one, which held every map's closure and ran the machine out of memory. It
+  now opens one per map, as `bakeToDirectory` does per request. UTA-0016,
+  which runs bakes, inherits this.
+- **`ut-bake --help` prints its usage on standard error and exits `0`**, as
+  `ut-dump --help` does. § 4.8 gives it no output shape.
+- **The `Model` fixture encoder is `ModelExportWriter`** in
+  `tests/support/UnrealPackageBuilder.h`. The bake fixtures are
+  `tests/unit/BakeFixture.h`.
+
 ## 5. Invariants
 
 - **INV-1** — Baking one synthetic map twice, on a `JobSystem` of one worker

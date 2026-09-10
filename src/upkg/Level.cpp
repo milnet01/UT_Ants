@@ -140,10 +140,11 @@ Result<Level> readLevel(const Package& package, const ExportEntry& entry) {
 
     UTA_CHECK(skipURL(reader));
 
-    // The level's Model. Consumed and not returned: the BSP tables it points
-    // at are UTA-0069's, and returning a reference to them here would be a
-    // contract this item has not derived.
-    UTA_TRY([[maybe_unused]] const std::int32_t model, reader.readIndex());
+    // The level's Model, returned unresolved. UTA-0057 consumed it; UTA-0011
+    // SS 4.5 returns it, because its baker builds rooms from the export this
+    // names.
+    UTA_TRY(const std::int32_t model, reader.readIndex());
+    level.model = ObjectReference{model};
 
     UTA_TRY(const std::int32_t specs, reader.readIndex());
     if (specs < 0) {

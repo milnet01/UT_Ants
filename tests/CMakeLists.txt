@@ -19,14 +19,21 @@ add_library(uta_test_support STATIC support/UnrealPackageBuilder.cpp)
 target_include_directories(uta_test_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_executable(uta_unit_tests
+    unit/BakeCliTest.cpp
+    unit/BakeFixture.cpp
+    unit/BakeGoldenTest.cpp
+    unit/BakeInstallTest.cpp
+    unit/BakeTest.cpp
     unit/BundleFormatTest.cpp
     unit/BundleMalformedTest.cpp
+    unit/BundleMaterialTest.cpp
     unit/BundleTextureTest.cpp
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
     unit/CoreFileSystemTest.cpp
     unit/CoreJobsTest.cpp
     unit/CoreLogTest.cpp
+    unit/CoreSha256Test.cpp
     unit/MaterialCompressTest.cpp
     unit/MaterialGenerateTest.cpp
     unit/MaterialLibraryTest.cpp
@@ -45,7 +52,12 @@ add_executable(uta_unit_tests
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
                                             uta_umap uta_umap_build uta_ubundle uta_umat
-                                            uta_test_support Catch2::Catch2WithMain)
+                                            uta_ubake uta_test_support Catch2::Catch2WithMain)
+
+# The ut-bake command line, compiled in so INV-15 of
+# docs/specs/UTA-0011-map-baker.md is tested without starting a process.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bake/Cli.cpp")
+target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
 # deadlock, and without a bound it hangs the run instead of failing it.
@@ -54,7 +66,7 @@ catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
 if(UTA_REAL_ASSET_TESTS)
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
-                                                       uta_umat Catch2::Catch2WithMain)
+                                                       uta_umat uta_ubake Catch2::Catch2WithMain)
     target_compile_definitions(uta_real_asset_tests
         PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}")
     catch_discover_tests(uta_real_asset_tests PROPERTIES LABELS "real-assets;local-only")

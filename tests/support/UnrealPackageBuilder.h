@@ -343,6 +343,59 @@ private:
     std::vector<std::uint8_t> trailerBytes_;
 };
 
+/// Writes the serialised bytes of a `Model` export -- the field order of
+/// docs/specs/UTA-0069-model-bsp-tables.md SS 4.4 and SS 4.5.
+///
+/// Moved here from PackageMalformedTest.cpp, whose empty Model it still
+/// builds, because UTA-0011's fixtures need a level's world as well (that
+/// spec's SS 7). A table holds what a caller added and nothing else, so an
+/// unconfigured writer builds the smallest complete Model: every table empty,
+/// both trailing i32 present.
+class ModelExportWriter {
+public:
+    /// One BSP node. Children and leaves default to the file's own "none",
+    /// -1: a 0 names node 0, and a fixture that forgets to set one builds a
+    /// descent that loops back on itself.
+    struct Node {
+        std::array<float, 3> normal{};
+        float w = 0.0F;
+        std::int32_t iSurf = 0;
+        std::int32_t iFront = -1;
+        std::int32_t iBack = -1;
+        std::array<std::uint8_t, 2> iZone{};
+        std::array<std::int32_t, 2> iLeaf{-1, -1}; // front, back
+    };
+
+    /// The tagged property list. Defaults to an empty one terminated by the
+    /// name at index 0, which every fixture here makes `None`.
+    ModelExportWriter& setProperties(std::vector<std::uint8_t> propertyList);
+    ModelExportWriter& setBounds(std::array<float, 3> min, std::array<float, 3> max, bool valid);
+    ModelExportWriter& addNode(const Node& node);
+    /// A surface wearing `texture`, an object reference.
+    ModelExportWriter& addSurf(std::int32_t texture, std::uint32_t polyFlags);
+    /// Zone records written; their fields are all zero.
+    ModelExportWriter& setZoneCount(std::int32_t count);
+    /// A leaf in `iZone`.
+    ModelExportWriter& addLeaf(std::int32_t iZone);
+
+    [[nodiscard]] std::vector<std::uint8_t> build() const;
+
+private:
+    struct Surf {
+        std::int32_t texture = 0;
+        std::uint32_t polyFlags = 0;
+    };
+
+    std::optional<std::vector<std::uint8_t>> properties_;
+    std::array<float, 3> boundsMin_{};
+    std::array<float, 3> boundsMax_{};
+    bool boundsValid_ = false;
+    std::vector<Node> nodes_;
+    std::vector<Surf> surfs_;
+    std::int32_t zoneCount_ = 0;
+    std::vector<std::int32_t> leaves_;
+};
+
 /// Compiled-script instructions, for the walker's fixtures. Each returns the
 /// DISK bytes; the memory cost each contributes is named beside it, because
 /// ScriptSize counts the memory form and a test has to state both.

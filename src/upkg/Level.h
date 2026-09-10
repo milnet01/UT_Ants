@@ -52,6 +52,11 @@ struct Level {
     std::vector<ObjectReference> actors;
     /// Slots the file declared, including the null ones. UTA-0004 INV-9.
     std::uint32_t rawSlotCount = 0;
+    /// The level's world BSP, unresolved for Geometry.h's reason. Returned
+    /// since UTA-0011 SS 4.5, whose baker builds rooms from the export this
+    /// names rather than guessing at the largest `Model`; UTA-0057 consumed
+    /// it and returned nothing.
+    ObjectReference model;
     /// File order, file indexing: position `i` is the file's index `i`, and
     /// nothing is dropped, reordered or renumbered. UTA-0057 INV-1, and it is
     /// what makes an actor's `Paths` value resolvable against this array.

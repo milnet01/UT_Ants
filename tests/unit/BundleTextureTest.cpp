@@ -110,7 +110,7 @@ std::vector<std::byte> fileWithTextures(const std::vector<TextureSpec>& textures
 
     Bytes out;
     out.id("UTAB");
-    out.u32(2); // formatVersion -- UTA-0052 SS 4.7
+    out.u32(3); // formatVersion -- 3 since UTA-0011 SS 4.10
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -359,7 +359,7 @@ TEST_CASE("the golden texture bytes decode field by field to the values they enc
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 2);
+    CHECK(bundle.header.formatVersion == 3);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 

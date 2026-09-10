@@ -170,13 +170,10 @@ std::vector<std::uint8_t> modelDeclaringLeavesCount(std::int32_t leavesCount) {
 
 /// A complete, well-formed `Model` body: every table empty, both trailing
 /// `i32` present. The reader consumes this exactly, which is what lets the
-/// version test below vary the VERSION and nothing else.
+/// version test below vary the VERSION and nothing else. The encoder that
+/// wrote it moved to tests/support/ for UTA-0011's fixtures.
 std::vector<std::uint8_t> emptyModelBody() {
-    std::vector<std::uint8_t> data = modelDeclaringLeavesCount(0);
-    appendIndex(data, 0); // Lights: empty
-    appendU32(data, 1u);  // RootOutside
-    appendU32(data, 0u);  // Linked
-    return data;
+    return uta::test::ModelExportWriter{}.build();
 }
 
 } // namespace

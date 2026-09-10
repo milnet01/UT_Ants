@@ -1079,6 +1079,23 @@ TEST_CASE("a Level reads back its actors, its slot count and its reach specs", "
     CHECK(level->reachSpecs[5].pruned == 1u);
 }
 
+TEST_CASE("a Level returns the Model reference it holds", "[upkg]") {
+    // UTA-0011 INV-13's reader half. UTA-0057 consumed this reference and
+    // returned nothing, so a baker had to guess which Model was the world.
+    const std::vector<std::uint8_t> bytes =
+        packageWithObject(68, "Level", levelWithSpecs(2).build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto level = uta::upkg::readLevel(*package, package->exports()[0]);
+    REQUIRE(level.has_value());
+    CHECK(level->model.kind() == uta::upkg::ObjectReferenceKind::Export);
+    CHECK(level->model.raw() == 9); // levelWithSpecs' setModel
+    // The reach specs after it still land where they did.
+    REQUIRE(level->reachSpecs.size() == 2);
+    CHECK(level->reachSpecs[1].distance == 1001);
+}
+
 TEST_CASE("a Level stating a zero-length reach-spec array succeeds with an empty one",
           "[upkg]") {
     // INV-4: an empty array is returned when the FILE states one, and this is

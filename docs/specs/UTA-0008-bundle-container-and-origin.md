@@ -178,6 +178,7 @@ layouts in §§ 4.6–4.8:
 | `WiringEdge` | 12 |
 | `DanglingEvent` | 8 |
 | `CompressedTexture` | 18 — **added by UTA-0052**, whose § 4.3 derives it |
+| `MaterialRecord` | 5 — **added by UTA-0011**, whose § 4.10 derives it |
 
 ### 4.3 The header
 
@@ -186,7 +187,7 @@ Sixteen bytes, at offset 0.
 | Offset | Size | Field | Value |
 |---|---|---|---|
 | 0 | 4 | `magic` | the bytes `U`, `T`, `A`, `B` — `0x55 0x54 0x41 0x42` |
-| 4 | 4 | `formatVersion` | `u32`, `2` in this version — **raised from `1` by UTA-0052**, which added the `TEXS` section |
+| 4 | 4 | `formatVersion` | `u32`, `3` in this version — **raised from `1` to `2` by UTA-0052**, which added the `TEXS` section, **and to `3` by UTA-0011**, which added `MATS` |
 | 8 | 1 | `origin` | `u8`, § 4.5 |
 | 9 | 1 | `kind` | `u8`, `0` = map, `1` = character |
 | 10 | 2 | `reserved` | `u16`, must be `0` |
@@ -212,7 +213,7 @@ field, because a field whose value is always 16 is a field that can be wrong.
 
 | Offset | Size | Field | Value |
 |---|---|---|---|
-| 0 | 4 | `id` | four bytes, §§ 4.6–4.8 and **UTA-0052 § 4.3** for `TEXS` |
+| 0 | 4 | `id` | four bytes, §§ 4.6–4.8, **UTA-0052 § 4.3** for `TEXS` and **UTA-0011 § 4.10** for `MATS` |
 | 4 | 8 | `offset` | `u64`, from the start of the file |
 | 12 | 8 | `size` | `u64`, payload bytes |
 | 20 | 1 | `compression` | `u8`, `0` = none; no version defines another value. **UTA-0052 § 3 decision 5 kept it zero**: block format is carried per texture, not per section |
@@ -250,9 +251,11 @@ later version that this reader should tolerate, so an unknown id means a
 corrupt or hand-edited file.
 
 Sections are individually optional: a map bundle carries no character
-sections, and a bundle baked from a level with no navigation points carries no
-`NAVG`. Absence is not an error, and it is distinct from a present-but-empty
-section — an empty `NavGraph` says the level was examined and had none.
+sections. Absence is not an error, and it is distinct from a present-but-empty
+section — an empty `NavGraph` says the level was examined and had none. So a
+bundle baked from a level with no navigation points carries an empty `NAVG`,
+not none. **Corrected by UTA-0011**, whose baker writes every section it
+examined; this example used to say the opposite of the distinction it sits in.
 
 ### 4.5 The origin field
 
@@ -503,7 +506,7 @@ the check it is not.
 ```cpp
 namespace uta::ubundle {
 
-inline constexpr std::uint32_t FORMAT_VERSION = 2;  // 2 since UTA-0052
+inline constexpr std::uint32_t FORMAT_VERSION = 3;  // 3 since UTA-0011; 2 since UTA-0052
 
 enum class BundleKind : std::uint8_t { Map = 0, Character = 1 };
 
@@ -522,6 +525,8 @@ struct Bundle {
     std::optional<unav::WiringGraph>   wiring;
     // Added by UTA-0052, whose § 4.8 owns CompressedTexture.
     std::optional<std::vector<CompressedTexture>> textures;
+    // Added by UTA-0011, whose § 4.10 owns MaterialRecord.
+    std::optional<std::vector<MaterialRecord>> materials;
 };
 
 /// Total: every input returns. Never throws, never reads outside `bytes`.
@@ -536,8 +541,9 @@ struct Bundle {
 ```
 
 `write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, `TEXS`,
-omitting absent ones. **`TEXS` was APPENDED by UTA-0052 rather than inserted**,
-so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
+`MATS`, omitting absent ones. **`TEXS` was APPENDED by UTA-0052 rather than
+inserted, and `MATS` by UTA-0011 after it**, so this clause is extended rather
+than contradicted. Fixed rather than incidental because `docs/design.md` § Close
 calls requires a `.utab` *"that any tool other than `ubake` wrote"* to be
 named by the hash of its own contents, and a hash over an
 incidentally-ordered file names one world two things. Determinism is not
@@ -594,9 +600,9 @@ the same defect one layer along.
   builds a span past the end of `edges` for a run the file declared and
   nothing checked.
 
-- **INV-4** — *(amended by UTA-0052: the version is `2`.)* A header whose
-  `magic` is not `U`,`T`,`A`,`B` is
-  `MalformedData`; one whose `formatVersion` is not `2` is
+- **INV-4** — *(amended by UTA-0052, then by UTA-0011: the version is `3`.)*
+  A header whose `magic` is not `U`,`T`,`A`,`B` is
+  `MalformedData`; one whose `formatVersion` is not `3` is
   `UnsupportedVersion`. Neither is read further. The equality check is the
   thing this invariant protects and it is unchanged; only the number moved.
   *Test:* `tests/unit/BundleFormatTest.cpp`. No arrow: the surface does not
@@ -753,7 +759,7 @@ the same defect one layer along.
 |---|---|
 | Fewer than 16 bytes | `MalformedData`; `readHeader` fails the same way |
 | `magic` wrong | `MalformedData`, before anything else is read (INV-4) |
-| `formatVersion` != 2 | `UnsupportedVersion`, before the table is read (INV-4) |
+| `formatVersion` != 3 | `UnsupportedVersion`, before the table is read (INV-4) |
 | `origin` not 0 or 1 | `MalformedData` (INV-5); callers treat it as not authored (§ 4.5) |
 | `kind` not 0 or 1 | `MalformedData` — an undefined kind names sections this version cannot know |
 | Either `reserved` non-zero | `MalformedData`; it is the only thing that makes a reserved field a contract |
@@ -875,7 +881,7 @@ cannot grade.
 | INV-11 | `tests/unit/BundleMalformedTest.cpp` |
 | INV-12 | `tests/unit/BundleFormatTest.cpp` — all four `combine` pairs, and one refusal per header field |
 | `incoming` is a permutation of `edges` (§ 4.9) | **Partial:** only the size equality is checked. A permutation check is `O(E log E)` on every load and the wrong half of the trade while `unav` still holds UTA-0006 § 14's question about whether the field survives |
-| The format version is one of the baker's inputs | **nothing** — `ubake` does not exist; `docs/design.md` § Close calls states it and UTA-0011 owns it |
+| The format version is one of the baker's inputs | `tests/unit/BakeTest.cpp` — `bakerVersion()` carries `FORMAT_VERSION` (UTA-0011 § 4.3), and UTA-0011 INV-3 is that a changed baker version renames a bake |
 | A `.utab` outside `content/` is `authored` | **nothing** — this provides `readHeader` and fixes § 4.5's failure direction; the check itself is UTA-0013's and is tracked there |
 
 ## 11. Cross-doc impact
@@ -924,9 +930,10 @@ library and two test files.
 
 This is a new format; there is no old data.
 
-**A reader accepts `formatVersion == 2` and nothing else.** It does not accept
-a range. *(UTA-0052 raised the number from `1`; the rule below is unchanged,
-and no `.utab` was orphaned because `0.1.0` had not been cut.)* Two things make an exact match right here and now, and one makes it
+**A reader accepts `formatVersion == 3` and nothing else.** It does not accept
+a range. *(UTA-0052 raised the number from `1` to `2` and UTA-0011 to `3`; the
+rule below is unchanged, and no `.utab` was orphaned because `0.1.0` had not
+been cut.)* Two things make an exact match right here and now, and one makes it
 wrong later.
 
 Right now: a bundle is a bake output, and

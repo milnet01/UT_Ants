@@ -8,7 +8,8 @@ add_library(uta_core STATIC
     Error.cpp
     Log.cpp
     FileSystem.cpp
-    Jobs.cpp)
+    Jobs.cpp
+    Sha256.cpp)
 
 target_include_directories(uta_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 

@@ -1,13 +1,14 @@
-// The four section codecs Bundle.cpp dispatches to, one .cpp file each.
+// The section codecs Bundle.cpp dispatches to, one .cpp file each.
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
-// with umap, NAVG and WIRG with unav, TEXS with umat -- so each lives in its
-// own file, and work on one does not share a file with work on another
-// (UTA-0091). Bundle.cpp keeps the framing: the header, the section table,
-// and read and write.
+// with umap, NAVG and WIRG with unav, TEXS with umat, MATS with ubake -- so
+// each lives in its own file, and work on one does not share a file with work
+// on another (UTA-0091). Bundle.cpp keeps the framing: the header, the section
+// table, and read and write.
 //
-// docs/specs/UTA-0008-bundle-container-and-origin.md SS 4.6 to SS 4.9, and
-// docs/specs/UTA-0052-texture-memory-budget.md SS 4.3 for TEXS.
+// docs/specs/UTA-0008-bundle-container-and-origin.md SS 4.6 to SS 4.9,
+// docs/specs/UTA-0052-texture-memory-budget.md SS 4.3 for TEXS, and
+// docs/specs/UTA-0011-map-baker.md SS 4.10 for MATS.
 
 #pragma once
 
@@ -24,6 +25,7 @@ constexpr SectionId ID_ROOM = {'R', 'O', 'O', 'M'};
 constexpr SectionId ID_NAVG = {'N', 'A', 'V', 'G'};
 constexpr SectionId ID_WIRG = {'W', 'I', 'R', 'G'};
 constexpr SectionId ID_TEXS = {'T', 'E', 'X', 'S'};
+constexpr SectionId ID_MATS = {'M', 'A', 'T', 'S'};
 
 // Structural validation -- SS 4.9.
 //
@@ -56,5 +58,12 @@ constexpr SectionId ID_TEXS = {'T', 'E', 'X', 'S'};
 // INV-2 are decode-time refusals applied inside the element reader.
 [[nodiscard]] Result<std::vector<CompressedTexture>> readTextures(Cursor& cursor);
 [[nodiscard]] std::vector<std::byte> encodeTextures(const std::vector<CompressedTexture>& textures);
+
+// MATS -- MaterialSection.cpp, UTA-0011 SS 4.10. The metallic byte is refused
+// inside the element reader; the id order is the validator's.
+[[nodiscard]] Result<std::vector<MaterialRecord>> readMaterials(Cursor& cursor);
+[[nodiscard]] Result<void> validateMaterials(const std::vector<MaterialRecord>& materials,
+                                             ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeMaterials(const std::vector<MaterialRecord>& materials);
 
 } // namespace uta::ubundle::detail
