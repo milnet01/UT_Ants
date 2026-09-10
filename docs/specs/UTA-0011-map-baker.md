@@ -125,7 +125,8 @@ public:
     /// Valid for the lifetime of the Install, across a move of it.
     [[nodiscard]] upkg::PackageResolver resolver();
 
-    /// The file a package name resolves to, or empty when it resolves to none.
+    /// The file § 4.2's order finds for a package name, whether or not it
+    /// opens, or empty when there is none.
     [[nodiscard]] std::filesystem::path pathOf(std::string_view packageName) const;
 
     /// The bytes of a package the resolver has opened, or an empty span.
@@ -200,7 +201,8 @@ public:
 namespace uta::ubake {
 
 /// One package of the map's import closure: its folded name, and the digest of
-/// the file it resolves to -- empty when it resolves to none.
+/// the file it resolves to -- empty when the install's resolver returns no
+/// package for it: no file, or a file that does not open.
 struct ClosureEntry {
     std::string name;
     std::optional<std::array<std::byte, 32>> digest;
@@ -218,6 +220,11 @@ struct NameInputs {
 
 namespace detail {
 [[nodiscard]] std::string nameOf(const NameInputs& inputs);
+
+/// The folded names of the map's import closure, ascending. Every lookup goes
+/// through `resolver`.
+[[nodiscard]] Result<std::vector<std::string>> closure(const upkg::Package& map,
+                                                     const upkg::PackageResolver& resolver);
 }
 
 }  // namespace uta::ubake
@@ -235,15 +242,14 @@ is the byte `0x0A`:
    map file.
 5. For each closure entry in ascending bytewise order of name: the name,
    `LF`, then either `0x01` and the 32-byte digest, or `0x00` where the
-   package resolves to no file.
+   resolver returns no package for it: no file, or one that does not open.
 
 **The import closure** is every package the map's imports name, then every
 package those name, until no new name appears. An import names a package
 where its outermost outer is null — `ut-dump`'s `importedPackages` rule,
 which walks the outer chain rather than stopping at the immediate outer.
-Names are folded. The map itself is left out. A package that resolves to no
-file contributes its name and `0x00`, so installing it later renames the
-bake.
+Names are folded. The map itself is left out. A package the resolver returns none for contributes its name and `0x00`,
+so installing or repairing it later renames the bake.
 
 **Why the closure, and why before the bake.** *"Every other bake input must
 be covered by one of the three, or the name is a lie"* (`docs/design.md`
@@ -283,10 +289,13 @@ namespace detail {
 /// The curated library's lookup -- `umat::curated` outside tests.
 using CuratedLookup = std::function<const umat::CuratedOverride*(std::uint64_t fingerprint)>;
 
-/// `bake`, with the lookup given rather than `umat::curated`. A test seam.
+/// One bake with its dependencies given -- a test seam. Every package lookup
+/// goes through `resolver`. `bake` passes `install.resolver()`, `umat::curated`
+/// and `umat::TEXTURE_BUDGET_BYTES`; `bakeToDirectory` passes its request's
+/// `budgetBytes`.
 [[nodiscard]] Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
-                                      Install& install, JobSystem& jobs,
-                                      const CuratedLookup& curated);
+                                      const upkg::PackageResolver& resolver, JobSystem& jobs,
+                                      const CuratedLookup& curated, std::uint64_t budgetBytes);
 
 }  // namespace detail
 
@@ -318,7 +327,8 @@ In order:
    **`WIRG`** is `unav::buildWiringGraph`. A refusal of either refuses the
    bake.
 5. **`TEXS`** and **`MATS`** are § 4.6's materials.
-6. **`budget`** is `umat::measure` over every map of every material.
+6. **`budget`** is `umat::measure` over every map of every material, against
+   the budget given.
 
 The header's origin is `Origin::Derived`, since a bake read an install
 (`docs/design.md` rule 15), and its kind is `BundleKind::Map`.
@@ -353,8 +363,8 @@ Source: <https://wiki.beyondunreal.com/Legacy:PolyFlags>.
 5. `umat::resolve(base, palette, masked)`, then `umat::generate` under the id
    `umat::materialId(package, path, masked)`. `package` is the map's folded
    stem for an export of the map, and the outermost import's name for an
-   import. `path` is the export's outer chain, outermost first, joined by
-   `.` (UTA-0009 § 4.6).
+   import. `path` is the names of the export's outers, outermost first, then the
+   export's own name, joined by `.` (UTA-0009 § 4.6).
 
 **A texture that cannot be made is skipped, and the bake goes on.** An
 unresolved import, a texture of an absent package, a `Format` property, a
@@ -382,6 +392,7 @@ struct BakeRequest {
     std::filesystem::path map;
     std::filesystem::path outDir;
     bool force = false;
+    std::uint64_t budgetBytes = umat::TEXTURE_BUDGET_BYTES;
 };
 
 struct BakeOutcome {
@@ -403,7 +414,8 @@ struct BakeOutcome {
    `ubundle::readHeader` accepts. Without `force` it is the outcome, and
    nothing is baked or written. A file there that `readHeader` refuses is
    baked over.
-3. `bake`, then `umat::enforceBudget` on its report. Over budget, the outcome
+3. `detail::bake` with the request's `budgetBytes`, then
+   `umat::enforceBudget` on its report. Over budget, the outcome
    is `OverBudget` and nothing is written — UTA-0052's never-degrade rule.
 4. `ubundle::write`, then `fs::writeFileAtomically`.
 
@@ -454,9 +466,8 @@ A bake prints:
 ```
 
 - `error` appears only on `refused`.
-- `name` and `path` appear whenever the name was computed.
-- `rooms`, `budget` and `skipped` appear whenever a bake ran — `written` or
-  `over-budget`.
+- `name` and `path` appear on `written`, `cached` and `over-budget`.
+- `rooms`, `budget` and `skipped` appear on `written` and `over-budget`.
 
 `verdict`, `path`, `ok`, `problems` and the exit code are what UTA-0016
 binds to. Every field is part of the command line's output shape, which
@@ -467,6 +478,12 @@ namespace uta::ubake {
 /// `args` excludes the program name. Returns the exit code.
 [[nodiscard]] int runCli(std::span<const std::string_view> args, std::ostream& out,
                          std::ostream& err);
+
+namespace detail {
+/// `runCli` with the bake's budget given -- a test seam.
+[[nodiscard]] int runCli(std::span<const std::string_view> args, std::ostream& out,
+                         std::ostream& err, std::uint64_t budgetBytes);
+}
 }
 ```
 
@@ -563,8 +580,9 @@ reads another's meaning; the baker guarantees the pairing (INV-17).
 
 - **INV-2** — The bake asks the resolver only for packages in the closure the
   name was computed over.
-  *Test:* `tests/unit/BakeTest.cpp` wraps the install's resolver, records
-  every name asked for, and checks each is in the closure `bakeName` walked.
+  *Test:* `tests/unit/BakeTest.cpp` wraps the install's resolver, passes the
+  wrapper to `detail::bake`, records every name asked for, and checks each is
+  in `detail::closure`'s result for the map.
   The fixture's texture lives in a second package, and its level's actor
   descends from a class in a third, so both routes are exercised.
   *Breaks when:* the bake reaches a package by any route but an import chain
@@ -572,8 +590,8 @@ reads another's meaning; the baker guarantees the pairing (INV-17).
   unchanged.
 
 - **INV-3** — The name changes when any one input changes: a byte of the map,
-  a byte of a closure package, `bakerVersion()`, the recipe byte, or a closure
-  package going from absent to present.
+  a byte of a closure package, `bakerVersion()`, or a closure package going
+  from absent, or from a file that does not open, to one that does.
   *Test:* `tests/unit/BakeTest.cpp`, one case per input, each through
   `detail::nameOf` or a synthetic install on disk.
   *Breaks when:* a closure entry contributes its name without its digest, or
@@ -612,10 +630,12 @@ reads another's meaning; the baker guarantees the pairing (INV-17).
   the library holds none.
   *Test:* `tests/unit/BakeTest.cpp` bakes one fixture texture through
   `detail::bake` twice: with a lookup returning an entry that sets
-  `metallic`, and with one returning null. Its `MATS` record reads `true`,
-  then `false`.
-  *Breaks when:* the lookup's entry is not applied, or `MATS` records a value
-  other than the one the material was generated with.
+  `metallic` for the fixture's own `umat::pictureFingerprint` and null for
+  any other, then with one returning null for all. Its `MATS` record reads
+  `true`, then `false`.
+  *Breaks when:* the lookup is asked for the wrong key, its entry is not
+  applied, or `MATS` records a value other than the one the material was
+  generated with.
 
 - **INV-8** — A texture named by a surface with `PF_MASKED` and by one without
   gives two materials, `<id>` and `<id>#masked`. Named only by unmasked
@@ -627,8 +647,9 @@ reads another's meaning; the baker guarantees the pairing (INV-17).
 
 - **INV-9** — A texture carrying a `Format` property gives no material and one
   `SkippedTexture` naming it.
-  *Test:* `tests/unit/BakeTest.cpp`, a fixture texture whose properties
-  include `Format`.
+  *Test:* `tests/unit/BakeTest.cpp`, one fixture texture baked twice: without
+  a `Format` property it makes a material, and with one it is skipped, the
+  skip's reason naming `Format`.
   *Breaks when:* the check is skipped, so a block format storing one byte a
   texel is read as palette indices.
 
@@ -668,8 +689,10 @@ reads another's meaning; the baker guarantees the pairing (INV-17).
   *Breaks when:* the baker writes a bundle with no sections instead.
 
 - **INV-15** — `runCli` prints one JSON object with § 4.8's keys for each
-  verdict and for `--check`, and returns § 4.8's exit code.
-  *Test:* `tests/unit/BakeCliTest.cpp`, over a synthetic install on disk.
+  verdict and for `--check`, and returns § 4.8's exit code. An `over-budget`
+  run leaves no file at `path`.
+  *Test:* `tests/unit/BakeCliTest.cpp`, over a synthetic install on disk;
+  `over-budget` through `detail::runCli` with a budget of one byte.
   *Breaks when:* a path prints a second object, a key is renamed, or a
   refusal exits `0`.
 
@@ -679,12 +702,14 @@ reads another's meaning; the baker guarantees the pairing (INV-17).
   *Breaks when:* the file is named from anything the map holds, which would
   let a crafted map write outside `outDir`.
 
-- **INV-17** — Every `MATS` id has a `TEXS` map named `<id>:base`, and every
-  `TEXS` map's name before its colon is a `MATS` id.
-  *Test:* `tests/unit/BakeTest.cpp`, over INV-8's fixture plus one texture
-  that is skipped.
-  *Breaks when:* a skipped variant leaves a record behind, or a generated
-  material's record is dropped.
+- **INV-17** — Every `MATS` id has a `TEXS` map named `<id>:base`, every
+  `TEXS` map's name before its colon is a `MATS` id, and `TEXS`'s names
+  ascend bytewise.
+  *Test:* `tests/unit/BakeTest.cpp`, over INV-8's fixture with its surfaces
+  naming its textures in descending id order, plus one texture that is
+  skipped.
+  *Breaks when:* a skipped variant leaves a record behind, a generated
+  material's record is dropped, or `TEXS` follows surface order.
 
 - **INV-18** — `MATS` round-trips through `ubundle::write` and
   `ubundle::read`, and `read` refuses a `metallic` byte of `2`, and two
