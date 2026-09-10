@@ -802,6 +802,10 @@ model, no weapon and no opponent until 0.2.0.
   This is the second day-one query in this item's body, and `ut-dump`
   today emits counts only. A one-off scratch dump was run for them the
   same day; the supported mode is still owed here.
+  The per-actor request of 2026-09-10 is withdrawn: UT_MonsterHunt
+  solved the drain from the weapon scripts themselves. The supported
+  per-actor mode is still worth having, and the scratch dump handed over
+  that day is the shape it was measured against.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
@@ -3868,7 +3872,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: ubundle.
 
-- 🚧 [UTA-0094] **ut-dump reads each file one character at a time; read it in one call.**
+- ✅ [UTA-0094] **ut-dump reads each file one character at a time; read it in one call.**
   Found by the optimisation pass the user asked for on 2026-09-10, and
   checked against the source before filing.
 
@@ -3890,6 +3894,10 @@ model, no weapon and no opponent until 0.2.0.
   Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
   `/mnt/Games/Scripts/Linux/UT_Ants`. Taken ahead of `Next:` (UTA-0009)
   because it is review-sourced -- rule 1 of the user's order.
+  Shipped (2026-09-10) at `0858197`, on the matrix: CI run 34464098637 is
+  green on Linux GCC 14, Linux Clang 19 and Windows MSVC. A warm library
+  run went from about 28 s to 11.4 s, and the JSON is byte-identical over
+  all 2,023 packages.
   **Layman:** Make the map-inspection tool read files in one go instead of letter by letter, so a whole-library check takes about a third less time.
   Kind: perf.
   Source: review-code-2026-09-10 optimisation pass.
@@ -3911,7 +3919,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: tests.
 
-- 📋 [UTA-0096] **upkg reads the lightmap byte table one byte at a time; read it as one run.**
+- 🚧 [UTA-0096] **upkg reads the lightmap byte table one byte at a time; read it as one run.**
   Found by the optimisation pass of 2026-09-10 and checked against the
   source: src/upkg/Geometry.cpp reads `lightBits` through
   `readTable<std::uint8_t>` with a per-byte lambda.
@@ -3925,6 +3933,9 @@ model, no weapon and no opponent until 0.2.0.
   The bounds check is kept, because `readBytes` performs it.
 
   Not part of 0.1.0's cut condition.
+  Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
+  `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0094 closed. Rule 1 of the
+  user's order: review-sourced.
   **Layman:** Read one big block of lighting data from a map in a single step instead of byte by byte.
   Kind: optimize.
   Source: review-code-2026-09-10 optimisation pass.
@@ -3998,6 +4009,33 @@ model, no weapon and no opponent until 0.2.0.
   Kind: test.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: umap, tests.
+
+- 📋 [UTA-0101] **ut-dump: every map's Title, Author and total monster capacity.**
+  Requested by UT_MonsterHunt on 2026-09-10, two asks folded into one
+  item because both are additions to ut-dump's per-package JSON.
+
+  Title and Author come from the map's LevelInfo (or its LevelSummary).
+  They feed that project's map-creators registry and name normalisation:
+  the user wants map names made consistent AND every creator kept on
+  record, so a rename never loses the credit.
+
+  Monster capacity is the sum of `capacity` over every ThingFactory
+  descendant (CreatureFactory and its kin), plus the ScriptedPawns placed
+  directly in the map. A factory's `capacity` may come from its class's
+  defaults rather than from the map, so it is read through the class
+  family, as the scratch actor dump of the same day did. The HUD counts
+  only monsters alive now; this is the whole-map total, and it also feeds
+  the vote window's per-map facts.
+
+  Additive keys, so the schema number stays. Verify against a handful of
+  maps opened in the editor, and say which maps' factories carry an
+  unlimited or unset capacity rather than folding them into a sum.
+
+  Not part of 0.1.0's cut condition.
+  **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total.
+  Kind: feature.
+  Source: consumer-request-2026-09-10 UT_MonsterHunt.
+  Lanes: upkg.
 
 ## 0.2.0 — Movement and weapons
 
@@ -4459,6 +4497,13 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   - Bots take self-damage and players do not; they zero it for bots.
   - The user wants team awards (Invulnerability, Damage Amplifier, 30 s)
     to survive a death while the award is still running.
+  Design constraint (UT_MonsterHunt, 2026-09-10): the unseen health loss
+  on MH-KillThemAllEG-BP was BPak's BSniperRifle and BSaw, whose
+  `ProcessTraceHit` does `Pawn(Owner).Health -= 100` on every shot -- a
+  direct write that never reaches TakeDamage, so every protection and
+  accounting hook missed it. In our engine, make Health writable through
+  one function only, and route a weapon's cost-of-use charge through it,
+  so spawn protection and the kill feed cannot be bypassed.
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4834,6 +4879,28 @@ to.
   Kind: implement.
   Source: in-session-2026-09-07 split-from-UTA-0069.
   Lanes: upkg.
+
+- 📋 [UTA-0102] **Monster Hunt HUD: show the monsters left in the whole map, beside the ones alive now.**
+  The user's requirement (2026-09-10): UT99's Monster Hunt counter of
+  enemies left counts only the monsters alive right now -- the number the
+  engine can hold at once -- so it says little about how much of the map
+  is left. Keep that number, because it is useful, and add the total
+  still to come for the whole map.
+
+  The total is the map's full monster capacity (every monster factory's
+  capacity plus the monsters placed directly) minus those already killed.
+  The static half is read at bake time; UTA-0101 does it for ut-dump. A
+  factory can spawn without limit, and the HUD must then say so rather
+  than show a large number as if it were real.
+
+  The live UT99 server gets the same counter from UT_MonsterHunt, which
+  owns that runtime side; share how players read it.
+
+  Belongs with Monster Hunt's rules (UTA-0029) and the HUD (uui).
+  **Layman:** Show two monster counts in Monster Hunt: how many are around right now, and how many are left to beat in the whole map.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: uui, ugame.
 
 ## 0.5.0 — Map editor
 

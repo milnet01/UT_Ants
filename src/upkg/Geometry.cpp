@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -431,9 +432,18 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     UTA_TRY(model.lightMap, readTable<LightMapIndex>(reader, LIGHT_MAP_MIN_BYTES,
                                                      "lightmap entries",
                                                      readLightMapIndex));
-    UTA_TRY(model.lightBits,
-            readTable<std::uint8_t>(reader, LIGHT_BITS_BYTES, "lightmap bytes",
-                                    [](ByteReader& bytes) { return bytes.readU8(); }));
+    // The lightmap bytes are one run, read in one call rather than one checked
+    // byte at a time -- UTA-0096. The count and its bound are readTable's,
+    // applied here unchanged; readBytes then applies its own bound as well.
+    // src/ubundle/TextureSection.cpp reads block data the same way and says why.
+    {
+        UTA_TRY(const std::int32_t count, inModel(reader.readIndex(), "lightmap bytes"));
+        UTA_CHECK(checkCount(reader, count, LIGHT_BITS_BYTES, "lightmap bytes"));
+        UTA_TRY(const std::span<const std::byte> run,
+                inModel(reader.readBytes(static_cast<std::size_t>(count)), "lightmap bytes"));
+        const auto* first = reinterpret_cast<const std::uint8_t*>(run.data());
+        model.lightBits.assign(first, first + run.size());
+    }
     UTA_TRY(model.bounds, readTable<Box>(reader, BOX_BYTES, "bounds", readBox));
     UTA_TRY(model.leafHulls,
             readTable<std::int32_t>(reader, LEAF_HULL_BYTES, "leaf hulls",
