@@ -1103,6 +1103,7 @@ struct RoomCensus {
     long long disagreements = 0;
     long long skippedUnvisitable = 0;
     long long skippedOnABoundary = 0;
+    long long ringsExamined = 0;
     int buildRefusals = 0;
 };
 
@@ -1225,8 +1226,17 @@ TEST_CASE("every node's own zone record agrees with the descent", "[real-assets]
 
         // INV-6 on real geometry: every ring the build produced is closed and
         // has at least three vertices, and every room without one is named.
+        //
+        // TODAY THE RING HALF EXAMINES NOTHING, on any map. The lattice is
+        // empty unless the level box is valid, and measured, no room on any
+        // map in the install gets a footprint -- so the REQUIREs below never
+        // run and pass by absence. The count is reported with the census so
+        // that is visible rather than implied (UTA-0099). These go live by
+        // themselves once the lattice has a real box, which is UTA-0098's
+        // decision.
         for (const uta::umap::Room& room : map.rooms) {
             for (const uta::umap::Footprint& part : room.parts) {
+                ++census.ringsExamined;
                 REQUIRE(part.outer.size() >= 3);
                 const bool repeatsFirst = (part.outer.front().x == part.outer.back().x) &&
                                           (part.outer.front().y == part.outer.back().y);
@@ -1373,6 +1383,8 @@ TEST_CASE("every node's own zone record agrees with the descent", "[real-assets]
     WARN("INV-2 not probed -- nodes no descent reaches " << census.skippedUnvisitable);
     WARN("INV-2 not probed -- probes not strictly inside their own cell "
          << census.skippedOnABoundary);
+    WARN("INV-6 on real geometry -- outer rings examined " << census.ringsExamined
+                                                           << " (none until the lattice has a box: UTA-0098)");
 
     REQUIRE(census.mapsWithAParsingModel > 0);
     REQUIRE(census.probes > 0);
