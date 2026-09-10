@@ -303,7 +303,17 @@ TEST_CASE("compress refuses every input its contract lists", "[umat][compress]")
         refused(chain(6, 8, 4, 4), BlockFormat::BC7, 3, 4);
     }
     SECTION("a base width above 8192") {
-        refused(chain(16384, 1, 1, 1), BlockFormat::BC4, 8192, 1);
+        // Height 2 over a source height of 1, so the factor is 2 in BOTH
+        // axes. A 16384x1 base from 8192x1 disagrees about the factor, and
+        // that rule refused it first -- measured: this case survived the
+        // mutation that deletes the ceiling.
+        refused(chain(16384, 2, 1, 1), BlockFormat::BC4, 8192, 1);
+    }
+    SECTION("a base height that is not a power of two") {
+        refused(chain(8, 6, 4, 4), BlockFormat::BC7, 4, 3);
+    }
+    SECTION("a base height above 8192") {
+        refused(chain(2, 16384, 1, 1), BlockFormat::BC4, 1, 8192);
     }
     SECTION("one level more than the chain holds") {
         refused(chain(8, 8, 4, 5), BlockFormat::BC7, 4, 4);

@@ -246,11 +246,34 @@ TEST_CASE("a texture whose dimensions break the format's rules is refused",
         refused(fileWithTextures({spec}));
     }
     SECTION("a width above the ceiling") {
+        // Height 2 over a source height of 1, so the factor is 2 in BOTH
+        // axes. At height 1 the two axes disagreed and that rule refused it
+        // first -- measured: the case survived the mutation deleting the
+        // ceiling. 16384x2 is still one block row, so the run is unchanged.
         TextureSpec spec = sound();
         spec.width = 16384;
-        spec.height = 1;
+        spec.height = 2;
         spec.sourceWidth = 8192;
         spec.sourceHeight = 1;
+        spec.mipCount = 1;
+        spec.blockBytes = 4096 * 16;
+        refused(fileWithTextures({spec}));
+    }
+    SECTION("a height that is not a power of two") {
+        // 8x6 is four blocks and 4x3 one, so five blocks of sixteen, and the
+        // factor is 2 in both axes: only the power-of-two rule refuses it.
+        TextureSpec spec = sound();
+        spec.height = 6;
+        spec.sourceHeight = 3;
+        spec.blockBytes = 5 * 16;
+        refused(fileWithTextures({spec}));
+    }
+    SECTION("a height above the ceiling") {
+        TextureSpec spec = sound();
+        spec.width = 2;
+        spec.height = 16384;
+        spec.sourceWidth = 1;
+        spec.sourceHeight = 8192;
         spec.mipCount = 1;
         spec.blockBytes = 4096 * 16;
         refused(fileWithTextures({spec}));

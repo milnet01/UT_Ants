@@ -1641,6 +1641,23 @@ model, no weapon and no opponent until 0.2.0.
   live. The only peer session is `ants-terminal-14`, another project.
   Starting the `umat` half: `src/umat/`, its two configure-time
   assertions, and `tests/unit/MaterialCompressTest.cpp`.
+  Progress (2026-09-10): **the umat half is built** -- `src/umat/`, both
+  configure-time assertions, and `tests/unit/MaterialCompressTest.cpp`.
+  Each configure assertion was broken once and stopped configure: a
+  forbidden link (INV-12), `-ffast-math` on the target and on `bc7enc.c`
+  alone (INV-8). Twenty-five hand mutations of `Material.cpp`; the one
+  survivor was a fixture graded by a neighbouring rule, now fixed.
+
+  **The container half had the same defect, three times.** Mutating
+  `Bundle.cpp`'s width ceiling, height power-of-two and height ceiling --
+  none of them in the earlier ten mutations -- left every test green. The
+  width-ceiling case was a 16384x1 texture from an 8192x1 source, which
+  the axes-agree rule refuses first; the two height clauses had no case.
+  `BundleTextureTest.cpp` now carries a both-axes-agree ceiling case and
+  one case per height clause.
+
+  Remaining: re-mutate those three, the Clang leg, the full gate, and the
+  matrix.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
