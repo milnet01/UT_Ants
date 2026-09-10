@@ -842,6 +842,13 @@ model, no weapon and no opponent until 0.2.0.
   texture with no Format property (§ 4.2).
   Claimed 2026-09-10 by session ut-ants-ec, in the main checkout.
   Rule-1 items UTA-0059, UTA-0098 and UTA-0100 all defer themselves.
+  Scope narrowed by the user (2026-09-10): this item is the working
+  baker -- the ut-bake program and its --check, the baker version, how a
+  bake is named and cached, and the sections that exist today (rooms, the
+  two graphs, materials). Split out to their own items: geometry
+  (UTA-0109), lights and actor placements (UTA-0110), collision
+  (UTA-0111), baked indirect light (UTA-0112) and the recipe format
+  (UTA-0113). Until UTA-0113 lands, every map bakes with no recipe.
   **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament.
   Kind: implement.
   Source: design-2026-09-03.
@@ -4414,6 +4421,68 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: ubake, ubundle, urecipe.
 
+- 📋 [UTA-0109] **ubake: turn the level's BSP tables into triangles, and write the geometry section.**
+  Split out of UTA-0011 by the user on 2026-09-10.
+  Turning the Model tables UTA-0069 returns into triangles is the
+  baker's decision, per UTA-0004 § 3.1 and UTA-0069. This item makes it,
+  defines the bundle's geometry section, and picks each surface's
+  material and its opaque or masked variant (UTA-0009 § 9).
+  How a surface's kind is stored is UTA-0104's map standard; settle the
+  two together. UTA-0014 draws what this writes.
+  Blocked-by: UTA-0011.
+  **Layman:** Rebuild each level's walls, floors and ceilings as modern 3D geometry the renderer can draw.
+  Kind: implement.
+  Source: user-request-2026-09-10 split-from-UTA-0011.
+  Lanes: ubake, ubundle.
+
+- 📋 [UTA-0110] **ubake: write the level's lights and actor placements into the bundle.**
+  Split out of UTA-0011 by the user on 2026-09-10.
+  UTA-0014 turns the level's own light actors into dynamic lights, so
+  the bundle must carry them. docs/design.md § Content addressing has a
+  bundle store each placed actor's class name, its ancestry and its
+  defaults, which UTA-0023 resolves when the actor spawns. This item
+  defines both sections.
+  Blocked-by: UTA-0011.
+  **Layman:** Carry each level's lamps, and where everything in it stands, into the baked map.
+  Kind: implement.
+  Source: user-request-2026-09-10 split-from-UTA-0011.
+  Lanes: ubake, ubundle.
+
+- 📋 [UTA-0111] **ubake: write the level's collision into the bundle.**
+  Split out of UTA-0011 by the user on 2026-09-10.
+  UTA-0017's movement model reads it, and so does the physics world
+  filed the same day for 0.3.0. Design the section for both readers.
+  Blocked-by: UTA-0011.
+  **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
+  Kind: implement.
+  Source: user-request-2026-09-10 split-from-UTA-0011.
+  Lanes: ubake, ubundle, uworld.
+
+- 📋 [UTA-0112] **ubake: bake indirect light into the bundle.**
+  Split out of UTA-0011 by the user on 2026-09-10.
+  ADR-0002 lists baked indirect light among what a bundle carries.
+  The method, and the section that stores its result, are this item's.
+  Blocked-by: UTA-0011.
+  **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
+  Kind: implement.
+  Source: user-request-2026-09-10 split-from-UTA-0011.
+  Lanes: ubake, ubundle, urender.
+
+- 📋 [UTA-0113] **urecipe: the recipe format, read and write.**
+  Split out of UTA-0011 by the user on 2026-09-10. Until this
+  lands, the baker bakes every map with no recipe.
+  docs/design.md § The parts gives urecipe its fields, and ADR-0003 makes
+  the recipe what travels instead of Epic's content. Its bake-relevant
+  fields enter the bundle's name (docs/design.md § Content addressing),
+  and its material assignment is applied through umat::applied after the
+  curated library (UTA-0010 § 4.5). The recipe format is a breaking
+  surface (docs/standards/versioning-overrides.md).
+  Blocked-by: UTA-0011.
+  **Layman:** The small file of our own changes to somebody else's map -- materials, fog, a friendly name -- which is what players share instead of the map itself.
+  Kind: implement.
+  Source: user-request-2026-09-10 split-from-UTA-0011.
+  Lanes: urecipe, ubake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -5044,6 +5113,62 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
+
+- 📋 [UTA-0114] **uworld: a physics world on Jolt Physics, with debris and gibs.**
+  The user's request (2026-09-10): proper physics for the game, "as
+  cheaply as possible but as advanced as possible".
+  Decided with the user (2026-09-10):
+  - Three kinds: ragdoll deaths, debris and gibs, and pushable objects.
+    This item is the physics world and the debris; the ragdoll and
+    pushable-object items filed with it are the other two.
+  - It arrives with 0.3.0.
+  - Player and bot movement stays UT99's (S2). Physics is for everything
+    else.
+  Recommended engine, for this item's spec to confirm: Jolt Physics. MIT
+  licence, spreads work across CPU cores, and a cross-platform
+  deterministic build option, about 8% slower, tested on MSVC 2022, clang
+  and gcc, per its build notes:
+  https://github.com/jrouwe/JoltPhysics/blob/master/Build/README.md
+  Adopting it is a new dependency: ADR-0007's route, and a row in
+  docs/design.md § The stack. Needs a spec.
+  The static world comes from the collision section (UTA-0111). Debris and
+  gibs change no play, so each machine simulates its own.
+  To measure, not assume: a Jolt issue reports slowness with very many
+  separate static colliders (github.com/jrouwe/joltphysics/issues/1081).
+  A map's world as one mesh shape is expected to avoid it.
+  Whether UTA-0017's movement model runs its collision queries through the
+  same library is UTA-0017's spec's question.
+  Blocked-by: UTA-0111.
+  **Layman:** Things in the world obey physics -- debris and bits fly, bounce and settle -- using a free, fast physics engine.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: uworld.
+
+- 📋 [UTA-0115] **Ragdoll deaths: players, bots and monsters fall and crumple when killed.**
+  Decided with the user (2026-09-10), with the physics world item filed
+  beside it: ragdolls are one of the three kinds of physics asked for,
+  and arrive with 0.3.0.
+  Looks only: each machine simulates its own, so nothing is sent over
+  the network. Needs the skeletal meshes of monsters (UTA-0024) and of
+  player models. Built on the physics world.
+  **Layman:** When someone dies they collapse realistically instead of playing a canned animation.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: uworld, urender, ugame.
+
+- 📋 [UTA-0116] **Pushable objects: loose map objects that explosions and players move, the same for everyone.**
+  Decided with the user (2026-09-10), with the physics world item filed
+  beside it: pushable objects are one of the three kinds of physics
+  asked for, and arrive with 0.3.0.
+  They change how play goes, so the server simulates them and sends the
+  result to every player (UTA-0026). Which map actors become pushable is
+  this item's spec's to decide from what the maps actually hold,
+  measured over the install rather than assumed.
+  Blocked-by: UTA-0026, and the physics world.
+  **Layman:** Crates, barrels and loose objects can be knocked about by explosions and players, and everyone sees them in the same place.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: uworld, unet, ugame.
 
 ## 0.4.0 — Monster Hunt
 

@@ -5,13 +5,12 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0011` — `ubake`: the map baker, which drives `upkg`,
-`umat` and the graph builders into one bundle. `UTA-0010`, the curated
-material library the baker was waiting on in `umat`, shipped on
-2026-09-10.
+**Next:** `UTA-0109` — the map's geometry, the first piece split out of
+the baker on 2026-09-10. It waits on `UTA-0011`, the baker itself, which
+is in flight.
 
-`UTA-0013`'s quarantine guard is the alternative if the guard is wanted
-before the baker.
+`UTA-0013`'s quarantine guard is the alternative, and a second session
+can take it now: it shares no directory with the baker.
 
 **Rule 1's set is not listed here — ask the roadmap**, which § Which item
 comes next gives the call for. A hand-kept list of it goes stale the
