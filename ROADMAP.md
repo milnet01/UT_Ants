@@ -4616,6 +4616,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
 
   Twin in UT_MonsterHunt: asked for by message from ut-ants-0c on
   2026-09-10, for the live UT99 server first.
+  Twin filed (2026-09-10): UT_MonsterHunt GAME-0079,
+  MHMonsterHealth.bNoLandingDamage, default off. Its survey of the UT99
+  sources, for our design:
+  - UT99 gives landing damage and leaving the world one damage name,
+    'Fell'. A landing arrives through TakeDamage with no instigator (a
+    monster's landing names itself). Pawn.FellOutOfWorld and a map's
+    TriggeredDeath call Died directly, so no damage hook sees them. Its
+    filter is therefore 'Fell' with no instigator, on players and bots.
+  - One landing slips past that filter: SkaarjBot's lethal dodge landing
+    calls Died directly. Left as a documented gap there.
+  - Kill zones are native code, not yet confirmed; that project is
+    probing one with the setting on.
+  Design lesson: give landing damage its own kind here, never a name
+  shared with leaving the world, so this setting can target it without
+  inferring it from who caused it.
   **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4955,6 +4970,10 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   cancelling its momentum turns a self-kill into a falling death. BPak's
   direct Health write (GAME-0073) remains the one known path around a
   damage hook.
+  More paths around a damage hook (UT_MonsterHunt source survey,
+  2026-09-10): bpak's BPulseGun calls Died on its own holder once the
+  holder's health reaches 1000, and Pawn.FellOutOfWorld and UnrealShare
+  TriggeredDeath call Died directly. None passes through TakeDamage.
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
