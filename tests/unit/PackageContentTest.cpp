@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -375,14 +376,17 @@ std::vector<std::uint8_t> lightsEntries(std::int32_t count) {
 /// bytes. Passing a count that disagrees with what `nodes`/`surfs` actually
 /// hold is how the malformed cases are built -- SS 4.7's oversized and
 /// negative fixtures declare a count and supply no matching bytes at all.
-/// The other six tables always declare their own true count: nothing here
-/// needs them to disagree.
+/// The other trailing tables declare their own true count, except where
+/// `declaredLightBits` is set: then the lightmap byte table declares that
+/// count and holds no bytes, which is how UTA-0096's refusal cases reach its
+/// one-run read.
 std::vector<std::uint8_t> modelData(std::int32_t nodeCount, const std::vector<std::uint8_t>& nodes,
                                     std::int32_t surfCount, const std::vector<std::uint8_t>& surfs,
                                     std::int32_t zoneCount, std::int32_t lightMapCount,
                                     std::int32_t lightBitsCount, std::int32_t boundsCount,
                                     std::int32_t leafHullsCount, std::int32_t lightsCount,
-                                    std::int32_t leavesCount = 0) {
+                                    std::int32_t leavesCount = 0,
+                                    std::optional<std::int32_t> declaredLightBits = std::nullopt) {
     std::vector<std::uint8_t> data = emptyProperties();
     appendVector(data, -1.0F, -2.0F, -3.0F); // BoundingBox.min
     appendVector(data, 1.0F, 2.0F, 3.0F);    // BoundingBox.max
@@ -404,7 +408,11 @@ std::vector<std::uint8_t> modelData(std::int32_t nodeCount, const std::vector<st
     data.insert(data.end(), zones.begin(), zones.end());
     appendIndex(data, 0); // Polys: null
     appendTable(data, lightMapCount, lightMapEntries(lightMapCount));
-    appendTable(data, lightBitsCount, lightBitsBytes(lightBitsCount));
+    if (declaredLightBits.has_value()) {
+        appendIndex(data, *declaredLightBits); // the count alone, no bytes
+    } else {
+        appendTable(data, lightBitsCount, lightBitsBytes(lightBitsCount));
+    }
     appendTable(data, boundsCount, boundsBoxes(boundsCount));
     appendTable(data, leafHullsCount, leafHullEntries(leafHullsCount));
     appendTable(data, leavesCount, leafEntries(leavesCount));
@@ -667,6 +675,44 @@ TEST_CASE("a Model export with bytes left over is refused", "[upkg]") {
     REQUIRE_FALSE(model.has_value());
     CHECK(model.error().code() == ErrorCode::MalformedData);
     CHECK(model.error().message().find("unread") != std::string_view::npos);
+}
+
+TEST_CASE("a Model declaring more lightmap bytes than the export holds is refused", "[upkg]") {
+    // UTA-0096 reads this table as one run, so its count bound is checked here
+    // rather than inherited from readTable. The mirror of PackageMalformedTest's
+    // oversized-nodes case: checkCount's own wording, and this table's name.
+    const std::vector<std::uint8_t> data =
+        modelData(1, bspNodes(1), 0, {}, /*zoneCount=*/0, /*lightMapCount=*/0,
+                  /*lightBitsCount=*/0, /*boundsCount=*/0, /*leafHullsCount=*/0,
+                  /*lightsCount=*/0, /*leavesCount=*/0, /*declaredLightBits=*/0x00FFFFFF);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Model", data);
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE_FALSE(model.has_value());
+    CHECK(model.error().code() == ErrorCode::MalformedData);
+    CHECK(model.error().message().find("more than the") != std::string_view::npos);
+    CHECK(model.error().message().find("lightmap bytes") != std::string_view::npos);
+}
+
+TEST_CASE("a Model declaring a negative lightmap byte count is refused", "[upkg]") {
+    // An EXACT match, for PackageMalformedTest's negative-nodes reason: without
+    // the count<0 check, -1 casts to SIZE_MAX and readBytes refuses it with a
+    // different message. So this is what grades that check -- measured, a
+    // mutation deleting it survived every test before this one existed.
+    const std::vector<std::uint8_t> data =
+        modelData(1, bspNodes(1), 0, {}, /*zoneCount=*/0, /*lightMapCount=*/0,
+                  /*lightBitsCount=*/0, /*boundsCount=*/0, /*leafHullsCount=*/0,
+                  /*lightsCount=*/0, /*leavesCount=*/0, /*declaredLightBits=*/-1);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Model", data);
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE_FALSE(model.has_value());
+    CHECK(model.error().code() == ErrorCode::MalformedData);
+    CHECK(model.error().message() == "a Model declares -1 lightmap bytes");
 }
 
 // --- Palette ----------------------------------------------------------------
