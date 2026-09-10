@@ -125,7 +125,9 @@ foreach(_uta_fp_flags_var IN ITEMS
             "through ${_uta_fp_flags_var}.")
     endif()
 endforeach()
-unset(_uta_unsafe_fp_pattern)
+# _uta_unsafe_fp_pattern is deliberately NOT unset: src/umat/CMakeLists.txt
+# asserts INV-8 of docs/specs/UTA-0052-texture-memory-budget.md with this same
+# pattern, and reading it is what keeps the two checks from drifting apart.
 unset(_uta_fp_flags_var)
 
 # Build speed. Both tools are OPTIONAL and detected: a machine without either

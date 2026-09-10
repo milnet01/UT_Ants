@@ -630,6 +630,12 @@ model, no weapon and no opponent until 0.2.0.
   For this item the consequence is narrow: the input contract admits the
   original 1999 texture AND a locally-supplied replacement, and must not
   assume the original is the only input.
+  Water and glass (user, 2026-09-10): water sections must look and behave
+  like water, and glass must look like glass, with cheap or faked
+  reflections preferred. This item's part is identifying those surfaces
+  from PolyFlags, which its body already plans, and carrying that tag
+  into the material so the renderer can act on it. The appearance is
+  UTA-0089 and the behaviour is UTA-0090.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -1630,6 +1636,11 @@ model, no weapon and no opponent until 0.2.0.
   **Next: `src/umat/` — `Material.h`/`.cpp`, `CMakeLists.txt` with INV-8's
   and INV-12's configure-time assertions, `add_subdirectory(umat)`, and
   `tests/unit/MaterialCompressTest.cpp` for INV-6 to INV-12 and INV-14.**
+  Progress (2026-09-10): resumed by session `ut-ants-b3` in the MAIN
+  checkout `/mnt/Games/Scripts/Linux/UT_Ants`. `ut-ants-2d` is no longer
+  live. The only peer session is `ants-terminal-14`, another project.
+  Starting the `umat` half: `src/umat/`, its two configure-time
+  assertions, and `tests/unit/MaterialCompressTest.cpp`.
   **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -3730,6 +3741,69 @@ model, no weapon and no opponent until 0.2.0.
   **Layman:** A rule for deciding how we obtain outside code asks the wrong question, so it gives the wrong answer for a library that ships a demo program.
   Kind: doc-fix.
   Source: review-contract-2026-09-09.
+
+- 📋 [UTA-0089] **urender: water and glass that look the part, with cheap faked reflections.**
+  The user's requirement (2026-09-10): water sections must actually look
+  like water, and glass sections must look like glass, with reflections
+  where they fit. Faked or cheap reflections are acceptable, and cheap is
+  preferred.
+
+  The cheap route is a reflection probe: an environment image captured
+  once at bake time per room, or the sky where a surface sees it, blended
+  in by a Fresnel term so a surface reflects more at a grazing angle.
+  Glass adds transparency and a tint. Water adds scrolling detail normals
+  and a depth tint. None of it traces a ray, so ADR-0001's no-ray-tracing
+  rule is not in question.
+
+  This is NOT UTA-0045. That item is screen-space reflections, the
+  expensive route, and the user deferred it out of 0.1.0 on 2026-09-08.
+  Surface motion is UTA-0055, deferred the same day. This item is what
+  makes water and glass read correctly without either.
+
+  Which surfaces are water and which are glass comes from UTA-0009, which
+  already reads the original texture's PolyFlags rather than guessing.
+
+  Blocked-by: UTA-0014.
+
+  Two open points for whoever picks this up. Reflections are not among the
+  responsibilities docs/design.md lists for urender, so adding them runs
+  the rule 14 gate on that document first, as UTA-0045's body already
+  records. And whether this is part of 0.1.0's cut condition is the
+  user's call: S1 as written does not require it.
+  **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: urender, umat.
+
+- 📋 [UTA-0090] **uworld: water volumes that behave like water.**
+  The user's requirement (2026-09-10): water sections must behave like
+  water, not only look like it. Nothing on the roadmap covered the
+  behaviour: UTA-0017's movement model does not mention water, and the
+  render item filed beside this one covers only appearance.
+
+  UT99 marks water with a zone. Inside one a player swims rather than
+  walks, moves more slowly, can rise and sink, and can climb out at the
+  surface. A zone may also set a current or cause damage. The behaviour is
+  measured from the original, not guessed, on the same terms as UTA-0017.
+
+  Reading which zones are water is upkg's side of this. It may already be
+  covered by UTA-0004's actor placements, and whoever picks this up checks
+  that first.
+
+  Blocked-by: UTA-0017.
+  Required, not optional (user, 2026-09-10): this project has to play the
+  maps UT99 already plays, and water maps cannot be played without
+  swimming.
+
+  Filed under 0.1.0 by mistake. It belongs with the movement release,
+  0.2.0, beside UTA-0017, which it is blocked by. The batch call that
+  filed it took one section for both items, and no roadmap verb moves an
+  item between sections. Do not count it when judging what is left for
+  0.1.0.
+  **Layman:** Jumping into water should mean swimming, slower movement and a way to climb back out, the way the original game does it.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: uworld.
 
 ## 0.2.0 — Movement and weapons
 
