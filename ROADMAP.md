@@ -3843,6 +3843,9 @@ model, no weapon and no opponent until 0.2.0.
   Asked UT_MonsterHunt (2026-09-10) to measure UT99's real water-zone
   behaviour with its in-game probe pattern: swim speed, climbing out,
   zone velocity. That is how this item gets measured, not guessed.
+  Linked (2026-09-10): UT_MonsterHunt GAME-0078 carries the six water
+  numbers asked for and will measure them in the running game, reporting
+  which its probe pattern cannot reach reliably rather than guessing.
   **Layman:** Jumping into water should mean swimming, slower movement and a way to climb back out, the way the original game does it.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -3960,7 +3963,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
 
-- 🚧 [UTA-0097] **CI rebuilds Catch2 from scratch on every Linux leg; cache compiler output between runs.**
+- ✅ [UTA-0097] **CI rebuilds Catch2 from scratch on every Linux leg; cache compiler output between runs.**
   Found by the optimisation pass of 2026-09-10 and checked against the
   source: .github/workflows/ci.yml provisions no compiler cache, and
   scripts/ci.sh builds a second, ThreadSanitizer tree.
@@ -3979,6 +3982,17 @@ model, no weapon and no opponent until 0.2.0.
   Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
   `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0095 closed. Rule 1 of the
   user's order: review-sourced.
+  Shipped (2026-09-10) at `575246c`, measured over two CI runs of the same
+  commit, all three legs green in both:
+
+    run 1 (34467774999, fills the cache): GCC 239 s, Clang 241 s, MSVC 216 s
+    run 2 (34468178273, restores it):     GCC  38 s, Clang  65 s, MSVC 257 s
+
+  Run 2 hit on every compile: of 312 calls per Linux leg, 312 hits, all
+  direct. Every call was cacheable, so the base-dir and hash-dir settings
+  work. The cache is small -- about 38 MB for GCC and 22 MB for Clang against
+  the 1 GB ceiling -- so that ceiling is generous rather than binding. MSVC
+  has no cache by design, and its difference is runner variation.
   **Layman:** Let the online build reuse work from its last run, so each push goes green sooner.
   Kind: chore.
   Source: review-code-2026-09-10 optimisation pass.
@@ -4002,12 +4016,17 @@ model, no weapon and no opponent until 0.2.0.
 
   Defers itself: nothing to do until a real box reaches this code. Not
   part of 0.1.0's cut condition.
+  Also arms a test (2026-09-10): measured, the real-asset tier's INV-6
+  ring checks examine zero footprints on every map, because the lattice
+  is empty without a valid box. Whatever box this item settles on is what
+  turns those checks from vacuous into real. UTA-0099 makes the count
+  visible in the meantime.
   **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: umap.
 
-- 📋 [UTA-0099] **A real-asset umap test checks nothing on almost every map, because no sample is ever taken.**
+- 🚧 [UTA-0099] **A real-asset umap test has ring checks that examine nothing, on every map, because no sample is ever taken.**
   Found by the optimisation pass of 2026-09-10. The mechanism is checked
   against the source: src/umap/Build.cpp returns an empty sample lattice
   when `Model::boundsValid` is false, and tests/real/RealInstallTest.cpp's
@@ -4027,6 +4046,28 @@ model, no weapon and no opponent until 0.2.0.
 
   Not part of 0.1.0's cut condition, but it is S7-adjacent: the real tier
   reports green here without evidence.
+  Re-measured (2026-09-10), as this body asked, with the test's own map
+  selection, Model choice and 512-unit spacing. 2,021 maps have a parsing
+  Model; exactly 3 have `boundsValid` on their largest one (MH-Spacemars,
+  MH-mG-Spacemarsbeta-fix6, MH-(_@_)_Nevada_Fallout_V3), confirming the
+  pass's figure. But even those 3 build no footprint: of 32,907 rooms,
+  none has one, so the INV-6 ring REQUIREs run ZERO times across the
+  install. The headline is corrected from "almost every map" to every map.
+
+  The test's OTHER half is real and must not be confused with this: its
+  INV-2 probes use the descent tables, not the lattice, and its own
+  comment records 11,126,404 of them.
+
+  RoomBuildOptions has no box override, so a test cannot supply one.
+  Requiring the ring count to be above zero would go red on main today;
+  supplying a real box is UTA-0098's open design decision, not this
+  item's. So the fix here is to count the rings examined, report the
+  count every run, and correct the comment that claims INV-6 is checked on
+  real geometry. The REQUIREs go live by themselves once a box does.
+  Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
+  `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0097 closed. Rule 1 of the
+  user's order: review-sourced. The fix is the one this body settles on:
+  count the rings examined, report it every run, correct the comment.
   **Layman:** One of the real-map tests has been passing without actually checking anything; make it check something, or say plainly what it cannot check.
   Kind: test.
   Source: review-code-2026-09-10 optimisation pass.
@@ -4070,6 +4111,9 @@ model, no weapon and no opponent until 0.2.0.
 
   The same scan, handed to UT_MonsterHunt as a TSV, found LevelSummary's
   Title set on 2,005 maps against LevelInfo's 1,812, so report both.
+  Linked (2026-09-10): UT_MonsterHunt GAME-0076, the whole-map
+  monsters-left HUD this total feeds, and GAME-0070, the map-creators
+  table built from the Title/Author scan handed over that day.
   **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total.
   Kind: feature.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.
@@ -4523,6 +4567,8 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   name for name. On 2026-09-09 the user played MH-AirForce-BaseRemidas,
   which has one PlayerStart: in about 13 minutes bots respawned 40, 38
   and 27 times, each spawn killing whoever stood on the start.
+  Linked (2026-09-10): UT_MonsterHunt GAME-0075, the 23 one-start maps and
+  their telefrag loops on the live server.
   **Layman:** If a map only has one place for players to appear, add a few more beside it, so several players joining together are not all dropped on the same spot.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4568,6 +4614,12 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   accounting hook missed it. In our engine, make Health writable through
   one function only, and route a weapon's cost-of-use charge through it,
   so spawn protection and the kill feed cannot be bypassed.
+  A second way around a damage hook (UT_MonsterHunt GAME-0077,
+  2026-09-10): a zombie, qZombie, kills instantly without any damage call,
+  through Died() or a direct Health write. With BPak's direct write
+  (GAME-0073, which that project reduced to 10 HP a shot in its own
+  subclass) that is two paths. Protection here must hold on every path by
+  which a pawn loses health or dies, not only on damage.
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4961,6 +5013,8 @@ to.
   owns that runtime side; share how players read it.
 
   Belongs with Monster Hunt's rules (UTA-0029) and the HUD (uui).
+  Linked (2026-09-10): UT_MonsterHunt GAME-0076, the same counter on the
+  live UT99 server.
   **Layman:** Show two monster counts in Monster Hunt: how many are around right now, and how many are left to beat in the whole map.
   Kind: feature.
   Source: user-request-2026-09-10.
