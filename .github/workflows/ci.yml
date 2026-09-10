@@ -1,10 +1,11 @@
 # The pipeline runs scripts/ci.sh and duplicates none of its steps.
 #
-# Everything below the toolchain setup is one line per job, deliberately: the
-# checks live in the script so the run here and the run on a developer's
-# machine cannot drift (local-gate.md § 3). Provisioning a compiler IS the
-# runner's job and is not a check, which is why the apt lines are not a
-# duplicated step.
+# Every check is one line, deliberately: the checks live in the script so the
+# run here and the run on a developer's machine cannot drift (local-gate.md
+# § 3). Provisioning a compiler IS the runner's job and is not a check, which
+# is why the apt lines are not a duplicated step -- and keeping ccache's
+# directory between runs is provisioning too (UTA-0097). The line after the
+# gate prints the cache's hit rate and checks nothing.
 #
 # Linux and Windows are both first-class (docs/design.md § The stack), so a
 # change that breaks either breaks the build. Windows uses MSVC through the
@@ -74,10 +75,38 @@ jobs:
           sudo apt-get update
           # shellcheck disable=SC2086  # the package list is deliberately split
           sudo apt-get install --no-install-recommends -y \
-            $APT_PACKAGES ninja-build shellcheck yamllint
-          echo "CC=$CC_NAME" >> "$GITHUB_ENV"
-          echo "CXX=$CXX_NAME" >> "$GITHUB_ENV"
+            $APT_PACKAGES ninja-build shellcheck yamllint ccache
+          # The root CMakeLists.txt uses ccache whenever it is installed. Untold,
+          # ccache hashes the build path into every key and mostly misses, so
+          # the base-directory and hash-dir settings are what make it pay --
+          # the same two CLAUDE.md sets locally.
+          {
+            echo "CC=$CC_NAME"
+            echo "CXX=$CXX_NAME"
+            echo "CCACHE_DIR=$HOME/.cache/ccache"
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_NOHASHDIR=true"
+            echo "CCACHE_MAXSIZE=1G"
+          } >> "$GITHUB_ENV"
+
+      # Catch2 is most of the objects in both Linux trees, the Release one and
+      # the ThreadSanitizer one, and it never changes. Kept per compiler.
+      # ccache keys on source and flags itself, so an out-of-date restore costs
+      # misses and never a wrong object -- the numeric contract's flags are
+      # part of that key. A pull request's cache is scoped to its own ref, so
+      # it cannot be restored by a run on main or on a release tag.
+      - name: Keep the compiler cache between runs
+        if: runner.os == 'Linux'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.cxx }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.cxx }}-
 
       - name: Run the gate
         shell: bash
         run: ./scripts/ci.sh
+
+      - name: Show the compiler cache's hit rate
+        if: always() && runner.os == 'Linux'
+        run: ccache --show-stats

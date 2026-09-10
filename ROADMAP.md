@@ -3903,7 +3903,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
 
-- 🚧 [UTA-0095] **The real-asset tests read files one character at a time; read them in one call.**
+- ✅ [UTA-0095] **The real-asset tests read files one character at a time; read them in one call.**
   Found by the optimisation pass of 2026-09-10 and checked against the
   source: tests/real/RealInstallTest.cpp has four readers built on
   `istreambuf_iterator`.
@@ -3918,6 +3918,15 @@ model, no weapon and no opponent until 0.2.0.
   `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0096 closed. Rule 1 of the
   user's order: review-sourced. A "before" run of the real tier was taken
   in build-real at d3360e8 for the comparison.
+  Shipped (2026-09-10) at `6e1fe75`. The tier passes 9/9 locally, and
+  warm, back to back, the test binary went from 177.9 s wall and 161.9 s of
+  CPU to 53.3 s and 43.0 s.
+
+  **The matrix cannot grade this, and it is said plainly rather than
+  implied.** CI run 34466927875 is green on GCC 14, Clang 19 and MSVC, but
+  the real-asset tier is local-only by design (S7), so no CI leg compiles
+  tests/real/RealInstallTest.cpp at all. The only evidence is this
+  machine's GCC leg. Running the tier on Windows is UTA-0077's.
   **Layman:** Speed up the slow test tier that checks real game files by reading each file in one go.
   Kind: chore.
   Source: review-code-2026-09-10 optimisation pass.
@@ -3951,7 +3960,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
 
-- 📋 [UTA-0097] **CI rebuilds Catch2 from scratch on every Linux leg; cache compiler output between runs.**
+- 🚧 [UTA-0097] **CI rebuilds Catch2 from scratch on every Linux leg; cache compiler output between runs.**
   Found by the optimisation pass of 2026-09-10 and checked against the
   source: .github/workflows/ci.yml provisions no compiler cache, and
   scripts/ci.sh builds a second, ThreadSanitizer tree.
@@ -3967,6 +3976,9 @@ model, no weapon and no opponent until 0.2.0.
   so the numeric contract is safe. The MSVC leg is unchanged.
 
   Not part of 0.1.0's cut condition.
+  Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
+  `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0095 closed. Rule 1 of the
+  user's order: review-sourced.
   **Layman:** Let the online build reuse work from its last run, so each push goes green sooner.
   Kind: chore.
   Source: review-code-2026-09-10 optimisation pass.
