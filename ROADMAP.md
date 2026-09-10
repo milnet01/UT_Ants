@@ -4980,6 +4980,15 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   2026-09-10): bpak's BPulseGun calls Died on its own holder once the
   holder's health reaches 1000, and Pawn.FellOutOfWorld and UnrealShare
   TriggeredDeath call Died directly. None passes through TakeDamage.
+  Refined (UT_MonsterHunt, 2026-09-10): the launches were not only a
+  bot's own blasts. Teammates' blasts launched bots too -- bpak's
+  BFlakCannon fireballs call HurtRadius with a large momentum many times
+  a second -- because friendly fire set to zero still pushes, and the
+  players' anti-boost rule (BarbiesWorld KHMBase bUseAntiBoost) zeroes
+  momentum only when both sides are PlayerPawn, so bots fall outside it.
+  Lesson: friendly fire off still pushes, and an anti-boost that tests
+  for human players misses bots. That project's fix extends anti-boost
+  to every pair of players and bots; monsters still push everyone.
   **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
   Kind: feature.
   Source: user-request-2026-09-10.
