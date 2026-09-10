@@ -741,6 +741,13 @@ model, no weapon and no opponent until 0.2.0.
   animation filed separately. Replacement images and the AI enlarger
   come after the first version, replacements as PNG. Same-named
   packages are told apart by a content fingerprint, owned by UTA-0104.
+  Progress (2026-09-10, ut-ants-b3, main checkout): built to the
+  accepted spec -- src/umat Resolve, Enlarge, Derive and Generate, the
+  INV-12 link amendment, tests/unit/MaterialGenerateTest.cpp, and the
+  INV-13 census in tests/real/RealInstallTest.cpp. Every hand mutation of
+  the new guards is killed, INV-12 refuses configure when broken, and the
+  census keeps Lanczos at or above bicubic and above nearest. Open until
+  the CI matrix is green.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.

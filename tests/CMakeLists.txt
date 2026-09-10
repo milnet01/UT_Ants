@@ -53,7 +53,7 @@ catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
 if(UTA_REAL_ASSET_TESTS)
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
-                                                       Catch2::Catch2WithMain)
+                                                       uta_umat Catch2::Catch2WithMain)
     target_compile_definitions(uta_real_asset_tests
         PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}")
     catch_discover_tests(uta_real_asset_tests PROPERTIES LABELS "real-assets;local-only")

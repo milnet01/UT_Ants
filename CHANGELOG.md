@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **umat turns a 1999 texture into a modern material** (UTA-0009)
+  Each texture is enlarged with a Lanczos filter and gains normal,
+  roughness and height maps derived from it, plus a glow map where marked,
+  all with full mip chains and block-compressed. The same input gives the
+  same bytes on every compiler and thread count. Masked textures get a
+  separate see-through variant, and materials are named by package and
+  group so two creators' textures never clash.
+
 - **Textures are block-compressed, and a map's texture memory is measured against a budget.** (UTA-0052)
   The baker's texture step can squash a texture into the compressed
   formats a graphics card reads directly (BC4, BC5 and BC7), limit how far a

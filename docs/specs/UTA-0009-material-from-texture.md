@@ -328,6 +328,21 @@ before compression.
 `enforceBudget` decides that. A job body that throws fails the whole
 material, never returning part of one.
 
+### 4.8 As built (2026-09-10)
+
+Recorded after the build. None of it changes a contract above.
+
+- `enlarge` and `compress` run rows on `parallelFor`. The fill and the
+  `Derive.h` stages run serially: they cost little beside the encoder, and
+  serial code cannot depend on the worker count.
+- The tables are `detail::kWeights2` and `detail::kWeights4`. A phase's
+  first tap is `floor((2j + 1 − k) / 2k) − (A − 1)`, computed without
+  dividing a negative.
+- `detail::NORMAL_STRENGTH` is 1, the smallest integer `s` (§ 15).
+- INV-6's goldens are one FNV-1a digest per map, not literal block arrays.
+- INV-13's census and § 2's figures are the two `[umat]` cases in
+  `tests/real/RealInstallTest.cpp`. The figures are their output.
+
 ## 5. Invariants
 
 - **INV-1** — `resolve` gives every texel of the opaque variant, and

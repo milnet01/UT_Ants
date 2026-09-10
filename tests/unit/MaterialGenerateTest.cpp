@@ -242,7 +242,10 @@ TEST_CASE("resolve refuses a level it cannot read", "[umat][resolve]") {
         CHECK(result.error().code() == ErrorCode::InvalidArgument);
     }
     SECTION("a byte count that is not width times height") {
-        const auto result = resolve(palettised(2, 2, {0, 1, 1}).mip(), two, false);
+        // One byte too MANY, every one a valid index: without the byte-count
+        // rule this resolves cleanly, where one too few reads past the view
+        // and the index rule may refuse the stray byte instead.
+        const auto result = resolve(palettised(2, 2, {0, 1, 1, 0, 1}).mip(), two, false);
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::InvalidArgument);
     }

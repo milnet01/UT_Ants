@@ -164,6 +164,9 @@ is UTA-0009's, and **UTA-0009 adds the link and amends INV-12 in the same
 change**. Listing it now would make INV-12 refuse to configure the correct
 minimal implementation of this document.
 
+**As built (UTA-0009, 2026-09-10):** `uta_upkg` joined when UTA-0009's
+`resolve` took a package's palettised level, as this section anticipated.
+
 **One library rather than two, unlike `umap` and `unav`.**
 `src/ubundle/CMakeLists.txt` already carries the reasoning for the
 single-library case: those two split because a builder half must reach
@@ -863,7 +866,9 @@ in from elsewhere would otherwise encode nothing and succeed.
   `uta_ubundle`. **Not `uta_upkg`** — nothing in § 4.9's API takes a package,
   so listing it would make this assertion refuse the correct minimal
   implementation of this document. UTA-0009 adds it and amends this invariant
-  in the same change.
+  in the same change. **Amended 2026-09-10 by UTA-0009:** the entries are now
+  `uta_core`, `uta_ubundle` and `uta_upkg`, and that spec's INV-12 is the one
+  the assertion names.
   *Test:* `src/umat/CMakeLists.txt`, a configure-time property assertion in
   the form `src/ubundle/CMakeLists.txt` uses for UTA-0008's INV-10. No arrow:
   the file does not exist yet.
