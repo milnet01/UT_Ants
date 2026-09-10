@@ -667,6 +667,75 @@ model, no weapon and no opponent until 0.2.0.
   cleared: every open review-sourced item now defers itself (UTA-0059,
   UTA-0098, UTA-0100), so this is `Next:` under rule 2. Starting with the
   spec, around the user's upscaler decision of the same day.
+  Premise measured false (2026-09-10), before the spec is drafted. This
+  body says "the original texture's PolyFlags say which surfaces are
+  glass, water, sky or self-lit". Over the reference install:
+
+  - Of 34,041 texture objects in Textures/*.utx, NONE carries an explicit
+    `PolyFlags` property. The flags are on SURFACES (upkg's `BspSurf` and
+    `Polygon`), not on textures.
+  - Surfaces sharing one texture often disagree: across 136,927
+    texture-in-map pairs, masked 19%, translucent 30%, modulated 33%,
+    unlit 32%, portal 51%, wavy 54%, sky 72%.
+
+  So a water, glass, sky or self-lit tag stored on a MATERIAL would be
+  wrong for a large share of its surfaces. The bake must carry the flags
+  per surface to the renderer; this item cannot read them into a
+  material. The spec scopes that out and says whose it is.
+
+  The bit meanings were grounded by measurement with our own reader over
+  9,012,193 BSP surfaces, against the constants UT_MonsterHunt's
+  analysis/wallcheck.py uses: e.g. 66% of glass-named surfaces carry 0x4,
+  30% of sky-named carry 0x80, 53% of lamp-named carry 0x400000. Several
+  heavily used bits (0x8000, 0x80000 among them) have no meaning in either
+  source and are not relied on.
+  Enlarger chosen by measurement (2026-09-10). The user asked for research
+  rather than a visual pick -- their eyesight makes a side-by-side
+  comparison a poor grader -- so the choice rests on sources and on an
+  objective test, not on anyone's eye.
+
+  The test: one square texture (128 px or larger) from each of the
+  install's texture packages -- 870 in all -- box-shrunk to a quarter,
+  enlarged back x4, and scored against the original by mean PSNR. PIL's
+  filters stood in for each method; the engine carries its own
+  deterministic implementation of the one chosen.
+
+    Lanczos-3   27.07 dB  (flat 32.60, detailed 26.21)  best on 735 of 870
+    bicubic     26.93     (32.49, 26.06)                best on  75
+    bilinear    26.42                                   best on   1
+    nearest     25.94                                   best on  52
+    Scale2x x2  25.86     (31.87, 24.93)                best on   7
+
+  "Flat" is 64 or fewer distinct colours (117 textures). Lanczos leads on
+  both kinds; the pixel-art rule scores below plain nearest. That matches
+  the sources: Wikipedia's Image scaling recommends bicubic and sinc/
+  Lanczos for continuous-tone images, and its Pixel-art scaling
+  algorithms article says those scalers are for hand-drawn pixel art and
+  their changes "may be undesirable" where faithful reproduction is the
+  goal. Its Lanczos resampling article gives a = 2 or 3 as usual, and a = 2
+  as having ringing under 1%.
+
+  Decision for the spec: Lanczos. Caveats it must carry: PSNR measures
+  faithfulness, not appearance; ringing halos at sharp edges; and masked
+  textures need their transparent texels handled separately, or colour
+  bleeds into the holes. Whether a = 2 or a = 3 is measured on the
+  engine's own implementation.
+  Decided by the user (2026-09-10): metal is ONE SETTING PER MATERIAL, not
+  a per-texel map. Offered against guessing metal pixel by pixel from the
+  image, which costs graphics memory on every texture and has nothing to
+  guess from, since a 1999 texture carries no metal information. The
+  curated library (UTA-0010) and a map's recipe mark real metal.
+
+  Consequence: the five maps UTA-0052's section 4.2 budgets stand -- base
+  colour, normal, roughness, height, emissive. docs/design.md's umat row
+  lists "metallic" among what umat generates; the spec reads that as a
+  per-material value and says so in its cross-doc section rather than
+  reinterpreting design.md silently.
+
+  Also binding here, from UTA-0104's clarification the same day: a
+  material is identified by the package its texture came from, never by a
+  bare texture name, so two creators' textures sharing a name never
+  collide.
   **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
   Kind: implement.
   Source: design-2026-09-03.
@@ -3843,6 +3912,13 @@ model, no weapon and no opponent until 0.2.0.
   the rule 14 gate on that document first, as UTA-0045's body already
   records. And whether this is part of 0.1.0's cut condition is the
   user's call: S1 as written does not require it.
+  Where the water and glass tag comes from (measured 2026-09-10, recorded
+  in full on UTA-0009): from each SURFACE's PolyFlags, not from the
+  material. Textures carry no PolyFlags of their own in the install, and
+  surfaces sharing a texture disagree often -- translucent 30%, wavy 54%,
+  portal 51% of the time. So the bake carries the flags per surface into
+  the bundle, and this item reads them there. UTA-0009 does not supply a
+  per-material water or glass tag.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -4186,6 +4262,69 @@ model, no weapon and no opponent until 0.2.0.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
   Lanes: tests.
+
+- 📋 [UTA-0104] **One map standard: every baked map stores and applies its textures, surfaces and everything else the same defined way, so maps from different creators never conflict.**
+  The user's requirement (2026-09-10), given in response to the PolyFlags
+  finding recorded on UTA-0009: the maps we create from the import must all
+  follow a standard, so that updating and fixing them is seamless.
+
+  What the finding showed. UT99 carries a surface's kind only as a raw
+  32-bit PolyFlags word on each surface. Over the reference install,
+  surfaces sharing one texture disagree often (translucent 30%, portal
+  51%, wavy 54%, sky 72%), texture objects carry no PolyFlags of their
+  own, and several heavily used bits have no meaning in any source this
+  project holds. Passing that word through to the bundle would make every
+  baked map a different dialect.
+
+  The reading of the requirement, stated so the user can correct it:
+
+  - Every baked map stores each surface in ONE documented form of this
+    project's own: a fixed set of surface kinds, each with a written
+    meaning, rather than UT99's raw bits.
+  - One conversion rule set, applied identically to every map at bake
+    time, so two maps with the same UT99 surface get the same result.
+  - The original raw PolyFlags kept beside it, so a conversion can be
+    audited and re-derived.
+  - One sanctioned way to FIX a surface after the fact -- through the
+    map's recipe, never by editing a bake -- which is what makes a fix
+    survive a re-bake.
+  - A check that fails any baked map not conforming, so the standard is
+    enforced rather than hoped for.
+
+  Needs a spec: it is an on-disk contract in the bundle that the renderer
+  (UTA-0089's water and glass), the editor (UTA-0034) and every future
+  fix bind to. The surface kinds are grounded in the bit meanings measured
+  for UTA-0009, and only in bits with a known meaning.
+
+  Belongs with the baker (UTA-0011), which writes the geometry into the
+  bundle.
+  Scope clarified by the user (2026-09-10), in their words: "What I meant
+  is that the way we store and apply textures and anything else in the
+  map is following some sort of standard that we have defined for maps so
+  that two maps from different creators don't have conflicts in how it is
+  interpreted."
+
+  So this is a MAP STANDARD, wider than the surface-flag reading above,
+  which it absorbs: surfaces are one part of it, not the whole. It covers
+  how every baked map stores and applies its materials and textures, its
+  surfaces, and everything else it carries, defined once by this project,
+  so no creator's private convention changes how another creator's map
+  is read.
+
+  A conflict of exactly this kind is already measured. UT_MonsterHunt
+  found Textures/wonderland.utx shadowing Sounds/wonderland.uax on ten
+  maps, because two unrelated packages share a name and UT99 resolves by
+  search order. So identity is part of the standard: anything a map
+  refers to is identified by the package it came from, never by a bare
+  name.
+
+  Needs a spec, and probably a project standard beside it, since
+  everything the baker writes is built under it. UTA-0009's materials are
+  the first thing bound by it.
+  **Layman:** Every imported map follows the same rules for how its textures, surfaces and everything else are stored and used, so two maps by different creators are never read differently or clash.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: ubake, ubundle, urecipe.
 
 ## 0.2.0 — Movement and weapons
 
