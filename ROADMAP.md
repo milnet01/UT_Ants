@@ -3903,7 +3903,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
 
-- 📋 [UTA-0095] **The real-asset tests read files one character at a time; read them in one call.**
+- 🚧 [UTA-0095] **The real-asset tests read files one character at a time; read them in one call.**
   Found by the optimisation pass of 2026-09-10 and checked against the
   source: tests/real/RealInstallTest.cpp has four readers built on
   `istreambuf_iterator`.
@@ -3914,12 +3914,16 @@ model, no weapon and no opponent until 0.2.0.
   with a warm page cache, because the Maps drive is a spinning disk.
 
   Not part of 0.1.0's cut condition.
+  Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
+  `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0096 closed. Rule 1 of the
+  user's order: review-sourced. A "before" run of the real tier was taken
+  in build-real at d3360e8 for the comparison.
   **Layman:** Speed up the slow test tier that checks real game files by reading each file in one go.
   Kind: chore.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: tests.
 
-- 🚧 [UTA-0096] **upkg reads the lightmap byte table one byte at a time; read it as one run.**
+- ✅ [UTA-0096] **upkg reads the lightmap byte table one byte at a time; read it as one run.**
   Found by the optimisation pass of 2026-09-10 and checked against the
   source: src/upkg/Geometry.cpp reads `lightBits` through
   `readTable<std::uint8_t>` with a per-byte lambda.
@@ -3936,6 +3940,12 @@ model, no weapon and no opponent until 0.2.0.
   Claimed (2026-09-10) by session `ut-ants-b3` in the MAIN checkout
   `/mnt/Games/Scripts/Linux/UT_Ants`, after UTA-0094 closed. Rule 1 of the
   user's order: review-sourced.
+  Shipped (2026-09-10) at `d3360e8`, on the matrix: CI run 34465285272 is
+  green on Linux GCC 14, Linux Clang 19 and Windows MSVC. readModel's total
+  over the reference library fell from 11.48 s to 9.33 s with the lightBits
+  checksum identical. Mutation found the table's count check ungraded; two
+  refusal cases were added in d3360e8, and deleting the check now reddens
+  both.
   **Layman:** Read one big block of lighting data from a map in a single step instead of byte by byte.
   Kind: optimize.
   Source: review-code-2026-09-10 optimisation pass.
@@ -4032,10 +4042,52 @@ model, no weapon and no opponent until 0.2.0.
   unlimited or unset capacity rather than folding them into a sum.
 
   Not part of 0.1.0's cut condition.
+  Encoding requirement, measured 2026-09-10 before anyone builds this.
+  UT99 map text is 8-bit Windows text, not UTF-8, and upkg passes string
+  bytes through untouched. ut-dump's `writeJsonString` copies bytes above
+  0x7F verbatim, so emitting free-text Title and Author as-is produces
+  invalid JSON. Today's output survives only because every field it prints
+  is an ASCII identifier.
+
+  A scratch scan of Title, Author, LevelEnterText and event messages over
+  2,022 maps found 16,054 ASCII fields, 41 already valid UTF-8, and 81
+  Windows-1252 (e.g. a middle dot, a registered sign), with none needing a
+  Latin-1 fallback. The rule that handled all of them: keep a field if it
+  is valid UTF-8, else decode it as Windows-1252, falling back to Latin-1.
+  Emit UTF-8 JSON by that rule, and test it with a Windows-1252 byte.
+
+  The same scan, handed to UT_MonsterHunt as a TSV, found LevelSummary's
+  Title set on 2,005 maps against LevelInfo's 1,812, so report both.
   **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total.
   Kind: feature.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.
   Lanes: upkg.
+
+- 📋 [UTA-0103] **Split the real-asset test file by subject, and share its System-package resolver.**
+  The user's standing request (2026-09-10): refactor files at every
+  opportunity, because several sessions will soon work one project at once.
+
+  tests/real/RealInstallTest.cpp holds the real-asset tier for three
+  subsystems in one file: the package reader (UTA-0003, UTA-0004, UTA-0005,
+  UTA-0057, UTA-0069), the nav and wiring graphs (UTA-0006) and the room map
+  (UTA-0007). `git log` shows eight different items editing it -- separate
+  histories and separate callers, which is coding.md section 1.8's seam,
+  not a line count.
+
+  It also carries three copies of one System-package resolver (a map of
+  opened packages plus their bytes), which is past the Rule of Three.
+  Move that into a shared test-support helper, then split the cases by
+  subject.
+
+  Do this AFTER UTA-0095, which changes the same reader code, so the two
+  do not fight over one file. Behaviour must not move: the tier's case
+  names and results stay identical before and after.
+
+  Not part of 0.1.0's cut condition.
+  **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
+  Kind: refactor.
+  Source: user-request-2026-09-10 standing refactor rule.
+  Lanes: tests.
 
 ## 0.2.0 — Movement and weapons
 
