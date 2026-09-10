@@ -4728,6 +4728,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
     SetLocation also accepted a point outside the level.
   So kill zones and leaving the world still kill with the setting on.
   Not yet shown: a landing actually absorbed. Their drop probe is next.
+  Drop result from UT_MonsterHunt (2026-09-10, fell8.log on
+  MH-Crimson-BP), with bNoLandingDamage on: a bot placed 2900 units up
+  landed at vz=-2406. The landing arrived as TakeDamage 'Fell' with no
+  instigator, 681 damage against 500 health, and was absorbed: its next
+  hit still showed 500 health, and it did not die. fell7.log repeated the
+  kill-zone and out-of-world deaths with the setting on. So the twin,
+  GAME-0079, is verified both ways. It ships default off, as stock UT99;
+  the operator key is bNoLandingDamage in [MHMonsterHealth.MHMonsterHealth].
+  A second unexplained landing, fatal this time: a bot landed at
+  vz=-71022 beside a qZombie, with no push kept in the 12 s before (their
+  fell5.log). The landing setting absorbs it; nothing else does yet.
   **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you.
   Kind: feature.
   Source: user-request-2026-09-10.
