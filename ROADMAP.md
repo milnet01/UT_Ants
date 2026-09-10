@@ -4648,6 +4648,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   landing-damage setting absorbs it. One more death that bypasses every
   damage hook: bpak.BPulseGun kills its own holder via
   Died(None, 'Fell') at 1000 health (their GAME-0080).
+  Kill-zone result from UT_MonsterHunt (2026-09-10, fell6.log on
+  MH-Crimson-BP, bots placed by SetLocation), with bNoLandingDamage on:
+  - A bot placed in a kill zone (LavaZone, bKillZone=True) died in about
+    2 s of the lava's own burn damage, type 'Burned', through TakeDamage.
+    An instant native kill-zone kill was not observed. 'Burned' is not
+    'Fell', so the setting never touched it.
+  - A bot placed below the world died 5 s later, type 'Fell', with no
+    TakeDamage logged: Pawn.FellOutOfWorld, which reaches no damage hook.
+    SetLocation also accepted a point outside the level.
+  So kill zones and leaving the world still kill with the setting on.
+  Not yet shown: a landing actually absorbed. Their drop probe is next.
   **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you.
   Kind: feature.
   Source: user-request-2026-09-10.
