@@ -832,8 +832,10 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
         out.push_back(node.nodeFlags);
         appendIndex(out, node.iVertPool);
         appendIndex(out, node.iSurf);
-        appendIndex(out, node.iFront);
+        // iBack before iFront, in upkg::readModel's order (UTA-0078). The
+        // two were the other way round until UTA-0122.
         appendIndex(out, node.iBack);
+        appendIndex(out, node.iFront);
         appendIndex(out, node.iPlane);
         appendIndex(out, node.iCollisionBound);
         appendIndex(out, 0);                          // iRenderBound

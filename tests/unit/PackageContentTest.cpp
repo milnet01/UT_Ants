@@ -179,8 +179,8 @@ std::vector<std::uint8_t> oneBspNode(std::uint8_t nodeFlagsLabel) {
     appendU8(body, nodeFlagsLabel);       // nodeFlags -- the label
     appendIndex(body, 0);                 // iVertPool
     appendIndex(body, 0);                 // iSurf
+    appendIndex(body, 0);                 // iBack, before iFront (UTA-0078)
     appendIndex(body, 0);                 // iFront
-    appendIndex(body, 0);                 // iBack
     appendIndex(body, 0);                 // iPlane
     appendIndex(body, 0);                 // iCollisionBound
     appendIndex(body, 0);                 // iRenderBound
@@ -652,6 +652,29 @@ TEST_CASE("a Model's element tables land at the file's own indices", "[upkg]") {
     for (std::size_t index = 0; index < model->lights.size(); ++index) {
         CHECK(model->lights[index].raw() == 7 + static_cast<std::int32_t>(index));
     }
+}
+
+TEST_CASE("ModelExportWriter writes each node's children where readModel reads them",
+          "[upkg]") {
+    // UTA-0122. readModel reads iBack before iFront (UTA-0078). The two
+    // children differ, so a writer putting them the other way round reads
+    // back swapped rather than equal, and a fixture's front child would be
+    // the Model's back one.
+    uta::test::ModelExportWriter writer;
+    uta::test::ModelExportWriter::Node node;
+    node.iFront = 1;
+    node.iBack = 2;
+    writer.addNode(node).addNode(uta::test::ModelExportWriter::Node{}).addNode(
+        uta::test::ModelExportWriter::Node{});
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Model", writer.build());
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto model = uta::upkg::readModel(*package, package->exports()[0]);
+    REQUIRE(model.has_value());
+    REQUIRE(model->nodes.size() == 3);
+    CHECK(model->nodes[0].iFront == 1);
+    CHECK(model->nodes[0].iBack == 2);
 }
 
 TEST_CASE("a Model export with bytes left over is refused", "[upkg]") {

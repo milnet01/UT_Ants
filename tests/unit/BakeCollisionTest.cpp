@@ -4,9 +4,9 @@
 // The container cases are tests/unit/BundleCollisionTest.cpp.
 //
 // THE MODELS ARE BUILT IN MEMORY for INV-3, INV-4, INV-5 and INV-7's
-// per-refusal cases, never through ModelExportWriter: that writer writes its
-// Node::iFront where upkg::readModel reads iBack (UTA-0122), so a fixture's
-// labels would not be the fields the baker reads (SS 7).
+// per-refusal cases, never through ModelExportWriter. They were written while
+// that writer put a node's iFront where upkg::readModel reads iBack, which
+// UTA-0122 corrected; in memory, each field is the one the baker reads (SS 7).
 //
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator.
 

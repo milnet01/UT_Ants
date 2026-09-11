@@ -4785,7 +4785,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-11.
   Lanes: unav, uworld, tools.
 
-- 📋 [UTA-0122] **tests: ModelExportWriter writes a node's iFront where upkg reads iBack.**
+- 🚧 [UTA-0122] **tests: ModelExportWriter writes a node's iFront where upkg reads iBack.**
   Found by UTA-0111's contract review, loop 1.
   ModelExportWriter::build writes a node's iFront, then its iBack.
   upkg::readModel reads iBack first, as measured and corrected under
@@ -4796,8 +4796,9 @@ model, no weapon and no opponent until 0.2.0.
   Fix: write the two in upkg's order, then re-check every fixture that
   sets either, UTA-0007's room cases first. UTA-0111's own cases build
   their Model in memory and do not depend on this.
-  Deferred (2026-09-11): waits behind UTA-0121, which the user put next
-  after UTA-0111 on 2026-09-11. Clear this note when the item is picked up.
+
+  Picked up (2026-09-11) by ut-ants-2b, main checkout, after UTA-0121
+  shipped; rule 1 of the priority order.
   **Layman:** A test helper puts two values in each other's place, so a test can describe one layout of a level while building another.
   Kind: review-fix.
   Source: review-contract-2026-09-11 UTA-0111 loop 1.

@@ -414,10 +414,10 @@ seen failing before the code it locks exists.
 would name itself as its coplanar, and a hull index would pass an empty table.
 So its `Node` gains `iPlane`, `iCollisionBound` and `nodeFlags`, defaulting to
 −1, −1 and 0, and the writer gains a `LeafHulls` table and `RootOutside`.
-Its existing `iFront` and `iBack` are written in the opposite order to the
-one `upkg::readModel` reads, so a fixture's `iFront` reads back as `iBack`
-(UTA-0122). The cases of INV-3, INV-4 and INV-5, and INV-7's per-refusal
-cases, therefore build their `Model` in memory.
+Its existing `iFront` and `iBack` were written in the opposite order to the
+one `upkg::readModel` reads, so a fixture's `iFront` read back as `iBack`,
+until UTA-0122 corrected it. That is why the cases of INV-3, INV-4 and INV-5,
+and INV-7's per-refusal cases, build their `Model` in memory.
 Every bake test then builds a `Model` § 4.3 accepts. UTA-0011 INV-5's golden
 bake covers `COLL`, and its case asserts the level tree has the fixture
 `Model`'s nodes.

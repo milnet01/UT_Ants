@@ -247,6 +247,12 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Test fixtures write a BSP node's two children in the order the reader reads them.** (UTA-0122)
+  The test helper that writes a level's Model put a node's front child
+  where the package reader reads its back child, so a fixture could
+  describe one layout of a level while building another. It now writes
+  them in the reader's order, and a test holds the two together.
+
 - **A BSP node's front and back children were read the wrong way round** (UTA-0078)
   The package reader took a level's two branch links in the opposite order
   to the one the file stores them in, so every "which room is this point
