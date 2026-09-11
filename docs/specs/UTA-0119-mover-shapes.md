@@ -1,6 +1,6 @@
 # UTA-0119 — `ubake`: bake each mover's own shape into the bundle
 
-**Status:** spec draft (2026-09-11).
+**Status:** accepted (2026-09-11), at the review's cap.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0119 (user-request-2026-09-11, split from UTA-0110).
 
@@ -85,6 +85,7 @@ UTA-0119). The choices below are mine.
 | `src/ubundle/Sections.h`, `MoverSection.cpp` | the `MOVR` codec and its validation |
 | `src/ubake/Movers.h/.cpp` | `findMovers` and `buildMover` (§ 4.3 to § 4.5) |
 | `src/ubake/Bake.cpp`, `src/ubake/Name.h` | the bake's steps, materials over movers, `BAKER_REVISION` (§ 4.6) |
+| `tests/support/FCoordsPort.h` | a port of the engine's FCoords operators, with `GMath`'s table or exact sine and cosine: INV-7 grades § 4.5's formula against it, the real-asset case places static brushes with it, and UTA-0014 grades its placement against it |
 
 `MoverSection.cpp` joins `uta_ubundle`, and `Movers.cpp` joins `uta_ubake`. No
 target or link changes.
@@ -135,7 +136,8 @@ An actor of `PLAC` (UTA-0110) is a mover when all three hold:
 
 1. **Its class entry is resolved, and its `path` or one of its `ancestry`
    paths is `engine.brush`.** An unresolved class is not a mover: which
-   classes it descends from is not known.
+   classes it descends from is not known. Nor is a class whose ancestry
+   ends, at a missing package or class, before reaching `engine.brush`.
 2. **Its resolved `bStatic` is false.** Resolved as UTA-0110 § 4.6 resolves a
    light field: the actor's own record of that name at array index `0` and of
    kind `Bool`, else its class's default, else `Actor.uc`'s default, false.
@@ -255,12 +257,14 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
 - **INV-3** — An actor gets a shape exactly when § 4.3 makes it a mover, and
   each shape's `exportIndex` is that actor's placement's.
   *Test:* `tests/unit/BakeMoversTest.cpp`: a map holding an actor of
-  `Engine.Mover`; one of `Engine.Mover` that sets `bStatic` true; an actor of
-  `Engine.Brush` carrying a `Brush`; one of a class named `WeaponRemover` that does not
-  descend from `Brush`; one of a mover class whose package is missing; and
-  one of `Engine.Mover` with a null `Brush`. Every actor but the last carries
-  a `Brush` naming a `Model` export, so each is excluded by the rule it
-  isolates. Only the first gets a shape.
+  `Engine.Mover`; one of `Engine.Brush` that sets `bStatic` false itself; one
+  of `Engine.Mover` that sets `bStatic` true; one of `Engine.Brush`; one of a
+  class named `WeaponRemover` that does not descend from `Brush`; one of a
+  mover class whose package is missing; and one of `Engine.Mover` with a
+  null `Brush`. Every actor but the last carries a `Brush` naming a `Model`
+  export, so each one left out is left out by the rule it isolates. The
+  first two get shapes and no other does; the second is what fails a test
+  on the class's name.
   *Breaks when:* a class name decides, `bStatic` is read from only one of the
   actor and its class, or an unresolved class is guessed at.
 
@@ -288,17 +292,23 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
 
 - **INV-6** — Shear is not applied: a `SheerAxis` and `SheerRate` on
   `MainScale` leave a shape's vertices as they are without them.
-  *Test:* `tests/unit/BakeMoversTest.cpp`: two movers of one `Model` and one
-  `MainScale`, one sheared.
+  *Test:* `tests/unit/BakeMoversTest.cpp`: two movers of one `Model` — INV-4's
+  tilted square, whose corners vary in both x and z — and one `MainScale`,
+  one of them carrying `SheerAxis` `SHEER_ZX` and `SheerRate` `0.8`. The
+  engine's `FSheerSnap` keeps that rate at `0.65`; a rate within `0.05`
+  snaps to none, and an axis the square does not vary along moves nothing,
+  so either would hide an applied shear.
   *Breaks when:* the shear is applied.
 
 - **INV-7** — § 4.5's placement formula equals `ABrush::ToWorld` applied with
   `FVector::TransformPointBy`, computed with exact sine and cosine, for any
   `Location`, `Rotation`, `PrePivot`, `MainScale` and `PostScale` without
-  shear.
+  shear. This checks the document: no code of this item computes the
+  formula. UTA-0014's renderer will, and its test grades against the same
+  port.
   *Test:* `tests/unit/BakeMoversTest.cpp`: a port of the FCoords operators
-  § 4.5 cites, with exact sine and cosine, against the formula, both in
-  double. The inputs turn each rotation axis alone and together, by angles
+  § 4.5 cites, kept in `tests/support/FCoordsPort.h`, with exact sine and
+  cosine, against the formula, both in double. The inputs turn each rotation axis alone and together, by angles
   that are not multiples of 4, and carry a negative scale and a non-zero
   `PrePivot`. Every coordinate lies within 4096 of the origin and every scale
   component between 1/16 and 16 in magnitude. The two agree within `0.001`,
@@ -312,18 +322,22 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
   mover wears a texture no level surface wears.
   *Breaks when:* the materials come from the level's `Model` alone.
 
-- **INV-9** — A mover whose `Brush` names no `Model` export of the map, whose
-  `Model` or geometry does not read, or whose `MainScale` has a zero
-  component, refuses the bake with `MalformedData` naming the actor.
+- **INV-9** — A mover whose `Brush` names no `Model` export of the map, or
+  whose `MainScale` has a zero component, refuses the bake with
+  `MalformedData` naming the actor. One whose `Model` or geometry does not
+  read refuses it with that refusal's own code, naming the actor, as the
+  level's `Model` does (UTA-0011 § 4.5): `readModel` refuses a version-61
+  package as `UnsupportedVersion`.
   *Test:* `tests/unit/BakeMoversTest.cpp`, one case for each.
-  *Breaks when:* such a mover is baked, or dropped without a word.
+  *Breaks when:* such a mover is baked, dropped without a word, or its
+  refusal's code is replaced.
 
 ## 6. Failure modes
 
 | When | What happens |
 |---|---|
 | A mover's `Brush` names an import, or an export that is not a `Model` | The bake is refused, naming the actor |
-| A mover's `Model`, or its geometry, does not read | The bake is refused, naming the actor |
+| A mover's `Model`, or its geometry, does not read | The bake is refused with that refusal's own code, naming the actor |
 | A mover's `MainScale` has a zero component | The bake is refused, naming the actor |
 | An actor's class does not resolve | It is not a mover; `PLAC` records the class as it does today |
 | A `Scale` value is not seventeen bytes of struct `Scale` | It is passed over, and the next source is used |
@@ -334,7 +348,9 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
 
 **Unit, on every CI leg:** `tests/unit/BundleMoversTest.cpp` for INV-1 and
 INV-2; `tests/unit/BakeMoversTest.cpp` for INV-3, INV-4, INV-5, INV-6,
-INV-7, INV-8 and INV-9. Each is seen failing before the code it locks exists.
+INV-7, INV-8 and INV-9. Each but INV-7 is seen failing before the code it
+locks exists: INV-7 checks § 4.5's formula, which no code of this item
+computes.
 
 **The fixtures grow.** The standard fixture's `Engine` package holds `Brush`
 (`bStatic` true) and `Mover` under it (`bStatic` false). `MapBuilder` in
@@ -346,11 +362,12 @@ level surface wears. UTA-0011 INV-5's golden bake then covers `MOVR`.
 `buildActors`, `findMovers` and `buildMover` over every map, with a lookup
 that makes no material, as `tests/real/RealGeometryTest.cpp` does. It prints
 movers baked; maps refused, by reason; movers carrying a shear; mover
-`Model`s whose points sit nearer the origin than the actor; and textures
-only a mover wears. It also places every static brush's `Polys` corners with
-INV-7's port and prints the share landing on a level point, by transform
-property, with `GMath`'s table and with exact sine and cosine. That is what
-shows the port is the engine's.
+`Model`s with no BSP nodes, whose shape comes out empty; mover `Model`s whose
+points sit nearer the origin than the actor; and textures only a mover
+wears. It also places every static brush's `Polys` corners with
+`tests/support/FCoordsPort.h`, the port INV-7 grades against, and prints the
+share landing on a level point, by transform property, with `GMath`'s table
+and with exact sine and cosine. That is what shows the port is the engine's.
 
 **Mutation, by hand** (`CLAUDE.md` § Build and test): take a class name for
 the mover test; read `bStatic` from the actor alone; subtract `PrePivot` after
@@ -407,6 +424,8 @@ names it.
 - `docs/specs/UTA-0109-map-geometry.md` — § 9's movers line points here.
 - `CHANGELOG.md` — an `### Added` entry, and a `### Changed` entry for format
   version `6`.
+- ROADMAP UTA-0014 — a note that its placement of a mover reproduces § 4.5's
+  formula, graded against `tests/support/FCoordsPort.h`.
 
 ## 12. Cold-eyes loop log
 

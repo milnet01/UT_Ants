@@ -1046,6 +1046,12 @@ model, no weapon and no opponent until 0.2.0.
   is written by every draw that moves, so it is not a post-process that
   can be bolted on afterwards -- read UTA-0075 before settling the render
   graph, or adding it later touches every pass.
+  Note (2026-09-11), from UTA-0119: a mover's shape arrives in MOVR in
+  pivot space, and the renderer places it at location plus postScale times
+  the yaw, pitch and roll rotations applied to the point, with exact sine
+  and cosine -- UTA-0119 section 4.5 gives the matrices. Grade that
+  placement against tests/support/FCoordsPort.h, the port of the engine's
+  FCoords operators UTA-0119 INV-7 grades the formula against.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
