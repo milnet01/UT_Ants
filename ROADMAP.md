@@ -4448,7 +4448,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: ubake, ubundle, urecipe.
 
-- 🚧 [UTA-0109] **ubake: turn the level's BSP tables into triangles, and write the geometry section.**
+- ✅ [UTA-0109] **ubake: turn the level's BSP tables into triangles, and write the geometry section.**
   Split out of UTA-0011 by the user on 2026-09-10.
   Turning the Model tables UTA-0069 returns into triangles is the
   baker's decision, per UTA-0004 § 3.1 and UTA-0069. This item makes it,
@@ -4512,12 +4512,19 @@ model, no weapon and no opponent until 0.2.0.
   declaration, and UT's Texture.uc declares DrawScale in the slot UnTex.h
   calls Scale. The draft plan's GEOM, FORMAT_VERSION 4 and BAKER_REVISION
   2 stand. Next: build it.
+  Resolved (2026-09-11), session ut-ants-08: shipped in 47a352b, green on
+  the matrix (GCC 14, Clang 19, MSVC; run 34572765743). The bundle gains
+  GEOM and format version 4; BAKER_REVISION is 2. The texture's scale is
+  its DrawScale property, the script name for UTexture::Scale. 318 unit
+  tests; thirteen hand mutations, each killed. The real-asset census in
+  tests/real/RealGeometryTest.cpp compiles and has not been run: it is
+  the user's to run, and its figures belong on this item when it lands.
   **Layman:** Rebuild each level's walls, floors and ceilings as modern 3D geometry the renderer can draw.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle.
 
-- 📋 [UTA-0110] **ubake: write the level's lights and actor placements into the bundle.**
+- 🚧 [UTA-0110] **ubake: write the level's lights and actor placements into the bundle.**
   Split out of UTA-0011 by the user on 2026-09-10.
   UTA-0014 turns the level's own light actors into dynamic lights, so
   the bundle must carry them. docs/design.md § Content addressing has a
@@ -4525,6 +4532,12 @@ model, no weapon and no opponent until 0.2.0.
   defaults, which UTA-0023 resolves when the actor spawns. This item
   defines both sections.
   Blocked-by: UTA-0011.
+  Progress (2026-09-11): claimed by session ut-ants-08 in the main
+  checkout, on the user's instruction to take it once UTA-0109 was green.
+  Rule 1's set is still UTA-0059, UTA-0098 and UTA-0100, each deferring
+  itself. UTA-0012 is the other item in flight and shares no directory.
+  Starting with write-spec: two new bundle sections are a contract the
+  renderer (UTA-0014) and actor resolution (UTA-0023) bind to.
   **Layman:** Carry each level's lamps, and where everything in it stands, into the baked map.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.

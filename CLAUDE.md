@@ -5,12 +5,13 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0109` — the map's geometry, the first piece split out of
-the baker on 2026-09-10. The baker it plugs into, `UTA-0011`, shipped the
-same day.
+**Next:** `UTA-0110` — the level's lights and actor placements, the next
+piece of the baker. The renderer, `UTA-0014`, turns those lights into
+dynamic lights. The map's geometry, `UTA-0109`, shipped 2026-09-11.
 
 `UTA-0013`'s quarantine guard is the alternative, and a second session
-can take it now: it shares no directory with the baker.
+can take it now: it shares no directory with the baker. Its third check
+waited on the `.utab` origin field, which exists now.
 
 **Rule 1's set is not listed here — ask the roadmap**, which § Which item
 comes next gives the call for. A hand-kept list of it goes stale the
