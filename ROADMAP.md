@@ -4563,7 +4563,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle.
 
-- 🚧 [UTA-0111] **ubake: write the level's collision into the bundle.**
+- ✅ [UTA-0111] **ubake: write the level's collision into the bundle.**
   Split out of UTA-0011 by the user on 2026-09-10.
   UTA-0017's movement model reads it, and so does the physics world
   filed the same day for 0.3.0. Design the section for both readers.
@@ -4616,6 +4616,10 @@ model, no weapon and no opponent until 0.2.0.
   systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=0 --quiet
   -- build-real/tests/uta_real_asset_tests "[collision]"
   Pushing for the CI matrix; flip on green.
+  Shipped (2026-09-11): b780152, green on GCC 14, Clang 19 and MSVC
+  (CI run 34615637801). A bake writes COLL, format version 7, baker
+  revision 5. The real-asset census, tests/real/RealCollisionTest.cpp,
+  has still to run to its end; the command is in the note above.
   **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4696,7 +4700,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-11 split-from-UTA-0110.
   Lanes: ubake, ubundle.
 
-- 📋 [UTA-0121] **Work out extra bot paths for UT99's old maps, for UT_MonsterHunt to apply.**
+- 🚧 [UTA-0121] **Work out extra bot paths for UT99's old maps, for UT_MonsterHunt to apply.**
   Asked by the user on 2026-09-11, after UT_MonsterHunt's route census
   found that a bot reaches the exit on few of its maps (its GAME-0002,
   docs/route-census-split.md in that repo).
@@ -4738,6 +4742,9 @@ model, no weapon and no opponent until 0.2.0.
     go in, and report before and after per map. A ROUTE verdict means the
     paths permit a route, not that bots finish the map.
   - Hand-off: when this ships, send them the JSON directory's path.
+  Progress (2026-09-11): taken by session ut-ants-2b, in the main
+  checkout, now UTA-0111 has shipped. It sets a file format UT_MonsterHunt
+  reads, so it starts with a spec (write-spec) and its review gate.
   **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
   Kind: feature.
   Source: user-request-2026-09-11.
@@ -4754,6 +4761,8 @@ model, no weapon and no opponent until 0.2.0.
   Fix: write the two in upkg's order, then re-check every fixture that
   sets either, UTA-0007's room cases first. UTA-0111's own cases build
   their Model in memory and do not depend on this.
+  Deferred (2026-09-11): waits behind UTA-0121, which the user put next
+  after UTA-0111 on 2026-09-11. Clear this note when the item is picked up.
   **Layman:** A test helper puts two values in each other's place, so a test can describe one layout of a level while building another.
   Kind: review-fix.
   Source: review-contract-2026-09-11 UTA-0111 loop 1.
