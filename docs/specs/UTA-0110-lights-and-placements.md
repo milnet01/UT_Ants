@@ -1,6 +1,6 @@
 # UTA-0110 — `ubake`: write the level's lights and actor placements into the bundle
 
-**Status:** spec draft (2026-09-11).
+**Status:** accepted (2026-09-11), at the review's cap.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0110 (user-request-2026-09-10, split out of
 UTA-0011).
@@ -175,11 +175,15 @@ no name of its own, so `buildActors` records each package's name as its
 resolver returns it. A class's path in § 4.4 takes the same form. It is
 `umat::materialId`'s path form without the variant suffix (UTA-0009 § 4.6).
 
-`write` refuses, and `read` refuses as `MalformedData`: a `kind` byte above
-`10`; a `Bool` byte other than `0` or `1`; a `value` not holding the
-alternative its `kind` names; a `Raw` type byte outside `1` to `15`, the
-values `upkg::PropertyType` defines. The range is stated here rather than
-read from `upkg`, which `ubundle` may not include (UTA-0008 INV-10).
+Both paths refuse, `read` as `MalformedData` and `write` as
+`InvalidArgument`: a `kind` above `10`; a `Raw` type outside `1` to `15`,
+the values `upkg::PropertyType` defines. The range is stated here rather
+than read from `upkg`, which `ubundle` may not include (UTA-0008 INV-10).
+
+**Two rules have one path each.** `read` alone refuses a `Bool` byte other
+than `0` or `1`: a `bool` in memory holds no other value. `write` alone
+refuses a `value` not holding the alternative its `kind` names: `read`
+decodes the value from its kind, so it never produces one.
 
 ### 4.4 The `PLAC` and `LITE` sections
 
@@ -193,6 +197,7 @@ enum class AncestryEnd : std::uint8_t { Root = 0, PackageMissing = 1, ClassMissi
 /// One class the level's actors belong to.
 struct ActorClass {
     std::string path;                      ///< "<package>.<class>", folded -- its identity
+    bool resolved = false;                 ///< the class itself was found
     std::vector<std::string> ancestry;     ///< its parents' paths, nearest first
     AncestryEnd end = AncestryEnd::Root;
     std::string missing;                   ///< § 4.5's rule; empty on Root
@@ -234,10 +239,10 @@ struct Bundle {
 
 **`PLAC`** is the bytes `P`, `L`, `A`, `C`. Its payload is `vector<ActorClass>`
 then `vector<ActorPlacement>`. An `ActorClass` is its `path` as `string`,
-`ancestry` as `vector<string>`, `end` as `u8`, `missing` as `string`,
-`defaults` as `vector<PropertyRecord>`. An `ActorPlacement` is `exportIndex`
-as `u32`, `path` as `string`, `classIndex` as `u32`, then `properties`.
-Minimum sizes: `ActorClass` 17, `ActorPlacement` 16.
+`resolved` as `u8`, `ancestry` as `vector<string>`, `end` as `u8`, `missing`
+as `string`, `defaults` as `vector<PropertyRecord>`. An `ActorPlacement` is
+`exportIndex` as `u32`, `path` as `string`, `classIndex` as `u32`, then
+`properties`. Minimum sizes: `ActorClass` 18, `ActorPlacement` 16.
 
 **`LITE`** is the bytes `L`, `I`, `T`, `E`. Its payload is `vector<Light>`.
 A `Light` is `exportIndex` as `u32`, `location` as three `f32`, `rotation`
@@ -248,10 +253,11 @@ the four bools as `u8`: 44 bytes, fixed.
 
 - `PLAC`: classes strictly ascending by `path`; actors strictly ascending by
   `exportIndex`; every `classIndex` less than `classes.size()`; an `end` byte
-  above `2`; `missing` empty exactly when `end` is `Root`; § 4.3's rules on
-  every record.
-- `LITE`: lights strictly ascending by `exportIndex`; a bool byte other than
-  `0` or `1`.
+  above `2`; `missing` empty exactly when `end` is `Root`; `resolved` false
+  only when `end` is not `Root`; on `read` alone, a `resolved` byte other
+  than `0` or `1`; § 4.3's rules on every record.
+- `LITE`: lights strictly ascending by `exportIndex`; on `read` alone, a bool
+  byte other than `0` or `1`.
 
 **The light bytes are not validated.** They are UT99's numbers, and a value
 past the last `ELightType` is the renderer's to handle, as an unknown surface
@@ -279,7 +285,7 @@ struct Actors {
 }  // namespace uta::ubake
 ```
 
-**For each non-null slot of `level.actors`:**
+**For each entry of `level.actors`**, which holds the non-null slots only:
 
 1. The reference must be an export of the map, or the bake is refused with
    `MalformedData` naming the slot. `Level::actors` comes from export data,
@@ -291,11 +297,12 @@ struct Actors {
 
 **For each distinct class**, keyed by its folded path:
 
-1. **Resolved:** `readAncestry`, then `effectiveDefaults` over it. `ancestry`
-   is the chain's paths after the class itself, and `end` is `Ancestry::end`.
-   The defaults are written sorted by folded name, then array index.
-2. **Not resolved:** `ancestry` and `defaults` are empty, and `end` is
-   `ClassSite::end`.
+1. **Resolved:** `resolved` is true. `readAncestry`, then `effectiveDefaults`
+   over it. `ancestry` is the chain's paths after the class itself, and `end`
+   is `Ancestry::end`, so a class whose parent is missing says so here. The
+   defaults are written sorted by folded name, then array index.
+2. **Not resolved:** `resolved` is false, `ancestry` and `defaults` are
+   empty, and `end` is `ClassSite::end`.
 
 **`missing` is the folded package name on `PackageMissing`, and the class
 name as spelled on `ClassMissing`** — from `Ancestry::missingPackage` or
@@ -365,13 +372,15 @@ recorded again under it.
   `InvalidArgument`: two classes of one path; classes out of order; two
   actors of one slot; two actors out of order; a `classIndex` equal to
   `classes.size()`; an `end` byte of `3`; `missing` empty on
-  `PackageMissing`; `missing` set on `Root`; a `kind` byte of `11`; a `Bool`
-  value byte of `2`; a `Raw` type byte of `16`; lights out of order; a light
-  bool byte of `2`.
-  *Test:* `tests/unit/BundleActorsTest.cpp`, one case per rule, each fixture
-  breaking that rule alone.
-  *Breaks when:* a rule is checked on one path only, or an unknown byte is
-  read as a known value.
+  `PackageMissing`; `missing` set on `Root`; `resolved` false on `Root`; a
+  `kind` byte of `11`; a `Raw` type byte of `0`, and one of `16`; two lights
+  of one slot; lights out of order. `read` alone refuses a `Bool` value
+  byte, a `resolved` byte and a light bool byte of `2`. `write` alone refuses
+  a `value` whose alternative is not its `kind`'s.
+  *Test:* `tests/unit/BundleActorsTest.cpp`, one case per rule on each path
+  the rule names, each fixture breaking that rule alone.
+  *Breaks when:* a two-path rule is checked on one path only, or an unknown
+  byte is read as a known value.
 
 - **INV-3** — `resolveClass` finds a class the map exports; finds an
   imported class in the package the resolver supplies, whatever the case of
@@ -382,15 +391,15 @@ recorded again under it.
   *Breaks when:* the package name reaches the resolver unfolded, the class
   name is compared exactly, or the two unresolved cases share one `end`.
 
-- **INV-4** — Every non-null actor slot gives one placement, keyed by its
-  export index, carrying its own object path and its own properties in file
-  order.
-  *Test:* `tests/unit/BakeActorsTest.cpp`, a map whose actor array has a null
-  slot between two actors of different classes, the second carrying two
-  properties.
-  *Breaks when:* a null slot gives a placement, the key is the position in
-  `Level::actors`, the path is not the actor's own, or the actor's list is
-  reordered.
+- **INV-4** — Every entry of `Level::actors` gives one placement, keyed by
+  its slot in the map's export table, carrying its own object path and its
+  own properties in file order.
+  *Test:* `tests/unit/BakeActorsTest.cpp`, a map whose two actors, of
+  different classes, sit at export indices other than their positions in
+  `Level::actors`, the second carrying two properties. The test asserts each
+  placement's export index exactly.
+  *Breaks when:* the key is the position in `Level::actors`, the path is not
+  the actor's own, or the actor's list is reordered.
 
 - **INV-5** — Actors of one class share one class entry, which carries the
   class's parents nearest first and its defaults merged over them.
@@ -402,14 +411,17 @@ recorded again under it.
   first, or a default is the parent's where the child overrides it.
 
 - **INV-6** — An actor whose class's package the resolver does not supply
-  gets a class entry with `end` `PackageMissing` and `missing` the folded
-  package name; one whose package holds no such class gets `ClassMissing`
-  and the class name. Both have no ancestry and no defaults, and the bake
-  is not refused.
-  *Test:* `tests/unit/BakeActorsTest.cpp`: an actor of `NoSuchPkg.Thing`, and
-  one of `ActorPkg.NoSuchThing` where `ActorPkg` is installed.
-  *Breaks when:* the bake is refused, the two share one `end`, or an entry
-  names nothing.
+  gets a class entry with `resolved` false, `end` `PackageMissing` and
+  `missing` the folded package name. One whose package holds no such class
+  gets `resolved` false, `ClassMissing` and the class name. Both have no
+  ancestry and no defaults. A class that resolves while its parent does not
+  gets `resolved` true, with its parent's `end` and `missing`. The bake is
+  not refused.
+  *Test:* `tests/unit/BakeActorsTest.cpp`: an actor of `NoSuchPkg.Thing`; one
+  of `ActorPkg.NoSuchThing` where `ActorPkg` is installed; and one of a
+  map-exported class whose parent is `NoSuchPkg.Base`.
+  *Breaks when:* the bake is refused, two of the three entries are written
+  alike, or an entry names nothing.
 
 - **INV-7** — An actor is a light exactly when its resolved `LightType` is not
   `0`, and each of its sixteen fields is its own value, else its class's
