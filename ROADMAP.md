@@ -4672,6 +4672,13 @@ model, no weapon and no opponent until 0.2.0.
   loops, three lanes each; 10 verified findings, all fixed, a calm cap.
   Rows in docs/reviews/UTA-0112-baked-light-probes-loop-log.md. Next:
   build it with write-code, by ut-ants-2b in the main checkout.
+  Progress (2026-09-11): built at 9faf85f by ut-ants-2b, main checkout.
+  Local unit suite green, the golden bake re-recorded at revision 6 with
+  27 probes. The real-asset case over twelve stock maps, 11 workers:
+  DM-Turbine 642 probes to CTF-Face 236,231 (about 20 MB of bundle at 84
+  bytes each), at most 8.7 s (CTF-LavaGiant), every value finite and not
+  negative. CTF-Face's count is the spec's section 15 spacing question.
+  Hand mutations under way; then the push and the matrix.
   **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.

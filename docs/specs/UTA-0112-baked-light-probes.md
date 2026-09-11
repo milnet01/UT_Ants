@@ -401,6 +401,24 @@ which this spec keeps out of the baker. `tools/ut-paths/Trace.h` then brings the
 moved names into `uta::paths` with using-declarations, so ut-paths' code and
 tests change no line.
 
+### 4.11 As built (2026-09-11)
+
+- **INV-4's test case is named "intensity incidence and spot"**, with no
+  comma: Catch2 reads a comma in a name as a filter separator.
+- **Probes are gathered in jobs of a fixed size** (`PROBES_PER_JOB`). The
+  bytes do not depend on it, which INV-10's workers case grades.
+- **`SurfaceRays` widens each node's box by a hundredth of a unit**, so the
+  box test's rounding can only add triangles to a test, never drop one.
+- **The golden bake places probes**, so INV-10's golden half grades their
+  values; § 10's partial row stands for what its fixture does not reach.
+- **The real-asset case measures § 13's costs.** `RealLightProbesTest` prints
+  each stock map's probes and step time. The count differs by more than two
+  orders of magnitude between them, and CTF-Face has the most, which is § 15's
+  spacing question.
+- **Every hand mutation § 7 lists is killed by the invariant it names.** Three
+  die at compile time, in INV-4's `static_assert`: flipping pitch's sign
+  under GCC, and the two library sines under Clang.
+
 ## 5. Invariants
 
 - **INV-1** — `LPRB` round-trips, and `read` and `write` each refuse every
