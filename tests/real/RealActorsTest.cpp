@@ -52,6 +52,10 @@ struct Totals {
     std::size_t lights = 0;
     std::size_t lightsWithoutPlacement = 0;
     double buildSeconds = 0;
+    /// UTA-0110 SS 4.5 step 1: maps naming one export in two actor slots, and
+    /// how many slots each skips.
+    std::map<std::string, std::size_t> repeatedSlots;
+    std::size_t placementsNotDistinct = 0; ///< maps whose placements are not their distinct exports
     std::map<std::string, std::size_t> refused;
     std::vector<std::string> refusals; ///< the first few messages, verbatim
 };
@@ -106,6 +110,14 @@ void censusOf(const fs::path& root, const fs::path& mapPath, Totals& totals) {
 
     const auto& placed = actors->placements.actors;
     totals.actors += placed.size();
+
+    // Every slot names an export, or the bake was refused above; so a map's
+    // placements are its distinct exports, and the rest are repeats.
+    std::set<std::int32_t> distinct;
+    for (const uta::upkg::ObjectReference slot : level->actors) distinct.insert(slot.raw());
+    if (distinct.size() != placed.size()) ++totals.placementsNotDistinct;
+    if (const std::size_t repeats = level->actors.size() - distinct.size(); repeats > 0)
+        totals.repeatedSlots[mapName] = repeats;
     totals.classEntries += actors->placements.classes.size();
     for (const auto& actorClass : actors->placements.classes) {
         totals.distinctClasses.insert(actorClass.path);
@@ -154,7 +166,11 @@ TEST_CASE("every map's actors and lights bake and the census prints", "[real-ass
     for (const auto& [reason, count] : totals.refused)
         std::cout << "  maps refused, " << reason << ": " << count << "\n";
     for (const std::string& message : totals.refusals) std::cout << "    " << message << "\n";
+    std::cout << "  maps naming one export in two actor slots: " << totals.repeatedSlots.size() << "\n";
+    for (const auto& [map, repeats] : totals.repeatedSlots)
+        std::cout << "    " << map << ": " << repeats << " skipped\n";
 
     CHECK(totals.built > 0);
     CHECK(totals.lightsWithoutPlacement == 0);
+    CHECK(totals.placementsNotDistinct == 0);
 }

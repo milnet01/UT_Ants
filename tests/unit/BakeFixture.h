@@ -192,6 +192,9 @@ public:
     /// INV-11.
     MapBuilder& addReachSpec(std::size_t from, std::size_t to, std::int32_t collisionRadius,
                              std::int32_t collisionHeight, std::int32_t reachFlags);
+    /// One more slot in the level's actor list naming actor `actor`, by its
+    /// position among the actors, after every actor's own slot -- UTA-0124.
+    MapBuilder& repeatActorSlot(std::size_t actor);
 
     /// A Model export holding `brush`'s square, for an actor to name through
     /// its Brush property; its reference.
@@ -234,6 +237,7 @@ private:
         std::int32_t collisionRadius = 0, collisionHeight = 0, reachFlags = 0;
     };
     std::vector<Reach> reaches_;
+    std::vector<std::size_t> repeatedSlots_;
     int brushes_ = 0;
     int levelCount_ = 1;
     bool decoy_ = false;

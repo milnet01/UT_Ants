@@ -259,7 +259,8 @@ A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
   UT_MonsterHunt's probe takes it.
 - **The exits** are the actors whose class descends from `MonsterEnd`.
   Ancestry comes from `ubake::buildActors`, so an exit is found whatever
-  package declares its class.
+  package declares its class. An actor the level names in two slots is one
+  exit, as `buildActors` places it once (UTA-0110 § 4.5 step 1, UTA-0124).
 - **Positions** are each actor's resolved `Location`: its own property, else
   its class default (`ubake::detail::resolvedRecord`).
 - **The network** is `unav::buildNavGraph`'s graph, keeping only the edges a

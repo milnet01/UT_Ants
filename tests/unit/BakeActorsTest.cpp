@@ -329,7 +329,27 @@ TEST_CASE("INV-9: an actor slot past the export table refuses the bake", "[ubake
     refusedFor({ObjectReference{1000}}, "slot 0");
 }
 
-TEST_CASE("an actor slot naming an export a slot before it named refuses the bake",
-          "[ubake][actors]") {
-    refusedFor({ObjectReference{1}, ObjectReference{1}}, "slot 1");
+TEST_CASE("INV-4: an actor named in two slots is placed once", "[ubake][actors]") {
+    // SS 4.5 step 1, UTA-0124: UT99's own maps name one export in two slots,
+    // and the second slot is skipped. The repeat is not in the next slot, so
+    // a check that looks only at the slot before it would miss it.
+    MapBuilder map;
+    map.addActorOfClass("ActorPkg", "Lamp"); // export 0
+    map.addActorOfClass("ActorPkg", "Lamp"); // export 1
+    const std::vector<std::uint8_t> bytes = map.build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    MemoryPackages packages;
+    packages.add("actorpkg", actorPkg());
+
+    Level level;
+    level.actors = {ObjectReference{1}, ObjectReference{2}, ObjectReference{1}};
+    const auto actors = buildActors(*package, MAP_NAME, level, packages.resolver());
+    REQUIRE(actors.has_value());
+    REQUIRE(actors->placements.actors.size() == 2);
+    CHECK(actors->placements.actors[0].exportIndex == 0);
+    CHECK(actors->placements.actors[1].exportIndex == 1);
+    REQUIRE(actors->lights.size() == 2);
+    CHECK(actors->lights[0].exportIndex == 0);
+    CHECK(actors->lights[1].exportIndex == 1);
 }

@@ -259,6 +259,12 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Maps that name one actor in two slots bake instead of being refused** (UTA-0124)
+  UT99's own maps, CTF-November and DM-Grinder among them, list some
+  actors twice in their level. The baker now skips a repeated slot and
+  places the actor once, and ut-paths no longer counts such a map's exit
+  twice.
+
 - **`ut-paths` follows only the bot paths a walking bot can use.** (UTA-0125)
   It treated every existing bot path as usable, including ones only a
   flying monster can take, so its proposed nodes could start from a part

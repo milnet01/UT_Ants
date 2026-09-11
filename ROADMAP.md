@@ -4933,6 +4933,23 @@ model, no weapon and no opponent until 0.2.0.
   print the count. That amends UTA-0110 section 4.5 step 1 and the
   section 4.8 bullet recording the refusal, for code still to be built,
   so it runs review-contract first.
+  Built (2026-09-11) by ut-ants-2b, main checkout, after UTA-0110's
+  amendment passed review-contract at its cap (loops 3 and 4, 2 findings,
+  both fixed; b16db4a, bf0434c, c09e0dc). buildActors skips a repeated
+  actor slot; ut-paths' sceneOf skips one too, so an exit named in two
+  slots is one exit. Tests: BakeActorsTest's refusal case became INV-4's
+  "an actor named in two slots is placed once"; PathSeedsTest gained
+  "INV-10: a MonsterEnd named in two actor slots is one exit", using a
+  new MapBuilder::repeatActorSlot; both seen failing first. Full unit
+  suite 452 cases green locally. The three hand mutations (refuse a
+  repeat, place it twice, list a repeated exit twice) are all killed.
+  Real-asset actor census: all 1,433 installed maps now build (69 carry
+  a repeated slot), placements equal distinct exports on every map.
+  No BAKER_REVISION bump, per UTA-0110 section 4.5 step 1. Remaining:
+  push, CI matrix, flip. Then re-run ut-paths on the 14 maps UTA-0121's
+  census refused, into a separate output directory (writing into
+  ut-paths-output would replace its whole-census summary), and send
+  UT_MonsterHunt the results.
   **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it.
   Kind: investigate.
   Source: in-session-2026-09-11.

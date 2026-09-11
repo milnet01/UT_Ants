@@ -341,6 +341,25 @@ TEST_CASE("INV-10: the start is the first PlayerStart and the exits every Monste
     CHECK(scene->exits[1].height == 40);
 }
 
+TEST_CASE("INV-10: a MonsterEnd named in two actor slots is one exit", "[paths][seeds]") {
+    // UTA-0124: UT99's maps can name one actor in two slots, and SS 4.6's
+    // exits are the ACTORS whose class descends from MonsterEnd, each once.
+    // The repeat comes last, away from its first slot.
+    using namespace uta::test::bake;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 1, 2, 3)})
+        .addActorOfClass("MonsterHunt", "MonsterEnd", {vectorProperty("Location", 10, 20, 30)})
+        .addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 4, 5, 6)})
+        .repeatActorSlot(1);
+
+    const auto scene = sceneOfBuilt(map);
+    INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));
+    REQUIRE(scene.has_value());
+    CHECK(scene->start == Vec3{1, 2, 3});
+    REQUIRE(scene->exits.size() == 1);
+    CHECK(scene->exits[0].centre == Vec3{10, 20, 30});
+}
+
 TEST_CASE("INV-11: the scene keeps only the edges a walking bot may use", "[paths][seeds]") {
     using namespace uta::test::bake;
     MapBuilder map;

@@ -300,9 +300,10 @@ Result<Actors> buildActors(const upkg::Package& map, std::string_view mapName,
         if (reference.kind() != upkg::ObjectReferenceKind::Export || reference.index() >= exports.size())
             return std::unexpected(malformed(where + " holds reference " + std::to_string(reference.raw())
                                              + ", which is not an export of the map"));
-        if (!seen.insert(reference.index()).second)
-            return std::unexpected(malformed(where + " names export " + std::to_string(reference.index())
-                                             + ", which a slot before it already named"));
+        // SS 4.5 step 1, UTA-0124: a slot naming an export an earlier slot
+        // named is skipped. UT99's own maps carry such slots, and a placement
+        // keyed by its export has nothing a second slot could add.
+        if (!seen.insert(reference.index()).second) continue;
         const upkg::ExportEntry& entry = exports[reference.index()];
         if (entry.objectClass.kind() == upkg::ObjectReferenceKind::Null)
             return std::unexpected(malformed(where + " names export " + std::to_string(reference.index())

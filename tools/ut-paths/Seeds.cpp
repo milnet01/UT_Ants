@@ -24,6 +24,7 @@
 #include <numbers>
 #include <optional>
 #include <queue>
+#include <set>
 #include <sstream>
 
 namespace uta::paths {
@@ -343,9 +344,13 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
     UTA_TRY(const ubake::Actors actors, naming(ubake::buildActors(map, mapName, level, resolver), mapName));
     const ubundle::Placements& placements = actors.placements;
 
-    // The start and the exits, in the level's actor order.
+    // The start and the exits, in the level's actor order. A map can name one
+    // actor in two slots, and SS 4.6's exits are the actors, each once, so a
+    // repeated slot is skipped as buildActors skips it (UTA-0110 SS 4.5 step 1).
     bool started = false;
+    std::set<std::int32_t> seenSlots;
     for (const upkg::ObjectReference slot : level.actors) {
+        if (!seenSlots.insert(slot.raw()).second) continue;
         const ActorPlacement* actor = placementOf(placements, slot.index());
         if (actor == nullptr) continue;
         const ActorClass& actorClass = placements.classes[actor->classIndex];

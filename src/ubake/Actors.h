@@ -27,9 +27,10 @@ struct Actors {
 /// and merged defaults, and the lights among them. `mapName` is the map's
 /// folded stem.
 ///
-/// An actor slot that is not an export of the map, or that names an export a
-/// slot before it already named, is MalformedData naming the slot. A class that
-/// does not resolve is recorded as such, and is not a refusal (SS 4.5).
+/// An actor slot that is not an export of the map is MalformedData naming the
+/// slot; one naming an export an earlier slot named is skipped, so the actor is
+/// placed once (SS 4.5 step 1). A class that does not resolve is recorded as
+/// such, and is not a refusal (SS 4.5).
 [[nodiscard]] Result<Actors> buildActors(const upkg::Package& map, std::string_view mapName,
                                          const upkg::Level& level,
                                          const upkg::PackageResolver& resolver);

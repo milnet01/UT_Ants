@@ -390,7 +390,7 @@ recorded again under it.
   bake that stopped writing either fails there rather than being re-recorded.
 - **Mutation, by hand:** each mutation § 7 listed on that date was killed by the
   invariant naming it, and one mutation per INV-2 rule by that rule's case.
-  UTA-0124 added the last two, which run with its change.
+  UTA-0124 added the last two, and INV-4's second case killed both.
 - **`buildActors` walks an export's outer chain itself**, beside `Bake.cpp`'s
   `exportPath`. Two copies of that walk now exist.
 - **The real-asset case compiles and has not been run.** Its figures are for

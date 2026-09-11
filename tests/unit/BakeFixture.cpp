@@ -380,6 +380,11 @@ MapBuilder& MapBuilder::addDecoyModel() {
     return *this;
 }
 
+MapBuilder& MapBuilder::repeatActorSlot(std::size_t actor) {
+    repeatedSlots_.push_back(actor);
+    return *this;
+}
+
 MapBuilder& MapBuilder::setModelTarget(ModelTarget target) {
     target_ = target;
     return *this;
@@ -472,6 +477,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
         LevelExportWriter level;
         level.setProperties(emptyProperties());
         for (const std::int32_t actor : actors) level.addActor(actor);
+        for (const std::size_t repeat : repeatedSlots_) level.addActor(actors.at(repeat));
         level.addActor(0); // a null slot, as a stock map's array is full of
         for (const Reach& reach : reaches_)
             level.addReachSpec(100, actors.at(reach.from), actors.at(reach.to), reach.collisionRadius,
