@@ -43,6 +43,8 @@ share: how a light's UT99 numbers become light at a point.
    → `0`. Surreal's headers (<https://github.com/stephank/surreal>) declare
    `FGetHSV` in `Engine/Inc/UnTex.h` without its body. They do define
    `AActor::WorldLightRadius` in `Engine/Inc/AActor.h`: `25 * (LightRadius + 1)`.
+   `gh search code FGetHSV` finds its body only in repositories that are not
+   Epic's releases, and this spec draws on none of them.
 5. **UTA-0109 left this item a coordinate set to decide.** Its § 8: *"UTA-0112
    has not chosen how it bakes"*.
 6. **A lattice over the level's box does not scale.** UTA-0098 measured
