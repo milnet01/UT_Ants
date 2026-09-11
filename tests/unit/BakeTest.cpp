@@ -32,6 +32,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <set>
 #include <string>
 #include <string_view>
@@ -543,4 +544,60 @@ TEST_CASE("every MATS record has maps and every map has a record", "[ubake][bake
         INFO("material: " << id);
         CHECK(withBase.contains(id));
     }
+}
+
+TEST_CASE("every GEOM material is a MATS id and a skipped texture's surface wears none",
+          "[ubake][geom]") {
+    // UTA-0109 INV-10. The standard fixture's four surfaces each make a
+    // material; a fifth names a texture carrying a Format property, which is
+    // skipped (UTA-0011 INV-9), so its surface must draw wearing nothing.
+    Fixture fixture = standardFixture();
+    const std::int32_t odd = fixture.map.addTexture(TextureSpec{"Odd", "", picture(4), true});
+    fixture.map.addSurface(odd);
+    MemoryPackages packages = memoryPackagesFor(fixture);
+    JobSystem jobs(2);
+    const BakeResult result = baked(fixture.map.build(), packages.resolver(), jobs);
+
+    REQUIRE(result.skipped.size() == 1);
+    const std::vector<std::string> ids = idsOf(result);
+    const std::set<std::string> known(ids.begin(), ids.end());
+    REQUIRE(result.bundle.geometry.has_value());
+
+    std::size_t wearingNothing = 0;
+    std::uint64_t indices = 0;
+    for (const auto& batch : result.bundle.geometry->batches) {
+        indices += batch.indexCount;
+        if (batch.material.empty()) {
+            ++wearingNothing;
+            continue;
+        }
+        INFO("batch material " << batch.material);
+        CHECK(known.count(batch.material) == 1);
+    }
+    CHECK(wearingNothing == 1);
+    CHECK(indices == 5 * 6); // every surface drew its square: two triangles each
+}
+
+TEST_CASE("a texture's DrawScale sets how far one repeat of it spans", "[ubake][geom]") {
+    // UTA-0109 INV-11. The floor texture is four texels wide and its square 64
+    // units, so the far corner lands at u = 64 / (4 * scale). A DrawScale that
+    // is not a finite positive number counts as 1.
+    const auto farU = [](float drawScale) {
+        Fixture fixture;
+        TextureSpec floor{"Floor", "", picture(2), false};
+        floor.drawScale = drawScale;
+        fixture.map.addSurface(fixture.map.addTexture(floor));
+        MemoryPackages packages = memoryPackagesFor(fixture);
+        JobSystem jobs(1);
+        const BakeResult result = baked(fixture.map.build(), packages.resolver(), jobs);
+        REQUIRE(result.bundle.geometry.has_value());
+        REQUIRE_FALSE(result.bundle.geometry->vertices.empty());
+        float most = 0;
+        for (const auto& vertex : result.bundle.geometry->vertices) most = std::max(most, vertex.u);
+        return most;
+    };
+    CHECK(farU(0) == 16.0F); // no DrawScale property at all
+    CHECK(farU(2) == 8.0F);
+    CHECK(farU(-1) == 16.0F);
+    CHECK(farU(std::numeric_limits<float>::quiet_NaN()) == 16.0F);
 }

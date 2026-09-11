@@ -17,6 +17,13 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **A bake now carries each level's walls, floors and ceilings as triangles** (UTA-0109)
+  A new `GEOM` section holds every surface Unreal Tournament draws, as
+  triangles with positions, normals and texture coordinates, grouped by
+  material and by the game's own surface flags, which pass through
+  untouched. Polygons wound the wrong way are turned round and ones with no
+  area are dropped. A texture's `DrawScale` sets how large it tiles.
+
 - **`ut-bake` bakes a map from your install into a bundle, and checks an install** (UTA-0011)
   `ut-bake --check <folder>` says whether a folder holds Unreal Tournament,
   and what is missing if not. `ut-bake --install <folder> --out <dir> <map>`
@@ -156,6 +163,11 @@ appears once something has actually shipped.)
   CMake + Ninja, C++23, Catch2 v3.16.0 fetched by the build rather than installed. The suite passes on a clone with no Unreal Tournament present, which is what S7 is measured on; a second tier behind UTA_REAL_ASSET_TESTS runs against a real install and refuses to configure without a path.
 
 ### Changed
+
+- **The bundle format is now version 4, and the baker revision 2** (UTA-0109)
+  `GEOM` follows `MATS`. A version-3 bundle is refused and baked again, and
+  every bake is renamed. No release has shipped, so nothing a player holds
+  is orphaned.
 
 - **Every cached bake is invalidated: the map bundle format moves to version 3.** (UTA-0011)
   A `.utab` now records each material's metallic value in a new `MATS`

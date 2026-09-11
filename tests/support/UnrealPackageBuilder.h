@@ -359,11 +359,26 @@ public:
     struct Node {
         std::array<float, 3> normal{};
         float w = 0.0F;
+        std::int32_t iVertPool = 0;    // its first entry in verts -- UTA-0109
         std::int32_t iSurf = 0;
         std::int32_t iFront = -1;
         std::int32_t iBack = -1;
         std::array<std::uint8_t, 2> iZone{};
+        std::uint8_t numVertices = 0;  // 0: the node draws nothing
         std::array<std::int32_t, 2> iLeaf{-1, -1}; // front, back
+    };
+
+    /// One BSP surface. Its point and vector indices name entries added with
+    /// addPoint and addVector; the lightmap, brush polygon and actor are 0.
+    struct Surf {
+        std::int32_t texture = 0; // an object reference
+        std::uint32_t polyFlags = 0;
+        std::int32_t pBase = 0;
+        std::int32_t vNormal = 0;
+        std::int32_t vTextureU = 0;
+        std::int32_t vTextureV = 0;
+        std::int16_t panU = 0;
+        std::int16_t panV = 0;
     };
 
     /// The tagged property list. Defaults to an empty one terminated by the
@@ -373,6 +388,11 @@ public:
     ModelExportWriter& addNode(const Node& node);
     /// A surface wearing `texture`, an object reference.
     ModelExportWriter& addSurf(std::int32_t texture, std::uint32_t polyFlags);
+    ModelExportWriter& addSurf(const Surf& surf);
+    /// Entries of the Vectors, Points and Verts tables, in the order added.
+    ModelExportWriter& addVector(std::array<float, 3> vector);
+    ModelExportWriter& addPoint(std::array<float, 3> point);
+    ModelExportWriter& addVert(std::int32_t pVertex);
     /// Zone records written; their fields are all zero.
     ModelExportWriter& setZoneCount(std::int32_t count);
     /// A leaf in `iZone`.
@@ -381,17 +401,15 @@ public:
     [[nodiscard]] std::vector<std::uint8_t> build() const;
 
 private:
-    struct Surf {
-        std::int32_t texture = 0;
-        std::uint32_t polyFlags = 0;
-    };
-
     std::optional<std::vector<std::uint8_t>> properties_;
     std::array<float, 3> boundsMin_{};
     std::array<float, 3> boundsMax_{};
     bool boundsValid_ = false;
+    std::vector<std::array<float, 3>> vectors_;
+    std::vector<std::array<float, 3>> points_;
     std::vector<Node> nodes_;
     std::vector<Surf> surfs_;
+    std::vector<std::int32_t> verts_;
     std::int32_t zoneCount_ = 0;
     std::vector<std::int32_t> leaves_;
 };

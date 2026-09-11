@@ -35,9 +35,9 @@ using namespace uta::test::bake;
 
 namespace {
 
-constexpr std::uint32_t RECORDED_UNDER = 1;
+constexpr std::uint32_t RECORDED_UNDER = 2; // UTA-0109 added GEOM
 constexpr std::string_view GOLDEN =
-    "bae8ea6921374ea9f761eb358617a71427fbccf068e7e3bd777ba3289dae992c";
+    "4cfc32a78074d2a4e1fdd7e4c692382dbb6df82bd1aa0d4a2a7a7a97bad1458c";
 
 } // namespace
 

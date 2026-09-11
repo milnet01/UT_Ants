@@ -1,14 +1,15 @@
 // The section codecs Bundle.cpp dispatches to, one .cpp file each.
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
-// with umap, NAVG and WIRG with unav, TEXS with umat, MATS with ubake -- so
-// each lives in its own file, and work on one does not share a file with work
-// on another (UTA-0091). Bundle.cpp keeps the framing: the header, the section
-// table, and read and write.
+// with umap, NAVG and WIRG with unav, TEXS with umat, MATS and GEOM with ubake
+// -- so each lives in its own file, and work on one does not share a file with
+// work on another (UTA-0091). Bundle.cpp keeps the framing: the header, the
+// section table, and read and write.
 //
 // docs/specs/UTA-0008-bundle-container-and-origin.md SS 4.6 to SS 4.9,
-// docs/specs/UTA-0052-texture-memory-budget.md SS 4.3 for TEXS, and
-// docs/specs/UTA-0011-map-baker.md SS 4.10 for MATS.
+// docs/specs/UTA-0052-texture-memory-budget.md SS 4.3 for TEXS,
+// docs/specs/UTA-0011-map-baker.md SS 4.10 for MATS, and
+// docs/specs/UTA-0109-map-geometry.md SS 4.2 for GEOM.
 
 #pragma once
 
@@ -26,6 +27,7 @@ constexpr SectionId ID_NAVG = {'N', 'A', 'V', 'G'};
 constexpr SectionId ID_WIRG = {'W', 'I', 'R', 'G'};
 constexpr SectionId ID_TEXS = {'T', 'E', 'X', 'S'};
 constexpr SectionId ID_MATS = {'M', 'A', 'T', 'S'};
+constexpr SectionId ID_GEOM = {'G', 'E', 'O', 'M'};
 
 // Structural validation -- SS 4.9.
 //
@@ -65,5 +67,11 @@ constexpr SectionId ID_MATS = {'M', 'A', 'T', 'S'};
 [[nodiscard]] Result<void> validateMaterials(const std::vector<MaterialRecord>& materials,
                                              ErrorCode code);
 [[nodiscard]] std::vector<std::byte> encodeMaterials(const std::vector<MaterialRecord>& materials);
+
+// GEOM -- GeometrySection.cpp, UTA-0109 SS 4.2. Every rule is the validator's;
+// nothing is refused inside an element reader.
+[[nodiscard]] Result<Geometry> readGeometry(Cursor& cursor);
+[[nodiscard]] Result<void> validateGeometry(const Geometry& geometry, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeGeometry(const Geometry& geometry);
 
 } // namespace uta::ubundle::detail

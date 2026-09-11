@@ -162,7 +162,7 @@ namespace uta::ubake {
 
 /// Bumped by hand whenever any code a bake runs -- `ubake`, `umat`, `umap`,
 /// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
-inline constexpr std::uint32_t BAKER_REVISION = 1;
+inline constexpr std::uint32_t BAKER_REVISION = 2;  // 2 since UTA-0109 added GEOM
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex
@@ -331,7 +331,9 @@ In order:
    **`WIRG`** is `unav::buildWiringGraph`. A refusal of either refuses the
    bake.
 5. **`TEXS`** and **`MATS`** are § 4.6's materials.
-6. **`budget`** is `umat::measure` over every map of every material, against
+6. **`GEOM`** is UTA-0109 § 4.4's, built over the same `Model` with a lookup
+   over the variants step 5 made. Added by that item.
+7. **`budget`** is `umat::measure` over every map of every material, against
    the budget given.
 
 **Every section in the steps above is written, and empty where the level
@@ -566,9 +568,10 @@ or `1` is `MalformedData`, never defaulted. The `id`s are in strictly
 ascending bytewise order, which also makes them unique. `write` refuses the
 same two with `InvalidArgument`.
 
-**`write` emits `MATS` last: `ROOM`, `NAVG`, `WIRG`, `TEXS`, `MATS`.** It is
-appended, as UTA-0052 appended `TEXS`, so UTA-0008 § 4.10's order clause is
-extended rather than contradicted.
+**`write` emits `MATS` after `TEXS`: `ROOM`, `NAVG`, `WIRG`, `TEXS`, `MATS`.**
+It is appended, as UTA-0052 appended `TEXS`, so UTA-0008 § 4.10's order clause
+is extended rather than contradicted. UTA-0109 has since appended `GEOM` after
+it.
 
 **`FORMAT_VERSION` becomes `3`.** Nothing else about the framing moves. § 14
 carries compatibility.

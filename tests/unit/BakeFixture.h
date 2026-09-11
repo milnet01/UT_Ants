@@ -44,6 +44,7 @@ struct TextureSpec {
     std::string group;   ///< empty: the texture sits at the package's top level
     Picture picture;
     bool format = false; ///< carries a Format property -- INV-9
+    float drawScale = 0; ///< 0: carries no DrawScale property -- UTA-0109 INV-11
 };
 
 /// A package under construction: its three tables, kept consistent, and the

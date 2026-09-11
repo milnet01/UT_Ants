@@ -24,6 +24,7 @@
 #include "umap/Rooms.h"
 #include "unav/Graphs.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -38,11 +39,12 @@ namespace uta::ubundle {
 /// reader should tolerate, so a mismatch is UnsupportedVersion before the
 /// section table is read.
 ///
-/// 3 since UTA-0011 added the MATS section -- that item's SS 4.10. 2 came
-/// with UTA-0052's TEXS section, its SS 4.7. Nothing else about the framing
-/// moved: the header is still sixteen bytes and the descriptor twenty-four.
-/// No .utab exists that this orphans, 0.1.0 not having been cut.
-inline constexpr std::uint32_t FORMAT_VERSION = 3;
+/// 4 since UTA-0109 added the GEOM section -- that item's SS 4.2. 3 came with
+/// UTA-0011's MATS section, its SS 4.10, and 2 with UTA-0052's TEXS section,
+/// its SS 4.7. Nothing else about the framing moved: the header is still
+/// sixteen bytes and the descriptor twenty-four. No .utab exists that this
+/// orphans, 0.1.0 not having been cut.
+inline constexpr std::uint32_t FORMAT_VERSION = 4;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -144,6 +146,35 @@ struct MaterialRecord {
     bool metallic = false;
 };
 
+/// One corner of a triangle -- UTA-0109 SS 4.2.
+struct GeometryVertex {
+    std::array<float, 3> position{}; ///< UT99's own coordinates and units
+    std::array<float, 3> normal{};   ///< its surface's normal, as the file stores it
+    float u = 0;                     ///< 1.0 is one repeat of the texture
+    float v = 0;
+};
+
+/// A run of triangles wearing one material under one set of flags.
+///
+/// SCOPE: `material` is opaque here, as a MATS id is. This library does not
+/// check that it names a MATS record; the baker guarantees it (UTA-0109
+/// INV-10).
+struct GeometryBatch {
+    std::string material;         ///< a MATS id, or empty for none
+    std::uint32_t polyFlags = 0;  ///< UT99's PolyFlags, verbatim
+    std::uint32_t firstIndex = 0;
+    std::uint32_t indexCount = 0; ///< three per triangle
+};
+
+/// The level's drawable surfaces as triangles -- UTA-0109 SS 4.2.
+struct Geometry {
+    std::vector<GeometryVertex> vertices;
+    std::vector<std::uint32_t> indices;
+    /// Strictly ascending by `material` bytewise, then `polyFlags`, and tiling
+    /// `indices` from its first element to its last.
+    std::vector<GeometryBatch> batches;
+};
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -157,6 +188,8 @@ struct Bundle {
     std::optional<std::vector<CompressedTexture>> textures;
     /// In strictly ascending bytewise `id` order -- UTA-0011 SS 4.10.
     std::optional<std::vector<MaterialRecord>> materials;
+    /// UTA-0109 SS 4.2.
+    std::optional<Geometry> geometry;
 };
 
 /// Decode a whole bundle.
@@ -169,7 +202,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

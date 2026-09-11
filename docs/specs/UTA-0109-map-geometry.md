@@ -277,6 +277,26 @@ measures textures only.
 **`BAKER_REVISION` becomes `2`**, and UTA-0011 INV-5's golden value is
 recorded again under it.
 
+### 4.5 As built (2026-09-11)
+
+Recorded after the build; nothing above changed direction.
+
+- **Each invariant's test was seen failing by mutating the code it locks,
+  after that code existed.** § 7's list and five more mutations; the commit
+  that shipped this item carries what killed each.
+- **INV-11 was added in the build.** Nothing tested § 4.4's scale read, so a
+  mutation ignoring `DrawScale` passed every listed test.
+- **Additions beyond this section's API, none of which a § 4 caller binds
+  to.** `Bake.h` gains `detail::textureScale` and `detail::resolveTexture`,
+  which the real-asset case calls to resolve textures as the bake does
+  without generating materials. `Geometry.h` carries `PF_INVISIBLE` and
+  `PF_MASKED`; `Bake.cpp`'s own `PF_MASKED` is gone.
+- **Two references resolving to one texture share its variants**: each
+  variant keeps every reference naming it, so both surfaces find it.
+- **The fixture's squares hang off no other node**, so the room builder never
+  reaches them. UTA-0011 INV-13's decoy gains as many undrawn nodes, to stay
+  the larger `Model` in every table.
+
 ## 5. Invariants
 
 - **INV-1** — `GEOM` round-trips through `ubundle::write` and
@@ -373,6 +393,15 @@ recorded again under it.
   *Breaks when:* the lookup answers with the id of a variant that was not
   made.
 
+- **INV-11** — A bake's `uSize` and `vSize` are the base level's width and
+  height times the texture's `DrawScale`, and a `DrawScale` that is not a
+  finite positive number counts as `1`. *Added in the build (§ 4.5).*
+  *Test:* `tests/unit/BakeTest.cpp`: one floor texture four texels wide on a
+  64-unit square, baked with no `DrawScale`, with `2`, with `-1` and with a
+  NaN. Its far corner's `u` is `16`, `8`, `16` and `16`.
+  *Breaks when:* the property is not read, is read under the C++ member's
+  name `Scale`, or a value that is not finite and positive is used as given.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -393,7 +422,7 @@ recorded again under it.
 `tests/unit/BakeGeometryTest.cpp` for INV-3, INV-4, INV-5, INV-6, INV-7,
 INV-8 and INV-9, calling
 `buildGeometry` on a `upkg::Model` built in memory; `tests/unit/BakeTest.cpp`
-for INV-10. Each is seen failing before the code it locks exists.
+for INV-10 and INV-11. Each is seen failing before the code it locks exists.
 
 **The fixtures grow.** `ModelExportWriter` in
 `tests/support/UnrealPackageBuilder.h` gains `points`, `vectors` and `verts`,
@@ -473,7 +502,7 @@ Each must be killed by the invariant that names it.
 | INV-1, INV-2 | `tests/unit/BundleGeometryTest.cpp`, a unit test |
 | INV-3, INV-5, INV-6, INV-7, INV-8, INV-9 | `tests/unit/BakeGeometryTest.cpp`, a unit test |
 | INV-4 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, a real-asset test, over every map |
-| INV-10 | `tests/unit/BakeTest.cpp`, a unit test |
+| INV-10, INV-11 | `tests/unit/BakeTest.cpp`, a unit test |
 | `BAKER_REVISION` covering geometry | **Partial:** `tests/unit/BakeGoldenTest.cpp`, a golden-hash test, catches what its fixture draws; a change reached only by real content passes |
 | The PolyFlags bit values being UT99's | **nothing** — the tests use the constants the code uses, and the values rest on the cited header |
 | The pan's sign matching UT99 | **Partial:** `tests/real/RealGeometryTest.cpp`, a real-asset test, prints the seam tally; nothing asserts it, and no CI leg runs it |

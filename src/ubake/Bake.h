@@ -5,10 +5,10 @@
 // BAKE-SIDE ONLY: uta_ubake links the package reader, so docs/design.md rule 2
 // keeps it out of both runtime targets.
 //
-// SCOPE: the sections that exist today -- ROOM, NAVG, WIRG, TEXS and MATS.
-// Geometry, lights and placements, collision, baked light and the recipe are
-// UTA-0109 to UTA-0113, each plugging into this baker rather than starting a
-// second one. Until UTA-0113 lands every map bakes with no recipe.
+// SCOPE: the sections that exist today -- ROOM, NAVG, WIRG, TEXS, MATS, and
+// GEOM from UTA-0109. Lights and placements, collision, baked light and the
+// recipe are UTA-0110 to UTA-0113, each plugging into this baker rather than
+// starting a second one. Until UTA-0113 lands every map bakes with no recipe.
 //
 // NEVER DEGRADES. Over budget, nothing is written -- UTA-0052's rule. A texture
 // that cannot be made is skipped and named; the bake goes on without it.
@@ -24,11 +24,13 @@
 #include "umat/Material.h"
 #include "upkg/Class.h"
 #include "upkg/Package.h"
+#include "upkg/Properties.h"
 
 #include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -92,6 +94,24 @@ using CuratedLookup = std::function<const umat::CuratedOverride*(std::uint64_t f
 [[nodiscard]] Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                       const upkg::PackageResolver& resolver, JobSystem& jobs,
                                       const CuratedLookup& curated, std::uint64_t budgetBytes);
+
+/// A texture's scale -- UTA-0109 SS 4.4: its `DrawScale` property where that
+/// is a finite positive float, else 1. `DrawScale` is the script's name for
+/// the member UT 4.32's UnTex.h calls `UTexture::Scale`.
+[[nodiscard]] double textureScale(const upkg::Package& holder,
+                                  std::span<const upkg::Property> properties);
+
+/// Where a surface's texture reference leads -- UTA-0011 SS 4.6 "Which
+/// textures". `holder` is null where it does not resolve.
+struct TextureExport {
+    const upkg::Package* holder = nullptr;
+    const upkg::ExportEntry* entry = nullptr;
+};
+
+[[nodiscard]] Result<TextureExport> resolveTexture(const upkg::Package& map,
+                                                   std::string_view mapName,
+                                                   upkg::ObjectReference reference,
+                                                   const upkg::PackageResolver& resolver);
 
 } // namespace detail
 

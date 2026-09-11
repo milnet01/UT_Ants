@@ -119,6 +119,7 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     TaggedPropertyWriter properties;
     properties.addObject(name("Palette"), palette);
     if (texture.format) properties.addByte(name("Format"), 1);
+    if (texture.drawScale != 0) properties.addFloat(name("DrawScale"), texture.drawScale);
 
     std::vector<std::uint8_t> data = properties.build(0);
     appendU8(data, 1); // one mip
@@ -241,7 +242,36 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     floor.normal = {0.0F, 0.0F, 1.0F};
     floor.iLeaf = {1, 0};
     model.addNode(floor).setZoneCount(3).addLeaf(1).addLeaf(2);
-    for (const Surface& surface : surfaces_) model.addSurf(surface.texture, surface.polyFlags);
+
+    // Each surface draws a 64-unit square, one above the next, so the golden
+    // bake covers GEOM (UTA-0109 SS 7). Its node hangs off no other, so the
+    // room builder's descent from node 0 never reaches it. Vectors 0, 1 and 2
+    // are every surface's normal, TextureU and TextureV.
+    model.addVector({0.0F, 0.0F, 1.0F}).addVector({1.0F, 0.0F, 0.0F}).addVector({0.0F, 1.0F, 0.0F});
+    for (std::size_t i = 0; i < surfaces_.size(); ++i) {
+        const float z = 8.0F * static_cast<float>(i);
+        const auto first = static_cast<std::int32_t>(4 * i);
+        for (const auto& [x, y] : {std::pair{0.0F, 0.0F}, {64.0F, 0.0F}, {64.0F, 64.0F}, {0.0F, 64.0F}})
+            model.addPoint({x, y, z});
+        for (std::int32_t k = 0; k < 4; ++k) model.addVert(first + k);
+
+        ModelExportWriter::Node square;
+        square.normal = {0.0F, 0.0F, 1.0F};
+        square.w = z;
+        square.iSurf = static_cast<std::int32_t>(i);
+        square.iVertPool = first;
+        square.numVertices = 4;
+        model.addNode(square);
+
+        ModelExportWriter::Surf surf;
+        surf.texture = surfaces_[i].texture;
+        surf.polyFlags = surfaces_[i].polyFlags;
+        surf.pBase = first;
+        surf.vNormal = 0;
+        surf.vTextureU = 1;
+        surf.vTextureV = 2;
+        model.addSurf(surf);
+    }
     const std::int32_t modelRef =
         packer.addExport(packer.importClass("Engine", "Model"), 0, "Model0", model.build());
 
@@ -259,6 +289,10 @@ std::vector<std::uint8_t> MapBuilder::build() const {
         east.normal = {1.0F, 0.0F, 0.0F};
         east.iLeaf = {0, 1};
         bigger.addNode(split).addNode(east).setZoneCount(4).addLeaf(1).addLeaf(2).addLeaf(3);
+        // One undrawn node for each square the level's own Model carries, so
+        // the decoy stays the larger in nodes too. Like those squares, none
+        // hangs off another node, so the decoy's room count does not move.
+        for (std::size_t i = 0; i < surfaces_.size(); ++i) bigger.addNode(ModelExportWriter::Node{});
         for (int copy = 0; copy < 2; ++copy)
             for (const Surface& surface : surfaces_) bigger.addSurf(surface.texture, surface.polyFlags);
         packer.addExport(packer.importClass("Engine", "Model"), 0, "Model1", bigger.build());

@@ -760,7 +760,29 @@ ModelExportWriter& ModelExportWriter::addNode(const Node& node) {
 }
 
 ModelExportWriter& ModelExportWriter::addSurf(std::int32_t texture, std::uint32_t polyFlags) {
-    surfs_.push_back(Surf{texture, polyFlags});
+    Surf surf;
+    surf.texture = texture;
+    surf.polyFlags = polyFlags;
+    return addSurf(surf);
+}
+
+ModelExportWriter& ModelExportWriter::addSurf(const Surf& surf) {
+    surfs_.push_back(surf);
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::addVector(std::array<float, 3> vector) {
+    vectors_.push_back(vector);
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::addPoint(std::array<float, 3> point) {
+    points_.push_back(point);
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::addVert(std::int32_t pVertex) {
+    verts_.push_back(pVertex);
     return *this;
 }
 
@@ -787,8 +809,10 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
     out.push_back(boundsValid_ ? 1 : 0);
     appendVector(out, {0.0F, 0.0F, 0.0F});            // BoundingSphere centre
     appendFloat(out, 0.0F);                           //   and radius
-    appendIndex(out, 0);                              // Vectors
-    appendIndex(out, 0);                              // Points
+    appendIndex(out, static_cast<std::int32_t>(vectors_.size())); // Vectors
+    for (const auto& vector : vectors_) appendVector(out, vector);
+    appendIndex(out, static_cast<std::int32_t>(points_.size()));  // Points
+    for (const auto& point : points_) appendVector(out, point);
 
     appendIndex(out, static_cast<std::int32_t>(nodes_.size()));
     for (const Node& node : nodes_) {
@@ -796,7 +820,7 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
         appendFloat(out, node.w);
         appendU64(out, 0);                            // zoneMask
         out.push_back(0);                             // nodeFlags
-        appendIndex(out, 0);                          // iVertPool
+        appendIndex(out, node.iVertPool);
         appendIndex(out, node.iSurf);
         appendIndex(out, node.iFront);
         appendIndex(out, node.iBack);
@@ -805,7 +829,7 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
         appendIndex(out, 0);                          // iRenderBound
         out.push_back(node.iZone[0]);
         out.push_back(node.iZone[1]);
-        out.push_back(0);                             // numVertices
+        out.push_back(node.numVertices);
         appendI32(out, node.iLeaf[0]);                // raw i32, UTA-0069 SS 4.5
         appendI32(out, node.iLeaf[1]);
     }
@@ -814,13 +838,22 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
     for (const Surf& surf : surfs_) {
         appendIndex(out, surf.texture);
         appendU32(out, surf.polyFlags);
-        for (int field = 0; field < 6; ++field) appendIndex(out, 0); // pBase to iBrushPoly
-        appendU16(out, 0);                            // panU
-        appendU16(out, 0);                            // panV
+        appendIndex(out, surf.pBase);
+        appendIndex(out, surf.vNormal);
+        appendIndex(out, surf.vTextureU);
+        appendIndex(out, surf.vTextureV);
+        appendIndex(out, 0);                          // iLightMap
+        appendIndex(out, 0);                          // iBrushPoly
+        appendU16(out, static_cast<std::uint16_t>(surf.panU));
+        appendU16(out, static_cast<std::uint16_t>(surf.panV));
         appendIndex(out, 0);                          // actor
     }
 
-    appendIndex(out, 0);                              // Verts
+    appendIndex(out, static_cast<std::int32_t>(verts_.size())); // Verts
+    for (const std::int32_t pVertex : verts_) {
+        appendIndex(out, pVertex);
+        appendIndex(out, 0);                          // iSide
+    }
     appendU32(out, 0);                                // NumSharedSides -- a raw i32
     appendI32(out, zoneCount_);                       // NumZones -- a raw i32
     for (std::int32_t zone = 0; zone < zoneCount_; ++zone) {

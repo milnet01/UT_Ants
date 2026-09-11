@@ -3,6 +3,7 @@
 #include "ubake/Bake.h"
 
 #include "core/FileSystem.h"
+#include "ubake/Geometry.h"
 #include "ubake/Name.h"
 #include "umat/Fingerprint.h"
 #include "umat/Generate.h"
@@ -14,18 +15,16 @@
 #include "upkg/Texture.h"
 
 #include <array>
+#include <cmath>
 #include <expected>
 #include <fstream>
 #include <map>
 #include <system_error>
 #include <utility>
+#include <variant>
 
 namespace uta::ubake {
 namespace {
-
-/// A surface whose index-0 texels are see-through -- UT99's PF_Masked. Source:
-/// https://wiki.beyondunreal.com/Legacy:PolyFlags.
-constexpr std::uint32_t PF_MASKED = 0x00000002u;
 
 std::string prefixFor(std::string_view mapName) {
     return "baking " + std::string(mapName);
@@ -219,13 +218,21 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
     return site;
 }
 
+/// A made variant, and the texels one repeat of its texture spans on each axis
+/// -- UTA-0109 SS 4.4.
+struct MadeVariant {
+    umat::Material material;
+    double uSize = 0;
+    double vSize = 0;
+};
+
 /// One variant, or why it cannot be made. The error arm is a SKIP and never a
 /// refusal of the bake: every failure SS 4.6 lists belongs to one texture, and
 /// the bake goes on without it.
-std::expected<umat::Material, std::string> makeVariant(const TextureSite& site,
-                                                       const std::string& id, bool masked,
-                                                       JobSystem& jobs,
-                                                       const detail::CuratedLookup& curated) {
+std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
+                                                    const std::string& id, bool masked,
+                                                    JobSystem& jobs,
+                                                    const detail::CuratedLookup& curated) {
     if (site.holder == nullptr) return std::unexpected(site.unresolved);
     const upkg::Package& holder = *site.holder;
 
@@ -284,13 +291,17 @@ std::expected<umat::Material, std::string> makeVariant(const TextureSite& site,
     if (!material.has_value())
         return std::unexpected("umat::generate refused it: "
                                + std::string(material.error().message()));
-    return std::move(*material);
+    const double scale = detail::textureScale(holder, *properties);
+    return MadeVariant{std::move(*material), base.width * scale, base.height * scale};
 }
 
 struct Materials {
     std::vector<ubundle::CompressedTexture> textures;
     std::vector<ubundle::MaterialRecord> records;
     std::vector<SkippedTexture> skipped;
+    /// What a surface wears, by (texture reference, masked) -- the lookup GEOM
+    /// is built with (UTA-0109 SS 4.4). A variant not made has no entry.
+    std::map<std::pair<std::int32_t, bool>, SurfaceMaterial> bySurface;
 };
 
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
@@ -317,6 +328,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
     struct Variant {
         const TextureSite* site = nullptr;
         bool masked = false;
+        std::vector<std::int32_t> references; ///< every reference resolving to it
     };
     std::vector<TextureSite> sites;
     sites.reserve(byReference.size());
@@ -325,12 +337,16 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         UTA_TRY(TextureSite site, siteOf(map, mapName, upkg::ObjectReference{raw}, resolver));
         sites.push_back(std::move(site));
         const TextureSite* const placed = &sites.back();
+        // Two references can resolve to one texture, so a variant keeps every
+        // reference naming it and each surface still finds its material.
         if (needs.opaque)
             variants.try_emplace(umat::materialId(placed->package, placed->path, false),
-                                 Variant{placed, false});
+                                 Variant{placed, false, {}})
+                .first->second.references.push_back(raw);
         if (needs.masked)
             variants.try_emplace(umat::materialId(placed->package, placed->path, true),
-                                 Variant{placed, true});
+                                 Variant{placed, true, {}})
+                .first->second.references.push_back(raw);
     }
 
     // One variant at a time, in id order: generate() spreads its own work
@@ -343,8 +359,12 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             out.skipped.push_back(SkippedTexture{id, std::move(made).error()});
             continue;
         }
-        out.records.push_back(ubundle::MaterialRecord{made->id, made->metallic});
-        for (ubundle::CompressedTexture& map : made->maps) out.textures.push_back(std::move(map));
+        out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic});
+        for (ubundle::CompressedTexture& map : made->material.maps)
+            out.textures.push_back(std::move(map));
+        for (const std::int32_t raw : variant.references)
+            out.bySurface.emplace(std::pair{raw, variant.masked},
+                                  SurfaceMaterial{id, made->uSize, made->vSize});
     }
     return out;
 }
@@ -373,6 +393,24 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName, Inst
 
 namespace detail {
 
+double textureScale(const upkg::Package& holder, std::span<const upkg::Property> properties) {
+    for (const upkg::Property& property : properties) {
+        // Qualified: inside `detail`, a bare nameOf finds Name.h's
+        // detail::nameOf(NameInputs) and stops looking.
+        if (fold(ubake::nameOf(holder, property.nameIndex)) != "drawscale") continue;
+        const auto* const value = std::get_if<float>(&property.value);
+        return value != nullptr && std::isfinite(*value) && *value > 0 ? *value : 1.0;
+    }
+    return 1.0;
+}
+
+Result<TextureExport> resolveTexture(const upkg::Package& map, std::string_view mapName,
+                                     upkg::ObjectReference reference,
+                                     const upkg::PackageResolver& resolver) {
+    UTA_TRY(const TextureSite site, siteOf(map, mapName, reference, resolver));
+    return TextureExport{site.holder, site.entry};
+}
+
 Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                         const upkg::PackageResolver& resolver, JobSystem& jobs,
                         const CuratedLookup& curated, std::uint64_t budgetBytes) {
@@ -392,8 +430,17 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // 5. TEXS and MATS.
     UTA_TRY(Materials materials, bakeMaterials(map, mapName, model, resolver, jobs, curated));
 
+    // 6. GEOM, each surface wearing the variant step 5 made for it --
+    // UTA-0109 SS 4.4.
+    const MaterialLookup lookup = [&materials](upkg::ObjectReference texture,
+                                               bool masked) -> const SurfaceMaterial* {
+        const auto found = materials.bySurface.find({texture.raw(), masked});
+        return found == materials.bySurface.end() ? nullptr : &found->second;
+    };
+    UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup), mapName));
+
     BakeResult result;
-    // 6. The budget, over every map of every material.
+    // 7. The budget, over every map of every material.
     result.budget = umat::measure(materials.textures, budgetBytes);
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
@@ -408,6 +455,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.wiring = std::move(wiring);
     result.bundle.textures = std::move(materials.textures);
     result.bundle.materials = std::move(materials.records);
+    result.bundle.geometry = std::move(geometry);
     return result;
 }
 
