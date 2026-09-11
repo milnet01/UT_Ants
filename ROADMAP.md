@@ -4589,6 +4589,13 @@ model, no weapon and no opponent until 0.2.0.
     walk from the root reaches, while no node is reached twice;
   - iSurf, the vertex runs and every hull index stay in range, and no node
     has one or two vertices.
+  Progress (2026-09-11): the spec's contract review, loop 1, closed with
+  every verified finding fixed; the row is in
+  docs/reviews/UTA-0111-level-collision-loop-log.md. Loop 2 is next and is
+  the cap for a spec; code starts after it. Loop 2 is briefed exactly as
+  loop 1 was, rebuilt from disk, and no lane is told what loop 1 fixed.
+  Found while verifying: the test writer's iFront/iBack order, filed as
+  UTA-0122.
   **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4715,6 +4722,22 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-11.
   Lanes: unav, uworld, tools.
+
+- 📋 [UTA-0122] **tests: ModelExportWriter writes a node's iFront where upkg reads iBack.**
+  Found by UTA-0111's contract review, loop 1.
+  ModelExportWriter::build writes a node's iFront, then its iBack.
+  upkg::readModel reads iBack first, as measured and corrected under
+  UTA-0078 (src/upkg/Geometry.cpp). So a fixture that sets Node::iFront
+  builds a Model whose iBack holds it.
+  The decoy Model in tests/unit/BakeFixture.cpp sets iFront, so it
+  describes the opposite descent to the one it writes.
+  Fix: write the two in upkg's order, then re-check every fixture that
+  sets either, UTA-0007's room cases first. UTA-0111's own cases build
+  their Model in memory and do not depend on this.
+  **Layman:** A test helper puts two values in each other's place, so a test can describe one layout of a level while building another.
+  Kind: review-fix.
+  Source: review-contract-2026-09-11 UTA-0111 loop 1.
+  Lanes: tests.
 
 ## 0.2.0 — Movement and weapons
 

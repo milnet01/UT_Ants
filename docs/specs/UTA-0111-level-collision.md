@@ -108,7 +108,7 @@ struct CollisionNode {
     std::int32_t coplanar = -1;     ///< iPlane, the next node on this plane; -1 for none
     std::int32_t hull = -1;         ///< into CollisionTree::hulls; -1 for none
     std::uint8_t nodeFlags = 0;     ///< UT99's NodeFlags, verbatim
-    std::uint32_t polyFlags = 0;    ///< its surface's PolyFlags, verbatim
+    std::uint32_t polyFlags = 0;    ///< its surface's PolyFlags, verbatim; 0 with no outline
     std::uint32_t firstOutline = 0; ///< into CollisionTree::outline
     std::uint32_t outlineCount = 0; ///< 0, or 3 and more
 };
@@ -207,8 +207,10 @@ namespace uta::ubake {
 
 - **`points`** are the `Model`'s `points`, in order.
 - **Node `i`** is `nodes[i]`: its `plane`'s normal and `w`; `iBack`, `iFront`
-  and `iPlane` as `back`, `front` and `coplanar`; `nodeFlags`; the
-  `polyFlags` of `surfs[iSurf]`; and as its outline the `pVertex` of
+  and `iPlane` as `back`, `front` and `coplanar`; `nodeFlags`; for a node
+  with vertices, the `polyFlags` of `surfs[iSurf]`, and 0 for a node without,
+  whose `iSurf` is not read, as `buildGeometry` does not read it; and as its
+  outline the `pVertex` of
   `verts[iVertPool]` onward, `numVertices` of them, appended to `outline` in
   node order, with `firstOutline` where they begin.
 - **`hulls`** are one for each distinct `iCollisionBound` other than −1, in
@@ -222,7 +224,7 @@ namespace uta::ubake {
 **Refusals**, each `MalformedData` naming the node:
 
 - a link neither −1 nor a node, or § 4.2 item 2 broken;
-- `iSurf` naming no surface;
+- `iSurf` naming no surface, on a node with vertices;
 - `numVertices` of 1 or 2; a run from `iVertPool` past `verts`; a `pVertex`
   naming no point;
 - `iCollisionBound` below −1 or past `leafHulls`; a run with no −1, or fewer
@@ -249,7 +251,8 @@ in double and stored as float:
 - **A plane `(n, d)` becomes `(n ⊘ S, d − n · P)`**, both then divided by
   the length of `n ⊘ S`. For `q = S ⊙ (p − P)`, `(n ⊘ S) · q = n · p − n · P`,
   so a point on the plane stays on it and a point in front stays in front,
-  under a mirror too. No link is swapped.
+  under a mirror too. No link is swapped, and no outline is reversed
+  (§ 4.5).
 - **A hull's box** takes `S ⊙ (min − P)` and `S ⊙ (max − P)`, swapped on each
   axis where `S` is negative.
 
@@ -264,13 +267,22 @@ UTA-0017 and UTA-0114 read this section; what follows is what they bind to.
   `iChild ? (Outside || IsCsg(ExtraFlags)) : (Outside && !IsCsg(ExtraFlags))`,
   starting from the tree's `outside`, where child 1 is `front` and child 0 is
   `back` (`Engine/Inc/UnObj.h`). The extra flags are the caller's.
+- **A point with `normal · p > distance` descends into `front`, child 1;
+  any other point, on the plane included, into `back`, child 0.** The
+  header's comments on `iBack` and `iFront` say the reverse, and are not the
+  authority. Walked this way, nearly every `PlayerStart` of the reference
+  install lies outside; walked the other way, nearly none does (§ 7).
 - **A walk from node 0 over the three links ends**, reaching no node twice
   (§ 4.2 item 2). Every index a reader follows is in range.
 - **A hull is the region behind its planes, each reversed where `flipped`
   is set.** That is measured, not read from the headers: over the reference
-  install, a hull's box almost never lies wholly in front of an unflipped
-  plane, or wholly behind a flipped one. The real-asset case prints both
-  (§ 7).
+  install, no hull's box lies wholly in front of an unflipped plane, or
+  wholly behind a flipped one, by more than half a unit. The real-asset case
+  prints both (§ 7).
+- **An outline's order is its vertex pool's, and says nothing about which
+  way the face points.** Some nodes wind against their surface's normal
+  (UTA-0109 § 2 item 4), and § 4.4 never reverses one. A reader orients
+  each outline by its node's plane.
 - **A mover's tree is placed by UTA-0119 § 4.5's formula**, with its `MOVR`
   shape's `location`, `rotation` and `postScale`.
 
@@ -316,19 +328,23 @@ recorded again under it.
 
 - **INV-3** — The level's tree is its `Model`'s: its points in order; each
   node's plane, three links and `nodeFlags` verbatim; its `polyFlags` its
-  surface's; its outline its vertex run's `pVertex`, in order; and
+  surface's where it has vertices, else 0; its outline its vertex run's
+  `pVertex`, in order; and
   `outside` its `rootOutside`.
-  *Test:* `tests/unit/BakeCollisionTest.cpp`: a `Model` whose nodes' vertex
-  runs are not in node order, whose surfaces carry distinct `polyFlags`
-  unlike any node's `nodeFlags`, whose nodes' `back` and `front` differ, and
-  which holds a node of no vertices.
-  *Breaks when:* `back` and `front` swap, `polyFlags` come from the node, or
-  an outline is read from the wrong place.
+  *Test:* `tests/unit/BakeCollisionTest.cpp`: `buildCollision` over a `Model`
+  built in memory whose nodes' vertex runs are not in node order, whose
+  surfaces carry distinct `polyFlags` unlike any node's `nodeFlags`, whose
+  nodes' `back` and `front` differ, and which holds a node of no vertices
+  whose `iSurf` names no surface.
+  *Breaks when:* `back` and `front` swap, `polyFlags` come from the node, an
+  outline is read from the wrong place, or a node of no vertices has its
+  `iSurf` read.
 
 - **INV-4** — The hulls are the distinct `iCollisionBound` values in
   ascending order; each run decodes to its planes, with bit 30 as `flipped`,
   and its box; and a node names its own run's hull.
-  *Test:* `tests/unit/BakeCollisionTest.cpp`: a `Model` whose `leafHulls`
+  *Test:* `tests/unit/BakeCollisionTest.cpp`: a `Model`, built in memory,
+  whose `leafHulls`
   holds two runs, the second named by node 0 and the first by node 2, so
   ascending order differs from node order, with one entry carrying bit 30.
   *Breaks when:* the hulls are ordered by node, the flag is left in the
@@ -338,7 +354,8 @@ recorded again under it.
   its `MOVR` shape's positions, bit for bit; its planes are § 4.4's; its
   boxes are § 4.4's, swapped on a negative axis.
   *Test:* `tests/unit/BakeCollisionTest.cpp`: `buildMoverCollision` and
-  `buildMover` over one mover whose `Model` is UTA-0119 INV-4's tilted
+  `buildMover` over one mover whose `Model`, built in memory, is UTA-0119
+  INV-4's tilted
   square, with `PrePivot` `(8, 0, 0)` and `MainScale` `(2, -1, 1)`. Every
   point equals a shape position bit for bit; a corner stays on the
   transformed plane within `1e-4`; a point in front of the plane stays in
@@ -355,20 +372,25 @@ recorded again under it.
   *Breaks when:* trees are keyed by placement position, or built for a brush
   that is not a mover.
 
-- **INV-7** — A `Model` breaking a § 4.3 refusal refuses the bake with
-  `MalformedData`, naming the node, and for a mover the actor as well.
-  *Test:* `tests/unit/BakeCollisionTest.cpp`, one case per refusal, each
-  `Model` breaking that rule alone; and one mover whose tree breaks one.
-  *Breaks when:* such a node is dropped, clamped or baked.
+- **INV-7** — A `Model` breaking a § 4.3 refusal is refused with
+  `MalformedData`, naming the node, or the `Model` for `rootOutside`. In a
+  bake, a mover's refusal names the actor as well.
+  *Test:* `tests/unit/BakeCollisionTest.cpp`: one case per refusal, calling
+  `buildCollision` on a `Model` built in memory that breaks that rule alone.
+  Then, through `detail::bake`, one level `Model` and one mover `Model` whose
+  only break is a `coplanar` link naming no node. No earlier step of the bake
+  reads `iPlane`, so only `COLL` can refuse them.
+  *Breaks when:* such a node is dropped, clamped or baked, or a refusal
+  names the wrong thing.
 
 ## 6. Failure modes
 
 | When | What happens |
 |---|---|
-| A `Model` breaks a § 4.3 refusal | The bake is refused, naming the node, and the actor for a mover |
+| A `Model` breaks a § 4.3 refusal | The bake is refused, naming the node, or the `Model` for `rootOutside`, and the actor for a mover |
 | A mover's `MainScale` has a zero component | The bake is refused, as UTA-0119 INV-9 refuses it |
 | The level has no mover | `movers` is written empty |
-| A `Model` has no nodes | Its tree is written empty |
+| A `Model` has no nodes | Its tree has no nodes and no hulls; its points and `outside` are transcribed |
 | A plane or a box holds a non-finite float | It is baked as is; floats are not validated |
 
 ## 7. Tests
@@ -384,6 +406,10 @@ seen failing before the code it locks exists.
 would name itself as its coplanar, and a hull index would pass an empty table.
 So its `Node` gains `iPlane`, `iCollisionBound` and `nodeFlags`, defaulting to
 −1, −1 and 0, and the writer gains a `LeafHulls` table and `RootOutside`.
+Its existing `iFront` and `iBack` are written in the opposite order to the
+one `upkg::readModel` reads, so a fixture's `iFront` reads back as `iBack`
+(UTA-0122). The cases of INV-3, INV-4 and INV-5, and INV-7's per-refusal
+cases, therefore build their `Model` in memory.
 Every bake test then builds a `Model` § 4.3 accepts. UTA-0011 INV-5's golden
 bake covers `COLL`, and its case asserts the level tree has the fixture
 `Model`'s nodes.
@@ -395,13 +421,16 @@ entries with bit 30 set and clear, by which side of the entry's plane its
 run's box lies; links naming a node stored before their own; nodes no walk
 from node 0 reaches; and the share
 of `PlayerStart` locations the tree classifies as outside, walking as § 4.5
-describes. The last is what shows the transcription reads as UT99 reads it.
+describes and walking with the two children the other way round. Those two
+shares are what show which child is front, and that the transcription reads
+as UT99 reads it.
 
 **Mutation, by hand** (`CLAUDE.md` § Build and test): swap `back` and
 `front`; take `polyFlags` from `nodeFlags`; order hulls by node; leave the
 flag in the index; read the box as integers; scale a normal instead of
 dividing it; drop `PrePivot` from a distance; leave a box unswapped; drop
-§ 4.2 item 2; key trees by placement position. Each must be killed by the
+§ 4.2 item 2; delete any one § 4.3 refusal; key trees by placement
+position. Each must be killed by the
 invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
