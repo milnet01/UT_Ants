@@ -4604,6 +4604,18 @@ model, no weapon and no opponent until 0.2.0.
   mesh skips its outline, over a baker refusal; no such node on the
   reference install carries an outline or a hull. Building next
   (ut-ants-2b, main checkout).
+  Progress (2026-09-11, ut-ants-2b): built to the spec's § 4.1 to § 4.6,
+  with the § 11 amendments to UTA-0008, UTA-0011, UTA-0109 and UTA-0119.
+  The unit suite is green locally. Every § 7 mutation is killed by
+  hand; deleting a link-range check is killed by a crash rather than an
+  assertion, and deleting the section's walk rule by a hang. A second
+  INV-5 case with a fractional pivot was added after points moved in
+  float survived the spec's own numbers. The real-asset case,
+  tests/real/RealCollisionTest.cpp, was stopped by the session's memory
+  guard before it printed; run it with `!`:
+  systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=0 --quiet
+  -- build-real/tests/uta_real_asset_tests "[collision]"
+  Pushing for the CI matrix; flip on green.
   **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4763,6 +4775,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   constant transfers with no conversion.
   Depends on neither the renderer, audio, the UI nor uinput (rules 4 and 12).
   This is what S2 is measured on.
+  Progress (2026-09-11): UTA-0111 § 4.5
+  (docs/specs/UTA-0111-level-collision.md) is what this item reads from
+  the COLL section: solidity by IsCsg, the walk by ChildOutside, a point
+  in front of a plane taking front, hulls, and a mover's placement.
   **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated.
   Kind: implement.
   Source: design-2026-09-03.
@@ -5427,6 +5443,10 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Whether UTA-0017's movement model runs its collision queries through the
   same library is UTA-0017's spec's question.
   Blocked-by: UTA-0111.
+  Progress (2026-09-11): UTA-0111 § 4.5
+  (docs/specs/UTA-0111-level-collision.md) is what this item reads from
+  the COLL section to build its mesh: skip a node no walk from node 0
+  reaches, and orient each outline by its node's plane.
   **Layman:** Things in the world obey physics -- debris and bits fly, bounce and settle -- using a free, fast physics engine.
   Kind: feature.
   Source: user-request-2026-09-10.

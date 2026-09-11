@@ -35,9 +35,9 @@ using namespace uta::test::bake;
 
 namespace {
 
-constexpr std::uint32_t RECORDED_UNDER = 4; // UTA-0119 added MOVR
+constexpr std::uint32_t RECORDED_UNDER = 5; // UTA-0111 added COLL
 constexpr std::string_view GOLDEN =
-    "329be7a6945e80f637c9e105f9d49162c77278c245ed6a6160a259441aaeb1d6";
+    "0786d160b4c4ed8dd89b28fea9612f14e8b22eaf1c9abcdd5473eee2eca792b4";
 
 } // namespace
 
@@ -65,6 +65,13 @@ TEST_CASE("the golden bake hashes to the value recorded for BAKER_REVISION",
     REQUIRE(result->bundle.lights->size() == 1);
     REQUIRE(result->bundle.movers.has_value());
     REQUIRE(result->bundle.movers->size() == 1);
+    // Nor one that baked no collision UTA-0111's: the level's tree has the
+    // fixture Model's five nodes, its floor and a square for each of its four
+    // surfaces, and the mover's tree its brush's one.
+    REQUIRE(result->bundle.collision.has_value());
+    CHECK(result->bundle.collision->level.nodes.size() == 5);
+    REQUIRE(result->bundle.collision->movers.size() == 1);
+    CHECK(result->bundle.collision->movers[0].tree.nodes.size() == 1);
 
     const auto written = uta::ubundle::write(result->bundle);
     REQUIRE(written.has_value());

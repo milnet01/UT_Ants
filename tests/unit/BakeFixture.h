@@ -84,6 +84,7 @@ struct BrushSpec {
     std::int32_t texture = 0; ///< a reference from the same builder; 0 wears none
     std::uint32_t polyFlags = 0;
     std::int32_t iSurf = 0; ///< the node's surface; past the Model's one, buildGeometry refuses
+    std::int32_t iPlane = -1; ///< the node's coplanar link; naming no node, COLL refuses (UTA-0111)
 };
 
 /// A package under construction: its three tables, kept consistent, and the
@@ -197,6 +198,8 @@ public:
     /// A second, larger Model export the level does not name -- INV-13.
     MapBuilder& addDecoyModel();
     MapBuilder& setModelTarget(ModelTarget target);
+    /// The level's node 0's coplanar link, -1 unless set -- UTA-0111 INV-7.
+    MapBuilder& setFloorCoplanar(std::int32_t iPlane);
 
     [[nodiscard]] std::vector<std::uint8_t> build() const;
 
@@ -223,6 +226,7 @@ private:
     int levelCount_ = 1;
     bool decoy_ = false;
     ModelTarget target_ = ModelTarget::Model;
+    std::int32_t floorCoplanar_ = -1;
 };
 
 /// A texture package: each texture and its palette.

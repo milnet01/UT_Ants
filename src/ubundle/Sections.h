@@ -1,9 +1,9 @@
 // The section codecs Bundle.cpp dispatches to, one .cpp file each.
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
-// with umap, NAVG and WIRG with unav, TEXS with umat, MATS, GEOM, PLAC, LITE
-// and MOVR with ubake -- so each lives in its own file, and work on one does
-// not share a file with work on another (UTA-0091). Bundle.cpp keeps the
+// with umap, NAVG and WIRG with unav, TEXS with umat, MATS, GEOM, PLAC, LITE,
+// MOVR and COLL with ubake -- so each lives in its own file, and work on one
+// does not share a file with work on another (UTA-0091). Bundle.cpp keeps the
 // framing: the header, the section table, and read and write.
 //
 // docs/specs/UTA-0008-bundle-container-and-origin.md SS 4.6 to SS 4.9,
@@ -11,7 +11,8 @@
 // docs/specs/UTA-0011-map-baker.md SS 4.10 for MATS,
 // docs/specs/UTA-0109-map-geometry.md SS 4.2 for GEOM, and
 // docs/specs/UTA-0110-lights-and-placements.md SS 4.3 and SS 4.4 for PLAC
-// and LITE, and docs/specs/UTA-0119-mover-shapes.md SS 4.2 for MOVR.
+// and LITE, docs/specs/UTA-0119-mover-shapes.md SS 4.2 for MOVR, and
+// docs/specs/UTA-0111-level-collision.md SS 4.2 for COLL.
 
 #pragma once
 
@@ -33,6 +34,7 @@ constexpr SectionId ID_GEOM = {'G', 'E', 'O', 'M'};
 constexpr SectionId ID_PLAC = {'P', 'L', 'A', 'C'};
 constexpr SectionId ID_LITE = {'L', 'I', 'T', 'E'};
 constexpr SectionId ID_MOVR = {'M', 'O', 'V', 'R'};
+constexpr SectionId ID_COLL = {'C', 'O', 'L', 'L'};
 
 // Structural validation -- SS 4.9.
 //
@@ -98,5 +100,12 @@ constexpr SectionId ID_MOVR = {'M', 'O', 'V', 'R'};
 [[nodiscard]] Result<std::vector<MoverShape>> readMovers(Cursor& cursor);
 [[nodiscard]] Result<void> validateMovers(const std::vector<MoverShape>& movers, ErrorCode code);
 [[nodiscard]] std::vector<std::byte> encodeMovers(const std::vector<MoverShape>& movers);
+
+// COLL -- CollisionSection.cpp, UTA-0111 SS 4.2. A bool byte other than 0 or
+// 1 is refused inside the element readers; every other rule is the
+// validator's, on both paths.
+[[nodiscard]] Result<Collision> readCollision(Cursor& cursor);
+[[nodiscard]] Result<void> validateCollision(const Collision& collision, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeCollision(const Collision& collision);
 
 } // namespace uta::ubundle::detail

@@ -17,6 +17,13 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **A baked map carries what is solid, for the level and each mover.** (UTA-0111)
+  A new section, `COLL`, holds Unreal Tournament's own collision tree
+  from the level's world and from each mover's brush, with each
+  surface's outline and the game's hull boxes. The movement model and
+  the physics world will both read it, so they cannot disagree about a
+  wall. A mover's tree sits in the same space as its shape.
+
 - **A baked map carries its doors, lifts and other movers.** (UTA-0119)
   A new section, `MOVR`, holds each mover's shape in its own space, with
   the position, rotation and second scale that place it, so the renderer
@@ -175,6 +182,10 @@ appears once something has actually shipped.)
   CMake + Ninja, C++23, Catch2 v3.16.0 fetched by the build rather than installed. The suite passes on a clone with no Unreal Tournament present, which is what S7 is measured on; a second tier behind UTA_REAL_ASSET_TESTS runs against a real install and refuses to configure without a path.
 
 ### Changed
+
+- **Bundles are format version 7.** (UTA-0111)
+  `COLL` raises the `.utab` format version from 6 to 7, and the baker's
+  revision from 4 to 5. A version-6 bundle is refused and baked again.
 
 - **Bundle format version 6 and baker revision 4; placements are baked before materials.** (UTA-0119)
   A version-5 bundle is refused and baked over. The bake finds its movers

@@ -17,6 +17,7 @@
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 
+#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -34,6 +35,24 @@ struct MoverSite {
 /// export of the map. An actor whose Brush is null is not a mover.
 [[nodiscard]] Result<std::vector<MoverSite>> findMovers(const upkg::Package& map,
                                                         const ubundle::Placements& actors);
+
+/// A mover's pivot space -- SS 4.4: its MainScale, resolved as doubles, and
+/// its PrePivot, as floats.
+struct PivotSpace {
+    std::array<double, 3> mainScale{1, 1, 1};
+    std::array<float, 3> prePivot{};
+
+    /// `p` in pivot space: MainScale times (p - PrePivot), per axis in double,
+    /// stored as float -- SS 4.5 step 2. UTA-0111 SS 4.4 moves a collision
+    /// tree's points with this same function, so a corner a shape and a tree
+    /// both hold is the same float.
+    [[nodiscard]] std::array<float, 3> point(const std::array<float, 3>& p) const noexcept;
+};
+
+/// `mover`'s pivot space, by SS 4.4. MalformedData, naming the actor, for a
+/// MainScale with a zero component.
+[[nodiscard]] Result<PivotSpace> pivotSpaceOf(const MoverSite& mover,
+                                              const ubundle::Placements& actors);
 
 /// One mover's shape, by SS 4.4 and SS 4.5, from its Model already read.
 ///

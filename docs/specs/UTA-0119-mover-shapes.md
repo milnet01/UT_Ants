@@ -424,7 +424,7 @@ names it.
 - Drawing a shape — tracked by UTA-0014.
 - A `Brush` an actor inherits from its class's defaults — not yet queued.
 - A mover's shear — not yet queued (§ 3 decision 3).
-- A mover's collision — not yet queued.
+- A mover's collision — UTA-0111.
 
 ## 10. What checks this
 

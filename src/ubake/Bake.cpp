@@ -4,6 +4,7 @@
 
 #include "core/FileSystem.h"
 #include "ubake/Actors.h"
+#include "ubake/Collision.h"
 #include "ubake/Geometry.h"
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
@@ -474,8 +475,19 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         shapes.push_back(std::move(shape));
     }
 
+    // 10. COLL: the level's tree, then each mover's, in export order, from
+    // the Model step 6 read -- UTA-0111 SS 4.6.
+    ubundle::Collision collision;
+    UTA_TRY(collision.level, naming(buildCollision(model), mapName));
+    collision.movers.reserve(movers.size());
+    for (std::size_t i = 0; i < movers.size(); ++i) {
+        UTA_TRY(ubundle::MoverCollision tree,
+                naming(buildMoverCollision(movers[i], moverModels[i], actors.placements), mapName));
+        collision.movers.push_back(std::move(tree));
+    }
+
     BakeResult result;
-    // 10. The budget, over every map of every material.
+    // 11. The budget, over every map of every material.
     result.budget = umat::measure(materials.textures, budgetBytes);
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
@@ -494,6 +506,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.placements = std::move(actors.placements);
     result.bundle.lights = std::move(actors.lights);
     result.bundle.movers = std::move(shapes);
+    result.bundle.collision = std::move(collision);
     return result;
 }
 

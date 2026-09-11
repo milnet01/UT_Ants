@@ -125,16 +125,31 @@ Result<std::vector<MoverSite>> findMovers(const upkg::Package& map, const ubundl
     return movers;
 }
 
+std::array<float, 3> PivotSpace::point(const std::array<float, 3>& p) const noexcept {
+    std::array<float, 3> out{};
+    for (std::size_t axis = 0; axis < 3; ++axis)
+        out[axis] = static_cast<float>(mainScale[axis] * (static_cast<double>(p[axis]) - prePivot[axis]));
+    return out;
+}
+
+Result<PivotSpace> pivotSpaceOf(const MoverSite& mover, const ubundle::Placements& actors) {
+    const ubundle::ActorPlacement& actor = actors.actors[mover.placement];
+    const ubundle::ActorClass& actorClass = actors.classes[actor.classIndex];
+    PivotSpace pivot;
+    pivot.mainScale = scaleNamed("mainscale", actor, actorClass);
+    if (pivot.mainScale[0] == 0 || pivot.mainScale[1] == 0 || pivot.mainScale[2] == 0)
+        return std::unexpected(malformed("mover " + actor.path + " has a MainScale with a zero component"));
+    pivot.prePivot = vectorNamed("prepivot", actor, actorClass);
+    return pivot;
+}
+
 Result<ubundle::MoverShape> buildMover(const MoverSite& mover, const upkg::Model& model,
                                        const ubundle::Placements& actors, const MaterialLookup& lookup) {
     const ubundle::ActorPlacement& actor = actors.actors[mover.placement];
     const ubundle::ActorClass& actorClass = actors.classes[actor.classIndex];
     const std::string where = "mover " + actor.path;
 
-    const Vec3 mainScale = scaleNamed("mainscale", actor, actorClass);
-    if (mainScale[0] == 0 || mainScale[1] == 0 || mainScale[2] == 0)
-        return std::unexpected(malformed(where + " has a MainScale with a zero component"));
-    const std::array<float, 3> prePivot = vectorNamed("prepivot", actor, actorClass);
+    UTA_TRY(const PivotSpace pivot, pivotSpaceOf(mover, actors));
 
     // SS 4.5 step 1.
     auto built = buildGeometry(model, lookup);
@@ -148,12 +163,10 @@ Result<ubundle::MoverShape> buildMover(const MoverSite& mover, const upkg::Model
     // MainScale and normalised -- the inverse transpose of a diagonal scale.
     // u and v stay as buildGeometry made them, in the brush's own space.
     for (ubundle::GeometryVertex& vertex : shape.geometry.vertices) {
+        vertex.position = pivot.point(vertex.position);
         Vec3 normal{};
-        for (std::size_t axis = 0; axis < 3; ++axis) {
-            vertex.position[axis] = static_cast<float>(
-                mainScale[axis] * (static_cast<double>(vertex.position[axis]) - prePivot[axis]));
-            normal[axis] = static_cast<double>(vertex.normal[axis]) / mainScale[axis];
-        }
+        for (std::size_t axis = 0; axis < 3; ++axis)
+            normal[axis] = static_cast<double>(vertex.normal[axis]) / pivot.mainScale[axis];
         const double length =
             std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
         if (length > 0)
@@ -163,7 +176,7 @@ Result<ubundle::MoverShape> buildMover(const MoverSite& mover, const upkg::Model
 
     // Step 3: a mirror turns every triangle over; swapping its last two
     // corners keeps the face its normal points out of in front.
-    if (mainScale[0] * mainScale[1] * mainScale[2] < 0)
+    if (pivot.mainScale[0] * pivot.mainScale[1] * pivot.mainScale[2] < 0)
         for (std::size_t i = 0; i + 2 < shape.geometry.indices.size(); i += 3)
             std::swap(shape.geometry.indices[i + 1], shape.geometry.indices[i + 2]);
 

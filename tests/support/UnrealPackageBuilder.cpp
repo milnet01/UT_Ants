@@ -796,6 +796,16 @@ ModelExportWriter& ModelExportWriter::addLeaf(std::int32_t iZone) {
     return *this;
 }
 
+ModelExportWriter& ModelExportWriter::addLeafHull(std::int32_t entry) {
+    leafHulls_.push_back(entry);
+    return *this;
+}
+
+ModelExportWriter& ModelExportWriter::setRootOutside(std::int32_t value) {
+    rootOutside_ = value;
+    return *this;
+}
+
 std::vector<std::uint8_t> ModelExportWriter::build() const {
     const auto appendVector = [](std::vector<std::uint8_t>& out, const std::array<float, 3>& v) {
         appendFloat(out, v[0]);
@@ -819,13 +829,13 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
         appendVector(out, node.normal);
         appendFloat(out, node.w);
         appendU64(out, 0);                            // zoneMask
-        out.push_back(0);                             // nodeFlags
+        out.push_back(node.nodeFlags);
         appendIndex(out, node.iVertPool);
         appendIndex(out, node.iSurf);
         appendIndex(out, node.iFront);
         appendIndex(out, node.iBack);
-        appendIndex(out, 0);                          // iPlane
-        appendIndex(out, 0);                          // iCollisionBound
+        appendIndex(out, node.iPlane);
+        appendIndex(out, node.iCollisionBound);
         appendIndex(out, 0);                          // iRenderBound
         out.push_back(node.iZone[0]);
         out.push_back(node.iZone[1]);
@@ -865,7 +875,8 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
     appendIndex(out, 0);                              // LightMap
     appendIndex(out, 0);                              // LightBits
     appendIndex(out, 0);                              // Bounds
-    appendIndex(out, 0);                              // LeafHulls
+    appendIndex(out, static_cast<std::int32_t>(leafHulls_.size())); // LeafHulls
+    for (const std::int32_t entry : leafHulls_) appendI32(out, entry); // raw i32
     appendIndex(out, static_cast<std::int32_t>(leaves_.size()));
     for (const std::int32_t zone : leaves_) {
         appendIndex(out, zone);                       // iZone
@@ -874,7 +885,7 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
         appendU64(out, 0);                            // visibleZones
     }
     appendIndex(out, 0);                              // Lights
-    appendU32(out, 1);                                // RootOutside
+    appendI32(out, rootOutside_);                     // RootOutside -- a raw i32
     appendU32(out, 0);                                // Linked
     return out;
 }

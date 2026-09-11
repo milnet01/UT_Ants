@@ -216,7 +216,8 @@ UT 4.32's public headers.
 
 Steps 2 and 4 refuse the bake with `MalformedData`, naming the node and the
 index. A node skipped at step 1 or 3 is checked no further, so a surface UT99
-never draws cannot refuse a bake.
+never draws cannot refuse `GEOM`. `COLL` checks it, since an invisible node
+can still be solid (UTA-0111 § 4.3).
 
 **Batches.** A drawn node belongs to the batch keyed by its material id
 (empty for none) and its surface's `polyFlags`. Batches are emitted in

@@ -40,13 +40,14 @@ namespace uta::ubundle {
 /// reader should tolerate, so a mismatch is UnsupportedVersion before the
 /// section table is read.
 ///
-/// 6 since UTA-0119 added the MOVR section -- that item's SS 4.2. 5 came with
-/// UTA-0110's PLAC and LITE sections, its SS 4.4, 4 with UTA-0109's GEOM
-/// section, its SS 4.2, 3 with UTA-0011's MATS section, its SS 4.10, and 2
-/// with UTA-0052's TEXS section, its SS 4.7. Nothing else about the framing
-/// moved: the header is still sixteen bytes and the descriptor twenty-four.
+/// 7 since UTA-0111 added the COLL section -- that item's SS 4.2. 6 came with
+/// UTA-0119's MOVR section, its SS 4.2, 5 with UTA-0110's PLAC and LITE
+/// sections, its SS 4.4, 4 with UTA-0109's GEOM section, its SS 4.2, 3 with
+/// UTA-0011's MATS section, its SS 4.10, and 2 with UTA-0052's TEXS section,
+/// its SS 4.7. Nothing else about the framing moved: the header is still
+/// sixteen bytes and the descriptor twenty-four.
 /// No .utab exists that this orphans, 0.1.0 not having been cut.
-inline constexpr std::uint32_t FORMAT_VERSION = 6;
+inline constexpr std::uint32_t FORMAT_VERSION = 7;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -270,6 +271,62 @@ struct MoverShape {
     Geometry geometry;                      ///< GEOM's shape, in pivot space
 };
 
+/// One node of UT99's collision tree -- UTA-0111 SS 4.2. Every field is the
+/// Model's own value. Which nodes are solid, and how a walk descends, are the
+/// reader's, to that item's SS 4.5.
+struct CollisionNode {
+    std::array<float, 3> normal{};  ///< the plane's normal
+    float distance = 0;             ///< the plane's W: normal . p == distance on it
+    std::int32_t back = -1;         ///< iBack, UT99's child 0; -1 for none
+    std::int32_t front = -1;        ///< iFront, UT99's child 1; -1 for none
+    std::int32_t coplanar = -1;     ///< iPlane, the next node on this plane; -1 for none
+    std::int32_t hull = -1;         ///< into CollisionTree::hulls; -1 for none
+    std::uint8_t nodeFlags = 0;     ///< UT99's NodeFlags, verbatim
+    std::uint32_t polyFlags = 0;    ///< its surface's PolyFlags, verbatim; 0 with no outline
+    std::uint32_t firstOutline = 0; ///< into CollisionTree::outline
+    std::uint32_t outlineCount = 0; ///< 0, or 3 and more
+};
+
+/// One plane bounding a hull: a node's plane, reversed where `flipped` is set.
+struct HullPlane {
+    std::uint32_t node = 0;
+    bool flipped = false; ///< bit 30 of UT99's stored index
+};
+
+/// The region behind every one of `planes` -- UTA-0111 SS 4.5.
+struct CollisionHull {
+    std::vector<HullPlane> planes;
+    std::array<float, 3> min{}, max{}; ///< the box UT99 stores after the run
+};
+
+/// A Model's collision tree -- UTA-0111 SS 4.2.
+///
+/// A walk from node 0 over back, front and coplanar reaches no node twice. A
+/// node no walk reaches is kept, as UT99 keeps it, and is not solid (SS 4.5).
+struct CollisionTree {
+    std::vector<CollisionNode> nodes;         ///< node 0 is the root
+    std::vector<std::array<float, 3>> points; ///< what outlines index
+    std::vector<std::uint32_t> outline;       ///< point indices, a run per node
+    std::vector<CollisionHull> hulls;
+    bool outside = false;                     ///< UT99's RootOutside
+};
+
+/// One mover's tree, in its MOVR shape's pivot space -- UTA-0111 SS 4.4.
+///
+/// SCOPE: this library does not check that exportIndex has a MOVR shape; the
+/// baker guarantees it (UTA-0111 INV-6).
+struct MoverCollision {
+    std::uint32_t exportIndex = 0; ///< its slot in the map's export table, as MOVR's
+    CollisionTree tree;
+};
+
+/// What in a level is solid -- UTA-0111 SS 4.2. The floats are not checked,
+/// as GEOM's are not.
+struct Collision {
+    CollisionTree level;
+    std::vector<MoverCollision> movers; ///< strictly ascending by exportIndex
+};
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -291,6 +348,8 @@ struct Bundle {
     std::optional<std::vector<Light>> lights;
     /// Strictly ascending by exportIndex -- UTA-0119 SS 4.2.
     std::optional<std::vector<MoverShape>> movers;
+    /// UTA-0111 SS 4.2.
+    std::optional<Collision> collision;
 };
 
 /// Decode a whole bundle.
@@ -303,7 +362,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

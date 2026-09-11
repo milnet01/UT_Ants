@@ -186,6 +186,11 @@ layouts in §§ 4.6–4.8:
 | `ActorPlacement` | 16 — **added by UTA-0110**, whose § 4.4 derives it |
 | `Light` | 44 (fixed) — **added by UTA-0110**, whose § 4.4 derives it |
 | `MoverShape` | 52 — **added by UTA-0119**, whose § 4.2 derives it |
+| `CollisionNode` | 45 (fixed) — **added by UTA-0111**, whose § 4.2 derives it |
+| `HullPlane` | 5 (fixed) — **added by UTA-0111**, whose § 4.2 derives it |
+| `CollisionHull` | 28 — **added by UTA-0111**, whose § 4.2 derives it |
+| `CollisionTree` | 17 — **added by UTA-0111**, whose § 4.2 derives it |
+| `MoverCollision` | 21 — **added by UTA-0111**, whose § 4.2 derives it |
 
 ### 4.3 The header
 
@@ -194,7 +199,7 @@ Sixteen bytes, at offset 0.
 | Offset | Size | Field | Value |
 |---|---|---|---|
 | 0 | 4 | `magic` | the bytes `U`, `T`, `A`, `B` — `0x55 0x54 0x41 0x42` |
-| 4 | 4 | `formatVersion` | `u32`, `6` in this version — **raised from `1` to `2` by UTA-0052**, which added the `TEXS` section, **to `3` by UTA-0011**, which added `MATS`, **to `4` by UTA-0109**, which added `GEOM`, **to `5` by UTA-0110**, which added `PLAC` and `LITE`, **and to `6` by UTA-0119**, which added `MOVR` |
+| 4 | 4 | `formatVersion` | `u32`, `7` in this version — **raised from `1` to `2` by UTA-0052**, which added the `TEXS` section, **to `3` by UTA-0011**, which added `MATS`, **to `4` by UTA-0109**, which added `GEOM`, **to `5` by UTA-0110**, which added `PLAC` and `LITE`, **to `6` by UTA-0119**, which added `MOVR`, **and to `7` by UTA-0111**, which added `COLL` |
 | 8 | 1 | `origin` | `u8`, § 4.5 |
 | 9 | 1 | `kind` | `u8`, `0` = map, `1` = character |
 | 10 | 2 | `reserved` | `u16`, must be `0` |
@@ -220,7 +225,7 @@ field, because a field whose value is always 16 is a field that can be wrong.
 
 | Offset | Size | Field | Value |
 |---|---|---|---|
-| 0 | 4 | `id` | four bytes, §§ 4.6–4.8, **UTA-0052 § 4.3** for `TEXS`, **UTA-0011 § 4.10** for `MATS`, **UTA-0109 § 4.2** for `GEOM`, **UTA-0110 § 4.4** for `PLAC` and `LITE`, and **UTA-0119 § 4.2** for `MOVR` |
+| 0 | 4 | `id` | four bytes, §§ 4.6–4.8, **UTA-0052 § 4.3** for `TEXS`, **UTA-0011 § 4.10** for `MATS`, **UTA-0109 § 4.2** for `GEOM`, **UTA-0110 § 4.4** for `PLAC` and `LITE`, **UTA-0119 § 4.2** for `MOVR`, and **UTA-0111 § 4.2** for `COLL` |
 | 4 | 8 | `offset` | `u64`, from the start of the file |
 | 12 | 8 | `size` | `u64`, payload bytes |
 | 20 | 1 | `compression` | `u8`, `0` = none; no version defines another value. **UTA-0052 § 3 decision 5 kept it zero**: block format is carried per texture, not per section |
@@ -513,7 +518,7 @@ the check it is not.
 ```cpp
 namespace uta::ubundle {
 
-inline constexpr std::uint32_t FORMAT_VERSION = 6;  // 6 since UTA-0119; 5 since UTA-0110; 4 since UTA-0109; 3 since UTA-0011; 2 since UTA-0052
+inline constexpr std::uint32_t FORMAT_VERSION = 7;  // 7 since UTA-0111; 6 since UTA-0119; 5 since UTA-0110; 4 since UTA-0109; 3 since UTA-0011; 2 since UTA-0052
 
 enum class BundleKind : std::uint8_t { Map = 0, Character = 1 };
 
@@ -541,6 +546,8 @@ struct Bundle {
     std::optional<std::vector<Light>>  lights;
     // Added by UTA-0119, whose § 4.2 owns MoverShape.
     std::optional<std::vector<MoverShape>> movers;
+    // Added by UTA-0111, whose § 4.2 owns Collision.
+    std::optional<Collision>           collision;
 };
 
 /// Total: every input returns. Never throws, never reads outside `bytes`.
@@ -555,10 +562,10 @@ struct Bundle {
 ```
 
 `write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, `TEXS`,
-`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, omitting absent ones. **`TEXS` was
+`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, omitting absent ones. **`TEXS` was
 APPENDED by UTA-0052 rather than inserted, `MATS` by UTA-0011 after it, `GEOM`
-by UTA-0109 after that, `PLAC` then `LITE` by UTA-0110, and `MOVR` by UTA-0119
-after those**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
+by UTA-0109 after that, `PLAC` then `LITE` by UTA-0110, `MOVR` by UTA-0119
+after those, and `COLL` by UTA-0111 after that**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
 calls requires a `.utab` *"that any tool other than `ubake` wrote"* to be
 named by the hash of its own contents, and a hash over an
 incidentally-ordered file names one world two things. Determinism is not
@@ -615,9 +622,9 @@ the same defect one layer along.
   builds a span past the end of `edges` for a run the file declared and
   nothing checked.
 
-- **INV-4** — *(amended by UTA-0052, then UTA-0011, then UTA-0109, then UTA-0110, then UTA-0119: the version is `6`.)*
+- **INV-4** — *(amended by UTA-0052, then UTA-0011, then UTA-0109, then UTA-0110, then UTA-0119, then UTA-0111: the version is `7`.)*
   A header whose `magic` is not `U`,`T`,`A`,`B` is
-  `MalformedData`; one whose `formatVersion` is not `6` is
+  `MalformedData`; one whose `formatVersion` is not `7` is
   `UnsupportedVersion`. Neither is read further. The equality check is the
   thing this invariant protects and it is unchanged; only the number moved.
   *Test:* `tests/unit/BundleFormatTest.cpp`. No arrow: the surface does not

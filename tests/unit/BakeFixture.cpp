@@ -335,6 +335,7 @@ std::int32_t MapBuilder::addBrushModel(const BrushSpec& brush) {
     square.iSurf = brush.iSurf;
     square.iVertPool = 0;
     square.numVertices = 4;
+    square.iPlane = brush.iPlane;
     model.addNode(square);
 
     ModelExportWriter::Surf surf;
@@ -370,6 +371,11 @@ MapBuilder& MapBuilder::setModelTarget(ModelTarget target) {
     return *this;
 }
 
+MapBuilder& MapBuilder::setFloorCoplanar(std::int32_t iPlane) {
+    floorCoplanar_ = iPlane;
+    return *this;
+}
+
 std::vector<std::uint8_t> MapBuilder::build() const {
     Packer packer = packer_;
 
@@ -386,6 +392,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     ModelExportWriter::Node floor;
     floor.normal = {0.0F, 0.0F, 1.0F};
     floor.iLeaf = {1, 0};
+    floor.iPlane = floorCoplanar_;
     model.addNode(floor).setZoneCount(3).addLeaf(1).addLeaf(2);
 
     // Each surface draws a 64-unit square, one above the next, so the golden

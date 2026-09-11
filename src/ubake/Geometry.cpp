@@ -74,7 +74,8 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         const upkg::BspSurf& surf = model.surfs[static_cast<std::size_t>(node.iSurf)];
 
         // 3. A surface UT99 never draws is checked no further, so it cannot
-        // refuse a bake.
+        // refuse GEOM. COLL checks it, since an invisible node can still be
+        // solid (UTA-0111 SS 4.3).
         if ((surf.polyFlags & PF_INVISIBLE) != 0) continue;
 
         // 4. Its polygon, and its surface's point and vectors. Every index is

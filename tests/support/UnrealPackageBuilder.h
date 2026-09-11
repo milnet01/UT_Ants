@@ -353,9 +353,9 @@ private:
 /// both trailing i32 present.
 class ModelExportWriter {
 public:
-    /// One BSP node. Children and leaves default to the file's own "none",
-    /// -1: a 0 names node 0, and a fixture that forgets to set one builds a
-    /// descent that loops back on itself.
+    /// One BSP node. Children, the coplanar link, the hull and leaves default
+    /// to the file's own "none", -1: a 0 names node 0, and a fixture that
+    /// forgets to set one builds a descent that loops back on itself.
     struct Node {
         std::array<float, 3> normal{};
         float w = 0.0F;
@@ -366,6 +366,9 @@ public:
         std::array<std::uint8_t, 2> iZone{};
         std::uint8_t numVertices = 0;  // 0: the node draws nothing
         std::array<std::int32_t, 2> iLeaf{-1, -1}; // front, back
+        std::int32_t iPlane = -1;          // the next node on this plane -- UTA-0111
+        std::int32_t iCollisionBound = -1; // its run in LeafHulls -- UTA-0111
+        std::uint8_t nodeFlags = 0;
     };
 
     /// One BSP surface. Its point and vector indices name entries added with
@@ -397,6 +400,10 @@ public:
     ModelExportWriter& setZoneCount(std::int32_t count);
     /// A leaf in `iZone`.
     ModelExportWriter& addLeaf(std::int32_t iZone);
+    /// One entry of the LeafHulls table, in the order added -- UTA-0111 SS 4.3.
+    ModelExportWriter& addLeafHull(std::int32_t entry);
+    /// RootOutside; 1 unless set.
+    ModelExportWriter& setRootOutside(std::int32_t value);
 
     [[nodiscard]] std::vector<std::uint8_t> build() const;
 
@@ -412,6 +419,8 @@ private:
     std::vector<std::int32_t> verts_;
     std::int32_t zoneCount_ = 0;
     std::vector<std::int32_t> leaves_;
+    std::vector<std::int32_t> leafHulls_;
+    std::int32_t rootOutside_ = 1;
 };
 
 /// Compiled-script instructions, for the walker's fixtures. Each returns the
