@@ -4625,7 +4625,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle, uworld.
 
-- 📋 [UTA-0112] **ubake: bake indirect light into the bundle.**
+- 🚧 [UTA-0112] **ubake: bake indirect light into the bundle.**
   Split out of UTA-0011 by the user on 2026-09-10.
   ADR-0002 lists baked indirect light among what a bundle carries.
   The method, and the section that stores its result, are this item's.
@@ -4647,6 +4647,10 @@ model, no weapon and no opponent until 0.2.0.
   AmbientBrightness, AmbientHue and AmbientSaturation are a second light
   source to account for. UT99's light falloff formula was not found in any
   source reached; the bake and UTA-0014 must share one light model.
+  Resumed (2026-09-11) by ut-ants-2b, main checkout, after UTA-0125 shipped:
+  its spec first, with write-spec, then review-contract. Rule 1 has nothing
+  workable (UTA-0059, UTA-0098 and UTA-0100 are dormant by their own terms),
+  and this is Next.
   **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
