@@ -453,14 +453,17 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   class-name match, or the class default is read over the actor's own value.
 
 - **INV-11** — The scene keeps only the edges a walking bot may use: every
-  flag among § 3 decision 10's, and a size at least the body's.
+  flag among § 3 decision 10's, and a radius and a height at least the
+  body's.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `sceneOf` over INV-10's
-  map with four PathNodes joined by five reach specs: walking (1), walking
-  and jumping (9), special (32), flying (2), and walking at a radius below
-  17. `Scene::edges` holds the first three and not the last two.
-  *Breaks when:* every spec is kept whatever its flags, the size is not
-  tested, or a flag the bot has, such as `R_JUMP` or `R_SPECIAL`, refuses a
-  spec.
+  map with four PathNodes joined by seven reach specs, each on its own
+  ordered pair of nodes: walking (1), walking and jumping (9), special (32),
+  and walking, swimming, doors and player-only (85) are kept; flying (2),
+  walking at a radius below 17, and walking at a height below 39 are not.
+  `Scene::edges` holds the first four pairs and not the last three.
+  *Breaks when:* every spec is kept whatever its flags, the radius or the
+  height is not tested, or a flag the bot has, such as `R_SWIM`, `R_DOOR` or
+  `R_PLAYERONLY`, refuses a spec.
 
 ## 6. Failure modes
 
@@ -501,8 +504,9 @@ navigation point; substitute a point without checking its hop; run a
 ways; write a name unescaped; write the double; ignore the group column;
 fail the run on a missing file; skip the directory summary; take a later
 PlayerStart; read the class default over the actor's own value; keep a
-flying spec; skip the size test; refuse a special spec. Each must be killed
-by the invariant that names it.
+flying spec; skip the radius test; skip the height test; refuse a special
+spec; drop `R_SWIM` from the bot's flags. Each must be killed by the
+invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
 
