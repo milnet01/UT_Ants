@@ -70,6 +70,10 @@ UTA-0119). The choices below are mine.
    function reads, so a second triangulator over `Polys` is not needed.
 6. **A texture only a mover wears gets its material made in step 5**, as a
    level texture does. Mine.
+7. **The placement formula uses exact sine and cosine, not the engine's
+   table.** Mine. `GMath.SinTab` drops each angle's lowest two bits; with the
+   table and without it, the static-brush measurement lands corners at the
+   same share, and the real-asset case prints both (§ 7).
 
 ## 4. Design
 
@@ -194,8 +198,8 @@ namespace uta::ubake {
 4. **`location`, `rotation` and `postScale`** are § 4.4's.
 
 **The renderer places a pivot-space point `q` at**
-`location + postScale ⊙ (Y · P · R · q)`, with `c` and `s` the cosine and
-sine of `2π × angle / 65536`:
+`location + postScale ⊙ (Y · P · R · q)`, with `c` and `s` the exact cosine
+and sine of `2π × angle / 65536`:
 
 ```
 Y = | c_yaw  -s_yaw  0 |    P = | c_pitch  0  -s_pitch |    R = | 1  0        0      |
@@ -204,8 +208,9 @@ Y = | c_yaw  -s_yaw  0 |    P = | c_pitch  0  -s_pitch |    R = | 1  0        0 
 ```
 
 That is `ABrush::ToWorld` applied with `FVector::TransformPointBy`, with its
-shear left out and split after `MainScale`. The FCoords operators it rests on
-are Surreal's `Core/Inc/UnMath.h`: `operator*=` taking a `FVector`, a
+shear left out, split after `MainScale`, and with exact sine and cosine where
+the engine reads `GMath`'s table (§ 3 decision 7). The FCoords operators it
+rests on are Surreal's `Core/Inc/UnMath.h`: `operator*=` taking a `FVector`, a
 `FRotator`, a `FScale` and a `FCoords`, and `TransformPointBy`. INV-7 checks
 the formula against a port of them.
 
@@ -231,9 +236,11 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
 
 - **INV-1** — `MOVR` round-trips through `ubundle::write` and `ubundle::read`,
   every float bit included, and `write` emits it after `LITE`.
-  *Test:* `tests/unit/BundleMoversTest.cpp`: two shapes, one with a `-0.0`
-  location and a negative `postScale`, each with a two-batch geometry, in a
-  bundle that also carries `LITE`.
+  *Test:* `tests/unit/BundleMoversTest.cpp`: a payload authored from § 4.2
+  field by field, never by `write`, holding two shapes — one with a `-0.0`
+  location and a negative `postScale`, each with a two-batch geometry — in a
+  bundle that also carries `LITE`. `read` decodes it and `write` reproduces
+  it. One shape with empty geometry encodes to exactly 52 bytes.
   *Breaks when:* a field is encoded at another's width, or `MOVR` is emitted
   before `LITE`.
 
@@ -248,11 +255,12 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
 - **INV-3** — An actor gets a shape exactly when § 4.3 makes it a mover, and
   each shape's `exportIndex` is that actor's placement's.
   *Test:* `tests/unit/BakeMoversTest.cpp`: a map holding an actor of
-  `Engine.Mover`; one of `Engine.Mover` that sets `bStatic` itself; an actor
-  of `Engine.Brush`; one of a class named `WeaponRemover` that does not
-  descend from `Brush` and carries a `Brush`; one of a mover class whose
-  package is missing; and one of `Engine.Mover` with a null `Brush`. Only the
-  first gets a shape.
+  `Engine.Mover`; one of `Engine.Mover` that sets `bStatic` true; an actor of
+  `Engine.Brush` carrying a `Brush`; one of a class named `WeaponRemover` that does not
+  descend from `Brush`; one of a mover class whose package is missing; and
+  one of `Engine.Mover` with a null `Brush`. Every actor but the last carries
+  a `Brush` naming a `Model` export, so each is excluded by the rule it
+  isolates. Only the first gets a shape.
   *Breaks when:* a class name decides, `bStatic` is read from only one of the
   actor and its class, or an unresolved class is guessed at.
 
@@ -285,12 +293,16 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
   *Breaks when:* the shear is applied.
 
 - **INV-7** — § 4.5's placement formula equals `ABrush::ToWorld` applied with
-  `FVector::TransformPointBy`, for any `Location`, `Rotation`, `PrePivot`,
-  `MainScale` and `PostScale` without shear.
+  `FVector::TransformPointBy`, computed with exact sine and cosine, for any
+  `Location`, `Rotation`, `PrePivot`, `MainScale` and `PostScale` without
+  shear.
   *Test:* `tests/unit/BakeMoversTest.cpp`: a port of the FCoords operators
-  § 4.5 cites, against the formula, over inputs that turn each rotation axis
-  alone and together, carry a negative scale and a non-zero `PrePivot`, and
-  agree within `0.001`.
+  § 4.5 cites, with exact sine and cosine, against the formula, both in
+  double. The inputs turn each rotation axis alone and together, by angles
+  that are not multiples of 4, and carry a negative scale and a non-zero
+  `PrePivot`. Every coordinate lies within 4096 of the origin and every scale
+  component between 1/16 and 16 in magnitude. The two agree within `0.001`,
+  absolute.
   *Breaks when:* the formula's rotation order, a sign, or where `PostScale`
   sits differs from the engine's.
 
@@ -337,7 +349,8 @@ movers baked; maps refused, by reason; movers carrying a shear; mover
 `Model`s whose points sit nearer the origin than the actor; and textures
 only a mover wears. It also places every static brush's `Polys` corners with
 INV-7's port and prints the share landing on a level point, by transform
-property, which is what shows the port is the engine's.
+property, with `GMath`'s table and with exact sine and cosine. That is what
+shows the port is the engine's.
 
 **Mutation, by hand** (`CLAUDE.md` § Build and test): take a class name for
 the mover test; read `bStatic` from the actor alone; subtract `PrePivot` after
@@ -357,9 +370,10 @@ names it.
 - **Applying the engine's shear.** § 3 decision 3.
 - **Mover triangles inside `GEOM`.** A mover must stay separable, to be moved
   and to be joined to its placement.
-- **`PrePivot` and `MainScale` left to the renderer.** They never change
-  while a level runs, so baking them once keeps UE1's pivot and scale rules
-  out of the renderer.
+- **`PrePivot` and `MainScale` left to the renderer.** No stock script
+  changes a mover's `PrePivot` or `MainScale` while a level runs, so baking
+  them once keeps UE1's pivot and scale rules out of the renderer. A map's own
+  script could; that is the movement item's to handle (§ 9).
 
 ## 9. Out of scope
 
