@@ -1,7 +1,8 @@
 # UTA-0121 — `ut-paths`: propose bot path nodes for UT99's maps
 
-**Status:** accepted (2026-09-11), at the review's cap; UTA-0125's
-amendment (§ 3 decision 10, INV-11) is under review.
+**Status:** accepted (2026-09-11), at the review's cap; amended for UTA-0125
+(§ 3 decision 10, INV-11) and accepted again (2026-09-11), at that review's
+cap.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -484,11 +485,13 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 for INV-3 and INV-4; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
 INV-8, INV-9, INV-10 and INV-11.
 Each is seen failing before the code it locks exists. Trees and scenes are
-built in memory, with `tests/unit/PathFixture.h`, so only INV-9 and INV-10
-need an install or a fixture map.
+built in memory, with `tests/unit/PathFixture.h`, so only INV-9, INV-10 and
+INV-11 need an install or a fixture map.
 
 **Real-asset tier, local only:** `tests/real/RealPathSeedsTest.cpp` runs over
-every map in the install holding a MonsterEnd. It prints spots found, the
+every map in the install holding a MonsterEnd. It prints `Botpack.TMale1`'s
+resolved CollisionRadius, CollisionHeight and MaxStepHeight (§ 3 decision
+4's numbers), spots found, the
 floor normal Z under every PlayerStart and PathNode (the check on § 3
 decision 6), each PlayerStart's Location above its floor (the check on § 3
 decision 4), and exits by route. It needs running with `!`: the session's
