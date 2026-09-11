@@ -4892,12 +4892,7 @@ model, no weapon and no opponent until 0.2.0.
   told which maps changed.
   Census re-run (2026-09-11) into /mnt/Games/Scripts/Linux/ut-paths-output,
   over the same 356 work rows: 297 written, 45 skipped, 14 refused, as
-  before. Seven maps changed. MH-AD_Concrete_and_floors_v3 and
-  MH-SeriousSam-Dunes-T1 (EXIT_OFF_NET) lost their found routes, to none
-  and to mover. MH-FREEKYSBFix, MH-OMG-TemplesOfEgypt2012-Ultimate and
-  MH-Thra_FortressSBMod3 (PARTITIONED) went from found to none.
-  MH-Omni-Rage-BP and MH-UM-SpaceBeacon-V1 stayed found with a different
-  chain. Proposed nodes: 98 on 21 maps before, 84 on 16 after, every one
+  before. Eight maps changed. MH-AD_Concrete_and_floors_v3 and MH-SeriousSam-Dunes-T1 (EXIT_OFF_NET) lost their found routes, to none and to mover. MH-FREEKYSBFix, MH-OMG-TemplesOfEgypt2012-Ultimate and MH-Thra_FortressSBMod3 (PARTITIONED) went from found to none. MH-Omni-Rage-BP, MH-UM-SpaceBeacon-V1 and MH-UM-SoccerStadium1-BP stayed found with a different chain; the last keeps its route and node count, and a byte comparison of all 297 files is what found it. The other 289 files are byte-identical. Proposed nodes: 98 on 21 maps before, 84 on 16 after, every one
   now on a PARTITIONED map. The comparison is against a snapshot of the
   first run kept outside the repository. Sent to UT_MonsterHunt the same
   day.
