@@ -490,7 +490,7 @@ Each must be killed by the invariant that names it.
 - Coordinates for baked light — tracked by UTA-0112.
 - Collision — tracked by UTA-0111.
 - The geometry of movers and other brush actors, each its own `Model` —
-  deferred; not yet queued.
+  tracked by UTA-0119.
 - Textures carrying a `Format` property, which get no material — tracked by
   UTA-0118.
 - A version-61 `Model` — tracked by UTA-0072.

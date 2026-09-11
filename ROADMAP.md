@@ -4538,6 +4538,13 @@ model, no weapon and no opponent until 0.2.0.
   itself. UTA-0012 is the other item in flight and shares no directory.
   Starting with write-spec: two new bundle sections are a contract the
   renderer (UTA-0014) and actor resolution (UTA-0023) bind to.
+  Decided by the user (2026-09-11), for this item's spec:
+  - Lights keep UT's own numbers -- the twelve byte fields and four
+    bools of Actor.uc's Lighting group, resolved actor over class
+    defaults. The renderer (UTA-0014) turns them into colour, as it does
+    surface flags.
+  - Movers get their own 0.1.0 item, UTA-0119, which bakes their shapes.
+    This item records where each mover stands and its settings.
   **Layman:** Carry each level's lamps, and where everything in it stands, into the baked map.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4590,6 +4597,20 @@ model, no weapon and no opponent until 0.2.0.
   Kind: investigate.
   Source: user-request-2026-09-10.
   Lanes: ubake.
+
+- 📋 [UTA-0119] **ubake: bake each mover's own brush into the bundle.**
+  Decided by the user on 2026-09-11, while UTA-0110 was being specified:
+  movers get an item of their own, before 0.1.0. A mover -- a door, a
+  lift -- carries its shape as its own brush Model, which the level's
+  Model does not hold, so UTA-0109's GEOM leaves it out and doors and
+  lifts are invisible until this lands. UTA-0110 records where each mover
+  stands and its settings; this item bakes each one's shape so the
+  renderer can draw it there.
+  Blocked-by: UTA-0109, UTA-0110.
+  **Layman:** Doors, lifts and other moving parts get their shapes baked, so they appear in the level instead of being invisible.
+  Kind: implement.
+  Source: user-request-2026-09-11 split-from-UTA-0110.
+  Lanes: ubake, ubundle.
 
 ## 0.2.0 — Movement and weapons
 
@@ -5986,3 +6007,28 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: umat, ubake.
+
+- 📋 [UTA-0120] **uui: the game menus -- modern, and never short of what UT99's menus offer.**
+  The user's requirement (2026-09-11), in their words: "For the game
+  menus, please use a more modernised approach. But at the very least
+  offer all the menu items that UT99 offers and if we build additional
+  stuff, we can add it in as well."
+
+  So two rules, and both bind every menu this project builds:
+  - The look and the navigation are modern, not a copy of UT99's
+    menu bar and windows.
+  - UT99's menu items are the FLOOR: every item its menus offer has a
+    home here. Anything this project adds goes in beside them.
+
+  The inventory is measured, not remembered: UT99's menus are UnrealScript
+  classes in its UWindow and UMenu packages, which upkg can read. Take the
+  item list from there before designing the layout.
+
+  Filed in 1.0.0 because full parity is a replace-the-live-server bar.
+  Menu work in earlier items builds under these rules: the map browser and
+  voting (UTA-0031), match setup with bots and chat (UTA-0027), gamepad
+  play (UTA-0033), the developer console (UTA-0067).
+  **Layman:** The game's menus look and work like a modern game's, and still offer at least everything Unreal Tournament's own menus did.
+  Kind: feature.
+  Source: user-request-2026-09-11.
+  Lanes: uui.
