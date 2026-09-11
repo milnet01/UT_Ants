@@ -4634,7 +4634,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle, uworld.
 
-- 🚧 [UTA-0112] **ubake: bake indirect light into the bundle.**
+- ✅ [UTA-0112] **ubake: bake indirect light into the bundle.**
   Split out of UTA-0011 by the user on 2026-09-10.
   ADR-0002 lists baked indirect light among what a bundle carries.
   The method, and the section that stores its result, are this item's.
@@ -4679,6 +4679,14 @@ model, no weapon and no opponent until 0.2.0.
   bytes each), at most 8.7 s (CTF-LavaGiant), every value finite and not
   negative. CTF-Face's count is the spec's section 15 spacing question.
   Hand mutations under way; then the push and the matrix.
+  Shipped (2026-09-11), on the matrix: CI run 34645622998 at 7ee8c96 is
+  green on Linux GCC 14, Linux Clang 19 and Windows MSVC, the golden bake
+  included, so its 27 probes' bytes match across all three compilers and
+  the recorded sine bits hold on each. Built in 9faf85f, as-built record
+  in 7ee8c96. Local gate green with ThreadSanitizer. Every hand mutation
+  of the spec's section 7 killed by the invariant it names, three at
+  compile time in INV-4's static_assert. The spec's section 15 lists the
+  decisions made while the user was away, for their review.
   **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4893,7 +4901,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-11.
   Lanes: tools.
 
-- 📋 [UTA-0124] **ubake: buildActors refuses a map whose Level names one export in two actor slots, and installed maps do.**
+- 🚧 [UTA-0124] **ubake: buildActors refuses a map whose Level names one export in two actor slots, and installed maps do.**
   Found by UTA-0121's census run (2026-09-11). Of UT_MonsterHunt's
   EXIT_OFF_NET and PARTITIONED maps, 14 were refused with "actor slot N
   names export M, which a slot before it already named" --
@@ -4905,6 +4913,11 @@ model, no weapon and no opponent until 0.2.0.
   the actor twice), and how many maps in the whole install carry one.
   Then either accept it as UT does and amend UTA-0110 SS 4.5, or keep the
   refusal and say why.
+  Picked up (2026-09-11) by ut-ants-2b, main checkout, after UTA-0112
+  shipped. Rule 1 has nothing workable (UTA-0059, UTA-0098 and UTA-0100
+  are dormant by their own terms), and this is Next. Measuring first, as
+  the body says: what UT does with a repeated slot, and how many
+  installed maps carry one.
   **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it.
   Kind: investigate.
   Source: in-session-2026-09-11.

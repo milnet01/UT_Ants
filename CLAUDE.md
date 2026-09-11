@@ -5,9 +5,11 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0112` — baking the level's indirect light into the bundle,
-the baker's next piece after collision. `UTA-0121`'s path tool for
-UT_MonsterHunt shipped 2026-09-11.
+**Next:** `UTA-0124` — the baker refuses installed maps whose Level names
+one actor in two slots; measure what UT does with them, then accept or
+keep the refusal. `UTA-0126`, why eight maps still do not route with
+their ut-paths nodes, follows it. `UTA-0112`'s baked light shipped
+2026-09-11.
 
 `UTA-0013`'s quarantine guard and `UTA-0014`'s renderer are the
 alternatives, and a second session can take either now: neither shares a
