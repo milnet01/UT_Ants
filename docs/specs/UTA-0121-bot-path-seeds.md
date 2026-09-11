@@ -1,6 +1,6 @@
 # UTA-0121 — `ut-paths`: propose bot path nodes for UT99's maps
 
-**Status:** draft (2026-09-11).
+**Status:** accepted (2026-09-11), at the review's cap.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -14,9 +14,10 @@ so UT99's own bots can find their way to the exit.
 
 A command, `ut-paths`, reads a map from the install and writes one JSON file
 proposing PathNode positions. Each position is where a player can stand. The
-nodes run from the part of the map's path network its start can reach to
-each exit. UT_MonsterHunt adds them to its path-building recipe, and UT's
-editor links them.
+nodes run from the part of the map's path network its start can reach toward
+each exit: to the exit itself, or on a `PARTITIONED` map to the part of the
+network that reaches it. UT_MonsterHunt adds them to its path-building
+recipe, and UT's editor links them.
 
 ## 2. Problem
 
@@ -76,7 +77,7 @@ The choices below are mine, the user being away and having left them to me.
    then is the mover flag.
 8. **Nodes are spaced for UT's linker.** Each straight hop between proposed
    nodes is clear and at most 350 long, and none is within 50 of another
-   navigation point. UnrealWiki's Basic Bot Pathing: "A distance of 300 to
+   navigation point unless the path leaves no other choice. UnrealWiki's Basic Bot Pathing: "A distance of 300 to
    700 UUs seems to work well", "No farther then 300 to 350 on steps and
    ramps", and closer than 50 "UnrealEd will notify you that your paths are
    too close together". One cap of 350 meets both distances without telling
@@ -120,9 +121,18 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
   temporary file and a rename. A map with no file there is skipped: named in
   the output, and not a refusal. UT_MonsterHunt's GAME-0092 moved some census
   maps out of `Maps/`.
-- Standard output is one JSON object, as ut-bake's is: `{"schema": 1,
-  "maps": [...]}`, one entry per map with its `map` and its counts, or
-  `skipped`, or the reason it was refused. Standard error is for people.
+- Standard output is one JSON object, as ut-bake's is, and the same object is
+  written to `<out>/ut-paths-summary.json`, so a reader of the directory sees
+  every map the run took, skipped ones included. Standard error is for
+  people.
+
+  ```json
+  {"schema": 1, "maps": [
+    {"map": "MH-A", "status": "written", "exits": 1, "nodes": 7},
+    {"map": "MH-B", "status": "skipped", "why": "no file in Maps/"},
+    {"map": "MH-C", "status": "refused", "why": "<the refusal's message>"}
+  ]}
+  ```
 - Exit status: 0 when every map was written or skipped, 1 when any was
   refused, 2 for bad arguments.
 
@@ -136,10 +146,10 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
   "group": "EXIT_OFF_NET",
   "moverOnly": false,
   "exits": [
-    {"x": 1024.0, "y": -512.0, "z": 96.0, "route": "found"}
+    {"x": 1024, "y": -512, "z": 96, "route": "found"}
   ],
   "nodes": [
-    {"x": 400.0, "y": -300.0, "z": 39.0}
+    {"x": 400, "y": -300, "z": 39}
   ]
 }
 ```
@@ -261,7 +271,8 @@ struct Proposal {
 
 [[nodiscard]] Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
                                     const upkg::PackageResolver& resolver);
-[[nodiscard]] Proposal propose(const Scene& scene);
+/// `partitioned` is whether the map's census group is PARTITIONED (SS 4.7).
+[[nodiscard]] Proposal propose(const Scene& scene, bool partitioned);
 [[nodiscard]] std::string toJson(std::string_view map, std::string_view md5, std::string_view group,
                                  const Scene& scene, const Proposal& proposal);
 
@@ -273,21 +284,26 @@ struct Proposal {
   and `postScale`. Its box is the world-axis box around its placed points. A
   spot whose body box overlaps a mover's box is a mover spot.
 - **Search.** For each exit: the shortest path, by distance, from the start
-  part's placed spots, and the start's own, to any spot touching the exit.
-  First with mover spots removed; a path found is `found`. Else with them
-  kept; a path found is `mover`. Else `none`.
+  part's placed spots, and the start's own, to a goal spot. A spot touching
+  the exit is a goal. On a `PARTITIONED` map, so is a spot placed for a
+  navigation point outside the start part from which the network reaches the
+  navigation point nearest the exit: the chain bridges the gap and stops. First
+  with mover spots removed; a path found is `found`. Else with them kept; a
+  path found is `mover`. Else `none`.
 - **Hops.** A hop from one position to another is allowed when it is at
   most 350 long; its three segments at § 4.5's heights trace clear; its
   centre segment, grown by `R` across and `H` up and down, meets no mover's
   box; and at every 32 along it, a spot of the walk graph that is not a
   mover spot lies within 32 horizontally and within `S` of the hop's own
   height there. So a hop never spans a pit or a door the path went round.
-- **Nodes.** Along a `found` path, from its first spot: the next node is the
+- **Nodes.** Along a `found` path, from its first spot: the next point is the
   furthest spot along the path with an allowed hop from the chain's last
-  point. A spot within 50 of an existing navigation point, or of a node
-  already proposed, is not proposed; that point takes its place in the
-  chain, and the next hop is measured from it. The path's last spot ends the
-  chain, proposed unless such a point takes its place.
+  point. Where that spot lies within 50 of an existing navigation point, or
+  of a node already proposed, that point takes its place if the hop to it is
+  allowed; if not, the furthest spot with an allowed hop and no such point
+  within 50 is taken, and failing that the spot itself. A spot taken is
+  proposed as a node, and the next hop is measured from whatever was taken.
+  The path's last spot ends the chain, by the same rule.
 
 ### 4.8 MD5 and the JSON escaper
 
@@ -340,13 +356,13 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   *Breaks when:* the step is not checked, a ramp's rise is held to the step,
   or the join is not traced.
 
-- **INV-5** — A route found is proposed as a chain whose every hop is
-  allowed (§ 4.7), from the start part's placed spot to the exit, each node
-  standing `H` above its floor.
+- **INV-5** — On an `EXIT_OFF_NET` map, a route found is proposed as a chain
+  whose every hop is allowed (§ 4.7), from the start part's placed spot to
+  the exit, each node standing `H` above its floor.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose` over a `Scene`
-  built in memory: an L-shaped corridor, each leg 1500 long, with the start
-  and its network at one end and a MonsterEnd at the other, no navigation
-  point near it. Every hop of the chain is at most 350 and traces clear;
+  built in memory, not partitioned: an L-shaped corridor, each leg 1500
+  long, with the start and its network at one end and a MonsterEnd at the
+  other, no navigation point near it. Every hop of the chain is at most 350 and traces clear;
   every node stands `H` above the floor; the last touches the exit. Then
   again with a pit across the middle of one leg, leaving a strip beside it
   that the walk graph follows: no hop crosses the pit.
@@ -363,15 +379,19 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   proposes nodes.
 
 - **INV-7** — The start part is what the network reaches from the start, in
-  the edges' direction.
-  *Test:* `tests/unit/PathSeedsTest.cpp`: a network of two parts with one
-  edge from the exit's part to the start's and none back, and a MonsterEnd
-  beside the exit's part. The route starts in the start's part and nodes are
-  proposed across the gap; the exit's part's navigation point on the path,
-  within 50 of a spot, stands in the chain in that spot's place and gets no
-  node beside it.
+  the edges' direction; on a `PARTITIONED` map the chain stops where it meets
+  the part that reaches the exit, and a navigation point within 50 takes a
+  spot's place only over an allowed hop.
+  *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, partitioned: a
+  network of two parts with one edge from the exit's part to the start's and
+  none back, a MonsterEnd beside the exit's part, and a navigation point of
+  the exit's part behind a thin wall from a spot on the path, within 50 of
+  it. The route starts in the start's part; nodes are proposed across the
+  gap and none further along the path than the spot placed for the exit's
+  part; the walled-off point takes no spot's place.
   *Breaks when:* edges are followed both ways, which reads the exit's part as
-  reachable and proposes nothing.
+  reachable and proposes nothing; the chain runs on through the exit's part;
+  or a point takes a spot's place over a hop through the wall.
 
 - **INV-8** — The file holds the fields of § 4.3, escaped, each number a
   float's shortest round-trip decimal.
@@ -389,9 +409,10 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   written in the test and an install holding none of its maps: one row of
   each group and one of `NO_PATHS_BUILT`. Unnamed, standard output lists the
   two work rows, each skipped for having no file, and not the third, and the
-  run exits 0. Naming the third exits 1, refusing it as outside the work.
+  run exits 0; `<out>/ut-paths-summary.json` holds the same object. Naming the third exits 1, refusing it as outside the work.
   *Breaks when:* the group column is not read, a missing file fails the run,
-  or a named map outside the work is silently skipped.
+  the summary is not written into the directory, or a named map outside the
+  work is silently skipped.
 
 - **INV-10** — The start is the first PlayerStart in the level's actor list,
   and the exits are every actor whose class descends from MonsterEnd, each at
@@ -438,10 +459,12 @@ first; drop `outside` at a split; seat the spot on the floor; drop the
 ceiling probes; reverse the slope test; skip the step check; hold a ramp to
 the step; skip the join trace; skip the hop trace; lift the 350 cap; skip
 the hop's floor check; drop the last node; propose a spot within 50 of a
-navigation point; never block movers; follow edges both ways; write a name
-unescaped; write the double; ignore the group column; fail the run on a
-missing file; take a later PlayerStart; read the class default over the
-actor's own value. Each must be killed by the invariant that names it.
+navigation point; substitute a point without checking its hop; run a
+`PARTITIONED` chain on to the exit; never block movers; follow edges both
+ways; write a name unescaped; write the double; ignore the group column;
+fail the run on a missing file; skip the directory summary; take a later
+PlayerStart; read the class default over the actor's own value. Each must
+be killed by the invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
 

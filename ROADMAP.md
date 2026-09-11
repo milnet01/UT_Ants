@@ -4756,6 +4756,11 @@ model, no weapon and no opponent until 0.2.0.
   BlockedPath, so EXIT_OFF_NET runs first and PARTITIONED waits for
   their result. Spec docs/specs/UTA-0121-bot-path-seeds.md is in its
   review gate.
+  Progress (2026-09-11): docs/specs/UTA-0121-bot-path-seeds.md is accepted at
+  the review's cap, after two loops (12 findings, all fixed; the log is
+  docs/reviews/UTA-0121-bot-path-seeds-loop-log.md). Its one open question
+  is the size UT's editor tests a seed at. Building next (ut-ants-2b, main
+  checkout).
   **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
   Kind: feature.
   Source: user-request-2026-09-11.
