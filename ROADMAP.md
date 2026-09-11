@@ -4563,11 +4563,14 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle.
 
-- 📋 [UTA-0111] **ubake: write the level's collision into the bundle.**
+- 🚧 [UTA-0111] **ubake: write the level's collision into the bundle.**
   Split out of UTA-0011 by the user on 2026-09-10.
   UTA-0017's movement model reads it, and so does the physics world
   filed the same day for 0.3.0. Design the section for both readers.
   Blocked-by: UTA-0011.
+  Progress (2026-09-11): claimed by session ut-ants-08, working in the
+  main checkout. UTA-0119 shipped in 90bc0b3; this begins with research
+  into what the movement model and the physics world each need of it.
   **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4611,7 +4614,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: ubake.
 
-- 🚧 [UTA-0119] **ubake: bake each mover's own brush into the bundle.**
+- ✅ [UTA-0119] **ubake: bake each mover's own brush into the bundle.**
   Decided by the user on 2026-09-11, while UTA-0110 was being specified:
   movers get an item of their own, before 0.1.0. A mover -- a door, a
   lift -- carries its shape as its own brush Model, which the level's
@@ -4638,6 +4641,11 @@ model, no weapon and no opponent until 0.2.0.
   applied, in any of five readings, and some without. Split after
   MainScale, the port agrees with itself within 2.25e-11 on every unsheared
   brush.
+  Resolved (2026-09-11): shipped in 90bc0b3, green on the matrix -- GCC 14,
+  Clang 19 and MSVC (CI run 34584837993). The spec is accepted at its
+  review's cap; its as-built section records what it left open. The
+  real-asset case, tests/real/RealMoversTest.cpp, compiles and has not been
+  run; its census figures go here when it is.
   **Layman:** Doors, lifts and other moving parts get their shapes baked, so they appear in the level instead of being invisible.
   Kind: implement.
   Source: user-request-2026-09-11 split-from-UTA-0110.
