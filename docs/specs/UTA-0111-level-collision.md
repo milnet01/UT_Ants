@@ -1,6 +1,6 @@
 # UTA-0111 — `ubake`: write the level's collision into the bundle
 
-**Status:** draft (2026-09-11).
+**Status:** accepted (2026-09-11), at the review's cap.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0111 (user-request-2026-09-10, split from UTA-0011).
 
@@ -232,9 +232,10 @@ namespace uta::ubake {
   node;
 - and, naming the `Model`, a `rootOutside` other than 0 or 1.
 
-A tree that silently loses a node can let a player through a wall, and
-nothing downstream can tell. Every one of these held on every `Model` of the
-reference install (§ 7).
+They reach the nodes `buildGeometry` skips too, since an invisible node can
+still be solid (§ 2 items 1 and 2). A tree that silently loses a node can let a
+player through a wall, and nothing downstream can tell. Every one of these
+held on every `Model` of the reference install (§ 7).
 
 ### 4.4 A mover's tree
 
@@ -262,8 +263,9 @@ in double and stored as float:
 
 UTA-0017 and UTA-0114 read this section; what follows is what they bind to.
 
-- **The fields mean what UT99's headers say they mean.** A node is solid by
-  `FBspNode::IsCsg`, above. A walk descends by `FBspNode::ChildOutside`:
+- **The fields mean what UT99's headers say they mean.** A node a walk
+  reaches is solid by `FBspNode::IsCsg`, above. A walk descends by
+  `FBspNode::ChildOutside`:
   `iChild ? (Outside || IsCsg(ExtraFlags)) : (Outside && !IsCsg(ExtraFlags))`,
   starting from the tree's `outside`, where child 1 is `front` and child 0 is
   `back` (`Engine/Inc/UnObj.h`). The extra flags are the caller's.
@@ -273,7 +275,10 @@ UTA-0017 and UTA-0114 read this section; what follows is what they bind to.
   authority. Walked this way, nearly every `PlayerStart` of the reference
   install lies outside; walked the other way, nearly none does (§ 7).
 - **A walk from node 0 over the three links ends**, reaching no node twice
-  (§ 4.2 item 2). Every index a reader follows is in range.
+  (§ 4.2 item 2). Every index a reader follows is in range. A node no walk
+  reaches is not solid, so a reader building a mesh skips its outline, as
+  the movement model's walk never meets it. On the reference install none
+  carries an outline or a hull (§ 7).
 - **A hull is the region behind its planes, each reversed where `flipped`
   is set.** That is measured, not read from the headers: over the reference
   install, no hull's box lies wholly in front of an unflipped plane, or
@@ -352,16 +357,19 @@ recorded again under it.
 
 - **INV-5** — A mover's tree is its `Model`'s in pivot space: its points are
   its `MOVR` shape's positions, bit for bit; its planes are § 4.4's; its
-  boxes are § 4.4's, swapped on a negative axis.
+  boxes are § 4.4's, swapped on a negative axis; its links and outlines are
+  its `Model`'s, under a mirror too.
   *Test:* `tests/unit/BakeCollisionTest.cpp`: `buildMoverCollision` and
-  `buildMover` over one mover whose `Model`, built in memory, is UTA-0119
-  INV-4's tilted
-  square, with `PrePivot` `(8, 0, 0)` and `MainScale` `(2, -1, 1)`. Every
-  point equals a shape position bit for bit; a corner stays on the
-  transformed plane within `1e-4`; a point in front of the plane stays in
-  front; a hull's box is swapped on y.
+  `buildMover` over one mover, with `PrePivot` `(8, 0, 0)` and `MainScale`
+  `(2, -1, 1)`. Its `Model`, built in memory, holds UTA-0119 INV-4's tilted
+  square as node 0, with a hull, and a node of no vertices as node 0's
+  `front`. Every point equals a shape position bit for bit; node 0's links
+  and outline are unchanged; a corner stays on the transformed plane within
+  `1e-4`; a point in front of the plane stays in front; the hull's box is
+  swapped on y.
   *Breaks when:* a normal is scaled rather than divided, a distance ignores
-  `PrePivot`, a mirror swaps front and back, or a box is not swapped.
+  `PrePivot`, a mirror moves a point to the other side of its plane, swaps
+  links or reverses an outline, or a box is not swapped.
 
 - **INV-6** — A mover gets a tree exactly when it gets a `MOVR` shape, with
   that shape's `exportIndex`.
@@ -377,9 +385,9 @@ recorded again under it.
   bake, a mover's refusal names the actor as well.
   *Test:* `tests/unit/BakeCollisionTest.cpp`: one case per refusal, calling
   `buildCollision` on a `Model` built in memory that breaks that rule alone.
-  Then, through `detail::bake`, one level `Model` and one mover `Model` whose
-  only break is a `coplanar` link naming no node. No earlier step of the bake
-  reads `iPlane`, so only `COLL` can refuse them.
+  Then two bakes through `detail::bake`: one whose level `Model`, and one
+  whose mover's `Model`, breaks only a `coplanar` link naming no node. No
+  earlier step of the bake reads `iPlane`, so only `COLL` can refuse them.
   *Breaks when:* such a node is dropped, clamped or baked, or a refusal
   names the wrong thing.
 
@@ -419,7 +427,8 @@ bake covers `COLL`, and its case asserts the level tree has the fixture
 over every mover. It prints trees built, and maps refused by reason; hull
 entries with bit 30 set and clear, by which side of the entry's plane its
 run's box lies; links naming a node stored before their own; nodes no walk
-from node 0 reaches; and the share
+from node 0 reaches, and those of them carrying an outline or a hull; and
+the share
 of `PlayerStart` locations the tree classifies as outside, walking as § 4.5
 describes and walking with the two children the other way round. Those two
 shares are what show which child is front, and that the transcription reads
@@ -428,7 +437,8 @@ as UT99 reads it.
 **Mutation, by hand** (`CLAUDE.md` § Build and test): swap `back` and
 `front`; take `polyFlags` from `nodeFlags`; order hulls by node; leave the
 flag in the index; read the box as integers; scale a normal instead of
-dividing it; drop `PrePivot` from a distance; leave a box unswapped; drop
+dividing it; drop `PrePivot` from a distance; leave a box unswapped; swap
+links or reverse an outline under a mirror; drop
 § 4.2 item 2; delete any one § 4.3 refusal; key trees by placement
 position. Each must be killed by the
 invariant that names it.
@@ -470,6 +480,9 @@ invariant that names it.
   gain it; INV-4 is annotated with version `7`.
 - `docs/specs/UTA-0011-map-baker.md` — § 4.5's steps gain § 4.6's step 10,
   and § 4.3's `BAKER_REVISION` moves to `5`. Recorded when built.
+- `docs/specs/UTA-0109-map-geometry.md` — § 4.3's closing sentence says a
+  node it skips cannot refuse `GEOM`, rather than a bake, since § 4.3 here
+  refuses one. Recorded when built.
 - `docs/specs/UTA-0119-mover-shapes.md` — § 9's collision line points here.
 - `CHANGELOG.md` — an `### Added` entry, and a `### Changed` entry for format
   version `7`.

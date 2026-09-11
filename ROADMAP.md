@@ -4596,6 +4596,14 @@ model, no weapon and no opponent until 0.2.0.
   loop 1 was, rebuilt from disk, and no lane is told what loop 1 fixed.
   Found while verifying: the test writer's iFront/iBack order, filed as
   UTA-0122.
+  Progress (2026-09-11): held now by session ut-ants-2b, in the main
+  checkout; ut-ants-08 has ended. Running review-contract loop 2.
+  Progress (2026-09-11): the spec's review-contract loop 2 found and
+  fixed four defects, and the spec is accepted at the review's cap. The
+  user chose that a node no walk from node 0 reaches is not solid, so a
+  mesh skips its outline, over a baker refusal; no such node on the
+  reference install carries an outline or a hull. Building next
+  (ut-ants-2b, main checkout).
   **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
