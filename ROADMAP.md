@@ -4673,8 +4673,7 @@ model, no weapon and no opponent until 0.2.0.
   gap between split parts.
 
   The output is a list of positions per map, handed to UT_MonsterHunt.
-  That project applies it in UT's own editor with its path-building
-  recipe (its GAME-0001), and UT rebuilds its own links between nodes.
+  That project adds the positions to the seed list of its path-building recipe (analysis/seedpaths.py in that repo), and UT's editor rebuilds its own links between nodes.
   This project writes no UT99 map file.
 
   Out of reach: lifts, teleporters and doors opened by shooting need UT99
@@ -4684,6 +4683,25 @@ model, no weapon and no opponent until 0.2.0.
   Timing, decided by the user (2026-09-11): next after UTA-0111, which
   provides the collision data this needs.
   Blocked-by: UTA-0111.
+  Agreed with UT_MonsterHunt (2026-09-11), filed there as GAME-0095
+  in its Bot navigation section.
+  - Output: one JSON file per map, holding map, md5, group, exits and
+    nodes. Positions are in world units on UT's axes. Z is where UT
+    stores a standing actor: the middle of a player-sized cylinder
+    resting on the floor, not the floor.
+  - The md5 is of the .unr the tool read. They refuse a list whose md5
+    does not match the live file.
+  - The map list is analysis/routecensus-split-2026-09-07c.tsv in that
+    repo, column group.
+  - Cover every MonsterEnd and list each in exits. Their census asks
+    about the first one only.
+  - Flag a map whose only walkable connection crosses a mover's brush.
+    A node cannot bridge a closed door or a lift, so they route those to
+    their own mover items.
+  - They re-run analysis/routecensus.sh on the same maps after the nodes
+    go in, and report before and after per map. A ROUTE verdict means the
+    paths permit a route, not that bots finish the map.
+  - Hand-off: when this ships, send them the JSON directory's path.
   **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
   Kind: feature.
   Source: user-request-2026-09-11.
