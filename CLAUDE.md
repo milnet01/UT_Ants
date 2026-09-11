@@ -5,9 +5,9 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0121` — a tool that proposes extra bot path nodes for UT99's
-old maps, from the level's collision, for UT_MonsterHunt to apply (their
-`GAME-0095`). The collision it reads, `UTA-0111`, shipped 2026-09-11.
+**Next:** `UTA-0112` — baking the level's indirect light into the bundle,
+the baker's next piece after collision. `UTA-0121`'s path tool for
+UT_MonsterHunt shipped 2026-09-11.
 
 `UTA-0013`'s quarantine guard and `UTA-0014`'s renderer are the
 alternatives, and a second session can take either now: neither shares a

@@ -4700,7 +4700,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-11 split-from-UTA-0110.
   Lanes: ubake, ubundle.
 
-- 🚧 [UTA-0121] **Work out extra bot paths for UT99's old maps, for UT_MonsterHunt to apply.**
+- ✅ [UTA-0121] **Work out extra bot paths for UT99's old maps, for UT_MonsterHunt to apply.**
   Asked by the user on 2026-09-11, after UT_MonsterHunt's route census
   found that a bot reaches the exit on few of its maps (its GAME-0002,
   docs/route-census-split.md in that repo).
@@ -4761,6 +4761,16 @@ model, no weapon and no opponent until 0.2.0.
   docs/reviews/UTA-0121-bot-path-seeds-loop-log.md). Its one open question
   is the size UT's editor tests a seed at. Building next (ut-ants-2b, main
   checkout).
+  Shipped (2026-09-11), ut-ants-2b, main checkout: 8cabe4e, green on GCC 14,
+  Clang 19 and MSVC (run 34626162778). The census run for UT_MonsterHunt
+  writes to /mnt/Games/Scripts/Linux/ut-paths-output, outside both
+  repositories; the path is sent to them (their GAME-0095). Every invariant
+  was seen failing first, and every mutation in the spec's SS 7 is killed.
+  On the census maps read so far most exits route none: their areas are
+  reached only past lifts or teleporters, which SS 3 decisions 3 and 5 leave
+  out. Staircases split the walk graph too, which is UTA-0123. The
+  real-asset case, tests/real/RealPathSeedsTest.cpp, has not run to the end:
+  the session's memory guard stops it, so it is the user's to run with `!`.
   **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
   Kind: feature.
   Source: user-request-2026-09-11.
