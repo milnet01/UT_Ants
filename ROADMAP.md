@@ -4571,6 +4571,15 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-11): claimed by session ut-ants-08, working in the
   main checkout. UTA-0119 shipped in 90bc0b3; this begins with research
   into what the movement model and the physics world each need of it.
+  Decided by the user (2026-09-11): a baked map stores UT's own collision
+  tree -- the split-plane tree UT99 checks walls against, with each piece's
+  outline -- so movement can hit walls exactly as UT99 does, and the physics
+  world builds its one triangle mesh from the same data when a map loads.
+  One copy, so the two cannot disagree. Rejected: the tree plus a ready-made
+  mesh (two copies of one fact), and a mesh only (movement could not match
+  UT99). Also decided: each mover's own collision tree is baked in this
+  item, beside its MOVR shape, so doors and lifts can be solid once movement
+  exists without a second format change.
   **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4650,6 +4659,35 @@ model, no weapon and no opponent until 0.2.0.
   Kind: implement.
   Source: user-request-2026-09-11 split-from-UTA-0110.
   Lanes: ubake, ubundle.
+
+- 📋 [UTA-0121] **Work out extra bot paths for UT99's old maps, for UT_MonsterHunt to apply.**
+  Asked by the user on 2026-09-11, after UT_MonsterHunt's route census
+  found that a bot reaches the exit on few of its maps (its GAME-0002,
+  docs/route-census-split.md in that repo).
+
+  Two groups of failure are path problems. In one, the exit has no path
+  node near it. In the other, the path network is split, and the start's
+  part never reaches the exit's. This tool reads a map, finds where a bot
+  can stand and walk from the level's collision tree, and proposes
+  path-node positions: near an exit left off the network, and across the
+  gap between split parts.
+
+  The output is a list of positions per map, handed to UT_MonsterHunt.
+  That project applies it in UT's own editor with its path-building
+  recipe (its GAME-0001), and UT rebuilds its own links between nodes.
+  This project writes no UT99 map file.
+
+  Out of reach: lifts, teleporters and doors opened by shooting need UT99
+  bot logic. The group whose bots stand on a built network yet find no
+  route is unexplained, and no new node is known to help it.
+
+  Timing, decided by the user (2026-09-11): next after UTA-0111, which
+  provides the collision data this needs.
+  Blocked-by: UTA-0111.
+  **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
+  Kind: feature.
+  Source: user-request-2026-09-11.
+  Lanes: unav, uworld, tools.
 
 ## 0.2.0 — Movement and weapons
 
@@ -5525,6 +5563,15 @@ to.
 
   Blocked-by: UTA-0006 for the navigation graph, which shipped 2026-09-06,
   and combat bots to route for.
+  Decided by the user (2026-09-11): a firm requirement, not a goal. On
+  every map where a UT99 bot cannot reach the exit, ours must. UT_MonsterHunt's
+  route census (its GAME-0002, docs/route-census-split.md in that repo)
+  is the list to check against. It splits the failures three ways: an
+  exit with no path node near it, a path network split so the start's
+  part never reaches the exit, and bots on a built network that UT99
+  still routes nowhere. Where a map's waypoints stop short or split,
+  routes come from the level's own shape, which UTA-0111's collision
+  tree provides. UTA-0065's headless pass is how each map is measured.
   **Layman:** Give bots something like satnav. Instead of only following the breadcrumb trail the 1999 designer laid down, a bot works out where it is, where it needs to be, and a route between them -- so it can still get somewhere when the breadcrumbs run out.
   Kind: implement.
   Source: user-request-2026-09-06.
