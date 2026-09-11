@@ -4864,7 +4864,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-11.
   Lanes: ubake.
 
-- 🚧 [UTA-0125] **ut-paths: the start part follows reach specs a walking bot cannot use.**
+- ✅ [UTA-0125] **ut-paths: the start part follows reach specs a walking bot cannot use.**
   Reported 2026-09-11 by UT_MonsterHunt, testing UTA-0121's nodes on
   MH-AD_Concrete_and_floors_v3: the six nodes linked in UT's editor, but
   the census verdict did not change. Their probe finds the start reaches
@@ -4881,6 +4881,26 @@ model, no weapon and no opponent until 0.2.0.
   /mnt/Games/Scripts/Linux/ut-paths-output.
   Picked up (2026-09-11) by ut-ants-2b, main checkout, ahead of UTA-0112
   because UT_MonsterHunt holds its remaining maps until this is settled.
+  Shipped (2026-09-11), ut-ants-2b, main checkout: d72b1ab, green on GCC 14,
+  Clang 19 and MSVC (run 34634313670). sceneOf keeps an edge only where
+  FReachSpec::supports admits it for Botpack.Bot's movement flags (every
+  flag but R_FLY) at the body's radius and height. UTA-0121's spec carries
+  it as section 3 decision 10 and INV-11, gated by review-contract loops 3
+  and 4 and accepted again at the cap. INV-11 was seen failing first, and
+  its five mutations and one extra are killed. The census re-run into
+  /mnt/Games/Scripts/Linux/ut-paths-output follows, and UT_MonsterHunt is
+  told which maps changed.
+  Census re-run (2026-09-11) into /mnt/Games/Scripts/Linux/ut-paths-output,
+  over the same 356 work rows: 297 written, 45 skipped, 14 refused, as
+  before. Seven maps changed. MH-AD_Concrete_and_floors_v3 and
+  MH-SeriousSam-Dunes-T1 (EXIT_OFF_NET) lost their found routes, to none
+  and to mover. MH-FREEKYSBFix, MH-OMG-TemplesOfEgypt2012-Ultimate and
+  MH-Thra_FortressSBMod3 (PARTITIONED) went from found to none.
+  MH-Omni-Rage-BP and MH-UM-SpaceBeacon-V1 stayed found with a different
+  chain. Proposed nodes: 98 on 21 maps before, 84 on 16 after, every one
+  now on a PARTITIONED map. The comparison is against a snapshot of the
+  first run kept outside the repository. Sent to UT_MonsterHunt the same
+  day.
   **Layman:** The path tool treated every existing bot path as usable, including ones only flying monsters can take, so its new nodes can start from places a walking bot never reaches.
   Kind: fix.
   Source: in-session-2026-09-11.
