@@ -127,8 +127,8 @@ as `u32`, `batches`.
 32 bytes, fixed; `GeometryBatch` 16 bytes, a `u32` length for an empty
 `material` then three `u32`.
 
-**Floats are moved through their bits and are not validated**, as every
-other `f32` in the format is (UTA-0008 § 4.2).
+**`GEOM`'s floats are not validated.** They are moved through their bits,
+as UTA-0008 § 4.2 moves every `f32`.
 
 **Validation, in UTA-0008 § 4.9's manner.** `read` refuses with
 `MalformedData`, and `write` refuses the same with `InvalidArgument`:
@@ -237,8 +237,9 @@ progress note holds the counts, and § 7's real-asset case prints them.
 floating-point contraction and fast-math on all three (UTA-0049), which is
 what keeps the rounded `float`s, and so the bake's bytes, identical.
 
-**A level whose emitted vertices would reach 2^32 is refused** with
-`MalformedData`, since an index could not name them.
+**A level whose emitted vertices or indices would reach 2^32 is refused**
+with `MalformedData`, since a `u32` could not count them. Indices get there
+no later: a node of `n` vertices emits `3(n - 2)` of them.
 
 ### 4.4 The baker's part
 
@@ -282,14 +283,18 @@ recorded again under it.
 
 - **INV-2** — `read` refuses with `MalformedData`, and `write` with
   `InvalidArgument`, each § 4.2 rule: an index equal to `vertices.size()`;
-  two batches of one material whose flags descend; a batch of `indexCount`
-  zero; one of `indexCount` four; a first batch not starting at `0`; a gap
-  between two batches; indices past the last batch.
+  two batches of one material whose flags descend; two batches of one key;
+  a batch of `indexCount` zero; one of `indexCount` four; a first batch not
+  starting at `0`; a gap between two batches; indices past the last batch;
+  indices with no batches; and batches `{0, 3}` and `{3, 4294967295}` over
+  two indices, whose end is `2` only when summed in 32 bits.
   *Test:* `tests/unit/BundleGeometryTest.cpp`, one case per rule. Each
   fixture breaks that rule alone — the count-of-four case tiles its four
-  indices exactly — so no other rule can refuse it first.
-  *Breaks when:* a rule is checked on one path only, or the tiling test
-  computes `firstIndex + indexCount` in 32 bits.
+  indices exactly, and `4294967295` is a multiple of three — so no other
+  rule can refuse it first.
+  *Breaks when:* a rule is checked on one path only, the order is checked
+  with `<=`, or the tiling test computes `firstIndex + indexCount` in 32
+  bits.
 
 - **INV-3** — A convex quad whose pool order winds along `N` gives four
   vertices in pool order and the indices `0, 1, 2, 0, 2, 3`.
@@ -311,8 +316,9 @@ recorded again under it.
   `PF_Invisible`, emits nothing. A node whose surface carries `PF_Portal`,
   `PF_FakeBackdrop` or `PF_TwoSided` is emitted, its batch keyed by the
   surface's `polyFlags` unchanged.
-  *Test:* `tests/unit/BakeGeometryTest.cpp`, one surface per flag, the
-  portal surface also carrying `PF_Invisible`.
+  *Test:* `tests/unit/BakeGeometryTest.cpp`, one surface per flag, and a
+  fifth carrying both `PF_Portal` and `PF_Invisible`, which must emit
+  nothing.
   *Breaks when:* a flag is masked or translated, or an invisible surface is
   drawn.
 
@@ -336,17 +342,20 @@ recorded again under it.
 - **INV-8** — Batches are in ascending `(material, polyFlags)` order with
   each key once; within a batch, nodes keep node order.
   *Test:* `tests/unit/BakeGeometryTest.cpp`: nodes whose materials descend
-  in node order, and two nodes of one material with different flags.
-  *Breaks when:* batches follow node order, or an unordered container
-  decides it.
+  in node order; two nodes of one material with different flags; and two
+  nodes of one key, which must keep node order inside their batch.
+  *Breaks when:* batches follow node order, an unordered container decides
+  it, or an unstable sort reorders the nodes inside a batch.
 
-- **INV-9** — A drawn node whose `iSurf`, vertex pool, `pVertex`, `pBase`,
-  `vNormal`, `vTextureU` or `vTextureV` leaves its table is refused with
-  `MalformedData` naming the node. A node skipped at step 1 or 3 is not
-  checked past `iSurf`.
+- **INV-9** — A node of three or more vertices whose `iSurf` leaves
+  `surfs`, and a drawn node whose vertex pool, `pVertex`, `pBase`,
+  `vNormal`, `vTextureU` or `vTextureV` leaves its table, are refused with
+  `MalformedData` naming the node. A node skipped at step 1 is not checked
+  at all, and one skipped at step 3 is checked for `iSurf` only.
   *Test:* `tests/unit/BakeGeometryTest.cpp`, one case per index, each index
-  one past its table's end; and a `PF_Invisible` node whose vertex pool is
-  out of range, which must succeed.
+  one past its table's end; a node of two vertices whose `iSurf` and vertex
+  pool are both out of range; and a `PF_Invisible` node whose vertex pool is
+  out of range. The last two must succeed.
   *Breaks when:* an index is used unchecked, or a skipped node is held to
   the checks.
 
@@ -362,11 +371,11 @@ recorded again under it.
 | When | What happens |
 |---|---|
 | A drawn node's index leaves its table | The bake is refused, naming the map and the node |
-| A skipped node's indices are bad | Nothing; it is not read past `iSurf` |
+| A skipped node's indices are bad | Nothing. A node of fewer than three vertices is not read at all, and an invisible one is read only as far as `iSurf` |
 | A node has no area | It emits nothing |
 | A surface's texture was skipped, or is null | Its triangles are drawn with no material and `u = v = 0` |
 | A texture's `Scale` is zero, negative, infinite or NaN | The scale is `1` |
-| The emitted vertices would reach 2^32 | The bake is refused |
+| The emitted vertices or indices would reach 2^32 | The bake is refused |
 | The level draws no node | `GEOM` is written empty |
 | A version-61 `Model` (UTA-0072) | `readModel` refuses first, as today |
 
