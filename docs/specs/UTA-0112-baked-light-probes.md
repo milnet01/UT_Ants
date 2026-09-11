@@ -1,6 +1,6 @@
 # UTA-0112 — `ubake`: bake the level's bounced light into light probes
 
-**Status:** spec draft (2026-09-11).
+**Status:** accepted (2026-09-11), at the review's cap.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0112 (split out of UTA-0011 by the user, 2026-09-10).
 
@@ -277,7 +277,9 @@ The spacing `S` is `128`.
    (`0x80`)** gives a box: the minimum and maximum of its three positions, in
    double, grown by `S` on every side.
 2. **Every lattice point `(i × S, j × S, k × S)` inside a box**, bounds
-   included, is a candidate.
+   included, and within `S` of its triangle's plane, is a candidate. The
+   distance is `|n · (p − v0)|`, with `v0` the triangle's first position and
+   `n` its first vertex's normal, normalised.
 3. **A candidate is a probe when `isEmpty` accepts it** against `COLL`'s level
    tree.
 4. **The probes are ordered by `k`, then `j`, then `i`**, each once.
@@ -379,7 +381,14 @@ indirect(n) = n.x² × cube[n.x ≥ 0 ? +X : −X]
 That is the evaluation Valve's paper gives for an ambient cube (§ 3 decision 1).
 A surface of reflectance `ρ` shows `ρ × (direct + indirect)`, where `direct` is
 § 4.3's `lightAt` summed over every light drawn, with its shadow map in place of
-§ 4.7's `blocked`. How nearby probes are blended, and what a point with no probe
+§ 4.7's `blocked`. `lightAt` is a light's steady value: how its `type` varies it
+over time, and what the effects § 4.3 bakes as `LE_None` add, are UTA-0014's.
+The bake uses the steady value, so bounced light does not flicker.
+
+**UTA-0014 writes § 4.3's formulas again.** `ubake` is kept out of the runtime
+targets (`docs/design.md` rule 2), so the renderer cannot call `lightAt`. A test
+of UTA-0014's, which may link both, checks its lights against `ubake`'s at a
+table of cases. How nearby probes are blended, and what a point with no probe
 near it gets, are UTA-0014's. Nothing in this item checks this section.
 
 ### 4.10 Emptiness moves into `ubake`
@@ -442,12 +451,15 @@ tests change no line.
   sky triangle inside a second empty box far from it, the probes are exactly
   the lattice points inside the room's grown face boxes that `isEmpty`
   accepts. They are in § 4.6's order, and none is near the sky triangle. A
-  level with no triangle writes a spacing of 128 and no probes.
+  level with no triangle writes a spacing of 128 and no probes. In a room
+  larger than a sloped triangle's grown box, whose own faces are sky, that
+  triangle seeds exactly the lattice points of its grown box within `S` of
+  its plane.
   *Test:* `tests/unit/BakeLightProbesTest.cpp`, "placement". No wall or floor
   of that room lies on a lattice plane, so without § 4.6's growth there is no
   candidate at all.
   *Breaks when:* the growth is dropped, a sky triangle seeds, `isEmpty` is
-  skipped, or the order differs.
+  skipped, the plane cut is dropped, or the order differs.
 - **INV-8** — What a ray sees. A single-sided lit surface facing away from a
   probe adds nothing, and the same surface with `PF_TwoSided` adds light. An
   opaque triangle between a light and the surface a probe sees removes that
@@ -487,8 +499,8 @@ tests change no line.
 - **A probe inside a non-solid brush**, which `isEmpty` accepts. Its rays meet
   that brush's faces from behind, which add nothing.
 - **A light with no placement** does not bake (§ 4.4).
-- **A very large surface** seeds probes over its whole grown box. The cost
-  grows with area, not with the level's box (§ 13).
+- **A very large surface** seeds probes along its whole extent. The cost
+  grows with the surfaces' area, not with the level's box (§ 13).
 - **A job that throws** refuses the bake.
 
 ## 7. Tests
@@ -520,11 +532,10 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 - INV-5: one sRGB literal changed; alpha-0 pixels counted.
 - INV-6: each rule dropped; the class default read first.
 - INV-7: the growth dropped; the sky triangle kept as a seed; `isEmpty`
-  skipped; the probes left unsorted.
+  skipped; the plane cut dropped; the probes left unsorted.
 - INV-8: the back-face test dropped; `PF_TwoSided` ignored; the shadow test
   dropped; a translucent triangle occluding; a backdrop surface counted.
 - INV-9: +Z and −Z swapped; the weights not divided out.
-- INV-10: each probe's result appended as its job finishes.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -567,7 +578,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |
 | § 4.3's model looking like UT99's | **nothing** — UT99's model is in no source this spec draws on; § 15 |
-| § 4.9 | **nothing** until the renderer draws; tracked by UTA-0014 |
+| § 4.9, and UTA-0014's copy of § 4.3 | **nothing** until the renderer draws; tracked by UTA-0014, whose test compares its lights with `ubake`'s |
 | The bake's cost on real maps | **Partial:** `tests/real/RealLightProbesTest.cpp` prints it; no CI leg runs it |
 
 ## 11. Cross-doc impact
@@ -587,8 +598,9 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
   Recorded when built.
 - `CHANGELOG.md` — an `### Added` entry, and a `### Changed` entry for format
   version `8`.
-- ROADMAP UTA-0014 — a note naming § 4.3 and § 4.9 as its contract, and
-  ZoneInfo's ambient light as its own.
+- ROADMAP UTA-0014 — a note naming § 4.3 and § 4.9 as its contract, the test
+  that holds its copy of § 4.3 to `ubake`'s, and ZoneInfo's ambient light as
+  its own.
 
 ## 12. Cold-eyes loop log
 

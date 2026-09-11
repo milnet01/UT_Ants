@@ -1052,6 +1052,15 @@ model, no weapon and no opponent until 0.2.0.
   and cosine -- UTA-0119 section 4.5 gives the matrices. Grade that
   placement against tests/support/FCoordsPort.h, the port of the engine's
   FCoords operators UTA-0119 INV-7 grades the formula against.
+  Note (2026-09-11), from UTA-0112: its spec,
+  docs/specs/UTA-0112-baked-light-probes.md, sets this item's light
+  model. Section 4.3 is how a light's LITE numbers become light at a
+  point, and section 4.9 is how a probe's ambient cube is read and added
+  to direct light. ubake stays out of the runtime targets, so the
+  renderer writes section 4.3's formulas again; a test that links both
+  checks its lights against ubake's lightAt at a table of cases. Flicker
+  and the effects UTA-0112 bakes as steady are this item's. So is
+  ZoneInfo's AmbientBrightness, AmbientHue and AmbientSaturation.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
@@ -4651,6 +4660,18 @@ model, no weapon and no opponent until 0.2.0.
   its spec first, with write-spec, then review-contract. Rule 1 has nothing
   workable (UTA-0059, UTA-0098 and UTA-0100 are dormant by their own terms),
   and this is Next.
+  Progress (2026-09-11): spec drafted with write-spec,
+  docs/specs/UTA-0112-baked-light-probes.md, at 7a56847 and ff5f94f.
+  Light probes near the level's surfaces, each an ambient cube of one
+  bounce of the static lights' light, in a new LPRB section at bundle
+  format 8. It also fixes the light model the bake and UTA-0014 share.
+  Every scope decision is ut-ants-2b's, the user being away; they are
+  listed for review in the spec's section 15. review-contract loop 1
+  dispatched.
+  Progress (2026-09-11): spec accepted at review-contract's cap of two
+  loops, three lanes each; 10 verified findings, all fixed, a calm cap.
+  Rows in docs/reviews/UTA-0112-baked-light-probes-loop-log.md. Next:
+  build it with write-code, by ut-ants-2b in the main checkout.
   **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
