@@ -4918,6 +4918,21 @@ model, no weapon and no opponent until 0.2.0.
   are dormant by their own terms), and this is Next. Measuring first, as
   the body says: what UT does with a repeated slot, and how many
   installed maps carry one.
+  Measured (2026-09-11) with a scratch probe over the whole install,
+  not in the repository: 69 of the 1,433 maps name one export in two or
+  more actor slots, 1,793 repeated slots in all. UT99's own maps carry
+  them -- CTF-November, DM-Grinder, DM-Morbias][, DM-Pyramid and
+  DM-Cybrosis][ among them -- so a bake refuses stock maps UT ships and
+  loads. One export can fill three slots; 66 repeats sit in the slot
+  right after their first, and none in the last slot; the classes are
+  mostly decorations, lights and brushes. What UT does with the second
+  slot is not observable from the files. It does not matter to a bake:
+  PLAC keys an actor by its export, so a repeat names the same actor
+  with the same properties. Decision (ut-ants-2b, the user away): skip a
+  repeated slot, place the actor once, and have the real-asset case
+  print the count. That amends UTA-0110 section 4.5 step 1 and the
+  section 4.8 bullet recording the refusal, for code still to be built,
+  so it runs review-contract first.
   **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it.
   Kind: investigate.
   Source: in-session-2026-09-11.

@@ -1,6 +1,7 @@
 # UTA-0110 — `ubake`: write the level's lights and actor placements into the bundle
 
-**Status:** accepted (2026-09-11), at the review's cap.
+**Status:** accepted (2026-09-11), at the review's cap; amended for UTA-0124
+(§ 4.5 step 1, INV-4), under review.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0110 (user-request-2026-09-10, split out of
 UTA-0011).
@@ -289,7 +290,11 @@ struct Actors {
 
 1. The reference must be an export of the map, or the bake is refused with
    `MalformedData` naming the slot. `Level::actors` comes from export data,
-   which `Package::open` did not validate.
+   which `Package::open` did not validate. **A slot naming an export an
+   earlier slot named is skipped, so the actor is placed once** (UTA-0124).
+   UT99's own maps carry such slots, CTF-November and DM-Grinder among them,
+   and a placement keyed by its export carries nothing a second slot could
+   add.
 2. Its own properties, by `upkg::readProperties`, each written as a
    `PropertyRecord` in file order. A refusal from `readProperties` refuses
    the bake, naming the actor.
@@ -362,10 +367,11 @@ recorded again under it.
 
 ### 4.8 As built (2026-09-11)
 
-- **A slot naming an export a slot before it named refuses the bake**, with
-  `MalformedData` naming the slot, as a slot that is not an export does. So
-  does a slot naming a class export. § 4.5 names neither; the review's second
-  loop asked about the first.
+- **A slot naming a class export refuses the bake**, with `MalformedData`
+  naming the slot, as a slot that is not an export does; § 4.5 does not name
+  it. A slot naming an export a slot before it named refused the bake too,
+  after the review's second loop asked about it, until UTA-0124 measured
+  UT99's own maps carrying such slots; § 4.5 step 1 now skips it.
 - **A property's object reference that leads outside its package's tables
   refuses the bake.** § 4.3 defines a path only for a reference that
   resolves, and `Package::open` does not validate property data.
@@ -421,15 +427,17 @@ recorded again under it.
   *Breaks when:* the package name reaches the resolver unfolded, the class
   name is compared exactly, or the two unresolved cases share one `end`.
 
-- **INV-4** — Every entry of `Level::actors` gives one placement, keyed by
-  its slot in the map's export table, carrying its own object path and its
-  own properties in file order.
+- **INV-4** — Every export `Level::actors` names gives one placement, however
+  many slots name it, keyed by its slot in the map's export table, carrying
+  its own object path and its own properties in file order.
   *Test:* `tests/unit/BakeActorsTest.cpp`, a map whose two actors, of
   different classes, sit at export indices other than their positions in
   `Level::actors`, the second carrying two properties. The test asserts each
-  placement's export index exactly.
+  placement's export index exactly. A second case names one actor in two
+  slots, around another's, and asserts two placements and one light each.
   *Breaks when:* the key is the position in `Level::actors`, the path is not
-  the actor's own, or the actor's list is reordered.
+  the actor's own, the actor's list is reordered, or a repeated slot refuses
+  the bake or places its actor twice.
 
 - **INV-5** — Actors of one class share one class entry, which carries the
   class's parents nearest first and its defaults merged over them.
@@ -487,6 +495,7 @@ recorded again under it.
 | When | What happens |
 |---|---|
 | An actor slot is not an export of the map | The bake is refused, naming the slot |
+| An actor slot names an export an earlier slot named | The slot is skipped; the actor is placed once |
 | An actor's properties do not read | The bake is refused, naming the actor |
 | An actor's class's package is not installed | Its class entry says `PackageMissing` and names it; the bake goes on |
 | The package opens without the class | `ClassMissing`, naming the class |
@@ -507,15 +516,17 @@ defaults. UTA-0011 INV-5's golden bake then covers `PLAC` and `LITE`.
 
 **Real-asset tier, local only:** a new file, `tests/real/RealActorsTest.cpp`,
 runs `buildActors` over every map and prints actors placed, distinct classes,
-classes ending `PackageMissing` and `ClassMissing`, lights, and maps refused
-by reason. It asserts that every light's `exportIndex` has a placement.
+classes ending `PackageMissing` and `ClassMissing`, lights, maps refused by
+reason, and the maps with a repeated slot and how many each skips. It asserts
+that every light's `exportIndex` has a placement.
 
 **Mutation, by hand** (`CLAUDE.md` § Build and test): read only the actor's
 own list for a light; read only the class's defaults; write a class per
 actor; write the chain root first; key an actor by its position in
 `Level::actors`; compare a class name exactly; stop an object path at the
-immediate outer; read a `Bool` byte of `2` as true. Each must be killed by
-the invariant that names it.
+immediate outer; read a `Bool` byte of `2` as true; refuse a repeated slot;
+place a repeated slot's actor twice. Each must be killed by the invariant that
+names it.
 
 ## 8. Alternatives considered (and rejected)
 
