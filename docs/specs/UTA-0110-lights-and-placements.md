@@ -1,7 +1,7 @@
 # UTA-0110 — `ubake`: write the level's lights and actor placements into the bundle
 
 **Status:** accepted (2026-09-11), at the review's cap; amended for UTA-0124
-(§ 4.5 step 1, INV-4), under review.
+(§ 4.5 step 1, INV-4) and accepted again (2026-09-11), at that review's cap.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0110 (user-request-2026-09-10, split out of
 UTA-0011).
@@ -294,7 +294,9 @@ struct Actors {
    earlier slot named is skipped, so the actor is placed once** (UTA-0124).
    UT99's own maps carry such slots, CTF-November and DM-Grinder among them,
    and a placement keyed by its export carries nothing a second slot could
-   add.
+   add. **`BAKER_REVISION` does not move for it:** every map with a repeated
+   slot was refused before, and a refused bake writes nothing a bake name
+   could find, so no bundle written before changes.
 2. Its own properties, by `upkg::readProperties`, each written as a
    `PropertyRecord` in file order. A refusal from `readProperties` refuses
    the bake, naming the actor.
