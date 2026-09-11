@@ -4498,6 +4498,10 @@ model, no weapon and no opponent until 0.2.0.
 
   Next: draft docs/specs/UTA-0109-map-geometry.md and its loop log, then
   run review-contract.
+  Progress (2026-09-11): resumed by session ut-ants-08 in the main
+  checkout. ut-ants-48 is no longer in ListAgents. Rule 1's set is still
+  UTA-0059, UTA-0098 and UTA-0100, each deferring itself. Continuing
+  from the draft plan above with write-spec.
   **Layman:** Rebuild each level's walls, floors and ceilings as modern 3D geometry the renderer can draw.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
