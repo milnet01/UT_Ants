@@ -34,7 +34,7 @@ struct Box {
 struct Scene {
     ubundle::CollisionTree tree;                            ///< the level's
     std::vector<Vec3> network;                              ///< each navigation point's Location
-    std::vector<std::pair<std::size_t, std::size_t>> edges; ///< into `network`, from then to
+    std::vector<std::pair<std::size_t, std::size_t>> edges; ///< into `network`, from then to; SS 3 decision 10's only
     Vec3 start{};
     std::vector<Cylinder> exits;                            ///< Location and collision size
     std::vector<Box> movers;                                ///< world boxes

@@ -322,6 +322,13 @@ MapBuilder& MapBuilder::addActor(std::string_view name, std::int32_t classRefere
     return *this;
 }
 
+MapBuilder& MapBuilder::addReachSpec(std::size_t from, std::size_t to,
+                                     std::int32_t collisionRadius, std::int32_t collisionHeight,
+                                     std::int32_t reachFlags) {
+    reaches_.push_back(Reach{from, to, collisionRadius, collisionHeight, reachFlags});
+    return *this;
+}
+
 std::int32_t MapBuilder::addBrushModel(const BrushSpec& brush) {
     ModelExportWriter model;
     std::array<float, 3> low = brush.corners[0];
@@ -466,6 +473,9 @@ std::vector<std::uint8_t> MapBuilder::build() const {
         level.setProperties(emptyProperties());
         for (const std::int32_t actor : actors) level.addActor(actor);
         level.addActor(0); // a null slot, as a stock map's array is full of
+        for (const Reach& reach : reaches_)
+            level.addReachSpec(100, actors.at(reach.from), actors.at(reach.to), reach.collisionRadius,
+                               reach.collisionHeight, reach.reachFlags, 0);
         level.setModel(target);
         level.setTrailerFloat(1.0F);
         packer.addExport(packer.importClass("Engine", "Level"), 0, "MyLevel", level.build());

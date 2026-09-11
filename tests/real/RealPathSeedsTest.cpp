@@ -23,8 +23,10 @@
 #include "ubake/Bake.h"
 #include "ubake/Install.h"
 #include "ubake/Name.h"
+#include "upkg/Class.h"
 #include "upkg/Level.h"
 #include "upkg/Package.h"
+#include "upkg/Properties.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -101,6 +103,38 @@ void floorsOf(const uta::upkg::Package& map, std::string_view mapName,
     }
 }
 
+/// SS 3 decision 4's numbers, read again from the install: Botpack.TMale1's
+/// resolved CollisionRadius, CollisionHeight and MaxStepHeight.
+void printBody(const fs::path& root) {
+    auto install = uta::ubake::Install::open(root);
+    REQUIRE(install.has_value());
+    const uta::upkg::PackageResolver resolver = install->resolver();
+    const auto botpack = resolver("botpack");
+    REQUIRE(botpack.has_value());
+    REQUIRE(*botpack != nullptr);
+    const uta::upkg::Package& package = **botpack;
+    const uta::upkg::ExportEntry* tmale1 = nullptr;
+    for (const uta::upkg::ExportEntry& entry : package.exports())
+        if (entry.objectClass.kind() == uta::upkg::ObjectReferenceKind::Null
+            && uta::ubake::detail::fold(package.name(entry.objectName).value_or("")) == "tmale1") {
+            tmale1 = &entry;
+            break;
+        }
+    REQUIRE(tmale1 != nullptr);
+    const auto ancestry = uta::upkg::readAncestry(package, *tmale1, resolver);
+    REQUIRE(ancestry.has_value());
+    const auto defaults = uta::upkg::effectiveDefaults(*ancestry);
+    REQUIRE(defaults.has_value());
+    std::cout << "  Botpack.TMale1:";
+    for (const uta::upkg::EffectiveProperty& property : *defaults) {
+        const std::string name = uta::ubake::detail::fold(property.name);
+        if (name != "collisionradius" && name != "collisionheight" && name != "maxstepheight") continue;
+        if (const auto* value = std::get_if<float>(&property.property.value))
+            std::cout << " " << property.name << " " << *value;
+    }
+    std::cout << "\n";
+}
+
 void censusOf(const fs::path& root, const fs::path& path, Totals& totals) {
     ++totals.maps;
     const std::string mapName = uta::ubake::detail::mapNameOf(path);
@@ -144,6 +178,7 @@ TEST_CASE("every Monster Hunt map's scene reads and the census prints", "[real-a
     std::cout << "UTA-0121 path census over " << totals.maps << " maps, " << totals.withExit
               << " holding a MonsterEnd\n"
               << "  spots found: " << totals.spots << "\n";
+    printBody(root);
     for (const auto& [className, floors] : totals.floors)
         std::cout << "  " << className << " floors: normal Z below " << FLOOR_Z << ": " << floors[0]
                   << ", at or above: " << floors[1] << ", none within 1000: " << floors[2] << "\n";

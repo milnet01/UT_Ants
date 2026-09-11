@@ -187,6 +187,11 @@ public:
     /// An actor named `name` of the class `classReference` names.
     MapBuilder& addActor(std::string_view name, std::int32_t classReference,
                          std::vector<PropertySpec> properties = {});
+    /// A reach spec from actor `from` to actor `to`, by their positions among
+    /// the actors, carrying the collision size and flags given -- UTA-0121
+    /// INV-11.
+    MapBuilder& addReachSpec(std::size_t from, std::size_t to, std::int32_t collisionRadius,
+                             std::int32_t collisionHeight, std::int32_t reachFlags);
 
     /// A Model export holding `brush`'s square, for an actor to name through
     /// its Brush property; its reference.
@@ -224,6 +229,11 @@ private:
     /// Exported after everything else the builder holds, so an actor's export
     /// index is never its position among the actors.
     std::vector<Actor> actors_;
+    struct Reach {
+        std::size_t from = 0, to = 0;
+        std::int32_t collisionRadius = 0, collisionHeight = 0, reachFlags = 0;
+    };
+    std::vector<Reach> reaches_;
     int brushes_ = 0;
     int levelCount_ = 1;
     bool decoy_ = false;

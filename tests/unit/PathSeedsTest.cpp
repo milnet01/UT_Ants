@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -149,6 +150,37 @@ Run run(const std::vector<std::string>& args) {
 
 std::vector<std::uint8_t> bytesOf(std::string_view text) {
     return {text.begin(), text.end()};
+}
+
+/// INV-10 and INV-11's packages: Engine's navigation classes and MonsterHunt's
+/// MonsterEnd, with the collision sizes the install's own classes carry.
+uta::test::bake::MemoryPackages seedPackages() {
+    using namespace uta::test::bake;
+    Packer engine;
+    const std::int32_t navigation = engine.addClass(
+        "NavigationPoint", 0,
+        {floatProperty("CollisionRadius", 46), floatProperty("CollisionHeight", 50)});
+    engine.addClass("PlayerStart", navigation,
+                    {floatProperty("CollisionRadius", 18), floatProperty("CollisionHeight", 40)});
+    engine.addClass("PathNode", navigation);
+    Packer monsterHunt;
+    monsterHunt.addClass("MonsterEnd", 0,
+                         {floatProperty("CollisionRadius", 40), floatProperty("CollisionHeight", 40)});
+
+    MemoryPackages packages;
+    packages.add("core", tinyPackage("Object"));
+    packages.add("engine", engine.build());
+    packages.add("monsterhunt", monsterHunt.build());
+    return packages;
+}
+
+/// sceneOf over the map `map` builds, with seedPackages() as the install.
+uta::Result<Scene> sceneOfBuilt(const uta::test::bake::MapBuilder& map) {
+    uta::test::bake::MemoryPackages packages = seedPackages();
+    const std::vector<std::uint8_t> bytes = map.build();
+    const auto package = uta::upkg::Package::open(uta::test::asBytes(bytes));
+    REQUIRE(package.has_value());
+    return sceneOf(*package, uta::test::bake::MAP_NAME, packages.resolver());
 }
 
 } // namespace
@@ -288,16 +320,6 @@ TEST_CASE("INV-9: only EXIT_OFF_NET and PARTITIONED rows are work and a missing 
 TEST_CASE("INV-10: the start is the first PlayerStart and the exits every MonsterEnd",
           "[paths][seeds]") {
     using namespace uta::test::bake;
-    Packer engine;
-    const std::int32_t navigation = engine.addClass(
-        "NavigationPoint", 0,
-        {floatProperty("CollisionRadius", 46), floatProperty("CollisionHeight", 50)});
-    engine.addClass("PlayerStart", navigation,
-                    {floatProperty("CollisionRadius", 18), floatProperty("CollisionHeight", 40)});
-    Packer monsterHunt;
-    monsterHunt.addClass("MonsterEnd", 0,
-                         {floatProperty("CollisionRadius", 40), floatProperty("CollisionHeight", 40)});
-
     MapBuilder map;
     map.addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 1, 2, 3)})
         .addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 4, 5, 6)})
@@ -306,15 +328,7 @@ TEST_CASE("INV-10: the start is the first PlayerStart and the exits every Monste
     map.addActor("MyEnd0", map.addClass("MyEnd", map.importClass("MonsterHunt", "MonsterEnd")),
                  {vectorProperty("Location", 40, 50, 60)});
 
-    MemoryPackages packages;
-    packages.add("core", tinyPackage("Object"));
-    packages.add("engine", engine.build());
-    packages.add("monsterhunt", monsterHunt.build());
-    const std::vector<std::uint8_t> bytes = map.build();
-    const auto package = uta::upkg::Package::open(uta::test::asBytes(bytes));
-    REQUIRE(package.has_value());
-
-    const auto scene = sceneOf(*package, MAP_NAME, packages.resolver());
+    const auto scene = sceneOfBuilt(map);
     INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));
     REQUIRE(scene.has_value());
     CHECK(scene->start == Vec3{1, 2, 3});
@@ -325,4 +339,39 @@ TEST_CASE("INV-10: the start is the first PlayerStart and the exits every Monste
     CHECK(scene->exits[1].centre == Vec3{40, 50, 60});
     CHECK(scene->exits[1].radius == 40);
     CHECK(scene->exits[1].height == 40);
+}
+
+TEST_CASE("INV-11: the scene keeps only the edges a walking bot may use", "[paths][seeds]") {
+    using namespace uta::test::bake;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", -200, 0, 0)})
+        .addActorOfClass("MonsterHunt", "MonsterEnd", {vectorProperty("Location", -400, 0, 0)});
+    // Four PathNodes, actors 2 to 5, a hundred apart on X.
+    for (int i = 0; i < 4; ++i)
+        map.addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 100.0F * i, 0, 0)});
+    // Seven specs, each on its own ordered pair. A kept spec is exactly the
+    // body's size, so a comparison stricter than supports()'s refuses it.
+    constexpr std::size_t A = 2, B = 3, C = 4, D = 5;
+    map.addReachSpec(A, B, 17, 39, 1)      // walking
+        .addReachSpec(B, C, 17, 39, 9)     // walking and jumping
+        .addReachSpec(C, D, 17, 39, 32)    // special
+        .addReachSpec(D, A, 17, 39, 85)    // walking, swimming, doors and player-only
+        .addReachSpec(A, C, 17, 39, 2)     // flying
+        .addReachSpec(B, D, 16, 39, 1)     // walking, narrower than the body
+        .addReachSpec(C, A, 17, 38, 1);    // walking, lower than the body
+
+    const auto scene = sceneOfBuilt(map);
+    INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));
+    REQUIRE(scene.has_value());
+    // The network position of the navigation point at X = x.
+    const auto at = [&](double x) {
+        for (std::size_t i = 0; i < scene->network.size(); ++i)
+            if (scene->network[i] == Vec3{x, 0, 0}) return i;
+        FAIL("no navigation point at x " << x);
+        return std::size_t{0};
+    };
+    const std::set<std::pair<std::size_t, std::size_t>> kept(scene->edges.begin(), scene->edges.end());
+    const std::set<std::pair<std::size_t, std::size_t>> expected = {
+        {at(0), at(100)}, {at(100), at(200)}, {at(200), at(300)}, {at(300), at(0)}};
+    CHECK(kept == expected);
 }

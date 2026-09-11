@@ -247,6 +247,13 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **`ut-paths` follows only the bot paths a walking bot can use.** (UTA-0125)
+  It treated every existing bot path as usable, including ones only a
+  flying monster can take, so its proposed nodes could start from a part
+  of a map a walking bot never reaches. It now keeps a path only where a
+  walking bot fits it and can make every move it needs, as UT itself
+  decides. Found by UT_MonsterHunt testing the first proposals.
+
 - **Test fixtures write a BSP node's two children in the order the reader reads them.** (UTA-0122)
   The test helper that writes a level's Model put a node's front child
   where the package reader reads its back child, so a fixture could

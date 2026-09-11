@@ -39,6 +39,17 @@ using ubundle::ValueKind;
 constexpr double LONGEST_HOP = 350;
 constexpr double TOO_NEAR = 50;
 
+/// SS 3 decision 10: the movement flags APawn::calcMoveFlags gives a walking
+/// bot -- R_WALK 1, R_SWIM 4, R_JUMP 8, R_DOOR 16, R_SPECIAL 32 and
+/// R_PLAYERONLY 64, every EReachSpecFlags value but R_FLY, 2.
+constexpr std::int32_t BOT_MOVE_FLAGS = 1 | 4 | 8 | 16 | 32 | 64;
+
+/// FReachSpec::supports for that bot at SS 3 decision 4's body.
+bool walkable(const unav::NavEdge& edge) {
+    return edge.collisionRadius >= RADIUS && edge.collisionHeight >= HALF_HEIGHT
+           && (edge.reachFlags & BOT_MOVE_FLAGS) == edge.reachFlags;
+}
+
 constexpr std::array<double, 3> HEIGHTS = {-HALF_HEIGHT + STEP + 1, 0, HALF_HEIGHT - 1};
 
 // ------------------------------------------------------------------ SS 4.6
@@ -361,8 +372,10 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
         position[i] = scene.network.size();
         scene.network.push_back(locationOf(*actor, placements.classes[actor->classIndex]));
     }
+    // Only the edges a walking bot may use (SS 3 decision 10).
     for (const unav::NavEdge& edge : nav.edges)
-        if (position[edge.from] < nav.nodes.size() && position[edge.to] < nav.nodes.size())
+        if (walkable(edge) && position[edge.from] < nav.nodes.size()
+            && position[edge.to] < nav.nodes.size())
             scene.edges.emplace_back(position[edge.from], position[edge.to]);
 
     // Each mover's box: its tree placed by its MOVR shape (UTA-0111 SS 4.5).
