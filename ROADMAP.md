@@ -4524,7 +4524,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle.
 
-- 🚧 [UTA-0110] **ubake: write the level's lights and actor placements into the bundle.**
+- ✅ [UTA-0110] **ubake: write the level's lights and actor placements into the bundle.**
   Split out of UTA-0011 by the user on 2026-09-10.
   UTA-0014 turns the level's own light actors into dynamic lights, so
   the bundle must carry them. docs/design.md § Content addressing has a
@@ -4547,6 +4547,11 @@ model, no weapon and no opponent until 0.2.0.
     This item records where each mover stands and its settings.
   Progress (2026-09-11): the spec is accepted at the review's cap after
   two loops, and the build has begun. Session ut-ants-08, main checkout.
+  Resolved (2026-09-11): shipped in bb16d78, green on the matrix -- GCC 14,
+  Clang 19 and MSVC (CI run 34578329655). The spec is accepted at its
+  review's cap; its as-built section records the choices it left open.
+  The real-asset case, tests/real/RealActorsTest.cpp, compiles and has not
+  been run; its figures go here when it is.
   **Layman:** Carry each level's lamps, and where everything in it stands, into the baked map.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4600,7 +4605,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: ubake.
 
-- 📋 [UTA-0119] **ubake: bake each mover's own brush into the bundle.**
+- 🚧 [UTA-0119] **ubake: bake each mover's own brush into the bundle.**
   Decided by the user on 2026-09-11, while UTA-0110 was being specified:
   movers get an item of their own, before 0.1.0. A mover -- a door, a
   lift -- carries its shape as its own brush Model, which the level's
@@ -4609,6 +4614,9 @@ model, no weapon and no opponent until 0.2.0.
   stands and its settings; this item bakes each one's shape so the
   renderer can draw it there.
   Blocked-by: UTA-0109, UTA-0110.
+  Progress (2026-09-11): claimed by session ut-ants-08, working in the
+  main checkout. UTA-0110 shipped in bb16d78, so both blockers are done;
+  this begins with its spec.
   **Layman:** Doors, lifts and other moving parts get their shapes baked, so they appear in the level instead of being invisible.
   Kind: implement.
   Source: user-request-2026-09-11 split-from-UTA-0110.
