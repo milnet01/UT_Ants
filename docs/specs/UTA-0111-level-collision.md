@@ -378,10 +378,15 @@ and INV-2; `tests/unit/BakeCollisionTest.cpp` for INV-3, INV-4, INV-5,
 INV-6 and INV-7. Each is
 seen failing before the code it locks exists.
 
-**The fixtures grow.** The `Model` writer in `tests/unit/BakeFixture.h`
-gains `leafHulls`, `rootOutside` and the three links where it lacks them.
-UTA-0011 INV-5's golden bake then covers `COLL`, and its case asserts the
-level tree has the fixture `Model`'s nodes.
+**The fixtures change.** `ModelExportWriter`, in
+`tests/support/UnrealPackageBuilder.h`, writes every node's `iPlane` and
+`iCollisionBound` as 0 and its `LeafHulls` empty. § 4.3 refuses both: node 0
+would name itself as its coplanar, and a hull index would pass an empty table.
+So its `Node` gains `iPlane`, `iCollisionBound` and `nodeFlags`, defaulting to
+−1, −1 and 0, and the writer gains a `LeafHulls` table and `RootOutside`.
+Every bake test then builds a `Model` § 4.3 accepts. UTA-0011 INV-5's golden
+bake covers `COLL`, and its case asserts the level tree has the fixture
+`Model`'s nodes.
 
 **Real-asset tier, local only:** `tests/real/RealCollisionTest.cpp` runs
 `buildCollision` over every map's level `Model`, and `buildMoverCollision`
