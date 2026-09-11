@@ -4630,6 +4630,23 @@ model, no weapon and no opponent until 0.2.0.
   ADR-0002 lists baked indirect light among what a bundle carries.
   The method, and the section that stores its result, are this item's.
   Blocked-by: UTA-0011.
+  Picked up (2026-09-11) by ut-ants-2b, main checkout, after UTA-0122
+  shipped and with the rest of rule 1's set dormant by its own terms
+  (UTA-0059, UTA-0098, UTA-0100). Starting with its spec: write-spec, then
+  review-contract.
+  Paused (2026-09-11) by ut-ants-2b before any spec was written, to fix a
+  UTA-0121 defect UT_MonsterHunt is blocked on. Research so far, for whoever
+  takes it: no in-repo precedent computes or stores indirect light. The
+  constraints found are the numeric contract (no platform maths library in
+  the baker, so no sine or cosine at bake time), the GTX 1050 2 GB floor and
+  UTA-0052's absolute texture budget, UTA-0014's dynamic shadowed direct
+  lights (so this bakes the bounce only), and level boxes that are mostly
+  sky (UTA-0098). Leading option: sparse probes near geometry storing an
+  ambient cube (six RGB values, Valve's Source precedent), which lights
+  static surfaces and moving pawns alike with no UV atlas. ZoneInfo's
+  AmbientBrightness, AmbientHue and AmbientSaturation are a second light
+  source to account for. UT99's light falloff formula was not found in any
+  source reached; the bake and UTA-0014 must share one light model.
   **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -4785,7 +4802,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-11.
   Lanes: unav, uworld, tools.
 
-- 🚧 [UTA-0122] **tests: ModelExportWriter writes a node's iFront where upkg reads iBack.**
+- ✅ [UTA-0122] **tests: ModelExportWriter writes a node's iFront where upkg reads iBack.**
   Found by UTA-0111's contract review, loop 1.
   ModelExportWriter::build writes a node's iFront, then its iBack.
   upkg::readModel reads iBack first, as measured and corrected under
@@ -4799,6 +4816,13 @@ model, no weapon and no opponent until 0.2.0.
 
   Picked up (2026-09-11) by ut-ants-2b, main checkout, after UTA-0121
   shipped; rule 1 of the priority order.
+  Shipped (2026-09-11), ut-ants-2b, main checkout: 3e90d61, green on GCC 14,
+  Clang 19 and MSVC (run 34630103481). ModelExportWriter writes a node's
+  iBack before its iFront, as upkg::readModel reads them. A new
+  PackageContentTest case holds the two together; it was seen failing, both
+  children swapped, before the fix. The bake fixture's decoy Model, the only
+  fixture setting a child through the writer, now builds the descent it
+  describes, and its room count is unchanged.
   **Layman:** A test helper puts two values in each other's place, so a test can describe one layout of a level while building another.
   Kind: review-fix.
   Source: review-contract-2026-09-11 UTA-0111 loop 1.
@@ -4839,6 +4863,28 @@ model, no weapon and no opponent until 0.2.0.
   Kind: investigate.
   Source: in-session-2026-09-11.
   Lanes: ubake.
+
+- 🚧 [UTA-0125] **ut-paths: the start part follows reach specs a walking bot cannot use.**
+  Reported 2026-09-11 by UT_MonsterHunt, testing UTA-0121's nodes on
+  MH-AD_Concrete_and_floors_v3: the six nodes linked in UT's editor, but
+  the census verdict did not change. Their probe finds the start reaches
+  the exit over every reach spec, and not once specs with ReachFlags bit 2
+  are left out.
+  UTA-0121's spec (SS 4.6) forms the start part over every edge in its
+  stated direction, and SS 9 left reach flags to UTA-0085, so ut-paths
+  reads none. UT decides whether a pawn may use a spec with
+  FReachSpec::supports (the 432 headers' Engine/Inc/UnReach.h): the spec's
+  collision size at least the pawn's, and every one of its reachFlags among
+  the pawn's movement flags.
+  Fix: follow only edges a walking bot's supports() admits, amend UTA-0121
+  SS 4.6 through its gate, and re-run the census into
+  /mnt/Games/Scripts/Linux/ut-paths-output.
+  Picked up (2026-09-11) by ut-ants-2b, main checkout, ahead of UTA-0112
+  because UT_MonsterHunt holds its remaining maps until this is settled.
+  **Layman:** The path tool treated every existing bot path as usable, including ones only flying monsters can take, so its new nodes can start from places a walking bot never reaches.
+  Kind: fix.
+  Source: in-session-2026-09-11.
+  Lanes: tools.
 
 ## 0.2.0 — Movement and weapons
 

@@ -1,6 +1,7 @@
 # UTA-0121 — `ut-paths`: propose bot path nodes for UT99's maps
 
-**Status:** accepted (2026-09-11), at the review's cap.
+**Status:** accepted (2026-09-11), at the review's cap; UTA-0125's
+amendment (§ 3 decision 10, INV-11) is under review.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -87,6 +88,21 @@ The choices below are mine, the user being away and having left them to me.
 9. **The code lives in the tool**, not in a library. `uworld` does not exist,
    and UTA-0017 owns real body-against-level collision. A second user moves
    this code (§ 8).
+10. **The network is followed only over the edges a walking bot may use**
+    (UTA-0125, 2026-09-11). UT decides that with `FReachSpec::supports`: the
+    spec's `CollisionRadius` and `CollisionHeight` at least the pawn's, and
+    every one of its `reachFlags` among the pawn's movement flags
+    (`Engine/Inc/UnReach.h`). `APawn::calcMoveFlags` builds those flags from
+    the pawn's abilities (`Engine/Inc/APawn.h`, whose `EReachSpecFlags` gives
+    `R_WALK` 1, `R_FLY` 2, `R_SWIM` 4, `R_JUMP` 8, `R_DOOR` 16, `R_SPECIAL`
+    32 and `R_PLAYERONLY` 64). `Bot.PreSetMovement` gives `Botpack.Bot`
+    walking, swimming, jumping, doors and special moves, and its `bIsPlayer`
+    is true, so the walking bot here moves by every flag but `R_FLY`, at
+    § 3 decision 4's body. UT_MonsterHunt found this testing the first
+    build: on MH-AD_Concrete_and_floors_v3 the start's part reached the
+    exit only over flying specs, so nodes chained from it helped no bot.
+    Source: <https://github.com/stephank/surreal> (UT 4.32's public
+    headers) and <https://github.com/Slipyx/UT99> (`Botpack/Bot.uc`).
 
 ## 4. Design
 
@@ -241,8 +257,9 @@ A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
   package declares its class.
 - **Positions** are each actor's resolved `Location`: its own property, else
   its class default (`ubake::detail::resolvedRecord`).
-- **The network** is `unav::buildNavGraph`'s graph. Its start part is every
-  node reachable, over its edges in their stated direction, from the node
+- **The network** is `unav::buildNavGraph`'s graph, keeping only the edges a
+  walking bot may use (§ 3 decision 10). Its start part is every node
+  reachable, over those edges in their stated direction, from the node
   nearest the start's Location.
 - **Placing an actor on the walk graph.** Its spot is the one nearest its
   Location among spots in columns within 64 of it horizontally, whose centre
@@ -265,7 +282,7 @@ struct Box { Vec3 min{}, max{}; };
 struct Scene {
     ubundle::CollisionTree tree;                             ///< the level's
     std::vector<Vec3> network;                               ///< each navigation point's Location
-    std::vector<std::pair<std::size_t, std::size_t>> edges;  ///< into `network`, from then to
+    std::vector<std::pair<std::size_t, std::size_t>> edges;  ///< into `network`, from then to; SS 3 decision 10's only
     Vec3 start{};
     std::vector<Cylinder> exits;                             ///< Location and collision size
     std::vector<Box> movers;                                 ///< world boxes
@@ -435,6 +452,16 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   *Breaks when:* a later PlayerStart is taken, a subclass is missed by a
   class-name match, or the class default is read over the actor's own value.
 
+- **INV-11** — The scene keeps only the edges a walking bot may use: every
+  flag among § 3 decision 10's, and a size at least the body's.
+  *Test:* `tests/unit/PathSeedsTest.cpp`, through `sceneOf` over INV-10's
+  map with four PathNodes joined by five reach specs: walking (1), walking
+  and jumping (9), special (32), flying (2), and walking at a radius below
+  17. `Scene::edges` holds the first three and not the last two.
+  *Breaks when:* every spec is kept whatever its flags, the size is not
+  tested, or a flag the bot has, such as `R_JUMP` or `R_SPECIAL`, refuses a
+  spec.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -452,7 +479,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 **Unit, on every CI leg:** `tests/unit/CoreMd5Test.cpp` for INV-1;
 `tests/unit/PathTraceTest.cpp` for INV-2; `tests/unit/PathWalkableTest.cpp`
 for INV-3 and INV-4; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
-INV-8, INV-9 and INV-10.
+INV-8, INV-9, INV-10 and INV-11.
 Each is seen failing before the code it locks exists. Trees and scenes are
 built in memory, with `tests/unit/PathFixture.h`, so only INV-9 and INV-10
 need an install or a fixture map.
@@ -473,8 +500,9 @@ navigation point; substitute a point without checking its hop; run a
 `PARTITIONED` chain on to the exit; never block movers; follow edges both
 ways; write a name unescaped; write the double; ignore the group column;
 fail the run on a missing file; skip the directory summary; take a later
-PlayerStart; read the class default over the actor's own value. Each must
-be killed by the invariant that names it.
+PlayerStart; read the class default over the actor's own value; keep a
+flying spec; skip the size test; refuse a special spec. Each must be killed
+by the invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -496,7 +524,8 @@ be killed by the invariant that names it.
 - Their `PAWN_ANCHORED_NO_ROUTE` group — unexplained, and no node is known to
   help it (ROADMAP UTA-0121).
 - Body-against-level collision for the game — UTA-0017.
-- Decoding reach-spec flags and sizes — UTA-0085.
+- Decoding reach-spec flags and sizes past the one test § 3 decision 10
+  makes — UTA-0085.
 - Writing a map file, or linking nodes — UT_MonsterHunt's and UT's editor's.
 
 ## 10. What checks this
@@ -506,7 +535,7 @@ be killed by the invariant that names it.
 | INV-1 | `tests/unit/CoreMd5Test.cpp`, a unit test |
 | INV-2 | `tests/unit/PathTraceTest.cpp`, a unit test |
 | INV-3, INV-4 | `tests/unit/PathWalkableTest.cpp`, a unit test |
-| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10 | `tests/unit/PathSeedsTest.cpp`, a unit test |
+| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11 | `tests/unit/PathSeedsTest.cpp`, a unit test |
 | § 3 decisions 4 and 6 hold on real maps | **Partial:** `tests/real/RealPathSeedsTest.cpp` prints them; no CI leg runs it |
 | Proposed nodes help a bot reach the exit | **nothing** here — UT_MonsterHunt's census re-run (GAME-0095) is the measure |
 
