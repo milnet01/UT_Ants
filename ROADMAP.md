@@ -4580,6 +4580,15 @@ model, no weapon and no opponent until 0.2.0.
   UT99). Also decided: each mover's own collision tree is baked in this
   item, beside its MOVR shape, so doors and lifts can be solid once movement
   exists without a second format change.
+  Progress (2026-09-11): spec drafted at docs/specs/UTA-0111-level-collision.md,
+  before its review gate. Measured over the reference install with a scratch
+  probe, to be printed by the spec's real-asset case:
+  - a hull entry's bit 30 is a flag, and the hull lies behind its planes,
+    each reversed where the flag is set;
+  - level trees store some children before their parent, and hold nodes no
+    walk from the root reaches, while no node is reached twice;
+  - iSurf, the vertex runs and every hull index stay in range, and no node
+    has one or two vertices.
   **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
