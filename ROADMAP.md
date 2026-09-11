@@ -4502,6 +4502,16 @@ model, no weapon and no opponent until 0.2.0.
   checkout. ut-ants-48 is no longer in ListAgents. Rule 1's set is still
   UTA-0059, UTA-0098 and UTA-0100, each deferring itself. Continuing
   from the draft plan above with write-spec.
+  Progress (2026-09-11), session ut-ants-08, main checkout. The spec is
+  docs/specs/UTA-0109-map-geometry.md, accepted at review-contract's cap of
+  two loops with an empty tail: 11 verified findings, all fixed. Record:
+  docs/reviews/UTA-0109-map-geometry-loop-log.md.
+
+  One correction to the plan above. The texture's scale is its DrawScale
+  property, not Scale. A package names a property by its script
+  declaration, and UT's Texture.uc declares DrawScale in the slot UnTex.h
+  calls Scale. The draft plan's GEOM, FORMAT_VERSION 4 and BAKER_REVISION
+  2 stand. Next: build it.
   **Layman:** Rebuild each level's walls, floors and ceilings as modern 3D geometry the renderer can draw.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.

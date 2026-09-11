@@ -1,6 +1,6 @@
 # UTA-0109 — `ubake`: turn the level's BSP tables into triangles, and write the geometry section
 
-**Status:** spec draft (2026-09-11).
+**Status:** accepted (2026-09-11).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0109 (user-request-2026-09-10, split out of
 UTA-0011).
@@ -256,11 +256,16 @@ exists exactly where a `MATS` record does.
 
 **`uSize` and `vSize`** are the width and height of the texture's base level
 (`mips[0]`), each times the texture's scale. **The scale is the texture's
-`Scale` property**, a `float`, and `1` where it carries none or carries one
-that is not finite and positive. `UTexture::Scale` is the member UT 4.32's
-header describes as *"Scaling relative to parent, 1.f=normal"* (`Engine/Inc/UnTex.h`
-in the source cited above). That this is what the driver's `Info.UScale`
-holds is not in the public source; § 15 keeps the question open.
+`DrawScale` property**, a `float`, and `1` where it carries none or carries
+one that is not finite and positive. A package names a property by its
+script declaration, and `DrawScale` is the script's name for the member
+UT 4.32's `Engine/Inc/UnTex.h` calls `UTexture::Scale`, *"Scaling relative
+to parent"*: the script declares `Diffuse`, `Specular`, `Alpha`,
+`DrawScale`, `Friction`, `MipMult` where the header declares `Diffuse`,
+`Specular`, `Alpha`, `Scale`, `Friction`, `MipMult`, and defaults it to `1`.
+Source: <https://github.com/Slipyx/UT99/blob/master/Engine/Texture.uc>, UT's
+469b scripts. That the driver's `Info.UScale` holds it is not in the public
+source; § 15 keeps that open.
 
 `umat::resolve` refuses a base level of zero width or height, so a made
 variant's sizes are never zero.
@@ -277,7 +282,9 @@ recorded again under it.
 - **INV-1** — `GEOM` round-trips through `ubundle::write` and
   `ubundle::read`, float bits included, and `write` emits it after `MATS`.
   *Test:* `tests/unit/BundleGeometryTest.cpp`, a geometry holding a `-0.0`
-  and a NaN with a payload, in a bundle that also carries `MATS`.
+  and a signalling NaN — quiet bit clear, non-zero payload, made with
+  `std::bit_cast` — in a bundle that also carries `MATS`. A quiet NaN keeps
+  its bits through a `double`, so it cannot show that breakage.
   *Breaks when:* a float passes through a wider type or a comparison, or
   `GEOM` is emitted ahead of another section.
 
@@ -286,8 +293,8 @@ recorded again under it.
   two batches of one material whose flags descend; two batches of one key;
   a batch of `indexCount` zero; one of `indexCount` four; a first batch not
   starting at `0`; a gap between two batches; indices past the last batch;
-  indices with no batches; and batches `{0, 3}` and `{3, 4294967295}` over
-  two indices, whose end is `2` only when summed in 32 bits.
+  indices with no batches; and batches `{0, 3}`, `{3, 4294967295}` and
+  `{2, 3}` over five indices, which tile only when summed in 32 bits.
   *Test:* `tests/unit/BundleGeometryTest.cpp`, one case per rule. Each
   fixture breaks that rule alone — the count-of-four case tiles its four
   indices exactly, and `4294967295` is a multiple of three — so no other
@@ -344,8 +351,8 @@ recorded again under it.
   *Test:* `tests/unit/BakeGeometryTest.cpp`: nodes whose materials descend
   in node order; two nodes of one material with different flags; and two
   nodes of one key, which must keep node order inside their batch.
-  *Breaks when:* batches follow node order, an unordered container decides
-  it, or an unstable sort reorders the nodes inside a batch.
+  *Breaks when:* batches follow node order, or an unordered container
+  decides it.
 
 - **INV-9** — A node of three or more vertices whose `iSurf` leaves
   `surfs`, and a drawn node whose vertex pool, `pVertex`, `pBase`,
@@ -374,7 +381,7 @@ recorded again under it.
 | A skipped node's indices are bad | Nothing. A node of fewer than three vertices is not read at all, and an invisible one is read only as far as `iSurf` |
 | A node has no area | It emits nothing |
 | A surface's texture was skipped, or is null | Its triangles are drawn with no material and `u = v = 0` |
-| A texture's `Scale` is zero, negative, infinite or NaN | The scale is `1` |
+| A texture's `DrawScale` is zero, negative, infinite or NaN | The scale is `1` |
 | The emitted vertices or indices would reach 2^32 | The bake is refused |
 | The level draws no node | `GEOM` is written empty |
 | A version-61 `Model` (UTA-0072) | `readModel` refuses first, as today |
@@ -407,9 +414,10 @@ emitted polygon. It prints:
   up and seams where only `-` does. A seam is two drawn polygons of
   different surfaces sharing two points by value, whose surfaces name the
   same texture with equal `TU`, `TV` and `N` and different pans. A sign lines
-  up where both sides' `(P - Base) · TU ± pan` differ by a whole multiple of
-  the texture's width, within a thousandth of a texel;
-- how many baked textures carry `Scale`, and how many carry `DrawScale`;
+  up on U where both sides' `(P - Base) · TU ± panU` differ by a whole
+  multiple of `uSize`, and on V where their `(P - Base) · TV ± panV` differ
+  by a whole multiple of `vSize`, within a thousandth of a texel;
+- how many baked textures carry `DrawScale`, and the values it takes;
 - maps refused, by reason.
 
 **Mutation, by hand** (`CLAUDE.md` § Build and test): subtract the pan; skip
@@ -438,8 +446,9 @@ Each must be killed by the invariant that names it.
   UTA-0104's. Its cost here is a few extra batches.
 - **`u16` indices.** A level would have to be split wherever it passed
   65,536 vertices, and the saving is two bytes an index.
-- **`DrawScale` as the texture's scale.** It is not a member of UT 4.32's
-  `UTexture`; § 15.
+- **Reading a property named `Scale`.** That is the C++ member's name, and
+  a package names a property by its script declaration, so no file carries
+  it.
 - **A second coordinate set for baked light now.** UTA-0112 has not chosen
   how it bakes, and a set added then changes the format either way.
 
@@ -468,7 +477,7 @@ Each must be killed by the invariant that names it.
 | `BAKER_REVISION` covering geometry | **Partial:** `tests/unit/BakeGoldenTest.cpp`, a golden-hash test, catches what its fixture draws; a change reached only by real content passes |
 | The PolyFlags bit values being UT99's | **nothing** — the tests use the constants the code uses, and the values rest on the cited header |
 | The pan's sign matching UT99 | **Partial:** `tests/real/RealGeometryTest.cpp`, a real-asset test, prints the seam tally; nothing asserts it, and no CI leg runs it |
-| The texture's scale being its `Scale` property | **nothing** — the public source does not show what fills `Info.UScale`; § 15 |
+| The driver's `Info.UScale` being the texture's `DrawScale` | **nothing** — the public source does not show what fills it; § 15 |
 | The renderer taking § 4.3's winding as front-facing | **nothing** until UTA-0014 draws a bundle |
 
 ## 11. Cross-doc impact
@@ -510,9 +519,7 @@ UTA-0011 § 4.7's cache check bakes over it.
 
 ## 15. Open questions
 
-- **What fills `Info.UScale`.** UT 4.32's `UTexture` has a `Scale` member
-  and no `DrawScale`, and no texture in the reference install carries a
-  `Scale` property. Some carry `DrawScale`, which the reference install's
-  469 release may read. The real-asset case prints how many baked textures
-  carry each. If `DrawScale` turns out to be what UT draws with, § 4.4's
-  scale rule changes and `BAKER_REVISION` moves.
+- **What fills `Info.UScale`.** § 4.4 takes it to be the texture's
+  `DrawScale`, on the strength of the header's comment; the code that fills
+  it is not public. If UT draws with something else, § 4.4's scale rule
+  changes and `BAKER_REVISION` moves.
