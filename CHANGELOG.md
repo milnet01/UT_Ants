@@ -17,6 +17,15 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`ut-paths` proposes extra bot path nodes for UT99's old maps.** (UTA-0121)
+  It reads each EXIT_OFF_NET and PARTITIONED map of UT_MonsterHunt's
+  route census from the install, finds where a player can stand from
+  the level's collision, and writes one JSON file per map: PathNode
+  positions from the part of the network the start reaches toward each
+  exit, for UT_MonsterHunt to add (their GAME-0095). Core gains RFC 1321
+  MD5, which names each map in the file, and the tools share one JSON
+  string escaper.
+
 - **A baked map carries what is solid, for the level and each mover.** (UTA-0111)
   A new section, `COLL`, holds Unreal Tournament's own collision tree
   from the level's world and from each mover's brush, with each

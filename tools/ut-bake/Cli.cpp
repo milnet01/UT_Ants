@@ -2,13 +2,13 @@
 
 #include "Cli.h"
 
+#include "common/Json.h"
 #include "core/Jobs.h"
 #include "ubake/Bake.h"
 #include "ubake/Install.h"
 #include "ubake/Name.h"
 #include "umat/Material.h"
 
-#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -23,32 +23,9 @@ constexpr int EXIT_OK = 0;
 constexpr int EXIT_FAILED = 1;
 constexpr int EXIT_USAGE = 2;
 
-/// ut-dump's escapes, which SS 4.8 names: the ones JSON requires, plus the C0
-/// range, which a package or file name can contain and which would otherwise
-/// emit invalid JSON. A copy of tools/ut-dump/main.cpp's, and the second one;
-/// a third is the point to share it.
-void writeJsonString(std::ostream& out, std::string_view text) {
-    out << '"';
-    for (const char raw : text) {
-        const auto ch = static_cast<unsigned char>(raw);
-        switch (ch) {
-        case '"': out << "\\\""; break;
-        case '\\': out << "\\\\"; break;
-        case '\n': out << "\\n"; break;
-        case '\r': out << "\\r"; break;
-        case '\t': out << "\\t"; break;
-        default:
-            if (ch < 0x20) {
-                char buf[7];
-                std::snprintf(buf, sizeof buf, "\\u%04x", ch);
-                out << buf;
-            } else {
-                out << raw;
-            }
-        }
-    }
-    out << '"';
-}
+/// ut-dump's escapes, which SS 4.8 names -- tools/common/Json.h's, shared by
+/// every tool.
+using uta::tools::writeJsonString;
 
 template <class T, class Write>
 void writeArray(std::ostream& out, const std::vector<T>& values, Write write) {

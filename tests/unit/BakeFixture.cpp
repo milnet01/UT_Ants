@@ -67,6 +67,12 @@ PropertySpec boolProperty(std::string name, bool value) {
     return spec;
 }
 
+PropertySpec floatProperty(std::string name, float value) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Float};
+    spec.number = value;
+    return spec;
+}
+
 PropertySpec vectorProperty(std::string name, float x, float y, float z) {
     PropertySpec spec{std::move(name), PropertySpec::Type::Vector};
     spec.vector = {x, y, z};
@@ -221,6 +227,7 @@ std::vector<std::uint8_t> Packer::properties(const std::vector<PropertySpec>& sp
             break;
         case PropertySpec::Type::Object: writer.addObject(key, spec.value); break;
         case PropertySpec::Type::Name: writer.addName(key, name(spec.text)); break;
+        case PropertySpec::Type::Float: writer.addFloat(key, spec.number); break;
         case PropertySpec::Type::Scale: {
             std::vector<std::uint8_t> raw;
             for (const float part : spec.vector) appendU32(raw, std::bit_cast<std::uint32_t>(part));

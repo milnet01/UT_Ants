@@ -3,4 +3,4 @@
 # already links uta_upkg; linking it is what gives this both graphs without a
 # second path from a runtime target into upkg.
 add_executable(ut-dump main.cpp)
-target_link_libraries(ut-dump PRIVATE uta_unav_build)
+target_link_libraries(ut-dump PRIVATE uta_unav_build uta_tools_common)

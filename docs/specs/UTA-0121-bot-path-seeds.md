@@ -102,9 +102,12 @@ The choices below are mine, the user being away and having left them to me.
 | `tools/common/Json.h` | the shared string escaper (§ 4.8) |
 | `src/core/Md5.h`, `Md5.cpp` | RFC 1321 MD5 (§ 4.8) |
 
-`tools/CMakeLists.txt` adds `ut-paths`. `tests/CMakeLists.txt` compiles
+`tools/CMakeLists.txt` adds `ut-paths`, and `uta_tools_common`, the
+interface library carrying `tools/common/`. `tests/CMakeLists.txt` compiles
 `Cli.cpp`, `Trace.cpp`, `Walkable.cpp` and `Seeds.cpp` into
-`uta_unit_tests`, as it does ut-bake's `Cli.cpp`.
+`uta_unit_tests`, as it does ut-bake's `Cli.cpp`. `src/ubake/Bake.h`
+declares the bake's `findLevel` and `findModel` in `detail`, so `sceneOf`
+finds a map's Level and Model as a bake does.
 
 ### 4.2 The command line
 
@@ -185,6 +188,9 @@ struct Hit {
 /// The first point from a to b where empty space turns solid.
 [[nodiscard]] Hit trace(const ubundle::CollisionTree& tree, const Vec3& a, const Vec3& b);
 
+/// The first point from a to b where solid turns empty: SS 4.5's floors.
+[[nodiscard]] Hit traceOut(const ubundle::CollisionTree& tree, const Vec3& a, const Vec3& b);
+
 }  // namespace uta::paths
 ```
 
@@ -193,7 +199,10 @@ at node 0 with the tree's `outside`, updates it by `FBspNode::ChildOutside`
 with no extra flags, and a point with `normal · p > distance` takes `front`.
 
 `trace` splits the segment at each node's plane it straddles and descends
-the near part first, carrying `outside` down each side. The first leaf reached
+the near part first, carrying `outside` down each side. A part touching a
+plane at one end only goes with its other end: a split's far part starts on
+the plane, and where a later node shares it, a coplanar node or two rooms
+sharing a face, a split there would be a solid part of no length. The first leaf reached
 that is solid ends it. The crossing is on the plane of the node where the
 segment was split into empty and solid parts; `normal` is that plane's,
 reversed if needed to face `a`. A segment starting in solid returns fraction
@@ -445,7 +454,8 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 for INV-3 and INV-4; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
 INV-8, INV-9 and INV-10.
 Each is seen failing before the code it locks exists. Trees and scenes are
-built in memory, so only INV-9 and INV-10 need an install or a fixture map.
+built in memory, with `tests/unit/PathFixture.h`, so only INV-9 and INV-10
+need an install or a fixture map.
 
 **Real-asset tier, local only:** `tests/real/RealPathSeedsTest.cpp` runs over
 every map in the install holding a MonsterEnd. It prints spots found, the

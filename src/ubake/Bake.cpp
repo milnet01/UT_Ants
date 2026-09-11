@@ -55,39 +55,6 @@ std::string nameOf(const upkg::Package& package, std::uint32_t nameIndex) {
     return std::string(package.name(nameIndex).value_or(""));
 }
 
-// ------------------------------------------------------------ SS 4.5 steps 1-2
-
-Result<const upkg::ExportEntry*> findLevel(const upkg::Package& map, std::string_view mapName) {
-    const upkg::ExportEntry* found = nullptr;
-    std::size_t count = 0;
-    for (const upkg::ExportEntry& entry : map.exports()) {
-        if (classOf(map, entry) != "level") continue;
-        if (found == nullptr) found = &entry;
-        ++count;
-    }
-    if (count == 0) return std::unexpected(malformed(mapName, "the map has no Level export"));
-    if (count > 1)
-        return std::unexpected(malformed(mapName, "the map has " + std::to_string(count)
-                                                      + " Level exports, and a bake reads one"));
-    return found;
-}
-
-Result<const upkg::ExportEntry*> findModel(const upkg::Package& map, const upkg::Level& level,
-                                           std::string_view mapName) {
-    // `Level::model` comes out of the export's DATA, which Package::open did
-    // not validate, so its range is checked here rather than trusted.
-    if (level.model.kind() != upkg::ObjectReferenceKind::Export
-        || level.model.index() >= map.exports().size())
-        return std::unexpected(malformed(mapName, "the level names no Model export of the map"));
-    const upkg::ExportEntry& entry = map.exports()[level.model.index()];
-    if (classOf(map, entry) != "model")
-        return std::unexpected(malformed(
-            mapName, "the level's Model reference names an export of class '"
-                         + std::string(map.objectName(entry.objectClass).value_or("?"))
-                         + "', not Model"));
-    return &entry;
-}
-
 // ------------------------------------------------------------------ SS 4.6
 
 /// Where a surface's texture reference leads. The id's two parts come from
@@ -398,6 +365,39 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName, Inst
 }
 
 namespace detail {
+
+// ------------------------------------------------------------ SS 4.5 steps 1-2
+
+Result<const upkg::ExportEntry*> findLevel(const upkg::Package& map, std::string_view mapName) {
+    const upkg::ExportEntry* found = nullptr;
+    std::size_t count = 0;
+    for (const upkg::ExportEntry& entry : map.exports()) {
+        if (classOf(map, entry) != "level") continue;
+        if (found == nullptr) found = &entry;
+        ++count;
+    }
+    if (count == 0) return std::unexpected(malformed(mapName, "the map has no Level export"));
+    if (count > 1)
+        return std::unexpected(malformed(mapName, "the map has " + std::to_string(count)
+                                                      + " Level exports, and a bake reads one"));
+    return found;
+}
+
+Result<const upkg::ExportEntry*> findModel(const upkg::Package& map, const upkg::Level& level,
+                                           std::string_view mapName) {
+    // `Level::model` comes out of the export's DATA, which Package::open did
+    // not validate, so its range is checked here rather than trusted.
+    if (level.model.kind() != upkg::ObjectReferenceKind::Export
+        || level.model.index() >= map.exports().size())
+        return std::unexpected(malformed(mapName, "the level names no Model export of the map"));
+    const upkg::ExportEntry& entry = map.exports()[level.model.index()];
+    if (classOf(map, entry) != "model")
+        return std::unexpected(malformed(
+            mapName, "the level's Model reference names an export of class '"
+                         + std::string(map.objectName(entry.objectClass).value_or("?"))
+                         + "', not Model"));
+    return &entry;
+}
 
 double textureScale(const upkg::Package& holder, std::span<const upkg::Property> properties) {
     for (const upkg::Property& property : properties) {

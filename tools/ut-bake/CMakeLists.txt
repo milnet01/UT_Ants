@@ -6,4 +6,4 @@
 # into the unit tests too, so the command line is tested without a process
 # (docs/specs/UTA-0011-map-baker.md SS 4.1).
 add_executable(ut-bake main.cpp Cli.cpp)
-target_link_libraries(ut-bake PRIVATE uta_ubake)
+target_link_libraries(ut-bake PRIVATE uta_ubake uta_tools_common)

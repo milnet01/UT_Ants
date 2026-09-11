@@ -4784,6 +4784,25 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-contract-2026-09-11 UTA-0111 loop 1.
   Lanes: tests.
 
+- 📋 [UTA-0123] **ut-paths: a staircase splits the walk graph, since neighbouring spots on it rise more than a step.**
+  Found building UTA-0121 (2026-09-11). Its spec's § 4.5 joins
+  neighbouring spots, 32 apart, only within MaxStepHeight 25 or along
+  one ramp's plane. A staircase of 16-unit steps on 16-unit treads rises
+  32 between columns, so it joins neither way.
+  Measured 2026-09-11 with a scratch probe, not in the repository, over
+  MH-2001v14, MH-Addicted and MH-AmorMonstersV0: each holds neighbouring
+  spot pairs whose three segments trace clear but which rise between 25
+  and 64. A relaxed join -- the floor midway between them within a step
+  of each -- merged walk-graph components on the first two and grew
+  MH-Addicted's start area threefold. It joined no start to its exit on
+  any of the three: what separates those is not a staircase.
+  Fix: sample the floor between neighbours as that probe did, amend
+  § 4.5 and INV-4, and re-run UT_MonsterHunt's census maps.
+  **Layman:** The path tool reads most staircases as walls, because it checks the floor every 32 units and a staircase climbs more than one step in that distance.
+  Kind: enhancement.
+  Source: in-session-2026-09-11.
+  Lanes: tools.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

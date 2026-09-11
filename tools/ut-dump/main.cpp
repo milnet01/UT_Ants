@@ -17,6 +17,7 @@
 // the run continues to the next one. That is deliberate: the library this was
 // written for holds files that do not open, and finding out which is the job.
 
+#include "common/Json.h"
 #include "core/FileSystem.h"
 #include "unav/Build.h"
 #include "unav/Graphs.h"
@@ -26,7 +27,6 @@
 #include "upkg/Properties.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <filesystem>
 #include <iostream>
 #include <map>
@@ -47,30 +47,8 @@ constexpr int SCHEMA = 1;
 //
 // Hand-written rather than a dependency: the output is a fixed shape this file
 // owns entirely, and `docs/design.md` keeps the dependency list short on
-// purpose. Only the escapes JSON requires, plus the C0 range, which a package
-// name can contain and which would otherwise emit invalid JSON.
-void writeJsonString(std::ostream& out, std::string_view text) {
-    out << '"';
-    for (const char raw : text) {
-        const auto ch = static_cast<unsigned char>(raw);
-        switch (ch) {
-        case '"': out << "\\\""; break;
-        case '\\': out << "\\\\"; break;
-        case '\n': out << "\\n"; break;
-        case '\r': out << "\\r"; break;
-        case '\t': out << "\\t"; break;
-        default:
-            if (ch < 0x20) {
-                char buf[7];
-                std::snprintf(buf, sizeof buf, "\\u%04x", ch);
-                out << buf;
-            } else {
-                out << raw;
-            }
-        }
-    }
-    out << '"';
-}
+// purpose. The string escaper is tools/common/Json.h's, shared by every tool.
+using uta::tools::writeJsonString;
 
 std::string foldCase(std::string_view text) {
     std::string folded{text};

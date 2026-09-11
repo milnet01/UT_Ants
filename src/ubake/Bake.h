@@ -23,6 +23,7 @@
 #include "umat/Library.h"
 #include "umat/Material.h"
 #include "upkg/Class.h"
+#include "upkg/Level.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
 
@@ -94,6 +95,18 @@ using CuratedLookup = std::function<const umat::CuratedOverride*(std::uint64_t f
 [[nodiscard]] Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                       const upkg::PackageResolver& resolver, JobSystem& jobs,
                                       const CuratedLookup& curated, std::uint64_t budgetBytes);
+
+/// SS 4.5 step 1: the map's one Level export. MalformedData, naming the map,
+/// when it has none or more than one. ut-paths reads a map's level the bake's
+/// way through this (UTA-0121 SS 4.6).
+[[nodiscard]] Result<const upkg::ExportEntry*> findLevel(const upkg::Package& map,
+                                                         std::string_view mapName);
+
+/// SS 4.5 step 2: the Model export `level` names. MalformedData, naming the
+/// map, when the reference is not an export of the map or names another class.
+[[nodiscard]] Result<const upkg::ExportEntry*> findModel(const upkg::Package& map,
+                                                         const upkg::Level& level,
+                                                         std::string_view mapName);
 
 /// A texture's scale -- UTA-0109 SS 4.4: its `DrawScale` property where that
 /// is a finite positive float, else 1. `DrawScale` is the script's name for

@@ -41,6 +41,7 @@ add_executable(uta_unit_tests
     unit/CoreFileSystemTest.cpp
     unit/CoreJobsTest.cpp
     unit/CoreLogTest.cpp
+    unit/CoreMd5Test.cpp
     unit/CoreSha256Test.cpp
     unit/MaterialCompressTest.cpp
     unit/MaterialGenerateTest.cpp
@@ -55,6 +56,10 @@ add_executable(uta_unit_tests
     unit/PackagePropertiesTest.cpp
     unit/PackageReaderTest.cpp
     unit/PackageScriptTest.cpp
+    unit/PathFixture.cpp
+    unit/PathSeedsTest.cpp
+    unit/PathTraceTest.cpp
+    unit/PathWalkableTest.cpp
     unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
     unit/WiringGraphTest.cpp)
@@ -65,6 +70,12 @@ target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav
 # The ut-bake command line, compiled in so INV-15 of
 # docs/specs/UTA-0011-map-baker.md is tested without starting a process.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bake/Cli.cpp")
+# And ut-paths', but for main.cpp -- docs/specs/UTA-0121-bot-path-seeds.md SS 4.1.
+target_sources(uta_unit_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Cli.cpp"
+    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Trace.cpp"
+    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
+    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
@@ -74,11 +85,17 @@ catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
 if(UTA_REAL_ASSET_TESTS)
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGeometryTest.cpp
                                         real/RealActorsTest.cpp real/RealMoversTest.cpp
-                                        real/RealCollisionTest.cpp)
+                                        real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.
     target_include_directories(uta_real_asset_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    # ut-paths, but for its command line -- UTA-0121 SS 7.
+    target_sources(uta_real_asset_tests PRIVATE
+        "${PROJECT_SOURCE_DIR}/tools/ut-paths/Trace.cpp"
+        "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
+        "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
+    target_include_directories(uta_real_asset_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
     target_compile_definitions(uta_real_asset_tests
         PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}")
     catch_discover_tests(uta_real_asset_tests PROPERTIES LABELS "real-assets;local-only")

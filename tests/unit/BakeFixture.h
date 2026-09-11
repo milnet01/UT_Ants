@@ -50,7 +50,7 @@ struct TextureSpec {
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
 /// Built with the functions below rather than by hand.
 struct PropertySpec {
-    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name, Scale };
+    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name, Scale, Float };
     std::string name;
     Type type = Type::Byte;
     std::int32_t value = 0;                ///< Byte, Int, Bool, an Object's reference, a Scale's SheerAxis
@@ -58,11 +58,13 @@ struct PropertySpec {
     float rate = 0;                        ///< a Scale's SheerRate
     std::array<std::int32_t, 3> rotator{}; ///< Rotator: pitch, yaw, roll
     std::string text;                      ///< Name
+    float number = 0;                      ///< Float
 };
 
 [[nodiscard]] PropertySpec byteProperty(std::string name, std::uint8_t value);
 [[nodiscard]] PropertySpec intProperty(std::string name, std::int32_t value);
 [[nodiscard]] PropertySpec boolProperty(std::string name, bool value);
+[[nodiscard]] PropertySpec floatProperty(std::string name, float value);
 [[nodiscard]] PropertySpec vectorProperty(std::string name, float x, float y, float z);
 [[nodiscard]] PropertySpec rotatorProperty(std::string name, std::int32_t pitch, std::int32_t yaw,
                                            std::int32_t roll);
