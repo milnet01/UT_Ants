@@ -90,13 +90,15 @@ struct ClassSite {
     std::string package;      ///< folded; the map's own name for a class it exports
     std::string name;         ///< the class's name as spelled where it is referenced
     ResolvedClass resolved;   ///< both null when the class was not found
+    AncestryEnd end = AncestryEnd::Root;  ///< why `resolved` is null; Root when it is not
 };
 
 /// An export of `package` is that export. An import names its outermost
 /// package; that name is folded, handed to `resolver`, and the class export
 /// of that package whose name matches, compared case-insensitively, is it.
-/// A package the resolver does not supply, or one holding no such class,
-/// leaves `resolved` null and is not an error.
+/// A package the resolver does not supply leaves `resolved` null with `end`
+/// PackageMissing; a package holding no such class, with ClassMissing.
+/// Neither is an error.
 [[nodiscard]] Result<ClassSite> resolveClass(const Package& package,
                                              std::string_view packageName,
                                              ObjectReference classReference,
@@ -160,9 +162,17 @@ A record is `string` name, `u32` array index, `u8` kind, then the value.
 **Minimum encoded size: 10 bytes** — an empty name, the index, the kind and
 a one-byte value.
 
+**A `Raw` value's bytes are copied as read.** An object or name index inside
+them stays relative to the package it came from and is not rewritten;
+decoding them is UTA-0005 § 3.2's filed work.
+
 **An object path** is the names from the outermost package down to the
-object, joined by `.` and folded: `botpack.pulsegun` for an import,
-`<map stem>.<outers>.<name>` for an export of the map. It is
+object, joined by `.` and folded: `botpack.pulsegun` for an import, and
+`<package>.<outers>.<name>` for an export, `<package>` being the folded name
+of the package that holds it. That is the map's stem for the map, and for any
+other package the name the resolver was asked for: `upkg::Package` carries
+no name of its own, so `buildActors` records each package's name as its
+resolver returns it. A class's path in § 4.4 takes the same form. It is
 `umat::materialId`'s path form without the variant suffix (UTA-0009 § 4.6).
 
 `write` refuses, and `read` refuses as `MalformedData`: a `kind` byte above
@@ -185,13 +195,14 @@ struct ActorClass {
     std::string path;                      ///< "<package>.<class>", folded -- its identity
     std::vector<std::string> ancestry;     ///< its parents' paths, nearest first
     AncestryEnd end = AncestryEnd::Root;
-    std::string missing;                   ///< the package or class not found; empty on Root
+    std::string missing;                   ///< § 4.5's rule; empty on Root
     std::vector<PropertyRecord> defaults;  ///< effective, merged up the chain
 };
 
 /// One placed actor.
 struct ActorPlacement {
     std::uint32_t exportIndex = 0;         ///< its slot in the map's export table
+    std::string path;                      ///< its own object path, § 4.3's form
     std::uint32_t classIndex = 0;          ///< into Placements::classes
     std::vector<PropertyRecord> properties;///< its own list, in file order
 };
@@ -225,8 +236,8 @@ struct Bundle {
 then `vector<ActorPlacement>`. An `ActorClass` is its `path` as `string`,
 `ancestry` as `vector<string>`, `end` as `u8`, `missing` as `string`,
 `defaults` as `vector<PropertyRecord>`. An `ActorPlacement` is `exportIndex`
-and `classIndex` as `u32`, then `properties`. Minimum sizes: `ActorClass` 17,
-`ActorPlacement` 12.
+as `u32`, `path` as `string`, `classIndex` as `u32`, then `properties`.
+Minimum sizes: `ActorClass` 17, `ActorPlacement` 16.
 
 **`LITE`** is the bytes `L`, `I`, `T`, `E`. Its payload is `vector<Light>`.
 A `Light` is `exportIndex` as `u32`, `location` as three `f32`, `rotation`
@@ -281,12 +292,15 @@ struct Actors {
 **For each distinct class**, keyed by its folded path:
 
 1. **Resolved:** `readAncestry`, then `effectiveDefaults` over it. `ancestry`
-   is the chain's paths after the class itself, and `end` and `missing` come
-   from `Ancestry::end`, `missingPackage` and `missingClass`. The defaults
-   are written sorted by folded name, then array index.
-2. **Not resolved:** `ancestry` and `defaults` are empty, `end` is
-   `PackageMissing` naming the package where the resolver gave none, and
-   `ClassMissing` naming the class where the package opened without it.
+   is the chain's paths after the class itself, and `end` is `Ancestry::end`.
+   The defaults are written sorted by folded name, then array index.
+2. **Not resolved:** `ancestry` and `defaults` are empty, and `end` is
+   `ClassSite::end`.
+
+**`missing` is the folded package name on `PackageMissing`, and the class
+name as spelled on `ClassMissing`** — from `Ancestry::missingPackage` or
+`missingClass` on the resolved branch, and from `ClassSite` on the other.
+It is empty on `Root`.
 
 `effectiveDefaults` runs once per class, not per actor. UTA-0100 measured it
 at about a millisecond per class, which is its *"not worth changing"*
@@ -349,9 +363,11 @@ recorded again under it.
 
 - **INV-2** — `read` refuses with `MalformedData`, and `write` with
   `InvalidArgument`: two classes of one path; classes out of order; two
-  actors of one slot; a `classIndex` equal to `classes.size()`; an `end`
-  byte of `3`; `missing` empty on `PackageMissing`; a `kind` byte of `11`; a
-  `Bool` value byte of `2`; lights out of order; a light bool byte of `2`.
+  actors of one slot; two actors out of order; a `classIndex` equal to
+  `classes.size()`; an `end` byte of `3`; `missing` empty on
+  `PackageMissing`; `missing` set on `Root`; a `kind` byte of `11`; a `Bool`
+  value byte of `2`; a `Raw` type byte of `16`; lights out of order; a light
+  bool byte of `2`.
   *Test:* `tests/unit/BundleActorsTest.cpp`, one case per rule, each fixture
   breaking that rule alone.
   *Breaks when:* a rule is checked on one path only, or an unknown byte is
@@ -359,34 +375,41 @@ recorded again under it.
 
 - **INV-3** — `resolveClass` finds a class the map exports; finds an
   imported class in the package the resolver supplies, whatever the case of
-  the package's or the class's name; and returns an unresolved site naming
-  the package where the resolver supplies none, and naming the class where
-  the package holds none.
-  *Test:* `tests/unit/PackageClassTest.cpp`, four cases.
-  *Breaks when:* the package name reaches the resolver unfolded, or the
-  class name is compared exactly.
+  the package's or the class's name; and returns an unresolved site whose
+  `end` is `PackageMissing` where the resolver supplies no package, and
+  `ClassMissing` where the package holds no such class.
+  *Test:* `tests/unit/PackageClassTest.cpp`, four cases, each asserting `end`.
+  *Breaks when:* the package name reaches the resolver unfolded, the class
+  name is compared exactly, or the two unresolved cases share one `end`.
 
 - **INV-4** — Every non-null actor slot gives one placement, keyed by its
-  export index, carrying its own properties in file order.
+  export index, carrying its own object path and its own properties in file
+  order.
   *Test:* `tests/unit/BakeActorsTest.cpp`, a map whose actor array has a null
   slot between two actors of different classes, the second carrying two
   properties.
   *Breaks when:* a null slot gives a placement, the key is the position in
-  `Level::actors`, or the actor's list is reordered.
+  `Level::actors`, the path is not the actor's own, or the actor's list is
+  reordered.
 
 - **INV-5** — Actors of one class share one class entry, which carries the
   class's parents nearest first and its defaults merged over them.
   *Test:* `tests/unit/BakeActorsTest.cpp`: two actors of a map-exported class
-  whose parent, in another package, sets a default the child overrides and
-  one it does not.
+  whose parent, in another package, has a parent of its own. The parent sets
+  a default the child overrides and one it does not; the grandparent sets
+  one neither overrides.
   *Breaks when:* a class is written per actor, the chain is written root
   first, or a default is the parent's where the child overrides it.
 
 - **INV-6** — An actor whose class's package the resolver does not supply
-  gets a class entry with `end` `PackageMissing`, naming that package, with
-  no ancestry and no defaults; the bake is not refused.
-  *Test:* `tests/unit/BakeActorsTest.cpp`, an actor of `NoSuchPkg.Thing`.
-  *Breaks when:* the bake is refused, or the entry names nothing.
+  gets a class entry with `end` `PackageMissing` and `missing` the folded
+  package name; one whose package holds no such class gets `ClassMissing`
+  and the class name. Both have no ancestry and no defaults, and the bake
+  is not refused.
+  *Test:* `tests/unit/BakeActorsTest.cpp`: an actor of `NoSuchPkg.Thing`, and
+  one of `ActorPkg.NoSuchThing` where `ActorPkg` is installed.
+  *Breaks when:* the bake is refused, the two share one `end`, or an entry
+  names nothing.
 
 - **INV-7** — An actor is a light exactly when its resolved `LightType` is not
   `0`, and each of its sixteen fields is its own value, else its class's
@@ -401,11 +424,14 @@ recorded again under it.
 
 - **INV-8** — An object value is written as the folded path of what it
   names, an import's from its outermost package and an export's from the
-  map's stem; a null reference as an empty string; a name as spelled.
-  *Test:* `tests/unit/BakeActorsTest.cpp`, an actor carrying an imported
-  texture, a map-exported texture in a group, a null object and a `Tag`.
-  *Breaks when:* a path stops at the immediate outer, or keeps the file's
-  reference number.
+  package that holds it; a null reference as an empty string; a name as
+  spelled.
+  *Test:* `tests/unit/BakeActorsTest.cpp`: an actor carrying an imported
+  texture, a map-exported texture in a group, a null object and a `Tag`;
+  and a class default, inherited from a class in `ActorPkg`, naming an
+  export of `ActorPkg`, which must read `actorpkg.<its name>`.
+  *Breaks when:* a path stops at the immediate outer, keeps the file's
+  reference number, or gives another package's export the map's stem.
 
 - **INV-9** — Every light's `exportIndex` is a placement's, and an actor slot
   naming an import, or an export past the table, refuses the bake with
