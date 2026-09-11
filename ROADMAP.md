@@ -4745,6 +4745,17 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-11): taken by session ut-ants-2b, in the main
   checkout, now UTA-0111 has shipped. It sets a file format UT_MonsterHunt
   reads, so it starts with a spec (write-spec) and its review gate.
+  Progress (2026-09-11): UT_MonsterHunt confirmed the four details the
+  format left unsaid. The md5 is of <install>/Maps/<map>.unr in lower-case
+  hex; a -BP row means the -BP file, the build the server plays;
+  moverOnly stands as the spec states it; the start is the first
+  PlayerStart in the actor list and the exits every MonsterEnd. Their
+  GAME-0092 moved some census maps out of Maps/, so a row with no file
+  there is skipped and named in the output, not refused. Their GAME-0063
+  finds some PARTITIONED maps already joined but refused at a
+  BlockedPath, so EXIT_OFF_NET runs first and PARTITIONED waits for
+  their result. Spec docs/specs/UTA-0121-bot-path-seeds.md is in its
+  review gate.
   **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
   Kind: feature.
   Source: user-request-2026-09-11.

@@ -29,9 +29,8 @@ editor links them.
    exit-to-node distance seen on any map that routed.
 2. **Their recipe places seeds without checking them.**
    `analysis/seedpaths.py` writes each seed's `Location` verbatim, with no
-   floor snap and no collision check. A seed where no player fits is refused
-   by UT's editor ("Scout didn't fit", their ROADMAP). So a proposed position
-   must already be one a player can stand at.
+   floor snap and no collision check. So a proposed position must already be
+   one a player can stand at.
 3. **Nothing here knows where a player can stand.** `unav::NavGraph` holds
    nodes and reach specs but no positions (`src/unav/Graphs.h`).
    `ubundle::CollisionTree` answers whether a point is solid (UTA-0111 § 4.5),
@@ -62,9 +61,11 @@ The choices below are mine, the user being away and having left them to me.
    spawns, resolves to CollisionRadius 17, CollisionHeight 39 and
    MaxStepHeight 25 (§ 13's probe, over the install's own packages). A node
    stands with its Location 39 above the floor, the middle of that cylinder.
+   What size UT's editor tests a seed at is § 14's open question.
 5. **Walking is modelled conservatively.** A player steps up or down at most
-   25 between neighbouring spots. Jumps and drops are not modelled, so a route
-   needing one is not found. Anything this finds, a bot can walk.
+   25 between neighbouring spots, or walks one ramp. Jumps and drops are not
+   modelled, so a route needing one is not found. Anything this finds, a bot
+   can walk.
 6. **A floor is a surface whose normal's Z is at least 0.7.** That is not UT's
    measured limit, which no source here states; it is the value
    UT_MonsterHunt's own wall heuristic uses (their `analysis/wallcheck.py`).
@@ -115,13 +116,15 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
   work; every other row is ignored.
 - Named maps narrow the work. A named map that is not such a row is refused.
 - Each map is read from `<install>/Maps/<map>.unr`, the name as the TSV
-  spells it, and writes `<out>/<map>.json` through a temporary file and a
-  rename.
+  spells it, a `-BP` name included, and writes `<out>/<map>.json` through a
+  temporary file and a rename. A map with no file there is skipped: named in
+  the output, and not a refusal. UT_MonsterHunt's GAME-0092 moved some census
+  maps out of `Maps/`.
 - Standard output is one JSON object, as ut-bake's is: `{"schema": 1,
-  "maps": [...]}`, one entry per map with its `map` and either its counts or
-  the reason it was refused. Standard error is for people.
-- Exit status: 0 when every map was written, 1 when any was refused, 2 for
-  bad arguments.
+  "maps": [...]}`, one entry per map with its `map` and its counts, or
+  `skipped`, or the reason it was refused. Standard error is for people.
+- Exit status: 0 when every map was written or skipped, 1 when any was
+  refused, 2 for bad arguments.
 
 ### 4.3 The per-map file
 
@@ -151,8 +154,10 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
 - **`nodes`** are the proposed positions, exit by exit, each exit's in route
   order from the network toward the exit. It is empty when no route is
   `found`.
-- **Numbers** are each float's shortest round-trip decimal (`std::to_chars`),
-  so the value UT_MonsterHunt reads is the float this tool computed.
+- **Numbers.** A node's position is computed in double, rounded once to
+  `float`, UT's own storage type, and written as that float's shortest
+  round-trip decimal (`std::to_chars`). An exit's is its `Location`, already
+  a float.
 
 ### 4.4 Tracing the tree
 
@@ -200,9 +205,12 @@ A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
   centre raised and lowered by `H - 1`, and eight points on the radius `R`
   circle at each of the heights `-H + S + 1`, `0` and `H - 1` from the centre.
   This is a sampled test, not a swept cylinder (§ 9).
-- **Walk graph.** Spots in the eight neighbouring columns join when their
-  heights differ by at most `S` and the three segments between them, at the
-  same three heights from each centre, trace clear.
+- **Walk graph.** Spots in the eight neighbouring columns join when the three
+  segments between them, at the same three heights from each centre, trace
+  clear, and either their heights differ by at most `S` or their floors lie
+  on one plane: the two floor hits' normals match, and each hit lies within 1
+  of the other's plane. That second case is a ramp, since a floor as steep as
+  `F` rises about 33 between columns 32 apart.
 
 ### 4.6 The start, the exits and the network
 
@@ -268,11 +276,18 @@ struct Proposal {
   part's placed spots, and the start's own, to any spot touching the exit.
   First with mover spots removed; a path found is `found`. Else with them
   kept; a path found is `mover`. Else `none`.
+- **Hops.** A hop from one position to another is allowed when it is at
+  most 350 long; its three segments at § 4.5's heights trace clear; its
+  centre segment, grown by `R` across and `H` up and down, meets no mover's
+  box; and at every 32 along it, a spot of the walk graph that is not a
+  mover spot lies within 32 horizontally and within `S` of the hop's own
+  height there. So a hop never spans a pit or a door the path went round.
 - **Nodes.** Along a `found` path, from its first spot: the next node is the
-  furthest spot along the path whose straight hop from the last node is at
-  most 350 and traces clear at the three heights of § 4.5. The path's last
-  spot is always a node. A node within 50 of an existing navigation point, or
-  of a node already proposed, is dropped.
+  furthest spot along the path with an allowed hop from the chain's last
+  point. A spot within 50 of an existing navigation point, or of a node
+  already proposed, is not proposed; that point takes its place in the
+  chain, and the next hop is measured from it. The path's last spot ends the
+  chain, proposed unless such a point takes its place.
 
 ### 4.8 MD5 and the JSON escaper
 
@@ -315,23 +330,30 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   *Breaks when:* the spot sits on the floor, the fit ignores the ceiling, or
   the slope test is reversed.
 
-- **INV-4** — Spots join only within a step and with the way clear.
-  *Test:* `tests/unit/PathWalkableTest.cpp`: two floors 20 apart in height
-  join, two 30 apart do not, and two at one height either side of a wall do
-  not.
-  *Breaks when:* the step is not checked, or the hop is not traced.
+- **INV-4** — Spots join only within a step or along one ramp, and with the
+  way clear.
+  *Test:* `tests/unit/PathWalkableTest.cpp`: floors in neighbouring columns
+  20 apart in height join, and 30 apart do not; two spots on one ramp of
+  normal Z 0.75, rising 28 between columns, join. Two at one height either
+  side of a wall 1 thick, midway between their columns, do not; the test
+  first asserts both spots exist, since a thicker wall removes one.
+  *Breaks when:* the step is not checked, a ramp's rise is held to the step,
+  or the join is not traced.
 
-- **INV-5** — A route found is proposed as nodes whose hops are clear and at
-  most 350, ending touching the exit, each standing `H` above its floor.
+- **INV-5** — A route found is proposed as a chain whose every hop is
+  allowed (§ 4.7), from the start part's placed spot to the exit, each node
+  standing `H` above its floor.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose` over a `Scene`
   built in memory: an L-shaped corridor, each leg 1500 long, with the start
-  and its network at one end and a MonsterEnd at the other. Every consecutive
-  pair of nodes, and the start part's placed spot to the first, is at most
-  350 apart and traces clear; every node stands `H` above the floor; the last
-  touches the exit.
+  and its network at one end and a MonsterEnd at the other, no navigation
+  point near it. Every hop of the chain is at most 350 and traces clear;
+  every node stands `H` above the floor; the last touches the exit. Then
+  again with a pit across the middle of one leg, leaving a strip beside it
+  that the walk graph follows: no hop crosses the pit.
   *Breaks when:* a hop is not traced, so a node cuts the corner through the
-  wall; the 350 cap is not applied along a straight leg; or the last spot is
-  dropped.
+  wall; the 350 cap is not applied along a straight leg; a hop is not
+  checked for floor, so it crosses the pit; or the last spot is dropped where
+  no navigation point takes its place.
 
 - **INV-6** — A route through a wall is `none`, and one only through a mover
   is `mover`, with no nodes, and `moverOnly` true.
@@ -345,27 +367,31 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   *Test:* `tests/unit/PathSeedsTest.cpp`: a network of two parts with one
   edge from the exit's part to the start's and none back, and a MonsterEnd
   beside the exit's part. The route starts in the start's part and nodes are
-  proposed across the gap.
+  proposed across the gap; the exit's part's navigation point on the path,
+  within 50 of a spot, stands in the chain in that spot's place and gets no
+  node beside it.
   *Breaks when:* edges are followed both ways, which reads the exit's part as
   reachable and proposes nothing.
 
 - **INV-8** — The file holds the fields of § 4.3, escaped, each number a
   float's shortest round-trip decimal.
   *Test:* `tests/unit/PathSeedsTest.cpp`: `toJson` for a map named with a
-  quote, a backslash and an apostrophe, compared with a file authored by hand
-  from § 4.3.
+  quote, a backslash and an apostrophe, and a node at x one third, compared
+  with a file authored by hand from § 4.3, where that x reads `0.33333334`.
   *Breaks when:* a name is written unescaped, a field is renamed, or a
-  number is rounded.
+  number is written as the double (`0.3333333333333333`) or with fixed
+  digits.
 
-- **INV-9** — Only `EXIT_OFF_NET` and `PARTITIONED` rows are work, and a
-  named map outside them is refused with exit status 1.
+- **INV-9** — Only `EXIT_OFF_NET` and `PARTITIONED` rows are work, a work
+  row with no map file is skipped without failing the run, and a named map
+  outside the work is refused with exit status 1.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `runCli` over a census
   written in the test and an install holding none of its maps: one row of
   each group and one of `NO_PATHS_BUILT`. Unnamed, standard output lists the
-  two work rows, each refused as missing, and not the third. Naming the third
-  exits 1, refusing it as outside the work.
-  *Breaks when:* the group column is not read, or a named map outside the
-  work is silently skipped.
+  two work rows, each skipped for having no file, and not the third, and the
+  run exits 0. Naming the third exits 1, refusing it as outside the work.
+  *Breaks when:* the group column is not read, a missing file fails the run,
+  or a named map outside the work is silently skipped.
 
 - **INV-10** — The start is the first PlayerStart in the level's actor list,
   and the exits are every actor whose class descends from MonsterEnd, each at
@@ -383,10 +409,11 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 
 | When | What happens |
 |---|---|
-| The map is missing, or does not open or read | That map is refused with the reason; no file is written |
+| The map has no file at `<install>/Maps/<map>.unr` | It is skipped and named in the output; the run does not fail |
+| The map does not open or read | That map is refused with the reason; no file is written |
 | `buildCollision` refuses the level's `Model` | That map is refused, naming the node |
 | The map has no PlayerStart, or no MonsterEnd | That map is refused |
-| The start is off the walk graph | Every exit's route is `none` |
+| Neither the start nor any node of its part is on the walk graph | Every exit's route is `none` |
 | A mover's tree or shape refuses | That map is refused, naming the actor |
 | The out directory cannot be written | That map is refused; the others go on |
 
@@ -408,15 +435,19 @@ memory guard stops long runs.
 
 **Mutation, by hand** (`CLAUDE.md` § Build and test): descend the far part
 first; drop `outside` at a split; seat the spot on the floor; drop the
-ceiling probes; reverse the slope test; skip the step check; skip the hop
-trace; lift the 350 cap; drop the last node; never block movers; follow
-edges both ways; write a name unescaped; ignore the group column; take a
-later PlayerStart; read the class default over the actor's own value. Each must be killed by the invariant that names it.
+ceiling probes; reverse the slope test; skip the step check; hold a ramp to
+the step; skip the join trace; skip the hop trace; lift the 350 cap; skip
+the hop's floor check; drop the last node; propose a spot within 50 of a
+navigation point; never block movers; follow edges both ways; write a name
+unescaped; write the double; ignore the group column; fail the run on a
+missing file; take a later PlayerStart; read the class default over the
+actor's own value. Each must be killed by the invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
 
 - **A swept cylinder against the tree.** Exact, and UTA-0017's to build for
-  the game. A sampled body is enough here: UT's editor re-checks every node.
+  the game. A sampled body is enough here: UT's editor links the nodes, and
+  UT_MonsterHunt's census re-run measures the result.
 - **Seeds at a grid over every walkable spot.** It would flood the map and
   UT_MonsterHunt's 900-seed cap, and most seeds would repeat the network.
 - **Jumps and drops.** More routes, but a route a bot cannot take proposes
@@ -470,11 +501,12 @@ Rows live in `../reviews/UTA-0121-bot-path-seeds-loop-log.md`.
 
 ## 14. Open questions
 
-Asked of UT_MonsterHunt on 2026-09-11, and assumed as written until they
-answer:
+1. **What size UT's editor tests a seed at while it builds paths.** No
+   source reached here says. Its `Engine.Scout` defaults to CollisionRadius
+   52 and CollisionHeight 50, larger than § 3 decision 4's body, so a node
+   that body fits may not fit a Scout. UT_MonsterHunt's census re-run is what
+   shows it (their GAME-0095).
 
-1. The MD5 is of `<install>/Maps/<map>.unr`, the file their `seedpaths.py`
-   reads, in lower-case hex.
-2. A TSV name already ending `-BP` is computed for that file, the rebuilt map.
-3. The mover flag is `moverOnly`, and a map carrying it lists no nodes.
-4. The start and the exits are § 4.6's, matching their `MHRouteProbe.uc`.
+UT_MonsterHunt confirmed on 2026-09-11 the details the agreed format left
+unsaid: the MD5's file and form (§ 4.3), the map list and `-BP` rows
+(§ 4.2), `moverOnly` (§ 4.3), and the start and exits (§ 4.6).
