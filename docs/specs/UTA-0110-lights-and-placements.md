@@ -357,6 +357,33 @@ Both sections are written, and empty where the level places nothing.
 **`BAKER_REVISION` becomes `3`**, and UTA-0011 INV-5's golden value is
 recorded again under it.
 
+### 4.8 As built (2026-09-11)
+
+- **A slot naming an export a slot before it named refuses the bake**, with
+  `MalformedData` naming the slot, as a slot that is not an export does. So
+  does a slot naming a class export. § 4.5 names neither; the review's second
+  loop asked about the first.
+- **A property's object reference that leads outside its package's tables
+  refuses the bake.** § 4.3 defines a path only for a reference that
+  resolves, and `Package::open` does not validate property data.
+- **`resolveClass` was written before INV-3's cases**, so those were not seen
+  failing first. Mutation stands in: comparing class names exactly, passing
+  the package name unfolded, and giving both unresolved cases one `end` each
+  fail INV-3.
+- **The builder sorts placements and lights by export index**, since a level
+  lists its actors in its own order. No invariant's fixture differs from
+  export order, so mutation could remove either sort with every test passing.
+  A case in `tests/unit/BakeActorsTest.cpp` now hands the builder a level in
+  reverse order.
+- **The golden bake's case asserts it places one actor and one light**, so a
+  bake that stopped writing either fails there rather than being re-recorded.
+- **Mutation, by hand:** each mutation in § 7's list was killed by the
+  invariant naming it, and one mutation per INV-2 rule by that rule's case.
+- **`buildActors` walks an export's outer chain itself**, beside `Bake.cpp`'s
+  `exportPath`. Two copies of that walk now exist.
+- **The real-asset case compiles and has not been run.** Its figures are for
+  whoever runs it against an install.
+
 ## 5. Invariants
 
 - **INV-1** — `PLAC` and `LITE` round-trip through `ubundle::write` and

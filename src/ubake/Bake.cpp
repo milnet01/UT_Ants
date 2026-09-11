@@ -3,6 +3,7 @@
 #include "ubake/Bake.h"
 
 #include "core/FileSystem.h"
+#include "ubake/Actors.h"
 #include "ubake/Geometry.h"
 #include "ubake/Name.h"
 #include "umat/Fingerprint.h"
@@ -439,8 +440,11 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     };
     UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup), mapName));
 
+    // 7. PLAC and LITE -- UTA-0110 SS 4.7.
+    UTA_TRY(Actors actors, naming(buildActors(map, mapName, level, resolver), mapName));
+
     BakeResult result;
-    // 7. The budget, over every map of every material.
+    // 8. The budget, over every map of every material.
     result.budget = umat::measure(materials.textures, budgetBytes);
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
@@ -456,6 +460,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.textures = std::move(materials.textures);
     result.bundle.materials = std::move(materials.records);
     result.bundle.geometry = std::move(geometry);
+    result.bundle.placements = std::move(actors.placements);
+    result.bundle.lights = std::move(actors.lights);
     return result;
 }
 

@@ -9,7 +9,8 @@ add_library(uta_ubake STATIC
     Install.cpp
     Name.cpp
     Bake.cpp
-    Geometry.cpp)
+    Geometry.cpp
+    Actors.cpp)
 target_link_libraries(uta_ubake PUBLIC uta_core uta_upkg uta_umat uta_unav_build uta_umap_build
                                        uta_ubundle)
 

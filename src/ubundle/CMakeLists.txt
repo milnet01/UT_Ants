@@ -16,7 +16,9 @@ add_library(uta_ubundle STATIC
     WiringSection.cpp
     TextureSection.cpp
     MaterialSection.cpp
-    GeometrySection.cpp)
+    GeometrySection.cpp
+    PlacementSection.cpp
+    LightSection.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
 
 # INV-10, asserted at configure time in the form src/umap/CMakeLists.txt uses

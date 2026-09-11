@@ -4545,6 +4545,8 @@ model, no weapon and no opponent until 0.2.0.
     surface flags.
   - Movers get their own 0.1.0 item, UTA-0119, which bakes their shapes.
     This item records where each mover stands and its settings.
+  Progress (2026-09-11): the spec is accepted at the review's cap after
+  two loops, and the build has begun. Session ut-ants-08, main checkout.
   **Layman:** Carry each level's lamps, and where everything in it stands, into the baked map.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -5258,6 +5260,10 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   unordered index, or the output order changes.
 
   Defers itself until UTA-0023 is designed.
+  Progress (2026-09-11): UTA-0110's bake calls `effectiveDefaults` once
+  per distinct class of a level's actors, not once per actor. Its
+  real-asset case, `tests/real/RealActorsTest.cpp`, prints the time the
+  whole pass takes.
   **Layman:** Working out a game object's settings slows down on big class trees; only worth fixing once the code that calls it often exists.
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.

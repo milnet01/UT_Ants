@@ -134,4 +134,30 @@ struct EffectiveProperty {
 [[nodiscard]] Result<std::vector<EffectiveProperty>> effectiveDefaults(
     const Ancestry& ancestry);
 
+/// Where a class reference leads, and what it is called either way --
+/// docs/specs/UTA-0110-lights-and-placements.md SS 4.2.
+struct ClassSite {
+    std::string package;    ///< folded; the map's own name for a class it exports
+    std::string name;       ///< the class's name as spelled where it is referenced
+    ResolvedClass resolved; ///< both null when the class was not found
+    AncestryEnd end = AncestryEnd::Root; ///< why `resolved` is null; Root when it is not
+};
+
+/// The class a reference names, found the way `readAncestry` finds a parent.
+///
+/// An export of `package` is that export. An import names its outermost
+/// package; that name is folded, handed to `resolver`, and the class export of
+/// that package whose name matches, compared case-insensitively, is it. A
+/// package the resolver does not supply leaves `resolved` null with `end`
+/// PackageMissing; a package holding no such class, with ClassMissing. Neither
+/// is an error, for ADR-0004's reason. UTA-0110 INV-3.
+///
+/// `packageName` is the name `package` goes by, used for a class it exports.
+/// A null reference names no class and is InvalidArgument; one past its table
+/// is MalformedData, since a reference read from object data is unvalidated.
+[[nodiscard]] Result<ClassSite> resolveClass(const Package& package,
+                                             std::string_view packageName,
+                                             ObjectReference classReference,
+                                             const PackageResolver& resolver);
+
 } // namespace uta::upkg

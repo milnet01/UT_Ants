@@ -35,9 +35,9 @@ using namespace uta::test::bake;
 
 namespace {
 
-constexpr std::uint32_t RECORDED_UNDER = 2; // UTA-0109 added GEOM
+constexpr std::uint32_t RECORDED_UNDER = 3; // UTA-0110 added PLAC and LITE
 constexpr std::string_view GOLDEN =
-    "4cfc32a78074d2a4e1fdd7e4c692382dbb6df82bd1aa0d4a2a7a7a97bad1458c";
+    "104c79bb30040863dd144f1ecbb2eccc43abff554a4d7d9cc8b3e00c4ef317f9";
 
 } // namespace
 
@@ -57,6 +57,11 @@ TEST_CASE("the golden bake hashes to the value recorded for BAKER_REVISION",
     // A golden bake that made no material would pin nothing umat does.
     REQUIRE(result->bundle.materials.has_value());
     REQUIRE(result->bundle.materials->size() == STANDARD_MATERIALS.size());
+    // Nor would one that placed no actor, or lit none, pin UTA-0110's sections.
+    REQUIRE(result->bundle.placements.has_value());
+    REQUIRE(result->bundle.placements->actors.size() == 1);
+    REQUIRE(result->bundle.lights.has_value());
+    REQUIRE(result->bundle.lights->size() == 1);
 
     const auto written = uta::ubundle::write(result->bundle);
     REQUIRE(written.has_value());

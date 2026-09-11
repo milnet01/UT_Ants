@@ -47,6 +47,28 @@ struct TextureSpec {
     float drawScale = 0; ///< 0: carries no DrawScale property -- UTA-0109 INV-11
 };
 
+/// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
+/// Built with the functions below rather than by hand.
+struct PropertySpec {
+    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name };
+    std::string name;
+    Type type = Type::Byte;
+    std::int32_t value = 0;                ///< Byte, Int, Bool, and an Object's reference
+    std::array<float, 3> vector{};         ///< Vector
+    std::array<std::int32_t, 3> rotator{}; ///< Rotator: pitch, yaw, roll
+    std::string text;                      ///< Name
+};
+
+[[nodiscard]] PropertySpec byteProperty(std::string name, std::uint8_t value);
+[[nodiscard]] PropertySpec intProperty(std::string name, std::int32_t value);
+[[nodiscard]] PropertySpec boolProperty(std::string name, bool value);
+[[nodiscard]] PropertySpec vectorProperty(std::string name, float x, float y, float z);
+[[nodiscard]] PropertySpec rotatorProperty(std::string name, std::int32_t pitch, std::int32_t yaw,
+                                           std::int32_t roll);
+/// `reference` comes from the builder the property is added to; 0 is null.
+[[nodiscard]] PropertySpec objectProperty(std::string name, std::int32_t reference);
+[[nodiscard]] PropertySpec nameProperty(std::string name, std::string text);
+
 /// A package under construction: its three tables, kept consistent, and the
 /// fixups a texture's WidthOffset needs once the file's layout is known.
 class Packer {
@@ -73,8 +95,13 @@ public:
     /// A palette export and a texture export using it; the texture's reference.
     std::int32_t addTexture(const TextureSpec& texture);
 
-    /// A root class export named `className`.
-    std::int32_t addClass(std::string_view className);
+    /// A class export named `className`, whose parent is `super` (0: a root
+    /// class) and whose own defaults are `defaults`.
+    std::int32_t addClass(std::string_view className, std::int32_t super = 0,
+                          const std::vector<PropertySpec>& defaults = {});
+
+    /// A tagged property list over this package's name table, `None`-terminated.
+    [[nodiscard]] std::vector<std::uint8_t> properties(const std::vector<PropertySpec>& specs);
 
     [[nodiscard]] std::size_t exportCount() const noexcept;
 
@@ -92,6 +119,7 @@ private:
         std::int32_t outer = 0;
         std::int32_t objectName = 0;
         std::vector<std::uint8_t> data;
+        std::int32_t super = 0; ///< a class's parent, as the export table holds it
     };
     /// WidthOffset is an offset into the whole FILE (UTA-0004 SS 4.6), so it
     /// is written once the layout is known.
@@ -125,7 +153,20 @@ public:
                                std::string_view name);
 
     MapBuilder& addSurface(std::int32_t texture, std::uint32_t polyFlags = 0);
-    MapBuilder& addActorOfClass(std::string_view package, std::string_view className);
+
+    /// A class the map imports as `<package>.<className>`; its reference.
+    std::int32_t importClass(std::string_view package, std::string_view className);
+    /// A class the map itself exports, as Packer::addClass.
+    std::int32_t addClass(std::string_view className, std::int32_t super = 0,
+                          const std::vector<PropertySpec>& defaults = {});
+
+    /// An actor of `<package>.<className>`, named `<className><n>`, where n is
+    /// its position among the actors.
+    MapBuilder& addActorOfClass(std::string_view package, std::string_view className,
+                                std::vector<PropertySpec> properties = {});
+    /// An actor named `name` of the class `classReference` names.
+    MapBuilder& addActor(std::string_view name, std::int32_t classReference,
+                         std::vector<PropertySpec> properties = {});
     MapBuilder& setLevelCount(int count);
     /// A second, larger Model export the level does not name -- INV-13.
     MapBuilder& addDecoyModel();
@@ -144,7 +185,14 @@ private:
         std::uint32_t polyFlags = 0;
     };
     std::vector<Surface> surfaces_;
-    std::vector<std::pair<std::string, std::string>> actorClasses_;
+    struct Actor {
+        std::string name;
+        std::int32_t classReference = 0;
+        std::vector<PropertySpec> properties;
+    };
+    /// Exported after everything else the builder holds, so an actor's export
+    /// index is never its position among the actors.
+    std::vector<Actor> actors_;
     int levelCount_ = 1;
     bool decoy_ = false;
     ModelTarget target_ = ModelTarget::Model;
@@ -153,7 +201,9 @@ private:
 /// A texture package: each texture and its palette.
 [[nodiscard]] std::vector<std::uint8_t> texturePackage(const std::vector<TextureSpec>& textures);
 
-/// A package holding one root class export.
+/// A package holding the class `className` and its root parent
+/// `<className>Base`, which carries a light's defaults: LightType 1 and
+/// LightBrightness 64 -- UTA-0110 SS 7.
 [[nodiscard]] std::vector<std::uint8_t> classPackage(std::string_view className);
 
 /// A package that opens and holds one sizeless export named `exportName`.
@@ -161,7 +211,8 @@ private:
 
 /// What most cases bake: a map named `dm-fixture` whose surfaces name a map
 /// texture in a group (masked and unmasked), a map texture with no group, and
-/// `TexPkg.Metal.Plate`; and whose level holds one actor of `ActorPkg.Lamp`.
+/// `TexPkg.Metal.Plate`; and whose level holds one actor of `ActorPkg.Lamp`,
+/// a light by its class's defaults, carrying a location and a hue of its own.
 struct Fixture {
     MapBuilder map;
     std::vector<TextureSpec> packageTextures; ///< what TexPkg holds

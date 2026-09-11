@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **A baked map carries its lights, and where every actor stands.** (UTA-0110)
+  Two new sections. `PLAC` holds each placed actor's own settings, and a
+  table of the classes they belong to, each with its parents and merged
+  defaults. `LITE` holds each light with UT99's own light numbers, taken
+  from the actor and then its class. `upkg` gains `resolveClass`.
+
 - **A bake now carries each level's walls, floors and ceilings as triangles** (UTA-0109)
   A new `GEOM` section holds every surface Unreal Tournament draws, as
   triangles with positions, normals and texture coordinates, grouped by
@@ -163,6 +169,10 @@ appears once something has actually shipped.)
   CMake + Ninja, C++23, Catch2 v3.16.0 fetched by the build rather than installed. The suite passes on a clone with no Unreal Tournament present, which is what S7 is measured on; a second tier behind UTA_REAL_ASSET_TESTS runs against a real install and refuses to configure without a path.
 
 ### Changed
+
+- **Bundle format version 5 and baker revision 3.** (UTA-0110)
+  A version-4 bundle is refused and baked over. No released file is
+  orphaned, since 0.1.0 has not been cut.
 
 - **The bundle format is now version 4, and the baker revision 2** (UTA-0109)
   `GEOM` follows `MATS`. A version-3 bundle is refused and baked again, and

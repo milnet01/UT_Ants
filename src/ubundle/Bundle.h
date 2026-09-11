@@ -30,6 +30,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace uta::ubundle {
@@ -39,12 +40,13 @@ namespace uta::ubundle {
 /// reader should tolerate, so a mismatch is UnsupportedVersion before the
 /// section table is read.
 ///
-/// 4 since UTA-0109 added the GEOM section -- that item's SS 4.2. 3 came with
-/// UTA-0011's MATS section, its SS 4.10, and 2 with UTA-0052's TEXS section,
-/// its SS 4.7. Nothing else about the framing moved: the header is still
-/// sixteen bytes and the descriptor twenty-four. No .utab exists that this
-/// orphans, 0.1.0 not having been cut.
-inline constexpr std::uint32_t FORMAT_VERSION = 4;
+/// 5 since UTA-0110 added the PLAC and LITE sections -- that item's SS 4.4.
+/// 4 came with UTA-0109's GEOM section, its SS 4.2, 3 with UTA-0011's MATS
+/// section, its SS 4.10, and 2 with UTA-0052's TEXS section, its SS 4.7.
+/// Nothing else about the framing moved: the header is still sixteen bytes
+/// and the descriptor twenty-four. No .utab exists that this orphans, 0.1.0
+/// not having been cut.
+inline constexpr std::uint32_t FORMAT_VERSION = 5;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -175,6 +177,82 @@ struct Geometry {
     std::vector<GeometryBatch> batches;
 };
 
+/// How a property value is stored -- UTA-0110 SS 4.3.
+enum class ValueKind : std::uint8_t {
+    Byte = 0, Int = 1, Bool = 2, Float = 3, Object = 4, Class = 5,
+    Name = 6, String = 7, Vector = 8, Rotator = 9, Raw = 10,
+};
+
+/// A value upkg carries through undecoded: a struct, an array, a map.
+///
+/// `bytes` are copied as read. An object or name index inside them stays
+/// relative to the package it came from and is not rewritten -- UTA-0110
+/// SS 4.3. `type` is upkg::PropertyType's value, 1 to 15, stated here as a
+/// range because this library may not include upkg (INV-10).
+struct RawValue {
+    std::uint8_t type = 0;
+    std::string structName; ///< empty unless type is Struct
+    std::vector<std::byte> bytes;
+};
+
+/// One property as a bundle stores it -- UTA-0110 SS 4.3.
+///
+/// `value` holds the alternative `kind` names; `write` refuses one that does
+/// not. An Object or Class value is the folded path of what it names, empty
+/// for null; a Name value is the name as spelled.
+struct PropertyRecord {
+    std::string name; ///< as spelled where it was read
+    std::uint32_t arrayIndex = 0;
+    ValueKind kind = ValueKind::Byte;
+    std::variant<std::uint8_t, std::int32_t, bool, float, std::string,
+                 std::array<float, 3>, std::array<std::int32_t, 3>, RawValue>
+        value;
+};
+
+/// Why a class's ancestry walk stopped -- UTA-0110 SS 4.4. upkg has its own
+/// enum of these names, which this library may not reach (INV-10).
+enum class AncestryEnd : std::uint8_t { Root = 0, PackageMissing = 1, ClassMissing = 2 };
+
+/// One class the level's actors belong to -- UTA-0110 SS 4.4.
+struct ActorClass {
+    std::string path;                     ///< "<package>.<class>", folded -- its identity
+    bool resolved = false;                ///< the class itself was found
+    std::vector<std::string> ancestry;    ///< its parents' paths, nearest first
+    AncestryEnd end = AncestryEnd::Root;
+    std::string missing;                  ///< empty exactly when `end` is Root
+    std::vector<PropertyRecord> defaults; ///< effective, merged up the chain
+};
+
+/// One placed actor.
+struct ActorPlacement {
+    std::uint32_t exportIndex = 0;          ///< its slot in the map's export table
+    std::string path;                       ///< its own object path
+    std::uint32_t classIndex = 0;           ///< into Placements::classes
+    std::vector<PropertyRecord> properties; ///< its own list, in file order
+};
+
+/// SCOPE: `classIndex` is checked against `classes`, and nothing here reads
+/// what a property means.
+struct Placements {
+    std::vector<ActorClass> classes;    ///< strictly ascending by path, bytewise
+    std::vector<ActorPlacement> actors; ///< strictly ascending by exportIndex
+};
+
+/// One light, its fields resolved from the actor and its class -- UTA-0110
+/// SS 4.6. The bytes are UT99's own numbers and are not range-checked: a value
+/// past the last light type is the renderer's to handle, as an unknown surface
+/// flag is. This library does not check that a light has a placement; the
+/// baker guarantees it (UTA-0110 INV-9).
+struct Light {
+    std::uint32_t exportIndex = 0;
+    std::array<float, 3> location{};
+    std::array<std::int32_t, 3> rotation{}; ///< pitch, yaw, roll
+    std::uint8_t type = 0, effect = 0, brightness = 0, hue = 0, saturation = 0,
+                 radius = 0, period = 0, phase = 0, cone = 0,
+                 volumeBrightness = 0, volumeRadius = 0, volumeFog = 0;
+    bool specialLit = false, actorShadows = false, corona = false, lensFlare = false;
+};
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -190,6 +268,10 @@ struct Bundle {
     std::optional<std::vector<MaterialRecord>> materials;
     /// UTA-0109 SS 4.2.
     std::optional<Geometry> geometry;
+    /// UTA-0110 SS 4.4.
+    std::optional<Placements> placements;
+    /// Strictly ascending by exportIndex -- UTA-0110 SS 4.4.
+    std::optional<std::vector<Light>> lights;
 };
 
 /// Decode a whole bundle.
@@ -202,7 +284,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

@@ -324,6 +324,9 @@ A parent reference that names an import is a class in another package. The
 import entry gives the class's name; the package it lives in is found by
 following the import's outer chain to its root.
 
+**`upkg::resolveClass` applies these rules to any class reference**, not
+only a parent's — UTA-0110 § 4.2, which added it for an actor's class.
+
 ```cpp
 /// Open a package by name, or report that it is not available.
 /// Returns nullptr, with no error, when the package simply is not present.

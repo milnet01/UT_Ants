@@ -45,6 +45,51 @@ std::string folded(std::string_view text) {
 
 } // namespace
 
+// -------------------------------------------------------------- properties
+
+PropertySpec byteProperty(std::string name, std::uint8_t value) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Byte};
+    spec.value = value;
+    return spec;
+}
+
+PropertySpec intProperty(std::string name, std::int32_t value) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Int};
+    spec.value = value;
+    return spec;
+}
+
+PropertySpec boolProperty(std::string name, bool value) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Bool};
+    spec.value = value ? 1 : 0;
+    return spec;
+}
+
+PropertySpec vectorProperty(std::string name, float x, float y, float z) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Vector};
+    spec.vector = {x, y, z};
+    return spec;
+}
+
+PropertySpec rotatorProperty(std::string name, std::int32_t pitch, std::int32_t yaw,
+                             std::int32_t roll) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Rotator};
+    spec.rotator = {pitch, yaw, roll};
+    return spec;
+}
+
+PropertySpec objectProperty(std::string name, std::int32_t reference) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Object};
+    spec.value = reference;
+    return spec;
+}
+
+PropertySpec nameProperty(std::string name, std::string text) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Name};
+    spec.text = std::move(text);
+    return spec;
+}
+
 Picture picture(std::uint8_t seed) {
     Picture out;
     // Every index 0 to 3 appears, so the masked variant has index-0 texels to
@@ -139,10 +184,35 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     return reference;
 }
 
-std::int32_t Packer::addClass(std::string_view className) {
+std::int32_t Packer::addClass(std::string_view className, std::int32_t super,
+                              const std::vector<PropertySpec>& defaults) {
     ClassExportWriter writer;
-    writer.setFriendlyName(name(className)).setDefaults(emptyProperties());
-    return addExport(0, 0, className, writer.build(68)); // a null class: a class export
+    writer.setSuperField(super).setFriendlyName(name(className)).setDefaults(properties(defaults));
+    const std::int32_t reference =
+        addExport(0, 0, className, writer.build(68)); // a null class: a class export
+    exports_.back().super = super;
+    return reference;
+}
+
+std::vector<std::uint8_t> Packer::properties(const std::vector<PropertySpec>& specs) {
+    TaggedPropertyWriter writer;
+    for (const PropertySpec& spec : specs) {
+        const std::int32_t key = name(spec.name);
+        switch (spec.type) {
+        case PropertySpec::Type::Byte: writer.addByte(key, static_cast<std::uint8_t>(spec.value)); break;
+        case PropertySpec::Type::Int: writer.addInt(key, spec.value); break;
+        case PropertySpec::Type::Bool: writer.addBool(key, spec.value != 0); break;
+        case PropertySpec::Type::Vector:
+            writer.addVector(key, spec.vector[0], spec.vector[1], spec.vector[2]);
+            break;
+        case PropertySpec::Type::Rotator:
+            writer.addRotator(key, spec.rotator[0], spec.rotator[1], spec.rotator[2]);
+            break;
+        case PropertySpec::Type::Object: writer.addObject(key, spec.value); break;
+        case PropertySpec::Type::Name: writer.addName(key, name(spec.text)); break;
+        }
+    }
+    return writer.build(0);
 }
 
 std::size_t Packer::exportCount() const noexcept {
@@ -158,6 +228,7 @@ std::vector<std::uint8_t> Packer::build() const {
     for (const Export& object : exports_) {
         ExportEntry entry;
         entry.objectClass = object.objectClass;
+        entry.super = object.super;
         entry.outer = object.outer;
         entry.objectName = object.objectName;
         entry.serialData = object.data;
@@ -204,8 +275,24 @@ MapBuilder& MapBuilder::addSurface(std::int32_t texture, std::uint32_t polyFlags
     return *this;
 }
 
-MapBuilder& MapBuilder::addActorOfClass(std::string_view package, std::string_view className) {
-    actorClasses_.emplace_back(package, className);
+std::int32_t MapBuilder::importClass(std::string_view package, std::string_view className) {
+    return packer_.importClass(package, className);
+}
+
+std::int32_t MapBuilder::addClass(std::string_view className, std::int32_t super,
+                                  const std::vector<PropertySpec>& defaults) {
+    return packer_.addClass(className, super, defaults);
+}
+
+MapBuilder& MapBuilder::addActorOfClass(std::string_view package, std::string_view className,
+                                        std::vector<PropertySpec> properties) {
+    return addActor(std::string(className) + std::to_string(actors_.size()),
+                    packer_.importClass(package, className), std::move(properties));
+}
+
+MapBuilder& MapBuilder::addActor(std::string_view name, std::int32_t classReference,
+                                 std::vector<PropertySpec> properties) {
+    actors_.push_back(Actor{std::string(name), classReference, std::move(properties)});
     return *this;
 }
 
@@ -228,10 +315,9 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     Packer packer = packer_;
 
     std::vector<std::int32_t> actors;
-    for (const auto& [package, className] : actorClasses_)
-        actors.push_back(packer.addExport(packer.importClass(package, className), 0,
-                                          className + std::to_string(actors.size()),
-                                          emptyProperties()));
+    for (const Actor& actor : actors_)
+        actors.push_back(packer.addExport(actor.classReference, 0, actor.name,
+                                          packer.properties(actor.properties)));
 
     // The level's world: one plane with a zone on each side, inside a cube the
     // room builder samples at its default spacing -- RoomBuildTest.cpp's
@@ -324,7 +410,10 @@ std::vector<std::uint8_t> texturePackage(const std::vector<TextureSpec>& texture
 
 std::vector<std::uint8_t> classPackage(std::string_view className) {
     Packer packer;
-    packer.addClass(className);
+    const std::int32_t base =
+        packer.addClass(std::string(className) + "Base", 0,
+                        {byteProperty("LightType", 1), byteProperty("LightBrightness", 64)});
+    packer.addClass(className, base);
     return packer.build();
 }
 
@@ -342,7 +431,8 @@ Fixture standardFixture() {
     const std::int32_t floor = map.addTexture(TextureSpec{"Floor", "", picture(2), false});
     const std::int32_t plate = map.importTexture("TexPkg", "Metal", "Plate");
     map.addSurface(wall).addSurface(wall, MASKED).addSurface(floor).addSurface(plate);
-    map.addActorOfClass("ActorPkg", "Lamp");
+    map.addActorOfClass("ActorPkg", "Lamp",
+                        {vectorProperty("Location", 16.0F, 32.0F, 48.0F), byteProperty("LightHue", 40)});
     return fixture;
 }
 

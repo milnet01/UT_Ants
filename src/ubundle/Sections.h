@@ -1,15 +1,17 @@
 // The section codecs Bundle.cpp dispatches to, one .cpp file each.
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
-// with umap, NAVG and WIRG with unav, TEXS with umat, MATS and GEOM with ubake
-// -- so each lives in its own file, and work on one does not share a file with
-// work on another (UTA-0091). Bundle.cpp keeps the framing: the header, the
-// section table, and read and write.
+// with umap, NAVG and WIRG with unav, TEXS with umat, MATS, GEOM, PLAC and
+// LITE with ubake -- so each lives in its own file, and work on one does not
+// share a file with work on another (UTA-0091). Bundle.cpp keeps the framing:
+// the header, the section table, and read and write.
 //
 // docs/specs/UTA-0008-bundle-container-and-origin.md SS 4.6 to SS 4.9,
 // docs/specs/UTA-0052-texture-memory-budget.md SS 4.3 for TEXS,
-// docs/specs/UTA-0011-map-baker.md SS 4.10 for MATS, and
-// docs/specs/UTA-0109-map-geometry.md SS 4.2 for GEOM.
+// docs/specs/UTA-0011-map-baker.md SS 4.10 for MATS,
+// docs/specs/UTA-0109-map-geometry.md SS 4.2 for GEOM, and
+// docs/specs/UTA-0110-lights-and-placements.md SS 4.3 and SS 4.4 for PLAC
+// and LITE.
 
 #pragma once
 
@@ -28,6 +30,8 @@ constexpr SectionId ID_WIRG = {'W', 'I', 'R', 'G'};
 constexpr SectionId ID_TEXS = {'T', 'E', 'X', 'S'};
 constexpr SectionId ID_MATS = {'M', 'A', 'T', 'S'};
 constexpr SectionId ID_GEOM = {'G', 'E', 'O', 'M'};
+constexpr SectionId ID_PLAC = {'P', 'L', 'A', 'C'};
+constexpr SectionId ID_LITE = {'L', 'I', 'T', 'E'};
 
 // Structural validation -- SS 4.9.
 //
@@ -73,5 +77,19 @@ constexpr SectionId ID_GEOM = {'G', 'E', 'O', 'M'};
 [[nodiscard]] Result<Geometry> readGeometry(Cursor& cursor);
 [[nodiscard]] Result<void> validateGeometry(const Geometry& geometry, ErrorCode code);
 [[nodiscard]] std::vector<std::byte> encodeGeometry(const Geometry& geometry);
+
+// PLAC -- PlacementSection.cpp, UTA-0110 SS 4.3 and SS 4.4. A kind byte the
+// reader cannot decode, and every bool byte, are refused inside the element
+// readers -- a bool in memory holds no other value, so those have no write
+// side. Every other rule is the validator's, on both paths.
+[[nodiscard]] Result<Placements> readPlacements(Cursor& cursor);
+[[nodiscard]] Result<void> validatePlacements(const Placements& placements, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodePlacements(const Placements& placements);
+
+// LITE -- LightSection.cpp, UTA-0110 SS 4.4. The bool bytes in the element
+// reader, the order in the validator.
+[[nodiscard]] Result<std::vector<Light>> readLights(Cursor& cursor);
+[[nodiscard]] Result<void> validateLights(const std::vector<Light>& lights, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeLights(const std::vector<Light>& lights);
 
 } // namespace uta::ubundle::detail

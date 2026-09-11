@@ -285,4 +285,57 @@ Result<std::vector<EffectiveProperty>> effectiveDefaults(const Ancestry& ancestr
     return merged;
 }
 
+Result<ClassSite> resolveClass(const Package& package, std::string_view packageName,
+                               ObjectReference classReference,
+                               const PackageResolver& resolver) {
+    ClassSite site;
+    switch (classReference.kind()) {
+    case ObjectReferenceKind::Null:
+        return std::unexpected(
+            Error(ErrorCode::InvalidArgument, "a null class reference names no class"));
+
+    case ObjectReferenceKind::Export: {
+        if (classReference.index() >= package.exports().size()) {
+            return std::unexpected(malformed(
+                "a class reference names export " + std::to_string(classReference.index()) +
+                ", past the export table"));
+        }
+        const ExportEntry& entry = package.exports()[classReference.index()];
+        UTA_TRY(const std::string_view name, package.name(entry.objectName));
+        site.package = fold(packageName);
+        site.name = std::string(name);
+        site.resolved = ResolvedClass{&package, &entry};
+        return site;
+    }
+
+    case ObjectReferenceKind::Import: {
+        if (classReference.index() >= package.imports().size()) {
+            return std::unexpected(malformed(
+                "a class reference names import " + std::to_string(classReference.index()) +
+                ", past the import table"));
+        }
+        const ImportEntry& import = package.imports()[classReference.index()];
+        UTA_TRY(const std::string_view name, package.name(import.objectName));
+        UTA_TRY(const std::string_view home, importPackageName(package, classReference));
+        site.package = fold(home);
+        site.name = std::string(name);
+
+        // Folded before the resolver sees it, as readAncestry's own calls are.
+        UTA_TRY(const Package* const opened, resolver(site.package));
+        if (opened == nullptr) {
+            site.end = AncestryEnd::PackageMissing;
+            return site;
+        }
+        const ExportEntry* const found = findClassExport(*opened, name);
+        if (found == nullptr) {
+            site.end = AncestryEnd::ClassMissing;
+            return site;
+        }
+        site.resolved = ResolvedClass{opened, found};
+        return site;
+    }
+    }
+    return std::unexpected(malformed("a class reference of no known kind"));
+}
+
 } // namespace uta::upkg
