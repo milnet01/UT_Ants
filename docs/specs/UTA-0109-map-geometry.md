@@ -489,8 +489,9 @@ Each must be killed by the invariant that names it.
   panning — tracked by UTA-0014, with water and glass by UTA-0089.
 - Coordinates for baked light — tracked by UTA-0112.
 - Collision — tracked by UTA-0111.
-- The geometry of movers and other brush actors, each its own `Model` —
-  tracked by UTA-0119.
+- The geometry of movers, each its own `Model` — baked by UTA-0119 into
+  `MOVR`. A static brush actor is already in the level's `Model`: the editor
+  merged it in.
 - Textures carrying a `Format` property, which get no material — tracked by
   UTA-0118.
 - A version-61 `Model` — tracked by UTA-0072.

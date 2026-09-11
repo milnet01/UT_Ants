@@ -50,11 +50,12 @@ struct TextureSpec {
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
 /// Built with the functions below rather than by hand.
 struct PropertySpec {
-    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name };
+    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name, Scale };
     std::string name;
     Type type = Type::Byte;
-    std::int32_t value = 0;                ///< Byte, Int, Bool, and an Object's reference
-    std::array<float, 3> vector{};         ///< Vector
+    std::int32_t value = 0;                ///< Byte, Int, Bool, an Object's reference, a Scale's SheerAxis
+    std::array<float, 3> vector{};         ///< Vector, and a Scale's three components
+    float rate = 0;                        ///< a Scale's SheerRate
     std::array<std::int32_t, 3> rotator{}; ///< Rotator: pitch, yaw, roll
     std::string text;                      ///< Name
 };
@@ -68,6 +69,22 @@ struct PropertySpec {
 /// `reference` comes from the builder the property is added to; 0 is null.
 [[nodiscard]] PropertySpec objectProperty(std::string name, std::int32_t reference);
 [[nodiscard]] PropertySpec nameProperty(std::string name, std::string text);
+/// A struct `Scale` -- Core/Object.uc's: three f32, SheerRate as f32 and
+/// SheerAxis as a byte, seventeen bytes the reader carries undecoded.
+[[nodiscard]] PropertySpec scaleProperty(std::string name, float x, float y, float z,
+                                         float rate = 0, std::int32_t axis = 0);
+
+/// One mover's brush: a Model whose only node is one square -- UTA-0119 SS 7.
+/// The corners are in brush space, wound so their fan runs along `normal`.
+struct BrushSpec {
+    std::array<std::array<float, 3>, 4> corners{};
+    std::array<float, 3> normal{0, 0, 1};
+    std::array<float, 3> textureU{1, 0, 0};
+    std::array<float, 3> textureV{0, 1, 0};
+    std::int32_t texture = 0; ///< a reference from the same builder; 0 wears none
+    std::uint32_t polyFlags = 0;
+    std::int32_t iSurf = 0; ///< the node's surface; past the Model's one, buildGeometry refuses
+};
 
 /// A package under construction: its three tables, kept consistent, and the
 /// fixups a texture's WidthOffset needs once the file's layout is known.
@@ -167,6 +184,15 @@ public:
     /// An actor named `name` of the class `classReference` names.
     MapBuilder& addActor(std::string_view name, std::int32_t classReference,
                          std::vector<PropertySpec> properties = {});
+
+    /// A Model export holding `brush`'s square, for an actor to name through
+    /// its Brush property; its reference.
+    std::int32_t addBrushModel(const BrushSpec& brush);
+
+    /// An export of class `<package>.<className>` holding `data` as it is,
+    /// for a case that needs bytes no builder writes; its reference.
+    std::int32_t addRawExport(std::string_view package, std::string_view className,
+                              std::string_view name, std::vector<std::uint8_t> data);
     MapBuilder& setLevelCount(int count);
     /// A second, larger Model export the level does not name -- INV-13.
     MapBuilder& addDecoyModel();
@@ -193,6 +219,7 @@ private:
     /// Exported after everything else the builder holds, so an actor's export
     /// index is never its position among the actors.
     std::vector<Actor> actors_;
+    int brushes_ = 0;
     int levelCount_ = 1;
     bool decoy_ = false;
     ModelTarget target_ = ModelTarget::Model;
@@ -206,13 +233,20 @@ private:
 /// LightBrightness 64 -- UTA-0110 SS 7.
 [[nodiscard]] std::vector<std::uint8_t> classPackage(std::string_view className);
 
+/// The Engine package the mover cases resolve -- UTA-0119 SS 7: `Brush`, a
+/// root class whose bStatic default is true; `Mover` under it, whose default
+/// is false; and the sizeless `Actor` export tinyPackage("Actor") holds.
+[[nodiscard]] std::vector<std::uint8_t> enginePackage();
+
 /// A package that opens and holds one sizeless export named `exportName`.
 [[nodiscard]] std::vector<std::uint8_t> tinyPackage(std::string_view exportName);
 
 /// What most cases bake: a map named `dm-fixture` whose surfaces name a map
 /// texture in a group (masked and unmasked), a map texture with no group, and
 /// `TexPkg.Metal.Plate`; and whose level holds one actor of `ActorPkg.Lamp`,
-/// a light by its class's defaults, carrying a location and a hue of its own.
+/// a light by its class's defaults, carrying a location and a hue of its own;
+/// and a mover of `Engine.Mover` wearing `TexPkg.Metal.Door`, which no level
+/// surface wears.
 struct Fixture {
     MapBuilder map;
     std::vector<TextureSpec> packageTextures; ///< what TexPkg holds
@@ -227,6 +261,7 @@ inline const std::vector<std::string> STANDARD_MATERIALS = {
     "dm-fixture.base.wall",
     "dm-fixture.base.wall#masked",
     "dm-fixture.floor",
+    "texpkg.metal.door",
     "texpkg.metal.plate",
 };
 

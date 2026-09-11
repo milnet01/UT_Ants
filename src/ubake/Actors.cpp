@@ -217,11 +217,8 @@ Result<ubundle::ActorClass> classEntry(std::string path, const upkg::ClassSite& 
 const PropertyRecord* lookUp(std::string_view name, ValueKind kind,
                              const std::vector<PropertyRecord>& own,
                              const std::vector<PropertyRecord>& defaults) {
-    for (const std::vector<PropertyRecord>* list : {&own, &defaults})
-        for (const PropertyRecord& record : *list)
-            if (record.arrayIndex == 0 && record.kind == kind && detail::fold(record.name) == name)
-                return &record;
-    return nullptr;
+    return detail::resolvedRecord(name, own, defaults,
+                                  [kind](const PropertyRecord& record) { return record.kind == kind; });
 }
 
 /// SS 4.6: the actor's light, if its resolved LightType is not LT_None. A
@@ -266,6 +263,19 @@ std::optional<ubundle::Light> lightOf(std::uint32_t exportIndex,
 }
 
 } // namespace
+
+namespace detail {
+
+const PropertyRecord* resolvedRecord(std::string_view name, const std::vector<PropertyRecord>& own,
+                                     const std::vector<PropertyRecord>& defaults,
+                                     const std::function<bool(const PropertyRecord&)>& fits) {
+    for (const std::vector<PropertyRecord>* list : {&own, &defaults})
+        for (const PropertyRecord& record : *list)
+            if (record.arrayIndex == 0 && fold(record.name) == name && fits(record)) return &record;
+    return nullptr;
+}
+
+} // namespace detail
 
 Result<Actors> buildActors(const upkg::Package& map, std::string_view mapName,
                            const upkg::Level& level, const upkg::PackageResolver& resolver) {

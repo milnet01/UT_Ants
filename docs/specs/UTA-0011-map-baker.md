@@ -162,7 +162,7 @@ namespace uta::ubake {
 
 /// Bumped by hand whenever any code a bake runs -- `ubake`, `umat`, `umap`,
 /// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
-inline constexpr std::uint32_t BAKER_REVISION = 3;  // 3 since UTA-0110 added PLAC and LITE
+inline constexpr std::uint32_t BAKER_REVISION = 4;  // 4 since UTA-0119 added MOVR
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex
@@ -330,14 +330,19 @@ In order:
 4. **`NAVG`** is `unav::buildNavGraph` with the install's resolver, and
    **`WIRG`** is `unav::buildWiringGraph`. A refusal of either refuses the
    bake.
-5. **`TEXS`** and **`MATS`** are § 4.6's materials.
-6. **`GEOM`** is UTA-0109 § 4.4's, built over the same `Model` with a lookup
-   over the variants step 5 made. Added by that item.
-7. **`PLAC`** and **`LITE`** are UTA-0110 § 4.7's, `buildActors` over the
+5. **`PLAC`** and **`LITE`** are UTA-0110 § 4.7's, `buildActors` over the
    level with the install's resolver. Its refusal refuses the bake. Added by
-   that item.
-8. **`budget`** is `umat::measure` over every map of every material, against
-   the budget given.
+   that item, and moved ahead of the materials by UTA-0119 § 4.6.
+6. **The movers** are UTA-0119 § 4.6's, found from `PLAC`, each one's `Model`
+   read. Added by that item.
+7. **`TEXS`** and **`MATS`** are § 4.6's materials, over the level's `Model`
+   and every mover's.
+8. **`GEOM`** is UTA-0109 § 4.4's, built over the level's `Model` with a
+   lookup over the variants step 7 made. Added by that item.
+9. **`MOVR`** is UTA-0119 § 4.5's, one shape per mover over the same lookup.
+   Added by that item.
+10. **`budget`** is `umat::measure` over every map of every material, against
+    the budget given.
 
 **Every section in the steps above is written, and empty where the level
 has none**, so a present but empty section says the level was examined
@@ -348,8 +353,9 @@ The header's origin is `Origin::Derived`, since a bake read an install
 
 ### 4.6 The materials
 
-**Which textures.** Every non-null `texture` of the `Model`'s `surfs`. Each
-reference resolves to one export:
+**Which textures.** Every non-null `texture` of the level `Model`'s `surfs`,
+and of every mover's `Model` (UTA-0119 § 4.6). Each reference resolves to one
+export:
 
 - an export reference is that export of the map;
 - an import reference resolves its outermost outer through the install's
@@ -574,7 +580,7 @@ same two with `InvalidArgument`.
 **`write` emits `MATS` after `TEXS`: `ROOM`, `NAVG`, `WIRG`, `TEXS`, `MATS`.**
 It is appended, as UTA-0052 appended `TEXS`, so UTA-0008 § 4.10's order clause
 is extended rather than contradicted. UTA-0109 has since appended `GEOM` after
-it, and UTA-0110 `PLAC` and `LITE` after that.
+it, UTA-0110 `PLAC` and `LITE` after that, and UTA-0119 `MOVR` after those.
 
 **`FORMAT_VERSION` becomes `3`.** Nothing else about the framing moves. § 14
 carries compatibility.

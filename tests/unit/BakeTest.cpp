@@ -424,9 +424,14 @@ TEST_CASE("the bake builds ROOM from the Model the level names", "[ubake][bake]"
     const auto package = Package::open(uta::test::asBytes(bytes));
     REQUIRE(package.has_value());
 
+    // The level's own Model and the decoy, by the names MapBuilder gives them.
+    // The standard fixture's mover carries a third Model, its brush, which is
+    // neither (UTA-0119 SS 7).
     std::vector<uta::upkg::Model> models;
     for (const uta::upkg::ExportEntry& entry : package->exports()) {
         if (package->objectName(entry.objectClass).value_or("") != "Model") continue;
+        const std::string_view name = package->name(entry.objectName).value_or("");
+        if (name != "Model0" && name != "Model1") continue;
         auto model = uta::upkg::readModel(*package, entry);
         REQUIRE(model.has_value());
         models.push_back(std::move(*model));

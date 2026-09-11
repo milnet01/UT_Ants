@@ -40,13 +40,13 @@ namespace uta::ubundle {
 /// reader should tolerate, so a mismatch is UnsupportedVersion before the
 /// section table is read.
 ///
-/// 5 since UTA-0110 added the PLAC and LITE sections -- that item's SS 4.4.
-/// 4 came with UTA-0109's GEOM section, its SS 4.2, 3 with UTA-0011's MATS
-/// section, its SS 4.10, and 2 with UTA-0052's TEXS section, its SS 4.7.
-/// Nothing else about the framing moved: the header is still sixteen bytes
-/// and the descriptor twenty-four. No .utab exists that this orphans, 0.1.0
-/// not having been cut.
-inline constexpr std::uint32_t FORMAT_VERSION = 5;
+/// 6 since UTA-0119 added the MOVR section -- that item's SS 4.2. 5 came with
+/// UTA-0110's PLAC and LITE sections, its SS 4.4, 4 with UTA-0109's GEOM
+/// section, its SS 4.2, 3 with UTA-0011's MATS section, its SS 4.10, and 2
+/// with UTA-0052's TEXS section, its SS 4.7. Nothing else about the framing
+/// moved: the header is still sixteen bytes and the descriptor twenty-four.
+/// No .utab exists that this orphans, 0.1.0 not having been cut.
+inline constexpr std::uint32_t FORMAT_VERSION = 6;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -253,6 +253,23 @@ struct Light {
     bool specialLit = false, actorShadows = false, corona = false, lensFlare = false;
 };
 
+/// One mover's shape, in its pivot space -- UTA-0119 SS 4.2 and SS 4.5.
+///
+/// `geometry` holds the brush's points with PrePivot subtracted and MainScale
+/// applied. The renderer places a point q at location + postScale * (Y P R q),
+/// that item's SS 4.5, so a mover moves by changing these three fields.
+///
+/// SCOPE: the floats are not checked; a zero postScale is the renderer's, as a
+/// light's numbers are. This library does not check that a shape's
+/// exportIndex has a placement; the baker guarantees it (UTA-0119 INV-3).
+struct MoverShape {
+    std::uint32_t exportIndex = 0;          ///< its slot in the map's export table, as PLAC's
+    std::array<float, 3> location{};        ///< as placed, UT99's own units
+    std::array<std::int32_t, 3> rotation{}; ///< pitch, yaw, roll; 65536 to a turn
+    std::array<float, 3> postScale{1, 1, 1};
+    Geometry geometry;                      ///< GEOM's shape, in pivot space
+};
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -272,6 +289,8 @@ struct Bundle {
     std::optional<Placements> placements;
     /// Strictly ascending by exportIndex -- UTA-0110 SS 4.4.
     std::optional<std::vector<Light>> lights;
+    /// Strictly ascending by exportIndex -- UTA-0119 SS 4.2.
+    std::optional<std::vector<MoverShape>> movers;
 };
 
 /// Decode a whole bundle.
@@ -284,7 +303,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

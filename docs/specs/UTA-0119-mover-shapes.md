@@ -234,6 +234,32 @@ the formula against a port of them.
 `MOVR` is written, and empty where the level has no mover. **`BAKER_REVISION`
 becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
 
+### 4.7 As built (2026-09-11)
+
+- **`buildMover` takes the mover's `Model`, already read, rather than the
+  map.** § 4.6 reads each mover's `Model` once, in step 6, for the materials,
+  and step 9 builds from the same one.
+- **The rule "the actor's own record, else its class's default" is one
+  function**, `ubake::detail::resolvedRecord` in `src/ubake/Actors.h`. The
+  light fields and every number in § 4.4 go through it.
+- **A mover `Model` that does not read keeps its refusal's code**, as INV-9
+  says, and no test can show the code being kept. Every `Model` of a map is
+  at the map's own package version, so once the level's `Model` has read, a
+  mover's cannot be refused as `UnsupportedVersion`. INV-9's case for it uses
+  bytes that do not decode, which is `MalformedData` either way.
+- **`tests/unit/BakeTest.cpp`'s check that the bake takes the level's own
+  `Model`** now picks the level's and the decoy's by name. The standard
+  fixture's mover brings a third `Model`, its brush, so the check sees three.
+- **The standard fixture's mover** is a door of `Engine.Mover` wearing
+  `TexPkg.Metal.Door`, which no level surface wears. The golden bake's case
+  asserts it shapes that one mover.
+- **Mutation, by hand:** each mutation in § 7's list was killed by the
+  invariant naming it, and one mutation for each rule this item adds by that
+  rule's case. "Apply the shear" was mutated as reading `SheerRate` into the
+  scale, since the code never reads the shear to apply it.
+- **The real-asset case compiles and has not been run.** Its figures are for
+  whoever runs it against an install.
+
 ## 5. Invariants
 
 - **INV-1** — `MOVR` round-trips through `ubundle::write` and `ubundle::read`,

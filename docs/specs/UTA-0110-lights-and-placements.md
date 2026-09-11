@@ -353,6 +353,9 @@ scripts. `Light.uc` in the same tree sets `LightType=LT_Steady` and
 > **`PLAC` and `LITE`** are `buildActors` over the level. Its refusal refuses
 > the bake, naming the map.
 
+UTA-0119 § 4.6 has since moved this step ahead of the materials, because the
+movers are found from it.
+
 Both sections are written, and empty where the level places nothing.
 **`BAKER_REVISION` becomes `3`**, and UTA-0011 INV-5's golden value is
 recorded again under it.

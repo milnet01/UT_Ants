@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **A baked map carries its doors, lifts and other movers.** (UTA-0119)
+  A new section, `MOVR`, holds each mover's shape in its own space, with
+  the position, rotation and second scale that place it, so the renderer
+  can draw it where the level puts it and a later item can move it. A
+  texture only a mover wears now gets its material made.
+
 - **A baked map carries its lights, and where every actor stands.** (UTA-0110)
   Two new sections. `PLAC` holds each placed actor's own settings, and a
   table of the classes they belong to, each with its parents and merged
@@ -169,6 +175,10 @@ appears once something has actually shipped.)
   CMake + Ninja, C++23, Catch2 v3.16.0 fetched by the build rather than installed. The suite passes on a clone with no Unreal Tournament present, which is what S7 is measured on; a second tier behind UTA_REAL_ASSET_TESTS runs against a real install and refuses to configure without a path.
 
 ### Changed
+
+- **Bundle format version 6 and baker revision 4; placements are baked before materials.** (UTA-0119)
+  A version-5 bundle is refused and baked over. The bake finds its movers
+  from the placements, so that step now runs before the materials.
 
 - **Bundle format version 5 and baker revision 3.** (UTA-0110)
   A version-4 bundle is refused and baked over. No released file is

@@ -12,6 +12,7 @@
 #include "upkg/Level.h"
 #include "upkg/Package.h"
 
+#include <functional>
 #include <string_view>
 #include <vector>
 
@@ -32,5 +33,18 @@ struct Actors {
 [[nodiscard]] Result<Actors> buildActors(const upkg::Package& map, std::string_view mapName,
                                          const upkg::Level& level,
                                          const upkg::PackageResolver& resolver);
+
+namespace detail {
+
+/// UTA-0110 SS 4.6's order, which UTA-0119 SS 4.4 reuses: the actor's own
+/// record named `name` (folded) at array index 0 that `fits`, else its class's
+/// default that does, else none. A record of the right name that does not fit
+/// is passed over, and the next source is tried.
+[[nodiscard]] const ubundle::PropertyRecord* resolvedRecord(
+    std::string_view name, const std::vector<ubundle::PropertyRecord>& own,
+    const std::vector<ubundle::PropertyRecord>& defaults,
+    const std::function<bool(const ubundle::PropertyRecord&)>& fits);
+
+} // namespace detail
 
 } // namespace uta::ubake

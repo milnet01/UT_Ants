@@ -2,6 +2,8 @@
 
 #include "support/UnrealPackageBuilder.h"
 
+#include <algorithm>
+#include <bit>
 #include <fstream>
 #include <random>
 #include <system_error>
@@ -87,6 +89,15 @@ PropertySpec objectProperty(std::string name, std::int32_t reference) {
 PropertySpec nameProperty(std::string name, std::string text) {
     PropertySpec spec{std::move(name), PropertySpec::Type::Name};
     spec.text = std::move(text);
+    return spec;
+}
+
+PropertySpec scaleProperty(std::string name, float x, float y, float z, float rate,
+                           std::int32_t axis) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Scale};
+    spec.vector = {x, y, z};
+    spec.rate = rate;
+    spec.value = axis;
     return spec;
 }
 
@@ -210,6 +221,14 @@ std::vector<std::uint8_t> Packer::properties(const std::vector<PropertySpec>& sp
             break;
         case PropertySpec::Type::Object: writer.addObject(key, spec.value); break;
         case PropertySpec::Type::Name: writer.addName(key, name(spec.text)); break;
+        case PropertySpec::Type::Scale: {
+            std::vector<std::uint8_t> raw;
+            for (const float part : spec.vector) appendU32(raw, std::bit_cast<std::uint32_t>(part));
+            appendU32(raw, std::bit_cast<std::uint32_t>(spec.rate));
+            appendU8(raw, static_cast<std::uint8_t>(spec.value));
+            writer.addUndecodedStruct(key, name("Scale"), raw);
+            break;
+        }
         }
     }
     return writer.build(0);
@@ -294,6 +313,46 @@ MapBuilder& MapBuilder::addActor(std::string_view name, std::int32_t classRefere
                                  std::vector<PropertySpec> properties) {
     actors_.push_back(Actor{std::string(name), classReference, std::move(properties)});
     return *this;
+}
+
+std::int32_t MapBuilder::addBrushModel(const BrushSpec& brush) {
+    ModelExportWriter model;
+    std::array<float, 3> low = brush.corners[0];
+    std::array<float, 3> high = brush.corners[0];
+    for (const auto& corner : brush.corners)
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            low[axis] = std::min(low[axis], corner[axis]);
+            high[axis] = std::max(high[axis], corner[axis]);
+        }
+    model.setBounds(low, high, true);
+    // Vectors 0, 1 and 2 are the surface's normal, TextureU and TextureV.
+    model.addVector(brush.normal).addVector(brush.textureU).addVector(brush.textureV);
+    for (const auto& corner : brush.corners) model.addPoint(corner);
+    for (std::int32_t k = 0; k < 4; ++k) model.addVert(k);
+
+    ModelExportWriter::Node square;
+    square.normal = brush.normal;
+    square.iSurf = brush.iSurf;
+    square.iVertPool = 0;
+    square.numVertices = 4;
+    model.addNode(square);
+
+    ModelExportWriter::Surf surf;
+    surf.texture = brush.texture;
+    surf.polyFlags = brush.polyFlags;
+    surf.pBase = 0;
+    surf.vNormal = 0;
+    surf.vTextureU = 1;
+    surf.vTextureV = 2;
+    model.addSurf(surf);
+
+    return packer_.addExport(packer_.importClass("Engine", "Model"), 0,
+                             "Brush" + std::to_string(brushes_++), model.build());
+}
+
+std::int32_t MapBuilder::addRawExport(std::string_view package, std::string_view className,
+                                      std::string_view name, std::vector<std::uint8_t> data) {
+    return packer_.addExport(packer_.importClass(package, className), 0, name, std::move(data));
 }
 
 MapBuilder& MapBuilder::setLevelCount(int count) {
@@ -417,6 +476,14 @@ std::vector<std::uint8_t> classPackage(std::string_view className) {
     return packer.build();
 }
 
+std::vector<std::uint8_t> enginePackage() {
+    Packer packer;
+    const std::int32_t brush = packer.addClass("Brush", 0, {boolProperty("bStatic", true)});
+    packer.addClass("Mover", brush, {boolProperty("bStatic", false)});
+    packer.addExport(0, 0, "Actor", {});
+    return packer.build();
+}
+
 std::vector<std::uint8_t> tinyPackage(std::string_view exportName) {
     Packer packer;
     packer.addExport(0, 0, exportName, {});
@@ -433,6 +500,18 @@ Fixture standardFixture() {
     map.addSurface(wall).addSurface(wall, MASKED).addSurface(floor).addSurface(plate);
     map.addActorOfClass("ActorPkg", "Lamp",
                         {vectorProperty("Location", 16.0F, 32.0F, 48.0F), byteProperty("LightHue", 40)});
+
+    // A mover wearing a texture no level surface wears, so the golden bake
+    // covers MOVR and a material only a mover makes (UTA-0119 SS 7).
+    fixture.packageTextures.push_back(TextureSpec{"Door", "Metal", picture(4), false});
+    BrushSpec door;
+    door.corners = {{{0, 0, 0}, {64, 0, 0}, {64, 0, 64}, {0, 0, 64}}};
+    door.normal = {0, -1, 0};
+    door.textureV = {0, 0, 1};
+    door.texture = map.importTexture("TexPkg", "Metal", "Door");
+    map.addActor("Door0", map.importClass("Engine", "Mover"),
+                 {objectProperty("Brush", map.addBrushModel(door)),
+                  vectorProperty("Location", 128.0F, 0.0F, 0.0F)});
     return fixture;
 }
 
@@ -459,7 +538,7 @@ MemoryPackages memoryPackagesFor(const Fixture& fixture) {
     packages.add("texpkg", texturePackage(fixture.packageTextures));
     packages.add("actorpkg", classPackage("Lamp"));
     packages.add("core", tinyPackage("Object"));
-    packages.add("engine", tinyPackage("Actor"));
+    packages.add("engine", enginePackage());
     return packages;
 }
 
@@ -473,7 +552,7 @@ void writeFile(const std::filesystem::path& path, const std::vector<std::uint8_t
 
 std::filesystem::path writeInstall(const std::filesystem::path& root, const Fixture& fixture) {
     writeFile(root / "System" / "Core.u", tinyPackage("Object"));
-    writeFile(root / "System" / "Engine.u", tinyPackage("Actor"));
+    writeFile(root / "System" / "Engine.u", enginePackage());
     writeFile(root / "System" / "Botpack.u", tinyPackage("DeathMatchPlus"));
     writeFile(root / "System" / "ActorPkg.u", classPackage("Lamp"));
     writeFile(root / "Textures" / "TexPkg.utx", texturePackage(fixture.packageTextures));

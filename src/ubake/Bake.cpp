@@ -5,6 +5,7 @@
 #include "core/FileSystem.h"
 #include "ubake/Actors.h"
 #include "ubake/Geometry.h"
+#include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "umat/Fingerprint.h"
 #include "umat/Generate.h"
@@ -306,25 +307,28 @@ struct Materials {
 };
 
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
-                                const upkg::Model& model, const upkg::PackageResolver& resolver,
-                                JobSystem& jobs, const detail::CuratedLookup& curated) {
+                                const std::vector<const upkg::Model*>& models,
+                                const upkg::PackageResolver& resolver, JobSystem& jobs,
+                                const detail::CuratedLookup& curated) {
     // Which variants each distinct reference needs. A map's surfaces name a
-    // few hundred textures thousands of times, so each is resolved once.
+    // few hundred textures thousands of times, so each is resolved once. The
+    // level's Model and every mover's contribute alike -- UTA-0119 SS 4.6.
     struct Needs {
         bool opaque = false;
         bool masked = false;
     };
     std::map<std::int32_t, Needs> byReference;
-    for (const upkg::BspSurf& surf : model.surfs) {
-        if (surf.texture.kind() == upkg::ObjectReferenceKind::Null) continue;
-        Needs& needs = byReference[surf.texture.raw()];
-        // The SURFACE decides, not the texture's own bMasked: surfaces sharing
-        // one texture disagree about index 0 (UTA-0009 SS 2 item 4).
-        if ((surf.polyFlags & PF_MASKED) != 0)
-            needs.masked = true;
-        else
-            needs.opaque = true;
-    }
+    for (const upkg::Model* model : models)
+        for (const upkg::BspSurf& surf : model->surfs) {
+            if (surf.texture.kind() == upkg::ObjectReferenceKind::Null) continue;
+            Needs& needs = byReference[surf.texture.raw()];
+            // The SURFACE decides, not the texture's own bMasked: surfaces
+            // sharing one texture disagree about index 0 (UTA-0009 SS 2 item 4).
+            if ((surf.polyFlags & PF_MASKED) != 0)
+                needs.masked = true;
+            else
+                needs.opaque = true;
+        }
 
     struct Variant {
         const TextureSite* site = nullptr;
@@ -428,10 +432,31 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     UTA_TRY(unav::NavGraph nav, naming(unav::buildNavGraph(map, level, resolver), mapName));
     UTA_TRY(unav::WiringGraph wiring, naming(unav::buildWiringGraph(map), mapName));
 
-    // 5. TEXS and MATS.
-    UTA_TRY(Materials materials, bakeMaterials(map, mapName, model, resolver, jobs, curated));
+    // 5. PLAC and LITE -- UTA-0110 SS 4.7, moved ahead of the materials by
+    // UTA-0119 SS 4.6: the movers are found from them.
+    UTA_TRY(Actors actors, naming(buildActors(map, mapName, level, resolver), mapName));
 
-    // 6. GEOM, each surface wearing the variant step 5 made for it --
+    // 6. The movers, and each one's Model -- UTA-0119 SS 4.6. A Model that
+    // does not read keeps its refusal's own code, naming the actor (INV-9).
+    UTA_TRY(const std::vector<MoverSite> movers, naming(findMovers(map, actors.placements), mapName));
+    std::vector<upkg::Model> moverModels;
+    moverModels.reserve(movers.size());
+    for (const MoverSite& mover : movers) {
+        auto read = upkg::readModel(map, *mover.model);
+        if (!read.has_value())
+            return std::unexpected(
+                read.error()
+                    .withContext("reading mover " + actors.placements.actors[mover.placement].path)
+                    .withContext(prefixFor(mapName)));
+        moverModels.push_back(std::move(*read));
+    }
+
+    // 7. TEXS and MATS, over the level's Model and every mover's.
+    std::vector<const upkg::Model*> surfaced{&model};
+    for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
+    UTA_TRY(Materials materials, bakeMaterials(map, mapName, surfaced, resolver, jobs, curated));
+
+    // 8. GEOM, each surface wearing the variant step 7 made for it --
     // UTA-0109 SS 4.4.
     const MaterialLookup lookup = [&materials](upkg::ObjectReference texture,
                                                bool masked) -> const SurfaceMaterial* {
@@ -440,11 +465,17 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     };
     UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup), mapName));
 
-    // 7. PLAC and LITE -- UTA-0110 SS 4.7.
-    UTA_TRY(Actors actors, naming(buildActors(map, mapName, level, resolver), mapName));
+    // 9. MOVR, in export order -- UTA-0119 SS 4.5.
+    std::vector<ubundle::MoverShape> shapes;
+    shapes.reserve(movers.size());
+    for (std::size_t i = 0; i < movers.size(); ++i) {
+        UTA_TRY(ubundle::MoverShape shape,
+                naming(buildMover(movers[i], moverModels[i], actors.placements, lookup), mapName));
+        shapes.push_back(std::move(shape));
+    }
 
     BakeResult result;
-    // 8. The budget, over every map of every material.
+    // 10. The budget, over every map of every material.
     result.budget = umat::measure(materials.textures, budgetBytes);
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
@@ -462,6 +493,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.geometry = std::move(geometry);
     result.bundle.placements = std::move(actors.placements);
     result.bundle.lights = std::move(actors.lights);
+    result.bundle.movers = std::move(shapes);
     return result;
 }
 
