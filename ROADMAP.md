@@ -4617,6 +4617,21 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-11): claimed by session ut-ants-08, working in the
   main checkout. UTA-0110 shipped in bb16d78, so both blockers are done;
   this begins with its spec.
+  Measured (2026-09-11), by a scratch probe over the reference install,
+  whose Maps folder changed between runs -- 2023 maps on the first and 1947
+  on the last, so read these as that day's snapshot. The spec's real-asset
+  case reprints them. Every mover's Brush Model that reads carries both BSP
+  tables and Polys. Its points centre on the origin, not the actor, for
+  51579 of 51623 movers placed over 256 units out, and 3116134 of 3129922
+  Polys corners sit on a Model point: brush space. Mover textures no level
+  surface wears: 238937 of 822695 polygons, in 1656 maps. MainScale is
+  non-unit on 3450 movers and sheared on 21; PostScale is non-unit on 2080.
+  A literal port of ABrush::ToWorld lands static brush corners on level
+  points at the same share as brushes with no transform at all, over every
+  bucket except shear. Sheared static brushes land none with the shear
+  applied, in any of five readings, and some without. Split after
+  MainScale, the port agrees with itself within 2.25e-11 on every unsheared
+  brush.
   **Layman:** Doors, lifts and other moving parts get their shapes baked, so they appear in the level instead of being invisible.
   Kind: implement.
   Source: user-request-2026-09-11 split-from-UTA-0110.
