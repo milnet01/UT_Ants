@@ -6,6 +6,7 @@
 #include "ubake/Actors.h"
 #include "ubake/Collision.h"
 #include "ubake/Geometry.h"
+#include "ubake/LightProbes.h"
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "umat/Fingerprint.h"
@@ -194,6 +195,9 @@ struct MadeVariant {
     umat::Material material;
     double uSize = 0;
     double vSize = 0;
+    /// The base level's linear mean, for the bounce -- UTA-0112 SS 4.5. Empty
+    /// when no pixel of it is opaque.
+    std::optional<Rgb> albedo;
 };
 
 /// One variant, or why it cannot be made. The error arm is a SKIP and never a
@@ -262,7 +266,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         return std::unexpected("umat::generate refused it: "
                                + std::string(material.error().message()));
     const double scale = detail::textureScale(holder, *properties);
-    return MadeVariant{std::move(*material), base.width * scale, base.height * scale};
+    return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
+                       meanAlbedo(*rgba)};
 }
 
 struct Materials {
@@ -272,6 +277,10 @@ struct Materials {
     /// What a surface wears, by (texture reference, masked) -- the lookup GEOM
     /// is built with (UTA-0109 SS 4.4). A variant not made has no entry.
     std::map<std::pair<std::int32_t, bool>, SurfaceMaterial> bySurface;
+    /// Each made material's reflectance for the bounce, by id -- UTA-0112
+    /// SS 4.5. A material whose base level has no opaque pixel holds
+    /// DEFAULT_ALBEDO.
+    std::map<std::string, Rgb, std::less<>> albedo;
 };
 
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
@@ -333,6 +342,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             continue;
         }
         out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic});
+        out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
         for (ubundle::CompressedTexture& map : made->material.maps)
             out.textures.push_back(std::move(map));
         for (const std::int32_t raw : variant.references)
@@ -486,8 +496,21 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         collision.movers.push_back(std::move(tree));
     }
 
+    // 11. LPRB -- UTA-0112 SS 4.8: one bounce of the static lights, gathered at
+    // lattice points near the level's surfaces. A batch with no material
+    // reflects DEFAULT_ALBEDO, as a material with no opaque pixel does (SS 4.5).
+    const AlbedoLookup albedo = [&materials](std::string_view id) {
+        const auto found = materials.albedo.find(id);
+        return found == materials.albedo.end() ? Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}
+                                               : found->second;
+    };
+    UTA_TRY(ubundle::LightProbes probes,
+            naming(bakeLightProbes(geometry, collision.level,
+                                   bakedLights(actors.lights, actors.placements), albedo, jobs),
+                   mapName));
+
     BakeResult result;
-    // 11. The budget, over every map of every material.
+    // 12. The budget, over every map of every material.
     result.budget = umat::measure(materials.textures, budgetBytes);
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
@@ -507,6 +530,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.lights = std::move(actors.lights);
     result.bundle.movers = std::move(shapes);
     result.bundle.collision = std::move(collision);
+    result.bundle.lightProbes = std::move(probes);
     return result;
 }
 

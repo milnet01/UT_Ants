@@ -162,7 +162,7 @@ namespace uta::ubake {
 
 /// Bumped by hand whenever any code a bake runs -- `ubake`, `umat`, `umap`,
 /// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
-inline constexpr std::uint32_t BAKER_REVISION = 5;  // 5 since UTA-0111 added COLL
+inline constexpr std::uint32_t BAKER_REVISION = 6;  // 6 since UTA-0112 added LPRB
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex
@@ -343,7 +343,10 @@ In order:
    Added by that item.
 10. **`COLL`** is UTA-0111 § 4.6's: the level's collision tree, then each
     mover's, from the `Model` step 6 read. Added by that item.
-11. **`budget`** is `umat::measure` over every map of every material, against
+11. **`LPRB`** is UTA-0112 § 4.8's: light probes over `GEOM`, `COLL`'s level
+    tree, the lights of `LITE` that bake, and step 7's albedo. Added by that
+    item.
+12. **`budget`** is `umat::measure` over every map of every material, against
     the budget given.
 
 **Every section in the steps above is written, and empty where the level
@@ -582,8 +585,8 @@ same two with `InvalidArgument`.
 **`write` emits `MATS` after `TEXS`: `ROOM`, `NAVG`, `WIRG`, `TEXS`, `MATS`.**
 It is appended, as UTA-0052 appended `TEXS`, so UTA-0008 § 4.10's order clause
 is extended rather than contradicted. UTA-0109 has since appended `GEOM` after
-it, UTA-0110 `PLAC` and `LITE` after that, UTA-0119 `MOVR` after those, and
-UTA-0111 `COLL` after that.
+it, UTA-0110 `PLAC` and `LITE` after that, UTA-0119 `MOVR` after those,
+UTA-0111 `COLL` after that, and UTA-0112 `LPRB` after that.
 
 **`FORMAT_VERSION` becomes `3`.** Nothing else about the framing moves. § 14
 carries compatibility.

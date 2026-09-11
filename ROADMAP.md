@@ -4822,6 +4822,20 @@ model, no weapon and no opponent until 0.2.0.
   nodes on 19 maps. Run in foreground batches because the memory guard
   stops long background runs; the directory's summary was rebuilt from the
   map files and batch records. Sent to UT_MonsterHunt the same day.
+  Tested (2026-09-11) by UT_MonsterHunt: each of the 16 maps given nodes
+  was built twice outside their Maps/, with the nodes and without, and
+  both censused with MHRouteProbe (their analysis/seedtest.sh, verdicts
+  in their analysis/seedtest-2026-09-11.tsv). The nodes made the route on
+  3 maps: MH-Omni-Rage-BP, MH-HaVoCuRhOMG and MH-ChambersOfHell-Part1. On
+  5 their ordinary rebuild routes with or without them. On 8 nothing
+  routes either way: MH-'Z-FALKENSTINE, MH-BoomDockBridge_V0,
+  MH-Haros-OldQuarter, MH-NivenSB, MH-Skaarj_ReactorTest-v1,
+  MH-UM-SoccerStadium1, MH-UM-SoccerStadium1-BP and MH-ZenithWarsTorus;
+  not yet diagnosed. UT's editor linked the proposed spots on every map
+  tested, so the Scout size question is answered. Their census exit
+  count equals ut-paths' exits on all 297 maps it wrote, so no map
+  carries a foreign MonsterEnd. Nothing enters their Maps/ until the
+  user decides.
   **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
   Kind: feature.
   Source: user-request-2026-09-11.
@@ -4925,6 +4939,38 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: in-session-2026-09-11.
   Lanes: tools.
+
+- 📋 [UTA-0126] **ut-paths: find why eight maps still do not route with their proposed nodes.**
+  UT_MonsterHunt's seed test (2026-09-11; their
+  analysis/seedtest-2026-09-11.tsv) built each of the 16 maps UTA-0121
+  gave nodes, with them and without. On eight nothing routes either way:
+  MH-'Z-FALKENSTINE, MH-BoomDockBridge_V0, MH-Haros-OldQuarter,
+  MH-NivenSB, MH-Skaarj_ReactorTest-v1, MH-UM-SoccerStadium1,
+  MH-UM-SoccerStadium1-BP and MH-ZenithWarsTorus. UT's editor linked
+  the proposed spots on every map, so the chain is in each build; where
+  it fails to meet the network is not known. UT_MonsterHunt's MHSpecProbe
+  reports where a chain meets the network, and they offered a run on
+  MH-NivenSB. The answer decides whether the fault is ut-paths' chain,
+  the network part it aims at, or the census.
+  MH-NivenSB diagnosed by UT_MonsterHunt (2026-09-11), from MHSpecProbe
+  (their work/seedtest/MH-NivenSB/spec/MH-NivenSB-UTP.txt) and the kept
+  T3D export. The chain is placed as ut-paths wrote it and linked both
+  ways along itself, and from it the network reaches the exit, HomeBase0.
+  The fault is the hop into the start's part: the first PlayerStart,
+  PlayerStart12 at (-3817, 809, -234), has a part of 157 of 794 nodes,
+  and nothing of the chain links into it. The part's node nearest the
+  exit, PathNode20 at (-993, -597, 28), is about 220 units from
+  PathNodeSeed120 at (-799, -492, 27), at the same height, and PATHS
+  DEFINE built no spec between them either way. Two causes fit:
+  something physical in the gap (a door, a mover, a lip, blocking
+  collision), or the editor testing that hop at a larger size than the
+  TMale1 fit. Their questions for this item: does ut-paths' start part
+  hold PathNode20, and which node did its route leave the start part
+  from.
+  **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
+  Kind: investigate.
+  Source: ut-monsterhunt-seedtest-2026-09-11.
+  Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons
 

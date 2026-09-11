@@ -40,14 +40,15 @@ namespace uta::ubundle {
 /// reader should tolerate, so a mismatch is UnsupportedVersion before the
 /// section table is read.
 ///
-/// 7 since UTA-0111 added the COLL section -- that item's SS 4.2. 6 came with
+/// 8 since UTA-0112 added the LPRB section -- that item's SS 4.2. 7 came with
+/// UTA-0111's COLL section, its SS 4.2, 6 with
 /// UTA-0119's MOVR section, its SS 4.2, 5 with UTA-0110's PLAC and LITE
 /// sections, its SS 4.4, 4 with UTA-0109's GEOM section, its SS 4.2, 3 with
 /// UTA-0011's MATS section, its SS 4.10, and 2 with UTA-0052's TEXS section,
 /// its SS 4.7. Nothing else about the framing moved: the header is still
 /// sixteen bytes and the descriptor twenty-four.
 /// No .utab exists that this orphans, 0.1.0 not having been cut.
-inline constexpr std::uint32_t FORMAT_VERSION = 7;
+inline constexpr std::uint32_t FORMAT_VERSION = 8;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -327,6 +328,21 @@ struct Collision {
     std::vector<MoverCollision> movers; ///< strictly ascending by exportIndex
 };
 
+/// One light probe: a lattice point, and the light reaching it from each axis
+/// -- UTA-0112 SS 4.2. Face k is gathered from rays cast toward its axis and
+/// lights a surface whose normal is that axis, so -Z lights a ceiling.
+struct LightProbe {
+    std::array<std::int32_t, 3> cell{};         ///< x, y, z; the probe is at cell * spacing
+    std::array<std::array<float, 3>, 6> cube{}; ///< linear RGB, faces +X, -X, +Y, -Y, +Z, -Z
+};
+
+/// A level's probes -- UTA-0112 SS 4.2. `spacing` is never zero, and every
+/// cube value is finite and not below zero.
+struct LightProbes {
+    std::uint32_t spacing = 0;      ///< UT units between lattice points
+    std::vector<LightProbe> probes; ///< strictly ascending by z, then y, then x
+};
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -350,6 +366,8 @@ struct Bundle {
     std::optional<std::vector<MoverShape>> movers;
     /// UTA-0111 SS 4.2.
     std::optional<Collision> collision;
+    /// UTA-0112 SS 4.2.
+    std::optional<LightProbes> lightProbes;
 };
 
 /// Decode a whole bundle.
@@ -362,7 +380,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

@@ -2,7 +2,7 @@
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
 // with umap, NAVG and WIRG with unav, TEXS with umat, MATS, GEOM, PLAC, LITE,
-// MOVR and COLL with ubake -- so each lives in its own file, and work on one
+// MOVR, COLL and LPRB with ubake -- so each lives in its own file, and work on one
 // does not share a file with work on another (UTA-0091). Bundle.cpp keeps the
 // framing: the header, the section table, and read and write.
 //
@@ -12,7 +12,8 @@
 // docs/specs/UTA-0109-map-geometry.md SS 4.2 for GEOM, and
 // docs/specs/UTA-0110-lights-and-placements.md SS 4.3 and SS 4.4 for PLAC
 // and LITE, docs/specs/UTA-0119-mover-shapes.md SS 4.2 for MOVR, and
-// docs/specs/UTA-0111-level-collision.md SS 4.2 for COLL.
+// docs/specs/UTA-0111-level-collision.md SS 4.2 for COLL, and
+// docs/specs/UTA-0112-baked-light-probes.md SS 4.2 for LPRB.
 
 #pragma once
 
@@ -35,6 +36,7 @@ constexpr SectionId ID_PLAC = {'P', 'L', 'A', 'C'};
 constexpr SectionId ID_LITE = {'L', 'I', 'T', 'E'};
 constexpr SectionId ID_MOVR = {'M', 'O', 'V', 'R'};
 constexpr SectionId ID_COLL = {'C', 'O', 'L', 'L'};
+constexpr SectionId ID_LPRB = {'L', 'P', 'R', 'B'};
 
 // Structural validation -- SS 4.9.
 //
@@ -107,5 +109,11 @@ constexpr SectionId ID_COLL = {'C', 'O', 'L', 'L'};
 [[nodiscard]] Result<Collision> readCollision(Cursor& cursor);
 [[nodiscard]] Result<void> validateCollision(const Collision& collision, ErrorCode code);
 [[nodiscard]] std::vector<std::byte> encodeCollision(const Collision& collision);
+
+// LPRB -- LightProbeSection.cpp, UTA-0112 SS 4.2. Every rule is the
+// validator's, on both paths.
+[[nodiscard]] Result<LightProbes> readLightProbes(Cursor& cursor);
+[[nodiscard]] Result<void> validateLightProbes(const LightProbes& probes, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeLightProbes(const LightProbes& probes);
 
 } // namespace uta::ubundle::detail

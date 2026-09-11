@@ -3,7 +3,8 @@
 // Each section's own layout is its codec's -- RoomSection.cpp,
 // NavSection.cpp, WiringSection.cpp, TextureSection.cpp, MaterialSection.cpp,
 // GeometrySection.cpp, PlacementSection.cpp, LightSection.cpp,
-// MoverSection.cpp and CollisionSection.cpp, declared in Sections.h
+// MoverSection.cpp, CollisionSection.cpp and LightProbeSection.cpp, declared
+// in Sections.h
 // (UTA-0091). What stays here is what every section shares: where it sits in
 // the file, and in what order.
 
@@ -85,7 +86,8 @@ struct Descriptor {
 
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
-           || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL;
+           || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
+           || id == ID_LPRB;
 }
 
 } // namespace
@@ -218,6 +220,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_COLL) {
             UTA_TRY(bundle.collision, readCollision(payload));
             UTA_CHECK(validateCollision(*bundle.collision, ErrorCode::MalformedData));
+        } else if (descriptor.id == ID_LPRB) {
+            UTA_TRY(bundle.lightProbes, readLightProbes(payload));
+            UTA_CHECK(validateLightProbes(*bundle.lightProbes, ErrorCode::MalformedData));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -251,8 +256,10 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.movers) UTA_CHECK(validateMovers(*bundle.movers, ErrorCode::InvalidArgument));
     if (bundle.collision)
         UTA_CHECK(validateCollision(*bundle.collision, ErrorCode::InvalidArgument));
+    if (bundle.lightProbes)
+        UTA_CHECK(validateLightProbes(*bundle.lightProbes, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL. Fixed rather than incidental because
+    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -276,6 +283,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.movers) sections.emplace_back(ID_MOVR, encodeMovers(*bundle.movers));
     // COLL is appended after MOVR -- UTA-0111 SS 4.2.
     if (bundle.collision) sections.emplace_back(ID_COLL, encodeCollision(*bundle.collision));
+    // LPRB is appended after COLL -- UTA-0112 SS 4.2.
+    if (bundle.lightProbes) sections.emplace_back(ID_LPRB, encodeLightProbes(*bundle.lightProbes));
 
     Sink sink;
     sink.putId(MAGIC);

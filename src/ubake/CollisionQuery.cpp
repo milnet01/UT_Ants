@@ -1,12 +1,14 @@
 // Point and segment checks against a collision tree --
-// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4, INV-2.
+// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4, INV-2. Moved here from
+// tools/ut-paths/Trace.cpp, unchanged, by docs/specs/UTA-0112-baked-light-probes.md
+// SS 4.10 (its INV-11).
 
-#include "Trace.h"
+#include "ubake/CollisionQuery.h"
 
 #include <cstdint>
 #include <vector>
 
-namespace uta::paths {
+namespace uta::ubake {
 namespace {
 
 using ubundle::CollisionNode;
@@ -64,10 +66,10 @@ Hit firstChange(const CollisionTree& tree, const Vec3& a, const Vec3& b, bool in
         const CollisionNode& node = tree.nodes[static_cast<std::size_t>(piece.node)];
         const double d0 = side(node, a + delta * piece.t0);
         const double d1 = side(node, a + delta * piece.t1);
-        // Split only where the piece straddles the plane (SS 4.4). A piece
-        // touching it at one end goes with its other end: a split's far part
-        // starts ON the plane, and where a later node shares that plane -- a
-        // coplanar node, or two rooms sharing a face -- it would otherwise
+        // Split only where the piece straddles the plane (UTA-0121 SS 4.4). A
+        // piece touching it at one end goes with its other end: a split's far
+        // part starts ON the plane, and where a later node shares that plane --
+        // a coplanar node, or two rooms sharing a face -- it would otherwise
         // leave a solid piece of no length, a hit where nothing is.
         if ((d0 >= 0 && d1 >= 0 && (d0 > 0 || d1 > 0)) || (d0 <= 0 && d1 <= 0)) {
             const bool front = d0 > 0 || d1 > 0;
@@ -108,4 +110,4 @@ Hit traceOut(const CollisionTree& tree, const Vec3& a, const Vec3& b) {
     return firstChange(tree, a, b, false);
 }
 
-} // namespace uta::paths
+} // namespace uta::ubake

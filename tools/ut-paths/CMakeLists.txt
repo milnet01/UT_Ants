@@ -4,5 +4,9 @@
 #
 # Everything but main.cpp is compiled into the unit tests too, as ut-bake's
 # Cli.cpp is (tests/CMakeLists.txt).
-add_executable(ut-paths main.cpp Cli.cpp Trace.cpp Walkable.cpp Seeds.cpp)
+#
+# Trace.h forwards to src/ubake/CollisionQuery.h, where the collision checks
+# moved so the baker can use them -- docs/specs/UTA-0112-baked-light-probes.md
+# SS 4.10.
+add_executable(ut-paths main.cpp Cli.cpp Walkable.cpp Seeds.cpp)
 target_link_libraries(ut-paths PRIVATE uta_ubake uta_tools_common)

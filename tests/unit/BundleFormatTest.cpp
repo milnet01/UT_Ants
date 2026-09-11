@@ -293,7 +293,7 @@ std::vector<std::byte> goldenBytes() {
 
     Bytes out;
     out.id("UTAB");
-    out.u32(7); // formatVersion -- 7 since UTA-0111 added COLL
+    out.u32(8); // formatVersion -- 8 since UTA-0112 added LPRB
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -512,7 +512,7 @@ TEST_CASE("the header is sixteen little-endian bytes naming the file", "[ubundle
 
     const std::uint8_t expected[16] = {
         'U', 'T', 'A', 'B',    // magic -- a hex dump of a bundle names itself
-        0x07, 0x00, 0x00, 0x00, // formatVersion = 7 -- UTA-0111 SS 4.2
+        0x08, 0x00, 0x00, 0x00, // formatVersion = 8 -- UTA-0112 SS 4.2
         0x01,                   // origin = Authored
         0x00,                   // kind = Map
         0x00, 0x00,             // reserved
@@ -536,17 +536,17 @@ TEST_CASE("a bad magic and an unsupported version are refused before anything el
     }
 
     SECTION("a later version") {
-        // 8, not 7: 7 is the current version since UTA-0111 added COLL.
-        const std::vector<std::byte> bytes = goldenWithByte(4, 8);
+        // 9, not 8: 8 is the current version since UTA-0112 added LPRB.
+        const std::vector<std::byte> bytes = goldenWithByte(4, 9);
         const auto result = read(bytes);
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::UnsupportedVersion);
     }
 
     SECTION("the version before this one") {
-        // UTA-0111 SS 14: a stray version-6 file is refused rather than
+        // UTA-0112 SS 14: a stray version-7 file is refused rather than
         // misread, which is what lets UTA-0011's cache check bake over it.
-        const std::vector<std::byte> bytes = goldenWithByte(4, 6);
+        const std::vector<std::byte> bytes = goldenWithByte(4, 7);
         const auto result = read(bytes);
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::UnsupportedVersion);
@@ -601,7 +601,7 @@ TEST_CASE("readHeader reads the first sixteen bytes and stops", "[ubundle]") {
 
     const auto header = readHeader(justTheHeader);
     REQUIRE(header.has_value());
-    CHECK(header->formatVersion == 7);
+    CHECK(header->formatVersion == 8);
     CHECK(header->origin == Origin::Authored);
     CHECK(header->kind == BundleKind::Map);
 
@@ -617,7 +617,7 @@ TEST_CASE("the golden bytes decode field by field to the values they encode", "[
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 7);
+    CHECK(bundle.header.formatVersion == 8);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 

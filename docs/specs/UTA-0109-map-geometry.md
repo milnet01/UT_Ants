@@ -488,7 +488,8 @@ Each must be killed by the invariant that names it.
   with a surface's — tracked by UTA-0104.
 - What any flag means when drawn: culling, portals, sky, translucency,
   panning — tracked by UTA-0014, with water and glass by UTA-0089.
-- Coordinates for baked light — tracked by UTA-0112.
+- Coordinates for baked light — none are needed: UTA-0112 bakes into probes
+  near the surfaces rather than onto them (its § 3 decision 1).
 - Collision — tracked by UTA-0111.
 - The geometry of movers, each its own `Model` — baked by UTA-0119 into
   `MOVR`. A static brush actor is already in the level's `Model`: the editor

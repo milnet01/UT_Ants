@@ -112,7 +112,7 @@ The choices below are mine, the user being away and having left them to me.
 | File | Holds |
 |---|---|
 | `tools/ut-paths/main.cpp`, `Cli.h`, `Cli.cpp` | the command line (§ 4.2) |
-| `tools/ut-paths/Trace.h`, `Trace.cpp` | point and segment checks against a tree (§ 4.4) |
+| `tools/ut-paths/Trace.h` | point and segment checks against a tree (§ 4.4), forwarded from `src/ubake/CollisionQuery.h` since UTA-0112 § 4.10 moved them there |
 | `tools/ut-paths/Walkable.h`, `Walkable.cpp` | standing spots and the walk graph (§ 4.5) |
 | `tools/ut-paths/Seeds.h`, `Seeds.cpp` | the start, exits, network part, routes and nodes (§ 4.6, § 4.7) |
 | `tools/ut-paths/CMakeLists.txt` | `ut-paths`, linking `uta_ubake` |
@@ -121,7 +121,7 @@ The choices below are mine, the user being away and having left them to me.
 
 `tools/CMakeLists.txt` adds `ut-paths`, and `uta_tools_common`, the
 interface library carrying `tools/common/`. `tests/CMakeLists.txt` compiles
-`Cli.cpp`, `Trace.cpp`, `Walkable.cpp` and `Seeds.cpp` into
+`Cli.cpp`, `Walkable.cpp` and `Seeds.cpp` into
 `uta_unit_tests`, as it does ut-bake's `Cli.cpp`. `src/ubake/Bake.h`
 declares the bake's `findLevel` and `findModel` in `detail`, so `sceneOf`
 finds a map's Level and Model as a bake does.
@@ -210,6 +210,10 @@ struct Hit {
 
 }  // namespace uta::paths
 ```
+
+UTA-0112 § 4.10 has since moved these, with `Vec3`, into
+`src/ubake/CollisionQuery.h` in namespace `uta::ubake`, unchanged;
+`tools/ut-paths/Trace.h` brings them back into `uta::paths`.
 
 `Vec3` is three doubles. Both functions follow UTA-0111 § 4.5: the walk starts
 at node 0 with the tree's `outside`, updates it by `FBspNode::ChildOutside`

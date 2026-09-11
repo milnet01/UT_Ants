@@ -63,7 +63,7 @@ struct Section {
 std::vector<std::byte> file(const std::vector<Section>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(7); // formatVersion -- 7 since UTA-0111 added COLL
+    out.u32(8); // formatVersion -- 8 since UTA-0112 added LPRB
     out.u8(1); // origin: Authored
     out.u8(0); // kind: Map
     out.u16(0);
@@ -377,7 +377,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
 
         Bytes out;
         out.id("UTAB");
-        out.u32(7); // formatVersion -- 7 since UTA-0111 added COLL
+        out.u32(8); // formatVersion -- 8 since UTA-0112 added LPRB
         out.u8(1);
         out.u8(0);
         out.u16(0);
@@ -420,7 +420,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
         const Bytes room = roomPayload({});
         Bytes out;
         out.id("UTAB");
-        out.u32(7); // formatVersion -- 7 since UTA-0111 added COLL
+        out.u32(8); // formatVersion -- 8 since UTA-0112 added LPRB
         out.u8(1);
         out.u8(0);
         out.u16(0);
@@ -450,7 +450,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
         const Bytes nav = navPayload({});
         Bytes out;
         out.id("UTAB");
-        out.u32(7); // formatVersion -- 7 since UTA-0111 added COLL
+        out.u32(8); // formatVersion -- 8 since UTA-0112 added LPRB
         out.u8(1);
         out.u8(0);
         out.u16(0);
@@ -488,7 +488,7 @@ TEST_CASE("the section table is validated whole before any section is decoded",
         // begins where the last ended" can see it.
         Bytes out;
         out.id("UTAB");
-        out.u32(7); // formatVersion -- 7 since UTA-0111 added COLL
+        out.u32(8); // formatVersion -- 8 since UTA-0112 added LPRB
         out.u8(1);
         out.u8(0);
         out.u16(0);

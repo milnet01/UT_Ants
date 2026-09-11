@@ -26,6 +26,8 @@ add_executable(uta_unit_tests
     unit/BakeGeometryTest.cpp
     unit/BakeGoldenTest.cpp
     unit/BakeInstallTest.cpp
+    unit/BakeLightModelTest.cpp
+    unit/BakeLightProbesTest.cpp
     unit/BakeMoversTest.cpp
     unit/BakeTest.cpp
     unit/BundleActorsTest.cpp
@@ -33,6 +35,7 @@ add_executable(uta_unit_tests
     unit/BundleMoversTest.cpp
     unit/BundleFormatTest.cpp
     unit/BundleGeometryTest.cpp
+    unit/BundleLightProbesTest.cpp
     unit/BundleMalformedTest.cpp
     unit/BundleMaterialTest.cpp
     unit/BundleTextureTest.cpp
@@ -43,6 +46,7 @@ add_executable(uta_unit_tests
     unit/CoreLogTest.cpp
     unit/CoreMd5Test.cpp
     unit/CoreSha256Test.cpp
+    unit/LightFixture.cpp
     unit/MaterialCompressTest.cpp
     unit/MaterialGenerateTest.cpp
     unit/MaterialLibraryTest.cpp
@@ -73,7 +77,6 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bake/Cli.c
 # And ut-paths', but for main.cpp -- docs/specs/UTA-0121-bot-path-seeds.md SS 4.1.
 target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/tools/ut-paths/Cli.cpp"
-    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Trace.cpp"
     "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
     "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
@@ -85,15 +88,15 @@ catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
 if(UTA_REAL_ASSET_TESTS)
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGeometryTest.cpp
                                         real/RealActorsTest.cpp real/RealMoversTest.cpp
-                                        real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp)
+                                        real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp
+                                        real/RealLightProbesTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.
     target_include_directories(uta_real_asset_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     # ut-paths, but for its command line -- UTA-0121 SS 7.
     target_sources(uta_real_asset_tests PRIVATE
-        "${PROJECT_SOURCE_DIR}/tools/ut-paths/Trace.cpp"
-        "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
+            "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
         "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
     target_include_directories(uta_real_asset_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
     target_compile_definitions(uta_real_asset_tests

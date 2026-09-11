@@ -35,9 +35,9 @@ using namespace uta::test::bake;
 
 namespace {
 
-constexpr std::uint32_t RECORDED_UNDER = 5; // UTA-0111 added COLL
+constexpr std::uint32_t RECORDED_UNDER = 6; // UTA-0112 added LPRB
 constexpr std::string_view GOLDEN =
-    "0786d160b4c4ed8dd89b28fea9612f14e8b22eaf1c9abcdd5473eee2eca792b4";
+    "cd4512fb62cee0bc387ba402694d7f706c511750b36fb37f748dc503b468b361";
 
 } // namespace
 
@@ -72,6 +72,10 @@ TEST_CASE("the golden bake hashes to the value recorded for BAKER_REVISION",
     CHECK(result->bundle.collision->level.nodes.size() == 5);
     REQUIRE(result->bundle.collision->movers.size() == 1);
     CHECK(result->bundle.collision->movers[0].tree.nodes.size() == 1);
+    // And UTA-0112's LPRB. How many probes it places is the fixture's to
+    // decide; the digest below pins their values.
+    REQUIRE(result->bundle.lightProbes.has_value());
+    INFO("the golden bake's probe count: " << result->bundle.lightProbes->probes.size());
 
     const auto written = uta::ubundle::write(result->bundle);
     REQUIRE(written.has_value());

@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Maps bake the light that bounces off their surfaces** (UTA-0112)
+  A bake now writes LPRB: light probes on a 128-unit lattice near the
+  level's surfaces, each an ambient cube of one bounce of the level's
+  static lights. The probes light walls and moving bodies alike, with no
+  second texture coordinate set. The spec also fixes the light model the
+  renderer (UTA-0014) will share with the bake: how a light's UT99
+  numbers become colour, falloff and a spotlight's cone.
+
 - **`ut-paths` proposes extra bot path nodes for UT99's old maps.** (UTA-0121)
   It reads each EXIT_OFF_NET and PARTITIONED map of UT_MonsterHunt's
   route census from the install, finds where a player can stand from
@@ -191,6 +199,10 @@ appears once something has actually shipped.)
   CMake + Ninja, C++23, Catch2 v3.16.0 fetched by the build rather than installed. The suite passes on a clone with no Unreal Tournament present, which is what S7 is measured on; a second tier behind UTA_REAL_ASSET_TESTS runs against a real install and refuses to configure without a path.
 
 ### Changed
+
+- **Bundle format version 8, and baker revision 6** (UTA-0112)
+  LPRB is appended after COLL. A version-7 bundle is refused and baked
+  over; none exists, 0.1.0 not having been cut.
 
 - **Bundles are format version 7.** (UTA-0111)
   `COLL` raises the `.utab` format version from 6 to 7, and the baker's

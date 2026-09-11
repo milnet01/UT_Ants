@@ -542,7 +542,7 @@ the invariant that names it.
 
 - What each actor becomes in the game — tracked by UTA-0023.
 - Turning light numbers into colour, and drawing lights — tracked by
-  UTA-0014.
+  UTA-0014, which draws with UTA-0112 § 4.3's model.
 - Movers' shapes — tracked by UTA-0119.
 - `unav`'s class match moving to `resolveClass`, with its case rule —
   deferred; not yet queued.

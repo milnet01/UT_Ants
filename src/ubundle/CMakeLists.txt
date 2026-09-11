@@ -20,7 +20,8 @@ add_library(uta_ubundle STATIC
     PlacementSection.cpp
     LightSection.cpp
     MoverSection.cpp
-    CollisionSection.cpp)
+    CollisionSection.cpp
+    LightProbeSection.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
 
 # INV-10, asserted at configure time in the form src/umap/CMakeLists.txt uses
