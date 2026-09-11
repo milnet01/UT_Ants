@@ -36,15 +36,18 @@ share: how a light's UT99 numbers become light at a point.
    numbers in `LITE` and leaves turning them into colour to UTA-0014. A bake of
    bounced light needs that conversion now. The bake and the renderer must use
    the same one, or bounced light will not match direct light.
-4. **UT99's own model is in no public source reached.** The public UT 432
+4. **UT99's own model is in no source this spec draws on.** The public UT 432
    source, <https://github.com/FaultyRAM/Ut99PubSrc>, has no `Render`
    directory, and its `Engine/Src` holds no files:
    `gh api "repos/FaultyRAM/Ut99PubSrc/git/trees/HEAD?recursive=1" --jq '.tree[].path' | grep -c '^Engine/Src/'`
    → `0`. Surreal's headers (<https://github.com/stephank/surreal>) declare
    `FGetHSV` in `Engine/Inc/UnTex.h` without its body. They do define
    `AActor::WorldLightRadius` in `Engine/Inc/AActor.h`: `25 * (LightRadius + 1)`.
-   `gh search code FGetHSV` finds its body only in repositories that are not
-   Epic's releases, and this spec draws on none of them.
+   `gh search code FGetHSV` finds a body in a copy of Unreal Tournament 4's
+   engine source, `FLinearColor::FGetHSV` in
+   `Engine/Source/Runtime/Core/Private/Math/Color.cpp`, and in a repository
+   that is not an Epic release. The first is Unreal Engine 4's code, not
+   UT99's. This spec draws on neither.
 5. **UTA-0109 left this item a coordinate set to decide.** Its § 8: *"UTA-0112
    has not chosen how it bakes"*.
 6. **A lattice over the level's box does not scale.** UTA-0098 measured
@@ -66,7 +69,7 @@ ones most worth it.
    level's static lights, reflected once by the surfaces it sees. Direct light
    stays UTA-0014's, drawn every frame with shadow maps.
 3. **The light model is this spec's own** (§ 4.3), because UT99's is in no
-   public source reached (§ 2 item 4). UTA-0014 draws direct light with it.
+   source this spec draws on (§ 2 item 4). UTA-0014 draws direct light with it.
    `LITE` keeps UT99's numbers, as UTA-0110 decided. What changes is that a
    change to the model re-bakes every map, since the bounce was computed with
    it. `BAKER_REVISION` records that.
@@ -164,11 +167,12 @@ struct Rgb {
 [[nodiscard]] Rgb lightColour(std::uint8_t hue, std::uint8_t saturation) noexcept;
 [[nodiscard]] double lightRadius(std::uint8_t radius) noexcept;
 [[nodiscard]] double falloff(double distance, double radius) noexcept;
-/// `angle` in UT units, 65536 to a turn.
-[[nodiscard]] double sineOf(std::int32_t angle) noexcept;
-[[nodiscard]] double cosineOf(std::int32_t angle) noexcept;
+/// `angle` in UT units, 65536 to a turn. These three are defined in the
+/// header, so INV-4 can evaluate them at compile time.
+[[nodiscard]] constexpr double sineOf(std::int32_t angle) noexcept;
+[[nodiscard]] constexpr double cosineOf(std::int32_t angle) noexcept;
 /// A light's pointing direction from its pitch, yaw and roll.
-[[nodiscard]] Vec3 directionOf(const std::array<std::int32_t, 3>& rotation) noexcept;
+[[nodiscard]] constexpr Vec3 directionOf(const std::array<std::int32_t, 3>& rotation) noexcept;
 /// The light `light` puts on a surface at `x` with unit normal `n`, with no
 /// shadow test.
 [[nodiscard]] Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept;
@@ -228,7 +232,8 @@ namespace uta::ubake {
 
 A light bakes when all of these hold:
 
-- its `type` is neither `LT_None` (0) nor `LT_BackdropLight` (6);
+- its `type` is not `LT_BackdropLight` (6). `LITE` holds no `LT_None` light,
+  since UTA-0110 § 4.6 leaves those out;
 - `specialLit` is false. Such a light lights only `PF_SpecialLit` surfaces;
 - **its resolved `bStatic` is true.** It is read with
   `ubake::detail::resolvedRecord`, over its placement's properties and then
@@ -405,14 +410,22 @@ tests change no line.
   radius and beyond.
   *Test:* `tests/unit/BakeLightModelTest.cpp`, "radius and falloff".
   *Breaks when:* the radius drops its `+ 1`, or the falloff is linear.
-- **INV-4** — `lightAt` gives `0` on a surface facing away from a light, and
-  under `LE_NonIncidence` the same as on one facing it. A spotlight lights a
-  point on its axis and not one behind it. `directionOf` gives +X at zero
-  rotation, +Y at yaw 16384 and +Z at pitch 16384, whatever the roll.
-  `sineOf` is within `1e-12` of `std::sin` at every angle from 0 to 65535.
-  *Test:* `tests/unit/BakeLightModelTest.cpp`, "incidence and spot".
-  *Breaks when:* the incidence clamp or the spot test is dropped, pitch's sign
-  flips, or a polynomial term is dropped.
+- **INV-4** — A white light of brightness 255 gives `(1, 1, 1)` at its own
+  location, and of brightness 51 gives `51 / 255` on each channel. `lightAt`
+  gives `0` on a surface facing away from a light, and under `LE_NonIncidence`
+  the same as on one facing it. A spotlight lights a point on its axis and not
+  one behind it. `directionOf` gives +X at zero rotation, +Y at yaw 16384 and
+  +Z at pitch 16384, whatever the roll. `sineOf`, `cosineOf` and `directionOf`
+  are evaluated in a `static_assert`. At the angles the test lists, `sineOf`
+  returns the bit patterns the test records, and at every angle from 0 to
+  65535 it is within `1e-12` of `std::sin`.
+  *Test:* `tests/unit/BakeLightModelTest.cpp`, "intensity, incidence and
+  spot". The `static_assert` is what refuses the library's sine: Clang does
+  not evaluate `std::sin` in a constant expression, where GCC does, as an
+  extension. Both were measured with this machine's compilers; MSVC was not.
+  *Breaks when:* intensity is not `brightness / 255`, the incidence clamp or
+  the spot test is dropped, pitch's sign flips, a polynomial term changes, or
+  `sineOf` or `directionOf` calls the library's sine.
 - **INV-5** — `linearOf` is within `1e-15` of IEC 61966-2-1's decoding at every
   byte. `meanAlbedo` leaves out every pixel whose alpha is `0`, and is empty
   when all are.
@@ -426,10 +439,10 @@ tests change no line.
   *Breaks when:* any one of § 4.4's rules is dropped, or the class default is
   read over the actor's own value.
 - **INV-7** — In a box room spanning (16, 16, 16) to (400, 400, 400), with a
-  sky triangle far outside it, the probes are exactly the lattice points inside
-  the room's grown face boxes that `isEmpty` accepts. They are in § 4.6's
-  order, and none is near the sky triangle. A level with no triangle writes a
-  spacing of 128 and no probes.
+  sky triangle inside a second empty box far from it, the probes are exactly
+  the lattice points inside the room's grown face boxes that `isEmpty`
+  accepts. They are in § 4.6's order, and none is near the sky triangle. A
+  level with no triangle writes a spacing of 128 and no probes.
   *Test:* `tests/unit/BakeLightProbesTest.cpp`, "placement". No wall or floor
   of that room lies on a lattice plane, so without § 4.6's growth there is no
   candidate at all.
@@ -452,15 +465,14 @@ tests change no line.
   *Test:* `tests/unit/BakeLightProbesTest.cpp`, "faces". The doubling is exact
   because scaling one factor by two scales every rounded product, sum and
   quotient by two.
-  *Breaks when:* the faces are swapped, the weights are not divided out, or
-  intensity is not `brightness / 255`.
+  *Breaks when:* the faces are swapped, or the weights are not divided out.
 - **INV-10** — A bake with one worker and a bake with four write identical
   `LPRB` bytes. UTA-0011 INV-5's golden bake matches on every CI leg under
   `BAKER_REVISION` `6`.
   *Test:* `tests/unit/BakeLightProbesTest.cpp`, "workers";
   `tests/unit/BakeGoldenTest.cpp`.
-  *Breaks when:* probes are written in the order jobs finish, a sum's order
-  depends on a job, or a library sine enters the bake.
+  *Breaks when:* probes are written in the order jobs finish, or a sum's order
+  depends on a job.
 - **INV-11** — The moved emptiness code behaves as it did in place.
   *Test:* `tests/unit/PathTraceTest.cpp`, unchanged, against
   `src/ubake/CollisionQuery.cpp`.
@@ -494,15 +506,17 @@ Each test is seen to fail before the code it grades exists.
 
 **A new fixture, `tests/unit/LightFixture.h` and `.cpp`,** builds `GEOM` for a
 box room from its inward faces, one batch per material and flag set. It takes
-the matching `COLL` tree from `PathFixture.h`'s `worldOf`.
+the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 
 **Mutations by hand**, each killed by the invariant named:
 
 - INV-1: each validation dropped, on read and on write.
 - INV-2: saturation inverted; the sectors shifted by one.
 - INV-3: the radius's `+ 1` dropped; a linear falloff.
-- INV-4: the incidence clamp dropped; `LE_NonIncidence` ignored; the spot test
-  dropped; pitch's sign flipped; one polynomial term dropped.
+- INV-4: intensity over 256; the incidence clamp dropped; `LE_NonIncidence`
+  ignored; the spot test dropped; pitch's sign flipped; one polynomial term
+  dropped; `sineOf`, then `directionOf`, calling `std::sin`, built with
+  `clang++`.
 - INV-5: one sRGB literal changed; alpha-0 pixels counted.
 - INV-6: each rule dropped; the class default read first.
 - INV-7: the growth dropped; the sky triangle kept as a seed; `isEmpty`
@@ -510,6 +524,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`.
 - INV-8: the back-face test dropped; `PF_TwoSided` ignored; the shadow test
   dropped; a translucent triangle occluding; a backdrop surface counted.
 - INV-9: +Z and −Z swapped; the weights not divided out.
+- INV-10: each probe's result appended as its job finishes.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -551,7 +566,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`.
 | INV-6, INV-7, INV-8, INV-9 | `tests/unit/BakeLightProbesTest.cpp` |
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |
-| § 4.3's model looking like UT99's | **nothing** — UT99's model is in no public source reached; § 15 |
+| § 4.3's model looking like UT99's | **nothing** — UT99's model is in no source this spec draws on; § 15 |
 | § 4.9 | **nothing** until the renderer draws; tracked by UTA-0014 |
 | The bake's cost on real maps | **Partial:** `tests/real/RealLightProbesTest.cpp` prints it; no CI leg runs it |
 
@@ -596,7 +611,7 @@ version-`7` file is refused and baked over (UTA-0011 § 4.7).
 ## 15. Open questions
 
 - **Whether § 4.3 looks like UT99.** The colour wheel, the falloff and the cone
-  are this spec's, since UT99's are in no public source reached. Nothing can
+  are this spec's, since UT99's are in no source this spec draws on. Nothing can
   judge the look until UTA-0014 draws. A change then re-bakes every map, which
   costs nothing before `0.1.0`.
 - **Whether 128 units and 162 rays are enough.** Neither was measured. The real
