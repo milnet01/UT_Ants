@@ -4771,6 +4771,15 @@ model, no weapon and no opponent until 0.2.0.
   out. Staircases split the walk graph too, which is UTA-0123. The
   real-asset case, tests/real/RealPathSeedsTest.cpp, has not run to the end:
   the session's memory guard stops it, so it is the user's to run with `!`.
+  Census run (2026-09-11), over every EXIT_OFF_NET and PARTITIONED row of
+  UT_MonsterHunt's analysis/routecensus-split-2026-09-07c.tsv: 297 maps
+  written, 45 skipped with no file in Maps/, 14 refused. Every refusal is
+  buildActors' rule that a Level actor slot may not name an export an
+  earlier slot named. EXIT_OFF_NET exits: 3 found, 63 mover, 162 none, with
+  nodes on 2 maps. PARTITIONED exits: 48 found, 12 mover, 104 none, with
+  nodes on 19 maps. Run in foreground batches because the memory guard
+  stops long background runs; the directory's summary was rebuilt from the
+  map files and batch records. Sent to UT_MonsterHunt the same day.
   **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
   Kind: feature.
   Source: user-request-2026-09-11.
@@ -4812,6 +4821,23 @@ model, no weapon and no opponent until 0.2.0.
   Kind: enhancement.
   Source: in-session-2026-09-11.
   Lanes: tools.
+
+- 📋 [UTA-0124] **ubake: buildActors refuses a map whose Level names one export in two actor slots, and installed maps do.**
+  Found by UTA-0121's census run (2026-09-11). Of UT_MonsterHunt's
+  EXIT_OFF_NET and PARTITIONED maps, 14 were refused with "actor slot N
+  names export M, which a slot before it already named" --
+  src/ubake/Actors.h's buildActors, to UTA-0110 SS 4.5's rule. Among them
+  MH-ZombieCorridor, MH-ValleyOfEllora-BP, MH-SkyWars_fix_Ver4 and
+  MH-dUNYC-UNATCO-IslandFinal. They are installed maps UT_MonsterHunt's
+  census ran, so UT loads them; a bake refuses every one.
+  Measure first: what UT does with the second slot (skips it, or holds
+  the actor twice), and how many maps in the whole install carry one.
+  Then either accept it as UT does and amend UTA-0110 SS 4.5, or keep the
+  refusal and say why.
+  **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it.
+  Kind: investigate.
+  Source: in-session-2026-09-11.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 
