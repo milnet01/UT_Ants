@@ -5366,7 +5366,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-12.
   Lanes: ut-paths.
 
-- 📋 [UTA-0128] **ut-paths: find what a map says about where its level ends, for the maps whose exit is off the world.**
+- 🚧 [UTA-0128] **ut-paths: find what a map says about where its level ends, for the maps whose exit is off the world.**
   Direction set by the user 2026-09-12, choosing it over three
   alternatives: report and leave the maps alone, measure what the nearest
   geometry to the corner gives, or relocate the exit to the nearest
@@ -5615,6 +5615,77 @@ model, no weapon and no opponent until 0.2.0.
   ancestry test. An ancestry filter would agree with them only by accident,
   and would diverge silently wherever the engine's list and our ancestry
   walk differ.
+  Picked up (2026-09-12) by ut-ants-40, MAIN checkout. It is Next.
+  Rule 1 has nothing workable: the only open items whose Source records a
+  review are UTA-0059, UTA-0098 and UTA-0100, and each defers itself by
+  its own terms -- UTA-0059 until the renderer (UTA-0014) lands,
+  UTA-0098 until a real level box reaches umap, UTA-0100 until UTA-0023
+  is designed. UTA-0126 is the only other 🚧 and is parked on
+  Waiting-on:, so it counts against neither limit and its ut-paths lane
+  is not a live directory conflict.
+
+  Building the control group: run MHEndPlace's rule on maps whose
+  MonsterEnd IS properly placed, with the real MonsterEnd ignored while
+  computing, and measure how far the rule's answer falls from where the
+  author actually put the exit. Scoring hop-count-deepest and
+  distance-weighted-furthest side by side, per the item's ONE THING TO
+  MEASURE BESIDE IT.
+  CONTROL GROUP MEASURED (2026-09-12) by ut-ants-40, main checkout. Probes
+  and per-map output kept at /mnt/Games/Scripts/Linux/ut-paths-output-uta0128;
+  its README says how to rebuild them. Sent to UT_MonsterHunt.
+
+  Transcription checked FIRST, against both reference points they supplied,
+  and both reproduce exactly -- node identity, hop count and distance.
+  MH-EHGiantV0 answers PathNode2495 at 190 hops and 17698u; MH-ProgressV1
+  answers DefensePoint11 at 31 hops and 8906u. The rule was transcribed from
+  MHEndPlace.uc rather than from a description of it. That is what makes the
+  result below a fact about the rule and not a defect in our control group.
+
+  Population: the census map list, of which 471 have a placed MonsterEnd and
+  were measured. 57 came back parked, corroborating UTA-0127's 58 with the
+  58th being MH-ProgressV0, which is installed nowhere. 11 carry no
+  MonsterEnd.
+
+  THE RULE IS SCATTERED. Its answer falls a median of 7837 units from where
+  the author put the exit. It lands within 2000 units on 18% of placed maps
+  and within 4000 on 30%. The do-nothing baseline -- just take the node
+  nearest the PlayerStart -- sits at a median of 10908, so the rule beats it
+  on 66% of maps and is WORSE than it on the other third. The error is a
+  median 1.27x the span the walk itself covered, so the answer is typically
+  further from the exit than the root is from the answer.
+
+  That is the "scattered" branch this item was written to detect, and it
+  reads as evidence the rule is arbitrary rather than evidenced.
+
+  WHAT IT DOES NOT SAY. Nothing here says the 58 parked maps are worse off
+  with the rule than with a finish at the world corner, which is unreachable
+  by construction. A scattered finish that is ON the walk graph may still be
+  an improvement on no finish at all. This measures whether the rule finds
+  where an author would have put the exit, and the answer is that it mostly
+  does not.
+
+  HOP COUNT AGAINST DISTANCE WEIGHTING, this item's "one thing to measure
+  beside it": they do not separate. The same node wins on 234 of 471 maps,
+  and the medians are 7837 against 8072. There is no case for switching, and
+  the density worry the item raised is not what is driving the scatter.
+
+  THE NODE-SET CONSTRAINT is answered and bounded, not merely respected.
+  LevelInfo's NavigationPointList head and each actor's nextNavigationPoint
+  ARE serialised, so the file's own chain is reconstructible. Measured
+  against our NavigationPoint ancestry rebuild over the census maps that
+  read: the two agree exactly on all but eighteen, and every divergence is
+  one-directional -- the saved chain is a SUBSET of the ancestry set, never a
+  superset. Fourteen maps carry no head and three no chain, where ancestry is
+  the only available answer. The risk is smaller than it looked for a reason
+  worth recording: Furthest never reads the list. It walks Paths and casts
+  each spec's end actor to NavigationPoint. The list is read only by Nearest,
+  to pick the root, so the node set can change the answer only by changing
+  which node is root.
+
+  Asked of UT_MonsterHunt, and the measurement does not depend on the answer:
+  whether the engine rebuilds NavigationPointList at load -- if it does, the
+  ancestry set is the right model and the eighteen stale chains do not
+  matter.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
