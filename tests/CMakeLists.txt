@@ -132,6 +132,22 @@ uta_embed_shaders(uta_device_tests device/shaders/light_parity.comp device/shade
 # driver, which compiles every pipeline on first use.
 catch_discover_tests(uta_device_tests TEST_SPEC "[device]" PROPERTIES LABELS "device" TIMEOUT 300)
 catch_discover_tests(uta_device_tests TEST_SPEC "[device-absent]" PROPERTIES LABELS "device-absent" TIMEOUT 60)
+# INV-5's own grader. RenderDeviceAbsentTest grades the refusal; this grades the
+# rule, running a `device` test with no driver. It passes only on
+# requireRenderer's failure line -- the compact reporter puts the verdict and the
+# message on one line, and a SKIP carrying the same message says `skipped:` --
+# so a fixture that skipped, or a name that matched no test, prints nothing it
+# accepts.
+set(uta_no_driver "uta-no-such-vulkan-driver.json")
+set(uta_inv5_rule "INV-5: a device test with no driver fails rather than skips")
+add_test(NAME "${uta_inv5_rule}"
+         COMMAND uta_device_tests "INV-4: the surfaceless path draws and reads back with no display"
+                 --reporter compact)
+set_tests_properties("${uta_inv5_rule}" PROPERTIES
+    LABELS "device-absent" TIMEOUT 60
+    ENVIRONMENT "VK_DRIVER_FILES=${uta_no_driver};VK_ICD_FILENAMES=${uta_no_driver}"
+    ENVIRONMENT_MODIFICATION "VK_ADD_DRIVER_FILES=unset:"
+    PASS_REGULAR_EXPRESSION "failed: explicitly with 1 message: 'no renderer, so this device test cannot pass")
 
 if(UTA_REAL_ASSET_TESTS)
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGeometryTest.cpp

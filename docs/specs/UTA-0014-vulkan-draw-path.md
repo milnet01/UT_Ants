@@ -230,16 +230,19 @@ namespace uta::urender {
 /// casts are lossless.
 struct Config {
     /// The instance extensions the caller's window needs -- what SDL3's
-    /// SDL_Vulkan_GetInstanceExtensions returns. EMPTY is the surfaceless
-    /// path: no instance extension, no surface, no swapchain, and no
-    /// VK_KHR_swapchain extension asked for.
+    /// SDL_Vulkan_GetInstanceExtensions returns.
     std::vector<std::string> instanceExtensions;
     /// Called once, with the renderer's own VkInstance cast to an integer,
     /// after that instance exists and before a device is chosen. Returns the
-    /// caller's VkSurfaceKHR made from it, cast, or 0 to refuse. Unset on the
-    /// surfaceless path. The renderer destroys the surface, before its instance.
+    /// caller's VkSurfaceKHR made from it, cast, or 0 to refuse. The renderer
+    /// destroys the surface, before its instance.
+    ///
+    /// SET SELECTS THE PRESENTING PATH, UNSET THE SURFACELESS ONE: no instance
+    /// extension, no surface, no swapchain, and no VK_KHR_swapchain asked for.
+    /// `create` refuses with InvalidArgument a Config whose instanceExtensions
+    /// is empty while this is set, or non-empty while it is unset.
     std::function<std::uint64_t(std::uint64_t instance)> createSurface;
-    std::uint32_t width = 0, height = 0;  ///< the target's size
+    std::uint32_t width = 0, height = 0;  ///< the target's size; `resize` changes it
     bool validation = false;              ///< request the layer if installed
     /// Skip exposure and tone mapping, writing linear light to the target
     /// instead. It exists so INV-10 can compare a pixel against a literal --
@@ -286,6 +289,11 @@ public:
     /// UTA-0075's sub-pixel jitter (SS 4.11 provision 1). OFF until a pass
     /// consumes it: with no temporal resolve, a jittered frame shimmers.
     void setJitter(bool enabled) noexcept;
+
+    /// The target's new size, from the caller's window. The next `draw`
+    /// rebuilds every render target at it, and the swapchain on the presenting
+    /// path. A zero width or height is refused with InvalidArgument.
+    [[nodiscard]] Result<void> resize(std::uint32_t width, std::uint32_t height);
 };
 
 }  // namespace uta::urender
@@ -343,10 +351,12 @@ needs and supplies `createSurface`. The window stays the caller's (§ 3 decision
 
 **The presenting path** adds the caller's instance extensions,
 `VK_KHR_swapchain`, a swapchain over the surface `createSurface` returned, and
-`Present.cpp`. Its format choice is § 4.10's. Resize is reactive
-only: `VK_ERROR_OUT_OF_DATE_KHR` from acquire or present, and
-`VK_SUBOPTIMAL_KHR` from present, set a flag consumed at the top of the next
-frame; nothing else triggers a rebuild.
+`Present.cpp`. Its format choice is § 4.10's. The swapchain is rebuilt at the
+top of the next frame after a `resize`, or after `VK_ERROR_OUT_OF_DATE_KHR` from
+acquire or present or `VK_SUBOPTIMAL_KHR` from present. A rebuild takes the size
+`resize` last gave, else `Config`'s, and never reads it off the surface: a
+surface's `VkSurfaceCapabilitiesKHR::currentExtent` may be `0xFFFFFFFF`, meaning
+the swapchain's extent decides.
 
 ### 4.4 Device selection — feature bits, and a refusal rather than a fallback
 
@@ -368,8 +378,8 @@ the reason in its own source
 (`/mnt/Games/Scripts/Linux/DOOM_Ants/linuxdoom-1.10/r_vulkan.cpp`): *"the
 extension strings alone don't guarantee the feature is usable."*
 
-**A machine with no qualifying device is refused, with the missing requirement
-named.** There is no fallback to pick from: `docs/design.md` § The stack rules
+**A machine with no qualifying device is refused, and the error says why.**
+There is no fallback to pick from: `docs/design.md` § The stack rules
 out *"No OpenGL fallback path — a machine without Vulkan 1.3 does not run
 this."* **Three refusals, because the interesting cases have no device to name**
 — and INV-5's own measured case is the first of them:
@@ -618,9 +628,10 @@ asks for.
 
 **The atlas is 4096 texels square, and a tile is a power of two from 64 to
 1024.** A light's tile size is the screen size of its sphere of influence,
-rounded up. When any light's size changes, every light is admitted again,
-largest first, and all their tiles are drawn that frame. Otherwise a tile is
-drawn only when a moved mover's box, before or after, reaches its light.
+rounded up. When the set of lights changes, or any light's tile size, location,
+rotation, radius, cone or effect does, every light is admitted again, largest
+first, and all their tiles are drawn that frame. Otherwise a tile is drawn only
+when a moved mover's box, before or after, reaches its light.
 `FrameStats` counts the tiles drawn, so the cache is observable.
 
 **A lit surface is kept from shadowing itself by the tile pass's slope-scaled
@@ -697,10 +708,9 @@ INV-10 measures the sampler and the store and reaches a fixed answer.
 
 **Exposure and tone mapping**, which UTA-0112 § 4.9 assigns here: a fixed
 exposure of 1.0 with no automatic adaptation, then the Khronos PBR Neutral tone
-map. Through that tone map § 4.3's unit surface reaches 0.978, which the
-`_SRGB` target stores as 253. The draft asked for display white exactly; PBR
-Neutral's shoulder reaches it only above an exposure of about 13, which washes
-out every surface below the unit one. Fixed rather than
+map. The draft asked for § 4.3's unit surface to reach display white; PBR
+Neutral stores it as 255 only from an exposure of about 13.5, which washes out
+every surface below the unit one. Fixed rather than
 adaptive because a UT99 deathmatch map's brightness swings as the camera turns
 and an auto-exposure that chases it makes aiming harder; PBR Neutral rather
 than ACES because ACES shifts saturated hues, and a 1999 palette is mostly
@@ -842,11 +852,15 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   with no display — the state DOOM-0268 is stuck in.
 
 - **INV-5** — a test labelled `device` run where no Vulkan device qualifies
-  **fails**, naming the missing requirement. It never skips and never passes.
+  **fails**, with § 4.4's refusal for its case. It never skips and never passes.
   *Test:* `tests/device/RenderDeviceAbsentTest.cpp`, run with the driver search
   path pointed at a file that does not exist. Measured on the scratch probe →
   `FAIL vkCreateInstance(...) -> -9`, exit 1, where `-9` is
-  `VK_ERROR_INCOMPATIBLE_DRIVER`.
+  `VK_ERROR_INCOMPATIBLE_DRIVER`. That test grades the refusal. **A second
+  `device-absent` test, registered in `tests/CMakeLists.txt`, grades the rule**:
+  it runs INV-4's `device` test with the same missing driver and passes only on
+  `requireRenderer`'s failure line (`tests/device/DeviceFixture.cpp`), so a
+  fixture that skipped prints nothing it accepts.
   *Breaks when:* the harness treats an absent device as a skip, so a CI leg
   that lost `mesa-vulkan-drivers` reports green over a renderer nothing
   executed — the shape `UTA-0098` records for the real-asset ring checks.
@@ -932,7 +946,7 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
 
 ## 6. Failure modes
 
-- **No qualifying device.** § 4.4 refuses with the missing requirement named.
+- **No qualifying device.** § 4.4 refuses, saying which of its three cases.
   `ut-ants` cannot start; that is `docs/design.md`'s stated position, not a
   degradation to recover from.
 - **`glslc` absent at configure time.** `find_package(Vulkan REQUIRED
@@ -984,7 +998,7 @@ test alone, which is the only way that test can fail.
 | INV-7 | `tests/device/RenderProbeTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-10 | `tests/device/RenderColourTransferTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
-| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp` | `uta_device_tests` | `device-absent` | unconditionally, wherever `uta_urender` builds |
+| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp`, and the rule's grader registered beside it in `tests/CMakeLists.txt` | `uta_device_tests` | `device-absent` | unconditionally, wherever `uta_urender` builds |
 
 **Beyond the invariants, each part they cannot see has its own case.** In the
 device-free tier: the camera and jitter (`RenderCameraTest`), cluster assignment
@@ -1008,15 +1022,13 @@ On the MSVC leg the `device` and `device-absent` tests are registered and
 `device` is deselected by label, because no driver is installed there — a
 deliberate, visible exclusion rather than a target that silently vanished.
 
-**`scripts/ci.sh` is what deselects them, and it does not do so today.** That
-script is the whole gate (`CLAUDE.md` § Build and test), and its test step is
-`ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure` — **no `-L`**,
-so every registered test runs on every leg. Left alone it would run the `device`
-tier on MSVC with no driver, which INV-5 requires to fail, leaving that leg
-permanently red. So this item changes that step to select labels per platform:
-`unit` and `device-absent` everywhere, `device` added where a driver is
-installed. § 11 names the file, because a reader who changes only the workflow
-would miss it.
+**`scripts/ci.sh` is what deselects them, by platform.** That script is the
+whole gate (`CLAUDE.md` § Build and test). Its test step selects `unit` and
+`device-absent` on every leg and adds `device` on every leg but Windows. Run
+unselected, the `device` tier would fail on MSVC with no driver, as INV-5
+requires. **Never select by detecting a driver**: a leg that lost its driver
+would then skip the tier and stay green, which INV-5 exists to prevent. § 11
+names the file, because a reader who changes only the workflow would miss it.
 
 **Each test is seen to fail before the code exists, and the two INV-4 and INV-5
 fixtures already have their failing and passing runs recorded** — § 4.3 and
@@ -1137,7 +1149,7 @@ their breaking states, each of which produces a plausible image.
 | `docs/design.md` rule 2's closure assertion — `ut-ants-server` links no `urender` | **nothing** — no `ut-ants-server` target exists, so there is no closure to walk. It becomes gradeable with the item that creates that program; INV-2 covers the part that is gradeable now |
 | INV-3 | `tests/unit/RenderDeviceTest.cpp` |
 | INV-4 | `tests/device/RenderOffscreenTest.cpp` — registered everywhere, **executed on the Linux legs only**, the MSVC leg having no driver installed (§ 3 decision 1, § 7) |
-| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp`, label `device-absent` — this one runs on **every** leg, needing no driver by construction |
+| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp` for the refusal, and the grader `tests/CMakeLists.txt` registers for the rule, both label `device-absent` — these run on **every** leg, needing no driver by construction |
 | INV-6 | `tests/device/RenderLightParityTest.cpp` — same platform limit as INV-4 |
 | INV-7 | `tests/device/RenderProbeTest.cpp` — same platform limit as INV-4; device-free was impossible without a forbidden C++ copy of § 4.7 |
 | INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` |
@@ -1163,8 +1175,8 @@ their breaking states, each of which produces a plausible image.
   anything. § 4.12 carries both.
 - **`scripts/ci.sh`** — the test step gains per-platform label selection;
   § 4.12 says why. **This is the file a reader is most likely to miss**: it is
-  the whole gate, its `ctest` call carries no `-L` today, and changing only
-  `ci.yml` leaves the MSVC leg running the `device` tier with no driver.
+  the whole gate, and changing only `ci.yml` leaves the MSVC leg running the
+  `device` tier with no driver.
 - **`docs/design.md`** — § The stack's `shaderc` row reads *"From the Vulkan
   SDK"* while `ADR-0007` § Decision settles the third route-3 input as
   `glslc`, naming `shaderc` only as the route-2 branch it would take *"if
