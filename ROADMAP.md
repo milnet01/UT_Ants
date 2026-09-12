@@ -5133,6 +5133,40 @@ model, no weapon and no opponent until 0.2.0.
   which needs no map edit and is reversible. Editing a community map is
   UT_MonsterHunt's call in any case, since they run the rotation, and
   ADR-0003 has this project ship recipes rather than modified content.
+  Progress (2026-09-12): UT_MonsterHunt ran the bridge-node check on
+  MH-NivenSB and it came back NEGATIVE -- but it does not test our
+  hypothesis, and they said so themselves. Recorded as a null, NOT as a
+  disproof; the hypothesis that PATHS DEFINE builds no spec from
+  PathNode20 because its first hop is a drop-then-climb stands UNTESTED.
+
+  Four builds via their analysis/seedpaths.py --define --budget 280,
+  results in their analysis/nivensb-bridge-2026-09-12.tsv: CTL (791
+  nodes), UTP (794, our chain), BRG (792, the bridge node at
+  (-928, -588, -9) alone), CHB (795, both). All four NOROUTE. CTL against
+  BRG is a clean pair differing by the one proposed node.
+
+  Two limits, both theirs. A DEFINE rebuild places its OWN seeds from
+  actor positions: the original map has 486 nodes and every arm has about
+  790, so roughly 300 nodes nobody asked for are present in all four and
+  the neighbourhood around PathNode20 is densely seeded even in the
+  control. The graph we diagnosed is not the graph they tested. And they
+  read the result through the route census, which answers "is the exit
+  routable" rather than "does this spec exist" -- so a build in which our
+  spec DID appear but the route failed further along reads as NOROUTE
+  identically. Those are different repairs on our side, and the census
+  cannot separate them.
+
+  The clean test, not run, is on their GAME-0095: suppress the ordinary
+  seeds so the node set is the original plus the bridge node only, then
+  read with MHSpecProbe rather than the census. Their candidate switch is
+  seedpaths.py --cap 0, untried and its behaviour at zero unknown. Seed
+  files are at their work/nivensb/seeds-bridgeonly/ and
+  work/nivensb/seeds-chainbridge/.
+
+  Left with them rather than taken back, so this item stays one thing in
+  one place; it remains parked on Waiting-on:. If --cap 0 does not
+  suppress the seeds, the other variant -- dropping PathNode20 itself to
+  z = -9, which needs a T3D round trip -- is ours to run.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
