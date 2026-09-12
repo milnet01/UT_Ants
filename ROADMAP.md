@@ -3193,7 +3193,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: consumer-request-2026-09-06 games-drive.
   Lanes: upkg.
 
-- 📋 [UTA-0071] **CI: move the runner images to the current ones, or hold them on the record.**
+- ✅ [UTA-0071] **CI: move the runner images to the current ones, or hold them on the record.**
   .github/workflows/ci.yml runs ubuntu-24.04 and windows-2022. Measured
   2026-09-07 against actions/runner-images: the win25 and ubuntu26 image
   families both exist and are actively rebuilt, most recently the same
@@ -3224,6 +3224,60 @@ model, no weapon and no opponent until 0.2.0.
   a hold becomes permanent by accident. This project has no hold ledger
   today because it has had no holds; SS 3 says where one goes if this
   produces the first.
+  Picked up (2026-09-12) by ut-ants-40, MAIN checkout, on the user's call
+  for quick wins, after UTA-0087 and UTA-0081 shipped.
+
+  Following the item's own instruction not to bump blind: the matrix pins
+  clang-19 and g++-14 deliberately, docs/design.md owns those floors, and
+  a newer image changes the default toolchain under those pins and may not
+  carry the same apt package names. Reading the floors first, then moving
+  one leg at a time so a red leg names itself.
+
+  Where a bump genuinely breaks, the outcome is a hold ledger row per
+  dependencies.md SS 3 carrying held-at, BROKE-AT, what breaks, what would
+  release it and the dates -- not a silent revert. This project has no
+  ledger today because it has had no holds.
+  Resolved (2026-09-12) by ut-ants-40, main checkout, and the answer is
+  the HOLD half of this item's own headline rather than the bump. Both
+  legs stay where they are, on the record, in docs/dependency-holds.md --
+  this project's first hold ledger, which dependencies.md SS 3 says is
+  where a hold goes.
+
+  BOTH BUMPS ARE REFUSED ON EVIDENCE, and neither reason was visible from
+  the 2026-09-07 measurement that filed this item. That measurement said
+  the win25 and ubuntu26 families exist and are actively rebuilt, which is
+  true and is not sufficient.
+
+  Linux: ubuntu-26.04 is a PREVIEW image. actions/runner-images states
+  that a workflow on a beta image sits outside the Actions SLA. This image
+  runs the push gate for both Linux compilers, so taking it puts the gate
+  on a runner with no recourse.
+
+  Windows: there is exactly ONE Windows Server 2025 row in
+  actions/runner-images, and windows-latest, windows-2025 and
+  windows-2025-vs2026 all resolve to the Visual Studio 2026 image. This
+  project floors MSVC at 19.40 (VS2022 17.10) in docs/design.md, and that
+  document says a floor no job exercises is not a floor. Moving this leg
+  would leave the MSVC floor tested by nothing. Raising the floor instead
+  is a design decision and an ADR, not a CI edit, which is why this item
+  does not take it.
+
+  WHAT THE LEDGER BUYS over a note here: SS 3's broke-at field turns each
+  row into a testable claim, so a later sweep retests rather than carrying
+  the hold forward. Both rows name what would release them, and the Linux
+  one names BOTH conditions -- GA is not enough on its own, because a GA
+  image that has dropped g++-14, clang-19 or libclang-rt-19-dev does not
+  release a hold whose matrix installs those by name.
+
+  The ledger also records what was checked and NOT held, so a sweep does
+  not re-derive it: Catch2 at v3.16.0 is latest, actions/checkout is the
+  SHA pin for v7.0.1 and is the form security.md wants, and
+  cmake_minimum_required 3.28 is a floor and SS 3 keeps floors out of the
+  ledger deliberately.
+
+  Nothing in .github/workflows/ci.yml changed, so the compliance gap this
+  item names is closed by the record rather than by a bump. Green on the
+  local documentation gate.
   **Layman:** Move the machines GitHub builds on to the current versions, so we get their security fixes instead of staying on older ones by accident.
   Kind: chore.
   Source: user-request-2026-09-07 standing-dependency-rule.
@@ -5342,6 +5396,58 @@ model, no weapon and no opponent until 0.2.0.
   survives a session boundary there. Waiting-on: stays valid and stays
   pointing at them. The T3D variant -- dropping PathNode20 to z = -9 --
   remains ours only if their route fails.
+  WAITING-ON ANSWERED (2026-09-12). UT_MonsterHunt ran MH-NivenSB and the
+  verdict is split: our bridge node DOES get its spec, and it does NOT
+  open the route. This item is no longer parked and is available to take.
+
+  Method as agreed -- --define with a very large --spacing plus the
+  bridge-node extra-seeds file, read with MHSpecProbe rather than the
+  census, two arms differing by exactly one node, built outside Maps/ and
+  probed from an install copy.
+
+      arm  saved  reached from start  frontier node   gap to exit  exit
+      CLC    494         124 of 679   PathNode20            2852u  no
+      CLN    495         125 of 680   PathNodeSeed8         2784u  no
+
+  OUR HYPOTHESIS IS CONFIRMED, narrowly. reached rises by exactly one and
+  the frontier moves off PathNode20 onto the new node, so PATHS DEFINE did
+  build a spec into (-928,-588,-9) from the start's component. That is
+  what this item predicted and what a rebuilt-graph test could not see.
+  The reading of WHY no spec existed from PathNode20 -- drop then climb
+  rather than a level walk, PathNode20 hanging 38 above its own floor --
+  is supported.
+
+  IT DOES NOT OPEN THE ROUTE, and the shortfall is not marginal. The gap
+  closes by 68 of 2852 units. exitreached is no on both arms in every flag
+  mode, so the missing link is not one hop wide.
+
+  THE PARTITION IS STRUCTURAL, not a reach-flag artefact. In "all" mode,
+  where no spec is denied, reached is still 124 and 125 of 679. A fly-only
+  spec does sit at the boundary -- nearestcut PathNode7957->PathNode9680,
+  cutflags 2, cuttoexit 3779 -- and allowing every flag reaches the exit no
+  better.
+
+  WHAT THIS CHANGES FOR THIS ITEM, and it is the concrete thing that was
+  missing. A single bridge node is not the fix. What is needed is a CHAIN
+  across the remaining 2784 units ANCHORED AT PathNodeSeed8's end and
+  heading toward the exit. Our earlier three-node chain did reach the
+  exit's node, but hung off a component the start cannot reach -- this run
+  says which end a chain has to start from.
+
+  TWO CORRECTIONS FROM THEM, both worth keeping.
+
+  --spacing 100000 does NOT collapse to one ordinary seed as they earlier
+  reported; on this map it gives eight. seeds_for floors each coordinate
+  into a grid cell, and this map's player starts straddle the origin, so
+  every combination of signs lands in its own cell however large the
+  spacing. Their "gives 1" came from a synthetic spread that did not
+  straddle it. The two arms are still a clean pair -- both carry the same
+  eight -- but the node set is the original plus eight, not plus one.
+
+  Saved and runtime node counts differ because the engine creates
+  InventorySpots at load: 494 saved reads as 679 at runtime. Same shape as
+  UTA-0128's NavigationPointList finding, and the same rule follows --
+  never compare a saved count against a runtime one.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -5978,6 +6084,19 @@ model, no weapon and no opponent until 0.2.0.
 
   Blocked-by: nothing for the bake half. The frame-time half wants
   UTA-0014.
+  REFERENCE, given by the user 2026-09-12: the Vestige project at
+  /mnt/Games/Scripts/Linux/Vestige/. Look there before designing this
+  tool's reporting shape rather than inventing one.
+
+  The user also names Vestige's FORMULA WORKBENCH as available for any
+  calculation this needs. That is worth knowing before hand-rolling
+  statistics over timing runs -- a benchmark's arithmetic is where a
+  plausible wrong number comes from, and UTA-0128 has already cost this
+  project one of those.
+
+  Neither is read yet. A session taking this item reads Vestige first and
+  records what it took, because an unread reference in a roadmap body is
+  indistinguishable from one that was read and rejected.
   **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
   Kind: implement.
   Source: user-request-2026-09-12.
