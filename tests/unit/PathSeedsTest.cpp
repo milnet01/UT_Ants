@@ -1,6 +1,6 @@
-// Locks INV-5 to INV-12 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
-// the nodes proposed along them, the file, the command line, the scene, and
-// the off-world mark.
+// Locks INV-5 to INV-13 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
+// the nodes proposed along them, the file, the command line, the scene, the
+// off-world mark, and which navigation point the fallback goal is keyed on.
 //
 // INV-5 to INV-8 build their scenes in memory, with tests/unit/PathFixture.h
 // (that spec's SS 7). INV-9 drives the command line over a census written to a
@@ -258,6 +258,16 @@ TEST_CASE("INV-7: a partitioned chain bridges to the part reaching the exit and 
     const auto bridge = place(graph, scene.network[2]);
     REQUIRE(bridge.has_value());
     for (const Vec3& node : proposal.nodes) CHECK(node.x < graph.spots[*bridge].centre.x);
+
+    // A point that takes a spot's place is NOT itself proposed -- it is already
+    // in the map -- so no node stands within 50 of a navigation point. Dropping
+    // SS 4.7's within-50 rule proposes one beside the alcove point.
+    for (const Vec3& node : proposal.nodes)
+        for (const Vec3& point : scene.network) {
+            INFO("node at x " << node.x << " y " << node.y << " against the point at x "
+                              << point.x << " y " << point.y);
+            CHECK(length(node - point) > 50);
+        }
 }
 
 TEST_CASE("INV-8: the file holds SS 4.3's fields escaped and each number a float",
@@ -408,8 +418,15 @@ TEST_CASE("INV-12: an exit at the world bound is marked off the world and keeps 
     Scene scene;
     scene.tree = worldOf({box({0, 0, 0}, {2600, 64, 256}), box({800, 65, 0}, {1000, 200, 256})},
                          {0, 0, -50}, {2600, 200, 300});
-    scene.network = {{100, 32, 50}, {256, 32, 50}, {1504, 32, 50}, {2280, 32, 50}, {900, 75, 50}};
-    scene.edges = {{0, 1}, {1, 0}, {2, 3}, {3, 2}, {2, 4}, {2, 1}};
+    // 5 and 6 stand at the bound WITH the off-world exits, so a navigation
+    // point touches each and SS 4.7 offers the fallback. Neither places onto a
+    // spot -- nothing stands out there -- so the goal is the spot of a node
+    // that REACHES them, which is what SS 4.7 asks for. Without them all three
+    // routes read `none` and the forced-to-`none` mutation passes unseen.
+    scene.network = {{100, 32, 50},  {256, 32, 50},  {1504, 32, 50},
+                     {2280, 32, 50}, {900, 75, 50},  {32768, 32768, 32768},
+                     {32767, 32, 40}};
+    scene.edges = {{0, 1}, {1, 0}, {2, 3}, {3, 2}, {2, 4}, {2, 1}, {2, 5}, {2, 6}};
     scene.start = {100, 32, 40};
     scene.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}, // the corner, every axis
                    Cylinder{{32767, 32, 40}, 40, 40},       // one axis, one unit inside
@@ -435,6 +452,79 @@ TEST_CASE("INV-12: an exit at the world bound is marked off the world and keeps 
     const std::string alone = toJson("MH-Test", "md5", "EXIT_OFF_NET", scene, propose(scene, false));
     INFO(alone);
     CHECK(alone.find("\"route\": \"none\", \"offWorld\": true") != std::string::npos);
+}
+
+TEST_CASE("INV-13: the fallback goal is keyed on a point that touches the exit",
+          "[paths][seeds]") {
+    // INV-7's corridor and alcove, with the exit made TALL AND THIN and the
+    // touching point offset mostly vertically. Node 3 touches by SS 4.6's
+    // cylinder -- 10 horizontal against 21, 80 vertical against 205 -- while
+    // lying 80.6 away in 3D, further than the horizontal window. So a 3D
+    // distance rejects it where the cylinder accepts it. It does not place onto
+    // a spot, being 81 above the floor's spots, so the goal is node 2's spot.
+    //
+    // Node 5 is NEARER the exit in 3D (50) and does not touch (50 > 21), with
+    // nothing leading into it. Keyed on the nearest point the fallback aims
+    // there, and the chain runs past node 2 to the exit's own spots instead.
+    Scene scene;
+    scene.tree = worldOf({box({0, 0, 0}, {2600, 64, 256}), box({800, 65, 0}, {1000, 200, 256})},
+                         {0, 0, -50}, {2600, 200, 300});
+    scene.network = {{100, 32, 50},   {256, 32, 50},  {1504, 32, 50},
+                     {2290, 32, 120}, {900, 75, 50},  {2350, 32, 40}};
+    scene.edges = {{0, 1}, {1, 0}, {2, 3}, {3, 2}, {2, 4}, {2, 1}};
+    scene.start = {100, 32, 40};
+    scene.exits = {Cylinder{{2300, 32, 40}, 4, 166}};
+
+    const Proposal proposal = propose(scene, true);
+    REQUIRE(proposal.routes == std::vector<Route>{Route::Found});
+
+    const WalkGraph graph = walkGraph(scene.tree);
+    const auto bridge = place(graph, scene.network[2]);
+    REQUIRE(bridge.has_value());
+    // The chain stops at the part that reaches the touching point, as INV-7 has
+    // it. Keying on the nearest point, testing the touch in 3D, or dropping the
+    // fallback each puts a node beyond node 2's spot.
+    for (const Vec3& node : proposal.nodes) {
+        INFO("node at x " << node.x << ", bridge spot at x " << graph.spots[*bridge].centre.x);
+        CHECK(node.x <= graph.spots[*bridge].centre.x);
+    }
+}
+
+TEST_CASE("INV-13: with no point touching the exit the chain reaches the exit's own spots",
+          "[paths][seeds]") {
+    // Every navigation point lies outside the exit's goal window of 57, while
+    // the network still reaches the point nearest it, node 3. Nothing is within
+    // 50 of the path's end, so SS 4.7's substitution cannot move the last node.
+    // Offered on the network's reach alone, the fallback would stop the chain at
+    // node 2's spot, 700 short of the exit.
+    Scene scene;
+    scene.tree = worldOf({box({0, 0, 0}, {2600, 64, 256})}, {0, 0, -50}, {2600, 200, 300});
+    scene.network = {{100, 32, 50}, {256, 32, 50}, {1504, 32, 50}, {1600, 32, 50}};
+    scene.edges = {{0, 1}, {1, 0}, {2, 3}, {3, 2}, {2, 1}};
+    scene.start = {100, 32, 40};
+    scene.exits = {Cylinder{{2300, 32, 40}, 40, 40}};
+
+    const Proposal proposal = propose(scene, true);
+    REQUIRE(proposal.routes == std::vector<Route>{Route::Found});
+    REQUIRE_FALSE(proposal.nodes.empty());
+    INFO("last node at x " << proposal.nodes.back().x);
+    CHECK(touches(proposal.nodes.back(), scene.exits[0]));
+}
+
+TEST_CASE("INV-13: with the exit's spots walled off the route is none", "[paths][seeds]") {
+    // The scene above with the corridor cut in two. The exit's spots exist and
+    // nothing joins them to the start part, so the route is `none`. A fallback
+    // keyed on the point nearest the exit would reach node 2's spot, which is
+    // on the start's side of the cut, and report `found`.
+    Scene scene;
+    scene.tree = worldOf({box({0, 0, 0}, {2000, 64, 256}), box({2100, 0, 0}, {2600, 64, 256})},
+                         {0, 0, -50}, {2600, 200, 300});
+    scene.network = {{100, 32, 50}, {256, 32, 50}, {1504, 32, 50}, {1600, 32, 50}};
+    scene.edges = {{0, 1}, {1, 0}, {2, 3}, {3, 2}, {2, 1}};
+    scene.start = {100, 32, 40};
+    scene.exits = {Cylinder{{2300, 32, 40}, 40, 40}};
+
+    CHECK(propose(scene, true).routes == std::vector<Route>{Route::None});
 }
 
 TEST_CASE("INV-12: the mark is read from the exit's resolved Location not its own record",

@@ -1,6 +1,6 @@
 // The start, the exits, the network's part, and the routes between --
 // docs/specs/UTA-0121-bot-path-seeds.md SS 4.3, SS 4.6 and SS 4.7; INV-5 to
-// INV-8, INV-10 and INV-12.
+// INV-8 and INV-10 to INV-13.
 
 #include "Seeds.h"
 
@@ -44,6 +44,14 @@ constexpr double TOO_NEAR = 50;
 /// bot -- R_WALK 1, R_SWIM 4, R_JUMP 8, R_DOOR 16, R_SPECIAL 32 and
 /// R_PLAYERONLY 64, every EReachSpecFlags value but R_FLY, 2.
 constexpr std::int32_t BOT_MOVE_FLAGS = 1 | 4 | 8 | 16 | 32 | 64;
+
+/// SS 4.6's touching test: inside the exit's collision cylinder grown by the
+/// body. SS 4.7 applies it to a navigation point by the same test a spot uses,
+/// so both callers share this one.
+bool touches(const Vec3& p, const Cylinder& exit) {
+    return horizontal(p, exit.centre) <= exit.radius + RADIUS
+           && std::abs(p.z - exit.centre.z) <= exit.height + HALF_HEIGHT;
+}
 
 /// FReachSpec::supports for that bot at SS 3 decision 4's body.
 bool walkable(const unav::NavEdge& edge) {
@@ -451,19 +459,24 @@ Proposal propose(const Scene& scene, bool partitioned) {
     const Hops hops{scene, graph, moverSpot};
     for (const Cylinder& exit : scene.exits) {
         std::vector<bool> goal(graph.spots.size(), false);
-        for (std::size_t s = 0; s < graph.spots.size(); ++s) {
-            const Vec3& centre = graph.spots[s].centre;
-            goal[s] = horizontal(centre, exit.centre) <= exit.radius + RADIUS
-                      && std::abs(centre.z - exit.centre.z) <= exit.height + HALF_HEIGHT;
-        }
+        for (std::size_t s = 0; s < graph.spots.size(); ++s)
+            goal[s] = touches(graph.spots[s].centre, exit);
         // On a PARTITIONED map, also the spot of any node outside the start
-        // part from which the network reaches the node nearest the exit.
-        if (partitioned)
-            if (const std::optional<std::size_t> exitNode = nearestNode(scene, exit.centre)) {
-                const std::vector<bool> reaches = reach(scene, *exitNode, true);
-                for (std::size_t i = 0; i < scene.network.size(); ++i)
-                    if (reaches[i] && !startPart[i] && placedNode[i]) goal[*placedNode[i]] = true;
+        // part from which the network reaches a node that TOUCHES the exit.
+        // Keyed on touching and never on nearest: those are different tests --
+        // a distance against SS 4.6's cylinder -- and can name different nodes.
+        // Where none touches, the set is empty and no fallback goal is offered.
+        if (partitioned) {
+            std::vector<bool> reaches(scene.network.size(), false);
+            for (std::size_t i = 0; i < scene.network.size(); ++i) {
+                if (!touches(scene.network[i], exit)) continue;
+                const std::vector<bool> from = reach(scene, i, true);
+                for (std::size_t n = 0; n < reaches.size(); ++n)
+                    reaches[n] = reaches[n] || from[n];
             }
+            for (std::size_t i = 0; i < scene.network.size(); ++i)
+                if (reaches[i] && !startPart[i] && placedNode[i]) goal[*placedNode[i]] = true;
+        }
 
         if (const auto path = shortestPath(graph, sources, goal, moverSpot); !path.empty()) {
             proposal.routes.push_back(Route::Found);

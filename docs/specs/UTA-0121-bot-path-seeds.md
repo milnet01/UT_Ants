@@ -446,23 +446,25 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   the edges' direction; on a `PARTITIONED` map whose network arrives at the
   exit the chain stops where it meets the part that reaches the exit, and a
   navigation point within 50 takes a spot's place when the hop to it is
-  allowed, and only then.
+  allowed, and only then. A point that takes a spot's place is not itself
+  proposed — it is already in the map — so no proposed node ever stands within
+  50 of a navigation point.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, partitioned: a
   network of two parts with one edge from the exit's part to the start's and
   none back, a MonsterEnd beside the exit's part — close enough that a
   navigation point of that part touches the exit, so § 4.7's fallback is
-  offered — and two navigation points within 50 of spots on the path, one
-  behind a thin wall from its spot and one with the hop to it clear. The route
-  starts in the start's part; nodes are proposed across the gap and none
-  further along the path than the spot placed for the exit's part; the
-  walled-off point takes no spot's place, and the reachable one is proposed in
-  its spot's place. Both directions are needed: with only the walled-off
-  point, an implementation that never substitutes passes.
+  offered — and a navigation point of the exit's part behind a thin wall from
+  a spot on the path, within 50 of it. The route starts in the start's part;
+  nodes are proposed across the gap and none further along the path than the
+  spot placed for the exit's part; the walled-off point takes no spot's place;
+  and no proposed node stands within 50 of any navigation point, which is what
+  fails when the rule is dropped altogether.
   *Breaks when:* edges are followed both ways, which reads the exit's part as
   reachable and proposes nothing; the chain runs on through the exit's part; a
-  point takes a spot's place over a hop through the wall; or no point ever
-  takes a spot's place, which is § 7's `propose a spot within 50 of a
-  navigation point` and which nothing else here catches.
+  point takes a spot's place over a hop through the wall; or the within-50
+  rule is dropped altogether, which proposes a node beside the walled-off
+  point — § 7's `propose a spot within 50 of a navigation point`, which
+  nothing else here catches.
 
 - **INV-8** — The file holds the fields of § 4.3, escaped, each number a
   float's shortest round-trip decimal.
