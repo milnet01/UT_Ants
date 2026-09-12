@@ -5,8 +5,8 @@
 // THIS IS THE ONE HEADER ANOTHER SUBSYSTEM INCLUDES, AND NO VULKAN OR glm TYPE
 // MAY APPEAR IN IT -- INV-2. That is what lets a program compile against
 // urender's callers without a Vulkan loader installed, and it is why
-// `Config::surface` is an integer and `readback` names its target with a plain
-// enum. tests/unit/RenderHeaderIsolationTest.cpp compiles this header in a
+// `Config::createSurface` passes the instance and the surface as integers and
+// `readback` names its target with a plain enum. tests/unit/RenderHeaderIsolationTest.cpp compiles this header in a
 // target that does not link Vulkan and refuses it if the Vulkan headers arrive.
 //
 // THE SURFACELESS PATH IS THE PRIMARY ONE (SS 4.3). With no surface the
@@ -25,17 +25,30 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace uta::urender {
 
 /// What the caller supplies.
 struct Config {
-    std::uint64_t surface = 0;           ///< the caller's VkSurfaceKHR, cast. ZERO is the
-                                         ///< surfaceless path: no swapchain, and no
-                                         ///< VK_KHR_swapchain extension asked for
-    std::uint32_t width = 0, height = 0; ///< the offscreen target's size
+    /// The instance extensions the caller's window needs -- what SDL3's
+    /// SDL_Vulkan_GetInstanceExtensions returns.
+    std::vector<std::string> instanceExtensions;
+    /// Called once, with the renderer's own VkInstance cast to an integer,
+    /// after that instance exists and before a device is chosen. Returns the
+    /// caller's VkSurfaceKHR made from it, cast, or 0 to refuse. The renderer
+    /// destroys the surface, before its instance; the caller's window must
+    /// outlive the Renderer.
+    ///
+    /// SET SELECTS THE PRESENTING PATH, UNSET THE SURFACELESS ONE: no instance
+    /// extension, no surface, no swapchain, and no VK_KHR_swapchain asked for.
+    /// `create` refuses a Config whose instanceExtensions is empty while this
+    /// is set, or non-empty while it is unset.
+    std::function<std::uint64_t(std::uint64_t instance)> createSurface;
+    std::uint32_t width = 0, height = 0; ///< the target's size in pixels; `resize` changes it
     bool validation = false;             ///< request the layer if installed
     /// Skip exposure and tone mapping, writing linear light to the target
     /// instead. It exists so INV-10 can compare a pixel against a literal --
@@ -66,6 +79,7 @@ struct FrameStats {
 
 class Renderer {
 public:
+    /// Until the presenting path is built, a Config selecting it is refused.
     [[nodiscard]] static Result<Renderer> create(const Config& config);
 
     Renderer(Renderer&&) noexcept;
@@ -93,6 +107,12 @@ public:
     /// consumes it: with no temporal resolve to average it away, a jittered
     /// frame is a frame that shimmers.
     void setJitter(bool enabled) noexcept;
+
+    /// The target's new size in pixels -- the window's drawable size, not its
+    /// size in window units. The next `draw` rebuilds every render target at
+    /// it, and `readback` is refused until that frame is drawn. A zero width or
+    /// height is refused with InvalidArgument.
+    [[nodiscard]] Result<void> resize(std::uint32_t width, std::uint32_t height);
 
 private:
     struct Impl;

@@ -7,6 +7,7 @@
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator.
 
 #include "urender/Device.h"
+#include "urender/Renderer.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
@@ -51,6 +52,7 @@ const std::vector<Missing>& missingOne() {
         {"Vulkan 1.3", [](DeviceCandidate& c) { c.apiVersion = VK_API_VERSION_1_2; }},
         {"a graphics queue", [](DeviceCandidate& c) { c.graphicsQueue = false; }},
         {"present support", [](DeviceCandidate& c) { c.presentSupport = false; }},
+        {"VK_KHR_swapchain", [](DeviceCandidate& c) { c.swapchainExtension = false; }},
         {"dynamicRendering", [](DeviceCandidate& c) { c.v13.dynamicRendering = VK_FALSE; }},
         {"synchronization2", [](DeviceCandidate& c) { c.v13.synchronization2 = VK_FALSE; }},
         {"runtimeDescriptorArray", [](DeviceCandidate& c) { c.v12.runtimeDescriptorArray = VK_FALSE; }},
@@ -111,12 +113,35 @@ TEST_CASE("INV-3: among qualifying devices a discrete GPU is preferred to a CPU 
     CHECK(*chosen == 1);
 }
 
-TEST_CASE("the surfaceless path never requires present support", "[render]") {
-    // SS 4.4: present support is queried on the presenting path only, so a
-    // candidate that was never asked is not refused for lacking it.
+TEST_CASE("the surfaceless path never requires present support or a swapchain", "[render]") {
+    // SS 4.4: both are asked on the presenting path only, so a candidate that
+    // was never asked is not refused for lacking either.
     DeviceCandidate candidate = qualifying("headless");
     candidate.presentSupport.reset();
+    candidate.swapchainExtension.reset();
     CHECK(firstMissingRequirement(candidate).empty());
+}
+
+TEST_CASE("a Config naming only half of the presenting path is refused", "[render]") {
+    // SS 4.3: createSurface selects the path, and the extensions must agree.
+    // Refused before any instance exists, so no device is needed.
+    uta::urender::Config extensionsOnly;
+    extensionsOnly.width = 8;
+    extensionsOnly.height = 8;
+    extensionsOnly.instanceExtensions = {"VK_KHR_surface"};
+    auto renderer = uta::urender::Renderer::create(extensionsOnly);
+    REQUIRE_FALSE(renderer.has_value());
+    CHECK(renderer.error().code() == uta::ErrorCode::InvalidArgument);
+    CHECK_THAT(std::string(renderer.error().message()), ContainsSubstring("instanceExtensions"));
+
+    uta::urender::Config surfaceOnly;
+    surfaceOnly.width = 8;
+    surfaceOnly.height = 8;
+    surfaceOnly.createSurface = [](std::uint64_t) -> std::uint64_t { return 0; };
+    renderer = uta::urender::Renderer::create(surfaceOnly);
+    REQUIRE_FALSE(renderer.has_value());
+    CHECK(renderer.error().code() == uta::ErrorCode::InvalidArgument);
+    CHECK_THAT(std::string(renderer.error().message()), ContainsSubstring("instanceExtensions"));
 }
 
 TEST_CASE("an instance with no physical device is refused as having none", "[render]") {

@@ -26,6 +26,7 @@ TEST_CASE("INV-2: urender's public header compiles with no Vulkan headers", "[re
     // The fields most likely to invite a Vulkan type, named here so a change
     // to either shows up as a compile error in this target too.
     uta::urender::Config config;
-    CHECK(config.surface == 0u);
+    CHECK(config.instanceExtensions.empty());
+    CHECK_FALSE(config.createSurface);
     CHECK(uta::urender::Renderer::Target::Colour != uta::urender::Renderer::Target::Velocity);
 }

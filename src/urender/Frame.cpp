@@ -236,6 +236,8 @@ struct Renderer::Impl {
     /// Per object, whether its model reverses winding -- SS 4.5's mirrored mover.
     std::vector<bool> mirrored;
     bool jitter = false;
+    /// A `resize` the next draw has still to apply.
+    bool resized = false;
     std::uint64_t frameIndex = 0;
     /// SS 4.9's clock: a flickering light's phase is measured from here.
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
@@ -252,6 +254,7 @@ struct Renderer::Impl {
     }
 
     Result<void> createTargets();
+    Result<void> createShadowAtlas();
     Result<void> createSamplers();
     Result<void> createStandIns();
     Result<void> upload(const ubundle::Bundle& bundle);
@@ -259,6 +262,7 @@ struct Renderer::Impl {
     void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows);
 };
 
+/// Every target the window's size decides. SS 4.3's resize rebuilds them.
 Result<void> Renderer::Impl::createTargets() {
     const std::uint32_t w = config.width, h = config.height;
     UTA_TRY(hdr, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
@@ -268,8 +272,13 @@ Result<void> Renderer::Impl::createTargets() {
     UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT}));
     UTA_TRY(output, Image::create(*gpu, {OUTPUT_FORMAT, w, h, 1,
                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
-    // SS 4.8: one depth atlas for every shadowing light. Moved to its sampled
-    // layout at once; no tile is read before a frame has drawn it.
+    return {};
+}
+
+/// SS 4.8: one depth atlas for every shadowing light. No window decides its
+/// size, so a resize keeps it and the tiles cached in it. Moved to its sampled
+/// layout at once; no tile is read before a frame has drawn it.
+Result<void> Renderer::Impl::createShadowAtlas() {
     UTA_TRY(shadowAtlas, Image::create(*gpu, {DEPTH_FORMAT, SHADOW_ATLAS_SIZE, SHADOW_ATLAS_SIZE, 1,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
     return gpu->run([&](VkCommandBuffer commands) {
@@ -631,15 +640,23 @@ Result<Renderer> Renderer::create(const Config& config) {
     if (config.width == 0 || config.height == 0)
         return fail(ErrorCode::InvalidArgument,
                     std::format("a {}x{} target has no pixels to draw", config.width, config.height));
-    if (config.surface != 0)
+    // SS 4.3: createSurface selects the path, and the extensions must agree.
+    const bool extensions = !config.instanceExtensions.empty();
+    const bool presenting = static_cast<bool>(config.createSurface);
+    if (extensions != presenting)
         return fail(ErrorCode::InvalidArgument,
-                    "the presenting path is not built yet; pass surface = 0 for the surfaceless path");
+                    extensions ? "instanceExtensions names a window's extensions but createSurface is unset"
+                               : "createSurface is set but instanceExtensions names none");
+    if (presenting)
+        return fail(ErrorCode::InvalidArgument,
+                    "the presenting path is not built yet; leave createSurface unset for the surfaceless path");
 
     auto impl = std::make_unique<Impl>();
     impl->config = config;
     UTA_TRY(impl->gpu, Gpu::create(config.validation));
     UTA_TRY(impl->pipelines, Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT}));
     UTA_CHECK(impl->createTargets());
+    UTA_CHECK(impl->createShadowAtlas());
     UTA_CHECK(impl->createSamplers());
     UTA_CHECK(impl->createStandIns());
     return Renderer(std::move(impl));
@@ -647,6 +664,13 @@ Result<Renderer> Renderer::create(const Config& config) {
 
 Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera) {
     Impl& impl = *impl_;
+    // SS 4.3: a resize takes effect here -- every size-bound target, and the
+    // output stage's view of the colour one.
+    if (impl.resized) {
+        UTA_CHECK(impl.createTargets());
+        if (impl.materials) UTA_CHECK(impl.writeDescriptors());
+        impl.resized = false;
+    }
     if (const BundleShape shape = shapeOf(bundle); !(shape == impl.shape) || !impl.geometry) {
         impl.shape = BundleShape{};
         UTA_CHECK(impl.upload(bundle));
@@ -768,5 +792,17 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
 FrameStats Renderer::lastFrameStats() const noexcept { return impl_->stats; }
 
 void Renderer::setJitter(bool enabled) noexcept { impl_->jitter = enabled; }
+
+Result<void> Renderer::resize(std::uint32_t width, std::uint32_t height) {
+    if (width == 0 || height == 0)
+        return fail(ErrorCode::InvalidArgument, std::format("a {}x{} target has no pixels to draw", width, height));
+    Impl& impl = *impl_;
+    if (width == impl.config.width && height == impl.config.height) return {};
+    impl.config.width = width;
+    impl.config.height = height;
+    impl.resized = true;
+    impl.drawn = false; // the last frame is another size, so there is none to read back
+    return {};
+}
 
 } // namespace uta::urender

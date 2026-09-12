@@ -23,11 +23,13 @@ struct Requirement {
 
 /// SS 4.4's table, in its order. The first a device fails is the one its
 /// refusal names.
-const std::array<Requirement, 10> REQUIREMENTS = {{
+const std::array<Requirement, 11> REQUIREMENTS = {{
     {"Vulkan 1.3", [](const DeviceCandidate& c) { return c.apiVersion >= VK_API_VERSION_1_3; }},
     {"a graphics queue", [](const DeviceCandidate& c) { return c.graphicsQueue; }},
     {"present support on its graphics queue",
      [](const DeviceCandidate& c) { return !c.presentSupport.has_value() || *c.presentSupport; }},
+    {"VK_KHR_swapchain",
+     [](const DeviceCandidate& c) { return !c.swapchainExtension.has_value() || *c.swapchainExtension; }},
     {"dynamicRendering", [](const DeviceCandidate& c) { return c.v13.dynamicRendering == VK_TRUE; }},
     {"synchronization2", [](const DeviceCandidate& c) { return c.v13.synchronization2 == VK_TRUE; }},
     {"runtimeDescriptorArray",

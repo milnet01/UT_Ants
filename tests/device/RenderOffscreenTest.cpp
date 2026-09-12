@@ -27,7 +27,8 @@ TEST_CASE("INV-4: the surfaceless path draws and reads back with no display", "[
     config.width = 64;
     config.height = 64;
     config.linearOutput = true;
-    REQUIRE(config.surface == 0u);
+    REQUIRE_FALSE(config.createSurface);
+    REQUIRE(config.instanceExtensions.empty());
     Renderer renderer = requireRenderer(config);
 
     // A square in front of the camera wearing no material, unlit: it draws the
@@ -79,6 +80,42 @@ TEST_CASE("another bundle of the same sizes in the same storage is drawn and not
     pixels = renderer.readback();
     if (!pixels.has_value()) FAIL(pixels.error().message());
     CHECK(pixelAt(*pixels, 64, 32, 32) == second);
+}
+
+TEST_CASE("resize rebuilds the targets at the new size for the next frame", "[device]") {
+    // SS 4.3 and SS 10: the surfaceless half of resize, graded headlessly.
+    removeDisplay();
+    Config config;
+    config.width = 64;
+    config.height = 64;
+    config.linearOutput = true;
+    Renderer renderer = requireRenderer(config);
+
+    // A square spanning pixels 16..80 across and 8..72 down at 96x80.
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 80, "", PF_UNLIT);
+    const uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    requireOk(renderer.draw(bundle, Camera{}));
+
+    // GROWN, not shrunk: a smaller frame drawn into the old targets' corner
+    // reads back the same as a rebuilt one. A pixel past the old 64x64 edge
+    // exists only in a rebuilt target.
+    requireOk(renderer.resize(96, 80));
+    CHECK_FALSE(renderer.readback().has_value()); // the last frame was another size
+    requireOk(renderer.draw(bundle, Camera{}));
+
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    REQUIRE(pixels->size() == 96u * 80u * 4u);
+    CHECK(pixelAt(*pixels, 96, 75, 68) == Rgba{255, 0, 255, 255});
+    CHECK(pixelAt(*pixels, 96, 0, 0) == Rgba{0, 0, 0, 255});
+    const auto velocity = renderer.readback(Renderer::Target::Velocity);
+    if (!velocity.has_value()) FAIL(velocity.error().message());
+    CHECK(velocity->size() == 96u * 80u * 2u * sizeof(float));
+
+    const auto zero = renderer.resize(0, 48);
+    REQUIRE_FALSE(zero.has_value());
+    CHECK(zero.error().code() == uta::ErrorCode::InvalidArgument);
 }
 
 TEST_CASE("readback before any frame is refused rather than returning garbage", "[device]") {

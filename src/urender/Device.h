@@ -37,6 +37,10 @@ struct DeviceCandidate {
     bool graphicsQueue = false;
     /// Engaged on the presenting path only; the surfaceless path never asks.
     std::optional<bool> presentSupport;
+    /// Whether the device lists VK_KHR_swapchain. Engaged on the presenting
+    /// path only; the one requirement read from the extension list, having no
+    /// feature bit.
+    std::optional<bool> swapchainExtension;
     VkPhysicalDeviceFeatures core{};
     VkPhysicalDeviceVulkan12Features v12{};
     VkPhysicalDeviceVulkan13Features v13{};
