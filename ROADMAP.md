@@ -5376,6 +5376,61 @@ model, no weapon and no opponent until 0.2.0.
   the original candidate list, not as a source of a position but as a
   possible signature of whatever batch-converted these maps. Neither
   project has looked and neither is asking the other to.
+  Rule CORRECTED by UT_MonsterHunt (2026-09-12), superseding the cap
+  instruction recorded above. DO NOT REPRODUCE THE 1024-NODE CAP. It does
+  not merely truncate the walk, it changes the winner: on MH-EHGiantV0
+  (1856 nodes) the capped walk answered InventorySpot280 at 142 hops and
+  15,487u, while the uncapped walk answers PathNode2495 at 190 hops and
+  17,698u -- a different node, further out, with 1517 nodes reachable
+  rather than the 1024 the cap admitted. 15 of the 58 exceed 1024 nodes, so
+  the earlier advice would have sent this measurement after the wrong node
+  on a quarter of the set. Measure the true graph far end and do not cap.
+
+  Their cap is now 6144, above the largest map they can find (MH-BigDiner,
+  5522 nodes), so in practice it no longer binds. Everything else in the
+  rule is unchanged: directed outgoing Paths via describeSpec's end actor
+  with upstreamPaths never read, root the nav point nearest the first
+  enabled PlayerStart, winner the greatest hop depth from the root with
+  ties on greater straight-line distance from the root node.
+
+  Why it was capped, which bears on our own implementation if we hash. Their
+  visited test was a linear scan of the queue, O(n^2) -- about 250 million
+  comparisons at 5522 nodes. It is now hashed on the node's own Location
+  into 256 chains, because a NavigationPoint carries no id of its own; two
+  nodes sharing a spot share a chain, costing a comparison and never a
+  wrong answer. They take the absolute value before the modulo.
+
+  The runaway-loop question they said they would answer either way: it does
+  NOT trip. The linear version completed at 1024 nodes and the hashed
+  version completed on MH-BigDiner. One honest limit they state themselves:
+  only 751 of MH-BigDiner's 5522 nodes are reachable from its start, so the
+  stress run did not exercise full capacity, and the bound is by design
+  rather than by measurement above 1517 reachable nodes -- the largest set
+  they have actually walked.
+
+  Two reference points for the control group. MH-EHGiantV0 goes ENDNODE at
+  endnodedist 53,023 to ROUTE at 0 with the finish on PathNode2495.
+  MH-AS_ColdSteel, whose finish is properly placed, reports "none parked,
+  nothing to do" with its verdict and endnodedist unchanged. The second is
+  the safety property protecting the rest of the library, and it is also
+  the shape this item's control group runs in: a placed map where the rule
+  computes an answer that is never applied.
+
+  They offered a log-only pass emitting the rule's answer on placed maps as
+  a cross-check. Accepted, and what it checks must not be overstated: it
+  compares two IMPLEMENTATIONS of one rule and catches a transcription
+  error on either side. It cannot say whether the rule is any good, because
+  both would be wrong together. The verdict on the rule comes only from
+  this side, comparing the computed node against the real MonsterEnd.
+
+  Their source is at unrealscript/MHEndPlace/Classes/MHEndPlace.uc and is
+  worth reading over any description, this one included.
+
+  Status there: MHEndPlace is built, tested and committed but NOT deployed
+  -- their session's permission classifier refused the live chain edit as a
+  production deploy, and it is waiting on the user. That is their user's
+  call and blocks nothing here; the rule is fixed and measurable as it
+  stands.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
