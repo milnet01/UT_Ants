@@ -4956,6 +4956,13 @@ model, no weapon and no opponent until 0.2.0.
   which resumed the item after ut-ants-2b ended. Remaining follow-up is
   not this item's: re-running ut-paths on the 14 maps UTA-0121's census
   refused, and sending UT_MonsterHunt the result.
+  Follow-up done (2026-09-12) by ut-ants-84, main checkout. ut-paths was
+  re-run on the 14 maps UTA-0121's census refused, into
+  /mnt/Games/Scripts/Linux/ut-paths-output-uta0124 -- a directory of its
+  own, so ut-paths-output's whole-census summary is untouched. All 14
+  were written, which is what this item bought. UT_MonsterHunt
+  (ut-monsterhunt-4c) has the result. What the re-run also showed belongs
+  to UTA-0126 and is recorded there: none of the 14 got a proposed node.
   **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it.
   Kind: investigate.
   Source: in-session-2026-09-11.
@@ -4998,7 +5005,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-11.
   Lanes: tools.
 
-- 📋 [UTA-0126] **ut-paths: find why eight maps still do not route with their proposed nodes.**
+- 🚧 [UTA-0126] **ut-paths: find why eight maps still do not route with their proposed nodes.**
   UT_MonsterHunt's seed test (2026-09-11; their
   analysis/seedtest-2026-09-11.tsv) built each of the 16 maps UTA-0121
   gave nodes, with them and without. On eight nothing routes either way:
@@ -5025,6 +5032,48 @@ model, no weapon and no opponent until 0.2.0.
   TMale1 fit. Their questions for this item: does ut-paths' start part
   hold PathNode20, and which node did its route leave the start part
   from.
+  Picked up (2026-09-12) by ut-ants-84, main checkout, after UTA-0124
+  shipped. It is Next. Rule 1 has nothing workable: the only open items
+  whose Source records a review are UTA-0059, UTA-0098 and UTA-0100, each
+  deferred by its own terms. UTA-0012 is the other item marked held; its
+  lane is upkg, so it shares no directory with this one.
+  Starting on UT_MonsterHunt's two questions about MH-NivenSB: does
+  ut-paths' start part hold PathNode20, and which node did its route
+  leave the start part from.
+  Evidence added (2026-09-12) by ut-ants-84, main checkout, from
+  UTA-0124's follow-up re-run. The 14 maps UTA-0121's census had refused
+  for a repeated actor slot now build and now reach propose(), and every
+  one of their 24 exits came back without a route: 23 Route::None and one
+  Route::Mover (MH-MHA-With-EgyptianStylefix3). Zero nodes proposed on
+  all 14. Output in /mnt/Games/Scripts/Linux/ut-paths-output-uta0124.
+  That is a second population failing, on maps chosen for an unrelated
+  reason, so it may share a cause with the eight this item is about. Not
+  concluded -- no diagnosis has been run on either set yet.
+  MH-NivenSB answered (2026-09-12) by ut-ants-84, main checkout, with a
+  scratch probe kept at /mnt/Games/Scripts/Linux/ut-paths-output-uta0126
+  (its README says how to rebuild it; it includes Seeds.cpp so it runs the
+  real reach, nearestNode and shortestPath rather than copies). Baselined
+  on MH-BirdBrainedResearch, where it reproduces the tool's own verdict.
+  UT_MonsterHunt's first question: yes. Our start part holds PathNode20 --
+  network node 522 at (-993, -597, 29), class PathNode. Their second: the
+  route left the start part from that same node, and its next chain node
+  is PathNodeSeed120 at (-800, -492, 27), our proposal's node 0. So their
+  unlinked first hop and our chain's first hop are one hop.
+  What the probe adds. PathNode20 is placed on walk-graph spot 6310 at
+  (-992, -588, -9), 38 below its own Location, and every spot in the nine
+  cells around it is at that same -9. PathNodeSeed120's spot is at 27, on
+  its own floor. The two nodes are at the same height, on floors 36 apart:
+  PathNode20 hangs over a lower floor. Our own path between them descends
+  to -9, runs flat, then climbs 16, 16 and 4 -- each within MaxStepHeight
+  25. Whether that is what stops UT building the spec is UNVERIFIED here;
+  it is a candidate for their "something physical in the gap".
+  Across all eight maps the route is FOUND and the source node's height
+  above its spot is 9 to 18 -- MH-NivenSB's 38 is the outlier. Two maps,
+  MH-Skaarj_ReactorTest-v1 and MH-ZenithWarsTorus, have NO spot touching
+  their exit at all: their chain aims at a PARTITIONED fallback goal, a
+  node outside the start part that reaches the exit, so it never reaches
+  the exit itself. That is a second failure shape and is ours, not the
+  editor's.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
