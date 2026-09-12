@@ -1,6 +1,6 @@
 # UTA-0121 — `ut-paths`: propose bot path nodes for UT99's maps
 
-**Status:** accepted (2026-09-11), at the review's cap; amended for UTA-0125
+**Status:** accepted (2026-09-12), at the review's cap; amended for UTA-0127
 (§ 3 decision 10, INV-11) and accepted again (2026-09-11), at that review's
 cap.
 **Kind:** feature.
@@ -177,14 +177,16 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
 - **`md5`** is of the bytes of the `.unr` read, as 32 lower-case hex digits.
 - **`group`** is the TSV's.
 - **`exits`** holds every actor whose class descends from `MonsterEnd`, in the
-  level's actor order, at its `Location` as stored. `route` is `found`,
-  `mover` or `none` (§ 4.7).
-- **`offWorld`** is whether the exit is off the world (§ 4.6), read from the
-  map's own record. It is independent of `route`: the exit is searched like
-  any other and keeps whatever word § 4.7 gives it. The mark is what separates
-  an exit no route could reach from one the search looked for and did not
-  find, both of which § 4.7 writes `none`. `schema` stays 1: a field is added
-  and nothing already written changes meaning.
+  level's actor order, at its resolved `Location` (§ 4.6), written as the
+  float it is stored as. `route` is `found`, `mover` or `none` (§ 4.7).
+- **`offWorld`** is whether the exit is off the world (§ 4.6), decided on the
+  same resolved `Location` written as `x`, `y` and `z` — its own property else
+  its class default, never the own property alone. It is independent of
+  `route`: the exit is searched like any other and keeps whatever word § 4.7
+  gives it, which on an `EXIT_OFF_NET` map is `none` and on a `PARTITIONED`
+  map may be `found` or `mover` from the fallback goal. So it is the mark and
+  not the route that tells a consumer the exit is off the world. `schema`
+  stays 1: a field is added and nothing already written changes meaning.
 - **`moverOnly`** is true exactly when no exit's route is `found` and at least
   one is `mover`.
 - **`nodes`** are the proposed positions, exit by exit, each exit's in route
@@ -346,8 +348,9 @@ struct Proposal {
 - **Nodes.** Along a `found` path, from its first spot: the next point is the
   furthest spot along the path with an allowed hop from the chain's last
   point. Where that spot lies within 50 of an existing navigation point, or
-  of a node already proposed, that point takes its place if the hop to it is
-  allowed; if not, the furthest spot with an allowed hop and no such point
+  of a node already proposed for this map — an earlier exit's chain included,
+  the proposal being one list — that point takes its place if the hop to it
+  is allowed; if not, the furthest spot with an allowed hop and no such point
   within 50 is taken, and failing that the spot itself. A spot taken is
   proposed as a node, and the next hop is measured from whatever was taken.
   The path's last spot ends the chain, by the same rule.
@@ -486,21 +489,25 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   height is not tested, or a flag the bot has, such as `R_SWIM`, `R_DOOR` or
   `R_PLAYERONLY`, refuses a spec.
 
-- **INV-12** — An exit whose `Location` reaches the world bound is written
-  `offWorld` true and keeps the route `propose` gave it; every other exit is
-  written false.
+- **INV-12** — An exit whose resolved `Location` reaches the world bound is
+  written `offWorld` true and keeps the route `propose` gave it; every other
+  exit is written false.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose` then `toJson`
-  over a **partitioned** `Scene` carrying three exits, so § 4.7's fallback
-  goal is live for every one of them: one at the world corner, one with a
-  single coordinate at 32767 and the other two small, and one a spot touches.
-  The first two are written true and the third false; the third's route is
-  `found`; and the first two carry whatever word `propose` returned rather
-  than one the mark imposed.
+  over a **partitioned** `Scene` carrying three exits: one at the world
+  corner, one with a single coordinate at 32767 and the other two small, and
+  one a spot touches. The scene is built so § 4.7's fallback goal is not
+  merely offered but REACHED for the two off-world exits, so `propose` returns
+  `found` for all three. The file then carries `"route": "found"` three times,
+  with `offWorld` true on the first two and false on the third. A fourth exit,
+  at the world corner on a scene that is not partitioned, is written true with
+  route `none`.
   *Breaks when:* the mark is written in place of the route, or the route is
-  forced to `none` wherever the mark is set, which on a partitioned map
-  discards a route the search did find; the bound is tested at 32768, which
-  misses the maps recording one unit inside it; or all three coordinates are
-  required, which misses a position clamped on one axis.
+  forced to `none` wherever the mark is set — which the three `found` routes
+  catch, and which a fixture leaving the off-world exits at `none` would not;
+  the bound is tested at 32768, which misses the maps recording one unit
+  inside it; all three coordinates are required, which misses a position
+  clamped on one axis; or the mark is read from the actor's own property
+  alone, which misses an exit positioned from its class default.
 
 ## 6. Failure modes
 
@@ -510,7 +517,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 | The map does not open or read | That map is refused with the reason; no file is written |
 | `buildCollision` refuses the level's `Model` | That map is refused, naming the node |
 | The map has no PlayerStart, or no MonsterEnd | That map is refused |
-| An exit is off the world (§ 4.6) | `offWorld` is true; it is searched like any other and keeps § 4.7's route. Its map is `EXIT_OFF_NET` by § 1's definition unless a second exit is near the network, so that route is `none` |
+| An exit is off the world (§ 4.6) | `offWorld` is true; it is searched like any other and keeps § 4.7's route. Its map is `EXIT_OFF_NET` by § 2 item 1's definition unless a second exit is near the network, so that route is `none` |
 | Neither the start nor any node of its part is on the walk graph | Every exit's route is `none` |
 | A mover's tree or shape refuses | That map is refused, naming the actor |
 | The out directory cannot be written | That map is refused; the others go on |
@@ -547,7 +554,8 @@ PlayerStart; read the class default over the actor's own value; keep a
 flying spec; skip the radius test; skip the height test; refuse a special
 spec; drop `R_SWIM` from the bot's flags; test the world bound at 32768;
 require all three coordinates at the bound; write the off-world mark in place
-of the route; force an off-world exit's route to `none`. Each must be killed by the invariant that names it.
+of the route; force an off-world exit's route to `none`; read the mark from
+the actor's own property alone. Each must be killed by the invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
 
