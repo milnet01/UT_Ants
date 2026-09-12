@@ -5212,6 +5212,12 @@ model, no weapon and no opponent until 0.2.0.
   Neither changes what this item builds. The off-world test is on the
   resolved Location and is unaffected by which maps happen to be
   installed.
+  Progress (2026-09-12): resumed by session ut-ants-de in the MAIN
+  checkout. The previous holder, ut-ants-c4, is absent from ListAgents;
+  per § Running two sessions at once rule 2 an abandoned 🚧 is resumable.
+  The spec amendment is done and accepted at its cap; what remains is the
+  implementation -- the offWorld mark in Seeds.cpp toJson, INV-12's test,
+  and the matrix.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.

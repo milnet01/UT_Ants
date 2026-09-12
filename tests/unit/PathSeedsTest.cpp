@@ -1,5 +1,6 @@
-// Locks INV-5 to INV-10 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
-// the nodes proposed along them, the file, the command line, and the scene.
+// Locks INV-5 to INV-12 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
+// the nodes proposed along them, the file, the command line, the scene, and
+// the off-world mark.
 //
 // INV-5 to INV-8 build their scenes in memory, with tests/unit/PathFixture.h
 // (that spec's SS 7). INV-9 drives the command line over a census written to a
@@ -272,7 +273,7 @@ TEST_CASE("INV-8: the file holds SS 4.3's fields escaped and each number a float
                                  "  \"group\": \"EXIT_OFF_NET\",\n"
                                  "  \"moverOnly\": false,\n"
                                  "  \"exits\": [\n"
-                                 "    {\"x\": 1024, \"y\": -512, \"z\": 96, \"route\": \"found\"}\n"
+                                 "    {\"x\": 1024, \"y\": -512, \"z\": 96, \"route\": \"found\", \"offWorld\": false}\n"
                                  "  ],\n"
                                  "  \"nodes\": [\n"
                                  "    {\"x\": 0.33333334, \"y\": -300, \"z\": 39}\n"
@@ -393,4 +394,67 @@ TEST_CASE("INV-11: the scene keeps only the edges a walking bot may use", "[path
     const std::set<std::pair<std::size_t, std::size_t>> expected = {
         {at(0), at(100)}, {at(100), at(200)}, {at(200), at(300)}, {at(300), at(0)}};
     CHECK(kept == expected);
+}
+
+TEST_CASE("INV-12: an exit at the world bound is marked off the world and keeps its route",
+          "[paths][seeds]") {
+    // SS 4.6's bound is 32767 -- two maps record one unit inside 32768 -- and
+    // it is tested PER AXIS. INV-7's partitioned corridor: the start's part at
+    // one end, the exit's part at the other, joined only from the exit's part
+    // to the start's. Nothing stands near an off-world exit, so its route comes
+    // wholly from SS 4.7's fallback goal, which this scene REACHES rather than
+    // merely offers. So all three come back `found`, and a run forcing an
+    // off-world exit's route to `none` is seen.
+    Scene scene;
+    scene.tree = worldOf({box({0, 0, 0}, {2600, 64, 256}), box({800, 65, 0}, {1000, 200, 256})},
+                         {0, 0, -50}, {2600, 200, 300});
+    scene.network = {{100, 32, 50}, {256, 32, 50}, {1504, 32, 50}, {2280, 32, 50}, {900, 75, 50}};
+    scene.edges = {{0, 1}, {1, 0}, {2, 3}, {3, 2}, {2, 4}, {2, 1}};
+    scene.start = {100, 32, 40};
+    scene.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}, // the corner, every axis
+                   Cylinder{{32767, 32, 40}, 40, 40},       // one axis, one unit inside
+                   Cylinder{{2300, 32, 40}, 40, 40}};       // in the world, a spot touches it
+
+    const Proposal proposal = propose(scene, true);
+    REQUIRE(proposal.routes
+            == std::vector<Route>{Route::Found, Route::Found, Route::Found});
+
+    const std::string file = toJson("MH-Test", "md5", "PARTITIONED", scene, proposal);
+    const std::string expected =
+        "  \"exits\": [\n"
+        "    {\"x\": 32768, \"y\": 32768, \"z\": 32768, \"route\": \"found\", \"offWorld\": true},\n"
+        "    {\"x\": 32767, \"y\": 32, \"z\": 40, \"route\": \"found\", \"offWorld\": true},\n"
+        "    {\"x\": 2300, \"y\": 32, \"z\": 40, \"route\": \"found\", \"offWorld\": false}\n"
+        "  ],\n";
+    INFO(file);
+    CHECK(file.find(expected) != std::string::npos);
+
+    // A fourth exit, at the corner on a scene that is NOT partitioned: no
+    // fallback goal is offered, so the route is `none` and the mark still true.
+    scene.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}};
+    const std::string alone = toJson("MH-Test", "md5", "EXIT_OFF_NET", scene, propose(scene, false));
+    INFO(alone);
+    CHECK(alone.find("\"route\": \"none\", \"offWorld\": true") != std::string::npos);
+}
+
+TEST_CASE("INV-12: the mark is read from the exit's resolved Location not its own record",
+          "[paths][seeds]") {
+    // SS 4.3 decides the mark on the resolved Location -- the actor's own
+    // property else its class default. This exit sets no Location of its own,
+    // so reading the own record alone would write it in the world.
+    using namespace uta::test::bake;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 1, 2, 3)});
+    map.addActor("CornerEnd0",
+                 map.addClass("CornerEnd", map.importClass("MonsterHunt", "MonsterEnd"),
+                              {vectorProperty("Location", 32768, 32768, 32768)}));
+
+    const auto scene = sceneOfBuilt(map);
+    INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));
+    REQUIRE(scene.has_value());
+    REQUIRE(scene->exits.size() == 1);
+    CHECK(scene->exits[0].centre == Vec3{32768, 32768, 32768});
+    CHECK(toJson("MH-Test", "md5", "EXIT_OFF_NET", *scene, Proposal{{Route::None}, {}})
+              .find("\"offWorld\": true")
+          != std::string::npos);
 }

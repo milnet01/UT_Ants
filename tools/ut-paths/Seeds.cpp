@@ -1,6 +1,6 @@
 // The start, the exits, the network's part, and the routes between --
 // docs/specs/UTA-0121-bot-path-seeds.md SS 4.3, SS 4.6 and SS 4.7; INV-5 to
-// INV-8 and INV-10.
+// INV-8, INV-10 and INV-12.
 
 #include "Seeds.h"
 
@@ -325,6 +325,14 @@ std::string_view routeName(Route route) {
     return "none"; // unreachable: every enumerator is named above
 }
 
+/// SS 4.6's off-world test, on the resolved Location -- PER AXIS, so a
+/// position clamped on one axis alone is caught. 32767 and not 32768: two
+/// maps record their exit one unit inside the bound.
+bool offWorld(const Vec3& p) {
+    constexpr double BOUND = 32767;
+    return std::abs(p.x) >= BOUND || std::abs(p.y) >= BOUND || std::abs(p.z) >= BOUND;
+}
+
 void writePoint(std::ostream& out, const Vec3& p) {
     out << "{\"x\": " << number(p.x) << ", \"y\": " << number(p.y) << ", \"z\": " << number(p.z);
 }
@@ -487,8 +495,11 @@ std::string toJson(std::string_view map, std::string_view md5, std::string_view 
     for (std::size_t i = 0; i < scene.exits.size(); ++i) {
         out << (i == 0 ? "\n    " : ",\n    ");
         writePoint(out, scene.exits[i].centre);
+        // The mark is INDEPENDENT of the route (SS 4.3): an off-world exit is
+        // searched like any other and keeps the word SS 4.7 gave it.
         out << ", \"route\": \""
-            << routeName(i < proposal.routes.size() ? proposal.routes[i] : Route::None) << "\"}";
+            << routeName(i < proposal.routes.size() ? proposal.routes[i] : Route::None)
+            << "\", \"offWorld\": " << (offWorld(scene.exits[i].centre) ? "true" : "false") << "}";
     }
     out << (scene.exits.empty() ? "]" : "\n  ]");
 
