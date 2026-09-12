@@ -1,0 +1,62 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+// Clustered light culling -- UTA-0014 SS 4.6. One invocation per cluster: the
+// lights whose sphere of influence reaches the cluster's view-space box, nearest
+// the box's centre first, at most CLUSTER_CAPACITY of them. A cluster that had
+// more drops the furthest and sets CLUSTER_OVERFLOW on its count (SS 6).
+//
+// A sphere is conservative for a spotlight, which only ever lights less.
+
+#define UTA_CLUSTER_WRITER
+#include "scene_bindings.glsl"
+#include "light.glsl"
+
+layout(set = 0, binding = 4) buffer ClusterCountBlock { uint clusterCounts[]; };
+layout(set = 0, binding = 5) buffer ClusterIndexBlock { uint clusterIndices[]; };
+
+layout(local_size_x = 64) in;
+
+void main() {
+    uint cluster = gl_GlobalInvocationID.x;
+    if (cluster >= frame.clusterGrid.x * frame.clusterGrid.y * frame.clusterGrid.z) return;
+
+    vec3 lo = clusterBounds[cluster].minimum.xyz;
+    vec3 hi = clusterBounds[cluster].maximum.xyz;
+    vec3 centre = (lo + hi) * 0.5;
+
+    uint chosen[CLUSTER_CAPACITY];
+    float nearness[CLUSTER_CAPACITY];
+    uint count = 0u;
+    bool overflowed = false;
+
+    for (uint i = 0u; i < frame.lightCount; ++i) {
+        vec3 p = (frame.view * vec4(lights[i].location, 1.0)).xyz;
+        float radius = lightRadius(lights[i].radius);
+        vec3 gap = clamp(p, lo, hi) - p;
+        // The falloff is zero at the radius, so touching is not reaching.
+        if (dot(gap, gap) >= radius * radius) continue;
+
+        float key = distance(p, centre);
+        uint slot;
+        if (count < CLUSTER_CAPACITY) {
+            slot = count++;
+        } else {
+            overflowed = true;
+            if (key >= nearness[CLUSTER_CAPACITY - 1u]) continue;
+            slot = CLUSTER_CAPACITY - 1u;
+        }
+        // Insertion into a list kept nearest first.
+        while (slot > 0u && nearness[slot - 1u] > key) {
+            nearness[slot] = nearness[slot - 1u];
+            chosen[slot] = chosen[slot - 1u];
+            --slot;
+        }
+        nearness[slot] = key;
+        chosen[slot] = i;
+    }
+
+    for (uint k = 0u; k < count; ++k) clusterIndices[cluster * CLUSTER_CAPACITY + k] = chosen[k];
+    clusterCounts[cluster] = count | (overflowed ? CLUSTER_OVERFLOW : 0u);
+}

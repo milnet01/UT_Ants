@@ -49,6 +49,8 @@ public:
     /// The forward pipeline a batch carrying `polyFlags` is drawn with.
     [[nodiscard]] VkPipeline sceneFor(std::uint32_t polyFlags) const noexcept;
     [[nodiscard]] VkPipeline post() const noexcept { return post_; }
+    /// SS 4.6's culling pass, over the scene set.
+    [[nodiscard]] VkPipeline clusters() const noexcept { return clusters_; }
 
     /// How many textures one scene set can bind: the device's limit, capped.
     [[nodiscard]] std::uint32_t textureCapacity() const noexcept { return textureCapacity_; }
@@ -65,6 +67,7 @@ private:
     /// Indexed [translucent][twoSided].
     std::array<std::array<VkPipeline, 2>, 2> scene_{};
     VkPipeline post_ = VK_NULL_HANDLE;
+    VkPipeline clusters_ = VK_NULL_HANDLE;
 };
 
 } // namespace uta::urender

@@ -36,6 +36,14 @@ inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
 inline constexpr std::uint32_t PF_UNLIT = 0x00400000u;
 inline constexpr std::uint32_t PF_PORTAL = 0x04000000u;
 
+/// SS 4.6: the cluster grid, the most lights one cluster keeps, and the bit a
+/// cluster's count carries when it dropped some. shaders/types.glsl states the
+/// capacity and the bit too; the grid reaches the shaders through FrameData.
+inline constexpr std::array<std::uint32_t, 3> CLUSTER_GRID{16, 8, 24};
+inline constexpr std::uint32_t CLUSTER_COUNT = 16u * 8u * 24u;
+inline constexpr std::uint32_t CLUSTER_CAPACITY = 64;
+inline constexpr std::uint32_t CLUSTER_OVERFLOW = 0x80000000u;
+
 /// The scene descriptor set's bindings. shaders/types.glsl numbers them the same.
 enum Binding : std::uint32_t {
     FRAME = 0,

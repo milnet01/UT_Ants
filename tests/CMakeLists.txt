@@ -65,7 +65,9 @@ add_executable(uta_unit_tests
     unit/PathTraceTest.cpp
     unit/PathWalkableTest.cpp
     unit/RenderCameraTest.cpp
+    unit/RenderClusterTest.cpp
     unit/RenderDeviceTest.cpp
+    unit/RenderLightsTest.cpp
     unit/RenderMoverPlacementTest.cpp
     unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
@@ -107,13 +109,21 @@ catch_discover_tests(uta_render_header_isolation_test PROPERTIES LABELS "unit;fa
 # far as a test, and INV-5 is what reds the leg for it. scripts/ci.sh chooses
 # which labels a leg runs.
 add_executable(uta_device_tests
+    device/ComputeFixture.cpp
     device/DeviceFixture.cpp
     device/RenderColourTransferTest.cpp
     device/RenderDeviceAbsentTest.cpp
+    device/RenderLightParityTest.cpp
+    device/RenderLightingTest.cpp
     device/RenderOffscreenTest.cpp
     device/RenderSurfaceFlagsTest.cpp)
-target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle Vulkan::Vulkan Catch2::Catch2WithMain)
+# uta_ubake beside uta_urender: INV-6 holds the shader's light to ubake's
+# lightAt, which UTA-0112 SS 4.9 says a test of this item may link.
+target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle uta_ubake Vulkan::Vulkan
+                                               Catch2::Catch2WithMain)
 target_include_directories(uta_device_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+# The kernels include urender's own GLSL -- the files the shading pass does.
+uta_embed_shaders(uta_device_tests device/shaders/light_parity.comp)
 # Two registrations of one binary, split by tag. The TIMEOUT is for Mesa's CPU
 # driver, which compiles every pipeline on first use.
 catch_discover_tests(uta_device_tests TEST_SPEC "[device]" PROPERTIES LABELS "device" TIMEOUT 300)

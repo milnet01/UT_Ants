@@ -19,6 +19,11 @@ const uint PF_UNLIT = 0x00400000u;
 // 0.5 splits the filtered edge evenly.
 const float MASK_THRESHOLD = 0.5;
 
+// UTA-0014 SS 4.6: at most this many lights a cluster, and the bit a cluster's
+// count carries when it had to drop some. ShaderTypes.h states the same two.
+const uint CLUSTER_CAPACITY = 64u;
+const uint CLUSTER_OVERFLOW = 0x80000000u;
+
 struct FrameData {
     mat4 viewProj;
     mat4 viewProjUnjittered;

@@ -1,0 +1,25 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// UTA-0014 INV-6's kernel: shaders/light.glsl -- the file the shading pass
+// includes -- evaluated at a table of cases. Only the light model is between
+// the inputs and the outputs, so a mismatch cannot be blamed on the draw path.
+
+#include "light.glsl"
+
+struct LightCase {
+    Light light;
+    vec4 x;
+    vec4 n;
+};
+
+layout(set = 0, binding = 0) readonly buffer Cases { LightCase cases[]; };
+layout(set = 0, binding = 1) buffer Results { vec4 results[]; };
+
+layout(local_size_x = 16) in;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uint(cases.length())) return;
+    results[i] = vec4(lightAt(cases[i].light, cases[i].x.xyz, cases[i].n.xyz), 0.0);
+}

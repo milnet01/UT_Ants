@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <utility>
@@ -114,6 +115,43 @@ void addSolidMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba
     texture.mipCount = 1;
     texture.blocks = bc7Solid(colour);
     bundle.textures->push_back(std::move(texture));
+}
+
+std::vector<std::byte> bc5Solid(std::uint8_t x, std::uint8_t y) {
+    // Two BC4 blocks: two endpoint bytes and 48 bits of three-bit indices. Both
+    // endpoints the value and every index 0, so every texel is exactly it.
+    std::vector<std::byte> bytes(16, std::byte{0});
+    bytes[0] = bytes[1] = std::byte{x};
+    bytes[8] = bytes[9] = std::byte{y};
+    return bytes;
+}
+
+void addNormalMappedMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& base,
+                             std::uint8_t normalX, std::uint8_t normalY) {
+    addSolidMaterial(bundle, id, base);
+    ubundle::CompressedTexture normal;
+    normal.name = id + ":normal";
+    normal.format = ubundle::BlockFormat::BC5;
+    normal.width = normal.height = 4;
+    normal.sourceWidth = normal.sourceHeight = 4;
+    normal.mipCount = 1;
+    normal.blocks = bc5Solid(normalX, normalY);
+    bundle.textures->push_back(std::move(normal));
+}
+
+ubundle::Light steadyLight(std::array<float, 3> location, std::uint8_t brightness, std::uint8_t radius) {
+    ubundle::Light light;
+    light.location = location;
+    light.type = 1;
+    light.brightness = brightness;
+    light.saturation = 255;
+    light.radius = radius;
+    return light;
+}
+
+double srgbByte(double c) {
+    const double encoded = c <= 0.0031308 ? 12.92 * c : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
+    return 255.0 * encoded;
 }
 
 std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width, std::uint32_t x,

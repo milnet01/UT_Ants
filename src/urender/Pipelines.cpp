@@ -5,6 +5,7 @@
 #include "ubundle/Bundle.h"
 #include "urender/ShaderTypes.h"
 
+#include "cluster.comp.spv.h"
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
 #include "scene.frag.spv.h"
@@ -316,6 +317,15 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
         }
     }
     UTA_TRY(p->post_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));
+
+    Module clusterCompute{device};
+    UTA_TRY(clusterCompute.handle, shaderModule(device, cluster_comp_spv));
+    VkComputePipelineCreateInfo compute{};
+    compute.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, clusterCompute.handle);
+    compute.layout = p->sceneLayout_;
+    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->clusters_),
+                    "vkCreateComputePipelines (clusters)"));
     return p;
 }
 
@@ -324,6 +334,7 @@ Pipelines::~Pipelines() {
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (post_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, post_, nullptr);
+    if (clusters_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, clusters_, nullptr);
     if (sceneLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, sceneLayout_, nullptr);
     if (postLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, postLayout_, nullptr);
     if (sceneSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, sceneSetLayout_, nullptr);

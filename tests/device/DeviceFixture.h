@@ -68,6 +68,21 @@ void addSquare(ubundle::Geometry& geometry, float distance, float y, float z, fl
 /// `colour` named `<id>:base`, as UTA-0011 SS 4.10 names one.
 void addSolidMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& colour);
 
+/// One BC5 block whose every texel stores `x` in red and `y` in green.
+[[nodiscard]] std::vector<std::byte> bc5Solid(std::uint8_t x, std::uint8_t y);
+
+/// Add material `id`: a solid `base` map and a solid normal map storing
+/// `normalX` and `normalY` as umat encodes them (127.5 * c + 128).
+void addNormalMappedMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& base,
+                             std::uint8_t normalX, std::uint8_t normalY);
+
+/// A steady white light: LT_Steady, LE_None, full saturation.
+[[nodiscard]] ubundle::Light steadyLight(std::array<float, 3> location, std::uint8_t brightness,
+                                         std::uint8_t radius);
+
+/// IEC 61966-2-1's encoding of linear `c`, as an 8-bit value.
+[[nodiscard]] double srgbByte(double c);
+
 /// The two floats at (x, y) of a Velocity readback `width` pixels wide.
 [[nodiscard]] std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width,
                                               std::uint32_t x, std::uint32_t y);

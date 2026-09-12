@@ -2,6 +2,7 @@
 // docs/specs/UTA-0014-vulkan-draw-path.md SS 4.3, SS 4.10 and SS 4.11.
 //
 // THE FRAME, IN ORDER:
+//   0. clustered light culling, a compute pass (SS 4.6);
 //   1. the forward pass: every opaque, masked and sky batch, writing colour,
 //      velocity and depth;
 //   2. the translucent pass: colour only, depth-tested and not written;
@@ -13,8 +14,10 @@
 
 #include "urender/Renderer.h"
 
+#include "urender/Clusters.h"
 #include "urender/Device.h"
 #include "urender/Geometry.h"
+#include "urender/Lights.h"
 #include "urender/Materials.h"
 #include "urender/Pipelines.h"
 #include "urender/Placement.h"
@@ -22,11 +25,13 @@
 #include "urender/ShaderTypes.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <format>
 #include <limits>
 #include <optional>
+#include <span>
 
 namespace uta::urender {
 
@@ -45,19 +50,85 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// surface below the unit one to reach it.
 constexpr float EXPOSURE = 1.0f;
 
-/// What identifies an uploaded bundle: the object, and the size of every
-/// section this renderer uploads. A bundle edited in place without changing
-/// a size keeps its old upload -- except movers' transforms and nothing else
-/// is read per frame.
+/// What identifies an uploaded bundle: the object, the size of every section
+/// this renderer uploads, and a hash of a bounded sample of their bytes.
+///
+/// THE SAMPLE IS WHAT CATCHES A RELOAD. A caller that loads another map of the
+/// same sizes into the same storage -- a std::optional re-emplaced, say --
+/// hands draw the same address, and the address and sizes alone would keep
+/// drawing the old map's upload. The sample covers every material id, every
+/// texture's name, format and first and last block, and the first and last
+/// vertex and index of each geometry, so it stays cheap per frame.
+///
+/// What it cannot see: an edit in place that changes only unsampled bytes. The
+/// lights and the movers' transforms are read every frame and need no upload.
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
-    std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0;
+    std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
+                lights = 0;
+    std::uint64_t sample = 0;
     bool operator==(const BundleShape&) const = default;
 };
+
+/// FNV-1a, 64-bit, folded over whatever it is given.
+class Fnv {
+public:
+    void add(std::span<const std::byte> bytes) noexcept {
+        for (const std::byte b : bytes) hash_ = (hash_ ^ std::to_integer<std::uint64_t>(b)) * 0x100000001b3ULL;
+    }
+    template <class T>
+    void addValue(const T& value) noexcept { add(std::as_bytes(std::span(&value, 1))); }
+    template <class T>
+    void addEnds(std::span<const T> values) noexcept {
+        addValue(values.size());
+        if (values.empty()) return;
+        add(std::as_bytes(values.first(1)));
+        add(std::as_bytes(values.last(1)));
+    }
+    [[nodiscard]] std::uint64_t value() const noexcept { return hash_; }
+
+private:
+    std::uint64_t hash_ = 0xcbf29ce484222325ULL;
+};
+
+void sampleGeometry(Fnv& fnv, const ubundle::Geometry& geometry) {
+    fnv.addEnds(std::span<const ubundle::GeometryVertex>(geometry.vertices));
+    fnv.addEnds(std::span<const std::uint32_t>(geometry.indices));
+    for (const ubundle::GeometryBatch& batch : geometry.batches) {
+        fnv.add(std::as_bytes(std::span(batch.material)));
+        fnv.addValue(batch.polyFlags);
+        fnv.addValue(batch.firstIndex);
+        fnv.addValue(batch.indexCount);
+    }
+}
 
 BundleShape shapeOf(const ubundle::Bundle& bundle) {
     BundleShape shape;
     shape.address = &bundle;
+    Fnv fnv;
+    if (bundle.geometry) sampleGeometry(fnv, *bundle.geometry);
+    if (bundle.movers)
+        for (const ubundle::MoverShape& mover : *bundle.movers) sampleGeometry(fnv, mover.geometry);
+    if (bundle.materials) {
+        for (const ubundle::MaterialRecord& record : *bundle.materials) {
+            fnv.add(std::as_bytes(std::span(record.id)));
+            fnv.addValue(record.metallic);
+        }
+    }
+    if (bundle.textures) {
+        for (const ubundle::CompressedTexture& texture : *bundle.textures) {
+            fnv.add(std::as_bytes(std::span(texture.name)));
+            fnv.addValue(texture.format);
+            fnv.addValue(texture.width);
+            fnv.addValue(texture.height);
+            fnv.addValue(texture.mipCount);
+            const std::span<const std::byte> blocks(texture.blocks);
+            const std::size_t block = std::min<std::size_t>(16, blocks.size());
+            fnv.add(blocks.first(block));
+            fnv.add(blocks.last(block));
+        }
+    }
+    shape.sample = fnv.value();
     if (bundle.geometry) {
         shape.vertices = bundle.geometry->vertices.size();
         shape.indices = bundle.geometry->indices.size();
@@ -65,6 +136,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     }
     if (bundle.textures) shape.textures = bundle.textures->size();
     if (bundle.materials) shape.materials = bundle.materials->size();
+    if (bundle.lights) shape.lights = bundle.lights->size();
     if (bundle.movers) {
         shape.movers = bundle.movers->size();
         for (const ubundle::MoverShape& mover : *bundle.movers) shape.moverIndices += mover.geometry.indices.size();
@@ -112,10 +184,11 @@ struct Renderer::Impl {
     Image hdr, velocity, depth, output;
     Image shadowAtlas;
 
-    Buffer frameData, objects;
-    /// Stand-ins for the passes not yet drawing: lights, clusters, probes and
-    /// shadow faces. A storage binding cannot be left empty.
-    Buffer lights, clusterCounts, clusterIndices, clusterBounds, probeGrid, probes, shadowFaces;
+    Buffer frameData, objects, lights;
+    Buffer clusterCounts, clusterIndices, clusterBounds;
+    /// Stand-ins for the passes not yet drawing: probes and shadow faces. A
+    /// storage binding cannot be left empty.
+    Buffer probeGrid, probes, shadowFaces;
 
     BundleShape shape;
     std::optional<MaterialSet> materials;
@@ -125,6 +198,8 @@ struct Renderer::Impl {
     std::vector<gpu::Mat4> previousModels;
     bool jitter = false;
     std::uint64_t frameIndex = 0;
+    /// SS 4.9's clock: a flickering light's phase is measured from here.
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     bool drawn = false;
     FrameStats stats;
 
@@ -199,7 +274,13 @@ Result<void> Renderer::Impl::createSamplers() {
 Result<void> Renderer::Impl::createStandIns() {
     const VkBufferUsageFlags storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     UTA_TRY(frameData, Buffer::create(*gpu, sizeof(gpu::FrameData), storage, true));
-    for (Buffer* buffer : {&lights, &clusterCounts, &clusterIndices, &clusterBounds, &probeGrid, &probes, &shadowFaces}) {
+    // SS 4.6: the grid is fixed, so its buffers are sized once. The counts are
+    // host-visible because each frame reads them back for SS 6's overflow count.
+    UTA_TRY(clusterCounts, Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT, storage, true));
+    UTA_TRY(clusterIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT * gpu::CLUSTER_CAPACITY,
+                                           storage, true));
+    UTA_TRY(clusterBounds, Buffer::create(*gpu, sizeof(gpu::ClusterBounds) * gpu::CLUSTER_COUNT, storage, true));
+    for (Buffer* buffer : {&probeGrid, &probes, &shadowFaces}) {
         UTA_TRY(*buffer, Buffer::create(*gpu, 256, storage, true));
         std::memset(buffer->mapped(), 0, 256);
     }
@@ -219,6 +300,8 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     geometry.emplace(std::move(uploadedGeometry));
     UTA_TRY(objects, Buffer::create(*gpu, sizeof(gpu::Object) * geometry->objectCount,
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
+    const std::size_t lightCount = std::max<std::size_t>(1, drawnLights(bundle, 0.0).size());
+    UTA_TRY(lights, Buffer::create(*gpu, sizeof(gpu::Light) * lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
     previousModels.clear();
     return writeDescriptors();
 }
@@ -319,6 +402,12 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands) {
     const VkExtent2D extent{config.width, config.height};
     const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
     const VkRect2D scissor{{0, 0}, extent};
+
+    // -- 0. Clustered light culling -------------------------------------------
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->clusters());
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
+                            nullptr);
+    vkCmdDispatch(commands, (gpu::CLUSTER_COUNT + 63) / 64, 1, 1); // cluster.comp's local size is 64
 
     // -- 1. The forward pass --------------------------------------------------
     hdr.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -466,6 +555,15 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.nearPlane = camera.nearPlane;
     frame.farPlane = camera.farPlane;
     frame.viewportSize = {static_cast<float>(impl.config.width), static_cast<float>(impl.config.height)};
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
+    const std::vector<gpu::Light> lights = drawnLights(bundle, seconds);
+    if (!lights.empty()) std::memcpy(impl.lights.mapped(), lights.data(), lights.size() * sizeof(gpu::Light));
+    const ClusterGrid grid = clusterGrid(camera, impl.config.width, impl.config.height);
+    std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
+    frame.clusterGrid = gpu::CLUSTER_GRID;
+    frame.lightCount = static_cast<std::uint32_t>(lights.size());
+    frame.clusterDepthScale = grid.depthScale;
+    frame.clusterDepthBias = grid.depthBias;
     std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
 
     std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());
@@ -478,6 +576,15 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     }
 
     UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) { impl.recordFrame(commands); }));
+
+    // SS 6: how many clusters dropped lights past their cap, read back from the
+    // pass that decided -- the frame has finished, so the counts are final.
+    impl.stats = {};
+    for (std::uint32_t c = 0; c < gpu::CLUSTER_COUNT; ++c) {
+        std::uint32_t count = 0;
+        std::memcpy(&count, impl.clusterCounts.mapped() + c * sizeof(count), sizeof(count));
+        if ((count & gpu::CLUSTER_OVERFLOW) != 0) ++impl.stats.overflowedClusters;
+    }
 
     impl.previousViewProj = viewProj;
     impl.previousModels = std::move(models);

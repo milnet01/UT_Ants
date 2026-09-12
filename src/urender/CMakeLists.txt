@@ -18,6 +18,8 @@ add_library(uta_urender STATIC
     Pipelines.cpp
     Materials.cpp
     Geometry.cpp
+    Lights.cpp
+    Clusters.cpp
     Frame.cpp)
 # Vulkan and glm are PRIVATE: Renderer.h names neither, so a consumer compiles
 # with no Vulkan headers on its path (INV-2).
@@ -74,6 +76,7 @@ function(uta_embed_shaders target)
 endfunction()
 
 uta_embed_shaders(uta_urender
+    shaders/cluster.comp
     shaders/scene.vert
     shaders/scene.frag
     shaders/post.vert
