@@ -1072,6 +1072,36 @@ model, no weapon and no opponent until 0.2.0.
   checks its lights against ubake's lightAt at a table of cases. Flicker
   and the effects UTA-0112 bakes as steady are this item's. So is
   ZoneInfo's AmbientBrightness, AmbientHue and AmbientSaturation.
+  Readiness checked (2026-09-12, ut-ants-f0, main checkout), not claimed —
+  left 📋 deliberately rather than flipped to 🚧 for a session that would do
+  no work on it.
+
+  THIS ITEM NEEDS A SPEC BEFORE ANY CODE, and spec-format § 1's triggers are
+  met several times over rather than marginally. It is greenfield:
+  `src/urender/` does not exist, and the source roots are core, ubake,
+  ubundle, umap, umat, unav and upkg. It spans several subsystems — ubundle's
+  geometry, umat's materials, and UTA-0112's light model, which the notes
+  above say the renderer writes again because ubake stays out of the runtime
+  targets. It is a contract other code binds to: UTA-0075 requires this path
+  to carry sub-pixel camera jitter, write a per-pixel motion-vector buffer,
+  and composite the UI after upscaling rather than into it. A velocity buffer
+  is written by every draw that moves, so the note above is right that it
+  cannot be bolted on later. And the render graph is hard to reverse.
+
+  So the first step is `write-spec` for `docs/specs/UTA-0014-*.md`, then rule
+  14's gate before implementation — which on this project's recent evidence
+  earns its cost: UTA-0133's gate found the amendment it was gating to be
+  wrong, and writing the code first would have built the defect.
+
+  `docs/plans/` does not exist yet. If this item wants build steps as well,
+  that is `write-spec --plan`, and the directory arrives with it.
+
+  Vulkan is available to build against on this machine: headers at
+  /usr/include/vulkan/vulkan.h, pkg-config reports 1.4.357. The item asks for
+  Vulkan 1.3, so the installed loader is ahead of the floor rather than
+  behind it. Not verified: whether CI's runners carry a Vulkan SDK, which
+  decides whether any of this can be graded on the matrix or only locally.
+  Settle that in the spec rather than discovering it at the first push.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
