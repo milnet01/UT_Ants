@@ -178,6 +178,20 @@ ctest --test-dir build -L unit
 `./scripts/ci.sh` is the whole gate, and a documentation-only push runs
 `./scripts/ci.sh --docs` — a reduced run in which no compiler leg fires.
 
+**The renderer's device tier draws on a real Vulkan device.** Its tests carry
+the label `device`; INV-5's refusal test carries `device-absent`.
+`scripts/ci.sh` runs `device` on Linux only, and on the MSVC leg says it did
+not. Run it headlessly on Mesa's CPU driver, which is what CI's Linux legs have:
+
+```sh
+VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
+  ctest --test-dir build -L '^device$'
+```
+
+Without that variable the tier runs on this machine's GPU. **A device test that
+finds no device fails; it never skips** —
+`docs/specs/UTA-0014-vulkan-draw-path.md` § 3 decision 6.
+
 `.githooks/pre-push` runs neither directly. It delegates to
 `$ANTS_GLOBAL_HOOKS/pre-push` whenever that variable is set to a
 **non-empty** value — the hook uses `${ANTS_GLOBAL_HOOKS:-...}`, so an

@@ -388,7 +388,7 @@ S2 reachable.**
 | **Vulkan 1.3** | Installed SDK | Explicit control of the exact features the renderer needs; already proven on this GPU by `DOOM_Ants` | `wgpu`, rejected for putting a layer between us and those features |
 | **SDL3** | Fetched | Window, input and gamepads in one dependency — its controller database already knows a DualShock 4 (**S9**) | GLFW, which has no gamepad database |
 | **glm** | Fetched | Well understood, header-only, matches the maths in every reference | Our own, later, if it earns it |
-| **shaderc** | From the Vulkan SDK | Compile GLSL to SPIR-V at build time | Hand-run `glslangValidator` |
+| **glslc** | From the Vulkan SDK, or the distribution's package on Linux | Compile GLSL to SPIR-V at build time | Hand-run `glslangValidator` |
 | **Dear ImGui** | Vendored | Editor and developer overlays, vendored | Nothing else is close for this job |
 | **Assimp** | Fetched, `ut-ed` only | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
 | **Catch2 v3** | Fetched | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |

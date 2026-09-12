@@ -69,11 +69,22 @@ You do not need Unreal Tournament to build this or to run its tests.
 You need CMake, Ninja, and a C++ compiler recent enough for C++23: GCC 14,
 Clang 19, or Visual Studio 2022 version 17.10 — or anything newer.
 
+You also need **Vulkan 1.3 or newer** for the renderer: its headers, its loader
+and the `glslc` shader compiler. On Windows, install the LunarG Vulkan SDK. On
+Linux, either that SDK or your distribution's packages — on Ubuntu,
+`libvulkan-dev` and `glslc`. The Vulkan validation layers are worth having while
+working on the renderer; nothing checks that they are installed.
+
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # set up a build folder
 cmake --build build                                        # compile everything
 ctest --test-dir build -L unit                             # run the automated tests
+ctest --test-dir build -L device                           # run the renderer's tests
 ```
+
+The renderer's tests draw real pictures, so they need a Vulkan driver. A machine
+with no graphics card can use Mesa's software driver — on Ubuntu,
+`mesa-vulkan-drivers`. Without a driver those tests fail rather than skip.
 
 `./scripts/ci.sh` runs every check the online build runs, on your own
 machine.
