@@ -16,7 +16,7 @@ layout(set = 0, binding = 4) readonly buffer ClusterCountBlock { uint clusterCou
 layout(set = 0, binding = 5) readonly buffer ClusterIndexBlock { uint clusterIndices[]; };
 #endif
 layout(set = 0, binding = 6) readonly buffer ClusterBoundsBlock { ClusterBounds clusterBounds[]; };
-layout(set = 0, binding = 7) readonly buffer ProbeGridBlock { int probeGrid[]; };
+layout(set = 0, binding = 7) readonly buffer ProbeCellBlock { ProbeCell probeCells[]; };
 layout(set = 0, binding = 8) readonly buffer ProbeBlock { Probe probes[]; };
 layout(set = 0, binding = 9) readonly buffer ShadowFaceBlock { ShadowFace shadowFaces[]; };
 layout(set = 0, binding = 10) uniform sampler2DShadow shadowAtlas;

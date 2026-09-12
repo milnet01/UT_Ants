@@ -1,0 +1,37 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// UTA-0014 INV-7's kernel: shaders/probes.glsl -- the file the shading pass
+// includes -- evaluated at a table of points and normals, over the table
+// urender::ProbeTable built. Only the probe arithmetic and the hash lookup lie
+// between the inputs and the outputs.
+
+#include "types.glsl"
+
+layout(set = 0, binding = 0) readonly buffer LatticeBlock {
+    uint spacing;
+    uint count;
+    uint tableMask;
+    uint longestRun;
+} lattice;
+layout(set = 0, binding = 1) readonly buffer ProbeCellBlock { ProbeCell probeCells[]; };
+layout(set = 0, binding = 2) readonly buffer ProbeBlock { Probe probes[]; };
+
+#include "probes.glsl"
+
+struct ProbeCase {
+    vec4 x;
+    vec4 n;
+};
+
+layout(set = 0, binding = 3) readonly buffer Cases { ProbeCase cases[]; };
+layout(set = 0, binding = 4) buffer Results { vec4 results[]; };
+
+layout(local_size_x = 16) in;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uint(cases.length())) return;
+    ProbeLattice l = ProbeLattice(lattice.spacing, lattice.count, lattice.tableMask, lattice.longestRun);
+    results[i] = vec4(indirectAt(l, cases[i].x.xyz, cases[i].n.xyz), 0.0);
+}

@@ -10,6 +10,7 @@
 
 #include "scene_bindings.glsl"
 #include "light.glsl"
+#include "probes.glsl"
 
 layout(location = 0) in vec3 worldPosition;
 layout(location = 1) in vec3 worldNormal;
@@ -91,7 +92,10 @@ void main() {
             Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
             direct += lightAt(light, worldPosition, n) * light.flicker;
         }
-        vec3 indirect = vec3(0.0); // probes arrive with their own pass
+        // SS 4.7: the probes, through the same normal the lights use.
+        ProbeLattice lattice =
+            ProbeLattice(frame.probeSpacing, frame.probeCount, frame.probeTableMask, frame.probeLongestRun);
+        vec3 indirect = indirectAt(lattice, worldPosition, n);
         // UTA-0112 SS 4.9: a surface of reflectance rho shows rho * (direct + indirect).
         colour = base.rgb * (direct + indirect);
         if (material.emit != NONE) colour += texture(textures[nonuniformEXT(material.emit)], uv).rgb;

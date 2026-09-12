@@ -20,6 +20,7 @@ add_library(uta_urender STATIC
     Geometry.cpp
     Lights.cpp
     Clusters.cpp
+    Probes.cpp
     Frame.cpp)
 # Vulkan and glm are PRIVATE: Renderer.h names neither, so a consumer compiles
 # with no Vulkan headers on its path (INV-2).

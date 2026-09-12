@@ -40,10 +40,11 @@ struct FrameData {
     vec2 viewportSize;
     uint probeSpacing;
     uint probeCount;
-    ivec3 probeOrigin;
+    uint probeTableMask;
+    uint probeLongestRun;
+    uint reserved0;
     uint shadowFaceCount;
-    ivec3 probeDims;
-    uint reserved;
+    uint reserved1[4];
 };
 
 struct Object {
@@ -85,6 +86,11 @@ struct ClusterBounds {
 
 struct Probe {
     vec4 faces[6];
+};
+
+struct ProbeCell {
+    ivec3 cell;
+    int probe;
 };
 
 struct ShadowFace {

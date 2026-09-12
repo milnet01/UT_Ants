@@ -21,6 +21,7 @@
 #include "urender/Materials.h"
 #include "urender/Pipelines.h"
 #include "urender/Placement.h"
+#include "urender/Probes.h"
 #include "urender/Resources.h"
 #include "urender/ShaderTypes.h"
 
@@ -65,7 +66,7 @@ constexpr float EXPOSURE = 1.0f;
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
     std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
-                lights = 0;
+                lights = 0, probes = 0;
     std::uint64_t sample = 0;
     bool operator==(const BundleShape&) const = default;
 };
@@ -128,6 +129,10 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
             fnv.add(blocks.last(block));
         }
     }
+    if (bundle.lightProbes) {
+        fnv.addValue(bundle.lightProbes->spacing);
+        fnv.addEnds(std::span<const ubundle::LightProbe>(bundle.lightProbes->probes));
+    }
     shape.sample = fnv.value();
     if (bundle.geometry) {
         shape.vertices = bundle.geometry->vertices.size();
@@ -137,6 +142,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     if (bundle.textures) shape.textures = bundle.textures->size();
     if (bundle.materials) shape.materials = bundle.materials->size();
     if (bundle.lights) shape.lights = bundle.lights->size();
+    if (bundle.lightProbes) shape.probes = bundle.lightProbes->probes.size();
     if (bundle.movers) {
         shape.movers = bundle.movers->size();
         for (const ubundle::MoverShape& mover : *bundle.movers) shape.moverIndices += mover.geometry.indices.size();
@@ -186,9 +192,10 @@ struct Renderer::Impl {
 
     Buffer frameData, objects, lights;
     Buffer clusterCounts, clusterIndices, clusterBounds;
-    /// Stand-ins for the passes not yet drawing: probes and shadow faces. A
-    /// storage binding cannot be left empty.
-    Buffer probeGrid, probes, shadowFaces;
+    Buffer probeCells, probes;
+    std::uint32_t probeSpacing = 0, probeCount = 0, probeTableMask = 0, probeLongestRun = 0;
+    /// A stand-in until shadows draw: a storage binding cannot be left empty.
+    Buffer shadowFaces;
 
     BundleShape shape;
     std::optional<MaterialSet> materials;
@@ -280,7 +287,7 @@ Result<void> Renderer::Impl::createStandIns() {
     UTA_TRY(clusterIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT * gpu::CLUSTER_CAPACITY,
                                            storage, true));
     UTA_TRY(clusterBounds, Buffer::create(*gpu, sizeof(gpu::ClusterBounds) * gpu::CLUSTER_COUNT, storage, true));
-    for (Buffer* buffer : {&probeGrid, &probes, &shadowFaces}) {
+    for (Buffer* buffer : {&shadowFaces}) {
         UTA_TRY(*buffer, Buffer::create(*gpu, 256, storage, true));
         std::memset(buffer->mapped(), 0, 256);
     }
@@ -302,6 +309,16 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
     const std::size_t lightCount = std::max<std::size_t>(1, drawnLights(bundle, 0.0).size());
     UTA_TRY(lights, Buffer::create(*gpu, sizeof(gpu::Light) * lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
+
+    // SS 4.7: no LPRB, or an empty one, is a table with no probes, which gives
+    // zero indirect everywhere (SS 6).
+    const ProbeTable table = probeTable(bundle.lightProbes);
+    UTA_TRY(probeCells, Buffer::upload(*gpu, std::as_bytes(std::span(table.cells)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+    UTA_TRY(probes, Buffer::upload(*gpu, std::as_bytes(std::span(table.probes)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+    probeSpacing = table.spacing;
+    probeCount = static_cast<std::uint32_t>(table.probes.size());
+    probeTableMask = table.tableMask;
+    probeLongestRun = table.longestRun;
     previousModels.clear();
     return writeDescriptors();
 }
@@ -346,7 +363,7 @@ Result<void> Renderer::Impl::writeDescriptors() {
 
     const std::array<const Buffer*, gpu::SHADOW_FACES + 1> buffers = {
         &frameData, &objects, &materials->records(), &lights, &clusterCounts,
-        &clusterIndices, &clusterBounds, &probeGrid, &probes, &shadowFaces};
+        &clusterIndices, &clusterBounds, &probeCells, &probes, &shadowFaces};
     std::array<VkDescriptorBufferInfo, gpu::SHADOW_FACES + 1> bufferInfos{};
     std::vector<VkWriteDescriptorSet> writes;
     for (std::uint32_t i = 0; i < buffers.size(); ++i) {
@@ -564,6 +581,10 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.lightCount = static_cast<std::uint32_t>(lights.size());
     frame.clusterDepthScale = grid.depthScale;
     frame.clusterDepthBias = grid.depthBias;
+    frame.probeSpacing = impl.probeSpacing;
+    frame.probeCount = impl.probeCount;
+    frame.probeTableMask = impl.probeTableMask;
+    frame.probeLongestRun = impl.probeLongestRun;
     std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
 
     std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());

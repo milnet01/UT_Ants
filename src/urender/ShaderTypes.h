@@ -53,7 +53,7 @@ enum Binding : std::uint32_t {
     CLUSTER_COUNTS = 4,
     CLUSTER_INDICES = 5,
     CLUSTER_BOUNDS = 6,
-    PROBE_GRID = 7,
+    PROBE_CELLS = 7,
     PROBES = 8,
     SHADOW_FACES = 9,
     SHADOW_ATLAS = 10,
@@ -77,10 +77,11 @@ struct FrameData {
     std::array<float, 2> viewportSize;
     std::uint32_t probeSpacing;
     std::uint32_t probeCount;
-    std::array<std::int32_t, 3> probeOrigin;
+    std::uint32_t probeTableMask;  ///< the probe table's size minus one
+    std::uint32_t probeLongestRun; ///< the most slots past its hash any probe sits
+    std::uint32_t reserved0;
     std::uint32_t shadowFaceCount;
-    std::array<std::int32_t, 3> probeDims;
-    std::uint32_t reserved;
+    std::array<std::uint32_t, 4> reserved1;
 };
 static_assert(sizeof(FrameData) == 352);
 static_assert(offsetof(FrameData, viewProj) == 0);
@@ -98,10 +99,11 @@ static_assert(offsetof(FrameData, farPlane) == 300);
 static_assert(offsetof(FrameData, viewportSize) == 304);
 static_assert(offsetof(FrameData, probeSpacing) == 312);
 static_assert(offsetof(FrameData, probeCount) == 316);
-static_assert(offsetof(FrameData, probeOrigin) == 320);
+static_assert(offsetof(FrameData, probeTableMask) == 320);
+static_assert(offsetof(FrameData, probeLongestRun) == 324);
+static_assert(offsetof(FrameData, reserved0) == 328);
 static_assert(offsetof(FrameData, shadowFaceCount) == 332);
-static_assert(offsetof(FrameData, probeDims) == 336);
-static_assert(offsetof(FrameData, reserved) == 348);
+static_assert(offsetof(FrameData, reserved1) == 336);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {
@@ -181,6 +183,16 @@ struct Probe {
 };
 static_assert(sizeof(Probe) == 96);
 static_assert(offsetof(Probe, faces) == 0);
+
+/// One slot of the probe table (Probes.h): a lattice cell and its probe's
+/// index, or -1 where the slot is empty.
+struct ProbeCell {
+    std::array<std::int32_t, 3> cell;
+    std::int32_t probe;
+};
+static_assert(sizeof(ProbeCell) == 16);
+static_assert(offsetof(ProbeCell, cell) == 0);
+static_assert(offsetof(ProbeCell, probe) == 12);
 
 /// One shadow-map face: its light's projection, and its tile in the atlas as
 /// (u offset, v offset, u size, v size).
