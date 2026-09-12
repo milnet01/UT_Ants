@@ -51,17 +51,24 @@ draw path existing. `UTA-0013`'s quarantine guard is a third, and
 neither shares a directory with ut-paths, so a second session can take
 either alongside `UTA-0126`.
 
-**Shipped 2026-09-12**, all on the matrix: `UTA-0133`'s fallback keying,
+**Shipped 2026-09-12**, all on the matrix: `UTA-0133`'s fallback keying
+and `UTA-0134` (answered in-engine by UT_MonsterHunt, nothing to change),
 `UTA-0127`'s off-world mark, `UTA-0128`'s control group, `UTA-0087`,
 `UTA-0081`, `UTA-0071` and `UTA-0077`.
 
 **Filed the same day and all open:** `UTA-0129` the benchmark tool,
 `UTA-0130` exits that are SHOT rather than walked into, `UTA-0131` the
 hunt for whatever tool parked 58 MonsterEnds outside the world, and
-`UTA-0132` the real-asset tier assuming the reference install. Filed
-2026-09-12 from `UTA-0133`'s corpus re-measurement: `UTA-0134`, a huge exit
-radius making the touch test permissive, which two maps' new `found`
-verdicts rest on.
+`UTA-0132` the real-asset tier assuming the reference install.
+
+Filed 2026-09-12 from UT_MonsterHunt's answer to `UTA-0134`: `UTA-0135`, the
+exit's VERTICAL window, which is unmeasured and which MH-NivenSB's
+correction rests on; `UTA-0136`, serialising the nav graph's reach-spec
+flags from ut-dump, **which they have now asked for four times and want a
+yes or no on** — they are flag-blind without it, and we already filter on
+those same fields in `sceneOf`; and `UTA-0137`, a census name mangled from
+the installed one being skipped in silence, which cost `UTA-0133`'s corpus
+measurement two maps.
 
 `UTA-0130` is the one to read before touching routing. UT_MonsterHunt
 found that `MonsterEndSB` reimplements `TakeDamage` gated on

@@ -7022,12 +7022,38 @@ model, no weapon and no opponent until 0.2.0.
   premise holds. Asked them to re-run their seed test rather than reuse
   the 2026-09-11 output, since what they receive changed in both
   directions. This closes the last thing this item left open.
+  CORRECTION to the corpus figure above (2026-09-12), and it changes the
+  population rather than the result.
+
+  The measurement said 125 PARTITIONED maps came back from both passes. It
+  should be 125 of 127. Two census work rows carry names with their
+  PARENTHESES STRIPPED while the installed maps carry them, so ut-paths found
+  no file and skipped them in silence, as § 4.2 has it. Found from
+  UT_MonsterHunt's note that four of their own census rows were failed
+  exports from the same cause. Filed as UTA-0137.
+
+  Re-run with the names restored, against binaries built at 9a30623 and
+  c5c3946 as before:
+
+      MH-(OMG)-AlitaBattleAngel-NormalGuns     none 0 nodes -> none 0 nodes
+      MH-(THUNDERBOLT)-DARKFOREST-2009-BETA    none 0 nodes -> none 0 nodes
+
+  Both route `none` either way, so the DELTA this item reports is unchanged:
+  still 17 maps moved, still five gains and twelve withdrawals, still 81
+  proposed nodes to 633. What was wrong is the denominator, and the two
+  missing maps could not have moved.
+
+  UTA-0134's answer also landed and CONFIRMS the two GardenOfDeath gains.
+  UT_MonsterHunt measured in-engine that a MonsterEnd fires at its own
+  CollisionRadius plus the pawn's radius with no cap, so the 4017 window
+  those two maps rely on is honoured in full. The vertical half is still
+  unmeasured and is UTA-0135.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
   Lanes: ut-paths.
 
-- 📋 [UTA-0134] **ut-paths: a huge exit radius makes the touch test permissive, and nothing checks it.**
+- ✅ [UTA-0134] **ut-paths: a huge exit radius makes the touch test permissive, and nothing checks it.**
   Found while re-measuring the corpus for UTA-0133; measured, not inferred.
 
   UTA-0121 § 4.6 decides that a spot, or a navigation point, touches an exit
@@ -7066,9 +7092,156 @@ model, no weapon and no opponent until 0.2.0.
   MH-GardenOfDeath_DotD and _Hell's new `found` verdicts are real or as
   false as the ones UTA-0133 removed. They record their half; this is
   ours.
+  Resolved (2026-09-12) by UT_MonsterHunt, in-engine, and the answer is that
+  our rule is right. Nothing to change here.
+
+  A MonsterEnd fires at its OWN CollisionRadius plus the pawn's radius, with
+  no size cap. Measured on MH-GardenOfDeath_DotD, whose end is
+  BarbiesWorld.MonsterEndSB at radius 4000, against a pawn of radius 17,
+  with their new MHTouchProbe at commit 81bc099 run by
+  analysis/touchprobe.sh:
+
+      asked radius  step  last contact  radius + pawn radius
+              1000    10          1020                  1017
+              4000    25          4025                  4017
+
+  Contact is lost just past radius plus pawn radius at both scales, and the
+  map's own unresized end touches a pawn at its centre. Validated against a
+  fixed ladder at radius 350, losing contact at 367. So the 4017 window
+  UTA-0133 relies on is honoured in full, and both GardenOfDeath verdicts
+  stand. They say explicitly: do not cap the radius, the rule does follow
+  the actor.
+
+  Their method is worth knowing because it decides whether to trust the
+  number. MonsterEndSB expands MonsterEnd expands Trigger and fires from
+  Touch via Trigger.IsRelevant, so the question reduces to when the engine
+  reports a cylinder overlap. The probe reads Actor.Touching[] after setting
+  bInitiallyActive false on every MonsterEnd, which is the flag IsRelevant
+  tests and which leaves collision untouched.
+
+  FOUR WAYS THEY GOT A CONFIDENT WRONG NUMBER FIRST, all four now written
+  into MHTouchProbe.uc, and the third is the one that matters to us: an
+  Actor's Touching[] holds only FOUR entries, so a radius-1250 cylinder swept
+  up four other level actors and the pawn got no slot -- which looked exactly
+  like the size cap this item was worried about. Read the PAWN's list, not
+  the big actor's. Also: an empty Touching[] slot is None, so a destroyed
+  pawn compares equal to every empty slot; a large SetLocation does not leave
+  Touching[] in the state an incremental move does; and a step of 5% of the
+  radius cannot tell radius-plus-pawn-radius from 1.05 times radius, which
+  produced a clean and entirely artefactual 1.05 law across three radii.
+
+  WHAT THEY DID NOT MEASURE, and neither of these is closed. A SHOT end:
+  TriggerType TT_Shoot gated by DamageThreshold goes through
+  MonsterEndSB.TakeDamage, a different path, which is UTA-0130. And the
+  VERTICAL window -- height is tested separately from radius, and they have
+  not measured it. Our § 4.6 grows the height by HALF_HEIGHT, and
+  MH-NivenSB's correction rests on that, so it is filed separately rather
+  than assumed from this radius result.
   **Layman:** Two maps now count as solvable because their exit is enormous; we have not checked that standing at its edge really finishes the map.
   Kind: investigate.
   Source: in-session-2026-09-12 UTA-0133 corpus re-measurement.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0135] **ut-paths: the exit's VERTICAL window is unmeasured, and MH-NivenSB rests on it.**
+  UTA-0134 settled the HORIZONTAL window: a MonsterEnd fires at its own
+  CollisionRadius plus the pawn's radius, with no cap, measured in-engine.
+  UT_MonsterHunt said in the same message that height is tested SEPARATELY
+  from radius and that they have not measured it.
+
+  UTA-0121 § 4.6 grows the exit's CollisionHeight by HALF_HEIGHT, 39, by
+  symmetry with the radius rule and with nothing behind it.
+
+  WHAT RESTS ON IT. MH-NivenSB's exit is radius 4, height 166, so its window
+  is 21 horizontally and 205 vertically, and its nearest navigation point sits
+  11.24 out horizontally and 78.60 vertically. That point touches only
+  because the vertical window is generous. UTA-0133 corrected this project's
+  earlier claim that MH-NivenSB's fallback premise fails, and the correction
+  is right about the arithmetic but assumes the vertical rule. If UT's
+  vertical test is narrower than height plus half-height, MH-NivenSB flips
+  back and the correction was wrong.
+
+  Ask UT_MonsterHunt to sweep Z with MHTouchProbe as they swept radius. Their
+  four recorded traps apply unchanged, and the third especially: read the
+  PAWN's Touching[] list, not the exit's, because it holds only four entries.
+
+  Test: whatever their probe reports for the vertical extent of a MonsterEnd
+  of height 166 -- at what Z separation contact is lost.
+  **Layman:** We know how wide an exit reaches sideways; we have not checked how far up and down.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-09-12 UTA-0134 answer.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0136] **ut-dump: serialise the nav graph's reach-spec flags and sizes, which UT_MonsterHunt has asked for three times.**
+  UT_MonsterHunt has asked three times and asked again 2026-09-12, this time
+  with the measurement behind it, and asked for a yes or no so they can stop
+  planning around it.
+
+  WHAT THEY NEED, in their order of importance: `reachFlags` per edge, then
+  `collisionRadius` and `collisionHeight`. Locations they do not need -- T3D
+  gives them those. `ut-dump` already builds the graph, so this is
+  serialisation rather than new analysis.
+
+  THEIR EVIDENCE. Their offline census agrees with the in-engine one on 83.2%
+  of maps where both have spoken, and 75 of the 90 disagreements are maps
+  where they find a route the engine refuses, because a fly-only, swim-only
+  or undersized spec reads to them as walkable. They are flag-blind, and this
+  is the field that fixes it.
+
+  WHY IT SERVES US TOO, which is what makes it more than a favour. UTA-0125
+  already taught `sceneOf` to keep only the edges a walking bot may use, on
+  exactly these three fields -- UTA-0121 § 3 decision 10 and INV-11. So the
+  values are read and filtered here already and simply never leave the
+  process. Two projects deriving the same walkability from the same map, one
+  of them blind to it, is the shape that produced UTA-0126's whole
+  investigation.
+
+  Not promised to them, and not scheduled ahead of 0.1.0's keystone: filed so
+  it is a decision with a home rather than a fourth unanswered ask.
+
+  Test: a dumped map's JSON carries a flags value per edge, and a walking-bot
+  filter applied to that JSON reproduces `Scene::edges` for the same map.
+  **Layman:** Write out which bot moves each path link allows, so the sister project stops guessing.
+  Kind: implement.
+  Source: ut-monsterhunt-2026-09-12 third ask.
+  Lanes: ut-dump, unav.
+
+- 📋 [UTA-0137] **ut-paths: a census name mangled from the installed one is skipped in silence.**
+  Found 2026-09-12 from UT_MonsterHunt's note that four of their census rows
+  were failed exports, because a stale map list had its PARENTHESES STRIPPED
+  while the installed maps carry them. Measured here, and it bit us too.
+
+  UTA-0121 § 4.2 reads each map from `<install>/Maps/<map>.unr`, the name as
+  the TSV spells it, and skips a work row with no file there -- named in the
+  output, and deliberately not a refusal, because GAME-0092 moved some census
+  maps out of `Maps/`. So a mangled name is indistinguishable from a moved
+  map.
+
+  MEASURED. 103 installed maps carry parentheses. Of the census work rows
+  whose `.unr` is missing, TWO match an installed map once parentheses are
+  ignored, and both are PARTITIONED:
+
+      census MH-OMG-AlitaBattleAngel-NormalGuns   installed MH-(OMG)-AlitaBattleAngel-NormalGuns
+      census MH-THUNDERBOLT-DARKFOREST-2009-BETA  installed MH-(THUNDERBOLT)-DARKFOREST-2009-BETA
+
+  So every ut-paths run has silently omitted two maps, UTA-0133's corpus
+  measurement included. Re-run with the names restored, both route `none`
+  before and after the UTA-0133 fix, so that measurement's DELTA is unchanged
+  and only its population was wrong -- 125 maps measured of 127. Annotated on
+  UTA-0133.
+
+  THE FIX IS NOT TO GUESS THE NAME. Matching a file by ignoring punctuation
+  would make the tool accept a name the census did not write, which is how
+  you read the wrong map and never notice. Report instead: when a work row
+  has no file, say in the summary whether an installed map differs from it
+  only by punctuation, and name that map. The run still skips it, the operator
+  still fixes the census, and the silence goes away.
+
+  Test: a census naming a map whose installed file differs only by
+  parentheses is skipped, and the summary entry for it names the installed
+  file as a near match.
+  **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets.
+  Kind: fix.
+  Source: ut-monsterhunt-2026-09-12 census export note.
   Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons
