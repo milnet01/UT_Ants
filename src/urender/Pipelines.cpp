@@ -10,6 +10,8 @@
 #include "post.vert.spv.h"
 #include "scene.frag.spv.h"
 #include "scene.vert.spv.h"
+#include "shadow.frag.spv.h"
+#include "shadow.vert.spv.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -157,6 +159,82 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     VkPipeline pipeline = VK_NULL_HANDLE;
     UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
                     "vkCreateGraphicsPipelines (scene)"));
+    return pipeline;
+}
+
+/// SS 4.8's tile pass. Both faces cast -- a shadow must not leak through a
+/// wall seen edge-on from its back -- and a rasterisation depth bias keeps a
+/// lit surface from shadowing itself, beside the normal offset shadows.glsl
+/// applies when it samples.
+Result<VkPipeline> shadowPipeline(VkDevice device, VkPipelineLayout layout, VkFormat depthFormat,
+                                  VkShaderModule vertex, VkShaderModule fragment) {
+    const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex),
+                               stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
+    const VkVertexInputBindingDescription binding{0, sizeof(ubundle::GeometryVertex), VK_VERTEX_INPUT_RATE_VERTEX};
+    const std::array attributes = {
+        VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT,
+                                          offsetof(ubundle::GeometryVertex, position)},
+        VkVertexInputAttributeDescription{1, 0, VK_FORMAT_R32G32B32_SFLOAT,
+                                          offsetof(ubundle::GeometryVertex, normal)},
+        VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ubundle::GeometryVertex, u)},
+    };
+    VkPipelineVertexInputStateCreateInfo vertexInput{};
+    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInput.vertexBindingDescriptionCount = 1;
+    vertexInput.pVertexBindingDescriptions = &binding;
+    vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
+    vertexInput.pVertexAttributeDescriptions = attributes.data();
+    VkPipelineInputAssemblyStateCreateInfo assembly{};
+    assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    VkPipelineViewportStateCreateInfo viewport{};
+    viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport.viewportCount = 1;
+    viewport.scissorCount = 1;
+    VkPipelineRasterizationStateCreateInfo raster{};
+    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    raster.polygonMode = VK_POLYGON_MODE_FILL;
+    raster.cullMode = VK_CULL_MODE_NONE;
+    raster.depthBiasEnable = VK_TRUE;
+    raster.depthBiasConstantFactor = 1.25f;
+    raster.depthBiasSlopeFactor = 1.75f;
+    raster.lineWidth = 1.0f;
+    VkPipelineMultisampleStateCreateInfo multisample{};
+    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    VkPipelineDepthStencilStateCreateInfo depth{};
+    depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth.depthTestEnable = VK_TRUE;
+    depth.depthWriteEnable = VK_TRUE;
+    depth.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    VkPipelineColorBlendStateCreateInfo blend{};
+    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamic{};
+    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());
+    dynamic.pDynamicStates = dynamics.data();
+    VkPipelineRenderingCreateInfo rendering{};
+    rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    rendering.depthAttachmentFormat = depthFormat;
+
+    VkGraphicsPipelineCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    info.pNext = &rendering;
+    info.stageCount = static_cast<std::uint32_t>(stages.size());
+    info.pStages = stages.data();
+    info.pVertexInputState = &vertexInput;
+    info.pInputAssemblyState = &assembly;
+    info.pViewportState = &viewport;
+    info.pRasterizationState = &raster;
+    info.pMultisampleState = &multisample;
+    info.pDepthStencilState = &depth;
+    info.pColorBlendState = &blend;
+    info.pDynamicState = &dynamic;
+    info.layout = layout;
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
+                    "vkCreateGraphicsPipelines (shadow)"));
     return pipeline;
 }
 
@@ -326,6 +404,18 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     compute.layout = p->sceneLayout_;
     UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->clusters_),
                     "vkCreateComputePipelines (clusters)"));
+
+    const VkPushConstantRange shadowRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                          sizeof(gpu::ShadowConstants)};
+    VkPipelineLayoutCreateInfo shadowLayoutInfo = sceneLayoutInfo;
+    shadowLayoutInfo.pPushConstantRanges = &shadowRange;
+    UTA_CHECK(check(vkCreatePipelineLayout(device, &shadowLayoutInfo, nullptr, &p->shadowLayout_),
+                    "vkCreatePipelineLayout (shadow)"));
+    Module shadowVertex{device}, shadowFragment{device};
+    UTA_TRY(shadowVertex.handle, shaderModule(device, shadow_vert_spv));
+    UTA_TRY(shadowFragment.handle, shaderModule(device, shadow_frag_spv));
+    UTA_TRY(p->shadow_, shadowPipeline(device, p->shadowLayout_, formats.depth, shadowVertex.handle,
+                                       shadowFragment.handle));
     return p;
 }
 
@@ -335,6 +425,8 @@ Pipelines::~Pipelines() {
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (post_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, post_, nullptr);
     if (clusters_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, clusters_, nullptr);
+    if (shadow_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadow_, nullptr);
+    if (shadowLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shadowLayout_, nullptr);
     if (sceneLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, sceneLayout_, nullptr);
     if (postLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, postLayout_, nullptr);
     if (sceneSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, sceneSetLayout_, nullptr);

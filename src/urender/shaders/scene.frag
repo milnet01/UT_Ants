@@ -11,6 +11,7 @@
 #include "scene_bindings.glsl"
 #include "light.glsl"
 #include "probes.glsl"
+#include "shadows.glsl"
 
 layout(location = 0) in vec3 worldPosition;
 layout(location = 1) in vec3 worldNormal;
@@ -77,11 +78,11 @@ void main() {
         colour = base.rgb;
     } else {
         // A two-sided surface seen from behind is lit on the side you see.
-        vec3 n = normalize(worldNormal);
-        if (!gl_FrontFacing) n = -n;
+        vec3 surface = normalize(worldNormal);
+        if (!gl_FrontFacing) surface = -surface;
         vec2 stored = texture(textures[nonuniformEXT(material.normal)], uv).rg;
         vec2 tilt = vec2(normalComponent(stored.x), normalComponent(stored.y));
-        n = perturbed(n, worldPosition, uv, vec3(tilt, sqrt(max(0.0, 1.0 - dot(tilt, tilt)))));
+        vec3 n = perturbed(surface, worldPosition, uv, vec3(tilt, sqrt(max(0.0, 1.0 - dot(tilt, tilt)))));
 
         // SS 4.6: only this fragment's own cluster's lights. SS 4.9: the
         // flicker scalar multiplies the direct term and never the indirect.
@@ -90,7 +91,8 @@ void main() {
         vec3 direct = vec3(0.0);
         for (uint k = 0u; k < count; ++k) {
             Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
-            direct += lightAt(light, worldPosition, n) * light.flicker;
+            // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
+            direct += lightAt(light, worldPosition, n) * (light.flicker * shadowOf(light, worldPosition));
         }
         // SS 4.7: the probes, through the same normal the lights use.
         ProbeLattice lattice =

@@ -69,6 +69,7 @@ add_executable(uta_unit_tests
     unit/RenderDeviceTest.cpp
     unit/RenderLightsTest.cpp
     unit/RenderMoverPlacementTest.cpp
+    unit/RenderShadowsTest.cpp
     unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
     unit/WiringGraphTest.cpp)
@@ -117,6 +118,7 @@ add_executable(uta_device_tests
     device/RenderLightingTest.cpp
     device/RenderOffscreenTest.cpp
     device/RenderProbeTest.cpp
+    device/RenderShadowTest.cpp
     device/RenderSurfaceFlagsTest.cpp)
 # uta_ubake beside uta_urender: INV-6 holds the shader's light to ubake's
 # lightAt, which UTA-0112 SS 4.9 says a test of this item may link.

@@ -22,10 +22,21 @@ layout(set = 0, binding = 9) readonly buffer ShadowFaceBlock { ShadowFace shadow
 layout(set = 0, binding = 10) uniform sampler2DShadow shadowAtlas;
 layout(set = 0, binding = 11) uniform sampler2D textures[];
 
+#ifndef UTA_SHADOW_PASS
 layout(push_constant) uniform DrawBlock {
     uint objectIndex;
     uint materialIndex;
     uint polyFlags;
 } draw;
+#else
+// ShaderTypes.h's ShadowConstants: a shadow tile's face, then the batch.
+layout(push_constant) uniform ShadowBlock {
+    mat4 viewProj;
+    uint objectIndex;
+    uint materialIndex;
+    uint polyFlags;
+    uint reserved;
+} shadowDraw;
+#endif
 
 #endif

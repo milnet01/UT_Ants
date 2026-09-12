@@ -51,6 +51,9 @@ public:
     [[nodiscard]] VkPipeline post() const noexcept { return post_; }
     /// SS 4.6's culling pass, over the scene set.
     [[nodiscard]] VkPipeline clusters() const noexcept { return clusters_; }
+    /// SS 4.8's tile pass: depth only, over the scene set with its own push constants.
+    [[nodiscard]] VkPipeline shadow() const noexcept { return shadow_; }
+    [[nodiscard]] VkPipelineLayout shadowLayout() const noexcept { return shadowLayout_; }
 
     /// How many textures one scene set can bind: the device's limit, capped.
     [[nodiscard]] std::uint32_t textureCapacity() const noexcept { return textureCapacity_; }
@@ -68,6 +71,8 @@ private:
     std::array<std::array<VkPipeline, 2>, 2> scene_{};
     VkPipeline post_ = VK_NULL_HANDLE;
     VkPipeline clusters_ = VK_NULL_HANDLE;
+    VkPipelineLayout shadowLayout_ = VK_NULL_HANDLE;
+    VkPipeline shadow_ = VK_NULL_HANDLE;
 };
 
 } // namespace uta::urender

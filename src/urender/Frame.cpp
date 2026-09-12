@@ -22,6 +22,7 @@
 #include "urender/Pipelines.h"
 #include "urender/Placement.h"
 #include "urender/Probes.h"
+#include "urender/Shadows.h"
 #include "urender/Resources.h"
 #include "urender/ShaderTypes.h"
 
@@ -166,6 +167,23 @@ float halfToFloat(std::uint16_t half) noexcept {
     return sign != 0 ? -magnitude : magnitude;
 }
 
+using Box = std::array<std::array<float, 3>, 2>;
+
+/// `local` carried by `model` and boxed again in world space.
+Box worldBox(const Box& local, const gpu::Mat4& model) noexcept {
+    Box out{{{INFINITY, INFINITY, INFINITY}, {-INFINITY, -INFINITY, -INFINITY}}};
+    for (int corner = 0; corner < 8; ++corner) {
+        const std::array<float, 3> p{local[corner & 1][0], local[(corner >> 1) & 1][1], local[(corner >> 2) & 1][2]};
+        for (int row = 0; row < 3; ++row) {
+            const float v = model[0 * 4 + row] * p[0] + model[1 * 4 + row] * p[1] + model[2 * 4 + row] * p[2]
+                            + model[3 * 4 + row];
+            out[0][row] = std::min(out[0][row], v);
+            out[1][row] = std::max(out[1][row], v);
+        }
+    }
+    return out;
+}
+
 /// SS 4.11 provision 3: where a UI pass draws, at output resolution, into the
 /// presented image rather than into anything an upscaler would consume. uui
 /// does not exist yet, so the pass is empty; its position is the provision.
@@ -194,8 +212,10 @@ struct Renderer::Impl {
     Buffer clusterCounts, clusterIndices, clusterBounds;
     Buffer probeCells, probes;
     std::uint32_t probeSpacing = 0, probeCount = 0, probeTableMask = 0, probeLongestRun = 0;
-    /// A stand-in until shadows draw: a storage binding cannot be left empty.
     Buffer shadowFaces;
+    ShadowPlanner shadowPlanner;
+    /// Each mover's box in its own pivot space, for SS 4.8's redraw test.
+    std::vector<Box> moverBounds;
 
     BundleShape shape;
     std::optional<MaterialSet> materials;
@@ -224,7 +244,7 @@ struct Renderer::Impl {
     Result<void> createStandIns();
     Result<void> upload(const ubundle::Bundle& bundle);
     Result<void> writeDescriptors();
-    void recordFrame(VkCommandBuffer commands);
+    void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows);
 };
 
 Result<void> Renderer::Impl::createTargets() {
@@ -236,8 +256,9 @@ Result<void> Renderer::Impl::createTargets() {
     UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT}));
     UTA_TRY(output, Image::create(*gpu, {OUTPUT_FORMAT, w, h, 1,
                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
-    // A one-texel atlas until shadows draw: the binding must hold something.
-    UTA_TRY(shadowAtlas, Image::create(*gpu, {DEPTH_FORMAT, 1, 1, 1,
+    // SS 4.8: one depth atlas for every shadowing light. Moved to its sampled
+    // layout at once; no tile is read before a frame has drawn it.
+    UTA_TRY(shadowAtlas, Image::create(*gpu, {DEPTH_FORMAT, SHADOW_ATLAS_SIZE, SHADOW_ATLAS_SIZE, 1,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
     return gpu->run([&](VkCommandBuffer commands) {
         shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
@@ -287,10 +308,6 @@ Result<void> Renderer::Impl::createStandIns() {
     UTA_TRY(clusterIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT * gpu::CLUSTER_CAPACITY,
                                            storage, true));
     UTA_TRY(clusterBounds, Buffer::create(*gpu, sizeof(gpu::ClusterBounds) * gpu::CLUSTER_COUNT, storage, true));
-    for (Buffer* buffer : {&shadowFaces}) {
-        UTA_TRY(*buffer, Buffer::create(*gpu, 256, storage, true));
-        std::memset(buffer->mapped(), 0, 256);
-    }
     return {};
 }
 
@@ -319,6 +336,25 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     probeCount = static_cast<std::uint32_t>(table.probes.size());
     probeTableMask = table.tableMask;
     probeLongestRun = table.longestRun;
+
+    // SS 4.8: no tile shows this bundle's geometry yet, and each light holds at
+    // most six faces.
+    shadowPlanner.reset();
+    UTA_TRY(shadowFaces, Buffer::create(*gpu, sizeof(gpu::ShadowFace) * lightCount * 6,
+                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
+    moverBounds.clear();
+    if (bundle.movers) {
+        for (const ubundle::MoverShape& mover : *bundle.movers) {
+            Box box{{{INFINITY, INFINITY, INFINITY}, {-INFINITY, -INFINITY, -INFINITY}}};
+            for (const ubundle::GeometryVertex& vertex : mover.geometry.vertices)
+                for (int axis = 0; axis < 3; ++axis) {
+                    box[0][axis] = std::min(box[0][axis], vertex.position[axis]);
+                    box[1][axis] = std::max(box[1][axis], vertex.position[axis]);
+                }
+            if (mover.geometry.vertices.empty()) box = {};
+            moverBounds.push_back(box);
+        }
+    }
     previousModels.clear();
     return writeDescriptors();
 }
@@ -415,10 +451,60 @@ Result<void> Renderer::Impl::writeDescriptors() {
     return {};
 }
 
-void Renderer::Impl::recordFrame(VkCommandBuffer commands) {
+void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows) {
     const VkExtent2D extent{config.width, config.height};
     const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
     const VkRect2D scissor{{0, 0}, extent};
+
+    // -- Shadow tiles: only those this frame's plan says to draw (SS 4.8) ------
+    if (!shadows.draws.empty() && !geometry->draws.empty()) {
+        shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo atlasAttachment{};
+        atlasAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        atlasAttachment.imageView = shadowAtlas.view();
+        atlasAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        atlasAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // the kept tiles stay
+        atlasAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        VkRenderingInfo shadowPass{};
+        shadowPass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        shadowPass.renderArea = {{0, 0}, {SHADOW_ATLAS_SIZE, SHADOW_ATLAS_SIZE}};
+        shadowPass.layerCount = 1;
+        shadowPass.pDepthAttachment = &atlasAttachment;
+        vkCmdBeginRendering(commands, &shadowPass);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadow());
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadowLayout(), 0, 1,
+                                &sceneSet, 0, nullptr);
+        const VkBuffer vertexBuffer = geometry->vertices.handle();
+        const VkDeviceSize zero = 0;
+        vkCmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &zero);
+        vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
+        for (const ShadowDraw& draw : shadows.draws) {
+            const VkRect2D tile{{static_cast<std::int32_t>(draw.tile.x), static_cast<std::int32_t>(draw.tile.y)},
+                                {draw.tile.size, draw.tile.size}};
+            VkClearAttachment clear{};
+            clear.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+            clear.clearValue.depthStencil = {1.0f, 0};
+            const VkClearRect clearRect{tile, 0, 1};
+            vkCmdClearAttachments(commands, 1, &clear, 1, &clearRect);
+            const VkViewport tileViewport{static_cast<float>(draw.tile.x), static_cast<float>(draw.tile.y),
+                                          static_cast<float>(draw.tile.size), static_cast<float>(draw.tile.size), 0, 1};
+            vkCmdSetViewport(commands, 0, 1, &tileViewport);
+            vkCmdSetScissor(commands, 0, 1, &tile);
+            for (const DrawItem& item : geometry->draws) {
+                // What blocks light: opaque and masked surfaces. A translucent
+                // one lets it through, and the sky is not in the level.
+                if ((item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_FAKE_BACKDROP)) != 0) continue;
+                const gpu::ShadowConstants constants{shadows.faces[draw.face].viewProj, item.objectIndex,
+                                                     item.materialIndex, item.polyFlags, 0};
+                vkCmdPushConstants(commands, pipelines->shadowLayout(),
+                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
+                                   &constants);
+                vkCmdDrawIndexed(commands, item.indexCount, 1, item.firstIndex, item.firstVertex, 0);
+            }
+        }
+        vkCmdEndRendering(commands);
+        shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+    }
 
     // -- 0. Clustered light culling -------------------------------------------
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->clusters());
@@ -573,8 +659,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.farPlane = camera.farPlane;
     frame.viewportSize = {static_cast<float>(impl.config.width), static_cast<float>(impl.config.height)};
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
-    const std::vector<gpu::Light> lights = drawnLights(bundle, seconds);
-    if (!lights.empty()) std::memcpy(impl.lights.mapped(), lights.data(), lights.size() * sizeof(gpu::Light));
+    std::vector<gpu::Light> lights = drawnLights(bundle, seconds);
     const ClusterGrid grid = clusterGrid(camera, impl.config.width, impl.config.height);
     std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
     frame.clusterGrid = gpu::CLUSTER_GRID;
@@ -585,7 +670,6 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.probeCount = impl.probeCount;
     frame.probeTableMask = impl.probeTableMask;
     frame.probeLongestRun = impl.probeLongestRun;
-    std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
 
     std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());
     if (bundle.movers)
@@ -596,7 +680,27 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         std::memcpy(impl.objects.mapped() + i * sizeof(gpu::Object), &object, sizeof(object));
     }
 
-    UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) { impl.recordFrame(commands); }));
+    // SS 4.8: each light's tiles, and which must be drawn this frame -- a mover
+    // that moved redraws the lights whose radius its box, before or after, reaches.
+    std::vector<Box> moved;
+    for (std::size_t i = 1; i < models.size(); ++i) {
+        if (models[i] == impl.previousModels[i]) continue;
+        moved.push_back(worldBox(impl.moverBounds[i - 1], impl.previousModels[i]));
+        moved.push_back(worldBox(impl.moverBounds[i - 1], models[i]));
+    }
+    const ShadowPlan plan =
+        impl.shadowPlanner.plan(directLights(bundle), camera, impl.config.width, impl.config.height, moved);
+    for (std::size_t i = 0; i < lights.size(); ++i) {
+        lights[i].shadowFace = plan.firstFace[i];
+        lights[i].shadowFaceCount = plan.faceCount[i];
+    }
+    if (!lights.empty()) std::memcpy(impl.lights.mapped(), lights.data(), lights.size() * sizeof(gpu::Light));
+    if (!plan.faces.empty())
+        std::memcpy(impl.shadowFaces.mapped(), plan.faces.data(), plan.faces.size() * sizeof(gpu::ShadowFace));
+    frame.shadowFaceCount = static_cast<std::uint32_t>(plan.faces.size());
+    std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
+
+    UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) { impl.recordFrame(commands, plan); }));
 
     // SS 6: how many clusters dropped lights past their cap, read back from the
     // pass that decided -- the frame has finished, so the counts are final.
@@ -606,6 +710,8 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         std::memcpy(&count, impl.clusterCounts.mapped() + c * sizeof(count), sizeof(count));
         if ((count & gpu::CLUSTER_OVERFLOW) != 0) ++impl.stats.overflowedClusters;
     }
+    impl.stats.unshadowedLights = plan.unshadowed;
+    impl.stats.renderedShadowTiles = static_cast<std::uint32_t>(plan.draws.size());
 
     impl.previousViewProj = viewProj;
     impl.previousModels = std::move(models);

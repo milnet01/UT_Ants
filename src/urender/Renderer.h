@@ -59,6 +59,9 @@ struct Camera {
 struct FrameStats {
     std::uint32_t overflowedClusters = 0; ///< clusters that dropped lights past their cap
     std::uint32_t unshadowedLights = 0;   ///< shadowing lights the atlas could not hold
+    /// Shadow tiles drawn this frame. SS 4.8 keeps a still light's tiles, so a
+    /// still camera over a still level draws none after its first frame.
+    std::uint32_t renderedShadowTiles = 0;
 };
 
 class Renderer {

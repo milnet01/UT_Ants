@@ -216,6 +216,21 @@ static_assert(offsetof(DrawConstants, objectIndex) == 0);
 static_assert(offsetof(DrawConstants, materialIndex) == 4);
 static_assert(offsetof(DrawConstants, polyFlags) == 8);
 
+/// A shadow tile's push constants: the face it is drawn from, and the batch.
+struct ShadowConstants {
+    Mat4 viewProj;
+    std::uint32_t objectIndex;
+    std::uint32_t materialIndex;
+    std::uint32_t polyFlags;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(ShadowConstants) == 80);
+static_assert(offsetof(ShadowConstants, viewProj) == 0);
+static_assert(offsetof(ShadowConstants, objectIndex) == 64);
+static_assert(offsetof(ShadowConstants, materialIndex) == 68);
+static_assert(offsetof(ShadowConstants, polyFlags) == 72);
+static_assert(offsetof(ShadowConstants, reserved) == 76);
+
 /// The output stage's push constants -- SS 4.10.
 struct PostConstants {
     float exposure;

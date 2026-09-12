@@ -33,11 +33,14 @@ inline constexpr std::uint8_t LT_SUBTLE_PULSE = 7;
 /// is deliberately unpinned by the spec; nothing binds to it.
 [[nodiscard]] float flickerOf(const ubundle::Light& light, double seconds) noexcept;
 
-/// The lights the direct term draws, as the shader reads them, in LITE order.
+/// The LITE lights the direct term draws, in LITE order.
 ///
-/// Every LITE light but two kinds. LT_BackdropLight lights only the sky, which
-/// SS 4.5 draws unlit. A specialLit light lights only PF_SpecialLit surfaces,
-/// which SS 4.5 does not implement.
+/// Every one but two kinds. LT_BackdropLight lights only the sky, which SS 4.5
+/// draws unlit. A specialLit light lights only PF_SpecialLit surfaces, which
+/// SS 4.5 does not implement.
+[[nodiscard]] std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle);
+
+/// directLights, as the shader reads them. Index for index the same lights.
 [[nodiscard]] std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double seconds);
 
 } // namespace uta::urender

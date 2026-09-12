@@ -47,12 +47,17 @@ float flickerOf(const ubundle::Light& light, double seconds) noexcept {
     }
 }
 
+std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle) {
+    std::vector<ubundle::Light> out;
+    if (!bundle.lights) return out;
+    for (const ubundle::Light& light : *bundle.lights)
+        if (light.type != LT_BACKDROP_LIGHT && !light.specialLit) out.push_back(light);
+    return out;
+}
+
 std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double seconds) {
     std::vector<gpu::Light> out;
-    if (!bundle.lights) return out;
-    out.reserve(bundle.lights->size());
-    for (const ubundle::Light& light : *bundle.lights) {
-        if (light.type == LT_BACKDROP_LIGHT || light.specialLit) continue;
+    for (const ubundle::Light& light : directLights(bundle)) {
         gpu::Light record{};
         record.location = light.location;
         record.flicker = flickerOf(light, seconds);

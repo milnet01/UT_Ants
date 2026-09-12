@@ -21,6 +21,7 @@ add_library(uta_urender STATIC
     Lights.cpp
     Clusters.cpp
     Probes.cpp
+    Shadows.cpp
     Frame.cpp)
 # Vulkan and glm are PRIVATE: Renderer.h names neither, so a consumer compiles
 # with no Vulkan headers on its path (INV-2).
@@ -81,7 +82,9 @@ uta_embed_shaders(uta_urender
     shaders/scene.vert
     shaders/scene.frag
     shaders/post.vert
-    shaders/post.frag)
+    shaders/post.frag
+    shaders/shadow.vert
+    shaders/shadow.frag)
 
 # INV-1, asserted at configure time in the mechanism src/ubundle/CMakeLists.txt
 # uses for UTA-0008's INV-10 -- and the only thing that grades it: a compiled
