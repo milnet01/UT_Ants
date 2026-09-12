@@ -20,6 +20,20 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      # UTA-0077. The real-asset tier needs an Unreal Tournament install and
+      # this runner has none, so it cannot run here -- but it can BUILD the
+      # binary for a machine that does. UTA_UT_INSTALL_DIR is a compile-time
+      # define (tests/CMakeLists.txt), so the path has to be baked in at build
+      # time and cannot be chosen when the binary runs. Hence an input.
+      #
+      # Empty, the default, means no artifact and a run identical to a push.
+      ut_install_dir:
+        description: >-
+          Bake this install path into a Windows real-asset test binary and
+          upload it as an artifact (e.g. C:\UnrealTournament). Empty = skip.
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -110,3 +124,34 @@ jobs:
       - name: Show the compiler cache's hit rate
         if: always() && runner.os == 'Linux'
         run: ccache --show-stats
+
+      # UTA-0077. Built AFTER the gate and never as part of it: this binary is
+      # not run here, so it proves nothing about this commit and must not be
+      # able to turn the gate red for a machine that is not this one.
+      - name: Build the real-asset tests for a machine that has an install
+        if: >-
+          runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
+          && inputs.ut_install_dir != ''
+        shell: bash
+        env:
+          # Through the environment, not interpolated into run: -- the same
+          # reason the Linux toolchain step gives.
+          UT_INSTALL_DIR: ${{ inputs.ut_install_dir }}
+        run: |
+          cmake -S . -B build-real -DCMAKE_BUILD_TYPE=Release \
+            -DUTA_BUILD_TOOLS=OFF -DUTA_REAL_ASSET_TESTS=ON \
+            -DUTA_UT_INSTALL_DIR="$UT_INSTALL_DIR"
+          cmake --build build-real --config Release --target uta_real_asset_tests
+
+      - name: Upload it
+        if: >-
+          runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
+          && inputs.ut_install_dir != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: real-asset-tests-msvc
+          # The Visual Studio generator is multi-config, so the executable
+          # lands under a per-configuration directory. Matched rather than
+          # named, so a generator change does not silently upload nothing.
+          path: build-real/tests/**/uta_real_asset_tests.exe
+          if-no-files-found: error

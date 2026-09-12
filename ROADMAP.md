@@ -3434,7 +3434,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-08.
   Lanes: urender.
 
-- 📋 [UTA-0077] **Run the real-asset tier on Windows, against a real install.**
+- 🚧 [UTA-0077] **Run the real-asset tier on Windows, against a real install.**
   The real-asset tier is the ONLY check on upkg's readers against content this
   project did not write, and it has never run on Windows. Every Model and Level
   layout in UTA-0004, UTA-0057 and UTA-0069 was derived and verified on Linux.
@@ -3478,6 +3478,36 @@ model, no weapon and no opponent until 0.2.0.
   defect -- but the guard is about the LINKER's target, not about MSVC.
 
   Blocked-by: nothing.
+  Picked up (2026-09-12) by ut-ants-40, MAIN checkout, because the user
+  said the Windows machine is online. Taken ahead of Next: (UTA-0126) for
+  that reason alone -- this item cannot be done at all without that
+  machine, and UTA-0126 can be done any time. Next: is left where it is.
+
+  Machine confirmed reachable over ssh, and its install is unchanged from
+  the 2026-09-08 attempt: 96 maps and 83 System packages at
+  C:\UnrealTournament, counted with PowerShell. `where cl.exe cmake.exe`
+  still finds nothing, so blocker 1 stands as recorded.
+
+  A THIRD BLOCKER, not in this item and fatal to the fix as written.
+  UTA_UT_INSTALL_DIR is a COMPILE-TIME define: tests/CMakeLists.txt sets
+  it with target_compile_definitions, so the install path is baked into
+  the binary when it is built. "Upload the MSVC leg's test binaries as a
+  CI artifact, download that, and run it on the Windows machine against
+  its own install" therefore cannot work unmodified -- the artifact would
+  carry whatever path CI configured with, not C:\UnrealTournament.
+
+  Two ways out, and the cheaper one is being tried first: build the
+  artifact with the Windows machine's path supplied as a workflow input,
+  which is CI-only and changes no code; or make the tier read the install
+  from the environment at runtime with the define as fallback, which
+  removes the coupling permanently and is a code change. Taking the first
+  per coding.md SS 1.1.
+
+  Checking first, locally and for free, whether a build with
+  UTA_REAL_ASSET_TESTS=ON and a path that does not exist even configures
+  and discovers its tests -- catch_discover_tests runs the binary at build
+  time, so a fixture touching the install at static init would fail on CI
+  where there is no install.
   **Layman:** Our readers have only ever been checked against real game files on Linux. Half the players are on Windows. Check them there too.
   Kind: test.
   Source: in-session-2026-09-08.
