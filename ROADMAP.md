@@ -7204,7 +7204,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12 UTA-0134 answer.
   Lanes: ut-paths.
 
-- 📋 [UTA-0136] **ut-dump: serialise the nav graph's reach-spec flags and sizes, which UT_MonsterHunt has asked for three times.**
+- 📋 [UTA-0136] **ut-dump: serialise the nav graph's reach-spec flags and sizes, which UT_MonsterHunt keeps asking for.**
   UT_MonsterHunt has asked three times and asked again 2026-09-12, this time
   with the measurement behind it, and asked for a yes or no so they can stop
   planning around it.
