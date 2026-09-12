@@ -47,9 +47,9 @@ constexpr VkFormat DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT;
 constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 
 /// SS 4.10: fixed, with no adaptation. 1.0 carries UTA-0112 SS 4.3's unit
-/// surface to 0.978 through PBR Neutral's shoulder -- sRGB 253. No exposure
-/// reaches 255 exactly short of about thirteen, which would wash out every
-/// surface below the unit one to reach it.
+/// surface to 0.869 through PBR Neutral -- sRGB 240. Nothing below 13.5 stores
+/// it as 255, and an exposure that high would wash out every surface below the
+/// unit one.
 constexpr float EXPOSURE = 1.0f;
 
 /// What identifies an uploaded bundle: the object, the size of every section

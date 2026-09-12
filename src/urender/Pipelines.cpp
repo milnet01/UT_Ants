@@ -166,9 +166,9 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
 }
 
 /// SS 4.8's tile pass. Both faces cast -- a shadow must not leak through a
-/// wall seen edge-on from its back -- and a rasterisation depth bias keeps a
-/// lit surface from shadowing itself, beside the normal offset shadows.glsl
-/// applies when it samples.
+/// wall seen edge-on from its back -- and a slope-scaled rasterisation depth
+/// bias is what keeps a lit surface from shadowing itself. shadows.glsl applies
+/// no normal offset.
 Result<VkPipeline> shadowPipeline(VkDevice device, VkPipelineLayout layout, VkFormat depthFormat,
                                   VkShaderModule vertex, VkShaderModule fragment) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex),
