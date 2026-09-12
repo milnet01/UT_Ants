@@ -87,8 +87,9 @@ with its correctness graded by reading.
 
 1. **The matrix grades the draw path on Mesa's software renderer, on the Linux
    legs only.** *User, 2026-09-12.* The two Linux legs install a CPU Vulkan
-   driver and really draw frames and compare pixels; the MSVC leg compiles
-   `uta_urender` and runs only the tests that need no device. This knowingly
+   driver and really draw frames and compare pixels; the MSVC leg acquires the
+   Vulkan SDK (§ 4.12 says why it must), compiles `uta_urender` and runs only
+   the tests that need no device. This knowingly
    weakens `docs/design.md` § The stack's *"Every release is built and its
    tests run on both"* for the device tests alone, and § 9 records the gap
    rather than leaving it to be discovered. The alternatives — SwiftShader on
@@ -146,12 +147,19 @@ target_link_libraries(uta_urender PUBLIC uta_core uta_ubundle
 ```
 
 `uta_core` for `Result`, logging and the job system; `uta_ubundle` for the
-content types. **Nothing else**, and the set is asserted at configure time in
-`src/urender/CMakeLists.txt` the way `src/ubundle/CMakeLists.txt` asserts
-`ubundle`'s (that item's INV-10) and `src/umat/CMakeLists.txt` asserts `umat`'s
-(UTA-0052's INV-12). `uta_upkg`, `uta_umat` and `uta_ubake` are build-time only
-(`docs/design.md` rule 2) and an edge to any of them is a configure failure,
-not a review finding.
+content types. **Nothing else of this project's**, and the set is asserted at
+configure time in `src/urender/CMakeLists.txt` the way
+`src/ubundle/CMakeLists.txt` asserts `ubundle`'s (that item's INV-10) and
+`src/umat/CMakeLists.txt` asserts `umat`'s (UTA-0052's INV-12). `uta_upkg`,
+`uta_umat` and `uta_ubake` are build-time only (`docs/design.md` rule 2) and an
+edge to any of them is a configure failure, not a review finding.
+
+**The permitted list is `uta_core;uta_ubundle;Vulkan::Vulkan;glm::glm`, and the
+two external targets are in it.** `ubundle`'s assertion compares the target's
+whole `LINK_LIBRARIES` property with `STREQUAL`, so a form copied across
+verbatim would fail configure on a *conforming* build here — this library links
+two external targets and that one links none. Copy the mechanism, not the
+string.
 
 `Vulkan::Vulkan` and `glm::glm` are `PRIVATE`: a consumer of this library's
 headers must not need the Vulkan headers on its include path, so no Vulkan type
@@ -166,8 +174,7 @@ routes every input this item needs, and this section adds nothing to it.
 
 | Input | Route | How |
 |---|---|---|
-| Vulkan headers, loader | 3 — found, never fetched | `find_package(Vulkan 1.3 REQUIRED)` |
-| `glslc` | 3 — found, named beside the loader | `find_package(Vulkan REQUIRED COMPONENTS glslc)`, used as `Vulkan::glslc` |
+| Vulkan headers, loader, `glslc` | 3 — found, never fetched, on **both** platforms | one `find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc)`, used as `Vulkan::Vulkan` and `Vulkan::glslc` |
 | `glm` | 1 — fetched at an exact tag | `FetchContent`, beside Catch2's declaration in `tests/CMakeLists.txt`'s pattern |
 | Validation layers | 3, development prerequisite | Not found by CMake at all — ADR-0007 says `FindVulkan` searches for a validation-layer library only under `IOS`. The README states them; nothing checks them |
 | The graphics driver | never acquired | The machine's. `docs/design.md` rules out below Vulkan 1.3 |
@@ -195,29 +202,55 @@ written.
 ```cpp
 namespace uta::urender {
 
-/// What the caller supplies. `surface` VK_NULL_HANDLE means the surfaceless
-/// path: no swapchain, and no VK_KHR_swapchain device extension requested.
+/// What the caller supplies.
+///
+/// NO VULKAN AND NO glm TYPE APPEARS IN THIS HEADER, which is INV-2 and is why
+/// `surface` is an integer. A `VkSurfaceKHR` is a non-dispatchable handle and
+/// is 64 bits wide on every platform, so the cast is lossless; `Device.cpp`
+/// performs it and is the only file that may.
 struct Config {
-    VkSurfaceKHR surface = VK_NULL_HANDLE;  ///< the caller's, never created here
-    std::uint32_t width = 0, height = 0;    ///< the offscreen target's size
-    bool validation = false;                ///< request the layer if installed
+    std::uint64_t surface = 0;            ///< the caller's VkSurfaceKHR, cast.
+                                          ///< ZERO is the surfaceless path: no
+                                          ///< swapchain, and no
+                                          ///< VK_KHR_swapchain extension asked for
+    std::uint32_t width = 0, height = 0;  ///< the offscreen target's size
+    bool validation = false;              ///< request the layer if installed
+};
+
+/// The view a frame is drawn from — UT99's own units and angle encoding, so a
+/// caller holding a `Placement` or a `MoverShape` already has both fields in
+/// the right form.
+struct Camera {
+    std::array<float, 3> location{};
+    std::array<std::int32_t, 3> rotation{}; ///< pitch, yaw, roll; 65536 to a turn
+    float verticalFovDegrees = 90;
+    float nearPlane = 1, farPlane = 32768;
 };
 
 class Renderer {
 public:
     [[nodiscard]] static Result<Renderer> create(const Config& config);
 
-    /// Draw `bundle` from `camera`. Returns the frame's colour target when
-    /// there is no surface, so a test can read the pixels back.
+    /// Draw `bundle` from `camera`.
     [[nodiscard]] Result<void> draw(const ubundle::Bundle& bundle, const Camera& camera);
 
-    /// Copy the last frame's colour target into host memory, in the target's
-    /// own format. Surfaceless path only.
+    /// Copy the last frame's colour target into host memory, tightly packed
+    /// RGBA8 in that channel order. Surfaceless path only.
     [[nodiscard]] Result<std::vector<std::byte>> readback();
 };
 
 }  // namespace uta::urender
 ```
+
+**`uta_urender` owns the projection, and the caller never builds one.** Three
+consequences, and they are the reason `Camera` carries no matrix. The
+handedness and the depth range are internal, so no caller has a convention to
+match. § 4.11's jitter is added to a matrix this library builds, which is what
+makes it invisible to `UTA-0016` and removable by `UTA-0075` without touching a
+caller. And **the previous frame's view is cached here, not supplied** — motion
+vectors need it, and a caller that had to keep it would be able to get it
+wrong; `draw` called twice with the same `Camera` therefore produces zero
+motion.
 
 **The surfaceless path creates no `VkSurfaceKHR`, opens no swapchain, requests
 no instance extension and no `VK_KHR_swapchain` device extension, and needs no
@@ -308,7 +341,16 @@ and units, which this item does not convert: the camera works in them.
 `Geometry::batches` is already *"strictly ascending by `material` bytewise,
 then `polyFlags`, and tiling `indices` from its first element to its last"*
 (`src/ubundle/Bundle.h`), so a batch is one draw of `indexCount` indices at
-`firstIndex`, and consecutive batches sharing a material share a pipeline.
+`firstIndex`.
+
+**Pipeline identity is the batch's `polyFlags`, never its material.** The
+material is a bindless index pushed as a constant (below), so two batches
+differing only in material share a pipeline — while two sharing a material and
+differing in `polyFlags` do **not**, because that word is what selects cull
+mode, blending, depth write and the cutout `discard` in the table further down.
+Batches are ordered by material *then* `polyFlags`, so a run of one material
+routinely spans several pipelines, and keying on the material is how a
+translucent batch gets drawn with the opaque state.
 
 **Materials.** `MaterialRecord` carries only `id` and `metallic`
 (`docs/specs/UTA-0011-map-baker.md` § 4.10: *"Its maps are the TEXS entries
@@ -386,17 +428,24 @@ is given and cannot reach SPIR-V, where precision is the driver's. An equality
 assertion would be a test that passes only on the driver it was calibrated
 against.
 
-**The tolerance is a named constant in the test, and how it is set is part of
-this contract rather than left to whoever runs it first.** It is the largest
-deviation observed across the case table on the CI driver, rounded up to the
-next power of ten, and it is recorded in the test beside the driver and date
-that produced it. **A tolerance that has to be RAISED to make the test pass is
-a finding, not a fix** — the deviation it admits is either a real divergence
-from § 4.3 or a precision claim about a driver, and both need saying out loud.
-Without that rule the clause is unfalsifiable: any mismatch could be absorbed
-by widening the bar, which is the shape a sibling project recorded when a
-convergence gate *"deterministically failed … while passing on"* another input
-and spent months treated as noise
+**The tolerance is `1e-3` absolute, fixed by this spec, and it is a CEILING
+rather than a calibration.** A calibrated bar cannot fail its first run: the
+number would be measured from the implementation under test, so a real sign or
+clamp error would be rounded up into the bar and ship green. So the value is
+set here, from the quantity's own range instead of from any measurement.
+§ 4.3's unit puts `lightAt` in `[0, 1]`, `1e-3` is a thousandth of full range —
+orders of magnitude above `float` rounding over a product of five terms, and
+orders of magnitude below what a wrong sign, a missing `clamp` or a dropped
+term produces, each of which moves a channel by a substantial fraction of full
+range.
+
+**A measured deviation above `1e-3` fails the test, and raising the constant is
+a finding rather than a fix.** The deviation is then either a real divergence
+from § 4.3 or a precision claim about a specific driver, and both need saying
+out loud. That is what keeps the clause falsifiable — a bar that can be widened
+to fit the result is the shape a sibling project recorded when a convergence
+gate *"deterministically failed"* on one input while passing on another and
+spent months treated as noise
 (`/mnt/Games/Scripts/Linux/DOOM_Ants/docs/specs/DOOM-0009-path-tracer.md`).
 
 **Clustered culling.** The view frustum is divided into a fixed grid of
@@ -484,8 +533,13 @@ each end, and **each end is the hardware's**:
   (§ 4.5's table), so the sampler returns linear. Normal, roughness and height
   are not colour and use `UNORM`.
 - **Out:** the swapchain image uses an `_SRGB` format, so the store encodes.
-  On the surfaceless path the offscreen target does the same, which is what
-  makes a read-back pixel comparable to a presented one.
+  **On the surfaceless path the offscreen target is `VK_FORMAT_R8G8B8A8_SRGB`,
+  named here and not left to the implementer**, because a read-back pixel is
+  compared against a literal and `B8G8R8A8` would swap two channels of it
+  without failing anything else. `readback` returns those bytes tightly packed
+  in that channel order whatever the swapchain's own format is, so a test never
+  has to ask what format it got — which it could not do anyway, since an
+  accessor returning a `VkFormat` is what INV-2 forbids.
 
 **A sibling project reached the opposite conclusion and it does not transfer
 here.** `/mnt/Games/Scripts/Linux/DOOM_Ants/linuxdoom-1.10/r_vulkan.cpp`
@@ -553,8 +607,26 @@ the one it does not**, and is the difference between compiling the renderer and
 running it. `--no-install-recommends` stays, so no driver arrives by accident
 and the device tier's device is a stated dependency rather than a lucky one.
 
-The MSVC leg installs nothing new and registers no `device` tests. That is
-§ 9's recorded gap.
+**The MSVC leg installs the LunarG Vulkan SDK, and it has to.** § 4.2's
+`find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc)` is a *configure-time*
+requirement on every leg that builds `uta_urender`, so a Windows job given
+nothing new fails at `cmake -S . -B build` and never reaches a compiler —
+permanently red, and red for a reason that looks nothing like a renderer
+defect. `ADR-0007` § Decision already names the route: route 3 is satisfied by
+*"the LunarG SDK on either platform, or on Linux the distribution's own
+packages"*.
+
+**The job installs it explicitly rather than relying on the runner image.**
+Whether `windows-2022` preinstalls a Vulkan SDK is **not verified** — it cannot
+be checked from this machine — and a build that silently depends on an image's
+contents breaks when the image is rebuilt.
+
+So what is Linux-only is **`mesa-vulkan-drivers` alone**, the CPU driver. The
+headers, the loader and `glslc` are acquired on both. § 9's recorded gap is
+therefore narrower than "Windows gains nothing": the MSVC leg configures,
+compiles and runs the device-free tier, and **registers the `device` tests but
+does not execute them** — § 7 deselects them there by label, which is a visible
+exclusion rather than a target that quietly failed to exist.
 
 **Cross-language struct layout is pinned at compile time, not by a test.** Every
 struct shared with a shader carries a `static_assert` on its size, and one per
@@ -573,20 +645,28 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
 - **INV-1** — `uta_urender`'s link set is `uta_core` and `uta_ubundle` and
   nothing else of this project's; an edge to `uta_upkg`, `uta_umat` or
   `uta_ubake` fails at configure time rather than at review.
-  *Test:* `tests/unit/RenderLinkageTest.cpp`, plus the configure-time assertion
-  in `src/urender/CMakeLists.txt` — the form `src/ubundle/CMakeLists.txt`
-  already uses for that item's INV-10.
+  *Test:* the configure-time assertion in `src/urender/CMakeLists.txt`, and
+  **that assertion alone** — the form `src/ubundle/CMakeLists.txt` already uses
+  for that item's INV-10.
   *Breaks when:* a shading path needs a `umat` helper and someone links it
   rather than moving the helper, putting the package reader into `ut-ants`.
+  **There is deliberately no C++ test for this.** A compiled Catch2 case cannot
+  observe a CMake link set, and `uta_unit_tests` already links `uta_upkg`,
+  `uta_umat` and `uta_ubake` itself — so a runtime check inside it would pass
+  identically whether or not `uta_urender` had an edge to any of them. That is a
+  test that cannot fail, which § 3 decision 6 exists to refuse.
 
 - **INV-2** — no header of `uta_urender` that another subsystem may include
   declares, takes or returns a Vulkan type: a translation unit including every
   such header compiles with no Vulkan headers on its include path.
-  *Test:* `tests/unit/RenderHeaderIsolationTest.cpp`, compiled in a target that
-  links `uta_urender` but not `Vulkan::Vulkan`.
+  *Test:* `tests/unit/RenderHeaderIsolationTest.cpp`, **in a target of its own**
+  that links `uta_urender` and not `Vulkan::Vulkan`. It cannot live in
+  `uta_unit_tests`: INV-3's fixtures need Vulkan's feature structs, so that
+  binary has the Vulkan include path and this test could never fail inside it.
   *Breaks when:* a `VkDevice`, `VkFormat` or `VkSurfaceKHR` reaches a public
-  signature — `Config::surface` in § 4.3 is the field that invites it — after
-  which `ugame` cannot compile without a Vulkan loader installed.
+  signature, after which `ugame` cannot compile without a Vulkan loader
+  installed. § 4.3's `Config::surface` is the field that invites it, which is
+  why it is an integer there.
   **This is deliberately not the link-closure assertion `docs/design.md` rule 2
   describes.** That rule names `ut-ants-server`, and no such target exists:
   `rg -n add_executable` over this tree returns `ut-bake`, `ut-dump`,
@@ -612,7 +692,7 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   requested unconditionally, which fails before the first draw on a machine
   with no display — the state DOOM-0268 is stuck in.
 
-- **INV-5** — a `device`-labelled test run where no Vulkan device qualifies
+- **INV-5** — a test labelled `device` run where no Vulkan device qualifies
   **fails**, naming the missing requirement. It never skips and never passes.
   *Test:* `tests/device/RenderDeviceAbsentTest.cpp`, run with the driver search
   path pointed at a file that does not exist. Measured on the scratch probe →
@@ -621,6 +701,12 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   *Breaks when:* the harness treats an absent device as a skip, so a CI leg
   that lost `mesa-vulkan-drivers` reports green over a renderer nothing
   executed — the shape `UTA-0098` records for the real-asset ring checks.
+  **`RenderDeviceAbsentTest` is the one test this rule does not govern, and it
+  carries the label `device-absent` instead.** It is the test that asserts the
+  refusal, so it is *run* with no device on purpose and must PASS there — under
+  the `device` label it would have to fail to satisfy the rule it exists to
+  grade, and the only escape would be weakening the rule to a skip for exactly
+  one test. The two labels are what keep the rule absolute.
 
 - **INV-6** — the shading pass's direct light equals `ubake::lightAt` within
   the tolerance § 4.6 fixes, over a case table covering each light `effect` the
@@ -667,7 +753,9 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   base-colour texel sampled and written straight out, with no lighting, comes
   back with the value it was stored with.
   *Test:* `tests/device/RenderColourTransferTest.cpp`, label `device`: upload a
-  known BC7 base colour, draw it unlit, read the pixel back.
+  known BC7 base colour, draw it unlit, read the pixel back and compare it with
+  the literal it was stored as — § 4.10 fixes the target's format and
+  `readback`'s channel order, so the comparison has a fixed answer.
   *Breaks when:* an `_SRGB` sampled format is paired with a `UNORM` output, or
   a `UNORM` sampled format with an `_SRGB` output. The first darkens the image
   and the second washes it out, and **both look plausible in a screenshot** —
@@ -720,24 +808,37 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
 
 ## 7. Tests
 
-Three directories, matching § 4.12's tiers. `tests/unit/` already exists and is
-registered as `uta_unit_tests` with `catch_discover_tests(... LABELS
-"unit;fast" TIMEOUT 30)`; `tests/device/` is new, built as its own executable
-so a leg with no driver can register the first and not the second.
+`tests/unit/` already exists and is registered as `uta_unit_tests` with
+`catch_discover_tests(... LABELS "unit;fast" TIMEOUT 30)`. This item adds
+`tests/device/` as `uta_device_tests`, and one further target holding INV-2's
+test alone, which is the only way that test can fail.
 
-| Invariant | Test | Tier | Label | Registered when |
+| Invariant | Test | Target | Label | Registered when |
 |---|---|---|---|---|
-| INV-1 | `tests/unit/RenderLinkageTest.cpp` | device-free | `unit;fast` | always |
-| INV-2 | `tests/unit/RenderHeaderIsolationTest.cpp` | device-free | `unit;fast` | always |
-| INV-3 | `tests/unit/RenderDeviceTest.cpp` | device-free | `unit;fast` | always |
-| INV-7 | `tests/unit/RenderProbeTest.cpp` | device-free | `unit;fast` | always |
-| INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` | device-free | `unit;fast` | always |
-| INV-9 | the `static_assert`s in each shared struct's header | device-free | — | every compile, every leg |
-| INV-4 | `tests/device/RenderOffscreenTest.cpp` | device | `device` | when a Vulkan loader is found |
-| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp` | device | `device` | when a Vulkan loader is found |
-| INV-6 | `tests/device/RenderLightParityTest.cpp` | device | `device` | when a Vulkan loader is found |
-| INV-10 | `tests/device/RenderColourTransferTest.cpp` | device | `device` | when a Vulkan loader is found |
-| INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` | device | `device` | when a Vulkan loader is found |
+| INV-1 | the assertion in `src/urender/CMakeLists.txt` | — | — | every configure, every leg |
+| INV-9 | the `static_assert`s in each shared struct's header | — | — | every compile, every leg |
+| INV-2 | `tests/unit/RenderHeaderIsolationTest.cpp` | its own, **no** `Vulkan::Vulkan` | `unit;fast` | always |
+| INV-3 | `tests/unit/RenderDeviceTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
+| INV-7 | `tests/unit/RenderProbeTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
+| INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
+| INV-4 | `tests/device/RenderOffscreenTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
+| INV-6 | `tests/device/RenderLightParityTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
+| INV-10 | `tests/device/RenderColourTransferTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
+| INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
+| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp` | `uta_device_tests` | `device-absent` | unconditionally, wherever `uta_urender` builds |
+
+**Registration is never guarded on finding a Vulkan loader, and that is the
+point.** A `Vulkan_FOUND` guard would mean a leg that lost `libvulkan-dev`
+registered no device test and reported green over a renderer nothing executed —
+the defect § 3 decision 6 and INV-5 exist to forbid, reintroduced by the
+harness. The loader and `glslc` are missing at *configure* time, where § 4.2's
+`REQUIRED` find already stops the build; only a missing **driver** gets as far
+as a test, and INV-5 is what reds the leg for it.
+
+**So the tiers differ in what they need, not in whether they are registered.**
+On the MSVC leg the `device` and `device-absent` tests are registered and
+`device` is deselected by label, because no driver is installed there — a
+deliberate, visible exclusion rather than a target that silently vanished.
 
 **Each test is seen to fail before the code exists, and the two INV-4 and INV-5
 fixtures already have their failing and passing runs recorded** — § 4.3 and
@@ -745,11 +846,12 @@ INV-5 carry the outputs, measured on a scratch probe rather than on this
 library. That is evidence the *fixture* discriminates; it is not evidence about
 `uta_urender`, which does not exist yet.
 
-`RenderLightParityTest.cpp` is the one test in this project that links both a
-build-time and a runtime library (`uta_ubake` and `uta_urender`).
-`docs/design.md` rule 2 is about the two runtime **programs** and does not
-reach a test binary, and `UTA-0112` § 4.9 asks for exactly this — *"A test of
-UTA-0014's, which may link both"*.
+`RenderLightParityTest.cpp` links a build-time library beside a runtime one
+(`uta_ubake` with `uta_urender`). That is already ordinary here —
+`uta_unit_tests` links `uta_upkg`, `uta_umat` and `uta_ubake` alongside
+`uta_ubundle` — because `docs/design.md` rule 2 is about the two runtime
+**programs** and does not reach a test binary. `UTA-0112` § 4.9 asks for
+exactly this: *"A test of UTA-0014's, which may link both"*.
 
 `./scripts/mutation-probe.py` takes `ubundle` as its only subject, so every
 invariant here is mutated by hand, per `CLAUDE.md` § Build and test. The
@@ -836,6 +938,13 @@ their breaking states, each of which produces a plausible image.
   `UTA-0015`** carries the volumetric three. Coronas and lens flares are
   deferred; not yet queued. `Light::specialLit`, which pairs with
   `PF_SpecialLit`, goes with that flag above.
+- **Executing the `device` tier on Windows — deferred; not yet queued.** This is
+  the gap § 3 decision 1 and § 4.12 both point at, recorded here so it is a
+  decision rather than something a reader discovers. The MSVC leg configures,
+  compiles, and registers those tests; what it does not do is run them, no
+  software Vulkan driver being installed there. Closing it means either a
+  driver on that runner or `UTA-0039`'s own hardware, and § 8 carries the
+  SwiftShader option that was weighed and rejected.
 - Deciding which Unreal Tournament versions are accepted — `UTA-0117`.
 - A benchmark that says where the renderer's time goes — `UTA-0129`. This item
   states no frame-rate target; `UTA-0039` owns the floor.
@@ -844,13 +953,13 @@ their breaking states, each of which produces a plausible image.
 
 | Rule | What catches a breach |
 |------|----------------------|
-| INV-1 | `tests/unit/RenderLinkageTest.cpp`, plus the configure-time assertion in `src/urender/CMakeLists.txt` |
+| INV-1 | the configure-time assertion in `src/urender/CMakeLists.txt`, and nothing else — a C++ test cannot see a link set |
 | INV-2 | `tests/unit/RenderHeaderIsolationTest.cpp` |
 | `docs/design.md` rule 2's closure assertion — `ut-ants-server` links no `urender` | **nothing** — no `ut-ants-server` target exists, so there is no closure to walk. It becomes gradeable with the item that creates that program; INV-2 covers the part that is gradeable now |
 | INV-3 | `tests/unit/RenderDeviceTest.cpp` |
-| INV-4 | `tests/device/RenderOffscreenTest.cpp` — **Linux legs only**; the MSVC leg registers no `device` test, § 3 decision 1 |
-| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp` — same platform limit |
-| INV-6 | `tests/device/RenderLightParityTest.cpp` — same platform limit |
+| INV-4 | `tests/device/RenderOffscreenTest.cpp` — registered everywhere, **executed on the Linux legs only**, the MSVC leg having no driver installed (§ 3 decision 1, § 7) |
+| INV-5 | `tests/device/RenderDeviceAbsentTest.cpp`, label `device-absent` — this one runs on **every** leg, needing no driver by construction |
+| INV-6 | `tests/device/RenderLightParityTest.cpp` — same platform limit as INV-4 |
 | INV-7 | `tests/unit/RenderProbeTest.cpp` |
 | INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` |
 | INV-9 | **Partial:** the `static_assert`s catch a struct that CHANGES — a breach is a compile error on every leg. Nothing catches a struct that is added to the shader interface and never given one, so the invariant's coverage grows only as carefully as the next author is |
@@ -861,13 +970,18 @@ their breaking states, each of which produces a plausible image.
 | § 4.10's fixed exposure value | **Partial:** INV-10 fixes the transfer at both ends but not the exposure constant between them; a wrong constant is a uniformly dark or bright image no test here rejects |
 | § 4.6's clustered culling correctness | **Partial:** `tests/unit/` grades cluster assignment; that a shaded pixel used its own cluster's list is not graded, and a cull that drops a light the pixel needed looks like a dim room |
 | § 4.8's cached shadow tiles being invalidated when a mover enters a static light's radius | **nothing** — tracked as part of `UTA-0016`'s first real level, where a stale tile is visible. No test here builds a moving mover |
-| § 4.12's three CI packages staying installed | INV-5, which turns their absence into a red leg |
+| `libvulkan-dev` and `glslc` staying installed | § 4.2's `REQUIRED` find — their absence fails the **configure**, before any test runs |
+| `mesa-vulkan-drivers` staying installed | INV-5, which turns its absence into a red leg rather than an empty test run |
 | The presenting path — swapchain format, present mode, resize | **nothing** in CI, by § 3 decision 1. Graded by hand under `UTA-0016` |
 
 ## 11. Cross-doc impact
 
-- **`.github/workflows/ci.yml`** — the Linux toolchain step gains
-  `libvulkan-dev`, `glslc` and `mesa-vulkan-drivers`; § 4.12.
+- **`.github/workflows/ci.yml`** — **both** platforms change, and the Windows
+  half is the one easy to miss. The Linux toolchain step gains `libvulkan-dev`,
+  `glslc` and `mesa-vulkan-drivers`. The Windows job gains a Vulkan SDK install
+  step, because § 4.2's find is `REQUIRED` at configure time on every leg that
+  builds `uta_urender`; without it the MSVC leg fails before compiling
+  anything. § 4.12 carries both.
 - **`docs/design.md`** — § The stack's `shaderc` row reads *"From the Vulkan
   SDK"* while `ADR-0007` § Decision settles the third route-3 input as
   `glslc`, naming `shaderc` only as the route-2 branch it would take *"if
