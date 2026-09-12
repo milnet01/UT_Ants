@@ -29,8 +29,37 @@ neither shares a directory with ut-paths, so a second session can take
 either alongside `UTA-0126`.
 
 **Shipped 2026-09-12**, all on the matrix: `UTA-0127`'s off-world mark,
-`UTA-0128`'s control group, `UTA-0087`, `UTA-0081` and `UTA-0071`.
-`UTA-0129` was filed the same day — the benchmark tool.
+`UTA-0128`'s control group, `UTA-0087`, `UTA-0081`, `UTA-0071` and
+`UTA-0077`.
+
+**Filed the same day and all open:** `UTA-0129` the benchmark tool,
+`UTA-0130` exits that are SHOT rather than walked into, `UTA-0131` the
+hunt for whatever tool parked 58 MonsterEnds outside the world, and
+`UTA-0132` the real-asset tier assuming the reference install.
+
+`UTA-0130` is the one to read before touching routing. UT_MonsterHunt
+found that `MonsterEndSB` reimplements `TakeDamage` gated on
+`TriggerType == TT_Shoot`, so on some maps the exit is SHOT and standing
+in its cylinder is not the win condition. `Scene::exits` carries only a
+position and a collision size, so every routing test we have treats
+reaching the exit as occupying that cylinder — and for such a map that
+is wrong in the direction that makes a good map look unroutable. Two of
+`UTA-0126`'s eight are that shape and were never checked for it. Census
+`TriggerType` before widening any rule.
+
+From the same source, and it raises what the ut-paths work is worth:
+triggering the MonsterEnd is the WHOLE win condition, with no monster
+count anywhere in it. A map that cannot be routed to its exit cannot be
+finished at all.
+
+`UTA-0077` ran the real-asset tier on Windows for the first time, on a
+STOCK install — 96 maps, zero `MH-`. The readers came back clean on a
+corpus they were not derived from: 96 of 96 maps parsed, 640,209 of
+640,213 assertions. The three failures are `UTA-0132`, not readers. The
+route is written up at `ut-ants-windows-uta0077` and is four commands,
+so re-running it on any install is cheap. One Defender exclusion for
+`C:\uta-test` was added on the Windows machine; that item carries the
+command to undo it.
 
 `UTA-0128` found MHEndPlace's rule SCATTERED against author-placed exits
 — a median 7837 units off, within 4000 units on 30% of 471 maps, and

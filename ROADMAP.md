@@ -5479,10 +5479,13 @@ model, no weapon and no opponent until 0.2.0.
   already stands 116 from the exit, 9 spots touch the exit, the path is 4
   spots long and one node was proposed. That is the simplest case in the
   set, so whatever is wrong should be easiest to see there.
-  Waiting-on: UT_MonsterHunt's MHSpecProbe run on MH-NivenSB (asked
-  2026-09-12), which decides whether the floating PathNode20 is what stops
-  UT building the spec. They have it queued behind a build the user asked
-  for, and will say which variant they ran.
+  WAS waiting on UT_MonsterHunt's MHSpecProbe run on MH-NivenSB (asked
+  2026-09-12), which decided whether the floating PathNode20 is what stops
+  UT building the spec. ANSWERED the same day -- see the last entry in this
+  body. The parked marker is deliberately gone from this line, because
+  roadmap-format.md 3.5.4 excludes a parked item from selection and leaving
+  it would keep this item unavailable after the thing it waited for had
+  arrived.
   Parked (2026-09-12) by ut-ants-84, main checkout, on the user's
   instruction to take UTA-0127 first. UTA-0127 removes 58 unhelpable maps
   from every measurement taken over this population, so the five maps
