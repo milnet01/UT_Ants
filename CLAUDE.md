@@ -5,24 +5,41 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0014` — urender's Vulkan device bring-up and the bundle
-draw path. It is the keystone of 0.1.0: `UTA-0059` defers itself until it
-lands, and the render items behind it in § 0.1.0 all wait on the draw
-path existing. `UTA-0013`'s quarantine guard is the alternative and
-shares no directory with it, so a second session can take either.
+**Next:** `UTA-0126` — ut-paths: why eight maps still do not route. It
+was parked and is not any more: UT_MonsterHunt's MH-NivenSB run landed
+2026-09-12 and answered its `Waiting-on:` with a concrete next step. It
+is half-built and now has a named task, which is why it goes ahead of
+the keystone. Its 🚧 was left by `ut-ants-84`, which is gone from
+`ListAgents`, so rule 2 makes it resumable by anyone.
 
-`UTA-0128` shipped 2026-09-12: MHEndPlace's rule is SCATTERED against
-author-placed exits — a median 7837 units off, within 4000 units on 30%
-of 471 maps, and beaten by the node nearest the PlayerStart on a third of
-them. The transcription was checked against both of UT_MonsterHunt's
-reference points and reproduces each exactly, so that is a finding about
-the rule and not about our control group. What both projects do about it
-is UT_MonsterHunt's call. Probes and per-map output are kept outside the
-repository, at `ut-paths-output-uta0128`.
+What that run settled: the bridge node DOES get its spec and does NOT
+open the route — the gap closes by 68 of 2852 units, and the partition
+is structural rather than a reach-flag artefact, since "all" mode
+reaches the exit no better. So what is needed is a CHAIN across the
+remaining 2784 units ANCHORED AT PathNodeSeed8's end, heading toward the
+exit. An earlier three-node chain did reach the exit's node but hung off
+a component the start cannot reach, which is the mistake that run rules
+out.
 
-`UTA-0127`'s off-world mark shipped 2026-09-12. `UTA-0126` is 🚧 but
-parked on UT_MonsterHunt's MHSpecProbe run, so it counts against neither
-limit and is not available to take.
+`UTA-0014` — urender's Vulkan device bring-up and the bundle draw path —
+is the keystone of 0.1.0 and the alternative to take: `UTA-0059` defers
+itself until it lands, and the render items behind it all wait on the
+draw path existing. `UTA-0013`'s quarantine guard is a third, and
+neither shares a directory with ut-paths, so a second session can take
+either alongside `UTA-0126`.
+
+**Shipped 2026-09-12**, all on the matrix: `UTA-0127`'s off-world mark,
+`UTA-0128`'s control group, `UTA-0087`, `UTA-0081` and `UTA-0071`.
+`UTA-0129` was filed the same day — the benchmark tool.
+
+`UTA-0128` found MHEndPlace's rule SCATTERED against author-placed exits
+— a median 7837 units off, within 4000 units on 30% of 471 maps, and
+beaten by the node nearest the PlayerStart on a third of them. The
+transcription reproduces both of UT_MonsterHunt's reference points
+exactly, so that is a finding about the rule and not about our control
+group. They accept it and have deployed MHEndPlace as an explicit
+stopgap. Probes and per-map output are kept outside the repository, at
+`ut-paths-output-uta0128`.
 
 **Rule 1's set is not listed here — ask the roadmap**, which § Which item
 comes next gives the call for. A hand-kept list of it goes stale the
