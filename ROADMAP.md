@@ -6573,7 +6573,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-12.
   Lanes: ci.
 
-- 🚧 [UTA-0133] **ut-paths: the partitioned fallback goal wins over the real exit and the chain never reaches it.**
+- ✅ [UTA-0133] **ut-paths: the partitioned fallback goal wins over the real exit and the chain never reaches it.**
   Found while diagnosing UTA-0126; measured, not inferred.
 
   `propose()` in tools/ut-paths/Seeds.cpp builds `goal` from the spots
@@ -6936,9 +6936,97 @@ model, no weapon and no opponent until 0.2.0.
 
   The full-corpus aggregate is still running and will be recorded when it
   lands.
+  Resolved (2026-09-12, ut-ants-f0, main checkout). All five HANDOFF steps
+  done. Commit c5c3946 for the code and tests, green on the matrix; the spec
+  and its gate are in 9a30623 and earlier.
+
+  STEP 5, THE CORPUS. Measured over the PARTITIONED maps of the census,
+  before and after, each pass run from a binary built at its own commit --
+  9a30623 and c5c3946 -- rather than diffed against a kept output directory.
+  125 maps came back from both. EXIT_OFF_NET maps were not re-measured and
+  cannot change: the only behavioural edit sits inside the `if (partitioned)`
+  branch, and the `touches` helper is the same expression it replaced.
+
+      17 maps moved.
+      exit route words   found 45 -> 31, mover 13 -> 20, none 99 -> 106
+      proposed nodes     81 -> 633
+
+  FIVE GAINED SOMETHING REAL, and two of those were NOT predicted:
+
+      MH-GardenOfDeath_DotD   none -> found, 293 nodes
+      MH-GardenOfDeath_Hell   none -> found, 293 nodes
+      MH-'Z-FALKENSTINE       chain now ends 54 out, inside a window of 57
+      MH-Bridge               found 0 nodes -> found 1, 28 out from the exit
+      MH-UM-SpaceBeacon-V1    found 0 nodes -> found 1
+
+  TWELVE STOPPED CLAIMING A ROUTE THEY NEVER HAD, which is the truthful
+  answer where the exit needs a lift or a door: the five predicted `mover`
+  maps, MH-mG-Spacemarsbeta-fix6's four exits, two mover-to-none maps, and
+  three that shed wasted proposals outright -- MH-Skaarj_ReactorTest-v1 13,
+  MH-ZenithWarsTorus 10, MH-UnderDarkSB 3. Four of MH-HaVoCuRhOMG's five
+  exits lost a false `found` while its fifth keeps a legitimate bridge.
+
+  THE RECORDED PREDICTION UNDER-CALLED THE FIX, and the reason is worth
+  keeping. It reasoned only about WITHDRAWING the fallback. It missed that
+  keying on a touching point means the UNION of the backward reach from
+  every touching point, where the old rule took the nearest one alone. The
+  two GardenOfDeath maps have an exit of collision radius 4000 that 23
+  navigation points touch; the union makes a walkable route exist where the
+  nearest point's reachers alone gave none. Ten of eleven per-map
+  predictions were met; the miss was a speculation added the same day, that
+  MH-MA-Invasion_CH3_hard_high would improve. It does not, and the reason is
+  complete: its route is `none`, so no walkable path exists to any goal, and
+  aiming the fallback correctly cannot create a walk that is absent.
+
+  Two maps decided by a few units, both worth keeping: MH-ExtremeCoreV2SB at
+  57.25 against a window of 57, and MH-Skaarj_ReactorTest-v1 at 43.2 against
+  37.
+
+  STILL OPEN, and not part of this fix. UT_MonsterHunt has not been told;
+  what they receive changes in both directions, so they need the numbers
+  above. And the 4000-unit exit radius behind the GardenOfDeath gain is an
+  unverified assumption, filed separately.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0134] **ut-paths: a huge exit radius makes the touch test permissive, and nothing checks it.**
+  Found while re-measuring the corpus for UTA-0133; measured, not inferred.
+
+  UTA-0121 § 4.6 decides that a spot, or a navigation point, touches an exit
+  when it lies inside the exit's collision cylinder grown by the body. That
+  rests on the exit's own `CollisionRadius`, and nothing caps it.
+
+  MH-GardenOfDeath_DotD and MH-GardenOfDeath_Hell carry an exit whose radius
+  is 4000, so the goal window is 4017 horizontally -- more than ten times
+  the 350-unit hop cap. 23 navigation points touch that one exit. Both maps
+  went from `none` to `found` under UTA-0133's fix, and the union of those 23
+  points' reach is why. So two of the five gains that fix records depend on a
+  window that wide being right.
+
+  The widest horizontal window over the partitioned corpus is 34017
+  (MH-FairyValleyVFinal), measured with touch-census.cpp at
+  ut-paths-output-uta0126.
+
+  WHAT IS UNVERIFIED. Whether a player standing 4000 units from a MonsterEnd's
+  centre actually triggers it. Our model treats the whole grown cylinder as
+  the win condition, which UTA-0130 already flags as wrong in the other
+  direction for a shot exit. If UT tests something narrower than the actor's
+  own collision cylinder, these two maps' `found` is as false as the verdicts
+  UTA-0133 removed, and the chain is proposed to a place that does not finish
+  the map.
+
+  This is a question for UT_MonsterHunt, who can read what the game does, and
+  it pairs with UTA-0130's census. It is not a reason to cap the radius
+  ourselves: the rule as written follows the actor, and inventing a cap
+  without knowing UT's own test would be a guess.
+
+  Test: whatever UT_MonsterHunt's probe reports for a MonsterEnd of radius
+  4000 -- at what distance the exit fires.
+  **Layman:** Two maps now count as solvable because their exit is enormous; we have not checked that standing at its edge really finishes the map.
+  Kind: investigate.
+  Source: in-session-2026-09-12 UTA-0133 corpus re-measurement.
   Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons

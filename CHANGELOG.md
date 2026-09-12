@@ -273,6 +273,31 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **`ut-paths` aimed its bot paths at a substitute target instead of the real exit.** (UTA-0133)
+  On a map split into disconnected parts, the tool may stop its chain of
+  proposed nodes early and let the map's own path network finish the
+  journey. It decided that was safe whenever the network reached the
+  navigation point NEAREST the exit -- without checking that point is
+  actually AT the exit. Where it was not, the chain was built to a
+  substitute, no node was ever proposed near the exit, and the map still
+  could not be finished, even though a walkable route to the exit existed
+  and the same code found it once the shortcut was switched off.
+
+  The shortcut is now offered only where a navigation point really touches
+  the exit, and it aims at that point rather than the nearest one. Those
+  are different tests -- one a plain distance, one the exit's cylinder --
+  and one map in the corpus has them naming different points.
+
+  Measured over the 125 split maps the census covers, before and after,
+  each built from its own commit: 17 maps changed. Five gained something
+  real -- MH-GardenOfDeath_DotD and MH-GardenOfDeath_Hell became routable
+  at all, MH-'Z-FALKENSTINE's chain now ends inside its exit, and
+  MH-Bridge and MH-UM-SpaceBeacon-V1 each gained a node at the exit where
+  they had none. Twelve stopped claiming a route they never had, which is
+  the truthful answer for an exit that needs a lift or a door: 26
+  proposals were withdrawn from three maps that could never route,
+  MH-Skaarj_ReactorTest-v1 and MH-ZenithWarsTorus among them.
+
 - **Maps that name one actor in two slots bake instead of being refused** (UTA-0124)
   UT99's own maps, CTF-November and DM-Grinder among them, list some
   actors twice in their level. The baker now skips a repeated slot and

@@ -5,15 +5,16 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0133` — ut-paths: the partitioned fallback goal is keyed
-on the wrong navigation point. Half-built and 🚧 from `ut-ants-f0`, main
-checkout; read that item's HANDOFF note and the three notes after it,
-which list what is done and what is left in order. **The spec is GATED
-and accepted** — `review-contract` ran two loops to its cap on
-`docs/specs/UTA-0121-bot-path-seeds.md` before any code, per rule 14, and
-found the amendment itself wrong. What is left is the code in
-`tools/ut-paths/Seeds.cpp`, the tests for INV-7, INV-12 and INV-13, the
-matrix, and the corpus re-measurement against a recorded prediction.
+**Next:** `UTA-0014` — urender's Vulkan device bring-up and the bundle
+draw path. It is the keystone of 0.1.0, as the paragraph below says, and
+nothing in the ut-paths lane is workable: `UTA-0126` is parked on
+`Waiting-on:` and `UTA-0134` is a question for UT_MonsterHunt.
+
+`UTA-0133` shipped 2026-09-12 and is ✅. Its gate is worth reading before
+the next amendment to any spec: `review-contract` ran before the code, per
+rule 14, and found the amendment ITSELF wrong — keyed on two different
+navigation points at once. Writing the code first would have built the
+defect it was removing.
 
 `UTA-0126` — why eight maps still do not route — is parked on
 `Waiting-on:` UT_MonsterHunt and counts against neither limit. All eight
@@ -30,12 +31,12 @@ a component the start cannot reach, which is the mistake that run rules
 out.
 
 **All eight now have a named cause** (2026-09-12). Two are ours and are
-`UTA-0133`: § 4.7 offered its fallback goal wherever the network reached
-the node NEAREST the exit, never checking that node is AT the exit, so
-the chain bridged to a substitute and never approached the exit. The rule
-14 gate narrowed it again — the rule must key on a navigation point that
-TOUCHES the exit, because nearest and touching are different tests and
-one real map has them naming different points. Three need nothing from us
+`UTA-0133`, now shipped: § 4.7 offered its fallback goal wherever the
+network reached the node NEAREST the exit, never checking that node is AT
+the exit, so the chain bridged to a substitute and never approached the
+exit. It keys on a navigation point that TOUCHES the exit now. Over the
+partitioned corpus 17 maps moved: five gained something real, twelve
+stopped claiming a route they never had. Three need nothing from us
 that we can see, and the question goes back to UT_MonsterHunt. Two have
 no spot touching their exit. One is MH-NivenSB above, whose fallback
 premise HOLDS — an earlier note of ours recorded it as failing, by
@@ -50,16 +51,17 @@ draw path existing. `UTA-0013`'s quarantine guard is a third, and
 neither shares a directory with ut-paths, so a second session can take
 either alongside `UTA-0126`.
 
-**Shipped 2026-09-12**, all on the matrix: `UTA-0127`'s off-world mark,
-`UTA-0128`'s control group, `UTA-0087`, `UTA-0081`, `UTA-0071` and
-`UTA-0077`.
+**Shipped 2026-09-12**, all on the matrix: `UTA-0133`'s fallback keying,
+`UTA-0127`'s off-world mark, `UTA-0128`'s control group, `UTA-0087`,
+`UTA-0081`, `UTA-0071` and `UTA-0077`.
 
 **Filed the same day and all open:** `UTA-0129` the benchmark tool,
 `UTA-0130` exits that are SHOT rather than walked into, `UTA-0131` the
 hunt for whatever tool parked 58 MonsterEnds outside the world, and
 `UTA-0132` the real-asset tier assuming the reference install. Filed
-2026-09-12 from `UTA-0126`'s diagnosis: `UTA-0133`, the partitioned
-fallback goal that wins over the real exit.
+2026-09-12 from `UTA-0133`'s corpus re-measurement: `UTA-0134`, a huge exit
+radius making the touch test permissive, which two maps' new `found`
+verdicts rest on.
 
 `UTA-0130` is the one to read before touching routing. UT_MonsterHunt
 found that `MonsterEndSB` reimplements `TakeDamage` gated on
