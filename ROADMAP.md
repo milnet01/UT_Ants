@@ -3508,7 +3508,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: umap.
 
-- 📋 [UTA-0081] **Four shipped items have no CHANGELOG entry.**
+- ✅ [UTA-0081] **Four shipped items have no CHANGELOG entry.**
   Found 2026-09-08 by comparing the ids CHANGELOG.md cites against the ids
   ROADMAP.md marks shipped. Missing: UTA-0043, UTA-0058, UTA-0069 and
   UTA-0074. UTA-0007 and UTA-0078 shipped the same day and were written up
@@ -3527,6 +3527,60 @@ model, no weapon and no opponent until 0.2.0.
   Worth a check rather than a habit: the comparison above is two greps and
   it caught four misses, so it belongs in the release pre-flight rather
   than in a person's memory. cut-release --check is where that would sit.
+  Picked up (2026-09-12) by ut-ants-40, MAIN checkout, on the user's call
+  for quick wins. Confirmed still live first: UTA-0043, UTA-0058, UTA-0069
+  and UTA-0074 each appear zero times in CHANGELOG.md and are present in
+  ROADMAP.md.
+
+  HOW THIS AVOIDS THE ANTI-PATTERN THIS ITEM WARNS OF. releases.md SS 7
+  rules out drafting an entry from a COMMIT RANGE, because a diff does not
+  carry what a change means to a reader. The entries here are built from
+  each item's own roadmap bullet -- its headline and its Layman line --
+  which is what the session that shipped it wrote to say what it
+  delivered. That is the source this item asks for, not the diff.
+  changelog_log op:"add_from_roadmap" reuses exactly those fields, so the
+  route is the one the tooling already models.
+
+  Doing UTA-0069 first, as the item instructs: it shipped the Model BSP
+  tables UTA-0007 and UTA-0078 both build on, and the milestone's notes
+  read oddly without it.
+  Resolved (2026-09-12) by ut-ants-40, main checkout. ONE entry was owed,
+  not four, and the other three are checked rather than skipped.
+
+  UTA-0069 has the entry, under Added, built from its own roadmap bullet
+  via changelog_log op:"add_from_roadmap" -- the headline reworded into
+  changelog voice, the Layman line inherited. That is the source this item
+  asked for: what the shipping session wrote to say what it delivered, not
+  a diff. releases.md SS 7's anti-pattern is drafting from a COMMIT RANGE
+  and is not what happened here.
+
+  THE OTHER THREE DO NOT QUALIFY, and the test used is whether anyone
+  using or building the software observes a difference. Evidence is the
+  files each item's commits touched.
+
+  - UTA-0074 declined an entry ITSELF, in its own body: "No CHANGELOG
+    entry: internal document hygiene, not a notable change." That is the
+    shipping session speaking, which is exactly whose call this item says
+    it is. It should never have been on the list.
+  - UTA-0058 touched docs/discovery.md and ROADMAP.md only. It corrected a
+    figure in this project's own record. Same class as UTA-0074, and
+    declining it keeps the two consistent.
+  - UTA-0043 touched docs/decisions/ADR-0007, docs/design.md, its loop log
+    and ROADMAP.md. No code. It DECIDED how dependencies will be acquired
+    and recorded that in an ADR, which is where a decision lives; nothing
+    builds differently as a result of it yet. When that decision is
+    implemented, the implementing item is what earns the entry.
+
+  So this item's premise was three-quarters wrong, and the comparison that
+  produced it -- CHANGELOG ids against ROADMAP shipped ids -- is why. It
+  finds every id absent from the changelog, including every id that is
+  absent deliberately. That is worth keeping in mind for the pre-flight
+  check this item proposes: cut-release --check should report the gap for
+  a person to judge, never assert that each one is a miss.
+
+  UTA-0074's shape is the cheap way to make that judgement visible -- a
+  line in the body saying an entry was declined and why. Nothing requires
+  it today.
   **Layman:** Four finished pieces of work were never written up in the list of what changed, so anyone reading that list would think they had not happened.
   Kind: doc.
   Source: in-session-2026-09-08.

@@ -17,6 +17,9 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`upkg` reads a level's BSP tables, the shape a map is really built from** (UTA-0069)
+  Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
+
 - **`ut-paths` says when a map's exit is parked outside the world.** (UTA-0127)
   27 of the 297 maps in the route census have their only MonsterEnd at
   the world corner, where no route to it exists for UT either. The
