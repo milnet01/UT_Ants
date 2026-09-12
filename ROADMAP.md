@@ -3508,6 +3508,79 @@ model, no weapon and no opponent until 0.2.0.
   and discovers its tests -- catch_discover_tests runs the binary at build
   time, so a fixture touching the install at static init would fail on CI
   where there is no install.
+  BLOCKER 2 CLEARED (2026-09-12), and this records a change made to the
+  user's own machine so it can be found and undone.
+
+  The user confirmed this session already has admin on the Windows
+  machine, and the ssh session is elevated -- checked with
+  WindowsPrincipal.IsInRole rather than assumed. Windows Defender
+  real-time protection is ON, so the 2026-09-08 quarantine was expected to
+  repeat.
+
+      Add-MpPreference -ExclusionPath "C:\uta-test"
+
+  ONE path, deliberately narrow, and a directory created for this rather
+  than a shared one -- the 2026-09-08 attempt dropped into
+  C:\Users\Public, which is not a place to exempt from scanning. Reading
+  the exclusion list back shows C:\uta-test is the ONLY entry on the
+  machine, so nothing pre-existing was disturbed and removing this one
+  line restores the machine exactly.
+
+      Remove-MpPreference -ExclusionPath "C:\uta-test"
+
+  CHECKED IN ADVANCE, each costing one ssh round trip rather than a failed
+  run: the install is still 96 maps and 83 System packages at
+  C:\UnrealTournament; `where cl.exe cmake.exe` still finds nothing, so
+  blocker 1 is unchanged; C:\uta-test is writable; and VCRUNTIME140.dll,
+  VCRUNTIME140_1.dll and MSVCP140.dll are all present, which matters
+  because nothing in CMakeLists.txt sets an MSVC runtime policy so the
+  binary links the DLL runtime by default.
+  RUN, 2026-09-12, and it landed. 19 cases, 16 passed, 3 failed; 640,209
+  of 640,213 assertions passed. Full output and method at
+  /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077.
+
+  THE CORPUS IS THE POINT. The Windows install is STOCK Unreal
+  Tournament -- 96 maps, DM 38, CTF 24, DOM 16, AS 8, EOL 2, and 83 System
+  packages. ZERO MH- maps. The Linux reference install is the opposite
+  shape, overwhelmingly Monster Hunt. Every finding below comes from that
+  difference, which is what this item meant by a different corpus being
+  worth more than a copy.
+
+  THE READERS ARE CLEAN, which is the result this item was filed to get.
+  96 of 96 maps walked, all with a parsing Model. Builds refused 0.
+  Classes not found: PackageMissing 0, ClassMissing 0, over 188 distinct
+  classes and 94,001 placed actors. Lights without a placement 0. Nothing
+  in upkg's Model or Level layout was over-fitted to the maps it was
+  derived from, which was the risk.
+
+  WHAT FAILED IS THE TIER, NOT A READER, and all three failures are one
+  defect wearing three hats: an assertion that silently assumes it is
+  running against the REFERENCE install.
+
+  - RealPathSeedsTest.cpp:193, `totals.withExit > 0`, got 0. No map here
+    has a MonsterEnd because no map here is Monster Hunt.
+  - RealInstallTest.cpp:2003, `extra == 0`, got 461. The curated seed
+    table names textures this smaller install does not carry.
+  - RealInstallTest.cpp:961 and :962, `inRange` and `startIsTheNode` at
+    99% of Paths entries, got 98.7% and 93.9%.
+
+  THE THIRD HAS CONTENT BEHIND IT and is not only bookkeeping. Over 20,482
+  navigation points and 75,927 Paths entries: 967 out of range, and 4,634
+  naming a spec whose start is NOT the node holding the entry; negative
+  values 0. So "a nav point's Paths entries index the reach-spec array and
+  the spec starts at that node" is materially weaker on stock maps than on
+  Monster Hunt ones, and the 99% threshold encodes the corpus it was
+  calibrated on rather than a property of UT99 content.
+
+  Worth knowing for UTA-0128's walk and for MHEndPlace: both follow
+  describeSpec's END actor and neither relies on the start being the node,
+  so neither is affected. Nothing else read was.
+
+  A NUMBER FOR UTA-0079, which records 0.27% of INV-2 probes disagreeing
+  with no explanation found. Here it is 277 of 308,527 -- 0.090%, a third
+  of the Linux rate, on a disjoint corpus. A rate that moves with the
+  corpus is evidence about the content rather than about the probe. Filed
+  there rather than chased here.
   **Layman:** Our readers have only ever been checked against real game files on Linux. Half the players are on Windows. Check them there too.
   Kind: test.
   Source: in-session-2026-09-08.
@@ -3587,6 +3660,27 @@ model, no weapon and no opponent until 0.2.0.
   install. The rate moved as the library grew, so whatever explains the
   disagreements should be tested against a fresh figure, not the one in
   the comment. Still well under the test's 1% ceiling.
+  A SECOND MEASUREMENT, from UTA-0077's first Windows run (2026-09-12),
+  and it is the first evidence about this that did not come from the
+  corpus the rate was found on.
+
+  On a STOCK Unreal Tournament install -- 96 maps, zero MH- maps, disjoint
+  from the Linux reference corpus -- INV-2 probes disagree 277 of 308,527,
+  which is 0.090%. This item records 0.27% on the Linux corpus.
+
+  So the rate moves by a factor of three with the corpus. That is evidence
+  the disagreement is a property of the CONTENT rather than of the probe
+  or the descent: a defect in our own code would not care which maps it
+  ran over.
+
+  It does not say which content. The obvious next question, and it is
+  cheap now that both numbers exist, is whether the disagreeing probes
+  concentrate in particular maps or particular BSP shapes rather than
+  spreading evenly -- a concentration would name the thing to look at, and
+  an even spread would argue the opposite.
+
+  Output at /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077. Not chased
+  further here; UTA-0077 was running the tier, not this.
   **Layman:** Our check that the room lookup agrees with the level file is right 99.7% of the time. The last 0.3% is unexplained, so the check is set just below it rather than claiming perfection.
   Kind: investigate.
   Source: in-session-2026-09-08.
