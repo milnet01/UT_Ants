@@ -5167,6 +5167,29 @@ model, no weapon and no opponent until 0.2.0.
   one place; it remains parked on Waiting-on:. If --cap 0 does not
   suppress the seeds, the other variant -- dropping PathNode20 itself to
   z = -9, which needs a T3D round trip -- is ours to run.
+  Correction (2026-09-12), from UT_MonsterHunt: the switch named in the
+  note above is WRONG and would not have run. `seedpaths.py --cap 0` raises
+  ZeroDivisionError -- `seeds_for` computes `step = len(keep) / float(cap)`
+  before `range(cap)` is reached. They verified it by calling `seeds_for`
+  directly rather than through a build. `--cap` could not have done the job
+  even without the bug: `seeds_for` seeds every PlayerStart
+  unconditionally, AFTER the cap is applied, so player starts survive any
+  cap.
+
+  The switch that works is a very large `--spacing`: every position floors
+  into one grid cell and the player starts overwrite it. Measured on 128
+  synthetic positions plus two player starts -- spacing 220 gives 128
+  seeds, spacing 5000 gives 1, spacing 100000 gives 1.
+
+  So the clean build is `--define --spacing 100000` with the bridge-node
+  extra-seeds file: the original 486 nodes, ONE ordinary seed, and the node
+  under test. Not literally zero added nodes; they reported the residue
+  rather than rounding it to clean. Readout is MHSpecProbe, not the census.
+
+  Still theirs, still not run, and written on their GAME-0095 so it
+  survives a session boundary there. Waiting-on: stays valid and stays
+  pointing at them. The T3D variant -- dropping PathNode20 to z = -9 --
+  remains ours only if their route fails.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -5252,6 +5275,26 @@ model, no weapon and no opponent until 0.2.0.
   The spec amendment is done and accepted at its cap; what remains is the
   implementation -- the offWorld mark in Seeds.cpp toJson, INV-12's test,
   and the matrix.
+  Measurement (2026-09-12), checked before shipping rather than recalled.
+  Across all 298 per-map files in /mnt/Games/Scripts/Linux/ut-paths-output
+  the off-world rule fires on exactly 27 exits, every one with all three
+  coordinates at the bound: 26 at 32768 and MH-GolgothaPEv1 at 32767. The
+  highest coordinate anywhere BELOW the bound is 32428.6, so there are no
+  false positives and 338 units of margin.
+
+  So a 32768 test would have missed exactly ONE map that has a per-map
+  file, not two. UT_MonsterHunt read it as two -- MH-ProgressV1 also
+  records 32767 -- but that map has no per-map file in our census at all.
+  It appears only in the UTA-0126 scratch probe, which swept wider than our
+  work groups. It is the 58th of the 58, set aside and installed nowhere.
+  Corrected back to them. The threshold choice is unaffected: one map in
+  the groups is enough, and the argument for 32767 never rested on a count.
+
+  The scope point they recorded as a trap is already in UTA-0121 § 9: a
+  per-map file is written only for EXIT_OFF_NET and PARTITIONED, so the
+  mark does NOT reach the 30 maps their census files under ENDNODE. "In
+  their tsv" and "has a file from us" are different sets. Their endnodedist
+  column stays the separator for the gap.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
