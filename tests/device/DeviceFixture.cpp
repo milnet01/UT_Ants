@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdlib>
+#include <cstring>
 #include <utility>
 
 namespace uta::test::render {
@@ -68,6 +69,60 @@ ubundle::Bundle bundleOf(ubundle::Geometry geometry) {
     ubundle::Bundle bundle;
     bundle.geometry = std::move(geometry);
     return bundle;
+}
+
+std::vector<std::byte> bc7Solid(const Rgba& colour) {
+    const int parity = colour.r & 1;
+    REQUIRE((colour.g & 1) == parity);
+    REQUIRE((colour.b & 1) == parity);
+    REQUIRE((colour.a & 1) == parity);
+
+    std::array<std::uint8_t, 16> block{};
+    int bit = 0;
+    // Fields are written least significant bit first.
+    const auto put = [&](unsigned value, int count) {
+        for (int i = 0; i < count; ++i, ++bit)
+            if (((value >> i) & 1u) != 0) block[bit / 8] |= static_cast<std::uint8_t>(1u << (bit % 8));
+    };
+    put(1u << 6, 7); // mode 6: six zero bits, then a one
+    // Endpoints R0 R1 G0 G1 B0 B1 A0 A1, seven bits each; both endpoints the
+    // colour, so every index interpolates to it exactly.
+    for (const std::uint8_t channel : {colour.r, colour.g, colour.b, colour.a}) {
+        put(channel >> 1u, 7);
+        put(channel >> 1u, 7);
+    }
+    put(static_cast<unsigned>(parity), 1); // P0
+    put(static_cast<unsigned>(parity), 1); // P1
+    put(0, 3);                             // texel 0's index, its top bit implied
+    for (int texel = 1; texel < 16; ++texel) put(0, 4);
+    REQUIRE(bit == 128);
+
+    std::vector<std::byte> bytes;
+    for (const std::uint8_t b : block) bytes.push_back(std::byte{b});
+    return bytes;
+}
+
+void addSolidMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& colour) {
+    if (!bundle.materials) bundle.materials.emplace();
+    if (!bundle.textures) bundle.textures.emplace();
+    bundle.materials->push_back({id, false});
+    ubundle::CompressedTexture texture;
+    texture.name = id + ":base";
+    texture.format = ubundle::BlockFormat::BC7;
+    texture.width = texture.height = 4;
+    texture.sourceWidth = texture.sourceHeight = 4;
+    texture.mipCount = 1;
+    texture.blocks = bc7Solid(colour);
+    bundle.textures->push_back(std::move(texture));
+}
+
+std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width, std::uint32_t x,
+                                std::uint32_t y) {
+    const std::size_t at = (static_cast<std::size_t>(y) * width + x) * 2 * sizeof(float);
+    REQUIRE(at + 2 * sizeof(float) <= image.size());
+    std::array<float, 2> v{};
+    std::memcpy(v.data(), image.data() + at, sizeof(v));
+    return v;
 }
 
 EnvScope::EnvScope(const char* name, const char* value) : name_(name) {

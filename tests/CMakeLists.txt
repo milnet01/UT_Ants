@@ -108,8 +108,10 @@ catch_discover_tests(uta_render_header_isolation_test PROPERTIES LABELS "unit;fa
 # which labels a leg runs.
 add_executable(uta_device_tests
     device/DeviceFixture.cpp
+    device/RenderColourTransferTest.cpp
     device/RenderDeviceAbsentTest.cpp
-    device/RenderOffscreenTest.cpp)
+    device/RenderOffscreenTest.cpp
+    device/RenderSurfaceFlagsTest.cpp)
 target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle Vulkan::Vulkan Catch2::Catch2WithMain)
 target_include_directories(uta_device_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 # Two registrations of one binary, split by tag. The TIMEOUT is for Mesa's CPU

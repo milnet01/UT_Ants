@@ -9,6 +9,7 @@
 #include "ubundle/Bundle.h"
 #include "urender/Renderer.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <ostream>
@@ -55,6 +56,21 @@ void addSquare(ubundle::Geometry& geometry, float distance, float y, float z, fl
 
 /// A bundle holding `geometry` and nothing else.
 [[nodiscard]] ubundle::Bundle bundleOf(ubundle::Geometry geometry);
+
+/// One BC7 block, mode 6, every texel exactly `colour`.
+///
+/// Mode 6 stores each endpoint as seven bits per channel plus ONE p-bit shared
+/// by all four channels, so an exact colour needs every channel odd or every
+/// channel even. The helper REQUIREs that rather than rounding a channel.
+[[nodiscard]] std::vector<std::byte> bc7Solid(const Rgba& colour);
+
+/// Add material `id` to `bundle`: a MATS record, and a 4x4 BC7 base map of
+/// `colour` named `<id>:base`, as UTA-0011 SS 4.10 names one.
+void addSolidMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& colour);
+
+/// The two floats at (x, y) of a Velocity readback `width` pixels wide.
+[[nodiscard]] std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width,
+                                              std::uint32_t x, std::uint32_t y);
 
 /// Sets an environment variable for one scope and restores it after -- the
 /// shape tests/unit/CoreFileSystemTest.cpp uses for the same job.
