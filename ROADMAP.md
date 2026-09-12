@@ -1211,6 +1211,12 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0138 is the follow-up so the device tier runs validated.
   Unexercised: a zero extent, which neither compositor reported when
   minimised. Remaining: flip once the matrix is green.
+  Resume (2026-09-12, session paused for a restart): all code, the
+  spec's two gate loops, the CHANGELOG entry and the probe are committed
+  and pushed at eb42ba4. The only step left is the flip. Check CI run
+  34719128475 (eb42ba4) with gh run view; if every leg is green, flip
+  this to shipped and advance CLAUDE.md's Next line past UTA-0014. If a
+  leg is red, fix it before flipping.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
@@ -2463,6 +2469,21 @@ model, no weapon and no opponent until 0.2.0.
   be checked by building rather than by reading, which is the reviewer
   an ADR does not get. Until then a split would move prose between two
   documents and change nothing anyone builds.
+  Next rule-1 pick once UTA-0014 is flipped; its trigger, the renderer
+  landing, has fired. Needs a user decision before starting:
+  docs/decisions/README.md says an ADR is never edited after acceptance
+  and a wrong one is superseded. Option A: a new ADR-0008 superseding
+  ADR-0007 with the decision only, and the operating procedure moved to
+  a project-owned standard in docs/standards/, leaving ADR-0007 as
+  written. Option B: edit ADR-0007 in place to point at the new
+  standard, which breaks that rule as the 2026-09-09 gate loops already
+  did. Either way the new standard starts from the global standard
+  skeleton and runs review-contract with genre standard. Four ADR-0007
+  sentences are now false and must not be carried over: the find_package
+  call belonging in the top-level CMakeLists.txt (it is in
+  src/urender/CMakeLists.txt with GLOBAL), no such call existing yet,
+  ci.yml not installing Vulkan today, and no dependency but Catch2
+  having landed (glm is fetched).
   **Layman:** The dependency-acquisition decision document grew three times the size of every other decision in the project, because it also carries the step-by-step procedure. Separate the two when the renderer lands and the procedure has real code to attach to.
   Kind: doc.
   Source: review-contract-2026-09-06 ADR-0007 cap.
