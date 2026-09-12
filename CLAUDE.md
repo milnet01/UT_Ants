@@ -21,6 +21,15 @@ exit. An earlier three-node chain did reach the exit's node but hung off
 a component the start cannot reach, which is the mistake that run rules
 out.
 
+**All eight now have a named cause** (2026-09-12). Two are ours and are
+`UTA-0133`: the partitioned fallback goal wins over the real exit, so
+the chain is built to a substitute and never approaches the exit —
+switch the fallback off and both maps route into the cylinder. Three
+need nothing from us that we can see, and the question goes back to
+UT_MonsterHunt. Two have no spot touching their exit. One is MH-NivenSB
+above. Read `UTA-0126`'s body before the chain work: `UTA-0133` is the
+same mistake as that three-node chain, and fixing it comes first.
+
 `UTA-0014` — urender's Vulkan device bring-up and the bundle draw path —
 is the keystone of 0.1.0 and the alternative to take: `UTA-0059` defers
 itself until it lands, and the render items behind it all wait on the
@@ -35,7 +44,9 @@ either alongside `UTA-0126`.
 **Filed the same day and all open:** `UTA-0129` the benchmark tool,
 `UTA-0130` exits that are SHOT rather than walked into, `UTA-0131` the
 hunt for whatever tool parked 58 MonsterEnds outside the world, and
-`UTA-0132` the real-asset tier assuming the reference install.
+`UTA-0132` the real-asset tier assuming the reference install. Filed
+2026-09-12 from `UTA-0126`'s diagnosis: `UTA-0133`, the partitioned
+fallback goal that wins over the real exit.
 
 `UTA-0130` is the one to read before touching routing. UT_MonsterHunt
 found that `MonsterEndSB` reimplements `TakeDamage` gated on
@@ -43,9 +54,13 @@ found that `MonsterEndSB` reimplements `TakeDamage` gated on
 in its cylinder is not the win condition. `Scene::exits` carries only a
 position and a collision size, so every routing test we have treats
 reaching the exit as occupying that cylinder — and for such a map that
-is wrong in the direction that makes a good map look unroutable. Two of
-`UTA-0126`'s eight are that shape and were never checked for it. Census
+is wrong in the direction that makes a good map look unroutable. Census
 `TriggerType` before widening any rule.
+
+**`UTA-0126`'s eight are not that shape** — censused 2026-09-12, all
+eight `monsterhunt.monsterend` with `TriggerType` 0, none `MonsterEndSB`.
+This line previously said two of them were and had never been checked.
+The corpus is still uncensused, which is what `UTA-0130` is for.
 
 From the same source, and it raises what the ut-paths work is worth:
 triggering the MonsterEnd is the WHOLE win condition, with no monster

@@ -5616,6 +5616,76 @@ model, no weapon and no opponent until 0.2.0.
   InventorySpots at load: 494 saved reads as 679 at runtime. Same shape as
   UTA-0128's NavigationPointList finding, and the same rule follows --
   never compare a saved count against a runtime one.
+  Resumed (2026-09-12) by ut-ants-d1, main checkout. The prior holder
+  ut-ants-84 is absent from ListAgents, so rule 2 makes this item
+  resumable; nothing else is 🚧. Rule 1 re-checked and still empty: the
+  open items whose `Source:` records a review are UTA-0059, UTA-0098 and
+  UTA-0100, each deferred by its own written terms, and a distinct-prefix
+  sweep of ROADMAP.md's provenance values found no review dialect the
+  prefix query missed.
+
+  Taking the five maps with no explanation, starting at
+  MH-UM-SoccerStadium1 as this body directs, rather than the MH-NivenSB
+  chain. Reason: the chain is one map's repair and the five are a
+  diagnosis that may cover several, and UTA-0130 says two of the eight
+  may be SHOT exits — which would make them mis-measured rather than
+  unroutable. Census TriggerType before anything is widened.
+  All eight now have a named cause (2026-09-12, ut-ants-d1, main
+  checkout). None is left unexplained. Two scratch probes at
+  ut-paths-output-uta0126: the existing startpart-probe, plus a new
+  actor-census.cpp built the same way (its README records the command).
+  The census reproduces each exit position the earlier probe reported, so
+  it is baselined against the same source.
+
+  THE PARTITIONED FALLBACK DIVERTS THE CHAIN AWAY FROM THE EXIT, and
+  that is ours. propose() adds the fallback goal spots and then calls
+  shortestPath, which returns the path to the NEAREST goal. Where a
+  fallback goal is nearer than the exit's own cylinder, the chain is
+  built to the fallback and never approaches the exit -- although a path
+  to the real exit exists and the code found it when asked.
+
+  Measured both ways with the probe's partitioned switch:
+
+      map                  fallback on                fallback off
+      MH-'Z-FALKENSTINE    FOUND, ends 478u off exit  FOUND, ends in cylinder
+      MH-Haros-OldQuarter  FOUND, ends ~4169u off     MOVER, ends in cylinder
+
+  The goal window is exit.radius + RADIUS horizontally, so 57 on both
+  maps -- the diverted endpoints miss it by two and by seventy times.
+  Haros's real exit is reachable only through a mover spot, which is a
+  separate fact about that map and does not explain the diversion.
+
+  This is the SAME mistake this body already recorded on MH-NivenSB --
+  "hung off a component the start cannot reach" -- so it is systematic
+  rather than one map's accident. Filed as its own item, since the repair
+  changes proposals on every partitioned map and this item is an
+  investigation.
+
+  THE OTHER THREE ARE NOT OURS TO EXPLAIN. On MH-BoomDockBridge_V0,
+  MH-UM-SoccerStadium1 and MH-UM-SoccerStadium1-BP the chain ends INSIDE
+  the exit cylinder, and every PlayerStart's part already holds the node
+  nearest the exit -- all 20 on BoomDock, all 7 on each SoccerStadium.
+  So our model says these maps need almost nothing: SoccerStadium1's path
+  is four flat spots from the start's own node and yields one node in the
+  cylinder. Something outside our model makes them NOROUTE.
+
+  CHOOSING A DIFFERENT PLAYERSTART NEVER HELPS on this population, so
+  sceneOf taking only the first one costs nothing here. On every map
+  either ALL PlayerStarts reach the exit's node or NONE does; the one map
+  with two start parts, MH-Skaarj_ReactorTest-v1, has neither part
+  reaching it. That possibility is now eliminated rather than open.
+
+  Exit-to-nearest-node distances, which is what separates the groups:
+  FALKENSTINE 244, BoomDock 517, Haros 154, NivenSB 79, Skaarj 43,
+  both SoccerStadiums 117, Zenith 395.
+
+  NEXT, and it is one cheap question rather than five. Ask UT_MonsterHunt
+  to re-check MH-UM-SoccerStadium1 -- the simplest case in the set, one
+  proposed node, a four-spot flat walk from the start's own node into the
+  cylinder. Either their build did not carry that node, or their verdict
+  is not measuring what we think it measures. Their MH-NivenSB run
+  already showed the census cannot tell "the spec was never built" from
+  "the route failed further along", so that ambiguity has precedent here.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -6370,6 +6440,26 @@ model, no weapon and no opponent until 0.2.0.
   structurally, as the actors the exits list is built from, which stays
   true under the gate. So there is nothing to correct today. Anything
   later that states the condition in words should state both parts.
+  Census run on UTA-0126's eight maps (2026-09-12, ut-ants-d1, main
+  checkout), with the actor-census probe kept at
+  ut-paths-output-uta0126. It reads each MonsterEnd's class and its
+  TriggerType through the same resolver the bake uses -- the actor's own
+  record, else the class default.
+
+  ALL EIGHT are class `monsterhunt.monsterend`, not `MonsterEndSB`, and
+  every one reads TriggerType 0. So none of the eight is a SHOT exit and
+  none is mis-measured in the way this item warns about.
+
+  This CORRECTS the claim in CLAUDE.md's orientation block that two of
+  UTA-0126's eight are that shape and were never checked. They have now
+  been checked and they are not. The warning itself stands for the wider
+  corpus -- it was UT_MonsterHunt's finding about MonsterEndSB, and
+  nothing here tests a map outside those eight.
+
+  The census is cheap to widen: it takes an install and a map name and
+  prints every PlayerStart and every MonsterEnd with class, collision
+  size and TriggerType. Running it over the whole corpus is what this
+  item actually needs, and that has not been done.
   **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
@@ -6465,6 +6555,52 @@ model, no weapon and no opponent until 0.2.0.
   Kind: test.
   Source: in-session-2026-09-12.
   Lanes: ci.
+
+- 📋 [UTA-0133] **ut-paths: the partitioned fallback goal wins over the real exit and the chain never reaches it.**
+  Found while diagnosing UTA-0126; measured, not inferred.
+
+  `propose()` in tools/ut-paths/Seeds.cpp builds `goal` from the spots
+  touching the exit cylinder, and on a PARTITIONED map also adds the spot
+  of every node outside the start part from which the network reaches the
+  node nearest the exit. It then calls `shortestPath` over that goal set,
+  which returns the path to the NEAREST goal. Nothing prefers the real
+  exit. So where a fallback goal is nearer, the chain is built to the
+  fallback, no node is ever proposed near the exit, and the map does not
+  route -- even though a path to the exit exists and the same code finds
+  it when the fallback is switched off.
+
+  Measured with the UTA-0126 scratch probe, which includes Seeds.cpp and
+  so calls the real propose():
+
+      map                  fallback on                fallback off
+      MH-'Z-FALKENSTINE    FOUND, ends 478u off exit  FOUND, ends in cylinder
+      MH-Haros-OldQuarter  FOUND, ends ~4169u off     MOVER, ends in cylinder
+
+  The goal window is `exit.radius + RADIUS`, so 57 units on both maps.
+
+  The fallback's premise is also weaker than it looks. It aims at a node
+  that merely REACHES the node nearest the exit, and that node may itself
+  be far outside the cylinder -- 154 units on MH-Haros-OldQuarter, 244 on
+  MH-'Z-FALKENSTINE. So even a perfectly connected fallback chain can
+  leave the exit with no node near it.
+
+  The defect bites only when a fallback goal is strictly nearer than the
+  cylinder. MH-UM-SoccerStadium1-BP carries 1010 extra goal spots and
+  still ends in the real cylinder, so the extra goals are not themselves
+  the problem and removing them outright is not obviously right.
+
+  Decide between: always chain to the exit's own cylinder and treat the
+  fallback as an ADDITIONAL chain rather than a substitute; or drop the
+  fallback. Whichever is chosen, measure the change across the corpus
+  before and after -- this alters proposals on every partitioned map, so
+  the census is the check, not these two maps.
+
+  Test: a map with a fallback goal nearer than its exit gets a chain whose
+  last node lies within `exit.radius + RADIUS` of the exit centre.
+  **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
+  Kind: fix.
+  Source: in-session-2026-09-12 UTA-0126 diagnosis.
+  Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons
 
