@@ -5,15 +5,23 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0124` — the baker refuses installed maps whose Level names
-one actor in two slots; measure what UT does with them, then accept or
-keep the refusal. `UTA-0126`, why eight maps still do not route with
-their ut-paths nodes, follows it. `UTA-0112`'s baked light shipped
-2026-09-11.
+**Next:** `UTA-0128` — validate UT_MonsterHunt's MHEndPlace placement
+rule against maps whose exit IS properly placed, as a log-only
+cross-check. Two constraints are already on the item and are what a
+session should read first: their walk enumerates
+`Level.NavigationPointList` UNFILTERED, so the control group enumerates
+that same list rather than rebuilding it from a NavigationPoint ancestry
+test; and the far end of a walk is whatever navigation class sits there,
+not necessarily a PathNode. Filtering either way diverges from them for a
+reason that presents as a finding about their rule.
+
+`UTA-0127`'s off-world mark shipped 2026-09-12. `UTA-0126` is 🚧 but
+parked on UT_MonsterHunt's MHSpecProbe run, so it counts against neither
+limit and is not available to take.
 
 `UTA-0013`'s quarantine guard and `UTA-0014`'s renderer are the
 alternatives, and a second session can take either now: neither shares a
-directory with the baker.
+directory with ut-paths, where `UTA-0128` sits.
 
 **Rule 1's set is not listed here — ask the roadmap**, which § Which item
 comes next gives the call for. A hand-kept list of it goes stale the
