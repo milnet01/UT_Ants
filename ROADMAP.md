@@ -5313,6 +5313,69 @@ model, no weapon and no opponent until 0.2.0.
   MH-ProgressV1's T3D carries Location 32767 and OldLocation 32768, a third
   independent reading and evidence the actor has been out there rather than
   recently dragged.
+  The rule to measure, given by UT_MonsterHunt 2026-09-12 read off
+  MHEndPlace's source rather than recalled. They confirmed the
+  control-group measurement is ours and will not duplicate it, on the
+  grounds that a measurement of their rule is worth more from something
+  that is not their code.
+
+  ROOT NODE. `Nearest(Anchor.Location)` -- the navigation point with the
+  smallest straight-line distance to the first ENABLED PlayerStart. Both
+  the depth and the tie-break are measured from this node. The PlayerStart
+  selects it and is not used again.
+
+  EDGES. Directed, outgoing only. The walk reads `N.Paths[i]`, calls
+  `describeSpec(iSpec, A, B, Flags, Dist)` and takes `NavigationPoint(B)`,
+  the spec's END actor, as the next node. `upstreamPaths` is never read.
+  That matches our own direction filter. Their MHBackLink mutator writes
+  ONLY into `upstreamPaths` and never touches `Paths`, so with both live it
+  does not change which edges this walk follows; the two do not interact.
+
+  WINNER. Greatest hop count from the root. Ties go to the greater
+  straight-line distance from the root node.
+
+  TWO PARITY DETAILS they volunteered, either of which would otherwise
+  surface as scatter in our numbers. The comparison runs at ENQUEUE, not
+  at dequeue -- same result, since BFS enqueues in non-decreasing depth,
+  but the tie-break is a strict `>` so the FIRST node reached at the
+  winning depth and distance keeps the title and a later exact tie does not
+  displace it. Iteration order is `Level.NavigationPointList` order for the
+  root scan and Paths-index order thereafter, so reproducing their answer
+  exactly means reproducing that order.
+
+  THE 1024 CAP. Their walk stops at 1024 nodes and reports overflow. Above
+  that its answer is the furthest of the first 1024 reached, which is not
+  the graph's true far end. So our measurement either applies the same cap
+  or reports how many placed maps exceed it; without one of those the two
+  answers diverge on big maps for a reason that has nothing to do with the
+  rule. Reporting the count is worth doing either way -- it says how much
+  of the population the cap actually reaches.
+
+  PROVISIONAL ABOVE A FEW HUNDRED NODES, and they raised this unprompted.
+  Their visited-set test is a linear scan of the queue, so the walk is
+  O(n^2) in reachable nodes -- about 16 million comparisons at the cap,
+  against an UnrealScript runaway-loop guard that trips near a million
+  cycles in one call. Untested on a large map: they do not yet know whether
+  it completes, truncates silently, or aborts the Timer. They are testing
+  on a 1048-node map in log-only mode next and will send the result. If it
+  aborts, how visited is tracked changes, and that could alter which node
+  wins on large maps. So measure the rule as stated, and do not treat a
+  large-map disagreement as a finding about the rule until they confirm.
+
+  ONE THING TO MEASURE BESIDE IT, ours rather than theirs. The winner is
+  chosen on HOP COUNT, which is depth in an unweighted walk and not
+  distance travelled. A region with many short hops is deeper in hops than
+  a region with few long ones, so on a map whose node density is uneven the
+  rule can favour the densely-noded area over the geometrically far end.
+  The control group tests that for free: score hop-count-deepest and
+  distance-weighted-furthest against the real MonsterEnd on the same placed
+  maps and report both. If they separate, the better one is worth handing
+  back before 58 maps ship with the other.
+
+  Not taken up: LevelInfo and LevelSummary text. They would keep it from
+  the original candidate list, not as a source of a position but as a
+  possible signature of whatever batch-converted these maps. Neither
+  project has looked and neither is asking the other to.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
