@@ -5366,7 +5366,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-12.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0128] **ut-paths: find what a map says about where its level ends, for the maps whose exit is off the world.**
+- ✅ [UTA-0128] **ut-paths: find what a map says about where its level ends, for the maps whose exit is off the world.**
   Direction set by the user 2026-09-12, choosing it over three
   alternatives: report and leave the maps alone, measure what the nearest
   geometry to the corner gives, or relocate the exit to the nearest
@@ -5686,6 +5686,33 @@ model, no weapon and no opponent until 0.2.0.
   whether the engine rebuilds NavigationPointList at load -- if it does, the
   ancestry set is the right model and the eighteen stale chains do not
   matter.
+  Resolved (2026-09-12) by ut-ants-40, main checkout. Green on the matrix:
+  GCC 14, Clang 19 and MSVC all succeeded on 4be9e61, which is HEAD.
+
+  What this item became is done -- the rule is measured against the maps
+  whose MonsterEnd is placed, and the verdict is scatter. The numbers and
+  the transcription check are in the note above; the probes and per-map
+  output are at /mnt/Games/Scripts/Linux/ut-paths-output-uta0128.
+
+  NO CHANGELOG ENTRY, deliberately, and this records why so a later ledger
+  review does not read it as one of UTA-0081's omissions. Nothing shipped
+  to a user of this software: no code changed, no tool gained an output,
+  no format moved. The deliverable is a measurement, and it went to
+  UT_MonsterHunt.
+
+  WHAT IS LEFT IS NOT OURS TO DECIDE. Whether MHEndPlace ships to the 58
+  maps on a rule that does not reconstruct author intent is
+  UT_MonsterHunt's call, and it is theirs to make with their user. Our
+  part was to measure it from outside their code, which is what they asked
+  for and why they did not duplicate it. If they want a different rule
+  scored, the control group is built and re-running it is cheap -- file a
+  new item rather than reopening this one.
+
+  One question is outstanding with them and does not gate this result:
+  whether the engine rebuilds NavigationPointList at level load. If it
+  does, the ancestry set is the right model and the eighteen stale chains
+  never mattered. Either answer leaves the measurement standing, because
+  the list is read only by Nearest, to pick the root.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.

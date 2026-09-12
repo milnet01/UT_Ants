@@ -5,23 +5,24 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0128` — validate UT_MonsterHunt's MHEndPlace placement
-rule against maps whose exit IS properly placed, as a log-only
-cross-check. Two constraints are already on the item and are what a
-session should read first: their walk enumerates
-`Level.NavigationPointList` UNFILTERED, so the control group enumerates
-that same list rather than rebuilding it from a NavigationPoint ancestry
-test; and the far end of a walk is whatever navigation class sits there,
-not necessarily a PathNode. Filtering either way diverges from them for a
-reason that presents as a finding about their rule.
+**Next:** `UTA-0014` — urender's Vulkan device bring-up and the bundle
+draw path. It is the keystone of 0.1.0: `UTA-0059` defers itself until it
+lands, and the render items behind it in § 0.1.0 all wait on the draw
+path existing. `UTA-0013`'s quarantine guard is the alternative and
+shares no directory with it, so a second session can take either.
+
+`UTA-0128` shipped 2026-09-12: MHEndPlace's rule is SCATTERED against
+author-placed exits — a median 7837 units off, within 4000 units on 30%
+of 471 maps, and beaten by the node nearest the PlayerStart on a third of
+them. The transcription was checked against both of UT_MonsterHunt's
+reference points and reproduces each exactly, so that is a finding about
+the rule and not about our control group. What both projects do about it
+is UT_MonsterHunt's call. Probes and per-map output are kept outside the
+repository, at `ut-paths-output-uta0128`.
 
 `UTA-0127`'s off-world mark shipped 2026-09-12. `UTA-0126` is 🚧 but
 parked on UT_MonsterHunt's MHSpecProbe run, so it counts against neither
 limit and is not available to take.
-
-`UTA-0013`'s quarantine guard and `UTA-0014`'s renderer are the
-alternatives, and a second session can take either now: neither shares a
-directory with ut-paths, where `UTA-0128` sits.
 
 **Rule 1's set is not listed here — ask the roadmap**, which § Which item
 comes next gives the call for. A hand-kept list of it goes stale the
