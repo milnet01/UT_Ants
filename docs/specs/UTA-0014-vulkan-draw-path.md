@@ -1,6 +1,9 @@
 # UTA-0014 — bring up a Vulkan device and draw a baked map
 
-**Status:** spec draft (2026-09-12).
+**Status:** accepted (2026-09-12), at the review's cap of two loops for a spec —
+a calm cap: one of the final loop's ten verified findings landed on text the run
+itself wrote. The loop log is
+[`docs/reviews/UTA-0014-vulkan-draw-path-loop-log.md`](../reviews/UTA-0014-vulkan-draw-path-loop-log.md).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0014 (design-2026-09-03).
 **Blocked by:** none — `ubundle` ships, so the roadmap item's
@@ -27,10 +30,12 @@ machine with no graphics card — including GitHub's runners. The render graph
 carries `UTA-0075`'s camera jitter, per-pixel motion vectors and
 after-upscaling UI composite from its first frame.
 
-What is **not** true after this ships: nothing presents a window. Creating the
-window, opening a swapchain against it and running a camera through a level is
-`UTA-0016`. This item defines the surface seam and leaves the caller to fill
-it.
+What is **not** true after this ships: nothing opens a window. Creating the
+window and its `VkSurfaceKHR`, and running a camera through a level, is
+`UTA-0016`. **The swapchain over a caller-supplied surface is this item's** —
+§ 4.1 lists `Swapchain.cpp` and `Present.cpp`, § 4.3 gives the presenting path
+and § 4.10 its format — and it is the one part of this item no CI leg grades,
+per § 4.12's third tier.
 
 ## 2. Problem
 
@@ -175,7 +180,7 @@ routes every input this item needs, and this section adds nothing to it.
 | Input | Route | How |
 |---|---|---|
 | Vulkan headers, loader, `glslc` | 3 — found, never fetched, on **both** platforms | one `find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc)`, used as `Vulkan::Vulkan` and `Vulkan::glslc` |
-| `glm` | 1 — fetched at an exact tag | `FetchContent`, beside Catch2's declaration in `tests/CMakeLists.txt`'s pattern |
+| `glm` | 1 — fetched at an exact tag | `FetchContent` in the **root** `CMakeLists.txt`, in `tests/CMakeLists.txt`'s pattern |
 | Validation layers | 3, development prerequisite | Not found by CMake at all — ADR-0007 says `FindVulkan` searches for a validation-layer library only under `IOS`. The README states them; nothing checks them |
 | The graphics driver | never acquired | The machine's. `docs/design.md` rules out below Vulkan 1.3 |
 
@@ -187,7 +192,15 @@ the root `CMakeLists.txt`, because `glm` is linked by a `src/` target and
 
 **Shaders are compiled to SPIR-V at build time by `glslc` and the result is not
 committed.** A CMake custom command per shader, with its output listed as a
-source of `uta_urender` so a shader edit rebuilds it. `glslc` emits no
+source of `uta_urender` so a shader edit rebuilds it.
+
+**The SPIR-V is embedded into the library as a generated C++ header, so
+`uta_urender` loads no shader file at run time and there is no search path.**
+That matters beyond tidiness: a run-time path would be a new thing for
+`UTA-0016`'s packaging, the install layout and every `tests/device/` case to
+bind to, all invented here. Embedding leaves nothing to bind to. A sibling
+project does the same with `xxd -i`, which is the proven form
+(`/mnt/Games/Scripts/Linux/DOOM_Ants/Makefile`). `glslc` emits no
 dependency information for a GLSL `#include`, so **every include edge is
 written out by hand in `src/urender/CMakeLists.txt`** — a rule this project
 does not yet own and a sibling project states as a standing one
@@ -215,6 +228,10 @@ struct Config {
                                           ///< VK_KHR_swapchain extension asked for
     std::uint32_t width = 0, height = 0;  ///< the offscreen target's size
     bool validation = false;              ///< request the layer if installed
+    /// Skip exposure and tone mapping, writing linear light to the target
+    /// instead. It exists so INV-10 can compare a pixel against a literal --
+    /// SS 4.10 says why nothing else can -- and it changes no other stage.
+    bool linearOutput = false;
 };
 
 /// The view a frame is drawn from — UT99's own units and angle encoding, so a
@@ -234,9 +251,14 @@ public:
     /// Draw `bundle` from `camera`.
     [[nodiscard]] Result<void> draw(const ubundle::Bundle& bundle, const Camera& camera);
 
-    /// Copy the last frame's colour target into host memory, tightly packed
-    /// RGBA8 in that channel order. Surfaceless path only.
-    [[nodiscard]] Result<std::vector<std::byte>> readback();
+    /// Which target `readback` copies. A plain enum, so no Vulkan type reaches
+    /// this header (INV-2) and a test can name a target without holding one.
+    enum class Target { Colour, Velocity };
+
+    /// Copy the last frame's `target` into host memory, tightly packed: RGBA8
+    /// for Colour, two floats per pixel for Velocity. Surfaceless path only --
+    /// the presenting path's frames go to the swapchain and are not read back.
+    [[nodiscard]] Result<std::vector<std::byte>> readback(Target target = Target::Colour);
 };
 
 }  // namespace uta::urender
@@ -311,9 +333,18 @@ extension strings alone don't guarantee the feature is usable."*
 **A machine with no qualifying device is refused, with the missing requirement
 named.** There is no fallback to pick from: `docs/design.md` § The stack rules
 out *"No OpenGL fallback path — a machine without Vulkan 1.3 does not run
-this."* The refusal is a `Result` error carrying the device name and the first
-requirement it failed, so the message says what to upgrade rather than that
-something went wrong.
+this."* **Three refusals, because the interesting cases have no device to name**
+— and INV-5's own measured case is the first of them:
+
+| What happened | What the error says |
+|---|---|
+| `vkCreateInstance` failed — no loader, or no driver behind it | that there is no Vulkan instance, and the `VkResult` |
+| The instance came up and enumerated no physical device | that there is none |
+| Devices exist and each fails a § 4.4 requirement | **per device**, its name and the first requirement it failed |
+
+Only the third can name a device, so only the third promises one. A contract
+that always promised a name would be unsatisfiable in the case the renderer
+actually meets on a machine with no graphics driver.
 
 Every requirement above is satisfied by Mesa's CPU driver, measured 2026-09-12:
 
@@ -376,6 +407,15 @@ per-batch material index pushed as a constant — which is why § 4.4 requires t
 four descriptor-indexing bits. `descriptorBindingPartiallyBound` is what lets
 the `:emit` slot be absent for a non-emissive material without binding a dummy.
 
+**Why 0.5 rather than any other value.** `src/umat/Resolve.cpp` writes
+`texel[3] = masked && index == SEE_THROUGH_INDEX ? std::byte{0} : std::byte{255}`
+— so a masked material's alpha is **binary at the source**, and every value
+between the two comes from BC7 compression and bilinear filtering at a cutout's
+edge. Any threshold strictly inside the range therefore classifies every
+authored texel identically; 0.5 splits the filtered edge evenly, and it is
+written down so the shader constant and INV-11's fixture cannot be chosen from
+each other.
+
 **Surface flags.** `GeometryBatch::polyFlags` is *"UT99's PolyFlags, verbatim"*.
 The values are `EPolyFlags` in Surreal's `Engine/Inc/UnObj.h`, the source
 `docs/specs/UTA-0109-map-geometry.md` cites; the five that spec names agree
@@ -384,7 +424,7 @@ with it exactly, which is what makes the rest of the enum trustworthy here.
 | Flag | Value | What this item does |
 |---|---|---|
 | `PF_Invisible` | `0x00000001` | Cannot appear — UTA-0109's INV-5 emits no geometry for it |
-| `PF_Masked` | `0x00000002` | Alpha cutout: `discard` below a stated threshold, opaque otherwise. Writes depth and velocity |
+| `PF_Masked` | `0x00000002` | Alpha cutout: `discard` where sampled alpha is below **0.5**, opaque otherwise. Writes depth and velocity |
 | `PF_Translucent` | `0x00000004` | Blended, drawn after every opaque batch, depth-tested and not depth-written. **Writes no velocity** — § 4.11 |
 | `PF_TwoSided` | `0x00000100` | `VK_CULL_MODE_NONE` |
 | `PF_Unlit` | `0x00400000` | Base colour emitted directly; no direct or indirect light applied |
@@ -450,10 +490,12 @@ spent months treated as noise
 
 **Clustered culling.** The view frustum is divided into a fixed grid of
 froxels, exponential in depth; a compute pass builds a per-cluster light index
-list; the shading pass iterates only its own cluster's. Grid dimensions and the
-per-cluster light cap are settings with stated defaults, and a cluster that
-overflows its cap drops the lights furthest from its centre and records that it
-did — § 6. Determinism is not required of any of this: `ADR-0002`'s one-bundle
+list; the shading pass iterates only its own cluster's. **The grid is 16 × 8 × 24
+and the per-cluster light cap is 64**, both settings, and both stated here
+rather than left as "a default" — § 6's overflow rule and § 10's coverage row
+each rest on the cap being a number, and `UTA-0051` will bind to the grid when
+it adds quality tiers. A cluster that overflows its cap drops the lights
+furthest from its centre and records that it did — § 6. Determinism is not required of any of this: `ADR-0002`'s one-bundle
 rule is about the baker, and nothing here writes a bundle.
 
 ### 4.7 Indirect light from probes
@@ -537,9 +579,9 @@ each end, and **each end is the hardware's**:
   named here and not left to the implementer**, because a read-back pixel is
   compared against a literal and `B8G8R8A8` would swap two channels of it
   without failing anything else. `readback` returns those bytes tightly packed
-  in that channel order whatever the swapchain's own format is, so a test never
-  has to ask what format it got — which it could not do anyway, since an
-  accessor returning a `VkFormat` is what INV-2 forbids.
+  in that channel order, so a test never has to ask what format it got — which
+  it could not do anyway, since an accessor returning a `VkFormat` is what
+  INV-2 forbids.
 
 **A sibling project reached the opposite conclusion and it does not transfer
 here.** `/mnt/Games/Scripts/Linux/DOOM_Ants/linuxdoom-1.10/r_vulkan.cpp`
@@ -551,6 +593,21 @@ content that never entered linear space. This project's content does, at
 `umat`'s decode, so the correct answer here is the other one — and it is
 written down because copying the sibling's choice would produce exactly the
 washed-out image its note describes, with the causality reversed.
+
+**Exposure and tone mapping apply to every colour the frame writes, unlit
+surfaces and sky included.** There is no per-batch bypass: `PF_Unlit` and
+`PF_FakeBackdrop` mean *no light is applied*, not *no output stage*, and
+exempting them would make the sky's brightness disagree with everything around
+it under exactly the conditions the tone map exists for.
+
+**That is why INV-10 needs `Config::linearOutput`.** With exposure and a
+non-identity tone map between the two ends of the transfer, a texel drawn unlit
+does **not** come back as the value it was stored with — so an invariant
+comparing it against a literal could only pass by accident, and the two
+available alternatives are both worse: a per-batch bypass changes what a real
+frame looks like, and loosening the comparison to a tolerance stops it grading
+the transfer at all. `linearOutput` skips the output stage and nothing else, so
+INV-10 measures the sampler and the store and reaches a fixed answer.
 
 **Exposure and tone mapping**, which UTA-0112 § 4.9 assigns here: a fixed
 exposure with no automatic adaptation, set so that § 4.3's unit surface reaches
@@ -594,8 +651,8 @@ Three tiers, and the split is what § 3 decision 1 decided.
 
 | Tier | Needs | Runs on |
 |---|---|---|
-| **Device-free** — cluster assignment, the jitter sequence, atlas tile allocation, mover placement against `FCoordsPort.h`, every shared-struct layout `static_assert` | nothing but a compiler | every leg of the matrix, label `unit;fast` |
-| **Device** — the surfaceless render, pixel comparisons, the § 4.6 light parity, BC texture upload and sampling | any Vulkan 1.3 device | both Linux legs, on Mesa's CPU driver; label `device` |
+| **Device-free** — cluster assignment, the jitter sequence, atlas tile allocation, mover placement against `FCoordsPort.h`, header isolation, every shared-struct layout `static_assert` | nothing but a compiler | every leg of the matrix, label `unit;fast` |
+| **Device** — the surfaceless render, pixel comparisons, the § 4.6 light parity, the § 4.7 probe evaluation, BC texture upload and sampling | any Vulkan 1.3 device | both Linux legs, on Mesa's CPU driver; label `device` |
 | **Presenting** — a window, a swapchain, resize | a display | a developer machine, by hand. `UTA-0016` is what makes it reachable |
 
 `.github/workflows/ci.yml`'s Linux toolchain step gains three packages:
@@ -724,11 +781,17 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
 - **INV-7** — the indirect term is § 4.7's ambient-cube sum, a point inside the
   lattice is the trilinear blend of the corners present, and a point with no
   corner present receives zero indirect light.
-  *Test:* `tests/unit/RenderProbeTest.cpp` — device-free, the evaluation being
-  arithmetic over a `LightProbes` this test builds.
+  *Test:* `tests/device/RenderProbeTest.cpp`, label `device`, dispatching a
+  compute shader that `#include`s the same `probes.glsl` the shading pass does —
+  the shape INV-6 uses for `light.glsl`, and for the same reason.
   *Breaks when:* a face is selected by the wrong sign of `n`, which a symmetric
   probe cube hides; the fixture therefore uses six distinct face colours, so
   every wrong selection changes the answer.
+  **This is deliberately not a device-free test.** § 4.7's evaluation is
+  per-pixel shader arithmetic, so grading it on the CPU would mean grading a
+  second, C++ copy of it — which § 3 decision 5 forbids and which INV-6 was made
+  a device test to avoid. A copy that passed while the shipped GLSL selected the
+  wrong face is exactly the failure both rules exist for.
 
 - **INV-8** — a mover's pivot-space point is placed at UTA-0119 § 4.5's
   `location + postScale ⊙ (Y · P · R · q)`.
@@ -749,13 +812,17 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   across two features in the sibling project § 4.12 cites, and a device-lost
   rather than a wrong pixel.
 
-- **INV-10** — the sRGB transfer is applied exactly once in each direction: a
-  base-colour texel sampled and written straight out, with no lighting, comes
-  back with the value it was stored with.
+- **INV-10** — the sRGB transfer is applied exactly once in each direction: with
+  `Config::linearOutput` set, a base-colour texel sampled and written straight
+  out, with no lighting, comes back with the value it was stored with.
   *Test:* `tests/device/RenderColourTransferTest.cpp`, label `device`: upload a
-  known BC7 base colour, draw it unlit, read the pixel back and compare it with
-  the literal it was stored as — § 4.10 fixes the target's format and
-  `readback`'s channel order, so the comparison has a fixed answer.
+  known BC7 base colour, draw it unlit with `linearOutput`, read the pixel back
+  and compare it with the literal it was stored as — § 4.10 fixes the target's
+  format and `readback`'s channel order, so the comparison has a fixed answer.
+  **`linearOutput` is load-bearing here, not a convenience:** without it
+  exposure and the Khronos PBR Neutral tone map sit between the two ends, and
+  neither is the identity, so the invariant would fail against a correct
+  implementation.
   *Breaks when:* an `_SRGB` sampled format is paired with a `UNORM` output, or
   a `UNORM` sampled format with an `_SRGB` output. The first darkens the image
   and the second washes it out, and **both look plausible in a screenshot** —
@@ -819,10 +886,10 @@ test alone, which is the only way that test can fail.
 | INV-9 | the `static_assert`s in each shared struct's header | — | — | every compile, every leg |
 | INV-2 | `tests/unit/RenderHeaderIsolationTest.cpp` | its own, **no** `Vulkan::Vulkan` | `unit;fast` | always |
 | INV-3 | `tests/unit/RenderDeviceTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
-| INV-7 | `tests/unit/RenderProbeTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
 | INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` | `uta_unit_tests` | `unit;fast` | always |
 | INV-4 | `tests/device/RenderOffscreenTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-6 | `tests/device/RenderLightParityTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
+| INV-7 | `tests/device/RenderProbeTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-10 | `tests/device/RenderColourTransferTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-5 | `tests/device/RenderDeviceAbsentTest.cpp` | `uta_device_tests` | `device-absent` | unconditionally, wherever `uta_urender` builds |
@@ -839,6 +906,16 @@ as a test, and INV-5 is what reds the leg for it.
 On the MSVC leg the `device` and `device-absent` tests are registered and
 `device` is deselected by label, because no driver is installed there — a
 deliberate, visible exclusion rather than a target that silently vanished.
+
+**`scripts/ci.sh` is what deselects them, and it does not do so today.** That
+script is the whole gate (`CLAUDE.md` § Build and test), and its test step is
+`ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure` — **no `-L`**,
+so every registered test runs on every leg. Left alone it would run the `device`
+tier on MSVC with no driver, which INV-5 requires to fail, leaving that leg
+permanently red. So this item changes that step to select labels per platform:
+`unit` and `device-absent` everywhere, `device` added where a driver is
+installed. § 11 names the file, because a reader who changes only the workflow
+would miss it.
 
 **Each test is seen to fail before the code exists, and the two INV-4 and INV-5
 fixtures already have their failing and passing runs recorded** — § 4.3 and
@@ -911,8 +988,9 @@ their breaking states, each of which produces a plausible image.
 
 ## 9. Out of scope
 
-- Creating the window, opening a swapchain against it, and moving a camera
-  through a level — tracked by `UTA-0016`.
+- Creating the window and its `VkSurfaceKHR`, and moving a camera through a
+  level — tracked by `UTA-0016`. **The swapchain itself is in scope here**, over
+  the surface that item supplies; what is deferred is who creates the window.
 - Choosing and integrating an upscaler, and the negative mip bias § 4.11
   records — tracked by `UTA-0075` and `UTA-0076`.
 - Volumetric fog, light shafts, ambient occlusion and the flashlight —
@@ -960,11 +1038,11 @@ their breaking states, each of which produces a plausible image.
 | INV-4 | `tests/device/RenderOffscreenTest.cpp` — registered everywhere, **executed on the Linux legs only**, the MSVC leg having no driver installed (§ 3 decision 1, § 7) |
 | INV-5 | `tests/device/RenderDeviceAbsentTest.cpp`, label `device-absent` — this one runs on **every** leg, needing no driver by construction |
 | INV-6 | `tests/device/RenderLightParityTest.cpp` — same platform limit as INV-4 |
-| INV-7 | `tests/unit/RenderProbeTest.cpp` |
+| INV-7 | `tests/device/RenderProbeTest.cpp` — same platform limit as INV-4; device-free was impossible without a forbidden C++ copy of § 4.7 |
 | INV-8 | `tests/unit/RenderMoverPlacementTest.cpp` |
 | INV-9 | **Partial:** the `static_assert`s catch a struct that CHANGES — a breach is a compile error on every leg. Nothing catches a struct that is added to the shader interface and never given one, so the invariant's coverage grows only as carefully as the next author is |
 | INV-10 | `tests/device/RenderColourTransferTest.cpp` — same platform limit |
-| INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` — same platform limit |
+| INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` — same platform limit; the velocity half is observable only because § 4.3's `readback` takes a `Target` |
 | § 4.2's hand-written shader `#include` edges | **nothing** — `glslc` emits no dependency information, so a stale shader after editing an included file is silent. A sibling project states the same rule and checks it the same way, which is not at all |
 | § 4.9's flicker scalar shape | **nothing** — deliberately unpinned; nothing binds to it |
 | § 4.10's fixed exposure value | **Partial:** INV-10 fixes the transfer at both ends but not the exposure constant between them; a wrong constant is a uniformly dark or bright image no test here rejects |
@@ -982,6 +1060,10 @@ their breaking states, each of which produces a plausible image.
   step, because § 4.2's find is `REQUIRED` at configure time on every leg that
   builds `uta_urender`; without it the MSVC leg fails before compiling
   anything. § 4.12 carries both.
+- **`scripts/ci.sh`** — the test step gains per-platform label selection;
+  § 4.12 says why. **This is the file a reader is most likely to miss**: it is
+  the whole gate, its `ctest` call carries no `-L` today, and changing only
+  `ci.yml` leaves the MSVC leg running the `device` tier with no driver.
 - **`docs/design.md`** — § The stack's `shaderc` row reads *"From the Vulkan
   SDK"* while `ADR-0007` § Decision settles the third route-3 input as
   `glslc`, naming `shaderc` only as the route-2 branch it would take *"if
