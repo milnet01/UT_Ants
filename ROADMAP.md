@@ -4407,6 +4407,10 @@ model, no weapon and no opponent until 0.2.0.
   is empty without a valid box. Whatever box this item settles on is what
   turns those checks from vacuous into real. UTA-0099 makes the count
   visible in the meantime.
+  UTA-0129 (filed 2026-09-12) is the benchmark tool, and this item is one
+  of its first consumers. "Decide WHICH box to sample first" is a question
+  a profile over a real map answers directly, and the 2.72 s on AS-Frigate
+  recorded here came from the hand pass UTA-0129 exists to replace.
   **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.
@@ -5911,6 +5915,74 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-12.
   Lanes: ut-paths.
 
+- 📋 [UTA-0129] **A benchmark tool that says where the time goes, so optimisation aims at measurement.**
+  Asked for by the user 2026-09-12: map out the engine's bottlenecks so
+  the right parts get optimised.
+
+  WHY NOW, and it is evidence rather than anticipation. UTA-0098 and
+  UTA-0100 were both filed by a HAND optimisation pass on 2026-09-10, and
+  both carry real numbers -- AS-Frigate 2.72 s of room sampling, CTF-Face
+  refusing at 3.3e9 samples, effectiveDefaults at 555 ms over 506 BotPack
+  classes. That pass is not repeatable, is not run on a schedule, and
+  nothing tells us when one of its findings gets worse. This item is that
+  pass made mechanical.
+
+  TWO HALVES, deliberately one item because they want one reporting shape.
+
+  The BAKE AND TOOLING half is measurable today: ut-bake over a fixed map
+  set, ut-paths, and the upkg readers underneath them. There is already a
+  real-asset tier and a map library to run it over.
+
+  The FRAME TIME half arrives with UTA-0014's renderer and is the reason
+  this is filed in 0.1.0 rather than later: a harness that exists while
+  the draw path is being written measures each piece as it lands, and one
+  written afterwards is a retrofit onto code that has already chosen its
+  shape. UTA-0039's frame-rate floor is the promise this eventually
+  defends.
+
+  WHAT IT MUST REPORT. Where the time went, not only how much there was.
+  A total that moves with no attribution is what sent the 2026-09-10 pass
+  reading source by hand in the first place. Per-phase attribution over a
+  named workload is the output.
+
+  WHAT WOULD MAKE IT WORTHLESS, and each has already bitten something in
+  this project's history.
+
+  - A number that cannot be compared across runs. Record the machine, the
+    compiler and the build type beside every figure, because CXX here is
+    not CI's leg -- the matrix pins clang-19 and this machine has no
+    clang-19 binary at all.
+  - Running it on the CI matrix as a gate. A shared runner's timings are
+    noisy, and a flaky performance gate gets disabled rather than fixed.
+    Report locally; if anything lands in CI it should be a recorded number
+    rather than a pass/fail threshold, and that is a decision to take
+    deliberately rather than by default.
+  - Measuring the build instead of the program. ccache and mold change
+    build time and nothing about the output. UTA-0050 owns build speed and
+    this item does not.
+  - A micro-benchmark suite. The question is which phase of real work is
+    slow over a real map, not how fast one function is in isolation.
+
+  WORTH KNOWING BEFORE STARTING. The job system is a thread pool and
+  -DUTA_SANITIZE=thread exists for it, so a parallel phase has a
+  correctness story already; a benchmark that hides a race behind a faster
+  number is worse than none. And determinism is a standing property here
+  -- UTA-0098 requires its parallel split to hold byte for byte at 1, 2
+  and N workers -- so a benchmark that only reports time and never checks
+  the output still matches is measuring the wrong thing.
+
+  FIRST CONSUMERS ARE ALREADY WAITING: UTA-0098 needs to know which box it
+  should sample before it is worth parallelising, and UTA-0100 defers
+  itself until UTA-0023 says whether effectiveDefaults is called per class
+  or per actor. Both are questions a profile answers directly.
+
+  Blocked-by: nothing for the bake half. The frame-time half wants
+  UTA-0014.
+  **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
+  Kind: implement.
+  Source: user-request-2026-09-12.
+  Lanes: core, ubake, urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -6565,6 +6637,10 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   per distinct class of a level's actors, not once per actor. Its
   real-asset case, `tests/real/RealActorsTest.cpp`, prints the time the
   whole pass takes.
+  UTA-0129 (filed 2026-09-12) is the benchmark tool, and this item is one
+  of its first consumers. Whether effectiveDefaults is called per class or
+  per actor decides whether the 555 ms recorded here matters, and that is
+  a profile's answer rather than a reading of the source.
   **Layman:** Working out a game object's settings slows down on big class trees; only worth fixing once the code that calls it often exists.
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.
