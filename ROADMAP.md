@@ -7048,6 +7048,39 @@ model, no weapon and no opponent until 0.2.0.
   CollisionRadius plus the pawn's radius with no cap, so the 4017 window
   those two maps rely on is honoured in full. The vertical half is still
   unmeasured and is UTA-0135.
+  SECOND CORRECTION to the corpus figure (2026-09-12), correcting the
+  correction above. That note was wrong twice over, and UT_MonsterHunt caught
+  it. The delta it reports survives, and now rests on the right evidence
+  instead of the wrong maps.
+
+  WHAT WAS WRONG. The note called the two census names mangled and said
+  ut-paths had silently omitted two maps. They are not mangled: they name maps
+  that were installed when the census ran and have since been de-duplicated
+  away, and they live at `<install>/Maps-versions/`. The skip was correct
+  behaviour. Worse, the re-run offered as evidence used the PAREN spellings,
+  which are DIFFERENT maps -- so it measured the wrong two and proved nothing
+  about the rows in question. Detail and the two indistinguishable causes are
+  on UTA-0137, whose headline changed with it.
+
+  MEASURED PROPERLY. Built a symlink shim -- the real install with a `Maps/`
+  that also carries the two maps from `Maps-versions/` -- and ran the census's
+  own names through binaries built at 9a30623 and c5c3946:
+
+      MH-OMG-AlitaBattleAngel-NormalGuns     none 0 nodes -> none 0 nodes
+      MH-THUNDERBOLT-DARKFOREST-2009-BETA    none 0 nodes -> none 0 nodes
+
+  Byte-identical output from both binaries. The md5 each run recorded differs
+  from the paren map's, which is what proves the shim read the de-duplicated
+  map and not the one in `Maps/`.
+
+  SO THE FIGURE IS: 127 PARTITIONED rows measurable, 125 of them from `Maps/`
+  and 2 through the shim. All 127 measured through both commits. 17 moved. The
+  route words, the five gains, the twelve withdrawals and the 81-to-633 node
+  change are all unchanged, because the two extra maps do not move.
+
+  The earlier conclusion that the delta stood was right and was not supported
+  by the run offered for it. Recording that plainly: it was luck, and the
+  measurement that replaces it is the one to cite.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
@@ -7205,7 +7238,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12 third ask.
   Lanes: ut-dump, unav.
 
-- 📋 [UTA-0137] **ut-paths: a census name mangled from the installed one is skipped in silence.**
+- 📋 [UTA-0137] **ut-paths: a skipped census row does not say whether the map was renamed or de-duplicated away.**
   Found 2026-09-12 from UT_MonsterHunt's note that four of their census rows
   were failed exports, because a stale map list had its PARENTHESES STRIPPED
   while the installed maps carry them. Measured here, and it bit us too.
@@ -7239,6 +7272,48 @@ model, no weapon and no opponent until 0.2.0.
   Test: a census naming a map whose installed file differs only by
   parentheses is skipped, and the summary entry for it names the installed
   file as a near match.
+  CORRECTION (2026-09-12), from UT_MonsterHunt, before anything was built on
+  this. The body above is WRONG about the two maps it names, and the fix it
+  proposed would have read the wrong map. Nothing here was implemented, so the
+  cost was the filing only.
+
+  THOSE TWO NAMES ARE NOT MANGLED. They are the correct names of maps that
+  were installed when the census ran and have since been de-duplicated away.
+  Verified here rather than taken on trust: both live at
+  `<install>/Maps-versions/` and differ in SIZE from the paren maps in
+  `Maps/` -- 6470093 against 5331755, and 1569638 against 1325946 --
+  and `analysis/map-versions.tsv` records each pair as separate variants of
+  one title. They are different maps, so our skip was CORRECT behaviour, for
+  exactly the reason § 4.2 has it: GAME-0092 moved census maps out of `Maps/`,
+  and this is that.
+
+  TWO CAUSES, INDISTINGUISHABLE FROM THE NAME, and this is what the item is
+  really about.
+
+    1. Genuinely mangled. A stale list had the parentheses stripped, the map
+       load missed, and the export is an empty default level. The paren map is
+       installed and was already censused under its real name. Four of
+       UT_MonsterHunt's own rows were this; they corrected them and filed
+       GAME-0106. None of OUR census rows are.
+    2. De-duplicated away. The name is right and the library changed. Both of
+       ours are this.
+
+  Cause 1 resolves to the paren map correctly. Cause 2 resolves to a DIFFERENT
+  map, and reading 230 nodes where the census recorded 2089 is worse than
+  omitting the row. Punctuation cannot separate them; content can. So the
+  report must read "named map absent, candidate X differs in node count", never
+  "did you mean X" as a spelling fix. Matching on stripped punctuation is now
+  the anti-pattern this item exists to record, not its proposal.
+
+  For them the authority is `analysis/map-versions.tsv` plus
+  `<install>/Maps-versions/`. We hold neither, which is the argument for
+  reporting a candidate and stopping rather than resolving one.
+
+  They scanned every one of their census files: those two names appear in
+  eleven committed files and no other census file is affected. They did not
+  edit any of them, on the grounds that the rows correctly record what was
+  installed at the time -- which is right, and means our census input is not
+  defective either.
   **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-12 census export note.

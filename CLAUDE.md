@@ -66,9 +66,10 @@ exit's VERTICAL window, which is unmeasured and which MH-NivenSB's
 correction rests on; `UTA-0136`, serialising the nav graph's reach-spec
 flags from ut-dump, **which they have now asked for four times and want a
 yes or no on** — they are flag-blind without it, and we already filter on
-those same fields in `sceneOf`; and `UTA-0137`, a census name mangled from
-the installed one being skipped in silence, which cost `UTA-0133`'s corpus
-measurement two maps.
+those same fields in `sceneOf`; and `UTA-0137`, a skipped census row not
+saying whether the map was renamed or de-duplicated away — the two look
+identical from the name, and resolving one by punctuation reads a DIFFERENT
+map. Corrected by UT_MonsterHunt before anything was built on it.
 
 `UTA-0130` is the one to read before touching routing. UT_MonsterHunt
 found that `MonsterEndSB` reimplements `TakeDamage` gated on
