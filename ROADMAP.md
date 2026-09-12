@@ -6875,6 +6875,67 @@ model, no weapon and no opponent until 0.2.0.
      should have updated and did not. Both now agree with § 4.7 and § 5.
 
   Steps 2 to 5 of the HANDOFF are unchanged and now unblocked.
+  STEPS 2, 3 AND 4 DONE (2026-09-12, ut-ants-f0, main checkout), commit
+  c5c3946, pushed. Step 5 is running.
+
+  The code. `propose` now unions the backward reach from every node that
+  TOUCHES the exit, so the offered-only-where condition is emergent rather
+  than a second rule. § 4.6's touching test moved into a `touches` helper
+  that both the spot test and the node test call, since the spec says the
+  node is judged by the same test a spot is.
+
+  The tests. INV-12's fixture gained a navigation point at the bound for each
+  off-world exit; without them its three routes read `none` and its
+  forced-to-`none` mutation passed unseen. INV-13 gained three scenes.
+
+  Seven mutations run by hand, every one killed by the invariant naming it.
+  An eighth first read SURVIVED and that was MY BAD MUTATION, not a gap:
+  advancing the chain loop's bound is a no-op when the last jump already
+  lands on the final spot. Re-run as a real last-node drop, INV-5 kills it.
+
+  ONE SPEC CORRECTION, recording what the build proved, which per rule 14
+  does not re-arm the gate. The gate had me write into INV-7 that a
+  navigation point taking a spot's place is "proposed in its spot's place".
+  `chain` does the opposite — `if (proposed) nodes.push_back(taken)` skips
+  it, because that point is already in the map. The observable is the
+  ABSENCE of a node, so INV-7 now says no proposed node stands within 50 of
+  a navigation point, and asserts it. Two mutations confirm it.
+
+  STEP 5, the per-map prediction: TEN OF ELEVEN MET.
+
+      map                           before        after
+      MH-'Z-FALKENSTINE             found h685    found h54  -- inside the window
+      MH-Haros-OldQuarter           found h4171   mover, no chain
+      MH-BirdBrainedResearch        found h11292  mover, no chain
+      MH-Doomed-HELL-HTD-BP         found h7689   mover, no chain
+      MH-ChambersOfHell-Part1       found h2278   mover, no chain
+      MH-ExtremeCoreV2SB            found h1183   mover, no chain
+      MH-UnderDarkSB                found h15092  none
+      MH-NivenSB                    found h2024   unchanged
+      MH-Omni-Rage-BP               found, 0      unchanged
+      MH-UM-Vengeance-EG1           found h18857  unchanged
+      MH-MA-Invasion_CH3_hard_high  none          none -- MISSED
+
+  The miss is a speculation added earlier today, not the recorded
+  prediction. I wrote that MH-MA-Invasion_CH3_hard_high "should improve"
+  because it is the one map whose nearest and touching nodes differ. It does
+  not, and the reason is complete: its route is `none`, which means no
+  walkable path was found to ANY goal, the exit's own spots included. The
+  keying fix aims the fallback correctly there and cannot create a walk that
+  is absent. So the divergence I measured is a real defect in the CONTRACT
+  and changes no map's route word in this corpus. The gate finding stands on
+  the rule having been wrong, not on a map improving.
+
+  A MEASUREMENT TRAP worth knowing, which nearly had me report a wrong
+  attribution. The kept run at ut-paths-output is NOT a controlled baseline:
+  it was written 2026-09-11 and carries no `offWorld` field, so it predates
+  UTA-0127. Diffed against it, MH-Omni-Rage-BP appeared to lose a three-node
+  chain to this fix. Rebuilt at the parent commit 9a30623 and re-run, it had
+  already been at zero nodes, so that change belongs to UTA-0127 or UTA-0124.
+  Always build the parent commit rather than diffing a kept output directory.
+
+  The full-corpus aggregate is still running and will be recorded when it
+  lands.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
