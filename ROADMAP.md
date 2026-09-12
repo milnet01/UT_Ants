@@ -6737,6 +6737,46 @@ model, no weapon and no opponent until 0.2.0.
   exits read `none`. The invariant -- the mark is never written in place
   of the route -- is untouched; the fixture needs a navigation point
   inside the off-world exits' window to keep demonstrating it.
+  HANDOFF (2026-09-12) — ut-ants-d1 stopped at a session boundary on the
+  user's instruction, mid-item. This item stays 🚧 per rule 5: work is
+  under way and half-built, not abandoned. ut-ants-d1 will be gone from
+  ListAgents, so rule 2 makes it resumable by anyone.
+
+  WHAT IS DONE AND COMMITTED. The diagnosis and the corpus measurement
+  above, and the spec amendment: UTA-0121 § 4.7's Search rule now
+  withdraws the fallback goal where no navigation point touches the exit,
+  INV-13 is added, INV-7's and INV-12's fixtures are adjusted to it, § 7's
+  unit list and mutation list carry it.
+
+  WHAT IS NOT DONE, in the order it must happen.
+
+  1. The rule 14 gate has NOT run on the amendment, and the spec's own
+     Status line says so. It must run BEFORE any code:
+     `review-contract docs/specs/UTA-0121-bot-path-seeds.md`. The spec is a
+     spec, so the genre is the default and the cap is 2.
+  2. No code implements the amendment. Seeds.cpp's `propose` still offers
+     the fallback on the network's reach alone; the change is to gate that
+     block on some `scene.network` position passing the same cylinder test
+     `goal` uses.
+  3. INV-13 needs its test in tests/unit/PathSeedsTest.cpp, and INV-12's
+     existing fixture needs the navigation point the amendment now requires
+     or it will fail.
+  4. Then the local gate, then the matrix. This repository is PUBLIC with
+     CI, so rule 6 allows the push without asking.
+  5. Then re-measure the corpus and check the prediction recorded above:
+     MH-'Z-FALKENSTINE gains a walking chain, five maps become `mover`
+     with no chain, MH-NivenSB and MH-UnderDarkSB become `none`, and
+     MH-Omni-Rage-BP and MH-UM-Vengeance-EG1 are unchanged.
+
+  THE PROBES ARE OUTSIDE THE REPOSITORY at
+  /mnt/Games/Scripts/Linux/ut-paths-output-uta0126, and its README says how
+  to build both. actor-census.cpp is new this session and is what measured
+  the exit-to-nearest-node distances; the before/after discriminator is the
+  older startpart-probe's `partitioned 0|1` argument.
+
+  UT_MonsterHunt has NOT been told any of this. The fix reduces what they
+  receive — fewer proposals, several maps changing route word — so telling
+  them is worth doing when it lands rather than now.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.

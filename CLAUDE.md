@@ -5,12 +5,18 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0126` — ut-paths: why eight maps still do not route. It
-was parked and is not any more: UT_MonsterHunt's MH-NivenSB run landed
-2026-09-12 and answered its `Waiting-on:` with a concrete next step. It
-is half-built and now has a named task, which is why it goes ahead of
-the keystone. Its 🚧 was left by `ut-ants-84`, which is gone from
-`ListAgents`, so rule 2 makes it resumable by anyone.
+**Next:** `UTA-0133` — ut-paths: the partitioned fallback goal wins over
+the real exit. Half-built and 🚧 from `ut-ants-d1`, which stopped at a
+session boundary; read that item's HANDOFF note first, which lists what
+is done and the five steps left in order. **The spec amendment is
+committed and UNGATED** — run `review-contract` on
+`docs/specs/UTA-0121-bot-path-seeds.md` before writing any code, per
+rule 14.
+
+`UTA-0126` — why eight maps still do not route — is parked on
+`Waiting-on:` UT_MonsterHunt and counts against neither limit. All eight
+now have a named cause; `UTA-0133` is the repair for the part that is
+ours.
 
 What that run settled: the bridge node DOES get its spec and does NOT
 open the route — the gap closes by 68 of 2852 units, and the partition

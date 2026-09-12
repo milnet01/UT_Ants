@@ -2,7 +2,12 @@
 
 **Status:** accepted (2026-09-12), at the review's cap; amended for UTA-0127
 (§ 3 decision 10, INV-11) and accepted again (2026-09-11), at that review's
-cap.
+cap. **AMENDED FOR UTA-0133 (2026-09-12) AND NOT YET GATED** — § 4.7's Search
+rule now withdraws the fallback goal where no navigation point touches the
+exit, with INV-13 added and INV-7's and INV-12's fixtures adjusted to it.
+`review-contract` has NOT run on this amendment and no code implements it
+yet. Run the gate before implementing: CLAUDE.md rule 14 puts it before the
+build, and the measurements behind the amendment are on ROADMAP UTA-0133.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -336,9 +341,16 @@ struct Proposal {
   part's placed spots, and the start's own, to a goal spot. A spot touching
   the exit is a goal. On a `PARTITIONED` map, so is a spot placed for a
   navigation point outside the start part from which the network reaches the
-  navigation point nearest the exit: the chain bridges the gap and stops. First
-  with mover spots removed; a path found is `found`. Else with them kept; a
-  path found is `mover`. Else `none`.
+  navigation point nearest the exit: the chain bridges the gap and stops,
+  because the network finishes the route from there. **That fallback is
+  offered only where the network ARRIVES at the exit** — where some navigation
+  point of the map touches the exit, by the same test a spot does. Where none
+  does, the network reaches the exit's neighbourhood and not the exit, so
+  bridging to it would leave the exit's own stretch unbridged and propose no
+  node near the exit; the fallback is then not offered, however much of the
+  network reaches the point nearest the exit, and the chain reaches the exit's
+  spots or the route is not `found`. First with mover spots removed; a path
+  found is `found`. Else with them kept; a path found is `mover`. Else `none`.
 - **Hops.** A hop from one position to another is allowed when it is at
   most 350 long; its three segments at § 4.5's heights trace clear; its
   centre segment, grown by `R` across and `H` up and down, meets no mover's
@@ -429,16 +441,17 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   proposes nodes.
 
 - **INV-7** — The start part is what the network reaches from the start, in
-  the edges' direction; on a `PARTITIONED` map the chain stops where it meets
-  the part that reaches the exit, and a navigation point within 50 takes a
-  spot's place only over an allowed hop.
+  the edges' direction; on a `PARTITIONED` map whose network arrives at the
+  exit the chain stops where it meets the part that reaches the exit, and a
+  navigation point within 50 takes a spot's place only over an allowed hop.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, partitioned: a
   network of two parts with one edge from the exit's part to the start's and
-  none back, a MonsterEnd beside the exit's part, and a navigation point of
-  the exit's part behind a thin wall from a spot on the path, within 50 of
-  it. The route starts in the start's part; nodes are proposed across the
-  gap and none further along the path than the spot placed for the exit's
-  part; the walled-off point takes no spot's place.
+  none back, a MonsterEnd beside the exit's part — close enough that a
+  navigation point of that part touches the exit, so § 4.7's fallback is
+  offered — and a navigation point of the exit's part behind a thin wall from
+  a spot on the path, within 50 of it. The route starts in the start's part;
+  nodes are proposed across the gap and none further along the path than the
+  spot placed for the exit's part; the walled-off point takes no spot's place.
   *Breaks when:* edges are followed both ways, which reads the exit's part as
   reachable and proposes nothing; the chain runs on through the exit's part;
   or a point takes a spot's place over a hop through the wall.
@@ -496,7 +509,10 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   over a **partitioned** `Scene` carrying three exits: one at the world
   corner, one with a single coordinate at 32767 and the other two small, and
   one a spot touches. The scene is built so § 4.7's fallback goal is not
-  merely offered but REACHED for the two off-world exits, so `propose` returns
+  merely offered but REACHED for the two off-world exits — which means giving
+  each of them a navigation point that touches it, since without one § 4.7
+  withdraws the fallback and the route would read `none`, and an off-world
+  exit needs that point placed at the bound with it — so `propose` returns
   `found` for all three. The file then carries `"route": "found"` three times,
   with `offWorld` true on the first two and false on the third. A fourth exit,
   at the world corner on a scene that is not partitioned, is written true with
@@ -508,6 +524,31 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   inside it; all three coordinates are required, which misses a position
   clamped on one axis; or the mark is read from the actor's own property
   alone, which misses an exit positioned from its class default.
+
+- **INV-13** — On a `PARTITIONED` map the fallback goal is offered only where
+  some navigation point touches the exit. Where none does, the chain reaches
+  the exit's own spots or the route is not `found`, and no chain ends short of
+  the exit.
+  *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, over two
+  **partitioned** scenes differing only in where the exit's part sits. In the
+  first a navigation point touches the exit: the fallback is offered and the
+  chain stops at that part, as INV-7 has it. In the second every navigation
+  point is outside the exit's goal window while the network still reaches the
+  point nearest it, and a walkable run of spots leads from the start part to
+  the exit's own spots: the route is `found` and the chain's last node is
+  within `radius + RADIUS` horizontally and `height + HALF_HEIGHT` vertically
+  of the exit centre. A third scene keeps the second's network and walls the
+  exit's spots off from the start part: the route is `none`, not `found` from
+  a fallback goal.
+  *Breaks when:* the fallback is offered on the network's reach alone, which
+  returns `found` with the chain ending at the fallback in the second scene —
+  measured on the corpus as 622 to 18,881 units short of the exit, against a
+  goal window that never exceeds 117; or the fallback is dropped outright,
+  which turns the first scene's economical bridge into a chain run all the way
+  through the exit's part; or the window is compared as a 3D distance rather
+  than the cylinder test, which moves `MH-UM-Vengeance-EG1` at 80 against 81
+  and `MH-ExtremeCoreV2SB` at 57.6 against 57 — both decided by the
+  difference, so a real map turns on it.
 
 ## 6. Failure modes
 
@@ -527,7 +568,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 **Unit, on every CI leg:** `tests/unit/CoreMd5Test.cpp` for INV-1;
 `tests/unit/PathTraceTest.cpp` for INV-2; `tests/unit/PathWalkableTest.cpp`
 for INV-3 and INV-4; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
-INV-8, INV-9, INV-10, INV-11 and INV-12.
+INV-8, INV-9, INV-10, INV-11, INV-12 and INV-13.
 Each is seen failing before the code it locks exists. Trees and scenes are
 built in memory, with `tests/unit/PathFixture.h`, so only INV-9, INV-10 and
 INV-11 need an install or a fixture map.
@@ -555,7 +596,10 @@ flying spec; skip the radius test; skip the height test; refuse a special
 spec; drop `R_SWIM` from the bot's flags; test the world bound at 32768;
 require all three coordinates at the bound; write the off-world mark in place
 of the route; force an off-world exit's route to `none`; read the mark from
-the actor's own property alone. Each must be killed by the invariant that names it.
+the actor's own property alone; offer the fallback goal on the network's reach
+alone, without a navigation point touching the exit; compare that touch as a
+3D distance rather than the cylinder test. Each must be killed by the
+invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
 
