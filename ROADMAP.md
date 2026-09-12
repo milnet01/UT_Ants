@@ -5074,9 +5074,55 @@ model, no weapon and no opponent until 0.2.0.
   node outside the start part that reaches the exit, so it never reaches
   the exit itself. That is a second failure shape and is ours, not the
   editor's.
+  Second failure shape measured (2026-09-12, ut-ants-84). On the two maps
+  with no spot touching their exit, the probe now reports the nearest spot
+  to the exit centre. MH-Skaarj_ReactorTest-v1: the nearest spot is 62
+  away horizontally where SS 4.6's window is CollisionRadius 20 plus
+  RADIUS 17, so 37 -- it misses on the horizontal and would have passed on
+  the vertical. MH-ZenithWarsTorus: 190 horizontal against a window of
+  117, and 288 vertical against 139 -- the exit stands far above any spot
+  a walking TMale1 can occupy. So on both the exit is simply not on our
+  walk graph, the PARTITIONED fallback aims the chain at another part
+  instead, and the seeds cannot connect the start to the exit however well
+  the editor links them.
+  All eight maps did get nodes -- 1 to 13 each -- and UT's editor linked
+  them, so nothing is failing to be proposed or placed. Five of the eight
+  have no explanation yet: MH-'Z-FALKENSTINE, MH-BoomDockBridge_V0,
+  MH-Haros-OldQuarter, MH-UM-SoccerStadium1 and MH-UM-SoccerStadium1-BP.
+  MH-UM-SoccerStadium1 is the one to look at next: a start-part node
+  already stands 116 from the exit, 9 spots touch the exit, the path is 4
+  spots long and one node was proposed. That is the simplest case in the
+  set, so whatever is wrong should be easiest to see there.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0127] **ut-paths: say when a map's exit sits at the world corner, instead of reporting an ordinary failure.**
+  Found 2026-09-12 while working UTA-0126. Of the 297 maps ut-paths ran
+  for UTA-0121's census, 27 have their only MonsterEnd at the world
+  corner: 26 at exactly (32768, 32768, 32768) and MH-GolgothaPEv1 one unit
+  inside it. Every one comes back Route::None. The value is the map's own
+  record, not a class default -- the probe at
+  /mnt/Games/Scripts/Linux/ut-paths-output-uta0126 reports which, and says
+  "its own record" for all of them. UT clamps an actor dragged out of the
+  world to that corner, so this is map data, not a reading fault.
+  UT_MonsterHunt's census corroborates it independently: their
+  endnodedist for these rows runs 33,047 to 52,602, where every other row
+  in the file is at most a few thousand.
+  Nothing ut-paths can propose helps such a map, and no route to the exit
+  exists for UT either. The defect is that a consumer cannot tell that
+  from a route we merely failed to find: both read "none". Give the JSON a
+  way to say it -- a Route value of its own, or a per-exit flag -- so the
+  census can set these aside and the remaining "none" rows mean what they
+  say.
+  Cheap and worth doing before any further routing work, because 27 maps
+  of 297 are noise in every measurement taken over that set. MH-LavaFortSEv0
+  is the same shape at endnodedist 56,355 and is outside ut-paths' groups,
+  so it is evidence rather than a case to handle.
+  **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
+  Kind: enhancement.
+  Source: in-session-2026-09-12.
   Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons
