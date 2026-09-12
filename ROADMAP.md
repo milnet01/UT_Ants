@@ -6986,6 +6986,12 @@ model, no weapon and no opponent until 0.2.0.
   what they receive changes in both directions, so they need the numbers
   above. And the 4000-unit exit radius behind the GardenOfDeath gain is an
   unverified assumption, filed separately.
+  UT_MonsterHunt TOLD (2026-09-12, ut-ants-f0), messaged session
+  ut-monsterhunt-62 with the full before-and-after table, the five
+  gains, the twelve withdrawals, and the correction that MH-NivenSB's
+  premise holds. Asked them to re-run their seed test rather than reuse
+  the 2026-09-11 output, since what they receive changed in both
+  directions. This closes the last thing this item left open.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
@@ -7024,6 +7030,12 @@ model, no weapon and no opponent until 0.2.0.
 
   Test: whatever UT_MonsterHunt's probe reports for a MonsterEnd of radius
   4000 -- at what distance the exit fires.
+  Asked UT_MonsterHunt (2026-09-12, ut-ants-f0), session
+  ut-monsterhunt-62: at what distance does a MonsterEnd of collision
+  radius 4000 actually fire? Their answer decides whether
+  MH-GardenOfDeath_DotD and _Hell's new `found` verdicts are real or as
+  false as the ones UTA-0133 removed. They record their half; this is
+  ours.
   **Layman:** Two maps now count as solvable because their exit is enormous; we have not checked that standing at its edge really finishes the map.
   Kind: investigate.
   Source: in-session-2026-09-12 UTA-0133 corpus re-measurement.
