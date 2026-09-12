@@ -1170,6 +1170,26 @@ model, no weapon and no opponent until 0.2.0.
   the distribution puts the Vulkan headers on the default path.
   Config::surface cannot work as specified: a surface must come from
   the renderer's own instance. That is settled at step 7.
+  Progress (2026-09-12, `ut-ants-b3`, main checkout): steps 1 to 6 of
+  eight are pushed and each passed the gate hook. Step 1 and step 3
+  are green on all three CI legs.
+
+  Landed: materials and surface flags with INV-10 and INV-11; direct
+  light through clustered culling with INV-6; probes through a hash table
+  with INV-7; shadow maps in a cached atlas; movers drawn where placed,
+  mirrored or moved. Every step's graders were seen to fail under hand
+  mutations. Survivors were fixed as tighter fixtures, or deleted as
+  dead code: a constant orientation factor and a shadow normal offset.
+
+  Found and fixed along the way: a same-sized bundle reloaded into the
+  same storage drew the old upload; a mirrored mover was culled.
+
+  Spec amended in the working tree, not yet committed. The surface
+  contract cannot work as drafted, because a surface must come from the
+  renderer's own instance. The caller now supplies its window's instance
+  extensions and a createSurface callback. That changes direction for
+  UTA-0016, so the amended spec runs the review gate before step 7, the
+  presenting path, is built.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
