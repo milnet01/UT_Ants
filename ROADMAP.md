@@ -6673,6 +6673,70 @@ model, no weapon and no opponent until 0.2.0.
   goal set and takes the shortest path to any of them, so the nearer
   wins. Seeds.cpp conforms to that. The repair is an amendment to that
   rule, and it re-arms rule 14's gate.
+  CORRECTION (2026-09-12, ut-ants-d1, main checkout) to the note above,
+  and it narrows this item rather than widening it. That note called all
+  eight "confirmed diversions". The words were true -- a route to the real
+  exit existed and was discarded -- but the implication that all eight are
+  defects is WRONG, and the fallback is not a mistake in two of them.
+
+  What was missing is that the fallback has a legitimate purpose: bridge
+  to the part the network can finish from, and stop. Where the network
+  genuinely arrives at the exit, taking the short bridge instead of a long
+  walk is the intended economy, not a defect. So the test is not "did the
+  chain stop short" but "does the network actually reach the EXIT from
+  where it stopped".
+
+  Measured with the census probe -- the exit's nearest node against the
+  exit's own goal window, `radius + RADIUS` horizontally and
+  `height + HALF_HEIGHT` vertically, computed as the cylinder test rather
+  than a 3D distance:
+
+      map                     nearest node vs window   fallback
+      MH-Omni-Rage-BP              0  vs  57           legitimate
+      MH-UM-Vengeance-EG1         80  vs  81           legitimate
+      MH-ExtremeCoreV2SB        57.6  vs  57           premise fails
+      MH-Haros-OldQuarter        154  vs  57           premise fails
+      MH-UnderDarkSB             176  vs  57           premise fails
+      MH-BirdBrainedResearch     181  vs  27           premise fails
+      MH-'Z-FALKENSTINE          244  vs  57           premise fails
+      MH-Doomed-HELL-HTD-BP      316  vs  57           premise fails
+      MH-ChambersOfHell-Part1    381  vs 273           premise fails
+      MH-NivenSB                  79  vs  21           premise fails
+
+  THE DEFECT, STATED PROPERLY. § 4.7 offers the fallback goal whenever
+  the network reaches the node NEAREST the exit. It never checks that
+  node is AT the exit. Where the nearest node lies outside the exit's own
+  goal window, the network does not arrive at the exit at all, so bridging
+  to the fallback leaves the last stretch unbridged, no node is proposed
+  near the exit, and the map cannot route. That is the whole bug, and it
+  is narrower and more defensible than "the nearer goal wins".
+
+  THE FIX follows from it: offer the fallback goal only when some network
+  node lies within the exit's own goal window. Otherwise the chain must
+  reach the cylinder itself. This keeps the fallback for exactly the maps
+  it was written for and withdraws it where its premise is false.
+
+  Checked against every map above. The two legitimate ones are unchanged.
+  MH-'Z-FALKENSTINE gains a walking chain into its cylinder. Haros,
+  BirdBrainedResearch, Doomed-HELL-HTD-BP, ChambersOfHell-Part1 and
+  ExtremeCoreV2SB become `mover` with no chain, which is truthful -- their
+  exit needs a lift or a door. MH-NivenSB and MH-UnderDarkSB become
+  `none`, which matches MH-NivenSB's independently confirmed structural
+  partition.
+
+  MH-ExtremeCoreV2SB is MARGINAL at 57.6 against 57 and should be named
+  in the test, because a fix that moves it is one rounding away from not
+  moving it.
+
+  TWO INVARIANTS' FIXTURES ARE AFFECTED and neither invariant changes.
+  INV-7's scene puts its MonsterEnd beside the exit's part, so a node is
+  within the window, the fallback stays legitimate and the test stands.
+  INV-12 is the one that breaks: it builds off-world exits at the world
+  corner and requires `propose` to return `found` for all three to show
+  the mark is independent of the route. With the fallback withdrawn those
+  exits read `none`. The invariant -- the mark is never written in place
+  of the route -- is untouched; the fixture needs a navigation point
+  inside the off-world exits' window to keep demonstrating it.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
