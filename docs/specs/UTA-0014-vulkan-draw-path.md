@@ -235,14 +235,15 @@ struct Config {
     /// Called once, with the renderer's own VkInstance cast to an integer,
     /// after that instance exists and before a device is chosen. Returns the
     /// caller's VkSurfaceKHR made from it, cast, or 0 to refuse. The renderer
-    /// destroys the surface, before its instance.
+    /// destroys the surface, before its instance; the caller's window must
+    /// outlive the Renderer.
     ///
     /// SET SELECTS THE PRESENTING PATH, UNSET THE SURFACELESS ONE: no instance
     /// extension, no surface, no swapchain, and no VK_KHR_swapchain asked for.
     /// `create` refuses with InvalidArgument a Config whose instanceExtensions
     /// is empty while this is set, or non-empty while it is unset.
     std::function<std::uint64_t(std::uint64_t instance)> createSurface;
-    std::uint32_t width = 0, height = 0;  ///< the target's size; `resize` changes it
+    std::uint32_t width = 0, height = 0;  ///< the target's size in pixels; `resize` changes it
     bool validation = false;              ///< request the layer if installed
     /// Skip exposure and tone mapping, writing linear light to the target
     /// instead. It exists so INV-10 can compare a pixel against a literal --
@@ -290,9 +291,10 @@ public:
     /// consumes it: with no temporal resolve, a jittered frame shimmers.
     void setJitter(bool enabled) noexcept;
 
-    /// The target's new size, from the caller's window. The next `draw`
-    /// rebuilds every render target at it, and the swapchain on the presenting
-    /// path. A zero width or height is refused with InvalidArgument.
+    /// The target's new size in pixels -- the window's drawable size, not its
+    /// size in window units. The next `draw` rebuilds every render target at
+    /// it, and the swapchain on the presenting path. A zero width or height is
+    /// refused with InvalidArgument; SS 4.3 says what a minimised window does.
     [[nodiscard]] Result<void> resize(std::uint32_t width, std::uint32_t height);
 };
 
@@ -353,10 +355,12 @@ needs and supplies `createSurface`. The window stays the caller's (§ 3 decision
 `VK_KHR_swapchain`, a swapchain over the surface `createSurface` returned, and
 `Present.cpp`. Its format choice is § 4.10's. The swapchain is rebuilt at the
 top of the next frame after a `resize`, or after `VK_ERROR_OUT_OF_DATE_KHR` from
-acquire or present or `VK_SUBOPTIMAL_KHR` from present. A rebuild takes the size
-`resize` last gave, else `Config`'s, and never reads it off the surface: a
-surface's `VkSurfaceCapabilitiesKHR::currentExtent` may be `0xFFFFFFFF`, meaning
-the swapchain's extent decides.
+acquire or present or `VK_SUBOPTIMAL_KHR` from present. A rebuild takes the
+surface's `VkSurfaceCapabilitiesKHR::currentExtent` where the surface defines
+one; where it is `0xFFFFFFFF` it takes the size `resize` last gave, else
+`Config`'s. Either is clamped to the surface's minimum and maximum extent.
+**While that extent is zero — a minimised window — `draw` draws nothing and
+succeeds**, so the caller's loop needs no case for it.
 
 ### 4.4 Device selection — feature bits, and a refusal rather than a fallback
 
@@ -368,12 +372,14 @@ device lacking any one of them:
 | `apiVersion` at least 1.3 | `VkPhysicalDeviceProperties` | `docs/design.md`'s floor |
 | A queue family with `VK_QUEUE_GRAPHICS_BIT` | queue family properties | anything drawn |
 | Present support on that family | `vkGetPhysicalDeviceSurfaceSupportKHR` | **presenting path only** — never queried when there is no surface |
+| `VK_KHR_swapchain` | `vkEnumerateDeviceExtensionProperties` | **presenting path only** — the one requirement with no feature bit |
 | `dynamicRendering` | `VkPhysicalDeviceVulkan13Features` | § 4.3 builds no `VkRenderPass` objects |
 | `synchronization2` | `VkPhysicalDeviceVulkan13Features` | the barrier form § 4.3 uses |
 | `runtimeDescriptorArray`, `shaderSampledImageArrayNonUniformIndexing`, `descriptorBindingPartiallyBound`, `descriptorBindingVariableDescriptorCount` | `VkPhysicalDeviceVulkan12Features` | § 4.5's bindless material array |
 | `textureCompressionBC` | `VkPhysicalDeviceFeatures` | the bundle stores BC4, BC5 and BC7 and nothing else — `ubundle::BlockFormat` |
 
-**Read the feature bit, never the extension string.** A sibling project states
+**Read the feature bit, never the extension string** — except for
+`VK_KHR_swapchain`, which has no feature bit. A sibling project states
 the reason in its own source
 (`/mnt/Games/Scripts/Linux/DOOM_Ants/linuxdoom-1.10/r_vulkan.cpp`): *"the
 extension strings alone don't guarantee the feature is usable."*
@@ -724,13 +730,15 @@ freely PROVIDED it lands before the render graph has passes built on top of it
 — the ordering is the point, not the milestone."* Three provisions, and no
 upscaler:
 
-1. **A sub-pixel jitter added to the projection matrix each frame**, from a
-   Halton sequence, exposed so a later item can set it and turn it off.
+1. **A sub-pixel jitter added to the projection matrix each frame it is on**,
+   from a Halton sequence. It is off by default; `setJitter` turns it on.
 2. **A per-pixel motion-vector target written by the opaque pass**, from the
    current and previous frame's clip positions, **excluding the jitter** — the
    FSR and XeSS documentation agree that motion vectors carry no jitter
    (<https://gpuopen.com/manuals/fsr_sdk/techniques/super-resolution-upscaler/>).
-   `PF_Translucent` batches write none, per § 4.5: a blended surface has no
+   The target is `R16G16_SFLOAT`, holding current minus previous position in
+   the target's UV units, +x right and +y down. `readback(Velocity)` widens it
+   to 32-bit floats. `PF_Translucent` batches write none, per § 4.5: a blended surface has no
    single depth, so its velocity would be whatever drew last.
 3. **A composite seam after the post stage**, so a UI pass can draw at output
    resolution into the presented image rather than into the image an upscaler
@@ -751,8 +759,8 @@ Three tiers, and the split is what § 3 decision 1 decided.
 | Tier | Needs | Runs on |
 |---|---|---|
 | **Device-free** — cluster assignment, the jitter sequence, atlas tile allocation, mover placement against `FCoordsPort.h`, header isolation, every shared-struct layout `static_assert` | nothing but a compiler | every leg of the matrix, label `unit;fast` |
-| **Device** — the surfaceless render, pixel comparisons, the § 4.6 light parity, the § 4.7 probe evaluation, BC texture upload and sampling | any Vulkan 1.3 device | both Linux legs, on Mesa's CPU driver; label `device` |
-| **Presenting** — a window, a swapchain, resize | a display | a developer machine, by hand. `UTA-0016` is what makes it reachable |
+| **Device** — the surfaceless render, pixel comparisons, the § 4.6 light parity, the § 4.7 probe evaluation, BC texture upload and sampling, `resize` rebuilding the render targets | any Vulkan 1.3 device | both Linux legs, on Mesa's CPU driver; label `device` |
+| **Presenting** — a window, a swapchain and its rebuild | a display | a developer machine, by hand. `UTA-0016` is what makes it reachable |
 
 `.github/workflows/ci.yml`'s Linux toolchain step gains three packages:
 `libvulkan-dev` (loader and headers), `glslc` (the SPIR-V compiler) and
@@ -1163,7 +1171,8 @@ their breaking states, each of which produces a plausible image.
 | § 4.8's cached shadow tiles being invalidated when a mover enters a static light's radius | `tests/unit/RenderShadowsTest.cpp` for the decision, and `tests/device/RenderMoverTest.cpp` for a mover that moved inside a light's radius redrawing that light's tiles |
 | `libvulkan-dev` and `glslc` staying installed | § 4.2's `REQUIRED` find — their absence fails the **configure**, before any test runs |
 | `mesa-vulkan-drivers` staying installed | INV-5, which turns its absence into a red leg rather than an empty test run |
-| The presenting path — swapchain format, present mode, resize | **nothing** in CI, by § 3 decision 1. Graded by hand under `UTA-0016` |
+| § 4.3's `resize` on the surfaceless path | `tests/device/RenderOffscreenTest.cpp` — a readback after `resize` has the new size, and a zero size is refused |
+| The presenting path — swapchain format, present mode, the swapchain rebuild | **nothing** in CI, by § 3 decision 1. Graded by hand under `UTA-0016` |
 
 ## 11. Cross-doc impact
 

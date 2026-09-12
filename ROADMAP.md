@@ -1190,6 +1190,16 @@ model, no weapon and no opponent until 0.2.0.
   extensions and a createSurface callback. That changes direction for
   UTA-0016, so the amended spec runs the review gate before step 7, the
   presenting path, is built.
+  Progress (2026-09-12): the spec amendment recording what steps 1 to 6
+  built was re-gated through review-contract, two cold loops of three
+  lanes, at the spec's cap; every verified finding is fixed and the loop
+  log carries both rows. Step 7, the presenting path, builds to the
+  amended section 4.3: createSurface selects the path, Renderer::resize
+  sizes in pixels, a surface's defined extent wins, VK_KHR_swapchain is
+  a presenting-path device requirement, and surfaceless resize is graded
+  in RenderOffscreenTest. Found in passing and fixed: a point light
+  turned away mid-admission kept its taken tiles out of the shadow
+  atlas.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
