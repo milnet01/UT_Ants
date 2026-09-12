@@ -7314,6 +7314,31 @@ model, no weapon and no opponent until 0.2.0.
   edit any of them, on the grounds that the rows correctly record what was
   installed at the time -- which is right, and means our census input is not
   defective either.
+  CONVENTION AGREED with UT_MonsterHunt (2026-09-12), their GAME-0106, and it
+  generalises past this item.
+
+  A DATED CENSUS ROW IS IMMUTABLE. A row in their
+  `analysis/routecensus-*.tsv` is the only record of which map VARIANT was
+  installed when that census ran. Both projects read those files, so
+  "correcting" a name in an old row destroys that record AND silently changes
+  the other project's input. They had left the eleven affected files alone on
+  the first ground; the second only came up when this exchange traced it
+  through to our side. Treat such a row as a record rather than as data to
+  repair, and file the discrepancy.
+
+  That is the rule this item should be built to. ut-paths reads the census as
+  given, and where a named map is absent it reports rather than resolves.
+
+  They also now record 127 as the figure for UTA-0133's corpus, with our
+  earlier 125 marked superseded, so a later session re-running their seed test
+  does not take the old denominator out of the older message.
+
+  GAME-0107, the vertical window, has NOT run. Their session was wrapping, so
+  it comes from a later one. MH-NivenSB stays unmeasured here until an actual
+  number arrives, and they will lead with MH-ExtremeCoreV2SB and
+  MH-Skaarj_ReactorTest-v1 when they have it. That is UTA-0135.
+
+  Nothing is owed in either direction on this item.
   **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-12 census export note.
