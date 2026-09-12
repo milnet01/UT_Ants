@@ -3434,7 +3434,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-08.
   Lanes: urender.
 
-- 🚧 [UTA-0077] **Run the real-asset tier on Windows, against a real install.**
+- ✅ [UTA-0077] **Run the real-asset tier on Windows, against a real install.**
   The real-asset tier is the ONLY check on upkg's readers against content this
   project did not write, and it has never run on Windows. Every Model and Level
   layout in UTA-0004, UTA-0057 and UTA-0069 was derived and verified on Linux.
@@ -3581,6 +3581,47 @@ model, no weapon and no opponent until 0.2.0.
   of the Linux rate, on a disjoint corpus. A rate that moves with the
   corpus is evidence about the content rather than about the probe. Filed
   there rather than chased here.
+  Resolved (2026-09-12) by ut-ants-40, main checkout. The tier ran on
+  Windows against a real install, which is what this item asked for, and
+  the answer is that the readers are clean on a corpus they were not
+  derived from.
+
+  The three blockers are all gone. Blocker 1, no MSVC binary: CI now
+  builds one on demand, behind a workflow_dispatch input, and uploads it.
+  Blocker 2, Defender: one narrow exclusion for C:\uta-test, recorded
+  above with the command to undo it. The third blocker, which this item
+  did not know about and which was fatal to its own stated fix, was that
+  UTA_UT_INSTALL_DIR is a compile-time define -- solved by the same input,
+  since the path is chosen when the artifact is built.
+
+  The mingw route this item explored is not needed and was not taken. It
+  was right to reject it: a binary that tests a different CRT would have
+  answered a different question.
+
+  WHAT THIS ITEM DOES NOT CLOSE, filed rather than folded in.
+
+  UTA-0132 carries the three failures, which are the tier assuming the
+  reference install rather than any reader being wrong. That is a real
+  defect and closing this item green would have buried it -- a contributor
+  who owns a UT install and turns the tier on today gets three failures
+  that are not their fault.
+
+  UTA-0079 has the second INV-2 measurement, 0.090% here against 0.27% on
+  Linux.
+
+  Not from this run but found while here, from UT_MonsterHunt: UTA-0130,
+  that some exits are shot rather than walked into and our exits list
+  cannot express it; and UTA-0131, the hunt for whatever tool dropped 58
+  MonsterEnds outside the world.
+
+  WHAT TO KEEP. The method is written up at
+  /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077 and is four commands
+  end to end, so re-running this on any future install is cheap. That
+  matters more than today's numbers: this tier had never run on Windows
+  because the route did not exist, not because anyone decided against it.
+
+  Green on the matrix -- GCC 14, Clang 19 and MSVC all succeeded on
+  c75c4a3, the commit carrying the workflow change.
   **Layman:** Our readers have only ever been checked against real game files on Linux. Half the players are on Windows. Check them there too.
   Kind: test.
   Source: in-session-2026-09-08.
@@ -6225,6 +6266,143 @@ model, no weapon and no opponent until 0.2.0.
   Kind: implement.
   Source: user-request-2026-09-12.
   Lanes: core, ubake, urender.
+
+- 📋 [UTA-0130] **Some Monster Hunt exits are SHOT, not walked into, and our exits list cannot say which.**
+  Told to us by UT_MonsterHunt 2026-09-12, read off the live gametype's
+  source rather than recalled.
+
+  MonsterEnd is a Trigger. Proximity runs Touch -> IsRelevant ->
+  TriggerObjective, but MonsterEndSB also reimplements TakeDamage gated on
+  `TriggerType == TT_Shoot`. So on those maps the win condition is SHOOTING
+  the exit, and standing in its cylinder is not it.
+
+  WHY THIS IS A DEFECT AND NOT A CURIOSITY. `Scene::exits` carries Location
+  plus collision radius and height, and nothing else. Everything downstream
+  treats "reach the exit" as "occupy that cylinder": UTA-0121's proposals,
+  UTA-0126's routing, and UTA-0128's control group all do. For a TT_Shoot
+  exit the right test is line of sight from somewhere a player can stand,
+  which is a different question and a weaker requirement.
+
+  It fails in the direction that hides good maps. A map whose exit can be
+  shot from a reachable spot reads as unroutable, so it lands in the same
+  bucket as a genuinely broken one. Two of UTA-0126's eight -- the ones
+  whose exit no spot touches at all -- are exactly the shape that would be
+  explained by this, and were not checked for it.
+
+  WHAT TO DO, and the first half is cheap. Census `TriggerType` across the
+  library: how many exits are TT_Shoot, and how many of UTA-0126's eight
+  and UTA-0127's 58 are among them. We already read actor properties, so
+  this is a property lookup and a count. Only then decide whether
+  `Scene::exits` grows a trigger-type field and what the routing test
+  becomes for one.
+
+  Do NOT widen the routing rule before the census. If TT_Shoot is rare the
+  answer may be to report those maps rather than to route them
+  differently.
+
+  Also from the same source and worth recording here because it changes
+  what a routing failure COSTS: the end condition is triggering the
+  MonsterEnd and nothing else. TriggerObjective ends the game with no
+  monster count anywhere in it. So a map that cannot be routed to its exit
+  cannot be finished at all -- there is no secondary objective that would
+  let a player or a bot complete it.
+
+  Blocked-by: nothing.
+  **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-09-12.
+  Lanes: ut-paths, ubake.
+
+- 📋 [UTA-0131] **Look for the tool that dropped 58 MonsterEnds outside the world.**
+  Asked of us by UT_MonsterHunt 2026-09-12, and it is ours because it is a
+  claim about FILES. Their side cannot test it; our reader already reaches
+  most of what it needs.
+
+  The standing hypothesis on their GAME-0097 is that the 58 are a batch
+  conversion in which something added a MonsterEnd to each map and never
+  placed it. The evidence for it so far is circumstantial and is about the
+  set rather than the files: all 58 carry a version suffix, where that is
+  about 270 of 2022 library-wide, and their authors are all different
+  people. It has never been tested against the files themselves.
+
+  WHAT TO LOOK FOR. A package file version or Level version the 58 share
+  and placed maps do not. The MonsterEnd's export shape -- property set,
+  order, sizes. Its index in the actor list relative to its neighbours,
+  since a tool appending an actor leaves it somewhere a human author would
+  not. Any generator or tool string the package carries.
+
+  THE TRAP, and it is the whole method. 58 maps sharing a package version
+  proves almost nothing on its own: version is coarse and the library
+  clusters anyway. So report what SEPARATES the 58 from a control group of
+  placed maps, never what they merely have in common. A shared export
+  shape or a consistent actor-list position is strong, because those are
+  choices a tool makes and an author does not.
+
+  RULED OUT ALREADY, so nobody re-runs it: the runtime replacement is not
+  the cause. BarbiesWorld swaps every MonsterEnd for MonsterEndSB at
+  PreBeginPlay, and the instinct is that this put them at the corner. It
+  cannot have. The corner positions are IN THE MAP FILE -- we read them
+  from the actor's own record with no engine running, and this project's
+  T3D exports agree. A load-time replacement cannot write the file it
+  loaded.
+
+  WHAT A POSITIVE BUYS. It turns "no evidence of where the finish belonged"
+  into "the tool that dropped it, and possibly what it replaced" -- which
+  is the only route anyone has to a placement with intent behind it, since
+  UTA-0128 measured that MHEndPlace's graph rule does not reconstruct it.
+
+  Blocked-by: nothing. UTA-0127 already names the 58.
+  **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-09-12.
+  Lanes: upkg.
+
+- 📋 [UTA-0132] **The real-asset tier assumes the reference install and cannot run green on another.**
+  Found by UTA-0077's first Windows run, 2026-09-12, against a stock
+  Unreal Tournament install -- 96 maps, zero MH-, 83 System packages.
+  Output at /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077.
+
+  The readers came back clean on that corpus, which was the question. What
+  failed was the tier itself: three assertions silently assume they are
+  running against the Linux REFERENCE install.
+
+  - tests/real/RealPathSeedsTest.cpp:193 requires `totals.withExit > 0`.
+    Got 0 -- no map in a stock install has a MonsterEnd.
+  - tests/real/RealInstallTest.cpp:2003 requires `extra == 0` on the
+    curated seed table. Got 461 -- the table names textures a smaller
+    install does not carry.
+  - tests/real/RealInstallTest.cpp:961 and :962 hold Paths entries to 99%
+    in-range and start-is-the-node. Got 98.7% and 93.9%.
+
+  The first two are bookkeeping and want a skip or a precondition: a test
+  about Monster Hunt content has nothing to say about an install with
+  none, and asserting a seed table matches an install is only meaningful
+  against the install it was derived from. Failing is the wrong answer;
+  so, quietly passing, is silently skipping without saying so.
+
+  THE THIRD IS NOT BOOKKEEPING and should not be quietly relaxed to fit.
+  Over 20,482 navigation points and 75,927 Paths entries: 967 out of range
+  and 4,634 naming a spec whose start is not the node holding the entry;
+  negative values 0. The property is genuinely weaker on stock maps than
+  on Monster Hunt ones, so the 99% threshold records the corpus it was
+  calibrated on rather than a fact about UT99 content. Decide what the
+  claim actually is before choosing a number -- lowering the threshold
+  until it passes would destroy the only signal here.
+
+  Nothing read today depends on the start being the node: UTA-0128's walk
+  and UT_MonsterHunt's MHEndPlace both take describeSpec's END actor.
+
+  WHY IT MATTERS BEYOND TIDINESS. S7 is that a stranger clones the
+  repository and the build and the suite pass. The real-asset tier is off
+  by default so S7 holds today, but a contributor who owns a UT install
+  and turns it on gets three failures that are not their fault and cannot
+  be distinguished from real ones.
+
+  Blocked-by: nothing.
+  **Layman:** Our tests against real game files only pass on one particular installation. Run them against any other and they fail for reasons that are not bugs.
+  Kind: test.
+  Source: in-session-2026-09-12.
+  Lanes: ci.
 
 ## 0.2.0 — Movement and weapons
 
