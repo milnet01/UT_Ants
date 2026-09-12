@@ -6777,6 +6777,16 @@ model, no weapon and no opponent until 0.2.0.
   UT_MonsterHunt has NOT been told any of this. The fix reduces what they
   receive — fewer proposals, several maps changing route word — so telling
   them is worth doing when it lands rather than now.
+  Resumed (2026-09-12) by ut-ants-f0, main checkout, after ut-ants-d1
+  left ListAgents at the session boundary. Rule 2: the 🚧 was abandoned
+  rather than held, so this is a resume and not a second claim. No peer in
+  ListAgents is a UT_Ants session, so the main checkout is mine.
+
+  CI on 4f8c9be came back green, so the four documentation commits that
+  carried the amendment are clear on the matrix. That was the one loose end
+  the HANDOFF left unread.
+
+  Starting at HANDOFF step 1: the rule 14 gate on the amendment.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
