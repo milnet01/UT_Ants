@@ -5192,9 +5192,64 @@ model, no weapon and no opponent until 0.2.0.
   census consumes it, so this is a contract something else binds to. Route
   is an amendment to that spec ahead of the code, which re-arms rule 14's
   gate: amend section 4.3, run review-contract, then build.
+  Resumed (2026-09-12) by ut-ants-c4, main checkout. ut-ants-84 is
+  absent from ListAgents, so its claim was abandoned and rule 2 allows the
+  resume. UTA-0126 stays parked on Waiting-on: and counts against neither
+  limit. Nothing has been built yet: the two commits so far
+  (dcba426, 3aa4d3f) are roadmap entries only. Next step is the spec
+  amendment this item's own body names.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0128] **ut-paths: find what a map says about where its level ends, for the maps whose exit is off the world.**
+  Direction set by the user 2026-09-12, choosing it over three
+  alternatives: report and leave the maps alone, measure what the nearest
+  geometry to the corner gives, or relocate the exit to the nearest
+  standable spot regardless.
+
+  Why nearest-geometry was rejected. All 29 measured off-world exits sit
+  at ONE point, (32768, 32768, 32768) or one unit inside it, so "the
+  closest part of the map" is whichever geometry reaches furthest in
+  +X+Y+Z and has no relation to where the author put the level's end. The
+  exits are 39,190 to 64,124 units from anything. A relocation on that
+  basis would make some maps finishable in the wrong room while looking
+  deliberate, which is worse than a map that is plainly broken.
+
+  What to look for instead — a clue with a reason behind it. The method
+  that makes any candidate checkable: DERIVE THE RULE FROM THE MAPS WHOSE
+  EXIT IS PLACED, then apply it to the ones whose exit is not. UTA-0121's
+  census ran 297 maps and UT_MonsterHunt's covers more; the large majority
+  place their MonsterEnd properly, so each candidate below can be scored
+  on that population before anything is proposed for a broken map.
+
+  Candidates, none yet measured:
+  - The navigation network's far end. On a placed map, measure where the
+    exit sits relative to the graph — distance along the network from the
+    PlayerStart, whether it is at or near the graph-furthest node of the
+    start's part. If placed exits land there consistently, the same node
+    on a broken map is a reasoned guess rather than an arbitrary one.
+  - The exit actor's own wiring. MonsterEnd's Tag and Event, and any
+    Trigger, Dispatcher or Counter naming it. A trigger that fires the
+    level's end is placed where the end is even when the marker is not.
+  - Other end-of-level content the map carries, including MonsterHunt's
+    own classes and any teleporter or trigger the author used to close the
+    level.
+  - The map's own text: LevelInfo and LevelSummary, which sometimes
+    describe the objective.
+
+  Out of scope until a candidate is measured: proposing a position for any
+  map, and editing map content at all. ADR-0003 has this project ship
+  recipes rather than modified content, and UT_MonsterHunt run the
+  rotation, so a map edit is theirs to make whatever we find.
+
+  Depends on UTA-0127, which gives the 58-map population a name in the
+  output. Without it, every measurement over this set is taken against
+  rows that read as an ordinary routing failure.
+  **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
+  Kind: investigate.
+  Source: user-request-2026-09-12.
   Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons
