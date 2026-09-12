@@ -5580,6 +5580,28 @@ model, no weapon and no opponent until 0.2.0.
   production deploy, and it is waiting on the user. That is their user's
   call and blocks nothing here; the rule is fixed and measurable as it
   stands.
+  Constraint (2026-09-12), from UT_MonsterHunt's log-only MHEndPlace run --
+  read this before implementing the control group.
+
+  MHEndPlace picks whatever NAVIGATION CLASS sits at the far end of the
+  walk, not necessarily a PathNode. Measured: a DefensePoint on
+  MH-ProgressV1 (DefensePoint11, 31 hops, 8906u) and an InventorySpot on
+  MH-EHGiantV0 before their cap was lifted. That is their stated rule
+  behaving as stated -- the walk is over nav points, so any nav class can
+  be the far end.
+
+  So if our validation filters to PathNodes anywhere, it will diverge from
+  them for that reason and NOT because the rule is wrong. A divergence
+  found that way would be a defect in our control group, read as a finding
+  about their rule. Filter to NavigationPoint ancestry, or do not filter.
+
+  Also from the same run, and it settles a scope question this item and
+  UTA-0127 both had open: MHEndPlace fires on the PARKED test alone --
+  every MonsterEnd at or beyond its corner limit -- and never on census
+  group. So the 30 ENDNODE maps outside our work groups are covered by
+  their fix exactly as the 27 inside them are. UTA-0121 § 9's scope gap is
+  a gap in what OUR file reports, not in their repair, and MH-ProgressV1
+  needs no item of its own.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
