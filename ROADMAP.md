@@ -5602,6 +5602,19 @@ model, no weapon and no opponent until 0.2.0.
   their fix exactly as the 27 inside them are. UTA-0121 § 9's scope gap is
   a gap in what OUR file reports, not in their repair, and MH-ProgressV1
   needs no item of its own.
+  Detail (2026-09-12), from UT_MonsterHunt, sharpening the constraint
+  above: their walk enumerates whatever `Level.NavigationPointList` holds
+  and follows Paths via `describeSpec`'s end actor, with NO filtering of
+  any kind on their side. So every class the engine put in that list is in
+  scope and THERE IS NO SUBSET TO MATCH.
+
+  That settles which of the two options above we take. "Filter on
+  NavigationPoint ancestry" is only correct if their list is exactly the
+  NavigationPoint descendants; since they do not filter at all, our control
+  group must enumerate the same list rather than reconstruct it from an
+  ancestry test. An ancestry filter would agree with them only by accident,
+  and would diverge silently wherever the engine's list and our ancestry
+  walk differ.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
