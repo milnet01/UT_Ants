@@ -5195,7 +5195,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-seedtest-2026-09-11.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0127] **ut-paths: say when a map's exit sits at the world corner, instead of reporting an ordinary failure.**
+- ✅ [UTA-0127] **ut-paths: say when a map's exit sits at the world corner, instead of reporting an ordinary failure.**
   Found 2026-09-12 while working UTA-0126. Of the 297 maps ut-paths ran
   for UTA-0121's census, 27 have their only MonsterEnd at the world
   corner: 26 at exactly (32768, 32768, 32768) and MH-GolgothaPEv1 one unit
@@ -5325,6 +5325,42 @@ model, no weapon and no opponent until 0.2.0.
   directions -- they reasoned from "in our tsv" to "has a file from
   UT_Ants", and so did I. The threshold is untouched and still does not
   rest on a count.
+  Resolved (2026-09-12) by ut-ants-de in the main checkout, commit 7cc1735.
+
+  Flipped ON THE MATRIX, not the local leg: CI run for 7cc1735 completed
+  success on all three legs -- Linux (GCC 14), Linux (Clang 19) and Windows
+  (MSVC). Local ./scripts/ci.sh was green first, 454 unit tests and clean
+  under ThreadSanitizer, but that is one leg of three.
+
+  `offWorld` is written per exit after `route` in ut-paths' per-map JSON
+  (UTA-0121 § 4.3), decided by § 4.6's rule on the RESOLVED Location --
+  `Cylinder::centre` already holds it, so no new field on `Scene` or
+  `Proposal` was needed. Tested per axis at 32767. INDEPENDENT of `route`:
+  an off-world exit is searched like any other and keeps § 4.7's word,
+  which on a PARTITIONED map can be `found` from the fallback goal.
+  `schema` stays 1.
+
+  INV-12's test goes through `propose` then `toJson` over a partitioned
+  scene that REACHES the fallback goal, so all three exits come back
+  `found` -- a fixture leaving them at `none` would pass green while § 7's
+  forcing mutation survived. A second case builds a map whose exit sets no
+  Location of its own, so reading the own record alone would write it in
+  the world. INV-8's pinned JSON updated for the new field.
+
+  All five of § 7's mutations for this invariant were run by hand and all
+  five are killed by INV-12's own two cases: bound at 32768, require all
+  three coordinates, mark in place of the route, force an off-world route
+  to `none`, mark from the own property alone. The first attempt piped the
+  runs through `tail` and read the pipe's exit code, so every mutation read
+  as SURVIVING; re-run reading the binary's own status. Worth knowing for
+  the next hand-mutation run on this project.
+
+  Not done and deliberately left: the work groups are unchanged, so the
+  mark still does not reach the 30 ENDNODE maps (§ 9), and no placement is
+  proposed for any stranded exit. MH-ProgressV1 being a live votable map
+  with an unreachable exit is recorded above but not acted on -- widening
+  the groups would be its own item, and the exit is UT_MonsterHunt's under
+  ADR-0003.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
