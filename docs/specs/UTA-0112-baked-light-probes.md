@@ -646,9 +646,16 @@ version-`7` file is refused and baked over (UTA-0011 § 4.7).
   costs nothing before `0.1.0`.
 - **Whether 128 units and 162 rays are enough.** Neither was measured. The real
   tier prints the cost; the quality waits for the renderer.
+  **The size half is settled: the user reviewed it on 2026-09-12 and kept 128
+  units.** The reasoning was that nothing can judge the quality until UTA-0014
+  draws, that a re-bake costs nothing before `0.1.0`, and that CTF-Face's
+  236,231 probes — about 20 MB, against DM-Turbine's 642 — is the most open map
+  in the game rather than the normal case. The quality half stays open.
 - **Light leaking through thin walls.** If UTA-0014's blending cannot stop it
   alone, a per-probe mask would change `LPRB`.
 - **Lights a script switches get no bounce.** UTA-0110's `LITE` keeps enough to
   revisit this with per-light transfer (§ 8).
 - **Every decision in § 3 was made without the user**, who asked for that while
-  away. They are the first thing to review.
+  away. They are the first thing to review. **Reviewed so far: decision 9's
+  spacing only, on 2026-09-12, and kept.** The other nine have not been put to
+  them individually and are still open.

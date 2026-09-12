@@ -4694,6 +4694,14 @@ model, no weapon and no opponent until 0.2.0.
   of the spec's section 7 killed by the invariant it names, three at
   compile time in INV-4's static_assert. The spec's section 15 lists the
   decisions made while the user was away, for their review.
+  Reviewed in part (2026-09-12). The user kept section 3 decision 9's
+  128-unit spacing, on the grounds that nothing can judge the quality
+  until UTA-0014 draws, that a re-bake costs nothing before 0.1.0, and
+  that CTF-Face's 236,231 probes is the most open map in the game rather
+  than the normal case -- DM-Turbine is 642. Recorded in the spec's
+  section 15, which also now says that the other nine section 3 decisions
+  have NOT been put to them and are still open. The quality half of the
+  spacing question stays open with them.
   **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -5100,12 +5108,37 @@ model, no weapon and no opponent until 0.2.0.
   already stands 116 from the exit, 9 spots touch the exit, the path is 4
   spots long and one node was proposed. That is the simplest case in the
   set, so whatever is wrong should be easiest to see there.
+  Waiting-on: UT_MonsterHunt's MHSpecProbe run on MH-NivenSB (asked
+  2026-09-12), which decides whether the floating PathNode20 is what stops
+  UT building the spec. They have it queued behind a build the user asked
+  for, and will say which variant they ran.
+  Parked (2026-09-12) by ut-ants-84, main checkout, on the user's
+  instruction to take UTA-0127 first. UTA-0127 removes 58 unhelpable maps
+  from every measurement taken over this population, so the five maps
+  still unexplained here are easier to read once it lands. Resume with
+  MH-UM-SoccerStadium1, the simplest case in the set.
+  Direction for the two maps with no spot touching their exit, decided
+  with the user 2026-09-12: MEASURE BEFORE CHOOSING. The user asked why
+  the exit is not simply moved to ground level. For the maps of UTA-0127
+  there is no answer -- the exit is 39,190 to 64,124 units from anything
+  and nothing says where the author meant it. For these two the offsets
+  are small, 62 horizontal on MH-Skaarj_ReactorTest-v1 and 288 vertical
+  on MH-ZenithWarsTorus, and 288 up is the shape of a lift top or a high
+  ledge, which is ordinary map design. So it is not established that
+  either exit is unreachable, and lowering one would paper over the fact
+  that the walk graph models no lift.
+  Three options remain once measured: propose nothing and say why, keep
+  proposing and flag the map, or aim at the nearest standable floor BELOW
+  the exit -- the user's idea applied to our goal rather than to the map,
+  which needs no map edit and is reversible. Editing a community map is
+  UT_MonsterHunt's call in any case, since they run the rotation, and
+  ADR-0003 has this project ship recipes rather than modified content.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
   Lanes: ut-paths.
 
-- 📋 [UTA-0127] **ut-paths: say when a map's exit sits at the world corner, instead of reporting an ordinary failure.**
+- 🚧 [UTA-0127] **ut-paths: say when a map's exit sits at the world corner, instead of reporting an ordinary failure.**
   Found 2026-09-12 while working UTA-0126. Of the 297 maps ut-paths ran
   for UTA-0121's census, 27 have their only MonsterEnd at the world
   corner: 26 at exactly (32768, 32768, 32768) and MH-GolgothaPEv1 one unit
@@ -5150,6 +5183,15 @@ model, no weapon and no opponent until 0.2.0.
   dragging the actor out of the level, but nothing measured says where the
   exit was meant to be, and on a map whose exit is 50,000 units from
   anything there is no evidence to reconstruct it from.
+  Picked up (2026-09-12) by ut-ants-84, main checkout, on the user's
+  instruction to take it ahead of UTA-0126, which is parked on
+  Waiting-on:. Lanes are ut-paths for both, so this is the same directory
+  rather than a second one -- no second session is running, and the cap is
+  on items rather than directories.
+  The output file's shape is UTA-0121 section 4.3's, and UT_MonsterHunt's
+  census consumes it, so this is a contract something else binds to. Route
+  is an amendment to that spec ahead of the code, which re-arms rule 14's
+  gate: amend section 4.3, run review-contract, then build.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
