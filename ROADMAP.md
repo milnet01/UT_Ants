@@ -6787,6 +6787,55 @@ model, no weapon and no opponent until 0.2.0.
   the HANDOFF left unread.
 
   Starting at HANDOFF step 1: the rule 14 gate on the amendment.
+  SECOND CORRECTION (2026-09-12, ut-ants-f0, main checkout), found by the
+  rule 14 gate on the amendment. The CORRECTION note above is itself wrong
+  on MH-NivenSB, and wrong in exactly the way it warns against.
+
+  It records "MH-NivenSB 79 vs 21 premise fails". 79 is the 3D distance the
+  census probe prints; 21 is the HORIZONTAL window. Comparing one against
+  the other is the error that note says it is correcting. MH-NivenSB's exit
+  is a tall thin cylinder -- radius 4, height 166 -- so its 3D distance is
+  almost all vertical, and the two tests give OPPOSITE answers rather than
+  differing by a rounding.
+
+  Measured with touch-census.cpp, a third scratch probe built beside the
+  other two and including the real Seeds.cpp, so nearestNode and horizontal
+  are the tool's own:
+
+      MH-NivenSB exit 0, window horizontal 21, vertical 205
+        nearest node 383: horizontal 11.24, vertical 78.60  -> TOUCHES
+        two navigation points touch it
+
+  So MH-NivenSB's fallback premise HOLDS. Step 5's prediction changes on
+  that one map: it is UNCHANGED by the fix, not turned to `none`. It still
+  fails to route, by the structural partition UT_MonsterHunt confirmed
+  independently, which is a different cause and not ours to fix here.
+
+  MH-ExtremeCoreV2SB is also misrecorded above at 57.6. It measures 57.2509
+  horizontally and 57.4688 in 3D. It still fails its premise either way,
+  and it is still the marginal map worth naming.
+
+  THE RULE CHANGED TOO, and this is the gate's own finding. The amendment
+  offered the fallback where SOME navigation point touches the exit, then
+  built the goal set from the reachers of the point NEAREST the exit. Those
+  are different tests and can name different points. Over every partitioned
+  exit of the last full run, one diverges: MH-MA-Invasion_CH3_hard_high,
+  whose nearest node is 61.69 horizontally against a window of 57 while
+  another point touches. So the amendment as committed reproduced the hole
+  it withdraws. UTA-0121 § 4.7 now keys the goal set itself on a navigation
+  point that TOUCHES the exit, which makes the offered-only-where condition
+  emergent and removes the second rule.
+
+  Revised prediction for step 5, replacing the one above. MH-'Z-FALKENSTINE
+  gains a walking chain. MH-Haros-OldQuarter, MH-BirdBrainedResearch,
+  MH-Doomed-HELL-HTD-BP, MH-ChambersOfHell-Part1 and MH-ExtremeCoreV2SB
+  become `mover` with no chain. MH-UnderDarkSB becomes `none`.
+  MH-Omni-Rage-BP, MH-UM-Vengeance-EG1 and MH-NivenSB are unchanged.
+  MH-MA-Invasion_CH3_hard_high should improve, its fallback now aimed at
+  the point that touches rather than the one merely nearest.
+
+  The probe and its output are kept outside the repository, beside the other
+  two at ut-paths-output-uta0126.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
