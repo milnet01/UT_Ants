@@ -1041,7 +1041,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ci.
 
-- 🚧 [UTA-0014] **urender: Vulkan device bring-up and the bundle draw path.**
+- ✅ [UTA-0014] **urender: Vulkan device bring-up and the bundle draw path.**
   Vulkan 1.3. Device, swapchain, and the first draw of a bundle's geometry with
   its PBR materials.
   The level's own light actors -- position, colour, brightness, radius, flicker --
@@ -1217,6 +1217,9 @@ model, no weapon and no opponent until 0.2.0.
   34719128475 (eb42ba4) with gh run view; if every leg is green, flip
   this to shipped and advance CLAUDE.md's Next line past UTA-0014. If a
   leg is red, fix it before flipping.
+  Shipped (2026-09-12): green on the whole matrix at eb42ba4, CI run
+  34719128475, Windows (MSVC), Linux Clang 19 and Linux GCC 14. The
+  resume note above is satisfied.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.

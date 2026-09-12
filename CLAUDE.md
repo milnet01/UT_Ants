@@ -5,17 +5,17 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0014`'s **implementation**, for whoever holds it — its spec
-is accepted and the code does not exist. For a session that cannot take it
-(it is 🚧), `UTA-0013`'s quarantine guard is the next fresh pick and shares
-no directory with it.
+**Next:** `UTA-0059`, splitting ADR-0007's procedure from its decision — a
+rule-1 item whose trigger, the renderer landing, has fired. It waits on a
+user decision its roadmap note sets out: supersede ADR-0007 or edit it.
+`UTA-0013`'s quarantine guard is the next fresh pick that needs no decision.
 
-`UTA-0014`'s spec is `docs/specs/UTA-0014-vulkan-draw-path.md`, accepted
-2026-09-12 at its cap. Two things from it that reach other work. The draw
-path is graded headlessly on Mesa's software driver — measured: a
-surfaceless offscreen render works with no display, and every feature the
-design needs is present on that driver — so `scripts/ci.sh` gains
-per-platform label selection and both CI legs gain Vulkan packages.
+`UTA-0014` shipped 2026-09-12, green on the matrix; its spec is
+`docs/specs/UTA-0014-vulkan-draw-path.md`. Two things from it that reach
+other work. The draw path is graded headlessly on Mesa's software driver,
+so `scripts/ci.sh` selects test labels per platform and both CI legs install
+Vulkan packages; the presenting path is run by hand, with the probe at
+`/mnt/Games/Scripts/Linux/ut-ants-present-probe-uta0014/`.
 And `ZoneInfo`'s ambient values, which `UTA-0112` hands the renderer, are
 in **no** bundle section (`rg -c Ambient src/` exits 1), so applying them
 needs `ubake` to write them and a format version bump first.
