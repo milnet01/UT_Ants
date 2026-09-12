@@ -5198,6 +5198,20 @@ model, no weapon and no opponent until 0.2.0.
   limit. Nothing has been built yet: the two commits so far
   (dcba426, 3aa4d3f) are roadmap entries only. Next step is the spec
   amendment this item's own body names.
+  MH-ProgressV0 resolved (2026-09-12) by UT_MonsterHunt. This body records
+  it as having no file in our reference install and so unmeasured rather
+  than contradicting. They hold it at their Maps-versions/MH-ProgressV0.unr
+  and its T3D export shows the same shape as the rest. It is a version
+  their version-pick pass set aside, so it is installed nowhere and is not
+  in the rotation. The figure stays 58, with the 58th not a live map.
+
+  They also read MH-ProgressV1's T3D: Location 32767 with OldLocation
+  32768. A third independent reading, and it says the actor has been out
+  there rather than being dragged out recently.
+
+  Neither changes what this item builds. The off-world test is on the
+  resolved Location and is unaffected by which maps happen to be
+  installed.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
@@ -5247,6 +5261,58 @@ model, no weapon and no opponent until 0.2.0.
   Depends on UTA-0127, which gives the 58-map population a name in the
   output. Without it, every measurement over this set is taken against
   rows that read as an ordinary routing failure.
+  Narrowed the same day it was filed (2026-09-12) by UT_MonsterHunt's
+  session, which had already measured the map data this item proposed to go
+  looking through. Recorded here and sent to them.
+
+  Two of the four candidates are dead, not unpromising. Across all 58 maps
+  there is NOT ONE MonsterWaypoint, so no mapper-laid route exists whose
+  last point could say where the finish was meant to be. And every one of
+  the 58 carries exactly one MonsterEnd, parked, with no second end inside
+  the level. So the waypoint candidate and the other-end-of-level-content
+  candidate are both answered no.
+
+  They also account for the set better than reading maps one at a time
+  would have: all 58 end in a version suffix where that is about 270 of
+  2022 maps library-wide, and their authors are all different people. That
+  reads as a batch conversion in which somebody added a MonsterEnd to each
+  map and never placed it. So the correct conclusion is that there is NO
+  evidence of intent in these maps, rather than thin evidence -- stronger
+  than this item was written to expect, and it removes the item's original
+  question rather than answering it.
+
+  They are building the placement: unrealscript/MHEndPlace, a load-time
+  mutator that moves a clamped MonsterEnd to the far end of the walkable
+  network -- breadth-first from the node nearest the PlayerStart, deepest
+  node wins, ties on straight-line distance. That is this item's candidate
+  1. We are not proposing a second rule for the same job; two tools picking
+  a finish position by different rules is worse than either.
+
+  WHAT THIS ITEM BECOMES. Validate that rule on the maps whose MonsterEnd
+  IS properly placed. MHEndPlace's own header records that the route census
+  cannot check the placement, because moving the finish onto a reachable
+  node makes the census say ROUTE by construction. True on the 58; false on
+  the maps that are not broken. So run the deepest-node rule on a placed
+  map with its real MonsterEnd ignored while computing, then measure how
+  far the rule's answer falls from where the author actually put the exit.
+  Close on most placed maps means the rule has evidence behind it; scattered
+  means it is arbitrary, and both projects would want that before 58 maps
+  ship with it. We already hold walk graph, direction-filtered nav graph,
+  PlayerStart and exit positions for 297 maps, so this is a measurement
+  pass rather than new machinery.
+
+  Asked of them before measuring, so that what we measure is their rule and
+  not a near-miss of it: whether the walk follows Paths in the stated
+  direction only or both ways, and what the straight-line tie-break is
+  measured from.
+
+  Also from them: MH-ProgressV0 exists at their Maps-versions/, so the map
+  UTA-0127 records as unmeasured is confirmed to have the same shape. It is
+  a version their version-pick pass set aside, installed nowhere and not in
+  the rotation -- so 58 is the figure, with the 58th not a live map.
+  MH-ProgressV1's T3D carries Location 32767 and OldLocation 32768, a third
+  independent reading and evidence the actor has been out there rather than
+  recently dragged.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
