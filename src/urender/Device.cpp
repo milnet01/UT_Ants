@@ -56,6 +56,16 @@ int preference(VkPhysicalDeviceType type) noexcept {
 
 constexpr const char* VALIDATION_LAYER = "VK_LAYER_KHRONOS_validation";
 
+/// SS 4.3's integer handle back to a VkSurfaceKHR, which is a pointer where the
+/// platform's pointers are 64-bit and a 64-bit integer elsewhere.
+VkSurfaceKHR surfaceFrom(std::uint64_t handle) noexcept {
+#if VK_USE_64_BIT_PTR_DEFINES == 1
+    return reinterpret_cast<VkSurfaceKHR>(static_cast<std::uintptr_t>(handle));
+#else
+    return static_cast<VkSurfaceKHR>(handle);
+#endif
+}
+
 bool layerInstalled(const char* wanted) {
     std::uint32_t count = 0;
     if (vkEnumerateInstanceLayerProperties(&count, nullptr) != VK_SUCCESS) return false;
@@ -66,7 +76,26 @@ bool layerInstalled(const char* wanted) {
     });
 }
 
-DeviceCandidate describe(VkPhysicalDevice device) {
+/// The first queue family with graphics that, on the presenting path, can also
+/// present to `surface`.
+std::optional<std::uint32_t> familyOf(VkPhysicalDevice device, VkSurfaceKHR surface) {
+    std::uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+    std::vector<VkQueueFamilyProperties> families(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, families.data());
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if ((families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) continue;
+        if (surface != VK_NULL_HANDLE) {
+            VkBool32 supported = VK_FALSE;
+            if (vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &supported) != VK_SUCCESS || !supported)
+                continue;
+        }
+        return i;
+    }
+    return std::nullopt;
+}
+
+DeviceCandidate describe(VkPhysicalDevice device, VkSurfaceKHR surface) {
     DeviceCandidate candidate;
 
     VkPhysicalDeviceProperties properties{};
@@ -97,17 +126,19 @@ DeviceCandidate describe(VkPhysicalDevice device) {
     candidate.graphicsQueue = std::ranges::any_of(families, [](const VkQueueFamilyProperties& f) {
         return (f.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
     });
-    return candidate;
-}
 
-std::uint32_t graphicsFamilyOf(VkPhysicalDevice device) {
-    std::uint32_t count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
-    std::vector<VkQueueFamilyProperties> families(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &count, families.data());
-    for (std::uint32_t i = 0; i < count; ++i)
-        if ((families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) return i;
-    return 0; // unreachable for a selected device: "a graphics queue" is a requirement
+    // SS 4.4: both asked on the presenting path only.
+    if (surface != VK_NULL_HANDLE) {
+        candidate.presentSupport = familyOf(device, surface).has_value();
+        std::uint32_t extensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+        std::vector<VkExtensionProperties> extensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, extensions.data());
+        candidate.swapchainExtension = std::ranges::any_of(extensions, [](const VkExtensionProperties& e) {
+            return std::strcmp(e.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0;
+        });
+    }
+    return candidate;
 }
 
 } // namespace
@@ -175,7 +206,8 @@ Result<void> check(VkResult result, std::string_view call) {
     return fail(code, std::format("{} returned {}", call, resultName(result)));
 }
 
-Result<std::unique_ptr<Gpu>> Gpu::create(bool validation) {
+Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::string> instanceExtensions,
+                                         const std::function<std::uint64_t(std::uint64_t)>& createSurface) {
     std::unique_ptr<Gpu> gpu(new Gpu());
 
     std::vector<const char*> layers;
@@ -197,18 +229,31 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation) {
     app.pEngineName = "UT_Ants";
     app.apiVersion = VK_API_VERSION_1_3;
 
-    // No instance extension: the surfaceless path asks for none (SS 4.3).
+    // SS 4.3: the caller's window's extensions, and none on the surfaceless path.
+    std::vector<const char*> extensionNames;
+    for (const std::string& name : instanceExtensions) extensionNames.push_back(name.c_str());
     VkInstanceCreateInfo instanceInfo{};
     instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instanceInfo.pApplicationInfo = &app;
     instanceInfo.enabledLayerCount = static_cast<std::uint32_t>(layers.size());
     instanceInfo.ppEnabledLayerNames = layers.data();
+    instanceInfo.enabledExtensionCount = static_cast<std::uint32_t>(extensionNames.size());
+    instanceInfo.ppEnabledExtensionNames = extensionNames.data();
     if (const VkResult r = vkCreateInstance(&instanceInfo, nullptr, &gpu->instance_); r != VK_SUCCESS) {
         gpu->instance_ = VK_NULL_HANDLE;
         return fail(ErrorCode::NotFound,
                     std::format("there is no Vulkan instance: vkCreateInstance returned {} -- no loader, "
                                 "or no driver behind it",
                                 resultName(r)));
+    }
+
+    // SS 4.3: the surface is made from THIS instance, so a device chosen from it
+    // can present to it. Destroyed with the Gpu, before the instance.
+    if (createSurface) {
+        const auto instance = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(gpu->instance_));
+        gpu->surface_ = surfaceFrom(createSurface(instance));
+        if (gpu->surface_ == VK_NULL_HANDLE)
+            return fail(ErrorCode::NotFound, "createSurface made no surface from the renderer's instance");
     }
 
     std::uint32_t deviceCount = 0;
@@ -220,12 +265,14 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation) {
 
     std::vector<DeviceCandidate> candidates;
     candidates.reserve(devices.size());
-    for (VkPhysicalDevice device : devices) candidates.push_back(describe(device));
+    for (VkPhysicalDevice device : devices) candidates.push_back(describe(device, gpu->surface_));
     UTA_TRY(const std::size_t chosen, selectDevice(candidates));
 
     gpu->physical_ = devices[chosen];
     gpu->name_ = candidates[chosen].name;
-    gpu->family_ = graphicsFamilyOf(gpu->physical_);
+    // Always engaged for a selected device: a graphics queue, and on the
+    // presenting path present support, are requirements.
+    gpu->family_ = familyOf(gpu->physical_, gpu->surface_).value_or(0);
     vkGetPhysicalDeviceMemoryProperties(gpu->physical_, &gpu->memory_);
 
     // Enable exactly what SS 4.4 required, and nothing else.
@@ -252,12 +299,18 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation) {
     queueInfo.queueCount = 1;
     queueInfo.pQueuePriorities = &priority;
 
-    // No device extension: no VK_KHR_swapchain on the surfaceless path (INV-4).
+    // VK_KHR_swapchain on the presenting path, and no device extension on the
+    // surfaceless one (INV-4).
+    const char* const swapchainExtension = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
     VkDeviceCreateInfo deviceInfo{};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceInfo.pNext = &enable;
     deviceInfo.queueCreateInfoCount = 1;
     deviceInfo.pQueueCreateInfos = &queueInfo;
+    if (gpu->surface_ != VK_NULL_HANDLE) {
+        deviceInfo.enabledExtensionCount = 1;
+        deviceInfo.ppEnabledExtensionNames = &swapchainExtension;
+    }
     UTA_CHECK(check(vkCreateDevice(gpu->physical_, &deviceInfo, nullptr, &gpu->device_), "vkCreateDevice"));
     vkGetDeviceQueue(gpu->device_, gpu->family_, 0, &gpu->queue_);
 
@@ -277,6 +330,7 @@ Gpu::~Gpu() {
         if (pool_ != VK_NULL_HANDLE) vkDestroyCommandPool(device_, pool_, nullptr);
         vkDestroyDevice(device_, nullptr);
     }
+    if (surface_ != VK_NULL_HANDLE) vkDestroySurfaceKHR(instance_, surface_, nullptr);
     if (instance_ != VK_NULL_HANDLE) vkDestroyInstance(instance_, nullptr);
 }
 

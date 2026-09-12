@@ -70,8 +70,13 @@ struct DeviceCandidate {
 class Gpu {
 public:
     /// SS 4.4's three refusals: no instance, no physical device, or no device
-    /// meeting every requirement.
-    [[nodiscard]] static Result<std::unique_ptr<Gpu>> create(bool validation);
+    /// meeting every requirement. With `createSurface` set -- SS 4.3's
+    /// presenting path -- the instance also enables `instanceExtensions`, the
+    /// surface is made from it before a device is chosen, and the device must
+    /// present to it.
+    [[nodiscard]] static Result<std::unique_ptr<Gpu>> create(
+        bool validation, std::span<const std::string> instanceExtensions = {},
+        const std::function<std::uint64_t(std::uint64_t)>& createSurface = {});
 
     Gpu(const Gpu&) = delete;
     Gpu& operator=(const Gpu&) = delete;
@@ -81,6 +86,8 @@ public:
     [[nodiscard]] VkPhysicalDevice physical() const noexcept { return physical_; }
     [[nodiscard]] VkDevice device() const noexcept { return device_; }
     [[nodiscard]] VkQueue queue() const noexcept { return queue_; }
+    /// The caller's surface, destroyed with this; null on the surfaceless path.
+    [[nodiscard]] VkSurfaceKHR surface() const noexcept { return surface_; }
     [[nodiscard]] std::uint32_t queueFamily() const noexcept { return family_; }
     [[nodiscard]] const std::string& name() const noexcept { return name_; }
 
@@ -96,6 +103,7 @@ private:
     Gpu() = default;
 
     VkInstance instance_ = VK_NULL_HANDLE;
+    VkSurfaceKHR surface_ = VK_NULL_HANDLE;
     VkPhysicalDevice physical_ = VK_NULL_HANDLE;
     VkDevice device_ = VK_NULL_HANDLE;
     VkQueue queue_ = VK_NULL_HANDLE;

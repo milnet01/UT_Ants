@@ -10,7 +10,10 @@
 //   4. the UI composite seam, after the output stage (SS 4.11 provision 3).
 //
 // THE SURFACELESS PATH SUBMITS AND WAITS. draw returns when the frame is
-// finished, so readback needs no synchronisation of its own.
+// finished, so readback needs no synchronisation of its own. The presenting
+// path does the same and then presents -- and it acquires before the frame is
+// planned, so a frame skipped for an out-of-date surface leaves no shadow tile
+// believed drawn (Swapchain.h).
 
 #include "urender/Renderer.h"
 
@@ -25,6 +28,7 @@
 #include "urender/Shadows.h"
 #include "urender/Resources.h"
 #include "urender/ShaderTypes.h"
+#include "urender/Swapchain.h"
 
 #include <array>
 #include <chrono>
@@ -207,6 +211,9 @@ struct Renderer::Impl {
     // Declared first, so destroyed last: everything below is made from it.
     std::unique_ptr<Gpu> gpu;
     std::unique_ptr<Pipelines> pipelines;
+    /// SS 4.3's presenting path; null on the surfaceless one. After the Gpu, so
+    /// destroyed before it and before its surface.
+    std::unique_ptr<Swapchain> swapchain;
 
     VkSampler materialSampler = VK_NULL_HANDLE;
     VkSampler nearestSampler = VK_NULL_HANDLE;
@@ -255,6 +262,17 @@ struct Renderer::Impl {
 
     Result<void> createTargets();
     Result<void> createShadowAtlas();
+
+    /// SS 4.3: the targets follow the swapchain's extent, which the surface may
+    /// decide. True when that changed the target size.
+    bool adoptSwapchainExtent() {
+        if (!swapchain || swapchain->empty()) return false;
+        const VkExtent2D extent = swapchain->extent();
+        if (extent.width == config.width && extent.height == config.height) return false;
+        config.width = extent.width;
+        config.height = extent.height;
+        return true;
+    }
     Result<void> createSamplers();
     Result<void> createStandIns();
     Result<void> upload(const ubundle::Bundle& bundle);
@@ -647,14 +665,14 @@ Result<Renderer> Renderer::create(const Config& config) {
         return fail(ErrorCode::InvalidArgument,
                     extensions ? "instanceExtensions names a window's extensions but createSurface is unset"
                                : "createSurface is set but instanceExtensions names none");
-    if (presenting)
-        return fail(ErrorCode::InvalidArgument,
-                    "the presenting path is not built yet; leave createSurface unset for the surfaceless path");
-
     auto impl = std::make_unique<Impl>();
     impl->config = config;
-    UTA_TRY(impl->gpu, Gpu::create(config.validation));
+    UTA_TRY(impl->gpu, Gpu::create(config.validation, config.instanceExtensions, config.createSurface));
     UTA_TRY(impl->pipelines, Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT}));
+    if (presenting) {
+        UTA_TRY(impl->swapchain, Swapchain::create(*impl->gpu, config.width, config.height));
+        impl->adoptSwapchainExtent();
+    }
     UTA_CHECK(impl->createTargets());
     UTA_CHECK(impl->createShadowAtlas());
     UTA_CHECK(impl->createSamplers());
@@ -664,6 +682,17 @@ Result<Renderer> Renderer::create(const Config& config) {
 
 Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera) {
     Impl& impl = *impl_;
+    // SS 4.3: the swapchain is rebuilt after a resize, when acquire or present
+    // said it no longer matches its surface, and while the window is minimised
+    // -- so it notices the window coming back.
+    if (impl.swapchain && (impl.resized || impl.swapchain->stale() || impl.swapchain->empty())) {
+        UTA_TRY(std::unique_ptr<Swapchain> rebuilt,
+                Swapchain::create(*impl.gpu, impl.config.width, impl.config.height, impl.swapchain->handle()));
+        impl.swapchain = std::move(rebuilt);
+        if (impl.adoptSwapchainExtent()) impl.resized = true;
+    }
+    if (impl.swapchain && impl.swapchain->empty()) return {}; // a minimised window draws nothing
+
     // SS 4.3: a resize takes effect here -- every size-bound target, and the
     // output stage's view of the colour one.
     if (impl.resized) {
@@ -675,6 +704,13 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         impl.shape = BundleShape{};
         UTA_CHECK(impl.upload(bundle));
         impl.shape = shape;
+    }
+
+    // Before anything is planned: a skipped frame must change nothing (Swapchain.h).
+    std::optional<std::uint32_t> image;
+    if (impl.swapchain) {
+        UTA_TRY(image, impl.swapchain->acquire());
+        if (!image) return {}; // out of date: rebuilt at the top of the next frame
     }
 
     // SS 4.3: the projection is this library's, and the previous frame's view
@@ -741,7 +777,11 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.shadowFaceCount = static_cast<std::uint32_t>(plan.faces.size());
     std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
 
-    UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) { impl.recordFrame(commands, plan); }));
+    UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
+        impl.recordFrame(commands, plan);
+        if (image) impl.swapchain->recordBlit(commands, impl.output, *image);
+    }));
+    if (image) UTA_CHECK(impl.swapchain->present(impl.gpu->queue(), *image));
 
     // SS 6: how many clusters dropped lights past their cap, read back from the
     // pass that decided -- the frame has finished, so the counts are final.
@@ -763,6 +803,9 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
 
 Result<std::vector<std::byte>> Renderer::readback(Target target) {
     Impl& impl = *impl_;
+    if (impl.swapchain)
+        return fail(ErrorCode::InvalidArgument,
+                    "readback is the surfaceless path's; the presenting path's frames go to the swapchain");
     if (!impl.drawn) return fail(ErrorCode::InvalidArgument, "readback before any frame was drawn");
 
     Image& image = target == Target::Colour ? impl.output : impl.velocity;

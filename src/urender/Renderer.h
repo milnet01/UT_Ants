@@ -79,7 +79,6 @@ struct FrameStats {
 
 class Renderer {
 public:
-    /// Until the presenting path is built, a Config selecting it is refused.
     [[nodiscard]] static Result<Renderer> create(const Config& config);
 
     Renderer(Renderer&&) noexcept;

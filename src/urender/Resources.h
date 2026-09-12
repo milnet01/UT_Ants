@@ -120,4 +120,10 @@ private:
 /// The aspect an image of `format` has: depth for a depth format, else colour.
 [[nodiscard]] VkImageAspectFlags aspectOf(VkFormat format) noexcept;
 
+/// Record a synchronization2 barrier moving `image` from `from` to `to` -- for
+/// an image this library does not own, such as a swapchain's. Image::transition
+/// is this with the layout tracked.
+void transitionImage(VkCommandBuffer commands, VkImage image, VkImageAspectFlags aspect, std::uint32_t mipLevels,
+                     VkImageLayout from, VkImageLayout to);
+
 } // namespace uta::urender

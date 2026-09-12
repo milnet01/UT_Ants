@@ -196,27 +196,32 @@ Result<Image> Image::create(const Gpu& gpu, const ImageDesc& desc) {
     return image;
 }
 
-void Image::transition(VkCommandBuffer commands, VkImageLayout target) {
-    if (layout_ == target) return;
-    const Use from = useOf(layout_);
-    const Use to = useOf(target);
+void transitionImage(VkCommandBuffer commands, VkImage image, VkImageAspectFlags aspect, std::uint32_t mipLevels,
+                     VkImageLayout from, VkImageLayout to) {
+    const Use before = useOf(from);
+    const Use after = useOf(to);
     VkImageMemoryBarrier2 barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-    barrier.srcStageMask = from.stage;
-    barrier.srcAccessMask = from.access;
-    barrier.dstStageMask = to.stage;
-    barrier.dstAccessMask = to.access;
-    barrier.oldLayout = layout_;
-    barrier.newLayout = target;
+    barrier.srcStageMask = before.stage;
+    barrier.srcAccessMask = before.access;
+    barrier.dstStageMask = after.stage;
+    barrier.dstAccessMask = after.access;
+    barrier.oldLayout = from;
+    barrier.newLayout = to;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = handle_;
-    barrier.subresourceRange = {aspectOf(desc_.format), 0, desc_.mipLevels, 0, 1};
+    barrier.image = image;
+    barrier.subresourceRange = {aspect, 0, mipLevels, 0, 1};
     VkDependencyInfo dependency{};
     dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
     dependency.imageMemoryBarrierCount = 1;
     dependency.pImageMemoryBarriers = &barrier;
     vkCmdPipelineBarrier2(commands, &dependency);
+}
+
+void Image::transition(VkCommandBuffer commands, VkImageLayout target) {
+    if (layout_ == target) return;
+    transitionImage(commands, handle_, aspectOf(desc_.format), desc_.mipLevels, layout_, target);
     layout_ = target;
 }
 
