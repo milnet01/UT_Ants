@@ -5,10 +5,20 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0014` — urender's Vulkan device bring-up and the bundle
-draw path. It is the keystone of 0.1.0, as the paragraph below says, and
-nothing in the ut-paths lane is workable: `UTA-0126` is parked on
-`Waiting-on:` and `UTA-0134` is a question for UT_MonsterHunt.
+**Next:** `UTA-0014`'s **implementation**, for whoever holds it — its spec
+is accepted and the code does not exist. For a session that cannot take it
+(it is 🚧), `UTA-0013`'s quarantine guard is the next fresh pick and shares
+no directory with it.
+
+`UTA-0014`'s spec is `docs/specs/UTA-0014-vulkan-draw-path.md`, accepted
+2026-09-12 at its cap. Two things from it that reach other work. The draw
+path is graded headlessly on Mesa's software driver — measured: a
+surfaceless offscreen render works with no display, and every feature the
+design needs is present on that driver — so `scripts/ci.sh` gains
+per-platform label selection and both CI legs gain Vulkan packages.
+And `ZoneInfo`'s ambient values, which `UTA-0112` hands the renderer, are
+in **no** bundle section (`rg -c Ambient src/` exits 1), so applying them
+needs `ubake` to write them and a format version bump first.
 
 `UTA-0133` shipped 2026-09-12 and is ✅. Its gate is worth reading before
 the next amendment to any spec: `review-contract` ran before the code, per
