@@ -214,6 +214,24 @@ if(UTA_REAL_ASSET_TESTS AND NOT UTA_UT_INSTALL_DIR)
         "Point it at an Unreal Tournament install, or leave both at their defaults.")
 endif()
 
+# glm -- ADR-0007's route 1, fetched at an exact tag. Here at the root rather
+# than beside Catch2 in tests/, because a src/ target links it (uta_urender) and
+# tests/ is not configured at all when UTA_BUILD_TESTS is off.
+#
+# Header-only: glm's own library build compiles a translation unit nothing here
+# links, so it is turned off, along with its tests and install rules.
+include(FetchContent)
+set(GLM_BUILD_LIBRARY OFF)
+set(GLM_BUILD_TESTS OFF)
+set(GLM_BUILD_INSTALL OFF)
+FetchContent_Declare(glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG        1.0.3          # current release, resolved 2026-09-12
+    GIT_SHALLOW    TRUE
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+FetchContent_MakeAvailable(glm)
+
 add_subdirectory(src)
 
 if(UTA_BUILD_TOOLS)

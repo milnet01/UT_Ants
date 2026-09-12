@@ -64,12 +64,18 @@ add_executable(uta_unit_tests
     unit/PathSeedsTest.cpp
     unit/PathTraceTest.cpp
     unit/PathWalkableTest.cpp
+    unit/RenderCameraTest.cpp
+    unit/RenderDeviceTest.cpp
+    unit/RenderMoverPlacementTest.cpp
     unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build
                                             uta_umap uta_umap_build uta_ubundle uta_umat
-                                            uta_ubake uta_test_support Catch2::Catch2WithMain)
+                                            uta_ubake uta_urender uta_test_support
+                                            Catch2::Catch2WithMain
+                                            # INV-3's synthetic devices are Vulkan's own feature structs.
+                                            Vulkan::Vulkan)
 
 # The ut-bake command line, compiled in so INV-15 of
 # docs/specs/UTA-0011-map-baker.md is tested without starting a process.
@@ -84,6 +90,32 @@ target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
 # deadlock, and without a bound it hangs the run instead of failing it.
 catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
+
+# UTA-0014 INV-2, in a target of its own that links uta_urender and NOT
+# Vulkan::Vulkan. In uta_unit_tests it could never fail: that binary has the
+# Vulkan include path for INV-3.
+add_executable(uta_render_header_isolation_test unit/RenderHeaderIsolationTest.cpp)
+target_link_libraries(uta_render_header_isolation_test PRIVATE uta_urender Catch2::Catch2WithMain)
+catch_discover_tests(uta_render_header_isolation_test PROPERTIES LABELS "unit;fast" TIMEOUT 30)
+
+# UTA-0014's device tier -- docs/specs/UTA-0014-vulkan-draw-path.md SS 7.
+#
+# REGISTERED UNCONDITIONALLY, wherever uta_urender builds, and that is the
+# point. A guard on finding a loader would mean a leg that lost it registered
+# no device test and reported green over a renderer nothing ran. The loader and
+# glslc are REQUIRED at configure time instead; only a missing DRIVER gets as
+# far as a test, and INV-5 is what reds the leg for it. scripts/ci.sh chooses
+# which labels a leg runs.
+add_executable(uta_device_tests
+    device/DeviceFixture.cpp
+    device/RenderDeviceAbsentTest.cpp
+    device/RenderOffscreenTest.cpp)
+target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle Vulkan::Vulkan Catch2::Catch2WithMain)
+target_include_directories(uta_device_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+# Two registrations of one binary, split by tag. The TIMEOUT is for Mesa's CPU
+# driver, which compiles every pipeline on first use.
+catch_discover_tests(uta_device_tests TEST_SPEC "[device]" PROPERTIES LABELS "device" TIMEOUT 300)
+catch_discover_tests(uta_device_tests TEST_SPEC "[device-absent]" PROPERTIES LABELS "device-absent" TIMEOUT 60)
 
 if(UTA_REAL_ASSET_TESTS)
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGeometryTest.cpp

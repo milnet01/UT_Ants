@@ -213,7 +213,23 @@ step "test"
 # The default tier only. UTA_REAL_ASSET_TESTS needs an Unreal Tournament
 # install, which no runner and no stranger's clone has -- that separation is
 # what S7 is measured on, so the gate must never quietly turn it on.
-ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure
+#
+# LABELS, PER PLATFORM -- docs/specs/UTA-0014-vulkan-draw-path.md SS 7. The
+# `device` tier draws on a real Vulkan device, and the only one a runner has is
+# Mesa's CPU driver, installed on the Linux legs alone. So Windows deselects it
+# BY LABEL, and says so. It is never deselected by LOOKING for a driver: a gate
+# that did would skip the tier on a Linux leg that lost its driver, which is the
+# green-over-nothing INV-5 exists to forbid. There the device tests fail.
+#
+# --no-tests=error, because a label pattern that matched nothing would
+# otherwise run nothing and pass.
+if $IS_WINDOWS; then
+    labels='^(unit|device-absent)$'
+    skip "the device tier (label 'device') is registered and was NOT run: this leg installs no Vulkan driver (UTA-0014 SS 9)"
+else
+    labels='^(unit|device|device-absent)$'
+fi
+ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure --no-tests=error -L "$labels"
 
 step "race detector"
 # The job system is the first threaded code here, and an ordinary test run
@@ -235,7 +251,10 @@ else
     cmake -S . -B "$TSAN_DIR" -G "$GENERATOR" \
         -DCMAKE_BUILD_TYPE=Debug -DUTA_SANITIZE=thread
     cmake --build "$TSAN_DIR"
-    ctest --test-dir "$TSAN_DIR" --output-on-failure
+    # The unit tier alone, which is every test this step ran before the device
+    # tier existed. Its subject is this project's own threads; a device test
+    # would run Mesa's uninstrumented ones under it too.
+    ctest --test-dir "$TSAN_DIR" --output-on-failure --no-tests=error -L '^unit$'
     printf '   clean under ThreadSanitizer.\n'
 fi
 

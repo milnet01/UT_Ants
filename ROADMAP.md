@@ -1148,6 +1148,28 @@ model, no weapon and no opponent until 0.2.0.
 
   NOT started: no code. src/urender/ does not exist. The next step is
   implementation against the accepted spec.
+  Progress (2026-09-12): resumed by session `ut-ants-b3`, working in the
+  MAIN checkout /mnt/Games/Scripts/Linux/UT_Ants. `ut-ants-88` is no
+  longer live. Implementation has started, in eight steps, each its own
+  commit.
+
+  Step 1 landed locally: src/urender/ exists and builds. Device
+  selection reads the spec's feature bits, the offscreen frame draws and
+  reads back, and CI gains Vulkan on both platforms, with label
+  selection in scripts/ci.sh. INV-1, -2, -3, -4, -5 and -8 have their
+  graders. Each was seen to fail under a named hand mutation: 8 of 8
+  killed, every one for its own reason. Whole gate green locally
+  (one leg).
+
+  Measured: CI's own driver on ubuntu-24.04 is Mesa 25.2.8 lavapipe.
+  In a podman container it reports all seven SS 4.4 feature bits true.
+
+  Found for the fold-back, not yet written into the spec: glslc DOES
+  write dependency files (-MD), so SS 4.2's hand-written include edges
+  are unneeded. On Linux, INV-2 needs a header-guard #error, because
+  the distribution puts the Vulkan headers on the default path.
+  Config::surface cannot work as specified: a surface must come from
+  the renderer's own instance. That is settled at step 7.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.

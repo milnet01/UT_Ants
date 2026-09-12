@@ -87,9 +87,14 @@ jobs:
           CXX_NAME: ${{ matrix.cxx }}
         run: |
           sudo apt-get update
+          # UTA-0014 SS 4.12: libvulkan-dev (loader and headers) and glslc are
+          # what uta_urender needs to BUILD; mesa-vulkan-drivers is Mesa's CPU
+          # driver, which the device tier draws on. --no-install-recommends
+          # stays, so that driver is a named dependency and never a lucky one.
           # shellcheck disable=SC2086  # the package list is deliberately split
           sudo apt-get install --no-install-recommends -y \
-            $APT_PACKAGES ninja-build shellcheck yamllint ccache
+            $APT_PACKAGES ninja-build shellcheck yamllint ccache \
+            libvulkan-dev glslc mesa-vulkan-drivers
           # The root CMakeLists.txt uses ccache whenever it is installed. Untold,
           # ccache hashes the build path into every key and mostly misses, so
           # the base-directory and hash-dir settings are what make it pay --
@@ -102,6 +107,31 @@ jobs:
             echo "CCACHE_NOHASHDIR=true"
             echo "CCACHE_MAXSIZE=1G"
           } >> "$GITHUB_ENV"
+
+      # UTA-0014 SS 4.12. uta_urender's find_package(Vulkan REQUIRED) is a
+      # CONFIGURE-time requirement on every leg, so without the SDK this job
+      # fails at cmake before compiling anything. Installed explicitly rather
+      # than relying on whatever the runner image carries, and pinned, so an
+      # image rebuild cannot change it. install_runtime puts vulkan-1.dll on
+      # disk: every test binary links the loader, and Catch2 lists a binary's
+      # tests by running it at build time.
+      - name: Install the Vulkan SDK
+        if: runner.os == 'Windows'
+        uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa  # v1.6.0
+        with:
+          vulkan_version: 1.4.357.0
+          install_runtime: true
+          cache: true
+
+      - name: Put the Vulkan runtime on PATH
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          runtime="$VULKAN_SDK/runtime/x64"
+          # Loud rather than silent: a moved runtime would otherwise surface as
+          # a test binary that cannot start, far from its cause.
+          test -f "$runtime/vulkan-1.dll" || { echo "no vulkan-1.dll under $runtime" >&2; exit 1; }
+          echo "$runtime" >> "$GITHUB_PATH"
 
       # Catch2 is most of the objects in both Linux trees, the Release one and
       # the ThreadSanitizer one, and it never changes. Kept per compiler.
