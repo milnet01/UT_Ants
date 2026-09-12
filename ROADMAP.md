@@ -6184,6 +6184,26 @@ model, no weapon and no opponent until 0.2.0.
   -- a far room, past the last fight -- instead of wherever the graph
   bottoms out. Recorded here rather than acted on; it is a direction for
   the render and collision items, not a change to this one.
+  CONTEXT THAT CHANGES HOW MUCH THIS MATTERS, not whether it is true
+  (2026-09-12, from UT_MonsterHunt). They have built MHEndGate, which
+  holds the exit shut until the level is nearly cleared. Not deployed.
+
+  If a level must be cleared before the exit opens, a scattered finish
+  costs a player a walk rather than a skipped map. So the placement is
+  much less load-bearing than it was when this item measured it -- which
+  is the real reason their user asked for the gate.
+
+  The verdict here is unchanged and still the honest description: median
+  7837 units from where the author put the exit, within 4000 units on 30%
+  of 471 placed maps. What moves is the cost of being wrong, not the
+  measurement. Recorded so a later reader does not mistake the gate for a
+  reason to revisit the number.
+
+  Also closed out: the Paths-start warning this project sent them after
+  UTA-0077's Windows run does not bite them. They checked all three
+  consumers by reading the code -- MHBackLink, MHEndPlace and MHEndSurvey
+  all take describeSpec's END actor and none infers the start. MHBackLink
+  is the one that mattered, being deployed and writing into real maps.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
@@ -6311,6 +6331,45 @@ model, no weapon and no opponent until 0.2.0.
   let a player or a bot complete it.
 
   Blocked-by: nothing.
+  THE CENSUS NEEDS TWO PROPERTIES, NOT ONE (2026-09-12, UT_MonsterHunt,
+  read off MonsterEndSB rather than recalled). The TakeDamage path is
+  gated on all four of:
+
+      bInitiallyActive && TriggerType == TT_Shoot
+        && Damage >= DamageThreshold && instigatedBy != None
+
+  So DamageThreshold is part of the question, not colour. An exit with a
+  threshold above what a player can deliver in one hit is shot-triggerable
+  in principle and not in practice, and a census keyed on TriggerType
+  alone would count it as shootable. bInitiallyActive matters for the same
+  reason. All three are Trigger properties and all three are in the
+  package, so this stays a property lookup.
+
+  DO NOT EXPECT TO READ RetriggerDelay. MonsterEndSB sets it to 3 in
+  PostBeginPlay, so it is a runtime default and is not in the file. Third
+  instance of the load-boundary rule: a file-derived fact and a
+  runtime-derived fact are about different populations.
+
+  A GATE IS COMING, and it changes the win condition rather than this
+  item's mechanism. UT_MonsterHunt has built MHEndGate, which holds every
+  MonsterEnd shut until the hostiles left fall to a small slice of the
+  map's peak population, with valves so a stuck monster or an endless
+  spawner cannot seal a level. Built and tested, NOT deployed, waiting on
+  their user.
+
+  What it does NOT change: reaching the exit is still necessary, and a map
+  no bot can path to is still unfinishable. UTA-0121 and UTA-0126 are
+  worth exactly what they were.
+
+  What it DOES change: "trigger the MonsterEnd" stops being SUFFICIENT on
+  that server. The condition becomes two-part -- clear the level, then
+  reach the exit.
+
+  CHECKED, so nobody re-derives it: no document in this repository states
+  the win condition in prose. UTA-0121's spec defines MonsterEnd only
+  structurally, as the actors the exits list is built from, which stays
+  true under the gate. So there is nothing to correct today. Anything
+  later that states the condition in words should state both parts.
   **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
