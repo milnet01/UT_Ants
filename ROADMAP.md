@@ -4901,7 +4901,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-11.
   Lanes: tools.
 
-- 🚧 [UTA-0124] **ubake: buildActors refuses a map whose Level names one export in two actor slots, and installed maps do.**
+- ✅ [UTA-0124] **ubake: buildActors refuses a map whose Level names one export in two actor slots, and installed maps do.**
   Found by UTA-0121's census run (2026-09-11). Of UT_MonsterHunt's
   EXIT_OFF_NET and PARTITIONED maps, 14 were refused with "actor slot N
   names export M, which a slot before it already named" --
@@ -4950,6 +4950,12 @@ model, no weapon and no opponent until 0.2.0.
   census refused, into a separate output directory (writing into
   ut-paths-output would replace its whole-census summary), and send
   UT_MonsterHunt the results.
+  Shipped (2026-09-12) on the matrix. Pushed at 4e97112 by ut-ants-2b;
+  CI run 34649353833 green on all three legs -- Linux (GCC 14), Linux
+  (Clang 19) and Windows (MSVC). Flipped by ut-ants-84, main checkout,
+  which resumed the item after ut-ants-2b ended. Remaining follow-up is
+  not this item's: re-running ut-paths on the 14 maps UTA-0121's census
+  refused, and sending UT_MonsterHunt the result.
   **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it.
   Kind: investigate.
   Source: in-session-2026-09-11.
