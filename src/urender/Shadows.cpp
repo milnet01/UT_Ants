@@ -109,6 +109,10 @@ std::optional<AtlasTile> ShadowAtlas::allocate(std::uint32_t size) {
     return tile;
 }
 
+void ShadowAtlas::release(const AtlasTile& tile) {
+    free_[levelOf(tile.size)].push_back(tile);
+}
+
 // -- Lights ---------------------------------------------------------------------
 
 bool isSpot(const ubundle::Light& light) noexcept {
@@ -204,7 +208,9 @@ ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights, const 
             for (std::uint32_t face = 0; face < shadowFacesOf(lights[i]); ++face) {
                 const auto tile = atlas_.allocate(wanted[i]);
                 if (!tile) {
-                    // Its faces are not worth half a light: none of them.
+                    // Its faces are not worth half a light: none of them, and
+                    // the ones already taken go back for the lights after it.
+                    for (const AtlasTile& taken : held_[i].tiles) atlas_.release(taken);
                     held_[i].tiles.clear();
                     break;
                 }

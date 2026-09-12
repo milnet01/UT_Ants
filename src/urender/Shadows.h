@@ -50,6 +50,9 @@ public:
     /// A free tile of `size`, or none when the atlas cannot hold one.
     [[nodiscard]] std::optional<AtlasTile> allocate(std::uint32_t size);
 
+    /// `tile`, from `allocate`, free again. Not merged with its neighbours.
+    void release(const AtlasTile& tile);
+
     /// Every tile free again.
     void clear();
 

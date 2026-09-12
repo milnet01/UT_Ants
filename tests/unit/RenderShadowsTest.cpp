@@ -182,6 +182,26 @@ TEST_CASE("SS 6: a point light the atlas cannot give all six faces gets none", "
     }
 }
 
+TEST_CASE("SS 6: a point light turned away gives back the faces it had taken", "[render]") {
+    ShadowPlanner planner;
+    const Camera camera;
+    // Three point lights and a spotlight, all wanting the largest tile. Two
+    // points fill twelve of sixteen tiles; the third takes the last four and is
+    // turned away at its fifth face. Those four go back, so the spotlight,
+    // admitted after it, still gets one.
+    std::vector<Light> lights;
+    for (int i = 0; i < 3; ++i) lights.push_back(pointLight({10.0f + i, 0, 0}, 200));
+    Light spot = pointLight({20, 0, 0}, 200);
+    spot.effect = 12;
+    spot.cone = 60;
+    lights.push_back(spot);
+
+    const auto plan = planner.plan(lights, camera, 1280, 720, {});
+    CHECK(plan.faceCount[2] == 0u);
+    CHECK(plan.faceCount[3] == 1u);
+    CHECK(plan.unshadowed == 1u);
+}
+
 TEST_CASE("SS 4.8: filling the atlas with the smallest tiles gives every cell to exactly one tile", "[render]") {
     // Every halving is exercised down to the last quarter, so a split that hands
     // out a quarter it also keeps shows up as a cell given twice.
