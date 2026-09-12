@@ -2,11 +2,13 @@
 
 **Status:** accepted (2026-09-12), at the review's cap; amended for UTA-0125
 (§ 3 decision 10, INV-11) and accepted again (2026-09-11), at that review's
-cap. **AMENDED FOR UTA-0133 (2026-09-12), ITS GATE RUNNING** — § 4.7's Search
-rule now keys the fallback goal on a navigation point that touches the exit,
-with INV-13 added, INV-12's fixture adjusted to it and INV-7's clause
-restated. INV-7's fixture is unchanged and needs no change. No code implements
-the amendment yet. The measurements behind it are on ROADMAP UTA-0133.
+cap. Amended for UTA-0133 and accepted again (2026-09-12), at that review's
+cap — § 4.7's Search rule now keys the fallback goal on a navigation point
+that touches the exit, with INV-13 added, INV-12's fixture gaining a `sceneOf`
+leg, and INV-7 gaining the half of the substitution rule nothing tested. The
+amendment needs no change to INV-7's own fixture; the gap INV-7 now names
+does. No code implements the amendment yet, and the gate ran before it, per
+CLAUDE.md rule 14. The measurements behind it are on ROADMAP UTA-0133.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -22,8 +24,9 @@ A command, `ut-paths`, reads a map from the install and writes one JSON file
 proposing PathNode positions. Each position is where a player can stand. The
 nodes run from the part of the map's path network its start can reach toward
 each exit: to the exit itself, or on a `PARTITIONED` map to the part of the
-network that reaches a navigation point touching the exit (§ 4.7). UT_MonsterHunt adds them to its path-building
-recipe, and UT's editor links them.
+network that reaches a navigation point touching the exit (§ 4.7).
+UT_MonsterHunt adds them to its path-building recipe, and UT's editor links
+them.
 
 ## 2. Problem
 
@@ -442,18 +445,24 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 - **INV-7** — The start part is what the network reaches from the start, in
   the edges' direction; on a `PARTITIONED` map whose network arrives at the
   exit the chain stops where it meets the part that reaches the exit, and a
-  navigation point within 50 takes a spot's place only over an allowed hop.
+  navigation point within 50 takes a spot's place when the hop to it is
+  allowed, and only then.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, partitioned: a
   network of two parts with one edge from the exit's part to the start's and
   none back, a MonsterEnd beside the exit's part — close enough that a
   navigation point of that part touches the exit, so § 4.7's fallback is
-  offered — and a navigation point of the exit's part behind a thin wall from
-  a spot on the path, within 50 of it. The route starts in the start's part;
-  nodes are proposed across the gap and none further along the path than the
-  spot placed for the exit's part; the walled-off point takes no spot's place.
+  offered — and two navigation points within 50 of spots on the path, one
+  behind a thin wall from its spot and one with the hop to it clear. The route
+  starts in the start's part; nodes are proposed across the gap and none
+  further along the path than the spot placed for the exit's part; the
+  walled-off point takes no spot's place, and the reachable one is proposed in
+  its spot's place. Both directions are needed: with only the walled-off
+  point, an implementation that never substitutes passes.
   *Breaks when:* edges are followed both ways, which reads the exit's part as
-  reachable and proposes nothing; the chain runs on through the exit's part;
-  or a point takes a spot's place over a hop through the wall.
+  reachable and proposes nothing; the chain runs on through the exit's part; a
+  point takes a spot's place over a hop through the wall; or no point ever
+  takes a spot's place, which is § 7's `propose a spot within 50 of a
+  navigation point` and which nothing else here catches.
 
 - **INV-8** — The file holds the fields of § 4.3, escaped, each number a
   float's shortest round-trip decimal.
@@ -515,7 +524,12 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   `found` for all three. The file then carries `"route": "found"` three times,
   with `offWorld` true on the first two and false on the third. A fourth exit,
   at the world corner on a scene that is not partitioned, is written true with
-  route `none`.
+  route `none`. A second leg runs through `sceneOf` over a map built with
+  `tests/unit/BakeFixture.h`, carrying a MonsterEnd that sets no `Location` of
+  its own, whose class default is at the bound: the scene's exit is read at
+  the bound and the file marks it true. That leg is what the class-default
+  clause below needs — a `Scene` built by hand carries no actor property, so
+  `propose` and `toJson` alone cannot resolve one.
   *Breaks when:* the mark is written in place of the route, or the route is
   forced to `none` wherever the mark is set — which the three `found` routes
   catch, and which a fixture leaving the off-world exits at `none` would not;
@@ -572,8 +586,8 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 for INV-3 and INV-4; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
 INV-8, INV-9, INV-10, INV-11, INV-12 and INV-13.
 Each is seen failing before the code it locks exists. Trees and scenes are
-built in memory, with `tests/unit/PathFixture.h`, so only INV-9, INV-10 and
-INV-11 need an install or a fixture map.
+built in memory, with `tests/unit/PathFixture.h`, so only INV-9, INV-10,
+INV-11 and INV-12's second leg need an install or a fixture map.
 
 **Real-asset tier, local only:** `tests/real/RealPathSeedsTest.cpp` runs over
 every map in the install holding a MonsterEnd. It prints `Botpack.TMale1`'s
