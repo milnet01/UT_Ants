@@ -5713,6 +5713,51 @@ model, no weapon and no opponent until 0.2.0.
   does, the ancestry set is the right model and the eighteen stale chains
   never mattered. Either answer leaves the measurement standing, because
   the list is read only by Nearest, to pick the root.
+  Corrected and confirmed (2026-09-12) after UT_MonsterHunt read the
+  result. Both of their points were right to raise; neither moves the
+  verdict.
+
+  THE NODE-SET QUESTION IS SETTLED, and by their measurement rather than
+  by argument. The engine REBUILDS Level.NavigationPointList at level
+  load, so the saved chain is not what MHEndPlace walks and our ancestry
+  set is the right model. Their MHEndSurvey ran the two sharpest
+  divergences out of our navlist-all.txt: MH-Shrak1, whose file carries no
+  list head at all, reports 77 at runtime against our ancestry 77, and
+  MH-ValleyOfEllora reports 46 against a saved chain of 2 and our
+  ancestry 46. So the eighteen stale chains never mattered. The
+  Nearest-only point stands unchanged and is the stronger half: Furthest
+  never reads the list, and the NavigationPoint cast it applies to each
+  spec's end actor is itself an ancestry test, so the edges could not have
+  diverged whatever the list held.
+
+  THE DEGENERATE-TIE DILUTION they flagged is real and is one percentage
+  point. On a map whose walk reaches nothing the rule returns the root as
+  its own answer, so its error EQUALS the do-nothing baseline by
+  construction and the map is a tie in both columns. 11 of the 471 are
+  that shape. Excluding them: 460 maps, the rule beats the baseline on
+  67% rather than 66%, median error 7776 rather than 7837, within 2000
+  units 18% either way and within 4000 31% rather than 30%. The headline
+  is unchanged and the original figures are not withdrawn -- they are the
+  whole placed population, which is also a fair thing to report.
+
+  THE MAP-LOCAL CLASS HAZARD does not bite us, and the evidence was
+  already in hand. They warned that MH-EHGiantV0 defines PlayerDest and
+  Shortcut inside the MAP's own package, so a reader resolving ancestry
+  only through Engine and Botpack would miss those nodes. Our count on
+  that map is 1856, which is the figure MHEndPlace itself records for it.
+  A reader dropping the map-local classes would be below it, so ours
+  resolves them.
+
+  THEY ACCEPT THE VERDICT and have recorded it on their GAME-0097.
+  MHEndPlace's own header already said it makes a map finishable rather
+  than restoring intent; that framing now has a number behind it.
+
+  WHERE THEY WANT IT TO GO, aimed at this project: the scatter is an
+  argument FOR the collision work rather than a dead end. A real model of
+  a level would let an exit be placed where a designer would have put one
+  -- a far room, past the last fight -- instead of wherever the graph
+  bottoms out. Recorded here rather than acted on; it is a direction for
+  the render and collision items, not a change to this one.
   **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
   Kind: investigate.
   Source: user-request-2026-09-12.
