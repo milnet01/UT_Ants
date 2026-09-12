@@ -179,11 +179,12 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
 - **`exits`** holds every actor whose class descends from `MonsterEnd`, in the
   level's actor order, at its `Location` as stored. `route` is `found`,
   `mover` or `none` (§ 4.7).
-- **`offWorld`** is whether the exit is off the world (§ 4.6). It is a fact
-  about the map's own record rather than about the search, so it is written
-  whatever `route` says, and an off-world exit still reads `"route": "none"`
-  rather than a route word of its own. `schema` stays 1: a field is added and
-  nothing already written changes meaning.
+- **`offWorld`** is whether the exit is off the world (§ 4.6), read from the
+  map's own record. It is independent of `route`: the exit is searched like
+  any other and keeps whatever word § 4.7 gives it. The mark is what separates
+  an exit no route could reach from one the search looked for and did not
+  find, both of which § 4.7 writes `none`. `schema` stays 1: a field is added
+  and nothing already written changes meaning.
 - **`moverOnly`** is true exactly when no exit's route is `found` and at least
   one is `mover`.
 - **`nodes`** are the proposed positions, exit by exit, each exit's in route
@@ -269,13 +270,14 @@ A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
 - **Positions** are each actor's resolved `Location`: its own property, else
   its class default (`ubake::detail::resolvedRecord`).
 - **Off the world.** An exit is off the world when any coordinate of its
-  resolved `Location` is at least 32767 in magnitude. UT's world is the cube
-  from -32768 to 32768 on each axis, so a position at that bound is outside
-  anything a map can build on, and no route to it exists for UT either. Every
-  exit measured for this rule sits at the bound on all three axes at once, at
-  32768 or one unit inside it, which is why the bound is tested at 32767 and
-  not at 32768. It is tested per axis so that a position clamped on one axis
-  alone is caught; that case is unmeasured here.
+  resolved `Location` is at least 32767 in magnitude. The threshold rests on
+  the measurement, not on a source: every exit measured for this rule sits at
+  32768 or one unit inside it, on all three axes at once, which is why the
+  test is 32767 and not 32768. UT's world is understood to be the cube from
+  -32768 to 32768 per axis, which is where that clustering comes from, but
+  this project holds no UT source stating it and the rule does not depend on
+  it. It is tested per axis so that a position clamped on one axis alone is
+  caught; that case is unmeasured here.
 - **The network** is `unav::buildNavGraph`'s graph, keeping only the edges a
   walking bot may use (§ 3 decision 10). Its start part is every node
   reachable, over those edges in their stated direction, from the node
@@ -485,15 +487,20 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   `R_PLAYERONLY`, refuses a spec.
 
 - **INV-12** — An exit whose `Location` reaches the world bound is written
-  `offWorld` true, whatever its route; every other exit is written false.
-  *Test:* `tests/unit/PathSeedsTest.cpp`, through `toJson` over a `Scene`
-  with three exits: one at the world corner, one with a single coordinate at
-  32767 and the other two small, and one well inside the map. The first two
-  are written true and the third false, and all three keep the route word
-  `propose` gave them.
-  *Breaks when:* the mark is written in place of the route; the bound is
-  tested at 32768, which misses the maps recording one unit inside it; or all
-  three coordinates are required, which misses a position clamped on one axis.
+  `offWorld` true and keeps the route `propose` gave it; every other exit is
+  written false.
+  *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose` then `toJson`
+  over a **partitioned** `Scene` carrying three exits, so § 4.7's fallback
+  goal is live for every one of them: one at the world corner, one with a
+  single coordinate at 32767 and the other two small, and one a spot touches.
+  The first two are written true and the third false; the third's route is
+  `found`; and the first two carry whatever word `propose` returned rather
+  than one the mark imposed.
+  *Breaks when:* the mark is written in place of the route, or the route is
+  forced to `none` wherever the mark is set, which on a partitioned map
+  discards a route the search did find; the bound is tested at 32768, which
+  misses the maps recording one unit inside it; or all three coordinates are
+  required, which misses a position clamped on one axis.
 
 ## 6. Failure modes
 
@@ -503,7 +510,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 | The map does not open or read | That map is refused with the reason; no file is written |
 | `buildCollision` refuses the level's `Model` | That map is refused, naming the node |
 | The map has no PlayerStart, or no MonsterEnd | That map is refused |
-| An exit is off the world (§ 4.6) | Its route is `none` and `offWorld` true; it is searched for like any other |
+| An exit is off the world (§ 4.6) | `offWorld` is true; it is searched like any other and keeps § 4.7's route. Its map is `EXIT_OFF_NET` by § 1's definition unless a second exit is near the network, so that route is `none` |
 | Neither the start nor any node of its part is on the walk graph | Every exit's route is `none` |
 | A mover's tree or shape refuses | That map is refused, naming the actor |
 | The out directory cannot be written | That map is refused; the others go on |
@@ -540,7 +547,7 @@ PlayerStart; read the class default over the actor's own value; keep a
 flying spec; skip the radius test; skip the height test; refuse a special
 spec; drop `R_SWIM` from the bot's flags; test the world bound at 32768;
 require all three coordinates at the bound; write the off-world mark in place
-of the route. Each must be killed by the invariant that names it.
+of the route; force an off-world exit's route to `none`. Each must be killed by the invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -589,9 +596,11 @@ of the route. Each must be killed by the invariant that names it.
   are replaced by `tools/common/Json.h`.
 - ROADMAP UTA-0121 — a note naming the output directory, sent to
   UT_MonsterHunt when this ships (their GAME-0095).
-- UT_MonsterHunt's census reads `offWorld` to set these maps aside, so
+- UT_MonsterHunt's census will read `offWorld` to set these maps aside, so
   `ut-paths`' remaining `none` rows mean a route we failed to find (their
-  GAME-0097, ROADMAP UTA-0127).
+  GAME-0097, ROADMAP UTA-0127). Agreed with them 2026-09-12; their parser
+  does not read the field yet, and `schema` staying 1 is what lets it go on
+  working until it does.
 
 ## 12. Cold-eyes loop log
 
