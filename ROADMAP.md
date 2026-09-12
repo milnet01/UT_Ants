@@ -1041,7 +1041,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ci.
 
-- 📋 [UTA-0014] **urender: Vulkan device bring-up and the bundle draw path.**
+- 🚧 [UTA-0014] **urender: Vulkan device bring-up and the bundle draw path.**
   Vulkan 1.3. Device, swapchain, and the first draw of a bundle's geometry with
   its PBR materials.
   The level's own light actors -- position, colour, brightness, radius, flicker --
@@ -1102,6 +1102,13 @@ model, no weapon and no opponent until 0.2.0.
   behind it. Not verified: whether CI's runners carry a Vulkan SDK, which
   decides whether any of this can be graded on the matrix or only locally.
   Settle that in the spec rather than discovering it at the first push.
+  Progress (2026-09-12): claimed by session `ut-ants-88`, working in
+  the MAIN checkout /mnt/Games/Scripts/Linux/UT_Ants. Taken as priority
+  2's keystone: rule 1's set is empty today -- UTA-0059, UTA-0098 and
+  UTA-0100 are the only open items whose Source records a review, and
+  each defers on an unmet condition. UTA-0059 defers on THIS item.
+  First step is the spec, not code: src/urender/ does not exist, and
+  spec-format.md 1's triggers are met several times over.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
