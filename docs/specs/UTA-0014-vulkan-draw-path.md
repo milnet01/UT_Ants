@@ -375,6 +375,7 @@ device lacking any one of them:
 | `VK_KHR_swapchain` | `vkEnumerateDeviceExtensionProperties` | **presenting path only** — the one requirement with no feature bit |
 | `dynamicRendering` | `VkPhysicalDeviceVulkan13Features` | § 4.3 builds no `VkRenderPass` objects |
 | `synchronization2` | `VkPhysicalDeviceVulkan13Features` | the barrier form § 4.3 uses |
+| `shaderDemoteToHelperInvocation` | `VkPhysicalDeviceVulkan13Features` | `glslc` targeting Vulkan 1.3 compiles `discard` — § 4.5's masked alpha — to `OpDemoteToHelperInvocation`. Found by the validation layer on the presenting path's hand run |
 | `runtimeDescriptorArray`, `shaderSampledImageArrayNonUniformIndexing`, `descriptorBindingPartiallyBound`, `descriptorBindingVariableDescriptorCount` | `VkPhysicalDeviceVulkan12Features` | § 4.5's bindless material array |
 | `textureCompressionBC` | `VkPhysicalDeviceFeatures` | the bundle stores BC4, BC5 and BC7 and nothing else — `ubundle::BlockFormat` |
 

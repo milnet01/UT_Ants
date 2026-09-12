@@ -31,6 +31,7 @@ DeviceCandidate qualifying(std::string name, VkPhysicalDeviceType type = VK_PHYS
     c.graphicsQueue = true;
     c.v13.dynamicRendering = VK_TRUE;
     c.v13.synchronization2 = VK_TRUE;
+    c.v13.shaderDemoteToHelperInvocation = VK_TRUE;
     c.v12.runtimeDescriptorArray = VK_TRUE;
     c.v12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     c.v12.descriptorBindingPartiallyBound = VK_TRUE;
@@ -55,6 +56,8 @@ const std::vector<Missing>& missingOne() {
         {"VK_KHR_swapchain", [](DeviceCandidate& c) { c.swapchainExtension = false; }},
         {"dynamicRendering", [](DeviceCandidate& c) { c.v13.dynamicRendering = VK_FALSE; }},
         {"synchronization2", [](DeviceCandidate& c) { c.v13.synchronization2 = VK_FALSE; }},
+        {"shaderDemoteToHelperInvocation",
+         [](DeviceCandidate& c) { c.v13.shaderDemoteToHelperInvocation = VK_FALSE; }},
         {"runtimeDescriptorArray", [](DeviceCandidate& c) { c.v12.runtimeDescriptorArray = VK_FALSE; }},
         {"shaderSampledImageArrayNonUniformIndexing",
          [](DeviceCandidate& c) { c.v12.shaderSampledImageArrayNonUniformIndexing = VK_FALSE; }},

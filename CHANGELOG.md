@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **The renderer draws a baked map with Vulkan 1.3, with no display or into a window.** (UTA-0014)
+  Lit per pixel with clustered lights, baked probes and cached shadow maps,
+  movers placed as the game places them, and a fixed exposure with a neutral
+  tone map. Its tests draw real frames on Mesa's software driver, so they run
+  on a machine with no graphics card; drawing into a window is checked by hand.
+
 - **`upkg` reads a level's BSP tables, the shape a map is really built from** (UTA-0069)
   Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
 

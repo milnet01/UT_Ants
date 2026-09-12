@@ -1200,6 +1200,17 @@ model, no weapon and no opponent until 0.2.0.
   in RenderOffscreenTest. Found in passing and fixed: a point light
   turned away mid-admission kept its taken tiles out of the shadow
   atlas.
+  Progress (2026-09-12): step 7 landed. Config selects the path by
+  createSurface, resize rebuilds the size-bound targets, and the
+  presenting path presents through a FIFO _SRGB swapchain. A hand run
+  with an SDL3 probe kept at
+  /mnt/Games/Scripts/Linux/ut-ants-present-probe-uta0014/ drew every
+  frame on Wayland and X11 with the validation layer on. That run found
+  the shaders using OpDemoteToHelperInvocation without
+  shaderDemoteToHelperInvocation enabled, now a section 4.4 requirement;
+  UTA-0138 is the follow-up so the device tier runs validated.
+  Unexercised: a zero extent, which neither compositor reported when
+  minimised. Remaining: flip once the matrix is green.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
@@ -7441,6 +7452,19 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-12 census export note.
   Lanes: ut-paths.
+
+- 📋 [UTA-0138] **Run the renderer's device tier under the Vulkan validation layer.**
+  Every device test creates its Renderer with validation off, and CI installs no
+  validation layer. UTA-0014's presenting-path hand run turned validation on and
+  found shaders using OpDemoteToHelperInvocation on a device that never enabled
+  shaderDemoteToHelperInvocation, a defect every device test had passed over
+  since the draw path landed. Decide how the tier runs validated: a
+  device-tier switch that sets Config::validation and fails on any layer
+  error, and whether CI's Linux legs install the layer to run it.
+  **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test.
+  Kind: test.
+  Source: in-session-2026-09-12.
+  Lanes: urender, tests.
 
 ## 0.2.0 — Movement and weapons
 

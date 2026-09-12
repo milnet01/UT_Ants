@@ -23,7 +23,7 @@ struct Requirement {
 
 /// SS 4.4's table, in its order. The first a device fails is the one its
 /// refusal names.
-const std::array<Requirement, 11> REQUIREMENTS = {{
+const std::array<Requirement, 12> REQUIREMENTS = {{
     {"Vulkan 1.3", [](const DeviceCandidate& c) { return c.apiVersion >= VK_API_VERSION_1_3; }},
     {"a graphics queue", [](const DeviceCandidate& c) { return c.graphicsQueue; }},
     {"present support on its graphics queue",
@@ -32,6 +32,8 @@ const std::array<Requirement, 11> REQUIREMENTS = {{
      [](const DeviceCandidate& c) { return !c.swapchainExtension.has_value() || *c.swapchainExtension; }},
     {"dynamicRendering", [](const DeviceCandidate& c) { return c.v13.dynamicRendering == VK_TRUE; }},
     {"synchronization2", [](const DeviceCandidate& c) { return c.v13.synchronization2 == VK_TRUE; }},
+    {"shaderDemoteToHelperInvocation",
+     [](const DeviceCandidate& c) { return c.v13.shaderDemoteToHelperInvocation == VK_TRUE; }},
     {"runtimeDescriptorArray",
      [](const DeviceCandidate& c) { return c.v12.runtimeDescriptorArray == VK_TRUE; }},
     {"shaderSampledImageArrayNonUniformIndexing",
@@ -280,6 +282,8 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     enable13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     enable13.dynamicRendering = VK_TRUE;
     enable13.synchronization2 = VK_TRUE;
+    // glslc targeting Vulkan 1.3 compiles `discard` to OpDemoteToHelperInvocation.
+    enable13.shaderDemoteToHelperInvocation = VK_TRUE;
     VkPhysicalDeviceVulkan12Features enable12{};
     enable12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     enable12.pNext = &enable13;
