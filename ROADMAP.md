@@ -5286,7 +5286,7 @@ model, no weapon and no opponent until 0.2.0.
   file, not two. UT_MonsterHunt read it as two -- MH-ProgressV1 also
   records 32767 -- but that map has no per-map file in our census at all.
   It appears only in the UTA-0126 scratch probe, which swept wider than our
-  work groups. It is the 58th of the 58, set aside and installed nowhere.
+  work groups. The reason is that it is ENDNODE and outside our work groups -- NOT that it is shelved; see the correction below.
   Corrected back to them. The threshold choice is unaffected: one map in
   the groups is enough, and the argument for 32767 never rested on a count.
 
@@ -5295,6 +5295,36 @@ model, no weapon and no opponent until 0.2.0.
   mark does NOT reach the 30 maps their census files under ENDNODE. "In
   their tsv" and "has a file from us" are different sets. Their endnodedist
   column stays the separator for the gap.
+  Correction (2026-09-12): the note above originally read "It is the 58th
+  of the 58, set aside and installed nowhere" of MH-ProgressV1. That is
+  MH-ProgressV0's status, attached to the wrong map. Amended in place;
+  recorded here so the error is on the record. Caught by UT_MonsterHunt,
+  and confirmed against THIS file rather than taken on their word -- two
+  passages in this roadmap already say the set-aside map is V0.
+
+  Read from their own files, and it separates the two cleanly:
+
+    map             census    Maps/  Maps-versions/  MonsterEnd Location
+    MH-ProgressV0   ENDNODE   no     YES             32768, 32768, 32768
+    MH-ProgressV1   ENDNODE   YES    no              32767, 32767, 32767
+
+  So the 32767 recorders are MH-ProgressV1 and MH-GolgothaPEv1; V0 records
+  32768. And MH-ProgressV1 IS INSTALLED and votable -- MapVoteUL scans
+  Maps/ for the MH- prefix with bUseMapList=False. It is a live map whose
+  exit no player or bot can reach, which is a stronger fact than anything
+  this item had recorded about it.
+
+  The conclusion is unchanged: MH-ProgressV1 has no per-map file from us.
+  But the REASON matters and was wrong. It is ENDNODE, outside
+  EXIT_OFF_NET and PARTITIONED, not shelved. The two give opposite answers
+  if the work groups ever widen: run ut-paths over ENDNODE and V1 gets a
+  file while V0 does not, which is the reverse of what the original note
+  predicted.
+
+  This is UTA-0121 § 9's scope gap biting twice in one exchange, in both
+  directions -- they reasoned from "in our tsv" to "has a file from
+  UT_Ants", and so did I. The threshold is untouched and still does not
+  rest on a count.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
