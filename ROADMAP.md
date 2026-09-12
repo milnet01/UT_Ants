@@ -877,7 +877,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ubake.
 
-- 🚧 [UTA-0012] **ut-dump: inspect a package from the command line.**
+- 📋 [UTA-0012] **ut-dump: inspect a package from the command line.**
   Ships to developers, who build it from source. Its command line is a
   breaking surface even so.
 
@@ -997,6 +997,13 @@ model, no weapon and no opponent until 0.2.0.
   solved the drain from the weapon scripts themselves. The supported
   per-actor mode is still worth having, and the scratch dump handed over
   that day is the shape it was measured against.
+  Marker cleared (2026-09-12) by ut-ants-84, main checkout, on the user's
+  instruction. No session held this item -- ListAgents showed no live
+  holder, and no progress note names one. Under this project's cap of two
+  items in flight a stale 🚧 makes a free item look taken, which is what
+  the marker is there to prevent. Nothing about the work is lost: the
+  body still records what the --json / TSV mode owes and that the
+  per-actor request of 2026-09-10 was withdrawn.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
@@ -5120,6 +5127,29 @@ model, no weapon and no opponent until 0.2.0.
   of 297 are noise in every measurement taken over that set. MH-LavaFortSEv0
   is the same shape at endnodedist 56,355 and is outside ut-paths' groups,
   so it is evidence rather than a case to handle.
+  Widened (2026-09-12, ut-ants-84) by UT_MonsterHunt's GAME-0097. They
+  applied the endnodedist test to their WHOLE census, not just the two
+  groups ut-paths runs, and it separates cleanly: the largest value below
+  the break is 26,164 and the smallest above it 33,047, with nothing
+  between. The set is 58 maps, not 27. We read the MonsterEnd Location
+  directly on the 31 they added and confirmed 30 -- 29 at exactly
+  (32768, 32768, 32768) and MH-ProgressV1 at 32767, every one from the
+  map's own record. The 31st, MH-ProgressV0, has no file in our reference
+  install and is unmeasured rather than contradicting. Per-map results in
+  /mnt/Games/Scripts/Linux/ut-paths-output-uta0126/endnode-locations.tsv.
+  That changes what this item must do. 30 of the 58 sit in their ENDNODE
+  group, which their docs/route-census-split.md defines as "routed only to
+  the nav point nearest the exit" -- a near-miss label, on maps whose exit
+  is 39,190 to 64,124 units away. So the flag must say the EXIT IS OFF THE
+  WORLD, as a fact about the map, and not that our route failed. Stated
+  that way it reads correctly from either census group; stated the other
+  way it would fix the NOROUTE reading and leave the worse ENDNODE one
+  alone.
+  Not established, and it matters for anyone tempted to fix the maps: why
+  they are like this. The clamp limit is consistent with an author
+  dragging the actor out of the level, but nothing measured says where the
+  exit was meant to be, and on a map whose exit is 50,000 units from
+  anything there is no evidence to reconstruct it from.
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
