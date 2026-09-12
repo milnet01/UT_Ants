@@ -1109,6 +1109,45 @@ model, no weapon and no opponent until 0.2.0.
   each defers on an unmet condition. UTA-0059 defers on THIS item.
   First step is the spec, not code: src/urender/ does not exist, and
   spec-format.md 1's triggers are met several times over.
+  Progress (2026-09-12): the spec exists and is accepted at its cap --
+  docs/specs/UTA-0014-vulkan-draw-path.md, 11 invariants, log at
+  docs/reviews/UTA-0014-vulkan-draw-path-loop-log.md. Rule 14's gate ran
+  BEFORE any code, per this item's own readiness note. Two loops, three
+  cold lanes each, 22 verified findings, all 22 fixed, no tail.
+
+  The item's one unverified question is ANSWERED. A surfaceless offscreen
+  render works on Mesa's CPU driver with DISPLAY and WAYLAND_DISPLAY unset
+  -- measured with a scratch probe before the spec asserted it (centre
+  rgba 0 255 0 255, corner 255 0 0 255, exit 0), and measured failing
+  loudly with no driver (VK_ERROR_INCOMPATIBLE_DRIVER, exit 1). That
+  driver reports dynamicRendering, synchronization2, all four
+  descriptor-indexing bits and textureCompressionBC true. So the draw path
+  IS gradeable on the matrix, which is what the spec is built around.
+
+  Two decisions the user made: the matrix grades the draw path on the
+  software renderer on the Linux legs only, and lighting is clustered
+  forward rather than clustered deferred.
+
+  What the gate was worth, since it is the justification for
+  gate-before-code. The MSVC leg could not have configured at all --
+  find_package(Vulkan 1.3 REQUIRED) binds on every leg while the spec gave
+  Windows nothing, so the whole leg would have gone red at cmake. Camera
+  was used in the public draw signature and defined nowhere, which is what
+  UTA-0016 and uworld must bind to. And FIVE invariants could not have
+  failed as written: INV-1's C++ test could not see a CMake link set,
+  INV-5's rule made its own grading test unable to pass, INV-6's tolerance
+  was calibrated from the implementation under test, INV-7 would have
+  graded a forbidden C++ copy, and INV-10 sat behind a tone map that is
+  not the identity. Writing the code first would have built all five.
+
+  Also settled and worth carrying: ZoneInfo's ambient values, which
+  UTA-0112 hands this item, are in NO bundle section -- rg -c Ambient src/
+  exits 1. Recorded in the spec's section 9 as deferred and not yet
+  queued, because applying them needs ubake to write them and a format
+  version bump first.
+
+  NOT started: no code. src/urender/ does not exist. The next step is
+  implementation against the accepted spec.
   **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
   Kind: implement.
   Source: design-2026-09-03.
