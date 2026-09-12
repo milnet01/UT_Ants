@@ -1,13 +1,12 @@
 # UTA-0121 — `ut-paths`: propose bot path nodes for UT99's maps
 
-**Status:** accepted (2026-09-12), at the review's cap; amended for UTA-0127
+**Status:** accepted (2026-09-12), at the review's cap; amended for UTA-0125
 (§ 3 decision 10, INV-11) and accepted again (2026-09-11), at that review's
-cap. **AMENDED FOR UTA-0133 (2026-09-12) AND NOT YET GATED** — § 4.7's Search
-rule now withdraws the fallback goal where no navigation point touches the
-exit, with INV-13 added and INV-7's and INV-12's fixtures adjusted to it.
-`review-contract` has NOT run on this amendment and no code implements it
-yet. Run the gate before implementing: CLAUDE.md rule 14 puts it before the
-build, and the measurements behind the amendment are on ROADMAP UTA-0133.
+cap. **AMENDED FOR UTA-0133 (2026-09-12), ITS GATE RUNNING** — § 4.7's Search
+rule now keys the fallback goal on a navigation point that touches the exit,
+with INV-13 added, INV-12's fixture adjusted to it and INV-7's clause
+restated. INV-7's fixture is unchanged and needs no change. No code implements
+the amendment yet. The measurements behind it are on ROADMAP UTA-0133.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -23,7 +22,7 @@ A command, `ut-paths`, reads a map from the install and writes one JSON file
 proposing PathNode positions. Each position is where a player can stand. The
 nodes run from the part of the map's path network its start can reach toward
 each exit: to the exit itself, or on a `PARTITIONED` map to the part of the
-network that reaches it. UT_MonsterHunt adds them to its path-building
+network that reaches a navigation point touching the exit (§ 4.7). UT_MonsterHunt adds them to its path-building
 recipe, and UT's editor links them.
 
 ## 2. Problem
@@ -340,16 +339,16 @@ struct Proposal {
 - **Search.** For each exit: the shortest path, by distance, from the start
   part's placed spots, and the start's own, to a goal spot. A spot touching
   the exit is a goal. On a `PARTITIONED` map, so is a spot placed for a
-  navigation point outside the start part from which the network reaches the
-  navigation point nearest the exit: the chain bridges the gap and stops,
-  because the network finishes the route from there. **That fallback is
-  offered only where the network ARRIVES at the exit** — where some navigation
-  point of the map touches the exit, by the same test a spot does. Where none
-  does, the network reaches the exit's neighbourhood and not the exit, so
-  bridging to it would leave the exit's own stretch unbridged and propose no
-  node near the exit; the fallback is then not offered, however much of the
+  navigation point outside the start part from which the network reaches a
+  navigation point that **touches** the exit, by the same test a spot does
+  (§ 4.6): the chain bridges the gap and stops, because the network finishes
+  the route from there. **The fallback is keyed on a navigation point that
+  touches the exit, never on the one nearest it.** Those are different tests,
+  a distance against § 4.6's cylinder, and they can name different points.
+  Where none touches, the network reaches the exit's neighbourhood and not the
+  exit: the set is empty, so no fallback goal is offered, however much of the
   network reaches the point nearest the exit, and the chain reaches the exit's
-  spots or the route is not `found`. First with mover spots removed; a path
+  own spots or the route is not `found`. First with mover spots removed; a path
   found is `found`. Else with them kept; a path found is `mover`. Else `none`.
 - **Hops.** A hop from one position to another is allowed when it is at
   most 350 long; its three segments at § 4.5's heights trace clear; its
@@ -512,7 +511,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   merely offered but REACHED for the two off-world exits — which means giving
   each of them a navigation point that touches it, since without one § 4.7
   withdraws the fallback and the route would read `none`, and an off-world
-  exit needs that point placed at the bound with it — so `propose` returns
+  exit needs that point positioned at the bound with it — so `propose` returns
   `found` for all three. The file then carries `"route": "found"` three times,
   with `offWorld` true on the first two and false on the third. A fourth exit,
   at the world corner on a scene that is not partitioned, is written true with
@@ -525,30 +524,33 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   clamped on one axis; or the mark is read from the actor's own property
   alone, which misses an exit positioned from its class default.
 
-- **INV-13** — On a `PARTITIONED` map the fallback goal is offered only where
-  some navigation point touches the exit. Where none does, the chain reaches
-  the exit's own spots or the route is not `found`, and no chain ends short of
-  the exit.
-  *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, over two
-  **partitioned** scenes differing only in where the exit's part sits. In the
-  first a navigation point touches the exit: the fallback is offered and the
-  chain stops at that part, as INV-7 has it. In the second every navigation
-  point is outside the exit's goal window while the network still reaches the
-  point nearest it, and a walkable run of spots leads from the start part to
-  the exit's own spots: the route is `found` and the chain's last node is
-  within `radius + RADIUS` horizontally and `height + HALF_HEIGHT` vertically
-  of the exit centre. A third scene keeps the second's network and walls the
-  exit's spots off from the start part: the route is `none`, not `found` from
-  a fallback goal.
+- **INV-13** — On a `PARTITIONED` map the fallback goal is keyed on a
+  navigation point that touches the exit, never on the one nearest it. Where no
+  navigation point touches the exit, the path reaches the exit's own spots or
+  the route is not `found`.
+  *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, over three
+  **partitioned** scenes. The first is INV-7's, with two changes that make it
+  discriminate: its exit's cylinder is tall and thin, and the navigation point
+  that touches the exit is offset from the exit centre mostly vertically, so
+  it touches while lying further away in 3D than the horizontal window; and a
+  second point, on no part the route may be built to, lies nearer the exit in
+  3D and does not touch. The fallback is offered and the chain stops at the
+  part that reaches the touching point, as INV-7 has it. In the second every
+  navigation point is outside the exit's goal window while the network still
+  reaches the point nearest it, no navigation point lies within 50 of the
+  path's end, so § 4.7's substitution cannot move it, and a walkable run of
+  spots leads from the start part to the exit's own spots: the route is `found`
+  and the chain's last node touches the exit. The third keeps the second's
+  network and walls the exit's spots off from the start part: the route is
+  `none`, not `found` from a fallback goal.
   *Breaks when:* the fallback is offered on the network's reach alone, which
-  returns `found` with the chain ending at the fallback in the second scene —
-  measured on the corpus as 622 to 18,881 units short of the exit, against a
-  goal window that never exceeds 117; or the fallback is dropped outright,
-  which turns the first scene's economical bridge into a chain run all the way
-  through the exit's part; or the window is compared as a 3D distance rather
-  than the cylinder test, which moves `MH-UM-Vengeance-EG1` at 80 against 81
-  and `MH-ExtremeCoreV2SB` at 57.6 against 57 — both decided by the
-  difference, so a real map turns on it.
+  returns `found` in the second scene with the chain ending at the fallback
+  instead of at the exit; or it is keyed on the point nearest the exit rather
+  than one that touches it, which the first scene's second point catches; or
+  the touch is compared as a 3D distance rather than § 4.6's cylinder, which
+  the first scene's tall thin exit catches; or the fallback is dropped
+  outright, which turns the first scene's economical bridge into a chain run
+  all the way through the exit's part.
 
 ## 6. Failure modes
 
@@ -597,8 +599,9 @@ spec; drop `R_SWIM` from the bot's flags; test the world bound at 32768;
 require all three coordinates at the bound; write the off-world mark in place
 of the route; force an off-world exit's route to `none`; read the mark from
 the actor's own property alone; offer the fallback goal on the network's reach
-alone, without a navigation point touching the exit; compare that touch as a
-3D distance rather than the cylinder test. Each must be killed by the
+alone, without a navigation point touching the exit; key it on the navigation
+point nearest the exit rather than one that touches it; compare that touch as
+a 3D distance rather than § 4.6's cylinder. Each must be killed by the
 invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
@@ -637,7 +640,7 @@ invariant that names it.
 | INV-1 | `tests/unit/CoreMd5Test.cpp`, a unit test |
 | INV-2 | `tests/unit/PathTraceTest.cpp`, a unit test |
 | INV-3, INV-4 | `tests/unit/PathWalkableTest.cpp`, a unit test |
-| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11, INV-12 | `tests/unit/PathSeedsTest.cpp`, a unit test |
+| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11, INV-12, INV-13 | `tests/unit/PathSeedsTest.cpp`, a unit test |
 | § 3 decisions 4 and 6 hold on real maps | **Partial:** `tests/real/RealPathSeedsTest.cpp` prints them; no CI leg runs it |
 | Proposed nodes help a bot reach the exit | **nothing** here — UT_MonsterHunt's census re-run (GAME-0095) is the measure |
 
