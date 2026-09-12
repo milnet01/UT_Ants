@@ -5,13 +5,15 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0133` — ut-paths: the partitioned fallback goal wins over
-the real exit. Half-built and 🚧 from `ut-ants-d1`, which stopped at a
-session boundary; read that item's HANDOFF note first, which lists what
-is done and the five steps left in order. **The spec amendment is
-committed and UNGATED** — run `review-contract` on
-`docs/specs/UTA-0121-bot-path-seeds.md` before writing any code, per
-rule 14.
+**Next:** `UTA-0133` — ut-paths: the partitioned fallback goal is keyed
+on the wrong navigation point. Half-built and 🚧 from `ut-ants-f0`, main
+checkout; read that item's HANDOFF note and the three notes after it,
+which list what is done and what is left in order. **The spec is GATED
+and accepted** — `review-contract` ran two loops to its cap on
+`docs/specs/UTA-0121-bot-path-seeds.md` before any code, per rule 14, and
+found the amendment itself wrong. What is left is the code in
+`tools/ut-paths/Seeds.cpp`, the tests for INV-7, INV-12 and INV-13, the
+matrix, and the corpus re-measurement against a recorded prediction.
 
 `UTA-0126` — why eight maps still do not route — is parked on
 `Waiting-on:` UT_MonsterHunt and counts against neither limit. All eight
@@ -28,13 +30,18 @@ a component the start cannot reach, which is the mistake that run rules
 out.
 
 **All eight now have a named cause** (2026-09-12). Two are ours and are
-`UTA-0133`: the partitioned fallback goal wins over the real exit, so
-the chain is built to a substitute and never approaches the exit —
-switch the fallback off and both maps route into the cylinder. Three
-need nothing from us that we can see, and the question goes back to
-UT_MonsterHunt. Two have no spot touching their exit. One is MH-NivenSB
-above. Read `UTA-0126`'s body before the chain work: `UTA-0133` is the
-same mistake as that three-node chain, and fixing it comes first.
+`UTA-0133`: § 4.7 offered its fallback goal wherever the network reached
+the node NEAREST the exit, never checking that node is AT the exit, so
+the chain bridged to a substitute and never approached the exit. The rule
+14 gate narrowed it again — the rule must key on a navigation point that
+TOUCHES the exit, because nearest and touching are different tests and
+one real map has them naming different points. Three need nothing from us
+that we can see, and the question goes back to UT_MonsterHunt. Two have
+no spot touching their exit. One is MH-NivenSB above, whose fallback
+premise HOLDS — an earlier note of ours recorded it as failing, by
+comparing a 3D distance against a horizontal window. Read `UTA-0126`'s
+body before the chain work: `UTA-0133` is the same mistake as that
+three-node chain, and fixing it comes first.
 
 `UTA-0014` — urender's Vulkan device bring-up and the bundle draw path —
 is the keystone of 0.1.0 and the alternative to take: `UTA-0059` defers

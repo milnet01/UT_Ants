@@ -6836,6 +6836,45 @@ model, no weapon and no opponent until 0.2.0.
 
   The probe and its output are kept outside the repository, beside the other
   two at ut-paths-output-uta0126.
+  HANDOFF step 1 IS DONE (2026-09-12, ut-ants-f0, main checkout). The rule 14
+  gate ran on the amendment BEFORE any code, two loops to its cap, three cold
+  lanes each loop. Eleven verified, eleven fixed, one dismissed. Rows 7 and 8
+  of the loop-log record. UTA-0121 now carries the accepted value and is ready
+  to implement.
+
+  The gate paid for itself: the amendment it was armed for was wrong, in the
+  same shape it was written to fix. Detail is in the annotation above and in
+  row 7.
+
+  What the gate changed that step 2 and step 3 must now follow.
+
+  1. § 4.7 keys the fallback goal on a navigation point that TOUCHES the exit,
+     not on the one nearest it. So the code change is not a guard bolted onto
+     the existing block: replace `nearestNode(scene, exit.centre)` in that
+     block with the set of network indices passing the same cylinder test
+     `goal` uses, and union the backward reach from each. The
+     offered-only-where condition then needs no separate test -- an empty set
+     yields no fallback goals on its own.
+  2. INV-13's first scene is INV-7's with two changes: a tall thin exit
+     cylinder, and the touching point offset mostly vertically so it touches
+     while lying further off in 3D than the horizontal window. That is what
+     kills the 3D-versus-cylinder mutation, which the earlier draft could not.
+     It also needs a second point, nearer in 3D and not touching, on no part
+     the route may be built to.
+  3. INV-7 gained the half of the substitution rule nothing tested. Its
+     fixture needs a second navigation point within 50 of a path spot with the
+     hop to it CLEAR, asserted to be proposed in that spot's place. Without it
+     an implementation that never substitutes passes. The geometry is the
+     implementer's to settle and is not validated here.
+  4. INV-12 gained a second leg through `sceneOf` over a map built with the
+     bake fixture, carrying a MonsterEnd with no Location of its own whose
+     class default is at the bound. The code already has that test case; the
+     spec had never described it. § 7's list of which invariants need a
+     fixture map names it now too.
+  5. § 1's Goal and § 10's coverage table were the two sections the amendment
+     should have updated and did not. Both now agree with § 4.7 and § 5.
+
+  Steps 2 to 5 of the HANDOFF are unchanged and now unblocked.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
