@@ -4,6 +4,9 @@
 a calm cap: one of the final loop's ten verified findings landed on text the run
 itself wrote. The loop log is
 [`docs/reviews/UTA-0014-vulkan-draw-path-loop-log.md`](../reviews/UTA-0014-vulkan-draw-path-loop-log.md).
+**Amended (2026-09-12)** by implementation, before the presenting path is built.
+§ 4.3's surface contract changes direction for `UTA-0016`, so the amended
+document is gated again; the rest records what was built.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0014 (design-2026-09-03).
 **Blocked by:** none — `ubundle` ships, so the roadmap item's
@@ -117,8 +120,9 @@ with its correctness graded by reading.
    through the same camera-and-scene input this item defines.
 
 4. **`uta_urender` does not create the window and does not link SDL3.** *This
-   session, 2026-09-12.* The caller hands in a `VkSurfaceKHR` it created, or
-   hands in nothing. Three reasons: `docs/design.md` § The stack gives SDL3 to
+   session, 2026-09-12.* The caller names the instance extensions its window
+   needs and supplies a callback that makes the surface from the renderer's own
+   instance (§ 4.3), or supplies neither. Three reasons: `docs/design.md` § The stack gives SDL3 to
    window, input and gamepads, which is `uinput`'s and `UTA-0016`'s territory;
    rule 2 requires `ut-ants-server`'s link closure to hold no `urender`, and a
    library that owns a window is harder to keep out; and the no-surface case is
@@ -144,9 +148,10 @@ with its correctness graded by reading.
 
 ```cmake
 # src/urender/CMakeLists.txt
-add_library(uta_urender
-    Device.cpp Swapchain.cpp Frame.cpp Bundle.cpp Materials.cpp
-    Lights.cpp Clusters.cpp Shadows.cpp Probes.cpp Present.cpp)
+add_library(uta_urender STATIC
+    Device.cpp Resources.cpp Placement.cpp Pipelines.cpp Materials.cpp
+    Geometry.cpp Lights.cpp Clusters.cpp Probes.cpp Shadows.cpp Frame.cpp
+    Swapchain.cpp Present.cpp)
 target_link_libraries(uta_urender PUBLIC uta_core uta_ubundle
                                   PRIVATE Vulkan::Vulkan glm::glm)
 ```
@@ -179,7 +184,7 @@ routes every input this item needs, and this section adds nothing to it.
 
 | Input | Route | How |
 |---|---|---|
-| Vulkan headers, loader, `glslc` | 3 — found, never fetched, on **both** platforms | one `find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc)`, used as `Vulkan::Vulkan` and `Vulkan::glslc` |
+| Vulkan headers, loader, `glslc` | 3 — found, never fetched, on **both** platforms | one `find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc GLOBAL)`, used as `Vulkan::Vulkan` and `Vulkan::glslc`; `GLOBAL`, so `tests/` sees the same targets |
 | `glm` | 1 — fetched at an exact tag | `FetchContent` in the **root** `CMakeLists.txt`, in `tests/CMakeLists.txt`'s pattern |
 | Validation layers | 3, development prerequisite | Not found by CMake at all — ADR-0007 says `FindVulkan` searches for a validation-layer library only under `IOS`. The README states them; nothing checks them |
 | The graphics driver | never acquired | The machine's. `docs/design.md` rules out below Vulkan 1.3 |
@@ -198,17 +203,19 @@ source of `uta_urender` so a shader edit rebuilds it.
 `uta_urender` loads no shader file at run time and there is no search path.**
 That matters beyond tidiness: a run-time path would be a new thing for
 `UTA-0016`'s packaging, the install layout and every `tests/device/` case to
-bind to, all invented here. Embedding leaves nothing to bind to. A sibling
-project does the same with `xxd -i`, which is the proven form
-(`/mnt/Games/Scripts/Linux/DOOM_Ants/Makefile`). `glslc` emits no
-dependency information for a GLSL `#include`, so **every include edge is
-written out by hand in `src/urender/CMakeLists.txt`** — a rule this project
-does not yet own and a sibling project states as a standing one
-(`/mnt/Games/Scripts/Linux/DOOM_Ants/docs/standards/renderer.md`: *"when a
-shader includes another, add the dependency explicitly in the Makefile or an
-edit to the included file won't rebuild the dependents"*). § 4.6's light model
-is an included file with two consumers, so this bites on the first shader
-written.
+bind to, all invented here. Embedding leaves nothing to bind to. The header is
+written by `src/urender/cmake/EmbedSpirv.cmake` as 32-bit words. A sibling
+project embeds with `xxd -i` (`/mnt/Games/Scripts/Linux/DOOM_Ants/Makefile`),
+but the Visual Studio generator runs a custom command through `cmd.exe`, where
+`xxd` does not exist, and `pCode` wants a `uint32_t` alignment a byte array does
+not promise.
+
+**`glslc` writes a dependency file (`-MD`), and the build uses it as each
+shader's `DEPFILE`.** An edit to an included file rebuilds every shader that
+includes it, with no edge written by hand. The draft said `glslc` emits no
+dependency information and prescribed hand-written edges; that was false.
+Measured 2026-09-12: touching `types.glsl` marked exactly the shaders that
+include it for rebuild.
 
 ### 4.3 Two paths, and the surfaceless one is the primary
 
@@ -218,15 +225,21 @@ namespace uta::urender {
 /// What the caller supplies.
 ///
 /// NO VULKAN AND NO glm TYPE APPEARS IN THIS HEADER, which is INV-2 and is why
-/// `surface` is an integer. A `VkSurfaceKHR` is a non-dispatchable handle and
-/// is 64 bits wide on every platform, so the cast is lossless; `Device.cpp`
-/// performs it and is the only file that may.
+/// the instance and the surface cross it as integers. A `VkInstance` is a
+/// pointer and a `VkSurfaceKHR` a 64-bit handle on every platform, so both
+/// casts are lossless.
 struct Config {
-    std::uint64_t surface = 0;            ///< the caller's VkSurfaceKHR, cast.
-                                          ///< ZERO is the surfaceless path: no
-                                          ///< swapchain, and no
-                                          ///< VK_KHR_swapchain extension asked for
-    std::uint32_t width = 0, height = 0;  ///< the offscreen target's size
+    /// The instance extensions the caller's window needs -- what SDL3's
+    /// SDL_Vulkan_GetInstanceExtensions returns. EMPTY is the surfaceless
+    /// path: no instance extension, no surface, no swapchain, and no
+    /// VK_KHR_swapchain extension asked for.
+    std::vector<std::string> instanceExtensions;
+    /// Called once, with the renderer's own VkInstance cast to an integer,
+    /// after that instance exists and before a device is chosen. Returns the
+    /// caller's VkSurfaceKHR made from it, cast, or 0 to refuse. Unset on the
+    /// surfaceless path. The renderer destroys the surface, before its instance.
+    std::function<std::uint64_t(std::uint64_t instance)> createSurface;
+    std::uint32_t width = 0, height = 0;  ///< the target's size
     bool validation = false;              ///< request the layer if installed
     /// Skip exposure and tone mapping, writing linear light to the target
     /// instead. It exists so INV-10 can compare a pixel against a literal --
@@ -244,6 +257,13 @@ struct Camera {
     float nearPlane = 1, farPlane = 32768;
 };
 
+/// What the last frame had to give up (SS 6), and what it drew.
+struct FrameStats {
+    std::uint32_t overflowedClusters = 0;  ///< clusters that dropped lights past their cap
+    std::uint32_t unshadowedLights = 0;    ///< shadowing lights the atlas could not hold
+    std::uint32_t renderedShadowTiles = 0; ///< shadow tiles drawn this frame (SS 4.8)
+};
+
 class Renderer {
 public:
     [[nodiscard]] static Result<Renderer> create(const Config& config);
@@ -259,6 +279,13 @@ public:
     /// for Colour, two floats per pixel for Velocity. Surfaceless path only --
     /// the presenting path's frames go to the swapchain and are not read back.
     [[nodiscard]] Result<std::vector<std::byte>> readback(Target target = Target::Colour);
+
+    /// The last frame's SS 6 counts.
+    [[nodiscard]] FrameStats lastFrameStats() const noexcept;
+
+    /// UTA-0075's sub-pixel jitter (SS 4.11 provision 1). OFF until a pass
+    /// consumes it: with no temporal resolve, a jittered frame shimmers.
+    void setJitter(bool enabled) noexcept;
 };
 
 }  // namespace uta::urender
@@ -305,8 +332,18 @@ path that never creates a surface or swapchain**"* — still open. Building the
 presenting path first and adding a headless one later is the mistake that
 record documents.
 
-**The presenting path** adds `VK_KHR_swapchain`, a swapchain over the caller's
-surface, and `Present.cpp`. Its format choice is § 4.10's. Resize is reactive
+**A surface is made from the renderer's own instance, so the caller cannot hand
+one in.** A `VkSurfaceKHR` belongs to the `VkInstance` it was made from, and a
+device chosen from one instance cannot present to a surface of another.
+`Renderer::create` makes the instance, so no caller holds it beforehand. The
+draft passed a finished surface in `Config`, which no implementation could
+honour; implementation found it. So the caller names the extensions its window
+needs and supplies `createSurface`. The window stays the caller's (§ 3 decision
+4), SDL3 stays out of this library, and the surfaceless path is unchanged.
+
+**The presenting path** adds the caller's instance extensions,
+`VK_KHR_swapchain`, a swapchain over the surface `createSurface` returned, and
+`Present.cpp`. Its format choice is § 4.10's. Resize is reactive
 only: `VK_ERROR_OUT_OF_DATE_KHR` from acquire or present, and
 `VK_SUBOPTIMAL_KHR` from present, set a flag consumed at the top of the next
 frame; nothing else triggers a rebuild.
@@ -346,6 +383,10 @@ this."* **Three refusals, because the interesting cases have no device to name**
 Only the third can name a device, so only the third promises one. A contract
 that always promised a name would be unsatisfiable in the case the renderer
 actually meets on a machine with no graphics driver.
+
+**Among qualifying devices, a discrete GPU is preferred, then an integrated
+one, then anything else.** On a machine with both a GPU and Mesa's CPU driver,
+the device tier runs on the GPU unless the driver search path says otherwise.
 
 Every requirement above is satisfied by Mesa's CPU driver, measured 2026-09-12:
 
@@ -400,8 +441,9 @@ named `<id>:<map>`"*). The five suffixes and their formats are
 `umat::materialId` is `<package>.<path>` lowercased, with `#masked` appended
 for a masked variant (`src/umat/Generate.cpp`). A batch's `material` is opaque
 to `ubundle` and may be empty, meaning none; an empty id draws with a
-built-in default material rather than being skipped, so a bake with a missing
-material is visible instead of invisible.
+built-in default material — magenta, the conventional colour of something
+missing — rather than being skipped, so a bake with a missing material is
+visible instead of invisible.
 
 Every map is one entry in a bindless sampled-image array, indexed by a
 per-batch material index pushed as a constant — which is why § 4.4 requires the
@@ -440,6 +482,18 @@ cosine of `2π × angle / 65536`, are `docs/specs/UTA-0119-mover-shapes.md`
 § 4.5's and are not restated here. That spec's INV-7 grades its own formula
 against `tests/support/FCoordsPort.h`; INV-8 below grades this item's against
 the same port, so the two cannot drift apart while both passing.
+
+**A mirrored mover keeps its front face.** A negative `postScale` on one axis
+reverses a mover's screen winding. Front face is dynamic state, core in Vulkan
+1.3, set per draw from the sign of the model's determinant, so such a mover is
+drawn rather than culled.
+
+**When a bundle is uploaded again.** `draw` uploads geometry, materials and
+probes when it sees a bundle it has not: another object, another size of any
+section, or another hash of a bounded sample of their bytes. The sample is what
+catches a same-sized map reloaded into the same storage. An edit in place that
+changes only unsampled bytes is not seen. Lights and mover transforms are read
+every frame.
 
 ### 4.6 Direct light — one source of truth, in GLSL
 
@@ -499,6 +553,17 @@ it adds quality tiers. A cluster that overflows its cap drops the lights
 furthest from its centre and records that it did — § 6. Determinism is not required of any of this: `ADR-0002`'s one-bundle
 rule is about the baker, and nothing here writes a bundle.
 
+**Which lights draw.** Every `LITE` light but two kinds. `LT_BackdropLight`
+lights only the sky, which § 4.5 draws unlit. A `specialLit` light lights only
+`PF_SpecialLit` surfaces, which § 4.5 ignores. A `type` byte past the last
+`ELightType` is treated as steady.
+
+**Where the cluster arithmetic lives.** `Clusters.cpp` builds the boxes on the
+CPU, and the device-free tier grades them. The shading pass computes a
+fragment's cluster with the same slicing in GLSL, and the per-cluster cap is
+stated in both languages. The device tier's lighting cases are what catch a
+disagreement.
+
 ### 4.7 Indirect light from probes
 
 `LightProbes` carries `spacing` and probes *"strictly ascending by z, then y,
@@ -526,6 +591,12 @@ That spec leaves this item two decisions, naming them as ours:
 A surface of reflectance `ρ` shows `ρ × (direct + indirect)`, UTA-0112 § 4.9's
 formula, with the shadow map standing in for its `blocked`.
 
+**Probes are found through a hash table, not a dense grid.** `UTA-0112` seeds
+probes near geometry at 128-unit spacing. A grid over their bounding box grows
+with the level's box; a table grows with the probes. `Probes.cpp` builds the
+table and `probes.glsl` looks it up. The hash they share is what INV-7's kernel
+crosses, and INV-7's fixture evaluates at a probe stored past its hash slot.
+
 ### 4.8 Shadow maps
 
 One depth atlas for every shadowing light, tiles allocated by the light's
@@ -545,8 +616,21 @@ A mover inside a static light's radius therefore needs that light's tiles
 redrawn, and § 6 says what happens when the atlas cannot hold what a frame
 asks for.
 
-`Light::actorShadows` and `Light::specialLit` are carried verbatim by the
-bundle and are **not** interpreted by this item; § 9 records them.
+**The atlas is 4096 texels square, and a tile is a power of two from 64 to
+1024.** A light's tile size is the screen size of its sphere of influence,
+rounded up. When any light's size changes, every light is admitted again,
+largest first, and all their tiles are drawn that frame. Otherwise a tile is
+drawn only when a moved mover's box, before or after, reaches its light.
+`FrameStats` counts the tiles drawn, so the cache is observable.
+
+**A lit surface is kept from shadowing itself by the tile pass's slope-scaled
+depth bias, and by nothing else.** A normal offset on the sample was built and
+removed: taking it away changed no pixel, even for a grazing light on the
+smallest tile. That grazing case is what grades the bias.
+
+`Light::actorShadows` is carried verbatim by the bundle and is **not**
+interpreted by this item. `Light::specialLit` is read only to leave such a
+light out of the direct term (§ 4.6). § 9 records both.
 
 ### 4.9 Flicker and the effects the bake left steady
 
@@ -560,7 +644,8 @@ scalar's shape per `type` is implementation detail this spec does not pin —
 nothing binds to it, and `UTA-0112`'s probes are unaffected by construction.
 What this spec does pin: the scalar multiplies the direct term only, never the
 indirect one, or a flickering light would make baked bounce flicker with it and
-contradict the sentence above.
+contradict the sentence above. The clock is the renderer's own, measured from
+`create`.
 
 ### 4.10 Colour: the transfer applied exactly once
 
@@ -611,8 +696,11 @@ the transfer at all. `linearOutput` skips the output stage and nothing else, so
 INV-10 measures the sampler and the store and reaches a fixed answer.
 
 **Exposure and tone mapping**, which UTA-0112 § 4.9 assigns here: a fixed
-exposure with no automatic adaptation, set so that § 4.3's unit surface reaches
-display white, then the Khronos PBR Neutral tone map. Fixed rather than
+exposure of 1.0 with no automatic adaptation, then the Khronos PBR Neutral tone
+map. Through that tone map § 4.3's unit surface reaches 0.978, which the
+`_SRGB` target stores as 253. The draft asked for display white exactly; PBR
+Neutral's shoulder reaches it only above an exposure of about 13, which washes
+out every surface below the unit one. Fixed rather than
 adaptive because a UT99 deathmatch map's brightness swings as the camera turns
 and an auto-exposure that chases it makes aiming harder; PBR Neutral rather
 than ACES because ACES shifts saturated hues, and a 1999 palette is mostly
@@ -721,10 +809,13 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   that links `uta_urender` and not `Vulkan::Vulkan`. It cannot live in
   `uta_unit_tests`: INV-3's fixtures need Vulkan's feature structs, so that
   binary has the Vulkan include path and this test could never fail inside it.
+  On Linux the distribution's packages put the Vulkan headers on the default
+  include path, where an include succeeds anyway, so the test also refuses the
+  Vulkan header's own include guard with `#error`.
   *Breaks when:* a `VkDevice`, `VkFormat` or `VkSurfaceKHR` reaches a public
   signature, after which `ugame` cannot compile without a Vulkan loader
-  installed. § 4.3's `Config::surface` is the field that invites it, which is
-  why it is an integer there.
+  installed. § 4.3's `createSurface` is where it is invited, which is why the
+  instance and the surface cross it as integers.
   **This is deliberately not the link-closure assertion `docs/design.md` rule 2
   describes.** That rule names `ut-ants-server`, and no such target exists:
   `rg -n add_executable` over this tree returns `ut-bake`, `ut-dump`,
@@ -895,6 +986,15 @@ test alone, which is the only way that test can fail.
 | INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-5 | `tests/device/RenderDeviceAbsentTest.cpp` | `uta_device_tests` | `device-absent` | unconditionally, wherever `uta_urender` builds |
 
+**Beyond the invariants, each part they cannot see has its own case.** In the
+device-free tier: the camera and jitter (`RenderCameraTest`), cluster assignment
+(`RenderClusterTest`), light choice and flicker (`RenderLightsTest`) and shadow
+planning (`RenderShadowsTest`). In the device tier: lighting through the cluster
+lists, normal maps and overflow (`RenderLightingTest`), probe-only light
+(`RenderProbeTest`), shadows (`RenderShadowTest`), movers (`RenderMoverTest`) and
+a reloaded bundle (`RenderOffscreenTest`). INV-6 and INV-7 dispatch their kernels
+through `tests/device/ComputeFixture.cpp`.
+
 **Registration is never guarded on finding a Vulkan loader, and that is the
 point.** A `Vulkan_FOUND` guard would mean a leg that lost `libvulkan-dev`
 registered no device test and reported green over a renderer nothing executed —
@@ -1044,11 +1144,11 @@ their breaking states, each of which produces a plausible image.
 | INV-9 | **Partial:** the `static_assert`s catch a struct that CHANGES — a breach is a compile error on every leg. Nothing catches a struct that is added to the shader interface and never given one, so the invariant's coverage grows only as carefully as the next author is |
 | INV-10 | `tests/device/RenderColourTransferTest.cpp` — same platform limit |
 | INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` — same platform limit; the velocity half is observable only because § 4.3's `readback` takes a `Target` |
-| § 4.2's hand-written shader `#include` edges | **nothing** — `glslc` emits no dependency information, so a stale shader after editing an included file is silent. A sibling project states the same rule and checks it the same way, which is not at all |
+| § 4.2's shader `#include` dependencies | `glslc`'s dependency file, which the build uses as each shader's `DEPFILE` |
 | § 4.9's flicker scalar shape | **nothing** — deliberately unpinned; nothing binds to it |
 | § 4.10's fixed exposure value | **Partial:** INV-10 fixes the transfer at both ends but not the exposure constant between them; a wrong constant is a uniformly dark or bright image no test here rejects |
-| § 4.6's clustered culling correctness | **Partial:** `tests/unit/` grades cluster assignment; that a shaded pixel used its own cluster's list is not graded, and a cull that drops a light the pixel needed looks like a dim room |
-| § 4.8's cached shadow tiles being invalidated when a mover enters a static light's radius | **nothing** — tracked as part of `UTA-0016`'s first real level, where a stale tile is visible. No test here builds a moving mover |
+| § 4.6's clustered culling correctness | **Partial:** `tests/unit/RenderClusterTest.cpp` grades cluster assignment, and `tests/device/RenderLightingTest.cpp` lights a square with a light small enough to reach only its own clusters, so a pixel reading another list misses it. A cull that drops a light only some clusters need is not graded |
+| § 4.8's cached shadow tiles being invalidated when a mover enters a static light's radius | `tests/unit/RenderShadowsTest.cpp` for the decision, and `tests/device/RenderMoverTest.cpp` for a mover that moved inside a light's radius redrawing that light's tiles |
 | `libvulkan-dev` and `glslc` staying installed | § 4.2's `REQUIRED` find — their absence fails the **configure**, before any test runs |
 | `mesa-vulkan-drivers` staying installed | INV-5, which turns its absence into a red leg rather than an empty test run |
 | The presenting path — swapchain format, present mode, resize | **nothing** in CI, by § 3 decision 1. Graded by hand under `UTA-0016` |
