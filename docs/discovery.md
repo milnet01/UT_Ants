@@ -23,8 +23,17 @@ library is still growing — the Monster Hunt server on this machine
 carried 515 community Monster Hunt maps when this was written, in an
 install of 612, most made by people who have never met each other.
 Re-measured 2026-09-06: 740 of 837, the stock set unchanged at 97, so the
-growth is all community. **Any figure here is a snapshot of a moving
-number** — re-derive it rather than quoting one.
+growth is all community. Re-measured 2026-09-12: 1334 Monster Hunt maps
+of 1433 in `Maps/`. **Any figure here is a snapshot of a moving number**
+— re-derive it rather than quoting one.
+
+**`Maps/` stopped being the whole install between those two dates.**
+Three sibling directories now hold what has been set aside —
+`Maps-versions`, `Maps-duplicates` and `Maps-broken` — so 2033 `.unr`
+files are present on disk against the 1433 in `Maps/`. Counting `Maps/`
+alone across the change reads as a loss of about 589 maps that never
+happened. `Maps/` is the live set and is what the commands below want;
+UTA-0087 carries the per-directory breakdown.
 
 **Library and rotation are different numbers, and a sign is measured
 against one or the other.** The library is every Monster Hunt map the

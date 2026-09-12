@@ -883,7 +883,7 @@ model, no weapon and no opponent until 0.2.0.
 
   **It needs a machine-readable mode, not only a human one.** Requested
   2026-09-06 by the Monster Hunt server work on this machine, whose
-  consumer is a script over a 740-map library rather than a person
+  consumer is a script over the whole map library rather than a person
   reading one file. Every analysis tool it has today works from a T3D
   export produced by driving the editor headlessly: 4.9 GB unpacked, slow
   to produce, and routinely deleted and rebuilt from a tarball. A `--json`
@@ -922,7 +922,7 @@ model, no weapon and no opponent until 0.2.0.
   Package.Group.Texture. It reported 587 maps as needing a package called
   "Base". Walking to the outermost fixed it, and the check that settles it
   is that an install which loads must have its dependencies met -- the
-  count over 740 installed maps went from 732 to zero.
+  count over the 740 maps installed at the time went from 732 to zero.
 
   Two things are deliberately NOT done, and the item is not shipped.
   Nothing has run on the matrix, only the CMake default leg (173/173, TSan
@@ -941,7 +941,7 @@ model, no weapon and no opponent until 0.2.0.
   - It stays 🚧 and does NOT flip shipped without a short spec settling the
     ut-dump JSON shape, plus a test pinning it. Reason:
     docs/standards/versioning-overrides.md makes the ut-dump CLI and its output
-    a versioned surface, and their consumer is a script over 740 maps -- so
+    a versioned surface, and their consumer is a script over the library -- so
     spec-format.md SS 1 trigger 1 fires, a contract something else binds to.
   - They are drafting that spec from the CONSUMER side, because they know what
     their script binds to and this project does not, and will hand it here for
@@ -986,7 +986,11 @@ model, no weapon and no opponent until 0.2.0.
   is now split out as UTA-0086, with the shape the consumer confirmed: edge
   list first, node list beside it.
 
-  The 740-map figure in this body is stale — see UTA-0087.
+  Map-library size, measured 2026-09-12: 1433 .unr in Maps/, of which 1334
+    are MH-*. Three sibling directories hold what has been set aside --
+    Maps-versions 514, Maps-duplicates 76, Maps-broken 10 -- so 2033 are
+    present on disk and Maps/ is the denominator a walk over the live set
+    wants. UTA-0087 owns this figure and the command that produced it.
   Request from UT_MonsterHunt (2026-09-10), its first priority: a
   per-actor dump -- class, location, Tag, Event, and zone and trigger
   damage properties -- for actors within a radius of a point in one map.
@@ -2058,7 +2062,7 @@ model, no weapon and no opponent until 0.2.0.
   exactly, and is not right before then.
 
   In-engine ground truth is on offer if that is not enough -- surface
-  solidity by trace and monster/geometry intersection, over a 740-map
+  solidity by trace and monster/geometry intersection, over the whole map
   corpus. Two toolchain facts came with the offer: `ucc` silently skips a
   build when the package already exists in any of three directories, and
   the engine buffers its log and flushes only on a clean exit, so a
@@ -2270,9 +2274,11 @@ model, no weapon and no opponent until 0.2.0.
   two different measurements and the docs carried one, while S3 is
   measured against the library ("a map pulled from the existing library")
   and S8 and UTA-0038 against the rotation. Measured in the live server's
-  own install: 740 MH-*.unr in Maps/, 183 of them -BP rebuilds whose
-  original survives and is superseded, leaving 557 votable -- matching
-  NumFacts=557 in ~/.utpg/System/MHVoteData.ini exactly. Stock set 97.
+  own install on 2026-09-06: 740 MH-*.unr in Maps/, 183 of them -BP
+  rebuilds whose original survives and is superseded, leaving 557 votable
+  -- matching NumFacts=557 in ~/.utpg/System/MHVoteData.ini exactly. Stock
+  set 97. That measurement stands as taken; UTA-0087 carries the current
+  figure and the partition that has since split Maps/ from its siblings.
 
   docs/discovery.md now gives both numbers a derivation each, and records
   that Maps-broken/ is a sibling of Maps/ holding maps never served, so
@@ -3873,7 +3879,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: consumer-request-2026-09-09.
   Lanes: upkg.
 
-- 📋 [UTA-0087] **The 740-map figure is stale everywhere it is cited.**
+- ✅ [UTA-0087] **The 740-map figure is stale everywhere it is cited.**
   UTA-0058 settled a Monster Hunt map count that the ADRs cite. That
   figure has been overtaken.
 
@@ -3925,7 +3931,95 @@ model, no weapon and no opponent until 0.2.0.
   work predating this week. So 740 → 1923 is the right headline and this
   week's arithmetic is not its explanation — do not present them as one
   chain, which is the second way this figure can be got wrong.
-  **Layman:** The roadmap and the decision documents say the map library holds 740 maps. It holds far more now, and several figures derived from that number are wrong.
+  Picked up (2026-09-12) by ut-ants-40, MAIN checkout, on the user's call
+  for quick wins after UTA-0128 shipped. Rule 1's set is still the three
+  self-deferring items, so this is rule 2 work inside 0.1.0.
+
+  The measurement is already on this item and is not being re-taken. What
+  is left is applying it: 740 and its derived 183 are cited in ROADMAP
+  bodies, docs/discovery.md and the ADRs, and the item is explicit that the
+  ADRs matter because UTA-0058's headline is about what they cite.
+
+  Following the item's own instruction to prefer a dated measurement with
+  the command that produced it over a bare number, since this figure has
+  been wrong twice.
+  RE-MEASURED 2026-09-12 by ut-ants-40, and this item's own figure is now
+  stale -- the third time, exactly as the item predicted. The cause is a
+  new instance of the trap it already records, so read this before
+  trusting any count here.
+
+  The library was PARTITIONED since 2026-09-09. `Maps/` no longer holds
+  everything: three sibling directories now sit beside it. Counting
+  `Maps/` alone therefore reads as a 589-map loss that never happened.
+
+      cd '/mnt/Games/PC Games/UT/UnrealTournament-469'
+      for d in Maps Maps-versions Maps-duplicates Maps-broken; do
+        find "$d" -name '*.unr' | wc -l
+        find "$d" -name 'MH-*.unr' | wc -l
+        find "$d" -name 'MH-*BP*.unr' | wc -l
+      done
+
+                 total   MH-*   MH-*BP*
+      Maps        1433   1334       259
+      Maps-versions 514    514        71
+      Maps-duplicates 76     76         9
+      Maps-broken     10     10         0
+      all present  2033   1934       339
+
+  So 2033 against the 2022 measured on 2026-09-09 is eleven ADDED maps,
+  not a drop. `Maps/` at 1433 is the live playable set and is the right
+  denominator for anything a bake, a census or the server walks.
+  `Maps-versions/` is the version-pick set-aside -- UTA-0127 already
+  records MH-ProgressV0 living there.
+
+  WHICH NUMBER A CITATION WANTS NOW DEPENDS ON ITS QUESTION, and that is
+  new. Before the partition "the library" had one answer. It now has two:
+  1433 live, or 2033 present on disk. A bare number cannot carry that
+  distinction, which is the strongest case yet for this item's own
+  instruction to cite a dated measurement with its command rather than a
+  figure.
+
+  NOT EVERY 740 IS WRONG. A citation reading "Measured 2026-09-06: 740"
+  was true when written and stays -- rewriting a dated measurement
+  destroys the record this item exists to protect. Only a present-tense
+  denominator is a defect. The two are separated in the fix.
+  Resolved (2026-09-12) by ut-ants-40, main checkout.
+
+  WHAT WAS CHANGED, and the split is the point. A citation carrying a
+  DATED measurement was left exactly as written -- rewriting one destroys
+  the record this item exists to protect. Only a present-tense denominator
+  was a defect, and those are fixed: UTA-0012's "a script over a 740-map
+  library" and "a script over 740 maps", UTA-0057's "over a 740-map
+  corpus", and UTA-0012's stale-figure marker, which now carries the
+  dated 2026-09-12 breakdown instead of pointing here. UTA-0012's
+  dependency result is now "the count over the 740 maps installed at the
+  time", which keeps the finding true rather than restating it against a
+  denominator it was not measured on. UTA-0058's undated "Measured in the
+  live server's own install" is dated 2026-09-06 and says this item
+  carries the current figure. docs/discovery.md gains the 2026-09-12
+  measurement and the partition, beside its 2026-09-06 one.
+
+  THE ADRs CITE NO MAP COUNT AT ALL, checked rather than skipped:
+  `grep -rn '740\|1923\|837' docs/decisions/*.md` returns nothing. This
+  item's instruction to fix them rested on UTA-0058's headline being about
+  what they cite, and that is not true of the files as they stand. Nothing
+  was changed there.
+
+  THE ITEM'S OWN LAYMAN LINE WAS WRONG on the same point and is corrected,
+  because it renders on the card face in the Roadmap dialog and the user
+  reads it. It claimed the decision documents carry the figure.
+
+  WHAT A LATER SESSION SHOULD TAKE FROM THIS. The figure went stale a
+  third time between this item being filed and being done, and the cause
+  was not growth but the partition recorded in the note above. So the
+  instruction this item already carried is the durable part: cite a dated
+  measurement with the command that produced it, never a bare number.
+  After the partition "the library" has two honest answers -- 1433 live,
+  2033 present -- and a bare number cannot carry which one is meant.
+
+  Green on the local documentation gate. Docs-only change, so the matrix
+  runs the full gate on push.
+  **Layman:** The roadmap said the map library holds 740 maps. It holds 1433 in the live folder, with another 600 set aside in folders beside it, and several figures worked out from the old number were wrong.
   Kind: doc-fix.
   Source: in-session-2026-09-09.
   Lanes: docs.
