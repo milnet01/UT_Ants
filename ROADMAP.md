@@ -5686,6 +5686,23 @@ model, no weapon and no opponent until 0.2.0.
   is not measuring what we think it measures. Their MH-NivenSB run
   already showed the census cannot tell "the spec was never built" from
   "the route failed further along", so that ambiguity has precedent here.
+  Parked (2026-09-12) by ut-ants-d1, main checkout. Every remaining
+  thread is blocked outside this item, so holding it blocks nothing.
+
+  Waiting-on: UT_MonsterHunt to re-check MH-UM-SoccerStadium1 (and the
+  other two of that group), which is the cheap question named above.
+
+  The other two threads are not waiting on them. MH-NivenSB's chain needs
+  UTA-0133 first -- the diversion that item fixes is the same mistake the
+  earlier three-node chain made, so building a chain before the fix would
+  repeat it. MH-Skaarj_ReactorTest-v1 and MH-ZenithWarsTorus need the
+  measurement the user and this item already agreed, which is a design
+  choice rather than a diagnosis.
+
+  Taking UTA-0133 next, in this checkout. It shares the ut-paths lane with
+  this item, which rule 4 would forbid were this item still held; it is
+  parked, and it is the same session, so no two sessions touch that
+  directory.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -6556,7 +6573,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-12.
   Lanes: ci.
 
-- 📋 [UTA-0133] **ut-paths: the partitioned fallback goal wins over the real exit and the chain never reaches it.**
+- 🚧 [UTA-0133] **ut-paths: the partitioned fallback goal wins over the real exit and the chain never reaches it.**
   Found while diagnosing UTA-0126; measured, not inferred.
 
   `propose()` in tools/ut-paths/Seeds.cpp builds `goal` from the spots
@@ -6597,6 +6614,65 @@ model, no weapon and no opponent until 0.2.0.
 
   Test: a map with a fallback goal nearer than its exit gets a chain whose
   last node lies within `exit.radius + RADIUS` of the exit centre.
+  Picked up (2026-09-12) by ut-ants-d1, main checkout, straight from the
+  UTA-0126 diagnosis that filed it. UTA-0126 is parked on Waiting-on: and
+  counts against neither limit, so this is the one item this session
+  holds.
+
+  First step is the corpus measurement this item asks for, not the code
+  change: count how many maps have a fallback goal nearer than their exit
+  cylinder. That says whether the repair is worth its blast radius and
+  gives the before/after the fix is checked against.
+  Corpus measured (2026-09-12, ut-ants-d1, main checkout). The defect is
+  not two maps; it is half of every partitioned map that got a chain.
+
+  Population, read from the existing full run at ut-paths-output (its
+  JSON carries each map's group, exits and proposed nodes, so no rebuild
+  was needed): 126 PARTITIONED maps, 37 with at least one `found` exit,
+  16 of those carrying proposed nodes. On 12 of the 16 the LAST proposed
+  node lies further from the exit centre than any goal window can reach --
+  the widest window in the corpus is radius 100 plus RADIUS, so 117 --
+  and those 12 run from 622 to 18,881 units off.
+
+  Ending far from the exit is not by itself the defect: on a map whose
+  exit is genuinely unreachable the fallback is doing its job. The
+  discriminator is the probe's partitioned switch. With the fallback off,
+  does the search still reach the exit's cylinder?
+
+  EIGHT CONFIRMED DIVERSIONS -- a route to the real exit existed and was
+  discarded for a nearer substitute:
+
+      map                       was off by   fallback off
+      MH-UM-Vengeance-EG1           18881u   MOVER into cylinder
+      MH-BirdBrainedResearch        11292u   MOVER into cylinder
+      MH-Doomed-HELL-HTD-BP          7689u   MOVER into cylinder
+      MH-Omni-Rage-BP                6470u   FOUND into cylinder
+      MH-Haros-OldQuarter            4172u   MOVER into cylinder
+      MH-ChambersOfHell-Part1        2278u   MOVER into cylinder
+      MH-ExtremeCoreV2SB             1183u   MOVER into cylinder
+      MH-'Z-FALKENSTINE               687u   FOUND into cylinder
+
+  FOUR ARE NOT DIVERSIONS and the fallback is behaving as intended:
+  MH-UnderDarkSB and MH-NivenSB route NONE with it off, and
+  MH-HaVoCuRhOMG and MH-ZenithWarsTorus have no spot touching their exit
+  at all.
+
+  WHAT THE REPAIR BUYS, stated before it is made so it can be checked
+  after. Two maps gain a real walking chain to their exit. Six stop
+  reporting `found` with a chain built to the wrong place and start
+  reporting `mover` with no chain -- which is the truthful answer, since
+  their exit needs a lift or a door and seeds cannot help. Four are
+  unchanged. Fewer proposals, and every remaining one aimed at the exit.
+
+  Whether a mover-reachable exit should be chained at all is a separate
+  and older question, not this item's: those six read `mover` today
+  whenever the fallback is not masking them.
+
+  THE SPEC IS WHERE THE DEFECT LIVES, not just the code. UTA-0121 § 4.7
+  Search makes the exit's own goal and the fallback goal members of one
+  goal set and takes the shortest path to any of them, so the nearer
+  wins. Seeds.cpp conforms to that. The repair is an amendment to that
+  rule, and it re-arms rule 14's gate.
   **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
