@@ -17,6 +17,17 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`ut-paths` says when a map's exit is parked outside the world.** (UTA-0127)
+  27 of the 297 maps in the route census have their only MonsterEnd at
+  the world corner, where no route to it exists for UT either. The
+  per-map JSON reported those exactly like a map whose route we simply
+  failed to find -- both read `none` -- so every measurement over that
+  set carried them as noise. Each exit now carries an `offWorld` mark
+  beside its route, decided on the exit's resolved position and
+  independent of the route word, so a consumer can set these aside and
+  the remaining `none` rows mean what they say. The file's `schema` is
+  unchanged, so UT_MonsterHunt's census keeps reading it.
+
 - **Maps bake the light that bounces off their surfaces** (UTA-0112)
   A bake now writes LPRB: light probes on a 128-unit lattice near the
   level's surfaces, each an ambient cube of one bounce of the level's
