@@ -82,7 +82,8 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     raster.polygonMode = VK_POLYGON_MODE_FILL;
     raster.cullMode = variant.twoSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
     // UTA-0109 SS 4.3 winds each triangle so its corners turn about the stored
-    // normal; the projection's +Y-down flip makes that clockwise on screen.
+    // normal; the projection's +Y-down flip makes that clockwise on screen. It is
+    // dynamic state, set per draw: a mirrored mover reverses it (Frame.cpp).
     raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
     raster.lineWidth = 1.0f;
 
@@ -128,7 +129,9 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         blend.pAttachments = opaqueAttachments.data();
     }
 
-    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    // Front face is core dynamic state from Vulkan 1.3 (VK_EXT_extended_dynamic_state
+    // was promoted), so it needs no feature beyond SS 4.4's.
+    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_FRONT_FACE};
     VkPipelineDynamicStateCreateInfo dynamic{};
     dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());

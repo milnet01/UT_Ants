@@ -167,6 +167,16 @@ float halfToFloat(std::uint16_t half) noexcept {
     return sign != 0 ? -magnitude : magnitude;
 }
 
+/// Whether `model` turns space inside out: its upper 3x3 has a negative
+/// determinant, which a negative postScale on one axis gives. Such a model
+/// reverses the screen winding of every triangle it places.
+bool mirrors(const gpu::Mat4& m) noexcept {
+    const double det = m[0] * (static_cast<double>(m[5]) * m[10] - static_cast<double>(m[9]) * m[6])
+                       - m[4] * (static_cast<double>(m[1]) * m[10] - static_cast<double>(m[9]) * m[2])
+                       + m[8] * (static_cast<double>(m[1]) * m[6] - static_cast<double>(m[5]) * m[2]);
+    return det < 0;
+}
+
 using Box = std::array<std::array<float, 3>, 2>;
 
 /// `local` carried by `model` and boxed again in world space.
@@ -223,6 +233,8 @@ struct Renderer::Impl {
 
     std::optional<gpu::Mat4> previousViewProj;
     std::vector<gpu::Mat4> previousModels;
+    /// Per object, whether its model reverses winding -- SS 4.5's mirrored mover.
+    std::vector<bool> mirrored;
     bool jitter = false;
     std::uint64_t frameIndex = 0;
     /// SS 4.9's clock: a flickering light's phase is measured from here.
@@ -554,6 +566,9 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         for (const DrawItem& item : geometry->draws) {
             if (((item.polyFlags & gpu::PF_TRANSLUCENT) != 0) != translucent) continue;
             vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneFor(item.polyFlags));
+            // A mirrored mover winds the other way on screen, so its front face is the other one.
+            const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+            vkCmdSetFrontFace(commands, front);
             const gpu::DrawConstants constants{item.objectIndex, item.materialIndex, item.polyFlags};
             vkCmdPushConstants(commands, pipelines->sceneLayout(),
                                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
@@ -675,6 +690,8 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     if (bundle.movers)
         for (std::size_t i = 0; i < bundle.movers->size(); ++i) models[i + 1] = moverModel((*bundle.movers)[i]);
     if (impl.previousModels.size() != models.size()) impl.previousModels = models;
+    impl.mirrored.assign(models.size(), false);
+    for (std::size_t i = 0; i < models.size(); ++i) impl.mirrored[i] = mirrors(models[i]);
     for (std::size_t i = 0; i < models.size(); ++i) {
         const gpu::Object object{models[i], impl.previousModels[i], normalMatrixOf(models[i])};
         std::memcpy(impl.objects.mapped() + i * sizeof(gpu::Object), &object, sizeof(object));
