@@ -276,9 +276,10 @@ motion.
 
 **The surfaceless path creates no `VkSurfaceKHR`, opens no swapchain, requests
 no instance extension and no `VK_KHR_swapchain` device extension, and needs no
-display.** Measured 2026-09-12 with a scratch probe outside the repository
-(`probe.cpp` in this session's scratchpad, `c++ -std=c++23 -O1 -Wall -Wextra
-probe.cpp -lvulkan`), against the Mesa `lvp` driver with `DISPLAY` and
+display.** Measured 2026-09-12 with a scratch probe kept outside the repository
+at `/mnt/Games/Scripts/Linux/ut-ants-vulkan-probe-uta0014/`, whose `README.md`
+carries the build line, the passing output and the breaking run — against the
+Mesa `lvp` driver with `DISPLAY` and
 `WAYLAND_DISPLAY` both unset. It clears a 64×64 `R8G8B8A8_UNORM` image to red
 through `vkCmdBeginRendering`, draws one green triangle, barriers with
 `vkCmdPipelineBarrier2`, copies to a host-visible buffer and reads two pixels:
@@ -743,7 +744,7 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   display and no surface extension, `create`, `draw` and `readback` succeed and
   the pixels are the ones drawn. *Test:* `tests/device/RenderOffscreenTest.cpp`,
   label `device`, run with `DISPLAY` and `WAYLAND_DISPLAY` unset. Measured
-  ahead of the code by this session's scratch probe → `centre rgba = 0 255 0
+  ahead of the code by § 4.3's probe → `centre rgba = 0 255 0
   255`, `corner rgba = 255 0 0 255`, exit 0.
   *Breaks when:* the swapchain or the `VK_KHR_swapchain` device extension is
   requested unconditionally, which fails before the first draw on a machine
@@ -919,7 +920,7 @@ would miss it.
 
 **Each test is seen to fail before the code exists, and the two INV-4 and INV-5
 fixtures already have their failing and passing runs recorded** — § 4.3 and
-INV-5 carry the outputs, measured on a scratch probe rather than on this
+INV-5 carry the outputs, measured on § 4.3's probe rather than on this
 library. That is evidence the *fixture* discriminates; it is not evidence about
 `uta_urender`, which does not exist yet.
 
