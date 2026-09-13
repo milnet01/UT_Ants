@@ -5094,7 +5094,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.
   Lanes: upkg.
 
-- 📋 [UTA-0103] **Split the real-asset test file by subject, and share its System-package resolver.**
+- 🚧 [UTA-0103] **Split the real-asset test file by subject, and share its System-package resolver.**
   The user's standing request (2026-09-10): refactor files at every
   opportunity, because several sessions will soon work one project at once.
 
@@ -5115,6 +5115,38 @@ model, no weapon and no opponent until 0.2.0.
   names and results stay identical before and after.
 
   Not part of 0.1.0's cut condition.
+  Prep (2026-09-13, ut-ants-28, main checkout; not claimed).
+
+  The file holds more subjects than the body names. There are 13
+  TEST_CASEs:
+  - package reader: install present, Maps directory, every package
+    opens, every modelled export consumed, every class export consumed,
+    class ancestry resolves.
+  - nav and wiring graphs: Paths entries index the reach-spec array, and
+    both graphs build over every map.
+  - room map: every node's zone record agrees with the descent.
+  - umat, tagged [umat]: the enlarger's ranking, surfaces sharing a
+    texture, the curated seed.
+  - ubake, tagged [ubake]: every map takes a bake name.
+
+  The System-package resolver is written out three times: in the class
+  ancestry case, the Paths entries case and the both-graphs case, each a
+  local map of opened packages plus a lambda.
+
+  Verification plan. build-real/ is configured with UTA_REAL_ASSET_TESTS
+  ON and the reference install. Build uta_real_asset_tests at the
+  commit before the split and after, then diff `--list-tests` output.
+  It must be identical, names and tags both. Identical RESULTS need the
+  tier run against the install. That is the user's to run (the bake-name
+  case alone passes 20 minutes, see the long-runs memory), so an
+  unattended session can prove names but not results, and must say so
+  on the item.
+  Claimed (2026-09-13) by ut-ants-28, main checkout, after UTA-0137
+  shipped. The user is away and said to use judgement, and the user's
+  standing refactor-for-parallel-sessions rule asks for exactly this.
+  The prep note above holds the plan. The split is by script, so case
+  bodies move by exact line range. The baseline --list-tests from
+  54464d8 is saved.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
@@ -7581,7 +7613,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12 third ask.
   Lanes: ut-dump, unav.
 
-- 🚧 [UTA-0137] **ut-paths: a skipped census row does not say whether the map was renamed or de-duplicated away.**
+- ✅ [UTA-0137] **ut-paths: a skipped census row does not say whether the map was renamed or de-duplicated away.**
   Found 2026-09-12 from UT_MonsterHunt's note that four of their census rows
   were failed exports, because a stale map list had its PARENTHESES STRIPPED
   while the installed maps carry them. Measured here, and it bit us too.
@@ -7734,6 +7766,10 @@ model, no weapon and no opponent until 0.2.0.
   and MH-THUNDERBOLT-DARKFOREST-2009-BETA skips both. Each names its
   Maps-versions/ file under elsewhere and its parenthesised Maps/ map
   under differentNames. Neither -BP variant is listed.
+  Shipped (2026-09-13) by ut-ants-28 in 54464d8, green on the matrix
+  in CI run 34769676303: Linux GCC 14, Linux Clang 19 and Windows MSVC.
+  The local gate passed 533 and 504 tests. UT_MonsterHunt was told
+  about the two new summary keys.
   **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-12 census export note.
