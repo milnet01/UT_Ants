@@ -18,29 +18,15 @@ namespace {
 
 constexpr std::byte LF{0x0A};
 
-/// Every package `package` imports, folded -- ut-dump's `importedPackages`
-/// rule. An import names a package where its OUTERMOST outer is null, so the
-/// chain is walked rather than stopped at the immediate outer, which for a
-/// texture is its group and not its package.
-std::set<std::string> importedPackages(const upkg::Package& package) {
+/// Every package `package` imports, folded -- upkg::importedPackages, the
+/// supported call (UTA-0070). It yields the set the outer-chain walk this
+/// replaced did: every chain that ends does so at an import whose outer is
+/// null, and each such import is its own chain's end. So bake names do not
+/// move.
+std::set<std::string> foldedImports(const upkg::Package& package) {
     std::set<std::string> out;
-    const std::span<const upkg::ImportEntry> imports = package.imports();
-    for (const upkg::ImportEntry& entry : imports) {
-        const upkg::ImportEntry* current = &entry;
-        // Bounded by the table, so a cyclic outer chain cannot hang it.
-        for (std::size_t hops = 0; hops <= imports.size(); ++hops) {
-            const upkg::ObjectReference outer = current->outer;
-            if (outer.kind() == upkg::ObjectReferenceKind::Null) {
-                if (const auto name = package.name(current->objectName); name.has_value())
-                    out.insert(detail::fold(*name));
-                break;
-            }
-            // An outer in the export table is this package's own object.
-            if (outer.kind() != upkg::ObjectReferenceKind::Import || outer.index() >= imports.size())
-                break;
-            current = &imports[outer.index()];
-        }
-    }
+    if (const auto names = upkg::importedPackages(package); names.has_value())
+        for (const std::string_view name : *names) out.insert(detail::fold(name));
     return out;
 }
 
@@ -117,12 +103,12 @@ std::string nameOf(const NameInputs& inputs) {
 
 Result<std::vector<std::string>> closure(const upkg::Package& map,
                                          const upkg::PackageResolver& resolver) {
-    std::set<std::string> seen = importedPackages(map);
+    std::set<std::string> seen = foldedImports(map);
     std::vector<std::string> pending(seen.begin(), seen.end());
     for (std::size_t next = 0; next < pending.size(); ++next) {
         UTA_TRY(const upkg::Package* const package, resolver(pending[next]));
         if (package == nullptr) continue;
-        for (const std::string& name : importedPackages(*package)) {
+        for (const std::string& name : foldedImports(*package)) {
             if (seen.insert(name).second) pending.push_back(name);
         }
     }

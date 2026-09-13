@@ -17,6 +17,15 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`upkg` answers which packages a package imports, as a supported call.** (UTA-0070)
+  `upkg::importedPackages` returns each package once, in import-table
+  order. Its rule is part of the contract: an import whose outer is null
+  names a package; one with an outer names an object inside a package.
+  The baker's bake-name closure and `ut-dump` now call it instead of each
+  keeping a copy of the walk. Neither output moves: `ut-dump`'s lists are
+  identical across the reference map library, and bake names are
+  unchanged.
+
 - **`ut-dump` reports each map's Title, Author and whole-map monster capacity.** (UTA-0101)
   Every map gains `levelInfo` and `levelSummary`, each with the map's
   own `title` and `author` (null where the map sets none). The LevelInfo

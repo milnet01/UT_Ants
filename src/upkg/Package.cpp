@@ -308,4 +308,22 @@ Result<std::span<const std::byte>> Package::serialBytes(const ExportEntry& entry
     return bytes_.subspan(entry.serialOffset, entry.serialSize);
 }
 
+Result<std::vector<std::string_view>> importedPackages(const Package& package) {
+    std::vector<std::string_view> packages;
+    for (const ImportEntry& entry : package.imports()) {
+        if (entry.outer.kind() != ObjectReferenceKind::Null) {
+            continue;
+        }
+        UTA_TRY(const std::string_view name, package.name(entry.objectName));
+        bool repeated = false;
+        for (const std::string_view seen : packages) {
+            repeated = repeated || seen == name;
+        }
+        if (!repeated) {
+            packages.push_back(name);
+        }
+    }
+    return packages;
+}
+
 } // namespace uta::upkg

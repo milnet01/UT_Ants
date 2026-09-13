@@ -125,4 +125,16 @@ private:
     std::vector<ExportEntry> exports_;
 };
 
+/// The packages this package imports from -- UTA-0070.
+///
+/// THE RULE: an import whose outer is null names a PACKAGE; an import with an
+/// outer names an object inside one -- a class, a group, a texture. Each
+/// package comes back once, in import-table order, spelled as the name table
+/// spells it. An exact repeat is dropped; two spellings differing only in case
+/// are both kept, because the engine folds names and a caller matching them
+/// against files must fold anyway.
+///
+/// The views point into this Package's name table and live as long as it does.
+[[nodiscard]] Result<std::vector<std::string_view>> importedPackages(const Package& package);
+
 } // namespace uta::upkg

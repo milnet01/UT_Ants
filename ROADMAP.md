@@ -3412,6 +3412,27 @@ model, no weapon and no opponent until 0.2.0.
   shipped. The user is away and said to use judgement. Blocked by
   nothing, testable unattended, and it removes four copies of one walk.
   The prep note above records where those copies are.
+  Built (2026-09-13, ut-ants-28, main checkout); not yet on the matrix.
+  upkg::importedPackages is declared in src/upkg/Package.h with the
+  outer-null rule in its contract. It returns each package once, in
+  import-table order, as spelled.
+
+  A fifth copy turned up that the prep note missed: a private
+  importedPackages in src/ubake/Name.cpp, which feeds the bake-name
+  closure. It now calls the supported one through foldedImports. Bake
+  names cannot move: every outer chain that ends does so at an import
+  whose outer is null, and each such import ends its own chain, so the
+  two rules yield the same set on any package. ut-dump's copy is gone
+  too.
+
+  The importPackageName helpers in upkg/Class.cpp, unav/Build.cpp and
+  tests/real answer a different question, which package one given
+  import lives in, and stay.
+
+  Evidence. Three [package-imports] cases, and four hand mutations, all
+  killed. The unit suite passes, bake-name golden tests included.
+  ut-dump's importedPackages is identical before and after on every map
+  in the reference Maps/ directory.
   **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.

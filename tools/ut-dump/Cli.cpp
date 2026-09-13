@@ -133,37 +133,6 @@ std::string nameOr(const uta::upkg::Package& package, uta::upkg::ObjectReference
     return name.has_value() ? std::string{*name} : std::string{"?"};
 }
 
-/// Every package this one imports, by name, de-duplicated and folded.
-std::set<std::string> importedPackages(const uta::upkg::Package& package) {
-    std::set<std::string> out;
-    for (const uta::upkg::ImportEntry& entry : package.imports()) {
-        // An import whose outer is null names a PACKAGE. One with an outer
-        // names an object INSIDE a package, and the chain can be more than one
-        // link long: a texture is `Package.Group.Texture`, so the immediate
-        // outer is the GROUP and only the outermost is the file that has to be
-        // on disk. Reading the immediate outer instead reports group names --
-        // Base, Floor, Wall -- as missing dependencies, which is what this
-        // loop was doing until it was checked against the install.
-        const uta::upkg::ImportEntry* current = &entry;
-        for (std::size_t hops = 0; hops <= package.imports().size(); ++hops) {
-            const uta::upkg::ObjectReference outer = current->outer;
-            if (outer.kind() == uta::upkg::ObjectReferenceKind::Null) {
-                const auto name = package.name(current->objectName);
-                if (name.has_value()) {
-                    out.emplace(*name);
-                }
-                break;
-            }
-            if (outer.kind() != uta::upkg::ObjectReferenceKind::Import
-                || outer.index() >= package.imports().size()) {
-                break; // an outer in the export table is this package's own
-            }
-            current = &package.imports()[outer.index()];
-        }
-    }
-    return out;
-}
-
 /// UTA-0136: every node and every edge, one row each, inside `nav`. The fields
 /// are the graph's own, unfiltered and undecoded -- a consumer deciding what a
 /// walking bot may use applies its own rule to them, as ut-paths' sceneOf does.
@@ -394,9 +363,18 @@ void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system
     out << ",\n  \"exports\": " << package->exports().size();
     out << ",\n  \"imports\": " << package->imports().size();
 
+    // upkg's supported call (UTA-0070), sorted here because this output always
+    // has been. A texture's group is an object inside its package, not a
+    // package, which is the mistake the call's rule exists to prevent.
     out << ",\n  \"importedPackages\": [";
+    std::set<std::string> dependencies;
+    if (const auto names = uta::upkg::importedPackages(*package); names.has_value()) {
+        for (const std::string_view name : *names) {
+            dependencies.emplace(name);
+        }
+    }
     bool firstDep = true;
-    for (const std::string& dep : importedPackages(*package)) {
+    for (const std::string& dep : dependencies) {
         if (!firstDep) {
             out << ", ";
         }

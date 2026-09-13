@@ -58,6 +58,7 @@ add_executable(uta_unit_tests
     unit/PackageBuilderTest.cpp
     unit/PackageClassTest.cpp
     unit/PackageContentTest.cpp
+    unit/PackageImportsTest.cpp
     unit/PackageMalformedTest.cpp
     unit/PackagePropertiesTest.cpp
     unit/PackageReaderTest.cpp
