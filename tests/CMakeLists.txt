@@ -52,6 +52,7 @@ add_executable(uta_unit_tests
     unit/MaterialLibraryTest.cpp
     unit/NavGraphTest.cpp
     unit/NumericContractTest.cpp
+    unit/OriginCliTest.cpp
     unit/PackageAncestryTest.cpp
     unit/PackageBuilderTest.cpp
     unit/PackageClassTest.cpp
@@ -88,11 +89,24 @@ target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/tools/ut-paths/Cli.cpp"
     "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
     "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
+# And ut-origin's -- UTA-0013's third quarantine check.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
 # deadlock, and without a bound it hangs the run instead of failing it.
 catch_discover_tests(uta_unit_tests PROPERTIES LABELS "unit;fast" TIMEOUT 30)
+
+# UTA-0013's third quarantine check, run for real: guard/ builds a throwaway
+# repository and runs scripts/quarantine-guard.sh with ut-origin over its index.
+# Only where the tools are built, because the check needs that binary.
+if(TARGET ut-origin)
+    set(uta_guard_rule "UTA-0013: the quarantine guard refuses a tracked bundle that is not authored")
+    add_test(NAME "${uta_guard_rule}"
+             COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/guard/quarantine-guard-test.sh"
+                     "${PROJECT_SOURCE_DIR}" "$<TARGET_FILE:ut-origin>")
+    set_tests_properties("${uta_guard_rule}" PROPERTIES LABELS "unit" TIMEOUT 60)
+endif()
 
 # UTA-0014 INV-2, in a target of its own that links uta_urender and NOT
 # Vulkan::Vulkan. In uta_unit_tests it could never fail: that binary has the

@@ -1013,7 +1013,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 📋 [UTA-0013] **The quarantine guard, in .githooks/pre-push and in CI.**
+- 🚧 [UTA-0013] **The quarantine guard, in .githooks/pre-push and in CI.**
   Runs over TRACKED AND STAGED paths only, never the working tree -- the working
   tree holds the player's own install under content/ut99/, and a guard scanning
   it would block every push.
@@ -1036,6 +1036,27 @@ model, no weapon and no opponent until 0.2.0.
   whose origin is not authored -- needs the .utab origin field, which
   does not exist yet. Also still open: the guard runs over the
   repository, and UTA-0042's release path needs its own check.
+  Progress (2026-09-13): unblocked, since UTA-0008 shipped the origin
+  field and ubundle::readHeader. User decision the same day: the third
+  check reads the header through a small C++ tool wrapping readHeader,
+  not a shell re-implementation of the header, so there is one reader as
+  UTA-0008 section 4.5 names it. The tool needs a build, so scripts/ci.sh
+  runs this check after the build; --docs skips it and says so, which is
+  safe because ants.gate.docsGlob never classifies a push carrying a .utab
+  as documentation-only. Section 4.5 fixes the failure direction: any
+  result but a read header carrying Authored refuses. Still open after
+  it: UTA-0042's release path needs its own check.
+  Progress (2026-09-13): held by session ut-ants-19 in the main checkout,
+  building the third check as decided above.
+  Progress (2026-09-13): third check built. tools/ut-origin wraps
+  ubundle::readHeader; scripts/quarantine-guard.sh --origin-tool reads each
+  tracked .utab's staged blob through it, and scripts/ci.sh runs that after
+  the build, skipping it under --docs with a SKIPPED line. Tests:
+  OriginCliTest.cpp over the command line, and tests/guard/, which runs the
+  guard over a throwaway repository's index. Red before the guard change;
+  each part of the tool and of the guard mutated by hand, and each mutant
+  reddened its own case. Still open after this item: UTA-0042's release
+  path needs its own check.
   **Layman:** An automatic check that stops anything of Epic's being committed to the public repository. One careless commit is permanent in a public history.
   Kind: implement.
   Source: design-2026-09-03.
@@ -2444,7 +2465,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-gate-2026-09-04.
   Lanes: docs.
 
-- 🚧 [UTA-0059] **Split ADR-0007's operating procedure out of the decision.**
+- ✅ [UTA-0059] **Split ADR-0007's operating procedure out of the decision.**
   Routed here by ADR-0007's own review gate, which reached its cap of
   three loops for an ADR. The record is
   docs/reviews/ADR-0007-acquire-dependencies-by-route-loop-log.md.
@@ -2497,6 +2518,9 @@ model, no weapon and no opponent until 0.2.0.
   Records: docs/reviews/ADR-0008-acquire-dependencies-by-route-loop-log.md
   and docs/reviews/dependency-acquisition-loop-log.md. Flip on the matrix
   after the push.
+  Resolved (2026-09-13): green on the matrix at 9b387ca, CI run
+  34755351034. ADR-0008 supersedes ADR-0007; the procedure is
+  docs/standards/dependency-acquisition.md.
   **Layman:** The dependency-acquisition decision document grew three times the size of every other decision in the project, because it also carries the step-by-step procedure. Separate the two when the renderer lands and the procedure has real code to attach to.
   Kind: doc.
   Source: review-contract-2026-09-06 ADR-0007 cap.
@@ -7515,8 +7539,27 @@ model, no weapon and no opponent until 0.2.0.
   what the walk graph's frontier actually meets. The vocabulary, and
   whether ut-paths can see a teleporter at all, are open until the code
   is read.
+  Progress (2026-09-13): UT_MonsterHunt reports plain rebuilds of the
+  five maps also route nothing, and that three of them need a teleporter
+  -- one disabled at start, or a destination with no Paths -- recorded on
+  their GAME-0004. Those three are test cases for a teleporter reason.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
+  Source: in-session-2026-09-13.
+  Lanes: tools.
+
+- 📋 [UTA-0140] **ut-paths runs past 6 GB on some maps, so a batch run loses them.**
+  Found running ut-paths for UT_MonsterHunt's GAME-0095 on 2026-09-13,
+  over analysis/routecensus-split-offline-2026-09-13.tsv. Each map ran
+  alone under systemd-run with MemoryMax=6G and MemorySwapMax=0; three
+  were killed at that cap and wrote nothing: MH-[TB]-UnrealWorld2010
+  after 666 s, MH-TheOutpost after 360 s, MH-TrifeaOutpostMore after
+  87 s. The same maps had also taken down whole 25-map batches at a 3 GB
+  cap. A typical map in that run held about 380 MB.
+  Measure first: peak memory per map, and which structure grows (the
+  walk graph's columns, the reach search, or the level read).
+  **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
+  Kind: perf.
   Source: in-session-2026-09-13.
   Lanes: tools.
 

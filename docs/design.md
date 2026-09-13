@@ -58,7 +58,8 @@ enforced, not merely described — see *What may depend on what*.
 ### Programs
 
 `ut-ants` (client), `ut-ants-server` (dedicated, headless), `ut-bake`
-(convert a map), `ut-dump` (inspect a package), `ut-ed` (editor).
+(convert a map), `ut-dump` (inspect a package), `ut-origin` (read a bundle's
+origin, for the quarantine guard), `ut-ed` (editor).
 
 **`ut-ants` and `ut-ants-server` are the runtime targets, and they are
 the only two.** `ut-bake`, `ut-dump` and `ut-ed` are tools, and rule 2

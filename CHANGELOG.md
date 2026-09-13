@@ -17,6 +17,11 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **The quarantine guard refuses a committed map bundle that is not marked authored.** (UTA-0013)
+  A new `ut-origin` tool reads each tracked `.utab`'s staged header, and
+  the full gate runs the check after the build. A documentation-only run
+  skips it and says so.
+
 - **The renderer draws a baked map with Vulkan 1.3, with no display or into a window.** (UTA-0014)
   Lit per pixel with clustered lights, baked probes and cached shadow maps,
   movers placed as the game places them, and a fixed exposure with a neutral

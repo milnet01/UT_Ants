@@ -17,8 +17,9 @@
 # because ci.yml calls this script with no argument and GitHub therefore applies
 # the full run to a documentation-only push. A mode cheaper than the pipeline is
 # fine; one that checks LESS of what the pipeline checks is a green that lies.
-# The quarantine guard is in both modes for its own reason -- a path under
-# content/ can be a .md file and would otherwise ride in on a "docs-only" push.
+# The quarantine guard's path checks are in both modes for their own reason --
+# a path under content/ can be a .md file and would otherwise ride in on a
+# "docs-only" push.
 #
 # WHERE IT RUNS. Linux and Windows, both first-class. On Windows this is Git
 # Bash, which ships with Git for Windows, and the Visual Studio generator is
@@ -69,6 +70,13 @@ skip() {
 
 step "quarantine guard"
 ./scripts/quarantine-guard.sh
+if [[ $MODE == docs ]]; then
+    # UTA-0013's third check reads each tracked bundle's header through
+    # ut-origin, which this mode does not build. No push can use the gap:
+    # ants.gate.docsGlob never classifies a push carrying a .utab as
+    # documentation-only, so the full run checks it.
+    skip "the quarantine guard's bundle-origin check needs ut-origin, which --docs does not build"
+fi
 
 step "documentation: relative links resolve"
 link_failures=0
@@ -173,11 +181,12 @@ if [[ $MODE == docs ]]; then
     [[ ${#skipped[@]} -gt 0 ]] && printf '   %d check(s) skipped, listed above.\n' "${#skipped[@]}"
     # GITHUB DOES NOT TAKE THIS MODE -- ci.yml calls this script with no
     # argument -- so what this mode omits is worth naming rather than leaving to
-    # be inferred. It is now exactly the compiler legs, and a change matching the
-    # documentation glob cannot reach them. Said out loud for the same reason a
+    # be inferred. It is now exactly the compiler legs and the bundle-origin check
+    # that needs their output, and a change matching the documentation glob
+    # cannot reach them. Said out loud for the same reason a
     # missing tool is: a green narrower than the pipeline's must not read as the
     # same green.
-    printf '   Omitted, and ONLY these: configure, build, test, race detector.\n'
+    printf '   Omitted, and ONLY these: configure, build, bundle origin, test, race detector.\n'
     printf '   GitHub runs the full gate on every push. Reproduce it with\n'
     printf '   scripts/ci.sh and no argument.\n'
     exit 0
@@ -208,6 +217,17 @@ cmake "${configure[@]}"
 
 step "build"
 cmake --build "$BUILD_DIR" --config "$CONFIG"
+
+step "quarantine guard: bundle origin"
+# UTA-0013's third check reads each tracked .utab's header through ut-origin,
+# the one reader docs/specs/UTA-0008-bundle-container-and-origin.md SS 4.5
+# names, so it waits for the build. The path checks ran above, in both modes.
+case $GENERATOR in
+    "Visual Studio"* | Xcode | "Ninja Multi-Config") origin_tool="$BUILD_DIR/tools/ut-origin/$CONFIG/ut-origin" ;;
+    *) origin_tool="$BUILD_DIR/tools/ut-origin/ut-origin" ;;
+esac
+if $IS_WINDOWS; then origin_tool+=.exe; fi
+./scripts/quarantine-guard.sh --origin-tool "$origin_tool"
 
 step "test"
 # The default tier only. UTA_REAL_ASSET_TESTS needs an Unreal Tournament

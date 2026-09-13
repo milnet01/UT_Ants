@@ -9,3 +9,4 @@ target_include_directories(uta_tools_common INTERFACE "${CMAKE_CURRENT_SOURCE_DI
 add_subdirectory(ut-dump)
 add_subdirectory(ut-bake)
 add_subdirectory(ut-paths)
+add_subdirectory(ut-origin)

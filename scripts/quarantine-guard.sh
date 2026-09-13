@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The quarantine guard (UTA-0013, partial -- see WHAT IS NOT HERE below).
+# The quarantine guard (UTA-0013).
 #
 # ADR-0003 and design rule 15: nothing derived from the player's Unreal
 # Tournament install is committed or published from this repository. This is
@@ -13,12 +13,34 @@
 # machine. Under the pre-push hook the index is the pushed commit's tree, so
 # looking at the index IS looking at what is about to be published.
 #
-# WHAT IS NOT HERE. UTA-0013's third check -- no tracked .utab outside
-# content/ whose origin is not `authored` -- needs the .utab origin field,
-# which does not exist yet. It is UTA-0013's, it is not implemented, and this
-# file does not pretend otherwise: a check that did not run must not look like
-# one that passed.
+# THE THIRD CHECK needs a built tool. No tracked .utab outside content/ may
+# carry an origin other than `authored` (design rule 15), and each bundle's
+# staged header is read by ut-origin, the one header reader, rather than by a
+# second copy of the header rules here:
+#
+#   scripts/quarantine-guard.sh --origin-tool <ut-origin, relative to the root>
+#
+# Without the option that check does not run, and the guard says so: a check
+# that did not run must not look like one that passed.
+# docs/specs/UTA-0008-bundle-container-and-origin.md SS 4.5 fixes the failure
+# direction -- anything but a readable header carrying Authored is refused.
 set -Eeuo pipefail
+
+ORIGIN_TOOL=
+case "${1:-}" in
+    --origin-tool)
+        if [[ $# -lt 2 ]]; then
+            printf 'quarantine-guard: --origin-tool needs the path to ut-origin.\n' >&2
+            exit 2
+        fi
+        ORIGIN_TOOL=$2
+        ;;
+    "") ;;
+    *)
+        printf 'quarantine-guard: unknown argument %q\n' "$1" >&2
+        exit 2
+        ;;
+esac
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -48,6 +70,7 @@ fi
 mapfile -t TRACKED < <(git ls-files --cached)
 
 violations=()
+bundles=()
 
 for path in "${TRACKED[@]}"; do
     # Check 1: nothing under content/. Everything derived from the install
@@ -66,7 +89,35 @@ for path in "${TRACKED[@]}"; do
             break
         fi
     done
+
+    # Check 3 reads these below. content/ is already refused by check 1.
+    if [[ $path == *.utab ]]; then
+        bundles+=("$path")
+    fi
 done
+
+# Check 3: a bundle outside content/ is published only if it is authored.
+if [[ -z $ORIGIN_TOOL ]]; then
+    origin_note="bundle origin NOT RUN, ${#bundles[@]} bundle(s) unread: pass --origin-tool"
+else
+    if [[ ! -f $ORIGIN_TOOL ]]; then
+        printf 'quarantine-guard: %s does not exist, so NOTHING WAS CHECKED.\n' "$ORIGIN_TOOL" >&2
+        exit 2
+    fi
+    blob=$(mktemp)
+    reason=$(mktemp)
+    trap 'rm -f "$blob" "$reason"' EXIT
+    for path in "${bundles[@]}"; do
+        # The STAGED bytes -- ":path" names the index entry -- because the
+        # index is what is about to be published, not the working tree.
+        git cat-file blob ":$path" >"$blob"
+        if ! verdict=$("$ORIGIN_TOOL" "$blob" 2>"$reason"); then
+            why=$(<"$reason")
+            violations+=("$path — origin is ${verdict:-unreadable}${why:+ ($why)}; outside content/ a bundle must be authored (design rule 15)")
+        fi
+    done
+    origin_note="${#bundles[@]} bundle(s) read for their origin"
+fi
 
 if [[ ${#violations[@]} -gt 0 ]]; then
     printf 'quarantine-guard: FAILED — %d tracked path(s) must not be in this repository:\n' "${#violations[@]}" >&2
@@ -75,5 +126,5 @@ if [[ ${#violations[@]} -gt 0 ]]; then
     exit 1
 fi
 
-printf 'quarantine-guard: %d tracked paths, none quarantined (%d extensions checked).\n' \
-    "${#TRACKED[@]}" "${#EXTENSIONS[@]}"
+printf 'quarantine-guard: %d tracked paths, none quarantined (%d extensions checked; %s).\n' \
+    "${#TRACKED[@]}" "${#EXTENSIONS[@]}" "$origin_note"
