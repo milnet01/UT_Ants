@@ -3390,6 +3390,24 @@ model, no weapon and no opponent until 0.2.0.
   re-decided by each caller.
 
   Blocked-by: nothing. The container reader shipped.
+  Prep (2026-09-13, ut-ants-28, main checkout; not claimed).
+  The walk from an import to the package it lives in exists today as
+  three file-private helpers, each named importPackageName: one in an
+  anonymous namespace in src/upkg/Class.cpp, one in src/unav/Build.cpp,
+  and one in tests/real/RealInstallTest.cpp. ut-dump's
+  importedPackages() in tools/ut-dump/Cli.cpp is a fourth, walking each
+  import's outer chain to its root.
+
+  The first consumer, UT_MonsterHunt ut-map-deps/ut-map-deps.cpp, uses
+  the simpler rule: an import whose outer is null names a package. On a
+  package whose outer chains all end at an import, the two give the
+  same set. The supported call should state that rule in its contract,
+  and ut-dump should call it instead of its own copy. Promoting
+  Class.cpp's helper, or giving the three a shared home, is past the
+  Rule of Three.
+
+  No unit test calls Package::imports() directly, so the call's tests
+  start from the synthetic package builder.
   **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
@@ -7683,6 +7701,32 @@ model, no weapon and no opponent until 0.2.0.
   Kind: perf.
   Source: in-session-2026-09-13.
   Lanes: tools.
+
+- 📋 [UTA-0141] **ubake's install resolver finds a package by name alone, so a music package can be shadowed by a code package of the same name.**
+  Found 2026-09-13 from UT_MonsterHunt's GAME-0061. The install has both
+  Music/cyborg.umx and System/Cyborg.u. In one UT editor process, loading a
+  map whose Song names Music'cyborg.cyborg' first makes MH-MeltTown fail
+  with "Can't find Class in file Class cyborg.cyborg". Loaded alone, it
+  loads.
+
+  Our side. src/ubake/Install.h searches System/*.u, Maps/*.unr,
+  Textures/*.utx, Sounds/*.uax and Music/*.umx in that order, and an
+  earlier directory shadows a later one. So a package named cyborg always
+  resolves to System/Cyborg.u. That is right for a class import and wrong
+  for a music or sound one. ut-dump's resolver indexes System/*.u only and
+  resolves classes, so it is not affected.
+
+  Unchecked: whether anything in ubake today follows a music, sound or
+  texture import by package name, so whether this is live or latent. The
+  same shape already bit UT_MonsterHunt with Textures/wonderland.utx and
+  Sounds/wonderland.uax (recorded on UTA-0012 and UTA-0086).
+
+  Test, if live: an install holding a code package and a music package of
+  one name resolves a music import to the music package.
+  **Layman:** When a music file and a code file share a name, our map reader may open the wrong one, the same mix-up that breaks one map in the real game.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-09-13 GAME-0061.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 
