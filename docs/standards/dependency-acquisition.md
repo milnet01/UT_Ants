@@ -3,7 +3,7 @@
 A standard this project owns outright. It says how each dependency is
 obtained — fetched, vendored, or found on the platform — and what each route
 requires of the build, CI and README. Whoever adds, moves or removes a
-dependency complies. The toolchain's own libraries, such as the `Threads`
+dependency complies. The C++ compiler's own libraries, such as the `Threads`
 package `src/core/CMakeLists.txt` finds, are not dependencies here.
 
 [ADR-0008](../decisions/ADR-0008-acquire-dependencies-by-route.md) owns the
@@ -14,7 +14,7 @@ decision and its reasons. Versions, holds and sweeps belong to
 
 - **The route follows from the dependency.** § 2's question decides it, so
   two people routing one dependency reach one answer.
-- **A build input is asserted where the build configures.** One observable,
+- **A route-3 input is asserted where the build configures.** One observable,
   so CMake, the gate and the README cannot each check something different.
 - **What nothing checks is said to be unchecked.** An admitted gap can be
   found by reading; a silent one is found by a user.
@@ -27,7 +27,7 @@ Ask in order. The first yes decides.
    a driver the machine already has is reached?** **Route 3.** The Vulkan
    headers and loader are the case. SDL3 is not: it is an ordinary library
    that calls such interfaces, so any recent SDL3 works.
-2. **Is it a tool of the platform's Vulkan toolchain, needed at no particular
+2. **Is it a tool of the platform's Vulkan toolchain, needed at no pinned
    version?** **Route 3**, named with § 5's inputs. `glslc` is the case. A
    library is never one.
 3. **Does building it need sources it does not ship?** **Route 2**, vendored
@@ -37,10 +37,11 @@ Ask in order. The first yes decides.
    The test is what the build produces, not whether one exists. A
    header-only `INTERFACE` target counts as linked, so glm answers no. Dear
    ImGui ships no build system; `bc7enc`'s builds only a demo executable.
-5. **Is it linked only by one optional, non-runtime executable — one behind
-   a build option of its own, as `ut-ed` will be?** **Route 4.**
-   `docs/design.md` names the runtime targets. A library target, a test,
-   and a tool whose only guard is `UTA_BUILD_TOOLS` are never route 4.
+5. **Is everything that links it built only behind one build option of its
+   own, and none of it a runtime target?** **Route 4.** `ut-ed` and the
+   `ued` part it links will be the case; `docs/design.md` names the runtime
+   targets. A dependency of a test, or of anything whose only guard is
+   `UTA_BUILD_TOOLS`, is never route 4.
 6. **Otherwise route 1.**
 
 ## 3. Route 1 — fetched
@@ -72,16 +73,16 @@ Ask in order. The first yes decides.
 
 ## 5. Route 3 — found on the platform
 
-**The inputs** are the Vulkan headers, the loader and `glslc`, at the Vulkan
-floor `docs/design.md` § The stack sets. Any acquisition supplying all three
-qualifies: the LunarG SDK on either platform, or on Linux the distribution's
-packages. `README.md` names the three inputs and both acquisitions.
+**The inputs** are the Vulkan headers and the loader, at the Vulkan floor
+`docs/design.md` § The stack sets, and `glslc`. Any acquisition supplying all
+three qualifies: the LunarG SDK on either platform, or on Linux the
+distribution's packages. `README.md` names the three inputs and both acquisitions.
 
 **One `find_package` asserts all three.** `src/urender/CMakeLists.txt` calls
 `find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc GLOBAL)`. It asserts that
 all three are present, and the floor against the headers alone: `FindVulkan`
-reads `Vulkan_VERSION` from `vulkan_core.h`, so nothing checks the loader's or
-`glslc`'s version.
+reads `Vulkan_VERSION` from `vulkan_core.h`, so nothing checks the loader's
+version.
 
 - **`glslc` is named in `COMPONENTS`.** `FindVulkan` appends it to the
   component list itself, which leaves it optional, so a bare
@@ -148,7 +149,7 @@ that adds it. The row's acquisition column names its route.
 | § 3 system headers named | **nothing** — a clone lacking them still builds, with backends missing |
 | § 4 provenance record | **nothing** — neither gate script reads `third_party` |
 | § 5 inputs present, headers at the floor | configure, in `scripts/ci.sh`'s configure step, on every leg |
-| § 5 loader and `glslc` at the floor | **nothing** |
+| § 5 loader at the floor | **nothing** |
 | § 5 `glslc` named, one `find_package` | **nothing** — removing either still configures on a machine that has `glslc` |
 | § 5 `README.md` names the inputs | **nothing** |
 | § 5 Windows runtime DLL | `ci.yml`'s own step, which fails when the DLL is missing |

@@ -3,7 +3,10 @@
 - **Status:** Accepted
 - **Date:** 2026-09-13
 - **Supersedes:** [ADR-0007](ADR-0007-acquire-dependencies-by-route.md). The
-  four routes, and the route each named dependency takes, are unchanged. The
+  route each named dependency takes is unchanged. Two routes are narrowed:
+  route 3 from anything whose version must match something installed to the
+  platform's driver stack and its Vulkan toolchain, and route 4 from one
+  non-runtime target to what one tool's own build option builds. The
   operating procedure, the routing question included, moved to
   [`docs/standards/dependency-acquisition.md`](../standards/dependency-acquisition.md).
 
@@ -41,10 +44,10 @@ Four routes. Each dependency takes the one its nature dictates.
    links, or that cannot build without sources it does not ship. Dear ImGui,
    `bc7enc`.
 3. **Required from the platform, found and never fetched.** The Vulkan
-   headers, loader and `glslc`, at the Vulkan level `docs/design.md`
-   requires.
-4. **Fetched only for the one tool, behind a build option of its own, that
-   links it.** Assimp, for `ut-ed`.
+   headers and loader, at the Vulkan level `docs/design.md` requires, and
+   `glslc`.
+4. **Fetched only when one tool's own build option is on, for what that
+   option builds.** Assimp, for `ut-ed`.
 
 `docs/standards/dependency-acquisition.md` holds the question that routes a
 new dependency, and what each route requires of the build, CI and README.

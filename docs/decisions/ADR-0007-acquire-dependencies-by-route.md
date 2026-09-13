@@ -1,8 +1,8 @@
 # ADR-0007: Acquire each dependency by the route its own nature dictates, not by one mechanism for all
 
 - **Status:** Superseded by
-  [ADR-0008](ADR-0008-acquire-dependencies-by-route.md), which keeps this
-  decision and moves its procedure to
+  [ADR-0008](ADR-0008-acquire-dependencies-by-route.md), which keeps every
+  named dependency's route, narrows routes 3 and 4, and moves the procedure to
   [`docs/standards/dependency-acquisition.md`](../standards/dependency-acquisition.md)
 - **Date:** 2026-09-06
 
