@@ -401,11 +401,11 @@ S2 reachable.**
 that is not in this table is asked.** The column above is an index into
 them, not a second statement of either. In short: a library the compiler can build
 from source, whose version need not match anything already on the machine, is
-fetched at an exact tag; the Vulkan headers, loader, validation
-layers and `glslc` are installed and found rather than fetched, at Vulkan 1.3
+fetched at an exact tag; the Vulkan headers, loader and `glslc` are
+installed and found rather than fetched, at Vulkan 1.3
 or newer — the LunarG SDK on Windows, either that or the distribution's
 packages on Linux; Dear ImGui is vendored because its build system produces
-nothing anyone would link -- it ships none at all. **Installing that SDK is a prerequisite on both platforms**, which
+nothing anyone would link -- it ships none at all. **Installing them is a prerequisite on both platforms**, which
 is the one step **S7** does not cover and the README has to state.
 
 **Linux and Windows are both first-class targets.** Neither is the

@@ -42,15 +42,16 @@ Four routes. Each dependency takes the one its nature dictates.
 3. **Required from the platform, found and never fetched.** The Vulkan
    headers, loader and `glslc`, at the Vulkan level `docs/design.md`
    requires.
-4. **Fetched only for the one non-runtime target that links it.** Assimp,
-   for `ut-ed`.
+4. **Fetched only for the one optional tool that links it.** Assimp, for
+   `ut-ed`.
 
 `docs/standards/dependency-acquisition.md` holds the question that routes a
 new dependency, and what each route requires of the build, CI and README.
 
-**glm is pinned rather than found.** `ADR-0002` requires one map, recipe and
-baker version to hash to one bundle on any machine. glm is arithmetic the
-baker runs, so its version sits inside that requirement.
+**glm is pinned rather than found.** Only the renderer links it today.
+`ADR-0002` requires the same map, recipe and baker version to produce the
+same bundle on any machine. Once baker arithmetic uses glm, a version taken
+from the machine would break that requirement.
 
 **Route 3 is a floor, not a pin.** Nothing it supplies enters a bundle.
 Compiled shaders are built into the engine binary, and `docs/design.md`
@@ -79,5 +80,5 @@ a second dependency needs that treatment.
 - A cold build is slower, because fetched dependencies compile from source.
 - A contributor cannot substitute a distribution's SDL3 or glm without
   editing the build. For glm that is the point.
-- Two things have no mechanical check: the validation layers, and whether a
-  vendored copy is stale. The standard says so where it states each.
+- Several of the standard's rules have no mechanical check. Its § What
+  checks this names them.
