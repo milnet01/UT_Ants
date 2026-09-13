@@ -5147,6 +5147,45 @@ model, no weapon and no opponent until 0.2.0.
   The prep note above holds the plan. The split is by script, so case
   bodies move by exact line range. The baseline --list-tests from
   54464d8 is saved.
+  Built (2026-09-13, ut-ants-28, main checkout).
+
+  The split: tests/real/RealInstallTest.cpp keeps the harness and the
+  package-reader cases. New files: RealGraphsTest.cpp (Paths entries,
+  both graphs), RealRoomsTest.cpp (zone record), RealMaterialsTest.cpp
+  (enlarger, surface flags, curated seed) and RealBakeTest.cpp (bake
+  name). tests/real/RealSupport.h holds the helpers more than one file
+  uses (readWhole, viewOf, isPackageExtension, isClassExport, foldCase,
+  sortedPackages), the UTA_UT_INSTALL_DIR guard, and SystemPackages, the
+  one System-package resolver that replaces the three copies.
+
+  Done by script, not by hand. Case bodies moved by exact line range, each
+  range edge checked against an anchor. The only rewritten lines are the
+  three resolver blocks and the two places that used their maps.
+
+  Verified: build-real's uta_real_asset_tests builds clean. Its
+  --list-tests matches the pre-split binary from 54464d8 once sorted:
+  the same 19 cases, names and tags identical. The raw listings differ
+  only because Catch2 v3 orders tests randomly; two listings of the same
+  binary differ as well.
+
+  NOT verified: identical RESULTS. That needs the tier run against the
+  install, which is the user's to run (the bake-name case alone passes
+  20 minutes). CI and the pre-push gate do not build this tier, so
+  build-real is the only compile of it. Until the tier is run, the
+  resolver sharing is covered by argument alone: SystemPackages indexes
+  System/*.u by folded stem exactly as each copy did.
+  Waiting-on: the user's run of the real-asset tier against the reference install.
+
+  Parked (2026-09-13) by ut-ants-28 rather than flipped to shipped. The
+  acceptance is identical names AND results. Names are proven; results
+  need that run. The matrix cannot settle it, because neither CI nor the
+  pre-push gate builds this tier, so a green run says nothing about it.
+
+  To close it: run uta_real_asset_tests from build-real (capped with
+  systemd-run as the long-runs memory says), and compare against a run
+  at the parent commit, or against the WARN figures each case prints. If
+  they match, flip to shipped. If a case differs, suspect SystemPackages
+  first: it is the only logic that changed.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.

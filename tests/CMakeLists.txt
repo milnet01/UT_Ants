@@ -168,7 +168,10 @@ set_tests_properties("${uta_inv5_rule}" PROPERTIES
     PASS_REGULAR_EXPRESSION "failed: explicitly with 1 message: 'no renderer, so this device test cannot pass")
 
 if(UTA_REAL_ASSET_TESTS)
-    add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGeometryTest.cpp
+    # RealInstallTest.cpp was split by subject into the next four -- UTA-0103.
+    add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGraphsTest.cpp
+                                        real/RealRoomsTest.cpp real/RealMaterialsTest.cpp
+                                        real/RealBakeTest.cpp real/RealGeometryTest.cpp
                                         real/RealActorsTest.cpp real/RealMoversTest.cpp
                                         real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp
                                         real/RealLightProbesTest.cpp)
