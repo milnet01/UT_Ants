@@ -7913,6 +7913,23 @@ model, no weapon and no opponent until 0.2.0.
   five maps also route nothing, and that three of them need a teleporter
   -- one disabled at start, or a destination with no Paths -- recorded on
   their GAME-0004. Those three are test cases for a teleporter reason.
+  Prep (2026-09-13, ut-ants-28, main checkout; not claimed).
+
+  Where a reason would come from. propose() in tools/ut-paths/Seeds.cpp
+  decides each exit's route from shortest-path searches over the walk
+  graph. A path using mover spots gives Found. Failing that, a path
+  through any spot gives Mover. Failing both, None. So a reason is
+  computed at that final else, from what the searches reached. toJson in
+  the same file writes `route` beside `offWorld`.
+
+  Why this was not built unattended. The per-map JSON is UTA-0121 SS 4.3's
+  output shape, and UT_MonsterHunt's census consumes it. UTA-0127 set the
+  route for a change to it: amend SS 4.3 first, run rule 14's
+  review-contract gate, then build. The vocabulary is also still a real
+  design choice. Whether ut-paths can see a teleporter at all has not
+  been checked, and the three teleporter maps UT_MonsterHunt named are
+  its test cases. Both want a session that can take the design decision,
+  not one filling time while the user is away.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.
