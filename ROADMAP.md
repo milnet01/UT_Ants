@@ -1013,7 +1013,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: upkg.
 
-- 🚧 [UTA-0013] **The quarantine guard, in .githooks/pre-push and in CI.**
+- ✅ [UTA-0013] **The quarantine guard, in .githooks/pre-push and in CI.**
   Runs over TRACKED AND STAGED paths only, never the working tree -- the working
   tree holds the player's own install under content/ut99/, and a guard scanning
   it would block every push.
@@ -1057,6 +1057,11 @@ model, no weapon and no opponent until 0.2.0.
   each part of the tool and of the guard mutated by hand, and each mutant
   reddened its own case. Still open after this item: UTA-0042's release
   path needs its own check.
+  Resolved (2026-09-13): green on the matrix at 6d3d14b, CI run
+  34759677044. Every leg's log shows the bundle-origin step reading the
+  tracked bundles through ut-origin, and the guard test passing, the
+  Windows leg under Git Bash included. UTA-0042's release path still needs
+  its own check.
   **Layman:** An automatic check that stops anything of Epic's being committed to the public repository. One careless commit is permanent in a public history.
   Kind: implement.
   Source: design-2026-09-03.

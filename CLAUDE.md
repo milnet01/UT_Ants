@@ -5,12 +5,14 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0013`, the quarantine guard. `UTA-0059` is built:
-`ADR-0008` supersedes `ADR-0007`, and the procedure is
-`docs/standards/dependency-acquisition.md`. That standard's gate capped
-violently on § 2's routing question — route the next real dependency,
-SDL3, through § 2 by hand and fix what it finds, rather than re-running
-the gate.
+**Next:** not yet chosen. Read the open `0.1.0` bodies before picking —
+`UTA-0082` records items deferred out of that release's cut — with
+`UTA-0016` (load a bundle and walk it) and `UTA-0136` (reach-spec flags
+for UT_MonsterHunt) the leading candidates. `UTA-0013` and `UTA-0059`
+shipped 2026-09-13. `docs/standards/dependency-acquisition.md`'s gate
+capped violently on § 2's routing question — route the next real
+dependency, SDL3, through § 2 by hand and fix what it finds, rather than
+re-running the gate.
 
 `UTA-0014` shipped 2026-09-12, green on the matrix; its spec is
 `docs/specs/UTA-0014-vulkan-draw-path.md`. Two things from it that reach
