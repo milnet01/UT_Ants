@@ -27,9 +27,9 @@ Ask in order. The first yes decides.
    a driver the machine already has is reached?** **Route 3.** The Vulkan
    headers and loader are the case. SDL3 is not: it is an ordinary library
    that calls such interfaces, so any recent SDL3 works.
-2. **Is it supplied by every acquisition § 5 accepts, and does this project
-   need no particular version of it?** **Route 3**, named with those
-   acquisitions. `glslc` is the case. A library this project pins never is.
+2. **Is it a tool of the platform's Vulkan toolchain, needed at no particular
+   version?** **Route 3**, named with § 5's inputs. `glslc` is the case. A
+   library is never one.
 3. **Does building it need sources it does not ship?** **Route 2**, vendored
    with those sources, and the step that syncs them recorded beside them.
    shaderc would take this branch if nothing supplied `glslc`.
@@ -39,8 +39,8 @@ Ask in order. The first yes decides.
    ImGui ships no build system; `bc7enc`'s builds only a demo executable.
 5. **Is it linked only by one optional, non-runtime executable — one behind
    a build option of its own, as `ut-ed` will be?** **Route 4.**
-   `docs/design.md` names the runtime targets. A library target, a tool
-   behind `UTA_BUILD_TOOLS` and a test are never route 4.
+   `docs/design.md` names the runtime targets. A library target, a test,
+   and a tool whose only guard is `UTA_BUILD_TOOLS` are never route 4.
 6. **Otherwise route 1.**
 
 ## 3. Route 1 — fetched
@@ -78,7 +78,10 @@ qualifies: the LunarG SDK on either platform, or on Linux the distribution's
 packages. `README.md` names the three inputs and both acquisitions.
 
 **One `find_package` asserts all three.** `src/urender/CMakeLists.txt` calls
-`find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc GLOBAL)`.
+`find_package(Vulkan 1.3 REQUIRED COMPONENTS glslc GLOBAL)`. It asserts that
+all three are present, and the floor against the headers alone: `FindVulkan`
+reads `Vulkan_VERSION` from `vulkan_core.h`, so nothing checks the loader's or
+`glslc`'s version.
 
 - **`glslc` is named in `COMPONENTS`.** `FindVulkan` appends it to the
   component list itself, which leaves it optional, so a bare
@@ -144,7 +147,8 @@ that adds it. The row's acquisition column names its route.
 | § 3 exact tag | **nothing mechanical** |
 | § 3 system headers named | **nothing** — a clone lacking them still builds, with backends missing |
 | § 4 provenance record | **nothing** — neither gate script reads `third_party` |
-| § 5 inputs present | configure, in `scripts/ci.sh`'s configure step, on every leg |
+| § 5 inputs present, headers at the floor | configure, in `scripts/ci.sh`'s configure step, on every leg |
+| § 5 loader and `glslc` at the floor | **nothing** |
 | § 5 `glslc` named, one `find_package` | **nothing** — removing either still configures on a machine that has `glslc` |
 | § 5 `README.md` names the inputs | **nothing** |
 | § 5 Windows runtime DLL | `ci.yml`'s own step, which fails when the DLL is missing |

@@ -400,7 +400,7 @@ S2 reachable.**
 `docs/standards/dependency-acquisition.md` owns the question a dependency
 that is not in this table is asked.** The column above is an index into
 them, not a second statement of either. In short: a library the compiler can build
-from source, whose version need not match anything already on the machine, is
+from source, other than the platform's driver stack and its toolchain, is
 fetched at an exact tag; the Vulkan headers, loader and `glslc` are
 installed and found rather than fetched, at Vulkan 1.3
 or newer — the LunarG SDK on Windows, either that or the distribution's
