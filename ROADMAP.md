@@ -6910,7 +6910,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12.
   Lanes: ut-paths, ubake.
 
-- 📋 [UTA-0131] **Look for the tool that dropped 58 MonsterEnds outside the world.**
+- 🚧 [UTA-0131] **Look for the tool that dropped 58 MonsterEnds outside the world.**
   Asked of us by UT_MonsterHunt 2026-09-12, and it is ours because it is a
   claim about FILES. Their side cannot test it; our reader already reaches
   most of what it needs.
@@ -6949,6 +6949,11 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0128 measured that MHEndPlace's graph rule does not reconstruct it.
 
   Blocked-by: nothing. UTA-0127 already names the 58.
+  Claimed (2026-09-13) by ut-ants-28, main checkout. UTA-0103 is parked
+  on Waiting-on:, so it counts against neither limit. The user is away and
+  said to use judgement. This is a read-only investigation of map files,
+  blocked by nothing, and suits an unattended session. UTA-0129 was passed
+  over: it is a multi-part design that asks for Vestige to be read first.
   **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
