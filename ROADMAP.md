@@ -2444,7 +2444,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-gate-2026-09-04.
   Lanes: docs.
 
-- 📋 [UTA-0059] **Split ADR-0007's operating procedure out of the decision.**
+- 🚧 [UTA-0059] **Split ADR-0007's operating procedure out of the decision.**
   Routed here by ADR-0007's own review gate, which reached its cap of
   three loops for an ADR. The record is
   docs/reviews/ADR-0007-acquire-dependencies-by-route-loop-log.md.
@@ -2487,6 +2487,9 @@ model, no weapon and no opponent until 0.2.0.
   src/urender/CMakeLists.txt with GLOBAL), no such call existing yet,
   ci.yml not installing Vulkan today, and no dependency but Catch2
   having landed (glm is fetched).
+  Progress (2026-09-13): held by session ut-ants-19 in the main
+  checkout. User chose option A: a new ADR-0008 supersedes ADR-0007 with
+  the decision only, and the procedure moves to a project standard.
   **Layman:** The dependency-acquisition decision document grew three times the size of every other decision in the project, because it also carries the step-by-step procedure. Separate the two when the renderer lands and the procedure has real code to attach to.
   Kind: doc.
   Source: review-contract-2026-09-06 ADR-0007 cap.

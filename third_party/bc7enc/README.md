@@ -2,9 +2,9 @@
 
 The block-compression encoders `umat` uses: BC7 from `bc7enc.c`/`bc7enc.h`,
 and BC1–BC5 from `rgbcx.h` (with its table header). `docs/specs/UTA-0052-texture-memory-budget.md`
-§ 3 decision 4 chose it; `docs/decisions/ADR-0007-acquire-dependencies-by-route.md`
-route 2 is why it is vendored rather than fetched — its build system produces
-a demo executable, not a library anyone links.
+§ 3 decision 4 chose it; `docs/standards/dependency-acquisition.md` § 2
+question 4 is why it is vendored rather than fetched — its build system
+produces a demo executable, not a library anyone links.
 
 ## Upstream
 
@@ -15,8 +15,8 @@ a demo executable, not a library anyone links.
 A vendored copy *is* its own pin, so there is no version to bump; this file
 is what says which copy it is. Nothing in the build reads it — neither
 `scripts/ci.sh` nor `.githooks/pre-push` mentions `third_party` — so whether
-this copy has gone stale is a question somebody asks by hand. ADR-0007's
-route 2 admits that in as many words.
+this copy has gone stale is a question somebody asks by hand.
+`docs/standards/dependency-acquisition.md` § 4 admits that in as many words.
 
 ### What landed, and its checksum
 

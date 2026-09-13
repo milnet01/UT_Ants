@@ -214,7 +214,7 @@ if(UTA_REAL_ASSET_TESTS AND NOT UTA_UT_INSTALL_DIR)
         "Point it at an Unreal Tournament install, or leave both at their defaults.")
 endif()
 
-# glm -- ADR-0007's route 1, fetched at an exact tag. Here at the root rather
+# glm -- route 1 of docs/standards/dependency-acquisition.md, fetched at an exact tag. Here at the root rather
 # than beside Catch2 in tests/, because a src/ target links it (uta_urender) and
 # tests/ is not configured at all when UTA_BUILD_TESTS is off.
 #

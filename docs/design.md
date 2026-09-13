@@ -390,14 +390,16 @@ S2 reachable.**
 | **glm** | Fetched | Well understood, header-only, matches the maths in every reference | Our own, later, if it earns it |
 | **glslc** | From the Vulkan SDK, or the distribution's package on Linux | Compile GLSL to SPIR-V at build time | Hand-run `glslangValidator` |
 | **Dear ImGui** | Vendored | Editor and developer overlays, vendored | Nothing else is close for this job |
+| **bc7enc** | Vendored | `umat`'s BC7 and BC1–BC5 block encoders, with no maths call whose result differs between compilers (`UTA-0052`) | ISPC `bc7e`, which needs a fourth compiler |
 | **Assimp** | Fetched, `ut-ed` only | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
 | **Catch2 v3** | Fetched | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |
 | **SDL3 audio** | With SDL3 | `uaudio` mixes and spatialises on SDL3's device, which is already a dependency — no second audio stack, and nothing new to check against GPL-3.0 | OpenAL Soft |
 | **In-house in-game UI** | Ours | `uui` draws the HUD, menus, map browser and weapon wheel through `urender`. Dear ImGui is for the editor and developer overlays and is **never** in a shipped game's UI | Dear ImGui everywhere |
 
-**`ADR-0007` owns the acquisition rule and the reasons**, including the
-question a dependency that is not in this table is asked. The column above
-is an index into it, not a second statement of it. In short: a library the compiler can build
+**`ADR-0008` owns the acquisition decision and its reasons, and
+`docs/standards/dependency-acquisition.md` owns the question a dependency
+that is not in this table is asked.** The column above is an index into
+them, not a second statement of either. In short: a library the compiler can build
 from source, whose version need not match anything already on the machine, is
 fetched at an exact tag; the Vulkan headers, loader, validation
 layers and `glslc` are installed and found rather than fetched, at Vulkan 1.3

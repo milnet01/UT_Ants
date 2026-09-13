@@ -1,7 +1,8 @@
 # urender -- draws a baked bundle with Vulkan 1.3.
 # docs/specs/UTA-0014-vulkan-draw-path.md.
 
-# SS 4.2: ADR-0007's route 3 -- found, never fetched, on both platforms.
+# SS 4.2: route 3 of docs/standards/dependency-acquisition.md -- found, never
+# fetched, on both platforms.
 # REQUIRED, so a leg without the headers, the loader or glslc fails HERE, at
 # configure, rather than registering no device test and reporting green over a
 # renderer nothing ran (SS 7). The driver is not found: it is the machine's.
