@@ -104,8 +104,14 @@ The corpus is still uncensused, which is what `UTA-0130` is for.
 
 From the same source, and it raises what the ut-paths work is worth:
 triggering the MonsterEnd is the WHOLE win condition, with no monster
-count anywhere in it. A map that cannot be routed to its exit cannot be
-finished at all.
+count anywhere in it.
+
+**But walking into it is not the only way to trigger it.** Maps carrying
+an Assault-to-MH conversion kit put an `MHEnd` actor on the MonsterEnd,
+and it touches the MonsterEnd when the final objective fires. All 58
+off-world maps are this shape; `UTA-0131` has the evidence. So an exit
+nobody can walk to does not make such a map unfinishable. Read
+`offWorld` as "not walkable to", never as "cannot be finished".
 
 `UTA-0077` ran the real-asset tier on Windows for the first time, on a
 STOCK install — 96 maps, zero `MH-`. The readers came back clean on a

@@ -6302,6 +6302,15 @@ model, no weapon and no opponent until 0.2.0.
   with an unreachable exit is recorded above but not acted on -- widening
   the groups would be its own item, and the exit is UT_MonsterHunt's under
   ADR-0003.
+  Correction (2026-09-13), from UTA-0131. This body says no route to an
+  off-world exit exists for UT either, and later calls such exits
+  stranded. The offWorld mark itself stays correct: the exit IS at the
+  world bound. What is wrong is what that means. On every one of the 57
+  installed off-world maps an MHEnd actor sits at the MonsterEnd's exact
+  Location. It is part of an Assault-to-MH conversion kit, and it ends the
+  map when the final objective fires. So these maps can be finished, and
+  the off-world position is intent, not an author's drag. A consumer should
+  read offWorld as "not walkable to", never as "unfinishable".
   **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
   Kind: enhancement.
   Source: in-session-2026-09-12.
@@ -6905,6 +6914,15 @@ model, no weapon and no opponent until 0.2.0.
   prints every PlayerStart and every MonsterEnd with class, collision
   size and TriggerType. Running it over the whole corpus is what this
   item actually needs, and that has not been done.
+  Correction (2026-09-13), from UTA-0131. This body says a map that cannot
+  be routed to its exit cannot be finished at all. That is false for maps
+  carrying the Assault-to-MH conversion kit. There an MHEnd actor sits on
+  the MonsterEnd and touches it when the final fort's objective fires, so
+  the map ends without anyone reaching the exit. All 58 off-world maps are
+  this shape, verified on the 57 installed. Walking into the cylinder,
+  shooting it (this item) and a scripted MHEnd touch are three different
+  win paths. The census this item asks for should record MHEnd presence
+  beside TriggerType.
   **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
@@ -6994,6 +7012,27 @@ model, no weapon and no opponent until 0.2.0.
   package's name and object indices, so identical source need not give
   identical bytes. Comparing the class by its decoded fields and script
   would settle it. And nothing here says where any exit belonged.
+  Resolved (2026-09-13): the off-world exits are DELIBERATE on these maps.
+  UT_MonsterHunt exported the class source from five maps: SpectatorCamFix
+  is byte-identical in all of them (class SpectatorCamFix expands Keypoint,
+  no code). It belongs to an Assault-to-MH conversion kit embedded in each
+  map: FortStandardMH, EndCam, SpectatorCamFix, MHEnd. When the final fort
+  falls, FortStandard fires a Dispatcher whose OutEvent is MHEnd.
+  MHEnd.EndGame touches every actor within its CollisionRadius, and the
+  MonsterEnd on that spot ends the game. Their files are in
+  UT_MonsterHunt work/uta0131-classes/.
+
+  Verified here from the map files, not their T3D. All 57 installed
+  off-world maps carry an MHEnd at exactly the MonsterEnd's Location.
+  Control maps: 10 of 337 carry an MHEnd, with 7 exactly at the
+  MonsterEnd and 3 within a few units, inside the level (MH-2001v14,
+  MH-FoT-MothershipV1, MH-HP2-GrandStaircaseV6). So parking the pair at
+  the world corner hides the walk-to exit, and the objective still ends
+  the map. The probe's MHEnd columns are in
+  ut-ants-probe-uta0131/probe4.tsv.
+
+  The earlier note's open question is closed: the copies are one class,
+  and the MD5 difference was the instrument's.
   **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
