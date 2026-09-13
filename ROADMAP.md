@@ -6910,7 +6910,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12.
   Lanes: ut-paths, ubake.
 
-- 🚧 [UTA-0131] **Look for the tool that dropped 58 MonsterEnds outside the world.**
+- ✅ [UTA-0131] **Look for the tool that dropped 58 MonsterEnds outside the world.**
   Asked of us by UT_MonsterHunt 2026-09-12, and it is ours because it is a
   claim about FILES. Their side cannot test it; our reader already reaches
   most of what it needs.
@@ -6954,6 +6954,46 @@ model, no weapon and no opponent until 0.2.0.
   said to use judgement. This is a read-only investigation of map files,
   blocked by nothing, and suits an unattended session. UTA-0129 was passed
   over: it is a multi-part design that asks for Vestige to be read first.
+  Investigated (2026-09-13, ut-ants-28, main checkout). Read from the
+  files. The probe, its inputs and every result TSV are in
+  /mnt/Games/Scripts/Linux/ut-ants-probe-uta0131.
+
+  Sets. Off-world: 58 maps, the census rows at endnodedist >= 33047 (from
+  UT_MonsterHunt's routecensus-split-2026-09-07c.tsv) plus
+  ut-paths-output-uta0126/endnode-locations.tsv. 57 are installed;
+  MH-ProgressV0 is not. Control: every census map below the 26164 break,
+  337 installed.
+
+  What SEPARATES them.
+  1. A class embedded in the map. 51 of 57 off-world maps export a class
+     named SpectatorCamFix, stored in the map itself rather than imported.
+     Among control maps, 12 of the 45 with a V<digits> suffix carry it,
+     and 1 of the 292 without. All 57 off-world maps are versioned, so
+     the fair comparison is 89% against 27%. No System package in the
+     reference install names it, and nothing in UT_MonsterHunt's .uc, .md
+     or .py files does. The name table also carries FixEndCamOnNet (49 of
+     57 against 1 of 337), which is no export's property, so most likely a
+     name inside that class. This is the file evidence for GAME-0097's
+     batch hypothesis: one named class in maps by different authors. It
+     also shows the batch did not always strand the exit, since 12
+     versioned maps carry the class with the exit placed.
+  2. The MonsterEnd export's shape. None of the 57 stores CollisionRadius,
+     CollisionHeight or bEdShouldSnap. Among control MonsterEnds, 145 store
+     a collision size and 7 store bEdShouldSnap. 40 of 57 store Rotation,
+     against 15 of 337.
+
+  What does NOT separate, so nobody re-runs it: package version, licensee
+  version, flags and GUID; the MonsterEnd's export index and actor-list
+  slot (it is almost never the last actor in either set); its object
+  name; and every size, which overlaps. The stored rotations are 31
+  distinct values, so no tool wrote one constant.
+
+  Not established. That the copies of SpectatorCamFix are ONE class: their
+  bodies are 138 to 146 bytes everywhere, but all 64 MD5s differ. That
+  test was the wrong instrument: a class export's bytes use its own
+  package's name and object indices, so identical source need not give
+  identical bytes. Comparing the class by its decoded fields and script
+  would settle it. And nothing here says where any exit belonged.
   **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
