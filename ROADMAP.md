@@ -3362,7 +3362,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: consumer-request-2026-09-06 games-drive.
   Lanes: upkg.
 
-- 📋 [UTA-0070] **upkg: answer which packages a package needs, as a supported call.**
+- 🚧 [UTA-0070] **upkg: answer which packages a package needs, as a supported call.**
   Requested 2026-09-06 by the Monster Hunt server work, which already
   reassembles this from `imports()` and `name()`. The import entries
   whose outer is null are the packages this one needs.
@@ -3408,6 +3408,10 @@ model, no weapon and no opponent until 0.2.0.
 
   No unit test calls Package::imports() directly, so the call's tests
   start from the synthetic package builder.
+  Claimed (2026-09-13) by ut-ants-28, main checkout, after UTA-0101
+  shipped. The user is away and said to use judgement. Blocked by
+  nothing, testable unattended, and it removes four copies of one walk.
+  The prep note above records where those copies are.
   **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
@@ -4965,7 +4969,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: umap, tests.
 
-- 🚧 [UTA-0101] **ut-dump: every map's Title, Author and total monster capacity.**
+- ✅ [UTA-0101] **ut-dump: every map's Title, Author and total monster capacity.**
   Requested by UT_MonsterHunt on 2026-09-10, two asks folded into one
   item because both are additions to ut-dump's per-package JSON.
 
@@ -5052,6 +5056,14 @@ model, no weapon and no opponent until 0.2.0.
   and the stock maps' known authors stand in for it. Over the whole
   library: unresolvedActors is non-zero on a handful of maps, and
   unknownCapacityFactories is zero everywhere.
+  Shipped (2026-09-13) by ut-ants-28 in 98e7d73. Green on the matrix in
+  CI run 34767573366 (head 938ff70): Linux GCC 14, Linux Clang 19 and
+  Windows MSVC. Both of the local gate's test runs passed.
+
+  UT_MonsterHunt has the commit and the key shapes. They will re-derive
+  their GAME-0070 creators table from levelInfo and levelSummary into a
+  new dated file, and keep the old TSV as the record. The capacity total
+  feeds their GAME-0076.
   **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total.
   Kind: feature.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.
