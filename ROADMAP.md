@@ -4230,6 +4230,40 @@ model, no weapon and no opponent until 0.2.0.
   was validated against Textures/Wood.utx's real 190-entry name table.
   Diffing our reader against it on those two tables is a cheap check that
   shares none of our code.
+  `pruned` is part of this item too (2026-09-13, ut-ants-28). It is the
+  ReachSpec's bPruned byte, carried ungraded like reachFlags. Measured on
+  MH-NivenSB with UTA-0136's ut-dump --nav-graph: pruned=1 on 10182 of
+  12668 edges, pruned=0 on 2486, and no other value. Of the 3103 edges
+  walkable under ut-paths' rule, 1457 are unpruned. That rule and
+  sceneOf both keep pruned edges, and nothing here knows whether the
+  engine's route search does.
+
+  UT_MonsterHunt asked what it means, was told it is unknown, and is
+  reporting its offline-vs-engine route agreement both with and without
+  pruned edges (their GAME-0118 / GAME-0032). That comparison is evidence
+  for this item: whichever variant agrees with the engine says what the
+  engine's route search uses.
+  Calibration from UT_MonsterHunt (2026-09-13, their GAME-0118). They ran
+  UTA-0136's ut-dump --nav-graph over the 547 maps that have an in-engine
+  route verdict (routecensus-2026-09-07c.tsv) and compared 489. The exit
+  stand-in was the node nearest a MonsterEnd.
+
+  Offline NOROUTE agreeing with the engine: 234/235 on all edges, 240/241
+  under the walking rule, 241/242 walking with pruned=0.
+  Offline ROUTE agreeing: 140/184 (0.761) on all edges, 140/178 (0.787)
+  under the walking rule, 140/177 (0.791) walking with pruned=0.
+  Without flags (the old T3D join): NOROUTE 219/222, ROUTE 138/195.
+
+  Pruned: only 0 and 1 seen across 489 maps. Walkable edges 3,855,362,
+  of which 1,515,455 are pruned=0. Dropping pruned edges changed ONE
+  map's verdict. So bPruned edges look redundant for reachability. That
+  is not evidence about what the engine's route search reads.
+
+  Caveat on the remaining ROUTE disagreements, which are mostly engine
+  NOROUTE where the walking graph reaches the exit's nearest node. The
+  nearest node is UTA-0133's mistake: it need not touch the exit. So
+  these rows do not yet grade the flags. Rows are in UT_MonsterHunt
+  work/calib-2026-09-13/navcalib.tsv.
   **Layman:** Work out what each bot path actually allows -- walk, jump, swim, or a door that must be opened first. We already read the number; nothing yet knows what it means.
   Kind: implement.
   Source: user-request-2026-09-09.
@@ -4893,7 +4927,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: umap, tests.
 
-- 📋 [UTA-0101] **ut-dump: every map's Title, Author and total monster capacity.**
+- 🚧 [UTA-0101] **ut-dump: every map's Title, Author and total monster capacity.**
   Requested by UT_MonsterHunt on 2026-09-10, two asks folded into one
   item because both are additions to ut-dump's per-package JSON.
 
@@ -4934,6 +4968,28 @@ model, no weapon and no opponent until 0.2.0.
   Linked (2026-09-10): UT_MonsterHunt GAME-0076, the whole-map
   monsters-left HUD this total feeds, and GAME-0070, the map-creators
   table built from the Title/Author scan handed over that day.
+  Prep (2026-09-13, ut-ants-28, main checkout; not claimed).
+  The capacity sentinel, read from UnrealShare's exported source in
+  UT_MonsterHunt work/export/UnrealShare/. ThingFactory declares
+  `capacity` as "max number of items ever buildable (-1 = no limit)"
+  with a class default of 1000000. CreatureFactory overrides that
+  default to 1. So an unset capacity means 1 or 1000000 by class, and
+  only a class-family read gives the right one. A negative value is
+  unlimited. A 1000000 must not be summed into a monster count either.
+
+  The readers exist; nothing new is needed below ut-dump. Explicit
+  Title and Author: readProperties returns Str values as std::string.
+  Class family: upkg::resolveClass, then readAncestry, then
+  effectiveDefaults. resolveClass does what the 2026-09-10 scratch
+  actordump's hand-written classOf did, and also names the missing
+  package or class. Verification baseline: UT_MonsterHunt
+  work/from-ut-ants-2026-09-10/titles-authors.utf8.tsv, produced by
+  titles-authors.cpp in the same directory.
+  Claimed (2026-09-13) by ut-ants-28, main checkout, after UTA-0136
+  shipped. The user is away and said to use judgement. This item was
+  picked because it can be tested unattended, sits in the lane just
+  worked, and UT_MonsterHunt asked for it (GAME-0076, GAME-0070). The
+  prep note above holds the capacity sentinel and the readers to use.
   **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total.
   Kind: feature.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.
@@ -7376,7 +7432,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12 UTA-0134 answer.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0136] **ut-dump: serialise the nav graph's reach-spec flags and sizes, which UT_MonsterHunt keeps asking for.**
+- ✅ [UTA-0136] **ut-dump: serialise the nav graph's reach-spec flags and sizes, which UT_MonsterHunt keeps asking for.**
   UT_MonsterHunt has asked three times and asked again 2026-09-12, this time
   with the measurement behind it, and asked for a yes or no so they can stop
   planning around it.
@@ -7410,6 +7466,17 @@ model, no weapon and no opponent until 0.2.0.
   need decisions or visual checks only the user can give; this one is
   headless-testable. Its condition, not ahead of 0.1.0's keystone, is met:
   UTA-0014 shipped 2026-09-12.
+  Shipped (2026-09-13) by ut-ants-28 in ad2fcf4. Green on the matrix
+  in CI run 34766097629: Linux GCC 14, Linux Clang 19 and Windows MSVC.
+  The local gate passed 497 tests. Eight hand mutations, all killed.
+
+  The answer to UT_MonsterHunt is yes. They recorded it on their
+  GAME-0032 and calibrated it on GAME-0118: the walking rule raised
+  offline ROUTE agreement with the engine from 0.761 to 0.787. That
+  calibration and the pruned measurements are on UTA-0085.
+
+  UTA-0086's edge list and node list now exist in this shape. What that
+  item still owes is the flag decode, UTA-0085.
   **Layman:** Write out which bot moves each path link allows, so the sister project stops guessing.
   Kind: implement.
   Source: ut-monsterhunt-2026-09-12 third ask.

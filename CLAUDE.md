@@ -5,11 +5,14 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** not yet chosen. Read the open `0.1.0` bodies before picking —
-`UTA-0082` records items deferred out of that release's cut — with
-`UTA-0016` (load a bundle and walk it) and `UTA-0136` (reach-spec flags
-for UT_MonsterHunt) the leading candidates. `UTA-0013` and `UTA-0059`
-shipped 2026-09-13. `docs/standards/dependency-acquisition.md`'s gate
+**Next:** `UTA-0016` (load a bundle and walk it), once `UTA-0101` is
+done. `UTA-0016` needs SDL3 and scope decisions from the user, and
+`UTA-0015` needs a tier from `UTA-0051` plus a look at the result. That
+is why both were passed over while the user was away. Read the open
+`0.1.0` bodies before picking — `UTA-0082` records items deferred out of
+that release's cut. `UTA-0136` shipped 2026-09-13, and UT_MonsterHunt's
+calibration of it is on `UTA-0085`. `UTA-0013` and `UTA-0059` shipped
+the same day. `docs/standards/dependency-acquisition.md`'s gate
 capped violently on § 2's routing question — route the next real
 dependency, SDL3, through § 2 by hand and fix what it finds, rather than
 re-running the gate.
