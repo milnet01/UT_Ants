@@ -328,6 +328,37 @@ TEST_CASE("INV-9: only EXIT_OFF_NET and PARTITIONED rows are work and a missing 
     CHECK(named.out.find("{\"map\": \"MH-Built\", \"status\": \"refused\"") != std::string::npos);
 }
 
+TEST_CASE("UTA-0137: a skipped map names files elsewhere and near names and reads neither",
+          "[paths][seeds]") {
+    const uta::test::bake::TempDir dir;
+    const fs::path install = dir.path() / "install";
+    // None of these is a package. A file this tool read would refuse, so a
+    // clean skip is also the evidence that nothing was read.
+    const auto notAPackage = bytesOf("not a package");
+    uta::test::bake::writeFile(install / "Maps" / "MH-(OMG)-Alita.unr", notAPackage);
+    uta::test::bake::writeFile(install / "Maps" / "MH-(OMG)-Alita-BP.unr", notAPackage);     // another name
+    // Created against alphabetical order. A tmpfs lists a directory newest
+    // first, so an unsorted report comes out in the wrong order there, and
+    // the expected text below is what grades the sort.
+    uta::test::bake::writeFile(install / "Maps-duplicates" / "mh-omg-alita.unr", notAPackage); // folded
+    uta::test::bake::writeFile(install / "Maps-versions" / "MH-OMG-Alita.unr", notAPackage);
+    uta::test::bake::writeFile(install / "Textures" / "MH-OMG-Alita.utx", notAPackage);       // not a map
+    const fs::path census = dir.path() / "census.tsv";
+    uta::test::bake::writeFile(census, bytesOf("map\tgroup\nMH-OMG-Alita\tPARTITIONED\n"));
+    const fs::path out = dir.path() / "out";
+
+    const Run result = run({"--install", install.string(), "--census", census.string(), "--out", out.string()});
+    INFO(result.err);
+    CHECK(result.code == 0);
+    CHECK(result.out
+          == "{\"schema\": 1, \"maps\": [\n"
+             "  {\"map\": \"MH-OMG-Alita\", \"status\": \"skipped\", \"why\": \"no file in Maps/\", "
+             "\"elsewhere\": [\"Maps-duplicates/mh-omg-alita.unr\", \"Maps-versions/MH-OMG-Alita.unr\"], "
+             "\"differentNames\": [\"MH-(OMG)-Alita\"]}\n"
+             "]}\n");
+    CHECK_FALSE(fs::exists(out / "MH-OMG-Alita.json"));
+}
+
 TEST_CASE("INV-10: the start is the first PlayerStart and the exits every MonsterEnd",
           "[paths][seeds]") {
     using namespace uta::test::bake;

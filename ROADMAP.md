@@ -7714,6 +7714,26 @@ model, no weapon and no opponent until 0.2.0.
   shipped. The user is away and said to use judgement. It is a small fix
   in one tool, testable unattended, with a real case in the reference
   install to verify against. The prep note above holds the design.
+  Built (2026-09-13, ut-ants-28, main checkout); not yet on the matrix.
+  As designed in the prep note: a skipped entry gains `elsewhere` and
+  `differentNames` when they are non-empty. Nothing found is read.
+
+  Test: one new [paths][seeds] case. It has two same-name files in
+  set-aside directories, one of them differing only in case, a
+  punctuation near name, a -BP decoy that must not match, a same-name
+  texture that must not count, and no JSON written. INV-9's skipped
+  entries are byte-identical.
+
+  Six hand mutations, all killed. The unsorted-report mutant first
+  survived: the test's directories were created in alphabetical order,
+  and the tmpfs under /tmp lists newest first, which happened to come
+  out sorted. They are now created against that order. On a filesystem
+  that lists alphabetically, such as NTFS, that mutant cannot be seen.
+
+  Reference install: a census naming MH-OMG-AlitaBattleAngel-NormalGuns
+  and MH-THUNDERBOLT-DARKFOREST-2009-BETA skips both. Each names its
+  Maps-versions/ file under elsewhere and its parenthesised Maps/ map
+  under differentNames. Neither -BP variant is listed.
   **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-12 census export note.

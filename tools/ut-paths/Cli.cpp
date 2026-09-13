@@ -11,6 +11,7 @@
 #include "ubake/Name.h"
 #include "upkg/Package.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <optional>
 #include <sstream>
@@ -40,7 +41,10 @@ void usage(std::ostream& err) {
            "\n"
            "Proposes bot path nodes for every EXIT_OFF_NET and PARTITIONED map of\n"
            "UT_MonsterHunt's census, or for the maps named, writing <dir>/<map>.json.\n"
-           "A map with no file in <install>/Maps is skipped. Standard output is one\n"
+           "A map with no file in <install>/Maps is skipped. Its summary entry names\n"
+           "any file of that name elsewhere in the install, and any Maps/ name that\n"
+           "differs from it only in punctuation, and reads neither: such a name is\n"
+           "often a different map. Standard output is one\n"
            "JSON object, also written to <dir>/ut-paths-summary.json.\n";
 }
 
@@ -165,11 +169,61 @@ struct Entry {
     std::string why;         ///< when not written
     std::size_t exits = 0;   ///< when written
     std::size_t nodes = 0;
+    /// When skipped, UTA-0137: files of the map's name in another directory of
+    /// the install, and Maps/ names differing from it only in punctuation.
+    /// Reported, never read.
+    std::vector<std::string> elsewhere;
+    std::vector<std::string> differentNames;
 };
 
 Entry refusal(std::string map, std::string why, std::ostream& err) {
     err << "ut-paths: " << map << ": " << why << "\n";
     return Entry{std::move(map), "refused", std::move(why)};
+}
+
+/// A name with everything but ASCII letters and digits removed, folded.
+std::string letters(std::string_view name) {
+    std::string out;
+    for (const char ch : name) {
+        const auto c = static_cast<unsigned char>(ch);
+        if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+            out += ch;
+        } else if (c >= 'A' && c <= 'Z') {
+            out += static_cast<char>(c - 'A' + 'a');
+        }
+    }
+    return out;
+}
+
+/// UTA-0137: what a skipped row can say about where its map went, without
+/// resolving it. A name differing only in punctuation is often a DIFFERENT
+/// map -- a de-duplicated variant rather than a mangled name -- and only
+/// content tells the two apart, so nothing found here is read. Every top-level
+/// directory is searched, so no one install's layout is assumed.
+void lookElsewhere(const stdfs::path& install, const Row& row, Entry& entry) {
+    const std::string wanted = ubake::detail::fold(row.map);
+    const std::string wantedLetters = letters(row.map);
+    std::error_code listing;
+    for (stdfs::directory_iterator dir(install, listing), end; !listing && dir != end; dir.increment(listing)) {
+        std::error_code ignored;
+        if (!dir->is_directory(ignored)) continue;
+        const std::string dirName = ubake::detail::utf8(dir->path().filename());
+        const bool maps = ubake::detail::fold(dirName) == "maps";
+        std::error_code inner;
+        for (stdfs::directory_iterator file(dir->path(), inner), stop; !inner && file != stop; file.increment(inner)) {
+            if (!file->is_regular_file(ignored)
+                || ubake::detail::fold(ubake::detail::utf8(file->path().extension())) != ".unr")
+                continue;
+            const std::string stem = ubake::detail::utf8(file->path().stem());
+            if (!maps && ubake::detail::fold(stem) == wanted) {
+                entry.elsewhere.push_back(dirName + "/" + ubake::detail::utf8(file->path().filename()));
+            } else if (maps && letters(stem) == wantedLetters) {
+                entry.differentNames.push_back(stem);
+            }
+        }
+    }
+    std::sort(entry.elsewhere.begin(), entry.elsewhere.end());
+    std::sort(entry.differentNames.begin(), entry.differentNames.end());
 }
 
 /// One map, read from <install>/Maps, its file written to `outDir`.
@@ -178,7 +232,9 @@ Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& r
     std::error_code ec;
     if (!stdfs::is_regular_file(file, ec)) {
         err << "ut-paths: " << row.map << ": skipped, no file in Maps/\n";
-        return Entry{row.map, "skipped", "no file in Maps/"};
+        Entry skipped{row.map, "skipped", "no file in Maps/"};
+        lookElsewhere(install, row, skipped);
+        return skipped;
     }
 
     const auto bytes = uta::fs::readFile(file);
@@ -216,6 +272,19 @@ std::string summaryOf(const std::vector<Entry>& entries) {
         } else {
             out << ", \"why\": ";
             writeJsonString(out, entry.why);
+            // Written only when non-empty, so a skipped map with nothing to
+            // report keeps the entry it always had.
+            const auto list = [&out](std::string_view key, const std::vector<std::string>& values) {
+                if (values.empty()) return;
+                out << ", \"" << key << "\": [";
+                for (std::size_t v = 0; v < values.size(); ++v) {
+                    if (v != 0) out << ", ";
+                    writeJsonString(out, values[v]);
+                }
+                out << ']';
+            };
+            list("elsewhere", entry.elsewhere);
+            list("differentNames", entry.differentNames);
         }
         out << '}';
     }

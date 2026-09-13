@@ -252,6 +252,15 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **`ut-paths` says where a skipped census map may have gone, and still reads nothing it finds.** (UTA-0137)
+  A census map with no file in `Maps/` is still skipped. Its summary
+  entry now also lists, when there are any, files of that name elsewhere
+  in the install (`elsewhere`) and `Maps/` names that differ from it only
+  in punctuation (`differentNames`). Neither is read. A near name is
+  often a different map rather than a misspelling, and only content tells
+  the two apart. A skipped map with nothing to report prints exactly what
+  it did before.
+
 - **Bundle format version 8, and baker revision 6** (UTA-0112)
   LPRB is appended after COLL. A version-7 bundle is refused and baked
   over; none exists, 0.1.0 not having been cut.
