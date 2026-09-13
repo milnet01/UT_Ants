@@ -7038,6 +7038,16 @@ model, no weapon and no opponent until 0.2.0.
   (an MHEnd on the MonsterEnd), and keep working on other maps. Moving the
   MonsterEnd off its MHEnd breaks the only way those maps end. The change
   is made on UT_MonsterHunt's side; told to them the same day.
+  Deployed (2026-09-13) by UT_MonsterHunt on the user's decision, their
+  GAME-0097. The live System/MHEndPlace.u is md5
+  1774af8f2ebec313b8bfd7cbcfb47287, and the previous build is kept beside
+  it as MHEndPlace.u.bak-pre-mhend-pair. The rule: Place() returns when an
+  actor that IsA('MHEnd') lies within a parked MonsterEnd's
+  CollisionRadius. Their probe logged MH-AmorMonstersV0 as "left alone, the
+  map ends by its objectives" and MH-DawnRaidV0 as "none parked". The 10
+  placed-exit maps carrying an MHEnd need no handling. Place() moves
+  nothing unless every MonsterEnd on a map is parked, and none of theirs
+  is.
   **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
