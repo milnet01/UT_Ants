@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`ut-dump --nav-graph` writes every bot-path node and link, with each link's reach flags and collision size.** (UTA-0136)
+  Each map's `nav` object gains `nodeList` and `edgeList`. A node is
+  named by its actor name, as a T3D export names it; an edge carries
+  from, to, distance, collision radius and height, reach flags and the
+  pruned byte, unfiltered. A walking-bot rule applied to those rows
+  reproduces the edges `ut-paths` keeps. Without the flag the output is
+  unchanged.
+
 - **The quarantine guard refuses a committed map bundle that is not marked authored.** (UTA-0013)
   A new `ut-origin` tool reads each tracked `.utab`'s staged header, and
   the full gate runs the check after the build. A documentation-only run

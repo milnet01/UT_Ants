@@ -46,6 +46,7 @@ add_executable(uta_unit_tests
     unit/CoreLogTest.cpp
     unit/CoreMd5Test.cpp
     unit/CoreSha256Test.cpp
+    unit/DumpCliTest.cpp
     unit/LightFixture.cpp
     unit/MaterialCompressTest.cpp
     unit/MaterialGenerateTest.cpp
@@ -91,6 +92,8 @@ target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
 # And ut-origin's -- UTA-0013's third quarantine check.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli.cpp")
+# And ut-dump's -- UTA-0136's navigation graph.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a

@@ -7376,7 +7376,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12 UTA-0134 answer.
   Lanes: ut-paths.
 
-- 📋 [UTA-0136] **ut-dump: serialise the nav graph's reach-spec flags and sizes, which UT_MonsterHunt keeps asking for.**
+- 🚧 [UTA-0136] **ut-dump: serialise the nav graph's reach-spec flags and sizes, which UT_MonsterHunt keeps asking for.**
   UT_MonsterHunt has asked three times and asked again 2026-09-12, this time
   with the measurement behind it, and asked for a yes or no so they can stop
   planning around it.
@@ -7405,6 +7405,11 @@ model, no weapon and no opponent until 0.2.0.
 
   Test: a dumped map's JSON carries a flags value per edge, and a walking-bot
   filter applied to that JSON reproduces `Scene::edges` for the same map.
+  Claimed (2026-09-13) by ut-ants-28, main checkout. Picked
+  over UTA-0016 and UTA-0015 because the user is away and both of those
+  need decisions or visual checks only the user can give; this one is
+  headless-testable. Its condition, not ahead of 0.1.0's keystone, is met:
+  UTA-0014 shipped 2026-09-12.
   **Layman:** Write out which bot moves each path link allows, so the sister project stops guessing.
   Kind: implement.
   Source: ut-monsterhunt-2026-09-12 third ask.
