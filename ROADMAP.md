@@ -7033,6 +7033,11 @@ model, no weapon and no opponent until 0.2.0.
 
   The earlier note's open question is closed: the copies are one class,
   and the MD5 difference was the instrument's.
+  User decision (2026-09-13): on the live server, UT_MonsterHunt's MHEndPlace
+  stopgap is to SKIP the 58 maps carrying the Assault-to-MH conversion kit
+  (an MHEnd on the MonsterEnd), and keep working on other maps. Moving the
+  MonsterEnd off its MHEnd breaks the only way those maps end. The change
+  is made on UT_MonsterHunt's side; told to them the same day.
   **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
@@ -7928,6 +7933,12 @@ model, no weapon and no opponent until 0.2.0.
   on CI. How the errors reach a test is a real design choice: a counter
   on the Renderer, a Config callback, or failing at the next frame. Weigh
   spec-format.md § 1 before building.
+  User decision (2026-09-13): ANY validation error FAILS the test. Count
+  the layer's error messages during each device test and fail on any, and
+  have CI's Linux legs install the validation layer so the tier runs
+  validated there. The open design point is only how the count reaches the
+  test: a counter on the Renderer, a Config callback, or failing at the
+  next frame.
   **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test.
   Kind: test.
   Source: in-session-2026-09-12.
@@ -7969,6 +7980,11 @@ model, no weapon and no opponent until 0.2.0.
   been checked, and the three teleporter maps UT_MonsterHunt named are
   its test cases. Both want a session that can take the design decision,
   not one filling time while the user is away.
+  User decision (2026-09-13): DRAFT THE SPEC NOW. Propose the reason
+  vocabulary ourselves, amend UTA-0121 SS 4.3 through rule 14's
+  review-contract gate, then build. The three teleporter maps
+  UT_MonsterHunt named on GAME-0004 are the test cases. Agreeing the
+  wording with them first was offered and not chosen.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.
@@ -8042,6 +8058,11 @@ model, no weapon and no opponent until 0.2.0.
   when an import names a colliding package, rather than silently doing
   what the game does? That is an enhancement, not the fix this body
   assumed.
+  User decision (2026-09-13): WARN AND CARRY ON. When a map imports a
+  package name that more than one searched file carries, bake exactly as
+  the game's Paths order would, and print a warning naming the clash and
+  which file won. Do not refuse the map, and do not stay silent. The
+  clashes are the 21 names in the note above.
   **Layman:** When a music file and a code file share a name, our map reader may open the wrong one, the same mix-up that breaks one map in the real game.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
