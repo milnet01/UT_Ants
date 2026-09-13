@@ -5,8 +5,11 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0016` (load a bundle and walk it). `UTA-0103` is parked on
-the user's run of the real-asset tier, which is what closes it. `UTA-0016` needs SDL3 and scope decisions from the user, and
+**Next:** `UTA-0139`, drafting the spec amendment. The user chose that on
+2026-09-13; its roadmap body records the decision. After it comes `UTA-0016`
+(load a bundle and walk it). Before asking the user its scope questions,
+read `docs/design.md` and bring a short set of concrete choices. `UTA-0103`
+is parked on the user's run of the real-asset tier, which is what closes it. `UTA-0016` needs SDL3 and scope decisions from the user, and
 `UTA-0015` needs a tier from `UTA-0051` plus a look at the result. That
 is why both were passed over while the user was away. Read the open
 `0.1.0` bodies before picking — `UTA-0082` records items deferred out of
