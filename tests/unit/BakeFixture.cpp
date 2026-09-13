@@ -98,6 +98,12 @@ PropertySpec nameProperty(std::string name, std::string text) {
     return spec;
 }
 
+PropertySpec strProperty(std::string name, std::string text) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Str};
+    spec.text = std::move(text);
+    return spec;
+}
+
 PropertySpec scaleProperty(std::string name, float x, float y, float z, float rate,
                            std::int32_t axis) {
     PropertySpec spec{std::move(name), PropertySpec::Type::Scale};
@@ -228,6 +234,7 @@ std::vector<std::uint8_t> Packer::properties(const std::vector<PropertySpec>& sp
         case PropertySpec::Type::Object: writer.addObject(key, spec.value); break;
         case PropertySpec::Type::Name: writer.addName(key, name(spec.text)); break;
         case PropertySpec::Type::Float: writer.addFloat(key, spec.number); break;
+        case PropertySpec::Type::Str: writer.addStr(key, spec.text); break;
         case PropertySpec::Type::Scale: {
             std::vector<std::uint8_t> raw;
             for (const float part : spec.vector) appendU32(raw, std::bit_cast<std::uint32_t>(part));
@@ -368,6 +375,12 @@ std::int32_t MapBuilder::addBrushModel(const BrushSpec& brush) {
 std::int32_t MapBuilder::addRawExport(std::string_view package, std::string_view className,
                                       std::string_view name, std::vector<std::uint8_t> data) {
     return packer_.addExport(packer_.importClass(package, className), 0, name, std::move(data));
+}
+
+std::int32_t MapBuilder::addObject(std::string_view package, std::string_view className,
+                                   std::string_view name, const std::vector<PropertySpec>& properties) {
+    const std::int32_t classReference = packer_.importClass(package, className);
+    return packer_.addExport(classReference, 0, name, packer_.properties(properties));
 }
 
 MapBuilder& MapBuilder::setLevelCount(int count) {

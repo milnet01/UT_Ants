@@ -4264,6 +4264,26 @@ model, no weapon and no opponent until 0.2.0.
   nearest node is UTA-0133's mistake: it need not touch the exit. So
   these rows do not yet grade the flags. Rows are in UT_MonsterHunt
   work/calib-2026-09-13/navcalib.tsv.
+  Correction (2026-09-13), to the caveat above. That caveat said the
+  nearest-node exit stand-in means the remaining ROUTE disagreements do
+  not grade the flags. For UT_MonsterHunt's census that is wrong. The
+  census asks the nearest-node question itself (ENDNODE means routed to
+  the navigation point nearest the exit), so nearest-node is the right
+  predictor when calibrating the flags against it. The touching test
+  answers whether a bot can FINISH, their GAME-0063.
+
+  They re-ran it with the touching test to check. ROUTE agreement fell
+  to 49/67 (0.731), NOROUTE to 43/44. On 308 of 489 maps no located nav
+  node touches an exit, yet the engine reached the exit or its nearest
+  node on 91 of them. Their T3D exports lack the nodes the engine adds
+  at load, and ut-paths applies the touching test to walkable spots
+  (UTA-0121 § 4.6), not only to nodes. So a map with no touching node is
+  not evidence that it cannot be finished.
+
+  Maps where touching says ROUTE and the engine says NOROUTE are in
+  UT_MonsterHunt work/calib-2026-09-13/navcalib_touch.tsv. Check them
+  against UTA-0130 (shot exits) and UTA-0135 (the vertical window) when
+  either item is picked up.
   **Layman:** Work out what each bot path actually allows -- walk, jump, swim, or a door that must be opened first. We already read the number; nothing yet knows what it means.
   Kind: implement.
   Source: user-request-2026-09-09.
@@ -4990,6 +5010,30 @@ model, no weapon and no opponent until 0.2.0.
   picked because it can be tested unattended, sits in the lane just
   worked, and UT_MonsterHunt asked for it (GAME-0076, GAME-0070). The
   prep note above holds the capacity sentinel and the readers to use.
+  Built (2026-09-13, ut-ants-28, main checkout); not yet on the matrix.
+  Every map now carries levelInfo and levelSummary {title, author},
+  explicit values only, and a monsters object: factories, capacity,
+  unlimitedFactories, unknownCapacityFactories, placedPawns and
+  unresolvedActors. Unlimited means below zero, or at or above
+  ThingFactory's 1000000 default. Free text goes through writeJsonText
+  in tools/common/Json.h.
+
+  The LevelInfo is the one the level's actor list names. Measured over
+  the reference Maps/ directory against the 2026-09-10 handover TSV:
+  maps with one LevelInfo export agree on every Title/Author field, and
+  every difference is on a map with several, where the TSV is wrong (it
+  kept the last export). Examples: AS-Overlord, CTF-Nucleus, DM-Conveyor.
+  UT_MonsterHunt was told, since their GAME-0070 creators table came
+  from that TSV.
+
+  Tests: three [dump] cases, including a left-behind LevelInfo decoy, a
+  repeated actor slot and a class whose parent's package is missing.
+  Fifteen hand mutations, all killed.
+
+  Not verified in the editor, as the body asked. The independent TSV
+  and the stock maps' known authors stand in for it. Over the whole
+  library: unresolvedActors is non-zero on a handful of maps, and
+  unknownCapacityFactories is zero everywhere.
   **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total.
   Kind: feature.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.

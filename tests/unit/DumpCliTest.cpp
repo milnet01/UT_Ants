@@ -202,6 +202,93 @@ TEST_CASE("UTA-0136: an edge names its nodes by actor name and class", "[dump]")
     CHECK(flying == 1);
 }
 
+namespace {
+
+/// UTA-0101's install. ThingFactory's default capacity is UnrealShare's own,
+/// 1000000, and CreatureFactory overrides it to 1, as UnrealShare's source does.
+std::vector<std::pair<std::string, std::vector<std::uint8_t>>> factsPackages() {
+    Packer engine;
+    engine.addClass("LevelInfo");
+    Packer unrealShare;
+    const std::int32_t thing = unrealShare.addClass("ThingFactory", 0, {intProperty("capacity", 1000000)});
+    unrealShare.addClass("CreatureFactory", thing, {intProperty("capacity", 1)});
+    const std::int32_t pawn = unrealShare.addClass("ScriptedPawn");
+    unrealShare.addClass("Krall", pawn);
+    // A class that resolves, whose parent lives in a package the install lacks:
+    // its family is cut short, so it cannot be sorted either.
+    Packer orphan;
+    orphan.addClass("Thing", orphan.importClass("Gone", "Base"));
+    return {{"Core", tinyPackage("Object")}, {"Engine", engine.build()},
+            {"UnrealShare", unrealShare.build()}, {"Orphan", orphan.build()}};
+}
+
+/// A map whose LevelInfo carries Windows-1252 text and UTF-8 text, whose
+/// LevelSummary carries a title and a byte Windows-1252 leaves undefined, and
+/// whose actors are four factories, two monsters and one actor of a class no
+/// package supplies.
+Run runFacts(const TempDir& dir) {
+    MapBuilder map;
+    map.addActorOfClass("Engine", "LevelInfo",
+                        {strProperty("Title", "Caf\xE9 \xB7 Test"), strProperty("Author", "J\xC3\xBCrgen")})
+        .addActorOfClass("UnrealShare", "CreatureFactory", {intProperty("capacity", 5)})
+        .addActorOfClass("UnrealShare", "CreatureFactory")          // the class's 1
+        .addActorOfClass("UnrealShare", "ThingFactory")             // 1000000: no limit
+        .addActorOfClass("UnrealShare", "CreatureFactory", {intProperty("capacity", -1)})
+        .addActorOfClass("UnrealShare", "Krall")
+        .addActorOfClass("UnrealShare", "Krall")
+        .addActorOfClass("Mystery", "Thing")
+        .addActorOfClass("Orphan", "Thing")
+        // The capacity-5 factory named in a second slot is still one factory
+        // (UTA-0124), so the total stays 6.
+        .repeatActorSlot(1);
+    // A second LevelInfo, outside the level's actor list and ahead of the real
+    // one in the export table, as maps the editor has left one behind carry.
+    map.addObject("Engine", "LevelInfo", "LevelInfo99", {strProperty("Title", "Left behind")});
+    map.addObject("Engine", "LevelSummary", "LevelSummary",
+                  {strProperty("Title", "Summary\x99"), strProperty("Author", "X\x81")});
+    for (const auto& [stem, bytes] : factsPackages())
+        writeFile(dir.path() / "System" / (stem + ".u"), bytes);
+    const fs::path path = dir.path() / "Maps" / "MH-Facts.unr";
+    writeFile(path, map.build());
+    return run({"--system", (dir.path() / "System").string(), path.string()});
+}
+
+} // namespace
+
+TEST_CASE("UTA-0101: Title and Author are written as UTF-8 from both credit exports", "[dump]") {
+    const TempDir dir;
+    const Run result = runFacts(dir);
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    // Windows-1252 decoded; UTF-8 kept; 0x99 is Windows-1252's trade mark; 0x81
+    // is undefined there and falls back to Latin-1.
+    CHECK(result.out.find("\"levelInfo\": {\"title\": \"Caf\xC3\xA9 \xC2\xB7 Test\", "
+                          "\"author\": \"J\xC3\xBCrgen\"}")
+          != std::string::npos);
+    CHECK(result.out.find("\"levelSummary\": {\"title\": \"Summary\xE2\x84\xA2\", "
+                          "\"author\": \"X\xC2\x81\"}")
+          != std::string::npos);
+}
+
+TEST_CASE("UTA-0101: a map with no LevelSummary says null", "[dump]") {
+    const TempDir dir;
+    const fs::path mapPath = writeMap(dir, inv11Map());
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    REQUIRE(result.code == 0);
+    CHECK(result.out.find("\"levelSummary\": null") != std::string::npos);
+}
+
+TEST_CASE("UTA-0101: monster capacity sums limited factories through their class family", "[dump]") {
+    const TempDir dir;
+    const Run result = runFacts(dir);
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    // 5 and the class's 1 are summed; 1000000 and -1 are no limit.
+    CHECK(result.out.find("\"monsters\": {\"factories\": 4, \"capacity\": 6, \"unlimitedFactories\": 2, "
+                          "\"unknownCapacityFactories\": 0, \"placedPawns\": 2, \"unresolvedActors\": 2}")
+          != std::string::npos);
+}
+
 TEST_CASE("UTA-0136: without --nav-graph the nav object carries counts only", "[dump]") {
     const TempDir dir;
     const fs::path mapPath = writeMap(dir, inv11Map());

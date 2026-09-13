@@ -50,7 +50,7 @@ struct TextureSpec {
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
 /// Built with the functions below rather than by hand.
 struct PropertySpec {
-    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name, Scale, Float };
+    enum class Type { Byte, Int, Bool, Vector, Rotator, Object, Name, Scale, Float, Str };
     std::string name;
     Type type = Type::Byte;
     std::int32_t value = 0;                ///< Byte, Int, Bool, an Object's reference, a Scale's SheerAxis
@@ -71,6 +71,8 @@ struct PropertySpec {
 /// `reference` comes from the builder the property is added to; 0 is null.
 [[nodiscard]] PropertySpec objectProperty(std::string name, std::int32_t reference);
 [[nodiscard]] PropertySpec nameProperty(std::string name, std::string text);
+/// A Str, its bytes written as they are -- UTA-0101's Title and Author.
+[[nodiscard]] PropertySpec strProperty(std::string name, std::string text);
 /// A struct `Scale` -- Core/Object.uc's: three f32, SheerRate as f32 and
 /// SheerAxis as a byte, seventeen bytes the reader carries undecoded.
 [[nodiscard]] PropertySpec scaleProperty(std::string name, float x, float y, float z,
@@ -204,6 +206,10 @@ public:
     /// for a case that needs bytes no builder writes; its reference.
     std::int32_t addRawExport(std::string_view package, std::string_view className,
                               std::string_view name, std::vector<std::uint8_t> data);
+    /// An export of class `<package>.<className>` that is not an actor,
+    /// carrying `properties` -- a LevelSummary, for UTA-0101; its reference.
+    std::int32_t addObject(std::string_view package, std::string_view className,
+                           std::string_view name, const std::vector<PropertySpec>& properties);
     MapBuilder& setLevelCount(int count);
     /// A second, larger Model export the level does not name -- INV-13.
     MapBuilder& addDecoyModel();

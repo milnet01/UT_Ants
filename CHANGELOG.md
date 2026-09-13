@@ -17,6 +17,16 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`ut-dump` reports each map's Title, Author and whole-map monster capacity.** (UTA-0101)
+  Every map gains `levelInfo` and `levelSummary`, each with the map's
+  own `title` and `author` (null where the map sets none). The LevelInfo
+  is the one the level's actor list names, not merely the first in the
+  file. Text that is not UTF-8 is decoded as Windows-1252. A new
+  `monsters` object sums factory capacity through each class's
+  defaults, and counts separately factories with no limit, placed
+  monsters, and actors whose class could not be resolved. The schema
+  number stays 1: these keys are added, nothing is changed.
+
 - **`ut-dump --nav-graph` writes every bot-path node and link, with each link's reach flags and collision size.** (UTA-0136)
   Each map's `nav` object gains `nodeList` and `edgeList`. A node is
   named by its actor name, as a T3D export names it; an edge carries
