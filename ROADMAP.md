@@ -2490,6 +2490,13 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-13): held by session ut-ants-19 in the main
   checkout. User chose option A: a new ADR-0008 supersedes ADR-0007 with
   the decision only, and the procedure moves to a project standard.
+  Progress (2026-09-13): built. ADR-0008 supersedes ADR-0007 with the
+  decision only; the procedure is docs/standards/dependency-acquisition.md.
+  Both gated with review-contract to their cap of three, tails empty: the
+  ADR's cap calm, the standard's violent on section 2's routing question.
+  Records: docs/reviews/ADR-0008-acquire-dependencies-by-route-loop-log.md
+  and docs/reviews/dependency-acquisition-loop-log.md. Flip on the matrix
+  after the push.
   **Layman:** The dependency-acquisition decision document grew three times the size of every other decision in the project, because it also carries the step-by-step procedure. Separate the two when the renderer lands and the procedure has real code to attach to.
   Kind: doc.
   Source: review-contract-2026-09-06 ADR-0007 cap.
@@ -7492,6 +7499,26 @@ model, no weapon and no opponent until 0.2.0.
   Kind: test.
   Source: in-session-2026-09-12.
   Lanes: urender, tests.
+
+- 📋 [UTA-0139] **ut-paths: a map with no route does not say what separates its start from its exit.**
+  Asked by UT_MonsterHunt on GAME-0095, 2026-09-13. Their plan routes
+  each no-route map to a fix by cause: GAME-0001 for lifts, GAME-0004
+  for teleporters, and our UTA-0123 for stairs.
+  Today a map's JSON carries only its census group, `moverOnly`, and each
+  exit's `route` (found, mover or none) and `offWorld`. So a map with
+  every exit at none, `moverOnly` false and nothing off-world says no
+  route was found even counting movers, and nothing about why. The five
+  maps they ranked first on 2026-09-13 are all that shape:
+  MH-()mG-DeathcourseV2, MH-()mG-FourGhostsV2, MH-()mG-GreenZone-beta3,
+  MH-()mG-Demondeath and MH-!!![2-Much-Health-FIXED].
+  Wanted: a per-map reason in the summary and the map's JSON, named from
+  what the walk graph's frontier actually meets. The vocabulary, and
+  whether ut-paths can see a teleporter at all, are open until the code
+  is read.
+  **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
+  Kind: enhancement.
+  Source: in-session-2026-09-13.
+  Lanes: tools.
 
 ## 0.2.0 — Movement and weapons
 
