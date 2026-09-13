@@ -3362,7 +3362,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: consumer-request-2026-09-06 games-drive.
   Lanes: upkg.
 
-- 🚧 [UTA-0070] **upkg: answer which packages a package needs, as a supported call.**
+- ✅ [UTA-0070] **upkg: answer which packages a package needs, as a supported call.**
   Requested 2026-09-06 by the Monster Hunt server work, which already
   reassembles this from `imports()` and `name()`. The import entries
   whose outer is null are the packages this one needs.
@@ -3433,6 +3433,10 @@ model, no weapon and no opponent until 0.2.0.
   killed. The unit suite passes, bake-name golden tests included.
   ut-dump's importedPackages is identical before and after on every map
   in the reference Maps/ directory.
+  Shipped (2026-09-13) by ut-ants-28 in 445dfad, green on the matrix
+  in CI run 34768603446: Linux GCC 14, Linux Clang 19 and Windows MSVC.
+  Both local gate runs passed. UT_MonsterHunt's ut-map-deps can move to
+  upkg::importedPackages; its outer-null rule is now the call's contract.
   **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load.
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
@@ -7577,7 +7581,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-12 third ask.
   Lanes: ut-dump, unav.
 
-- 📋 [UTA-0137] **ut-paths: a skipped census row does not say whether the map was renamed or de-duplicated away.**
+- 🚧 [UTA-0137] **ut-paths: a skipped census row does not say whether the map was renamed or de-duplicated away.**
   Found 2026-09-12 from UT_MonsterHunt's note that four of their census rows
   were failed exports, because a stale map list had its PARENTHESES STRIPPED
   while the installed maps carry them. Measured here, and it bit us too.
@@ -7678,6 +7682,38 @@ model, no weapon and no opponent until 0.2.0.
   MH-Skaarj_ReactorTest-v1 when they have it. That is UTA-0135.
 
   Nothing is owed in either direction on this item.
+  Prep (2026-09-13, ut-ants-28, main checkout; not claimed).
+
+  Design, keeping to the corrected rule above (report, never resolve).
+  When runMap in tools/ut-paths/Cli.cpp finds no <install>/Maps/<map>.unr,
+  the skipped summary entry gains two keys, each written only when it is
+  non-empty, so today's skipped lines and INV-9's expected text do not
+  change:
+  - `elsewhere`: every file of exactly that name, compared folded, in
+    another top-level directory of the install. The directories are
+    searched generally, so UT_MonsterHunt's Maps-versions/ layout is not
+    hard-coded.
+  - `differentNames`: Maps/ files whose names match only once
+    punctuation is removed. Never read, and keyed so it cannot be taken
+    for a typo fix.
+
+  No node-count comparison. Only the in-engine census carries a `nodes`
+  column (routecensus-split-2026-09-07.tsv has it, the 2026-09-13
+  offline census does not). That count is taken after the engine builds
+  its navigation lists at load, so it never matches a count read from
+  the .unr. Setting one beside the other would read as evidence without
+  being any.
+
+  A real case to verify against, in the reference install.
+  MH-OMG-AlitaBattleAngel-NormalGuns and MH-THUNDERBOLT-DARKFOREST-2009-BETA
+  are in Maps-versions/, at 6470093 and 1569638 bytes. The Maps/ files
+  MH-(OMG)-AlitaBattleAngel-NormalGuns and
+  MH-(THUNDERBOLT)-DARKFOREST-2009-BETA, at 5331755 and 1325946 bytes,
+  are different maps.
+  Claimed (2026-09-13) by ut-ants-28, main checkout, after UTA-0070
+  shipped. The user is away and said to use judgement. It is a small fix
+  in one tool, testable unattended, with a real case in the reference
+  install to verify against. The prep note above holds the design.
   **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-12 census export note.
@@ -7691,6 +7727,28 @@ model, no weapon and no opponent until 0.2.0.
   since the draw path landed. Decide how the tier runs validated: a
   device-tier switch that sets Config::validation and fails on any layer
   error, and whether CI's Linux legs install the layer to run it.
+  Prep (2026-09-13, ut-ants-28, main checkout; not claimed). Read from
+  the code, and bigger than the body above.
+
+  1. Nothing can fail on a validation error today. Gpu::create in
+     src/urender/Device.cpp adds VK_LAYER_KHRONOS_validation when
+     Config::validation is set and the layer is installed, and logs a
+     warning when it is not. It creates no VK_EXT_debug_utils messenger,
+     so a layer error goes only to the console. Switching validation on
+     in the device tests would therefore still pass on every error.
+  2. No device test sets Config::validation. tests/device has no
+     mention of it.
+  3. CI's Linux legs install libvulkan-dev, glslc and mesa-vulkan-drivers
+     and no validation layer. The Windows leg installs the Vulkan SDK
+     1.4.357.0; whether that carries the layer is unchecked.
+  4. This machine has vulkan-validationlayers 1.4.357 installed, so the
+     work can be tried here.
+
+  So the item is three parts: a messenger that counts or records error
+  messages, a device-tier switch that fails a test on any, and the layer
+  on CI. How the errors reach a test is a real design choice: a counter
+  on the Renderer, a Config callback, or failing at the next frame. Weigh
+  spec-format.md § 1 before building.
   **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test.
   Kind: test.
   Source: in-session-2026-09-12.
@@ -7756,6 +7814,38 @@ model, no weapon and no opponent until 0.2.0.
 
   Test, if live: an install holding a code package and a music package of
   one name resolves a music import to the music package.
+  Investigated (2026-09-13, ut-ants-28, main checkout; not claimed).
+
+  Our resolver matches the game's. The reference install's
+  System64/UnrealTournament.ini and both Default.ini files set Paths= to
+  System *.u, Maps *.unr, Textures *.utx, Sounds *.uax, Music *.umx.
+  That is src/ubake/Install.cpp's SEARCH_ORDER exactly, and in both an
+  earlier entry wins a name. So for any name, Install picks the file the
+  game's own search picks first. This is not a defect in our resolver.
+
+  The collisions are real. In the reference install, 21 of 3904 package
+  names appear in more than one searched place. By place:
+  System+Textures 5 (Engine, Hunters), System+Music 5 (Cyborg, Guardian,
+  Adrenaline), Textures+Music 6 (Credits, Dusk, Organic, PAIN),
+  System+Sounds 2 (Marine), and one name in System spelled two ways
+  (BotPack.u and Botpack.u, bytewise-first wins).
+
+  Where a colliding name reaches the baker, both paths are live.
+  Bake.cpp siteOf resolves a surface texture's package by name alone,
+  so a texture in Textures/Engine.utx comes back unresolved: System/
+  Engine.u wins the name and does not hold it. Name.cpp bakeName
+  digests install.bytesOf(name), so a colliding package's bake-name
+  entry is the winning file, and a change to the losing file does not
+  rename the bake. Both do what the game's own search would do.
+
+  UT_MonsterHunt's MH-MeltTown failure depends on what was loaded
+  earlier in the same editor process. A fresh search in Paths= order
+  does not reproduce it.
+
+  Open, for whoever takes this: should ut-bake --check, or a bake, WARN
+  when an import names a colliding package, rather than silently doing
+  what the game does? That is an enhancement, not the fix this body
+  assumed.
   **Layman:** When a music file and a code file share a name, our map reader may open the wrong one, the same mix-up that breaks one map in the real game.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
