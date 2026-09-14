@@ -13,10 +13,8 @@ on others, and neither blocks it. `UTA-0142` (24 maps cross a teleporter
 that starts disabled) waits on UT_MonsterHunt's in-game re-check. `UTA-0103`
 waits on the user running
 `/mnt/Games/Scripts/Linux/ut-ants-real-uta0103/compare.sh`; an empty
-`results.diff` there is what ships it. `UTA-0139` shipped 2026-09-14. `UTA-0103`
-is parked on the user's run of the real-asset tier, which is what closes it. `UTA-0016` needs SDL3 and scope decisions from the user, and
-`UTA-0015` needs a tier from `UTA-0051` plus a look at the result. That
-is why both were passed over while the user was away. Read the open
+`results.diff` there is what ships it. `UTA-0139` shipped 2026-09-14.
+`UTA-0015` needs a tier from `UTA-0051` plus a look at the result. Read the open
 `0.1.0` bodies before picking — `UTA-0082` records items deferred out of
 that release's cut. `UTA-0136` shipped 2026-09-13, and UT_MonsterHunt's
 calibration of it is on `UTA-0085`. `UTA-0013` and `UTA-0059` shipped
