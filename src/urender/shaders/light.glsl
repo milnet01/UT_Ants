@@ -69,9 +69,12 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
     vec3 colour = lightColour(light.hue, light.saturation) * (float(light.brightness) / 255.0);
 
     // UTA-0156: UE1's two effects that change the falloff's shape; neither has
-    // an incidence term. A cylinder is bounded horizontally only.
-    if (light.effect == LE_CYLINDER)
+    // an incidence term. A cylinder still reaches only inside its sphere, as
+    // the map's own per-surface light lists show -- and as clustering assumes.
+    if (light.effect == LE_CYLINDER) {
+        if (d >= radius) return vec3(0.0);
         return colour * max(0.0, 1.0 - dot(toLight.xy, toLight.xy) / (radius * radius));
+    }
     if (light.effect == LE_NON_INCIDENCE) return colour * max(0.0, 1.0 - d / radius);
 
     float f = lightFalloff(d, radius);

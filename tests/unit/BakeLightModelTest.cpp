@@ -116,14 +116,15 @@ TEST_CASE("intensity incidence and spot", "[ubake][lightmodel]") {
         sameRgb(lightAt(plain, {1625, 0, 0}, {1, 0, 0}), {0, 0, 0});
     }
     SECTION("cylinder falls off with horizontal distance only") {
-        // UTA-0156: UE1's LE_Cylinder is 1 - (dx^2 + dy^2) / R^2, with no
-        // incidence term and no vertical bound.
+        // UTA-0156: UE1's LE_Cylinder is 1 - (dx^2 + dy^2) / R^2 inside the
+        // light's sphere, with no incidence term. Straight above or below
+        // it is full strength up to the sphere, and nothing past it.
         Light cylinder = whiteLight(255);
         cylinder.effect = LE_CYLINDER;
         sameRgb(lightAt(cylinder, {0, 0, 1000}, {0, 0, 1}), {1, 1, 1});
         sameRgb(lightAt(cylinder, {812.5, 0, 0}, {1, 0, 0}), {0.75, 0.75, 0.75});
-        sameRgb(lightAt(cylinder, {0, 0, 5000}, {0, 0, -1}), {1, 1, 1});
-        sameRgb(lightAt(cylinder, {1625, 0, 0}, {-1, 0, 0}), {0, 0, 0});
+        sameRgb(lightAt(cylinder, {0, 0, 1625}, {0, 0, -1}), {0, 0, 0});
+        sameRgb(lightAt(cylinder, {0, 0, 5000}, {0, 0, -1}), {0, 0, 0});
     }
     SECTION("spot") {
         for (const std::uint8_t effect : {LE_SPOTLIGHT, LE_STATIC_SPOT}) {

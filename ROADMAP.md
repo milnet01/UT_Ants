@@ -8955,6 +8955,29 @@ model, no weapon and no opponent until 0.2.0.
   51 to 48. So the fit cannot choose one, and indirect stays physical.
   Still open in this item: carrying ZoneInfo ambient into the bundle, for
   maps that use it; and the square blotches in cells with no probe.
+  Correction (2026-09-14, ut-ants-35). The progress note above says
+  cylinder light "has no vertical bound", and commit 2c08d37 shipped that.
+  It was wrong, and it drew square blotches wherever a cluster's sphere
+  test dropped a light the model still lit. Settled from the map's own
+  data: a scratch reader of each lightmap's iLightActors run into
+  Model::lights (kept at ut-ants-uta0156/surflights) shows DM-Deck16]['s
+  cylinder lights attached to 1539 surfaces, 2 of them wholly outside the
+  sphere by bounding box, and left off 4419 surfaces inside the horizontal
+  radius but outside the sphere. 230 of the bundle's 231 lights appear in
+  those lists, so the join is sound. The sphere bound is restored. The
+  hard edge it draws is the original's too; its double-strength lightmaps
+  clip at white where lights overlap, which hides the edge there.
+  Exposure re-fitted (2026-09-14, ut-ants-35). 2.1 was fitted while
+  cylinder light had no vertical bound. With the sphere bound restored,
+  DM-Deck16][ at 2.1 measured a mean displayed luma of 55.9 against the
+  original's 68.2. The fit for the model as it now stands is 2.41 (block
+  RMS 50.6, mean 63.0), so EXPOSURE is 2.4 and BAKER_REVISION 11.
+  Next visible fault, seen in the pose 8 frame: the square blotches are
+  gone, but hard-edged discs show on floors at each cylinder light's
+  sphere. The original has the same edge in its lightmaps, hidden where
+  lights overlap and its double-strength lightmap clips at white; our tone
+  map does not clip, so the edge shows. Candidate: a short smooth window
+  inside R, chosen by the same block-RMS fit rather than by eye.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.

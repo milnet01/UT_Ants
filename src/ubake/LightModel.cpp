@@ -128,11 +128,14 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     const auto scaled = [&colour](double s) { return Rgb{colour.r * s, colour.g * s, colour.b * s}; };
 
     // UTA-0156: UE1's two effects that change the falloff's shape; neither has
-    // an incidence term. A cylinder is bounded horizontally only: cut at the
-    // sphere, it drew hard-edged discs on floors below the light, which the
-    // original's frames do not show.
-    if (light.effect == LE_CYLINDER)
+    // an incidence term. A cylinder still reaches only inside its sphere:
+    // DM-Deck16]['s own per-surface light lists attach its cylinder lights to
+    // 1539 surfaces, 2 of them outside the sphere, and leave them off 4419
+    // surfaces inside the horizontal radius but outside the sphere.
+    if (light.effect == LE_CYLINDER) {
+        if (d >= radius) return {};
         return scaled(intensity * std::max(0.0, 1 - (toLight.x * toLight.x + toLight.y * toLight.y) / (radius * radius)));
+    }
     if (light.effect == LE_NON_INCIDENCE) return scaled(intensity * std::max(0.0, 1 - d / radius));
 
     const double f = falloff(d, radius);

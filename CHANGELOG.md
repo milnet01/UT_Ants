@@ -292,9 +292,9 @@ appears once something has actually shipped.)
 
 - **Maps draw far closer to the original game's brightness: lights reach as far as UT99's did, and the frame is exposed to match** (UTA-0156)
   Lights now use UE1's own falloff, full strength out to half their radius,
-  and its cylinder and non-incidence shapes. Exposure is 2.1, measured
+  and its cylinder and non-incidence shapes. Exposure is 2.4, measured
   against the original game's frames from the same cameras on
-  DM-Deck16][. Baker revision 10, so maps must be baked again.
+  DM-Deck16][. Baker revision 11, so maps must be baked again.
 
 - **ut-bake needs much less memory to write a large map's bundle.** (UTA-0143)
   Writing a bundle no longer holds the whole file in a growing buffer

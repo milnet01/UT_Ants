@@ -40,7 +40,8 @@ namespace {
 // the digest is the one revision 7 recorded.
 // 10: UTA-0156 gave lights UE1's falloff and effect shapes. The digest did not
 // move, so the fixture does not reach that change -- the SS 10 case above.
-constexpr std::uint32_t RECORDED_UNDER = 10;
+// 11: UTA-0156 bounded cylinder light by its sphere again. Same digest, same reason.
+constexpr std::uint32_t RECORDED_UNDER = 11;
 constexpr std::string_view GOLDEN =
     "9bfb69e649be50f87e4b4cd10457e7e27e84e3ce42547e016c859076a1346446";
 

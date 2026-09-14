@@ -197,11 +197,14 @@ struct Rgb {
   the light; `0` at `R` and beyond. This is UE1's own shape, as SurrealEngine's
   `Light/LightEffect.cpp` carries it. It replaced `(1 − (d / R)²)²` on
   2026-09-14 (UTA-0156), which measured far darker than the original game.
-- **Two effects reshape it**, both with no incidence or spot factor (UTA-0156,
-  from the same source). `LE_Cylinder` (17) is `max(0, 1 − (dx² + dy²) / R²)`,
-  the horizontal distance alone, with no vertical bound: cut at `R`, it drew
-  hard-edged discs on floors below the light that the original's frames do
-  not show. `LE_NonIncidence` (13) is `max(0, 1 − d / R)`.
+- **Two effects reshape it**, both only inside `R` and both with no incidence
+  or spot factor (UTA-0156, from the same source). `LE_Cylinder` (17) is
+  `max(0, 1 − (dx² + dy²) / R²)`, the horizontal distance alone.
+  `LE_NonIncidence` (13) is `max(0, 1 − d / R)`. **The bound at `R` is the
+  map's own**: DM-Deck16]['s per-surface light lists (each lightmap's
+  `iLightActors` run into `Model::lights`) attach its cylinder lights to 1539
+  surfaces, 2 of them wholly outside the sphere by bounding box, and leave
+  them off 4419 surfaces inside the horizontal radius but outside the sphere.
 - **Incidence.** `max(0, n · l)`, with `l` the unit vector from `x` to the
   light.
 - **Spot**, when `effect` is `LE_Spotlight` (12) or `LE_StaticSpot` (8). With
