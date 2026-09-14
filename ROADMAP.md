@@ -49,7 +49,7 @@ model, no weapon and no opponent until 0.2.0.
   implementation. Assertions proved able to fail: a six-to-seven bit
   shift reddened three tests with 64 encoding as {0}. Two of the
   hand-computed vectors were wrong and the run caught both.
-  **Layman:** The scaffolding: how the project compiles, how tests run, and fake UT files the tests can use so nobody needs the real game to check our work.
+  **Layman:** The scaffolding: how the project compiles, how tests run, and fake UT files the tests can use so nobody needs the real game to check our work
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: core.
@@ -75,7 +75,7 @@ model, no weapon and no opponent until 0.2.0.
   find: the project's Clang floor was wrong (18 cannot compile
   std::expected), .gitignore was silently swallowing src/core, and the
   Windows Clang leg lacked the ThreadSanitizer runtime.
-  **Layman:** The shared foundations every other part uses -- how errors are reported, how things get logged, and how work is spread across processor cores.
+  **Layman:** The shared foundations every other part uses -- how errors are reported, how things get logged, and how work is spread across processor cores
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: core.
@@ -131,7 +131,7 @@ model, no weapon and no opponent until 0.2.0.
   INV-1's out-of-span clause is still checked by nothing -- the only
   sanitizer leg is ThreadSanitizer. That question stays open for the user
   and blocks nothing.
-  **Layman:** Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format.
+  **Layman:** Open a UT file and work out what is inside it -- the index of names and objects. Nothing is drawn yet; this is learning to read the format
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: upkg.
@@ -180,7 +180,7 @@ model, no weapon and no opponent until 0.2.0.
   to UTA-0057 -- their layouts could not be derived, and the user chose to
   make that work visible rather than leave it inside a nearly-finished
   item.
-  **Layman:** Pull the actual level out of the file -- its walls, its textures, and the list of everything the designer placed in it.
+  **Layman:** Pull the actual level out of the file -- its walls, its textures, and the list of everything the designer placed in it
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: upkg.
@@ -262,7 +262,7 @@ model, no weapon and no opponent until 0.2.0.
   Flipped on the matrix, not a local leg: the run for ae58cf8 is
   completed success on all three legs -- Linux GCC 14, Linux Clang 19
   and Windows MSVC.
-  **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later.
+  **Layman:** Work out what a custom monster IS -- what it descends from and what its numbers are -- without running any of its code. This is what makes the Monster Hunt maps work later
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: upkg.
@@ -423,7 +423,7 @@ model, no weapon and no opponent until 0.2.0.
   Left open, as the spec's section 14 already records: nothing checks a reach
   spec's collision radius and height, and whether the reverse wiring query
   earns its storage is undecided.
-  **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one.
+  **Layman:** Two invisible maps the level already contains: where a player can walk, and which switch opens which door. UT99's own bots never used the second one
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: unav.
@@ -524,7 +524,7 @@ model, no weapon and no opponent until 0.2.0.
   Deferred tail: Model::boundsValid is settled here. The other four --
   Model::leafHulls, the leaf-census discrepancy, SS 4.2's wiki citation,
   and INV-3's off-by-one prose -- are untouched and stay filed.
-  **Layman:** Chop the level into rooms so the in-game map has something to draw, using the room divisions the original level already has.
+  **Layman:** Chop the level into rooms so the in-game map has something to draw, using the room divisions the original level already has
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: umap.
@@ -586,7 +586,7 @@ model, no weapon and no opponent until 0.2.0.
 
   UTA-0011 (ubake) is now unblocked, as are UTA-0013's origin check and
   UTA-0016's bundle load.
-  **Layman:** Our own file format for a finished level -- and the field that records where its content came from, which is what keeps Epic's material off the network.
+  **Layman:** Our own file format for a finished level -- and the field that records where its content came from, which is what keeps Epic's material off the network
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ubundle.
@@ -753,7 +753,7 @@ model, no weapon and no opponent until 0.2.0.
   review loops; every hand mutation of the new guards killed; INV-12
   seen to refuse configure; INV-13's census holds the ranking on the
   reference install (local-only tier, not on the matrix by design).
-  **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image.
+  **Layman:** Turn a flat 1999 texture into a modern one with depth and shine, worked out automatically from the original image
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: umat.
@@ -826,7 +826,7 @@ model, no weapon and no opponent until 0.2.0.
   in b90ee8f so entries adjust generation's settings rather than replace
   it, gets no separate review-contract gate. It records what was built,
   and UTA-0010's own gated spec directed the change. Do not reopen.
-  **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones.
+  **Layman:** Hand-made materials for the surfaces you look at most, used in preference to the automatic ones
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: umat.
@@ -872,7 +872,7 @@ model, no weapon and no opponent until 0.2.0.
   was stopped twice by the session's low-memory guard, with the machine
   short on memory from other processes, and has not completed. It runs
   with -DUTA_REAL_ASSET_TESTS=ON.
-  **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament.
+  **Layman:** The tool that turns an old UT level into one of ours -- and the same tool the game runs to check you actually own Unreal Tournament
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ubake.
@@ -1008,7 +1008,7 @@ model, no weapon and no opponent until 0.2.0.
   the marker is there to prevent. Nothing about the work is lost: the
   body still records what the --json / TSV mode owes and that the
   per-actor request of 2026-09-10 was withdrawn.
-  **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
+  **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: upkg.
@@ -1062,7 +1062,7 @@ model, no weapon and no opponent until 0.2.0.
   tracked bundles through ut-origin, and the guard test passing, the
   Windows leg under Git Bash included. UTA-0042's release path still needs
   its own check.
-  **Layman:** An automatic check that stops anything of Epic's being committed to the public repository. One careless commit is permanent in a public history.
+  **Layman:** An automatic check that stops anything of Epic's being committed to the public repository. One careless commit is permanent in a public history
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ci.
@@ -1246,7 +1246,7 @@ model, no weapon and no opponent until 0.2.0.
   Shipped (2026-09-12): green on the whole matrix at eb42ba4, CI run
   34719128475, Windows (MSVC), Linux Clang 19 and Linux GCC 14. The
   resume note above is satisfied.
-  **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows.
+  **Layman:** Get a picture on the screen: start the graphics card up and draw a baked level with its lights casting real shadows
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: urender.
@@ -1262,7 +1262,7 @@ model, no weapon and no opponent until 0.2.0.
   things on this roadmap; cheap analytic height fog carries most of the
   atmosphere at a fraction of the cost, so the two probably sit at
   different tiers rather than one being cut.
-  **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
+  **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: urender.
@@ -1297,7 +1297,7 @@ model, no weapon and no opponent until 0.2.0.
   says so). urender's presenting path (src/urender/Swapchain.h) takes the
   caller's surface and is graded by no CI leg, so this item is where it
   first runs for real.
-  **Layman:** The first thing you can actually run -- open one of your maps and move through it. No guns, no bots, no rules yet.
+  **Layman:** The first thing you can actually run -- open one of your maps and move through it. No guns, no bots, no rules yet
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
@@ -1318,7 +1318,7 @@ model, no weapon and no opponent until 0.2.0.
   map's large wall area, so it also wants a distance cutoff -- the step
   count question this item already names, answered against the tier rather
   than in isolation.
-  **Layman:** Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
+  **Layman:** Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it
   Kind: implement.
   Source: user-request-2026-09-03.
   Lanes: urender, umat.
@@ -1374,7 +1374,7 @@ model, no weapon and no opponent until 0.2.0.
   only the checkout was wrong. This is the first evidence the Windows
   leg works at all -- until this run it was written, lint-clean and
   unexecuted.
-  **Layman:** One script that checks the project. GitHub runs it on every push, and the same script runs on your machine before a push -- so a green run here means a green run there.
+  **Layman:** One script that checks the project. GitHub runs it on every push, and the same script runs on your machine before a push -- so a green run here means a green run there
   Kind: chore.
   Source: user-request-2026-09-03.
   Lanes: ci.
@@ -1436,7 +1436,7 @@ model, no weapon and no opponent until 0.2.0.
   Flipped on the matrix, not a local leg: run for 499553e is completed
   success, and the pre-push gate ran ci.sh --docs naming the commit it
   gated.
-  **Layman:** Decide how the project gets the outside libraries it needs, in a way that works the same on Linux and Windows -- so a newcomer can clone it and build without a shopping list.
+  **Layman:** Decide how the project gets the outside libraries it needs, in a way that works the same on Linux and Windows -- so a newcomer can clone it and build without a shopping list
   Kind: investigate.
   Source: design-gate-2026-09-04.
   Lanes: core, ci.
@@ -1478,7 +1478,7 @@ model, no weapon and no opponent until 0.2.0.
   file. This item is additionally blocked by a design edit that has not
   been made -- design.md does not list subsurface scattering among
   urender's responsibilities.
-  **Layman:** Skin, wax, marble and leaves stop looking like painted plastic -- light passes a little way through them instead of stopping dead at the surface.
+  **Layman:** Skin, wax, marble and leaves stop looking like painted plastic -- light passes a little way through them instead of stopping dead at the surface
   Kind: feature.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
@@ -1520,7 +1520,7 @@ model, no weapon and no opponent until 0.2.0.
   ROADMAP.md; a re-section op is requested in the Ants MCP feedback
   file. Blocked behind UTA-0014 regardless, so it is not selectable
   before the renderer exists.
-  **Layman:** Wet floors, polished metal and glass pick up the room around them -- sharply where the surface is smooth, blurred where it is rough -- instead of being flatly lit.
+  **Layman:** Wet floors, polished metal and glass pick up the room around them -- sharply where the surface is smooth, blurred where it is rough -- instead of being flatly lit
   Kind: feature.
   Source: user-request-2026-09-04.
   Lanes: urender.
@@ -1566,7 +1566,7 @@ model, no weapon and no opponent until 0.2.0.
   not needed. INV-15 in docs/specs/UTA-0002-core-foundations.md, with an
   order-distinguishing case (COM1/../safe.unr, which canonicalisation
   erases). Green on GCC 14, Clang 19 and MSVC, run e4fedc0.
-  **Layman:** Close the Windows-only ways a downloaded file could be named so it lands somewhere it should not, or opens a device instead of a file.
+  **Layman:** Close the Windows-only ways a downloaded file could be named so it lands somewhere it should not, or opens a device instead of a file
   Kind: security.
   Source: review-code-2026-09-04 filesystem lane.
   Lanes: core.
@@ -1600,7 +1600,7 @@ model, no weapon and no opponent until 0.2.0.
   spinning on done() from another thread, with the ThreadSanitizer leg
   as the real check -- section 10 marks INV-16 partial for exactly that.
   INV-16. Green on all three legs, run e4fedc0.
-  **Layman:** If a piece of background work fails, the code that asked for it should be able to find out, rather than being told everything went fine.
+  **Layman:** If a piece of background work fails, the code that asked for it should be able to find out, rather than being told everything went fine
   Kind: enhancement.
   Source: review-code-2026-09-04 job-system lane.
   Lanes: core.
@@ -1635,7 +1635,7 @@ model, no weapon and no opponent until 0.2.0.
   drift the same lane found is folded in too: errorCodeName, clearSinks
   and Logger::write's noexcept now appear in the class sketches. INV-17.
   Green on all three legs, run e4fedc0.
-  **Layman:** If the game cannot open its log file it should say so at startup, instead of running with logging silently switched off.
+  **Layman:** If the game cannot open its log file it should say so at startup, instead of running with logging silently switched off
   Kind: fix.
   Source: review-code-2026-09-04 logger lane.
   Lanes: core.
@@ -1688,7 +1688,7 @@ model, no weapon and no opponent until 0.2.0.
   Recorded because it is a live example of the trap that rule describes,
   and because the question of whether to correct it was raised with the
   user and not ruled on.
-  **Layman:** Check that the same sum gives the exact same answer on all three compilers, so a map baked on Linux and on Windows produces one identical file rather than two that disagree.
+  **Layman:** Check that the same sum gives the exact same answer on all three compilers, so a map baked on Linux and on Windows produces one identical file rather than two that disagree
   Kind: test.
   Source: user-decision-2026-09-04.
   Lanes: core, ci.
@@ -1746,7 +1746,7 @@ model, no weapon and no opponent until 0.2.0.
   tools-absent path; the ccache and mold paths are verified on this
   machine only. The Debug-for-iteration finding needs no code and is not
   implemented -- it is a choice at configure time.
-  **Layman:** Cut the waiting time when rebuilding, especially after wiping the build folder, without needing a bigger machine.
+  **Layman:** Cut the waiting time when rebuilding, especially after wiping the build folder, without needing a bigger machine
   Kind: perf.
   Source: user-request-2026-09-04.
 
@@ -1794,7 +1794,7 @@ model, no weapon and no opponent until 0.2.0.
 
   Nothing here changes. Recorded so a session building the tiers knows the
   budget number already exists and does not invent a second one.
-  **Layman:** One quality setting that actually works: the game picks a sensible level for your machine, leaves the expensive effects off on weak hardware, and quietly lowers resolution rather than stuttering.
+  **Layman:** One quality setting that actually works: the game picks a sensible level for your machine, leaves the expensive effects off on weak hardware, and quietly lowers resolution rather than stuttering
   Kind: implement.
   Source: user-request-2026-09-04.
   Lanes: urender.
@@ -2087,7 +2087,7 @@ model, no weapon and no opponent until 0.2.0.
 
   Local leg: 226/226, ThreadSanitizer clean, full `./scripts/ci.sh` green
   through the pre-push gate.
-  **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit.
+  **Layman:** Stop the improved textures from filling up the graphics card: squash them properly, and do not blow up a blurry old texture for no benefit
   Kind: implement.
   Source: user-request-2026-09-04.
   Lanes: umat, ubundle.
@@ -2119,7 +2119,7 @@ model, no weapon and no opponent until 0.2.0.
   ROADMAP.md; a re-section op is requested in the Ants MCP feedback
   file. Blocked behind UTA-0014 regardless, so it is not selectable
   before the renderer exists.
-  **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
+  **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp
   Kind: implement.
   Source: user-request-2026-09-04.
   Lanes: urender.
@@ -2151,7 +2151,7 @@ model, no weapon and no opponent until 0.2.0.
   ROADMAP.md; a re-section op is requested in the Ants MCP feedback
   file. Blocked behind UTA-0014 regardless, so it is not selectable
   before the renderer exists.
-  **Layman:** Walls look detailed close up, fences stop shimmering, objects stop looking like they float, and windows gain depth.
+  **Layman:** Walls look detailed close up, fences stop shimmering, objects stop looking like they float, and windows gain depth
   Kind: implement.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
@@ -2177,7 +2177,7 @@ model, no weapon and no opponent until 0.2.0.
   ROADMAP.md; a re-section op is requested in the Ants MCP feedback
   file. Blocked behind UTA-0014 regardless, so it is not selectable
   before the renderer exists.
-  **Layman:** Make the flags and the water move instead of standing still.
+  **Layman:** Make the flags and the water move instead of standing still
   Kind: implement.
   Source: user-request-2026-09-04.
   Lanes: urender, umat.
@@ -2406,7 +2406,7 @@ model, no weapon and no opponent until 0.2.0.
   layout, and SS 4.6a owns the reasoning.
 
   UTA-0006 is unblocked by this.
-  **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us.
+  **Layman:** Work out the rest of the level record by experiment, because it holds the bot path graph -- which spot connects to which -- and nothing else can tell us
   Kind: implement.
   Source: user-decision-2026-09-05.
   Lanes: upkg.
@@ -2480,7 +2480,7 @@ model, no weapon and no opponent until 0.2.0.
   answered in practice rather than by rule: discovery.md dates its figures
   and ships the command to re-derive them, so the live answer has one home
   and no bare number in it can go stale silently.
-  **Layman:** Three decision documents say the server has 610 maps and the discovery notes say 515. Somebody has to say which is right, because a promise about "all of them" is measured against that number.
+  **Layman:** Three decision documents say the server has 610 maps and the discovery notes say 515. Somebody has to say which is right, because a promise about "all of them" is measured against that number
   Kind: doc-fix.
   Source: design-gate-2026-09-04.
   Lanes: docs.
@@ -2541,7 +2541,7 @@ model, no weapon and no opponent until 0.2.0.
   Resolved (2026-09-13): green on the matrix at 9b387ca, CI run
   34755351034. ADR-0008 supersedes ADR-0007; the procedure is
   docs/standards/dependency-acquisition.md.
-  **Layman:** The dependency-acquisition decision document grew three times the size of every other decision in the project, because it also carries the step-by-step procedure. Separate the two when the renderer lands and the procedure has real code to attach to.
+  **Layman:** The dependency-acquisition decision document grew three times the size of every other decision in the project, because it also carries the step-by-step procedure. Separate the two when the renderer lands and the procedure has real code to attach to
   Kind: doc.
   Source: review-contract-2026-09-06 ADR-0007 cap.
   Lanes: docs.
@@ -2644,7 +2644,7 @@ model, no weapon and no opponent until 0.2.0.
   advance. That is a reason to keep the driving surface and the check
   surface separate -- a new way to drive should not need a new way to
   report, and a new check should not care how the state was reached.
-  **Layman:** A way to send a robot player through a level on its own, take pictures along the way, and write down what it found -- so a map can be checked without somebody playing it, and so the answer is something a machine can read rather than a person's impression.
+  **Layman:** A way to send a robot player through a level on its own, take pictures along the way, and write down what it found -- so a map can be checked without somebody playing it, and so the answer is something a machine can read rather than a person's impression
   Kind: test.
   Source: user-request-2026-09-06.
   Lanes: ugame, ci, uinput.
@@ -2749,7 +2749,7 @@ model, no weapon and no opponent until 0.2.0.
   bites, rather than left in this bullet -- an obligation recorded only
   in a 0.1.0 item shipped long before the deadline is one nobody is
   reading on the day.
-  **Layman:** The drop-down command box UT99 has on the tilde key. Type a command and something happens -- jump to a spot, show a debug view, take a screenshot, end the match. It is how a test reaches a situation directly instead of playing until it happens.
+  **Layman:** The drop-down command box UT99 has on the tilde key. Type a command and something happens -- jump to a spot, show a debug view, take a screenshot, end the match. It is how a test reaches a situation directly instead of playing until it happens
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uui, ugame, unet.
@@ -3372,7 +3372,7 @@ model, no weapon and no opponent until 0.2.0.
 
   Same caveat applies to UTA-0057, whose readLevel tail the run exercised
   equally.
-  **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes.
+  **Layman:** Work out the file layout of a level's shape, so the baker can read which surfaces are really solid instead of guessing from the brushes
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
   Lanes: upkg.
@@ -3452,7 +3452,7 @@ model, no weapon and no opponent until 0.2.0.
   in CI run 34768603446: Linux GCC 14, Linux Clang 19 and Windows MSVC.
   Both local gate runs passed. UT_MonsterHunt's ut-map-deps can move to
   upkg::importedPackages; its outer-null rule is now the call's contract.
-  **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load.
+  **Layman:** Ask a map file which other files it needs, in one call. It is the fastest way to find out why a downloaded map will not load
   Kind: implement.
   Source: consumer-request-2026-09-06 games-drive.
   Lanes: upkg.
@@ -3542,7 +3542,7 @@ model, no weapon and no opponent until 0.2.0.
   Nothing in .github/workflows/ci.yml changed, so the compliance gap this
   item names is closed by the record rather than by a bump. Green on the
   local documentation gate.
-  **Layman:** Move the machines GitHub builds on to the current versions, so we get their security fixes instead of staying on older ones by accident.
+  **Layman:** Move the machines GitHub builds on to the current versions, so we get their security fixes instead of staying on older ones by accident
   Kind: chore.
   Source: user-request-2026-09-07 standing-dependency-rule.
   Lanes: ci.
@@ -3603,7 +3603,7 @@ model, no weapon and no opponent until 0.2.0.
 
   No gate: every edit corrects a citation or records what UTA-0069 built.
   No CHANGELOG entry: internal document hygiene, not a notable change.
-  **Layman:** A design document points at a test file by the wrong name, so nobody can check the promises it makes.
+  **Layman:** A design document points at a test file by the wrong name, so nobody can check the promises it makes
   Kind: doc-fix.
   Source: in-session-2026-09-08.
 
@@ -3644,7 +3644,7 @@ model, no weapon and no opponent until 0.2.0.
   is cheap now and expensive to retrofit; that argument is worth
   revisiting when UTA-0014 lands, and it is an argument about ordering
   rather than about the release condition.
-  **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit.
+  **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit
   Kind: implement.
   Source: user-request-2026-09-08.
   Lanes: urender.
@@ -3693,7 +3693,7 @@ model, no weapon and no opponent until 0.2.0.
   sections and the store reverts a hand edit to ROADMAP.md; a re-section
   op is requested in the Ants MCP feedback file. Blocked behind UTA-0075
   for its inputs.
-  **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
+  **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup
   Kind: implement.
   Source: user-request-2026-09-08.
   Lanes: urender.
@@ -3886,7 +3886,7 @@ model, no weapon and no opponent until 0.2.0.
 
   Green on the matrix -- GCC 14, Clang 19 and MSVC all succeeded on
   c75c4a3, the commit carrying the workflow change.
-  **Layman:** Our readers have only ever been checked against real game files on Linux. Half the players are on Windows. Check them there too.
+  **Layman:** Our readers have only ever been checked against real game files on Linux. Half the players are on Windows. Check them there too
   Kind: test.
   Source: in-session-2026-09-08.
   Lanes: ci.
@@ -3920,7 +3920,7 @@ model, no weapon and no opponent until 0.2.0.
   two specs. Corroborated independently by session ut-monsterhunt-08, which
   searched its own ut-dump corpus tooling and found the only hit to be an
   unrelated wiring-graph array.
-  **Layman:** The code that reads a level's shape had two fields swapped, so anything asking "which room is this point in?" got the wrong answer almost every time. Found and fixed.
+  **Layman:** The code that reads a level's shape had two fields swapped, so anything asking "which room is this point in?" got the wrong answer almost every time. Found and fixed
   Kind: fix.
   Source: in-session-2026-09-08.
   Lanes: upkg.
@@ -3986,7 +3986,7 @@ model, no weapon and no opponent until 0.2.0.
 
   Output at /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077. Not chased
   further here; UTA-0077 was running the tier, not this.
-  **Layman:** Our check that the room lookup agrees with the level file is right 99.7% of the time. The last 0.3% is unexplained, so the check is set just below it rather than claiming perfection.
+  **Layman:** Our check that the room lookup agrees with the level file is right 99.7% of the time. The last 0.3% is unexplained, so the check is set just below it rather than claiming perfection
   Kind: investigate.
   Source: in-session-2026-09-08.
   Lanes: umap.
@@ -4064,7 +4064,7 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0074's shape is the cheap way to make that judgement visible -- a
   line in the body saying an entry was declined and why. Nothing requires
   it today.
-  **Layman:** Four finished pieces of work were never written up in the list of what changed, so anyone reading that list would think they had not happened.
+  **Layman:** Four finished pieces of work were never written up in the list of what changed, so anyone reading that list would think they had not happened
   Kind: doc.
   Source: in-session-2026-09-08.
   Lanes: docs.
@@ -4092,7 +4092,7 @@ model, no weapon and no opponent until 0.2.0.
   So this item is the note, standing in for the intro line until either
   op exists. Do it by writing that line and deleting this, not by
   re-filing seven items.
-  **Layman:** The list of work for the first release counts seven things that were already decided not to be in it, so the release looks further away than it is.
+  **Layman:** The list of work for the first release counts seven things that were already decided not to be in it, so the release looks further away than it is
   Kind: doc.
   Source: in-session-2026-09-08.
   Lanes: docs.
@@ -4136,7 +4136,7 @@ model, no weapon and no opponent until 0.2.0.
   Not for CI as it stands: the ubundle run is 57 rebuilds. Per-subsystem,
   on demand, before flipping an item to shipped, is the cadence it was
   used at and is affordable.
-  **Layman:** We have a tool that deliberately breaks one rule at a time and checks a test notices. It works, but the list of things to break is written out by hand for one subsystem, so nobody will keep it up.
+  **Layman:** We have a tool that deliberately breaks one rule at a time and checks a test notices. It works, but the list of things to break is written out by hand for one subsystem, so nobody will keep it up
   Kind: test.
   Source: in-session-2026-09-08.
   Lanes: tests.
@@ -4232,7 +4232,7 @@ model, no weapon and no opponent until 0.2.0.
   harness injects the live `CLAUDE.md` into every session, subagents
   included, and all three lanes disclosed it. The scrubbed copy still
   withholds the review history; it cannot withhold the document.
-  **Layman:** Two sessions may work this project at once. Nothing reliably tells a third one that the two slots are taken, so the limit rests on each session checking honestly rather than on anything that can detect a breach.
+  **Layman:** Two sessions may work this project at once. Nothing reliably tells a third one that the two slots are taken, so the limit rests on each session checking honestly rather than on anything that can detect a breach
   Kind: investigate.
   Source: review-contract-2026-09-08 workflow-overrides loop 3.
   Lanes: docs.
@@ -4346,7 +4346,7 @@ model, no weapon and no opponent until 0.2.0.
   UT_MonsterHunt work/calib-2026-09-13/navcalib_touch.tsv. Check them
   against UTA-0130 (shot exits) and UTA-0135 (the vertical window) when
   either item is picked up.
-  **Layman:** Work out what each bot path actually allows -- walk, jump, swim, or a door that must be opened first. We already read the number; nothing yet knows what it means.
+  **Layman:** Work out what each bot path actually allows -- walk, jump, swim, or a door that must be opened first. We already read the number; nothing yet knows what it means
   Kind: implement.
   Source: user-request-2026-09-09.
   Lanes: unav, upkg.
@@ -4465,7 +4465,7 @@ model, no weapon and no opponent until 0.2.0.
   look. An arrangement that lives only in two sessions' contexts dies with
   whichever ends first. Put it in both projects' roadmaps and address the
   project.
-  **Layman:** Print a map's bot paths from the command line, so they can be checked across the whole map library without loading the game.
+  **Layman:** Print a map's bot paths from the command line, so they can be checked across the whole map library without loading the game
   Kind: implement.
   Source: consumer-request-2026-09-09.
   Lanes: upkg.
@@ -4610,7 +4610,7 @@ model, no weapon and no opponent until 0.2.0.
 
   Green on the local documentation gate. Docs-only change, so the matrix
   runs the full gate on push.
-  **Layman:** The roadmap said the map library holds 740 maps. It holds 1433 in the live folder, with another 600 set aside in folders beside it, and several figures worked out from the old number were wrong.
+  **Layman:** The roadmap said the map library holds 740 maps. It holds 1433 in the live folder, with another 600 set aside in folders beside it, and several figures worked out from the old number were wrong
   Kind: doc-fix.
   Source: in-session-2026-09-09.
   Lanes: docs.
@@ -4682,7 +4682,7 @@ model, no weapon and no opponent until 0.2.0.
 
   No CHANGELOG entry: an internal decision record, invisible to a player or
   a server operator.
-  **Layman:** A rule for deciding how we obtain outside code asks the wrong question, so it gives the wrong answer for a library that ships a demo program.
+  **Layman:** A rule for deciding how we obtain outside code asks the wrong question, so it gives the wrong answer for a library that ships a demo program
   Kind: doc-fix.
   Source: review-contract-2026-09-09.
 
@@ -4733,7 +4733,7 @@ model, no weapon and no opponent until 0.2.0.
   a small ripple offset; depth-based tint so deep water reads darker;
   a soft fade where water meets geometry. The user cannot judge looks
   by eye, so the choice rests on sources and numbers.
-  **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
+  **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: urender, umat.
@@ -4769,7 +4769,7 @@ model, no weapon and no opponent until 0.2.0.
   Linked (2026-09-10): UT_MonsterHunt GAME-0078 carries the six water
   numbers asked for and will measure them in the running game, reporting
   which its probe pattern cannot reach reliably rather than guessing.
-  **Layman:** Jumping into water should mean swimming, slower movement and a way to climb back out, the way the original game does it.
+  **Layman:** Jumping into water should mean swimming, slower movement and a way to climb back out, the way the original game does it
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uworld.
@@ -4793,7 +4793,7 @@ model, no weapon and no opponent until 0.2.0.
   verbatim and no byte of the format changed -- UTA-0008's and UTA-0052's
   golden arrays pass unchanged. The ubundle mutation probe, pointed at the
   new files, kills 55 of 57, and its two survivors are the declared ones.
-  **Layman:** Break the bundle file-format code into one file per part of the format, so two people or sessions working on different parts do not trip over each other.
+  **Layman:** Break the bundle file-format code into one file per part of the format, so two people or sessions working on different parts do not trip over each other
   Kind: refactor.
   Source: user-request-2026-09-10.
   Lanes: ubundle.
@@ -4824,7 +4824,7 @@ model, no weapon and no opponent until 0.2.0.
   green on Linux GCC 14, Linux Clang 19 and Windows MSVC. A warm library
   run went from about 28 s to 11.4 s, and the JSON is byte-identical over
   all 2,023 packages.
-  **Layman:** Make the map-inspection tool read files in one go instead of letter by letter, so a whole-library check takes about a third less time.
+  **Layman:** Make the map-inspection tool read files in one go instead of letter by letter, so a whole-library check takes about a third less time
   Kind: perf.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
@@ -4853,7 +4853,7 @@ model, no weapon and no opponent until 0.2.0.
   the real-asset tier is local-only by design (S7), so no CI leg compiles
   tests/real/RealInstallTest.cpp at all. The only evidence is this
   machine's GCC leg. Running the tier on Windows is UTA-0077's.
-  **Layman:** Speed up the slow test tier that checks real game files by reading each file in one go.
+  **Layman:** Speed up the slow test tier that checks real game files by reading each file in one go
   Kind: chore.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: tests.
@@ -4881,7 +4881,7 @@ model, no weapon and no opponent until 0.2.0.
   checksum identical. Mutation found the table's count check ungraded; two
   refusal cases were added in d3360e8, and deleting the check now reddens
   both.
-  **Layman:** Read one big block of lighting data from a map in a single step instead of byte by byte.
+  **Layman:** Read one big block of lighting data from a map in a single step instead of byte by byte
   Kind: optimize.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
@@ -4916,7 +4916,7 @@ model, no weapon and no opponent until 0.2.0.
   work. The cache is small -- about 38 MB for GCC and 22 MB for Clang against
   the 1 GB ceiling -- so that ceiling is generous rather than binding. MSVC
   has no cache by design, and its difference is runner variation.
-  **Layman:** Let the online build reuse work from its last run, so each push goes green sooner.
+  **Layman:** Let the online build reuse work from its last run, so each push goes green sooner
   Kind: chore.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: ci.
@@ -4948,7 +4948,7 @@ model, no weapon and no opponent until 0.2.0.
   of its first consumers. "Decide WHICH box to sample first" is a question
   a profile over a real map answers directly, and the 2.72 s on AS-Frigate
   recorded here came from the hand pass UTA-0129 exists to replace.
-  **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
+  **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: umap.
@@ -5004,7 +5004,7 @@ model, no weapon and no opponent until 0.2.0.
   CI run 34468884284 is green on GCC 14, Clang 19 and MSVC, but as with
   UTA-0095 the real-asset tier is local-only by design (S7), so no CI leg
   compiles this file; the local run is the only evidence.
-  **Layman:** One of the real-map tests has been passing without actually checking anything; make it check something, or say plainly what it cannot check.
+  **Layman:** One of the real-map tests has been passing without actually checking anything; make it check something, or say plainly what it cannot check
   Kind: test.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: umap, tests.
@@ -5104,7 +5104,7 @@ model, no weapon and no opponent until 0.2.0.
   their GAME-0070 creators table from levelInfo and levelSummary into a
   new dated file, and keep the old TSV as the record. The capacity total
   feeds their GAME-0076.
-  **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total.
+  **Layman:** Let the map-inspection tool report each map's name, who made it, and how many monsters it can hold in total
   Kind: feature.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.
   Lanes: upkg.
@@ -5213,7 +5213,7 @@ model, no weapon and no opponent until 0.2.0.
   normalised. Script: /mnt/Games/Scripts/Linux/ut-ants-real-uta0103/compare.sh.
   The user runs it with `!` once ut-ants-c1's frontier sweep has finished.
   An empty diff with every case run is what flips this to shipped.
-  **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
+  **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
   Lanes: tests.
@@ -5291,7 +5291,7 @@ model, no weapon and no opponent until 0.2.0.
   stores each surface's raw PolyFlags now. This item adds the project's
   own surface kinds beside them later, which changes the bundle format
   once more.
-  **Layman:** Every imported map follows the same rules for how its textures, surfaces and everything else are stored and used, so two maps by different creators are never read differently or clash.
+  **Layman:** Every imported map follows the same rules for how its textures, surfaces and everything else are stored and used, so two maps by different creators are never read differently or clash
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: ubake, ubundle, urecipe.
@@ -5367,7 +5367,7 @@ model, no weapon and no opponent until 0.2.0.
   tests; thirteen hand mutations, each killed. The real-asset census in
   tests/real/RealGeometryTest.cpp compiles and has not been run: it is
   the user's to run, and its figures belong on this item when it lands.
-  **Layman:** Rebuild each level's walls, floors and ceilings as modern 3D geometry the renderer can draw.
+  **Layman:** Rebuild each level's walls, floors and ceilings as modern 3D geometry the renderer can draw
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle.
@@ -5400,7 +5400,7 @@ model, no weapon and no opponent until 0.2.0.
   review's cap; its as-built section records the choices it left open.
   The real-asset case, tests/real/RealActorsTest.cpp, compiles and has not
   been run; its figures go here when it is.
-  **Layman:** Carry each level's lamps, and where everything in it stands, into the baked map.
+  **Layman:** Carry each level's lamps, and where everything in it stands, into the baked map
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle.
@@ -5462,7 +5462,7 @@ model, no weapon and no opponent until 0.2.0.
   (CI run 34615637801). A bake writes COLL, format version 7, baker
   revision 5. The real-asset census, tests/real/RealCollisionTest.cpp,
   has still to run to its end; the command is in the note above.
-  **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls.
+  **Layman:** Record what in each level is solid, so players, bots and flying debris stop at walls
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle, uworld.
@@ -5528,7 +5528,7 @@ model, no weapon and no opponent until 0.2.0.
   section 15, which also now says that the other nine section 3 decisions
   have NOT been put to them and are still open. The quality half of the
   spacing question stays open with them.
-  **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps.
+  **Layman:** Work out ahead of time how light bounces around each level, so rooms are lit softly and not just by their lamps
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle, urender.
@@ -5543,7 +5543,7 @@ model, no weapon and no opponent until 0.2.0.
   curated library (UTA-0010 § 4.5). The recipe format is a breaking
   surface (docs/standards/versioning-overrides.md).
   Blocked-by: UTA-0011.
-  **Layman:** The small file of our own changes to somebody else's map -- materials, fog, a friendly name -- which is what players share instead of the map itself.
+  **Layman:** The small file of our own changes to somebody else's map -- materials, fog, a friendly name -- which is what players share instead of the map itself
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: urecipe, ubake.
@@ -5556,7 +5556,7 @@ model, no weapon and no opponent until 0.2.0.
   check that passes an install can still leave maps that will not bake.
   Decide which versions are supported, and whether `--check` names the
   version it found. UTA-0016 binds to `--check`'s output.
-  **Layman:** Say which versions of Unreal Tournament the game will run from, so an older install is told plainly rather than half-working.
+  **Layman:** Say which versions of Unreal Tournament the game will run from, so an older install is told plainly rather than half-working
   Kind: investigate.
   Source: user-request-2026-09-10.
   Lanes: ubake.
@@ -5593,7 +5593,7 @@ model, no weapon and no opponent until 0.2.0.
   review's cap; its as-built section records what it left open. The
   real-asset case, tests/real/RealMoversTest.cpp, compiles and has not been
   run; its census figures go here when it is.
-  **Layman:** Doors, lifts and other moving parts get their shapes baked, so they appear in the level instead of being invisible.
+  **Layman:** Doors, lifts and other moving parts get their shapes baked, so they appear in the level instead of being invisible
   Kind: implement.
   Source: user-request-2026-09-11 split-from-UTA-0110.
   Lanes: ubake, ubundle.
@@ -5692,7 +5692,7 @@ model, no weapon and no opponent until 0.2.0.
   count equals ut-paths' exits on all 297 maps it wrote, so no map
   carries a foreign MonsterEnd. Nothing enters their Maps/ until the
   user decides.
-  **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit.
+  **Layman:** A tool that works out where extra breadcrumbs belong in the old maps, so UT99's own bots can find their way to the exit
   Kind: feature.
   Source: user-request-2026-09-11.
   Lanes: unav, uworld, tools.
@@ -5718,7 +5718,7 @@ model, no weapon and no opponent until 0.2.0.
   children swapped, before the fix. The bake fixture's decoy Model, the only
   fixture setting a child through the writer, now builds the descent it
   describes, and its room count is unchanged.
-  **Layman:** A test helper puts two values in each other's place, so a test can describe one layout of a level while building another.
+  **Layman:** A test helper puts two values in each other's place, so a test can describe one layout of a level while building another
   Kind: review-fix.
   Source: review-contract-2026-09-11 UTA-0111 loop 1.
   Lanes: tests.
@@ -5737,7 +5737,7 @@ model, no weapon and no opponent until 0.2.0.
   any of the three: what separates those is not a staircase.
   Fix: sample the floor between neighbours as that probe did, amend
   § 4.5 and INV-4, and re-run UT_MonsterHunt's census maps.
-  **Layman:** The path tool reads most staircases as walls, because it checks the floor every 32 units and a staircase climbs more than one step in that distance.
+  **Layman:** The path tool reads most staircases as walls, because it checks the floor every 32 units and a staircase climbs more than one step in that distance
   Kind: enhancement.
   Source: in-session-2026-09-11.
   Lanes: tools.
@@ -5804,7 +5804,7 @@ model, no weapon and no opponent until 0.2.0.
   were written, which is what this item bought. UT_MonsterHunt
   (ut-monsterhunt-4c) has the result. What the re-run also showed belongs
   to UTA-0126 and is recorded there: none of the 14 got a proposed node.
-  **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it.
+  **Layman:** Some real maps list the same object twice in their list of placed things, and the baker rejects the whole map for it
   Kind: investigate.
   Source: in-session-2026-09-11.
   Lanes: ubake.
@@ -5841,7 +5841,7 @@ model, no weapon and no opponent until 0.2.0.
   now on a PARTITIONED map. The comparison is against a snapshot of the
   first run kept outside the repository. Sent to UT_MonsterHunt the same
   day.
-  **Layman:** The path tool treated every existing bot path as usable, including ones only flying monsters can take, so its new nodes can start from places a walking bot never reaches.
+  **Layman:** The path tool treated every existing bot path as usable, including ones only flying monsters can take, so its new nodes can start from places a walking bot never reaches
   Kind: fix.
   Source: in-session-2026-09-11.
   Lanes: tools.
@@ -6158,7 +6158,7 @@ model, no weapon and no opponent until 0.2.0.
   this item, which rule 4 would forbid were this item still held; it is
   parked, and it is the same session, so no two sessions touch that
   directory.
-  **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
+  **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
   Lanes: ut-paths.
@@ -6338,7 +6338,7 @@ model, no weapon and no opponent until 0.2.0.
   map when the final objective fires. So these maps can be finished, and
   the off-world position is intent, not an author's drag. A consumer should
   read offWorld as "not walkable to", never as "unfinishable".
-  **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs.
+  **Layman:** Some maps park their end-of-level marker outside the world. Our tool says "no route" for them, which looks like our failure rather than theirs
   Kind: enhancement.
   Source: in-session-2026-09-12.
   Lanes: ut-paths.
@@ -6755,7 +6755,7 @@ model, no weapon and no opponent until 0.2.0.
   consumers by reading the code -- MHBackLink, MHEndPlace and MHEndSurvey
   all take describeSpec's END actor and none infers the start. MHBackLink
   is the one that mattered, being deployed and writing into real maps.
-  **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be.
+  **Layman:** On maps whose end-of-level marker was dumped outside the world, work out whether anything else in the map says where the end was meant to be
   Kind: investigate.
   Source: user-request-2026-09-12.
   Lanes: ut-paths.
@@ -6836,7 +6836,7 @@ model, no weapon and no opponent until 0.2.0.
   Neither is read yet. A session taking this item reads Vestige first and
   records what it took, because an unread reference in a roadmap body is
   indistinguishable from one that was read and rejected.
-  **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
+  **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow
   Kind: implement.
   Source: user-request-2026-09-12.
   Lanes: core, ubake, urender.
@@ -6950,7 +6950,7 @@ model, no weapon and no opponent until 0.2.0.
   shooting it (this item) and a scripted MHEnd touch are three different
   win paths. The census this item asks for should record MHEnd presence
   beside TriggerType.
-  **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine.
+  **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
   Lanes: ut-paths, ubake.
@@ -7075,7 +7075,7 @@ model, no weapon and no opponent until 0.2.0.
   placed-exit maps carrying an MHEnd need no handling. Place() moves
   nothing unless every MonsterEnd on a map is parked, and none of theirs
   is.
-  **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there.
+  **Layman:** Fifty-eight maps have their end marker parked outside the level. Look in the map files for the fingerprint of whatever tool put it there
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
   Lanes: upkg.
@@ -7122,7 +7122,7 @@ model, no weapon and no opponent until 0.2.0.
   be distinguished from real ones.
 
   Blocked-by: nothing.
-  **Layman:** Our tests against real game files only pass on one particular installation. Run them against any other and they fail for reasons that are not bugs.
+  **Layman:** Our tests against real game files only pass on one particular installation. Run them against any other and they fail for reasons that are not bugs
   Kind: test.
   Source: in-session-2026-09-12.
   Lanes: ci.
@@ -7605,7 +7605,7 @@ model, no weapon and no opponent until 0.2.0.
   The earlier conclusion that the delta stood was right and was not supported
   by the run offered for it. Recording that plainly: it was luck, and the
   measurement that replaces it is the one to cite.
-  **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished.
+  **Layman:** On maps split into disconnected parts, our path-building aims at a nearby substitute target instead of the actual exit, so the map still cannot be finished
   Kind: fix.
   Source: in-session-2026-09-12 UTA-0126 diagnosis.
   Lanes: ut-paths.
@@ -7694,7 +7694,7 @@ model, no weapon and no opponent until 0.2.0.
   not measured it. Our § 4.6 grows the height by HALF_HEIGHT, and
   MH-NivenSB's correction rests on that, so it is filed separately rather
   than assumed from this radius result.
-  **Layman:** Two maps now count as solvable because their exit is enormous; we have not checked that standing at its edge really finishes the map.
+  **Layman:** Two maps now count as solvable because their exit is enormous; we have not checked that standing at its edge really finishes the map
   Kind: investigate.
   Source: in-session-2026-09-12 UTA-0133 corpus re-measurement.
   Lanes: ut-paths.
@@ -7723,7 +7723,7 @@ model, no weapon and no opponent until 0.2.0.
 
   Test: whatever their probe reports for the vertical extent of a MonsterEnd
   of height 166 -- at what Z separation contact is lost.
-  **Layman:** We know how wide an exit reaches sideways; we have not checked how far up and down.
+  **Layman:** We know how wide an exit reaches sideways; we have not checked how far up and down
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12 UTA-0134 answer.
   Lanes: ut-paths.
@@ -7773,7 +7773,7 @@ model, no weapon and no opponent until 0.2.0.
 
   UTA-0086's edge list and node list now exist in this shape. What that
   item still owes is the flag decode, UTA-0085.
-  **Layman:** Write out which bot moves each path link allows, so the sister project stops guessing.
+  **Layman:** Write out which bot moves each path link allows, so the sister project stops guessing
   Kind: implement.
   Source: ut-monsterhunt-2026-09-12 third ask.
   Lanes: ut-dump, unav.
@@ -7935,7 +7935,7 @@ model, no weapon and no opponent until 0.2.0.
   in CI run 34769676303: Linux GCC 14, Linux Clang 19 and Windows MSVC.
   The local gate passed 533 and 504 tests. UT_MonsterHunt was told
   about the two new summary keys.
-  **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets.
+  **Layman:** Two maps were quietly left out of every run because the list spelled their names without brackets
   Kind: fix.
   Source: ut-monsterhunt-2026-09-12 census export note.
   Lanes: ut-paths.
@@ -7976,7 +7976,7 @@ model, no weapon and no opponent until 0.2.0.
   validated there. The open design point is only how the count reaches the
   test: a counter on the Renderer, a Config callback, or failing at the
   next frame.
-  **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test.
+  **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test
   Kind: test.
   Source: in-session-2026-09-12.
   Lanes: urender, tests.
@@ -8086,7 +8086,28 @@ model, no weapon and no opponent until 0.2.0.
   the shipped binary passed 51 minutes at 430 maps. Today's sweep and
   wait-loop kills were the session's machine-wide memory guard, not the
   tool failing.
-  **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
+  Corpus tally (2026-09-14, ut-ants-c1). The scratch frontier probe
+  includes the shipped Seeds.cpp, and on the five ranked maps it matches
+  the shipped ut-paths word for word. It covered every per-map file in
+  /mnt/Games/Scripts/Linux/ut-paths-output holding a none route: 654 of
+  655 maps, 1056 exits.
+
+    word            exits   maps carrying it
+    mover             371   224
+    teleporter        328   241
+    exitOffGraph      195   129
+    walled            105    54
+    startOffGraph      25    15
+    (routes now)       32     7
+
+  Ten maps carry more than one word across their exits. All 30 off-world
+  exits read exitOffGraph. The one map without a word is MH-Illustriousl:
+  the probe passed 300 s there, and its -BP rebuild reads teleporter.
+  Caveat: that output directory is frozen at an older commit, so the
+  population is the maps that had no route THEN; the words are computed
+  with today's code, which is why 32 exits now route. Files:
+  /mnt/Games/Scripts/Linux/ut-paths-output-uta0139/words-final.tsv.
+  **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix
   Kind: enhancement.
   Source: in-session-2026-09-13.
   Lanes: tools.
@@ -8101,7 +8122,7 @@ model, no weapon and no opponent until 0.2.0.
   cap. A typical map in that run held about 380 MB.
   Measure first: peak memory per map, and which structure grows (the
   walk graph's columns, the reach search, or the level read).
-  **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
+  **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files
   Kind: perf.
   Source: in-session-2026-09-13.
   Lanes: tools.
@@ -8164,7 +8185,7 @@ model, no weapon and no opponent until 0.2.0.
   the game's Paths order would, and print a warning naming the clash and
   which file won. Do not refuse the map, and do not stay silent. The
   clashes are the 21 names in the note above.
-  **Layman:** When a music file and a code file share a name, our map reader may open the wrong one, the same mix-up that breaks one map in the real game.
+  **Layman:** When a music file and a code file share a name, our map reader may open the wrong one, the same mix-up that breaks one map in the real game
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
   Lanes: ubake.
@@ -8231,7 +8252,7 @@ model, no weapon and no opponent until 0.2.0.
   (their GAME-0120) decides what comes next. Act only if it finds real
   misroutes; the trigger census is the next step then, before any
   amendment.
-  **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
+  **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
   Lanes: tools.
@@ -8256,7 +8277,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (docs/specs/UTA-0111-level-collision.md) is what this item reads from
   the COLL section: solidity by IsCsg, the walk by ChildOutside, a point
   in front of a plane taking front, hulls, and a mover's placement.
-  **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated.
+  **Layman:** Make running, jumping and dodging feel exactly like UT99. This is the part that decides whether the game feels right, so the numbers are measured against the real game rather than estimated
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uworld.
@@ -8270,7 +8291,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   0.2.0's criterion is that it plays as well on a gamepad as on a mouse, and that
   is met by bindings and curves without an aim assist; the assist itself is
   settled at the start of 0.3.0.
-  **Layman:** Make a PS4 controller a first-class way to play, not an afterthought -- with sensible dead zones and stick response.
+  **Layman:** Make a PS4 controller a first-class way to play, not an afterthought -- with sensible dead zones and stick response
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uinput.
@@ -8282,7 +8303,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   This is the mechanism per-map weapon sets need at 0.4.0, and the landing place
   ADR-0004 needs for a custom weapon class read out of a package.
   Blocked-by: the movement model.
-  **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase.
+  **Layman:** The guns. Built as a table of numbers rather than as code, so a different set -- your super weapons -- is a different table rather than a second codebase
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame.
@@ -8294,7 +8315,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   must agree on is an input to the fixed tick, and adding one later would cross
   rules 9 and 12. It becomes an ADR when settled.
   Blocked-by: the core weapon set.
-  **Layman:** Pick a gun from a wheel instead of scrolling through them one at a time.
+  **Layman:** Pick a gun from a wheel instead of scrolling through them one at a time
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
@@ -8308,7 +8329,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   pointed. That is what makes them free against S2.
   The player's own setting, on by default.
   This is what S11's first half is measured on.
-  **Layman:** The reason you fall off ledges in most shooters is that you cannot see your feet. Metroid Prime solved it by showing where you will land -- so we show it too.
+  **Layman:** The reason you fall off ledges in most shooters is that you cannot see your feet. Metroid Prime solved it by showing where you will land -- so we show it too
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uui, urender.
@@ -8327,7 +8348,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Turning one on is a server operator's deliberate trade, and S11 is measured at
   the defaults.
   Blocked-by: the movement model.
-  **Layman:** A small grace period after you step off a ledge, pulling yourself up onto one, and stepping over low obstacles. These change how the body moves, so they are a server's choice and they are off unless someone turns them on.
+  **Layman:** A small grace period after you step off a ledge, pulling yourself up onto one, and stepping over low obstacles. These change how the body moves, so they are a server's choice and they are off unless someone turns them on
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uworld.
@@ -8386,7 +8407,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
 
   Still 0.2.0 and still blocked by the core weapon set -- there is no
   weapon to overwhelm anything with yet.
-  **Layman:** Make sure the important sounds -- the announcer, warnings -- are still audible when a loud weapon is firing, instead of being buried.
+  **Layman:** Make sure the important sounds -- the announcer, warnings -- are still audible when a loud weapon is firing, instead of being buried
   Kind: implement.
   Source: user-request-2026-09-05.
   Lanes: uaudio.
@@ -8401,7 +8422,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   starts by reading WaveTexture, then decides per class whether the
   motion is recomputed at run time or baked into frames. UTA-0009's
   spec defers these classes to here.
-  **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
+  **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: umat, upkg, render.
@@ -8414,7 +8435,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   identity; this item adds decoding the file and the recipe field, and
   the replacement's bytes must reach the bundle's name through the
   recipe (design.md, Content addressing).
-  **Layman:** A better picture for a texture, supplied on your own machine as a PNG file, is used in place of the original when a map is imported.
+  **Layman:** A better picture for a texture, supplied on your own machine as a PNG file, is used in place of the original when a map is imported
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: umat, urecipe.
@@ -8425,7 +8446,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   whose output is a replacement image. It runs after the replacement
   image item, which it depends on. It is a tool, not part of the
   baker, so bake determinism is unaffected.
-  **Layman:** An optional tool uses AI to make sharper versions of the original textures, saved as replacement pictures the importer can use.
+  **Layman:** An optional tool uses AI to make sharper versions of the original textures, saved as replacement pictures the importer can use
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: tools.
@@ -8496,7 +8517,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   A second unexplained landing, fatal this time: a bot landed at
   vz=-71022 beside a qZombie, with no push kept in the 12 s before (their
   fell5.log). The landing setting absorbs it; nothing else does yet.
-  **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you.
+  **Layman:** Whoever runs the game can switch off fall damage, but falling out of the map still kills you
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uworld, ugame.
@@ -8517,7 +8538,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   and this list is game data shipped with the game. Bumping the baker for it
   would invalidate every cached bake on a large rotation to fix one monster.
   Blocked-by: UTA-0005.
-  **Layman:** When a Monster Hunt map asks for a monster nobody here has ever heard of, work out what it descends from and what its numbers are, and spawn our version of it configured to match.
+  **Layman:** When a Monster Hunt map asks for a monster nobody here has ever heard of, work out what it descends from and what its numbers are, and spawn our version of it configured to match
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame.
@@ -8527,7 +8548,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   behaviour archetype. This is what ancestry resolution resolves ONTO.
   This is what S3 is measured on, together with the resolver.
   Blocked-by: the class resolver.
-  **Layman:** The monsters themselves -- Skaarj, Titan, Krall, Brute, Warlord and the rest -- built as tables of numbers so a custom variant is a different table.
+  **Layman:** The monsters themselves -- Skaarj, Titan, Krall, Brute, Warlord and the rest -- built as tables of numbers so a custom variant is a different table
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame.
@@ -8560,7 +8581,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Worth settling with the difficulty model this item already defers to a
   prototype, since perfect evasion is exactly the kind of tighter-aim
   substitute that makes a bot unpleasant rather than good.
-  **Layman:** Opponents worth playing against. The levels already contain invisible waypoints the original designers placed, so the hardest part of shooter AI is inherited rather than built.
+  **Layman:** Opponents worth playing against. The levels already contain invisible waypoints the original designers placed, so the hardest part of shooter AI is inherited rather than built
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uai.
@@ -8573,7 +8594,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   the one moment it is most visible.
   unet includes no game headers (rule 7).
   Blocked-by: the movement model.
-  **Layman:** Playing together over the network, without the lag making it feel wrong.
+  **Layman:** Playing together over the network, without the lag making it feel wrong
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: unet.
@@ -8583,7 +8604,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   A bot count per server, bots filling empty slots, a joining player taking a
   bot's slot and a bot returning when they leave.
   Blocked-by: bots, networking, the weapon set.
-  **Layman:** The first real game modes. Set how many players you want, bots fill the empty slots, and a bot drops out when a real person joins -- the way UT does it.
+  **Layman:** The first real game modes. Set how many players you want, bots fill the empty slots, and a bot drops out when a real person joins -- the way UT does it
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
@@ -8622,7 +8643,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Blocked-by: bots existing at all.
   Same feature as UT_MonsterHunt's GAME-0015 (a bot steps out of a
   player's way). Share what works rather than solve it twice.
-  **Layman:** In UT99 a bot standing in a doorway is a wall. You push, it does not move, and you go the long way round. Ours should notice it is in your way and step aside.
+  **Layman:** In UT99 a bot standing in a doorway is a wall. You push, it does not move, and you go the long way round. Ours should notice it is in your way and step aside
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uai, uworld.
@@ -8695,7 +8716,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   is the one worth having; a command that opens the vote window
   directly tests the window and would pass a match that ends without
   ever offering one.
-  **Layman:** So a test can jump straight to the interesting moment -- the end of a match, a nearly-empty level, a team one point behind -- instead of playing for twenty minutes to get there. That is how you check something like the map-vote screen actually appears when a match finishes.
+  **Layman:** So a test can jump straight to the interesting moment -- the end of a match, a nearly-empty level, a team one point behind -- instead of playing for twenty minutes to get there. That is how you check something like the map-vote screen actually appears when a match finishes
   Kind: test.
   Source: user-request-2026-09-06.
   Lanes: ugame, unet, ci.
@@ -8740,7 +8761,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
 
   Blocked-by: nothing filed. It wants UTA-0025's bot to exist first, in
   practice, since there is nothing to steer until then.
-  **Layman:** Bots notice a gap or a crate in front of them and jump it, jump onto it, or walk around it, instead of running into it.
+  **Layman:** Bots notice a gap or a crate in front of them and jump it, jump onto it, or walk around it, instead of running into it
   Kind: feature.
   Source: user-request-2026-09-08.
 
@@ -8774,7 +8795,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   and 27 times, each spawn killing whoever stood on the start.
   Linked (2026-09-10): UT_MonsterHunt GAME-0075, the 23 one-start maps and
   their telefrag loops on the live server.
-  **Layman:** If a map only has one place for players to appear, add a few more beside it, so several players joining together are not all dropped on the same spot.
+  **Layman:** If a map only has one place for players to appear, add a few more beside it, so several players joining together are not all dropped on the same spot
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: ubake, ugame.
@@ -8866,7 +8887,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   of its DEATH lines. Their caveat: no spawn-room map was played, so this
   shows 3 s was never the limit that night, not that 3 s is enough where
   spawn-killing was reported (MH-KillThemAllEG-BP).
-  **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are.
+  **Layman:** For about three seconds after you appear, monsters and other players cannot hurt you, so you have time to see where you are
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: ugame.
@@ -8894,7 +8915,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   of its first consumers. Whether effectiveDefaults is called per class or
   per actor decides whether the 555 ms recorded here matters, and that is
   a profile's answer rather than a reading of the source.
-  **Layman:** Working out a game object's settings slows down on big class trees; only worth fixing once the code that calls it often exists.
+  **Layman:** Working out a game object's settings slows down on big class trees; only worth fixing once the code that calls it often exists
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: upkg.
@@ -8928,7 +8949,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   (docs/specs/UTA-0111-level-collision.md) is what this item reads from
   the COLL section to build its mesh: skip a node no walk from node 0
   reaches, and orient each outline by its node's plane.
-  **Layman:** Things in the world obey physics -- debris and bits fly, bounce and settle -- using a free, fast physics engine.
+  **Layman:** Things in the world obey physics -- debris and bits fly, bounce and settle -- using a free, fast physics engine
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uworld.
@@ -8940,7 +8961,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Looks only: each machine simulates its own, so nothing is sent over
   the network. Needs the skeletal meshes of monsters (UTA-0024) and of
   player models. Built on the physics world.
-  **Layman:** When someone dies they collapse realistically instead of playing a canned animation.
+  **Layman:** When someone dies they collapse realistically instead of playing a canned animation
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uworld, urender, ugame.
@@ -8954,7 +8975,7 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   this item's spec's to decide from what the maps actually hold,
   measured over the install rather than assumed.
   Blocked-by: UTA-0026, and the physics world.
-  **Layman:** Crates, barrels and loose objects can be knocked about by explosions and players, and everyone sees them in the same place.
+  **Layman:** Crates, barrels and loose objects can be knocked about by explosions and players, and everyone sees them in the same place
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uworld, unet, ugame.
@@ -8997,7 +9018,7 @@ to.
   Both are things unav's wiring graph should be able to say, so the ask
   lands mostly on what UTA-0006 extracts rather than on this planner --
   worth checking when that item is specced, while it is still cheap.
-  **Layman:** UT99's bots walk into a closed door and stay there. Ours read the level's own wiring, find the switch that opens it, press it, and carry on -- and where a plate must be held, one of them stays behind and holds it.
+  **Layman:** UT99's bots walk into a closed door and stay there. Ours read the level's own wiring, find the switch that opens it, press it, and carry on -- and where a plate must be held, one of them stays behind and holds it
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uai.
@@ -9011,7 +9032,7 @@ to.
   able to change how a server plays.
   This is what S10 is measured on.
   Blocked-by: the weapon set, the class resolver.
-  **Layman:** The mode itself, plus the ability to switch the super weapons on for one map and off for the next without restarting the server or editing either map.
+  **Layman:** The mode itself, plus the ability to switch the super weapons on for one map and off for the next without restarting the server or editing either map
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame.
@@ -9034,7 +9055,7 @@ to.
   connects. A map nobody has prepared costs a wait, and the player is told so.
   This is what S5 is measured on.
   Blocked-by: networking, ubundle's origin field.
-  **Layman:** Join a server and get whatever you are missing -- the map, its monsters, its skins -- automatically, and be playing within a minute.
+  **Layman:** Join a server and get whatever you are missing -- the map, its monsters, its skins -- automatically, and be playing within a minute
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: unet.
@@ -9055,7 +9076,7 @@ to.
   nobody to ask and the map vote opens directly. What carries the consent
   step, and whether it is a majority or a threshold, is undecided and is
   this item's to settle.
-  **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
+  **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
@@ -9073,7 +9094,7 @@ to.
   (rule 18). Without that the level map is a wallhack on any competitive server.
   This is what S12 is measured on.
   Blocked-by: umap, networking.
-  **Layman:** An in-game map of the level that fills in as you explore, showing your team's progress and the parts nobody has reached -- and telling you nothing about an opponent on a Deathmatch server.
+  **Layman:** An in-game map of the level that fills in as you explore, showing your team's progress and the parts nobody has reached -- and telling you nothing about an opponent on a Deathmatch server
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, uui, unet.
@@ -9086,7 +9107,7 @@ to.
   0.2.0 -- it asks for a Monster Hunt round, and Monster Hunt exists at this
   release.
   Blocked-by: Monster Hunt rules, the weapon wheel, the level map.
-  **Layman:** Play a whole Monster Hunt round on a PS4 controller without touching keyboard or mouse.
+  **Layman:** Play a whole Monster Hunt round on a PS4 controller without touching keyboard or mouse
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: uinput, uui.
@@ -9131,7 +9152,7 @@ to.
   still routes nowhere. Where a map's waypoints stop short or split,
   routes come from the level's own shape, which UTA-0111's collision
   tree provides. UTA-0065's headless pass is how each map is measured.
-  **Layman:** Give bots something like satnav. Instead of only following the breadcrumb trail the 1999 designer laid down, a bot works out where it is, where it needs to be, and a route between them -- so it can still get somewhere when the breadcrumbs run out.
+  **Layman:** Give bots something like satnav. Instead of only following the breadcrumb trail the 1999 designer laid down, a bot works out where it is, where it needs to be, and a route between them -- so it can still get somewhere when the breadcrumbs run out
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uai.
@@ -9164,7 +9185,7 @@ to.
   decision rather than an implementation detail.
 
   Blocked-by: the Monster Hunt rules, which own what the gate is.
-  **Layman:** Some levels do not let you move on until every monster is dead. Right now that ends with everyone wandering the map for ten minutes looking for one monster stuck behind a crate. Bots should go and find it.
+  **Layman:** Some levels do not let you move on until every monster is dead. Right now that ends with everyone wandering the map for ten minutes looking for one monster stuck behind a crate. Bots should go and find it
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uai.
@@ -9218,7 +9239,7 @@ to.
   and GAME-0014 hold the walls a player is MEANT to walk through,
   confirmed in the running game -- exactly the set this item bakes into
   visible openings.
-  **Layman:** Some levels hide the way on behind a patch of wall you can simply walk through, with nothing to tell you it is there. We are not interested in making players guess, so the baker should find those and turn them into openings you can see, framed like a doorway.
+  **Layman:** Some levels hide the way on behind a patch of wall you can simply walk through, with nothing to tell you it is there. We are not interested in making players guess, so the baker should find those and turn them into openings you can see, framed like a doorway
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: ubake, umat, unav.
@@ -9272,7 +9293,7 @@ to.
   compare once the routing exists.
 
   Blocked-by: the bot planner and the routing it uses, and uui to draw it.
-  **Layman:** Dead Space has a button that draws a line on the floor to where you need to go next. Ours should do the same -- point you at the switch, the portal, the door or the last monster standing between you and the way on -- when you ask for it, and not before.
+  **Layman:** Dead Space has a button that draws a line on the floor to where you need to go next. Ours should do the same -- point you at the switch, the portal, the door or the last monster standing between you and the way on -- when you ask for it, and not before
   Kind: implement.
   Source: user-request-2026-09-06.
   Lanes: uui, uai, unav.
@@ -9314,7 +9335,7 @@ to.
 
   Blocked-by: nothing. UTA-0069 shipped the container work and the
   derivation.
-  **Layman:** Read the level shape out of very old maps, which store it in a different place inside the file.
+  **Layman:** Read the level shape out of very old maps, which store it in a different place inside the file
   Kind: implement.
   Source: in-session-2026-09-07 split-from-UTA-0069.
   Lanes: upkg.
@@ -9338,7 +9359,7 @@ to.
   Belongs with Monster Hunt's rules (UTA-0029) and the HUD (uui).
   Linked (2026-09-10): UT_MonsterHunt GAME-0076, the same counter on the
   live UT99 server.
-  **Layman:** Show two monster counts in Monster Hunt: how many are around right now, and how many are left to beat in the whole map.
+  **Layman:** Show two monster counts in Monster Hunt: how many are around right now, and how many are left to beat in the whole map
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uui, ugame.
@@ -9368,7 +9389,7 @@ here is hosted, downloaded and played by someone else.
   requirement on this item, not a polish pass afterwards: it decides the
   defaults, how much is hidden, and whether a wrong action is possible at
   all rather than merely undoable.
-  **Layman:** The map editor. Open a converted level, change it, or build one from nothing -- and save it in our own format.
+  **Layman:** The map editor. Open a converted level, change it, or build one from nothing -- and save it in our own format
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ued.
@@ -9380,7 +9401,7 @@ here is hosted, downloaded and played by someone else.
   Constraint (user, 2026-09-05): authoring an enemy must be usable by a
   non-programmer -- see the same note on UTA-0034. Data authoring is where
   a form of raw fields is most tempting and least usable.
-  **Layman:** Make your own monster -- its stats, its model, how it behaves -- by filling in a form rather than by writing code.
+  **Layman:** Make your own monster -- its stats, its model, how it behaves -- by filling in a form rather than by writing code
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ued.
@@ -9401,7 +9422,7 @@ points, and package it so other players download it automatically. Closes S6.
   Constraint (user, 2026-09-05): model import and setup must be usable by a
   non-programmer -- see the same note on UTA-0034. Import is the step most
   likely to fail with a message only its author understands.
-  **Layman:** Bring a character you made in Blender into the game -- attach it to our animations, set up its skins and team colours, and see it before you ship it.
+  **Layman:** Bring a character you made in Blender into the game -- attach it to our animations, set up its skins and team colours, and see it before you ship it
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ued.
@@ -9411,7 +9432,7 @@ points, and package it so other players download it automatically. Closes S6.
   download path -- with its origin field reading authored.
   This is what S6 is measured on, and S6 is half the 1.0 exit condition.
   Blocked-by: character import, content download.
-  **Layman:** Someone other than you builds a character, hosts it, and other players see it correctly without installing anything by hand.
+  **Layman:** Someone other than you builds a character, hosts it, and other players see it correctly without installing anything by hand
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ued, unet.
@@ -9429,7 +9450,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Each failure it finds is its own item; this one is the campaign that finds them.
   This is what S8 is measured on, and S8 with S6 is the 1.0 exit condition.
   Blocked-by: the 0.4.0 and 0.6.0 milestones.
-  **Layman:** The real test: switch the actual server over, run the whole actual rotation with actual players, and see whether anyone wants to go back.
+  **Layman:** The real test: switch the actual server over, run the whole actual rotation with actual players, and see whether anyone wants to go back
   Kind: implement.
   Source: design-2026-09-03.
   Lanes: ugame, unet.
@@ -9439,7 +9460,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   budget, so the interesting cases are the outliers rather than the average.
   Measured across a sample of the library on the development machine, with the
   worst maps named rather than averaged away.
-  **Layman:** Make sure it runs smoothly on real hardware across the whole map collection, not just on the two maps we kept testing with.
+  **Layman:** Make sure it runs smoothly on real hardware across the whole map collection, not just on the two maps we kept testing with
   Kind: perf.
   Source: design-2026-09-03.
   Lanes: urender.
@@ -9496,7 +9517,7 @@ docs/standards/versioning-overrides.md. Closes S8.
 
   Blocked-by: the release pipeline, and a decision on where the updater lives
   in the design.
-  **Layman:** The game can update itself: it notices a new version, asks you first, checks the download really came from us, and restarts into the new one.
+  **Layman:** The game can update itself: it notices a new version, asks you first, checks the download really came from us, and restarts into the new one
   Kind: feature.
   Source: user-request-2026-09-04.
   Lanes: core, ci.
@@ -9541,7 +9562,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   that nobody asked for.
 
   Blocked-by: the console existing, and a release build to check.
-  **Layman:** A check that the testing console really is gone from what players download, rather than a note saying we meant to remove it.
+  **Layman:** A check that the testing console really is gone from what players download, rather than a note saying we meant to remove it
   Kind: test.
   Source: user-decision-2026-09-06.
   Lanes: ci, ugame.
@@ -9639,7 +9660,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   The old paragraph's design points still hold wherever the fallback is
   used: a fetch that fails must not drop the player from the server, and
   a slow fetch holds up one player, never the server.
-  **Layman:** If a server has a map, a character or a monster you have never seen, the game fetches it for you instead of turning you away -- and anything of yours the others lack reaches them too.
+  **Layman:** If a server has a map, a character or a monster you have never seen, the game fetches it for you instead of turning you away -- and anything of yours the others lack reaches them too
   Kind: feature.
   Source: user-request-2026-09-08.
   Lanes: unet, ubundle.
@@ -9652,7 +9673,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   skipped list, and `ut-bake` prints it. The real-asset census in
   `tests/real/RealInstallTest.cpp` prints how many textures in an install
   carry the property. Decode them, and state which formats.
-  **Layman:** Some textures are stored in a newer compressed form; the baker leaves them out today, so those surfaces have no material until this lands.
+  **Layman:** Some textures are stored in a newer compressed form; the baker leaves them out today, so those surfaces have no material until this lands
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: umat, ubake.
@@ -9677,7 +9698,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Menu work in earlier items builds under these rules: the map browser and
   voting (UTA-0031), match setup with bots and chat (UTA-0027), gamepad
   play (UTA-0033), the developer console (UTA-0067).
-  **Layman:** The game's menus look and work like a modern game's, and still offer at least everything Unreal Tournament's own menus did.
+  **Layman:** The game's menus look and work like a modern game's, and still offer at least everything Unreal Tournament's own menus did
   Kind: feature.
   Source: user-request-2026-09-11.
   Lanes: uui.
