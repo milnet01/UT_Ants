@@ -23,10 +23,11 @@ float shadowOf(Light light, vec3 x) {
     if (light.shadowFaceCount == 0u) return 1.0;
 
     // A point light's six faces look along +X, -X, +Y, -Y, +Z, -Z: the face is
-    // the axis the light-to-surface direction is longest on.
+    // the axis the light-to-surface direction is longest on. A strip leader's
+    // faces look out from its segment's midpoint (UTA-0162 SS 4.5).
     uint face = 0u;
     if (light.shadowFaceCount == 6u) {
-        vec3 d = x - light.location;
+        vec3 d = x - (light.location + 0.5 * light.span);
         vec3 a = abs(d);
         if (a.x >= a.y && a.x >= a.z) face = d.x >= 0.0 ? 0u : 1u;
         else if (a.y >= a.z) face = d.y >= 0.0 ? 2u : 3u;

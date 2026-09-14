@@ -9,6 +9,7 @@
 #include "ubake/LightProbes.h"
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
+#include "ubake/Strips.h"
 #include "umat/Fingerprint.h"
 #include "umat/Generate.h"
 #include "umat/Resolve.h"
@@ -566,6 +567,9 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // 5. PLAC and LITE -- UTA-0110 SS 4.7, moved ahead of the materials by
     // UTA-0119 SS 4.6: the movers are found from them.
     UTA_TRY(Actors actors, naming(buildActors(map, mapName, level, resolver), mapName));
+    // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
+    // probes gather them, so the probes and LITE see the same strips.
+    markStrips(actors.lights);
 
     // 6. The movers, and each one's Model -- UTA-0119 SS 4.6. A Model that
     // does not read keeps its refusal's own code, naming the actor (INV-9).

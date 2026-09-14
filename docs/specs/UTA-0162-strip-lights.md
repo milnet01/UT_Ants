@@ -257,6 +257,11 @@ still gives six.
 - **A long strip's shadow is cast from one point.** Near its ends, a shadow
   falls as if from its middle. Accepted for the first iteration; the bake's
   probes still shadow toward the nearest point.
+- **A point exactly on a strip's segment has no direction to the light.** Its
+  nearest point is computed, so float and double can fall on either side of
+  UTA-0112 § 4.3's `d == 0` rule there, and the two copies may disagree. A
+  surface does not lie on a light's line in a real map; INV-6's strip cases
+  keep their points off it.
 - **A long strip fills more clusters.** A cluster that overflows drops its
   furthest lights, as UTA-0014 § 6 already handles.
 - **A bundle from before this item** is refused by its format version (§ 14).
@@ -328,7 +333,7 @@ fit moves, by UTA-0156's rule.
 - `docs/specs/UTA-0110-lights-and-placements.md` § 4.4 — the `LITE` record.
 - `docs/specs/UTA-0112-baked-light-probes.md` § 4.3 — the strip rule.
 - `docs/specs/UTA-0014-vulkan-draw-path.md` § 4.6 — cluster culling of a
-  strip; § 4.8 — its shadow centre.
+  strip, and its shadow centre.
 - `CLAUDE.md` § Where this project is — the bundle format version.
 - `CHANGELOG.md`.
 

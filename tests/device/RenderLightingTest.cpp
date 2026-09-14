@@ -77,6 +77,28 @@ TEST_CASE("a lit surface receives its light through its own cluster's list", "[d
     CHECK(renderer.lastFrameStats().overflowedClusters == 0u);
 }
 
+TEST_CASE("UTA-0162 INV-8: a strip lights a pixel near its far end through the cluster lists", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Bundle bundle = litSquare("white");
+    addSolidMaterial(bundle, "white", WHITE);
+    // Radius byte 1 is 50 units, as the first case's. The strip runs from 400
+    // units before the square to 5 before it, along the view axis: the pixel is
+    // within 50 of its far end and 400 from its location, so a cluster that
+    // tested the sphere at the location would list no light here.
+    uta::ubundle::Light strip = steadyLight({-305, 0, 0}, 128, 1);
+    strip.strip = uta::ubundle::STRIP_LEADER;
+    strip.stripFrom = {-305, 0, 0};
+    strip.stripTo = {95, 0, 0};
+    bundle.lights = std::vector{strip};
+
+    const std::uint8_t red = redAtCentre(renderer, bundle);
+    const double expected = srgbByte(uta::ubake::lightAt(strip, centrePixelOnSquare(), {-1, 0, 0}).r);
+    CAPTURE(int(red), expected);
+    CHECK(expected > 100);
+    CHECK(std::abs(red - expected) <= 2.0);
+}
+
 TEST_CASE("a flat normal map lights exactly as the surface's own normal", "[device]") {
     // umat writes zero tilt as the byte 128 (127.5 * 0 + 128), so that is what
     // must decode to zero. A light nearly in the surface's plane is where a

@@ -146,6 +146,7 @@ TEST_CASE("which lights bake", "[ubake][probes]") {
         ActorPlacement{12, "map.triggerlight0", 1, {}},
         ActorPlacement{13, "map.light2", 0, {}},
         ActorPlacement{14, "map.light3", 0, {}},
+        ActorPlacement{15, "map.light4", 0, {}},
     };
 
     std::vector<Light> lights;
@@ -159,6 +160,9 @@ TEST_CASE("which lights bake", "[ubake][probes]") {
     // No placement. Slot 9 sorts before every actor, so a search that lands on
     // the next slot finds 10, which is static: only the slot check drops it.
     lights.push_back(steadyLight(9, {0, 0, 0}));
+    // UTA-0162 INV-7: static and placed, but absorbed into a strip its leader lights.
+    lights.push_back(steadyLight(15, {0, 0, 0}));
+    lights.back().strip = uta::ubundle::STRIP_ABSORBED;
 
     const std::vector<Light> baked = bakedLights(lights, placements);
     REQUIRE(baked.size() == 1);

@@ -18,6 +18,26 @@ layout(set = 0, binding = 5) buffer ClusterIndexBlock { uint clusterIndices[]; }
 
 layout(local_size_x = 64) in;
 
+// Whether the segment from `a` to `b` meets the box from `lo` to `hi`: the slab
+// test, clipping the segment's parameter against each axis in turn.
+bool segmentMeetsBox(vec3 a, vec3 b, vec3 lo, vec3 hi) {
+    vec3 d = b - a;
+    float enter = 0.0;
+    float leave = 1.0;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (abs(d[axis]) < 1e-6) {
+            if (a[axis] < lo[axis] || a[axis] > hi[axis]) return false;
+            continue;
+        }
+        float t1 = (lo[axis] - a[axis]) / d[axis];
+        float t2 = (hi[axis] - a[axis]) / d[axis];
+        enter = max(enter, min(t1, t2));
+        leave = min(leave, max(t1, t2));
+        if (enter > leave) return false;
+    }
+    return true;
+}
+
 void main() {
     uint cluster = gl_GlobalInvocationID.x;
     if (cluster >= frame.clusterGrid.x * frame.clusterGrid.y * frame.clusterGrid.z) return;
@@ -34,11 +54,20 @@ void main() {
     for (uint i = 0u; i < frame.lightCount; ++i) {
         vec3 p = (frame.view * vec4(lights[i].location, 1.0)).xyz;
         float radius = lightRadius(lights[i].radius);
-        vec3 gap = clamp(p, lo, hi) - p;
-        // The falloff is zero at the radius, so touching is not reaching.
-        if (dot(gap, gap) >= radius * radius) continue;
-
-        float key = distance(p, centre);
+        float key;
+        if (lights[i].span == vec3(0.0)) {
+            vec3 gap = clamp(p, lo, hi) - p;
+            // The falloff is zero at the radius, so touching is not reaching.
+            if (dot(gap, gap) >= radius * radius) continue;
+            key = distance(p, centre);
+        } else {
+            // UTA-0162 SS 4.4: a strip reaches where its segment meets the box
+            // grown by its radius -- conservative at the grown box's corners.
+            vec3 q = (frame.view * vec4(lights[i].location + lights[i].span, 1.0)).xyz;
+            if (!segmentMeetsBox(p, q, lo - vec3(radius), hi + vec3(radius))) continue;
+            vec3 s = q - p;
+            key = distance(p + s * clamp(dot(centre - p, s) / dot(s, s), 0.0, 1.0), centre);
+        }
         uint slot;
         if (count < CLUSTER_CAPACITY) {
             slot = count++;

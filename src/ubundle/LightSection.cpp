@@ -13,8 +13,9 @@ namespace uta::ubundle::detail {
 namespace {
 
 /// SS 4.4: the export index, three f32, three i32, twelve bytes and four
-/// bools -- fixed.
-constexpr std::uint64_t LIGHT_SIZE = 44;
+/// bools; then UTA-0162 SS 4.1's strip byte and two ends of three f32 --
+/// fixed.
+constexpr std::uint64_t LIGHT_SIZE = 69;
 
 [[nodiscard]] Result<Light> readLight(Cursor& cursor) {
     Light light;
@@ -40,6 +41,13 @@ constexpr std::uint64_t LIGHT_SIZE = 44;
                         "LITE: a light's bool byte " + std::to_string(byte) + " is not 0 or 1");
         *flag = byte == 1;
     }
+    UTA_TRY(light.strip, cursor.readU8());
+    for (float& part : light.stripFrom) {
+        UTA_TRY(part, cursor.readF32());
+    }
+    for (float& part : light.stripTo) {
+        UTA_TRY(part, cursor.readF32());
+    }
     return light;
 }
 
@@ -54,6 +62,9 @@ void putLight(Sink& sink, const Light& light) {
         sink.putU8(field);
     for (const bool flag : {light.specialLit, light.actorShadows, light.corona, light.lensFlare})
         sink.putU8(flag ? 1 : 0);
+    sink.putU8(light.strip);
+    for (const float part : light.stripFrom) sink.putF32(part);
+    for (const float part : light.stripTo) sink.putF32(part);
 }
 
 } // namespace
@@ -68,6 +79,19 @@ Result<void> validateLights(const std::vector<Light>& lights, ErrorCode code) {
         if (!(lights[i - 1].exportIndex < lights[i].exportIndex))
             return fail(code, "LITE: light " + std::to_string(i)
                                   + "'s exportIndex does not sort strictly after the one before it");
+    // UTA-0162 SS 4.1. Only a leader carries ends, and a leader's are a segment.
+    const auto zero = [](const std::array<float, 3>& v) { return v[0] == 0 && v[1] == 0 && v[2] == 0; };
+    for (std::size_t i = 0; i < lights.size(); ++i) {
+        const Light& light = lights[i];
+        if (light.strip > STRIP_ABSORBED)
+            return fail(code, "LITE: light " + std::to_string(i) + "'s strip byte "
+                                  + std::to_string(light.strip) + " is not 0, 1 or 2");
+        if (light.strip == STRIP_LEADER && light.stripFrom == light.stripTo)
+            return fail(code, "LITE: light " + std::to_string(i) + " leads a strip whose ends are equal");
+        if (light.strip != STRIP_LEADER && !(zero(light.stripFrom) && zero(light.stripTo)))
+            return fail(code, "LITE: light " + std::to_string(i)
+                                  + " carries a strip end but does not lead a strip");
+    }
     return {};
 }
 

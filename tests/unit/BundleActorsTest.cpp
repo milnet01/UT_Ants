@@ -133,8 +133,9 @@ Bytes placPayload(const Placements& placements, std::optional<std::uint8_t> reso
     return out;
 }
 
-/// A LITE payload in SS 4.4's order: 44 bytes a light. `coronaByte` replaces
-/// every light's corona byte, for the read case no `bool` can author.
+/// A LITE payload in SS 4.4's order, then UTA-0162 SS 4.1's strip fields: 69
+/// bytes a light. `coronaByte` replaces every light's corona byte, for the read
+/// case no `bool` can author.
 Bytes litePayload(const std::vector<Light>& lights, std::optional<std::uint8_t> coronaByte = {}) {
     Bytes out;
     out.u32(static_cast<std::uint32_t>(lights.size()));
@@ -151,6 +152,9 @@ Bytes litePayload(const std::vector<Light>& lights, std::optional<std::uint8_t> 
         out.u8(light.actorShadows ? 1 : 0);
         out.u8(coronaByte.value_or(light.corona ? 1 : 0));
         out.u8(light.lensFlare ? 1 : 0);
+        out.u8(light.strip);
+        for (const float part : light.stripFrom) out.f32(part);
+        for (const float part : light.stripTo) out.f32(part);
     }
     return out;
 }
@@ -168,7 +172,7 @@ Bytes emptyGeom() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(9); // formatVersion -- 9 since UTA-0040 SS 4.1
+    out.u32(10); // formatVersion -- 10 since UTA-0162 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -230,7 +234,8 @@ Placements golden() {
 
 /// Every one of the twelve bytes distinct in the first light, and the four
 /// bools set so no two of them agree across both lights -- a transposition of
-/// any two fields shows.
+/// any two fields shows. UTA-0162 INV-1: the first leads a strip with six
+/// distinct end components, the second is absorbed, the third is a point light.
 std::vector<Light> goldenLights() {
     Light first;
     first.exportIndex = 7;
@@ -250,13 +255,20 @@ std::vector<Light> goldenLights() {
     first.volumeFog = 7;
     first.specialLit = true;
     first.corona = true;
+    first.strip = uta::ubundle::STRIP_LEADER;
+    first.stripFrom = {1.5F, -2.0F, SIGNALLING_NAN};
+    first.stripTo = {300.25F, -0.0F, 16.0F};
 
     Light second;
     second.exportIndex = 9;
     second.type = 250; // past the last light type, and not range-checked
     second.corona = true;
     second.lensFlare = true;
-    return {first, second};
+    second.strip = uta::ubundle::STRIP_ABSORBED;
+
+    Light third;
+    third.exportIndex = 11;
+    return {first, second, third};
 }
 
 bool sameValue(const Value& actual, const Value& expected) {
@@ -337,6 +349,11 @@ void sameLights(const std::vector<Light>& actual, const std::vector<Light>& expe
         CHECK(a.actorShadows == e.actorShadows);
         CHECK(a.corona == e.corona);
         CHECK(a.lensFlare == e.lensFlare);
+        CHECK(a.strip == e.strip);
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            CHECK(bitsOf(a.stripFrom[axis]) == bitsOf(e.stripFrom[axis]));
+            CHECK(bitsOf(a.stripTo[axis]) == bitsOf(e.stripTo[axis]));
+        }
     }
 }
 
@@ -385,7 +402,7 @@ TEST_CASE("the PLAC and LITE golden bytes decode to what they encode", "[ubundle
                                        {"PLAC", placPayload(golden())},
                                        {"LITE", litePayload(goldenLights())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 9);
+    CHECK(result->header.formatVersion == 10);
     REQUIRE(result->geometry.has_value());
     REQUIRE(result->placements.has_value());
     REQUIRE(result->lights.has_value());
@@ -503,6 +520,34 @@ TEST_CASE("lights out of order are refused", "[ubundle][lite]") {
     std::vector<Light> lights = goldenLights();
     std::swap(lights[0], lights[1]);
     lightsRefused(lights, "light 1's exportIndex");
+}
+
+// UTA-0162 INV-1: each starts from goldenLights(), which every rule accepts,
+// and breaks one strip rule.
+
+TEST_CASE("a light strip byte of 3 is refused", "[ubundle][lite]") {
+    std::vector<Light> lights = goldenLights();
+    lights[2].strip = 3;
+    lightsRefused(lights, "light 2's strip byte 3");
+}
+
+TEST_CASE("a strip leader whose ends are equal is refused", "[ubundle][lite]") {
+    std::vector<Light> lights = goldenLights();
+    lights[0].stripFrom = {4.0F, 5.0F, 6.0F};
+    lights[0].stripTo = lights[0].stripFrom;
+    lightsRefused(lights, "light 0 leads a strip whose ends are equal");
+}
+
+TEST_CASE("an absorbed light carrying a strip end is refused", "[ubundle][lite]") {
+    std::vector<Light> lights = goldenLights();
+    lights[1].stripTo = {0.0F, 0.0F, 1.0F};
+    lightsRefused(lights, "light 1 carries a strip end");
+}
+
+TEST_CASE("a point light carrying a strip end is refused", "[ubundle][lite]") {
+    std::vector<Light> lights = goldenLights();
+    lights[2].stripFrom = {-1.0F, 0.0F, 0.0F};
+    lightsRefused(lights, "light 2 carries a strip end");
 }
 
 // ------------------------------------------------ INV-2, one path each

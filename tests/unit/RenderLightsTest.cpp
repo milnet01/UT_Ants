@@ -73,6 +73,26 @@ TEST_CASE("a drawn light carries its LITE numbers unconverted", "[render]") {
     CHECK(drawn[0].flicker == 1.0f);
 }
 
+TEST_CASE("UTA-0162 INV-7: an absorbed light is not drawn and a leader draws its segment", "[render]") {
+    Light leader = lightOfType(1, 10);
+    leader.location = {500, 0, 100};
+    leader.strip = uta::ubundle::STRIP_LEADER;
+    leader.stripFrom = {0, 0, 100};
+    leader.stripTo = {1000, -20, 100};
+    Light absorbed = lightOfType(1, 11);
+    absorbed.strip = uta::ubundle::STRIP_ABSORBED;
+    uta::ubundle::Bundle bundle;
+    bundle.lights = std::vector{leader, absorbed, lightOfType(1, 12)};
+
+    CHECK(uta::urender::directLights(bundle).size() == 2u);
+    const auto drawn = drawnLights(bundle, 0.0);
+    REQUIRE(drawn.size() == 2u);
+    CHECK(drawn[0].location == leader.stripFrom);
+    CHECK(drawn[0].span == std::array<float, 3>{1000, -20, 0});
+    CHECK(drawn[1].location == std::array<float, 3>{});
+    CHECK(drawn[1].span == std::array<float, 3>{});
+}
+
 TEST_CASE("SS 4.9: a steady light's scalar is exactly 1 at any time", "[render]") {
     // Steady, and the types this item does not vary: none, the palette types,
     // and a byte past the last ELightType.

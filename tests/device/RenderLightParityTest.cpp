@@ -45,9 +45,9 @@ struct LightCase {
     std::array<float, 4> x;
     std::array<float, 4> n;
 };
-static_assert(sizeof(LightCase) == 96);
-static_assert(offsetof(LightCase, x) == 64);
-static_assert(offsetof(LightCase, n) == 80);
+static_assert(sizeof(LightCase) == 112);
+static_assert(offsetof(LightCase, x) == 80);
+static_assert(offsetof(LightCase, n) == 96);
 
 constexpr double TOLERANCE = 1e-3; // SS 4.6
 
@@ -108,6 +108,52 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
         }
     }
 
+    // UTA-0162 INV-6: strip leaders of every effect a strip may carry, placed so
+    // the segment's nearest point clamps to its start, falls between, and clamps
+    // to its end.
+    const std::array<std::uint8_t, 3> stripEffects = {0, 13, 17};
+    const std::array<double, 3> alongs = {-0.3, 0.4, 1.3};
+    const std::size_t firstStrip = bundle.lights->size();
+    for (const std::uint8_t effect : stripEffects) {
+        for (std::size_t variant = 0; variant < 30; ++variant, ++index) {
+            Light light;
+            light.exportIndex = static_cast<std::uint32_t>(index);
+            light.type = 1;
+            light.effect = effect;
+            light.hue = hues[variant % hues.size()];
+            light.saturation = saturations[(variant / 2) % saturations.size()];
+            light.brightness = variant % 4 == 0 ? 255 : static_cast<std::uint8_t>(60 + variant);
+            light.radius = static_cast<std::uint8_t>(variant % 2 == 0 ? 12 : 200);
+            light.location = {static_cast<float>(-300 + 11 * variant), static_cast<float>(90 - 5 * variant), 48.0f};
+
+            const double radius = uta::ubake::lightRadius(light.radius);
+            const double length = 0.8 * radius;
+            const std::array<float, 3> along = normalised(std::cos(variant * 1.1), std::sin(variant * 1.1), 0.2);
+            const std::array<float, 3> side = normalised(-along[1], along[0], 0.0);
+            light.strip = uta::ubundle::STRIP_LEADER;
+            light.stripFrom = light.location;
+            light.stripTo = {static_cast<float>(light.location[0] + along[0] * length),
+                             static_cast<float>(light.location[1] + along[1] * length),
+                             static_cast<float>(light.location[2] + along[2] * length)};
+
+            const double u = alongs[variant % alongs.size()];
+            // Never 0: a point ON the segment has no direction to the light, and
+            // its computed nearest point differs from it by rounding, so float
+            // and double take different sides of lightAt's d == 0 rule there.
+            // A point light's d == 0 cases above copy the location exactly.
+            const double offset = reach[1 + (variant / 3) % 3] * radius * 0.5;
+            points.push_back({static_cast<float>(light.location[0] + along[0] * length * u + side[0] * offset),
+                              static_cast<float>(light.location[1] + along[1] * length * u + side[1] * offset),
+                              static_cast<float>(light.location[2] + along[2] * length * u + side[2] * offset)});
+            switch ((variant / 5) % 3) {
+            case 0: normals.push_back(normalised(-side[0], -side[1], 0.3)); break;
+            case 1: normals.push_back(normalised(along[0], along[1], along[2])); break;
+            default: normals.push_back(normalised(side[0], side[1], -0.3)); break;
+            }
+            bundle.lights->push_back(light);
+        }
+    }
+
     const std::vector<gpu::Light> uploaded = uta::urender::drawnLights(bundle, 0.0);
     REQUIRE(uploaded.size() == bundle.lights->size());
     std::vector<LightCase> cases;
@@ -120,7 +166,8 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
         static_cast<std::uint32_t>(cases.size()));
 
     double worst = 0;
-    std::map<std::uint8_t, std::size_t> lit; // per effect, cases the light reached
+    std::map<std::uint8_t, std::size_t> lit;       // per effect, cases the light reached
+    std::map<std::uint8_t, std::size_t> litStrips; // the same, over UTA-0162's strip cases
     std::size_t atTheLight = 0;
     for (std::size_t i = 0; i < cases.size(); ++i) {
         const Light& light = (*bundle.lights)[i];
@@ -140,10 +187,14 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
         CHECK(std::abs(actual[2] - expected.b) <= TOLERANCE);
         worst = std::max({worst, std::abs(actual[0] - expected.r), std::abs(actual[1] - expected.g),
                           std::abs(actual[2] - expected.b)});
-        if (expected.r + expected.g + expected.b > 0) ++lit[light.effect];
-        if (points[i] == light.location) ++atTheLight;
+        if (expected.r + expected.g + expected.b > 0) ++(i < firstStrip ? lit : litStrips)[light.effect];
+        if (i < firstStrip && points[i] == light.location) ++atTheLight;
     }
     INFO("worst deviation " << worst);
+    for (const std::uint8_t effect : stripEffects) {
+        CAPTURE(int(effect));
+        CHECK(litStrips[effect] >= 10);
+    }
 
     // The table is not vacuous: every effect lit something, and d == 0 is in it.
     for (const std::uint8_t effect : effects) {

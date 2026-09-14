@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Strip lights: a row of identical lights along one fixture lights a band, not a string of round pools.** (UTA-0162)
+  The bake marks each row as one strip, led by its lowest-numbered light.
+  The light model, cluster culling, shadows and the probe bake light
+  from the strip's nearest point. Bundles move to format 10, so every
+  map must be baked again.
+
 - **Parallax occlusion: baked surfaces show recessed depth from Medium tier up** (UTA-0040)
   Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
 

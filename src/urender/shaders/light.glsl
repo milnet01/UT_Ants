@@ -58,12 +58,21 @@ vec3 lightDirection(int pitch, int yaw) {
     return vec3(cos(p) * cos(y), cos(p) * sin(y), sin(p));
 }
 
+// The point `light` is lit from at `x` -- UTA-0162 SS 4.3: its location, or for
+// a strip leader the nearest point of the segment from `location` along `span`.
+vec3 litFrom(Light light, vec3 x) {
+    float ss = dot(light.span, light.span);
+    if (ss == 0.0) return light.location;
+    return light.location + light.span * clamp(dot(x - light.location, light.span) / ss, 0.0, 1.0);
+}
+
 // The light `light` puts on a surface at `x` with unit normal `n`, with no
 // shadow test: colour, times brightness / 255, times the falloff, times the
-// incidence, times the spot factor. LE_Cylinder and LE_NonIncidence replace
-// the falloff and drop the other factors (UTA-0156).
+// incidence, times the spot factor, all measured from litFrom. LE_Cylinder and
+// LE_NonIncidence replace the falloff and drop the other factors (UTA-0156).
+// An absorbed strip light is never uploaded, so it needs no case here.
 vec3 lightAt(Light light, vec3 x, vec3 n) {
-    vec3 toLight = light.location - x;
+    vec3 toLight = litFrom(light, x) - x;
     float d = length(toLight);
     float radius = lightRadius(light.radius);
     vec3 colour = lightColour(light.hue, light.saturation) * (float(light.brightness) / 255.0);

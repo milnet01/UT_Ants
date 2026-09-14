@@ -216,6 +216,9 @@ struct Rgb {
   **Every other effect is baked as `LE_None`.**
 - **A light at the point.** When `d` is `0`, the incidence and spot factors are
   `1`.
+- **A strip light.** A strip leader is evaluated from its segment's nearest
+  point, and an absorbed light puts nothing. `docs/specs/UTA-0162-strip-lights.md`
+  § 4.3 owns the rule.
 - **`lightAt`** is colour × intensity × falloff × incidence × spot, channel by
   channel.
 - **Sine and cosine.** `sineOf` reduces its angle with integer arithmetic to

@@ -152,8 +152,10 @@ struct Light {
     std::uint32_t shadowFaceCount; ///< 0 for a light drawn without shadows
     std::uint32_t reserved0;
     std::uint32_t reserved1;
+    std::array<float, 3> span; ///< UTA-0162: a strip leader's segment, from `location`; zero otherwise
+    float reserved2;
 };
-static_assert(sizeof(Light) == 64);
+static_assert(sizeof(Light) == 80);
 static_assert(offsetof(Light, location) == 0);
 static_assert(offsetof(Light, flicker) == 12);
 static_assert(offsetof(Light, hue) == 16);
@@ -168,6 +170,8 @@ static_assert(offsetof(Light, shadowFace) == 48);
 static_assert(offsetof(Light, shadowFaceCount) == 52);
 static_assert(offsetof(Light, reserved0) == 56);
 static_assert(offsetof(Light, reserved1) == 60);
+static_assert(offsetof(Light, span) == 64);
+static_assert(offsetof(Light, reserved2) == 76);
 
 /// One cluster's box, in view space.
 struct ClusterBounds {

@@ -248,7 +248,8 @@ as `string`, `defaults` as `vector<PropertyRecord>`. An `ActorPlacement` is
 **`LITE`** is the bytes `L`, `I`, `T`, `E`. Its payload is `vector<Light>`.
 A `Light` is `exportIndex` as `u32`, `location` as three `f32`, `rotation`
 as three `i32`, the twelve bytes in the order declared above as `u8`, then
-the four bools as `u8`: 44 bytes, fixed.
+the four bools as `u8`: 44 bytes, fixed. **UTA-0162 § 4.1 appends a strip
+byte and two segment ends, so the record is 69 bytes from format 10.**
 
 **Validation**, `MalformedData` on `read` and `InvalidArgument` on `write`:
 

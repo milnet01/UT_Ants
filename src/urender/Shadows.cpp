@@ -22,6 +22,26 @@ constexpr double WIDEST_SPOT_DEGREES = 170.0;
 
 double radiusOf(const ubundle::Light& light) noexcept { return 25.0 * (light.radius + 1); }
 
+/// Where a light's shadow is cast from -- UTA-0162 SS 4.5: a strip leader's
+/// segment's midpoint, any other light's location.
+std::array<float, 3> centreOf(const ubundle::Light& light) noexcept {
+    if (light.strip != ubundle::STRIP_LEADER) return light.location;
+    return {(light.stripFrom[0] + light.stripTo[0]) * 0.5f, (light.stripFrom[1] + light.stripTo[1]) * 0.5f,
+            (light.stripFrom[2] + light.stripTo[2]) * 0.5f};
+}
+
+/// How far a light's shadow reaches from centreOf: its radius, plus half a
+/// strip leader's length.
+double reachOf(const ubundle::Light& light) noexcept {
+    if (light.strip != ubundle::STRIP_LEADER) return radiusOf(light);
+    double squared = 0;
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        const double d = static_cast<double>(light.stripTo[axis]) - light.stripFrom[axis];
+        squared += d * d;
+    }
+    return radiusOf(light) + std::sqrt(squared) / 2;
+}
+
 std::uint32_t levelOf(std::uint32_t size) noexcept {
     return static_cast<std::uint32_t>(std::countr_zero(LARGEST_SHADOW_TILE) - std::countr_zero(size));
 }
@@ -70,7 +90,7 @@ bool boxReaches(const std::array<std::array<float, 3>, 2>& box, const std::array
 
 bool sameLight(const ubundle::Light& a, const ubundle::Light& b) noexcept {
     return a.location == b.location && a.rotation == b.rotation && a.radius == b.radius && a.cone == b.cone
-           && a.effect == b.effect;
+           && a.effect == b.effect && a.strip == b.strip && a.stripFrom == b.stripFrom && a.stripTo == b.stripTo;
 }
 
 } // namespace
@@ -127,11 +147,11 @@ std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept {
 std::uint32_t shadowTileSize(const Camera& camera, std::uint32_t width, std::uint32_t height,
                              const ubundle::Light& light) noexcept {
     const gpu::Mat4 view = viewOf(camera);
-    const auto& l = light.location;
+    const auto l = centreOf(light);
     const double x = view[0] * l[0] + view[4] * l[1] + view[8] * l[2] + view[12];
     const double y = view[1] * l[0] + view[5] * l[1] + view[9] * l[2] + view[13];
     const double z = view[2] * l[0] + view[6] * l[1] + view[10] * l[2] + view[14];
-    const double radius = radiusOf(light);
+    const double radius = reachOf(light);
 
     const double tanV = std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0);
     const double tanH = tanV * width / height;
@@ -147,7 +167,8 @@ std::uint32_t shadowTileSize(const Camera& camera, std::uint32_t width, std::uin
 }
 
 gpu::Mat4 shadowViewProj(const ubundle::Light& light, std::uint32_t face) noexcept {
-    const double radius = radiusOf(light);
+    const double radius = reachOf(light);
+    const std::array<float, 3> eye = centreOf(light);
     Camera lens;
     lens.farPlane = static_cast<float>(radius);
     lens.nearPlane = static_cast<float>(std::max(1.0, radius / 512.0));
@@ -158,7 +179,7 @@ gpu::Mat4 shadowViewProj(const ubundle::Light& light, std::uint32_t face) noexce
         const double yaw = light.rotation[1] * 2.0 * std::numbers::pi / 65536.0;
         const Vec forward{std::cos(p) * std::cos(yaw), std::cos(p) * std::sin(yaw), std::sin(p)};
         const Vec up = std::abs(forward[2]) > 0.99 ? Vec{1, 0, 0} : Vec{0, 0, 1};
-        view = lookAlong(light.location, forward, up);
+        view = lookAlong(eye, forward, up);
         // The cone's full angle: c = 1 - cone / 256 is the cosine of its half.
         const double c = std::max(1.0 - light.cone / 256.0, 0.0);
         lens.verticalFovDegrees =
@@ -168,7 +189,7 @@ gpu::Mat4 shadowViewProj(const ubundle::Light& light, std::uint32_t face) noexce
                                                         {0, 0, -1}}};
         static constexpr std::array<Vec, 6> UP = {{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}, {0, 0, 1}, {1, 0, 0},
                                                    {1, 0, 0}}};
-        view = lookAlong(light.location, FORWARD[face % 6], UP[face % 6]);
+        view = lookAlong(eye, FORWARD[face % 6], UP[face % 6]);
         lens.verticalFovDegrees = 90.0f;
     }
     return multiply(projectionOf(lens, 1, 1), view);
@@ -221,7 +242,7 @@ ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights, const 
     } else {
         for (std::size_t i = 0; i < lights.size(); ++i)
             for (const auto& box : movedMoverBounds)
-                if (!held_[i].tiles.empty() && boxReaches(box, lights[i].location, radiusOf(lights[i]))) redraw[i] = true;
+                if (!held_[i].tiles.empty() && boxReaches(box, centreOf(lights[i]), reachOf(lights[i]))) redraw[i] = true;
     }
 
     ShadowPlan plan;

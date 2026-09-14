@@ -118,9 +118,20 @@ double falloff(double distance, double radius) noexcept {
     return std::min(1.0, (1 + 2 * v * v * v - 3 * v * v) / v);
 }
 
-Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept {
+Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept {
     const Vec3 location{light.location[0], light.location[1], light.location[2]};
-    const Vec3 toLight = location - x;
+    if (light.strip != ubundle::STRIP_LEADER) return location;
+    const Vec3 a{light.stripFrom[0], light.stripFrom[1], light.stripFrom[2]};
+    const Vec3 s = Vec3{light.stripTo[0], light.stripTo[1], light.stripTo[2]} - a;
+    const double ss = dot(s, s);
+    if (ss == 0) return a; // LITE refuses a leader like this; kept so no NaN escapes
+    return a + s * std::clamp(dot(x - a, s) / ss, 0.0, 1.0);
+}
+
+Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept {
+    // UTA-0162: its row's leader lights for it.
+    if (light.strip == ubundle::STRIP_ABSORBED) return {};
+    const Vec3 toLight = litFrom(light, x) - x;
     const double d = length(toLight);
     const double radius = lightRadius(light.radius);
     const Rgb colour = lightColour(light.hue, light.saturation);

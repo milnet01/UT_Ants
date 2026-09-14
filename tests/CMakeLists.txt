@@ -29,6 +29,7 @@ add_executable(uta_unit_tests
     unit/BakeLightModelTest.cpp
     unit/BakeLightProbesTest.cpp
     unit/BakeMoversTest.cpp
+    unit/BakeStripsTest.cpp
     unit/BakeTest.cpp
     unit/BundleActorsTest.cpp
     unit/BundleCollisionTest.cpp

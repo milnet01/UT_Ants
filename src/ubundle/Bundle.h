@@ -49,7 +49,8 @@ namespace uta::ubundle {
 /// sixteen bytes and the descriptor twenty-four.
 /// No .utab exists that this orphans, 0.1.0 not having been cut.
 /// 9 since UTA-0040 SS 4.1 gave each MATS record a parallax depth byte.
-inline constexpr std::uint32_t FORMAT_VERSION = 9;
+/// 10 since UTA-0162 SS 4.1 gave each LITE record its strip fields.
+inline constexpr std::uint32_t FORMAT_VERSION = 10;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -249,6 +250,14 @@ struct Placements {
 /// past the last light type is the renderer's to handle, as an unknown surface
 /// flag is. This library does not check that a light has a placement; the
 /// baker guarantees it (UTA-0110 INV-9).
+///
+/// The strip fields are UTA-0162 SS 4.1's: a row of identical lights along one
+/// fixture is lit as one segment, carried by its lowest-numbered light. This
+/// library does not check that a leader's row exists; the baker guarantees it.
+inline constexpr std::uint8_t STRIP_NONE = 0;     ///< an ordinary point light
+inline constexpr std::uint8_t STRIP_LEADER = 1;   ///< carries its row's segment
+inline constexpr std::uint8_t STRIP_ABSORBED = 2; ///< lit by its row's leader
+
 struct Light {
     std::uint32_t exportIndex = 0;
     std::array<float, 3> location{};
@@ -257,6 +266,9 @@ struct Light {
                  radius = 0, period = 0, phase = 0, cone = 0,
                  volumeBrightness = 0, volumeRadius = 0, volumeFog = 0;
     bool specialLit = false, actorShadows = false, corona = false, lensFlare = false;
+    std::uint8_t strip = STRIP_NONE;
+    std::array<float, 3> stripFrom{}; ///< one end of the segment; zero unless a leader
+    std::array<float, 3> stripTo{};   ///< the other end; zero unless a leader
 };
 
 /// One mover's shape, in its pivot space -- UTA-0119 SS 4.2 and SS 4.5.

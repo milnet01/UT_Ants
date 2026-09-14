@@ -134,8 +134,8 @@ Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
         // A light that puts nothing here adds nothing either way, so its
         // shadow ray is not worth casting.
         if (lit.r == 0 && lit.g == 0 && lit.b == 0) continue;
-        const Vec3 at{light.location[0], light.location[1], light.location[2]};
-        if (rays.blocked(x + n * SHADOW_OFFSET, at)) continue;
+        // Toward the point the light is lit from: a strip's nearest (UTA-0162 SS 4.3).
+        if (rays.blocked(x + n * SHADOW_OFFSET, litFrom(light, x))) continue;
         e.r += lit.r;
         e.g += lit.g;
         e.b += lit.b;
@@ -151,7 +151,9 @@ std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& light
     static const std::vector<ubundle::PropertyRecord> none;
     std::vector<ubundle::Light> out;
     for (const ubundle::Light& light : lights) {
-        if (light.type == LT_BACKDROP_LIGHT || light.specialLit) continue;
+        // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
+        if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == ubundle::STRIP_ABSORBED)
+            continue;
         const auto found = std::lower_bound(
             placements.actors.begin(), placements.actors.end(), light.exportIndex,
             [](const ubundle::ActorPlacement& actor, std::uint32_t slot) { return actor.exportIndex < slot; });

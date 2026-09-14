@@ -51,7 +51,9 @@ std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle) {
     std::vector<ubundle::Light> out;
     if (!bundle.lights) return out;
     for (const ubundle::Light& light : *bundle.lights)
-        if (light.type != LT_BACKDROP_LIGHT && !light.specialLit) out.push_back(light);
+        // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
+        if (light.type != LT_BACKDROP_LIGHT && !light.specialLit && light.strip != ubundle::STRIP_ABSORBED)
+            out.push_back(light);
     return out;
 }
 
@@ -60,6 +62,11 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
     for (const ubundle::Light& light : directLights(bundle)) {
         gpu::Light record{};
         record.location = light.location;
+        // UTA-0162 SS 4.3: a leader draws from one end of its segment, along the rest.
+        if (light.strip == ubundle::STRIP_LEADER) {
+            record.location = light.stripFrom;
+            for (std::size_t axis = 0; axis < 3; ++axis) record.span[axis] = light.stripTo[axis] - light.stripFrom[axis];
+        }
         record.flicker = flickerOf(light, seconds);
         record.hue = light.hue;
         record.saturation = light.saturation;

@@ -78,6 +78,8 @@ struct Light {
     uint shadowFaceCount;
     uint reserved0;
     uint reserved1;
+    vec3 span; // UTA-0162: a strip leader's segment, from `location`; zero otherwise
+    float reserved2;
 };
 
 struct ClusterBounds {

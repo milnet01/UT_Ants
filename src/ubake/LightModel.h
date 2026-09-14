@@ -120,10 +120,15 @@ inline constexpr double RADIANS_PER_UNIT = std::numbers::pi / 32768.0;
     return {cosPitch * cosineOf(rotation[1]), cosPitch * sineOf(rotation[1]), sineOf(rotation[0])};
 }
 
+/// The point `light` is lit from at `x` -- UTA-0162 SS 4.3: its location, or
+/// for a strip leader the nearest point of the segment from stripFrom to stripTo.
+[[nodiscard]] Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept;
+
 /// The light `light` puts on a surface at `x` with unit normal `n`, with no
 /// shadow test: colour, times brightness / 255, times the falloff, times the
-/// incidence, times the spot factor -- SS 4.3. LE_Cylinder and LE_NonIncidence
-/// replace the falloff and drop the other factors (UTA-0156).
+/// incidence, times the spot factor -- SS 4.3, all measured from litFrom.
+/// LE_Cylinder and LE_NonIncidence replace the falloff and drop the other
+/// factors (UTA-0156). An absorbed strip light puts nothing (UTA-0162).
 [[nodiscard]] Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept;
 
 /// An 8-bit sRGB value, decoded to linear by a table of literals.

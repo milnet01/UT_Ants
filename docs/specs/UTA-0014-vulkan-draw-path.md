@@ -570,6 +570,10 @@ it adds quality tiers. A cluster that overflows its cap drops the lights
 furthest from its centre and records that it did — § 6. Determinism is not required of any of this: `ADR-0002`'s one-bundle
 rule is about the baker, and nothing here writes a bundle.
 
+**A strip light** reaches a cluster by its segment rather than its sphere, and
+casts its shadow from its segment's midpoint. `docs/specs/UTA-0162-strip-lights.md`
+§ 4.4 and § 4.5 own both.
+
 **Which lights draw.** Every `LITE` light but two kinds. `LT_BackdropLight`
 lights only the sky, which § 4.5 draws unlit. A `specialLit` light lights only
 `PF_SpecialLit` surfaces, which § 4.5 ignores. A `type` byte past the last

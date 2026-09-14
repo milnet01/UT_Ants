@@ -91,6 +91,41 @@ TEST_CASE("radius and falloff", "[ubake][lightmodel]") {
     CHECK(falloff(2000, 1625) == 0.0);
 }
 
+TEST_CASE("UTA-0162 INV-5: a strip leader lights from its segment's nearest point", "[ubake][lightmodel]") {
+    // The leader's location is the segment's midpoint, so a model that still
+    // lit from `location` gets the middle case wrong.
+    struct Case {
+        Vec3 x;
+        Vec3 p; // the nearest point of the segment from (0, 0, 0) to (1000, 0, 0)
+    };
+    const Case cases[] = {
+        {{-300, 100, -200}, {0, 0, 0}},     // t clamps to 0
+        {{400, 150, -200}, {400, 0, 0}},    // t = 0.4
+        {{1300, -100, -200}, {1000, 0, 0}}, // t clamps to 1
+    };
+    for (const std::uint8_t effect : {std::uint8_t{0}, LE_NON_INCIDENCE, LE_CYLINDER}) {
+        Light leader = whiteLight(255);
+        leader.effect = effect;
+        leader.location = {500, 0, 0};
+        leader.strip = uta::ubundle::STRIP_LEADER;
+        leader.stripFrom = {0, 0, 0};
+        leader.stripTo = {1000, 0, 0};
+        for (const Case& c : cases) {
+            CAPTURE(int(effect), c.x.x);
+            Light point = whiteLight(255);
+            point.effect = effect;
+            point.location = {static_cast<float>(c.p.x), static_cast<float>(c.p.y), static_cast<float>(c.p.z)};
+            const Rgb lit = lightAt(leader, c.x, {0, 0, 1});
+            CHECK(lit.r > 0);
+            sameRgb(lit, lightAt(point, c.x, {0, 0, 1}));
+        }
+    }
+    // An absorbed light puts nothing, even at its own location.
+    Light absorbed = whiteLight(255);
+    absorbed.strip = uta::ubundle::STRIP_ABSORBED;
+    sameRgb(lightAt(absorbed, {0, 0, 0}, {0, 0, 1}), {0, 0, 0});
+}
+
 TEST_CASE("intensity incidence and spot", "[ubake][lightmodel]") {
     SECTION("a white light at its own location") {
         sameRgb(lightAt(whiteLight(255), {0, 0, 0}, {0, 0, 1}), {1, 1, 1});

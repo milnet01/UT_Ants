@@ -34,7 +34,59 @@ Light pointLight(std::array<float, 3> location, std::uint8_t radius) {
     return light;
 }
 
+/// UTA-0162: a strip leader of radius byte 20 (R = 525) at `from`, its segment
+/// running to `to`.
+Light stripLeader(std::array<float, 3> from, std::array<float, 3> to) {
+    Light light = pointLight(from, 20);
+    light.strip = uta::ubundle::STRIP_LEADER;
+    light.stripFrom = from;
+    light.stripTo = to;
+    return light;
+}
+
 } // namespace
+
+TEST_CASE("UTA-0162 INV-9: a strip's shadow is cast from its midpoint and reaches R plus half its length",
+          "[render]") {
+    const Camera camera; // at the origin looking along +X
+
+    SECTION("tile size") {
+        // Its location is 3900 behind the camera, where R alone reaches nothing;
+        // its midpoint is 2000 behind, and 525 + 1900 reaches past the camera.
+        const Light strip = stripLeader({-3900, 0, 0}, {-100, 0, 0});
+        CHECK(urender::shadowTileSize(camera, 1280, 720, strip) != 0u);
+        Light point = strip;
+        point.strip = uta::ubundle::STRIP_NONE;
+        point.stripFrom = {};
+        point.stripTo = {};
+        CHECK(urender::shadowTileSize(camera, 1280, 720, point) == 0u);
+    }
+    SECTION("face projection") {
+        // Midpoint (100, 200, 300), reach 625. A point 600 along +X from the
+        // midpoint is inside it; from the location it is 700, beyond R.
+        const Light strip = stripLeader({0, 200, 300}, {200, 200, 300});
+        const auto m = urender::shadowViewProj(strip, 0);
+        const std::array<double, 3> p{700, 200, 300};
+        std::array<double, 4> clip{};
+        for (int row = 0; row < 4; ++row)
+            clip[row] = m[0 * 4 + row] * p[0] + m[1 * 4 + row] * p[1] + m[2 * 4 + row] * p[2] + m[3 * 4 + row];
+        REQUIRE(clip[3] > 0);
+        const double depth = clip[2] / clip[3];
+        CHECK(depth > 0);
+        CHECK(depth < 1);
+    }
+    SECTION("a mover near its far end redraws it") {
+        ShadowPlanner planner;
+        // Midpoint (900, 0, 0), reach 1025. A box at 1350 is 950 from the
+        // location, beyond R, and 450 from the midpoint.
+        const std::vector lights = {stripLeader({400, 0, 0}, {1400, 0, 0}), pointLight({4000, 3000, 0}, 12)};
+        (void)planner.plan(lights, camera, 1280, 720, {});
+        const std::vector<std::array<std::array<float, 3>, 2>> moved = {{{{1340, -10, -10}}, {{1360, 10, 10}}}};
+        const auto plan = planner.plan(lights, camera, 1280, 720, moved);
+        REQUIRE(plan.draws.size() == 6u);
+        for (const auto& draw : plan.draws) CHECK(draw.face < 6u);
+    }
+}
 
 TEST_CASE("SS 4.8: atlas tiles lie inside the atlas and never overlap", "[render]") {
     ShadowAtlas atlas;
