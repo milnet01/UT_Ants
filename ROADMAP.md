@@ -8466,6 +8466,19 @@ model, no weapon and no opponent until 0.2.0.
   `ut-dump --nav-graph` document; the next site was 1.7 MB. So the whole
   document is nearly all of what remains, and --ndjson lets them drop each
   map's parse after its checks. Their matching item is GAME-0138.
+  Prep (2026-09-14, ut-ants-db; not claimed). No spec: spec-format.md § 1
+  lists a new flag on an existing command as its skip case, and the agreed
+  shape above is the contract. Build under write-code. How:
+  tools/ut-dump/Cli.cpp's runCli writes {"schema":1,"packages":[ then
+  dumpPackage per file with "," separators. tools/common/Json.h's
+  writeJsonString escapes \n, \r, \t and every byte below 0x20, so every
+  raw newline dumpPackage writes is layout. Under --ndjson: print
+  {"schema":1} as line 1, then dumpPackage each file into an ostringstream
+  (first=true), drop its raw newlines and leading space, and print it as
+  one line. Default output unchanged. Tests go in tests/unit/DumpCliTest.cpp
+  (run() helper, [dump] tag): every line parses alone, line 1 is the
+  header, each package line's values match the default run's packages[]
+  entry in order, and the default output is byte-identical to before.
   **Layman:** The dump tool prints all its results as one big block, so the other project has to read it all at once; one result per line lets it read them one at a time.
   Kind: feature.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
