@@ -28,6 +28,8 @@ struct Options {
     /// until the window closes.
     std::optional<std::uint32_t> frames;
     bool validation = false; ///< ask urender for the Vulkan validation layer
+    /// UTA-0153: a resizable window. Unset: borderless fullscreen at the desktop's size.
+    bool windowed = false;
     /// UTA-0051: the quality tier. Unset: urender chooses from the device.
     std::optional<urender::Tier> tier;
 };

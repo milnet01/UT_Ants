@@ -8694,7 +8694,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14 performance pass.
   Lanes: tests.
 
-- 📋 [UTA-0153] **ut-ants opens at the desktop's resolution, borderless fullscreen, with a --windowed option.**
+- 🚧 [UTA-0153] **ut-ants opens at the desktop's resolution, borderless fullscreen, with a --windowed option.**
   User request (2026-09-14). UTA-0016 hard-coded a 1280 x 720 window in
   apps/ut-ants/main.cpp. The user plays on a 4K display and expects the
   engine to render below that and upscale, which is UTA-0051's dynamic
@@ -8718,6 +8718,9 @@ model, no weapon and no opponent until 0.2.0.
   SDL_GetWindowSizeInPixels, and add the drawn pixel size to the
   --frames report so a hand run shows the 4K output. A hand run takes
   over the whole screen for a few seconds.
+  Claimed 2026-09-14 by session ut-ants-e9, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). Building the plan above under
+  write-code.
   **Layman:** The game fills your whole screen at its real resolution instead of opening in a small window.
   Kind: feature.
   Source: user-request-2026-09-14.

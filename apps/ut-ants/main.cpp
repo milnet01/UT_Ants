@@ -124,6 +124,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         }
         return static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(surface));
     };
+    SDL_SyncWindow(window); // a fullscreen request may not have landed yet
     int width = 0, height = 0;
     SDL_GetWindowSizeInPixels(window, &width, &height);
     config.width = static_cast<std::uint32_t>(width);
@@ -155,8 +156,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                 input.lookUp -= event.motion.yrel; // SDL's y grows downward
             } else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED && event.window.data1 > 0 &&
                        event.window.data2 > 0) {
-                const auto resized = renderer.resize(static_cast<std::uint32_t>(event.window.data1),
-                                                     static_cast<std::uint32_t>(event.window.data2));
+                config.width = static_cast<std::uint32_t>(event.window.data1);
+                config.height = static_cast<std::uint32_t>(event.window.data2);
+                const auto resized = renderer.resize(config.width, config.height);
                 if (!resized) {
                     std::cerr << "ut-ants: the renderer could not resize: " << resized.error().message() << "\n";
                     return EXIT_FAILED;
@@ -194,7 +196,8 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     if (options.frames.has_value()) {
         const uta::urender::FrameStats stats = renderer.lastFrameStats();
         std::cout << "ut-ants: started at " << start.from << "; tier " << uta::urender::tierName(stats.tier)
-                  << "; drew " << drawn << " of " << *options.frames << " frames; the last was drawn at scale "
+                  << "; drew " << drawn << " of " << *options.frames << " frames at " << config.width << "x"
+                  << config.height << " pixels; the last was drawn at scale "
                   << stats.renderScale << " in " << stats.frameMilliseconds << " ms and had "
                   << stats.overflowedClusters << " overflowed clusters and " << stats.unshadowedLights
                   << " unshadowed lights\n";
@@ -240,7 +243,19 @@ int main(int argc, char** argv) {
         std::cerr << "ut-ants: SDL did not start: " << SDL_GetError() << "\n";
         return EXIT_FAILED;
     }
-    SDL_Window* const window = SDL_CreateWindow("UT_Ants", 1280, 720, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    // UTA-0153. A fullscreen window with no display mode set is borderless at
+    // the desktop's resolution (SDL_SetWindowFullscreenMode's NULL case), and
+    // high pixel density keeps a scaled desktop's real pixels.
+    int width = 1280, height = 720;
+    SDL_WindowFlags flags = SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_RESIZABLE;
+    if (!options->windowed) {
+        flags |= SDL_WINDOW_FULLSCREEN;
+        if (const SDL_DisplayMode* const desktop = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay())) {
+            width = desktop->w;
+            height = desktop->h;
+        }
+    }
+    SDL_Window* const window = SDL_CreateWindow("UT_Ants", width, height, flags);
     if (window == nullptr) {
         std::cerr << "ut-ants: SDL could not open a window: " << SDL_GetError() << "\n";
         SDL_Quit();

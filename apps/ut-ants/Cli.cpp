@@ -12,13 +12,16 @@
 namespace uta::client {
 
 void usage(std::ostream& err) {
-    err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] <install> <bundle>\n"
+    err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
+           "               <install> <bundle>\n"
            "       ut-ants --help\n"
            "\n"
-           "Checks <install> with ut-bake --check, then opens <bundle>, a baked map.\n"
-           "The mouse looks; W, A, S and D fly; Space rises and Ctrl sinks; Shift\n"
-           "flies faster; Escape quits. --frames draws that many frames and exits 0\n"
-           "if every one drew. --validation asks for the Vulkan validation layer.\n"
+           "Checks <install> with ut-bake --check, then opens <bundle>, a baked map,\n"
+           "fullscreen at the desktop's resolution; --windowed opens a resizable\n"
+           "window instead. The mouse looks; W, A, S and D fly; Space rises and Ctrl\n"
+           "sinks; Shift flies faster; Escape quits. --frames draws that many frames\n"
+           "and exits 0 if every one drew. --validation asks for the Vulkan\n"
+           "validation layer.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n";
 }
@@ -32,6 +35,8 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.help = true;
         } else if (arg == "--validation") {
             options.validation = true;
+        } else if (arg == "--windowed") {
+            options.windowed = true;
         } else if (arg == "--tier") {
             if (options.tier.has_value()) {
                 err << "ut-ants: --tier is given twice\n";

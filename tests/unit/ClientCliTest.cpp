@@ -39,7 +39,15 @@ TEST_CASE("UTA-0016: ut-ants takes an install and then a bundle", "[client]") {
     CHECK(parsed.options->bundle == std::filesystem::path("bakes/map.utab"));
     CHECK_FALSE(parsed.options->frames.has_value());
     CHECK_FALSE(parsed.options->validation);
+    CHECK_FALSE(parsed.options->windowed);
     CHECK_FALSE(parsed.options->help);
+}
+
+TEST_CASE("UTA-0153: --windowed asks for a window instead of fullscreen", "[client]") {
+    const Parsed parsed = parse({"/games/UT", "map.utab", "--windowed"});
+    REQUIRE(parsed.options.has_value());
+    CHECK(parsed.options->windowed);
+    CHECK(parsed.options->bundle == std::filesystem::path("map.utab"));
 }
 
 TEST_CASE("UTA-0016: options may come before or after the two paths", "[client]") {

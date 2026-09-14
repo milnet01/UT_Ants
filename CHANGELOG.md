@@ -17,6 +17,9 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-ants opens borderless fullscreen at the desktop's resolution; --windowed opens a resizable window** (UTA-0153)
+  The game fills your whole screen at its real resolution instead of opening in a small window.
+
 - **Quality tiers and dynamic resolution: the renderer picks low, medium, high or ultra and lowers its resolution to hold 60 frames a second** (UTA-0051)
   The tier comes from the graphics card's memory, or from `ut-ants --tier`.
   Below 60 frames a second the scene draws into a smaller region and is
