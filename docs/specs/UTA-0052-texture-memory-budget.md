@@ -875,9 +875,9 @@ in from elsewhere would otherwise encode nothing and succeed.
   *Breaks when:* a convenience dependency on `uta_umap_build` or
   `uta_unav_build` is added. **This is half of `docs/design.md` rule 2 and
   says so:** the other half is a link-closure test over `ut-ants` and
-  `ut-ants-server` asserting neither reaches `uta_umat`, and neither program
-  exists until UTA-0016. § 10 records that as `Partial:` rather than claiming
-  it.
+  `ut-ants-server` asserting neither reaches `uta_umat`. UTA-0016 added it for
+  `ut-ants`; `ut-ants-server` does not exist yet, so § 10 still records
+  `Partial:`.
   **Prove it by breaking it once**: add `uta_umap_build` to the
   `target_link_libraries` line and configure, which must stop with the
   `FATAL_ERROR` naming the permitted entries. An assertion nobody has seen
@@ -1062,7 +1062,8 @@ this item tests from synthetic images built in the test itself.
 - Calling the budget check, and printing its report — tracked by UTA-0011.
 - Mapping a quality tier onto a megabyte figure — tracked by UTA-0051.
 - Uploading a block-compressed texture and checking
-  `textureCompressionBC` — tracked by UTA-0016.
+  `textureCompressionBC` — done by UTA-0014: `src/urender/Device.cpp` requires
+  the feature of every device it picks.
 - The recipe field that carries a per-material `requested` factor —
   deferred; not yet queued. `docs/design.md` § The parts gives `urecipe`
   per-map material assignments, and no roadmap item covers the format yet.
@@ -1092,7 +1093,7 @@ this item tests from synthetic images built in the test itself.
 | INV-9 | `tests/unit/MaterialCompressTest.cpp` |
 | INV-10 | `tests/unit/MaterialCompressTest.cpp` |
 | INV-11 | `tests/unit/MaterialCompressTest.cpp` |
-| INV-12 | **Partial:** `src/umat/CMakeLists.txt` asserts the link list; nothing asserts `ut-ants` and `ut-ants-server` exclude it, both being absent until UTA-0016 |
+| INV-12 | **Partial:** `src/umat/CMakeLists.txt` asserts the link list, and `apps/ut-ants/CMakeLists.txt` asserts `ut-ants` excludes it (UTA-0016); nothing asserts `ut-ants-server` does, which does not exist yet |
 | INV-13 | `tests/unit/BundleTextureTest.cpp` |
 | INV-14 | `tests/unit/MaterialCompressTest.cpp` |
 | § 4.2's ratio arithmetic | **nothing** — the table is derivable from the BC block sizes but no test computes it; a wrong cell misleads a budget argument and nothing fails |

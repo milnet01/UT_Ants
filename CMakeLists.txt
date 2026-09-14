@@ -163,6 +163,9 @@ unset(_uta_fp_flags_var)
 find_program(UTA_CCACHE ccache)
 if(UTA_CCACHE)
     set(CMAKE_CXX_COMPILER_LAUNCHER "${UTA_CCACHE}")
+    # SDL3 is C, and fetched sources are the other thing a wiped build
+    # directory recompiles for nothing.
+    set(CMAKE_C_COMPILER_LAUNCHER "${UTA_CCACHE}")
     message(STATUS "Compiler launcher: ${UTA_CCACHE}")
 endif()
 
@@ -244,10 +247,44 @@ FetchContent_Declare(glm
     SYSTEM)
 FetchContent_MakeAvailable(glm)
 
+# The client, ut-ants (UTA-0016). It needs the tools because docs/design.md
+# rule 16 has it run ut-bake to check an install rather than read one itself.
+option(UTA_BUILD_CLIENT "Build the ut-ants client" ON)
+if(UTA_BUILD_CLIENT AND NOT UTA_BUILD_TOOLS)
+    message(FATAL_ERROR
+        "UTA_BUILD_CLIENT is ON but UTA_BUILD_TOOLS is OFF. docs/design.md rule 16 "
+        "has ut-ants run ut-bake to check an install, and ut-bake is a tool.")
+endif()
+
+# SDL3 -- route 1 of docs/standards/dependency-acquisition.md, fetched at an
+# exact tag, for the client's window, input and Vulkan surface. Static, so the
+# client carries no SDL library beside it. On Linux its X11, Wayland and audio
+# backends compile only against the system headers README.md names; without
+# them SDL3 builds with those backends missing (§ 3).
+if(UTA_BUILD_CLIENT)
+    set(SDL_SHARED OFF)
+    set(SDL_STATIC ON)
+    set(SDL_TEST_LIBRARY OFF)
+    set(SDL_TESTS OFF)
+    set(SDL_EXAMPLES OFF)
+    set(SDL_INSTALL OFF)
+    FetchContent_Declare(SDL3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG        release-3.4.16 # current release, resolved 2026-09-14
+        GIT_SHALLOW    TRUE
+        EXCLUDE_FROM_ALL
+        SYSTEM)
+    FetchContent_MakeAvailable(SDL3)
+endif()
+
 add_subdirectory(src)
 
 if(UTA_BUILD_TOOLS)
     add_subdirectory(tools)
+endif()
+
+if(UTA_BUILD_CLIENT)
+    add_subdirectory(apps)
 endif()
 
 if(UTA_BUILD_TESTS)

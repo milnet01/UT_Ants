@@ -1,0 +1,68 @@
+// The ut-ants command line -- UTA-0016. The roadmap item settled its shape:
+// the install and the map are both named on the command line, and nothing is
+// remembered between runs.
+
+#include "Cli.h"
+
+#include <charconv>
+#include <string>
+#include <system_error>
+#include <vector>
+
+namespace uta::client {
+
+void usage(std::ostream& err) {
+    err << "usage: ut-ants [--frames <n>] [--validation] <install> <bundle>\n"
+           "       ut-ants --help\n"
+           "\n"
+           "Checks <install> with ut-bake --check, then opens <bundle>, a baked map.\n"
+           "The mouse looks; W, A, S and D fly; Space rises and Ctrl sinks; Shift\n"
+           "flies faster; Escape quits. --frames draws that many frames and exits 0\n"
+           "if every one drew. --validation asks for the Vulkan validation layer.\n";
+}
+
+std::optional<Options> parseArguments(std::span<const std::string_view> args, std::ostream& err) {
+    Options options;
+    std::vector<std::string_view> positional;
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string_view arg = args[i];
+        if (arg == "--help" || arg == "-h") {
+            options.help = true;
+        } else if (arg == "--validation") {
+            options.validation = true;
+        } else if (arg == "--frames") {
+            if (options.frames.has_value()) {
+                err << "ut-ants: --frames is given twice\n";
+                return std::nullopt;
+            }
+            if (i + 1 >= args.size()) {
+                err << "ut-ants: --frames needs a value\n";
+                return std::nullopt;
+            }
+            const std::string_view value = args[++i];
+            std::uint32_t frames = 0;
+            const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), frames);
+            if (error != std::errc{} || end != value.data() + value.size() || frames == 0) {
+                err << "ut-ants: --frames takes a whole number above zero, not " << value << "\n";
+                return std::nullopt;
+            }
+            options.frames = frames;
+        } else if (arg.starts_with("-")) {
+            err << "ut-ants: unknown option " << arg << "\n";
+            return std::nullopt;
+        } else {
+            positional.push_back(arg);
+        }
+    }
+
+    if (options.help) return options;
+    if (positional.size() != 2) {
+        err << "ut-ants: give an install and a bundle, in that order\n";
+        return std::nullopt;
+    }
+    options.install = std::filesystem::path(std::string(positional[0]));
+    options.bundle = std::filesystem::path(std::string(positional[1]));
+    return options;
+}
+
+} // namespace uta::client

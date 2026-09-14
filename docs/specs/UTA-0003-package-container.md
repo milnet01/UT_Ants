@@ -665,8 +665,9 @@ a missing symbol first, then against the failure it names, per
 - **UnrealScript bytecode** in `.u` packages. No roadmap item; nothing
   needs it yet, and ADR-0004 resolves classes by ancestry rather than by
   running their code.
-- **The link-closure test** of design rule 2, which needs `ut-ants` and
-  `ut-ants-server` to exist. INV-13 covers `uta_upkg`'s own edge.
+- **The link-closure test** of design rule 2. UTA-0016 added it for
+  `ut-ants`; `ut-ants-server` does not exist yet. INV-13 covers `uta_upkg`'s
+  own edge.
 - **`ut-dump`**, the command-line inspector this reader makes possible.
   UTA-0012.
 - **Writing packages.** Nothing in this project writes one; content goes

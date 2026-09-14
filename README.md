@@ -75,6 +75,17 @@ Linux, either that SDK or your distribution's packages — on Ubuntu,
 `libvulkan-dev` and `glslc`. The Vulkan validation layers are worth having while
 working on the renderer; nothing checks that they are installed.
 
+On Linux the game's window library, SDL3, is downloaded by the build, but it
+needs your system's window and sound headers. Without them it still builds,
+with no X11, Wayland or sound support. On Ubuntu:
+
+```sh
+sudo apt-get install libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+  libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
+  libwayland-dev libdecor-0-dev libasound2-dev libpulse-dev \
+  libpipewire-0.3-dev libdbus-1-dev libudev-dev
+```
+
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # set up a build folder
 cmake --build build                                        # compile everything
@@ -110,7 +121,17 @@ is named from everything it was baked from, so baking the same map again finds
 the first bake instead of repeating it; add `--force` to bake it anyway. Each
 command prints one line of JSON saying what happened.
 
-Nothing plays a baked map yet — that is the game itself, `ut-ants`.
+The game itself, `ut-ants`, opens a baked map and lets you fly through it. It
+is built into `build/apps/ut-ants/`, with a copy of `ut-bake` beside it, which
+it uses to check the install before it starts.
+
+```sh
+ut-ants "<your Unreal Tournament folder>" "<a baked map>"
+```
+
+The mouse looks around. W, A, S and D fly, Space goes up and Ctrl goes down,
+and Shift flies faster. You pass through walls, and nothing moves but you:
+there is no walking, no weapons and no monsters yet. Escape quits.
 
 ## Documentation
 

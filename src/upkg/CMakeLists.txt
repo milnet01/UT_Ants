@@ -21,8 +21,8 @@ target_link_libraries(uta_upkg PUBLIC uta_core)
 # line above is needed.
 #
 # This says nothing about design rule 2 itself, which constrains what the
-# RUNTIME targets link. ut-ants and ut-ants-server do not exist yet, so the
-# link-closure test that rule needs belongs to whichever item first builds one.
+# RUNTIME targets link. apps/ut-ants/CMakeLists.txt is that rule's link-closure
+# test for ut-ants (UTA-0016); ut-ants-server does not exist yet.
 get_target_property(_uta_upkg_links uta_upkg LINK_LIBRARIES)
 if(NOT _uta_upkg_links STREQUAL "uta_core")
     message(FATAL_ERROR

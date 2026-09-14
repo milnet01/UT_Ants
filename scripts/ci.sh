@@ -270,8 +270,10 @@ else
     # -- ninja writes its FAILED lines to stdout, so the one thing needed to
     # diagnose the failure was the thing being discarded. A gate that cannot
     # say why it failed is not a gate.
+    # The client is left out: its subject is this project's threads, and the
+    # client adds only SDL3, which would be compiled instrumented for nothing.
     cmake -S . -B "$TSAN_DIR" -G "$GENERATOR" \
-        -DCMAKE_BUILD_TYPE=Debug -DUTA_SANITIZE=thread
+        -DCMAKE_BUILD_TYPE=Debug -DUTA_SANITIZE=thread -DUTA_BUILD_CLIENT=OFF
     cmake --build "$TSAN_DIR"
     # The unit tier alone, which is every test this step ran before the device
     # tier existed. Its subject is this project's own threads; a device test

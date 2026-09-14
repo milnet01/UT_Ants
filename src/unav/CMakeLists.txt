@@ -44,6 +44,5 @@ endif()
 unset(_uta_unav_build_links)
 
 # As src/upkg/CMakeLists.txt: neither assertion above says anything about design
-# rule 2 itself, which constrains what the RUNTIME targets link. ut-ants does not
-# exist yet, so the link-closure test that rule names belongs to whichever item
-# first builds one -- UTA-0006 SS 10 keeps the row.
+# rule 2 itself, which constrains what the RUNTIME targets link. The link-closure
+# test that rule names is apps/ut-ants/CMakeLists.txt's (UTA-0016).

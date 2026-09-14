@@ -835,8 +835,8 @@ in resolution order, and read a `MATS` `metallic` byte of `2` as `true`. Each mu
   UTA-0070.
 - Telling apart two packages that share a name — tracked by UTA-0104.
 - Moving a procedural texture — tracked by UTA-0105.
-- The link-closure test keeping `ubake` out of the runtime targets — tracked
-  by UTA-0016, the first item to build one.
+- The link-closure test keeping `ubake` out of the runtime targets — done by
+  UTA-0016, in `apps/ut-ants/CMakeLists.txt`, for `ut-ants`.
 - Decoding a texture that carries a `Format` property — tracked by UTA-0118.
 - Which Unreal Tournament versions an install may be — tracked by UTA-0117.
 

@@ -39,6 +39,8 @@ add_executable(uta_unit_tests
     unit/BundleMalformedTest.cpp
     unit/BundleMaterialTest.cpp
     unit/BundleTextureTest.cpp
+    unit/ClientCliTest.cpp
+    unit/ClientFlyCameraTest.cpp
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
     unit/CoreFileSystemTest.cpp
@@ -96,6 +98,12 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli
 # And ut-dump's -- UTA-0136's navigation graph.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
+# And the client's parts that need no window -- UTA-0016. Compiled in whether or
+# not UTA_BUILD_CLIENT is on, because neither links SDL.
+target_sources(uta_unit_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/Cli.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/FlyCamera.cpp")
+target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/apps")
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
 # deadlock, and without a bound it hangs the run instead of failing it.

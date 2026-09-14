@@ -91,10 +91,17 @@ jobs:
           # what uta_urender needs to BUILD; mesa-vulkan-drivers is Mesa's CPU
           # driver, which the device tier draws on. --no-install-recommends
           # stays, so that driver is a named dependency and never a lucky one.
+          # UTA-0016: the headers SDL3's X11, Wayland and audio backends compile
+          # against. SDL3 is fetched, and without these it still builds, with
+          # those backends silently missing (dependency-acquisition.md § 3).
           # shellcheck disable=SC2086  # the package list is deliberately split
           sudo apt-get install --no-install-recommends -y \
             $APT_PACKAGES ninja-build shellcheck yamllint ccache \
-            libvulkan-dev glslc mesa-vulkan-drivers
+            libvulkan-dev glslc mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev \
+            libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev \
+            libdecor-0-dev libasound2-dev libpulse-dev libpipewire-0.3-dev \
+            libdbus-1-dev libudev-dev
           # The root CMakeLists.txt uses ccache whenever it is installed. Untold,
           # ccache hashes the build path into every key and mostly misses, so
           # the base-directory and hash-dir settings are what make it pay --

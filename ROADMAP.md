@@ -1267,7 +1267,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: urender.
 
-- 📋 [UTA-0016] **ut-ants: load a bundle and walk through it.**
+- 🚧 [UTA-0016] **ut-ants: load a bundle and walk through it.**
   A minimal client: validate the install by running ut-bake --check, load a
   bundle, and fly or walk through it with the renderer's full lighting.
   No movement model yet -- matching UT99's feel is 0.2.0's, and this deliberately
@@ -1303,6 +1303,35 @@ model, no weapon and no opponent until 0.2.0.
   itself, so it must know the install. Nothing is remembered between runs;
   no environment variable and no settings file. A saved setting can come
   with the menus (uui), later.
+  Progress (2026-09-14): picked up by session ut-ants-f9, working in
+  the main checkout, on the user's go-ahead to continue down the priority
+  order after UTA-0145. First step: decide whether spec-format.md section
+  1 needs a spec, and route SDL3 through dependency-acquisition.md
+  section 2 by hand (it answers route 1).
+  Plan (2026-09-14, ut-ants-f9). No spec: the contract already exists
+  and was reviewed (docs/design.md rules 2 and 16 and its stack row for
+  SDL3; UTA-0014 section 4.3's surface callback; UTA-0011 section 4.8's
+  exit codes), the user answered the scope questions above, and the user
+  asked for fewer reviews. Built under write-code. If it spreads past the
+  program and its build wiring, stop and reconsider.
+  1. SDL3 by route 1: FetchContent at release-3.4.16 in the root
+     CMakeLists.txt, static, behind UTA_BUILD_CLIENT (ON, and needing
+     UTA_BUILD_TOOLS, since rule 16 runs ut-bake). CI's Linux legs and
+     README.md name SDL3's X11, Wayland and audio headers.
+  2. apps/ut-ants: Cli (ut-ants <install> <bundle>, exit 2 on bad
+     arguments), FlyCamera (mouse look, fly anywhere, pitch clamped, UT
+     angle units), InstallCheck (ut-bake --check's exit code decides; its
+     standard-error lines are passed on). None links SDL; unit tests
+     compile them in as the tools' Cli.cpp files are.
+  3. main.cpp: SDL window and surface as the UTA-0014 present probe does,
+     ut-bake found beside ut-ants and run through SDL's process API, the
+     bundle read with ubundle::read, the camera started at a PlayerStart
+     if the bundle has one, and --frames N for an unattended run.
+  4. Rule 2's link-closure assertion over ut-ants at configure time:
+     nothing reaches uta_upkg, uta_umat or uta_ubake. Proven by adding one.
+  5. Update the specs that record that assertion as missing (UTA-0011,
+     UTA-0052), and CHANGELOG. Hand check: a real baked map drawn for N
+     frames with no draw failure and no validation error, Wayland and X11.
   **Layman:** The first thing you can actually run -- open one of your maps and move through it. No guns, no bots, no rules yet.
   Kind: implement.
   Source: design-2026-09-03.

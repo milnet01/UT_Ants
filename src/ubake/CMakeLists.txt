@@ -23,8 +23,7 @@ target_link_libraries(uta_ubake PUBLIC uta_core uta_upkg uta_umat uta_unav_build
 # SS 4.1's list, asserted at configure time in the form every sibling uses. The
 # _build libraries are the bake-side halves of unav and umap, which hold the
 # graph and room builders. Keeping this library out of the runtime targets is a
-# link-closure test on those targets, and belongs to the first item that
-# builds one (UTA-0016, SS 9).
+# link-closure test on those targets: apps/ut-ants/CMakeLists.txt's (UTA-0016).
 get_target_property(_uta_ubake_links uta_ubake LINK_LIBRARIES)
 if(NOT _uta_ubake_links STREQUAL
    "uta_core;uta_upkg;uta_umat;uta_unav_build;uta_umap_build;uta_ubundle")

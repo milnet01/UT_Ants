@@ -146,8 +146,8 @@ against `uta_core`, and `uta_unav_build` against `uta_unav;uta_upkg`. One
 directory because two would make the split a build-layout fact the root build
 file and every test target binds to, where it is a link-closure fact.
 
-The runtime-closure test design rule 2 names does not exist yet — no runtime
-target does — and building it stays with whichever item first ships one.
+The runtime-closure test design rule 2 names arrived with the first runtime
+target: UTA-0016 asserts it for `ut-ants` in `apps/ut-ants/CMakeLists.txt`.
 
 ```cpp
 // src/unav/Graphs.h -- links uta_core only
@@ -595,7 +595,7 @@ nearly all of them.
 | INV-5 | A declared reading check. **Nothing** mechanical stops a member becoming a view later |
 | § 4.7's two index spaces — that a query takes a node position, not an export index | **Nothing.** Both are `std::uint32_t`, so a consumer passing the wrong one compiles and returns another actor's edges. `nodeOf` is what makes the right call easy; no test here catches a consumer that skips it, and the consumers are UTA-0025's and UTA-0028's |
 | INV-6 | Its first half is caught mechanically — the two configure-time link assertions in `src/unav/CMakeLists.txt` fail the build if either target's closure changes. Its second half is a declared reading check: **nothing** stops a `ByteReader` inside the builder, where linking `uta_upkg` is legitimate |
-| `docs/design.md` rule 2 — that no runtime target links `upkg` through `unav` | **Nothing yet.** The closure test that rule names needs a runtime target and none exists; § 4.1's split is what makes the rule satisfiable, not what enforces it |
+| `docs/design.md` rule 2 — that no runtime target links `upkg` through `unav` | **Partial:** `apps/ut-ants/CMakeLists.txt` walks `ut-ants`'s link closure at configure time and refuses `uta_upkg` (UTA-0016). Nothing checks `ut-ants-server`, which does not exist yet. § 4.1's split is what makes the rule satisfiable |
 | § 2.1's measured figures | `tests/real/RealInstallTest.cpp`, off by default — it prints them, so they are an output rather than a transcription |
 | The collision radius and height | **Nothing.** They are passed through from UTA-0057, which grades them nothing either; tracked by § 14 |
 | That an edge means what the engine means by it | **Nothing here.** The graph is checked for structure, never against the running game. UTA-0057's roadmap bullet records an in-engine ground-truth offer, and taking it is UTA-0025's |

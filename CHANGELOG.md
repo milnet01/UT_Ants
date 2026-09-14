@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-ants, the game client: open a baked map and fly through it** (UTA-0016)
+  `ut-ants <install> <bundle>` checks the install with ut-bake, opens the
+  map at its first PlayerStart, and flies a free camera through it: the
+  mouse looks, W A S D fly, Space and Ctrl rise and sink, Shift is
+  faster. There is no gravity or collision yet. SDL3 is now fetched for
+  the window and input, and the build asserts that ut-ants links no
+  package reader, material generator or baker (design rule 2).
+
 - **ut-dump --ndjson writes one package per line, so a script can read a map library one map at a time** (UTA-0145)
   The first line is a header holding the schema; each following line is
   one package's object, as in the default output's packages[], in the
