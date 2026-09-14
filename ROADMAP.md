@@ -8996,6 +8996,10 @@ model, no weapon and no opponent until 0.2.0.
   pauses at 🚧 with its commits in place and resumes after UTA-0162. Its
   next action (soft edges, fitted by compare.py) is unchanged, only
   later.
+  CI (2026-09-14, ut-ants-91). Commits 2c08d37 and deaf170
+  were pushed in the batch ending 300d98b. GitHub run 34880009138 on
+  that commit completed with success on the matrix. Still paused behind
+  UTA-0162; soft light edges and ZoneInfo ambient remain open.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.
@@ -9141,6 +9145,21 @@ model, no weapon and no opponent until 0.2.0.
   Claimed 2026-09-14 by session ut-ants-91, working in the main
   checkout (/mnt/Games/Scripts/Linux/UT_Ants). UTA-0156 stays paused at
   in-progress per the user's order; its holder ut-ants-35 has ended.
+  Correction (2026-09-14, ut-ants-91). Re-measured with
+  ut-ants-uta0156/rows.py over ours-lights.txt. Real strip fixtures are
+  NOT evenly spaced: DM-Deck16]['s long cylinder rows alternate gaps such
+  as 280, 226 and 303 units, and some gaps exceed the lights' 275-unit
+  reach. They also drift off a straight line by about ten units. So the
+  detection rule drops even spacing, and bounds each neighbour gap by a
+  multiple of reach instead. Sweeping that multiple, the cylinder row
+  count settles between 1.25x and 1.5x and grows again by 2x, where
+  separate lamps start to join. The earlier "68 lights in 17 rows" does
+  not reproduce under any rule tried; the spec records the rule and its
+  command instead of a count. Command: python3 rows.py ours-lights.txt 16
+  100 type,effect,b,h,s,r 1.5
+  Design decided from the code: rows are detected once, in the bake.
+  urender may not link ubake, and ubundle holds only section code, so a
+  detector at load would be a second copy beside the two light models.
   **Layman:** Long ceiling strip lights should light a long strip of floor and wall, not a string of round spots.
   Kind: feature.
   Source: user-request-2026-09-14.
