@@ -12,6 +12,9 @@ CLAUDE.md rule 14. The measurements behind it are on ROADMAP UTA-0133.
 Amended for UTA-0139 (2026-09-14): each exit's `noRoute` word (§ 4.3, § 4.6's
 teleporters, § 4.7's Why no route, INV-14), and accepted again (2026-09-14),
 converged on the review's second loop. No code implements it yet. The measurements behind it are on ROADMAP UTA-0139.
+Amended for UTA-0140 (2026-09-14): § 4.5's columns stop at the world bound,
+with INV-15 added. Not yet gated, and no code implements it yet. The
+measurements behind it are on ROADMAP UTA-0140.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -260,7 +263,12 @@ The body is § 3 decision 4's: radius `R` 17, half-height `H` 39, step `S` 25.
 A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
 
 - **Columns.** Over the level tree's points' bounding box, a grid of columns
-  32 apart in X and Y.
+  32 apart in X and Y, counted from the box's low corner. Only the columns
+  whose X and Y both lie within ±32768, the world cube § 4.6 describes, are
+  laid; the others are skipped, never moved, so each laid column stands where
+  the whole box's grid puts it. No player stands outside that cube, and some
+  maps carry geometry far past it. The box's height is not bounded: a
+  column's cost is its floors, which the geometry already bounds.
 - **Floors.** In each column, from the box's top down: trace to the first
   solid, keep the hit if its normal's Z is at least `F`, then step 1 below it
   and trace down to where space is empty again, and repeat. Each kept hit at
@@ -640,6 +648,22 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   teleporter is found by class name rather than ancestry, or read from its
   own property alone.
 
+- **INV-15** — The walk grid lays no column outside ±32768 on X or Y, and
+  every column it lays stands where the whole box's grid puts it.
+  *Test:* `tests/unit/PathWalkableTest.cpp`, over `walkGraph`, each world a
+  room 100 high whose floor is at `z = 0`. A room from X 32000 to 33000,
+  with the points' box starting at X 32000: a spot stands at X 32768, and no
+  spot stands past it. A room from X -33000 to -32000, with the box starting
+  at X -33010: the lowest spot stands at X -32754, 14 inside the bound and on
+  the box's grid, not at -32768. A room from X 0 to 256, with the box
+  reaching from X -40000 to 40000: the grid has at most 2049 columns, and its
+  spots stand at the same centres as the same room with the box from X 0 to
+  256.
+  *Breaks when:* columns past the bound are laid, which the far box's column
+  count catches; the box's corner is clamped to the bound rather than whole
+  columns skipped, which moves the low room's spots onto -32768; or the bound
+  is 32767 rather than 32768, which drops the high room's spot at X 32768.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -650,6 +674,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 | The map has no PlayerStart, or no MonsterEnd | That map is refused |
 | An exit is off the world (§ 4.6) | `offWorld` is true; it is searched like any other and keeps § 4.7's route. Its map is `EXIT_OFF_NET` by § 2 item 1's definition unless a second exit is near the network, so that route is `none` |
 | Neither the start nor any node of its part is on the walk graph | Every exit's route is `none`, and its `noRoute` is `startOffGraph` |
+| The level tree's points reach past ±32768 on X or Y | No column is laid past it (§ 4.5), so no spot stands there. A tree wholly past it has no spots, so the row above applies |
 | A mover's tree or shape refuses | That map is refused, naming the actor |
 | The out directory cannot be written | That map is refused; the others go on |
 
@@ -657,7 +682,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 
 **Unit, on every CI leg:** `tests/unit/CoreMd5Test.cpp` for INV-1;
 `tests/unit/PathTraceTest.cpp` for INV-2; `tests/unit/PathWalkableTest.cpp`
-for INV-3 and INV-4; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
+for INV-3, INV-4 and INV-15; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
 INV-8, INV-9, INV-10, INV-11, INV-12, INV-13 and INV-14.
 Each is seen failing before the code it locks exists. Trees and scenes are
 built in memory, with `tests/unit/PathFixture.h`, so only INV-9, INV-10,
@@ -696,7 +721,9 @@ before `teleporter`; count a teleporter placed on no spot; leave the fallback
 goal out of `exitOffGraph`; key `exitOffGraph` on a touching navigation point
 rather than an empty goal set; test `exitOffGraph` before `startOffGraph`;
 find a teleporter by class name;
-read a teleporter's own `Location` alone. Each must be killed by the
+read a teleporter's own `Location` alone; lay columns past the world bound;
+clamp the box's corner rather than skipping whole columns; bound the columns
+at 32767. Each must be killed by the
 invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
@@ -711,6 +738,16 @@ invariant that names it.
 - **A library under `src/`.** No runtime target needs this, and its one
   caller is this tool. A second caller, such as UTA-0060, moves it.
 - **SHA-256 in place of MD5.** The format is agreed as MD5 (§ 3 decision 2).
+- **A more compact walk graph** in place of § 4.5's bound, such as every
+  spot's joins in one array. A map whose geometry reaches far past the world
+  still lays more columns than any store holds, so it would not have fixed
+  ROADMAP UTA-0140.
+- **Clamping the box's corner to the bound.** On a map whose box reaches past
+  the low bound it moves every column, and so every spot on that map.
+  Skipping whole columns leaves each in-world spot where it stood.
+- **Bounding the box's height too.** A column's cost is its floors, which the
+  geometry bounds, and moving where the scan starts could change a column's
+  top floor for no measured gain.
 
 ## 9. Out of scope
 
@@ -737,7 +774,7 @@ invariant that names it.
 |---|---|
 | INV-1 | `tests/unit/CoreMd5Test.cpp`, a unit test |
 | INV-2 | `tests/unit/PathTraceTest.cpp`, a unit test |
-| INV-3, INV-4 | `tests/unit/PathWalkableTest.cpp`, a unit test |
+| INV-3, INV-4, INV-15 | `tests/unit/PathWalkableTest.cpp`, a unit test |
 | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11, INV-12, INV-13, INV-14 | `tests/unit/PathSeedsTest.cpp`, a unit test |
 | § 3 decisions 4 and 6 hold on real maps | **Partial:** `tests/real/RealPathSeedsTest.cpp` prints them; no CI leg runs it |
 | Proposed nodes help a bot reach the exit | **nothing** here — UT_MonsterHunt's census re-run (GAME-0095) is the measure |
@@ -769,6 +806,10 @@ Rows live in `../reviews/UTA-0121-bot-path-seeds-loop-log.md`.
 - No new dependency. One new tool target.
 - The walk graph holds one record per spot and its edges, for one map at a
   time, and is freed before the next.
+- The walk grid covers no more than the world, whatever a map's geometry
+  reaches (§ 4.5). Before that bound, a map whose geometry reached far past
+  the world built a grid too large to hold; ROADMAP UTA-0140 has the
+  measurement.
 - § 3 decision 4's numbers come from a scratch probe reading the install's
   own class defaults with `upkg::readAncestry` and
   `upkg::effectiveDefaults`. It is not in this repository;

@@ -8133,7 +8133,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-13.
   Lanes: tools.
 
-- 📋 [UTA-0140] **ut-paths runs past 6 GB on some maps, so a batch run loses them.**
+- 🚧 [UTA-0140] **ut-paths runs past 6 GB on some maps, so a batch run loses them.**
   Found running ut-paths for UT_MonsterHunt's GAME-0095 on 2026-09-13,
   over analysis/routecensus-split-offline-2026-09-13.tsv. Each map ran
   alone under systemd-run with MemoryMax=6G and MemorySwapMax=0; three
@@ -8153,6 +8153,31 @@ model, no weapon and no opponent until 0.2.0.
   killed after 666 s and 360 s on 2026-09-13, so more time only reaches
   the same kill. They get re-run once this item has cut the memory use.
   Outcomes: UT_MonsterHunt/work/ut-paths-2026-09-14/bymap-status.tsv.
+  Claimed (2026-09-14) by ut-ants-db, main checkout. The user asked for a
+  memory pass over the codebase and the scratch scripts. This item is the
+  known memory problem, so the pass starts here: measure peak memory per
+  tool on a typical map and on the three heavy maps, then find which
+  structure grows. Both other held items (UTA-0103, UTA-0126) are parked
+  on Waiting-on, so neither limit is reached. Anything outside ut-paths
+  that the pass finds is filed as its own item.
+  Measured (2026-09-14, ut-ants-db). The cause is the walk grid's extent,
+  not a structure's layout. § 4.5 lays columns over the level tree's
+  bounding box, and some maps carry geometry far outside UT's world.
+  MH-TrifeaOutpostMore's box spans about a million units per side: a
+  billion columns, nearly all holding a spot. Its scene read peaks at
+  about 100 MB; the walk graph alone passed a 14 GB cap. MH-[TB]-
+  UnrealWorld2010 spans millions of units, and MH-TheOutpost hundreds of
+  millions: both time out just stepping through columns.
+  A bounds census over the census's work maps (scratch probe,
+  bounds-probe.cpp) found 82 whose box reaches past 32767 on X or Y,
+  including MH-EpicAdventure2016, the map that needed 862 s. Clamped to
+  the world bound, no map's grid exceeds 2048 by 2048 columns, which is
+  about the largest grid an in-world map already builds.
+  Proposed fix: clamp the grid to +-32767, the bound § 4.6's off-world
+  test uses. That changes § 4.5, so the amendment goes through write-spec
+  and review-contract before code. Output may change on those 82 maps
+  only; a before-and-after diff over them is part of the check.
+  Scratch probes and outputs: the session scratchpad's mem/ directory.
   **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
   Kind: perf.
   Source: in-session-2026-09-13.
