@@ -9116,7 +9116,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, urender, umat.
 
-- 📋 [UTA-0162] **Strip lights: a row of lights along a fixture bakes into one light that casts a band.**
+- 🚧 [UTA-0162] **Strip lights: a row of lights along a fixture bakes into one light that casts a band.**
   The user flew DM-Deck16][ on 2026-09-14 after UTA-0156's light model
   change: "the horizontal lights are showing as round lights on the
   geometry they are shining on."
@@ -9138,7 +9138,38 @@ model, no weapon and no opponent until 0.2.0.
   shaders/light.glsl, held together by UTA-0014 INV-6), cluster culling
   and shadows, so check spec-format.md section 1 before building. Measure
   against the original's frames with the UTA-0156 method.
+  Claimed 2026-09-14 by session ut-ants-91, working in the main
+  checkout (/mnt/Games/Scripts/Linux/UT_Ants). UTA-0156 stays paused at
+  in-progress per the user's order; its holder ut-ants-35 has ended.
   **Layman:** Long ceiling strip lights should light a long strip of floor and wall, not a string of round spots.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: ubake, ubundle, urender.
+
+- 📋 [UTA-0163] **Outdoor maps show their real sky: draw the sky zone through sky surfaces, as UT99 does.**
+  Asked by the user 2026-09-14: "For any maps set outside, is there
+  sky rendering?" Not as UT99 draws it.
+
+  What we draw now: UTA-0014's surface-flag table draws a PF_FakeBackdrop
+  surface "as the level's sky: depth written at the far plane, unlit". So
+  the sky surface shows its own texture, flat.
+
+  What UT99 draws: a PF_FakeBackdrop surface is a window onto the level's
+  sky zone, a separate area of the map holding a SkyZoneInfo actor. The
+  engine renders that area from the SkyZoneInfo's location, turned with
+  the player's view but not moved with it. So the sky shows the author's
+  built sky: its geometry, textures and clouds.
+
+  Checked 2026-09-14: no source file, spec or roadmap item mentions
+  SkyZoneInfo or a sky zone. Unverified: whether the bake keeps the
+  SkyZoneInfo actor, and how a sky area is marked in ROOM.
+
+  Cheap route to weigh: at load, render the sky zone's geometry from the
+  SkyZoneInfo camera into the background before the level, then draw
+  PF_FakeBackdrop surfaces as holes that show it. Census first how many
+  maps carry a SkyZoneInfo, and how many sky surfaces have none behind
+  them. Measure against the original's frames with the UTA-0156 method.
+  **Layman:** Maps set outside should show the sky the map's author built, not a flat painted texture.
   Kind: feature.
   Source: user-request-2026-09-14.
   Lanes: ubake, ubundle, urender.
