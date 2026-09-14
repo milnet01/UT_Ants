@@ -15,8 +15,8 @@ converged on the review's second loop; its code has since shipped. The measureme
 Amended for UTA-0140 (2026-09-14): § 4.5's columns stop at the world bound
 and the walk graph indexes the laid columns alone, with INV-15 added; INV-7
 now names § 4.7's last resort. Accepted again (2026-09-14), at the review's
-cap. No code implements it yet. The measurements behind it are on ROADMAP
-UTA-0140.
+cap. Its code is built (UTA-0140). The measurements behind it are on
+ROADMAP UTA-0140.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 

@@ -8201,6 +8201,20 @@ model, no weapon and no opponent until 0.2.0.
   unfixed binary's output for 79 of the maps whose geometry passes the
   bound are frozen in the session scratchpad's mem/ directory; the three
   maps that fail today have no before.
+  Built (2026-09-14, ut-ants-db, commit f6b1ebf): walkGraph lays the grid
+  only within +-32768 and indexes the laid columns alone. INV-15's tests
+  went red on the old code for the reasons they name, then green; the
+  unit label passes; § 7's five INV-15 mutations were each killed by hand.
+  Before and after, over every census work map whose geometry passes the
+  bound, one process per map under a 6 GB cap (scratch after-compare.sh,
+  run with cc-job): every map with a before output is byte-identical
+  after, and none failed. MH-TrifeaOutpostMore now takes 15 s at about
+  692 MB (was killed past 14 GB), MH-[TB]-UnrealWorld2010 11 s at 348 MB
+  and MH-TheOutpost 5 s at 207 MB (both timed out), MH-EpicAdventure2016
+  6 s (was 862 s). The slowest map took 19 s; the largest peaked at about
+  692 MB. None of the three newly written maps routes: their exits read
+  teleporter (all four of Trifea's), exitOffGraph and mover. Ships when
+  the matrix is green.
   **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
   Kind: perf.
   Source: in-session-2026-09-13.

@@ -326,6 +326,11 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **ut-paths no longer runs out of memory or time on maps whose geometry reaches far outside UT's world.** (UTA-0140)
+  Its walk grid now stops at the world's edge, ±32768 on X and Y. The
+  maps that were killed or timed out now finish in seconds, and every
+  other map's output is byte-identical to before.
+
 - **`ut-paths` aimed its bot paths at a substitute target instead of the real exit.** (UTA-0133)
   On a map split into disconnected parts, the tool may stop its chain of
   proposed nodes early and let the map's own path network finish the
