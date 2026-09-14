@@ -151,6 +151,12 @@ unset(_uta_fp_flags_var)
 #     ccache --set-config base_dir=/
 #     ccache --set-config hash_dir=false
 #
+# base_dir=/ makes every absolute path relative to the build directory, system
+# headers included, so a fresh directory hits only at the SAME DEPTH as the one
+# that filled the cache (UTA-0147). Measured on the full gate: 244 s and 2% hits
+# at a new depth, 37 s and every object a hit at the same depth. The pre-push
+# hook's worktree is one depth every push, so its gate stays warm.
+#
 # The flags above are part of the compile line, so the cache key changes with
 # them: a build that alters the numeric contract cannot hit an entry compiled
 # under the old one.

@@ -8489,6 +8489,18 @@ model, no weapon and no opponent until 0.2.0.
   at the user's request to consider local and GitHub CI performance.
   UTA-0103 and UTA-0126 are parked on Waiting-on, so neither limit is
   reached. UTA-0145 waits behind this.
+  Measured (2026-09-14, ut-ants-db). Windows, run 34835240292 on 330cc4b
+  (/MP and --parallel): build step 10:52:23 to 10:57:10, 4 min 47 s
+  against 6 min 25 s before; the job 5 min 54 s against 7 min 24 s to
+  9 min 56 s. Linux unchanged. Local, full gate in a fresh worktree on
+  disk (scratch measure.sh): 244 s with 2% ccache hits the first time at
+  a new directory depth, then 37 s with 516 of 516 hits in a second fresh
+  worktree at the same depth. The misses were the depth, not Catch2:
+  base_dir=/ makes every absolute path relative to the build directory,
+  system headers included. The pre-push hook's /tmp/tmp.XXXXXX is one
+  depth every push, so after one warm push the gate should take well
+  under a minute. A Catch2 change tried on the way
+  (CATCH_ENABLE_REPRODUCIBLE_BUILD OFF) was not needed and was reverted.
   **Layman:** The Windows check on GitHub takes seven minutes mostly because it compiles one thing at a time, and the check that runs before every push rebuilds everything from scratch in memory.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass.
