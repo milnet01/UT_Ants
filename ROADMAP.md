@@ -2192,6 +2192,11 @@ model, no weapon and no opponent until 0.2.0.
   ROADMAP.md; a re-section op is requested in the Ants MCP feedback
   file. Blocked behind UTA-0014 regardless, so it is not selectable
   before the renderer exists.
+  Partly met by UTA-0154 (2026-09-14): a frame drawn below scale 1 is now
+  upscaled by FSR 1's EASU and sharpened by its RCAS at 0.25 stops. That is
+  the "enabler for the quality tiers" this item's sharpening bullet names.
+  A frame at scale 1 is still unsharpened, so whether this item still
+  needs its own sharpening pass is for whoever picks it up to decide.
   **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -8740,7 +8745,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: apps.
 
-- 🚧 [UTA-0154] **urender: AMD FSR 1 upscales the dynamic-resolution region, replacing the bilinear stretch.**
+- ✅ [UTA-0154] **urender: AMD FSR 1 upscales the dynamic-resolution region, replacing the bilinear stretch.**
   User decision (2026-09-14): FSR 1 now; FSR 2, FSR 3.1 and DLSS later
   (recorded on UTA-0076). UTA-0051's dynamic resolution draws the scene
   into a smaller region and its output stage stretches it with bilinear
@@ -8767,6 +8772,18 @@ model, no weapon and no opponent until 0.2.0.
   v1.0.2 (commit a21ffb8) vendored at third_party/fsr1; at a scale below 1
   the output stage becomes tone into an intermediate, EASU, then RCAS; at
   scale 1 it stays one pass.
+  Shipped 2026-09-14 in 8f6de8f, green on the matrix (run 34851585414:
+  GCC 14, Clang 19, MSVC). Below scale 1 the output stage is three passes:
+  post.frag tone maps the region into FSR 1's input (gamma 2.0,
+  edge-clamped), EASU upscales it, RCAS sharpens it at 0.25 stops (AMD's
+  sample default) into the output; scale 1 keeps one pass. FSR 1 v1.0.2
+  (a21ffb8) is vendored in third_party/fsr1, with a stack-table row.
+  UTA-0051's spec section 4.4 and INV-7 are amended in place. INV-7's new
+  probes were measured on lavapipe and killed three mutations: RCAS
+  skipped, EASU replaced by a linear stretch, and the wrong region. The
+  device tier passed on lavapipe and INV-7 on the RX 6600, both under the
+  validation layer with no error. Not checked: FSR 1 in ut-ants' window,
+  since the scale stayed at 1 in the 4K hand runs.
   **Layman:** When the game lowers its internal resolution to keep frames smooth, the picture is enlarged with AMD's sharper upscaler instead of looking blurry.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -8846,7 +8863,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, urender, umat.
 
-- 📋 [UTA-0158] **ut-ants: the flying camera stops at the level's walls, as UT99's pre-match spectator does.**
+- 🚧 [UTA-0158] **ut-ants: the flying camera stops at the level's walls, as UT99's pre-match spectator does.**
   The user flew DM-Deck16][ on 2026-09-14: "the camera can move in and out
   of geometry which means it can move outside of the map. Please prevent
   this. In the original UT99 before a match starts you can fly around
@@ -8871,6 +8888,23 @@ model, no weapon and no opponent until 0.2.0.
   as a PlayerStart never is, is left free to fly out.
   User decision (2026-09-14): taken second, after UTA-0154 and before
   UTA-0040.
+  Claimed 2026-09-14 by session ut-ants-e9, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). User decision the same day: no spec;
+  build under write-code with this plan.
+  Plan. (1) A new runtime library, uta_uworld in src/uworld, whose first
+  code is CollisionQuery.h/.cpp moved from src/ubake unchanged, namespace
+  uta::uworld; it links uta_core and uta_ubundle only, asserted at
+  configure time. docs/design.md already gives uworld collision, rule 3
+  lets it read ubundle, and rule 4 keeps it off urender. (2) ubake links
+  it, so UTA-0011's link list and UTA-0112 section 4.10 and UTA-0121's
+  Trace.h rows are amended to name the new home; ut-paths' Trace.h
+  forwards from uworld. (3) FlyCamera's update takes the level's
+  collision tree: the move is traced as a segment, stopped a margin short
+  of the wall, and slid along its plane for a few steps; a camera starting
+  in solid flies free; no tree keeps UTA-0016's flight. (4) main.cpp
+  passes the bundle's tree. Tests in tests/unit/ClientFlyCameraTest.cpp
+  build trees with PathFixture's worldOf, watched red first; a hand run
+  flies into a wall on DM-Deck16][.
   **Layman:** The camera can fly around the map freely but can no longer pass through walls or leave the map, just like watching before a match in the original game.
   Kind: feature.
   Source: user-request-2026-09-14.

@@ -5,14 +5,13 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0154` (AMD FSR 1 replaces the dynamic-resolution stretch),
-then `UTA-0158` (the flying camera stops at walls), then `UTA-0040`
+**Next:** `UTA-0158` (the flying camera stops at walls), then `UTA-0040`
 (parallax occlusion), then `UTA-0155` and `UTA-0156` (the skipped acid
 texture, and brightness). The user set that order 2026-09-14 after flying
 DM-Deck16][, and leaves how it looks to research and measurement, to be
-reviewed later over real matches. `UTA-0154`'s plan is on its roadmap
-body, and the user ruled it needs no spec or review. `UTA-0153` shipped
-the same day.
+reviewed later over real matches. The user ruled `UTA-0158` needs no spec;
+its plan is on its roadmap body. `UTA-0153` and `UTA-0154` (AMD FSR 1)
+shipped the same day.
 `UTA-0015` can now take a tier from `UTA-0051`, plus a look at the result. `UTA-0142` (24 maps cross a teleporter that starts disabled) waits
 on UT_MonsterHunt's in-game re-check. Read the open `0.1.0` bodies before
 picking — `UTA-0082` records items deferred out of that release's cut.
