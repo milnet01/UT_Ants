@@ -1796,7 +1796,7 @@ model, no weapon and no opponent until 0.2.0.
   Kind: perf.
   Source: user-request-2026-09-04.
 
-- 🚧 [UTA-0051] **urender: quality tiers and dynamic resolution, so the engine scales to the hardware.**
+- ✅ [UTA-0051] **urender: quality tiers and dynamic resolution, so the engine scales to the hardware.**
   The development machine is a GTX 1050 with 2 GB, and the people this is
   built for play on old laptops. Every renderer item after the draw path
   adds cost, and with nowhere to declare that cost each one either ships
@@ -1852,6 +1852,13 @@ model, no weapon and no opponent until 0.2.0.
   tell a stretch from a full-size draw; FrameData::viewportSize uses the
   region while shadow planning keeps the output size. The unset-tier path
   cannot be checked on CI's CPU driver. Next: build it under write-code.
+  Resolved (2026-09-14, ut-ants-f9): shipped in fdd5c2e, green on the
+  GitHub matrix (run 34847193332). Spec docs/specs/UTA-0051-quality-tiers.md;
+  local gate 562 tests plus 530 under ThreadSanitizer; nine of eleven
+  mutations killed, the two survivors recorded as unchecked in the spec.
+  By hand: the RX 6600 chose ultra at scale 1 with no validation error,
+  and Mesa's CPU driver at --tier medium settled at scale 0.6. Follow-ups
+  are UTA-0153 (fullscreen) and UTA-0154 (FSR 1), user decisions.
   **Layman:** One quality setting that actually works: the game picks a sensible level for your machine, leaves the expensive effects off on weak hardware, and quietly lowers resolution rather than stuttering.
   Kind: implement.
   Source: user-request-2026-09-04.

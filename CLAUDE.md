@@ -5,15 +5,17 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0051` (quality tiers and dynamic resolution), chosen by the
-user 2026-09-14. Its body says it likely needs a spec first, because later
-render items bind to its tiers. That is new direction, so ask the user
-before writing one. `UTA-0015` needs a tier from it, plus a look at the
-result. `UTA-0142` (24 maps cross a teleporter that starts disabled) waits
+**Next:** `UTA-0153` (ut-ants opens borderless fullscreen at the desktop's
+resolution), then `UTA-0154` (AMD FSR 1 replaces the dynamic-resolution
+stretch), both chosen by the user 2026-09-14. Their plans are on their
+roadmap bodies, and the user ruled neither needs a spec or a review.
+`UTA-0015` can now take a tier from `UTA-0051`, plus a look at the result. `UTA-0142` (24 maps cross a teleporter that starts disabled) waits
 on UT_MonsterHunt's in-game re-check. Read the open `0.1.0` bodies before
 picking — `UTA-0082` records items deferred out of that release's cut.
 
-`UTA-0016` shipped 2026-09-14: `ut-ants <install> <bundle>` flies a camera
+`UTA-0051` shipped 2026-09-14: quality tiers and dynamic resolution, spec
+`docs/specs/UTA-0051-quality-tiers.md`. `UTA-0016` shipped the same day:
+`ut-ants <install> <bundle>` flies a camera
 through a baked map. Its presenting path is checked by hand with `--frames N
 --validation` on a baked map. SDL3 went through
 `docs/standards/dependency-acquisition.md` § 2 by hand on the way, landed
