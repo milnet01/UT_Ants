@@ -11,9 +11,9 @@ and mouse, and the map named on the command line. SDL3 goes through
 `docs/standards/dependency-acquisition.md` § 2 by hand first. Two items wait
 on others, and neither blocks it. `UTA-0142` (24 maps cross a teleporter
 that starts disabled) waits on UT_MonsterHunt's in-game re-check. `UTA-0103`
-waits on the user running
-`/mnt/Games/Scripts/Linux/ut-ants-real-uta0103/compare.sh`; an empty
-`results.diff` there is what ships it. `UTA-0139` shipped 2026-09-14.
+waits on `/mnt/Games/Scripts/Linux/ut-ants-real-uta0103/compare.sh`, which
+the session runs in a Monitor. It resumes: if it is not running, run it
+again. An empty `results.diff` there is what ships it. `UTA-0139` shipped 2026-09-14.
 `UTA-0015` needs a tier from `UTA-0051` plus a look at the result. Read the open
 `0.1.0` bodies before picking — `UTA-0082` records items deferred out of
 that release's cut. `UTA-0136` shipped 2026-09-13, and UT_MonsterHunt's

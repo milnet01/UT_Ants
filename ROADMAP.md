@@ -5223,6 +5223,13 @@ model, no weapon and no opponent until 0.2.0.
   user. ut-ants-c7 runs /mnt/Games/Scripts/Linux/ut-ants-real-uta0103/compare.sh
   in a Monitor, which waits until no compile is running and caps memory
   at 6 GB. The result lands in that directory as results.diff.
+  Progress (2026-09-14): compare.sh is now resumable, with a lock so only
+  one copy runs. A finished half is kept, keyed on the binary's checksum;
+  a stopped half is re-run. Its seed-line filter was also fixed: this
+  Catch2 prints `RNG seed:`, which the old filter missed and would have
+  reported as a false difference. A first pass was discarded because the
+  user and the session each started a copy, writing one file. The clean
+  run was interrupted by a session restart; re-run the script to resume.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
