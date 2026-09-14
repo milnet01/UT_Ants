@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-paths: each exit with no route now says what its walk graph meets** (UTA-0139)
+  The per-map JSON gains `noRoute` on every exit: `null` when a route
+  was found, else `startOffGraph`, `exitOffGraph`, `teleporter`,
+  `mover` or `walled`. It names what the tool's walk model meets, not
+  the map's cause. `schema` stays 1; the run summary is unchanged.
+
 - **`upkg` answers which packages a package imports, as a supported call.** (UTA-0070)
   `upkg::importedPackages` returns each package once, in import-table
   order. Its rule is part of the contract: an import whose outer is null

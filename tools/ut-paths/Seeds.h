@@ -38,13 +38,18 @@ struct Scene {
     Vec3 start{};
     std::vector<Cylinder> exits;                            ///< Location and collision size
     std::vector<Box> movers;                                ///< world boxes
+    std::vector<Vec3> teleporters;                          ///< each teleporter's Location
 };
 
 enum class Route { Found, Mover, None };
 
+/// SS 4.7's Why no route; `Routed` for an exit whose route is not `None`.
+enum class NoRoute { Routed, StartOffGraph, ExitOffGraph, Teleporter, Mover, Walled };
+
 struct Proposal {
-    std::vector<Route> routes; ///< one per exit, in `Scene::exits` order
+    std::vector<Route> routes;     ///< one per exit, in `Scene::exits` order
     std::vector<Vec3> nodes;
+    std::vector<NoRoute> noRoutes; ///< one per exit, in `Scene::exits` order
 };
 
 /// SS 4.6, and SS 4.7's movers, from a map whose Level and Model the bake

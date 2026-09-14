@@ -1,6 +1,7 @@
-// Locks INV-5 to INV-13 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
+// Locks INV-5 to INV-14 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
 // the nodes proposed along them, the file, the command line, the scene, the
-// off-world mark, and which navigation point the fallback goal is keyed on.
+// off-world mark, which navigation point the fallback goal is keyed on, and
+// the word an exit with no route carries.
 //
 // INV-5 to INV-8 build their scenes in memory, with tests/unit/PathFixture.h
 // (that spec's SS 7). INV-9 drives the command line over a census written to a
@@ -164,6 +165,7 @@ uta::test::bake::MemoryPackages seedPackages() {
     engine.addClass("PlayerStart", navigation,
                     {floatProperty("CollisionRadius", 18), floatProperty("CollisionHeight", 40)});
     engine.addClass("PathNode", navigation);
+    engine.addClass("Teleporter", navigation);
     Packer monsterHunt;
     monsterHunt.addClass("MonsterEnd", 0,
                          {floatProperty("CollisionRadius", 40), floatProperty("CollisionHeight", 40)});
@@ -183,6 +185,22 @@ uta::Result<Scene> sceneOfBuilt(const uta::test::bake::MapBuilder& map) {
     REQUIRE(package.has_value());
     return sceneOf(*package, uta::test::bake::MAP_NAME, packages.resolver());
 }
+
+/// Each exit's `"noRoute": ...` value as toJson writes it -- `null` or a quoted
+/// word -- through propose, as INV-14 asks.
+std::vector<std::string> noRoutesWritten(const Scene& scene, bool partitioned) {
+    const std::string file = toJson("MH-Test", "md5", partitioned ? "PARTITIONED" : "EXIT_OFF_NET", scene,
+                                    propose(scene, partitioned));
+    const std::string key = "\"noRoute\": ";
+    std::vector<std::string> words;
+    for (std::size_t at = file.find(key); at != std::string::npos; at = file.find(key, at + 1)) {
+        const std::size_t begin = at + key.size();
+        words.push_back(file.substr(begin, file.find('}', begin) - begin));
+    }
+    return words;
+}
+
+using Words = std::vector<std::string>;
 
 } // namespace
 
@@ -283,7 +301,7 @@ TEST_CASE("INV-8: the file holds SS 4.3's fields escaped and each number a float
                                  "  \"group\": \"EXIT_OFF_NET\",\n"
                                  "  \"moverOnly\": false,\n"
                                  "  \"exits\": [\n"
-                                 "    {\"x\": 1024, \"y\": -512, \"z\": 96, \"route\": \"found\", \"offWorld\": false}\n"
+                                 "    {\"x\": 1024, \"y\": -512, \"z\": 96, \"route\": \"found\", \"offWorld\": false, \"noRoute\": null}\n"
                                  "  ],\n"
                                  "  \"nodes\": [\n"
                                  "    {\"x\": 0.33333334, \"y\": -300, \"z\": 39}\n"
@@ -470,9 +488,9 @@ TEST_CASE("INV-12: an exit at the world bound is marked off the world and keeps 
     const std::string file = toJson("MH-Test", "md5", "PARTITIONED", scene, proposal);
     const std::string expected =
         "  \"exits\": [\n"
-        "    {\"x\": 32768, \"y\": 32768, \"z\": 32768, \"route\": \"found\", \"offWorld\": true},\n"
-        "    {\"x\": 32767, \"y\": 32, \"z\": 40, \"route\": \"found\", \"offWorld\": true},\n"
-        "    {\"x\": 2300, \"y\": 32, \"z\": 40, \"route\": \"found\", \"offWorld\": false}\n"
+        "    {\"x\": 32768, \"y\": 32768, \"z\": 32768, \"route\": \"found\", \"offWorld\": true, \"noRoute\": null},\n"
+        "    {\"x\": 32767, \"y\": 32, \"z\": 40, \"route\": \"found\", \"offWorld\": true, \"noRoute\": null},\n"
+        "    {\"x\": 2300, \"y\": 32, \"z\": 40, \"route\": \"found\", \"offWorld\": false, \"noRoute\": null}\n"
         "  ],\n";
     INFO(file);
     CHECK(file.find(expected) != std::string::npos);
@@ -578,4 +596,101 @@ TEST_CASE("INV-12: the mark is read from the exit's resolved Location not its ow
     CHECK(toJson("MH-Test", "md5", "EXIT_OFF_NET", *scene, Proposal{{Route::None}, {}})
               .find("\"offWorld\": true")
           != std::string::npos);
+}
+
+TEST_CASE("INV-14: a routed exit writes null and a walled one says walled", "[paths][seeds]") {
+    CHECK(noRoutesWritten(corridor(Across::Nothing), false) == Words{"null"});
+    CHECK(noRoutesWritten(corridor(Across::Mover), false) == Words{"null"});
+    CHECK(noRoutesWritten(corridor(Across::Wall), false) == Words{"\"walled\""});
+}
+
+TEST_CASE("INV-14: a teleporter in either region is named and outranks a mover", "[paths][seeds]") {
+    // INV-6's walled corridor. The start's side runs X 0 to 700, the exit's
+    // side from 732 round the L to the exit at Y 1400. Each teleporter stands
+    // hundreds of units -- many joins -- from every source and goal spot, so a
+    // region one join deep holds neither.
+    const Vec3 startSide{500, 128, 40};
+    const Vec3 exitSide{1372, 1000, 40};
+    const Vec3 unplaced{500, 128, 1000}; // far above placing's window
+    {
+        const WalkGraph graph = walkGraph(corridor(Across::Wall).tree);
+        REQUIRE(place(graph, startSide).has_value());
+        REQUIRE(place(graph, exitSide).has_value());
+        REQUIRE_FALSE(place(graph, unplaced).has_value());
+    }
+    Scene scene = corridor(Across::Wall);
+    scene.teleporters = {startSide};
+    CHECK(noRoutesWritten(scene, false) == Words{"\"teleporter\""});
+    scene.teleporters = {exitSide};
+    CHECK(noRoutesWritten(scene, false) == Words{"\"teleporter\""});
+    scene.teleporters = {unplaced};
+    CHECK(noRoutesWritten(scene, false) == Words{"\"walled\""});
+
+    // A mover box over spots of the start's side, not across the wall.
+    scene.teleporters.clear();
+    scene.movers = {Box{{300, 100, -10}, {340, 156, 266}}};
+    CHECK(noRoutesWritten(scene, false) == Words{"\"mover\""});
+    scene.teleporters = {startSide};
+    CHECK(noRoutesWritten(scene, false) == Words{"\"teleporter\""});
+}
+
+TEST_CASE("INV-14: exitOffGraph is an empty goal set and nothing else", "[paths][seeds]") {
+    // Not partitioned, an exit at the world corner: nothing touches it and no
+    // fallback goal is looked for.
+    Scene corner = corridor(Across::Nothing);
+    corner.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}};
+    CHECK(noRoutesWritten(corner, false) == Words{"\"exitOffGraph\""});
+
+    // INV-12's partitioned scene with its corridor cut between the two parts.
+    // Nodes 2 and 3 reach node 5, which touches the corner exit, so their spots
+    // are fallback goals -- on the far side of the cut. The goal set is not
+    // empty, so the word is walled.
+    Scene cut;
+    cut.tree = worldOf({box({0, 0, 0}, {700, 64, 256}), box({732, 0, 0}, {2600, 64, 256}),
+                        box({800, 65, 0}, {1000, 200, 256})},
+                       {0, 0, -50}, {2600, 200, 300});
+    cut.network = {{100, 32, 50},  {256, 32, 50}, {1504, 32, 50},
+                   {2280, 32, 50}, {900, 75, 50}, {32768, 32768, 32768}};
+    cut.edges = {{0, 1}, {1, 0}, {2, 3}, {3, 2}, {2, 4}, {2, 1}, {2, 5}};
+    cut.start = {100, 32, 40};
+    cut.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}};
+    REQUIRE(propose(cut, true).routes == std::vector<Route>{Route::None});
+    CHECK(noRoutesWritten(cut, true) == Words{"\"walled\""});
+
+    // A navigation point touches the corner exit, but every point reaching it
+    // is in the start part or placed on no spot: the goal set is empty.
+    Scene touched;
+    touched.tree = worldOf({box({0, 0, 0}, {2600, 64, 256})}, {0, 0, -50}, {2600, 200, 300});
+    touched.network = {{100, 32, 50}, {256, 32, 50}, {32768, 32768, 32768}};
+    touched.edges = {{0, 1}, {1, 0}, {1, 2}};
+    touched.start = {100, 32, 40};
+    touched.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}};
+    CHECK(noRoutesWritten(touched, true) == Words{"\"exitOffGraph\""});
+}
+
+TEST_CASE("INV-14: a start off the walk graph is startOffGraph for every exit", "[paths][seeds]") {
+    // The start and its network far above placing's window. The corner exit
+    // has no goal spot either, so testing exitOffGraph first is seen.
+    Scene scene = corridor(Across::Nothing);
+    scene.network = {{100, 128, 1000}, {160, 128, 1000}};
+    scene.start = {100, 128, 1000};
+    scene.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}, Cylinder{{1372, 1400, 40}, 40, 40}};
+    CHECK(noRoutesWritten(scene, false) == Words{"\"startOffGraph\"", "\"startOffGraph\""});
+}
+
+TEST_CASE("INV-14: the scene's teleporters descend from Teleporter at their resolved Location",
+          "[paths][seeds]") {
+    // A class the map declares under Engine.Teleporter, whose Location is its
+    // class default: a class-name match or an own-property read misses it.
+    using namespace uta::test::bake;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 1, 2, 3)})
+        .addActorOfClass("MonsterHunt", "MonsterEnd", {vectorProperty("Location", 10, 20, 30)});
+    map.addActor("Gate0", map.addClass("Gate", map.importClass("Engine", "Teleporter"),
+                                       {vectorProperty("Location", 7, 8, 9)}));
+
+    const auto scene = sceneOfBuilt(map);
+    INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));
+    REQUIRE(scene.has_value());
+    CHECK(scene->teleporters == std::vector<Vec3>{{7, 8, 9}});
 }

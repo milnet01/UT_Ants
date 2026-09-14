@@ -8019,6 +8019,25 @@ model, no weapon and no opponent until 0.2.0.
   asked for both. Both points are put to UT_MonsterHunt's session
   (ut-monsterhunt-d8), with the R_SPECIAL teleporter-link question. Next:
   build.
+  Agreed with UT_MonsterHunt (2026-09-14, their session ut-monsterhunt-d8).
+  The five words route usefully for them: teleporter to GAME-0004, mover
+  to GAME-0001, walled and exitOffGraph to path seeding (GAME-0095) and
+  UTA-0123. DeathcourseV2 reading mover is acceptable. The summary field
+  is not needed, since nothing of theirs reads ut-paths-summary.json. They
+  measured that UT links teleporters with R_SPECIAL specs (flag 32, size
+  150), which our network keeps, disabled teleporters included. That gap
+  is filed as UTA-0142.
+
+  Built (2026-09-14, ut-ants-c1, main checkout): Seeds.h/Seeds.cpp and
+  INV-14's five cases in PathSeedsTest.cpp. The unit suite is green
+  locally. All ten of § 7's INV-14 mutations were run by hand; each is
+  killed by the INV-14 check named for it, with the failure message read.
+  The real tool on the five ranked maps writes GreenZone-beta3 and
+  FourGhostsV2 teleporter, DeathcourseV2 mover, Demondeath walled on all
+  six exits, and 2-Much-Health-FIXED exitOffGraph. That matches the probe.
+  It was run with UT_MonsterHunt's routecensus-split-offline-2026-09-13.tsv;
+  the 2026-09-07c census no longer lists these maps as work rows. Next:
+  local gate, then the matrix.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.
@@ -8101,6 +8120,30 @@ model, no weapon and no opponent until 0.2.0.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
   Lanes: ubake.
+
+- 📋 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
+  Found 2026-09-14 by UT_MonsterHunt, answering UTA-0139. Measured
+  with ut-dump --nav-graph at 99a15b0: teleporter-to-teleporter reach
+  specs carry reachFlags 32 (R_SPECIAL), collisionRadius 150 and
+  collisionHeight 150 on MH-()mG-FourGhostsV2 (5 edges),
+  MH-()mG-GreenZone-beta3 (2) and MH-()mG-DeathcourseV2 (6). No edge
+  between a teleporter and another node carries 32.
+
+  UTA-0121 § 3 decision 10 keeps every flag but R_FLY and those sizes
+  clear the body, so sceneOf keeps these edges. DeathcourseV2's
+  teleporters start bEnabled=False and their links are still in the file,
+  so the start part may extend through a teleporter the game has switched
+  off. A route found that way, or a fallback goal offered from it, is
+  wrong for a bot at map start.
+
+  Not measured: whether any census map's start part actually crosses a
+  disabled teleporter. That census comes first. A fix would read
+  bEnabled on the teleporter at each end of an R_SPECIAL edge, which is a
+  § 3 decision 10 amendment and so goes through rule 14's gate.
+  **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
+  Kind: fix.
+  Source: ut-monsterhunt-2026-09-14.
+  Lanes: tools.
 
 ## 0.2.0 — Movement and weapons
 

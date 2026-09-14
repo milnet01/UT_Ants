@@ -1,6 +1,6 @@
 // The start, the exits, the network's part, and the routes between --
 // docs/specs/UTA-0121-bot-path-seeds.md SS 4.3, SS 4.6 and SS 4.7; INV-5 to
-// INV-8 and INV-10 to INV-13.
+// INV-8 and INV-10 to INV-14.
 
 #include "Seeds.h"
 
@@ -304,6 +304,24 @@ std::vector<bool> reach(const Scene& scene, std::size_t from, bool backward) {
     return reached;
 }
 
+/// SS 4.7's regions: every spot reachable from a spot `from` marks, over the
+/// walk graph's joins, mover spots kept.
+std::vector<bool> region(const WalkGraph& graph, std::vector<bool> from) {
+    std::vector<std::uint32_t> pending;
+    for (std::uint32_t s = 0; s < from.size(); ++s)
+        if (from[s]) pending.push_back(s);
+    while (!pending.empty()) {
+        const std::uint32_t at = pending.back();
+        pending.pop_back();
+        for (const std::uint32_t next : graph.joins[at])
+            if (!from[next]) {
+                from[next] = true;
+                pending.push_back(next);
+            }
+    }
+    return from;
+}
+
 std::optional<std::size_t> nearestNode(const Scene& scene, const Vec3& to) {
     std::optional<std::size_t> nearest;
     double best = std::numeric_limits<double>::infinity();
@@ -331,6 +349,19 @@ std::string_view routeName(Route route) {
     case Route::None: return "none";
     }
     return "none"; // unreachable: every enumerator is named above
+}
+
+/// SS 4.3's `noRoute` value, quoted, or `null` for a routed exit.
+std::string_view noRouteValue(NoRoute why) {
+    switch (why) {
+    case NoRoute::Routed: return "null";
+    case NoRoute::StartOffGraph: return "\"startOffGraph\"";
+    case NoRoute::ExitOffGraph: return "\"exitOffGraph\"";
+    case NoRoute::Teleporter: return "\"teleporter\"";
+    case NoRoute::Mover: return "\"mover\"";
+    case NoRoute::Walled: return "\"walled\"";
+    }
+    return "null"; // unreachable: every enumerator is named above
 }
 
 /// SS 4.6's off-world test, on the resolved Location -- PER AXIS, so a
@@ -378,6 +409,8 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
             scene.exits.push_back(Cylinder{locationOf(*actor, actorClass),
                                            floatOf("collisionradius", *actor, actorClass),
                                            floatOf("collisionheight", *actor, actorClass)});
+        if (descendsFrom(actorClass, "engine.teleporter"))
+            scene.teleporters.push_back(locationOf(*actor, actorClass));
     }
     if (!started) return fail(ErrorCode::MalformedData, "reading " + std::string(mapName) + ": the map has no PlayerStart");
     if (scene.exits.empty())
@@ -456,6 +489,27 @@ Proposal propose(const Scene& scene, bool partitioned) {
         if (startPart[i] && placedNode[i]) sources.push_back(*placedNode[i]);
     if (const auto startSpot = place(graph, scene.start)) sources.push_back(*startSpot);
 
+    // SS 4.7's Why no route: the start's region, and each teleporter's spot.
+    std::vector<bool> fromSources(graph.spots.size(), false);
+    for (const std::uint32_t source : sources) fromSources[source] = true;
+    const std::vector<bool> startRegion = region(graph, fromSources);
+    std::vector<bool> teleporterSpot(graph.spots.size(), false);
+    for (const Vec3& teleporter : scene.teleporters)
+        if (const auto spot = place(graph, teleporter)) teleporterSpot[*spot] = true;
+    const auto why = [&](const std::vector<bool>& goal) {
+        if (sources.empty()) return NoRoute::StartOffGraph;
+        if (std::find(goal.begin(), goal.end(), true) == goal.end()) return NoRoute::ExitOffGraph;
+        const std::vector<bool> exitRegion = region(graph, goal);
+        bool teleporter = false;
+        bool mover = false;
+        for (std::size_t s = 0; s < graph.spots.size(); ++s)
+            if (startRegion[s] || exitRegion[s]) {
+                teleporter = teleporter || teleporterSpot[s];
+                mover = mover || moverSpot[s];
+            }
+        return teleporter ? NoRoute::Teleporter : mover ? NoRoute::Mover : NoRoute::Walled;
+    };
+
     const Hops hops{scene, graph, moverSpot};
     for (const Cylinder& exit : scene.exits) {
         std::vector<bool> goal(graph.spots.size(), false);
@@ -480,11 +534,14 @@ Proposal propose(const Scene& scene, bool partitioned) {
 
         if (const auto path = shortestPath(graph, sources, goal, moverSpot); !path.empty()) {
             proposal.routes.push_back(Route::Found);
+            proposal.noRoutes.push_back(NoRoute::Routed);
             chain(hops, path, proposal.nodes);
         } else if (!shortestPath(graph, sources, goal, keepAll).empty()) {
             proposal.routes.push_back(Route::Mover);
+            proposal.noRoutes.push_back(NoRoute::Routed);
         } else {
             proposal.routes.push_back(Route::None);
+            proposal.noRoutes.push_back(why(goal));
         }
     }
     return proposal;
@@ -512,7 +569,10 @@ std::string toJson(std::string_view map, std::string_view md5, std::string_view 
         // searched like any other and keeps the word SS 4.7 gave it.
         out << ", \"route\": \""
             << routeName(i < proposal.routes.size() ? proposal.routes[i] : Route::None)
-            << "\", \"offWorld\": " << (offWorld(scene.exits[i].centre) ? "true" : "false") << "}";
+            << "\", \"offWorld\": " << (offWorld(scene.exits[i].centre) ? "true" : "false")
+            // A hand-built Proposal may carry no word; it writes null.
+            << ", \"noRoute\": "
+            << noRouteValue(i < proposal.noRoutes.size() ? proposal.noRoutes[i] : NoRoute::Routed) << "}";
     }
     out << (scene.exits.empty() ? "]" : "\n  ]");
 
