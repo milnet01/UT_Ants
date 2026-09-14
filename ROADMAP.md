@@ -8143,6 +8143,16 @@ model, no weapon and no opponent until 0.2.0.
   cap. A typical map in that run held about 380 MB.
   Measure first: peak memory per map, and which structure grows (the
   walk graph's columns, the reach search, or the level read).
+  Progress (2026-09-14): UT_MonsterHunt's GAME-0095 catch-up ran the
+  same three maps again, each alone under a 6 GB cap with a 300 s
+  timeout. Two timed out at 300 s (MH-[TB]-UnrealWorld2010,
+  MH-TheOutpost); MH-TrifeaOutpostMore was killed after 90 s, again at
+  the memory cap. Our own census has no path file for any of the three.
+  Agreed with UT_MonsterHunt (ut-monsterhunt-81): no re-run with a
+  longer timeout or a higher cap. At 6 GB the two timed-out maps were
+  killed after 666 s and 360 s on 2026-09-13, so more time only reaches
+  the same kill. They get re-run once this item has cut the memory use.
+  Outcomes: UT_MonsterHunt/work/ut-paths-2026-09-14/bymap-status.tsv.
   **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
   Kind: perf.
   Source: in-session-2026-09-13.
