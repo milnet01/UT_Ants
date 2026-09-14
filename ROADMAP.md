@@ -8361,7 +8361,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-14.
   Lanes: tools.
 
-- 📋 [UTA-0143] **ut-bake holds about 2 GB baking the largest map, so find what grows before it matters.**
+- 🚧 [UTA-0143] **ut-bake holds about 2 GB baking the largest map, so find what grows before it matters.**
   Measured 2026-09-14 (ut-ants-db) during the user's memory pass.
   `ut-bake --install <install> --out <dir> --force <path-to>/MH-Sk_Godz.unr`,
   the install's largest map file, under /usr/bin/time -v: peak resident
@@ -8373,6 +8373,11 @@ model, no weapon and no opponent until 0.2.0.
   materials, lighting, write), and which structure holds it.
   Note: ut-bake takes the map as a file path; a bare map name is refused
   with "no such file".
+  Claimed (2026-09-14) by ut-ants-db, main checkout. The user asked for
+  further memory and general optimisations. Measure first: a heap profile
+  of ut-bake on MH-Sk_Godz names what holds the 2 GB. UTA-0103 and
+  UTA-0126, the other held items, are parked on Waiting-on. The real-asset
+  tier is not touched while UTA-0103's comparison runs.
   **Layman:** Baking the biggest map uses far more memory than the map file's own size, so check what takes the space before bigger batches run into it.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass.
@@ -8412,6 +8417,15 @@ model, no weapon and no opponent until 0.2.0.
   --ndjson) that writes each package's object on one line, the default
   unchanged. Not agreed yet: the flag name and whether summary fields
   stay in a trailing line. Record the answer on their roadmap too.
+  Agreed with UT_MonsterHunt (ut-monsterhunt-81, 2026-09-14) for their
+  analysis/mapcheck/facts.py. The flag is --ndjson. The FIRST line is a
+  header object holding schema and any other whole-run fields, e.g.
+  {"schema":1}, because facts.py refuses an unknown schema before reading
+  a package. Every following line is one package object exactly as in
+  packages[] today, "file" included, in packages[]'s order. No end-marker
+  line: completeness comes from the exit code. The default output stays
+  unchanged. They recorded a matching item on their roadmap
+  (server-and-tooling): stream --ndjson once this ships.
   **Layman:** The dump tool prints all its results as one big block, so the other project has to read it all at once; one result per line lets it read them one at a time.
   Kind: feature.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
