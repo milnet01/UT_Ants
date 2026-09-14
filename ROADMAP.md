@@ -9120,7 +9120,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, urender, umat.
 
-- 🚧 [UTA-0162] **Strip lights: a row of lights along a fixture bakes into one light that casts a band.**
+- ✅ [UTA-0162] **Strip lights: a row of lights along a fixture bakes into one light that casts a band.**
   The user flew DM-Deck16][ on 2026-09-14 after UTA-0156's light model
   change: "the horizontal lights are showing as round lights on the
   geometry they are shining on."
@@ -9174,6 +9174,10 @@ model, no weapon and no opponent until 0.2.0.
   where overlapping pools used to add. The fit moved to 3.05, so EXPOSURE
   is re-fitted: 3.0 gives block RMS 46.20 and mean 66.0, 3.1 gives 46.21.
   Remaining before closing: EXPOSURE 3.0 lands, and CI on the matrix.
+  Shipped (2026-09-14, ut-ants-91). Commits 275fcbe and 6e43b41.
+  GitHub run 34889297147 on 6e43b411fa4fa66dda9fc319e5839473cb61f7ac
+  completed with success on the matrix: GCC 14, Clang 19 and MSVC.
+  UTA-0156 resumes next, with soft light edges.
   **Layman:** Long ceiling strip lights should light a long strip of floor and wall, not a string of round spots.
   Kind: feature.
   Source: user-request-2026-09-14.
