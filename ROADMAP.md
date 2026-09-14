@@ -8400,6 +8400,15 @@ model, no weapon and no opponent until 0.2.0.
   Windows mapping too, since both legs are first-class.
   Do NOT start while UTA-0103's comparison runs: it rebuilds nothing, but
   the tier's support header is part of what it compares.
+  Measured (2026-09-14, ut-ants-db): valgrind massif over ut-paths on
+  MH-(_@_)_SpireVillage_LUCKY, the heaviest in-world map, peaks at 585 MB.
+  About 82 MB of that is uta::fs::readFile under the Install resolver that
+  unav::buildNavGraph calls: whole System packages copied into memory.
+  So this item reaches ut-paths too, not only ut-bake and the tier. The
+  rest of that peak is the walk graph (spots, joins) and shortestPath's
+  per-exit arrays. perf over MH-ToEgypto2010[THUNDERBOLT]-Beta, the
+  slowest map at 18 s: 69% of CPU in the collision trace (firstChange),
+  12% in isEmpty, 9% in shortestPath, about 1% in malloc and free.
   **Layman:** The tools copy every game package they open into memory and keep it; letting the operating system page the file in instead would cut how much memory they hold.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
