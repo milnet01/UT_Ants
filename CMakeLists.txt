@@ -46,6 +46,12 @@ if(MSVC)
     # The traditional preprocessor is not conforming and breaks variadic macros
     # the same way for every library that uses them, Catch2 included.
     add_compile_options(/Zc:preprocessor)
+    # One compiler process per source file, not one per project (UTA-0147).
+    # The Visual Studio generator hands MSVC a project's sources in one call,
+    # which it compiles one at a time unless told otherwise; the Windows CI
+    # leg spent 6 min 25 s of a 7 min gate in that build. How many files
+    # compile at once changes no object MSVC writes.
+    add_compile_options(/MP)
 endif()
 
 # docs/design.md § "What every part does the same way", the Determinism

@@ -8361,7 +8361,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-14.
   Lanes: tools.
 
-- 🚧 [UTA-0143] **ut-bake holds about 2 GB baking the largest map, so find what grows before it matters.**
+- ✅ [UTA-0143] **ut-bake holds about 2 GB baking the largest map, so find what grows before it matters.**
   Measured 2026-09-14 (ut-ants-db) during the user's memory pass.
   `ut-bake --install <install> --out <dir> --force <path-to>/MH-Sk_Godz.unr`,
   the install's largest map file, under /usr/bin/time -v: peak resident
@@ -8392,6 +8392,10 @@ model, no weapon and no opponent until 0.2.0.
   a counted size instead of encoding it first, and refuses the write if
   the count disagrees with the bytes put: 1.63 GB -> 1.21 GB. 18 s
   throughout.
+  Shipped (2026-09-14, ut-ants-db): GitHub CI green on 5b5b863, which
+  carries 3604221 and 9b84322 (9b84322's own run was cancelled by that
+  later docs push). The Install resolver's whole-package copies remain,
+  and are UTA-0144's.
   **Layman:** Baking the biggest map uses far more memory than the map file's own size, so check what takes the space before bigger batches run into it.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass.
@@ -8460,6 +8464,35 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
   Lanes: tools.
+
+- 🚧 [UTA-0147] **Make the gate cheaper: MSVC builds in parallel, and the local push gate stops rebuilding in RAM.**
+  Measured 2026-09-14 (ut-ants-db) at the user's request.
+  GitHub, over three recent green runs (gh run view --json jobs): Linux
+  GCC 68-87 s a job and Clang 100-107 s, their gate 46-66 s with ccache at
+  96.8% hits; Windows MSVC 444-596 s, its gate 426-575 s. In the Windows
+  gate log, build alone ran 09:51:47 to 09:58:12, 6 min 25 s; configure
+  took 25 s and ctest 8 s. CMakeLists.txt sets no /MP for MSVC and
+  scripts/ci.sh calls cmake --build without --parallel, so the Visual
+  Studio generator likely builds one project and one file at a time.
+  Local: ~/.claude/githooks/pre-push gates each push in a fresh
+  `mktemp -d` worktree, which is /tmp, which is tmpfs here, so its Release
+  tree (about 149 MB as build-ci) and ThreadSanitizer tree (about 729 MB
+  as build-ci-tsan) are built in RAM on every push. This machine's ccache
+  still had base_dir unset and hash_dir true, which CLAUDE.md says to set,
+  and stood at 14% hits: a new worktree path misses nearly every object.
+  Fixed outside the repository the same day: ccache base_dir=/ and
+  hash_dir=false set. The hook itself is ~/.claude's (a CFG item), and
+  honours TMPDIR through mktemp.
+  To do here: /MP on MSVC and --parallel in ci.sh, measured on the next
+  Windows run. Output and test results must not change.
+  Claimed (2026-09-14) by ut-ants-db, main checkout, after UTA-0143 shipped,
+  at the user's request to consider local and GitHub CI performance.
+  UTA-0103 and UTA-0126 are parked on Waiting-on, so neither limit is
+  reached. UTA-0145 waits behind this.
+  **Layman:** The Windows check on GitHub takes seven minutes mostly because it compiles one thing at a time, and the check that runs before every push rebuilds everything from scratch in memory.
+  Kind: perf.
+  Source: user-request-2026-09-14 memory pass.
+  Lanes: ci.
 
 ## 0.2.0 — Movement and weapons
 

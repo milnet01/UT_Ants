@@ -216,7 +216,9 @@ esac
 cmake "${configure[@]}"
 
 step "build"
-cmake --build "$BUILD_DIR" --config "$CONFIG"
+# --parallel: Ninja builds in parallel by default, but the Visual Studio
+# generator builds one project at a time without it (UTA-0147).
+cmake --build "$BUILD_DIR" --config "$CONFIG" --parallel
 
 step "quarantine guard: bundle origin"
 # UTA-0013's third check reads each tracked .utab's header through ut-origin,
