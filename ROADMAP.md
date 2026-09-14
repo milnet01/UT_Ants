@@ -7954,7 +7954,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-12.
   Lanes: urender, tests.
 
-- 🚧 [UTA-0139] **ut-paths: a map with no route does not say what separates its start from its exit.**
+- ✅ [UTA-0139] **ut-paths: a map with no route does not say what separates its start from its exit.**
   Asked by UT_MonsterHunt on GAME-0095, 2026-09-13. Their plan routes
   each no-route map to a fix by cause: GAME-0001 for lifts, GAME-0004
   for teleporters, and our UTA-0123 for stairs.
@@ -8038,6 +8038,18 @@ model, no weapon and no opponent until 0.2.0.
   It was run with UT_MonsterHunt's routecensus-split-offline-2026-09-13.tsv;
   the 2026-09-07c census no longer lists these maps as work rows. Next:
   local gate, then the matrix.
+  Resolved (2026-09-14) by ut-ants-c1 in the main checkout, commit 97e2749.
+  Flipped on the matrix: CI run 34812296922 for e938c93 completed success
+  on Linux (GCC 14), Linux (Clang 19) and Windows (MSVC). The local
+  scripts/ci.sh was green first: 509 unit tests, clean under
+  ThreadSanitizer.
+
+  Each exit in ut-paths' per-map JSON now carries `noRoute`. It is null
+  unless route is none; otherwise it is the first that holds of
+  startOffGraph, exitOffGraph, teleporter, mover and walled (UTA-0121
+  § 4.3, § 4.7, INV-14). `schema` stays 1, and ut-paths-summary.json is
+  unchanged, as agreed with UT_MonsterHunt. Follow-up: UTA-0142, where
+  a disabled teleporter's R_SPECIAL link is still followed.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.
