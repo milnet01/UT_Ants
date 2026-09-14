@@ -8449,6 +8449,13 @@ model, no weapon and no opponent until 0.2.0.
   line: completeness comes from the exit code. The default output stays
   unchanged. They recorded a matching item on their roadmap
   (server-and-tooling): stream --ndjson once this ships.
+  Measured by UT_MonsterHunt (2026-09-14): tracemalloc over their map
+  checker's file phase (facts.py collect() and every check's from_file, 150
+  MH maps, 10 per ut-dump batch) peaks at 108 MB of Python heap. At the
+  heaviest batch 63.5 MB of 70 MB came from json/decoder.py, the decoded
+  `ut-dump --nav-graph` document; the next site was 1.7 MB. So the whole
+  document is nearly all of what remains, and --ndjson lets them drop each
+  map's parse after its checks. Their matching item is GAME-0138.
   **Layman:** The dump tool prints all its results as one big block, so the other project has to read it all at once; one result per line lets it read them one at a time.
   Kind: feature.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
@@ -9899,3 +9906,28 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-09-11.
   Lanes: uui.
+
+## After 1.0.0
+
+Work the user wants once 1.0.0 has replaced the live server, not before it.
+
+- 📋 [UTA-0146] **Help a player who has no Unreal Tournament download and install it.**
+  Asked by the user on 2026-09-14, for after 1.0.0. Today a player
+  must already have an install: the game refuses to start without one
+  (docs/discovery.md), and every runtime target checks it with
+  `ut-bake --check` (docs/design.md rule 16).
+  Decide before building, because it reaches a design rule. ADR-0003
+  (ship the recipe, never Epic's content) and docs/discovery.md say
+  nothing Epic owns is committed, published or sent over the network. A
+  helper that fetches the game from an outside source onto the player's
+  own machine is not that project redistributing it, but whether it fits
+  ADR-0003 is a decision to record, not an assumption.
+  Unverified, to settle first: where UT99 can lawfully be obtained now
+  that Epic has delisted it, and on what terms (for example, whether
+  OldUnreal's installers fetch the game data with Epic's permission).
+  Nothing here asserts those terms. Both platforms are first-class, so the
+  route needs a Windows and a Linux answer. Done means: a player with no
+  install ends with one that `ut-bake --check` accepts.
+  **Layman:** Someone who does not own the old game gets help fetching and installing it, so they can play without hunting for it themselves.
+  Kind: feature.
+  Source: user-request-2026-09-14.
