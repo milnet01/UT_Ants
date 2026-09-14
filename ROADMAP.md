@@ -1364,6 +1364,14 @@ model, no weapon and no opponent until 0.2.0.
   map's large wall area, so it also wants a distance cutoff -- the step
   count question this item already names, answered against the tier rather
   than in isolation.
+  User request (2026-09-14), after flying DM-Deck16][: "Please also add
+  paralax occlusion maps to the textures." The same day the user chose
+  this item (with UTA-0053's bloom) as the first route for UTA-0157's
+  flat light fixtures. UTA-0051 has shipped, so the tier this item's
+  2026-09-04 note waited on can now be assigned.
+  User decision (2026-09-14): taken third, after UTA-0154 and UTA-0158.
+  The look is this project's to settle by research and measurement; the
+  user reviews it later, with friends playing matches.
   **Layman:** Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
   Kind: implement.
   Source: user-request-2026-09-03.
@@ -8732,7 +8740,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: apps.
 
-- 📋 [UTA-0154] **urender: AMD FSR 1 upscales the dynamic-resolution region, replacing the bilinear stretch.**
+- 🚧 [UTA-0154] **urender: AMD FSR 1 upscales the dynamic-resolution region, replacing the bilinear stretch.**
   User decision (2026-09-14): FSR 1 now; FSR 2, FSR 3.1 and DLSS later
   (recorded on UTA-0076). UTA-0051's dynamic resolution draws the scene
   into a smaller region and its output stage stretches it with bilinear
@@ -8748,10 +8756,125 @@ model, no weapon and no opponent until 0.2.0.
   write-code with the plan on this body, and amend
   docs/specs/UTA-0051-quality-tiers.md in place: section 4.4's stretch
   and its INV-7 blend probe. It follows UTA-0153.
+  User decisions (2026-09-14), after flying DM-Deck16][: the queue is
+  this item, then UTA-0158 (the camera stops at walls), then UTA-0040
+  (parallax occlusion), ahead of UTA-0155 (the skipped acid texture) and
+  UTA-0156 (brightness). How it looks is left to this project to settle by
+  research and measurement; the user reviews it later, with friends
+  playing matches.
+  Claimed 2026-09-14 by session ut-ants-e9, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). Building under write-code: FSR 1
+  v1.0.2 (commit a21ffb8) vendored at third_party/fsr1; at a scale below 1
+  the output stage becomes tone into an intermediate, EASU, then RCAS; at
+  scale 1 it stays one pass.
   **Layman:** When the game lowers its internal resolution to keep frames smooth, the picture is enlarged with AMD's sharper upscaler instead of looking blurry.
   Kind: feature.
   Source: user-request-2026-09-14.
   Lanes: urender.
+
+- 📋 [UTA-0155] **ubake: bake a texture whose palette lives in another package.**
+  The user flew DM-Deck16][ on 2026-09-14 and found no acidic liquid in
+  its pits. The bake's own report says why: bake.json's skipped list holds
+  one material, hubeffects.goop3, with "its palette is not an export of
+  its own package". makeVariant in src/ubake/Bake.cpp refuses any palette
+  reference that is not an Export, so a texture whose palette is an
+  import is skipped and its surfaces wear no material. The map has three
+  SlimeZone actors. Evidence kept at
+  /mnt/Games/Scripts/Linux/ut-ants-uta0051/bake.json.
+
+  Resolve an imported palette through the install, as class ancestry
+  already resolves across packages. Census the corpus first: how many
+  materials skip for this reason, which says how many maps lose a surface.
+  That goop3 is the pits' liquid is the likely reading, not yet confirmed
+  against the surfaces that wear it.
+  **Layman:** The green acid pools in maps like DM-Deck16][ are missing because their texture's colours are stored in a different file; read them from there.
+  Kind: fix.
+  Source: user-request-2026-09-14.
+  Lanes: ubake, upkg.
+
+- 📋 [UTA-0156] **Maps draw about as bright as the original: carry ZoneInfo ambient light, and set exposure by measurement.**
+  The user flew DM-Deck16][ on 2026-09-14: "The map is significantly
+  darker than the original game, can you brighten it a little please?"
+
+  Two known causes, both recorded before this report. ZoneInfo's
+  AmbientBrightness, AmbientHue and AmbientSaturation are in no bundle
+  section: UTA-0014's spec, section Out of scope, lists them as deferred
+  and not yet queued, so applying them needs ubake to write them and a
+  bundle format version bump. And the fixed exposure of 1.0 (UTA-0014
+  section 4.10) was chosen without comparing against the original; that
+  spec's What-checks-this row says a wrong constant gives a uniformly dark
+  image no test rejects.
+
+  Decide the target by measurement against frames from the original
+  game, never by asking the user to compare by eye. Ambient light first,
+  because it is the original's own number; exposure only for what
+  remains. Raising exposure alone would be the workaround coding.md
+  section 1.2 forbids.
+  User decision (2026-09-14): after UTA-0154, UTA-0158 and UTA-0040.
+  The brightness target is this project's to settle by measurement; the
+  user reviews it later, with friends playing matches.
+  **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
+  Kind: fix.
+  Source: user-request-2026-09-14.
+  Lanes: ubake, ubundle, urender.
+
+- 📋 [UTA-0157] **Light fixtures gain real depth instead of reading as flat glowing textures.**
+  The user flew DM-Deck16][ on 2026-09-14: "The lights look like flat
+  textures (I know this is how the base game did it), is it possible to
+  add some geometry there to make it look like actual lights on the
+  ceiling?"
+
+  The bake already knows which surfaces are lights: their materials carry
+  an emit map (decayeds.light.light5, uttech2.light.rclflit2x and
+  uttech3.light.rnd_lite2 on that map). Three routes, cheapest first, for
+  this item's design to choose between by measurement:
+  1. Parallax occlusion on light materials (UTA-0040), so the tube sits
+     inside a recess. No new geometry.
+  2. Emissive bloom (UTA-0053), so the fixture glows past its edge.
+  3. Bake-time geometry: a housing and diffuser generated over each
+     surface wearing a light material. New geometry in the bundle, which
+     touches the format, collision and shadows, so it needs a spec.
+  Routes 1 and 2 are already filed; this item is route 3, or the decision
+  that 1 and 2 are enough.
+  User decision (2026-09-14): cheap tricks first. Routes 1 and 2
+  (parallax, UTA-0040, and bloom, UTA-0053) are tried before any
+  geometry, and whether route 3 is still needed is judged by measurement
+  after they land. The same day the user ordered FSR 1 (UTA-0154) ahead of
+  UTA-0155 and UTA-0156.
+  **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: ubake, urender, umat.
+
+- 📋 [UTA-0158] **ut-ants: the flying camera stops at the level's walls, as UT99's pre-match spectator does.**
+  The user flew DM-Deck16][ on 2026-09-14: "the camera can move in and out
+  of geometry which means it can move outside of the map. Please prevent
+  this. In the original UT99 before a match starts you can fly around
+  with the camera just like this but you can't go through geometry."
+  UTA-0016's scope decision 1 had the camera fly through walls; this
+  reverses that half of it and keeps the free flight.
+
+  What exists: every bundle carries the level's collision tree (COLL,
+  UTA-0111), and src/ubake/CollisionQuery.h answers isEmpty, trace and
+  traceOut for points and segments. What stops ut-ants using it:
+  docs/design.md rule 2 bars a runtime target from linking ubake, and
+  apps/ut-ants/CMakeLists.txt enforces that. So the query moves to a
+  library a runtime target may link, and ubake and ut-paths include it
+  from there. uworld is the likely home, since UTA-0017 reads the same
+  tree; check design.md's What may depend on what before placing it.
+
+  Scope: the level's tree only. A camera is not UTA-0017's cylinder, so
+  trace the move as a segment, stop a small margin short of the wall so
+  the near plane does not clip it, and slide along the wall's plane so
+  the camera does not stick. Whether UT99's spectator also stops at
+  movers is to be checked, not assumed. A camera already inside solid,
+  as a PlayerStart never is, is left free to fly out.
+  User decision (2026-09-14): taken second, after UTA-0154 and before
+  UTA-0040.
+  **Layman:** The camera can fly around the map freely but can no longer pass through walls or leave the map, just like watching before a match in the original game.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: apps, uworld, ubake.
 
 ## 0.2.0 — Movement and weapons
 
@@ -9475,6 +9598,28 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uworld, unet, ugame.
+
+- 📋 [UTA-0159] **urender: players, bots and monsters are lit by the same lights, shadows and baked light as the level.**
+  The user, 2026-09-14, after flying DM-Deck16][: "Player characters /
+  bots should also be subject to the lighting conditions please."
+
+  Nothing draws a character yet: the draw path uploads the level's
+  geometry and its movers (src/urender/Frame.cpp), and no open roadmap
+  item draws a character or monster mesh (roadmap query, 2026-09-14).
+  docs/design.md's ubundle row says a character bundle carries its mesh,
+  skeleton, skins and attachment points. This item is the requirement on
+  whichever item first draws one, recorded now so it is not designed out.
+
+  What it asks: a character takes the clustered direct lights the level
+  takes (UTA-0014), receives shadows from the level and casts its own,
+  and takes indirect light from the baked probes (UTA-0112), which store
+  an ambient cube per point and so suit a moving object. Zone ambient
+  light arrives with UTA-0156. How it looks is settled by research and
+  measurement; the user reviews it later over real matches.
+  **Layman:** Characters walking through a dark corridor look dark, and step into a pool of light when they pass a lamp, instead of looking evenly lit everywhere.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: urender.
 
 ## 0.4.0 — Monster Hunt
 
