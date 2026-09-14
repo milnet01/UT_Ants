@@ -5115,7 +5115,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: consumer-request-2026-09-10 UT_MonsterHunt.
   Lanes: upkg.
 
-- 🚧 [UTA-0103] **Split the real-asset test file by subject, and share its System-package resolver.**
+- ✅ [UTA-0103] **Split the real-asset test file by subject, and share its System-package resolver.**
   The user's standing request (2026-09-10): refactor files at every
   opportunity, because several sessions will soon work one project at once.
 
@@ -5248,6 +5248,17 @@ model, no weapon and no opponent until 0.2.0.
   case on the earlier run. Its status line records the binary's checksum
   and the filter it ran under (~[paths]). The after half is running (cc-job
   uta0103-compare); results.diff lands when it ends.
+  Resolved (2026-09-14, ut-ants-f9): the filtered comparison finished,
+  both halves exit 0, peak about 1 GB each. Both runs report "All tests
+  passed (16940409 assertions in 18 test cases)" with no FAILED line.
+  results.diff was not empty, and every line in it was one of two
+  harmless kinds. First, per-map bake times and census durations, which
+  compare.sh's normaliser did not strip. Second, three passing guards
+  renamed by the split: before, one !(byName.empty()) and two
+  !(systemPackages.empty()); after, three !(packages.empty()), one per
+  former resolver copy. So SystemPackages gives the same results. The
+  user chose to ship on that reading rather than re-run with a wider
+  normaliser. The scratch folder ut-ants-real-uta0103 was deleted.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.

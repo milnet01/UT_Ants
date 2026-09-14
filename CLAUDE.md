@@ -337,11 +337,12 @@ place.**
 
 ### Which item comes next
 
-The user's standing priority order, given 2026-09-04:
+The user's standing priority order, given 2026-09-04 and revised
+2026-09-14 so the work reaches each release in turn:
 
 1. Outstanding fixes from any review — test, debt, codebase or document,
    including backlogged ones.
-2. Open roadmap items that reach v1.0.0.
+2. Open roadmap items that reach v0.1.0.
 3. Open roadmap items for the version after.
 
 **Rule 1's set is every open item whose `Source:` records the review that
