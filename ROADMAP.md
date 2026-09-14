@@ -5242,6 +5242,12 @@ model, no weapon and no opponent until 0.2.0.
   its 6 GB cap with nothing kept. The user stops it; ut-ants-db starts the
   filtered comparison with cc-job (job uta0103-compare), which survives
   an Ants Terminal relaunch. An empty results.diff still ships this.
+  Progress (2026-09-14, ut-ants-db): the filtered comparison's before half
+  finished at 12:54, exit status 0, about 40 minutes, peak resident memory
+  1,029,700 KB (peak-before.txt), against 5 GB reached inside the [paths]
+  case on the earlier run. Its status line records the binary's checksum
+  and the filter it ran under (~[paths]). The after half is running (cc-job
+  uta0103-compare); results.diff lands when it ends.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
