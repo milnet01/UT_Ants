@@ -8378,6 +8378,45 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14 memory pass.
   Lanes: ubake.
 
+- 📋 [UTA-0144] **Map packages read-only instead of copying them whole, so the bake and the real-asset tier hold less.**
+  Found 2026-09-14 (ut-ants-db) from UT_MonsterHunt's memory list, their
+  fix 1: analysis/pkgnames.py reads package tables through a read-only
+  mmap, and MH-Sk_Godz.unr went from 82 MB to 13 MB with identical output.
+  The same shape is here. ubake::Install's resolver keeps every package
+  it opens in Install::State::bytes, a std::map of whole-file byte
+  vectors, for the Install's lifetime; tests/real/RealSupport.h's
+  SystemPackages does the same in bytes_. upkg::Package holds a VIEW of
+  its bytes, so a read-only mapping that lives as long as the Package can
+  stand in with no reader change. The install's System/*.u alone is
+  1632 MB over 794 files (find -printf %s), so a run resolving many of
+  them holds a large share of that.
+  Measure first, with UTA-0143: ut-bake's 2 GB peak on MH-Sk_Godz, and
+  the tier's per-case peak (compare.sh now writes peak-*.txt). Needs a
+  Windows mapping too, since both legs are first-class.
+  Do NOT start while UTA-0103's comparison runs: it rebuilds nothing, but
+  the tier's support header is part of what it compares.
+  **Layman:** The tools copy every game package they open into memory and keep it; letting the operating system page the file in instead would cut how much memory they hold.
+  Kind: perf.
+  Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
+  Lanes: core, ubake, tests.
+
+- 📋 [UTA-0145] **ut-dump prints one package per line on request, so UT_MonsterHunt can stream it.**
+  Asked by UT_MonsterHunt (ut-monsterhunt-81) on 2026-09-14, their
+  memory fix 5: analysis/mapcheck/facts.py runs `ut-dump --nav-graph`
+  over batches of maps and json.loads the whole output, about 930 KB per
+  map, so it keeps batches small. With one package per line (NDJSON) it
+  could stream and batch size would stop mattering.
+  Measured here: ut-dump over two maps writes one JSON document across
+  several lines, and no line parses as JSON on its own. So this is a new
+  output mode, and callers bind to its shape: a flag (for example
+  --ndjson) that writes each package's object on one line, the default
+  unchanged. Not agreed yet: the flag name and whether summary fields
+  stay in a trailing line. Record the answer on their roadmap too.
+  **Layman:** The dump tool prints all its results as one big block, so the other project has to read it all at once; one result per line lets it read them one at a time.
+  Kind: feature.
+  Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
+  Lanes: tools.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
