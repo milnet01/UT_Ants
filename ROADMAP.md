@@ -1348,7 +1348,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
 
-- 📋 [UTA-0040] **urender: parallax occlusion mapping on baked surfaces.**
+- 🚧 [UTA-0040] **urender: parallax occlusion mapping on baked surfaces.**
   POM steps a ray through the height map umat already generates (UTA-0009), so
   the input exists and this is the renderer half.
   Three decisions it must make rather than leave open, because each changes what
@@ -1372,6 +1372,11 @@ model, no weapon and no opponent until 0.2.0.
   User decision (2026-09-14): taken third, after UTA-0154 and UTA-0158.
   The look is this project's to settle by research and measurement; the
   user reviews it later, with friends playing matches.
+  Claimed 2026-09-14 by session ut-ants-e9, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). User decision the same day: a short
+  spec with no review, at docs/specs/UTA-0040-parallax-occlusion.md, then
+  build under write-code. Research with sources is kept outside the
+  repository at /mnt/Games/Scripts/Linux/ut-ants-uta0040-research.md.
   **Layman:** Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
   Kind: implement.
   Source: user-request-2026-09-03.
@@ -8863,7 +8868,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, urender, umat.
 
-- 🚧 [UTA-0158] **ut-ants: the flying camera stops at the level's walls, as UT99's pre-match spectator does.**
+- ✅ [UTA-0158] **ut-ants: the flying camera stops at the level's walls, as UT99's pre-match spectator does.**
   The user flew DM-Deck16][ on 2026-09-14: "the camera can move in and out
   of geometry which means it can move outside of the map. Please prevent
   this. In the original UT99 before a match starts you can fly around
@@ -8905,6 +8910,17 @@ model, no weapon and no opponent until 0.2.0.
   passes the bundle's tree. Tests in tests/unit/ClientFlyCameraTest.cpp
   build trees with PathFixture's worldOf, watched red first; a hand run
   flies into a wall on DM-Deck16][.
+  Shipped 2026-09-14 in 0349087, green on the matrix (run 34859576526:
+  GCC 14, Clang 19, MSVC). The collision-tree query moved from ubake to a
+  new runtime library, uta_uworld (links uta_core and uta_ubundle only),
+  unchanged but for its namespace; ubake's and ut-paths' headers forward
+  the names. FlyCamera::update traces each move against the level tree,
+  stops 8 units short of a wall and slides along it; a camera starting in
+  solid flies free. Four camera tests watched red; four mutations each
+  fail one. A probe on the DM-Deck16][ bake found the first PlayerStart in
+  empty space with walls 230 units either side, so collision engages on a
+  real map. Not checked: flying into a wall by hand, since a --frames run
+  takes no input.
   **Layman:** The camera can fly around the map freely but can no longer pass through walls or leave the map, just like watching before a match in the original game.
   Kind: feature.
   Source: user-request-2026-09-14.
