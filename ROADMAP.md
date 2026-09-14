@@ -8140,6 +8140,13 @@ model, no weapon and no opponent until 0.2.0.
   disabled teleporter. That census comes first. A fix would read
   bEnabled on the teleporter at each end of an R_SPECIAL edge, which is a
   § 3 decision 10 amendment and so goes through rule 14's gate.
+  Arrangement with UT_MonsterHunt (2026-09-14, their session
+  ut-monsterhunt-d8). Their twin is GAME-0120, in their "Bot navigation"
+  section. Their GAME-0118 route file check also keeps flag 32, so it has
+  the same exposure. When this item's census of starts crossing a
+  disabled teleporter reports, send them the maps it names; they re-check
+  those. If the walking rule changes, they bump their route check's
+  file_version. They need nothing else from us.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
