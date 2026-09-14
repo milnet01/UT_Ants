@@ -5,25 +5,21 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0016` (load a bundle and move through it). Its scope
-questions are answered on its roadmap body: a free-flying camera on keyboard
-and mouse, and the map named on the command line. SDL3 goes through
-`docs/standards/dependency-acquisition.md` § 2 by hand first. Two items wait
-on others, and neither blocks it. `UTA-0142` (24 maps cross a teleporter
-that starts disabled) waits on UT_MonsterHunt's in-game re-check. `UTA-0103`
-waits on `/mnt/Games/Scripts/Linux/ut-ants-real-uta0103/compare.sh`, run as
-the `cc-job` job `uta0103-compare` (`cc-job status uta0103-compare`). Both
-halves skip the `[paths]` case, by the user's decision on the item. It resumes
-and locks: if it is not running, ask the user before running it again. An
-empty `results.diff` there is what ships it. `UTA-0139` shipped 2026-09-14.
-`UTA-0015` needs a tier from `UTA-0051` plus a look at the result. Read the open
-`0.1.0` bodies before picking — `UTA-0082` records items deferred out of
-that release's cut. `UTA-0136` shipped 2026-09-13, and UT_MonsterHunt's
-calibration of it is on `UTA-0085`. `UTA-0013` and `UTA-0059` shipped
-the same day. `docs/standards/dependency-acquisition.md`'s gate
-capped violently on § 2's routing question — route the next real
-dependency, SDL3, through § 2 by hand and fix what it finds, rather than
-re-running the gate.
+**Next:** `UTA-0051` (quality tiers and dynamic resolution), chosen by the
+user 2026-09-14. Its body says it likely needs a spec first, because later
+render items bind to its tiers. That is new direction, so ask the user
+before writing one. `UTA-0015` needs a tier from it, plus a look at the
+result. `UTA-0142` (24 maps cross a teleporter that starts disabled) waits
+on UT_MonsterHunt's in-game re-check. Read the open `0.1.0` bodies before
+picking — `UTA-0082` records items deferred out of that release's cut.
+
+`UTA-0016` shipped 2026-09-14: `ut-ants <install> <bundle>` flies a camera
+through a baked map. Its presenting path is checked by hand with `--frames N
+--validation` on a baked map. SDL3 went through
+`docs/standards/dependency-acquisition.md` § 2 by hand on the way, landed
+on route 1, and found nothing in § 2 to fix. `UTA-0103` shipped the same
+day. `UTA-0136` shipped 2026-09-13, and UT_MonsterHunt's calibration of it
+is on `UTA-0085`.
 
 `UTA-0014` shipped 2026-09-12, green on the matrix; its spec is
 `docs/specs/UTA-0014-vulkan-draw-path.md`. Two things from it that reach

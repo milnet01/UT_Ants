@@ -1267,7 +1267,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: urender.
 
-- 🚧 [UTA-0016] **ut-ants: load a bundle and walk through it.**
+- ✅ [UTA-0016] **ut-ants: load a bundle and walk through it.**
   A minimal client: validate the install by running ut-bake --check, load a
   bundle, and fly or walk through it with the renderer's full lighting.
   No movement model yet -- matching UT99's feel is 0.2.0's, and this deliberately
@@ -1332,6 +1332,17 @@ model, no weapon and no opponent until 0.2.0.
   5. Update the specs that record that assertion as missing (UTA-0011,
      UTA-0052), and CHANGELOG. Hand check: a real baked map drawn for N
      frames with no draw failure and no validation error, Wayland and X11.
+  Resolved (2026-09-14, ut-ants-f9): shipped in 9526a37, green on the
+  GitHub matrix (run 34841134263). apps/ut-ants is the first runtime
+  target. It checks the install through ut-bake, reads the bundle, and
+  flies a free camera from the first PlayerStart. SDL3 is fetched at
+  release-3.4.16 by route 1, and section 2 of dependency-acquisition.md
+  needed no change. Rule 2's link-closure test is a configure-time walk
+  in apps/ut-ants/CMakeLists.txt, proven by adding uta_ubake. Checked by
+  hand on DM-Deck16][: 300 of 300 frames on Wayland and on X11 with the
+  validation layer and no error line. The unit tests were mutated five
+  ways and went red each time. Not checked: the presenting path on
+  Windows, which no machine here can run; CI only compiles it there.
   **Layman:** The first thing you can actually run -- open one of your maps and move through it. No guns, no bots, no rules yet.
   Kind: implement.
   Source: design-2026-09-03.
