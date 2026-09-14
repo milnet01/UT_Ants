@@ -272,6 +272,7 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
 
     gpu->physical_ = devices[chosen];
     gpu->name_ = candidates[chosen].name;
+    gpu->type_ = candidates[chosen].type;
     // Always engaged for a selected device: a graphics queue, and on the
     // presenting path present support, are requirements.
     gpu->family_ = familyOf(gpu->physical_, gpu->surface_).value_or(0);

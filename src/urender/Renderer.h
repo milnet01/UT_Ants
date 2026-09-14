@@ -27,10 +27,20 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace uta::urender {
+
+/// A quality tier -- docs/specs/UTA-0051-quality-tiers.md SS 4.1.
+enum class Tier : std::uint8_t { Low = 0, Medium = 1, High = 2, Ultra = 3 };
+
+/// "low", "medium", "high" or "ultra", case-insensitive; empty otherwise.
+[[nodiscard]] std::optional<Tier> tierNamed(std::string_view name) noexcept;
+/// The tier's name, lower case.
+[[nodiscard]] std::string_view tierName(Tier tier) noexcept;
 
 /// What the caller supplies.
 struct Config {
@@ -54,6 +64,13 @@ struct Config {
     /// instead. It exists so INV-10 can compare a pixel against a literal --
     /// SS 4.10 says why nothing else can -- and it changes no other stage.
     bool linearOutput = false;
+    /// UTA-0051 SS 4.3: the tier to draw at. Unset: chosen from the device.
+    std::optional<Tier> tier;
+    /// UTA-0051 SS 4.4: lower the render scale to hold 60 frames a second.
+    bool dynamicResolution = false;
+    /// Fixes the render scale, with or without `dynamicResolution`, clamped to
+    /// the tier's floor and to 1. For tests and diagnosis; unset in normal play.
+    std::optional<double> fixedRenderScale;
 };
 
 /// The view a frame is drawn from -- UT99's own units and angle encoding, so a
@@ -75,6 +92,9 @@ struct FrameStats {
     /// Shadow tiles drawn this frame. SS 4.8 keeps a still light's tiles, so a
     /// still camera over a still level draws none after its first frame.
     std::uint32_t renderedShadowTiles = 0;
+    Tier tier = Tier::Low;        ///< UTA-0051: the tier in use
+    double renderScale = 1;       ///< the scale this frame was drawn at
+    double frameMilliseconds = 0; ///< the wall time of this frame's GPU work (UTA-0051 SS 4.4)
 };
 
 class Renderer {
@@ -97,6 +117,8 @@ public:
     /// Copy the last frame's `target` into host memory, tightly packed: RGBA8
     /// for Colour, two floats per pixel for Velocity. Surfaceless path only --
     /// the presenting path's frames go to the swapchain and are not read back.
+    /// Velocity is refused after a frame drawn below scale 1, whose region is
+    /// smaller than the target (UTA-0051 SS 4.4).
     [[nodiscard]] Result<std::vector<std::byte>> readback(Target target = Target::Colour);
 
     /// The last frame's SS 6 counts.

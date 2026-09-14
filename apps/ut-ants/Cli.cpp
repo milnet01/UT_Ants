@@ -12,13 +12,15 @@
 namespace uta::client {
 
 void usage(std::ostream& err) {
-    err << "usage: ut-ants [--frames <n>] [--validation] <install> <bundle>\n"
+    err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] <install> <bundle>\n"
            "       ut-ants --help\n"
            "\n"
            "Checks <install> with ut-bake --check, then opens <bundle>, a baked map.\n"
            "The mouse looks; W, A, S and D fly; Space rises and Ctrl sinks; Shift\n"
            "flies faster; Escape quits. --frames draws that many frames and exits 0\n"
-           "if every one drew. --validation asks for the Vulkan validation layer.\n";
+           "if every one drew. --validation asks for the Vulkan validation layer.\n"
+           "--tier picks the quality tier; without it the game picks one from the\n"
+           "graphics card.\n";
 }
 
 std::optional<Options> parseArguments(std::span<const std::string_view> args, std::ostream& err) {
@@ -30,6 +32,21 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.help = true;
         } else if (arg == "--validation") {
             options.validation = true;
+        } else if (arg == "--tier") {
+            if (options.tier.has_value()) {
+                err << "ut-ants: --tier is given twice\n";
+                return std::nullopt;
+            }
+            if (i + 1 >= args.size()) {
+                err << "ut-ants: --tier needs a value\n";
+                return std::nullopt;
+            }
+            const std::string_view value = args[++i];
+            options.tier = urender::tierNamed(value);
+            if (!options.tier.has_value()) {
+                err << "ut-ants: --tier takes low, medium, high or ultra, not " << value << "\n";
+                return std::nullopt;
+            }
         } else if (arg == "--frames") {
             if (options.frames.has_value()) {
                 err << "ut-ants: --frames is given twice\n";

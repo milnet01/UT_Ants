@@ -254,6 +254,13 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
 - **The GPU cannot hold the target even at the floor.** The scale stays at the
   floor and the frame rate falls. `FrameStats` shows both, which is what
   `UTA-0039`'s frame-rate floor measures.
+- **A card idling between paced frames measures slower.** Measured on this
+  machine's RX 6600 with `ut-ants --frames 300`, averaging the last 60 frames:
+  8.59 ms a frame under FIFO against 4.80 ms with
+  `MESA_VK_WSI_PRESENT_MODE=immediate`. GPU timestamps read 8.37 ms and
+  4.23 ms, so the work itself took longer, not the wait. Near the target this
+  can lower the scale on a card that would hold it at full power, and nothing
+  here corrects for that.
 - **Frame times jitter around the target.** INV-5 fixes only which way the scale
   moves. Damping, so the scale does not hunt, is the implementation's.
 - **A window a few pixels wide at a low scale.** The region is at least 1 × 1,
@@ -308,6 +315,9 @@ with the stretch removed and the region kept, which is the mistake it is for.
 | § 4.1, `minimumTier` covering every `Feature` | **nothing** — the build enables no warning flags, so a missing case compiles silently |
 | § 4.3, the thresholds matching real cards | **nothing** — measured only on this machine's card; no small card is on hand |
 | § 4.4, the presenting path at a reduced scale | **nothing** in CI — no leg has a display; checked by hand with `ut-ants --frames` |
+| § 4.4, shadow planning at `W` × `H` | **nothing** — a mutation planning at the region's size passed every unit and device test, whose shadows draw at scale 1 |
+| § 4.4, `FrameData::viewportSize` sized to the region | **nothing** — a mutation leaving it at `W` × `H` passed every test; INV-7's fixture is unlit, so no cluster lookup is graded at a reduced scale |
+| § 4.4, the measurement leaving out display pacing | **nothing** in CI — checked by hand: wall time around `Gpu::run` matched GPU timestamps to within 0.6 ms a frame, under FIFO and with `MESA_VK_WSI_PRESENT_MODE=immediate` |
 
 ## 11. Cross-doc impact
 

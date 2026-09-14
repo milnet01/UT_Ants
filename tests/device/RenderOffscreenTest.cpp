@@ -43,6 +43,8 @@ TEST_CASE("INV-4: the surfaceless path draws and reads back with no display", "[
     REQUIRE(pixels->size() == 64u * 64u * 4u);
     CHECK(pixelAt(*pixels, 64, 32, 32) == Rgba{255, 0, 255, 255});
     CHECK(pixelAt(*pixels, 64, 1, 1) == Rgba{0, 0, 0, 255});
+    // UTA-0051 INV-6: no scaling unless dynamic resolution or a fixed scale asks.
+    CHECK(renderer.lastFrameStats().renderScale == 1.0);
 }
 
 TEST_CASE("another bundle of the same sizes in the same storage is drawn and not the one before", "[device]") {

@@ -235,9 +235,12 @@ static_assert(offsetof(ShadowConstants, reserved) == 76);
 struct PostConstants {
     float exposure;
     std::uint32_t linearOutput; ///< Config::linearOutput: skip exposure and the tone map
+    /// UTA-0051 SS 4.4: the top-left part of the HDR target this frame drew.
+    std::array<std::uint32_t, 2> regionSize;
 };
-static_assert(sizeof(PostConstants) == 8);
+static_assert(sizeof(PostConstants) == 16);
 static_assert(offsetof(PostConstants, exposure) == 0);
 static_assert(offsetof(PostConstants, linearOutput) == 4);
+static_assert(offsetof(PostConstants, regionSize) == 8);
 
 } // namespace uta::urender::gpu

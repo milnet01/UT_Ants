@@ -70,6 +70,20 @@ TEST_CASE("UTA-0016: ut-ants refuses anything but exactly two paths", "[client]"
     CHECK(unknown.err.find("--fly") != std::string::npos);
 }
 
+TEST_CASE("UTA-0051: --tier takes a tier name and nothing else", "[client]") {
+    const Parsed high = parse({"--tier", "high", "/games/UT", "map.utab"});
+    REQUIRE(high.options.has_value());
+    CHECK(high.options->tier == uta::urender::Tier::High);
+    CHECK(parse({"/games/UT", "map.utab"}).options->tier == std::nullopt);
+    CHECK(parse({"--tier", "ULTRA", "/games/UT", "map.utab"}).options->tier == uta::urender::Tier::Ultra);
+
+    const Parsed unknown = parse({"--tier", "max", "/games/UT", "map.utab"});
+    CHECK_FALSE(unknown.options.has_value());
+    CHECK(unknown.err.find("--tier") != std::string::npos);
+    CHECK_FALSE(parse({"/games/UT", "map.utab", "--tier"}).options.has_value());
+    CHECK_FALSE(parse({"--tier", "low", "--tier", "low", "/games/UT", "map.utab"}).options.has_value());
+}
+
 TEST_CASE("UTA-0016: --help needs no paths", "[client]") {
     const Parsed parsed = parse({"--help"});
     REQUIRE(parsed.options.has_value());

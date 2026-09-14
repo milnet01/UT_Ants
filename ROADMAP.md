@@ -3751,6 +3751,12 @@ model, no weapon and no opponent until 0.2.0.
   sections and the store reverts a hand edit to ROADMAP.md; a re-section
   op is requested in the Ants MCP feedback file. Blocked behind UTA-0075
   for its inputs.
+  User request (2026-09-14): FSR 1 first, as its own item beside
+  UTA-0051's dynamic resolution. Then the temporal upscalers, FSR 2 and
+  FSR 3.1, and DLSS for players with NVIDIA cards. This item already
+  ranks FSR 3.1 before XeSS and DLSS; the user adds FSR 2 to the list.
+  Whether FSR 2 is still worth integrating separately, given FSR 3.1's
+  upscaler succeeds it, is for this item to settle when it starts.
   **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
   Kind: implement.
   Source: user-request-2026-09-08.
@@ -8680,6 +8686,45 @@ model, no weapon and no opponent until 0.2.0.
   Kind: investigate.
   Source: user-request-2026-09-14 performance pass.
   Lanes: tests.
+
+- 📋 [UTA-0153] **ut-ants opens at the desktop's resolution, borderless fullscreen, with a --windowed option.**
+  User request (2026-09-14). UTA-0016 hard-coded a 1280 x 720 window in
+  apps/ut-ants/main.cpp. The user plays on a 4K display and expects the
+  engine to render below that and upscale, which is UTA-0051's dynamic
+  resolution plus the FSR 1 item filed beside this one. So the output is
+  the desktop's size, borderless fullscreen by default, and --windowed
+  opens a normal resizable window for testing. Nothing is remembered
+  between runs, per UTA-0016's scope decisions.
+  User decisions (2026-09-14): borderless fullscreen at the desktop's
+  resolution is the default, with --windowed for a normal resizable
+  window. This item comes next after UTA-0051 ships, ahead of the other
+  0.1.0 items, because FSR 1 is only worth judging at the real screen
+  size.
+  **Layman:** The game fills your whole screen at its real resolution instead of opening in a small window.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: apps.
+
+- 📋 [UTA-0154] **urender: AMD FSR 1 upscales the dynamic-resolution region, replacing the bilinear stretch.**
+  User decision (2026-09-14): FSR 1 now; FSR 2, FSR 3.1 and DLSS later
+  (recorded on UTA-0076). UTA-0051's dynamic resolution draws the scene
+  into a smaller region and its output stage stretches it with bilinear
+  filtering, which looks soft. FSR 1 is spatial: EASU upscales and RCAS
+  sharpens, from the colour image alone, so it needs none of UTA-0075's
+  motion vectors and runs on any GPU. AMD publishes it under the MIT
+  licence as shader headers with no build system, which is route 2
+  (vendored) of docs/standards/dependency-acquisition.md, with a row in
+  docs/design.md's stack table. It replaces UTA-0051 section 4.4's
+  linear stretch, so that spec's INV-7 blend probe is revisited here.
+  Blocked-by: UTA-0051.
+  User decisions (2026-09-14): no spec of its own. Build under
+  write-code with the plan on this body, and amend
+  docs/specs/UTA-0051-quality-tiers.md in place: section 4.4's stretch
+  and its INV-7 blend probe. It follows UTA-0153.
+  **Layman:** When the game lowers its internal resolution to keep frames smooth, the picture is enlarged with AMD's sharper upscaler instead of looking blurry.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 

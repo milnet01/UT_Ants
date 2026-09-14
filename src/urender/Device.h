@@ -90,6 +90,15 @@ public:
     [[nodiscard]] VkSurfaceKHR surface() const noexcept { return surface_; }
     [[nodiscard]] std::uint32_t queueFamily() const noexcept { return family_; }
     [[nodiscard]] const std::string& name() const noexcept { return name_; }
+    [[nodiscard]] VkPhysicalDeviceType type() const noexcept { return type_; }
+    /// The summed size of the heaps flagged VK_MEMORY_HEAP_DEVICE_LOCAL_BIT --
+    /// UTA-0051 SS 4.3's input to the default tier.
+    [[nodiscard]] std::uint64_t deviceLocalBytes() const noexcept {
+        std::uint64_t total = 0;
+        for (std::uint32_t i = 0; i < memory_.memoryHeapCount; ++i)
+            if ((memory_.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0) total += memory_.memoryHeaps[i].size;
+        return total;
+    }
 
     /// A memory type allowed by `allowed` with every one of `wanted`.
     [[nodiscard]] Result<std::uint32_t> memoryType(std::uint32_t allowed,
@@ -110,6 +119,7 @@ private:
     std::uint32_t family_ = 0;
     VkCommandPool pool_ = VK_NULL_HANDLE;
     VkPhysicalDeviceMemoryProperties memory_{};
+    VkPhysicalDeviceType type_ = VK_PHYSICAL_DEVICE_TYPE_OTHER;
     std::string name_;
 };
 

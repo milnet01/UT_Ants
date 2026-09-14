@@ -17,6 +17,13 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Quality tiers and dynamic resolution: the renderer picks low, medium, high or ultra and lowers its resolution to hold 60 frames a second** (UTA-0051)
+  The tier comes from the graphics card's memory, or from `ut-ants --tier`.
+  Below 60 frames a second the scene draws into a smaller region and is
+  stretched to the window, down to 50%, 60% or 75% of full size by tier;
+  ultra never scales. Later effects declare the tier that switches them on
+  in one table (docs/specs/UTA-0051-quality-tiers.md).
+
 - **ut-ants, the game client: open a baked map and fly through it** (UTA-0016)
   `ut-ants <install> <bundle>` checks the install with ut-bake, opens the
   map at its first PlayerStart, and flies a free camera through it: the

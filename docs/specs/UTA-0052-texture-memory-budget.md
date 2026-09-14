@@ -1060,7 +1060,9 @@ this item tests from synthetic images built in the test itself.
 - The curated material library and the licence line for a redistributable
   replacement — tracked by UTA-0010.
 - Calling the budget check, and printing its report — tracked by UTA-0011.
-- Mapping a quality tier onto a megabyte figure — tracked by UTA-0051.
+- Mapping a quality tier onto a megabyte figure — done by UTA-0051: every tier
+  maps to this figure (`docs/specs/UTA-0051-quality-tiers.md` § 4.2), and a
+  smaller one for a low tier is UTA-0152.
 - Uploading a block-compressed texture and checking
   `textureCompressionBC` — done by UTA-0014: `src/urender/Device.cpp` requires
   the feature of every device it picks.

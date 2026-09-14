@@ -129,6 +129,8 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     config.width = static_cast<std::uint32_t>(width);
     config.height = static_cast<std::uint32_t>(height);
     config.validation = options.validation;
+    config.tier = options.tier;
+    config.dynamicResolution = true; // UTA-0051 SS 4.5
 
     auto created = uta::urender::Renderer::create(config);
     if (!created) {
@@ -191,8 +193,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
 
     if (options.frames.has_value()) {
         const uta::urender::FrameStats stats = renderer.lastFrameStats();
-        std::cout << "ut-ants: started at " << start.from << "; drew " << drawn << " of " << *options.frames
-                  << " frames; the last had "
+        std::cout << "ut-ants: started at " << start.from << "; tier " << uta::urender::tierName(stats.tier)
+                  << "; drew " << drawn << " of " << *options.frames << " frames; the last was drawn at scale "
+                  << stats.renderScale << " in " << stats.frameMilliseconds << " ms and had "
                   << stats.overflowedClusters << " overflowed clusters and " << stats.unshadowedLights
                   << " unshadowed lights\n";
         if (drawn < *options.frames) return EXIT_FAILED;

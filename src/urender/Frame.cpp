@@ -29,7 +29,9 @@
 #include "urender/Resources.h"
 #include "urender/ShaderTypes.h"
 #include "urender/Swapchain.h"
+#include "urender/Tiers.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -250,6 +252,14 @@ struct Renderer::Impl {
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     bool drawn = false;
     FrameStats stats;
+    /// UTA-0051 SS 4.3: chosen once, at create.
+    Tier tier = Tier::Low;
+    /// UTA-0051 SS 4.4: the scale dynamic resolution draws the next frame at,
+    /// the scale the last frame was drawn at, and the averaged frame time the
+    /// controller reads -- which is where its smoothing lives (INV-5).
+    double renderScale = 1;
+    double drawnScale = 1;
+    double averagedMilliseconds = 0;
 
     ~Impl() {
         if (!gpu) return;
@@ -277,7 +287,7 @@ struct Renderer::Impl {
     Result<void> createStandIns();
     Result<void> upload(const ubundle::Bundle& bundle);
     Result<void> writeDescriptors();
-    void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows);
+    void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region);
 };
 
 /// Every target the window's size decides. SS 4.3's resize rebuilds them.
@@ -490,10 +500,14 @@ Result<void> Renderer::Impl::writeDescriptors() {
     return {};
 }
 
-void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows) {
+void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region) {
     const VkExtent2D extent{config.width, config.height};
     const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
     const VkRect2D scissor{{0, 0}, extent};
+    // UTA-0051 SS 4.4: the scene draws into the top-left region, and the
+    // output stage stretches it over the whole target.
+    const VkViewport regionViewport{0, 0, static_cast<float>(region.width), static_cast<float>(region.height), 0, 1};
+    const VkRect2D regionScissor{{0, 0}, region};
 
     // -- Shadow tiles: only those this frame's plan says to draw (SS 4.8) ------
     if (!shadows.draws.empty() && !geometry->draws.empty()) {
@@ -574,15 +588,15 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
 
     VkRenderingInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    rendering.renderArea = scissor;
+    rendering.renderArea = regionScissor;
     rendering.layerCount = 1;
     rendering.colorAttachmentCount = 2;
     rendering.pColorAttachments = colours.data();
     rendering.pDepthAttachment = &depthAttachment;
 
     const auto drawBatches = [&](bool translucent) {
-        vkCmdSetViewport(commands, 0, 1, &viewport);
-        vkCmdSetScissor(commands, 0, 1, &scissor);
+        vkCmdSetViewport(commands, 0, 1, &regionViewport);
+        vkCmdSetScissor(commands, 0, 1, &regionScissor);
         if (geometry->draws.empty()) return;
         const VkBuffer vertexBuffer = geometry->vertices.handle();
         const VkDeviceSize zero = 0;
@@ -637,7 +651,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->post());
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &postSet, 0,
                             nullptr);
-    const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u};
+    const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height}};
     vkCmdPushConstants(commands, pipelines->postLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
                        &constants);
     vkCmdDraw(commands, 3, 1, 0, 0);
@@ -668,6 +682,14 @@ Result<Renderer> Renderer::create(const Config& config) {
     auto impl = std::make_unique<Impl>();
     impl->config = config;
     UTA_TRY(impl->gpu, Gpu::create(config.validation, config.instanceExtensions, config.createSurface));
+    // UTA-0051 SS 4.3: once, from the chosen device, unless the caller named one.
+    impl->tier = config.tier.value_or(defaultTier(impl->gpu->type(), impl->gpu->deviceLocalBytes()));
+    if (config.tier) {
+        UTA_LOG(logRender, LogLevel::Info, "quality tier: {}, given", tierName(impl->tier));
+    } else {
+        UTA_LOG(logRender, LogLevel::Info, "quality tier: {}, chosen from the device ({} MiB device-local)",
+                tierName(impl->tier), impl->gpu->deviceLocalBytes() / (1024u * 1024u));
+    }
     UTA_TRY(impl->pipelines, Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT}));
     if (presenting) {
         UTA_TRY(impl->swapchain, Swapchain::create(*impl->gpu, config.width, config.height));
@@ -713,15 +735,29 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         if (!image) return {}; // out of date: rebuilt at the top of the next frame
     }
 
+    // UTA-0051 SS 4.4: the scale this frame draws at, and the top-left region of
+    // the targets it covers. A fixed scale wins over dynamic resolution.
+    const TierSettings settings = settingsOf(impl.tier);
+    double scale = 1;
+    if (impl.config.fixedRenderScale) {
+        scale = std::clamp(*impl.config.fixedRenderScale, settings.minimumRenderScale, 1.0);
+    } else if (impl.config.dynamicResolution) {
+        scale = impl.renderScale;
+    }
+    const auto regionOf = [scale](std::uint32_t full) {
+        const auto scaled = static_cast<std::uint32_t>(std::ceil(scale * full));
+        return std::clamp<std::uint32_t>(scaled, 1, full);
+    };
+    const VkExtent2D region{regionOf(impl.config.width), regionOf(impl.config.height)};
+
     // SS 4.3: the projection is this library's, and the previous frame's view
     // is cached here rather than supplied -- so a camera that did not move
-    // produces zero motion.
+    // produces zero motion. It, the jitter and the cluster grid take the region.
     const gpu::Mat4 view = viewOf(camera);
-    const gpu::Mat4 projection = projectionOf(camera, impl.config.width, impl.config.height);
+    const gpu::Mat4 projection = projectionOf(camera, region.width, region.height);
     const gpu::Mat4 viewProj = multiply(projection, view);
     const gpu::Mat4 drawnProjection =
-        impl.jitter ? jittered(projection, haltonJitter(impl.frameIndex), impl.config.width, impl.config.height)
-                    : projection;
+        impl.jitter ? jittered(projection, haltonJitter(impl.frameIndex), region.width, region.height) : projection;
 
     gpu::FrameData frame{};
     frame.viewProj = multiply(drawnProjection, view);
@@ -732,10 +768,11 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.exposure = EXPOSURE;
     frame.nearPlane = camera.nearPlane;
     frame.farPlane = camera.farPlane;
-    frame.viewportSize = {static_cast<float>(impl.config.width), static_cast<float>(impl.config.height)};
+    // scene.frag divides by this to find a pixel's cluster, so it is the region's.
+    frame.viewportSize = {static_cast<float>(region.width), static_cast<float>(region.height)};
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
     std::vector<gpu::Light> lights = drawnLights(bundle, seconds);
-    const ClusterGrid grid = clusterGrid(camera, impl.config.width, impl.config.height);
+    const ClusterGrid grid = clusterGrid(camera, region.width, region.height);
     std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
     frame.clusterGrid = gpu::CLUSTER_GRID;
     frame.lightCount = static_cast<std::uint32_t>(lights.size());
@@ -759,6 +796,9 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
 
     // SS 4.8: each light's tiles, and which must be drawn this frame -- a mover
     // that moved redraws the lights whose radius its box, before or after, reaches.
+    // Planned at the full target size, never the region's: a tile's size follows
+    // its light's size on the target, so a change of scale must not re-place it
+    // (UTA-0051 SS 4.4).
     std::vector<Box> moved;
     for (std::size_t i = 1; i < models.size(); ++i) {
         if (models[i] == impl.previousModels[i]) continue;
@@ -777,10 +817,15 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.shadowFaceCount = static_cast<std::uint32_t>(plan.faces.size());
     std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
 
+    // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
+    // leaves out present, which waits for the display under FIFO.
+    const auto started = std::chrono::steady_clock::now();
     UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
-        impl.recordFrame(commands, plan);
+        impl.recordFrame(commands, plan, region);
         if (image) impl.swapchain->recordBlit(commands, impl.output, *image);
     }));
+    const double milliseconds =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
     if (image) UTA_CHECK(impl.swapchain->present(impl.gpu->queue(), *image));
 
     // SS 6: how many clusters dropped lights past their cap, read back from the
@@ -793,6 +838,15 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     }
     impl.stats.unshadowedLights = plan.unshadowed;
     impl.stats.renderedShadowTiles = static_cast<std::uint32_t>(plan.draws.size());
+    impl.stats.tier = impl.tier;
+    impl.stats.renderScale = scale;
+    impl.stats.frameMilliseconds = milliseconds;
+    impl.drawnScale = scale;
+    if (impl.config.dynamicResolution && !impl.config.fixedRenderScale) {
+        impl.averagedMilliseconds =
+            impl.averagedMilliseconds == 0 ? milliseconds : impl.averagedMilliseconds * 0.8 + milliseconds * 0.2;
+        impl.renderScale = nextRenderScale(impl.renderScale, impl.averagedMilliseconds, settings);
+    }
 
     impl.previousViewProj = viewProj;
     impl.previousModels = std::move(models);
@@ -807,6 +861,11 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
         return fail(ErrorCode::InvalidArgument,
                     "readback is the surfaceless path's; the presenting path's frames go to the swapchain");
     if (!impl.drawn) return fail(ErrorCode::InvalidArgument, "readback before any frame was drawn");
+    if (target == Target::Velocity && impl.drawnScale < 1.0)
+        return fail(ErrorCode::InvalidArgument,
+                    std::format("velocity readback after a frame drawn at scale {}: its region is smaller than the "
+                                "target (UTA-0051 SS 4.4)",
+                                impl.drawnScale));
 
     Image& image = target == Target::Colour ? impl.output : impl.velocity;
     const std::size_t pixels = static_cast<std::size_t>(impl.config.width) * impl.config.height;

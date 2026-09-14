@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "urender/Renderer.h"
+
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -26,6 +28,8 @@ struct Options {
     /// until the window closes.
     std::optional<std::uint32_t> frames;
     bool validation = false; ///< ask urender for the Vulkan validation layer
+    /// UTA-0051: the quality tier. Unset: urender chooses from the device.
+    std::optional<urender::Tier> tier;
 };
 
 /// The usage text, for `err`.
