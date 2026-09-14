@@ -8438,7 +8438,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
   Lanes: core, ubake, tests.
 
-- 📋 [UTA-0145] **ut-dump prints one package per line on request, so UT_MonsterHunt can stream it.**
+- 🚧 [UTA-0145] **ut-dump prints one package per line on request, so UT_MonsterHunt can stream it.**
   Asked by UT_MonsterHunt (ut-monsterhunt-81) on 2026-09-14, their
   memory fix 5: analysis/mapcheck/facts.py runs `ut-dump --nav-graph`
   over batches of maps and json.loads the whole output, about 930 KB per
@@ -8479,6 +8479,9 @@ model, no weapon and no opponent until 0.2.0.
   (run() helper, [dump] tag): every line parses alone, line 1 is the
   header, each package line's values match the default run's packages[]
   entry in order, and the default output is byte-identical to before.
+  Progress (2026-09-14): picked up by session ut-ants-f9, working in
+  the main checkout, chosen by the user. UTA-0103 and UTA-0126 stay
+  parked on Waiting-on.
   **Layman:** The dump tool prints all its results as one big block, so the other project has to read it all at once; one result per line lets it read them one at a time.
   Kind: feature.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).

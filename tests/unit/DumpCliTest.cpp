@@ -289,6 +289,91 @@ TEST_CASE("UTA-0101: monster capacity sums limited factories through their class
           != std::string::npos);
 }
 
+namespace {
+
+/// `json` with every whitespace byte outside a string removed, so two layouts of
+/// one document compare equal. A string is kept exactly as written.
+std::string withoutLayout(std::string_view json) {
+    std::string kept;
+    bool inString = false, escaped = false;
+    for (const char ch : json) {
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (ch == '\\') escaped = true;
+            else if (ch == '"') inString = false;
+        } else if (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t') {
+            continue;
+        } else if (ch == '"') {
+            inString = true;
+        }
+        kept += ch;
+    }
+    return kept;
+}
+
+/// Whether `line` is one whole JSON object and nothing else: no raw control byte
+/// in a string, every bracket closed by its own kind, and the object closing at
+/// the last byte.
+bool isOneObject(std::string_view line) {
+    if (line.empty() || line.front() != '{') return false;
+    std::string open;
+    bool inString = false, escaped = false;
+    for (std::size_t i = 0; i < line.size(); ++i) {
+        const char ch = line[i];
+        if (inString) {
+            if (static_cast<unsigned char>(ch) < 0x20) return false;
+            if (escaped) escaped = false;
+            else if (ch == '\\') escaped = true;
+            else if (ch == '"') inString = false;
+        } else if (ch == '"') {
+            inString = true;
+        } else if (ch == '{' || ch == '[') {
+            open += ch;
+        } else if (ch == '}' || ch == ']') {
+            if (open.empty() || open.back() != (ch == '}' ? '{' : '[')) return false;
+            open.pop_back();
+            if (open.empty()) return i + 1 == line.size();
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0145: --ndjson writes a header line then each package on its own line", "[dump]") {
+    const TempDir dir;
+    writeMap(dir, inv11Map());
+    // The two refusals too, which close their objects on their own paths.
+    writeFile(dir.path() / "Maps" / "Empty.unr", std::vector<std::uint8_t>{});
+    writeFile(dir.path() / "Maps" / "Garbage.unr", std::vector<std::uint8_t>{'n', 'o', 't'});
+    const std::vector<std::string> args{"--system", (dir.path() / "System").string(), "--nav-graph",
+                                        (dir.path() / "Maps").string()};
+
+    std::vector<std::string> ndjsonArgs = args;
+    ndjsonArgs.insert(ndjsonArgs.begin(), "--ndjson");
+    const Run ndjson = run(ndjsonArgs);
+    const Run document = run(args);
+    INFO(ndjson.out);
+    REQUIRE(ndjson.code == 0);
+    REQUIRE(document.code == 0);
+
+    REQUIRE(!ndjson.out.empty());
+    CHECK(ndjson.out.back() == '\n');
+    std::vector<std::string> lines;
+    std::istringstream stream(ndjson.out);
+    for (std::string line; std::getline(stream, line);) lines.push_back(line);
+    REQUIRE(lines.size() == 4);
+    CHECK(lines[0] == R"({"schema":1})");
+    for (const std::string& line : lines) CHECK(isOneObject(line));
+
+    // The lines carry the document's values in the document's order.
+    std::string rebuilt = R"({"schema":1,"packages":[)";
+    for (std::size_t i = 1; i < lines.size(); ++i) rebuilt += (i == 1 ? "" : ",") + withoutLayout(lines[i]);
+    rebuilt += "]}";
+    CHECK(withoutLayout(document.out) == rebuilt);
+    CHECK(lines[3].find(R"("nodeList":)") != std::string::npos);
+}
+
 TEST_CASE("UTA-0136: without --nav-graph the nav object carries counts only", "[dump]") {
     const TempDir dir;
     const fs::path mapPath = writeMap(dir, inv11Map());

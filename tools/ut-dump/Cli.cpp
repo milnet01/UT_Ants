@@ -34,6 +34,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -500,9 +501,28 @@ void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system
     out << "\n }";
 }
 
+/// UTA-0145: one package's object on one line, for --ndjson. Every raw newline
+/// dumpPackage writes is layout -- writeJsonString escapes the whole C0 range --
+/// so a newline and the indentation after it are dropped, and no string is
+/// touched.
+std::string oneLine(std::string_view json) {
+    std::string line;
+    line.reserve(json.size());
+    bool indent = true; // dumpPackage opens with a space
+    for (const char ch : json) {
+        if (ch == '\n') {
+            indent = true;
+        } else if (!(indent && ch == ' ')) {
+            indent = false;
+            line += ch;
+        }
+    }
+    return line;
+}
+
 int usage(std::ostream& err) {
     err <<
-        "usage: ut-dump --system <UT System dir> [--nav-graph] <package|directory>...\n"
+        "usage: ut-dump --system <UT System dir> [--nav-graph] [--ndjson] <package|directory>...\n"
         "\n"
         "Writes one JSON object per package to stdout. --system points at the\n"
         "install's System directory, which is needed to resolve class ancestry\n"
@@ -511,7 +531,12 @@ int usage(std::ostream& err) {
         "\n"
         "--nav-graph adds every navigation node and reach spec to each map's\n"
         "`nav` object, as `nodeList` and `edgeList`, with the reach flags and\n"
-        "collision size each spec carries.\n";
+        "collision size each spec carries.\n"
+        "\n"
+        "--ndjson writes one line per JSON object instead of one document: a\n"
+        "header line holding the schema, then each package's object, in the\n"
+        "order `packages` lists them. There is no end marker; the exit code\n"
+        "says the run finished.\n";
     return 2;
 }
 
@@ -520,6 +545,7 @@ int usage(std::ostream& err) {
 int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err) {
     fs::path systemDir;
     bool navGraph = false;
+    bool ndjson = false;
     std::vector<fs::path> targets;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -531,6 +557,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             systemDir = fs::path{std::string{args[++i]}};
         } else if (arg == "--nav-graph") {
             navGraph = true;
+        } else if (arg == "--ndjson") {
+            ndjson = true;
         } else if (arg == "-h" || arg == "--help") {
             usage(err);
             return 0;
@@ -564,6 +592,19 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     if (system.empty()) {
         err << "ut-dump: no System packages found; class ancestry will not "
                "resolve across packages and navigation graphs will be empty\n";
+    }
+
+    if (ndjson) {
+        // The shape agreed with UT_MonsterHunt, whose reader refuses an unknown
+        // schema before it reads a package: the header first, then one line
+        // per package, so a consumer can let go of each map once it is read.
+        out << "{\"schema\":" << SCHEMA << "}\n";
+        for (const fs::path& file : files) {
+            std::ostringstream package;
+            dumpPackage(package, file, system, navGraph, true);
+            out << oneLine(package.str()) << '\n' << std::flush;
+        }
+        return 0;
     }
 
     out << "{\n \"schema\": " << SCHEMA << ",\n \"packages\": [\n";

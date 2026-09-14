@@ -17,6 +17,11 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-dump --ndjson writes one package per line, so a script can read a map library one map at a time** (UTA-0145)
+  The first line is a header holding the schema; each following line is
+  one package's object, as in the default output's packages[], in the
+  same order. The default output is unchanged.
+
 - **ut-paths: each exit with no route now says what its walk graph meets** (UTA-0139)
   The per-map JSON gains `noRoute` on every exit: `null` when a route
   was found, else `startOffGraph`, `exitOffGraph`, `teleporter`,
