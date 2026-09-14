@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <limits>
 #include <numbers>
+#include <utility>
 
 namespace uta::paths {
 namespace {
@@ -109,16 +110,25 @@ WalkGraph walkGraph(const CollisionTree& tree) {
         high = {std::max<double>(high.x, point[0]), std::max<double>(high.y, point[1]),
                 std::max<double>(high.z, point[2])};
     }
-    graph.origin = {low.x, low.y, 0};
-    graph.columns = static_cast<std::int32_t>(std::floor((high.x - low.x) / COLUMN)) + 1;
-    graph.rows = static_cast<std::int32_t>(std::floor((high.y - low.y) / COLUMN)) + 1;
+    // SS 4.5: the whole box's grid, laid only within the world. The first and
+    // last grid line on one axis whose position lies within +-WORLD.
+    const auto laid = [](double from, double to) {
+        const double first = std::max(0.0, std::ceil((-WORLD - from) / COLUMN));
+        const double last = std::min(std::floor((to - from) / COLUMN), std::floor((WORLD - from) / COLUMN));
+        return std::pair{first, static_cast<std::int32_t>(std::max(0.0, last - first + 1))};
+    };
+    const auto [firstColumn, columns] = laid(low.x, high.x);
+    const auto [firstRow, rows] = laid(low.y, high.y);
+    graph.origin = {low.x + firstColumn * COLUMN, low.y + firstRow * COLUMN, 0};
+    graph.columns = columns;
+    graph.rows = rows;
 
     graph.cellStart.clear();
     for (std::int32_t column = 0; column < graph.columns; ++column)
         for (std::int32_t row = 0; row < graph.rows; ++row) {
             graph.cellStart.push_back(static_cast<std::uint32_t>(graph.spots.size()));
-            standings(tree, low.x + column * COLUMN, low.y + row * COLUMN, high.z, low.z, column, row,
-                      graph.spots);
+            standings(tree, graph.origin.x + column * COLUMN, graph.origin.y + row * COLUMN, high.z, low.z,
+                      column, row, graph.spots);
         }
     graph.cellStart.push_back(static_cast<std::uint32_t>(graph.spots.size()));
 

@@ -1,8 +1,9 @@
-// Locks INV-3 and INV-4 of docs/specs/UTA-0121-bot-path-seeds.md: where a spot
-// stands, and which spots join.
+// Locks INV-3, INV-4 and INV-15 of docs/specs/UTA-0121-bot-path-seeds.md: where
+// a spot stands, which spots join, and where the grid stops.
 //
-// Worlds are built with tests/unit/PathFixture.h. Every one's points start at
-// X and Y 0, so column i stands at X = 32 i and row j at Y = 32 j.
+// Worlds are built with tests/unit/PathFixture.h. Every one's points but
+// INV-15's start at X and Y 0, so column i stands at X = 32 i and row j at
+// Y = 32 j.
 
 #include "PathFixture.h"
 
@@ -11,6 +12,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <optional>
@@ -106,4 +108,57 @@ TEST_CASE("INV-4: a wall between two spots keeps them apart", "[paths][walkable]
     REQUIRE(east.has_value());
     CHECK_FALSE(joined(graph, *west, *east));
     CHECK_FALSE(joined(graph, *east, *west));
+}
+
+namespace {
+
+/// A room 100 high with its floor at z = 0, from X `from` to `to` and Y 0 to
+/// 256, in a world whose points' box runs from X `boxFrom` to `boxTo`.
+WalkGraph roomAlongX(double from, double to, double boxFrom, double boxTo) {
+    return walkGraph(worldOf({box({from, 0, 0}, {to, 256, 100})}, {boxFrom, 0, -50}, {boxTo, 256, 150}));
+}
+
+std::vector<std::array<double, 3>> centres(const WalkGraph& graph) {
+    std::vector<std::array<double, 3>> out;
+    for (const Spot& spot : graph.spots) out.push_back({spot.centre.x, spot.centre.y, spot.centre.z});
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("INV-15: no column is laid past the world bound, and one on it is", "[paths][walkable]") {
+    const WalkGraph high = roomAlongX(32000, 33000, 32000, 33000);
+    REQUIRE_FALSE(high.spots.empty());
+    double highest = high.spots[0].centre.x;
+    for (const Spot& spot : high.spots) highest = std::max(highest, spot.centre.x);
+    CHECK(highest == 32768);
+
+    // The box starts off the 32 grid, so its columns stand at -33010 + 32 k:
+    // the lowest within the bound is -32754, where a clamped corner would put
+    // one at -32768 and no bound at all one at -32978.
+    const WalkGraph low = roomAlongX(-33000, -32000, -33010, -32000);
+    REQUIRE_FALSE(low.spots.empty());
+    double lowest = low.spots[0].centre.x;
+    for (const Spot& spot : low.spots) lowest = std::min(lowest, spot.centre.x);
+    CHECK(lowest == -32754);
+}
+
+TEST_CASE("INV-15: the walk graph indexes the laid columns alone", "[paths][walkable]") {
+    const Region room = box({0, 0, 0}, {256, 256, 100});
+    const WalkGraph near = walkGraph(worldOf({room}, {0, 0, -50}, {256, 256, 150}));
+    REQUIRE_FALSE(near.spots.empty());
+
+    for (const bool farOnY : {false, true}) {
+        INFO((farOnY ? "the box far on Y" : "the box far on X"));
+        const WalkGraph far = walkGraph(worldOf({room},
+                                                farOnY ? Vec3{0, -40000, -50} : Vec3{-40000, 0, -50},
+                                                farOnY ? Vec3{256, 40000, 150} : Vec3{40000, 256, 150}));
+        CHECK((farOnY ? far.rows : far.columns) <= 2049);
+        CHECK(centres(far) == centres(near));
+        std::size_t misplaced = 0;
+        for (std::uint32_t s = 0; s < far.spots.size(); ++s)
+            if (place(far, far.spots[s].centre) != s) ++misplaced;
+        CHECK(misplaced == 0);
+    }
 }

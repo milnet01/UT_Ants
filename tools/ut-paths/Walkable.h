@@ -24,6 +24,9 @@ inline constexpr double STEP = 25;
 inline constexpr double FLOOR_Z = 0.7;
 /// SS 4.5: the columns' spacing on X and on Y.
 inline constexpr double COLUMN = 32;
+/// SS 4.5: columns are laid only where X and Y both lie within this of 0, the
+/// world cube SS 4.6 describes.
+inline constexpr double WORLD = 32768;
 
 /// Where a body stands, HALF_HEIGHT above its floor.
 struct Spot {
@@ -39,9 +42,9 @@ struct WalkGraph {
         std::uint32_t begin = 0, end = 0;
     };
 
-    Vec3 origin;                ///< column 0 and row 0's X and Y
-    std::int32_t columns = 0;
-    std::int32_t rows = 0;
+    Vec3 origin;                ///< column 0 and row 0's X and Y, the lowest laid
+    std::int32_t columns = 0;   ///< laid columns on X
+    std::int32_t rows = 0;      ///< and on Y
     std::vector<Spot> spots;    ///< by column, then row, each cell's top down
     std::vector<std::vector<std::uint32_t>> joins; ///< per spot, the spots it joins
     std::vector<std::uint32_t> cellStart;          ///< where each cell's run starts, and one past the last
