@@ -5234,6 +5234,14 @@ model, no weapon and no opponent until 0.2.0.
   instead, because Ants Terminal is relaunched to pick up its own fixes and a
   session's Monitor dies with it. The session's run was stopped before
   either half finished, so nothing is kept and the Konsole run starts fresh.
+  User decision (2026-09-14, later): the comparison skips the [paths]
+  case (RealPathSeedsTest.cpp) in both halves. The split never touched
+  that file, and ut-paths changed after the split (UTA-0133, UTA-0139,
+  UTA-0140), so the after half would differ there for other reasons. The
+  Konsole run had stalled in that case on the old walk grid, peaking near
+  its 6 GB cap with nothing kept. The user stops it; ut-ants-db starts the
+  filtered comparison with cc-job (job uta0103-compare), which survives
+  an Ants Terminal relaunch. An empty results.diff still ships this.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
