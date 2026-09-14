@@ -5206,6 +5206,13 @@ model, no weapon and no opponent until 0.2.0.
   it. The session then hands over one capped command to run with `!`,
   per the long-local-runs memory, and compares the results against the
   WARN figures each case prints. Still Waiting-on: that run.
+  User decision (2026-09-14): check results with TWO runs rather than by
+  reading the printed figures. One command builds the commit before the
+  split in its own directory, runs the tier on both builds under a memory
+  cap, and diffs the outputs with timings, seeds and tree paths
+  normalised. Script: /mnt/Games/Scripts/Linux/ut-ants-real-uta0103/compare.sh.
+  The user runs it with `!` once ut-ants-c1's frontier sweep has finished.
+  An empty diff with every case run is what flips this to shipped.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
@@ -8070,6 +8077,15 @@ model, no weapon and no opponent until 0.2.0.
   § 4.3, § 4.7, INV-14). `schema` stays 1, and ut-paths-summary.json is
   unchanged, as agreed with UT_MonsterHunt. Follow-up: UTA-0142, where
   a disabled teleporter's R_SPECIAL link is still followed.
+  Timings, kept for reference (2026-09-14). No item filed, by the user's
+  decision: it is an offline tool run once per census, and every slow map
+  finishes. The shipped ut-paths took 173 s and 2.2 GB on
+  MH-Illustriousl-BP. The scratch frontier probe, which builds the walk
+  graph and more on top of propose, took 862 s and 4.4 GB on
+  MH-EpicAdventure2016. UT_MonsterHunt's full 559-map census run with
+  the shipped binary passed 51 minutes at 430 maps. Today's sweep and
+  wait-loop kills were the session's machine-wide memory guard, not the
+  tool failing.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.
@@ -8208,6 +8224,13 @@ model, no weapon and no opponent until 0.2.0.
   maps where a bot at map start cannot take a link our network step
   follows, not maps our output is wrong for. Any change to § 3 decision
   10 needs that distinction settled first.
+  User decision (2026-09-14): leave § 3 decision 10 as it is, and do
+  not census the triggers yet. A teleporter disabled at start is often
+  enabled later by a trigger, so cutting its links could make routes
+  WORSE on some of the 24. UT_MonsterHunt's in-game re-check of the 24
+  (their GAME-0120) decides what comes next. Act only if it finds real
+  misroutes; the trigger census is the next step then, before any
+  amendment.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
