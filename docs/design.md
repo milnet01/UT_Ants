@@ -392,6 +392,7 @@ S2 reachable.**
 | **glslc** | From the Vulkan SDK, or the distribution's package on Linux | Compile GLSL to SPIR-V at build time | Hand-run `glslangValidator` |
 | **Dear ImGui** | Vendored | Editor and developer overlays, vendored | Nothing else is close for this job |
 | **bc7enc** | Vendored | `umat`'s BC7 and BC1–BC5 block encoders, with no maths call whose result differs between compilers (`UTA-0052`) | ISPC `bc7e`, which needs a fourth compiler |
+| **AMD FSR 1** | Vendored | `urender`'s spatial upscale of a dynamic-resolution frame, from colour alone, on any GPU (`UTA-0154`) | A bilinear stretch, which reads soft; FSR 2 and later need motion vectors (`UTA-0076`) |
 | **Assimp** | Fetched, `ut-ed` only | Model import for character authoring — linked by `ut-ed` only, and **never by a runtime target** | Writing a glTF reader |
 | **Catch2 v3** | Fetched | Fetched, not installed, so a stranger's clone builds (**S7**) | GoogleTest |
 | **SDL3 audio** | With SDL3 | `uaudio` mixes and spatialises on SDL3's device, which is already a dependency — no second audio stack, and nothing new to check against GPL-3.0 | OpenAL Soft |

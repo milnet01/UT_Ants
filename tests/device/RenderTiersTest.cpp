@@ -57,12 +57,12 @@ TEST_CASE("UTA-0051 INV-4: a given tier is the tier in use", "[device]") {
     }
 }
 
-TEST_CASE("UTA-0051 INV-7: a half-scale frame is the whole scene stretched to the output", "[device]") {
+TEST_CASE("UTA-0051 INV-7: a half-scale frame is the whole scene upscaled to the output by FSR 1", "[device]") {
     removeDisplay();
     const uta::ubundle::Bundle bundle = halves();
 
-    SECTION("at scale 1 the pixel left of the centre line is the red half's") {
-        // The control: what a full-size draw puts at INV-7's blend probe.
+    SECTION("at scale 1 the pixels either side of the centre line are the halves' own") {
+        // The control: what a full-size draw puts at INV-7's two FSR 1 probes.
         Config config = squareConfig();
         config.tier = Tier::Low;
         Renderer renderer = requireRenderer(config);
@@ -70,10 +70,11 @@ TEST_CASE("UTA-0051 INV-7: a half-scale frame is the whole scene stretched to th
         CHECK(renderer.lastFrameStats().renderScale == 1.0);
         const auto pixels = renderer.readback();
         if (!pixels.has_value()) FAIL(pixels.error().message());
-        CHECK(pixelAt(*pixels, 64, 31, 48) == RED);
+        CHECK(pixelAt(*pixels, 64, 30, 48) == RED);
+        CHECK(pixelAt(*pixels, 64, 32, 48) == BLUE);
     }
 
-    SECTION("at scale 0.5 the probes are the stretched region's") {
+    SECTION("at scale 0.5 the probes are the upscaled region's") {
         Config config = squareConfig();
         config.tier = Tier::Low;
         config.fixedRenderScale = 0.5;
@@ -84,13 +85,17 @@ TEST_CASE("UTA-0051 INV-7: a half-scale frame is the whole scene stretched to th
         const auto pixels = renderer.readback();
         if (!pixels.has_value()) FAIL(pixels.error().message());
         REQUIRE(pixels->size() == 64u * 64u * 4u);
-        // Below the half-size region: only the stretch reaches these.
+        // Below the half-size region: only the upscale reaches these.
         CHECK(pixelAt(*pixels, 64, 16, 48) == RED);
         CHECK(pixelAt(*pixels, 64, 48, 48) == BLUE);
-        // Output column 31 samples region column 15.25: three parts red to one blue.
-        const Rgba edge = pixelAt(*pixels, 64, 31, 48);
-        CHECK(edge != RED);
-        CHECK(edge != BLUE);
+        // UTA-0154: FSR 1 crosses the centre line, not a linear stretch. RCAS
+        // overshoots two columns left of it, where a stretch stays between its
+        // two colours. EASU's edge is steeper at column 32: measured on
+        // lavapipe, its red channel is 57, a linear stretch's 109, and a linear
+        // stretch sharpened by RCAS 71.
+        // As int, so a failure prints the channel as a number rather than a character.
+        CHECK(static_cast<int>(pixelAt(*pixels, 64, 30, 48).r) > static_cast<int>(RED.r));
+        CHECK(static_cast<int>(pixelAt(*pixels, 64, 32, 48).r) < 64);
     }
 }
 

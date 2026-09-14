@@ -11,6 +11,7 @@ layout(push_constant) uniform PostBlock {
     float exposure;
     uint linearOutput;
     uvec2 regionSize; // UTA-0051 SS 4.4: the top-left part of `hdr` this frame drew
+    uint upscaleInput; // UTA-0154: write FSR 1's input rather than the output
 } post;
 
 layout(location = 0) out vec4 outColour;
@@ -36,25 +37,14 @@ vec3 pbrNeutral(vec3 colour) {
     return mix(colour, newPeak * vec3(1.0), g);
 }
 
-// The scene's colour at this output pixel. A frame drawn at full size is read
-// texel for texel, exactly as UTA-0014 reads it. A smaller region is stretched
-// over the whole output with bilinear filtering that never reads outside it.
-vec3 sceneColour() {
-    ivec2 size = textureSize(hdr, 0);
-    if (post.regionSize == uvec2(size)) return texelFetch(hdr, ivec2(gl_FragCoord.xy), 0).rgb;
-    vec2 at = gl_FragCoord.xy * vec2(post.regionSize) / vec2(size) - 0.5;
-    vec2 below = floor(at);
-    vec2 weight = at - below;
-    ivec2 last = ivec2(post.regionSize) - 1;
-    ivec2 lo = clamp(ivec2(below), ivec2(0), last);
-    ivec2 hi = clamp(ivec2(below) + 1, ivec2(0), last);
-    vec3 top = mix(texelFetch(hdr, ivec2(lo.x, lo.y), 0).rgb, texelFetch(hdr, ivec2(hi.x, lo.y), 0).rgb, weight.x);
-    vec3 bottom = mix(texelFetch(hdr, ivec2(lo.x, hi.y), 0).rgb, texelFetch(hdr, ivec2(hi.x, hi.y), 0).rgb, weight.x);
-    return mix(top, bottom, weight.y);
-}
-
 void main() {
-    vec3 colour = sceneColour();
+    // Texel for texel, exactly as UTA-0014 reads it. Past a smaller region the
+    // region's own edge repeats, so FSR 1's taps beyond it read the edge.
+    ivec2 at = min(ivec2(gl_FragCoord.xy), ivec2(post.regionSize) - 1);
+    vec3 colour = texelFetch(hdr, at, 0).rgb;
     if (post.linearOutput == 0u) colour = pbrNeutral(colour * post.exposure);
+    // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header
+    // allows gamma 2.0 for it.
+    if (post.upscaleInput != 0u) colour = sqrt(clamp(colour, 0.0, 1.0));
     outColour = vec4(colour, 1.0);
 }

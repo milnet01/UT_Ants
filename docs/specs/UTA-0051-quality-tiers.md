@@ -20,8 +20,8 @@ down instead of stuttering.
 to switch off declares, in one table, the lowest tier that switches it on. The
 tier is chosen from the device unless the caller names one. Dynamic resolution
 holds a frame-time target by drawing the scene at a fraction of the output size
-and stretching it to full size. `ut-ants` takes `--tier` and turns dynamic
-resolution on.
+and upscaling it to full size, with AMD FSR 1 since `UTA-0154`. `ut-ants` takes
+`--tier` and turns dynamic resolution on.
 
 ## 2. Problem
 
@@ -154,10 +154,24 @@ find a pixel's cluster, all use that region's size. **Shadow planning keeps
 `W` × `H`.** A tile's size follows its light's size on the target
 (`shadowTileSize`), so planning at the region's size would re-place every tile
 at each change of scale, and a still camera would no longer draw no tiles, as
-`FrameStats::renderedShadowTiles` says it does. The post stage
-samples the region with linear filtering and writes `output` at `W` × `H`. A
-change of scale creates or destroys no image; `resize` alone rebuilds targets,
-as `UTA-0014` § 4.3 says.
+`FrameStats::renderedShadowTiles` says it does.
+
+**The output stage upscales the region with AMD FSR 1** (amended by `UTA-0154`,
+which replaced a bilinear stretch that read soft). A frame drawn at scale 1
+keeps `UTA-0014`'s single output pass. Below 1 it takes three passes, each
+covering `W` × `H`:
+
+1. `post.frag` tone maps the region into FSR 1's input, gamma 2.0 and clamped
+   to [0, 1], as FSR 1's header asks. Past the region the region's edge
+   repeats, so a tap beyond it reads the edge.
+2. EASU upscales that into a second image.
+3. RCAS sharpens it into `output`, at AMD's sample's default of 0.25 stops,
+   and squares it back to linear light for the sRGB store.
+
+The two images are the HDR format at the output's size, made at create and at
+`resize` only where `dynamicResolution` or `fixedRenderScale` is set. A change
+of scale creates or destroys no image; `resize` alone rebuilds targets, as
+`UTA-0014` § 4.3 says. FSR 1 is vendored in `third_party/fsr1/`.
 
 **The measurement is the wall time of the frame's `Gpu::run`**, which submits
 and waits for the GPU to finish. It excludes `Swapchain::present`, because the
@@ -229,18 +243,21 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
   after its draws; `UTA-0014`'s pixel tests stay unchanged and green.
   *Breaks when:* scaling runs without being asked for.
 
-- **INV-7** — at a scale below 1 the output is the whole scene, stretched to
-  `W` × `H`.
+- **INV-7** — at a scale below 1 the output is the whole scene, upscaled to
+  `W` × `H` by FSR 1: EASU, then RCAS (§ 4.4, as `UTA-0154` amends it).
   *Test:* `tests/device/RenderTiersTest.cpp`: a fixture filling the view's left
-  half red and its right half blue, drawn at `fixedRenderScale` 0.5 on Low. The
-  frame reports `renderScale` 0.5, and `readback(Colour)` is `W` × `H`, with red
-  at (`W`/4, 3`H`/4) and blue at (3`W`/4, 3`H`/4). Both points lie below an
-  unstretched half-size region, so only the stretch colours them. With `W` a
-  multiple of 4, the pixel just left of the centre line, (`W`/2 − 1, 3`H`/4),
-  matches neither probe: the linear stretch blends red and blue there, where a
-  full-size draw leaves it the red probe's colour.
-  *Breaks when:* the post stage reads the whole target instead of the region, or
-  the fixed scale is not applied.
+  half red and its right half blue, drawn at `fixedRenderScale` 0.5 on Low,
+  `W` = `H` = 64. The frame reports `renderScale` 0.5, and `readback(Colour)` is
+  `W` × `H`, with red at (`W`/4, 3`H`/4) and blue at (3`W`/4, 3`H`/4). Both lie
+  below an unscaled half-size region, so only the upscale colours them. Two
+  probes either side of the centre line separate FSR 1 from a linear stretch.
+  At (`W`/2 − 2, 3`H`/4) the red channel exceeds the red probe's: RCAS
+  overshoots, where a stretch stays between its two colours. At (`W`/2, 3`H`/4)
+  the red channel is below 64: measured on lavapipe, EASU gives 57, a linear
+  stretch 109, and a linear stretch sharpened by RCAS 71. A full-size draw
+  leaves those two pixels exactly red and blue.
+  *Breaks when:* the output stage stretches linearly, EASU is replaced by a
+  linear stretch, RCAS is skipped, or the fixed scale is not applied.
 
 - **INV-8** — `readback(Velocity)` is refused with `InvalidArgument` after a
   frame drawn at a scale below 1.
@@ -279,6 +296,8 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
 
 Each is watched failing before its code exists. INV-7 is also watched failing
 with the stretch removed and the region kept, which is the mistake it is for.
+`UTA-0154`'s amendment of it is watched failing with RCAS skipped, and with
+EASU replaced by a linear stretch.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -297,7 +316,8 @@ with the stretch removed and the region kept, which is the mistake it is for.
 
 - Smaller texture copies so a low tier fits a smaller figure — tracked by
   UTA-0152.
-- Sharpening the stretched image — tracked by UTA-0053.
+- Sharpening the stretched image — tracked by UTA-0053. `UTA-0154`'s RCAS now
+  sharpens a frame drawn below scale 1.
 - Temporal upscaling and its mip bias — tracked by UTA-0076.
 - Saving a chosen tier between runs — tracked by UTA-0120, the menus.
 - Holding a frame-rate floor across the map library — tracked by UTA-0039.

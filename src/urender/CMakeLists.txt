@@ -42,6 +42,8 @@ target_link_libraries(uta_urender PUBLIC uta_core uta_ubundle PRIVATE Vulkan::Vu
 
 set(UTA_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders" CACHE INTERNAL "urender's shared GLSL")
 set(UTA_EMBED_SPIRV "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedSpirv.cmake" CACHE INTERNAL "SPIR-V to header")
+# UTA-0154: AMD FSR 1's shader headers, vendored (route 2).
+set(UTA_FSR1_DIR "${PROJECT_SOURCE_DIR}/third_party/fsr1" CACHE INTERNAL "FSR 1's GLSL headers")
 
 # uta_embed_shaders(<target> <source>...)
 #
@@ -62,7 +64,7 @@ function(uta_embed_shaders target)
         add_custom_command(
             OUTPUT "${spirv}"
             COMMAND Vulkan::glslc --target-env=vulkan1.3 -O
-                    -I "${UTA_SHADER_DIR}"
+                    -I "${UTA_SHADER_DIR}" -I "${UTA_FSR1_DIR}"
                     -MD -MF "${spirv}.d" -MT "${spirv}"
                     -o "${spirv}" "${path}"
             DEPENDS "${path}"
@@ -87,6 +89,8 @@ uta_embed_shaders(uta_urender
     shaders/scene.frag
     shaders/post.vert
     shaders/post.frag
+    shaders/fsr_easu.frag
+    shaders/fsr_rcas.frag
     shaders/shadow.vert
     shaders/shadow.frag)
 

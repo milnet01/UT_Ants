@@ -223,8 +223,13 @@ struct Renderer::Impl {
     VkDescriptorPool pool = VK_NULL_HANDLE;
     VkDescriptorSet sceneSet = VK_NULL_HANDLE;
     VkDescriptorSet postSet = VK_NULL_HANDLE;
+    /// UTA-0154: EASU's set reads the upscale input, RCAS's reads EASU's output.
+    VkDescriptorSet easuSet = VK_NULL_HANDLE, rcasSet = VK_NULL_HANDLE;
 
     Image hdr, velocity, depth, output;
+    /// UTA-0154: FSR 1's input and EASU's output. Only a renderer whose scale
+    /// can drop below 1 makes them.
+    Image upscaleInput, upscaled;
     Image shadowAtlas;
 
     Buffer frameData, objects, lights;
@@ -300,6 +305,14 @@ Result<void> Renderer::Impl::createTargets() {
     UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT}));
     UTA_TRY(output, Image::create(*gpu, {OUTPUT_FORMAT, w, h, 1,
                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
+    // UTA-0154: at the output's size, so a change of scale makes no image
+    // (UTA-0051 SS 4.4).
+    if (config.dynamicResolution || config.fixedRenderScale) {
+        UTA_TRY(upscaleInput, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
+                                                   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
+        UTA_TRY(upscaled, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
+                                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
+    }
     return {};
 }
 
@@ -416,11 +429,11 @@ Result<void> Renderer::Impl::writeDescriptors() {
     const auto textureCount = static_cast<std::uint32_t>(materials->textures().size());
     const std::array sizes = {
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::SHADOW_FACES + 1},
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textureCount + 2},
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textureCount + 4},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 2;
+    poolInfo.maxSets = 4;
     poolInfo.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     poolInfo.pPoolSizes = sizes.data();
     UTA_CHECK(check(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), "vkCreateDescriptorPool"));
@@ -438,13 +451,19 @@ Result<void> Renderer::Impl::writeDescriptors() {
     sceneAllocate.pSetLayouts = &sceneLayout;
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &sceneAllocate, &sceneSet), "vkAllocateDescriptorSets (scene)"));
 
-    const VkDescriptorSetLayout postLayout = pipelines->postSetLayout();
+    // The post set, then UTA-0154's EASU and RCAS sets, all one layout.
+    const std::array<VkDescriptorSetLayout, 3> postLayouts{pipelines->postSetLayout(), pipelines->postSetLayout(),
+                                                           pipelines->postSetLayout()};
     VkDescriptorSetAllocateInfo postAllocate{};
     postAllocate.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     postAllocate.descriptorPool = pool;
-    postAllocate.descriptorSetCount = 1;
-    postAllocate.pSetLayouts = &postLayout;
-    UTA_CHECK(check(vkAllocateDescriptorSets(device, &postAllocate, &postSet), "vkAllocateDescriptorSets (post)"));
+    postAllocate.descriptorSetCount = static_cast<std::uint32_t>(postLayouts.size());
+    postAllocate.pSetLayouts = postLayouts.data();
+    std::array<VkDescriptorSet, 3> postSets{};
+    UTA_CHECK(check(vkAllocateDescriptorSets(device, &postAllocate, postSets.data()), "vkAllocateDescriptorSets (post)"));
+    postSet = postSets[0];
+    easuSet = postSets[1];
+    rcasSet = postSets[2];
 
     const std::array<const Buffer*, gpu::SHADOW_FACES + 1> buffers = {
         &frameData, &objects, &materials->records(), &lights, &clusterCounts,
@@ -496,6 +515,20 @@ Result<void> Renderer::Impl::writeDescriptors() {
     hdrWrite.pImageInfo = &hdrInfo;
     writes.push_back(hdrWrite);
 
+    // UTA-0154: only a renderer that made the upscale images binds them.
+    const VkDescriptorImageInfo easuInfo{nearestSampler, upscaleInput.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    const VkDescriptorImageInfo rcasInfo{nearestSampler, upscaled.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    if (upscaleInput.handle() != VK_NULL_HANDLE) {
+        VkWriteDescriptorSet easuWrite = hdrWrite;
+        easuWrite.dstSet = easuSet;
+        easuWrite.pImageInfo = &easuInfo;
+        writes.push_back(easuWrite);
+        VkWriteDescriptorSet rcasWrite = hdrWrite;
+        rcasWrite.dstSet = rcasSet;
+        rcasWrite.pImageInfo = &rcasInfo;
+        writes.push_back(rcasWrite);
+    }
+
     vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
     return {};
 }
@@ -505,7 +538,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
     const VkRect2D scissor{{0, 0}, extent};
     // UTA-0051 SS 4.4: the scene draws into the top-left region, and the
-    // output stage stretches it over the whole target.
+    // output stage upscales it over the whole target (UTA-0154).
     const VkViewport regionViewport{0, 0, static_cast<float>(region.width), static_cast<float>(region.height), 0, 1};
     const VkRect2D regionScissor{{0, 0}, region};
 
@@ -631,31 +664,46 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     vkCmdEndRendering(commands);
 
     // -- 3. The output stage ---------------------------------------------------
+    // A frame drawn at full size is tone mapped straight into `output`. A
+    // smaller region is tone mapped into FSR 1's input, which EASU upscales and
+    // RCAS sharpens into `output` (UTA-0154).
     hdr.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    output.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo outputAttachment{};
-    outputAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    outputAttachment.imageView = output.view();
-    outputAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    outputAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    outputAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    VkRenderingInfo post{};
-    post.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    post.renderArea = scissor;
-    post.layerCount = 1;
-    post.colorAttachmentCount = 1;
-    post.pColorAttachments = &outputAttachment;
-    vkCmdBeginRendering(commands, &post);
-    vkCmdSetViewport(commands, 0, 1, &viewport);
-    vkCmdSetScissor(commands, 0, 1, &scissor);
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->post());
-    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &postSet, 0,
-                            nullptr);
-    const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height}};
-    vkCmdPushConstants(commands, pipelines->postLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
-                       &constants);
-    vkCmdDraw(commands, 3, 1, 0, 0);
-    vkCmdEndRendering(commands);
+    const auto fullTargetPass = [&](Image& target, VkPipeline pipeline, VkDescriptorSet set, bool upscaleInputPass) {
+        target.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo attachment{};
+        attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        attachment.imageView = target.view();
+        attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        VkRenderingInfo pass{};
+        pass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        pass.renderArea = scissor;
+        pass.layerCount = 1;
+        pass.colorAttachmentCount = 1;
+        pass.pColorAttachments = &attachment;
+        vkCmdBeginRendering(commands, &pass);
+        vkCmdSetViewport(commands, 0, 1, &viewport);
+        vkCmdSetScissor(commands, 0, 1, &scissor);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &set, 0,
+                                nullptr);
+        const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height},
+                                           upscaleInputPass ? 1u : 0u};
+        vkCmdPushConstants(commands, pipelines->postLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
+                           &constants);
+        vkCmdDraw(commands, 3, 1, 0, 0);
+        vkCmdEndRendering(commands);
+    };
+    if (region.width == extent.width && region.height == extent.height) {
+        fullTargetPass(output, pipelines->post(), postSet, false);
+    } else {
+        fullTargetPass(upscaleInput, pipelines->upscaleInput(), postSet, true);
+        upscaleInput.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        fullTargetPass(upscaled, pipelines->easu(), easuSet, false);
+        upscaled.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        fullTargetPass(output, pipelines->rcas(), rcasSet, false);
+    }
 
     // -- 4. The UI composite seam ----------------------------------------------
     compositeUi(commands);

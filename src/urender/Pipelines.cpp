@@ -6,6 +6,8 @@
 #include "urender/ShaderTypes.h"
 
 #include "cluster.comp.spv.h"
+#include "fsr_easu.frag.spv.h"
+#include "fsr_rcas.frag.spv.h"
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
 #include "scene.frag.spv.h"
@@ -398,6 +400,15 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
         }
     }
     UTA_TRY(p->post_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));
+    // UTA-0154: FSR 1's stages. The upscale input and EASU's output are
+    // HDR-format images; RCAS writes the output.
+    Module easuFragment{device}, rcasFragment{device};
+    UTA_TRY(easuFragment.handle, shaderModule(device, fsr_easu_frag_spv));
+    UTA_TRY(rcasFragment.handle, shaderModule(device, fsr_rcas_frag_spv));
+    UTA_TRY(p->upscaleInput_,
+            postPipeline(device, p->postLayout_, formats.hdr, postVertex.handle, postFragment.handle));
+    UTA_TRY(p->easu_, postPipeline(device, p->postLayout_, formats.hdr, postVertex.handle, easuFragment.handle));
+    UTA_TRY(p->rcas_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, rcasFragment.handle));
 
     Module clusterCompute{device};
     UTA_TRY(clusterCompute.handle, shaderModule(device, cluster_comp_spv));
@@ -426,7 +437,8 @@ Pipelines::~Pipelines() {
     for (auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    if (post_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, post_, nullptr);
+    for (VkPipeline pipeline : {post_, upscaleInput_, easu_, rcas_})
+        if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (clusters_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, clusters_, nullptr);
     if (shadow_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadow_, nullptr);
     if (shadowLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shadowLayout_, nullptr);

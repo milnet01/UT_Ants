@@ -49,6 +49,11 @@ public:
     /// The forward pipeline a batch carrying `polyFlags` is drawn with.
     [[nodiscard]] VkPipeline sceneFor(std::uint32_t polyFlags) const noexcept;
     [[nodiscard]] VkPipeline post() const noexcept { return post_; }
+    /// UTA-0154's FSR 1 stages, over the post layout: post.frag into the
+    /// HDR-format upscale input, EASU into another, and RCAS into the output.
+    [[nodiscard]] VkPipeline upscaleInput() const noexcept { return upscaleInput_; }
+    [[nodiscard]] VkPipeline easu() const noexcept { return easu_; }
+    [[nodiscard]] VkPipeline rcas() const noexcept { return rcas_; }
     /// SS 4.6's culling pass, over the scene set.
     [[nodiscard]] VkPipeline clusters() const noexcept { return clusters_; }
     /// SS 4.8's tile pass: depth only, over the scene set with its own push constants.
@@ -70,6 +75,7 @@ private:
     /// Indexed [translucent][twoSided].
     std::array<std::array<VkPipeline, 2>, 2> scene_{};
     VkPipeline post_ = VK_NULL_HANDLE;
+    VkPipeline upscaleInput_ = VK_NULL_HANDLE, easu_ = VK_NULL_HANDLE, rcas_ = VK_NULL_HANDLE;
     VkPipeline clusters_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowLayout_ = VK_NULL_HANDLE;
     VkPipeline shadow_ = VK_NULL_HANDLE;

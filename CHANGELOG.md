@@ -17,6 +17,9 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **AMD FSR 1 upscales the dynamic-resolution picture, replacing the bilinear stretch** (UTA-0154)
+  When the game lowers its internal resolution to keep frames smooth, the picture is enlarged with AMD's sharper upscaler instead of looking blurry.
+
 - **ut-ants opens borderless fullscreen at the desktop's resolution; --windowed opens a resizable window** (UTA-0153)
   The game fills your whole screen at its real resolution instead of opening in a small window.
 
