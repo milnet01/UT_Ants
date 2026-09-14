@@ -8190,6 +8190,17 @@ model, no weapon and no opponent until 0.2.0.
   MH-EnterToCore-Part3-BP, at X 32770. That map's grid keeps a column at
   X 32768, within § 4.6's placing window of it, so the bound leaves its
   placement as it is.
+  Gated (2026-09-14, ut-ants-db): review-contract ran two loops of three
+  cold lanes on the UTA-0121 amendment and stopped at a spec's cap, calm.
+  Loop 1 found two defects in the amendment: § 4.5 did not say what the
+  walk graph's origin, columns and rows index once columns are skipped,
+  and INV-15 never pushed the box past the bound on Y. Loop 2 found an
+  older contradiction, INV-7 against § 4.7's last resort. All three are
+  fixed and the spec is accepted. Next: build it (walkGraph, INV-15's
+  tests), then run the before-and-after check. Its script and the
+  unfixed binary's output for 79 of the maps whose geometry passes the
+  bound are frozen in the session scratchpad's mem/ directory; the three
+  maps that fail today have no before.
   **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
   Kind: perf.
   Source: in-session-2026-09-13.

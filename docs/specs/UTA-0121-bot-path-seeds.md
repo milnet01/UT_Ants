@@ -7,14 +7,16 @@ cap — § 4.7's Search rule now keys the fallback goal on a navigation point
 that touches the exit, with INV-13 added, INV-12's fixture gaining a `sceneOf`
 leg, and INV-7 gaining the half of the substitution rule nothing tested. The
 amendment needs no change to INV-7's own fixture; the gap INV-7 now names
-does. No code implements the amendment yet, and the gate ran before it, per
-CLAUDE.md rule 14. The measurements behind it are on ROADMAP UTA-0133.
+does. The gate ran before its code, per CLAUDE.md rule 14, and the code
+has since shipped. The measurements behind it are on ROADMAP UTA-0133.
 Amended for UTA-0139 (2026-09-14): each exit's `noRoute` word (§ 4.3, § 4.6's
 teleporters, § 4.7's Why no route, INV-14), and accepted again (2026-09-14),
-converged on the review's second loop. No code implements it yet. The measurements behind it are on ROADMAP UTA-0139.
-Amended for UTA-0140 (2026-09-14): § 4.5's columns stop at the world bound,
-with INV-15 added. Not yet gated, and no code implements it yet. The
-measurements behind it are on ROADMAP UTA-0140.
+converged on the review's second loop; its code has since shipped. The measurements behind it are on ROADMAP UTA-0139.
+Amended for UTA-0140 (2026-09-14): § 4.5's columns stop at the world bound
+and the walk graph indexes the laid columns alone, with INV-15 added; INV-7
+now names § 4.7's last resort. Accepted again (2026-09-14), at the review's
+cap. No code implements it yet. The measurements behind it are on ROADMAP
+UTA-0140.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -493,8 +495,8 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   exit the chain stops where it meets the part that reaches the exit, and a
   navigation point within 50 takes a spot's place when the hop to it is
   allowed, and only then. A point that takes a spot's place is not itself
-  proposed — it is already in the map — so no proposed node ever stands within
-  50 of a navigation point.
+  proposed — it is already in the map — so a proposed node stands within 50
+  of a navigation point only where § 4.7's last resort takes the spot itself.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose`, partitioned: a
   network of two parts with one edge from the exit's part to the start's and
   none back, a MonsterEnd beside the exit's part — close enough that a
