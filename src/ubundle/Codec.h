@@ -213,6 +213,10 @@ public:
     [[nodiscard]] std::size_t size() const noexcept { return bytes_.size(); }
     [[nodiscard]] std::vector<std::byte> take() && noexcept { return std::move(bytes_); }
 
+    /// Room for `bytes` in all, so a caller that knows its output's size grows
+    /// the buffer once rather than doubling it (UTA-0143). Changes no byte.
+    void reserve(std::size_t bytes) { bytes_.reserve(bytes); }
+
     void append(const std::vector<std::byte>& other) {
         bytes_.insert(bytes_.end(), other.begin(), other.end());
     }

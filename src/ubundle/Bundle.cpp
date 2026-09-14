@@ -286,7 +286,14 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // LPRB is appended after COLL -- UTA-0112 SS 4.2.
     if (bundle.lightProbes) sections.emplace_back(ID_LPRB, encodeLightProbes(*bundle.lightProbes));
 
+    // The file's size is known before a byte is written, so the buffer grows
+    // once, and each section is freed once it is copied in: the whole file,
+    // every section and a doubling buffer are never all held at once
+    // (UTA-0143).
+    std::uint64_t fileSize = HEADER_SIZE + sections.size() * SECTION_DESCRIPTOR_SIZE;
+    for (const auto& section : sections) fileSize += section.second.size();
     Sink sink;
+    sink.reserve(static_cast<std::size_t>(fileSize));
     sink.putId(MAGIC);
     // FORMAT_VERSION, not bundle.header.formatVersion. `read` only ever
     // yields 1 and this only ever emits 1, so the two cannot disagree; a
@@ -309,7 +316,10 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
         offset += payload.size();
     }
 
-    for (const auto& section : sections) sink.append(section.second);
+    for (auto& section : sections) {
+        sink.append(section.second);
+        std::vector<std::byte>().swap(section.second);
+    }
 
     return std::move(sink).take();
 }
