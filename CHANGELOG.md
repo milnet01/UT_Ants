@@ -17,6 +17,9 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-ants' flying camera stops at the level's walls and slides along them** (UTA-0158)
+  The camera can fly around the map freely but can no longer pass through walls or leave the map, just like watching before a match in the original game.
+
 - **AMD FSR 1 upscales the dynamic-resolution picture, replacing the bilinear stretch** (UTA-0154)
   When the game lowers its internal resolution to keep frames smooth, the picture is enlarged with AMD's sharper upscaler instead of looking blurry.
 

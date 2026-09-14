@@ -1,11 +1,13 @@
-// A free-flying camera -- UTA-0016. The mouse looks and the keys fly anywhere,
-// through walls, with no gravity and no collision: uworld does not exist yet,
-// and matching UT99's movement is 0.2.0's.
+// A free-flying camera -- UTA-0016. The mouse looks and the keys fly, with no
+// gravity. Given the level's collision tree it stops at walls and slides along
+// them, as UT99's pre-match spectator does (UTA-0158); matching UT99's movement
+// is 0.2.0's.
 //
 // No SDL here, so the unit tests grade it against urender's own view.
 
 #pragma once
 
+#include "ubundle/Bundle.h"
 #include "urender/Renderer.h"
 
 #include <array>
@@ -31,12 +33,17 @@ public:
     static constexpr double LOOK_UNITS_PER_PIXEL = 16; ///< UT angle units, 65536 to a turn
     /// Just short of a quarter turn, so the view never tips over the top.
     static constexpr std::int32_t PITCH_LIMIT = 16000;
+    /// UTA-0158: units kept between the camera and a wall, well beyond the
+    /// view's near plane of 1, so the wall is never cut open.
+    static constexpr double WALL_MARGIN = 8;
 
     FlyCamera() = default;
     FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int32_t yaw) noexcept;
 
-    /// Apply one frame's input over `seconds`.
-    void update(const FlyInput& input, double seconds) noexcept;
+    /// Apply one frame's input over `seconds`. With `level`, the move stops
+    /// WALL_MARGIN short of a wall and slides along it; a camera already in
+    /// solid flies free, so it can leave. Without, it flies through anything.
+    void update(const FlyInput& input, double seconds, const ubundle::CollisionTree* level = nullptr) noexcept;
 
     [[nodiscard]] urender::Camera camera() const noexcept;
 

@@ -1,10 +1,12 @@
 // UTA-0016: the client's free-flying camera, graded against urender's own view
-// matrix rather than against a second statement of UT's axes.
+// matrix rather than against a second statement of UT's axes. UTA-0158: its
+// walls, over trees PathFixture builds in memory.
 //
 // NO TEST NAME CONTAINS A COMMA -- BakeCliTest.cpp says why.
 
 #include "ut-ants/FlyCamera.h"
 
+#include "PathFixture.h"
 #include "urender/Placement.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -85,6 +87,58 @@ TEST_CASE("UTA-0016: the mouse turns the view toward where it moves", "[client]"
     FlyCamera tipped;
     tipped.update(FlyInput{.lookUp = 8192 / FlyCamera::LOOK_UNITS_PER_PIXEL}, 0);
     checkNear(inView(tipped.camera(), above), {0, 0, std::hypot(100.0, 100.0)});
+}
+
+namespace {
+
+/// One room, 1000 units a side and centred on the origin; everything else solid.
+uta::ubundle::CollisionTree room() {
+    using uta::test::paths::box;
+    const uta::test::paths::Vec3 low{-500, -500, -500}, high{500, 500, 500};
+    return uta::test::paths::worldOf({box(low, high)}, low, high);
+}
+
+} // namespace
+
+TEST_CASE("UTA-0158: flying into a wall stops WALL_MARGIN short of it", "[client]") {
+    const auto level = room();
+    FlyCamera fly({0, 0, 0}, 0, 0); // facing +X, toward the wall at 500
+    fly.update(FlyInput{.forward = 1}, 1, &level); // 800 units: would pass it
+    const auto location = fly.camera().location;
+    CHECK_THAT(location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+    CHECK_THAT(location[1], WithinAbs(0, 1e-3));
+    CHECK_THAT(location[2], WithinAbs(0, 1e-3));
+
+    fly.update(FlyInput{.forward = 1}, 1, &level); // pressed against it: stays
+    CHECK_THAT(fly.camera().location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+}
+
+TEST_CASE("UTA-0158: a move into a wall at an angle slides along it", "[client]") {
+    const auto level = room();
+    FlyCamera fly({300, 0, 0}, 0, 8192); // facing between +X and +Y
+    fly.update(FlyInput{.forward = 1}, 0.5, &level); // 400 units: 283 on each axis
+    const auto location = fly.camera().location;
+    CHECK_THAT(location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+    // The part into the wall is lost and the part along it kept: more than the
+    // stop alone reaches, never more than the whole move along +Y.
+    CHECK(location[1] > 250);
+    CHECK(location[1] <= 283);
+}
+
+TEST_CASE("UTA-0158: a camera starting in solid flies out freely", "[client]") {
+    const auto level = room();
+    FlyCamera fly({700, 0, 0}, 0, 32768); // outside the room, facing -X, toward it
+    fly.update(FlyInput{.forward = 1}, 0.5, &level);
+    CHECK_THAT(fly.camera().location[0], WithinAbs(300, 1e-2));
+}
+
+TEST_CASE("UTA-0158: without a level the camera flies through walls as before", "[client]") {
+    const auto level = room();
+    FlyCamera walled({0, 0, 0}, 0, 0), free({0, 0, 0}, 0, 0);
+    walled.update(FlyInput{.forward = 1}, 1, &level);
+    free.update(FlyInput{.forward = 1}, 1);
+    CHECK_THAT(free.camera().location[0], WithinAbs(FlyCamera::SPEED, 1e-2));
+    CHECK(walled.camera().location[0] < free.camera().location[0]);
 }
 
 TEST_CASE("UTA-0016: pitch stops short of straight up and straight down", "[client]") {

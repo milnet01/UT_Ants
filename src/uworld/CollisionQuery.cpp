@@ -1,14 +1,15 @@
 // Point and segment checks against a collision tree --
-// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4, INV-2. Moved here from
-// tools/ut-paths/Trace.cpp, unchanged, by docs/specs/UTA-0112-baked-light-probes.md
-// SS 4.10 (its INV-11).
+// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4, INV-2. Moved from
+// tools/ut-paths/Trace.cpp into ubake by docs/specs/UTA-0112-baked-light-probes.md
+// SS 4.10 (its INV-11), and from there here, unchanged but for the namespace,
+// by UTA-0158.
 
-#include "ubake/CollisionQuery.h"
+#include "uworld/CollisionQuery.h"
 
 #include <cstdint>
 #include <vector>
 
-namespace uta::ubake {
+namespace uta::uworld {
 namespace {
 
 using ubundle::CollisionNode;
@@ -110,4 +111,4 @@ Hit traceOut(const CollisionTree& tree, const Vec3& a, const Vec3& b) {
     return firstChange(tree, a, b, false);
 }
 
-} // namespace uta::ubake
+} // namespace uta::uworld

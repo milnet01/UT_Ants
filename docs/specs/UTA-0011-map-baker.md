@@ -101,7 +101,8 @@ of a bundle plugs into this baker rather than starting a second one.
 | `tools/ut-bake/main.cpp` | calls it |
 
 `uta_ubake` links `uta_core`, `uta_upkg`, `uta_umat`, `uta_unav_build`,
-`uta_umap_build` and `uta_ubundle`. The two `_build` libraries hold the
+`uta_umap_build`, `uta_ubundle` and, since `UTA-0158`, `uta_uworld`, which holds
+the collision-tree query. The two `_build` libraries hold the
 graph and room builders. `docs/design.md` rule 2 keeps it out of both
 runtime targets. The link-closure test that asserts so belongs to the first
 item that builds a runtime target (§ 9).

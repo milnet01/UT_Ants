@@ -4,7 +4,7 @@
 # them into the unit tests. main.cpp is the SDL half, run by hand: no CI leg
 # has a display.
 add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp)
-target_link_libraries(ut-ants PRIVATE uta_urender uta_ubundle uta_core SDL3::SDL3)
+target_link_libraries(ut-ants PRIVATE uta_urender uta_uworld uta_ubundle uta_core SDL3::SDL3)
 
 # Rule 16 has ut-ants run ut-bake, and it looks beside itself, so a build puts
 # one there. A target of its own rather than a POST_BUILD step on ut-ants, which

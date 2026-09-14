@@ -141,6 +141,8 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     uta::urender::Renderer renderer = std::move(*created);
     Start start = startingCamera(bundle);
     FlyCamera& camera = start.camera;
+    // UTA-0158: the camera stops at the level's walls, as UT99's spectator does.
+    const uta::ubundle::CollisionTree* const level = bundle.collision ? &bundle.collision->level : nullptr;
     SDL_SetWindowRelativeMouseMode(window, true);
 
     std::uint64_t drawn = 0;
@@ -182,7 +184,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         input.fast = keys[SDL_SCANCODE_LSHIFT];
 
         const Uint64 now = SDL_GetTicksNS();
-        camera.update(input, static_cast<double>(now - last) / 1e9);
+        camera.update(input, static_cast<double>(now - last) / 1e9, level);
         last = now;
 
         if (const auto result = renderer.draw(bundle, camera.camera()); !result) {

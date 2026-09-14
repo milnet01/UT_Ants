@@ -393,6 +393,12 @@ near it gets, are UTA-0014's. Nothing in this item checks this section.
 
 ### 4.10 Emptiness moves into `ubake`
 
+**Moved again by `UTA-0158`**, unchanged but for the namespace, to
+`src/uworld/CollisionQuery.h` and `.cpp`, so a runtime target can use them.
+`src/ubake/CollisionQuery.h` now brings the names into `uta::ubake` with
+using-declarations, and `tools/ut-paths/Trace.h` forwards from `uworld`. What
+follows is what this item did.
+
 `tools/ut-paths/Trace.h` and `.cpp` move to `src/ubake/CollisionQuery.h` and
 `.cpp`, in namespace `uta::ubake`, with no change of behaviour. That covers
 `Vec3`, `dot`, `length`, `isEmpty`, `Hit`, `trace` and `traceOut`.
