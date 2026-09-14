@@ -1282,6 +1282,21 @@ model, no weapon and no opponent until 0.2.0.
   been cold-reviewed, and a spike costs days it does not repay if the
   design holds. Do not re-propose it without new evidence that the chain
   is wrong.
+  User decisions (2026-09-14), asked by ut-ants-c1 after reading
+  docs/design.md. These are the scope questions this item waited on.
+  1. Moving: a free-flying camera. Mouse looks, keys fly anywhere,
+     through walls, with no gravity and no collision. uworld does not
+     exist, and matching UT99's movement is 0.2.0's. Keyboard and mouse
+     only; gamepad input comes later.
+  2. Opening a map: named on the command line, `ut-ants <bundle>`, after
+     validating the install with `ut-bake --check`. No in-app list, no
+     bake on launch: menus are uui's, later.
+  Not yet decided, and to be settled when the item starts: SDL3 is the
+  project's first fetched runtime dependency, so it goes through
+  docs/standards/dependency-acquisition.md section 2 by hand (CLAUDE.md
+  says so). urender's presenting path (src/urender/Swapchain.h) takes the
+  caller's surface and is graded by no CI leg, so this item is where it
+  first runs for real.
   **Layman:** The first thing you can actually run -- open one of your maps and move through it. No guns, no bots, no rules yet.
   Kind: implement.
   Source: design-2026-09-03.
@@ -5186,6 +5201,11 @@ model, no weapon and no opponent until 0.2.0.
   at the parent commit, or against the WARN figures each case prints. If
   they match, flip to shipped. If a case differs, suspect SystemPackages
   first: it is the only logic that changed.
+  User decision (2026-09-14): run the real-asset tier AFTER ut-ants-c1's
+  UTA-0139 frontier sweep finishes, to keep the memory guard from killing
+  it. The session then hands over one capped command to run with `!`,
+  per the long-local-runs memory, and compares the results against the
+  WARN figures each case prints. Still Waiting-on: that run.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
@@ -8133,7 +8153,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
   Lanes: ubake.
 
-- 📋 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
+- 🚧 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
   Found 2026-09-14 by UT_MonsterHunt, answering UTA-0139. Measured
   with ut-dump --nav-graph at 99a15b0: teleporter-to-teleporter reach
   specs carry reachFlags 32 (R_SPECIAL), collisionRadius 150 and
@@ -8159,6 +8179,12 @@ model, no weapon and no opponent until 0.2.0.
   disabled teleporter reports, send them the maps it names; they re-check
   those. If the walking rule changes, they bump their route check's
   file_version. They need nothing else from us.
+  Picked up (2026-09-14) by ut-ants-c1, main checkout, on the user's
+  choice to take this census before UTA-0016. UTA-0103 and UTA-0126 are
+  🚧 but parked on Waiting-on:, so this is the only live claim. Scope is
+  the census only: which census maps' start part crosses an R_SPECIAL
+  edge whose teleporter at either end starts bEnabled=False. Any fix is
+  a § 3 decision 10 amendment and goes through rule 14's gate.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
