@@ -8471,7 +8471,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
   Lanes: tools.
 
-- 🚧 [UTA-0147] **Make the gate cheaper: MSVC builds in parallel, and the local push gate stops rebuilding in RAM.**
+- ✅ [UTA-0147] **Make the gate cheaper: MSVC builds in parallel, and the local push gate stops rebuilding in RAM.**
   Measured 2026-09-14 (ut-ants-db) at the user's request.
   GitHub, over three recent green runs (gh run view --json jobs): Linux
   GCC 68-87 s a job and Clang 100-107 s, their gate 46-66 s with ccache at
@@ -8507,10 +8507,92 @@ model, no weapon and no opponent until 0.2.0.
   depth every push, so after one warm push the gate should take well
   under a minute. A Catch2 change tried on the way
   (CATCH_ENABLE_REPRODUCIBLE_BUILD OFF) was not needed and was reverted.
+  Shipped (2026-09-14, ut-ants-db): GitHub CI green on 09bbde8. Windows job
+  4 min 56 s there. The real pre-push gate on that push took 35 s with 516 of
+  516 ccache hits, against 244 s before.
   **Layman:** The Windows check on GitHub takes seven minutes mostly because it compiles one thing at a time, and the check that runs before every push rebuilds everything from scratch in memory.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass.
   Lanes: ci.
+
+- 📋 [UTA-0148] **ut-bake spends most of a bake enlarging and compressing textures one at a time, with no reuse between maps.**
+  Measured 2026-09-14 (ut-ants-db) on MH-Sk_Godz, the largest map.
+  /usr/bin/time: 21.7 s elapsed, 95 s user on 12 threads, 1.21 GB peak.
+  perf record -g (flat, by symbol): about 75% in BC7/BC4 block encoding
+  (estimate_partition 49%, evaluate_solution 10%, find_optimal_solution,
+  color_cell_compression, encode_bc4, encode_bc7_block), about 12% in
+  umat::enlarge's two parallelFor lambdas, 7% in umat::normalOf, under 5%
+  in lighting (SurfaceRays, lightAt).
+  Two findings. (1) Parallelism is inside one texture only: enlarge,
+  compress and light probes each parallelFor over one image's rows, and
+  textures run one after another, so 12 threads do about 4.4 threads'
+  work. Schedule whole textures or variants as jobs too. (2) Nothing is
+  reused between bakes: the only cache is the whole .utab by bake name,
+  so stock textures shared by many maps are enlarged and compressed again
+  for each. A disk cache of compressed variants keyed on the input bytes,
+  the settings and the encoder version would cut batch bakes and the
+  real-asset tier's bake-name case.
+  Keep the memory work: more textures in flight raises peak memory, so
+  bound concurrency by the bake budget, and keep any cache on disk, never
+  in /tmp. Output bytes must not change; an encoder quality change would
+  change them and is a design decision, not this item.
+  **Layman:** Baking a map is slow mostly because every texture is shrunk into game format again for every map, even the stock textures many maps share, and only one texture is worked on at a time.
+  Kind: perf.
+  Source: user-request-2026-09-14 performance pass.
+  Lanes: umat, ubake.
+
+- 📋 [UTA-0149] **ut-paths traces its walk graph on one thread, and a few of its searches scan more than they need.**
+  Measured 2026-09-14 (ut-ants-db). perf over MH-ToEgypto2010[THUNDERBOLT]-Beta,
+  the slowest census map at 18 s: 69% of CPU in the collision trace
+  (ubake firstChange), 12% in isEmpty, 9% in shortestPath, about 2% in
+  sin/cos. After UTA-0140 no census map takes more than 19 s or 700 MB.
+  Findings. (1) walkGraph's column scan and its join tests run on one
+  thread; each column and each column pair is independent, so the
+  project's JobSystem could run them with results merged in column order,
+  which keeps spots, joins and so every output byte identical. (2) reach()
+  scans every network edge for every node it pops, per call and per
+  touching node on a PARTITIONED map; build the adjacency once. (3)
+  Seeds.cpp placed() recomputes six sines and cosines for every mover
+  point; compute them once per mover, as UT_MonsterHunt did in xform.py
+  (their 7498169), with the arithmetic order unchanged.
+  Keep UTA-0140's memory bound: per-thread spot buffers must be merged,
+  not duplicated, so peak memory stays at today's walk graph or below.
+  **Layman:** The path tool checks where a player can stand one column at a time on a single processor core, so big maps take longer than they need to.
+  Kind: perf.
+  Source: user-request-2026-09-14 performance pass.
+  Lanes: tools.
+
+- 📋 [UTA-0150] **Unit test files take 12 to 19 s each to compile, which is most of a cold build and of the Windows CI leg.**
+  Measured 2026-09-14 (ut-ants-db) from build-ci/.ninja_log, the slowest
+  objects: tests/unit/DumpCliTest.cpp 18.7 s, BundleFormatTest 15.0 s,
+  BakeTest 14.5 s, PackageContentTest 12.8 s, PathSeedsTest 12.2 s,
+  BakeCollisionTest, BakeActorsTest and BakeMoversTest about 12 s. The
+  slowest src object in build/ was src/umat/Material.cpp at 9.8 s.
+  Windows CI has no compiler cache, so every push compiles all of it: its
+  build step was 4 min 47 s after UTA-0147's /MP.
+  Measure first which headers cost it (for example -ftime-trace on Clang,
+  or /d1reportTime on MSVC). Candidates: a precompiled header for the
+  test targets (Catch2 and the shared fixtures), and <regex> in
+  DumpCliTest.cpp. A PCH changes ccache's hit rules, so re-check the local
+  gate's 35 s warm run afterwards.
+  **Layman:** Each test file takes a long time to compile because it pulls in the same large headers again, which slows the Windows check on GitHub.
+  Kind: perf.
+  Source: user-request-2026-09-14 performance pass.
+  Lanes: tests, ci.
+
+- 📋 [UTA-0151] **Time each real-asset tier case, so the 20-minute bake case is measured rather than assumed.**
+  Noted 2026-09-14 (ut-ants-db). The tier's bake-name case (every map
+  takes a bake name and a stock map bakes the same twice) is recorded as
+  20+ minutes, and UTA-0103's filtered comparison ran the whole tier in
+  about 40 minutes at about 1 GB peak, but no per-case time exists.
+  Run it once with Catch2's --durations yes after UTA-0103 ships, record
+  the times here, and file what they show. The bake case is likely the
+  same texture work as the ut-bake item above, so a compressed-texture
+  cache would help both.
+  **Layman:** The slow real-game test suite has never had each of its checks timed, so nobody knows exactly which parts take the time.
+  Kind: investigate.
+  Source: user-request-2026-09-14 performance pass.
+  Lanes: tests.
 
 ## 0.2.0 — Movement and weapons
 
