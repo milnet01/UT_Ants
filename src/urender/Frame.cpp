@@ -52,11 +52,12 @@ constexpr VkFormat DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT;
 /// and B8G8R8A8 would swap two channels of it without failing anything else.
 constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 
-/// SS 4.10: fixed, with no adaptation. UTA-0156 measured it: 2.4 is the
-/// exposure whose displayed frames best match the original game's, over the
-/// fifteen PlayerStart views of DM-Deck16][ drawn from the same cameras (the
-/// fit gave 2.41). The method and its scripts are recorded on that roadmap item.
-constexpr float EXPOSURE = 2.4f;
+/// SS 4.10: fixed, with no adaptation. Measured, not chosen: the exposure whose
+/// displayed frames best match the original game's over DM-Deck16]['s
+/// PlayerStart views, drawn from the same cameras. UTA-0156 fitted 2.41 and set
+/// 2.4; UTA-0162's strip lights moved the fit to 3.05, and 3.0 has the lower
+/// block error of the two nearest. The method and scripts are on UTA-0156.
+constexpr float EXPOSURE = 3.0f;
 
 /// What identifies an uploaded bundle: the object, the size of every section
 /// this renderer uploads, and a hash of a bounded sample of their bytes.

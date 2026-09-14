@@ -9160,6 +9160,20 @@ model, no weapon and no opponent until 0.2.0.
   Design decided from the code: rows are detected once, in the bake.
   urender may not link ubake, and ubundle holds only section code, so a
   detector at load would be a second copy beside the two light models.
+  Built (2026-09-14, ut-ants-91), commit 275fcbe: spec
+  docs/specs/UTA-0162-strip-lights.md, INV-1 to INV-10. Unit label 550/550
+  and device label 33/33 on lavapipe, one local leg. 17 hand mutations,
+  one per part of the fix, each killed by its intended invariant.
+  Measured (spec section 7). DM-Deck16][ re-baked with
+  build/tools/ut-bake/ut-bake (report bakerVersion r12-f10), drawn from the
+  PlayerStart cameras and fitted with ut-ants-uta0156/compare.py against
+  orig-deck16. Output: ut-ants-uta0162/compare.txt. At the old exposure
+  2.41, block RMS fell from UTA-0156's 50.6 to 47.33 and mean displayed
+  luma from 63.0 to 56.8 (original 68.2): strips match the original's
+  frames better and draw darker, since a strip is as bright as one light
+  where overlapping pools used to add. The fit moved to 3.05, so EXPOSURE
+  is re-fitted: 3.0 gives block RMS 46.20 and mean 66.0, 3.1 gives 46.21.
+  Remaining before closing: EXPOSURE 3.0 lands, and CI on the matrix.
   **Layman:** Long ceiling strip lights should light a long strip of floor and wall, not a string of round spots.
   Kind: feature.
   Source: user-request-2026-09-14.

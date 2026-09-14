@@ -719,9 +719,9 @@ INV-10 measures the sampler and the store and reaches a fixed answer.
 
 **Exposure and tone mapping**, which UTA-0112 § 4.9 assigns here: a fixed
 exposure with no automatic adaptation, then the Khronos PBR Neutral tone map.
-**The exposure is 2.4, measured by UTA-0156** against the original game's
-frames: the original's client parked at each of DM-Deck16]['s fifteen
-PlayerStarts, and ut-shot drawing the same cameras. It was 1.0 until then,
+**The exposure is 3.0, measured by UTA-0156 and re-fitted by UTA-0162**
+against the original game's frames: the original's client parked at each of
+DM-Deck16]['s PlayerStarts, and ut-shot drawing the same cameras. It was 1.0 until then,
 chosen without that comparison, and drew the map about eight times too dark
 together with the light model UTA-0156 also replaced. Fixed rather than
 adaptive because a UT99 deathmatch map's brightness swings as the camera turns

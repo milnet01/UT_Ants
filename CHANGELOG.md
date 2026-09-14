@@ -21,7 +21,8 @@ appears once something has actually shipped.)
   The bake marks each row as one strip, led by its lowest-numbered light.
   The light model, cluster culling, shadows and the probe bake light
   from the strip's nearest point. Bundles move to format 10, so every
-  map must be baked again.
+  map must be baked again. Exposure is re-fitted to 3.0 against the
+  original game's frames, since strips drew the map darker.
 
 - **Parallax occlusion: baked surfaces show recessed depth from Medium tier up** (UTA-0040)
   Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
@@ -298,7 +299,7 @@ appears once something has actually shipped.)
 
 - **Maps draw far closer to the original game's brightness: lights reach as far as UT99's did, and the frame is exposed to match** (UTA-0156)
   Lights now use UE1's own falloff, full strength out to half their radius,
-  and its cylinder and non-incidence shapes. Exposure is 2.4, measured
+  and its cylinder and non-incidence shapes. Exposure is measured
   against the original game's frames from the same cameras on
   DM-Deck16][. Baker revision 11, so maps must be baked again.
 
