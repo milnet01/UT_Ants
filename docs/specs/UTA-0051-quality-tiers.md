@@ -68,9 +68,9 @@ enum class Tier : std::uint8_t { Low = 0, Medium = 1, High = 2, Ultra = 3 };
 struct Config {
     // ...existing fields...
     std::optional<Tier> tier;       ///< unset: chosen from the device (§ 4.3)
-    bool dynamicResolution = false; ///< § 4.4; off draws at scale 1
-    /// Fixes the render scale and bypasses the controller, clamped to the
-    /// tier's floor. For tests and diagnosis; unset in normal play.
+    bool dynamicResolution = false; ///< § 4.4's controller
+    /// Fixes the render scale, with or without `dynamicResolution`, clamped to
+    /// the tier's floor. For tests and diagnosis; unset in normal play.
     std::optional<double> fixedRenderScale;
 };
 
@@ -142,7 +142,8 @@ The renderer logs the tier at startup, and whether it was chosen or given.
 
 ### 4.4 Dynamic resolution
 
-**Off unless `Config::dynamicResolution` is set.** Off draws every frame at
+**Scaling applies when `Config::dynamicResolution` is set, or at the given
+scale when `Config::fixedRenderScale` is.** With neither, every frame draws at
 scale 1, exactly as `UTA-0014` does.
 
 **The scene draws into a region, and no target is resized.** `hdr`, `velocity`
@@ -158,10 +159,8 @@ and waits for the GPU to finish. It excludes `Swapchain::present`, because the
 swapchain uses `VK_PRESENT_MODE_FIFO_KHR`, so time between frames sits at the
 display's refresh whatever the GPU's headroom.
 
-**The controller is `nextRenderScale`.** It returns a scale in
-`[minimumRenderScale, 1]`. A frame slower than the target never raises the
-scale. A frame faster than half the target never lowers it. Its step size and
-damping are the implementation's.
+**The controller is `nextRenderScale`, and INV-5 states what it must do.** Its
+step size and damping are the implementation's.
 
 **No mip bias.** `UTA-0014` § 4.11's formula is for a temporal upscaler, which
 is `UTA-0076`.
@@ -201,18 +200,22 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
 
 - **INV-4** — the tier in use is `Config::tier` when set, else
   `defaultTier` of the chosen device, and `FrameStats::tier` reports it.
-  *Test:* `tests/device/RenderTiersTest.cpp`: `tier` set to High draws a frame
-  reporting High; unset reports `defaultTier` of the device the fixture chose.
-  *Breaks when:* the override is ignored, or the default is computed from
-  another device than the one chosen.
+  *Test:* `tests/device/RenderTiersTest.cpp`: `tier` set to Medium, then to
+  Ultra, draws a frame reporting that tier. Neither is Low, `FrameStats`'s
+  starting value, so only the override can produce it.
+  *Breaks when:* the override is ignored.
 
-- **INV-5** — `nextRenderScale` stays in `[minimumRenderScale, 1]`, stays at 1
-  for Ultra, never rises on a frame slower than the target, and never falls on a
-  frame faster than half the target.
-  *Test:* `tests/unit/RenderTiersTest.cpp`, feeding each tier a run of slow
-  frames, then a run of fast ones, and asserting each returned scale.
-  *Breaks when:* the bounds are not applied, or the comparison with the target
-  is reversed.
+- **INV-5** — `nextRenderScale` stays in `[minimumRenderScale, 1]`, and at 1
+  for Ultra. On Low, Medium and High, a frame slower than the target lowers a
+  scale above the floor, and a run of such frames reaches the floor within 120
+  calls. A frame faster than half the target raises a scale below 1, and a run
+  of them reaches 1 within 120 calls. A slow frame never raises the scale, and a
+  fast one never lowers it.
+  *Test:* `tests/unit/RenderTiersTest.cpp`, feeding each tier 120 frames at
+  twice the target, then 120 at a quarter of it, and asserting each returned
+  scale.
+  *Breaks when:* the bounds are not applied, the comparison with the target is
+  reversed, or the scale does not move.
 
 - **INV-6** — with `dynamicResolution` off and no `fixedRenderScale`, every
   frame reports `renderScale` 1 and draws as `UTA-0014` does.
@@ -223,12 +226,12 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
 - **INV-7** — at a scale below 1 the output is the whole scene, stretched to
   `W` × `H`.
   *Test:* `tests/device/RenderTiersTest.cpp`: a fixture filling the view's left
-  half red and its right half blue, drawn at `fixedRenderScale` 0.5 on Low.
-  `readback(Colour)` is `W` × `H`, with red at (`W`/4, `H`/2) and blue at
-  (3`W`/4, `H`/2). Only the stretch puts red at the first point; an unstretched
-  region leaves it outside the drawn pixels.
+  half red and its right half blue, drawn at `fixedRenderScale` 0.5 on Low. The
+  frame reports `renderScale` 0.5, and `readback(Colour)` is `W` × `H`, with red
+  at (`W`/4, 3`H`/4) and blue at (3`W`/4, 3`H`/4). Both points lie below an
+  unstretched half-size region, so only the stretch colours them.
   *Breaks when:* the post stage reads the whole target instead of the region, or
-  the region is not drawn at the reduced size.
+  the fixed scale is not applied.
 
 - **INV-8** — `readback(Velocity)` is refused with `InvalidArgument` after a
   frame drawn at a scale below 1.
@@ -242,9 +245,8 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
 - **The GPU cannot hold the target even at the floor.** The scale stays at the
   floor and the frame rate falls. `FrameStats` shows both, which is what
   `UTA-0039`'s frame-rate floor measures.
-- **Frame times jitter around the target.** The rule that a frame between half
-  the target and the target moves nothing is the dead band. How far the scale
-  steps is the implementation's.
+- **Frame times jitter around the target.** INV-5 fixes only which way the scale
+  moves. Damping, so the scale does not hunt, is the implementation's.
 - **A window a few pixels wide at a low scale.** The region is at least 1 × 1,
   per § 4.4.
 - **An unknown `--tier` name.** `ut-ants` refuses it with exit code 2 and the
@@ -292,6 +294,7 @@ with the stretch removed and the region kept, which is the mistake it is for.
 | INV-1, INV-2, INV-3, INV-5 | `tests/unit/RenderTiersTest.cpp` |
 | INV-4, INV-7, INV-8 | **Partial:** `tests/device/RenderTiersTest.cpp`, on the Linux legs; the Windows leg installs no Vulkan driver and runs none of it |
 | INV-6 | **Partial:** `tests/device/RenderOffscreenTest.cpp`, on the Linux legs; not on Windows, for the same reason |
+| INV-4, the tier chosen when none is given | **nothing** on CI — Mesa's CPU driver reports a CPU device, whose default is Low, and Low is also `FrameStats`'s starting value, so a renderer that never chooses still passes |
 | § 4.1, a feature reading its tier only through `enabled` | **nothing** — no check looks for a feature reading `Config` directly |
 | § 4.1, `minimumTier` covering every `Feature` | **nothing** — the build enables no warning flags, so a missing case compiles silently |
 | § 4.3, the thresholds matching real cards | **nothing** — measured only on this machine's card; no small card is on hand |
