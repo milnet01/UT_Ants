@@ -9,6 +9,9 @@ leg, and INV-7 gaining the half of the substitution rule nothing tested. The
 amendment needs no change to INV-7's own fixture; the gap INV-7 now names
 does. No code implements the amendment yet, and the gate ran before it, per
 CLAUDE.md rule 14. The measurements behind it are on ROADMAP UTA-0133.
+Amended for UTA-0139 (2026-09-14): each exit's `noRoute` word (§ 4.3, § 4.6's
+teleporters, § 4.7's Why no route, INV-14). Gate pending; no code implements
+it yet. The measurements behind it are on ROADMAP UTA-0139.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -173,7 +176,7 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
   "group": "EXIT_OFF_NET",
   "moverOnly": false,
   "exits": [
-    {"x": 1024, "y": -512, "z": 96, "route": "found", "offWorld": false}
+    {"x": 1024, "y": -512, "z": 96, "route": "found", "offWorld": false, "noRoute": null}
   ],
   "nodes": [
     {"x": 400, "y": -300, "z": 39}
@@ -194,6 +197,12 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
   map may be `found` or `mover` from the fallback goal. So it is the mark and
   not the route that tells a consumer the exit is off the world. `schema`
   stays 1: a field is added and nothing already written changes meaning.
+- **`noRoute`** is written after `offWorld` on every exit. It is `null` unless
+  the exit's route is `none`, and then one word from § 4.7's Why no route:
+  `startOffGraph`, `exitOffGraph`, `teleporter`, `mover` or `walled`. It names
+  what this tool's walk graph meets, not the map's cause. It is independent of
+  `offWorld`: an off-world exit whose route is `none` carries both. `schema`
+  stays 1, for `offWorld`'s reason.
 - **`moverOnly`** is true exactly when no exit's route is `found` and at least
   one is `mover`.
 - **`nodes`** are the proposed positions, exit by exit, each exit's in route
@@ -276,6 +285,9 @@ A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
   Ancestry comes from `ubake::buildActors`, so an exit is found whatever
   package declares its class. An actor the level names in two slots is one
   exit, as `buildActors` places it once (UTA-0110 § 4.5 step 1, UTA-0124).
+- **The teleporters** are the actors whose class descends from
+  `Engine.Teleporter`, in the level's actor order, each once, as the exits
+  are. Whether one is enabled, and where it leads, is not read.
 - **Positions** are each actor's resolved `Location`: its own property, else
   its class default (`ubake::detail::resolvedRecord`).
 - **Off the world.** An exit is off the world when any coordinate of its
@@ -316,13 +328,18 @@ struct Scene {
     Vec3 start{};
     std::vector<Cylinder> exits;                             ///< Location and collision size
     std::vector<Box> movers;                                 ///< world boxes
+    std::vector<Vec3> teleporters;                           ///< each teleporter's Location
 };
 
 enum class Route { Found, Mover, None };
 
+/// SS 4.7's Why no route; `Routed` for an exit whose route is not `None`.
+enum class NoRoute { Routed, StartOffGraph, ExitOffGraph, Teleporter, Mover, Walled };
+
 struct Proposal {
-    std::vector<Route> routes;  ///< one per exit, in `Scene::exits` order
+    std::vector<Route> routes;      ///< one per exit, in `Scene::exits` order
     std::vector<Vec3> nodes;
+    std::vector<NoRoute> noRoutes;  ///< one per exit, in `Scene::exits` order
 };
 
 [[nodiscard]] Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
@@ -353,6 +370,24 @@ struct Proposal {
   network reaches the point nearest the exit, and the chain reaches the exit's
   own spots or the route is not `found`. First with mover spots removed; a path
   found is `found`. Else with them kept; a path found is `mover`. Else `none`.
+- **Why no route.** An exit whose route is `found` or `mover` is `Routed`. For
+  one whose route is `none`, the first of these that holds names it:
+  1. `startOffGraph`: the search has no source, since neither the start nor
+     any node of its part is placed on the walk graph.
+  2. `exitOffGraph`: the exit has no goal spot, since no spot touches it and
+     no fallback goal is offered.
+  3. `teleporter`: a teleporter is placed (§ 4.6) on a spot in the start's
+     region or the exit's region.
+  4. `mover`: a mover spot is in either region.
+  5. `walled`: none of the above.
+
+  The start's region is every spot the walk graph joins, mover spots kept, to
+  a source. The exit's region is every spot it joins, mover spots kept, to a
+  goal spot, a fallback goal included. A teleporter placed on no spot is in
+  neither. The word names what this model meets, not the map's cause: a
+  teleporter lying between the two regions is in neither, and a staircase the
+  walk graph splits (ROADMAP UTA-0123) reads `walled`. `teleporter` comes
+  before `mover` because a region holding both is the more specific case.
 - **Hops.** A hop from one position to another is allowed when it is at
   most 350 long; its three segments at § 4.5's heights trace clear; its
   centre segment, grown by `R` across and `H` up and down, meets no mover's
@@ -568,6 +603,32 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   outright, which turns the first scene's economical bridge into a chain run
   all the way through the exit's part.
 
+- **INV-14** — Every exit whose route is `none` carries the first word of
+  § 4.7's Why no route that holds, and every other exit carries `null`.
+  *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose` then `toJson`.
+  INV-5's corridor with no wall writes `null`. INV-6's walled corridor writes
+  `walled`. That corridor with a teleporter on a spot of the start's side
+  writes `teleporter`, and again with the teleporter on the exit's side
+  instead. That corridor with a mover box over spots of the start's side, not
+  across the wall, writes `mover`; with both that box and a teleporter it
+  writes `teleporter`. A teleporter inside solid, placed on no spot, leaves
+  the walled corridor `walled`. Not partitioned, an exit at the world corner
+  writes `exitOffGraph`. INV-12's partitioned scene, with its corridor cut
+  between the two parts, offers the corner exit a fallback goal it cannot
+  reach, and writes `walled`, not `exitOffGraph`. A scene whose start and
+  network lie inside solid writes `startOffGraph`, with the corner exit too.
+  A second leg runs through `sceneOf` over a map built with
+  `tests/unit/BakeFixture.h`, carrying an actor of a class the map declares
+  under `Engine.Teleporter`, whose `Location` is its class default:
+  `Scene::teleporters` holds that Location.
+  *Breaks when:* a word is written on a `found` or `mover` route; the exit's
+  region is not searched, which the exit-side teleporter catches; `mover`
+  comes before `teleporter`; a teleporter placed on no spot counts; the
+  fallback goal is left out of `exitOffGraph`'s test, which the cut INV-12
+  scene catches; `exitOffGraph` is tested before `startOffGraph`; or a
+  teleporter is found by class name rather than ancestry, or read from its
+  own property alone.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -577,7 +638,7 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 | `buildCollision` refuses the level's `Model` | That map is refused, naming the node |
 | The map has no PlayerStart, or no MonsterEnd | That map is refused |
 | An exit is off the world (§ 4.6) | `offWorld` is true; it is searched like any other and keeps § 4.7's route. Its map is `EXIT_OFF_NET` by § 2 item 1's definition unless a second exit is near the network, so that route is `none` |
-| Neither the start nor any node of its part is on the walk graph | Every exit's route is `none` |
+| Neither the start nor any node of its part is on the walk graph | Every exit's route is `none`, and its `noRoute` is `startOffGraph` |
 | A mover's tree or shape refuses | That map is refused, naming the actor |
 | The out directory cannot be written | That map is refused; the others go on |
 
@@ -586,10 +647,11 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 **Unit, on every CI leg:** `tests/unit/CoreMd5Test.cpp` for INV-1;
 `tests/unit/PathTraceTest.cpp` for INV-2; `tests/unit/PathWalkableTest.cpp`
 for INV-3 and INV-4; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
-INV-8, INV-9, INV-10, INV-11, INV-12 and INV-13.
+INV-8, INV-9, INV-10, INV-11, INV-12, INV-13 and INV-14.
 Each is seen failing before the code it locks exists. Trees and scenes are
 built in memory, with `tests/unit/PathFixture.h`, so only INV-9, INV-10,
-INV-11 and INV-12's second leg need an install or a fixture map.
+INV-11, and the second legs of INV-12 and INV-14, need an install or a fixture
+map.
 
 **Real-asset tier, local only:** `tests/real/RealPathSeedsTest.cpp` runs over
 every map in the install holding a MonsterEnd. It prints `Botpack.TMale1`'s
@@ -617,7 +679,11 @@ of the route; force an off-world exit's route to `none`; read the mark from
 the actor's own property alone; offer the fallback goal on the network's reach
 alone, without a navigation point touching the exit; key it on the navigation
 point nearest the exit rather than one that touches it; compare that touch as
-a 3D distance rather than § 4.6's cylinder. Each must be killed by the
+a 3D distance rather than § 4.6's cylinder; write a `noRoute` word on a
+routed exit; skip the exit's region; put `mover` before `teleporter`; count a
+teleporter placed on no spot; leave the fallback goal out of `exitOffGraph`;
+test `exitOffGraph` before `startOffGraph`; find a teleporter by class name;
+read a teleporter's own `Location` alone. Each must be killed by the
 invariant that names it.
 
 ## 8. Alternatives considered (and rejected)
@@ -635,8 +701,11 @@ invariant that names it.
 
 ## 9. Out of scope
 
-- Lifts, teleporters and shot triggers — UT_MonsterHunt's GAME-0001, GAME-0004
-  and GAME-0053.
+- Routing through lifts, teleporters and shot triggers — UT_MonsterHunt's
+  GAME-0001, GAME-0004 and GAME-0053. Naming a teleporter or a mover as what
+  a region meets is § 4.7's; following one is not.
+- A `noRoute` word in `ut-paths-summary.json`. A map's exits can carry
+  different words, and the per-map file already holds each.
 - Their `PAWN_ANCHORED_NO_ROUTE` group — unexplained, and no node is known to
   help it (ROADMAP UTA-0121).
 - Maps outside § 4.2's work groups. No per-map file is written for them, so
@@ -656,7 +725,7 @@ invariant that names it.
 | INV-1 | `tests/unit/CoreMd5Test.cpp`, a unit test |
 | INV-2 | `tests/unit/PathTraceTest.cpp`, a unit test |
 | INV-3, INV-4 | `tests/unit/PathWalkableTest.cpp`, a unit test |
-| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11, INV-12, INV-13 | `tests/unit/PathSeedsTest.cpp`, a unit test |
+| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11, INV-12, INV-13, INV-14 | `tests/unit/PathSeedsTest.cpp`, a unit test |
 | § 3 decisions 4 and 6 hold on real maps | **Partial:** `tests/real/RealPathSeedsTest.cpp` prints them; no CI leg runs it |
 | Proposed nodes help a bot reach the exit | **nothing** here — UT_MonsterHunt's census re-run (GAME-0095) is the measure |
 
@@ -672,6 +741,11 @@ invariant that names it.
   GAME-0097, ROADMAP UTA-0127). Agreed with them 2026-09-12; their parser
   does not read the field yet, and `schema` staying 1 is what lets it go on
   working until it does.
+- UT_MonsterHunt asked for `noRoute` on their GAME-0095, to send each
+  no-route map to a fix by cause: their GAME-0001 for lifts, GAME-0004 for
+  teleporters, ROADMAP UTA-0123 for stairs (ROADMAP UTA-0139). Their
+  `analysis/seedpaths.py` reads `md5` and `nodes` only, so the new key breaks
+  nothing there.
 
 ## 12. Cold-eyes loop log
 

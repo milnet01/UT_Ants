@@ -7954,7 +7954,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-12.
   Lanes: urender, tests.
 
-- 📋 [UTA-0139] **ut-paths: a map with no route does not say what separates its start from its exit.**
+- 🚧 [UTA-0139] **ut-paths: a map with no route does not say what separates its start from its exit.**
   Asked by UT_MonsterHunt on GAME-0095, 2026-09-13. Their plan routes
   each no-route map to a fix by cause: GAME-0001 for lifts, GAME-0004
   for teleporters, and our UTA-0123 for stairs.
@@ -7995,6 +7995,10 @@ model, no weapon and no opponent until 0.2.0.
   review-contract gate, then build. The three teleporter maps
   UT_MonsterHunt named on GAME-0004 are the test cases. Agreeing the
   wording with them first was offered and not chosen.
+  Picked up (2026-09-14) by ut-ants-c1, main checkout. UTA-0103 and
+  UTA-0126 are 🚧 but parked on Waiting-on:, so neither counts. The only
+  live peer in ListAgents is ants-terminal-ea, another project. Next step:
+  amend UTA-0121 § 4.3, gate it, then build.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.
