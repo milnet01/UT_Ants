@@ -8153,7 +8153,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
   Lanes: ubake.
 
-- 🚧 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
+- 📋 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
   Found 2026-09-14 by UT_MonsterHunt, answering UTA-0139. Measured
   with ut-dump --nav-graph at 99a15b0: teleporter-to-teleporter reach
   specs carry reachFlags 32 (R_SPECIAL), collisionRadius 150 and
@@ -8185,6 +8185,29 @@ model, no weapon and no opponent until 0.2.0.
   the census only: which census maps' start part crosses an R_SPECIAL
   edge whose teleporter at either end starts bEnabled=False. Any fix is
   a § 3 decision 10 amendment and goes through rule 14's gate.
+  Census done (2026-09-14, ut-ants-c1, main checkout). The claim covered
+  the census only, so this returns to planned; the fix is not started.
+
+  A scratch probe including the real Seeds.cpp rebuilds the network as
+  sceneOf does, refusing any map where the node order or edge set differs.
+  It reaches from the start's node twice: once over every kept edge, once
+  with the R_SPECIAL edges at a bEnabled=False teleporter removed.
+  Checked against UT_MonsterHunt's T3D reading on three maps, and against
+  a positive control that treats every teleporter as disabled. Files and
+  build command: /mnt/Games/Scripts/Linux/ut-paths-output-uta0142.
+
+  Over all 559 maps of their routecensus-split-offline-2026-09-13.tsv:
+  all ran, no errors. 327 maps have a teleporter, 91 have one starting
+  disabled, and 24 have a start part that CROSSES one. That crossing
+  costs from 1 to 785 nodes. Only MH-BunchOfHPSBFix loses a node that
+  touches an exit. The 24 are in crossing.tsv there, and were sent to
+  UT_MonsterHunt (their GAME-0120).
+
+  Not established: whether those teleporters are enabled later by a
+  trigger. Disabled at start is not disabled for the round. So the 24 are
+  maps where a bot at map start cannot take a link our network step
+  follows, not maps our output is wrong for. Any change to § 3 decision
+  10 needs that distinction settled first.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
