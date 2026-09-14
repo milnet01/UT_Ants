@@ -1348,7 +1348,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: ugame, uui.
 
-- 🚧 [UTA-0040] **urender: parallax occlusion mapping on baked surfaces.**
+- ✅ [UTA-0040] **urender: parallax occlusion mapping on baked surfaces.**
   POM steps a ray through the height map umat already generates (UTA-0009), so
   the input exists and this is the renderer half.
   Three decisions it must make rather than leave open, because each changes what
@@ -1377,6 +1377,20 @@ model, no weapon and no opponent until 0.2.0.
   spec with no review, at docs/specs/UTA-0040-parallax-occlusion.md, then
   build under write-code. Research with sources is kept outside the
   repository at /mnt/Games/Scripts/Linux/ut-ants-uta0040-research.md.
+  Shipped 2026-09-14 in 06fd05f, green on the matrix (run 34863331392).
+  Spec docs/specs/UTA-0040-parallax-occlusion.md, short and unreviewed by
+  the user's ruling. Each MATS record carries a parallaxDepth byte (format
+  9, baker revision 7): 4 texels for a generated material, 0 for a #masked
+  variant, overridable by a curated entry and covered by the library
+  digest. Parallax is the first tier feature, from Medium, with step
+  counts Medium 8-16, High 8-32, Ultra 16-48 as specialization constants.
+  The device test views a stepped square from both sides, since at its
+  depth a wrong-way march wraps into the picture's repeat; the wrong-way
+  march, an ignored depth and steps on Low each fail it. DM-Deck16][ drew
+  at Medium and High under the validation layer with no error. At 1280x720
+  the cost is within run-to-run spread at Low and Medium and at most about
+  1 ms at High and Ultra; not measured at 4K. No curated entry sets a depth
+  yet, which UTA-0157's light fixtures are the first candidate for.
   **Layman:** Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
   Kind: implement.
   Source: user-request-2026-09-03.
@@ -8794,7 +8808,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: urender.
 
-- 📋 [UTA-0155] **ubake: bake a texture whose palette lives in another package.**
+- 🚧 [UTA-0155] **ubake: bake a texture whose palette lives in another package.**
   The user flew DM-Deck16][ on 2026-09-14 and found no acidic liquid in
   its pits. The bake's own report says why: bake.json's skipped list holds
   one material, hubeffects.goop3, with "its palette is not an export of
@@ -8809,6 +8823,16 @@ model, no weapon and no opponent until 0.2.0.
   materials skip for this reason, which says how many maps lose a surface.
   That goop3 is the pits' liquid is the likely reading, not yet confirmed
   against the surfaces that wear it.
+  Claimed 2026-09-14 by session ut-ants-e9, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). No spec: a fix inside ubake that
+  changes no format, which spec-format.md section 1 names as the skip case.
+  Plan: census the reference install for materials skipped with "its
+  palette is not an export of its own package"; then resolve an imported
+  palette through the install resolver as siteOf in src/ubake/Bake.cpp
+  already resolves an imported texture; test it red first with a fixture
+  whose palette lives in another package; re-bake DM-Deck16][ and confirm
+  hubeffects.goop3 is no longer skipped. HubEffects imports Engine, Fire,
+  GenFX and genfluid, so the palette is likely in one of the last three.
   **Layman:** The green acid pools in maps like DM-Deck16][ are missing because their texture's colours are stored in a different file; read them from there.
   Kind: fix.
   Source: user-request-2026-09-14.

@@ -5,13 +5,13 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0040` (parallax occlusion), then `UTA-0155` and `UTA-0156`
-(the skipped acid texture, and brightness). The user set that order
-2026-09-14 after flying DM-Deck16][, and leaves how it looks to research and
-measurement, to be reviewed later over real matches. The user ruled
-`UTA-0040` gets a short spec with no review; research for it is kept outside
-the repository at `ut-ants-uta0040-research.md`. `UTA-0153`, `UTA-0154` (AMD
-FSR 1) and `UTA-0158` (the camera stops at walls) shipped the same day.
+**Next:** `UTA-0155` (the acid texture the bake skips), then `UTA-0156`
+(brightness). The user set that order 2026-09-14 after flying DM-Deck16][,
+and leaves how it looks to research and measurement, to be reviewed later
+over real matches. `UTA-0153`, `UTA-0154` (AMD FSR 1), `UTA-0158` (the camera
+stops at walls) and `UTA-0040` (parallax occlusion, spec
+`docs/specs/UTA-0040-parallax-occlusion.md`) shipped the same day. A bundle is
+format 9 since `UTA-0040`, so a map baked before it must be baked again.
 `UTA-0015` can now take a tier from `UTA-0051`, plus a look at the result. `UTA-0142` (24 maps cross a teleporter that starts disabled) waits
 on UT_MonsterHunt's in-game re-check. Read the open `0.1.0` bodies before
 picking — `UTA-0082` records items deferred out of that release's cut.
