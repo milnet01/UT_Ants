@@ -17,6 +17,7 @@
 const uint LE_STATIC_SPOT = 8u;
 const uint LE_SPOTLIGHT = 12u;
 const uint LE_NON_INCIDENCE = 13u;
+const uint LE_CYLINDER = 17u;
 
 const float TWO_PI = 6.283185307179586;
 
@@ -42,11 +43,12 @@ float lightRadius(uint radius) {
     return 25.0 * float(radius + 1u);
 }
 
+// UE1's falloff -- UTA-0156: full strength out to half the radius, then down.
 float lightFalloff(float distance, float radius) {
     if (distance >= radius) return 0.0;
-    float x = distance / radius;
-    float t = 1.0 - x * x;
-    return t * t;
+    if (distance <= 0.0) return 1.0;
+    float v = distance / radius;
+    return min(1.0, (1.0 + 2.0 * v * v * v - 3.0 * v * v) / v);
 }
 
 // UTA-0119 SS 4.5's Y * P * R applied to +X; roll does not move it.
@@ -58,11 +60,21 @@ vec3 lightDirection(int pitch, int yaw) {
 
 // The light `light` puts on a surface at `x` with unit normal `n`, with no
 // shadow test: colour, times brightness / 255, times the falloff, times the
-// incidence, times the spot factor.
+// incidence, times the spot factor. LE_Cylinder and LE_NonIncidence replace
+// the falloff and drop the other factors (UTA-0156).
 vec3 lightAt(Light light, vec3 x, vec3 n) {
     vec3 toLight = light.location - x;
     float d = length(toLight);
-    float f = lightFalloff(d, lightRadius(light.radius));
+    float radius = lightRadius(light.radius);
+    vec3 colour = lightColour(light.hue, light.saturation) * (float(light.brightness) / 255.0);
+
+    // UTA-0156: UE1's two effects that change the falloff's shape; neither has
+    // an incidence term. A cylinder is bounded horizontally only.
+    if (light.effect == LE_CYLINDER)
+        return colour * max(0.0, 1.0 - dot(toLight.xy, toLight.xy) / (radius * radius));
+    if (light.effect == LE_NON_INCIDENCE) return colour * max(0.0, 1.0 - d / radius);
+
+    float f = lightFalloff(d, radius);
     if (f == 0.0) return vec3(0.0);
 
     // At the light itself there is no direction: both factors are 1.
@@ -77,7 +89,7 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
             spot = clamp((dot(lightDirection(light.pitch, light.yaw), -l) - c) / (1.0 - c), 0.0, 1.0);
         }
     }
-    return lightColour(light.hue, light.saturation) * (float(light.brightness) / 255.0 * f * incidence * spot);
+    return colour * (f * incidence * spot);
 }
 
 #endif

@@ -14,6 +14,7 @@ namespace {
 constexpr std::uint8_t LE_STATIC_SPOT = 8;
 constexpr std::uint8_t LE_SPOTLIGHT = 12;
 constexpr std::uint8_t LE_NON_INCIDENCE = 13;
+constexpr std::uint8_t LE_CYLINDER = 17;
 
 /// IEC 61966-2-1's decoding of each 8-bit value: with c = byte / 255, c / 12.92
 /// at or below 0.04045, else ((c + 0.055) / 1.055)^2.4. Generated offline and
@@ -112,16 +113,29 @@ double lightRadius(std::uint8_t radius) noexcept {
 
 double falloff(double distance, double radius) noexcept {
     if (distance >= radius) return 0;
-    const double x = distance / radius;
-    const double t = 1 - x * x;
-    return t * t;
+    if (distance <= 0) return 1;
+    const double v = distance / radius;
+    return std::min(1.0, (1 + 2 * v * v * v - 3 * v * v) / v);
 }
 
 Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept {
     const Vec3 location{light.location[0], light.location[1], light.location[2]};
     const Vec3 toLight = location - x;
     const double d = length(toLight);
-    const double f = falloff(d, lightRadius(light.radius));
+    const double radius = lightRadius(light.radius);
+    const Rgb colour = lightColour(light.hue, light.saturation);
+    const double intensity = light.brightness / 255.0;
+    const auto scaled = [&colour](double s) { return Rgb{colour.r * s, colour.g * s, colour.b * s}; };
+
+    // UTA-0156: UE1's two effects that change the falloff's shape; neither has
+    // an incidence term. A cylinder is bounded horizontally only: cut at the
+    // sphere, it drew hard-edged discs on floors below the light, which the
+    // original's frames do not show.
+    if (light.effect == LE_CYLINDER)
+        return scaled(intensity * std::max(0.0, 1 - (toLight.x * toLight.x + toLight.y * toLight.y) / (radius * radius)));
+    if (light.effect == LE_NON_INCIDENCE) return scaled(intensity * std::max(0.0, 1 - d / radius));
+
+    const double f = falloff(d, radius);
     if (f == 0) return {};
 
     // At the light itself there is no direction: both factors are 1.
@@ -137,9 +151,7 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
         }
     }
 
-    const Rgb colour = lightColour(light.hue, light.saturation);
-    const double scale = light.brightness / 255.0 * f * incidence * spot;
-    return {colour.r * scale, colour.g * scale, colour.b * scale};
+    return scaled(intensity * f * incidence * spot);
 }
 
 double linearOf(std::uint8_t srgb) noexcept {

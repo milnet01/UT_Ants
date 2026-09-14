@@ -714,10 +714,12 @@ the transfer at all. `linearOutput` skips the output stage and nothing else, so
 INV-10 measures the sampler and the store and reaches a fixed answer.
 
 **Exposure and tone mapping**, which UTA-0112 § 4.9 assigns here: a fixed
-exposure of 1.0 with no automatic adaptation, then the Khronos PBR Neutral tone
-map. The draft asked for § 4.3's unit surface to reach display white; PBR
-Neutral stores it as 255 only from an exposure of about 13.5, which washes out
-every surface below the unit one. Fixed rather than
+exposure with no automatic adaptation, then the Khronos PBR Neutral tone map.
+**The exposure is 2.1, measured by UTA-0156** against the original game's
+frames: the original's client parked at each of DM-Deck16]['s fifteen
+PlayerStarts, and ut-shot drawing the same cameras. It was 1.0 until then,
+chosen without that comparison, and drew the map about eight times too dark
+together with the light model UTA-0156 also replaced. Fixed rather than
 adaptive because a UT99 deathmatch map's brightness swings as the camera turns
 and an auto-exposure that chases it makes aiming harder; PBR Neutral rather
 than ACES because ACES shifts saturated hues, and a 1999 palette is mostly

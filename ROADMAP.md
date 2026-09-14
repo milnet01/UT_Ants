@@ -8929,6 +8929,32 @@ model, no weapon and no opponent until 0.2.0.
   with each zone's ZoneInfo reference. Cheapest route under review: add
   each zone's ambient to the light probes inside it at bake time, so
   surfaces and actors both receive it with no new section.
+  Progress (2026-09-14, ut-ants-35). Measured, not judged by eye. The
+  original's own client ran silently on a private Xvfb display from a
+  symlinked install copy with its own preference tree, so neither the live
+  install nor UT_MonsterHunt's trees were touched. A mutator, UTAShot,
+  parked the view at each of DM-Deck16]['s 15 PlayerStarts, logged the
+  camera and took the engine's gamma-corrected shot. A new tool,
+  tools/ut-shot, draws the same cameras headlessly. compare.py fits
+  exposure through PBR Neutral over 40-pixel block means. Scripts and
+  frames: /mnt/Games/Scripts/Linux/ut-ants-uta0156/.
+  Findings. Mean displayed luma was 9 of 255 against the original's 72.
+  Both games load the same 231 lights, so nothing was missing. The cause
+  was the light model: 174 of them are LE_Cylinder, which was baked as a
+  sphere, and UE1's falloff holds full strength to half the radius where
+  ours faded at once. UE1's formulas were taken from SurrealEngine
+  (Light/LightEffect.cpp). With them, mean luma at exposure 1 rose to 38,
+  and the best exposure fell from about 13 to 2.1. The per-view spread
+  narrowed from 3-47x to 0.85-7x. Cutting cylinder light at the sphere
+  drew hard discs on floors below it, so it has no vertical bound.
+  Zone ambient is 0 in every DM-Deck16][ zone the mutator logged, so it
+  explains nothing on this map. Baked probes carry 2% of the light; 85%
+  of triangle area has a probe corner. At exposure 2.1 our darkest areas
+  already read brighter than the original's (block means 52 vs 18), and
+  an indirect-strength multiplier from 1x to 32x moves the fit error only
+  51 to 48. So the fit cannot choose one, and indirect stays physical.
+  Still open in this item: carrying ZoneInfo ambient into the bundle, for
+  maps that use it; and the square blotches in cells with no probe.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.
@@ -9023,6 +9049,31 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-14.
   Lanes: apps, uworld, ubake.
+
+- 📋 [UTA-0161] **Glowing surfaces light their surroundings: acid, nuclear waste and television screens.**
+  The user asked on 2026-09-14, while UTA-0156 was being worked:
+  "please include emissive lighting. Like certain pools of acid or
+  nuclear waste should glow", and "Television screens should be emissive
+  light sources as well."
+
+  Materials already carry an emit map, and the renderer draws it. What is
+  missing is the light a glowing surface throws onto what is near it.
+
+  Cheapest route first: the probe bake (UTA-0112) gathers an emissive
+  surface's radiance as it gathers a lit one, so nearby walls take the
+  glow's colour with no per-frame cost. Bloom (UTA-0053) makes the surface
+  itself read as bright. Which surfaces count comes from the emit map, or
+  for a liquid from its surface flags (UTA-0009); census the corpus first.
+
+  Not UTA-0157, which gives light FIXTURES depth, and not UTA-0105, which
+  makes liquids move. A screen whose picture changes (ScriptedTexture)
+  glows with its still picture until UTA-0105 lands.
+  User direction (2026-09-14): cheapest methods that still look modern
+  first; fully modern features after.
+  **Layman:** Pools of acid, nuclear waste and TV screens should glow and cast their colour onto nearby walls and floors.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: ubake, urender, umat.
 
 ## 0.2.0 — Movement and weapons
 
@@ -10536,6 +10587,49 @@ docs/standards/versioning-overrides.md. Closes S8.
   **Layman:** On graphics cards with little memory, the lowest quality settings could load slightly blurrier textures so big maps still fit.
   Kind: perf.
   Source: user-request-2026-09-14 UTA-0051 scope.
+  Lanes: urender.
+
+- 📋 [UTA-0160] **urender: many shadow-casting lights at once, as UE5's MegaLights does.**
+  The user asked on 2026-09-14, while UTA-0156 was being worked, for
+  coloured lighting and "possibly mega-lights (UE5 term)". Coloured light
+  already reaches the frame: every light's hue and saturation are baked
+  and drawn. MegaLights is Unreal Engine 5's name for shading many
+  shadowed lights per frame by sampling a few per pixel and denoising.
+
+  Today the renderer caps lights per cluster and shadowing lights in its
+  atlas, and FrameStats reports what each frame gave up
+  (overflowedClusters, unshadowedLights). Measure those over the map
+  library before choosing a method.
+
+  A fully modern feature, so it comes after the first iteration's
+  cheapest-that-looks-modern pass (user direction, 2026-09-14). Placed
+  under 1.0.0 as a starting point; the release is the user's call.
+  User (2026-09-14): "For MegaLights please see how my DOOM Ants project
+  has implemented it: /mnt/Games/Scripts/Linux/DOOM_Ants/". Its matching
+  research and specs are docs/research/DOOM-0092-restir-cost-benefit.md
+  and docs/specs/DOOM-0009-path-tracer.md, which use ReSTIR and ray
+  tracing. Constraint to settle first: docs/design.md, section What this
+  rules out, says "ray tracing is neither required nor planned", and no
+  feature may assume rays are available. A ray-traced route needs that
+  line changed, which is the user's decision; a raster route (many
+  lights sampled per pixel with shadow maps) does not.
+  What DOOM_Ants shipped (read 2026-09-14): not ReSTIR. A compute-shader
+  path tracer (linuxdoom-1.10/shaders/pathtrace.comp, pt_common.glsl
+  shadeSurface) with inline ray queries, gated on VK_KHR_ray_query and
+  VK_KHR_acceleration_structure in RB_VulkanProbe. Wall and floor lights
+  are sampled by brightness; sprite lights are culled by the map's REJECT
+  table (DOOM-0119), then one is chosen per pixel by RIS with no
+  reservoirs (DOOM-0120), with SVGF denoising and TAAU. Measured on an
+  RX 6600 at 50% scale: path tracing time stopped growing with light
+  count, 36-57 fps. Full ReSTIR (DOOM-0192) was deferred:
+  "build the cheap ladder first". Its raster fallback (DOOM-0170) has
+  baked probes, up to 16 unshadowed point lights per area, and a shadow
+  map for the flashlight only. So a route for this project without rays
+  takes the cheap ladder's IDEA -- cull, then sample a few lights per
+  pixel by importance -- and applies it to shadow-mapped lights.
+  **Layman:** A room full of lamps should light and shadow everything at once without slowing the game down.
+  Kind: feature.
+  Source: user-request-2026-09-14.
   Lanes: urender.
 
 ## After 1.0.0

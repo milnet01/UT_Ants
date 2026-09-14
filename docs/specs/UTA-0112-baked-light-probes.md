@@ -192,10 +192,18 @@ struct Rgb {
   default `LightSaturation=255` a white light.
 - **Intensity** is `brightness / 255`.
 - **Radius.** `R = 25 × (radius + 1)`, `AActor::WorldLightRadius`.
-- **Falloff.** `(1 − (d / R)²)²` for a distance `d` below `R`; `0` at `R` and
-  beyond.
+- **Falloff.** With `v = d / R` for a distance `d` below `R`:
+  `min(1, (1 + 2v³ − 3v²) / v)`, which is `1` out to half the radius; `1` at
+  the light; `0` at `R` and beyond. This is UE1's own shape, as SurrealEngine's
+  `Light/LightEffect.cpp` carries it. It replaced `(1 − (d / R)²)²` on
+  2026-09-14 (UTA-0156), which measured far darker than the original game.
+- **Two effects reshape it**, both with no incidence or spot factor (UTA-0156,
+  from the same source). `LE_Cylinder` (17) is `max(0, 1 − (dx² + dy²) / R²)`,
+  the horizontal distance alone, with no vertical bound: cut at `R`, it drew
+  hard-edged discs on floors below the light that the original's frames do
+  not show. `LE_NonIncidence` (13) is `max(0, 1 − d / R)`.
 - **Incidence.** `max(0, n · l)`, with `l` the unit vector from `x` to the
-  light. `1` when `effect` is `LE_NonIncidence` (13).
+  light.
 - **Spot**, when `effect` is `LE_Spotlight` (12) or `LE_StaticSpot` (8). With
   `c = 1 − cone / 256`, the factor is `clamp((dir · (−l) − c) / (1 − c), 0,
   1)`, and `0` when `cone` is `0`. `dir` is `directionOf(rotation)`:

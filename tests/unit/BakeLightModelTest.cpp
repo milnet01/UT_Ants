@@ -37,6 +37,7 @@ namespace {
 constexpr std::uint8_t LE_STATIC_SPOT = 8;
 constexpr std::uint8_t LE_SPOTLIGHT = 12;
 constexpr std::uint8_t LE_NON_INCIDENCE = 13;
+constexpr std::uint8_t LE_CYLINDER = 17;
 
 /// A steady white light of radius byte 64 at the origin.
 Light whiteLight(std::uint8_t brightness) {
@@ -81,7 +82,11 @@ TEST_CASE("radius and falloff", "[ubake][lightmodel]") {
     CHECK(lightRadius(0) == 25.0);
     CHECK(lightRadius(64) == 1625.0);
     CHECK(falloff(0, 1625) == 1.0);
-    CHECK(falloff(812.5, 1625) == 0.5625);
+    // UTA-0156: UE1's shape, full strength to half the radius and then down.
+    // v = 0.25 would be 3.375 unclamped; the old (1 - v^2)^2 gave 0.8789.
+    CHECK(falloff(406.25, 1625) == 1.0);
+    CHECK(falloff(812.5, 1625) == 1.0);
+    CHECK(falloff(1218.75, 1625) == 0.15625 / 0.75);
     CHECK(falloff(1625, 1625) == 0.0);
     CHECK(falloff(2000, 1625) == 0.0);
 }
@@ -97,9 +102,28 @@ TEST_CASE("intensity incidence and spot", "[ubake][lightmodel]") {
         const Rgb facing = lightAt(light, {100, 0, 0}, {-1, 0, 0});
         CHECK(facing.r > 0);
         sameRgb(lightAt(light, {100, 0, 0}, {1, 0, 0}), {0, 0, 0});
+        // LE_NonIncidence ignores the normal: turned away, it lights as facing.
         Light plain = light;
         plain.effect = LE_NON_INCIDENCE;
-        sameRgb(lightAt(plain, {100, 0, 0}, {1, 0, 0}), facing);
+        sameRgb(lightAt(plain, {100, 0, 0}, {1, 0, 0}), lightAt(plain, {100, 0, 0}, {-1, 0, 0}));
+        CHECK(lightAt(plain, {100, 0, 0}, {1, 0, 0}).r > 0);
+    }
+    SECTION("non-incidence falls off in a straight line") {
+        // UTA-0156: UE1's LE_NonIncidence is max(0, 1 - d / R).
+        Light plain = whiteLight(255);
+        plain.effect = LE_NON_INCIDENCE;
+        sameRgb(lightAt(plain, {812.5, 0, 0}, {1, 0, 0}), {0.5, 0.5, 0.5});
+        sameRgb(lightAt(plain, {1625, 0, 0}, {1, 0, 0}), {0, 0, 0});
+    }
+    SECTION("cylinder falls off with horizontal distance only") {
+        // UTA-0156: UE1's LE_Cylinder is 1 - (dx^2 + dy^2) / R^2, with no
+        // incidence term and no vertical bound.
+        Light cylinder = whiteLight(255);
+        cylinder.effect = LE_CYLINDER;
+        sameRgb(lightAt(cylinder, {0, 0, 1000}, {0, 0, 1}), {1, 1, 1});
+        sameRgb(lightAt(cylinder, {812.5, 0, 0}, {1, 0, 0}), {0.75, 0.75, 0.75});
+        sameRgb(lightAt(cylinder, {0, 0, 5000}, {0, 0, -1}), {1, 1, 1});
+        sameRgb(lightAt(cylinder, {1625, 0, 0}, {-1, 0, 0}), {0, 0, 0});
     }
     SECTION("spot") {
         for (const std::uint8_t effect : {LE_SPOTLIGHT, LE_STATIC_SPOT}) {

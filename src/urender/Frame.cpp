@@ -52,11 +52,11 @@ constexpr VkFormat DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT;
 /// and B8G8R8A8 would swap two channels of it without failing anything else.
 constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 
-/// SS 4.10: fixed, with no adaptation. 1.0 carries UTA-0112 SS 4.3's unit
-/// surface to 0.869 through PBR Neutral -- sRGB 240. Nothing below 13.5 stores
-/// it as 255, and an exposure that high would wash out every surface below the
-/// unit one.
-constexpr float EXPOSURE = 1.0f;
+/// SS 4.10: fixed, with no adaptation. UTA-0156 measured it: 2.1 is the
+/// exposure whose displayed frames best match the original game's, over the
+/// fifteen PlayerStart views of DM-Deck16][ drawn from the same cameras. The
+/// method and its scripts are recorded on that roadmap item.
+constexpr float EXPOSURE = 2.1f;
 
 /// What identifies an uploaded bundle: the object, the size of every section
 /// this renderer uploads, and a hash of a bounded sample of their bytes.

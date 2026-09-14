@@ -41,7 +41,10 @@ struct Rgb {
 /// `AActor::WorldLightRadius`: 25 * (radius + 1).
 [[nodiscard]] double lightRadius(std::uint8_t radius) noexcept;
 
-/// (1 - (distance / radius)^2)^2 below the radius; 0 at it and beyond.
+/// UE1's falloff (UTA-0156): with v = distance / radius, min(1, (1 + 2v^3 -
+/// 3v^2) / v) below the radius, so full strength out to half of it; 1 at the
+/// light; 0 at the radius and beyond. SurrealEngine's LightEffect.cpp carries
+/// the same expression.
 [[nodiscard]] double falloff(double distance, double radius) noexcept;
 
 namespace detail {
@@ -119,7 +122,8 @@ inline constexpr double RADIANS_PER_UNIT = std::numbers::pi / 32768.0;
 
 /// The light `light` puts on a surface at `x` with unit normal `n`, with no
 /// shadow test: colour, times brightness / 255, times the falloff, times the
-/// incidence, times the spot factor -- SS 4.3.
+/// incidence, times the spot factor -- SS 4.3. LE_Cylinder and LE_NonIncidence
+/// replace the falloff and drop the other factors (UTA-0156).
 [[nodiscard]] Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept;
 
 /// An 8-bit sRGB value, decoded to linear by a table of literals.

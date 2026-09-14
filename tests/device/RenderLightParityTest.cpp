@@ -2,7 +2,8 @@
 //
 // The shading pass's direct light equals ubake::lightAt within SS 4.6's fixed
 // 1e-3, over a case table covering each light effect the model distinguishes
-// -- LE_None, LE_StaticSpot (8), LE_Spotlight (12), LE_NonIncidence (13) --
+// -- LE_None, LE_StaticSpot (8), LE_Spotlight (12), LE_NonIncidence (13),
+// LE_Cylinder (17) --
 // and the d == 0 case UTA-0112 SS 4.3 singles out.
 //
 // THE REAL SHADER. The kernel includes shaders/light.glsl, the file the shading
@@ -60,7 +61,7 @@ std::array<float, 3> normalised(double x, double y, double z) {
 TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", "[device]") {
     uta::test::render::removeDisplay();
 
-    const std::array<std::uint8_t, 4> effects = {0, 8, 12, 13};
+    const std::array<std::uint8_t, 5> effects = {0, 8, 12, 13, 17};
     const std::array<std::uint8_t, 6> hues = {0, 43, 100, 170, 213, 255};
     const std::array<std::uint8_t, 3> saturations = {0, 90, 255};
     const std::array<std::uint8_t, 4> cones = {0, 32, 128, 250};
