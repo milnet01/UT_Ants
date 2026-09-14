@@ -2216,6 +2216,9 @@ model, no weapon and no opponent until 0.2.0.
   the "enabler for the quality tiers" this item's sharpening bullet names.
   A frame at scale 1 is still unsharpened, so whether this item still
   needs its own sharpening pass is for whoever picks it up to decide.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after.
   **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -3796,6 +3799,9 @@ model, no weapon and no opponent until 0.2.0.
   ranks FSR 3.1 before XeSS and DLSS; the user adds FSR 2 to the list.
   Whether FSR 2 is still worth integrating separately, given FSR 3.1's
   upscaler succeeds it, is for this item to settle when it starts.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features, this item among them, come after.
   **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
   Kind: implement.
   Source: user-request-2026-09-08.
@@ -4841,6 +4847,9 @@ model, no weapon and no opponent until 0.2.0.
   picture for a procedural liquid texture from its SourceTexture (the acid
   pools show again, but do not move); how liquid reads is this item's, and
   its motion UTA-0105's.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -8869,6 +8878,12 @@ model, no weapon and no opponent until 0.2.0.
   a still image, inside this item. The palette fix shipped in 7ccccca; the
   source-picture step is the rest of this item. Making these textures move
   stays UTA-0105's.
+  Progress (2026-09-14): both steps are committed on main, 7ccccca
+  (imported palettes) and ff08314 (a procedural texture's still picture
+  from its SourceTexture). 540 unit tests pass locally. BAKER_REVISION
+  is 9. The push was restarted under cc-job as uta0155-push so a
+  terminal relaunch cannot kill it. Flip to shipped once the matrix is
+  green for ff08314's full SHA.
   **Layman:** The green acid pools in maps like DM-Deck16][ are missing because their texture's colours are stored in a different file; read them from there.
   Kind: fix.
   Source: user-request-2026-09-14.
@@ -8895,6 +8910,9 @@ model, no weapon and no opponent until 0.2.0.
   User decision (2026-09-14): after UTA-0154, UTA-0158 and UTA-0040.
   The brightness target is this project's to settle by measurement; the
   user reviews it later, with friends playing matches.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.
@@ -8923,6 +8941,10 @@ model, no weapon and no opponent until 0.2.0.
   geometry, and whether route 3 is still needed is judged by measurement
   after they land. The same day the user ordered FSR 1 (UTA-0154) ahead of
   UTA-0155 and UTA-0156.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after. The cheap-tricks-first choice for this
+  item already fits it.
   **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -9176,6 +9198,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   requirement instead: "I would like liquid to look like liquid even if we
   fake it." So motion for water, slime and lava is judged by whether it
   reads as liquid, not by being cheap alone -- and it pairs with UTA-0089.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -9751,6 +9776,9 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   an ambient cube per point and so suit a moving object. Zone ambient
   light arrives with UTA-0156. How it looks is settled by research and
   measurement; the user reviews it later over real matches.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after.
   **Layman:** Characters walking through a dark corridor look dark, and step into a pool of light when they pass a lamp, instead of looking evenly lit everywhere.
   Kind: feature.
   Source: user-request-2026-09-14.

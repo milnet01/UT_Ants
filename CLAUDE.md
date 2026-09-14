@@ -8,7 +8,9 @@ items. Else 5.
 **Next:** `UTA-0155` (the acid texture the bake skips), then `UTA-0156`
 (brightness). The user set that order 2026-09-14 after flying DM-Deck16][,
 and leaves how it looks to research and measurement, to be reviewed later
-over real matches. `UTA-0153`, `UTA-0154` (AMD FSR 1), `UTA-0158` (the camera
+over real matches. For this first iteration the renderer uses the cheapest
+methods that still look like a modern game; fully modern features come
+after (user, 2026-09-14). `UTA-0153`, `UTA-0154` (AMD FSR 1), `UTA-0158` (the camera
 stops at walls) and `UTA-0040` (parallax occlusion, spec
 `docs/specs/UTA-0040-parallax-occlusion.md`) shipped the same day. A bundle is
 format 9 since `UTA-0040`, so a map baked before it must be baked again.
