@@ -151,6 +151,53 @@ const upkg::ExportEntry* exportNamed(const upkg::Package& holder, const std::vec
     return nullptr;
 }
 
+/// An object one of a texture's properties names, and the package holding it.
+struct ObjectSite {
+    const upkg::Package* holder = nullptr;
+    const upkg::ExportEntry* entry = nullptr;
+};
+
+/// The object `reference` names from `from`: an export of `from`, or an import
+/// followed through the resolver into the package it lives in -- a texture's
+/// palette, or its SourceTexture (UTA-0155). `what` names it in a refusal.
+/// A null reference is the caller's to refuse.
+std::expected<ObjectSite, std::string> objectAt(const upkg::Package& from, upkg::ObjectReference reference,
+                                                const upkg::PackageResolver& resolver, const std::string& what) {
+    if (reference.kind() == upkg::ObjectReferenceKind::Export) {
+        if (reference.index() >= from.exports().size())
+            return std::unexpected("its " + what + " names an export past its package's export table");
+        return ObjectSite{&from, &from.exports()[reference.index()]};
+    }
+    if (reference.index() >= from.imports().size())
+        return std::unexpected("its " + what + " names an import past its package's import table");
+    const ImportedObject imported = walkImport(from, from.imports()[reference.index()]);
+    const std::string package = detail::fold(imported.package);
+    if (!imported.broken.empty()) return std::unexpected("its " + what + ": " + imported.broken);
+    if (imported.names.empty())
+        return std::unexpected("its " + what + " reference names the package " + package + ", not an object");
+    const auto found = resolver(package);
+    if (!found.has_value())
+        return std::unexpected("its " + what + "'s package " + package + " did not open: "
+                               + std::string(found.error().message()));
+    if (*found == nullptr)
+        return std::unexpected("its " + what + "'s package " + package + " is not in the install, or does not open");
+    const upkg::ExportEntry* const entry = exportNamed(**found, imported.names);
+    if (entry == nullptr)
+        return std::unexpected("its " + what + "'s package " + package + " holds no " + imported.path());
+    return ObjectSite{*found, entry};
+}
+
+/// The object reference a property list carries under `wanted` (folded), if any.
+std::optional<upkg::ObjectReference> objectProperty(const upkg::Package& holder,
+                                                    std::span<const upkg::Property> properties,
+                                                    std::string_view wanted) {
+    for (const upkg::Property& property : properties) {
+        if (detail::fold(nameOf(holder, property.nameIndex)) != wanted) continue;
+        if (const auto* const reference = std::get_if<upkg::ObjectReference>(&property.value)) return *reference;
+    }
+    return std::nullopt;
+}
+
 /// SS 4.6 "Which textures": an export reference is that export of the map; an
 /// import reference resolves its outermost outer through the resolver, then
 /// takes the export of that package whose name and outer names match.
@@ -260,32 +307,9 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     if (!paletteReference.has_value()
         || paletteReference->kind() == upkg::ObjectReferenceKind::Null)
         return std::unexpected(std::string("it names no palette"));
-    const upkg::Package* paletteHolder = &holder;
-    const upkg::ExportEntry* paletteEntry = nullptr;
-    if (paletteReference->kind() == upkg::ObjectReferenceKind::Export) {
-        if (paletteReference->index() >= holder.exports().size())
-            return std::unexpected(std::string("its palette names an export past its package's export table"));
-        paletteEntry = &holder.exports()[paletteReference->index()];
-    } else {
-        if (paletteReference->index() >= holder.imports().size())
-            return std::unexpected(std::string("its palette names an import past its package's import table"));
-        const ImportedObject imported = walkImport(holder, holder.imports()[paletteReference->index()]);
-        const std::string package = detail::fold(imported.package);
-        if (!imported.broken.empty()) return std::unexpected("its palette: " + imported.broken);
-        if (imported.names.empty())
-            return std::unexpected("its palette reference names the package " + package + ", not a palette");
-        const auto found = resolver(package);
-        if (!found.has_value())
-            return std::unexpected("its palette's package " + package + " did not open: "
-                                   + std::string(found.error().message()));
-        if (*found == nullptr)
-            return std::unexpected("its palette's package " + package + " is not in the install, or does not open");
-        paletteHolder = *found;
-        paletteEntry = exportNamed(*paletteHolder, imported.names);
-        if (paletteEntry == nullptr)
-            return std::unexpected("its palette's package " + package + " holds no " + imported.path());
-    }
-    const auto palette = upkg::readPalette(*paletteHolder, *paletteEntry);
+    const auto paletteSite = objectAt(holder, *paletteReference, resolver, "palette");
+    if (!paletteSite.has_value()) return std::unexpected(paletteSite.error());
+    const auto palette = upkg::readPalette(*paletteSite->holder, *paletteSite->entry);
     if (!palette.has_value())
         return std::unexpected("its palette does not read: " + std::string(palette.error().message()));
 
@@ -298,16 +322,60 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     if (texture->mips.empty()) return std::unexpected(std::string("it has no mip levels"));
     const upkg::Mip& base = texture->mips[0];
 
+    // UTA-0155: a procedural texture that stores no pixels of its own -- a
+    // WetTexture, an IceTexture, a ScriptedTexture -- shows its SourceTexture's
+    // picture, through that texture's own palette, as a still image (the user's
+    // choice, 2026-09-14; moving it is UTA-0105's). One hop: a source storing
+    // no pixels either is refused. `base` still sets the size a repeat spans.
+    const upkg::Mip* shown = &base;
+    const upkg::Palette* shownPalette = &*palette;
+    std::optional<upkg::Texture> sourceTexture;
+    std::optional<upkg::Palette> sourcePalette;
+    if (base.pixels.size() < std::size_t{base.width} * base.height) {
+        const auto sourceReference = objectProperty(holder, *properties, "sourcetexture");
+        if (!sourceReference.has_value() || sourceReference->kind() == upkg::ObjectReferenceKind::Null)
+            return std::unexpected(std::string("it stores no pixels of its own and names no SourceTexture"));
+        const auto source = objectAt(holder, *sourceReference, resolver, "SourceTexture");
+        if (!source.has_value()) return std::unexpected(source.error());
+        const auto sourceProperties = upkg::readProperties(*source->holder, *source->entry);
+        if (!sourceProperties.has_value())
+            return std::unexpected("its SourceTexture's properties do not read: "
+                                   + std::string(sourceProperties.error().message()));
+        const auto sourcePaletteReference = objectProperty(*source->holder, *sourceProperties, "palette");
+        if (!sourcePaletteReference.has_value()
+            || sourcePaletteReference->kind() == upkg::ObjectReferenceKind::Null)
+            return std::unexpected(std::string("its SourceTexture names no palette"));
+        const auto sourcePaletteSite =
+            objectAt(*source->holder, *sourcePaletteReference, resolver, "SourceTexture's palette");
+        if (!sourcePaletteSite.has_value()) return std::unexpected(sourcePaletteSite.error());
+        auto readSourcePalette = upkg::readPalette(*sourcePaletteSite->holder, *sourcePaletteSite->entry);
+        if (!readSourcePalette.has_value())
+            return std::unexpected("its SourceTexture's palette does not read: "
+                                   + std::string(readSourcePalette.error().message()));
+        sourcePalette = std::move(*readSourcePalette);
+        auto readSource = upkg::readTexture(*source->holder, *source->entry);
+        if (!readSource.has_value())
+            return std::unexpected("its SourceTexture does not read as a texture: "
+                                   + std::string(readSource.error().message()));
+        sourceTexture = std::move(*readSource);
+        if (sourceTexture->mips.empty()) return std::unexpected(std::string("its SourceTexture has no mip levels"));
+        const upkg::Mip& picture = sourceTexture->mips[0];
+        if (picture.pixels.size() < std::size_t{picture.width} * picture.height)
+            return std::unexpected(std::string("its SourceTexture stores no pixels of its own either"));
+        shown = &picture;
+        shownPalette = &*sourcePalette;
+    }
+
     // Step 4. UTA-0010 SS 4.5's order with no recipe: the defaults, then the
     // curated library's entry for this picture.
     umat::MaterialSettings settings{};
-    if (const auto fingerprint = umat::pictureFingerprint(base, *palette)) {
+    if (const auto fingerprint = umat::pictureFingerprint(*shown, *shownPalette)) {
         if (const umat::CuratedOverride* const entry = curated(*fingerprint))
             settings = umat::applied(settings, *entry);
     }
 
     // Step 5.
-    const auto rgba = umat::resolve(base, *palette, masked);
+    const auto rgba = umat::resolve(*shown, *shownPalette, masked);
     if (!rgba.has_value())
         return std::unexpected("umat::resolve refused it: " + std::string(rgba.error().message()));
     auto material = umat::generate(id, *rgba, settings, jobs);

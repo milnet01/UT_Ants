@@ -49,6 +49,15 @@ struct TextureSpec {
     /// the package the palette `<name>Pal` is imported from, as palettePackage
     /// builds one.
     std::string paletteFrom;
+    /// UTA-0155: a procedural texture's class, written as `Fire.<className>`;
+    /// empty for `Engine.Texture`.
+    std::string className;
+    /// UTA-0155: a reference, in the package this texture is added to, to the
+    /// texture it names as its SourceTexture; 0 for none.
+    std::int32_t sourceTexture = 0;
+    /// UTA-0155: the base level keeps its size but stores no pixels, as a
+    /// procedural texture's does.
+    bool emptyLevel = false;
 };
 
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.

@@ -410,6 +410,76 @@ TEST_CASE("UTA-0155: a texture whose palette lives in another package is made", 
     }
 }
 
+TEST_CASE("UTA-0155: a procedural texture with no pixels of its own is made from its SourceTexture",
+          "[ubake][bake]") {
+    // DM-Deck16]['s acid, hubeffects.goop3, is a WetTexture whose level stores
+    // no pixels and whose SourceTexture is genfluid.Water.r6000w2 -- the shape
+    // of most of the reference install's WetTexture, IceTexture and
+    // ScriptedTexture exports. The user chose a still picture from the source
+    // (2026-09-14); moving it is UTA-0105's.
+    const Picture waterPicture = picture(7);
+    const auto fingerprintOf = [](const Picture& shown) {
+        std::vector<std::byte> indices;
+        for (const std::uint8_t index : shown.indices) indices.push_back(static_cast<std::byte>(index));
+        uta::upkg::Mip mip;
+        mip.pixels = indices;
+        mip.width = shown.width;
+        mip.height = shown.height;
+        uta::upkg::Palette palette;
+        for (const auto& colour : shown.palette) palette.entries.push_back({colour[0], colour[1], colour[2], colour[3]});
+        const auto key = uta::umat::pictureFingerprint(mip, palette);
+        REQUIRE(key.has_value());
+        return *key;
+    };
+    const std::uint64_t waterKey = fingerprintOf(waterPicture);
+
+    // FluidTex: Water, a plain texture, and Goo, a WetTexture storing no pixels.
+    const auto fluidTex = [&](bool namesItsSource) {
+        Packer packer;
+        TextureSpec water;
+        water.name = "Water";
+        water.picture = waterPicture;
+        const std::int32_t waterReference = packer.addTexture(water);
+        TextureSpec goo;
+        goo.name = "Goo";
+        goo.picture = picture(8); // its size only: the level stores no pixels
+        goo.className = "WetTexture";
+        goo.emptyLevel = true;
+        if (namesItsSource) goo.sourceTexture = waterReference;
+        packer.addTexture(goo);
+        return packer.build();
+    };
+    MapBuilder map;
+    map.addSurface(map.importTexture("FluidTex", "", "Goo"));
+    JobSystem jobs(2);
+    std::set<std::uint64_t> asked;
+    const detail::CuratedLookup recording = [&](std::uint64_t fingerprint) -> const uta::umat::CuratedOverride* {
+        asked.insert(fingerprint);
+        return nullptr;
+    };
+
+    SECTION("naming its source, it wears the source's picture") {
+        MemoryPackages packages;
+        packages.add("fluidtex", fluidTex(true));
+        const BakeResult result = baked(map.build(), packages.resolver(), jobs, recording);
+        for (const auto& skipped : result.skipped) INFO("skipped " << skipped.material << ": " << skipped.reason);
+        CHECK(result.skipped.empty());
+        CHECK(idsOf(result) == std::vector<std::string>{"fluidtex.goo"});
+        // Only the source's picture can have been fingerprinted: Goo stores none.
+        CHECK(asked.contains(waterKey));
+    }
+
+    SECTION("naming none, it is skipped and the reason says so") {
+        MemoryPackages packages;
+        packages.add("fluidtex", fluidTex(false));
+        const BakeResult result = baked(map.build(), packages.resolver(), jobs, recording);
+        REQUIRE(result.skipped.size() == 1);
+        CHECK(result.skipped[0].material == "fluidtex.goo");
+        INFO("reason: " << result.skipped[0].reason);
+        CHECK(result.skipped[0].reason.find("SourceTexture") != std::string::npos);
+    }
+}
+
 TEST_CASE("a texture carrying a Format property is skipped and named", "[ubake][bake]") {
     // INV-9: one texture, baked without the property and with it.
     for (const bool format : {false, true}) {

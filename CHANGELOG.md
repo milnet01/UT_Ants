@@ -364,6 +364,13 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Maps keep textures whose colours or picture live in another package, among them DM-Deck16]['s acid** (UTA-0155)
+  A texture whose palette is imported from another package, and an animated
+  texture that stores no pixels of its own, used to be skipped. The acid
+  pools, and hundreds of water, ice and screen textures across an install,
+  now bake -- the animated ones as a still picture of their source, until
+  they move again.
+
 - **ut-paths no longer runs out of memory or time on maps whose geometry reaches far outside UT's world.** (UTA-0140)
   Its walk grid now stops at the world's edge, ±32768 on X and Y. The
   maps that were killed or timed out now finish in seconds, and every

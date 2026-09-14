@@ -35,9 +35,10 @@ using namespace uta::test::bake;
 
 namespace {
 
-// 8: UTA-0155 made textures whose palette lives in another package. The fixture
-// holds none, so the digest is the one revision 7 recorded.
-constexpr std::uint32_t RECORDED_UNDER = 8;
+// 8 and 9: UTA-0155 made textures whose palette lives in another package, then
+// procedural textures from their SourceTexture. The fixture holds neither, so
+// the digest is the one revision 7 recorded.
+constexpr std::uint32_t RECORDED_UNDER = 9;
 constexpr std::string_view GOLDEN =
     "9bfb69e649be50f87e4b4cd10457e7e27e84e3ce42547e016c859076a1346446";
 

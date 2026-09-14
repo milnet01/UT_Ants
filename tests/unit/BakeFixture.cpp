@@ -194,21 +194,27 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     properties.addObject(name("Palette"), palette);
     if (texture.format) properties.addByte(name("Format"), 1);
     if (texture.drawScale != 0) properties.addFloat(name("DrawScale"), texture.drawScale);
+    if (texture.sourceTexture != 0) properties.addObject(name("SourceTexture"), texture.sourceTexture);
 
     std::vector<std::uint8_t> data = properties.build(0);
     appendU8(data, 1); // one mip
     const std::size_t fieldAt = data.size();
     appendU32(data, 0); // WidthOffset, fixed up by build()
-    appendIndex(data, static_cast<std::int32_t>(texture.picture.indices.size()));
-    data.insert(data.end(), texture.picture.indices.begin(), texture.picture.indices.end());
+    if (texture.emptyLevel) {
+        appendIndex(data, 0); // UTA-0155: the level keeps its size and stores no pixels
+    } else {
+        appendIndex(data, static_cast<std::int32_t>(texture.picture.indices.size()));
+        data.insert(data.end(), texture.picture.indices.begin(), texture.picture.indices.end());
+    }
     const std::size_t dataEnd = data.size();
     appendU32(data, texture.picture.width);
     appendU32(data, texture.picture.height);
     appendU8(data, 2); // bitsWidth: log2 of 4
     appendU8(data, 2);
 
-    const std::int32_t reference =
-        addExport(importClass("Engine", "Texture"), outer, texture.name, std::move(data));
+    const std::int32_t objectClass =
+        texture.className.empty() ? importClass("Engine", "Texture") : importClass("Fire", texture.className);
+    const std::int32_t reference = addExport(objectClass, outer, texture.name, std::move(data));
     fixups_.push_back(MipFixup{exports_.size() - 1, fieldAt, dataEnd});
     return reference;
 }

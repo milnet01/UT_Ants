@@ -4836,6 +4836,11 @@ model, no weapon and no opponent until 0.2.0.
   a small ripple offset; depth-based tint so deep water reads darker;
   a soft fade where water meets geometry. The user cannot judge looks
   by eye, so the choice rests on sources and numbers.
+  User (2026-09-14), after the DM-Deck16][ fly-through: "I would like liquid
+  to look like liquid even if we fake it." UTA-0155 now bakes a still
+  picture for a procedural liquid texture from its SourceTexture (the acid
+  pools show again, but do not move); how liquid reads is this item's, and
+  its motion UTA-0105's.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -8858,6 +8863,12 @@ model, no weapon and no opponent until 0.2.0.
   name a SourceTexture. So the acid needs those textures' still picture
   taken from their SourceTexture, which UTA-0105's 2026-09-10 decision
   ("a still picture where one exists") bears on. Put to the user.
+  User decision (2026-09-14): a procedural texture that stores no pixels
+  of its own -- WetTexture, IceTexture and ScriptedTexture, and any other
+  naming a SourceTexture -- is baked from its SourceTexture's picture, as
+  a still image, inside this item. The palette fix shipped in 7ccccca; the
+  source-picture step is the rest of this item. Making these textures move
+  stays UTA-0105's.
   **Layman:** The green acid pools in maps like DM-Deck16][ are missing because their texture's colours are stored in a different file; read them from there.
   Kind: fix.
   Source: user-request-2026-09-14.
@@ -9140,6 +9151,31 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   starts by reading WaveTexture, then decides per class whether the
   motion is recomputed at run time or baked into frames. UTA-0009's
   spec defers these classes to here.
+  Narrowed by the user (2026-09-14): the still picture of a procedural
+  texture that stores no pixels of its own is now UTA-0155's, taken from
+  its SourceTexture. This item keeps the motion -- WetTexture's ripples,
+  IceTexture's drift, FireTexture's flames, WaveTexture -- and reading
+  WaveTexture's extra data. A census for UTA-0155 counted 154 WetTexture,
+  IceTexture and ScriptedTexture exports with an imported palette and no
+  stored pixels, all naming a SourceTexture.
+  User idea (2026-09-14): Amiga-style colour cycling as a cheap way to fake
+  some animation. Not measured yet; recorded as a candidate route. How it
+  would work here: no GPU keeps a hardware palette, so the trick moves into
+  the shader -- keep a texture's palette indices (one byte a texel, stored
+  UNcompressed, since block compression would scramble indices) and its
+  256-entry palette as a small texture, and look each texel's colour up
+  through an offset that advances per frame. The cost is one extra texture
+  fetch per shaded pixel and one value updated per frame, plus about 65 KB
+  of indices for a 256x256 texture. It is an imitation rather than UT99's
+  own effect: WetTexture, FireTexture and IceTexture run small simulations,
+  not palette rotation. It suits glowing panels, lava, flowing liquids and
+  conveyor lights. The bake would have to keep the index map for any
+  material that cycles, which today it discards.
+  User (2026-09-14), on the colour-cycling note above: it was an idea from
+  a video and is probably not viable here; set aside. The user's
+  requirement instead: "I would like liquid to look like liquid even if we
+  fake it." So motion for water, slime and lava is judged by whether it
+  reads as liquid, not by being cheap alone -- and it pairs with UTA-0089.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
