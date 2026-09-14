@@ -8449,7 +8449,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
   Lanes: core, ubake, tests.
 
-- 🚧 [UTA-0145] **ut-dump prints one package per line on request, so UT_MonsterHunt can stream it.**
+- ✅ [UTA-0145] **ut-dump prints one package per line on request, so UT_MonsterHunt can stream it.**
   Asked by UT_MonsterHunt (ut-monsterhunt-81) on 2026-09-14, their
   memory fix 5: analysis/mapcheck/facts.py runs `ut-dump --nav-graph`
   over batches of maps and json.loads the whole output, about 930 KB per
@@ -8493,6 +8493,14 @@ model, no weapon and no opponent until 0.2.0.
   Progress (2026-09-14): picked up by session ut-ants-f9, working in
   the main checkout, chosen by the user. UTA-0103 and UTA-0126 stay
   parked on Waiting-on.
+  Resolved (2026-09-14, ut-ants-f9): shipped in b3f7a8f, green on the
+  GitHub matrix (run 34838801886). ut-dump --ndjson writes {"schema":1}
+  on the first line, then one package object per line in packages[]'s
+  order, with no end marker. Default output is byte-identical on three
+  real maps, with and without --nav-graph, and every NDJSON line there
+  parses alone and equals its packages[] entry. Test: DumpCliTest.cpp's
+  UTA-0145 case, mutated three ways and red each time. UT_MonsterHunt's
+  session was told directly, for their GAME-0138.
   **Layman:** The dump tool prints all its results as one big block, so the other project has to read it all at once; one result per line lets it read them one at a time.
   Kind: feature.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
