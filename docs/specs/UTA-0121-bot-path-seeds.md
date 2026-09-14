@@ -263,10 +263,12 @@ The body is § 3 decision 4's: radius `R` 17, half-height `H` 39, step `S` 25.
 A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
 
 - **Columns.** Over the level tree's points' bounding box, a grid of columns
-  32 apart in X and Y, counted from the box's low corner. Only the columns
-  whose X and Y both lie within ±32768, the world cube § 4.6 describes, are
-  laid; the others are skipped, never moved, so each laid column stands where
-  the whole box's grid puts it. No player stands outside that cube, and some
+  32 apart in X and Y. Only the columns whose X and Y both lie within ±32768,
+  the world cube § 4.6 describes, are laid; the others are skipped, never
+  moved, so each laid column stands where the whole box's grid puts it. The
+  walk graph indexes the laid columns alone: `WalkGraph::origin` is the lowest
+  laid column's X and Y, and `columns` and `rows` count the laid columns on X
+  and on Y. No player stands outside that cube, and some
   maps carry geometry far past it. The box's height is not bounded: a
   column's cost is its floors, which the geometry already bounds.
 - **Floors.** In each column, from the box's top down: trace to the first
@@ -648,21 +650,26 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   teleporter is found by class name rather than ancestry, or read from its
   own property alone.
 
-- **INV-15** — The walk grid lays no column outside ±32768 on X or Y, and
-  every column it lays stands where the whole box's grid puts it.
+- **INV-15** — The walk grid lays no column outside ±32768 on X or Y, every
+  column it lays stands where the whole box's grid puts it, and
+  `WalkGraph::origin`, `columns` and `rows` index the laid columns alone.
   *Test:* `tests/unit/PathWalkableTest.cpp`, over `walkGraph`, each world a
   room 100 high whose floor is at `z = 0`. A room from X 32000 to 33000,
   with the points' box starting at X 32000: a spot stands at X 32768, and no
   spot stands past it. A room from X -33000 to -32000, with the box starting
   at X -33010: the lowest spot stands at X -32754, 14 inside the bound and on
-  the box's grid, not at -32768. A room from X 0 to 256, with the box
-  reaching from X -40000 to 40000: the grid has at most 2049 columns, and its
-  spots stand at the same centres as the same room with the box from X 0 to
-  256.
-  *Breaks when:* columns past the bound are laid, which the far box's column
-  count catches; the box's corner is clamped to the bound rather than whole
-  columns skipped, which moves the low room's spots onto -32768; or the bound
-  is 32767 rather than 32768, which drops the high room's spot at X 32768.
+  the box's grid, not at -32768. A room from X 0 to 256 and Y 0 to 256, with
+  the box reaching from X -40000 to 40000: `columns` is at most 2049. The same
+  room with the box reaching from Y -40000 to 40000 instead: `rows` is at most
+  2049. In both, the spots stand at the same centres as the same room with
+  the box from 0 to 256, and `place` at each spot's centre returns that spot.
+  *Breaks when:* columns past the bound are laid, or the whole box's index
+  space is kept, which the far boxes' `columns` and `rows` catch; only X is
+  bounded, which the box far on Y catches; `origin` is left at the box's
+  corner while the index space shrinks, which `place` catches; the box's
+  corner is clamped to the bound rather than whole columns skipped, which
+  moves the low room's spots onto -32768; or the bound is 32767 rather than
+  32768, which drops the high room's spot at X 32768.
 
 ## 6. Failure modes
 
@@ -722,8 +729,9 @@ goal out of `exitOffGraph`; key `exitOffGraph` on a touching navigation point
 rather than an empty goal set; test `exitOffGraph` before `startOffGraph`;
 find a teleporter by class name;
 read a teleporter's own `Location` alone; lay columns past the world bound;
-clamp the box's corner rather than skipping whole columns; bound the columns
-at 32767. Each must be killed by the
+bound only X; keep the whole box's index space; leave `origin` at the box's
+corner; clamp the box's corner rather than skipping whole columns; bound the
+columns at 32767. Each must be killed by the
 invariant that names it.
 
 ## 8. Alternatives considered (and rejected)

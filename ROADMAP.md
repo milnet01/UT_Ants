@@ -8178,6 +8178,18 @@ model, no weapon and no opponent until 0.2.0.
   and review-contract before code. Output may change on those 82 maps
   only; a before-and-after diff over them is part of the check.
   Scratch probes and outputs: the session scratchpad's mem/ directory.
+  Spec drafted (2026-09-14, ut-ants-db, commit baf5222): UTA-0121 § 4.5
+  and INV-15. It supersedes the proposal above in two ways. The bound is
+  +-32768, the world cube § 4.6 describes, not 32767, so a column on the
+  bound is kept. And columns outside it are skipped rather than the box's
+  corner clamped, so every in-world spot stands where it stood; a grid
+  is then at most 2049 columns per side. review-contract gates it next.
+  Measured for the review (2026-09-14, ut-ants-db, scratch actors-probe.cpp
+  over the maps whose geometry passes the bound): no map's PlayerStart
+  lies past +-32768 on X or Y. One navigation point does, on
+  MH-EnterToCore-Part3-BP, at X 32770. That map's grid keeps a column at
+  X 32768, within § 4.6's placing window of it, so the bound leaves its
+  placement as it is.
   **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
   Kind: perf.
   Source: in-session-2026-09-13.
@@ -8312,6 +8324,23 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
   Lanes: tools.
+
+- 📋 [UTA-0143] **ut-bake holds about 2 GB baking the largest map, so find what grows before it matters.**
+  Measured 2026-09-14 (ut-ants-db) during the user's memory pass.
+  `ut-bake --install <install> --out <dir> --force <path-to>/MH-Sk_Godz.unr`,
+  the install's largest map file, under /usr/bin/time -v: peak resident
+  memory about 2.07 GB, 18 s. For scale, ut-dump --nav-graph on the same
+  file peaked at about 157 MB, and ut-paths on a typical map at about
+  112 MB. Nothing is failing: one bake at a time fits. It matters when
+  bakes run in batches or beside other work, as UTA-0140's did.
+  Measure first: peak memory per bake stage (package read, collision,
+  materials, lighting, write), and which structure holds it.
+  Note: ut-bake takes the map as a file path; a bare map name is refused
+  with "no such file".
+  **Layman:** Baking the biggest map uses far more memory than the map file's own size, so check what takes the space before bigger batches run into it.
+  Kind: perf.
+  Source: user-request-2026-09-14 memory pass.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 
