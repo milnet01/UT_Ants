@@ -35,9 +35,9 @@ using namespace uta::test::bake;
 
 namespace {
 
-constexpr std::uint32_t RECORDED_UNDER = 6; // UTA-0112 added LPRB
+constexpr std::uint32_t RECORDED_UNDER = 7; // UTA-0040 added MATS depths
 constexpr std::string_view GOLDEN =
-    "cd4512fb62cee0bc387ba402694d7f706c511750b36fb37f748dc503b468b361";
+    "9bfb69e649be50f87e4b4cd10457e7e27e84e3ce42547e016c859076a1346446";
 
 } // namespace
 

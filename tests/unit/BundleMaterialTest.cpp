@@ -38,15 +38,18 @@ namespace {
 struct RecordSpec {
     std::string id;
     std::uint8_t metallic = 0;
+    std::uint8_t parallaxDepth = 0; ///< UTA-0040 SS 4.1
 };
 
-/// A MATS payload: SS 4.2's vector<MaterialRecord>, in SS 4.10's field order.
+/// A MATS payload: SS 4.2's vector<MaterialRecord>, in SS 4.10's field order,
+/// with UTA-0040 SS 4.1's depth byte after `metallic`.
 Bytes matsPayload(const std::vector<RecordSpec>& records) {
     Bytes out;
     out.u32(static_cast<std::uint32_t>(records.size()));
     for (const RecordSpec& record : records) {
         out.str(record.id);
         out.u8(record.metallic);
+        out.u8(record.parallaxDepth);
     }
     return out;
 }
@@ -55,7 +58,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(8); // formatVersion -- 8 since UTA-0112 SS 4.2
+    out.u32(9); // formatVersion -- 9 since UTA-0040 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -73,17 +76,19 @@ std::vector<std::byte> fileWith(const Bytes& payload) {
     return out.data();
 }
 
-/// Three records in ascending id order, their metallic values not all equal,
-/// so a reader that dropped, reordered or defaulted one disagrees somewhere.
+/// Three records in ascending id order, their metallic values not all equal and
+/// their depths all different -- the top byte among them -- so a reader that
+/// dropped, reordered, defaulted or swapped a field disagrees somewhere.
 const std::vector<RecordSpec> GOLDEN = {
-    {"dm-fixture.base.wall", 0},
-    {"dm-fixture.base.wall#masked", 1},
-    {"texpkg.floor", 0},
+    {"dm-fixture.base.wall", 0, 4},
+    {"dm-fixture.base.wall#masked", 1, 0},
+    {"texpkg.floor", 0, 255},
 };
 
 std::vector<MaterialRecord> recordsOf(const std::vector<RecordSpec>& specs) {
     std::vector<MaterialRecord> out;
-    for (const RecordSpec& spec : specs) out.push_back(MaterialRecord{spec.id, spec.metallic == 1});
+    for (const RecordSpec& spec : specs)
+        out.push_back(MaterialRecord{spec.id, spec.metallic == 1, spec.parallaxDepth});
     return out;
 }
 
@@ -99,7 +104,7 @@ void refused(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][mats]") {
     const auto result = read(fileWith(matsPayload(GOLDEN)));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 8);
+    CHECK(result->header.formatVersion == 9);
     CHECK_FALSE(result->textures.has_value());
 
     REQUIRE(result->materials.has_value());
@@ -107,10 +112,13 @@ TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][
     REQUIRE(materials.size() == 3);
     CHECK(materials[0].id == "dm-fixture.base.wall");
     CHECK_FALSE(materials[0].metallic);
+    CHECK(materials[0].parallaxDepth == 4);
     CHECK(materials[1].id == "dm-fixture.base.wall#masked");
     CHECK(materials[1].metallic);
+    CHECK(materials[1].parallaxDepth == 0);
     CHECK(materials[2].id == "texpkg.floor");
     CHECK_FALSE(materials[2].metallic);
+    CHECK(materials[2].parallaxDepth == 255);
 }
 
 TEST_CASE("write emits the MATS golden bytes", "[ubundle][mats]") {
@@ -127,7 +135,7 @@ TEST_CASE("MATS round-trips through write and read", "[ubundle][mats]") {
     // present but empty section is distinct from an absent one (UTA-0008
     // SS 4.4).
     for (const std::vector<RecordSpec>& specs :
-         {GOLDEN, std::vector<RecordSpec>{{"", 1}}, std::vector<RecordSpec>{}}) {
+         {GOLDEN, std::vector<RecordSpec>{{"", 1, 1}}, std::vector<RecordSpec>{}}) {
         Bundle bundle;
         bundle.materials = recordsOf(specs);
         const auto written = write(bundle);
@@ -139,6 +147,7 @@ TEST_CASE("MATS round-trips through write and read", "[ubundle][mats]") {
         for (std::size_t i = 0; i < specs.size(); ++i) {
             CHECK((*back->materials)[i].id == specs[i].id);
             CHECK((*back->materials)[i].metallic == (specs[i].metallic == 1));
+            CHECK((*back->materials)[i].parallaxDepth == specs[i].parallaxDepth);
         }
     }
 }
@@ -165,16 +174,18 @@ TEST_CASE("write refuses MATS records out of order", "[ubundle][mats]") {
 
 TEST_CASE("a MATS count the section cannot hold is refused before an element is read",
           "[ubundle][mats]") {
-    // SS 4.10's minimum element is 5 bytes. This payload declares two records
-    // and holds one whole record and four bytes more: 9 / 5 is one, so the
-    // count is refused up front. A minimum of 4 would admit the count and
-    // fail later on a short read instead -- a different refusal, which is
-    // what this case tells apart.
+    // UTA-0040 SS 4.1's minimum element is 6 bytes. This payload declares two
+    // records and holds one whole record and five bytes more: 11 / 6 is one,
+    // so the count is refused up front. A minimum of 5, the size before the
+    // depth byte, would admit the count and fail later on a short read instead
+    // -- a different refusal, which is what this case tells apart.
     Bytes payload;
     payload.u32(2);
     payload.str("");
     payload.u8(0);
+    payload.u8(0);
     payload.u32(0);
+    payload.u8(0);
     refused(fileWith(payload), "exceeds the bytes remaining");
 }
 

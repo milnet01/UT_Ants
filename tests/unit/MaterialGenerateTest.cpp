@@ -595,3 +595,17 @@ TEST_CASE("roughness and emissive follow their formulas", "[umat][derive]") {
     CHECK(px(glow, 0, 0, 3) == 255);
     CHECK(px(heightOf(colour), 0, 0, 0) == (54 * 9 + 183 * 99 + 19 * 199 + 128) >> 8);
 }
+
+TEST_CASE("UTA-0040 INV-2: generate carries the settings' parallax depth", "[umat][generate]") {
+    JobSystem jobs(1);
+    const auto generated = generate("p", noise(8, 8), MaterialSettings{}, jobs);
+    REQUIRE(generated.has_value());
+    CHECK(generated->parallaxDepth == uta::umat::GENERATED_PARALLAX_DEPTH);
+    CHECK(uta::umat::GENERATED_PARALLAX_DEPTH > 0);
+
+    MaterialSettings deep;
+    deep.parallaxDepth = 37;
+    const auto curated = generate("p", noise(8, 8), deep, jobs);
+    REQUIRE(curated.has_value());
+    CHECK(curated->parallaxDepth == 37);
+}

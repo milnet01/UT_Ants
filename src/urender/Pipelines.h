@@ -13,6 +13,7 @@
 
 #include "core/Error.h"
 #include "urender/Device.h"
+#include "urender/Renderer.h"
 
 #include <vulkan/vulkan.h>
 
@@ -35,7 +36,9 @@ struct TargetFormats {
 
 class Pipelines {
 public:
-    [[nodiscard]] static Result<std::unique_ptr<Pipelines>> create(const Gpu& gpu, const TargetFormats& formats);
+    /// `tier` sets the scene shader's parallax step counts (UTA-0040 SS 4.4).
+    [[nodiscard]] static Result<std::unique_ptr<Pipelines>> create(const Gpu& gpu, const TargetFormats& formats,
+                                                                    Tier tier);
 
     Pipelines(const Pipelines&) = delete;
     Pipelines& operator=(const Pipelines&) = delete;

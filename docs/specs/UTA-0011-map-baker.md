@@ -574,9 +574,12 @@ The section id is the bytes `M`, `A`, `T`, `S`. Its payload is one
 |---|---|---|
 | `id` | `string` | `umat::materialId`'s result. Opaque here |
 | `metallic` | `u8` | `0` or `1`. No other value is defined |
+| `parallaxDepth` | `u8` | **Added by `UTA-0040` § 4.1.** Parallax depth in texels of the base level, `0` for none. Every value is defined |
 
 **The minimum encoded size of one element is 5 bytes**: a `u32` length for
 an empty `id`, then one `u8`. It joins UTA-0008 § 4.2's minimum-size table.
+**`UTA-0040` § 4.1 appends the `parallaxDepth` byte**, making it 6 and the
+format version 9.
 
 **Validation, in UTA-0008 § 4.9's manner.** A `metallic` byte other than `0`
 or `1` is `MalformedData`, never defaulted. The `id`s are in strictly

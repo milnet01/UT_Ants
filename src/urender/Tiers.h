@@ -37,15 +37,38 @@ inline constexpr std::uint64_t TIER_TEXTURE_BUDGET_BYTES = 1024ull * 1024ull * 1
     return {1.00, FRAME_TIME_TARGET_MILLISECONDS, TIER_TEXTURE_BUDGET_BYTES}; // unreachable
 }
 
-/// One enumerator per visual feature a tier switches on. Empty until UTA-0015
-/// and UTA-0040 add the first. A feature reads its tier only through `enabled`.
-enum class Feature : std::uint8_t {};
+/// One enumerator per visual feature a tier switches on. A feature reads its
+/// tier only through `enabled`.
+enum class Feature : std::uint8_t {
+    ParallaxOcclusion, ///< UTA-0040
+};
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
 /// default case, so adding a feature means adding its row here.
 [[nodiscard]] constexpr Tier minimumTier(Feature feature) noexcept {
-    switch (feature) {}
-    return Tier::Low; // unreachable while the enum is empty
+    switch (feature) {
+    case Feature::ParallaxOcclusion: return Tier::Medium; // UTA-0040 SS 4.4
+    }
+    return Tier::Low; // unreachable
+}
+
+/// UTA-0040 SS 4.4: the march's step counts, the fewest at a view straight on
+/// and the most at a grazing one.
+struct ParallaxSteps {
+    std::uint32_t minimum;
+    std::uint32_t maximum;
+};
+
+/// Within what shipping engines use -- Godot 8 to 32, HDRP 5 to 15, Tatarchuk 8
+/// to 50 -- with the split between tiers a judgement. Low draws none.
+[[nodiscard]] constexpr ParallaxSteps parallaxStepsOf(Tier tier) noexcept {
+    switch (tier) {
+    case Tier::Low: return {0, 0};
+    case Tier::Medium: return {8, 16};
+    case Tier::High: return {8, 32};
+    case Tier::Ultra: return {16, 48};
+    }
+    return {0, 0}; // unreachable
 }
 
 [[nodiscard]] constexpr bool enabled(Feature feature, Tier tier) noexcept {

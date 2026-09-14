@@ -124,14 +124,16 @@ struct Material {
     std::uint32_t height;
     std::uint32_t emit;
     std::uint32_t metallic;
+    std::uint32_t parallaxDepth; ///< UTA-0040 SS 4.6: texels of the base level; 0 for none
 };
-static_assert(sizeof(Material) == 24);
+static_assert(sizeof(Material) == 28);
 static_assert(offsetof(Material, base) == 0);
 static_assert(offsetof(Material, normal) == 4);
 static_assert(offsetof(Material, rough) == 8);
 static_assert(offsetof(Material, height) == 12);
 static_assert(offsetof(Material, emit) == 16);
 static_assert(offsetof(Material, metallic) == 20);
+static_assert(offsetof(Material, parallaxDepth) == 24);
 
 /// One light, as UT99's own numbers -- the shader turns them into light
 /// (SS 3 decision 5), so no part of UTA-0112 SS 4.3's model is computed here.

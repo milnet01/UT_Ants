@@ -130,6 +130,7 @@ struct CuratedOverride {
     std::optional<std::uint8_t> baseRoughness;
     std::optional<bool> emissive;
     std::optional<std::uint8_t> emissiveThreshold;
+    std::optional<std::uint8_t> parallaxDepth; // added by UTA-0040 § 4.2
 };
 
 /// Why an entry exists (§ 4.7). Audit only: it reaches no bundle.
@@ -195,6 +196,7 @@ namespace detail {
 FNV-1a 64, as in § 4.2, over each entry in table order: its fingerprint as
 8 bytes little-endian, then each override field in declaration order as a
 presence byte (0 or 1) followed, when present, by its value as one byte.
+`parallaxDepth`, which `UTA-0040` § 4.2 added, is the last field.
 **`note` and `source` are left out**: neither changes a pixel, so neither
 may invalidate a cached bake. `libraryDigest()` is `digestOf` over
 `curatedLibrary()`. **UTA-0011 folds it into the baker version**, which is

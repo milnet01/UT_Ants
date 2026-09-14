@@ -178,7 +178,7 @@ layouts in §§ 4.6–4.8:
 | `WiringEdge` | 12 |
 | `DanglingEvent` | 8 |
 | `CompressedTexture` | 18 — **added by UTA-0052**, whose § 4.3 derives it |
-| `MaterialRecord` | 5 — **added by UTA-0011**, whose § 4.10 derives it |
+| `MaterialRecord` | 6 — **added by UTA-0011**, whose § 4.10 derives it; 6 since UTA-0040 § 4.1 appended a depth byte |
 | `GeometryVertex` | 32 (fixed) — **added by UTA-0109**, whose § 4.2 derives it |
 | `GeometryBatch` | 16 — **added by UTA-0109**, whose § 4.2 derives it |
 | `PropertyRecord` | 10 — **added by UTA-0110**, whose § 4.3 derives it |

@@ -24,6 +24,7 @@ MaterialSettings applied(MaterialSettings settings, const CuratedOverride& entry
     if (entry.baseRoughness) settings.baseRoughness = *entry.baseRoughness;
     if (entry.emissive) settings.emissive = *entry.emissive;
     if (entry.emissiveThreshold) settings.emissiveThreshold = *entry.emissiveThreshold;
+    if (entry.parallaxDepth) settings.parallaxDepth = *entry.parallaxDepth;
     return settings;
 }
 
@@ -44,6 +45,7 @@ std::uint64_t digestOf(std::span<const CuratedEntry> entries) noexcept {
         field(entry.settings.baseRoughness);
         field(entry.settings.emissive);
         field(entry.settings.emissiveThreshold);
+        field(entry.settings.parallaxDepth); // UTA-0040 SS 4.2, after emissiveThreshold
     }
     return hash.value;
 }

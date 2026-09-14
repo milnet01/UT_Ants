@@ -8,8 +8,9 @@
 namespace uta::ubundle::detail {
 namespace {
 
-/// UTA-0011 SS 4.10: a u32 length for an empty id, then one u8.
-constexpr std::uint64_t MIN_MATERIAL = 5;
+/// UTA-0011 SS 4.10: a u32 length for an empty id, then one u8; and
+/// UTA-0040 SS 4.1's depth byte.
+constexpr std::uint64_t MIN_MATERIAL = 6;
 
 [[nodiscard]] Result<MaterialRecord> readMaterialRecord(Cursor& cursor) {
     MaterialRecord record;
@@ -23,12 +24,15 @@ constexpr std::uint64_t MIN_MATERIAL = 5;
         return fail(ErrorCode::MalformedData,
                     "MATS: metallic byte " + std::to_string(metallic) + " is not 0 or 1");
     record.metallic = metallic == 1;
+    // UTA-0040 SS 4.1: every value is defined.
+    UTA_TRY(record.parallaxDepth, cursor.readU8());
     return record;
 }
 
 void putMaterialRecord(Sink& sink, const MaterialRecord& record) {
     sink.putString(record.id);
     sink.putU8(record.metallic ? 1 : 0);
+    sink.putU8(record.parallaxDepth);
 }
 
 } // namespace

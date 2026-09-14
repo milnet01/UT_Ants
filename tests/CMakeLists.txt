@@ -145,6 +145,7 @@ add_executable(uta_device_tests
     device/RenderLightingTest.cpp
     device/RenderMoverTest.cpp
     device/RenderOffscreenTest.cpp
+    device/RenderParallaxTest.cpp
     device/RenderProbeTest.cpp
     device/RenderShadowTest.cpp
     device/RenderSurfaceFlagsTest.cpp

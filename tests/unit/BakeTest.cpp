@@ -347,6 +347,33 @@ TEST_CASE("the surfaces decide which variants a texture gets", "[ubake][bake]") 
     CHECK(result.skipped.empty());
 }
 
+TEST_CASE("UTA-0040 INV-3: an opaque variant carries its depth and a masked one none", "[ubake][bake]") {
+    // Alpha is named by a masked and an unmasked surface. Every picture's
+    // curated entry sets a depth, so the opaque record's value can only come
+    // from the material, and the masked record's 0 only from the variant rule.
+    MapBuilder map;
+    const std::int32_t alpha = map.addTexture(TextureSpec{"Alpha", "", picture(4), false});
+    map.addSurface(alpha, MASKED).addSurface(alpha);
+    uta::umat::CuratedOverride deep;
+    deep.parallaxDepth = 20;
+    const detail::CuratedLookup lookup = [&](std::uint64_t) -> const uta::umat::CuratedOverride* { return &deep; };
+
+    JobSystem jobs(2);
+    const BakeResult curated = baked(map.build(), NOTHING_AVAILABLE, jobs, lookup);
+    REQUIRE(curated.bundle.materials.has_value());
+    REQUIRE(curated.bundle.materials->size() == 2);
+    CHECK((*curated.bundle.materials)[0].id == "dm-fixture.alpha");
+    CHECK((*curated.bundle.materials)[0].parallaxDepth == 20);
+    CHECK((*curated.bundle.materials)[1].id == "dm-fixture.alpha#masked");
+    CHECK((*curated.bundle.materials)[1].parallaxDepth == 0);
+
+    const BakeResult plain = baked(map.build(), NOTHING_AVAILABLE, jobs);
+    REQUIRE(plain.bundle.materials.has_value());
+    REQUIRE(plain.bundle.materials->size() == 2);
+    CHECK((*plain.bundle.materials)[0].parallaxDepth == uta::umat::GENERATED_PARALLAX_DEPTH);
+    CHECK((*plain.bundle.materials)[1].parallaxDepth == 0);
+}
+
 TEST_CASE("a texture carrying a Format property is skipped and named", "[ubake][bake]") {
     // INV-9: one texture, baked without the property and with it.
     for (const bool format : {false, true}) {

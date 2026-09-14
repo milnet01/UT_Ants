@@ -85,6 +85,7 @@ Result<Material> generate(std::string id, const Image& base, const MaterialSetti
     Material material;
     material.id = std::move(id);
     material.metallic = settings.metallic;
+    material.parallaxDepth = settings.parallaxDepth;
     for (std::size_t m = 0; m < MAPS.size(); ++m) {
         if (MAPS[m].kind == MapKind::Emit && !settings.emissive) continue;
         UTA_TRY(ubundle::CompressedTexture map,

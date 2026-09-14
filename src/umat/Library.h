@@ -32,6 +32,7 @@ struct CuratedOverride {
     std::optional<std::uint8_t> baseRoughness;
     std::optional<bool> emissive;
     std::optional<std::uint8_t> emissiveThreshold;
+    std::optional<std::uint8_t> parallaxDepth; ///< UTA-0040 SS 4.2
 
     friend constexpr bool operator==(const CuratedOverride&, const CuratedOverride&) = default;
 };

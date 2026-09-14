@@ -738,7 +738,8 @@ Result<Renderer> Renderer::create(const Config& config) {
         UTA_LOG(logRender, LogLevel::Info, "quality tier: {}, chosen from the device ({} MiB device-local)",
                 tierName(impl->tier), impl->gpu->deviceLocalBytes() / (1024u * 1024u));
     }
-    UTA_TRY(impl->pipelines, Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT}));
+    UTA_TRY(impl->pipelines,
+            Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT}, impl->tier));
     if (presenting) {
         UTA_TRY(impl->swapchain, Swapchain::create(*impl->gpu, config.width, config.height));
         impl->adoptSwapchainExtent();

@@ -65,7 +65,7 @@ Palette fixturePalette() {
 bool same(const MaterialSettings& a, const MaterialSettings& b) {
     return a.requestedUpscale == b.requestedUpscale && a.metallic == b.metallic
            && a.baseRoughness == b.baseRoughness && a.emissive == b.emissive
-           && a.emissiveThreshold == b.emissiveThreshold;
+           && a.emissiveThreshold == b.emissiveThreshold && a.parallaxDepth == b.parallaxDepth;
 }
 
 } // namespace
@@ -137,13 +137,16 @@ TEST_CASE("applied replaces exactly the fields an entry sets", "[umat][library]"
     before.baseRoughness = 10;
     before.emissive = true;
     before.emissiveThreshold = 20;
+    before.parallaxDepth = 9;
     REQUIRE(before.requestedUpscale != MaterialSettings{}.requestedUpscale);
+    REQUIRE(before.parallaxDepth != MaterialSettings{}.parallaxDepth);
 
     CuratedOverride full;
     full.metallic = false;
     full.baseRoughness = 200;
     full.emissive = false;
     full.emissiveThreshold = 100;
+    full.parallaxDepth = 30;
 
     MaterialSettings expected = before;
     CuratedOverride one;
@@ -169,11 +172,19 @@ TEST_CASE("applied replaces exactly the fields an entry sets", "[umat][library]"
     expected.emissiveThreshold = 100;
     CHECK(same(applied(before, one), expected));
 
+    // UTA-0040 INV-2.
+    expected = before;
+    one = {};
+    one.parallaxDepth = full.parallaxDepth;
+    expected.parallaxDepth = 30;
+    CHECK(same(applied(before, one), expected));
+
     expected = before;
     expected.metallic = false;
     expected.baseRoughness = 200;
     expected.emissive = false;
     expected.emissiveThreshold = 100;
+    expected.parallaxDepth = 30;
     CHECK(same(applied(before, full), expected));
 
     CHECK(same(applied(before, CuratedOverride{}), before));
@@ -189,6 +200,7 @@ TEST_CASE("the digest follows every fingerprint and override but not the audit f
     table[1].settings.baseRoughness = 50;
     table[1].settings.emissive = true;
     table[1].settings.emissiveThreshold = 60;
+    table[1].settings.parallaxDepth = 70;
     const std::uint64_t original = detail::digestOf(table);
     const auto digestAfter = [&table](const std::function<void(std::array<CuratedEntry, 2>&)>& edit) {
         auto copy = table;
@@ -207,6 +219,9 @@ TEST_CASE("the digest follows every fingerprint and override but not the audit f
     CHECK(digestAfter([](auto& t) { t[1].settings.baseRoughness = 51; }) != original);
     CHECK(digestAfter([](auto& t) { t[1].settings.emissive = false; }) != original);
     CHECK(digestAfter([](auto& t) { t[1].settings.emissiveThreshold = 61; }) != original);
+    // UTA-0040 INV-2: the depth, set from empty and changed in value.
+    CHECK(digestAfter([](auto& t) { t[0].settings.parallaxDepth = 0; }) != original);
+    CHECK(digestAfter([](auto& t) { t[1].settings.parallaxDepth = 71; }) != original);
 
     // A value moving from one field to the next is a change too: without the
     // presence byte these two would hash the same bytes.

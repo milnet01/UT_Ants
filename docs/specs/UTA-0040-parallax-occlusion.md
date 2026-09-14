@@ -172,12 +172,15 @@ built-in default material carries 0.
   *Test:* `tests/unit/RenderTiersTest.cpp`, one literal per tier.
   *Breaks when:* a row moves or Low runs steps.
 
-- **INV-5** — on Medium, a square viewed obliquely whose base map splits in two
-  colours along a line and whose height map is high on one side and low on the
-  other draws that colour line displaced from where Low draws it; the same
-  square with `parallaxDepth` 0 draws identically on both tiers.
-  *Test:* `tests/device/RenderParallaxTest.cpp`, the displacement's direction
-  and a minimum size measured on lavapipe and written into the test.
+- **INV-5** — on Medium, a square whose base map splits in two colours along a
+  line and whose height map is high on one side and low on the other, viewed
+  from the low side, draws the high colour further across that line than Low
+  does; viewed from the high side, no further; and the same square with
+  `parallaxDepth` 0 draws identically on both tiers.
+  *Test:* `tests/device/RenderParallaxTest.cpp`, the shift's direction and a
+  minimum size measured on lavapipe and written into the test. Both sides are
+  needed: the march reaches past the picture's repeat, so from one side alone a
+  march going the wrong way can look like one going the right way.
   *Breaks when:* the shader ignores `parallaxDepth`, marches the wrong way, runs
   on Low, or runs at depth 0.
 
@@ -258,8 +261,24 @@ No review: the user ruled on 2026-09-14 that this spec takes none.
 
 One `u8` per material in `MATS` and four bytes per material on the GPU. The
 march costs up to the tier's maximum step count in height samples per shaded
-pixel of a parallax surface. It is measured with `ut-ants --frames` on
-DM-Deck16][ at each tier, before and after, and recorded when this item ships.
+pixel of a parallax surface.
+
+**Measured 2026-09-14** on the RX 6600, DM-Deck16][ from its first PlayerStart,
+`ut-ants --windowed --frames 300` at 1280 × 720, three runs per tier. Before is
+commit `d1bc5af` on a format-8 bake; after is this item on a format-9 bake. Each
+figure is the last frame's time in milliseconds, at scale 1 in every run:
+
+| Tier | Before | After |
+|---|---|---|
+| Low | 9.40 – 9.43 | 8.22 – 9.42 |
+| Medium | 9.47 – 9.77 | 8.45 – 9.73 |
+| High | 9.33 – 9.45 | 9.52 – 10.34 |
+| Ultra | 8.06 – 9.64 | 9.64 – 10.02 |
+
+Runs of one build spread by up to 1.6 ms, so the cost is below that at Low and
+Medium and at most about 1 ms at High and Ultra. **Not measured**: the cost at
+4K, where it scales with the shaded pixels, and a figure averaged over frames
+rather than one frame paced by FIFO presentation.
 
 ## 14. Migration / compatibility
 

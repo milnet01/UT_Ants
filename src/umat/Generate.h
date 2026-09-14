@@ -25,6 +25,10 @@ namespace uta::umat {
 /// The maps a material carries, in the order Material::maps holds them.
 enum class MapKind : std::uint8_t { Base, Normal, Rough, Height, Emit };
 
+/// UTA-0040 SS 4.2: a generated material's parallax depth, in texels. Shallow,
+/// because a height taken from a picture's luma is a guess.
+inline constexpr std::uint8_t GENERATED_PARALLAX_DEPTH = 4;
+
 struct MaterialSettings {
     /// What the material asks for; upscaleFactor decides what applies.
     std::uint32_t requestedUpscale = ubundle::MAX_UPSCALE_FACTOR;
@@ -33,11 +37,14 @@ struct MaterialSettings {
     std::uint8_t baseRoughness = 191;
     bool emissive = false;
     std::uint8_t emissiveThreshold = 192;
+    /// UTA-0040 SS 4.2: in texels of the base level; 0 draws no parallax.
+    std::uint8_t parallaxDepth = GENERATED_PARALLAX_DEPTH;
 };
 
 struct Material {
     std::string id;
     bool metallic = false;
+    std::uint8_t parallaxDepth = 0; ///< UTA-0040 SS 4.2
     /// In MapKind order. Emit is absent unless settings.emissive.
     std::vector<ubundle::CompressedTexture> maps;
 };

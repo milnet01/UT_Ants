@@ -4,6 +4,7 @@
 
 #include "ubundle/Bundle.h"
 #include "urender/ShaderTypes.h"
+#include "urender/Tiers.h"
 
 #include "cluster.comp.spv.h"
 #include "fsr_easu.frag.spv.h"
@@ -50,9 +51,18 @@ struct SceneVariant {
 };
 
 Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
-                                 VkShaderModule vertex, VkShaderModule fragment, SceneVariant variant) {
-    const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex),
-                               stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
+                                 VkShaderModule vertex, VkShaderModule fragment, SceneVariant variant,
+                                 ParallaxSteps parallax) {
+    // UTA-0040 SS 4.4: scene.frag's constant_id 0 and 1, so a tier with no
+    // steps compiles the march out.
+    const std::array entries = {
+        VkSpecializationMapEntry{0, offsetof(ParallaxSteps, minimum), sizeof(ParallaxSteps::minimum)},
+        VkSpecializationMapEntry{1, offsetof(ParallaxSteps, maximum), sizeof(ParallaxSteps::maximum)},
+    };
+    const VkSpecializationInfo specialization{static_cast<std::uint32_t>(entries.size()), entries.data(),
+                                              sizeof(parallax), &parallax};
+    std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
+    stages[1].pSpecializationInfo = &specialization;
 
     // ubundle::GeometryVertex, uploaded as it is laid out in memory.
     const VkVertexInputBindingDescription binding{0, sizeof(ubundle::GeometryVertex), VK_VERTEX_INPUT_RATE_VERTEX};
@@ -312,7 +322,7 @@ Result<VkShaderModule> shaderModule(VkDevice device, std::span<const std::uint32
     return module;
 }
 
-Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const TargetFormats& formats) {
+Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const TargetFormats& formats, Tier tier) {
     std::unique_ptr<Pipelines> p(new Pipelines());
     p->device_ = gpu.device();
     const VkDevice device = p->device_;
@@ -396,7 +406,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
             UTA_TRY(p->scene_[translucent][twoSided],
                     scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                                  {translucent == 1, twoSided == 1}));
+                                  {translucent == 1, twoSided == 1}, parallaxStepsOf(tier)));
         }
     }
     UTA_TRY(p->post_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));

@@ -17,6 +17,9 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Parallax occlusion: baked surfaces show recessed depth from Medium tier up** (UTA-0040)
+  Make flat walls actually look deep. A brick wall stops being a picture of bricks and gains real recesses you can see into as you move past it.
+
 - **ut-ants' flying camera stops at the level's walls and slides along them** (UTA-0158)
   The camera can fly around the map freely but can no longer pass through walls or leave the map, just like watching before a match in the original game.
 

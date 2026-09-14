@@ -80,7 +80,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle)
     sources.push_back(defaultSource(DEFAULT_NORMAL, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_ROUGH, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM));
-    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0};
+    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0};
 
     std::unordered_map<std::string_view, const ubundle::CompressedTexture*> byName;
     if (bundle.textures)
@@ -121,7 +121,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle)
                                normal == gpu::NONE ? defaults.normal : normal,
                                rough == gpu::NONE ? defaults.rough : rough,
                                height == gpu::NONE ? defaults.height : height, emit,
-                               record.metallic ? 1u : 0u});
+                               record.metallic ? 1u : 0u, record.parallaxDepth});
         }
     }
 

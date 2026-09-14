@@ -85,6 +85,23 @@ TEST_CASE("UTA-0051: a frame between half the target and the target leaves the s
     CHECK(nextRenderScale(0.8, settings.frameTimeTargetMilliseconds * 0.75, settings) == 0.8);
 }
 
+TEST_CASE("UTA-0040 INV-4: parallax occlusion starts at Medium with the spec's step counts", "[render]") {
+    using uta::urender::Feature;
+    using uta::urender::parallaxStepsOf;
+    CHECK(uta::urender::minimumTier(Feature::ParallaxOcclusion) == Tier::Medium);
+    CHECK_FALSE(uta::urender::enabled(Feature::ParallaxOcclusion, Tier::Low));
+    CHECK(uta::urender::enabled(Feature::ParallaxOcclusion, Tier::Medium));
+
+    CHECK(parallaxStepsOf(Tier::Low).minimum == 0);
+    CHECK(parallaxStepsOf(Tier::Low).maximum == 0);
+    CHECK(parallaxStepsOf(Tier::Medium).minimum == 8);
+    CHECK(parallaxStepsOf(Tier::Medium).maximum == 16);
+    CHECK(parallaxStepsOf(Tier::High).minimum == 8);
+    CHECK(parallaxStepsOf(Tier::High).maximum == 32);
+    CHECK(parallaxStepsOf(Tier::Ultra).minimum == 16);
+    CHECK(parallaxStepsOf(Tier::Ultra).maximum == 48);
+}
+
 TEST_CASE("UTA-0051: tier names read case-insensitively and write lower case", "[render]") {
     CHECK(uta::urender::tierNamed("low") == Tier::Low);
     CHECK(uta::urender::tierNamed("Medium") == Tier::Medium);

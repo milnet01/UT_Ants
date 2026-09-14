@@ -341,7 +341,10 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             out.skipped.push_back(SkippedTexture{id, std::move(made).error()});
             continue;
         }
-        out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic});
+        // UTA-0040 SS 4.3: a masked variant is a cut-out, which parallax would
+        // move off its geometry, so it carries no depth.
+        out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
+                                                      variant.masked ? std::uint8_t{0} : made->material.parallaxDepth});
         out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
         for (ubundle::CompressedTexture& map : made->material.maps)
             out.textures.push_back(std::move(map));

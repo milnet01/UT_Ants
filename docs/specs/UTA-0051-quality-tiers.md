@@ -93,9 +93,9 @@ struct TierSettings {
 };
 [[nodiscard]] constexpr TierSettings settingsOf(Tier tier) noexcept;
 
-/// One enumerator per visual feature a tier switches. Empty until UTA-0015 and
-/// UTA-0040 add the first.
-enum class Feature : std::uint8_t {};
+/// One enumerator per visual feature a tier switches. UTA-0040 added the first:
+/// parallax occlusion, from Medium.
+enum class Feature : std::uint8_t { ParallaxOcclusion };
 /// A switch over every enumerator, with no default case.
 [[nodiscard]] constexpr Tier minimumTier(Feature feature) noexcept;
 [[nodiscard]] constexpr bool enabled(Feature feature, Tier tier) noexcept;

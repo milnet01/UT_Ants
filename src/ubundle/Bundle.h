@@ -48,7 +48,8 @@ namespace uta::ubundle {
 /// its SS 4.7. Nothing else about the framing moved: the header is still
 /// sixteen bytes and the descriptor twenty-four.
 /// No .utab exists that this orphans, 0.1.0 not having been cut.
-inline constexpr std::uint32_t FORMAT_VERSION = 8;
+/// 9 since UTA-0040 SS 4.1 gave each MATS record a parallax depth byte.
+inline constexpr std::uint32_t FORMAT_VERSION = 9;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -148,6 +149,9 @@ struct CompressedTexture {
 struct MaterialRecord {
     std::string id;
     bool metallic = false;
+    /// UTA-0040 SS 4.1: how deep the height map's full range reaches below the
+    /// surface, in texels of the material's base level. 0: no parallax.
+    std::uint8_t parallaxDepth = 0;
 };
 
 /// One corner of a triangle -- UTA-0109 SS 4.2.

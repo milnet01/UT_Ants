@@ -60,6 +60,7 @@ struct Material {
     uint height;
     uint emit;
     uint metallic;
+    uint parallaxDepth; // UTA-0040: texels of the base level; 0 for none
 };
 
 struct Light {

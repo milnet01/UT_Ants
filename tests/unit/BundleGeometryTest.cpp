@@ -76,7 +76,7 @@ Bytes geomPayload(const Geometry& geometry) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(8); // formatVersion -- 8 since UTA-0112 SS 4.2
+    out.u32(9); // formatVersion -- 9 since UTA-0040 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -169,7 +169,7 @@ TEST_CASE("the GEOM golden bytes decode to the geometry they encode", "[ubundle]
     // INV-1, the reader's half.
     const auto result = read(fileWith(geomPayload(golden())));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 8);
+    CHECK(result->header.formatVersion == 9);
     REQUIRE(result->geometry.has_value());
     sameBits(*result->geometry, golden());
 }
