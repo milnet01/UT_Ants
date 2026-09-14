@@ -8822,7 +8822,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: urender.
 
-- 🚧 [UTA-0155] **ubake: bake a texture whose palette lives in another package.**
+- ✅ [UTA-0155] **ubake: bake a texture whose palette lives in another package.**
   The user flew DM-Deck16][ on 2026-09-14 and found no acidic liquid in
   its pits. The bake's own report says why: bake.json's skipped list holds
   one material, hubeffects.goop3, with "its palette is not an export of
@@ -8884,12 +8884,15 @@ model, no weapon and no opponent until 0.2.0.
   is 9. The push was restarted under cc-job as uta0155-push so a
   terminal relaunch cannot kill it. Flip to shipped once the matrix is
   green for ff08314's full SHA.
+  Shipped (2026-09-14, ut-ants-35): green on the matrix -- GCC 14, Clang 19
+  and MSVC -- in CI run 34869791995 for 536d0c0, which carries 7ccccca and
+  ff08314.
   **Layman:** The green acid pools in maps like DM-Deck16][ are missing because their texture's colours are stored in a different file; read them from there.
   Kind: fix.
   Source: user-request-2026-09-14.
   Lanes: ubake, upkg.
 
-- 📋 [UTA-0156] **Maps draw about as bright as the original: carry ZoneInfo ambient light, and set exposure by measurement.**
+- 🚧 [UTA-0156] **Maps draw about as bright as the original: carry ZoneInfo ambient light, and set exposure by measurement.**
   The user flew DM-Deck16][ on 2026-09-14: "The map is significantly
   darker than the original game, can you brighten it a little please?"
 
@@ -8913,6 +8916,19 @@ model, no weapon and no opponent until 0.2.0.
   User direction (2026-09-14): the engine's first iteration uses the
   cheapest methods that still make it look like a modern game. Fully
   modern features come after.
+  Claimed 2026-09-14 by session ut-ants-35, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants).
+  Findings so far. The reference install draws through OpenGLDrv with
+  OneXBlending=False (a lightmap is applied at double strength) and
+  Brightness=1.0 in System64/UnrealTournament.ini. So the original the
+  user compares against is at its brightest setting. OldUnreal issue 1539
+  shows zone ambient light is applied while the game runs: changing
+  AmbientBrightness in the console brightens a level's dark spots. The
+  bundle carries no zone data for a surface, but ROOM already carries the
+  BSP descent and each leaf's zone, and ubake has the Model's zone table
+  with each zone's ZoneInfo reference. Cheapest route under review: add
+  each zone's ambient to the light probes inside it at bake time, so
+  surfaces and actors both receive it with no new section.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.
