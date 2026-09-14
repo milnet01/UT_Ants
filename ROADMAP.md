@@ -5230,6 +5230,10 @@ model, no weapon and no opponent until 0.2.0.
   reported as a false difference. A first pass was discarded because the
   user and the session each started a copy, writing one file. The clean
   run was interrupted by a session restart; re-run the script to resume.
+  User decision (2026-09-14, later): the user runs compare.sh in Konsole
+  instead, because Ants Terminal is relaunched to pick up its own fixes and a
+  session's Monitor dies with it. The session's run was stopped before
+  either half finished, so nothing is kept and the Konsole run starts fresh.
   **Layman:** Break one very large test file into a few smaller ones by topic, so two people working on different parts do not edit the same file.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
