@@ -8833,6 +8833,31 @@ model, no weapon and no opponent until 0.2.0.
   whose palette lives in another package; re-bake DM-Deck16][ and confirm
   hubeffects.goop3 is no longer skipped. HubEffects imports Engine, Fire,
   GenFX and genfluid, so the palette is likely in one of the last three.
+  Census (2026-09-14, a scratch program over the reference install's
+  Textures/*.utx and Maps/*.unr, kept at
+  /mnt/Games/Scripts/Linux/ut-ants-uta0155-palette-census.txt): 2350
+  packages opened, 48130 texture-class exports. 47805 hold their palette as
+  an export of their own package. 175 import it from another package and
+  are the ones this item's rule skips: 103 WetTexture, 38 ScriptedTexture,
+  21 Texture and 13 IceTexture. Their palettes live chiefly in genfluid
+  (60), palettes (29), botpack (24) and scriptedscreen (20), and in 18
+  other packages. So the fix reaches well beyond DM-Deck16]['s acid. 126
+  exports name no palette and 24 do not read; neither is this item's case.
+  Progress (2026-09-14, ut-ants-e9). The palette fix is built: makeVariant
+  follows an imported palette through the resolver, factored with siteOf's
+  import walk; a two-case unit test was red first and a mutation of the
+  new lookup fails it; 539 unit tests pass; BAKER_REVISION is 8.
+  But it does not bring back the acid. A re-bake of DM-Deck16][ now skips
+  hubeffects.goop3 one step later: "the level holds 0 bytes where its
+  128x128 texels need 16384". A probe (kept at
+  /mnt/Games/Scripts/Linux/ut-ants-uta0155-procedural-probe.txt) shows goop3
+  is a WetTexture storing no pixels, with SourceTexture =
+  genfluid.Water.r6000w2. Of the 175 textures with an imported palette,
+  only 15 plain Textures store pixels; 6 plain Textures and 154 WetTexture
+  (103), ScriptedTexture (38) and IceTexture (13) store none, and all 154
+  name a SourceTexture. So the acid needs those textures' still picture
+  taken from their SourceTexture, which UTA-0105's 2026-09-10 decision
+  ("a still picture where one exists") bears on. Put to the user.
   **Layman:** The green acid pools in maps like DM-Deck16][ are missing because their texture's colours are stored in a different file; read them from there.
   Kind: fix.
   Source: user-request-2026-09-14.

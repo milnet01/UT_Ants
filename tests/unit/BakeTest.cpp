@@ -374,6 +374,42 @@ TEST_CASE("UTA-0040 INV-3: an opaque variant carries its depth and a masked one 
     CHECK((*plain.bundle.materials)[1].parallaxDepth == 0);
 }
 
+TEST_CASE("UTA-0155: a texture whose palette lives in another package is made", "[ubake][bake]") {
+    // 175 of the reference install's textures import their palette, among them
+    // DM-Deck16]['s acid, hubeffects.goop3. The map imports FluidTex.Goo, and
+    // Goo's palette is FluidPal.GooPal.
+    TextureSpec goo;
+    goo.name = "Goo";
+    goo.picture = picture(6);
+    goo.paletteFrom = "FluidPal";
+    MapBuilder map;
+    map.addSurface(map.importTexture("FluidTex", "", "Goo"));
+    JobSystem jobs(2);
+
+    SECTION("with the palette's package in the install") {
+        MemoryPackages packages;
+        packages.add("fluidtex", texturePackage({goo}));
+        packages.add("fluidpal", palettePackage({goo}));
+        const BakeResult result = baked(map.build(), packages.resolver(), jobs);
+        for (const auto& skipped : result.skipped) INFO("skipped " << skipped.material << ": " << skipped.reason);
+        CHECK(result.skipped.empty());
+        CHECK(idsOf(result) == std::vector<std::string>{"fluidtex.goo"});
+        REQUIRE(result.bundle.textures.has_value());
+        CHECK(std::ranges::any_of(*result.bundle.textures,
+                                  [](const auto& texture) { return texture.name == "fluidtex.goo:base"; }));
+    }
+
+    SECTION("without it, the texture is skipped and the reason names the package") {
+        MemoryPackages packages;
+        packages.add("fluidtex", texturePackage({goo}));
+        const BakeResult result = baked(map.build(), packages.resolver(), jobs);
+        REQUIRE(result.skipped.size() == 1);
+        CHECK(result.skipped[0].material == "fluidtex.goo");
+        INFO("reason: " << result.skipped[0].reason);
+        CHECK(result.skipped[0].reason.find("fluidpal") != std::string::npos);
+    }
+}
+
 TEST_CASE("a texture carrying a Format property is skipped and named", "[ubake][bake]") {
     // INV-9: one texture, baked without the property and with it.
     for (const bool format : {false, true}) {

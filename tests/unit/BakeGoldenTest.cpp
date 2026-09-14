@@ -35,7 +35,9 @@ using namespace uta::test::bake;
 
 namespace {
 
-constexpr std::uint32_t RECORDED_UNDER = 7; // UTA-0040 added MATS depths
+// 8: UTA-0155 made textures whose palette lives in another package. The fixture
+// holds none, so the digest is the one revision 7 recorded.
+constexpr std::uint32_t RECORDED_UNDER = 8;
 constexpr std::string_view GOLDEN =
     "9bfb69e649be50f87e4b4cd10457e7e27e84e3ce42547e016c859076a1346446";
 

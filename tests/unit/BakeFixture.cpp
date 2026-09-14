@@ -177,12 +177,18 @@ std::int32_t Packer::group(std::string_view text) {
 std::int32_t Packer::addTexture(const TextureSpec& texture) {
     const std::int32_t outer = texture.group.empty() ? 0 : group(texture.group);
 
-    std::vector<std::uint8_t> paletteData = emptyProperties();
-    appendIndex(paletteData, static_cast<std::int32_t>(texture.picture.palette.size()));
-    for (const auto& colour : texture.picture.palette)
-        paletteData.insert(paletteData.end(), colour.begin(), colour.end());
-    const std::int32_t palette = addExport(importClass("Engine", "Palette"), outer,
-                                           texture.name + "Pal", std::move(paletteData));
+    std::int32_t palette = 0;
+    if (texture.paletteFrom.empty()) {
+        std::vector<std::uint8_t> paletteData = emptyProperties();
+        appendIndex(paletteData, static_cast<std::int32_t>(texture.picture.palette.size()));
+        for (const auto& colour : texture.picture.palette)
+            paletteData.insert(paletteData.end(), colour.begin(), colour.end());
+        palette = addExport(importClass("Engine", "Palette"), outer, texture.name + "Pal", std::move(paletteData));
+    } else {
+        // UTA-0155: the palette lives in another package, as 175 of the reference
+        // install's textures keep theirs.
+        palette = importObject("Engine", "Palette", importPackage(texture.paletteFrom), texture.name + "Pal");
+    }
 
     TaggedPropertyWriter properties;
     properties.addObject(name("Palette"), palette);
@@ -507,6 +513,17 @@ std::vector<std::uint8_t> MapBuilder::build() const {
 std::vector<std::uint8_t> texturePackage(const std::vector<TextureSpec>& textures) {
     Packer packer;
     for (const TextureSpec& texture : textures) packer.addTexture(texture);
+    return packer.build();
+}
+
+std::vector<std::uint8_t> palettePackage(const std::vector<TextureSpec>& textures) {
+    Packer packer;
+    for (const TextureSpec& texture : textures) {
+        std::vector<std::uint8_t> data = emptyProperties();
+        appendIndex(data, static_cast<std::int32_t>(texture.picture.palette.size()));
+        for (const auto& colour : texture.picture.palette) data.insert(data.end(), colour.begin(), colour.end());
+        packer.addExport(packer.importClass("Engine", "Palette"), 0, texture.name + "Pal", std::move(data));
+    }
     return packer.build();
 }
 

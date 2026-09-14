@@ -45,6 +45,10 @@ struct TextureSpec {
     Picture picture;
     bool format = false; ///< carries a Format property -- INV-9
     float drawScale = 0; ///< 0: carries no DrawScale property -- UTA-0109 INV-11
+    /// UTA-0155: empty, the palette is an export beside the texture; otherwise
+    /// the package the palette `<name>Pal` is imported from, as palettePackage
+    /// builds one.
+    std::string paletteFrom;
 };
 
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
@@ -253,6 +257,10 @@ private:
 
 /// A texture package: each texture and its palette.
 [[nodiscard]] std::vector<std::uint8_t> texturePackage(const std::vector<TextureSpec>& textures);
+
+/// UTA-0155: a package holding only palettes, `<name>Pal` for each texture at
+/// its top level, as a texture whose `paletteFrom` names this package imports.
+[[nodiscard]] std::vector<std::uint8_t> palettePackage(const std::vector<TextureSpec>& textures);
 
 /// A package holding the class `className` and its root parent
 /// `<className>Base`, which carries a light's defaults: LightType 1 and

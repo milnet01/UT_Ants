@@ -86,6 +86,43 @@ std::string exportPath(const upkg::Package& package, const upkg::ExportEntry& en
     return path;
 }
 
+/// An import followed to the package it lives in -- used for a surface's
+/// texture and, since UTA-0155, for a texture's palette.
+struct ImportedObject {
+    std::string package;            ///< the package the chain ends at, as the name table spells it
+    std::vector<std::string> names; ///< the object's name first, its outermost group last
+    std::string broken;             ///< why the chain is unusable; empty when it is sound
+
+    /// `<group>.<name>`, outermost first.
+    [[nodiscard]] std::string path() const {
+        std::string out;
+        for (auto name = names.rbegin(); name != names.rend(); ++name) out += (out.empty() ? "" : ".") + *name;
+        return out;
+    }
+};
+
+/// Walks `import`'s outer chain in `from`, collecting names on the way. The
+/// chain is bounded by the import table.
+ImportedObject walkImport(const upkg::Package& from, const upkg::ImportEntry& import) {
+    ImportedObject out;
+    const std::span<const upkg::ImportEntry> imports = from.imports();
+    const upkg::ImportEntry* current = &import;
+    for (std::size_t hops = 0;; ++hops) {
+        if (current->outer.kind() == upkg::ObjectReferenceKind::Null) {
+            out.package = nameOf(from, current->objectName);
+            break;
+        }
+        out.names.push_back(nameOf(from, current->objectName));
+        if (current->outer.kind() != upkg::ObjectReferenceKind::Import
+            || current->outer.index() >= imports.size() || hops > imports.size()) {
+            out.broken = "its import's outer chain does not end at a package";
+            break;
+        }
+        current = &imports[current->outer.index()];
+    }
+    return out;
+}
+
 /// Whether `candidate`'s own name and its chain of outer names match `chain`
 /// -- the texture's name first, its outermost group last -- compared folded,
 /// with nothing outside the chain.
@@ -102,6 +139,16 @@ bool matchesChain(const upkg::Package& holder, const upkg::ExportEntry& candidat
         current = &holder.exports()[outer.index()];
     }
     return false;
+}
+
+/// The export of `holder` an import's `names` lead to -- the object's name
+/// first, its outermost group last -- or null where `holder` holds none.
+const upkg::ExportEntry* exportNamed(const upkg::Package& holder, const std::vector<std::string>& names) {
+    std::vector<std::string> chain;
+    for (const std::string& name : names) chain.push_back(detail::fold(name));
+    for (const upkg::ExportEntry& candidate : holder.exports())
+        if (matchesChain(holder, candidate, chain)) return &candidate;
+    return nullptr;
 }
 
 /// SS 4.6 "Which textures": an export reference is that export of the map; an
@@ -128,8 +175,7 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
         return site;
     }
 
-    // An import: walk to the root of its outer chain, collecting names on the
-    // way. The chain is bounded by the import table.
+    // An import: walk to the root of its outer chain.
     const std::span<const upkg::ImportEntry> imports = map.imports();
     if (reference.index() >= imports.size()) {
         site.package = std::string(mapName);
@@ -138,34 +184,16 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
                           + ", past the map's import table";
         return site;
     }
-    std::vector<std::string> names; // the texture first
-    const upkg::ImportEntry* current = &imports[reference.index()];
-    std::string broken;
-    for (std::size_t hops = 0;; ++hops) {
-        if (current->outer.kind() == upkg::ObjectReferenceKind::Null) {
-            site.package = nameOf(map, current->objectName);
-            break;
-        }
-        names.push_back(nameOf(map, current->objectName));
-        if (current->outer.kind() != upkg::ObjectReferenceKind::Import
-            || current->outer.index() >= imports.size() || hops > imports.size()) {
-            broken = "its import's outer chain does not end at a package";
-            break;
-        }
-        current = &imports[current->outer.index()];
-    }
+    const ImportedObject imported = walkImport(map, imports[reference.index()]);
+    site.package = imported.package;
+    site.path = imported.path();
 
-    std::string path;
-    for (auto name = names.rbegin(); name != names.rend(); ++name)
-        path += (path.empty() ? "" : ".") + *name;
-    site.path = path;
-
-    if (!broken.empty()) {
+    if (!imported.broken.empty()) {
         if (site.package.empty()) site.package = std::string(mapName);
-        site.unresolved = broken;
+        site.unresolved = imported.broken;
         return site;
     }
-    if (names.empty()) {
+    if (imported.names.empty()) {
         site.path = site.package;
         site.unresolved = "the surface's texture reference names a package, not a texture";
         return site;
@@ -176,16 +204,12 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
         site.unresolved = "package " + site.package + " is not in the install, or does not open";
         return site;
     }
-    std::vector<std::string> chain;
-    for (const std::string& name : names) chain.push_back(detail::fold(name));
-    for (const upkg::ExportEntry& candidate : holder->exports()) {
-        if (matchesChain(*holder, candidate, chain)) {
-            site.holder = holder;
-            site.entry = &candidate;
-            return site;
-        }
+    if (const upkg::ExportEntry* const entry = exportNamed(*holder, imported.names)) {
+        site.holder = holder;
+        site.entry = entry;
+        return site;
     }
-    site.unresolved = "package " + site.package + " holds no " + path;
+    site.unresolved = "package " + site.package + " holds no " + site.path;
     return site;
 }
 
@@ -205,7 +229,7 @@ struct MadeVariant {
 /// the bake goes on without it.
 std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                                     const std::string& id, bool masked,
-                                                    JobSystem& jobs,
+                                                    const upkg::PackageResolver& resolver, JobSystem& jobs,
                                                     const detail::CuratedLookup& curated) {
     if (site.holder == nullptr) return std::unexpected(site.unresolved);
     const upkg::Package& holder = *site.holder;
@@ -230,13 +254,38 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     }
 
     // Step 2. The palette reference is property DATA, so its range is checked.
+    // UTA-0155: an import is followed into the package it names, through the
+    // resolver the textures take -- 175 of the reference install's textures
+    // keep their palette in another package.
     if (!paletteReference.has_value()
         || paletteReference->kind() == upkg::ObjectReferenceKind::Null)
         return std::unexpected(std::string("it names no palette"));
-    if (paletteReference->kind() != upkg::ObjectReferenceKind::Export
-        || paletteReference->index() >= holder.exports().size())
-        return std::unexpected(std::string("its palette is not an export of its own package"));
-    const auto palette = upkg::readPalette(holder, holder.exports()[paletteReference->index()]);
+    const upkg::Package* paletteHolder = &holder;
+    const upkg::ExportEntry* paletteEntry = nullptr;
+    if (paletteReference->kind() == upkg::ObjectReferenceKind::Export) {
+        if (paletteReference->index() >= holder.exports().size())
+            return std::unexpected(std::string("its palette names an export past its package's export table"));
+        paletteEntry = &holder.exports()[paletteReference->index()];
+    } else {
+        if (paletteReference->index() >= holder.imports().size())
+            return std::unexpected(std::string("its palette names an import past its package's import table"));
+        const ImportedObject imported = walkImport(holder, holder.imports()[paletteReference->index()]);
+        const std::string package = detail::fold(imported.package);
+        if (!imported.broken.empty()) return std::unexpected("its palette: " + imported.broken);
+        if (imported.names.empty())
+            return std::unexpected("its palette reference names the package " + package + ", not a palette");
+        const auto found = resolver(package);
+        if (!found.has_value())
+            return std::unexpected("its palette's package " + package + " did not open: "
+                                   + std::string(found.error().message()));
+        if (*found == nullptr)
+            return std::unexpected("its palette's package " + package + " is not in the install, or does not open");
+        paletteHolder = *found;
+        paletteEntry = exportNamed(*paletteHolder, imported.names);
+        if (paletteEntry == nullptr)
+            return std::unexpected("its palette's package " + package + " holds no " + imported.path());
+    }
+    const auto palette = upkg::readPalette(*paletteHolder, *paletteEntry);
     if (!palette.has_value())
         return std::unexpected("its palette does not read: " + std::string(palette.error().message()));
 
@@ -336,7 +385,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
     // TEXS independent of which job finishes first (INV-1).
     Materials out;
     for (const auto& [id, variant] : variants) {
-        auto made = makeVariant(*variant.site, id, variant.masked, jobs, curated);
+        auto made = makeVariant(*variant.site, id, variant.masked, resolver, jobs, curated);
         if (!made.has_value()) {
             out.skipped.push_back(SkippedTexture{id, std::move(made).error()});
             continue;
