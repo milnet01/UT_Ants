@@ -1844,6 +1844,14 @@ model, no weapon and no opponent until 0.2.0.
   the main checkout. User decision: a short spec first, covering only
   what later items bind to (the tier names, how a feature declares its
   tier, how the default tier is picked), then build.
+  Progress (2026-09-14, ut-ants-f9): the spec is
+  docs/specs/UTA-0051-quality-tiers.md, accepted at review-contract's cap
+  of two loops for a spec, a calm cap. Nine verified findings, all fixed,
+  none left open. The ones that change what gets built: the controller
+  must reach its bound within 120 calls; INV-7 needs a blend probe to
+  tell a stretch from a full-size draw; FrameData::viewportSize uses the
+  region while shadow planning keeps the output size. The unset-tier path
+  cannot be checked on CI's CPU driver. Next: build it under write-code.
   **Layman:** One quality setting that actually works: the game picks a sensible level for your machine, leaves the expensive effects off on weak hardware, and quietly lowers resolution rather than stuttering.
   Kind: implement.
   Source: user-request-2026-09-04.

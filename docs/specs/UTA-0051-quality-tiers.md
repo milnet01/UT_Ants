@@ -1,6 +1,6 @@
 # UTA-0051 — quality tiers and dynamic resolution
 
-**Status:** spec draft (2026-09-14).
+**Status:** accepted (2026-09-14), at the review's cap of two loops for a spec — a calm cap. The loop log is [`docs/reviews/UTA-0051-quality-tiers-loop-log.md`](../reviews/UTA-0051-quality-tiers-loop-log.md).
 **Kind:** implement.
 **Source:** ROADMAP UTA-0051 (user-request-2026-09-04).
 **Blocked by:** none — `UTA-0014`'s draw path shipped.
@@ -149,7 +149,12 @@ scale 1, exactly as `UTA-0014` does.
 **The scene draws into a region, and no target is resized.** `hdr`, `velocity`
 and `depth` keep the output size. At scale `s` the scene draws into the top-left
 `max(1, ceil(s·W))` × `max(1, ceil(s·H))` pixels. The projection, the cluster
-grid, shadow planning and the jitter all use that region's size. The post stage
+grid, the jitter and `FrameData::viewportSize`, which `scene.frag` divides by to
+find a pixel's cluster, all use that region's size. **Shadow planning keeps
+`W` × `H`.** A tile's size follows its light's size on the target
+(`shadowTileSize`), so planning at the region's size would re-place every tile
+at each change of scale, and a still camera would no longer draw no tiles, as
+`FrameStats::renderedShadowTiles` says it does. The post stage
 samples the region with linear filtering and writes `output` at `W` × `H`. A
 change of scale creates or destroys no image; `resize` alone rebuilds targets,
 as `UTA-0014` § 4.3 says.
@@ -194,7 +199,7 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
 - **INV-3** — `defaultTier` follows § 4.3's table.
   *Test:* `tests/unit/RenderTiersTest.cpp`, one row per boundary: 1.5 GiB less
   one byte and exactly 1.5 GiB, the same at 3.5 and 7.5, and an integrated
-  device at 16 GiB. Only the threshold under test separates each pair.
+  device and a CPU device, each at 16 GiB. Only the threshold under test separates each pair.
   *Breaks when:* a threshold moves, a comparison is inclusive on the wrong
   side, or memory is read before the device type.
 
@@ -206,16 +211,17 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
   *Breaks when:* the override is ignored.
 
 - **INV-5** — `nextRenderScale` stays in `[minimumRenderScale, 1]`, and at 1
-  for Ultra. On Low, Medium and High, a frame slower than the target lowers a
-  scale above the floor, and a run of such frames reaches the floor within 120
-  calls. A frame faster than half the target raises a scale below 1, and a run
-  of them reaches 1 within 120 calls. A slow frame never raises the scale, and a
-  fast one never lowers it.
+  for Ultra. A frame slower than the target never raises the scale, and a frame
+  faster than half the target never lowers it. On Low, Medium and High, a run of
+  slow frames reaches the floor within 120 calls, and a run of fast ones reaches
+  1 within 120 calls. The function keeps no state: the renderer may pass a
+  frame time averaged over recent frames, and that is where smoothing lives.
   *Test:* `tests/unit/RenderTiersTest.cpp`, feeding each tier 120 frames at
-  twice the target, then 120 at a quarter of it, and asserting each returned
-  scale.
+  twice the target, then 120 at a quarter of it. Every returned scale is in
+  bounds and never moves against its frame, and the last of each run is at its
+  bound.
   *Breaks when:* the bounds are not applied, the comparison with the target is
-  reversed, or the scale does not move.
+  reversed, or the scale never reaches its bound.
 
 - **INV-6** — with `dynamicResolution` off and no `fixedRenderScale`, every
   frame reports `renderScale` 1 and draws as `UTA-0014` does.
@@ -229,7 +235,10 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
   half red and its right half blue, drawn at `fixedRenderScale` 0.5 on Low. The
   frame reports `renderScale` 0.5, and `readback(Colour)` is `W` × `H`, with red
   at (`W`/4, 3`H`/4) and blue at (3`W`/4, 3`H`/4). Both points lie below an
-  unstretched half-size region, so only the stretch colours them.
+  unstretched half-size region, so only the stretch colours them. With `W` a
+  multiple of 4, the pixel just left of the centre line, (`W`/2 − 1, 3`H`/4),
+  matches neither probe: the linear stretch blends red and blue there, where a
+  full-size draw leaves it the red probe's colour.
   *Breaks when:* the post stage reads the whole target instead of the region, or
   the fixed scale is not applied.
 
