@@ -7999,6 +7999,26 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0126 are 🚧 but parked on Waiting-on:, so neither counts. The only
   live peer in ListAgents is ants-terminal-ea, another project. Next step:
   amend UTA-0121 § 4.3, gate it, then build.
+  Progress (2026-09-14, ut-ants-c1, main checkout): the spec amendment is
+  accepted. UTA-0121 § 4.3 gains a per-exit `noRoute` word. It is null
+  unless the route is none, else the first that holds of startOffGraph,
+  exitOffGraph, teleporter, mover, walled (§ 4.7 Why no route, INV-14).
+  The review-contract gate converged on loop 2 (commits 2048f04, 37d9fec).
+
+  Measured first with a scratch probe that includes the real Seeds.cpp,
+  kept at /mnt/Games/Scripts/Linux/ut-paths-output-uta0139. On the five
+  ranked maps: GreenZone-beta3 and FourGhostsV2 read teleporter,
+  DeathcourseV2 mover (its disabled teleporters lie between the start's
+  and the exit's regions, so neither sees them), Demondeath walled, and
+  2-Much-Health-FIXED exitOffGraph. So one of UT_MonsterHunt's three
+  teleporter maps is not named teleporter. The spec says the word names
+  the model, not the cause.
+
+  Narrowed: the word is NOT added to ut-paths-summary.json, because one
+  map's exits can carry different words (§ 9). This body's "Wanted" line
+  asked for both. Both points are put to UT_MonsterHunt's session
+  (ut-monsterhunt-d8), with the R_SPECIAL teleporter-link question. Next:
+  build.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.

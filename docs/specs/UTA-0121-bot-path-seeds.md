@@ -10,8 +10,8 @@ amendment needs no change to INV-7's own fixture; the gap INV-7 now names
 does. No code implements the amendment yet, and the gate ran before it, per
 CLAUDE.md rule 14. The measurements behind it are on ROADMAP UTA-0133.
 Amended for UTA-0139 (2026-09-14): each exit's `noRoute` word (§ 4.3, § 4.6's
-teleporters, § 4.7's Why no route, INV-14). Gate pending; no code implements
-it yet. The measurements behind it are on ROADMAP UTA-0139.
+teleporters, § 4.7's Why no route, INV-14), and accepted again (2026-09-14),
+converged on the review's second loop. No code implements it yet. The measurements behind it are on ROADMAP UTA-0139.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
