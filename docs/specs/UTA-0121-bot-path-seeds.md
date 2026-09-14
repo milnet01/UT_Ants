@@ -374,17 +374,18 @@ struct Proposal {
   one whose route is `none`, the first of these that holds names it:
   1. `startOffGraph`: the search has no source, since neither the start nor
      any node of its part is placed on the walk graph.
-  2. `exitOffGraph`: the exit has no goal spot, since no spot touches it and
-     no fallback goal is offered.
+  2. `exitOffGraph`: the search's goal set is empty: no spot touches the exit,
+     and no spot is a fallback goal, even where a navigation point touches it.
   3. `teleporter`: a teleporter is placed (§ 4.6) on a spot in the start's
      region or the exit's region.
   4. `mover`: a mover spot is in either region.
   5. `walled`: none of the above.
 
-  The start's region is every spot the walk graph joins, mover spots kept, to
-  a source. The exit's region is every spot it joins, mover spots kept, to a
-  goal spot, a fallback goal included. A teleporter placed on no spot is in
-  neither. The word names what this model meets, not the map's cause: a
+  The start's region is every spot reachable from a source over the walk
+  graph's joins, mover spots kept. The exit's region is every spot reachable
+  the same way from a goal spot, a fallback goal included. A teleporter placed
+  on no spot is in neither. The word names what this model meets, not the
+  map's cause: a
   teleporter lying between the two regions is in neither, and a staircase the
   walk graph splits (ROADMAP UTA-0123) reads `walled`. `teleporter` comes
   before `mover` because a region holding both is the more specific case.
@@ -606,26 +607,36 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 - **INV-14** — Every exit whose route is `none` carries the first word of
   § 4.7's Why no route that holds, and every other exit carries `null`.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose` then `toJson`.
-  INV-5's corridor with no wall writes `null`. INV-6's walled corridor writes
-  `walled`. That corridor with a teleporter on a spot of the start's side
-  writes `teleporter`, and again with the teleporter on the exit's side
-  instead. That corridor with a mover box over spots of the start's side, not
-  across the wall, writes `mover`; with both that box and a teleporter it
-  writes `teleporter`. A teleporter inside solid, placed on no spot, leaves
-  the walled corridor `walled`. Not partitioned, an exit at the world corner
-  writes `exitOffGraph`. INV-12's partitioned scene, with its corridor cut
-  between the two parts, offers the corner exit a fallback goal it cannot
-  reach, and writes `walled`, not `exitOffGraph`. A scene whose start and
-  network lie inside solid writes `startOffGraph`, with the corner exit too.
+  INV-5's corridor with no wall writes `null`, and so does INV-6's mover
+  corridor. INV-6's walled corridor writes `walled`. That corridor with a
+  teleporter on a spot of the start's side, more than one join from every
+  source, writes `teleporter`, and again with the teleporter on the exit's
+  side, more than one join from every goal spot, instead. That corridor with a
+  mover box over spots of the start's side, not across the wall, writes
+  `mover`; with both that box and a teleporter it writes `teleporter`. A
+  teleporter beyond § 4.6's placing window from every spot leaves the walled
+  corridor `walled`. Not partitioned, an exit at the world corner writes
+  `exitOffGraph`. INV-12's partitioned scene, with its corridor cut between
+  the two parts, has fallback goal spots for the corner exit that the start
+  cannot reach, and writes `walled`, not `exitOffGraph`. A partitioned scene
+  where a navigation point touches the corner exit, and every point from which
+  the network reaches it is in the start part or placed on no spot, has an
+  empty goal set and writes `exitOffGraph`. A scene whose start and network
+  lie beyond placing's window from every spot writes `startOffGraph`, with
+  the corner exit too.
   A second leg runs through `sceneOf` over a map built with
   `tests/unit/BakeFixture.h`, carrying an actor of a class the map declares
   under `Engine.Teleporter`, whose `Location` is its class default:
   `Scene::teleporters` holds that Location.
   *Breaks when:* a word is written on a `found` or `mover` route; the exit's
-  region is not searched, which the exit-side teleporter catches; `mover`
+  region is not searched, which the exit-side teleporter catches; a region
+  stops one join from a source or goal, which both teleporters catch; `mover`
   comes before `teleporter`; a teleporter placed on no spot counts; the
   fallback goal is left out of `exitOffGraph`'s test, which the cut INV-12
-  scene catches; `exitOffGraph` is tested before `startOffGraph`; or a
+  scene catches; `exitOffGraph` is keyed on no navigation point touching the
+  exit rather than on the goal set being empty, which the touched but
+  unreached corner exit catches; `exitOffGraph` is tested before
+  `startOffGraph`; or a
   teleporter is found by class name rather than ancestry, or read from its
   own property alone.
 
@@ -680,9 +691,11 @@ the actor's own property alone; offer the fallback goal on the network's reach
 alone, without a navigation point touching the exit; key it on the navigation
 point nearest the exit rather than one that touches it; compare that touch as
 a 3D distance rather than § 4.6's cylinder; write a `noRoute` word on a
-routed exit; skip the exit's region; put `mover` before `teleporter`; count a
-teleporter placed on no spot; leave the fallback goal out of `exitOffGraph`;
-test `exitOffGraph` before `startOffGraph`; find a teleporter by class name;
+routed exit; skip the exit's region; stop a region one join out; put `mover`
+before `teleporter`; count a teleporter placed on no spot; leave the fallback
+goal out of `exitOffGraph`; key `exitOffGraph` on a touching navigation point
+rather than an empty goal set; test `exitOffGraph` before `startOffGraph`;
+find a teleporter by class name;
 read a teleporter's own `Location` alone. Each must be killed by the
 invariant that names it.
 
