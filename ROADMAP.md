@@ -8133,7 +8133,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-13.
   Lanes: tools.
 
-- 🚧 [UTA-0140] **ut-paths runs past 6 GB on some maps, so a batch run loses them.**
+- ✅ [UTA-0140] **ut-paths runs past 6 GB on some maps, so a batch run loses them.**
   Found running ut-paths for UT_MonsterHunt's GAME-0095 on 2026-09-13,
   over analysis/routecensus-split-offline-2026-09-13.tsv. Each map ran
   alone under systemd-run with MemoryMax=6G and MemorySwapMax=0; three
@@ -8215,6 +8215,9 @@ model, no weapon and no opponent until 0.2.0.
   692 MB. None of the three newly written maps routes: their exits read
   teleporter (all four of Trifea's), exitOffGraph and mover. Ships when
   the matrix is green.
+  Shipped (2026-09-14, ut-ants-db): GitHub CI green on ed675c9, the
+  push carrying f6b1ebf's fix. UT_MonsterHunt told to re-run the three
+  maps on their GAME-0095 with RETRY_FAILED=1.
   **Layman:** The path tool uses so much memory on a few maps that it gets stopped before it finishes them, so those maps never get path files.
   Kind: perf.
   Source: in-session-2026-09-13.
