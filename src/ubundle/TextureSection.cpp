@@ -143,19 +143,18 @@ Result<std::vector<CompressedTexture>> readTextures(Cursor& cursor) {
     return readVector<CompressedTexture>(cursor, MIN_TEXTURE, "textures", readCompressedTexture);
 }
 
-std::vector<std::byte> encodeTextures(const std::vector<CompressedTexture>& textures) {
-    // Sized exactly first: this is a bundle's largest section, and a doubling
-    // buffer holds up to twice it at the last growth (UTA-0143). The count,
-    // then per texture putCompressedTexture's fields: the name's u32 length
-    // and bytes, format, four u16 sizes, mipCount, the blocks' u32 length and
-    // the blocks.
-    std::size_t bytes = 4;
+std::uint64_t texturesSize(const std::vector<CompressedTexture>& textures) {
+    // The count, then per texture putCompressedTexture's fields: the name's
+    // u32 length and bytes, format, four u16 sizes, mipCount, the blocks' u32
+    // length and the blocks.
+    std::uint64_t bytes = 4;
     for (const CompressedTexture& texture : textures)
         bytes += 4 + texture.name.size() + 1 + 4 * 2 + 1 + 4 + texture.blocks.size();
-    Sink sink;
-    sink.reserve(bytes);
+    return bytes;
+}
+
+void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures) {
     sink.putVector(textures, putCompressedTexture);
-    return std::move(sink).take();
 }
 
 } // namespace detail

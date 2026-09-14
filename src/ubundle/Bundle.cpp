@@ -263,35 +263,47 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
-    std::vector<std::pair<SectionId, std::vector<std::byte>>> sections;
-    if (bundle.rooms) sections.emplace_back(ID_ROOM, encodeRoomMap(*bundle.rooms));
-    if (bundle.nav) sections.emplace_back(ID_NAVG, encodeNavGraph(*bundle.nav));
-    if (bundle.wiring) sections.emplace_back(ID_WIRG, encodeWiringGraph(*bundle.wiring));
+    //
+    // Every section but TEXS is encoded here. TEXS is only counted, and its
+    // bytes are put straight into the file below (UTA-0143).
+    struct Section {
+        SectionId id;
+        std::vector<std::byte> payload;
+        std::uint64_t size = 0;
+    };
+    std::vector<Section> sections;
+    const auto encoded = [&sections](const SectionId& id, std::vector<std::byte> payload) {
+        const std::uint64_t size = payload.size();
+        sections.push_back(Section{id, std::move(payload), size});
+    };
+    if (bundle.rooms) encoded(ID_ROOM, encodeRoomMap(*bundle.rooms));
+    if (bundle.nav) encoded(ID_NAVG, encodeNavGraph(*bundle.nav));
+    if (bundle.wiring) encoded(ID_WIRG, encodeWiringGraph(*bundle.wiring));
     // TEXS is APPENDED rather than inserted, so UTA-0008 SS 4.10's existing
     // order clause is extended rather than contradicted. It also keeps the
     // small graph sections near the front of a file whose largest section is
     // by far this one.
-    if (bundle.textures) sections.emplace_back(ID_TEXS, encodeTextures(*bundle.textures));
+    if (bundle.textures) sections.push_back(Section{ID_TEXS, {}, texturesSize(*bundle.textures)});
     // MATS is appended after TEXS for the same reason -- UTA-0011 SS 4.10.
-    if (bundle.materials) sections.emplace_back(ID_MATS, encodeMaterials(*bundle.materials));
+    if (bundle.materials) encoded(ID_MATS, encodeMaterials(*bundle.materials));
     // GEOM is appended after MATS -- UTA-0109 SS 4.2.
-    if (bundle.geometry) sections.emplace_back(ID_GEOM, encodeGeometry(*bundle.geometry));
+    if (bundle.geometry) encoded(ID_GEOM, encodeGeometry(*bundle.geometry));
     // PLAC then LITE are appended after GEOM -- UTA-0110 SS 4.4.
-    if (bundle.placements) sections.emplace_back(ID_PLAC, encodePlacements(*bundle.placements));
-    if (bundle.lights) sections.emplace_back(ID_LITE, encodeLights(*bundle.lights));
+    if (bundle.placements) encoded(ID_PLAC, encodePlacements(*bundle.placements));
+    if (bundle.lights) encoded(ID_LITE, encodeLights(*bundle.lights));
     // MOVR is appended after LITE -- UTA-0119 SS 4.2.
-    if (bundle.movers) sections.emplace_back(ID_MOVR, encodeMovers(*bundle.movers));
+    if (bundle.movers) encoded(ID_MOVR, encodeMovers(*bundle.movers));
     // COLL is appended after MOVR -- UTA-0111 SS 4.2.
-    if (bundle.collision) sections.emplace_back(ID_COLL, encodeCollision(*bundle.collision));
+    if (bundle.collision) encoded(ID_COLL, encodeCollision(*bundle.collision));
     // LPRB is appended after COLL -- UTA-0112 SS 4.2.
-    if (bundle.lightProbes) sections.emplace_back(ID_LPRB, encodeLightProbes(*bundle.lightProbes));
+    if (bundle.lightProbes) encoded(ID_LPRB, encodeLightProbes(*bundle.lightProbes));
 
     // The file's size is known before a byte is written, so the buffer grows
     // once, and each section is freed once it is copied in: the whole file,
     // every section and a doubling buffer are never all held at once
     // (UTA-0143).
     std::uint64_t fileSize = HEADER_SIZE + sections.size() * SECTION_DESCRIPTOR_SIZE;
-    for (const auto& section : sections) fileSize += section.second.size();
+    for (const Section& section : sections) fileSize += section.size;
     Sink sink;
     sink.reserve(static_cast<std::size_t>(fileSize));
     sink.putId(MAGIC);
@@ -305,20 +317,31 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     sink.putU32(static_cast<std::uint32_t>(sections.size()));
 
     std::uint64_t offset = HEADER_SIZE + sections.size() * SECTION_DESCRIPTOR_SIZE;
-    for (const auto& [id, payload] : sections) {
-        sink.putId(id);
+    for (const Section& section : sections) {
+        sink.putId(section.id);
         sink.putU64(offset);
-        sink.putU64(payload.size());
+        sink.putU64(section.size);
         sink.putU8(0); // compression: none, and no version defines another
         sink.putU8(0);
         sink.putU8(0);
         sink.putU8(0);
-        offset += payload.size();
+        offset += section.size;
     }
 
-    for (auto& section : sections) {
-        sink.append(section.second);
-        std::vector<std::byte>().swap(section.second);
+    for (Section& section : sections) {
+        if (section.id == ID_TEXS) {
+            // Its descriptor was written from the COUNT, so a count that
+            // drifted from what putTextures emits would point every later
+            // section at the wrong bytes. Refused rather than written.
+            const std::size_t start = sink.size();
+            putTextures(sink, *bundle.textures);
+            if (sink.size() - start != section.size)
+                return fail(ErrorCode::InvalidArgument,
+                            "TEXS: the counted size disagrees with the bytes written");
+            continue;
+        }
+        sink.append(section.payload);
+        std::vector<std::byte>().swap(section.payload);
     }
 
     return std::move(sink).take();

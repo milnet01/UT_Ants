@@ -8378,6 +8378,20 @@ model, no weapon and no opponent until 0.2.0.
   of ut-bake on MH-Sk_Godz names what holds the 2 GB. UTA-0103 and
   UTA-0126, the other held items, are parked on Waiting-on. The real-asset
   tier is not touched while UTA-0103's comparison runs.
+  Measured and fixed (2026-09-14, ut-ants-db). valgrind massif on
+  MH-Sk_Godz peaked at 2.75 GB of heap, nearly all at the write: 1.32 GB
+  in ubundle::write's output buffer growing by doubling, 716 MB in
+  encodeTextures' TEXS buffer, 440 MB of compressed textures (the bundle's
+  own content), and 252 MB from readFile (182 MB of System packages
+  through the Install resolver, which is UTA-0144's, plus the 70 MB map).
+  Two steps, each checked by baking the map again and comparing the .utab
+  with cmp against the unchanged binary's: byte-identical both times, unit
+  label green. Step 1 (commit 3604221) reserves the file's exact size and
+  frees each encoded section once copied: peak resident memory 2.07 GB ->
+  1.63 GB (/usr/bin/time). Step 2 writes TEXS straight into the file from
+  a counted size instead of encoding it first, and refuses the write if
+  the count disagrees with the bytes put: 1.63 GB -> 1.21 GB. 18 s
+  throughout.
   **Layman:** Baking the biggest map uses far more memory than the map file's own size, so check what takes the space before bigger batches run into it.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass.

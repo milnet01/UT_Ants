@@ -258,6 +258,12 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **ut-bake needs much less memory to write a large map's bundle.** (UTA-0143)
+  Writing a bundle no longer holds the whole file in a growing buffer
+  beside a second copy of every texture. On the install's largest map the
+  bake's peak memory falls from about 2.1 GB to about 1.2 GB, and the file
+  it writes is byte-for-byte the same.
+
 - **`ut-paths` says where a skipped census map may have gone, and still reads nothing it finds.** (UTA-0137)
   A census map with no file in `Maps/` is still skipped. Its summary
   entry now also lists, when there are any, files of that name elsewhere
