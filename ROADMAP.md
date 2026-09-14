@@ -8978,6 +8978,24 @@ model, no weapon and no opponent until 0.2.0.
   lights overlap and its double-strength lightmap clips at white; our tone
   map does not clip, so the edge shows. Candidate: a short smooth window
   inside R, chosen by the same block-RMS fit rather than by eye.
+  User decision (2026-09-14), after flying the re-baked map: soft light
+  edges now, inside this item; strip lights (UTA-0162) straight after it.
+  The user saw the round pools strip fixtures cast, which UTA-0162 records
+  with its measurement.
+  Next action: fade each light out smoothly over the last part of its
+  reach, in ubake::lightAt and shaders/light.glsl together, so no light
+  ends in a hard edge. Pick the fade's width by the block-RMS fit in
+  ut-ants-uta0156/compare.py, not by eye. Then bump BAKER_REVISION, re-bake
+  DM-Deck16][ and re-fit EXPOSURE. Before closing this item, carry ZoneInfo
+  ambient (census a map that sets it first) or split it out, and wait for
+  CI on the matrix: commits 2c08d37 and deaf170 are not pushed yet.
+  Decision superseded (2026-09-14, same conversation). The user then asked
+  for "the more realistic look ... in terms of the shapes of the lights
+  shining on geometry", and confirmed: strip lights (UTA-0162) FIRST,
+  soft light edges after, for the lights no row covers. So this item
+  pauses at 🚧 with its commits in place and resumes after UTA-0162. Its
+  next action (soft edges, fitted by compare.py) is unchanged, only
+  later.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.
@@ -9097,6 +9115,33 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-14.
   Lanes: ubake, urender, umat.
+
+- 📋 [UTA-0162] **Strip lights: a row of lights along a fixture bakes into one light that casts a band.**
+  The user flew DM-Deck16][ on 2026-09-14 after UTA-0156's light model
+  change: "the horizontal lights are showing as round lights on the
+  geometry they are shining on."
+
+  Measured the same day from the bundle's lights (ut-shot's LIGHT lines):
+  68 of the map's 231 lights sit in 17 rows of three or more identical
+  lights on one line. Neighbours in a row are a median 259 units apart and
+  typically reach 275, so each lights its own round pool and the pools
+  barely overlap. The original blurs them into a band with coarse
+  lightmaps and clips to white where they overlap; ours draws each pool
+  crisply.
+
+  User decision (2026-09-14), confirmed after a first answer the other way: this item FIRST, for "the more realistic look ... in terms of the shapes of the lights shining on geometry". UTA-0156 stays in progress and adds soft light edges after it, for lights no row covers. The cheap modern route: at bake time,
+  detect a row (same effect, brightness, hue, saturation and radius,
+  collinear, evenly spaced) and emit one line light spanning it; the
+  renderer lights a point from the segment's nearest point
+  (representative-point tube lights). A new light shape touches the
+  bundle format, the light model in both copies (ubake::lightAt and
+  shaders/light.glsl, held together by UTA-0014 INV-6), cluster culling
+  and shadows, so check spec-format.md section 1 before building. Measure
+  against the original's frames with the UTA-0156 method.
+  **Layman:** Long ceiling strip lights should light a long strip of floor and wall, not a string of round spots.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: ubake, ubundle, urender.
 
 ## 0.2.0 — Movement and weapons
 
