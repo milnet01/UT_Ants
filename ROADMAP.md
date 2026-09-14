@@ -1796,7 +1796,7 @@ model, no weapon and no opponent until 0.2.0.
   Kind: perf.
   Source: user-request-2026-09-04.
 
-- 📋 [UTA-0051] **urender: quality tiers and dynamic resolution, so the engine scales to the hardware.**
+- 🚧 [UTA-0051] **urender: quality tiers and dynamic resolution, so the engine scales to the hardware.**
   The development machine is a GTX 1050 with 2 GB, and the people this is
   built for play on old laptops. Every renderer item after the draw path
   adds cost, and with nowhere to declare that cost each one either ships
@@ -1840,6 +1840,10 @@ model, no weapon and no opponent until 0.2.0.
 
   Nothing here changes. Recorded so a session building the tiers knows the
   budget number already exists and does not invent a second one.
+  Progress (2026-09-14): picked up by session ut-ants-f9, working in
+  the main checkout. User decision: a short spec first, covering only
+  what later items bind to (the tier names, how a feature declares its
+  tier, how the default tier is picked), then build.
   **Layman:** One quality setting that actually works: the game picks a sensible level for your machine, leaves the expensive effects off on weak hardware, and quietly lowers resolution rather than stuttering.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -10114,6 +10118,21 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-09-11.
   Lanes: uui.
+
+- 📋 [UTA-0152] **urender: a quality tier may load a map's textures without their sharpest level, to fit a smaller card.**
+  Split out of UTA-0051 by the user (2026-09-14). Every tier currently maps
+  to the one baked figure, umat's TEXTURE_BUDGET_BYTES (1024 MiB), because
+  a bake is shared by every player and no tier may change what is baked.
+  A lower per-tier figure therefore needs the renderer to upload fewer
+  levels than the bake holds: skipping each texture's top mip level cuts
+  its working set to about a quarter. That is its own work, touching
+  upload and every sampler's level range, so it was kept out of UTA-0051.
+  Worth doing when a real card below 2 GB is measured failing to hold a
+  map, which UTA-0039's frame-rate floor is where that shows up.
+  **Layman:** On graphics cards with little memory, the lowest quality settings could load slightly blurrier textures so big maps still fit.
+  Kind: perf.
+  Source: user-request-2026-09-14 UTA-0051 scope.
+  Lanes: urender.
 
 ## After 1.0.0
 
