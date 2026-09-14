@@ -8700,6 +8700,17 @@ model, no weapon and no opponent until 0.2.0.
   window. This item comes next after UTA-0051 ships, ahead of the other
   0.1.0 items, because FSR 1 is only worth judging at the real screen
   size.
+  Plan (2026-09-14, ut-ants-f9, not claimed). No spec: one program,
+  obvious shape. SDL3's own header documents SDL_WINDOW_FULLSCREEN at
+  window creation as a fullscreen window at desktop resolution, which is
+  borderless desktop fullscreen unless a display mode is set; the
+  desktop size is SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay()).
+  In apps/ut-ants/main.cpp create the window with that flag unless the
+  new --windowed option (Cli.h/Cli.cpp, tested in ClientCliTest) is
+  given, call SDL_SyncWindow before sizing urender's Config from
+  SDL_GetWindowSizeInPixels, and add the drawn pixel size to the
+  --frames report so a hand run shows the 4K output. A hand run takes
+  over the whole screen for a few seconds.
   **Layman:** The game fills your whole screen at its real resolution instead of opening in a small window.
   Kind: feature.
   Source: user-request-2026-09-14.
