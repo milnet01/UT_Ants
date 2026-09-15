@@ -58,7 +58,8 @@ enum Binding : std::uint32_t {
     SHADOW_FACES = 9,
     ZONES = 10,        ///< UTA-0156 SS 4.4: the last storage buffer
     SHADOW_ATLAS = 11,
-    TEXTURES = 12, ///< last: it is the variable-count binding
+    FOG_VOLUME = 12, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
+    TEXTURES = 13,   ///< last: it is the variable-count binding
 };
 
 /// One frame's camera and settings.
@@ -151,10 +152,10 @@ struct Light {
     std::int32_t yaw;
     std::int32_t shadowFace;       ///< first entry in SHADOW_FACES, or -1
     std::uint32_t shadowFaceCount; ///< 0 for a light drawn without shadows
-    std::uint32_t reserved0;
-    std::uint32_t reserved1;
+    std::uint32_t volumeRadius;     ///< UTA-0015 SS 4.4: UT99's VolumeRadius; 0 for none
+    std::uint32_t volumeBrightness; ///< UTA-0015: UT99's VolumeBrightness
     std::array<float, 3> span; ///< UTA-0162: a strip leader's segment, from `location`; zero otherwise
-    float reserved2;
+    std::uint32_t volumeFog;   ///< UTA-0015: UT99's VolumeFog
 };
 static_assert(sizeof(Light) == 80);
 static_assert(offsetof(Light, location) == 0);
@@ -169,10 +170,10 @@ static_assert(offsetof(Light, pitch) == 40);
 static_assert(offsetof(Light, yaw) == 44);
 static_assert(offsetof(Light, shadowFace) == 48);
 static_assert(offsetof(Light, shadowFaceCount) == 52);
-static_assert(offsetof(Light, reserved0) == 56);
-static_assert(offsetof(Light, reserved1) == 60);
+static_assert(offsetof(Light, volumeRadius) == 56);
+static_assert(offsetof(Light, volumeBrightness) == 60);
 static_assert(offsetof(Light, span) == 64);
-static_assert(offsetof(Light, reserved2) == 76);
+static_assert(offsetof(Light, volumeFog) == 76);
 
 /// One cluster's box, in view space.
 struct ClusterBounds {
@@ -291,5 +292,22 @@ static_assert(offsetof(BloomConstants, targetTexel) == 8);
 static_assert(offsetof(BloomConstants, sourceUvMax) == 16);
 static_assert(offsetof(BloomConstants, radius) == 24);
 static_assert(offsetof(BloomConstants, mode) == 28);
+
+/// UTA-0015 SS 4.4: both fog stages' push constants.
+struct FogConstants {
+    Mat4 viewToWorld;
+    std::array<float, 2> tanHalfFov; ///< across, then down, for the drawn region
+    std::uint32_t volumeLightCount;  ///< entries of VOLUME_LIGHTS in use
+    std::uint32_t flashlight;        ///< an index into LIGHTS, or NONE
+    float hazeScale;                 ///< Config::hazeScale
+    std::array<float, 3> reserved;
+};
+static_assert(sizeof(FogConstants) == 96);
+static_assert(offsetof(FogConstants, viewToWorld) == 0);
+static_assert(offsetof(FogConstants, tanHalfFov) == 64);
+static_assert(offsetof(FogConstants, volumeLightCount) == 72);
+static_assert(offsetof(FogConstants, flashlight) == 76);
+static_assert(offsetof(FogConstants, hazeScale) == 80);
+static_assert(offsetof(FogConstants, reserved) == 84);
 
 } // namespace uta::urender::gpu

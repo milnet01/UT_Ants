@@ -157,9 +157,9 @@ Result<Image> Image::createUnbound(const Gpu& gpu, const ImageDesc& desc) {
 
     VkImageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    info.imageType = VK_IMAGE_TYPE_2D;
+    info.imageType = desc.depth == 0 ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_3D;
     info.format = desc.format;
-    info.extent = {desc.width, desc.height, 1};
+    info.extent = {desc.width, desc.height, std::max<std::uint32_t>(1, desc.depth)};
     info.mipLevels = desc.mipLevels;
     info.arrayLayers = 1;
     info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -176,7 +176,7 @@ Result<void> Image::bind(VkDeviceMemory memory, VkDeviceSize offset) {
     VkImageViewCreateInfo view{};
     view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view.image = handle_;
-    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view.viewType = desc_.depth == 0 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_3D;
     view.format = desc_.format;
     view.subresourceRange = {aspectOf(desc_.format), 0, desc_.mipLevels, 0, 1};
     return check(vkCreateImageView(device_, &view, nullptr, &view_), "vkCreateImageView");

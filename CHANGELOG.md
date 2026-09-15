@@ -17,6 +17,13 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Volumetric fog, light shafts and a flashlight** (UTA-0015)
+  From the Medium tier every map draws a light haze that shadowed
+  lights scatter through, so walls cut visible beams. A light its
+  author made volumetric glows and thickens the air when the camera
+  and the light are in a fog zone, as in UT99. F toggles a flashlight
+  on the camera. Bundles are format 12: bake maps again.
+
 - **Glowing surfaces glow past their edges: emissive bloom on every quality tier** (UTA-0053)
   Only a surface's emission feeds the glow, so lit walls do not bloom.
   The renderer shrinks the emission through five half-size levels and

@@ -59,6 +59,8 @@ struct ImageDesc {
     VkFormat format = VK_FORMAT_UNDEFINED;
     std::uint32_t width = 1, height = 1, mipLevels = 1;
     VkImageUsageFlags usage = 0;
+    /// 0 for a 2D image; otherwise a 3D image this many texels deep (UTA-0015).
+    std::uint32_t depth = 0;
 };
 
 class Image {

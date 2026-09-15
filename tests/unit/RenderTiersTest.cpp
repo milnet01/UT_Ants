@@ -92,6 +92,13 @@ TEST_CASE("UTA-0053: emissive bloom is drawn at every tier", "[render]") {
     CHECK(uta::urender::enabled(Feature::Bloom, Tier::Ultra));
 }
 
+TEST_CASE("UTA-0015 INV-9: volumetric fog starts at Medium", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::VolumetricFog) == Tier::Medium);
+    CHECK_FALSE(uta::urender::enabled(Feature::VolumetricFog, Tier::Low));
+    CHECK(uta::urender::enabled(Feature::VolumetricFog, Tier::Medium));
+}
+
 TEST_CASE("UTA-0040 INV-4: parallax occlusion starts at Medium with the spec's step counts", "[render]") {
     using uta::urender::Feature;
     using uta::urender::parallaxStepsOf;

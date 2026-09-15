@@ -44,7 +44,9 @@ float shadowOf(Light light, vec3 x) {
     vec2 halfTexel = vec2(0.5 / SHADOW_ATLAS_TEXELS);
     vec2 uv = shadow.atlasRect.xy + (ndc.xy * 0.5 + 0.5) * shadow.atlasRect.zw;
     uv = clamp(uv, shadow.atlasRect.xy + halfTexel, shadow.atlasRect.xy + shadow.atlasRect.zw - halfTexel);
-    return texture(shadowAtlas, vec3(uv, ndc.z));
+    // An explicit level: UTA-0015's fog pass reads shadows from a compute
+    // shader, which has no derivatives. The atlas has one level either way.
+    return textureLod(shadowAtlas, vec3(uv, ndc.z), 0.0);
 }
 
 #endif

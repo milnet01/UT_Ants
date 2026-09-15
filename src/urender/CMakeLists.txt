@@ -20,6 +20,7 @@ add_library(uta_urender STATIC
     Materials.cpp
     Geometry.cpp
     Lights.cpp
+    Fog.cpp
     Clusters.cpp
     Probes.cpp
     Shadows.cpp
@@ -85,6 +86,8 @@ endfunction()
 
 uta_embed_shaders(uta_urender
     shaders/cluster.comp
+    shaders/fog_scatter.comp
+    shaders/fog_integrate.comp
     shaders/scene.vert
     shaders/scene.frag
     shaders/post.vert

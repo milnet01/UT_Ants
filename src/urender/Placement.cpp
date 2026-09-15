@@ -72,6 +72,8 @@ gpu::Mat4 viewOf(const Camera& camera) noexcept {
     return toArray(view);
 }
 
+gpu::Mat4 viewToWorldOf(const Camera& camera) noexcept { return toArray(glm::inverse(toGlm(viewOf(camera)))); }
+
 gpu::Mat4 projectionOf(const Camera& camera, std::uint32_t width, std::uint32_t height) noexcept {
     const double aspect = static_cast<double>(width) / static_cast<double>(height);
     const double f = 1.0 / std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0);

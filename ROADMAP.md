@@ -1291,6 +1291,14 @@ model, no weapon and no opponent until 0.2.0.
   also have a fog zone. 10 of the 86 stock maps set it, CTF-Hydro16 the
   most with 8; DM-Deck16][ sets none. So the authored fog is volumetric
   lights in fog zones, and the haze is what lights DM-Deck16][.
+  Progress (2026-09-15, ut-ants-08): spec
+  docs/specs/UTA-0015-volumetric-fog.md. ZONE carries each zone's fog
+  flag at format 12 (commit 26dd54f). The renderer draws the froxel fog
+  volume from Medium, light shafts from shadowed lights, volumetric
+  lights in fog zones, and the camera flashlight on F; every invariant's
+  test passes on the unit and device tiers, and hand mutations of each
+  rule were caught. Still to do: CI on the matrix, then the spec's SS 7
+  measurement to set HAZE_SCATTER and the two volume scales.
   **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
   Kind: implement.
   Source: design-2026-09-03.

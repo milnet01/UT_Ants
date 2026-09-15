@@ -21,6 +21,10 @@ namespace uta::urender {
 /// +Y, +Z and +X. UT99's units are kept; nothing is converted.
 [[nodiscard]] gpu::Mat4 viewOf(const Camera& camera) noexcept;
 
+/// View to world: viewOf's inverse -- UTA-0015 SS 4.4's fog stages place a
+/// froxel with it.
+[[nodiscard]] gpu::Mat4 viewToWorldOf(const Camera& camera) noexcept;
+
 /// View to Vulkan clip space: +Y down, depth 0 at the near plane and 1 at the
 /// far one. The handedness and depth range are this library's alone (SS 4.3),
 /// so no caller has a convention to match.

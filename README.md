@@ -130,8 +130,9 @@ ut-ants "<your Unreal Tournament folder>" "<a baked map>"
 ```
 
 The mouse looks around. W, A, S and D fly, Space goes up and Ctrl goes down,
-and Shift flies faster. You pass through walls, and nothing moves but you:
-there is no walking, no weapons and no monsters yet. Escape quits.
+and Shift flies faster. F turns a flashlight on and off. You pass through
+walls, and nothing moves but you: there is no walking, no weapons and no
+monsters yet. Escape quits.
 
 The game picks a quality level for your graphics card: low, medium, high or
 ultra. Add `--tier` with one of those names to choose it yourself. When frames

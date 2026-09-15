@@ -146,6 +146,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     SDL_SetWindowRelativeMouseMode(window, true);
 
     std::uint64_t drawn = 0;
+    bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
     Uint64 last = SDL_GetTicksNS();
     for (bool running = true; running;) {
         FlyInput input;
@@ -153,6 +154,8 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
                 running = false;
+            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) {
+                flashlight = !flashlight;
             } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
                 input.lookRight += event.motion.xrel;
                 input.lookUp -= event.motion.yrel; // SDL's y grows downward
@@ -187,7 +190,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         camera.update(input, static_cast<double>(now - last) / 1e9, level);
         last = now;
 
-        if (const auto result = renderer.draw(bundle, camera.camera()); !result) {
+        uta::urender::Camera view = camera.camera();
+        view.flashlight = flashlight;
+        if (const auto result = renderer.draw(bundle, view); !result) {
             std::cerr << "ut-ants: a frame did not draw: " << result.error().message() << "\n";
             return EXIT_FAILED;
         }

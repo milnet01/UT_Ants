@@ -42,6 +42,7 @@ inline constexpr std::uint64_t TIER_TEXTURE_BUDGET_BYTES = 1024ull * 1024ull * 1
 enum class Feature : std::uint8_t {
     ParallaxOcclusion, ///< UTA-0040
     Bloom,             ///< UTA-0053's emissive bloom
+    VolumetricFog,     ///< UTA-0015's fog volume
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -51,6 +52,8 @@ enum class Feature : std::uint8_t {
     case Feature::ParallaxOcclusion: return Tier::Medium; // UTA-0040 SS 4.4
     // UTA-0053: a chain of half-size-and-smaller passes, cheap enough for every tier.
     case Feature::Bloom: return Tier::Low;
+    // UTA-0015 SS 4.3: two compute passes over a froxel grid, every frame.
+    case Feature::VolumetricFog: return Tier::Medium;
     }
     return Tier::Low; // unreachable
 }

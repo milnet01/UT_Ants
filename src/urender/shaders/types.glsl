@@ -76,10 +76,10 @@ struct Light {
     int yaw;
     int shadowFace;
     uint shadowFaceCount;
-    uint reserved0;
-    uint reserved1;
+    uint volumeRadius;     // UTA-0015: UT99's VolumeRadius; 0 for none
+    uint volumeBrightness; // UTA-0015: UT99's VolumeBrightness
     vec3 span; // UTA-0162: a strip leader's segment, from `location`; zero otherwise
-    float reserved2;
+    uint volumeFog;        // UTA-0015: UT99's VolumeFog
 };
 
 struct ClusterBounds {

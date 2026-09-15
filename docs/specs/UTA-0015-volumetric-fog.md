@@ -476,8 +476,6 @@ Each is seen to fail against the code before this item.
 
 - `docs/specs/UTA-0156-zone-ambient-light.md` § 4.1 and § 4.3 — the entry
   gains `fog`, the struct is renamed, and `zoneAt` moves to `ubundle`.
-- `docs/specs/UTA-0014-vulkan-draw-path.md` — the frame order and the bindings.
-- `docs/specs/UTA-0051-quality-tiers.md` — the `VolumetricFog` row.
 - `CLAUDE.md` § Where this project is — the bundle format version.
 - `README.md` — the flashlight key.
 - `CHANGELOG.md`.

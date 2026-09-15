@@ -71,6 +71,10 @@ struct Config {
     /// Fixes the render scale, with or without `dynamicResolution`, clamped to
     /// the tier's floor and to 1. For tests and diagnosis; unset in normal play.
     std::optional<double> fixedRenderScale;
+    /// UTA-0015 SS 4.5: scales the haze's extinction and scattering. For tests
+    /// and diagnosis; 1 in normal play. `create` refuses a negative or
+    /// non-finite value with InvalidArgument.
+    float hazeScale = 1;
 };
 
 /// The view a frame is drawn from -- UT99's own units and angle encoding, so a
@@ -81,6 +85,7 @@ struct Camera {
     std::array<std::int32_t, 3> rotation{}; ///< pitch, yaw, roll; 65536 to a turn
     float verticalFovDegrees = 90;
     float nearPlane = 1, farPlane = 32768;
+    bool flashlight = false; ///< UTA-0015 SS 4.5: a spotlight from the eye
 };
 
 /// What the last frame had to give up -- SS 6. Lighting and shadows degrade
@@ -95,6 +100,7 @@ struct FrameStats {
     Tier tier = Tier::Low;        ///< UTA-0051: the tier in use
     double renderScale = 1;       ///< the scale this frame was drawn at
     double frameMilliseconds = 0; ///< the wall time of this frame's GPU work (UTA-0051 SS 4.4)
+    std::uint32_t droppedVolumeLights = 0; ///< UTA-0015: glowing lights past VOLUME_LIGHT_CAPACITY
 };
 
 class Renderer {

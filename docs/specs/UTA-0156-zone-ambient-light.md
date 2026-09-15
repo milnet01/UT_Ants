@@ -307,7 +307,8 @@ this spec is amended first.
 - Ambient on meshes — tracked by UTA-0159.
 - An actor's own `AmbientGlow` — deferred; not yet queued.
 - Ambient light bouncing into the probes — deferred; not yet queued.
-- Zone fog — deferred; not yet queued.
+- Zone fog — tracked by UTA-0015, which renames `ZoneAmbient` to `Zone`, adds
+  its fog flag at format `12`, and moves `zoneAt` to `ubundle`.
 - Sky zones — tracked by UTA-0163.
 
 ## 10. What checks this

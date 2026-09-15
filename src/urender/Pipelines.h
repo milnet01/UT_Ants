@@ -66,6 +66,12 @@ public:
     [[nodiscard]] VkPipeline bloomUpsample() const noexcept { return bloomUpsample_; }
     /// SS 4.6's culling pass, over the scene set.
     [[nodiscard]] VkPipeline clusters() const noexcept { return clusters_; }
+    /// UTA-0015 SS 4.4's two fog stages: the scene set, then the fog set, with
+    /// FogConstants pushed.
+    [[nodiscard]] VkDescriptorSetLayout fogSetLayout() const noexcept { return fogSetLayout_; }
+    [[nodiscard]] VkPipelineLayout fogLayout() const noexcept { return fogLayout_; }
+    [[nodiscard]] VkPipeline fogScatter() const noexcept { return fogScatter_; }
+    [[nodiscard]] VkPipeline fogIntegrate() const noexcept { return fogIntegrate_; }
     /// SS 4.8's tile pass: depth only, over the scene set with its own push constants.
     [[nodiscard]] VkPipeline shadow() const noexcept { return shadow_; }
     [[nodiscard]] VkPipelineLayout shadowLayout() const noexcept { return shadowLayout_; }
@@ -90,6 +96,9 @@ private:
     VkPipelineLayout bloomLayout_ = VK_NULL_HANDLE;
     VkPipeline bloomDownsample_ = VK_NULL_HANDLE, bloomUpsample_ = VK_NULL_HANDLE;
     VkPipeline clusters_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout fogSetLayout_ = VK_NULL_HANDLE;
+    VkPipelineLayout fogLayout_ = VK_NULL_HANDLE;
+    VkPipeline fogScatter_ = VK_NULL_HANDLE, fogIntegrate_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowLayout_ = VK_NULL_HANDLE;
     VkPipeline shadow_ = VK_NULL_HANDLE;
 };

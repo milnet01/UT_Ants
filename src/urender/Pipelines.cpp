@@ -8,6 +8,8 @@
 
 #include "bloom.frag.spv.h"
 #include "cluster.comp.spv.h"
+#include "fog_integrate.comp.spv.h"
+#include "fog_scatter.comp.spv.h"
 #include "fsr_easu.frag.spv.h"
 #include "fsr_rcas.frag.spv.h"
 #include "post.frag.spv.h"
@@ -360,8 +362,11 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     std::array<VkDescriptorBindingFlags, gpu::TEXTURES + 1> bindingFlags{};
     for (std::uint32_t i = gpu::FRAME; i <= gpu::ZONES; ++i)
         bindings[i] = {i, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, everyStage, nullptr};
+    // UTA-0015: the fog's first stage reads shadows too.
     bindings[gpu::SHADOW_ATLAS] = {gpu::SHADOW_ATLAS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
-                                   VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+                                   VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr};
+    bindings[gpu::FOG_VOLUME] = {gpu::FOG_VOLUME, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                                 VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     bindings[gpu::TEXTURES] = {gpu::TEXTURES, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, p->textureCapacity_,
                                VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     // descriptorBindingPartiallyBound is what lets an absent :emit slot go
@@ -476,6 +481,40 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->clusters_),
                     "vkCreateComputePipelines (clusters)"));
 
+    // -- The fog volume (UTA-0015 SS 4.4) --------------------------------------
+    // Set 1: the scattering image, the integrated image, and VOLUME_LIGHTS.
+    const std::array fogBindings = {
+        VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+    };
+    VkDescriptorSetLayoutCreateInfo fogInfo{};
+    fogInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    fogInfo.bindingCount = static_cast<std::uint32_t>(fogBindings.size());
+    fogInfo.pBindings = fogBindings.data();
+    UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &fogInfo, nullptr, &p->fogSetLayout_),
+                    "vkCreateDescriptorSetLayout (fog)"));
+    const std::array<VkDescriptorSetLayout, 2> fogSets{p->sceneSetLayout_, p->fogSetLayout_};
+    const VkPushConstantRange fogRange{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(gpu::FogConstants)};
+    VkPipelineLayoutCreateInfo fogLayoutInfo{};
+    fogLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    fogLayoutInfo.setLayoutCount = static_cast<std::uint32_t>(fogSets.size());
+    fogLayoutInfo.pSetLayouts = fogSets.data();
+    fogLayoutInfo.pushConstantRangeCount = 1;
+    fogLayoutInfo.pPushConstantRanges = &fogRange;
+    UTA_CHECK(check(vkCreatePipelineLayout(device, &fogLayoutInfo, nullptr, &p->fogLayout_),
+                    "vkCreatePipelineLayout (fog)"));
+    Module scatterCompute{device}, integrateCompute{device};
+    UTA_TRY(scatterCompute.handle, shaderModule(device, fog_scatter_comp_spv));
+    UTA_TRY(integrateCompute.handle, shaderModule(device, fog_integrate_comp_spv));
+    compute.layout = p->fogLayout_;
+    compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, scatterCompute.handle);
+    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogScatter_),
+                    "vkCreateComputePipelines (fog scatter)"));
+    compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, integrateCompute.handle);
+    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogIntegrate_),
+                    "vkCreateComputePipelines (fog integrate)"));
+
     const VkPushConstantRange shadowRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                           sizeof(gpu::ShadowConstants)};
     VkPipelineLayoutCreateInfo shadowLayoutInfo = sceneLayoutInfo;
@@ -499,6 +538,10 @@ Pipelines::~Pipelines() {
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
     if (clusters_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, clusters_, nullptr);
+    for (VkPipeline pipeline : {fogScatter_, fogIntegrate_})
+        if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
+    if (fogLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, fogLayout_, nullptr);
+    if (fogSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, fogSetLayout_, nullptr);
     if (shadow_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadow_, nullptr);
     if (shadowLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shadowLayout_, nullptr);
     if (sceneLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, sceneLayout_, nullptr);

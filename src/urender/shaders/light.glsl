@@ -115,6 +115,15 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
     return colour * (f * incidence * spot);
 }
 
+// UTA-0015 SS 4.3: the light `light` puts on the air at `x` -- lightAt with the
+// normal pointing at the light, so the incidence factor is 1 and no part of the
+// model is written twice. On the light itself lightAt needs no direction.
+vec3 lightThrough(Light light, vec3 x) {
+    vec3 toLight = litFrom(light, x) - x;
+    float d = length(toLight);
+    return lightAt(light, x, d > 0.0 ? toLight / d : vec3(0.0, 0.0, 1.0));
+}
+
 // UTA-0156 SS 4.4: how strongly a zone's ambient bytes light a surface, set by
 // that spec's SS 7 measurement against the original game on AS-Frigate: with
 // EXPOSURE held, block RMS is 40.67 at 2, 40.27 at 2.5 and 40.31 at 3.

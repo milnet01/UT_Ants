@@ -77,6 +77,9 @@ std::vector<std::byte> drawn(Tier tier, std::uint8_t parallaxDepth, float camera
     config.height = HEIGHT;
     config.linearOutput = true;
     config.tier = tier;
+    // UTA-0015's haze is drawn at Medium and not at Low; these cases compare
+    // parallax alone.
+    config.hazeScale = 0;
     Renderer renderer = requireRenderer(config);
     Camera camera;
     camera.location = {0, cameraY, 0};

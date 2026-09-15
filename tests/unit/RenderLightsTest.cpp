@@ -56,10 +56,16 @@ TEST_CASE("a drawn light carries its LITE numbers unconverted", "[render]") {
     light.brightness = 150;
     light.radius = 44;
     light.cone = 33;
+    light.volumeRadius = 13; // UTA-0015 SS 4.4
+    light.volumeBrightness = 21;
+    light.volumeFog = 5;
     uta::ubundle::Bundle bundle;
     bundle.lights = std::vector{light};
 
     const auto drawn = drawnLights(bundle, 0.0);
+    CHECK(drawn.at(0).volumeRadius == 13u);
+    CHECK(drawn.at(0).volumeBrightness == 21u);
+    CHECK(drawn.at(0).volumeFog == 5u);
     REQUIRE(drawn.size() == 1u);
     CHECK(drawn[0].location == light.location);
     CHECK(drawn[0].pitch == 1024);

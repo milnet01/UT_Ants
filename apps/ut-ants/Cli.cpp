@@ -19,9 +19,9 @@ void usage(std::ostream& err) {
            "Checks <install> with ut-bake --check, then opens <bundle>, a baked map,\n"
            "fullscreen at the desktop's resolution; --windowed opens a resizable\n"
            "window instead. The mouse looks; W, A, S and D fly; Space rises and Ctrl\n"
-           "sinks; Shift flies faster; Escape quits. --frames draws that many frames\n"
-           "and exits 0 if every one drew. --validation asks for the Vulkan\n"
-           "validation layer.\n"
+           "sinks; Shift flies faster; F turns the flashlight on and off; Escape\n"
+           "quits. --frames draws that many frames and exits 0 if every one drew.\n"
+           "--validation asks for the Vulkan validation layer.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n";
 }

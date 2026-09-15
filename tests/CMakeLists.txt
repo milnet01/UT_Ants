@@ -79,6 +79,7 @@ add_executable(uta_unit_tests
     unit/RenderMoverPlacementTest.cpp
     unit/RenderShadowsTest.cpp
     unit/RenderTiersTest.cpp
+    unit/RenderVolumeLightsTest.cpp
     unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
     unit/WiringGraphTest.cpp)
@@ -143,6 +144,7 @@ add_executable(uta_device_tests
     device/ComputeFixture.cpp
     device/DeviceFixture.cpp
     device/RenderColourTransferTest.cpp
+    device/RenderFogTest.cpp
     device/RenderDeviceAbsentTest.cpp
     device/RenderLightParityTest.cpp
     device/RenderLightingTest.cpp

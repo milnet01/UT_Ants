@@ -78,6 +78,9 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
         record.yaw = light.rotation[1];
         record.shadowFace = -1;
         record.shadowFaceCount = 0;
+        record.volumeRadius = light.volumeRadius; // UTA-0015 SS 4.4
+        record.volumeBrightness = light.volumeBrightness;
+        record.volumeFog = light.volumeFog;
         out.push_back(record);
     }
     return out;

@@ -10,6 +10,8 @@
 // which is SS 4.11's "PF_Translucent batches write none".
 
 #include "scene_bindings.glsl"
+#include "clusters.glsl"
+#include "fog.glsl"
 #include "light.glsl"
 #include "probes.glsl"
 #include "shadows.glsl"
@@ -112,17 +114,6 @@ vec2 parallaxUv(Material material, TextureAxes axes, vec3 n) {
     return mix(at, before, clamp(weight, 0.0, 1.0));
 }
 
-// Which cluster a fragment is in -- the same slicing Clusters.cpp builds the
-// boxes with: 16 tiles across, 8 down, and 24 depth slices exponential in z.
-uint clusterOf(vec2 pixel, float viewZ) {
-    uvec3 grid = frame.clusterGrid;
-    uint x = min(uint(pixel.x * float(grid.x) / frame.viewportSize.x), grid.x - 1u);
-    uint y = min(uint(pixel.y * float(grid.y) / frame.viewportSize.y), grid.y - 1u);
-    float slice = floor(log(max(viewZ, frame.nearPlane)) * frame.clusterDepthScale - frame.clusterDepthBias);
-    uint z = uint(clamp(slice, 0.0, float(grid.z - 1u)));
-    return x + y * grid.x + z * grid.x * grid.y;
-}
-
 void main() {
     Material material = materials[draw.materialIndex];
 
@@ -181,6 +172,16 @@ void main() {
         emitted = textureGrad(textures[nonuniformEXT(material.emit)], shadingUv, duv1, duv2).rgb;
     colour += emitted;
     outEmission = vec4(emitted, 1.0);
+
+    // UTA-0015 SS 4.3: the fog between the eye and this surface. Texel k holds
+    // the integral to slice k's far edge, which the half-slice offset lines up.
+    // A translucent surface takes the transmittance only: what is behind it
+    // already carries the in-scattering. Below the fog's tier the volume is one
+    // texel of no fog.
+    float viewDepth = (frame.view * vec4(worldPosition, 1.0)).z;
+    vec3 fogAt = vec3(gl_FragCoord.xy / frame.viewportSize, fogCoordinate(viewDepth) - 0.5 / float(FOG_GRID.z));
+    vec4 fogged = textureLod(fogVolume, fogAt, 0.0);
+    colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour * fogged.a : colour * fogged.a + fogged.rgb;
 
     outColour = vec4(colour, 1.0);
     // Current minus previous, in the target's UV units: +x right, +y down.

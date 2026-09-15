@@ -5,6 +5,8 @@
 //   0. clustered light culling, a compute pass (SS 4.6);
 //   1. the forward pass: every opaque, masked and sky batch, writing colour,
 //      velocity, emission and depth;
+//   0.5. UTA-0015's fog volume, two compute passes over a froxel grid, from
+//      the tier that draws it;
 //   2. the translucent pass: colour only, depth-tested and not written;
 //   3. UTA-0053's emissive bloom: the emission down a chain of half-size
 //      levels and back up it;
@@ -22,6 +24,7 @@
 
 #include "urender/Clusters.h"
 #include "urender/Device.h"
+#include "urender/Fog.h"
 #include "urender/Geometry.h"
 #include "urender/Lights.h"
 #include "urender/Materials.h"
@@ -41,6 +44,7 @@
 #include <cstring>
 #include <format>
 #include <limits>
+#include <numbers>
 #include <optional>
 #include <span>
 
@@ -146,6 +150,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
             fnv.addValue(zone.brightness);
             fnv.addValue(zone.hue);
             fnv.addValue(zone.saturation);
+            fnv.addValue(zone.fog); // UTA-0015
         }
     }
     if (bundle.textures) {
@@ -271,6 +276,13 @@ struct Renderer::Impl {
     std::uint32_t probeSpacing = 0, probeCount = 0, probeTableMask = 0, probeLongestRun = 0;
     Buffer shadowFaces;
     Buffer zones; ///< UTA-0156 SS 4.4
+    /// UTA-0015 SS 4.3 and SS 4.4: the fog volume's images, one texel each below
+    /// its tier; the volumetric lights a frame glows; the fog stages' set; and
+    /// each drawn light's zone, found once per upload.
+    Image fogScattering, fogIntegrated;
+    Buffer volumeLightIndices;
+    VkDescriptorSet fogSet = VK_NULL_HANDLE;
+    std::vector<std::uint8_t> lightZones;
     ShadowPlanner shadowPlanner;
     /// Each mover's box in its own pivot space, for SS 4.8's redraw test.
     std::vector<Box> moverBounds;
@@ -324,9 +336,11 @@ struct Renderer::Impl {
     }
     Result<void> createSamplers();
     Result<void> createStandIns();
+    Result<void> createFogVolumes();
     Result<void> upload(const ubundle::Bundle& bundle);
     Result<void> writeDescriptors();
-    void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region);
+    void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region,
+                     const gpu::FogConstants& fog);
 };
 
 /// Every target the window's size decides. SS 4.3's resize rebuilds them.
@@ -417,7 +431,31 @@ Result<void> Renderer::Impl::createStandIns() {
     UTA_TRY(clusterIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT * gpu::CLUSTER_CAPACITY,
                                            storage, true));
     UTA_TRY(clusterBounds, Buffer::create(*gpu, sizeof(gpu::ClusterBounds) * gpu::CLUSTER_COUNT, storage, true));
+    // UTA-0015 SS 4.4: VOLUME_LIGHTS, sized for its capacity.
+    UTA_TRY(volumeLightIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * VOLUME_LIGHT_CAPACITY, storage, true));
     return {};
+}
+
+/// UTA-0015 SS 4.3: no window decides the grid, so a resize keeps both images.
+/// Cleared once to no fog, which is all a tier below the fog's ever reads.
+Result<void> Renderer::Impl::createFogVolumes() {
+    const bool on = enabled(Feature::VolumetricFog, tier);
+    const ImageDesc desc{VK_FORMAT_R16G16B16A16_SFLOAT,
+                         on ? FOG_GRID[0] : 1,
+                         on ? FOG_GRID[1] : 1,
+                         1,
+                         VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                         on ? FOG_GRID[2] : 1};
+    UTA_TRY(fogScattering, Image::create(*gpu, desc));
+    UTA_TRY(fogIntegrated, Image::create(*gpu, desc));
+    return gpu->run([&](VkCommandBuffer commands) {
+        const VkClearColorValue noFog{{0.0f, 0.0f, 0.0f, 1.0f}};
+        const VkImageSubresourceRange everything{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        for (Image* image : {&fogScattering, &fogIntegrated}) {
+            image->transition(commands, VK_IMAGE_LAYOUT_GENERAL);
+            vkCmdClearColorImage(commands, image->handle(), VK_IMAGE_LAYOUT_GENERAL, &noFog, 1, &everything);
+        }
+    });
 }
 
 Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
@@ -433,8 +471,15 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     geometry.emplace(std::move(uploadedGeometry));
     UTA_TRY(objects, Buffer::create(*gpu, sizeof(gpu::Object) * geometry->objectCount,
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
-    const std::size_t lightCount = std::max<std::size_t>(1, drawnLights(bundle, 0.0).size());
+    const std::vector<gpu::Light> uploaded = drawnLights(bundle, 0.0);
+    // UTA-0015 SS 4.5: room for the flashlight after the bundle's lights.
+    const std::size_t lightCount = uploaded.size() + 1;
     UTA_TRY(lights, Buffer::create(*gpu, sizeof(gpu::Light) * lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
+    // UTA-0015 SS 4.4: each drawn light's zone, which decides whether it may glow.
+    lightZones.clear();
+    const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
+    for (const gpu::Light& light : uploaded)
+        lightZones.push_back(bundle.rooms ? ubundle::zoneAt(*bundle.rooms, light.location, zoneCount) : 0);
 
     // SS 4.7: no LPRB, or an empty one, is a table with no probes, which gives
     // zero indirect everywhere (SS 6).
@@ -484,15 +529,18 @@ Result<void> Renderer::Impl::writeDescriptors() {
 
     const auto textureCount = static_cast<std::uint32_t>(materials->textures().size());
     const std::array sizes = {
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::ZONES + 1},
+        // The scene set's, then UTA-0015's VOLUME_LIGHTS.
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::ZONES + 1 + 1},
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
-        // each post set, and one source per bloom step.
+        // each post set, and one source per bloom step; then UTA-0015's fog volume.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS)},
+                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1},
+        // UTA-0015: the fog set's two images.
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS);
+    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1;
     poolInfo.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     poolInfo.pPoolSizes = sizes.data();
     UTA_CHECK(check(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), "vkCreateDescriptorPool"));
@@ -536,6 +584,13 @@ Result<void> Renderer::Impl::writeDescriptors() {
     emissionSet = bloomSources[0];
     for (std::size_t k = 0; k < BLOOM_LEVELS; ++k) bloomSets[k] = bloomSources[k + 1];
 
+    // UTA-0015 SS 4.4: the fog stages' own set.
+    const VkDescriptorSetLayout fogLayout = pipelines->fogSetLayout();
+    VkDescriptorSetAllocateInfo fogAllocate = postAllocate;
+    fogAllocate.descriptorSetCount = 1;
+    fogAllocate.pSetLayouts = &fogLayout;
+    UTA_CHECK(check(vkAllocateDescriptorSets(device, &fogAllocate, &fogSet), "vkAllocateDescriptorSets (fog)"));
+
     const std::array<const Buffer*, gpu::ZONES + 1> buffers = {
         &frameData, &objects, &materials->records(), &lights, &clusterCounts,
         &clusterIndices, &clusterBounds, &probeCells, &probes, &shadowFaces, &zones};
@@ -562,6 +617,36 @@ Result<void> Renderer::Impl::writeDescriptors() {
     atlasWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     atlasWrite.pImageInfo = &atlasInfo;
     writes.push_back(atlasWrite);
+
+    // UTA-0015 SS 4.3: the forward pass samples the integrated image, filtered
+    // and clamped as the bloom chain is; the fog stages write both images.
+    const VkDescriptorImageInfo fogVolumeInfo{bloomSampler, fogIntegrated.view(), VK_IMAGE_LAYOUT_GENERAL};
+    VkWriteDescriptorSet fogVolumeWrite = atlasWrite;
+    fogVolumeWrite.dstBinding = gpu::FOG_VOLUME;
+    fogVolumeWrite.pImageInfo = &fogVolumeInfo;
+    writes.push_back(fogVolumeWrite);
+    const std::array<VkDescriptorImageInfo, 2> fogImageInfos{
+        VkDescriptorImageInfo{VK_NULL_HANDLE, fogScattering.view(), VK_IMAGE_LAYOUT_GENERAL},
+        VkDescriptorImageInfo{VK_NULL_HANDLE, fogIntegrated.view(), VK_IMAGE_LAYOUT_GENERAL}};
+    for (std::uint32_t i = 0; i < fogImageInfos.size(); ++i) {
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = fogSet;
+        write.dstBinding = i;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        write.pImageInfo = &fogImageInfos[i];
+        writes.push_back(write);
+    }
+    const VkDescriptorBufferInfo volumeLightInfo{volumeLightIndices.handle(), 0, VK_WHOLE_SIZE};
+    VkWriteDescriptorSet volumeLightWrite{};
+    volumeLightWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    volumeLightWrite.dstSet = fogSet;
+    volumeLightWrite.dstBinding = 2;
+    volumeLightWrite.descriptorCount = 1;
+    volumeLightWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    volumeLightWrite.pBufferInfo = &volumeLightInfo;
+    writes.push_back(volumeLightWrite);
 
     std::vector<VkDescriptorImageInfo> textureInfos;
     textureInfos.reserve(textureCount);
@@ -622,7 +707,8 @@ Result<void> Renderer::Impl::writeDescriptors() {
     return {};
 }
 
-void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region) {
+void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region,
+                                 const gpu::FogConstants& fog) {
     const VkExtent2D extent{config.width, config.height};
     const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
     const VkRect2D scissor{{0, 0}, extent};
@@ -686,6 +772,23 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
                             nullptr);
     vkCmdDispatch(commands, (gpu::CLUSTER_COUNT + 63) / 64, 1, 1); // cluster.comp's local size is 64
+
+    // -- 0.5. The fog volume (UTA-0015 SS 4.3) ----------------------------------
+    // Each froxel's light and extinction from the lists just culled, then each
+    // column integrated front to back. Both images stay in GENERAL, which the
+    // forward pass samples. The second pipeline shares the layout, so the sets
+    // and the constants stay bound.
+    if (enabled(Feature::VolumetricFog, tier)) {
+        const std::array<VkDescriptorSet, 2> fogSets{sceneSet, fogSet};
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogScatter());
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogLayout(), 0,
+                                static_cast<std::uint32_t>(fogSets.size()), fogSets.data(), 0, nullptr);
+        vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(fog), &fog);
+        // fog_scatter.comp's local size is 4 x 4 x 4; fog_integrate.comp's 8 x 8.
+        vkCmdDispatch(commands, (FOG_GRID[0] + 3) / 4, (FOG_GRID[1] + 3) / 4, (FOG_GRID[2] + 3) / 4);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogIntegrate());
+        vkCmdDispatch(commands, (FOG_GRID[0] + 7) / 8, (FOG_GRID[1] + 7) / 8, 1);
+    }
 
     // -- 1. The forward pass --------------------------------------------------
     hdr.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -878,6 +981,10 @@ Result<Renderer> Renderer::create(const Config& config) {
         return fail(ErrorCode::InvalidArgument,
                     extensions ? "instanceExtensions names a window's extensions but createSurface is unset"
                                : "createSurface is set but instanceExtensions names none");
+    if (!std::isfinite(config.hazeScale) || config.hazeScale < 0)
+        return fail(ErrorCode::InvalidArgument,
+                    std::format("a hazeScale of {} is not a finite value of at least 0 (UTA-0015 SS 4.5)",
+                                config.hazeScale));
     auto impl = std::make_unique<Impl>();
     impl->config = config;
     UTA_TRY(impl->gpu, Gpu::create(config.validation, config.instanceExtensions, config.createSurface));
@@ -900,6 +1007,7 @@ Result<Renderer> Renderer::create(const Config& config) {
     UTA_CHECK(impl->createShadowAtlas());
     UTA_CHECK(impl->createSamplers());
     UTA_CHECK(impl->createStandIns());
+    UTA_CHECK(impl->createFogVolumes());
     return Renderer(std::move(impl));
 }
 
@@ -976,7 +1084,6 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     const ClusterGrid grid = clusterGrid(camera, region.width, region.height);
     std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
     frame.clusterGrid = gpu::CLUSTER_GRID;
-    frame.lightCount = static_cast<std::uint32_t>(lights.size());
     frame.clusterDepthScale = grid.depthScale;
     frame.clusterDepthBias = grid.depthBias;
     frame.probeSpacing = impl.probeSpacing;
@@ -1012,6 +1119,32 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         lights[i].shadowFace = plan.firstFace[i];
         lights[i].shadowFaceCount = plan.faceCount[i];
     }
+    // UTA-0015 SS 4.5: the flashlight goes last, after the plan, so it holds no tile.
+    std::uint32_t flashlight = gpu::NONE;
+    if (camera.flashlight) {
+        flashlight = static_cast<std::uint32_t>(lights.size());
+        lights.push_back(flashlightOf(camera));
+    }
+    frame.lightCount = static_cast<std::uint32_t>(lights.size());
+
+    // UTA-0015 SS 4.4: which volumetric lights glow, from the camera's zone.
+    const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
+    const std::uint8_t cameraZone = bundle.rooms ? ubundle::zoneAt(*bundle.rooms, camera.location, zoneCount) : 0;
+    const std::array<ubundle::Zone, 1> noZone{};
+    const std::span<const ubundle::Zone> zoneSpan =
+        bundle.zones ? std::span<const ubundle::Zone>(*bundle.zones) : std::span<const ubundle::Zone>(noZone);
+    const VolumeLightChoice glowing = volumeLights(lights, impl.lightZones, cameraZone, zoneSpan, camera.location);
+    if (!glowing.indices.empty())
+        std::memcpy(impl.volumeLightIndices.mapped(), glowing.indices.data(),
+                    glowing.indices.size() * sizeof(std::uint32_t));
+    const double tanVertical = std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0);
+    gpu::FogConstants fog{};
+    fog.viewToWorld = viewToWorldOf(camera);
+    fog.tanHalfFov = {static_cast<float>(tanVertical * region.width / region.height), static_cast<float>(tanVertical)};
+    fog.volumeLightCount = static_cast<std::uint32_t>(glowing.indices.size());
+    fog.flashlight = flashlight;
+    fog.hazeScale = impl.config.hazeScale;
+
     if (!lights.empty()) std::memcpy(impl.lights.mapped(), lights.data(), lights.size() * sizeof(gpu::Light));
     if (!plan.faces.empty())
         std::memcpy(impl.shadowFaces.mapped(), plan.faces.data(), plan.faces.size() * sizeof(gpu::ShadowFace));
@@ -1022,7 +1155,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     // leaves out present, which waits for the display under FIFO.
     const auto started = std::chrono::steady_clock::now();
     UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
-        impl.recordFrame(commands, plan, region);
+        impl.recordFrame(commands, plan, region, fog);
         if (image) impl.swapchain->recordBlit(commands, impl.output, *image);
     }));
     const double milliseconds =
@@ -1039,6 +1172,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     }
     impl.stats.unshadowedLights = plan.unshadowed;
     impl.stats.renderedShadowTiles = static_cast<std::uint32_t>(plan.draws.size());
+    impl.stats.droppedVolumeLights = glowing.dropped;
     impl.stats.tier = impl.tier;
     impl.stats.renderScale = scale;
     impl.stats.frameMilliseconds = milliseconds;
