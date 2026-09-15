@@ -9416,6 +9416,32 @@ model, no weapon and no opponent until 0.2.0.
   Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
   (/mnt/Games/Scripts/Linux/UT_Ants). Next after UTA-0015 shipped; the
   open review items UTA-0098 and UTA-0100 defer themselves.
+  Progress (2026-09-15, ut-ants-08): not lost lights. The original's own
+  log (orig-fetid-vol/poses.txt) shows the same brightness-0 lights, class
+  for class. Shadows are the lead: with volumetrics zeroed, DM-Fetid
+  against orig-fetid-novol draws a mean displayed luma of 28.6 shadowed and
+  101.3 with shadowOf returning 1, where the original is 53. The same
+  switch moves DM-Deck16][ only from 46.2 to 47.0. No lit light on DM-Fetid
+  sits outside every room, so it is not lights inside brushes. UT99 keeps
+  per-surface light lists and visibility bits in the Model
+  (FLightMapIndex, LightBits); decoding those for a surface our shadow
+  maps darken is the next measurement.
+  Correction (2026-09-15, ut-ants-08): the shadow lead above was
+  confounded. With shadowOf returning 1 the haze scattered unshadowed
+  lights through the walls. With every fog constant zeroed, DM-Fetid draws
+  24.3 shadowed and 30.6 unshadowed against the original's 53, fitting an
+  exposure near 7 against DM-Deck16]['s 3.2. Shadows are a small part.
+  The two lights in pose 3's corridor are drawn (special=False in the
+  original's log). Next lead: EXPOSURE was fitted where cylinder lights
+  dominate, and DM-Fetid is lit by point lights only.
+  Progress (2026-09-15, ut-ants-08): lights by effect in the original's
+  logs, lit ones only: DM-Deck16][ 175 cylinder and 24 point, DM-Fetid 59
+  point, AS-Frigate 54 point. SurrealEngine's cylinder and point formulas
+  match light.glsl's. With fog zeroed, AS-Frigate (format-12 bake against
+  orig-asfrigate) fits exposure 2.93, and 4.2 with AMBIENT_SCALE at 0; its
+  LevelInfo sets ambient 37, DM-Fetid's zone 0. So point lights run
+  somewhat dim and ambient hid it on AS-Frigate, but DM-Fetid, near 7, is
+  further off. Next: a point-light gain swept across all three maps.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
