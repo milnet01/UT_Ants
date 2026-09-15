@@ -9598,6 +9598,12 @@ model, no weapon and no opponent until 0.2.0.
   still scores its no-haze 45.8 with the fog on, so the fog moves nothing
   on a map that draws none. Pushed as f7b7136 with the light model, the
   refit and these notes; CI run 35033310515 is watching.
+  CI (2026-09-16, ut-ants-08): run 35033310515 on f7b7136 is green on
+  GCC 14, Clang 19 and MSVC. So the FGetHSV light model, baker revision 16,
+  EXPOSURE 2.2 with AMBIENT_SCALE 1.5, and UTA-0015's refitted fog all
+  stand on the matrix. This item stays open: what remains is DM-Fetid at
+  about half the original's mean, with the light field flat where the
+  original varies within a surface.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
