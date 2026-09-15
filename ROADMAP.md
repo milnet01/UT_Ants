@@ -9485,6 +9485,112 @@ model, no weapon and no opponent until 0.2.0.
   (1.90), 42.7 at 3 (1.77). EXPOSURE is now 2.2 and AMBIENT_SCALE 1.5,
   per map 45.8, 40.3 and 40.5 against 46.2, 40.3 and 42.8 before this
   item: no map worse. The fog look is re-swept at the new exposure next.
+  Fog refit (2026-09-16, ut-ants-08): UTA-0015's haze swept again on the
+  revision-16 DM-Deck16][ bake at exposure 2.2. Block RMS: no haze 45.8;
+  1e-3 45.9; 2e-3 46.0; 4e-3 46.3; 6e-3 46.7; 8e-3 47.1; 1.2e-2 47.8.
+  HAZE_SCATTER becomes 6e-3, the largest within 1.0 of no haze. The glow
+  and thickness are swept again on DM-Fetid next.
+  Still open (2026-09-16, ut-ants-08): FGetHSV was right to take but is
+  not DM-Fetid's cause. At the refitted EXPOSURE 2.2 and AMBIENT_SCALE 1.5,
+  the mean displayed luma is 67.9 against the original's 68.2 on
+  DM-Deck16][ (0.99), 64.6 against 68.9 on AS-Frigate (0.94), and 26.7
+  against 53.0 on DM-Fetid (0.50): the curve's lift was taken back by the
+  lower exposure there. The gap is local, not uniform: pose 0 fits near
+  exposure 3.8 and pose 3's corridor near 17.8. Next: the Model's own
+  per-surface light lists (iLightActors into Model::Lights) for the surfaces
+  pose 3 sees, to learn which lights UT99 applies to them.
+  Narrowed (2026-09-16, ut-ants-08): not the light data and not strips.
+  ambient-census/surf-lights walks the map's own per-surface light lists
+  (BspSurf::iLightMap into LightMapIndex::iLightActors into Model::lights,
+  as SurrealEngine does): all 85 surfaces near pose 3's camera carry a
+  light above brightness 0, and our own lightAt over those same lists gives
+  a median 0.33 of light on them. DM-Fetid has 2 strip leaders and 6
+  absorbed lights in total, none of them the corridor's. On pose 3 our
+  walls draw at 0.29 to 0.35 of the original and the floor 0.41, with a
+  linear radiance of about 0.0107 before exposure, which would need an
+  albedo near 0.03 to follow from 0.33 of light. So either the draw path
+  loses the light or the baked textures are too dark. Next: print
+  FrameStats from ut-shot (overflowed clusters, unshadowed lights) on that
+  pose, which needs the fog sweep to release the build first.
+  Cause narrowed (2026-09-16, ut-ants-08): the renderer is not losing the
+  light -- DM-Fetid's wall textures really are near-black.
+  ambient-census/albedo resolves each texture's own palette as the bake
+  does and measures its mean linear reflectance: bmetalbase 0.039 (UTtech1),
+  inxb1 0.029 and inxb5 0.055 (XbpFX), bmwall3 0.022 (UTtech1). Our model
+  puts about 0.33 of light on those surfaces, so 0.33 x 0.03 is about
+  0.010, and the frame draws 0.0107. The open question is how UT99 shows
+  the same textures three times brighter: its hardware renderers scale
+  lightmaps (the D3D11 driver's bOneXLightmaps halves ambient when set),
+  and the capture copy's ini carries gamma and brightness. Both are
+  measurable next.
+  Two hypotheses ruled out (2026-09-16, ut-ants-08). Dark textures: all
+  three maps use them, so it does not tell the matching maps from
+  DM-Fetid. Mean albedo by map -- DM-Deck16][ rClfBsB2 0.045, rClfWl2
+  0.040, rClfFlr9x 0.071; AS-Frigate Rtrim1a 0.018, Rmetl2 0.026,
+  r-plates 0.062; DM-Fetid bmetalbase 0.039, inxb1 0.029, inxb5 0.055,
+  bmwall3 0.022. A display gamma: the capture copy sets GammaOffset 0.1
+  with UseShaderGamma and GammaCorrectScreenshots, but no single lift fits
+  -- applied to our displayed frames at exposure 2.2, block RMS goes
+  DM-Fetid 40.5, 37.6, 35.2, 34.2 at gamma 1.0, 0.9, 0.8, 0.7 while
+  DM-Deck16][ goes 45.8, 46.8, 49.9, 55.5 and AS-Frigate 40.3, 41.5, 45.0,
+  51.2. The ini's OneXBlending=False (lightmaps doubled) is still
+  unmeasured. Next: compare what our model delivers per surface across the
+  three maps, since the asymmetry is in the light field rather than the
+  surfaces.
+  Third hypothesis ruled out (2026-09-16, ut-ants-08): DM-Fetid's surfaces
+  are not short of light in our model. Running ambient-census/surf-lights
+  over whole maps, the light our model puts on a surface from the map's own
+  light list is, per surface, median 0.281 and mean 0.294 on DM-Fetid,
+  0.196 and 0.385 on DM-Deck16][, and 0.195 and 0.245 on AS-Frigate over
+  612, 680 and 2094 surfaces. DM-Fetid has the highest median of the three.
+  So not the lights, not the textures and not a display gamma. What is
+  left is view-dependent: its per-pose fitted exposure ranges from about
+  3.8 to 17.8. DM-Fetid is a fog zone throughout, and its volumetric
+  lighting lifted the original's mean by up to 46 levels on six of eight
+  poses; whether a fog zone also changes how UT99 shades surfaces is the
+  next thing to measure, and it needs the build free.
+  Per-pose gradient (2026-09-16, ut-ants-08): every DM-Fetid pose is
+  short, but by very different amounts. Ours over the original's mean
+  displayed luma at EXPOSURE 2.2, with each pose's own fitted exposure in
+  brackets: pose 0 0.84 (2.34), pose 4 0.71 (3.14), pose 7 0.57 (3.97),
+  pose 5 0.49 (3.92), pose 6 0.47 (3.97), pose 1 0.40 (4.83), pose 2 0.39
+  (5.70), pose 3 0.31 (8.07). So it is a gradient across the map rather
+  than one broken view, which suits something spatial -- how much of each
+  view is lit from far away rather than close by.
+  Reframed (2026-09-16, ut-ants-08): this is contrast, not brightness, and
+  it is not DM-Fetid's alone. Binning every pixel by how bright the
+  original draws it, ours over theirs runs: DM-Deck16][ 12.14, 1.73, 1.27,
+  0.90, 0.75, 0.60; AS-Frigate 13.60, 1.31, 1.19, 1.01, 0.79, 0.51;
+  DM-Fetid 1.32, 0.62, 0.55, 0.48, 0.40, 0.36, over bands 0-20, 20-40,
+  40-60, 60-80, 80-120 and 120-255. Every map is too bright where the
+  original is dark and too dim where it is bright. DM-Fetid reads worst
+  only because nearly all its pixels sit in the dim bands. A block-RMS fit
+  of one exposure trades those bands against each other, which is why the
+  gap looked like a per-map exposure. The lead is now our tone curve
+  against the original's, not the lights, the textures or a display gamma.
+  Tone curve ruled out too (2026-09-16, ut-ants-08), and the note above it
+  narrowed. Binning by the original's byte, our LINEAR light before
+  exposure barely varies: DM-Deck16][ 0.037, 0.035, 0.046, 0.044, 0.052,
+  0.083 and AS-Frigate 0.038, 0.027, 0.041, 0.050, 0.057, 0.059 across
+  bands 0-20 to 120-255, while the original runs from near-black to 160.
+  DM-Fetid at least climbs, 0.009 to 0.064. Dropping the PBR Neutral tone
+  map does not help either: at EXPOSURE 2.2, block RMS is 53.5 without it
+  against 50.8 with it on DM-Deck16][, 46.8 against 46.0 on AS-Frigate.
+  So our light field is flat where the original's has structure. What the
+  original has and we do not is per-texel lightmaps, whose visibility bits
+  the Model carries (LightBits); measuring their variation across a
+  surface is the next step.
+  Structure confirmed but not sufficient (2026-09-16, ut-ants-08). Reading
+  LightBits per surface (uClamp x vClamp texels a light, rounded to whole
+  bytes, from LightMapIndex::dataOffset), most light-surface pairs are
+  PARTLY shadowed rather than all or nothing: DM-Fetid 2138 partly, 1120
+  fully lit, 319 fully shadowed; DM-Deck16][ 4720, 1140, 389; AS-Frigate
+  1888, 1150, 160. So the original varies its light within a surface where
+  ours is flat per surface, which fits the flat light field measured above
+  -- but the proportions are alike on all three maps, so it does not by
+  itself explain why DM-Fetid alone draws at half. Left open deliberately
+  rather than opening a fifth hypothesis while UTA-0015's fog refit is
+  unfinished.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
