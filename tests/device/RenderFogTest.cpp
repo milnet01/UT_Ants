@@ -33,6 +33,7 @@ constexpr Rgba BLACK{0, 0, 0, 0};
 // shaders/fog.glsl's, which SS 7 sets; a case using one says so.
 constexpr double HAZE_EXTINCTION = 1.28614e-5;
 constexpr double HAZE_SCATTER = 4.0e-3;
+constexpr double VOLUME_GLOW_SCALE = 3.0e-3;
 
 Config fogFrame(Tier tier, float hazeScale) {
     Config config;
@@ -143,6 +144,35 @@ TEST_CASE("UTA-0015 INV-6: a volumetric light thickens and lights the air only i
     CAPTURE(glowing, dark);
     CHECK(dark == 0);
     CHECK(glowing > 20);
+}
+
+TEST_CASE("UTA-0015 INV-6: a volumetric light glows in front of the wall that hides it", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(fogFrame(Tier::Medium, 0.0f));
+    // The light is 100 units behind a black wall that fills the view, so every
+    // froxel in front of the wall is in its shadow. Its own radius, 1625 units,
+    // reaches the camera, so the shadow plan gives it faces; UT99 draws the glow
+    // anyway (SS 4.3), and a glow read through shadowOf would draw none.
+    // A second square just behind the wall faces the light: a one-sided wall
+    // shows the light only its back, which the shadow pass culls.
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 1000, 0, 0, 3000, "wall", PF_UNLIT);
+    addSquare(geometry, 1001, 0, 0, 3000, "wall", PF_UNLIT, true);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "wall", BLACK);
+    uta::ubundle::Light light = steadyLight({1100, 0, 0}, 255, 64);
+    light.volumeRadius = 255;
+    // A glow of 8e-4 a unit: about 0.8 over the 1000 units in front of the
+    // wall, well under the clip. The slice holding the wall reaches past it
+    // into the lit gap and bleeds in whatever the rule (SS 6's halos), but at
+    // most about 0.08 of this glow, so only an unshadowed column reads bright.
+    light.volumeBrightness = static_cast<std::uint8_t>(std::lround(8.0e-4 / VOLUME_GLOW_SCALE * 64.0));
+    bundle.lights = std::vector{light};
+    bundle.zones = std::vector<uta::ubundle::Zone>{{0, 0, 0, 1}};
+    const int hidden = redAt(renderer, bundle, Camera{});
+    CAPTURE(hidden, int(light.volumeBrightness), renderer.lastFrameStats().unshadowedLights);
+    CHECK(renderer.lastFrameStats().unshadowedLights == 0u);
+    CHECK(hidden > 180);
 }
 
 TEST_CASE("UTA-0015 INV-7: a light's shaft is cut by an occluder's shadow", "[device]") {

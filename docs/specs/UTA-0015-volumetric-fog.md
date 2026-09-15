@@ -343,10 +343,12 @@ repeat. `Cli.cpp`'s help text and `README.md` name the key.
   `volumeBrightness` `0`, an unlit white wall behind it draws darker in a fog
   zone than out of one, by at least 20 levels; with `volumeFog` `0` and
   `volumeBrightness` `255`, an unlit black wall draws above 20 levels in a fog
-  zone and `0` out of one.
+  zone and `0` out of one. The glow is unshadowed: a light behind a wall
+  that fills the view still lights the air in front of it.
   *Test:* `tests/device/RenderFogTest.cpp`, new.
   *Breaks when:* the fog flag is ignored; `VOLUME_LIGHTS` is not bound or its
-  count is not pushed; volume extinction is not applied.
+  count is not pushed; volume extinction is not applied; the glow reads the
+  light's shadow.
 
 - **INV-7** — at `Tier::Medium` with a large `hazeScale`, a black unlit
   backdrop: with `RenderShadowTest.cpp`'s occluder and shadowed point light, a
