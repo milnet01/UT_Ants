@@ -1265,6 +1265,32 @@ model, no weapon and no opponent until 0.2.0.
   Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
   (/mnt/Games/Scripts/Linux/UT_Ants). The user chose it next on 2026-09-15,
   parking UTA-0157 for their match review.
+  Census (2026-09-15, ut-ants-08): ut-ants-uta0156/ambient-census/vol-census
+  ran buildActors over every map in the reference install (output in
+  vol.txt). This item's premise that fog exists in no source map is only
+  partly true. Of 381356 lights, 350634 carry VolumeBrightness 64, which
+  is Actor's class default, and 360658 carry VolumeFog 0, so the per-light
+  volume values are mostly unauthored. Fog zones are the authored signal:
+  285 of 1435 maps set bFogZone on at least one zone, but only 11 of the
+  86 stock DM, CTF, AS and DOM maps, and DM-Deck16][ has none. Every fog
+  zone read a FogDistance of 0, which may be an unset default; unchecked.
+  Whether UE1 draws volumetric light only inside fog zones is recalled
+  from UnrealEd documentation, not verified here. The recipe format this
+  item names (UTA-0113) is not built. The user is asked where fog comes
+  from and which of the four parts 0.1.0 takes.
+  User decisions (2026-09-15), asked with the census above. Fog source:
+  honour each map's own fog zones and volumetric lights where the author
+  set them, and give every map a light even haze as well, so light beams
+  show everywhere, DM-Deck16][ included; the recipe (UTA-0113) can tune
+  the haze per map later. Scope: this item builds volumetric fog, light
+  shafts and the flashlight, the three 0.1.0's S1 names; ambient
+  occlusion is split out into its own item.
+  Census 2 (2026-09-15, ut-ants-08): vol-census now counts lights with a
+  non-zero VolumeRadius, the value that switches a UE1 volumetric light on
+  (output in vol2.txt). 5561 lights on 377 maps set it; 240 of those maps
+  also have a fog zone. 10 of the 86 stock maps set it, CTF-Hydro16 the
+  most with 8; DM-Deck16][ sets none. So the authored fog is volumetric
+  lights in fog zones, and the haze is what lights DM-Deck16][.
   **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
   Kind: implement.
   Source: design-2026-09-03.
@@ -9327,6 +9353,18 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-14.
   Lanes: ubake, ubundle, urender.
+
+- 📋 [UTA-0164] **urender: ambient occlusion, the soft darkening in corners.**
+  Split out of UTA-0015 by the user on 2026-09-15, when that item was
+  scoped to volumetric fog, light shafts and the flashlight. Not part of
+  0.1.0's cut condition: S1 names volumetrics, light shafts and the
+  flashlight, not ambient occlusion. Needs a tier from UTA-0051's feature
+  table. The user's standing direction applies: the cheapest method that
+  still looks modern first.
+  **Layman:** Corners and creases get a soft shadow, so rooms look solid instead of evenly lit.
+  Kind: feature.
+  Source: user-request-2026-09-15 split-from-UTA-0015.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
