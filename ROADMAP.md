@@ -1251,7 +1251,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: urender.
 
-- 🚧 [UTA-0015] **urender: volumetric fog, light shafts, ambient occlusion and the flashlight.**
+- ✅ [UTA-0015] **urender: volumetric fog, light shafts, ambient occlusion and the flashlight.**
   None of these exist in the source map, so they are added at bake time by the
   recipe and drawn here. The flashlight is a spotlight attached to the camera.
   No ray tracing: the target is reached with shadow maps, baked indirect light
@@ -1319,6 +1319,16 @@ model, no weapon and no opponent until 0.2.0.
   shadowed glow drew nothing. With the shadow term removed the block RMS
   fell from 64.8 to 38.9 at glow 2.5e-3, so the glow is now unshadowed,
   as UT99 draws it, and the spec says so. A finer sweep is running.
+  Shipped (2026-09-15, ut-ants-08): green on the matrix, run 35019577843
+  on 0892852 (GCC 14, Clang 19, MSVC). Spec
+  docs/specs/UTA-0015-volumetric-fog.md. From Medium, a froxel fog volume
+  draws haze that shadowed lights scatter into, and UT99's volumetric
+  lights glow, unshadowed, while the camera and the light are in a fog
+  zone; ZONE carries the fog flag at format 12. ut-ants toggles a camera
+  flashlight on F. Look set by SS 7: HAZE_SCATTER 4e-3 on DM-Deck16][,
+  VOLUME_GLOW_SCALE 3e-3 and VOLUME_FOG_SCALE 3.2e-2 on DM-Fetid. Every
+  invariant's test was seen to catch a hand mutation. DM-Fetid's separate
+  brightness gap is UTA-0165; ambient occlusion is UTA-0164.
   **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
   Kind: implement.
   Source: design-2026-09-03.

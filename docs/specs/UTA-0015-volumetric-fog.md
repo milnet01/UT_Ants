@@ -1,6 +1,6 @@
 # UTA-0015 — volumetric fog, light shafts and the flashlight
 
-**Status:** spec draft (2026-09-15). No review unless the user asks, by standing instruction.
+**Status:** shipped (2026-09-15), green on the matrix. No review ran, by the user's standing instruction.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0015 (design-2026-09-03).
 **Pairs with:** UTA-0164 (ambient occlusion, split out of this item).

@@ -5,7 +5,12 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0015` (volumetric fog and light shafts). `UTA-0157` (light
+**Next:** `UTA-0165` (DM-Fetid draws about half as bright as the original
+even with volumetric lighting off; its captures and `compare.py` are at
+`ut-ants-uta0156`). `UTA-0015` (volumetric fog, light shafts and the
+flashlight) shipped 2026-09-15, green on the matrix, spec
+`docs/specs/UTA-0015-volumetric-fog.md`; its look was set by measurement
+against the original game. `UTA-0157` (light
 fixtures) is parked for the user's review over real matches: its cheap
 tricks have both landed — parallax (`UTA-0040`) and `UTA-0053`'s emissive
 bloom, shipped 2026-09-15 green on the matrix — and no measurement can say
@@ -25,7 +30,7 @@ after (user, 2026-09-14). `UTA-0153`, `UTA-0154` (AMD FSR 1), `UTA-0158` (the ca
 stops at walls) and `UTA-0040` (parallax occlusion, spec
 `docs/specs/UTA-0040-parallax-occlusion.md`) shipped the same day. A bundle is
 format 12 since `UTA-0015`, so a map baked before it must be baked again.
-`UTA-0015` can now take a tier from `UTA-0051`, plus a look at the result. `UTA-0142` (24 maps cross a teleporter that starts disabled) waits
+`UTA-0142` (24 maps cross a teleporter that starts disabled) waits
 on UT_MonsterHunt's in-game re-check. Read the open `0.1.0` bodies before
 picking — `UTA-0082` records items deferred out of that release's cut.
 
