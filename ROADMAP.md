@@ -9404,7 +9404,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-15 split-from-UTA-0015.
   Lanes: urender.
 
-- 📋 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
+- 🚧 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
   Found by UTA-0015's SS 7 measurement (2026-09-15). Against
   ut-ants-uta0156/orig-fetid-novol, captured with volumetric lighting
   off, a format-12 bake of DM-Fetid scores a block RMS of 42.6 at the
@@ -9413,6 +9413,9 @@ model, no weapon and no opponent until 0.2.0.
   DM-Deck16][ fits 3.2. So something on this map is under-lit that
   DM-Deck16][ does not exercise. Its zones set no ambient and it is
   entirely a fog zone; start from what differs.
+  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). Next after UTA-0015 shipped; the
+  open review items UTA-0098 and UTA-0100 defer themselves.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
