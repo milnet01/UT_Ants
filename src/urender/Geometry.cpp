@@ -14,11 +14,13 @@ namespace uta::urender {
 // The vertex buffer is ubundle::GeometryVertex's own bytes, so its layout is
 // the pipeline's vertex input (Pipelines.cpp). Asserted, as INV-9 asserts
 // every other struct a shader reads.
-static_assert(sizeof(ubundle::GeometryVertex) == 32);
+static_assert(sizeof(ubundle::GeometryVertex) == 36);
 static_assert(offsetof(ubundle::GeometryVertex, position) == 0);
 static_assert(offsetof(ubundle::GeometryVertex, normal) == 12);
 static_assert(offsetof(ubundle::GeometryVertex, u) == 24);
 static_assert(offsetof(ubundle::GeometryVertex, v) == 28);
+static_assert(offsetof(ubundle::GeometryVertex, zone) == 32); // UTA-0156 SS 4.4
+static_assert(offsetof(ubundle::GeometryVertex, reserved) == 33);
 
 Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bundle, MaterialSet& materials) {
     SceneGeometry scene;

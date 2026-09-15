@@ -107,8 +107,11 @@ struct Stub {
     }
 };
 
+/// The engine's ceiling, so every zone a case names is kept (UTA-0156 SS 4.3).
+constexpr std::size_t ZONES = 64;
+
 Geometry built(const Scene& scene, Stub& stub) {
-    auto geometry = buildGeometry(scene.model, stub.lookup());
+    auto geometry = buildGeometry(scene.model, stub.lookup(), ZONES);
     REQUIRE(geometry.has_value());
     return std::move(*geometry);
 }
@@ -120,7 +123,7 @@ bool samePosition(const uta::ubundle::GeometryVertex& vertex, const Vector3& poi
 
 void refused(const Scene& scene, std::string_view says) {
     Stub stub;
-    const auto geometry = buildGeometry(scene.model, stub.lookup());
+    const auto geometry = buildGeometry(scene.model, stub.lookup(), ZONES);
     REQUIRE_FALSE(geometry.has_value());
     CHECK(geometry.error().code() == ErrorCode::MalformedData);
     CHECK(geometry.error().message().find("node 0") != std::string_view::npos);
@@ -338,4 +341,25 @@ TEST_CASE("a skipped node is not checked past what its skip needed", "[ubake][ge
     const Geometry geometry = built(scene, stub);
     CHECK(geometry.vertices.empty());
     CHECK(geometry.batches.empty());
+}
+
+TEST_CASE("UTA-0156 INV-4: a node's vertices take the zone on its plane's front", "[ubake][geom][zone]") {
+    // Each node's back zone differs from its front, so reading iZone[0] shows.
+    Scene scene;
+    scene.add(square(0));
+    scene.model.nodes[0].iZone = {2, 3};
+    scene.add(square(8));
+    scene.model.nodes[1].iZone = {1, 3};
+    Stub stub;
+
+    const auto kept = buildGeometry(scene.model, stub.lookup(), 4);
+    REQUIRE(kept.has_value());
+    REQUIRE(kept->vertices.size() == 8);
+    for (const auto& vertex : kept->vertices) CHECK(int(vertex.zone) == 3);
+
+    // Zone 3 is not below a count of 3, so it is written as 0.
+    const auto dropped = buildGeometry(scene.model, stub.lookup(), 3);
+    REQUIRE(dropped.has_value());
+    REQUIRE(dropped->vertices.size() == 8);
+    for (const auto& vertex : dropped->vertices) CHECK(int(vertex.zone) == 0);
 }

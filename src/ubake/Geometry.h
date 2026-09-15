@@ -50,7 +50,11 @@ using MaterialLookup =
 /// and when the vertices or indices emitted would reach 2^32. A node of fewer
 /// than three vertices is checked for nothing; an invisible one for `iSurf`
 /// only.
+///
+/// Every vertex of node n names zone `n.iZone[1]`, the zone its surface faces,
+/// or 0 where that is not below `zoneCount` -- UTA-0156 SS 4.3.
 [[nodiscard]] Result<ubundle::Geometry> buildGeometry(const upkg::Model& model,
-                                                      const MaterialLookup& materials);
+                                                      const MaterialLookup& materials,
+                                                      std::size_t zoneCount);
 
 } // namespace uta::ubake

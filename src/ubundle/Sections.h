@@ -37,6 +37,7 @@ constexpr SectionId ID_LITE = {'L', 'I', 'T', 'E'};
 constexpr SectionId ID_MOVR = {'M', 'O', 'V', 'R'};
 constexpr SectionId ID_COLL = {'C', 'O', 'L', 'L'};
 constexpr SectionId ID_LPRB = {'L', 'P', 'R', 'B'};
+constexpr SectionId ID_ZONE = {'Z', 'O', 'N', 'E'};
 
 // Structural validation -- SS 4.9.
 //
@@ -119,5 +120,13 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 [[nodiscard]] Result<LightProbes> readLightProbes(Cursor& cursor);
 [[nodiscard]] Result<void> validateLightProbes(const LightProbes& probes, ErrorCode code);
 [[nodiscard]] std::vector<std::byte> encodeLightProbes(const LightProbes& probes);
+
+// ZONE -- ZoneSection.cpp, UTA-0156 SS 4.1 and SS 4.2. The count is the
+// validator's. Which zone a vertex names is a rule across GEOM, MOVR and ZONE,
+// so validateVertexZones runs once every section is decoded.
+[[nodiscard]] Result<std::vector<ZoneAmbient>> readZones(Cursor& cursor);
+[[nodiscard]] Result<void> validateZones(const std::vector<ZoneAmbient>& zones, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeZones(const std::vector<ZoneAmbient>& zones);
+[[nodiscard]] Result<void> validateVertexZones(const Bundle& bundle, ErrorCode code);
 
 } // namespace uta::ubundle::detail

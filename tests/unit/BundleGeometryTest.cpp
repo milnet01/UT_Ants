@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 using uta::ErrorCode;
@@ -59,6 +60,7 @@ Bytes geomPayload(const Geometry& geometry) {
         for (const float part : vertex.normal) out.f32(part);
         out.f32(vertex.u);
         out.f32(vertex.v);
+        out.u8(vertex.zone); // UTA-0156 SS 4.2
     }
     out.u32(static_cast<std::uint32_t>(geometry.indices.size()));
     for (const std::uint32_t index : geometry.indices) out.u32(index);
@@ -76,7 +78,7 @@ Bytes geomPayload(const Geometry& geometry) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(10); // formatVersion -- 10 since UTA-0162 SS 4.1
+    out.u32(11); // formatVersion -- 11 since UTA-0156 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -127,6 +129,7 @@ void sameBits(const Geometry& actual, const Geometry& expected) {
         }
         CHECK(bitsOf(actual.vertices[i].u) == bitsOf(expected.vertices[i].u));
         CHECK(bitsOf(actual.vertices[i].v) == bitsOf(expected.vertices[i].v));
+        CHECK(actual.vertices[i].zone == expected.vertices[i].zone);
     }
     CHECK(actual.indices == expected.indices);
     REQUIRE(actual.batches.size() == expected.batches.size());
@@ -169,7 +172,7 @@ TEST_CASE("the GEOM golden bytes decode to the geometry they encode", "[ubundle]
     // INV-1, the reader's half.
     const auto result = read(fileWith(geomPayload(golden())));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 10);
+    CHECK(result->header.formatVersion == 11);
     REQUIRE(result->geometry.has_value());
     sameBits(*result->geometry, golden());
 }
@@ -272,13 +275,15 @@ TEST_CASE("GEOM batches that tile only when summed in 32 bits are refused", "[ub
 
 TEST_CASE("a GEOM count the section cannot hold is refused before an element is read",
           "[ubundle][geom]") {
-    // SS 4.2's minimums: 32 bytes a vertex, 16 a batch. Each payload declares
-    // two elements and holds one plus less than a second, so the count is
-    // refused up front. A smaller minimum admits the count and fails later on
-    // a short read -- a different refusal, which is what these tell apart.
+    // SS 4.2's minimums: 33 bytes a vertex (UTA-0156's zone byte), 16 a batch.
+    // Each payload declares two elements and holds one plus less than a second,
+    // so the count is refused up front. A smaller minimum admits the count and
+    // fails later on a short read -- a different refusal, which is what these
+    // tell apart.
     Bytes vertices;
     vertices.u32(2);
     for (int part = 0; part < 8; ++part) vertices.f32(0.0F);
+    vertices.u8(0); // zone
     vertices.u32(0); // indices
     vertices.u32(0); // batches
     const auto tooManyVertices = read(fileWith(vertices));
@@ -298,4 +303,94 @@ TEST_CASE("a GEOM count the section cannot hold is refused before an element is 
     REQUIRE_FALSE(tooManyBatches.has_value());
     CHECK(tooManyBatches.error().message().find("exceeds the bytes remaining")
           != std::string_view::npos);
+}
+
+// ------------------------------------------- UTA-0156 INV-2: a vertex's zone
+
+namespace {
+
+/// A whole .utab carrying GEOM holding `geom`, then ZONE holding `count` zero
+/// entries -- UTA-0156 SS 4.1.
+std::vector<std::byte> fileWithZones(const Bytes& geom, std::uint32_t count) {
+    Bytes zone;
+    zone.u32(count);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        zone.u8(0);
+        zone.u8(0);
+        zone.u8(0);
+    }
+    Bytes out;
+    out.id("UTAB");
+    out.u32(11); // formatVersion -- 11 since UTA-0156 SS 4.1
+    out.u8(1);  // origin: Authored
+    out.u8(0);  // kind: Map
+    out.u16(0); // reserved
+    out.u32(2); // sectionCount
+    std::uint64_t offset = 16 + 2 * 24;
+    for (const auto& [id, payload] : {std::pair<std::string_view, const Bytes*>{"GEOM", &geom}, {"ZONE", &zone}}) {
+        out.id(id);
+        out.u64(offset);
+        out.u64(payload->size());
+        out.u8(0); // compression
+        out.u8(0);
+        out.u8(0);
+        out.u8(0);
+        offset += payload->size();
+    }
+    out.append(geom);
+    out.append(zone);
+    return out.data();
+}
+
+} // namespace
+
+TEST_CASE("UTA-0156 INV-2: a vertex's zone round-trips in GEOM with ZONE present", "[ubundle][geom][zone]") {
+    Geometry geometry = golden();
+    geometry.vertices[1].zone = 2;
+    geometry.vertices[3].zone = 1;
+    const auto result = read(fileWithZones(geomPayload(geometry), 3));
+    REQUIRE(result.has_value());
+    REQUIRE(result->geometry.has_value());
+    sameBits(*result->geometry, geometry);
+
+    Bundle bundle;
+    bundle.header.origin = Origin::Authored;
+    bundle.geometry = geometry;
+    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    const auto written = write(bundle);
+    REQUIRE(written.has_value());
+    CHECK(*written == fileWithZones(geomPayload(geometry), 3));
+}
+
+TEST_CASE("UTA-0156 INV-2: a GEOM vertex naming the ZONE count is refused", "[ubundle][geom][zone]") {
+    Geometry geometry = golden();
+    geometry.vertices[2].zone = 3;
+    const auto result = read(fileWithZones(geomPayload(geometry), 3));
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code() == ErrorCode::MalformedData);
+    CHECK(result.error().message().find("GEOM: vertex 2 names zone 3") != std::string_view::npos);
+
+    Bundle bundle;
+    bundle.geometry = geometry;
+    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    const auto written = write(bundle);
+    REQUIRE_FALSE(written.has_value());
+    CHECK(written.error().code() == ErrorCode::InvalidArgument);
+    CHECK(written.error().message().find("GEOM: vertex 2 names zone 3") != std::string_view::npos);
+}
+
+TEST_CASE("UTA-0156 INV-2: a non-zero GEOM vertex zone with no ZONE is refused", "[ubundle][geom][zone]") {
+    Geometry geometry = golden();
+    geometry.vertices[0].zone = 1;
+    refusedBothWays(geometry, "and the bundle has no ZONE");
+}
+
+TEST_CASE("UTA-0156 INV-2: write refuses a vertex whose reserved bytes are not zero", "[ubundle][geom][zone]") {
+    Bundle bundle;
+    bundle.geometry = golden();
+    bundle.geometry->vertices[3].reserved[1] = 1;
+    const auto written = write(bundle);
+    REQUIRE_FALSE(written.has_value());
+    CHECK(written.error().code() == ErrorCode::InvalidArgument);
+    CHECK(written.error().message().find("vertex 3's reserved bytes are not zero") != std::string_view::npos);
 }

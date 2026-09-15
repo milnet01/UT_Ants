@@ -124,7 +124,7 @@ as `u32`, `batches`.
 | `GeometryBatch` | `material` as `string`, then `polyFlags`, `firstIndex`, `indexCount` as `u32` |
 
 **Minimum encoded sizes**, joining UTA-0008 § 4.2's table: `GeometryVertex`
-32 bytes, fixed; `GeometryBatch` 16 bytes, a `u32` length for an empty
+33 bytes, fixed (32 until UTA-0156 § 4.2 added the zone byte); `GeometryBatch` 16 bytes, a `u32` length for an empty
 `material` then three `u32`.
 
 **`GEOM`'s floats are not validated.** They are moved through their bits,

@@ -56,8 +56,9 @@ enum Binding : std::uint32_t {
     PROBE_CELLS = 7,
     PROBES = 8,
     SHADOW_FACES = 9,
-    SHADOW_ATLAS = 10,
-    TEXTURES = 11, ///< last: it is the variable-count binding
+    ZONES = 10,        ///< UTA-0156 SS 4.4: the last storage buffer
+    SHADOW_ATLAS = 11,
+    TEXTURES = 12, ///< last: it is the variable-count binding
 };
 
 /// One frame's camera and settings.
@@ -209,6 +210,20 @@ struct ShadowFace {
 static_assert(sizeof(ShadowFace) == 80);
 static_assert(offsetof(ShadowFace, viewProj) == 0);
 static_assert(offsetof(ShadowFace, atlasRect) == 64);
+
+/// One zone's ambient light, as UT99's bytes -- UTA-0156 SS 4.4. The shader
+/// turns them into light, as it does a Light's.
+struct Zone {
+    std::uint32_t brightness;
+    std::uint32_t hue;
+    std::uint32_t saturation;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(Zone) == 16);
+static_assert(offsetof(Zone, brightness) == 0);
+static_assert(offsetof(Zone, hue) == 4);
+static_assert(offsetof(Zone, saturation) == 8);
+static_assert(offsetof(Zone, reserved) == 12);
 
 /// The scene pipelines' push constants: which object, which material, and the
 /// batch's own flags, which the shaders test bit by bit.

@@ -18,7 +18,9 @@
 #include "ubake/Actors.h"
 #include "ubake/Bake.h"
 #include "ubake/Movers.h"
+#include "ubake/Zones.h"
 #include "ubundle/Bundle.h"
+#include "umap/Rooms.h"
 #include "umat/Library.h"
 #include "umat/Material.h"
 #include "upkg/Geometry.h"
@@ -325,6 +327,15 @@ TEST_CASE("INV-8: a texture only a mover wears gets its material made", "[ubake]
             wearsHatch = wearsHatch || batch.material == "texpkg.metal.hatch";
         }
     CHECK(wearsHatch);
+
+    // UTA-0156 INV-5: every mover vertex takes the zone at its placed location.
+    REQUIRE(result->bundle.rooms.has_value());
+    REQUIRE(result->bundle.zones.has_value());
+    for (const MoverShape& shape : *result->bundle.movers) {
+        const std::uint8_t zone =
+            uta::ubake::zoneAt(*result->bundle.rooms, shape.location, result->bundle.zones->size());
+        for (const auto& vertex : shape.geometry.vertices) CHECK(int(vertex.zone) == int(zone));
+    }
 }
 
 TEST_CASE("INV-9: a mover whose Brush names no Model refuses the bake", "[ubake][movers]") {
@@ -364,4 +375,40 @@ TEST_CASE("INV-9: a mover whose MainScale has a zero component refuses the bake"
                  {objectProperty("Brush", map.addBrushModel(tiltedSquare())),
                   scaleProperty("MainScale", 1, 0, 1)});
     refusedFor(map.build(), "dm-fixture.door0");
+}
+
+namespace {
+
+/// One node on the plane z = 0 with no children or leaves: its front is zone 2,
+/// its back zone 1. Zone 1 is room 0 and zone 2 room 1.
+uta::umap::RoomMap twoZoneRooms() {
+    uta::umap::RoomMap rooms;
+    uta::umap::RoomMap::Node node;
+    node.normal = {0.0F, 0.0F, 1.0F};
+    node.iZone[0] = 1;
+    node.iZone[1] = 2;
+    rooms.nodes = {node};
+    rooms.rooms.resize(2);
+    rooms.rooms[0].zoneIndex = 1;
+    rooms.rooms[1].zoneIndex = 2;
+    rooms.roomForZone = {uta::umap::NO_ROOM, 0, 1};
+    return rooms;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0156 INV-5: zoneAt gives the zone of the room at a location", "[ubake][movers][zone]") {
+    const uta::umap::RoomMap rooms = twoZoneRooms();
+    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 3)) == 2);
+    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, -10.0F}, 3)) == 1);
+}
+
+TEST_CASE("UTA-0156 INV-5: zoneAt gives 0 where there is no room or the zone is out of range",
+          "[ubake][movers][zone]") {
+    uta::umap::RoomMap rooms = twoZoneRooms();
+    // Zone 2 is not below a count of 2.
+    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 2)) == 0);
+    // Zone 2 with no room: roomAt finds NO_ROOM.
+    rooms.roomForZone[2] = uta::umap::NO_ROOM;
+    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 3)) == 0);
 }

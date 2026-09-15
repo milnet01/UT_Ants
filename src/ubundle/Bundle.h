@@ -50,7 +50,8 @@ namespace uta::ubundle {
 /// No .utab exists that this orphans, 0.1.0 not having been cut.
 /// 9 since UTA-0040 SS 4.1 gave each MATS record a parallax depth byte.
 /// 10 since UTA-0162 SS 4.1 gave each LITE record its strip fields.
-inline constexpr std::uint32_t FORMAT_VERSION = 10;
+/// 11 since UTA-0156 SS 4.1 added ZONE, and SS 4.2 gave each vertex its zone.
+inline constexpr std::uint32_t FORMAT_VERSION = 11;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -161,6 +162,8 @@ struct GeometryVertex {
     std::array<float, 3> normal{};   ///< its surface's normal, as the file stores it
     float u = 0;                     ///< 1.0 is one repeat of the texture
     float v = 0;
+    std::uint8_t zone = 0;                  ///< an index into ZONE -- UTA-0156 SS 4.2
+    std::array<std::uint8_t, 3> reserved{}; ///< always zero, so no byte of it is padding
 };
 
 /// A run of triangles wearing one material under one set of flags.
@@ -359,6 +362,18 @@ struct LightProbes {
     std::vector<LightProbe> probes; ///< strictly ascending by z, then y, then x
 };
 
+/// The most entries ZONE holds: umap::ZONE_CEILING, the engine's own ceiling on
+/// a level's zones -- UTA-0156 SS 4.1.
+inline constexpr std::size_t ZONE_LIMIT = 64;
+
+/// One zone's ambient light, as its ZoneInfo, or else the level's LevelInfo,
+/// sets it -- UTA-0156 SS 4.1. UT99's bytes; the renderer converts them.
+struct ZoneAmbient {
+    std::uint8_t brightness = 0;
+    std::uint8_t hue = 0;
+    std::uint8_t saturation = 0;
+};
+
 /// A bundle's contents.
 ///
 /// A section absent from the file is an empty optional, which is DISTINCT
@@ -384,6 +399,8 @@ struct Bundle {
     std::optional<Collision> collision;
     /// UTA-0112 SS 4.2.
     std::optional<LightProbes> lightProbes;
+    /// Index i is the source Model's zone i -- UTA-0156 SS 4.1.
+    std::optional<std::vector<ZoneAmbient>> zones;
 };
 
 /// Decode a whole bundle.
@@ -396,7 +413,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

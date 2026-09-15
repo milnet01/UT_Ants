@@ -56,7 +56,8 @@ struct Drawn {
 
 } // namespace
 
-Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials) {
+Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
+                                        std::size_t zoneCount) {
     std::vector<Drawn> drawn;
     std::uint64_t vertexTotal = 0;
     std::uint64_t indexTotal = 0;
@@ -130,8 +131,11 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         out.material = made != nullptr ? made->id : std::string{};
         out.polyFlags = surf.polyFlags;
         out.corners.reserve(count);
+        // UTA-0156 SS 4.3: the zone on the plane's front, the side the surface faces.
+        const auto zone = static_cast<std::uint8_t>(node.iZone[1] < zoneCount ? node.iZone[1] : 0);
         for (const Vec& point : points) {
             ubundle::GeometryVertex vertex;
+            vertex.zone = zone;
             vertex.position = {static_cast<float>(point[0]), static_cast<float>(point[1]),
                                static_cast<float>(point[2])};
             vertex.normal = {normal.x, normal.y, normal.z};

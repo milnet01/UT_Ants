@@ -101,4 +101,12 @@ struct ShadowFace {
     vec4 atlasRect;
 };
 
+// UTA-0156 SS 4.4: one zone's ambient light, as UT99's bytes.
+struct Zone {
+    uint brightness;
+    uint hue;
+    uint saturation;
+    uint reserved;
+};
+
 #endif

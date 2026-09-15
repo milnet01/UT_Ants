@@ -31,6 +31,7 @@ add_executable(uta_unit_tests
     unit/BakeMoversTest.cpp
     unit/BakeStripsTest.cpp
     unit/BakeTest.cpp
+    unit/BakeZonesTest.cpp
     unit/BundleActorsTest.cpp
     unit/BundleCollisionTest.cpp
     unit/BundleMoversTest.cpp
@@ -40,6 +41,7 @@ add_executable(uta_unit_tests
     unit/BundleMalformedTest.cpp
     unit/BundleMaterialTest.cpp
     unit/BundleTextureTest.cpp
+    unit/BundleZonesTest.cpp
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
     unit/CompactIndexTest.cpp

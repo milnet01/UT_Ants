@@ -602,7 +602,8 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 
 - Drawing direct light, blending probes, and exposure — tracked by UTA-0014.
 - ZoneInfo's `AmbientBrightness`, `AmbientHue` and `AmbientSaturation` — tracked
-  by UTA-0014, a UT99 number the renderer turns into light like any other.
+  by UTA-0156 (`docs/specs/UTA-0156-zone-ambient-light.md`), a UT99 number the
+  renderer turns into light like any other.
 - Movers in the bake, as surfaces or as shadows — deferred; not yet queued.
 - Bounce from lights a script changes — deferred; not yet queued.
 - More than one bounce — deferred; not yet queued.

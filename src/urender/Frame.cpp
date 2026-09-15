@@ -73,10 +73,11 @@ constexpr float EXPOSURE = 3.2f;
 ///
 /// What it cannot see: an edit in place that changes only unsampled bytes. The
 /// lights and the movers' transforms are read every frame and need no upload.
+/// ZONE is sampled whole: it holds at most ZONE_LIMIT entries (UTA-0156).
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
     std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
-                lights = 0, probes = 0;
+                lights = 0, probes = 0, zones = 0;
     std::uint64_t sample = 0;
     bool operator==(const BundleShape&) const = default;
 };
@@ -124,6 +125,15 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
         for (const ubundle::MaterialRecord& record : *bundle.materials) {
             fnv.add(std::as_bytes(std::span(record.id)));
             fnv.addValue(record.metallic);
+        }
+    }
+    // UTA-0156 SS 4.4: a bundle differing only in its zones must re-upload them.
+    if (bundle.zones) {
+        shape.zones = bundle.zones->size();
+        for (const ubundle::ZoneAmbient& zone : *bundle.zones) {
+            fnv.addValue(zone.brightness);
+            fnv.addValue(zone.hue);
+            fnv.addValue(zone.saturation);
         }
     }
     if (bundle.textures) {
@@ -240,6 +250,7 @@ struct Renderer::Impl {
     Buffer probeCells, probes;
     std::uint32_t probeSpacing = 0, probeCount = 0, probeTableMask = 0, probeLongestRun = 0;
     Buffer shadowFaces;
+    Buffer zones; ///< UTA-0156 SS 4.4
     ShadowPlanner shadowPlanner;
     /// Each mover's box in its own pivot space, for SS 4.8's redraw test.
     std::vector<Box> moverBounds;
@@ -402,6 +413,15 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     probeTableMask = table.tableMask;
     probeLongestRun = table.longestRun;
 
+    // UTA-0156 SS 4.4: a record per ZONE entry, or one zero record with no ZONE,
+    // so the binding is never empty and zone 0 always reads.
+    std::vector<gpu::Zone> zoneRecords;
+    if (bundle.zones)
+        for (const ubundle::ZoneAmbient& zone : *bundle.zones)
+            zoneRecords.push_back(gpu::Zone{zone.brightness, zone.hue, zone.saturation, 0});
+    if (zoneRecords.empty()) zoneRecords.push_back(gpu::Zone{});
+    UTA_TRY(zones, Buffer::upload(*gpu, std::as_bytes(std::span(zoneRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+
     // SS 4.8: no tile shows this bundle's geometry yet, and each light holds at
     // most six faces.
     shadowPlanner.reset();
@@ -431,7 +451,7 @@ Result<void> Renderer::Impl::writeDescriptors() {
 
     const auto textureCount = static_cast<std::uint32_t>(materials->textures().size());
     const std::array sizes = {
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::SHADOW_FACES + 1},
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::ZONES + 1},
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textureCount + 4},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -468,10 +488,10 @@ Result<void> Renderer::Impl::writeDescriptors() {
     easuSet = postSets[1];
     rcasSet = postSets[2];
 
-    const std::array<const Buffer*, gpu::SHADOW_FACES + 1> buffers = {
+    const std::array<const Buffer*, gpu::ZONES + 1> buffers = {
         &frameData, &objects, &materials->records(), &lights, &clusterCounts,
-        &clusterIndices, &clusterBounds, &probeCells, &probes, &shadowFaces};
-    std::array<VkDescriptorBufferInfo, gpu::SHADOW_FACES + 1> bufferInfos{};
+        &clusterIndices, &clusterBounds, &probeCells, &probes, &shadowFaces, &zones};
+    std::array<VkDescriptorBufferInfo, gpu::ZONES + 1> bufferInfos{};
     std::vector<VkWriteDescriptorSet> writes;
     for (std::uint32_t i = 0; i < buffers.size(); ++i) {
         bufferInfos[i] = {buffers[i]->handle(), 0, VK_WHOLE_SIZE};

@@ -152,7 +152,10 @@ Result<ubundle::MoverShape> buildMover(const MoverSite& mover, const upkg::Model
     UTA_TRY(const PivotSpace pivot, pivotSpaceOf(mover, actors));
 
     // SS 4.5 step 1.
-    auto built = buildGeometry(model, lookup);
+    // A count of 1 leaves every vertex in zone 0: a mover's own Model has no
+    // zones, and the bake gives its vertices the zone it is placed in
+    // (UTA-0156 SS 4.3).
+    auto built = buildGeometry(model, lookup, 1);
     if (!built.has_value()) return std::unexpected(built.error().withContext(where));
 
     ubundle::MoverShape shape;

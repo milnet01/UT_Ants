@@ -99,6 +99,33 @@ TEST_CASE("UTA-0162 INV-8: a strip lights a pixel near its far end through the c
     CHECK(std::abs(red - expected) <= 2.0);
 }
 
+TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an unlit one alone", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    // No light and no probe, so ambient is the only light. The square is in
+    // zone 1, so a vertex attribute or binding that reads zone 0 draws black.
+    const auto squareInZone = [](std::uint8_t brightness, std::uint32_t polyFlags) {
+        uta::ubundle::Geometry geometry;
+        addSquare(geometry, 100, 0, 0, 40, "white", polyFlags);
+        for (uta::ubundle::GeometryVertex& vertex : geometry.vertices) vertex.zone = 1;
+        uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+        addSolidMaterial(bundle, "white", WHITE);
+        // Hue 0 at saturation 255 is white (UTA-0112 SS 4.3).
+        bundle.zones = std::vector<uta::ubundle::ZoneAmbient>{{0, 0, 0}, {brightness, 0, 255}};
+        return bundle;
+    };
+
+    const double expected = srgbByte(128.0 / 255.0);
+    const std::uint8_t lit = redAtCentre(renderer, squareInZone(128, 0));
+    CAPTURE(int(lit), expected);
+    CHECK(std::abs(lit - expected) <= 2.0);
+
+    CHECK(int(redAtCentre(renderer, squareInZone(0, 0))) == 0);
+
+    constexpr std::uint32_t PF_UNLIT = 0x00400000u;
+    CHECK(int(redAtCentre(renderer, squareInZone(128, PF_UNLIT))) == 255);
+}
+
 TEST_CASE("a flat normal map lights exactly as the surface's own normal", "[device]") {
     // umat writes zero tilt as the byte 128 (127.5 * 0 + 128), so that is what
     // must decode to zero. A light nearly in the surface's plane is where a

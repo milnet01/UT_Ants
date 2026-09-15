@@ -115,4 +115,14 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
     return colour * (f * incidence * spot);
 }
 
+// UTA-0156 SS 4.4: how strongly a zone's ambient bytes light a surface, set by
+// that spec's SS 7 measurement against the original game.
+const float AMBIENT_SCALE = 1.0;
+
+// The light a zone's ambient puts on every lit surface in it: a light's colour
+// and intensity with no falloff, incidence, spot, shadow or flicker.
+vec3 zoneAmbient(Zone zone) {
+    return lightColour(zone.hue, zone.saturation) * (float(zone.brightness) / 255.0 * AMBIENT_SCALE);
+}
+
 #endif

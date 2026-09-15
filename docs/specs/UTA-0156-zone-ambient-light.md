@@ -147,8 +147,9 @@ is not below the count.
 
 ```cpp
 enum Binding : std::uint32_t {
-    // ... FRAME through SHADOW_ATLAS, unchanged, then:
-    ZONES = 11,
+    // ... FRAME through SHADOW_FACES, unchanged, then:
+    ZONES = 10,
+    SHADOW_ATLAS = 11,
     TEXTURES = 12, ///< last: it is the variable-count binding
 };
 
@@ -161,7 +162,8 @@ struct Zone {                   // std430, 16 bytes, offsets asserted
 ```
 
 - **Upload.** One `Zone` per `ZONE` entry. A bundle without `ZONE` uploads one
-  zero entry, so binding `11` is never empty.
+  zero entry, so binding `10` is never empty. `ZONES` sits with the other
+  storage buffers, which `Pipelines::create` lays out as one run from `FRAME`.
 - **Vertex input.** The scene pipeline gains attribute `3`, `R8_UINT`, at
   `offsetof(GeometryVertex, zone)`. `scene.vert` passes it to `scene.frag` as a
   `flat` `uint`.
@@ -227,7 +229,7 @@ The shadow pipeline does not read `zone`.
   `PF_Unlit` surface in the same zone draws its base colour.
   *Test:* `tests/device/RenderLightingTest.cpp`, a new case.
   *Breaks when:* ambient is not added; it is added to an unlit surface; the
-  vertex attribute or binding `11` is miswired, so every surface reads zone 0.
+  vertex attribute or binding `10` is miswired, so every surface reads zone 0.
 
 - **INV-7** — `gpu::Zone`'s offsets and the `Binding` numbers match
   `types.glsl` and `scene_bindings.glsl`.

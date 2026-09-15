@@ -9,8 +9,8 @@
 namespace uta::ubundle::detail {
 namespace {
 
-/// SS 4.2: eight f32, fixed.
-constexpr std::uint64_t MIN_GEOMETRY_VERTEX = 32;
+/// SS 4.2: eight f32, then UTA-0156's zone byte; fixed.
+constexpr std::uint64_t MIN_GEOMETRY_VERTEX = 33;
 
 /// SS 4.2: a u32 length for an empty material, then three u32.
 constexpr std::uint64_t MIN_GEOMETRY_BATCH = 16;
@@ -25,6 +25,8 @@ constexpr std::uint64_t MIN_GEOMETRY_BATCH = 16;
     }
     UTA_TRY(vertex.u, cursor.readF32());
     UTA_TRY(vertex.v, cursor.readF32());
+    // UTA-0156 SS 4.2: `reserved` is not on the wire and stays zero.
+    UTA_TRY(vertex.zone, cursor.readU8());
     return vertex;
 }
 
@@ -42,6 +44,7 @@ void putVertex(Sink& sink, const GeometryVertex& vertex) {
     for (const float part : vertex.normal) sink.putF32(part);
     sink.putF32(vertex.u);
     sink.putF32(vertex.v);
+    sink.putU8(vertex.zone);
 }
 
 void putBatch(Sink& sink, const GeometryBatch& batch) {
@@ -66,6 +69,13 @@ Result<Geometry> readGeometry(Cursor& cursor) {
 
 Result<void> validateGeometry(const Geometry& geometry, ErrorCode code) {
     const std::size_t vertexCount = geometry.vertices.size();
+    // UTA-0156 SS 4.2. A read vertex's are always zero; a caller's may not be,
+    // and the renderer uploads and hashes these bytes.
+    for (std::size_t i = 0; i < vertexCount; ++i) {
+        for (const std::uint8_t byte : geometry.vertices[i].reserved)
+            if (byte != 0)
+                return fail(code, "GEOM: vertex " + std::to_string(i) + "'s reserved bytes are not zero");
+    }
     for (std::size_t i = 0; i < geometry.indices.size(); ++i) {
         if (geometry.indices[i] >= vertexCount)
             return fail(code, "GEOM: index " + std::to_string(i) + " names vertex "

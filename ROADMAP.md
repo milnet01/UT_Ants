@@ -9031,6 +9031,27 @@ model, no weapon and no opponent until 0.2.0.
   84ab274 (exposure 3.2) pushed; the local pre-push gate passed. GitHub
   run 34964607685 on 84ab274 completed with success on the matrix.
   Zone ambient is next, drafted as docs/specs/UTA-0156-zone-ambient-light.md.
+  Front-side probe (2026-09-15, ut-ants-08), per the zone ambient spec's
+  section 7. ut-ants-uta0156/ambient-census/front-probe compared each drawn
+  node's iZone[1] against the zone umap::roomAt finds two units in front
+  of its polygon's centroid, over every map in the reference install
+  (output in front.txt). 1434 maps read; 12190407 nodes agree, 12364
+  disagree, and only 2140 of those match iZone[0] instead. 305924 probe
+  points found no room. The disagreements are not a wrong-side pattern,
+  so iZone[1] stays as the spec states.
+  Zone ambient built (2026-09-15, ut-ants-08), per
+  docs/specs/UTA-0156-zone-ambient-light.md. ZONE section and each
+  vertex's zone (FORMAT_VERSION 11), buildZones and vertex zones in the
+  bake (BAKER_REVISION 14), and the zones binding and ambient term in the
+  renderer. Unit 569/569 and device 34/34 on lavapipe, one local leg. The
+  new device case INV-6 caught a real defect on its first run: the
+  renderer's BundleShape did not sample ZONE, so a bundle differing only
+  in its zones kept the old zones buffer; shapeOf now samples ZONE whole.
+  Fold-back: the zones buffer took binding 10 rather than 11, because the
+  storage buffers are laid out as one run from FRAME; the spec says so.
+  DM-Deck16][ re-baked at r14-f11 sets no ambient and fits as before:
+  exposure 3.18, block RMS 46.2. AS-Frigate (its LevelInfo sets 37) is
+  being captured from the original game for the AMBIENT_SCALE sweep.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.

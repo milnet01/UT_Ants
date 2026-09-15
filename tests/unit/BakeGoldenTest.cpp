@@ -45,9 +45,11 @@ namespace {
 // 10, so the digest moved whether or not the fixture holds a row.
 // 13: UTA-0156 faded cylinder light over its last tenth. Same digest as 12: the
 // fixture holds no cylinder light.
-constexpr std::uint32_t RECORDED_UNDER = 13;
+// 14: UTA-0156 wrote ZONE and gave each vertex its zone, and bumped the format
+// to 11, so the digest moved.
+constexpr std::uint32_t RECORDED_UNDER = 14;
 constexpr std::string_view GOLDEN =
-    "86ce1bc7c0293d7242d80095c6013ab25de26a2771323e05e57fbcb04d5a5fcc";
+    "0768fce27c5bc068314fa78d2de7bc99ece913614893c5469fb759a50068a31b";
 
 } // namespace
 

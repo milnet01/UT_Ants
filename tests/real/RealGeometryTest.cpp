@@ -298,7 +298,7 @@ void censusOf(const fs::path& root, const fs::path& mapPath, Totals& totals) {
     };
 
     const auto started = std::chrono::steady_clock::now();
-    const auto geometry = uta::ubake::buildGeometry(*model, lookup);
+    const auto geometry = uta::ubake::buildGeometry(*model, lookup, model->zones.size());
     totals.buildSeconds +=
         std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     if (!geometry.has_value()) {

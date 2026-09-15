@@ -297,6 +297,13 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **Each area of a map gets the background light its author set, so dark corners are lit as in the original game** (UTA-0156)
+  The bake writes each zone's ambient brightness, hue and saturation into
+  a new ZONE section, taking the level's own values for a zone that sets
+  none, and tags every drawn surface with its zone. The renderer adds that
+  light to every lit surface. Bundles move to format 11, so every map must
+  be baked again.
+
 - **Cylinder lights fade out over the edge of their reach, so floors no longer show hard-edged circles of light** (UTA-0156)
   The fade covers the last tenth of the light's radius, in the bake and the
   renderer alike. That width is the widest whose match against the

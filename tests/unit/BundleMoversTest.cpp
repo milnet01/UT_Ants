@@ -50,6 +50,7 @@ void putGeometry(Bytes& out, const Geometry& geometry) {
         for (const float part : vertex.normal) out.f32(part);
         out.f32(vertex.u);
         out.f32(vertex.v);
+        out.u8(vertex.zone); // UTA-0156 SS 4.2
     }
     out.u32(static_cast<std::uint32_t>(geometry.indices.size()));
     for (const std::uint32_t index : geometry.indices) out.u32(index);
@@ -87,7 +88,7 @@ Bytes emptyLite() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(10); // formatVersion -- 10 since UTA-0162 SS 4.1
+    out.u32(11); // formatVersion -- 11 since UTA-0156 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -164,6 +165,7 @@ void sameShapes(const std::vector<MoverShape>& actual, const std::vector<MoverSh
             }
             CHECK(bitsOf(a.geometry.vertices[v].u) == bitsOf(e.geometry.vertices[v].u));
             CHECK(bitsOf(a.geometry.vertices[v].v) == bitsOf(e.geometry.vertices[v].v));
+            CHECK(a.geometry.vertices[v].zone == e.geometry.vertices[v].zone);
         }
         CHECK(a.geometry.indices == e.geometry.indices);
         REQUIRE(a.geometry.batches.size() == e.geometry.batches.size());
@@ -199,7 +201,7 @@ void refusedBothWays(const std::vector<MoverShape>& shapes, std::string_view say
 TEST_CASE("the MOVR golden bytes decode to the shapes they encode", "[ubundle][movr]") {
     const auto result = read(fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 10);
+    CHECK(result->header.formatVersion == 11);
     REQUIRE(result->lights.has_value());
     REQUIRE(result->movers.has_value());
     sameShapes(*result->movers, golden());
@@ -244,4 +246,63 @@ TEST_CASE("a shape whose geometry has an index past its vertices is refused", "[
     std::vector<MoverShape> shapes = golden();
     shapes[0].geometry.indices[0] = 99;
     refusedBothWays(shapes, "names vertex 99");
+}
+
+// ------------------------------------------- UTA-0156 INV-2: a vertex's zone
+
+namespace {
+
+/// A ZONE payload of `count` zero entries -- UTA-0156 SS 4.1.
+Bytes zonesOf(std::uint32_t count) {
+    Bytes out;
+    out.u32(count);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        out.u8(0);
+        out.u8(0);
+        out.u8(0);
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0156 INV-2: a shape vertex's zone round-trips with ZONE present", "[ubundle][movr][zone]") {
+    std::vector<MoverShape> shapes = golden();
+    shapes[0].geometry.vertices[1].zone = 2;
+    shapes[1].geometry.vertices[3].zone = 1;
+    const auto result = read(fileWith({{"MOVR", movrPayload(shapes)}, {"ZONE", zonesOf(3)}}));
+    REQUIRE(result.has_value());
+    REQUIRE(result->movers.has_value());
+    sameShapes(*result->movers, shapes);
+
+    Bundle bundle;
+    bundle.header.origin = Origin::Authored;
+    bundle.movers = shapes;
+    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    const auto written = write(bundle);
+    REQUIRE(written.has_value());
+    CHECK(*written == fileWith({{"MOVR", movrPayload(shapes)}, {"ZONE", zonesOf(3)}}));
+}
+
+TEST_CASE("UTA-0156 INV-2: a shape vertex naming the ZONE count is refused", "[ubundle][movr][zone]") {
+    std::vector<MoverShape> shapes = golden();
+    shapes[1].geometry.vertices[2].zone = 3;
+    const auto result = read(fileWith({{"MOVR", movrPayload(shapes)}, {"ZONE", zonesOf(3)}}));
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code() == ErrorCode::MalformedData);
+    CHECK(result.error().message().find("shape 1's geometry: vertex 2 names zone 3") != std::string_view::npos);
+
+    Bundle bundle;
+    bundle.movers = shapes;
+    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    const auto written = write(bundle);
+    REQUIRE_FALSE(written.has_value());
+    CHECK(written.error().code() == ErrorCode::InvalidArgument);
+    CHECK(written.error().message().find("shape 1's geometry: vertex 2 names zone 3") != std::string_view::npos);
+}
+
+TEST_CASE("UTA-0156 INV-2: a non-zero shape vertex zone with no ZONE is refused", "[ubundle][movr][zone]") {
+    std::vector<MoverShape> shapes = golden();
+    shapes[0].geometry.vertices[0].zone = 1;
+    refusedBothWays(shapes, "and the bundle has no ZONE");
 }

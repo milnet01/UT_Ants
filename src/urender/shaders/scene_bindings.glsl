@@ -19,8 +19,9 @@ layout(set = 0, binding = 6) readonly buffer ClusterBoundsBlock { ClusterBounds 
 layout(set = 0, binding = 7) readonly buffer ProbeCellBlock { ProbeCell probeCells[]; };
 layout(set = 0, binding = 8) readonly buffer ProbeBlock { Probe probes[]; };
 layout(set = 0, binding = 9) readonly buffer ShadowFaceBlock { ShadowFace shadowFaces[]; };
-layout(set = 0, binding = 10) uniform sampler2DShadow shadowAtlas;
-layout(set = 0, binding = 11) uniform sampler2D textures[];
+layout(set = 0, binding = 10) readonly buffer ZoneBlock { Zone zones[]; }; // UTA-0156 SS 4.4
+layout(set = 0, binding = 11) uniform sampler2DShadow shadowAtlas;
+layout(set = 0, binding = 12) uniform sampler2D textures[];
 
 #ifndef UTA_SHADOW_PASS
 layout(push_constant) uniform DrawBlock {

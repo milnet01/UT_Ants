@@ -87,7 +87,7 @@ struct Descriptor {
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
            || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
-           || id == ID_LPRB;
+           || id == ID_LPRB || id == ID_ZONE;
 }
 
 } // namespace
@@ -223,6 +223,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_LPRB) {
             UTA_TRY(bundle.lightProbes, readLightProbes(payload));
             UTA_CHECK(validateLightProbes(*bundle.lightProbes, ErrorCode::MalformedData));
+        } else if (descriptor.id == ID_ZONE) {
+            UTA_TRY(bundle.zones, readZones(payload));
+            UTA_CHECK(validateZones(*bundle.zones, ErrorCode::MalformedData));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -239,6 +242,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             return fail(ErrorCode::MalformedData, "a section ends with bytes unread");
     }
 
+    // UTA-0156 SS 4.2: a rule across GEOM, MOVR and ZONE, so it waits for all three.
+    UTA_CHECK(validateVertexZones(bundle, ErrorCode::MalformedData));
     return bundle;
 }
 
@@ -258,8 +263,10 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
         UTA_CHECK(validateCollision(*bundle.collision, ErrorCode::InvalidArgument));
     if (bundle.lightProbes)
         UTA_CHECK(validateLightProbes(*bundle.lightProbes, ErrorCode::InvalidArgument));
+    if (bundle.zones) UTA_CHECK(validateZones(*bundle.zones, ErrorCode::InvalidArgument));
+    UTA_CHECK(validateVertexZones(bundle, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB. Fixed rather than incidental because
+    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -297,6 +304,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.collision) encoded(ID_COLL, encodeCollision(*bundle.collision));
     // LPRB is appended after COLL -- UTA-0112 SS 4.2.
     if (bundle.lightProbes) encoded(ID_LPRB, encodeLightProbes(*bundle.lightProbes));
+    // ZONE is appended after LPRB -- UTA-0156 SS 4.1.
+    if (bundle.zones) encoded(ID_ZONE, encodeZones(*bundle.zones));
 
     // The file's size is known before a byte is written, so the buffer grows
     // once, and each section is freed once it is copied in: the whole file,

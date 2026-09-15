@@ -99,7 +99,7 @@ TEST_CASE("the probe step over UT99's own maps", "[real-assets][probes]") {
             std::cout << "  " << file << ": actors refused: " << actors.error().message() << "\n";
             continue;
         }
-        const auto geometry = uta::ubake::buildGeometry(*model, none);
+        const auto geometry = uta::ubake::buildGeometry(*model, none, model->zones.size());
         REQUIRE(geometry.has_value());
         const auto tree = uta::ubake::buildCollision(*model);
         REQUIRE(tree.has_value());

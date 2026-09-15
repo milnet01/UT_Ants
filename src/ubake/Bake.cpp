@@ -10,6 +10,7 @@
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "ubake/Strips.h"
+#include "ubake/Zones.h"
 #include "umat/Fingerprint.h"
 #include "umat/Generate.h"
 #include "umat/Resolve.h"
@@ -570,6 +571,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
     // probes gather them, so the probes and LITE see the same strips.
     markStrips(actors.lights);
+    // UTA-0156 SS 4.3: each zone's ambient, from the actors step 5 placed.
+    std::vector<ubundle::ZoneAmbient> zones = buildZones(model, actors.placements);
 
     // 6. The movers, and each one's Model -- UTA-0119 SS 4.6. A Model that
     // does not read keeps its refusal's own code, naming the actor (INV-9).
@@ -598,7 +601,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         const auto found = materials.bySurface.find({texture.raw(), masked});
         return found == materials.bySurface.end() ? nullptr : &found->second;
     };
-    UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup), mapName));
+    UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup, zones.size()), mapName));
 
     // 9. MOVR, in export order -- UTA-0119 SS 4.5.
     std::vector<ubundle::MoverShape> shapes;
@@ -606,6 +609,9 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     for (std::size_t i = 0; i < movers.size(); ++i) {
         UTA_TRY(ubundle::MoverShape shape,
                 naming(buildMover(movers[i], moverModels[i], actors.placements, lookup), mapName));
+        // UTA-0156 SS 4.3: a mover takes the zone at its placed location.
+        const std::uint8_t zone = zoneAt(rooms.map, shape.location, zones.size());
+        for (ubundle::GeometryVertex& vertex : shape.geometry.vertices) vertex.zone = zone;
         shapes.push_back(std::move(shape));
     }
 
@@ -655,6 +661,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.movers = std::move(shapes);
     result.bundle.collision = std::move(collision);
     result.bundle.lightProbes = std::move(probes);
+    result.bundle.zones = std::move(zones);
     return result;
 }
 

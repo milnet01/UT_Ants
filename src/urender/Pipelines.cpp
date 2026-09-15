@@ -72,6 +72,8 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         VkVertexInputAttributeDescription{1, 0, VK_FORMAT_R32G32B32_SFLOAT,
                                           offsetof(ubundle::GeometryVertex, normal)},
         VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ubundle::GeometryVertex, u)},
+        // UTA-0156 SS 4.4: the vertex's zone, for its ambient light.
+        VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R8_UINT, offsetof(ubundle::GeometryVertex, zone)},
     };
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -342,7 +344,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
     std::array<VkDescriptorSetLayoutBinding, gpu::TEXTURES + 1> bindings{};
     std::array<VkDescriptorBindingFlags, gpu::TEXTURES + 1> bindingFlags{};
-    for (std::uint32_t i = gpu::FRAME; i <= gpu::SHADOW_FACES; ++i)
+    for (std::uint32_t i = gpu::FRAME; i <= gpu::ZONES; ++i)
         bindings[i] = {i, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, everyStage, nullptr};
     bindings[gpu::SHADOW_ATLAS] = {gpu::SHADOW_ATLAS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
                                    VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};

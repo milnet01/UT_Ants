@@ -1130,11 +1130,10 @@ their breaking states, each of which produces a plausible image.
   interior windows — `UTA-0054`. Vertex-animated banners, flags and water —
   `UTA-0055`. Water and glass — `UTA-0089`.
 - **`ZoneInfo`'s `AmbientBrightness`, `AmbientHue` and `AmbientSaturation` —
-  deferred; not yet queued.** `UTA-0112` § Out of scope hands them here, and
-  § 2 consequence 2 shows why they cannot be taken: no bundle section carries
-  them, and the renderer may not read a package. Applying them needs `ubake` to
-  write them and `ubundle` to carry them — a format version bump — before this
-  item has anything to read. Naming a `UTA-` id here would be a false pointer.
+  tracked by UTA-0156** (`docs/specs/UTA-0156-zone-ambient-light.md`). § 2
+  consequence 2 shows why this item could not take them: no bundle section
+  carried them, and the renderer may not read a package. UTA-0156 adds the
+  `ZONE` section and each vertex's zone.
 - **`PF_Modulated`, `PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and
   `PF_SpecialLit` — deferred; not yet queued.** Each has a real UT99 meaning
   and § 4.5 ignores all five deliberately. `PF_Mirrored` and `PF_Environment`

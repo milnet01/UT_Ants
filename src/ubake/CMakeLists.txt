@@ -16,7 +16,8 @@ add_library(uta_ubake STATIC
     LightModel.cpp
     SurfaceRays.cpp
     LightProbes.cpp
-    Strips.cpp)
+    Strips.cpp
+    Zones.cpp)
 target_link_libraries(uta_ubake PUBLIC uta_core uta_upkg uta_umat uta_unav_build uta_umap_build
                                        uta_ubundle uta_uworld)
 
