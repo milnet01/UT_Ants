@@ -55,7 +55,9 @@ void main() {
         float f = lightFalloff(distance(litFrom(light, x), x), lightRadius(light.volumeRadius));
         if (f == 0.0) continue;
         float glow = float(light.brightness) / 255.0 * float(light.volumeBrightness) / 64.0;
-        scattered += lightColour(light.hue, light.saturation) * (glow * f * shadowOf(light, x) * VOLUME_GLOW_SCALE);
+        // Unshadowed, as UT99 draws it: on DM-Fetid, whose one volumetric light
+        // sits below the floor, a shadowed glow drew nothing the original shows.
+        scattered += lightColour(light.hue, light.saturation) * (glow * f * VOLUME_GLOW_SCALE);
         extinction += float(light.volumeFog) / 255.0 * f * VOLUME_FOG_SCALE;
     }
 

@@ -152,8 +152,10 @@ point `x`, with `v` the unit direction from `frame.eye` to `x`:
 - *Volumetric lights.* For each index in `VOLUME_LIGHTS`, with
   `f = lightFalloff(distance(litFrom(light, x), x), lightRadius(light.volumeRadius))`:
   in-scattering `lightColour(hue, saturation) × brightness / 255 ×
-  volumeBrightness / 64 × f × shadowOf(light, x) × VOLUME_GLOW_SCALE`, and
-  extinction `volumeFog / 255 × f × VOLUME_FOG_SCALE`.
+  volumeBrightness / 64 × f × VOLUME_GLOW_SCALE`, and extinction
+  `volumeFog / 255 × f × VOLUME_FOG_SCALE`. Neither is shadowed: § 7 step 2
+  measured a shadowed glow drawing nothing on DM-Fetid where the original
+  draws its glow.
 
 `lightThrough` is new in `light.glsl`: `lightAt` with the normal pointing at
 the light, so the incidence factor is 1 and no part of the model is written
@@ -379,6 +381,8 @@ repeat. `Cli.cpp`'s help text and `README.md` name the key.
   before. Lights the atlas could not hold are already counted in
   `FrameStats::unshadowedLights`. Scattering them unshadowed would shine
   beams through walls.
+- **A volumetric light glows through walls**, as UT99's does, since its glow
+  is unshadowed.
 - **A cluster that overflowed** drops the same lights from the beams as from
   the surfaces.
 - **Past `FOG_FAR`** the fog stops thickening: a fragment beyond it samples
@@ -417,6 +421,9 @@ Each is seen to fail against the code before this item.
    is lost over the fog's whole depth, this spec's reading of "light". Sweep
    `HAZE_SCATTER` on DM-Deck16][, and keep the largest value whose block RMS
    is within `1.0` of the same build's at `hazeScale` `0`.
+   *Result (2026-09-15):* `HAZE_SCATTER` is `4e-3`, the largest swept value
+   within budget; the next step up exceeds it. The scores are beside the
+   constant in `shaders/fog.glsl`.
 2. **Volumetric lights.** A scratch probe beside `ambient-census/` lists the
    stock maps' `PlayerStart`s that are in a fog zone and within a volumetric
    light's volume radius plus 1000 units. Capture one such map with
@@ -424,8 +431,16 @@ Each is seen to fail against the code before this item.
    volumetric lighting. Confirm the setting took: the same poses captured
    with it off must differ in block RMS. Sweep `VOLUME_GLOW_SCALE` and
    `VOLUME_FOG_SCALE` for the lowest block RMS on those poses.
+   *Result (2026-09-15):* DM-Fetid, whose every PlayerStart the probe found
+   in a fog zone within reach of its one volumetric light. The capture with
+   volumetric lighting on differs from the one with it off, so the setting
+   took. A shadowed glow drew nothing, so the glow is unshadowed (§ 4.3).
+   `VOLUME_GLOW_SCALE` is `3e-3` and `VOLUME_FOG_SCALE` `3.2e-2`, tied lowest
+   and nearer the original's mean brightness; the scores are beside the
+   constants in `shaders/fog.glsl`.
 3. **Nothing else moves.** DM-Deck16][ at `hazeScale` `0` keeps the block RMS
    it had before this item.
+   *Result (2026-09-15):* `46.2` at exposure 3.2, as before.
 
 ## 8. Alternatives considered (and rejected)
 

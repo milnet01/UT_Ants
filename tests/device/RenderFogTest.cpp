@@ -32,7 +32,7 @@ constexpr Rgba BLACK{0, 0, 0, 0};
 
 // shaders/fog.glsl's, which SS 7 sets; a case using one says so.
 constexpr double HAZE_EXTINCTION = 1.28614e-5;
-constexpr double HAZE_SCATTER = 1.0e-3;
+constexpr double HAZE_SCATTER = 4.0e-3;
 
 Config fogFrame(Tier tier, float hazeScale) {
     Config config;

@@ -1313,6 +1313,12 @@ model, no weapon and no opponent until 0.2.0.
   of 46.2 at exposure 3.2 (SS 7 step 3). Open: the haze sweep, then the
   volumetric sweep on DM-Fetid, before the look constants and SS 7's
   record land.
+  Measurement (2026-09-15, ut-ants-08): SS 7 step 1 set HAZE_SCATTER to
+  4e-3 on DM-Deck16][. Step 2's first sweep on DM-Fetid moved nothing at
+  any glow: the map's one volumetric light sits below the floor, and the
+  shadowed glow drew nothing. With the shadow term removed the block RMS
+  fell from 64.8 to 38.9 at glow 2.5e-3, so the glow is now unshadowed,
+  as UT99 draws it, and the spec says so. A finer sweep is running.
   **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
   Kind: implement.
   Source: design-2026-09-03.
@@ -9387,6 +9393,20 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-15 split-from-UTA-0015.
   Lanes: urender.
+
+- 📋 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
+  Found by UTA-0015's SS 7 measurement (2026-09-15). Against
+  ut-ants-uta0156/orig-fetid-novol, captured with volumetric lighting
+  off, a format-12 bake of DM-Fetid scores a block RMS of 42.6 at the
+  shipped exposure of 3.2, with a mean displayed luma of 25 against the
+  original's 53; the exposure that fits it is about 6.6, where
+  DM-Deck16][ fits 3.2. So something on this map is under-lit that
+  DM-Deck16][ does not exercise. Its zones set no ambient and it is
+  entirely a fog zone; start from what differs.
+  **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
+  Kind: investigate.
+  Source: in-session-2026-09-15.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 
