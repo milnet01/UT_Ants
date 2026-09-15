@@ -1299,6 +1299,20 @@ model, no weapon and no opponent until 0.2.0.
   test passes on the unit and device tiers, and hand mutations of each
   rule were caught. Still to do: CI on the matrix, then the spec's SS 7
   measurement to set HAZE_SCATTER and the two volume scales.
+  Measurement (2026-09-15, ut-ants-08): ambient-census/fog-probe over
+  format-12 bakes of the stock fog maps picked DM-Fetid, whose every
+  PlayerStart is in a fog zone within a volumetric light's reach.
+  capture-original.sh captured it twice with OpenGLDrv, volumetric
+  lighting on and off (orig-fetid-vol, orig-fetid-novol). Six of the
+  eight poses differ between the two, brighter with it on, so the
+  original draws those lights and the capture can fit SS 7 step 2. The
+  tutorial's rule, fog shown with the camera in a fog zone, holds on
+  every pose that differs.
+  CI (2026-09-15, ut-ants-08): run 35012391294 on bb335e0 is green on
+  GCC 14, Clang 19 and MSVC. DM-Deck16][ at no haze keeps its block RMS
+  of 46.2 at exposure 3.2 (SS 7 step 3). Open: the haze sweep, then the
+  volumetric sweep on DM-Fetid, before the look constants and SS 7's
+  record land.
   **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
   Kind: implement.
   Source: design-2026-09-03.
