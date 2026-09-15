@@ -9591,6 +9591,13 @@ model, no weapon and no opponent until 0.2.0.
   itself explain why DM-Fetid alone draws at half. Left open deliberately
   rather than opening a fifth hypothesis while UTA-0015's fog refit is
   unfinished.
+  Knock-on refit (2026-09-16, ut-ants-08): moving EXPOSURE to 2.2 moved
+  UTA-0015's fog with it, so its SS 7 sweeps were run again on the
+  revision-16 bakes. HAZE_SCATTER 4e-3 becomes 6e-3, and the volumetric
+  glow and thickness 3e-3 and 3.2e-2 become 4e-3 and 6.4e-2. DM-Deck16][
+  still scores its no-haze 45.8 with the fog on, so the fog moves nothing
+  on a map that draws none. Pushed as f7b7136 with the light model, the
+  refit and these notes; CI run 35033310515 is watching.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
