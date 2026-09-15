@@ -2184,7 +2184,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: umat, ubundle.
 
-- 🚧 [UTA-0053] **urender: the cheap post-processing set -- bloom, colour grading, anti-aliasing and sharpening.**
+- 📋 [UTA-0053] **urender: the cheap post-processing set -- bloom, colour grading, anti-aliasing and sharpening.**
   Four effects that together do most of the visual modernisation and cost
   under a millisecond between them on the development card.
 
@@ -2236,6 +2236,11 @@ model, no weapon and no opponent until 0.2.0.
   mutation: bloom strength 0 fails the glow case, and bloom fed the lit
   colour fails the no-emission case. DM-Deck16][ at r14 with bloom fits
   as without: exposure 3.18, block RMS 46.23 at 3.2.
+  Bloom shipped (2026-09-15, ut-ants-08), green on the matrix: commit
+  6ad38af, GitHub run 34976613942 completed with success after the local
+  pre-push gate passed. Back to planned with nothing else under way:
+  colour grading, anti-aliasing and sharpening stay deferred out of 0.1.0,
+  as decided on 2026-09-08. UTA-0157 is next.
   **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
   Kind: implement.
   Source: user-request-2026-09-04.
