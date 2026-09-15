@@ -115,8 +115,11 @@ TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an u
         return bundle;
     };
 
-    const double expected = srgbByte(128.0 / 255.0);
-    const std::uint8_t lit = redAtCentre(renderer, squareInZone(128, 0));
+    // light.glsl's AMBIENT_SCALE, set by UTA-0156 SS 7's measurement. Brightness
+    // 40 keeps the lit value below 1, where the 8-bit readback would clip it.
+    constexpr double AMBIENT_SCALE = 2.5;
+    const double expected = srgbByte(AMBIENT_SCALE * 40.0 / 255.0);
+    const std::uint8_t lit = redAtCentre(renderer, squareInZone(40, 0));
     CAPTURE(int(lit), expected);
     CHECK(std::abs(lit - expected) <= 2.0);
 

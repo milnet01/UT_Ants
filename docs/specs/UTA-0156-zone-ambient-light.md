@@ -170,7 +170,7 @@ struct Zone {                   // std430, 16 bytes, offsets asserted
 - **The ambient term**, in `shaders/light.glsl` beside `lightAt`:
 
   ```glsl
-  const float AMBIENT_SCALE = 1.0; // set by § 7's measurement
+  const float AMBIENT_SCALE = 2.5; // set by § 7's measurement
 
   vec3 zoneAmbient(Zone zone) {
       return lightColour(zone.hue, zone.saturation)
@@ -224,9 +224,9 @@ The shadow pipeline does not read `zone`.
   placed `location`.
 
 - **INV-6** — with no lights and no probes, a lit surface of base colour white
-  in a zone of brightness `128`, hue `0` and saturation `255` draws
-  `128 / 255` linear under `linearOutput`. At brightness `0` it draws `0`. A
-  `PF_Unlit` surface in the same zone draws its base colour.
+  in a zone of brightness `40`, hue `0` and saturation `255` draws
+  `AMBIENT_SCALE × 40 / 255` linear under `linearOutput`. At brightness `0` it
+  draws `0`. A `PF_Unlit` surface in the same zone draws its base colour.
   *Test:* `tests/device/RenderLightingTest.cpp`, a new case.
   *Breaks when:* ambient is not added; it is added to an unlit surface; the
   vertex attribute or binding `10` is miswired, so every surface reads zone 0.

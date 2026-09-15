@@ -116,8 +116,9 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
 }
 
 // UTA-0156 SS 4.4: how strongly a zone's ambient bytes light a surface, set by
-// that spec's SS 7 measurement against the original game.
-const float AMBIENT_SCALE = 1.0;
+// that spec's SS 7 measurement against the original game on AS-Frigate: with
+// EXPOSURE held, block RMS is 40.67 at 2, 40.27 at 2.5 and 40.31 at 3.
+const float AMBIENT_SCALE = 2.5;
 
 // The light a zone's ambient puts on every lit surface in it: a light's colour
 // and intensity with no falloff, incidence, spot, shadow or flicker.

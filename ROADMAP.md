@@ -9052,6 +9052,25 @@ model, no weapon and no opponent until 0.2.0.
   DM-Deck16][ re-baked at r14-f11 sets no ambient and fits as before:
   exposure 3.18, block RMS 46.2. AS-Frigate (its LevelInfo sets 37) is
   being captured from the original game for the AMBIENT_SCALE sweep.
+  CI (2026-09-15, ut-ants-08). Commit 28ac41b (zone ambient) pushed; the
+  local pre-push gate passed. GitHub run 34967342156 on 28ac41b completed
+  with success on the matrix.
+  Ambient scale sweep (2026-09-15, ut-ants-08), per the zone ambient
+  spec's section 7. AS-Frigate captured from the original game at 22
+  PlayerStarts (19 in LevelInfo0, ambient 37,0,255; 3 in ZoneInfo0,
+  ambient 0) and baked at r14-f11. AMBIENT_SCALE swept shader-only with
+  compare.py; block RMS with EXPOSURE held at 3.2, then mean displayed
+  luma against the original's 68.9: scale 0 gives 47.71 and 47.9; 0.5
+  gives 45.01 and 52.7; 1 gives 42.98 and 57.1; 2 gives 40.67 and 65.2;
+  4 gives 41.51 and 79.4. Ambient light moves AS-Frigate toward the
+  original, and the held-exposure minimum lies between 2 and 4. Narrowing
+  with 2.5 and 3.0. Frames in ut-ants-uta0156/orig-asfrigate.
+  Ambient scale settled (2026-09-15, ut-ants-08). Narrowing on AS-Frigate
+  with EXPOSURE held at 3.2: scale 2.5 gives block RMS 40.27 and mean
+  displayed luma 69.0 (original 68.9); 3.0 gives 40.31 and 72.6. With 2
+  at 40.67 and 4 at 41.51 from the first sweep, 2.5 is the minimum, so
+  AMBIENT_SCALE is 2.5. DM-Deck16][ sets no ambient, so its fit and
+  EXPOSURE 3.2 are unaffected.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.
