@@ -9027,6 +9027,10 @@ model, no weapon and no opponent until 0.2.0.
   Next: ZoneInfo ambient. It changes the bundle format ubake, ubundle and
   urender all bind to, so it gets a spec first. Probes alone would leave
   the cells with no probe corner dark.
+  CI (2026-09-15, ut-ants-08). Commits d1d4c84 (cylinder fade) and
+  84ab274 (exposure 3.2) pushed; the local pre-push gate passed. GitHub
+  run 34964607685 on 84ab274 completed with success on the matrix.
+  Zone ambient is next, drafted as docs/specs/UTA-0156-zone-ambient-light.md.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.
