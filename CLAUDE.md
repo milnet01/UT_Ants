@@ -5,9 +5,11 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0157` (light fixtures). The user set that order 2026-09-14
-after flying DM-Deck16][, and leaves how it looks to research and
-measurement, to be reviewed later over real matches.
+**Next:** `UTA-0053`'s emissive bloom only, then `UTA-0157` (light
+fixtures). The user set UTA-0157's cheap-tricks-first order 2026-09-14
+after flying DM-Deck16][, and on 2026-09-15 chose to bring bloom forward
+for it; the rest of UTA-0053 stays deferred. How it looks is left to
+research and measurement, to be reviewed later over real matches.
 `UTA-0156` (brightness) shipped 2026-09-15, green on the matrix: cylinder
 lights fade at the edge of their reach, `EXPOSURE` is 3.2, and zone
 ambient light is carried in a `ZONE` section and drawn at a measured

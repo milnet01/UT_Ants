@@ -2184,7 +2184,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: umat, ubundle.
 
-- 📋 [UTA-0053] **urender: the cheap post-processing set -- bloom, colour grading, anti-aliasing and sharpening.**
+- 🚧 [UTA-0053] **urender: the cheap post-processing set -- bloom, colour grading, anti-aliasing and sharpening.**
   Four effects that together do most of the visual modernisation and cost
   under a millisecond between them on the development card.
 
@@ -2219,6 +2219,12 @@ model, no weapon and no opponent until 0.2.0.
   User direction (2026-09-14): the engine's first iteration uses the
   cheapest methods that still make it look like a modern game. Fully
   modern features come after.
+  User decision (2026-09-15), asked after UTA-0156 shipped: bring bloom
+  forward for UTA-0157's ceiling lights. Only this item's emissive bloom
+  is built now; colour grading, anti-aliasing and sharpening stay deferred
+  out of 0.1.0 as decided on 2026-09-08.
+  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants), for the bloom part only.
   **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -9117,6 +9123,9 @@ model, no weapon and no opponent until 0.2.0.
   user decision (2026-09-14) tries parallax (UTA-0040, shipped) and bloom
   (UTA-0053, still planned) before any geometry, and judges route 3 by
   measurement after both land. So this item waits on UTA-0053.
+  User decision (2026-09-15): bring bloom forward. Only the glow part of
+  UTA-0053 is built now; then this item returns, and whether real 3D
+  housings are still needed is judged after the ceiling lights glow.
   **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
   Kind: feature.
   Source: user-request-2026-09-14.
