@@ -423,9 +423,10 @@ Each is seen to fail against the code before this item.
    is lost over the fog's whole depth, this spec's reading of "light". Sweep
    `HAZE_SCATTER` on DM-Deck16][, and keep the largest value whose block RMS
    is within `1.0` of the same build's at `hazeScale` `0`.
-   *Result (2026-09-15):* `HAZE_SCATTER` is `4e-3`, the largest swept value
-   within budget; the next step up exceeds it. The scores are beside the
-   constant in `shaders/fog.glsl`.
+   *Result (2026-09-15):* `HAZE_SCATTER` was `4e-3`, the largest swept value
+   within budget. *Refitted (2026-09-16):* UTA-0165's light model moved
+   `EXPOSURE` to `2.2`, and the haze with it, to `6e-3`. The scores are beside
+   the constant in `shaders/fog.glsl`.
 2. **Volumetric lights.** A scratch probe beside `ambient-census/` lists the
    stock maps' `PlayerStart`s that are in a fog zone and within a volumetric
    light's volume radius plus 1000 units. Capture one such map with
@@ -437,12 +438,15 @@ Each is seen to fail against the code before this item.
    in a fog zone within reach of its one volumetric light. The capture with
    volumetric lighting on differs from the one with it off, so the setting
    took. A shadowed glow drew nothing, so the glow is unshadowed (§ 4.3).
-   `VOLUME_GLOW_SCALE` is `3e-3` and `VOLUME_FOG_SCALE` `3.2e-2`, tied lowest
-   and nearer the original's mean brightness; the scores are beside the
-   constants in `shaders/fog.glsl`.
+   `VOLUME_GLOW_SCALE` was `3e-3` and `VOLUME_FOG_SCALE` `3.2e-2`.
+   *Refitted (2026-09-16):* at `EXPOSURE` `2.2` they are `4e-3` and `6.4e-2`,
+   the lowest of the grid and the nearest to the original's mean brightness.
+   The scores are beside the constants in `shaders/fog.glsl`.
 3. **Nothing else moves.** DM-Deck16][ at `hazeScale` `0` keeps the block RMS
    it had before this item.
    *Result (2026-09-15):* `46.2` at exposure 3.2, as before.
+   *Refitted (2026-09-16):* `45.8` at exposure 2.2, matching the same build
+   with no haze, so the fog still moves nothing on a map that draws none.
 
 ## 8. Alternatives considered (and rejected)
 

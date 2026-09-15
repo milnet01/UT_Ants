@@ -16,17 +16,18 @@ const float FOG_ANISOTROPY = 0.2;
 // -ln(0.9) / FOG_FAR: a tenth of the light is lost over the fog's whole depth
 // (SS 7 step 1).
 const float HAZE_EXTINCTION = 1.28614e-5;
-// SS 7 step 1, on DM-Deck16][ at EXPOSURE 3.2, block RMS against the original:
-// no haze 46.2; 2.5e-4 46.3; 5e-4 46.3; 1e-3 46.4; 2e-3 46.5; 4e-3 46.9;
-// 8e-3 47.8. The largest within 1.0 of no haze.
-const float HAZE_SCATTER = 4.0e-3;
-// SS 7 step 2, on DM-Fetid with volumetric lighting on, the same measure. By
-// glow: 2.5e-3 38.9 with no fog; 3e-3 39.5, 39.3 and 38.9 at fog 0, 8e-3 and
-// 3.2e-2; 3.5e-3 40.9 to 40.0; 4e-3 42.9 to 41.7; 5e-3 and 6e-3 higher still.
-// 2.5e-3 with no fog ties 3e-3 at 3.2e-2, whose mean brightness is nearer the
-// original's; fog helps a little at every glow, and 3.2e-2 is the most swept.
-const float VOLUME_GLOW_SCALE = 3.0e-3;
-const float VOLUME_FOG_SCALE = 3.2e-2;
+// SS 7 step 1, on DM-Deck16][, block RMS against the original. Refitted by
+// UTA-0165 at EXPOSURE 2.2: no haze 45.8; 1e-3 45.9; 2e-3 46.0; 4e-3 46.3;
+// 6e-3 46.7; 8e-3 47.1; 1.2e-2 47.8. The largest within 1.0 of no haze.
+const float HAZE_SCATTER = 6.0e-3;
+// SS 7 step 2, on DM-Fetid with volumetric lighting on, the same measure, also
+// refitted at EXPOSURE 2.2. By glow, at fog 0, 1.6e-2, 3.2e-2 and 6.4e-2: none
+// 65.6; 3e-3 42.8, 42.8, 42.9, 43.2; 4e-3 42.7, 42.5, 42.3, 42.0; 5e-3 44.3 to
+// 42.8; 6e-3 46.8 to 44.7; 8e-3 53.3 to 50.4. The pair below is the lowest, and
+// its mean displayed luma of 73.1 is the nearest to the original's 76.8. Fog
+// still gains at the widest swept, by 0.7, 0.5 then 0.3 a doubling.
+const float VOLUME_GLOW_SCALE = 4.0e-3;
+const float VOLUME_FOG_SCALE = 6.4e-2;
 
 const float FOG_PI = 3.141592653589793;
 
