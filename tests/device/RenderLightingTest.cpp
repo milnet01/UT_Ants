@@ -207,3 +207,42 @@ TEST_CASE("a normal map tilts the lit side the way umat encodes it", "[device]")
     CAPTURE(towardPlusZ, towardMinusZ);
     CHECK(towardPlusZ > towardMinusZ + 40);
 }
+
+// UTA-0053's emissive bloom. A square 25 units either side of the view axis at
+// x = 100 covers columns 72 to 88 and rows 24 to 40; column 93 is five pixels
+// past its right edge, where only the cleared background is drawn.
+TEST_CASE("UTA-0053: an emissive surface glows past its own edge", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 25, "lamp", 0);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addEmissiveMaterial(bundle, "lamp", {0, 0, 0, 0}, WHITE);
+
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    CHECK(int(pixelAt(*pixels, WIDTH, 80, 32).r) == 255);
+    const int past = pixelAt(*pixels, WIDTH, 93, 32).r;
+    CAPTURE(past);
+    CHECK(past > 2);
+}
+
+TEST_CASE("UTA-0053: a brightly lit surface with no emission does not glow", "[device]") {
+    // The same square lit to white by a light and emitting nothing: the pixel
+    // past its edge stays the cleared background, so only emission feeds bloom.
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 25, "white", 0);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "white", WHITE);
+    bundle.lights = std::vector{steadyLight({95, 0, 0}, 255, 64)};
+
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    // Brightly lit, as bright as the glowing square's source; it need not clip.
+    CHECK(int(pixelAt(*pixels, WIDTH, 80, 32).r) > 200);
+    CHECK(int(pixelAt(*pixels, WIDTH, 93, 32).r) == 0);
+}

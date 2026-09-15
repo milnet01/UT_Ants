@@ -85,6 +85,13 @@ TEST_CASE("UTA-0051: a frame between half the target and the target leaves the s
     CHECK(nextRenderScale(0.8, settings.frameTimeTargetMilliseconds * 0.75, settings) == 0.8);
 }
 
+TEST_CASE("UTA-0053: emissive bloom is drawn at every tier", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::Bloom) == Tier::Low);
+    CHECK(uta::urender::enabled(Feature::Bloom, Tier::Low));
+    CHECK(uta::urender::enabled(Feature::Bloom, Tier::Ultra));
+}
+
 TEST_CASE("UTA-0040 INV-4: parallax occlusion starts at Medium with the spec's step counts", "[render]") {
     using uta::urender::Feature;
     using uta::urender::parallaxStepsOf;

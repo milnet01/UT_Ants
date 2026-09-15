@@ -23,6 +23,9 @@ layout(location = 5) flat in uint zone; // UTA-0156 SS 4.4
 
 layout(location = 0) out vec4 outColour;
 layout(location = 1) out vec2 outVelocity;
+// UTA-0053: this surface's emission alone, which feeds the bloom chain. The
+// translucent pass binds colour only, so its emission does not bloom.
+layout(location = 2) out vec4 outEmission;
 
 // UTA-0040 SS 4.4: the tier's step counts, set by Pipelines.cpp. A tier with
 // no steps compiles the march out.
@@ -173,8 +176,11 @@ void main() {
     }
     // Emission is added to a lit surface only, as before UTA-0040, and at the
     // displaced coordinate like every other map.
+    vec3 emitted = vec3(0.0);
     if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) == 0u && material.emit != NONE)
-        colour += textureGrad(textures[nonuniformEXT(material.emit)], shadingUv, duv1, duv2).rgb;
+        emitted = textureGrad(textures[nonuniformEXT(material.emit)], shadingUv, duv1, duv2).rgb;
+    colour += emitted;
+    outEmission = vec4(emitted, 1.0);
 
     outColour = vec4(colour, 1.0);
     // Current minus previous, in the target's UV units: +x right, +y down.

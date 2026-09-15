@@ -139,6 +139,18 @@ void addNormalMappedMaterial(ubundle::Bundle& bundle, const std::string& id, con
     bundle.textures->push_back(std::move(normal));
 }
 
+void addEmissiveMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& base, const Rgba& emit) {
+    addSolidMaterial(bundle, id, base);
+    ubundle::CompressedTexture texture;
+    texture.name = id + ":emit";
+    texture.format = ubundle::BlockFormat::BC7;
+    texture.width = texture.height = 4;
+    texture.sourceWidth = texture.sourceHeight = 4;
+    texture.mipCount = 1;
+    texture.blocks = bc7Solid(emit);
+    bundle.textures->push_back(std::move(texture));
+}
+
 ubundle::Light steadyLight(std::array<float, 3> location, std::uint8_t brightness, std::uint8_t radius) {
     ubundle::Light light;
     light.location = location;

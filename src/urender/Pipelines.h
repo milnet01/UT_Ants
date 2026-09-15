@@ -29,6 +29,7 @@ struct TargetFormats {
     VkFormat velocity = VK_FORMAT_UNDEFINED;
     VkFormat depth = VK_FORMAT_UNDEFINED;
     VkFormat output = VK_FORMAT_UNDEFINED;
+    VkFormat emission = VK_FORMAT_UNDEFINED; ///< UTA-0053: the forward pass's third target and the bloom chain
 };
 
 /// A shader module over embedded SPIR-V words.
@@ -57,6 +58,12 @@ public:
     [[nodiscard]] VkPipeline upscaleInput() const noexcept { return upscaleInput_; }
     [[nodiscard]] VkPipeline easu() const noexcept { return easu_; }
     [[nodiscard]] VkPipeline rcas() const noexcept { return rcas_; }
+    /// UTA-0053's bloom chain: one sampled source per set, BloomConstants
+    /// pushed, a downsample that replaces and an upsample that adds.
+    [[nodiscard]] VkDescriptorSetLayout bloomSetLayout() const noexcept { return bloomSetLayout_; }
+    [[nodiscard]] VkPipelineLayout bloomLayout() const noexcept { return bloomLayout_; }
+    [[nodiscard]] VkPipeline bloomDownsample() const noexcept { return bloomDownsample_; }
+    [[nodiscard]] VkPipeline bloomUpsample() const noexcept { return bloomUpsample_; }
     /// SS 4.6's culling pass, over the scene set.
     [[nodiscard]] VkPipeline clusters() const noexcept { return clusters_; }
     /// SS 4.8's tile pass: depth only, over the scene set with its own push constants.
@@ -79,6 +86,9 @@ private:
     std::array<std::array<VkPipeline, 2>, 2> scene_{};
     VkPipeline post_ = VK_NULL_HANDLE;
     VkPipeline upscaleInput_ = VK_NULL_HANDLE, easu_ = VK_NULL_HANDLE, rcas_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout bloomSetLayout_ = VK_NULL_HANDLE;
+    VkPipelineLayout bloomLayout_ = VK_NULL_HANDLE;
+    VkPipeline bloomDownsample_ = VK_NULL_HANDLE, bloomUpsample_ = VK_NULL_HANDLE;
     VkPipeline clusters_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowLayout_ = VK_NULL_HANDLE;
     VkPipeline shadow_ = VK_NULL_HANDLE;

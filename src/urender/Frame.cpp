@@ -4,10 +4,13 @@
 // THE FRAME, IN ORDER:
 //   0. clustered light culling, a compute pass (SS 4.6);
 //   1. the forward pass: every opaque, masked and sky batch, writing colour,
-//      velocity and depth;
+//      velocity, emission and depth;
 //   2. the translucent pass: colour only, depth-tested and not written;
-//   3. the output stage: exposure and the tone map into the _SRGB target;
-//   4. the UI composite seam, after the output stage (SS 4.11 provision 3).
+//   3. UTA-0053's emissive bloom: the emission down a chain of half-size
+//      levels and back up it;
+//   4. the output stage: the bloom added, then exposure and the tone map into
+//      the _SRGB target;
+//   5. the UI composite seam, after the output stage (SS 4.11 provision 3).
 //
 // THE SURFACELESS PATH SUBMITS AND WAITS. draw returns when the frame is
 // finished, so readback needs no synchronisation of its own. The presenting
@@ -60,6 +63,15 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// and 3.2 has the lowest block error of 3.0, 3.1 and 3.2. The method and
 /// scripts are on UTA-0156.
 constexpr float EXPOSURE = 3.2f;
+
+/// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
+/// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's
+/// SIGGRAPH 2014 Call of Duty: Advanced Warfare talk): five levels, each half
+/// the one before, an upsample radius of 0.005, and 0.04 of the result. Only
+/// emission feeds it, so the frame adds it rather than mixing it in.
+constexpr std::size_t BLOOM_LEVELS = 5;
+constexpr float BLOOM_RADIUS = 0.005f;
+constexpr float BLOOM_STRENGTH = 0.04f;
 
 /// What identifies an uploaded bundle: the object, the size of every section
 /// this renderer uploads, and a hash of a bounded sample of their bytes.
@@ -238,12 +250,20 @@ struct Renderer::Impl {
     VkDescriptorSet postSet = VK_NULL_HANDLE;
     /// UTA-0154: EASU's set reads the upscale input, RCAS's reads EASU's output.
     VkDescriptorSet easuSet = VK_NULL_HANDLE, rcasSet = VK_NULL_HANDLE;
+    /// UTA-0053: the bloom chain's source sets -- the emission target's, then
+    /// each level's.
+    VkDescriptorSet emissionSet = VK_NULL_HANDLE;
+    std::array<VkDescriptorSet, BLOOM_LEVELS> bloomSets{};
+    VkSampler bloomSampler = VK_NULL_HANDLE;
 
     Image hdr, velocity, depth, output;
     /// UTA-0154: FSR 1's input and EASU's output. Only a renderer whose scale
     /// can drop below 1 makes them.
     Image upscaleInput, upscaled;
     Image shadowAtlas;
+    /// UTA-0053: the forward pass's emission, and the bloom chain built from it.
+    Image emission;
+    std::array<Image, BLOOM_LEVELS> bloom;
 
     Buffer frameData, objects, lights;
     Buffer clusterCounts, clusterIndices, clusterBounds;
@@ -285,7 +305,7 @@ struct Renderer::Impl {
         const VkDevice device = gpu->device();
         vkDeviceWaitIdle(device);
         if (pool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, pool, nullptr);
-        for (VkSampler sampler : {materialSampler, nearestSampler, shadowSampler})
+        for (VkSampler sampler : {materialSampler, nearestSampler, shadowSampler, bloomSampler})
             if (sampler != VK_NULL_HANDLE) vkDestroySampler(device, sampler, nullptr);
     }
 
@@ -319,6 +339,14 @@ Result<void> Renderer::Impl::createTargets() {
     UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT}));
     UTA_TRY(output, Image::create(*gpu, {OUTPUT_FORMAT, w, h, 1,
                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
+    // UTA-0053: the emission target at the output's size, and the bloom chain
+    // from half that down.
+    const VkImageUsageFlags bloomUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    UTA_TRY(emission, Image::create(*gpu, {HDR_FORMAT, w, h, 1, bloomUsage}));
+    for (std::size_t k = 0; k < BLOOM_LEVELS; ++k) {
+        UTA_TRY(bloom[k], Image::create(*gpu, {HDR_FORMAT, std::max<std::uint32_t>(1, w >> (k + 1)),
+                                               std::max<std::uint32_t>(1, h >> (k + 1)), 1, bloomUsage}));
+    }
     // UTA-0154: at the output's size, so a change of scale makes no image
     // (UTA-0051 SS 4.4).
     if (config.dynamicResolution || config.fixedRenderScale) {
@@ -363,6 +391,11 @@ Result<void> Renderer::Impl::createSamplers() {
     info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     info.maxLod = 0.0f;
     UTA_CHECK(check(vkCreateSampler(gpu->device(), &info, nullptr, &nearestSampler), "vkCreateSampler"));
+
+    // UTA-0053: the bloom chain filters, and never wraps past an edge.
+    info.magFilter = VK_FILTER_LINEAR;
+    info.minFilter = VK_FILTER_LINEAR;
+    UTA_CHECK(check(vkCreateSampler(gpu->device(), &info, nullptr, &bloomSampler), "vkCreateSampler"));
 
     info.magFilter = VK_FILTER_LINEAR;
     info.minFilter = VK_FILTER_LINEAR;
@@ -452,11 +485,14 @@ Result<void> Renderer::Impl::writeDescriptors() {
     const auto textureCount = static_cast<std::uint32_t>(materials->textures().size());
     const std::array sizes = {
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::ZONES + 1},
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textureCount + 4},
+        // The atlas and the three post sets' sources, then UTA-0053's: bloom in
+        // each post set, and one source per bloom step.
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS)},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 4;
+    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS);
     poolInfo.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     poolInfo.pPoolSizes = sizes.data();
     UTA_CHECK(check(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), "vkCreateDescriptorPool"));
@@ -487,6 +523,18 @@ Result<void> Renderer::Impl::writeDescriptors() {
     postSet = postSets[0];
     easuSet = postSets[1];
     rcasSet = postSets[2];
+
+    // UTA-0053: one set per bloom source -- the emission target, then each level.
+    std::array<VkDescriptorSetLayout, 1 + BLOOM_LEVELS> bloomLayouts{};
+    bloomLayouts.fill(pipelines->bloomSetLayout());
+    VkDescriptorSetAllocateInfo bloomAllocate = postAllocate;
+    bloomAllocate.descriptorSetCount = static_cast<std::uint32_t>(bloomLayouts.size());
+    bloomAllocate.pSetLayouts = bloomLayouts.data();
+    std::array<VkDescriptorSet, 1 + BLOOM_LEVELS> bloomSources{};
+    UTA_CHECK(check(vkAllocateDescriptorSets(device, &bloomAllocate, bloomSources.data()),
+                    "vkAllocateDescriptorSets (bloom)"));
+    emissionSet = bloomSources[0];
+    for (std::size_t k = 0; k < BLOOM_LEVELS; ++k) bloomSets[k] = bloomSources[k + 1];
 
     const std::array<const Buffer*, gpu::ZONES + 1> buffers = {
         &frameData, &objects, &materials->records(), &lights, &clusterCounts,
@@ -537,6 +585,24 @@ Result<void> Renderer::Impl::writeDescriptors() {
     hdrWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     hdrWrite.pImageInfo = &hdrInfo;
     writes.push_back(hdrWrite);
+
+    // UTA-0053: the post pass reads the bloom chain's top level, and each bloom
+    // step reads its source.
+    const VkDescriptorImageInfo bloomInfo{bloomSampler, bloom[0].view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkWriteDescriptorSet bloomWrite = hdrWrite;
+    bloomWrite.dstBinding = 1;
+    bloomWrite.pImageInfo = &bloomInfo;
+    writes.push_back(bloomWrite);
+    std::array<VkDescriptorImageInfo, 1 + BLOOM_LEVELS> sourceInfos{};
+    sourceInfos[0] = {bloomSampler, emission.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    for (std::size_t k = 0; k < BLOOM_LEVELS; ++k)
+        sourceInfos[k + 1] = {bloomSampler, bloom[k].view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    for (std::size_t i = 0; i < sourceInfos.size(); ++i) {
+        VkWriteDescriptorSet sourceWrite = hdrWrite;
+        sourceWrite.dstSet = i == 0 ? emissionSet : bloomSets[i - 1];
+        sourceWrite.pImageInfo = &sourceInfos[i];
+        writes.push_back(sourceWrite);
+    }
 
     // UTA-0154: only a renderer that made the upscale images binds them.
     const VkDescriptorImageInfo easuInfo{nearestSampler, upscaleInput.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
@@ -624,9 +690,10 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     // -- 1. The forward pass --------------------------------------------------
     hdr.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     velocity.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    emission.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     depth.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    std::array<VkRenderingAttachmentInfo, 2> colours{};
+    std::array<VkRenderingAttachmentInfo, 3> colours{};
     colours[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colours[0].imageView = hdr.view();
     colours[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -634,6 +701,8 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     colours[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colours[1] = colours[0];
     colours[1].imageView = velocity.view();
+    colours[2] = colours[0];
+    colours[2].imageView = emission.view(); // UTA-0053
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     depthAttachment.imageView = depth.view();
@@ -646,7 +715,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     rendering.renderArea = regionScissor;
     rendering.layerCount = 1;
-    rendering.colorAttachmentCount = 2;
+    rendering.colorAttachmentCount = 3;
     rendering.pColorAttachments = colours.data();
     rendering.pDepthAttachment = &depthAttachment;
 
@@ -686,7 +755,66 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     drawBatches(true);
     vkCmdEndRendering(commands);
 
-    // -- 3. The output stage ---------------------------------------------------
+    // -- 3. Emissive bloom (UTA-0053) -----------------------------------------
+    // Down the chain from the emission target, then back up it, each upsample
+    // added into the level above. Every read is clamped to the part of its
+    // source the region drew (UTA-0051 SS 4.4).
+    const bool bloomOn = enabled(Feature::Bloom, tier);
+    if (bloomOn) {
+        const float fractionX = static_cast<float>(region.width) / static_cast<float>(extent.width);
+        const float fractionY = static_cast<float>(region.height) / static_cast<float>(extent.height);
+        emission.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        const auto bloomPass = [&](Image& target, VkPipeline pipeline, VkDescriptorSet sourceSet, const Image& source,
+                                   std::uint32_t mode) {
+            const ImageDesc& to = target.desc();
+            const ImageDesc& from = source.desc();
+            target.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            VkRenderingAttachmentInfo attachment{};
+            attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+            attachment.imageView = target.view();
+            attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            // An upsample adds into what that level's downsample left there.
+            attachment.loadOp =
+                mode == gpu::BLOOM_UPSAMPLE ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            const VkRect2D area{{0, 0}, {to.width, to.height}};
+            const VkViewport levelViewport{0, 0, static_cast<float>(to.width), static_cast<float>(to.height), 0, 1};
+            VkRenderingInfo pass{};
+            pass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+            pass.renderArea = area;
+            pass.layerCount = 1;
+            pass.colorAttachmentCount = 1;
+            pass.pColorAttachments = &attachment;
+            vkCmdBeginRendering(commands, &pass);
+            vkCmdSetViewport(commands, 0, 1, &levelViewport);
+            vkCmdSetScissor(commands, 0, 1, &area);
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->bloomLayout(), 0, 1,
+                                    &sourceSet, 0, nullptr);
+            const auto sourceWidth = static_cast<float>(from.width), sourceHeight = static_cast<float>(from.height);
+            const gpu::BloomConstants constants{
+                {1.0f / sourceWidth, 1.0f / sourceHeight},
+                {1.0f / static_cast<float>(to.width), 1.0f / static_cast<float>(to.height)},
+                {std::max(0.0f, fractionX - 0.5f / sourceWidth), std::max(0.0f, fractionY - 0.5f / sourceHeight)},
+                BLOOM_RADIUS,
+                mode};
+            vkCmdPushConstants(commands, pipelines->bloomLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
+                               &constants);
+            vkCmdDraw(commands, 3, 1, 0, 0);
+            vkCmdEndRendering(commands);
+            target.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        };
+        bloomPass(bloom[0], pipelines->bloomDownsample(), emissionSet, emission, gpu::BLOOM_DOWNSAMPLE_FIRST);
+        for (std::size_t k = 1; k < BLOOM_LEVELS; ++k)
+            bloomPass(bloom[k], pipelines->bloomDownsample(), bloomSets[k - 1], bloom[k - 1], gpu::BLOOM_DOWNSAMPLE);
+        for (std::size_t k = BLOOM_LEVELS - 1; k > 0; --k)
+            bloomPass(bloom[k - 1], pipelines->bloomUpsample(), bloomSets[k], bloom[k], gpu::BLOOM_UPSAMPLE);
+    } else {
+        // post.frag reads nothing from it at strength 0, but its set still names it.
+        bloom[0].transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    // -- 4. The output stage ---------------------------------------------------
     // A frame drawn at full size is tone mapped straight into `output`. A
     // smaller region is tone mapped into FSR 1's input, which EASU upscales and
     // RCAS sharpens into `output` (UTA-0154).
@@ -712,7 +840,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &set, 0,
                                 nullptr);
         const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height},
-                                           upscaleInputPass ? 1u : 0u};
+                                           upscaleInputPass ? 1u : 0u, bloomOn ? BLOOM_STRENGTH : 0.0f};
         vkCmdPushConstants(commands, pipelines->postLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
                            &constants);
         vkCmdDraw(commands, 3, 1, 0, 0);
@@ -728,7 +856,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         fullTargetPass(output, pipelines->rcas(), rcasSet, false);
     }
 
-    // -- 4. The UI composite seam ----------------------------------------------
+    // -- 5. The UI composite seam ----------------------------------------------
     compositeUi(commands);
 }
 
@@ -762,7 +890,8 @@ Result<Renderer> Renderer::create(const Config& config) {
                 tierName(impl->tier), impl->gpu->deviceLocalBytes() / (1024u * 1024u));
     }
     UTA_TRY(impl->pipelines,
-            Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT}, impl->tier));
+            Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT, HDR_FORMAT},
+                              impl->tier));
     if (presenting) {
         UTA_TRY(impl->swapchain, Swapchain::create(*impl->gpu, config.width, config.height));
         impl->adoptSwapchainExtent();

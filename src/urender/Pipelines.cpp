@@ -6,6 +6,7 @@
 #include "urender/ShaderTypes.h"
 #include "urender/Tiers.h"
 
+#include "bloom.frag.spv.h"
 #include "cluster.comp.spv.h"
 #include "fsr_easu.frag.spv.h"
 #include "fsr_rcas.frag.spv.h"
@@ -130,16 +131,17 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     blended.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     blended.alphaBlendOp = VK_BLEND_OP_ADD;
 
-    // The opaque pass writes colour and velocity; the translucent pass binds
-    // the colour attachment alone, which is how it writes no velocity (SS 4.11).
-    const std::array opaqueAttachments = {opaque, opaque};
+    // The opaque pass writes colour, velocity and UTA-0053's emission; the
+    // translucent pass binds the colour attachment alone, which is how it writes
+    // no velocity (SS 4.11).
+    const std::array opaqueAttachments = {opaque, opaque, opaque};
     VkPipelineColorBlendStateCreateInfo blend{};
     blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     if (variant.translucent) {
         blend.attachmentCount = 1;
         blend.pAttachments = &blended;
     } else {
-        blend.attachmentCount = 2;
+        blend.attachmentCount = 3;
         blend.pAttachments = opaqueAttachments.data();
     }
 
@@ -151,10 +153,11 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());
     dynamic.pDynamicStates = dynamics.data();
 
-    const std::array colourFormats = {formats.hdr, formats.velocity};
+    // UTA-0053: the opaque pass also writes emission, for the bloom chain.
+    const std::array colourFormats = {formats.hdr, formats.velocity, formats.emission};
     VkPipelineRenderingCreateInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.colorAttachmentCount = variant.translucent ? 1 : 2;
+    rendering.colorAttachmentCount = variant.translucent ? 1 : 3;
     rendering.pColorAttachmentFormats = colourFormats.data();
     rendering.depthAttachmentFormat = formats.depth;
 
@@ -255,8 +258,10 @@ Result<VkPipeline> shadowPipeline(VkDevice device, VkPipelineLayout layout, VkFo
     return pipeline;
 }
 
+/// A full-target pass. `additive` adds into what the target holds -- UTA-0053's
+/// bloom upsample -- where every other use replaces it.
 Result<VkPipeline> postPipeline(VkDevice device, VkPipelineLayout layout, VkFormat output, VkShaderModule vertex,
-                                VkShaderModule fragment) {
+                                VkShaderModule fragment, bool additive = false) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex),
                                stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
     VkPipelineVertexInputStateCreateInfo vertexInput{};
@@ -279,6 +284,15 @@ Result<VkPipeline> postPipeline(VkDevice device, VkPipelineLayout layout, VkForm
     VkPipelineColorBlendAttachmentState attachment{};
     attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT
                                 | VK_COLOR_COMPONENT_A_BIT;
+    if (additive) {
+        attachment.blendEnable = VK_TRUE;
+        attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        attachment.colorBlendOp = VK_BLEND_OP_ADD;
+        attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    }
     VkPipelineColorBlendStateCreateInfo blend{};
     blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blend.attachmentCount = 1;
@@ -379,12 +393,18 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
                     "vkCreatePipelineLayout (scene)"));
 
     // -- The post set -------------------------------------------------------
-    const VkDescriptorSetLayoutBinding hdrBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
-                                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    // Binding 0 is the pass's source; binding 1 is UTA-0053's bloom, which only
+    // post.frag reads.
+    const std::array postBindings = {
+        VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                     nullptr},
+        VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                     nullptr},
+    };
     VkDescriptorSetLayoutCreateInfo postInfo{};
     postInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    postInfo.bindingCount = 1;
-    postInfo.pBindings = &hdrBinding;
+    postInfo.bindingCount = static_cast<std::uint32_t>(postBindings.size());
+    postInfo.pBindings = postBindings.data();
     UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &postInfo, nullptr, &p->postSetLayout_),
                     "vkCreateDescriptorSetLayout (post)"));
     const VkPushConstantRange postRange{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(gpu::PostConstants)};
@@ -422,6 +442,31 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_TRY(p->easu_, postPipeline(device, p->postLayout_, formats.hdr, postVertex.handle, easuFragment.handle));
     UTA_TRY(p->rcas_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, rcasFragment.handle));
 
+    // -- The bloom chain (UTA-0053) -------------------------------------------
+    const VkDescriptorSetLayoutBinding sourceBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                                                     VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    VkDescriptorSetLayoutCreateInfo bloomInfo{};
+    bloomInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    bloomInfo.bindingCount = 1;
+    bloomInfo.pBindings = &sourceBinding;
+    UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &bloomInfo, nullptr, &p->bloomSetLayout_),
+                    "vkCreateDescriptorSetLayout (bloom)"));
+    const VkPushConstantRange bloomRange{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(gpu::BloomConstants)};
+    VkPipelineLayoutCreateInfo bloomLayoutInfo{};
+    bloomLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    bloomLayoutInfo.setLayoutCount = 1;
+    bloomLayoutInfo.pSetLayouts = &p->bloomSetLayout_;
+    bloomLayoutInfo.pushConstantRangeCount = 1;
+    bloomLayoutInfo.pPushConstantRanges = &bloomRange;
+    UTA_CHECK(check(vkCreatePipelineLayout(device, &bloomLayoutInfo, nullptr, &p->bloomLayout_),
+                    "vkCreatePipelineLayout (bloom)"));
+    Module bloomFragment{device};
+    UTA_TRY(bloomFragment.handle, shaderModule(device, bloom_frag_spv));
+    UTA_TRY(p->bloomDownsample_,
+            postPipeline(device, p->bloomLayout_, formats.emission, postVertex.handle, bloomFragment.handle));
+    UTA_TRY(p->bloomUpsample_,
+            postPipeline(device, p->bloomLayout_, formats.emission, postVertex.handle, bloomFragment.handle, true));
+
     Module clusterCompute{device};
     UTA_TRY(clusterCompute.handle, shaderModule(device, cluster_comp_spv));
     VkComputePipelineCreateInfo compute{};
@@ -449,8 +494,10 @@ Pipelines::~Pipelines() {
     for (auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {post_, upscaleInput_, easu_, rcas_})
+    for (VkPipeline pipeline : {post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
+    if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
+    if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
     if (clusters_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, clusters_, nullptr);
     if (shadow_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadow_, nullptr);
     if (shadowLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shadowLayout_, nullptr);

@@ -76,6 +76,9 @@ void addSolidMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba
 void addNormalMappedMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& base,
                              std::uint8_t normalX, std::uint8_t normalY);
 
+/// Add material `id`: a solid `base` map and a solid `<id>:emit` map of `emit`.
+void addEmissiveMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& base, const Rgba& emit);
+
 /// A steady white light: LT_Steady, LE_None, full saturation.
 [[nodiscard]] ubundle::Light steadyLight(std::array<float, 3> location, std::uint8_t brightness,
                                          std::uint8_t radius);

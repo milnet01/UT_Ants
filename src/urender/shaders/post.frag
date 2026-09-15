@@ -6,12 +6,15 @@
 // skips it and nothing else.
 
 layout(set = 0, binding = 0) uniform sampler2D hdr;
+// UTA-0053: the bloom chain's top level, half the target's size.
+layout(set = 0, binding = 1) uniform sampler2D bloom;
 
 layout(push_constant) uniform PostBlock {
     float exposure;
     uint linearOutput;
     uvec2 regionSize; // UTA-0051 SS 4.4: the top-left part of `hdr` this frame drew
     uint upscaleInput; // UTA-0154: write FSR 1's input rather than the output
+    float bloomStrength; // UTA-0053: 0 where the tier draws no bloom
 } post;
 
 layout(location = 0) out vec4 outColour;
@@ -42,6 +45,10 @@ void main() {
     // region's own edge repeats, so FSR 1's taps beyond it read the edge.
     ivec2 at = min(ivec2(gl_FragCoord.xy), ivec2(post.regionSize) - 1);
     vec3 colour = texelFetch(hdr, at, 0).rgb;
+    // UTA-0053: emission's glow, added before exposure at this texel's own place
+    // in the half-size chain. Added rather than mixed: only emission feeds it.
+    if (post.bloomStrength > 0.0)
+        colour += texture(bloom, (vec2(at) + 0.5) / vec2(textureSize(hdr, 0))).rgb * post.bloomStrength;
     if (post.linearOutput == 0u) colour = pbrNeutral(colour * post.exposure);
     // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header
     // allows gamma 2.0 for it.

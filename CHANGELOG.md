@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Glowing surfaces glow past their edges: emissive bloom on every quality tier** (UTA-0053)
+  Only a surface's emission feeds the glow, so lit walls do not bloom.
+  The renderer shrinks the emission through five half-size levels and
+  blurs it back up, as LearnOpenGL's physically based bloom does after
+  Jimenez's Call of Duty: Advanced Warfare talk, and adds 0.04 of it
+  before exposure. Colour grading, anti-aliasing and sharpening from the
+  same roadmap item are still to come.
+
 - **Strip lights: a row of identical lights along one fixture lights a band, not a string of round pools.** (UTA-0162)
   The bake marks each row as one strip, led by its lowest-numbered light.
   The light model, cluster culling, shadows and the probe bake light

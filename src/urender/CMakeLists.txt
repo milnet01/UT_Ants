@@ -89,6 +89,7 @@ uta_embed_shaders(uta_urender
     shaders/scene.frag
     shaders/post.vert
     shaders/post.frag
+    shaders/bloom.frag
     shaders/fsr_easu.frag
     shaders/fsr_rcas.frag
     shaders/shadow.vert

@@ -261,11 +261,35 @@ struct PostConstants {
     /// UTA-0154: nonzero writes FSR 1's input -- gamma 2.0, edge-clamped past
     /// the region -- rather than the output.
     std::uint32_t upscaleInput;
+    /// UTA-0053: how much of the bloom chain the frame adds; 0 where the tier
+    /// draws no bloom.
+    float bloomStrength;
 };
-static_assert(sizeof(PostConstants) == 20);
+static_assert(sizeof(PostConstants) == 24);
 static_assert(offsetof(PostConstants, exposure) == 0);
 static_assert(offsetof(PostConstants, linearOutput) == 4);
 static_assert(offsetof(PostConstants, regionSize) == 8);
 static_assert(offsetof(PostConstants, upscaleInput) == 16);
+static_assert(offsetof(PostConstants, bloomStrength) == 20);
+
+/// UTA-0053: which step of the bloom chain bloom.frag draws.
+inline constexpr std::uint32_t BLOOM_DOWNSAMPLE_FIRST = 0; ///< from the emission target, Karis-weighted
+inline constexpr std::uint32_t BLOOM_DOWNSAMPLE = 1;
+inline constexpr std::uint32_t BLOOM_UPSAMPLE = 2; ///< added into the level above
+
+/// UTA-0053: one bloom step's push constants.
+struct BloomConstants {
+    std::array<float, 2> sourceTexel;
+    std::array<float, 2> targetTexel;
+    std::array<float, 2> sourceUvMax; ///< past the drawn region nothing is read
+    float radius;                     ///< the upsample tent's, in UV
+    std::uint32_t mode;
+};
+static_assert(sizeof(BloomConstants) == 32);
+static_assert(offsetof(BloomConstants, sourceTexel) == 0);
+static_assert(offsetof(BloomConstants, targetTexel) == 8);
+static_assert(offsetof(BloomConstants, sourceUvMax) == 16);
+static_assert(offsetof(BloomConstants, radius) == 24);
+static_assert(offsetof(BloomConstants, mode) == 28);
 
 } // namespace uta::urender::gpu

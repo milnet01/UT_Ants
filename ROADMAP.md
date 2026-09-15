@@ -2225,6 +2225,17 @@ model, no weapon and no opponent until 0.2.0.
   out of 0.1.0 as decided on 2026-09-08.
   Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
   (/mnt/Games/Scripts/Linux/UT_Ants), for the bloom part only.
+  Emissive bloom built (2026-09-15, ut-ants-08). The forward pass writes
+  emission to a third target; bloom.frag takes it down five half-size
+  levels and back up, LearnOpenGL's physically based bloom after Jimenez's
+  SIGGRAPH 2014 talk (13-tap downsample, Karis-weighted first; 3x3 tent
+  upsample, radius 0.005, added); post.frag adds 0.04 of it before
+  exposure. Feature::Bloom is on from Low. No spec: urender alone, no
+  bundle change, cheap to redo. Unit 570/570 and device 36/36 on
+  lavapipe, one local leg. Two new device cases were each seen red under a
+  mutation: bloom strength 0 fails the glow case, and bloom fed the lit
+  colour fails the no-emission case. DM-Deck16][ at r14 with bloom fits
+  as without: exposure 3.18, block RMS 46.23 at 3.2.
   **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
   Kind: implement.
   Source: user-request-2026-09-04.
