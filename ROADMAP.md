@@ -8892,7 +8892,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, upkg.
 
-- 🚧 [UTA-0156] **Maps draw about as bright as the original: carry ZoneInfo ambient light, and set exposure by measurement.**
+- ✅ [UTA-0156] **Maps draw about as bright as the original: carry ZoneInfo ambient light, and set exposure by measurement.**
   The user flew DM-Deck16][ on 2026-09-14: "The map is significantly
   darker than the original game, can you brighten it a little please?"
 
@@ -9071,6 +9071,13 @@ model, no weapon and no opponent until 0.2.0.
   at 40.67 and 4 at 41.51 from the first sweep, 2.5 is the minimum, so
   AMBIENT_SCALE is 2.5. DM-Deck16][ sets no ambient, so its fit and
   EXPOSURE 3.2 are unaffected.
+  Shipped (2026-09-15, ut-ants-08), green on the matrix. Commit 3ba58c0
+  (AMBIENT_SCALE 2.5) pushed; the local pre-push gate passed and GitHub
+  run 34969645032 completed with success. The item's three parts are
+  done: soft cylinder light edges and EXPOSURE 3.2 (d1d4c84, 84ab274,
+  run 34964607685), ZoneInfo ambient carried into the bundle and drawn
+  (28ac41b, run 34967342156), and its strength set by measurement against
+  the original game on AS-Frigate (3ba58c0). Next is UTA-0157.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.

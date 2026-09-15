@@ -5,12 +5,15 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0156` (brightness; it stays 🚧, and soft light edges are
-its next step), then `UTA-0157` (light fixtures). The user
-set that order 2026-09-14 after flying DM-Deck16][, and leaves how it
-looks to research and measurement, to be reviewed later over real matches.
-`UTA-0162` (strip lights) shipped the same day, green on the matrix: rows
-of lights bake into one segment, and `EXPOSURE` was re-fitted to 3.0.
+**Next:** `UTA-0157` (light fixtures). The user set that order 2026-09-14
+after flying DM-Deck16][, and leaves how it looks to research and
+measurement, to be reviewed later over real matches.
+`UTA-0156` (brightness) shipped 2026-09-15, green on the matrix: cylinder
+lights fade at the edge of their reach, `EXPOSURE` is 3.2, and zone
+ambient light is carried in a `ZONE` section and drawn at a measured
+`AMBIENT_SCALE` of 2.5 (spec `docs/specs/UTA-0156-zone-ambient-light.md`).
+`UTA-0162` (strip lights) shipped 2026-09-14, green on the matrix: rows
+of lights bake into one segment.
 `UTA-0155` shipped the same day: the bake reads a palette from another
 package, and bakes a procedural texture as a still of its SourceTexture. For this first iteration the renderer uses the cheapest
 methods that still look like a modern game; fully modern features come
