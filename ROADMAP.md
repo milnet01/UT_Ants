@@ -9013,6 +9013,20 @@ model, no weapon and no opponent until 0.2.0.
   value is 1. So zone ambient stays in this item rather than being split.
   AS-Frigate's LevelInfo sets 37 and is a stock map to measure against.
   Program and output: ut-ants-uta0156/ambient-census/.
+  Soft light edges (2026-09-15, ut-ants-08). Commit d1d4c84: a cylinder
+  light fades out over the last tenth of its radius, in ubake::lightAt
+  and shaders/light.glsl together; BAKER_REVISION 13. The width came from
+  compare.py's block-RMS fit, run shader-only on the r12 bake. For
+  cylinder lights only: none 46.2, 0.1 46.2, 0.15 46.4, 0.2 46.5, 0.25
+  46.5, 0.5 47.2, 1.0 47.4. Fading every light instead gave 46.6 at 0.25
+  and 47.2 at 0.5, so the other effects, already continuous at R, stay
+  as they were. 0.1 is the widest no worse than no fade.
+  Exposure re-fitted on the r13 bake of DM-Deck16][: the fit is 3.18.
+  Block RMS is 46.32 at 3.0, 46.25 at 3.1 and 46.23 at 3.2; mean displayed
+  luma at 3.2 is 66.6 against the original's 68.2. So EXPOSURE is 3.2.
+  Next: ZoneInfo ambient. It changes the bundle format ubake, ubundle and
+  urender all bind to, so it gets a spec first. Probes alone would leave
+  the cells with no probe corner dark.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.

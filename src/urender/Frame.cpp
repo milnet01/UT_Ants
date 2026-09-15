@@ -56,8 +56,10 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// displayed frames best match the original game's over DM-Deck16]['s
 /// PlayerStart views, drawn from the same cameras. UTA-0156 fitted 2.41 and set
 /// 2.4; UTA-0162's strip lights moved the fit to 3.05, and 3.0 has the lower
-/// block error of the two nearest. The method and scripts are on UTA-0156.
-constexpr float EXPOSURE = 3.0f;
+/// block error of the two nearest. UTA-0156's cylinder fade moved it to 3.18,
+/// and 3.2 has the lowest block error of 3.0, 3.1 and 3.2. The method and
+/// scripts are on UTA-0156.
+constexpr float EXPOSURE = 3.2f;
 
 /// What identifies an uploaded bundle: the object, the size of every section
 /// this renderer uploads, and a hash of a bounded sample of their bytes.

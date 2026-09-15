@@ -300,8 +300,9 @@ appears once something has actually shipped.)
 - **Cylinder lights fade out over the edge of their reach, so floors no longer show hard-edged circles of light** (UTA-0156)
   The fade covers the last tenth of the light's radius, in the bake and the
   renderer alike. That width is the widest whose match against the
-  original game's frames on DM-Deck16][ was no worse than no fade. Baker
-  revision 13, so maps must be baked again.
+  original game's frames on DM-Deck16][ was no worse than no fade. Exposure
+  is re-fitted to 3.2 to match. Baker revision 13, so maps must be baked
+  again.
 
 - **Maps draw far closer to the original game's brightness: lights reach as far as UT99's did, and the frame is exposed to match** (UTA-0156)
   Lights now use UE1's own falloff, full strength out to half their radius,
