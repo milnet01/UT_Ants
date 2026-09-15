@@ -1251,7 +1251,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: design-2026-09-03.
   Lanes: urender.
 
-- 📋 [UTA-0015] **urender: volumetric fog, light shafts, ambient occlusion and the flashlight.**
+- 🚧 [UTA-0015] **urender: volumetric fog, light shafts, ambient occlusion and the flashlight.**
   None of these exist in the source map, so they are added at bake time by the
   recipe and drawn here. The flashlight is a spotlight attached to the camera.
   No ray tracing: the target is reached with shadow maps, baked indirect light
@@ -1262,6 +1262,9 @@ model, no weapon and no opponent until 0.2.0.
   things on this roadmap; cheap analytic height fog carries most of the
   atmosphere at a fraction of the cost, so the two probably sit at
   different tiers rather than one being cut.
+  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). The user chose it next on 2026-09-15,
+  parking UTA-0157 for their match review.
   **Layman:** The atmosphere -- fog you can see light beams through, soft shadowing in corners, and a torch for the dark parts.
   Kind: implement.
   Source: design-2026-09-03.
@@ -9142,6 +9145,10 @@ model, no weapon and no opponent until 0.2.0.
   User decision (2026-09-15): bring bloom forward. Only the glow part of
   UTA-0053 is built now; then this item returns, and whether real 3D
   housings are still needed is judged after the ceiling lights glow.
+  User decision (2026-09-15), after parallax (UTA-0040) and emissive bloom
+  (UTA-0053, 6ad38af) both landed: park this item for the user's review
+  over real matches with friends. No measurement can decide it, because
+  the original game's lights are flat. Next is UTA-0015.
   **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
   Kind: feature.
   Source: user-request-2026-09-14.
