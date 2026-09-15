@@ -9110,6 +9110,13 @@ model, no weapon and no opponent until 0.2.0.
   cheapest methods that still make it look like a modern game. Fully
   modern features come after. The cheap-tricks-first choice for this
   item already fits it.
+  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants), after UTA-0156 shipped. Next per
+  CLAUDE.md, in the order the user set on 2026-09-14.
+  Released 2026-09-15 by ut-ants-08 with nothing built. This item's own
+  user decision (2026-09-14) tries parallax (UTA-0040, shipped) and bloom
+  (UTA-0053, still planned) before any geometry, and judges route 3 by
+  measurement after both land. So this item waits on UTA-0053.
   **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
   Kind: feature.
   Source: user-request-2026-09-14.
