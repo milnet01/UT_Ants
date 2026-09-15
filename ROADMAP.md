@@ -9477,6 +9477,14 @@ model, no weapon and no opponent until 0.2.0.
   spread narrows from 2.3x to 1.87x but does not close. The engine's own
   FGetHSV goes into both copies of the model; the rest of DM-Fetid's gap
   stays open here, and EXPOSURE is refitted after.
+  Refit (2026-09-16, ut-ants-08): with FGetHSV in both model copies
+  (commit bc7b727), baker revision 16 and fog zeroed, one exposure fitted
+  over DM-Deck16][, AS-Frigate and DM-Fetid together
+  (ut-ants-uta0156/sweepamb165.sh, jointfit165.py). Pooled block RMS: 42.2
+  at AMBIENT_SCALE 1.5 (exposure 2.20), 42.2 at 2 (2.04), 42.3 at 2.5
+  (1.90), 42.7 at 3 (1.77). EXPOSURE is now 2.2 and AMBIENT_SCALE 1.5,
+  per map 45.8, 40.3 and 40.5 against 46.2, 40.3 and 42.8 before this
+  item: no map worse. The fog look is re-swept at the new exposure next.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.

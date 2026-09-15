@@ -127,10 +127,12 @@ vec3 lightThrough(Light light, vec3 x) {
     return lightAt(light, x, d > 0.0 ? toLight / d : vec3(0.0, 0.0, 1.0));
 }
 
-// UTA-0156 SS 4.4: how strongly a zone's ambient bytes light a surface, set by
-// that spec's SS 7 measurement against the original game on AS-Frigate: with
-// EXPOSURE held, block RMS is 40.67 at 2, 40.27 at 2.5 and 40.31 at 3.
-const float AMBIENT_SCALE = 2.5;
+// UTA-0156 SS 4.4: how strongly a zone's ambient bytes light a surface. First
+// set to 2.5 on AS-Frigate with EXPOSURE held. UTA-0165 refitted it with
+// EXPOSURE over three maps once brightness went through FGetHSV: pooled block
+// RMS 42.2 at 1.5, 42.2 at 2, 42.3 at 2.5 and 42.7 at 3; 1.5 has the lower sum
+// over the three maps.
+const float AMBIENT_SCALE = 1.5;
 
 // The light a zone's ambient puts on every lit surface in it: a light's colour
 // and intensity with no falloff, incidence, spot, shadow or flicker.

@@ -179,7 +179,8 @@ struct Zone {                   // std430, 16 bytes, offsets asserted
   ```
 
   It is UTA-0112 § 4.3's colour and intensity with no falloff, incidence, spot,
-  shadow or flicker.
+  shadow or flicker. UTA-0165 later made that intensity FGetHSV's curve rather
+  than `brightness / 255`, and refitted `AMBIENT_SCALE` to `1.5`.
 - **Shading.** A lit surface shows `base × (direct + indirect + ambient)`. A
   `PF_Unlit` or `PF_FakeBackdrop` surface is unchanged.
 

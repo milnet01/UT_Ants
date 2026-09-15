@@ -21,6 +21,8 @@ later over real matches.
 lights fade at the edge of their reach, `EXPOSURE` is 3.2, and zone
 ambient light is carried in a `ZONE` section and drawn at a measured
 `AMBIENT_SCALE` of 2.5 (spec `docs/specs/UTA-0156-zone-ambient-light.md`).
+`UTA-0165` then took UT99's own `FGetHSV` brightness curve into the light
+model and refitted both, to `EXPOSURE` 2.2 and `AMBIENT_SCALE` 1.5.
 `UTA-0162` (strip lights) shipped 2026-09-14, green on the matrix: rows
 of lights bake into one segment.
 `UTA-0155` shipped the same day: the bake reads a palette from another

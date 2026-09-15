@@ -66,7 +66,12 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// block error of the two nearest. UTA-0156's cylinder fade moved it to 3.18,
 /// and 3.2 has the lowest block error of 3.0, 3.1 and 3.2. The method and
 /// scripts are on UTA-0156.
-constexpr float EXPOSURE = 3.2f;
+/// UTA-0165's FGetHSV brightness lifts every light, so it was refitted over
+/// DM-Deck16][, AS-Frigate and DM-Fetid at once, fog zeroed and with
+/// AMBIENT_SCALE fitted alongside: pooled block RMS 42.2 at ambient 1.5 and
+/// exposure 2.20, per map 45.8, 40.3 and 40.5, where the linear model at 3.2
+/// had scored 46.2, 40.3 and 42.8.
+constexpr float EXPOSURE = 2.2f;
 
 /// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
 /// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's
