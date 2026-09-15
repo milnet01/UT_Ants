@@ -33,6 +33,9 @@ Config linearFrame() {
     config.width = WIDTH;
     config.height = HEIGHT;
     config.linearOutput = true;
+    // UTA-0015: no haze. On a device whose tier draws fog, in-scattering adds
+    // to a pixel these cases compare against the light model alone.
+    config.hazeScale = 0;
     return config;
 }
 

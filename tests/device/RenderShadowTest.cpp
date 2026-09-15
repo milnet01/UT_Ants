@@ -38,6 +38,9 @@ Config linearFrame() {
     config.width = WIDTH;
     config.height = HEIGHT;
     config.linearOutput = true;
+    // UTA-0015: no haze. On a device whose tier draws fog, a shadowed light
+    // scatters into it and lifts a shadowed pixel these cases read as dark.
+    config.hazeScale = 0;
     return config;
 }
 
