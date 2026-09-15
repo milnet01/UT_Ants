@@ -515,10 +515,8 @@ every frame.
 ### 4.6 Direct light — one source of truth, in GLSL
 
 `docs/specs/UTA-0112-baked-light-probes.md` § 4.3 defines the whole model:
-colour from `hue` and `saturation`, intensity `brightness / 255`, radius
-`25 × (radius + 1)`, falloff `(1 − (d/R)²)²`, incidence `max(0, n·l)` with
-`LE_NonIncidence` (13) forcing 1, and the spot factor for `LE_Spotlight` (12)
-and `LE_StaticSpot` (8). It is not restated here; it is *included*.
+colour, intensity, radius, falloff, the reshaping effects, incidence and the
+spot factor. It is not restated here; it is *included*.
 
 `src/urender/shaders/light.glsl` holds it, and is `#include`d by the shading
 pass and by the parity test's compute shader. **No C++ transcription of it

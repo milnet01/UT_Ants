@@ -72,10 +72,22 @@ static_assert(directionOf({0, 0, 0}).x == 1.0);
 static_assert(directionOf({16384, 0, 0}).z == 1.0);
 
 TEST_CASE("light colour", "[ubake][lightmodel]") {
+    // UTA-0165: FGetHSV's three sectors, whose channels sum to 1.
     sameRgb(lightColour(0, 0), {1, 0, 0});
-    sameRgb(lightColour(64, 0), {0.5, 1, 0});
-    sameRgb(lightColour(128, 0), {0, 1, 1});
+    sameRgb(lightColour(42, 0), {43.0 / 85.0, 42.0 / 85.0, 0});
+    sameRgb(lightColour(85, 0), {0, 1, 0});
+    sameRgb(lightColour(170, 0), {0, 0, 1});
+    sameRgb(lightColour(255, 0), {1, 0, 0}); // the last sector divides by 84
     for (int hue = 0; hue < 256; ++hue) sameRgb(lightColour(static_cast<std::uint8_t>(hue), 255), {1, 1, 1});
+}
+
+TEST_CASE("UTA-0165: intensity is FGetHSV's curve over its value at 255", "[ubake][lightmodel]") {
+    // Literals computed offline from the curve ut-ants-uta0156/fgethsv.txt
+    // decodes; a linear model gives 51 / 255 = 0.2 here.
+    CHECK(uta::ubake::lightIntensity(0) == 0.0);
+    CHECK(uta::ubake::lightIntensity(51) == 0.4426283506651455);
+    CHECK(uta::ubake::lightIntensity(128) == 0.7060572581393083);
+    CHECK(uta::ubake::lightIntensity(255) == 1.0);
 }
 
 TEST_CASE("radius and falloff", "[ubake][lightmodel]") {
@@ -129,8 +141,8 @@ TEST_CASE("UTA-0162 INV-5: a strip leader lights from its segment's nearest poin
 TEST_CASE("intensity incidence and spot", "[ubake][lightmodel]") {
     SECTION("a white light at its own location") {
         sameRgb(lightAt(whiteLight(255), {0, 0, 0}, {0, 0, 1}), {1, 1, 1});
-        const double fifth = 51.0 / 255.0;
-        sameRgb(lightAt(whiteLight(51), {0, 0, 0}, {0, 0, 1}), {fifth, fifth, fifth});
+        const double dim = 0.4426283506651455; // lightIntensity(51)
+        sameRgb(lightAt(whiteLight(51), {0, 0, 0}, {0, 0, 1}), {dim, dim, dim});
     }
     SECTION("incidence") {
         const Light light = whiteLight(255);

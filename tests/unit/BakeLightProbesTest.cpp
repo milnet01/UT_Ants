@@ -299,15 +299,24 @@ TEST_CASE("faces", "[ubake][probes]") {
         CHECK(cube[5].r / cube[5].g > cube[4].r / cube[4].g);
     }
 
-    SECTION("doubling the brightness doubles every value exactly") {
+    SECTION("every value scales with the light's intensity") {
+        // UTA-0165: brightness goes through FGetHSV's curve, so 128 is not
+        // twice 64; the gather must still be linear in the intensity that
+        // curve gives. Not exact, as doubling was: the ratio is no power of two.
         const auto once = gatherProbe(probe, rays, redFloorRoom,
                                       {steadyLight(1, {256, 256, 480}, 64)}, albedo);
-        const auto twice = gatherProbe(probe, rays, redFloorRoom,
-                                       {steadyLight(1, {256, 256, 480}, 128)}, albedo);
+        const auto scaled = gatherProbe(probe, rays, redFloorRoom,
+                                        {steadyLight(1, {256, 256, 480}, 128)}, albedo);
+        const double ratio = uta::ubake::lightIntensity(128) / uta::ubake::lightIntensity(64);
+        CHECK(ratio < 2.0);
+        const auto near = [](double actual, double expected) {
+            return std::abs(actual - expected) <= 1e-12 * std::abs(expected);
+        };
         for (std::size_t face = 0; face < 6; ++face) {
-            CHECK(twice[face].r == 2 * once[face].r);
-            CHECK(twice[face].g == 2 * once[face].g);
-            CHECK(twice[face].b == 2 * once[face].b);
+            CAPTURE(face, scaled[face].r, once[face].r, ratio);
+            CHECK(near(scaled[face].r, ratio * once[face].r));
+            CHECK(near(scaled[face].g, ratio * once[face].g));
+            CHECK(near(scaled[face].b, ratio * once[face].b));
         }
     }
 

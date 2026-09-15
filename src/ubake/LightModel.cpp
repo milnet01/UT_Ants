@@ -6,9 +6,18 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 
 namespace uta::ubake {
 namespace {
+
+/// UTA-0165: FGetHSV's brightness, as the 469 Engine.so computes it
+/// (ut-ants-uta0156/fgethsv.txt). std::sqrt is correctly rounded on every
+/// compiler, so every leg gets the same bits.
+double engineBrightness(double value) noexcept {
+    const double b = value * 1.4 / 255;
+    return std::clamp(b * 0.7 / (0.01 + std::sqrt(b)), 0.0, 1.0);
+}
 
 /// ELightEffect's values -- the 432 headers' Engine/Inc/EngineClasses.h.
 constexpr std::uint8_t LE_STATIC_SPOT = 8;
@@ -100,22 +109,20 @@ constexpr std::array<double, 256> SRGB_TO_LINEAR = {
 } // namespace
 
 Rgb lightColour(std::uint8_t hue, std::uint8_t saturation) noexcept {
-    // h = 6 * hue / 256, kept in integers so the sector and the fraction are
-    // exact.
-    const int scaled = 6 * hue;
-    const int sector = scaled / 256;
-    const double f = (scaled - 256 * sector) / 256.0;
+    // UTA-0165: FGetHSV's three sectors, whose channels sum to 1; the last
+    // divides by 84, as the engine does.
+    const double h = hue;
     Rgb pure;
-    switch (sector) {
-    case 0: pure = {1, f, 0}; break;
-    case 1: pure = {1 - f, 1, 0}; break;
-    case 2: pure = {0, 1, f}; break;
-    case 3: pure = {0, 1 - f, 1}; break;
-    case 4: pure = {f, 0, 1}; break;
-    default: pure = {1, 0, 1 - f}; break;
-    }
+    if (hue < 86) pure = {(85 - h) / 85, h / 85, 0};
+    else if (hue < 171) pure = {0, (170 - h) / 85, (h - 85) / 85};
+    else pure = {(h - 170) / 85, 0, (255 - h) / 84};
     const double w = saturation / 255.0;
-    return {pure.r * (1 - w) + w, pure.g * (1 - w) + w, pure.b * (1 - w) + w};
+    return {pure.r + w * (1 - pure.r), pure.g + w * (1 - pure.g), pure.b + w * (1 - pure.b)};
+}
+
+double lightIntensity(std::uint8_t brightness) noexcept {
+    static const double top = engineBrightness(255);
+    return engineBrightness(brightness) / top;
 }
 
 double lightRadius(std::uint8_t radius) noexcept {
@@ -146,7 +153,7 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     const double d = length(toLight);
     const double radius = lightRadius(light.radius);
     const Rgb colour = lightColour(light.hue, light.saturation);
-    const double intensity = light.brightness / 255.0;
+    const double intensity = lightIntensity(light.brightness);
     const auto scaled = [&colour](double s) { return Rgb{colour.r * s, colour.g * s, colour.b * s}; };
 
     // UTA-0156: UE1's two effects that change the falloff's shape; neither has

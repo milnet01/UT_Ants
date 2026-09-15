@@ -5,10 +5,10 @@
 // rule 2), so UTA-0014 writes these formulas again in its own code, and a test
 // that links both holds its copy to this one (SS 4.9).
 //
-// THE MODEL IS THIS PROJECT'S OWN. UT99's renderer is in no source this
-// project draws on (SS 2 item 4), so the colour wheel, the falloff and the
-// cone are SS 4.3's choices. A change to any of them re-bakes every map, which
-// is what BAKER_REVISION records.
+// WHERE THE MODEL COMES FROM. The colour and intensity are UT99's own FGetHSV,
+// read from its 469 Engine.so (UTA-0165); the falloff and the two reshaping
+// effects are SurrealEngine's (UTA-0156); the cone is SS 4.3's choice. A change
+// to any of them re-bakes every map, which is what BAKER_REVISION records.
 //
 // NO PLATFORM MATHS LIBRARY IN THE SINE. sineOf reduces its angle with integer
 // arithmetic and evaluates fixed polynomials by Horner's rule, using only
@@ -34,9 +34,13 @@ struct Rgb {
     double r = 0, g = 0, b = 0;
 };
 
-/// SS 4.3's colour: the hue wheel's pure colour, moved toward white by
-/// `saturation`, so saturation 255 is white at every hue.
+/// SS 4.3's colour, FGetHSV's hue: three sectors whose channels sum to 1,
+/// moved toward white by `saturation`, so saturation 255 is white at every hue.
 [[nodiscard]] Rgb lightColour(std::uint8_t hue, std::uint8_t saturation) noexcept;
+
+/// SS 4.3's intensity: FGetHSV's brightness curve over its value at 255, so
+/// 255 is 1 and a dim light sits near sqrt(brightness / 255).
+[[nodiscard]] double lightIntensity(std::uint8_t brightness) noexcept;
 
 /// `AActor::WorldLightRadius`: 25 * (radius + 1).
 [[nodiscard]] double lightRadius(std::uint8_t radius) noexcept;
@@ -125,7 +129,7 @@ inline constexpr double RADIANS_PER_UNIT = std::numbers::pi / 32768.0;
 [[nodiscard]] Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept;
 
 /// The light `light` puts on a surface at `x` with unit normal `n`, with no
-/// shadow test: colour, times brightness / 255, times the falloff, times the
+/// shadow test: colour, times lightIntensity, times the falloff, times the
 /// incidence, times the spot factor -- SS 4.3, all measured from litFrom.
 /// LE_Cylinder and LE_NonIncidence replace the falloff and drop the other
 /// factors (UTA-0156). An absorbed strip light puts nothing (UTA-0162).

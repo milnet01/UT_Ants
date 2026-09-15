@@ -9442,6 +9442,41 @@ model, no weapon and no opponent until 0.2.0.
   LevelInfo sets ambient 37, DM-Fetid's zone 0. So point lights run
   somewhat dim and ambient hid it on AS-Frigate, but DM-Fetid, near 7, is
   further off. Next: a point-light gain swept across all three maps.
+  Progress (2026-09-15, ut-ants-08): no global point-light gain fits. With
+  fog zeroed and AMBIENT_SCALE held, scaling LE_None lights by 1, 1.5, 2
+  and 2.5 takes DM-Fetid's block RMS from 42.8 to 35.8 but AS-Frigate's
+  from 40.3 to 60.3, and moves DM-Deck16][ only from 46.2 to 47.3
+  (ut-ants-uta0156/sweepgain165.sh). So the fix is specific to what
+  DM-Fetid exercises. Next lead: SurrealEngine turns brightness into
+  colour through hsbtorgb's table, where light.glsl uses brightness / 255
+  linearly, and DM-Fetid's lights are dim.
+  Found (2026-09-15, ut-ants-08): UT99's own brightness curve is not
+  linear. FGetHSV in the 469 Engine.so (symbol at 0x1afbf0, disassembly and
+  decoded constants in ut-ants-uta0156/fgethsv.txt) computes
+  b = V * 1.4/255, then b * 0.7 / (0.01 + sqrt(b)), clamped to [0, 1]. Over
+  its value at V 255 that is within 1% of sqrt(V/255): V 50 gives 0.438,
+  where light.glsl's V/255 gives 0.196. DM-Fetid's lights are mostly dim,
+  AS-Frigate's middling and DM-Deck16]['s bright, which is the order of
+  how far each fits away from EXPOSURE 3.2. Its hue is also different:
+  three sectors dividing by 85 (84 in the last) whose channels sum to 1,
+  then a lerp toward white by S/255. A square-root curve sweep on the three
+  maps is running.
+  Confirmed (2026-09-15, ut-ants-08): the curve is on the lighting path,
+  not only in drivers. The 469 Linux Render.so imports FGetHSV and calls it
+  from FLightManager::SetupForSurf, FLightManager::SetupForActor,
+  FAtlasManager::BuildStaticLights, URender::GlobalLighting and
+  URender::DrawFrame (objdump; listed in ut-ants-uta0156/fgethsv.txt).
+  So a surface's light colour and brightness in the original come from
+  FGetHSV, and light.glsl's linear brightness and six-sector hue are a
+  departure from it.
+  Measured (2026-09-15, ut-ants-08): with fog zeroed, brightness as
+  sqrt(V/255) moves each map's fitted exposure from 3.09 to 2.04 on
+  DM-Deck16][, 2.93 to about 2.3 on AS-Frigate, and 7.12 to 3.81 on
+  DM-Fetid, whose block RMS at 3.2 falls from 42.8 to 36.3. Applying it to
+  zone ambient too changes nothing measurable (sweepcurve165.sh). The
+  spread narrows from 2.3x to 1.87x but does not close. The engine's own
+  FGetHSV goes into both copies of the model; the rest of DM-Fetid's gap
+  stays open here, and EXPOSURE is refitted after.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.

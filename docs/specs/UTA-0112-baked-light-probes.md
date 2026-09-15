@@ -184,13 +184,20 @@ struct Rgb {
 
 `Vec3` is § 4.10's.
 
-- **Colour.** Let `h = 6 × hue / 256` and `f = h − floor(h)`. The pure colour
-  by sector `floor(h)` is: 0 → (1, f, 0); 1 → (1 − f, 1, 0); 2 → (0, 1, f);
-  3 → (0, 1 − f, 1); 4 → (f, 0, 1); 5 → (1, 0, 1 − f). With
-  `w = saturation / 255`, each channel of the light's colour is
-  `pure × (1 − w) + w`. So saturation 255 is white, which makes `Light.uc`'s
-  default `LightSaturation=255` a white light.
-- **Intensity** is `brightness / 255`.
+- **Colour and intensity are UT99's `FGetHSV`** (UTA-0165, 2026-09-15). The
+  469 Linux `Engine.so` defines it and `Render.so` calls it from
+  `FLightManager::SetupForSurf` and `FAtlasManager::BuildStaticLights`; the
+  disassembly and its decoded constants are in `ut-ants-uta0156/fgethsv.txt`.
+  It replaced a six-sector wheel and a linear `brightness / 255`, which drew
+  dim lights far darker than the original game.
+- **Colour.** For `hue` `H`: below 86, `((85 − H) / 85, H / 85, 0)`; below
+  171, `(0, (170 − H) / 85, (H − 85) / 85)`; otherwise
+  `((H − 170) / 85, 0, (255 − H) / 84)`. With `w = saturation / 255`, each
+  channel is `pure + w × (1 − pure)`. So saturation 255 is white at every
+  hue, which makes `Light.uc`'s default `LightSaturation=255` a white light.
+- **Intensity** is `B(brightness) / B(255)`, where with `b = V × 1.4 / 255`,
+  `B(V) = clamp(b × 0.7 / (0.01 + √b), 0, 1)`. Dividing by `B(255)` keeps the
+  units below; the engine's own scale is absorbed by UTA-0014's exposure.
 - **Radius.** `R = 25 × (radius + 1)`, `AActor::WorldLightRadius`.
 - **Falloff.** With `v = d / R` for a distance `d` below `R`:
   `min(1, (1 + 2v³ − 3v²) / v)`, which is `1` out to half the radius; `1` at
@@ -450,19 +457,22 @@ tests change no line.
   that is negative or not finite.
   *Test:* `tests/unit/BundleLightProbesTest.cpp`.
   *Breaks when:* a check is dropped, or a field is written out of order.
-- **INV-2** — `lightColour` follows § 4.3: hue 0 at saturation 0 is
-  `(1, 0, 0)`, hue 64 is `(0.5, 1, 0)`, hue 128 is `(0, 1, 1)`, and saturation
-  255 is `(1, 1, 1)` at every hue.
+- **INV-2** — `lightColour` follows § 4.3: at saturation 0, hue 0 is
+  `(1, 0, 0)`, hue 85 is `(0, 1, 0)`, hue 170 is `(0, 0, 1)`, and hue 42 is
+  `(43 / 85, 42 / 85, 0)`, whose channels sum to 1; saturation 255 is
+  `(1, 1, 1)` at every hue.
   *Test:* `tests/unit/BakeLightModelTest.cpp`, "light colour".
-  *Breaks when:* saturation is inverted, so 255 gives the pure colour, or the
-  sectors shift.
+  *Breaks when:* saturation is inverted, so 255 gives the pure colour; the
+  sectors shift; or a channel peaks at 1 instead of the three summing to 1, as
+  the six-sector wheel did.
 - **INV-3** — `lightRadius(0)` is `25` and `lightRadius(64)` is `1625`.
   `falloff` is `1` at distance 0, `0.5625` at half the radius, and `0` at the
   radius and beyond.
   *Test:* `tests/unit/BakeLightModelTest.cpp`, "radius and falloff".
   *Breaks when:* the radius drops its `+ 1`, or the falloff is linear.
 - **INV-4** — A white light of brightness 255 gives `(1, 1, 1)` at its own
-  location, and of brightness 51 gives `51 / 255` on each channel. `lightAt`
+  location, and of brightness 51 gives `B(51) / B(255)` on each channel, § 4.3's
+  curve. `lightAt`
   gives `0` on a surface facing away from a light, and under `LE_NonIncidence`
   the same as on one facing it. A spotlight lights a point on its axis and not
   one behind it. `directionOf` gives +X at zero rotation, +Y at yaw 16384 and
@@ -474,7 +484,7 @@ tests change no line.
   spot". The `static_assert` is what refuses the library's sine: Clang does
   not evaluate `std::sin` in a constant expression, where GCC does, as an
   extension. Both were measured with this machine's compilers; MSVC was not.
-  *Breaks when:* intensity is not `brightness / 255`, the incidence clamp or
+  *Breaks when:* intensity is linear in `brightness`, the incidence clamp or
   the spot test is dropped, pitch's sign flips, a polynomial term changes, or
   `sineOf` or `directionOf` calls the library's sine.
 - **INV-5** — `linearOf` is within `1e-15` of IEC 61966-2-1's decoding at every
@@ -665,10 +675,10 @@ version-`7` file is refused and baked over (UTA-0011 § 4.7).
 
 ## 15. Open questions
 
-- **Whether § 4.3 looks like UT99.** The colour wheel, the falloff and the cone
-  are this spec's, since UT99's are in no source this spec draws on. Nothing can
-  judge the look until UTA-0014 draws. A change then re-bakes every map, which
-  costs nothing before `0.1.0`.
+- **Whether § 4.3 looks like UT99.** Partly settled. The colour and intensity
+  are UT99's own `FGetHSV`, read from its binary (UTA-0165), and the falloff and
+  the two reshaping effects are SurrealEngine's (UTA-0156). The cone is still
+  this spec's. A change re-bakes every map, which costs nothing before `0.1.0`.
 - **Whether 128 units and 162 rays are enough.** Neither was measured. The real
   tier prints the cost; the quality waits for the renderer.
   **The size half is settled: the user reviewed it on 2026-09-12 and kept 128

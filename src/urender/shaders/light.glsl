@@ -21,21 +21,24 @@ const uint LE_CYLINDER = 17u;
 
 const float TWO_PI = 6.283185307179586;
 
-// The hue wheel's pure colour moved toward white by saturation; kept in
-// integers until the fraction, so the sector is exact.
+// UTA-0165: UT99's FGetHSV hue -- three sectors whose channels sum to 1, the
+// last dividing by 84 as the engine does -- moved toward white by saturation.
 vec3 lightColour(uint hue, uint saturation) {
-    uint scaled = 6u * hue;
-    uint sector = scaled / 256u;
-    float f = float(scaled - 256u * sector) / 256.0;
+    float h = float(hue);
     vec3 pure;
-    if (sector == 0u) pure = vec3(1.0, f, 0.0);
-    else if (sector == 1u) pure = vec3(1.0 - f, 1.0, 0.0);
-    else if (sector == 2u) pure = vec3(0.0, 1.0, f);
-    else if (sector == 3u) pure = vec3(0.0, 1.0 - f, 1.0);
-    else if (sector == 4u) pure = vec3(f, 0.0, 1.0);
-    else pure = vec3(1.0, 0.0, 1.0 - f);
+    if (hue < 86u) pure = vec3((85.0 - h) / 85.0, h / 85.0, 0.0);
+    else if (hue < 171u) pure = vec3(0.0, (170.0 - h) / 85.0, (h - 85.0) / 85.0);
+    else pure = vec3((h - 170.0) / 85.0, 0.0, (255.0 - h) / 84.0);
     float w = float(saturation) / 255.0;
-    return pure * (1.0 - w) + vec3(w);
+    return pure + w * (vec3(1.0) - pure);
+}
+
+// UTA-0165: FGetHSV's brightness over its value at 255 -- close to sqrt(V/255),
+// so a dim light is far brighter than a linear V/255 would make it.
+float lightIntensity(uint brightness) {
+    float b = float(brightness) * 1.4 / 255.0;
+    float top = 1.4 * 0.7 / (0.01 + sqrt(1.4));
+    return clamp(b * 0.7 / (0.01 + sqrt(b)), 0.0, 1.0) / top;
 }
 
 // AActor::WorldLightRadius.
@@ -78,7 +81,7 @@ vec3 litFrom(Light light, vec3 x) {
 }
 
 // The light `light` puts on a surface at `x` with unit normal `n`, with no
-// shadow test: colour, times brightness / 255, times the falloff, times the
+// shadow test: colour, times its intensity, times the falloff, times the
 // incidence, times the spot factor, all measured from litFrom. LE_Cylinder and
 // LE_NonIncidence replace the falloff and drop the other factors (UTA-0156).
 // An absorbed strip light is never uploaded, so it needs no case here.
@@ -86,7 +89,7 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
     vec3 toLight = litFrom(light, x) - x;
     float d = length(toLight);
     float radius = lightRadius(light.radius);
-    vec3 colour = lightColour(light.hue, light.saturation) * (float(light.brightness) / 255.0);
+    vec3 colour = lightColour(light.hue, light.saturation) * lightIntensity(light.brightness);
 
     // UTA-0156: UE1's two effects that change the falloff's shape; neither has
     // an incidence term. A cylinder still reaches only inside its sphere, as
@@ -132,7 +135,7 @@ const float AMBIENT_SCALE = 2.5;
 // The light a zone's ambient puts on every lit surface in it: a light's colour
 // and intensity with no falloff, incidence, spot, shadow or flicker.
 vec3 zoneAmbient(Zone zone) {
-    return lightColour(zone.hue, zone.saturation) * (float(zone.brightness) / 255.0 * AMBIENT_SCALE);
+    return lightColour(zone.hue, zone.saturation) * (lightIntensity(zone.brightness) * AMBIENT_SCALE);
 }
 
 #endif

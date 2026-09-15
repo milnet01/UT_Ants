@@ -312,6 +312,13 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **Lights take UT99's own colour and brightness** (UTA-0165)
+  A light's colour and brightness now follow the curve UT99's engine
+  uses, read from its binary, instead of a straight line. Dim lights
+  draw much brighter than before, so maps lit mostly by dim lights no
+  longer look far darker than the original game. Maps must be baked
+  again.
+
 - **Each area of a map gets the background light its author set, so dark corners are lit as in the original game** (UTA-0156)
   The bake writes each zone's ambient brightness, hue and saturation into
   a new ZONE section, taking the level's own values for a zone that sets
