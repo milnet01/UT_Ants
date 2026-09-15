@@ -43,7 +43,9 @@ namespace {
 // 11: UTA-0156 bounded cylinder light by its sphere again. Same digest, same reason.
 // 12: UTA-0162 gave every LITE record its strip fields and bumped the format to
 // 10, so the digest moved whether or not the fixture holds a row.
-constexpr std::uint32_t RECORDED_UNDER = 12;
+// 13: UTA-0156 faded cylinder light over its last tenth. Same digest as 12: the
+// fixture holds no cylinder light.
+constexpr std::uint32_t RECORDED_UNDER = 13;
 constexpr std::string_view GOLDEN =
     "86ce1bc7c0293d7242d80095c6013ab25de26a2771323e05e57fbcb04d5a5fcc";
 

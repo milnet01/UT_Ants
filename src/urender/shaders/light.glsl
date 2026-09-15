@@ -51,6 +51,17 @@ float lightFalloff(float distance, float radius) {
     return min(1.0, (1.0 + 2.0 * v * v * v - 3.0 * v * v) / v);
 }
 
+// UTA-0156: the share of an LE_Cylinder light's reach over which it fades to
+// zero, so its sphere bound draws no hard edge -- the widest the block-RMS fit
+// against the original game's frames did not worsen.
+const float CYLINDER_FADE = 0.1;
+
+// 1 inside the fade, 0 at `radius`, smooth between.
+float edgeFade(float distance, float radius) {
+    float t = clamp((radius - distance) / (CYLINDER_FADE * radius), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+}
+
 // UTA-0119 SS 4.5's Y * P * R applied to +X; roll does not move it.
 vec3 lightDirection(int pitch, int yaw) {
     float p = float(pitch) * TWO_PI / 65536.0;
@@ -82,7 +93,7 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
     // the map's own per-surface light lists show -- and as clustering assumes.
     if (light.effect == LE_CYLINDER) {
         if (d >= radius) return vec3(0.0);
-        return colour * max(0.0, 1.0 - dot(toLight.xy, toLight.xy) / (radius * radius));
+        return colour * (edgeFade(d, radius) * max(0.0, 1.0 - dot(toLight.xy, toLight.xy) / (radius * radius)));
     }
     if (light.effect == LE_NON_INCIDENCE) return colour * max(0.0, 1.0 - d / radius);
 

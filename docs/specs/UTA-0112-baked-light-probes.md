@@ -199,7 +199,11 @@ struct Rgb {
   2026-09-14 (UTA-0156), which measured far darker than the original game.
 - **Two effects reshape it**, both only inside `R` and both with no incidence
   or spot factor (UTA-0156, from the same source). `LE_Cylinder` (17) is
-  `max(0, 1 − (dx² + dy²) / R²)`, the horizontal distance alone.
+  `max(0, 1 − (dx² + dy²) / R²)`, the horizontal distance alone, times a
+  fade: with `t = clamp((R − d) / (0.1 × R), 0, 1)`, the fade is
+  `t² × (3 − 2t)`. So a cylinder light draws no hard edge at its sphere. The
+  width `0.1` is the widest whose block-RMS fit against the original game's
+  frames on DM-Deck16][ was no worse than none (UTA-0156).
   `LE_NonIncidence` (13) is `max(0, 1 − d / R)`. **The bound at `R` is the
   map's own**: DM-Deck16]['s per-surface light lists (each lightmap's
   `iLightActors` run into `Model::lights`) attach its cylinder lights to 1539

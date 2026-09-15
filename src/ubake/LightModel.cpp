@@ -16,6 +16,17 @@ constexpr std::uint8_t LE_SPOTLIGHT = 12;
 constexpr std::uint8_t LE_NON_INCIDENCE = 13;
 constexpr std::uint8_t LE_CYLINDER = 17;
 
+/// UTA-0156: the share of an LE_Cylinder light's reach over which it fades to
+/// zero, so its sphere bound draws no hard edge -- the widest the block-RMS fit
+/// against the original game's frames did not worsen.
+constexpr double CYLINDER_FADE = 0.1;
+
+/// 1 inside the fade, 0 at `radius`, smooth between.
+double edgeFade(double distance, double radius) noexcept {
+    const double t = std::clamp((radius - distance) / (CYLINDER_FADE * radius), 0.0, 1.0);
+    return t * t * (3 - 2 * t);
+}
+
 /// IEC 61966-2-1's decoding of each 8-bit value: with c = byte / 255, c / 12.92
 /// at or below 0.04045, else ((c + 0.055) / 1.055)^2.4. Generated offline and
 /// written as literals, so the baker calls no pow (SS 4.3).
@@ -145,7 +156,8 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     // surfaces inside the horizontal radius but outside the sphere.
     if (light.effect == LE_CYLINDER) {
         if (d >= radius) return {};
-        return scaled(intensity * std::max(0.0, 1 - (toLight.x * toLight.x + toLight.y * toLight.y) / (radius * radius)));
+        return scaled(intensity * edgeFade(d, radius)
+                      * std::max(0.0, 1 - (toLight.x * toLight.x + toLight.y * toLight.y) / (radius * radius)));
     }
     if (light.effect == LE_NON_INCIDENCE) return scaled(intensity * std::max(0.0, 1 - d / radius));
 

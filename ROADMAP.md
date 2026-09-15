@@ -9000,6 +9000,19 @@ model, no weapon and no opponent until 0.2.0.
   were pushed in the batch ending 300d98b. GitHub run 34880009138 on
   that commit completed with success on the matrix. Still paused behind
   UTA-0162; soft light edges and ZoneInfo ambient remain open.
+  Resumed 2026-09-15 by session ut-ants-08, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants). The previous holder has ended.
+  Rule-1 check first: UTA-0098 and UTA-0100 are the only review-sourced
+  open items, and both defer themselves. Next step: soft light edges.
+  Census (2026-09-15, ut-ants-08). A scratch program ran ubake's
+  buildActors over every map in the reference install and resolved
+  AmbientBrightness on each actor descending from ZoneInfo. Every map
+  read. 750 of 1435 maps set a non-zero AmbientBrightness on at least one
+  zone: plain ZoneInfo, WaterZone, LevelInfo and SkyZoneInfo most often,
+  always on the actor itself rather than a class default. The commonest
+  value is 1. So zone ambient stays in this item rather than being split.
+  AS-Frigate's LevelInfo sets 37 and is a stock map to measure against.
+  Program and output: ut-ants-uta0156/ambient-census/.
   **Layman:** Maps look much darker than in the original game; add the background light each area had, and match the overall brightness to the original by measuring it.
   Kind: fix.
   Source: user-request-2026-09-14.

@@ -67,9 +67,9 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
     const std::array<std::uint8_t, 4> cones = {0, 32, 128, 250};
     const std::array<std::array<std::int32_t, 3>, 4> rotations = {{{0, 0, 0}, {4096, 12000, 0}, {-8000, 40000, 900},
                                                                    {16384, 0, 0}}};
-    // How far along the radius the point sits: at the light, inside, near the
-    // edge, and beyond it.
-    const std::array<double, 5> reach = {0.0, 0.1, 0.5, 0.97, 1.2};
+    // How far along the radius the point sits: at the light, inside, at each
+    // end of LE_Cylinder's fade (UTA-0156), and beyond it.
+    const std::array<double, 6> reach = {0.0, 0.1, 0.5, 0.92, 0.97, 1.2};
 
     uta::ubundle::Bundle bundle;
     bundle.lights.emplace();
