@@ -333,7 +333,7 @@ TEST_CASE("INV-8: a texture only a mover wears gets its material made", "[ubake]
     REQUIRE(result->bundle.zones.has_value());
     for (const MoverShape& shape : *result->bundle.movers) {
         const std::uint8_t zone =
-            uta::ubake::zoneAt(*result->bundle.rooms, shape.location, result->bundle.zones->size());
+            uta::ubundle::zoneAt(*result->bundle.rooms, shape.location, result->bundle.zones->size());
         for (const auto& vertex : shape.geometry.vertices) CHECK(int(vertex.zone) == int(zone));
     }
 }
@@ -399,16 +399,16 @@ uta::umap::RoomMap twoZoneRooms() {
 
 TEST_CASE("UTA-0156 INV-5: zoneAt gives the zone of the room at a location", "[ubake][movers][zone]") {
     const uta::umap::RoomMap rooms = twoZoneRooms();
-    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 3)) == 2);
-    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, -10.0F}, 3)) == 1);
+    CHECK(int(uta::ubundle::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 3)) == 2);
+    CHECK(int(uta::ubundle::zoneAt(rooms, {0.0F, 0.0F, -10.0F}, 3)) == 1);
 }
 
 TEST_CASE("UTA-0156 INV-5: zoneAt gives 0 where there is no room or the zone is out of range",
           "[ubake][movers][zone]") {
     uta::umap::RoomMap rooms = twoZoneRooms();
     // Zone 2 is not below a count of 2.
-    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 2)) == 0);
+    CHECK(int(uta::ubundle::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 2)) == 0);
     // Zone 2 with no room: roomAt finds NO_ROOM.
     rooms.roomForZone[2] = uta::umap::NO_ROOM;
-    CHECK(int(uta::ubake::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 3)) == 0);
+    CHECK(int(uta::ubundle::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 3)) == 0);
 }

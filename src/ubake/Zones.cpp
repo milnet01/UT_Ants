@@ -1,5 +1,6 @@
-// Each zone's ambient light, and the zone a point is in --
-// docs/specs/UTA-0156-zone-ambient-light.md SS 4.3.
+// Each zone's ambient light and fog flag --
+// docs/specs/UTA-0156-zone-ambient-light.md SS 4.3 and
+// docs/specs/UTA-0015-volumetric-fog.md SS 4.2.
 
 #include "ubake/Zones.h"
 
@@ -8,6 +9,7 @@
 
 #include <algorithm>
 #include <string_view>
+#include <variant>
 
 namespace uta::ubake {
 namespace {
@@ -17,19 +19,29 @@ static_assert(ubundle::ZONE_LIMIT == umap::ZONE_CEILING);
 
 constexpr std::string_view LEVEL_INFO = "engine.levelinfo";
 
+const ubundle::PropertyRecord* recordOf(std::string_view name, ubundle::ValueKind kind,
+                                        const ubundle::ActorPlacement& actor, const ubundle::ActorClass& actorClass) {
+    return detail::resolvedRecord(name, actor.properties, actorClass.defaults,
+                                  [kind](const ubundle::PropertyRecord& candidate) { return candidate.kind == kind; });
+}
+
 std::uint8_t byteOf(std::string_view name, const ubundle::ActorPlacement& actor,
                     const ubundle::ActorClass& actorClass) {
-    const ubundle::PropertyRecord* record = detail::resolvedRecord(
-        name, actor.properties, actorClass.defaults,
-        [](const ubundle::PropertyRecord& candidate) { return candidate.kind == ubundle::ValueKind::Byte; });
+    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Byte, actor, actorClass);
     return record == nullptr ? 0 : std::get<std::uint8_t>(record->value);
 }
 
-ubundle::ZoneAmbient ambientOf(const ubundle::Placements& placements, const ubundle::ActorPlacement* actor) {
+std::uint8_t flagOf(std::string_view name, const ubundle::ActorPlacement& actor,
+                    const ubundle::ActorClass& actorClass) {
+    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Bool, actor, actorClass);
+    return record != nullptr && std::get<bool>(record->value) ? 1 : 0;
+}
+
+ubundle::Zone zoneOf(const ubundle::Placements& placements, const ubundle::ActorPlacement* actor) {
     if (actor == nullptr) return {};
     const ubundle::ActorClass& actorClass = placements.classes[actor->classIndex];
     return {byteOf("ambientbrightness", *actor, actorClass), byteOf("ambienthue", *actor, actorClass),
-            byteOf("ambientsaturation", *actor, actorClass)};
+            byteOf("ambientsaturation", *actor, actorClass), flagOf("bfogzone", *actor, actorClass)};
 }
 
 /// The placement of export `exportIndex`; placements are ascending by it.
@@ -54,26 +66,19 @@ const ubundle::ActorPlacement* levelInfoOf(const ubundle::Placements& placements
 
 } // namespace
 
-std::vector<ubundle::ZoneAmbient> buildZones(const upkg::Model& model, const ubundle::Placements& placements) {
+std::vector<ubundle::Zone> buildZones(const upkg::Model& model, const ubundle::Placements& placements) {
     // ULevel::GetZoneActor: a zone's own actor, else the LevelInfo.
-    const ubundle::ZoneAmbient level = ambientOf(placements, levelInfoOf(placements));
-    std::vector<ubundle::ZoneAmbient> zones;
+    const ubundle::Zone level = zoneOf(placements, levelInfoOf(placements));
+    std::vector<ubundle::Zone> zones;
     zones.reserve(std::max<std::size_t>(model.zones.size(), 1));
     for (const upkg::ZoneProperties& zone : model.zones) {
         const ubundle::ActorPlacement* actor = zone.zoneActor.kind() == upkg::ObjectReferenceKind::Export
                                                    ? placementOf(placements, zone.zoneActor.index())
                                                    : nullptr;
-        zones.push_back(actor != nullptr ? ambientOf(placements, actor) : level);
+        zones.push_back(actor != nullptr ? zoneOf(placements, actor) : level);
     }
     if (zones.empty()) zones.push_back(level);
     return zones;
-}
-
-std::uint8_t zoneAt(const umap::RoomMap& rooms, const std::array<float, 3>& location, std::size_t zoneCount) {
-    const std::uint32_t room = umap::roomAt(rooms, umap::Point3{location[0], location[1], location[2]});
-    if (room == umap::NO_ROOM || room >= rooms.rooms.size()) return 0;
-    const std::uint32_t zone = rooms.rooms[room].zoneIndex;
-    return zone < zoneCount ? static_cast<std::uint8_t>(zone) : 0;
 }
 
 } // namespace uta::ubake

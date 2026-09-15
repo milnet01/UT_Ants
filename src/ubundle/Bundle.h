@@ -51,7 +51,8 @@ namespace uta::ubundle {
 /// 9 since UTA-0040 SS 4.1 gave each MATS record a parallax depth byte.
 /// 10 since UTA-0162 SS 4.1 gave each LITE record its strip fields.
 /// 11 since UTA-0156 SS 4.1 added ZONE, and SS 4.2 gave each vertex its zone.
-inline constexpr std::uint32_t FORMAT_VERSION = 11;
+/// 12 since UTA-0015 SS 4.1 gave each ZONE entry its fog flag.
+inline constexpr std::uint32_t FORMAT_VERSION = 12;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -366,13 +367,21 @@ struct LightProbes {
 /// a level's zones -- UTA-0156 SS 4.1.
 inline constexpr std::size_t ZONE_LIMIT = 64;
 
-/// One zone's ambient light, as its ZoneInfo, or else the level's LevelInfo,
-/// sets it -- UTA-0156 SS 4.1. UT99's bytes; the renderer converts them.
-struct ZoneAmbient {
+/// One zone's values, as its ZoneInfo, or else the level's LevelInfo, sets
+/// them -- UTA-0156 SS 4.1 and UTA-0015 SS 4.1. UT99's bytes; the renderer
+/// converts them.
+struct Zone {
     std::uint8_t brightness = 0;
     std::uint8_t hue = 0;
     std::uint8_t saturation = 0;
+    std::uint8_t fog = 0; ///< 1 where bFogZone is set; never above 1
 };
+
+/// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds
+/// none or the zone is not below `zoneCount` -- UTA-0156 SS 4.3's mover rule,
+/// here so the renderer can find the camera's zone too (UTA-0015 SS 4.1).
+[[nodiscard]] std::uint8_t zoneAt(const umap::RoomMap& rooms, const std::array<float, 3>& location,
+                                  std::size_t zoneCount);
 
 /// A bundle's contents.
 ///
@@ -400,7 +409,7 @@ struct Bundle {
     /// UTA-0112 SS 4.2.
     std::optional<LightProbes> lightProbes;
     /// Index i is the source Model's zone i -- UTA-0156 SS 4.1.
-    std::optional<std::vector<ZoneAmbient>> zones;
+    std::optional<std::vector<Zone>> zones;
 };
 
 /// Decode a whole bundle.

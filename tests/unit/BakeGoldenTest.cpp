@@ -47,9 +47,11 @@ namespace {
 // fixture holds no cylinder light.
 // 14: UTA-0156 wrote ZONE and gave each vertex its zone, and bumped the format
 // to 11, so the digest moved.
-constexpr std::uint32_t RECORDED_UNDER = 14;
+// 15: UTA-0015 gave each ZONE entry its fog flag and bumped the format to 12, so
+// the digest moved.
+constexpr std::uint32_t RECORDED_UNDER = 15;
 constexpr std::string_view GOLDEN =
-    "0768fce27c5bc068314fa78d2de7bc99ece913614893c5469fb759a50068a31b";
+    "659a421129c71a140590ae4c99594a40e5dfea050fb2f1fe1f813cd027f2afde";
 
 } // namespace
 

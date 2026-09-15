@@ -147,7 +147,8 @@ point `x`, with `v` the unit direction from `frame.eye` to `x`:
   cluster containing `x` that has shadow faces, or is the flashlight:
   `lightThrough(light, x) × light.flicker × shadowOf(light, x) ×
   phase(dot(v, u)) × HAZE_SCATTER × hazeScale`, where `u` is the unit
-  direction from `litFrom(light, x)` to `x`.
+  direction from `x` to `litFrom(light, x)`, so looking into a light is
+  forward scattering.
 - *Volumetric lights.* For each index in `VOLUME_LIGHTS`, with
   `f = lightFalloff(distance(litFrom(light, x), x), lightRadius(light.volumeRadius))`:
   in-scattering `lightColour(hue, saturation) × brightness / 255 ×
@@ -232,11 +233,16 @@ for `VOLUME_LIGHT_CAPACITY`.
 **Volumetric lights, chosen on the CPU**, in a new `src/urender/Fog.{h,cpp}`:
 
 ```cpp
+struct VolumeLightChoice {
+    std::vector<std::uint32_t> indices; ///< into `lights`
+    std::uint32_t dropped = 0;          ///< qualifying lights past the capacity
+};
+
 /// SS 4.4: the drawn lights that glow this frame, nearest `eye` first, at most
 /// VOLUME_LIGHT_CAPACITY. None unless `zones[cameraZone].fog`; then each
 /// light whose volumeRadius is non-zero and whose zone is a fog zone. A zone
 /// index not below zones.size() reads as zone 0.
-[[nodiscard]] std::vector<std::uint32_t> volumeLights(std::span<const gpu::Light> lights,
+[[nodiscard]] VolumeLightChoice volumeLights(std::span<const gpu::Light> lights,
                                                       std::span<const std::uint8_t> lightZones,
                                                       std::uint8_t cameraZone,
                                                       std::span<const ubundle::Zone> zones,
@@ -246,7 +252,8 @@ for `VOLUME_LIGHT_CAPACITY`.
 `upload` caches each drawn light's zone with `ubundle::zoneAt` at its
 `location`; `draw` finds the camera's the same way. With no `ROOM`, both are
 `0`. With no `ZONE`, `zones` is one zero entry. Lights dropped past the
-capacity are counted in `FrameStats::droppedVolumeLights`.
+capacity are `dropped`, which `draw` reports as
+`FrameStats::droppedVolumeLights`.
 
 ### 4.5 The flashlight — `urender` and `ut-ants`
 
@@ -354,7 +361,7 @@ repeat. `Cli.cpp`'s help text and `README.md` name the key.
   *Breaks when:* a field or binding moves in one file only.
 
 - **INV-9** — `minimumTier(Feature::VolumetricFog)` is `Tier::Medium`.
-  *Test:* `tests/device/RenderTiersTest.cpp`, extended.
+  *Test:* `tests/unit/RenderTiersTest.cpp`, extended.
   *Breaks when:* the row is missing or names another tier.
 
 - **INV-10** — the golden bake is re-recorded under `BAKER_REVISION` `15`.
@@ -398,7 +405,7 @@ The `unit` label on the unit tests, `device` on the device tests.
 - INV-6 — `tests/device/RenderFogTest.cpp`, new.
 - INV-7 — `tests/device/RenderFogTest.cpp`, new.
 - INV-8 — `src/urender/ShaderTypes.h`'s `static_assert`s.
-- INV-9 — `tests/device/RenderTiersTest.cpp`, extended.
+- INV-9 — `tests/unit/RenderTiersTest.cpp`, extended.
 - INV-10 — `tests/unit/BakeGoldenTest.cpp`, re-recorded.
 
 Each is seen to fail against the code before this item.
@@ -460,7 +467,7 @@ Each is seen to fail against the code before this item.
 | INV-6 | `tests/device/RenderFogTest.cpp` |
 | INV-7 | `tests/device/RenderFogTest.cpp` |
 | INV-8 | `src/urender/ShaderTypes.h`'s `static_assert`s |
-| INV-9 | `tests/device/RenderTiersTest.cpp` |
+| INV-9 | `tests/unit/RenderTiersTest.cpp` |
 | INV-10 | `tests/unit/BakeGoldenTest.cpp` |
 | The `F` key toggles the flashlight | **nothing** — `main.cpp` is run by hand (UTA-0016) |
 | How the fog looks against the original | **nothing** — § 7's measurement is run by hand |

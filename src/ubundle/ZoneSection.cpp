@@ -1,29 +1,33 @@
-// The ZONE section: each zone's ambient light, and the rule tying every drawn
-// vertex's zone to it -- docs/specs/UTA-0156-zone-ambient-light.md SS 4.1,
-// SS 4.2, INV-1 and INV-2.
+// The ZONE section: each zone's ambient light and fog flag, the rule tying
+// every drawn vertex's zone to it, and the zone a point is in --
+// docs/specs/UTA-0156-zone-ambient-light.md SS 4.1, SS 4.2, INV-1 and INV-2,
+// and docs/specs/UTA-0015-volumetric-fog.md SS 4.1 and INV-1.
 
 #include "Sections.h"
 
 #include <string>
 
-namespace uta::ubundle::detail {
+namespace uta::ubundle {
+namespace detail {
 namespace {
 
-/// SS 4.1: three u8, fixed.
-constexpr std::uint64_t ZONE_ENTRY = 3;
+/// UTA-0156 SS 4.1's three u8, then UTA-0015's fog flag.
+constexpr std::uint64_t ZONE_ENTRY = 4;
 
-[[nodiscard]] Result<ZoneAmbient> readZone(Cursor& cursor) {
-    ZoneAmbient zone;
+[[nodiscard]] Result<Zone> readZone(Cursor& cursor) {
+    Zone zone;
     UTA_TRY(zone.brightness, cursor.readU8());
     UTA_TRY(zone.hue, cursor.readU8());
     UTA_TRY(zone.saturation, cursor.readU8());
+    UTA_TRY(zone.fog, cursor.readU8());
     return zone;
 }
 
-void putZone(Sink& sink, const ZoneAmbient& zone) {
+void putZone(Sink& sink, const Zone& zone) {
     sink.putU8(zone.brightness);
     sink.putU8(zone.hue);
     sink.putU8(zone.saturation);
+    sink.putU8(zone.fog);
 }
 
 /// Every vertex of `geometry` names a zone below `bound`.
@@ -41,18 +45,22 @@ void putZone(Sink& sink, const ZoneAmbient& zone) {
 
 } // namespace
 
-Result<std::vector<ZoneAmbient>> readZones(Cursor& cursor) {
-    return readVector<ZoneAmbient>(cursor, ZONE_ENTRY, "zones", readZone);
+Result<std::vector<Zone>> readZones(Cursor& cursor) {
+    return readVector<Zone>(cursor, ZONE_ENTRY, "zones", readZone);
 }
 
-Result<void> validateZones(const std::vector<ZoneAmbient>& zones, ErrorCode code) {
+Result<void> validateZones(const std::vector<Zone>& zones, ErrorCode code) {
     if (zones.empty() || zones.size() > ZONE_LIMIT)
         return fail(code, "ZONE: " + std::to_string(zones.size()) + " entries, where 1 to "
                               + std::to_string(ZONE_LIMIT) + " are allowed");
+    for (std::size_t i = 0; i < zones.size(); ++i)
+        if (zones[i].fog > 1)
+            return fail(code, "ZONE: entry " + std::to_string(i) + " has a fog byte of "
+                                  + std::to_string(zones[i].fog) + ", where only 0 and 1 are allowed");
     return {};
 }
 
-std::vector<std::byte> encodeZones(const std::vector<ZoneAmbient>& zones) {
+std::vector<std::byte> encodeZones(const std::vector<Zone>& zones) {
     Sink sink;
     sink.putVector(zones, putZone);
     return std::move(sink).take();
@@ -71,4 +79,13 @@ Result<void> validateVertexZones(const Bundle& bundle, ErrorCode code) {
     return {};
 }
 
-} // namespace uta::ubundle::detail
+} // namespace detail
+
+std::uint8_t zoneAt(const umap::RoomMap& rooms, const std::array<float, 3>& location, std::size_t zoneCount) {
+    const std::uint32_t room = umap::roomAt(rooms, umap::Point3{location[0], location[1], location[2]});
+    if (room == umap::NO_ROOM || room >= rooms.rooms.size()) return 0;
+    const std::uint32_t zone = rooms.rooms[room].zoneIndex;
+    return zone < zoneCount ? static_cast<std::uint8_t>(zone) : 0;
+}
+
+} // namespace uta::ubundle

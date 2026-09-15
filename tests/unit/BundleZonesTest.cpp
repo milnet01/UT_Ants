@@ -1,7 +1,8 @@
-// UTA-0156's container cases: the ZONE section.
+// UTA-0156's container cases: the ZONE section, with UTA-0015's fog flag.
 //
-// docs/specs/UTA-0156-zone-ambient-light.md SS 4.1, INV-1. Which zone a vertex
-// may name is INV-2's, in BundleGeometryTest.cpp and BundleMoversTest.cpp.
+// docs/specs/UTA-0156-zone-ambient-light.md SS 4.1, INV-1, and
+// docs/specs/UTA-0015-volumetric-fog.md SS 4.1, INV-1. Which zone a vertex may
+// name is UTA-0156 INV-2's, in BundleGeometryTest.cpp and BundleMoversTest.cpp.
 //
 // THE GOLDEN BYTES ARE AUTHORED FROM SS 4.1, never produced by `write`, for
 // BundleTextureTest.cpp's reason: a transposition present in both the reader
@@ -29,19 +30,20 @@ using uta::ubundle::LightProbes;
 using uta::ubundle::Origin;
 using uta::ubundle::read;
 using uta::ubundle::write;
-using uta::ubundle::ZoneAmbient;
+using uta::ubundle::Zone;
 
 namespace {
 
 /// A ZONE payload in SS 4.1's order: the count, then each entry's brightness,
-/// hue and saturation.
-Bytes zonePayload(const std::vector<ZoneAmbient>& zones) {
+/// hue, saturation and fog flag.
+Bytes zonePayload(const std::vector<Zone>& zones) {
     Bytes out;
     out.u32(static_cast<std::uint32_t>(zones.size()));
-    for (const ZoneAmbient& zone : zones) {
+    for (const Zone& zone : zones) {
         out.u8(zone.brightness);
         out.u8(zone.hue);
         out.u8(zone.saturation);
+        out.u8(zone.fog);
     }
     return out;
 }
@@ -58,7 +60,7 @@ Bytes emptyLprb() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(11); // formatVersion -- 11 since UTA-0156 SS 4.1
+    out.u32(12); // formatVersion -- 12 since UTA-0015 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -79,24 +81,26 @@ std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, By
     return out.data();
 }
 
-/// Three entries, every byte distinct, so a transposition shows.
-std::vector<ZoneAmbient> golden() {
-    return {ZoneAmbient{90, 17, 250}, ZoneAmbient{40, 3, 200}, ZoneAmbient{7, 131, 0}};
+/// Three entries, every byte distinct but the flags, which alternate, so a
+/// transposition shows.
+std::vector<Zone> golden() {
+    return {Zone{90, 17, 250, 1}, Zone{40, 3, 200, 0}, Zone{7, 131, 0, 1}};
 }
 
-void sameZones(const std::vector<ZoneAmbient>& actual, const std::vector<ZoneAmbient>& expected) {
+void sameZones(const std::vector<Zone>& actual, const std::vector<Zone>& expected) {
     REQUIRE(actual.size() == expected.size());
     for (std::size_t i = 0; i < expected.size(); ++i) {
         CAPTURE(i);
         CHECK(int(actual[i].brightness) == int(expected[i].brightness));
         CHECK(int(actual[i].hue) == int(expected[i].hue));
         CHECK(int(actual[i].saturation) == int(expected[i].saturation));
+        CHECK(int(actual[i].fog) == int(expected[i].fog));
     }
 }
 
 /// `read` refuses a file holding these entries with MalformedData, and `write`
 /// refuses a bundle holding them with InvalidArgument, both naming `says`.
-void refusedBothWays(const std::vector<ZoneAmbient>& zones, std::string_view says) {
+void refusedBothWays(const std::vector<Zone>& zones, std::string_view says) {
     const auto result = read(fileWith({{"ZONE", zonePayload(zones)}}));
     REQUIRE_FALSE(result.has_value());
     CHECK(result.error().code() == ErrorCode::MalformedData);
@@ -115,7 +119,7 @@ void refusedBothWays(const std::vector<ZoneAmbient>& zones, std::string_view say
 TEST_CASE("INV-1: the ZONE golden bytes decode to the entries they encode", "[ubundle][zone]") {
     const auto result = read(fileWith({{"ZONE", zonePayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 11);
+    CHECK(result->header.formatVersion == 12);
     REQUIRE(result->zones.has_value());
     sameZones(*result->zones, golden());
 }
@@ -135,13 +139,17 @@ TEST_CASE("INV-1: a ZONE of no entries is refused", "[ubundle][zone]") {
 }
 
 TEST_CASE("INV-1: a ZONE of 65 entries is refused and one of 64 is not", "[ubundle][zone]") {
-    refusedBothWays(std::vector<ZoneAmbient>(65), "ZONE: 65 entries");
+    refusedBothWays(std::vector<Zone>(65), "ZONE: 65 entries");
 
     Bundle bundle;
-    bundle.zones = std::vector<ZoneAmbient>(64);
+    bundle.zones = std::vector<Zone>(64);
     const auto written = write(bundle);
     REQUIRE(written.has_value());
     const auto result = read(*written);
     REQUIRE(result.has_value());
     CHECK(result->zones->size() == 64);
+}
+
+TEST_CASE("UTA-0015 INV-1: a fog byte of 2 is refused", "[ubundle][zone]") {
+    refusedBothWays({Zone{0, 0, 0, 1}, Zone{0, 0, 0, 2}}, "entry 1 has a fog byte of 2");
 }

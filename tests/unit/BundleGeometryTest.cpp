@@ -78,7 +78,7 @@ Bytes geomPayload(const Geometry& geometry) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(11); // formatVersion -- 11 since UTA-0156 SS 4.1
+    out.u32(12); // formatVersion -- 12 since UTA-0015 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -172,7 +172,7 @@ TEST_CASE("the GEOM golden bytes decode to the geometry they encode", "[ubundle]
     // INV-1, the reader's half.
     const auto result = read(fileWith(geomPayload(golden())));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 11);
+    CHECK(result->header.formatVersion == 12);
     REQUIRE(result->geometry.has_value());
     sameBits(*result->geometry, golden());
 }
@@ -310,7 +310,7 @@ TEST_CASE("a GEOM count the section cannot hold is refused before an element is 
 namespace {
 
 /// A whole .utab carrying GEOM holding `geom`, then ZONE holding `count` zero
-/// entries -- UTA-0156 SS 4.1.
+/// entries -- UTA-0156 SS 4.1, with UTA-0015's fog byte.
 std::vector<std::byte> fileWithZones(const Bytes& geom, std::uint32_t count) {
     Bytes zone;
     zone.u32(count);
@@ -318,10 +318,11 @@ std::vector<std::byte> fileWithZones(const Bytes& geom, std::uint32_t count) {
         zone.u8(0);
         zone.u8(0);
         zone.u8(0);
+        zone.u8(0); // fog
     }
     Bytes out;
     out.id("UTAB");
-    out.u32(11); // formatVersion -- 11 since UTA-0156 SS 4.1
+    out.u32(12); // formatVersion -- 12 since UTA-0015 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -356,7 +357,7 @@ TEST_CASE("UTA-0156 INV-2: a vertex's zone round-trips in GEOM with ZONE present
     Bundle bundle;
     bundle.header.origin = Origin::Authored;
     bundle.geometry = geometry;
-    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    bundle.zones = std::vector<uta::ubundle::Zone>(3);
     const auto written = write(bundle);
     REQUIRE(written.has_value());
     CHECK(*written == fileWithZones(geomPayload(geometry), 3));
@@ -372,7 +373,7 @@ TEST_CASE("UTA-0156 INV-2: a GEOM vertex naming the ZONE count is refused", "[ub
 
     Bundle bundle;
     bundle.geometry = geometry;
-    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    bundle.zones = std::vector<uta::ubundle::Zone>(3);
     const auto written = write(bundle);
     REQUIRE_FALSE(written.has_value());
     CHECK(written.error().code() == ErrorCode::InvalidArgument);

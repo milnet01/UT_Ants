@@ -111,7 +111,7 @@ TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an u
         uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
         addSolidMaterial(bundle, "white", WHITE);
         // Hue 0 at saturation 255 is white (UTA-0112 SS 4.3).
-        bundle.zones = std::vector<uta::ubundle::ZoneAmbient>{{0, 0, 0}, {brightness, 0, 255}};
+        bundle.zones = std::vector<uta::ubundle::Zone>{{0, 0, 0}, {brightness, 0, 255}};
         return bundle;
     };
 

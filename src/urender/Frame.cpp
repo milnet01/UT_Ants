@@ -142,7 +142,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     // UTA-0156 SS 4.4: a bundle differing only in its zones must re-upload them.
     if (bundle.zones) {
         shape.zones = bundle.zones->size();
-        for (const ubundle::ZoneAmbient& zone : *bundle.zones) {
+        for (const ubundle::Zone& zone : *bundle.zones) {
             fnv.addValue(zone.brightness);
             fnv.addValue(zone.hue);
             fnv.addValue(zone.saturation);
@@ -450,7 +450,7 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     // so the binding is never empty and zone 0 always reads.
     std::vector<gpu::Zone> zoneRecords;
     if (bundle.zones)
-        for (const ubundle::ZoneAmbient& zone : *bundle.zones)
+        for (const ubundle::Zone& zone : *bundle.zones)
             zoneRecords.push_back(gpu::Zone{zone.brightness, zone.hue, zone.saturation, 0});
     if (zoneRecords.empty()) zoneRecords.push_back(gpu::Zone{});
     UTA_TRY(zones, Buffer::upload(*gpu, std::as_bytes(std::span(zoneRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));

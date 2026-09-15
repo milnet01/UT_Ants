@@ -88,7 +88,7 @@ Bytes emptyLite() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(11); // formatVersion -- 11 since UTA-0156 SS 4.1
+    out.u32(12); // formatVersion -- 12 since UTA-0015 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -201,7 +201,7 @@ void refusedBothWays(const std::vector<MoverShape>& shapes, std::string_view say
 TEST_CASE("the MOVR golden bytes decode to the shapes they encode", "[ubundle][movr]") {
     const auto result = read(fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 11);
+    CHECK(result->header.formatVersion == 12);
     REQUIRE(result->lights.has_value());
     REQUIRE(result->movers.has_value());
     sameShapes(*result->movers, golden());
@@ -252,7 +252,8 @@ TEST_CASE("a shape whose geometry has an index past its vertices is refused", "[
 
 namespace {
 
-/// A ZONE payload of `count` zero entries -- UTA-0156 SS 4.1.
+/// A ZONE payload of `count` zero entries -- UTA-0156 SS 4.1, with UTA-0015's
+/// fog byte.
 Bytes zonesOf(std::uint32_t count) {
     Bytes out;
     out.u32(count);
@@ -260,6 +261,7 @@ Bytes zonesOf(std::uint32_t count) {
         out.u8(0);
         out.u8(0);
         out.u8(0);
+        out.u8(0); // fog
     }
     return out;
 }
@@ -278,7 +280,7 @@ TEST_CASE("UTA-0156 INV-2: a shape vertex's zone round-trips with ZONE present",
     Bundle bundle;
     bundle.header.origin = Origin::Authored;
     bundle.movers = shapes;
-    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    bundle.zones = std::vector<uta::ubundle::Zone>(3);
     const auto written = write(bundle);
     REQUIRE(written.has_value());
     CHECK(*written == fileWith({{"MOVR", movrPayload(shapes)}, {"ZONE", zonesOf(3)}}));
@@ -294,7 +296,7 @@ TEST_CASE("UTA-0156 INV-2: a shape vertex naming the ZONE count is refused", "[u
 
     Bundle bundle;
     bundle.movers = shapes;
-    bundle.zones = std::vector<uta::ubundle::ZoneAmbient>(3);
+    bundle.zones = std::vector<uta::ubundle::Zone>(3);
     const auto written = write(bundle);
     REQUIRE_FALSE(written.has_value());
     CHECK(written.error().code() == ErrorCode::InvalidArgument);

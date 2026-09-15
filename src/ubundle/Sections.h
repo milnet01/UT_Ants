@@ -124,9 +124,9 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 // ZONE -- ZoneSection.cpp, UTA-0156 SS 4.1 and SS 4.2. The count is the
 // validator's. Which zone a vertex names is a rule across GEOM, MOVR and ZONE,
 // so validateVertexZones runs once every section is decoded.
-[[nodiscard]] Result<std::vector<ZoneAmbient>> readZones(Cursor& cursor);
-[[nodiscard]] Result<void> validateZones(const std::vector<ZoneAmbient>& zones, ErrorCode code);
-[[nodiscard]] std::vector<std::byte> encodeZones(const std::vector<ZoneAmbient>& zones);
+[[nodiscard]] Result<std::vector<Zone>> readZones(Cursor& cursor);
+[[nodiscard]] Result<void> validateZones(const std::vector<Zone>& zones, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeZones(const std::vector<Zone>& zones);
 [[nodiscard]] Result<void> validateVertexZones(const Bundle& bundle, ErrorCode code);
 
 } // namespace uta::ubundle::detail

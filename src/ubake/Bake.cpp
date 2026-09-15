@@ -571,8 +571,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
     // probes gather them, so the probes and LITE see the same strips.
     markStrips(actors.lights);
-    // UTA-0156 SS 4.3: each zone's ambient, from the actors step 5 placed.
-    std::vector<ubundle::ZoneAmbient> zones = buildZones(model, actors.placements);
+    // UTA-0156 SS 4.3: each zone's ambient and fog flag, from the actors step 5 placed.
+    std::vector<ubundle::Zone> zones = buildZones(model, actors.placements);
 
     // 6. The movers, and each one's Model -- UTA-0119 SS 4.6. A Model that
     // does not read keeps its refusal's own code, naming the actor (INV-9).
@@ -610,7 +610,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         UTA_TRY(ubundle::MoverShape shape,
                 naming(buildMover(movers[i], moverModels[i], actors.placements, lookup), mapName));
         // UTA-0156 SS 4.3: a mover takes the zone at its placed location.
-        const std::uint8_t zone = zoneAt(rooms.map, shape.location, zones.size());
+        const std::uint8_t zone = ubundle::zoneAt(rooms.map, shape.location, zones.size());
         for (ubundle::GeometryVertex& vertex : shape.geometry.vertices) vertex.zone = zone;
         shapes.push_back(std::move(shape));
     }
