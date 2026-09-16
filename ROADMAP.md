@@ -9614,7 +9614,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-15.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0166] **urender: a light's fog shaft switches off when it loses its shadow tile.**
+- ✅ [UTA-0166] **urender: a light's fog shaft switches off when it loses its shadow tile.**
   Held by ut-ants-08 in the main checkout.
 
   Found by the user flying DM-Deck16][ (2026-09-16): distant haze and light
@@ -9661,6 +9661,32 @@ model, no weapon and no opponent until 0.2.0.
   with haze on. The earlier 45.8 figure is not the comparison: sweepamb165.sh
   zeroes the fog, so that row is a no-haze score. UTA-0015's SS 7 sweeps are
   being re-run on top of this fix.
+  Resolved (2026-09-16) in b445748, green on the matrix -- GCC 14, Clang 19
+  and MSVC, run 35077759855. shadowTileSize reads the light's reach at
+  SHADOW_UNITS_PER_TEXEL and ShadowPlanner::plan takes no camera, so a plan
+  depends on the lights alone and a static level's tiles are drawn once.
+
+  The fix invalidated every fog constant, each having been fitted while about
+  a fourteenth of the lights scattered, so UTA-0015 SS 7's sweeps were re-run
+  on top of it at EXPOSURE 2.2: HAZE_SCATTER 6e-3 to 4e-4, VOLUME_GLOW_SCALE
+  4e-3 to 5e-3, VOLUME_FOG_SCALE 6.4e-2 to 1.28e-1. Every curve is recorded
+  beside its constant in shaders/fog.glsl and in SS 7. DM-Deck16][ scores
+  block RMS 40.5 against the original where it scored 46.7 as shipped and
+  45.8 with no haze at all; DM-Fetid goes 42.0 to 38.4. Haze now improves the
+  match, where before UTA-0166 every value made it worse.
+
+  The control that carries the amendment: DM-Deck16][ with no haze scores
+  45.8 either side of the shadow change, so the coarser tiles cost the
+  picture nothing and only fog moved. The fog thickness is now a measured
+  minimum rather than the edge of a sweep -- the earlier fit stopped at
+  6.4e-2 while still gaining, and swept wider it turns at 1.28e-1.
+
+  Left open deliberately, unmeasured: volumeLights keeps the nearest
+  VOLUME_LIGHT_CAPACITY by distance from the eye, so it is camera-dependent
+  in the way this item removed from shadows and could pop on a map carrying
+  more than 64 volumetric lights in fog zones. No such map is known -- of the
+  three fitted, DM-Deck16][ has no fog zones at all and DM-Fetid has one
+  volumetric light -- so nothing was changed on a guess.
   **Layman:** Beams of light and haze flicker on and off as you turn the camera; make them stay put.
   Kind: fix.
   Source: user-request-2026-09-16.

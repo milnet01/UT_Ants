@@ -10,7 +10,13 @@ even with volumetric lighting off; its captures and `compare.py` are at
 `ut-ants-uta0156`). `UTA-0015` (volumetric fog, light shafts and the
 flashlight) shipped 2026-09-15, green on the matrix, spec
 `docs/specs/UTA-0015-volumetric-fog.md`; its look was set by measurement
-against the original game. `UTA-0157` (light
+against the original game. `UTA-0166` shipped 2026-09-16 on the matrix:
+a shadow tile is sized from its light's reach rather than its size on
+screen, so the plan no longer changes with the camera and every light
+keeps a tile. That amended `UTA-0014` SS 4.8 and `UTA-0051`'s
+shadow-planning paragraph, and forced `UTA-0015` SS 7's sweeps to be
+re-run, since every fog constant had been fitted while only a fraction
+of the lights scattered. `UTA-0157` (light
 fixtures) is parked for the user's review over real matches: its cheap
 tricks have both landed — parallax (`UTA-0040`) and `UTA-0053`'s emissive
 bloom, shipped 2026-09-15 green on the matrix — and no measurement can say
