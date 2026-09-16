@@ -6,7 +6,8 @@
 // that links both holds its copy to this one (SS 4.9).
 //
 // WHERE THE MODEL COMES FROM. The colour and intensity are UT99's own FGetHSV,
-// read from its 469 Engine.so (UTA-0165); the falloff and the two reshaping
+// read from its 469 Engine.so (UTA-0165); the point falloff and the level's
+// brightness are its Render.so's (UTA-0165, UTA-0156 SS 4.5); the two reshaping
 // effects are SurrealEngine's (UTA-0156); the cone is SS 4.3's choice. A change
 // to any of them re-bakes every map, which is what BAKER_REVISION records.
 //
@@ -45,10 +46,12 @@ struct Rgb {
 /// `AActor::WorldLightRadius`: 25 * (radius + 1).
 [[nodiscard]] double lightRadius(std::uint8_t radius) noexcept;
 
-/// UE1's falloff (UTA-0156): with v = distance / radius, min(1, (1 + 2v^3 -
-/// 3v^2) / v) below the radius, so full strength out to half of it; 1 at the
-/// light; 0 at the radius and beyond. SurrealEngine's LightEffect.cpp carries
-/// the same expression.
+/// UE1's falloff (UTA-0165): with v = distance / radius, 1 + 2v^3 - 3v^2 below
+/// the radius; 1 at the light; 0 at the radius and beyond. Render.so's
+/// spatial_None writes a texel as shadow x (h / r) x LightSqrt[v^2], where
+/// LightSqrt is (1 + 2v^3 - 3v^2) / v and h is the light's distance from the
+/// surface's plane. h / r over v is the incidence cosine, which lightAt applies
+/// itself, so the /v that SurrealEngine's expression keeps is not UT99's.
 [[nodiscard]] double falloff(double distance, double radius) noexcept;
 
 namespace detail {
@@ -129,8 +132,9 @@ inline constexpr double RADIANS_PER_UNIT = std::numbers::pi / 32768.0;
 [[nodiscard]] Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept;
 
 /// The light `light` puts on a surface at `x` with unit normal `n`, with no
-/// shadow test: colour, times lightIntensity, times the falloff, times the
-/// incidence, times the spot factor -- SS 4.3, all measured from litFrom.
+/// shadow test: colour, times lightIntensity, times the level's brightness
+/// (UTA-0156 SS 4.5), times the falloff, times the incidence, times the spot
+/// factor -- SS 4.3, all measured from litFrom.
 /// LE_Cylinder and LE_NonIncidence replace the falloff and drop the other
 /// factors (UTA-0156). An absorbed strip light puts nothing (UTA-0162).
 [[nodiscard]] Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept;

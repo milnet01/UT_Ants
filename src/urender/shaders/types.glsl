@@ -80,6 +80,10 @@ struct Light {
     uint volumeBrightness; // UTA-0015: UT99's VolumeBrightness
     vec3 span; // UTA-0162: a strip leader's segment, from `location`; zero otherwise
     uint volumeFog;        // UTA-0015: UT99's VolumeFog
+    float levelBrightness; // UTA-0156 SS 4.5: LevelInfo.Brightness
+    uint pad0;             // std430 rounds the struct to its vec3's 16
+    uint pad1;
+    uint pad2;
 };
 
 struct ClusterBounds {

@@ -45,9 +45,12 @@ struct LightCase {
     std::array<float, 4> x;
     std::array<float, 4> n;
 };
-static_assert(sizeof(LightCase) == 112);
-static_assert(offsetof(LightCase, x) == 80);
-static_assert(offsetof(LightCase, n) == 96);
+static_assert(sizeof(LightCase) == 128);
+static_assert(offsetof(LightCase, x) == 96);
+static_assert(offsetof(LightCase, n) == 112);
+
+// UTA-0156 SS 4.5: DM-Deck16][ carries 0.8 and DM-Fetid 1.4; 1 is the default.
+constexpr std::array<float, 3> LEVEL_BRIGHTNESSES = {1.0f, 0.8f, 1.4f};
 
 constexpr double TOLERANCE = 1e-3; // SS 4.6
 
@@ -89,6 +92,7 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
             light.cone = cones[(variant / 3) % cones.size()];
             light.rotation = rotations[(variant / 5) % rotations.size()];
             light.location = {static_cast<float>(100 + 13 * variant), static_cast<float>(-250 + 7 * variant), 64.0f};
+            light.levelBrightness = LEVEL_BRIGHTNESSES[(variant / 7) % LEVEL_BRIGHTNESSES.size()];
 
             // A direction from the light toward the point, and a normal
             // facing it, across it, or away from it.
@@ -125,6 +129,7 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
             light.brightness = variant % 4 == 0 ? 255 : static_cast<std::uint8_t>(60 + variant);
             light.radius = static_cast<std::uint8_t>(variant % 2 == 0 ? 12 : 200);
             light.location = {static_cast<float>(-300 + 11 * variant), static_cast<float>(90 - 5 * variant), 48.0f};
+            light.levelBrightness = LEVEL_BRIGHTNESSES[(variant / 7) % LEVEL_BRIGHTNESSES.size()];
 
             const double radius = uta::ubake::lightRadius(light.radius);
             const double length = 0.8 * radius;
@@ -180,7 +185,7 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
 
         // As ints: Catch2 prints a uint8_t as a character, not a number.
         CAPTURE(i, int(light.effect), int(light.hue), int(light.saturation), int(light.brightness),
-                int(light.radius), int(light.cone));
+                int(light.radius), int(light.cone), light.levelBrightness);
         CAPTURE(expected.r, expected.g, expected.b, actual[0], actual[1], actual[2]);
         CHECK(std::abs(actual[0] - expected.r) <= TOLERANCE);
         CHECK(std::abs(actual[1] - expected.g) <= TOLERANCE);

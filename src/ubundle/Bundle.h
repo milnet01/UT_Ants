@@ -52,7 +52,8 @@ namespace uta::ubundle {
 /// 10 since UTA-0162 SS 4.1 gave each LITE record its strip fields.
 /// 11 since UTA-0156 SS 4.1 added ZONE, and SS 4.2 gave each vertex its zone.
 /// 12 since UTA-0015 SS 4.1 gave each ZONE entry its fog flag.
-inline constexpr std::uint32_t FORMAT_VERSION = 12;
+/// 13 since UTA-0156 SS 4.5 gave each LITE record its level brightness.
+inline constexpr std::uint32_t FORMAT_VERSION = 13;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -258,6 +259,9 @@ struct Placements {
 /// The strip fields are UTA-0162 SS 4.1's: a row of identical lights along one
 /// fixture is lit as one segment, carried by its lowest-numbered light. This
 /// library does not check that a leader's row exists; the baker guarantees it.
+///
+/// `levelBrightness` is UTA-0156 SS 4.5's: the level's LevelInfo.Brightness,
+/// which UT99 multiplies every light's colour by. Finite and not negative.
 inline constexpr std::uint8_t STRIP_NONE = 0;     ///< an ordinary point light
 inline constexpr std::uint8_t STRIP_LEADER = 1;   ///< carries its row's segment
 inline constexpr std::uint8_t STRIP_ABSORBED = 2; ///< lit by its row's leader
@@ -273,6 +277,7 @@ struct Light {
     std::uint8_t strip = STRIP_NONE;
     std::array<float, 3> stripFrom{}; ///< one end of the segment; zero unless a leader
     std::array<float, 3> stripTo{};   ///< the other end; zero unless a leader
+    float levelBrightness = 1;        ///< UTA-0156 SS 4.5: LevelInfo.Brightness
 };
 
 /// One mover's shape, in its pivot space -- UTA-0119 SS 4.2 and SS 4.5.

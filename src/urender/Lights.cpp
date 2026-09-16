@@ -81,6 +81,7 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
         record.volumeRadius = light.volumeRadius; // UTA-0015 SS 4.4
         record.volumeBrightness = light.volumeBrightness;
         record.volumeFog = light.volumeFog;
+        record.levelBrightness = light.levelBrightness; // UTA-0156 SS 4.5
         out.push_back(record);
     }
     return out;

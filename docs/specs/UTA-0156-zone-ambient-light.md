@@ -186,6 +186,42 @@ struct Zone {                   // std430, 16 bytes, offsets asserted
 
 The shadow pipeline does not read `zone`.
 
+### 4.5 The level's brightness — added by UTA-0165
+
+**Why.** UT99 multiplies every light's colour by the level's
+`LevelInfo.Brightness`. `FLightInfo::ComputeFromActor` in the 469 Linux
+`Render.so` scales the colour at `FLightInfo + 0x90` by the float at
+`Level + 0x5a0`; that this float is `Brightness` is read from its use, not from
+a property table. `Engine.u` defaults it to `1`. DM-Deck16][ sets `0.8` and
+DM-Fetid `1.4`, and ignoring it left DM-Fetid about half as bright as the
+original. The evidence is UTA-0165's roadmap body and
+`ut-ants-uta0156/fitgains165.py`.
+
+**The bundle.** A `LITE` record gains `levelBrightness` as `f32` after
+`stripTo`: **73 bytes, fixed**. `read` and `write` refuse a value that is NaN,
+infinite or below zero. `FORMAT_VERSION` becomes `13`.
+
+**The bake.** `levelBrightnessOf(placements)` in `src/ubake/Zones.cpp` finds
+the `LevelInfo` as `buildZones` does and takes its `brightness` float record,
+else its class's default, else `1`. A NaN or infinity becomes `1` and a negative
+value `0`, so a map never reaches `LITE`'s refusal. `bake` writes the result on
+every light before the probes are gathered, so the probes and `LITE` see the
+same light.
+
+**The light model.** `ubake::lightAt` and `light.glsl`'s `lightAt` multiply the
+intensity by `levelBrightness`, for every effect. The fog's in-scattering calls
+`lightAt`, so it scales too. Zone ambient does not: the engine computes it
+outside `ComputeFromActor`. The flashlight is ours rather than the level's and
+carries `1`.
+
+**The point falloff.** The same reading corrected UTA-0112 § 4.3's falloff to
+`1 + 2v³ − 3v²`, with no `/ v` and no cap. `spatial_None` writes
+`shadow × (h / R) × LightSqrt[v²]`, where `LightSqrt` is `(1 + 2v³ − 3v²) / v`
+and `h` is the light's distance from the surface's plane. `h / R` over `v` is
+the incidence cosine, which `lightAt` applies itself. `spatial_Spotlight` reads
+the same table, and the spotlight's shape is taken to match without being
+decoded.
+
 ## 5. Invariants
 
 - **INV-1** — `ZONE` round-trips entries with § 4.1's bytes, and refuses a
@@ -243,6 +279,32 @@ The shadow pipeline does not read `zone`.
   *Breaks when:* what the baker writes changes with no bump, or the bump lands
   without re-recording.
 
+- **INV-9** — § 4.5: a `LITE` record round-trips `levelBrightness` bit for bit,
+  and `read` and `write` refuse NaN, infinity and `-0.5`.
+  *Test:* `tests/unit/BundleActorsTest.cpp`, extended.
+  *Breaks when:* the field is left off either end; a bad value is accepted.
+
+- **INV-10** — § 4.5: `levelBrightnessOf` is the `LevelInfo`'s own record,
+  else its class's default, else `1`, and `1` with no `LevelInfo`. A record of
+  another kind is passed over. NaN and infinity give `1`, and `-2` gives `0`.
+  *Test:* `tests/unit/BakeZonesTest.cpp`, extended.
+  *Breaks when:* the record is not read; a bad value passes through.
+
+- **INV-11** — § 4.5: `lightAt` at `levelBrightness` `1.4` is `1.4` times its
+  value at `1`, for a point, a cylinder and a non-incidence light. `falloff` at
+  a quarter, a half and three quarters of the radius is `0.84375`, `0.5` and
+  `0.15625`. The shading pass matches `ubake::lightAt` at level brightness `1`,
+  `0.8` and `1.4`.
+  *Test:* `tests/unit/BakeLightModelTest.cpp`, extended;
+  `tests/device/RenderLightParityTest.cpp`, extended.
+  *Breaks when:* either copy drops the factor or keeps the `/ v`; the upload
+  does not copy the field.
+
+- **INV-12** — § 4.5: baking DM-Deck16][ from the reference install writes
+  `levelBrightness` `0.8` on every light.
+  *Test:* `tests/real/RealBakeTest.cpp`, extended; real-asset tier only.
+  *Breaks when:* `bake` does not write the value onto the lights.
+
 ## 6. Failure modes
 
 - **A node's front side is not its surface's side** on some map. Its surface
@@ -269,8 +331,15 @@ All carry the `unit` label but INV-6, which carries `device`.
 - INV-6 — `tests/device/RenderLightingTest.cpp`, extended.
 - INV-7 — `src/urender/ShaderTypes.h`'s `static_assert`s.
 - INV-8 — `tests/unit/BakeGoldenTest.cpp`, re-recorded.
+- INV-9 — `tests/unit/BundleActorsTest.cpp`, extended.
+- INV-10 — `tests/unit/BakeZonesTest.cpp`, extended.
+- INV-11 — `tests/unit/BakeLightModelTest.cpp` and
+  `tests/device/RenderLightParityTest.cpp`, extended.
+- INV-12 — `tests/real/RealBakeTest.cpp`, extended.
 
-Each extended test is seen to fail against the code before this item.
+Each extended test is seen to fail against the code before this item. For
+INV-9 to INV-12 that was done by breaking each part of § 4.5 alone and
+confirming its test failed.
 
 **Before the code: probe the front-side rule.** A scratch program beside
 `ut-ants-uta0156/ambient-census/` compares, for every drawn node of every map
@@ -336,6 +405,9 @@ this spec is amended first.
 - `docs/specs/UTA-0112-baked-light-probes.md` § Out of scope — the same.
 - `CLAUDE.md` § Where this project is — the bundle format version.
 - `CHANGELOG.md`.
+- § 4.5: `docs/specs/UTA-0110-lights-and-placements.md` § 4.4 and
+  `docs/specs/UTA-0162-strip-lights.md` § 4.1, the `LITE` record size;
+  `docs/specs/UTA-0112-baked-light-probes.md` § 4.3 and INV-3, the falloff.
 
 ## 12. Cold-eyes loop log
 
@@ -345,3 +417,5 @@ Rows live in `../reviews/UTA-0156-zone-ambient-light-loop-log.md`.
 
 `FORMAT_VERSION` becomes `11`. `ubundle::read` refuses any other version, so
 every map baked before this item must be baked again.
+
+§ 4.5 makes it `13`, with the same consequence.

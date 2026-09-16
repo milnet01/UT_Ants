@@ -80,7 +80,8 @@ struct Light {
 
 A `Light` on the wire is UTA-0110 § 4.4's 44 bytes, then `strip` as `u8`,
 `stripFrom` as three `f32` and `stripTo` as three `f32`: **69 bytes, fixed**.
-`LIGHT_SIZE` in `src/ubundle/LightSection.cpp` becomes `69`.
+`LIGHT_SIZE` in `src/ubundle/LightSection.cpp` becomes `69`. UTA-0156 § 4.5
+later appended the level's brightness, making it `73`.
 
 **Validation**, `MalformedData` on `read` and `InvalidArgument` on `write`,
 added to UTA-0110 § 4.4's:

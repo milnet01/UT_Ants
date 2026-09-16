@@ -109,6 +109,14 @@ TEST_CASE("every map takes a bake name and a stock map bakes the same twice",
         const auto result = uta::ubake::bake(*package, uta::ubake::detail::mapNameOf(stock),
                                              *install, jobs);
         if (!result.has_value()) FAIL("DM-Deck16][ was refused: " << result.error().message());
+        // UTA-0156 SS 4.5: DM-Deck16]['s LevelInfo sets Brightness 0.8, and the
+        // bake carries it on every light.
+        REQUIRE(result->bundle.lights.has_value());
+        REQUIRE_FALSE(result->bundle.lights->empty());
+        for (const uta::ubundle::Light& light : *result->bundle.lights) {
+            CAPTURE(light.exportIndex);
+            CHECK(light.levelBrightness == 0.8F);
+        }
         if (run == 0)
             WARN("DM-Deck16][ -- materials " << result->bundle.materials->size() << ", skipped "
                                             << result->skipped.size() << ", rooms "

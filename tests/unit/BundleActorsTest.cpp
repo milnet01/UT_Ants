@@ -25,6 +25,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -133,8 +134,8 @@ Bytes placPayload(const Placements& placements, std::optional<std::uint8_t> reso
     return out;
 }
 
-/// A LITE payload in SS 4.4's order, then UTA-0162 SS 4.1's strip fields: 69
-/// bytes a light. `coronaByte` replaces every light's corona byte, for the read
+/// A LITE payload in SS 4.4's order, then UTA-0162 SS 4.1's strip fields and
+/// UTA-0156 SS 4.5's level brightness: 73 bytes a light. `coronaByte` replaces every light's corona byte, for the read
 /// case no `bool` can author.
 Bytes litePayload(const std::vector<Light>& lights, std::optional<std::uint8_t> coronaByte = {}) {
     Bytes out;
@@ -155,6 +156,7 @@ Bytes litePayload(const std::vector<Light>& lights, std::optional<std::uint8_t> 
         out.u8(light.strip);
         for (const float part : light.stripFrom) out.f32(part);
         for (const float part : light.stripTo) out.f32(part);
+        out.f32(light.levelBrightness);
     }
     return out;
 }
@@ -172,7 +174,7 @@ Bytes emptyGeom() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(12); // formatVersion -- 12 since UTA-0015 SS 4.1
+    out.u32(13); // formatVersion -- 13 since UTA-0156 SS 4.5
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -258,6 +260,7 @@ std::vector<Light> goldenLights() {
     first.strip = uta::ubundle::STRIP_LEADER;
     first.stripFrom = {1.5F, -2.0F, SIGNALLING_NAN};
     first.stripTo = {300.25F, -0.0F, 16.0F};
+    first.levelBrightness = 1.25F; // UTA-0156 SS 4.5: not the default, and distinct
 
     Light second;
     second.exportIndex = 9;
@@ -265,6 +268,7 @@ std::vector<Light> goldenLights() {
     second.corona = true;
     second.lensFlare = true;
     second.strip = uta::ubundle::STRIP_ABSORBED;
+    second.levelBrightness = 0.0F; // the lowest a level may carry
 
     Light third;
     third.exportIndex = 11;
@@ -354,6 +358,7 @@ void sameLights(const std::vector<Light>& actual, const std::vector<Light>& expe
             CHECK(bitsOf(a.stripFrom[axis]) == bitsOf(e.stripFrom[axis]));
             CHECK(bitsOf(a.stripTo[axis]) == bitsOf(e.stripTo[axis]));
         }
+        CHECK(bitsOf(a.levelBrightness) == bitsOf(e.levelBrightness));
     }
 }
 
@@ -402,7 +407,7 @@ TEST_CASE("the PLAC and LITE golden bytes decode to what they encode", "[ubundle
                                        {"PLAC", placPayload(golden())},
                                        {"LITE", litePayload(goldenLights())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 12);
+    CHECK(result->header.formatVersion == 13);
     REQUIRE(result->geometry.has_value());
     REQUIRE(result->placements.has_value());
     REQUIRE(result->lights.has_value());
@@ -548,6 +553,26 @@ TEST_CASE("a point light carrying a strip end is refused", "[ubundle][lite]") {
     std::vector<Light> lights = goldenLights();
     lights[2].stripFrom = {-1.0F, 0.0F, 0.0F};
     lightsRefused(lights, "light 2 carries a strip end");
+}
+
+// UTA-0156 SS 4.5: a light's level brightness is finite and not negative.
+
+TEST_CASE("a light level brightness that is NaN is refused", "[ubundle][lite]") {
+    std::vector<Light> lights = goldenLights();
+    lights[2].levelBrightness = std::numeric_limits<float>::quiet_NaN();
+    lightsRefused(lights, "light 2's level brightness");
+}
+
+TEST_CASE("a light level brightness that is infinite is refused", "[ubundle][lite]") {
+    std::vector<Light> lights = goldenLights();
+    lights[2].levelBrightness = std::numeric_limits<float>::infinity();
+    lightsRefused(lights, "light 2's level brightness");
+}
+
+TEST_CASE("a light level brightness below zero is refused", "[ubundle][lite]") {
+    std::vector<Light> lights = goldenLights();
+    lights[2].levelBrightness = -0.5F;
+    lightsRefused(lights, "light 2's level brightness");
 }
 
 // ------------------------------------------------ INV-2, one path each

@@ -133,7 +133,7 @@ double falloff(double distance, double radius) noexcept {
     if (distance >= radius) return 0;
     if (distance <= 0) return 1;
     const double v = distance / radius;
-    return std::min(1.0, (1 + 2 * v * v * v - 3 * v * v) / v);
+    return 1 + 2 * v * v * v - 3 * v * v;
 }
 
 Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept {
@@ -153,7 +153,8 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     const double d = length(toLight);
     const double radius = lightRadius(light.radius);
     const Rgb colour = lightColour(light.hue, light.saturation);
-    const double intensity = lightIntensity(light.brightness);
+    // UTA-0156 SS 4.5: the level's brightness scales every effect alike.
+    const double intensity = lightIntensity(light.brightness) * light.levelBrightness;
     const auto scaled = [&colour](double s) { return Rgb{colour.r * s, colour.g * s, colour.b * s}; };
 
     // UTA-0156: UE1's two effects that change the falloff's shape; neither has

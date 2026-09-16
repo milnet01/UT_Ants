@@ -573,6 +573,10 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     markStrips(actors.lights);
     // UTA-0156 SS 4.3: each zone's ambient and fog flag, from the actors step 5 placed.
     std::vector<ubundle::Zone> zones = buildZones(model, actors.placements);
+    // UTA-0156 SS 4.5: the level's brightness rides on every light, ahead of
+    // step 11's probes, which light the level with the same records.
+    const float levelBrightness = levelBrightnessOf(actors.placements);
+    for (ubundle::Light& light : actors.lights) light.levelBrightness = levelBrightness;
 
     // 6. The movers, and each one's Model -- UTA-0119 SS 4.6. A Model that
     // does not read keeps its refusal's own code, naming the actor (INV-9).

@@ -94,11 +94,11 @@ TEST_CASE("radius and falloff", "[ubake][lightmodel]") {
     CHECK(lightRadius(0) == 25.0);
     CHECK(lightRadius(64) == 1625.0);
     CHECK(falloff(0, 1625) == 1.0);
-    // UTA-0156: UE1's shape, full strength to half the radius and then down.
-    // v = 0.25 would be 3.375 unclamped; the old (1 - v^2)^2 gave 0.8789.
-    CHECK(falloff(406.25, 1625) == 1.0);
-    CHECK(falloff(812.5, 1625) == 1.0);
-    CHECK(falloff(1218.75, 1625) == 0.15625 / 0.75);
+    // UTA-0165: Render.so's spatial_None, 1 + 2v^3 - 3v^2 with no /v. UTA-0156's
+    // min(1, that / v) gave 1, 1 and 0.2083 at these three.
+    CHECK(falloff(406.25, 1625) == 0.84375);
+    CHECK(falloff(812.5, 1625) == 0.5);
+    CHECK(falloff(1218.75, 1625) == 0.15625);
     CHECK(falloff(1625, 1625) == 0.0);
     CHECK(falloff(2000, 1625) == 0.0);
 }
@@ -143,6 +143,23 @@ TEST_CASE("intensity incidence and spot", "[ubake][lightmodel]") {
         sameRgb(lightAt(whiteLight(255), {0, 0, 0}, {0, 0, 1}), {1, 1, 1});
         const double dim = 0.4426283506651455; // lightIntensity(51)
         sameRgb(lightAt(whiteLight(51), {0, 0, 0}, {0, 0, 1}), {dim, dim, dim});
+    }
+    SECTION("the level's brightness scales every effect alike") {
+        // UTA-0156 SS 4.5: DM-Fetid's LevelInfo carries 1.4.
+        for (const std::uint8_t effect : {std::uint8_t{0}, LE_CYLINDER, LE_NON_INCIDENCE}) {
+            Light plain = whiteLight(128);
+            plain.effect = effect;
+            Light brighter = plain;
+            brighter.levelBrightness = 1.4f;
+            const Rgb base = lightAt(plain, {100, 0, 0}, {-1, 0, 0});
+            const Rgb scaled = lightAt(brighter, {100, 0, 0}, {-1, 0, 0});
+            CAPTURE(int(effect), base.r, scaled.r);
+            CHECK(base.r > 0);
+            // The factor enters the product in a different order, so not ==.
+            CHECK(std::abs(scaled.r - base.r * double(1.4f)) <= 1e-12);
+            CHECK(std::abs(scaled.g - base.g * double(1.4f)) <= 1e-12);
+            CHECK(std::abs(scaled.b - base.b * double(1.4f)) <= 1e-12);
+        }
     }
     SECTION("incidence") {
         const Light light = whiteLight(255);

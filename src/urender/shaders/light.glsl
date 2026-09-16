@@ -46,12 +46,13 @@ float lightRadius(uint radius) {
     return 25.0 * float(radius + 1u);
 }
 
-// UE1's falloff -- UTA-0156: full strength out to half the radius, then down.
+// UE1's falloff -- UTA-0165: Render.so's spatial_None, with its h / r over v
+// left to the incidence term. ubake::falloff is the reference.
 float lightFalloff(float distance, float radius) {
     if (distance >= radius) return 0.0;
     if (distance <= 0.0) return 1.0;
     float v = distance / radius;
-    return min(1.0, (1.0 + 2.0 * v * v * v - 3.0 * v * v) / v);
+    return 1.0 + 2.0 * v * v * v - 3.0 * v * v;
 }
 
 // UTA-0156: the share of an LE_Cylinder light's reach over which it fades to
@@ -89,7 +90,8 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
     vec3 toLight = litFrom(light, x) - x;
     float d = length(toLight);
     float radius = lightRadius(light.radius);
-    vec3 colour = lightColour(light.hue, light.saturation) * lightIntensity(light.brightness);
+    // UTA-0156 SS 4.5: the level's brightness scales every effect alike.
+    vec3 colour = lightColour(light.hue, light.saturation) * (lightIntensity(light.brightness) * light.levelBrightness);
 
     // UTA-0156: UE1's two effects that change the falloff's shape; neither has
     // an incidence term. A cylinder still reaches only inside its sphere, as

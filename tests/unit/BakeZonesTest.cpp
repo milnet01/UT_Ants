@@ -16,11 +16,13 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
 
 using uta::ubake::buildZones;
+using uta::ubake::levelBrightnessOf;
 using uta::ubundle::ActorClass;
 using uta::ubundle::ActorPlacement;
 using uta::ubundle::Placements;
@@ -37,6 +39,14 @@ PropertyRecord byteRecord(std::string name, std::uint8_t value) {
     PropertyRecord record;
     record.name = std::move(name);
     record.kind = ValueKind::Byte;
+    record.value = value;
+    return record;
+}
+
+PropertyRecord floatRecord(std::string name, float value) {
+    PropertyRecord record;
+    record.name = std::move(name);
+    record.kind = ValueKind::Float;
     record.value = value;
     return record;
 }
@@ -161,4 +171,44 @@ TEST_CASE("UTA-0015 INV-2: an actor setting no fog flag takes its class's defaul
     Placements noDefault = placements();
     noDefault.classes[2].defaults.pop_back();
     CHECK(int(buildZones(threeZones(), noDefault)[2].fog) == 0);
+}
+
+// UTA-0156 SS 4.5: the level's brightness, from the same LevelInfo.
+
+TEST_CASE("SS 4.5: the level brightness is the LevelInfo's own record", "[ubake][zone]") {
+    Placements set = placements();
+    set.actors[0].properties.push_back(floatRecord("Brightness", 1.4F));
+    CHECK(levelBrightnessOf(set) == 1.4F);
+}
+
+TEST_CASE("SS 4.5: a LevelInfo setting no brightness takes its class's default", "[ubake][zone]") {
+    Placements set = placements();
+    set.classes[0].defaults.push_back(floatRecord("Brightness", 0.8F));
+    CHECK(levelBrightnessOf(set) == 0.8F);
+    set.actors[0].properties.push_back(floatRecord("Brightness", 1.4F));
+    CHECK(levelBrightnessOf(set) == 1.4F); // its own record wins
+}
+
+TEST_CASE("SS 4.5: with no record and no default the level brightness is 1", "[ubake][zone]") {
+    CHECK(levelBrightnessOf(placements()) == 1.0F);
+    Placements without = placements();
+    without.actors.erase(without.actors.begin()); // the LevelInfo at export 3
+    CHECK(levelBrightnessOf(without) == 1.0F);
+}
+
+TEST_CASE("SS 4.5: a brightness of another kind is passed over", "[ubake][zone]") {
+    Placements set = placements();
+    set.actors[0].properties.push_back(byteRecord("Brightness", 9));
+    CHECK(levelBrightnessOf(set) == 1.0F);
+}
+
+TEST_CASE("SS 4.5: a NaN or infinite level brightness is 1 and a negative one 0", "[ubake][zone]") {
+    for (const float bad : {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
+        Placements set = placements();
+        set.actors[0].properties.push_back(floatRecord("Brightness", bad));
+        CHECK(levelBrightnessOf(set) == 1.0F);
+    }
+    Placements negative = placements();
+    negative.actors[0].properties.push_back(floatRecord("Brightness", -2.0F));
+    CHECK(levelBrightnessOf(negative) == 0.0F);
 }

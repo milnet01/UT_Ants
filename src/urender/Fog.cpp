@@ -48,6 +48,7 @@ gpu::Light flashlightOf(const Camera& camera) noexcept {
     light.radius = FLASHLIGHT_RADIUS;
     light.effect = LE_SPOTLIGHT;
     light.cone = FLASHLIGHT_CONE;
+    light.levelBrightness = 1; // UTA-0156 SS 4.5: ours, not the level's, so unscaled
     light.pitch = camera.rotation[0];
     light.yaw = camera.rotation[1];
     light.shadowFace = -1;

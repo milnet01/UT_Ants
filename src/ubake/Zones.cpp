@@ -1,5 +1,5 @@
-// Each zone's ambient light and fog flag --
-// docs/specs/UTA-0156-zone-ambient-light.md SS 4.3 and
+// Each zone's ambient light and fog flag, and the level's brightness --
+// docs/specs/UTA-0156-zone-ambient-light.md SS 4.3, SS 4.5 and
 // docs/specs/UTA-0015-volumetric-fog.md SS 4.2.
 
 #include "ubake/Zones.h"
@@ -8,6 +8,7 @@
 #include "umap/Build.h"
 
 #include <algorithm>
+#include <cmath>
 #include <string_view>
 #include <variant>
 
@@ -65,6 +66,16 @@ const ubundle::ActorPlacement* levelInfoOf(const ubundle::Placements& placements
 }
 
 } // namespace
+
+float levelBrightnessOf(const ubundle::Placements& placements) {
+    const ubundle::ActorPlacement* level = levelInfoOf(placements);
+    if (level == nullptr) return 1;
+    const ubundle::PropertyRecord* record =
+        recordOf("brightness", ubundle::ValueKind::Float, *level, placements.classes[level->classIndex]);
+    if (record == nullptr) return 1;
+    const float value = std::get<float>(record->value);
+    return std::isfinite(value) ? std::max(value, 0.0F) : 1.0F;
+}
 
 std::vector<ubundle::Zone> buildZones(const upkg::Model& model, const ubundle::Placements& placements) {
     // ULevel::GetZoneActor: a zone's own actor, else the LevelInfo.

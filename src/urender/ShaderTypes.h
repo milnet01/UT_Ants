@@ -156,8 +156,10 @@ struct Light {
     std::uint32_t volumeBrightness; ///< UTA-0015: UT99's VolumeBrightness
     std::array<float, 3> span; ///< UTA-0162: a strip leader's segment, from `location`; zero otherwise
     std::uint32_t volumeFog;   ///< UTA-0015: UT99's VolumeFog
+    float levelBrightness;     ///< UTA-0156 SS 4.5: LevelInfo.Brightness
+    std::array<std::uint32_t, 3> pad{}; ///< std430 rounds the struct to its vec3's 16
 };
-static_assert(sizeof(Light) == 80);
+static_assert(sizeof(Light) == 96);
 static_assert(offsetof(Light, location) == 0);
 static_assert(offsetof(Light, flicker) == 12);
 static_assert(offsetof(Light, hue) == 16);
@@ -174,6 +176,7 @@ static_assert(offsetof(Light, volumeRadius) == 56);
 static_assert(offsetof(Light, volumeBrightness) == 60);
 static_assert(offsetof(Light, span) == 64);
 static_assert(offsetof(Light, volumeFog) == 76);
+static_assert(offsetof(Light, levelBrightness) == 80);
 
 /// One cluster's box, in view space.
 struct ClusterBounds {

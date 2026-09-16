@@ -6,6 +6,7 @@
 
 #include "Sections.h"
 
+#include <cmath>
 #include <string>
 #include <utility>
 
@@ -13,9 +14,9 @@ namespace uta::ubundle::detail {
 namespace {
 
 /// SS 4.4: the export index, three f32, three i32, twelve bytes and four
-/// bools; then UTA-0162 SS 4.1's strip byte and two ends of three f32 --
-/// fixed.
-constexpr std::uint64_t LIGHT_SIZE = 69;
+/// bools; then UTA-0162 SS 4.1's strip byte and two ends of three f32; then
+/// UTA-0156 SS 4.5's level brightness, one f32 -- fixed.
+constexpr std::uint64_t LIGHT_SIZE = 73;
 
 [[nodiscard]] Result<Light> readLight(Cursor& cursor) {
     Light light;
@@ -48,6 +49,7 @@ constexpr std::uint64_t LIGHT_SIZE = 69;
     for (float& part : light.stripTo) {
         UTA_TRY(part, cursor.readF32());
     }
+    UTA_TRY(light.levelBrightness, cursor.readF32());
     return light;
 }
 
@@ -65,6 +67,7 @@ void putLight(Sink& sink, const Light& light) {
     sink.putU8(light.strip);
     for (const float part : light.stripFrom) sink.putF32(part);
     for (const float part : light.stripTo) sink.putF32(part);
+    sink.putF32(light.levelBrightness);
 }
 
 } // namespace
@@ -91,6 +94,10 @@ Result<void> validateLights(const std::vector<Light>& lights, ErrorCode code) {
         if (light.strip != STRIP_LEADER && !(zero(light.stripFrom) && zero(light.stripTo)))
             return fail(code, "LITE: light " + std::to_string(i)
                                   + " carries a strip end but does not lead a strip");
+        // UTA-0156 SS 4.5: a multiplier on light, so no NaN, infinity or sign.
+        if (!(std::isfinite(light.levelBrightness) && light.levelBrightness >= 0))
+            return fail(code, "LITE: light " + std::to_string(i) + "'s level brightness "
+                                  + std::to_string(light.levelBrightness) + " is not a finite, non-negative number");
     }
     return {};
 }
