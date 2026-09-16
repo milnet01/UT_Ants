@@ -9707,6 +9707,26 @@ model, no weapon and no opponent until 0.2.0.
   departure from the engine like the linear brightness was, and fitgains'
   point gain of 1.4 to 2.5 has to be read against it: against UT99's own
   shapes DM-Fetid's direct light is short by more than half.
+  Cause found (2026-09-16, ut-ants-6f): LevelInfo.Brightness, which we
+  never read. FLightInfo::ComputeFromActor multiplies each light's colour
+  (0x90, from the actor's virtual colour call) by 0x2c times the float at
+  Level + 0x5a0; that the float is LevelInfo.Brightness is inferred from
+  the offset's use and confirmed by the fit below, not read from a
+  property table. ambient-census/level-props reads the saved values:
+  DM-Deck16][ Brightness=0.8, AS-Frigate unset, DM-Fetid Brightness=1.4.
+  ambient-census/class-default reads LevelInfo's own default from
+  System/Engine.u: Brightness=1. `rg Brightness src/` finds no reader.
+  Measured with fitgains165.py, each map's direct and indirect light
+  scaled by its Brightness: pooled block RMS 36.0 against 38.6 for today's
+  model, at exposure 5.70, point gain 0.98 and ambient 0.31; the own
+  exposures of DM-Deck16][, AS-Frigate and DM-Fetid become 5.33, 5.70 and
+  6.10, against 4.07, 3.32 and 8.00 without it; DM-Fetid's mean rises from
+  0.39 to 0.71 of the original's. The point gain the earlier fits wanted
+  was this multiplier. Scaling ambient too changes nothing measurable
+  (LEVEL=2), since the only ambient-lit map has Brightness 1.
+  What remains open: DM-Fetid at 0.71 at the joint fit, and the point
+  falloff correction above, which darkens it again. Both are to be
+  measured on a bake that carries Brightness, not by fit.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
