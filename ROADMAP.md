@@ -9645,6 +9645,44 @@ model, no weapon and no opponent until 0.2.0.
   0x400008, Unlit and NotSolid) closing over its own lights. Filed as UTA-0168.
   Next: what in the unshadowed light or the surface differs on DM-Fetid,
   now that it is not occlusion.
+  Narrowed to the light itself (2026-09-16, ut-ants-6f), with fog zeroed.
+  The capture mutator gained UTAShotPlain, which draws with rmode 6
+  (REN_PlainTex, textures unlit), so an original frame divides into texture
+  and light (capture-original.sh takes MUT; plain-deck16, plain-asfrigate,
+  plain-fetid, of which DM-Fetid's poses 2 and 7 came out blank).
+  - The original lights DM-Fetid as strongly as DM-Deck16][: lit over
+    texture-only is 0.665 there, 0.762 on AS-Frigate, 0.655 on DM-Fetid.
+    DM-Fetid only looks darker there because its textures are: texture-only
+    means 105.6, 100.5 and 78.0 (decompose165.py).
+  - Not our textures: our own texture-only frames (albedo165.sh) are 0.58,
+    0.50 and 0.52 of the original's on the three maps, uniform.
+  - Not the colour: the light's R:G:B is 0.93:1:1.02 in the original and
+    0.92:1:1.00 in ours on DM-Fetid.
+  - Our light over our textures is 0.509, 0.907 and 0.300 (medians), so
+    DM-Fetid's is about half what the original's says.
+  - Not cluster overflow: DM-Fetid alone overflows (52 to 65 clusters on
+    views 1, 2, 3, 6), but only brightness-0 lights are crowded out, since
+    leaving them out changes no frame by more than one level. Filed as
+    UTA-0169.
+  - Not the brightness curve: intensity pow(V/255, Q) for Q 0.5, 0.3, 0.15
+    moves the own exposures (DM-Deck16][, AS-Frigate, DM-Fetid) from 4.22,
+    3.24, 8.10 to 2.96, 2.90, 4.74 at best, pooled RMS 39.0 to 38.9
+    (sweepcurveq165.sh).
+  - Not the probes: our light by term is direct 89.9%, indirect 7.4%,
+    ambient 2.7% on DM-Deck16][; 36.5%, 2.9%, 60.7% on AS-Frigate; 87.7%,
+    7.9%, 4.3% on DM-Fetid (terms165.sh). So AS-Frigate is calibrated
+    mostly by ambient, and DM-Deck16][ is the only one of the three that
+    calibrates direct light.
+  Point against cylinder lights (fitgains165.py, over per-term frames from
+  terms165.sh and cylinder165.sh): DM-Deck16][ is lit by cylinders and
+  DM-Fetid by point lights only. A point gain of 1.38 with ambient at 0.40
+  and exposure 4.35 is the pooled optimum, RMS 36.6 against 38.6 for
+  today's model, but leaves DM-Fetid at 0.56 of the original's mean. A
+  point gain near 2.5 brings the own exposures to 3.80, 2.90 and 3.32 at a
+  worse pooled RMS of 37.9. So point lights look too weak beside cylinders
+  without a fit settling by how much. Next: read spatial_None and
+  spatial_Cylinder in the 469 Render.so, which exports both by name, for
+  UT99's own falloff of each.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
@@ -9748,6 +9786,31 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: in-session-2026-09-16.
   Lanes: urender, ubake.
+
+- 📋 [UTA-0169] **urender: lights of brightness 0 fill light clusters and shadow tiles, overflowing DM-Fetid's.**
+  Found by UTA-0165 (2026-09-16, ut-ants-6f). directLights in
+  src/urender/Lights.cpp keeps every light that is not a backdrop, special-
+  lit or absorbed, whatever its brightness, and both drawnLights and the
+  shadow planner read it. DM-Fetid carries many brightness-0 lights of
+  radius 128, and FrameStats reports 52 to 65 overflowed clusters on four of
+  its eight captured views (1, 2, 3, 6), against none on any view of
+  DM-Deck16][ or AS-Frigate (ut-ants-uta0156/stats165.sh).
+
+  The overflow drops nothing visible today: leaving brightness-0 lights out
+  of directLights clears it on every view and changes no DM-Fetid frame by
+  more than one level in 255 (filter165.sh), so the lights crowded out were
+  the dark ones. It is still a defect -- the cap is CLUSTER_CAPACITY 64, and
+  a map whose clusters fill with lit lights past the dark ones drops real
+  light -- and the dark lights also take shadow tiles.
+
+  Check before filtering: a brightness-0 light still matters if anything
+  raises it at run time (TriggerLight, a flicker effect) or if its
+  volumetric glow is drawn from volumeBrightness alone; read how UT99 and
+  our fog pass treat both, and filter only what can never emit.
+  **Layman:** Lights switched off in a map still take up space the renderer needs for lights that are on, and on a crowded map real lights would get dropped.
+  Kind: fix.
+  Source: in-session-2026-09-16.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
