@@ -9985,6 +9985,30 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-10.
   Lanes: uworld, ugame.
 
+- 📋 [UTA-0167] **ut-ants: fly the camera with a gamepad as well as keyboard and mouse.**
+  The user asked on 2026-09-16 whether a PS4 controller could drive the
+  camera. It cannot, and nothing partial exists: apps/ut-ants/main.cpp calls
+  SDL_Init with SDL_INIT_VIDEO alone and its event loop reads only
+  SDL_EVENT_KEY_DOWN, SDL_EVENT_MOUSE_MOTION, SDL_EVENT_QUIT and
+  SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED. A search for "controller" in src/
+  finds only Tiers.cpp and Tiers.h, which mean the render-scale controller
+  and are unrelated.
+
+  The shape, if it is wanted: add SDL_INIT_GAMEPAD, open the gamepads SDL
+  reports, and feed the left stick into the same movement the W/A/S/D branch
+  already computes and the right stick into the mouse-look branch, with
+  triggers or shoulder buttons for the Space and Ctrl rise and sink. One
+  file, no renderer change. SDL3 is already a dependency and went through
+  dependency-acquisition SS 2 under UTA-0016.
+
+  Filed rather than built: the offer to build it was made and the user moved
+  on to UTA-0166 without answering, so it is unqueued rather than declined.
+  Ask before starting.
+  **Layman:** Let a PS4 or similar controller move the camera, not just the keyboard and mouse.
+  Kind: feature.
+  Source: user-request-2026-09-16.
+  Lanes: ut-ants.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
