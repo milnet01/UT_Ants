@@ -9683,6 +9683,30 @@ model, no weapon and no opponent until 0.2.0.
   without a fit settling by how much. Next: read spatial_None and
   spatial_Cylinder in the 469 Render.so, which exports both by name, for
   UT99's own falloff of each.
+  UT99's own light shapes, read from the 469 Linux Render.so (2026-09-16,
+  ut-ants-6f; disassembly in ut-ants-uta0156/spatial-none.txt,
+  spatial-cylinder.txt, lightmanager-init.txt).
+  - FLightInfo::ComputeFromActor sets 0x20 WorldLightRadius r, 0x24
+    1/max(1, r), 0x28 4096/r^2, and 0x30 |(light - surface point) . normal|
+    / r: the light's distance from the surface PLANE over r, once per
+    surface.
+  - FLightManager::Init fills LightSqrt[i] = (1 - 3v^2 + 2v^3) / v with
+    v = sqrt((i + 1) / 4096); constants 1/4096 and -3 at .rodata 0x49c5c
+    and 0x49c60.
+  - spatial_None writes, per texel, shadow byte x (h/r) x
+    LightSqrt[4096 d^2/r^2], and 0 at d >= r; the float becomes an integer
+    through the + 2^23 bit trick. Since h/d is the incidence cosine, that is
+    shadow x cos x (1 - 3v^2 + 2v^3).
+  - spatial_Cylinder writes shadow byte x (1 - (dx^2 + dy^2)/r^2) - 0.5,
+    floored at 0, with no incidence (constants 1.0 and -0.5).
+  light.glsl's point light is incidence x min(1, (1 - 3v^2 + 2v^3)/v): it
+  keeps the /v that UT99 cancels with h/r, then caps it. So our point
+  lights are brighter than UT99's beside our cylinders, up to 2x at half
+  the radius and 1x to 2x nearer the light. Correcting it darkens
+  DM-Fetid further, so it is not this item's cause, but it is a
+  departure from the engine like the linear brightness was, and fitgains'
+  point gain of 1.4 to 2.5 has to be read against it: against UT99's own
+  shapes DM-Fetid's direct light is short by more than half.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
