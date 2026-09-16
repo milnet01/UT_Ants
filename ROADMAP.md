@@ -9404,7 +9404,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-15 split-from-UTA-0015.
   Lanes: urender.
 
-- 📋 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
+- 🚧 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
   Found by UTA-0015's SS 7 measurement (2026-09-15). Against
   ut-ants-uta0156/orig-fetid-novol, captured with volumetric lighting
   off, a format-12 bake of DM-Fetid scores a block RMS of 42.6 at the
@@ -9609,6 +9609,42 @@ model, no weapon and no opponent until 0.2.0.
   half-built here -- every hypothesis this item ruled out, and the two
   engine facts it confirmed, are written above, and the code they produced
   is shipped and green. Resume from the per-texel lightmap question.
+  Claimed (2026-09-16): ut-ants-6f, in the main checkout. The user chose
+  to dig further rather than build: measure how much the original's
+  per-texel lightmaps vary light within a surface, and whether that
+  explains DM-Fetid alone drawing at half, before proposing any fix.
+  Re-measured after UTA-0166 (2026-09-16, ut-ants-6f). Every figure above
+  predates it, and it changed them: with fog zeroed at EXPOSURE 2.2, ours
+  over the original's mean displayed luma is now 0.63 on DM-Deck16][, 0.71
+  on AS-Frigate and 0.25 on DM-Fetid (was 0.99, 0.94, 0.50); the joint
+  exposure fit moves from 2.20 to 3.70, pooled block RMS 39.0
+  (ut-ants-uta0156/remeasure165.sh). With shadowOf returning 1 they are
+  1.02, 1.00 and 0.66 at a joint 2.14. So EXPOSURE 2.2 and AMBIENT_SCALE
+  1.5 absorbed the lights UTA-0166 found unshadowed, and need refitting;
+  UTA-0015's fog was refitted at 2.2 and follows them.
+  Shadows are not DM-Fetid's cause (2026-09-16, ut-ants-6f), by three
+  measurements. Self-shadowing: moving the shadow lookup 4, 16 and 64 units
+  toward the light takes DM-Fetid from 0.25 to 0.25, 0.26 and 0.28
+  (sweepoffset165.sh). Geometry against UT99's own bits:
+  ambient-census/texel-vis walks every LightBits texel and casts the same
+  segment through the bundle's GEOM. It agrees on 99.2% of texels on
+  DM-Deck16][ and 98.9% on DM-Fetid; UT99 blocks 35.9% and 35.4% of our
+  model's energy there, we block 36.5% and 36.6%. GPU against CPU:
+  ambient-census/pose-vis casts each captured pose on the CPU, and per pose
+  the light it keeps matches what the shadow maps keep (DM-Fetid 0.40 0.10
+  0.12 0.70 0.39 0.27 0.23 0.31 CPU, 0.38 0.34 0.35 0.69 0.41 0.25 0.25
+  0.32 GPU). DM-Fetid's views really are mostly shadowed, in the original's
+  data as in ours.
+  Two engine facts for texel-vis: LightBits runs are padded to a whole byte
+  per ROW (fits 606 of 606 gaps on DM-Fetid, the whole-run rule 113), and
+  LightMapIndex::Pan is texture space, not world: the lowest (p - base).U
+  and .V over the surface's corners less 0.12, with (Clamp - 1) * Scale
+  spanning the corners.
+  Side finding: AS-Frigate's geometry blocks 59.0% of energy where UT99
+  blocks 43.5%, almost all behind batch mine.light.lantrn2 (flags
+  0x400008, Unlit and NotSolid) closing over its own lights. Filed as UTA-0168.
+  Next: what in the unshadowed light or the surface differs on DM-Fetid,
+  now that it is not occlusion.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
@@ -9691,6 +9727,27 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: user-request-2026-09-16.
   Lanes: urender.
+
+- 📋 [UTA-0168] **urender: AS-Frigate's lanterns shadow their own lights, where UT99 lets the light through.**
+  Found by UTA-0165's texel-vis (2026-09-16, ut-ants-6f), which casts a
+  segment from every LightBits texel to its light through the bundle's GEOM
+  and compares UT99's own visibility bit. On AS-Frigate our geometry blocks
+  59.0% of our model's energy where UT99 blocks 43.5%, and 1.44e4 of the
+  over-blocked energy sits behind one batch, mine.light.lantrn2, flags
+  0x400008 (PF_Unlit | PF_NotSolid). Lights e17, e22, e13 and e14 keep
+  under 1% of what UT99 lets through. DM-Deck16][ and DM-Fetid agree on 99%
+  of texels, so the rule is not wrong everywhere.
+
+  Settle before changing anything: which flag UT99's lighting build ignores
+  -- PF_NotSolid alone, or anything unlit -- by census over the corpus with
+  texel-vis, since both are set here. The shadow tile pass in Frame.cpp
+  skips only PF_Translucent and PF_FakeBackdrop today, and SurfaceRays, which
+  the probes use, skips PF_Translucent and PF_Modulated; whatever rule
+  lands belongs in both. Tool at ut-ants-uta0156/ambient-census/texel-vis.cpp.
+  **Layman:** The lamps on one map black out their own light because our shadows treat the lamp casing as a solid wall.
+  Kind: fix.
+  Source: in-session-2026-09-16.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 
