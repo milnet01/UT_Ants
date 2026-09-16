@@ -35,6 +35,14 @@ inline constexpr std::uint32_t SHADOW_ATLAS_SIZE = 4096;
 inline constexpr std::uint32_t LARGEST_SHADOW_TILE = 1024;
 inline constexpr std::uint32_t SMALLEST_SHADOW_TILE = 64;
 
+/// World units one texel of a light's tile covers across a cube face --
+/// UTA-0166. A face spans twice the light's reach, so the tile is
+/// `2 * reach / SHADOW_UNITS_PER_TEXEL`. Measured over the three fitting maps:
+/// at 64 the whole of DM-Deck16][ costs 0.93 of the atlas, DM-Fetid 0.33 and
+/// AS-Frigate 0.22, so every light keeps a tile and none is ever dropped for
+/// want of room.
+inline constexpr double SHADOW_UNITS_PER_TEXEL = 64.0;
+
 /// A square of the atlas, in texels.
 struct AtlasTile {
     std::uint32_t x = 0, y = 0, size = 0;
@@ -69,11 +77,16 @@ private:
 /// which lights nothing.
 [[nodiscard]] std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept;
 
-/// The tile size `light` wants for `camera` on a `width` by `height` target: the
-/// screen size of its sphere of influence rounded up to a power of two, within
-/// the tile limits. 0 when the sphere is wholly outside the view.
-[[nodiscard]] std::uint32_t shadowTileSize(const Camera& camera, std::uint32_t width, std::uint32_t height,
-                                           const ubundle::Light& light) noexcept;
+/// The tile size `light` wants: its sphere of influence at
+/// SHADOW_UNITS_PER_TEXEL, rounded up to a power of two, within the tile
+/// limits. 0 only when the light shadows nothing.
+///
+/// UTA-0166: this reads the light and nothing else. Sized from the light's
+/// screen size it changed whenever the camera did, which re-admitted every
+/// light and left a different few holding tiles each frame -- and a light with
+/// no tile scatters no fog at all, so shafts and haze switched on and off as
+/// the camera turned.
+[[nodiscard]] std::uint32_t shadowTileSize(const ubundle::Light& light) noexcept;
 
 /// The view-projection face `face` of `light` is drawn and sampled with. A point
 /// light's faces look along +X, -X, +Y, -Y, +Z, -Z; a spotlight's one face looks
@@ -103,8 +116,11 @@ public:
     /// the order the shader reads them. `movedMoverBounds` holds, for each mover
     /// whose transform changed since the last frame, its world box before and
     /// after as (min, max); a light whose radius reaches one redraws its tiles.
-    [[nodiscard]] ShadowPlan plan(const std::vector<ubundle::Light>& lights, const Camera& camera,
-                                  std::uint32_t width, std::uint32_t height,
+    ///
+    /// UTA-0166: the camera is not an argument. The plan depends on the lights
+    /// alone, so a static level is placed and drawn once however the camera
+    /// moves.
+    [[nodiscard]] ShadowPlan plan(const std::vector<ubundle::Light>& lights,
                                   const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds);
 
     /// Forget every tile, so the next plan places and draws them all -- for a

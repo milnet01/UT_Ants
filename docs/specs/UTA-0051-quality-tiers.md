@@ -150,11 +150,12 @@ scale 1, exactly as `UTA-0014` does.
 and `depth` keep the output size. At scale `s` the scene draws into the top-left
 `max(1, ceil(s·W))` × `max(1, ceil(s·H))` pixels. The projection, the cluster
 grid, the jitter and `FrameData::viewportSize`, which `scene.frag` divides by to
-find a pixel's cluster, all use that region's size. **Shadow planning keeps
-`W` × `H`.** A tile's size follows its light's size on the target
-(`shadowTileSize`), so planning at the region's size would re-place every tile
-at each change of scale, and a still camera would no longer draw no tiles, as
-`FrameStats::renderedShadowTiles` says it does.
+find a pixel's cluster, all use that region's size. **Shadow planning is not
+passed a size at all.** `UTA-0166` made `shadowTileSize` read the light's reach
+rather than its size on the target, so no change of scale can re-place a tile
+and a still camera draws none, as `FrameStats::renderedShadowTiles` says it
+does. This paragraph formerly had shadow planning keep `W` × `H` for that
+reason; the argument is gone rather than pinned.
 
 **The output stage upscales the region with AMD FSR 1** (amended by `UTA-0154`,
 which replaced a bilinear stretch that read soft). A frame drawn at scale 1

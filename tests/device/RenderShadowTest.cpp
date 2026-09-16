@@ -156,7 +156,7 @@ TEST_CASE("SS 4.8: a grazing light with a coarse tile leaves a lit surface lit",
     bundle.lights = std::vector{light};
 
     // The fixture is only as hard as its tile is coarse, so that is asserted.
-    CHECK(uta::urender::shadowTileSize(Camera{}, WIDTH, HEIGHT, light) == uta::urender::SMALLEST_SHADOW_TILE);
+    CHECK(uta::urender::shadowTileSize(light) == uta::urender::SMALLEST_SHADOW_TILE);
 
     requireOk(renderer.draw(bundle, Camera{}));
     CHECK(renderer.lastFrameStats().renderedShadowTiles == 6u);
@@ -185,10 +185,15 @@ TEST_CASE("SS 6: lights the shadow atlas cannot hold are lit unshadowed and coun
     addSquare(geometry, 100, 0, 0, 40, "white", 0);
     uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
     addSolidMaterial(bundle, "white", WHITE);
-    // Five point lights around the camera, each wanting the largest tile. The
-    // atlas holds sixteen, a point light takes six, so two fit.
+    // Point lights at the widest radius byte, which UTA-0166 sizes at the
+    // biggest tile an ordinary light asks for -- three more than the atlas has
+    // room for, a point light taking six tiles.
+    const std::uint32_t perSide =
+        uta::urender::SHADOW_ATLAS_SIZE / uta::urender::shadowTileSize(steadyLight({0, 0, 0}, 10, 200));
+    const std::uint32_t fit = perSide * perSide / 6;
     std::vector<uta::ubundle::Light> lights;
-    for (int i = 0; i < 5; ++i) lights.push_back(steadyLight({10.0f + i, 0, 0}, 10, 200));
+    for (std::uint32_t i = 0; i < fit + 3; ++i)
+        lights.push_back(steadyLight({10.0f + static_cast<float>(i), 0, 0}, 10, 200));
     bundle.lights = lights;
 
     requireOk(renderer.draw(bundle, Camera{}));

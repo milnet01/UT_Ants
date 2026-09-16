@@ -1118,8 +1118,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         moved.push_back(worldBox(impl.moverBounds[i - 1], impl.previousModels[i]));
         moved.push_back(worldBox(impl.moverBounds[i - 1], models[i]));
     }
-    const ShadowPlan plan =
-        impl.shadowPlanner.plan(directLights(bundle), camera, impl.config.width, impl.config.height, moved);
+    const ShadowPlan plan = impl.shadowPlanner.plan(directLights(bundle), moved);
     for (std::size_t i = 0; i < lights.size(); ++i) {
         lights[i].shadowFace = plan.firstFace[i];
         lights[i].shadowFaceCount = plan.faceCount[i];

@@ -636,12 +636,25 @@ redrawn, and § 6 says what happens when the atlas cannot hold what a frame
 asks for.
 
 **The atlas is 4096 texels square, and a tile is a power of two from 64 to
-1024.** A light's tile size is the screen size of its sphere of influence,
-rounded up. When the set of lights changes, or any light's tile size, location,
-rotation, radius, cone or effect does, every light is admitted again, largest
-first, and all their tiles are drawn that frame. Otherwise a tile is drawn only
-when a moved mover's box, before or after, reaches its light.
+1024.** A light's tile size is its reach at `SHADOW_UNITS_PER_TEXEL` world units
+a texel, rounded up. When the set of lights changes, or any light's tile size,
+location, rotation, radius, cone or effect does, every light is admitted again,
+largest first, and all their tiles are drawn that frame. Otherwise a tile is
+drawn only when a moved mover's box, before or after, reaches its light.
 `FrameStats` counts the tiles drawn, so the cache is observable.
+
+**Amended by `UTA-0166`: a tile's size reads the light and nothing else.** It
+was the light's size on screen, which made it a function of the camera — so
+every camera movement re-admitted every light, and a different few held tiles
+each frame. § 4.3's fog scatters only from a light that has tiles, deliberately,
+so a light that lost its tile stopped scattering and its shaft or haze switched
+off as the camera turned. Measured on `DM-Deck16][` before the amendment:
+between 3 and 11 of its 141 lights held a tile at once, and up to 12 changed
+state per 2048 units of yaw. After it, all 141 hold one and none ever changes.
+The constant is set so a map fits: at 64 units a texel, `DM-Deck16][` costs 0.93
+of the atlas, `DM-Fetid` 0.33 and `AS-Frigate` 0.22. Admission is unchanged, so
+a map too dense to fit still degrades by § 6 — but stably, the same lights every
+frame, which is what stops the flicker.
 
 **A lit surface is kept from shadowing itself by the tile pass's slope-scaled
 depth bias, and by nothing else.** A normal offset on the sample was built and

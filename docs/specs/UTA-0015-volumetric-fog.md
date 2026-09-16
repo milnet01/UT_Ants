@@ -427,6 +427,13 @@ Each is seen to fail against the code before this item.
    within budget. *Refitted (2026-09-16):* UTA-0165's light model moved
    `EXPOSURE` to `2.2`, and the haze with it, to `6e-3`. The scores are beside
    the constant in `shaders/fog.glsl`.
+   *Refitted again (2026-09-16), and the rule above no longer holds:* UTA-0166
+   gave every light a shadow tile, so about fourteen times as many lights
+   scatter into the haze. Haze now IMPROVES the match rather than costing
+   against it -- `4e-4` scores `40.5` where no haze scores `45.7` -- so "within
+   `1.0` of no haze" selects nothing useful. The rule is now the plain minimum,
+   taking the largest of the values tied within the control's own `0.1` of
+   repeat-to-repeat spread. `6e-3` under the new shadow rule scores `105.4`.
 2. **Volumetric lights.** A scratch probe beside `ambient-census/` lists the
    stock maps' `PlayerStart`s that are in a fog zone and within a volumetric
    light's volume radius plus 1000 units. Capture one such map with
@@ -442,11 +449,18 @@ Each is seen to fail against the code before this item.
    *Refitted (2026-09-16):* at `EXPOSURE` `2.2` they are `4e-3` and `6.4e-2`,
    the lowest of the grid and the nearest to the original's mean brightness.
    The scores are beside the constants in `shaders/fog.glsl`.
+   *Refitted again (2026-09-16):* on top of UTA-0166's haze they are `5e-3` and
+   `1.28e-1`. Both are measured minima rather than grid edges: the earlier fog
+   value sat at the widest swept and was still gaining, and swept wider it
+   turns at `1.28e-1`.
 3. **Nothing else moves.** DM-Deck16][ at `hazeScale` `0` keeps the block RMS
    it had before this item.
    *Result (2026-09-15):* `46.2` at exposure 3.2, as before.
    *Refitted (2026-09-16):* `45.8` at exposure 2.2, matching the same build
    with no haze, so the fog still moves nothing on a map that draws none.
+   *Re-checked under UTA-0166 (2026-09-16):* `45.8` again, so giving every light
+   a shadow tile costs this map nothing where it draws no haze. That is the
+   control for the whole amendment: the picture changed only where fog is drawn.
 
 ## 8. Alternatives considered (and rejected)
 

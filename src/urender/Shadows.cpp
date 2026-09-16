@@ -144,25 +144,12 @@ std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept {
     return 6;
 }
 
-std::uint32_t shadowTileSize(const Camera& camera, std::uint32_t width, std::uint32_t height,
-                             const ubundle::Light& light) noexcept {
-    const gpu::Mat4 view = viewOf(camera);
-    const auto l = centreOf(light);
-    const double x = view[0] * l[0] + view[4] * l[1] + view[8] * l[2] + view[12];
-    const double y = view[1] * l[0] + view[5] * l[1] + view[9] * l[2] + view[13];
-    const double z = view[2] * l[0] + view[6] * l[1] + view[10] * l[2] + view[14];
-    const double radius = reachOf(light);
-
-    const double tanV = std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0);
-    const double tanH = tanV * width / height;
-    // Wholly behind the camera, or wholly beyond a side of the view.
-    if (z + radius < camera.nearPlane) return 0;
-    if ((std::abs(x) - z * tanH) / std::sqrt(1 + tanH * tanH) > radius) return 0;
-    if ((std::abs(y) - z * tanV) / std::sqrt(1 + tanV * tanV) > radius) return 0;
-    if (z <= radius) return LARGEST_SHADOW_TILE; // the camera is inside it
-
-    const double pixels = radius / (z * tanV) * height;
-    const auto wanted = static_cast<std::uint32_t>(std::min(std::ceil(pixels), double(LARGEST_SHADOW_TILE)));
+std::uint32_t shadowTileSize(const ubundle::Light& light) noexcept {
+    if (shadowFacesOf(light) == 0) return 0;
+    // A cube face spans twice the light's reach at its far plane, so this many
+    // texels put SHADOW_UNITS_PER_TEXEL world units under each one.
+    const double texels = 2 * reachOf(light) / SHADOW_UNITS_PER_TEXEL;
+    const auto wanted = static_cast<std::uint32_t>(std::min(std::ceil(texels), double(LARGEST_SHADOW_TILE)));
     return std::clamp(std::bit_ceil(std::max(wanted, 1u)), SMALLEST_SHADOW_TILE, LARGEST_SHADOW_TILE);
 }
 
@@ -202,15 +189,15 @@ void ShadowPlanner::reset() {
     atlas_.clear();
 }
 
-ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights, const Camera& camera,
-                               std::uint32_t width, std::uint32_t height,
+ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
                                const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds) {
     std::vector<std::uint32_t> wanted(lights.size());
-    for (std::size_t i = 0; i < lights.size(); ++i)
-        wanted[i] = shadowFacesOf(lights[i]) == 0 ? 0 : shadowTileSize(camera, width, height, lights[i]);
+    for (std::size_t i = 0; i < lights.size(); ++i) wanted[i] = shadowTileSize(lights[i]);
 
     // Any light whose wanted size changed -- or a different set of lights --
     // re-admits every light, largest first, and draws all their tiles again.
+    // UTA-0166: a size now reads the light alone, so over a static level this
+    // is false after the first frame however the camera moves.
     bool replan = held_.size() != lights.size();
     for (std::size_t i = 0; !replan && i < lights.size(); ++i)
         replan = held_[i].size != wanted[i] || !sameLight(held_[i].light, lights[i]);

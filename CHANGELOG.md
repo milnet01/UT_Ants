@@ -413,6 +413,15 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Light shafts and haze no longer switch off as the camera turns** (UTA-0166)
+  A light's shadow map was sized from how big it looked on screen, so every
+  camera movement re-dealt the shadow atlas and a different few lights held
+  one. Fog scatters only from a light that has a shadow map, so the rest
+  drew none, and shafts and haze blinked on and off. A tile is now sized
+  from the light's own reach, which the camera cannot change: on
+  DM-Deck16][ all 141 lights keep one where between 3 and 11 did, and a
+  static level's tiles are drawn once rather than every frame.
+
 - **Maps keep textures whose colours or picture live in another package, among them DM-Deck16]['s acid** (UTA-0155)
   A texture whose palette is imported from another package, and an animated
   texture that stores no pixels of its own, used to be skipped. The acid

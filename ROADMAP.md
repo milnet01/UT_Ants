@@ -9404,7 +9404,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-15 split-from-UTA-0015.
   Lanes: urender.
 
-- 🚧 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
+- 📋 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
   Found by UTA-0015's SS 7 measurement (2026-09-15). Against
   ut-ants-uta0156/orig-fetid-novol, captured with volumetric lighting
   off, a format-12 bake of DM-Fetid scores a block RMS of 42.6 at the
@@ -9604,10 +9604,67 @@ model, no weapon and no opponent until 0.2.0.
   stand on the matrix. This item stays open: what remains is DM-Fetid at
   about half the original's mean, with the light field flat where the
   original varies within a surface.
+  Deferred (2026-09-16): released by ut-ants-08 in the main checkout to take
+  UTA-0166, a defect the user found looking around DM-Deck16][. Nothing is
+  half-built here -- every hypothesis this item ruled out, and the two
+  engine facts it confirmed, are written above, and the code they produced
+  is shipped and green. Resume from the per-texel lightmap question.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
   Lanes: urender, ubake.
+
+- 🚧 [UTA-0166] **urender: a light's fog shaft switches off when it loses its shadow tile.**
+  Held by ut-ants-08 in the main checkout.
+
+  Found by the user flying DM-Deck16][ (2026-09-16): distant haze and light
+  shafts appear and vanish as the camera pans, and a bright patch of glow
+  blinks in and out mid-air.
+
+  One cause, measured rather than reasoned. fog_scatter.comp skips any
+  light whose shadowFaceCount is zero, deliberately -- an unshadowed light
+  would scatter through walls. But ShadowPlanner grants a tile to very few
+  lights and re-picks them whenever the camera moves: shadowTileSize keys
+  on the light's distance from the camera, so any change re-admits every
+  light largest-first, and the losers fall to zero faces. A light that
+  loses its tile stops scattering entirely -- a switch, not a fade.
+
+  The probe is ambient-census/shadow-pop.cpp at ut-ants-uta0156, which pans
+  the camera in place and reports each step's winners. On DM-Deck16][,
+  whose bundle carries 141 lights, between 3 and 11 hold a tile at once and
+  up to 12 change state per 2048-unit step of yaw.
+
+  Why so few: SHADOW_ATLAS_SIZE is 4096 and LARGEST_SHADOW_TILE is 1024, so
+  one near light's six faces claim about two fifths of the atlas. The lead
+  is to cap what a single light may take so the atlas serves many lights at
+  a modest size, which should give more shafts rather than fewer, and
+  steady ones. Measure the result; the arithmetic is the reason to try it,
+  not evidence that it worked.
+
+  Two things recorded so they are not folded into this item. Haze thinning
+  as the camera approaches is correct and the user likes it: less air along
+  a shorter ray. And the fog grid's far slices are long and sampled once,
+  which likely exaggerates distant glow on its own; unmeasured.
+  Progress (2026-09-16): the fix is in and measured. shadowTileSize now reads
+  the light's reach at SHADOW_UNITS_PER_TEXEL and the planner takes no camera,
+  so a plan depends on the lights alone. shadow-pop over all three maps: every
+  light holds a tile at every yaw and nothing ever flips, against 3 to 11 of
+  141 before on DM-Deck16][. ut-ants on DM-Deck16][ reports 0 unshadowed
+  lights at Medium and High. Unit and device suites green on lavapipe and on
+  this machine's GPU; both hand mutations of the new rule were killed.
+
+  What the fix uncovered: the fog is now far too bright. Every scattering
+  constant was fitted while about a tenth of the lights scattered, so with all
+  of them scattering DM-Deck16][ scores block RMS 105.5 against the original
+  at EXPOSURE 2.2, AS-Frigate 112.9 and DM-Fetid 79.5 -- against 46.7 for
+  DM-Deck16][ before, recorded in UTA-0015 SS 7 step 1 at the same exposure
+  with haze on. The earlier 45.8 figure is not the comparison: sweepamb165.sh
+  zeroes the fog, so that row is a no-haze score. UTA-0015's SS 7 sweeps are
+  being re-run on top of this fix.
+  **Layman:** Beams of light and haze flicker on and off as you turn the camera; make them stay put.
+  Kind: fix.
+  Source: user-request-2026-09-16.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
