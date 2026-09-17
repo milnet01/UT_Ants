@@ -9499,6 +9499,11 @@ model, no weapon and no opponent until 0.2.0.
   PF_FakeBackdrop surfaces as holes that show it. Census first how many
   maps carry a SkyZoneInfo, and how many sky surfaces have none behind
   them. Measure against the original's frames with the UTA-0156 method.
+  User report (2026-09-17), flying AS-Frigate from the UTA-0170 launcher:
+  "Does this map (AS-Frigate) supposed to have a sky? If so, can we get a
+  proper sky rendered?" Their frame shows the purple sky texture tiled flat
+  across the opening above the ship, under heavy fog. AS-Frigate is a
+  candidate test map for this item.
   **Layman:** Maps set outside should show the sky the map's author built, not a flat painted texture.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -10139,6 +10144,89 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: ut-monsterhunt-request-2026-09-17.
   Lanes: ut-dump.
+
+- 📋 [UTA-0174] **ut-ants: the flying camera still ends up inside floors and walls, and outside the map.**
+  The user flew AS-Frigate from the UTA-0170 launcher on 2026-09-17: "The
+  camera still clips through the walls / floors at times." Two frames: one
+  with the camera at floor level and the lower half of the screen black,
+  one beside a wall edge with half the screen showing the void outside the
+  map. UTA-0158 shipped the collision this defeats.
+
+  Ruled out by arithmetic, not measured: the near plane cutting a wall. The
+  view's near plane is 1 unit and its corners reach about 2.3 units at
+  16:9 and a 90 degree vertical view; WALL_MARGIN keeps 8.
+
+  Suspects, to reproduce before fixing (testing.md SS 1):
+  - FlyCamera::update lets a camera inside solid fly free, so ONE leak
+    anywhere makes the camera ignore every wall after it. A single trace
+    that lands on or past a plane is enough.
+  - The collision tree may disagree with what is drawn: sheet brushes,
+    semisolid or non-solid brushes, or BSP cracks where two brushes meet.
+  - A slide's second or third trace starts on a wall's margin line and
+    may start inside the next wall at a corner.
+  Route: log the camera's position and isEmpty each frame on AS-Frigate,
+  fly into corners and along edges, and find the first frame that ends in
+  solid. Then a unit test from that segment.
+  **Layman:** The camera still slips through floors and walls sometimes, even though it is meant to stop at them.
+  Kind: fix.
+  Source: user-request-2026-09-17.
+  Lanes: ut-ants, uworld.
+
+- 📋 [UTA-0175] **urender: shadow edges are jagged, and light leaks through room corners.**
+  The user flew AS-Frigate on 2026-09-17: "There is light leak through the
+  corners" (a lit band along a wall-ceiling join) and "the shadow quality
+  seems look aliased" (a stair-stepped shadow edge along a wall).
+
+  What the code does today, read 2026-09-17:
+  - Shadows.h: SHADOW_UNITS_PER_TEXEL is 64, so one shadow texel covers
+    64 world units -- a player is about 78 units tall. Tiles run 64 to
+    1024 texels in a 4096 atlas.
+  - shadows.glsl: one hardware comparison sample, a 2x2 filter, and no
+    normal offset.
+  - Pipelines.cpp: slope-scaled depth bias, constant 1.25, slope 1.75.
+  - Shadows.cpp: a shadow face's near plane is max(1, reach / 512).
+
+  Suspects: the jagged edges are the 64-unit texel under a single 2x2
+  sample. The corner leak is the slope bias at that texel size pushing a
+  shadow off the join where a wall meets a ceiling (peter-panning), or
+  geometry nearer a large light than its near plane casting nothing. Both
+  are to be measured, not assumed.
+
+  Cheapest routes to weigh first (user, 2026-09-14): a wider filter (3x3
+  or a rotated Poisson disc) and a finer texel where the atlas has room;
+  then a normal offset scaled to the texel, which shadows.glsl records was
+  tried once and changed nothing at the old texel size. Set by measurement
+  against the original game's frames at the same spots (UTA-0156 method),
+  not by eye; UTA-0166's tile sizing and UTA-0015's fog sweep both read
+  the atlas, so re-check their numbers after.
+  **Layman:** Shadows have stair-stepped edges and light shows through where walls meet, which should be fixed.
+  Kind: fix.
+  Source: user-request-2026-09-17.
+  Lanes: urender.
+
+- 📋 [UTA-0176] **AS-Frigate's torch flames draw as flat magenta: a texture the bake skipped shows the missing colour.**
+  The user flew AS-Frigate on 2026-09-17: "The lights are showing purple,
+  is this intentional?" It is not. The shapes sit above the wall torches,
+  and magenta is urender's built-in base colour for a material with no
+  picture (Materials.cpp DEFAULT_BASE).
+
+  The bake says why. ut-bake on AS-Frigate reports two skipped materials:
+  nalifx.shanefx.torches2, "it names no palette", and isvfx.energy3, "it
+  stores no pixels of its own and names no SourceTexture". NaliFX.utx
+  holds 13 FireTextures and imports the Fire package; that torches2 is one
+  of them is likely and unverified.
+
+  Two parts. (1) What a skipped material draws: magenta is right for
+  finding a gap and wrong for a player; decide per surface kind (a
+  translucent or masked flame sprite may simply not draw). (2) A still
+  picture for a FireTexture with no palette of its own: check whether
+  Fire's class default supplies one. UTA-0105 keeps the flames' motion;
+  this is only the still. Census how many maps skip a material this way
+  before choosing.
+  **Layman:** Torch flames show up as bright pink blocks because their texture could not be converted; they should look like flames.
+  Kind: fix.
+  Source: user-request-2026-09-17.
+  Lanes: ubake, urender.
 
 ## 0.2.0 — Movement and weapons
 
