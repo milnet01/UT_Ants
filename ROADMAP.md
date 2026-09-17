@@ -9876,6 +9876,20 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-16.
   Lanes: urender.
 
+- 📋 [UTA-0170] **A launcher that opens any finished map in ut-ants, for the user to look over.**
+  The user asked on 2026-09-17, to be built after UTA-0167, UTA-0168 and
+  UTA-0169: a launcher for every completed map, so they can view each one
+  and make observations.
+
+  Undecided, to settle when picked up: what counts as completed (a map
+  that bakes clean is the likely reading), whether the launcher bakes on
+  demand or lists bakes already made, and where observations are written
+  down. The install path stays out of the repository.
+  **Layman:** Pick any map that bakes and fly around it, to look it over and note anything wrong.
+  Kind: feature.
+  Source: user-request-2026-09-17.
+  Lanes: ut-ants.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -10169,7 +10183,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-10.
   Lanes: uworld, ugame.
 
-- 📋 [UTA-0167] **ut-ants: fly the camera with a gamepad as well as keyboard and mouse.**
+- 🚧 [UTA-0167] **ut-ants: fly the camera with a gamepad as well as keyboard and mouse.**
   The user asked on 2026-09-16 whether a PS4 controller could drive the
   camera. It cannot, and nothing partial exists: apps/ut-ants/main.cpp calls
   SDL_Init with SDL_INIT_VIDEO alone and its event loop reads only
@@ -10191,6 +10205,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Queued (2026-09-17): the user chose to build it, first, ahead of
   UTA-0168 and then UTA-0169. The scope is the shape above: gamepad sticks
   and buttons feeding the camera moves apps/ut-ants/main.cpp already has.
+  Claimed (2026-09-17) by session ut-ants-18, working in the main
+  checkout.
   **Layman:** Let a PS4 or similar controller move the camera, not just the keyboard and mouse.
   Kind: feature.
   Source: user-request-2026-09-16.
@@ -11058,6 +11074,10 @@ to.
   Belongs with Monster Hunt's rules (UTA-0029) and the HUD (uui).
   Linked (2026-09-10): UT_MonsterHunt GAME-0076, the same counter on the
   live UT99 server.
+  Reported again (2026-09-17): the user played one map for three hours
+  and it seemed the enemies would never end, because the counter showed
+  only what could be alive at once and never the map's total. The final
+  game must show that total.
   **Layman:** Show two monster counts in Monster Hunt: how many are around right now, and how many are left to beat in the whole map.
   Kind: feature.
   Source: user-request-2026-09-10.

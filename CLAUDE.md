@@ -5,10 +5,10 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0167` (fly the camera with a gamepad), then `UTA-0168`
-(AS-Frigate's lanterns shadow their own lights), then `UTA-0169`
-(brightness-0 lights crowd the light clusters) -- the user's order,
-2026-09-17. `UTA-0165` shipped 2026-09-17, green on the matrix:
+**Next:** `UTA-0168` (AS-Frigate's lanterns shadow their own lights), then
+`UTA-0169` (brightness-0 lights crowd the light clusters), then `UTA-0170`
+(a launcher for looking over every finished map) -- the user's order,
+2026-09-17. `UTA-0167` (fly the camera with a gamepad) was built first. `UTA-0165` shipped 2026-09-17, green on the matrix:
 every light carries its level's `LevelInfo.Brightness`, which UT99 applies
 and we never read (`UTA-0156` SS 4.5, bundle format 13), and `EXPOSURE` 5.5,
 `AMBIENT_SCALE` 0.5 and the fog were refitted against the original game.
