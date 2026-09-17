@@ -10436,7 +10436,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ubake, umat.
 
-- 📋 [UTA-0182] **urender: a dark triangle crosses a lit wall at a distance and goes away up close.**
+- 🚧 [UTA-0182] **urender: a dark triangle crosses a lit wall at a distance and goes away up close.**
   Reported by the user on 2026-09-17 in MH-!!![2-Much-Health-FIXED], with a
   screenshot looking up a tall stone room: a darker triangle with straight
   edges lies across the left wall's lighting, and it draws properly once
@@ -10449,12 +10449,40 @@ model, no weapon and no opponent until 0.2.0.
   dynamic-resolution region. Reproduce from a pinned camera with ut-shot
   at two distances before choosing (memory: pin light time first).
   User decision (2026-09-17): taken after UTA-0179 and before UTA-0180.
+  Taken 2026-09-17 by session ut-ants-98, main checkout.
+  Progress (2026-09-17, ut-ants-98): reproduced and narrowed, not yet
+  fixed. Scratch at the session scratchpad's tri/ directory.
+
+  Repro: the map's bake; the tall room Brush58 (x 3072 to 5120, y 896 to
+  2944, floor -512). ut-shot camera `3300 1920 -420 5000 1500 0 100`.
+  The wedges sit on the y=2944 wall, with straight edges that cross the
+  bricks.
+
+  Ruled out, each by a throwaway ut-shot build: light probes
+  (--no-probes), the fog (hazeScale 0), parallax and shadow cell size
+  (Low tier draws the same shape, and Ultra too), duplicate coplanar
+  geometry (no overlapping wall triangles in the bake), texture mapping
+  (every triangle on each wall shares one UV map), cluster reach (every
+  light forced into every cluster changes nothing), and movers (none in
+  the room).
+
+  Isolated: keeping only light export 80 (4114, 2685, 0) draws a pure
+  black sawtooth region on that wall, identical at every tier. Tracing
+  segments from the light to a grid of points on the wall through the
+  bake's geometry finds nothing in the way but the lamp's own fixture,
+  on one segment. So light 80's shadow map holds depth that no drawn
+  geometry produces there.
+
+  Next: dump light 80's six shadow faces and compare their depth with
+  the traced distances, and check that each face is drawn and sampled
+  with the same view-projection and atlas rectangle (Shadows.cpp's
+  planner, shadowViewProj, the tile pass in Frame.cpp, shadows.glsl).
   **Layman:** A wedge-shaped shadow appears on a wall from far away and vanishes as you walk up to it.
   Kind: fix.
   Source: user-request-2026-09-17.
   Lanes: urender.
 
-- 🚧 [UTA-0183] **ut-ants: the controller's Options button closes a map and returns to the launcher.**
+- ✅ [UTA-0183] **ut-ants: the controller's Options button closes a map and returns to the launcher.**
   The user asked on 2026-09-17, after flying maps from the launcher with a
   controller: map the Options button to close a map.
 
@@ -10468,6 +10496,10 @@ model, no weapon and no opponent until 0.2.0.
   after UTA-0179, before UTA-0182. It is a few lines, and the user is
   flying maps with a controller now.
   Taken 2026-09-17 by session ut-ants-98, main checkout.
+  Resolved (2026-09-17): shipped in 62305ad, green on the matrix (CI run
+  35239915372: GCC 14, Clang 19, MSVC). No test presses the button, since
+  the viewer's SDL half is run by hand; the user checks it with their
+  controller.
   **Layman:** Press Options on the controller to leave a map, as Escape does on the keyboard.
   Kind: ux.
   Source: user-request-2026-09-17.
