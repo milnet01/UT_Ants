@@ -9727,6 +9727,22 @@ model, no weapon and no opponent until 0.2.0.
   What remains open: DM-Fetid at 0.71 at the joint fit, and the point
   falloff correction above, which darkens it again. Both are to be
   measured on a bake that carries Brightness, not by fit.
+  Fixed, pending CI (2026-09-17, ut-ants-6f). 585c9d5 carries
+  LevelInfo.Brightness on every LITE record (format 13, baker revision 17)
+  and multiplies both light models by it (UTA-0156 SS 4.5); thirteen
+  mutants each reddened their test. It also took UT99's decoded point
+  falloff, which measured worse on re-baked maps (pooled block RMS 37.5
+  against 36.6; own exposures 5.30, 7.35, 7.82 against 5.26, 5.68, 5.80),
+  as did adding light in UT99's lightmap units (40.8 and 41.9 at best,
+  variants165.py), so 9851c30 keeps SurrealEngine's falloff and records
+  why. 048be3b refits: EXPOSURE 5.5 and AMBIENT_SCALE 0.5 over the three
+  maps with fog zeroed, pooled 36.6, own exposures 5.26, 5.68, 5.76
+  (sweepamb17b.sh); HAZE_SCATTER 1e-4, VOLUME_GLOW_SCALE 2e-3,
+  VOLUME_FOG_SCALE 2e-1 by UTA-0015 SS 7. At the joint fit DM-Fetid's mean
+  displayed luma is 0.70 of the original's with fog zeroed, and 76.0
+  against 76.8 with volumetric lighting on. What remains is DM-Fetid's
+  block RMS, 40.8 against 37.5 and 34.3 for the other two, which is the
+  flat light field noted earlier rather than its level.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.
