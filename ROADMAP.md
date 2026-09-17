@@ -6424,6 +6424,29 @@ model, no weapon and no opponent until 0.2.0.
   start. They bumped their route-check version to 2 and will report which
   maps flip on a full re-run. Read nothing further from their older census
   rows until then.
+  Re-run (2026-09-17) by UT_MonsterHunt at route-check version 2, after
+  their GAME-0144 fix. Of UTA-0121's sixteen seeded maps, only
+  MH-UM-SoccerStadium1 and -BP flipped (NOROUTE to ROUTE). Still NOROUTE:
+  MH-BoomDockBridge_V0, MH-Haros-OldQuarter, MH-NivenSB,
+  MH-Skaarj_ReactorTest-v1, MH-ZenithWarsTorus, MH-BirdBrainedResearch,
+  MH-ChambersOfHell-Part1, MH-Doomed-HELL-HTD-BP, MH-ExtremeCoreV2SB,
+  MH-HaVoCuRhOMG, MH-UM-Vengeance-EG1, MH-UnderDarkSB and MH-'Z-FALKENSTINE
+  (which has no version-1 answer). MH-Omni-Rage-BP routes. Library-wide,
+  190 of 1279 maps flipped, mostly NOASK to NOROUTE, from the same defect
+  in their control; list at UT_MonsterHunt/work/game0144/route-flips.tsv.
+  MHSpecProbe on this item's five unprobed maps, END lines (full output in
+  UT_MonsterHunt/work/game0144/specprobe/<map>.txt):
+  - MH-BoomDockBridge_V0: exitall=yes, exitnofly=yes, exitwalk=no; three
+    Botpack.JumpSpot specs closed; every outgoing spec has a way back.
+  - MH-Haros-OldQuarter and MH-ZenithWarsTorus: exitall=no, every
+    outgoing spec has a way back.
+  - MH-Skaarj_ReactorTest-v1: exitall=no; 35 one-way specs, first
+    InventorySpot90 to PathNode83.
+  - MH-'Z-FALKENSTINE: exitall=no; 391 one-way specs, first
+    InventorySpot515 to InventorySpot320.
+  Read at face value, BoomDock reaches its exit in every surveyor mode but
+  walking, past three closed JumpSpots, and the other four never reach it.
+  Undiagnosed on our side.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -7965,7 +7988,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-12 UTA-0133 corpus re-measurement.
   Lanes: ut-paths.
 
-- 📋 [UTA-0135] **ut-paths: the exit's VERTICAL window is unmeasured, and MH-NivenSB rests on it.**
+- ✅ [UTA-0135] **ut-paths: the exit's VERTICAL window is unmeasured, and MH-NivenSB rests on it.**
   UTA-0134 settled the HORIZONTAL window: a MonsterEnd fires at its own
   CollisionRadius plus the pawn's radius, with no cap, measured in-engine.
   UT_MonsterHunt said in the same message that height is tested SEPARATELY
@@ -7992,6 +8015,21 @@ model, no weapon and no opponent until 0.2.0.
   Linked (2026-09-17): UT_MonsterHunt GAME-0107, taken second. They sweep
   Z with MHTouchProbe on MH-NivenSB's exit (height 166), reading the
   pawn's Touching[] list. Done: the Z separation at which contact is lost.
+  Measured (2026-09-17) by UT_MonsterHunt GAME-0107, their commit 428a20a:
+  MHTouchProbe on MH-NivenSB's own MonsterEndSB0 (radius 4, height 166),
+  pawn TMale1 (radius 17, height 39), reading the pawn's Touching[] in
+  one-unit steps. Last contact 205 above and 205 below; horizontally 21 at
+  radius 4 and 57 at radius 40. So the window is radius + 17 and height +
+  39, each to within one unit, and UTA-0121 SS 4.6's height rule holds
+  exactly. MH-NivenSB's node at 78.60 vertical touches, so UTA-0133's
+  correction stands. MH-ExtremeCoreV2SB at 57.25 against 57 and
+  MH-Skaarj_ReactorTest-v1 at 43.2 against 37 do not touch.
+  Trap in their older figures: coarse steps overstate (10-unit steps read
+  60 at radius 40, 2-unit vertical steps read 206), because a large
+  SetLocation leaves Touching[] stale. Trust the one-unit figures.
+  Nothing to change here.
+  Closed (2026-09-17): answered by measurement, above. The vertical window
+  is height + 39 as UTA-0121 SS 4.6 assumed, so no code changes.
   **Layman:** We know how wide an exit reaches sideways; we have not checked how far up and down.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12 UTA-0134 answer.
@@ -8600,6 +8638,30 @@ model, no weapon and no opponent until 0.2.0.
   with MH-BunchOfHPSBFix. Done: a per-map verdict on the 24 in
   crossing.tsv -- a real misroute, enabled later by a trigger, or no
   effect.
+  Answered (2026-09-17) by UT_MonsterHunt GAME-0120, their commit 893a92d,
+  per map in UT_MonsterHunt/analysis/teleporter-crossing-2026-09-17.tsv.
+  Of the 24: 1 real misroute, 16 enabled later, 6 no effect, 1
+  unmeasured.
+  - Misroute: MH-UM-Capslock, FavoritesTeleporter6 (tag part6), 2 hops
+    from the start, nothing enables it. Cutting it loses 2 nodes, none
+    touching an exit.
+  - Enabled later (16): a Trigger, Counter, Dispatcher, Mover or monster
+    Event fires each one's tag. MH-BunchOfHPSBFix is here: tele1, which
+    Trigger49 enables.
+  - Unmeasured: MH-ArchionLava[Torus], 14 disabled teleporters nothing
+    enables, and their probe found no route to any destination.
+  - The engine DOES plan through a disabled teleporter at round start
+    (MHTeleProbe: MH-BunchOfHPSBFix routes through tele1 at 10 hops), so
+    a bot can walk into one before its trigger fires. Our network step
+    following the link matches what the engine's own planner does.
+  - Our probe's rule was wrong in one direction: census-probe.cpp cut an
+    R_SPECIAL edge with a disabled teleporter at EITHER end, but
+    Teleporter.Touch checks only the SOURCE's bEnabled, so arriving at a
+    disabled one is real. Counting only edges leaving one, 6 maps lose 0
+    nodes. Any future cut uses the leaving direction.
+  Under the user's 2026-09-14 rule (act only if real misroutes are
+  found), one was found, on a pair touching no exit. Whether that
+  warrants the trigger census is the user's call.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
@@ -9248,6 +9310,7 @@ model, no weapon and no opponent until 0.2.0.
   measurement, lights first. The same day the user noted that an area left
   too dark can be fixed by adding a light, which the map editor
   (UTA-0034) covers.
+  Queued (2026-09-17) by the user: after UTA-0170, the map launcher.
   **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
   Kind: feature.
   Source: user-request-2026-09-14.
