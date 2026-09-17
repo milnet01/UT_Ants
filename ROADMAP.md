@@ -10188,6 +10188,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Filed rather than built: the offer to build it was made and the user moved
   on to UTA-0166 without answering, so it is unqueued rather than declined.
   Ask before starting.
+  Queued (2026-09-17): the user chose to build it, first, ahead of
+  UTA-0168 and then UTA-0169. The scope is the shape above: gamepad sticks
+  and buttons feeding the camera moves apps/ut-ants/main.cpp already has.
   **Layman:** Let a PS4 or similar controller move the camera, not just the keyboard and mouse.
   Kind: feature.
   Source: user-request-2026-09-16.
