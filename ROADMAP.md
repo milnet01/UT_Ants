@@ -9404,7 +9404,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-15 split-from-UTA-0015.
   Lanes: urender.
 
-- 🚧 [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
+- ✅ [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
   Found by UTA-0015's SS 7 measurement (2026-09-15). Against
   ut-ants-uta0156/orig-fetid-novol, captured with volumetric lighting
   off, a format-12 bake of DM-Fetid scores a block RMS of 42.6 at the
@@ -9743,6 +9743,10 @@ model, no weapon and no opponent until 0.2.0.
   against 76.8 with volumetric lighting on. What remains is DM-Fetid's
   block RMS, 40.8 against 37.5 and 34.3 for the other two, which is the
   flat light field noted earlier rather than its level.
+  Shipped (2026-09-17, ut-ants-6f): CI run 35171291520 on 90571ca is
+  green on GCC 14, Clang 19 and MSVC, with the local gate green on this
+  machine's GPU and lavapipe. The cause was LevelInfo.Brightness; the
+  fix, the kept falloff and the refit are the three notes above.
   **Layman:** One map looks much darker in our game than in the original, even before any fog, and the reason is not known yet.
   Kind: investigate.
   Source: in-session-2026-09-15.

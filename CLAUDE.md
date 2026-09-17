@@ -5,9 +5,16 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0165` (DM-Fetid draws about half as bright as the original
-even with volumetric lighting off; its captures and `compare.py` are at
-`ut-ants-uta0156`). `UTA-0015` (volumetric fog, light shafts and the
+**Next:** to be chosen with the user. Filed and open from `UTA-0165`:
+`UTA-0168` (AS-Frigate's lanterns shadow their own lights) and `UTA-0169`
+(brightness-0 lights crowd the light clusters); `UTA-0167` (gamepad camera)
+is filed and unqueued. `UTA-0165` shipped 2026-09-17, green on the matrix:
+every light carries its level's `LevelInfo.Brightness`, which UT99 applies
+and we never read (`UTA-0156` SS 4.5, bundle format 13), and `EXPOSURE` 5.5,
+`AMBIENT_SCALE` 0.5 and the fog were refitted against the original game.
+UT99's own point falloff was decoded and measured worse here, so
+SurrealEngine's stays; the reason sits beside `ubake::falloff`. The
+captures, bakes and sweep scripts are at `ut-ants-uta0156`. `UTA-0015` (volumetric fog, light shafts and the
 flashlight) shipped 2026-09-15, green on the matrix, spec
 `docs/specs/UTA-0015-volumetric-fog.md`; its look was set by measurement
 against the original game. `UTA-0166` shipped 2026-09-16 on the matrix:
@@ -28,7 +35,7 @@ lights fade at the edge of their reach, `EXPOSURE` is 3.2, and zone
 ambient light is carried in a `ZONE` section and drawn at a measured
 `AMBIENT_SCALE` of 2.5 (spec `docs/specs/UTA-0156-zone-ambient-light.md`).
 `UTA-0165` then took UT99's own `FGetHSV` brightness curve into the light
-model and refitted both, to `EXPOSURE` 2.2 and `AMBIENT_SCALE` 1.5.
+model, and later `LevelInfo.Brightness`, refitting both to the values above.
 `UTA-0162` (strip lights) shipped 2026-09-14, green on the matrix: rows
 of lights bake into one segment.
 `UTA-0155` shipped the same day: the bake reads a palette from another

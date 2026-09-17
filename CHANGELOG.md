@@ -413,6 +413,15 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Maps are lit as brightly as their author set them: every light takes the map's own brightness multiplier.** (UTA-0165)
+  UT99 multiplies every light by the level's LevelInfo.Brightness, which
+  the engine never read: DM-Fetid sets 1.4 and DM-Deck16][ 0.8, so DM-Fetid
+  drew at about a quarter of the original's brightness. Each light now
+  carries it (bundle format 13; bake maps again), and exposure, zone
+  ambient and the fog were refitted against the original game. The three
+  test maps now agree on one exposure within a tenth, where they
+  differed 2.4 times.
+
 - **Light shafts and haze no longer switch off as the camera turns** (UTA-0166)
   A light's shadow map was sized from how big it looked on screen, so every
   camera movement re-dealt the shadow atlas and a different few lights held
