@@ -50,10 +50,14 @@ float flickerOf(const ubundle::Light& light, double seconds) noexcept {
 std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle) {
     std::vector<ubundle::Light> out;
     if (!bundle.lights) return out;
-    for (const ubundle::Light& light : *bundle.lights)
+    for (const ubundle::Light& light : *bundle.lights) {
         // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
-        if (light.type != LT_BACKDROP_LIGHT && !light.specialLit && light.strip != ubundle::STRIP_ABSORBED)
-            out.push_back(light);
+        if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == ubundle::STRIP_ABSORBED) continue;
+        // UTA-0169: brightness 0 never emits -- flicker and TriggerLight only
+        // scale the saved value -- but a fog volume still thickens the fog.
+        if (light.brightness == 0 && light.volumeRadius == 0) continue;
+        out.push_back(light);
+    }
     return out;
 }
 

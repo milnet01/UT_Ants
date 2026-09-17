@@ -99,6 +99,23 @@ TEST_CASE("UTA-0162 INV-7: an absorbed light is not drawn and a leader draws its
     CHECK(drawn[1].span == std::array<float, 3>{});
 }
 
+TEST_CASE("UTA-0169: a brightness-0 light is not drawn unless it holds a fog volume", "[render]") {
+    Light dark = lightOfType(1, 10);
+    dark.brightness = 0;
+    Light fogOnly = lightOfType(1, 11);
+    fogOnly.brightness = 0;
+    fogOnly.volumeRadius = 16;
+    fogOnly.volumeFog = 40;
+    uta::ubundle::Bundle bundle;
+    bundle.lights = std::vector{dark, fogOnly, lightOfType(1, 12)};
+
+    const auto direct = uta::urender::directLights(bundle);
+    REQUIRE(direct.size() == 2u);
+    CHECK(direct[0].exportIndex == 11u);
+    CHECK(direct[1].exportIndex == 12u);
+    CHECK(drawnLights(bundle, 0.0).size() == 2u);
+}
+
 TEST_CASE("SS 4.9: a steady light's scalar is exactly 1 at any time", "[render]") {
     // Steady, and the types this item does not vary: none, the palette types,
     // and a byte past the last ELightType.
