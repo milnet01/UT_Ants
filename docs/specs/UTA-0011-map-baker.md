@@ -366,7 +366,10 @@ export:
 - an export reference is that export of the map;
 - an import reference resolves its outermost outer through the install's
   resolver, then takes the export of that package whose name and whose chain
-  of outer names match the import's, compared case-insensitively.
+  of outer names match the import's, compared case-insensitively, and whose
+  class the import names, as UT99's linker requires. The class was added by
+  `UTA-0176` after the build: by name alone a FireTexture import found its
+  Palette of the same name first.
 
 **Which variants.** A texture gets the masked variant where any surface
 naming it has `PF_MASKED`, and the opaque variant where any surface naming it

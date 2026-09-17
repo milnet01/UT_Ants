@@ -183,7 +183,8 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
         appendIndex(paletteData, static_cast<std::int32_t>(texture.picture.palette.size()));
         for (const auto& colour : texture.picture.palette)
             paletteData.insert(paletteData.end(), colour.begin(), colour.end());
-        palette = addExport(importClass("Engine", "Palette"), outer, texture.name + "Pal", std::move(paletteData));
+        palette = addExport(importClass("Engine", "Palette"), outer,
+                            texture.paletteSharesName ? texture.name : texture.name + "Pal", std::move(paletteData));
     } else {
         // UTA-0155: the palette lives in another package, as 175 of the reference
         // install's textures keep theirs.
@@ -195,6 +196,9 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     if (texture.format) properties.addByte(name("Format"), 1);
     if (texture.drawScale != 0) properties.addFloat(name("DrawScale"), texture.drawScale);
     if (texture.sourceTexture != 0) properties.addObject(name("SourceTexture"), texture.sourceTexture);
+    if (texture.renderHeat != 0) properties.addByte(name("RenderHeat"), texture.renderHeat);
+    if (texture.rising) properties.addBool(name("bRising"), true);
+    if (texture.sparksLimit != 0) properties.addInt(name("SparksLimit"), texture.sparksLimit);
 
     std::vector<std::uint8_t> data = properties.build(0);
     appendU8(data, 1); // one mip
@@ -211,6 +215,10 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     appendU32(data, texture.picture.height);
     appendU8(data, 2); // bitsWidth: log2 of 4
     appendU8(data, 2);
+    if (texture.className == "FireTexture") {
+        appendIndex(data, static_cast<std::int32_t>(texture.sparks.size()));
+        for (const auto& spark : texture.sparks) data.insert(data.end(), spark.begin(), spark.end());
+    }
 
     const std::int32_t objectClass =
         texture.className.empty() ? importClass("Engine", "Texture") : importClass("Fire", texture.className);
@@ -309,10 +317,10 @@ std::int32_t MapBuilder::addTexture(const TextureSpec& texture) {
 }
 
 std::int32_t MapBuilder::importTexture(std::string_view package, std::string_view group,
-                                       std::string_view name) {
+                                       std::string_view name, std::string_view className) {
     std::int32_t outer = packer_.importPackage(package);
     if (!group.empty()) outer = packer_.importObject("Core", "Package", outer, group);
-    return packer_.importObject("Engine", "Texture", outer, name);
+    return packer_.importObject(className == "Texture" ? "Engine" : "Fire", className, outer, name);
 }
 
 MapBuilder& MapBuilder::addSurface(std::int32_t texture, std::uint32_t polyFlags) {

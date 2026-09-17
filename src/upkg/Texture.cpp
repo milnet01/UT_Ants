@@ -156,7 +156,15 @@ Result<Texture> readTexture(const Package& package, const ExportEntry& entry) {
                 " sparks, more than the " + std::to_string(reader.remaining()) +
                 " bytes remaining can hold"));
         }
-        UTA_CHECK(reader.skip(wanted * SPARK_BYTES));
+        texture.sparks.reserve(wanted);
+        for (std::size_t i = 0; i < wanted; ++i) {
+            std::array<std::uint8_t, SPARK_BYTES> bytes{};
+            for (std::uint8_t& byte : bytes) {
+                UTA_TRY(byte, reader.readU8());
+            }
+            texture.sparks.push_back(
+                Spark{bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]});
+        }
     }
 
     if (reader.remaining() != 0) {

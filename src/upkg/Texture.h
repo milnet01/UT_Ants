@@ -32,12 +32,27 @@ struct Mip {
     std::uint8_t bitsHeight = 0;
 };
 
+/// UTA-0176: one of a FireTexture's sparks, as stored: a type, its heat, its
+/// place on the texture, and four bytes whose meaning the type decides.
+struct Spark {
+    std::uint8_t type = 0;
+    std::uint8_t heat = 0;
+    std::uint8_t x = 0;
+    std::uint8_t y = 0;
+    std::uint8_t byteA = 0;
+    std::uint8_t byteB = 0;
+    std::uint8_t byteC = 0;
+    std::uint8_t byteD = 0;
+};
+
 struct Texture {
     std::vector<Mip> mips;
     /// Empty unless the export's `bHasComp` property is true (INV-6). The
     /// compression is named by its `CompFormat` property and is not
     /// interpreted here.
     std::vector<Mip> compressedMips;
+    /// A FireTexture's sparks, in stored order; empty for every other class.
+    std::vector<Spark> sparks;
 };
 
 struct PaletteEntry {

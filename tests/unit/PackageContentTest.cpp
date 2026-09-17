@@ -899,6 +899,27 @@ TEST_CASE("a texture subclass sharing the layout is read; another is refused",
         CHECK(uta::upkg::readTexture(*package, package->exports()[0]).has_value());
     }
 
+    SECTION("UTA-0176: FireTexture's sparks are read in stored order") {
+        std::vector<std::uint8_t> fire = data;
+        appendIndex(fire, 2);
+        for (const std::uint8_t value : {5u, 200u, 64u, 100u, 1u, 2u, 3u, 4u, 0u, 17u, 3u, 9u, 0u, 0u, 0u, 255u})
+            appendU8(fire, value);
+        const std::vector<std::uint8_t> bytes = packageWithObject(61, "FireTexture", fire);
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE(package.has_value());
+        const auto texture = uta::upkg::readTexture(*package, package->exports()[0]);
+        REQUIRE(texture.has_value());
+        REQUIRE(texture->sparks.size() == 2);
+        CHECK(texture->sparks[0].type == 5);
+        CHECK(texture->sparks[0].heat == 200);
+        CHECK(texture->sparks[0].x == 64);
+        CHECK(texture->sparks[0].y == 100);
+        CHECK(texture->sparks[0].byteA == 1);
+        CHECK(texture->sparks[0].byteD == 4);
+        CHECK(texture->sparks[1].heat == 17);
+        CHECK(texture->sparks[1].byteD == 255);
+    }
+
     SECTION("WaveTexture is refused, and the message names the class") {
         const std::vector<std::uint8_t> bytes =
             packageWithObject(61, "WaveTexture", data);

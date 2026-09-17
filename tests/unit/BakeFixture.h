@@ -58,6 +58,16 @@ struct TextureSpec {
     /// UTA-0155: the base level keeps its size but stores no pixels, as a
     /// procedural texture's does.
     bool emptyLevel = false;
+    /// UTA-0176: the palette export takes the texture's own name rather than
+    /// `<name>Pal`, and comes first, as NaliFX's SHANEFX.TORCHES2 does.
+    bool paletteSharesName = false;
+    /// UTA-0176: a FireTexture's sparks, eight bytes each, written after its
+    /// mip chain; and the three properties its still reads, each written only
+    /// when not 0 or false.
+    std::vector<std::array<std::uint8_t, 8>> sparks;
+    std::uint8_t renderHeat = 0;
+    bool rising = false;
+    std::int32_t sparksLimit = 0;
 };
 
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
@@ -183,9 +193,10 @@ public:
     std::int32_t addTexture(const TextureSpec& texture);
 
     /// A texture the map imports as `<package>.<group>.<name>`, or as
-    /// `<package>.<name>` when `group` is empty.
+    /// `<package>.<name>` when `group` is empty, naming it by `className` --
+    /// which the bake matches, as UT99's linker does (UTA-0176).
     std::int32_t importTexture(std::string_view package, std::string_view group,
-                               std::string_view name);
+                               std::string_view name, std::string_view className = "Texture");
 
     MapBuilder& addSurface(std::int32_t texture, std::uint32_t polyFlags = 0);
 

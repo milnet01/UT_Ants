@@ -450,7 +450,7 @@ TEST_CASE("UTA-0155: a procedural texture with no pixels of its own is made from
         return packer.build();
     };
     MapBuilder map;
-    map.addSurface(map.importTexture("FluidTex", "", "Goo"));
+    map.addSurface(map.importTexture("FluidTex", "", "Goo", "WetTexture"));
     JobSystem jobs(2);
     std::set<std::uint64_t> asked;
     const detail::CuratedLookup recording = [&](std::uint64_t fingerprint) -> const uta::umat::CuratedOverride* {
@@ -477,6 +477,67 @@ TEST_CASE("UTA-0155: a procedural texture with no pixels of its own is made from
         CHECK(result.skipped[0].material == "fluidtex.goo");
         INFO("reason: " << result.skipped[0].reason);
         CHECK(result.skipped[0].reason.find("SourceTexture") != std::string::npos);
+    }
+}
+
+TEST_CASE("UTA-0176: a FireTexture sharing its palette's name is found by class and made", "[ubake][bake]") {
+    // AS-Frigate's torches: NaliFX's SHANEFX group holds TORCHES2 the Palette
+    // and then TORCHES2 the FireTexture, and by name alone the bake took the
+    // Palette and skipped the torch for naming no palette. A FireTexture stores
+    // no pixels; its still comes from its sparks.
+    TextureSpec torch;
+    torch.name = "Torch";
+    torch.group = "ShaneFX";
+    torch.picture = picture(9); // its size; the level stores no pixels
+    torch.picture.palette.clear(); // a fire's palette spans every heat, 0 to 255
+    for (int heat = 0; heat < 256; ++heat)
+        torch.picture.palette.push_back({std::uint8_t(heat), std::uint8_t(heat / 2), 0, 255});
+    torch.className = "FireTexture";
+    torch.emptyLevel = true;
+    torch.paletteSharesName = true;
+    torch.sparks = {{0, 200, 1, 3, 0, 0, 0, 0}}; // Burn, at (1, 3)
+    torch.renderHeat = 226;
+    torch.rising = true;
+    const auto naliFx = [](const TextureSpec& spec) {
+        Packer packer;
+        packer.addTexture(spec);
+        return packer.build();
+    };
+    JobSystem jobs(2);
+
+    SECTION("imported as a FireTexture, it is made from its own properties") {
+        MapBuilder map;
+        map.addSurface(map.importTexture("NaliFX", "ShaneFX", "Torch", "FireTexture"));
+        // The picture made is what the curated library is asked about, so a
+        // still that ignored bRising would be asked about the same picture twice.
+        const auto pictureOf = [&](const TextureSpec& spec) {
+            std::set<std::uint64_t> asked;
+            const detail::CuratedLookup recording = [&](std::uint64_t fingerprint) -> const uta::umat::CuratedOverride* {
+                asked.insert(fingerprint);
+                return nullptr;
+            };
+            MemoryPackages packages;
+            packages.add("nalifx", naliFx(spec));
+            const BakeResult result = baked(map.build(), packages.resolver(), jobs, recording);
+            for (const auto& skipped : result.skipped) UNSCOPED_INFO("skipped " << skipped.material << ": " << skipped.reason);
+            CHECK(result.skipped.empty());
+            CHECK(idsOf(result) == std::vector<std::string>{"nalifx.shanefx.torch"});
+            return asked;
+        };
+        TextureSpec still = torch;
+        still.rising = false;
+        CHECK(pictureOf(torch) != pictureOf(still));
+    }
+
+    SECTION("imported as another class, nothing of that class is found") {
+        MapBuilder map;
+        map.addSurface(map.importTexture("NaliFX", "ShaneFX", "Torch", "Texture"));
+        MemoryPackages packages;
+        packages.add("nalifx", naliFx(torch));
+        const BakeResult result = baked(map.build(), packages.resolver(), jobs);
+        REQUIRE(result.skipped.size() == 1);
+        INFO("reason: " << result.skipped[0].reason);
+        CHECK(result.skipped[0].reason.find("holds no") != std::string::npos);
     }
 }
 

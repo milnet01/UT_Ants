@@ -5,6 +5,7 @@
 #include "core/FileSystem.h"
 #include "ubake/Actors.h"
 #include "ubake/Collision.h"
+#include "ubake/FireStill.h"
 #include "ubake/Geometry.h"
 #include "ubake/LightProbes.h"
 #include "ubake/Movers.h"
@@ -94,6 +95,11 @@ struct ImportedObject {
     std::string package;            ///< the package the chain ends at, as the name table spells it
     std::vector<std::string> names; ///< the object's name first, its outermost group last
     std::string broken;             ///< why the chain is unusable; empty when it is sound
+    /// UTA-0176: the class the import names its object by, folded. UT99's
+    /// linker finds an import by class as well as by name, and a package can
+    /// hold two objects of one name: NaliFX's SHANEFX group holds TORCHES2 the
+    /// FireTexture and TORCHES2 its Palette.
+    std::string className;
 
     /// `<group>.<name>`, outermost first.
     [[nodiscard]] std::string path() const {
@@ -107,6 +113,7 @@ struct ImportedObject {
 /// chain is bounded by the import table.
 ImportedObject walkImport(const upkg::Package& from, const upkg::ImportEntry& import) {
     ImportedObject out;
+    out.className = detail::fold(nameOf(from, import.className));
     const std::span<const upkg::ImportEntry> imports = from.imports();
     const upkg::ImportEntry* current = &import;
     for (std::size_t hops = 0;; ++hops) {
@@ -143,13 +150,22 @@ bool matchesChain(const upkg::Package& holder, const upkg::ExportEntry& candidat
     return false;
 }
 
-/// The export of `holder` an import's `names` lead to -- the object's name
-/// first, its outermost group last -- or null where `holder` holds none.
-const upkg::ExportEntry* exportNamed(const upkg::Package& holder, const std::vector<std::string>& names) {
+/// The export of `holder` an import leads to: the object's name first and its
+/// outermost group last, of the class the import names -- or null where
+/// `holder` holds none. Matching the class is UT99's own rule (UTA-0176); by
+/// name alone 1,924 of the reference install's FireTexture imports found
+/// their Palette of the same name first.
+const upkg::ExportEntry* exportNamed(const upkg::Package& holder, const ImportedObject& imported) {
     std::vector<std::string> chain;
-    for (const std::string& name : names) chain.push_back(detail::fold(name));
-    for (const upkg::ExportEntry& candidate : holder.exports())
-        if (matchesChain(holder, candidate, chain)) return &candidate;
+    for (const std::string& name : imported.names) chain.push_back(detail::fold(name));
+    for (const upkg::ExportEntry& candidate : holder.exports()) {
+        if (!matchesChain(holder, candidate, chain)) continue;
+        const auto classOf = holder.objectName(candidate.objectClass); // "None" for a class export
+        const std::string className = candidate.objectClass.kind() == upkg::ObjectReferenceKind::Null
+                                          ? std::string("class")
+                                          : detail::fold(classOf.has_value() ? std::string(*classOf) : std::string());
+        if (className == imported.className) return &candidate;
+    }
     return nullptr;
 }
 
@@ -183,10 +199,22 @@ std::expected<ObjectSite, std::string> objectAt(const upkg::Package& from, upkg:
                                + std::string(found.error().message()));
     if (*found == nullptr)
         return std::unexpected("its " + what + "'s package " + package + " is not in the install, or does not open");
-    const upkg::ExportEntry* const entry = exportNamed(**found, imported.names);
+    const upkg::ExportEntry* const entry = exportNamed(**found, imported);
     if (entry == nullptr)
         return std::unexpected("its " + what + "'s package " + package + " holds no " + imported.path());
     return ObjectSite{*found, entry};
+}
+
+/// The value of type T a property list carries under `wanted` (folded), or
+/// `absent` -- a property left at its class default is not stored.
+template <class T>
+T propertyOr(const upkg::Package& holder, std::span<const upkg::Property> properties, std::string_view wanted,
+             T absent) {
+    for (const upkg::Property& property : properties) {
+        if (detail::fold(nameOf(holder, property.nameIndex)) != wanted) continue;
+        if (const auto* const value = std::get_if<T>(&property.value)) return *value;
+    }
+    return absent;
 }
 
 /// The object reference a property list carries under `wanted` (folded), if any.
@@ -202,7 +230,8 @@ std::optional<upkg::ObjectReference> objectProperty(const upkg::Package& holder,
 
 /// SS 4.6 "Which textures": an export reference is that export of the map; an
 /// import reference resolves its outermost outer through the resolver, then
-/// takes the export of that package whose name and outer names match.
+/// takes the export of that package whose name and outer names match, of the
+/// class the import names (UTA-0176).
 Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
                            upkg::ObjectReference reference,
                            const upkg::PackageResolver& resolver) {
@@ -253,7 +282,7 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
         site.unresolved = "package " + site.package + " is not in the install, or does not open";
         return site;
     }
-    if (const upkg::ExportEntry* const entry = exportNamed(*holder, imported.names)) {
+    if (const upkg::ExportEntry* const entry = exportNamed(*holder, imported)) {
         site.holder = holder;
         site.entry = entry;
         return site;
@@ -333,7 +362,23 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     const upkg::Palette* shownPalette = &*palette;
     std::optional<upkg::Texture> sourceTexture;
     std::optional<upkg::Palette> sourcePalette;
-    if (base.pixels.size() < std::size_t{base.width} * base.height) {
+    // UTA-0176: a FireTexture stores no pixels and names no SourceTexture --
+    // UT99 draws it from its sparks every frame -- so its still is simulated,
+    // through its own palette. Moving it is UTA-0105's.
+    std::vector<std::byte> fireIndices;
+    upkg::Mip fireLevel;
+    const bool storesNoPixels = base.pixels.size() < std::size_t{base.width} * base.height;
+    if (const auto className = holder.objectName(site.entry->objectClass);
+        storesNoPixels && className.has_value() && detail::fold(*className) == "firetexture") {
+        const FireSettings fire{
+            .renderHeat = propertyOr<std::uint8_t>(holder, *properties, "renderheat", 0),
+            .rising = propertyOr<bool>(holder, *properties, "brising", false),
+            .sparksLimit = propertyOr<std::int32_t>(holder, *properties, "sparkslimit", 0)};
+        fireIndices = fireStill(base.width, base.height, texture->sparks, fire);
+        fireLevel = base;
+        fireLevel.pixels = fireIndices;
+        shown = &fireLevel;
+    } else if (storesNoPixels) {
         const auto sourceReference = objectProperty(holder, *properties, "sourcetexture");
         if (!sourceReference.has_value() || sourceReference->kind() == upkg::ObjectReferenceKind::Null)
             return std::unexpected(std::string("it stores no pixels of its own and names no SourceTexture"));

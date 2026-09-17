@@ -161,4 +161,6 @@ when they recover; ultra never lowers it.
 [GPL-3.0](LICENSE). The texture compressor in
 [third_party/bc7enc/](third_party/bc7enc/) is someone else's work under the
 MIT licence or the Unlicense; its README says which copy it is and where it
-came from.
+came from. The baker's still picture of a fire texture is adapted from
+SurrealEngine under the zlib licence, whose notice is in
+[third_party/surrealengine/](third_party/surrealengine/).

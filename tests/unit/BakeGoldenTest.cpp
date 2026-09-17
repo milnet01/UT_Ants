@@ -55,7 +55,7 @@ namespace {
 // and bumped the format to 13, so the digest moved.
 // 18: UTA-0168 let probe rays through PF_NotSolid surfaces. The fixture holds
 // none, so the digest is 17's.
-constexpr std::uint32_t RECORDED_UNDER = 18;
+constexpr std::uint32_t RECORDED_UNDER = 19;
 constexpr std::string_view GOLDEN =
     "4b7ad1383c34f57e19728216d120e49d4cad53f02ef0e4daebbffc5a860ae2d4";
 

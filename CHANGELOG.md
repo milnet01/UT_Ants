@@ -426,6 +426,17 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Torch flames and other fire textures show as flames, not bright pink blocks** (UTA-0176)
+  The baker found a texture by its name alone, and a fire texture shares
+  its name with its own colour table, so the baker took the table and
+  skipped the flame. It now matches the kind of object too, as UT99
+  does -- 1,924 fire and 55 wave-texture references across the install
+  were being found wrongly. A fire texture stores no picture, so the
+  baker now runs UT99's fire simulation from its sparks and keeps a
+  still frame; moving flames are UTA-0105. The simulation is adapted
+  from SurrealEngine under the zlib licence. Maps baked before this
+  must be baked again.
+
 - **The flying camera no longer slips into floors and walls or out of the map** (UTA-0174)
   It stopped only at a surface it flew straight at, so gliding past a
   corner left it close enough for the view to cut the wall open, and

@@ -10253,6 +10253,24 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ubake, urender.
 
+- 📋 [UTA-0177] **A surface whose texture the bake skipped should not show magenta to a player.**
+  Split from UTA-0176 on 2026-09-17. That item fixed the report that raised
+  this -- AS-Frigate's torches bake now -- and left this part: urender draws
+  magenta, its built-in colour for a material with no picture, on any
+  surface whose texture a bake skipped. Magenta is right for finding a gap
+  and wrong for a player.
+
+  Census first, over the reference install, which skip reasons remain after
+  UTA-0176 and on how many surfaces of which kind (opaque, masked,
+  translucent). A ut-bake run reports each map's `skipped` list, so the
+  census is a bake of every map, about ten seconds each, run as a long job.
+  Then decide per surface kind: a translucent or masked surface may simply
+  not draw; an opaque one needs something in its place.
+  **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
+  Kind: fix.
+  Source: user-request-2026-09-17.
+  Lanes: ubake, urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
