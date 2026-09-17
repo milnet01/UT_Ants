@@ -26,6 +26,27 @@ struct FlyInput {
     bool fast = false;
 };
 
+/// UTA-0167: one gamepad's state, with no SDL in it. The sticks run from -1 to
+/// 1 with +Y down, as SDL reports them; `rise` and `sink` from 0 to 1.
+struct PadInput {
+    float leftX = 0, leftY = 0;   ///< flies, as W, A, S and D do
+    float rightX = 0, rightY = 0; ///< looks, as the mouse does
+    float rise = 0;               ///< as Space does
+    float sink = 0;               ///< as Ctrl does
+    bool fast = false;            ///< as Shift does
+};
+
+/// A stick's travel, 0 to 1, that is ignored around its centre so a resting
+/// stick does not drift the camera. A trigger's first stretch likewise.
+inline constexpr float PAD_DEAD_ZONE = 0.2f;
+/// UT angle units a second a stick held fully over turns the view: half a turn.
+inline constexpr double PAD_LOOK_RATE = 32768;
+
+/// Add `pad`, held for `seconds`, to `input`. Past the dead zone the move
+/// grows in step with the stick, and the look with its square, so a small
+/// push turns slowly enough to aim.
+void addPad(FlyInput& input, const PadInput& pad, double seconds) noexcept;
+
 class FlyCamera {
 public:
     static constexpr double SPEED = 800; ///< units a second; UT99 runs at 400

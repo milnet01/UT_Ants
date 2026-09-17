@@ -110,6 +110,67 @@ Start startingCamera(const uta::ubundle::Bundle& bundle) {
     return {};
 }
 
+/// UTA-0167: the gamepads flying the camera, closed when the run ends.
+class Gamepads {
+public:
+    Gamepads() {
+        int count = 0;
+        if (SDL_JoystickID* const ids = SDL_GetGamepads(&count)) {
+            for (int i = 0; i < count; ++i) open(ids[i]);
+            SDL_free(ids);
+        }
+    }
+    Gamepads(const Gamepads&) = delete;
+    Gamepads& operator=(const Gamepads&) = delete;
+    ~Gamepads() {
+        for (SDL_Gamepad* const pad : pads_) SDL_CloseGamepad(pad);
+    }
+
+    /// SDL may also announce a gamepad that was plugged in at start.
+    void open(SDL_JoystickID id) {
+        if (SDL_GetGamepadFromID(id) != nullptr) return;
+        if (SDL_Gamepad* const pad = SDL_OpenGamepad(id)) {
+            pads_.push_back(pad);
+        } else {
+            std::cerr << "ut-ants: a gamepad did not open: " << SDL_GetError() << "\n";
+        }
+    }
+    void close(SDL_JoystickID id) {
+        if (SDL_Gamepad* const pad = SDL_GetGamepadFromID(id)) {
+            std::erase(pads_, pad);
+            SDL_CloseGamepad(pad);
+        }
+    }
+
+    /// Every open gamepad's sticks and buttons, added to `input`.
+    void addTo(FlyInput& input, double seconds) const {
+        for (SDL_Gamepad* const pad : pads_) {
+            const auto axis = [pad](SDL_GamepadAxis which) {
+                return static_cast<float>(SDL_GetGamepadAxis(pad, which)) / 32767.0f;
+            };
+            const auto held = [pad](SDL_GamepadButton which) {
+                return SDL_GetGamepadButton(pad, which) ? 1.0f : 0.0f;
+            };
+            addPad(input,
+                   PadInput{.leftX = axis(SDL_GAMEPAD_AXIS_LEFTX),
+                            .leftY = axis(SDL_GAMEPAD_AXIS_LEFTY),
+                            .rightX = axis(SDL_GAMEPAD_AXIS_RIGHTX),
+                            .rightY = axis(SDL_GAMEPAD_AXIS_RIGHTY),
+                            .rise = std::max(axis(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER),
+                                             held(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)),
+                            .sink = std::max(axis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER),
+                                             held(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)),
+                            .fast = SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_STICK)},
+                   seconds);
+        }
+    }
+
+    [[nodiscard]] std::size_t count() const noexcept { return pads_.size(); }
+
+private:
+    std::vector<SDL_Gamepad*> pads_;
+};
+
 int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Options& options) {
     uta::urender::Config config;
     Uint32 count = 0;
@@ -144,6 +205,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     // UTA-0158: the camera stops at the level's walls, as UT99's spectator does.
     const uta::ubundle::CollisionTree* const level = bundle.collision ? &bundle.collision->level : nullptr;
     SDL_SetWindowRelativeMouseMode(window, true);
+    Gamepads gamepads;
 
     std::uint64_t drawn = 0;
     bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
@@ -156,6 +218,13 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                 running = false;
             } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) {
                 flashlight = !flashlight;
+            } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                       event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH) {
+                flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
+            } else if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
+                gamepads.open(event.gdevice.which);
+            } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
+                gamepads.close(event.gdevice.which);
             } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
                 input.lookRight += event.motion.xrel;
                 input.lookUp -= event.motion.yrel; // SDL's y grows downward
@@ -187,8 +256,10 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         input.fast = keys[SDL_SCANCODE_LSHIFT];
 
         const Uint64 now = SDL_GetTicksNS();
-        camera.update(input, static_cast<double>(now - last) / 1e9, level);
+        const double seconds = static_cast<double>(now - last) / 1e9;
         last = now;
+        gamepads.addTo(input, seconds);
+        camera.update(input, seconds, level);
 
         uta::urender::Camera view = camera.camera();
         view.flashlight = flashlight;
@@ -207,7 +278,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                   << config.height << " pixels; the last was drawn at scale "
                   << stats.renderScale << " in " << stats.frameMilliseconds << " ms and had "
                   << stats.overflowedClusters << " overflowed clusters and " << stats.unshadowedLights
-                  << " unshadowed lights\n";
+                  << " unshadowed lights; " << gamepads.count() << " gamepads open\n";
         if (drawn < *options.frames) return EXIT_FAILED;
     }
     return EXIT_OK;
@@ -250,6 +321,9 @@ int main(int argc, char** argv) {
         std::cerr << "ut-ants: SDL did not start: " << SDL_GetError() << "\n";
         return EXIT_FAILED;
     }
+    // UTA-0167: without gamepads the keyboard and mouse still fly the camera.
+    if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD))
+        std::cerr << "ut-ants: gamepads are off: " << SDL_GetError() << "\n";
     // UTA-0153. A fullscreen window with no display mode set is borderless at
     // the desktop's resolution (SDL_SetWindowFullscreenMode's NULL case), and
     // high pixel density keeps a scaled desktop's real pixels.

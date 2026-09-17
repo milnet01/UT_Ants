@@ -20,7 +20,10 @@ void usage(std::ostream& err) {
            "fullscreen at the desktop's resolution; --windowed opens a resizable\n"
            "window instead. The mouse looks; W, A, S and D fly; Space rises and Ctrl\n"
            "sinks; Shift flies faster; F turns the flashlight on and off; Escape\n"
-           "quits. --frames draws that many frames and exits 0 if every one drew.\n"
+           "quits. A gamepad flies too: the left stick moves, the right stick looks,\n"
+           "the right trigger or shoulder rises and the left sinks, pressing the left\n"
+           "stick flies faster, and the top face button turns the flashlight on and off.\n"
+           "--frames draws that many frames and exits 0 if every one drew.\n"
            "--validation asks for the Vulkan validation layer.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n";

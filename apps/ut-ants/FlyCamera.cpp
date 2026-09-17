@@ -16,7 +16,34 @@ double radians(double angle) noexcept { return angle * 2.0 * std::numbers::pi / 
 /// two walls takes two, and a room's corner three.
 constexpr int SLIDES = 3;
 
+/// How far past PAD_DEAD_ZONE `travel` is, rescaled to run from 0 to 1.
+double pastDeadZone(double travel) noexcept {
+    return std::clamp((travel - PAD_DEAD_ZONE) / (1.0 - PAD_DEAD_ZONE), 0.0, 1.0);
+}
+
+/// A stick's direction, its length past the dead zone raised to `power`. The
+/// zone is round, so a diagonal push starts moving where a straight one does.
+std::array<double, 2> stick(float x, float y, int power) noexcept {
+    const double length = std::hypot(x, y);
+    if (length == 0) return {};
+    const double scale = std::pow(pastDeadZone(length), power) / length;
+    return {x * scale, y * scale};
+}
+
 } // namespace
+
+void addPad(FlyInput& input, const PadInput& pad, double seconds) noexcept {
+    const auto move = stick(pad.leftX, pad.leftY, 1);
+    input.right += static_cast<float>(move[0]);
+    input.forward -= static_cast<float>(move[1]); // SDL's y grows downward
+    input.up += static_cast<float>(pastDeadZone(pad.rise) - pastDeadZone(pad.sink));
+    input.fast = input.fast || pad.fast;
+
+    const auto look = stick(pad.rightX, pad.rightY, 2);
+    const double pixels = PAD_LOOK_RATE * seconds / FlyCamera::LOOK_UNITS_PER_PIXEL;
+    input.lookRight += static_cast<float>(look[0] * pixels);
+    input.lookUp -= static_cast<float>(look[1] * pixels);
+}
 
 FlyCamera::FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int32_t yaw) noexcept
     : location_{location[0], location[1], location[2]},

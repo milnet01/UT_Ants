@@ -130,9 +130,15 @@ ut-ants "<your Unreal Tournament folder>" "<a baked map>"
 ```
 
 The mouse looks around. W, A, S and D fly, Space goes up and Ctrl goes down,
-and Shift flies faster. F turns a flashlight on and off. You pass through
-walls, and nothing moves but you: there is no walking, no weapons and no
-monsters yet. Escape quits.
+and Shift flies faster. F turns a flashlight on and off. Walls stop you, and
+nothing moves but you: there is no walking, no weapons and no monsters yet.
+Escape quits.
+
+A gamepad, such as a PlayStation or Xbox controller, flies the camera too. The
+left stick moves and the right stick looks. The right trigger or shoulder
+button goes up and the left one goes down. Press the left stick in to fly
+faster, and the top face button (Triangle, or Y) turns the flashlight on and
+off.
 
 The game picks a quality level for your graphics card: low, medium, high or
 ultra. Add `--tier` with one of those names to choose it yourself. When frames

@@ -14,6 +14,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 
 using Catch::Matchers::WithinAbs;
 using uta::client::FlyCamera;
@@ -148,4 +149,83 @@ TEST_CASE("UTA-0016: pitch stops short of straight up and straight down", "[clie
     fly.update(FlyInput{.lookUp = -100000}, 0);
     CHECK(fly.camera().rotation[0] == -FlyCamera::PITCH_LIMIT);
     CHECK(FlyCamera({0, 0, 0}, 20000, 0).camera().rotation[0] == FlyCamera::PITCH_LIMIT);
+}
+
+// UTA-0167: a gamepad's sticks and triggers, mapped to the same input the
+// keyboard and mouse give.
+
+using uta::client::addPad;
+using uta::client::PAD_DEAD_ZONE;
+using uta::client::PAD_LOOK_RATE;
+using uta::client::PadInput;
+
+TEST_CASE("UTA-0167: a stick resting inside the dead zone moves nothing", "[client]") {
+    const float inside = PAD_DEAD_ZONE * 0.9f;
+    FlyInput input;
+    addPad(input, PadInput{.leftX = inside, .leftY = 0, .rightX = 0, .rightY = -inside, .rise = inside}, 1);
+    CHECK(input.forward == 0);
+    CHECK(input.right == 0);
+    CHECK(input.up == 0);
+    CHECK(input.lookRight == 0);
+    CHECK(input.lookUp == 0);
+}
+
+TEST_CASE("UTA-0167: the left stick flies as W A S and D do", "[client]") {
+    FlyInput forward;
+    addPad(forward, PadInput{.leftY = -1}, 1); // pushed away from the player
+    CHECK_THAT(forward.forward, WithinAbs(1, 1e-6));
+    CHECK_THAT(forward.right, WithinAbs(0, 1e-6));
+
+    FlyInput right;
+    addPad(right, PadInput{.leftX = 1}, 1);
+    CHECK_THAT(right.right, WithinAbs(1, 1e-6));
+
+    // Past the dead zone the move grows from nothing rather than jumping.
+    FlyInput halfway;
+    addPad(halfway, PadInput{.leftY = (1 + PAD_DEAD_ZONE) / 2}, 1);
+    CHECK_THAT(halfway.forward, WithinAbs(-0.5, 1e-6));
+
+    // A diagonal pushed into the stick's square corner is no longer than straight.
+    FlyInput corner;
+    addPad(corner, PadInput{.leftX = 1, .leftY = -1}, 1);
+    CHECK_THAT(std::hypot(corner.forward, corner.right), WithinAbs(1, 1e-6));
+}
+
+TEST_CASE("UTA-0167: the right stick turns at PAD_LOOK_RATE and slower with its square", "[client]") {
+    FlyCamera full;
+    FlyInput turn;
+    addPad(turn, PadInput{.rightX = 1}, 0.25);
+    full.update(turn, 0);
+    CHECK(full.camera().rotation[1] == static_cast<std::int32_t>(PAD_LOOK_RATE * 0.25));
+
+    FlyCamera tipped;
+    FlyInput tip;
+    addPad(tip, PadInput{.rightY = -1}, 0.25); // pushed away: the view tips up
+    tipped.update(tip, 0);
+    CHECK(tipped.camera().rotation[0] == static_cast<std::int32_t>(PAD_LOOK_RATE * 0.25));
+
+    FlyInput half;
+    addPad(half, PadInput{.rightX = (1 + PAD_DEAD_ZONE) / 2}, 1);
+    CHECK_THAT(half.lookRight, WithinAbs(turn.lookRight, 1e-3)); // a quarter of the rate, four times as long
+}
+
+TEST_CASE("UTA-0167: the triggers rise and sink and the stick press flies fast", "[client]") {
+    FlyInput rise;
+    addPad(rise, PadInput{.rise = 1}, 1);
+    CHECK_THAT(rise.up, WithinAbs(1, 1e-6));
+
+    FlyInput both;
+    addPad(both, PadInput{.rise = 1, .sink = 1}, 1);
+    CHECK_THAT(both.up, WithinAbs(0, 1e-6));
+
+    FlyInput fast;
+    addPad(fast, PadInput{.fast = true}, 1);
+    CHECK(fast.fast);
+
+    // A pad at rest leaves the keyboard's input as it was.
+    FlyInput keys{.forward = 1, .up = -1, .fast = true};
+    addPad(keys, PadInput{}, 1);
+    CHECK(keys.forward == 1);
+    CHECK(keys.up == -1);
+    CHECK(keys.fast);
 }
