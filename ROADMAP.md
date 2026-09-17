@@ -9991,6 +9991,31 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants.
 
+- 📋 [UTA-0172] **ut-dump: emit each actor's event wiring, not just the wiring graph's counts.**
+  Asked by UT_MonsterHunt on 2026-09-17 (their GAME-0145): useful, not
+  blocking. Their exit-chain survey decides whether anything can switch a
+  map's exit on. It reads T3D exports today, which 5 of 1435 installed maps
+  lack and which go stale when a map changes. ut-dump's per-package
+  `wiring` gives only {nodes, edges, dangling} counts.
+
+  Wanted, per actor with a non-empty value: {name, class, tag, events:
+  {Event, OutEvents[0..7], BumpEvent, PlayerBumpEvent, FirstHatePlayerEvent,
+  MonsterEndTag}}, plus bInitiallyActive and InitialState for MonsterEnd
+  descendants. Names in the case stored; a property with no stored value
+  read through the class family's defaults, as UTA-0101 did for capacity.
+
+  Their rule, which the output should let them apply: an exit is "never"
+  when bInitiallyActive is false and no OTHER actor's listed property
+  equals its tag, case-insensitive; a map is a never map when every exit
+  is. Check against their T3D survey's never maps: MH-(RTNP)Abyss(SB),
+  MH-GolgothaAL_fix, MH-UM-TeamFight and MH-UM-TeamFight-BP.
+
+  Unqueued: the user orders work. Filed so the ask is not lost.
+  **Layman:** List which switches and triggers in a map fire which others, so a map whose exit can never open is found without the old editor.
+  Kind: feature.
+  Source: ut-monsterhunt-2026-09-17 GAME-0145.
+  Lanes: tools, unav.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -10819,6 +10844,13 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   of each monster type in view while the low tier holds its frame rate,
   tested on a real map. UTA-0102's whole-map total is related but
   separate.
+  Taken (2026-09-17) by UT_MonsterHunt, at the user's request that other
+  sessions help: the first step, where UT99's alive-at-once limits come
+  from. A source read across Engine, UnrealShare, Botpack, their Monster
+  Hunt classes and ThingFactory/CreatureFactory, then an in-engine count
+  on one map if the read leaves it open. They report each limit's home,
+  default, whether it varies by type, and whether a rule or the engine
+  sets it. Not part of their GAME-0076.
   **Layman:** UT99 caps how many monsters can be around at once, differently per type; find out why and make ours handle more.
   Kind: investigate.
   Source: user-request-2026-09-17.
