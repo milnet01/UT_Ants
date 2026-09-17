@@ -10028,7 +10028,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-16.
   Lanes: urender.
 
-- 🚧 [UTA-0170] **A launcher that opens any finished map in ut-ants, for the user to look over.**
+- ✅ [UTA-0170] **A launcher that opens any finished map in ut-ants, for the user to look over.**
   The user asked on 2026-09-17, to be built after UTA-0167, UTA-0168 and
   UTA-0169: a launcher for every completed map, so they can view each one
   and make observations.
@@ -10046,6 +10046,14 @@ model, no weapon and no opponent until 0.2.0.
     map, for a later session to read and file.
   Progress (2026-09-17): taken by session ut-ants-7d, working in the main
   checkout.
+  Resolved (2026-09-17): shipped in 3e60079, green on the matrix (CI run
+  35211288296: GCC 14, Clang 19, MSVC). `ut-ants <install>` alone opens
+  the launcher. Bakes go to the per-user cache under content/bakes; notes
+  and last results to the per-user state directory, map-notes/ and
+  map-results/, one <map>.txt each. Run by hand on the reference install:
+  filter, notes, bake, viewer and back. A menu entry for this machine is
+  at ~/.local/share/applications/UT_Ants-maps.desktop, kept out of the
+  repository because it names the install path.
   **Layman:** Pick any map that bakes and fly around it, to look it over and note anything wrong.
   Kind: feature.
   Source: user-request-2026-09-17.
@@ -10119,6 +10127,14 @@ model, no weapon and no opponent until 0.2.0.
   Done when their analysis/countprobe.py passes MH-AirportTerrorSB (232),
   MH-2001v14 (0) and MH-AFO2 (0) on ut-dump alone, and still passes
   MH-Addicted (186) and MH-AlarmLb (874).
+  Decided with UT_MonsterHunt (2026-09-17), linked from their GAME-0076
+  (their commit d3fbe5b): leave Nali and Cow out of `capacity`, by the
+  DESCENDANT rule -- anything descended from Nali or Cow is excluded,
+  which is what their MHMonsterCount mutator does. BarbiesWorld's
+  PawnIsEvil differs only for a non-BarbiesWorld subclass of Nali or Cow.
+  A separate friendly-capacity field is optional; nothing of theirs reads
+  it. No hurry on their side: GAME-0076 is deployed and correct, and only
+  their probe uses hand-read counts meanwhile.
   **Layman:** The monster count ut-dump reports for a map wrongly includes spawners that make weapons and health, so it is too high.
   Kind: fix.
   Source: ut-monsterhunt-request-2026-09-17.
