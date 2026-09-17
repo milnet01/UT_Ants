@@ -10299,6 +10299,8 @@ model, no weapon and no opponent until 0.2.0.
   census is a bake of every map, about ten seconds each, run as a long job.
   Then decide per surface kind: a translucent or masked surface may simply
   not draw; an opaque one needs something in its place.
+  Placed 2026-09-17 (the user leaves placement of map findings to the
+  session): after UTA-0178, before UTA-0180. A player sees the magenta.
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10326,18 +10328,21 @@ model, no weapon and no opponent until 0.2.0.
   SkyZoneInfo) and export 376 (brightness 115, hue 180, radius byte 183).
 
   Scratch at /mnt/Games/Scripts/Linux/ut-ants-uta0163.
+  Placed 2026-09-17 (the user leaves placement of map findings to the
+  session): after UTA-0182, before UTA-0177 and UTA-0180. UTA-0180's look
+  is fitted by measurement, and a brightness defect still live would be
+  absorbed into that fit.
   **Layman:** AS-Frigate and its new sky look roughly twice as bright as in the original game; find out why.
   Kind: investigate.
   Source: user-request-2026-09-17.
   Lanes: urender.
 
-- 🚧 [UTA-0179] **The map launcher lists only playable maps, by UT99's own game-type prefix rule.**
+- ✅ [UTA-0179] **The map launcher lists only playable maps, by UT99's own game-type prefix rule.**
   Reported by the user on 2026-09-17: CityIntro baked and opened to a black
   screen, and the flashlight changed nothing.
 
   Located the same day. It is not a render defect. CityIntro is UT99's
-  opening movie. Its only PlayerStart sits in zone 9, a 256-unit
-  subtracted cube textured `black1`, holding just that PlayerStart, a
+  opening movie. Its only PlayerStart sits in zone 9, a small subtracted cube textured `black1`, holding just that PlayerStart, a
   Teleporter tagged IntroIn and a Trigger whose Event is Intro (read from
   UT_MonsterHunt's T3D export of the map). No light reaches it, and the
   flashlight lights black walls. From inside the city streets the same
@@ -10363,6 +10368,14 @@ model, no weapon and no opponent until 0.2.0.
   Entry, UTCredits, UT-Logo-Map or EOL_ map, still lists MH_Backhome-[WEO]
   and MH[LineARC]+[RTX]-ZenithCity, and the rule is unit-tested.
   Progress (2026-09-17): taken by session ut-ants-98, main checkout.
+  Resolved (2026-09-17): shipped in d08a2d7, green on the matrix (CI run
+  35238800279: GCC 14, Clang 19, MSVC). `ut-bake --game-types` reads the
+  game types; the launcher lists a map only when its name starts with one's
+  MapPrefix. On the reference install it hides CityIntro, Entry, UTCredits,
+  UT-Logo-Map and the EOL_ scenes, and keeps MH_Backhome-[WEO],
+  MH[LineARC]+[RTX]-ZenithCity and koth_BaseStationTheta. Checked through
+  ut-bake's output and the unit-tested filter; the launcher window itself
+  was not opened in session.
   **Layman:** The map list stops offering the game's intro movie and other scenes that open to a black screen.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10392,6 +10405,8 @@ model, no weapon and no opponent until 0.2.0.
 
   User decision (2026-09-17): placed after UTA-0179 and before UTA-0157.
   The texture-override folder is UTA-0181.
+  Placed 2026-09-17: after UTA-0182, UTA-0178 and UTA-0177, so the look
+  is measured on frames without those defects.
   **Layman:** Walls and floors stop showing the same patch repeated in a grid.
   Kind: enhancement.
   Source: user-request-2026-09-17.
@@ -10415,10 +10430,75 @@ model, no weapon and no opponent until 0.2.0.
 
   User decision (2026-09-17): placed with UTA-0180, after UTA-0179 and
   before UTA-0157.
+  Placed 2026-09-17: directly after UTA-0180.
   **Layman:** Textures the user downloads can stand in for the game's own when a map is baked.
   Kind: feature.
   Source: user-request-2026-09-17.
   Lanes: ubake, umat.
+
+- 📋 [UTA-0182] **urender: a dark triangle crosses a lit wall at a distance and goes away up close.**
+  Reported by the user on 2026-09-17 in MH-!!![2-Much-Health-FIXED], with a
+  screenshot looking up a tall stone room: a darker triangle with straight
+  edges lies across the left wall's lighting, and it draws properly once
+  the camera is closer.
+
+  Not yet located. Straight edges that move with distance point at
+  something keyed to the view rather than to the level: light clusters
+  dropping a light where they overflow (the --frames report counts
+  overflowed clusters), a shadow tile's resolution or its bias, or the
+  dynamic-resolution region. Reproduce from a pinned camera with ut-shot
+  at two distances before choosing (memory: pin light time first).
+  User decision (2026-09-17): taken after UTA-0179 and before UTA-0180.
+  **Layman:** A wedge-shaped shadow appears on a wall from far away and vanishes as you walk up to it.
+  Kind: fix.
+  Source: user-request-2026-09-17.
+  Lanes: urender.
+
+- 🚧 [UTA-0183] **ut-ants: the controller's Options button closes a map and returns to the launcher.**
+  The user asked on 2026-09-17, after flying maps from the launcher with a
+  controller: map the Options button to close a map.
+
+  Options is SDL_GAMEPAD_BUTTON_START (Options on a PlayStation pad, Menu
+  on an Xbox one). In apps/ut-ants/main.cpp's run loop Escape and window
+  close end the viewer; this button joins them, so the launcher, which
+  waits on the viewer process, comes back as it does after Escape. The
+  usage text in Cli.cpp names the controller's buttons and gains it.
+
+  Placed 2026-09-17 (the user leaves placement to the session): right
+  after UTA-0179, before UTA-0182. It is a few lines, and the user is
+  flying maps with a controller now.
+  Taken 2026-09-17 by session ut-ants-98, main checkout.
+  **Layman:** Press Options on the controller to leave a map, as Escape does on the keyboard.
+  Kind: ux.
+  Source: user-request-2026-09-17.
+  Lanes: ut-ants.
+
+- 📋 [UTA-0184] **ut-ants: give the map launcher a modern look, keeping its large text.**
+  The user asked on 2026-09-17: the launcher looks like it was developed in
+  the 1990s; modernise it. They like its font size, which suits their
+  eyes, and the controller support, which works in the launcher; both stay.
+
+  Today Launcher.cpp draws with SDL's renderer and SDL_RenderDebugText, SDL's small built-in bitmap font scaled up, in a character grid with box outlines.
+  A modern look needs at least a real scalable font with antialiasing,
+  which means a text library (SDL3_ttf is the likely one) and a font file
+  under a licence that allows shipping, such as the SIL Open Font Licence.
+  Both go through docs/standards/dependency-acquisition.md. Then spacing,
+  a restrained palette, rounded selection and panels, and a clear
+  focus highlight a controller can follow.
+
+  How it looks is decided by research into current launcher and
+  storefront layouts, not by asking the user to compare pictures (memory:
+  no visual-judgement asks). Text never shrinks below today's size. Menus
+  proper are uui's and later (Launcher.cpp's header), so this stays the
+  launcher's own drawing and must not grow into a UI toolkit.
+
+  Placed 2026-09-17 (the user leaves placement to the session): after
+  UTA-0181 and before UTA-0157. The launcher works as it is, so the
+  drawing defects and the tiling work come first.
+  **Layman:** The map list looks like a 1990s program; make it look like a current app while keeping the text big.
+  Kind: ux.
+  Source: user-request-2026-09-17.
+  Lanes: ut-ants.
 
 ## 0.2.0 — Movement and weapons
 

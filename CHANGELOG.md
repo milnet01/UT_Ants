@@ -17,6 +17,10 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **The controller's Options button closes a map** (UTA-0183)
+  Options on a PlayStation controller, or Menu on an Xbox one, closes the
+  map as Escape does, returning to the map launcher when it opened the map.
+
 - **Outdoor maps show the sky their author built, not a flat tiled texture** (UTA-0163)
   In UT99 a sky surface is a window onto a separate sky room built into
   the map. When a map loads, the renderer now draws that room once, in

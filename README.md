@@ -138,7 +138,16 @@ A gamepad, such as a PlayStation or Xbox controller, flies the camera too. The
 left stick moves and the right stick looks. The right trigger or shoulder
 button goes up and the left one goes down. Press the left stick in to fly
 faster, and the top face button (Triangle, or Y) turns the flashlight on and
-off.
+off. The Options button (Menu on an Xbox controller) closes the map, as Escape
+does.
+
+Given only the Unreal Tournament folder, `ut-ants` opens a map launcher
+instead. It lists the install's playable maps, bakes the one you pick and
+opens it, and returns to the list when you close the map.
+
+```sh
+ut-ants "<your Unreal Tournament folder>"
+```
 
 The game picks a quality level for your graphics card: low, medium, high or
 ultra. Add `--tier` with one of those names to choose it yourself. When frames

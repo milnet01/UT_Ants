@@ -218,6 +218,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
                 running = false;
+            } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                       event.gbutton.button == SDL_GAMEPAD_BUTTON_START) {
+                running = false; // UTA-0183: Options on a PlayStation pad, Menu on an Xbox one
             } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) {
                 flashlight = !flashlight;
             } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&

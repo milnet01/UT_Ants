@@ -5,10 +5,16 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0180` (break up the tiled look of textures) with `UTA-0181`
-(a local folder of replacement textures), after `UTA-0179` (the launcher
-lists only playable maps), which is in flight -- the user's order,
-2026-09-17. `UTA-0173` shipped 2026-09-17, green on the matrix: ut-dump
+**Next:** `UTA-0182` (a dark triangle on a wall at a distance), after
+`UTA-0183` (the controller's Options button closes a map), which is in
+flight. `UTA-0179` shipped 2026-09-17, green on the matrix: the launcher
+lists only playable maps, by UT99's MapPrefix rule. Then
+`UTA-0178` (AS-Frigate twice as bright), `UTA-0177` (no magenta for a
+skipped texture), `UTA-0180` (break up the tiled look of textures),
+`UTA-0181` (a local folder of replacement textures) and `UTA-0184` (a
+modern look for the launcher, keeping its large text). The user filed 0182
+before 0180 and left the rest of the placement to the session, 2026-09-17:
+defects first, so the tiling look is measured on clean frames. `UTA-0173` shipped 2026-09-17, green on the matrix: ut-dump
 counts only monster factories. `UTA-0163` (the real sky) shipped the same
 day; the sky shows bright, and why is `UTA-0178`. `UTA-0175` (Medium and up shadow at 32
 units in an 8192 atlas), `UTA-0176` (fire textures bake as flames, found by
