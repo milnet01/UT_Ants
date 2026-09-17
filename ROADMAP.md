@@ -10149,7 +10149,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-request-2026-09-17.
   Lanes: ut-dump.
 
-- 🚧 [UTA-0174] **ut-ants: the flying camera still ends up inside floors and walls, and outside the map.**
+- ✅ [UTA-0174] **ut-ants: the flying camera still ends up inside floors and walls, and outside the map.**
   The user flew AS-Frigate from the UTA-0170 launcher on 2026-09-17: "The
   camera still clips through the walls / floors at times." Two frames: one
   with the camera at floor level and the lower half of the screen black,
@@ -10176,6 +10176,16 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0157, UTA-0172, UTA-0142.
   Progress (2026-09-17): taken by session ut-ants-7d, working in the main
   checkout.
+  Resolved (2026-09-17): shipped in 7be4fdf, green on the matrix (CI run
+  35218671344: GCC 14, Clang 19, MSVC). Cause: UTA-0158 kept WALL_MARGIN
+  only from the surface a move ran into, so a move gliding past a corner
+  ended beside its face, and from on a plane rounding put the camera in
+  solid, where it flies free. Fix: after the slide, rays in 26 directions
+  ease the camera out to WALL_MARGIN from each nearby plane, a blocked push
+  going halfway; a move from empty space that ends in solid keeps its
+  start. Probe over AS-Frigate, 1,500 random flights: 15 ended in solid
+  before, none after; steps within 2.3 units of a surface fell from
+  1,534,810 to 2,864, nearly all in gaps under 16 units across.
   **Layman:** The camera still slips through floors and walls sometimes, even though it is meant to stop at them.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10215,7 +10225,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: urender.
 
-- 📋 [UTA-0176] **AS-Frigate's torch flames draw as flat magenta: a texture the bake skipped shows the missing colour.**
+- 🚧 [UTA-0176] **AS-Frigate's torch flames draw as flat magenta: a texture the bake skipped shows the missing colour.**
   The user flew AS-Frigate on 2026-09-17: "The lights are showing purple,
   is this intentional?" It is not. The shapes sit above the wall torches,
   and magenta is urender's built-in base colour for a material with no
@@ -10236,6 +10246,8 @@ model, no weapon and no opponent until 0.2.0.
   before choosing.
   User decision (2026-09-17): second of the AS-Frigate fixes, after
   UTA-0174 and before UTA-0175.
+  Progress (2026-09-17): taken by session ut-ants-7d, working in the main
+  checkout.
   **Layman:** Torch flames show up as bright pink blocks because their texture could not be converted; they should look like flames.
   Kind: fix.
   Source: user-request-2026-09-17.
