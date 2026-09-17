@@ -17,6 +17,11 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Fly the camera with a gamepad, such as a PlayStation or Xbox controller.** (UTA-0167)
+  The left stick moves and the right stick looks. The right trigger or
+  shoulder goes up and the left goes down, pressing the left stick flies
+  faster, and the top face button turns the flashlight on and off.
+
 - **Volumetric fog, light shafts and a flashlight** (UTA-0015)
   From the Medium tier every map draws a light haze that shadowed
   lights scatter through, so walls cut visible beams. A light its
@@ -412,6 +417,12 @@ appears once something has actually shipped.)
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **Lamps no longer shadow their own light: surfaces a player can walk through cast no shadow, as in UT99.** (UTA-0168)
+  AS-Frigate's lanterns blacked out their own lights. Measured against
+  UT99's lighting, non-solid surfaces now let light through and unlit ones
+  still block it, and the exposure is refitted to 5.4. Re-bake a map to
+  update its baked light probes.
 
 - **Maps are lit as brightly as their author set them: every light takes the map's own brightness multiplier.** (UTA-0165)
   UT99 multiplies every light by the level's LevelInfo.Brightness, which
