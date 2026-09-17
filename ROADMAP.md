@@ -6409,6 +6409,21 @@ model, no weapon and no opponent until 0.2.0.
   MH-UM-SoccerStadium1-BP and MH-BoomDockBridge_V0 if the node was in
   their build and the route still fails. Done: whether the proposed node
   was carried, and if so where the route fails.
+  Answered (2026-09-17) by UT_MonsterHunt GAME-0144. MH-UM-SoccerStadium1
+  and -BP were THEIR probe's defect, not ours: the build carried our node
+  (364 nodes against 363), and the pawn spawns 4 units from PlayerStart13,
+  117 units from the node nearest the exit. FindPathToward to a directly
+  reachable goal returns an empty RouteCache, which both their AskHops
+  counted as no route. Fixed in their fd01785; both maps now ROUTE, hops 1,
+  length 117. So those two leave this item's eight.
+  MH-BoomDockBridge_V0 is not that defect: its exit is 8848 units from the
+  start and it is still NOROUTE after the fix, even on a build with a seed
+  0 units from the exit. Where it fails is unprobed.
+  Their census caveat: any NOROUTE or NOASK from before 2026-09-17 may be
+  wrong where the exit or its nearest node is a straight walk from the
+  start. They bumped their route-check version to 2 and will report which
+  maps flip on a full re-run. Read nothing further from their older census
+  rows until then.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -9225,6 +9240,14 @@ model, no weapon and no opponent until 0.2.0.
   (UTA-0053, 6ad38af) both landed: park this item for the user's review
   over real matches with friends. No measurement can decide it, because
   the original game's lights are flat. Next is UTA-0015.
+  User direction (2026-09-17), the review this item was parked for:
+  build route 3. Where a texture paints something that should have
+  depth, such as the lights on a ceiling, the bake turns that part into
+  real geometry. Wider than light fixtures: any painted detail where it
+  makes sense, which this item's design must define and decide by
+  measurement, lights first. The same day the user noted that an area left
+  too dark can be fixed by adding a light, which the map editor
+  (UTA-0034) covers.
   **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -9842,7 +9865,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-16.
   Lanes: urender.
 
-- 📋 [UTA-0168] **urender: AS-Frigate's lanterns shadow their own lights, where UT99 lets the light through.**
+- 🚧 [UTA-0168] **urender: AS-Frigate's lanterns shadow their own lights, where UT99 lets the light through.**
   Found by UTA-0165's texel-vis (2026-09-16, ut-ants-6f), which casts a
   segment from every LightBits texel to its light through the bundle's GEOM
   and compares UT99's own visibility bit. On AS-Frigate our geometry blocks
@@ -9858,6 +9881,9 @@ model, no weapon and no opponent until 0.2.0.
   skips only PF_Translucent and PF_FakeBackdrop today, and SurfaceRays, which
   the probes use, skips PF_Translucent and PF_Modulated; whatever rule
   lands belongs in both. Tool at ut-ants-uta0156/ambient-census/texel-vis.cpp.
+  Claimed (2026-09-17) by session ut-ants-18, working in the main
+  checkout. First the census: which surface flag UT99's lighting build
+  lets light through.
   **Layman:** The lamps on one map black out their own light because our shadows treat the lamp casing as a solid wall.
   Kind: fix.
   Source: in-session-2026-09-16.
@@ -10714,6 +10740,26 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   Kind: feature.
   Source: user-request-2026-09-14.
   Lanes: urender.
+
+- 📋 [UTA-0171] **More monsters at once than UT99 allows: find where its limits come from, then set a measured target.**
+  The user asked on 2026-09-17 whether UT_Ants will handle more monsters
+  on screen at once than UT99, which caps them at a number that differs
+  by monster type. Nothing in docs/design.md or the roadmap commits to a
+  number yet, and monsters do not exist until 0.3.0.
+
+  First, find what sets UT99's limits: the engine, the Monster Hunt mod,
+  or each map's monster factories (their capacity is read by UTA-0101).
+  Unverified which. A limit the map or the rules set is a game rule we may
+  keep; one the 1999 engine forced is not.
+
+  Then set a measured target the renderer and the game must meet: a count
+  of each monster type in view while the low tier holds its frame rate,
+  tested on a real map. UTA-0102's whole-map total is related but
+  separate.
+  **Layman:** UT99 caps how many monsters can be around at once, differently per type; find out why and make ours handle more.
+  Kind: investigate.
+  Source: user-request-2026-09-17.
+  Lanes: ugame, urender.
 
 ## 0.4.0 — Monster Hunt
 
