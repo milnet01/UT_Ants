@@ -25,7 +25,8 @@ namespace uta::ubake {
 class SurfaceRays {
 public:
     /// An occluder is a triangle whose batch's polyFlags lack PF_Translucent
-    /// (0x04) and PF_Modulated (0x40); nothing else is ever hit.
+    /// (0x04), PF_NotSolid (0x08) and PF_Modulated (0x40); nothing else is
+    /// ever hit.
     explicit SurfaceRays(const ubundle::Geometry& geometry);
 
     struct Hit {

@@ -22,6 +22,7 @@ namespace uta::test::render {
 /// UT99's PolyFlags a fixture sets -- UTA-0014 SS 4.5.
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;
 inline constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u;
+inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;
 inline constexpr std::uint32_t PF_MODULATED = 0x00000040u;
 inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
 inline constexpr std::uint32_t PF_UNLIT = 0x00400000u;

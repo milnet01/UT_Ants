@@ -13,7 +13,10 @@ namespace uta::ubake {
 namespace {
 
 /// PolyFlags that let light through -- the 432 headers' Engine/Inc/UnObj.h.
+/// UTA-0168: PF_NotSolid measured against UT99's own lightmaps, which let light
+/// through a non-solid brush and not through an unlit surface.
 constexpr std::uint32_t PF_TRANSLUCENT = 0x04;
+constexpr std::uint32_t PF_NOT_SOLID = 0x08;
 constexpr std::uint32_t PF_MODULATED = 0x40;
 
 constexpr std::uint32_t LEAF_SIZE = 4;
@@ -81,7 +84,7 @@ double component(const Vec3& v, int axis) noexcept {
 
 SurfaceRays::SurfaceRays(const ubundle::Geometry& geometry) {
     for (const ubundle::GeometryBatch& batch : geometry.batches) {
-        if ((batch.polyFlags & (PF_TRANSLUCENT | PF_MODULATED)) != 0) continue;
+        if ((batch.polyFlags & (PF_TRANSLUCENT | PF_NOT_SOLID | PF_MODULATED)) != 0) continue;
         for (std::uint32_t i = batch.firstIndex; i + 3 <= batch.firstIndex + batch.indexCount;
              i += 3) {
             const Vec3 a = positionOf(geometry, geometry.indices[i]);

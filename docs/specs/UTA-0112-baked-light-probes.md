@@ -352,7 +352,9 @@ public:
 ```
 
 **An occluder** is a triangle whose batch's `polyFlags` lack `PF_Translucent`
-(`0x04`) and `PF_Modulated` (`0x40`). A ray meets a triangle as Möller and
+(`0x04`), `PF_NotSolid` (`0x08`) and `PF_Modulated` (`0x40`). `PF_NotSolid`
+joined by measurement against UT99's own lightmaps (`UTA-0168`), which let
+light through a non-solid brush and not through a `PF_Unlit` surface. A ray meets a triangle as Möller and
 Trumbore compute it, in double, from either side. Two hits at the same `t` go
 to the lower triangle number, so the answer does not depend on how
 `SurfaceRays` indexes the triangles.

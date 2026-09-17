@@ -46,10 +46,11 @@ Config linearFrame() {
 
 /// A white square at x = 100, lit by `light`, with -- when `occluded` -- a small
 /// square at x = 80 centred on (y, z) between the light and the square's centre.
-uta::ubundle::Bundle squareLitBy(const uta::ubundle::Light& light, bool occluded, float y, float z) {
+uta::ubundle::Bundle squareLitBy(const uta::ubundle::Light& light, bool occluded, float y, float z,
+                                 std::uint32_t occluderFlags = 0) {
     uta::ubundle::Geometry geometry;
     addSquare(geometry, 100, 0, 0, 40, "white", 0);
-    if (occluded) addSquare(geometry, 80, y, z, 6, "white", 0);
+    if (occluded) addSquare(geometry, 80, y, z, 6, "white", occluderFlags);
     uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
     addSolidMaterial(bundle, "white", WHITE);
     bundle.lights = std::vector{light};
@@ -113,6 +114,21 @@ TEST_CASE("SS 4.8: a surface behind an occluder is in a point light's shadow on 
     // Light above; the line crosses x = 80 at z = 30. The control point
     // (100, 1.6, -14.1) crosses it at z = 23, below the occluder's 24 to 36.
     checkShadow({"point light, -Z face", pointAt({60, 0, 60}), 0, 30, {80, 32}, {80, 36}});
+}
+
+TEST_CASE("UTA-0168: a non-solid occluder casts no shadow and an unlit one still does", "[device]") {
+    removeDisplay();
+    // The -Y face case above, with the occluder's flags changed.
+    const uta::ubundle::Light light = pointAt({60, 60, 0});
+    const Pixel centre{80, 32};
+    Renderer renderer = requireRenderer(linearFrame());
+    const int lit = redAt(renderer, squareLitBy(light, false, 30, 0), centre);
+    const int notSolid = redAt(renderer, squareLitBy(light, true, 30, 0, PF_NOT_SOLID), centre);
+    const int unlit = redAt(renderer, squareLitBy(light, true, 30, 0, PF_UNLIT), centre);
+    CAPTURE(lit, notSolid, unlit);
+    CHECK(lit > 60);
+    CHECK(std::abs(notSolid - lit) <= 3);
+    CHECK(unlit < 10);
 }
 
 TEST_CASE("SS 4.8: a spotlight casts a shadow through its one tile", "[device]") {

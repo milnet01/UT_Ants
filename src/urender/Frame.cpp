@@ -764,8 +764,10 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
             vkCmdSetScissor(commands, 0, 1, &tile);
             for (const DrawItem& item : geometry->draws) {
                 // What blocks light: opaque and masked surfaces. A translucent
-                // one lets it through, and the sky is not in the level.
-                if ((item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_FAKE_BACKDROP)) != 0) continue;
+                // one lets it through, the sky is not in the level, and UT99's
+                // lighting lets light through a non-solid brush (UTA-0168).
+                if ((item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_NOT_SOLID | gpu::PF_FAKE_BACKDROP)) != 0)
+                    continue;
                 const gpu::ShadowConstants constants{shadows.faces[draw.face].viewProj, item.objectIndex,
                                                      item.materialIndex, item.polyFlags, 0};
                 vkCmdPushConstants(commands, pipelines->shadowLayout(),

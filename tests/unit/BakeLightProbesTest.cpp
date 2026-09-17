@@ -55,8 +55,10 @@ using uta::ubundle::ValueKind;
 namespace {
 
 constexpr std::uint32_t PF_TRANSLUCENT = 0x04;
+constexpr std::uint32_t PF_NOT_SOLID = 0x08;
 constexpr std::uint32_t PF_FAKE_BACKDROP = 0x80;
 constexpr std::uint32_t PF_TWO_SIDED = 0x100;
+constexpr std::uint32_t PF_UNLIT = 0x400000;
 
 using Cell = std::array<std::int32_t, 3>;
 
@@ -268,6 +270,14 @@ TEST_CASE("what a ray sees", "[ubake][probes]") {
         const auto clear = withRoof(PF_TRANSLUCENT);
         const SurfaceRays clearRays(clear);
         CHECK(total(gatherProbe({0, 0, 100}, clearRays, clear, light, grey)) > 0.0);
+        // UTA-0168: UT99's lighting lets light through a non-solid brush, and
+        // not through an unlit surface.
+        const auto notSolid = withRoof(PF_NOT_SOLID);
+        const SurfaceRays notSolidRays(notSolid);
+        CHECK(total(gatherProbe({0, 0, 100}, notSolidRays, notSolid, light, grey)) > 0.0);
+        const auto unlit = withRoof(PF_UNLIT);
+        const SurfaceRays unlitRays(unlit);
+        CHECK(total(gatherProbe({0, 0, 100}, unlitRays, unlit, light, grey)) == 0.0);
     }
 
     SECTION("a sky surface") {

@@ -31,6 +31,7 @@ inline constexpr std::uint32_t NONE = 0xFFFFFFFFu;
 inline constexpr std::uint32_t PF_INVISIBLE = 0x00000001u;
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;
 inline constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u;
+inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;
 inline constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
 inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
 inline constexpr std::uint32_t PF_UNLIT = 0x00400000u;
