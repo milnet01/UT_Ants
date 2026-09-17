@@ -9,10 +9,9 @@ items. Else 5.
 (the real sky), which is in flight. `UTA-0175` (Medium and up shadow at 32
 units in an 8192 atlas), `UTA-0176` (fire textures bake as flames, found by
 class; baker revision 19) and `UTA-0174` (the camera kept clear of every
-nearby surface) shipped 2026-09-17, green on the matrix. Then
-`UTA-0175` (jagged shadow edges and corner light leaks), `UTA-0163` (the
-real sky), `UTA-0173` (ut-dump counts weapon and health spawners as
-monsters, for UT_MonsterHunt), `UTA-0157` (painted details such as ceiling
+nearby surface) shipped 2026-09-17, green on the matrix. `UTA-0173` is
+ut-dump counting weapon and health spawners as monsters, for
+UT_MonsterHunt. After it `UTA-0157` (painted details such as ceiling
 lights become real geometry), `UTA-0172` (ut-dump's per-actor event
 wiring), then `UTA-0142`'s trigger census -- the user's order, 2026-09-17,
 after flying AS-Frigate in the launcher. `UTA-0170` shipped 2026-09-17, green on the matrix:
