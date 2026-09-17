@@ -180,7 +180,13 @@ void main() {
         // SS 4.7: the probes, through the same normal the lights use.
         ProbeLattice lattice =
             ProbeLattice(frame.probeSpacing, frame.probeCount, frame.probeTableMask, frame.probeLongestRun);
-        vec3 indirect = indirectAt(lattice, worldPosition, n);
+        // UTA-0185: read half a spacing off the surface. UT99 builds on the
+        // grid, so walls and floors often lie on a lattice plane, where the
+        // blend gives the probes inside the room no weight and only the probes
+        // on the plane count -- which sit on the surface itself and are often
+        // not probes at all. Such a wall got no indirect light in stepped patches.
+        vec3 probePoint = worldPosition + surface * (0.5 * float(frame.probeSpacing));
+        vec3 indirect = indirectAt(lattice, probePoint, n);
         // UTA-0156 SS 4.4: the zone's ambient, on every lit surface in it.
         vec3 ambient = zoneAmbient(zones[zone]);
         // UTA-0112 SS 4.9: a surface of reflectance rho shows rho * (direct + indirect).

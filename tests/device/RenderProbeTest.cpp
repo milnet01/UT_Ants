@@ -226,3 +226,41 @@ TEST_CASE("a surface with probes and no lights receives indirect light", "[devic
     CAPTURE(red, srgbByte(0.25));
     CHECK(std::abs(red - srgbByte(0.25)) <= 2.0);
 }
+
+TEST_CASE("UTA-0185: a surface on a lattice plane takes the probes on the room's side of it", "[device]") {
+    // UT99 builds on the grid, so a wall often lies exactly on a lattice plane.
+    // There the blend gives the probes on the viewer's side no weight, and the
+    // probes on the plane itself sit on the surface, where the bake often keeps
+    // none. MH-!SD0!ForbiddenMansion's walls went without indirect light in
+    // stepped patches. Here the square lies on the plane x = SPACING, facing
+    // the camera, with probes only one spacing nearer: it must be lit by them.
+    using namespace uta::test::render;
+    removeDisplay();
+    uta::urender::Config config;
+    config.width = 160;
+    config.height = 64;
+    config.linearOutput = true;
+    uta::urender::Renderer renderer = requireRenderer(config);
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, static_cast<float>(SPACING), 0, 0, 40, "white", 0);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "white", {255, 255, 255, 255});
+
+    bundle.lightProbes.emplace();
+    bundle.lightProbes->spacing = SPACING;
+    for (int z = -1; z <= 0; ++z)
+        for (int y = -1; y <= 0; ++y) {
+            LightProbe probe;
+            probe.cell = {0, y, z}; // one spacing nearer the camera; none on the plane
+            for (auto& face : probe.cube) face = {0.25f, 0.25f, 0.25f};
+            bundle.lightProbes->probes.push_back(probe);
+        }
+
+    requireOk(renderer.draw(bundle, uta::urender::Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    const int red = pixelAt(*pixels, 160, 80, 32).r;
+    CAPTURE(red, srgbByte(0.25));
+    CHECK(std::abs(red - srgbByte(0.25)) <= 2.0);
+}

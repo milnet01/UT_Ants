@@ -440,6 +440,12 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Walls on the map grid no longer lose their bounce light in stepped patches** (UTA-0185)
+  A wall or floor lying exactly on the light-probe grid, common in UT99
+  maps, could read no bounce light in blocky patches, as in
+  MH-!SD0!ForbiddenMansion's rooms. The renderer now reads the probes
+  half a grid step off the surface, on the room's side.
+
 - **Walls no longer show black wedges near a lamp that grazes them** (UTA-0182)
   A wall close to a far-reaching light, and almost edge-on to it, could
   shadow itself in straight-edged black or dark wedges, as in the tall

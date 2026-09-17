@@ -10332,6 +10332,11 @@ model, no weapon and no opponent until 0.2.0.
   session): after UTA-0182, before UTA-0177 and UTA-0180. UTA-0180's look
   is fitted by measurement, and a brightness defect still live would be
   absorbed into that fit.
+  From UTA-0185 (2026-09-17): the renderer now reads probes half a
+  spacing off each surface, so walls on a lattice plane no longer lose
+  their bounce light. Measured on the UTA-0156 captures at exposure 5.4,
+  AS-Frigate's mean displayed luma moved under a level, so it does not
+  explain this item's brightness.
   **Layman:** AS-Frigate and its new sky look roughly twice as bright as in the original game; find out why.
   Kind: investigate.
   Source: user-request-2026-09-17.
@@ -10436,7 +10441,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ubake, umat.
 
-- 🚧 [UTA-0182] **urender: a dark triangle crosses a lit wall at a distance and goes away up close.**
+- ✅ [UTA-0182] **urender: a dark triangle crosses a lit wall at a distance and goes away up close.**
   Reported by the user on 2026-09-17 in MH-!!![2-Much-Health-FIXED], with a
   screenshot looking up a tall stone room: a darker triangle with straight
   edges lies across the left wall's lighting, and it draws properly once
@@ -10502,6 +10507,11 @@ model, no weapon and no opponent until 0.2.0.
   for jagged edges, so a fix must be checked on the reference-render
   harness (ut-ants-uta0175) for detached or softened shadows as well as
   on this repro.
+  Resolved (2026-09-17): shipped in 0937ef5, green on the matrix (CI run
+  35245264594: GCC 14, Clang 19, MSVC). shadows.glsl compares at
+  ndc.z - SHADOW_RECEIVER_BIAS. The device test builds the stone room from
+  the bake's own triangles and fails without the fix on the GPU and on
+  lavapipe.
   **Layman:** A wedge-shaped shadow appears on a wall from far away and vanishes as you walk up to it.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10557,7 +10567,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants.
 
-- 📋 [UTA-0185] **urender: pure black stepped gaps on MH-!SD0!ForbiddenMansion's walls change shape as the camera turns.**
+- 🚧 [UTA-0185] **urender: pure black stepped gaps on MH-!SD0!ForbiddenMansion's walls change shape as the camera turns.**
   Reported by the user on 2026-09-17 with three screenshots of one small
   room: wood walls and ceiling, a red carpet floor. A black region with
   straight, stepped edges covers part of a wall, and its outline differs
@@ -10573,6 +10583,21 @@ model, no weapon and no opponent until 0.2.0.
   Placed 2026-09-17 (placement left to the session): directly after
   UTA-0182. First re-shoot this room with UTA-0182's fix; if the black
   remains, it is its own defect.
+  Taken 2026-09-17 by session ut-ants-98, main checkout.
+  Located (2026-09-17, ut-ants-98). Two faults, both measured with ut-shot on
+  the bake from the first player start. The black stepped gaps were
+  UTA-0182's self-shadowing, and its fix removes them. What remained was
+  fainter stepped patches, darker in the ceiling's shade, which no shadow
+  bias, cluster change or fog change moved. Traced lights reach points
+  inside and outside a patch alike, and shadow results match; without
+  light probes the patches vanish. The room's walls and floor lie exactly
+  on probe lattice planes. There the blend gives the probes on the room's
+  side no weight, and the plane's own probes sit on the surface, where the
+  bake's emptiness test keeps some and drops most; with all eight corners
+  missing, indirectAt returns zero. Fix: scene.frag reads the probes half
+  a spacing off the surface along its geometric normal. On the UTA-0156
+  captures at exposure 5.4 it moves mean displayed luma by under a level
+  and block RMS by at most a few tenths, so no constant needs refitting.
   **Layman:** In one mansion room, black holes with jagged straight edges appear on the walls and move as you look around.
   Kind: fix.
   Source: user-request-2026-09-17.
