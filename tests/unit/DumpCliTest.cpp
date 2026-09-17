@@ -206,14 +206,21 @@ namespace {
 
 /// UTA-0101's install. ThingFactory's default capacity is UnrealShare's own,
 /// 1000000, and CreatureFactory overrides it to 1, as UnrealShare's source does.
+/// UTA-0173: KrallFactory names its prototype in its class defaults, and
+/// HealthVial is an item rather than a pawn.
 std::vector<std::pair<std::string, std::vector<std::uint8_t>>> factsPackages() {
     Packer engine;
     engine.addClass("LevelInfo");
     Packer unrealShare;
     const std::int32_t thing = unrealShare.addClass("ThingFactory", 0, {intProperty("capacity", 1000000)});
-    unrealShare.addClass("CreatureFactory", thing, {intProperty("capacity", 1)});
+    const std::int32_t creature = unrealShare.addClass("CreatureFactory", thing, {intProperty("capacity", 1)});
     const std::int32_t pawn = unrealShare.addClass("ScriptedPawn");
-    unrealShare.addClass("Krall", pawn);
+    const std::int32_t krall = unrealShare.addClass("Krall", pawn);
+    const std::int32_t nali = unrealShare.addClass("Nali", pawn);
+    unrealShare.addClass("NaliPriest", nali);
+    unrealShare.addClass("Cow", pawn);
+    unrealShare.addClass("HealthVial");
+    unrealShare.addClass("KrallFactory", creature, {objectProperty("prototype", krall)});
     // A class that resolves, whose parent lives in a package the install lacks:
     // its family is cut short, so it cannot be sorted either.
     Packer orphan;
@@ -224,22 +231,48 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> factsPackages() {
 
 /// A map whose LevelInfo carries Windows-1252 text and UTF-8 text, whose
 /// LevelSummary carries a title and a byte Windows-1252 leaves undefined, and
-/// whose actors are four factories, two monsters and one actor of a class no
-/// package supplies.
+/// whose actors are factories making monsters and other things, placed pawns,
+/// and actors of classes no package supplies.
 Run runFacts(const TempDir& dir) {
     MapBuilder map;
+    const std::int32_t krall = map.importClass("UnrealShare", "Krall");
+    const auto making = [](std::int32_t prototype, std::vector<PropertySpec> properties) {
+        properties.push_back(objectProperty("prototype", prototype));
+        return properties;
+    };
+    // A class the map itself exports, as MH-2001v14's MyLevel.NukeRocket is.
+    const std::int32_t rocket = map.addClass("NukeRocket");
     map.addActorOfClass("Engine", "LevelInfo",
                         {strProperty("Title", "Caf\xE9 \xB7 Test"), strProperty("Author", "J\xC3\xBCrgen")})
-        .addActorOfClass("UnrealShare", "CreatureFactory", {intProperty("capacity", 5)})
-        .addActorOfClass("UnrealShare", "CreatureFactory")          // the class's 1
-        .addActorOfClass("UnrealShare", "ThingFactory")             // 1000000: no limit
-        .addActorOfClass("UnrealShare", "CreatureFactory", {intProperty("capacity", -1)})
+        .addActorOfClass("UnrealShare", "CreatureFactory", making(krall, {intProperty("capacity", 5)}))
+        .addActorOfClass("UnrealShare", "CreatureFactory", making(krall, {}))   // the class's 1
+        .addActorOfClass("UnrealShare", "ThingFactory", making(krall, {}))      // 1000000: no limit
+        // Capacity 0 or below sends one monster: Spawning's Begin runs Timer
+        // once, and StartBuilding re-arms only while capacity > 0.
+        .addActorOfClass("UnrealShare", "CreatureFactory", making(krall, {intProperty("capacity", -1)}))
+        .addActorOfClass("UnrealShare", "CreatureFactory", making(krall, {intProperty("capacity", 0)}))
+        .addActorOfClass("UnrealShare", "KrallFactory", {intProperty("capacity", 2)}) // prototype by default
+        // Not monsters: an item, twice; no prototype; a descendant of Nali; a
+        // Cow; the map's own non-pawn class.
+        .addActorOfClass("UnrealShare", "ThingFactory",
+                         making(map.importClass("UnrealShare", "HealthVial"), {intProperty("capacity", 3)}))
+        .addActorOfClass("UnrealShare", "ThingFactory", making(map.importClass("UnrealShare", "HealthVial"), {}))
+        .addActorOfClass("UnrealShare", "ThingFactory", {intProperty("capacity", 4)})
+        .addActorOfClass("UnrealShare", "CreatureFactory",
+                         making(map.importClass("UnrealShare", "NaliPriest"), {intProperty("capacity", 7)}))
+        .addActorOfClass("UnrealShare", "CreatureFactory",
+                         making(map.importClass("UnrealShare", "Cow"), {intProperty("capacity", 9)}))
+        .addActorOfClass("UnrealShare", "CreatureFactory", making(rocket, {intProperty("capacity", 8)}))
+        // A prototype no package supplies cannot be sorted.
+        .addActorOfClass("UnrealShare", "CreatureFactory",
+                         making(map.importClass("Mystery", "Beast"), {intProperty("capacity", 6)}))
         .addActorOfClass("UnrealShare", "Krall")
         .addActorOfClass("UnrealShare", "Krall")
+        .addActorOfClass("UnrealShare", "Nali")
         .addActorOfClass("Mystery", "Thing")
         .addActorOfClass("Orphan", "Thing")
         // The capacity-5 factory named in a second slot is still one factory
-        // (UTA-0124), so the total stays 6.
+        // (UTA-0124), so the total stays 10.
         .repeatActorSlot(1);
     // A second LevelInfo, outside the level's actor list and ahead of the real
     // one in the export table, as maps the editor has left one behind carry.
@@ -283,9 +316,11 @@ TEST_CASE("UTA-0101: monster capacity sums limited factories through their class
     const Run result = runFacts(dir);
     INFO(result.out);
     REQUIRE(result.code == 0);
-    // 5 and the class's 1 are summed; 1000000 and -1 are no limit.
-    CHECK(result.out.find("\"monsters\": {\"factories\": 4, \"capacity\": 6, \"unlimitedFactories\": 2, "
-                          "\"unknownCapacityFactories\": 0, \"placedPawns\": 2, \"unresolvedActors\": 2}")
+    // UTA-0173: only factories whose prototype is a monster count. 5, the
+    // class's 1, one each for -1 and 0, and 2 are summed; 1000000 is no limit.
+    // The placed Nali is not a monster; the Mystery prototype is unresolved.
+    CHECK(result.out.find("\"monsters\": {\"factories\": 6, \"capacity\": 10, \"unlimitedFactories\": 1, "
+                          "\"unknownCapacityFactories\": 0, \"placedPawns\": 2, \"unresolvedActors\": 3}")
           != std::string::npos);
 }
 

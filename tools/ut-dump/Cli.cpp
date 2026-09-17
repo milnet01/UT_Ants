@@ -245,58 +245,90 @@ const uta::upkg::ExportEntry* levelInfoOf(const uta::upkg::Package& package,
     return nullptr;
 }
 
-/// ThingFactory's own default capacity. Its declaration names -1 as "no limit";
-/// its default is this, which the factory counts down from and never reaches,
-/// so it is no limit too and is not summed as a monster count.
+/// ThingFactory's own default capacity. The factory counts down from it and
+/// never reaches zero, so it is no limit and is not summed as a monster count.
 constexpr std::int32_t FACTORY_NO_LIMIT = 1000000;
 
-/// What an actor's class family makes it, for the monster total.
+/// What a class family makes an actor, for the monster total.
 struct ActorKind {
     bool resolved = false; ///< the whole class family was found
     bool factory = false;  ///< descends from ThingFactory
     bool pawn = false;     ///< descends from ScriptedPawn
+    /// A pawn that descends from neither Nali nor Cow -- the rule agreed with
+    /// UT_MonsterHunt, whose MHMonsterCount mutator applies it (UTA-0173).
+    bool monster = false;
     std::optional<std::int32_t> defaultCapacity;
+    /// The class family's `prototype`, and the package its reference is read in.
+    std::optional<uta::upkg::ObjectReference> defaultPrototype;
+    const uta::upkg::Package* prototypeOrigin = nullptr;
 };
 
-ActorKind kindOf(const uta::upkg::Package& map, std::string_view mapName,
+ActorKind kindOf(const uta::upkg::Package& package, std::string_view packageName,
                  uta::upkg::ObjectReference classReference,
                  const uta::upkg::PackageResolver& resolver) {
     ActorKind kind;
-    const auto site = uta::upkg::resolveClass(map, mapName, classReference, resolver);
+    const auto site = uta::upkg::resolveClass(package, packageName, classReference, resolver);
     if (!site.has_value() || site->resolved.package == nullptr) return kind;
     const auto ancestry =
         uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
     if (!ancestry.has_value()) return kind;
+    bool friendly = false;
     for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
         const auto name = link.package->name(link.entry->objectName);
         if (!name.has_value()) continue;
         const std::string folded = foldCase(*name);
         kind.factory = kind.factory || folded == "thingfactory";
         kind.pawn = kind.pawn || folded == "scriptedpawn";
+        friendly = friendly || folded == "nali" || folded == "cow";
     }
+    // Nali and Cow sit below ScriptedPawn, so a chain that reached it has
+    // already passed either.
+    kind.monster = kind.pawn && !friendly;
     // A chain cut short by a missing package may lack the ancestor that decides.
     kind.resolved = ancestry->end == uta::upkg::AncestryEnd::Root;
     if (kind.factory) {
         if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value()) {
             for (const uta::upkg::EffectiveProperty& effective : *defaults) {
-                if (effective.property.arrayIndex != 0 || foldCase(effective.name) != "capacity") continue;
-                if (const auto* value = std::get_if<std::int32_t>(&effective.property.value))
-                    kind.defaultCapacity = *value;
+                if (effective.property.arrayIndex != 0) continue;
+                const std::string folded = foldCase(effective.name);
+                if (folded == "capacity") {
+                    if (const auto* value = std::get_if<std::int32_t>(&effective.property.value))
+                        kind.defaultCapacity = *value;
+                } else if (folded == "prototype") {
+                    if (const auto* value = std::get_if<uta::upkg::ObjectReference>(&effective.property.value)) {
+                        kind.defaultPrototype = *value;
+                        kind.prototypeOrigin = effective.origin;
+                    }
+                }
             }
         }
     }
     return kind;
 }
 
-/// The whole-map monster total: every ThingFactory descendant's capacity, the
-/// actor's own else its class family's, and every ScriptedPawn placed in the
-/// map. A factory with no limit, or with no capacity found, is counted apart
-/// rather than summed. An actor whose class family did not resolve cannot be
-/// sorted, and is counted too, so an incomplete total says so.
+/// The whole-map monster total: the capacity of every ThingFactory descendant
+/// whose prototype is a monster, the actor's own else its class family's, and
+/// every monster placed in the map. A monster is a ScriptedPawn descended from
+/// neither Nali nor Cow; a factory making anything else is not counted at all.
+/// A capacity of 0 or below sends one monster, since Spawning's Begin runs
+/// Timer once and StartBuilding re-arms only while capacity > 0. A factory
+/// with no limit, or with no capacity found, is counted apart rather than
+/// summed. An actor, or a factory's prototype, whose class family did not
+/// resolve cannot be sorted, and is counted too, so an incomplete total says so.
 void writeMonsters(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
                    const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
     long long factories = 0, capacity = 0, unlimited = 0, unknown = 0, pawns = 0, unresolved = 0;
-    std::map<std::int32_t, ActorKind> kinds; // by raw class reference
+    // By the package a class reference is read in, and the raw reference.
+    std::map<std::pair<const uta::upkg::Package*, std::int32_t>, ActorKind> kinds;
+    const auto kindIn = [&](const uta::upkg::Package& package, std::string_view packageName,
+                            uta::upkg::ObjectReference reference) -> const ActorKind& {
+        auto found = kinds.find({&package, reference.raw()});
+        if (found == kinds.end())
+            found = kinds.emplace(std::pair{&package, reference.raw()},
+                                  kindOf(package, packageName, reference, resolver))
+                        .first;
+        return found->second;
+    };
     std::set<std::uint32_t> seen;
     for (const uta::upkg::ObjectReference slot : level.actors) {
         // A map can name one actor in two slots (UTA-0124); it is one actor.
@@ -305,31 +337,46 @@ void writeMonsters(std::ostream& out, const uta::upkg::Package& map, std::string
             continue;
         const uta::upkg::ExportEntry& entry = map.exports()[slot.index()];
         if (entry.objectClass.kind() == uta::upkg::ObjectReferenceKind::Null) continue;
-        auto found = kinds.find(entry.objectClass.raw());
-        if (found == kinds.end())
-            found = kinds.emplace(entry.objectClass.raw(), kindOf(map, mapName, entry.objectClass, resolver))
-                        .first;
-        const ActorKind& kind = found->second;
-        if (kind.pawn) ++pawns;
+        const ActorKind& kind = kindIn(map, mapName, entry.objectClass);
+        if (kind.monster) ++pawns;
         if (!kind.factory) {
             if (!kind.resolved && !kind.pawn) ++unresolved;
             continue;
         }
-        ++factories;
         std::optional<std::int32_t> value = kind.defaultCapacity;
+        std::optional<uta::upkg::ObjectReference> prototype = kind.defaultPrototype;
+        const uta::upkg::Package* prototypeOrigin = kind.prototypeOrigin;
         if (const auto properties = uta::upkg::readProperties(map, entry); properties.has_value()) {
             for (const uta::upkg::Property& property : *properties) {
                 const auto name = map.name(property.nameIndex);
-                if (!name.has_value() || property.arrayIndex != 0 || foldCase(*name) != "capacity") continue;
-                if (const auto* own = std::get_if<std::int32_t>(&property.value)) value = *own;
+                if (!name.has_value() || property.arrayIndex != 0) continue;
+                const std::string folded = foldCase(*name);
+                if (folded == "capacity") {
+                    if (const auto* own = std::get_if<std::int32_t>(&property.value)) value = *own;
+                } else if (folded == "prototype") {
+                    if (const auto* own = std::get_if<uta::upkg::ObjectReference>(&property.value)) {
+                        prototype = *own;
+                        prototypeOrigin = &map;
+                    }
+                }
             }
         }
+        if (!prototype.has_value() || prototype->kind() == uta::upkg::ObjectReferenceKind::Null) continue;
+        // A default read in another package is labelled by no name; the label
+        // is the site's, which kindOf does not read.
+        const ActorKind& made =
+            kindIn(*prototypeOrigin, prototypeOrigin == &map ? mapName : std::string_view{}, *prototype);
+        if (!made.monster) {
+            if (!made.resolved && !made.pawn) ++unresolved;
+            continue;
+        }
+        ++factories;
         if (!value.has_value()) {
             ++unknown;
-        } else if (*value < 0 || *value >= FACTORY_NO_LIMIT) {
+        } else if (*value >= FACTORY_NO_LIMIT) {
             ++unlimited;
         } else {
-            capacity += *value;
+            capacity += std::max(*value, 1);
         }
     }
     out << ",\n  \"monsters\": {\"factories\": " << factories << ", \"capacity\": " << capacity

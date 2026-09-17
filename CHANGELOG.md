@@ -436,6 +436,12 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **ut-dump's monster count leaves out spawners that make weapons, health or friendly creatures** (UTA-0173)
+  A factory counts only when its prototype descends from ScriptedPawn and
+  not from Nali or Cow, the rule UT_MonsterHunt's MHMonsterCount applies.
+  Placed Nali and Cows leave `placedPawns` too. A capacity of 0 or below
+  counts as one monster, as the engine sends one.
+
 - **Sharper shadows, and no light through the wall under a ledge, on Medium quality and up** (UTA-0175)
   One shadow-map texel covered 64 world units, so a thin occluder such
   as the ledge over AS-Frigate's cabin doors fell between texels and the
