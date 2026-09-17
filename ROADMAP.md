@@ -10183,7 +10183,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-10.
   Lanes: uworld, ugame.
 
-- 🚧 [UTA-0167] **ut-ants: fly the camera with a gamepad as well as keyboard and mouse.**
+- ✅ [UTA-0167] **ut-ants: fly the camera with a gamepad as well as keyboard and mouse.**
   The user asked on 2026-09-16 whether a PS4 controller could drive the
   camera. It cannot, and nothing partial exists: apps/ut-ants/main.cpp calls
   SDL_Init with SDL_INIT_VIDEO alone and its event loop reads only
@@ -10207,6 +10207,14 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   and buttons feeding the camera moves apps/ut-ants/main.cpp already has.
   Claimed (2026-09-17) by session ut-ants-18, working in the main
   checkout.
+  Shipped (2026-09-17) in e579b25, green on the matrix (CI run
+  35197134298 on 785a801: GCC 14, Clang 19, MSVC). The left stick flies,
+  the right stick looks, the triggers or shoulders rise and sink, pressing
+  the left stick flies fast and the top face button toggles the flashlight.
+  addPad in apps/ut-ants/FlyCamera.cpp is SDL-free and unit-tested, and all
+  13 hand mutations of it were killed. A PS4 controller on this machine
+  opened: the --frames report said "1 gamepads open", with and without
+  --validation.
   **Layman:** Let a PS4 or similar controller move the camera, not just the keyboard and mouse.
   Kind: feature.
   Source: user-request-2026-09-16.
