@@ -10191,7 +10191,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants, uworld.
 
-- 📋 [UTA-0175] **urender: shadow edges are jagged, and light leaks through room corners.**
+- 🚧 [UTA-0175] **urender: shadow edges are jagged, and light leaks through room corners.**
   The user flew AS-Frigate on 2026-09-17: "There is light leak through the
   corners" (a lit band along a wall-ceiling join) and "the shadow quality
   seems look aliased" (a stair-stepped shadow edge along a wall).
@@ -10220,12 +10220,14 @@ model, no weapon and no opponent until 0.2.0.
   the atlas, so re-check their numbers after.
   User decision (2026-09-17): third of the AS-Frigate fixes, after
   UTA-0176 and before UTA-0163.
+  Progress (2026-09-17): taken by session ut-ants-7d, working in the main
+  checkout.
   **Layman:** Shadows have stair-stepped edges and light shows through where walls meet, which should be fixed.
   Kind: fix.
   Source: user-request-2026-09-17.
   Lanes: urender.
 
-- 🚧 [UTA-0176] **AS-Frigate's torch flames draw as flat magenta: a texture the bake skipped shows the missing colour.**
+- ✅ [UTA-0176] **AS-Frigate's torch flames draw as flat magenta: a texture the bake skipped shows the missing colour.**
   The user flew AS-Frigate on 2026-09-17: "The lights are showing purple,
   is this intentional?" It is not. The shapes sit above the wall torches,
   and magenta is urender's built-in base colour for a material with no
@@ -10248,6 +10250,17 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0174 and before UTA-0175.
   Progress (2026-09-17): taken by session ut-ants-7d, working in the main
   checkout.
+  Resolved (2026-09-17): shipped in b5b3d4e, green on the matrix (CI run
+  35221035640: GCC 14, Clang 19, MSVC). Two causes. The bake matched an
+  import by name alone, and NaliFX's SHANEFX group holds TORCHES2 the
+  Palette ahead of the FireTexture; it now matches the class, as UT99's
+  linker does (census: 1,924 FireTexture and 55 WaveTexture imports found a
+  Palette first). And a FireTexture stores no pixels: ubake/FireStill
+  simulates 256 frames from its sparks, adapted from SurrealEngine under
+  zlib (third_party/surrealengine/). BAKER_REVISION 19. AS-Frigate
+  re-baked skips nothing; a ut-shot shows a flame where the magenta block
+  stood. Its part (1), what a skipped material shows a player, is
+  UTA-0177.
   **Layman:** Torch flames show up as bright pink blocks because their texture could not be converted; they should look like flames.
   Kind: fix.
   Source: user-request-2026-09-17.
