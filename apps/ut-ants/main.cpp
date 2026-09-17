@@ -1,13 +1,15 @@
 // ut-ants: the client -- UTA-0016.
 //
 // Checks the install by running ut-bake (docs/design.md rule 16), opens one
-// baked map, and flies a camera through it. Everything that needs no window is
+// baked map, and flies a camera through it -- or, given no map, opens the map
+// launcher (UTA-0170, Launcher.cpp). Everything that needs no window is
 // in Cli.cpp and FlyCamera.cpp, which the unit tests compile too. This file is
 // the SDL half, and it is run by hand: no CI leg has a display
 // (docs/specs/UTA-0014-vulkan-draw-path.md SS 4.12).
 
 #include "Cli.h"
 #include "FlyCamera.h"
+#include "Launcher.h"
 
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
@@ -299,6 +301,7 @@ int main(int argc, char** argv) {
     }
 
     if (!installIsUsable(options->install)) return EXIT_FAILED;
+    if (options->bundle.empty()) return runLauncher(*options);
 
     auto bytes = uta::fs::readFile(options->bundle);
     if (!bytes) {

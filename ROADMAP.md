@@ -10028,7 +10028,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-16.
   Lanes: urender.
 
-- 📋 [UTA-0170] **A launcher that opens any finished map in ut-ants, for the user to look over.**
+- 🚧 [UTA-0170] **A launcher that opens any finished map in ut-ants, for the user to look over.**
   The user asked on 2026-09-17, to be built after UTA-0167, UTA-0168 and
   UTA-0169: a launcher for every completed map, so they can view each one
   and make observations.
@@ -10044,6 +10044,8 @@ model, no weapon and no opponent until 0.2.0.
     next open is instant. No bake-everything pass.
   - A notes box per map in the launcher, saved to one plain text file per
     map, for a later session to read and file.
+  Progress (2026-09-17): taken by session ut-ants-7d, working in the main
+  checkout.
   **Layman:** Pick any map that bakes and fly around it, to look it over and note anything wrong.
   Kind: feature.
   Source: user-request-2026-09-17.

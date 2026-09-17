@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **`ut-ants <install>` opens a launcher listing every map in the install** (UTA-0170)
+  Type to filter, Enter bakes the picked map (kept for next time in
+  the per-user cache) and flies it in a second ut-ants. A map that
+  fails to bake is listed as failed with the baker's reason. Each map
+  has a notes box, saved as you type to one text file per map in
+  ~/.local/state/ut-ants/map-notes. A gamepad's pad picks and its
+  bottom face button opens.
+
 - **Fly the camera with a gamepad, such as a PlayStation or Xbox controller.** (UTA-0167)
   The left stick moves and the right stick looks. The right trigger or
   shoulder goes up and the left goes down, pressing the left stick flies

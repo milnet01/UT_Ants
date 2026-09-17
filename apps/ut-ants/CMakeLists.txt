@@ -1,9 +1,9 @@
 # ut-ants, the client -- UTA-0016. A RUNTIME target (docs/design.md § Programs).
 #
-# Cli.cpp and FlyCamera.cpp need no window, and tests/CMakeLists.txt compiles
-# them into the unit tests. main.cpp is the SDL half, run by hand: no CI leg
-# has a display.
-add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp)
+# Cli.cpp, FlyCamera.cpp and MapList.cpp need no window, and
+# tests/CMakeLists.txt compiles them into the unit tests. main.cpp and
+# Launcher.cpp are the SDL half, run by hand: no CI leg has a display.
+add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp Launcher.cpp MapList.cpp)
 target_link_libraries(ut-ants PRIVATE uta_urender uta_uworld uta_ubundle uta_core SDL3::SDL3)
 
 # Rule 16 has ut-ants run ut-bake, and it looks beside itself, so a build puts

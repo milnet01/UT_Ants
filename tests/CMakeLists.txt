@@ -44,6 +44,7 @@ add_executable(uta_unit_tests
     unit/BundleZonesTest.cpp
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
+    unit/ClientMapListTest.cpp
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
     unit/CoreFileSystemTest.cpp
@@ -107,7 +108,8 @@ target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 # not UTA_BUILD_CLIENT is on, because neither links SDL.
 target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Cli.cpp"
-    "${PROJECT_SOURCE_DIR}/apps/ut-ants/FlyCamera.cpp")
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/FlyCamera.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapList.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/apps")
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a

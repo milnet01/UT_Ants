@@ -69,9 +69,23 @@ TEST_CASE("UTA-0016: --frames takes a whole number above zero", "[client]") {
     CHECK_FALSE(parse({"--frames", "2", "--frames", "3", "/games/UT", "map.utab"}).options.has_value());
 }
 
-TEST_CASE("UTA-0016: ut-ants refuses anything but exactly two paths", "[client]") {
+TEST_CASE("UTA-0170: an install alone opens the map launcher", "[client]") {
+    const Parsed parsed = parse({"--windowed", "/games/UT", "--tier", "low"});
+    REQUIRE(parsed.options.has_value());
+    CHECK(parsed.options->install == std::filesystem::path("/games/UT"));
+    CHECK(parsed.options->bundle.empty());
+    CHECK(parsed.options->windowed);
+    CHECK(parsed.options->tier == uta::urender::Tier::Low);
+}
+
+TEST_CASE("UTA-0170: the launcher refuses --frames", "[client]") {
+    const Parsed parsed = parse({"--frames", "10", "/games/UT"});
+    CHECK_FALSE(parsed.options.has_value());
+    CHECK(parsed.err.find("--frames") != std::string::npos);
+}
+
+TEST_CASE("UTA-0016: ut-ants refuses no paths or more than two", "[client]") {
     CHECK_FALSE(parse({}).options.has_value());
-    CHECK_FALSE(parse({"/games/UT"}).options.has_value());
     CHECK_FALSE(parse({"/games/UT", "a.utab", "b.utab"}).options.has_value());
     const Parsed unknown = parse({"--fly", "/games/UT", "map.utab"});
     CHECK_FALSE(unknown.options.has_value());

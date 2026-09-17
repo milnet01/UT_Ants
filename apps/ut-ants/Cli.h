@@ -23,7 +23,8 @@ constexpr int EXIT_USAGE = 2;
 struct Options {
     bool help = false;
     std::filesystem::path install; ///< checked with `ut-bake --check` (docs/design.md rule 16)
-    std::filesystem::path bundle;  ///< a baked map
+    /// A baked map. Empty: open the map launcher instead (UTA-0170).
+    std::filesystem::path bundle;
     /// Draw this many frames and exit, for a run nobody watches. Unset: run
     /// until the window closes.
     std::optional<std::uint32_t> frames;

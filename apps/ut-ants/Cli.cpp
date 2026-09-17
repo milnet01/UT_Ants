@@ -14,7 +14,16 @@ namespace uta::client {
 void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
            "               <install> <bundle>\n"
+           "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] <install>\n"
            "       ut-ants --help\n"
+           "\n"
+           "Given only <install>, opens the map launcher: every map in the install,\n"
+           "baked when picked and kept for next time, with a notes box per map.\n"
+           "Up and Down pick, typing filters the list, Enter opens, Tab moves to the\n"
+           "notes and back, Ctrl and + or - change the text size, Escape quits. A\n"
+           "gamepad's pad picks and its bottom face button opens. Bakes are kept in\n"
+           "the per-user cache; notes and results in the per-user state directory,\n"
+           "one text file per map.\n"
            "\n"
            "Checks <install> with ut-bake --check, then opens <bundle>, a baked map,\n"
            "fullscreen at the desktop's resolution; --windowed opens a resizable\n"
@@ -81,12 +90,18 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
     }
 
     if (options.help) return options;
-    if (positional.size() != 2) {
-        err << "ut-ants: give an install and a bundle, in that order\n";
+    if (positional.empty() || positional.size() > 2) {
+        err << "ut-ants: give an install, and a bundle after it to open one map\n";
         return std::nullopt;
     }
     options.install = std::filesystem::path(std::string(positional[0]));
-    options.bundle = std::filesystem::path(std::string(positional[1]));
+    if (positional.size() == 2) {
+        options.bundle = std::filesystem::path(std::string(positional[1]));
+    } else if (options.frames.has_value()) {
+        // UTA-0170: the launcher waits for a person, so nothing counts frames.
+        err << "ut-ants: --frames needs a bundle; the launcher runs until it is closed\n";
+        return std::nullopt;
+    }
     return options;
 }
 
