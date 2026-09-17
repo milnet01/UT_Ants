@@ -13,9 +13,21 @@
 // hold (SS 6) is unshadowed.
 //
 // NO NORMAL OFFSET. A lit surface is kept from shadowing itself by the tile
-// pass's slope-scaled depth bias (Pipelines.cpp). An offset along the normal
-// was tried, and removing it changed no pixel -- even for a grazing light on
-// the smallest tile, the case built to need it.
+// pass's slope-scaled depth bias (Pipelines.cpp) and SHADOW_RECEIVER_BIAS. An
+// offset along the normal was tried twice: first removing it changed no pixel,
+// then (UTA-0182) one large enough to help let light through floors that a
+// low light really is blocked from.
+//
+// UTA-0182: the depth a surface is compared at is pulled this far toward the
+// light, in NDC depth. A wall whose corners sit a hair off whole numbers, near
+// a far-reaching light that grazes it, read its own stored depth as nearer
+// than itself and went black in straight-edged wedges; the slope-scaled bias
+// did not cover it. 1e-6 was the smallest value tried that cleared both
+// measured cases, and this is three times that. With the near plane at
+// reach / 512, it is under a world unit near a light and a few units at the
+// far end of the widest reach.
+const float SHADOW_RECEIVER_BIAS = 3e-6;
+
 float shadowOf(Light light, vec3 x) {
     if (light.shadowFaceCount == 0u) return 1.0;
 
@@ -44,7 +56,7 @@ float shadowOf(Light light, vec3 x) {
     uv = clamp(uv, shadow.atlasRect.xy + halfTexel, shadow.atlasRect.xy + shadow.atlasRect.zw - halfTexel);
     // An explicit level: UTA-0015's fog pass reads shadows from a compute
     // shader, which has no derivatives. The atlas has one level either way.
-    return textureLod(shadowAtlas, vec3(uv, ndc.z), 0.0);
+    return textureLod(shadowAtlas, vec3(uv, ndc.z - SHADOW_RECEIVER_BIAS), 0.0);
 }
 
 #endif

@@ -440,6 +440,12 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Walls no longer show black wedges near a lamp that grazes them** (UTA-0182)
+  A wall close to a far-reaching light, and almost edge-on to it, could
+  shadow itself in straight-edged black or dark wedges, as in the tall
+  stone rooms of MH-!!![2-Much-Health-FIXED]. The shadow lookup now pulls
+  the compared depth a hair toward the light.
+
 - **The map launcher lists only playable maps** (UTA-0179)
   UT99's opening movie, menu backdrop, credits and end-of-tournament
   scenes no longer appear, since they open to a black screen. The rule is

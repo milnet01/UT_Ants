@@ -10477,6 +10477,31 @@ model, no weapon and no opponent until 0.2.0.
   the traced distances, and check that each face is drawn and sampled
   with the same view-projection and atlas rectangle (Shadows.cpp's
   planner, shadowViewProj, the tile pass in Frame.cpp, shadows.glsl).
+  Located (2026-09-17, ut-ants-98): the wall shadows itself in light
+  80's shadow map. Forcing shadowOf to 1 removes the black. Shading by
+  face index shows the black inside one face, not along a face boundary.
+  Comparing at `ndc.z - 0.0001` instead of `ndc.z` removes it entirely,
+  and so does `- 0.01`. At the wall's distance from the light, 0.0001 of
+  NDC depth is roughly a dozen world units, so the stored depth sits just
+  in front of the wall's own surface.
+
+  The y=2944 wall runs almost edge-on to light 80, which stands close to
+  it, so one shadow texel spans a long stretch of wall. The tile pass's
+  slope-scaled bias (Pipelines.cpp's shadowPipeline) does not cover that
+  case, and shadows.glsl applies no normal offset. Its comment records
+  that removing one changed no pixel on the test built for a grazing
+  light; this map is a case it did not cover.
+
+  Also ruled out since the last note: strip lights (light 80 is not one),
+  the sky pass (the map has no sky zone) and the draw list (level and
+  movers only).
+
+  Fix to decide by measurement: a normal offset or receiver-side bias in
+  shadows.glsl, scaled by the texel's world size at the receiver, or a
+  larger slope factor. UTA-0175 recorded that bias tweaks measured worse
+  for jagged edges, so a fix must be checked on the reference-render
+  harness (ut-ants-uta0175) for detached or softened shadows as well as
+  on this repro.
   **Layman:** A wedge-shaped shadow appears on a wall from far away and vanishes as you walk up to it.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10531,6 +10556,27 @@ model, no weapon and no opponent until 0.2.0.
   Kind: ux.
   Source: user-request-2026-09-17.
   Lanes: ut-ants.
+
+- 📋 [UTA-0185] **urender: pure black stepped gaps on MH-!SD0!ForbiddenMansion's walls change shape as the camera turns.**
+  Reported by the user on 2026-09-17 with three screenshots of one small
+  room: wood walls and ceiling, a red carpet floor. A black region with
+  straight, stepped edges covers part of a wall, and its outline differs
+  in each screenshot as the camera turns. Darker brown wedges with
+  straight edges lie beside it. The user reads it as the texture being
+  drawn inconsistently, with black gaps.
+
+  Not yet checked. The black has the stepped straight-edged outline of
+  UTA-0182's self-shadowing wedges, pure black here because nothing else
+  lights that spot. If so, it changing with the view needs explaining:
+  UTA-0166 made shadow planning independent of the camera.
+
+  Placed 2026-09-17 (placement left to the session): directly after
+  UTA-0182. First re-shoot this room with UTA-0182's fix; if the black
+  remains, it is its own defect.
+  **Layman:** In one mansion room, black holes with jagged straight edges appear on the walls and move as you look around.
+  Kind: fix.
+  Source: user-request-2026-09-17.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
@@ -11414,6 +11460,27 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   later spawn (1 alive, every try Busy); a spawn 500 units away succeeds.
   Krall fall and wander: 27 alive after 20 s, about 3 Busy tries a second.
   Their numbers for Pupae, Krall, Brute and Titan follow.
+  From UT_MonsterHunt (2026-09-17), their GAME-0146 part (a), whose table
+  of runs is theirs to keep. One factory, one spawn point, no player,
+  under Monster Hunt's KHMBase alone and under their live mutator chain;
+  every run passed its spawn-count control. Findings:
+  - Alive stopped only at maxitems or the time limit, never at a cap. By source, a Busy try is Spawn returning None (bCovert off); that the point was occupied is measured for Pupae only.
+  - The factory's timer fires on server ticks, so tries run a little
+    under the interval's rate.
+  - Pupae stop at one alive: the first hangs on the point.
+  - Krall fill maxitems within a minute; Brutes and Titans are far slower,
+    the bigger the slower.
+  - Orders matter for big types: with no enemy, Attacking orders leave
+    some monsters standing still near the point, throttling the factory;
+    Wandering keeps them walking.
+  - Their mutator chain made no measurable difference.
+  - Not settled: for Titans the control spawn away from the point also
+    failed, so crowding and a broken spawn are not told apart there.
+  Part (b), Pupae at a high maxitems counted server against client, waits
+  on their user's play session.
+  UT_MonsterHunt (2026-09-17): part (b) will use Krall on a second test
+  map with many spawn points and capacity past the target, chosen by
+  their user; it runs in their next play session.
   **Layman:** UT99 caps how many monsters can be around at once, differently per type; find out why and make ours handle more.
   Kind: investigate.
   Source: user-request-2026-09-17.

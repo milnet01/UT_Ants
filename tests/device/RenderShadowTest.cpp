@@ -4,8 +4,9 @@
 // The planning is graded device-free (tests/unit/RenderShadowsTest.cpp). These
 // cases grade what the pixels show: a surface behind an occluder goes dark
 // while the rest of it stays lit, for two faces of a point light and for a
-// spotlight; a still frame reuses its tiles and still shows the shadow; and
-// lights the atlas cannot hold are counted.
+// spotlight; a still frame reuses its tiles and still shows the shadow; a
+// room lit near one wall does not shadow itself (UTA-0182); and lights the
+// atlas cannot hold are counted.
 //
 // EVERY SHADOW CASE HAS AN UNSHADOWED CONTROL PIXEL on the same square, so a
 // shadow that darkened everything -- a bias gone wrong, a face read for the
@@ -19,7 +20,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cmath>
 #include <cstdlib>
+#include <numbers>
 #include <vector>
 
 using namespace uta::test::render;
@@ -192,6 +195,85 @@ TEST_CASE("SS 4.8: a grazing light with a coarse tile leaves a lit surface lit",
             CHECK(std::abs(red - expected) <= 3.0);
         }
     }
+}
+
+TEST_CASE("UTA-0182: a closed room lit by a lamp near one wall has no black pixel", "[device]") {
+    // MH-!!![2-Much-Health-FIXED]'s tall room Brush58, light 80 and the
+    // reproducing camera, measured on the bake. A lamp a few hundred units from
+    // one wall, with a reach of thousands: far along that wall the light
+    // grazes it, and the wall read its own stored depth as nearer than itself,
+    // going black in straight-edged wedges. Every inner face of a closed box
+    // faces a light inside it, and every corner is within this light's reach,
+    // so no pixel may be black. The doorway gap is behind this camera.
+    removeDisplay();
+    Config config = linearFrame();
+    config.width = 1280;
+    config.height = 720;
+    config.tier = uta::urender::Tier::High; // ut-shot's, which reproduced it
+    Renderer renderer = requireRenderer(config);
+
+    // The room's walls, floor and ceiling exactly as the bake stores them, to
+    // the bit. Some corners sit a hair off the whole numbers, and that is what
+    // reproduces the wedges: the same triangles with whole-number corners do
+    // not, and dropping the floor's and ceiling's zero-area slivers changes
+    // nothing.
+    struct Triangle {
+        std::array<std::array<float, 3>, 3> corners;
+        std::array<float, 3> normal;
+    };
+    static const std::vector<Triangle> ROOM = {
+        {{{{3072, 895.9998779296875f, 1536}, {3072, 1792, 1536}, {3072, 2048.000244140625f, 1536}}}, {0, 0, -1}},
+        {{{{3072, 895.9998779296875f, 1536}, {3072, 2048.000244140625f, 1536}, {3072, 2944, 1536}}}, {0, 0, -1}},
+        {{{{3072, 895.9998779296875f, 1536}, {3072, 2944, 1536}, {5120, 2944, 1536}}}, {0, 0, -1}},
+        {{{{3072, 895.9998779296875f, 1536}, {5120, 2944, 1536}, {5120, 896.00006103515625f, 1536}}}, {0, 0, -1}},
+        {{{{3072, 2944, -512}, {3072, 2048, -512}, {3072, 1792, -512}}}, {0, 0, 1}},
+        {{{{3072, 2944, -512}, {3072, 1792, -512}, {3072, 895.9998779296875f, -512}}}, {0, 0, 1}},
+        {{{{3072, 2944, -512}, {3072, 895.9998779296875f, -512}, {5120, 896.00006103515625f, -512}}}, {0, 0, 1}},
+        {{{{3072, 2944, -512}, {5120, 896.00006103515625f, -512}, {5120, 2944, -512}}}, {0, 0, 1}},
+        {{{{3072, 2944, -512}, {3072, 2944, 1536}, {3072, 2048.000244140625f, 1536}}}, {1, 0, 0}},
+        {{{{3072, 2944, -512}, {3072, 2048.000244140625f, 1536}, {3072, 2048, -256}}}, {1, 0, 0}},
+        {{{{3072, 2944, -512}, {3072, 2048, -256}, {3072, 2048, -512}}}, {1, 0, 0}},
+        {{{{3072, 2048.000244140625f, 1536}, {3072, 1792, 1536}, {3072, 1792, -256}}}, {1, 0, 0}},
+        {{{{3072, 2048.000244140625f, 1536}, {3072, 1792, -256}, {3072, 2048, -256}}}, {1, 0, 0}},
+        {{{{3072, 1792, -256}, {3072, 1792, 1536}, {3072, 895.9998779296875f, 1536}}}, {1, 0, 0}},
+        {{{{3072, 1792, -256}, {3072, 895.9998779296875f, 1536}, {3072, 895.9998779296875f, -512}}}, {1, 0, 0}},
+        {{{{3072, 1792, -256}, {3072, 895.9998779296875f, -512}, {3072, 1792, -512}}}, {1, 0, 0}},
+        {{{{3072, 895.9998779296875f, -512}, {3072, 895.9998779296875f, 1536}, {5120, 896.00006103515625f, 1536}}}, {0, 1, 0}},
+        {{{{3072, 895.9998779296875f, -512}, {5120, 896.00006103515625f, 1536}, {5120, 896.00006103515625f, -512}}}, {0, 1, 0}},
+        {{{{5120, 2944, -512}, {5120, 2944, 1536}, {3072, 2944, 1536}}}, {0, -1, 0}},
+        {{{{5120, 2944, -512}, {3072, 2944, 1536}, {3072, 2944, -512}}}, {0, -1, 0}},
+        {{{{5120, 896.00006103515625f, -512}, {5120, 896.00006103515625f, 1536}, {5120, 2944, 1536}}}, {-1, 0, 0}},
+        {{{{5120, 896.00006103515625f, -512}, {5120, 2944, 1536}, {5120, 2944, -512}}}, {-1, 0, 0}},
+    };
+    uta::ubundle::Geometry geometry;
+    for (const Triangle& triangle : ROOM) {
+        for (const auto& corner : triangle.corners) {
+            geometry.indices.push_back(static_cast<std::uint32_t>(geometry.vertices.size()));
+            geometry.vertices.push_back({corner, triangle.normal, 0, 0});
+        }
+    }
+    geometry.batches.push_back({"white", 0, 0, static_cast<std::uint32_t>(geometry.indices.size())});
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "white", WHITE);
+    // Light 80's location to the bit: the wedges depend on it.
+    bundle.lights = std::vector{steadyLight({4113.96240234375f, 2684.6787109375f, 0}, 48, 128)}; // radius 3225
+
+    Camera camera;
+    camera.location = {3300, 1920, -420};
+    camera.rotation = {5000, 1500, 0};
+    // ut-shot's 100 degrees across, as a vertical angle at this aspect.
+    camera.verticalFovDegrees = static_cast<float>(
+        std::atan(std::tan(50.0 * std::numbers::pi / 180.0) * 720.0 / 1280.0) * 360.0 / std::numbers::pi);
+    requireOk(renderer.draw(bundle, camera));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+
+    int black = 0;
+    for (std::uint32_t y = 0; y < config.height; ++y)
+        for (std::uint32_t x = 0; x < config.width; ++x)
+            if (pixelAt(*pixels, config.width, x, y).r < 8) ++black;
+    CAPTURE(black);
+    CHECK(black == 0);
 }
 
 TEST_CASE("SS 6: lights the shadow atlas cannot hold are lit unshadowed and counted", "[device]") {
