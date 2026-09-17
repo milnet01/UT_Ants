@@ -10567,7 +10567,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants.
 
-- 🚧 [UTA-0185] **urender: pure black stepped gaps on MH-!SD0!ForbiddenMansion's walls change shape as the camera turns.**
+- ✅ [UTA-0185] **urender: pure black stepped gaps on MH-!SD0!ForbiddenMansion's walls change shape as the camera turns.**
   Reported by the user on 2026-09-17 with three screenshots of one small
   room: wood walls and ceiling, a red carpet floor. A black region with
   straight, stepped edges covers part of a wall, and its outline differs
@@ -10598,6 +10598,9 @@ model, no weapon and no opponent until 0.2.0.
   a spacing off the surface along its geometric normal. On the UTA-0156
   captures at exposure 5.4 it moves mean displayed luma by under a level
   and block RMS by at most a few tenths, so no constant needs refitting.
+  Resolved (2026-09-17): shipped in b98529d, green on the matrix (CI run
+  35249040460: GCC 14, Clang 19, MSVC), with UTA-0182's 0937ef5 removing
+  the black gaps.
   **Layman:** In one mansion room, black holes with jagged straight edges appear on the walls and move as you look around.
   Kind: fix.
   Source: user-request-2026-09-17.

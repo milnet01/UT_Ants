@@ -5,10 +5,10 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0185` (black stepped gaps on ForbiddenMansion's walls,
-first re-shot with 0182's fix), after `UTA-0182` (a dark triangle on a
-wall at a distance), which is in flight. Then `UTA-0178` (AS-Frigate
-twice as bright). `UTA-0183`
+**Next:** `UTA-0178` (AS-Frigate twice as bright). `UTA-0182` (a wall
+near a grazing lamp shadowed itself) and `UTA-0185` (surfaces on the
+probe grid lost their bounce light) shipped 2026-09-17, green on the
+matrix. `UTA-0183`
 shipped 2026-09-17, green on the matrix: the controller's Options button
 closes a map. `UTA-0179` shipped the same day: the launcher lists only
 playable maps, by UT99's MapPrefix rule. After 0178, `UTA-0177` (no magenta for a
