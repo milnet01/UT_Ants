@@ -46,13 +46,13 @@ float lightRadius(uint radius) {
     return 25.0 * float(radius + 1u);
 }
 
-// UE1's falloff -- UTA-0165: Render.so's spatial_None, with its h / r over v
-// left to the incidence term. ubake::falloff is the reference.
+// UE1's falloff -- UTA-0156: full strength out to half the radius, then down.
+// Not UT99's own, and kept by measurement: ubake::falloff says why.
 float lightFalloff(float distance, float radius) {
     if (distance >= radius) return 0.0;
     if (distance <= 0.0) return 1.0;
     float v = distance / radius;
-    return 1.0 + 2.0 * v * v * v - 3.0 * v * v;
+    return min(1.0, (1.0 + 2.0 * v * v * v - 3.0 * v * v) / v);
 }
 
 // UTA-0156: the share of an LE_Cylinder light's reach over which it fades to

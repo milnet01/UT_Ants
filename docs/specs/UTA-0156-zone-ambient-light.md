@@ -214,13 +214,17 @@ intensity by `levelBrightness`, for every effect. The fog's in-scattering calls
 outside `ComputeFromActor`. The flashlight is ours rather than the level's and
 carries `1`.
 
-**The point falloff.** The same reading corrected UTA-0112 § 4.3's falloff to
-`1 + 2v³ − 3v²`, with no `/ v` and no cap. `spatial_None` writes
+**The point falloff stays SurrealEngine's, by measurement.** The same reading
+found UT99's own point falloff. `spatial_None` writes
 `shadow × (h / R) × LightSqrt[v²]`, where `LightSqrt` is `(1 + 2v³ − 3v²) / v`
-and `h` is the light's distance from the surface's plane. `h / R` over `v` is
-the incidence cosine, which `lightAt` applies itself. `spatial_Spotlight` reads
-the same table, and the spotlight's shape is taken to match without being
-decoded.
+and `h` is the light's distance from the surface's plane, so UT99's shape is
+incidence × `(1 + 2v³ − 3v²)` with no `/ v`. Put into `lightAt` it matched the
+original worse: with fog zeroed over DM-Deck16][, AS-Frigate and DM-Fetid,
+pooled block RMS `37.5` against `36.6`, and own exposures `5.30`, `7.35` and
+`7.82` against `5.26`, `5.68` and `5.80`. Two ways of adding the light in UT99's
+lightmap units rather than linear light scored worse still, `40.8` and
+`41.9` at best. So UTA-0112 § 4.3's falloff is unchanged; the evidence is
+`ut-ants-uta0156/variants165.py` and UTA-0165's roadmap body.
 
 ## 5. Invariants
 
@@ -291,14 +295,12 @@ decoded.
   *Breaks when:* the record is not read; a bad value passes through.
 
 - **INV-11** — § 4.5: `lightAt` at `levelBrightness` `1.4` is `1.4` times its
-  value at `1`, for a point, a cylinder and a non-incidence light. `falloff` at
-  a quarter, a half and three quarters of the radius is `0.84375`, `0.5` and
-  `0.15625`. The shading pass matches `ubake::lightAt` at level brightness `1`,
-  `0.8` and `1.4`.
+  value at `1`, for a point, a cylinder and a non-incidence light. The shading
+  pass matches `ubake::lightAt` at level brightness `1`, `0.8` and `1.4`.
   *Test:* `tests/unit/BakeLightModelTest.cpp`, extended;
   `tests/device/RenderLightParityTest.cpp`, extended.
-  *Breaks when:* either copy drops the factor or keeps the `/ v`; the upload
-  does not copy the field.
+  *Breaks when:* either copy drops the factor; the upload does not copy the
+  field.
 
 - **INV-12** — § 4.5: baking DM-Deck16][ from the reference install writes
   `levelBrightness` `0.8` on every light.
@@ -407,7 +409,7 @@ this spec is amended first.
 - `CHANGELOG.md`.
 - § 4.5: `docs/specs/UTA-0110-lights-and-placements.md` § 4.4 and
   `docs/specs/UTA-0162-strip-lights.md` § 4.1, the `LITE` record size;
-  `docs/specs/UTA-0112-baked-light-probes.md` § 4.3 and INV-3, the falloff.
+  `docs/specs/UTA-0112-baked-light-probes.md` § 4.3, the falloff's provenance.
 
 ## 12. Cold-eyes loop log
 

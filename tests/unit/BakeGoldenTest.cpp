@@ -52,8 +52,7 @@ namespace {
 // 16: UTA-0165 took UT99's FGetHSV colour and brightness. Same digest as 15: the
 // fixture's light is white at brightness 255, where both curves give 1.
 // 17: UTA-0165 gave every LITE record the level's brightness (UTA-0156 SS 4.5)
-// and bumped the format to 13, so the digest moved; it also took UT99's point
-// falloff, which the fixture's probes may or may not reach.
+// and bumped the format to 13, so the digest moved.
 constexpr std::uint32_t RECORDED_UNDER = 17;
 constexpr std::string_view GOLDEN =
     "4b7ad1383c34f57e19728216d120e49d4cad53f02ef0e4daebbffc5a860ae2d4";

@@ -199,11 +199,13 @@ struct Rgb {
   `B(V) = clamp(b × 0.7 / (0.01 + √b), 0, 1)`. Dividing by `B(255)` keeps the
   units below; the engine's own scale is absorbed by UTA-0014's exposure.
 - **Radius.** `R = 25 × (radius + 1)`, `AActor::WorldLightRadius`.
-- **Falloff.** With `v = d / R` for a distance `d` below `R`: `1 + 2v³ − 3v²`;
-  `1` at the light; `0` at `R` and beyond. This is UT99's own shape, read from
-  its `Render.so` (UTA-0156 § 4.5). It replaced SurrealEngine's
-  `min(1, (1 + 2v³ − 3v²) / v)` on 2026-09-17, whose `/ v` UT99 cancels, and that
-  had replaced `(1 − (d / R)²)²` on 2026-09-14.
+- **Falloff.** With `v = d / R` for a distance `d` below `R`:
+  `min(1, (1 + 2v³ − 3v²) / v)`, which is `1` out to half the radius; `1` at
+  the light; `0` at `R` and beyond. This is UE1's own shape, as SurrealEngine's
+  `Light/LightEffect.cpp` carries it. It replaced `(1 − (d / R)²)²` on
+  2026-09-14 (UTA-0156), which measured far darker than the original game.
+  UT99's `Render.so` itself uses incidence × `(1 + 2v³ − 3v²)`; that measured
+  worse in this model and was not taken (UTA-0156 § 4.5).
 - **Two effects reshape it**, both only inside `R` and both with no incidence
   or spot factor (UTA-0156, from the same source). `LE_Cylinder` (17) is
   `max(0, 1 − (dx² + dy²) / R²)`, the horizontal distance alone, times a
@@ -466,7 +468,7 @@ tests change no line.
   sectors shift; or a channel peaks at 1 instead of the three summing to 1, as
   the six-sector wheel did.
 - **INV-3** — `lightRadius(0)` is `25` and `lightRadius(64)` is `1625`.
-  `falloff` is `1` at distance 0, `0.5` at half the radius, and `0` at the
+  `falloff` is `1` at distance 0, `1` at half the radius, and `0` at the
   radius and beyond.
   *Test:* `tests/unit/BakeLightModelTest.cpp`, "radius and falloff".
   *Breaks when:* the radius drops its `+ 1`, or the falloff is linear.

@@ -133,7 +133,7 @@ double falloff(double distance, double radius) noexcept {
     if (distance >= radius) return 0;
     if (distance <= 0) return 1;
     const double v = distance / radius;
-    return 1 + 2 * v * v * v - 3 * v * v;
+    return std::min(1.0, (1 + 2 * v * v * v - 3 * v * v) / v);
 }
 
 Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept {
