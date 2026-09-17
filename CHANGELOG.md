@@ -426,6 +426,14 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **The flying camera no longer slips into floors and walls or out of the map** (UTA-0174)
+  It stopped only at a surface it flew straight at, so gliding past a
+  corner left it close enough for the view to cut the wall open, and
+  from there it could round into solid and fly free. It now keeps its
+  distance from every surface near it, and a move from open space never
+  ends inside a wall. Over 1,500 random flights through AS-Frigate none
+  ended in solid, against 15 before.
+
 - **Lights switched off in a map no longer crowd out the lights that are on** (UTA-0169)
   A light saved at brightness 0 took space in the renderer's light
   lists and shadow atlas while lighting nothing. On DM-Fetid the lists

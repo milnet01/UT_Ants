@@ -62,8 +62,10 @@ public:
     FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int32_t yaw) noexcept;
 
     /// Apply one frame's input over `seconds`. With `level`, the move stops
-    /// WALL_MARGIN short of a wall and slides along it; a camera already in
-    /// solid flies free, so it can leave. Without, it flies through anything.
+    /// WALL_MARGIN short of a wall and slides along it, the camera is then
+    /// eased out to WALL_MARGIN from every surface near it (UTA-0174), and a
+    /// move from empty space never ends in solid; a camera already in solid
+    /// flies free, so it can leave. Without, it flies through anything.
     void update(const FlyInput& input, double seconds, const ubundle::CollisionTree* level = nullptr) noexcept;
 
     [[nodiscard]] urender::Camera camera() const noexcept;

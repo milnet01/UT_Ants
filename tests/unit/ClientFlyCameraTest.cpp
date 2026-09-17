@@ -126,6 +126,38 @@ TEST_CASE("UTA-0158: a move into a wall at an angle slides along it", "[client]"
     CHECK(location[1] <= 283);
 }
 
+TEST_CASE("UTA-0174: flying past a corner keeps WALL_MARGIN from its side", "[client]") {
+    // An L-shaped room: the quarter x > 0 and y > 0 is a solid block whose
+    // corner stands at the origin. A move drifting along +X passes the corner
+    // without entering the block, so no trace along the move stops short of
+    // it, and it ends pressed against the block's face.
+    using uta::test::paths::box;
+    const uta::test::paths::Vec3 low{-500, -500, -500}, high{500, 500, 500};
+    const auto level = uta::test::paths::worldOf(
+        {box({-500, -500, -500}, {500, 0, 500}), box({-500, 0, -500}, {0, 500, 500})}, low, high);
+    FlyCamera fly({-300, -20, 0}, 0, 0); // facing +X
+    for (int frame = 0; frame < 60; ++frame) {
+        // Drift toward the block's face while flying past its corner.
+        fly.update(FlyInput{.forward = 1, .right = 0.05f}, 1.0 / 60, &level);
+    }
+    const auto location = fly.camera().location;
+    CHECK(location[0] > 0); // it did pass the corner
+    CHECK(location[1] <= -FlyCamera::WALL_MARGIN + 0.5);
+}
+
+TEST_CASE("UTA-0174: a camera nearer a wall than WALL_MARGIN is eased out to it", "[client]") {
+    const auto level = room();
+    FlyCamera fly({498, 0, 0}, 0, 0); // 2 units from the wall at 500
+    fly.update(FlyInput{}, 1.0 / 60, &level);
+    CHECK_THAT(fly.camera().location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+    fly.update(FlyInput{}, 1.0 / 60, &level); // and stays there
+    CHECK_THAT(fly.camera().location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+
+    FlyCamera low({0, 0, -499}, 0, 0); // 1 unit above the floor
+    low.update(FlyInput{}, 1.0 / 60, &level);
+    CHECK_THAT(low.camera().location[2], WithinAbs(-500 + FlyCamera::WALL_MARGIN, 0.5));
+}
+
 TEST_CASE("UTA-0158: a camera starting in solid flies out freely", "[client]") {
     const auto level = room();
     FlyCamera fly({700, 0, 0}, 0, 32768); // outside the room, facing -X, toward it
