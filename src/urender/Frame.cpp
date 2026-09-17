@@ -77,7 +77,14 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// pooled block RMS 36.6, per map 37.5, 34.3 and 40.8. Each map's own best
 /// exposure is 5.26, 5.68 and 5.76, where before it they were 4.22, 3.24 and
 /// 8.10 (ut-ants-uta0156/sweepamb17b.sh).
-constexpr float EXPOSURE = 5.5f;
+/// UTA-0168 let light through PF_NotSolid, which AS-Frigate's lanterns had
+/// blocked; refitted on baker revision 18 the same way. By ambient: 0.25
+/// exposure 5.85, RMS 36.1; 0.5 exposure 5.38, RMS 35.7, per map 37.3, 32.4 and
+/// 40.8; 1.0 exposure 4.49, RMS 36.6. At ambient 0.5 the maps' own best
+/// exposures are 5.26, 5.38 and 5.80, AS-Frigate's falling from 5.76. Scored at
+/// 5.3, 5.4 and 5.5, only DM-Deck16][ moves, 37.3, 37.3 and 37.4; 5.4 is the
+/// nearest tenth to the fit (ut-ants-uta0156/sweepamb18.sh).
+constexpr float EXPOSURE = 5.4f;
 
 /// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
 /// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's

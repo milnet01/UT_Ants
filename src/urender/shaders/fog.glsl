@@ -45,6 +45,13 @@ const float HAZE_SCATTER = 1.0e-4;
 // 38.1; at fog 4e-1, glow 2e-3 34.9, 3e-3 34.3, 4e-3 38.7. The lowest measured
 // is glow 2e-3 at fog 2e-1, whose mean displayed luma is 76.0 to the original's
 // 76.8 (ut-ants-uta0156/fogglow17.sh, fogglow17b.sh).
+// Rechecked by UTA-0168 on baker revision 18 at EXPOSURE 5.4; no fog 58.0. At
+// fog 2e-1, glow 1.5e-3 35.5, 2e-3 34.1, 2.5e-3 35.1; at fog 4e-1, glow 2e-3
+// 35.0, 3e-3 34.1. The two 34.1s tie, and glow 2e-3 at fog 2e-1 stays: its mean
+// displayed luma is 75.1 to the original's 76.8, the other's 80.5
+// (ut-ants-uta0156/fogglow18.sh). HAZE_SCATTER was not re-swept at 5.4: it was
+// fitted on DM-Deck16][, whose lightmap agreement UTA-0168 moved only from
+// 99.2% to 99.6%.
 const float VOLUME_GLOW_SCALE = 2.0e-3;
 const float VOLUME_FOG_SCALE = 2.0e-1;
 
