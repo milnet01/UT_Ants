@@ -5,12 +5,13 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0169` (brightness-0 lights crowd the light clusters), then
-`UTA-0170`
+**Next:** `UTA-0170`
 (a launcher for looking over every finished map), then `UTA-0157` (painted
 details such as ceiling lights become real geometry), then `UTA-0172`
 (ut-dump's per-actor event wiring, for UT_MonsterHunt), then `UTA-0142`'s
-trigger census -- the user's order, 2026-09-17. `UTA-0167` (fly the camera
+trigger census -- the user's order, 2026-09-17. `UTA-0169` shipped 2026-09-17, green on the
+matrix: a light of brightness 0 with no fog volume is no longer drawn.
+`UTA-0167` (fly the camera
 with a gamepad) and `UTA-0168` (non-solid brushes cast no shadow, baker
 revision 18, `EXPOSURE` 5.4) shipped first, both green on the matrix. `UTA-0165` shipped 2026-09-17, green on the matrix:
 every light carries its level's `LevelInfo.Brightness`, which UT99 applies

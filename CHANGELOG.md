@@ -418,6 +418,12 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Lights switched off in a map no longer crowd out the lights that are on** (UTA-0169)
+  A light saved at brightness 0 took space in the renderer's light
+  lists and shadow atlas while lighting nothing. On DM-Fetid the lists
+  overflowed. Such a light is now skipped, unless it carries a fog
+  volume, whose fog does not depend on brightness.
+
 - **Lamps no longer shadow their own light: surfaces a player can walk through cast no shadow, as in UT99.** (UTA-0168)
   AS-Frigate's lanterns blacked out their own lights. Measured against
   UT99's lighting, non-solid surfaces now let light through and unlit ones

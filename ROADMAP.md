@@ -9987,7 +9987,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-16.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0169] **urender: lights of brightness 0 fill light clusters and shadow tiles, overflowing DM-Fetid's.**
+- ✅ [UTA-0169] **urender: lights of brightness 0 fill light clusters and shadow tiles, overflowing DM-Fetid's.**
   Found by UTA-0165 (2026-09-16, ut-ants-6f). directLights in
   src/urender/Lights.cpp keeps every light that is not a backdrop, special-
   lit or absorbed, whatever its brightness, and both drawnLights and the
@@ -10021,6 +10021,8 @@ model, no weapon and no opponent until 0.2.0.
   view once light time is pinned. Unpinned, a DM-Deck16][ view differed,
   because light pulses run on the wall clock and a faster build reaches the
   view at another point in the pulse.
+  Shipped (2026-09-17): 1f24fd6, green on the matrix (GCC 14, Clang 19,
+  MSVC), CI run 35209390348.
   **Layman:** Lights switched off in a map still take up space the renderer needs for lights that are on, and on a crowded map real lights would get dropped.
   Kind: fix.
   Source: in-session-2026-09-16.
