@@ -10054,6 +10054,14 @@ model, no weapon and no opponent until 0.2.0.
 
   Unqueued: the user orders work. Filed so the ask is not lost.
   Queued (2026-09-17) by the user: after UTA-0157.
+  Context (2026-09-17): UT_MonsterHunt shipped GAME-0145 on their side
+  from T3D exports. Their MHHint reports whether an exit is live, held by
+  MHEndGate, switched off, or never switched on, and
+  analysis/exitsurvey.py lists the never maps. Their exit rule, measured
+  in-engine: a class ending in MonsterEnd is an exit, and
+  SBMonsterEndTrigger and MonsterEndTrigger are not. This item still
+  stands: it removes their dependence on T3D exports, which some maps
+  lack and which go stale.
   **Layman:** List which switches and triggers in a map fire which others, so a map whose exit can never open is found without the old editor.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.
@@ -10926,6 +10934,11 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   spawns a second and the steady alive count per type. (b) Pupae at
   maxitems 1500: the server's count against what a client sees. Live-map
   stalls are not asked for.
+  Linked (2026-09-17): UT_MonsterHunt queued the in-engine tests as
+  GAME-0146, after their GAME-0076. Part (a), the one-factory spawn test,
+  comes first. Part (b), the server count against a client's, needs their
+  user's game client, so it lands in a later play session. They send each
+  part's numbers here when done.
   **Layman:** UT99 caps how many monsters can be around at once, differently per type; find out why and make ours handle more.
   Kind: investigate.
   Source: user-request-2026-09-17.
