@@ -9504,6 +9504,8 @@ model, no weapon and no opponent until 0.2.0.
   proper sky rendered?" Their frame shows the purple sky texture tiled flat
   across the opening above the ship, under heavy fog. AS-Frigate is a
   candidate test map for this item.
+  User decision (2026-09-17): fourth of the AS-Frigate fixes, after
+  UTA-0175 and before UTA-0173 and UTA-0157.
   **Layman:** Maps set outside should show the sky the map's author built, not a flat painted texture.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -10140,12 +10142,14 @@ model, no weapon and no opponent until 0.2.0.
   A separate friendly-capacity field is optional; nothing of theirs reads
   it. No hurry on their side: GAME-0076 is deployed and correct, and only
   their probe uses hand-read counts meanwhile.
+  User decision (2026-09-17): placed after the four AS-Frigate fixes
+  (UTA-0174, UTA-0176, UTA-0175, UTA-0163) and before UTA-0157.
   **Layman:** The monster count ut-dump reports for a map wrongly includes spawners that make weapons and health, so it is too high.
   Kind: fix.
   Source: ut-monsterhunt-request-2026-09-17.
   Lanes: ut-dump.
 
-- 📋 [UTA-0174] **ut-ants: the flying camera still ends up inside floors and walls, and outside the map.**
+- 🚧 [UTA-0174] **ut-ants: the flying camera still ends up inside floors and walls, and outside the map.**
   The user flew AS-Frigate from the UTA-0170 launcher on 2026-09-17: "The
   camera still clips through the walls / floors at times." Two frames: one
   with the camera at floor level and the lower half of the screen black,
@@ -10167,6 +10171,11 @@ model, no weapon and no opponent until 0.2.0.
   Route: log the camera's position and isEmpty each frame on AS-Frigate,
   fly into corners and along edges, and find the first frame that ends in
   solid. Then a unit test from that segment.
+  User decision (2026-09-17): the AS-Frigate fixes go before UTA-0157, in
+  this order: UTA-0174, UTA-0176, UTA-0175, UTA-0163. Then UTA-0173, then
+  UTA-0157, UTA-0172, UTA-0142.
+  Progress (2026-09-17): taken by session ut-ants-7d, working in the main
+  checkout.
   **Layman:** The camera still slips through floors and walls sometimes, even though it is meant to stop at them.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10199,6 +10208,8 @@ model, no weapon and no opponent until 0.2.0.
   against the original game's frames at the same spots (UTA-0156 method),
   not by eye; UTA-0166's tile sizing and UTA-0015's fog sweep both read
   the atlas, so re-check their numbers after.
+  User decision (2026-09-17): third of the AS-Frigate fixes, after
+  UTA-0176 and before UTA-0163.
   **Layman:** Shadows have stair-stepped edges and light shows through where walls meet, which should be fixed.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10223,6 +10234,8 @@ model, no weapon and no opponent until 0.2.0.
   Fire's class default supplies one. UTA-0105 keeps the flames' motion;
   this is only the still. Census how many maps skip a material this way
   before choosing.
+  User decision (2026-09-17): second of the AS-Frigate fixes, after
+  UTA-0174 and before UTA-0175.
   **Layman:** Torch flames show up as bright pink blocks because their texture could not be converted; they should look like flames.
   Kind: fix.
   Source: user-request-2026-09-17.
