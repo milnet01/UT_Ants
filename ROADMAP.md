@@ -9476,7 +9476,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, ubundle, urender.
 
-- 📋 [UTA-0163] **Outdoor maps show their real sky: draw the sky zone through sky surfaces, as UT99 does.**
+- 🚧 [UTA-0163] **Outdoor maps show their real sky: draw the sky zone through sky surfaces, as UT99 does.**
   Asked by the user 2026-09-14: "For any maps set outside, is there
   sky rendering?" Not as UT99 draws it.
 
@@ -9506,6 +9506,8 @@ model, no weapon and no opponent until 0.2.0.
   candidate test map for this item.
   User decision (2026-09-17): fourth of the AS-Frigate fixes, after
   UTA-0175 and before UTA-0173 and UTA-0157.
+  Progress (2026-09-17): taken by session ut-ants-7d, working in the main
+  checkout.
   **Layman:** Maps set outside should show the sky the map's author built, not a flat painted texture.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -10191,7 +10193,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants, uworld.
 
-- 🚧 [UTA-0175] **urender: shadow edges are jagged, and light leaks through room corners.**
+- ✅ [UTA-0175] **urender: shadow edges are jagged, and light leaks through room corners.**
   The user flew AS-Frigate on 2026-09-17: "There is light leak through the
   corners" (a lit band along a wall-ceiling join) and "the shadow quality
   seems look aliased" (a stair-stepped shadow edge along a wall).
@@ -10222,6 +10224,16 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0176 and before UTA-0163.
   Progress (2026-09-17): taken by session ut-ants-7d, working in the main
   checkout.
+  Resolved (2026-09-17): shipped in 1d356dd, green on the matrix (CI run
+  35223161664: GCC 14, Clang 19, MSVC). Cause: a 64-unit shadow texel, under
+  which a thin occluder casts nothing -- the ledge over AS-Frigate's cabin
+  doors left the wall under it lit. Measured over 135 views of AS-Frigate,
+  DM-Deck16][ and DM-Fetid against a reference at 8 units a texel: mean
+  error 1.42 / 1.54 / 0.55 shipped; 0.93 / 1.01 / 0.40 at 32 units; less
+  slope bias, a 3x3 filter and a normal offset each measured worse. Medium
+  and up now take an 8192 atlas at 32 units (Tiers.h shadowDetailOf), the
+  same share of the atlas for every map; Low keeps 4096 at 64. Scratch
+  worktrees and scripts at /mnt/Games/Scripts/Linux/ut-ants-uta0175.
   **Layman:** Shadows have stair-stepped edges and light shows through where walls meet, which should be fixed.
   Kind: fix.
   Source: user-request-2026-09-17.
