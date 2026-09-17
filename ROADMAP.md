@@ -6404,6 +6404,11 @@ model, no weapon and no opponent until 0.2.0.
   this item, which rule 4 would forbid were this item still held; it is
   parked, and it is the same session, so no two sessions touch that
   directory.
+  Linked (2026-09-17): UT_MonsterHunt filed the SoccerStadium re-check as
+  GAME-0144 and takes it first. MH-UM-SoccerStadium1, then
+  MH-UM-SoccerStadium1-BP and MH-BoomDockBridge_V0 if the node was in
+  their build and the route still fails. Done: whether the proposed node
+  was carried, and if so where the route fails.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -7969,6 +7974,9 @@ model, no weapon and no opponent until 0.2.0.
 
   Test: whatever their probe reports for the vertical extent of a MonsterEnd
   of height 166 -- at what Z separation contact is lost.
+  Linked (2026-09-17): UT_MonsterHunt GAME-0107, taken second. They sweep
+  Z with MHTouchProbe on MH-NivenSB's exit (height 166), reading the
+  pawn's Touching[] list. Done: the Z separation at which contact is lost.
   **Layman:** We know how wide an exit reaches sideways; we have not checked how far up and down.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12 UTA-0134 answer.
@@ -8573,6 +8581,10 @@ model, no weapon and no opponent until 0.2.0.
   (their GAME-0120) decides what comes next. Act only if it finds real
   misroutes; the trigger census is the next step then, before any
   amendment.
+  Linked (2026-09-17): UT_MonsterHunt GAME-0120, taken third, starting
+  with MH-BunchOfHPSBFix. Done: a per-map verdict on the 24 in
+  crossing.tsv -- a real misroute, enabled later by a trigger, or no
+  effect.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
