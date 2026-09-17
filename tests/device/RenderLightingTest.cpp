@@ -120,7 +120,7 @@ TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an u
 
     // light.glsl's AMBIENT_SCALE, set by UTA-0156 SS 7's measurement. Brightness
     // 40 keeps the lit value below 1, where the 8-bit readback would clip it.
-    constexpr double AMBIENT_SCALE = 1.5; // UTA-0165's refit
+    constexpr double AMBIENT_SCALE = 0.5; // UTA-0165's refit on LevelInfo.Brightness
     // UTA-0165: brightness 40 through FGetHSV's curve is 0.391061428321661.
     const double expected = srgbByte(AMBIENT_SCALE * 0.391061428321661);
     const std::uint8_t lit = redAtCentre(renderer, squareInZone(40, 0));

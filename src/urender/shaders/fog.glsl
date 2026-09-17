@@ -25,7 +25,12 @@ const float HAZE_EXTINCTION = 1.28614e-5;
 // so 3e-4 to 4e-4 are one value; the largest is taken, its mean displayed luma
 // of 59.8 being the nearest to the original's 68.2. Haze now IMPROVES the
 // match -- before UTA-0166 every value made it worse than no haze at all.
-const float HAZE_SCATTER = 4.0e-4;
+// Refitted by UTA-0165 at EXPOSURE 5.5, once lights carried LevelInfo.Brightness
+// and the exposure rose to match: haze made up for the low exposure, and now
+// every value costs again. No haze 37.5; 1e-4 38.0; 1.5e-4 39.3; 2e-4 41.0;
+// 4e-4 49.3; 8e-4 66.3; 1.6e-3 89.1. SS 7 step 1's first rule holds again:
+// the largest value within 1.0 of no haze.
+const float HAZE_SCATTER = 1.0e-4;
 // SS 7 step 2, on DM-Fetid with volumetric lighting on, the same measure and
 // exposure, refitted by UTA-0166 on top of the haze above. By glow at fog
 // 6.4e-2: none 68.2; 2e-3 46.7; 2.5e-3 43.6; 3e-3 41.4; 4e-3 39.2; 5e-3 39.1;
@@ -33,8 +38,15 @@ const float HAZE_SCATTER = 4.0e-4;
 // 3.2e-2 39.7; 6.4e-2 39.1; 1.28e-1 38.4; 2.56e-1 38.7; 5.12e-1 41.7.
 // Both are measured minima. The earlier fit stopped fog at 6.4e-2, the edge of
 // its sweep, where it was still gaining; swept wider it turns at 1.28e-1.
-const float VOLUME_GLOW_SCALE = 5.0e-3;
-const float VOLUME_FOG_SCALE = 1.28e-1;
+// Refitted by UTA-0165 at EXPOSURE 5.5 with the haze above; no fog 57.8. By
+// glow at fog 5e-2: 1e-3 37.2; 1.5e-3 35.2; 2e-3 36.7; 2.5e-3 40.1; 4e-3 53.5;
+// 8e-3 81.9. By fog at glow 2e-3: 2.5e-2 37.5; 5e-2 36.7; 1e-1 35.4; 2e-1 34.2.
+// Then both past that edge: at fog 2e-1, glow 1.5e-3 35.4, 2.5e-3 35.4, 3e-3
+// 38.1; at fog 4e-1, glow 2e-3 34.9, 3e-3 34.3, 4e-3 38.7. The lowest measured
+// is glow 2e-3 at fog 2e-1, whose mean displayed luma is 76.0 to the original's
+// 76.8 (ut-ants-uta0156/fogglow17.sh, fogglow17b.sh).
+const float VOLUME_GLOW_SCALE = 2.0e-3;
+const float VOLUME_FOG_SCALE = 2.0e-1;
 
 const float FOG_PI = 3.141592653589793;
 

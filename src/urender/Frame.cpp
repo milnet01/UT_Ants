@@ -71,7 +71,13 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// AMBIENT_SCALE fitted alongside: pooled block RMS 42.2 at ambient 1.5 and
 /// exposure 2.20, per map 45.8, 40.3 and 40.5, where the linear model at 3.2
 /// had scored 46.2, 40.3 and 42.8.
-constexpr float EXPOSURE = 2.2f;
+/// UTA-0165 then found every light scaled by LevelInfo.Brightness (UTA-0156
+/// SS 4.5) and UTA-0166 gave every light a shadow; refitted with AMBIENT_SCALE
+/// on baker revision 17, fog zeroed, the joint exposure is 5.53 at ambient 0.5,
+/// pooled block RMS 36.6, per map 37.5, 34.3 and 40.8. Each map's own best
+/// exposure is 5.26, 5.68 and 5.76, where before it they were 4.22, 3.24 and
+/// 8.10 (ut-ants-uta0156/sweepamb17b.sh).
+constexpr float EXPOSURE = 5.5f;
 
 /// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
 /// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's

@@ -134,7 +134,11 @@ vec3 lightThrough(Light light, vec3 x) {
 // EXPOSURE over three maps once brightness went through FGetHSV: pooled block
 // RMS 42.2 at 1.5, 42.2 at 2, 42.3 at 2.5 and 42.7 at 3; 1.5 has the lower sum
 // over the three maps.
-const float AMBIENT_SCALE = 1.5;
+// Refitted again once lights carried LevelInfo.Brightness (UTA-0156 SS 4.5),
+// on baker revision 17 with fog zeroed: pooled block RMS 37.0 at 0.25, 36.7 at
+// 0.375, 36.6 at 0.5, 36.7 at 0.625 and 36.9 at 0.75
+// (ut-ants-uta0156/sweepamb17b.sh).
+const float AMBIENT_SCALE = 0.5;
 
 // The light a zone's ambient puts on every lit surface in it: a light's colour
 // and intensity with no falloff, incidence, spot, shadow or flicker.

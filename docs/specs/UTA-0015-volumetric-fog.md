@@ -434,6 +434,11 @@ Each is seen to fail against the code before this item.
    `1.0` of no haze" selects nothing useful. The rule is now the plain minimum,
    taking the largest of the values tied within the control's own `0.1` of
    repeat-to-repeat spread. `6e-3` under the new shadow rule scores `105.4`.
+   *Refitted again (2026-09-17), and the first rule holds again:* UTA-0165 gave
+   every light its level's `LevelInfo.Brightness` (UTA-0156 § 4.5) and moved
+   `EXPOSURE` to `5.5`. The haze had been making up for the low exposure, so
+   every value now costs: no haze `37.5`, `1e-4` `38.0`, `1.5e-4` `39.3`. The
+   largest within `1.0` of no haze is `1e-4`.
 2. **Volumetric lights.** A scratch probe beside `ambient-census/` lists the
    stock maps' `PlayerStart`s that are in a fog zone and within a volumetric
    light's volume radius plus 1000 units. Capture one such map with
@@ -453,6 +458,9 @@ Each is seen to fail against the code before this item.
    `1.28e-1`. Both are measured minima rather than grid edges: the earlier fog
    value sat at the widest swept and was still gaining, and swept wider it
    turns at `1.28e-1`.
+   *Refitted again (2026-09-17):* at `EXPOSURE` `5.5` with that haze, glow
+   `2e-3` and fog `2e-1`, the lowest point of a grid bracketing both. The scores
+   are beside the constants in `shaders/fog.glsl`.
 3. **Nothing else moves.** DM-Deck16][ at `hazeScale` `0` keeps the block RMS
    it had before this item.
    *Result (2026-09-15):* `46.2` at exposure 3.2, as before.
@@ -461,6 +469,9 @@ Each is seen to fail against the code before this item.
    *Re-checked under UTA-0166 (2026-09-16):* `45.8` again, so giving every light
    a shadow tile costs this map nothing where it draws no haze. That is the
    control for the whole amendment: the picture changed only where fog is drawn.
+   *Re-checked under UTA-0165 (2026-09-17):* `38.0` at exposure `5.5` with the
+   shipped constants, the same as its haze-only score, so the refitted glow and
+   fog move nothing on a map with no volumetric light.
 
 ## 8. Alternatives considered (and rejected)
 
