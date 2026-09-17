@@ -33,6 +33,15 @@ struct MapFile {
 /// filter keeps every map.
 [[nodiscard]] std::vector<std::size_t> filterMaps(const std::vector<MapFile>& maps, std::string_view filter);
 
+/// UTA-0179: the `mapPrefixes` of one `ut-bake --game-types <install>` run,
+/// or nothing when the run failed or gave no such array.
+[[nodiscard]] std::optional<std::vector<std::string>> readMapPrefixes(std::string_view output, int exitCode);
+
+/// UTA-0179: the maps UT99's own lists offer -- those whose name starts with
+/// one of `prefixes`, ignoring case. An empty prefix offers every map, as it
+/// does in the game. CityIntro, the opening movie, starts with none.
+[[nodiscard]] std::vector<MapFile> playableMaps(std::vector<MapFile> maps, const std::vector<std::string>& prefixes);
+
 /// What one `ut-bake --install ... --out ... <map>` run said, read from its
 /// standard output and exit code.
 struct BakeAnswer {

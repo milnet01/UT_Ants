@@ -5,10 +5,12 @@
 #include "common/Json.h"
 #include "core/Jobs.h"
 #include "ubake/Bake.h"
+#include "ubake/GameTypes.h"
 #include "ubake/Install.h"
 #include "ubake/Name.h"
 #include "umat/Material.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -39,19 +41,23 @@ void writeArray(std::ostream& out, const std::vector<T>& values, Write write) {
 
 void usage(std::ostream& err) {
     err << "usage: ut-bake --check <install>\n"
+           "       ut-bake --game-types <install>\n"
            "       ut-bake --install <install> --out <dir> [--force] <map>\n"
            "       ut-bake --help\n"
            "\n"
            "--check says whether a directory is a usable Unreal Tournament install,\n"
            "and why not. The second form bakes one map into <dir>, named by the\n"
            "SHA-256 of what it was baked from, and reuses a bake already there\n"
-           "unless --force is given. Standard output is one JSON object.\n";
+           "unless --force is given. --game-types lists the game types the install's\n"
+           ".int files register, each with the MapPrefix its maps' names start with\n"
+           "(UTA-0179). Standard output is one JSON object.\n";
 }
 
 struct Arguments {
     bool help = false;
     bool force = false;
     std::optional<std::string_view> check;
+    std::optional<std::string_view> gameTypes;
     std::optional<std::string_view> install;
     std::optional<std::string_view> out;
     std::optional<std::string_view> map;
@@ -81,6 +87,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             parsed.force = true;
         } else if (arg == "--check") {
             if (!takeValue(parsed.check)) return std::nullopt;
+        } else if (arg == "--game-types") {
+            if (!takeValue(parsed.gameTypes)) return std::nullopt;
         } else if (arg == "--install") {
             if (!takeValue(parsed.install)) return std::nullopt;
         } else if (arg == "--out") {
@@ -97,9 +105,10 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
     }
 
     if (parsed.help) return parsed;
-    if (parsed.check.has_value()) {
-        if (parsed.install || parsed.out || parsed.map || parsed.force) {
-            err << "ut-bake: --check takes an install and nothing else\n";
+    if (parsed.check.has_value() || parsed.gameTypes.has_value()) {
+        if ((parsed.check && parsed.gameTypes) || parsed.install || parsed.out || parsed.map || parsed.force) {
+            err << "ut-bake: " << (parsed.check ? "--check" : "--game-types")
+                << " takes an install and nothing else\n";
             return std::nullopt;
         }
         return parsed;
@@ -128,6 +137,44 @@ int runCheck(std::string_view install, std::ostream& out, std::ostream& err) {
 
     for (const Problem& problem : report.problems) err << "ut-bake: " << problem.why << "\n";
     return report.ok ? EXIT_OK : EXIT_FAILED;
+}
+
+/// UTA-0179: every game type found with its prefix, the names whose class was
+/// not found, and the distinct prefixes -- what the launcher filters by.
+int runGameTypes(std::string_view install, std::ostream& out, std::ostream& err) {
+    auto opened = Install::open(std::filesystem::path(install));
+    out << "{\"schema\": " << SCHEMA << ", \"install\": ";
+    writeJsonString(out, install);
+    if (!opened.has_value()) {
+        out << ", \"error\": ";
+        writeJsonString(out, opened.error().message());
+        out << "}\n";
+        err << "ut-bake: " << opened.error().message() << "\n";
+        return EXIT_FAILED;
+    }
+    GameTypes types = readGameTypes(*opened);
+    out << ", \"gameTypes\": ";
+    writeArray(out, types.found, [&out](const GameType& type) {
+        out << "{\"name\": ";
+        writeJsonString(out, type.name);
+        out << ", \"mapPrefix\": ";
+        writeJsonString(out, type.mapPrefix);
+        out << '}';
+    });
+    out << ", \"unresolved\": ";
+    writeArray(out, types.unresolved, [&out](const std::string& name) { writeJsonString(out, name); });
+
+    std::vector<std::string> prefixes;
+    for (const GameType& type : types.found) {
+        const bool seen = std::ranges::any_of(
+            prefixes, [&](const std::string& prefix) { return detail::fold(prefix) == detail::fold(type.mapPrefix); });
+        if (!seen) prefixes.push_back(type.mapPrefix);
+    }
+    std::ranges::sort(prefixes, {}, [](const std::string& prefix) { return detail::fold(prefix); });
+    out << ", \"mapPrefixes\": ";
+    writeArray(out, prefixes, [&out](const std::string& prefix) { writeJsonString(out, prefix); });
+    out << "}\n";
+    return EXIT_OK;
 }
 
 std::string_view verdictName(Verdict verdict) {
@@ -231,6 +278,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         return EXIT_OK;
     }
     if (parsed->check.has_value()) return runCheck(*parsed->check, out, err);
+    if (parsed->gameTypes.has_value()) return runGameTypes(*parsed->gameTypes, out, err);
     return runBake(*parsed, out, err, budgetBytes);
 }
 

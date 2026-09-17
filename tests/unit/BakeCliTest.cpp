@@ -199,6 +199,42 @@ TEST_CASE("an over-budget bake exits 1 and leaves no file", "[ubake][cli]") {
     CHECK(filesIn(fixture.out) == 0);
 }
 
+TEST_CASE("UTA-0179: the game-type list prints each type and the distinct prefixes", "[ubake][cli]") {
+    const TempDir dir;
+    using uta::test::bake::Packer;
+    using uta::test::bake::strProperty;
+    Packer botpack;
+    const std::int32_t tournament = botpack.addClass("TournamentGameInfo");
+    const std::int32_t deathmatch = botpack.addClass("DeathMatchPlus", tournament, {strProperty("MapPrefix", "DM")});
+    botpack.addClass("TeamGamePlus", deathmatch);
+    botpack.addClass("CTFGame", tournament, {strProperty("MapPrefix", "CTF")});
+    uta::test::bake::writeFile(dir.path() / "System" / "Botpack.u", botpack.build());
+    const std::string entries = "Object=(Name=Botpack.TeamGamePlus,Class=Class,MetaClass=Botpack.TournamentGameInfo)\n"
+                                "Object=(Name=Botpack.DeathMatchPlus,Class=Class,MetaClass=Botpack.TournamentGameInfo)\n"
+                                "Object=(Name=Botpack.CTFGame,Class=Class,MetaClass=Botpack.TournamentGameInfo)\n"
+                                "Object=(Name=Gone.GoneGame,Class=Class,MetaClass=Botpack.TournamentGameInfo)\n";
+    uta::test::bake::writeFile(dir.path() / "System" / "Botpack.int", {entries.begin(), entries.end()});
+
+    const Run result = run({"--game-types", dir.path().string()});
+    INFO(result.out);
+    CHECK(result.code == 0);
+    CHECK(isOneObject(result.out));
+    CHECK(says(result.out, "\"schema\": 1"));
+    CHECK(says(result.out, "\"gameTypes\": [{\"name\": \"Botpack.CTFGame\", \"mapPrefix\": \"CTF\"}, "
+                           "{\"name\": \"Botpack.DeathMatchPlus\", \"mapPrefix\": \"DM\"}, "
+                           "{\"name\": \"Botpack.TeamGamePlus\", \"mapPrefix\": \"DM\"}]"));
+    CHECK(says(result.out, "\"unresolved\": [\"Gone.GoneGame\"]"));
+    CHECK(says(result.out, "\"mapPrefixes\": [\"CTF\", \"DM\"]"));
+}
+
+TEST_CASE("UTA-0179: the game-type list exits 1 when the install is not a directory", "[ubake][cli]") {
+    const TempDir dir;
+    const Run result = run({"--game-types", (dir.path() / "absent").string()});
+    CHECK(result.code == 1);
+    CHECK(isOneObject(result.out));
+    CHECK(hasKey(result.out, "error"));
+}
+
 TEST_CASE("wrong arguments exit 2 and print nothing on standard output", "[ubake][cli]") {
     const std::vector<std::vector<std::string>> wrong = {
         {},
@@ -207,6 +243,9 @@ TEST_CASE("wrong arguments exit 2 and print nothing on standard output", "[ubake
         {"--install", "i", "--out", "o"},
         {"--install", "i", "map"},
         {"--check", "i", "--force"},
+        {"--game-types"},
+        {"--game-types", "i", "map"},
+        {"--game-types", "i", "--check", "j"},
         {"--install", "i", "--out", "o", "first", "second"},
         {"--install", "i", "--install", "j", "--out", "o", "map"},
     };

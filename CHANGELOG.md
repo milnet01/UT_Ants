@@ -436,6 +436,13 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **The map launcher lists only playable maps** (UTA-0179)
+  UT99's opening movie, menu backdrop, credits and end-of-tournament
+  scenes no longer appear, since they open to a black screen. The rule is
+  the original game's: a map is listed when its name starts with an
+  installed game type's MapPrefix. `ut-bake --game-types` reads those from
+  the install's .int files and packages.
+
 - **ut-dump's monster count leaves out spawners that make weapons, health or friendly creatures** (UTA-0173)
   A factory counts only when its prototype descends from ScriptedPawn and
   not from Nali or Cow, the rule UT_MonsterHunt's MHMonsterCount applies.

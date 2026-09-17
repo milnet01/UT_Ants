@@ -5,13 +5,16 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0173`. `UTA-0163` (the real sky) shipped 2026-09-17, green
-on the matrix; the sky shows bright, and why is `UTA-0178`. `UTA-0175` (Medium and up shadow at 32
+**Next:** `UTA-0180` (break up the tiled look of textures) with `UTA-0181`
+(a local folder of replacement textures), after `UTA-0179` (the launcher
+lists only playable maps), which is in flight -- the user's order,
+2026-09-17. `UTA-0173` shipped 2026-09-17, green on the matrix: ut-dump
+counts only monster factories. `UTA-0163` (the real sky) shipped the same
+day; the sky shows bright, and why is `UTA-0178`. `UTA-0175` (Medium and up shadow at 32
 units in an 8192 atlas), `UTA-0176` (fire textures bake as flames, found by
 class; baker revision 19) and `UTA-0174` (the camera kept clear of every
-nearby surface) shipped 2026-09-17, green on the matrix. `UTA-0173` is
-ut-dump counting weapon and health spawners as monsters, for
-UT_MonsterHunt. After it `UTA-0157` (painted details such as ceiling
+nearby surface) shipped 2026-09-17, green on the matrix. After them
+`UTA-0157` (painted details such as ceiling
 lights become real geometry), `UTA-0172` (ut-dump's per-actor event
 wiring), then `UTA-0142`'s trigger census -- the user's order, 2026-09-17,
 after flying AS-Frigate in the launcher. `UTA-0170` shipped 2026-09-17, green on the matrix:

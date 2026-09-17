@@ -54,6 +54,10 @@ struct ClassInfo {
 [[nodiscard]] Result<ClassInfo> readClass(const Package& package,
                                           const ExportEntry& entry);
 
+/// The class export of `package` named `wanted`, compared case-insensitively,
+/// or nullptr. An export with no serialised bytes is not a class.
+[[nodiscard]] const ExportEntry* findClassExport(const Package& package, std::string_view wanted);
+
 /// Open a package by name, or report that it is not available.
 ///
 /// Returns nullptr, with NO error, when the package simply is not present --

@@ -459,8 +459,22 @@ choose between them (§ 15).
 
 ```text
 ut-bake --check <install>
+ut-bake --game-types <install>
 ut-bake --install <install> --out <dir> [--force] <map>
 ut-bake --help
+```
+
+**`--game-types` was added by `UTA-0179`**, after this item shipped. It
+lists the game types the install's `.int` files register, each with the
+`MapPrefix` its maps' names start with, so the launcher can offer only
+maps. `src/ubake/GameTypes.h` owns the rule. It prints the following, and
+exits `1` with an `error` member when the install is not a directory:
+
+```json
+{"schema": 1, "install": "<as given>",
+ "gameTypes": [{"name": "Botpack.CTFGame", "mapPrefix": "CTF"}],
+ "unresolved": ["<Package.Class whose class was not found>"],
+ "mapPrefixes": ["CTF"]}
 ```
 
 **Standard output is exactly one JSON object**, and standard error carries

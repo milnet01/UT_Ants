@@ -26,6 +26,7 @@ add_executable(uta_unit_tests
     unit/BakeGeometryTest.cpp
     unit/BakeGoldenTest.cpp
     unit/BakeInstallTest.cpp
+    unit/BakeGameTypesTest.cpp
     unit/BakeLightModelTest.cpp
     unit/BakeLightProbesTest.cpp
     unit/BakeMoversTest.cpp

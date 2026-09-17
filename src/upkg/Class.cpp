@@ -62,7 +62,8 @@ Result<std::string_view> importPackageName(const Package& package,
         malformed("an import's outer chain does not terminate"));
 }
 
-/// Find a class export by name within one package, folded.
+} // namespace
+
 const ExportEntry* findClassExport(const Package& package, std::string_view wanted) {
     const std::string target = fold(wanted);
     for (const ExportEntry& candidate : package.exports()) {
@@ -77,8 +78,6 @@ const ExportEntry* findClassExport(const Package& package, std::string_view want
     }
     return nullptr;
 }
-
-} // namespace
 
 Result<ClassInfo> readClass(const Package& package, const ExportEntry& entry) {
     // A class export is recognised by a NULL class reference, not by one

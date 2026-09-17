@@ -10104,7 +10104,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.
   Lanes: tools, unav.
 
-- 🚧 [UTA-0173] **ut-dump: count only monster factories in the monster capacity.**
+- ✅ [UTA-0173] **ut-dump: count only monster factories in the monster capacity.**
   A defect in UTA-0101, reported by UT_MonsterHunt on 2026-09-17 while
   building their GAME-0076 (the whole-map monster count on the HUD), which
   uses ut-dump's `monsters` object as its test oracle.
@@ -10149,6 +10149,11 @@ model, no weapon and no opponent until 0.2.0.
   User decision (2026-09-17): placed after the four AS-Frigate fixes
   (UTA-0174, UTA-0176, UTA-0175, UTA-0163) and before UTA-0157.
   Taken 2026-09-17 by session ut-ants-98, main checkout.
+  Shipped 2026-09-17 in d26f71f, green on the matrix: CI run 35235786996.
+  ut-dump alone gives MH-AirportTerrorSB 232, MH-2001v14 0, MH-AFO2 0,
+  MH-Addicted 186, MH-AlarmLb 874; UT_MonsterHunt's countprobe.py passes
+  all five against the running game. Capacity 0 or below counts as one
+  monster, and placed Nali and Cows leave placedPawns.
   **Layman:** The monster count ut-dump reports for a map wrongly includes spawners that make weapons and health, so it is too high.
   Kind: fix.
   Source: ut-monsterhunt-request-2026-09-17.
@@ -10325,6 +10330,95 @@ model, no weapon and no opponent until 0.2.0.
   Kind: investigate.
   Source: user-request-2026-09-17.
   Lanes: urender.
+
+- 🚧 [UTA-0179] **The map launcher lists only playable maps, by UT99's own game-type prefix rule.**
+  Reported by the user on 2026-09-17: CityIntro baked and opened to a black
+  screen, and the flashlight changed nothing.
+
+  Located the same day. It is not a render defect. CityIntro is UT99's
+  opening movie. Its only PlayerStart sits in zone 9, a 256-unit
+  subtracted cube textured `black1`, holding just that PlayerStart, a
+  Teleporter tagged IntroIn and a Trigger whose Event is Intro (read from
+  UT_MonsterHunt's T3D export of the map). No light reaches it, and the
+  flashlight lights black walls. From inside the city streets the same
+  bake draws normally, measured with ut-shot.
+
+  The install's Maps directory holds other files like it: Entry,
+  UTCredits, UT-Logo-Map and the EOL_ scenes.
+
+  User decisions (2026-09-17): hide what is not a map, by the original
+  game's own rule, and do it now, ahead of UTA-0157.
+
+  The rule: UT99's menus list, for each game type, the maps whose file
+  name starts with that game type's MapPrefix. Game types are the
+  `Object=(Name=...,Class=Class,MetaClass=Botpack.TournamentGameInfo)`
+  entries of the install's .int files. On the reference 469 install those
+  sit in System/ and SystemLocalized/int/, which holds Botpack.int.
+  MapPrefix is a class default, so it is read through the class family.
+
+  design.md rule 16 keeps package reading out of ut-ants, so ut-bake
+  answers the question and the launcher filters by it.
+
+  Done when the launcher on the reference install lists no CityIntro,
+  Entry, UTCredits, UT-Logo-Map or EOL_ map, still lists MH_Backhome-[WEO]
+  and MH[LineARC]+[RTX]-ZenithCity, and the rule is unit-tested.
+  Progress (2026-09-17): taken by session ut-ants-98, main checkout.
+  **Layman:** The map list stops offering the game's intro movie and other scenes that open to a black screen.
+  Kind: fix.
+  Source: user-request-2026-09-17.
+  Lanes: ut-ants, ut-bake, ubake.
+
+- 📋 [UTA-0180] **urender: break up the tiled look of repeated textures, on every map.**
+  The user asked on 2026-09-17, with a screenshot of a jungle map: walls
+  and plank floors show each texture's small square repeated, and its dark
+  patches line up into a visible grid. Asked for every option available.
+
+  Two cheap shader techniques, both in scene.frag's material sampling:
+  - Per-tile variation: each repeat of a texture gets a hashed offset and
+    rotation, blended across tile seams, so the repeat no longer lines up
+    (texture bombing / stochastic tiling; histogram-preserving blending
+    keeps contrast from washing out).
+  - Large-scale variation: a low-frequency noise modulating colour and
+    brightness over a much larger area than one tile.
+
+  Not every surface should vary: text, signs, decals and panels drawn to
+  fit (the N logo, the carved plaque in the screenshot) would break.
+  Decide which by measurement, e.g. a texture's own self-similarity at its
+  wrap, before choosing a flag.
+
+  How it looks is decided by measurement against the reference renders
+  (memory: no visual-judgement asks), and its cost is measured per tier.
+  The user's cheapest-methods rule applies.
+
+  User decision (2026-09-17): placed after UTA-0179 and before UTA-0157.
+  The texture-override folder is UTA-0181.
+  **Layman:** Walls and floors stop showing the same patch repeated in a grid.
+  Kind: enhancement.
+  Source: user-request-2026-09-17.
+  Lanes: urender.
+
+- 📋 [UTA-0181] **ubake: a local folder of replacement textures the bake uses in place of the install's.**
+  The user asked on 2026-09-17, with UTA-0180, for every option against
+  the tiled look, including replacing textures with ones downloaded from
+  the internet.
+
+  Shape to settle when picked up: a per-user folder, never in the
+  repository, keyed by the texture's package, group and name; which image
+  formats are read; how a replacement's size meets UTA-0052's budget and
+  upscale cap; and that a replacement changes the bake's SHA-256 name, so a
+  stale bake is not reused.
+
+  ADR-0003 and design.md rule 15 bound it: the project ships no one else's
+  textures, and a bundle baked with replacements is the player's own. Each
+  download's licence is the user's to check. A replacement still tiles;
+  UTA-0180 is what breaks the repeat.
+
+  User decision (2026-09-17): placed with UTA-0180, after UTA-0179 and
+  before UTA-0157.
+  **Layman:** Textures the user downloads can stand in for the game's own when a map is baked.
+  Kind: feature.
+  Source: user-request-2026-09-17.
+  Lanes: ubake, umat.
 
 ## 0.2.0 — Movement and weapons
 
@@ -11198,6 +11292,16 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   comes first. Part (b), the server count against a client's, needs their
   user's game client, so it lands in a later play session. They send each
   part's numbers here when done.
+  From UT_MonsterHunt (2026-09-17), while running their GAME-0146 part (a)
+  for this item, on work/alivemap/MHAliveTest.unr (one factory, one spawn
+  point, maxitems 64, capacity 200, interval 0.2): BarbiesWorld's
+  FactorySharedCode.bDebug is a const false, so they count Busy tries from
+  outside by the factory's timer, checked by a control against the
+  factory's own spawn count. Pupae's StartUp state sets PHYS_None, so a
+  Pupae hangs where it spawns: on one spawn point the first blocks every
+  later spawn (1 alive, every try Busy); a spawn 500 units away succeeds.
+  Krall fall and wander: 27 alive after 20 s, about 3 Busy tries a second.
+  Their numbers for Pupae, Krall, Brute and Titan follow.
   **Layman:** UT99 caps how many monsters can be around at once, differently per type; find out why and make ours handle more.
   Kind: investigate.
   Source: user-request-2026-09-17.

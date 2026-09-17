@@ -131,21 +131,47 @@ private:
     int exitCode_ = -1;
 };
 
+/// UTA-0179: the maps UT99's own lists offer, by the game types ut-bake reads
+/// from the install. When ut-bake gives no answer every map is listed, and
+/// `note` says so, since a movie such as CityIntro then opens to black.
+std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::string& note) {
+    std::vector<MapFile> maps = listMaps(install);
+    const std::string baker = besideThisProgram("ut-bake");
+    const std::string installText = install.string();
+    const char* const argv[] = {baker.c_str(), "--game-types", installText.c_str(), nullptr};
+    std::optional<std::vector<std::string>> prefixes;
+    if (SDL_Process* const process = SDL_CreateProcess(argv, true)) {
+        std::size_t size = 0;
+        int exitCode = -1;
+        if (void* const bytes = SDL_ReadProcess(process, &size, &exitCode)) {
+            prefixes = readMapPrefixes(std::string_view(static_cast<const char*>(bytes), size), exitCode);
+            SDL_free(bytes);
+        }
+        SDL_DestroyProcess(process);
+    }
+    if (!prefixes) {
+        note = "ut-bake could not list the game types, so every file in Maps is shown. ";
+        return maps;
+    }
+    return playableMaps(std::move(maps), *prefixes);
+}
+
 enum class Focus { List, Notes };
 enum class Busy { No, Baking, Viewing };
 
 class Launcher {
 public:
     Launcher(const Options& options, LauncherPaths paths, SDL_Window* window, SDL_Renderer* renderer)
-        : options_(options), paths_(std::move(paths)), window_(window), renderer_(renderer),
-          maps_(listMaps(options.install)) {
+        : options_(options), paths_(std::move(paths)), window_(window), renderer_(renderer) {
+        std::string note;
+        maps_ = offeredMaps(options.install, note);
         results_.reserve(maps_.size());
         for (const MapFile& map : maps_) results_.push_back(readResult(paths_.results, map.name));
         refilter();
         int height = 0;
         SDL_GetWindowSizeInPixels(window_, nullptr, &height);
         scale_ = std::clamp(static_cast<int>(height / 360.0 + 0.5), 2, 12); // readable at any desktop size
-        status_ = "Notes are saved in " + shown(paths_.notes);
+        status_ = note + "Notes are saved in " + shown(paths_.notes);
     }
 
     int run() {
@@ -491,7 +517,7 @@ private:
     SDL_Window* const window_;
     SDL_Renderer* const renderer_;
 
-    const std::vector<MapFile> maps_;
+    std::vector<MapFile> maps_; // set once, by the constructor
     std::vector<std::optional<MapResult>> results_;
     std::vector<std::size_t> shown_;
     std::size_t selection_ = 0;

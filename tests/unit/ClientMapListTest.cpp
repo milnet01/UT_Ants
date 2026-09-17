@@ -82,6 +82,33 @@ TEST_CASE("UTA-0170: the filter keeps names containing it ignoring case", "[clie
     CHECK(filterMaps(maps, "ctf").empty());
 }
 
+TEST_CASE("UTA-0179: game-type prefixes are read from ut-bake's top-level array", "[client]") {
+    const auto prefixes = readMapPrefixes(
+        R"({"schema": 1, "install": "/ut", "gameTypes": [{"name": "Botpack.CTFGame", "mapPrefix": "no"}], )"
+        R"("unresolved": [], "mapPrefixes": ["CTF", "D\u004d", ""]})" "\n",
+        0);
+    REQUIRE(prefixes.has_value());
+    CHECK(*prefixes == std::vector<std::string>{"CTF", "DM", ""});
+}
+
+TEST_CASE("UTA-0179: a failed or silent game-type run gives no prefixes", "[client]") {
+    CHECK_FALSE(readMapPrefixes("", 1).has_value());
+    CHECK_FALSE(readMapPrefixes(R"({"schema": 1, "error": "gone"})", 1).has_value());
+    CHECK_FALSE(readMapPrefixes(R"({"mapPrefixes": ["DM"]})", 1).has_value());
+    CHECK_FALSE(readMapPrefixes(R"({"mapPrefixes": "DM"})", 0).has_value());
+    CHECK_FALSE(readMapPrefixes(R"({"gameTypes": [{"mapPrefixes": ["DM"]}]})", 0).has_value());
+}
+
+TEST_CASE("UTA-0179: only maps a game type's prefix names are playable", "[client]") {
+    const std::vector<MapFile> maps = {{"CityIntro", {}}, {"ctf-Face", {}}, {"DM-Deck16][", {}},
+                                       {"EOL_Assault", {}}, {"MH_Backhome-[WEO]", {}}, {"UT-Logo-Map", {}}};
+    std::vector<std::string> kept;
+    for (const MapFile& map : playableMaps(maps, {"DM", "CTF", "MH"})) kept.push_back(map.name);
+    CHECK(kept == std::vector<std::string>{"ctf-Face", "DM-Deck16][", "MH_Backhome-[WEO]"});
+    CHECK(playableMaps(maps, {}).empty());
+    CHECK(playableMaps(maps, {"DM", ""}).size() == maps.size());
+}
+
 TEST_CASE("UTA-0170: a written or cached bake gives its path", "[client]") {
     const BakeAnswer written = readBakeAnswer(
         R"({"schema": 1, "map": "/i/Maps/A.unr", "bakerVersion": "18", "verdict": "written", "name": "ab",)"

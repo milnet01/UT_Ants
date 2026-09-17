@@ -38,31 +38,62 @@ public:
 
     /// The top-level string member named `key`, or nothing.
     std::optional<std::string> topLevelString(std::string_view key) {
-        at_ = 0;
-        skipSpace();
-        if (!take('{')) return std::nullopt;
-        while (true) {
+        std::optional<std::string> found;
+        atTopLevel(key, [&] {
+            if (peek() == '"') found = string();
+            return found.has_value();
+        });
+        return found;
+    }
+
+    /// UTA-0179: the top-level member named `key` when it is an array of
+    /// strings, or nothing.
+    std::optional<std::vector<std::string>> topLevelStringArray(std::string_view key) {
+        std::optional<std::vector<std::string>> found;
+        atTopLevel(key, [&] {
+            if (!take('[')) return false;
+            std::vector<std::string> values;
             skipSpace();
-            if (take('}')) return std::nullopt;
-            const std::optional<std::string> name = string();
-            if (!name) return std::nullopt;
-            skipSpace();
-            if (!take(':')) return std::nullopt;
-            skipSpace();
-            if (peek() == '"') {
-                std::optional<std::string> value = string();
-                if (!value) return std::nullopt;
-                if (*name == key) return value;
-            } else if (!skipValue()) {
-                return std::nullopt;
+            if (!take(']')) {
+                do {
+                    skipSpace();
+                    std::optional<std::string> value = string();
+                    if (!value) return false;
+                    values.push_back(std::move(*value));
+                    skipSpace();
+                } while (take(','));
+                if (!take(']')) return false;
             }
-            skipSpace();
-            if (take(',')) continue;
-            return std::nullopt; // a '}' here ends the object without the key
-        }
+            found = std::move(values);
+            return true;
+        });
+        return found;
     }
 
 private:
+    /// Walk the top-level object to the member named `key` and hand its value
+    /// to `read`, which says whether it read one. False when the text is not an
+    /// object or has no such member.
+    template <class Read>
+    bool atTopLevel(std::string_view key, Read read) {
+        at_ = 0;
+        skipSpace();
+        if (!take('{')) return false;
+        while (true) {
+            skipSpace();
+            if (take('}')) return false;
+            const std::optional<std::string> name = string();
+            if (!name) return false;
+            skipSpace();
+            if (!take(':')) return false;
+            skipSpace();
+            if (*name == key) return read();
+            if (peek() == '"' ? !string() : !skipValue()) return false;
+            skipSpace();
+            if (!take(',')) return false; // a '}' here ends the object without the key
+        }
+    }
+
     char peek() const { return at_ < text_.size() ? text_[at_] : '\0'; }
     bool take(char ch) {
         if (peek() != ch) return false;
@@ -202,6 +233,21 @@ std::vector<std::size_t> filterMaps(const std::vector<MapFile>& maps, std::strin
         if (lowered(maps[i].name).find(needle) != std::string::npos) kept.push_back(i);
     }
     return kept;
+}
+
+std::optional<std::vector<std::string>> readMapPrefixes(std::string_view output, int exitCode) {
+    if (exitCode != 0) return std::nullopt;
+    return JsonScanner(output).topLevelStringArray("mapPrefixes");
+}
+
+std::vector<MapFile> playableMaps(std::vector<MapFile> maps, const std::vector<std::string>& prefixes) {
+    std::vector<std::string> folded;
+    for (const std::string& prefix : prefixes) folded.push_back(lowered(prefix));
+    std::erase_if(maps, [&folded](const MapFile& map) {
+        const std::string name = lowered(map.name);
+        return std::ranges::none_of(folded, [&name](const std::string& prefix) { return name.starts_with(prefix); });
+    });
+    return maps;
 }
 
 BakeAnswer readBakeAnswer(std::string_view output, int exitCode) {
