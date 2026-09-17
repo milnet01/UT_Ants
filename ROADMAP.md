@@ -10085,6 +10085,45 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.
   Lanes: tools, unav.
 
+- 📋 [UTA-0173] **ut-dump: count only monster factories in the monster capacity.**
+  A defect in UTA-0101, reported by UT_MonsterHunt on 2026-09-17 while
+  building their GAME-0076 (the whole-map monster count on the HUD), which
+  uses ut-dump's `monsters` object as its test oracle.
+
+  ut-dump sums every ThingFactory whatever its `prototype`, and reports
+  one left at its class default capacity under `unlimitedFactories`.
+  Their evidence, read from each map's T3D export:
+  - MH-AFO2: one factory, prototype Botpack.HealthVial, capacity 100000.
+    Reported capacity 100000; monster capacity is 0.
+  - MH-AirportTerrorSB: 14 factories, capacity 232, 6 unlimited. The six
+    make Botpack weapons at default capacity; the other eight make
+    monsters and total 232.
+  - MH-2001v14: one unlimited factory making MyLevel.NukeRocket; monster
+    capacity is 0.
+  - MH-Trepidation-v1: its capacity -1 factories all make
+    Botpack.PulseGun.
+
+  Their suggested fix: count a factory only when its prototype descends
+  from ScriptedPawn. A plain ThingFactory making monsters stays in
+  (MH-AlarmLb's make Slith, Queen, SkaarjSniper and Titan). Their in-game
+  count also leaves out Nali and Cow descendants, matching BarbiesWorld's
+  SharedCode.PawnIsEvil; decide whether ut-dump does the same, and say so
+  in the output's field description.
+
+  Also from them, from engine source: capacity 0 or below is not "no
+  limit". ThingFactory's Spawning state fires Timer once on Begin and
+  StartBuilding re-arms only while capacity > 0, so such a factory sends
+  one monster; CreatureFactorySB does the same. Untested against a real
+  map, since no exported map in their library has one.
+
+  Done when their analysis/countprobe.py passes MH-AirportTerrorSB (232),
+  MH-2001v14 (0) and MH-AFO2 (0) on ut-dump alone, and still passes
+  MH-Addicted (186) and MH-AlarmLb (874).
+  **Layman:** The monster count ut-dump reports for a map wrongly includes spawners that make weapons and health, so it is too high.
+  Kind: fix.
+  Source: ut-monsterhunt-request-2026-09-17.
+  Lanes: ut-dump.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
