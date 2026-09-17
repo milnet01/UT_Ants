@@ -8662,6 +8662,12 @@ model, no weapon and no opponent until 0.2.0.
   Under the user's 2026-09-14 rule (act only if real misroutes are
   found), one was found, on a pair touching no exit. Whether that
   warrants the trigger census is the user's call.
+  User decision (2026-09-17), on GAME-0120's one real misroute: take the
+  next step, the trigger census -- which triggers switch each disabled
+  teleporter on -- before any change to SS 3 decision 10. Use the
+  leaving-direction rule. Not yet placed in the queue.
+  Queued (2026-09-17) by the user: the trigger census comes after
+  UTA-0172, whose per-actor wiring list supplies most of what it needs.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
@@ -9986,6 +9992,13 @@ model, no weapon and no opponent until 0.2.0.
   that bakes clean is the likely reading), whether the launcher bakes on
   demand or lists bakes already made, and where observations are written
   down. The install path stays out of the repository.
+  User decisions (2026-09-17), which settle this item's open questions:
+  - Completed means every map in the install that bakes without error;
+    a map that fails is listed as failed.
+  - Bake on demand: a picked map bakes then, and the bake is kept so the
+    next open is instant. No bake-everything pass.
+  - A notes box per map in the launcher, saved to one plain text file per
+    map, for a later session to read and file.
   **Layman:** Pick any map that bakes and fly around it, to look it over and note anything wrong.
   Kind: feature.
   Source: user-request-2026-09-17.
@@ -10011,6 +10024,7 @@ model, no weapon and no opponent until 0.2.0.
   MH-GolgothaAL_fix, MH-UM-TeamFight and MH-UM-TeamFight-BP.
 
   Unqueued: the user orders work. Filed so the ask is not lost.
+  Queued (2026-09-17) by the user: after UTA-0157.
   **Layman:** List which switches and triggers in a map fire which others, so a map whose exit can never open is found without the old editor.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.
@@ -10851,6 +10865,38 @@ Deathmatch and Team Deathmatch over a LAN with chat. Closes S3.
   on one map if the read leaves it open. They report each limit's home,
   default, whether it varies by type, and whether a rule or the engine
   sets it. Not part of their GAME-0076.
+  Answered (2026-09-17) by UT_MonsterHunt from source (ut-sdk-v469e and
+  BarbiesWorld classes): NO script or header caps monsters alive in a
+  level. Every limit is per factory (map rules), per spawn spot
+  (collision), or network-side.
+  - Map rules: ThingFactory.maxitems (alive at once from one factory,
+    default 1) and capacity (ever built; the "-1 = no limit" comment is
+    false, since StartBuilding needs capacity > 0); interval and
+    timeDistribution; bCovert, true on CreatureFactory, refuses to spawn
+    where a player can see. Stock factories cap 16 spawn spots and share
+    spots across factories with the same tag.
+  - Engine: Spawn fails when the monster does not fit, which is the main
+    per-type difference: Titan 115x110, Queen 90x107, Behemoth 68x68,
+    Gasbag 56x36, Brute and Warlord 52, Slith 48x44, Krall 25x46, Pupae
+    28x9, Fly 20x12. An "actor list is full" limit is named with no
+    number (unconfirmed). Per client, 1023 network channels, past which
+    relevant actors would not arrive (inferred).
+  - Mod (MonsterHuntSB): AlwaysRelevantPawnsCountMax, live 128, forces
+    replication only. A prototype that fails GameInfo.IsRelevant still
+    counts toward maxitems and never frees its slot.
+  - Types whose death frees no slot, because Died skips the Event:
+    Bloblet, HorseFly, BiterFish, bPak.MiniLord.
+  So per-type differences come from collision size, factory settings and
+  whether a death reaches its factory. Unsettled without the engine: how
+  often big types fail to fit; whether a channel or actor-list cap bites;
+  stalls on live maps. UT_MonsterHunt offered an in-engine test map for
+  the first.
+  User decision (2026-09-17): yes, UT_MonsterHunt runs the in-engine
+  tests now. (a) One factory, maxitems 64, capacity 200, interval 0.2,
+  bCovert off, one SpawnPoint, with Pupae, Krall, Brute and Titan: failed
+  spawns a second and the steady alive count per type. (b) Pupae at
+  maxitems 1500: the server's count against what a client sees. Live-map
+  stalls are not asked for.
   **Layman:** UT99 caps how many monsters can be around at once, differently per type; find out why and make ours handle more.
   Kind: investigate.
   Source: user-request-2026-09-17.
