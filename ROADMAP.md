@@ -8283,6 +8283,14 @@ model, no weapon and no opponent until 0.2.0.
   validated there. The open design point is only how the count reaches the
   test: a counter on the Renderer, a Config callback, or failing at the
   next frame.
+  Seen (2026-09-17, ut-ants-18) on the presenting path: `ut-ants
+  --validation` on AS-Frigate (baker revision 18) prints
+  Undefined-Value-ShaderOutputNotConsumed-DynamicRendering, a WARNING, from
+  vkCmdDrawIndexed: the fragment shader writes Locations 1 and 2 with no
+  colour attachments there. That is the translucent pass, which
+  src/urender/shaders/scene.frag says binds only the colour attachment by
+  design. DM-Fetid printed nothing. Whether to silence it (a translucent
+  shader variant with one output) belongs to this item.
   **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test.
   Kind: test.
   Source: in-session-2026-09-12.
@@ -9934,7 +9942,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-16.
   Lanes: urender.
 
-- 🚧 [UTA-0168] **urender: AS-Frigate's lanterns shadow their own lights, where UT99 lets the light through.**
+- ✅ [UTA-0168] **urender: AS-Frigate's lanterns shadow their own lights, where UT99 lets the light through.**
   Found by UTA-0165's texel-vis (2026-09-16, ut-ants-6f), which casts a
   segment from every LightBits texel to its light through the bundle's GEOM
   and compares UT99's own visibility bit. On AS-Frigate our geometry blocks
@@ -9953,6 +9961,27 @@ model, no weapon and no opponent until 0.2.0.
   Claimed (2026-09-17) by session ut-ants-18, working in the main
   checkout. First the census: which surface flag UT99's lighting build
   lets light through.
+  Shipped (2026-09-17) in 4acbbae and 79295ca, green on the matrix (CI
+  run 35204969701 on 79295ca: GCC 14, Clang 19, MSVC).
+  Settled by census: UT99's lighting build lets light through PF_NotSolid
+  and not through PF_Unlit. Over 25 baked maps chosen for surfaces with one
+  flag and not the other, rays that skip NotSolid never agree worse with
+  UT99's visibility bits and often far better (AS-Frigate 81.6% to 98.0%,
+  MH-EasterInWonderLandSBFix3 71.5% to 91.8%); skipping Unlit agrees worse
+  wherever unlit-only surfaces are in the way (MH-dUComatoseFinal 85.7% to
+  82.3%). Two picked maps did not run (a JSON-parse slip in the scratch
+  script) and were not needed. Tool, list and results:
+  /mnt/Games/Scripts/Linux/ut-ants-uta0168.
+  PF_NotSolid now casts no shadow in the shadow tile pass (Frame.cpp) and
+  is no occluder in SurfaceRays; baker revision 18. Four hand mutations
+  killed. EXPOSURE refitted from 5.5 to 5.4 on revision-18 bakes, AMBIENT_SCALE
+  and the fog constants rechecked and kept, measurements beside each.
+  Device tier green on this GPU and on lavapipe; ut-ants --validation on
+  AS-Frigate drew every frame, and its one warning is the translucent
+  pass's known unused outputs, noted on UTA-0138.
+  The bundle format stays 13, so a revision-17 bake still opens, but its
+  light probes still treat NotSolid surfaces as blockers; re-bake for the fix.
+  The shadow change needs no re-bake.
   **Layman:** The lamps on one map black out their own light because our shadows treat the lamp casing as a solid wall.
   Kind: fix.
   Source: in-session-2026-09-16.
