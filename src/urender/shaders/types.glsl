@@ -42,9 +42,10 @@ struct FrameData {
     uint probeCount;
     uint probeTableMask;
     uint probeLongestRun;
-    uint reserved0;
+    uint skyTexture;   // UTA-0163: NONE when the level has no sky, or it is being drawn
     uint shadowFaceCount;
-    uint reserved1[4];
+    uint skyFirstFace; // UTA-0163
+    uint reserved1[3];
 };
 
 struct Object {

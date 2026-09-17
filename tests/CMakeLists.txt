@@ -80,6 +80,7 @@ add_executable(uta_unit_tests
     unit/RenderLightsTest.cpp
     unit/RenderMoverPlacementTest.cpp
     unit/RenderShadowsTest.cpp
+    unit/RenderSkyTest.cpp
     unit/RenderTiersTest.cpp
     unit/RenderVolumeLightsTest.cpp
     unit/RoomBuildTest.cpp

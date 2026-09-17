@@ -10296,6 +10296,33 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ubake, urender.
 
+- 📋 [UTA-0178] **Find why AS-Frigate, its sky included, draws about twice as bright as UT99.**
+  Filed 2026-09-17 when UTA-0163 shipped the real sky, by the user's choice:
+  ship the sky now and find the brightness cause here rather than fit a
+  sky-only dimmer that could hide a lighting bug.
+
+  Measured against the original's AS-Frigate captures (UTA-0156's
+  orig-asfrigate, compare.py), in linear light, ours over the original:
+  pose 0 the sky 2.17 and the rest of the frame 2.17; pose 1 the sky 2.05
+  and the rest 1.29. Block RMS of luma at EXPOSURE 5.4 was 40.1 before the
+  sky and 44.7 after; at AS-Frigate's own best fit, 3.27, 34.0 and 38.3.
+  AS-Frigate's own best exposure has stood well below the shipped 5.4,
+  which is a compromise across the three fitting maps.
+
+  Ruled out on the sky: the level's haze over the sky surface (skipping
+  it moved the sky patch by 4 levels), haze in the sky faces themselves
+  (no change), the unlit rule (the sky ceiling, genfluid.sky.psky1b, is lit,
+  and dividing unlit surfaces by the exposure changed no map's score), and
+  the texture (no Diffuse or scale property). The sky room is lit by two
+  lights, export 798 (brightness 255, radius byte 8, 31 units above the
+  SkyZoneInfo) and export 376 (brightness 115, hue 180, radius byte 183).
+
+  Scratch at /mnt/Games/Scripts/Linux/ut-ants-uta0163.
+  **Layman:** AS-Frigate and its new sky look roughly twice as bright as in the original game; find out why.
+  Kind: investigate.
+  Source: user-request-2026-09-17.
+  Lanes: urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

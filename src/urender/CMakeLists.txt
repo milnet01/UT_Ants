@@ -24,6 +24,7 @@ add_library(uta_urender STATIC
     Clusters.cpp
     Probes.cpp
     Shadows.cpp
+    Sky.cpp
     Tiers.cpp
     Frame.cpp
     Swapchain.cpp

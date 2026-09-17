@@ -488,7 +488,7 @@ with it exactly, which is what makes the rest of the enum trustworthy here.
 | `PF_Translucent` | `0x00000004` | Blended, drawn after every opaque batch, depth-tested and not depth-written. **Writes no velocity** — § 4.11 |
 | `PF_TwoSided` | `0x00000100` | `VK_CULL_MODE_NONE` |
 | `PF_Unlit` | `0x00400000` | Base colour emitted directly; no direct or indirect light applied |
-| `PF_FakeBackdrop` | `0x00000080` | Drawn as the level's sky: depth written at the far plane, unlit |
+| `PF_FakeBackdrop` | `0x00000080` | Drawn as the level's sky: depth written at the far plane, unlit. **Amended by `UTA-0163`, recording what was built:** where the level has a SkyZoneInfo, the surface shows the sky zone as drawn from that actor, sampled by view direction -- `src/urender/Sky.h` |
 | `PF_Portal` | `0x04000000` | Not drawn. It is a visibility marker, and UTA-0109 emits it deliberately so this item can choose |
 | any other bit | — | **Ignored, and ignoring it is a decision.** `PF_Modulated`, `PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and `PF_SpecialLit` all have real UT99 meanings this item does not implement; § 9 says where each goes |
 

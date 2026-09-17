@@ -114,6 +114,24 @@ vec2 parallaxUv(Material material, TextureAxes axes, vec3 n) {
     return mix(at, before, clamp(weight, 0.0, 1.0));
 }
 
+// UTA-0163: the level's sky in direction `d`, from the six faces urender drew
+// from its SkyZoneInfo -- Sky.h. The face is the axis `d` is longest on, in
+// shadows.glsl's order, and a sample stays half a texel inside its cell.
+vec3 skyAt(vec3 d) {
+    vec3 a = abs(d);
+    uint face;
+    if (a.x >= a.y && a.x >= a.z) face = d.x >= 0.0 ? 0u : 1u;
+    else if (a.y >= a.z) face = d.y >= 0.0 ? 2u : 3u;
+    else face = d.z >= 0.0 ? 4u : 5u;
+    ShadowFace sky = shadowFaces[frame.skyFirstFace + face];
+    vec4 clip = sky.viewProj * vec4(d * 100.0, 1.0);
+    vec2 cell = clip.xy / clip.w * 0.5 + 0.5;
+    vec2 size = vec2(textureSize(textures[nonuniformEXT(frame.skyTexture)], 0));
+    vec2 halfTexel = 0.5 / (size * sky.atlasRect.zw);
+    cell = clamp(cell, halfTexel, 1.0 - halfTexel);
+    return textureLod(textures[nonuniformEXT(frame.skyTexture)], sky.atlasRect.xy + cell * sky.atlasRect.zw, 0.0).rgb;
+}
+
 void main() {
     Material material = materials[draw.materialIndex];
 
@@ -138,7 +156,10 @@ void main() {
     if ((draw.polyFlags & PF_MASKED) != 0u && base.a < MASK_THRESHOLD) discard;
 
     vec3 colour;
-    if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) != 0u) {
+    if ((draw.polyFlags & PF_FAKE_BACKDROP) != 0u && frame.skyTexture != NONE) {
+        // UTA-0163: a window onto the sky zone, already lit when it was drawn.
+        colour = skyAt(normalize(worldPosition - frame.eye));
+    } else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) != 0u) {
         // No light applied -- but the output stage still applies (SS 4.10).
         colour = base.rgb;
     } else {

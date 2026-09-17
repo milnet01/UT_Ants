@@ -17,6 +17,16 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Outdoor maps show the sky their author built, not a flat tiled texture** (UTA-0163)
+  In UT99 a sky surface is a window onto a separate sky room built into
+  the map. When a map loads, the renderer now draws that room once, in
+  six directions from its SkyZoneInfo, and each sky surface shows it in
+  the direction you look, so the sky turns with you and never moves. 1,037
+  of the reference install's 1,436 maps have a sky zone. For now the sky
+  is still: panning clouds hold their place, and a SkyZoneInfo's own
+  rotation is not applied. On AS-Frigate the sky draws about twice as
+  bright as in UT99, as the rest of that map does; UTA-0178 is finding why.
+
 - **`ut-ants <install>` opens a launcher listing every map in the install** (UTA-0170)
   Type to filter, Enter bakes the picked map (kept for next time in
   the per-user cache) and flies it in a second ut-ants. A map that

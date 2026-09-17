@@ -32,6 +32,7 @@
 #include "urender/Placement.h"
 #include "urender/Probes.h"
 #include "urender/Shadows.h"
+#include "urender/Sky.h"
 #include "urender/Resources.h"
 #include "urender/ShaderTypes.h"
 #include "urender/Swapchain.h"
@@ -302,6 +303,13 @@ struct Renderer::Impl {
     VkDescriptorSet fogSet = VK_NULL_HANDLE;
     std::vector<std::uint8_t> lightZones;
     ShadowPlanner shadowPlanner;
+    /// UTA-0163: where the level's sky is drawn from, its six faces three
+    /// across and two down, whether a draw has still to fill them, and whether
+    /// they are filled. The texture is the last in the scene set's array.
+    std::optional<SkyView> skyView;
+    Image sky;
+    bool skyPending = false;
+    bool skyReady = false;
     /// Each mover's box in its own pivot space, for SS 4.8's redraw test.
     std::vector<Box> moverBounds;
 
@@ -357,6 +365,11 @@ struct Renderer::Impl {
     Result<void> createFogVolumes();
     Result<void> upload(const ubundle::Bundle& bundle);
     Result<void> writeDescriptors();
+    /// One view of `bundle` from `camera`, presented to `image` when there is
+    /// one. With `skyFace`, UTA-0163's capture: drawn at scale 1 with no sky, and
+    /// the target's central square copied into that face of the sky texture.
+    Result<void> drawView(const ubundle::Bundle& bundle, const Camera& camera, std::optional<std::uint32_t> image,
+                          std::optional<std::uint32_t> skyFace);
     void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region,
                      const gpu::FogConstants& fog);
 };
@@ -364,8 +377,10 @@ struct Renderer::Impl {
 /// Every target the window's size decides. SS 4.3's resize rebuilds them.
 Result<void> Renderer::Impl::createTargets() {
     const std::uint32_t w = config.width, h = config.height;
+    // UTA-0163: a transfer source too, for the sky's faces.
     UTA_TRY(hdr, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
-                                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
+                                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
     UTA_TRY(velocity, Image::create(*gpu, {VELOCITY_FORMAT, w, h, 1,
                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
     UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT}));
@@ -482,10 +497,23 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     materials.reset();
     UTA_TRY(MaterialSet uploadedMaterials, MaterialSet::upload(*gpu, bundle));
     materials.emplace(std::move(uploadedMaterials));
-    if (materials->textures().size() > pipelines->textureCapacity())
+    // UTA-0163: a level with a sky takes one texture more, its faces.
+    skyView = skyViewOf(bundle);
+    const std::size_t textureCount = materials->textures().size() + (skyView ? 1 : 0);
+    if (textureCount > pipelines->textureCapacity())
         return fail(ErrorCode::InvalidArgument,
-                    std::format("the bundle needs {} textures and {} binds at most {}", materials->textures().size(),
-                                gpu->name(), pipelines->textureCapacity()));
+                    std::format("the bundle needs {} textures and {} binds at most {}", textureCount, gpu->name(),
+                                pipelines->textureCapacity()));
+    sky = Image{};
+    skyReady = false;
+    skyPending = skyView.has_value();
+    if (skyView) {
+        UTA_TRY(sky, Image::create(*gpu, {HDR_FORMAT, SKY_FACE_SIZE * SKY_COLUMNS, SKY_FACE_SIZE * SKY_ROWS, 1,
+                                          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
+        UTA_CHECK(gpu->run([&](VkCommandBuffer commands) {
+            sky.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }));
+    }
     UTA_TRY(SceneGeometry uploadedGeometry, SceneGeometry::upload(*gpu, bundle, *materials));
     geometry.emplace(std::move(uploadedGeometry));
     UTA_TRY(objects, Buffer::create(*gpu, sizeof(gpu::Object) * geometry->objectCount,
@@ -522,7 +550,8 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     // SS 4.8: no tile shows this bundle's geometry yet, and each light holds at
     // most six faces.
     shadowPlanner.reset();
-    UTA_TRY(shadowFaces, Buffer::create(*gpu, sizeof(gpu::ShadowFace) * lightCount * 6,
+    // UTA-0163: and the sky's six after them.
+    UTA_TRY(shadowFaces, Buffer::create(*gpu, sizeof(gpu::ShadowFace) * (lightCount * 6 + 6),
                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
     moverBounds.clear();
     if (bundle.movers) {
@@ -546,7 +575,8 @@ Result<void> Renderer::Impl::writeDescriptors() {
     if (pool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, pool, nullptr);
     pool = VK_NULL_HANDLE;
 
-    const auto textureCount = static_cast<std::uint32_t>(materials->textures().size());
+    // UTA-0163: the sky's faces are the array's last texture.
+    const auto textureCount = static_cast<std::uint32_t>(materials->textures().size() + (sky.view() ? 1 : 0));
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::ZONES + 1 + 1},
@@ -671,6 +701,7 @@ Result<void> Renderer::Impl::writeDescriptors() {
     textureInfos.reserve(textureCount);
     for (const Image& texture : materials->textures())
         textureInfos.push_back({materialSampler, texture.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+    if (sky.view()) textureInfos.push_back({materialSampler, sky.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     VkWriteDescriptorSet textureWrite{};
     textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     textureWrite.dstSet = sceneSet;
@@ -1059,6 +1090,18 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         impl.shape = shape;
     }
 
+    // UTA-0163: a new level's sky, drawn once, before its first frame. Nothing
+    // is presented; the faces go into the sky texture.
+    if (impl.skyPending) {
+        impl.skyPending = false;
+        for (std::uint32_t face = 0; face < 6; ++face) {
+            const Camera faceCamera = skyFaceCamera(*impl.skyView, face, impl.config.width, impl.config.height);
+            UTA_CHECK(impl.drawView(bundle, faceCamera, std::nullopt, face));
+        }
+        impl.skyReady = true;
+        impl.previousViewProj.reset(); // the faces' views are not the player's last
+    }
+
     // Before anything is planned: a skipped frame must change nothing (Swapchain.h).
     std::optional<std::uint32_t> image;
     if (impl.swapchain) {
@@ -1066,11 +1109,19 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         if (!image) return {}; // out of date: rebuilt at the top of the next frame
     }
 
+    return impl.drawView(bundle, camera, image, std::nullopt);
+}
+
+Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camera& camera,
+                                      std::optional<std::uint32_t> image, std::optional<std::uint32_t> skyFace) {
+    Impl& impl = *this;
     // UTA-0051 SS 4.4: the scale this frame draws at, and the top-left region of
     // the targets it covers. A fixed scale wins over dynamic resolution.
     const TierSettings settings = settingsOf(impl.tier);
     double scale = 1;
-    if (impl.config.fixedRenderScale) {
+    if (skyFace) {
+        // UTA-0163: a face is cut from the whole target.
+    } else if (impl.config.fixedRenderScale) {
         scale = std::clamp(*impl.config.fixedRenderScale, settings.minimumRenderScale, 1.0);
     } else if (impl.config.dynamicResolution) {
         scale = impl.renderScale;
@@ -1112,6 +1163,9 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     frame.probeCount = impl.probeCount;
     frame.probeTableMask = impl.probeTableMask;
     frame.probeLongestRun = impl.probeLongestRun;
+    // UTA-0163: a face of the sky is drawn without the sky, which is not drawn yet.
+    frame.skyTexture = impl.skyReady && !skyFace ? static_cast<std::uint32_t>(impl.materials->textures().size())
+                                                 : gpu::NONE;
 
     std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());
     if (bundle.movers)
@@ -1170,6 +1224,14 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     if (!plan.faces.empty())
         std::memcpy(impl.shadowFaces.mapped(), plan.faces.data(), plan.faces.size() * sizeof(gpu::ShadowFace));
     frame.shadowFaceCount = static_cast<std::uint32_t>(plan.faces.size());
+    // UTA-0163: the sky's six faces follow the lights'.
+    frame.skyFirstFace = frame.shadowFaceCount;
+    if (impl.skyView)
+        for (std::uint32_t face = 0; face < 6; ++face) {
+            const gpu::ShadowFace sample = skyFaceSample(face);
+            std::memcpy(impl.shadowFaces.mapped() + (frame.skyFirstFace + face) * sizeof(gpu::ShadowFace), &sample,
+                        sizeof(sample));
+        }
     std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
 
     // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
@@ -1178,6 +1240,28 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
         impl.recordFrame(commands, plan, region, fog);
         if (image) impl.swapchain->recordBlit(commands, impl.output, *image);
+        if (skyFace) {
+            // UTA-0163: the target's central square, which the face camera made
+            // span 90 degrees, into the face's cell of the sky texture.
+            const std::uint32_t side = std::min(region.width, region.height);
+            const auto x0 = static_cast<std::int32_t>((region.width - side) / 2);
+            const auto y0 = static_cast<std::int32_t>((region.height - side) / 2);
+            const auto column = static_cast<std::int32_t>(*skyFace % SKY_COLUMNS * SKY_FACE_SIZE);
+            const auto row = static_cast<std::int32_t>(*skyFace / SKY_COLUMNS * SKY_FACE_SIZE);
+            const auto size = static_cast<std::int32_t>(SKY_FACE_SIZE);
+            VkImageBlit blit{};
+            blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            blit.srcOffsets[0] = {x0, y0, 0};
+            blit.srcOffsets[1] = {x0 + static_cast<std::int32_t>(side), y0 + static_cast<std::int32_t>(side), 1};
+            blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            blit.dstOffsets[0] = {column, row, 0};
+            blit.dstOffsets[1] = {column + size, row + size, 1};
+            impl.hdr.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            impl.sky.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            vkCmdBlitImage(commands, impl.hdr.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, impl.sky.handle(),
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+            impl.sky.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
     }));
     const double milliseconds =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
@@ -1198,7 +1282,8 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     impl.stats.renderScale = scale;
     impl.stats.frameMilliseconds = milliseconds;
     impl.drawnScale = scale;
-    if (impl.config.dynamicResolution && !impl.config.fixedRenderScale) {
+    // UTA-0163: a sky face is not the player's frame, so its time steers nothing.
+    if (!skyFace && impl.config.dynamicResolution && !impl.config.fixedRenderScale) {
         impl.averagedMilliseconds =
             impl.averagedMilliseconds == 0 ? milliseconds : impl.averagedMilliseconds * 0.8 + milliseconds * 0.2;
         impl.renderScale = nextRenderScale(impl.renderScale, impl.averagedMilliseconds, settings);

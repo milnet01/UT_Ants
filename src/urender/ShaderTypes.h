@@ -82,9 +82,10 @@ struct FrameData {
     std::uint32_t probeCount;
     std::uint32_t probeTableMask;  ///< the probe table's size minus one
     std::uint32_t probeLongestRun; ///< the most slots past its hash any probe sits
-    std::uint32_t reserved0;
+    std::uint32_t skyTexture;      ///< UTA-0163: an index into the texture array, or NONE
     std::uint32_t shadowFaceCount;
-    std::array<std::uint32_t, 4> reserved1;
+    std::uint32_t skyFirstFace;    ///< UTA-0163: the sky's six faces, from here in the face table
+    std::array<std::uint32_t, 3> reserved1;
 };
 static_assert(sizeof(FrameData) == 352);
 static_assert(offsetof(FrameData, viewProj) == 0);
@@ -104,9 +105,10 @@ static_assert(offsetof(FrameData, probeSpacing) == 312);
 static_assert(offsetof(FrameData, probeCount) == 316);
 static_assert(offsetof(FrameData, probeTableMask) == 320);
 static_assert(offsetof(FrameData, probeLongestRun) == 324);
-static_assert(offsetof(FrameData, reserved0) == 328);
+static_assert(offsetof(FrameData, skyTexture) == 328);
 static_assert(offsetof(FrameData, shadowFaceCount) == 332);
-static_assert(offsetof(FrameData, reserved1) == 336);
+static_assert(offsetof(FrameData, skyFirstFace) == 336);
+static_assert(offsetof(FrameData, reserved1) == 340);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {
