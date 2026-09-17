@@ -656,6 +656,15 @@ of the atlas, `DM-Fetid` 0.33 and `AS-Frigate` 0.22. Admission is unchanged, so
 a map too dense to fit still degrades by § 6 — but stably, the same lights every
 frame, which is what stops the flicker.
 
+**Amended by `UTA-0175`, recording what was built: the atlas's size and
+`SHADOW_UNITS_PER_TEXEL` are the tier's.** Low keeps 4096 texels at 64 units;
+Medium and up take 8192 at 32, so each map's share of the atlas is the same and
+a texel is half as wide. At 64 units a thin occluder fell between texels and lit
+what it shades -- the ledge over `AS-Frigate`'s cabin doors. Measured against a
+reference eight times finer over 135 views of the three maps: the mean error
+fell by about a third on each, while less slope bias or a 3x3 filter each
+measured worse. The tile limits, admission and the bias are unchanged.
+
 **A lit surface is kept from shadowing itself by the tile pass's slope-scaled
 depth bias, and by nothing else.** A normal offset on the sample was built and
 removed: taking it away changed no pixel, even for a grazing light on the

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "urender/Renderer.h"
+#include "urender/Shadows.h"
 
 #include <vulkan/vulkan.h>
 
@@ -75,6 +76,13 @@ struct ParallaxSteps {
     case Tier::Ultra: return {16, 48};
     }
     return {0, 0}; // unreachable
+}
+
+/// UTA-0175: Low keeps the 4096-texel atlas at 64 units a texel, for the
+/// integrated and software devices it is chosen for; every other tier has
+/// Shadows.h's FINE_SHADOW_DETAIL.
+[[nodiscard]] constexpr ShadowDetail shadowDetailOf(Tier tier) noexcept {
+    return tier == Tier::Low ? ShadowDetail{} : FINE_SHADOW_DETAIL;
 }
 
 [[nodiscard]] constexpr bool enabled(Feature feature, Tier tier) noexcept {

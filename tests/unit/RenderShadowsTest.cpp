@@ -120,6 +120,42 @@ TEST_CASE("SS 4.8: a full atlas refuses and a cleared one gives again", "[render
     CHECK(atlas.allocate(urender::SMALLEST_SHADOW_TILE).has_value());
 }
 
+TEST_CASE("UTA-0175: the fine atlas holds four times the largest tiles", "[render]") {
+    ShadowAtlas atlas(urender::FINE_SHADOW_DETAIL.atlasSize);
+    const std::uint32_t perSide = urender::FINE_SHADOW_DETAIL.atlasSize / urender::LARGEST_SHADOW_TILE;
+    std::vector<AtlasTile> tiles;
+    for (std::uint32_t i = 0; i < perSide * perSide; ++i) {
+        const auto tile = atlas.allocate(urender::LARGEST_SHADOW_TILE);
+        REQUIRE(tile.has_value());
+        CHECK(tile->x + tile->size <= urender::FINE_SHADOW_DETAIL.atlasSize);
+        CHECK(tile->y + tile->size <= urender::FINE_SHADOW_DETAIL.atlasSize);
+        tiles.push_back(*tile);
+    }
+    CHECK_FALSE(atlas.allocate(urender::SMALLEST_SHADOW_TILE).has_value());
+    for (std::size_t a = 0; a < tiles.size(); ++a)
+        for (std::size_t b = a + 1; b < tiles.size(); ++b) CHECK_FALSE(overlap(tiles[a], tiles[b]));
+}
+
+TEST_CASE("UTA-0175: at the fine detail a light keeps its share of the atlas", "[render]") {
+    // Twice the tile in twice the atlas: the same share, and a texel half as wide.
+    const Light light = pointLight({0, 0, 0}, 200); // above the smallest tile and below the largest
+    const std::uint32_t coarse = urender::shadowTileSize(light);
+    const std::uint32_t fine = urender::shadowTileSize(light, urender::FINE_SHADOW_DETAIL.unitsPerTexel);
+    REQUIRE(coarse > urender::SMALLEST_SHADOW_TILE);
+    REQUIRE(coarse < urender::LARGEST_SHADOW_TILE);
+    CHECK(fine == 2 * coarse);
+
+    ShadowPlanner coarsePlanner, finePlanner(urender::FINE_SHADOW_DETAIL);
+    const auto coarsePlan = coarsePlanner.plan({light}, {});
+    const auto finePlan = finePlanner.plan({light}, {});
+    REQUIRE(coarsePlan.faces.size() == 6);
+    REQUIRE(finePlan.faces.size() == 6);
+    CHECK(coarsePlan.draws[0].tile.size == coarse);
+    CHECK(finePlan.draws[0].tile.size == fine);
+    // The rectangle a shader samples is the same share of either atlas.
+    CHECK_THAT(finePlan.faces[0].atlasRect[2], WithinAbs(coarsePlan.faces[0].atlasRect[2], 1e-6));
+}
+
 TEST_CASE("SS 4.8: a point light takes six tiles and a spotlight one", "[render]") {
     Light point = pointLight({0, 0, 0}, 20);
     CHECK(urender::shadowFacesOf(point) == 6u);

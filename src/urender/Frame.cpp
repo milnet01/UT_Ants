@@ -394,7 +394,8 @@ Result<void> Renderer::Impl::createTargets() {
 /// size, so a resize keeps it and the tiles cached in it. Moved to its sampled
 /// layout at once; no tile is read before a frame has drawn it.
 Result<void> Renderer::Impl::createShadowAtlas() {
-    UTA_TRY(shadowAtlas, Image::create(*gpu, {DEPTH_FORMAT, SHADOW_ATLAS_SIZE, SHADOW_ATLAS_SIZE, 1,
+    const std::uint32_t side = shadowPlanner.detail().atlasSize; // UTA-0175: the tier's
+    UTA_TRY(shadowAtlas, Image::create(*gpu, {DEPTH_FORMAT, side, side, 1,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
     return gpu->run([&](VkCommandBuffer commands) {
         shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
@@ -746,7 +747,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         atlasAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         VkRenderingInfo shadowPass{};
         shadowPass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-        shadowPass.renderArea = {{0, 0}, {SHADOW_ATLAS_SIZE, SHADOW_ATLAS_SIZE}};
+        shadowPass.renderArea = {{0, 0}, {shadowPlanner.detail().atlasSize, shadowPlanner.detail().atlasSize}};
         shadowPass.layerCount = 1;
         shadowPass.pDepthAttachment = &atlasAttachment;
         vkCmdBeginRendering(commands, &shadowPass);
@@ -1024,6 +1025,7 @@ Result<Renderer> Renderer::create(const Config& config) {
         impl->adoptSwapchainExtent();
     }
     UTA_CHECK(impl->createTargets());
+    impl->shadowPlanner = ShadowPlanner(shadowDetailOf(impl->tier));
     UTA_CHECK(impl->createShadowAtlas());
     UTA_CHECK(impl->createSamplers());
     UTA_CHECK(impl->createStandIns());

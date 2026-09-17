@@ -8,9 +8,6 @@
 
 #include "types.glsl"
 
-// Shadows.h's SHADOW_ATLAS_SIZE.
-const float SHADOW_ATLAS_TEXELS = 4096.0;
-
 // 1 where `light` reaches the surface at `x`, 0 where something nearer the
 // light blocks it, filtered between at an edge. A light the atlas could not
 // hold (SS 6) is unshadowed.
@@ -41,7 +38,8 @@ float shadowOf(Light light, vec3 x) {
     if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0 || ndc.z > 1.0) return 1.0;
 
     // Kept half a texel inside the tile, so filtering never reads a neighbour's.
-    vec2 halfTexel = vec2(0.5 / SHADOW_ATLAS_TEXELS);
+    // UTA-0175: the atlas's size is the tier's, so it is read off the atlas.
+    vec2 halfTexel = 0.5 / vec2(textureSize(shadowAtlas, 0));
     vec2 uv = shadow.atlasRect.xy + (ndc.xy * 0.5 + 0.5) * shadow.atlasRect.zw;
     uv = clamp(uv, shadow.atlasRect.xy + halfTexel, shadow.atlasRect.xy + shadow.atlasRect.zw - halfTexel);
     // An explicit level: UTA-0015's fog pass reads shadows from a compute

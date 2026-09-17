@@ -43,6 +43,23 @@ inline constexpr std::uint32_t SMALLEST_SHADOW_TILE = 64;
 /// want of room.
 inline constexpr double SHADOW_UNITS_PER_TEXEL = 64.0;
 
+/// UTA-0175: how fine a tier's shadows are -- the atlas's side and the world
+/// units under one texel. SHADOW_ATLAS_SIZE and SHADOW_UNITS_PER_TEXEL are Low's.
+struct ShadowDetail {
+    std::uint32_t atlasSize = SHADOW_ATLAS_SIZE;
+    double unitsPerTexel = SHADOW_UNITS_PER_TEXEL;
+};
+
+/// Medium and up: twice the atlas's side and half the texel, so every map's
+/// share of the atlas is what it is at Low -- 0.24 for AS-Frigate, 0.34 for
+/// DM-Fetid, 1.06 for DM-Deck16][ -- and a shadow edge is twice as fine. At 64
+/// units a thin occluder, such as the ledge over AS-Frigate's cabin doors,
+/// fell between texels and lit the wall under it. Measured against a reference
+/// eight times finer over 135 views of the three maps: the mean error fell
+/// from 1.42 to 0.93 on AS-Frigate, 1.54 to 1.01 on DM-Deck16][ and 0.55 to
+/// 0.40 on DM-Fetid. Less depth bias and a wider filter each measured worse.
+inline constexpr ShadowDetail FINE_SHADOW_DETAIL{8192, 32.0};
+
 /// A square of the atlas, in texels.
 struct AtlasTile {
     std::uint32_t x = 0, y = 0, size = 0;
@@ -53,7 +70,8 @@ struct AtlasTile {
 /// size from SMALLEST_SHADOW_TILE to LARGEST_SHADOW_TILE, never two overlapping.
 class ShadowAtlas {
 public:
-    ShadowAtlas() { clear(); }
+    /// `atlasSize`, a multiple of LARGEST_SHADOW_TILE, is the side in texels.
+    explicit ShadowAtlas(std::uint32_t atlasSize = SHADOW_ATLAS_SIZE) : size_(atlasSize) { clear(); }
 
     /// A free tile of `size`, or none when the atlas cannot hold one.
     [[nodiscard]] std::optional<AtlasTile> allocate(std::uint32_t size);
@@ -66,6 +84,7 @@ public:
 
 private:
     /// Free tiles by level: level 0 is LARGEST_SHADOW_TILE, each level half the last.
+    std::uint32_t size_;
     std::vector<std::vector<AtlasTile>> free_;
 };
 
@@ -86,7 +105,8 @@ private:
 /// light and left a different few holding tiles each frame -- and a light with
 /// no tile scatters no fog at all, so shafts and haze switched on and off as
 /// the camera turned.
-[[nodiscard]] std::uint32_t shadowTileSize(const ubundle::Light& light) noexcept;
+[[nodiscard]] std::uint32_t shadowTileSize(const ubundle::Light& light,
+                                           double unitsPerTexel = SHADOW_UNITS_PER_TEXEL) noexcept;
 
 /// The view-projection face `face` of `light` is drawn and sampled with. A point
 /// light's faces look along +X, -X, +Y, -Y, +Z, -Z; a spotlight's one face looks
@@ -112,6 +132,9 @@ struct ShadowPlan {
 /// light's tiles drawn once.
 class ShadowPlanner {
 public:
+    /// UTA-0175: the tier's atlas size and texel, which every plan keeps to.
+    explicit ShadowPlanner(ShadowDetail detail = {}) : detail_(detail), atlas_(detail.atlasSize) {}
+
     /// Plan a frame for `lights` -- the LITE lights the direct term draws, in
     /// the order the shader reads them. `movedMoverBounds` holds, for each mover
     /// whose transform changed since the last frame, its world box before and
@@ -127,12 +150,15 @@ public:
     /// new bundle, whose geometry every tile depicted.
     void reset();
 
+    [[nodiscard]] const ShadowDetail& detail() const noexcept { return detail_; }
+
 private:
     struct Held {
         std::uint32_t size = 0;
         std::vector<AtlasTile> tiles;
         ubundle::Light light; ///< the numbers the tiles were drawn from
     };
+    ShadowDetail detail_;
     ShadowAtlas atlas_;
     std::vector<Held> held_;
 };

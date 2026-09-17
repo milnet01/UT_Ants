@@ -92,6 +92,20 @@ TEST_CASE("UTA-0053: emissive bloom is drawn at every tier", "[render]") {
     CHECK(uta::urender::enabled(Feature::Bloom, Tier::Ultra));
 }
 
+TEST_CASE("UTA-0175: Low keeps the coarse shadow atlas and every other tier the fine one", "[render]") {
+    using uta::urender::shadowDetailOf;
+    CHECK(shadowDetailOf(Tier::Low).atlasSize == uta::urender::SHADOW_ATLAS_SIZE);
+    CHECK(shadowDetailOf(Tier::Low).unitsPerTexel == uta::urender::SHADOW_UNITS_PER_TEXEL);
+    for (const Tier tier : {Tier::Medium, Tier::High, Tier::Ultra}) {
+        CAPTURE(static_cast<int>(tier));
+        CHECK(shadowDetailOf(tier).atlasSize == uta::urender::FINE_SHADOW_DETAIL.atlasSize);
+        CHECK(shadowDetailOf(tier).unitsPerTexel == uta::urender::FINE_SHADOW_DETAIL.unitsPerTexel);
+    }
+    // Twice the side at half the texel: a map's share of the atlas is unchanged.
+    CHECK(uta::urender::FINE_SHADOW_DETAIL.atlasSize == 2 * uta::urender::SHADOW_ATLAS_SIZE);
+    CHECK(uta::urender::FINE_SHADOW_DETAIL.unitsPerTexel == uta::urender::SHADOW_UNITS_PER_TEXEL / 2);
+}
+
 TEST_CASE("UTA-0015 INV-9: volumetric fog starts at Medium", "[render]") {
     using uta::urender::Feature;
     CHECK(uta::urender::minimumTier(Feature::VolumetricFog) == Tier::Medium);

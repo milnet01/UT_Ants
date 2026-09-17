@@ -426,6 +426,17 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Sharper shadows, and no light through the wall under a ledge, on Medium quality and up** (UTA-0175)
+  One shadow-map texel covered 64 world units, so a thin occluder such
+  as the ledge over AS-Frigate's cabin doors fell between texels and the
+  wall under it stayed lit, and shadow edges stepped. Medium, High and
+  Ultra now use a shadow texture twice as wide at half the texel, which
+  costs about 190 MB more video memory and gives every map the same
+  share of it as before. Low keeps the old size. Against a reference
+  eight times finer over 135 views of three maps, the error fell by
+  about a third on each; less depth bias and a wider filter both
+  measured worse.
+
 - **Torch flames and other fire textures show as flames, not bright pink blocks** (UTA-0176)
   The baker found a texture by its name alone, and a fire texture shares
   its name with its own colour table, so the baker took the table and

@@ -101,8 +101,8 @@ void ShadowAtlas::clear() {
     const std::uint32_t levels = levelOf(SMALLEST_SHADOW_TILE) + 1;
     free_.assign(levels, {});
     // Pushed in reverse, so the lowest address is handed out first.
-    for (std::uint32_t y = SHADOW_ATLAS_SIZE; y > 0; y -= LARGEST_SHADOW_TILE)
-        for (std::uint32_t x = SHADOW_ATLAS_SIZE; x > 0; x -= LARGEST_SHADOW_TILE)
+    for (std::uint32_t y = size_; y > 0; y -= LARGEST_SHADOW_TILE)
+        for (std::uint32_t x = size_; x > 0; x -= LARGEST_SHADOW_TILE)
             free_[0].push_back({x - LARGEST_SHADOW_TILE, y - LARGEST_SHADOW_TILE, LARGEST_SHADOW_TILE});
 }
 
@@ -144,11 +144,11 @@ std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept {
     return 6;
 }
 
-std::uint32_t shadowTileSize(const ubundle::Light& light) noexcept {
+std::uint32_t shadowTileSize(const ubundle::Light& light, double unitsPerTexel) noexcept {
     if (shadowFacesOf(light) == 0) return 0;
     // A cube face spans twice the light's reach at its far plane, so this many
-    // texels put SHADOW_UNITS_PER_TEXEL world units under each one.
-    const double texels = 2 * reachOf(light) / SHADOW_UNITS_PER_TEXEL;
+    // texels put `unitsPerTexel` world units under each one.
+    const double texels = 2 * reachOf(light) / unitsPerTexel;
     const auto wanted = static_cast<std::uint32_t>(std::min(std::ceil(texels), double(LARGEST_SHADOW_TILE)));
     return std::clamp(std::bit_ceil(std::max(wanted, 1u)), SMALLEST_SHADOW_TILE, LARGEST_SHADOW_TILE);
 }
@@ -192,7 +192,7 @@ void ShadowPlanner::reset() {
 ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
                                const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds) {
     std::vector<std::uint32_t> wanted(lights.size());
-    for (std::size_t i = 0; i < lights.size(); ++i) wanted[i] = shadowTileSize(lights[i]);
+    for (std::size_t i = 0; i < lights.size(); ++i) wanted[i] = shadowTileSize(lights[i], detail_.unitsPerTexel);
 
     // Any light whose wanted size changed -- or a different set of lights --
     // re-admits every light, largest first, and draws all their tiles again.
@@ -245,7 +245,7 @@ ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
         plan.faceCount[i] = static_cast<std::uint32_t>(held.tiles.size());
         for (std::uint32_t face = 0; face < held.tiles.size(); ++face) {
             const AtlasTile& tile = held.tiles[face];
-            const float scale = 1.0f / static_cast<float>(SHADOW_ATLAS_SIZE);
+            const float scale = 1.0f / static_cast<float>(detail_.atlasSize);
             if (redraw[i]) plan.draws.push_back({static_cast<std::uint32_t>(plan.faces.size()), tile});
             plan.faces.push_back({shadowViewProj(lights[i], face),
                                   {tile.x * scale, tile.y * scale, tile.size * scale, tile.size * scale}});
