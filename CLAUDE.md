@@ -5,8 +5,8 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0173`, after `UTA-0163`
-(the real sky), which is in flight. `UTA-0175` (Medium and up shadow at 32
+**Next:** `UTA-0173`. `UTA-0163` (the real sky) shipped 2026-09-17, green
+on the matrix; the sky shows bright, and why is `UTA-0178`. `UTA-0175` (Medium and up shadow at 32
 units in an 8192 atlas), `UTA-0176` (fire textures bake as flames, found by
 class; baker revision 19) and `UTA-0174` (the camera kept clear of every
 nearby surface) shipped 2026-09-17, green on the matrix. `UTA-0173` is

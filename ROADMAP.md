@@ -9476,7 +9476,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, ubundle, urender.
 
-- 🚧 [UTA-0163] **Outdoor maps show their real sky: draw the sky zone through sky surfaces, as UT99 does.**
+- ✅ [UTA-0163] **Outdoor maps show their real sky: draw the sky zone through sky surfaces, as UT99 does.**
   Asked by the user 2026-09-14: "For any maps set outside, is there
   sky rendering?" Not as UT99 draws it.
 
@@ -9508,6 +9508,8 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0175 and before UTA-0173 and UTA-0157.
   Progress (2026-09-17): taken by session ut-ants-7d, working in the main
   checkout.
+  Shipped 2026-09-17 in abd75e2, green on the matrix: CI run 35233814148
+  (GCC 14, Clang 19, MSVC). The sky's brightness is UTA-0178's.
   **Layman:** Maps set outside should show the sky the map's author built, not a flat painted texture.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -10102,7 +10104,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.
   Lanes: tools, unav.
 
-- 📋 [UTA-0173] **ut-dump: count only monster factories in the monster capacity.**
+- 🚧 [UTA-0173] **ut-dump: count only monster factories in the monster capacity.**
   A defect in UTA-0101, reported by UT_MonsterHunt on 2026-09-17 while
   building their GAME-0076 (the whole-map monster count on the HUD), which
   uses ut-dump's `monsters` object as its test oracle.
@@ -10146,6 +10148,7 @@ model, no weapon and no opponent until 0.2.0.
   their probe uses hand-read counts meanwhile.
   User decision (2026-09-17): placed after the four AS-Frigate fixes
   (UTA-0174, UTA-0176, UTA-0175, UTA-0163) and before UTA-0157.
+  Taken 2026-09-17 by session ut-ants-98, main checkout.
   **Layman:** The monster count ut-dump reports for a map wrongly includes spawners that make weapons and health, so it is too high.
   Kind: fix.
   Source: ut-monsterhunt-request-2026-09-17.
