@@ -10306,7 +10306,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0178] **Find why AS-Frigate, its sky included, draws about twice as bright as UT99.**
+- ✅ [UTA-0178] **Find why AS-Frigate, its sky included, draws about twice as bright as UT99.**
   Filed 2026-09-17 when UTA-0163 shipped the real sky, by the user's choice:
   ship the sky now and find the brightness cause here rather than fit a
   sky-only dimmer that could hide a lighting bug.
@@ -10346,6 +10346,14 @@ model, no weapon and no opponent until 0.2.0.
   at 5.4 falls from 44.7 to 36.5. The earlier check skipped haze over the
   sky surface only. Pose 11's original capture is black and pulls every
   fit down; drop it from any fit.
+  Shipped 2026-09-18 (ut-ants-58): two causes. The haze drew the whole frame
+  too bright, since an outdoor map's large lights fill its view with haze;
+  HAZE_SCATTER is refitted to 2.5e-5 by UTA-0015 SS 7 step 1's rule on
+  each of the three reference maps. Block RMS at 5.4: AS-Frigate 44.7 to
+  36.8, DM-Deck16][ 37.4 to 36.9, DM-Fetid 34.5. The sky's own excess is
+  one light on a room with no ambient, drawn in linear light where UT99
+  combines light and texture on display values: filed as UTA-0187. CI run
+  35342196678 on 2b02cd0 is green on GCC 14, Clang 19 and MSVC.
   **Layman:** AS-Frigate and its new sky look roughly twice as bright as in the original game; find out why.
   Kind: investigate.
   Source: user-request-2026-09-17.
@@ -10666,6 +10674,20 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: in-session-2026-09-18.
   Lanes: urender, ubake.
+
+- 📋 [UTA-0188] **Find why AS-Frigate's water draws dark where the original draws it bright cyan.**
+  Seen 2026-09-18 by UTA-0178 on the original's captures
+  (ut-ants-uta0156/orig-asfrigate poses 0 and 1) beside ours at EXPOSURE
+  5.4: the original's water surface is a flat, bright cyan and ours is a
+  dark surface. Unmeasured. Start from the water surface's batch flags and
+  material; the lit, unlit and translucent paths each draw it differently.
+
+  Placed 2026-09-18 by the session: after UTA-0187, since a light-model
+  change there could move this surface too, and before UTA-0177.
+  **Layman:** The water in AS-Frigate looks dark and murky where the original game shows it bright blue-green.
+  Kind: investigate.
+  Source: in-session-2026-09-18.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 

@@ -5,13 +5,18 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0178` (AS-Frigate twice as bright). `UTA-0182` (a wall
+**Next:** `UTA-0186` (black holes in a mansion map's walls that move as
+the camera pans). `UTA-0178` shipped 2026-09-18, green on the matrix:
+the haze is refitted on all three reference maps, and AS-Frigate's sky
+has its own cause. After 0186, `UTA-0187` (dimly lit surfaces, AS-Frigate's sky among them, lit
+the way UT99 combines light and texture) and `UTA-0188` (AS-Frigate's
+water drawn dark), all three placed by the session, 2026-09-18. `UTA-0182` (a wall
 near a grazing lamp shadowed itself) and `UTA-0185` (surfaces on the
 probe grid lost their bounce light) shipped 2026-09-17, green on the
 matrix. `UTA-0183`
 shipped 2026-09-17, green on the matrix: the controller's Options button
 closes a map. `UTA-0179` shipped the same day: the launcher lists only
-playable maps, by UT99's MapPrefix rule. After 0178, `UTA-0177` (no magenta for a
+playable maps, by UT99's MapPrefix rule. Then `UTA-0177` (no magenta for a
 skipped texture), `UTA-0180` (break up the tiled look of textures),
 `UTA-0181` (a local folder of replacement textures) and `UTA-0184` (a
 modern look for the launcher, keeping its large text). The user filed 0182
