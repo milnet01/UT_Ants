@@ -10635,6 +10635,38 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-18.
   Lanes: urender, ubake.
 
+- 📋 [UTA-0187] **Light a dimly lit surface the way UT99 does, by combining light and texture on display values.**
+  Found by UTA-0178, 2026-09-18. AS-Frigate's sky room has no zone
+  ambient and is lit by one light, export 376. Removing it takes the sky
+  from 2.55 times the original's brightness to 0.71 (pose 0). Split with
+  the original's texture-only capture (plain-asfrigate), UT99 lights the
+  sky at 0.31 to 0.38 of its texture, where the rest of the frame sits at
+  0.5 to 1.2.
+
+  Ruled out by measurement: the light list (UT99 attaches 376 to every sky
+  wall, ambient-census/surf-lights), visibility (UT99's LightBits agree with
+  ours on 100% of 376's texels, texel-vis), the probes (--no-probes moves
+  the sky 0.06), the falloff shape (UT99's own moves it 0.1), volumetric
+  light (376 has none) and haze.
+
+  The lead: UT99 multiplies its lightmap into the texture on display bytes,
+  so a surface in dim light is far darker than a linear model gives.
+  Drawing base * pow(g * light, 2.2) brings the sky's ratio to the rest of
+  the frame from about 3 to 1.5 (pose 0) and 1.0 (pose 1). UTA-0165 measured
+  this rule worse over whole frames (pooled 40.8 against 36.6), with
+  AS-Frigate's frames about 60% ambient; that fit predates the haze refit
+  and fitted no gain. Re-measure it pooled, with a gain, AMBIENT_SCALE and
+  EXPOSURE refitted together. Scripts at the session scratch copied into
+  ut-ants-uta0178.
+
+  Placed 2026-09-18 by the session: after UTA-0186, before UTA-0177.
+  UTA-0180's tiling look is fitted by measurement, and a lighting defect
+  still live would be absorbed into that fit.
+  **Layman:** Surfaces lit by one distant lamp look far brighter than in the original, most visibly AS-Frigate's sky; change how light meets texture to match the original.
+  Kind: fix.
+  Source: in-session-2026-09-18.
+  Lanes: urender, ubake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

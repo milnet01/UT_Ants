@@ -30,7 +30,14 @@ const float HAZE_EXTINCTION = 1.28614e-5;
 // every value costs again. No haze 37.5; 1e-4 38.0; 1.5e-4 39.3; 2e-4 41.0;
 // 4e-4 49.3; 8e-4 66.3; 1.6e-3 89.1. SS 7 step 1's first rule holds again:
 // the largest value within 1.0 of no haze.
-const float HAZE_SCATTER = 1.0e-4;
+// Refitted by UTA-0178, with the rule applied on each of the three maps, since
+// an outdoor map's large lights fill its whole view with haze where an indoor
+// map's do not. At EXPOSURE 5.4, haze scale 0, 0.25, 0.5 and 1 of 1e-4:
+// AS-Frigate 36.5, 37.3, 39.4, 44.7; DM-Deck16][ 37.1, 36.8, 36.9, 37.4;
+// DM-Fetid with volumetric lighting on 34.7, 34.5, 34.3 at the first three.
+// The largest within 1.0 of no haze on every map is 0.25. At 2.5e-5 itself,
+// 36.8, 36.9 and 34.5 (ut-ants-uta0178/haze3.sh).
+const float HAZE_SCATTER = 2.5e-5;
 // SS 7 step 2, on DM-Fetid with volumetric lighting on, the same measure and
 // exposure, refitted by UTA-0166 on top of the haze above. By glow at fog
 // 6.4e-2: none 68.2; 2e-3 46.7; 2.5e-3 43.6; 3e-3 41.4; 4e-3 39.2; 5e-3 39.1;

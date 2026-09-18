@@ -439,6 +439,11 @@ Each is seen to fail against the code before this item.
    `EXPOSURE` to `5.5`. The haze had been making up for the low exposure, so
    every value now costs: no haze `37.5`, `1e-4` `38.0`, `1.5e-4` `39.3`. The
    largest within `1.0` of no haze is `1e-4`.
+   *Refitted again (2026-09-18), on three maps:* UTA-0178 found the haze
+   drawing AS-Frigate far too bright, since an outdoor map's large lights fill
+   its whole view with haze. The rule is now applied on each of DM-Deck16][,
+   AS-Frigate and DM-Fetid, and the value kept is the largest within `1.0` of
+   no haze on all three: `2.5e-5`.
 2. **Volumetric lights.** A scratch probe beside `ambient-census/` lists the
    stock maps' `PlayerStart`s that are in a fog zone and within a volumetric
    light's volume radius plus 1000 units. Capture one such map with
