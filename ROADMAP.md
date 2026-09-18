@@ -10338,6 +10338,14 @@ model, no weapon and no opponent until 0.2.0.
   AS-Frigate's mean displayed luma moved under a level, so it does not
   explain this item's brightness.
   Taken 2026-09-18 by session ut-ants-58, main checkout.
+  User evidence 2026-09-18: a screenshot from the launcher of a sandstone
+  room (map not named) drawn near-white, with a pink wash on one wall. The
+  same over-brightness on a second, indoor map.
+  Progress 2026-09-18 (ut-ants-58): with the haze scale 0 over the WHOLE
+  frame, AS-Frigate's best exposure moves from 3.22 to 4.76, and block RMS
+  at 5.4 falls from 44.7 to 36.5. The earlier check skipped haze over the
+  sky surface only. Pose 11's original capture is black and pulls every
+  fit down; drop it from any fit.
   **Layman:** AS-Frigate and its new sky look roughly twice as bright as in the original game; find out why.
   Kind: investigate.
   Source: user-request-2026-09-17.
@@ -10606,6 +10614,26 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: user-request-2026-09-17.
   Lanes: urender.
+
+- 📋 [UTA-0186] **Find why wall faces in a mansion map draw as black holes that move as the camera pans.**
+  Filed 2026-09-18 from three launcher screenshots. The user thinks the map
+  is the mansion map; the name is unconfirmed. A wood-panelled room with a
+  red carpet shows solid black polygons on a wall near a doorway. Their
+  outline changes between the three views, so the missing area depends on
+  the camera.
+
+  That rules out neither cause yet. A face missing from the bake would show
+  the same hole from every view. A hole that moves points at culling, a
+  portal or zone test, or depth. Find the map first (ut-dump or the
+  launcher's notes file), then shoot the views with ut-shot.
+
+  Placed 2026-09-18 by the session, as the user leaves placement to it: right
+  after UTA-0178, before UTA-0177. Missing walls are a larger defect than a
+  magenta texture. Brightness stays first because it is already under way.
+  **Layman:** In what looks like the mansion map, parts of the walls show as black holes, and the holes change shape as the camera turns.
+  Kind: fix.
+  Source: user-request-2026-09-18.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 
