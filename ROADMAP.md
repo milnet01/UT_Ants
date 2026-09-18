@@ -10306,7 +10306,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0178] **Find why AS-Frigate, its sky included, draws about twice as bright as UT99.**
+- 🚧 [UTA-0178] **Find why AS-Frigate, its sky included, draws about twice as bright as UT99.**
   Filed 2026-09-17 when UTA-0163 shipped the real sky, by the user's choice:
   ship the sky now and find the brightness cause here rather than fit a
   sky-only dimmer that could hide a lighting bug.
@@ -10337,6 +10337,7 @@ model, no weapon and no opponent until 0.2.0.
   their bounce light. Measured on the UTA-0156 captures at exposure 5.4,
   AS-Frigate's mean displayed luma moved under a level, so it does not
   explain this item's brightness.
+  Taken 2026-09-18 by session ut-ants-58, main checkout.
   **Layman:** AS-Frigate and its new sky look roughly twice as bright as in the original game; find out why.
   Kind: investigate.
   Source: user-request-2026-09-17.
