@@ -29,7 +29,8 @@ appears once something has actually shipped.)
   of the reference install's 1,436 maps have a sky zone. For now the sky
   is still: panning clouds hold their place, and a SkyZoneInfo's own
   rotation is not applied. On AS-Frigate the sky draws about twice as
-  bright as in UT99, as the rest of that map does; UTA-0178 is finding why.
+  bright as in UT99. UTA-0178 fixed the haze part of that; the sky's own
+  part is UTA-0187.
 
 - **`ut-ants <install>` opens a launcher listing every map in the install** (UTA-0170)
   Type to filter, Enter bakes the picked map (kept for next time in
@@ -439,6 +440,14 @@ appears once something has actually shipped.)
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **Outdoor maps no longer glow with far too much haze** (UTA-0178)
+  The thin haze in the air was tuned on one indoor map. On a map lit by
+  large outdoor lights, such as AS-Frigate, it filled the whole view and
+  drew it far brighter than UT99. It is now a quarter as strong, the
+  strongest that costs nothing against the original on all three
+  reference maps. AS-Frigate's sky is still too bright for a separate
+  reason, UTA-0187.
 
 - **Walls on the map grid no longer lose their bounce light in stepped patches** (UTA-0185)
   A wall or floor lying exactly on the light-probe grid, common in UT99

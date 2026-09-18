@@ -10638,6 +10638,9 @@ model, no weapon and no opponent until 0.2.0.
   Placed 2026-09-18 by the session, as the user leaves placement to it: right
   after UTA-0178, before UTA-0177. Missing walls are a larger defect than a
   magenta texture. Brightness stays first because it is already under way.
+  Lead, unverified (2026-09-18): UTA-0185's changelog entry names
+  MH-!SD0!ForbiddenMansion for rooms seen that way, so check that map first.
+  Confirm by its wood-panelled room with a red carpet before building on it.
   **Layman:** In what looks like the mansion map, parts of the walls show as black holes, and the holes change shape as the camera turns.
   Kind: fix.
   Source: user-request-2026-09-18.
