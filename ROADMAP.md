@@ -10692,7 +10692,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-18.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0187] **Light a dimly lit surface the way UT99 does, by combining light and texture on display values.**
+- 🚧 [UTA-0187] **Light a dimly lit surface the way UT99 does, by combining light and texture on display values.**
   Found by UTA-0178, 2026-09-18. AS-Frigate's sky room has no zone
   ambient and is lit by one light, export 376. Removing it takes the sky
   from 2.55 times the original's brightness to 0.71 (pose 0). Split with
@@ -10724,6 +10724,7 @@ model, no weapon and no opponent until 0.2.0.
   on occluded ambient. Reference bakes at format 14 are in
   ut-ants-uta0164/bakes3. Every older bake directory holds bundles that no
   longer open.
+  Claimed (2026-09-19) by session ut-ants-22, main checkout.
   **Layman:** Surfaces lit by one distant lamp look far brighter than in the original, most visibly AS-Frigate's sky; change how light meets texture to match the original.
   Kind: fix.
   Source: in-session-2026-09-18.
