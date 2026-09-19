@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Baked ambient occlusion: corners and creases get a soft shadow, at every quality tier.** (UTA-0164)
+  The bake measures how enclosed each patch of every lit surface is and
+  stores it in a new AOCC section. The renderer darkens indirect and
+  ambient light by it, never a lamp's own. Bundle format 14: bake maps
+  again. Spec docs/specs/UTA-0164-ambient-occlusion.md.
+
 - **Press P in the viewer to write down exactly where the camera is** (UTA-0190)
   The controller's Share, Create or View button does the same. From the
   launcher the line lands in that map's notes; it is the camera line

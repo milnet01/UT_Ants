@@ -44,6 +44,7 @@ enum class Feature : std::uint8_t {
     ParallaxOcclusion, ///< UTA-0040
     Bloom,             ///< UTA-0053's emissive bloom
     VolumetricFog,     ///< UTA-0015's fog volume
+    AmbientOcclusion,  ///< UTA-0164's baked occlusion atlas
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -55,6 +56,8 @@ enum class Feature : std::uint8_t {
     case Feature::Bloom: return Tier::Low;
     // UTA-0015 SS 4.3: two compute passes over a froxel grid, every frame.
     case Feature::VolumetricFog: return Tier::Medium;
+    // UTA-0164 SS 4.5: one texture read a pixel, from a baked atlas.
+    case Feature::AmbientOcclusion: return Tier::Low;
     }
     return Tier::Low; // unreachable
 }

@@ -53,7 +53,8 @@ namespace uta::ubundle {
 /// 11 since UTA-0156 SS 4.1 added ZONE, and SS 4.2 gave each vertex its zone.
 /// 12 since UTA-0015 SS 4.1 gave each ZONE entry its fog flag.
 /// 13 since UTA-0156 SS 4.5 gave each LITE record its level brightness.
-inline constexpr std::uint32_t FORMAT_VERSION = 13;
+/// 14 since UTA-0164 SS 4.1 added AOCC.
+inline constexpr std::uint32_t FORMAT_VERSION = 14;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -382,6 +383,18 @@ struct Zone {
     std::uint8_t fog = 0; ///< 1 where bFogZone is set; never above 1
 };
 
+/// The widest and tallest AOCC atlas, in texels -- UTA-0164 SS 4.1.
+inline constexpr std::uint32_t OCCLUSION_ATLAS_LIMIT = 4096;
+
+/// The level's baked ambient occlusion -- UTA-0164 SS 4.1. `uv` has one entry
+/// per GEOM vertex, in GEOM's order; `texels` is row-major, 255 unoccluded.
+struct Occlusion {
+    float texelSize = 0;                  ///< UT units a texel spans; finite and positive
+    std::uint32_t width = 0, height = 0;  ///< 1 to OCCLUSION_ATLAS_LIMIT each
+    std::vector<std::array<float, 2>> uv; ///< 0 to 1, into the atlas
+    std::vector<std::uint8_t> texels;     ///< width * height
+};
+
 /// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds
 /// none or the zone is not below `zoneCount` -- UTA-0156 SS 4.3's mover rule,
 /// here so the renderer can find the camera's zone too (UTA-0015 SS 4.1).
@@ -415,6 +428,8 @@ struct Bundle {
     std::optional<LightProbes> lightProbes;
     /// Index i is the source Model's zone i -- UTA-0156 SS 4.1.
     std::optional<std::vector<Zone>> zones;
+    /// One uv per GEOM vertex -- UTA-0164 SS 4.1.
+    std::optional<Occlusion> occlusion;
 };
 
 /// Decode a whole bundle.
@@ -427,7 +442,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

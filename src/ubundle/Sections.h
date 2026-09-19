@@ -2,7 +2,7 @@
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
 // with umap, NAVG and WIRG with unav, TEXS with umat, MATS, GEOM, PLAC, LITE,
-// MOVR, COLL and LPRB with ubake -- so each lives in its own file, and work on one
+// MOVR, COLL, LPRB and AOCC with ubake -- so each lives in its own file, and work on one
 // does not share a file with work on another (UTA-0091). Bundle.cpp keeps the
 // framing: the header, the section table, and read and write.
 //
@@ -38,6 +38,7 @@ constexpr SectionId ID_MOVR = {'M', 'O', 'V', 'R'};
 constexpr SectionId ID_COLL = {'C', 'O', 'L', 'L'};
 constexpr SectionId ID_LPRB = {'L', 'P', 'R', 'B'};
 constexpr SectionId ID_ZONE = {'Z', 'O', 'N', 'E'};
+constexpr SectionId ID_AOCC = {'A', 'O', 'C', 'C'};
 
 // Structural validation -- SS 4.9.
 //
@@ -128,5 +129,13 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 [[nodiscard]] Result<void> validateZones(const std::vector<Zone>& zones, ErrorCode code);
 [[nodiscard]] std::vector<std::byte> encodeZones(const std::vector<Zone>& zones);
 [[nodiscard]] Result<void> validateVertexZones(const Bundle& bundle, ErrorCode code);
+
+// AOCC -- OcclusionSection.cpp, UTA-0164 SS 4.1. Its own rules are the
+// validator's. Its uv count against GEOM's vertices is a rule across two
+// sections, so validateOcclusionVertices runs once every section is decoded.
+[[nodiscard]] Result<Occlusion> readOcclusion(Cursor& cursor);
+[[nodiscard]] Result<void> validateOcclusion(const Occlusion& occlusion, ErrorCode code);
+[[nodiscard]] std::vector<std::byte> encodeOcclusion(const Occlusion& occlusion);
+[[nodiscard]] Result<void> validateOcclusionVertices(const Bundle& bundle, ErrorCode code);
 
 } // namespace uta::ubundle::detail

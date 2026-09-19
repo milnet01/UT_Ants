@@ -174,7 +174,7 @@ Bytes emptyGeom() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(13); // formatVersion -- 13 since UTA-0156 SS 4.5
+    out.u32(14); // formatVersion -- 14 since UTA-0164 SS 4.1
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -407,7 +407,7 @@ TEST_CASE("the PLAC and LITE golden bytes decode to what they encode", "[ubundle
                                        {"PLAC", placPayload(golden())},
                                        {"LITE", litePayload(goldenLights())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 13);
+    CHECK(result->header.formatVersion == 14);
     REQUIRE(result->geometry.has_value());
     REQUIRE(result->placements.has_value());
     REQUIRE(result->lights.has_value());

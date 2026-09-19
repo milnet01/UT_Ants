@@ -8,6 +8,7 @@
 #include "ubake/FireStill.h"
 #include "ubake/Geometry.h"
 #include "ubake/LightProbes.h"
+#include "ubake/Occlusion.h"
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "ubake/Strips.h"
@@ -688,6 +689,14 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                    bakedLights(actors.lights, actors.placements), albedo, jobs),
                    mapName));
 
+    // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit
+    // surface is. A level with no GEOM has no AOCC.
+    std::optional<ubundle::Occlusion> occlusion;
+    if (!geometry.vertices.empty()) {
+        UTA_TRY(ubundle::Occlusion baked, naming(bakeOcclusion(geometry, jobs), mapName));
+        occlusion = std::move(baked);
+    }
+
     BakeResult result;
     // 12. The budget, over every map of every material.
     result.budget = umat::measure(materials.textures, budgetBytes);
@@ -711,6 +720,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.collision = std::move(collision);
     result.bundle.lightProbes = std::move(probes);
     result.bundle.zones = std::move(zones);
+    result.bundle.occlusion = std::move(occlusion);
     return result;
 }
 

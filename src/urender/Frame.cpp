@@ -109,10 +109,12 @@ constexpr float BLOOM_STRENGTH = 0.04f;
 /// What it cannot see: an edit in place that changes only unsampled bytes. The
 /// lights and the movers' transforms are read every frame and need no upload.
 /// ZONE is sampled whole: it holds at most ZONE_LIMIT entries (UTA-0156).
+/// AOCC by its size and the ends of its uvs and texels (UTA-0164).
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
     std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
                 lights = 0, probes = 0, zones = 0;
+    bool occlusion = false;
     std::uint64_t sample = 0;
     bool operator==(const BundleShape&) const = default;
 };
@@ -188,6 +190,15 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     if (bundle.lightProbes) {
         fnv.addValue(bundle.lightProbes->spacing);
         fnv.addEnds(std::span<const ubundle::LightProbe>(bundle.lightProbes->probes));
+    }
+    // UTA-0164 SS 4.5: a bundle differing only in its occlusion must re-upload it.
+    if (bundle.occlusion) {
+        shape.occlusion = true;
+        fnv.addValue(bundle.occlusion->texelSize);
+        fnv.addValue(bundle.occlusion->width);
+        fnv.addValue(bundle.occlusion->height);
+        fnv.addEnds(std::span<const std::array<float, 2>>(bundle.occlusion->uv));
+        fnv.addEnds(std::span<const std::uint8_t>(bundle.occlusion->texels));
     }
     shape.sample = fnv.value();
     if (bundle.geometry) {
@@ -308,6 +319,9 @@ struct Renderer::Impl {
     /// they are filled. The texture is the last in the scene set's array.
     std::optional<SkyView> skyView;
     Image sky;
+    /// UTA-0164 SS 4.5: the level's occlusion atlas, empty when the bundle has
+    /// no AOCC or the tier draws none. The array's texture after the sky's.
+    Image occlusion;
     bool skyPending = false;
     bool skyReady = false;
     /// Each mover's box in its own pivot space, for SS 4.8's redraw test.
@@ -364,6 +378,7 @@ struct Renderer::Impl {
     Result<void> createStandIns();
     Result<void> createFogVolumes();
     Result<void> upload(const ubundle::Bundle& bundle);
+    Result<void> uploadOcclusion(const ubundle::Occlusion& atlas);
     Result<void> writeDescriptors();
     /// One view of `bundle` from `camera`, presented to `image` when there is
     /// one. With `skyFace`, UTA-0163's capture: drawn at scale 1 with no sky, and
@@ -492,6 +507,23 @@ Result<void> Renderer::Impl::createFogVolumes() {
     });
 }
 
+/// UTA-0164 SS 4.5: the atlas as one R8 image of one level, through a staging buffer.
+Result<void> Renderer::Impl::uploadOcclusion(const ubundle::Occlusion& atlas) {
+    UTA_TRY(occlusion, Image::create(*gpu, {VK_FORMAT_R8_UNORM, atlas.width, atlas.height, 1,
+                                            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
+    UTA_TRY(Buffer staging, Buffer::create(*gpu, atlas.texels.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true));
+    std::memcpy(staging.mapped(), atlas.texels.data(), atlas.texels.size());
+    return gpu->run([&](VkCommandBuffer commands) {
+        occlusion.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkBufferImageCopy copy{};
+        copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copy.imageExtent = {atlas.width, atlas.height, 1};
+        vkCmdCopyBufferToImage(commands, staging.handle(), occlusion.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                               &copy);
+        occlusion.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    });
+}
+
 Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     geometry.reset();
     materials.reset();
@@ -499,7 +531,9 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     materials.emplace(std::move(uploadedMaterials));
     // UTA-0163: a level with a sky takes one texture more, its faces.
     skyView = skyViewOf(bundle);
-    const std::size_t textureCount = materials->textures().size() + (skyView ? 1 : 0);
+    // UTA-0164 SS 4.5: and one more for its occlusion atlas, from the tier up.
+    const bool occluded = bundle.occlusion.has_value() && enabled(Feature::AmbientOcclusion, tier);
+    const std::size_t textureCount = materials->textures().size() + (skyView ? 1 : 0) + (occluded ? 1 : 0);
     if (textureCount > pipelines->textureCapacity())
         return fail(ErrorCode::InvalidArgument,
                     std::format("the bundle needs {} textures and {} binds at most {}", textureCount, gpu->name(),
@@ -514,6 +548,8 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
             sky.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }));
     }
+    occlusion = Image{};
+    if (occluded) UTA_CHECK(uploadOcclusion(*bundle.occlusion));
     UTA_TRY(SceneGeometry uploadedGeometry, SceneGeometry::upload(*gpu, bundle, *materials));
     geometry.emplace(std::move(uploadedGeometry));
     UTA_TRY(objects, Buffer::create(*gpu, sizeof(gpu::Object) * geometry->objectCount,
@@ -575,8 +611,10 @@ Result<void> Renderer::Impl::writeDescriptors() {
     if (pool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, pool, nullptr);
     pool = VK_NULL_HANDLE;
 
-    // UTA-0163: the sky's faces are the array's last texture.
-    const auto textureCount = static_cast<std::uint32_t>(materials->textures().size() + (sky.view() ? 1 : 0));
+    // UTA-0163: the sky's faces follow the materials' textures, and UTA-0164's
+    // occlusion atlas is the array's last.
+    const auto textureCount = static_cast<std::uint32_t>(materials->textures().size() + (sky.view() ? 1 : 0)
+                                                         + (occlusion.view() ? 1 : 0));
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::ZONES + 1 + 1},
@@ -702,6 +740,8 @@ Result<void> Renderer::Impl::writeDescriptors() {
     for (const Image& texture : materials->textures())
         textureInfos.push_back({materialSampler, texture.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     if (sky.view()) textureInfos.push_back({materialSampler, sky.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+    if (occlusion.view())
+        textureInfos.push_back({materialSampler, occlusion.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     VkWriteDescriptorSet textureWrite{};
     textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     textureWrite.dstSet = sceneSet;
@@ -878,9 +918,10 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdSetViewport(commands, 0, 1, &regionViewport);
         vkCmdSetScissor(commands, 0, 1, &regionScissor);
         if (geometry->draws.empty()) return;
-        const VkBuffer vertexBuffer = geometry->vertices.handle();
-        const VkDeviceSize zero = 0;
-        vkCmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &zero);
+        // UTA-0164 SS 4.5: the vertices, then their occlusion uvs.
+        const std::array<VkBuffer, 2> vertexBuffers = {geometry->vertices.handle(), geometry->occlusionUvs.handle()};
+        const std::array<VkDeviceSize, 2> zeros = {0, 0};
+        vkCmdBindVertexBuffers(commands, 0, 2, vertexBuffers.data(), zeros.data());
         vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
                                 0, nullptr);
@@ -1166,6 +1207,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // UTA-0163: a face of the sky is drawn without the sky, which is not drawn yet.
     frame.skyTexture = impl.skyReady && !skyFace ? static_cast<std::uint32_t>(impl.materials->textures().size())
                                                  : gpu::NONE;
+    // UTA-0164 SS 4.5: the atlas follows the sky's faces, when there are any.
+    frame.occlusionTexture = impl.occlusion.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
+                                                                                 + (impl.sky.view() ? 1 : 0))
+                                                   : gpu::NONE;
 
     std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());
     if (bundle.movers)

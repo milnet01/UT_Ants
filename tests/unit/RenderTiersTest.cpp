@@ -113,6 +113,12 @@ TEST_CASE("UTA-0015 INV-9: volumetric fog starts at Medium", "[render]") {
     CHECK(uta::urender::enabled(Feature::VolumetricFog, Tier::Medium));
 }
 
+TEST_CASE("UTA-0164 INV-7: ambient occlusion is drawn from Low", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::AmbientOcclusion) == Tier::Low);
+    CHECK(uta::urender::enabled(Feature::AmbientOcclusion, Tier::Low));
+}
+
 TEST_CASE("UTA-0040 INV-4: parallax occlusion starts at Medium with the spec's step counts", "[render]") {
     using uta::urender::Feature;
     using uta::urender::parallaxStepsOf;

@@ -85,7 +85,8 @@ struct FrameData {
     std::uint32_t skyTexture;      ///< UTA-0163: an index into the texture array, or NONE
     std::uint32_t shadowFaceCount;
     std::uint32_t skyFirstFace;    ///< UTA-0163: the sky's six faces, from here in the face table
-    std::array<std::uint32_t, 3> reserved1;
+    std::uint32_t occlusionTexture; ///< UTA-0164: an index into the texture array, or NONE
+    std::array<std::uint32_t, 2> reserved1;
 };
 static_assert(sizeof(FrameData) == 352);
 static_assert(offsetof(FrameData, viewProj) == 0);
@@ -108,7 +109,8 @@ static_assert(offsetof(FrameData, probeLongestRun) == 324);
 static_assert(offsetof(FrameData, skyTexture) == 328);
 static_assert(offsetof(FrameData, shadowFaceCount) == 332);
 static_assert(offsetof(FrameData, skyFirstFace) == 336);
-static_assert(offsetof(FrameData, reserved1) == 340);
+static_assert(offsetof(FrameData, occlusionTexture) == 340); // UTA-0164 SS 4.5
+static_assert(offsetof(FrameData, reserved1) == 344);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {

@@ -25,7 +25,14 @@ static_assert(offsetof(ubundle::GeometryVertex, reserved) == 33);
 Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bundle, MaterialSet& materials) {
     SceneGeometry scene;
     std::vector<ubundle::GeometryVertex> vertices;
+    std::vector<std::array<float, 2>> occlusionUvs;
     std::vector<std::uint32_t> indices;
+    // UTA-0164 SS 4.5: the white block's centre, for every vertex AOCC does not
+    // place. With no AOCC the texture is NONE and the value is never read.
+    const std::array<float, 2> white =
+        bundle.occlusion ? std::array<float, 2>{2.0f / static_cast<float>(bundle.occlusion->width),
+                                                2.0f / static_cast<float>(bundle.occlusion->height)}
+                         : std::array<float, 2>{0.0f, 0.0f};
 
     const auto append = [&](const ubundle::Geometry& geometry, std::uint32_t objectIndex,
                             std::string_view what) -> Result<void> {
@@ -54,6 +61,10 @@ Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bun
                                    firstIndex + batch.firstIndex, batch.indexCount, firstVertex});
         }
         vertices.insert(vertices.end(), geometry.vertices.begin(), geometry.vertices.end());
+        if (objectIndex == 0 && bundle.occlusion && bundle.occlusion->uv.size() == geometry.vertices.size())
+            occlusionUvs.insert(occlusionUvs.end(), bundle.occlusion->uv.begin(), bundle.occlusion->uv.end());
+        else
+            occlusionUvs.insert(occlusionUvs.end(), geometry.vertices.size(), white);
         indices.insert(indices.end(), geometry.indices.begin(), geometry.indices.end());
         return {};
     };
@@ -69,6 +80,10 @@ Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bun
     }
 
     UTA_TRY(scene.vertices, Buffer::upload(gpu, std::as_bytes(std::span(vertices)), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+    // A buffer of no bytes cannot be created; a level with no vertex draws nothing.
+    if (occlusionUvs.empty()) occlusionUvs.push_back(white);
+    UTA_TRY(scene.occlusionUvs, Buffer::upload(gpu, std::as_bytes(std::span(occlusionUvs)),
+                                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
     UTA_TRY(scene.indices, Buffer::upload(gpu, std::as_bytes(std::span(indices)), VK_BUFFER_USAGE_INDEX_BUFFER_BIT));
     return scene;
 }

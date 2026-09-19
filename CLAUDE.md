@@ -75,7 +75,7 @@ methods that still look like a modern game; fully modern features come
 after (user, 2026-09-14). `UTA-0153`, `UTA-0154` (AMD FSR 1), `UTA-0158` (the camera
 stops at walls) and `UTA-0040` (parallax occlusion, spec
 `docs/specs/UTA-0040-parallax-occlusion.md`) shipped the same day. A bundle is
-format 13 since `UTA-0165`, so a map baked before it must be baked again.
+format 14 since `UTA-0164`, so a map baked before it must be baked again.
 `UTA-0142` (24 maps cross a teleporter that starts disabled) waits
 on UT_MonsterHunt's in-game re-check. Read the open `0.1.0` bodies before
 picking — `UTA-0082` records items deferred out of that release's cut.

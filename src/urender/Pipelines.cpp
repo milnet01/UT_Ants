@@ -67,8 +67,12 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
     stages[1].pSpecializationInfo = &specialization;
 
-    // ubundle::GeometryVertex, uploaded as it is laid out in memory.
-    const VkVertexInputBindingDescription binding{0, sizeof(ubundle::GeometryVertex), VK_VERTEX_INPUT_RATE_VERTEX};
+    // ubundle::GeometryVertex, uploaded as it is laid out in memory; then
+    // UTA-0164 SS 4.5's occlusion uvs, a stream of their own.
+    const std::array bindings = {
+        VkVertexInputBindingDescription{0, sizeof(ubundle::GeometryVertex), VK_VERTEX_INPUT_RATE_VERTEX},
+        VkVertexInputBindingDescription{1, sizeof(std::array<float, 2>), VK_VERTEX_INPUT_RATE_VERTEX},
+    };
     const std::array attributes = {
         VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT,
                                           offsetof(ubundle::GeometryVertex, position)},
@@ -77,11 +81,12 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ubundle::GeometryVertex, u)},
         // UTA-0156 SS 4.4: the vertex's zone, for its ambient light.
         VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R8_UINT, offsetof(ubundle::GeometryVertex, zone)},
+        VkVertexInputAttributeDescription{4, 1, VK_FORMAT_R32G32_SFLOAT, 0},
     };
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInput.vertexBindingDescriptionCount = 1;
-    vertexInput.pVertexBindingDescriptions = &binding;
+    vertexInput.vertexBindingDescriptionCount = static_cast<std::uint32_t>(bindings.size());
+    vertexInput.pVertexBindingDescriptions = bindings.data();
     vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
     vertexInput.pVertexAttributeDescriptions = attributes.data();
 

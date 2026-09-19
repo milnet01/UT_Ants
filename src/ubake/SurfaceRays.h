@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <vector>
 
@@ -34,8 +35,17 @@ public:
         double t = 0;             ///< along the direction
     };
 
-    /// The nearest occluder a ray from `origin` along `direction` meets at t > 0.
-    [[nodiscard]] std::optional<Hit> first(const Vec3& origin, const Vec3& direction) const;
+    /// The nearest occluder a ray from `origin` along `direction` meets at
+    /// 0 < t <= `limit`. The limit only prunes the search: within it, the hit
+    /// is the one an unlimited search finds (UTA-0164 SS 4.3).
+    [[nodiscard]] std::optional<Hit> first(const Vec3& origin, const Vec3& direction,
+                                           double limit = std::numeric_limits<double>::infinity()) const;
+
+    /// Whether any occluder has a corner in front of the plane through `origin`
+    /// facing `normal`, and a bounding box within `radius` of `origin`. When
+    /// not, no ray from `origin` with a positive component along `normal`
+    /// meets an occluder within `radius` -- UTA-0164 SS 4.3's shortcut.
+    [[nodiscard]] bool anyInFront(const Vec3& origin, const Vec3& normal, double radius) const;
 
     /// Whether an occluder crosses the segment from `a` to `b` strictly between
     /// them.

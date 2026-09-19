@@ -16,6 +16,7 @@ add_library(uta_ubake STATIC
     LightModel.cpp
     SurfaceRays.cpp
     LightProbes.cpp
+    Occlusion.cpp
     Strips.cpp
     Zones.cpp
     FireStill.cpp

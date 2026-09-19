@@ -145,15 +145,17 @@ std::uint32_t SurfaceRays::build(std::uint32_t first, std::uint32_t count) {
     return self;
 }
 
-std::optional<SurfaceRays::Hit> SurfaceRays::first(const Vec3& origin, const Vec3& direction) const {
+std::optional<SurfaceRays::Hit> SurfaceRays::first(const Vec3& origin, const Vec3& direction, double limit) const {
     std::optional<Hit> best;
     if (nodes_.empty()) return best;
-    std::vector<std::uint32_t> stack{0};
+    // One stack a thread, reused: a bake casts rays by the hundred million.
+    thread_local std::vector<std::uint32_t> stack;
+    stack.assign(1, 0);
     while (!stack.empty()) {
         const Node& node = nodes_[stack.back()];
         stack.pop_back();
         // Inclusive at the best t, so a tie at it is still found.
-        if (!reaches(origin, direction, node.min, node.max, 0, best ? best->t : INFINITE)) continue;
+        if (!reaches(origin, direction, node.min, node.max, 0, best ? best->t : limit)) continue;
         if (node.count == 0) {
             stack.push_back(node.right);
             stack.push_back(node.left);
@@ -162,12 +164,57 @@ std::optional<SurfaceRays::Hit> SurfaceRays::first(const Vec3& origin, const Vec
         for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
             const Triangle& t = triangles_[i];
             const std::optional<double> at = meet(origin, direction, t.a, t.ab, t.ac);
-            if (!at || !(*at > 0)) continue;
+            if (!at || !(*at > 0) || *at > limit) continue;
             if (!best || *at < best->t || (*at == best->t && t.index < best->triangle))
                 best = Hit{t.index, *at};
         }
     }
     return best;
+}
+
+namespace {
+
+/// The squared distance from `p` to the box.
+double boxDistanceSquared(const Vec3& p, const Vec3& min, const Vec3& max) noexcept {
+    const auto gap = [](double v, double lo, double hi) { return v < lo ? lo - v : (v > hi ? v - hi : 0.0); };
+    const double x = gap(p.x, min.x, max.x), y = gap(p.y, min.y, max.y), z = gap(p.z, min.z, max.z);
+    return x * x + y * y + z * z;
+}
+
+/// The furthest the box reaches along `n` from `p`.
+double boxReach(const Vec3& p, const Vec3& n, const Vec3& min, const Vec3& max) noexcept {
+    return (n.x > 0 ? max.x - p.x : min.x - p.x) * n.x + (n.y > 0 ? max.y - p.y : min.y - p.y) * n.y
+           + (n.z > 0 ? max.z - p.z : min.z - p.z) * n.z;
+}
+
+} // namespace
+
+bool SurfaceRays::anyInFront(const Vec3& origin, const Vec3& normal, double radius) const {
+    if (nodes_.empty()) return false;
+    const double reach = radius * radius;
+    thread_local std::vector<std::uint32_t> stack;
+    stack.assign(1, 0);
+    while (!stack.empty()) {
+        const Node& node = nodes_[stack.back()];
+        stack.pop_back();
+        if (boxDistanceSquared(origin, node.min, node.max) > reach) continue;
+        if (boxReach(origin, normal, node.min, node.max) <= 0) continue;
+        if (node.count == 0) {
+            stack.push_back(node.right);
+            stack.push_back(node.left);
+            continue;
+        }
+        for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
+            const Triangle& t = triangles_[i];
+            const Vec3 b = t.a + t.ab, c = t.a + t.ac;
+            const Vec3 lo{std::min({t.a.x, b.x, c.x}), std::min({t.a.y, b.y, c.y}), std::min({t.a.z, b.z, c.z})};
+            const Vec3 hi{std::max({t.a.x, b.x, c.x}), std::max({t.a.y, b.y, c.y}), std::max({t.a.z, b.z, c.z})};
+            if (boxDistanceSquared(origin, lo, hi) > reach) continue;
+            if (std::max({dot(t.a - origin, normal), dot(b - origin, normal), dot(c - origin, normal)}) <= 0) continue;
+            return true;
+        }
+    }
+    return false;
 }
 
 bool SurfaceRays::blocked(const Vec3& a, const Vec3& b) const {

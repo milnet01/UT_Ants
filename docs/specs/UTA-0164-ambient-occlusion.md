@@ -132,7 +132,11 @@ inline constexpr double OCCLUSION_DISTANCE = 64;
 inline constexpr double OCCLUSION_LIFT = 0.5;
 
 [[nodiscard]] Result<ubundle::Occlusion> bakeOcclusion(
-    const ubundle::Geometry& geometry, const SurfaceRays& rays, JobSystem& jobs);
+    const ubundle::Geometry& geometry, JobSystem& jobs);
+
+/// The same, starting from `texelSize`, so a test reaches the coarsening rule.
+[[nodiscard]] Result<ubundle::Occlusion> bakeOcclusion(
+    const ubundle::Geometry& geometry, JobSystem& jobs, float texelSize);
 
 } // namespace uta::ubake
 ```
@@ -152,12 +156,13 @@ For a lit chart's texel at `(i, j)`:
 
 Texels outside every chart are 255.
 
-`OCCLUSION_DISTANCE` sits between Unity's baked default of 1 m and Unreal
-Engine's `MaxOcclusionDistance` default of 200 cm, at the scale UT99's
-player sets: 78 units tall for about 1.8 m.
+`OCCLUSION_DISTANCE` sits between Unity's baked occlusion default of 1 m
+and Unreal Engine's `MaxOcclusionDistance` default of 200 cm, taking a
+player 78 units tall as about 1.8 m. Those defaults are recalled, not
+checked here.
 
-`OCCLUSION_TEXEL_SIZE` is half UT99's own lightmap default of 32 units,
-because occlusion changes faster near a corner than light does.
+`OCCLUSION_TEXEL_SIZE` puts four texels across `OCCLUSION_DISTANCE`, so a
+corner's darkening spans several texels rather than one.
 
 The value depends on its texel alone, and the sums run in a fixed order, so
 the section is the same byte for byte at any worker count. Jobs split the
@@ -165,11 +170,11 @@ lit charts.
 
 ### 4.4 The baker's part — `ubake`
 
-`bake` builds `SurfaceRays` once, as it does for the probes, and calls
-`bakeOcclusion` after `GEOM` is built. A level with no `GEOM` has no
-`AOCC`. The report gains the texel size and the atlas size.
+`bake` calls `bakeOcclusion` after the probes. It builds its own
+`SurfaceRays` over `GEOM`, as `bakeLightProbes` does. A level with no `GEOM`
+vertex has no `AOCC`. The texel size and atlas size are in the section itself.
 
-`BAKER_VERSION` is bumped.
+`BAKER_REVISION` is bumped.
 
 ### 4.5 The renderer — `urender`
 
@@ -181,9 +186,14 @@ lit charts.
   concatenated order `SceneGeometry::upload` builds. The level's come from
   `AOCC`. A mover's vertices all get the white block's centre, and so does
   the level when `AOCC` is absent.
-- `scene.vert` passes it through. `scene.frag` reads the red channel with
-  linear filtering and clamp to edge, and multiplies `indirect + ambient`
-  by it. `direct` and `emitted` are untouched.
+- `scene.vert` passes it through. `scene.frag` reads the red channel at
+  level 0 through the material sampler, and multiplies `indirect + ambient`
+  by it. `direct` and `emitted` are untouched. The one-texel border keeps
+  every filtered read inside its own chart, so the sampler's wrap mode never
+  matters.
+- The renderer's bundle fingerprint (`shapeOf` in `Frame.cpp`) samples
+  `AOCC`: its size, and the ends of its uvs and texels. Without it, a bundle
+  differing only in `AOCC` keeps the old atlas.
 - The shadow pipelines do not bind it.
 
 ## 5. Invariants
@@ -199,12 +209,14 @@ lit charts.
   wall stores less than one at the floor's centre. A texel in a corner where
   two walls meet the floor stores less than one at the foot of one wall.
   *Test:* `tests/unit/BakeOcclusionTest.cpp`, new.
-  *Breaks when:* the hemisphere is taken about `-n`; the lift is 0 and the
-  surface hits itself; the falloff is inverted.
+  Under a ceiling of the floor's size, the floor stores less at a height of 8
+  than at 32, and 255 at 128.
+  *Breaks when:* the hemisphere is taken about `-n`; the falloff is
+  inverted.
 
-- **INV-3** — two coplanar polygons sharing an edge, with no other geometry
-  near it, store equal values in texels on either side of the edge at the
-  same world point.
+- **INV-3** — two coplanar polygons sharing an edge, one starting 5 units
+  further from a wall than the other, store values within one of each other
+  in texels either side of that edge at the same distance from the wall.
   *Test:* `tests/unit/BakeOcclusionTest.cpp`.
   *Breaks when:* the basis depends on anything but the normal, or the grid is
   anchored at the chart instead of the world.
@@ -231,12 +243,12 @@ lit charts.
   *Test:* `tests/unit/RenderTiersTest.cpp`, extended.
   *Breaks when:* the row is missing or names another tier.
 
-- **INV-8** — drawn with only ambient light, a floor pixel at the foot of a
-  wall is darker than one at the floor's centre. With `AOCC` removed from
-  the same bundle, the two are equal.
+- **INV-8** — a square lit by zone ambient alone, reading an atlas texel of
+  128, draws its ambient times 128/255. Lit by a light alone, it draws the
+  same with and without `AOCC`.
   *Test:* `tests/device/RenderOcclusionTest.cpp`, new.
-  *Breaks when:* the atlas is not bound; the second vertex stream is out of
-  step with the first; occlusion multiplies `direct`.
+  *Breaks when:* the atlas is not bound; the fingerprint ignores `AOCC`;
+  occlusion multiplies `direct`.
 
 ## 6. Failure modes
 
@@ -245,6 +257,8 @@ lit charts.
   `MalformedData`; no real map is expected near it.
 - A polygon so thin its chart has no interior texel still gets its border,
   so its vertices read a clamped neighbour value rather than white.
+- A chart whose stored normal has no length gets no texels and reads the
+  white block, as an unlit chart does.
 
 ## 7. Tests
 
@@ -262,6 +276,22 @@ All carry the `unit` label but INV-8, which carries `device`.
    and the atlas size, in UTA-0164's body.
 2. Frame a corner of AS-Frigate with `ut-shot`, with and without `AOCC`, and
    confirm the corner darkens and open floor does not.
+
+### 7.1 As built (2026-09-19)
+
+- Every mutation named in § 5's *Breaks when* lines was run by hand and
+  failed its test. So did dropping the border, skipping the coarsening,
+  skipping either vertex-count check, and not checking the uv range.
+- Setting `OCCLUSION_LIFT` to 0 fails no test. The rays leave the plane, so
+  a surface does not meet itself in these fixtures. The lift stays as a
+  margin against rounding, and no test grades it.
+- A ray searches only to `OCCLUSION_DISTANCE` (`SurfaceRays::first`'s
+  `limit`), and a texel with no occluder corner in front of its plane within
+  that distance skips its rays (`SurfaceRays::anyInFront`). Both are exact:
+  the three reference maps baked to the same bytes with and without them.
+  The bake times are in UTA-0164's roadmap body.
+- INV-8 found a defect before it passed: the fingerprint did not sample
+  `AOCC`, so the renderer kept the first bundle's atlas.
 
 ## 8. Alternatives considered (and rejected)
 
@@ -299,7 +329,6 @@ All carry the `unit` label but INV-8, which carries `device`.
 - `docs/specs/UTA-0008-bundle-container-and-origin.md` — the section order.
 - `docs/specs/UTA-0014-vulkan-draw-path.md` — ambient occlusion is no longer
   deferred; the second vertex binding.
-- `docs/specs/UTA-0051-quality-tiers.md` — the tier table's new row.
 - `CLAUDE.md` § Where this project is — the bundle format version.
 - `CHANGELOG.md`.
 

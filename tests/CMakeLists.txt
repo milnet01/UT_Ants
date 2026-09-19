@@ -29,6 +29,7 @@ add_executable(uta_unit_tests
     unit/BakeGameTypesTest.cpp
     unit/BakeLightModelTest.cpp
     unit/BakeLightProbesTest.cpp
+    unit/BakeOcclusionTest.cpp
     unit/BakeMoversTest.cpp
     unit/BakeStripsTest.cpp
     unit/BakeTest.cpp
@@ -37,6 +38,7 @@ add_executable(uta_unit_tests
     unit/BundleActorsTest.cpp
     unit/BundleCollisionTest.cpp
     unit/BundleMoversTest.cpp
+    unit/BundleOcclusionTest.cpp
     unit/BundleFormatTest.cpp
     unit/BundleGeometryTest.cpp
     unit/BundleLightProbesTest.cpp
@@ -153,6 +155,7 @@ add_executable(uta_device_tests
     device/RenderDeviceAbsentTest.cpp
     device/RenderLightParityTest.cpp
     device/RenderLightingTest.cpp
+    device/RenderOcclusionTest.cpp
     device/RenderMoverTest.cpp
     device/RenderOffscreenTest.cpp
     device/RenderParallaxTest.cpp

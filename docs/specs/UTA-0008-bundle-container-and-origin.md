@@ -563,10 +563,11 @@ struct Bundle {
 ```
 
 `write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, `TEXS`,
-`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, `LPRB`, omitting absent ones. **`TEXS` was
+`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, `LPRB`, `ZONE`, `AOCC`, omitting absent ones. **`TEXS` was
 APPENDED by UTA-0052 rather than inserted, `MATS` by UTA-0011 after it, `GEOM`
 by UTA-0109 after that, `PLAC` then `LITE` by UTA-0110, `MOVR` by UTA-0119
-after those, `COLL` by UTA-0111 after that, and `LPRB` by UTA-0112 after that**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
+after those, `COLL` by UTA-0111 after that, `LPRB` by UTA-0112 after that, `ZONE` by
+UTA-0156 after that, and `AOCC` by UTA-0164 after that**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
 calls requires a `.utab` *"that any tool other than `ubake` wrote"* to be
 named by the hash of its own contents, and a hash over an
 incidentally-ordered file names one world two things. Determinism is not

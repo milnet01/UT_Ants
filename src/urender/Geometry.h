@@ -32,6 +32,9 @@ struct DrawItem {
 
 struct SceneGeometry {
     Buffer vertices;
+    /// UTA-0164 SS 4.5: one occlusion uv per vertex, in the same order -- the
+    /// level's from AOCC, and the white block's centre for every mover.
+    Buffer occlusionUvs;
     Buffer indices;
     /// Every batch that draws, in bundle order. PF_Portal and PF_Invisible
     /// batches are not here (SS 4.5).

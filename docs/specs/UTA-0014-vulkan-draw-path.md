@@ -1142,8 +1142,8 @@ their breaking states, each of which produces a plausible image.
   the surface that item supplies; what is deferred is who creates the window.
 - Choosing and integrating an upscaler, and the negative mip bias § 4.11
   records — tracked by `UTA-0075` and `UTA-0076`.
-- Volumetric fog, light shafts, ambient occlusion and the flashlight —
-  `UTA-0015`. Bloom, colour grading, anti-aliasing and sharpening —
+- Volumetric fog, light shafts and the flashlight — `UTA-0015`. Ambient
+  occlusion — `UTA-0164`. Bloom, colour grading, anti-aliasing and sharpening —
   `UTA-0053`. Parallax occlusion — `UTA-0040`. Subsurface scattering —
   `UTA-0044`. Screen-space reflections — `UTA-0045`. Quality tiers and dynamic
   resolution — `UTA-0051`. Detail normals, dithered alpha, contact shadows and

@@ -22,6 +22,7 @@ layout(location = 2) in vec2 uv;
 layout(location = 3) in vec4 currentClip;
 layout(location = 4) in vec4 previousClip;
 layout(location = 5) flat in uint zone; // UTA-0156 SS 4.4
+layout(location = 6) in vec2 occlusionUv; // UTA-0164 SS 4.5
 
 layout(location = 0) out vec4 outColour;
 layout(location = 1) out vec2 outVelocity;
@@ -189,8 +190,13 @@ void main() {
         vec3 indirect = indirectAt(lattice, probePoint, n);
         // UTA-0156 SS 4.4: the zone's ambient, on every lit surface in it.
         vec3 ambient = zoneAmbient(zones[zone]);
+        // UTA-0164 SS 4.5: how open the space above the surface is darkens the
+        // light that arrives from all around it, never a light's own.
+        float open = frame.occlusionTexture != NONE
+            ? textureLod(textures[nonuniformEXT(frame.occlusionTexture)], occlusionUv, 0.0).r
+            : 1.0;
         // UTA-0112 SS 4.9: a surface of reflectance rho shows rho * (direct + indirect).
-        colour = base.rgb * (direct + indirect + ambient);
+        colour = base.rgb * (direct + (indirect + ambient) * open);
     }
     // Emission is added to a lit surface only, as before UTA-0040, and at the
     // displaced coordinate like every other map.
