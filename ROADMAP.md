@@ -10745,7 +10745,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-19 via UT_MonsterHunt.
   Lanes: ut-dump.
 
-- 🚧 [UTA-0190] **The viewer writes its exact camera into the map's notes on a key press, so a finding can be reproduced.**
+- ✅ [UTA-0190] **The viewer writes its exact camera into the map's notes on a key press, so a finding can be reproduced.**
   Chosen by the user 2026-09-19, over parking UTA-0186 bare. UTA-0186's
   holes could not be found again from screenshots alone; a pose line makes
   every later map finding reproducible with ut-shot.
@@ -10756,6 +10756,10 @@ model, no weapon and no opponent until 0.2.0.
   `--notes` the line goes to standard error.
 
   Taken 2026-09-19 by session ut-ants-ca, main checkout.
+  Shipped 2026-09-19 in 13a912b, green on the matrix (run 35453288718:
+  GCC 14, Clang 19, MSVC). Unit tests 634 of 634; each new test reddens
+  when its part is broken. The key handler has not been pressed yet: the
+  user's next flight is its first real run.
   **Layman:** Press P (or the pad's Share button) while flying, and the map's notes get a line saying exactly where the camera was, so a problem you screenshot can be found again.
   Kind: feature.
   Source: user-request-2026-09-19.
