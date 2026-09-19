@@ -10725,6 +10725,31 @@ model, no weapon and no opponent until 0.2.0.
   ut-ants-uta0164/bakes3. Every older bake directory holds bundles that no
   longer open.
   Claimed (2026-09-19) by session ut-ants-22, main checkout.
+  Progress (2026-09-19, ut-ants-22): measured, nothing changed in the
+  tree yet. Harness ut-ants-uta0187: sweep187.py (renders the three
+  format-14 reference bakes, light time pinned, fog as shipped, one joint
+  exposure), fitramp.py (fits a whole-screen curve display**p offline on
+  frames already rendered), perpose.py. Pooled block RMS, lower is better:
+  - today's linear rule, AMBIENT_SCALE 0.5: 36.0 (Frigate 35.7, Deck16
+    36.9, Fetid 35.1). AS-Frigate's sky 2.43x the original, rest 0.74x.
+  - base * pow(g * (direct + (indirect + ambient) * open), 2.2): best g 1,
+    A 1, 38.4 (32.7, 45.9, 37.4). The sky is fixed (0.76x, rest 0.74x).
+    g 0.5, 2 and 4 and A 0.5 and 2 are worse. Indirect kept linear: 38.3.
+  - the same with UT99's own falloff (no /v, no cap, as LightModel.h
+    records): g 1, A 1, 36.1 (29.4, 43.7, 37.2); g 1.4: 37.0.
+  - The new rule crushes shadowed areas toward black on DM-Deck16 where the
+    original keeps them dim (deck16-5-12.png).
+  Lead: the capture copy, and the user's own install, run OpenGLDrv at
+  Brightness 1.0 with GammaOffset 0.1, UseShaderGamma and
+  GammaCorrectScreenshots, and OneXBlending False. That brightness curve is
+  in every reference screenshot and lifts shadows. UTA-0165 ruled a display
+  gamma out under the linear rule only. Fitted offline as display**p with
+  the exposure: linear rule best p 0.60, 34.4; new rule with UT99 falloff
+  best p 0.45, 32.4 (29.7, 35.9, 32.6), the best of anything measured.
+  Next: read OpenGLDrv 469's actual ramp for Brightness and GammaOffset
+  rather than fit p, put it in post.frag's output stage, then refit g,
+  AMBIENT_SCALE and EXPOSURE through sweep187.py. UT99's falloff lives in
+  ubake too (LightModel.cpp, parity-tested), and the change re-bakes.
   **Layman:** Surfaces lit by one distant lamp look far brighter than in the original, most visibly AS-Frigate's sky; change how light meets texture to match the original.
   Kind: fix.
   Source: in-session-2026-09-18.
@@ -10786,6 +10811,34 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-19.
   Lanes: apps/ut-ants.
+
+- 📋 [UTA-0191] **F12 in the viewer saves a capture folder: the frame on screen and everything needed to reproduce it.**
+  User, 2026-09-19: "What the DOOM Ants project did is map button (F12)
+  that takes a screenshot and records other info that you will find
+  useful. Please create an option like this for the map launcher that I
+  then press and it records all the info you need into a specific folder
+  that you can then view for all the relevant info."
+
+  DOOM_Ants' version is DOOM-0294: F12 writes exactly what is on screen to
+  a numbered PNG. Ours should write one folder per press, holding:
+  - the presented frame as PNG, exactly as shown;
+  - the same view drawn by ut-shot's --linear path, so it can be measured;
+  - the camera line in ut-shot's format, as UTA-0190's P writes;
+  - the map name, the bundle's hash, and the bundle's baker version and
+    format;
+  - the build's commit, the quality tier, the render and window sizes,
+    and the light time drawn.
+  The folder sits beside the launcher's notes files, one subfolder per
+  press, named by map and time. The pad gets a button for it too. P stays
+  as it is.
+
+  Placed 2026-09-19 by the session: after UTA-0187, before UTA-0188. UTA-0188
+  and UTA-0186 are both look findings from the user's own flights, and a
+  capture folder is what makes such a finding reproducible.
+  **Layman:** Press F12 while flying a map and the game saves a picture of the screen plus the details needed to find and redraw that exact view, in one folder.
+  Kind: feature.
+  Source: user-request-2026-09-19.
+  Lanes: apps/ut-ants, urender.
 
 ## 0.2.0 — Movement and weapons
 
