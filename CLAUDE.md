@@ -5,10 +5,13 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0186` (black holes in a mansion map's walls that move as
-the camera pans). `UTA-0178` shipped 2026-09-18, green on the matrix:
+**Next:** `UTA-0164` (ambient occlusion; the user asked for it
+2026-09-19 and left the method open). `UTA-0186` (black holes in a
+mansion map's walls) is parked on `Waiting-on:` the holes seen again: it
+did not reproduce on the current build. `UTA-0190` adds P in the viewer,
+which writes the exact camera into the map's notes for that. `UTA-0178` shipped 2026-09-18, green on the matrix:
 the haze is refitted on all three reference maps, and AS-Frigate's sky
-has its own cause. After 0186, `UTA-0187` (dimly lit surfaces, AS-Frigate's sky among them, lit
+has its own cause. After 0164, `UTA-0187` (dimly lit surfaces, AS-Frigate's sky among them, lit
 the way UT99 combines light and texture) and `UTA-0188` (AS-Frigate's
 water drawn dark), all three placed by the session, 2026-09-18. `UTA-0182` (a wall
 near a grazing lamp shadowed itself) and `UTA-0185` (surfaces on the

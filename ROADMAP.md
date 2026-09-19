@@ -1,4 +1,5 @@
 <!-- ants-roadmap-format: 1 -->
+<!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -12,6 +13,7 @@
 **Legend**
 
 - ✅ Done · 🚧 In progress · 📋 Planned · 💭 Considered
+- 🚫 Dropped (closed, not done)
 
 ## P01 — (first block)
 
@@ -9522,10 +9524,16 @@ model, no weapon and no opponent until 0.2.0.
   flashlight, not ambient occlusion. Needs a tier from UTA-0051's feature
   table. The user's standing direction applies: the cheapest method that
   still looks modern first.
+  User, 2026-09-19: include ambient occlusion in the baked maps. The user
+  then left the method open: baked, runtime or both is the
+  session's call, by the cheapest-first rule. ubake joins the lanes.
+  Placed 2026-09-19 by the session: after UTA-0186, before UTA-0187.
+  UTA-0187 refits AMBIENT_SCALE and EXPOSURE, and occlusion darkens the
+  ambient term, so a fit taken first would be taken again.
   **Layman:** Corners and creases get a soft shadow, so rooms look solid instead of evenly lit.
   Kind: feature.
   Source: user-request-2026-09-15 split-from-UTA-0015.
-  Lanes: urender.
+  Lanes: ubake, urender.
 
 - ✅ [UTA-0165] **urender: DM-Fetid draws far darker than the original with volumetric lighting off.**
   Found by UTA-0015's SS 7 measurement (2026-09-15). Against
@@ -10623,7 +10631,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: urender.
 
-- 📋 [UTA-0186] **Find why wall faces in a mansion map draw as black holes that move as the camera pans.**
+- 🚧 [UTA-0186] **Find why wall faces in a mansion map draw as black holes that move as the camera pans.**
   Filed 2026-09-18 from three launcher screenshots. The user thinks the map
   is the mansion map; the name is unconfirmed. A wood-panelled room with a
   red carpet shows solid black polygons on a wall near a doorway. Their
@@ -10641,6 +10649,28 @@ model, no weapon and no opponent until 0.2.0.
   Lead, unverified (2026-09-18): UTA-0185's changelog entry names
   MH-!SD0!ForbiddenMansion for rooms seen that way, so check that map first.
   Confirm by its wood-panelled room with a red carpet before building on it.
+  Taken 2026-09-19 by session ut-ants-ca, main checkout. Rule-1 set
+  checked first: only UTA-0098 and UTA-0100, both dormant.
+  Waiting-on: the holes seen again, with a pose line from UTA-0190.
+  Parked 2026-09-19 by the user's choice, after no reproduction.
+
+  Measured 2026-09-19. The map is MH-!SD0!ForbiddenMansion: its texture
+  set matches the screenshots. The screenshots' hole is undrawn wall, not a
+  dark texture. Its edges are perspective polygon edges, not cluster tiles.
+
+  Not reproduced on the build at 4d8dcde. ut-shot covered thousands of
+  cameras on both mansion maps, at every tier, two render scales, and the
+  viewer's 121-degree view. The real viewer covered 190 cameras on the GPU.
+  All clean.
+
+  The screenshots were taken 2026-09-18 13:10, while UTA-0178's sweeps
+  were rebuilding the tree. The viewer they came from may have held
+  unfinished changes; that is unverified.
+
+  One real but freak case found: on this GPU, a triangle with a corner at
+  exactly zero view depth is dropped. It needs the exact pose, and moving
+  0.001 units clears it; lavapipe draws it. It is not the user's hole.
+  Evidence and probes in ut-ants-uta0186.
   **Layman:** In what looks like the mansion map, parts of the walls show as black holes, and the holes change shape as the camera turns.
   Kind: fix.
   Source: user-request-2026-09-18.
@@ -10691,6 +10721,45 @@ model, no weapon and no opponent until 0.2.0.
   Kind: investigate.
   Source: in-session-2026-09-18.
   Lanes: urender.
+
+- 📋 [UTA-0189] **ut-dump: give each navigation node its location, and list each map's MonsterEnd-family exits with theirs.**
+  Asked by UT_MonsterHunt (session ut-monsterhunt-fc), 2026-09-19.
+  `ut-dump --nav-graph --ndjson` gives nodeList entries as {export, name,
+  class} only, so their mapcheck still reads positions from T3D exports,
+  and GAME-0094 wants start-to-exit distance as a map-size measure.
+
+  The ask, additive:
+  - nodeList[i].location = [x, y, z] for every navigation node.
+  - A per-package "exits" list, [{name, class, location, tag}], for
+    MonsterEnd, MonsterEndSB and MonsterArenaEnd. These are Triggers, not
+    NavigationPoints, so nodeList never holds them.
+
+  Reply to UT_MonsterHunt with the field names and schema version when it
+  lands. They build GAME-0094 on walking distance until then.
+
+  Placed 2026-09-19 by the session: right after UTA-0172, the other
+  ut-dump output change. Same tool and file; the requester has a
+  workaround.
+  **Layman:** The map-inspection tool reports where each path point and each level exit sits, so the sister project can measure maps without old exports.
+  Kind: enhancement.
+  Source: user-request-2026-09-19 via UT_MonsterHunt.
+  Lanes: ut-dump.
+
+- 🚧 [UTA-0190] **The viewer writes its exact camera into the map's notes on a key press, so a finding can be reproduced.**
+  Chosen by the user 2026-09-19, over parking UTA-0186 bare. UTA-0186's
+  holes could not be found again from screenshots alone; a pose line makes
+  every later map finding reproducible with ut-shot.
+
+  The launcher passes the map's notes file as `--notes <file>`. P, or the
+  pad's Back button (Share on a PlayStation pad), appends one line in
+  ut-shot's camera format: x y z pitch yaw roll horizontal-fov. Without
+  `--notes` the line goes to standard error.
+
+  Taken 2026-09-19 by session ut-ants-ca, main checkout.
+  **Layman:** Press P (or the pad's Share button) while flying, and the map's notes get a line saying exactly where the camera was, so a problem you screenshot can be found again.
+  Kind: feature.
+  Source: user-request-2026-09-19.
+  Lanes: apps/ut-ants.
 
 ## 0.2.0 — Movement and weapons
 
