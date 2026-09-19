@@ -9517,7 +9517,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, ubundle, urender.
 
-- 🚧 [UTA-0164] **urender: ambient occlusion, the soft darkening in corners.**
+- ✅ [UTA-0164] **urender: ambient occlusion, the soft darkening in corners.**
   Split out of UTA-0015 by the user on 2026-09-15, when that item was
   scoped to volumetric fog, light shafts and the flashlight. Not part of
   0.1.0's cut condition: S1 names volumetrics, light shafts and the
@@ -9542,6 +9542,10 @@ model, no weapon and no opponent until 0.2.0.
   ut-ants-uta0175/cams-frigate.txt, light time pinned: no pixel
   brightens, 10.3% darken by more than two levels, the deepest by 95.
   Bakes and frames at ut-ants-uta0164. Waiting on the matrix.
+  Resolved (2026-09-19): green on the matrix, run 35455853799 (GCC 14,
+  Clang 19, MSVC). Maps baked before format 14 must be baked again.
+  UTA-0187's refit of AMBIENT_SCALE and EXPOSURE now runs on occluded
+  ambient.
   **Layman:** Corners and creases get a soft shadow, so rooms look solid instead of evenly lit.
   Kind: feature.
   Source: user-request-2026-09-15 split-from-UTA-0015.

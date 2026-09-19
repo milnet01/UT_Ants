@@ -5,15 +5,18 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0164` (ambient occlusion; the user asked for it
-2026-09-19 and left the method open). `UTA-0186` (black holes in a
+**Next:** `UTA-0187` (dimly lit surfaces lit the way UT99 combines light
+and texture, and the refit of `AMBIENT_SCALE` and `EXPOSURE` it owes).
+`UTA-0164` shipped 2026-09-19, green on the matrix: baked ambient
+occlusion at every tier, bundle format 14, spec
+`docs/specs/UTA-0164-ambient-occlusion.md`. `UTA-0186` (black holes in a
 mansion map's walls) is parked on `Waiting-on:` the holes seen again: it
 did not reproduce on the current build. `UTA-0190` adds P in the viewer,
 which writes the exact camera into the map's notes for that. `UTA-0178` shipped 2026-09-18, green on the matrix:
 the haze is refitted on all three reference maps, and AS-Frigate's sky
-has its own cause. After 0164, `UTA-0187` (dimly lit surfaces, AS-Frigate's sky among them, lit
-the way UT99 combines light and texture) and `UTA-0188` (AS-Frigate's
-water drawn dark), all three placed by the session, 2026-09-18. `UTA-0182` (a wall
+has its own cause; `UTA-0187` covers AS-Frigate's sky. `UTA-0188`
+(AS-Frigate's water drawn dark) follows `UTA-0187`; the session placed
+0164, 0187 and 0188, 2026-09-18. `UTA-0182` (a wall
 near a grazing lamp shadowed itself) and `UTA-0185` (surfaces on the
 probe grid lost their bounce light) shipped 2026-09-17, green on the
 matrix. `UTA-0183`
