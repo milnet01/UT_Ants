@@ -10719,6 +10719,11 @@ model, no weapon and no opponent until 0.2.0.
   Placed 2026-09-18 by the session: after UTA-0186, before UTA-0177.
   UTA-0180's tiling look is fitted by measurement, and a lighting defect
   still live would be absorbed into that fit.
+  Progress (2026-09-19): UTA-0164 shipped first, as placed. Ambient and
+  indirect light are now multiplied by baked occlusion, so this refit runs
+  on occluded ambient. Reference bakes at format 14 are in
+  ut-ants-uta0164/bakes3. Every older bake directory holds bundles that no
+  longer open.
   **Layman:** Surfaces lit by one distant lamp look far brighter than in the original, most visibly AS-Frigate's sky; change how light meets texture to match the original.
   Kind: fix.
   Source: in-session-2026-09-18.
