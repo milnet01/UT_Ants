@@ -9517,7 +9517,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, ubundle, urender.
 
-- 📋 [UTA-0164] **urender: ambient occlusion, the soft darkening in corners.**
+- 🚧 [UTA-0164] **urender: ambient occlusion, the soft darkening in corners.**
   Split out of UTA-0015 by the user on 2026-09-15, when that item was
   scoped to volumetric fog, light shafts and the flashlight. Not part of
   0.1.0's cut condition: S1 names volumetrics, light shafts and the
@@ -9530,6 +9530,8 @@ model, no weapon and no opponent until 0.2.0.
   Placed 2026-09-19 by the session: after UTA-0186, before UTA-0187.
   UTA-0187 refits AMBIENT_SCALE and EXPOSURE, and occlusion darkens the
   ambient term, so a fit taken first would be taken again.
+  Progress (2026-09-19): claimed by session ut-ants-0c, main checkout.
+  Rule 1's set holds only UTA-0098 and UTA-0100, both dormant.
   **Layman:** Corners and creases get a soft shadow, so rooms look solid instead of evenly lit.
   Kind: feature.
   Source: user-request-2026-09-15 split-from-UTA-0015.
