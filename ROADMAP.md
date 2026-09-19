@@ -9532,6 +9532,16 @@ model, no weapon and no opponent until 0.2.0.
   ambient term, so a fit taken first would be taken again.
   Progress (2026-09-19): claimed by session ut-ants-0c, main checkout.
   Rule 1's set holds only UTA-0098 and UTA-0100, both dormant.
+  Progress (2026-09-19): built as baked occlusion, spec
+  docs/specs/UTA-0164-ambient-occlusion.md; bundle format 14.
+  Measured on the three reference maps, 12 cores, texel 16 everywhere:
+  AS-Frigate occlusion 39 s of a 50 s bake, atlas 4096 by 1456;
+  DM-Deck16][ 1.5 s of 5.9 s, 1024 by 544; DM-Fetid 1.3 s of 4.1 s,
+  512 by 504. Before the exact search limit and skip, AS-Frigate took
+  164 s. AS-Frigate framed with and without AOCC over the 45 poses in
+  ut-ants-uta0175/cams-frigate.txt, light time pinned: no pixel
+  brightens, 10.3% darken by more than two levels, the deepest by 95.
+  Bakes and frames at ut-ants-uta0164. Waiting on the matrix.
   **Layman:** Corners and creases get a soft shadow, so rooms look solid instead of evenly lit.
   Kind: feature.
   Source: user-request-2026-09-15 split-from-UTA-0015.
