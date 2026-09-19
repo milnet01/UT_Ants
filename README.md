@@ -141,6 +141,10 @@ faster, and the top face button (Triangle, or Y) turns the flashlight on and
 off. The Options button (Menu on an Xbox controller) closes the map, as Escape
 does.
 
+P, or the controller's Share, Create or View button, writes down exactly where
+the camera is. From the launcher, that line lands in the map's notes, so a
+problem you screenshot can be found again.
+
 Given only the Unreal Tournament folder, `ut-ants` opens a map launcher
 instead. It lists the install's playable maps, bakes the one you pick and
 opens it, and returns to the list when you close the map.

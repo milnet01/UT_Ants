@@ -266,6 +266,8 @@ private:
                 args.emplace_back("--tier");
                 args.emplace_back(urender::tierName(*options_.tier));
             }
+            args.emplace_back("--notes"); // UTA-0190: P writes the camera there
+            args.push_back(notesFile(paths_.notes, opening_).string());
             args.push_back(options_.install.string());
             args.push_back(answer.path.string());
             busy_ = Busy::Viewing;
@@ -281,6 +283,10 @@ private:
                                          std::to_string(exitCode)});
         }
         busy_ = Busy::No;
+        // UTA-0190: the viewer may have added to the notes, so read them again
+        // rather than keep the copy a later keystroke would save over them.
+        notesFor_.clear();
+        loadNotes();
         focus_ = Focus::Notes;
         status_ = "Back from " + opening_ + ". Notes are saved in " + shown(paths_.notes);
         SDL_ShowWindow(window_);

@@ -323,6 +323,18 @@ Result<void> writeNotes(const std::filesystem::path& notes, std::string_view map
     return writeText(path, text);
 }
 
+std::filesystem::path notesFile(const std::filesystem::path& notes, std::string_view map) {
+    return fileFor(notes, map);
+}
+
+Result<void> appendNote(const std::filesystem::path& file, std::string_view line) {
+    std::string text = readText(file);
+    if (!text.empty() && text.back() != '\n') text += '\n';
+    text += line;
+    text += '\n';
+    return writeText(file, text);
+}
+
 std::string withoutLastCharacter(std::string text) {
     if (text.empty()) return text;
     std::size_t end = text.size() - 1;

@@ -10,6 +10,7 @@
 #include "Cli.h"
 #include "FlyCamera.h"
 #include "Launcher.h"
+#include "MapList.h"
 
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
@@ -226,6 +227,17 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
                        event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH) {
                 flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
+            } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_P && !event.key.repeat) ||
+                       (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                        event.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)) {
+                // UTA-0190: where the camera is, so a finding can be drawn again
+                // with ut-shot. Share or Create on a PlayStation pad, View on an Xbox one.
+                const std::string line = "Camera (ut-shot): " + poseLine(camera.camera(), config.width, config.height);
+                std::cerr << line << "\n";
+                if (!options.notes.empty()) {
+                    if (const auto added = appendNote(options.notes, line); !added)
+                        std::cerr << "ut-ants: the camera did not save: " << added.error().message() << "\n";
+                }
             } else if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
                 gamepads.open(event.gdevice.which);
             } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {

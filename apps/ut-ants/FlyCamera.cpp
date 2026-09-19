@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <numbers>
 
 namespace uta::client {
@@ -168,6 +169,14 @@ urender::Camera FlyCamera::camera() const noexcept {
     camera.rotation = {static_cast<std::int32_t>(std::lround(pitch_)),
                        static_cast<std::int32_t>(std::lround(yaw_)), 0};
     return camera;
+}
+
+std::string poseLine(const urender::Camera& camera, std::uint32_t width, std::uint32_t height) {
+    const double halfVertical = camera.verticalFovDegrees * std::numbers::pi / 360.0;
+    const double aspect = static_cast<double>(width) / static_cast<double>(height);
+    const double horizontal = 2 * std::atan(std::tan(halfVertical) * aspect) * 180.0 / std::numbers::pi;
+    return std::format("{:.2f} {:.2f} {:.2f} {} {} {} {:.2f}", camera.location[0], camera.location[1],
+                       camera.location[2], camera.rotation[0], camera.rotation[1], camera.rotation[2], horizontal);
 }
 
 } // namespace uta::client

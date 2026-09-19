@@ -111,3 +111,19 @@ TEST_CASE("UTA-0016: --help needs no paths", "[client]") {
     REQUIRE(parsed.options.has_value());
     CHECK(parsed.options->help);
 }
+
+TEST_CASE("UTA-0190: --notes names the file a pose line goes to", "[client]") {
+    const Parsed parsed = parse({"--notes", "/state/map-notes/MH-A.txt", "/games/UT", "map.utab"});
+    REQUIRE(parsed.options.has_value());
+    CHECK(parsed.options->notes == std::filesystem::path("/state/map-notes/MH-A.txt"));
+    CHECK(parse({"/games/UT", "map.utab"}).options->notes.empty());
+
+    CHECK_FALSE(parse({"/games/UT", "map.utab", "--notes"}).options.has_value());
+    CHECK_FALSE(parse({"--notes", "a.txt", "--notes", "b.txt", "/games/UT", "map.utab"}).options.has_value());
+}
+
+TEST_CASE("UTA-0190: the launcher refuses --notes", "[client]") {
+    const Parsed parsed = parse({"--notes", "a.txt", "/games/UT"});
+    CHECK_FALSE(parsed.options.has_value());
+    CHECK(parsed.err.find("--notes") != std::string::npos);
+}

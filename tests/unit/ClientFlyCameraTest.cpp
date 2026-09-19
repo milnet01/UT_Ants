@@ -261,3 +261,12 @@ TEST_CASE("UTA-0167: the triggers rise and sink and the stick press flies fast",
     CHECK(keys.up == -1);
     CHECK(keys.fast);
 }
+
+TEST_CASE("UTA-0190: a pose line is a camera line ut-shot reads", "[client]") {
+    Camera camera;
+    camera.location = {1.5f, -2.25f, 3};
+    camera.rotation = {100, -200, 0};
+    // The viewer's 90 degrees are vertical, and ut-shot's field is horizontal.
+    CHECK(uta::client::poseLine(camera, 1920, 1080) == "1.50 -2.25 3.00 100 -200 0 121.28");
+    CHECK(uta::client::poseLine(camera, 1000, 1000) == "1.50 -2.25 3.00 100 -200 0 90.00");
+}

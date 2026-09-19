@@ -17,6 +17,11 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **Press P in the viewer to write down exactly where the camera is** (UTA-0190)
+  The controller's Share, Create or View button does the same. From the
+  launcher the line lands in that map's notes; it is the camera line
+  ut-shot reads, so a problem seen while flying can be drawn again.
+
 - **The controller's Options button closes a map** (UTA-0183)
   Options on a PlayStation controller, or Menu on an Xbox one, closes the
   map as Escape does, returning to the map launcher when it opened the map.

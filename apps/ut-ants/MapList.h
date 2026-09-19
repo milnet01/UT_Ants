@@ -87,6 +87,13 @@ struct MapResult {
 [[nodiscard]] Result<void> writeNotes(const std::filesystem::path& notes, std::string_view map,
                                       std::string_view text);
 
+/// UTA-0190: the file `writeNotes` keeps `map`'s notes in.
+[[nodiscard]] std::filesystem::path notesFile(const std::filesystem::path& notes, std::string_view map);
+
+/// UTA-0190: add `line` to the notes `file` on a line of its own, making the
+/// file when there is none.
+[[nodiscard]] Result<void> appendNote(const std::filesystem::path& file, std::string_view line);
+
 /// `text` without its last UTF-8 character. Unchanged when empty.
 [[nodiscard]] std::string withoutLastCharacter(std::string text);
 

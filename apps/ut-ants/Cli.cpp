@@ -13,7 +13,7 @@ namespace uta::client {
 
 void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
-           "               <install> <bundle>\n"
+           "               [--notes <file>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] <install>\n"
            "       ut-ants --help\n"
            "\n"
@@ -33,7 +33,10 @@ void usage(std::ostream& err) {
            "quits. A gamepad flies too: the left stick moves, the right stick looks,\n"
            "the right trigger or shoulder rises and the left sinks, pressing the left\n"
            "stick flies faster, the top face button turns the flashlight on and off,\n"
-           "and the Options or Menu button quits.\n"
+           "and the Options or Menu button quits. P, or the pad's Share, Create or\n"
+           "View button, writes where the camera is as a line ut-shot reads.\n"
+           "--notes appends that line to a file too; the launcher passes the map's\n"
+           "notes.\n"
            "--frames draws that many frames and exits 0 if every one drew.\n"
            "--validation asks for the Vulkan validation layer.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
@@ -83,6 +86,16 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
                 return std::nullopt;
             }
             options.frames = frames;
+        } else if (arg == "--notes") {
+            if (!options.notes.empty()) {
+                err << "ut-ants: --notes is given twice\n";
+                return std::nullopt;
+            }
+            if (i + 1 >= args.size() || args[i + 1].empty()) {
+                err << "ut-ants: --notes needs a file\n";
+                return std::nullopt;
+            }
+            options.notes = std::filesystem::path(std::string(args[++i]));
         } else if (arg.starts_with("-")) {
             err << "ut-ants: unknown option " << arg << "\n";
             return std::nullopt;
@@ -102,6 +115,10 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
     } else if (options.frames.has_value()) {
         // UTA-0170: the launcher waits for a person, so nothing counts frames.
         err << "ut-ants: --frames needs a bundle; the launcher runs until it is closed\n";
+        return std::nullopt;
+    } else if (!options.notes.empty()) {
+        // UTA-0190: the launcher keeps a notes file per map itself.
+        err << "ut-ants: --notes needs a bundle; the launcher keeps its own notes\n";
         return std::nullopt;
     }
     return options;

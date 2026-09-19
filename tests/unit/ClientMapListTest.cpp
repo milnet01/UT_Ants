@@ -11,6 +11,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -203,4 +204,24 @@ TEST_CASE("UTA-0170: notes wrap at newlines and between words", "[client]") {
     CHECK(wrapText("a\n\nb", 10) == std::vector<std::string>{"a", "", "b"});
     CHECK(wrapText("abcdefghij", 4) == std::vector<std::string>{"abcd", "efgh", "ij"});
     CHECK(wrapText("end\n", 10) == std::vector<std::string>{"end", ""});
+}
+
+TEST_CASE("UTA-0190: a note is appended on a line of its own", "[client]") {
+    const TempDir data;
+    const stdfs::path file = notesFile(data.path() / "notes", "MH-A");
+    const auto contents = [&file] {
+        std::ifstream in(file, std::ios::binary);
+        return std::string(std::istreambuf_iterator<char>(in), {});
+    };
+
+    REQUIRE(appendNote(file, "first"));
+    CHECK(contents() == "first\n");
+    REQUIRE(appendNote(file, "second"));
+    CHECK(contents() == "first\nsecond\n");
+
+    // Notes typed in the launcher need not end with a newline.
+    std::ofstream(file, std::ios::binary | std::ios::trunc) << "the lift is dark";
+    REQUIRE(appendNote(file, "third"));
+    CHECK(contents() == "the lift is dark\nthird\n");
+    CHECK(readNotes(data.path() / "notes", "MH-A") == "the lift is dark\nthird\n");
 }

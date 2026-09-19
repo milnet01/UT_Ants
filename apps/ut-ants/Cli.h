@@ -33,6 +33,9 @@ struct Options {
     bool windowed = false;
     /// UTA-0051: the quality tier. Unset: urender chooses from the device.
     std::optional<urender::Tier> tier;
+    /// UTA-0190: the map's notes file, which P appends the camera to. Empty:
+    /// the camera goes to standard error only.
+    std::filesystem::path notes;
 };
 
 /// The usage text, for `err`.

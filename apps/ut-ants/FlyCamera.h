@@ -12,6 +12,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 namespace uta::client {
 
@@ -74,5 +75,10 @@ private:
     std::array<double, 3> location_{};
     double pitch_ = 0, yaw_ = 0; ///< UT angle units
 };
+
+/// UTA-0190: `camera` as a line tools/ut-shot reads -- x y z pitch yaw roll
+/// and the horizontal field of view in degrees, which a `width` by `height`
+/// view makes of the camera's vertical one.
+[[nodiscard]] std::string poseLine(const urender::Camera& camera, std::uint32_t width, std::uint32_t height);
 
 } // namespace uta::client
