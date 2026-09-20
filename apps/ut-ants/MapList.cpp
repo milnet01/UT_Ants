@@ -260,6 +260,10 @@ BakeAnswer readBakeAnswer(std::string_view output, int exitCode) {
     }
     if (*verdict == "written" || *verdict == "cached") {
         const std::optional<std::string> path = json.topLevelString("path");
+        // UTA-0191. Read on the success branch only: a refused bake has no
+        // bundle for a capture to describe.
+        if (const std::optional<std::string> baker = json.topLevelString("bakerVersion"); baker)
+            answer.bakerVersion = *baker;
         if (exitCode == 0 && path && !path->empty()) {
             answer.baked = true;
             answer.path = std::filesystem::path(std::u8string(path->begin(), path->end()));
@@ -291,6 +295,7 @@ Result<LauncherPaths> launcherPaths() {
         .bakes = *cache / "content" / "bakes",
         .notes = *state / "map-notes",
         .results = *state / "map-results",
+        .captures = *state / "map-captures",
     };
 }
 

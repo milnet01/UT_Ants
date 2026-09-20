@@ -7,6 +7,14 @@ itself wrote. The loop log is
 **Amended (2026-09-12)** by implementation, before the presenting path is built.
 § 4.3's surface contract changes direction for `UTA-0016`, so the amended
 document is gated again; the rest records what was built.
+**Amended (2026-09-20)** by `UTA-0191`, recording what was built: `readback`
+works on both paths, and § 4.11's header gains `setLinearOutput`,
+`lightSeconds`, `pinLightSeconds` and `unpinLightSeconds`. The old text said
+readback was the surfaceless path's alone, which was never a limit of the
+hardware — the presenting path draws into the same colour target and
+`Swapchain::recordBlit` blits that into the acquired swapchain image. **Not
+gated**: `CLAUDE.md` rule 14 exempts an amendment that records what was
+actually built, the code being what the cold read would have protected.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0014 (design-2026-09-03).
 **Blocked by:** none — `ubundle` ships, so the roadmap item's
@@ -280,8 +288,10 @@ public:
     enum class Target { Colour, Velocity };
 
     /// Copy the last frame's `target` into host memory, tightly packed: RGBA8
-    /// for Colour, two floats per pixel for Velocity. Surfaceless path only --
-    /// the presenting path's frames go to the swapchain and are not read back.
+    /// for Colour, two floats per pixel for Velocity. BOTH PATHS -- the
+    /// presenting path draws into this same colour target and blits THAT into
+    /// the acquired swapchain image, and both submit and wait before
+    /// presenting, so the pixels are here and finished either way.
     [[nodiscard]] Result<std::vector<std::byte>> readback(Target target = Target::Colour);
 
     /// The last frame's SS 6 counts.
@@ -290,6 +300,18 @@ public:
     /// UTA-0075's sub-pixel jitter (SS 4.11 provision 1). OFF until a pass
     /// consumes it: with no temporal resolve, a jittered frame shimmers.
     void setJitter(bool enabled) noexcept;
+
+    /// Skip exposure and the tone map from the next frame, as
+    /// `Config::linearOutput` does from `create` -- a push constant, so it
+    /// costs no pipeline rebuild.
+    void setLinearOutput(bool enabled) noexcept;
+
+    /// SS 4.9's clock. `lightSeconds` is the time the last frame was drawn at;
+    /// pinning draws every later frame at one time, so two draws of a view
+    /// agree on a pulsing light's phase.
+    [[nodiscard]] double lightSeconds() const noexcept;
+    void pinLightSeconds(double seconds) noexcept;
+    void unpinLightSeconds() noexcept;
 
     /// The target's new size in pixels -- the window's drawable size, not its
     /// size in window units. The next `draw` rebuilds every render target at

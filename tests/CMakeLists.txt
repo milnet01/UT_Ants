@@ -48,6 +48,7 @@ add_executable(uta_unit_tests
     unit/BundleZonesTest.cpp
     unit/ClientCliTest.cpp
     unit/ClientFlyCameraTest.cpp
+    unit/ClientCaptureTest.cpp
     unit/ClientMapListTest.cpp
     unit/CompactIndexTest.cpp
     unit/CoreErrorTest.cpp
@@ -114,8 +115,15 @@ target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 target_sources(uta_unit_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/Cli.cpp"
     "${PROJECT_SOURCE_DIR}/apps/ut-ants/FlyCamera.cpp"
-    "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapList.cpp")
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/MapList.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/Capture.cpp"
+    "${PROJECT_SOURCE_DIR}/apps/ut-ants/Png.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/apps")
+# UTA-0191: Png.cpp instantiates the vendored encoder, so the tests need the
+# same header the client does. Without this the capture folder's contents could
+# only be graded by running the viewer, which no CI leg can do -- it has no
+# display (docs/specs/UTA-0014-vulkan-draw-path.md SS 4.12).
+target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/third_party/stb")
 
 # TIMEOUT is load-bearing rather than tidy: INV-10's breaking case is a
 # deadlock, and without a bound it hangs the run instead of failing it.
@@ -154,6 +162,7 @@ add_executable(uta_device_tests
     device/RenderFogTest.cpp
     device/RenderDeviceAbsentTest.cpp
     device/RenderLightParityTest.cpp
+    device/RenderLightTimeTest.cpp
     device/RenderLightingTest.cpp
     device/RenderOcclusionTest.cpp
     device/RenderMoverTest.cpp

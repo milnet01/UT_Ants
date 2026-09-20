@@ -48,11 +48,19 @@ struct BakeAnswer {
     bool baked = false;          ///< written or cached, with a path
     std::filesystem::path path;  ///< the bundle, when baked
     std::string failure;         ///< why not, when not baked
+    /// UTA-0191: ut-bake's own `bakerVersion`, kept because nothing else can
+    /// reach it. The bundle does not store it -- BundleHeader carries
+    /// formatVersion, origin and kind and no more -- and docs/design.md rule 2
+    /// keeps uta_ubake out of a runtime target's link closure, so the viewer
+    /// cannot call bakerVersion() either. This report is the only place it
+    /// appears, so the launcher catches it here or it is lost. Empty when the
+    /// report did not carry one.
+    std::string bakerVersion;
 };
 
-/// ut-bake's top-level `verdict`, `path` and `error` (docs/specs/UTA-0011-map-baker.md
-/// SS 4.8). A run that wrote no JSON or an unexpected verdict is a failure that
-/// names the exit code.
+/// ut-bake's top-level `verdict`, `path`, `bakerVersion` and `error`
+/// (docs/specs/UTA-0011-map-baker.md SS 4.8). A run that wrote no JSON or an
+/// unexpected verdict is a failure that names the exit code.
 [[nodiscard]] BakeAnswer readBakeAnswer(std::string_view output, int exitCode);
 
 /// Where the launcher keeps what it writes.
@@ -60,6 +68,7 @@ struct LauncherPaths {
     std::filesystem::path bakes;    ///< ut-bake --out; derived, so under a content/ directory (design rule 15)
     std::filesystem::path notes;    ///< one <map>.txt per map, written by the user
     std::filesystem::path results;  ///< one <map>.txt per map: the last bake's outcome
+    std::filesystem::path captures; ///< UTA-0191: one folder per F12 press
 };
 
 /// Bakes under the per-user cache, notes and results under the per-user

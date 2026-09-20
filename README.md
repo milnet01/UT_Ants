@@ -37,28 +37,37 @@ it stays on your machine.
 
 ## Status
 
-Early — **there is nothing to play yet.** What exists so far is the
-foundation the baker and the game will stand on:
+**You can look, but not play.** Take one of your own maps, and you can fly a
+camera through it and see it lit the way a modern game would light it. There
+is no walking, no weapons and no monsters yet.
 
+What works today:
+
+- **The baker, `ut-bake`** — turns one of your maps into a bundle: the
+  level's shape, its lights, what you can bump into, upgraded textures and
+  the routes bots will use. It also checks that a folder really holds
+  Unreal Tournament.
+- **The renderer** — lighting and shadows that move, bounced light baked
+  into the level, fog and light shafts, a flashlight, and surfaces with
+  real depth rather than flat painted-on detail. It picks a quality level
+  to suit your graphics card, and quietly eases off when frames slow down.
+- **The viewer and its map launcher** — pick a map from a list and it
+  bakes it and opens it. Walls stop the camera. F12 saves everything
+  needed to report what you are looking at.
 - **Reading Unreal Tournament's files** — maps, textures, sounds, the
   game's class definitions, and the paths bots follow.
 - **Understanding a level** — which room a spot belongs to (for an
   in-game map screen), where bots can walk, and which switch opens which
   door.
-- **The bundle file format** that the baker writes and the game will read.
-- **Texture compression and a memory budget**, so upgraded textures fit
-  on the graphics card. In progress.
-- **Shared plumbing** — error reporting, logging, file handling and
-  running work on several processor cores at once.
-- **The baker, `ut-bake`** — turns one of your maps into a bundle, and
-  checks that a folder really holds Unreal Tournament. A bake holds the
-  room map, the bot paths and the materials so far.
+- **The bundle file format**, texture compression within a memory budget,
+  and the shared plumbing underneath — error reporting, logging, file
+  handling and running work on several processor cores at once.
 
 `ut-dump`, a developer tool for looking inside a map file, is partly
 built.
 
-Next come the rest of the baker — the level's shape, its lights and its
-collision — and the renderer, which draws the result.
+Next comes what turns it into a game: moving and shooting, then monsters
+and bots, then Monster Hunt itself.
 [ROADMAP.md](ROADMAP.md) is the up-to-date list; this section is a summary
 of it.
 
@@ -145,6 +154,15 @@ P, or the controller's Share, Create or View button, writes down exactly where
 the camera is. From the launcher, that line lands in the map's notes, so a
 problem you screenshot can be found again.
 
+**F12, or the controller's left face button (Square, or X), saves a whole
+capture folder** — one per press, next to those notes. It holds a picture of
+exactly what was on screen, the same view drawn without the brightness and
+contrast pass so it can be measured, the camera on its own in the form the
+screenshot tool reads, and a text file naming the map, the exact bundle, the
+build and the settings it was drawn with. If something looks wrong, one press
+records everything needed to find it again. The screen flashes once as the
+second picture is taken.
+
 Given only the Unreal Tournament folder, `ut-ants` opens a map launcher
 instead. It lists the install's playable maps, bakes the one you pick and
 opens it, and returns to the list when you close the map.
@@ -171,9 +189,10 @@ when they recover; ultra never lowers it.
 
 ## License
 
-[GPL-3.0](LICENSE). The texture compressor in
-[third_party/bc7enc/](third_party/bc7enc/) is someone else's work under the
-MIT licence or the Unlicense; its README says which copy it is and where it
-came from. The baker's still picture of a fire texture is adapted from
+[GPL-3.0](LICENSE). Three pieces are someone else's work, each with its own
+README saying which copy it is and where it came from. The texture compressor
+in [third_party/bc7enc/](third_party/bc7enc/) and the PNG writer in
+[third_party/stb/](third_party/stb/) are under the MIT licence or the
+Unlicense. The baker's still picture of a fire texture is adapted from
 SurrealEngine under the zlib licence, whose notice is in
 [third_party/surrealengine/](third_party/surrealengine/).

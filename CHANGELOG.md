@@ -17,6 +17,15 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **F12 in the viewer saves a capture folder** (UTA-0191)
+  Press F12, or the pad's left face button, and the viewer writes one
+  folder per press beside its notes: the frame exactly as shown, the same
+  view drawn without exposure or the tone map so it can be measured, the
+  camera on its own in the form ut-shot reads, and a text file naming the
+  map, the bundle's hash and format, the baker that made it, the build's
+  commit, the quality tier, the sizes and the light time. The screen
+  flashes once as the second image is drawn.
+
 - **Baked ambient occlusion: corners and creases get a soft shadow, at every quality tier.** (UTA-0164)
   The bake measures how enclosed each patch of every lit surface is and
   stores it in a new AOCC section. The renderer darkens indirect and

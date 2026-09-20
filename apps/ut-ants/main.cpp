@@ -7,6 +7,7 @@
 // the SDL half, and it is run by hand: no CI leg has a display
 // (docs/specs/UTA-0014-vulkan-draw-path.md SS 4.12).
 
+#include "Capture.h"
 #include "Cli.h"
 #include "FlyCamera.h"
 #include "Launcher.h"
@@ -22,6 +23,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
@@ -174,7 +176,8 @@ private:
     std::vector<SDL_Gamepad*> pads_;
 };
 
-int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Options& options) {
+int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Options& options,
+        const std::string& bundleHash) {
     uta::urender::Config config;
     Uint32 count = 0;
     const char* const* const names = SDL_Vulkan_GetInstanceExtensions(&count);
@@ -212,6 +215,81 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
 
     std::uint64_t drawn = 0;
     bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
+
+    // UTA-0191. The view the frame ON SCREEN was drawn from, which is not the
+    // camera as it stands: a mouse motion earlier in the same batch of events
+    // has already moved that. Capturing this instead is what makes the second
+    // image the same view as the first.
+    std::optional<uta::urender::Camera> shownView;
+    const auto paths = launcherPaths();
+    // The launcher names the notes file after the map it is opening, so its
+    // stem is the map's name (Cli.h). A run given no notes has only the
+    // bundle's own name, which is a content hash.
+    const std::string mapName =
+        !options.notes.empty() ? options.notes.stem().string() : options.bundle.stem().string();
+
+    const auto writeCaptureFolder = [&] {
+        if (!shownView) {
+            std::cerr << "ut-ants: nothing to capture yet -- no frame has been drawn\n";
+            return;
+        }
+        if (!paths) {
+            std::cerr << "ut-ants: no capture folder: " << paths.error().message() << "\n";
+            return;
+        }
+        // The frame already on screen. readback copies the colour target, which
+        // the presenting path blits from, so this is what the player is looking
+        // at rather than a redraw of it.
+        const auto shown = renderer.readback();
+        if (!shown) {
+            std::cerr << "ut-ants: the frame did not read back: " << shown.error().message() << "\n";
+            return;
+        }
+        const uta::urender::FrameStats stats = renderer.lastFrameStats();
+
+        // The same view again with the output stage off, so it can be measured.
+        // The light time is pinned to the frame above, or a pulsing light is at
+        // a different phase in the two images and they disagree for a reason
+        // that has nothing to do with what is being compared.
+        renderer.pinLightSeconds(renderer.lightSeconds());
+        renderer.setLinearOutput(true);
+        const auto redrew = renderer.draw(bundle, *shownView);
+        const auto linear = redrew ? renderer.readback()
+                                   : uta::Result<std::vector<std::byte>>(
+                                         std::unexpected(redrew.error()));
+        renderer.setLinearOutput(false);
+        renderer.unpinLightSeconds();
+        if (!linear) {
+            std::cerr << "ut-ants: the linear view did not draw: " << linear.error().message() << "\n";
+            return;
+        }
+
+        int windowWidth = 0, windowHeight = 0;
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        const CaptureInfo info{
+            .map = mapName,
+            .bundleHash = bundleHash,
+            .formatVersion = bundle.header.formatVersion,
+            .bakerVersion = options.bakerVersion,
+            .commit = UTA_BUILD_COMMIT,
+            .tier = std::string(uta::urender::tierName(stats.tier)),
+            .renderWidth = config.width,
+            .renderHeight = config.height,
+            .renderScale = stats.renderScale,
+            .windowWidth = static_cast<std::uint32_t>(std::max(windowWidth, 0)),
+            .windowHeight = static_cast<std::uint32_t>(std::max(windowHeight, 0)),
+            .lightSeconds = renderer.lightSeconds(),
+            .cameraLine = poseLine(*shownView, config.width, config.height),
+        };
+        const auto folder = writeCapture(paths->captures, info, *shown, *linear,
+                                         std::chrono::system_clock::now());
+        if (!folder) {
+            std::cerr << "ut-ants: the capture did not save: " << folder.error().message() << "\n";
+            return;
+        }
+        std::cerr << "ut-ants: capture written to " << folder->string() << "\n";
+    };
+
     Uint64 last = SDL_GetTicksNS();
     for (bool running = true; running;) {
         FlyInput input;
@@ -238,6 +316,14 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                     if (const auto added = appendNote(options.notes, line); !added)
                         std::cerr << "ut-ants: the camera did not save: " << added.error().message() << "\n";
                 }
+            } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F12 &&
+                        !event.key.repeat) ||
+                       (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                        event.gbutton.button == SDL_GAMEPAD_BUTTON_WEST)) {
+                // UTA-0191: everything needed to find and redraw this view.
+                // Square on a PlayStation pad, X on an Xbox one -- the one face
+                // button the viewer does not already use.
+                writeCaptureFolder();
             } else if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
                 gamepads.open(event.gdevice.which);
             } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
@@ -284,6 +370,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             std::cerr << "ut-ants: a frame did not draw: " << result.error().message() << "\n";
             return EXIT_FAILED;
         }
+        shownView = view; // UTA-0191: what a capture redraws
         ++drawn;
         if (options.frames.has_value() && drawn >= *options.frames) break;
     }
@@ -329,6 +416,9 @@ int main(int argc, char** argv) {
                   << "\n";
         return EXIT_FAILED;
     }
+    // UTA-0191: the bundle's identity, taken before the bytes go. A capture
+    // records it so a frame can be tied to the exact bundle that drew it.
+    const std::string bundleHash = uta::client::bundleHashHex(*bytes);
     *bytes = {}; // the decoded bundle is all that is drawn from
     if (bundle->header.kind != uta::ubundle::BundleKind::Map) {
         std::cerr << "ut-ants: " << options->bundle.string() << " is not a map\n";
@@ -360,7 +450,7 @@ int main(int argc, char** argv) {
         SDL_Quit();
         return EXIT_FAILED;
     }
-    const int status = run(window, *bundle, *options);
+    const int status = run(window, *bundle, *options, bundleHash);
     SDL_DestroyWindow(window);
     SDL_Quit();
     return status;

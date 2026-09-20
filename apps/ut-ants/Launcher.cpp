@@ -268,6 +268,14 @@ private:
             }
             args.emplace_back("--notes"); // UTA-0190: P writes the camera there
             args.push_back(notesFile(paths_.notes, opening_).string());
+            // UTA-0191: the report is the only place the baker version appears,
+            // and it is gone once this answer is dropped. A cached verdict
+            // carries it too, so a map opened a second time is described as
+            // fully as the first.
+            if (!answer.bakerVersion.empty()) {
+                args.emplace_back("--baker-version");
+                args.push_back(answer.bakerVersion);
+            }
             args.push_back(options_.install.string());
             args.push_back(answer.path.string());
             busy_ = Busy::Viewing;

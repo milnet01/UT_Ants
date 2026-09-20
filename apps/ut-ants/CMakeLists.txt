@@ -1,10 +1,36 @@
 # ut-ants, the client -- UTA-0016. A RUNTIME target (docs/design.md § Programs).
 #
-# Cli.cpp, FlyCamera.cpp and MapList.cpp need no window, and
-# tests/CMakeLists.txt compiles them into the unit tests. main.cpp and
+# Cli.cpp, FlyCamera.cpp, MapList.cpp, Png.cpp and Capture.cpp need no window,
+# and tests/CMakeLists.txt compiles them into the unit tests. main.cpp and
 # Launcher.cpp are the SDL half, run by hand: no CI leg has a display.
-add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp Launcher.cpp MapList.cpp)
+add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp Launcher.cpp MapList.cpp Png.cpp Capture.cpp)
 target_link_libraries(ut-ants PRIVATE uta_urender uta_uworld uta_ubundle uta_core SDL3::SDL3)
+
+# UTA-0191's capture folder writes PNG, and Png.cpp is the one translation unit
+# that instantiates the vendored encoder. third_party/stb/README.md records the
+# copy; docs/standards/dependency-acquisition.md § 2 question 4 is why it is
+# vendored. PRIVATE, so the header reaches no other target by accident -- and
+# deliberately NOT on uta_core, whose rule-1 independence it would breach.
+target_include_directories(ut-ants PRIVATE "${PROJECT_SOURCE_DIR}/third_party/stb")
+
+# UTA-0191: a capture folder records which build drew the frame. Resolved at
+# CONFIGURE time, so a commit made without re-running CMake is reported as the
+# one configured. That is why a capture records the bundle's hash and the
+# baker's version as well -- neither drifts that way, so the two together still
+# identify what was drawn when this field has gone stale.
+# A source tarball has no git history, and "unknown" is the honest answer there.
+execute_process(
+    COMMAND git -C "${PROJECT_SOURCE_DIR}" rev-parse --short HEAD
+    OUTPUT_VARIABLE _uta_commit
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+    RESULT_VARIABLE _uta_commit_status)
+if(NOT _uta_commit_status EQUAL 0 OR _uta_commit STREQUAL "")
+    set(_uta_commit "unknown")
+endif()
+target_compile_definitions(ut-ants PRIVATE UTA_BUILD_COMMIT="${_uta_commit}")
+unset(_uta_commit)
+unset(_uta_commit_status)
 
 # Rule 16 has ut-ants run ut-bake, and it looks beside itself, so a build puts
 # one there. A target of its own rather than a POST_BUILD step on ut-ants, which

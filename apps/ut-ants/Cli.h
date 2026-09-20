@@ -35,7 +35,18 @@ struct Options {
     std::optional<urender::Tier> tier;
     /// UTA-0190: the map's notes file, which P appends the camera to. Empty:
     /// the camera goes to standard error only.
+    ///
+    /// UTA-0191 also takes the capture folder's map name from this file's
+    /// stem, because the launcher names it after the map it is opening
+    /// (Launcher.cpp passes notesFile(paths.notes, opening)). A run given no
+    /// notes falls back to the bundle's own stem, which is a content hash.
     std::filesystem::path notes;
+    /// UTA-0191: what ut-bake reported as its `bakerVersion` for this bundle,
+    /// which the capture folder records. Empty: unknown, and the capture says
+    /// so. Nothing else can supply it -- the bundle does not store it and
+    /// docs/design.md rule 2 keeps uta_ubake out of this program's link
+    /// closure -- so the launcher passes on what the report told it.
+    std::string bakerVersion;
 };
 
 /// The usage text, for `err`.

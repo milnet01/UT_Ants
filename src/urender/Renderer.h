@@ -121,10 +121,18 @@ public:
     enum class Target { Colour, Velocity };
 
     /// Copy the last frame's `target` into host memory, tightly packed: RGBA8
-    /// for Colour, two floats per pixel for Velocity. Surfaceless path only --
-    /// the presenting path's frames go to the swapchain and are not read back.
+    /// for Colour, two floats per pixel for Velocity.
     /// Velocity is refused after a frame drawn below scale 1, whose region is
     /// smaller than the target (UTA-0051 SS 4.4).
+    ///
+    /// **Both paths.** This read the surfaceless path's frames only until
+    /// UTA-0191, and the restriction was never a limit of the hardware: the
+    /// presenting path draws into the same colour target and `Swapchain::
+    /// recordBlit` blits THAT into the acquired swapchain image, so the pixels
+    /// are here on both paths. Both also submit and wait before presenting
+    /// (Present.cpp's own header says so), so the frame is finished by the time
+    /// this is called and the copy needs no synchronisation of its own.
+    /// UTA-0191's capture folder is what needed the presented frame back.
     [[nodiscard]] Result<std::vector<std::byte>> readback(Target target = Target::Colour);
 
     /// The last frame's SS 6 counts.
@@ -134,6 +142,30 @@ public:
     /// consumes it: with no temporal resolve to average it away, a jittered
     /// frame is a frame that shimmers.
     void setJitter(bool enabled) noexcept;
+
+    /// Skip exposure and the tone map from the next frame, as
+    /// `Config::linearOutput` does from `create` (SS 4.10). Settable per frame
+    /// because the flag is a push constant rather than a pipeline choice, so
+    /// one renderer can draw a presented frame and then the same view
+    /// unmapped -- which is how UTA-0191's capture folder holds both without
+    /// standing a second device up.
+    void setLinearOutput(bool enabled) noexcept;
+
+    /// The light time the last frame was drawn at, in seconds -- SS 4.9's
+    /// clock, which a flickering light's phase is measured from. Zero before
+    /// any frame is drawn.
+    [[nodiscard]] double lightSeconds() const noexcept;
+
+    /// Draw every later frame at `seconds` instead of reading the clock.
+    ///
+    /// Two frames of the same view are otherwise drawn at different times, so
+    /// on a map carrying an LT_PULSE or LT_SUBTLE_PULSE light they disagree for
+    /// a reason that has nothing to do with what is being compared. UTA-0191
+    /// pins the second of its two draws to the first's time for exactly that.
+    void pinLightSeconds(double seconds) noexcept;
+
+    /// Back to the clock, from the next frame.
+    void unpinLightSeconds() noexcept;
 
     /// The target's new size in pixels -- the window's drawable size, not its
     /// size in window units. The next `draw` rebuilds every render target at

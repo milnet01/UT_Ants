@@ -10959,7 +10959,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-19.
   Lanes: apps/ut-ants.
 
-- 📋 [UTA-0191] **F12 in the viewer saves a capture folder: the frame on screen and everything needed to reproduce it.**
+- 🚧 [UTA-0191] **F12 in the viewer saves a capture folder: the frame on screen and everything needed to reproduce it.**
   User, 2026-09-19: "What the DOOM Ants project did is map button (F12)
   that takes a screenshot and records other info that you will find
   useful. Please create an option like this for the map launcher that I
@@ -10982,6 +10982,25 @@ model, no weapon and no opponent until 0.2.0.
   Placed 2026-09-19 by the session: after UTA-0187, before UTA-0188. UTA-0188
   and UTA-0186 are both look findings from the user's own flights, and a
   capture folder is what makes such a finding reproducible.
+  Taken 2026-09-20 by session ut-ants-67, main checkout. Rule-1 set
+  checked first by the complete route, not the prefix query: ROADMAP.md
+  carries 11 distinct `Source:` tokens, only review-code- and
+  review-contract- record a review, no open item carries
+  review-contract-, and the two open review-code-2026-09-10 items
+  (UTA-0098, UTA-0100) are both dormant on conditions still unmet. The
+  9 open items the prefix query missed are all consumer-request- or
+  ut-monsterhunt-*, which record requests rather than reviews.
+
+  Survey before starting, three findings that shape the work:
+  - Renderer::readback is surfaceless-path only; its own comment says the
+    presenting path's frames go to the swapchain and are not read back.
+    ut-ants presents, so the frame on screen cannot be captured today.
+  - No PNG encoder anywhere in src, tools or apps. ut-shot writes binary
+    PPM.
+  - Light time is steady_clock::now() minus Frame.cpp's impl.start, with
+    no getter and no setter, so the light time drawn is not observable
+    and cannot be pinned for a companion frame.
+  Asked the user how to settle all three before writing code.
   **Layman:** Press F12 while flying a map and the game saves a picture of the screen plus the details needed to find and redraw that exact view, in one folder.
   Kind: feature.
   Source: user-request-2026-09-19.

@@ -364,6 +364,14 @@ struct Renderer::Impl {
     std::uint64_t frameIndex = 0;
     /// SS 4.9's clock: a flickering light's phase is measured from here.
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    /// Set: every frame draws at this light time instead of reading the clock
+    /// (Renderer::pinLightSeconds). UTA-0191 draws one view twice and needs the
+    /// two to agree on a pulsing light's phase.
+    std::optional<double> pinnedLightSeconds;
+    /// The light time the last frame was drawn at, which UTA-0191's capture
+    /// records. Kept rather than recomputed: reading the clock again would
+    /// return a later time than the frame actually used.
+    double lastLightSeconds = 0;
     bool drawn = false;
     FrameStats stats;
     /// UTA-0051 SS 4.3: chosen once, at create.
@@ -1216,7 +1224,11 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     frame.farPlane = camera.farPlane;
     // scene.frag divides by this to find a pixel's cluster, so it is the region's.
     frame.viewportSize = {static_cast<float>(region.width), static_cast<float>(region.height)};
-    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
+    const double seconds =
+        impl.pinnedLightSeconds
+            ? *impl.pinnedLightSeconds
+            : std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
+    impl.lastLightSeconds = seconds;
     std::vector<gpu::Light> lights = drawnLights(bundle, seconds);
     const ClusterGrid grid = clusterGrid(camera, region.width, region.height);
     std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
@@ -1365,10 +1377,11 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
 }
 
 Result<std::vector<std::byte>> Renderer::readback(Target target) {
+    // Both paths. The presenting path draws into impl.output too and blits THAT
+    // into the acquired swapchain image (Swapchain::recordBlit), and both paths
+    // submit and wait before presenting -- so the pixels are here and finished
+    // either way. UTA-0191's capture folder is what needed the presented frame.
     Impl& impl = *impl_;
-    if (impl.swapchain)
-        return fail(ErrorCode::InvalidArgument,
-                    "readback is the surfaceless path's; the presenting path's frames go to the swapchain");
     if (!impl.drawn) return fail(ErrorCode::InvalidArgument, "readback before any frame was drawn");
     if (target == Target::Velocity && impl.drawnScale < 1.0)
         return fail(ErrorCode::InvalidArgument,
@@ -1403,6 +1416,14 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
 FrameStats Renderer::lastFrameStats() const noexcept { return impl_->stats; }
 
 void Renderer::setJitter(bool enabled) noexcept { impl_->jitter = enabled; }
+
+void Renderer::setLinearOutput(bool enabled) noexcept { impl_->config.linearOutput = enabled; }
+
+double Renderer::lightSeconds() const noexcept { return impl_->lastLightSeconds; }
+
+void Renderer::pinLightSeconds(double seconds) noexcept { impl_->pinnedLightSeconds = seconds; }
+
+void Renderer::unpinLightSeconds() noexcept { impl_->pinnedLightSeconds.reset(); }
 
 Result<void> Renderer::resize(std::uint32_t width, std::uint32_t height) {
     if (width == 0 || height == 0)

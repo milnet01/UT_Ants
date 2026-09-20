@@ -13,7 +13,7 @@ namespace uta::client {
 
 void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
-           "               [--notes <file>] <install> <bundle>\n"
+           "               [--notes <file>] [--baker-version <text>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] <install>\n"
            "       ut-ants --help\n"
            "\n"
@@ -37,6 +37,13 @@ void usage(std::ostream& err) {
            "View button, writes where the camera is as a line ut-shot reads.\n"
            "--notes appends that line to a file too; the launcher passes the map's\n"
            "notes.\n"
+           "F12, or the pad's left face button, saves a capture folder: the frame as\n"
+           "shown, the same view without exposure or the tone map, and a text file\n"
+           "naming the map, bundle, build and camera. One folder per press, beside\n"
+           "the notes in the per-user state directory. The screen flashes once as it\n"
+           "draws the second image.\n"
+           "--baker-version records which baker made the bundle; the launcher passes\n"
+           "what ut-bake reported.\n"
            "--frames draws that many frames and exits 0 if every one drew.\n"
            "--validation asks for the Vulkan validation layer.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
@@ -96,6 +103,16 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
                 return std::nullopt;
             }
             options.notes = std::filesystem::path(std::string(args[++i]));
+        } else if (arg == "--baker-version") {
+            if (!options.bakerVersion.empty()) {
+                err << "ut-ants: --baker-version is given twice\n";
+                return std::nullopt;
+            }
+            if (i + 1 >= args.size()) {
+                err << "ut-ants: --baker-version needs a value\n";
+                return std::nullopt;
+            }
+            options.bakerVersion = std::string(args[++i]);
         } else if (arg.starts_with("-")) {
             err << "ut-ants: unknown option " << arg << "\n";
             return std::nullopt;
@@ -119,6 +136,10 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
     } else if (!options.notes.empty()) {
         // UTA-0190: the launcher keeps a notes file per map itself.
         err << "ut-ants: --notes needs a bundle; the launcher keeps its own notes\n";
+        return std::nullopt;
+    } else if (!options.bakerVersion.empty()) {
+        // UTA-0191: it describes one bundle, and the launcher opens many.
+        err << "ut-ants: --baker-version needs a bundle; it describes the one being opened\n";
         return std::nullopt;
     }
     return options;
