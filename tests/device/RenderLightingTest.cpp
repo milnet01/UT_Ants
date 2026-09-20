@@ -74,7 +74,7 @@ TEST_CASE("a lit surface receives its light through its own cluster's list", "[d
 
     const std::uint8_t red = redAtCentre(renderer, bundle);
     // Reflectance 1 times the light, encoded by the _SRGB target (SS 4.10).
-    const double expected = srgbByte(uta::ubake::lightAt(light, centrePixelOnSquare(), {-1, 0, 0}).r);
+    const double expected = litByte(uta::ubake::lightAt(light, centrePixelOnSquare(), {-1, 0, 0}).r);
     CAPTURE(int(red), expected);
     CHECK(std::abs(red - expected) <= 2.0);
     CHECK(renderer.lastFrameStats().overflowedClusters == 0u);
@@ -96,7 +96,7 @@ TEST_CASE("UTA-0162 INV-8: a strip lights a pixel near its far end through the c
     bundle.lights = std::vector{strip};
 
     const std::uint8_t red = redAtCentre(renderer, bundle);
-    const double expected = srgbByte(uta::ubake::lightAt(strip, centrePixelOnSquare(), {-1, 0, 0}).r);
+    const double expected = litByte(uta::ubake::lightAt(strip, centrePixelOnSquare(), {-1, 0, 0}).r);
     CAPTURE(int(red), expected);
     CHECK(expected > 100);
     CHECK(std::abs(red - expected) <= 2.0);
@@ -120,9 +120,9 @@ TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an u
 
     // light.glsl's AMBIENT_SCALE, set by UTA-0156 SS 7's measurement. Brightness
     // 40 keeps the lit value below 1, where the 8-bit readback would clip it.
-    constexpr double AMBIENT_SCALE = 0.5; // UTA-0165's refit on LevelInfo.Brightness
+    constexpr double AMBIENT_SCALE = 1.0; // UTA-0187's refit with DISPLAY_LIGHT_POWER
     // UTA-0165: brightness 40 through FGetHSV's curve is 0.391061428321661.
-    const double expected = srgbByte(AMBIENT_SCALE * 0.391061428321661);
+    const double expected = litByte(AMBIENT_SCALE * 0.391061428321661);
     const std::uint8_t lit = redAtCentre(renderer, squareInZone(40, 0));
     CAPTURE(int(lit), expected);
     CHECK(std::abs(lit - expected) <= 2.0);
@@ -146,7 +146,7 @@ TEST_CASE("a flat normal map lights exactly as the surface's own normal", "[devi
     bundle.lights = std::vector{light};
 
     const std::uint8_t red = redAtCentre(renderer, bundle);
-    const double expected = srgbByte(uta::ubake::lightAt(light, centrePixelOnSquare(), {-1, 0, 0}).r);
+    const double expected = litByte(uta::ubake::lightAt(light, centrePixelOnSquare(), {-1, 0, 0}).r);
     CAPTURE(int(red), expected);
     CHECK(std::abs(red - expected) <= 2.0);
 }

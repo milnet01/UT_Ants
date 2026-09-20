@@ -94,12 +94,11 @@ TEST_CASE("radius and falloff", "[ubake][lightmodel]") {
     CHECK(lightRadius(0) == 25.0);
     CHECK(lightRadius(64) == 1625.0);
     CHECK(falloff(0, 1625) == 1.0);
-    // UTA-0156: UE1's shape, full strength to half the radius and then down.
-    // v = 0.25 would be 3.375 unclamped; the old (1 - v^2)^2 gave 0.8789; UT99's
-    // own 1 + 2v^3 - 3v^2, measured and not kept (UTA-0156 SS 4.5), gives 0.84375.
-    CHECK(falloff(406.25, 1625) == 1.0);
-    CHECK(falloff(812.5, 1625) == 1.0);
-    CHECK(falloff(1218.75, 1625) == 0.15625 / 0.75);
+    // UTA-0187: UT99's own 1 + 2v^3 - 3v^2, with no /v and no cap. The shape
+    // it replaced, SurrealEngine's, gave 1 at v = 0.25 and 0.5.
+    CHECK(falloff(406.25, 1625) == 0.84375);
+    CHECK(falloff(812.5, 1625) == 0.5);
+    CHECK(falloff(1218.75, 1625) == 0.15625);
     CHECK(falloff(1625, 1625) == 0.0);
     CHECK(falloff(2000, 1625) == 0.0);
 }

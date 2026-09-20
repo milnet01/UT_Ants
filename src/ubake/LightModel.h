@@ -7,9 +7,10 @@
 //
 // WHERE THE MODEL COMES FROM. The colour and intensity are UT99's own FGetHSV,
 // read from its 469 Engine.so (UTA-0165); the level's brightness is its
-// Render.so's (UTA-0156 SS 4.5); the falloff and the two reshaping effects are
-// SurrealEngine's (UTA-0156); the cone is SS 4.3's choice. A change
-// to any of them re-bakes every map, which is what BAKER_REVISION records.
+// Render.so's (UTA-0156 SS 4.5), and so is the falloff (UTA-0187); the two
+// reshaping effects are SurrealEngine's (UTA-0156); the cone is SS 4.3's
+// choice. A change to any of them re-bakes every map, which is what
+// BAKER_REVISION records.
 //
 // NO PLATFORM MATHS LIBRARY IN THE SINE. sineOf reduces its angle with integer
 // arithmetic and evaluates fixed polynomials by Horner's rule, using only
@@ -46,18 +47,15 @@ struct Rgb {
 /// `AActor::WorldLightRadius`: 25 * (radius + 1).
 [[nodiscard]] double lightRadius(std::uint8_t radius) noexcept;
 
-/// UE1's falloff (UTA-0156): with v = distance / radius, min(1, (1 + 2v^3 -
-/// 3v^2) / v) below the radius, so full strength out to half of it; 1 at the
-/// light; 0 at the radius and beyond. SurrealEngine's LightEffect.cpp carries
-/// the same expression.
+/// UT99's own falloff (UTA-0187): with v = distance / radius, 1 + 2v^3 - 3v^2
+/// below the radius; 1 at the light; 0 at the radius and beyond. Render.so's
+/// spatial_None is incidence times this, with no /v and no cap.
 ///
-/// NOT UT99's OWN, AND KEPT BY MEASUREMENT (UTA-0156 SS 4.5). Render.so's
-/// spatial_None is incidence x (1 + 2v^3 - 3v^2), with no /v and no cap. Put
-/// into this model it matched the original game WORSE: over DM-Deck16][,
-/// AS-Frigate and DM-Fetid, fog zeroed, pooled block RMS 37.5 against 36.6
-/// here, and own exposures 5.30, 7.35 and 7.82 against 5.26, 5.68 and 5.80.
-/// UT99 adds that shape in its lightmap's units, not in linear light, so the
-/// shape alone does not carry across. Do not swap it in without a measurement.
+/// TAKEN WITH THE DISPLAY-VALUE COMBINE, NOT ALONE. UTA-0156 SS 4.5 measured
+/// it worse than SurrealEngine's min(1, (1 + 2v^3 - 3v^2) / v) while light met
+/// texture linearly: UT99 adds this shape in its lightmap's units. UTA-0187
+/// moved the combine onto display values (scene.frag), where this shape
+/// matched the original game better than SurrealEngine's.
 [[nodiscard]] double falloff(double distance, double radius) noexcept;
 
 namespace detail {

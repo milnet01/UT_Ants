@@ -10750,6 +10750,74 @@ model, no weapon and no opponent until 0.2.0.
   rather than fit p, put it in post.frag's output stage, then refit g,
   AMBIENT_SCALE and EXPOSURE through sweep187.py. UT99's falloff lives in
   ubake too (LightModel.cpp, parity-tested), and the change re-bakes.
+  Resumed (2026-09-19) by session ut-ants-e9, main checkout; ut-ants-22
+  is gone.
+  Progress (2026-09-19, ut-ants-e9): the ramp is measured, and it
+  darkens. UTGLR's public formula, in^(1/(2.5 * (Brightness +
+  GammaOffset))), does not describe 469; 469's OpenGLDrv source is not
+  public. Measured by capturing DM-Deck16][ in the capture copy
+  (ut-ants-uta0187/gammaraw.sh, gammaprobe.sh, ramp.py):
+  - UseShaderGamma off gives the raw framebuffer. At Brightness 1.0 the
+    shot is raw^1.65, fit over in 8..200, RMS a third of a level.
+  - GammaCorrectScreenshots changes nothing: the shader applies the ramp
+    in the framebuffer.
+  - A fresh Brightness 1.0 capture matches orig-deck16.
+  So the reference frames are (texture x lightmap)^1.65 in display
+  bytes. The earlier display**p fit only tried p 0.40 to 1.0.
+  Offline, p 1.65 is worse on every render so far: linear rule 36.0 to
+  38.5; the display-value rule with UT99 falloff 36.1 to 41.6.
+  Code so far, uncommitted: UT99's falloff in ubake and light.glsl,
+  BAKER_REVISION 21 (golden digest unmoved), and scene.frag's
+  base * pow(LIGHT_GAIN * light, DISPLAY_LIGHT_POWER). The device tests
+  predict through litByte. UTA-0182's room test scales its light 16x
+  (passes from 4x); zeroing SHADOW_RECEIVER_BIAS still fails it on
+  lavapipe and the GPU. Revision-21 bakes are in ut-ants-uta0164/bakes4.
+  Running: sweep187b.py over the light exponent c, scored at ramp p 1.0
+  and 1.65.
+  Progress (2026-09-19, ut-ants-e9): sweep187b.py on the revision-21
+  bakes, pooled block RMS with PBR Neutral (with clipping at white, as
+  UT99, in brackets; fitclip.py):
+  - c 1.0 (linear), A 0.5: 36.0 (34.2).
+  - c 1.6, A 1: 34.8 (32.6). Frigate 30.5, Deck16 39.6, Fetid 36.5.
+  - c 2.2, A 1: 36.1 (33.3). c 2.2, A 0.7: 36.9. c 2.2, A 1.5: 38.3.
+  - c 0.75: 37.1. c 0.5: 39.0.
+  The measured ramp, p 1.65, is worse at every point under both
+  displays, so post.frag gets no ramp. This departs from the handoff's
+  plan, on the measurement.
+  Decided by the user, 2026-09-19: ship the display-value rule with
+  today's tone map; the tone map is UTA-0192, placed next.
+  Running: cc-job uta0187-c3 refines c 1.3 and 1.9 at A 1, and A 0.75
+  and 1.3 at c 1.6. It edits light.glsl and Frame.cpp while it runs.
+  Next: take the best (c, A) from its log. Set DISPLAY_LIGHT_POWER,
+  AMBIENT_SCALE and EXPOSURE (the fit's k) in light.glsl and the device
+  fixture's litByte, and the AMBIENT_SCALE mirror in
+  RenderLightingTest. Check AS-Frigate's sky ratio, rerun the unit and
+  device tiers on lavapipe and the GPU, then commit, push and watch
+  the matrix.
+  Progress (2026-09-20, ut-ants-e9): uta0187-c3 finished, PBR Neutral:
+  c 1.3 A 1: 35.2. c 1.9 A 1: 35.2. c 1.6 A 0.75: 34.9. c 1.6 A 1.3:
+  35.9. The fit is chosen: DISPLAY_LIGHT_POWER 1.6, AMBIENT_SCALE 1,
+  EXPOSURE 6.16 (r21-c1.6-a1's joint k). Pooled 34.8 against 36.0 for
+  today's rule; Frigate 30.5, Deck16 39.6, Fetid 36.5. The sweep has
+  finished and the tree holds only this item's uncommitted edits, so the
+  source may be edited and built again.
+  Resumed (2026-09-20) by session ut-ants-47, main checkout; ut-ants-e9
+  is gone. Taking the chosen fit into the tree: DISPLAY_LIGHT_POWER 1.6,
+  AMBIENT_SCALE 1, EXPOSURE 6.16.
+  Progress (2026-09-20, ut-ants-47): the fit is in the tree.
+  DISPLAY_LIGHT_POWER 1.6 and AMBIENT_SCALE 1 in light.glsl, EXPOSURE
+  6.16 in Frame.cpp, each comment carrying its sweep. LIGHT_GAIN held at
+  1. AS-Frigate's sky, scored on r21-c1.6-a1 at k 6.16 with sweep187.py's
+  sky(): pose 0 falls from 2.36 times the original to 1.29, where the
+  rest of that frame moves from 0.66 to 0.87; pose 1 from 1.88 to 1.24.
+  The handoff's "about 1" was not what the score gives, so the comment
+  records the measured value.
+  A THIRD AMBIENT_SCALE mirror the handoff did not name:
+  RenderOcclusionTest's UTA-0164 INV-8 case. It failed on lavapipe until
+  it was moved to 1; the two named mirrors alone are not enough.
+  Unit 649/649. Device 46/46 on lavapipe and on the GPU. Zeroing
+  SHADOW_RECEIVER_BIAS still fails UTA-0182's room test on both, so the
+  16x light scale has not made it vacuous at the lower exponent.
   **Layman:** Surfaces lit by one distant lamp look far brighter than in the original, most visibly AS-Frigate's sky; change how light meets texture to match the original.
   Kind: fix.
   Source: in-session-2026-09-18.
@@ -10839,6 +10907,26 @@ model, no weapon and no opponent until 0.2.0.
   Kind: feature.
   Source: user-request-2026-09-19.
   Lanes: apps/ut-ants, urender.
+
+- 📋 [UTA-0192] **Fit the output stage's tone map against the original, which clips at white.**
+  Found by UTA-0187, 2026-09-19. UT99 has no tone map: its 2x blend
+  clips at white. Scored offline on the revision-21 reference renders
+  (ut-ants-uta0187/fitclip.py), clipping in place of post.frag's PBR
+  Neutral lowers pooled block RMS for both combine rules:
+  - base * pow(light, 2.2), AMBIENT_SCALE 1: 36.1 to 33.3.
+  - the linear rule, AMBIENT_SCALE 0.5: 36.0 to 34.2.
+  Clipping loses the soft roll-off on bright lamps, fog glow and bloom,
+  and UTA-0014 SS 4.10 chose PBR Neutral, so the spec changes with it.
+  Measure candidates that keep a shoulder (a later-starting PBR Neutral,
+  say) against plain clipping before choosing, then refit EXPOSURE.
+  The measured screenshot ramp (raw^1.65 at Brightness 1.0) did not help
+  under either display; UTA-0187's body has the numbers.
+
+  Placed 2026-09-19 by the user: next after UTA-0187, before UTA-0191.
+  **Layman:** Our final brightness squeeze differs from the original game's; measure which one makes our frames match it best.
+  Kind: fix.
+  Source: in-session-2026-09-19.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 

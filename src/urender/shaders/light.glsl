@@ -46,13 +46,12 @@ float lightRadius(uint radius) {
     return 25.0 * float(radius + 1u);
 }
 
-// UE1's falloff -- UTA-0156: full strength out to half the radius, then down.
-// Not UT99's own, and kept by measurement: ubake::falloff says why.
+// UT99's own falloff -- UTA-0187: 1 + 2v^3 - 3v^2, as ubake::falloff says.
 float lightFalloff(float distance, float radius) {
     if (distance >= radius) return 0.0;
     if (distance <= 0.0) return 1.0;
     float v = distance / radius;
-    return min(1.0, (1.0 + 2.0 * v * v * v - 3.0 * v * v) / v);
+    return 1.0 + 2.0 * v * v * v - 3.0 * v * v;
 }
 
 // UTA-0156: the share of an LE_Cylinder light's reach over which it fades to
@@ -138,7 +137,36 @@ vec3 lightThrough(Light light, vec3 x) {
 // on baker revision 17 with fog zeroed: pooled block RMS 37.0 at 0.25, 36.7 at
 // 0.375, 36.6 at 0.5, 36.7 at 0.625 and 36.9 at 0.75
 // (ut-ants-uta0156/sweepamb17b.sh).
-const float AMBIENT_SCALE = 0.5;
+// UTA-0187 refitted it jointly with DISPLAY_LIGHT_POWER once light met texture
+// on display values, on baker revision 21 with the PBR Neutral tone map: at
+// DISPLAY_LIGHT_POWER 1.6 the pooled block RMS is 34.9 at 0.75, 34.8 at 1 and
+// 35.9 at 1.3 (ut-ants-uta0187/sweep187b.py).
+const float AMBIENT_SCALE = 1.0;
+
+// UTA-0187: the gain on light before scene.frag raises it to DISPLAY_LIGHT_POWER.
+// Held at 1: under a power rule a gain only trades with EXPOSURE, since
+// pow(g * light, p) is pow(g, p) times pow(light, p) and the joint fit absorbs
+// the constant. Sweeping g 0.5, 2 and 4 confirmed it, none beating 1
+// (ut-ants-uta0187/sweep187.py).
+const float LIGHT_GAIN = 1.0;
+
+// UTA-0187: UT99 multiplies its lightmap into the texture on display values,
+// so a surface in dim light is far darker than light times reflectance gives.
+// scene.frag models that as the light, in display units, raised to this power.
+// Fitted with AMBIENT_SCALE and EXPOSURE over DM-Deck16][, AS-Frigate and
+// DM-Fetid at once, on baker revision 21 with the PBR Neutral tone map: pooled
+// block RMS 39.0 at 0.5, 37.1 at 0.75, 36.0 at 1 (the linear rule it replaces,
+// at AMBIENT_SCALE 0.5), 35.2 at 1.3, 34.8 at 1.6, 35.2 at 1.9 and 36.1 at 2.2.
+// At 1.6 the maps score 30.5, 39.6 and 36.5. AS-Frigate's sky -- the defect
+// this item was filed for -- falls from 2.36 times the original's brightness to
+// 1.29 at pose 0, where the rest of that frame moves from 0.66 to 0.87. The sky
+// stood at 3.6 times the rest of the frame's ratio and now stands at 1.5
+// (ut-ants-uta0187/sweep187b.py, scored with its sky()).
+// The reference frames carry OpenGLDrv's own brightness ramp, measured as
+// raw^1.65 at Brightness 1.0; scored offline it is worse at every point under
+// both displays, so post.frag applies no ramp and this power carries the rule
+// alone (ut-ants-uta0187/ramp.py).
+const float DISPLAY_LIGHT_POWER = 1.6;
 
 // The light a zone's ambient puts on every lit surface in it: a light's colour
 // and intensity with no falloff, incidence, spot, shadow or flicker.

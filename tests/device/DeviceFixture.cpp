@@ -166,6 +166,12 @@ double srgbByte(double c) {
     return 255.0 * encoded;
 }
 
+double litByte(double light) {
+    constexpr double LIGHT_GAIN = 1.0;
+    constexpr double DISPLAY_LIGHT_POWER = 1.6;
+    return srgbByte(std::pow(LIGHT_GAIN * light, DISPLAY_LIGHT_POWER));
+}
+
 std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width, std::uint32_t x,
                                 std::uint32_t y) {
     const std::size_t at = (static_cast<std::size_t>(y) * width + x) * 2 * sizeof(float);

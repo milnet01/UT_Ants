@@ -195,8 +195,10 @@ void main() {
         float open = frame.occlusionTexture != NONE
             ? textureLod(textures[nonuniformEXT(frame.occlusionTexture)], occlusionUv, 0.0).r
             : 1.0;
-        // UTA-0112 SS 4.9: a surface of reflectance rho shows rho * (direct + indirect).
-        colour = base.rgb * (direct + (indirect + ambient) * open);
+        // UTA-0187: UT99 combines light and texture on display values, so the
+        // light is taken to DISPLAY_LIGHT_POWER before it meets reflectance rho.
+        // It replaced UTA-0112 SS 4.9's rho * (direct + indirect).
+        colour = base.rgb * pow(LIGHT_GAIN * (direct + (indirect + ambient) * open), vec3(DISPLAY_LIGHT_POWER));
     }
     // Emission is added to a lit surface only, as before UTA-0040, and at the
     // displaced coordinate like every other map.

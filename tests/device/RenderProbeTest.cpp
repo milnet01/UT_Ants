@@ -223,8 +223,8 @@ TEST_CASE("a surface with probes and no lights receives indirect light", "[devic
     const auto pixels = renderer.readback();
     if (!pixels.has_value()) FAIL(pixels.error().message());
     const int red = pixelAt(*pixels, 160, 80, 32).r;
-    CAPTURE(red, srgbByte(0.25));
-    CHECK(std::abs(red - srgbByte(0.25)) <= 2.0);
+    CAPTURE(red, litByte(0.25));
+    CHECK(std::abs(red - litByte(0.25)) <= 2.0);
 }
 
 TEST_CASE("UTA-0185: a surface on a lattice plane takes the probes on the room's side of it", "[device]") {
@@ -261,6 +261,6 @@ TEST_CASE("UTA-0185: a surface on a lattice plane takes the probes on the room's
     const auto pixels = renderer.readback();
     if (!pixels.has_value()) FAIL(pixels.error().message());
     const int red = pixelAt(*pixels, 160, 80, 32).r;
-    CAPTURE(red, srgbByte(0.25));
-    CHECK(std::abs(red - srgbByte(0.25)) <= 2.0);
+    CAPTURE(red, litByte(0.25));
+    CHECK(std::abs(red - litByte(0.25)) <= 2.0);
 }

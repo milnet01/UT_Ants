@@ -452,6 +452,13 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Dimly lit surfaces are lit the way UT99 combines light and texture** (UTA-0187)
+  Light now meets texture on display values rather than linearly, as
+  UT99 multiplies its lightmap into the texture, and the baker takes
+  UT99's own falloff. A surface lit by one distant lamp no longer looks
+  far brighter than in the original: AS-Frigate's sky falls from 2.36
+  times the original's brightness to 1.29.
+
 - **Outdoor maps no longer glow with far too much haze** (UTA-0178)
   The thin haze in the air was tuned on one indoor map. On a map lit by
   large outdoor lights, such as AS-Frigate, it filled the whole view and

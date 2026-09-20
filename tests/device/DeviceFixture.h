@@ -87,6 +87,11 @@ void addEmissiveMaterial(ubundle::Bundle& bundle, const std::string& id, const R
 /// IEC 61966-2-1's encoding of linear `c`, as an 8-bit value.
 [[nodiscard]] double srgbByte(double c);
 
+/// UTA-0187: what scene.frag shows for `light` on a white lit surface, as an
+/// 8-bit value -- the light through light.glsl's LIGHT_GAIN and
+/// DISPLAY_LIGHT_POWER, mirrored here and changed with them.
+[[nodiscard]] double litByte(double light);
+
 /// The two floats at (x, y) of a Velocity readback `width` pixels wide.
 [[nodiscard]] std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width,
                                               std::uint32_t x, std::uint32_t y);

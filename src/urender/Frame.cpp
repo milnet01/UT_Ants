@@ -85,7 +85,11 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// exposures are 5.26, 5.38 and 5.80, AS-Frigate's falling from 5.76. Scored at
 /// 5.3, 5.4 and 5.5, only DM-Deck16][ moves, 37.3, 37.3 and 37.4; 5.4 is the
 /// nearest tenth to the fit (ut-ants-uta0156/sweepamb18.sh).
-constexpr float EXPOSURE = 5.4f;
+/// UTA-0187 made light meet texture on display values, which changes what a
+/// unit of light is worth; refitted jointly with DISPLAY_LIGHT_POWER 1.6 and
+/// AMBIENT_SCALE 1 on baker revision 21, this is that fit's joint k
+/// (ut-ants-uta0187/sweep187b.py, r21-c1.6-a1).
+constexpr float EXPOSURE = 6.16f;
 
 /// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
 /// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's

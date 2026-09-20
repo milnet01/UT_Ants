@@ -57,7 +57,9 @@ namespace {
 // none, so the digest is 17's.
 // 19: UTA-0176 matched an import by class and made fire stills.
 // 20: UTA-0164 wrote AOCC and bumped the format to 14, so the digest moved.
-constexpr std::uint32_t RECORDED_UNDER = 20;
+// 21: UTA-0187 took UT99's own falloff. Same digest as 20: as at 10, the
+// fixture does not reach the falloff's shape.
+constexpr std::uint32_t RECORDED_UNDER = 21;
 constexpr std::string_view GOLDEN =
     "0469a7e3df8c13790861b610ef473693503fa3e0a383ca6c33459db204dbfae5";
 

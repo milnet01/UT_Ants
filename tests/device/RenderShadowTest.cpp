@@ -189,7 +189,7 @@ TEST_CASE("SS 4.8: a grazing light with a coarse tile leaves a lit surface lit",
         for (const std::uint32_t row : {24u, 28u, 32u}) {
             const uta::ubake::Vec3 x{2000.0, ((column + 0.5) / WIDTH * 2 - 1) * 5000.0,
                                      -((row + 0.5) / HEIGHT * 2 - 1) * 2000.0};
-            const double expected = srgbByte(uta::ubake::lightAt(light, x, {-1, 0, 0}).r);
+            const double expected = litByte(uta::ubake::lightAt(light, x, {-1, 0, 0}).r);
             const int red = pixelAt(*pixels, WIDTH, column, row).r;
             CAPTURE(column, row, red, expected);
             CHECK(std::abs(red - expected) <= 3.0);
@@ -257,6 +257,12 @@ TEST_CASE("UTA-0182: a closed room lit by a lamp near one wall has no black pixe
     addSolidMaterial(bundle, "white", WHITE);
     // Light 80's location to the bit: the wedges depend on it.
     bundle.lights = std::vector{steadyLight({4113.96240234375f, 2684.6787109375f, 0}, 48, 128)}; // radius 3225
+    // UTA-0187: scene.frag raises light to DISPLAY_LIGHT_POWER, so the far
+    // corners' light -- a
+    // tenth of full reach, grazing -- reads below 8 at light 80's own strength
+    // and cannot be told from a wedge. The wedges are depth, not strength, so
+    // the light is scaled until every lit pixel reads above the threshold.
+    bundle.lights->front().levelBrightness = 16.0f;
 
     Camera camera;
     camera.location = {3300, 1920, -420};
