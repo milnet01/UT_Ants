@@ -62,6 +62,27 @@ of one directory and fails on MSVC alone.
 **2026-09-04.** Done the other way round once, and the item read shipped
 while Windows was red.
 
+## A device test comparing frames must discard the first one
+
+A renderer's first frame is not comparable with its later ones. § 4.8 of
+[`docs/specs/UTA-0014-vulkan-draw-path.md`](specs/UTA-0014-vulkan-draw-path.md)
+keeps a still light's shadow tiles rather than redrawing them, so the first
+frame fills that cache and a later frame reads it.
+
+**It is tier-gated, which is what makes it dangerous.** On lavapipe, which
+takes the Low tier, three frames of one view are identical and a test
+comparing the first two passes. On this machine's GPU the first differs from
+the second while the second and third agree — so the test passes locally on
+the software driver and fails on a card.
+
+**Cost one red `./scripts/ci.sh` on 2026-09-20**, on UTA-0191's light-time
+test. The repair is to draw a warm-up frame and compare the two after it,
+which `tests/device/RenderLightTimeTest.cpp` now does and says why.
+
+**Run new device tests on both drivers before pushing** — the gate runs the
+device tier on the GPU, and the `VK_DRIVER_FILES` line in
+[`../CLAUDE.md`](../CLAUDE.md) § Build and test runs it on lavapipe.
+
 ## A spec's invariants must be in the bullet form
 
 `spec-format.md` § 3.7 defines the bullet form and a GFM table, and nothing
