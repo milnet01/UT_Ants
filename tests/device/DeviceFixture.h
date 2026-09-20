@@ -20,6 +20,10 @@
 namespace uta::test::render {
 
 /// UT99's PolyFlags a fixture sets -- UTA-0014 SS 4.5.
+/// UTA-0188 added PF_INVISIBLE: a fixture builds its bundle directly rather
+/// than through ubake, so an invisible batch reaches the renderer here and the
+/// guard that drops it can be graded.
+inline constexpr std::uint32_t PF_INVISIBLE = 0x00000001u;
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;
 inline constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u;
 inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;

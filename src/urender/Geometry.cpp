@@ -53,9 +53,22 @@ Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bun
                             std::format("{} has a batch reaching index {} of {}", what,
                                         static_cast<std::uint64_t>(batch.firstIndex) + batch.indexCount,
                                         geometry.indices.size()));
-            // SS 4.5: PF_Portal is a visibility marker and is not drawn;
-            // PF_Invisible cannot appear, and is not drawn if it does.
-            if ((batch.polyFlags & (gpu::PF_PORTAL | gpu::PF_INVISIBLE)) != 0) continue;
+            // SS 4.5: PF_Invisible cannot appear, and is not drawn if it does.
+            //
+            // UTA-0188 REMOVED PF_PORTAL FROM THIS TEST, and the removal is the
+            // fix rather than a relaxation. In UT99 a zone portal is a surface
+            // like any other: the polygon dividing an air zone from a water
+            // zone IS the water, wearing the water texture. Discarding every
+            // portal threw that away -- AS-Frigate's sea is one surface under
+            // 56 nodes, flagged PF_PORTAL and nothing else that says "water",
+            // and the band showed the hull behind it.
+            //
+            // What made the old test look safe is that it conflated two cases.
+            // A portal meant to be unseen is flagged PF_INVISIBLE as well, and
+            // ubake's Geometry.cpp already drops those before a batch is built
+            // -- so the surfaces still arriving here are the ones UT99 draws,
+            // and the PF_PORTAL half of this test could only ever remove those.
+            if ((batch.polyFlags & gpu::PF_INVISIBLE) != 0) continue;
             if (batch.indexCount == 0) continue;
             scene.draws.push_back({objectIndex, materials.indexOf(batch.material), batch.polyFlags,
                                    firstIndex + batch.firstIndex, batch.indexCount, firstVertex});

@@ -17,6 +17,12 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-dump lists a map's surfaces by texture and flags** (UTA-0201)
+  Each map now reports which textures its walls, floors and water use, how
+  each surface is flagged, and how many are actually drawn. A surface
+  nothing draws shows as zero -- which is how the water fault above was
+  found.
+
 - **F12 in the viewer saves a capture folder** (UTA-0191)
   Press F12, or the pad's left face button, and the viewer writes one
   folder per press beside its notes: the frame exactly as shown, the same
@@ -460,6 +466,14 @@ appears once something has actually shipped.)
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **Water surfaces draw again, instead of showing what is behind them** (UTA-0188)
+  A map's water is often the same polygon that divides the air from the
+  water, and the renderer threw every such surface away as an invisible
+  marker. On AS-Frigate that meant the sea vanished and you saw the ship's
+  hull through it. Only surfaces the original game also hides are dropped
+  now. Measured on AS-Frigate: the sea reads cyan again rather than grey,
+  and nothing else in the frame moved.
 
 - **Dim surfaces keep their detail instead of being crushed darker than the original** (UTA-0192)
   The final brightness squeeze opened by subtracting a little from every

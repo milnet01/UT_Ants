@@ -7,6 +7,10 @@ itself wrote. The loop log is
 **Amended (2026-09-12)** by implementation, before the presenting path is built.
 § 4.3's surface contract changes direction for `UTA-0016`, so the amended
 document is gated again; the rest records what was built.
+**Amended (2026-09-20)** by `UTA-0188`, recording what was built: a `PF_Portal`
+surface is DRAWN, where § 4.5's table and INV-11 both said it was not. Measured
+cause of AS-Frigate's missing sea. **Not gated**, on the same ground as the
+amendment below.
 **Amended (2026-09-20)** by `UTA-0191`, recording what was built: `readback`
 works on both paths, and § 4.11's header gains `setLinearOutput`,
 `lightSeconds`, `pinLightSeconds` and `unpinLightSeconds`. The old text said
@@ -511,7 +515,7 @@ with it exactly, which is what makes the rest of the enum trustworthy here.
 | `PF_TwoSided` | `0x00000100` | `VK_CULL_MODE_NONE` |
 | `PF_Unlit` | `0x00400000` | Base colour emitted directly; no direct or indirect light applied |
 | `PF_FakeBackdrop` | `0x00000080` | Drawn as the level's sky: depth written at the far plane, unlit. **Amended by `UTA-0163`, recording what was built:** where the level has a SkyZoneInfo, the surface shows the sky zone as drawn from that actor, sampled by view direction -- `src/urender/Sky.h` |
-| `PF_Portal` | `0x04000000` | Not drawn. It is a visibility marker, and UTA-0109 emits it deliberately so this item can choose |
+| `PF_Portal` | `0x04000000` | **Drawn, like any other surface. Amended by `UTA-0188`, recording what was built.** It read *"not drawn, it is a visibility marker"* until 2026-09-20, and that cost AS-Frigate its sea: in UT99 the polygon dividing an air zone from a water zone IS the water, wearing the water texture. A portal meant to be unseen carries `PF_Invisible` as well and is dropped by the row above, so the surfaces reaching the renderer are the ones UT99 draws — which made the discard not merely wrong for water but unable to remove anything else |
 | any other bit | — | **Ignored, and ignoring it is a decision.** `PF_Modulated`, `PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and `PF_SpecialLit` all have real UT99 meanings this item does not implement; § 9 says where each goes |
 
 **Movers.** `MoverShape` holds pivot-space `geometry` plus `location`,
@@ -1022,13 +1026,19 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
 
 - **INV-11** — a `PF_Masked` batch cuts out below the threshold; a
   `PF_TwoSided` batch renders from both sides; a `PF_Translucent` batch writes
-  no motion vector; a `PF_Portal` batch draws nothing; and a batch carrying a
-  bit § 4.5's table does not name renders exactly as it would without it.
+  no motion vector; a `PF_Portal` batch **is drawn** while a
+  `PF_Portal | PF_Invisible` one is not; and a batch carrying a bit § 4.5's
+  table does not name renders exactly as it would without it.
   *Test:* `tests/device/RenderSurfaceFlagsTest.cpp`, label `device`, one batch
   per flag plus one carrying `PF_Modulated`, which must be ignored.
   *Breaks when:* the flag word is compared for equality rather than tested bit
   by bit, so a surface carrying `PF_Masked | PF_TwoSided` matches neither case
   and silently renders as opaque and single-sided.
+  **The portal pair is `UTA-0188`'s and the two rows are ONE case.** This
+  invariant read *"a `PF_Portal` batch draws nothing"* until 2026-09-20, which
+  is the decision that lost AS-Frigate's sea. Asserting only that a portal now
+  draws would pass an implementation ignoring the flags altogether, so the
+  invisible partner is what says the remaining guard still holds.
 
 ## 6. Failure modes
 

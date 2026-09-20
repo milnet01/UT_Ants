@@ -10998,6 +10998,40 @@ model, no weapon and no opponent until 0.2.0.
   Held by session ut-ants-67, main checkout, and parked rather than
   dropped -- the probes and reference frames in ut-ants-uta0188 are what
   make the resume cheap.
+  CAUSE FOUND 2026-09-20, and this item is answered. The Waiting-on above
+  is met: UTA-0201 shipped the surface listing and answered it in one
+  command.
+
+  AS-Frigate carries three Swater4a surface groups. The sea is ONE surface
+  referenced by 56 drawable nodes, flagged 0x04002108 -- and that is
+  PF_PORTAL | 0x2000 | PF_TWO_SIDED | PF_NOT_SOLID. It is not translucent,
+  which is why the earlier flag probe read the band as plain: PF_PORTAL
+  was not in that probe's palette.
+
+  src/urender/Geometry.cpp drops it, deliberately and with a comment:
+
+      // SS 4.5: PF_Portal is a visibility marker and is not drawn;
+      if ((batch.polyFlags & (gpu::PF_PORTAL | gpu::PF_INVISIBLE)) != 0) continue;
+
+  docs/specs/UTA-0014-vulkan-draw-path.md's own flag table says the same
+  in as many words -- PF_Portal, "Not drawn. It is a visibility marker,
+  and UTA-0109 emits it deliberately so this item can choose". So the
+  baker keeps the surface and the renderer discards it, exactly as
+  written. Every measurement above follows from that one line: the band
+  shows the hull behind the sea, its texture is the hull's warm brown, and
+  no cyan-textured surface is in view.
+
+  This is a DESIGN DECISION that turns out to be wrong for water, not a
+  defect in the code. In UT99 a zone portal doubles as the water surface:
+  the same polygon divides the air zone from the water zone AND is drawn
+  with the water texture. Treating PF_Portal as purely a marker is right
+  for an invisible zone divider and wrong for this.
+
+  NOT FIXED HERE. The fix changes a documented decision in an accepted
+  spec, so it is the user's call rather than this session's, and it is put
+  to them with the options. Whatever is chosen, the roughly 58 off-world
+  maps and every other water map share this surface shape, so the blast
+  radius is the map library rather than one map.
   **Layman:** The water in AS-Frigate looks dark and murky where the original game shows it bright blue-green.
   Kind: investigate.
   Source: in-session-2026-09-18.
@@ -11583,7 +11617,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-20.
   Lanes: apps/ut-ants.
 
-- 🚧 [UTA-0201] **ut-dump: list a map's BSP surfaces by texture and flags, so a missing surface can be found.**
+- ✅ [UTA-0201] **ut-dump: list a map's BSP surfaces by texture and flags, so a missing surface can be found.**
   SPLIT OUT OF UTA-0012 DELIBERATELY, and that is the point of filing it
   rather than folding it in. UTA-0012's scope is the --json / TSV mode and
   the per-actor mode, and it carries a standing cross-session agreement:
@@ -11614,8 +11648,60 @@ model, no weapon and no opponent until 0.2.0.
   Taken 2026-09-20 by session ut-ants-67, main checkout. UTA-0188 is
   parked on Waiting-on and counts against neither limit, so this is the
   one item held.
+  Resolved 2026-09-20 at d060163, green on all three matrix legs (run
+  35526768915: Linux GCC 14, Linux Clang 19, Windows MSVC). Local gate
+  green, 713/713 and 660/660 under the race detector.
+
+  Two unit cases, three mutations, all killed: grouping by texture alone,
+  counting nodes that draw nothing, and reporting the group count in place
+  of the surface count. tests/unit/BakeFixture gained addSurface's `drawn`
+  option, defaulting true, because the builder could not otherwise express
+  a surface nothing draws -- the field this item exists for.
+
+  It answered the question it was built for immediately. AS-Frigate holds
+  3634 surfaces in 102 groups; the sea is one surface referenced by 56
+  nodes, flagged 0x04002108, and UTA-0188 has its cause.
+
+  UT_MonsterHunt told the same day, per the standing arrangement to record
+  a cross-project change in both roadmaps: the new key is additive, their
+  draft contract pins none of it, and they were offered both pinning it
+  and package-qualified texture names if their script wants either.
   **Layman:** Add a mode that prints which textures a map's walls and floors use and how each is flagged, so we can tell whether a surface we are not drawing is even in the map.
   Kind: implement.
+  Source: in-session-2026-09-20.
+  Lanes: tools/ut-dump.
+
+- 📋 [UTA-0202] **ut-dump emits names byte-for-byte, so a non-ASCII name makes its JSON invalid UTF-8.**
+  Measured 2026-09-20 over the install's Maps directory: 11 of 1443 lines
+  of `ut-dump --ndjson` output are not valid UTF-8. The first is a texture
+  named `Telaraña` -- Latin-1 0xf1 for the n-tilde, written straight
+  through.
+
+  JSON is UTF-8 by definition (RFC 8259 SS 8.1), so those lines are not
+  JSON. Python's json.load over the file raises UnicodeDecodeError before
+  it parses anything, and the whole run is lost rather than the one line.
+
+  NOT CAUSED BY UTA-0201, and worth saying so. `nameOr` has always copied
+  an object name's bytes, and `classCounts` and the nav node list carry
+  names the same way. The surfaces key only made it easy to hit, because
+  texture names carry far more non-ASCII than class names do.
+
+  WHY IT MATTERS MORE THAN IT LOOKS. UTA-0012's consumer is a script over
+  the whole map library, and this is the failure mode that loses an entire
+  run to one map. UT_MonsterHunt should be told when this is fixed, since
+  their pipeline reads this output.
+
+  The fix is a decision this item does not take: UE1 names are bytes with
+  no declared encoding, so a reader has to choose -- transcode from
+  Latin-1 (right for these maps, a guess in general), emit \\uXXXX escapes,
+  or replace what does not decode and say it did. Whichever is chosen, the
+  run should not be able to produce a file that is not JSON.
+
+  Found while measuring UTA-0188's blast radius across the library, which
+  is what put a non-ASCII texture name through the tool for the first
+  time.
+  **Layman:** A handful of maps use names with accented letters, and the developer tool copies those bytes out unchanged -- which makes the file it writes unreadable to a strict JSON reader.
+  Kind: fix.
   Source: in-session-2026-09-20.
   Lanes: tools/ut-dump.
 
