@@ -10959,7 +10959,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-19.
   Lanes: apps/ut-ants.
 
-- 🚧 [UTA-0191] **F12 in the viewer saves a capture folder: the frame on screen and everything needed to reproduce it.**
+- ✅ [UTA-0191] **F12 in the viewer saves a capture folder: the frame on screen and everything needed to reproduce it.**
   User, 2026-09-19: "What the DOOM Ants project did is map button (F12)
   that takes a screenshot and records other info that you will find
   useful. Please create an option like this for the map launcher that I
@@ -11001,6 +11001,41 @@ model, no weapon and no opponent until 0.2.0.
     no getter and no setter, so the light time drawn is not observable
     and cannot be pinned for a companion frame.
   Asked the user how to settle all three before writing code.
+  Resolved 2026-09-20 at f07b7a8, green on all three matrix legs (run
+  35519683853: Linux GCC 14, Linux Clang 19, Windows MSVC). Local gate
+  green too, 711/711 with the device tier on the GPU, and the whole device
+  tier green again on lavapipe.
+
+  F12, or the pad's WEST face button, writes frame.png, linear.png,
+  details.txt and camera.txt. camera.txt is the camera alone in the form
+  ut-shot reads from standard input, which is what makes the folder
+  reproduce the view rather than only describe it.
+
+  Three findings shaped it. Renderer::readback was refused on the
+  presenting path by a guard rather than by a limit -- that path draws
+  into the same colour target and blits THAT into the acquired swapchain
+  image -- so the capture is the presented frame, not a redraw. Nothing
+  could observe or pin the light time, so the two images disagreed on a
+  pulsing light's phase; Renderer gained lightSeconds, pinLightSeconds,
+  unpinLightSeconds and setLinearOutput. Nothing wrote PNG, so
+  stb_image_write is vendored at route 2, wrapped in apps/ut-ants rather
+  than core, whose rule-1 independence a vendored source would have
+  breached with INV-14 still passing.
+
+  Verified in the real viewer, not only in tests: run headless on Xvfb
+  against a bakes4 bundle with an injected F12, it wrote all four files --
+  two valid 1280x720 RGBA PNGs, the shown frame at mean brightness 25.2
+  against the linear one at 7.6.
+
+  Tested: nine unit cases, three device cases, every rule hand-mutated and
+  every mutation killed. The gate caught the first version of the pin
+  test, which compared the first two frames; on the GPU's tier the first
+  differs because a still light's shadow tiles are cached after it, so the
+  test now measures that rather than assuming it.
+
+  Left undone and filed as UTA-0199: ut-shot takes none of the tier,
+  render scale or light time the folder records, so a redraw gives the
+  right view and not the right frame.
   **Layman:** Press F12 while flying a map and the game saves a picture of the screen plus the details needed to find and redraw that exact view, in one folder.
   Kind: feature.
   Source: user-request-2026-09-19.
@@ -11377,6 +11412,40 @@ model, no weapon and no opponent until 0.2.0.
   Kind: implement.
   Source: ut-monsterhunt-request-2026-09-20.
   Lanes: upkg, unav.
+
+- 📋 [UTA-0199] **ut-shot cannot be told the tier, render scale or light time a capture folder records.**
+  Measured 2026-09-20 while finishing UTA-0191, on this machine.
+
+  UTA-0191's folder records tier, render-scale and light-seconds so the
+  view can be drawn again. ut-shot consumes none of them: tools/ut-shot/
+  main.cpp hardcodes `config.tier = tierNamed("high")`, leaves
+  dynamicResolution alone and reads its own clock for light time. Its only
+  options are --linear and --no-probes.
+
+  So camera.txt pipes in and draws THAT VIEW, which is the useful half and
+  works today, but not that FRAME. Measured on a capture taken at tier low
+  and render scale 0.5: ut-shot's redraw of the same camera had mean
+  brightness 36.8 against the capture's linear.png at 7.6, and no pixel
+  matched. The likely bulk of it is the tier, Low drawing the indirect
+  light differently, and the rest is the half-resolution frame being
+  upscaled into the target.
+
+  That is a gap in the reproduction rather than a defect in either
+  program: every field needed is already written down.
+
+  Wanted: --tier, --render-scale and --light-time on ut-shot, the last
+  being Renderer::pinLightSeconds, which UTA-0191 added and nothing
+  outside the viewer calls yet. Then a capture folder redraws to its own
+  linear.png and a look finding can be compared against a later build
+  rather than only described.
+
+  Placed after UTA-0191 by the session, as the user leaves placement to
+  it: it is that item's second half, and UTA-0188's water finding is the
+  first thing that would use it.
+  **Layman:** A saved capture writes down the settings it was drawn with, but the screenshot tool has no way to be told them, so redrawing that view does not match the picture beside it.
+  Kind: enhancement.
+  Source: in-session-2026-09-20.
+  Lanes: tools/ut-shot, urender.
 
 ## 0.2.0 — Movement and weapons
 

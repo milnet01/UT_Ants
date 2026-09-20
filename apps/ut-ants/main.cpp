@@ -251,6 +251,14 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         // The light time is pinned to the frame above, or a pulsing light is at
         // a different phase in the two images and they disagree for a reason
         // that has nothing to do with what is being compared.
+        //
+        // This draw PRESENTS, so the screen flashes once -- said in the usage
+        // text rather than hidden, since a deliberate keypress that flashes
+        // reads as feedback where an unexplained one reads as a fault. It also
+        // counts as a frame to the renderer, so the next real frame's motion
+        // vectors are measured against this one rather than against the frame
+        // before the press. Harmless today: UTA-0075's jitter is off until a
+        // pass consumes it, and nothing reads the velocity target yet.
         renderer.pinLightSeconds(renderer.lightSeconds());
         renderer.setLinearOutput(true);
         const auto redrew = renderer.draw(bundle, *shownView);
