@@ -738,17 +738,42 @@ the transfer at all. `linearOutput` skips the output stage and nothing else, so
 INV-10 measures the sampler and the store and reaches a fixed answer.
 
 **Exposure and tone mapping**, which UTA-0112 § 4.9 assigns here: a fixed
-exposure with no automatic adaptation, then the Khronos PBR Neutral tone map.
-**The exposure is 3.2, measured by UTA-0156 and re-fitted by UTA-0162 and
-again by UTA-0156's cylinder fade**
-against the original game's frames: the original's client parked at each of
-DM-Deck16]['s PlayerStarts, and ut-shot drawing the same cameras. It was 1.0 until then,
-chosen without that comparison, and drew the map about eight times too dark
-together with the light model UTA-0156 also replaced. Fixed rather than
-adaptive because a UT99 deathmatch map's brightness swings as the camera turns
-and an auto-exposure that chases it makes aiming harder; PBR Neutral rather
-than ACES because ACES shifts saturated hues, and a 1999 palette is mostly
-saturated hues. `UTA-0053` owns any later grading.
+exposure with no automatic adaptation, then the tone map.
+
+**The exposure is `urender/Frame.cpp`'s `EXPOSURE`, and this document does not
+restate its value.** It is measured against the original game's frames -- the
+original's client parked at each of DM-Deck16]['s PlayerStarts, and ut-shot
+drawing the same cameras -- and it is refitted by every item that changes what
+a unit of light is worth, which so far is UTA-0156 and its cylinder fade,
+UTA-0162, UTA-0165, UTA-0168, UTA-0187 and UTA-0192. That constant's own
+comment carries each refit and its numbers. It was 1.0 before UTA-0156, chosen
+without that comparison, and drew the map about eight times too dark together
+with the light model UTA-0156 also replaced. (This paragraph named a figure
+until UTA-0192, and by then it had been wrong through four refits.)
+
+Fixed rather than adaptive because a UT99 deathmatch map's brightness swings as
+the camera turns and an auto-exposure that chases it makes aiming harder.
+
+**The tone map is the Khronos PBR Neutral curve's shoulder WITHOUT its toe**
+(UTA-0192). PBR Neutral rather than ACES because ACES shifts saturated hues and
+a 1999 palette is mostly saturated hues -- that reasoning stands, and the
+shoulder and its desaturation term are kept for it. What does not stand is the
+reference operator's opening step, which subtracts up to 0.04 from every
+channel. UT99's 2x lightmap blend has no such step and clips at white, so ours
+darkened every dim surface the original left alone.
+
+Measured on DM-Deck16][, AS-Frigate and DM-Fetid, the toe is the whole of the
+mismatch and the shoulder costs nothing: pooled block RMS 34.85 with the toe
+and 32.49 without, where UT99's own clip scores 32.58 and that clip placed
+UNDER the toe scores 35.06 -- worse than shipping. Tone mapped per pixel rather
+than per block, which is how the original's frames were formed, 34.37 and
+32.29, with the clip at 32.34. Every shoulder shape tried scored within 0.06 of
+the best and every variant carrying the toe within 0.21 of the worst, so the
+curve's knee is not delicate; the toe's absence is what matters. The score is
+luma, so it cannot see hue: the toe exists upstream to protect dark-tone
+saturation, and dropping it may move dark hues in a way nothing here measured.
+
+`UTA-0053` owns any later grading.
 
 ### 4.11 What `UTA-0075` requires of the graph now
 
@@ -962,9 +987,12 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   and compare it with the literal it was stored as — § 4.10 fixes the target's
   format and `readback`'s channel order, so the comparison has a fixed answer.
   **`linearOutput` is load-bearing here, not a convenience:** without it
-  exposure and the Khronos PBR Neutral tone map sit between the two ends, and
-  neither is the identity, so the invariant would fail against a correct
-  implementation.
+  exposure and the tone map sit between the two ends, and neither is the
+  identity, so the invariant would fail against a correct implementation.
+  **UTA-0192 added the output stage's own grader beside it**, which draws the
+  same shape WITHOUT `linearOutput` and holds the result to bytes a separate
+  implementation computed, because every other device test skips the post chain
+  and so nothing graded exposure or the tone map at all.
   *Breaks when:* an `_SRGB` sampled format is paired with a `UNORM` output, or
   a `UNORM` sampled format with an `_SRGB` output. The first darkens the image
   and the second washes it out, and **both look plausible in a screenshot** —

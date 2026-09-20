@@ -1,9 +1,9 @@
 #version 450
 
-// The output stage -- UTA-0014 SS 4.10. Exposure, then the Khronos PBR Neutral
-// tone map, into an _SRGB target whose store encodes. It applies to every
-// colour the frame wrote, unlit surfaces and sky included; Config::linearOutput
-// skips it and nothing else.
+// The output stage -- UTA-0014 SS 4.10. Exposure, then the tone map, into an
+// _SRGB target whose store encodes. It applies to every colour the frame
+// wrote, unlit surfaces and sky included; Config::linearOutput skips it and
+// nothing else.
 
 layout(set = 0, binding = 0) uniform sampler2D hdr;
 // UTA-0053: the bloom chain's top level, half the target's size.
@@ -19,15 +19,31 @@ layout(push_constant) uniform PostBlock {
 
 layout(location = 0) out vec4 outColour;
 
-// Khronos PBR Neutral, as the reference implementation writes it:
+// UTA-0192: Khronos PBR Neutral's shoulder, WITHOUT its toe.
 // https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/pbrNeutral.glsl
-vec3 pbrNeutral(vec3 colour) {
-    const float startCompression = 0.8 - 0.04;
+//
+// The reference operator opens by subtracting an offset of up to 0.04 from
+// every channel. UT99 has no such step: its 2x lightmap blend clips at white
+// and leaves dim surfaces alone, so ours darkened every one of them.
+//
+// Measured against the original on DM-Deck16][, AS-Frigate and DM-Fetid, the
+// toe is the whole of the mismatch and the shoulder costs nothing. Pooled block
+// RMS: 34.85 with the toe, 32.49 without, where UT99's own clip scores 32.58
+// and that clip UNDER the toe scores 35.06 -- worse than shipping. Tone mapped
+// per pixel rather than per block, which is how the original's frames were
+// formed: 34.37, 32.34 for the clip (ut-ants-uta0192/decompose.py).
+//
+// So the shoulder stays: it is free by this measure, and it is what keeps
+// bright lamps, fog glow and UTA-0053's bloom from flat-topping. Every shoulder
+// shape tried scored 32.49 to 32.55 and every variant carrying the toe 34.85 to
+// 35.06, so this constant is not delicate -- the toe's absence is what matters.
+//
+// The score is LUMA, so it cannot see hue. The toe exists upstream to protect
+// dark-tone saturation, and dropping it may move dark hues in a way nothing
+// here measured.
+vec3 toneMap(vec3 colour) {
+    const float startCompression = 0.76;
     const float desaturation = 0.15;
-
-    float x = min(colour.r, min(colour.g, colour.b));
-    float offset = x < 0.08 ? x - 6.25 * x * x : 0.04;
-    colour -= offset;
 
     float peak = max(colour.r, max(colour.g, colour.b));
     if (peak < startCompression) return colour;
@@ -49,7 +65,7 @@ void main() {
     // in the half-size chain. Added rather than mixed: only emission feeds it.
     if (post.bloomStrength > 0.0)
         colour += texture(bloom, (vec2(at) + 0.5) / vec2(textureSize(hdr, 0))).rgb * post.bloomStrength;
-    if (post.linearOutput == 0u) colour = pbrNeutral(colour * post.exposure);
+    if (post.linearOutput == 0u) colour = toneMap(colour * post.exposure);
     // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header
     // allows gamma 2.0 for it.
     if (post.upscaleInput != 0u) colour = sqrt(clamp(colour, 0.0, 1.0));

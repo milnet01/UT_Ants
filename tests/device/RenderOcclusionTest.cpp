@@ -81,7 +81,7 @@ TEST_CASE("UTA-0164 INV-8: occlusion darkens ambient light by the atlas value", 
 
     // As RenderLightingTest's zone case: AMBIENT_SCALE times brightness 40
     // through FGetHSV's curve, kept below 1 so the readback does not clip.
-    constexpr double AMBIENT_SCALE = 1.0; // UTA-0187's refit with DISPLAY_LIGHT_POWER
+    constexpr double AMBIENT_SCALE = 0.75; // UTA-0192's refit, once the tone map lost its toe
     const double ambient = AMBIENT_SCALE * 0.391061428321661;
     const std::uint8_t open = redAtCentre(renderer, square(40, false));
     const std::uint8_t occluded = redAtCentre(renderer, square(40, true));

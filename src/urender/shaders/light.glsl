@@ -141,7 +141,23 @@ vec3 lightThrough(Light light, vec3 x) {
 // on display values, on baker revision 21 with the PBR Neutral tone map: at
 // DISPLAY_LIGHT_POWER 1.6 the pooled block RMS is 34.9 at 0.75, 34.8 at 1 and
 // 35.9 at 1.3 (ut-ants-uta0187/sweep187b.py).
-const float AMBIENT_SCALE = 1.0;
+// UTA-0192 took the toe out of that tone map, so the condition above no longer
+// holds and this was re-checked -- NOT re-swept: sweep187b.py's linear renders
+// are still on disk and the display transform is applied offline, so every
+// (c, A) pair it tried was re-scored for free. DISPLAY_LIGHT_POWER 1.6 still
+// wins. This constant's own optimum MOVES, to 0.75: pooled block RMS 32.22 at
+// 0.75 against 32.49 at 1 and 33.46 at 1.3, and per pixel 32.01 against 32.29
+// (ut-ants-uta0192/crosscheck.py, crosscheck2.py). The user settled this value
+// on UTA-0187 and moved it here on 2026-09-20, the condition it was fitted
+// under having gone.
+//
+// That re-score validates itself: under the OLD tone map it reproduces
+// UTA-0187's shipped answer exactly, r21-c1.6-a1 at pooled 34.85 and k 6.16.
+// Only three A values have renders on disk, so 0.75 is the best of the three
+// and not a fitted optimum; finding one needs the sweep re-running.
+// MIRRORED in tests/device/RenderLightingTest.cpp and RenderOcclusionTest.cpp,
+// which hold it as a literal. Change all three together.
+const float AMBIENT_SCALE = 0.75;
 
 // UTA-0187: the gain on light before scene.frag raises it to DISPLAY_LIGHT_POWER.
 // Held at 1: under a power rule a gain only trades with EXPOSURE, since
@@ -154,7 +170,8 @@ const float LIGHT_GAIN = 1.0;
 // so a surface in dim light is far darker than light times reflectance gives.
 // scene.frag models that as the light, in display units, raised to this power.
 // Fitted with AMBIENT_SCALE and EXPOSURE over DM-Deck16][, AS-Frigate and
-// DM-Fetid at once, on baker revision 21 with the PBR Neutral tone map: pooled
+// DM-Fetid at once, on baker revision 21 with the tone map as it then was --
+// PBR Neutral, toe included, which UTA-0192 later removed: pooled
 // block RMS 39.0 at 0.5, 37.1 at 0.75, 36.0 at 1 (the linear rule it replaces,
 // at AMBIENT_SCALE 0.5), 35.2 at 1.3, 34.8 at 1.6, 35.2 at 1.9 and 36.1 at 2.2.
 // At 1.6 the maps score 30.5, 39.6 and 36.5. AS-Frigate's sky -- the defect

@@ -87,9 +87,28 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// nearest tenth to the fit (ut-ants-uta0156/sweepamb18.sh).
 /// UTA-0187 made light meet texture on display values, which changes what a
 /// unit of light is worth; refitted jointly with DISPLAY_LIGHT_POWER 1.6 and
-/// AMBIENT_SCALE 1 on baker revision 21, this is that fit's joint k
+/// AMBIENT_SCALE 1 on baker revision 21, its joint k was 6.16
 /// (ut-ants-uta0187/sweep187b.py, r21-c1.6-a1).
-constexpr float EXPOSURE = 6.16f;
+/// UTA-0192 then took the toe out of the tone map, which had been darkening
+/// every dim surface, so less exposure reaches the same displayed brightness.
+/// Refitted on the SAME renders -- the display transform is applied offline, so
+/// no re-render was needed (ut-ants-uta0192/tonefit.py, decompose.py).
+/// Two scorings, because the tone map is the thing that moved. Tone mapped per
+/// BLOCK, as every fit before this one: 4.19, pooled block RMS 32.49. Tone
+/// mapped per PIXEL and then blocked: 4.52, pooled 32.29, per map 28.8, 36.8
+/// and 32.3. The pixel figure is the faithful one: the original's blocks are
+/// means of display-space bytes, so applying a non-linear operator to a
+/// 40-pixel linear mean is the wrong order. The block figure is kept because
+/// light.glsl's numbers are in that space.
+/// Those are at AMBIENT_SCALE 1. Removing the toe also moves THAT constant's
+/// optimum to 0.75 (light.glsl carries the re-score), and the exposure is the
+/// joint k of the pair actually shipped: pooled 32.01 per pixel at A 0.75,
+/// against 32.29 at A 1 and 33.27 at A 1.3, per map 28.7, 36.4 and 31.9
+/// (ut-ants-uta0192/crosscheck2.py).
+/// GRADED, from UTA-0192, by tests/device/RenderOutputStageTest.cpp: every
+/// other device test sets linearOutput and reads back before the post chain, so
+/// until then nothing in the tier graded this constant at all.
+constexpr float EXPOSURE = 5.03f;
 
 /// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
 /// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's

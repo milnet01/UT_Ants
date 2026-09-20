@@ -10987,7 +10987,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-19.
   Lanes: apps/ut-ants, urender.
 
-- 📋 [UTA-0192] **Fit the output stage's tone map against the original, which clips at white.**
+- 🚧 [UTA-0192] **Fit the output stage's tone map against the original, which clips at white.**
   Found by UTA-0187, 2026-09-19. UT99 has no tone map: its 2x blend
   clips at white. Scored offline on the revision-21 reference renders
   (ut-ants-uta0187/fitclip.py), clipping in place of post.frag's PBR
@@ -11002,6 +11002,15 @@ model, no weapon and no opponent until 0.2.0.
   under either display; UTA-0187's body has the numbers.
 
   Placed 2026-09-19 by the user: next after UTA-0187, before UTA-0191.
+  Taken 2026-09-20 by session ut-ants-15, main checkout. Rule-1 set
+  checked first: only UTA-0098 and UTA-0100, both still dormant --
+  UTA-0098 waits on a real level box, UTA-0100 on UTA-0023, which is
+  itself planned and Blocked-by UTA-0005. UTA-0186 is parked on
+  Waiting-on: and shares no work.
+  User decided 2026-09-20: no rule-14 gate on the UTA-0014 SS 4.10
+  amendment, recorded in the commit body instead; and the output stage
+  gets a locking test, since the device tier reads back before the post
+  chain and grades none of it.
   **Layman:** Our final brightness squeeze differs from the original game's; measure which one makes our frames match it best.
   Kind: fix.
   Source: in-session-2026-09-19.
@@ -11136,6 +11145,35 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: in-session-2026-09-20.
   Lanes: ut-paths.
+
+- 📋 [UTA-0197] **Refit the fog and haze constants, which were fitted at an EXPOSURE two items ago.**
+  Found by UTA-0192, 2026-09-20, and it predates it. fog.glsl's comments
+  fit each constant at a named exposure: the haze scale "at EXPOSURE 5.4",
+  refitted by UTA-0165 "at EXPOSURE 5.5", the glow rechecked by UTA-0168
+  "at EXPOSURE 5.4". UTA-0187 then moved EXPOSURE to 6.16 WITHOUT
+  refitting them, so they were already stale before this item; UTA-0192
+  moved it again, to 5.03, and removed the tone map's toe.
+
+  The two genuinely trade, and fog.glsl says so itself: "haze made up for
+  the low exposure, and now the map's do not". So this is not a formality.
+
+  Not folded into UTA-0192 by the user's call, 2026-09-20: it is a
+  different subsystem with its own sweep, and UTA-0192's change is the
+  output stage alone.
+
+  Method: UTA-0015 SS 7's sweeps, re-run on baker revision 21 bakes at the
+  shipped EXPOSURE and AMBIENT_SCALE, against the same three reference
+  maps. Note UTA-0166 already forced those sweeps to be re-run once for
+  the same class of reason.
+
+  Worth checking while there, and NOT verified: whether removing the toe
+  changed how haze reads at all. The toe subtracted from every channel, so
+  it hit thin haze over dark surfaces hardest, which is where haze is
+  judged.
+  **Layman:** Our fog was tuned for a brightness setting we have since changed twice; measure it again so it matches the original game.
+  Kind: fix.
+  Source: in-session-2026-09-20.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 

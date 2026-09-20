@@ -4,8 +4,12 @@
 // Config::linearOutput set, a base-colour texel sampled and written straight
 // out, with no lighting, comes back with the value it was stored with.
 //
-// linearOutput IS LOAD-BEARING, not a convenience: exposure and the PBR Neutral
-// tone map sit between the two ends otherwise, and neither is the identity.
+// linearOutput IS LOAD-BEARING, not a convenience: exposure and the tone map
+// sit between the two ends otherwise, and neither is the identity.
+//
+// This file grades the transfer. RenderOutputStageTest grades what sits between
+// the ends -- UTA-0192, after removing the tone map's toe left all 46 device
+// tests green.
 //
 // The colours are BC7 mode 6 blocks, whose stored texels are exact, and they
 // span the curve: near black, a mid colour, and full scale.
@@ -65,8 +69,12 @@ TEST_CASE("INV-10: a base colour sampled and written straight out comes back as 
 
 TEST_CASE("the output stage applies to unlit surfaces too", "[device]") {
     // SS 4.10: PF_Unlit means no light is applied, not no output stage. So the
-    // same frame without linearOutput must NOT come back as stored -- every
-    // colour here is dark enough in one channel for PBR Neutral's toe to move it.
+    // same frame without linearOutput must NOT come back as stored -- at the
+    // shipped EXPOSURE all three land in the tone map's shoulder, exposed peaks
+    // 0.99, 2.64 and 4.52 against a knee at 0.76.
+    //
+    // This asserts only that something changed. What it changed TO is
+    // RenderOutputStageTest's question.
     removeDisplay();
     Config config;
     config.width = WIDTH;
