@@ -5,8 +5,15 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0187` (dimly lit surfaces lit the way UT99 combines light
-and texture, and the refit of `AMBIENT_SCALE` and `EXPOSURE` it owes).
+**Next:** `UTA-0192` (fit the output stage's tone map against the
+original, which clips at white; the user placed it next, 2026-09-19).
+Then `UTA-0191`, then `UTA-0188`.
+`UTA-0187` shipped 2026-09-20, green on the matrix: light meets texture
+on display values at `DISPLAY_LIGHT_POWER` 1.6, `AMBIENT_SCALE` 1 and
+`EXPOSURE` 6.16, and ubake takes UT99's own falloff at baker revision
+21, so a map baked before it must be baked again. `post.frag` applies no
+ramp -- the measured `raw^1.65` scored worse at every point. No spec,
+by the user's decision.
 `UTA-0164` shipped 2026-09-19, green on the matrix: baked ambient
 occlusion at every tier, bundle format 14, spec
 `docs/specs/UTA-0164-ambient-occlusion.md`. `UTA-0186` (black holes in a

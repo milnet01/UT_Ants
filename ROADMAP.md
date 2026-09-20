@@ -6449,6 +6449,11 @@ model, no weapon and no opponent until 0.2.0.
   Read at face value, BoomDock reaches its exit in every surveyor mode but
   walking, past three closed JumpSpots, and the other four never reach it.
   Undiagnosed on our side.
+  Asked (2026-09-20, ut-ants-47): put the three maps that need nothing
+  from us back to UT_MonsterHunt (session ut-monsterhunt-5d) -- do they
+  route in-engine? If they do, our model is still missing something; if
+  not, it is map content and we stop looking. Awaiting their reply; still
+  Waiting-on.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -8678,6 +8683,11 @@ model, no weapon and no opponent until 0.2.0.
   leaving-direction rule. Not yet placed in the queue.
   Queued (2026-09-17) by the user: the trigger census comes after
   UTA-0172, whose per-actor wiring list supplies most of what it needs.
+  Asked (2026-09-20, ut-ants-47): UT_MonsterHunt session ut-monsterhunt-5d
+  asked for the in-game re-check this is parked on -- on any one of the 24
+  maps, does the teleporter that starts disabled get enabled in normal
+  play, and by what. Static analysis sees the initial state and not the
+  enabling. Awaiting their reply; still Waiting-on.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
@@ -10692,7 +10702,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-18.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0187] **Light a dimly lit surface the way UT99 does, by combining light and texture on display values.**
+- ✅ [UTA-0187] **Light a dimly lit surface the way UT99 does, by combining light and texture on display values.**
   Found by UTA-0178, 2026-09-18. AS-Frigate's sky room has no zone
   ambient and is lit by one light, export 376. Removing it takes the sky
   from 2.55 times the original's brightness to 0.71 (pose 0). Split with
@@ -10818,6 +10828,15 @@ model, no weapon and no opponent until 0.2.0.
   Unit 649/649. Device 46/46 on lavapipe and on the GPU. Zeroing
   SHADOW_RECEIVER_BIAS still fails UTA-0182's room test on both, so the
   16x light scale has not made it vacuous at the lower exponent.
+  Shipped (2026-09-20), ut-ants-47, main checkout: 89da0f1, green on the
+  matrix -- Linux GCC 14, Linux Clang 19 and Windows MSVC (run
+  35509052376). scene.frag raises light to DISPLAY_LIGHT_POWER 1.6 before
+  it meets reflectance, AMBIENT_SCALE is 1, EXPOSURE 6.16, and ubake
+  takes UT99's own falloff at BAKER_REVISION 21. Pooled block RMS 34.8
+  against 36.0 for the linear rule. post.frag applies no ramp: the
+  measured raw^1.65 scored worse at every point.
+  A map baked before this needs baking again -- the falloff changed, so
+  every bundle at baker revision 20 or below is stale.
   **Layman:** Surfaces lit by one distant lamp look far brighter than in the original, most visibly AS-Frigate's sky; change how light meets texture to match the original.
   Kind: fix.
   Source: in-session-2026-09-18.
