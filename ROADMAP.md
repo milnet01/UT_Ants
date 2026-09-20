@@ -11223,6 +11223,35 @@ model, no weapon and no opponent until 0.2.0.
   route verdict is not monotonic in seed count on that map -- 24 route,
   200 do not, 400 route, 762 and 804 do not -- so neither "too dense" nor
   "too sparse" explains it. That bears on UTA-0193 and UTA-0194.
+  Answered same day by UT_MonsterHunt, 2026-09-20. The shape above is
+  confirmed and is what they want: file-order reach-spec indices for
+  Paths, an originating spec index on each edgeList row to join on, and
+  resolved actor references as well.
+
+  NOT BLOCKING THEM, by their own word -- mhpathfix loads a level
+  in-process and reads Paths straight off each ANavigationPoint, so they
+  need no property-record parse and the lower-case `upstreamPaths` trap
+  does not reach them. If they answer first, this item becomes a way to
+  see the result in our graph rather than the way to find it.
+
+  The mis-map hazard above did not bite them, and the caution still
+  changed this item's design. Their diff keyed on VALUES as a multiset --
+  (class of from, class of to, distance, reachFlags, collisionRadius,
+  collisionHeight, pruned) -- so edge order was invisible to it and no
+  edgeList position was ever used as a spec index. They then checked the
+  drop hazard directly: both files report discardedEndpoints 0 and
+  level.reachSpecs equals nav.edges exactly, 20074 for the twin and 20066
+  for theirs. So the eight-spec gap and the pruned asymmetry (15111
+  pruned leaving 4955, against 15070 leaving 5004) are measured, not an
+  artifact of joining.
+
+  Their reading of our Build.cpp note, which is worth carrying: if the
+  edges are deliberately the reach-spec array and NOT the Paths
+  properties, on the stated reasoning that reconciling them would make
+  the builder own a disagreement belonging to the content, then a graph
+  built that way CANNOT show this class of bug by construction -- and two
+  files agreeing on every figure it reports is exactly what that
+  predicts. That is evidence for their hypothesis, not against it.
   **Layman:** A sister project cannot tell why two builds of one map disagree on routing; give them the per-node path lists the game itself walks.
   Kind: implement.
   Source: ut-monsterhunt-request-2026-09-20.
