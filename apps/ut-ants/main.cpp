@@ -7,6 +7,7 @@
 // the SDL half, and it is run by hand: no CI leg has a display
 // (docs/specs/UTA-0014-vulkan-draw-path.md SS 4.12).
 
+#include "BuildCommit.h" // generated -- UTA-0200
 #include "Capture.h"
 #include "Cli.h"
 #include "FlyCamera.h"
@@ -279,7 +280,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             .bundleHash = bundleHash,
             .formatVersion = bundle.header.formatVersion,
             .bakerVersion = options.bakerVersion,
-            .commit = UTA_BUILD_COMMIT,
+            .commit = BUILD_COMMIT,
             .tier = std::string(uta::urender::tierName(stats.tier)),
             .renderWidth = config.width,
             .renderHeight = config.height,

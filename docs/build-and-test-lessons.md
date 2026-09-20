@@ -62,8 +62,13 @@ of one directory and fails on MSVC alone.
 **2026-09-04.** Done the other way round once, and the item read shipped
 while Windows was red.
 
-## A device test comparing frames must discard the first one
+## Why the device tier is run on both drivers
 
+Evidence for § Build and test's `VK_DRIVER_FILES` line, which already says to
+run the renderer's tests on lavapipe as well as the GPU. This is what that
+costs when it is skipped, and it is not a rule of its own.
+
+**A device test comparing frames must discard the first one.**
 A renderer's first frame is not comparable with its later ones. § 4.8 of
 [`docs/specs/UTA-0014-vulkan-draw-path.md`](specs/UTA-0014-vulkan-draw-path.md)
 keeps a still light's shadow tiles rather than redrawing them, so the first
@@ -79,9 +84,10 @@ the software driver and fails on a card.
 test. The repair is to draw a warm-up frame and compare the two after it,
 which `tests/device/RenderLightTimeTest.cpp` now does and says why.
 
-**Run new device tests on both drivers before pushing** — the gate runs the
-device tier on the GPU, and the `VK_DRIVER_FILES` line in
-[`../CLAUDE.md`](../CLAUDE.md) § Build and test runs it on lavapipe.
+**So run a new device test on both drivers before pushing** — the gate runs
+the device tier on the GPU, and the `VK_DRIVER_FILES` line in
+[`../CLAUDE.md`](../CLAUDE.md) § Build and test runs it on lavapipe. That
+line is the rule; this section is why it is there.
 
 ## A spec's invariants must be in the bullet form
 

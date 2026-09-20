@@ -13,24 +13,38 @@ target_link_libraries(ut-ants PRIVATE uta_urender uta_uworld uta_ubundle uta_cor
 # deliberately NOT on uta_core, whose rule-1 independence it would breach.
 target_include_directories(ut-ants PRIVATE "${PROJECT_SOURCE_DIR}/third_party/stb")
 
-# UTA-0191: a capture folder records which build drew the frame. Resolved at
-# CONFIGURE time, so a commit made without re-running CMake is reported as the
-# one configured. That is why a capture records the bundle's hash and the
-# baker's version as well -- neither drifts that way, so the two together still
-# identify what was drawn when this field has gone stale.
-# A source tarball has no git history, and "unknown" is the honest answer there.
-execute_process(
-    COMMAND git -C "${PROJECT_SOURCE_DIR}" rev-parse --short HEAD
-    OUTPUT_VARIABLE _uta_commit
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-    RESULT_VARIABLE _uta_commit_status)
-if(NOT _uta_commit_status EQUAL 0 OR _uta_commit STREQUAL "")
-    set(_uta_commit "unknown")
-endif()
-target_compile_definitions(ut-ants PRIVATE UTA_BUILD_COMMIT="${_uta_commit}")
-unset(_uta_commit)
-unset(_uta_commit_status)
+# UTA-0191: a capture folder records which build drew the frame. UTA-0200:
+# resolved on every BUILD rather than once at configure, or the field names the
+# commit the build directory was last configured at -- which goes stale on any
+# commit made without re-running cmake, and did so on this feature's own first
+# capture.
+#
+# WriteBuildCommit.cmake is run twice by design. Once here, so the header
+# exists for the first compile and for an editor's index; then again by the
+# target below on every build. configure_file rewrites it only when the commit
+# actually differs, so main.cpp recompiles on a new commit and not otherwise.
+set(_uta_commit_template "${CMAKE_CURRENT_SOURCE_DIR}/BuildCommit.h.in")
+set(_uta_commit_header "${CMAKE_CURRENT_BINARY_DIR}/BuildCommit.h")
+set(_uta_commit_script "${CMAKE_CURRENT_SOURCE_DIR}/WriteBuildCommit.cmake")
+set(_uta_commit_args
+    -D "SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    -D "TEMPLATE=${_uta_commit_template}"
+    -D "OUTPUT=${_uta_commit_header}")
+
+execute_process(COMMAND "${CMAKE_COMMAND}" ${_uta_commit_args} -P "${_uta_commit_script}")
+
+add_custom_target(ut-ants-commit
+    COMMAND "${CMAKE_COMMAND}" ${_uta_commit_args} -P "${_uta_commit_script}"
+    BYPRODUCTS "${_uta_commit_header}"
+    COMMENT "Resolving the build's commit"
+    VERBATIM)
+add_dependencies(ut-ants ut-ants-commit)
+target_include_directories(ut-ants PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+
+unset(_uta_commit_template)
+unset(_uta_commit_header)
+unset(_uta_commit_script)
+unset(_uta_commit_args)
 
 # Rule 16 has ut-ants run ut-bake, and it looks beside itself, so a build puts
 # one there. A target of its own rather than a POST_BUILD step on ut-ants, which

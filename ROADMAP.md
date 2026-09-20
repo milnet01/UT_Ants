@@ -11447,6 +11447,42 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-20.
   Lanes: tools/ut-shot, urender.
 
+- 🚧 [UTA-0200] **A capture folder can name the wrong commit, because the build resolves it once at configure time.**
+  UTA-0191 shipped with this and it is a defect in that item's own
+  promise, which is "the build's commit".
+
+  apps/ut-ants/CMakeLists.txt resolves `git rev-parse --short HEAD` in an
+  execute_process at CONFIGURE time and bakes it into a compile
+  definition. So the field names the commit the build directory was last
+  configured at, not the one that drew the frame, and it goes stale on
+  every commit made without re-running cmake -S . -B build -- which is the
+  ordinary way of working here.
+
+  MEASURED, not predicted: the verification run for UTA-0191 wrote
+  `commit: 5caef74` from a binary built at f07b7a8. The first capture this
+  feature ever took already named the wrong build.
+
+  The bundle hash and the baker version do not drift that way, so what was
+  drawn is still identifiable -- but only by a reader who knows to
+  distrust the commit line, and nothing tells them.
+
+  Wanted: resolve it at BUILD time. A custom target runs a small cmake -P
+  script each build; configure_file rewrites the generated header only
+  when the value actually changes, so main.cpp recompiles on a new commit
+  and not otherwise. "unknown" stays the answer where there is no git
+  history, as in a source tarball.
+
+  Chosen by the user 2026-09-20 over leaving it documented or reporting
+  "unknown" unless certain: the point of the folder is tying a picture to
+  a build, and a field that quietly names the wrong one is worse than one
+  that admits it does not know.
+
+  Taken 2026-09-20 by session ut-ants-67, main checkout.
+  **Layman:** The saved details say which build drew the picture, but the answer is worked out when the build folder is first set up, so it goes stale as soon as you commit anything.
+  Kind: fix.
+  Source: user-request-2026-09-20.
+  Lanes: apps/ut-ants.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
