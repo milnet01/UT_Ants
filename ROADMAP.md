@@ -10925,6 +10925,62 @@ model, no weapon and no opponent until 0.2.0.
 
   Then the item's own lead: the water surface's batch flags and material,
   since the lit, unlit and translucent paths each draw it differently.
+  Measured 2026-09-20, and the finding is NOT what this item says. It is
+  not dark water. There is no water surface in our draw at all, and what
+  the band shows is the ordinary lit geometry behind it.
+
+  Method: AS-Frigate baked fresh at r21-f14, drawn with ut-shot at the
+  original's own poses 0 and 1 from ut-ants-uta0156/orig-asfrigate, and
+  the water located by colour rather than by eye. Probes and numbers in
+  ut-ants-uta0188.
+
+  1. IT STILL REPRODUCES at the current constants, so UTA-0192 did not
+     move it. Whole-frame means agree almost exactly -- pose 0 is
+     93.2/83.4/88.0 for the original against 93.8/82.9/86.6 for ours -- so
+     the display transform is not in question.
+
+  2. IT IS A HUE DIFFERENCE, NOT A BRIGHTNESS ONE. The original's water is
+     saturated cyan with essentially NO red: 0.9/112.4/148.3 at pose 0 and
+     0.9/178.2/216.6 at pose 1. Ours is neutral grey there: 47.1/48.7/53.3
+     and 47.2/44.4/40.0. Dimming or brightening cannot turn one into the
+     other.
+
+  3. THE TEXTURE THERE IS WARM BROWN. Drawing base colour alone, with no
+     light, no emission and no fog, gives 129/116/97 and 141/113/91 --
+     red the HIGHEST channel. So the surface we draw is not water.
+
+  4. IT CARRIES NONE OF THE WATER FLAGS. Painting every surface by its
+     flags, 100% of the band is an ordinary lit surface: 0% translucent,
+     0% fake backdrop, 0% unlit, 0% masked. Translucent surfaces do exist
+     elsewhere in the frame (0.02% of pose 0), so the flag and its pass
+     work.
+
+  5. NO CYAN-TEXTURED SURFACE IS IN VIEW AT ALL. Lighting up any surface
+     whose base texture is cyan-ish, wherever it is, finds 0.00% of the
+     frame at both poses. The bundle packs rainfx.swater4a and
+     rainfx.hfluid2 and reports `skipped: []`, so the textures baked --
+     nothing visible uses them.
+
+  6. The backdrop is not it either. Our fake-backdrop surfaces are the sky
+     at rows 0-280, and the original's water band is rows 383-464. Zero
+     overlap.
+
+  So: the sea surface is absent from the draw. Still open is WHY -- whether
+  the baker never emitted it, or it is emitted and never reaches the
+  screen. Geometry.cpp drops only PF_INVISIBLE, which UT99 would not draw
+  either, so neither answer is obvious yet.
+
+  BLOCKED ON INSPECTION, and this is worth saying plainly: ut-dump reads
+  packages but cannot list a map's SURFACES or their flags, which is
+  UTA-0012 and still open. Without it the next step is reading the .unr
+  through upkg by hand. UTA-0012 would answer this item in one command.
+
+  Probe note for whoever runs these next: the first flag probe painted
+  plain surfaces WHITE, and the translucent blend src+dst*(1-src) turns
+  magenta over white back into white -- so it reported 100% translucent
+  and 100% plain at once and meant neither. Painting plain black fixes it.
+  Both probes restore the checkout's shaders on any exit and the tree was
+  verified clean after each.
   **Layman:** The water in AS-Frigate looks dark and murky where the original game shows it bright blue-green.
   Kind: investigate.
   Source: in-session-2026-09-18.
