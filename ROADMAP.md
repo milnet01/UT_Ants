@@ -10987,7 +10987,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-19.
   Lanes: apps/ut-ants, urender.
 
-- 🚧 [UTA-0192] **Fit the output stage's tone map against the original, which clips at white.**
+- ✅ [UTA-0192] **Fit the output stage's tone map against the original, which clips at white.**
   Found by UTA-0187, 2026-09-19. UT99 has no tone map: its 2x blend
   clips at white. Scored offline on the revision-21 reference renders
   (ut-ants-uta0187/fitclip.py), clipping in place of post.frag's PBR
@@ -11011,6 +11011,66 @@ model, no weapon and no opponent until 0.2.0.
   amendment, recorded in the commit body instead; and the output stage
   gets a locking test, since the device tier reads back before the post
   chain and grades none of it.
+  Shipped 2026-09-20, ut-ants-15, main checkout: 1d8c62e, green on the
+  matrix -- Linux GCC 14, Linux Clang 19 and Windows MSVC (run
+  35517138118 on cf3fffa, which carries 1d8c62e).
+
+  The answer is better than this item expected. It asked whether to trade
+  the shoulder away for UT99's hard clip. Neither: PBR Neutral's TOE is
+  the whole mismatch, and the shoulder is free. post.frag now runs the
+  Khronos curve's shoulder with its toe removed.
+
+  Pooled RMS, block scoring then pixel scoring. toe + UT99's clip 35.06 /
+  34.51; PBR Neutral as shipped 34.85 / 34.37; UT99's clip alone 32.58 /
+  32.34; shoulder without the toe 32.49 / 32.29. Putting UT99's own clip
+  UNDER the toe is worse than shipping, which is what isolates the toe
+  rather than the curve's shape. Every shoulder shape tried scored within
+  0.06 of the best; every variant carrying the toe within 0.21 of the
+  worst.
+
+  Scored offline on UTA-0187's own linear renders -- ut-shot --linear
+  writes the frame before exposure and before the tone map -- so no
+  rebuild and no re-render was needed for any candidate.
+
+  Two constants followed, refitted on those same renders: EXPOSURE 6.16
+  to 5.03, AMBIENT_SCALE 1 to 0.75. The second was the user's own call on
+  UTA-0187 and they moved it once the condition it was fitted under had
+  gone. DISPLAY_LIGHT_POWER stays 1.6. The re-score validates itself:
+  under the OLD operator it reproduces UTA-0187's shipped answer exactly,
+  r21-c1.6-a1 at 34.85 and k 6.16. Only three ambient values have
+  renders, so 0.75 is the best of three rather than a fitted optimum.
+
+  The baker did not change, so NO bundle goes stale. Bakes stay valid at
+  format 14 and baker revision 21.
+
+  Adds tests/device/RenderOutputStageTest.cpp, the output stage's first
+  grader. Every other device test sets linearOutput and reads back BEFORE
+  the post chain, so nothing in the tier graded exposure or the tone map:
+  this change altered every displayed pixel and all 46 tests stayed
+  green. Its expectations come from a separate implementation
+  (ut-ants-uta0192/golden.py), and it was proved red at the old exposure
+  before the constant moved. Its shoulder assertion is on the mid colour,
+  not full scale, where our curve and a clip differ by one byte.
+
+  Unit 649/649. Device 48/48 on lavapipe AND the GPU. Zeroing
+  SHADOW_RECEIVER_BIAS still fails UTA-0182's room test on both.
+
+  UTA-0014 SS 4.10 amended: it named PBR Neutral and an exposure of 3.2,
+  four refits stale. It now names Frame.cpp's constant instead of
+  restating a value. No rule-14 gate, by the user's decision 2026-09-20.
+
+  Harness and method at ut-ants-uta0192, with a README; decompose.py is
+  the authoritative run.
+
+  Two limits, neither measured away. The score is LUMA, so it cannot see
+  hue -- the toe exists upstream to protect dark-tone saturation, and
+  dropping it may move dark hues. And block scoring applies the tone map
+  to a 40-pixel mean, which is the wrong order for a non-linear operator;
+  the shipped constants come from the pixel scoring, and both are
+  reported because every earlier fit used block space.
+
+  Filed UTA-0197: fog.glsl's haze and glow are fitted "at EXPOSURE 5.4"
+  and were stale before this item.
   **Layman:** Our final brightness squeeze differs from the original game's; measure which one makes our frames match it best.
   Kind: fix.
   Source: in-session-2026-09-19.
@@ -11252,6 +11312,48 @@ model, no weapon and no opponent until 0.2.0.
   built that way CANNOT show this class of bug by construction -- and two
   files agreeing on every figure it reports is exactly what that
   predicts. That is evidence for their hypothesis, not against it.
+  Corrected by UT_MonsterHunt the same day, 2026-09-20, against what the
+  note above records: they will NOT be reading Paths in-process. The
+  three arrays are already in the T3D text exports -- a PathNode block
+  carries `Paths(n)=`, `upstreamPaths(n)=` and `PrunedPaths(n)=` outright,
+  as indices into the level's own ReachSpecs array. Verified by them on
+  two exports of MH-HaVoCuRhOMG.
+
+  Their cross-check is worth having, because it validates OUR number
+  independently: the twin's `upstreamPaths(` occurrences come to 5004,
+  which is exactly the twin's unpruned spec count as ut-dump measured it.
+  Two unrelated routes to the same figure.
+
+  Parsing note from them, if we ever read a T3D: count the three keys
+  separately, because `Paths(` is a substring of both `upstreamPaths(`
+  and `PrunedPaths(`. The export prints the file's own spelling, so the
+  lower-case `upstreamPaths` trap does not arise on that route -- it
+  still does on ours, which reads property records.
+
+  So this item never blocked them and does not now. Keep it at whatever
+  priority the rest of the queue gives it. It is still worth having for
+  the reason they give: our nav graph is deliberately the reach-spec
+  array and not the Paths properties, so it cannot surface this class of
+  disagreement by construction, and this item is what would let the
+  result be seen in our tooling rather than only in theirs. The
+  originating-spec-index join designed above is the shape they would use.
+
+  Where they are: waiting on an engine run for a T3D export of their
+  generated map, queued behind other work. Their comparison resolves each
+  node's Paths entries through each file's OWN ReachSpec array to
+  (destination actor, distance) and diffs the resolved sets, never raw
+  indices across two files. They will send the result either way,
+  including if it kills the hypothesis.
+
+  UNRELATED AND OURS TO USE, from the same exports: a `LiftCenter` carries
+  `LiftTag` and a `Mover` carries `Tag`, and a plain string join binds the
+  lift marker to its lift; `KeyPos` against `KeyRot` separates a rideable
+  platform from a hinged door. It falsified a blocker on their GAME-0001
+  that had said the association needed data nothing emitted. We read
+  property records rather than T3D, so for us the claim to test is that
+  those same properties are on the actors in the package. Not verified
+  here. Nothing is filed for it -- recorded here so routing or mover work
+  can find it rather than rediscover it.
   **Layman:** A sister project cannot tell why two builds of one map disagree on routing; give them the per-node path lists the game itself walks.
   Kind: implement.
   Source: ut-monsterhunt-request-2026-09-20.

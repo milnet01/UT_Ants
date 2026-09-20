@@ -452,6 +452,16 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Dim surfaces keep their detail instead of being crushed darker than the original** (UTA-0192)
+  The final brightness squeeze opened by subtracting a little from every
+  colour. UT99 does no such thing, so every dimly lit surface the original
+  leaves alone came out darker here. Removing that step matches the
+  original more closely than copying UT99's own hard cut-off at white
+  would, and keeps the soft roll-off that stops bright lamps, fog glow and
+  bloom flattening into a white blob. Measured on DM-Deck16][, AS-Frigate
+  and DM-Fetid; the screen brightness and the amount of general fill light
+  were re-measured with it.
+
 - **Dimly lit surfaces are lit the way UT99 combines light and texture** (UTA-0187)
   Light now meets texture on display values rather than linearly, as
   UT99 multiplies its lightmap into the texture, and the baker takes

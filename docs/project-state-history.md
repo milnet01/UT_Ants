@@ -18,6 +18,20 @@ true when it was written.
 
 ## What shipped, newest first
 
+`UTA-0192` shipped 2026-09-20, green on the matrix: the output stage runs the
+Khronos PBR Neutral curve's shoulder with its TOE removed. The toe subtracted
+up to 0.04 from every channel and UT99 has no such step, so ours darkened every
+dim surface the original left alone. Measured, the toe is the whole of the
+mismatch and the shoulder is free — pooled RMS 34.85 with it and 32.49 without,
+where UT99's own clip scores 32.58 and that clip placed UNDER the toe scores
+35.06, worse than shipping. `EXPOSURE` 6.16 to 5.03 and `AMBIENT_SCALE` 1 to
+0.75 followed, refitted on UTA-0187's own linear renders with no re-render.
+`DISPLAY_LIGHT_POWER` stays 1.6. The baker did not change, so no bundle went
+stale. Added `tests/device/RenderOutputStageTest.cpp`, the output stage's first
+grader — until it, every device test read back before the post chain and
+nothing graded exposure or the tone map at all. Amended `UTA-0014` SS 4.10,
+which had named an exposure four refits stale. Harness at `ut-ants-uta0192`.
+
 `UTA-0126` — why eight maps still do not route — shipped 2026-09-20. All eight
 have a named cause and none is undiagnosed. Two were ours and are `UTA-0133`,
 shipped: § 4.7 offered its fallback goal wherever the network reached the node

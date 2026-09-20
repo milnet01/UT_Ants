@@ -5,9 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0192` (fit the output stage's tone map against the
-original, which clips at white; the user placed it next, 2026-09-19).
-Then `UTA-0191`, then `UTA-0188`.
+**Next:** `UTA-0191`, then `UTA-0188`.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
