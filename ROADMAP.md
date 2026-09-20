@@ -10981,6 +10981,23 @@ model, no weapon and no opponent until 0.2.0.
   and 100% plain at once and meant neither. Painting plain black fixes it.
   Both probes restore the checkout's shaders on any exit and the tree was
   verified clean after each.
+  Waiting-on: UTA-0201, ut-dump listing a map's surfaces and their flags.
+  Named UTA-0012 when this was parked, which was wrong: surface listing is
+  in neither that item's scope nor the narrow contract UT_MonsterHunt is
+  drafting for it, so it was split out rather than folded in.
+  Parked 2026-09-20 by the user's choice between finishing this by hand
+  through upkg and building the tool first. The hand route is slower AND
+  leaves the next look-finding without the tool, so the tool goes first.
+
+  Everything above stands and none of it needs redoing. What this resumes
+  with is one question, which UTA-0012 should answer in one command: does
+  AS-Frigate carry a surface using rainfx.swater4a or rainfx.hfluid2, and
+  what are its flags? If it does, the baker emitted it and the fault is
+  downstream; if it does not, the fault is in what the baker kept.
+
+  Held by session ut-ants-67, main checkout, and parked rather than
+  dropped -- the probes and reference frames in ut-ants-uta0188 are what
+  make the resume cheap.
   **Layman:** The water in AS-Frigate looks dark and murky where the original game shows it bright blue-green.
   Kind: investigate.
   Source: in-session-2026-09-18.
@@ -11565,6 +11582,42 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: user-request-2026-09-20.
   Lanes: apps/ut-ants.
+
+- 🚧 [UTA-0201] **ut-dump: list a map's BSP surfaces by texture and flags, so a missing surface can be found.**
+  SPLIT OUT OF UTA-0012 DELIBERATELY, and that is the point of filing it
+  rather than folding it in. UTA-0012's scope is the --json / TSV mode and
+  the per-actor mode, and it carries a standing cross-session agreement:
+  it does not flip shipped without a short spec settling the ut-dump JSON
+  shape plus a test pinning it, and UT_MonsterHunt is drafting that spec
+  from the consumer side. Taking that whole item to answer one question
+  would tread on their draft and block on it.
+
+  Surfaces are in neither their three day-one queries nor the narrow
+  contract they intend to pin, which UTA-0012's body lists as
+  importedPackages, classCounts, level {actors, rawSlots, reachSpecs} and
+  the nav and wiring counts. That body also says everything else in the
+  output is incidental and NOT to be pinned, so a new top-level key is
+  additive and takes nothing away from them. Tell them it landed anyway.
+
+  Wanted: for each map, group its BSP surfaces by texture and polyFlags
+  and report the group's surface count and the node count that references
+  it -- a surface no node draws is the interesting case. upkg already
+  reads it: Model::surfs is a BspSurf carrying `texture` and `polyFlags`,
+  Model::nodes carries iSurf, and ut-dump's own nameOr already turns an
+  ObjectReference into a name.
+
+  UNBLOCKS UTA-0188, which is parked on exactly one question: does
+  AS-Frigate carry a surface using rainfx.swater4a or rainfx.hfluid2, and
+  what are its flags? That item measured the water band as absent from our
+  draw rather than dark, and cannot get further without this.
+
+  Taken 2026-09-20 by session ut-ants-67, main checkout. UTA-0188 is
+  parked on Waiting-on and counts against neither limit, so this is the
+  one item held.
+  **Layman:** Add a mode that prints which textures a map's walls and floors use and how each is flagged, so we can tell whether a surface we are not drawing is even in the map.
+  Kind: implement.
+  Source: in-session-2026-09-20.
+  Lanes: tools/ut-dump.
 
 ## 0.2.0 — Movement and weapons
 

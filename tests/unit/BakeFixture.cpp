@@ -323,8 +323,8 @@ std::int32_t MapBuilder::importTexture(std::string_view package, std::string_vie
     return packer_.importObject(className == "Texture" ? "Engine" : "Fire", className, outer, name);
 }
 
-MapBuilder& MapBuilder::addSurface(std::int32_t texture, std::uint32_t polyFlags) {
-    surfaces_.push_back(Surface{texture, polyFlags});
+MapBuilder& MapBuilder::addSurface(std::int32_t texture, std::uint32_t polyFlags, bool drawn) {
+    surfaces_.push_back(Surface{texture, polyFlags, drawn});
     return *this;
 }
 
@@ -464,7 +464,9 @@ std::vector<std::uint8_t> MapBuilder::build() const {
         square.w = z;
         square.iSurf = static_cast<std::int32_t>(i);
         square.iVertPool = first;
-        square.numVertices = 4;
+        // 0 vertices draws nothing, which is how a surface present in the file
+        // reaches nobody's screen (UTA-0201).
+        square.numVertices = surfaces_[i].drawn ? 4 : 0;
         model.addNode(square);
 
         ModelExportWriter::Surf surf;

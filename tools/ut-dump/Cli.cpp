@@ -24,6 +24,7 @@
 #include "unav/Build.h"
 #include "unav/Graphs.h"
 #include "upkg/Class.h"
+#include "upkg/Geometry.h"
 #include "upkg/Level.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
@@ -37,6 +38,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace uta::dump {
@@ -132,6 +134,74 @@ struct ActorFacts {
 std::string nameOr(const uta::upkg::Package& package, uta::upkg::ObjectReference ref) {
     const auto name = package.objectName(ref);
     return name.has_value() ? std::string{*name} : std::string{"?"};
+}
+
+/// UTA-0201: the map's BSP surfaces, grouped by the texture they use and the
+/// flags they carry.
+///
+/// GROUPED, not one row per surface: a map holds thousands, and the question
+/// this answers is which textures are present and how they are flagged, not
+/// where each polygon sits. `drawnNodes` is what makes a group worth having --
+/// a surface no node references is in the file and on nobody's screen, which
+/// is the case UTA-0188 went looking for and could not ask about.
+///
+/// The texture is named by its object name ALONE, not qualified by its
+/// package. A texture reference is usually an import, and resolving its
+/// package means walking the outer chain -- which UTA-0012's body records
+/// getting wrong once, yielding the GROUP rather than the package and
+/// reporting 587 maps as needing one called "Base". The bare name answers
+/// whether a map uses a texture, which is what this is for.
+void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
+                   const uta::upkg::Level& level) {
+    // `Level::model` comes out of the export's DATA, which Package::open did
+    // not validate, so its range is checked rather than trusted -- the same
+    // guard ubake's findModel applies, restated here because ut-dump does not
+    // link the baker.
+    // Both refusals name themselves, as `levelError` does above. A bare null
+    // cannot be told from a map with no BSP, and the first run of this hit one
+    // of these two branches and could not say which.
+    if (level.model.kind() != uta::upkg::ObjectReferenceKind::Export
+        || level.model.index() >= package.exports().size()) {
+        out << ",\n  \"surfaces\": null,\n  \"surfacesError\": ";
+        writeJsonString(out, "the level names no Model export of this map");
+        return;
+    }
+    const auto model = uta::upkg::readModel(package, package.exports()[level.model.index()]);
+    if (!model.has_value()) {
+        out << ",\n  \"surfaces\": null,\n  \"surfacesError\": ";
+        writeJsonString(out, std::string(model.error().message()));
+        return;
+    }
+
+    // Drawable nodes referencing each surface. Fewer than three vertices draws
+    // nothing, which is ubake's own first test over the same array.
+    std::vector<long long> nodesOf(model->surfs.size(), 0);
+    for (const uta::upkg::BspNode& node : model->nodes) {
+        if (node.numVertices < 3) continue;
+        if (node.iSurf < 0 || static_cast<std::size_t>(node.iSurf) >= nodesOf.size()) continue;
+        ++nodesOf[static_cast<std::size_t>(node.iSurf)];
+    }
+
+    // Ordered, so two runs over one map agree and a diff of two maps reads.
+    std::map<std::pair<std::string, std::uint32_t>, std::pair<long long, long long>> groups;
+    for (std::size_t i = 0; i < model->surfs.size(); ++i) {
+        const uta::upkg::BspSurf& surf = model->surfs[i];
+        auto& group = groups[{nameOr(package, surf.texture), surf.polyFlags}];
+        ++group.first;
+        group.second += nodesOf[i];
+    }
+
+    out << ",\n  \"surfaces\": {\"total\": " << model->surfs.size() << ", \"byTextureAndFlags\": [";
+    bool firstGroup = true;
+    for (const auto& [key, counts] : groups) {
+        if (!firstGroup) out << ", ";
+        firstGroup = false;
+        out << "{\"texture\": ";
+        writeJsonString(out, key.first);
+        out << ", \"polyFlags\": " << key.second << ", \"surfaces\": " << counts.first
+            << ", \"drawnNodes\": " << counts.second << "}";
+    }
+    out << "]}";
 }
 
 /// UTA-0136: every node and every edge, one row each, inside `nav`. The fields
@@ -483,6 +553,8 @@ void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system
     out << ", \"rawSlots\": " << level->rawSlotCount;
     out << ", \"reachSpecs\": " << level->reachSpecs.size();
     out << "}";
+
+    writeSurfaces(out, *package, *level);
 
     auto resolver = system.resolver();
     writeCredits(out, "levelInfo", *package, levelInfoOf(*package, *level));

@@ -198,7 +198,10 @@ public:
     std::int32_t importTexture(std::string_view package, std::string_view group,
                                std::string_view name, std::string_view className = "Texture");
 
-    MapBuilder& addSurface(std::int32_t texture, std::uint32_t polyFlags = 0);
+    /// `drawn` false gives the surface a node of NO vertices, so it sits in
+    /// the file with nothing drawing it -- UTA-0201's `drawnNodes` of 0, and
+    /// the only shape this builder could not express before.
+    MapBuilder& addSurface(std::int32_t texture, std::uint32_t polyFlags = 0, bool drawn = true);
 
     /// A class the map imports as `<package>.<className>`; its reference.
     std::int32_t importClass(std::string_view package, std::string_view className);
@@ -252,6 +255,7 @@ private:
     struct Surface {
         std::int32_t texture = 0;
         std::uint32_t polyFlags = 0;
+        bool drawn = true;
     };
     std::vector<Surface> surfaces_;
     struct Actor {

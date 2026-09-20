@@ -418,3 +418,96 @@ TEST_CASE("UTA-0136: without --nav-graph the nav object carries counts only", "[
     CHECK(result.out.find("nodeList") == std::string::npos);
     CHECK(result.out.find("edgeList") == std::string::npos);
 }
+
+// -- UTA-0201: surfaces by texture and flags ---------------------------------
+//
+// Built because UTA-0188 could not ask whether AS-Frigate's water surface was
+// in the map at all. The two cases below are the two answers that item needed:
+// a surface is present under a texture and flags, and a surface is present
+// that nothing draws.
+
+namespace {
+
+struct SurfaceRow {
+    std::string texture;
+    std::uint32_t polyFlags = 0;
+    long long surfaces = 0;
+    long long drawnNodes = 0;
+};
+
+std::vector<SurfaceRow> surfaceRows(const std::string& json) {
+    static const std::regex row(
+        R"re(\{"texture": "([^"]*)", "polyFlags": (\d+), "surfaces": (\d+), "drawnNodes": (\d+)\})re");
+    std::vector<SurfaceRow> rows;
+    for (auto it = std::sregex_iterator(json.begin(), json.end(), row); it != std::sregex_iterator(); ++it)
+        rows.push_back({(*it)[1].str(), static_cast<std::uint32_t>(std::stoul((*it)[2].str())),
+                        std::stoll((*it)[3].str()), std::stoll((*it)[4].str())});
+    return rows;
+}
+
+const SurfaceRow* rowFor(const std::vector<SurfaceRow>& rows, std::string_view texture,
+                         std::uint32_t polyFlags) {
+    for (const SurfaceRow& row : rows)
+        if (row.texture == texture && row.polyFlags == polyFlags) return &row;
+    return nullptr;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0201: one texture under two flag sets is two groups", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // AS-Frigate's own case: one water texture worn by surfaces flagged
+    // differently, which is what made UTA-0188 hard to ask about.
+    const std::int32_t water = map.importTexture("RainFX", "", "Swater4a", "Texture");
+    const std::int32_t wood = map.importTexture("GenEarth", "", "Planks", "Texture");
+    constexpr std::uint32_t SEA = 0x04002108;  // portal, two-sided, not solid
+    constexpr std::uint32_t POOL = 0x0000010c; // translucent, two-sided, not solid
+    map.addSurface(water, SEA).addSurface(water, POOL).addSurface(water, POOL).addSurface(wood, 0);
+
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    REQUIRE(result.code == 0);
+
+    const std::vector<SurfaceRow> rows = surfaceRows(result.out);
+    CHECK(result.out.find("\"surfaces\": {\"total\": 4,") != std::string::npos);
+
+    // The same texture under two flag sets does not collapse into one row.
+    const SurfaceRow* const sea = rowFor(rows, "Swater4a", SEA);
+    const SurfaceRow* const pool = rowFor(rows, "Swater4a", POOL);
+    REQUIRE(sea != nullptr);
+    REQUIRE(pool != nullptr);
+    CHECK(sea->surfaces == 1);
+    CHECK(pool->surfaces == 2); // two surfaces, one row
+    CHECK(rowFor(rows, "Planks", 0) != nullptr);
+
+    // Every surface this map has is drawn by something.
+    CHECK(sea->drawnNodes >= 1);
+    CHECK(pool->drawnNodes >= 2);
+}
+
+TEST_CASE("UTA-0201: a surface nothing draws is reported with no drawn nodes", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t water = map.importTexture("RainFX", "", "Swater4a", "Texture");
+    // The drawn one first, so it rather than the unseen one collects the
+    // fixture's floor node, which names surface 0.
+    map.addSurface(water, 0, /*drawn=*/true).addSurface(water, 0x40, /*drawn=*/false);
+
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    REQUIRE(result.code == 0);
+
+    const std::vector<SurfaceRow> rows = surfaceRows(result.out);
+    const SurfaceRow* const drawn = rowFor(rows, "Swater4a", 0);
+    const SurfaceRow* const unseen = rowFor(rows, "Swater4a", 0x40);
+    REQUIRE(drawn != nullptr);
+    REQUIRE(unseen != nullptr);
+
+    // Both are IN the map -- that is the point. Only one reaches a screen, and
+    // telling those apart is the whole reason this field exists.
+    CHECK(unseen->surfaces == 1);
+    CHECK(unseen->drawnNodes == 0);
+    CHECK(drawn->surfaces == 1);
+    CHECK(drawn->drawnNodes >= 1);
+}
