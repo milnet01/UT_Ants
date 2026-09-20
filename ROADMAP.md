@@ -10902,7 +10902,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-18.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0188] **Find why AS-Frigate's water draws dark where the original draws it bright cyan.**
+- 🚧 [UTA-0188] **Find why AS-Frigate's water draws dark where the original draws it bright cyan.**
   Seen 2026-09-18 by UTA-0178 on the original's captures
   (ut-ants-uta0156/orig-asfrigate poses 0 and 1) beside ours at EXPOSURE
   5.4: the original's water surface is a flat, bright cyan and ours is a
@@ -10911,6 +10911,20 @@ model, no weapon and no opponent until 0.2.0.
 
   Placed 2026-09-18 by the session: after UTA-0187, since a light-model
   change there could move this surface too, and before UTA-0177.
+  Taken 2026-09-20 by session ut-ants-67, main checkout. Rule-1 set
+  re-checked by the complete route: still only UTA-0098 and UTA-0100, both
+  `review-code-2026-09-10` and both dormant on conditions still unmet.
+
+  FIRST STEP IS TO RE-MEASURE, NOT TO HUNT. This was seen at EXPOSURE 5.4,
+  and the display transform has moved twice since: UTA-0192 took the toe
+  out of the tone map and set EXPOSURE 5.03 and AMBIENT_SCALE 0.75. So the
+  symptom may have moved or gone, and chasing the 2026-09-18 appearance
+  would be chasing a frame nothing draws any more. Re-shoot
+  ut-ants-uta0156/orig-asfrigate poses 0 and 1 against the current build
+  before reading anything into the cause.
+
+  Then the item's own lead: the water surface's batch flags and material,
+  since the lit, unlit and translucent paths each draw it differently.
   **Layman:** The water in AS-Frigate looks dark and murky where the original game shows it bright blue-green.
   Kind: investigate.
   Source: in-session-2026-09-18.
@@ -11447,7 +11461,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-20.
   Lanes: tools/ut-shot, urender.
 
-- 🚧 [UTA-0200] **A capture folder can name the wrong commit, because the build resolves it once at configure time.**
+- ✅ [UTA-0200] **A capture folder can name the wrong commit, because the build resolves it once at configure time.**
   UTA-0191 shipped with this and it is a defect in that item's own
   promise, which is "the build's commit".
 
@@ -11478,6 +11492,19 @@ model, no weapon and no opponent until 0.2.0.
   that admits it does not know.
 
   Taken 2026-09-20 by session ut-ants-67, main checkout.
+  Resolved 2026-09-20 at dc753cd, green on all three matrix legs (run
+  35522403705: Linux GCC 14, Linux Clang 19, Windows MSVC).
+
+  Verified by observation, which is the only honest route here: committed
+  the fix, rebuilt WITHOUT re-running cmake, and the generated header went
+  from 17d6d1a to dc753cd -- exactly the case that was broken. A fresh
+  capture taken from that binary then wrote `commit: dc753cd`, matching
+  HEAD. The same run confirmed --baker-version reaches details.txt, which
+  had read "unknown" on every capture before it.
+
+  NOT GRADED BY A TEST. It is a property of the build system, and the unit
+  tests do not compile main.cpp, so no test binary can see the client's
+  generated header. Recorded rather than left implied.
   **Layman:** The saved details say which build drew the picture, but the answer is worked out when the build folder is first set up, so it goes stale as soon as you commit anything.
   Kind: fix.
   Source: user-request-2026-09-20.
