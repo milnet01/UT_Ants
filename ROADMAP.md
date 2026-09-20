@@ -11175,6 +11175,59 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-20.
   Lanes: urender.
 
+- 📋 [UTA-0198] **ut-dump: emit each nav node's own Paths, upstreamPaths and PrunedPaths.**
+  Asked for by UT_MonsterHunt, 2026-09-20, blocking their GAME-0124.
+
+  What they have: their out-of-editor path rebuild against an
+  editor-built twin of MH-HaVoCuRhOMG, seeded from the twin's own
+  PathNode positions. The two agree on everything ut-dump exposes --
+  894 nav nodes, the same class census, the same 2 nodesWithNoExit, the
+  same 266 nodes reachable from the eight PlayerStarts, reach-spec counts
+  20066 against 20074 -- and still disagree on the route: the twin routes
+  in 16 hops, theirs is NOROUTE. The spec diff is almost all the same
+  spec with its `pruned` bit flipped.
+
+  Their hypothesis, which they state as unverified: the bot search walks
+  each ANavigationPoint's fixed-size Paths array, and two builds can agree
+  on the level's ReachSpecs array while disagreeing on which specs each
+  NODE ended up carrying. Nothing we emit can confirm or kill that.
+
+  Feasible: `src/upkg/Level.h` already says the reach-spec array is in
+  file order with file indexing, which is "what makes an actor's `Paths`
+  value resolvable against this array". So the values are reachable from
+  what we already parse.
+
+  THEIR REQUESTED FORMAT IS WRONG AND MUST NOT BE SHIPPED AS ASKED. They
+  asked for raw indices into the existing `edgeList`. `edgeList` is not
+  the reach-spec array: `src/unav/Build.cpp` DROPS any spec whose endpoint
+  does not resolve (counted into `discardedEndpoints`) and then
+  stable-sorts what survives by `from`, so an edgeList position is not a
+  file spec index. Feeding them raw indices against edgeList would
+  mis-map silently, and since they are diffing two files a mis-map reads
+  exactly like the disagreement they are hunting -- it would manufacture
+  the bug.
+
+  Do instead: keep the node's Paths values as the FILE's own indices into
+  the level reach-spec array, and add each edge's originating spec index
+  to `edgeList` so the two can be joined. Resolved actor references as
+  well would suit them better still, and match our own earlier caveat to
+  them about comparing by actor rather than by array position.
+
+  Watch the spelling: property names are kept as the file spells them, and
+  UT99 declares `upstreamPaths` with a lower-case u. A case-insensitive
+  match is the safe read.
+
+  Also worth recording from them, unverified by us: PATHS BUILD invents
+  nodes where PATHS DEFINE places exactly what it is given (786 seeds ->
+  1125 nodes against 894), and DEFINE is about ten times faster. And the
+  route verdict is not monotonic in seed count on that map -- 24 route,
+  200 do not, 400 route, 762 and 804 do not -- so neither "too dense" nor
+  "too sparse" explains it. That bears on UTA-0193 and UTA-0194.
+  **Layman:** A sister project cannot tell why two builds of one map disagree on routing; give them the per-node path lists the game itself walks.
+  Kind: implement.
+  Source: ut-monsterhunt-request-2026-09-20.
+  Lanes: upkg, unav.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
