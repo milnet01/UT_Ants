@@ -6094,7 +6094,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-11.
   Lanes: tools.
 
-- 🚧 [UTA-0126] **ut-paths: find why eight maps still do not route with their proposed nodes.**
+- ✅ [UTA-0126] **ut-paths: find why eight maps still do not route with their proposed nodes.**
   UT_MonsterHunt's seed test (2026-09-11; their
   analysis/seedtest-2026-09-11.tsv) built each of the 16 maps UTA-0121
   gave nodes, with them and without. On eight nothing routes either way:
@@ -6464,6 +6464,50 @@ model, no weapon and no opponent until 0.2.0.
   of the eight need nothing from us, while this body lists FIVE as
   undiagnosed. The five are the checkable set, so the five were sent.
   Which three that summary meant is unreconciled.
+  WAITING-ON ANSWERED and the investigation is COMPLETE (2026-09-20,
+  ut-ants-47, main checkout). All eight maps have a named cause and none
+  is undiagnosed, which is what this item asked. No code changed; the
+  repairs it found are UTA-0195 and UTA-0196.
+
+  UT_MonsterHunt (session ut-monsterhunt-5d) ran the five, mhengine
+  invoked directly per map from an install copy's System64, one process
+  per map, exit 0 on all five -- real engine answers, not stored
+  verdicts. All five NOROUTE:
+
+      map                        nodes  hops  gap to exit
+      MH-BoomDockBridge_V0         550     0          517
+      MH-Haros-OldQuarter          786     0          154
+      MH-ZenithWarsTorus           768     0          395
+      MH-Skaarj_ReactorTest-v1     433     0           43
+      MH-'Z-FALKENSTINE           1048     0          244
+
+  hops 0 with NOROUTE rather than NOASK means the engine routed the test
+  pawn somewhere, so the pawn walks and the network answers; the exit
+  alone is unreachable. Each has exactly one MonsterEnd. So it is map
+  content, not our model, and the five are write-offs.
+
+  MH-BoomDockBridge_V0 confirms our reading: exitwalk=no is a real bot
+  limitation, not our surveyor. The engine walks the pawn and still
+  cannot reach an exit whose nearest nav point is 517 units away, the
+  largest gap of the five, with the only ways across the three closed
+  Botpack.JumpSpot specs we recorded. Nothing to change our end.
+
+  MH-Skaarj_ReactorTest-v1 is the exception and is UTA-0195: at 43 units
+  the exit is effectively on the network, so something is refusing a link
+  with no distance to cross.
+
+  A CAUTION FROM THEM, worth keeping. Their stored result for
+  MH-BoomDockBridge_V0 was ROUTE, marked provisional and sourced from
+  file analysis; the fresh engine run says NOROUTE. Their store's own
+  firmness marking caught it. Do not read their stored verdicts directly
+  without checking firmness -- a provisional file verdict is exactly what
+  an engine run overwrites.
+
+  The count question this body raised is resolved by being overtaken:
+  CLAUDE.md said three of the eight needed nothing from us and this body
+  listed five as undiagnosed. The five were sent and all five came back
+  NOROUTE, so the larger set was the right one and no reconciliation is
+  owed.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -11027,6 +11071,70 @@ model, no weapon and no opponent until 0.2.0.
   **Layman:** Re-run the breadcrumb tool over a much larger set of broken maps than it was first aimed at.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-20.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0195] **ut-paths: MH-Skaarj_ReactorTest-v1's exit sits 43 units from the network and still does not route.**
+  Named by UT_MonsterHunt (session ut-monsterhunt-5d, 2026-09-20) as the
+  one repair candidate among UTA-0126's five write-offs.
+
+  Their mhengine run, one process per map from an install copy's
+  System64: NOROUTE, 433 nodes, 1 MonsterEnd, hops 0, and the nearest
+  nav point to the exit 43 units away. Every other map of the five has a
+  gap of 154 to 517 units.
+
+  43 units means the exit is effectively ON the network already, so a
+  bridge node is not what is missing -- something is refusing a link that
+  has no distance to cross. That is a different failure from the rest of
+  UTA-0126's set and is why it is filed on its own.
+
+  Our own census recorded this map as exitall=no with 35 one-way specs,
+  the first InventorySpot90 to PathNode83. One-way specs at that density
+  are the obvious first suspect: a spec into the exit's area with no way
+  back leaves a surveyor reaching it and a planner not.
+
+  hops 0 with NOROUTE rather than NOASK means the engine routed the test
+  pawn somewhere, so the pawn walks and the network answers. The exit
+  alone is unreachable.
+
+  Not started. The cheap first step is to read this map's specs around
+  the exit with ut-dump --nav-graph and ask which direction is missing.
+  **Layman:** On one map the exit is almost touching a path the bots use, yet they still cannot reach it; find out what is refusing.
+  Kind: fix.
+  Source: ut-monsterhunt-2026-09-20.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0196] **ut-paths: MH-NivenSB needs a node chain anchored at PathNodeSeed8 heading to the exit.**
+  Carried out of UTA-0126 so it survives that item closing; UTA-0126
+  diagnosed it and its body holds the full measurement.
+
+  UT_MonsterHunt's two-arm run (2026-09-12, MHSpecProbe, arms differing
+  by exactly one node) settled both halves. Our bridge node DOES get its
+  spec -- reached rises by exactly one and the frontier moves off
+  PathNode20 onto PathNodeSeed8 -- and it does NOT open the route. The
+  gap closes by 68 of 2852 units.
+
+  The partition is STRUCTURAL, not a reach-flag artefact: in "all" mode,
+  where no spec is denied, reached is still 124 and 125 of 679, so
+  allowing every flag reaches the exit no better.
+
+  What is needed is a CHAIN across the remaining 2784 units ANCHORED AT
+  PathNodeSeed8's end and heading toward the exit. An earlier three-node
+  chain did reach the exit's node but hung off a component the start
+  cannot reach -- that is the mistake this item exists to avoid, and the
+  run above says which end a chain has to start from.
+
+  Method for a clean two-arm test is established and is theirs:
+  --define with a very large --spacing plus an extra-seeds file, read
+  with MHSpecProbe rather than the census. Note --cap 0 raises
+  ZeroDivisionError and cannot suppress seeds, and --spacing 100000
+  leaves eight ordinary seeds on this map rather than one, because its
+  player starts straddle the origin.
+
+  Never compare a saved node count against a runtime one: the engine
+  creates InventorySpots at load, so 494 saved reads as 679 at runtime.
+  **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
+  Kind: fix.
+  Source: in-session-2026-09-20.
   Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons

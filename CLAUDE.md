@@ -120,40 +120,32 @@ rule 14, and found the amendment ITSELF wrong — keyed on two different
 navigation points at once. Writing the code first would have built the
 defect it was removing.
 
-`UTA-0126` — why eight maps still do not route — is parked on
-`Waiting-on:` UT_MonsterHunt and counts against neither limit. All eight
-now have a named cause; `UTA-0133` is the repair for the part that is
-ours.
+`UTA-0126` — why eight maps still do not route — shipped 2026-09-20.
+All eight have a named cause and none is undiagnosed. Two were ours and
+are `UTA-0133`, shipped: § 4.7 offered its fallback goal wherever the
+network reached the node NEAREST the exit, never checking that node is
+AT the exit, so the chain bridged to a substitute. It keys on a
+navigation point that TOUCHES the exit now. Over the partitioned corpus
+17 maps moved: five gained something real, twelve stopped claiming a
+route they never had.
 
-What that run settled: the bridge node DOES get its spec and does NOT
-open the route — the gap closes by 68 of 2852 units, and the partition
-is structural rather than a reach-flag artefact, since "all" mode
-reaches the exit no better. So what is needed is a CHAIN across the
-remaining 2784 units ANCHORED AT PathNodeSeed8's end, heading toward the
-exit. An earlier three-node chain did reach the exit's node but hung off
-a component the start cannot reach, which is the mistake that run rules
-out.
+Five are map content, confirmed in-engine by UT_MonsterHunt 2026-09-20 —
+all NOROUTE, the pawn walking and the network answering, the exit alone
+unreachable. They are write-offs. The sixth is MH-NivenSB.
 
-**All eight now have a named cause** (2026-09-12). Two are ours and are
-`UTA-0133`, now shipped: § 4.7 offered its fallback goal wherever the
-network reached the node NEAREST the exit, never checking that node is AT
-the exit, so the chain bridged to a substitute and never approached the
-exit. It keys on a navigation point that TOUCHES the exit now. Over the
-partitioned corpus 17 maps moved: five gained something real, twelve
-stopped claiming a route they never had. Three need nothing from us
-that we can see, and the question goes back to UT_MonsterHunt. Two have
-no spot touching their exit. One is MH-NivenSB above, whose fallback
-premise HOLDS — an earlier note of ours recorded it as failing, by
-comparing a 3D distance against a horizontal window. Read `UTA-0126`'s
-body before the chain work: `UTA-0133` is the same mistake as that
-three-node chain, and fixing it comes first.
+Two repairs outlived that investigation and carry its measurements:
+`UTA-0195` (MH-Skaarj_ReactorTest-v1's exit sits 43 units from the
+network and still does not route — something refuses a link with no
+distance to cross) and `UTA-0196` (MH-NivenSB needs a chain anchored at
+PathNodeSeed8's end, not the single bridge node, which gets its spec and
+closes the gap by only 68 of 2852 units). Read `UTA-0196` before any
+chain work: an earlier three-node chain reached the exit's node but hung
+off a component the start cannot reach.
 
-`UTA-0014` — urender's Vulkan device bring-up and the bundle draw path —
-is the keystone of 0.1.0 and the alternative to take: `UTA-0059` defers
-itself until it lands, and the render items behind it all wait on the
-draw path existing. `UTA-0013`'s quarantine guard is a third, and
-neither shares a directory with ut-paths, so a second session can take
-either alongside `UTA-0126`.
+**Do not read UT_MonsterHunt's stored route verdicts without checking
+firmness.** Their store had MH-BoomDockBridge_V0 as ROUTE, provisional
+and sourced from file analysis; a fresh engine run says NOROUTE. Their
+own firmness marking caught it.
 
 **Shipped 2026-09-12**, all on the matrix: `UTA-0133`'s fallback keying
 and `UTA-0134` (answered in-engine by UT_MonsterHunt, nothing to change),
