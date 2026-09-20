@@ -10902,7 +10902,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-18.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0188] **Find why AS-Frigate's water draws dark where the original draws it bright cyan.**
+- ✅ [UTA-0188] **Find why AS-Frigate's water draws dark where the original draws it bright cyan.**
   Seen 2026-09-18 by UTA-0178 on the original's captures
   (ut-ants-uta0156/orig-asfrigate poses 0 and 1) beside ours at EXPOSURE
   5.4: the original's water surface is a flat, bright cyan and ours is a
@@ -11032,6 +11032,39 @@ model, no weapon and no opponent until 0.2.0.
   to them with the options. Whatever is chosen, the roughly 58 off-world
   maps and every other water map share this surface shape, so the blast
   radius is the map library rather than one map.
+  Resolved 2026-09-20 at 84c0719, green on all three matrix legs (run
+  35529505303: Linux GCC 14, Linux Clang 19, Windows MSVC). Local gate
+  green, 713/713 and 660/660 under the race detector, 51/51 device on
+  lavapipe as well as on the GPU.
+
+  Fixed by removing PF_PORTAL from src/urender/Geometry.cpp's discard.
+  docs/specs/UTA-0014-vulkan-draw-path.md SS 4.5 and INV-11 both amended
+  to record it; no gate, the amendment recording what was built.
+
+  Measured rather than eyeballed. AS-Frigate over its 21 real poses: mean
+  absolute error against the original's own frames 17.67 -> 17.03, 4 poses
+  closer and NONE further. The water band goes from 47.1/48.7/53.3 to
+  34.6/109.6/128.9 against the original's 0.9/112.4/148.3.
+
+  The 22nd pose is excluded and named: its original capture is entirely
+  black, a failed screenshot from the original game, so drawing more can
+  only increase the distance from it. Counting it reported a +0.98
+  regression that is an artefact of the reference, and that is the one
+  number in this item somebody could have quoted wrongly.
+
+  DM-Fetid is the control: byte-identical over all 8 poses, 0.0% of pixels
+  changed. A map with no visible portal is untouched.
+
+  Library-wide, measured with UTA-0201 over the install's 1441 maps: 994
+  of them, 69%, gain drawn surfaces -- 10650 surfaces under 70302 nodes.
+  Far wider than water maps, which is why the user asked for a sample
+  rather than one map.
+
+  STILL SHORT OF THE ORIGINAL, and not chased here. Our water is less
+  saturated: red reads 34.6 where the original reads 0.9, and blue 128.9
+  against 148.3. The hue is right and the surface is present; what remains
+  is most likely UT99's own water-zone tinting, which this project does
+  not apply. Worth its own item when somebody wants it.
   **Layman:** The water in AS-Frigate looks dark and murky where the original game shows it bright blue-green.
   Kind: investigate.
   Source: in-session-2026-09-18.
