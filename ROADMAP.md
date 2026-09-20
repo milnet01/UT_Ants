@@ -6454,6 +6454,16 @@ model, no weapon and no opponent until 0.2.0.
   route in-engine? If they do, our model is still missing something; if
   not, it is map content and we stop looking. Awaiting their reply; still
   Waiting-on.
+  Sent (2026-09-20, ut-ants-47) to UT_MonsterHunt session
+  ut-monsterhunt-5d, who took the ask: the five maps this body records as
+  undiagnosed on our side -- MH-BoomDockBridge_V0, MH-Haros-OldQuarter,
+  MH-ZenithWarsTorus, MH-Skaarj_ReactorTest-v1 and MH-'Z-FALKENSTINE --
+  with each one's spec evidence. Their mhengine checker gives
+  MHRouteProbe's verdict per map in about a second with no server boot.
+  Flagged to them, and not resolved here: CLAUDE.md's summary says THREE
+  of the eight need nothing from us, while this body lists FIVE as
+  undiagnosed. The five are the checkable set, so the five were sent.
+  Which three that summary meant is unreconciled.
   **Layman:** Our extra bot paths fixed three of the old maps; find out why eight others still don't work.
   Kind: investigate.
   Source: ut-monsterhunt-seedtest-2026-09-11.
@@ -8688,6 +8698,12 @@ model, no weapon and no opponent until 0.2.0.
   maps, does the teleporter that starts disabled get enabled in normal
   play, and by what. Static analysis sees the initial state and not the
   enabling. Awaiting their reply; still Waiting-on.
+  Ask WITHDRAWN (2026-09-20, ut-ants-47), same day it was made. It asked
+  UT_MonsterHunt to re-run GAME-0120, which they had already delivered on
+  2026-09-17 and which is recorded four notes above. The cause was
+  CLAUDE.md saying this item waits on their re-check; it waits on OUR
+  trigger census, queued after UTA-0172. That line is now corrected.
+  Nothing is owed by them here.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
@@ -10946,6 +10962,72 @@ model, no weapon and no opponent until 0.2.0.
   Kind: fix.
   Source: in-session-2026-09-19.
   Lanes: urender.
+
+- 📋 [UTA-0193] **ut-paths: 34 partitioned maps have a found exit and no proposed bridge node.**
+  Found 2026-09-20 by UT_MonsterHunt (session ut-monsterhunt-5d) while
+  reading the delivered seed output, and confirmed here.
+
+  Of the 867 files in /mnt/Games/Scripts/Linux/ut-paths-output, 71 carry
+  at least one proposed node and 796 carry `"nodes": []`. Most of those
+  empties are honest: over the 796, the exits read 1025 `none` and 188
+  `mover`, and neither can be bridged by a node.
+
+  42 exits on 38 maps read `route: found` with no node proposed, and
+  those are the ones to explain. By group: 34 PARTITIONED, 4
+  EXIT_OFF_NET, none moverOnly.
+
+  EXIT_OFF_NET with a found exit is probably correct by construction --
+  the exit is already on the network, so no node is needed. PARTITIONED
+  is the one that does not read that way: the group means the start's
+  part never reaches the exit's, so a found exit with no bridge node is
+  exactly the case propose() exists to serve.
+
+  UTA-0126 already found one mechanism that produces this shape: the
+  fallback goal diverts the chain away from the exit, because propose()
+  adds the fallback goal spots and shortestPath returns the path to the
+  NEAREST goal. UTA-0133 repaired the keying. Whether these 34 predate
+  that repair, or are a second cause, is not established -- the delivered
+  JSON was written 2026-09-11 and UTA-0133 shipped 2026-09-12, so the
+  first thing to do is re-run these 34 on the current build before
+  diagnosing anything.
+
+  The 34 PARTITIONED and 4 EXIT_OFF_NET names are reproducible from the
+  directory: files whose nodes array is empty and whose exits carry a
+  `route` of `found`.
+
+  Not a defect until the re-run says so. An empty list may be the honest
+  answer where collision found no walkable bridge.
+  **Layman:** On some maps our tool found the exit but suggested no breadcrumbs to reach it; find out whether that is honest or a dropped result.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-09-20.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0194] **ut-paths: run the seed proposal over the wider NOROUTE population.**
+  Asked 2026-09-20 by UT_MonsterHunt (session ut-monsterhunt-5d); their
+  matching item is GAME-0095.
+
+  UTA-0121 was scoped against the EXIT_OFF_NET and PARTITIONED rows of
+  their routecensus-split-2026-09-07c.tsv, and wrote 297 maps. Their
+  checker now reports 940 MH- maps at NOROUTE, of which 543 have no -BP
+  twin. That is a much larger target than the split this was scoped
+  against.
+
+  Before spending the run, settle the expected yield -- they asked for
+  this explicitly. The measured yield on what has been delivered is 71
+  of 867 files carrying at least one node, and UTA-0193 is open on
+  whether part of that is a dropped result rather than an honest
+  refusal. Answer UTA-0193 first: if those 34 partitioned maps should
+  have carried a bridge, the yield on a wider run is materially
+  different and the estimate made before it would be wrong.
+
+  Hand-off is UTA-0121's: one JSON file per map, md5 of the .unr read,
+  written outside both repositories, and the directory path sent to
+  them. Their md5 gate is live -- they refuse a list whose md5 does not
+  match the live Maps/ file.
+  **Layman:** Re-run the breadcrumb tool over a much larger set of broken maps than it was first aimed at.
+  Kind: feature.
+  Source: ut-monsterhunt-2026-09-20.
+  Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons
 
