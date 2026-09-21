@@ -10200,6 +10200,19 @@ model, no weapon and no opponent until 0.2.0.
   UT_MonsterHunt (ut-monsterhunt-db) was asked for the ground truth behind their T3D exit survey: per-exit verdicts for their four never maps, any near-misses where their rule nearly went wrong, and whether exitsurvey.py reads any property outside the list in this item's body. Grading our output against their measured verdicts beats a test written from our own reading of their rule, and the third question is the cheap moment to catch a missing field before the schema ships.
 
   Spec decision put to the user: spec-format.md SS 1's first trigger fires -- this output is a contract other tooling already scripts against -- but the item body already carries a precise field list, so the question is whether the cold-read gate earns its cost here.
+  Schema reviewed by the consumer 2026-09-21 and amended on their objections, before any code was written. Four changes, each recorded in the spec with its reasoning.
+
+  The emission filter is GONE -- every actor is emitted under the flag. Their never test divides by the exit count, so any filter able to drop an exit shrinks the denominator and turns a map with one never exit and one dropped live exit into a false never, silently. They measured it cannot happen today (zero exits carry an empty Tag across 1324 exported maps), so the filter was safe in fact while their correctness rested on a property of ours that neither document stated. They proposed exempting exit classes; that is refused, because it puts a MonsterHunt concept in a general tool. Removing the filter answers it without the concept and costs almost nothing, precisely because their measurement shows it dropped almost nothing.
+
+  The grade population is now the 1430-map intersection, not all 1441. Their four never-maps were computed over maps that have a T3D export, and 11 installed maps have none -- 10 of which carry real MonsterEnd actors. A run over all 1441 would classify maps the reference set has never seen, so a correct output could fail the assertion, and the obvious repair to that is to doubt the output.
+
+  Actor names are NOT unique within a map, so the schema now carries an export-table `index` and says so. Measured by them: MH-MJD_FIX3 holds two MonsterEnd0 actors, three SkyWars maps two Counter7, MH-ZombieCorridor-BP two Dispatcher8. Their own self-naming exclusion keys on name and is latently wrong for those.
+
+  bInitiallyActive is null where the class family has no such property, never false. Collapsing the two makes "no such property" identical to "switched off", and off-ness is half their never test.
+
+  Also added `chainsUnresolved` per map, so a consumer reports how many actors it could not classify rather than implying full coverage.
+
+  Their own exit counts turn out to be unsound -- MH-MJD_FIX3's export holds one actor twice -- so the grade asserts the never/not-never classification only. Ours is the correct count there.
   **Layman:** List which switches and triggers in a map fire which others, so a map whose exit can never open is found without the old editor.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.

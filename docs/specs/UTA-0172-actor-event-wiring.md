@@ -99,12 +99,21 @@ Inside the existing `wiring` object, beside the current keys:
   "nodes": 12,
   "edges": 9,
   "dangling": [{"class": "Trigger", "event": "missiondone"}],
+  "chainsUnresolved": 0,
   "actors": [ ... ]
 }
 ```
 
 `wiring` is already `null` for a package whose wiring graph did not build.
-That is unchanged: `actors` exists only where `wiring` is an object.
+That is unchanged: `actors` and `chainsUnresolved` exist only where `wiring`
+is an object, and only under `--wiring-graph`.
+
+`chainsUnresolved` is the number of emitted actors whose `chainEnd` is not
+`"root"` — the count of actors this map could not fully classify. A consumer
+can derive it from `actors`, and it is stated separately so that a report can
+say how much of the map it could not resolve instead of implying full
+coverage. UT_MonsterHunt asked for it after their GAME-0160 taught them the
+cost of a silently partial population.
 
 ### 4.3 One element
 
@@ -112,6 +121,7 @@ One element per emitted actor, in export-table order:
 
 ```json
 {
+  "index": 417,
   "name": "MonsterEnd0",
   "class": "MonsterEnd",
   "classChain": ["MonsterEnd", "NavigationPoint", "Actor", "Object"],
@@ -130,9 +140,18 @@ One element per emitted actor, in export-table order:
 }
 ```
 
+- `index` — the actor's position in the package's export table. **This is the
+  identity**; see the warning below.
 - `name` — the export's own object name, as stored. Needed so a consumer can
   exclude an actor that names its own tag; without it, an exit whose own
   `Event` equals its own `Tag` reads as switched on by something.
+
+  **`name` is NOT unique within a map, and a consumer must not key on it.**
+  Measured 2026-09-21 by UT_MonsterHunt: MH-MJD_FIX3 holds two `MonsterEnd0`
+  actors, three SkyWars maps hold two `Counter7` each, and MH-ZombieCorridor-BP
+  holds two `Dispatcher8`. A reader keying by name silently merges them, and a
+  self-naming exclusion written against `name` excludes the wrong actor. Use
+  `index`.
 - `class` — the leaf class name, as stored.
 - `classChain` — § 4.4.
 - `chainEnd` — § 4.4.
@@ -144,9 +163,14 @@ One element per emitted actor, in export-table order:
 - `OutEvents` — an **object keyed by decimal index as a string**, not an
   array, and holding only the indices that have a value. § 4.5 says why the
   index is load-bearing and why this is not a flat value.
-- `bInitiallyActive`, `initialState` — after the same defaults merge.
-  `initialState` is emitted because it is free from the merge; no consumer
-  reads it today.
+- `bInitiallyActive` — after the same defaults merge, and **`null` where the
+  actor's class family has no such property at all**. It is not `false` there.
+  The `""`-not-absent convention above is about the string fields; collapsing
+  "no such property" into `false` would make it identical to "switched off",
+  and switched-off-ness is half of the consumer's never test. A consumer must
+  treat `null` as unknown.
+- `initialState` — after the same merge, `""` when unset. Emitted because it
+  is free from the merge; no consumer reads it today.
 
 ### 4.4 The class chain, and its honesty field
 
@@ -228,18 +252,30 @@ verbatim (scope decision 4) and the consumer folds case.
 
 ### 4.6 Which actors are emitted
 
-An actor is emitted when, after the § 4.5 merge, **any** of `Tag` or the six
-event properties is non-empty.
+**Every actor in the export table is emitted. There is no filter.**
 
-In UE1 an actor's `Tag` defaults to its class name, so in practice this is
-most actors in the map — MH-GolgothaAL_fix has 2905. That is the measured
-reason for scope decision 3's flag: the array is large, most runs do not want
-it, and the existing `--nav-graph` already establishes the pattern for exactly
-this trade.
+The array is large — MH-GolgothaAL_fix has 2905 actors — and that is what
+scope decision 3's flag is for, mirroring `--nav-graph`.
 
-The alternative — emitting only actors with an event, plus actors whose chain
-reaches some named base class — was rejected in § 8: it is smaller, and it puts
-a MonsterHunt concept inside a general tool.
+A filter was specified here until 2026-09-21: emit an actor only when `Tag` or
+one of the six events is non-empty after the merge. It was dropped on the
+consumer's objection, and the reasoning is worth keeping because it is not
+obvious.
+
+UT_MonsterHunt's never test is `never == len(exits)` — the exit count is a
+**denominator**. Any filter that can drop an exit shrinks that denominator, so
+a map with one never exit and one dropped live exit reads as never: a false
+never, which is their dangerous direction, arriving silently. They measured
+that it cannot happen today — across 1324 exported maps carrying exits, zero
+exits have an empty `Tag`, and after the merge `Tag` defaults to the class
+name — so the filter was safe in fact.
+
+But their correctness would have depended on a property of our filter that
+neither document stated. They asked for an exemption for exit classes; that
+is refused under scope decision 2, because it puts a MonsterHunt concept in a
+general tool. Removing the filter altogether answers the objection without
+the concept, and costs almost nothing precisely because their measurement
+shows the filter was dropping almost nothing.
 
 ## 5. Invariants
 
@@ -291,10 +327,28 @@ a MonsterHunt concept inside a general tool.
   *Breaks when:* a name is written to the stream by any route other than
   `writeJsonString`.
 
+- **INV-8** — Every actor in the export table is emitted; no actor is
+  filtered out.
+  *Test:* `tests/unit/DumpCliTest.cpp`: a synthetic package holding an actor
+  with no `Tag` and no event of any kind; assert it still appears in `actors`,
+  and that the array's length equals the package's actor count.
+  *Breaks when:* any emission filter is reintroduced — which would make the
+  consumer's exit-count denominator depend on it, per § 4.6.
+
+- **INV-9** — `bInitiallyActive` is `null`, not `false`, where the actor's
+  class family has no such property.
+  *Test:* `tests/unit/DumpCliTest.cpp`: an actor whose class chain never
+  declares `bInitiallyActive`; assert the field is `null`. A second actor that
+  declares it `False` asserts `false`, so the two are distinguishable.
+  *Breaks when:* the absent case is defaulted to `false`, making "no such
+  property" and "switched off" the same value — half of the consumer's never
+  test.
+
 - **INV-7** — The four maps UT_MonsterHunt's T3D survey calls never-maps are
   the maps for which their rule, applied to this output, returns never.
-  *Test:* not a unit test — a grading run over the install, described in § 7.
-  *Breaks when:* any of `tag`, `name`, `class` or the `OutEvents` index is
+  *Test:* not a unit test — a grading run over the 1430-map intersection,
+  described in § 7.
+  *Breaks when:* any of `tag`, `index`, `class` or the `OutEvents` index is
   wrong or missing, since their rule is a join over exactly those.
 
 ## 6. Failure modes
@@ -312,8 +366,8 @@ a MonsterHunt concept inside a general tool.
 
 ## 7. Tests
 
-`tests/unit/DumpCliTest.cpp` carries INV-1, INV-2, INV-3, INV-4, INV-5 and
-INV-6, driving `runCli` over
+`tests/unit/DumpCliTest.cpp` carries INV-1, INV-2, INV-3, INV-4, INV-5,
+INV-6, INV-8 and INV-9, driving `runCli` over
 synthetic packages built by `tests/support/UnrealPackageBuilder.cpp`, in the
 pattern that file already uses. No new test binary.
 
@@ -322,10 +376,31 @@ INV-7 is a grading run, not a unit test, because its fixture is the install:
 1. `ut-dump --wiring-graph --ndjson` over every map in the install.
 2. Apply UT_MonsterHunt's rule to the output: an actor whose `classChain`
    reaches a class named `MonsterEnd` (case-insensitively) is an exit; an exit
-   is never when `bInitiallyActive` is false and no **other** actor's `tag` is
-   matched by any of its event values, compared case-insensitively.
-3. Assert the never set is exactly MH-(RTNP)Abyss(SB), MH-GolgothaAL_fix,
-   MH-UM-TeamFight and MH-UM-TeamFight-BP.
+   is never when `bInitiallyActive` is false and no **other** actor, by
+   `index`, has a `tag` matched by any of its event values, compared
+   case-insensitively.
+3. **Restrict the assertion to the 1430 maps that also have a T3D export.**
+   Assert the never set there is exactly MH-(RTNP)Abyss(SB),
+   MH-GolgothaAL_fix, MH-UM-TeamFight and MH-UM-TeamFight-BP.
+4. **The remaining 11 maps are a finding, not a grade.** Any never map among
+   them is verified by hand and reported; it is not a failure.
+
+**Step 3's restriction is load-bearing and was added on the consumer's
+objection.** The four never-maps were computed over 1430 maps, not 1441: the
+T3D survey reads only maps that have an export, and 11 installed maps have
+none (their GAME-0160). Ten of those 11 carry real MonsterEnd actors —
+MH-Slime-UTP has three; Doom][-BP-UTP, Minotaur-BP-UTP and Santa-BP-UTP have
+two each — so a run over all 1441 would classify ten maps the reference set
+has never seen. If any is a never map, this output is **right** and an
+unrestricted assertion fails. A grade that fails on correct output is worse
+than no grade, because the obvious repair is to doubt the output.
+
+**Grade the never/not-never classification only, never per-map exit counts.**
+UT_MonsterHunt found on 2026-09-21 that their own exit counts are unsound:
+MH-MJD_FIX3's T3D export contains one actor twice, both named `MonsterEnd0`,
+so their survey reports two exits where `ut-dump`'s `classCounts` reports one.
+Ours is the correct count. It changes no verdict on that map, but it means
+their counts are not a reference to assert against.
 
 All five maps named in this section were confirmed present in the install on
 2026-09-21 (`test -f "$MAPS/<name>.unr"`). This is not pedantry: the lists
@@ -343,9 +418,15 @@ case-sensitive.
   concept in a general package inspector (scope decision 2), and it freezes a
   rule that has already changed once — six class spellings are known and there
   is no reason to think six is final.
-- **Filter to actors with an event, plus actors of named exit classes.**
-  Smaller output, same objection, and the § 4.5 census shows the class list is
-  the part that keeps moving.
+- **Filter to actors whose Tag or events are non-empty.** Specified until
+  2026-09-21 and removed; § 4.6 carries the reasoning. It made the consumer's
+  exit-count denominator depend on an unstated property of our filter.
+- **Exempt exit classes from that filter instead of removing it.** The
+  consumer's own proposal, refused under scope decision 2: it is a MonsterHunt
+  concept inside a general package inspector, and the § 4.5 census shows the
+  class list is the part that keeps moving.
+- **Key an actor by `name`.** Rejected: names are not unique within a map
+  (§ 4.3), so a consumer keying on them silently merges actors.
 - **Emit unconditionally rather than behind a flag.** Rejected on § 4.6's
   measurement: most actors carry a default `Tag`, so the array is roughly the
   actor count, and most runs do not want it.
@@ -376,6 +457,8 @@ case-sensitive.
 | INV-4 | `tests/unit/DumpCliTest.cpp` |
 | INV-5 | `tests/unit/DumpCliTest.cpp` |
 | INV-6 | `tests/unit/ToolsJsonTest.cpp`, `tests/unit/DumpCliTest.cpp` |
+| INV-8 | `tests/unit/DumpCliTest.cpp` |
+| INV-9 | `tests/unit/DumpCliTest.cpp` |
 | INV-7 | § 7's grading run over the install — nothing in CI |
 
 INV-7 is checked by nothing automated, deliberately: its fixture is a 1441-map
@@ -415,9 +498,10 @@ today runs in about 35 seconds without the flag (1441 maps, measured
 
 ## 14. Open questions
 
-1. **Does UT_MonsterHunt's 2160 `MonsterEnd` figure include System packages?**
-   Asked 2026-09-21, unanswered. It decides whether § 4.5's census should quote
-   one population or two. It does not block implementation.
+1. ~~**Does UT_MonsterHunt's 2160 figure include System packages?**~~
+   **Resolved 2026-09-21: no.** Their sweep was unfiltered over their export
+   directory, which holds 79 exports for maps that are not installed. They
+   asked that § 4.5 quote our census instead, which it does.
 2. **Is any `OutEvents` index in the library above 7?** Nobody has checked.
    § 6 declines to cap on the strength of that, which is the safe direction; a
    measurement would let § 4.3 say so positively.
