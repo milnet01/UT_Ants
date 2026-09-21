@@ -232,9 +232,20 @@ TEST_CASE("UTA-0199: a key the reader does not know is passed over", "[shot]") {
 // The writer uses std::format, which always writes a full stop; a reader using
 // stod would read the LOCALE's separator instead and silently reject the
 // field, leaving the frame to redraw at the default. from_chars does not.
+//
+// NO SKIP HERE, DELIBERATELY. Catch2's SKIP exits 4 and catch_discover_tests
+// is not given SKIP_RETURN_CODE, so ctest reads a skipped case as a FAILED
+// one -- which reddened both Linux legs, because no CI runner carries a
+// comma-decimal locale while this developer machine does. Setting that
+// property would be worse: Catch2 also returns the failed-assertion COUNT as
+// its exit code, so a case with exactly four failures would then report as
+// skipped. So the assertions run either way, and WARN says when the locale
+// could not be set -- on such a machine the case is green without being
+// evidence, which the message states rather than hides.
 TEST_CASE("UTA-0199: a decimal field reads the same under a comma locale", "[shot]") {
     // Restore whatever the process had, so no other test inherits this.
-    const std::string had = std::setlocale(LC_NUMERIC, nullptr) ?: "C";
+    const char* const current = std::setlocale(LC_NUMERIC, nullptr);
+    const std::string had = current == nullptr ? std::string("C") : std::string(current);
     struct Restore {
         const std::string& back;
         ~Restore() { std::setlocale(LC_NUMERIC, back.c_str()); }
@@ -243,13 +254,16 @@ TEST_CASE("UTA-0199: a decimal field reads the same under a comma locale", "[sho
     const char* const commaLocales[] = {"de_DE.UTF-8", "de_DE", "fr_FR.UTF-8", "German_Germany"};
     bool set = false;
     for (const char* name : commaLocales)
-        if (std::setlocale(LC_NUMERIC, name)) {
+        if (std::setlocale(LC_NUMERIC, name) != nullptr) {
             set = true;
             break;
         }
-    if (!set) SKIP("no comma-decimal locale is installed, so this machine cannot show the fault");
+    if (!set)
+        WARN("no comma-decimal locale is installed, so this run cannot show the fault "
+             "this case exists for -- it passes without being evidence");
 
-    const auto details = uta::shot::parseCaptureDetails("render-scale: 0.500\nlight-seconds: 12.250\n");
+    const auto details =
+        uta::shot::parseCaptureDetails("render-scale: 0.500\nlight-seconds: 12.250\n");
     REQUIRE(details.renderScale.has_value());
     CHECK(*details.renderScale == 0.5);
     REQUIRE(details.lightSeconds.has_value());
