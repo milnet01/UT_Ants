@@ -455,8 +455,228 @@ void writeMonsters(std::ostream& out, const uta::upkg::Package& map, std::string
         << ", \"placedPawns\": " << pawns << ", \"unresolvedActors\": " << unresolved << "}";
 }
 
+// ------------------------------------------------------------------ UTA-0172
+// Per-actor event wiring -- docs/specs/UTA-0172-actor-event-wiring.md.
+//
+// The wiring graph above carries counts; a consumer deciding whether ANYTHING
+// can switch a given actor on needs the identities the counts discard. This
+// emits them, behind --wiring-graph because the array is roughly the map's
+// actor count.
+
+/// The six naming properties, plus Tag, as the spec's SS 4.3 spells them.
+/// Folded for comparison; the emitted key is the spelling here.
+struct WiringFields {
+    std::string tag;
+    std::string event;
+    std::string bumpEvent;
+    std::string playerBumpEvent;
+    std::string firstHatePlayerEvent;
+    std::string monsterEndTag;
+    std::map<std::uint32_t, std::string> outEvents;
+    std::optional<bool> initiallyActive; // nullopt: the class family has no such property
+    std::string initialState;
+};
+
+/// A Name or String property's text, resolved against the package its indices
+/// belong to. INV-9 of docs/specs/UTA-0005-class-tables-and-ancestry.md is why
+/// `origin` matters: a name index is a position in ONE package's name table,
+/// so a default inherited from another package must be resolved against that
+/// package or it reads as a different name entirely.
+std::optional<std::string> textValue(const uta::upkg::Package& origin,
+                                     const uta::upkg::PropertyValue& value) {
+    if (const auto* ref = std::get_if<uta::upkg::NameRef>(&value)) {
+        const auto text = origin.name(ref->index);
+        if (!text.has_value()) return std::nullopt;
+        return std::string{*text};
+    }
+    if (const auto* text = std::get_if<std::string>(&value)) return *text;
+    return std::nullopt;
+}
+
+/// Fold one property into `fields`, whichever package it was read in.
+void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
+                        std::string_view name, const uta::upkg::Property& property) {
+    const std::string folded = foldCase(name);
+    if (folded == "outevents") {
+        if (auto text = textValue(origin, property.value); text.has_value() && !text->empty())
+            fields.outEvents[property.arrayIndex] = std::move(*text);
+        return;
+    }
+    // Every other field is scalar; an array index above 0 is not ours.
+    if (property.arrayIndex != 0) return;
+    if (folded == "binitiallyactive") {
+        if (const auto* set = std::get_if<bool>(&property.value)) fields.initiallyActive = *set;
+        return;
+    }
+    auto text = textValue(origin, property.value);
+    if (!text.has_value()) return;
+    if (folded == "tag") fields.tag = std::move(*text);
+    else if (folded == "event") fields.event = std::move(*text);
+    else if (folded == "bumpevent") fields.bumpEvent = std::move(*text);
+    else if (folded == "playerbumpevent") fields.playerBumpEvent = std::move(*text);
+    else if (folded == "firsthateplayerevent") fields.firstHatePlayerEvent = std::move(*text);
+    else if (folded == "monsterendtag") fields.monsterEndTag = std::move(*text);
+    else if (folded == "initialstate") fields.initialState = std::move(*text);
+}
+
+/// What a CLASS contributes: its chain, how the walk ended, and the event
+/// fields its family defaults. Cached per class reference because a map's
+/// actors share very few classes -- MH-GolgothaAL_fix has 2905 actors, and
+/// walking the ancestry once per actor rather than once per class took a
+/// whole-library sweep from seconds to 55 minutes (measured 2026-09-21).
+/// `writeMonsters` above caches the same way for the same reason.
+struct ClassWiring {
+    std::vector<std::string> chain;
+    std::string end = "root";
+    WiringFields defaults;
+};
+
+/// `wiring.actors` -- every actor, with its class chain and its event fields.
+/// Returns the number whose ancestry walk did not reach a root, which the
+/// caller reports as `chainsUnresolved` (SS 4.2).
+long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
+                           std::string_view mapName, const uta::upkg::Level& level,
+                           const uta::upkg::PackageResolver& resolver) {
+    out << ", \"actors\": [";
+    long long unresolved = 0;
+    bool firstActor = true;
+
+    // By the package a class reference is read in and the raw reference --
+    // writeMonsters' key, for writeMonsters' reason.
+    std::map<std::pair<const uta::upkg::Package*, std::int32_t>, ClassWiring> classes;
+
+    // One actor per export, in export-table order. A map can name one actor in
+    // two slots (UTA-0124) and it is one actor, so the set is deduplicated --
+    // and ordering by export index is what makes `index` an identity a
+    // consumer can key on, which `name` is not (SS 4.3).
+    std::set<std::uint32_t> actorExports;
+    for (const uta::upkg::ObjectReference slot : level.actors) {
+        if (slot.kind() != uta::upkg::ObjectReferenceKind::Export) continue;
+        if (slot.index() >= map.exports().size()) continue;
+        actorExports.insert(slot.index());
+    }
+
+    for (const std::uint32_t exportIndex : actorExports) {
+        const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
+
+        std::string className = "?";
+        if (const auto found = map.objectName(entry.objectClass); found.has_value())
+            className = std::string{*found};
+        std::string actorName = "?";
+        if (const auto found = map.name(entry.objectName); found.has_value())
+            actorName = std::string{*found};
+
+        // The class chain, and the honesty field that says whether it is
+        // complete. A chain cut short is NOT a negative answer -- SS 4.4.
+        const ClassWiring* classWiring = nullptr;
+        if (entry.objectClass.kind() != uta::upkg::ObjectReferenceKind::Null) {
+            const std::pair key{&map, entry.objectClass.raw()};
+            auto found = classes.find(key);
+            if (found == classes.end()) {
+                ClassWiring built;
+                const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
+                if (site.has_value() && site->resolved.package != nullptr) {
+                    // Walked once per CLASS and used twice -- for the chain
+                    // and for the defaults merge.
+                    const auto ancestry = uta::upkg::readAncestry(*site->resolved.package,
+                                                                  *site->resolved.entry, resolver);
+                    if (ancestry.has_value()) {
+                        for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
+                            const auto name = link.package->name(link.entry->objectName);
+                            built.chain.emplace_back(name.has_value() ? std::string{*name} : "?");
+                        }
+                        switch (ancestry->end) {
+                        case uta::upkg::AncestryEnd::Root: built.end = "root"; break;
+                        case uta::upkg::AncestryEnd::PackageMissing: built.end = "packageMissing"; break;
+                        case uta::upkg::AncestryEnd::ClassMissing: built.end = "classMissing"; break;
+                        }
+                        // Defaults first, then the actor's own stored values
+                        // over the top -- SS 4.5. Reading stored properties
+                        // alone would emit "" for every exit's Tag, since Tag
+                        // defaults to the class name and is stored on none.
+                        if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry);
+                            defaults.has_value()) {
+                            for (const uta::upkg::EffectiveProperty& effective : *defaults) {
+                                if (effective.origin == nullptr) continue;
+                                takeWiringProperty(built.defaults, *effective.origin, effective.name,
+                                                   effective.property);
+                            }
+                        }
+                    }
+                } else {
+                    built.end = "classMissing";
+                }
+                found = classes.emplace(key, std::move(built)).first;
+            }
+            classWiring = &found->second;
+        }
+
+        static const ClassWiring EMPTY_CLASS;
+        if (classWiring == nullptr) classWiring = &EMPTY_CLASS;
+        const std::vector<std::string>& chain = classWiring->chain;
+        const std::string& chainEnd = classWiring->end;
+        WiringFields fields = classWiring->defaults;
+        if (chainEnd != "root") ++unresolved;
+
+        if (const auto properties = uta::upkg::readProperties(map, entry); properties.has_value()) {
+            for (const uta::upkg::Property& property : *properties) {
+                const auto name = map.name(property.nameIndex);
+                if (!name.has_value()) continue;
+                takeWiringProperty(fields, map, *name, property);
+            }
+        }
+
+        if (!firstActor) out << ", ";
+        firstActor = false;
+        out << "{\"index\": " << exportIndex << ", \"name\": ";
+        writeJsonString(out, actorName);
+        out << ", \"class\": ";
+        writeJsonString(out, className);
+        out << ", \"classChain\": [";
+        for (std::size_t i = 0; i < chain.size(); ++i) {
+            if (i != 0) out << ", ";
+            writeJsonString(out, chain[i]);
+        }
+        out << "], \"chainEnd\": ";
+        writeJsonString(out, chainEnd);
+        out << ", \"tag\": ";
+        writeJsonString(out, fields.tag);
+        out << ", \"events\": {\"Event\": ";
+        writeJsonString(out, fields.event);
+        out << ", \"OutEvents\": {";
+        bool firstOut = true;
+        for (const auto& [index, value] : fields.outEvents) {
+            if (!firstOut) out << ", ";
+            firstOut = false;
+            writeJsonString(out, std::to_string(index));
+            out << ": ";
+            writeJsonString(out, value);
+        }
+        out << "}, \"BumpEvent\": ";
+        writeJsonString(out, fields.bumpEvent);
+        out << ", \"PlayerBumpEvent\": ";
+        writeJsonString(out, fields.playerBumpEvent);
+        out << ", \"FirstHatePlayerEvent\": ";
+        writeJsonString(out, fields.firstHatePlayerEvent);
+        out << ", \"MonsterEndTag\": ";
+        writeJsonString(out, fields.monsterEndTag);
+        out << "}, \"bInitiallyActive\": ";
+        // null, never false, where the class family has no such property --
+        // INV-9. Collapsing the two makes "no such property" and "switched
+        // off" the same value, and off-ness is half the consumer's rule.
+        if (fields.initiallyActive.has_value()) out << (*fields.initiallyActive ? "true" : "false");
+        else out << "null";
+        out << ", \"initialState\": ";
+        writeJsonString(out, fields.initialState);
+        out << "}";
+    }
+
+    out << "]";
+    return unresolved;
+}
+
 void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system,
-                 bool navGraph, bool first) {
+                 bool navGraph, bool wiringGraph, bool first) {
     if (!first) {
         out << ",\n";
     }
@@ -613,7 +833,16 @@ void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system
             writeJsonString(out, dangle.event);
             out << "}";
         }
-        out << "]}";
+        out << "]";
+        if (wiringGraph) {
+            // Emitted after `dangling` so the counts stay first for a reader
+            // scanning the head of the object. UTA-0172.
+            std::ostringstream actors;
+            const long long unresolvedChains =
+                writeActorWiring(actors, *package, path.stem().string(), *level, resolver);
+            out << ", \"chainsUnresolved\": " << unresolvedChains << actors.str();
+        }
+        out << "}";
     } else {
         out << ",\n  \"wiring\": null";
     }
@@ -642,7 +871,8 @@ std::string oneLine(std::string_view json) {
 
 int usage(std::ostream& err) {
     err <<
-        "usage: ut-dump --system <UT System dir> [--nav-graph] [--ndjson] <package|directory>...\n"
+        "usage: ut-dump --system <UT System dir> [--nav-graph] [--wiring-graph]\n"
+        "                [--ndjson] <package|directory>...\n"
         "\n"
         "Writes one JSON object per package to stdout. --system points at the\n"
         "install's System directory, which is needed to resolve class ancestry\n"
@@ -652,6 +882,12 @@ int usage(std::ostream& err) {
         "--nav-graph adds every navigation node and reach spec to each map's\n"
         "`nav` object, as `nodeList` and `edgeList`, with the reach flags and\n"
         "collision size each spec carries.\n"
+        "\n"
+        "--wiring-graph adds every actor to each map's `wiring` object, as\n"
+        "`actors`, with its class chain, Tag and event properties resolved\n"
+        "through the class family's defaults. It answers whether anything in\n"
+        "the map can switch a given actor on. The array is roughly the map's\n"
+        "actor count, which is why it is opt-in.\n"
         "\n"
         "--ndjson writes one line per JSON object instead of one document: a\n"
         "header line holding the schema, then each package's object, in the\n"
@@ -665,6 +901,7 @@ int usage(std::ostream& err) {
 int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err) {
     fs::path systemDir;
     bool navGraph = false;
+    bool wiringGraph = false;
     bool ndjson = false;
     std::vector<fs::path> targets;
 
@@ -677,6 +914,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             systemDir = fs::path{std::string{args[++i]}};
         } else if (arg == "--nav-graph") {
             navGraph = true;
+        } else if (arg == "--wiring-graph") {
+            wiringGraph = true;
         } else if (arg == "--ndjson") {
             ndjson = true;
         } else if (arg == "-h" || arg == "--help") {
@@ -721,7 +960,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         out << "{\"schema\":" << SCHEMA << "}\n";
         for (const fs::path& file : files) {
             std::ostringstream package;
-            dumpPackage(package, file, system, navGraph, true);
+            dumpPackage(package, file, system, navGraph, wiringGraph, true);
             out << oneLine(package.str()) << '\n' << std::flush;
         }
         return 0;
@@ -730,7 +969,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     out << "{\n \"schema\": " << SCHEMA << ",\n \"packages\": [\n";
     bool first = true;
     for (const fs::path& file : files) {
-        dumpPackage(out, file, system, navGraph, first);
+        dumpPackage(out, file, system, navGraph, wiringGraph, first);
         first = false;
     }
     out << "\n ]\n}\n";

@@ -10213,6 +10213,22 @@ model, no weapon and no opponent until 0.2.0.
   Also added `chainsUnresolved` per map, so a consumer reports how many actors it could not classify rather than implying full coverage.
 
   Their own exit counts turn out to be unsound -- MH-MJD_FIX3's export holds one actor twice -- so the grade asserts the never/not-never classification only. Ours is the correct count there.
+  Grade reference re-verified 2026-09-21 after a consumer-side fix. UT_MonsterHunt corrected their self-naming exclusion to key on actor POSITION rather than Name (their b32394f), which is the defect our cross-check surfaced. They ran the old and new readers over all 1324 exports carrying exits and the TSVs are byte-identical -- 1041 live, 279 switched, 4 never, the same four maps. Zero verdicts moved, because the duplicate-named actors are all switched on and never reach the never branch. So the spec's SS 7 grade set is unchanged and still correct to assert against.
+
+  They also confirmed the filter decision: removing it beats the exit-class exemption they proposed, on the grounds we gave -- the exit-class list moved twice in one day, so an exemption would need editing in our tool for their domain on every new spelling, and INV-8 locks an absence where an exemption would have locked nothing.
+  Built and verified 2026-09-21, before the matrix.
+
+  INV-7 PASSES, and more strongly than the spec asks. The grading run applied UT_MonsterHunt's rule to our output over ALL 1441 installed maps -- not the 1430-map intersection the spec restricts the assertion to -- and returned exactly their four never maps: MH-(RTNP)Abyss(SB), MH-GolgothaAL_fix, MH-UM-TeamFight and MH-UM-TeamFight-BP. 1332 maps carry exits. So their objection resolves empirically: none of the 11 export-less maps is a never map, and the finding they asked be kept outside pass/fail is an empty set. Two independent readers -- their T3D export plus their Python rule, our package reader plus our implementation of that rule -- agree exactly on the never set.
+
+  Eight unit tests, all green, and MUTATED rather than trusted, per this project's own rule. From a verified-green baseline, four mutations to the production code were each KILLED: dropping the defaults merge (INV-2), defaulting an absent bInitiallyActive to false instead of null (INV-9), flattening OutEvents to index 0 (INV-3), and reintroducing an emission filter (INV-8). So the cases grade the code rather than merely passing beside it.
+
+  Two defects found in the TESTS, not the tool, and worth recording because both would have read as production failures. The actors-array helper cut at the first `]`, which closes the nested classChain rather than the array. And INV-1's first form searched for `"actors"`, which the level object already carries as a COUNT -- a bare search passed for the wrong reason. Both tightened.
+
+  PERFORMANCE DEFECT FOUND AND FIXED. The first implementation walked the class ancestry once per ACTOR; writeMonsters had cached per class reference since UTA-0101 and the pattern was there to copy. A whole-library sweep took 55m30s. Now cached on the same (package, raw reference) key: MH-UM-TeamFight, 1758 actors, runs in 0.376s. The re-run of the full grade on the memoised build is the verdict diff that proves the change behaviour-preserving.
+
+  Two things the real run corrected in the spec. A MonsterEnd's chain is MonsterEnd -> Trigger -> Triggers -> Actor -> Object; SS 4.3's example said NavigationPoint, written from memory, and is fixed with a note saying it is now measured. And 1738 of MH-UM-TeamFight's 1758 actors have no bInitiallyActive property at all, which makes the consumer's null-not-false objection far sharper than it read on paper: defaulting to false would have made almost the whole map look switched off.
+
+  tests/support/UnrealPackageBuilder gained addNameAt -- an array-indexed Name property. Nothing could express OutEvents(1) before, which is the one shape MH-3072-FloorWaysSBMod turns on, so INV-3 was untestable.
   **Layman:** List which switches and triggers in a map fire which others, so a map whose exit can never open is found without the old editor.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.

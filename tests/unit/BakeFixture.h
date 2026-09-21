@@ -82,6 +82,7 @@ struct PropertySpec {
     std::array<std::int32_t, 3> rotator{}; ///< Rotator: pitch, yaw, roll
     std::string text;                      ///< Name
     float number = 0;                      ///< Float
+    std::uint32_t arrayIndex = 0;          ///< Name only today -- UTA-0172's OutEvents(n)
 };
 
 [[nodiscard]] PropertySpec byteProperty(std::string name, std::uint8_t value);
@@ -94,6 +95,10 @@ struct PropertySpec {
 /// `reference` comes from the builder the property is added to; 0 is null.
 [[nodiscard]] PropertySpec objectProperty(std::string name, std::int32_t reference);
 [[nodiscard]] PropertySpec nameProperty(std::string name, std::string text);
+/// A Name at `arrayIndex` -- UTA-0172's `OutEvents(1)`. Only Name carries an
+/// array index today, being the only type a case has needed one for.
+[[nodiscard]] PropertySpec nameAtProperty(std::string name, std::uint32_t arrayIndex,
+                                          std::string text);
 /// A Str, its bytes written as they are -- UTA-0101's Title and Author.
 [[nodiscard]] PropertySpec strProperty(std::string name, std::string text);
 /// A struct `Scale` -- Core/Object.uc's: three f32, SheerRate as f32 and

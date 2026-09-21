@@ -257,6 +257,27 @@ TaggedPropertyWriter& TaggedPropertyWriter::addIntAt(std::int32_t nameIndex,
     return *this;
 }
 
+TaggedPropertyWriter& TaggedPropertyWriter::addNameAt(std::int32_t nameIndex,
+                                                      std::uint32_t arrayIndex,
+                                                      std::int32_t valueNameIndex) {
+    appendIndex(body_, nameIndex);
+
+    const std::vector<std::uint8_t> body = encodeCompactIndex(valueNameIndex);
+
+    std::vector<std::uint8_t> sizeField;
+    std::uint8_t sizeCode = 0;
+    appendSizeField(sizeField, sizeCode, body.size());
+
+    // Bit 7 is the array flag for every type but Bool -- as addIntAt above.
+    body_.push_back(static_cast<std::uint8_t>(static_cast<std::uint8_t>(PropertyType::Name) |
+                                              static_cast<std::uint8_t>(sizeCode << 4) |
+                                              0x80u));
+    appendAll(body_, sizeField);
+    appendAll(body_, encodeArrayIndex(arrayIndex));
+    appendAll(body_, body);
+    return *this;
+}
+
 TaggedPropertyWriter& TaggedPropertyWriter::addUndecodedStruct(
     std::int32_t nameIndex, std::int32_t structNameIndex,
     const std::vector<std::uint8_t>& raw) {

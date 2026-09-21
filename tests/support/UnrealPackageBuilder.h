@@ -134,6 +134,12 @@ public:
     TaggedPropertyWriter& addIntAt(std::int32_t nameIndex, std::uint32_t arrayIndex,
                                    std::int32_t value);
 
+    /// A Name property at `arrayIndex` -- UTA-0172's `OutEvents(1)`, the shape
+    /// MH-3072-FloorWaysSBMod stores and which no unindexed writer can
+    /// express.
+    TaggedPropertyWriter& addNameAt(std::int32_t nameIndex, std::uint32_t arrayIndex,
+                                    std::int32_t valueNameIndex);
+
     /// A struct this reader is not expected to decode: its bytes are carried
     /// through with the type and struct name intact (INV-11).
     TaggedPropertyWriter& addUndecodedStruct(std::int32_t nameIndex,

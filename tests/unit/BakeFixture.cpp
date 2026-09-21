@@ -98,6 +98,13 @@ PropertySpec nameProperty(std::string name, std::string text) {
     return spec;
 }
 
+PropertySpec nameAtProperty(std::string name, std::uint32_t arrayIndex, std::string text) {
+    PropertySpec spec{std::move(name), PropertySpec::Type::Name};
+    spec.text = std::move(text);
+    spec.arrayIndex = arrayIndex;
+    return spec;
+}
+
 PropertySpec strProperty(std::string name, std::string text) {
     PropertySpec spec{std::move(name), PropertySpec::Type::Str};
     spec.text = std::move(text);
@@ -252,7 +259,10 @@ std::vector<std::uint8_t> Packer::properties(const std::vector<PropertySpec>& sp
             writer.addRotator(key, spec.rotator[0], spec.rotator[1], spec.rotator[2]);
             break;
         case PropertySpec::Type::Object: writer.addObject(key, spec.value); break;
-        case PropertySpec::Type::Name: writer.addName(key, name(spec.text)); break;
+        case PropertySpec::Type::Name:
+            if (spec.arrayIndex != 0) writer.addNameAt(key, spec.arrayIndex, name(spec.text));
+            else writer.addName(key, name(spec.text));
+            break;
         case PropertySpec::Type::Float: writer.addFloat(key, spec.number); break;
         case PropertySpec::Type::Str: writer.addStr(key, spec.text); break;
         case PropertySpec::Type::Scale: {

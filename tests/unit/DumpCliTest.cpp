@@ -14,6 +14,7 @@
 
 #include "BakeFixture.h"
 
+#include "common/Json.h"
 #include "support/UnrealPackageBuilder.h"
 #include "upkg/Package.h"
 #include "ut-dump/Cli.h"
@@ -510,4 +511,206 @@ TEST_CASE("UTA-0201: a surface nothing draws is reported with no drawn nodes", "
     CHECK(unseen->drawnNodes == 0);
     CHECK(drawn->surfaces == 1);
     CHECK(drawn->drawnNodes >= 1);
+}
+
+// ------------------------------------------------------------------ UTA-0172
+// Per-actor event wiring. docs/specs/UTA-0172-actor-event-wiring.md; the
+// invariant numbers below are that spec's.
+//
+// The consumer is UT_MonsterHunt's exit survey, and three of these cases exist
+// because they told us what their rule turns on: the OutEvents index, the case
+// difference across the join, and the difference between "switched off" and
+// "the class has no such property".
+
+namespace {
+
+/// The `actors` array's text, or empty when the key is absent. Matched by
+/// bracket depth: each element carries a nested `classChain` array, so the
+/// first `]` closes that rather than this.
+std::string actorsArray(const std::string& out) {
+    const std::size_t at = out.find("\"actors\": [");
+    if (at == std::string::npos) return {};
+    const std::size_t open = out.find('[', at);
+    int depth = 0;
+    for (std::size_t i = open; i < out.size(); ++i) {
+        if (out[i] == '[') ++depth;
+        else if (out[i] == ']' && --depth == 0) return out.substr(at, i - at + 1);
+    }
+    return {};
+}
+
+/// One actor's object within `actors`, found by its `"name": "<name>"`.
+std::string actorNamed(const std::string& actors, std::string_view name) {
+    const std::string key = "\"name\": \"" + std::string{name} + "\"";
+    const std::size_t at = actors.find(key);
+    if (at == std::string::npos) return {};
+    const std::size_t open = actors.rfind('{', at);
+    const std::size_t close = actors.find('}', actors.find("\"initialState\"", at));
+    if (open == std::string::npos || close == std::string::npos) return {};
+    return actors.substr(open, close - open + 1);
+}
+
+} // namespace
+
+TEST_CASE("UTA-0172 INV-1: without --wiring-graph the wiring object carries counts only", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    map.addActorOfClass("MonsterHunt", "MonsterEnd");
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run plain = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    REQUIRE(plain.code == 0);
+    // The ARRAY form specifically: `level` already carries an "actors" COUNT,
+    // so a bare "actors" search passes for the wrong reason.
+    CHECK(plain.out.find("\"actors\": [") == std::string::npos);
+    CHECK(plain.out.find("\"level\": {\"actors\": ") != std::string::npos);
+    CHECK(plain.out.find("\"chainsUnresolved\"") == std::string::npos);
+    // The keys that were there before this item are untouched.
+    CHECK(plain.out.find("\"wiring\": {\"nodes\": ") != std::string::npos);
+    CHECK(plain.out.find("\"edges\": ") != std::string::npos);
+    CHECK(plain.out.find("\"dangling\": [") != std::string::npos);
+
+    const Run withFlag =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    REQUIRE(withFlag.code == 0);
+    CHECK(withFlag.out.find("\"actors\": [") != std::string::npos);
+}
+
+TEST_CASE("UTA-0172 INV-2: a property the actor never stored comes from its class defaults", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // The shape every exit in the four never-maps has: Tag is the class
+    // default and is stored on no actor. A reader of stored properties alone
+    // emits "" here and the consumer's whole rule collapses.
+    const std::int32_t switcher = map.addClass("Switcher", 0, {nameProperty("Tag", "inheritedtag")});
+    map.addActor("Switcher0", switcher);
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    const std::string actor = actorNamed(actorsArray(result.out), "Switcher0");
+    INFO(actor);
+    CHECK(actor.find("\"tag\": \"inheritedtag\"") != std::string::npos);
+}
+
+TEST_CASE("UTA-0172 INV-3: OutEvents keeps its index and an index above zero survives", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // MH-3072-FloorWaysSBMod's shape: a Dispatcher naming the exit through
+    // OutEvents(1), with nothing at index 0. A reader that takes only the
+    // first element, or flattens the array, reads that map as never when it
+    // is live.
+    map.addActorOfClass("Engine", "Dispatcher", {nameAtProperty("OutEvents", 1, "MissionDone")});
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    const std::string actors = actorsArray(result.out);
+    INFO(actors);
+    CHECK(actors.find("\"OutEvents\": {\"1\": \"MissionDone\"}") != std::string::npos);
+    CHECK(actors.find("\"0\": \"MissionDone\"") == std::string::npos);
+}
+
+TEST_CASE("UTA-0172 INV-4: names are emitted in the case stored", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // The two ends of FloorWaysSBMod's join differ in case. Folding either on
+    // emit would make them compare equal here and destroy a distinction a
+    // consumer may need.
+    const std::int32_t exit = map.addClass("Exit", 0, {nameProperty("Tag", "missiondone")});
+    map.addActor("Exit0", exit);
+    map.addActorOfClass("Engine", "Trigger", {nameProperty("Event", "MissionDone")});
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    const std::string actors = actorsArray(result.out);
+    INFO(actors);
+    CHECK(actors.find("\"tag\": \"missiondone\"") != std::string::npos);
+    CHECK(actors.find("\"Event\": \"MissionDone\"") != std::string::npos);
+}
+
+TEST_CASE("UTA-0172 INV-5: a chain the resolver cannot complete says so", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // A class from a package the install does not carry -- an ordinary mod
+    // nobody installed. The walk is honest but incomplete, and a consumer
+    // reading a short chain as "not an exit" gets a false negative.
+    const std::int32_t ghost = map.importClass("NoSuchPackage", "Ghost");
+    map.addActor("Ghost0", ghost);
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    const std::string actor = actorNamed(actorsArray(result.out), "Ghost0");
+    INFO(actor);
+    CHECK(actor.find("\"chainEnd\": \"root\"") == std::string::npos);
+    CHECK(result.out.find("\"chainsUnresolved\": 0") == std::string::npos);
+}
+
+TEST_CASE("UTA-0172 INV-6: a Latin-1 byte in a tag is emitted as valid UTF-8", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // UTA-0202's rule, reached through this key. 0xf1 is the n-tilde the
+    // install's own Telarana texture carries.
+    const std::int32_t spanish = map.addClass("Spanish", 0, {nameProperty("Tag", "Telara\xf1" "a")});
+    map.addActor("Spanish0", spanish);
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    CHECK(uta::tools::isUtf8(result.out));
+    CHECK(result.out.find("Telara\xc3\xb1" "a") != std::string::npos);
+}
+
+TEST_CASE("UTA-0172 INV-8: an actor with no tag and no events is still emitted", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // The consumer's never test divides by the exit count, so any filter that
+    // can drop an actor can shrink that denominator and manufacture a false
+    // never. There is no filter, and this is what says so.
+    const std::int32_t bare = map.addClass("Bare");
+    map.addActor("Bare0", bare);
+    map.addActor("Bare1", bare);
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    const std::string actors = actorsArray(result.out);
+    INFO(actors);
+    CHECK(actors.find("\"name\": \"Bare0\"") != std::string::npos);
+    CHECK(actors.find("\"name\": \"Bare1\"") != std::string::npos);
+}
+
+TEST_CASE("UTA-0172 INV-9: bInitiallyActive is null where the class family has no such property", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // "No such property" and "switched off" must not be the same value:
+    // off-ness is half the consumer's never test, and most actors in a real
+    // map have no such property at all.
+    const std::int32_t bare = map.addClass("Bare");
+    map.addActor("Bare0", bare);
+    const std::int32_t gated = map.addClass("Gated", 0, {boolProperty("bInitiallyActive", false)});
+    map.addActor("Gated0", gated);
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    const std::string actors = actorsArray(result.out);
+    CHECK(actorNamed(actors, "Bare0").find("\"bInitiallyActive\": null") != std::string::npos);
+    CHECK(actorNamed(actors, "Gated0").find("\"bInitiallyActive\": false") != std::string::npos);
 }

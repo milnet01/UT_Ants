@@ -124,7 +124,7 @@ One element per emitted actor, in export-table order:
   "index": 417,
   "name": "MonsterEnd0",
   "class": "MonsterEnd",
-  "classChain": ["MonsterEnd", "NavigationPoint", "Actor", "Object"],
+  "classChain": ["MonsterEnd", "Trigger", "Triggers", "Actor", "Object"],
   "chainEnd": "root",
   "tag": "MonsterEnd",
   "events": {
@@ -175,7 +175,11 @@ One element per emitted actor, in export-table order:
 ### 4.4 The class chain, and its honesty field
 
 `classChain` is the actor's class and its ancestors, leaf first, from
-`uta::upkg::readAncestry` (`src/upkg/Class.h`). It is emitted rather than any
+`uta::upkg::readAncestry` (`src/upkg/Class.h`). The § 4.3 example is the
+measured chain for a real `MonsterEnd`, taken from the implementation's own
+output on MH-UM-TeamFight rather than written from memory — an earlier draft
+of this document guessed `NavigationPoint` and was wrong: a MonsterEnd
+descends from `Trigger`. It is emitted rather than any
 name test because the class-name population is neither closed nor
 case-consistent — § 4.5's census found six spellings, one of them differing
 only in case.
@@ -486,15 +490,28 @@ review loop has run, by the user's decision recorded in the Status line above.
 
 ## 13. Resource cost
 
-`--wiring-graph` costs one ancestry walk and one defaults merge per emitted
-actor. Both are already paid per actor by `writeMonsters` for MonsterEnd
-descendants, so the marginal cost is extending that to every actor with a tag
-or an event.
+`--wiring-graph` costs one ancestry walk and one defaults merge **per class**,
+not per actor. Measured over the full install (1441 maps), 2026-09-21:
 
-Unmeasured: the flag does not exist yet. The figure to record on the roadmap
-item when it does is the wall-clock delta over the full install sweep, which
-today runs in about 35 seconds without the flag (1441 maps, measured
-2026-09-21).
+| Run | Wall clock |
+|---|---|
+| No flag | ~35 s |
+| `--wiring-graph`, ancestry walked per actor | 55 m 30 s |
+| `--wiring-graph`, ancestry cached per class | 6 m 15 s |
+
+**The per-class cache is not an optimisation to consider later; it is the
+difference between a usable tool and an unusable one.** A map's actors share
+very few classes — MH-UM-TeamFight has 1758 actors — so walking per actor
+repeats the same chain resolution thousands of times. `writeMonsters` has
+cached on the same `(package, raw class reference)` key since UTA-0101, and
+the first implementation of this section failed to copy it.
+
+The two runs were compared as a verdict diff rather than assumed equivalent:
+both return 1332 maps with exits and the same four never maps, so the cache
+changes speed and nothing else.
+
+One map, for a sense of the per-map cost: MH-UM-TeamFight, 1758 actors,
+0.376 s and 624 KB of JSON.
 
 ## 14. Open questions
 
@@ -502,6 +519,7 @@ today runs in about 35 seconds without the flag (1441 maps, measured
    **Resolved 2026-09-21: no.** Their sweep was unfiltered over their export
    directory, which holds 79 exports for maps that are not installed. They
    asked that § 4.5 quote our census instead, which it does.
-2. **Is any `OutEvents` index in the library above 7?** Nobody has checked.
-   § 6 declines to cap on the strength of that, which is the safe direction; a
-   measurement would let § 4.3 say so positively.
+2. **Is any `OutEvents` index in the library above 7?** Still unchecked. § 6
+   declines to cap on the strength of that, which is the safe direction; the
+   implementation emits whatever indices it finds, so a measurement over the
+   sweep's output would settle it without further tool work.
