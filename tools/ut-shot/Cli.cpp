@@ -27,18 +27,15 @@ bool parseUnsigned(std::string_view text, std::uint32_t& out) {
     return error == std::errc{} && end == text.data() + text.size();
 }
 
-/// from_chars for double is not in libstdc++ before GCC 11 for every build we
-/// target, and stod throws; this keeps the parse total and the failure silent,
-/// which is what leaves a bad field unset rather than guessed at.
+/// from_chars and NOT stod, because details.txt is written by std::format,
+/// which always writes a full stop, while stod reads the LOCALE's separator.
+/// Under a comma locale stod stops at the point -- measured, `0.500` consumed
+/// one character -- so the field would read as unset and the frame would
+/// silently redraw at the default. The floor is GCC 14, Clang 19 and MSVC
+/// 19.40 (docs/design.md), each of which has from_chars for double.
 bool parseDouble(std::string_view text, double& out) {
-    const std::string owned(text);
-    std::size_t consumed = 0;
-    try {
-        out = std::stod(owned, &consumed);
-    } catch (...) {
-        return false;
-    }
-    return consumed == owned.size() && std::isfinite(out);
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), out);
+    return error == std::errc{} && end == text.data() + text.size() && std::isfinite(out);
 }
 
 /// A render scale the renderer can use. Config clamps to the tier's floor and

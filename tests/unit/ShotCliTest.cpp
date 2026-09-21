@@ -21,6 +21,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
+#include <clocale>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -226,4 +227,31 @@ TEST_CASE("UTA-0199: a key the reader does not know is passed over", "[shot]") {
         "map: DM-Deck16][\ncommit: 74cd63a\nsomething-new: 5\nlight-seconds: 0.000\n");
     REQUIRE(details.lightSeconds.has_value());
     CHECK(*details.lightSeconds == 0.0);
+}
+
+// The writer uses std::format, which always writes a full stop; a reader using
+// stod would read the LOCALE's separator instead and silently reject the
+// field, leaving the frame to redraw at the default. from_chars does not.
+TEST_CASE("UTA-0199: a decimal field reads the same under a comma locale", "[shot]") {
+    // Restore whatever the process had, so no other test inherits this.
+    const std::string had = std::setlocale(LC_NUMERIC, nullptr) ?: "C";
+    struct Restore {
+        const std::string& back;
+        ~Restore() { std::setlocale(LC_NUMERIC, back.c_str()); }
+    } restore{had};
+
+    const char* const commaLocales[] = {"de_DE.UTF-8", "de_DE", "fr_FR.UTF-8", "German_Germany"};
+    bool set = false;
+    for (const char* name : commaLocales)
+        if (std::setlocale(LC_NUMERIC, name)) {
+            set = true;
+            break;
+        }
+    if (!set) SKIP("no comma-decimal locale is installed, so this machine cannot show the fault");
+
+    const auto details = uta::shot::parseCaptureDetails("render-scale: 0.500\nlight-seconds: 12.250\n");
+    REQUIRE(details.renderScale.has_value());
+    CHECK(*details.renderScale == 0.5);
+    REQUIRE(details.lightSeconds.has_value());
+    CHECK(*details.lightSeconds == 12.25);
 }
