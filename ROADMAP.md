@@ -11567,7 +11567,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-request-2026-09-20.
   Lanes: upkg, unav.
 
-- 🚧 [UTA-0199] **ut-shot cannot be told the tier, render scale or light time a capture folder records.**
+- ✅ [UTA-0199] **ut-shot cannot be told the tier, render scale or light time a capture folder records.**
   Measured 2026-09-20 while finishing UTA-0191, on this machine.
 
   UTA-0191's folder records tier, render-scale and light-seconds so the
@@ -11603,6 +11603,44 @@ model, no weapon and no opponent until 0.2.0.
   UTA-0098 and UTA-0100, both of which defer themselves in their own
   bodies. UTA-0186 is the only other in-progress item and is parked on
   `Waiting-on:`, so it counts against neither session limit.
+  Resolved 2026-09-21 by session ut-ants-2e, main checkout. Green on the
+  matrix at 29cd02a -- GCC 14, Clang 19 and MSVC.
+
+  ut-shot takes --tier, --render-scale and --light-time, the last calling
+  Renderer::pinLightSeconds. --from-capture <folder> takes all three plus
+  the frame's size from the folder's details.txt and the cameras from its
+  camera.txt, so a capture redraws in one command with no field copied by
+  hand; it takes two positional arguments where the older form takes four.
+  An explicit option beats the folder, so a view redraws at another tier
+  on purpose. Parsing moved to tools/ut-shot/Cli.cpp, as ut-bake's,
+  ut-origin's and ut-dump's had, so it is graded without a device.
+
+  Measured on lavapipe, each option changing the picture it names:
+  --from-capture drew at the capture's own 160x120 with no size given;
+  tier low against ultra, scale 0.5 against 1.0 and light time 12.25
+  against 0.0 each gave a different frame. Six parser mutations each
+  killed by a named assertion. ShotCliTest reads back what
+  apps/ut-ants/Capture.cpp WRITES, checked by renaming a key at the
+  writer and watching the reader redden.
+
+  Two defects of this session's own making, both found after the first
+  push and both fixed here. std::stod reads the LOCALE's separator while
+  std::format always writes a full stop: under de_DE.UTF-8 "0.500"
+  consumed one character, so render-scale read as unset and the frame
+  silently redrew at 1.0. Now std::from_chars (c19d5f3). The test locking
+  that called Catch2's SKIP, which exits 4, and catch_discover_tests has
+  no SKIP_RETURN_CODE, so ctest scored a skip as FAILED and reddened both
+  Linux legs -- invisible locally, where the locale exists. Now WARN with
+  the assertions running either way (29cd02a). SKIP_RETURN_CODE 4 was
+  considered and refused: Catch2 also returns the failed-assertion count,
+  so a case with four failures would report as skipped.
+
+  Two things NOT shown, deliberately recorded rather than implied. No
+  viewer-written capture folder exists on disk, since F12 needs a
+  display, so a redraw has never been compared against a real linear.png
+  -- the folder used throughout was built in the writer's own format. And
+  on a machine with no comma-decimal locale the locale case passes
+  without being evidence; it prints a warning saying so.
   **Layman:** A saved capture writes down the settings it was drawn with, but the screenshot tool has no way to be told them, so redrawing that view does not match the picture beside it.
   Kind: enhancement.
   Source: in-session-2026-09-20.
