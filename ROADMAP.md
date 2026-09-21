@@ -1010,6 +1010,21 @@ model, no weapon and no opponent until 0.2.0.
   the marker is there to prevent. Nothing about the work is lost: the
   body still records what the --json / TSV mode owes and that the
   per-actor request of 2026-09-10 was withdrawn.
+  Scoped 2026-09-21 by the user: this project OWNS ut-dump's output-shape contract, queued after UTA-0142. Recorded here because the decision and its requirements were reached in cross-session conversation and would otherwise exist nowhere.
+
+  THE PROBLEM, measured 2026-09-21. ut-dump is mentioned in eight documents under docs/specs/ and is the subject of none, so its output shape -- packages, classCounts, level, nav, surfaces, levelInfo, levelSummary, monsters, wiring -- is uncontracted. The only written description anywhere is docs/ut-dump-output-shape.md in UT_MonsterHunt's repository, which binds nothing here. They have built their whole map-check file phase on that shape, and their GAME-0124 verification path reads --nav-graph specifically so the output is read by something other than the engine that wrote it.
+
+  FOUR REQUIREMENTS, all agreed with them and all easy to lose.
+
+  Their draft is the INPUT, not a transcription target. It describes what they OBSERVED; this contract states what we GUARANTEE. Those are different documents and conflating them would ship their observations as our promises.
+
+  GAME-0124's second-reader path is represented as a CONSUMER, not described in prose. Their words for why: it is what will matter in a year, when whoever maintains ut-dump has forgotten a second reader exists at all.
+
+  The ordering question UTA-0203 raises must be settled here -- and the better answer, which they preferred to either ordering, is that every element carries the path it came from, so a consumer never depends on position.
+
+  A reader that skips an installed map should report how many it skipped, whatever the reason. This is their GAME-0160 lesson generalised and it outlives the specific gap. UTA-0172 already does it as `chainsUnresolved`; the contract should make it the house rule rather than one key's habit.
+
+  METHOD THAT WORKED ON UTA-0172 AND SHOULD BE REPEATED: send them the draft BEFORE it is fixed, while objecting is still cheap. Four objections arrived that way, each changing what got built, before a line of code existed.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
