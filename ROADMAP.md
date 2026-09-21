@@ -11749,7 +11749,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-20.
   Lanes: tools/ut-dump.
 
-- 🚧 [UTA-0202] **ut-dump emits names byte-for-byte, so a non-ASCII name makes its JSON invalid UTF-8.**
+- ✅ [UTA-0202] **ut-dump emits names byte-for-byte, so a non-ASCII name makes its JSON invalid UTF-8.**
   Measured 2026-09-20 over the install's Maps directory: 11 of 1443 lines
   of `ut-dump --ndjson` output are not valid UTF-8. The first is a texture
   named `Telaraña` -- Latin-1 0xf1 for the n-tilde, written straight
@@ -11785,6 +11785,17 @@ model, no weapon and no opponent until 0.2.0.
   So the repair goes INSIDE writeJsonString rather than at the call sites, and the two functions collapse into one. That fixes ut-dump, ut-bake and ut-paths together. Valid UTF-8 already passes through both paths untouched, so no output changes except where it is currently invalid JSON.
 
   UT_MonsterHunt asked for this independently the same day (their GAME-0159, message received mid-session). Their library sweep names 11 affected maps and records that only the Egypt maps' 0xf1 was identified, so the transcoding must be general rather than per-character.
+  Resolved 2026-09-21 at b1c44c9, green on all three matrix legs (GCC 14, Clang 19, MSVC) in run 35576041345.
+
+  The repair sits inside writeJsonString, so ut-dump, ut-bake and ut-paths are all fixed and writeJsonText is gone -- one escaper again, which is what UTA-0121 SS 4.8 says this header holds. isUtf8, the Windows-1252 table, the decode loop and the escape switch moved byte-identical, verified mechanically against the parent commit, so the only new logic is the guard.
+
+  Verified over the whole install: 1441 maps, 2882 NDJSON lines, every line valid UTF-8 and parsing as JSON. The four repaired texture names come out as correct Spanish and German -- Telaraña, GranBretaña, españa, nähmaschine -- which is the evidence that the Windows-1252 reading is right rather than merely valid.
+
+  Free text is provably untouched. The new writeJsonString is semantically the old writeJsonText, so levelInfo and levelSummary output is unchanged; only UE1 names differ. One curiosity found while checking that: a map whose author field reads `Thaddus Lament` with a Cyrillic d already carried valid UTF-8 bytes and takes the pass-through branch. Pre-existing UTA-0101 behaviour, not introduced here, and not chased.
+
+  tests/unit/ToolsJsonTest.cpp is new and Json.h had no test at all before. Six cases were red before the fix. The property cases carry the guarantee -- no single byte and no byte pair can make the escaper emit invalid UTF-8 -- with isUtf8 graded against its own vectors first so a broken oracle cannot pass itself. One case pins the all-or-nothing decode as an inherited deliberate choice.
+
+  UT_MonsterHunt (GAME-0159) asked for this the same day and verified all 11 affected maps parse against this build. Their reader half shipped at their b906dff: an unparseable package line now costs that map rather than the run. They flipped GAME-0159 to shipped crediting this id, and were sent the matrix-green note.
   **Layman:** A handful of maps use names with accented letters, and the developer tool copies those bytes out unchanged -- which makes the file it writes unreadable to a strict JSON reader.
   Kind: fix.
   Source: in-session-2026-09-20.

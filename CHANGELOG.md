@@ -476,6 +476,15 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Maps whose names use accented letters no longer make the developer tools' output unreadable** (UTA-0202)
+  A texture called `Telaraña` used to be copied out byte for byte, which
+  made the whole file invalid JSON -- a strict reader failed on it before
+  reading anything, losing an entire run over one map. Eleven maps in a
+  1441-map install did this. Names are now re-encoded properly, so those
+  maps read correctly and the accented letters survive. ut-bake and
+  ut-paths are fixed by the same change, and output that was already
+  readable is untouched.
+
 - **Water surfaces draw again, instead of showing what is behind them** (UTA-0188)
   A map's water is often the same polygon that divides the air from the
   water, and the renderer threw every such surface away as an invisible
