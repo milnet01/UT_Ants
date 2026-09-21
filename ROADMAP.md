@@ -10164,7 +10164,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants.
 
-- 🚧 [UTA-0172] **ut-dump: emit each actor's event wiring, not just the wiring graph's counts.**
+- ✅ [UTA-0172] **ut-dump: emit each actor's event wiring, not just the wiring graph's counts.**
   Asked by UT_MonsterHunt on 2026-09-17 (their GAME-0145): useful, not
   blocking. Their exit-chain survey decides whether anything can switch a
   map's exit on. It reads T3D exports today, which 5 of 1435 installed maps
@@ -10229,6 +10229,15 @@ model, no weapon and no opponent until 0.2.0.
   Two things the real run corrected in the spec. A MonsterEnd's chain is MonsterEnd -> Trigger -> Triggers -> Actor -> Object; SS 4.3's example said NavigationPoint, written from memory, and is fixed with a note saying it is now measured. And 1738 of MH-UM-TeamFight's 1758 actors have no bInitiallyActive property at all, which makes the consumer's null-not-false objection far sharper than it read on paper: defaulting to false would have made almost the whole map look switched off.
 
   tests/support/UnrealPackageBuilder gained addNameAt -- an array-indexed Name property. Nothing could express OutEvents(1) before, which is the one shape MH-3072-FloorWaysSBMod turns on, so INV-3 was untestable.
+  Resolved 2026-09-21 at 0508c05, green on all three matrix legs (GCC 14, Clang 19, MSVC).
+
+  Delivered: `--wiring-graph` adds an `actors` array to ut-dump's existing `wiring` object -- per actor its export index, name, class, resolved ancestry chain, chainEnd, Tag, the six event properties, bInitiallyActive and InitialState -- plus `chainsUnresolved` per map. Without the flag the output is byte-identical to before.
+
+  This removes UT_MonsterHunt's dependence on T3D exports for the exit-chain survey, which was the item's whole point: 11 installed maps have no export and every survey of theirs silently skipped them.
+
+  What the gate could not check, checked by hand: INV-7 over the install. 1332 maps carry exits and exactly four are never maps -- the same four their independent T3D survey found -- run over all 1441 maps rather than the 1430-map intersection the spec restricts the assertion to. So none of the export-less 11 is a never map. Both sides agreed to keep the restriction anyway: it could not have been known in advance, and a guard that looks unnecessary afterwards is a guard doing its job.
+
+  Two readers sharing no code path agree: ours from package files with no export involved, theirs from exports with no package reader involved.
   **Layman:** List which switches and triggers in a map fire which others, so a map whose exit can never open is found without the old editor.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.

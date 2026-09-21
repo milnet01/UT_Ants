@@ -17,6 +17,16 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-dump can list which switches and triggers in a map fire which others** (UTA-0172)
+  `ut-dump --wiring-graph` now writes out every actor in a map with its
+  class family, its tag and the events it fires. That is enough to work
+  out, from the map file alone, whether anything in the map can ever open
+  its exit -- a question that previously needed the old map editor, and
+  could not be asked at all about the eleven maps that have no editor
+  export. Checked against a full library sweep: of 1332 maps with an exit,
+  four can never open theirs, matching an independent survey done the old
+  way.
+
 - **ut-shot can redraw a saved capture exactly as it was taken** (UTA-0199)
   A capture folder already wrote down the quality tier, the picture size
   and the moment in time it was drawn at. The screenshot tool had no way
