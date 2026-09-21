@@ -65,6 +65,7 @@ add_executable(uta_unit_tests
     unit/NavGraphTest.cpp
     unit/NumericContractTest.cpp
     unit/OriginCliTest.cpp
+    unit/ShotCliTest.cpp
     unit/PackageAncestryTest.cpp
     unit/PackageBuilderTest.cpp
     unit/PackageClassTest.cpp
@@ -109,6 +110,9 @@ target_sources(uta_unit_tests PRIVATE
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli.cpp")
 # And ut-dump's -- UTA-0136's navigation graph.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.cpp")
+# And ut-shot's -- UTA-0199, so --from-capture is graded against the very
+# writer that produces a capture folder, apps/ut-ants/Capture.cpp below.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 # And the client's parts that need no window -- UTA-0016. Compiled in whether or
 # not UTA_BUILD_CLIENT is on, because neither links SDL.

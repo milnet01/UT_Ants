@@ -7,6 +7,12 @@
 //   x y z pitch yaw roll horizontalFovDegrees
 // UT99's FOVAngle is horizontal; urender::Camera takes a vertical one, so it is
 // converted at the frame's aspect.
+//
+// UTA-0199: the options are parsed by Cli.cpp, so they are tested without a
+// Vulkan device. --from-capture draws a UTA-0191 capture folder's own view at
+// the tier, render scale, light time and size it recorded.
+
+#include "Cli.h"
 
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
@@ -14,7 +20,6 @@
 
 #include <algorithm>
 #include <array>
-#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
@@ -24,61 +29,26 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-
-namespace {
-
-void usage() {
-    std::cerr << "usage: ut-shot <bundle> <width> <height> <out prefix> < cameras\n"
-                 "\n"
-                 "Each line of standard input is one camera: x y z pitch yaw roll\n"
-                 "horizontalFovDegrees, in UT99 units and angles. Writes\n"
-                 "<out prefix>-<line>.ppm for each, counting from 0.\n";
-}
-
-bool parseSize(std::string_view text, std::uint32_t& out) {
-    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), out);
-    return error == std::errc{} && end == text.data() + text.size() && out > 0;
-}
-
-} // namespace
+#include <vector>
 
 int main(int argc, char** argv) {
-    // --linear skips exposure and the tone map (Config::linearOutput), so a
-    // caller can fit an exposure to the original's frames itself.
-    // --no-probes draws without the baked indirect light, so its share of a
-    // frame can be measured.
-    uta::urender::Config config;
-    bool probes = true;
-    while (argc > 5 && std::string_view(argv[1]).starts_with("--")) {
-        if (std::string_view(argv[1]) == "--linear") {
-            config.linearOutput = true;
-        } else if (std::string_view(argv[1]) == "--no-probes") {
-            probes = false;
-        } else {
-            usage();
-            return 2;
-        }
-        ++argv;
-        --argc;
-    }
-    if (argc != 5) {
-        usage();
-        return 2;
-    }
-    if (!parseSize(argv[2], config.width) || !parseSize(argv[3], config.height)) {
-        usage();
-        return 2;
-    }
-    const std::string prefix = argv[4];
+    const std::vector<std::string_view> args(argv + 1, argv + argc);
+    const auto options = uta::shot::parseOptions(args, std::cerr);
+    if (!options) return 2;
 
-    auto bytes = uta::fs::readFile(argv[1]);
+    uta::urender::Config config;
+    config.width = options->width;
+    config.height = options->height;
+    config.linearOutput = options->linearOutput;
+
+    auto bytes = uta::fs::readFile(options->bundle);
     if (!bytes) {
         std::cerr << "ut-shot: " << bytes.error().message() << "\n";
         return 1;
     }
     auto bundle = uta::ubundle::read(*bytes);
     if (!bundle) {
-        std::cerr << "ut-shot: " << argv[1] << " did not read: " << bundle.error().message() << "\n";
+        std::cerr << "ut-shot: " << options->bundle << " did not read: " << bundle.error().message() << "\n";
         return 1;
     }
     *bytes = {};
@@ -129,7 +99,7 @@ int main(int argc, char** argv) {
             std::cerr << "PROBES coverage=" << (total > 0 ? covered / total : 0) << " of triangle area\n";
         }
     }
-    if (!probes) bundle->lightProbes.reset();
+    if (!options->probes) bundle->lightProbes.reset();
 
     // The lights the bundle carries, one per line on standard error, so they
     // can be set against the lights the original game loads.
@@ -140,18 +110,37 @@ int main(int argc, char** argv) {
                       << " effect=" << int(light.effect) << " b=" << int(light.brightness) << " h=" << int(light.hue)
                       << " s=" << int(light.saturation) << " r=" << int(light.radius) << "\n";
 
-    config.tier = uta::urender::tierNamed("high");
-    config.fixedRenderScale = 1.0;
+    // UTA-0199: unset draws at high and at full scale, as this tool always
+    // has; --from-capture or --tier says otherwise.
+    config.tier = options->tier ? options->tier : uta::urender::tierNamed("high");
+    config.fixedRenderScale = options->renderScale.value_or(1.0);
     auto created = uta::urender::Renderer::create(config);
     if (!created) {
         std::cerr << "ut-shot: the renderer did not start: " << created.error().message() << "\n";
         return 1;
     }
     uta::urender::Renderer renderer = std::move(*created);
+    // UTA-0199: without this the renderer reads its own clock, so a redraw
+    // disagrees with the capture beside it on a pulsing light's phase.
+    if (options->lightSeconds) renderer.pinLightSeconds(*options->lightSeconds);
 
     const double aspect = static_cast<double>(config.height) / config.width;
+
+    // --from-capture names the folder's camera.txt, which UTA-0191 writes in
+    // exactly this form so the view can be drawn again without a field being
+    // copied out by hand.
+    std::ifstream captureCameras;
+    if (options->cameraFile) {
+        captureCameras.open(*options->cameraFile);
+        if (!captureCameras) {
+            std::cerr << "ut-shot: " << *options->cameraFile << " does not open\n";
+            return 1;
+        }
+    }
+    std::istream& cameras = options->cameraFile ? static_cast<std::istream&>(captureCameras) : std::cin;
+
     std::string line;
-    for (int index = 0; std::getline(std::cin, line); ++index) {
+    for (int index = 0; std::getline(cameras, line); ++index) {
         std::istringstream fields(line);
         uta::urender::Camera camera;
         double horizontalFov = 90;
@@ -176,7 +165,7 @@ int main(int argc, char** argv) {
             std::cerr << "ut-shot: readback failed: " << pixels.error().message() << "\n";
             return 1;
         }
-        const std::string path = prefix + "-" + std::to_string(index) + ".ppm";
+        const std::string path = options->prefix + "-" + std::to_string(index) + ".ppm";
         std::ofstream out(path, std::ios::binary);
         out << "P6\n" << config.width << " " << config.height << "\n255\n";
         for (std::size_t i = 0; i < pixels->size(); i += 4) out.write(reinterpret_cast<const char*>(&(*pixels)[i]), 3);

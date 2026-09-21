@@ -17,6 +17,15 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-shot can redraw a saved capture exactly as it was taken** (UTA-0199)
+  A capture folder already wrote down the quality tier, the picture size
+  and the moment in time it was drawn at. The screenshot tool had no way
+  to be told any of them, so drawing that view again gave a different
+  picture. `--from-capture <folder>` now takes the lot from the folder
+  itself, and `--tier`, `--render-scale` and `--light-time` set them by
+  hand -- so the same view can be drawn deliberately at another quality
+  to see what that changes.
+
 - **ut-dump lists a map's surfaces by texture and flags** (UTA-0201)
   Each map now reports which textures its walls, floors and water use, how
   each surface is flagged, and how many are actually drawn. A surface

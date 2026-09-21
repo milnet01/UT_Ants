@@ -11567,7 +11567,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: ut-monsterhunt-request-2026-09-20.
   Lanes: upkg, unav.
 
-- 📋 [UTA-0199] **ut-shot cannot be told the tier, render scale or light time a capture folder records.**
+- 🚧 [UTA-0199] **ut-shot cannot be told the tier, render scale or light time a capture folder records.**
   Measured 2026-09-20 while finishing UTA-0191, on this machine.
 
   UTA-0191's folder records tier, render-scale and light-seconds so the
@@ -11596,6 +11596,13 @@ model, no weapon and no opponent until 0.2.0.
   Placed after UTA-0191 by the session, as the user leaves placement to
   it: it is that item's second half, and UTA-0188's water finding is the
   first thing that would use it.
+  Taken 2026-09-21 by session ut-ants-2e, main checkout. Rule-1 set
+  checked first by the complete route -- the render carries eleven
+  distinct `Source:` prefixes, of which only review-code- and
+  review-contract- record a review; the open items under them are
+  UTA-0098 and UTA-0100, both of which defer themselves in their own
+  bodies. UTA-0186 is the only other in-progress item and is parked on
+  `Waiting-on:`, so it counts against neither session limit.
   **Layman:** A saved capture writes down the settings it was drawn with, but the screenshot tool has no way to be told them, so redrawing that view does not match the picture beside it.
   Kind: enhancement.
   Source: in-session-2026-09-20.
