@@ -15,24 +15,16 @@
 - ✅ Done · 🚧 In progress · 📋 Planned · 💭 Considered
 - 🚫 Dropped (closed, not done)
 
-## P01 — (first block)
-
-> Pre-1.0 projects use phase blocks (`## P01 — …`); these promote into
-> `## 1.0.0 — initial release` at 1.0. Such a roadmap does not rotate
-> into archives — see § 3.9.
->
-> **Nothing goes here until design is agreed.** Items are broken out of
-> the design, and the gate on doing so is that every sign of success in
-> `docs/discovery.md` — each carrying an `S<n>` id — is claimed by at
-> least one item, and every item
-> names what must close before it can start, in `Blocked-by:`
-> (`~/.claude/workflow.md` § 5, `roadmap-format.md` § 3.5).
-
 ## 0.1.0 — Bake and render
 
 Read a UT package, bake a level into a .utab bundle, and walk through it with
 modern lighting. Closes S1 and S7. Nothing here plays: there is no movement
 model, no weapon and no opponent until 0.2.0.
+
+Items deferred out of this release's cut condition still sit here: UTA-0044,
+UTA-0045, UTA-0053, UTA-0054, UTA-0055, UTA-0075 and UTA-0076. Counting this
+section's open items therefore over-reports what the release is waiting on.
+Each of them says so in its own body.
 
 - ✅ [UTA-0001] **Build system, test harness and the synthetic-package fixtures.**
   CMake + Ninja, C++23, Catch2 v3 fetched by the build rather than installed.
@@ -4284,7 +4276,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: docs.
 
-- 📋 [UTA-0082] **0.1.0's planned count includes seven items deferred out of its cut condition.**
+- ✅ [UTA-0082] **0.1.0's planned count includes seven items deferred out of its cut condition.**
   UTA-0044, UTA-0045, UTA-0053, UTA-0054, UTA-0055, UTA-0075 and UTA-0076
   each carry a "Deferred out of 0.1.0" annotation, made on the user's
   call. They still sit in this section, so anyone COUNTING its planned
@@ -4307,6 +4299,15 @@ model, no weapon and no opponent until 0.2.0.
   So this item is the note, standing in for the intro line until either
   op exists. Do it by writing that line and deleting this, not by
   re-filing seven items.
+  Resolved (2026-09-21): the agreed fix is written. 0.1.0's section
+  intro now names the seven deferred items by id and says that counting
+  the section's open items over-reports what the release is waiting on.
+  Both tooling blockers this item recorded have since closed upstream:
+  roadmap_log op:"set_intro" writes a section intro, and
+  op:"amend_field" field:"section" moves an item between sections with
+  its id intact. The intro line was taken rather than the move, per the
+  2026-09-08 decision; moving the seven is now possible and is a
+  separate call, one placement judgement per item.
   **Layman:** The list of work for the first release counts seven things that were already decided not to be in it, so the release looks further away than it is.
   Kind: doc.
   Source: in-session-2026-09-08.
