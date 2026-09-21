@@ -11894,6 +11894,41 @@ Each of them says so in its own body.
   Source: consumer-request-2026-09-21 UT_MonsterHunt.
   Lanes: tools/ut-dump.
 
+- 📋 [UTA-0204] **0.1.0's heading holds work the release is not waiting on.**
+  Measured 2026-09-21 while advising the ~/.claude v2 workflow effort,
+  whose new roadmap standard was drawn partly from this project.
+
+  Of 0.1.0's open items, four are tests and seven are investigations —
+  work that ships in no artifact a user receives — and seven more are
+  deferred out of its own cut condition (named in this section's intro).
+  Between a third and two fifths of what blocks this release is work the
+  release is not waiting on.
+
+  Why it matters rather than being tidiness: a release is ready when every
+  item under its heading is closed AND its cut condition holds. The first
+  test is a conjunction over the section's items, so it gets harder with
+  every item added; the cut condition's difficulty is fixed by what the
+  release promises. On a large section the item test dominates and the cut
+  condition becomes decorative — 0.1.0 is gated by whichever unrelated
+  item is slowest rather than by S1 and S7.
+
+  The draft standard's answer: work shipping in no artifact takes no
+  version, and work deferred from a cut condition moves out of that
+  release rather than being annotated in place. Both operations now exist
+  (op:"amend_field" field:"section" keeps the id).
+
+  Not done, by the user's decision 2026-09-21: the placements are about a
+  dozen judgement calls, the draft standard is not promoted, and the
+  roadmap works as it stands. Trigger to revisit: that standard being
+  promoted, or 0.1.0 approaching a cut.
+
+  Waiting-on: the ~/.claude v2 roadmap standard being promoted, or 0.1.0
+  approaching its cut.
+  **Layman:** Our first release's to-do list counts work that does not have to finish before we can ship it, so the release looks further away than it is.
+  Kind: doc.
+  Source: in-session-2026-09-21.
+  Lanes: docs.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
