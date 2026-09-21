@@ -10164,7 +10164,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants.
 
-- 📋 [UTA-0172] **ut-dump: emit each actor's event wiring, not just the wiring graph's counts.**
+- 🚧 [UTA-0172] **ut-dump: emit each actor's event wiring, not just the wiring graph's counts.**
   Asked by UT_MonsterHunt on 2026-09-17 (their GAME-0145): useful, not
   blocking. Their exit-chain survey decides whether anything can switch a
   map's exit on. It reads T3D exports today, which 5 of 1435 installed maps
@@ -10193,6 +10193,13 @@ model, no weapon and no opponent until 0.2.0.
   SBMonsterEndTrigger and MonsterEndTrigger are not. This item still
   stands: it removes their dependence on T3D exports, which some maps
   lack and which go stale.
+  Taken 2026-09-21 by session ut-ants-15, main checkout, after UTA-0202 shipped. Rule-1 set re-checked and still empty of workable items: UTA-0098 and UTA-0100 remain the only review-sourced open items and both are dormant by their own bodies.
+
+  Queue note: this item's body records "Queued (2026-09-17) by the user: after UTA-0157", and UTA-0157 is still open. The user's later ordering in CLAUDE.md § Where this project is put UTA-0172 next, so the later instruction governs and UTA-0157 is not a blocker.
+
+  UT_MonsterHunt (ut-monsterhunt-db) was asked for the ground truth behind their T3D exit survey: per-exit verdicts for their four never maps, any near-misses where their rule nearly went wrong, and whether exitsurvey.py reads any property outside the list in this item's body. Grading our output against their measured verdicts beats a test written from our own reading of their rule, and the third question is the cheap moment to catch a missing field before the schema ships.
+
+  Spec decision put to the user: spec-format.md SS 1's first trigger fires -- this output is a contract other tooling already scripts against -- but the item body already carries a precise field list, so the question is whether the cold-read gate earns its cost here.
   **Layman:** List which switches and triggers in a map fire which others, so a map whose exit can never open is found without the old editor.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-17 GAME-0145.
@@ -11799,6 +11806,38 @@ model, no weapon and no opponent until 0.2.0.
   **Layman:** A handful of maps use names with accented letters, and the developer tool copies those bytes out unchanged -- which makes the file it writes unreadable to a strict JSON reader.
   Kind: fix.
   Source: in-session-2026-09-20.
+  Lanes: tools/ut-dump.
+
+- 📋 [UTA-0203] **ut-dump returns packages[] sorted by path, and no consumer is told.**
+  Reported 2026-09-21 by UT_MonsterHunt, from the ut-dump output-shape
+  draft they maintain in their own repo. `packages[]` comes back sorted by
+  path rather than in the order the paths were given on the command line.
+
+  Their words for why it matters: they key everything by file and so are
+  unaffected, but "the next consumer will not know to". A consumer that
+  zips `packages[]` against its own argument list gets silently wrong
+  answers on any invocation whose arguments are not already sorted -- no
+  error, no short read, just results attributed to the wrong map.
+
+  UNVERIFIED HERE. This is their observation, recorded as filed rather
+  than measured on our side; confirm against tools/ut-dump before acting.
+
+  The fix is a decision this item does not take, and both options are
+  defensible. Emit in argument order, which is what a caller assuming
+  correspondence expects. Or keep the sort and document it, which is
+  stable across duplicate and equivalent paths where argument order is
+  not. Either way each element should carry the path it came from, so a
+  consumer never has to rely on position at all -- that is the change
+  that makes the question stop mattering.
+
+  Placed by the session, as the user leaves placement to it: filed 0.1.0
+  beside the other ut-dump items rather than queued, because it is a
+  correctness trap for a consumer we already have rather than work this
+  release needs. Related: the ut-dump output shape has no contract on our
+  side at all -- see the note on UTA-0012.
+  **Layman:** When the tool is given several map files at once it lists the results in a different order than they were asked for, and nothing warns the reader.
+  Kind: fix.
+  Source: consumer-request-2026-09-21 UT_MonsterHunt.
   Lanes: tools/ut-dump.
 
 ## 0.2.0 — Movement and weapons
