@@ -242,7 +242,8 @@ void writeNavGraph(std::ostream& out, const uta::upkg::Package& package,
 }
 
 // ---------------------------------------------------------------- UTA-0101
-using uta::tools::writeJsonText;
+// The 8-bit repair this section needed is inside writeJsonString from
+// UTA-0202, so there is no separate writer to reach for.
 
 /// The string property `want`, compared case-insensitively, at array index 0.
 std::optional<std::string> textOf(const uta::upkg::Package& package,
@@ -277,7 +278,7 @@ void writeCredits(std::ostream& out, std::string_view key, const uta::upkg::Pack
     const auto field = [&](std::string_view want) {
         const auto text = textOf(package, *properties, want);
         if (text.has_value()) {
-            writeJsonText(out, *text);
+            writeJsonString(out, *text);
         } else {
             out << "null";
         }

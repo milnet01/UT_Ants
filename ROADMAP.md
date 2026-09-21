@@ -11749,7 +11749,7 @@ model, no weapon and no opponent until 0.2.0.
   Source: in-session-2026-09-20.
   Lanes: tools/ut-dump.
 
-- 📋 [UTA-0202] **ut-dump emits names byte-for-byte, so a non-ASCII name makes its JSON invalid UTF-8.**
+- 🚧 [UTA-0202] **ut-dump emits names byte-for-byte, so a non-ASCII name makes its JSON invalid UTF-8.**
   Measured 2026-09-20 over the install's Maps directory: 11 of 1443 lines
   of `ut-dump --ndjson` output are not valid UTF-8. The first is a texture
   named `Telaraña` -- Latin-1 0xf1 for the n-tilde, written straight
@@ -11778,6 +11778,13 @@ model, no weapon and no opponent until 0.2.0.
   Found while measuring UTA-0188's blast radius across the library, which
   is what put a non-ASCII texture name through the tool for the first
   time.
+  Taken 2026-09-21 by session ut-ants-15, main checkout. Rule-1 set checked first by the complete route: the render carries eleven distinct `Source:` prefixes, of which only review-code-, review-contract- and design-gate- could record a review; their open items are UTA-0098 and UTA-0100, both dormant by their own bodies.
+
+  Scope widened by the user 2026-09-21, and the encoding decision this item declined to take is already taken. UTA-0101 settled it in tools/common/Json.h, measured over the map library: keep valid UTF-8, else decode Windows-1252 with a Latin-1 fallback for the bytes Windows-1252 leaves undefined. That is writeJsonText, and it is called once in the whole tree -- ut-dump's free text. Every UE1 name in all three tools goes through writeJsonString, which passes bytes above 0x7F straight out.
+
+  So the repair goes INSIDE writeJsonString rather than at the call sites, and the two functions collapse into one. That fixes ut-dump, ut-bake and ut-paths together. Valid UTF-8 already passes through both paths untouched, so no output changes except where it is currently invalid JSON.
+
+  UT_MonsterHunt asked for this independently the same day (their GAME-0159, message received mid-session). Their library sweep names 11 affected maps and records that only the Egypt maps' 0xf1 was identified, so the transcoding must be general rather than per-character.
   **Layman:** A handful of maps use names with accented letters, and the developer tool copies those bytes out unchanged -- which makes the file it writes unreadable to a strict JSON reader.
   Kind: fix.
   Source: in-session-2026-09-20.

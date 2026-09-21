@@ -4,40 +4,21 @@
 // Header-only. ut-dump, ut-bake and ut-paths each hand-write an output shape
 // they own entirely, and docs/design.md keeps the dependency list short on
 // purpose; this is the one piece of that writing they share.
+//
+// It cannot emit a string that is not valid UTF-8 -- UTA-0202. That guarantee
+// lives here rather than at the call sites because the defect it fixes was a
+// call site picking the wrong writer: the repair existed, as writeJsonText,
+// and every UE1 name in all three tools went through the raw escaper instead.
+// A second entry point is a second chance to choose wrong, so there is one.
 
 #pragma once
 
 #include <cstdio>
 #include <ostream>
+#include <string>
 #include <string_view>
 
 namespace uta::tools {
-
-/// `text` as a JSON string: the escapes JSON requires, plus the C0 range,
-/// which a package or file name can contain and which would otherwise emit
-/// invalid JSON. Every other byte is written as it is.
-inline void writeJsonString(std::ostream& out, std::string_view text) {
-    out << '"';
-    for (const char raw : text) {
-        const auto ch = static_cast<unsigned char>(raw);
-        switch (ch) {
-        case '"': out << "\\\""; break;
-        case '\\': out << "\\\\"; break;
-        case '\n': out << "\\n"; break;
-        case '\r': out << "\\r"; break;
-        case '\t': out << "\\t"; break;
-        default:
-            if (ch < 0x20) {
-                char buf[7];
-                std::snprintf(buf, sizeof buf, "\\u%04x", ch);
-                out << buf;
-            } else {
-                out << raw;
-            }
-        }
-    }
-    out << '"';
-}
 
 /// Whether `text` is well-formed UTF-8: no overlong form, no surrogate, nothing
 /// past U+10FFFF.
@@ -66,16 +47,16 @@ inline bool isUtf8(std::string_view text) {
     return true;
 }
 
-/// Free text from a package as a JSON string -- UTA-0101. UT99's map text is
-/// 8-bit Windows text, and upkg passes it through untouched, so bytes above
-/// 0x7F would make writeJsonString emit invalid JSON. The rule measured over
-/// the map library: keep text that is valid UTF-8, else decode it as
-/// Windows-1252, and a byte Windows-1252 leaves undefined as Latin-1.
-inline void writeJsonText(std::ostream& out, std::string_view text) {
-    if (isUtf8(text)) {
-        writeJsonString(out, text);
-        return;
-    }
+namespace detail {
+
+/// `text` read as UT99's 8-bit text and re-encoded as UTF-8 -- UTA-0101. The
+/// rule measured over the map library: decode as Windows-1252, and a byte
+/// Windows-1252 leaves undefined as Latin-1.
+///
+/// Whole-string, not byte-wise. A UE1 name is 8-bit throughout, so a name that
+/// happens to parse as UTF-8 is a coincidence; decoding only the bytes that
+/// fail would corrupt the common case to flatter the rare one.
+inline std::string utf8FromEightBit(std::string_view text) {
     // 0x80 to 0x9F; zero where Windows-1252 defines nothing.
     static constexpr char16_t WINDOWS_1252[32] = {
         0x20AC, 0,      0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
@@ -100,7 +81,46 @@ inline void writeJsonText(std::ostream& out, std::string_view text) {
             decoded += static_cast<char>(0x80 | (point & 0x3F));
         }
     }
-    writeJsonString(out, decoded);
+    return decoded;
+}
+
+} // namespace detail
+
+/// `text` as a JSON string: the escapes JSON requires, plus the C0 range, which
+/// a package or file name can contain and which would otherwise emit invalid
+/// JSON.
+///
+/// Bytes that are not valid UTF-8 are repaired first -- UTA-0202. JSON is UTF-8
+/// by definition (RFC 8259 SS 8.1), and UE1 hands us 8-bit names and text with
+/// no declared encoding, so a byte copied through makes the whole file
+/// unreadable rather than the one string. Text that is already valid UTF-8 is
+/// written byte for byte, so the repair changes only output that was invalid.
+inline void writeJsonString(std::ostream& out, std::string_view text) {
+    std::string repaired;
+    if (!isUtf8(text)) {
+        repaired = detail::utf8FromEightBit(text);
+        text = repaired;
+    }
+    out << '"';
+    for (const char raw : text) {
+        const auto ch = static_cast<unsigned char>(raw);
+        switch (ch) {
+        case '"': out << "\\\""; break;
+        case '\\': out << "\\\\"; break;
+        case '\n': out << "\\n"; break;
+        case '\r': out << "\\r"; break;
+        case '\t': out << "\\t"; break;
+        default:
+            if (ch < 0x20) {
+                char buf[7];
+                std::snprintf(buf, sizeof buf, "\\u%04x", ch);
+                out << buf;
+            } else {
+                out << raw;
+            }
+        }
+    }
+    out << '"';
 }
 
 } // namespace uta::tools
