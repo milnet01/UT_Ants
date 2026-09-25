@@ -77,10 +77,25 @@ bool onePlane(const Spot& a, const Spot& b) {
            && std::abs(dot(a.floorNormal, floorB - floorA)) <= 1;
 }
 
-/// SS 4.5's join: within a step or along one plane, and the three segments
-/// between them clear.
+/// UTA-0123: a staircase. Its steps rise more than a step between columns 32
+/// apart -- 16-unit steps on 16-unit treads rise 32 -- so it joins when the
+/// floor midway between the two spots is walkable and within a step of each.
+bool stepsBetween(const CollisionTree& tree, const Spot& a, const Spot& b) {
+    const double floorA = a.centre.z - HALF_HEIGHT;
+    const double floorB = b.centre.z - HALF_HEIGHT;
+    const double top = std::max(a.centre.z, b.centre.z);
+    const double bottom = std::min(floorA, floorB) - STEP - 1;
+    const Vec3 from{(a.centre.x + b.centre.x) / 2, (a.centre.y + b.centre.y) / 2, top};
+    const Hit hit = trace(tree, from, {from.x, from.y, bottom});
+    if (hit.fraction >= 1 || hit.normal.z < FLOOR_Z) return false;
+    const double floor = top + (bottom - top) * hit.fraction;
+    return std::abs(floor - floorA) <= STEP && std::abs(floor - floorB) <= STEP;
+}
+
+/// SS 4.5's join: within a step, along one plane, or up a staircase, and the
+/// three segments between them clear.
 bool joins(const CollisionTree& tree, const Spot& a, const Spot& b) {
-    if (std::abs(a.centre.z - b.centre.z) > STEP && !onePlane(a, b)) return false;
+    if (std::abs(a.centre.z - b.centre.z) > STEP && !onePlane(a, b) && !stepsBetween(tree, a, b)) return false;
     for (const double height : HEIGHTS) {
         const Vec3 lift{0, 0, height};
         if (trace(tree, a.centre + lift, b.centre + lift).fraction < 1) return false;

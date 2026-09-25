@@ -309,7 +309,11 @@ A floor needs a normal with Z at least `F`, 0.7 (§ 3 decision 6).
   clear, and either their heights differ by at most `S` or their floors lie
   on one plane: the two floor hits' normals match, and each hit lies within 1
   of the other's plane. That second case is a ramp, since a floor as steep as
-  `F` rises about 33 between columns 32 apart.
+  `F` rises about 33 between columns 32 apart. A third case, added by
+  `UTA-0123`, is a staircase: the floor straight below the point midway
+  between the two centres is walkable (normal Z at least `F`) and within `S`
+  of each spot's floor. 16-unit steps on 16-unit treads rise 32 between
+  columns, which neither of the first two cases joins.
 
 ### 4.6 The start, the exits and the network
 
@@ -481,15 +485,18 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   *Breaks when:* the spot sits on the floor, the fit ignores the ceiling, or
   the slope test is reversed.
 
-- **INV-4** — Spots join only within a step or along one ramp, and with the
-  way clear.
+- **INV-4** — Spots join only within a step, along one ramp, or up a
+  staircase whose midway floor is within a step of each, and with the way
+  clear.
   *Test:* `tests/unit/PathWalkableTest.cpp`: floors in neighbouring columns
   20 apart in height join, and 30 apart do not; two spots on one ramp of
   normal Z 0.75, rising 28 between columns, join. Two at one height either
   side of a wall 1 thick, midway between their columns, do not; the test
-  first asserts both spots exist, since a thicker wall removes one.
+  first asserts both spots exist, since a thicker wall removes one. The
+  `UTA-0123` cases: spots on three 16-unit treads, rising 32, join; with the
+  middle tread gone, they do not.
   *Breaks when:* the step is not checked, a ramp's rise is held to the step,
-  or the join is not traced.
+  a staircase's midway floor is not checked, or the join is not traced.
 
 - **INV-5** — On an `EXIT_OFF_NET` map, a route found is proposed as a chain
   whose every hop is allowed (§ 4.7), from the start part's placed spot to

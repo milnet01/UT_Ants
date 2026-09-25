@@ -97,6 +97,49 @@ TEST_CASE("INV-4: spots on one ramp join past the step", "[paths][walkable]") {
     CHECK(joined(graph, *low, *high));
 }
 
+namespace {
+
+/// UTA-0123: three treads of a staircase whose steps rise 16 every 16 units,
+/// as rooms 200 high: floor 96 to X 104, 112 from X 104 to 120, and 128 past
+/// it -- edges off the grid columns, so each column stands on one tread. So
+/// the spots at X 96 and 128 rise 32 and the floor midway, at X 112, is 16
+/// from each. With `pit`, the middle tread is gone and its floor drops 500. Three
+/// regions only: a world built from many boxes grows a collision tree too
+/// large to test with.
+WalkGraph staircase(bool pit = false) {
+    return walkGraph(worldOf({box({0, 0, 96}, {104, 256, 296}),
+                              box({104, 0, pit ? -500.0 : 112.0}, {120, 256, 312}),
+                              box({120, 0, 128}, {256, 256, 328})},
+                             {0, 0, -550}, {256, 256, 380}));
+}
+
+} // namespace
+
+TEST_CASE("UTA-0123: a staircase joins though it rises more than a step between columns",
+          "[paths][walkable]") {
+    // 16-unit steps on 16-unit treads rise 32 between columns 32 apart. The
+    // floor midway between them is one step from each, so the stair is walked.
+    const WalkGraph graph = staircase();
+    const auto low = spotAt(graph, 96);
+    const auto high = spotAt(graph, 128);
+    REQUIRE(low.has_value());
+    REQUIRE(high.has_value());
+    CHECK(graph.spots[*high].centre.z - graph.spots[*low].centre.z > STEP);
+    CHECK(joined(graph, *low, *high));
+    CHECK(joined(graph, *high, *low));
+}
+
+TEST_CASE("UTA-0123: two floors with no floor midway between them stay apart", "[paths][walkable]") {
+    // The same rise, with the tread between the two columns gone: nothing to
+    // step on halfway, so the rise is a jump and not a walk.
+    const WalkGraph graph = staircase(true);
+    const auto low = spotAt(graph, 96);
+    const auto high = spotAt(graph, 128);
+    REQUIRE(low.has_value());
+    REQUIRE(high.has_value());
+    CHECK_FALSE(joined(graph, *low, *high));
+}
+
 TEST_CASE("INV-4: a wall between two spots keeps them apart", "[paths][walkable]") {
     const WalkGraph graph = walkGraph(worldOf(
         {box({0, 0, 0}, {111.5, 256, 200}), box({112.5, 0, 0}, {256, 256, 200})},

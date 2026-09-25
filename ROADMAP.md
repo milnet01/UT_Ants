@@ -6034,6 +6034,21 @@ Each of them says so in its own body.
   any of the three: what separates those is not a staircase.
   Fix: sample the floor between neighbours as that probe did, amend
   § 4.5 and INV-4, and re-run UT_MonsterHunt's census maps.
+  Built (2026-09-25, ut-ants-3c). Walkable.cpp's join gains a third case:
+  the floor straight below the midway point is walkable and within a step
+  of each spot's floor. UTA-0121 § 4.5 and INV-4 amended. Unit tests: three
+  16-unit treads rising 32 join; with the middle tread gone they do not;
+  the existing 30-unit single step still does not. Making the new case
+  always join failed two tests.
+
+  Not re-measured: the join change on MH-2001v14, MH-Addicted and
+  MH-AmorMonstersV0. ut-paths run before (parent commit) and after gives
+  byte-identical output on all three, 0 nodes proposed each, but that
+  output does not show the walk graph's joins or components, so it says
+  nothing either way about the merge the 2026-09-11 probe saw.
+
+  A trap met on the way: a fixture world of sixteen box regions grew its
+  collision tree to 19 GB before it was stopped. Three regions suffice.
   **Layman:** The path tool reads most staircases as walls, because it checks the floor every 32 units and a staircase climbs more than one step in that distance.
   Kind: enhancement.
   Source: in-session-2026-09-11.
