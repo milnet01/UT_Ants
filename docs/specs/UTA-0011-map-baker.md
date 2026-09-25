@@ -494,8 +494,17 @@ any lines meant for a person, as `ut-dump` does. String escapes are
 
 ```json
 {"schema": 1, "install": "<as given>", "ok": true,
- "problems": [{"what": "<file or directory>", "why": "<a sentence>"}]}
+ "problems": [{"what": "<file or directory>", "why": "<a sentence>"}],
+ "version": 469, "warnings": ["<a sentence>"]}
 ```
+
+**`version` and `warnings` were added by `UTA-0117`.** `version` is the
+highest `FirstRun=` value in the install's `System` or `System64`
+`UnrealTournament.ini`, which the game writes when a version first runs. It
+is `null` when none carries one. A warning is given when the version is
+unknown or is not 469, the only version tested, and each is also printed
+on standard error. A warning never changes `ok` or the exit code (user
+decision, 2026-09-25).
 
 A bake prints:
 

@@ -5835,6 +5835,9 @@ Each of them says so in its own body.
   check that passes an install can still leave maps that will not bake.
   Decide which versions are supported, and whether `--check` names the
   version it found. UTA-0016 binds to `--check`'s output.
+  User decision (2026-09-25): ut-bake --check names the version it finds
+  and accepts any, but warns plainly when it is not 469, the only version
+  tested. Warn and carry on, as UTA-0141 does.
   **Layman:** Say which versions of Unreal Tournament the game will run from, so an older install is told plainly rather than half-working.
   Kind: investigate.
   Source: user-request-2026-09-10.
@@ -7503,6 +7506,11 @@ Each of them says so in its own body.
   be distinguished from real ones.
 
   Blocked-by: nothing.
+  User decision (2026-09-25): the 99% Paths checks hold on the reference
+  install only, where they were measured. On any other install the test
+  prints the percentages and asserts only that no value is negative or
+  impossible. The other two assertions (withExit, the curated seed
+  table) become preconditions that say they were not applicable.
   **Layman:** Our tests against real game files only pass on one particular installation. Run them against any other and they fail for reasons that are not bugs.
   Kind: test.
   Source: in-session-2026-09-12.
@@ -8339,7 +8347,7 @@ Each of them says so in its own body.
   Source: ut-monsterhunt-2026-09-12 census export note.
   Lanes: ut-paths.
 
-- 📋 [UTA-0138] **Run the renderer's device tier under the Vulkan validation layer.**
+- ✅ [UTA-0138] **Run the renderer's device tier under the Vulkan validation layer.**
   Every device test creates its Renderer with validation off, and CI installs no
   validation layer. UTA-0014's presenting-path hand run turned validation on and
   found shaders using OpDemoteToHelperInvocation on a device that never enabled
@@ -8400,6 +8408,8 @@ Each of them says so in its own body.
   The translucent pass's ShaderOutputNotConsumed is a WARNING, so it is
   logged and fails nothing. It is left unsilenced: no device test raises
   it.
+  Shipped 2026-09-25: green on GitHub's matrix at 3187e73, the Linux legs
+  running the device tier validated.
   **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test.
   Kind: test.
   Source: in-session-2026-09-12.

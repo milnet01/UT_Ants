@@ -18,8 +18,10 @@
 #include "upkg/Package.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -80,9 +82,19 @@ struct Problem {
     std::string why;  ///< a sentence
 };
 
+/// UTA-0117: the one Unreal Tournament version this project is tested on.
+inline constexpr std::uint32_t TESTED_VERSION = 469;
+
 struct CheckReport {
     bool ok = false; ///< true when `problems` is empty
     std::vector<Problem> problems;
+    /// UTA-0117: the version the install records, or none. The game writes
+    /// `FirstRun=<version>` into UnrealTournament.ini when a version first
+    /// runs; the highest across System and System64 is taken.
+    std::optional<std::uint32_t> version;
+    /// UTA-0117: said, never refused (user decision, 2026-09-25) -- an
+    /// unknown version, or one other than TESTED_VERSION.
+    std::vector<std::string> warnings;
 };
 
 /// Whether `root` holds `Core`, `Engine` and `Botpack`, each opening as a

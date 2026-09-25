@@ -17,6 +17,8 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **The renderer's device tests run under the Vulkan validation layer and fail on any error it reports** (UTA-0138)
+
 - **ut-bake warns when a package name two install files share hides an object the map asks for** (UTA-0141)
 
 - **ut-dump gives each navigation node its own Paths, upstreamPaths and PrunedPaths, and each edge its reach-spec index** (UTA-0198)

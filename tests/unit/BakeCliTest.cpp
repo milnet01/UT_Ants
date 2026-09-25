@@ -297,3 +297,34 @@ TEST_CASE("UTA-0141: a clash that hides what the map asks for is warned about", 
     CHECK(says(cached.out, "\"verdict\": \"cached\""));
     CHECK(says(cached.out, "\"packageClashes\": [{\"package\": \"texpkg\""));
 }
+
+TEST_CASE("UTA-0117: the install check names the version and warns unless it is 469", "[ubake][cli]") {
+    const Install fixture;
+    const auto writeIni = [&](const fs::path& relative, const std::string& text) {
+        uta::test::bake::writeFile(fixture.install / relative, std::vector<std::uint8_t>(text.begin(), text.end()));
+    };
+
+    // Never run: nothing records a version.
+    const Run unknown = run({"--check", fixture.install.string()});
+    CHECK(unknown.code == 0); // warned about, never refused (user decision, 2026-09-25)
+    CHECK(says(unknown.out, "\"ok\": true"));
+    CHECK(says(unknown.out, "\"version\": null"));
+    CHECK(says(unknown.out, "\"warnings\": [\""));
+    CHECK(says(unknown.err, "warning"));
+
+    // The game writes FirstRun when a version first runs.
+    writeIni("System/UnrealTournament.ini", "[FirstRun]\r\nFirstRun=436\r\n");
+    const Run old = run({"--check", fixture.install.string()});
+    CHECK(old.code == 0);
+    CHECK(says(old.out, "\"version\": 436"));
+    CHECK(says(old.out, "436"));
+    CHECK(says(old.err, "469"));
+
+    // A 64-bit System64 beside it that has run 469 wins: the higher is current.
+    writeIni("System64/UnrealTournament.ini", "[FirstRun]\nfirstrun=469\n");
+    const Run tested = run({"--check", fixture.install.string()});
+    CHECK(tested.code == 0);
+    CHECK(says(tested.out, "\"version\": 469"));
+    CHECK(says(tested.out, "\"warnings\": []"));
+    CHECK_FALSE(says(tested.err, "warning"));
+}

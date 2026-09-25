@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
+#include <format>
 #include <map>
 #include <set>
 #include <system_error>
@@ -179,6 +181,47 @@ const fsys::path& Install::root() const noexcept {
     return state_->root;
 }
 
+namespace {
+
+/// UTA-0117: the highest `FirstRun=` in the install's UnrealTournament.ini
+/// files, the key and names matched case-insensitively. None when no such
+/// file carries one, which is an install that has never been run.
+std::optional<std::uint32_t> recordedVersion(const fsys::path& root) {
+    std::optional<std::uint32_t> version;
+    std::error_code ec;
+    for (const fsys::directory_entry& dir : fsys::directory_iterator(root, ec)) {
+        const std::string dirName = detail::fold(detail::utf8(dir.path().filename()));
+        if (dirName != "system" && dirName != "system64") continue;
+        std::error_code inner;
+        for (const fsys::directory_entry& file : fsys::directory_iterator(dir.path(), inner)) {
+            if (detail::fold(detail::utf8(file.path().filename())) != "unrealtournament.ini") continue;
+            const auto bytes = uta::fs::readFile(file.path());
+            if (!bytes.has_value()) continue;
+            std::string line;
+            const auto take = [&] {
+                const std::string folded = detail::fold(line);
+                if (folded.starts_with("firstrun=")) {
+                    std::uint32_t value = 0;
+                    const char* first = line.data() + 9;
+                    const char* last = line.data() + line.size();
+                    if (auto [end, error] = std::from_chars(first, last, value); error == std::errc{} && end != first)
+                        version = std::max(version.value_or(0), value);
+                }
+                line.clear();
+            };
+            for (const std::byte b : *bytes) {
+                const char c = static_cast<char>(b);
+                if (c == '\n' || c == '\r') take();
+                else line += c;
+            }
+            take();
+        }
+    }
+    return version;
+}
+
+} // namespace
+
 CheckReport checkInstall(const fsys::path& root) {
     CheckReport report;
     const auto install = Install::open(root);
@@ -206,6 +249,18 @@ CheckReport checkInstall(const fsys::path& root) {
                 report.problems.push_back(
                     {detail::utf8(path), std::string(package.error().message())});
         }
+    }
+    if (install.has_value()) {
+        report.version = recordedVersion(root);
+        if (!report.version.has_value())
+            report.warnings.push_back(std::format(
+                "the install records no version -- no UnrealTournament.ini carries FirstRun, which the game writes "
+                "when it first runs -- and only {} is tested, so some maps may not bake",
+                TESTED_VERSION));
+        else if (*report.version != TESTED_VERSION)
+            report.warnings.push_back(std::format(
+                "this install is version {}, and only {} is tested, so some maps may not bake", *report.version,
+                TESTED_VERSION));
     }
     report.ok = report.problems.empty();
     return report;

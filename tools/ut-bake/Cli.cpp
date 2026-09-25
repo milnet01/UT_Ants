@@ -133,9 +133,16 @@ int runCheck(std::string_view install, std::ostream& out, std::ostream& err) {
         writeJsonString(out, problem.why);
         out << '}';
     });
+    // UTA-0117: the version, and warnings that never change `ok`.
+    out << ", \"version\": ";
+    if (report.version.has_value()) out << *report.version;
+    else out << "null";
+    out << ", \"warnings\": ";
+    writeArray(out, report.warnings, [&out](const std::string& warning) { writeJsonString(out, warning); });
     out << "}\n";
 
     for (const Problem& problem : report.problems) err << "ut-bake: " << problem.why << "\n";
+    for (const std::string& warning : report.warnings) err << "ut-bake: warning: " << warning << "\n";
     return report.ok ? EXIT_OK : EXIT_FAILED;
 }
 
