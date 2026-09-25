@@ -207,6 +207,25 @@ set_tests_properties("${uta_inv5_rule}" PROPERTIES
     ENVIRONMENT_MODIFICATION "VK_ADD_DRIVER_FILES=unset:"
     PASS_REGULAR_EXPRESSION "failed: explicitly with 1 message: 'no renderer, so this device test cannot pass")
 
+# UTA-0150: the test targets' OWN files compile unoptimised. Measured with
+# clang -ftime-trace on DumpCliTest.cpp, the slowest: headers were about a
+# quarter of its 8.1 s and the optimiser and code generation over half, and
+# -O0 cut it from 7.3 s to 4.2 s (BundleFormatTest 4.6 s to 2.8 s). Sources a
+# target compiles from src/ or tools/ keep the build's own flags, so the code
+# under test is the code that ships; only the checking code is unoptimised.
+# The numeric contract's flags (UTA-0049) are unchanged. The real-asset tier
+# is left alone: some of its cases run for many minutes.
+function(uta_unoptimised_test_sources target)
+    get_target_property(sources ${target} SOURCES)
+    foreach(source IN LISTS sources)
+        if(source MATCHES "^(unit|device)/")
+            set_property(SOURCE ${source} APPEND PROPERTY COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/Od,-O0>")
+        endif()
+    endforeach()
+endfunction()
+uta_unoptimised_test_sources(uta_unit_tests)
+uta_unoptimised_test_sources(uta_device_tests)
+
 if(UTA_REAL_ASSET_TESTS)
     # RealInstallTest.cpp was split by subject into the next four -- UTA-0103.
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGraphsTest.cpp

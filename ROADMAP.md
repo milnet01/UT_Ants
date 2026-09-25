@@ -9132,6 +9132,19 @@ Each of them says so in its own body.
   test targets (Catch2 and the shared fixtures), and <regex> in
   DumpCliTest.cpp. A PCH changes ccache's hit rules, so re-check the local
   gate's 35 s warm run afterwards.
+  Measured and built (2026-09-25, ut-ants-3c). clang -ftime-trace on
+  DumpCliTest.cpp: headers about a quarter of its 8.1 s, the optimiser and
+  code generation over half, std::regex's compiler templates the costliest
+  instantiations. So a precompiled header could save at most about a
+  quarter, and was not built. Instead the test targets' own files
+  (unit/, device/) compile at -O0 (/Od on MSVC). Sources a test target
+  compiles from src/ or tools/ keep -O3, so the code under test is the
+  shipped code. The real-asset tier is unchanged.
+
+  A/B with no cache, six slowest test files: GCC 14 from 44 s to 23 s
+  (49% less), Clang 19 from 30 s to 19 s (38% less). MSVC not measured
+  separately. All 723 unit and device-absent tests and all 51 device tests
+  pass so built.
   **Layman:** Each test file takes a long time to compile because it pulls in the same large headers again, which slows the Windows check on GitHub.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.
