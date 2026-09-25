@@ -871,7 +871,7 @@ Each of them says so in its own body.
   Source: design-2026-09-03.
   Lanes: ubake.
 
-- 🚧 [UTA-0012] **ut-dump: inspect a package from the command line.**
+- ✅ [UTA-0012] **ut-dump: inspect a package from the command line.**
   Ships to developers, who build it from source. Its command line is a
   breaking surface even so.
 
@@ -1026,6 +1026,12 @@ Each of them says so in its own body.
   output-shape contract, docs/specs/UTA-0012-*.md, drafted from our own
   Cli.cpp, with UT_MonsterHunt's docs/ut-dump-output-shape.md as input.
   The draft goes to them before it is fixed. Then a test pins the shape.
+  Shipped (2026-09-25): 986f257 and the Windows test fix 40af051, green
+  on the matrix, GCC 14, Clang 19 and MSVC (run 36109373386). The
+  first run went red on MSVC: INV-2 compared a raw path with the JSON
+  file key, and JSON doubles Windows backslashes. Contract:
+  docs/specs/UTA-0012-ut-dump-output-shape.md, accepted with no gate by
+  the user's decision.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
@@ -11925,7 +11931,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-20.
   Lanes: tools/ut-dump.
 
-- 📋 [UTA-0203] **ut-dump returns packages[] sorted by path, and no consumer is told.**
+- ✅ [UTA-0203] **ut-dump returns packages[] sorted by path, and no consumer is told.**
   Reported 2026-09-21 by UT_MonsterHunt, from the ut-dump output-shape
   draft they maintain in their own repo. `packages[]` comes back sorted by
   path rather than in the order the paths were given on the command line.
@@ -11952,6 +11958,9 @@ Each of them says so in its own body.
   correctness trap for a consumer we already have rather than work this
   release needs. Related: the ut-dump output shape has no contract on our
   side at all -- see the note on UTA-0012.
+  Closed (2026-09-25) by UTA-0012: the contract keeps packages[] in path
+  order and names `file` as the identity. --help says so, and UTA-0012
+  INV-2 pins it, green on the matrix.
   **Layman:** When the tool is given several map files at once it lists the results in a different order than they were asked for, and nothing warns the reader.
   Kind: fix.
   Source: consumer-request-2026-09-21 UT_MonsterHunt.
@@ -11992,7 +12001,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-21.
   Lanes: docs.
 
-- 📋 [UTA-0206] **Stock item classes on MH-SPNaliRescue resolve to nothing, so the map reads as nearly empty.**
+- 🚧 [UTA-0206] **Stock item classes on MH-SPNaliRescue resolve to nothing, so the map reads as nearly empty.**
   Found 2026-09-25 while drafting UTA-0012's level.chainsUnresolved.
   Measured with ut-dump --wiring-graph --ndjson over the install's Maps/,
   reading wiring.chainsUnresolved: four maps are non-zero. They are
@@ -12011,10 +12020,123 @@ Each of them says so in its own body.
   having navigation nodes and no reach specs (their open question 2).
   First step: read the map's import entries for Barrel and see which
   package they name.
+  Picked up (2026-09-25) by ut-ants-a5, main checkout, while UTA-0012's
+  CI runs. Scope: find which package the map's imports name for the
+  unresolved stock classes, and why the resolver misses them.
+  Cause found (2026-09-25, ut-ants-a5), with scratch probes over the
+  package tables (imports.cpp and exports.cpp in the session scratchpad,
+  linking only upkg). MH-SPNaliRescue imports Health, Barrel, NaliFruit,
+  TranslatorEvent and Clip as Core.Class objects whose outer is UnrealI.
+  The installed UnrealI.u exports no class by those names; UnrealShare.u
+  exports all five as classes. So the map names a package the classes do
+  not live in: an older Unreal layout, before they moved to UnrealShare.
+  The map imports no PathNode at all, so its one-node nav graph may be
+  real. That is a separate question.
+
+  The fix depends on what the engine does with such an import: find the
+  class under another package, or drop the actors. Only a running game
+  can answer that. Asked UT_MonsterHunt. Waiting-on: UT_MonsterHunt's
+  in-game check of MH-SPNaliRescue.
+  Answered (2026-09-25) by UT_MonsterHunt, ut-monsterhunt-f0, with an
+  in-game probe (MHClassProbe) on UT 469. The actors exist, as
+  UnrealShare's classes: UnrealShare.Barrel 15 and TranslatorEvent 11
+  under both game types tried. The load log has no failed import and no
+  UnrealI line. So resolve them; do not report them absent. The mechanism
+  is unchecked.
+
+  The other unresolved maps: MH-AlpineLineARC_B1 names
+  Chronoshift.ChronoWeaponBase, and no installed package exports it, so
+  unresolved there is right. MH-Lego-VS-Mario-2D&3D and its -BP name
+  Mario-snes.MultiSkyZoneInfo, and only MH4ever.u exports that class. That
+  map decides the rule: (a) a fixed UnrealI to UnrealShare fallback, or
+  (b) find the class by name in any package. Asked them to check it
+  in-game. The fix changes upkg's class resolution, which UTA-0005's spec
+  governs, so it is a spec amendment.
+  Waiting-on: UT_MonsterHunt's in-game check of MH-Lego-VS-Mario-2D&3D.
+  Two causes, both settled (2026-09-25).
+
+  1. The mechanism for MH-SPNaliRescue is the install's ini. Both
+  System/Default.ini and System64/UnrealTournament.ini carry
+  [PackageRemap] UnrealShare=UnrealI. Read as: what an import names in
+  UnrealI and UnrealI lacks is looked for in UnrealShare. That matches
+  UT_MonsterHunt's in-game count, and no other package named UnrealI
+  exists (their check). Reading it the other way round is not ruled out
+  by source; the observed behaviour fits this one.
+
+  2. The Lego and Alpine maps are ut-dump's own gap. Their classes live in
+  Textures/Mario-snes.utx and Textures/Chronoshift.utx, which carry
+  script classes. The game searches every Paths= directory: System, Maps,
+  Textures, Sounds, Music. ubake's Install already does (UTA-0141), but
+  ut-dump's --system scans one directory for .u only (UTA-0012 § 4.1). In
+  game, all three maps load their actors: UT_MonsterHunt's MHClassProbe
+  counted them at first Tick, with no failed import in either log.
+
+  Waiting-on removed: the rest is our own design and build.
+  User decisions (2026-09-25). (1) ut-dump gains --install <root>,
+  searching System, Maps, Textures, Sounds and Music in the game's Paths
+  order, as ubake's Install does. --system keeps working. (2) Read
+  [PackageRemap] from the install's own ini and apply each entry, only
+  where the named package lacks the class. That goes in the shared
+  reader, so it fixes the baker and ut-dump together. (3) The UTA-0005
+  and UTA-0012 spec amendments get no rule 14 gate.
+  Revised (2026-09-25), by the user once the conflict was shown. Remap
+  is a BUILT-IN table holding UT 469's shipped entry, UnrealShare=UnrealI.
+  It is not read from any ini. UTA-0011 § 8 fixes the search order in
+  code so that two players' settings cannot give one map two bakes, and
+  reading [PackageRemap] would break that. A new remap entry needs a
+  code change.
   **Layman:** One old map's everyday items, like barrels and health packs, aren't recognised by our reader, so the map looks almost empty to our tools.
   Kind: investigate.
   Source: in-session-2026-09-25.
   Lanes: upkg.
+
+- 🚧 [UTA-0207] **The local push check runs all three of GitHub's legs: GCC 14, Clang 19 and MSVC.**
+  Asked by the user 2026-09-25, after UTA-0012 went red on MSVC only: a
+  test compared a raw path with JSON, which doubles Windows backslashes,
+  and no local leg could see it.
+
+  ci.yml already calls scripts/ci.sh for every check, so the steps
+  cannot drift. The COMPILERS did: GitHub runs GCC 14, Clang 19 and
+  MSVC, and this machine has GCC 16 and Clang 23 and no MSVC.
+
+  User decisions (2026-09-25): install gcc14-c++ and clang19 here and
+  check with both on every push; install VS Build Tools (C++), CMake, Git
+  and the CI-pinned Vulkan SDK on the Windows test machine and run the
+  gate there over SSH as part of the push check.
+
+  Picked up (2026-09-25) by ut-ants-a5, main checkout.
+  User decisions (2026-09-25): if the Windows PC is unreachable, the push
+  check warns loudly ("WINDOWS LEG NOT RUN") and lets the push go. The
+  Windows leg starts first and runs alongside the two Linux legs, and the
+  Linux legs run one after the other, since RAM is tight.
+  Progress: gcc14-c++ 14.4.0 and clang19 19.1.7 installed here, with
+  Clang 19's TSan runtime present. The Windows PC has winget, an admin
+  SSH session, and 13.7 GB free.
+  Blocker hit (2026-09-25): over SSH, `winget install --id Git.Git`
+  and `Kitware.CMake` both fail on the Windows PC with "Failed in
+  attempting to update the source: winget ... 0x8a15000f : Data required
+  by the source is missing". Nothing is installed there yet. Next: repair
+  the source (`winget source reset --force`, which needs admin, and the
+  SSH session is admin), or install the tools from their own
+  installers. Then install VS 2022 Build Tools (VCTools workload), and
+  the Vulkan SDK at 1.4.357.0, the version ci.yml pins. Then write the
+  local matrix script, per the 2026-09-25 decisions above.
+  **Layman:** Before anything is uploaded, the same three compiler checks GitHub runs now also run here, including Windows, so failures are caught first.
+  Kind: chore.
+  Source: user-request-2026-09-25.
+  Lanes: scripts, ci.
+
+- 🚧 [UTA-0208] **The map launcher shows a map as baked even when its bake is stale and needs redoing.**
+  Asked by the user 2026-09-25: the launcher should drop the 'baked'
+  tag from a map whose bake needs redoing. CLAUDE.md's standing fact: a
+  bake goes stale when the baker revision or the bundle format moves
+  (format 14, UTA-0164; baker revision 21, UTA-0187).
+
+  Picked up (2026-09-25) by ut-ants-a5, main checkout.
+  **Layman:** The map list will stop calling a map ready when its prepared files are out of date and need rebuilding.
+  Kind: fix.
+  Source: user-request-2026-09-25.
+  Lanes: app.
 
 ## 0.2.0 — Movement and weapons
 
