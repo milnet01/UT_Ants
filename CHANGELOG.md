@@ -410,6 +410,8 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **Test files compile unoptimised, cutting GitHub's gate step by a fifth to a quarter on each leg** (UTA-0150)
+
 - **Lights take UT99's own colour and brightness** (UTA-0165)
   A light's colour and brightness now follow the curve UT99's engine
   uses, read from its binary, instead of a straight line. Dim lights

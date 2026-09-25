@@ -9119,7 +9119,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-14 performance pass.
   Lanes: tools.
 
-- 📋 [UTA-0150] **Unit test files take 12 to 19 s each to compile, which is most of a cold build and of the Windows CI leg.**
+- ✅ [UTA-0150] **Unit test files take 12 to 19 s each to compile, which is most of a cold build and of the Windows CI leg.**
   Measured 2026-09-14 (ut-ants-db) from build-ci/.ninja_log, the slowest
   objects: tests/unit/DumpCliTest.cpp 18.7 s, BundleFormatTest 15.0 s,
   BakeTest 14.5 s, PackageContentTest 12.8 s, PathSeedsTest 12.2 s,
@@ -9145,6 +9145,10 @@ Each of them says so in its own body.
   (49% less), Clang 19 from 30 s to 19 s (38% less). MSVC not measured
   separately. All 723 unit and device-absent tests and all 51 device tests
   pass so built.
+  Shipped 2026-09-25 (a156d0b), green on GitHub's matrix. Its gate step,
+  before (84b9b04) and after: GCC 14 408 s to 298 s, Clang 19 413 s to
+  332 s, MSVC 471 s to 389 s. The after-run's ccache had few hits on the
+  Linux legs, since the flags changed.
   **Layman:** Each test file takes a long time to compile because it pulls in the same large headers again, which slows the Windows check on GitHub.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.
