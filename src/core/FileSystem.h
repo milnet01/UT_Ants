@@ -45,6 +45,34 @@ namespace uta::fs {
 /// path names a directory, IoFailure when the read itself fails.
 [[nodiscard]] Result<std::vector<std::byte>> readFile(const std::filesystem::path& path);
 
+/// A file mapped read-only into memory -- UTA-0144. The operating system
+/// pages it in as it is read, so a large package costs only the pages that are
+/// touched, where readFile copies all of it. Refuses as readFile does. The file
+/// must not change while it is mapped, which holds for an installed game's
+/// packages. Move-only; the view stays valid across a move.
+class MappedFile {
+public:
+    [[nodiscard]] static Result<MappedFile> open(const std::filesystem::path& path);
+
+    MappedFile(MappedFile&& other) noexcept;
+    MappedFile& operator=(MappedFile&& other) noexcept;
+    MappedFile(const MappedFile&) = delete;
+    MappedFile& operator=(const MappedFile&) = delete;
+    ~MappedFile();
+
+    [[nodiscard]] std::span<const std::byte> bytes() const noexcept { return {data_, size_}; }
+
+private:
+    MappedFile() = default;
+    void release() noexcept;
+
+    const std::byte* data_ = nullptr;
+    std::size_t size_ = 0;
+#ifdef _WIN32
+    void* mapping_ = nullptr; ///< the file-mapping object's handle
+#endif
+};
+
 /// Write to a temporary in the destination's own directory, then rename over
 /// the destination. The destination is never opened for writing, so a crash
 /// leaves the old bytes rather than half the new ones. On any failure the

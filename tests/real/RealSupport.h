@@ -104,9 +104,12 @@ public:
             if (path == paths_.end()) {
                 return nullptr; // not present: an ordinary case, not an error
             }
-            auto& raw = bytes_[key];
-            raw = readWhole(path->second);
-            auto package = uta::upkg::Package::open(viewOf(raw));
+            // UTA-0144: mapped, not copied, so a run over many packages
+            // holds only the pages it reads.
+            auto mapped = uta::fs::MappedFile::open(path->second);
+            if (!mapped.has_value()) return nullptr;
+            const uta::fs::MappedFile& raw = bytes_.emplace(key, std::move(*mapped)).first->second;
+            auto package = uta::upkg::Package::open(raw.bytes());
             if (!package.has_value()) {
                 return nullptr;
             }
@@ -116,7 +119,7 @@ public:
 
 private:
     std::map<std::string, std::filesystem::path> paths_;
-    std::map<std::string, std::vector<std::byte>> bytes_;
+    std::map<std::string, uta::fs::MappedFile> bytes_;
     std::map<std::string, uta::upkg::Package> opened_;
 };
 

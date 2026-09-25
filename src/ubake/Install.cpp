@@ -86,7 +86,9 @@ struct Install::State {
     std::map<std::string, std::vector<fsys::path>> shadowed;
     /// Every map below is node-based, so a Package's view of its bytes and a
     /// pointer the resolver handed out both survive later insertions.
-    std::map<std::string, std::vector<std::byte>> bytes;
+    /// UTA-0144: mapped rather than read, so a package costs only the pages
+    /// the readers touch. A move keeps each view valid.
+    std::map<std::string, uta::fs::MappedFile> bytes;
     std::map<std::string, upkg::Package> opened;
     /// Names whose file did not read or did not open, so each is tried once.
     std::set<std::string> failed;
@@ -143,14 +145,13 @@ upkg::PackageResolver Install::resolver() {
         // Absent is an ordinary answer, not an error (upkg/Class.h).
         if (path == state->paths.end() || state->failed.contains(key)) return nullptr;
 
-        auto read = uta::fs::readFile(path->second);
+        auto read = uta::fs::MappedFile::open(path->second);
         if (!read.has_value()) {
             state->failed.insert(key);
             return nullptr;
         }
-        const std::vector<std::byte>& stored =
-            state->bytes.emplace(key, std::move(*read)).first->second;
-        auto package = upkg::Package::open(stored);
+        const uta::fs::MappedFile& stored = state->bytes.emplace(key, std::move(*read)).first->second;
+        auto package = upkg::Package::open(stored.bytes());
         if (!package.has_value()) {
             state->failed.insert(key);
             state->bytes.erase(key);
@@ -174,7 +175,7 @@ std::span<const std::byte> Install::bytesOf(std::string_view packageName) const 
     const std::string key = detail::fold(packageName);
     if (!state_->opened.contains(key)) return {};
     const auto found = state_->bytes.find(key);
-    return found == state_->bytes.end() ? std::span<const std::byte>{} : found->second;
+    return found == state_->bytes.end() ? std::span<const std::byte>{} : found->second.bytes();
 }
 
 const fsys::path& Install::root() const noexcept {

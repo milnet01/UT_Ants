@@ -7,13 +7,25 @@
 #include <cstdlib>
 #include <new>
 #include <optional>
+#include <cstring>
 #include <string>
 #include <system_error>
+#include <utility>
 
 #ifdef _WIN32
 #include <io.h>
 #include <process.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #else
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
@@ -218,6 +230,98 @@ Result<std::filesystem::path> logDirectory() {
 }
 
 #endif
+
+Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
+    std::error_code ec;
+    const auto status = std::filesystem::status(path, ec);
+    // The type before the error_code, for readFile's reason below.
+    if (status.type() == std::filesystem::file_type::not_found)
+        return fail(ErrorCode::NotFound, "no such file: " + path.string());
+    if (ec) return fail(ErrorCode::IoFailure, "cannot stat " + path.string() + ": " + ec.message());
+    if (status.type() == std::filesystem::file_type::directory)
+        return fail(ErrorCode::InvalidArgument, path.string() + " is a directory, not a file");
+
+    MappedFile mapped;
+#ifdef _WIN32
+    const HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                                    FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return fail(ErrorCode::IoFailure, "cannot open " + path.string());
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(file, &size)) {
+        CloseHandle(file);
+        return fail(ErrorCode::IoFailure, "cannot size " + path.string());
+    }
+    if (size.QuadPart == 0) {
+        CloseHandle(file);
+        return mapped; // an empty file maps to nothing; the view is empty
+    }
+    const HANDLE mapping = CreateFileMappingW(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+    CloseHandle(file); // the mapping holds the file open
+    if (mapping == nullptr) return fail(ErrorCode::IoFailure, "cannot map " + path.string());
+    void* view = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+    if (view == nullptr) {
+        CloseHandle(mapping);
+        return fail(ErrorCode::IoFailure, "cannot map " + path.string());
+    }
+    mapped.mapping_ = mapping;
+    mapped.data_ = static_cast<const std::byte*>(view);
+    mapped.size_ = static_cast<std::size_t>(size.QuadPart);
+#else
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return fail(ErrorCode::IoFailure, "cannot open " + path.string() + ": " + std::strerror(errno));
+    struct stat info {};
+    if (::fstat(fd, &info) != 0) {
+        ::close(fd);
+        return fail(ErrorCode::IoFailure, "cannot stat " + path.string());
+    }
+    const auto size = static_cast<std::size_t>(info.st_size);
+    if (size == 0) {
+        ::close(fd);
+        return mapped; // mmap refuses a length of 0; the view is empty
+    }
+    void* view = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    ::close(fd); // the mapping holds its own reference
+    if (view == MAP_FAILED) return fail(ErrorCode::IoFailure, "cannot map " + path.string() + ": " + std::strerror(errno));
+    mapped.data_ = static_cast<const std::byte*>(view);
+    mapped.size_ = size;
+#endif
+    return mapped;
+}
+
+MappedFile::MappedFile(MappedFile&& other) noexcept
+    : data_(std::exchange(other.data_, nullptr)), size_(std::exchange(other.size_, 0))
+#ifdef _WIN32
+      , mapping_(std::exchange(other.mapping_, nullptr))
+#endif
+{
+}
+
+MappedFile& MappedFile::operator=(MappedFile&& other) noexcept {
+    if (this != &other) {
+        release();
+        data_ = std::exchange(other.data_, nullptr);
+        size_ = std::exchange(other.size_, 0);
+#ifdef _WIN32
+        mapping_ = std::exchange(other.mapping_, nullptr);
+#endif
+    }
+    return *this;
+}
+
+MappedFile::~MappedFile() { release(); }
+
+void MappedFile::release() noexcept {
+    if (data_ == nullptr) return;
+#ifdef _WIN32
+    UnmapViewOfFile(data_);
+    CloseHandle(mapping_);
+    mapping_ = nullptr;
+#else
+    ::munmap(const_cast<std::byte*>(data_), size_);
+#endif
+    data_ = nullptr;
+    size_ = 0;
+}
 
 Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     std::error_code ec;

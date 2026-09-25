@@ -125,6 +125,41 @@ TEST_CASE("an empty file round-trips", "[core][fs]") {
     CHECK(read->empty());
 }
 
+// ------------------------------------------------------------ UTA-0144
+
+TEST_CASE("UTA-0144: a mapped file views the same bytes a read returns", "[core][fs]") {
+    const TempDir dir;
+    const fs::path target = dir.path() / "Engine.u";
+    REQUIRE(uta::fs::writeFileAtomically(target, bytesOf("package bytes")).has_value());
+
+    auto mapped = uta::fs::MappedFile::open(target);
+    REQUIRE(mapped.has_value());
+    CHECK(textOf(mapped->bytes()) == "package bytes");
+
+    // A move keeps the view valid: Install stores mappings in a map.
+    uta::fs::MappedFile moved = std::move(*mapped);
+    CHECK(moved.bytes().size() == 13);
+}
+
+TEST_CASE("UTA-0144: a mapped empty file is an empty view", "[core][fs]") {
+    const TempDir dir;
+    const fs::path target = dir.path() / "empty.u";
+    REQUIRE(uta::fs::writeFileAtomically(target, {}).has_value());
+    const auto mapped = uta::fs::MappedFile::open(target);
+    REQUIRE(mapped.has_value());
+    CHECK(mapped->bytes().empty());
+}
+
+TEST_CASE("UTA-0144: mapping refuses as reading does", "[core][fs]") {
+    const TempDir dir;
+    const auto missing = uta::fs::MappedFile::open(dir.path() / "absent.u");
+    REQUIRE_FALSE(missing.has_value());
+    CHECK(missing.error().code() == ErrorCode::NotFound);
+    const auto directory = uta::fs::MappedFile::open(dir.path());
+    REQUIRE_FALSE(directory.has_value());
+    CHECK(directory.error().code() == ErrorCode::InvalidArgument);
+}
+
 // ------------------------------------------------------------------- INV-7
 
 // (a) The destination's parent is a regular file, so no temporary can be

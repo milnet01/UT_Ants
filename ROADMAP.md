@@ -9006,6 +9006,19 @@ Each of them says so in its own body.
   per-exit arrays. perf over MH-ToEgypto2010[THUNDERBOLT]-Beta, the
   slowest map at 18 s: 69% of CPU in the collision trace (firstChange),
   12% in isEmpty, 9% in shortestPath, about 1% in malloc and free.
+  Built (2026-09-25, ut-ants-3c). core's uta::fs::MappedFile maps a file
+  read-only (mmap; CreateFileMapping on Windows). ubake::Install,
+  ut-dump's --system resolver and the real tier's SystemPackages keep
+  mappings instead of whole-file copies; upkg::Package already views its
+  bytes.
+
+  Measured on ut-bake over MH-Sk_Godz, before and after: peak RSS barely
+  moves (1.22 GB both), since the bake reads most of each package and
+  touched mapped pages count in RSS. Peak ANONYMOUS memory, which the
+  kernel cannot reclaim, falls from 1,213,852 KB to 1,031,984 KB: about
+  180 MB became file-backed page cache it can drop under pressure. The
+  bundle is byte-identical. The real tier's Paths test reads the same
+  figures as before.
   **Layman:** The tools copy every game package they open into memory and keep it; letting the operating system page the file in instead would cut how much memory they hold.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
