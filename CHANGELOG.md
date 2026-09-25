@@ -412,6 +412,8 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **Game packages are mapped read-only rather than copied, so the tools hold less memory the system cannot reclaim** (UTA-0144)
+
 - **Test files compile unoptimised, cutting GitHub's gate step by a fifth to a quarter on each leg** (UTA-0150)
 
 - **Lights take UT99's own colour and brightness** (UTA-0165)

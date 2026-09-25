@@ -8980,7 +8980,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-14 memory pass.
   Lanes: ubake.
 
-- 📋 [UTA-0144] **Map packages read-only instead of copying them whole, so the bake and the real-asset tier hold less.**
+- ✅ [UTA-0144] **Map packages read-only instead of copying them whole, so the bake and the real-asset tier hold less.**
   Found 2026-09-14 (ut-ants-db) from UT_MonsterHunt's memory list, their
   fix 1: analysis/pkgnames.py reads package tables through a read-only
   mmap, and MH-Sk_Godz.unr went from 82 MB to 13 MB with identical output.
@@ -9019,6 +9019,8 @@ Each of them says so in its own body.
   180 MB became file-backed page cache it can drop under pressure. The
   bundle is byte-identical. The real tier's Paths test reads the same
   figures as before.
+  Shipped 2026-09-25 (62d3efe), green on GitHub's matrix, including the
+  Windows mapping through CoreFileSystemTest on MSVC.
   **Layman:** The tools copy every game package they open into memory and keep it; letting the operating system page the file in instead would cut how much memory they hold.
   Kind: perf.
   Source: user-request-2026-09-14 memory pass (UT_MonsterHunt's list).
