@@ -10694,6 +10694,26 @@ Each of them says so in its own body.
   not draw; an opaque one needs something in its place.
   Placed 2026-09-17 (the user leaves placement of map findings to the
   session): after UTA-0178, before UTA-0180. A player sees the magenta.
+  Picked up (2026-09-25, ut-ants-3c). The census is running as
+  `cc-job uta-census` (log /mnt/Games/Scripts/Linux/cc-jobs/logs/uta-census.log),
+  reniced to 15, about 25 s a map. Script: ~/.cache/uta-census/census.sh
+  <ut-bake> <install> <out.ndjson>. It bakes every Maps/*.unr with --force
+  into ~/.cache/uta-census/work, deletes the bundle, and appends one JSON
+  line per map ({map, verdict, skipped[{material, why}], error}) to
+  ~/.cache/uta-census/census.ndjson. It skips maps already in the file,
+  so a re-run resumes. Baker revision 22 throughout.
+
+  ut-bake was rebuilt several times while it ran (UTA-0141, UTA-0144,
+  UTA-0148 changes; none touches skip reasons). A map whose bake started
+  mid-rebuild shows verdict no-report: re-run those by deleting their
+  lines and starting the script again. At 1119 of 1456, every row so far
+  was written.
+
+  Next when it finishes: tally skip reasons (`why`) and count maps per
+  reason, then map each skipped material to the surfaces that wear it
+  and their polyFlags (opaque, masked, translucent), which the bake
+  report does not carry. Early signal: skips are rare (one in the first
+  24 maps, a Screenshot texture with no pixels and no SourceTexture).
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
