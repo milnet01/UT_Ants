@@ -309,3 +309,37 @@ TEST_CASE("INV-3: a package holding no such class is ClassMissing") {
     CHECK(site->resolved.package == nullptr);
     CHECK(site->resolved.entry == nullptr);
 }
+
+TEST_CASE("UTA-0206: an actor class UnrealI lacks is found in UnrealShare") {
+    // MH-SPNaliRescue's shape: the map imports UnrealI.Barrel, and Barrel lives
+    // in UnrealShare. The site keeps the name the map uses.
+    UnrealPackageBuilder builder;
+    builder.addName("None");    // 0
+    builder.addName("Core");    // 1
+    builder.addName("Package"); // 2
+    builder.addName("Class");   // 3
+    builder.addName("UnrealI"); // 4
+    builder.addName("Barrel");  // 5
+    builder.addImport(ImportEntry{1, 2, 0, 4});
+    builder.addImport(ImportEntry{1, 3, -1, 5});
+    const std::vector<std::uint8_t> mapBytes = builder.build();
+    const std::vector<std::uint8_t> iBytes = packageOfClass("Health");
+    const std::vector<std::uint8_t> shareBytes = packageOfClass("Barrel");
+    const auto map = Package::open(asBytes(mapBytes));
+    const auto unrealI = Package::open(asBytes(iBytes));
+    const auto unrealShare = Package::open(asBytes(shareBytes));
+    REQUIRE((map.has_value() && unrealI.has_value() && unrealShare.has_value()));
+
+    const PackageResolver resolver = [&](std::string_view name) -> uta::Result<const Package*> {
+        if (name == "unreali") return &*unrealI;
+        if (name == "unrealshare") return &*unrealShare;
+        return nullptr;
+    };
+    const auto site = resolveClass(*map, "mh-test", IMPORTED_CLASS, resolver);
+    REQUIRE(site.has_value());
+    CHECK(site->end == AncestryEnd::Root);
+    CHECK(site->package == "unreali");
+    CHECK(site->name == "Barrel");
+    CHECK(site->resolved.package == &*unrealShare);
+    CHECK(site->resolved.entry == &unrealShare->exports()[0]);
+}

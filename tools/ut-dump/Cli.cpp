@@ -21,6 +21,7 @@
 
 #include "common/Json.h"
 #include "core/FileSystem.h"
+#include "ubake/Install.h"
 #include "unav/Build.h"
 #include "unav/Graphs.h"
 #include "upkg/Class.h"
@@ -711,7 +712,7 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
     return unresolved;
 }
 
-void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system,
+void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
                  bool navGraph, bool wiringGraph, bool first) {
     if (!first) {
         out << ",\n";
@@ -805,7 +806,6 @@ void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system
         return;
     }
 
-    auto resolver = system.resolver();
     ClassKinds kinds{resolver};
 
     out << ",\n  \"level\": {";
@@ -910,13 +910,17 @@ std::string oneLine(std::string_view json) {
 
 int usage(std::ostream& err) {
     err <<
-        "usage: ut-dump --system <UT System dir> [--nav-graph] [--wiring-graph]\n"
-        "                [--ndjson] <package|directory>...\n"
+        "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
+        "                [--nav-graph] [--wiring-graph] [--ndjson] <package|directory>...\n"
         "\n"
-        "Writes one JSON object per package to stdout. --system points at the\n"
-        "install's System directory, which is needed to resolve class ancestry\n"
-        "across packages; without it a map's navigation graph is empty rather\n"
-        "than wrong, and the run says so.\n"
+        "Writes one JSON object per package to stdout. Class ancestry crosses\n"
+        "packages, so it needs the install: without one a map's navigation graph\n"
+        "is empty rather than wrong, and the run says so.\n"
+        "\n"
+        "--install points at the install's root and searches it as the game and\n"
+        "ut-bake do: System, Maps, Textures, Sounds and Music, in that order.\n"
+        "Some maps' classes live in a texture package, which only this finds.\n"
+        "--system points at the System directory and reads its .u files only.\n"
         "\n"
         "--nav-graph adds every navigation node and reach spec to each map's\n"
         "`nav` object, as `nodeList` and `edgeList`, with the reach flags and\n"
@@ -943,6 +947,7 @@ int usage(std::ostream& err) {
 
 int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err) {
     fs::path systemDir;
+    fs::path installDir;
     bool navGraph = false;
     bool wiringGraph = false;
     bool ndjson = false;
@@ -955,6 +960,11 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
                 return usage(err);
             }
             systemDir = fs::path{std::string{args[++i]}};
+        } else if (arg == "--install") {
+            if (i + 1 >= args.size()) {
+                return usage(err);
+            }
+            installDir = fs::path{std::string{args[++i]}};
         } else if (arg == "--nav-graph") {
             navGraph = true;
         } else if (arg == "--wiring-graph") {
@@ -975,6 +985,10 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     if (targets.empty()) {
         return usage(err);
     }
+    if (!systemDir.empty() && !installDir.empty()) {
+        err << "ut-dump: give --install or --system, not both\n";
+        return usage(err);
+    }
 
     std::vector<fs::path> files;
     for (const fs::path& target : targets) {
@@ -990,8 +1004,21 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     }
     std::sort(files.begin(), files.end());
 
+    // UTA-0206: --install searches the install as ut-bake does, through the
+    // same code. Both kept alive for the run: the resolver points into them.
     SystemPackages system{systemDir};
-    if (system.empty()) {
+    std::optional<uta::ubake::Install> install;
+    uta::upkg::PackageResolver resolver = system.resolver();
+    bool found = !system.empty();
+    if (!installDir.empty()) {
+        if (auto opened = uta::ubake::Install::open(installDir); opened.has_value()) {
+            install.emplace(std::move(*opened));
+            resolver = install->resolver();
+            const auto core = resolver("core");
+            found = core.has_value() && *core != nullptr;
+        }
+    }
+    if (!found) {
         err << "ut-dump: no System packages found; class ancestry will not "
                "resolve across packages and navigation graphs will be empty\n";
     }
@@ -1003,7 +1030,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         out << "{\"schema\":" << SCHEMA << "}\n";
         for (const fs::path& file : files) {
             std::ostringstream package;
-            dumpPackage(package, file, system, navGraph, wiringGraph, true);
+            dumpPackage(package, file, resolver, navGraph, wiringGraph, true);
             out << oneLine(package.str()) << '\n' << std::flush;
         }
         return 0;
@@ -1012,7 +1039,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     out << "{\n \"schema\": " << SCHEMA << ",\n \"packages\": [\n";
     bool first = true;
     for (const fs::path& file : files) {
-        dumpPackage(out, file, system, navGraph, wiringGraph, first);
+        dumpPackage(out, file, resolver, navGraph, wiringGraph, first);
         first = false;
     }
     out << "\n ]\n}\n";

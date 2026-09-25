@@ -59,7 +59,9 @@ namespace {
 // 20: UTA-0164 wrote AOCC and bumped the format to 14, so the digest moved.
 // 21: UTA-0187 took UT99's own falloff. Same digest as 20: as at 10, the
 // fixture does not reach the falloff's shape.
-constexpr std::uint32_t RECORDED_UNDER = 21;
+// 22: UTA-0206 found a class UnrealI lacks in UnrealShare. Same digest as 21: the
+// fixture imports nothing from UnrealI.
+constexpr std::uint32_t RECORDED_UNDER = 22;
 constexpr std::string_view GOLDEN =
     "0469a7e3df8c13790861b610ef473693503fa3e0a383ca6c33459db204dbfae5";
 

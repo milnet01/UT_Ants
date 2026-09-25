@@ -979,3 +979,44 @@ TEST_CASE("UTA-0012 INV-8: level.chainsUnresolved counts each unresolved actor o
     CHECK(integerOf(member(package, "level"), "chainsUnresolved") == with);
     CHECK(integerOf(member(package, "wiring"), "chainsUnresolved") == with);
 }
+
+TEST_CASE("UTA-0206: --install finds a class that lives in a texture package", "[dump]") {
+    // MH-Lego-VS-Mario-2D&3D's shape: its sky class lives in Textures/, which
+    // --system never reads.
+    const TempDir dir;
+    MapBuilder map;
+    map.addActorOfClass("Mario-snes", "MultiSkyZoneInfo");
+    const fs::path mapPath = writeMap(dir, map);
+    writeFile(dir.path() / "Textures" / "Mario-snes.utx", classPackage("MultiSkyZoneInfo"));
+
+    const Run system = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    REQUIRE(system.code == 0);
+    CHECK(system.out.find("\"chainsUnresolved\": 1") != std::string::npos);
+
+    const Run install = run({"--install", dir.path().string(), mapPath.string()});
+    INFO(install.err);
+    REQUIRE(install.code == 0);
+    CHECK(install.out.find("\"chainsUnresolved\": 0") != std::string::npos);
+}
+
+TEST_CASE("UTA-0206: a class the map names under UnrealI is found in UnrealShare", "[dump]") {
+    // MH-SPNaliRescue's shape, under the built-in remap in upkg.
+    const TempDir dir;
+    MapBuilder map;
+    map.addActorOfClass("UnrealI", "Barrel");
+    const fs::path mapPath = writeMap(dir, map);
+    writeFile(dir.path() / "System" / "UnrealI.u", classPackage("Health"));
+    writeFile(dir.path() / "System" / "UnrealShare.u", classPackage("Barrel"));
+
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    CHECK(result.out.find("\"chainsUnresolved\": 0") != std::string::npos);
+}
+
+TEST_CASE("UTA-0206: --install and --system together are refused", "[dump]") {
+    const TempDir dir;
+    const Run result = run({"--install", dir.path().string(), "--system", dir.path().string(), "x.unr"});
+    CHECK(result.code == 2);
+    CHECK(result.out.empty());
+}

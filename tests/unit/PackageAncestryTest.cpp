@@ -213,6 +213,96 @@ TEST_CASE("INV-7: a package that opened without the class ends the walk ClassMis
     CHECK(ancestry->missingPackage.empty());
 }
 
+namespace {
+
+/// UTA-0206: a resolver over three packages keyed by folded name. A null
+/// pointer means the install lacks that package.
+PackageResolver threePackages(const Package* unrealI, const Package* unrealShare,
+                              const Package* engine) {
+    return [=](std::string_view name) -> uta::Result<const Package*> {
+        if (name == "unreali") return unrealI;
+        if (name == "unrealshare") return unrealShare;
+        if (name == "engine") return engine;
+        return nullptr;
+    };
+}
+
+} // namespace
+
+TEST_CASE("UTA-0206: a class UnrealI lacks is found in UnrealShare") {
+    const std::vector<std::uint8_t> bytes = packageWithImportedParent("UnrealI");
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    const std::vector<std::uint8_t> iBytes = packageHolding("Decoration", 1);
+    const auto unrealI = Package::open(asBytes(iBytes));
+    const std::vector<std::uint8_t> shareBytes = packageHolding("Actor", 100);
+    const auto unrealShare = Package::open(asBytes(shareBytes));
+    REQUIRE((unrealI.has_value() && unrealShare.has_value()));
+
+    const auto ancestry =
+        readAncestry(*package, package->exports()[0], threePackages(&*unrealI, &*unrealShare, nullptr));
+    REQUIRE(ancestry.has_value());
+    CHECK(ancestry->end == AncestryEnd::Root);
+    REQUIRE(ancestry->chain.size() == 2);
+    CHECK(ancestry->chain[1].package == &*unrealShare);
+}
+
+TEST_CASE("UTA-0206: the remap never replaces a class the named package holds") {
+    const std::vector<std::uint8_t> bytes = packageWithImportedParent("UnrealI");
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    const std::vector<std::uint8_t> iBytes = packageHolding("Actor", 1);
+    const auto unrealI = Package::open(asBytes(iBytes));
+    const std::vector<std::uint8_t> shareBytes = packageHolding("Actor", 100);
+    const auto unrealShare = Package::open(asBytes(shareBytes));
+    REQUIRE((unrealI.has_value() && unrealShare.has_value()));
+
+    const auto ancestry =
+        readAncestry(*package, package->exports()[0], threePackages(&*unrealI, &*unrealShare, nullptr));
+    REQUIRE(ancestry.has_value());
+    REQUIRE(ancestry->chain.size() == 2);
+    CHECK(ancestry->chain[1].package == &*unrealI);
+}
+
+TEST_CASE("UTA-0206: the remap is the built-in pair and no other") {
+    const std::vector<std::uint8_t> shareBytes = packageHolding("Actor", 100);
+    const auto unrealShare = Package::open(asBytes(shareBytes));
+    const std::vector<std::uint8_t> lackingBytes = packageHolding("Decoration", 1);
+    const auto lacking = Package::open(asBytes(lackingBytes));
+    REQUIRE((unrealShare.has_value() && lacking.has_value()));
+
+    SECTION("another package that lacks the class is not remapped") {
+        const std::vector<std::uint8_t> bytes = packageWithImportedParent("Engine");
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE(package.has_value());
+        const auto ancestry =
+            readAncestry(*package, package->exports()[0], threePackages(nullptr, &*unrealShare, &*lacking));
+        REQUIRE(ancestry.has_value());
+        CHECK(ancestry->end == AncestryEnd::ClassMissing);
+    }
+    SECTION("an UnrealI the install lacks stays PackageMissing") {
+        const std::vector<std::uint8_t> bytes = packageWithImportedParent("UnrealI");
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE(package.has_value());
+        const auto ancestry =
+            readAncestry(*package, package->exports()[0], threePackages(nullptr, &*unrealShare, nullptr));
+        REQUIRE(ancestry.has_value());
+        CHECK(ancestry->end == AncestryEnd::PackageMissing);
+        CHECK(ancestry->missingPackage == "UnrealI");
+    }
+    SECTION("a class neither package holds stays ClassMissing, naming no package") {
+        const std::vector<std::uint8_t> bytes = packageWithImportedParent("UnrealI");
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE(package.has_value());
+        const auto ancestry =
+            readAncestry(*package, package->exports()[0], threePackages(&*lacking, &*lacking, nullptr));
+        REQUIRE(ancestry.has_value());
+        CHECK(ancestry->end == AncestryEnd::ClassMissing);
+        CHECK(ancestry->missingClass == "Actor");
+        CHECK(ancestry->missingPackage.empty());
+    }
+}
+
 TEST_CASE("INV-7: an import naming its package in another case still resolves") {
     // The import spells it one way and the resolver keys it another. The walk
     // folds before calling, so a resolver may assume folded input -- without

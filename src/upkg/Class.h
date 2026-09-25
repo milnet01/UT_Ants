@@ -104,6 +104,11 @@ struct Ancestry {
 /// package that is present would report the opposite of what happened.
 /// ADR-0004 requires exactly that legibility. INV-7.
 ///
+/// UTA-0206: a class the named package lacks is looked for once more when a
+/// built-in remap names that package -- UT 469's UnrealShare=UnrealI, so an
+/// UnrealI import is found in UnrealShare. The named package still wins when
+/// it holds the class, and the ends above are unchanged when neither does.
+///
 /// A cycle, or a chain past the depth cap, is MalformedData: the walk
 /// terminates on any input. INV-6.
 [[nodiscard]] Result<Ancestry> readAncestry(const Package& package,
@@ -159,6 +164,10 @@ struct ClassSite {
 /// `packageName` is the name `package` goes by, used for a class it exports.
 /// A null reference names no class and is InvalidArgument; one past its table
 /// is MalformedData, since a reference read from object data is unvalidated.
+///
+/// An import's class is found under `readAncestry`'s UTA-0206 remap too.
+/// `package` and `name` stay as the map spells them; `resolved` is where the
+/// class was found.
 [[nodiscard]] Result<ClassSite> resolveClass(const Package& package,
                                              std::string_view packageName,
                                              ObjectReference classReference,

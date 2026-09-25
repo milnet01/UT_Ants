@@ -380,6 +380,20 @@ not contain the class: `missingClass` is set and `missingPackage` is
 opposite of what happened. `ADR-0004` requires exactly that legibility, and
 one state covering both cases would defeat it.
 
+**A built-in remap gives a missing class one more place to look.**
+Added by `UTA-0206`. UT 469 ships `[PackageRemap] UnrealShare=UnrealI`, and
+the game finds a class an import names under `UnrealI` in `UnrealShare` when
+`UnrealI` lacks it. Older maps rely on it: `MH-SPNaliRescue` names Barrel and
+Health under `UnrealI`. So when the named package opens and does not hold the
+class, and the remap names that package, the target is asked for too. The
+named package wins when it holds the class. The ends above are unchanged when
+neither holds it. `resolveClass` applies the same rule.
+
+The table is fixed in `src/upkg/Class.cpp` and never read from an ini.
+`UTA-0011` § 8 rejects reading the search order from the player's `.ini`,
+because two players with different settings would name one map differently.
+`[PackageRemap]` is the same kind of setting. A new entry is a code change.
+
 ### 4.7 Effective defaults are a merge up the chain
 
 A class's stored defaults are a difference against its parent's. The
@@ -598,6 +612,17 @@ one another cannot produce the fixture at all:
   *Breaks when:* the new entry point is written beside the existing loop
   rather than under it, so the file holds two decoders of one format and a
   fix to either leaves the other wrong.
+
+- **INV-13** — A class an import names under `UnrealI` that `UnrealI` does
+  not hold is found in `UnrealShare`, by `readAncestry` and by
+  `resolveClass`. The named package wins when it holds the class, and no
+  other package is remapped. Added by `UTA-0206`.
+  *Test:* `tests/unit/PackageAncestryTest.cpp`, the `UTA-0206` cases — the
+  class found in `UnrealShare`; `UnrealI` holding it too, where `UnrealI`
+  wins; and `Engine` lacking a class that `UnrealShare` holds, which stays
+  `ClassMissing`. `tests/unit/PackageClassTest.cpp` covers `resolveClass`.
+  *Breaks when:* the remap is applied at one lookup site and not the other,
+  so a map's actor classes resolve and their parents do not.
 
 ## 6. Failure modes
 

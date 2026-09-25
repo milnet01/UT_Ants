@@ -4,6 +4,7 @@
 #include "upkg/Script.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <utility>
 
@@ -78,6 +79,37 @@ const ExportEntry* findClassExport(const Package& package, std::string_view want
     }
     return nullptr;
 }
+
+namespace {
+
+/// UTA-0206: UT 469's shipped [PackageRemap] entry, UnrealShare=UnrealI, built
+/// in. A class an import names under `from` that `from` does not hold is looked
+/// for in `to`: older maps name stock items such as Barrel and Health under
+/// UnrealI after they moved to UnrealShare. Both names folded. Fixed here and
+/// never read from an ini, for UTA-0011 SS 8's reason -- two players' settings
+/// must not give one map two bakes -- so a new entry is a code change.
+struct PackageRemap {
+    std::string_view from;
+    std::string_view to;
+};
+constexpr std::array PACKAGE_REMAP{PackageRemap{"unreali", "unrealshare"}};
+
+/// The class `className` in `opened`, which the resolver supplied for the
+/// folded name `package`; else, when a remap names `package`, in its target.
+/// Both null when neither holds it.
+Result<ResolvedClass> findImportedClass(const Package& opened, std::string_view package,
+                                        std::string_view className, const PackageResolver& resolver) {
+    if (const ExportEntry* const found = findClassExport(opened, className)) return ResolvedClass{&opened, found};
+    for (const PackageRemap& remap : PACKAGE_REMAP) {
+        if (remap.from != package) continue;
+        UTA_TRY(const Package* const target, resolver(remap.to));
+        if (target == nullptr) continue;
+        if (const ExportEntry* const found = findClassExport(*target, className)) return ResolvedClass{target, found};
+    }
+    return ResolvedClass{};
+}
+
+} // namespace
 
 Result<ClassInfo> readClass(const Package& package, const ExportEntry& entry) {
     // A class export is recognised by a NULL class reference, not by one
@@ -219,7 +251,8 @@ Result<Ancestry> readAncestry(const Package& package, const ExportEntry& entry,
 
         // Folded before the resolver sees it, so a resolver may assume folded
         // input rather than each side guessing (INV-7).
-        UTA_TRY(const Package* const opened, resolver(fold(packageName)));
+        const std::string folded = fold(packageName);
+        UTA_TRY(const Package* const opened, resolver(folded));
         if (opened == nullptr) {
             ancestry.end = AncestryEnd::PackageMissing;
             ancestry.missingPackage = std::string(packageName);
@@ -227,8 +260,8 @@ Result<Ancestry> readAncestry(const Package& package, const ExportEntry& entry,
             return ancestry;
         }
 
-        const ExportEntry* const found = findClassExport(*opened, className);
-        if (found == nullptr) {
+        UTA_TRY(const ResolvedClass found, findImportedClass(*opened, folded, className, resolver));
+        if (found.entry == nullptr) {
             // missingPackage stays EMPTY: naming a package that is present
             // would report the opposite of what happened.
             ancestry.end = AncestryEnd::ClassMissing;
@@ -236,8 +269,8 @@ Result<Ancestry> readAncestry(const Package& package, const ExportEntry& entry,
             return ancestry;
         }
 
-        currentPackage = opened;
-        currentEntry = found;
+        currentPackage = found.package;
+        currentEntry = found.entry;
     }
 
     return std::unexpected(malformed(
@@ -325,12 +358,8 @@ Result<ClassSite> resolveClass(const Package& package, std::string_view packageN
             site.end = AncestryEnd::PackageMissing;
             return site;
         }
-        const ExportEntry* const found = findClassExport(*opened, name);
-        if (found == nullptr) {
-            site.end = AncestryEnd::ClassMissing;
-            return site;
-        }
-        site.resolved = ResolvedClass{opened, found};
+        UTA_TRY(site.resolved, findImportedClass(*opened, site.package, name, resolver));
+        if (site.resolved.entry == nullptr) site.end = AncestryEnd::ClassMissing;
         return site;
     }
     }

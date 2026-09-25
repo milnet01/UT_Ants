@@ -92,12 +92,20 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump --system <dir> [--nav-graph] [--wiring-graph] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--ndjson] <package|directory>...
 ```
 
+- `--install` names the install's root. Added by `UTA-0206`. It is searched
+  through `ubake`'s `Install`, the code `ut-bake` uses: `System`, `Maps`,
+  `Textures`, `Sounds` and `Music`, in the game's `Paths` order. Some maps'
+  classes live in a texture package, which only this finds. With no `Core`
+  package found, the tool writes the warning `--system` writes.
 - `--system` names a directory scanned, not recursively, for `.u` files, by
   extension case-folded. They resolve class ancestry across packages. With
   none found, the tool writes a warning to stderr and continues.
+- Giving both is a usage error.
+- Either way, a class an import names under `UnrealI` that `UnrealI` lacks is
+  found in `UnrealShare` (`UTA-0005` § 4.6).
 - A directory argument contributes each regular file directly inside it. It
   is not recursed. Any regular file is dumped, whatever its extension.
 - `--nav-graph` adds `nav.nodeList` and `nav.edgeList` (§ 4.6).
