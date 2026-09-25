@@ -106,7 +106,7 @@ struct EdgeRow {
 
 std::vector<NodeRow> nodeRows(const std::string& json) {
     // A delimiter, because `)"` inside a capture would end a plain raw string.
-    static const std::regex row(R"re(\{"export": \d+, "name": "([^"]*)", "class": "([^"]*)"\})re");
+    static const std::regex row(R"re(\{"export": \d+, "name": "([^"]*)", "class": "([^"]*)", "location": (?:null|\[[^\]]*\]), "paths")re");
     std::vector<NodeRow> rows;
     for (auto it = std::sregex_iterator(json.begin(), json.end(), row); it != std::sregex_iterator(); ++it)
         rows.push_back({(*it)[1].str(), (*it)[2].str()});
@@ -116,7 +116,7 @@ std::vector<NodeRow> nodeRows(const std::string& json) {
 std::vector<EdgeRow> edgeRows(const std::string& json) {
     static const std::regex row(
         R"re(\{"from": (\d+), "to": (\d+), "distance": -?\d+, "collisionRadius": (-?\d+), )re"
-        R"re("collisionHeight": (-?\d+), "reachFlags": (-?\d+), "pruned": \d+\})re");
+        R"re("collisionHeight": (-?\d+), "reachFlags": (-?\d+), "pruned": \d+, "spec": \d+\})re");
     std::vector<EdgeRow> rows;
     for (auto it = std::sregex_iterator(json.begin(), json.end(), row); it != std::sregex_iterator(); ++it)
         rows.push_back({std::stoul((*it)[1].str()), std::stoul((*it)[2].str()), std::stoi((*it)[3].str()),
@@ -866,7 +866,7 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
 
     const Keys mapKeys{"file",    "ok",        "bytes",        "exports",  "imports",
                        "importedPackages", "classCounts", "level", "surfaces", "levelInfo",
-                       "levelSummary", "monsters", "nav", "wiring"};
+                       "levelSummary", "monsters", "nav", "wiring", "exits"};
     const Run plain = run({"--system", system, mapPath.string()});
     REQUIRE(plain.code == 0);
     const std::string map = packagesOf(plain.out).at(0);
@@ -942,9 +942,10 @@ TEST_CASE("UTA-0012 INV-7: nodeList and edgeList rows carry exactly the contract
     const std::size_t edge = nav.find('{', nav.find("\"edgeList\": ["));
     REQUIRE(node != std::string::npos);
     REQUIRE(edge != std::string::npos);
-    CHECK(keysOf(objectAt(nav, node)) == Keys{"export", "name", "class"});
+    CHECK(keysOf(objectAt(nav, node))
+          == Keys{"export", "name", "class", "location", "paths", "upstreamPaths", "prunedPaths"});
     CHECK(keysOf(objectAt(nav, edge))
-          == Keys{"from", "to", "distance", "collisionRadius", "collisionHeight", "reachFlags", "pruned"});
+          == Keys{"from", "to", "distance", "collisionRadius", "collisionHeight", "reachFlags", "pruned", "spec"});
 }
 
 TEST_CASE("UTA-0012 INV-8: level.chainsUnresolved counts each unresolved actor once without a flag", "[dump]") {
@@ -1019,4 +1020,70 @@ TEST_CASE("UTA-0206: --install and --system together are refused", "[dump]") {
     const Run result = run({"--install", dir.path().string(), "--system", dir.path().string(), "x.unr"});
     CHECK(result.code == 2);
     CHECK(result.out.empty());
+}
+
+TEST_CASE("UTA-0198: each edge names the reach spec it came from", "[dump]") {
+    const TempDir dir;
+    const fs::path mapPath = writeMap(dir, inv11Map());
+    const Run result = run({"--system", (dir.path() / "System").string(), "--nav-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+
+    // inv11Map adds its specs in file order 0 to 6, and reach flags tell them
+    // apart. The graph groups edges by `from`, so the flying spec (index 4,
+    // flags 2) sits second in edgeList, under its source node.
+    static const std::regex row(R"re("reachFlags": (-?\d+), "pruned": \d+, "spec": (\d+)\})re");
+    std::vector<std::pair<int, int>> flagsAndSpec;
+    for (auto it = std::sregex_iterator(result.out.begin(), result.out.end(), row); it != std::sregex_iterator(); ++it)
+        flagsAndSpec.emplace_back(std::stoi((*it)[1].str()), std::stoi((*it)[2].str()));
+    REQUIRE(flagsAndSpec.size() == 7);
+    const std::vector<std::pair<int, int>> fileOrder{{1, 0}, {9, 1}, {32, 2}, {85, 3}, {2, 4}};
+    for (const auto& expected : fileOrder)
+        CHECK(std::ranges::find(flagsAndSpec, expected) != flagsAndSpec.end());
+    CHECK(flagsAndSpec[1] == std::pair{2, 4}); // position 1, spec 4
+}
+
+TEST_CASE("UTA-0198: a node lists its own Paths, upstreamPaths and PrunedPaths", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "PathNode",
+                        {vectorProperty("Location", 100, 0, 50), intProperty("Paths", 0),
+                         intAtProperty("Paths", 1, 4), intProperty("upstreamPaths", 3),
+                         intProperty("PrunedPaths", 6)})
+        .addActorOfClass("Engine", "PathNode")
+        .addReachSpec(0, 1, 17, 39, 1);
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), "--nav-graph", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    CHECK(result.out.find("\"name\": \"PathNode0\", \"class\": \"PathNode\", \"location\": [100, 0, 50], "
+                          "\"paths\": [0, 4], \"upstreamPaths\": [3], \"prunedPaths\": [6]}")
+          != std::string::npos);
+    CHECK(result.out.find("\"name\": \"PathNode1\", \"class\": \"PathNode\", \"location\": null, "
+                          "\"paths\": [], \"upstreamPaths\": [], \"prunedPaths\": []}")
+          != std::string::npos);
+}
+
+TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location and tag", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    map.addActorOfClass("MonsterHunt", "MonsterEnd",
+                        {vectorProperty("Location", -400, 0, 0), nameProperty("Tag", "finalexit")})
+        .addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 0, 0, 0)})
+        .addActorOfClass("MonsterHunt", "MonsterArenaEnd", {vectorProperty("Location", 1.5F, 2, 3)});
+    const fs::path mapPath = writeMap(dir, map);
+    // No flag: the list is short, and a consumer needs it on every run.
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    CHECK(result.out.find("\"name\": \"MonsterEnd0\", \"class\": \"MonsterEnd\", \"location\": [-400, 0, 0], "
+                          "\"tag\": \"finalexit\"}")
+          != std::string::npos);
+    CHECK(result.out.find("\"name\": \"MonsterArenaEnd2\", \"class\": \"MonsterArenaEnd\", "
+                          "\"location\": [1.5, 2, 3], \"tag\": ")
+          != std::string::npos);
+    // The PathNode is not an exit.
+    const std::size_t exits = result.out.find("\"exits\": [");
+    REQUIRE(exits != std::string::npos);
+    CHECK(result.out.find("PathNode1", exits) == std::string::npos);
 }

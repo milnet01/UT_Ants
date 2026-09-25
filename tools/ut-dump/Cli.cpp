@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <format>
 #include <map>
 #include <optional>
 #include <set>
@@ -205,6 +206,60 @@ void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
     out << "]}";
 }
 
+/// UTA-0189 and UTA-0198: what one actor stores for itself -- its Location,
+/// and the three per-node spec lists a NavigationPoint carries. The lists hold
+/// the stored slots in slot order, each value the file's own index into the
+/// level's reach-spec array; a slot the file does not store is left out.
+/// Names are matched case-insensitively: UT99 spells `upstreamPaths` with a
+/// lower-case u, and a file keeps its own spelling.
+struct StoredFacts {
+    std::optional<uta::upkg::Vector3> location;
+    std::vector<std::int32_t> paths;
+    std::vector<std::int32_t> upstreamPaths;
+    std::vector<std::int32_t> prunedPaths;
+};
+
+StoredFacts storedFacts(const uta::upkg::Package& package, std::uint32_t exportIndex) {
+    StoredFacts facts;
+    if (exportIndex >= package.exports().size()) return facts;
+    const auto properties = uta::upkg::readProperties(package, package.exports()[exportIndex]);
+    if (!properties.has_value()) return facts;
+    std::map<std::uint32_t, std::int32_t> paths, upstream, pruned;
+    for (const uta::upkg::Property& property : *properties) {
+        const auto name = package.name(property.nameIndex);
+        if (!name.has_value()) continue;
+        const std::string folded = foldCase(*name);
+        if (folded == "location" && property.arrayIndex == 0) {
+            if (const auto* at = std::get_if<uta::upkg::Vector3>(&property.value)) facts.location = *at;
+            continue;
+        }
+        const auto* value = std::get_if<std::int32_t>(&property.value);
+        if (value == nullptr) continue;
+        if (folded == "paths") paths[property.arrayIndex] = *value;
+        else if (folded == "upstreampaths") upstream[property.arrayIndex] = *value;
+        else if (folded == "prunedpaths") pruned[property.arrayIndex] = *value;
+    }
+    for (const auto& [slot, value] : paths) facts.paths.push_back(value);
+    for (const auto& [slot, value] : upstream) facts.upstreamPaths.push_back(value);
+    for (const auto& [slot, value] : pruned) facts.prunedPaths.push_back(value);
+    return facts;
+}
+
+/// `[x, y, z]` in the shortest form that reads back exactly, or `null`.
+void writeLocation(std::ostream& out, const std::optional<uta::upkg::Vector3>& location) {
+    if (!location.has_value()) {
+        out << "null";
+        return;
+    }
+    out << std::format("[{}, {}, {}]", location->x, location->y, location->z);
+}
+
+void writeIntArray(std::ostream& out, const std::vector<std::int32_t>& values) {
+    out << '[';
+    for (std::size_t i = 0; i < values.size(); ++i) out << (i == 0 ? "" : ", ") << values[i];
+    out << ']';
+}
+
 /// UTA-0136: every node and every edge, one row each, inside `nav`. The fields
 /// are the graph's own, unfiltered and undecoded -- a consumer deciding what a
 /// walking bot may use applies its own rule to them, as ut-paths' sceneOf does.
@@ -226,6 +281,15 @@ void writeNavGraph(std::ostream& out, const uta::upkg::Package& package,
         writeJsonString(out, name);
         out << ", \"class\": ";
         writeJsonString(out, node.className);
+        const StoredFacts facts = storedFacts(package, node.exportIndex);
+        out << ", \"location\": ";
+        writeLocation(out, facts.location);
+        out << ", \"paths\": ";
+        writeIntArray(out, facts.paths);
+        out << ", \"upstreamPaths\": ";
+        writeIntArray(out, facts.upstreamPaths);
+        out << ", \"prunedPaths\": ";
+        writeIntArray(out, facts.prunedPaths);
         out << "}";
     }
     out << "], \"edgeList\": [";
@@ -237,7 +301,9 @@ void writeNavGraph(std::ostream& out, const uta::upkg::Package& package,
             << ", \"collisionHeight\": " << edge.collisionHeight
             << ", \"reachFlags\": " << edge.reachFlags
             // A byte, so widened: streamed as it is, it prints as a character.
-            << ", \"pruned\": " << static_cast<int>(edge.pruned) << "}";
+            << ", \"pruned\": " << static_cast<int>(edge.pruned)
+            // UTA-0198: what `paths` and its siblings index, so the two join.
+            << ", \"spec\": " << edge.spec << "}";
     }
     out << "]";
 }
@@ -712,6 +778,63 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
     return unresolved;
 }
 
+/// UTA-0189: every actor of a MonsterEnd-family class, which a map is won by
+/// triggering. These are Triggers, not NavigationPoints, so `nodeList` never
+/// holds them. Matched on the actor's own class name, case-insensitively.
+/// `tag` is resolved through the class family's defaults, as `wiring.actors`
+/// resolves it: a Tag is usually the class default and stored on no actor.
+void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
+                const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
+    static const std::set<std::string> EXIT_CLASSES{"monsterend", "monsterendsb", "monsterarenaend"};
+    std::set<std::uint32_t> actorExports;
+    for (const uta::upkg::ObjectReference slot : level.actors) {
+        if (slot.kind() == uta::upkg::ObjectReferenceKind::Export && slot.index() < map.exports().size())
+            actorExports.insert(slot.index());
+    }
+    out << ",\n  \"exits\": [";
+    bool first = true;
+    for (const std::uint32_t exportIndex : actorExports) {
+        const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
+        const auto className = map.objectName(entry.objectClass);
+        if (!className.has_value() || !EXIT_CLASSES.contains(foldCase(*className))) continue;
+
+        WiringFields fields;
+        if (const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
+            site.has_value() && site->resolved.package != nullptr) {
+            if (const auto ancestry =
+                    uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
+                ancestry.has_value()) {
+                if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value()) {
+                    for (const uta::upkg::EffectiveProperty& effective : *defaults) {
+                        if (effective.origin == nullptr) continue;
+                        takeWiringProperty(fields, *effective.origin, effective.name, effective.property);
+                    }
+                }
+            }
+        }
+        if (const auto properties = uta::upkg::readProperties(map, entry); properties.has_value()) {
+            for (const uta::upkg::Property& property : *properties) {
+                if (const auto name = map.name(property.nameIndex); name.has_value())
+                    takeWiringProperty(fields, map, *name, property);
+            }
+        }
+
+        std::string actorName = "?";
+        if (const auto found = map.name(entry.objectName); found.has_value()) actorName = std::string{*found};
+        out << (first ? "" : ", ") << "{\"export\": " << exportIndex << ", \"name\": ";
+        first = false;
+        writeJsonString(out, actorName);
+        out << ", \"class\": ";
+        writeJsonString(out, std::string{*className});
+        out << ", \"location\": ";
+        writeLocation(out, storedFacts(map, exportIndex).location);
+        out << ", \"tag\": ";
+        writeJsonString(out, fields.tag);
+        out << "}";
+    }
+    out << "]";
+}
+
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
                  bool navGraph, bool wiringGraph, bool first) {
     if (!first) {
@@ -885,6 +1008,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     } else {
         out << ",\n  \"wiring\": null";
     }
+    writeExits(out, *package, path.stem().string(), *level, resolver);
 
     out << "\n }";
 }

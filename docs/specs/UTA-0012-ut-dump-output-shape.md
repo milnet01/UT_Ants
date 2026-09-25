@@ -169,8 +169,8 @@ A package whose `Level` export does not read carries `level: null` and
 `levelError`, a string, and no key below it.
 
 Otherwise, after `level`: `surfaces` (and `surfacesError` when it is null),
-`levelInfo`, `levelSummary`, `monsters`, `nav`, `wiring`, as § 4.5 to § 4.7
-give them.
+`levelInfo`, `levelSummary`, `monsters`, `nav`, `wiring`, `exits`, as § 4.5
+to § 4.7a give them.
 
 ### 4.5 Level, surfaces, credits and monsters
 
@@ -206,15 +206,24 @@ discardedEndpoints, nodesWithNoExit}`, all integers:
 
 With `--nav-graph`, also:
 
-- **`nodeList`**: `[{export, name, class}]`, in ascending `export` order.
-  `name` is the actor's object name. `class` is its class name, as stored.
+- **`nodeList`**: `[{export, name, class, location, paths, upstreamPaths,
+  prunedPaths}]`, in ascending `export` order. `name` is the actor's object
+  name. `class` is its class name, as stored. `location` is the stored
+  `Location` as `[x, y, z]`, or `null` when none is stored (UTA-0189).
+  `paths`, `upstreamPaths` and `prunedPaths` are the node's own stored slots
+  of those arrays, in slot order: integers, each the file's index into the
+  level's reach-spec array. A slot the file does not store is left out
+  (UTA-0198).
 - **`edgeList`**: `[{from, to, distance, collisionRadius, collisionHeight,
-  reachFlags, pruned}]`, all integers. `from` and `to` are positions in this
-  object's `nodeList`. The rest are the reach spec's own fields, undecoded and
-  unfiltered. `pruned` is the file's byte, not a boolean.
+  reachFlags, pruned, spec}]`, all integers. `from` and `to` are positions in
+  this object's `nodeList`. `spec` is the reach spec's index in the file's
+  array, which is what `paths` holds, so the two join on it (UTA-0198). The
+  rest are the reach spec's own fields, undecoded and unfiltered. `pruned` is
+  the file's byte, not a boolean.
 
 An `edgeList` position is not the file's reach-spec index. The graph drops a
-spec with an unresolved endpoint and groups the rest by `from` (UTA-0198).
+spec with an unresolved endpoint and groups the rest by `from`. Join on
+`spec`, never on position.
 
 ### 4.7 `wiring`
 
@@ -225,6 +234,17 @@ the actor firing it. `?` when the class cannot be named.
 
 With `--wiring-graph`, `chainsUnresolved` and `actors` follow. UTA-0172 owns
 both. This document restates neither.
+
+### 4.7a `exits`
+
+Added by `UTA-0189`. A map's element carries `exits` after `wiring`, with no
+flag. It is `[{export, name, class, location, tag}]`, in ascending `export`
+order: every level actor whose own class name is `MonsterEnd`,
+`MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. These are
+Triggers, so `nodeList` never holds them. `location` is as in `nodeList`.
+`tag` is resolved through the class family's defaults, as `wiring.actors`
+resolves it: a Tag is usually the class default and stored on no actor. It
+is `""` when neither sets one.
 
 ### 4.8 Counting what was dropped
 
@@ -399,8 +419,6 @@ test and reads keys at one depth.
 ## 9. Out of scope
 
 - `wiring.actors` and `wiring.chainsUnresolved`: UTA-0172.
-- New keys already requested: node locations and exits (UTA-0189), and per-node
-  `Paths` (UTA-0198). Each lands under § 4.9 and updates § 4.
 - A human-readable mode. There is no reader for one.
 - The consumer's open questions 1 and 2, about a residue against T3D exports
   and four maps with empty path graphs. They are questions about `upkg`'s

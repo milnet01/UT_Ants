@@ -55,6 +55,11 @@ struct NavEdge {
     /// The file's own byte rather than a bool, for `upkg/Level.h`'s reason:
     /// nothing has measured that it is only ever 0 or 1.
     std::uint8_t pruned = 0;
+    /// UTA-0198: the spec's index in the level's reach-spec array, which is
+    /// what an actor's `Paths` values index. The edge's own position is not
+    /// it: specs with an unresolved endpoint are dropped and the rest are
+    /// grouped by `from`.
+    std::uint32_t spec = 0;
 };
 
 /// A level's navigation graph.

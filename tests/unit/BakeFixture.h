@@ -82,7 +82,7 @@ struct PropertySpec {
     std::array<std::int32_t, 3> rotator{}; ///< Rotator: pitch, yaw, roll
     std::string text;                      ///< Name
     float number = 0;                      ///< Float
-    std::uint32_t arrayIndex = 0;          ///< Name only today -- UTA-0172's OutEvents(n)
+    std::uint32_t arrayIndex = 0;          ///< Name and Int -- OutEvents(n), and UTA-0198's Paths(n)
 };
 
 [[nodiscard]] PropertySpec byteProperty(std::string name, std::uint8_t value);
@@ -101,6 +101,8 @@ struct PropertySpec {
                                           std::string text);
 /// A Str, its bytes written as they are -- UTA-0101's Title and Author.
 [[nodiscard]] PropertySpec strProperty(std::string name, std::string text);
+/// An Int at `arrayIndex` -- UTA-0198's `Paths(n)`.
+[[nodiscard]] PropertySpec intAtProperty(std::string name, std::uint32_t arrayIndex, std::int32_t value);
 /// A struct `Scale` -- Core/Object.uc's: three f32, SheerRate as f32 and
 /// SheerAxis as a byte, seventeen bytes the reader carries undecoded.
 [[nodiscard]] PropertySpec scaleProperty(std::string name, float x, float y, float z,

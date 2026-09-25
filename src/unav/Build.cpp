@@ -237,7 +237,8 @@ Result<NavGraph> buildNavGraph(const Package& package, const upkg::Level& level,
     // a disagreement that belongs to the content.
     std::vector<NavEdge> edges;
     edges.reserve(level.reachSpecs.size());
-    for (const upkg::ReachSpec& spec : level.reachSpecs) {
+    for (std::size_t index = 0; index < level.reachSpecs.size(); ++index) {
+        const upkg::ReachSpec& spec = level.reachSpecs[index];
         // Both endpoints are resolved even when the first fails, because
         // `discardedEndpoints` counts ENDPOINTS: a spec with two bad ones adds
         // two. INV-2.
@@ -260,6 +261,7 @@ Result<NavGraph> buildNavGraph(const Package& package, const upkg::Level& level,
         edge.collisionHeight = spec.collisionHeight;
         edge.reachFlags = spec.reachFlags;
         edge.pruned = spec.pruned;
+        edge.spec = static_cast<std::uint32_t>(index);
         edges.push_back(edge);
     }
 
