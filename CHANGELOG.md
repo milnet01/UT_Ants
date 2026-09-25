@@ -17,6 +17,11 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **The local push check runs GitHub's three legs: GCC 14, Clang 19 and MSVC** (UTA-0207)
+  scripts/ci-matrix.sh runs scripts/ci.sh once per leg, MSVC on the
+  Windows test machine over SSH. An unreachable machine is reported,
+  not blocking.
+
 - **ut-dump's output has a written contract, and each map now reports how many of its actors belong to a class that could not be traced.** (UTA-0012)
   docs/specs/UTA-0012-ut-dump-output-shape.md names every key and its
   meaning. packages[] stays in path order: key on `file`. `schema` moves
@@ -493,6 +498,12 @@ appears once something has actually shipped.)
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **The map launcher no longer calls a map baked when a newer baker would bake it again** (UTA-0208)
+
+- **Stock items that older maps name under UnrealI now resolve, as the game resolves them** (UTA-0206)
+  ut-dump also gains --install, which finds classes kept in texture
+  packages. The baker revision is 22, so older bakes are stale.
 
 - **ut-paths no longer follows a link out of a teleporter that starts switched off and that nothing in the map switches on.** (UTA-0142)
   A teleporter that some trigger, counter, dispatcher, mover or monster

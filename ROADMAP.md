@@ -12001,7 +12001,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-21.
   Lanes: docs.
 
-- 🚧 [UTA-0206] **Stock item classes on MH-SPNaliRescue resolve to nothing, so the map reads as nearly empty.**
+- ✅ [UTA-0206] **Stock item classes on MH-SPNaliRescue resolve to nothing, so the map reads as nearly empty.**
   Found 2026-09-25 while drafting UTA-0012's level.chainsUnresolved.
   Measured with ut-dump --wiring-graph --ndjson over the install's Maps/,
   reading wiring.chainsUnresolved: four maps are non-zero. They are
@@ -12091,12 +12091,14 @@ Each of them says so in its own body.
   Install. BAKER_REVISION is 22. On the reference install all four maps
   read chainsUnresolved 0 under --install. Waiting on the push and a
   green matrix before it is flipped.
+  Shipped 2026-09-25: green on GitHub's matrix at 5c38b82.
+  UT_MonsterHunt told, with the measured counts.
   **Layman:** One old map's everyday items, like barrels and health packs, aren't recognised by our reader, so the map looks almost empty to our tools.
   Kind: investigate.
   Source: in-session-2026-09-25.
   Lanes: upkg.
 
-- 🚧 [UTA-0207] **The local push check runs all three of GitHub's legs: GCC 14, Clang 19 and MSVC.**
+- ✅ [UTA-0207] **The local push check runs all three of GitHub's legs: GCC 14, Clang 19 and MSVC.**
   Asked by the user 2026-09-25, after UTA-0012 went red on MSVC only: a
   test compared a raw path with JSON, which doubles Windows backslashes,
   and no local leg could see it.
@@ -12132,12 +12134,15 @@ Each of them says so in its own body.
   --force` (the winget source update reports Cancelled), so the tools
   are installed from their own installers instead: Git 2.55.0.5 and
   CMake 4.4.3 are in; VS 2022 Build Tools is installing.
+  Shipped 2026-09-25: green on GitHub's matrix at 5c38b82. The push gate
+  is scripts/ci-matrix.sh, and its first real run was green on all three
+  legs.
   **Layman:** Before anything is uploaded, the same three compiler checks GitHub runs now also run here, including Windows, so failures are caught first.
   Kind: chore.
   Source: user-request-2026-09-25.
   Lanes: scripts, ci.
 
-- 🚧 [UTA-0208] **The map launcher shows a map as baked even when its bake is stale and needs redoing.**
+- ✅ [UTA-0208] **The map launcher shows a map as baked even when its bake is stale and needs redoing.**
   Asked by the user 2026-09-25: the launcher should drop the 'baked'
   tag from a map whose bake needs redoing. CLAUDE.md's standing fact: a
   bake goes stale when the baker revision or the bundle format moves
@@ -12149,6 +12154,7 @@ Each of them says so in its own body.
   bakerVersion, ut-bake --game-types reports today's, and the launcher
   says baked only when they match. A result file from before names no
   baker and reads as stale. Waiting on the push and a green matrix.
+  Shipped 2026-09-25: green on GitHub's matrix at 5c38b82.
   **Layman:** The map list will stop calling a map ready when its prepared files are out of date and need rebuilding.
   Kind: fix.
   Source: user-request-2026-09-25.
