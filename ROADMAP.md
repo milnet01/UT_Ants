@@ -11992,6 +11992,30 @@ Each of them says so in its own body.
   Source: in-session-2026-09-21.
   Lanes: docs.
 
+- 📋 [UTA-0206] **Stock item classes on MH-SPNaliRescue resolve to nothing, so the map reads as nearly empty.**
+  Found 2026-09-25 while drafting UTA-0012's level.chainsUnresolved.
+  Measured with ut-dump --wiring-graph --ndjson over the install's Maps/,
+  reading wiring.chainsUnresolved: four maps are non-zero. They are
+  MH-SPNaliRescue, MH-AlpineLineARC_B1, MH-Lego-VS-Mario-2D&3D and its -BP.
+
+  On MH-SPNaliRescue the unresolved actors are stock items: Barrel,
+  Health, NaliFruit, RocketCan, TranslatorEvent, Clip and others. Each
+  has chainEnd classMissing and an empty classChain, so the resolver
+  found no class at all. Its importedPackages lists UnrealI but not
+  UnrealShare. Hypothesis, unverified: the map names these classes under
+  a package the stock classes do not live in, and the engine resolves
+  them some other way. If so, anything we derive from class ancestry is
+  wrong on this map. Its nav graph holds 1 node.
+
+  It is one of the four maps UT_MonsterHunt's ut-dump draft listed as
+  having navigation nodes and no reach specs (their open question 2).
+  First step: read the map's import entries for Barrel and see which
+  package they name.
+  **Layman:** One old map's everyday items, like barrels and health packs, aren't recognised by our reader, so the map looks almost empty to our tools.
+  Kind: investigate.
+  Source: in-session-2026-09-25.
+  Lanes: upkg.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

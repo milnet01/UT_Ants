@@ -427,5 +427,10 @@ install is measured before and after, and must not grow measurably.
 1. **Does the consumer accept contracting every key**, including the ones
    their draft left out? Asked in the draft sent to them.
 2. **Do they want `level.chainsUnresolved`**, or does `monsters.unresolvedActors`
-   already serve them? It is being measured over the install to see how many
-   maps it would flag.
+   already serve them? Measured 2026-09-25 with today's
+   `ut-dump --wiring-graph --ndjson` over the install's `Maps/`, reading
+   `wiring.chainsUnresolved`: four maps are non-zero. On MH-SPNaliRescue the
+   unresolved actors are stock items — `Barrel`, `Health`, `NaliFruit`,
+   `Clip` — whose classes the resolver cannot find. That map is one of the
+   consumer's four empty path graphs. So the count finds a real silent loss
+   on its first run (ROADMAP UTA-0206).
