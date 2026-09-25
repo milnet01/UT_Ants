@@ -9153,7 +9153,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-14 performance pass.
   Lanes: umat, ubake.
 
-- 📋 [UTA-0149] **ut-paths traces its walk graph on one thread, and a few of its searches scan more than they need.**
+- ✅ [UTA-0149] **ut-paths traces its walk graph on one thread, and a few of its searches scan more than they need.**
   Measured 2026-09-14 (ut-ants-db). perf over MH-ToEgypto2010[THUNDERBOLT]-Beta,
   the slowest census map at 18 s: 69% of CPU in the collision trace
   (ubake firstChange), 12% in isEmpty, 9% in shortestPath, about 2% in
@@ -9182,6 +9182,9 @@ Each of them says so in its own body.
 
   Still open: (2) reach()'s per-node scan of every edge, and (3)
   placed()'s per-point sines and cosines.
+  Shipped 2026-09-25: all three findings, green on GitHub's matrix at
+  c0cc46c (the walk graph on a JobSystem) and 296459d (reach adjacency
+  built once, mover turns per mover). Output byte-identical throughout.
   **Layman:** The path tool checks where a player can stand one column at a time on a single processor core, so big maps take longer than they need to.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.

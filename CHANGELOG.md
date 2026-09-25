@@ -412,6 +412,8 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **ut-paths builds its walk graph on every core, about five times faster, with identical output** (UTA-0149)
+
 - **Game packages are mapped read-only rather than copied, so the tools hold less memory the system cannot reclaim** (UTA-0144)
 
 - **Test files compile unoptimised, cutting GitHub's gate step by a fifth to a quarter on each leg** (UTA-0150)
