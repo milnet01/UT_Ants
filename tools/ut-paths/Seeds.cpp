@@ -128,18 +128,27 @@ const ActorPlacement* placementOf(const ubundle::Placements& placements, std::ui
     return found != placements.actors.end() && found->exportIndex == exportIndex ? &*found : nullptr;
 }
 
-/// UTA-0119 SS 4.5: a pivot-space point placed at location + postScale (Y P
-/// R q), with the exact sine and cosine of 2 pi angle / 65536.
-Vec3 placed(const ubundle::MoverShape& shape, const std::array<float, 3>& q) {
+/// A mover's rotation as the exact sine and cosine of 2 pi angle / 65536 --
+/// UTA-0149: worked out once per mover rather than once per point.
+struct Turn {
+    double cosRoll, sinRoll, cosPitch, sinPitch, cosYaw, sinYaw;
+};
+
+Turn turnOf(const ubundle::MoverShape& shape) {
     const auto radians = [](std::int32_t units) { return 2 * std::numbers::pi * units / 65536.0; };
     const double pitch = radians(shape.rotation[0]);
     const double yaw = radians(shape.rotation[1]);
     const double roll = radians(shape.rotation[2]);
-    Vec3 v{q[0], std::cos(roll) * q[1] + std::sin(roll) * q[2],
-           -std::sin(roll) * q[1] + std::cos(roll) * q[2]};
-    v = {std::cos(pitch) * v.x - std::sin(pitch) * v.z, v.y,
-         std::sin(pitch) * v.x + std::cos(pitch) * v.z};
-    v = {std::cos(yaw) * v.x - std::sin(yaw) * v.y, std::sin(yaw) * v.x + std::cos(yaw) * v.y, v.z};
+    return {std::cos(roll), std::sin(roll), std::cos(pitch), std::sin(pitch), std::cos(yaw), std::sin(yaw)};
+}
+
+/// UTA-0119 SS 4.5: a pivot-space point placed at location + postScale (Y P
+/// R q). The arithmetic is in the order it always was, so each point is the
+/// same double it was when the sines were taken per point.
+Vec3 placed(const ubundle::MoverShape& shape, const Turn& t, const std::array<float, 3>& q) {
+    Vec3 v{q[0], t.cosRoll * q[1] + t.sinRoll * q[2], -t.sinRoll * q[1] + t.cosRoll * q[2]};
+    v = {t.cosPitch * v.x - t.sinPitch * v.z, v.y, t.sinPitch * v.x + t.cosPitch * v.z};
+    v = {t.cosYaw * v.x - t.sinYaw * v.y, t.sinYaw * v.x + t.cosYaw * v.y, v.z};
     return {shape.location[0] + shape.postScale[0] * v.x, shape.location[1] + shape.postScale[1] * v.y,
             shape.location[2] + shape.postScale[2] * v.z};
 }
@@ -305,18 +314,37 @@ void chain(const Hops& hops, const std::vector<std::uint32_t>& path, std::vector
     }
 }
 
+/// The network's edges by node, both ways -- UTA-0149: built once, so a reach
+/// does not scan every edge for every node it takes off its list.
+struct Adjacency {
+    std::vector<std::vector<std::size_t>> forward;  ///< heads, by tail
+    std::vector<std::vector<std::size_t>> backward; ///< tails, by head
+};
+
+Adjacency adjacencyOf(const Scene& scene) {
+    Adjacency out;
+    out.forward.resize(scene.network.size());
+    out.backward.resize(scene.network.size());
+    for (const auto& [tail, head] : scene.edges) {
+        if (tail >= scene.network.size() || head >= scene.network.size()) continue;
+        out.forward[tail].push_back(head);
+        out.backward[head].push_back(tail);
+    }
+    return out;
+}
+
 /// Every node the network reaches from `from`, over its edges forward or, with
-/// `backward`, against them.
-std::vector<bool> reach(const Scene& scene, std::size_t from, bool backward) {
-    std::vector<bool> reached(scene.network.size(), false);
+/// `backward`, against them. A set, so the order it is found in does not matter.
+std::vector<bool> reach(const Adjacency& adjacency, std::size_t from, bool backward) {
+    const auto& next = backward ? adjacency.backward : adjacency.forward;
+    std::vector<bool> reached(next.size(), false);
     std::vector<std::size_t> pending{from};
     reached[from] = true;
     while (!pending.empty()) {
         const std::size_t at = pending.back();
         pending.pop_back();
-        for (const auto& [tail, head] : scene.edges) {
-            const std::size_t there = backward ? tail : head;
-            if ((backward ? head : tail) != at || there >= reached.size() || reached[there]) continue;
+        for (const std::size_t there : next[at]) {
+            if (reached[there]) continue;
             reached[there] = true;
             pending.push_back(there);
         }
@@ -492,9 +520,10 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
         UTA_TRY(const ubundle::MoverCollision tree,
                 naming(ubake::buildMoverCollision(mover, *moverModel, placements), mapName));
         if (tree.tree.points.empty()) continue;
-        Box box{placed(shape, tree.tree.points[0]), placed(shape, tree.tree.points[0])};
+        const Turn turn = turnOf(shape);
+        Box box{placed(shape, turn, tree.tree.points[0]), placed(shape, turn, tree.tree.points[0])};
         for (const auto& point : tree.tree.points) {
-            const Vec3 p = placed(shape, point);
+            const Vec3 p = placed(shape, turn, point);
             box.min = {std::min(box.min.x, p.x), std::min(box.min.y, p.y), std::min(box.min.z, p.z)};
             box.max = {std::max(box.max.x, p.x), std::max(box.max.y, p.y), std::max(box.max.z, p.z)};
         }
@@ -525,8 +554,9 @@ Proposal propose(const Scene& scene, bool partitioned) {
     std::vector<std::optional<std::uint32_t>> placedNode;
     for (const Vec3& node : scene.network) placedNode.push_back(place(graph, node));
     const std::optional<std::size_t> startNode = nearestNode(scene, scene.start);
+    const Adjacency adjacency = adjacencyOf(scene);
     const std::vector<bool> startPart =
-        startNode ? reach(scene, *startNode, false) : std::vector<bool>(scene.network.size(), false);
+        startNode ? reach(adjacency, *startNode, false) : std::vector<bool>(scene.network.size(), false);
     std::vector<std::uint32_t> sources;
     for (std::size_t i = 0; i < scene.network.size(); ++i)
         if (startPart[i] && placedNode[i]) sources.push_back(*placedNode[i]);
@@ -567,7 +597,7 @@ Proposal propose(const Scene& scene, bool partitioned) {
             std::vector<bool> reaches(scene.network.size(), false);
             for (std::size_t i = 0; i < scene.network.size(); ++i) {
                 if (!touches(scene.network[i], exit)) continue;
-                const std::vector<bool> from = reach(scene, i, true);
+                const std::vector<bool> from = reach(adjacency, i, true);
                 for (std::size_t n = 0; n < reaches.size(); ++n)
                     reaches[n] = reaches[n] || from[n];
             }
