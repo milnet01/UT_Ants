@@ -1068,7 +1068,9 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     const TempDir dir;
     MapBuilder map;
     map.addActorOfClass("MonsterHunt", "MonsterEnd",
-                        {vectorProperty("Location", -400, 0, 0), nameProperty("Tag", "finalexit")})
+                        {vectorProperty("Location", -400, 0, 0), nameProperty("Tag", "finalexit"),
+                         byteProperty("TriggerType", 4), floatProperty("DamageThreshold", 50.5F),
+                         boolProperty("bInitiallyActive", false)})
         .addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 0, 0, 0)})
         .addActorOfClass("MonsterHunt", "MonsterArenaEnd", {vectorProperty("Location", 1.5F, 2, 3)});
     const fs::path mapPath = writeMap(dir, map);
@@ -1077,7 +1079,11 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     INFO(result.out);
     REQUIRE(result.code == 0);
     CHECK(result.out.find("\"name\": \"MonsterEnd0\", \"class\": \"MonsterEnd\", \"location\": [-400, 0, 0], "
-                          "\"tag\": \"finalexit\"}")
+                          "\"tag\": \"finalexit\", \"triggerType\": 4, \"damageThreshold\": 50.5, "
+                          "\"bInitiallyActive\": false}")
+          != std::string::npos);
+    // UTA-0130: nothing in the fixture sets these for the arena end.
+    CHECK(result.out.find("\"triggerType\": null, \"damageThreshold\": null, \"bInitiallyActive\": null}")
           != std::string::npos);
     CHECK(result.out.find("\"name\": \"MonsterArenaEnd2\", \"class\": \"MonsterArenaEnd\", "
                           "\"location\": [1.5, 2, 3], \"tag\": ")

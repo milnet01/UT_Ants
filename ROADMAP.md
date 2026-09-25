@@ -7367,6 +7367,20 @@ Each of them says so in its own body.
   shooting it (this item) and a scripted MHEnd touch are three different
   win paths. The census this item asks for should record MHEnd presence
   beside TriggerType.
+  Censused (2026-09-25, ut-ants-3c). ut-dump's exits gained triggerType,
+  damageThreshold and bInitiallyActive, resolved through class defaults.
+  Run with --install over the reference install's Maps: 1457 packages,
+  1345 maps with an exit, 2122 exits (MonsterEnd 2117, monsterend 3,
+  MonsterArenaEnd 2). TriggerType 0 on 2120, 1 (pawn proximity) on 2:
+  MH-(_@_)_Easter_Bunny_fix and MH-Gekokujou. No exit is TT_Shoot, and
+  no map uses MonsterEndSB. 81 maps carry an MHEnd.
+
+  So none of UTA-0126's eight is shot: each has one MonsterEnd with
+  TriggerType 0. Not widening the routing rule, as the body says.
+
+  Seen, not a lead: 5 of those eight have their exit bInitiallyActive
+  false, against 286 of all 1345 maps with an exit. The engine's route
+  search does not read activation, and eight is a small sample.
   **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.

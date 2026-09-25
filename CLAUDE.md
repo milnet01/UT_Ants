@@ -62,13 +62,13 @@ performance pass could drop it and show almost nothing.
 
 ### Routing: read these before touching it
 
-**`UTA-0130` first.** UT_MonsterHunt found that `MonsterEndSB` reimplements
-`TakeDamage` gated on `TriggerType == TT_Shoot`, so on some maps the exit is
-SHOT and standing in its cylinder is not the win condition. `Scene::exits`
-carries only a position and a collision size, so every routing test we have
-treats reaching the exit as occupying that cylinder — and for such a map that
-is wrong in the direction that makes a good map look unroutable. Census
-`TriggerType` before widening any rule. The corpus is still uncensused.
+**No exit in the reference library is shot** (`UTA-0130`, censused
+2026-09-25). `MonsterEndSB` wins by `TakeDamage` only with `TriggerType ==
+TT_Shoot`, and no map uses it: every exit is player- or pawn-proximity. So
+reaching the exit's cylinder is the right routing test here. The counts are on
+`UTA-0130`. `ut-dump`'s `exits` carries `triggerType`,
+`damageThreshold` and `bInitiallyActive`; census again before trusting this on
+another library.
 
 **Read `offWorld` as "not walkable to", never as "cannot be finished".**
 Maps carrying an Assault-to-MH conversion kit put an `MHEnd` actor on the

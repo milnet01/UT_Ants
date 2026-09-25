@@ -238,13 +238,21 @@ both. This document restates neither.
 ### 4.7a `exits`
 
 Added by `UTA-0189`. A map's element carries `exits` after `wiring`, with no
-flag. It is `[{export, name, class, location, tag}]`, in ascending `export`
+flag. It is `[{export, name, class, location, tag, triggerType,
+damageThreshold, bInitiallyActive}]`, in ascending `export`
 order: every level actor whose own class name is `MonsterEnd`,
 `MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. These are
 Triggers, so `nodeList` never holds them. `location` is as in `nodeList`.
 `tag` is resolved through the class family's defaults, as `wiring.actors`
 resolves it: a Tag is usually the class default and stored on no actor. It
 is `""` when neither sets one.
+
+`triggerType` (an integer, `ETriggerType`: 4 is `TT_Shoot`),
+`damageThreshold` (a number) and `bInitiallyActive` (a boolean) were added by
+`UTA-0130`, resolved the same way, and are `null` when neither the actor nor
+its class family sets one. MonsterEndSB's `TakeDamage` wins the map only when
+`bInitiallyActive` holds, `triggerType` is 4 and a hit reaches
+`damageThreshold`.
 
 ### 4.8 Counting what was dropped
 

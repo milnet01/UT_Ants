@@ -578,6 +578,10 @@ struct WiringFields {
     std::map<std::uint32_t, std::string> outEvents;
     std::optional<bool> initiallyActive; // nullopt: the class family has no such property
     std::string initialState;
+    // UTA-0130: what decides whether an exit is won by shooting it. Emitted
+    // on `exits` only. nullopt: neither the actor nor its class sets one.
+    std::optional<int> triggerType;
+    std::optional<float> damageThreshold;
 };
 
 /// A Name or String property's text, resolved against the package its indices
@@ -609,6 +613,14 @@ void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
     if (property.arrayIndex != 0) return;
     if (folded == "binitiallyactive") {
         if (const auto* set = std::get_if<bool>(&property.value)) fields.initiallyActive = *set;
+        return;
+    }
+    if (folded == "triggertype") {
+        if (const auto* set = std::get_if<std::uint8_t>(&property.value)) fields.triggerType = *set;
+        return;
+    }
+    if (folded == "damagethreshold") {
+        if (const auto* set = std::get_if<float>(&property.value)) fields.damageThreshold = *set;
         return;
     }
     auto text = textValue(origin, property.value);
@@ -830,6 +842,18 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
         writeLocation(out, storedFacts(map, exportIndex).location);
         out << ", \"tag\": ";
         writeJsonString(out, fields.tag);
+        // UTA-0130: MonsterEndSB's TakeDamage wins the map only with
+        // bInitiallyActive, TriggerType TT_Shoot (4) and a hit of at least
+        // DamageThreshold. null: nothing in the file sets it.
+        out << ", \"triggerType\": ";
+        if (fields.triggerType.has_value()) out << *fields.triggerType;
+        else out << "null";
+        out << ", \"damageThreshold\": ";
+        if (fields.damageThreshold.has_value()) out << std::format("{}", *fields.damageThreshold);
+        else out << "null";
+        out << ", \"bInitiallyActive\": ";
+        if (fields.initiallyActive.has_value()) out << (*fields.initiallyActive ? "true" : "false");
+        else out << "null";
         out << "}";
     }
     out << "]";
