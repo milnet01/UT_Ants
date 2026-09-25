@@ -11200,7 +11200,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-18.
   Lanes: urender.
 
-- 📋 [UTA-0189] **ut-dump: give each navigation node its location, and list each map's MonsterEnd-family exits with theirs.**
+- ✅ [UTA-0189] **ut-dump: give each navigation node its location, and list each map's MonsterEnd-family exits with theirs.**
   Asked by UT_MonsterHunt (session ut-monsterhunt-fc), 2026-09-19.
   `ut-dump --nav-graph --ndjson` gives nodeList entries as {export, name,
   class} only, so their mapcheck still reads positions from T3D exports,
@@ -11218,6 +11218,9 @@ Each of them says so in its own body.
   Placed 2026-09-19 by the session: right after UTA-0172, the other
   ut-dump output change. Same tool and file; the requester has a
   workaround.
+  Shipped 2026-09-25 with UTA-0198, green on GitHub's matrix at 74d1b3f:
+  nodeList location and the top-level exits list (UTA-0012 § 4.6,
+  § 4.7a). UT_MonsterHunt told, with the field names; schema stays 1.
   **Layman:** The map-inspection tool reports where each path point and each level exit sits, so the sister project can measure maps without old exports.
   Kind: enhancement.
   Source: user-request-2026-09-19 via UT_MonsterHunt.
@@ -11573,7 +11576,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-20.
   Lanes: urender.
 
-- 📋 [UTA-0198] **ut-dump: emit each nav node's own Paths, upstreamPaths and PrunedPaths.**
+- ✅ [UTA-0198] **ut-dump: emit each nav node's own Paths, upstreamPaths and PrunedPaths.**
   Asked for by UT_MonsterHunt, 2026-09-20, blocking their GAME-0124.
 
   What they have: their out-of-editor path rebuild against an
@@ -11692,6 +11695,19 @@ Each of them says so in its own body.
   those same properties are on the actors in the package. Not verified
   here. Nothing is filed for it -- recorded here so routing or mover work
   can find it rather than rediscover it.
+  Built and pushed (2026-09-25, 74d1b3f), with UTA-0189. On
+  MH-HaVoCuRhOMG-BP, prunedPaths totals 10730 against 15070 pruned specs.
+  Measured: that is the 16-slot cap. 491 nodes are full, and the sum of
+  min(pruned out-specs, 16) per node is exactly 10730. UT_MonsterHunt
+  used the fields on both HaVoC builds: every unpruned edge's spec is in
+  its node's paths, no node fills 16 paths, and so the slot arrays do
+  not explain GAME-0124's NOROUTE.
+  UT_MonsterHunt counted the same gap independently: 4340 pruned
+  specs are missing from their node's prunedPaths, and all 4340 belong to
+  nodes already holding 16. That proves a cap. It does not show which 16
+  specs the editor keeps.
+  Shipped 2026-09-25: green on GitHub's matrix at 74d1b3f. UT_MonsterHunt
+  told, with the field names; they have used them on both HaVoC builds.
   **Layman:** A sister project cannot tell why two builds of one map disagree on routing; give them the per-node path lists the game itself walks.
   Kind: implement.
   Source: ut-monsterhunt-request-2026-09-20.
@@ -12093,6 +12109,13 @@ Each of them says so in its own body.
   green matrix before it is flipped.
   Shipped 2026-09-25: green on GitHub's matrix at 5c38b82.
   UT_MonsterHunt told, with the measured counts.
+  Verified by UT_MonsterHunt (ut-monsterhunt-d3), 2026-09-25, over all
+  1456 installed maps with exitsurvey.py. Under --system only the three
+  texture-package maps keep unresolved chains, matching our table. Under
+  --install there are none. The two survey TSVs are byte-identical, so
+  no exit verdict moved. exitsurvey now passes --install (their
+  73834a5). Their mapcheck file phase stays on --system, because it
+  merges staged packages into one System directory.
   **Layman:** One old map's everyday items, like barrels and health packs, aren't recognised by our reader, so the map looks almost empty to our tools.
   Kind: investigate.
   Source: in-session-2026-09-25.

@@ -17,6 +17,10 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-dump gives each navigation node its own Paths, upstreamPaths and PrunedPaths, and each edge its reach-spec index** (UTA-0198)
+
+- **ut-dump gives each navigation node its location, and lists each map's MonsterEnd-family exits** (UTA-0189)
+
 - **The local push check runs GitHub's three legs: GCC 14, Clang 19 and MSVC** (UTA-0207)
   scripts/ci-matrix.sh runs scripts/ci.sh once per leg, MSVC on the
   Windows test machine over SSH. An unreachable machine is reported,
