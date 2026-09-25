@@ -17,6 +17,8 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **The navigation library names each bot path's reach flags and decides whether a given pawn may take it** (UTA-0085)
+
 - **ut-bake --check names the install's Unreal Tournament version and warns unless it is 469** (UTA-0117)
 
 - **The renderer's device tests run under the Vulkan validation layer and fail on any error it reports** (UTA-0138)

@@ -4468,7 +4468,7 @@ Each of them says so in its own body.
   Source: review-contract-2026-09-08 workflow-overrides loop 3.
   Lanes: docs.
 
-- 📋 [UTA-0085] **unav: decode and validate the ReachSpec reach flags.**
+- ✅ [UTA-0085] **unav: decode and validate the ReachSpec reach flags.**
   UTA-0006 shipped `NavEdge` carrying `reachFlags`, and `Graphs.h` says of
   it: "Passed through ungraded. Nothing here or in UTA-0057 checks these
   against an independent source; UTA-0006 SS 14 keeps that open." So the
@@ -4577,6 +4577,10 @@ Each of them says so in its own body.
   UT_MonsterHunt work/calib-2026-09-13/navcalib_touch.tsv. Check them
   against UTA-0130 (shot exits) and UTA-0135 (the vertical window) when
   either item is picked up.
+  Shipped 2026-09-25 (84b9b04), green on GitHub's matrix: unav/Reach.h
+  (the seven EReachSpecFlags, unknownReachBits, mayTraverse). Over the
+  reference install's 10,157,959 edges, no bit outside the seven, and no
+  door or player-only edge at all. UT_MonsterHunt told.
   **Layman:** Work out what each bot path actually allows -- walk, jump, swim, or a door that must be opened first. We already read the number; nothing yet knows what it means.
   Kind: implement.
   Source: user-request-2026-09-09.
