@@ -9169,6 +9169,19 @@ Each of them says so in its own body.
   (their 7498169), with the arithmetic order unchanged.
   Keep UTA-0140's memory bound: per-thread spot buffers must be merged,
   not duplicated, so peak memory stays at today's walk graph or below.
+  Finding (1) built (2026-09-25, ut-ants-3c). walkGraph scans columns and
+  runs join tests on a JobSystem, in batches of 64 merged in order, so
+  spots, cellStart and every join list match one thread's exactly. The
+  collision queries are pure reads of the tree.
+
+  Measured over 21 census maps (18 run, 13 nodes proposed), the old
+  build against the new: per-map output byte-identical, 59.8 s to
+  11.2 s, and peak RSS 264 MB to 252 MB. A first cut that scanned every
+  column before merging, with one join vector per spot, peaked at 370 MB;
+  batching is what brought it under UTA-0140's bound.
+
+  Still open: (2) reach()'s per-node scan of every edge, and (3)
+  placed()'s per-point sines and cosines.
   **Layman:** The path tool checks where a player can stand one column at a time on a single processor core, so big maps take longer than they need to.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.

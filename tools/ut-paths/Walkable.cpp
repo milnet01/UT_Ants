@@ -4,12 +4,15 @@
 
 #include "Walkable.h"
 
+#include "core/Jobs.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
 #include <numbers>
+#include <stdexcept>
 #include <utility>
 
 namespace uta::paths {
@@ -138,28 +141,73 @@ WalkGraph walkGraph(const CollisionTree& tree) {
     graph.columns = columns;
     graph.rows = rows;
 
+    // UTA-0149: columns are scanned in parallel, a batch at a time, and each
+    // batch is merged in column order before the next starts. So the spots
+    // and every index into them are the ones a single thread produces, and
+    // only one batch's buffers are ever pending -- UTA-0140's memory bound.
+    constexpr std::size_t BATCH = 64;
+    JobSystem jobs;
     graph.cellStart.clear();
-    for (std::int32_t column = 0; column < graph.columns; ++column)
-        for (std::int32_t row = 0; row < graph.rows; ++row) {
-            graph.cellStart.push_back(static_cast<std::uint32_t>(graph.spots.size()));
-            standings(tree, graph.origin.x + column * COLUMN, graph.origin.y + row * COLUMN, high.z, low.z,
-                      column, row, graph.spots);
+    graph.cellStart.reserve(static_cast<std::size_t>(graph.columns) * static_cast<std::size_t>(graph.rows) + 1);
+    const auto columnCount = static_cast<std::size_t>(graph.columns);
+    for (std::size_t first = 0; first < columnCount; first += BATCH) {
+        const std::size_t count = std::min(BATCH, columnCount - first);
+        std::vector<std::vector<Spot>> byColumn(count);
+        std::vector<std::vector<std::uint32_t>> rowCounts(count);
+        const std::size_t failures = jobs.parallelFor(count, [&](std::size_t i) {
+            const auto column = static_cast<std::int32_t>(first + i);
+            rowCounts[i].reserve(static_cast<std::size_t>(graph.rows));
+            for (std::int32_t row = 0; row < graph.rows; ++row) {
+                const std::size_t before = byColumn[i].size();
+                standings(tree, graph.origin.x + column * COLUMN, graph.origin.y + row * COLUMN, high.z, low.z,
+                          column, row, byColumn[i]);
+                rowCounts[i].push_back(static_cast<std::uint32_t>(byColumn[i].size() - before));
+            }
+        });
+        if (failures != 0) throw std::runtime_error("walkGraph: a column scan threw");
+        for (std::size_t i = 0; i < count; ++i) {
+            // Each cell starts where the spots before it end.
+            auto at = static_cast<std::uint32_t>(graph.spots.size());
+            for (const std::uint32_t cell : rowCounts[i]) {
+                graph.cellStart.push_back(at);
+                at += cell;
+            }
+            graph.spots.insert(graph.spots.end(), byColumn[i].begin(), byColumn[i].end());
         }
+    }
     graph.cellStart.push_back(static_cast<std::uint32_t>(graph.spots.size()));
 
-    // Each pair of neighbouring cells once: four of the eight neighbours.
+    // Each pair of neighbouring cells once: four of the eight neighbours. The
+    // join tests run in parallel over chunks of spots, a batch of chunks at a
+    // time, each chunk's joins kept as flat (from, to) pairs in the order one
+    // thread finds them; each batch is replayed in spot order before the
+    // next, so every join list is the single-threaded one.
     constexpr std::array<std::array<std::int32_t, 2>, 4> AHEAD = {{{1, -1}, {1, 0}, {1, 1}, {0, 1}}};
+    constexpr std::size_t CHUNK = 1024;
     graph.joins.resize(graph.spots.size());
-    for (std::uint32_t a = 0; a < graph.spots.size(); ++a) {
-        const Spot& from = graph.spots[a];
-        for (const auto& [dc, dr] : AHEAD) {
-            const WalkGraph::Range next = graph.cell(from.column + dc, from.row + dr);
-            for (std::uint32_t b = next.begin; b < next.end; ++b) {
-                if (!joins(tree, from, graph.spots[b])) continue;
+    const std::size_t chunkCount = (graph.spots.size() + CHUNK - 1) / CHUNK;
+    for (std::size_t first = 0; first < chunkCount; first += BATCH) {
+        const std::size_t count = std::min(BATCH, chunkCount - first);
+        std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> found(count);
+        const std::size_t failures = jobs.parallelFor(count, [&](std::size_t i) {
+            const std::size_t begin = (first + i) * CHUNK;
+            const std::size_t end = std::min(begin + CHUNK, graph.spots.size());
+            for (std::size_t a = begin; a < end; ++a) {
+                const Spot& from = graph.spots[a];
+                for (const auto& [dc, dr] : AHEAD) {
+                    const WalkGraph::Range next = graph.cell(from.column + dc, from.row + dr);
+                    for (std::uint32_t b = next.begin; b < next.end; ++b)
+                        if (joins(tree, from, graph.spots[b]))
+                            found[i].emplace_back(static_cast<std::uint32_t>(a), b);
+                }
+            }
+        });
+        if (failures != 0) throw std::runtime_error("walkGraph: a join test threw");
+        for (const auto& chunk : found)
+            for (const auto& [a, b] : chunk) {
                 graph.joins[a].push_back(b);
                 graph.joins[b].push_back(a);
             }
-        }
     }
     return graph;
 }
