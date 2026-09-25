@@ -120,8 +120,11 @@ cmake --build build
 ctest --test-dir build -L unit
 ```
 
-`./scripts/ci.sh` is the whole gate, and a documentation-only push runs
-`./scripts/ci.sh --docs` — a reduced run in which no compiler leg fires.
+`./scripts/ci.sh` is the whole list of steps, run once per compiler.
+`./scripts/ci-matrix.sh` is the push gate (`UTA-0207`): it runs `ci.sh`
+under GCC 14 and Clang 19 here, and under MSVC on the Windows test machine
+over SSH. A documentation-only push runs `./scripts/ci.sh --docs` once — a
+reduced run in which no compiler leg fires.
 
 **The renderer's device tier draws on a real Vulkan device.** Its tests carry
 the label `device`; INV-5's refusal test carries `device-absent`.
@@ -156,7 +159,7 @@ losing this repository's own hooks rather than the push gate.
 
 ```sh
 git config core.hooksPath      .githooks         # see the note below
-git config ants.gate.command   ./scripts/ci.sh   # unset: no gate runs
+git config ants.gate.command   ./scripts/ci-matrix.sh   # unset: no gate runs
 git config ants.gate.docsMode  --docs
 git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
 ```
@@ -165,7 +168,7 @@ git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
 checked nothing, and only two announce themselves: `NOTHING WAS CHECKED`
 (the resolved hook is missing), a line naming a pipeline but no local gate
 (`ants.gate.command` unset — the hook's fallback list does not contain
-`scripts/ci.sh`), **no hook output at all**, which on this machine
+`scripts/ci-matrix.sh`), **no hook output at all**, which on this machine
 means `core.hooksPath` naming a directory with no `pre-push` rather than
 being unset, and **`.githooks/pre-push` not being executable** — git skips
 a non-executable hook in silence.
@@ -180,12 +183,16 @@ git config --get-regexp 'hooksPath|^ants\.gate\.'
 test -x .githooks/pre-push && echo "hook executable" || echo "HOOK NOT EXECUTABLE"
 ```
 
-**A local green is one leg of three.** GitHub runs GCC, Clang and MSVC;
-a local run uses whatever `CXX` resolves to, and the gate says which at
-the start and the end. `CC=clang CXX=clang++ ./scripts/ci.sh` runs a
-second leg with whatever clang is installed — which is not CI's leg: the
-matrix pins `clang-19`, and this machine has no `clang-19` binary at all.
-**Flip a roadmap item on the matrix, never on the local leg.**
+**The push gate runs GitHub's three legs; a bare `ci.sh` runs one.** A
+bare run uses whatever `CXX` resolves to, and says which at the start and
+the end. The gate needs `gcc14-c++` and `clang19` installed, and the SSH
+alias `wintest-gate`, which logs in to the Windows machine as a NON-ADMIN
+account. Elevated, the Vulkan loader ignores `VK_DRIVER_FILES`, and
+INV-5's no-driver tests then find that machine's GPU and fail. **When the
+machine is unreachable the gate prints `WINDOWS LEG NOT RUN` and lets the
+push go** (user decision, 2026-09-25), so a green push can still lack the
+MSVC leg. **Flip a roadmap item on GitHub's matrix, never on a local
+run.**
 
 **A `cancelled` CI run is not a failure.** `.github/workflows/ci.yml`
 sets `cancel-in-progress`, so each push cancels the run still in flight

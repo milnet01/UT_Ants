@@ -12086,6 +12086,11 @@ Each of them says so in its own body.
   reading [PackageRemap] would break that. A new remap entry needs a
   code change.
   Taken over (2026-09-25) by ut-ants-3c, main checkout.
+  Built (2026-09-25, 72d6b5a): upkg's built-in UnrealI to UnrealShare
+  remap at both lookup sites, and ut-dump --install through ubake's
+  Install. BAKER_REVISION is 22. On the reference install all four maps
+  read chainsUnresolved 0 under --install. Waiting on the push and a
+  green matrix before it is flipped.
   **Layman:** One old map's everyday items, like barrels and health packs, aren't recognised by our reader, so the map looks almost empty to our tools.
   Kind: investigate.
   Source: in-session-2026-09-25.
@@ -12140,6 +12145,10 @@ Each of them says so in its own body.
 
   Picked up (2026-09-25) by ut-ants-a5, main checkout.
   Taken over (2026-09-25) by ut-ants-3c, main checkout.
+  Built (2026-09-25, 0a33174): the result file keeps the bake's
+  bakerVersion, ut-bake --game-types reports today's, and the launcher
+  says baked only when they match. A result file from before names no
+  baker and reads as stale. Waiting on the push and a green matrix.
   **Layman:** The map list will stop calling a map ready when its prepared files are out of date and need rebuilding.
   Kind: fix.
   Source: user-request-2026-09-25.
