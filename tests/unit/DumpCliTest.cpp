@@ -23,6 +23,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -564,7 +565,9 @@ TEST_CASE("UTA-0172 INV-1: without --wiring-graph the wiring object carries coun
     // so a bare "actors" search passes for the wrong reason.
     CHECK(plain.out.find("\"actors\": [") == std::string::npos);
     CHECK(plain.out.find("\"level\": {\"actors\": ") != std::string::npos);
-    CHECK(plain.out.find("\"chainsUnresolved\"") == std::string::npos);
+    // wiring's own count, which follows `dangling`'s array. `level` carries a
+    // chainsUnresolved of its own without any flag (UTA-0012 § 4.8).
+    CHECK(plain.out.find("], \"chainsUnresolved\"") == std::string::npos);
     // The keys that were there before this item are untouched.
     CHECK(plain.out.find("\"wiring\": {\"nodes\": ") != std::string::npos);
     CHECK(plain.out.find("\"edges\": ") != std::string::npos);
@@ -713,4 +716,258 @@ TEST_CASE("UTA-0172 INV-9: bInitiallyActive is null where the class family has n
     const std::string actors = actorsArray(result.out);
     CHECK(actorNamed(actors, "Bare0").find("\"bInitiallyActive\": null") != std::string::npos);
     CHECK(actorNamed(actors, "Gated0").find("\"bInitiallyActive\": false") != std::string::npos);
+}
+
+// ------------------------------------------------------------------ UTA-0012
+// The output-shape contract. docs/specs/UTA-0012-ut-dump-output-shape.md; the
+// invariant numbers below are that spec's. INV-1 is the UTA-0145 case above,
+// and INV-7's row shape is also held by the UTA-0136 cases.
+
+namespace {
+
+/// The text of the object that starts at `open` (a `{`), by brace depth,
+/// skipping strings.
+std::string objectAt(const std::string& json, std::size_t open) {
+    int depth = 0;
+    bool inString = false;
+    for (std::size_t i = open; i < json.size(); ++i) {
+        const char ch = json[i];
+        if (inString) {
+            if (ch == '\\') ++i;
+            else if (ch == '"') inString = false;
+        } else if (ch == '"') {
+            inString = true;
+        } else if (ch == '{' || ch == '[') {
+            ++depth;
+        } else if ((ch == '}' || ch == ']') && --depth == 0) {
+            return json.substr(open, i - open + 1);
+        }
+    }
+    return {};
+}
+
+/// The keys of the object `object`, at its own depth only, in order. A key is
+/// a string at depth 1 followed by a colon. Local to this test, so INV-4 needs
+/// no JSON library (spec § 7).
+std::vector<std::string> keysOf(const std::string& object) {
+    std::vector<std::string> keys;
+    int depth = 0;
+    for (std::size_t i = 0; i < object.size(); ++i) {
+        const char ch = object[i];
+        if (ch == '"') {
+            std::size_t end = i + 1;
+            while (end < object.size() && object[end] != '"') end += object[end] == '\\' ? 2 : 1;
+            std::size_t after = end + 1;
+            while (after < object.size() && object[after] == ' ') ++after;
+            if (depth == 1 && after < object.size() && object[after] == ':')
+                keys.push_back(object.substr(i + 1, end - i - 1));
+            i = end;
+        } else if (ch == '{' || ch == '[') {
+            ++depth;
+        } else if (ch == '}' || ch == ']') {
+            --depth;
+        }
+    }
+    return keys;
+}
+
+/// The object held by `"key": {` inside `json`, or empty when absent.
+std::string member(const std::string& json, std::string_view key) {
+    const std::size_t at = json.find("\"" + std::string{key} + "\": {");
+    if (at == std::string::npos) return {};
+    return objectAt(json, json.find('{', at));
+}
+
+/// Every package object of a document-form run, in order.
+std::vector<std::string> packagesOf(const std::string& out) {
+    std::vector<std::string> packages;
+    const std::size_t list = out.find("\"packages\": [");
+    if (list == std::string::npos) return packages;
+    for (std::size_t at = out.find('{', list); at != std::string::npos; at = out.find('{', at)) {
+        const std::string object = objectAt(out, at);
+        if (object.empty()) break;
+        packages.push_back(object);
+        at += object.size();
+    }
+    return packages;
+}
+
+/// The integer after `"key": ` in `json`, or -1 when absent.
+long long integerOf(const std::string& json, std::string_view key) {
+    const std::string needle = "\"" + std::string{key} + "\": ";
+    const std::size_t at = json.find(needle);
+    if (at == std::string::npos) return -1;
+    return std::stoll(json.substr(at + needle.size()));
+}
+
+using Keys = std::vector<std::string>;
+
+} // namespace
+
+TEST_CASE("UTA-0012 INV-2: packages come in path order and each names its file", "[dump]") {
+    const TempDir dir;
+    writeMap(dir, inv11Map());
+    const fs::path a = dir.path() / "Maps" / "A.unr";
+    const fs::path b = dir.path() / "Maps" / "B.unr";
+    writeFile(a, inv11Map().build());
+    writeFile(b, inv11Map().build());
+
+    // Named B first: argument order and path order disagree.
+    const Run result = run({"--system", (dir.path() / "System").string(), b.string(), a.string()});
+    REQUIRE(result.code == 0);
+    const std::vector<std::string> packages = packagesOf(result.out);
+    REQUIRE(packages.size() == 2);
+    CHECK(packages[0].find("\"file\": \"" + a.string() + "\"") != std::string::npos);
+    CHECK(packages[1].find("\"file\": \"" + b.string() + "\"") != std::string::npos);
+}
+
+TEST_CASE("UTA-0012 INV-3: a package that does not open is its own element and the run goes on", "[dump]") {
+    const TempDir dir;
+    const fs::path mapPath = writeMap(dir, inv11Map());
+    const fs::path empty = dir.path() / "Maps" / "Empty.unr";
+    const fs::path garbage = dir.path() / "Maps" / "Garbage.unr";
+    writeFile(empty, std::vector<std::uint8_t>{});
+    writeFile(garbage, std::vector<std::uint8_t>{'n', 'o', 't'});
+
+    const Run result = run({"--system", (dir.path() / "System").string(), empty.string(),
+                            garbage.string(), mapPath.string()});
+    REQUIRE(result.code == 0);
+    const std::vector<std::string> packages = packagesOf(result.out);
+    REQUIRE(packages.size() == 3);
+    // Path order: Empty, Garbage, MH-Fixture.
+    CHECK(keysOf(packages[0]) == Keys{"file", "ok", "error"});
+    CHECK(packages[0].find("\"error\": \"unreadable or empty\"") != std::string::npos);
+    CHECK(keysOf(packages[1]) == Keys{"file", "ok", "error"});
+    CHECK(packages[1].find("\"error\": \"package did not open\"") != std::string::npos);
+    CHECK(packages[2].find("\"ok\": true") != std::string::npos);
+}
+
+TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
+    const TempDir dir;
+    const fs::path mapPath = writeMap(dir, inv11Map());
+    const fs::path engine = dir.path() / "System" / "Engine.u";
+    const std::string system = (dir.path() / "System").string();
+
+    // A package with no Level.
+    const Run plainSystem = run({"--system", system, engine.string()});
+    REQUIRE(plainSystem.code == 0);
+    const std::vector<std::string> nonMap = packagesOf(plainSystem.out);
+    REQUIRE(nonMap.size() == 1);
+    CHECK(keysOf(nonMap[0])
+          == Keys{"file", "ok", "bytes", "exports", "imports", "importedPackages", "classCounts", "level"});
+
+    const Keys mapKeys{"file",    "ok",        "bytes",        "exports",  "imports",
+                       "importedPackages", "classCounts", "level", "surfaces", "levelInfo",
+                       "levelSummary", "monsters", "nav", "wiring"};
+    const Run plain = run({"--system", system, mapPath.string()});
+    REQUIRE(plain.code == 0);
+    const std::string map = packagesOf(plain.out).at(0);
+    CHECK(keysOf(map) == mapKeys);
+    CHECK(keysOf(member(map, "level")) == Keys{"actors", "rawSlots", "reachSpecs", "chainsUnresolved"});
+    CHECK(keysOf(member(map, "surfaces")) == Keys{"total", "byTextureAndFlags"});
+    CHECK(keysOf(member(map, "monsters"))
+          == Keys{"factories", "capacity", "unlimitedFactories", "unknownCapacityFactories", "placedPawns",
+                  "unresolvedActors"});
+    CHECK(keysOf(member(map, "nav")) == Keys{"nodes", "edges", "discardedEndpoints", "nodesWithNoExit"});
+    CHECK(keysOf(member(map, "wiring")) == Keys{"nodes", "edges", "dangling"});
+
+    const Run full = run({"--system", system, "--nav-graph", "--wiring-graph", mapPath.string()});
+    REQUIRE(full.code == 0);
+    const std::string fullMap = packagesOf(full.out).at(0);
+    CHECK(keysOf(fullMap) == mapKeys);
+    CHECK(keysOf(member(fullMap, "nav"))
+          == Keys{"nodes", "edges", "discardedEndpoints", "nodesWithNoExit", "nodeList", "edgeList"});
+    CHECK(keysOf(member(fullMap, "wiring")) == Keys{"nodes", "edges", "dangling", "chainsUnresolved", "actors"});
+}
+
+TEST_CASE("UTA-0012 INV-5: classCounts counts every export and sums to exports", "[dump]") {
+    const TempDir dir;
+    MapBuilder map = inv11Map();
+    // A non-actor export beside the actors: a Level-only count misses it.
+    map.addObject("Engine", "LevelSummary", "LevelSummary", {});
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    REQUIRE(result.code == 0);
+    const std::string package = packagesOf(result.out).at(0);
+    const std::string counts = member(package, "classCounts");
+    INFO(counts);
+    long long sum = 0;
+    for (const std::string& key : keysOf(counts)) sum += integerOf(counts, key);
+    CHECK(sum == integerOf(package, "exports"));
+    const Keys keys = keysOf(counts);
+    CHECK(std::find(keys.begin(), keys.end(), "LevelSummary") != keys.end());
+}
+
+TEST_CASE("UTA-0012 INV-6: importedPackages is the outermost names once each and ascending", "[dump]") {
+    const TempDir dir;
+    MapBuilder map = inv11Map();
+    // A texture two outers deep: one link gives the GROUP, not the package.
+    map.addSurface(map.importTexture("Pkg", "Group", "Tex"));
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    REQUIRE(result.code == 0);
+    const std::string package = packagesOf(result.out).at(0);
+    const std::size_t at = package.find("\"importedPackages\": [");
+    REQUIRE(at != std::string::npos);
+    const std::string list = package.substr(at, package.find(']', at) - at);
+    INFO(list);
+    std::vector<std::string> names;
+    static const std::regex name(R"re("([^"]*)")re");
+    for (auto it = std::sregex_iterator(list.begin() + 20, list.end(), name); it != std::sregex_iterator(); ++it)
+        names.push_back((*it)[1].str());
+    CHECK(std::count(names.begin(), names.end(), "Engine") == 1);
+    CHECK(std::count(names.begin(), names.end(), "Pkg") == 1);
+    CHECK(std::count(names.begin(), names.end(), "Group") == 0);
+    CHECK(std::is_sorted(names.begin(), names.end()));
+    CHECK(std::set<std::string>(names.begin(), names.end()).size() == names.size());
+}
+
+TEST_CASE("UTA-0012 INV-7: nodeList and edgeList rows carry exactly the contract's keys", "[dump]") {
+    const TempDir dir;
+    const fs::path mapPath = writeMap(dir, inv11Map());
+    const Run result = run({"--system", (dir.path() / "System").string(), "--nav-graph", mapPath.string()});
+    REQUIRE(result.code == 0);
+    const std::string nav = member(packagesOf(result.out).at(0), "nav");
+    const std::size_t node = nav.find('{', nav.find("\"nodeList\": ["));
+    const std::size_t edge = nav.find('{', nav.find("\"edgeList\": ["));
+    REQUIRE(node != std::string::npos);
+    REQUIRE(edge != std::string::npos);
+    CHECK(keysOf(objectAt(nav, node)) == Keys{"export", "name", "class"});
+    CHECK(keysOf(objectAt(nav, edge))
+          == Keys{"from", "to", "distance", "collisionRadius", "collisionHeight", "reachFlags", "pruned"});
+}
+
+TEST_CASE("UTA-0012 INV-8: level.chainsUnresolved counts each unresolved actor once without a flag", "[dump]") {
+    const TempDir dir;
+    const std::string system = (dir.path() / "System").string();
+
+    // The same map with and without two more actors: one whose class lives in
+    // a package the install lacks, named in two Level slots so a count over
+    // slots adds 2 rather than 1; and one with no class at all, which has no
+    // chain to cut short and adds nothing, as wiring.actors reports it.
+    const fs::path base = writeMap(dir, inv11Map());
+    MapBuilder ghostMap = inv11Map();
+    ghostMap.addActor("Ghost0", ghostMap.importClass("NoSuchPackage", "Ghost"));
+    ghostMap.addActor("Nothing0", 0);
+    ghostMap.repeatActorSlot(6);
+    const fs::path ghost = dir.path() / "Maps" / "MH-Ghost.unr";
+    writeFile(ghost, ghostMap.build());
+
+    const Run plain = run({"--system", system, base.string(), ghost.string()});
+    REQUIRE(plain.code == 0);
+    const std::vector<std::string> packages = packagesOf(plain.out);
+    REQUIRE(packages.size() == 2);
+    // Path order: MH-Fixture, MH-Ghost.
+    const long long without = integerOf(member(packages[0], "level"), "chainsUnresolved");
+    const long long with = integerOf(member(packages[1], "level"), "chainsUnresolved");
+    REQUIRE(without >= 0);
+    CHECK(with == without + 1);
+
+    const Run flagged = run({"--system", system, "--wiring-graph", ghost.string()});
+    REQUIRE(flagged.code == 0);
+    const std::string package = packagesOf(flagged.out).at(0);
+    CHECK(integerOf(member(package, "level"), "chainsUnresolved") == with);
+    CHECK(integerOf(member(package, "wiring"), "chainsUnresolved") == with);
 }

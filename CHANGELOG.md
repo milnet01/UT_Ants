@@ -17,6 +17,14 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-dump's output has a written contract, and each map now reports how many of its actors belong to a class that could not be traced.** (UTA-0012)
+  docs/specs/UTA-0012-ut-dump-output-shape.md names every key and its
+  meaning. packages[] stays in path order: key on `file`. `schema` moves
+  only when a key is removed, renamed or retyped, or its meaning changes.
+  The new level.chainsUnresolved needs no flag. Such actors silently drop
+  out of the navigation graph, so a map with a broken network no longer
+  just looks small.
+
 - **ut-dump can list which switches and triggers in a map fire which others** (UTA-0172)
   `ut-dump --wiring-graph` now writes out every actor in a map with its
   class family, its tag and the events it fires. That is enough to work

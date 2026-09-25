@@ -377,6 +377,49 @@ ActorKind kindOf(const uta::upkg::Package& package, std::string_view packageName
     return kind;
 }
 
+/// Each class family's ActorKind, walked once per class and shared by the
+/// monster total and `level.chainsUnresolved` -- UTA-0012 SS 13: the count
+/// adds no ancestry walk. Keyed by the package a class reference is read in
+/// and the raw reference.
+class ClassKinds {
+public:
+    explicit ClassKinds(const uta::upkg::PackageResolver& resolver) : resolver_(resolver) {}
+
+    const ActorKind& of(const uta::upkg::Package& package, std::string_view packageName,
+                        uta::upkg::ObjectReference reference) {
+        auto found = kinds_.find({&package, reference.raw()});
+        if (found == kinds_.end())
+            found = kinds_.emplace(std::pair{&package, reference.raw()},
+                                   kindOf(package, packageName, reference, resolver_))
+                        .first;
+        return found->second;
+    }
+
+private:
+    const uta::upkg::PackageResolver& resolver_;
+    std::map<std::pair<const uta::upkg::Package*, std::int32_t>, ActorKind> kinds_;
+};
+
+/// UTA-0012 SS 4.8: the level's actors, each export once, whose class chain
+/// does not end at the root. An actor with no class has no chain to cut short
+/// and does not count, as writeActorWiring reports it -- the same population
+/// as its `chainsUnresolved`, which INV-8 holds.
+long long unresolvedChains(const uta::upkg::Package& map, std::string_view mapName,
+                           const uta::upkg::Level& level, ClassKinds& kinds) {
+    long long unresolved = 0;
+    std::set<std::uint32_t> seen;
+    for (const uta::upkg::ObjectReference slot : level.actors) {
+        if (slot.kind() != uta::upkg::ObjectReferenceKind::Export || slot.index() >= map.exports().size()
+            || !seen.insert(slot.index()).second)
+            continue;
+        const uta::upkg::ExportEntry& entry = map.exports()[slot.index()];
+        if (entry.objectClass.kind() != uta::upkg::ObjectReferenceKind::Null
+            && !kinds.of(map, mapName, entry.objectClass).resolved)
+            ++unresolved;
+    }
+    return unresolved;
+}
+
 /// The whole-map monster total: the capacity of every ThingFactory descendant
 /// whose prototype is a monster, the actor's own else its class family's, and
 /// every monster placed in the map. A monster is a ScriptedPawn descended from
@@ -387,18 +430,11 @@ ActorKind kindOf(const uta::upkg::Package& package, std::string_view packageName
 /// summed. An actor, or a factory's prototype, whose class family did not
 /// resolve cannot be sorted, and is counted too, so an incomplete total says so.
 void writeMonsters(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
-                   const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
+                   const uta::upkg::Level& level, ClassKinds& kinds) {
     long long factories = 0, capacity = 0, unlimited = 0, unknown = 0, pawns = 0, unresolved = 0;
-    // By the package a class reference is read in, and the raw reference.
-    std::map<std::pair<const uta::upkg::Package*, std::int32_t>, ActorKind> kinds;
     const auto kindIn = [&](const uta::upkg::Package& package, std::string_view packageName,
                             uta::upkg::ObjectReference reference) -> const ActorKind& {
-        auto found = kinds.find({&package, reference.raw()});
-        if (found == kinds.end())
-            found = kinds.emplace(std::pair{&package, reference.raw()},
-                                  kindOf(package, packageName, reference, resolver))
-                        .first;
-        return found->second;
+        return kinds.of(package, packageName, reference);
     };
     std::set<std::uint32_t> seen;
     for (const uta::upkg::ObjectReference slot : level.actors) {
@@ -769,18 +805,21 @@ void dumpPackage(std::ostream& out, const fs::path& path, SystemPackages& system
         return;
     }
 
+    auto resolver = system.resolver();
+    ClassKinds kinds{resolver};
+
     out << ",\n  \"level\": {";
     out << "\"actors\": " << level->actors.size();
     out << ", \"rawSlots\": " << level->rawSlotCount;
     out << ", \"reachSpecs\": " << level->reachSpecs.size();
+    out << ", \"chainsUnresolved\": " << unresolvedChains(*package, path.stem().string(), *level, kinds);
     out << "}";
 
     writeSurfaces(out, *package, *level);
 
-    auto resolver = system.resolver();
     writeCredits(out, "levelInfo", *package, levelInfoOf(*package, *level));
     writeCredits(out, "levelSummary", *package, firstExportOf(*package, "LevelSummary"));
-    writeMonsters(out, *package, path.stem().string(), *level, resolver);
+    writeMonsters(out, *package, path.stem().string(), *level, kinds);
 
     const auto nav = uta::unav::buildNavGraph(*package, *level, resolver);
     if (nav.has_value()) {
@@ -888,6 +927,10 @@ int usage(std::ostream& err) {
         "through the class family's defaults. It answers whether anything in\n"
         "the map can switch a given actor on. The array is roughly the map's\n"
         "actor count, which is why it is opt-in.\n"
+        "\n"
+        "Packages are listed in path order, not argument order: key on each\n"
+        "one's `file`. docs/specs/UTA-0012-ut-dump-output-shape.md is the\n"
+        "output's contract.\n"
         "\n"
         "--ndjson writes one line per JSON object instead of one document: a\n"
         "header line holding the schema, then each package's object, in the\n"

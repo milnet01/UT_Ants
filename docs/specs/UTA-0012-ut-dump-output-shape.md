@@ -1,8 +1,9 @@
 # UTA-0012 — `ut-dump`: the output-shape contract
 
-**Status:** draft (2026-09-25). Sent to UT_MonsterHunt, the consumer, before
-it is fixed. Whether `review-contract` runs is the user's call, asked when the
-consumer's objections are in.
+**Status:** accepted (2026-09-25). **No `review-contract` gate ran**, by the
+user's decision of 2026-09-25: the consumer checked every key its code reads
+against § 4, and INV-4 fails on any key change the list does not carry.
+Recorded here so an ungated document is never mistaken for a converged one.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0012 (design-2026-09-03), scoped by the user
 2026-09-21.
@@ -229,7 +230,9 @@ Scope decision 5's rule, applied:
 | An actor whose class chain does not reach the root | **`level.chainsUnresolved`** (new) |
 
 **`level.chainsUnresolved`** counts the level's actors, each export once,
-whose class chain does not end at the root. An actor with no class counts.
+whose class chain does not end at the root. An actor with no class does not
+count: it has no chain to cut short, and `wiring.actors` reports it with an
+empty chain ending `root` (UTA-0172).
 It is present without any flag, because the actors it counts are exactly the
 ones the navigation graph silently leaves out. It equals
 `wiring.chainsUnresolved` wherever both are emitted: same population, same
@@ -336,13 +339,13 @@ A consumer is added to this table when it tells us what it reads.
   once, whose class chain does not reach the root, and equals
   `wiring.chainsUnresolved` under `--wiring-graph`.
   *Test:* `tests/unit/DumpCliTest.cpp`: a fixture map with an actor whose
-  class's parent lives in a package the fixture System lacks, one actor of a
-  resolved class, and one actor named in two Level slots. `level.chainsUnresolved`
-  is 1, both without flags and with `--wiring-graph`, and there it equals
-  `wiring.chainsUnresolved`.
+  class lives in a package the fixture System lacks, named in two Level
+  slots, and an actor with no class. Against the same map without those two,
+  `level.chainsUnresolved` rises by exactly 1, without any flag. Under
+  `--wiring-graph` it equals `wiring.chainsUnresolved`.
   *Breaks when:* the key is emitted only under a flag; a resolved actor is
-  counted; a doubly-slotted actor is counted twice; or the two counts use
-  different populations.
+  counted, which the equality catches; a doubly-slotted actor is counted
+  twice; or a classless actor is counted.
 
 ## 6. Failure modes
 
@@ -418,15 +421,20 @@ test and reads keys at one depth.
 ## 12. Cold-eyes loop log
 
 `docs/reviews/UTA-0012-ut-dump-output-shape-loop-log.md`. Empty: no review
-loop has run.
+loop has run, by the user's decision recorded in the Status line.
 
 ## 13. Resource cost
 
 `level.chainsUnresolved` needs each actor class's chain walked to the root
 without any flag. `writeMonsters` already resolves each distinct class once
 per map and records whether its chain completed (`ActorKind::resolved`), so
-the count can reuse that cache and add no walk. The no-flag run over the
-install is measured before and after, and must not grow measurably.
+the count can reuse that cache and add no walk.
+
+Measured 2026-09-25: the no-flag `--ndjson` run over the install's `Maps/`,
+old binary and new, alternated twice. Old 265 s and 305 s, new 198 s and
+290 s, with other work on the machine. So no growth is visible above the
+noise. Across every package the two outputs differ only by
+`level.chainsUnresolved`.
 
 ## 14. Open questions
 

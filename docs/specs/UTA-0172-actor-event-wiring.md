@@ -444,7 +444,9 @@ case-sensitive.
 
 ## 9. Out of scope
 
-- The `ut-dump` output-shape contract as a whole — UTA-0012, § 11.
+- The `ut-dump` output-shape contract as a whole —
+  `docs/specs/UTA-0012-ut-dump-output-shape.md`, which cites this document
+  for `wiring.actors` and `wiring.chainsUnresolved`.
 - `packages[]` ordering — UTA-0203.
 - Deciding an exit's state in a **running** level. This document's oracle is
   the file at load (scope decision 5). Grading file-level against first-Tick
@@ -471,6 +473,9 @@ result recorded on the roadmap item.
 
 ## 11. Cross-doc impact
 
+- **Superseded 2026-09-25:** UTA-0012 now has its spec,
+  `docs/specs/UTA-0012-ut-dump-output-shape.md`. What follows records the
+  state when this document was written.
 - **UTA-0012 has no spec, and this document does not create one.** `ut-dump`
   is mentioned in eight documents under `docs/specs/` and is the subject of
   none, so its output shape — `packages`, `classCounts`, `nav`, `surfaces`,
