@@ -817,8 +817,16 @@ TEST_CASE("UTA-0012 INV-2: packages come in path order and each names its file",
     REQUIRE(result.code == 0);
     const std::vector<std::string> packages = packagesOf(result.out);
     REQUIRE(packages.size() == 2);
-    CHECK(packages[0].find("\"file\": \"" + a.string() + "\"") != std::string::npos);
-    CHECK(packages[1].find("\"file\": \"" + b.string() + "\"") != std::string::npos);
+    // Spelled as the tool writes it: JSON doubles every Windows backslash,
+    // so the raw path matches on Linux only.
+    const auto fileKey = [](const fs::path& path) {
+        std::ostringstream key;
+        key << "\"file\": ";
+        uta::tools::writeJsonString(key, path.string());
+        return key.str();
+    };
+    CHECK(packages[0].find(fileKey(a)) != std::string::npos);
+    CHECK(packages[1].find(fileKey(b)) != std::string::npos);
 }
 
 TEST_CASE("UTA-0012 INV-3: a package that does not open is its own element and the run goes on", "[dump]") {
