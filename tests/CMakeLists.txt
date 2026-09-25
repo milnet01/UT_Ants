@@ -63,6 +63,7 @@ add_executable(uta_unit_tests
     unit/MaterialGenerateTest.cpp
     unit/MaterialLibraryTest.cpp
     unit/NavGraphTest.cpp
+    unit/NavReachTest.cpp
     unit/NumericContractTest.cpp
     unit/OriginCliTest.cpp
     unit/ShotCliTest.cpp

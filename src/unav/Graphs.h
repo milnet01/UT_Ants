@@ -47,8 +47,9 @@ struct NavEdge {
     std::uint32_t from = 0; ///< NODE POSITION, not an export index
     std::uint32_t to = 0;   ///< NODE POSITION, not an export index
     std::int32_t distance = 0;
-    /// Passed through ungraded. Nothing here or in UTA-0057 checks these
-    /// against an independent source; UTA-0006 SS 14 keeps that open.
+    /// Passed through raw. UTA-0085: unav/Reach.h names the bits and decides
+    /// whether a pawn may take the edge, and the real-asset tier checks that
+    /// no edge in the reference install carries a bit it does not name.
     std::int32_t collisionRadius = 0;
     std::int32_t collisionHeight = 0;
     std::int32_t reachFlags = 0;

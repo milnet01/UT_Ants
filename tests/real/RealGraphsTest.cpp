@@ -14,15 +14,18 @@
 #include "upkg/Properties.h"
 #include "unav/Build.h"
 #include "unav/Graphs.h"
+#include "unav/Reach.h"
 #include "real/RealSupport.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -300,6 +303,10 @@ TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold"
     // document, which is what keeps the worst case a measurement.
     long long widestNavMap = 0;
     long long widestWiringMap = 0;
+    // UTA-0085: every reach-flag bit seen, by bit, and edges carrying a bit no
+    // ReachFlag names.
+    std::array<long long, 32> reachBits{};
+    long long unknownReach = 0;
 
     for (const fs::directory_entry& entry : fs::directory_iterator(maps)) {
         if (!entry.is_regular_file() || foldCase(entry.path().extension().string()) != ".unr") {
@@ -338,6 +345,11 @@ TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold"
         endpoints += 2 * static_cast<long long>(level->reachSpecs.size());
         discardedEndpoints += nav->discardedEndpoints;
         widestNavMap = std::max(widestNavMap, static_cast<long long>(nav->edges.size()));
+        for (const uta::unav::NavEdge& edge : nav->edges) {
+            for (int bit = 0; bit < 32; ++bit)
+                if ((static_cast<std::uint32_t>(edge.reachFlags) >> bit) & 1u) ++reachBits[bit];
+            if (uta::unav::unknownReachBits(edge.reachFlags) != 0) ++unknownReach;
+        }
 
         wiringNodes += static_cast<long long>(wiring->nodes.size());
         wiringEdges += static_cast<long long>(wiring->edges.size());
@@ -372,6 +384,14 @@ TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold"
     REQUIRE(levels > 0);
     REQUIRE(navEdges > 0);
     REQUIRE(resolvedEvents > 0);
+
+    // UTA-0085: what the flags are on real maps, not only what the source's
+    // constants say they were meant to be.
+    std::ostringstream bits;
+    for (int bit = 0; bit < 32; ++bit)
+        if (reachBits[bit] > 0) bits << " bit " << bit << ": " << reachBits[bit] << ";";
+    WARN("reach-flag bits over " << navEdges << " edges:" << bits.str() << " unknown-bit edges " << unknownReach);
+    CHECK(unknownReach == 0);
 
     // Both floors sit well under their measurement and well over what a defect
     // produces: a builder using the wrong index space does not lose a few

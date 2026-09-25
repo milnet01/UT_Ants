@@ -4582,7 +4582,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-09.
   Lanes: unav, upkg.
 
-- 📋 [UTA-0086] **ut-dump: emit the bot-path graph as an edge list and a node list.**
+- ✅ [UTA-0086] **ut-dump: emit the bot-path graph as an edge list and a node list.**
   UTA-0012's third day-one query, split out now that UTA-0057 has shipped
   the ReachSpec graph it was blocked on.
 
@@ -4696,6 +4696,15 @@ Each of them says so in its own body.
   look. An arrangement that lives only in two sessions' contexts dies with
   whichever ends first. Put it in both projects' roadmaps and address the
   project.
+  Closed 2026-09-25 (ut-ants-3c): delivered by UTA-0136, whose
+  ut-dump --nav-graph emits edgeList (from, to, distance, collision
+  radius and height, reachFlags, pruned) and nodeList (export, name,
+  class) as separate keys, as the consumer asked. UTA-0198 and UTA-0189
+  added spec, location and the per-node Paths lists. UT_MonsterHunt reads
+  them in place of the T3D exports (GAME-0118 calibration, GAME-0124).
+  The Blocked-by on the reach-flag decode does not hold for this item:
+  the flags are emitted raw and each consumer applies its own rule.
+  Decoding them stays UTA-0085's.
   **Layman:** Print a map's bot paths from the command line, so they can be checked across the whole map library without loading the game.
   Kind: implement.
   Source: consumer-request-2026-09-09.
