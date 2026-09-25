@@ -1017,6 +1017,11 @@ Each of them says so in its own body.
   A reader that skips an installed map should report how many it skipped, whatever the reason. This is their GAME-0160 lesson generalised and it outlives the specific gap. UTA-0172 already does it as `chainsUnresolved`; the contract should make it the house rule rather than one key's habit.
 
   METHOD THAT WORKED ON UTA-0172 AND SHOULD BE REPEATED: send them the draft BEFORE it is fixed, while objecting is still cheap. Four objections arrived that way, each changing what got built, before a line of code existed.
+  Consumer input (2026-09-25, ut-monsterhunt-f0, their GAME-0124). For
+  the second-reader consumer entry, UT_MonsterHunt relies on these
+  fields: edgeList's reachFlags, collisionRadius, collisionHeight,
+  distance and pruned, and nodeList's name and class. That is the set
+  to pin. Their GAME-0124 no longer waits on UTA-0085.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
@@ -8657,7 +8662,7 @@ Each of them says so in its own body.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
   Lanes: ubake.
 
-- 📋 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
+- 🚧 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
   Found 2026-09-14 by UT_MonsterHunt, answering UTA-0139. Measured
   with ut-dump --nav-graph at 99a15b0: teleporter-to-teleporter reach
   specs carry reachFlags 32 (R_SPECIAL), collisionRadius 150 and
@@ -8764,6 +8769,58 @@ Each of them says so in its own body.
   CLAUDE.md saying this item waits on their re-check; it waits on OUR
   trigger census, queued after UTA-0172. That line is now corrected.
   Nothing is owed by them here.
+  Picked up (2026-09-25) by ut-ants-a5, main checkout. Scope: the
+  trigger census -- which actors fire the Tag of each teleporter that
+  starts disabled, leaving-direction rule, built on ut-dump
+  --wiring-graph (UTA-0172). No change to § 3 decision 10 in this claim.
+  User decisions (2026-09-25). Population: the 559 census maps, graded
+  against GAME-0120 on the 24. Enabled means any actor whose event
+  names the teleporter's tag; record the enabler's class. Reachability
+  of the enabler is not required. Outcome: cut only the links leaving a
+  teleporter that starts disabled and that nothing enables. That is a
+  § 3 decision 10 amendment. Whether it gets the rule 14 review is
+  asked when the amendment is ready.
+  Trigger census done (2026-09-25, ut-ants-a5). Files are in
+  /mnt/Games/Scripts/Linux/ut-paths-output-uta0142-triggers, README
+  there. Population: 557 of the 559 census maps. The two absent ones
+  have left the install and had no teleporter. Probe counts match the
+  first census on every map.
+
+  91 maps have a teleporter that starts disabled, 503 teleporters in
+  all. On 21 maps the start part holds one with a leaving link: 83
+  teleporters. 59 of those are named by another actor's event.
+  Enablers: Dispatcher, Trigger, Counter, Mover and four monster
+  classes. 24 are named by nothing, on three maps only:
+  MH-ArchionLava[Torus] (3, cutting VisibleTeleporter8 loses 126
+  nodes), MH-ArchionLava[Torus]-BP (14, cutting them loses 0) and
+  MH-UM-Capslock (7, cutting them loses 2). None of the lost nodes
+  touches an exit.
+
+  Against GAME-0120's verdicts on the 24: every "enabled later" map is
+  all-enabled here. Their misroute (Capslock) and their unmeasured map
+  ([Torus]) are the two maps with never-enabled teleporters that lose
+  nodes. [Torus]-BP ("no effect") loses 0. Their leaving_only_lost
+  column differs from ours on 5 maps. On MH-Godz it exceeds their own
+  either-end figure, which a subset cut cannot do. Asked them.
+
+  Not seen by a static census: tags fired from a class's script, and a
+  Trigger that toggles twice.
+  Built (2026-09-25, ut-ants-a5). The UTA-0121 spec is amended: § 3
+  decision 10 gains the dead-end teleporter rule, and INV-16 is added.
+  No rule 14 gate ran, by the user's decision. sceneOf drops a special
+  edge leaving a teleporter whose bEnabled is false and whose Tag no
+  other actor's event names. INV-16's test was seen failing first. Eight
+  hand mutations were each killed: ignore the enabler, drop arriving
+  edges, compare case-sensitively, skip OutEvents, read only OutEvents
+  element 0, count a teleporter as naming itself, drop nothing, drop any
+  flag. 696 unit tests are green locally.
+
+  Effect: the old and new ut-paths write byte-identical files for all 17
+  census maps holding such a teleporter. UT_MonsterHunt explained our
+  five-map disagreement: their column reached from every start at once,
+  over flying edges too. Our figures stand, and their route check's
+  file_version stays. The README records which start counts.
+  Remaining: green on the matrix, then flip and ping UT_MonsterHunt.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
@@ -12258,6 +12315,28 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-09-16.
   Lanes: ut-ants.
+
+- 📋 [UTA-0205] **The map launcher's player cannot use teleporters, so a map whose first room exits by teleporter cannot be left.**
+  Reported by the user 2026-09-25, from the map launcher. On a map whose
+  start room is left only by a teleporter, walking into it does nothing.
+  So the rest of the map is out of reach.
+
+  UT's rule, from UT 469e's Engine/Classes/Teleporter.uc: Touch does
+  nothing while bEnabled is false. Otherwise a URL naming a Tag moves the
+  toucher to the teleporter carrying that Tag, and Trigger toggles
+  bEnabled. The bake's placements already hold each actor's properties,
+  so URL, Tag and bEnabled are in the bundle today. Not checked: whether
+  the launcher reads them.
+
+  Placed in 0.2.0 because teleporting is player movement, whose model is
+  UTA-0017's. 0.1.0 is bake and render, and UTA-0204 records it already
+  holds work its release does not wait on. The user may move it.
+  Related: UTA-0142 settles which teleporters start switched off and what
+  switches them on.
+  **Layman:** Stepping into a teleporter in the map launcher does nothing, so maps that start in a room with only a teleporter out can't be explored.
+  Kind: feature.
+  Source: user-request-2026-09-25.
+  Lanes: uworld, app.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

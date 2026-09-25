@@ -1,7 +1,8 @@
-// Locks INV-5 to INV-14 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
+// Locks INV-5 to INV-14 and INV-16 of docs/specs/UTA-0121-bot-path-seeds.md: routes and
 // the nodes proposed along them, the file, the command line, the scene, the
 // off-world mark, which navigation point the fallback goal is keyed on, and
-// the word an exit with no route carries.
+// the word an exit with no route carries, and the links a teleporter nothing
+// switches on cannot send a bot down.
 //
 // INV-5 to INV-8 build their scenes in memory, with tests/unit/PathFixture.h
 // (that spec's SS 7). INV-9 drives the command line over a census written to a
@@ -166,6 +167,8 @@ uta::test::bake::MemoryPackages seedPackages() {
                     {floatProperty("CollisionRadius", 18), floatProperty("CollisionHeight", 40)});
     engine.addClass("PathNode", navigation);
     engine.addClass("Teleporter", navigation);
+    engine.addClass("Trigger");
+    engine.addClass("Dispatcher");
     Packer monsterHunt;
     monsterHunt.addClass("MonsterEnd", 0,
                          {floatProperty("CollisionRadius", 40), floatProperty("CollisionHeight", 40)});
@@ -693,4 +696,52 @@ TEST_CASE("INV-14: the scene's teleporters descend from Teleporter at their reso
     INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));
     REQUIRE(scene.has_value());
     CHECK(scene->teleporters == std::vector<Vec3>{{7, 8, 9}});
+}
+
+TEST_CASE("INV-16: a switched-off teleporter nothing switches on sends nobody on", "[paths][seeds]") {
+    // Four teleporters, each switched off, each joined to one PathNode by a
+    // special spec each way. Only an event naming the tag -- case-folded, in
+    // any OutEvents element, from another actor -- keeps the link LEAVING it;
+    // the link arriving at it is kept regardless (SS 3 decision 10).
+    using namespace uta::test::bake;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", -200, 0, 0)})
+        .addActorOfClass("MonsterHunt", "MonsterEnd", {vectorProperty("Location", -400, 0, 0)})
+        .addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 0, 0, 0)});
+    const auto teleporter = [&](float x, std::string tag, std::vector<PropertySpec> more = {}) {
+        std::vector<PropertySpec> properties = {vectorProperty("Location", x, 0, 0),
+                                                boolProperty("bEnabled", false),
+                                                nameProperty("Tag", std::move(tag))};
+        for (PropertySpec& property : more) properties.push_back(std::move(property));
+        map.addActorOfClass("Engine", "Teleporter", std::move(properties));
+    };
+    teleporter(100, "gateA");                                       // named by nothing
+    teleporter(200, "gateB");                                       // a Trigger's Event, other case
+    teleporter(300, "gateC");                                       // a Dispatcher's OutEvents(3)
+    teleporter(400, "gateD", {nameProperty("Event", "gateD")});     // only by itself
+    map.addActorOfClass("Engine", "Trigger", {nameProperty("Event", "GATEB")})
+        .addActorOfClass("Engine", "Dispatcher", {nameAtProperty("OutEvents", 3, "gateC")});
+    // Q, actor 9, takes a WALKING spec from A: only a special link is cut.
+    map.addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 50, 0, 0)});
+    constexpr std::size_t P = 2, Q = 9;
+    for (std::size_t t = 3; t <= 6; ++t) map.addReachSpec(t, P, 17, 39, 32).addReachSpec(P, t, 17, 39, 32);
+    map.addReachSpec(3, Q, 17, 39, 1);
+
+    const auto scene = sceneOfBuilt(map);
+    INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));
+    REQUIRE(scene.has_value());
+    const auto at = [&](double x) {
+        for (std::size_t i = 0; i < scene->network.size(); ++i)
+            if (scene->network[i] == Vec3{x, 0, 0}) return i;
+        FAIL("no navigation point at x " << x);
+        return std::size_t{0};
+    };
+    const std::set<std::pair<std::size_t, std::size_t>> kept(scene->edges.begin(), scene->edges.end());
+    const std::set<std::pair<std::size_t, std::size_t>> expected = {
+        {at(0), at(100)},                     // arriving at A
+        {at(100), at(50)},                    // walking off A
+        {at(200), at(0)}, {at(0), at(200)},   // B, both ways
+        {at(300), at(0)}, {at(0), at(300)},   // C, both ways
+        {at(0), at(400)}};                    // arriving at D
+    CHECK(kept == expected);
 }

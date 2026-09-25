@@ -486,6 +486,11 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **ut-paths no longer follows a link out of a teleporter that starts switched off and that nothing in the map switches on.** (UTA-0142)
+  A teleporter that some trigger, counter, dispatcher, mover or monster
+  switches on keeps its links, as the game's own route planner does. On
+  UT_MonsterHunt's census no map's output changes.
+
 - **Maps whose names use accented letters no longer make the developer tools' output unreadable** (UTA-0202)
   A texture called `Telaraña` used to be copied out byte for byte, which
   made the whole file invalid JSON -- a strict reader failed on it before

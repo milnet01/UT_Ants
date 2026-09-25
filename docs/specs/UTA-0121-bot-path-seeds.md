@@ -17,6 +17,9 @@ and the walk graph indexes the laid columns alone, with INV-15 added; INV-7
 now names § 4.7's last resort. Accepted again (2026-09-14), at the review's
 cap. Its code is built (UTA-0140). The measurements behind it are on
 ROADMAP UTA-0140.
+Amended for UTA-0142 (2026-09-25): § 3 decision 10 drops a special link
+leaving a teleporter that starts switched off and that nothing switches on,
+with INV-16 added. The census behind it is on ROADMAP UTA-0142.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -119,6 +122,26 @@ The choices below are mine, the user being away and having left them to me.
     exit only over flying specs, so nodes chained from it helped no bot.
     Source: <https://github.com/stephank/surreal> (UT 4.32's public
     headers) and <https://github.com/Slipyx/UT99> (`Botpack/Bot.uc`).
+
+    **A teleporter nothing switches on is a dead end** (UTA-0142,
+    2026-09-25). `Teleporter.Touch` sends nobody on while the touched
+    teleporter's `bEnabled` is false, and `Teleporter.Trigger` flips
+    `bEnabled`. So the network drops an `R_SPECIAL` edge that LEAVES a
+    teleporter when both hold:
+    - its resolved `bEnabled` is false;
+    - no other actor's event names its resolved `Tag`.
+    An event names a tag when the actor's resolved `Event`, `BumpEvent`,
+    `PlayerBumpEvent` or `FirstHatePlayerEvent`, or any element of its
+    `OutEvents`, equals the tag, case-folded.
+    Three cases keep their edges:
+    - an edge arriving at such a teleporter, because `Touch` checks only
+      the teleporter touched;
+    - a teleporter that starts switched off and that some event names.
+      The engine's own planner routes through one at round start
+      (UT_MonsterHunt's GAME-0120, on MH-BunchOfHPSBFix);
+    - a teleporter with no resolved `Tag`, or an empty one.
+    Source: UT 469e's `Engine/Classes/Teleporter.uc` (`Touch`, `Trigger`,
+    `FindTriggerActor`).
 
 ## 4. Design
 
@@ -673,6 +696,32 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   moves the low room's spots onto -32768; or the bound is 32767 rather than
   32768, which drops the high room's spot at X 32768.
 
+- **INV-16** — The scene drops an `R_SPECIAL` edge leaving a teleporter
+  that starts switched off and that no other actor's event names. It keeps
+  every other edge § 3 decision 10 keeps.
+  *Test:* `tests/unit/PathSeedsTest.cpp`, through `sceneOf`, over INV-10's
+  map with four teleporters of a class the map declares under
+  `Engine.Teleporter`. Each has one special (32) spec to a PathNode and one
+  back.
+  - A has `bEnabled` false and a `Tag` that no event names.
+  - B has `bEnabled` false and a `Tag` that a Trigger's `Event` names in
+    other case.
+  - C has `bEnabled` false and a `Tag` named only by element 3 of a
+    Dispatcher's `OutEvents`.
+  - D has `bEnabled` false and a `Tag` that only D's own `Event` names.
+  A second PathNode takes a walking (1) spec from A.
+  `Scene::edges` holds both of B's and C's edges, the edges arriving at A
+  and D, and A's walking edge. It does not hold the special edges leaving
+  A or D.
+  *Breaks when:*
+  - every edge at a switched-off teleporter is dropped, which B catches;
+  - an edge arriving at one is dropped, which A's arriving edge catches;
+  - tags are compared case-sensitively, which B catches;
+  - `OutEvents` is not read, or only element 0 is, which C catches;
+  - a teleporter counts as naming itself, which D catches;
+  - nothing is dropped, which A catches;
+  - a walking edge leaving A is dropped, which A's walking edge catches.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -692,10 +741,10 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
 **Unit, on every CI leg:** `tests/unit/CoreMd5Test.cpp` for INV-1;
 `tests/unit/PathTraceTest.cpp` for INV-2; `tests/unit/PathWalkableTest.cpp`
 for INV-3, INV-4 and INV-15; `tests/unit/PathSeedsTest.cpp` for INV-5, INV-6, INV-7,
-INV-8, INV-9, INV-10, INV-11, INV-12, INV-13 and INV-14.
+INV-8, INV-9, INV-10, INV-11, INV-12, INV-13, INV-14 and INV-16.
 Each is seen failing before the code it locks exists. Trees and scenes are
 built in memory, with `tests/unit/PathFixture.h`, so only INV-9, INV-10,
-INV-11, and the second legs of INV-12 and INV-14, need an install or a fixture
+INV-11, INV-16, and the second legs of INV-12 and INV-14, need an install or a fixture
 map.
 
 **Real-asset tier, local only:** `tests/real/RealPathSeedsTest.cpp` runs over
@@ -774,8 +823,10 @@ invariant that names it.
   column (ROADMAP UTA-0127).
 - Where an off-world exit was meant to stand — ROADMAP UTA-0128.
 - Body-against-level collision for the game — UTA-0017.
-- Decoding reach-spec flags and sizes past the one test § 3 decision 10
+- Decoding reach-spec flags and sizes past the tests § 3 decision 10
   makes — UTA-0085.
+- A tag fired from a class's own script, and a Trigger that switches a
+  teleporter back off. Reading the map cannot see either (ROADMAP UTA-0142).
 - Writing a map file, or linking nodes — UT_MonsterHunt's and UT's editor's.
 
 ## 10. What checks this
@@ -785,7 +836,7 @@ invariant that names it.
 | INV-1 | `tests/unit/CoreMd5Test.cpp`, a unit test |
 | INV-2 | `tests/unit/PathTraceTest.cpp`, a unit test |
 | INV-3, INV-4, INV-15 | `tests/unit/PathWalkableTest.cpp`, a unit test |
-| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11, INV-12, INV-13, INV-14 | `tests/unit/PathSeedsTest.cpp`, a unit test |
+| INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-11, INV-12, INV-13, INV-14, INV-16 | `tests/unit/PathSeedsTest.cpp`, a unit test |
 | § 3 decisions 4 and 6 hold on real maps | **Partial:** `tests/real/RealPathSeedsTest.cpp` prints them; no CI leg runs it |
 | Proposed nodes help a bot reach the exit | **nothing** here — UT_MonsterHunt's census re-run (GAME-0095) is the measure |
 
@@ -806,6 +857,9 @@ invariant that names it.
   teleporters, ROADMAP UTA-0123 for stairs (ROADMAP UTA-0139). Their
   `analysis/seedpaths.py` reads `md5` and `nodes` only, so the new key breaks
   nothing there.
+- UT_MonsterHunt's GAME-0118 route file check keeps flag 32 too. When
+  INV-16 ships, they decide whether its `file_version` moves (ROADMAP
+  UTA-0142).
 
 ## 12. Cold-eyes loop log
 

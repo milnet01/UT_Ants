@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <map>
 #include <numbers>
 #include <optional>
 #include <queue>
@@ -84,6 +85,25 @@ const PropertyRecord* resolved(std::string_view name, ValueKind kind, const Acto
     return ubake::detail::resolvedRecord(
         name, actor.properties, actorClass.defaults,
         [kind](const PropertyRecord& record) { return record.kind == kind; });
+}
+
+/// The event names an actor fires, case-folded: its resolved Event, BumpEvent,
+/// PlayerBumpEvent and FirstHatePlayerEvent, and every OutEvents element, the
+/// actor's own element over its class default's (SS 3 decision 10).
+std::set<std::string> eventsOf(const ActorPlacement& actor, const ActorClass& actorClass) {
+    std::set<std::string> fired;
+    for (const std::string_view field : {"event", "bumpevent", "playerbumpevent", "firsthateplayerevent"})
+        if (const PropertyRecord* record = resolved(field, ValueKind::Name, actor, actorClass))
+            fired.insert(ubake::detail::fold(std::get<std::string>(record->value)));
+    std::map<std::uint32_t, std::string> outEvents;
+    for (const auto* list : {&actorClass.defaults, &actor.properties})
+        for (const PropertyRecord& record : *list)
+            if (record.kind == ValueKind::Name && ubake::detail::fold(record.name) == "outevents")
+                outEvents[record.arrayIndex] = std::get<std::string>(record.value);
+    for (const auto& [index, name] : outEvents) fired.insert(ubake::detail::fold(name));
+    fired.erase("");
+    fired.erase("none");
+    return fired;
 }
 
 /// A Location neither the actor nor its class sets is Actor.uc's, the origin.
@@ -426,10 +446,33 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
         position[i] = scene.network.size();
         scene.network.push_back(locationOf(*actor, placements.classes[actor->classIndex]));
     }
+    // A teleporter that starts switched off and whose Tag no OTHER actor's
+    // event names sends nobody on (SS 3 decision 10). Each tag maps to the
+    // actors firing it, so a teleporter naming itself is not counted.
+    std::map<std::string, std::set<const ActorPlacement*>> firedBy;
+    for (const ActorPlacement& actor : placements.actors)
+        for (const std::string& name : eventsOf(actor, placements.classes[actor.classIndex]))
+            firedBy[name].insert(&actor);
+    std::vector<bool> deadEnd(nav.nodes.size(), false);
+    for (std::size_t i = 0; i < nav.nodes.size(); ++i) {
+        const ActorPlacement* actor = placementOf(placements, nav.nodes[i].exportIndex);
+        if (actor == nullptr) continue;
+        const ActorClass& actorClass = placements.classes[actor->classIndex];
+        if (!descendsFrom(actorClass, "engine.teleporter")) continue;
+        const PropertyRecord* enabled = resolved("benabled", ValueKind::Bool, *actor, actorClass);
+        const PropertyRecord* tag = resolved("tag", ValueKind::Name, *actor, actorClass);
+        if (enabled == nullptr || std::get<bool>(enabled->value) || tag == nullptr) continue;
+        const std::string folded = ubake::detail::fold(std::get<std::string>(tag->value));
+        if (folded.empty() || folded == "none") continue;
+        const auto found = firedBy.find(folded);
+        deadEnd[i] = found == firedBy.end()
+                     || std::ranges::all_of(found->second, [&](const ActorPlacement* by) { return by == actor; });
+    }
+
     // Only the edges a walking bot may use (SS 3 decision 10).
     for (const unav::NavEdge& edge : nav.edges)
         if (walkable(edge) && position[edge.from] < nav.nodes.size()
-            && position[edge.to] < nav.nodes.size())
+            && position[edge.to] < nav.nodes.size() && !((edge.reachFlags & 32) != 0 && deadEnd[edge.from]))
             scene.edges.emplace_back(position[edge.from], position[edge.to]);
 
     // Each mover's box: its tree placed by its MOVR shape (UTA-0111 SS 4.5).
