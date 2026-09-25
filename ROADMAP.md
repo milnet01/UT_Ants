@@ -12145,7 +12145,7 @@ Each of them says so in its own body.
 
   Picked up (2026-09-25) by ut-ants-a5, main checkout.
   Taken over (2026-09-25) by ut-ants-3c, main checkout.
-  Built (2026-09-25, 0a33174): the result file keeps the bake's
+  Built (2026-09-25, 9311634): the result file keeps the bake's
   bakerVersion, ut-bake --game-types reports today's, and the launcher
   says baked only when they match. A result file from before names no
   baker and reads as stale. Waiting on the push and a green matrix.
