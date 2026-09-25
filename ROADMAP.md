@@ -871,7 +871,7 @@ Each of them says so in its own body.
   Source: design-2026-09-03.
   Lanes: ubake.
 
-- 📋 [UTA-0012] **ut-dump: inspect a package from the command line.**
+- 🚧 [UTA-0012] **ut-dump: inspect a package from the command line.**
   Ships to developers, who build it from source. Its command line is a
   breaking surface even so.
 
@@ -1022,6 +1022,10 @@ Each of them says so in its own body.
   fields: edgeList's reachFlags, collisionRadius, collisionHeight,
   distance and pruned, and nodeList's name and class. That is the set
   to pin. Their GAME-0124 no longer waits on UTA-0085.
+  Picked up (2026-09-25) by ut-ants-a5, main checkout. Scope: the
+  output-shape contract, docs/specs/UTA-0012-*.md, drafted from our own
+  Cli.cpp, with UT_MonsterHunt's docs/ut-dump-output-shape.md as input.
+  The draft goes to them before it is fixed. Then a test pins the shape.
   **Layman:** A developer tool that prints what is inside a UT file. Unglamorous, and the fastest way to find out why a bake went wrong.
   Kind: implement.
   Source: design-2026-09-03.
