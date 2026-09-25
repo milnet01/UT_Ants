@@ -412,6 +412,8 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **ut-bake makes several texture variants at once, a fifth to a quarter faster, with identical bundles** (UTA-0148)
+
 - **ut-paths builds its walk graph on every core, about five times faster, with identical output** (UTA-0149)
 
 - **Game packages are mapped read-only rather than copied, so the tools hold less memory the system cannot reclaim** (UTA-0144)

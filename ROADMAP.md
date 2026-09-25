@@ -9167,6 +9167,11 @@ Each of them says so in its own body.
 
   Still open: (2), a disk cache of compressed variants shared between
   bakes.
+  Finding (1) green on GitHub's matrix at fb8d02b (pushed with e7fffdc),
+  2026-09-26. The first push was stopped by the local gate's
+  ThreadSanitizer run: three BakeTest curated lookups recorded into a set
+  from several threads. They now lock, and Bake.h says the lookup is
+  called concurrently. The item stays open for finding (2).
   **Layman:** Baking a map is slow mostly because every texture is shrunk into game format again for every map, even the stock textures many maps share, and only one texture is worked on at a time.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.
