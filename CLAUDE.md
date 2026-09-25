@@ -5,7 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0142`, then `UTA-0012`.
+**Next:** `UTA-0012`.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
@@ -86,10 +86,10 @@ firmness.** The caution stands on its own. The case this file used to cite for
 it was theirs, and they corrected it on 2026-09-20; the correction is in the
 history file.
 
-**`UTA-0142` waits on OUR trigger census, queued after `UTA-0172`.**
-UT_MonsterHunt's in-game re-check was ANSWERED 2026-09-17 (their GAME-0120) —
-do not ask them for it again. This file said otherwise until 2026-09-20 and a
-session asked them to re-run work they had already delivered.
+**A teleporter that starts switched off still routes, unless nothing in the
+map switches it on** (`UTA-0142`, UTA-0121 § 3 decision 10). The game's own
+planner routes through one at round start, so do not cut its links on
+`bEnabled` alone.
 
 ## How work is done here
 

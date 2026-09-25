@@ -8662,7 +8662,7 @@ Each of them says so in its own body.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
   Lanes: ubake.
 
-- 🚧 [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
+- ✅ [UTA-0142] **ut-paths: the network step follows a teleporter link even where the teleporter starts disabled.**
   Found 2026-09-14 by UT_MonsterHunt, answering UTA-0139. Measured
   with ut-dump --nav-graph at 99a15b0: teleporter-to-teleporter reach
   specs carry reachFlags 32 (R_SPECIAL), collisionRadius 150 and
@@ -8821,6 +8821,8 @@ Each of them says so in its own body.
   over flying edges too. Our figures stand, and their route check's
   file_version stays. The README records which start counts.
   Remaining: green on the matrix, then flip and ping UT_MonsterHunt.
+  Shipped (2026-09-25): 1cd43d0 is green on the matrix, GCC 14,
+  Clang 19 and MSVC (run 36103245710). UT_MonsterHunt told.
   **Layman:** The path tool can count a switched-off teleporter as a way through, so it may think part of a map is reachable when a bot cannot get there yet.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-14.
