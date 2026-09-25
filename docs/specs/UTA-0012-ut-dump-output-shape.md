@@ -256,11 +256,17 @@ decaying.
 
 ### 4.10 Consumers
 
+Every UT_MonsterHunt reader also reads `schema`, `file` and `ok`. Listed by
+them on 2026-09-25, checked by them against § 4 and UTA-0172 § 4.3 to § 4.4.
+
 | Consumer | Reads | Why it matters |
 |---|---|---|
-| UT_MonsterHunt map checks (`analysis/exitsurvey.py`, GAME-0032) | `wiring.actors`, with `--wiring-graph` | The exit survey. UTA-0172 |
-| UT_MonsterHunt GAME-0124, the second reader | `edgeList`'s `reachFlags`, `collisionRadius`, `collisionHeight`, `distance`, `pruned`; `nodeList`'s `name`, `class` | It reads the file by a route other than the engine's. A change to these fields breaks the only independent check on a path build |
-| UT_MonsterHunt monster count (UTA-0173) | `monsters` | Monster totals per map |
+| `analysis/exitsurvey.py` (GAME-0032) | `wiring.chainsUnresolved`; `wiring.actors`' `index`, `class`, `classChain`, `chainEnd`, `tag`, `events` (`OutEvents` as an index-to-name object) and `bInitiallyActive`, with `null` read as unknown | The exit survey. UTA-0172 contracts these fields |
+| GAME-0124, the second reader (`analysis/mapcheck/facts.py`, `walking_adjacency`) | `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight`, `distance`, `pruned`; `nodeList`'s `name`, `class` | It reads the file by a route other than the engine's. A change here breaks the only independent check on a path build |
+| `analysis/mapcheck` checks | `nodeList`'s `name`, `class`; `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight` (the route check); `classCounts` (paths, starts); `importedPackages` (load) | Per-map checks |
+| `analysis/pathtriage.py` | `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit`; `classCounts`; `wiring.dangling` | Path triage |
+| `analysis/pathverify.py` | `classCounts`; `level.actors`; `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit` | Path verification |
+| `analysis/build_votedata.py` | `monsters.placedPawns`, `monsters.capacity`; `classCounts` | Map-vote data, monster totals (UTA-0173) |
 
 A consumer is added to this table when it tells us what it reads.
 
@@ -424,13 +430,16 @@ install is measured before and after, and must not grow measurably.
 
 ## 14. Open questions
 
-1. **Does the consumer accept contracting every key**, including the ones
-   their draft left out? Asked in the draft sent to them.
-2. **Do they want `level.chainsUnresolved`**, or does `monsters.unresolvedActors`
-   already serve them? Measured 2026-09-25 with today's
-   `ut-dump --wiring-graph --ndjson` over the install's `Maps/`, reading
-   `wiring.chainsUnresolved`: four maps are non-zero. On MH-SPNaliRescue the
-   unresolved actors are stock items — `Barrel`, `Health`, `NaliFruit`,
-   `Clip` — whose classes the resolver cannot find. That map is one of the
-   consumer's four empty path graphs. So the count finds a real silent loss
-   on its first run (ROADMAP UTA-0206).
+1. ~~**Does the consumer accept contracting every key?**~~ **Resolved
+   2026-09-25: yes.** UT_MonsterHunt raised no objection to scope decisions 1
+   to 5, and extended § 4.10.
+2. ~~**Do they want `level.chainsUnresolved`?**~~ **Resolved 2026-09-25:
+   keep it, always on**, by UT_MonsterHunt, because it names the loss without
+   a flag. `monsters.unresolvedActors` is a different count: `writeMonsters`
+   skips an unresolved ScriptedPawn and adds a factory's unresolved
+   prototype. Measured 2026-09-25 with `ut-dump --wiring-graph --ndjson` over
+   the install's `Maps/`, reading `wiring.chainsUnresolved`: four maps are
+   non-zero. On MH-SPNaliRescue the unresolved actors are stock items —
+   `Barrel`, `Health`, `NaliFruit`, `Clip` — whose classes the resolver
+   cannot find. That map is one of the consumer's four empty path graphs, so
+   the count finds a real silent loss on its first run (ROADMAP UTA-0206).
