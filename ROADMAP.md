@@ -12085,6 +12085,7 @@ Each of them says so in its own body.
   code so that two players' settings cannot give one map two bakes, and
   reading [PackageRemap] would break that. A new remap entry needs a
   code change.
+  Taken over (2026-09-25) by ut-ants-3c, main checkout.
   **Layman:** One old map's everyday items, like barrels and health packs, aren't recognised by our reader, so the map looks almost empty to our tools.
   Kind: investigate.
   Source: in-session-2026-09-25.
@@ -12121,6 +12122,11 @@ Each of them says so in its own body.
   installers. Then install VS 2022 Build Tools (VCTools workload), and
   the Vulkan SDK at 1.4.357.0, the version ci.yml pins. Then write the
   local matrix script, per the 2026-09-25 decisions above.
+  Taken over (2026-09-25) by ut-ants-3c, main checkout. winget
+  cannot open its source over SSH even after `winget source reset
+  --force` (the winget source update reports Cancelled), so the tools
+  are installed from their own installers instead: Git 2.55.0.5 and
+  CMake 4.4.3 are in; VS 2022 Build Tools is installing.
   **Layman:** Before anything is uploaded, the same three compiler checks GitHub runs now also run here, including Windows, so failures are caught first.
   Kind: chore.
   Source: user-request-2026-09-25.
@@ -12133,6 +12139,7 @@ Each of them says so in its own body.
   (format 14, UTA-0164; baker revision 21, UTA-0187).
 
   Picked up (2026-09-25) by ut-ants-a5, main checkout.
+  Taken over (2026-09-25) by ut-ants-3c, main checkout.
   **Layman:** The map list will stop calling a map ready when its prepared files are out of date and need rebuilding.
   Kind: fix.
   Source: user-request-2026-09-25.
