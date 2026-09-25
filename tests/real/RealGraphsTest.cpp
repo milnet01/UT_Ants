@@ -257,11 +257,21 @@ TEST_CASE("a navigation point's Paths entries index the level's reach-spec array
     REQUIRE(entries > 0);
     REQUIRE(navigationPoints > 0);
 
+    // The file never stores a negative slot: -1 is the default, left unstored.
+    CHECK(negatives == 0);
+
     // INV-2 and INV-3. Ninety-nine percent is a floor, not the measurement:
     // what is measured is far higher, and what a reader defect produces is far
-    // lower. The gap between those two is what makes the floor stable.
-    CHECK(inRange * 100 >= entries * 99);
-    CHECK(startIsTheNode * 100 >= entries * 99);
+    // lower. The gap between those two is what makes the floor stable -- ON
+    // THE REFERENCE INSTALL, where it was measured. UTA-0132: a stock install
+    // measured 98.7% and 93.9%, so elsewhere the rates are printed above and
+    // not asserted (user decision, 2026-09-25).
+    if (UTA_REFERENCE_INSTALL) {
+        CHECK(inRange * 100 >= entries * 99);
+        CHECK(startIsTheNode * 100 >= entries * 99);
+    } else {
+        WARN("not the reference install (UTA_REFERENCE_INSTALL is OFF): the 99% floors were not asserted");
+    }
 }
 
 TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold",

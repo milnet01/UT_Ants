@@ -220,7 +220,10 @@ measured; the gate runs it as its own step on Linux, and refuses on
 MSVC, which has no ThreadSanitizer. `-DUTA_REAL_ASSET_TESTS=ON` with
 `-DUTA_UT_INSTALL_DIR=<path>` adds the second test tier, off by default
 so a clone with no Unreal Tournament still builds and tests clean —
-that separation is what **S7** is measured on.
+that separation is what **S7** is measured on. On this machine add
+`-DUTA_REFERENCE_INSTALL=ON`: some of the tier's figures were measured on
+the reference install and are asserted only there (`UTA-0132`). Off, they
+are printed and not asserted.
 
 **There is no `UTA_SANITIZE=address`.** That option takes `''` or
 `'thread'` and refuses anything else with a `FATAL_ERROR`, so reach for

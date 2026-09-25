@@ -190,5 +190,11 @@ TEST_CASE("every Monster Hunt map's scene reads and the census prints", "[real-a
     for (const auto& [reason, count] : totals.refused) std::cout << "  refused, " << reason << ": " << count << "\n";
     for (const std::string& message : totals.refusals) std::cout << "    " << message << "\n";
 
-    CHECK(totals.withExit > 0);
+    // UTA-0132: a census of Monster Hunt exits has nothing to say about an
+    // install with no Monster Hunt maps, so it asserts only where there are.
+    const bool monsterHunt = std::ranges::any_of(maps, [](const fs::path& map) {
+        return uta::ubake::detail::fold(map.filename().string()).starts_with("mh-");
+    });
+    if (monsterHunt) CHECK(totals.withExit > 0);
+    else WARN("the install holds no MH- map, so the MonsterEnd count was not asserted");
 }

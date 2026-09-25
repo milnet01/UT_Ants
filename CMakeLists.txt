@@ -222,6 +222,10 @@ option(UTA_BUILD_TOOLS "Build the command-line tools" ON)
 # without a path is a configure error rather than a silently empty run.
 option(UTA_REAL_ASSET_TESTS "Also run tests against a real Unreal Tournament install" OFF)
 set(UTA_UT_INSTALL_DIR "" CACHE PATH "Unreal Tournament install to run UTA_REAL_ASSET_TESTS against")
+# UTA-0132: some of the tier's figures were measured on one install, and hold
+# only there. ON says UTA_UT_INSTALL_DIR is that install; OFF, any other, where
+# those checks print their figures and say they were not asserted.
+option(UTA_REFERENCE_INSTALL "UTA_UT_INSTALL_DIR is the install the real-asset figures were measured on" OFF)
 
 if(UTA_REAL_ASSET_TESTS AND NOT UTA_UT_INSTALL_DIR)
     message(FATAL_ERROR

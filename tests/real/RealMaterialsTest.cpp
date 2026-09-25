@@ -604,6 +604,12 @@ TEST_CASE("the curated seed is what its rules derive over the install", "[real-a
 
     REQUIRE(population > 0);
     CHECK(collisions == 0);
-    CHECK(missing == 0);
-    CHECK(extra == 0);
+    // UTA-0132: the seed table was derived from the reference install, so it
+    // matches that install and no other. Elsewhere the counts are printed above.
+    if (UTA_REFERENCE_INSTALL) {
+        CHECK(missing == 0);
+        CHECK(extra == 0);
+    } else {
+        WARN("not the reference install (UTA_REFERENCE_INSTALL is OFF): the seed table was not compared");
+    }
 }

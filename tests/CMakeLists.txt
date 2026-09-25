@@ -224,6 +224,7 @@ if(UTA_REAL_ASSET_TESTS)
         "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
     target_include_directories(uta_real_asset_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
     target_compile_definitions(uta_real_asset_tests
-        PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}")
+        PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}"
+                UTA_REFERENCE_INSTALL=$<BOOL:${UTA_REFERENCE_INSTALL}>)
     catch_discover_tests(uta_real_asset_tests PROPERTIES LABELS "real-assets;local-only")
 endif()
