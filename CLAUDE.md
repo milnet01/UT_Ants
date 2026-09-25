@@ -138,7 +138,9 @@ VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
 
 Without that variable the tier runs on this machine's GPU. **A device test that
 finds no device fails; it never skips** —
-`docs/specs/UTA-0014-vulkan-draw-path.md` § 3 decision 6.
+`docs/specs/UTA-0014-vulkan-draw-path.md` § 3 decision 6. **It also runs under
+the Khronos validation layer, and fails on any layer error or when the layer
+is not installed** (`UTA-0138`).
 
 `.githooks/pre-push` runs neither directly. It delegates to
 `$ANTS_GLOBAL_HOOKS/pre-push` whenever that variable is set to a

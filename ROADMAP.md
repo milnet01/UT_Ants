@@ -8383,6 +8383,23 @@ Each of them says so in its own body.
   src/urender/shaders/scene.frag says binds only the colour attachment by
   design. DM-Fetid printed nothing. Whether to silence it (a translucent
   shader variant with one output) belongs to this item.
+  Built (2026-09-25, ut-ants-3c). The open design point, settled: fail at
+  the next GPU submission. With validation, Gpu::create makes a
+  VK_EXT_debug_utils messenger that logs warnings and errors and counts
+  errors. Config::failOnValidationError makes Gpu::run, the one submit
+  point, fail once any error is counted, naming the first. The viewer's
+  --validation only logs. requireRenderer turns both on, and fails a
+  test when the layer is not running. CI's Linux legs install
+  vulkan-validationlayers.
+
+  Measured: all 51 device tests are clean validated, on lavapipe and on
+  this machine's GPU. Turning shaderDemoteToHelperInvocation off, the
+  defect this item was filed for, fails 49 of them with
+  vkCreateShaderModule's SPIR-V capability error.
+
+  The translucent pass's ShaderOutputNotConsumed is a WARNING, so it is
+  logged and fails nothing. It is left unsilenced: no device test raises
+  it.
   **Layman:** The renderer's tests check the pictures it draws, but nothing checks that it uses the graphics API correctly, so a misuse can pass every test.
   Kind: test.
   Source: in-session-2026-09-12.

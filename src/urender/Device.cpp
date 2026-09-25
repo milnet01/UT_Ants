@@ -208,6 +208,41 @@ Result<void> check(VkResult result, std::string_view call) {
     return fail(code, std::format("{} returned {}", call, resultName(result)));
 }
 
+namespace {
+
+/// UTA-0138: every warning and error the validation layer reports is logged,
+/// and errors are counted, so a device test can fail on one.
+VKAPI_ATTR VkBool32 VKAPI_CALL onValidationMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                                   VkDebugUtilsMessageTypeFlagsEXT,
+                                                   const VkDebugUtilsMessengerCallbackDataEXT* data, void* user) {
+    auto* log = static_cast<Gpu::ValidationLog*>(user);
+    const char* message = data != nullptr && data->pMessage != nullptr ? data->pMessage : "(no message)";
+    if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
+        if (log->errors.fetch_add(1) == 0) {
+            const std::scoped_lock lock(log->mutex);
+            log->first = message;
+        }
+        UTA_LOG(logRender, LogLevel::Error, "validation: {}", message);
+    } else {
+        UTA_LOG(logRender, LogLevel::Warning, "validation: {}", message);
+    }
+    return VK_FALSE; // never abort the call that raised it
+}
+
+VkDebugUtilsMessengerCreateInfoEXT messengerInfo(Gpu::ValidationLog* log) {
+    VkDebugUtilsMessengerCreateInfoEXT info{};
+    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    info.messageSeverity =
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    info.pfnUserCallback = onValidationMessage;
+    info.pUserData = log;
+    return info;
+}
+
+} // namespace
+
 Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::string> instanceExtensions,
                                          const std::function<std::uint64_t(std::uint64_t)>& createSurface) {
     std::unique_ptr<Gpu> gpu(new Gpu());
@@ -234,6 +269,11 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     // SS 4.3: the caller's window's extensions, and none on the surfaceless path.
     std::vector<const char*> extensionNames;
     for (const std::string& name : instanceExtensions) extensionNames.push_back(name.c_str());
+    // UTA-0138: the validation layer provides VK_EXT_debug_utils itself.
+    const bool messenger = !layers.empty();
+    if (messenger) extensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    // Chained into the instance too, so creating and destroying it is checked.
+    const VkDebugUtilsMessengerCreateInfoEXT instanceMessenger = messengerInfo(gpu->log_.get());
     VkInstanceCreateInfo instanceInfo{};
     instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instanceInfo.pApplicationInfo = &app;
@@ -241,12 +281,24 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     instanceInfo.ppEnabledLayerNames = layers.data();
     instanceInfo.enabledExtensionCount = static_cast<std::uint32_t>(extensionNames.size());
     instanceInfo.ppEnabledExtensionNames = extensionNames.data();
+    if (messenger) instanceInfo.pNext = &instanceMessenger;
     if (const VkResult r = vkCreateInstance(&instanceInfo, nullptr, &gpu->instance_); r != VK_SUCCESS) {
         gpu->instance_ = VK_NULL_HANDLE;
         return fail(ErrorCode::NotFound,
                     std::format("there is no Vulkan instance: vkCreateInstance returned {} -- no loader, "
                                 "or no driver behind it",
                                 resultName(r)));
+    }
+
+    if (messenger) {
+        const auto create = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(gpu->instance_, "vkCreateDebugUtilsMessengerEXT"));
+        const VkDebugUtilsMessengerCreateInfoEXT info = messengerInfo(gpu->log_.get());
+        if (create == nullptr || create(gpu->instance_, &info, nullptr, &gpu->messenger_) != VK_SUCCESS) {
+            gpu->messenger_ = VK_NULL_HANDLE;
+            UTA_LOG(logRender, LogLevel::Warning,
+                    "validation is loaded but its messenger was not made, so errors are NOT counted");
+        }
     }
 
     // SS 4.3: the surface is made from THIS instance, so a device chosen from it
@@ -336,6 +388,11 @@ Gpu::~Gpu() {
         vkDestroyDevice(device_, nullptr);
     }
     if (surface_ != VK_NULL_HANDLE) vkDestroySurfaceKHR(instance_, surface_, nullptr);
+    if (messenger_ != VK_NULL_HANDLE) {
+        if (const auto destroy = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+                vkGetInstanceProcAddr(instance_, "vkDestroyDebugUtilsMessengerEXT")))
+            destroy(instance_, messenger_, nullptr);
+    }
     if (instance_ != VK_NULL_HANDLE) vkDestroyInstance(instance_, nullptr);
 }
 
@@ -391,6 +448,13 @@ Result<void> Gpu::run(const std::function<void(VkCommandBuffer)>& record) {
     Result<void> outcome = check(vkQueueSubmit2(queue_, 1, &submit, fence), "vkQueueSubmit2");
     if (outcome) outcome = check(vkWaitForFences(device_, 1, &fence, VK_TRUE, UINT64_MAX), "vkWaitForFences");
     release();
+    if (outcome && failOnValidationError_) {
+        if (const std::uint32_t errors = log_->errors.load(); errors > 0) {
+            const std::scoped_lock lock(log_->mutex);
+            return fail(ErrorCode::Unknown, std::format("the Vulkan validation layer reported {} error(s); the first: {}",
+                                                        errors, log_->first));
+        }
+    }
     return outcome;
 }
 

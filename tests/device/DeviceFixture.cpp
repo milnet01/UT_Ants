@@ -23,8 +23,17 @@ void removeDisplay() {
 }
 
 urender::Renderer requireRenderer(const urender::Config& config) {
-    auto renderer = urender::Renderer::create(config);
+    // UTA-0138: the whole tier runs validated, and any layer error fails the
+    // test at the next GPU submission (user decision, 2026-09-13).
+    urender::Config validated = config;
+    validated.validation = true;
+    validated.failOnValidationError = true;
+    auto renderer = urender::Renderer::create(validated);
     if (!renderer.has_value()) FAIL("no renderer, so this device test cannot pass: " << renderer.error().message());
+    // Never a silent pass: a missing layer would let every error through.
+    if (!renderer->validating())
+        FAIL("the Vulkan validation layer is not running, so this device test is not checked "
+             "(UTA-0138): install the Khronos validation layer");
     return std::move(*renderer);
 }
 

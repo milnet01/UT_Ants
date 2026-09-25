@@ -14,10 +14,12 @@
 
 #include <vulkan/vulkan.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -105,8 +107,23 @@ public:
                                                    VkMemoryPropertyFlags wanted) const;
 
     /// Record with `record` into a fresh command buffer, submit it, and wait
-    /// for it to finish.
+    /// for it to finish. UTA-0138: with `failOnValidationError` set, it fails
+    /// once the validation layer has reported any error, naming the first.
     [[nodiscard]] Result<void> run(const std::function<void(VkCommandBuffer)>& record);
+
+    /// UTA-0138: whether the validation layer is loaded and reporting here.
+    [[nodiscard]] bool validating() const noexcept { return messenger_ != VK_NULL_HANDLE; }
+    /// UTA-0138: the error messages the validation layer has reported so far.
+    [[nodiscard]] std::uint32_t validationErrors() const noexcept { return log_->errors.load(); }
+    void failOnValidationError(bool fail) noexcept { failOnValidationError_ = fail; }
+
+    /// UTA-0138: what the messenger's callback writes. On the heap, so the
+    /// pointer the layer holds stays valid for the Gpu's life.
+    struct ValidationLog {
+        std::atomic<std::uint32_t> errors{0};
+        std::mutex mutex;
+        std::string first; ///< the first error's message
+    };
 
 private:
     Gpu() = default;
@@ -121,6 +138,9 @@ private:
     VkPhysicalDeviceMemoryProperties memory_{};
     VkPhysicalDeviceType type_ = VK_PHYSICAL_DEVICE_TYPE_OTHER;
     std::string name_;
+    VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
+    std::unique_ptr<ValidationLog> log_ = std::make_unique<ValidationLog>();
+    bool failOnValidationError_ = false;
 };
 
 } // namespace uta::urender

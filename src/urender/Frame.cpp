@@ -1112,6 +1112,7 @@ Result<Renderer> Renderer::create(const Config& config) {
     auto impl = std::make_unique<Impl>();
     impl->config = config;
     UTA_TRY(impl->gpu, Gpu::create(config.validation, config.instanceExtensions, config.createSurface));
+    impl->gpu->failOnValidationError(config.failOnValidationError);
     // UTA-0051 SS 4.3: once, from the chosen device, unless the caller named one.
     impl->tier = config.tier.value_or(defaultTier(impl->gpu->type(), impl->gpu->deviceLocalBytes()));
     if (config.tier) {
@@ -1420,6 +1421,8 @@ void Renderer::setJitter(bool enabled) noexcept { impl_->jitter = enabled; }
 void Renderer::setLinearOutput(bool enabled) noexcept { impl_->config.linearOutput = enabled; }
 
 double Renderer::lightSeconds() const noexcept { return impl_->lastLightSeconds; }
+
+bool Renderer::validating() const noexcept { return impl_->gpu->validating(); }
 
 void Renderer::pinLightSeconds(double seconds) noexcept { impl_->pinnedLightSeconds = seconds; }
 

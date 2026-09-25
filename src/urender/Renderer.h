@@ -60,6 +60,10 @@ struct Config {
     std::function<std::uint64_t(std::uint64_t instance)> createSurface;
     std::uint32_t width = 0, height = 0; ///< the target's size in pixels; `resize` changes it
     bool validation = false;             ///< request the layer if installed
+    /// UTA-0138: with `validation`, fail the next GPU submission once the layer
+    /// has reported any error, naming the first. The device tests set it; the
+    /// viewer's --validation only logs.
+    bool failOnValidationError = false;
     /// Skip exposure and tone mapping, writing linear light to the target
     /// instead. It exists so INV-10 can compare a pixel against a literal --
     /// SS 4.10 says why nothing else can -- and it changes no other stage.
@@ -155,6 +159,10 @@ public:
     /// clock, which a flickering light's phase is measured from. Zero before
     /// any frame is drawn.
     [[nodiscard]] double lightSeconds() const noexcept;
+
+    /// UTA-0138: whether the Vulkan validation layer is loaded and reporting.
+    /// False when it was not asked for, or asked for and not installed.
+    [[nodiscard]] bool validating() const noexcept;
 
     /// Draw every later frame at `seconds` instead of reading the clock.
     ///

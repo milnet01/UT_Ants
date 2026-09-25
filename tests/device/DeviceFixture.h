@@ -36,7 +36,9 @@ inline constexpr std::uint32_t PF_PORTAL = 0x04000000u;
 /// draw path is shown to need no display (INV-4).
 void removeDisplay();
 
-/// A renderer, or a FAILED test naming why there is none.
+/// A renderer, or a FAILED test naming why there is none. UTA-0138: it runs
+/// under the Vulkan validation layer, fails if the layer is not running, and
+/// its next GPU submission fails once the layer has reported an error.
 [[nodiscard]] urender::Renderer requireRenderer(const urender::Config& config);
 
 /// A Result<void> that must hold, failing the test with its message if not.
