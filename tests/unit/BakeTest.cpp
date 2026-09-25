@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <limits>
+#include <mutex>
 #include <set>
 #include <string>
 #include <string_view>
@@ -306,8 +307,10 @@ TEST_CASE("a material takes the curated entry for its picture and no other", "[u
     uta::umat::CuratedOverride metal;
     metal.metallic = true;
     std::set<std::uint64_t> asked;
+    std::mutex asking; // UTA-0148: the bake calls the lookup from several threads
     const detail::CuratedLookup lookup =
         [&](std::uint64_t fingerprint) -> const uta::umat::CuratedOverride* {
+        const std::scoped_lock hold(asking);
         asked.insert(fingerprint);
         return fingerprint == *key ? &metal : nullptr;
     };
@@ -453,7 +456,9 @@ TEST_CASE("UTA-0155: a procedural texture with no pixels of its own is made from
     map.addSurface(map.importTexture("FluidTex", "", "Goo", "WetTexture"));
     JobSystem jobs(2);
     std::set<std::uint64_t> asked;
+    std::mutex asking; // UTA-0148: the bake calls the lookup from several threads
     const detail::CuratedLookup recording = [&](std::uint64_t fingerprint) -> const uta::umat::CuratedOverride* {
+        const std::scoped_lock hold(asking);
         asked.insert(fingerprint);
         return nullptr;
     };
@@ -512,7 +517,9 @@ TEST_CASE("UTA-0176: a FireTexture sharing its palette's name is found by class 
         // still that ignored bRising would be asked about the same picture twice.
         const auto pictureOf = [&](const TextureSpec& spec) {
             std::set<std::uint64_t> asked;
+            std::mutex asking; // UTA-0148: the bake calls the lookup from several threads
             const detail::CuratedLookup recording = [&](std::uint64_t fingerprint) -> const uta::umat::CuratedOverride* {
+                const std::scoped_lock hold(asking);
                 asked.insert(fingerprint);
                 return nullptr;
             };

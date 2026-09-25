@@ -9148,6 +9148,25 @@ Each of them says so in its own body.
   bound concurrency by the bake budget, and keep any cache on disk, never
   in /tmp. Output bytes must not change; an encoder quality change would
   change them and is a design decision, not this item.
+  Finding (1) built (2026-09-26, ut-ants-3c). bakeMaterials makes four
+  variants at once on the JobSystem, each still spreading its own work
+  (a waiting job runs queued work, so nesting is safe), and takes the
+  results in id order, so TEXS and every bundle byte are unchanged. The
+  Install resolver, not thread-safe, is called under a lock.
+
+  A trap on the way: the working images moved to worker threads, and
+  glibc kept each thread's arena at its high water, so peak anonymous
+  memory ROSE by over 100 MB (DM-Deck16][ 195 to 337 MB). Capping arenas
+  at one fixed it and cost the speed; malloc_trim(0) after each batch
+  fixes it without that cost.
+
+  Measured with the census paused, the previous build against this one:
+  MH-Sk_Godz 23.4 s to 17.2 s, peak anonymous 1,039 MB to 1,005 MB;
+  DM-Deck16][ 5.8 s to 4.7 s, 202 MB to 189 MB. Both bundles
+  byte-identical.
+
+  Still open: (2), a disk cache of compressed variants shared between
+  bakes.
   **Layman:** Baking a map is slow mostly because every texture is shrunk into game format again for every map, even the stock textures many maps share, and only one texture is worked on at a time.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.

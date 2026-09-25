@@ -26,6 +26,11 @@
 #include <array>
 #include <cmath>
 #include <expected>
+#include <mutex>
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
+#include <optional>
 #include <fstream>
 #include <map>
 #include <system_error>
@@ -497,26 +502,60 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
                 .first->second.references.push_back(raw);
     }
 
-    // One variant at a time, in id order: generate() spreads its own work
-    // over the job system, and taking the results in this order is what keeps
-    // TEXS independent of which job finishes first (INV-1).
+    // UTA-0149's sibling UTA-0148: a few variants are made at once, each also
+    // spreading its own work over the job system (a job that waits runs
+    // queued work, INV-10 of UTA-0002, so nesting cannot deadlock). The
+    // results are still TAKEN in id order, which is what keeps TEXS
+    // independent of which job finishes first (INV-1). IN_FLIGHT bounds how
+    // many variants' working images exist at once, so peak memory stays near
+    // one variant's. The Install resolver opens and caches, and is not safe
+    // from two threads, so it is called under a lock; the packages it hands
+    // back are only read.
+    constexpr std::size_t IN_FLIGHT = 4;
+    std::mutex resolving;
+    const upkg::PackageResolver locked = [&](std::string_view name) {
+        const std::scoped_lock hold(resolving);
+        return resolver(name);
+    };
+    std::vector<std::pair<const std::string*, const Variant*>> ordered;
+    ordered.reserve(variants.size());
+    for (const auto& [id, variant] : variants) ordered.emplace_back(&id, &variant);
+
     Materials out;
-    for (const auto& [id, variant] : variants) {
-        auto made = makeVariant(*variant.site, id, variant.masked, resolver, jobs, curated);
-        if (!made.has_value()) {
-            out.skipped.push_back(SkippedTexture{id, std::move(made).error()});
-            continue;
+    for (std::size_t first = 0; first < ordered.size(); first += IN_FLIGHT) {
+        const std::size_t count = std::min(IN_FLIGHT, ordered.size() - first);
+        std::vector<std::optional<std::expected<MadeVariant, std::string>>> batch(count);
+        const std::size_t threw = jobs.parallelFor(count, [&](std::size_t i) {
+            const auto& [id, variant] = ordered[first + i];
+            batch[i].emplace(makeVariant(*variant->site, *id, variant->masked, locked, jobs, curated));
+        });
+        if (threw != 0) return fail(ErrorCode::Unknown, "making a material threw");
+#ifdef __GLIBC__
+        // Measured: the working images are now allocated on worker threads,
+        // and glibc keeps each thread's arena at its high water, so without
+        // this a bake's peak rose by over 100 MB. Handing freed pages back
+        // after each batch keeps it near the one-at-a-time bake's.
+        malloc_trim(0);
+#endif
+        for (std::size_t i = 0; i < count; ++i) {
+            const std::string& id = *ordered[first + i].first;
+            const Variant& variant = *ordered[first + i].second;
+            auto made = std::move(*batch[i]);
+            if (!made.has_value()) {
+                out.skipped.push_back(SkippedTexture{id, std::move(made).error()});
+                continue;
+            }
+            // UTA-0040 SS 4.3: a masked variant is a cut-out, which parallax would
+            // move off its geometry, so it carries no depth.
+            out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
+                                                          variant.masked ? std::uint8_t{0} : made->material.parallaxDepth});
+            out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
+            for (ubundle::CompressedTexture& map : made->material.maps)
+                out.textures.push_back(std::move(map));
+            for (const std::int32_t raw : variant.references)
+                out.bySurface.emplace(std::pair{raw, variant.masked},
+                                      SurfaceMaterial{id, made->uSize, made->vSize});
         }
-        // UTA-0040 SS 4.3: a masked variant is a cut-out, which parallax would
-        // move off its geometry, so it carries no depth.
-        out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
-                                                      variant.masked ? std::uint8_t{0} : made->material.parallaxDepth});
-        out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
-        for (ubundle::CompressedTexture& map : made->material.maps)
-            out.textures.push_back(std::move(map));
-        for (const std::int32_t raw : variant.references)
-            out.bySurface.emplace(std::pair{raw, variant.masked},
-                                  SurfaceMaterial{id, made->uSize, made->vSize});
     }
     return out;
 }

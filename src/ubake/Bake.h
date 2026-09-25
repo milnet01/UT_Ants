@@ -100,7 +100,8 @@ struct BakeOutcome {
 
 namespace detail {
 
-/// The curated library's lookup -- `umat::curated` outside tests.
+/// The curated library's lookup -- `umat::curated` outside tests. UTA-0148:
+/// the bake calls it from several threads at once, so it must be safe to.
 using CuratedLookup = std::function<const umat::CuratedOverride*(std::uint64_t fingerprint)>;
 
 /// One bake with its dependencies given -- a test seam. Every package lookup
