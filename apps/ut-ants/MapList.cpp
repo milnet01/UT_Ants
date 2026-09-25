@@ -240,6 +240,10 @@ std::optional<std::vector<std::string>> readMapPrefixes(std::string_view output,
     return JsonScanner(output).topLevelStringArray("mapPrefixes");
 }
 
+std::string readBakerVersion(std::string_view output) {
+    return JsonScanner(output).topLevelString("bakerVersion").value_or("");
+}
+
 std::vector<MapFile> playableMaps(std::vector<MapFile> maps, const std::vector<std::string>& prefixes) {
     std::vector<std::string> folded;
     for (const std::string& prefix : prefixes) folded.push_back(lowered(prefix));
@@ -301,7 +305,13 @@ Result<LauncherPaths> launcherPaths() {
 
 std::optional<MapResult> readResult(const std::filesystem::path& results, std::string_view map) {
     const std::string text = readText(fileFor(results, map));
-    if (text.starts_with("baked")) return MapResult{};
+    if (text.starts_with("baked")) {
+        // UTA-0208: the second line names the baker. A file written before
+        // that has none.
+        std::string baker = text.substr(std::min(text.size(), std::string_view("baked\n").size()));
+        baker = baker.substr(0, baker.find_first_of("\r\n"));
+        return MapResult{.bakerVersion = std::move(baker)};
+    }
     if (!text.starts_with("failed")) return std::nullopt;
     std::string why = text.substr(std::min(text.size(), std::string_view("failed\n").size()));
     while (!why.empty() && (why.back() == '\n' || why.back() == '\r')) why.pop_back();
@@ -309,7 +319,12 @@ std::optional<MapResult> readResult(const std::filesystem::path& results, std::s
 }
 
 Result<void> writeResult(const std::filesystem::path& results, std::string_view map, const MapResult& result) {
-    return writeText(fileFor(results, map), result.failed ? "failed\n" + result.failure + "\n" : "baked\n");
+    return writeText(fileFor(results, map),
+                     result.failed ? "failed\n" + result.failure + "\n" : "baked\n" + result.bakerVersion + "\n");
+}
+
+bool isCurrentBake(const MapResult& result, std::string_view currentBaker) {
+    return !result.failed && !currentBaker.empty() && result.bakerVersion == currentBaker;
 }
 
 std::string readNotes(const std::filesystem::path& notes, std::string_view map) {

@@ -134,7 +134,9 @@ private:
 /// UTA-0179: the maps UT99's own lists offer, by the game types ut-bake reads
 /// from the install. When ut-bake gives no answer every map is listed, and
 /// `note` says so, since a movie such as CityIntro then opens to black.
-std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::string& note) {
+/// UTA-0208: the same run names today's baker, kept in `bakerVersion`.
+std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::string& note,
+                                 std::string& bakerVersion) {
     std::vector<MapFile> maps = listMaps(install);
     const std::string baker = besideThisProgram("ut-bake");
     const std::string installText = install.string();
@@ -144,7 +146,9 @@ std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::stri
         std::size_t size = 0;
         int exitCode = -1;
         if (void* const bytes = SDL_ReadProcess(process, &size, &exitCode)) {
-            prefixes = readMapPrefixes(std::string_view(static_cast<const char*>(bytes), size), exitCode);
+            const std::string_view output(static_cast<const char*>(bytes), size);
+            prefixes = readMapPrefixes(output, exitCode);
+            bakerVersion = readBakerVersion(output);
             SDL_free(bytes);
         }
         SDL_DestroyProcess(process);
@@ -164,7 +168,7 @@ public:
     Launcher(const Options& options, LauncherPaths paths, SDL_Window* window, SDL_Renderer* renderer)
         : options_(options), paths_(std::move(paths)), window_(window), renderer_(renderer) {
         std::string note;
-        maps_ = offeredMaps(options.install, note);
+        maps_ = offeredMaps(options.install, note, bakerVersion_);
         results_.reserve(maps_.size());
         for (const MapFile& map : maps_) results_.push_back(readResult(paths_.results, map.name));
         refilter();
@@ -258,7 +262,7 @@ private:
                 busy_ = Busy::No;
                 return;
             }
-            record(opening_, {});
+            record(opening_, {.bakerVersion = answer.bakerVersion});
             std::vector<std::string> args{besideThisProgram("ut-ants")};
             if (options_.windowed) args.emplace_back("--windowed");
             if (options_.validation) args.emplace_back("--validation");
@@ -473,7 +477,9 @@ private:
                 SDL_RenderFillRect(renderer_, &bar);
             }
             const std::optional<MapResult>& result = results_[index];
-            const std::string_view tag = !result ? "" : result->failed ? "FAILED" : "baked";
+            // UTA-0208: a stale bake is not called baked. It bakes again when picked.
+            std::string_view tag;
+            if (result) tag = result->failed ? "FAILED" : isCurrentBake(*result, bakerVersion_) ? "baked" : "";
             colour(235, 235, 235);
             text(column, row + i, clipped(maps_[index].name, width - 7));
             if (!tag.empty()) {
@@ -504,9 +510,13 @@ private:
         } else if (result->failed) {
             colour(245, 120, 110);
             paragraph("Failed: " + result->failure);
-        } else {
+        } else if (isCurrentBake(*result, bakerVersion_)) {
             colour(130, 210, 130);
             paragraph("Baked. Enter opens it.");
+        } else {
+            colour(170, 170, 185);
+            paragraph("Baked by an older ut-bake, so it must be baked again. Enter bakes it, which can take a "
+                      "minute, then opens it.");
         }
         line += 1;
 
@@ -533,6 +543,7 @@ private:
 
     std::vector<MapFile> maps_; // set once, by the constructor
     std::vector<std::optional<MapResult>> results_;
+    std::string bakerVersion_; ///< UTA-0208: today's baker; empty when ut-bake gave none
     std::vector<std::size_t> shown_;
     std::size_t selection_ = 0;
     std::size_t listTop_ = 0;

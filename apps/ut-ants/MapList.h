@@ -75,11 +75,22 @@ struct LauncherPaths {
 /// state directory, which a cache clear does not take.
 [[nodiscard]] Result<LauncherPaths> launcherPaths();
 
+/// UTA-0208: the `bakerVersion` of one `ut-bake --game-types` run, or empty
+/// when it gave none.
+[[nodiscard]] std::string readBakerVersion(std::string_view output);
+
 /// A map's remembered state, shown beside its name.
 struct MapResult {
     bool failed = false;
-    std::string failure;  ///< why, when failed
+    std::string failure;       ///< why, when failed
+    std::string bakerVersion;  ///< UTA-0208: the baker that made it; empty when unknown
 };
+
+/// UTA-0208: whether `result` is a bake today's baker would reuse. A bake goes
+/// stale when the baker revision, the bundle format or the material library
+/// moves, and `bakerVersion` names all three. An unknown version on either side
+/// is not current: nothing then says the bake is.
+[[nodiscard]] bool isCurrentBake(const MapResult& result, std::string_view currentBaker);
 
 /// The last outcome recorded for `map`, or nothing when it was never opened.
 [[nodiscard]] std::optional<MapResult> readResult(const std::filesystem::path& results, std::string_view map);

@@ -10,6 +10,7 @@
 
 #include "BakeFixture.h"
 
+#include "ubake/Name.h"
 #include "ut-bake/Cli.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -225,6 +226,8 @@ TEST_CASE("UTA-0179: the game-type list prints each type and the distinct prefix
                            "{\"name\": \"Botpack.TeamGamePlus\", \"mapPrefix\": \"DM\"}]"));
     CHECK(says(result.out, "\"unresolved\": [\"Gone.GoneGame\"]"));
     CHECK(says(result.out, "\"mapPrefixes\": [\"CTF\", \"DM\"]"));
+    // UTA-0208: the launcher compares this with the baker that made each bake.
+    CHECK(says(result.out, "\"bakerVersion\": \"" + uta::ubake::bakerVersion() + "\""));
 }
 
 TEST_CASE("UTA-0179: the game-type list exits 1 when the install is not a directory", "[ubake][cli]") {

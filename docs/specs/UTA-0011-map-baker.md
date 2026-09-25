@@ -468,10 +468,13 @@ ut-bake --help
 lists the game types the install's `.int` files register, each with the
 `MapPrefix` its maps' names start with, so the launcher can offer only
 maps. `src/ubake/GameTypes.h` owns the rule. It prints the following, and
-exits `1` with an `error` member when the install is not a directory:
+exits `1` with an `error` member when the install is not a directory.
+**`bakerVersion` was added by `UTA-0208`** and is printed in both cases. It
+is the value a bake's report carries. The launcher compares the two to tell a
+current bake from a stale one.
 
 ```json
-{"schema": 1, "install": "<as given>",
+{"schema": 1, "install": "<as given>", "bakerVersion": "r<revision>-f<format>-l<digest>",
  "gameTypes": [{"name": "Botpack.CTFGame", "mapPrefix": "CTF"}],
  "unresolved": ["<Package.Class whose class was not found>"],
  "mapPrefixes": ["CTF"]}

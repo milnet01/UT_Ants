@@ -176,6 +176,35 @@ TEST_CASE("UTA-0170: a result round-trips and an absent one is nothing", "[clien
     CHECK_FALSE(baked->failed);
 }
 
+TEST_CASE("UTA-0208: the baker version is read from ut-bake's game-type run", "[client]") {
+    CHECK(readBakerVersion(R"({"schema": 1, "gameTypes": [{"bakerVersion": "no"}], "bakerVersion": "r21-f14-l0a"})"
+                           "\n") == "r21-f14-l0a");
+    CHECK(readBakerVersion(R"({"schema": 1, "mapPrefixes": []})").empty());
+    CHECK(readBakerVersion("").empty());
+}
+
+TEST_CASE("UTA-0208: a bake is current only when today's baker made it", "[client]") {
+    const TempDir data;
+    const stdfs::path results = data.path() / "results";
+    REQUIRE(writeResult(results, "MH-A", {.bakerVersion = "r21-f14-l0a"}));
+    const auto baked = readResult(results, "MH-A");
+    REQUIRE(baked.has_value());
+    CHECK(baked->bakerVersion == "r21-f14-l0a");
+
+    CHECK(isCurrentBake(*baked, "r21-f14-l0a"));
+    CHECK_FALSE(isCurrentBake(*baked, "r22-f14-l0a")); // the baker moved
+    CHECK_FALSE(isCurrentBake(*baked, "r21-f15-l0a")); // the format moved
+    CHECK_FALSE(isCurrentBake(*baked, ""));            // ut-bake gave no answer
+    CHECK_FALSE(isCurrentBake({.failed = true, .bakerVersion = "r21-f14-l0a"}, "r21-f14-l0a"));
+
+    // A result written before UTA-0208 names no baker, so nothing says it is current.
+    std::ofstream(results / "MH-B.txt") << "baked\n";
+    const auto old = readResult(results, "MH-B");
+    REQUIRE(old.has_value());
+    CHECK_FALSE(old->failed);
+    CHECK_FALSE(isCurrentBake(*old, "r21-f14-l0a"));
+}
+
 TEST_CASE("UTA-0170: notes round-trip and empty notes remove the file", "[client]") {
     const TempDir data;
     const stdfs::path notes = data.path() / "notes";

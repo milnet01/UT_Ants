@@ -145,6 +145,10 @@ int runGameTypes(std::string_view install, std::ostream& out, std::ostream& err)
     auto opened = Install::open(std::filesystem::path(install));
     out << "{\"schema\": " << SCHEMA << ", \"install\": ";
     writeJsonString(out, install);
+    // UTA-0208: the launcher calls this once at start, and compares this with
+    // the baker that made each bake to tell a current bake from a stale one.
+    out << ", \"bakerVersion\": ";
+    writeJsonString(out, bakerVersion());
     if (!opened.has_value()) {
         out << ", \"error\": ";
         writeJsonString(out, opened.error().message());
