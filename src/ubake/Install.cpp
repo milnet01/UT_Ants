@@ -80,6 +80,8 @@ struct Install::State {
     fsys::path root;
     /// Folded package name to the file SS 4.2's order finds for it.
     std::map<std::string, fsys::path> paths;
+    /// UTA-0141: the files that lost a name to an earlier one, in search order.
+    std::map<std::string, std::vector<fsys::path>> shadowed;
     /// Every map below is node-based, so a Package's view of its bytes and a
     /// pointer the resolver handed out both survive later insertions.
     std::map<std::string, std::vector<std::byte>> bytes;
@@ -120,8 +122,10 @@ Result<Install> Install::open(const fsys::path& root) {
             // emplace, never assign: the first file to claim a name keeps it,
             // which is both "an earlier directory shadows a later one" and
             // "the first by bytewise file name" (SS 4.2).
-            for (const fsys::path& file : files)
-                state->paths.emplace(detail::fold(detail::utf8(file.stem())), file);
+            for (const fsys::path& file : files) {
+                const std::string key = detail::fold(detail::utf8(file.stem()));
+                if (!state->paths.emplace(key, file).second) state->shadowed[key].push_back(file);
+            }
         }
     }
     return Install(std::move(state));
@@ -157,6 +161,11 @@ upkg::PackageResolver Install::resolver() {
 fsys::path Install::pathOf(std::string_view packageName) const {
     const auto found = state_->paths.find(detail::fold(packageName));
     return found == state_->paths.end() ? fsys::path{} : found->second;
+}
+
+std::vector<fsys::path> Install::shadowedFiles(std::string_view packageName) const {
+    const auto found = state_->shadowed.find(detail::fold(packageName));
+    return found == state_->shadowed.end() ? std::vector<fsys::path>{} : found->second;
 }
 
 std::span<const std::byte> Install::bytesOf(std::string_view packageName) const {

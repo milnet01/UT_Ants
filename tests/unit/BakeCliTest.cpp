@@ -264,3 +264,36 @@ TEST_CASE("wrong arguments exit 2 and print nothing on standard output", "[ubake
     CHECK(help.out.empty());
     CHECK(says(help.err, "usage:"));
 }
+
+TEST_CASE("UTA-0141: a clash that hides what the map asks for is warned about", "[ubake][cli]") {
+    const Install fixture;
+
+    // A shared name the map does not suffer from: Engine.u wins the name and
+    // holds every Engine object the map asks for. Stock installs are full of
+    // these (BotPack, Engine, UnrealShare), so they stay quiet.
+    uta::test::bake::writeFile(fixture.install / "Textures" / "Engine.utx", std::vector<std::uint8_t>{'x'});
+    const Run quiet = run(fixture.bake());
+    REQUIRE(quiet.code == 0);
+    CHECK(says(quiet.out, "\"packageClashes\": []"));
+    CHECK_FALSE(says(quiet.err, "warning"));
+
+    // One it does: System/TexPkg.u wins the name, as in the game's Paths
+    // order, and does not hold the map's TexPkg.Metal.Plate, which only the
+    // shadowed Textures/TexPkg.utx does -- MH-MeltTown's shape.
+    uta::test::bake::writeFile(fixture.install / "System" / "TexPkg.u", uta::test::bake::classPackage("Unrelated"));
+    const Run clash = run(fixture.bake(true));
+    INFO(clash.out << clash.err);
+    CHECK(clash.code == 0); // warn and carry on (user decisions, 2026-09-13 and 2026-09-25)
+    CHECK(says(clash.out, "\"verdict\": \"written\""));
+    CHECK(says(clash.out, "\"packageClashes\": [{\"package\": \"texpkg\", \"object\": \""));
+    const std::size_t shadowed = clash.out.find("\"shadowed\": [");
+    REQUIRE(shadowed != std::string::npos);
+    CHECK(clash.out.find("TexPkg.utx", shadowed) != std::string::npos);
+    CHECK(says(clash.err, "warning"));
+    CHECK(says(clash.err, "TexPkg.utx"));
+
+    // A cached bake warns too: the clash is a fact about the install.
+    const Run cached = run(fixture.bake());
+    CHECK(says(cached.out, "\"verdict\": \"cached\""));
+    CHECK(says(cached.out, "\"packageClashes\": [{\"package\": \"texpkg\""));
+}

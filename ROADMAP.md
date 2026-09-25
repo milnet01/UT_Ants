@@ -8667,6 +8667,22 @@ Each of them says so in its own body.
   the game's Paths order would, and print a warning naming the clash and
   which file won. Do not refuse the map, and do not stay silent. The
   clashes are the 21 names in the note above.
+  Revised by the user (2026-09-25), once the cost was shown: warn only
+  when it matters. A stock map (DM-Deck16][) shares three names under the
+  first rule (BotPack, Engine, UnrealShare), so every bake would warn. Now
+  a row is reported only where the file the Paths order picks lacks an
+  object an import asks for and a shadowed file holds it.
+
+  Built (2026-09-25, ut-ants-3c): Install::shadowedFiles, and
+  BakeOutcome::clashes over the map and its import closure. ut-bake
+  reports packageClashes and warns on stderr. UTA-0011 § 4.8 amended.
+  The bundle is unchanged, so BAKER_REVISION stays 22.
+
+  Found on the reference install: MH-MeltTown imports
+  botpack.CrosshairScale. System holds two different Botpack builds,
+  BotPack.u and Botpack.u. The bytewise-first rule picks BotPack.u, which
+  lacks the object, and only Botpack.u holds it. Which one the game picks
+  on a case-sensitive filesystem is unverified.
   **Layman:** When a music file and a code file share a name, our map reader may open the wrong one, the same mix-up that breaks one map in the real game.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.

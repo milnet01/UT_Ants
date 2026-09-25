@@ -241,6 +241,26 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
     writeJsonString(out, outcome->name);
     out << ", \"path\": ";
     writeJsonString(out, detail::utf8(outcome->path));
+    // UTA-0141: warn and carry on. The bake used the file the game would.
+    out << ", \"packageClashes\": ";
+    writeArray(out, outcome->clashes, [&out](const PackageClash& clash) {
+        out << "{\"package\": ";
+        writeJsonString(out, clash.package);
+        out << ", \"object\": ";
+        writeJsonString(out, clash.object);
+        out << ", \"used\": ";
+        writeJsonString(out, detail::utf8(clash.used));
+        out << ", \"shadowed\": ";
+        writeArray(out, clash.shadowed,
+                   [&out](const std::filesystem::path& file) { writeJsonString(out, detail::utf8(file)); });
+        out << '}';
+    });
+    for (const PackageClash& clash : outcome->clashes) {
+        err << "ut-bake: warning: " << clash.object << " is not in " << detail::utf8(clash.used)
+            << ", which the game's search order picks for " << clash.package << ", but is in";
+        for (const std::filesystem::path& file : clash.shadowed) err << " " << detail::utf8(file);
+        err << "\n";
+    }
     if (outcome->result.has_value()) writeResult(out, *outcome->result);
     out << "}\n";
 

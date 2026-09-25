@@ -69,11 +69,26 @@ struct BakeRequest {
     std::uint64_t budgetBytes = umat::TEXTURE_BUDGET_BYTES;
 };
 
+/// UTA-0141: a package name more than one install file carries, where the
+/// file the game's Paths order picks lacks an object an import asks for and a
+/// shadowed file holds it. The bake uses `used`, as the game does. A shared
+/// name that changes nothing is not a clash here: the stock install has
+/// several (user decision, 2026-09-25).
+struct PackageClash {
+    std::string package; ///< folded
+    std::string object;  ///< the first import found that `used` cannot serve, as `Package.Name`
+    std::filesystem::path used;
+    std::vector<std::filesystem::path> shadowed; ///< the shadowed files that hold `object`
+};
+
 struct BakeOutcome {
     Verdict verdict = Verdict::Written;
     std::string name;
     std::filesystem::path path;         ///< outDir / (name + ".utab")
     std::optional<BakeResult> result;   ///< absent when Cached
+    /// Found for a cached bake too: a clash is a fact about the install. The
+    /// user's decision (UTA-0141, 2026-09-13) is to warn and carry on.
+    std::vector<PackageClash> clashes;
 };
 
 /// Name, look in the cache, bake, check the budget, write -- SS 4.7.

@@ -503,6 +503,8 @@ A bake prints:
 {"schema": 1, "map": "<as given>", "bakerVersion": "<§ 4.3>",
  "verdict": "written | cached | over-budget | refused",
  "name": "<64 hex digits>", "path": "<the file>",
+ "packageClashes": [{"package": "<folded>", "object": "<package.name>",
+                     "used": "<file>", "shadowed": ["<file>"]}],
  "error": "<a sentence>",
  "rooms": {"withoutFootprint": [0], "refusedZones": [0]},
  "budget": {"workingSetBytes": 0, "budgetBytes": 0,
@@ -513,6 +515,15 @@ A bake prints:
 - `error` appears only on `refused`.
 - `name` and `path` appear on `written`, `cached` and `over-budget`.
 - `rooms`, `budget` and `skipped` appear on `written` and `over-budget`.
+- `packageClashes` appears with `name`. Added by `UTA-0141`. A row is a
+  package name more than one install file carries, where the file the
+  game's `Paths` order picks (`used`) lacks an object an import asks for,
+  and `shadowed` lists the losing files that hold it. `object` is the first
+  such import found. The map or any package in its import closure may be
+  the importer. The bake still uses `used`, as the game does, and prints a
+  warning on standard error for each row. A shared name that changes
+  nothing is not reported: the stock install has several, among them
+  `BotPack`, `Engine` and `UnrealShare` (user decision, 2026-09-25).
 
 `verdict`, `path`, `ok`, `problems` and the exit code are what UTA-0016
 binds to. Every field is part of the command line's output shape, which

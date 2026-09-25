@@ -22,6 +22,7 @@
 #include "upkg/Properties.h"
 #include "upkg/Texture.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <expected>
@@ -726,6 +727,87 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
 
 } // namespace detail
 
+namespace {
+
+/// The outermost package an import lives in, and whether the import IS that
+/// package (its outer is null). Empty when the outer chain does not end.
+std::pair<std::string, bool> homeOf(const upkg::Package& package, const upkg::ImportEntry& import) {
+    const upkg::ImportEntry* at = &import;
+    for (std::size_t depth = 0; depth < 64; ++depth) {
+        if (at->outer.kind() == upkg::ObjectReferenceKind::Null) {
+            const auto name = package.name(at->objectName);
+            return {name.has_value() ? detail::fold(*name) : std::string{}, at == &import};
+        }
+        if (at->outer.kind() != upkg::ObjectReferenceKind::Import || at->outer.index() >= package.imports().size())
+            return {};
+        at = &package.imports()[at->outer.index()];
+    }
+    return {};
+}
+
+/// Whether `package` exports an object named `name` of class `className`,
+/// both compared folded. A class object's own class reference is null.
+bool holds(const upkg::Package& package, std::string_view name, std::string_view className) {
+    const std::string wantName = detail::fold(name);
+    const std::string wantClass = detail::fold(className);
+    for (const upkg::ExportEntry& entry : package.exports()) {
+        const auto exported = package.name(entry.objectName);
+        if (!exported.has_value() || detail::fold(*exported) != wantName) continue;
+        const std::string cls = entry.objectClass.kind() == upkg::ObjectReferenceKind::Null
+                                    ? std::string{"class"}
+                                    : detail::fold(package.objectName(entry.objectClass).value_or("?"));
+        if (cls == wantClass) return true;
+    }
+    return false;
+}
+
+/// UTA-0141: the clashes that change what `readers` get, over the names in
+/// `closure`. A shadowed file is opened here only, never through the resolver.
+Result<std::vector<PackageClash>> clashesOf(const std::vector<const upkg::Package*>& readers,
+                                            const std::vector<std::string>& closure, Install& install) {
+    std::vector<PackageClash> clashes;
+    const upkg::PackageResolver resolver = install.resolver();
+    for (const std::string& package : closure) {
+        const std::vector<std::filesystem::path> shadowed = install.shadowedFiles(package);
+        if (shadowed.empty()) continue;
+        UTA_TRY(const upkg::Package* const winner, resolver(package));
+        // Reserved up front: each Package views its bytes, which must not move.
+        std::vector<std::vector<std::byte>> bytes;
+        std::vector<std::pair<std::filesystem::path, upkg::Package>> losers;
+        bytes.reserve(shadowed.size());
+        for (const std::filesystem::path& file : shadowed) {
+            auto read = uta::fs::readFile(file);
+            if (!read.has_value()) continue;
+            bytes.push_back(std::move(*read));
+            if (auto opened = upkg::Package::open(bytes.back()); opened.has_value())
+                losers.emplace_back(file, std::move(*opened));
+        }
+        std::optional<std::string> object;
+        std::vector<std::filesystem::path> holders;
+        for (const upkg::Package* reader : readers) {
+            for (const upkg::ImportEntry& import : reader->imports()) {
+                const auto [home, isPackage] = homeOf(*reader, import);
+                if (isPackage || home != package) continue;
+                const auto name = reader->name(import.objectName);
+                const auto className = reader->name(import.className);
+                if (!name.has_value() || !className.has_value()) continue;
+                if (winner != nullptr && holds(*winner, *name, *className)) continue;
+                for (const auto& [file, loser] : losers)
+                    if (holds(loser, *name, *className)) holders.push_back(file);
+                if (!holders.empty()) {
+                    object = package + "." + std::string{*name};
+                    break;
+                }
+            }
+            if (object.has_value()) break;
+        }
+        if (object.has_value()) clashes.push_back({package, *object, install.pathOf(package), holders});
+    }
+    return clashes;
+}
+
+} // namespace
+
 Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs) {
     UTA_TRY(Install install, Install::open(request.install));
     UTA_TRY(const std::vector<std::byte> mapBytes, uta::fs::readFile(request.map));
@@ -735,6 +817,15 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
     BakeOutcome outcome;
     UTA_TRY(outcome.name, detail::bakeName(mapBytes, mapName, install));
     outcome.path = request.outDir / (outcome.name + ".utab");
+    UTA_TRY(const upkg::Package map, naming(upkg::Package::open(mapBytes), mapName));
+    UTA_TRY(const std::vector<std::string> imported, detail::closure(map, install.resolver()));
+    std::vector<const upkg::Package*> readers{&map};
+    const upkg::PackageResolver resolver = install.resolver();
+    for (const std::string& package : imported) {
+        UTA_TRY(const upkg::Package* const opened, resolver(package));
+        if (opened != nullptr) readers.push_back(opened);
+    }
+    UTA_TRY(outcome.clashes, clashesOf(readers, imported, install));
 
     std::error_code ec;
     std::filesystem::create_directories(request.outDir, ec);
@@ -751,7 +842,6 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
 
     // 3. Bake, then the budget. Over it, nothing is written -- UTA-0052's
     // never-degrade rule.
-    UTA_TRY(const upkg::Package map, naming(upkg::Package::open(mapBytes), mapName));
     UTA_TRY(BakeResult result, detail::bake(map, mapName, install.resolver(), jobs,
                                             &umat::curated, request.budgetBytes));
     if (!umat::enforceBudget(result.budget).has_value()) {

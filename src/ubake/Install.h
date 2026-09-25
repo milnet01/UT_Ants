@@ -56,6 +56,10 @@ public:
     /// opens, or empty when there is none.
     [[nodiscard]] std::filesystem::path pathOf(std::string_view packageName) const;
 
+    /// UTA-0141: the files that also carry this package name and lose it to
+    /// `pathOf`'s, in search order. Empty when no other file does.
+    [[nodiscard]] std::vector<std::filesystem::path> shadowedFiles(std::string_view packageName) const;
+
     /// The bytes of a package the resolver has opened, or an empty span.
     [[nodiscard]] std::span<const std::byte> bytesOf(std::string_view packageName) const;
 
