@@ -513,6 +513,8 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **ut-paths walks a staircase instead of reading it as a wall** (UTA-0123)
+
 - **The real-asset tests no longer fail on an install other than the one their figures were measured on** (UTA-0132)
 
 - **The map launcher no longer calls a map baked when a newer baker would bake it again** (UTA-0208)

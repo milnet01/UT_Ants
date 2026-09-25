@@ -6020,7 +6020,7 @@ Each of them says so in its own body.
   Source: review-contract-2026-09-11 UTA-0111 loop 1.
   Lanes: tests.
 
-- 📋 [UTA-0123] **ut-paths: a staircase splits the walk graph, since neighbouring spots on it rise more than a step.**
+- ✅ [UTA-0123] **ut-paths: a staircase splits the walk graph, since neighbouring spots on it rise more than a step.**
   Found building UTA-0121 (2026-09-11). Its spec's § 4.5 joins
   neighbouring spots, 32 apart, only within MaxStepHeight 25 or along
   one ramp's plane. A staircase of 16-unit steps on 16-unit treads rises
@@ -6049,6 +6049,9 @@ Each of them says so in its own body.
 
   A trap met on the way: a fixture world of sixteen box regions grew its
   collision tree to 19 GB before it was stopped. Three regions suffice.
+  Shipped 2026-09-25 (a8aa89f), green on GitHub's matrix. The first push
+  was stopped by the local matrix gate: the test fixture's pit ternary
+  narrowed int to double, which Clang and MSVC refuse and GCC accepts.
   **Layman:** The path tool reads most staircases as walls, because it checks the floor every 32 units and a staircase climbs more than one step in that distance.
   Kind: enhancement.
   Source: in-session-2026-09-11.
