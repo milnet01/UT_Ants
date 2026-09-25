@@ -17,6 +17,8 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-bake warns when a package name two install files share hides an object the map asks for** (UTA-0141)
+
 - **ut-dump gives each navigation node its own Paths, upstreamPaths and PrunedPaths, and each edge its reach-spec index** (UTA-0198)
 
 - **ut-dump gives each navigation node its location, and lists each map's MonsterEnd-family exits** (UTA-0189)

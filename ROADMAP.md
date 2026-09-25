@@ -8626,7 +8626,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-13.
   Lanes: tools.
 
-- 📋 [UTA-0141] **ubake's install resolver finds a package by name alone, so a music package can be shadowed by a code package of the same name.**
+- ✅ [UTA-0141] **ubake's install resolver finds a package by name alone, so a music package can be shadowed by a code package of the same name.**
   Found 2026-09-13 from UT_MonsterHunt's GAME-0061. The install has both
   Music/cyborg.umx and System/Cyborg.u. In one UT editor process, loading a
   map whose Song names Music'cyborg.cyborg' first makes MH-MeltTown fail
@@ -8700,6 +8700,7 @@ Each of them says so in its own body.
   BotPack.u and Botpack.u. The bytewise-first rule picks BotPack.u, which
   lacks the object, and only Botpack.u holds it. Which one the game picks
   on a case-sensitive filesystem is unverified.
+  Shipped 2026-09-25: green on GitHub's matrix at cc8f57d.
   **Layman:** When a music file and a code file share a name, our map reader may open the wrong one, the same mix-up that breaks one map in the real game.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-13 GAME-0061.
