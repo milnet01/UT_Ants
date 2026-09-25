@@ -53,6 +53,12 @@ the claim before the loop closed.
 
 ## § Running two sessions at once
 
+**2026-09-25. Removed, with every rule below it.** The user: there is no
+tool yet for multi-session work, and they are still building one. The
+same day the user lifted `workflow.md` § 1's one-item-per-session limit
+for this project, in `docs/standards/workflow-overrides.md`. The notes
+below record what the section said while it stood.
+
 **2026-09-08.** The section read *"departs from `workflow.md` § 1, which
 allows exactly one item in flight"*. That was true when written and stopped
 being so when § 1's own gate changed the rule to *per session* on
