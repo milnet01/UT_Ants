@@ -17,6 +17,8 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-bake --check names the install's Unreal Tournament version and warns unless it is 469** (UTA-0117)
+
 - **The renderer's device tests run under the Vulkan validation layer and fail on any error it reports** (UTA-0138)
 
 - **ut-bake warns when a package name two install files share hides an object the map asks for** (UTA-0141)
@@ -506,6 +508,8 @@ appears once something has actually shipped.)
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **The real-asset tests no longer fail on an install other than the one their figures were measured on** (UTA-0132)
 
 - **The map launcher no longer calls a map baked when a newer baker would bake it again** (UTA-0208)
 

@@ -5827,7 +5827,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: urecipe, ubake.
 
-- 📋 [UTA-0117] **Decide which Unreal Tournament versions ut-bake --check accepts.**
+- ✅ [UTA-0117] **Decide which Unreal Tournament versions ut-bake --check accepts.**
   Deferred by UTA-0011's spec, § 9. `--check` today asks only that Core,
   Engine and Botpack exist and open as packages (that spec's § 4.9). It
   says nothing about the install's version, and the reference install is
@@ -5838,6 +5838,8 @@ Each of them says so in its own body.
   User decision (2026-09-25): ut-bake --check names the version it finds
   and accepts any, but warns plainly when it is not 469, the only version
   tested. Warn and carry on, as UTA-0141 does.
+  Shipped 2026-09-25 (a2e88a5): --check reports version and warnings.
+  Green on GitHub's matrix at 95140db. The reference install reads 469.
   **Layman:** Say which versions of Unreal Tournament the game will run from, so an older install is told plainly rather than half-working.
   Kind: investigate.
   Source: user-request-2026-09-10.
@@ -7464,7 +7466,7 @@ Each of them says so in its own body.
   Source: ut-monsterhunt-2026-09-12.
   Lanes: upkg.
 
-- 📋 [UTA-0132] **The real-asset tier assumes the reference install and cannot run green on another.**
+- ✅ [UTA-0132] **The real-asset tier assumes the reference install and cannot run green on another.**
   Found by UTA-0077's first Windows run, 2026-09-12, against a stock
   Unreal Tournament install -- 96 maps, zero MH-, 83 System packages.
   Output at /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077.
@@ -7511,6 +7513,9 @@ Each of them says so in its own body.
   prints the percentages and asserts only that no value is negative or
   impossible. The other two assertions (withExit, the curated seed
   table) become preconditions that say they were not applicable.
+  Shipped 2026-09-25 (95140db), green on GitHub's matrix: the
+  UTA_REFERENCE_INSTALL option, the MH- precondition, and a
+  no-negative-slot check on every install.
   **Layman:** Our tests against real game files only pass on one particular installation. Run them against any other and they fail for reasons that are not bugs.
   Kind: test.
   Source: in-session-2026-09-12.
