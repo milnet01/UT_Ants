@@ -17,6 +17,8 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-dump's exits report how each is triggered; no exit in the reference library is won by shooting it** (UTA-0130)
+
 - **The navigation library names each bot path's reach flags and decides whether a given pawn may take it** (UTA-0085)
 
 - **ut-bake --check names the install's Unreal Tournament version and warns unless it is 469** (UTA-0117)

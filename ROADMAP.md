@@ -7258,7 +7258,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-12.
   Lanes: core, ubake, urender.
 
-- 📋 [UTA-0130] **Some Monster Hunt exits are SHOT, not walked into, and our exits list cannot say which.**
+- ✅ [UTA-0130] **Some Monster Hunt exits are SHOT, not walked into, and our exits list cannot say which.**
   Told to us by UT_MonsterHunt 2026-09-12, read off the live gametype's
   source rather than recalled.
 
@@ -7381,6 +7381,14 @@ Each of them says so in its own body.
   Seen, not a lead: 5 of those eight have their exit bInitiallyActive
   false, against 286 of all 1345 maps with an exit. The engine's route
   search does not read activation, and eight is a small sample.
+  Closed as a lead (2026-09-25), by UT_MonsterHunt (ut-monsterhunt-d3,
+  their exitsurvey.py, GAME-0145 rule, run with --install): on all five
+  of the eight whose MonsterEnd starts inactive, another actor's event
+  names the exit's tag, so something can switch it on. The other three
+  start live. Their list is the same eight. That is a static naming
+  check, not proof the event fires in a game.
+  Shipped 2026-09-25 (84fe678), green on GitHub's matrix: the census is
+  done and answers the item; no exit is shot, so no routing rule widens.
   **Layman:** On some maps you finish by shooting the end marker rather than walking into it. Our tools assume walking, so those maps can look broken when they are fine.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-12.
