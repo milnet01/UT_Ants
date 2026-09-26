@@ -36,6 +36,15 @@ Use useOf(VkImageLayout layout) noexcept {
         return {VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT};
     case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
         return {VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 0};
+    case VK_IMAGE_LAYOUT_GENERAL:
+        // The fog volume's layout: cleared once, then written and read by
+        // compute and sampled by the forward pass. An empty scope here left the
+        // clear unordered after the transition (review, 2026-09-26).
+        return {VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT
+                    | VK_PIPELINE_STAGE_2_CLEAR_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+                VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT
+                    | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT
+                    | VK_ACCESS_2_TRANSFER_WRITE_BIT};
     default:
         return {VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, 0};
     }

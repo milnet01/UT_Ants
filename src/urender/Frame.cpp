@@ -289,6 +289,25 @@ Box worldBox(const Box& local, const gpu::Mat4& model) noexcept {
 /// does not exist yet, so the pass is empty; its position is the provision.
 void compositeUi(VkCommandBuffer /*commands*/) {}
 
+/// A global memory dependency: `srcAccess` at `srcStage` made visible to
+/// `dstAccess` at `dstStage`. An image transition orders only its own image,
+/// so a buffer or a GENERAL image written by one pass and read by the next
+/// needs this (review, 2026-09-26).
+void memoryBarrier(VkCommandBuffer commands, VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess,
+                   VkPipelineStageFlags2 dstStage, VkAccessFlags2 dstAccess) {
+    VkMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
+    barrier.srcStageMask = srcStage;
+    barrier.srcAccessMask = srcAccess;
+    barrier.dstStageMask = dstStage;
+    barrier.dstAccessMask = dstAccess;
+    VkDependencyInfo dependency{};
+    dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency.memoryBarrierCount = 1;
+    dependency.pMemoryBarriers = &barrier;
+    vkCmdPipelineBarrier2(commands, &dependency);
+}
+
 } // namespace
 
 struct Renderer::Impl {
@@ -895,6 +914,12 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         }
         vkCmdEndRendering(commands);
         shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+        // The transition's scope ends at the fragment stage; the fog's scatter
+        // pass samples the atlas from compute.
+        memoryBarrier(commands,
+                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                      VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                      VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     }
 
     // -- 0. Clustered light culling -------------------------------------------
@@ -902,6 +927,10 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
                             nullptr);
     vkCmdDispatch(commands, (gpu::CLUSTER_COUNT + 63) / 64, 1, 1); // cluster.comp's local size is 64
+    // The culled lists are read by the fog's compute passes and the forward pass.
+    memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                  VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
 
     // -- 0.5. The fog volume (UTA-0015 SS 4.3) ----------------------------------
     // Each froxel's light and extinction from the lists just culled, then each
@@ -916,8 +945,14 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(fog), &fog);
         // fog_scatter.comp's local size is 4 x 4 x 4; fog_integrate.comp's 8 x 8.
         vkCmdDispatch(commands, (FOG_GRID[0] + 3) / 4, (FOG_GRID[1] + 3) / 4, (FOG_GRID[2] + 3) / 4);
+        // Scattering is written above and read by the integration below.
+        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogIntegrate());
         vkCmdDispatch(commands, (FOG_GRID[0] + 7) / 8, (FOG_GRID[1] + 7) / 8, 1);
+        // The integrated volume is sampled by the forward pass.
+        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     }
 
     // -- 1. The forward pass --------------------------------------------------
@@ -982,6 +1017,17 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     vkCmdEndRendering(commands);
 
     // -- 2. The translucent pass -----------------------------------------------
+    // Rasterization order holds within one rendering instance, not across two:
+    // the opaque pass's stores must reach this pass's loads and depth tests.
+    memoryBarrier(commands,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+                      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+                      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
     colours[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     rendering.colorAttachmentCount = 1;
