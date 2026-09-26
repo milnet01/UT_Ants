@@ -21,6 +21,13 @@
 
 namespace uta::urender {
 
+/// Where a buffer's memory lives, chosen by who reads it (UTA-0209).
+enum class BufferMemory {
+    Device,    ///< device-local and unmapped; the GPU alone touches it
+    HostWrite, ///< mapped; the CPU writes it and the GPU reads it
+    HostRead,  ///< mapped and host-cached where the GPU offers it; the CPU reads it back
+};
+
 class Buffer {
 public:
     Buffer() = default;
@@ -30,10 +37,14 @@ public:
     Buffer& operator=(const Buffer&) = delete;
     ~Buffer() { reset(); }
 
-    /// `hostVisible` maps it for the buffer's whole life; otherwise it is
-    /// device-local and filled through `upload`.
+    /// A host memory choice maps it for the buffer's whole life; `Device` is
+    /// filled through `upload` or by the GPU.
+    ///
+    /// HostRead is not HostWrite by another name. On an RX 6600 the first
+    /// host-visible type is uncached, and reading the cluster counts back from
+    /// it took 0.37 ms a frame, against 0.002 ms from a cached type (UTA-0209).
     [[nodiscard]] static Result<Buffer> create(const Gpu& gpu, VkDeviceSize size,
-                                               VkBufferUsageFlags usage, bool hostVisible);
+                                               VkBufferUsageFlags usage, BufferMemory memory);
 
     /// A device-local buffer holding `bytes`, copied through a staging buffer.
     /// An empty span makes a minimal buffer: Vulkan has no zero-sized one.

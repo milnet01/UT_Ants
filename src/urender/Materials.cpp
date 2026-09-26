@@ -156,7 +156,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle)
     // -- Their contents, through one staging buffer ---------------------------
     VkDeviceSize total = 0;
     for (const Source& source : sources) total += source.bytes.size();
-    UTA_TRY(Buffer staging, Buffer::create(gpu, total, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true));
+    UTA_TRY(Buffer staging, Buffer::create(gpu, total, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
     std::vector<VkDeviceSize> starts;
     VkDeviceSize cursor = 0;
     for (const Source& source : sources) {

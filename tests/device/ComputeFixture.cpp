@@ -34,7 +34,7 @@ std::vector<std::byte> runCompute(std::span<const std::uint32_t> spirv,
     for (std::uint32_t i = 0; i < bindingCount; ++i) {
         const std::size_t size = i < inputs.size() ? inputs[i].size() : outputBytes;
         auto buffer = urender::Buffer::create(gpu, std::max<std::size_t>(size, 16),
-                                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true);
+                                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, urender::BufferMemory::HostRead);
         if (!buffer.has_value()) FAIL(buffer.error().message());
         std::memset(buffer->mapped(), 0, buffer->size());
         if (i < inputs.size()) std::memcpy(buffer->mapped(), inputs[i].data(), inputs[i].size());

@@ -504,15 +504,19 @@ Result<void> Renderer::Impl::createSamplers() {
 
 Result<void> Renderer::Impl::createStandIns() {
     const VkBufferUsageFlags storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    UTA_TRY(frameData, Buffer::create(*gpu, sizeof(gpu::FrameData), storage, true));
+    UTA_TRY(frameData, Buffer::create(*gpu, sizeof(gpu::FrameData), storage, BufferMemory::HostWrite));
     // SS 4.6: the grid is fixed, so its buffers are sized once. The counts are
-    // host-visible because each frame reads them back for SS 6's overflow count.
-    UTA_TRY(clusterCounts, Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT, storage, true));
+    // read back each frame for SS 6's overflow count; the indices only the GPU
+    // touches (UTA-0209).
+    UTA_TRY(clusterCounts,
+            Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT, storage, BufferMemory::HostRead));
     UTA_TRY(clusterIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * gpu::CLUSTER_COUNT * gpu::CLUSTER_CAPACITY,
-                                           storage, true));
-    UTA_TRY(clusterBounds, Buffer::create(*gpu, sizeof(gpu::ClusterBounds) * gpu::CLUSTER_COUNT, storage, true));
+                                           storage, BufferMemory::Device));
+    UTA_TRY(clusterBounds, Buffer::create(*gpu, sizeof(gpu::ClusterBounds) * gpu::CLUSTER_COUNT, storage,
+                                          BufferMemory::HostWrite));
     // UTA-0015 SS 4.4: VOLUME_LIGHTS, sized for its capacity.
-    UTA_TRY(volumeLightIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * VOLUME_LIGHT_CAPACITY, storage, true));
+    UTA_TRY(volumeLightIndices, Buffer::create(*gpu, sizeof(std::uint32_t) * VOLUME_LIGHT_CAPACITY, storage,
+                                               BufferMemory::HostWrite));
     return {};
 }
 
@@ -542,7 +546,8 @@ Result<void> Renderer::Impl::createFogVolumes() {
 Result<void> Renderer::Impl::uploadOcclusion(const ubundle::Occlusion& atlas) {
     UTA_TRY(occlusion, Image::create(*gpu, {VK_FORMAT_R8_UNORM, atlas.width, atlas.height, 1,
                                             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
-    UTA_TRY(Buffer staging, Buffer::create(*gpu, atlas.texels.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true));
+    UTA_TRY(Buffer staging, Buffer::create(*gpu, atlas.texels.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                           BufferMemory::HostWrite));
     std::memcpy(staging.mapped(), atlas.texels.data(), atlas.texels.size());
     return gpu->run([&](VkCommandBuffer commands) {
         occlusion.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -584,11 +589,12 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     UTA_TRY(SceneGeometry uploadedGeometry, SceneGeometry::upload(*gpu, bundle, *materials));
     geometry.emplace(std::move(uploadedGeometry));
     UTA_TRY(objects, Buffer::create(*gpu, sizeof(gpu::Object) * geometry->objectCount,
-                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferMemory::HostWrite));
     const std::vector<gpu::Light> uploaded = drawnLights(bundle, 0.0);
     // UTA-0015 SS 4.5: room for the flashlight after the bundle's lights.
     const std::size_t lightCount = uploaded.size() + 1;
-    UTA_TRY(lights, Buffer::create(*gpu, sizeof(gpu::Light) * lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
+    UTA_TRY(lights, Buffer::create(*gpu, sizeof(gpu::Light) * lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                   BufferMemory::HostWrite));
     // UTA-0015 SS 4.4: each drawn light's zone, which decides whether it may glow.
     lightZones.clear();
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
@@ -619,7 +625,7 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     shadowPlanner.reset();
     // UTA-0163: and the sky's six after them.
     UTA_TRY(shadowFaces, Buffer::create(*gpu, sizeof(gpu::ShadowFace) * (lightCount * 6 + 6),
-                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, true));
+                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferMemory::HostWrite));
     moverBounds.clear();
     if (bundle.movers) {
         for (const ubundle::MoverShape& mover : *bundle.movers) {
@@ -1393,7 +1399,8 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
     Image& image = target == Target::Colour ? impl.output : impl.velocity;
     const std::size_t pixels = static_cast<std::size_t>(impl.config.width) * impl.config.height;
     // RGBA8 and RG16F are both four bytes a pixel.
-    UTA_TRY(Buffer host, Buffer::create(*impl.gpu, pixels * 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true));
+    UTA_TRY(Buffer host, Buffer::create(*impl.gpu, pixels * 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                        BufferMemory::HostRead));
     UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
         image.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         VkBufferImageCopy copy{};

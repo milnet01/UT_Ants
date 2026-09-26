@@ -77,7 +77,8 @@ void Buffer::reset() noexcept {
     mapped_ = nullptr;
 }
 
-Result<Buffer> Buffer::create(const Gpu& gpu, VkDeviceSize size, VkBufferUsageFlags usage, bool hostVisible) {
+Result<Buffer> Buffer::create(const Gpu& gpu, VkDeviceSize size, VkBufferUsageFlags usage, BufferMemory memory) {
+    const bool hostVisible = memory != BufferMemory::Device;
     Buffer buffer;
     buffer.device_ = gpu.device();
     buffer.size_ = size;
@@ -94,7 +95,13 @@ Result<Buffer> Buffer::create(const Gpu& gpu, VkDeviceSize size, VkBufferUsageFl
     const VkMemoryPropertyFlags wanted = hostVisible
                                              ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
                                              : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    UTA_TRY(const std::uint32_t type, gpu.memoryType(needs.memoryTypeBits, wanted));
+    // A read-back takes a cached type where the GPU offers one, and the plain
+    // host type where it does not.
+    Result<std::uint32_t> found = gpu.memoryType(
+        needs.memoryTypeBits,
+        memory == BufferMemory::HostRead ? wanted | VK_MEMORY_PROPERTY_HOST_CACHED_BIT : wanted);
+    if (!found && memory == BufferMemory::HostRead) found = gpu.memoryType(needs.memoryTypeBits, wanted);
+    UTA_TRY(const std::uint32_t type, std::move(found));
 
     VkMemoryAllocateInfo allocate{};
     allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -113,9 +120,9 @@ Result<Buffer> Buffer::create(const Gpu& gpu, VkDeviceSize size, VkBufferUsageFl
 
 Result<Buffer> Buffer::upload(Gpu& gpu, std::span<const std::byte> bytes, VkBufferUsageFlags usage) {
     const VkDeviceSize size = std::max<VkDeviceSize>(bytes.size(), 16);
-    UTA_TRY(Buffer staging, create(gpu, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true));
+    UTA_TRY(Buffer staging, create(gpu, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
     if (!bytes.empty()) std::memcpy(staging.mapped(), bytes.data(), bytes.size());
-    UTA_TRY(Buffer target, create(gpu, size, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false));
+    UTA_TRY(Buffer target, create(gpu, size, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferMemory::Device));
     UTA_CHECK(gpu.run([&](VkCommandBuffer commands) {
         VkBufferCopy region{0, 0, size};
         vkCmdCopyBuffer(commands, staging.handle(), target.handle(), 1, &region);

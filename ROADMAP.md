@@ -12377,7 +12377,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-25.
   Lanes: app.
 
-- 📋 [UTA-0209] **urender: the cluster light lists live in host-visible memory; measure what that costs a frame.**
+- 🚧 [UTA-0209] **urender: the cluster light lists live in host-visible memory; measure what that costs a frame.**
   Renderer::Impl::createStandIns (src/urender/Frame.cpp) creates
   clusterCounts, clusterIndices and clusterBounds host-visible and
   coherent. cluster.comp writes clusterIndices and every shaded fragment
@@ -12389,6 +12389,27 @@ Each of them says so in its own body.
   Measure first: frame time on the gate machine's GPU with the three
   buffers as now, then with clusterIndices device-local and the overflow
   count copied to a small host buffer. Move only what the numbers justify.
+  Picked 2026-09-26 by ut-ants-56 while the UTA-0177 census runs:
+  GPU-side and small. Rule-1 set checked first: only UTA-0098 and
+  UTA-0100, both dormant.
+  Measured 2026-09-26 on the RX 6600, census paused, ut-shot at 1920x1080,
+  high tier, 16 views per map on AS-Frigate, DM-Deck16][ and DM-Fetid,
+  best of four runs per view. Gpu::memoryType takes the first matching
+  type, which here is uncached system memory.
+  - All host buffers moved to device-local host-visible memory: slower,
+    per-view median 1.07x to 1.81x. Rejected.
+  - clusterIndices device-local only: per-view median 0.96x to 0.99x.
+    Small, but the CPU never touches it, so it needs no mapping.
+  - The per-frame clusterCounts readback: 0.376 ms of CPU time from the
+    uncached type, 0.0024 ms from a host-cached one, over 6354 frames. It
+    sits outside frameMilliseconds, so no frame figure showed it.
+  GPU frame times moved between sessions for an unchanged build, possibly
+  because other projects benchmark on the same GPU; the readback saving is
+  the robust result.
+  Change: Buffer::create takes a BufferMemory (Device, HostWrite,
+  HostRead) instead of a bool. HostRead takes a host-cached type where
+  the GPU offers one. clusterCounts and the frame readback are HostRead,
+  clusterIndices is Device, the rest HostWrite.
   **Layman:** The list of which lights touch which part of the screen may sit in slow memory; measure it, and move it if it costs frame time.
   Kind: perf.
   Source: in-session-2026-09-26 doom-ants exchange.
