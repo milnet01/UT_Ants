@@ -523,6 +523,9 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Baking a very large map no longer runs out of memory: light probes stay within reach of the play area.** (UTA-0212)
+  Baking one map ate half the computer's memory; find what grows and bound it.
+
 - **ut-paths walks a staircase instead of reading it as a wall** (UTA-0123)
 
 - **The real-asset tests no longer fail on an install other than the one their figures were measured on** (UTA-0132)

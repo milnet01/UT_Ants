@@ -12477,7 +12477,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-26 doom-ants exchange.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0212] **ut-bake grew past 16 GB baking MH-TrifeaOutpostMore and had to be stopped.**
+- ✅ [UTA-0212] **ut-bake grew past 16 GB baking MH-TrifeaOutpostMore and had to be stopped.**
   Found 2026-09-26 by the UTA-0177 census, baker revision 22. After 3 min
   17 s one ut-bake process held 16.1 GB resident and was still growing.
   The machine was down to 1 GB available, so the bake was stopped by PID.
@@ -12517,6 +12517,10 @@ Each of them says so in its own body.
   Unit tier 727 green. Four hand mutations (no lower clip, no upper clip,
   every actor counts, no margin) each fail BakeLightProbesTest. The
   golden digest is unchanged: its fixture places no navigation point.
+  Resolved (2026-09-26): shipped at 04ac801, green on GitHub's matrix at
+  386c5d9 (which contains it; 04ac801's own run was superseded). Probes
+  stay within 32768 units of the navigation points; MH-TrifeaOutpostMore
+  bakes in 654 MB / 56 s, down from 16 GB+. Baker revision 23.
   **Layman:** Baking one map ate half the computer's memory; find what grows and bound it.
   Kind: fix.
   Source: in-session-2026-09-26 UTA-0177 census.
