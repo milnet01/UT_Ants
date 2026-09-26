@@ -412,6 +412,8 @@ appears once something has actually shipped.)
 
 ### Changed
 
+- **The renderer reads its per-frame light statistics back from cached memory, saving about a third of a millisecond of CPU time every frame.** (UTA-0209)
+
 - **ut-bake makes several texture variants at once, a fifth to a quarter faster, with identical bundles** (UTA-0148)
 
 - **ut-paths builds its walk graph on every core, about five times faster, with identical output** (UTA-0149)

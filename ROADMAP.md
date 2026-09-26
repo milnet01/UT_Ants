@@ -12377,7 +12377,7 @@ Each of them says so in its own body.
   Source: user-request-2026-09-25.
   Lanes: app.
 
-- 🚧 [UTA-0209] **urender: the cluster light lists live in host-visible memory; measure what that costs a frame.**
+- ✅ [UTA-0209] **urender: the cluster light lists live in host-visible memory; measure what that costs a frame.**
   Renderer::Impl::createStandIns (src/urender/Frame.cpp) creates
   clusterCounts, clusterIndices and clusterBounds host-visible and
   coherent. cluster.comp writes clusterIndices and every shaded fragment
@@ -12410,6 +12410,9 @@ Each of them says so in its own body.
   HostRead) instead of a bool. HostRead takes a host-cached type where
   the GPU offers one. clusterCounts and the frame readback are HostRead,
   clusterIndices is Device, the rest HostWrite.
+  Resolved (2026-09-26): shipped at 8abd3ff, green on GitHub's GCC, Clang
+  and MSVC matrix. The per-frame cluster-count readback costs 0.0024 ms of
+  CPU instead of 0.376 ms; clusterIndices is device-local.
   **Layman:** The list of which lights touch which part of the screen may sit in slow memory; measure it, and move it if it costs frame time.
   Kind: perf.
   Source: in-session-2026-09-26 doom-ants exchange.
