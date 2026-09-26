@@ -224,3 +224,17 @@ TEST_CASE("writeCapture refuses a map name that would escape the captures direct
         writeCapture(dir.path(), info, solidImage(4, 3, 0), solidImage(4, 3, 0), WHEN);
     CHECK_FALSE(folder.has_value());
 }
+
+TEST_CASE("two captures in one second keep both folders", "[client][capture]") {
+    // review-code 2026-09-26: "one folder per press" (Cli.cpp, Capture.h), yet
+    // a second press in the same second replaced the first capture's files.
+    const TempDir dir;
+    const CaptureInfo info = sampleInfo();
+    const auto first = writeCapture(dir.path(), info, solidImage(4, 3, 0x20), solidImage(4, 3, 0x40), WHEN);
+    const auto second = writeCapture(dir.path(), info, solidImage(4, 3, 0x60), solidImage(4, 3, 0x80), WHEN);
+    REQUIRE(first.has_value());
+    REQUIRE(second.has_value());
+    CHECK(first->filename() == "MH-Example-20260920-143005");
+    CHECK(second->filename() == "MH-Example-20260920-143005-2");
+    CHECK(readWhole(*first / "frame.png") != readWhole(*second / "frame.png"));
+}

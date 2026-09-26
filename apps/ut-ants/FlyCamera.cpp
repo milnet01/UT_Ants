@@ -104,7 +104,11 @@ void addPad(FlyInput& input, const PadInput& pad, double seconds) noexcept {
 
 FlyCamera::FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int32_t yaw) noexcept
     : location_{location[0], location[1], location[2]},
-      pitch_(std::clamp(pitch, -PITCH_LIMIT, PITCH_LIMIT)),
+      // A rotator is a turn in 65536 units, stored in 0..65535 as often as
+      // signed; fold it to signed before clamping, or 63488 (slightly down)
+      // clamps to straight up (review-code 2026-09-26).
+      pitch_(std::clamp(static_cast<std::int32_t>(static_cast<std::int16_t>(pitch & 0xFFFF)), -PITCH_LIMIT,
+                        PITCH_LIMIT)),
       yaw_(yaw) {}
 
 void FlyCamera::update(const FlyInput& input, double seconds, const ubundle::CollisionTree* level) noexcept {

@@ -270,3 +270,12 @@ TEST_CASE("UTA-0190: a pose line is a camera line ut-shot reads", "[client]") {
     CHECK(uta::client::poseLine(camera, 1920, 1080) == "1.50 -2.25 3.00 100 -200 0 121.28");
     CHECK(uta::client::poseLine(camera, 1000, 1000) == "1.50 -2.25 3.00 100 -200 0 90.00");
 }
+
+TEST_CASE("a start's pitch is read as a turn, so 63488 is slightly down", "[client]") {
+    // review-code 2026-09-26: a rotator is stored in 0..65535 as often as
+    // signed. Clamped raw, a start tilted down looked almost straight up.
+    const FlyCamera down({0, 0, 0}, 63488, 0);
+    CHECK(down.camera().rotation[0] == -2048);
+    const FlyCamera up({0, 0, 0}, 2048, 0);
+    CHECK(up.camera().rotation[0] == 2048);
+}

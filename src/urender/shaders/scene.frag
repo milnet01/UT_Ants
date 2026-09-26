@@ -79,11 +79,14 @@ vec3 perturbed(vec3 n, TextureAxes axes, vec3 tangentNormal) {
 // fixed before the loop: implicit derivatives inside a loop with an early exit
 // are undefined.
 vec2 parallaxUv(Material material, TextureAxes axes, vec3 n) {
+    // Before any per-fragment return: the caller branches only on per-draw
+    // values, so this is still uniform control flow (review-code 2026-09-26).
+    float lod = textureQueryLod(textures[nonuniformEXT(material.height)], uv).x;
+
     vec3 toEye = normalize(frame.eye - worldPosition);
     float facing = dot(n, toEye);
     if (facing <= 0.0) return uv;
 
-    float lod = textureQueryLod(textures[nonuniformEXT(material.height)], uv).x;
     float fade = 1.0 - clamp(lod - PARALLAX_FADE_MIP, 0.0, 1.0);
     if (fade <= 0.0) return uv;
 

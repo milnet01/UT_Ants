@@ -93,30 +93,39 @@ Result<std::filesystem::path> writeCapture(const std::filesystem::path& captures
     // resolveUnder is core's trust boundary, and a map name reaches here from
     // a file on disk. A name carrying a separator or ".." would otherwise put
     // the folder outside the captures directory.
-    const auto folder = fs::resolveUnder(captures, captureFolderName(info.map, when));
-    if (!folder) return std::unexpected(folder.error());
+    const auto resolved = fs::resolveUnder(captures, captureFolderName(info.map, when));
+    if (!resolved) return std::unexpected(resolved.error());
+    // One folder per press, even two presses in one second: the second gets a
+    // -2, and so on, rather than replacing the first (review-code 2026-09-26).
+    const std::filesystem::path folder = [&] {
+        std::filesystem::path candidate = *resolved;
+        std::error_code ec;
+        for (int n = 2; std::filesystem::exists(candidate, ec); ++n)
+            candidate = resolved->parent_path() / (resolved->filename().string() + "-" + std::to_string(n));
+        return candidate;
+    }();
 
-    if (const auto wrote = writeImage(*folder / "frame.png", "the frame as shown", shownRgba,
+    if (const auto wrote = writeImage(folder / "frame.png", "the frame as shown", shownRgba,
                                       info.renderWidth, info.renderHeight);
         !wrote)
         return std::unexpected(wrote.error());
 
-    if (const auto wrote = writeImage(*folder / "linear.png", "the linear view", linearRgba,
+    if (const auto wrote = writeImage(folder / "linear.png", "the linear view", linearRgba,
                                       info.renderWidth, info.renderHeight);
         !wrote)
         return std::unexpected(wrote.error());
 
-    if (const auto wrote = writeText(*folder / "details.txt", captureDetails(info)); !wrote)
+    if (const auto wrote = writeText(folder / "details.txt", captureDetails(info)); !wrote)
         return std::unexpected(wrote.error());
 
     // The camera on its own, in the form ut-shot reads from standard input, so
     // the view can be drawn again by piping this file in rather than by
     // copying a field out of details.txt by hand. That is what makes the
     // folder reproduce the view rather than merely describe it.
-    if (const auto wrote = writeText(*folder / "camera.txt", info.cameraLine + "\n"); !wrote)
+    if (const auto wrote = writeText(folder / "camera.txt", info.cameraLine + "\n"); !wrote)
         return std::unexpected(wrote.error());
 
-    return *folder;
+    return folder;
 }
 
 } // namespace uta::client

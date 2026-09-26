@@ -185,6 +185,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
         for (const ubundle::MaterialRecord& record : *bundle.materials) {
             fnv.add(std::as_bytes(std::span(record.id)));
             fnv.addValue(record.metallic);
+            fnv.addValue(record.parallaxDepth); // uploaded, so a change must re-upload
         }
     }
     // UTA-0156 SS 4.4: a bundle differing only in its zones must re-upload them.
