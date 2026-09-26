@@ -884,9 +884,10 @@ TEST_CASE("a texture's second chain is read if and only if bHasComp says so",
 
 TEST_CASE("a texture subclass sharing the layout is read; another is refused",
           "[upkg]") {
-    // INV-8. WaveTexture shares the mip chain and then stores something
-    // further that this item does not describe, so reading its mips and
-    // leaving the rest unread would defeat SS 4.3 for every caller at once.
+    // INV-8. A class outside the modelled set is refused by name rather than
+    // read as its nearest relative. UTA-0177: WaveTexture was that example
+    // until every WaveTexture export in the reference install was measured
+    // ending exactly at its mip chain; it is modelled now.
     std::vector<std::uint8_t> data = emptyProperties();
     appendU8(data, 1);
     appendMip(data, 61, 0, {0x09u}, 1, 1);
@@ -920,15 +921,27 @@ TEST_CASE("a texture subclass sharing the layout is read; another is refused",
         CHECK(texture->sparks[1].byteD == 255);
     }
 
-    SECTION("WaveTexture is refused, and the message names the class") {
+    SECTION("UTA-0177: WaveTexture is modelled, its mip read as stored") {
+        const std::vector<std::uint8_t> bytes = packageWithObject(61, "WaveTexture", data);
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE(package.has_value());
+        const auto texture = uta::upkg::readTexture(*package, package->exports()[0]);
+        REQUIRE(texture.has_value());
+        REQUIRE(texture->mips.size() == 1);
+        CHECK(texture->mips[0].pixels.size() == 1);
+    }
+
+    SECTION("WaterTexture is refused, and the message names the class") {
+        // The water family's abstract parent: no file stores one, and a
+        // check reading by ancestry would take it for WaveTexture's layout.
         const std::vector<std::uint8_t> bytes =
-            packageWithObject(61, "WaveTexture", data);
+            packageWithObject(61, "WaterTexture", data);
         const auto package = Package::open(asBytes(bytes));
         REQUIRE(package.has_value());
         const auto texture = uta::upkg::readTexture(*package, package->exports()[0]);
         REQUIRE_FALSE(texture.has_value());
         CHECK(texture.error().code() == ErrorCode::InvalidArgument);
-        CHECK(texture.error().message().find("WaveTexture") != std::string_view::npos);
+        CHECK(texture.error().message().find("WaterTexture") != std::string_view::npos);
     }
 }
 

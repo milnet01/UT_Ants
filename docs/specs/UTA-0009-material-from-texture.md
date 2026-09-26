@@ -468,9 +468,9 @@ Recorded after the build. None of it changes a contract above.
 
 ## 6. Failure modes
 
-- **A procedural texture.** `upkg::isModelledTextureClass` refuses
-  `WaveTexture` but accepts `WetTexture`, `IceTexture`, `ScriptedTexture`
-  and `FireTexture` beside `Texture` — `MODELLED_CLASSES` in
+- **A procedural texture.** `upkg::isModelledTextureClass` accepts
+  `WetTexture`, `IceTexture`, `ScriptedTexture`, `FireTexture` and, since
+  `UTA-0177`, `WaveTexture` beside `Texture` — `MODELLED_CLASSES` in
   `src/upkg/Texture.cpp`. `generate` cannot tell a class apart. *Decided
   by the user, 2026-09-10*: the first version shows each procedural
   texture as a still picture where one exists. Which image stands in is

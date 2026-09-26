@@ -435,17 +435,23 @@ TEST_CASE("UTA-0155: a procedural texture with no pixels of its own is made from
         return *key;
     };
     const std::uint64_t waterKey = fingerprintOf(waterPicture);
+    // Goo's own colours. UTA-0177: the mean, (115, 115, 115), is nearest the
+    // third, and neither end is -- so a fill taking an end, or the first
+    // entry, is told apart from one taking the mean.
+    Picture gooPicture = picture(8);
+    gooPicture.palette = {{0, 0, 0, 255}, {100, 100, 100, 255}, {110, 110, 110, 255}, {250, 250, 250, 255}};
 
     // FluidTex: Water, a plain texture, and Goo, a WetTexture storing no pixels.
-    const auto fluidTex = [&](bool namesItsSource) {
+    const auto fluidTex = [&](bool namesItsSource, bool sourceHasPixels = true) {
         Packer packer;
         TextureSpec water;
         water.name = "Water";
         water.picture = waterPicture;
+        water.emptyLevel = !sourceHasPixels;
         const std::int32_t waterReference = packer.addTexture(water);
         TextureSpec goo;
         goo.name = "Goo";
-        goo.picture = picture(8); // its size only: the level stores no pixels
+        goo.picture = gooPicture; // its size and palette only: the level stores no pixels
         goo.className = "WetTexture";
         goo.emptyLevel = true;
         if (namesItsSource) goo.sourceTexture = waterReference;
@@ -474,14 +480,54 @@ TEST_CASE("UTA-0155: a procedural texture with no pixels of its own is made from
         CHECK(asked.contains(waterKey));
     }
 
-    SECTION("naming none, it is skipped and the reason says so") {
+    // UTA-0177's fill: every texel the entry nearest Goo's palette's mean.
+    const auto flatKey = [&] {
+        Picture flat = gooPicture;
+        std::array<int, 3> sum{};
+        for (const auto& colour : flat.palette)
+            for (std::size_t c = 0; c < 3; ++c) sum[c] += colour[c];
+        const auto count = static_cast<int>(flat.palette.size());
+        std::size_t nearest = 0;
+        int best = std::numeric_limits<int>::max();
+        for (std::size_t i = 0; i < flat.palette.size(); ++i) {
+            int distance = 0;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const int d = flat.palette[i][c] - sum[c] / count;
+                distance += d * d;
+            }
+            if (distance < best) {
+                best = distance;
+                nearest = i;
+            }
+        }
+        std::fill(flat.indices.begin(), flat.indices.end(), static_cast<std::uint8_t>(nearest));
+        return fingerprintOf(flat);
+    };
+
+    SECTION("UTA-0177: naming none, it is a flat fill of its own palette's mean colour") {
+        // No engine gives a picture for one: SurrealEngine leaves a sourceless
+        // WetTexture untouched. A flat fill from the texture's own colours is
+        // what a player sees in place of magenta.
         MemoryPackages packages;
         packages.add("fluidtex", fluidTex(false));
         const BakeResult result = baked(map.build(), packages.resolver(), jobs, recording);
-        REQUIRE(result.skipped.size() == 1);
-        CHECK(result.skipped[0].material == "fluidtex.goo");
-        INFO("reason: " << result.skipped[0].reason);
-        CHECK(result.skipped[0].reason.find("SourceTexture") != std::string::npos);
+        for (const auto& skipped : result.skipped) INFO("skipped " << skipped.material << ": " << skipped.reason);
+        CHECK(result.skipped.empty());
+        CHECK(idsOf(result) == std::vector<std::string>{"fluidtex.goo"});
+
+        CHECK(asked.contains(flatKey()));
+    }
+
+    SECTION("UTA-0177: naming a source that has no pixels either, it is the same flat fill") {
+        // UnrealShare's DamageWet: its SourceTexture is a WaveTexture, which
+        // stores no pixels, so there is no picture at either hop.
+        MemoryPackages packages;
+        packages.add("fluidtex", fluidTex(true, false));
+        const BakeResult result = baked(map.build(), packages.resolver(), jobs, recording);
+        for (const auto& skipped : result.skipped) INFO("skipped " << skipped.material << ": " << skipped.reason);
+        CHECK(result.skipped.empty());
+        CHECK(idsOf(result) == std::vector<std::string>{"fluidtex.goo"});
+        CHECK(asked.contains(flatKey()));
     }
 }
 

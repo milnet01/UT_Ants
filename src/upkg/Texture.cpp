@@ -28,8 +28,8 @@ Error malformed(std::string message) {
 /// The classes SS 4.6 models. Recognised by NAME rather than by ancestry:
 /// resolving "is this class a Texture?" properly needs the class table, which
 /// is UTA-0005 and is not built (SS 3.3 item 4).
-constexpr std::array<std::string_view, 5> MODELLED_CLASSES{
-    "Texture", "WetTexture", "IceTexture", "ScriptedTexture", "FireTexture"};
+constexpr std::array<std::string_view, 6> MODELLED_CLASSES{
+    "Texture", "WetTexture", "IceTexture", "ScriptedTexture", "FireTexture", "WaveTexture"};
 
 Result<Mip> readMip(ByteReader& reader, std::uint16_t packageVersion,
                     std::size_t serialOffset) {
@@ -118,10 +118,9 @@ bool isModelledTextureClass(std::string_view className) noexcept {
 Result<Texture> readTexture(const Package& package, const ExportEntry& entry) {
     UTA_TRY(const std::string_view className, package.objectName(entry.objectClass));
     if (!isModelledTextureClass(className)) {
-        // Refused by name rather than read as its nearest relative (INV-8).
-        // WaveTexture shares the mip chain and then stores something further
-        // that this item does not describe; reading its mips and leaving the
-        // rest unread would defeat SS 4.3 for every caller at once.
+        // Refused by name rather than read as its nearest relative (INV-8):
+        // a layout nobody has measured could consume the wrong bytes and
+        // still end at the right place.
         return std::unexpected(Error(
             ErrorCode::InvalidArgument,
             "class " + std::string(className) + " is not a texture class this reader models"));

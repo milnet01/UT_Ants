@@ -64,7 +64,7 @@ namespace {
 // 23: UTA-0212 kept probes within PROBE_REACH_MARGIN of the navigation points.
 // Same digest as 22: the fixture places no navigation point, so no reach applies;
 // BakeLightProbesTest grades the reach.
-constexpr std::uint32_t RECORDED_UNDER = 23;
+constexpr std::uint32_t RECORDED_UNDER = 24;
 constexpr std::string_view GOLDEN =
     "0469a7e3df8c13790861b610ef473693503fa3e0a383ca6c33459db204dbfae5";
 

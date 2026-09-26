@@ -66,10 +66,10 @@ struct Palette {
     std::vector<PaletteEntry> entries;
 };
 
-/// True for the classes SS 4.6 models: `Texture` and the three subclasses that
+/// True for the classes SS 4.6 models: `Texture` and the four subclasses that
 /// share its layout, plus `FireTexture`, which shares it and adds a tail.
 /// A class outside this set is refused rather than read as its nearest
-/// relative (INV-8) -- `WaveTexture` is the measured case.
+/// relative (INV-8).
 [[nodiscard]] bool isModelledTextureClass(std::string_view className) noexcept;
 
 /// A `Texture`-family export: its mip chain, and the compressed chain where

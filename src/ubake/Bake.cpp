@@ -32,6 +32,7 @@
 #endif
 #include <optional>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <system_error>
 #include <utility>
@@ -298,6 +299,31 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
     return site;
 }
 
+/// UTA-0177: the palette entry nearest the palette's mean colour, which a
+/// texture with no picture anywhere is filled with. Alpha is not weighed.
+std::size_t nearestToMean(const upkg::Palette& palette) {
+    std::array<long, 3> sum{};
+    for (const upkg::PaletteEntry& entry : palette.entries) {
+        sum[0] += entry.r;
+        sum[1] += entry.g;
+        sum[2] += entry.b;
+    }
+    const auto count = static_cast<long>(palette.entries.size());
+    std::size_t nearest = 0;
+    long best = std::numeric_limits<long>::max();
+    for (std::size_t i = 0; i < palette.entries.size(); ++i) {
+        const upkg::PaletteEntry& entry = palette.entries[i];
+        const long dr = entry.r - sum[0] / count;
+        const long dg = entry.g - sum[1] / count;
+        const long db = entry.b - sum[2] / count;
+        if (const long distance = dr * dr + dg * dg + db * db; distance < best) {
+            best = distance;
+            nearest = i;
+        }
+    }
+    return nearest;
+}
+
 /// A made variant, and the texels one repeat of its texture spans on each axis
 /// -- UTA-0109 SS 4.4.
 struct MadeVariant {
@@ -364,7 +390,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     // WetTexture, an IceTexture, a ScriptedTexture -- shows its SourceTexture's
     // picture, through that texture's own palette, as a still image (the user's
     // choice, 2026-09-14; moving it is UTA-0105's). One hop: a source storing
-    // no pixels either is refused. `base` still sets the size a repeat spans.
+    // no pixels either takes UTA-0177's flat fill, as a texture naming no
+    // source does. `base` still sets the size a repeat spans.
     const upkg::Mip* shown = &base;
     const upkg::Palette* shownPalette = &*palette;
     std::optional<upkg::Texture> sourceTexture;
@@ -372,8 +399,22 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     // UTA-0176: a FireTexture stores no pixels and names no SourceTexture --
     // UT99 draws it from its sparks every frame -- so its still is simulated,
     // through its own palette. Moving it is UTA-0105's.
-    std::vector<std::byte> fireIndices;
-    upkg::Mip fireLevel;
+    // A picture made here rather than read: the fire's, or UTA-0177's fill.
+    std::vector<std::byte> madeIndices;
+    upkg::Mip madeLevel;
+    // UTA-0177: no picture anywhere -- no pixels, and no source that has any.
+    // No engine gives one (SurrealEngine leaves such a texture untouched, and
+    // ucc exports a flat buffer), so it is a flat fill in the texture's own
+    // colours, never magenta.
+    const auto fillFlat = [&]() -> std::expected<void, std::string> {
+        if (palette->entries.empty()) return std::unexpected(std::string("its palette has no entries"));
+        madeIndices.assign(std::size_t{base.width} * base.height, static_cast<std::byte>(nearestToMean(*palette)));
+        madeLevel = base;
+        madeLevel.pixels = madeIndices;
+        shown = &madeLevel;
+        shownPalette = &*palette;
+        return {};
+    };
     const bool storesNoPixels = base.pixels.size() < std::size_t{base.width} * base.height;
     if (const auto className = holder.objectName(site.entry->objectClass);
         storesNoPixels && className.has_value() && detail::fold(*className) == "firetexture") {
@@ -381,43 +422,48 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
             .renderHeat = propertyOr<std::uint8_t>(holder, *properties, "renderheat", 0),
             .rising = propertyOr<bool>(holder, *properties, "brising", false),
             .sparksLimit = propertyOr<std::int32_t>(holder, *properties, "sparkslimit", 0)};
-        fireIndices = fireStill(base.width, base.height, texture->sparks, fire);
-        fireLevel = base;
-        fireLevel.pixels = fireIndices;
-        shown = &fireLevel;
+        madeIndices = fireStill(base.width, base.height, texture->sparks, fire);
+        madeLevel = base;
+        madeLevel.pixels = madeIndices;
+        shown = &madeLevel;
     } else if (storesNoPixels) {
         const auto sourceReference = objectProperty(holder, *properties, "sourcetexture");
-        if (!sourceReference.has_value() || sourceReference->kind() == upkg::ObjectReferenceKind::Null)
-            return std::unexpected(std::string("it stores no pixels of its own and names no SourceTexture"));
-        const auto source = objectAt(holder, *sourceReference, resolver, "SourceTexture");
-        if (!source.has_value()) return std::unexpected(source.error());
-        const auto sourceProperties = upkg::readProperties(*source->holder, *source->entry);
-        if (!sourceProperties.has_value())
-            return std::unexpected("its SourceTexture's properties do not read: "
-                                   + std::string(sourceProperties.error().message()));
-        const auto sourcePaletteReference = objectProperty(*source->holder, *sourceProperties, "palette");
-        if (!sourcePaletteReference.has_value()
-            || sourcePaletteReference->kind() == upkg::ObjectReferenceKind::Null)
-            return std::unexpected(std::string("its SourceTexture names no palette"));
-        const auto sourcePaletteSite =
-            objectAt(*source->holder, *sourcePaletteReference, resolver, "SourceTexture's palette");
-        if (!sourcePaletteSite.has_value()) return std::unexpected(sourcePaletteSite.error());
-        auto readSourcePalette = upkg::readPalette(*sourcePaletteSite->holder, *sourcePaletteSite->entry);
-        if (!readSourcePalette.has_value())
-            return std::unexpected("its SourceTexture's palette does not read: "
-                                   + std::string(readSourcePalette.error().message()));
-        sourcePalette = std::move(*readSourcePalette);
-        auto readSource = upkg::readTexture(*source->holder, *source->entry);
-        if (!readSource.has_value())
-            return std::unexpected("its SourceTexture does not read as a texture: "
-                                   + std::string(readSource.error().message()));
-        sourceTexture = std::move(*readSource);
-        if (sourceTexture->mips.empty()) return std::unexpected(std::string("its SourceTexture has no mip levels"));
-        const upkg::Mip& picture = sourceTexture->mips[0];
-        if (picture.pixels.size() < std::size_t{picture.width} * picture.height)
-            return std::unexpected(std::string("its SourceTexture stores no pixels of its own either"));
-        shown = &picture;
-        shownPalette = &*sourcePalette;
+        if (!sourceReference.has_value() || sourceReference->kind() == upkg::ObjectReferenceKind::Null) {
+            if (auto filled = fillFlat(); !filled.has_value()) return std::unexpected(filled.error());
+        } else {
+            const auto source = objectAt(holder, *sourceReference, resolver, "SourceTexture");
+            if (!source.has_value()) return std::unexpected(source.error());
+            const auto sourceProperties = upkg::readProperties(*source->holder, *source->entry);
+            if (!sourceProperties.has_value())
+                return std::unexpected("its SourceTexture's properties do not read: "
+                                       + std::string(sourceProperties.error().message()));
+            const auto sourcePaletteReference = objectProperty(*source->holder, *sourceProperties, "palette");
+            if (!sourcePaletteReference.has_value()
+                || sourcePaletteReference->kind() == upkg::ObjectReferenceKind::Null)
+                return std::unexpected(std::string("its SourceTexture names no palette"));
+            const auto sourcePaletteSite =
+                objectAt(*source->holder, *sourcePaletteReference, resolver, "SourceTexture's palette");
+            if (!sourcePaletteSite.has_value()) return std::unexpected(sourcePaletteSite.error());
+            auto readSourcePalette = upkg::readPalette(*sourcePaletteSite->holder, *sourcePaletteSite->entry);
+            if (!readSourcePalette.has_value())
+                return std::unexpected("its SourceTexture's palette does not read: "
+                                       + std::string(readSourcePalette.error().message()));
+            sourcePalette = std::move(*readSourcePalette);
+            auto readSource = upkg::readTexture(*source->holder, *source->entry);
+            if (!readSource.has_value())
+                return std::unexpected("its SourceTexture does not read as a texture: "
+                                       + std::string(readSource.error().message()));
+            sourceTexture = std::move(*readSource);
+            if (sourceTexture->mips.empty()) return std::unexpected(std::string("its SourceTexture has no mip levels"));
+            const upkg::Mip& picture = sourceTexture->mips[0];
+            if (picture.pixels.size() < std::size_t{picture.width} * picture.height) {
+                // A source that is itself procedural: DamageWet's is a WaveTexture.
+                if (auto filled = fillFlat(); !filled.has_value()) return std::unexpected(filled.error());
+            } else {
+                shown = &picture;
+                shownPalette = &*sourcePalette;
+            }
+        }
     }
 
     // Step 4. UTA-0010 SS 4.5's order with no recipe: the defaults, then the

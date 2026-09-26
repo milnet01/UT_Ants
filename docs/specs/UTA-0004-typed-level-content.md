@@ -129,11 +129,11 @@ a change to a caller.
    `Package` outside the range cannot be constructed, and a gate on the
    typed readers could never fire. § 4.2 says what this item inherits.
 2. **A class this item does not model is refused by name, not partly
-   read.** `WaveTexture` is the measured case: it shares `Texture`'s mip
-   chain and then stores something further that this item does not
-   describe. Returning its mips and silently leaving bytes unread would
-   defeat § 4.3 for every caller at once, so an unmodelled class is an
-   `Error` naming the class.
+   read.** A layout nobody has measured could be read as its nearest
+   relative's and pass § 4.3 by coincidence, so an unmodelled class is an
+   `Error` naming the class. `WaveTexture` was this item's example until
+   `UTA-0177` measured every `WaveTexture` export in the reference install
+   ending exactly at its mip chain; it is modelled now (§ 4.6).
 3. **Bulk payload is returned as a view, never copied.** `Package` already
    holds a view of the caller's bytes and copies no package data
    (`src/upkg/Package.h`, its LIFETIME note); mip pixels and sound
@@ -373,8 +373,8 @@ holding a span of the export therefore compares it against
 `serialOffset` term refuses every real texture. It is redundant, which
 makes it a free cross-check: § 5's INV-5 spends it.
 
-Classes read by this reader: `Texture`, `WetTexture`, `IceTexture` and
-`ScriptedTexture` share the layout, measured consuming exactly across the
+Classes read by this reader: `Texture`, `WetTexture`, `IceTexture`,
+`ScriptedTexture` and `WaveTexture` share the layout, measured consuming exactly across the
 reference install's texture packages and maps. It does **not** extend to
 every file in the install: a small number of exports across two community
 files are refused, all of them by one of the two shapes § 7 tier 3 names.
@@ -382,8 +382,8 @@ The tier reports its own totals, so the figure is an output of the suite
 rather than prose here that nobody re-derives. `FireTexture` shares it and
 then stores a compact-index count and that many 8-byte spark records —
 note that this count is the array's own and is *not* the `NumSparks`
-property, which differs. Every other class, `WaveTexture` included, is
-refused by name per § 3.3 item 2.
+property, which differs. Every other class is refused by name per § 3.3
+item 2. `WaveTexture` joined the list with `UTA-0177`.
 
 ### 4.7 `Palette`
 
@@ -581,11 +581,12 @@ same format.
 
 - **INV-8** — An object class this item does not model is refused with an
   `Error` naming the class, rather than read as its nearest relative.
-  *Test:* `tests/unit/PackageContentTest.cpp` builds a `WaveTexture`
-  export and asserts `readTexture` refuses and names it.
-  *Breaks when:* the class check is a "starts with" or a fall-through
-  default, at which point `WaveTexture` is read as a `Texture` and INV-1
-  fires far from the cause.
+  *Test:* `tests/unit/PackageContentTest.cpp` builds a `WaterTexture`
+  export, the water family's abstract parent, and asserts `readTexture`
+  refuses and names it.
+  *Breaks when:* the class check is a "starts with", an ancestry walk or a
+  fall-through default, at which point `WaterTexture` is read as a
+  `Texture` and INV-1 fires far from the cause.
 
 - **INV-9** — `readLevel` returns every non-null actor reference in the
   file's order, and none of the null slots, and reports the raw slot count
