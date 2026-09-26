@@ -12766,6 +12766,163 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: umat, upkg, render.
 
+- 📋 [UTA-0216] **upkg bounds allocations by memory, not only by the file's bytes.**
+  Found by a peer cold read (ants-projects-hub-website-82) of the lane
+  Pass A cleared. Counts are checked against remaining bytes, but the
+  in-memory element is larger:
+  - Geometry.cpp:298-303 Polys reserve (~104 B/polygon from 1 byte).
+  - Properties.cpp:250-256 Bool tags, ~28x memory over file size.
+  - Package.cpp:190 (with :200, :217) name/import/export reserves.
+  - Class.cpp:299-303 effectiveDefaults: linear search, a folded
+    string per comparison (O(n^2)); Package.cpp:318-321 O(n^2)
+    duplicate check with no early exit.
+  Suggested class fix: a per-package memory budget (count x sizeof(T)),
+  and hash sets for the two searches. Verify each against current
+  source first.
+  **Layman:** A crafted map file can make the package reader use gigabytes of memory or hang, because sizes are checked against the file's length but not against what they cost to load.
+  Kind: security.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0217] **Reject non-finite and out-of-range floats from packages before casting.**
+  Float-to-integer casts on unchecked package values are undefined
+  behaviour (cpp.md SS Range guards):
+  - ubake/LightProbes.cpp:290-294 and Occlusion.cpp:109-112 on GEOM
+    vertex positions; a huge triangle also grows candidates unbounded.
+  - ubake/Movers.cpp:131, Collision.cpp:188-189 double to float; a NaN
+    MainScale passes the zero check (Movers.cpp:140).
+  - urender/Lights.cpp:43 floor(seconds*20) to u64: ut-shot
+    --light-time -5 and pinLightSeconds accept a negative time.
+  Suggested: validate positions once when GEOM is built.
+  **Layman:** A corrupt map with impossible coordinates can crash or hang the baker, because some numbers are converted without checking they are real, sane values.
+  Kind: security.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0218] **umat::resolve's masked fill is quadratic in the image size.**
+  src/umat/Resolve.cpp:37-69 does a full pass and a full copy per
+  texel of distance to the nearest opaque texel; a mostly-empty 8192^2
+  mask is ~2e12 reads. A multi-source BFS gives the same result in O(n),
+  or cap the edge before resolve. Also Occlusion.cpp:217-240 loops
+  forever on texelSize <= 0 or NaN, and FireStill.cpp:115 reads a
+  negative SparksLimit as SIZE_MAX.
+  **Layman:** A specially made texture can make baking take practically forever, because one step re-scans the whole picture once per pixel of distance.
+  Kind: perf.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0219] **Settle whether a walking bot may take an R_PLAYERONLY reach spec.**
+  src/unav/Reach.h:31/:50 says R_PLAYERONLY is never a bot's, and
+  mayTraverse defaults player=false; tools/ut-paths/Seeds.cpp:47,58-61
+  BOT_MOVE_FLAGS grants it, citing APawn::calcMoveFlags. mayTraverse has
+  no non-test caller. Check the engine (bIsPlayer * R_PLAYERONLY, and
+  whether a Bot sets bIsPlayer), then route ut-paths through mayTraverse
+  or correct Reach.h. Related: unav/Build.cpp:131,150,315-316 match
+  class and Tag/Event names case-sensitively, and :51 folds with the
+  locale's tolower.
+  **Layman:** Two parts of the code disagree about which paths bots may use, so one of them is routing bots wrongly.
+  Kind: investigate.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0220] **The launcher's Baked tag survives a cache clear and a changed map.**
+  apps/ut-ants/Launcher.cpp:514-516 and :483 read the result file in
+  the state directory, which a cache clear does not remove
+  (MapList.h:74-75), and ignore a changed .unr or import (the bake name
+  hashes both, ubake/Name.cpp:78-130). Record the bundle path in the
+  result and check it exists, or word the tag as baked before. A
+  neighbour of UTA-0208.
+  **Layman:** The map list can say a map is ready to open when its baked copy is gone or out of date, so picking it starts a long bake instead.
+  Kind: fix.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0221] **Pass paths to SDL and ut-bake as UTF-8 on Windows.**
+  path::string() is the ANSI code page on Windows: apps/ut-ants/
+  Launcher.cpp:250-251, :275, :284-285, :39 and main.cpp:55-60 hand it
+  to SDL, which expects UTF-8, and path(const char*) reads SDL's base
+  path as ANSI. MapList.cpp:273 already uses u8string. Also
+  ut-dump/Cli.cpp:910.
+  **Layman:** On Windows, an install folder or user name with accented letters can reach the baker garbled.
+  Kind: fix.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0222] **Make the push gate safe to run twice and to interrupt.**
+  scripts/ci-matrix.sh:78,87-94: two runs share one bundle file and
+  one remote checkout, so run B's checkout -f can land mid-build of run
+  A (a false green is possible); Ctrl-C leaves the remote build running.
+  Name the bundle by SHA, lock the remote, trap kill on EXIT INT TERM.
+  :74,99 read every ssh failure (auth, host key, a missing alias) as
+  unreachable, so a broken alias silently drops MSVC on every push;
+  :133 maps any remote 255 to connection lost. mutation-probe.py
+  :335-348 leaves a mutated source file when killed by SIGTERM; its
+  read_text/write_text are not byte-identical (:330,:347); a declared
+  survivor that becomes KILLED still exits 0 (:32 vs :397,:407).
+  **Layman:** Two pushes at once, or stopping one midway, can leave the Windows check testing the wrong code or still running.
+  Kind: fix.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0223] **ubundle's writer refuses what its own reader would refuse.**
+  Codec.h:203 and :209, TextureSection.cpp:136, PlacementSection.cpp
+  :215 and OcclusionSection.cpp:74 narrow a size to u32 unchecked; the
+  lane contract says a writer refuses a count its descriptor cannot hold.
+  Bundle.cpp:331-332 writes origin and kind unchecked, which read refuses
+  above 1. Unreachable today (4G elements). Also stale comments:
+  Bundle.cpp:327-329 (version 1), Sections.h:1-16 and Bundle.cpp:3-7
+  omit ZONE and AOCC. Open: TEXS is validated only by umat::compress.
+  **Layman:** The bundle writer could save a file that the bundle reader then rejects, in cases today's baker never produces.
+  Kind: fix.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0224] **ut-dump and ut-paths survive and count what they cannot read.**
+  - ut-dump/Cli.cpp:778 (:869, :565): an actor whose properties fail to
+    read is emitted with class defaults, uncounted; UTA-0172 SS 6 says
+    skipped and its INV-8 says every actor is emitted (spec conflict).
+  - ut-dump/Cli.cpp:1193-1194, :87-90 throw filesystem_error on a
+    permission error; :912 reads any file whole.
+  - ut-paths/Walkable.cpp:167/:205 throws past runMap, ending a library
+    run; Seeds.cpp:449 does not check slot.kind() == Export.
+  - ut-shot/main.cpp:169-175 checks the stream before close; :152 never
+    range-checks the field of view; Cli.cpp:204 sizes are unbounded.
+  - ut-paths exits 2 on an unreadable census; 2 is bad arguments.
+  **Layman:** A few unreadable items can end a whole dump early or be reported as though they were fine.
+  Kind: fix.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0225] **Bring six specs into line with the code that shipped after them.**
+  Each time the code is right and the document is stale:
+  - UTA-0008: format version given as 8/7/3 (code 14); SS 4.2 sizes
+    GeometryVertex 32 and Light 44 (code 33, 73); ZONE and AOCC missing.
+  - UTA-0011 SS 4.6 steps 2-3: palette import rule and texture pipeline.
+  - UTA-0112 SS 4.3 and INV-3: falloff formula (UTA-0187 switched it) and
+    levelBrightness; SS 4.9 shading rule.
+  - UTA-0014 line 637, UTA-0156 SS 4.4 and INV-6, UTA-0164 INV-8: the
+    linear shading rule scene.frag:201 replaced.
+  - UTA-0172 SS 6 vs INV-8; SS 4.6 export table vs Level actor list.
+  - UTA-0015 SS 4.3: sigma > 0 (code > NO_EXTINCTION); FOG_NEAR wording.
+  This project's rule 14 gate is cancelled; recording shipped behaviour
+  needs no review.
+  **Layman:** Several design documents still describe older behaviour, so anyone building from them would build the wrong thing.
+  Kind: doc-fix.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0226] **Close review-code 2026-09-26's LOW findings.**
+  Full text of each is in the review's lane returns (message 1 of the
+  session, and commit bodies); verify against source before fixing:
+  renderer - Lights.cpp:58 brightness-0 volume light takes shadow tiles;
+  Shadows.h:41-43 vs :53-55 Deck16 share 0.93 or 1.06; Shadows.h:7,
+  :14-16 and Frame.cpp:1270-1272 stale tile-size comments;
+  shadows.glsl:50 spot rim leak past 85 degrees. bake - Bake.cpp:836-848
+  holds() ignores group chains; :865-869 silent unreadable shadow;
+  Install.cpp:193,197 iterator throws; umap/Build.cpp:24/409 MAX_SAMPLES
+  bounds 3D not 2D; Strips.cpp m^4; GameTypes.cpp:56 FE FF BOM;
+  Bake.h:8-11 stale scope; Occlusion.cpp:145-147 zero-area chart, :224
+  seed area; LightModel.h:39 comment; SurfaceRays.cpp:223 per-call stack.
+  app - Launcher.cpp:75-78 spawn-failure sentinel, :74-83 process
+  publish race, :337 horizontal wheel; main.cpp:368-369 right Ctrl and
+  Shift; WriteBuildCommit.cmake:15 dirty tree; unescaped map names on
+  stderr; two launchers' notes. scripts - class-census.py IndexError and
+  case-sensitive dirs; ci.sh:209 prints $CXX; ci.sh:94 leading-/ links;
+  ci-matrix.sh:24 and ci.sh:7 doc lines.
+  **Layman:** A list of small correctness and tidiness issues found by the code review, each minor on its own.
+  Kind: review-fix.
+  Source: review-code-2026-09-26.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
