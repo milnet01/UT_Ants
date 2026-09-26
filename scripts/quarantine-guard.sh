@@ -67,7 +67,12 @@ if [[ ${#EXTENSIONS[@]} -eq 0 ]]; then
     exit 2
 fi
 
-mapfile -t TRACKED < <(git ls-files --cached)
+# -z: without it git quotes a path holding a non-ASCII byte, and a quoted path
+# matches none of the checks below (review-code 2026-09-26).
+mapfile -d '' -t TRACKED < <(git ls-files -z --cached)
+
+# An extension's case does not make it a different format: Foo.UNR is a map.
+shopt -s nocasematch
 
 violations=()
 bundles=()

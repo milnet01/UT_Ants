@@ -50,6 +50,7 @@ THREE TRAPS, ALL PAID FOR ONCE ALREADY.
 import argparse
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -63,7 +64,7 @@ SUBJECTS = {
         "target": "uta_unit_tests",
         "binary": "tests/uta_unit_tests",
         "filter": "[ubundle]",
-        "cases": 29,
+        "cases": 136,
         "mutations": [
             # -- SS 4.6 to SS 4.8: two adjacent fields of one width and type,
             # transposed. INV-6 and INV-7. A round trip cannot see these; only
@@ -316,12 +317,16 @@ SUBJECTS = {
                 "Undefined behaviour rather than a wrong answer, so the Release leg "
                 "cannot see it. Run with --asan, where it reports a heap-buffer-overflow.",
         },
+        # Declared above for the Release leg only. --asan exists to grade these,
+        # so a survival there is unexplained (review-code 2026-09-26).
+        "killed_under_asan": ["readBytes' own bound is removed"],
     },
 }
 
 
 def run(cmd, timeout=900, env=None):
-    return subprocess.run(cmd, shell=True, cwd=ROOT, capture_output=True,
+    # An argv list, never a shell string (python.md SS Idioms).
+    return subprocess.run(cmd, cwd=ROOT, capture_output=True,
                           text=True, errors="replace", timeout=timeout, env=env)
 
 
@@ -337,7 +342,7 @@ def probe(build_dir, subject, label, rel, old, new, test_cmd, env):
     # the rebuild, and the next mutation is graded against this one's binary.
     os.utime(path, None)
     try:
-        if run(f"cmake --build {build_dir} --target {subject['target']}").returncode != 0:
+        if run(["cmake", "--build", build_dir, "--target", subject["target"]]).returncode != 0:
             return "COMPILE-FAIL"
         try:
             return "KILLED" if run(test_cmd, timeout=300, env=env).returncode != 0 else "SURVIVED"
@@ -369,16 +374,16 @@ def main():
         # its shadow map, so a virtual-memory cap kills it at startup, before
         # any test runs -- and that reads as a mutation KILLED.
         env["ASAN_OPTIONS"] = "allocator_may_return_null=0:max_allocation_size_mb=2048"
-    test_cmd = f"./{build_dir}/{subject['binary']} '{subject['filter']}'"
+    test_cmd = [f"./{build_dir}/{subject['binary']}", subject["filter"]]
 
-    if run(f"cmake --build {build_dir} --target {subject['target']}").returncode != 0:
+    if run(["cmake", "--build", build_dir, "--target", subject["target"]]).returncode != 0:
         sys.exit("the unmutated tree does not build")
     base = run(test_cmd, env=env)
     if base.returncode != 0:
         sys.exit("the unmutated tree is already red -- fix that before probing")
     # A filter matching NO tests exits non-zero, under which every mutation
     # reads as KILLED. Assert the count the subject expects.
-    if f"{subject['cases']} test case" not in base.stdout:
+    if not re.search(rf"\b{subject['cases']} test cases?\b", base.stdout):
         sys.exit(f"filter {subject['filter']} did not match {subject['cases']} cases -- "
                  "a tag typo would make every mutation read as killed")
     print(f"baseline green in {build_dir}/, {subject['cases']} cases matched\n")
@@ -392,6 +397,8 @@ def main():
         print(f"{state:>13}  {label}", flush=True)
 
     expected = subject["expected_survivors"]
+    if args.asan:
+        expected = {k: v for k, v in expected.items() if k not in subject.get("killed_under_asan", ())}
     survived = [label for s, label in results if s == "SURVIVED"]
     broken = [(s, label) for s, label in results if s in ("NOT-APPLIED", "NOT-UNIQUE", "COMPILE-FAIL")]
     unexplained = [label for label in survived if label not in expected]

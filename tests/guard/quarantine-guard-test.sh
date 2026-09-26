@@ -80,6 +80,21 @@ printf 'UTAB' | stage maps/short.utab
 expect 1 "a bundle whose header cannot be read is refused" --origin-tool "$TOOL"
 unstage maps/short.utab
 
+# git quotes a path holding a non-ASCII byte unless told not to, and a quoted
+# path matches neither content/* nor *.unr (review-code 2026-09-26).
+printf 'x' | stage "content/ut99/Maps/DM-Café.unr"
+expect 1 "a non-ASCII path under content/ is refused" --origin-tool "$TOOL"
+unstage "content/ut99/Maps/DM-Café.unr"
+
+# An extension's case does not make it a different format.
+printf 'x' | stage maps/DM-Upper.UNR
+expect 1 "an upper-case Unreal extension is refused" --origin-tool "$TOOL"
+unstage maps/DM-Upper.UNR
+
+header 0 | stage maps/derived.UTAB
+expect 1 "an upper-case derived bundle is read and refused" --origin-tool "$TOOL"
+unstage maps/derived.UTAB
+
 # The INDEX is what is published, not the working tree.
 header 0 >"$repo/maps/authored.utab"
 expect 0 "the staged bytes are read and not the working tree's" --origin-tool "$TOOL"

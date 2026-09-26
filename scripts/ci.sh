@@ -80,7 +80,8 @@ fi
 
 step "documentation: relative links resolve"
 link_failures=0
-while IFS= read -r file; do
+# -z, so a non-ASCII file name is not handed over quoted (review-code 2026-09-26).
+while IFS= read -r -d '' file; do
     dir=$(dirname "$file")
     while IFS= read -r target; do
         [[ -z $target ]] && continue
@@ -97,7 +98,7 @@ while IFS= read -r file; do
             link_failures=$((link_failures + 1))
         fi
     done < <(grep -oE '\]\([^)]+\)' "$file" | sed -E 's/^\]\(//; s/\)$//')
-done < <(git ls-files '*.md')
+done < <(git ls-files -z '*.md')
 if [[ $link_failures -gt 0 ]]; then
     printf 'ci: %d broken relative link(s) in the documentation.\n' "$link_failures" >&2
     exit 1
@@ -125,6 +126,12 @@ step "umap holds no per-player state"
 #
 # It runs in BOTH modes. A grep costs nothing, and a guard that runs only on
 # the compiler legs is one a change can be routed around.
+# A grep over a file that is not there exits 2 and reads as clean, so a rename
+# of Rooms.h would switch the guard off without a word.
+if [[ ! -f src/umap/Rooms.h ]]; then
+    printf 'ci: src/umap/Rooms.h is missing -- the UTA-0007 INV-7 guard checked nothing.\n' >&2
+    exit 2
+fi
 if inv7=$(grep -nE '\b(visited|explored|seen|player|team)\b' src/umap/Rooms.h |
     grep -vE ':[[:space:]]*(//|\*)'); then
     printf 'ci: src/umap/Rooms.h carries per-player state, against UTA-0007 INV-7:\n' >&2

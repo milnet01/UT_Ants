@@ -73,16 +73,20 @@ done
 win_pid=
 if ssh -o BatchMode=yes -o ConnectTimeout=5 "$WIN_HOST" exit 2>/dev/null; then
     printf '== Windows (MSVC) leg starting on %s; log: %s\n' "$WIN_HOST" "$WIN_LOG"
+    # Keep-alives, so a link that dies without a reset (the machine sleeps, Wi-Fi
+    # drops) ends in about a minute as WINDOWS LEG NOT RUN instead of hanging the
+    # push (review-code 2026-09-26).
+    alive=(-o ServerAliveInterval=15 -o ServerAliveCountMax=4)
     (
         set -e
         bundle="$STATE/push.bundle"
         git bundle create "$bundle" HEAD 2>/dev/null
-        scp -q "$bundle" "$WIN_HOST:uta-gate.bundle" || exit 255 # the link, not the build
+        scp -q "${alive[@]}" "$bundle" "$WIN_HOST:uta-gate.bundle" || exit 255 # the link, not the build
         # Piped on stdin: the machine's SSH shell is cmd.exe, which mangles any
         # quoting a script passed as an argument would need. $SHA expands here,
         # on purpose; nothing else in the script does.
         # shellcheck disable=SC2087
-        ssh "$WIN_HOST" '"C:\Program Files\Git\bin\bash.exe" -l -s' <<EOF
+        ssh "${alive[@]}" "$WIN_HOST" '"C:\Program Files\Git\bin\bash.exe" -l -s' <<EOF
 set -e
 mkdir -p ~/uta-gate
 cd ~/uta-gate
