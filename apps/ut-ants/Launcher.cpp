@@ -214,7 +214,17 @@ private:
         const std::string name = map != nullptr ? map->name : std::string();
         if (name == notesFor_) return;
         notesFor_ = name;
-        notes_ = map != nullptr ? readNotes(paths_.notes, name) : std::string();
+        notes_.clear();
+        notesReadable_ = true;
+        if (map == nullptr) return;
+        if (auto read = readNotes(paths_.notes, name)) {
+            notes_ = std::move(*read);
+        } else {
+            // Editing would write empty notes over the ones that are there.
+            notesReadable_ = false;
+            status_ = "The notes could not be read, so they are not editable: " +
+                      std::string(read.error().message());
+        }
     }
 
     void move(long by) {
@@ -225,7 +235,7 @@ private:
     }
 
     void editNotes(std::string text) {
-        if (notesFor_.empty()) return;
+        if (notesFor_.empty() || !notesReadable_) return;
         notes_ = std::move(text);
         if (const auto saved = writeNotes(paths_.notes, notesFor_, notes_); !saved)
             status_ = "The notes did not save: " + std::string(saved.error().message());
@@ -551,6 +561,7 @@ private:
     std::string filter_;
     std::string notesFor_;
     std::string notes_;
+    bool notesReadable_ = true; ///< false when the file is there and could not be read
     Focus focus_ = Focus::List;
     int scale_ = 2;
     std::string status_;

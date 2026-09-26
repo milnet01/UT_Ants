@@ -208,10 +208,10 @@ TEST_CASE("UTA-0208: a bake is current only when today's baker made it", "[clien
 TEST_CASE("UTA-0170: notes round-trip and empty notes remove the file", "[client]") {
     const TempDir data;
     const stdfs::path notes = data.path() / "notes";
-    CHECK(readNotes(notes, "MH-A").empty());
+    CHECK(readNotes(notes, "MH-A") == std::string());
 
     REQUIRE(writeNotes(notes, "MH-A", "the lift is dark\nsky flickers"));
-    CHECK(readNotes(notes, "MH-A") == "the lift is dark\nsky flickers");
+    CHECK(readNotes(notes, "MH-A") == std::string("the lift is dark\nsky flickers"));
     CHECK(stdfs::exists(notes / "MH-A.txt"));
 
     REQUIRE(writeNotes(notes, "MH-A", ""));
@@ -252,5 +252,24 @@ TEST_CASE("UTA-0190: a note is appended on a line of its own", "[client]") {
     std::ofstream(file, std::ios::binary | std::ios::trunc) << "the lift is dark";
     REQUIRE(appendNote(file, "third"));
     CHECK(contents() == "the lift is dark\nthird\n");
-    CHECK(readNotes(data.path() / "notes", "MH-A") == "the lift is dark\nthird\n");
+    CHECK(readNotes(data.path() / "notes", "MH-A") == std::string("the lift is dark\nthird\n"));
+}
+
+TEST_CASE("notes that cannot be read are never written over", "[client]") {
+    // review-code 2026-09-26: a read error used to read as "no notes", and the
+    // next write replaced the file. A link to itself cannot be read, and an
+    // atomic replace would still succeed over it.
+    const TempDir data;
+    const stdfs::path notes = data.path() / "notes";
+    const stdfs::path file = notesFile(notes, "MH-A");
+    stdfs::create_directories(notes);
+    std::error_code ec;
+    stdfs::create_symlink(file.filename(), file, ec);
+    if (ec) {
+        WARN("cannot make a symbolic link here (" << ec.message() << "); case not checked");
+        return;
+    }
+    CHECK_FALSE(readNotes(notes, "MH-A").has_value());
+    CHECK_FALSE(appendNote(file, "camera line"));
+    CHECK(stdfs::is_symlink(file)); // untouched
 }

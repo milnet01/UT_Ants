@@ -201,10 +201,16 @@ Result<void> writeText(const std::filesystem::path& path, std::string_view text)
     return fs::writeFileAtomically(path, std::as_bytes(std::span(text.data(), text.size())));
 }
 
-std::string readText(const std::filesystem::path& path) {
+/// A file's text, or empty where there is no file. Any other failure is an
+/// error, so a caller that writes the file back never replaces text it could
+/// not read (review-code 2026-09-26).
+Result<std::string> readText(const std::filesystem::path& path) {
     const auto bytes = fs::readFile(path);
-    if (!bytes) return {};
-    return {reinterpret_cast<const char*>(bytes->data()), bytes->size()};
+    if (!bytes) {
+        if (bytes.error().code() == ErrorCode::NotFound) return std::string();
+        return std::unexpected(bytes.error());
+    }
+    return std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
 }
 
 } // namespace
@@ -304,7 +310,7 @@ Result<LauncherPaths> launcherPaths() {
 }
 
 std::optional<MapResult> readResult(const std::filesystem::path& results, std::string_view map) {
-    const std::string text = readText(fileFor(results, map));
+    const std::string text = readText(fileFor(results, map)).value_or(std::string());
     if (text.starts_with("baked")) {
         // UTA-0208: the second line names the baker. A file written before
         // that has none.
@@ -327,7 +333,7 @@ bool isCurrentBake(const MapResult& result, std::string_view currentBaker) {
     return !result.failed && !currentBaker.empty() && result.bakerVersion == currentBaker;
 }
 
-std::string readNotes(const std::filesystem::path& notes, std::string_view map) {
+Result<std::string> readNotes(const std::filesystem::path& notes, std::string_view map) {
     return readText(fileFor(notes, map));
 }
 
@@ -348,7 +354,7 @@ std::filesystem::path notesFile(const std::filesystem::path& notes, std::string_
 }
 
 Result<void> appendNote(const std::filesystem::path& file, std::string_view line) {
-    std::string text = readText(file);
+    UTA_TRY(std::string text, readText(file));
     if (!text.empty() && text.back() != '\n') text += '\n';
     text += line;
     text += '\n';

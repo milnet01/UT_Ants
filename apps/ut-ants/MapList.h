@@ -99,8 +99,9 @@ struct MapResult {
 [[nodiscard]] Result<void> writeResult(const std::filesystem::path& results, std::string_view map,
                                        const MapResult& result);
 
-/// A map's notes, or empty when it has none.
-[[nodiscard]] std::string readNotes(const std::filesystem::path& notes, std::string_view map);
+/// A map's notes, or empty when it has none. A file that is there and cannot
+/// be read is an error, never empty notes: a caller would write them back.
+[[nodiscard]] Result<std::string> readNotes(const std::filesystem::path& notes, std::string_view map);
 
 /// Save a map's notes. Empty notes remove the file, so the directory holds
 /// only maps somebody wrote about.
