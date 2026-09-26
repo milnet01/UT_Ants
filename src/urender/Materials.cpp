@@ -24,10 +24,12 @@ struct Source {
     std::vector<VkDeviceSize> levelSizes;
 };
 
-/// The built-in maps, one texel each and uncompressed. Base is magenta, the
-/// conventional colour of something missing; normal is flat; roughness is
-/// mid; height is zero.
-constexpr std::array<std::byte, 4> DEFAULT_BASE{std::byte{255}, std::byte{0}, std::byte{255}, std::byte{255}};
+/// The built-in maps, one texel each and uncompressed. Base is neutral grey,
+/// or magenta -- the conventional colour of something missing -- when a
+/// developer asks to see what the bake could not make (UTA-0177); normal is
+/// flat; roughness is mid; height is zero.
+constexpr std::array<std::byte, 4> DEFAULT_BASE{std::byte{128}, std::byte{128}, std::byte{128}, std::byte{255}};
+constexpr std::array<std::byte, 4> MISSING_BASE{std::byte{255}, std::byte{0}, std::byte{255}, std::byte{255}};
 constexpr std::array<std::byte, 4> DEFAULT_NORMAL{std::byte{128}, std::byte{128}, std::byte{255}, std::byte{255}};
 constexpr std::array<std::byte, 4> DEFAULT_ROUGH{std::byte{128}, std::byte{128}, std::byte{128}, std::byte{255}};
 constexpr std::array<std::byte, 4> DEFAULT_HEIGHT{std::byte{0}, std::byte{0}, std::byte{0}, std::byte{255}};
@@ -72,11 +74,11 @@ Result<Source> compressedSource(const ubundle::CompressedTexture& texture, bool 
 
 } // namespace
 
-Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle) {
+Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle, bool showMissing) {
     MaterialSet set;
 
     std::vector<Source> sources;
-    sources.push_back(defaultSource(DEFAULT_BASE, VK_FORMAT_R8G8B8A8_SRGB));
+    sources.push_back(defaultSource(showMissing ? MISSING_BASE : DEFAULT_BASE, VK_FORMAT_R8G8B8A8_SRGB));
     sources.push_back(defaultSource(DEFAULT_NORMAL, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_ROUGH, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM));

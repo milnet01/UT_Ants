@@ -198,6 +198,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     config.width = static_cast<std::uint32_t>(width);
     config.height = static_cast<std::uint32_t>(height);
     config.validation = options.validation;
+    config.showMissingMaterials = options.showMissing;
     config.tier = options.tier;
     config.dynamicResolution = true; // UTA-0051 SS 4.5
 

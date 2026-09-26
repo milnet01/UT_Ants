@@ -13,8 +13,9 @@ namespace uta::client {
 
 void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
-           "               [--notes <file>] [--baker-version <text>] <install> <bundle>\n"
-           "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] <install>\n"
+           "               [--show-missing] [--notes <file>] [--baker-version <text>] <install> <bundle>\n"
+           "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
+           "               <install>\n"
            "       ut-ants --help\n"
            "\n"
            "Given only <install>, opens the map launcher: every playable map in the\n"
@@ -46,6 +47,8 @@ void usage(std::ostream& err) {
            "what ut-bake reported.\n"
            "--frames draws that many frames and exits 0 if every one drew.\n"
            "--validation asks for the Vulkan validation layer.\n"
+           "--show-missing draws a texture the bake could not convert in magenta\n"
+           "rather than grey, so it stands out.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n";
 }
@@ -59,6 +62,8 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.help = true;
         } else if (arg == "--validation") {
             options.validation = true;
+        } else if (arg == "--show-missing") {
+            options.showMissing = true;
         } else if (arg == "--windowed") {
             options.windowed = true;
         } else if (arg == "--tier") {

@@ -33,8 +33,9 @@ inline constexpr std::uint32_t DEFAULT_MATERIAL = 0;
 
 class MaterialSet {
 public:
-    /// Upload every map `bundle`'s materials name, and the defaults.
-    [[nodiscard]] static Result<MaterialSet> upload(Gpu& gpu, const ubundle::Bundle& bundle);
+    /// Upload every map `bundle`'s materials name, and the defaults. The
+    /// default base is magenta with `showMissing`, else neutral grey (UTA-0177).
+    [[nodiscard]] static Result<MaterialSet> upload(Gpu& gpu, const ubundle::Bundle& bundle, bool showMissing);
 
     /// The material a batch naming `id` draws with.
     [[nodiscard]] std::uint32_t indexOf(const std::string& id);

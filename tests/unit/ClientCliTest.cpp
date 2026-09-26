@@ -40,7 +40,14 @@ TEST_CASE("UTA-0016: ut-ants takes an install and then a bundle", "[client]") {
     CHECK_FALSE(parsed.options->frames.has_value());
     CHECK_FALSE(parsed.options->validation);
     CHECK_FALSE(parsed.options->windowed);
+    CHECK_FALSE(parsed.options->showMissing);
     CHECK_FALSE(parsed.options->help);
+}
+
+TEST_CASE("UTA-0177: --show-missing draws a material the bake could not make in magenta", "[client]") {
+    const Parsed parsed = parse({"/games/UT", "map.utab", "--show-missing"});
+    REQUIRE(parsed.options.has_value());
+    CHECK(parsed.options->showMissing);
 }
 
 TEST_CASE("UTA-0153: --windowed asks for a window instead of fullscreen", "[client]") {

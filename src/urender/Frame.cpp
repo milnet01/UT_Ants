@@ -563,7 +563,7 @@ Result<void> Renderer::Impl::uploadOcclusion(const ubundle::Occlusion& atlas) {
 Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     geometry.reset();
     materials.reset();
-    UTA_TRY(MaterialSet uploadedMaterials, MaterialSet::upload(*gpu, bundle));
+    UTA_TRY(MaterialSet uploadedMaterials, MaterialSet::upload(*gpu, bundle, config.showMissingMaterials));
     materials.emplace(std::move(uploadedMaterials));
     // UTA-0163: a level with a sky takes one texture more, its faces.
     skyView = skyViewOf(bundle);

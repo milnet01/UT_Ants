@@ -79,6 +79,10 @@ struct Config {
     /// and diagnosis; 1 in normal play. `create` refuses a negative or
     /// non-finite value with InvalidArgument.
     float hazeScale = 1;
+    /// UTA-0177: draw a material the bake could not make in magenta, the
+    /// conventional colour of something missing, instead of neutral grey. For
+    /// developer views and tests; unset in normal play, where a player sees grey.
+    bool showMissingMaterials = false;
 };
 
 /// The view a frame is drawn from -- UT99's own units and angle encoding, so a

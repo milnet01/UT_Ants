@@ -29,10 +29,12 @@ TEST_CASE("INV-4: the surfaceless path draws and reads back with no display", "[
     config.linearOutput = true;
     REQUIRE_FALSE(config.createSurface);
     REQUIRE(config.instanceExtensions.empty());
+    config.showMissingMaterials = true;
     Renderer renderer = requireRenderer(config);
 
     // A square in front of the camera wearing no material, unlit: it draws the
-    // built-in default, whose base is magenta.
+    // built-in default, whose base is magenta when asked to show what is
+    // missing (UTA-0177).
     uta::ubundle::Geometry geometry;
     addSquare(geometry, 100, 0, 0, 50, "", PF_UNLIT);
     const uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
@@ -45,6 +47,31 @@ TEST_CASE("INV-4: the surfaceless path draws and reads back with no display", "[
     CHECK(pixelAt(*pixels, 64, 1, 1) == Rgba{0, 0, 0, 255});
     // UTA-0051 INV-6: no scaling unless dynamic resolution or a fixed scale asks.
     CHECK(renderer.lastFrameStats().renderScale == 1.0);
+}
+
+TEST_CASE("UTA-0177: a player sees a missing material as neutral grey, not magenta", "[device]") {
+    removeDisplay();
+    Config config;
+    config.width = 64;
+    config.height = 64;
+    config.linearOutput = true;
+    Renderer renderer = requireRenderer(config);
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 50, "", PF_UNLIT);
+    const uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    requireOk(renderer.draw(bundle, Camera{}));
+
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    const Rgba centre = pixelAt(*pixels, 64, 32, 32);
+    INFO("centre " << centre);
+    // Grey: the three channels equal, and neither black nor white. Linear
+    // output, so sRGB 128 reads back as about 55.
+    CHECK(centre.r == centre.g);
+    CHECK(centre.g == centre.b);
+    CHECK(centre.r > 20);
+    CHECK(centre.r < 235);
 }
 
 TEST_CASE("another bundle of the same sizes in the same storage is drawn and not the one before", "[device]") {
@@ -91,6 +118,7 @@ TEST_CASE("resize rebuilds the targets at the new size for the next frame", "[de
     config.width = 64;
     config.height = 64;
     config.linearOutput = true;
+    config.showMissingMaterials = true; // magenta: a colour no other stage makes
     Renderer renderer = requireRenderer(config);
 
     // A square spanning pixels 16..80 across and 8..72 down at 96x80.

@@ -484,9 +484,10 @@ named `<id>:<map>`"*). The five suffixes and their formats are
 `umat::materialId` is `<package>.<path>` lowercased, with `#masked` appended
 for a masked variant (`src/umat/Generate.cpp`). A batch's `material` is opaque
 to `ubundle` and may be empty, meaning none; an empty id draws with a
-built-in default material — magenta, the conventional colour of something
-missing — rather than being skipped, so a bake with a missing material is
-visible instead of invisible.
+built-in default material rather than being skipped, so a missing surface
+is still there. Its base is neutral grey, which is what a player sees;
+`Config::showMissingMaterials` makes it magenta, the conventional colour of
+something missing, for developer views and tests (UTA-0177).
 
 Every map is one entry in a bindless sampled-image array, indexed by a
 per-batch material index pushed as a constant — which is why § 4.4 requires the
