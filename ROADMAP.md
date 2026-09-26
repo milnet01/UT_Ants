@@ -10739,6 +10739,19 @@ Each of them says so in its own body.
   the mips and ignores the tail, and UWaterTexture::UpdateFrame marks its
   own picture "To do". So no authoritative still exists to port, unlike
   FireTexture.
+  Progress (2026-09-26, later): census.sh now also caps each bake at 8 GB
+  virtual (ulimit -v 8000000) after MH-TrifeaOutpostMore took 16 GB
+  (UTA-0212). That map's row reads no-report. UTA-0212 fixed it at baker
+  revision 23; delete its line and let the script resume to re-bake it.
+  The census job restarted at 12:24 and uses build/tools/ut-bake/ut-bake,
+  which became revision 23 mid-run. Revision 23 changes probes only, not
+  skip reasons, so the rows stay comparable.
+  Next when the job ends (`cc-job status uta-census`): re-run the tally,
+  then map each skipped material to the surfaces that wear it and their
+  polyFlags. ut-dump does not list surfaces, so this needs the bundle's
+  GEOM batches (material id plus polyFlags per batch). Then decide per
+  kind. WaveTexture (54 maps) is the main case and has no reference still
+  (see the note above).
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
