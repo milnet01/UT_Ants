@@ -1237,7 +1237,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
             ? *impl.pinnedLightSeconds
             : std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
     impl.lastLightSeconds = seconds;
-    std::vector<gpu::Light> drawn = drawnLights(bundle, seconds);
+    std::vector<gpu::Light> frameLights = drawnLights(bundle, seconds);
     const ClusterGrid grid = clusterGrid(camera, region.width, region.height);
     std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
     frame.clusterGrid = gpu::CLUSTER_GRID;
@@ -1278,17 +1278,17 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         moved.push_back(worldBox(impl.moverBounds[i - 1], models[i]));
     }
     const ShadowPlan plan = impl.shadowPlanner.plan(directLights(bundle), moved);
-    for (std::size_t i = 0; i < drawn.size(); ++i) {
-        drawn[i].shadowFace = plan.firstFace[i];
-        drawn[i].shadowFaceCount = plan.faceCount[i];
+    for (std::size_t i = 0; i < frameLights.size(); ++i) {
+        frameLights[i].shadowFace = plan.firstFace[i];
+        frameLights[i].shadowFaceCount = plan.faceCount[i];
     }
     // UTA-0015 SS 4.5: the flashlight goes last, after the plan, so it holds no tile.
     std::uint32_t flashlight = gpu::NONE;
     if (camera.flashlight) {
-        flashlight = static_cast<std::uint32_t>(drawn.size());
-        drawn.push_back(flashlightOf(camera));
+        flashlight = static_cast<std::uint32_t>(frameLights.size());
+        frameLights.push_back(flashlightOf(camera));
     }
-    frame.lightCount = static_cast<std::uint32_t>(drawn.size());
+    frame.lightCount = static_cast<std::uint32_t>(frameLights.size());
 
     // UTA-0015 SS 4.4: which volumetric lights glow, from the camera's zone.
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
@@ -1296,7 +1296,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     const std::array<ubundle::Zone, 1> noZone{};
     const std::span<const ubundle::Zone> zoneSpan =
         bundle.zones ? std::span<const ubundle::Zone>(*bundle.zones) : std::span<const ubundle::Zone>(noZone);
-    const VolumeLightChoice glowing = volumeLights(drawn, impl.lightZones, cameraZone, zoneSpan, camera.location);
+    const VolumeLightChoice glowing = volumeLights(frameLights, impl.lightZones, cameraZone, zoneSpan, camera.location);
     if (!glowing.indices.empty())
         std::memcpy(impl.volumeLightIndices.mapped(), glowing.indices.data(),
                     glowing.indices.size() * sizeof(std::uint32_t));
@@ -1308,7 +1308,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     fog.flashlight = flashlight;
     fog.hazeScale = impl.config.hazeScale;
 
-    if (!drawn.empty()) std::memcpy(impl.lights.mapped(), drawn.data(), drawn.size() * sizeof(gpu::Light));
+    if (!frameLights.empty()) std::memcpy(impl.lights.mapped(), frameLights.data(), frameLights.size() * sizeof(gpu::Light));
     if (!plan.faces.empty())
         std::memcpy(impl.shadowFaces.mapped(), plan.faces.data(), plan.faces.size() * sizeof(gpu::ShadowFace));
     frame.shadowFaceCount = static_cast<std::uint32_t>(plan.faces.size());

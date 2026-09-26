@@ -29,3 +29,4 @@
 {"fingerprint":"06b4c2af26461ecf","reason":"The cache step's if: skips refs/tags/, so a release build never restores a cache; zizmor does not evaluate if: conditions (check-code 2026-09-26).","rule":"cache-poisoning","timestamp":"2026-09-26T16:02:27Z"}
 {"fingerprint":"36d205100cb19e25","reason":"perpose.py is a per-pose script's file name in a dated progress note of the ut-ants-uta0187 harness (check-code 2026-09-26).","rule":"typos","timestamp":"2026-09-26T16:04:06Z"}
 {"fingerprint":"6c766838d5ff7934","reason":"\"seeked to the end\" is stream-seek jargon in a comment, not a misspelling (check-code 2026-09-26).","rule":"typos","timestamp":"2026-09-26T16:04:08Z"}
+{"fingerprint":"3ce01123bdcf59f2","reason":"ruff flags every subprocess call; this one takes an argv list built from two literal build directories and the script's own subject table, with no shell (check-code 2026-09-26).","rule":"S603","timestamp":"2026-09-26T16:47:47Z"}

@@ -3,7 +3,7 @@
 # still checked everywhere.
 
 [files]
-extend-exclude = ["third_party/"]
+extend-exclude = ["third_party/", ".audit_cache/"]  # the ledger quotes the words it dismisses
 
 [default]
 # Commit hashes quoted in the roadmap and the review records.
