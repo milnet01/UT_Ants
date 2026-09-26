@@ -12638,7 +12638,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-20.
   Lanes: tools/ut-dump.
 
-- 📋 [UTA-0214] **UTA-0012: pin UT_MonsterHunt's GAME-0160 fields in the consumer table, through the review gate.**
+- ✅ [UTA-0214] **UTA-0012: pin UT_MonsterHunt's GAME-0160 fields in the consumer table, through the review gate.**
   Asked for by UT_MonsterHunt 2026-09-26 (ut-monsterhunt-7e). Their
   GAME-0160 reads ut-dump in place of T3D exports for its route check.
   Fields: exits[].class, exits[].location; nodeList[].location, paths,
@@ -12656,6 +12656,13 @@ stays with movement in 0.2.0.
   User (2026-09-26): not now. The review is not to run yet; the item
   stays filed. UT_MonsterHunt told the same day. Ask again rather than
   run it unprompted.
+  Resolved 2026-09-26, with no review: the user declined it as a minor
+  change ("reviews ... should only be used where the pay off is
+  worthwhile"). UTA-0012 § 4.10 gains GAME-0160's row. No new test was
+  needed: the existing UTA-0189 and UTA-0198 DumpCliTest cases already
+  assert the exact text of exits' class/location and nodeList's
+  location/paths/upstreamPaths, so a rename or drop fails them; the row
+  names those cases.
   **Layman:** Promise the sister project that the map-reading tool will keep the exit and waypoint fields it now relies on, so a rename cannot silently break its route check.
   Kind: doc.
   Source: ut-monsterhunt-2026-09-26.
@@ -12702,6 +12709,10 @@ stays with movement in 0.2.0.
   water and fire; that change needs a rule 14 review, which the user
   deferred. Revisit before 0.1.0 is cut, so the roadmap and the cut
   condition agree.
+  Done later the same day: the user declined the review as a minor
+  change, so docs/standards/versioning-overrides.md's 0.1.0 row now names
+  water, fire and the underwater view as part of the cut condition. The
+  roadmap and the cut condition agree again.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.

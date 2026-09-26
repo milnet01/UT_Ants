@@ -29,7 +29,7 @@ milestone.
 
 | Version | Milestone | The release is cut when |
 |---|---|---|
-| `0.1.0` | Bake and render | A UT map bakes and can be walked through with dynamic lights, shadows, PBR, volumetrics, light shafts and the flashlight (**S1**), from a clone that builds and tests with no Unreal Tournament present (**S7**) |
+| `0.1.0` | Bake and render | A UT map bakes and can be walked through with dynamic lights, shadows, PBR, volumetrics, light shafts and the flashlight (**S1**), with water and fire that look and move like the real thing and an underwater view that looks like being under water (UTA-0055, UTA-0089, UTA-0105, UTA-0215; user, 2026-09-26), from a clone that builds and tests with no Unreal Tournament present (**S7**) |
 | `0.2.0` | Movement and weapons | Movement and core weapons measure within tolerance of UT99 (**S2**); a run of platforms can be crossed without losing that (**S11**); and it plays as well on a gamepad as on a mouse. **S9** is not cut here — it asks for a full Monster Hunt round, which arrives at `0.4.0` |
 | `0.3.0` | Monsters, bots, Deathmatch | An MH map's monsters spawn (**S3**); DM and TDM play against bots and over a LAN with chat |
 | `0.4.0` | Monster Hunt | A real rotation runs — puzzle-solving bots (**S4**), map voting, friendly names, mutators, content download from the host (**S5**), per-map weapon sets a server can toggle (**S10**), the level map showing where the team has and has not been (**S12**), and a full round played on a gamepad (**S9**) |
@@ -85,7 +85,7 @@ whose change breaks something a user already has.
 **An item filed in a release's section is not evidence that the release needs
 it.** A release is cut on the cut condition its row states and on nothing else
 — the signs of success that row names, **and any further condition in the same
-cell**. Three rows carry such a condition and `0.5.0`'s names no sign at all,
+cell**. Several rows carry such a condition and `0.5.0`'s names no sign at all,
 so a rule reading only the signs would leave that release gated by nothing.
 
 **Two things hold a release, and only these two: its row's cut condition, and
