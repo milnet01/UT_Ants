@@ -12783,7 +12783,7 @@ stays with movement in 0.2.0.
   Kind: security.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0217] **Reject non-finite and out-of-range floats from packages before casting.**
+- ✅ [UTA-0217] **Reject non-finite and out-of-range floats from packages before casting.**
   Float-to-integer casts on unchecked package values are undefined
   behaviour (cpp.md SS Range guards):
   - ubake/LightProbes.cpp:290-294 and Occlusion.cpp:109-112 on GEOM
@@ -12793,6 +12793,9 @@ stays with movement in 0.2.0.
   - urender/Lights.cpp:43 floor(seconds*20) to u64: ut-shot
     --light-time -5 and pinLightSeconds accept a negative time.
   Suggested: validate positions once when GEOM is built.
+  Resolved (2026-09-26, fe46f05): GEOM points bounded at ±2^24 and
+  finite; mover MainScale/PrePivot finite; LT_Flicker step cast through
+  i64. GitHub CI success on fe46f05; local gate green on all three legs.
   **Layman:** A corrupt map with impossible coordinates can crash or hang the baker, because some numbers are converted without checking they are real, sane values.
   Kind: security.
   Source: review-code-2026-09-26.
