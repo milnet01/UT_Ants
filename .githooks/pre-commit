@@ -54,7 +54,7 @@ for f in $staged; do
         [ -n "$p" ] || continue
         case "$p" in
             *'<'*|*'>'*|*'{{'*|*'*'*|http*|'#'*) continue ;;
-            *-) continue ;;
+            *-|*/-) continue ;;
         esac
         [ -e "$p" ] || [ -e "$dir/$p" ] && continue
         # A dated line was true when written and is not a claim about now.
@@ -64,9 +64,15 @@ for f in $staged; do
 
     # --- surviving copies of deleted text --------------------------------
     # 45 characters: shorter fragments match everywhere and say nothing.
-    added=$(git diff --cached -- "$f" | grep -E '^\+[^+]' |
+    # `^-` minus the literal header, never `^-[^-]`: that reads as "skip the
+    # `--- a/file` header" and means "skip every markdown bullet", because git
+    # emits a deleted `- text` line as `-- text`. A roadmap is entirely
+    # bullets, and a rule stated twice is usually a bullet both times, which
+    # is the exact case this check is for. The added side is excluded the same
+    # way for symmetry.
+    added=$(git diff --cached -- "$f" | grep -E '^\+' | grep -v -e '^+++ ' |
             sed 's/^+//; s/^[[:space:]]*//; s/[[:space:]]*$//')
-    git diff --cached -- "$f" | grep -E '^-[^-]' |
+    git diff --cached -- "$f" | grep -E '^-' | grep -v -e '^--- ' |
     sed 's/^-//; s/^[[:space:]]*//; s/[[:space:]]*$//' |
     while IFS= read -r gone; do
         [ ${#gone} -ge 45 ] || continue

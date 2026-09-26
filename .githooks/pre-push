@@ -8,8 +8,9 @@
 # so. local-gate.md § 2 requires the gate; that is the breach this closes.
 #
 # WHY A DELEGATOR AND NOT A COPY. A copy is correct on the day it is written
-# and drifts from then on, which is the same argument § 4.2 makes about a
-# hand-written mirror of a CI workflow. One implementation, one place to fix.
+# and drifts from then on, which is the same argument local-gate.md § 3 makes
+# about a hand-written mirror of a CI workflow. One implementation, one place
+# to fix.
 #
 # WHAT IT DOES. Everything: discovering this project's gate script, deciding
 # whether the push is documentation-only, and checking the PUSHED COMMITS out
