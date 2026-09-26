@@ -3,7 +3,10 @@
     "docs_dir": "docs",
     "roadmap": "ROADMAP.md",
     "source_roots": [
-        "src"
+        "src",
+        "apps",
+        "tools",
+        "scripts"
     ],
     "specs_dir": "docs/specs",
     "test_roots": [
