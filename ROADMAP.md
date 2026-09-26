@@ -22,9 +22,15 @@ modern lighting. Closes S1 and S7. Nothing here plays: there is no movement
 model, no weapon and no opponent until 0.2.0.
 
 Items deferred out of this release's cut condition still sit here: UTA-0044,
-UTA-0045, UTA-0053, UTA-0054, UTA-0055, UTA-0075 and UTA-0076. Counting this
+UTA-0045, UTA-0053, UTA-0054, UTA-0075 and UTA-0076. Counting this
 section's open items therefore over-reports what the release is waiting on.
 Each of them says so in its own body.
+
+Water and fire are IN this release (user, 2026-09-26): UTA-0089 (water
+and glass look), UTA-0055 (the undulating surface, no longer deferred),
+UTA-0105 (moving water and fire textures) and UTA-0215 (caustics and an
+underwater view that looks like being underwater). Swimming, UTA-0090,
+stays with movement in 0.2.0.
 
 - ✅ [UTA-0001] **Build system, test harness and the synthetic-package fixtures.**
   CMake + Ninja, C++23, Catch2 v3 fetched by the build rather than installed.
@@ -2390,6 +2396,14 @@ Each of them says so in its own body.
   ROADMAP.md; a re-section op is requested in the Ants MCP feedback
   file. Blocked behind UTA-0014 regardless, so it is not selectable
   before the renderer exists.
+  User (2026-09-26): water should have "the usual undulating surface",
+  alongside caustics and an underwater tint (filed as UTA-0215). This
+  item is the undulation. Its 0.1.0 deferral stands unless the user
+  moves water into the release.
+  Superseded (user, 2026-09-26): water is IN 0.1.0, so this item is no
+  longer deferred and DOES count toward the release. The deferral note
+  above is history. Scope for water: the undulating surface the user
+  asked for, beside UTA-0089, UTA-0105 and UTA-0215.
   **Layman:** Make the flags and the water move instead of standing still.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -10806,6 +10820,21 @@ Each of them says so in its own body.
   separate mean from first entry). Pending: the real-asset tier over the
   install, a re-bake of the affected maps, and the remaining reasons
   (missing packages, Format, non-power-of-two).
+  Progress (2026-09-26, later). Census complete: 1456 maps, 127 skipping
+  something (~/.cache/uta-census/census.ndjson; MH-TrifeaOutpostMore
+  re-baked cleanly at revision 23). Two commits:
+  - b84a095 (green on the local three-leg gate, pushed): WaveTexture
+    modelled; a texture with no picture at either SourceTexture hop bakes
+    as a flat fill (palette entry nearest the mean). BAKER_REVISION 24.
+    The real-asset tier passes over the whole install.
+  - fb93a38: the renderer's missing-material default is neutral grey;
+    Config::showMissingMaterials / ut-ants --show-missing keep magenta
+    for developers (the user's choice). UTA-0014 amended to match.
+  With both, no player sees magenta. Left: a re-census of the 127 maps
+  at revision 24 is running as `cc-job uta-census-after`
+  (~/.cache/uta-census/after/run.sh, output after/census.ndjson). When
+  it ends, tally what still skips and file the one-offs; the Format case
+  is UTA-0118's. Flip this item once fb93a38 is green on GitHub.
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -12629,6 +12658,95 @@ Each of them says so in its own body.
   Source: ut-monsterhunt-2026-09-26.
   Lanes: tools/ut-dump, docs.
 
+- 📋 [UTA-0215] **urender: caustics under water surfaces, and a tinted view when the camera is under water.**
+  The user, 2026-09-26: "I still want water to be changed to look like
+  real water with the usual undulating surface, caustics and tinted view
+  when underwater". The surface's look is UTA-0089, its undulation
+  UTA-0055, its texture motion UTA-0105; nothing covered the other two.
+
+  Caustics, cheapest route first: an animated caustic pattern projected
+  onto surfaces below a water surface, fading with depth, from a tiling
+  texture or a procedural noise in the shader. No refraction is traced.
+  Underwater view: when the camera's point is inside a water zone, tint
+  and fog the frame toward the zone's colour and shorten the view
+  distance, with a faint wobble. UT99 already marks water with zones
+  and gives some a fog colour (ZoneInfo's ViewFog / bWaterZone), so
+  the bake carries which zones are water, which UTA-0090 also needs.
+
+  Which zones are water: read from the map (bWaterZone), not guessed;
+  census the library first. The user direction of 2026-09-14 applies:
+  cheapest methods that still look modern first.
+  User (2026-09-26, same day): "When under water, it needs to look like
+  you [are] underwater." So the underwater view is the whole impression,
+  not a colour filter. The bar, cheapest-first per the 2026-09-14
+  direction:
+  - colour absorption with distance: near things keep colour, far things
+    fade to the zone's water colour, and visibility drops sharply;
+  - a gentle refraction wobble of the whole frame;
+  - caustics dancing on surfaces and on the player's view of the floor;
+  - light shafts from the surface above, reusing the volumetric fog
+    (UTA-0015);
+  - the surface seen from below: bright, rippling, mirror-like at a
+    grazing angle;
+  - drifting particles or bubbles for scale.
+  Judged by whether it reads as underwater (the user cannot judge by eye,
+  so by reference captures and numbers, per the standing rule).
+  Placed in 0.1.0 by the user, 2026-09-26, with UTA-0055, UTA-0089 and
+  UTA-0105: water and fire are required for the first release. Swimming
+  (UTA-0090) stays with movement.
+  **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
+  Kind: feature.
+  Source: user-request-2026-09-26.
+  Lanes: urender, ubake.
+
+- 📋 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
+  Decided by the user 2026-09-10: the first version shows these
+  as a still picture where one exists, and real animation is its own
+  item, linked to the water-and-glass rendering work (UTA-0089).
+
+  upkg reads FireTexture, WetTexture and IceTexture today and refuses
+  WaveTexture, whose extra data it does not describe. So this item
+  starts by reading WaveTexture, then decides per class whether the
+  motion is recomputed at run time or baked into frames. UTA-0009's
+  spec defers these classes to here.
+  Narrowed by the user (2026-09-14): the still picture of a procedural
+  texture that stores no pixels of its own is now UTA-0155's, taken from
+  its SourceTexture. This item keeps the motion -- WetTexture's ripples,
+  IceTexture's drift, FireTexture's flames, WaveTexture -- and reading
+  WaveTexture's extra data. A census for UTA-0155 counted 154 WetTexture,
+  IceTexture and ScriptedTexture exports with an imported palette and no
+  stored pixels, all naming a SourceTexture.
+  User idea (2026-09-14): Amiga-style colour cycling as a cheap way to fake
+  some animation. Not measured yet; recorded as a candidate route. How it
+  would work here: no GPU keeps a hardware palette, so the trick moves into
+  the shader -- keep a texture's palette indices (one byte a texel, stored
+  UNcompressed, since block compression would scramble indices) and its
+  256-entry palette as a small texture, and look each texel's colour up
+  through an offset that advances per frame. The cost is one extra texture
+  fetch per shaded pixel and one value updated per frame, plus about 65 KB
+  of indices for a 256x256 texture. It is an imitation rather than UT99's
+  own effect: WetTexture, FireTexture and IceTexture run small simulations,
+  not palette rotation. It suits glowing panels, lava, flowing liquids and
+  conveyor lights. The bake would have to keep the index map for any
+  material that cycles, which today it discards.
+  User (2026-09-14), on the colour-cycling note above: it was an idea from
+  a video and is probably not viable here; set aside. The user's
+  requirement instead: "I would like liquid to look like liquid even if we
+  fake it." So motion for water, slime and lava is judged by whether it
+  reads as liquid, not by being cheap alone -- and it pairs with UTA-0089.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after.
+  Moved to 0.1.0 (user, 2026-09-26): moving water and fire are required
+  for the first release. UTA-0177 settled the stills: WaveTexture is
+  now read, and it and the sourceless WetTextures store no pixels, so
+  the motion must be generated (from each texture's own parameters),
+  not played back. UTA-0215 carries the underwater view.
+  **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: umat, upkg, render.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -12783,49 +12901,6 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: implement.
   Source: user-request-2026-09-05.
   Lanes: uaudio.
-
-- 📋 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
-  Decided by the user 2026-09-10: the first version shows these
-  as a still picture where one exists, and real animation is its own
-  item, linked to the water-and-glass rendering work (UTA-0089).
-
-  upkg reads FireTexture, WetTexture and IceTexture today and refuses
-  WaveTexture, whose extra data it does not describe. So this item
-  starts by reading WaveTexture, then decides per class whether the
-  motion is recomputed at run time or baked into frames. UTA-0009's
-  spec defers these classes to here.
-  Narrowed by the user (2026-09-14): the still picture of a procedural
-  texture that stores no pixels of its own is now UTA-0155's, taken from
-  its SourceTexture. This item keeps the motion -- WetTexture's ripples,
-  IceTexture's drift, FireTexture's flames, WaveTexture -- and reading
-  WaveTexture's extra data. A census for UTA-0155 counted 154 WetTexture,
-  IceTexture and ScriptedTexture exports with an imported palette and no
-  stored pixels, all naming a SourceTexture.
-  User idea (2026-09-14): Amiga-style colour cycling as a cheap way to fake
-  some animation. Not measured yet; recorded as a candidate route. How it
-  would work here: no GPU keeps a hardware palette, so the trick moves into
-  the shader -- keep a texture's palette indices (one byte a texel, stored
-  UNcompressed, since block compression would scramble indices) and its
-  256-entry palette as a small texture, and look each texel's colour up
-  through an offset that advances per frame. The cost is one extra texture
-  fetch per shaded pixel and one value updated per frame, plus about 65 KB
-  of indices for a 256x256 texture. It is an imitation rather than UT99's
-  own effect: WetTexture, FireTexture and IceTexture run small simulations,
-  not palette rotation. It suits glowing panels, lava, flowing liquids and
-  conveyor lights. The bake would have to keep the index map for any
-  material that cycles, which today it discards.
-  User (2026-09-14), on the colour-cycling note above: it was an idea from
-  a video and is probably not viable here; set aside. The user's
-  requirement instead: "I would like liquid to look like liquid even if we
-  fake it." So motion for water, slime and lava is judged by whether it
-  reads as liquid, not by being cheap alone -- and it pairs with UTA-0089.
-  User direction (2026-09-14): the engine's first iteration uses the
-  cheapest methods that still make it look like a modern game. Fully
-  modern features come after.
-  **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
-  Kind: feature.
-  Source: user-request-2026-09-10.
-  Lanes: umat, upkg, render.
 
 - 📋 [UTA-0106] **Replacement images: a locally supplied PNG stands in for a texture.**
   Decided by the user 2026-09-10: after the first version, PNG
