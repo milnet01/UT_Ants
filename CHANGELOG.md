@@ -526,6 +526,24 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **The renderer orders its light culling, fog and translucent passes against the passes that read them.**
+  Missing GPU synchronisation could show wrong or lagging lighting and
+  fog. Found by a peer session's review on 2026-09-26.
+
+- **Map notes that cannot be read are never overwritten by the launcher or the viewer's note key.**
+  A read error used to look like empty notes, and the next keystroke
+  replaced them.
+
+- **Two captures in the same second keep both folders, and a start tilted down no longer opens looking up.**
+  Found by review-code on 2026-09-26.
+
+- **ut-dump reports a missing package as packageMissing, counts a refused class chain, and writes null for a number that is not finite.**
+  One corrupt map could make a whole dump invalid JSON. ut-paths also
+  refuses a census map name that is a path.
+
+- **A re-bake that changes only a material's parallax depth is re-uploaded, and a texture claiming more than 8192 texels a side with no picture is skipped rather than failing the bake.**
+  Found by review-code on 2026-09-26.
+
 - **Two job-system tests now assert parallelFor's failure count instead of discarding it.**
   Found by check-code (clazy) on 2026-09-26. A body that threw would
   have passed both tests unnoticed.
@@ -760,6 +778,10 @@ appears once something has actually shipped.)
   Found by the new gate on its first run.
 
 ### Security
+
+- **The quarantine guard refuses a file whose name has an accented character or an upper-case extension.**
+  git quoted such a path, so it matched none of the guard's checks and
+  could be committed. Found by review-code on 2026-09-26.
 
 - **CI no longer leaves the checkout token in the repository for later steps, and a release-tag build no longer restores the shared compiler cache.**
   Found by check-code (zizmor) on 2026-09-26. A release now builds only

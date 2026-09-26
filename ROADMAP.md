@@ -12923,6 +12923,60 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-code-2026-09-26.
 
+- 📋 [UTA-0227] **Run the device tier under synchronization validation.**
+  With VK_VALIDATION_VALIDATE_SYNC=true, 50 of 52 device tests failed
+  on a WRITE_AFTER_WRITE at the fog volume's first clear (fixed in
+  f02396c); the default layer settings never reported it. Turn sync
+  validation on for the device tier (UTA-0138 already fails on any layer
+  error), in ci.sh and the gate. Measure the time cost on lavapipe first.
+  Note it did not flag the compute-to-draw buffer hazards f02396c also
+  fixed, so it is not a substitute for reading the barriers.
+  **Layman:** Turn on the graphics driver checker's timing checks in the automatic tests, since today they caught a real race the normal checks missed.
+  Kind: test.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0228] **Close the renderer core's remaining peer-review findings.**
+  From retroarch-1c's cold read (the lane Pass A cleared); H1, H2, M1,
+  M2 and L6 are fixed in f02396c. Verify each before fixing:
+  - M3 Pipelines.cpp:358-361 textureCapacity keeps one slot back for the
+    shadow atlas but not the fog volume (:373-374), so a device whose
+    limit is <= 65536 gets a layout over its sampler limits.
+  - L1 Frame.cpp:1361-1365 and :1410-1413 host reads of GPU writes with
+    no HOST barrier (fence alone does not make them visible).
+  - L2 Frame.cpp:1153-1155 a failed swapchain rebuild keeps the retired
+    handle and passes it as oldSwapchain again.
+  - L3 Frame.cpp:1188/:1328 an acquired image is never presented when the
+    frame fails; repeats can hang Present.cpp:23's UINT64_MAX acquire.
+  - L4 shadow plan committed (:1280) and skyPending cleared (:1176)
+    before the submission; a skipped tile pass (:849) counts tiles drawn
+    and the atlas is never cleared at creation (:462-464).
+  - L5 readback after a skipped frame returns never-drawn output.
+  **Layman:** A handful of smaller graphics-driver usage problems found by another session's review of the renderer.
+  Kind: review-fix.
+  Source: review-code-2026-09-26.
+
+- 📋 [UTA-0229] **Close the core layer's peer-review findings.**
+  From ai-prompts-9a's cold read of src/core (Pass A had cleared it).
+  F1-F3 were re-opened on disk by that session:
+  - F1 FileSystem.cpp:53-58 syncToDevice discards fsync's result, so an
+    EIO/ENOSPC at sync still renames and reports success. Its comment
+    calls the sync best effort by design: decide whether a device error
+    (not merely unsupported) fails the write.
+  - F2 FileSystem.cpp:397 builds the temporary name via path.string(),
+    which narrows on Windows (openNative's comment at :79-82 names this).
+  - F3 FileSystem.cpp:66 getenv for APPDATA/LOCALAPPDATA narrows too.
+  - LOW, lane-only: MappedFile maps every open failure to IoFailure and
+    lacks readFile's size cap and regular-file check (:271, :248, :277);
+    4 GiB edge at :39/:350/:356 on 32-bit; no directory fsync after rename
+    (:428); temporaries created 0666&~umask (:400); unchecked remove
+    (:424/:430); resolveUnder checks only the final element for symlinks
+    (:489-495); INV-15 reserved names incomplete (:109-115); Jobs.cpp
+    :190-196 destroys a Job under mutex_; Md5.cpp:49 / Sha256.cpp:47
+    memcpy with a null span; Log.cpp:26 passes C1 controls.
+  **Layman:** Issues in how files are saved and read, found by another session's review of the foundation code; most matter only on Windows or on failing disks.
+  Kind: review-fix.
+  Source: review-code-2026-09-26.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
