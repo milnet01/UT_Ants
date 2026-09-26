@@ -12377,6 +12377,49 @@ Each of them says so in its own body.
   Source: user-request-2026-09-25.
   Lanes: app.
 
+- 📋 [UTA-0209] **urender: the cluster light lists live in host-visible memory; measure what that costs a frame.**
+  Renderer::Impl::createStandIns (src/urender/Frame.cpp) creates
+  clusterCounts, clusterIndices and clusterBounds host-visible and
+  coherent. cluster.comp writes clusterIndices and every shaded fragment
+  reads it, so on a discrete GPU without resizable BAR those reads may
+  cross the bus. The frame end also reads all of clusterCounts back from
+  that uncached mapping, for the overflow statistic alone.
+  DOOM_Ants measured the same class of bug (CPU reads of mapped buffers
+  in hot loops) as its largest single raster-tier speed-up (2026-09-26).
+  Measure first: frame time on the gate machine's GPU with the three
+  buffers as now, then with clusterIndices device-local and the overflow
+  count copied to a small host buffer. Move only what the numbers justify.
+  **Layman:** The list of which lights touch which part of the screen may sit in slow memory; measure it, and move it if it costs frame time.
+  Kind: perf.
+  Source: in-session-2026-09-26 doom-ants exchange.
+  Lanes: urender.
+
+- 💭 [UTA-0210] **urender: one probe per convex cell, chosen by a per-surface cell id, so no probe is read through a wall.**
+  DOOM_Ants bakes one SH-L1 probe per BSP subsector and tags each
+  surface triangle with its subsector, so a surface reads only its own
+  probe and nothing interpolates across a wall
+  (linuxdoom-1.10/shaders/formulas/gi_probe.glsl in that project).
+  Our lattice guards leaks by dropping missing corners (probes.glsl,
+  indirectAt). UT99's zones or BSP leaves would be the cells. Cost: a
+  large open cell gets one flat value. No leak is reported today, so
+  this waits for one. Bounce light itself stays (user, 2026-09-20).
+  **Layman:** A way to make sure bounce light never bleeds through walls, taken from how DOOM_Ants does it.
+  Kind: enhancement.
+  Source: in-session-2026-09-26 doom-ants exchange.
+  Lanes: ubake, urender.
+
+- 💭 [UTA-0211] **urender: decide once per cell of air which lights can reach it, instead of a shadow read per froxel per light.**
+  DOOM_Ants baked light-to-air visibility at load with the map's own
+  line-of-sight test, and a baked sun field took its fog from +11 ms to
+  +0.7 ms. Our fog_scatter.comp reads each shadowed light's shadow per
+  froxel. The equivalent here is a baked per-cell list of lights that
+  can see the cell, sampled in the scatter stage. Worth it only if a
+  frame profile shows the scatter stage is expensive; measure first.
+  **Layman:** A possible speed-up for the fog, baking ahead of time which lights can shine into each patch of air.
+  Kind: perf.
+  Source: in-session-2026-09-26 doom-ants exchange.
+  Lanes: ubake, urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
