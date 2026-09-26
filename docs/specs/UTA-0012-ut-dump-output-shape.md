@@ -221,7 +221,10 @@ With `--nav-graph`, also:
   `paths`, `upstreamPaths` and `prunedPaths` are the node's own stored slots
   of those arrays, in slot order: integers, each the file's index into the
   level's reach-spec array. A slot the file does not store is left out
-  (UTA-0198).
+  (UTA-0198). The list holds unwired points too: a monster Spawnpoint or a
+  JumpSpot with no stored `paths` or `upstreamPaths` sits beside wired
+  nodes. A consumer building a route graph filters on those slots.
+  UT_MonsterHunt measured the cost of not doing so (their GAME-0160).
 - **`edgeList`**: `[{from, to, distance, collisionRadius, collisionHeight,
   reachFlags, pruned, spec}]`, all integers. `from` and `to` are positions in
   this object's `nodeList`. `spec` is the reach spec's index in the file's
@@ -249,7 +252,9 @@ Added by `UTA-0189`. A map's element carries `exits` after `wiring`, with no
 flag. It is `[{export, name, class, location, tag, triggerType,
 damageThreshold, bInitiallyActive}]`, in ascending `export`
 order: every level actor whose own class name is `MonsterEnd`,
-`MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. These are
+`MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. `class`
+keeps the stored case: MH-MayhemCastleV2 stores `monsterend`, so a consumer
+compares it case-insensitively too. These are
 Triggers, so `nodeList` never holds them. `location` is as in `nodeList`.
 `tag` is resolved through the class family's defaults, as `wiring.actors`
 resolves it: a Tag is usually the class default and stored on no actor. It

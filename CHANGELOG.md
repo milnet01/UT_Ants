@@ -17,6 +17,9 @@ appears once something has actually shipped.)
 
 ### Added
 
+- **ut-dump --surface-list lists every BSP surface with its built flags, owning brush and position.** (UTA-0213)
+  A new option makes the map-reading tool list every wall and floor face on its own, so the sister project can check whether one particular wall is solid.
+
 - **ut-dump's exits report how each is triggered; no exit in the reference library is won by shooting it** (UTA-0130)
 
 - **The navigation library names each bot path's reach flags and decides whether a given pawn may take it** (UTA-0085)

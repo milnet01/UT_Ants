@@ -10752,6 +10752,60 @@ Each of them says so in its own body.
   GEOM batches (material id plus polyFlags per batch). Then decide per
   kind. WaveTexture (54 maps) is the main case and has no reference still
   (see the note above).
+  Progress (2026-09-26, preliminary at 1411 maps): the surface join no
+  longer needs the bundles. UTA-0213's `ut-dump --surface-list` gives each
+  surface's texture and built polyFlags from the .unr, and
+  ~/.cache/uta-scratch/u177/join.py matches each skipped material's last
+  name component, case-folded, against drawn surfaces.
+  Result: the plan's premise is wrong. Almost every affected drawn surface
+  is OPAQUE, so "a translucent or masked surface may simply not draw" covers
+  almost nothing. By reason:
+  - missing packages: most surfaces, but those maps' packages are absent,
+    and the original game refuses them too.
+  - WaveTexture: mostly opaque, in 26 maps. Few textures: waterrings2,
+    shanefx.top2, wavexxx, waterde2 lead.
+  - no pixels: two textures lead, ut_artfx.meltglacier and
+    unrealshare.belt_fx.damagewet. The Screenshot skip wears no surface.
+  - Format property: one map, already UTA-0118.
+  Plan: (1) WaveTexture -- decode the stored mip chain as a still and ignore
+  the tail, as SurrealEngine's UFractalTexture::Load does; animation is
+  UTA-0105's. (2) no pixels -- check whether those two take SourceTexture
+  from their class defaults rather than their own properties. (3) whatever
+  remains draws a neutral colour, never magenta. Final tally when the
+  census ends.
+  Step (2) checked: ut_artfx.meltglacier and unrealshare.belt_fx.damagewet
+  are both WetTexture exports storing no pixels and no SourceTexture
+  (read with scripts/class-census.py's Package reader). So they belong
+  with WaveTexture: the water family draws a simulated heightfield
+  through its palette. Next: see what UT99 draws for a WetTexture whose
+  SourceTexture is null, and whether the class defaults name one, before
+  choosing between a palette-derived still and the neutral colour.
+  Decided by the user, 2026-09-26: WaveTexture is read for its stored
+  mip chain, skipping the undescribed trailing data, which amends
+  UTA-0004 § 3.3 item 2 and INV-8 for that class. The amendment runs
+  through review-contract before anything is built on it. SurrealEngine
+  checked: a WetTexture with a null SourceTexture is left untouched there
+  and its UWaterTexture still is marked "To do", so no source gives a
+  picture for those; they take a flat colour from their own palette.
+  Correction to the plan above, 2026-09-26. The premise that WaveTexture
+  "stores something further" was false: all 36 WaveTexture exports in
+  the install end exactly at their mip chain, and the ones checked
+  (HubEffects WaterRings2, Botpack ShaneFx.top2) store a mip 0 of ZERO
+  bytes. So there is no stored still; the user's "read the picture"
+  choice resolves to: model WaveTexture (UTA-0004 amended to match, no
+  gate per the user, since no guarantee moves), then it takes the same
+  no-pixels-no-source path as the WetTextures. UT_MonsterHunt ran
+  `ucc batchexport` (2026-09-26): WaterRings2 exports all (255,255,255),
+  top2 all (0,0,47), MeltGlacier all (1,0,0), DamageWet all (0,0,0) -- a
+  flat unfilled buffer. The bake's fill is the palette entry nearest the
+  palette's mean colour; the exporter's single colour is the zeroed
+  buffer, not what an animated surface averages to on screen.
+  Built: upkg models WaveTexture (PackageContentTest, red first), ubake
+  fills a sourceless no-pixel texture (BakeTest, red first; three
+  mutations of the fill all killed after the fixture palette was made to
+  separate mean from first entry). Pending: the real-asset tier over the
+  install, a re-bake of the affected maps, and the remaining reasons
+  (missing packages, Format, non-power-of-two).
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -11798,6 +11852,13 @@ Each of them says so in its own body.
   changed how haze reads at all. The toe subtracted from every channel, so
   it hit thin haze over dark surfaces hardest, which is where haze is
   judged.
+  Input from Vestige (vestige-d7, 2026-09-26), whose Formula Workbench
+  has the same gap: commit the fit's dataset beside the exported
+  constants, with the upstream state it was sampled under (EXPOSURE, the
+  tone map), and fail a test when that state changes. That makes "a
+  constant absorbs whatever defect was live when it was fitted" a red
+  test instead of a memory note. Their reference cases are
+  tools/formula_workbench/reference_cases/<name>.json in Vestige.
   **Layman:** Our fog was tuned for a brightness setting we have since changed twice; measure it again so it matches the original game.
   Kind: fix.
   Source: in-session-2026-09-20.
@@ -12526,7 +12587,7 @@ Each of them says so in its own body.
   Source: in-session-2026-09-26 UTA-0177 census.
   Lanes: ubake.
 
-- 🚧 [UTA-0213] **ut-dump: list every BSP surface with its built flags, brush and position, behind --surface-list.**
+- ✅ [UTA-0213] **ut-dump: list every BSP surface with its built flags, brush and position, behind --surface-list.**
   UT_MonsterHunt's ask 4 in their 2026-09-20 message on UTA-0201 (their
   GAME-0008, docs/ut-ants-request.md Ask 1 on their side). A brush's own
   flags drift from the flags a map was built with, so their fake-wall
@@ -12539,10 +12600,34 @@ Each of them says so in its own body.
   texture, polyFlags, brush (the owning actor's name, or null), brushPoly,
   base and normal (null when the index is out of range), drawnNodes.
   Taken 2026-09-26 under the user's priority 1, assisting other sessions.
+  Resolved 2026-09-26 at 3644e7d, green on GitHub's matrix. The gate's
+  ThreadSanitizer leg first caught a heap-use-after-free in the new test
+  (a pointer into a temporary vector); fixed before the push. Seven hand
+  mutations killed. UT_MonsterHunt told, and recording it on GAME-0008.
   **Layman:** A new option makes the map-reading tool list every wall and floor face on its own, so the sister project can check whether one particular wall is solid.
   Kind: implement.
   Source: user-request-2026-09-20.
   Lanes: tools/ut-dump.
+
+- 📋 [UTA-0214] **UTA-0012: pin UT_MonsterHunt's GAME-0160 fields in the consumer table, through the review gate.**
+  Asked for by UT_MonsterHunt 2026-09-26 (ut-monsterhunt-7e). Their
+  GAME-0160 reads ut-dump in place of T3D exports for its route check.
+  Fields: exits[].class, exits[].location; nodeList[].location, paths,
+  upstreamPaths. Reader: their analysis/mapcheck/facts.py::placed().
+  Their locking tests: analysis/mapcheck/tests/test_facts.py --
+  test_route_is_placed_from_ut_dump_with_no_export,
+  test_an_exit_class_is_matched_whatever_its_case,
+  test_a_dump_with_no_exits_list_places_no_exit,
+  test_a_node_with_no_stored_location_is_not_placed.
+  Work: a § 4.10 row, and the invariant the GAME-0124 row carries extended
+  so renaming or dropping these fields reddens a DumpCliTest case.
+  It changes what a ut-dump maintainer may do, so CLAUDE.md rule 14's gate
+  runs on the amendment first. Ask the user before running it (standing
+  preference: ask before any review).
+  **Layman:** Promise the sister project that the map-reading tool will keep the exit and waypoint fields it now relies on, so a rename cannot silently break its route check.
+  Kind: doc.
+  Source: ut-monsterhunt-2026-09-26.
+  Lanes: tools/ut-dump, docs.
 
 ## 0.2.0 — Movement and weapons
 
