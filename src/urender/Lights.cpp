@@ -39,8 +39,13 @@ float flickerOf(const ubundle::Light& light, double seconds) noexcept {
     case LT_BLINK: return position < 0.5 ? 1.0f : 0.0f;
     case LT_STROBE: return position < 0.1 ? 1.0f : 0.0f;
     case LT_FLICKER: {
-        // Twenty changes a second, each light on its own sequence.
-        const auto step = static_cast<std::uint64_t>(std::floor(seconds * 20.0));
+        // Twenty changes a second, each light on its own sequence. A pinned
+        // time may be negative or huge (UTA-0217); both cast through i64, and
+        // past its range the sequence holds at step 0.
+        const double ticks = std::floor(seconds * 20.0);
+        const auto step = std::abs(ticks) < 0x1p63
+                              ? static_cast<std::uint64_t>(static_cast<std::int64_t>(ticks))
+                              : std::uint64_t{0};
         return static_cast<float>(0.5 + 0.5 * noise(step * 1315423911ULL + light.exportIndex));
     }
     default: return 1.0f;

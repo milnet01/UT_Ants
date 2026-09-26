@@ -779,6 +779,12 @@ appears once something has actually shipped.)
 
 ### Security
 
+- **A map with impossible coordinates is refused instead of crashing the baker.** (UTA-0217)
+  A drawn point that is NaN, infinite or past 2^24 units, and a mover's
+  MainScale or PrePivot that is not finite, now refuse the bake with the
+  node or actor named. A light's flicker no longer misbehaves at a
+  negative or huge pinned time.
+
 - **The quarantine guard refuses a file whose name has an accented character or an upper-case extension.**
   git quoted such a path, so it matched none of the guard's checks and
   could be committed. Found by review-code on 2026-09-26.

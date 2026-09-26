@@ -193,7 +193,10 @@ UT 4.32's public headers.
    `verts`, and each entry's `pVertex` must index `points`. The polygon is
    those points, `P0` to `Pn-1`, in the pool's order. The surface's `pBase`
    must index `points`, and its `vNormal`, `vTextureU` and `vTextureV` must
-   index `vectors`. Call them `Base`, `N`, `TU` and `TV`.
+   index `vectors`. Call them `Base`, `N`, `TU` and `TV`. Every coordinate
+   of every `Pk` must be finite and within ±`MAX_COORDINATE`, 2^24
+   (UTA-0217): past it an f32 holds no whole units, and the probe and
+   occlusion bakes cast positions to integers.
 5. **Its orientation.** `s` is the sum over `k` from 1 to `n-2` of
    `((Pk - P0) × (Pk+1 - P0)) · N`, in `double`. Where `s` is zero, skip the
    node: it has no area. Where `s` is negative, reverse the polygon to `P0`,
@@ -403,11 +406,23 @@ Recorded after the build; nothing above changed direction.
   *Breaks when:* the property is not read, is read under the C++ member's
   name `Scale`, or a value that is not finite and positive is used as given.
 
+- **INV-12** — A drawn node with a polygon point that is NaN, infinite or
+  past ±`MAX_COORDINATE` on any axis is refused with `MalformedData` naming
+  the node and the value; a point exactly at the bound is drawn.
+  *Added by UTA-0217.*
+  *Test:* `tests/unit/BakeGeometryTest.cpp`: NaN, both infinities and the
+  next f32 past each side of the bound, on each axis; and a triangle
+  touching the bound. `tests/real/RealGeometryTest.cpp` refuses no library
+  map for it.
+  *Breaks when:* a point is used unchecked, or the check runs after step 5,
+  where a NaN makes `s` neither zero nor negative.
+
 ## 6. Failure modes
 
 | When | What happens |
 |---|---|
 | A drawn node's index leaves its table | The bake is refused, naming the map and the node |
+| A drawn point is not finite or lies past ±2^24 | The bake is refused, naming the map, the node and the value |
 | A skipped node's indices are bad | Nothing. A node of fewer than three vertices is not read at all, and an invisible one is read only as far as `iSurf` |
 | A node has no area | It emits nothing |
 | A surface's texture was skipped, or is null | Its triangles are drawn with no material and `u = v = 0` |
@@ -506,6 +521,7 @@ Each must be killed by the invariant that names it.
 | INV-3, INV-5, INV-6, INV-7, INV-8, INV-9 | `tests/unit/BakeGeometryTest.cpp`, a unit test |
 | INV-4 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, a real-asset test, over every map |
 | INV-10, INV-11 | `tests/unit/BakeTest.cpp`, a unit test |
+| INV-12 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, over every map |
 | `BAKER_REVISION` covering geometry | **Partial:** `tests/unit/BakeGoldenTest.cpp`, a golden-hash test, catches what its fixture draws; a change reached only by real content passes |
 | The PolyFlags bit values being UT99's | **nothing** — the tests use the constants the code uses, and the values rest on the cited header |
 | The pan's sign matching UT99 | **Partial:** `tests/real/RealGeometryTest.cpp`, a real-asset test, prints the seam tally; nothing asserts it, and no CI leg runs it |

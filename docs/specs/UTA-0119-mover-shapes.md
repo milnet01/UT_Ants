@@ -349,7 +349,8 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
   *Breaks when:* the materials come from the level's `Model` alone.
 
 - **INV-9** — A mover whose `Brush` names no `Model` export of the map, or
-  whose `MainScale` has a zero component, refuses the bake with
+  whose `MainScale` has a zero component, or whose `MainScale` or
+  `PrePivot` has one that is not finite (UTA-0217), refuses the bake with
   `MalformedData` naming the actor. One whose `Model` or geometry does not
   read refuses it with that refusal's own code, naming the actor, as the
   level's `Model` does (UTA-0011 § 4.5): `readModel` refuses a version-61
@@ -365,6 +366,7 @@ becomes `4`**, and UTA-0011 INV-5's golden value is recorded again under it.
 | A mover's `Brush` names an import, or an export that is not a `Model` | The bake is refused, naming the actor |
 | A mover's `Model`, or its geometry, does not read | The bake is refused with that refusal's own code, naming the actor |
 | A mover's `MainScale` has a zero component | The bake is refused, naming the actor |
+| A mover's `MainScale` or `PrePivot` is NaN or infinite | The bake is refused, naming the actor (UTA-0217) |
 | An actor's class does not resolve | It is not a mover; `PLAC` records the class as it does today |
 | A `Scale` value is not seventeen bytes of struct `Scale` | It is passed over, and the next source is used |
 | A mover carries a shear | It is baked without it (§ 3 decision 3) |

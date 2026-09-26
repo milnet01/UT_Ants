@@ -31,6 +31,14 @@ namespace uta::ubake {
 inline constexpr std::uint32_t PF_INVISIBLE = 0x00000001u; ///< never drawn
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;    ///< index-0 texels see-through
 
+/// The furthest a drawn point may lie from the origin on any axis
+/// (UTA-0109 SS 4.3 step 4): 2^24, past which an f32 no longer holds whole
+/// units, so no real surface lies there. Unchecked, a corrupt file's point
+/// reaches the probe and occlusion bakes' integer casts out of range.
+/// tests/real/RealGeometryTest.cpp holds every library map inside it; the
+/// furthest real point is MH-SeriousSam-Dunes-T1's, near -1.65 million.
+inline constexpr double MAX_COORDINATE = 16777216.0;
+
 /// What a surface wears: a made material's id, and the texels one repeat of
 /// its texture spans on each axis.
 struct SurfaceMaterial {

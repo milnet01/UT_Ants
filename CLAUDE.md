@@ -244,12 +244,15 @@ the flags directly in a build directory of their own:
 
 ```sh
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1" \
-  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+  -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined,float-cast-overflow -fno-omit-frame-pointer -g -O1" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined,float-cast-overflow"
 ```
 
 Address and thread cannot share a binary, which is why this is a separate
-directory rather than a flag on the gate.
+directory rather than a flag on the gate. **GCC's `undefined` leaves out
+`float-cast-overflow`**, so it must be named (UTA-0217). **A UBSan report
+does not fail the run either**: set `UBSAN_OPTIONS=halt_on_error=1`, or a
+test prints `runtime error` and still passes.
 
 **Five rules this project paid for.
 [`docs/build-and-test-lessons.md`](docs/build-and-test-lessons.md) holds

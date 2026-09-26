@@ -140,6 +140,12 @@ Result<PivotSpace> pivotSpaceOf(const MoverSite& mover, const ubundle::Placement
     if (pivot.mainScale[0] == 0 || pivot.mainScale[1] == 0 || pivot.mainScale[2] == 0)
         return std::unexpected(malformed("mover " + actor.path + " has a MainScale with a zero component"));
     pivot.prePivot = vectorNamed("prepivot", actor, actorClass);
+    // UTA-0217: a NaN passes the zero check, and either would reach the
+    // collision tree's planes and every corner.
+    for (std::size_t axis = 0; axis < 3; ++axis)
+        if (!std::isfinite(pivot.mainScale[axis]) || !std::isfinite(pivot.prePivot[axis]))
+            return std::unexpected(
+                malformed("mover " + actor.path + " has a MainScale or PrePivot that is not finite"));
     return pivot;
 }
 

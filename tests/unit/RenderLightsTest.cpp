@@ -125,6 +125,26 @@ TEST_CASE("SS 4.9: a steady light's scalar is exactly 1 at any time", "[render]"
     }
 }
 
+TEST_CASE("UTA-0217: a flicker at a negative or huge time stays within 0 and 1", "[render]") {
+    // ut-shot --light-time and pinLightSeconds take any finite time. Run under
+    // UBSan: the flicker's step was a negative double cast to an unsigned one.
+    const Light flicker = lightOfType(4, 3);
+    float lowest = 2, highest = -1;
+    for (int step = 0; step < 400; ++step) {
+        const float scalar = flickerOf(flicker, -5.0 - step * 0.01);
+        lowest = std::min(lowest, scalar);
+        highest = std::max(highest, scalar);
+    }
+    CHECK(lowest >= 0.0f);
+    CHECK(highest <= 1.0f);
+    CHECK(highest - lowest > 0.05f);
+    for (const double seconds : {1e300, -1e300}) {
+        const float scalar = flickerOf(flicker, seconds);
+        CHECK(scalar >= 0.0f);
+        CHECK(scalar <= 1.0f);
+    }
+}
+
 TEST_CASE("SS 4.9: a varying light varies within 0 and 1", "[render]") {
     for (const std::uint8_t type : {2, 3, 4, 5, 7}) {
         CAPTURE(type);

@@ -91,6 +91,14 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
             if (!within(point, model.points.size()))
                 return refuse(n, "pVertex", point, model.points.size(), "points");
             points.push_back(toDouble(model.points[static_cast<std::size_t>(point)]));
+            // UTA-0217: finite and inside the bound, before step 5 -- a NaN
+            // makes s neither zero nor negative, so it would be drawn.
+            for (const double part : points.back())
+                if (!(std::abs(part) <= MAX_COORDINATE))
+                    return fail(ErrorCode::MalformedData,
+                                "the Model's node " + std::to_string(n) + " has a point at "
+                                    + std::to_string(part) + ", which is not finite or lies past the bound of "
+                                    + std::to_string(MAX_COORDINATE));
         }
         if (!within(surf.pBase, model.points.size()))
             return refuse(n, "pBase", surf.pBase, model.points.size(), "points");

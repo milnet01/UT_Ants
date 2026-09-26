@@ -12783,7 +12783,7 @@ stays with movement in 0.2.0.
   Kind: security.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0217] **Reject non-finite and out-of-range floats from packages before casting.**
+- 🚧 [UTA-0217] **Reject non-finite and out-of-range floats from packages before casting.**
   Float-to-integer casts on unchecked package values are undefined
   behaviour (cpp.md SS Range guards):
   - ubake/LightProbes.cpp:290-294 and Occlusion.cpp:109-112 on GEOM
@@ -12973,6 +12973,9 @@ stays with movement in 0.2.0.
     (:489-495); INV-15 reserved names incomplete (:109-115); Jobs.cpp
     :190-196 destroys a Job under mutex_; Md5.cpp:49 / Sha256.cpp:47
     memcpy with a null span; Log.cpp:26 passes C1 controls.
+  Decided (user, 2026-09-26): F1 fails the write. A device error at
+  sync (EIO, ENOSPC) refuses the save and leaves the old file; a platform
+  that cannot sync at all still renames, as now.
   **Layman:** Issues in how files are saved and read, found by another session's review of the foundation code; most matter only on Windows or on failing disks.
   Kind: review-fix.
   Source: review-code-2026-09-26.

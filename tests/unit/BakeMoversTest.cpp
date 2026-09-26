@@ -32,6 +32,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <set>
 #include <string>
 #include <string_view>
@@ -375,6 +376,21 @@ TEST_CASE("INV-9: a mover whose MainScale has a zero component refuses the bake"
                  {objectProperty("Brush", map.addBrushModel(tiltedSquare())),
                   scaleProperty("MainScale", 1, 0, 1)});
     refusedFor(map.build(), "dm-fixture.door0");
+}
+
+TEST_CASE("UTA-0217: a mover whose MainScale or PrePivot is not finite refuses the bake",
+          "[ubake][movers]") {
+    // A NaN compares unequal to zero, so the zero check alone let it through.
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+    for (const PropertySpec& bad :
+         {scaleProperty("MainScale", 1, nan, 1), scaleProperty("MainScale", inf, 1, 1),
+          vectorProperty("PrePivot", 0, 0, nan), vectorProperty("PrePivot", -inf, 0, 0)}) {
+        MapBuilder map;
+        map.addActor("Door0", map.importClass("Engine", "Mover"),
+                     {objectProperty("Brush", map.addBrushModel(tiltedSquare())), bad});
+        refusedFor(map.build(), "not finite");
+    }
 }
 
 namespace {

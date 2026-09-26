@@ -16,7 +16,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <string>
 #include <string_view>
@@ -325,6 +327,30 @@ TEST_CASE("a drawn node's index past its table is refused naming the node", "[ub
         scene.surfOf(0).vTextureV = 3;
         refused(scene, "vTextureV 3");
     }
+}
+
+TEST_CASE("UTA-0217: a drawn point that is not finite or lies past the bound is refused",
+          "[ubake][geom]") {
+    // INV-12. Each bad point is on node 0's polygon; the bound itself passes.
+    const float bound = static_cast<float>(uta::ubake::MAX_COORDINATE);
+    for (const float bad : {std::numeric_limits<float>::quiet_NaN(),
+                            std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity(),
+                            std::nextafter(bound, std::numeric_limits<float>::max()),
+                            -std::nextafter(bound, std::numeric_limits<float>::max())}) {
+        CAPTURE(bad);
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            CAPTURE(axis);
+            Scene scene;
+            scene.add(square(0));
+            float* part[] = {&scene.model.points[2].x, &scene.model.points[2].y, &scene.model.points[2].z};
+            *part[axis] = bad;
+            refused(scene, "past the bound");
+        }
+    }
+    Scene edge;
+    edge.add({at(-bound, 0, 0), at(bound, 0, 0), at(bound, bound, 0)});
+    Stub stub;
+    CHECK(built(edge, stub).vertices.size() == 3u);
 }
 
 TEST_CASE("a skipped node is not checked past what its skip needed", "[ubake][geom]") {
