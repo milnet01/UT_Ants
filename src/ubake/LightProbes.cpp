@@ -172,6 +172,38 @@ std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& light
     return out;
 }
 
+std::optional<ProbeReach> probeReachOf(const ubundle::Placements& placements) {
+    static const std::vector<ubundle::PropertyRecord> none;
+    constexpr std::string_view NAVIGATION_POINT = "engine.navigationpoint";
+    std::optional<ProbeReach> reach;
+    for (const ubundle::ActorPlacement& actor : placements.actors) {
+        if (actor.classIndex >= placements.classes.size()) continue;
+        const ubundle::ActorClass& actorClass = placements.classes[actor.classIndex];
+        if (actorClass.path != NAVIGATION_POINT
+            && std::find(actorClass.ancestry.begin(), actorClass.ancestry.end(), NAVIGATION_POINT)
+                   == actorClass.ancestry.end())
+            continue;
+        const ubundle::PropertyRecord* const record = detail::resolvedRecord(
+            "location", actor.properties, actorClass.defaults,
+            [](const ubundle::PropertyRecord& r) { return r.kind == ubundle::ValueKind::Vector; });
+        const auto* const at = record == nullptr ? nullptr : std::get_if<std::array<float, 3>>(&record->value);
+        // An actor with no Location of its own sits at the origin, as UT99 places it.
+        const Vec3 p = at == nullptr ? Vec3{0, 0, 0} : Vec3{(*at)[0], (*at)[1], (*at)[2]};
+        if (!reach) {
+            reach = ProbeReach{p, p};
+            continue;
+        }
+        reach->low = {std::min(reach->low.x, p.x), std::min(reach->low.y, p.y), std::min(reach->low.z, p.z)};
+        reach->high = {std::max(reach->high.x, p.x), std::max(reach->high.y, p.y), std::max(reach->high.z, p.z)};
+    }
+    if (reach) {
+        const double m = PROBE_REACH_MARGIN;
+        reach->low = {reach->low.x - m, reach->low.y - m, reach->low.z - m};
+        reach->high = {reach->high.x + m, reach->high.y + m, reach->high.z + m};
+    }
+    return reach;
+}
+
 std::optional<Rgb> meanAlbedo(const umat::Image& rgba) noexcept {
     if (rgba.channels != 4) return std::nullopt;
     Rgb sum;
@@ -228,14 +260,19 @@ std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
 Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
                                              const ubundle::CollisionTree& level,
                                              const std::vector<ubundle::Light>& lights,
-                                             const AlbedoLookup& albedo, JobSystem& jobs) {
+                                             const AlbedoLookup& albedo, JobSystem& jobs,
+                                             const std::optional<ProbeReach>& reach) {
     const auto spacing = static_cast<double>(PROBE_SPACING);
     const auto pointOf = [spacing](const Cell& cell) {
         return Vec3{cell[0] * spacing, cell[1] * spacing, cell[2] * spacing};
     };
 
     // SS 4.6 steps 1 and 2: each non-sky triangle's grown box, cut to the
-    // lattice points within one spacing of its plane.
+    // lattice points within one spacing of its plane and inside `reach`. The
+    // box is clipped before the walk, so a triangle far larger than the play
+    // area costs its share of the reach and no more (UTA-0212).
+    const Vec3 reachLow = reach ? reach->low : Vec3{-HUGE_VAL, -HUGE_VAL, -HUGE_VAL};
+    const Vec3 reachHigh = reach ? reach->high : Vec3{HUGE_VAL, HUGE_VAL, HUGE_VAL};
     std::vector<Cell> candidates;
     for (const ubundle::GeometryBatch& batch : geometry.batches) {
         if ((batch.polyFlags & PF_FAKE_BACKDROP) != 0) continue;
@@ -245,10 +282,12 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
             const Vec3 b = positionOf(geometry, geometry.indices[i + 1]);
             const Vec3 c = positionOf(geometry, geometry.indices[i + 2]);
             const Vec3 n = normalOf(geometry, i / 3);
-            const Vec3 low{std::min({a.x, b.x, c.x}) - spacing, std::min({a.y, b.y, c.y}) - spacing,
-                           std::min({a.z, b.z, c.z}) - spacing};
-            const Vec3 high{std::max({a.x, b.x, c.x}) + spacing, std::max({a.y, b.y, c.y}) + spacing,
-                            std::max({a.z, b.z, c.z}) + spacing};
+            const Vec3 low{std::max(std::min({a.x, b.x, c.x}) - spacing, reachLow.x),
+                           std::max(std::min({a.y, b.y, c.y}) - spacing, reachLow.y),
+                           std::max(std::min({a.z, b.z, c.z}) - spacing, reachLow.z)};
+            const Vec3 high{std::min(std::max({a.x, b.x, c.x}) + spacing, reachHigh.x),
+                            std::min(std::max({a.y, b.y, c.y}) + spacing, reachHigh.y),
+                            std::min(std::max({a.z, b.z, c.z}) + spacing, reachHigh.z)};
             const auto from = [spacing](double v) { return static_cast<std::int32_t>(std::ceil(v / spacing)); };
             const auto to = [spacing](double v) { return static_cast<std::int32_t>(std::floor(v / spacing)); };
             for (std::int32_t k = from(low.z); k <= to(high.z); ++k)

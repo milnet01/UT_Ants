@@ -42,6 +42,9 @@ using uta::ubake::cubeOf;
 using uta::ubake::directions;
 using uta::ubake::gatherProbe;
 using uta::ubake::meanAlbedo;
+using uta::ubake::PROBE_REACH_MARGIN;
+using uta::ubake::ProbeReach;
+using uta::ubake::probeReachOf;
 using uta::ubake::Rgb;
 using uta::ubake::SurfaceRays;
 using uta::ubake::Vec3;
@@ -171,6 +174,46 @@ TEST_CASE("which lights bake", "[ubake][probes]") {
     CHECK(baked[0].exportIndex == 10);
 }
 
+TEST_CASE("the probes' reach", "[ubake][probes]") {
+    const auto at = [](float x, float y, float z) {
+        PropertyRecord record;
+        record.name = "Location";
+        record.kind = ValueKind::Vector;
+        record.value = std::array<float, 3>{x, y, z};
+        return record;
+    };
+    Placements placements;
+    placements.classes = {
+        ActorClass{"botpack.playerstart", true, {"engine.navigationpoint", "engine.actor"}, {}, "", {}},
+        ActorClass{"engine.light", true, {"engine.actor"}, {}, "", {}},
+        ActorClass{"engine.navigationpoint", true, {"engine.actor"}, {}, "", {}},
+        // A class whose own default Location is taken when the actor has none.
+        ActorClass{"engine.pathnode", true, {"engine.navigationpoint", "engine.actor"}, {}, "",
+                   {at(-300, 0, 0)}},
+    };
+    SECTION("no navigation point") {
+        placements.actors = {ActorPlacement{1, "map.light0", 1, {at(0, 0, 0)}}};
+        CHECK_FALSE(probeReachOf(placements).has_value());
+    }
+    SECTION("every navigation point, grown by the margin") {
+        placements.actors = {
+            ActorPlacement{1, "map.playerstart0", 0, {at(100, 50, -20)}},
+            ActorPlacement{2, "map.light0", 1, {at(1e6F, 1e6F, 1e6F)}}, // not a navigation point
+            ActorPlacement{3, "map.navigationpoint0", 2, {at(0, -200, 400)}},
+            ActorPlacement{4, "map.pathnode0", 3, {}},
+        };
+        const auto reach = probeReachOf(placements);
+        REQUIRE(reach.has_value());
+        const double m = PROBE_REACH_MARGIN;
+        CHECK(reach->low.x == -300 - m);
+        CHECK(reach->low.y == -200 - m);
+        CHECK(reach->low.z == -20 - m);
+        CHECK(reach->high.x == 100 + m);
+        CHECK(reach->high.y == 50 + m);
+        CHECK(reach->high.z == 400 + m);
+    }
+}
+
 TEST_CASE("placement", "[ubake][probes]") {
     const AlbedoLookup grey = albedoOf({});
     JobSystem jobs(2);
@@ -224,6 +267,35 @@ TEST_CASE("placement", "[ubake][probes]") {
                 for (std::int32_t i = -1; i <= 5; ++i)
                     if (std::abs(k - i - j) <= 1) expected.push_back({i, j, k});
         CHECK(cellsOf(*baked) == expected);
+    }
+
+    SECTION("a reach cuts the lattice") {
+        // UTA-0212: the sloped triangle below, with a reach from (0, 0, 0) to
+        // (256, 256, 640). The probes are exactly the unclipped ones inside it.
+        std::vector<Triangle> triangles = room(
+            {-1000, -1000, -1000}, {1000, 1000, 1000},
+            {Face{"sky", PF_FAKE_BACKDROP}, Face{"sky", PF_FAKE_BACKDROP},
+             Face{"sky", PF_FAKE_BACKDROP}, Face{"sky", PF_FAKE_BACKDROP},
+             Face{"sky", PF_FAKE_BACKDROP}, Face{"sky", PF_FAKE_BACKDROP}});
+        const double third = 1.0 / std::sqrt(3.0);
+        triangles.push_back(Triangle{{Vec3{0, 0, 0}, Vec3{512, 0, 512}, Vec3{0, 512, 512}},
+                                     {-third, -third, third}, "wall"});
+        const auto tree = worldOf({box({-1000, -1000, -1000}, {1000, 1000, 1000})},
+                                  {-1000, -1000, -1000}, {1000, 1000, 1000});
+        const auto baked = bakeLightProbes(geometryOf(triangles), tree, {}, grey, jobs,
+                                           ProbeReach{{0, 0, 0}, {256, 256, 640}});
+        REQUIRE(baked.has_value());
+        std::vector<Cell> expected;
+        for (std::int32_t k = 0; k <= 5; ++k)
+            for (std::int32_t j = 0; j <= 2; ++j)
+                for (std::int32_t i = 0; i <= 2; ++i)
+                    if (std::abs(k - i - j) <= 1) expected.push_back({i, j, k});
+        CHECK(cellsOf(*baked) == expected);
+
+        const auto away = bakeLightProbes(geometryOf(triangles), tree, {}, grey, jobs,
+                                          ProbeReach{{5000, 5000, 5000}, {6000, 6000, 6000}});
+        REQUIRE(away.has_value());
+        CHECK(away->probes.empty());
     }
 
     SECTION("a level with no triangle") {

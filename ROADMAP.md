@@ -10719,6 +10719,26 @@ Each of them says so in its own body.
   and their polyFlags (opaque, masked, translucent), which the bake
   report does not carry. Early signal: skips are rare (one in the first
   24 maps, a Screenshot texture with no pixels and no SourceTexture).
+  Progress (2026-09-26, ut-ants-56): the census stopped at 1202 maps on
+  the script's own bug. A report too large for one argument list failed
+  with "Argument list too long". census.sh now hands the report over
+  through a file, and the census resumed from 1202.
+
+  Preliminary tally at 1267 maps, all baked: 94 maps skip something.
+  - Missing packages dominate by count: HPN_* (Harry Potter) maps whose
+    texture packages are not in the install, a few others naming textures
+    their package lacks. The original game refuses those maps too.
+  - WaveTexture is the widest: 59 skips over 54 maps, every one of them
+    that single class (botpack.shanefx.*, detail.waterde2,
+    hubeffects.waterrings2, ...). upkg refuses it by name (INV-8) because
+    its data continues past the mip chain in a form nothing describes.
+  - No pixels and no usable SourceTexture: 36 skips.
+  - Non-power-of-two textures refused by umat::generate: 3 skips.
+
+  SurrealEngine does not settle WaveTexture. UFractalTexture::Load reads
+  the mips and ignores the tail, and UWaterTexture::UpdateFrame marks its
+  own picture "To do". So no authoritative still exists to port, unlike
+  FireTexture.
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -12443,6 +12463,51 @@ Each of them says so in its own body.
   Kind: perf.
   Source: in-session-2026-09-26 doom-ants exchange.
   Lanes: ubake, urender.
+
+- 🚧 [UTA-0212] **ut-bake grew past 16 GB baking MH-TrifeaOutpostMore and had to be stopped.**
+  Found 2026-09-26 by the UTA-0177 census, baker revision 22. After 3 min
+  17 s one ut-bake process held 16.1 GB resident and was still growing.
+  The machine was down to 1 GB available, so the bake was stopped by PID.
+  A normal map peaks near 0.5 GB (MH-TrickyV2: 511 MB, 10 s).
+
+  Unknown which stage grows. Reproduce under ulimit -v with /usr/bin/time,
+  then bisect the stages (rooms, probes, lightmaps, materials). The census
+  now caps each bake at 8 GB virtual, so a repeat fails rather than
+  starving other sessions. This map's census row reads no-report.
+
+  Placed by the session: a bake that can take a player's whole memory is
+  a larger defect than a skipped texture, so this sits before UTA-0177's
+  per-surface work.
+  Picked 2026-09-26 by ut-ants-56. Under ulimit -v 6 GB the bake throws
+  std::bad_alloc inside ubake::bakeLightProbes (gdb backtrace), 25 s in.
+  Suspect: its candidates vector takes every lattice point near every
+  triangle, duplicates included, and dedupes only once at the end.
+  Measured 2026-09-26 with a throwaway counting build. The map wraps its
+  level in a 500,000-unit box: 67 lit triangles of decayeds.base.base4a
+  and 46 Unlit ones of genfluid.sky.skytst9, all flat at z -11632. Unique
+  probe candidates: MH-TrickyV2 35,279, AS-Frigate 123,011; this map
+  exceeds an 8 GB hash set, so over 100 million.
+  Decided by the user, 2026-09-26: seed probes only inside the box around
+  the map's navigation points and player starts, plus a margin. Rejected:
+  a coarser lattice on huge maps (blurs the play area too), and a fixed
+  +-32768 clip (arbitrary). UTA-0112 SS 4.6 is amended to match.
+  Built 2026-09-26. probeReachOf (src/ubake/LightProbes.cpp) takes the box
+  around every NavigationPoint's Location, grown by PROBE_REACH_MARGIN
+  32768. bakeLightProbes clips each triangle's grown box to it before the
+  walk. Baker revision 23. UTA-0112 SS 4.6 step 2 and INV-12 amended.
+  The margin came from 64 sampled maps: a lit surface reached at most
+  29,408 units past the navigation box (MH-Book-1). Skyboxes are the
+  likely cause; 7 maps passed 20,000.
+  Measured: MH-TrifeaOutpostMore bakes in 55.8 s at 654 MB peak, verdict
+  written. AS-Frigate, DM-Deck16][, DM-Fetid, MH-Book-1 and MH-UM-Unwanted
+  bake byte-identical to revision 22.
+  Unit tier 727 green. Four hand mutations (no lower clip, no upper clip,
+  every actor counts, no margin) each fail BakeLightProbesTest. The
+  golden digest is unchanged: its fixture places no navigation point.
+  **Layman:** Baking one map ate half the computer's memory; find what grows and bound it.
+  Kind: fix.
+  Source: in-session-2026-09-26 UTA-0177 census.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 

@@ -32,6 +32,24 @@ namespace uta::ubake {
 /// SS 4.6: the lattice spacing, in UT units.
 inline constexpr std::uint32_t PROBE_SPACING = 128;
 
+/// SS 4.6 step 2 (UTA-0212): how far past the level's navigation points a
+/// probe may lie, in UT units. A skybox sits far from the play area, so the
+/// margin is wide: over 64 sampled maps, a lit surface reached at most 29,408
+/// units past the navigation points' box. Probes then stay where they were on
+/// such maps, while a floor 500,000 units across no longer takes them all.
+inline constexpr double PROBE_REACH_MARGIN = 32768;
+
+/// SS 4.6 step 2: a box of UT coordinates, bounds included.
+struct ProbeReach {
+    Vec3 low;
+    Vec3 high;
+};
+
+/// SS 4.6 step 2: the box around the Location of every placed actor whose class
+/// is Engine.NavigationPoint or descends from it, grown by PROBE_REACH_MARGIN.
+/// None when the level places no such actor.
+[[nodiscard]] std::optional<ProbeReach> probeReachOf(const ubundle::Placements& placements);
+
 /// SS 4.5: the reflectance of a surface with no material, or whose material's
 /// base level has no opaque pixel.
 inline constexpr double DEFAULT_ALBEDO = 0.5;
@@ -61,9 +79,11 @@ using AlbedoLookup = std::function<Rgb(std::string_view materialId)>;
                                              const std::vector<ubundle::Light>& lights,
                                              const AlbedoLookup& albedo);
 
-/// SS 4.6 and SS 4.7: every probe of the level. A job that throws refuses it.
+/// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
+/// there is one. A job that throws refuses it.
 [[nodiscard]] Result<ubundle::LightProbes> bakeLightProbes(
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,
-    const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo, JobSystem& jobs);
+    const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo, JobSystem& jobs,
+    const std::optional<ProbeReach>& reach = std::nullopt);
 
 } // namespace uta::ubake

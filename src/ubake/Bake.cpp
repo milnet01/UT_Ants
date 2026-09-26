@@ -726,7 +726,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     };
     UTA_TRY(ubundle::LightProbes probes,
             naming(bakeLightProbes(geometry, collision.level,
-                                   bakedLights(actors.lights, actors.placements), albedo, jobs),
+                                   bakedLights(actors.lights, actors.placements), albedo, jobs,
+                                   probeReachOf(actors.placements)),
                    mapName));
 
     // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit

@@ -307,6 +307,14 @@ The spacing `S` is `128`.
    included, and within `S` of its triangle's plane, is a candidate. The
    distance is `|n · (p − v0)|`, with `v0` the triangle's first position and
    `n` its first vertex's normal, normalised.
+   **Where the level places a navigation point, a candidate also lies inside
+   the reach** (UTA-0212, the user's decision of 2026-09-26): the box around
+   the `Location` of every placed actor whose class is
+   `Engine.NavigationPoint` or descends from it, grown by `32768` on every
+   side, bounds included. A level with none has no reach. The margin covers
+   skyboxes: over 64 sampled maps, a lit surface lay at most 29,408 units
+   past the navigation points' box. A map wrapping its level in a 500,000-unit
+   floor no longer seeds probes across all of it.
 3. **A candidate is a probe when `isEmpty` accepts it** against `COLL`'s level
    tree.
 4. **The probes are ordered by `k`, then `j`, then `i`**, each once.
@@ -545,6 +553,14 @@ tests change no line.
   *Test:* `tests/unit/PathTraceTest.cpp`, unchanged, against
   `src/ubake/CollisionQuery.cpp`.
   *Breaks when:* the move changes a line of behaviour.
+- **INV-12** — § 4.6 step 2's reach. `probeReachOf` spans exactly the
+  navigation points' Locations, each resolved actor-first then class default,
+  grown by `32768`, and is none without one. A probe never lies outside a
+  reach, and the probes inside it are the unclipped bake's.
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "the probes' reach" and
+  "placement" section "a reach cuts the lattice".
+  *Breaks when:* either clip bound is dropped, a non-navigation actor
+  counts, or the margin is not applied.
 
 ## 6. Failure modes
 
@@ -567,7 +583,7 @@ Each test is seen to fail before the code it grades exists.
 |---|---|---|
 | `tests/unit/BundleLightProbesTest.cpp` | `unit` | INV-1 |
 | `tests/unit/BakeLightModelTest.cpp` | `unit` | INV-2, INV-3, INV-4, INV-5 |
-| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10 |
+| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12 |
 | `tests/unit/BakeGoldenTest.cpp` | `unit` | INV-10, recorded again |
 | `tests/unit/PathTraceTest.cpp` | `unit` | INV-11, unchanged |
 | `tests/real/RealLightProbesTest.cpp` | real tier | prints each stock map's probe count, baked light count and step time; checks every value is finite and not negative |
@@ -631,7 +647,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 | INV-1 | `tests/unit/BundleLightProbesTest.cpp` |
 | INV-2, INV-3, INV-4 | `tests/unit/BakeLightModelTest.cpp` |
 | INV-5 | `tests/unit/BakeLightModelTest.cpp` and `tests/unit/BakeLightProbesTest.cpp` |
-| INV-6, INV-7, INV-8, INV-9 | `tests/unit/BakeLightProbesTest.cpp` |
+| INV-6, INV-7, INV-8, INV-9, INV-12 | `tests/unit/BakeLightProbesTest.cpp` |
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |
 | § 4.3's model looking like UT99's | **nothing** — UT99's model is in no source this spec draws on; § 15 |
