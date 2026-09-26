@@ -45,7 +45,7 @@ TEST_CASE("parallelFor covers every index exactly once", "[core][jobs]") {
     constexpr std::size_t kCount = 256;
     std::vector<std::atomic<int>> seen(kCount);
 
-    jobs.parallelFor(kCount, [&seen](std::size_t i) { ++seen[i]; });
+    REQUIRE(jobs.parallelFor(kCount, [&seen](std::size_t i) { ++seen[i]; }) == 0);
 
     for (std::size_t i = 0; i < kCount; ++i) REQUIRE(seen[i].load() == 1);
 }
@@ -53,7 +53,7 @@ TEST_CASE("parallelFor covers every index exactly once", "[core][jobs]") {
 TEST_CASE("parallelFor over nothing does nothing", "[core][jobs]") {
     JobSystem jobs(2);
     std::atomic<int> calls{0};
-    jobs.parallelFor(0, [&calls](std::size_t) { ++calls; });
+    CHECK(jobs.parallelFor(0, [&calls](std::size_t) { ++calls; }) == 0);
     CHECK(calls.load() == 0);
 }
 

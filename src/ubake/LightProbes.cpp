@@ -173,7 +173,6 @@ std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& light
 }
 
 std::optional<ProbeReach> probeReachOf(const ubundle::Placements& placements) {
-    static const std::vector<ubundle::PropertyRecord> none;
     constexpr std::string_view NAVIGATION_POINT = "engine.navigationpoint";
     std::optional<ProbeReach> reach;
     for (const ubundle::ActorPlacement& actor : placements.actors) {

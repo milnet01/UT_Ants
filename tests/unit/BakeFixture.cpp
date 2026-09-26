@@ -620,7 +620,7 @@ Fixture standardFixture() {
 
 // --------------------------------------------------------- MemoryPackages
 
-void MemoryPackages::add(std::string name, std::vector<std::uint8_t> bytes) {
+void MemoryPackages::add(const std::string& name, std::vector<std::uint8_t> bytes) {
     bytes_[folded(name)] = std::move(bytes);
 }
 

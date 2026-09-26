@@ -392,9 +392,9 @@ def main():
         print(f"{state:>13}  {label}", flush=True)
 
     expected = subject["expected_survivors"]
-    survived = [l for s, l in results if s == "SURVIVED"]
-    broken = [(s, l) for s, l in results if s in ("NOT-APPLIED", "NOT-UNIQUE", "COMPILE-FAIL")]
-    unexplained = [l for l in survived if l not in expected]
+    survived = [label for s, label in results if s == "SURVIVED"]
+    broken = [(s, label) for s, label in results if s in ("NOT-APPLIED", "NOT-UNIQUE", "COMPILE-FAIL")]
+    unexplained = [label for label in survived if label not in expected]
 
     print(f"\n=== {args.subject} in {build_dir}/ ===")
     print(f"killed {sum(1 for s, _ in results if s == 'KILLED')} of {len(results)}")

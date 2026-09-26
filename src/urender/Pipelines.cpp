@@ -535,7 +535,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
 }
 
 Pipelines::~Pipelines() {
-    for (auto& row : scene_)
+    for (const auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     for (VkPipeline pipeline : {post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})

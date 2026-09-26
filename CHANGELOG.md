@@ -526,6 +526,10 @@ appears once something has actually shipped.)
 
 ### Fixed
 
+- **Two job-system tests now assert parallelFor's failure count instead of discarding it.**
+  Found by check-code (clazy) on 2026-09-26. A body that threw would
+  have passed both tests unnoticed.
+
 - **Baking a very large map no longer runs out of memory: light probes stay within reach of the play area.** (UTA-0212)
   Baking one map ate half the computer's memory; find what grows and bound it.
 
@@ -756,6 +760,10 @@ appears once something has actually shipped.)
   Found by the new gate on its first run.
 
 ### Security
+
+- **CI no longer leaves the checkout token in the repository for later steps, and a release-tag build no longer restores the shared compiler cache.**
+  Found by check-code (zizmor) on 2026-09-26. A release now builds only
+  from its own source.
 
 - **resolveUnder refuses names that are unsafe on Windows, on every platform** (UTA-0046)
   A downloaded file called COM1 opens a serial port rather than a file, and

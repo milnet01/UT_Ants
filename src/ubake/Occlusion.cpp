@@ -115,7 +115,7 @@ void sizeCharts(std::vector<Chart>& charts, const ubundle::Geometry& geometry, d
 
 /// SS 4.2: shelf packing at `width`, tallest first. The height used, or 0 when
 /// a chart is wider than `width`.
-std::uint64_t shelve(std::vector<Chart*>& order, std::uint32_t width) {
+std::uint64_t shelve(const std::vector<Chart*>& order, std::uint32_t width) {
     std::uint64_t x = OCCLUSION_WHITE_BLOCK, shelfY = 0, shelfH = OCCLUSION_WHITE_BLOCK;
     for (Chart* chart : order) {
         if (chart->w > width) return 0;

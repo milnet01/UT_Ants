@@ -279,7 +279,7 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
         ::close(fd);
         return mapped; // mmap refuses a length of 0; the view is empty
     }
-    void* view = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    const void* view = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
     ::close(fd); // the mapping holds its own reference
     if (view == MAP_FAILED) return fail(ErrorCode::IoFailure, "cannot map " + path.string() + ": " + std::strerror(errno));
     mapped.data_ = static_cast<const std::byte*>(view);

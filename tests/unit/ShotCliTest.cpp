@@ -171,7 +171,7 @@ TEST_CASE("UTA-0199: an explicit option beats the capture so a view redraws at a
     const auto folder = writeCaptureFolder(temp.path() / "shot", sampleInfo());
 
     // Both orders, since a reader should not have to know which wins by position.
-    for (const std::vector<std::string> args :
+    for (const std::vector<std::string>& args :
          {std::vector<std::string>{"--from-capture", folder.string(), "--tier", "ultra",
                                    "map.utab", "out"},
           std::vector<std::string>{"--tier", "ultra", "--from-capture", folder.string(),

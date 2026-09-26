@@ -596,8 +596,8 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
                                                           variant.masked ? std::uint8_t{0} : made->material.parallaxDepth});
             out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
-            for (ubundle::CompressedTexture& map : made->material.maps)
-                out.textures.push_back(std::move(map));
+            for (ubundle::CompressedTexture& texture : made->material.maps)
+                out.textures.push_back(std::move(texture));
             for (const std::int32_t raw : variant.references)
                 out.bySurface.emplace(std::pair{raw, variant.masked},
                                       SurfaceMaterial{id, made->uSize, made->vSize});

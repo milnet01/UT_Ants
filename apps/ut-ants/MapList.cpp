@@ -309,7 +309,7 @@ std::optional<MapResult> readResult(const std::filesystem::path& results, std::s
         // UTA-0208: the second line names the baker. A file written before
         // that has none.
         std::string baker = text.substr(std::min(text.size(), std::string_view("baked\n").size()));
-        baker = baker.substr(0, baker.find_first_of("\r\n"));
+        if (const std::size_t end = baker.find_first_of("\r\n"); end != std::string::npos) baker.resize(end);
         return MapResult{.bakerVersion = std::move(baker)};
     }
     if (!text.starts_with("failed")) return std::nullopt;
@@ -373,7 +373,6 @@ std::vector<std::string> wrapText(std::string_view text, std::size_t width) {
         do {
             if (paragraph.size() <= width) {
                 lines.emplace_back(paragraph);
-                paragraph = {};
                 break;
             }
             std::size_t cut = paragraph.rfind(' ', width);

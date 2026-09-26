@@ -341,7 +341,7 @@ inline const std::vector<std::string> STANDARD_MATERIALS = {
 class MemoryPackages {
 public:
     /// `name` is folded as the resolver expects its input.
-    void add(std::string name, std::vector<std::uint8_t> bytes);
+    void add(const std::string& name, std::vector<std::uint8_t> bytes);
     [[nodiscard]] upkg::PackageResolver resolver();
 
 private:

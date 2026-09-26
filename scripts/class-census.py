@@ -171,7 +171,8 @@ def skip_expression(package, cursor, depth=0):
     if op >= 0x60:
         cursor.u8()
         return 2 + skip_parameters(package, cursor, depth)
-    nested = lambda: skip_expression(package, cursor, depth + 1)
+    def nested():
+        return skip_expression(package, cursor, depth + 1)
     if op in OBJECT_OPERAND:
         cursor.index()
         return 1 + PTR
