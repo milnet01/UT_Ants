@@ -383,8 +383,10 @@ std::optional<std::size_t> nearestNode(const Scene& scene, const Vec3& to) {
 
 // ------------------------------------------------------------------ SS 4.3
 
-/// A float's shortest round-trip decimal (SS 4.3's numbers).
+/// A float's shortest round-trip decimal (SS 4.3's numbers), or null for one
+/// that is not finite: JSON has no nan or inf.
 std::string number(double value) {
+    if (!std::isfinite(static_cast<float>(value))) return "null";
     std::array<char, 32> text{};
     const auto written = std::to_chars(text.data(), text.data() + text.size(), static_cast<float>(value));
     return std::string(text.data(), written.ptr);

@@ -31,6 +31,7 @@
 #include "upkg/Properties.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <format>
 #include <map>
@@ -287,9 +288,11 @@ StoredFacts storedFacts(const uta::upkg::Package& package, std::uint32_t exportI
     return facts;
 }
 
-/// `[x, y, z]` in the shortest form that reads back exactly, or `null`.
+/// `[x, y, z]` in the shortest form that reads back exactly, or `null` -- for
+/// a component that is not finite too, since JSON has no nan or inf.
 void writeLocation(std::ostream& out, const std::optional<uta::upkg::Vector3>& location) {
-    if (!location.has_value()) {
+    if (!location.has_value() || !std::isfinite(location->x) || !std::isfinite(location->y) ||
+        !std::isfinite(location->z)) {
         out << "null";
         return;
     }
@@ -759,7 +762,15 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
                                                    effective.property);
                             }
                         }
+                    } else {
+                        // A chain readAncestry refuses (a cycle, or past its
+                        // depth cap) is not complete, so it is not "root":
+                        // level.chainsUnresolved counts it too (UTA-0012 INV-8,
+                        // review-code 2026-09-26).
+                        built.end = "classMissing";
                     }
+                } else if (site.has_value() && site->end == uta::upkg::AncestryEnd::PackageMissing) {
+                    built.end = "packageMissing"; // SS 4.4: the walk's true end
                 } else {
                     built.end = "classMissing";
                 }
@@ -891,7 +902,8 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
         if (fields.triggerType.has_value()) out << *fields.triggerType;
         else out << "null";
         out << ", \"damageThreshold\": ";
-        if (fields.damageThreshold.has_value()) out << std::format("{}", *fields.damageThreshold);
+        if (fields.damageThreshold.has_value() && std::isfinite(*fields.damageThreshold))
+            out << std::format("{}", *fields.damageThreshold);
         else out << "null";
         out << ", \"bInitiallyActive\": ";
         if (fields.initiallyActive.has_value()) out << (*fields.initiallyActive ? "true" : "false");

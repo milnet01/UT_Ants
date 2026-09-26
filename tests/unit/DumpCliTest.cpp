@@ -30,6 +30,7 @@
 #include <regex>
 #include <set>
 #include <sstream>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -696,6 +697,9 @@ TEST_CASE("UTA-0172 INV-5: a chain the resolver cannot complete says so", "[dump
     const std::string actor = actorNamed(actorsArray(result.out), "Ghost0");
     INFO(actor);
     CHECK(actor.find("\"chainEnd\": \"root\"") == std::string::npos);
+    // SS 4.4: the walk's true end. The package is what is missing, not the
+    // class (review-code 2026-09-26).
+    CHECK(actor.find("\"chainEnd\": \"packageMissing\"") != std::string::npos);
     CHECK(result.out.find("\"chainsUnresolved\": 0") == std::string::npos);
 }
 
@@ -1023,6 +1027,28 @@ TEST_CASE("UTA-0012 INV-8: level.chainsUnresolved counts each unresolved actor o
     CHECK(integerOf(member(package, "wiring"), "chainsUnresolved") == with);
 }
 
+TEST_CASE("UTA-0012 INV-8: a chain the reader refuses is unresolved in both counts", "[dump]") {
+    // review-code 2026-09-26: level counted a refused chain (a cycle, or one
+    // past the depth cap) as unresolved while wiring emitted it as "root".
+    const TempDir dir;
+    MapBuilder map;
+    std::int32_t super = 0;
+    for (int i = 0; i < 70; ++i) super = map.addClass("Deep" + std::to_string(i), super);
+    map.addActor("Deep0", super);
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.err);
+    REQUIRE(result.code == 0);
+    const std::string actor = actorNamed(actorsArray(result.out), "Deep0");
+    INFO(actor);
+    CHECK(actor.find("\"chainEnd\": \"root\"") == std::string::npos);
+    const std::string package = packagesOf(result.out).at(0);
+    CHECK(integerOf(member(package, "level"), "chainsUnresolved") == 1);
+    CHECK(integerOf(member(package, "wiring"), "chainsUnresolved") == 1);
+}
+
 TEST_CASE("UTA-0206: --install finds a class that lives in a texture package", "[dump]") {
     // MH-Lego-VS-Mario-2D&3D's shape: its sky class lives in Textures/, which
     // --system never reads.
@@ -1104,6 +1130,25 @@ TEST_CASE("UTA-0198: a node lists its own Paths, upstreamPaths and PrunedPaths",
     CHECK(result.out.find("\"name\": \"PathNode1\", \"class\": \"PathNode\", \"location\": null, "
                           "\"paths\": [], \"upstreamPaths\": [], \"prunedPaths\": []}")
           != std::string::npos);
+}
+
+TEST_CASE("a float that is not finite is written as null and never as nan", "[dump]") {
+    // review-code 2026-09-26: RFC 8259 has no nan or inf, so one corrupt map
+    // made the whole document unparseable.
+    const TempDir dir;
+    MapBuilder map;
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+    map.addActorOfClass("MonsterHunt", "MonsterEnd",
+                        {vectorProperty("Location", nan, 0, 0), floatProperty("DamageThreshold", inf)});
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    CHECK(result.out.find("nan") == std::string::npos);
+    CHECK(result.out.find("inf") == std::string::npos);
+    CHECK(result.out.find("\"class\": \"MonsterEnd\", \"location\": null, ") != std::string::npos);
+    CHECK(result.out.find("\"damageThreshold\": null, ") != std::string::npos);
 }
 
 TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location and tag", "[dump]") {

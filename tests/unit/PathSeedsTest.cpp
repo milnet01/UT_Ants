@@ -349,6 +349,23 @@ TEST_CASE("INV-9: only EXIT_OFF_NET and PARTITIONED rows are work and a missing 
     CHECK(named.out.find("{\"map\": \"MH-Built\", \"status\": \"refused\"") != std::string::npos);
 }
 
+TEST_CASE("a census map name that is a path is refused and nothing is read", "[paths][seeds]") {
+    // review-code 2026-09-26: the census comes from another project, and a
+    // "../" or rooted name would read outside Maps/ and write outside --out.
+    const uta::test::bake::TempDir dir;
+    const fs::path install = dir.path() / "install";
+    uta::test::bake::writeFile(install / "escape.unr", bytesOf("not a package"));
+    const fs::path census = dir.path() / "census.tsv";
+    uta::test::bake::writeFile(census, bytesOf("map\tgroup\n../escape\tPARTITIONED\n"));
+    const fs::path out = dir.path() / "out";
+
+    const Run result = run({"--install", install.string(), "--census", census.string(), "--out", out.string()});
+    INFO(result.err);
+    INFO(result.out);
+    CHECK(result.out.find("\"status\": \"refused\", \"why\": \"not a plain map name\"") != std::string::npos);
+    CHECK_FALSE(fs::exists(dir.path() / "escape.json"));
+}
+
 TEST_CASE("UTA-0137: a skipped map names files elsewhere and near names and reads neither",
           "[paths][seeds]") {
     const uta::test::bake::TempDir dir;

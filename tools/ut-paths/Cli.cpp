@@ -228,6 +228,11 @@ void lookElsewhere(const stdfs::path& install, const Row& row, Entry& entry) {
 
 /// One map, read from <install>/Maps, its file written to `outDir`.
 Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& row, std::ostream& err) {
+    // The census is another project's file. A name that is a path would read
+    // outside Maps/ and write outside --out (review-code 2026-09-26).
+    if (row.map.empty() || row.map == "." || row.map == ".." ||
+        row.map.find_first_of("/\\:") != std::string::npos)
+        return refusal(row.map, "not a plain map name", err);
     const stdfs::path file = install / "Maps" / (row.map + ".unr");
     std::error_code ec;
     if (!stdfs::is_regular_file(file, ec)) {
