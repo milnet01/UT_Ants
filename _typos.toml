@@ -1,0 +1,31 @@
+# typos: this project's own vocabulary. Each word below was read in place
+# on 2026-09-26 and is a name, not a misspelling. A word not listed is
+# still checked everywhere.
+
+[files]
+extend-exclude = ["third_party/"]
+
+[default]
+# Commit hashes quoted in the roadmap and the review records.
+extend-ignore-re = ["\\b[0-9a-f]{7,40}\\b"]
+
+[default.extend-identifiers]
+# Unreal Engine's own names, as its packages spell them.
+EX_NativeParm = "EX_NativeParm"
+
+[default.extend-words]
+ue = "ue"          # Unreal Engine
+iy = "iy"          # grid and pixel coordinates
+iz = "iz"
+lod = "lod"        # level of detail
+nd = "nd"          # a BSP node
+pn = "pn"          # the last polygon point, P0 .. Pn-1
+countr = "countr"  # std::countr_zero
+caf = "caf"        # "Café", split at its accent in a test fixture
+gam = "gam"        # a texture fixture's name
+fo = "fo"          # the map name MH-FoT
+unparseable = "unparseable"
+reachers = "reachers"  # nodes that can reach a point
+warnin = "warnin"      # a UT texture's own name, glowpanels.warnin
+parms = "parms"        # UnrealScript's parameter-list naming
+requir = "requir"      # "REQUIREs", Catch2's macro in prose
