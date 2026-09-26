@@ -101,6 +101,19 @@ planner routes through one at round start, so do not cut its links on
 Neither is summarised here. A rule restated in two places is two rules
 that will disagree.
 
+### Contract reviews
+
+**`~/.claude/CLAUDE.md` rule 14's gate is cancelled for this project**
+(user, 2026-09-26). Where that rule would ask, the commit body records
+**no gate**.
+
+**Practice, stated separately:** a review runs only when the user
+approves one, and only where the payoff is large — a new spec for a
+design across several subsystems, or a real flip of a guarantee. A
+small edit to a contract document is made without a review and
+without asking. The user's words: "Reviews are very token heavy and
+should only be used where the pay off is worthwhile."
+
 ## This project's own facts
 
 Everything below is specific to this project, which is why it lives here
