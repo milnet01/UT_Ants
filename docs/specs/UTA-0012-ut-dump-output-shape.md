@@ -92,7 +92,7 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--ndjson] <package|directory>...
 ```
 
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
@@ -111,6 +111,7 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--nd
 - `--nav-graph` adds `nav.nodeList` and `nav.edgeList` (§ 4.6).
 - `--wiring-graph` adds `wiring.chainsUnresolved` and `wiring.actors`
   (UTA-0172).
+- `--surface-list` adds `surfaces.list` (§ 4.5, UTA-0213).
 - The exit code is 0 when every package was attempted, including packages
   that did not open. 2 is a usage error, with no output on stdout.
 
@@ -184,6 +185,13 @@ to § 4.7a give them.
   `drawnNodes` counts BSP nodes of three or more vertices that use the
   surfaces. `null`, with `surfacesError`, when the level names no Model
   export or the Model does not read (UTA-0201).
+- **`surfaces.list`**, under `--surface-list` only: one row per surface, in
+  index order: `{index, texture, polyFlags, brush, brushPoly, base, normal,
+  drawnNodes}`. `polyFlags` is the flags the map was built with. `brush` is
+  the owning actor's name, or `null` where the surface stores none;
+  `brushPoly` is that brush's polygon index. `base` and `normal` are
+  `[x, y, z]`, or `null` where the stored index is out of range. `drawnNodes`
+  counts as above, for this surface alone (UTA-0213).
 - **`levelInfo`, `levelSummary`**: `{title, author}`, each a string or
   `null`. The values are the map's own stored ones: `null` means the map sets
   none. `levelInfo` reads the LevelInfo named in the level's actor list;
@@ -337,9 +345,9 @@ A consumer is added to this table when it tells us what it reads.
   key.
 
 - **INV-4** — An opened package's top-level key set is exactly § 4.4's, in
-  each of its three cases: a non-map, a map, and a map with `--nav-graph` and
-  `--wiring-graph`. `level`, `nav` and `wiring` carry exactly § 4.5 to § 4.7's
-  keys.
+  each of its three cases: a non-map, a map, and a map with `--nav-graph`,
+  `--wiring-graph` and `--surface-list`. `level`, `surfaces`, `nav` and
+  `wiring` carry exactly § 4.5 to § 4.7's keys.
   *Test:* `tests/unit/DumpCliTest.cpp`, with a small key reader local to the
   test that lists an object's keys at one depth. It runs over a fixture System
   package and a fixture map, and compares each key set with a literal list.

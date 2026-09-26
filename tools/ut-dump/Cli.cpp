@@ -143,6 +143,8 @@ std::string nameOr(const uta::upkg::Package& package, uta::upkg::ObjectReference
     return name.has_value() ? std::string{*name} : std::string{"?"};
 }
 
+void writeLocation(std::ostream& out, const std::optional<uta::upkg::Vector3>& location);
+
 /// UTA-0201: the map's BSP surfaces, grouped by the texture they use and the
 /// flags they carry.
 ///
@@ -158,8 +160,15 @@ std::string nameOr(const uta::upkg::Package& package, uta::upkg::ObjectReference
 /// getting wrong once, yielding the GROUP rather than the package and
 /// reporting 587 maps as needing one called "Base". The bare name answers
 /// whether a map uses a texture, which is what this is for.
+///
+/// UTA-0213: `--surface-list` adds `list`, one row per surface in index order,
+/// for the question the groups cannot answer -- is THIS surface, here, solid.
+/// UT_MonsterHunt's GAME-0008 asks it of fake-wall candidates: a brush's own
+/// flags drift from the flags the map was built with, and `polyFlags` here is
+/// the built one. `brush` and `brushPoly` name the brush actor and its polygon,
+/// which is how a T3D export finds the same face; `base` and `normal` place it.
 void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
-                   const uta::upkg::Level& level) {
+                   const uta::upkg::Level& level, bool surfaceList) {
     // `Level::model` comes out of the export's DATA, which Package::open did
     // not validate, so its range is checked rather than trusted -- the same
     // guard ubake's findModel applies, restated here because ut-dump does not
@@ -208,7 +217,35 @@ void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
         out << ", \"polyFlags\": " << key.second << ", \"surfaces\": " << counts.first
             << ", \"drawnNodes\": " << counts.second << "}";
     }
-    out << "]}";
+    out << "]";
+    if (surfaceList) {
+        // An index into points or vectors is file data like `level.model`, so
+        // one out of range is written as null rather than trusted.
+        const auto at = [](const std::vector<uta::upkg::Vector3>& pool, std::int32_t index) {
+            return index >= 0 && static_cast<std::size_t>(index) < pool.size()
+                       ? std::optional{pool[static_cast<std::size_t>(index)]}
+                       : std::nullopt;
+        };
+        out << ", \"list\": [";
+        for (std::size_t i = 0; i < model->surfs.size(); ++i) {
+            const uta::upkg::BspSurf& surf = model->surfs[i];
+            if (i != 0) out << ", ";
+            out << "{\"index\": " << i << ", \"texture\": ";
+            writeJsonString(out, nameOr(package, surf.texture));
+            out << ", \"polyFlags\": " << surf.polyFlags << ", \"brush\": ";
+            // A surface no brush owns stores a null actor; "?" would read as a
+            // name that failed to resolve.
+            if (surf.actor.kind() == uta::upkg::ObjectReferenceKind::Null) out << "null";
+            else writeJsonString(out, nameOr(package, surf.actor));
+            out << ", \"brushPoly\": " << surf.iBrushPoly << ", \"base\": ";
+            writeLocation(out, at(model->points, surf.pBase));
+            out << ", \"normal\": ";
+            writeLocation(out, at(model->vectors, surf.vNormal));
+            out << ", \"drawnNodes\": " << nodesOf[i] << "}";
+        }
+        out << "]";
+    }
+    out << "}";
 }
 
 /// UTA-0189 and UTA-0198: what one actor stores for itself -- its Location,
@@ -865,7 +902,7 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
 }
 
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
-                 bool navGraph, bool wiringGraph, bool first) {
+                 bool navGraph, bool wiringGraph, bool surfaceList, bool first) {
     if (!first) {
         out << ",\n";
     }
@@ -967,7 +1004,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     out << ", \"chainsUnresolved\": " << unresolvedChains(*package, path.stem().string(), *level, kinds);
     out << "}";
 
-    writeSurfaces(out, *package, *level);
+    writeSurfaces(out, *package, *level, surfaceList);
 
     writeCredits(out, "levelInfo", *package, levelInfoOf(*package, *level));
     writeCredits(out, "levelSummary", *package, firstExportOf(*package, "LevelSummary"));
@@ -1064,7 +1101,8 @@ std::string oneLine(std::string_view json) {
 int usage(std::ostream& err) {
     err <<
         "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
-        "                [--nav-graph] [--wiring-graph] [--ndjson] <package|directory>...\n"
+        "                [--nav-graph] [--wiring-graph] [--surface-list] [--ndjson]\n"
+        "                <package|directory>...\n"
         "\n"
         "Writes one JSON object per package to stdout. Class ancestry crosses\n"
         "packages, so it needs the install: without one a map's navigation graph\n"
@@ -1085,6 +1123,10 @@ int usage(std::ostream& err) {
         "the map can switch a given actor on. The array is roughly the map's\n"
         "actor count, which is why it is opt-in.\n"
         "\n"
+        "--surface-list adds every BSP surface to each map's `surfaces` object,\n"
+        "as `list`, in index order: its texture, built polyFlags, brush actor\n"
+        "and polygon, base point, normal and drawn node count.\n"
+        "\n"
         "Packages are listed in path order, not argument order: key on each\n"
         "one's `file`. docs/specs/UTA-0012-ut-dump-output-shape.md is the\n"
         "output's contract.\n"
@@ -1103,6 +1145,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     fs::path installDir;
     bool navGraph = false;
     bool wiringGraph = false;
+    bool surfaceList = false;
     bool ndjson = false;
     std::vector<fs::path> targets;
 
@@ -1122,6 +1165,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             navGraph = true;
         } else if (arg == "--wiring-graph") {
             wiringGraph = true;
+        } else if (arg == "--surface-list") {
+            surfaceList = true;
         } else if (arg == "--ndjson") {
             ndjson = true;
         } else if (arg == "-h" || arg == "--help") {
@@ -1183,7 +1228,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         out << "{\"schema\":" << SCHEMA << "}\n";
         for (const fs::path& file : files) {
             std::ostringstream package;
-            dumpPackage(package, file, resolver, navGraph, wiringGraph, true);
+            dumpPackage(package, file, resolver, navGraph, wiringGraph, surfaceList, true);
             out << oneLine(package.str()) << '\n' << std::flush;
         }
         return 0;
@@ -1192,7 +1237,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     out << "{\n \"schema\": " << SCHEMA << ",\n \"packages\": [\n";
     bool first = true;
     for (const fs::path& file : files) {
-        dumpPackage(out, file, resolver, navGraph, wiringGraph, first);
+        dumpPackage(out, file, resolver, navGraph, wiringGraph, surfaceList, first);
         first = false;
     }
     out << "\n ]\n}\n";

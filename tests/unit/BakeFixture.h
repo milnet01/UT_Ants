@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -209,6 +210,9 @@ public:
     /// the file with nothing drawing it -- UTA-0201's `drawnNodes` of 0, and
     /// the only shape this builder could not express before.
     MapBuilder& addSurface(std::int32_t texture, std::uint32_t polyFlags = 0, bool drawn = true);
+    /// The last surface added is polygon `poly` of actor `actor`, by its
+    /// position among the actors -- UTA-0213.
+    MapBuilder& ownSurface(std::size_t actor, std::int32_t poly);
 
     /// A class the map imports as `<package>.<className>`; its reference.
     std::int32_t importClass(std::string_view package, std::string_view className);
@@ -263,6 +267,8 @@ private:
         std::int32_t texture = 0;
         std::uint32_t polyFlags = 0;
         bool drawn = true;
+        std::optional<std::size_t> brush;
+        std::int32_t brushPoly = 0;
     };
     std::vector<Surface> surfaces_;
     struct Actor {

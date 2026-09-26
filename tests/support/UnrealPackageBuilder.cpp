@@ -876,10 +876,10 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
         appendIndex(out, surf.vTextureU);
         appendIndex(out, surf.vTextureV);
         appendIndex(out, 0);                          // iLightMap
-        appendIndex(out, 0);                          // iBrushPoly
+        appendIndex(out, surf.iBrushPoly);
         appendU16(out, static_cast<std::uint16_t>(surf.panU));
         appendU16(out, static_cast<std::uint16_t>(surf.panV));
-        appendIndex(out, 0);                          // actor
+        appendIndex(out, surf.actor);
     }
 
     appendIndex(out, static_cast<std::int32_t>(verts_.size())); // Verts

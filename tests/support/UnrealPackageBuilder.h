@@ -388,6 +388,8 @@ public:
         std::int32_t vTextureV = 0;
         std::int16_t panU = 0;
         std::int16_t panV = 0;
+        std::int32_t iBrushPoly = 0;
+        std::int32_t actor = 0; // an object reference
     };
 
     /// The tagged property list. Defaults to an empty one terminated by the

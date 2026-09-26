@@ -514,6 +514,46 @@ TEST_CASE("UTA-0201: a surface nothing draws is reported with no drawn nodes", "
     CHECK(drawn->drawnNodes >= 1);
 }
 
+TEST_CASE("UTA-0213: --surface-list places each surface and names its built flags and brush", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    map.addActorOfClass("Engine", "Brush"); // Brush0
+    const std::int32_t water = map.importTexture("RainFX", "", "Swater4a", "Texture");
+    // One surface cut from a brush's third polygon, one no brush owns and no
+    // node draws: the two values GAME-0008's fake-wall check reads.
+    map.addSurface(water, 0).ownSurface(0, 3).addSurface(water, 0x40, /*drawn=*/false);
+
+    const fs::path mapPath = writeMap(dir, map);
+    const std::string system = (dir.path() / "System").string();
+    const Run result = run({"--system", system, "--surface-list", mapPath.string()});
+    REQUIRE(result.code == 0);
+
+    // Index order, and the fixture's own points: surface i's square sits at
+    // height 8i, facing up.
+    CHECK(result.out.find(R"({"index": 0, "texture": "Swater4a", "polyFlags": 0, "brush": "Brush0", )"
+                          R"("brushPoly": 3, "base": [0, 0, 0], "normal": [0, 0, 1], "drawnNodes": )")
+          != std::string::npos);
+    CHECK(result.out.find(R"({"index": 1, "texture": "Swater4a", "polyFlags": 64, "brush": null, )"
+                          R"("brushPoly": 0, "base": [0, 0, 8], "normal": [0, 0, 1], "drawnNodes": 0})")
+          != std::string::npos);
+
+    // The drawn surface's count is its group's: it is that group's only member.
+    static const std::regex firstRow(R"re("index": 0, [^}]*"drawnNodes": (\d+)\})re");
+    std::smatch counted;
+    REQUIRE(std::regex_search(result.out, counted, firstRow));
+    const std::vector<SurfaceRow> groups = surfaceRows(result.out);
+    const SurfaceRow* const group = rowFor(groups, "Swater4a", 0);
+    REQUIRE(group != nullptr);
+    CHECK(group->drawnNodes >= 1);
+    CHECK(std::stoll(counted[1].str()) == group->drawnNodes);
+
+    // Without the flag the groups stand alone: a map's thousands of rows are
+    // opt-in.
+    const Run plain = run({"--system", system, mapPath.string()});
+    REQUIRE(plain.code == 0);
+    CHECK(plain.out.find("\"list\"") == std::string::npos);
+}
+
 // ------------------------------------------------------------------ UTA-0172
 // Per-actor event wiring. docs/specs/UTA-0172-actor-event-wiring.md; the
 // invariant numbers below are that spec's.
@@ -879,10 +919,12 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     CHECK(keysOf(member(map, "nav")) == Keys{"nodes", "edges", "discardedEndpoints", "nodesWithNoExit"});
     CHECK(keysOf(member(map, "wiring")) == Keys{"nodes", "edges", "dangling"});
 
-    const Run full = run({"--system", system, "--nav-graph", "--wiring-graph", mapPath.string()});
+    const Run full =
+        run({"--system", system, "--nav-graph", "--wiring-graph", "--surface-list", mapPath.string()});
     REQUIRE(full.code == 0);
     const std::string fullMap = packagesOf(full.out).at(0);
     CHECK(keysOf(fullMap) == mapKeys);
+    CHECK(keysOf(member(fullMap, "surfaces")) == Keys{"total", "byTextureAndFlags", "list"});
     CHECK(keysOf(member(fullMap, "nav"))
           == Keys{"nodes", "edges", "discardedEndpoints", "nodesWithNoExit", "nodeList", "edgeList"});
     CHECK(keysOf(member(fullMap, "wiring")) == Keys{"nodes", "edges", "dangling", "chainsUnresolved", "actors"});

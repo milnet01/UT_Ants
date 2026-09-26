@@ -12526,6 +12526,24 @@ Each of them says so in its own body.
   Source: in-session-2026-09-26 UTA-0177 census.
   Lanes: ubake.
 
+- 🚧 [UTA-0213] **ut-dump: list every BSP surface with its built flags, brush and position, behind --surface-list.**
+  UT_MonsterHunt's ask 4 in their 2026-09-20 message on UTA-0201 (their
+  GAME-0008, docs/ut-ants-request.md Ask 1 on their side). A brush's own
+  flags drift from the flags a map was built with, so their fake-wall
+  check needs the BUILT polyFlags per surface, plus enough to locate it.
+  UTA-0201's byTextureAndFlags aggregates and cannot answer "is THIS
+  surface solid". They said not to pin it and not to spend time if it
+  was not cheap; it falls out of the same walk.
+
+  Opt-in, because a map holds thousands of surfaces. Each row: index,
+  texture, polyFlags, brush (the owning actor's name, or null), brushPoly,
+  base and normal (null when the index is out of range), drawnNodes.
+  Taken 2026-09-26 under the user's priority 1, assisting other sessions.
+  **Layman:** A new option makes the map-reading tool list every wall and floor face on its own, so the sister project can check whether one particular wall is solid.
+  Kind: implement.
+  Source: user-request-2026-09-20.
+  Lanes: tools/ut-dump.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

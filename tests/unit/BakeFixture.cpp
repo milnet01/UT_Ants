@@ -347,6 +347,12 @@ MapBuilder& MapBuilder::addSurface(std::int32_t texture, std::uint32_t polyFlags
     return *this;
 }
 
+MapBuilder& MapBuilder::ownSurface(std::size_t actor, std::int32_t poly) {
+    surfaces_.back().brush = actor;
+    surfaces_.back().brushPoly = poly;
+    return *this;
+}
+
 std::int32_t MapBuilder::importClass(std::string_view package, std::string_view className) {
     return packer_.importClass(package, className);
 }
@@ -495,6 +501,8 @@ std::vector<std::uint8_t> MapBuilder::build() const {
         surf.vNormal = 0;
         surf.vTextureU = 1;
         surf.vTextureV = 2;
+        if (surfaces_[i].brush.has_value()) surf.actor = actors.at(*surfaces_[i].brush);
+        surf.iBrushPoly = surfaces_[i].brushPoly;
         model.addSurf(surf);
     }
     const std::int32_t modelRef =
