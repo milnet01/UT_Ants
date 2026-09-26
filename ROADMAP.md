@@ -12653,6 +12653,9 @@ stays with movement in 0.2.0.
   It changes what a ut-dump maintainer may do, so CLAUDE.md rule 14's gate
   runs on the amendment first. Ask the user before running it (standing
   preference: ask before any review).
+  User (2026-09-26): not now. The review is not to run yet; the item
+  stays filed. UT_MonsterHunt told the same day. Ask again rather than
+  run it unprompted.
   **Layman:** Promise the sister project that the map-reading tool will keep the exit and waypoint fields it now relies on, so a rename cannot silently break its route check.
   Kind: doc.
   Source: ut-monsterhunt-2026-09-26.
@@ -12694,6 +12697,11 @@ stays with movement in 0.2.0.
   Placed in 0.1.0 by the user, 2026-09-26, with UTA-0055, UTA-0089 and
   UTA-0105: water and fire are required for the first release. Swimming
   (UTA-0090) stays with movement.
+  User (2026-09-26): the 0.1.0 finish line in
+  docs/standards/versioning-overrides.md is NOT amended yet to name
+  water and fire; that change needs a rule 14 review, which the user
+  deferred. Revisit before 0.1.0 is cut, so the roadmap and the cut
+  condition agree.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.
