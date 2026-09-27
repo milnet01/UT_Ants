@@ -109,6 +109,9 @@ with no graphics card can use Mesa's software driver — on Ubuntu,
 `./scripts/ci.sh` runs every check the online build runs, on your own
 machine.
 
+Run `./scripts/setup-hooks.sh` once after cloning. It switches on the checks
+that run before every push.
+
 **Testing against a real install is optional.** Add
 `-DUTA_REAL_ASSET_TESTS=ON -DUTA_UT_INSTALL_DIR=<your Unreal Tournament folder>`
 to the first command to add a second set of tests that reads real map

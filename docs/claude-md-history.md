@@ -93,6 +93,56 @@ reports no occupancy. All three lanes of the gate on that very fix caught
 it. A session trusting it would have seen one entry, concluded main was
 free, and stayed in it: the breach rule 3 opens by naming.
 
+## 2026-09-27 — history moved out of the rules (CFG-0492)
+
+Each clause below left `CLAUDE.md` verbatim on 2026-09-27, at the user's
+approval of the ~/.claude config session's CFG-0492 sweep. Each is headed by
+the section and the opening words of the rule it belonged to. Deleting it
+changed nothing a session does.
+
+**§ Where this project is — "`In flight:` is not kept by hand."**
+> A line that must be right in two places at once is a line that will be
+> wrong in one of them.
+
+**§ Where this project is — "The roadmap's ✅ is not one of them"**, which
+read, after "it says ✅ because somebody set it":
+> and [`docs/build-and-test-lessons.md`](build-and-test-lessons.md)
+> records a session setting it so while Windows was red.
+
+**§ Where this project is — "What shipped, and what each item left
+behind"**:
+> It was moved out of this section on 2026-09-20: it had grown to about two
+> fifths of this file, which is read on every prompt, and a session needs it
+> only when it goes looking.
+
+**§ Picking work — "Rule 1's set is not listed here"**:
+> A hand-kept list of it goes stale the moment an item is filed or closed,
+> which is the same reason `In flight:` is not kept by hand.
+
+**§ Routing — the rule opening *Read `offWorld` as "not walkable to"***, before
+"`UTA-0131` has the evidence.":
+> All 58 off-world maps are this shape;
+
+**§ Routing — "Do not read UT_MonsterHunt's stored route verdicts without
+checking firmness."**:
+> The caution stands on its own. The case this file used to cite for it was
+> theirs, and they corrected it on 2026-09-20; the correction is in the
+> history file.
+
+**§ Build and test — "`spec_lint` reports `surfaces_checked: false`"**:
+> Upstream ANTS-4393 / ANTS-4679.
+
+**§ Which item comes next — "The user's standing priority order"**:
+> , given 2026-09-04 and revised 2026-09-14 so the work reaches each release
+> in turn
+
+**§ History — the paragraph before the table**, and the
+`docs/project-state-history.md` row's last cell:
+> Kept outside this file, because every session pays for every line here on
+> every turn and reads this history almost never.
+
+> Moved out of § Where this project is on 2026-09-20
+
 ## § This file's own review history
 
 **2026-09-09.** The pointer named `docs/claude-md-review-2026-09-04.md`

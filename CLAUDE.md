@@ -9,8 +9,7 @@ items. Else 5.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
-> `roadmap_query status:"in-progress"`. A line that must be right in two
-> places at once is a line that will be wrong in one of them.
+> `roadmap_query status:"in-progress"`.
 >
 > **`State:` is written as the formula, not as its answer** — so no
 > session owes it an edit, and it cannot disagree with the roadmap
@@ -21,25 +20,19 @@ items. Else 5.
 >
 > Everything else is read off things harder to falsify: whether a spec
 > exists, what `git status` says, whether the tests pass **on the matrix**.
-> The roadmap's ✅ is not one of them — it says ✅ because somebody set it,
-> and [`docs/build-and-test-lessons.md`](docs/build-and-test-lessons.md)
-> records a session setting it so while Windows was red. **Its 🚧 is
-> different**: a session sets it when it picks work up,
+> The roadmap's ✅ is not one of them — it says ✅ because somebody set it.
+> **Its 🚧 is different**: a session sets it when it picks work up,
 > minutes before doing the work, so it is the freshest thing available.
 
 **What shipped, and what each item left behind, is
-[`docs/project-state-history.md`](docs/project-state-history.md).** It was
-moved out of this section on 2026-09-20: it had grown to about two fifths of
-this file, which is read on every prompt, and a session needs it only when it
-goes looking. `ROADMAP.md` is the authority for any of it. What stays below is
+[`docs/project-state-history.md`](docs/project-state-history.md).**
+`ROADMAP.md` is the authority for any of it. What stays below is
 what changes what a session does *now*.
 
 ### Picking work
 
 **Rule 1's set is not listed here — ask the roadmap**, which § Which item
-comes next gives the call for. A hand-kept list of it goes stale the
-moment an item is filed or closed, which is the same reason `In flight:`
-is not kept by hand. What is worth recording is the standing deferral:
+comes next gives the call for. What is worth recording is the standing deferral:
 `UTA-0059` defers itself until the renderer lands. `UTA-0079` and
 `UTA-0081` are `Source: in-session-`, so rule 1 does not reach them.
 
@@ -72,8 +65,8 @@ another library.
 
 **Read `offWorld` as "not walkable to", never as "cannot be finished".**
 Maps carrying an Assault-to-MH conversion kit put an `MHEnd` actor on the
-MonsterEnd, and it touches the MonsterEnd when the final objective fires. All
-58 off-world maps are this shape; `UTA-0131` has the evidence.
+MonsterEnd, and it touches the MonsterEnd when the final objective fires.
+`UTA-0131` has the evidence.
 
 **Triggering the MonsterEnd is the WHOLE win condition**, with no monster
 count anywhere in it.
@@ -82,9 +75,7 @@ count anywhere in it.
 reached the exit's node but hung off a component the start cannot reach.
 
 **Do not read UT_MonsterHunt's stored route verdicts without checking
-firmness.** The caution stands on its own. The case this file used to cite for
-it was theirs, and they corrected it on 2026-09-20; the correction is in the
-history file.
+firmness.**
 
 **A teleporter that starts switched off still routes, unless nothing in the
 map switches it on** (`UTA-0142`, UTA-0121 § 3 decision 10). The game's own
@@ -168,16 +159,12 @@ commits in a detached worktree — not over what is on disk.
 **Four settings drive that. Three are `ants.gate.*` and live only in
 `.git/config`, so a clone has none of them. `core.hooksPath` is the
 exception** — ~/.gitconfig sets it machine-wide to ~/.claude/githooks, and the
-repository value below overrides it. So unsetting the repository value
+repository value overrides it. So unsetting the repository value
 does **not** disable the gate: it falls back to the machine-wide hook,
 losing this repository's own hooks rather than the push gate.
 
-```sh
-git config core.hooksPath      .githooks         # see the note below
-git config ants.gate.command   ./scripts/ci-matrix.sh   # unset: no gate runs
-git config ants.gate.docsMode  --docs
-git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
-```
+`./scripts/setup-hooks.sh` sets all four; run it once in every clone
+(`UTA-0231`).
 
 **A green push is not evidence the gate ran.** Four ways it passes having
 checked nothing, and only two announce themselves: `NOTHING WAS CHECKED`
@@ -285,12 +272,11 @@ place.**
   It resolves test surfaces only in a `tests/features/<name>/` layout and
   this project uses `tests/unit/`, so `findings: []` is SILENT about test
   surfaces rather than a pass. Read the flag before the count and check the
-  `*Test:*` clauses by hand. Upstream ANTS-4393 / ANTS-4679.
+  `*Test:*` clauses by hand.
 
 ### Which item comes next
 
-The user's standing priority order, given 2026-09-04 and revised
-2026-09-14 so the work reaches each release in turn:
+The user's standing priority order:
 
 1. Outstanding fixes from any review — test, debt, codebase or document,
    including backlogged ones.
@@ -358,12 +344,11 @@ overrides** — it is never empty, so emptiness is not the test.
 
 ### History
 
-Kept outside this file, because every session pays for every line here on
-every turn and reads this history almost never. Split by kind:
+Split by kind:
 
 | File | What it holds |
 |---|---|
-| [`docs/project-state-history.md`](docs/project-state-history.md) | What shipped and what it left behind, the investigations, and the corrections this file made to its own record. Moved out of § Where this project is on 2026-09-20 |
+| [`docs/project-state-history.md`](docs/project-state-history.md) | What shipped and what it left behind, the investigations, and the corrections this file made to its own record |
 | [`docs/build-and-test-lessons.md`](docs/build-and-test-lessons.md) | What each § Build and test rule cost — the vacuous tests, the ASan fixture, the red MSVC leg, the invisible invariants |
 | [`docs/session-coordination-history.md`](docs/session-coordination-history.md) | What was measured about worktrees, the roadmap store and the push gate |
 | [`docs/claude-md-history.md`](docs/claude-md-history.md) | How this document changed, and what it used to say |
