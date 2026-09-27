@@ -12766,7 +12766,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: umat, upkg, render.
 
-- 📋 [UTA-0216] **upkg bounds allocations by memory, not only by the file's bytes.**
+- ✅ [UTA-0216] **upkg bounds allocations by memory, not only by the file's bytes.**
   Found by a peer cold read (ants-projects-hub-website-82) of the lane
   Pass A cleared. Counts are checked against remaining bytes, but the
   in-memory element is larger:
@@ -12779,6 +12779,24 @@ stays with movement in 0.2.0.
   Suggested class fix: a per-package memory budget (count x sizeof(T)),
   and hash sets for the two searches. Verify each against current
   source first.
+  Progress (2026-09-27): 203617c fixes the two up-front outliers. The
+  Polys floor is now 62 bytes (was 1; 104 B in memory each), and
+  importedPackages de-duplicates through a set. Measured sizeof: Polygon
+  104, Property 56, NameEntry 40, ImportEntry 16, ExportEntry 40. Left,
+  all linear in the file: Bool tags grow by push_back at up to ~28x
+  their 2-3 bytes; the name/import/export reserves are at most 8x, 2.3x
+  and 3.3x. effectiveDefaults stays with UTA-0100, which defers itself.
+  The real packages reach 100 MB (LineARC.utx), so a file-size cap does
+  not bound these. Awaiting the user: accept a stated linear bound, or
+  build a per-package memory budget.
+  Resolved (2026-09-27): 203617c, green on GitHub's matrix. User
+  decision 2026-09-27: accept the stated linear bound and build no
+  memory budget. The bound, as measured today: after the Polys floor,
+  what upkg holds of a package grows only as bytes are read, at most
+  about 28x the file (a package of 2-byte Bool tags; Property is 56
+  bytes); the table reserves are at most 8x. To refute it, find an
+  allocation made before the bytes behind it are read, or one above 28x
+  those bytes.
   **Layman:** A crafted map file can make the package reader use gigabytes of memory or hang, because sizes are checked against the file's length but not against what they cost to load.
   Kind: security.
   Source: review-code-2026-09-26.
