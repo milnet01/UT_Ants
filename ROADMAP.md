@@ -13020,12 +13020,17 @@ stays with movement in 0.2.0.
   Source: review-code-2026-09-27 (DOOM_Ants peer read, message 47).
   Lanes: urender.
 
-- 📋 [UTA-0231] **A clone sets up the push gate by running a script its README names.**
+- ✅ [UTA-0231] **A clone sets up the push gate by running a script its README names.**
   local-gate.md § 2 (claude-config 034c1be) now requires a script a
   clone runs, named in the README; commands in CLAUDE.md do not count.
   UT_Ants has none. Copy the skeleton's scripts/setup-hooks.sh with
   command=./scripts/ci-matrix.sh, docsMode=--docs and our docsGlob, name
   it in README.md, and point CLAUDE.md § Build and test at it.
+  Resolved (2026-09-27): 091998e adds scripts/setup-hooks.sh, names it
+  in README.md, and CLAUDE.md now points at it. Green on GitHub's matrix
+  in f8d5ff4's run (091998e's own run was cancelled by that push). The
+  same commit moved CLAUDE.md's history clauses to
+  docs/claude-md-history.md (CFG-0492, user-approved).
   **Layman:** A fresh copy of the project should get its safety checks switched on by one named script, not by commands buried in notes.
   Kind: chore.
   Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
