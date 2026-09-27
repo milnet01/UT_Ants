@@ -12983,6 +12983,18 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-code-2026-09-26.
 
+- 🚧 [UTA-0230] **Read the cluster counts back in one copy, not one read per cluster.**
+  Frame.cpp's SS 6 overflow loop memcpy'd each of CLUSTER_COUNT counts out
+  of the HostRead mapping separately. Buffer::create falls back silently to
+  an uncached HOST_VISIBLE|COHERENT type where no cached one is allowed, so
+  on such a device every one of those reads is uncached. Now one memcpy
+  into a CPU array, then the loop. Covered by RenderLightingTest's overflow
+  checks. DOOM_Ants found the rest of the upload path write-only.
+  **Layman:** The renderer checked 3072 small numbers from graphics memory one at a time every frame, which is slow on some cards; it now copies them all at once.
+  Kind: perf.
+  Source: review-code-2026-09-27 (DOOM_Ants peer read, message 47).
+  Lanes: urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

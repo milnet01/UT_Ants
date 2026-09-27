@@ -1402,13 +1402,14 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     if (image) UTA_CHECK(impl.swapchain->present(impl.gpu->queue(), *image));
 
     // SS 6: how many clusters dropped lights past their cap, read back from the
-    // pass that decided -- the frame has finished, so the counts are final.
+    // pass that decided -- the frame has finished, so the counts are final. One
+    // sequential copy out of the mapping: where the GPU offers no cached type,
+    // each read of it is uncached, so a read per cluster costs thousands.
     impl.stats = {};
-    for (std::uint32_t c = 0; c < gpu::CLUSTER_COUNT; ++c) {
-        std::uint32_t count = 0;
-        std::memcpy(&count, impl.clusterCounts.mapped() + c * sizeof(count), sizeof(count));
+    std::array<std::uint32_t, gpu::CLUSTER_COUNT> counts{};
+    std::memcpy(counts.data(), impl.clusterCounts.mapped(), sizeof(counts));
+    for (const std::uint32_t count : counts)
         if ((count & gpu::CLUSTER_OVERFLOW) != 0) ++impl.stats.overflowedClusters;
-    }
     impl.stats.unshadowedLights = plan.unshadowed;
     impl.stats.renderedShadowTiles = static_cast<std::uint32_t>(plan.draws.size());
     impl.stats.droppedVolumeLights = glowing.dropped;
