@@ -208,6 +208,11 @@ Result<ubundle::Occlusion> bakeOcclusion(const ubundle::Geometry& geometry, JobS
 }
 
 Result<ubundle::Occlusion> bakeOcclusion(const ubundle::Geometry& geometry, JobSystem& jobs, float texelSize) {
+    // Coarsening doubles the texel until the level fits, which never ends on
+    // a size that doubling cannot grow (UTA-0218).
+    if (!(texelSize > 0.0f) || !std::isfinite(texelSize))
+        return fail(ErrorCode::InvalidArgument,
+                    "ambient occlusion: a texel size must be positive and finite, not " + std::to_string(texelSize));
     std::vector<Chart> charts = chartsOf(geometry);
 
     // SS 4.2: pack, widening to the limit and then coarsening the texel.

@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <vector>
 
 using uta::JobSystem;
@@ -238,6 +239,20 @@ TEST_CASE("INV-5: a level too large for the atlas coarsens its texel", "[ubake][
     CHECK(baked->texelSize >= 0.2f);
     CHECK(baked->width <= uta::ubundle::OCCLUSION_ATLAS_LIMIT);
     CHECK(baked->height <= uta::ubundle::OCCLUSION_ATLAS_LIMIT);
+}
+
+TEST_CASE("UTA-0218: a texel size that cannot coarsen is refused", "[ubake][occlusion]") {
+    // Coarsening doubles the texel until the level fits; zero, a negative or
+    // NaN never grows past the ceiling, so the loop would never end.
+    Scene scene;
+    addQuad(scene, {0, 0, 0}, {512, 0, 0}, {512, 1, 0}, {0, 1, 0}, {0, 0, 1});
+    const Geometry geometry = finish(scene);
+    JobSystem jobs(1);
+    for (const float size : {0.0f, -1.0f, std::numeric_limits<float>::quiet_NaN(),
+                             std::numeric_limits<float>::infinity()}) {
+        INFO(size);
+        CHECK_FALSE(bakeOcclusion(geometry, jobs, size).has_value());
+    }
 }
 
 TEST_CASE("INV-6: the atlas is the same at 1 2 and 4 workers", "[ubake][occlusion]") {

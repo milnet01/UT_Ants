@@ -21,51 +21,66 @@ constexpr std::size_t SEE_THROUGH_INDEX = 0;
 /// rounded mean of those neighbours' colours. A pass reads only the state the
 /// previous pass left, so the result does not depend on scan order. A texture
 /// with no opaque texel keeps its palette colours.
+///
+/// A pass visits only the neighbours of the texels the last one filled, so the
+/// whole fill touches each texel a bounded number of times rather than once a
+/// pass (UTA-0218).
 void fill(Image& image) {
     const std::int64_t width = image.width;
     const std::int64_t height = image.height;
     const std::size_t count = std::size_t{image.width} * image.height;
 
     std::vector<bool> filled(count);
-    bool any = false;
+    std::vector<std::size_t> frontier;
     for (std::size_t i = 0; i < count; ++i) {
         filled[i] = image.pixels[i * 4 + 3] != std::byte{0};
-        any = any || filled[i];
+        if (filled[i]) frontier.push_back(i);
     }
-    if (!any) return;
+    if (frontier.empty()) return;
 
-    for (bool changed = true; changed;) {
-        changed = false;
-        std::vector<std::byte> next = image.pixels;
-        std::vector<bool> nextFilled = filled;
-        for (std::int64_t y = 0; y < height; ++y) {
-            for (std::int64_t x = 0; x < width; ++x) {
-                const auto i = static_cast<std::size_t>(y * width + x);
-                if (filled[i]) continue;
-                std::array<std::uint32_t, 3> sum{};
-                std::uint32_t neighbours = 0;
-                for (std::int64_t dy = -1; dy <= 1; ++dy) {
-                    for (std::int64_t dx = -1; dx <= 1; ++dx) {
-                        if (dx == 0 && dy == 0) continue;
-                        const std::int64_t nx = (x + dx + width) % width;
-                        const std::int64_t ny = (y + dy + height) % height;
-                        const auto j = static_cast<std::size_t>(ny * width + nx);
-                        if (!filled[j]) continue;
-                        for (std::size_t c = 0; c < 3; ++c)
-                            sum[c] += std::to_integer<std::uint32_t>(image.pixels[j * 4 + c]);
-                        ++neighbours;
-                    }
+    const auto neighbour = [&](std::size_t i, std::int64_t dx, std::int64_t dy) {
+        const std::int64_t x = static_cast<std::int64_t>(i) % width;
+        const std::int64_t y = static_cast<std::int64_t>(i) / width;
+        return static_cast<std::size_t>(((y + dy + height) % height) * width + (x + dx + width) % width);
+    };
+
+    std::vector<bool> queued(count);
+    std::vector<std::size_t> candidates;
+    std::vector<std::array<std::byte, 3>> colours;
+    while (!frontier.empty()) {
+        candidates.clear();
+        for (const std::size_t i : frontier)
+            for (std::int64_t dy = -1; dy <= 1; ++dy)
+                for (std::int64_t dx = -1; dx <= 1; ++dx) {
+                    const std::size_t j = neighbour(i, dx, dy);
+                    if (filled[j] || queued[j]) continue;
+                    queued[j] = true;
+                    candidates.push_back(j);
                 }
-                if (neighbours == 0) continue;
-                for (std::size_t c = 0; c < 3; ++c)
-                    next[i * 4 + c] =
-                        static_cast<std::byte>((sum[c] + neighbours / 2) / neighbours);
-                nextFilled[i] = true;
-                changed = true;
-            }
+
+        // Every candidate reads before any is marked, so a pass sees only the
+        // state the previous one left.
+        colours.assign(candidates.size(), {});
+        for (std::size_t k = 0; k < candidates.size(); ++k) {
+            std::array<std::uint32_t, 3> sum{};
+            std::uint32_t neighbours = 0;
+            for (std::int64_t dy = -1; dy <= 1; ++dy)
+                for (std::int64_t dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dy == 0) continue;
+                    const std::size_t j = neighbour(candidates[k], dx, dy);
+                    if (!filled[j]) continue;
+                    for (std::size_t c = 0; c < 3; ++c)
+                        sum[c] += std::to_integer<std::uint32_t>(image.pixels[j * 4 + c]);
+                    ++neighbours;
+                }
+            for (std::size_t c = 0; c < 3; ++c)
+                colours[k][c] = static_cast<std::byte>((sum[c] + neighbours / 2) / neighbours);
         }
-        image.pixels = std::move(next);
-        filled = std::move(nextFilled);
+        for (std::size_t k = 0; k < candidates.size(); ++k) {
+            for (std::size_t c = 0; c < 3; ++c) image.pixels[candidates[k] * 4 + c] = colours[k][c];
+            filled[candidates[k]] = true;
+        }
+        frontier.swap(candidates);
     }
 }
 

@@ -66,6 +66,13 @@ TEST_CASE("UTA-0176: a spark that releases particles needs room under SparksLimi
     CHECK(totalHeat(fireStill(SIZE, SIZE, blaze, {.renderHeat = 226, .rising = true, .sparksLimit = 1024})) > 0);
 }
 
+TEST_CASE("UTA-0218: a negative SparksLimit leaves no room for particles", "[ubake][fire]") {
+    // UT compares the count against a signed limit, so a negative one admits
+    // nothing. Read unsigned, it would admit everything.
+    const std::vector<Spark> blaze{{.type = 4, .heat = 220, .x = 32, .y = 50}};
+    CHECK(totalHeat(fireStill(SIZE, SIZE, blaze, {.renderHeat = 226, .rising = true, .sparksLimit = -1})) == 0);
+}
+
 TEST_CASE("UTA-0176: a rising fire's heat sits above its spark and a still one's lower", "[ubake][fire]") {
     const std::vector<Spark> burn{{.type = 0, .heat = 255, .x = 32, .y = 50}}; // Burn, at (32, 50)
     const auto rising = fireStill(SIZE, SIZE, burn, {.renderHeat = 240, .rising = true, .sparksLimit = 0});

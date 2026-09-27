@@ -112,7 +112,9 @@ std::vector<std::byte> fireStill(std::uint32_t width, std::uint32_t height, std:
     const auto byteFraction = [&random] { return static_cast<float>(random.byte()) / 255.0f; };
     for (int frame = 0; frame < FIRE_STILL_FRAMES; ++frame) {
         for (upkg::Spark& spark : live) {
-            const bool canEmit = live.size() + particles.size() < static_cast<std::size_t>(settings.sparksLimit);
+            // UT's limit is signed: a negative one admits nothing (UTA-0218).
+            const bool canEmit = settings.sparksLimit > 0
+                                 && live.size() + particles.size() < static_cast<std::size_t>(settings.sparksLimit);
             switch (spark.type) {
             case BURN: field.set(spark.x, spark.y, random.byte()); break;
             case PULSE:

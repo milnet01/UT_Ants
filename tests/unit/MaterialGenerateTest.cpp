@@ -229,6 +229,72 @@ TEST_CASE("each fill pass reads only the state the previous pass left", "[umat][
     CHECK(px(*masked, 2, 0, 1) == 100);
 }
 
+TEST_CASE("UTA-0218: the fill matches a full per-pass rescan on every mask", "[umat][resolve]") {
+    // The fill visits only the texels next to the last pass's writes. This is
+    // the rule it replaced -- every pass rescans the image and reads a copy --
+    // run over masks that wrap at every edge, including the 1- and 2-wide
+    // shapes whose neighbours alias.
+    std::vector<PaletteEntry> entries;
+    for (unsigned i = 0; i < 256; ++i)
+        entries.push_back({static_cast<std::uint8_t>(i * 7U), static_cast<std::uint8_t>(i * 13U),
+                           static_cast<std::uint8_t>(i * 29U), 255});
+    const Palette colours{entries};
+    const auto rescan = [](Image image) {
+        const std::int64_t w = image.width, h = image.height;
+        for (bool changed = true; changed;) {
+            changed = false;
+            Image next = image;
+            for (std::int64_t y = 0; y < h; ++y)
+                for (std::int64_t x = 0; x < w; ++x) {
+                    const auto i = static_cast<std::size_t>(y * w + x);
+                    if (image.pixels[i * 4 + 3] != std::byte{0}) continue;
+                    std::array<std::uint32_t, 3> sum{};
+                    std::uint32_t n = 0;
+                    for (std::int64_t dy = -1; dy <= 1; ++dy)
+                        for (std::int64_t dx = -1; dx <= 1; ++dx) {
+                            if (dx == 0 && dy == 0) continue;
+                            const auto j = static_cast<std::size_t>(((y + dy + h) % h) * w + (x + dx + w) % w);
+                            if (image.pixels[j * 4 + 3] == std::byte{0}) continue;
+                            for (std::size_t c = 0; c < 3; ++c) sum[c] += std::to_integer<std::uint32_t>(image.pixels[j * 4 + c]);
+                            ++n;
+                        }
+                    if (n == 0) continue;
+                    for (std::size_t c = 0; c < 3; ++c) next.pixels[i * 4 + c] = static_cast<std::byte>((sum[c] + n / 2) / n);
+                    next.pixels[i * 4 + 3] = std::byte{255};
+                    changed = true;
+                }
+            image = std::move(next);
+        }
+        return image;
+    };
+    std::uint32_t seed = 12345;
+    const auto random = [&seed] { return (seed = seed * 1664525U + 1013904223U) >> 24; };
+    for (const auto [w, h] : std::array<std::array<std::uint32_t, 2>, 7>{
+             {{1, 1}, {1, 5}, {5, 1}, {2, 3}, {3, 2}, {13, 7}, {32, 32}}}) {
+        for (int trial = 0; trial < 4; ++trial) {
+            Palettised level{w, h, {}};
+            for (std::uint32_t i = 0; i < w * h; ++i)
+                level.indices.push_back(static_cast<std::byte>(random() % 5 == 0 ? random() : 0));
+            const auto opaque = resolve(level.mip(), colours, false);
+            const auto masked = resolve(level.mip(), colours, true);
+            REQUIRE(opaque.has_value());
+            REQUIRE(masked.has_value());
+            Image start = *opaque;
+            bool any = false;
+            for (std::size_t i = 0; i < level.indices.size(); ++i) {
+                if (level.indices[i] == std::byte{0}) start.pixels[i * 4 + 3] = std::byte{0};
+                else any = true;
+            }
+            const Image expected = rescan(start);
+            INFO(w << "x" << h << " trial " << trial);
+            for (std::size_t i = 0; i < level.indices.size(); ++i)
+                for (std::size_t c = 0; c < 3; ++c)
+                    CHECK(masked->pixels[i * 4 + c] == expected.pixels[i * 4 + c]);
+            if (!any) CHECK(masked->pixels == start.pixels);
+        }
+    }
+}
+
 TEST_CASE("resolve refuses a level it cannot read", "[umat][resolve]") {
     const Palette two = palette({{0, 0, 0, 0}, {1, 1, 1, 255}});
     SECTION("a sound level succeeds") {
