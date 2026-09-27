@@ -13053,6 +13053,84 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
 
+- 📋 [UTA-0234] **Print how long each ci.sh step takes, so gate speed-ups aim at measurement.**
+  ci.sh prints each step's name but no time. GitHub gives only a whole
+  "Run the gate" figure per leg, and the local gate prints nothing. So
+  whether configure, build, test or the race detector dominates is not
+  known, and the other speed-up items below cannot be sized. Print the
+  elapsed seconds after each step, and a table at the end. Do this first:
+  the items filed beside it read their payoff off its output.
+  Not part of 0.1.0's cut.
+  **Layman:** Make the checks report how long each part takes, so we speed up the slow parts rather than guessing.
+  Kind: perf.
+  Source: user-request-2026-09-27.
+  Lanes: ci.
+
+- 📋 [UTA-0235] **Cache MSVC's compiles on GitHub's Windows leg.**
+  Measured 2026-09-27 on 203617c's run: "Run the gate" took 427 s on
+  Windows (MSVC) against 132 s (Clang 19) and 147 s (GCC 14). ci.yml's
+  "Keep the compiler cache between runs" step is `if: runner.os ==
+  'Linux'`, so the Windows leg compiles cold every run. Try ccache (MSVC
+  support needs /Z7 debug info, not /Zi) or sccache as
+  CMAKE_CXX_COMPILER_LAUNCHER, with an actions/cache keyed like the Linux
+  one. Release tags stay cold, as the Linux cache rule already says.
+  Refute: a run with the cache warm that is not faster.
+  Not part of 0.1.0's cut.
+  **Layman:** The Windows check on GitHub rebuilds everything from scratch each time and takes about three times as long as the Linux ones; give it a build cache.
+  Kind: perf.
+  Source: user-request-2026-09-27.
+  Lanes: ci.
+
+- 📋 [UTA-0236] **Let a documentation-only push take ci.sh --docs on GitHub too.**
+  ci.sh --docs exists and the local gate takes it for a push matching
+  ants.gate.docsGlob. ci.yml always calls ci.sh with no argument, and
+  ci.sh says so ("GitHub runs the full gate on every push"). Every
+  roadmap-only commit, such as the frequent "mark shipped" ones, costs a
+  full three-leg run of about 7 minutes wall time. Add a first step that
+  diffs the pushed range against the same glob and passes --docs when
+  nothing else changed. Keep the full run on tags, on
+  workflow_dispatch, and when the range cannot be determined (a force
+  push, a new branch).
+  Refute: a docs-only push whose full run caught something --docs
+  would have missed.
+  Not part of 0.1.0's cut.
+  **Layman:** A change that only touches notes still makes GitHub rebuild and retest everything on three systems; let it run just the documentation checks.
+  Kind: perf.
+  Source: user-request-2026-09-27.
+  Lanes: ci.
+
+- 📋 [UTA-0237] **Decide whether the race detector needs both Linux legs.**
+  ci.sh's "race detector" step is a second configure and a full Debug
+  build under -fsanitize=thread, on every Linux leg. The local gate
+  therefore does four full configure-and-builds per push (the gate log
+  of 091998e's push, 2026-09-27, shows build-ci-gcc14, -tsan,
+  build-ci-clang19,
+  -tsan), and GitHub does two TSan builds. Running it on one leg, likely
+  Clang, halves that cost. The trade is losing TSan under the other
+  compiler's codegen. Size it with the step-timing item first, then
+  it is the user's call.
+  **Layman:** The thread-safety check builds the whole project a second time for each Linux compiler; running it for one compiler may be enough.
+  Kind: perf.
+  Source: user-request-2026-09-27.
+  Lanes: ci.
+
+- 📋 [UTA-0238] **Keep the local gate's Linux build folders between pushes.**
+  The machine-wide pre-push hook runs the gate in a fresh
+  ~/.cache/pre-push/tmp.XXXXXX worktree, so ci-matrix.sh's build-ci-gcc14
+  and build-ci-clang19 (and their -tsan twins) start empty on every push.
+  ccache spares the compiles, but CMake reconfigures from nothing each
+  time (SDL3's configure alone is hundreds of log lines per leg), and
+  ninja relinks everything. The Windows leg already keeps its copy
+  between runs and builds incrementally. Point UTA_CI_BUILD_DIR at a
+  persistent directory under ~/.cache/uta-gate, as the Windows leg does.
+  Guard against a stale CMakeCache: reconfigure fresh when CMakeLists or
+  the toolchain changes. Check against local-gate.md § 5, which requires
+  the run to answer for the pushed commit, not for leftovers.
+  **Layman:** Before every push the local check starts from empty build folders; reusing them would skip the setup work it repeats each time.
+  Kind: perf.
+  Source: user-request-2026-09-27.
+  Lanes: ci.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
