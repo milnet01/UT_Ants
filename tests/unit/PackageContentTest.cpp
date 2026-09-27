@@ -507,6 +507,25 @@ TEST_CASE("a Polys declaring more polygons than the export can hold is refused",
     CHECK(polys.error().message().find("more than the") != std::string_view::npos);
 }
 
+TEST_CASE("UTA-0216: a Polys count is held to a whole polygon's bytes", "[upkg]") {
+    // A polygon serialises to 62 bytes at its smallest and holds about 104 in
+    // memory, so a count checked at one byte a polygon let a file reserve
+    // roughly a hundred times its own size. Two polygons in 100 bytes cannot
+    // be, and are refused before anything is reserved.
+    std::vector<std::uint8_t> data = emptyProperties();
+    appendU32(data, 2u);
+    appendU32(data, 2u);
+    data.resize(data.size() + 100, 0x00u);
+    const std::vector<std::uint8_t> bytes = packageWithObject(68, "Polys", data);
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    const auto polys = uta::upkg::readPolys(*package, package->exports()[0]);
+    REQUIRE_FALSE(polys.has_value());
+    CHECK(polys.error().code() == ErrorCode::MalformedData);
+    CHECK(polys.error().message().find("more than the") != std::string_view::npos);
+}
+
 // --- Model --------------------------------------------------------------------
 //
 // docs/specs/UTA-0069-model-bsp-tables.md SS 4.7 tier 1. INV-2's malformed

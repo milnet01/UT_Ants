@@ -12800,13 +12800,18 @@ stays with movement in 0.2.0.
   Kind: security.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0218] **umat::resolve's masked fill is quadratic in the image size.**
+- ✅ [UTA-0218] **umat::resolve's masked fill is quadratic in the image size.**
   src/umat/Resolve.cpp:37-69 does a full pass and a full copy per
   texel of distance to the nearest opaque texel; a mostly-empty 8192^2
   mask is ~2e12 reads. A multi-source BFS gives the same result in O(n),
   or cap the edge before resolve. Also Occlusion.cpp:217-240 loops
   forever on texelSize <= 0 or NaN, and FireStill.cpp:115 reads a
   negative SparksLimit as SIZE_MAX.
+  Progress (2026-09-27): fixed in 689b089. Linear-time fill held to the
+  old per-pass rescan by a test; bakeOcclusion refuses a non-positive or
+  non-finite texel size; negative SparksLimit admits no particle.
+  Awaiting GitHub's matrix.
+  Resolved (2026-09-27): 689b089, green on GitHub's matrix.
   **Layman:** A specially made texture can make baking take practically forever, because one step re-scans the whole picture once per pixel of distance.
   Kind: perf.
   Source: review-code-2026-09-26.
@@ -12983,17 +12988,52 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0230] **Read the cluster counts back in one copy, not one read per cluster.**
+- ✅ [UTA-0230] **Read the cluster counts back in one copy, not one read per cluster.**
   Frame.cpp's SS 6 overflow loop memcpy'd each of CLUSTER_COUNT counts out
   of the HostRead mapping separately. Buffer::create falls back silently to
   an uncached HOST_VISIBLE|COHERENT type where no cached one is allowed, so
   on such a device every one of those reads is uncached. Now one memcpy
   into a CPU array, then the loop. Covered by RenderLightingTest's overflow
   checks. DOOM_Ants found the rest of the upload path write-only.
+  Resolved (2026-09-27): a152217, green on GitHub's matrix in 689b089's
+  run (a152217's own run was cancelled by that push).
   **Layman:** The renderer checked 3072 small numbers from graphics memory one at a time every frame, which is slow on some cards; it now copies them all at once.
   Kind: perf.
   Source: review-code-2026-09-27 (DOOM_Ants peer read, message 47).
   Lanes: urender.
+
+- 📋 [UTA-0231] **A clone sets up the push gate by running a script its README names.**
+  local-gate.md § 2 (claude-config 034c1be) now requires a script a
+  clone runs, named in the README; commands in CLAUDE.md do not count.
+  UT_Ants has none. Copy the skeleton's scripts/setup-hooks.sh with
+  command=./scripts/ci-matrix.sh, docsMode=--docs and our docsGlob, name
+  it in README.md, and point CLAUDE.md § Build and test at it.
+  **Layman:** A fresh copy of the project should get its safety checks switched on by one named script, not by commands buried in notes.
+  Kind: chore.
+  Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
+
+- 📋 [UTA-0232] **Check that ci-matrix.sh's legs match ci.yml's matrix.**
+  local-gate.md § 3 (034c1be): a wrapper that loops legs over the
+  script the workflow calls is not a mirror, provided a check compares
+  its leg list with the workflow's. None exists. Add a step to ci.sh so
+  both sides run it: compare the (cc, cxx) pairs plus the Windows leg in
+  ci.yml's matrix.include against ci-matrix.sh's run_leg lines and its
+  Windows leg. Compare compilers, not display names. ~/.claude/tools/ci-gate
+  still reports NOT MAPPED for the wrapper; claude-config was told.
+  **Layman:** The local pre-push check and GitHub's check should always test the same compilers; add a check that says so when they drift.
+  Kind: chore.
+  Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
+
+- 📋 [UTA-0233] **A Windows leg that fails with status 255 is reported as not run.**
+  scripts/ci-matrix.sh's collect step maps exit 255 to "NOT RUN
+  (connection lost)". ssh passes the remote command's status through,
+  so ci.sh exiting 255 on Windows reads as a lost link and passes the
+  push. Tell the two apart by something only the transport produces,
+  for example a marker the remote script prints on completion, with its
+  own exit status.
+  **Layman:** If the Windows test fails in one rare way, the pre-push check wrongly treats it as 'could not connect' and lets the push through.
+  Kind: fix.
+  Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
 
 ## 0.2.0 — Movement and weapons
 

@@ -3,6 +3,7 @@
 #include "upkg/ByteReader.h"
 
 #include <string>
+#include <unordered_set>
 
 namespace uta::upkg {
 namespace {
@@ -309,17 +310,16 @@ Result<std::span<const std::byte>> Package::serialBytes(const ExportEntry& entry
 }
 
 Result<std::vector<std::string_view>> importedPackages(const Package& package) {
+    // A set beside the list, so a table of many imports is not quadratic;
+    // the list keeps the order the imports first name each package in.
     std::vector<std::string_view> packages;
+    std::unordered_set<std::string_view> seen;
     for (const ImportEntry& entry : package.imports()) {
         if (entry.outer.kind() != ObjectReferenceKind::Null) {
             continue;
         }
         UTA_TRY(const std::string_view name, package.name(entry.objectName));
-        bool repeated = false;
-        for (const std::string_view seen : packages) {
-            repeated = repeated || seen == name;
-        }
-        if (!repeated) {
+        if (seen.insert(name).second) {
             packages.push_back(name);
         }
     }

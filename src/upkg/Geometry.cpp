@@ -273,6 +273,11 @@ Result<LightMapIndex> readLightMapIndex(ByteReader& reader) {
 
 } // namespace
 
+/// The fewest bytes a polygon serialises to: a one-byte vertex count, four
+/// vectors, the u32 flags, five more one-byte compact indices and two u16
+/// pans.
+constexpr std::size_t MIN_POLYGON_BYTES = 1 + 4 * 12 + 4 + 5 + 2 * 2;
+
 Result<Polys> readPolys(const Package& package, const ExportEntry& entry) {
     UTA_TRY(const PropertyList list, readPropertyList(package, entry));
     UTA_TRY(const std::span<const std::byte> data, package.serialBytes(entry));
@@ -293,9 +298,11 @@ Result<Polys> readPolys(const Package& package, const ExportEntry& entry) {
             malformed("a Polys declares " + std::to_string(count) + " polygons"));
     }
 
-    // One byte per polygon is the floor: a polygon cannot serialise smaller
-    // than its own vertex count. Checked before reserving -- INV-4.
-    if (static_cast<std::size_t>(count) > reader.remaining()) {
+    // A whole polygon is the floor: a polygon with no vertices still carries
+    // its four vectors, its flags, five compact indices and its two pans.
+    // Checked before reserving -- INV-4 -- so the reservation, about 104 bytes
+    // a polygon, stays within twice the bytes that back it (UTA-0216).
+    if (static_cast<std::size_t>(count) > reader.remaining() / MIN_POLYGON_BYTES) {
         return std::unexpected(malformed(
             "a Polys declares " + std::to_string(count) + " polygons, more than the " +
             std::to_string(reader.remaining()) + " bytes remaining can hold"));
