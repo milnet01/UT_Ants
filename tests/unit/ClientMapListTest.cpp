@@ -8,10 +8,10 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <atomic>
-#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -23,9 +23,12 @@ namespace {
 class TempDir {
 public:
     TempDir() {
+        // A random salt, not a clock: ctest -j runs test processes side by side
+        // (UTA-0242), and two sharing a directory would delete each other's files.
+        static const unsigned long long salt = std::random_device{}();
         static std::atomic<int> counter{0};
         path_ = stdfs::temp_directory_path() /
-                ("uta-maplist-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "-" +
+                ("uta-maplist-" + std::to_string(salt) + "-" +
                  std::to_string(counter++));
         stdfs::create_directories(path_);
     }

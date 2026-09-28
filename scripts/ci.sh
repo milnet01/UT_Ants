@@ -61,6 +61,14 @@ else
     GENERATOR=${UTA_CI_GENERATOR:-Ninja}
 fi
 
+# Tests run side by side (UTA-0242). Measured 2026-09-28 on 12 threads and
+# 31 GB: at -j12 the Release tier's free memory moved under 1 GB and the
+# ThreadSanitizer tier's did not drop, so the CPU count is the bound, not
+# memory. UTA_CI_TEST_JOBS overrides it. Every temp directory a test makes
+# carries a random salt, and --timeout stops a hung test from hanging the gate.
+TEST_JOBS=${UTA_CI_TEST_JOBS:-$(nproc 2>/dev/null || echo 2)}
+TEST_TIMEOUT=300
+
 skipped=()
 # Each step's wall time, printed as it ends and as a table on exit -- a red
 # run's table included -- so a speed-up aims at a measured step (UTA-0234).
@@ -282,7 +290,8 @@ if $IS_WINDOWS; then
 else
     labels='^(unit|device|device-absent)$'
 fi
-ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure --no-tests=error -L "$labels"
+ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure --no-tests=error -L "$labels" \
+    -j "$TEST_JOBS" --timeout "$TEST_TIMEOUT"
 
 step "race detector"
 # The job system is the first threaded code here, and an ordinary test run
@@ -309,7 +318,8 @@ else
     # The unit tier alone, which is every test this step ran before the device
     # tier existed. Its subject is this project's own threads; a device test
     # would run Mesa's uninstrumented ones under it too.
-    ctest --test-dir "$TSAN_DIR" --output-on-failure --no-tests=error -L '^unit$'
+    ctest --test-dir "$TSAN_DIR" --output-on-failure --no-tests=error -L '^unit$' \
+        -j "$TEST_JOBS" --timeout "$TEST_TIMEOUT"
     printf '   clean under ThreadSanitizer.\n'
 fi
 
