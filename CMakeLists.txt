@@ -191,6 +191,15 @@ if(UTA_CCACHE)
     endif()
 endif()
 
+# UTA-0221: every program on Windows runs with UTF-8 as its narrow code page,
+# so a path outside the local code page survives argv and path::string().
+# Link options, so it reaches every executable -- tools and tests included --
+# without each target naming it. The user chose it on 2026-09-28, knowing it
+# needs Windows 10 1903; older Windows ignores it.
+if(MSVC)
+    add_link_options("/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/cmake/utf8.manifest")
+endif()
+
 # mold saves almost nothing TODAY -- this project links one static library and
 # one test executable, so there is barely a link step to speed up. It is wired
 # now because that stops being true once urender and the third-party
