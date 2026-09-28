@@ -46,6 +46,10 @@ jobs:
   gate:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Sized for a COLD build (local-gate.md § 9), or a cold cache reads as a
+    # hang. The Windows leg has no compiler cache and takes about 8 minutes;
+    # a release tag builds every leg cold. 30 leaves room for a slow runner.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
