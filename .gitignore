@@ -106,3 +106,7 @@ screenshot*.png
 /build*/
 compile_commands.json
 .cache/
+
+# The audit tool's lock beside its tracked calibration file. Transient; an
+# untracked file here would stop the push gate running in place (UTA-0238).
+/.audit_cache/*.lock
