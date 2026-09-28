@@ -13079,7 +13079,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-27.
   Lanes: ci.
 
-- 📋 [UTA-0235] **Cache MSVC's compiles on GitHub's Windows leg.**
+- ✅ [UTA-0235] **Cache MSVC's compiles on GitHub's Windows leg.**
   Measured 2026-09-27 on 203617c's run: "Run the gate" took 427 s on
   Windows (MSVC) against 132 s (Clang 19) and 147 s (GCC 14). ci.yml's
   "Keep the compiler cache between runs" step is `if: runner.os ==
@@ -13089,12 +13089,20 @@ stays with movement in 0.2.0.
   one. Release tags stay cold, as the Linux cache rule already says.
   Refute: a run with the cache warm that is not faster.
   Not part of 0.1.0's cut.
+  Resolved (2026-09-28, 5b23ec5, 2fec4a6, a7bff2f): ccache 4.14.1 on
+  GitHub's Windows leg via CMAKE_VS_GLOBALS (ccache as cl.exe,
+  multi-tool task, /Z7) with precompiled headers off. GitHub Windows
+  build 311 s -> 22-41 s warm; job 7.5 min -> 2.3 min. The first run
+  exposed a race (the shader embed ran beside its glslc under the
+  multi-tool task); 2fec4a6 made each shader one command. a7bff2f puts
+  the local Windows leg on the same route via scripts/ccache-windows.sh,
+  the one pinned copy. Green on GitHub's matrix.
   **Layman:** The Windows check on GitHub rebuilds everything from scratch each time and takes about three times as long as the Linux ones; give it a build cache.
   Kind: perf.
   Source: user-request-2026-09-27.
   Lanes: ci.
 
-- 📋 [UTA-0236] **Let a documentation-only push take ci.sh --docs on GitHub too.**
+- ✅ [UTA-0236] **Let a documentation-only push take ci.sh --docs on GitHub too.**
   ci.sh --docs exists and the local gate takes it for a push matching
   ants.gate.docsGlob. ci.yml always calls ci.sh with no argument, and
   ci.sh says so ("GitHub runs the full gate on every push"). Every
@@ -13112,12 +13120,17 @@ stays with movement in 0.2.0.
   everything), with the local docsGlob as the one list. Weigh it against
   a diff step: paths-ignore skips the run entirely rather than running
   --docs, so the documentation checks would not run on GitHub.
+  Resolved (2026-09-28, affec17): scripts/docs-only.sh is the one list;
+  the local hook uses it as docsCommand and ci.yml's Decide-the-mode
+  step over the push range, failing closed. Proven on 3bc31b0, a
+  roadmap-only push: GitHub jobs 15-27 s instead of 3-7.5 min; local
+  push 4 s.
   **Layman:** A change that only touches notes still makes GitHub rebuild and retest everything on three systems; let it run just the documentation checks.
   Kind: perf.
   Source: user-request-2026-09-27.
   Lanes: ci.
 
-- 📋 [UTA-0237] **Decide whether the race detector needs both Linux legs.**
+- 🚫 [UTA-0237] **Decide whether the race detector needs both Linux legs.**
   ci.sh's "race detector" step is a second configure and a full Debug
   build under -fsanitize=thread, on every Linux leg. The local gate
   therefore does four full configure-and-builds per push (the gate log
@@ -13127,6 +13140,10 @@ stays with movement in 0.2.0.
   Clang, halves that cost. The trade is losing TSan under the other
   compiler's codegen. Size it with the step-timing item first, then
   it is the user's call.
+  Decided (user, 2026-09-28): keep the race detector on both Linux legs.
+  Measured after UTA-0238 and UTA-0242: the step costs 10-17 s per local
+  leg (was 34-36 s) and 20-22 s on GitHub, so the saving no longer pays
+  for losing the second compiler's codegen.
   **Layman:** The thread-safety check builds the whole project a second time for each Linux compiler; running it for one compiler may be enough.
   Kind: perf.
   Source: user-request-2026-09-27.
@@ -13193,7 +13210,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-28.
   Lanes: ci.
 
-- 📋 [UTA-0241] **Install mold on GitHub's Linux legs.**
+- ✅ [UTA-0241] **Install mold on GitHub's Linux legs.**
   CMakeLists.txt uses mold when find_program finds it. ci.yml's apt list
   does not name mold, so GitHub links with the default linker while the
   local gate uses mold: a toolchain difference between the two runs, and
@@ -13202,6 +13219,11 @@ stays with movement in 0.2.0.
   link share first with UTA-0234's timings; CMakeLists.txt says the
   saving is small today.
   Not part of 0.1.0's cut.
+  Resolved (2026-09-28, f16b7d1): mold in the Linux apt list; the
+  configure log says Linker: mold on both legs. Green on GitHub's
+  matrix. Build step 22 s before, 23-27 s after -- within run-to-run
+  noise, as CMakeLists.txt predicted; the gain is parity with the local
+  gate.
   **Layman:** The fast linker is used locally but not on GitHub; add it there so both link the same way and a bit faster.
   Kind: perf.
   Source: user-request-2026-09-28.
