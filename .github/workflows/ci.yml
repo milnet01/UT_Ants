@@ -37,6 +37,8 @@ on:
 
 permissions:
   contents: read
+  # Deleting superseded compiler caches (UTA-0239). Nothing else writes.
+  actions: write
 
 # UTA-0240, local-gate.md § 9. The key holds the workflow, the event and the
 # ref, so a push and a manual run never cancel each other. On main nothing is
@@ -191,11 +193,16 @@ jobs:
       # it cannot be restored by a run on main or on a release tag.
       # A release tag builds cold, so what it ships was compiled from its own
       # source and nothing another run left in the cache.
-      - name: Keep the compiler cache between runs
+      #
+      # Restore and save are split (UTA-0239): the combined action saves only
+      # when the job succeeds, so one red or timed-out run left every later run
+      # colder. The save below runs on failure too.
+      - name: Restore the compiler cache
+        id: ccache
         if: >-
           runner.os == 'Linux' && steps.mode.outputs.mode == 'full'
           && !startsWith(github.ref, 'refs/tags/')
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/ccache
           key: ccache-${{ matrix.cxx }}-${{ github.sha }}
@@ -211,6 +218,45 @@ jobs:
       - name: Show the compiler cache's hit rate
         if: always() && runner.os == 'Linux' && steps.mode.outputs.mode == 'full'
         run: ccache --show-stats
+
+      # always(), so a failed or timed-out gate still keeps what it compiled.
+      # Skipped on an exact hit: that key is already stored, and saving it again
+      # fails.
+      - name: Save the compiler cache
+        if: >-
+          always() && steps.ccache.conclusion == 'success'
+          && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.cxx }}-${{ github.sha }}
+
+      # Keys are per commit, so without this they pile up past GitHub's 10 GB
+      # per repository and it evicts by age -- the Vulkan SDK's entry included.
+      # Once this commit's entry is saved, the same compiler's older ones are
+      # dead weight. Pushes to main only; a failed prune never fails the job.
+      - name: Prune older compiler caches
+        if: >-
+          always() && steps.ccache.conclusion == 'success'
+          && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREFIX: ccache-${{ matrix.cxx }}-
+          KEEP: ccache-${{ matrix.cxx }}-${{ github.sha }}
+        run: |
+          keys=$(gh cache list --repo "$GITHUB_REPOSITORY" --key "$PREFIX" \
+            --limit 100 --json id,key)
+          # Never prune down to nothing: if this commit's entry is not stored,
+          # the older ones are all the next run has.
+          if ! jq -e 'any(.[]; .key == env.KEEP)' <<<"$keys" >/dev/null; then
+            echo "$KEEP is not stored; nothing pruned."
+            exit 0
+          fi
+          jq -r '.[] | select(.key != env.KEEP) | .id' <<<"$keys" |
+            while read -r id; do
+              gh cache delete --repo "$GITHUB_REPOSITORY" "$id"
+            done
 
       # UTA-0077. Built AFTER the gate and never as part of it: this binary is
       # not run here, so it proves nothing about this commit and must not be
