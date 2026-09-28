@@ -12,9 +12,6 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ## [Unreleased]
 
-(Nothing yet. Scaffolding is not a release — the first dated section
-appears once something has actually shipped.)
-
 ### Added
 
 - **ut-dump --surface-list lists every BSP surface with its built flags, owning brush and position.** (UTA-0213)
@@ -525,6 +522,15 @@ appears once something has actually shipped.)
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **The map list no longer says a map is baked when its baked copy was cleared or the map file changed.** (UTA-0220)
+  The detail pane now says why a map must be baked again: an older baker,
+  a missing baked copy, or a changed map.
+
+- **On Windows, an install folder or user name with non-English letters reaches the baker intact.** (UTA-0221)
+  Every program now runs with UTF-8 text on Windows 10 1903 and later.
+
+- **Bot routing counts players-only paths as usable by bots, as the game does, and reads map names without regard to case.** (UTA-0219)
 
 - **The renderer orders its light culling, fog and translucent passes against the passes that read them.**
   Missing GPU synchronisation could show wrong or lagging lighting and
