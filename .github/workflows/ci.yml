@@ -296,6 +296,9 @@ jobs:
           always() && steps.ccache.conclusion == 'success'
           && github.event_name == 'push' && github.ref == 'refs/heads/main'
         continue-on-error: true
+        # bash on every OS: Windows' default shell is PowerShell, which cannot
+        # parse this, and continue-on-error hid it (UTA-0239's first runs).
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           # "<prefix> <key to keep>" per line: the compiler cache, and the
