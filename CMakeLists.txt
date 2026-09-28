@@ -167,6 +167,28 @@ if(UTA_CCACHE)
     # directory recompiles for nothing.
     set(CMAKE_C_COMPILER_LAUNCHER "${UTA_CCACHE}")
     message(STATUS "Compiler launcher: ${UTA_CCACHE}")
+    # The Visual Studio generator ignores the launcher variables above, so
+    # MSBuild is pointed at a copy of ccache named cl.exe instead (UTA-0235).
+    # It finds the real cl.exe on the PATH MSBuild sets for the compile task.
+    # TrackFileAccess off and the multi-tool task are what let MSBuild run a
+    # wrapper in parallel; /Z7 (OldStyle) because ccache cannot cache /Zi's
+    # shared PDB. ccache cannot cache an MSVC precompiled header either, and
+    # SDL3 uses one, so precompiled headers are switched off here -- a cold
+    # build is slower without them, a warm one is all hits. Only a machine with
+    # ccache installed takes this branch; GitHub's Windows leg installs it.
+    if(CMAKE_GENERATOR MATCHES "^Visual Studio")
+        set(_uta_ccache_cl "${CMAKE_BINARY_DIR}/ccache-cl")
+        file(MAKE_DIRECTORY "${_uta_ccache_cl}")
+        file(COPY_FILE "${UTA_CCACHE}" "${_uta_ccache_cl}/cl.exe" ONLY_IF_DIFFERENT)
+        set(CMAKE_VS_GLOBALS
+            "CLToolExe=cl.exe"
+            "CLToolPath=${_uta_ccache_cl}"
+            "TrackFileAccess=false"
+            "UseMultiToolTask=true"
+            "DebugInformationFormat=OldStyle")
+        set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
+        unset(_uta_ccache_cl)
+    endif()
 endif()
 
 # mold saves almost nothing TODAY -- this project links one static library and
