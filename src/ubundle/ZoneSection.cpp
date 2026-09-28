@@ -60,10 +60,10 @@ Result<void> validateZones(const std::vector<Zone>& zones, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeZones(const std::vector<Zone>& zones) {
+Result<std::vector<std::byte>> encodeZones(const std::vector<Zone>& zones) {
     Sink sink;
     sink.putVector(zones, putZone);
-    return std::move(sink).take();
+    return std::move(sink).finish("ZONE");
 }
 
 Result<void> validateVertexZones(const Bundle& bundle, ErrorCode code) {

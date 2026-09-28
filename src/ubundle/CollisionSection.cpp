@@ -238,11 +238,11 @@ Result<void> validateCollision(const Collision& collision, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeCollision(const Collision& collision) {
+Result<std::vector<std::byte>> encodeCollision(const Collision& collision) {
     Sink sink;
     putTree(sink, collision.level);
     sink.putVector(collision.movers, putMover);
-    return std::move(sink).take();
+    return std::move(sink).finish("COLL");
 }
 
 } // namespace uta::ubundle::detail

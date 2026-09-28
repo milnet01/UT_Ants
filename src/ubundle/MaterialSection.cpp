@@ -54,10 +54,10 @@ Result<void> validateMaterials(const std::vector<MaterialRecord>& materials, Err
     return {};
 }
 
-std::vector<std::byte> encodeMaterials(const std::vector<MaterialRecord>& materials) {
+Result<std::vector<std::byte>> encodeMaterials(const std::vector<MaterialRecord>& materials) {
     Sink sink;
     sink.putVector(materials, putMaterialRecord);
-    return std::move(sink).take();
+    return std::move(sink).finish("MATS");
 }
 
 } // namespace uta::ubundle::detail

@@ -37,7 +37,7 @@ void putShape(Sink& sink, const MoverShape& shape) {
     for (const float part : shape.location) sink.putF32(part);
     for (const std::int32_t part : shape.rotation) sink.putI32(part);
     for (const float part : shape.postScale) sink.putF32(part);
-    sink.append(encodeGeometry(shape.geometry));
+    sink.putEncoded(encodeGeometry(shape.geometry));
 }
 
 } // namespace
@@ -60,10 +60,10 @@ Result<void> validateMovers(const std::vector<MoverShape>& movers, ErrorCode cod
     return {};
 }
 
-std::vector<std::byte> encodeMovers(const std::vector<MoverShape>& movers) {
+Result<std::vector<std::byte>> encodeMovers(const std::vector<MoverShape>& movers) {
     Sink sink;
     sink.putVector(movers, putShape);
-    return std::move(sink).take();
+    return std::move(sink).finish("MOVR");
 }
 
 } // namespace uta::ubundle::detail

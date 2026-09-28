@@ -65,15 +65,15 @@ Result<void> validateOcclusion(const Occlusion& occlusion, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeOcclusion(const Occlusion& occlusion) {
+Result<std::vector<std::byte>> encodeOcclusion(const Occlusion& occlusion) {
     Sink sink;
     sink.putF32(occlusion.texelSize);
     sink.putU32(occlusion.width);
     sink.putU32(occlusion.height);
     sink.putVector(occlusion.uv, putUv);
-    sink.putU32(static_cast<std::uint32_t>(occlusion.texels.size()));
+    sink.putCount(occlusion.texels.size());
     for (const std::uint8_t texel : occlusion.texels) sink.putU8(texel);
-    return std::move(sink).take();
+    return std::move(sink).finish("AOCC");
 }
 
 Result<void> validateOcclusionVertices(const Bundle& bundle, ErrorCode code) {

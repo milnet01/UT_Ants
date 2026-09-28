@@ -176,14 +176,14 @@ Result<void> validateRoomMap(const umap::RoomMap& map, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeRoomMap(const umap::RoomMap& map) {
+Result<std::vector<std::byte>> encodeRoomMap(const umap::RoomMap& map) {
     Sink sink;
     sink.putVector(map.rooms, putRoom);
     sink.putVector(map.bands, [](Sink& out, float value) { out.putF32(value); });
     sink.putVector(map.roomForZone, [](Sink& out, std::uint32_t value) { out.putU32(value); });
     sink.putVector(map.nodes, putNode);
     sink.putVector(map.leafZone, [](Sink& out, std::uint8_t value) { out.putU8(value); });
-    return std::move(sink).take();
+    return std::move(sink).finish("ROOM");
 }
 
 } // namespace uta::ubundle::detail

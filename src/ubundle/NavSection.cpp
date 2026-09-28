@@ -83,12 +83,12 @@ Result<void> validateNavGraph(const unav::NavGraph& graph, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeNavGraph(const unav::NavGraph& graph) {
+Result<std::vector<std::byte>> encodeNavGraph(const unav::NavGraph& graph) {
     Sink sink;
     sink.putVector(graph.nodes, putNavNode);
     sink.putVector(graph.edges, putNavEdge);
     sink.putU32(graph.discardedEndpoints);
-    return std::move(sink).take();
+    return std::move(sink).finish("NAVG");
 }
 
 } // namespace uta::ubundle::detail

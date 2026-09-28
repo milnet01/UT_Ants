@@ -16,7 +16,9 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
+#include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -199,19 +201,44 @@ public:
         for (const std::uint8_t part : id) putU8(part);
     }
 
+    /// A count or length, which the format stores as a u32. One that does not
+    /// fit is recorded and finish() refuses it (UTA-0223): a writer never
+    /// emits what the reader would refuse, and never truncates silently.
+    void putCount(std::size_t count) {
+        if (count > std::numeric_limits<std::uint32_t>::max()) {
+            overflowed_ = true;
+            count = 0;
+        }
+        putU32(static_cast<std::uint32_t>(count));
+    }
+
     void putString(const std::string& value) {
-        putU32(static_cast<std::uint32_t>(value.size()));
+        putCount(value.size());
         for (const char part : value) putU8(static_cast<std::uint8_t>(part));
     }
 
     template <class T, class Encode>
     void putVector(const std::vector<T>& values, Encode encode) {
-        putU32(static_cast<std::uint32_t>(values.size()));
+        putCount(values.size());
         for (const T& value : values) encode(*this, value);
     }
 
     [[nodiscard]] std::size_t size() const noexcept { return bytes_.size(); }
     [[nodiscard]] std::vector<std::byte> take() && noexcept { return std::move(bytes_); }
+
+    /// A nested encoding's bytes, or its refusal carried into this sink.
+    void putEncoded(const Result<std::vector<std::byte>>& encoded) {
+        if (encoded) append(*encoded);
+        else overflowed_ = true;
+    }
+
+    /// The bytes, or InvalidArgument naming `what` when a count overflowed.
+    [[nodiscard]] Result<std::vector<std::byte>> finish(std::string_view what) && {
+        if (overflowed_)
+            return fail(ErrorCode::InvalidArgument,
+                        std::string(what) + ": a count exceeds the format's u32; the reader would refuse it");
+        return std::move(bytes_);
+    }
 
     /// Room for `bytes` in all, so a caller that knows its output's size grows
     /// the buffer once rather than doubling it (UTA-0143). Changes no byte.
@@ -227,6 +254,7 @@ private:
             bytes_.push_back(static_cast<std::byte>((value >> (8U * i)) & 0xFFU));
     }
 
+    bool overflowed_ = false;
     std::vector<std::byte> bytes_;
 };
 

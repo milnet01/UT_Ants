@@ -22,6 +22,7 @@
 // a name carrying one silently matches nothing when run by name.
 
 #include "ubundle/Bundle.h"
+#include "ubundle/Codec.h"
 
 #include "Bytes.h"
 
@@ -917,4 +918,36 @@ TEST_CASE("write refuses a bundle whose structure it would have to lie about", "
     const auto written = write(bundle);
     REQUIRE_FALSE(written.has_value());
     CHECK(written.error().code() == ErrorCode::InvalidArgument);
+}
+
+TEST_CASE("UTA-0223: the writer refuses an origin or kind the reader would refuse", "[ubundle]") {
+    Bundle bundle;
+    REQUIRE(write(bundle).has_value());
+
+    bundle.header.origin = static_cast<Origin>(2);
+    const auto origin = write(bundle);
+    REQUIRE_FALSE(origin.has_value());
+    CHECK(origin.error().code() == ErrorCode::InvalidArgument);
+
+    bundle.header.origin = Origin::Authored;
+    bundle.header.kind = static_cast<BundleKind>(2);
+    const auto kind = write(bundle);
+    REQUIRE_FALSE(kind.has_value());
+    CHECK(kind.error().code() == ErrorCode::InvalidArgument);
+}
+
+TEST_CASE("UTA-0223: a count a u32 cannot hold is refused, never truncated", "[ubundle]") {
+    // Four billion elements cannot be built in a test, so the Sink is asked
+    // directly: every count and length the writers emit goes through putCount.
+    uta::ubundle::detail::Sink over;
+    over.putCount(std::size_t{std::numeric_limits<std::uint32_t>::max()} + 1);
+    const auto refused = std::move(over).finish("TEST");
+    REQUIRE_FALSE(refused.has_value());
+    CHECK(refused.error().code() == ErrorCode::InvalidArgument);
+
+    uta::ubundle::detail::Sink fits;
+    fits.putCount(std::numeric_limits<std::uint32_t>::max());
+    const auto kept = std::move(fits).finish("TEST");
+    REQUIRE(kept.has_value());
+    CHECK(kept->size() == 4);
 }

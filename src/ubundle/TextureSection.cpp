@@ -133,7 +133,7 @@ void putCompressedTexture(Sink& sink, const CompressedTexture& texture) {
     sink.putU16(texture.sourceWidth);
     sink.putU16(texture.sourceHeight);
     sink.putU8(texture.mipCount);
-    sink.putU32(static_cast<std::uint32_t>(texture.blocks.size()));
+    sink.putCount(texture.blocks.size());
     sink.append(texture.blocks);
 }
 

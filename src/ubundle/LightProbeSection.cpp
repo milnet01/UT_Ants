@@ -72,11 +72,11 @@ Result<void> validateLightProbes(const LightProbes& probes, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeLightProbes(const LightProbes& probes) {
+Result<std::vector<std::byte>> encodeLightProbes(const LightProbes& probes) {
     Sink sink;
     sink.putU32(probes.spacing);
     sink.putVector(probes.probes, putProbe);
-    return std::move(sink).take();
+    return std::move(sink).finish("LPRB");
 }
 
 } // namespace uta::ubundle::detail

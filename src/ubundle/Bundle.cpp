@@ -3,14 +3,16 @@
 // Each section's own layout is its codec's -- RoomSection.cpp,
 // NavSection.cpp, WiringSection.cpp, TextureSection.cpp, MaterialSection.cpp,
 // GeometrySection.cpp, PlacementSection.cpp, LightSection.cpp,
-// MoverSection.cpp, CollisionSection.cpp, LightProbeSection.cpp and
-// OcclusionSection.cpp, declared in Sections.h (UTA-0091). What stays here is what every section shares: where it sits in
+// MoverSection.cpp, CollisionSection.cpp, LightProbeSection.cpp,
+// ZoneSection.cpp and OcclusionSection.cpp, declared in Sections.h
+// (UTA-0091). What stays here is what every section shares: where it sits in
 // the file, and in what order.
 
 #include "ubundle/Bundle.h"
 
 #include "Sections.h"
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -254,6 +256,12 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
 Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // Refused rather than written, so a bad bundle cannot be produced here
     // and then blamed on the reader -- SS 6.
+    // The header's two enums are one byte each, and read refuses either above
+    // its last value (UTA-0223).
+    if (static_cast<std::uint8_t>(bundle.header.origin) > static_cast<std::uint8_t>(Origin::Authored))
+        return fail(ErrorCode::InvalidArgument, "the header's origin is not Derived or Authored");
+    if (static_cast<std::uint8_t>(bundle.header.kind) > static_cast<std::uint8_t>(BundleKind::Character))
+        return fail(ErrorCode::InvalidArgument, "the header's kind is not Map or Character");
     if (bundle.rooms) UTA_CHECK(validateRoomMap(*bundle.rooms, ErrorCode::InvalidArgument));
     if (bundle.nav) UTA_CHECK(validateNavGraph(*bundle.nav, ErrorCode::InvalidArgument));
     if (bundle.wiring) UTA_CHECK(validateWiringGraph(*bundle.wiring, ErrorCode::InvalidArgument));
@@ -285,9 +293,16 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
         std::uint64_t size = 0;
     };
     std::vector<Section> sections;
-    const auto encoded = [&sections](const SectionId& id, std::vector<std::byte> payload) {
-        const std::uint64_t size = payload.size();
-        sections.push_back(Section{id, std::move(payload), size});
+    // An encoder refuses a count its u32 cannot hold (UTA-0223); the first
+    // refusal is kept and returned once every section has been tried.
+    std::optional<Error> refused;
+    const auto encoded = [&sections, &refused](const SectionId& id, Result<std::vector<std::byte>> payload) {
+        if (!payload) {
+            if (!refused) refused = std::move(payload).error();
+            return;
+        }
+        const std::uint64_t size = payload->size();
+        sections.push_back(Section{id, std::move(*payload), size});
     };
     if (bundle.rooms) encoded(ID_ROOM, encodeRoomMap(*bundle.rooms));
     if (bundle.nav) encoded(ID_NAVG, encodeNavGraph(*bundle.nav));
@@ -315,6 +330,7 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     // AOCC is appended after ZONE -- UTA-0164 SS 4.1.
     if (bundle.occlusion) encoded(ID_AOCC, encodeOcclusion(*bundle.occlusion));
 
+    if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows
     // once, and each section is freed once it is copied in: the whole file,
     // every section and a doubling buffer are never all held at once
@@ -324,14 +340,15 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     Sink sink;
     sink.reserve(static_cast<std::size_t>(fileSize));
     sink.putId(MAGIC);
-    // FORMAT_VERSION, not bundle.header.formatVersion. `read` only ever
-    // yields 1 and this only ever emits 1, so the two cannot disagree; a
-    // caller's value is an input this function has no way to honour.
+    // FORMAT_VERSION, not bundle.header.formatVersion. `read` refuses any
+    // other version and this only ever emits the current one, so the two
+    // cannot disagree; a caller's value is an input this function has no way
+    // to honour.
     sink.putU32(FORMAT_VERSION);
     sink.putU8(static_cast<std::uint8_t>(bundle.header.origin));
     sink.putU8(static_cast<std::uint8_t>(bundle.header.kind));
     sink.putU16(0);
-    sink.putU32(static_cast<std::uint32_t>(sections.size()));
+    sink.putCount(sections.size());
 
     std::uint64_t offset = HEADER_SIZE + sections.size() * SECTION_DESCRIPTOR_SIZE;
     for (const Section& section : sections) {
@@ -361,7 +378,7 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
         std::vector<std::byte>().swap(section.payload);
     }
 
-    return std::move(sink).take();
+    return std::move(sink).finish("the bundle");
 }
 
 } // namespace uta::ubundle

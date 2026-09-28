@@ -111,13 +111,13 @@ Result<void> validateWiringGraph(const unav::WiringGraph& graph, ErrorCode code)
     return {};
 }
 
-std::vector<std::byte> encodeWiringGraph(const unav::WiringGraph& graph) {
+Result<std::vector<std::byte>> encodeWiringGraph(const unav::WiringGraph& graph) {
     Sink sink;
     sink.putVector(graph.nodes, putWiringNode);
     sink.putVector(graph.edges, putWiringEdge);
     sink.putVector(graph.incoming, putWiringEdge);
     sink.putVector(graph.dangling, putDangling);
-    return std::move(sink).take();
+    return std::move(sink).finish("WIRG");
 }
 
 } // namespace uta::ubundle::detail

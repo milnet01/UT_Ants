@@ -212,7 +212,7 @@ void putRecord(Sink& sink, const PropertyRecord& record) {
             } else {
                 sink.putU8(value.type);
                 sink.putString(value.structName);
-                sink.putU32(static_cast<std::uint32_t>(value.bytes.size()));
+                sink.putCount(value.bytes.size());
                 for (const std::byte part : value.bytes) sink.putU8(static_cast<std::uint8_t>(part));
             }
         },
@@ -287,11 +287,11 @@ Result<void> validatePlacements(const Placements& placements, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodePlacements(const Placements& placements) {
+Result<std::vector<std::byte>> encodePlacements(const Placements& placements) {
     Sink sink;
     sink.putVector(placements.classes, putActorClass);
     sink.putVector(placements.actors, putActorPlacement);
-    return std::move(sink).take();
+    return std::move(sink).finish("PLAC");
 }
 
 } // namespace uta::ubundle::detail

@@ -113,12 +113,12 @@ Result<void> validateGeometry(const Geometry& geometry, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeGeometry(const Geometry& geometry) {
+Result<std::vector<std::byte>> encodeGeometry(const Geometry& geometry) {
     Sink sink;
     sink.putVector(geometry.vertices, putVertex);
     sink.putVector(geometry.indices, [](Sink& out, std::uint32_t index) { out.putU32(index); });
     sink.putVector(geometry.batches, putBatch);
-    return std::move(sink).take();
+    return std::move(sink).finish("GEOM");
 }
 
 } // namespace uta::ubundle::detail

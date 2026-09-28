@@ -102,10 +102,10 @@ Result<void> validateLights(const std::vector<Light>& lights, ErrorCode code) {
     return {};
 }
 
-std::vector<std::byte> encodeLights(const std::vector<Light>& lights) {
+Result<std::vector<std::byte>> encodeLights(const std::vector<Light>& lights) {
     Sink sink;
     sink.putVector(lights, putLight);
-    return std::move(sink).take();
+    return std::move(sink).finish("LITE");
 }
 
 } // namespace uta::ubundle::detail
