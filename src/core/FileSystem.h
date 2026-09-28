@@ -14,6 +14,8 @@
 #include <cstddef>
 #include <filesystem>
 #include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/Error.h"
@@ -79,6 +81,14 @@ private:
 /// temporary is unlinked and the destination is left as it was (INV-7).
 [[nodiscard]] Result<void> writeFileAtomically(const std::filesystem::path& path,
                                                std::span<const std::byte> bytes);
+
+/// A path as UTF-8, which is what SDL, JSON and the command lines this project
+/// builds expect. path::string() is the ANSI code page on Windows, so a name
+/// outside it arrives garbled (UTA-0221).
+[[nodiscard]] std::string utf8(const std::filesystem::path& path);
+
+/// A path from UTF-8 text, such as SDL_GetBasePath's or a JSON string's.
+[[nodiscard]] std::filesystem::path pathFromUtf8(std::string_view text);
 
 /// Join `relative` under `root` and refuse anything that escapes it.
 ///

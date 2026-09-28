@@ -559,3 +559,14 @@ TEST_CASE("ordinary names still resolve", "[core][fs]") {
         CHECK(result.has_value());
     }
 }
+
+TEST_CASE("UTA-0221: a path round-trips through UTF-8 whatever the code page", "[core][fs]") {
+    // path::string() is the ANSI code page on Windows, which cannot hold
+    // omega at all and holds e-diaeresis in a byte SDL would misread as UTF-8.
+    const std::string text = "T\xC3\xABst/\xCE\xA9mega.unr"; // "Tëst/Ωmega.unr"
+    const fs::path path = uta::fs::pathFromUtf8(text);
+    CHECK(path.u8string() == u8"Tëst/Ωmega.unr");
+    CHECK(uta::fs::utf8(path) == text);
+    CHECK(uta::fs::utf8(path.filename()) == "\xCE\xA9mega.unr");
+    CHECK(uta::fs::pathFromUtf8("").empty());
+}

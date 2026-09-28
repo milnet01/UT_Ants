@@ -497,4 +497,13 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
     return candidate;  // not const: a const local cannot be moved out
 }
 
+std::string utf8(const std::filesystem::path& path) {
+    const std::u8string text = path.u8string();
+    return {text.begin(), text.end()};
+}
+
+std::filesystem::path pathFromUtf8(std::string_view text) {
+    return std::filesystem::path(std::u8string(text.begin(), text.end()));
+}
+
 }  // namespace uta::fs

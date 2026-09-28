@@ -52,12 +52,13 @@ std::string lowered(std::string_view text) {
 /// lets a caller.
 bool installIsUsable(const std::filesystem::path& install) {
     const char* const base = SDL_GetBasePath();
-    std::filesystem::path baker = std::filesystem::path(base != nullptr ? base : "") / "ut-bake";
+    // SDL's strings are UTF-8 both ways (UTA-0221).
+    std::filesystem::path baker = uta::fs::pathFromUtf8(base != nullptr ? base : "") / "ut-bake";
 #ifdef _WIN32
     baker += ".exe";
 #endif
-    const std::string bakerText = baker.string();
-    const std::string installText = install.string();
+    const std::string bakerText = uta::fs::utf8(baker);
+    const std::string installText = uta::fs::utf8(install);
     const char* const argv[] = {bakerText.c_str(), "--check", installText.c_str(), nullptr};
 
     SDL_Process* const process = SDL_CreateProcess(argv, true);

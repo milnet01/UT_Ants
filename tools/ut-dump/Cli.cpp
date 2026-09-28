@@ -919,7 +919,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
         out << ",\n";
     }
     out << " {\n  \"file\": ";
-    writeJsonString(out, path.string());
+    writeJsonString(out, uta::fs::utf8(path)); // JSON is UTF-8 (UTA-0221)
 
     const std::vector<std::byte> raw = readWhole(path);
     if (raw.empty()) {

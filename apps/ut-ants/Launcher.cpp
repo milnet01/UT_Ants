@@ -10,6 +10,7 @@
 #include "Launcher.h"
 
 #include "MapList.h"
+#include "core/FileSystem.h"
 
 #include <SDL3/SDL.h>
 
@@ -32,17 +33,18 @@ constexpr float ROW = GLYPH + 3.0f; ///< a text row, in unscaled pixels
 /// A program beside this one, as ut-ants finds ut-bake (docs/design.md rule 16).
 std::string besideThisProgram(const char* name) {
     const char* const base = SDL_GetBasePath();
-    std::filesystem::path path = std::filesystem::path(base != nullptr ? base : "") / name;
+    // SDL's strings are UTF-8 both ways (UTA-0221).
+    std::filesystem::path path = fs::pathFromUtf8(base != nullptr ? base : "") / name;
 #ifdef _WIN32
     path += ".exe";
 #endif
-    return path.string();
+    return fs::utf8(path);
 }
 
 /// `path` for a status line: the home directory as ~, so the part that says
 /// where survives the line's width.
 std::string shown(const std::filesystem::path& path) {
-    std::string text = path.string();
+    std::string text = fs::utf8(path);
     for (const char* const variable : {"HOME", "USERPROFILE"}) {
         const char* const home = SDL_getenv(variable);
         if (home == nullptr || *home == '\0') continue;
@@ -139,7 +141,7 @@ std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::stri
                                  std::string& bakerVersion) {
     std::vector<MapFile> maps = listMaps(install);
     const std::string baker = besideThisProgram("ut-bake");
-    const std::string installText = install.string();
+    const std::string installText = fs::utf8(install);
     const char* const argv[] = {baker.c_str(), "--game-types", installText.c_str(), nullptr};
     std::optional<std::vector<std::string>> prefixes;
     if (SDL_Process* const process = SDL_CreateProcess(argv, true)) {
@@ -259,8 +261,8 @@ private:
         openingStamp_ = mapStampOf(map->path);
         busy_ = Busy::Baking;
         started_ = SDL_GetTicks();
-        child_.start({besideThisProgram("ut-bake"), "--install", options_.install.string(), "--out",
-                      paths_.bakes.string(), map->path.string()},
+        child_.start({besideThisProgram("ut-bake"), "--install", fs::utf8(options_.install), "--out",
+                      fs::utf8(paths_.bakes), fs::utf8(map->path)},
                      true);
     }
 
@@ -286,7 +288,7 @@ private:
                 args.emplace_back(urender::tierName(*options_.tier));
             }
             args.emplace_back("--notes"); // UTA-0190: P writes the camera there
-            args.push_back(notesFile(paths_.notes, opening_).string());
+            args.push_back(fs::utf8(notesFile(paths_.notes, opening_)));
             // UTA-0191: the report is the only place the baker version appears,
             // and it is gone once this answer is dropped. A cached verdict
             // carries it too, so a map opened a second time is described as
@@ -295,8 +297,8 @@ private:
                 args.emplace_back("--baker-version");
                 args.push_back(answer.bakerVersion);
             }
-            args.push_back(options_.install.string());
-            args.push_back(answer.path.string());
+            args.push_back(fs::utf8(options_.install));
+            args.push_back(fs::utf8(answer.path));
             busy_ = Busy::Viewing;
             SDL_HideWindow(window_);
             child_.start(std::move(args), false);
