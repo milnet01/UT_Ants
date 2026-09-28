@@ -12884,7 +12884,7 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0222] **Make the push gate safe to run twice and to interrupt.**
+- ✅ [UTA-0222] **Make the push gate safe to run twice and to interrupt.**
   scripts/ci-matrix.sh:78,87-94: two runs share one bundle file and
   one remote checkout, so run B's checkout -f can land mid-build of run
   A (a false green is possible); Ctrl-C leaves the remote build running.
@@ -12895,11 +12895,20 @@ stays with movement in 0.2.0.
   :335-348 leaves a mutated source file when killed by SIGTERM; its
   read_text/write_text are not byte-identical (:330,:347); a declared
   survivor that becomes KILLED still exits 0 (:32 vs :397,:407).
+  Resolved (2026-09-28, bacc94d, eb2d5fd): ci-matrix.sh takes a flock
+  and waits for another gate; traps stop the Windows leg on
+  EXIT/INT/TERM; scripts/windows-gate-reap.sh (measured: a dropped ssh
+  does not end the remote script; taskkill and WMI are refused across
+  logons) stops leftover build tools and shells by kill -f -W; an ssh
+  refusal (key, host key, alias, config) fails as MISCONFIGURED.
+  mutation-probe.py restores on SIGTERM, restores bytes exactly, and
+  fails on a stale declared survivor (UB rules exempt outside --asan);
+  its NAVG mutation text was updated. Green on GitHub's matrix.
   **Layman:** Two pushes at once, or stopping one midway, can leave the Windows check testing the wrong code or still running.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0223] **ubundle's writer refuses what its own reader would refuse.**
+- ✅ [UTA-0223] **ubundle's writer refuses what its own reader would refuse.**
   Codec.h:203 and :209, TextureSection.cpp:136, PlacementSection.cpp
   :215 and OcclusionSection.cpp:74 narrow a size to u32 unchecked; the
   lane contract says a writer refuses a count its descriptor cannot hold.
@@ -12907,6 +12916,12 @@ stays with movement in 0.2.0.
   above 1. Unreachable today (4G elements). Also stale comments:
   Bundle.cpp:327-329 (version 1), Sections.h:1-16 and Bundle.cpp:3-7
   omit ZONE and AOCC. Open: TEXS is validated only by umat::compress.
+  Resolved (2026-09-28, 59d7df4): Sink::putCount records a count over
+  u32 and finish() refuses it; the twelve encoders return Result;
+  write() refuses an out-of-range origin or kind; stale comments fixed.
+  The open TEXS-validation note is unchanged: TEXS is still validated
+  only by umat::compress. Hand mutations of both new checks each fail a
+  test. Green on GitHub's matrix (dbf7341's run, full mode, covers it).
   **Layman:** The bundle writer could save a file that the bundle reader then rejects, in cases today's baker never produces.
   Kind: fix.
   Source: review-code-2026-09-26.
