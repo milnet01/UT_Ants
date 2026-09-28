@@ -51,6 +51,7 @@ import argparse
 import os
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 
@@ -291,10 +292,10 @@ SUBJECTS = {
              "    if (bundle.nav) UTA_CHECK(validateNavGraph(*bundle.nav, ErrorCode::InvalidArgument));",
              "    // removed"),
             ("write emits NAVG before ROOM", "src/ubundle/Bundle.cpp",
-             "    if (bundle.rooms) sections.emplace_back(ID_ROOM, encodeRoomMap(*bundle.rooms));\n"
-             "    if (bundle.nav) sections.emplace_back(ID_NAVG, encodeNavGraph(*bundle.nav));",
-             "    if (bundle.nav) sections.emplace_back(ID_NAVG, encodeNavGraph(*bundle.nav));\n"
-             "    if (bundle.rooms) sections.emplace_back(ID_ROOM, encodeRoomMap(*bundle.rooms));"),
+             "    if (bundle.rooms) encoded(ID_ROOM, encodeRoomMap(*bundle.rooms));\n"
+             "    if (bundle.nav) encoded(ID_NAVG, encodeNavGraph(*bundle.nav));",
+             "    if (bundle.nav) encoded(ID_NAVG, encodeNavGraph(*bundle.nav));\n"
+             "    if (bundle.rooms) encoded(ID_ROOM, encodeRoomMap(*bundle.rooms));"),
 
             # -- SS 4.5: combine, which lives in the header.
             ("combine becomes a maximum", "src/ubundle/Bundle.h",
@@ -332,12 +333,15 @@ def run(cmd, timeout=900, env=None):
 
 def probe(build_dir, subject, label, rel, old, new, test_cmd, env):
     path = ROOT / rel
-    original = path.read_text()
-    if old not in original:
+    # Bytes, not text: read_text/write_text translate line endings and
+    # re-encode, so the "restored" file need not be the original (UTA-0222).
+    original = path.read_bytes()
+    old_bytes, new_bytes = old.encode(), new.encode()
+    if old_bytes not in original:
         return "NOT-APPLIED"
-    if original.count(old) != 1:
+    if original.count(old_bytes) != 1:
         return "NOT-UNIQUE"
-    path.write_text(original.replace(old, new, 1))
+    path.write_bytes(original.replace(old_bytes, new_bytes, 1))
     # Rewrite and touch. A restore that leaves an older mtime lets ninja skip
     # the rebuild, and the next mutation is graded against this one's binary.
     os.utime(path, None)
@@ -349,11 +353,15 @@ def probe(build_dir, subject, label, rel, old, new, test_cmd, env):
         except subprocess.TimeoutExpired:
             return "KILLED"
     finally:
-        path.write_text(original)
+        path.write_bytes(original)
         os.utime(path, None)
 
 
 def main():
+    # A SIGTERM (a killed push, a timeout) must still run probe's finally, or
+    # the mutated source is left in the tree (UTA-0222). SystemExit unwinds
+    # through it the way Ctrl-C's KeyboardInterrupt already did.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("subject", choices=sorted(SUBJECTS))
@@ -402,6 +410,15 @@ def main():
     survived = [label for s, label in results if s == "SURVIVED"]
     broken = [(s, label) for s, label in results if s in ("NOT-APPLIED", "NOT-UNIQUE", "COMPILE-FAIL")]
     unexplained = [label for label in survived if label not in expected]
+    # A declared survivor this run KILLED: the declaration is stale, and "the
+    # survivors are exactly the declared ones" is false (UTA-0222).
+    probed = {label for _, label in results}
+    # Except, outside --asan, the rules only ASan can grade: their removal is
+    # undefined behaviour, which kills some runs and not others (measured on
+    # readBytes' bound: survived, killed, survived).
+    undefined = () if args.asan else subject.get("killed_under_asan", ())
+    stale = [label for label in expected
+             if label in probed and label not in survived and label not in undefined]
 
     print(f"\n=== {args.subject} in {build_dir}/ ===")
     print(f"killed {sum(1 for s, _ in results if s == 'KILLED')} of {len(results)}")
@@ -410,8 +427,11 @@ def main():
         print(f"  survived: {label}\n            {note}")
     for state, label in broken:
         print(f"  {state}: {label}")
+    for label in stale:
+        print(f"  declared a survivor, but KILLED: {label}\n"
+              "            a test now grades it -- drop it from expected_survivors")
 
-    if unexplained or broken:
+    if unexplained or broken or stale:
         print("\nA new survivor means some rule is no longer graded. Suspect the FIXTURE "
               "first: ask which rule makes it fail, and whether that is the rule it names.")
         sys.exit(1)
