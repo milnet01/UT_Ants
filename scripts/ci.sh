@@ -218,6 +218,11 @@ else
     skip "yamllint is not installed — the workflow YAML was not linted"
 fi
 
+step "the local gate and GitHub test the same compilers"
+# UTA-0232: ci-matrix.sh is a wrapper over this script, not a mirror, only
+# while its legs match ci.yml's matrix (local-gate.md § 3).
+./scripts/check-legs.sh
+
 if [[ $MODE == docs ]]; then
     step "documentation-only run complete"
     [[ ${#skipped[@]} -gt 0 ]] && printf '   %d check(s) skipped, listed above.\n' "${#skipped[@]}"
