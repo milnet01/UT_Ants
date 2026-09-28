@@ -154,16 +154,19 @@ empty one falls back exactly as an unset one does — else
 executable. A set-but-wrong value is not corrected, it just disables the
 gate. The machine-wide hook then picks the
 gate script, decides documentation-only, and runs it over the pushed
-commits in a detached worktree — not over what is on disk.
+commit. With `ants.gate.inPlace` that is the real checkout when it is clean
+at the pushed commit, so the build trees stay warm (`UTA-0238`); otherwise a
+detached worktree. **Do not edit files while a push runs**: `ci-matrix.sh`
+fails the gate if the tree changes mid-run.
 
-**Four settings drive that. Three are `ants.gate.*` and live only in
+**Five settings drive that. Four are `ants.gate.*` and live only in
 `.git/config`, so a clone has none of them. `core.hooksPath` is the
 exception** — ~/.gitconfig sets it machine-wide to ~/.claude/githooks, and the
 repository value overrides it. So unsetting the repository value
 does **not** disable the gate: it falls back to the machine-wide hook,
 losing this repository's own hooks rather than the push gate.
 
-`./scripts/setup-hooks.sh` sets all four; run it once in every clone
+`./scripts/setup-hooks.sh` sets all five; run it once in every clone
 (`UTA-0231`).
 
 **A green push is not evidence the gate ran.** Four ways it passes having

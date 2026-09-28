@@ -15,3 +15,7 @@ git config ants.gate.docsMode --docs
 # docsGlob would be a second copy, so it is removed.
 git config ants.gate.docsCommand ./scripts/docs-only.sh
 git config --unset ants.gate.docsGlob || true
+# Run in the real checkout when it is clean at the pushed commit, so the
+# Linux legs keep their warm build trees (UTA-0238). Otherwise the hook takes a
+# fresh worktree; ci-matrix.sh fails the gate if the tree changes mid-run.
+git config ants.gate.inPlace true

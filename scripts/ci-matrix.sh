@@ -116,6 +116,13 @@ fi
 
 # ── Linux: one leg at a time ────────────────────────────────────────────────
 
+# The pre-push hook may run this in the real checkout (ants.gate.inPlace,
+# UTA-0238), where an edit made mid-run would be built in place of the pushed
+# commit. So the tree's state is snapshotted here and compared after the legs;
+# any difference fails the gate. In a fresh worktree nothing changes it.
+tree_state() { git rev-parse HEAD && git status --porcelain --untracked-files=all; }
+state_before=$(tree_state)
+
 results=()
 linux_failed=false
 run_leg() {
@@ -134,6 +141,12 @@ run_leg "Linux (GCC 14)" CC=gcc-14 CXX=g++-14 UTA_CI_BUILD_DIR=build-ci-gcc14
 run_leg "Linux (Clang 19)" CC=clang-19 CXX=clang++-19 UTA_CI_BUILD_DIR=build-ci-clang19 \
     CFLAGS="--gcc-install-dir=$GCC14_DIR" CXXFLAGS="--gcc-install-dir=$GCC14_DIR" \
     LDFLAGS="--gcc-install-dir=$GCC14_DIR"
+
+if [[ $(tree_state) != "$state_before" ]]; then
+    results+=("Linux: RED (the working tree changed while the legs ran)")
+    banner "THE TREE CHANGED DURING THE GATE: the Linux legs may have built edits, not ${SHA:0:12}. Push again."
+    linux_failed=true
+fi
 
 # ── Windows: collect ────────────────────────────────────────────────────────
 
