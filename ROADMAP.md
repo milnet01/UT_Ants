@@ -13099,6 +13099,11 @@ stays with movement in 0.2.0.
   Refute: a docs-only push whose full run caught something --docs
   would have missed.
   Not part of 0.1.0's cut.
+  Note (2026-09-28): local-gate.md § 9 now names the simpler lever,
+  paths-ignore on the push trigger only (a pull request still runs
+  everything), with the local docsGlob as the one list. Weigh it against
+  a diff step: paths-ignore skips the run entirely rather than running
+  --docs, so the documentation checks would not run on GitHub.
   **Layman:** A change that only touches notes still makes GitHub rebuild and retest everything on three systems; let it run just the documentation checks.
   Kind: perf.
   Source: user-request-2026-09-27.
@@ -13135,6 +13140,68 @@ stays with movement in 0.2.0.
   Kind: perf.
   Source: user-request-2026-09-27.
   Lanes: ci.
+
+- 📋 [UTA-0239] **Save the Linux compiler cache even when the gate fails, and prune old entries.**
+  local-gate.md § 9's cache row: save with if: always(), since a job
+  that fails or times out skips actions/cache's post-step save and every
+  later run starts colder. ci.yml's "Keep the compiler cache between
+  runs" step uses the combined action, which saves only on success.
+  Split it into actions/cache/restore and actions/cache/save with
+  if: always(). Keys are per-commit (ccache-<cxx>-<sha>), so also prune
+  older entries after a successful save, or they fill GitHub's
+  per-repository cache quota and evict the useful ones.
+  Refute: a failed run followed by a run that restores the failed run's
+  cache and is no faster than one restoring an older cache.
+  Not part of 0.1.0's cut.
+  **Layman:** GitHub only keeps the build cache when a run passes, so one failure makes the next run slower; keep it either way and tidy old copies.
+  Kind: perf.
+  Source: user-request-2026-09-28.
+  Lanes: ci.
+
+- 📋 [UTA-0240] **Key GitHub's concurrency group on the event, and stop cancelling runs on main.**
+  ci.yml's group is ci-${{ github.ref }} with cancel-in-progress: true.
+  local-gate.md § 9 says the key holds the workflow, the event and the
+  ref, and cancels on non-default branches only: on main a cancelled
+  run hides which commit broke. The frequent "mark shipped" commits
+  cancel the code commit's run today (091998e's was cancelled that way).
+  Use group: ${{ github.workflow }}-${{ github.event_name }}-${{
+  github.ref }} and cancel-in-progress: ${{ github.ref !=
+  'refs/heads/main' }}. Pairs with UTA-0236, which makes the queued
+  docs-only run cheap.
+  Not part of 0.1.0's cut.
+  **Layman:** On the main branch, a new push cancels the previous check, which hides which change broke things; only cancel on side branches.
+  Kind: fix.
+  Source: user-request-2026-09-28.
+  Lanes: ci.
+
+- 📋 [UTA-0241] **Install mold on GitHub's Linux legs.**
+  CMakeLists.txt uses mold when find_program finds it. ci.yml's apt list
+  does not name mold, so GitHub links with the default linker while the
+  local gate uses mold: a toolchain difference between the two runs, and
+  local-gate.md § 9 lists mold as a lever for both sides. Add mold to the
+  apt list and confirm "Linker: mold" in the configure log. Measure the
+  link share first with UTA-0234's timings; CMakeLists.txt says the
+  saving is small today.
+  Not part of 0.1.0's cut.
+  **Layman:** The fast linker is used locally but not on GitHub; add it there so both link the same way and a bit faster.
+  Kind: perf.
+  Source: user-request-2026-09-28.
+  Lanes: ci.
+
+- 📋 [UTA-0242] **Run ctest in parallel, with a per-test timeout.**
+  scripts/ci.sh runs both ctest calls serially with no --timeout.
+  local-gate.md § 9: safe only when tests share no state (ports, temp
+  paths, config directories) and each has a timeout. Check the device
+  tier (one Vulkan device, the validation layer) and the path fixtures
+  (memory: a fixture with many regions once grew to 19 GB) before
+  parallelising. Add ctest --timeout regardless. Size -j from memory,
+  not CPU count. Repeat-run with --repeat until-fail:5 before trusting
+  it. Size the payoff with UTA-0234 first.
+  Not part of 0.1.0's cut.
+  **Layman:** The tests run one at a time; running several at once could make the check faster, once we know they don't trip over each other.
+  Kind: perf.
+  Source: user-request-2026-09-28.
+  Lanes: ci, tests.
 
 ## 0.2.0 — Movement and weapons
 
