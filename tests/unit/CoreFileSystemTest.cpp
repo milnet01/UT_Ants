@@ -570,3 +570,10 @@ TEST_CASE("UTA-0221: a path round-trips through UTF-8 whatever the code page", "
     CHECK(uta::fs::utf8(path.filename()) == "\xCE\xA9mega.unr");
     CHECK(uta::fs::pathFromUtf8("").empty());
 }
+
+TEST_CASE("UTA-0221: the narrow encoding is UTF-8 on every platform", "[core][fs]") {
+    // Windows' ANSI code page cannot hold omega; the UTF-8 activeCodePage
+    // manifest every program embeds makes the narrow encoding UTF-8 there too,
+    // so argv, path::string() and fopen agree with SDL and JSON.
+    CHECK(fs::path(u8"Ωmega").string() == "\xCE\xA9mega");
+}
