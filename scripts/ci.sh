@@ -60,7 +60,34 @@ else
 fi
 
 skipped=()
-step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
+# Each step's wall time, printed as it ends and as a table on exit -- a red
+# run's table included -- so a speed-up aims at a measured step (UTA-0234).
+timings=()
+current_step=
+step_start=$SECONDS
+end_step() {
+    [[ -z $current_step ]] && return 0
+    local took=$((SECONDS - step_start))
+    printf '   (%ds)\n' "$took"
+    timings+=("$(printf '%6ds  %s' "$took" "$current_step")")
+    current_step=
+}
+print_timings() {
+    local status=$?
+    end_step
+    if [[ ${#timings[@]} -gt 0 ]]; then
+        printf '\n== step timings (%ds in all)\n' "$SECONDS"
+        printf '%s\n' "${timings[@]}"
+    fi
+    return "$status"
+}
+trap print_timings EXIT
+step() {
+    end_step
+    current_step=$1
+    step_start=$SECONDS
+    printf '\n\033[1m== %s\033[0m\n' "$1"
+}
 skip() {
     printf '   SKIPPED: %s\n' "$1"
     skipped+=("$1")
