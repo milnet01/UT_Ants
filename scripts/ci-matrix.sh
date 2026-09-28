@@ -52,6 +52,7 @@ STATE=${XDG_CACHE_HOME:-$HOME/.cache}/uta-gate
 mkdir -p "$STATE"
 SHA=$(git rev-parse HEAD)
 WIN_LOG="$STATE/windows-${SHA:0:12}.log"
+WIN_DONE=UTA-GATE-DONE # the remote script's completion marker (UTA-0233)
 
 banner() {
     printf '\n\033[1;33m%s\n%s\n%s\033[0m\n' \
@@ -85,8 +86,15 @@ if ssh -o BatchMode=yes -o ConnectTimeout=5 "$WIN_HOST" exit 2>/dev/null; then
         # Piped on stdin: the machine's SSH shell is cmd.exe, which mangles any
         # quoting a script passed as an argument would need. $SHA expands here,
         # on purpose; nothing else in the script does.
+        #
+        # The trap prints a completion marker carrying the remote status. ssh
+        # passes that status through, so a ci.sh exiting 255 is otherwise
+        # indistinguishable from ssh's own 255 for a lost link (UTA-0233).
+        # A dropped connection cannot print the marker; a finished run always
+        # does, whatever ended it.
         # shellcheck disable=SC2087
         ssh "${alive[@]}" "$WIN_HOST" '"C:\Program Files\Git\bin\bash.exe" -l -s' <<EOF
+trap 'echo "$WIN_DONE rc=\$?"' EXIT
 set -e
 mkdir -p ~/uta-gate
 cd ~/uta-gate
@@ -132,18 +140,21 @@ if [[ -n $win_pid ]]; then
     win_status=0
     wait "$win_pid" || win_status=$?
     tr -d '\r' <"$WIN_LOG" | tail -n 25
-    case $win_status in
-        0) results+=("Windows (MSVC): green") ;;
-        255)
-            # ssh's own failure code: the connection went, not the build.
-            results+=("Windows (MSVC): NOT RUN (connection lost)")
-            banner "WINDOWS LEG NOT RUN: the SSH connection failed mid-run. Log: $WIN_LOG"
-            ;;
-        *)
-            results+=("Windows (MSVC): RED (log: $WIN_LOG)")
-            win_failed=true
-            ;;
-    esac
+    # The remote script's own status, if it finished; empty if it never did.
+    win_rc=$(tr -d '\r' <"$WIN_LOG" | sed -n "s/^$WIN_DONE rc=\([0-9]*\)\$/\1/p" | tail -n 1)
+    if [[ $win_rc == 0 ]]; then
+        results+=("Windows (MSVC): green")
+    elif [[ -z $win_rc && $win_status == 255 ]]; then
+        # No marker and ssh's own failure code: the connection went, not the
+        # build.
+        results+=("Windows (MSVC): NOT RUN (connection lost)")
+        banner "WINDOWS LEG NOT RUN: the SSH connection failed mid-run. Log: $WIN_LOG"
+    else
+        # A finished run that failed, or anything unexplained -- including a
+        # zero status with no marker, which fails closed.
+        results+=("Windows (MSVC): RED (log: $WIN_LOG)")
+        win_failed=true
+    fi
 else
     results+=("Windows (MSVC): NOT RUN (unreachable)")
 fi
