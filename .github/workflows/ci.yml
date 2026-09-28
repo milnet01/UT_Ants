@@ -83,8 +83,38 @@ jobs:
           # in .git/config for later steps to read.
           persist-credentials: false
 
+      # UTA-0236. A push whose every changed path is documentation runs
+      # `ci.sh --docs` -- the checks a typo can break, and no compiler legs --
+      # decided by scripts/docs-only.sh, the same list the local gate uses.
+      # FAILS CLOSED: a tag, a pull request, a manual run, a new branch, a
+      # force push, or a range that will not fetch all run the full gate.
+      - name: Decide the mode
+        id: mode
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          mode=full
+          if [[ $EVENT == push && $REF == refs/heads/* && -n $BEFORE && ! $BEFORE =~ ^0+$ ]] &&
+            git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null &&
+            git diff --name-only "$BEFORE" "$AFTER" >"$RUNNER_TEMP/changed.txt" &&
+            ./scripts/docs-only.sh <"$RUNNER_TEMP/changed.txt"; then
+            mode=docs
+          fi
+          echo "mode=$mode" >>"$GITHUB_OUTPUT"
+          echo "ci.sh mode: $mode"
+
+      - name: Install the documentation tools
+        if: runner.os == 'Linux' && steps.mode.outputs.mode == 'docs'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y shellcheck yamllint
+
       - name: Install the Linux toolchain
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.mode.outputs.mode == 'full'
         env:
           # Through the environment rather than interpolated into the script:
           # a ${{ }} expansion inside run: is expanded before the shell sees
@@ -132,7 +162,7 @@ jobs:
       # disk: every test binary links the loader, and Catch2 lists a binary's
       # tests by running it at build time.
       - name: Install the Vulkan SDK
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.mode.outputs.mode == 'full'
         uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa  # v1.6.0
         with:
           vulkan_version: 1.4.357.0
@@ -140,7 +170,7 @@ jobs:
           cache: true
 
       - name: Put the Vulkan runtime on PATH
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.mode.outputs.mode == 'full'
         shell: bash
         run: |
           runtime="$VULKAN_SDK/runtime/x64"
@@ -158,7 +188,9 @@ jobs:
       # A release tag builds cold, so what it ships was compiled from its own
       # source and nothing another run left in the cache.
       - name: Keep the compiler cache between runs
-        if: runner.os == 'Linux' && !startsWith(github.ref, 'refs/tags/')
+        if: >-
+          runner.os == 'Linux' && steps.mode.outputs.mode == 'full'
+          && !startsWith(github.ref, 'refs/tags/')
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/ccache
@@ -167,10 +199,13 @@ jobs:
 
       - name: Run the gate
         shell: bash
-        run: ./scripts/ci.sh
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          if [[ $MODE == docs ]]; then ./scripts/ci.sh --docs; else ./scripts/ci.sh; fi
 
       - name: Show the compiler cache's hit rate
-        if: always() && runner.os == 'Linux'
+        if: always() && runner.os == 'Linux' && steps.mode.outputs.mode == 'full'
         run: ccache --show-stats
 
       # UTA-0077. Built AFTER the gate and never as part of it: this binary is

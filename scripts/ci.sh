@@ -13,10 +13,12 @@
 # WHY --docs EXISTS. Skipping outright is how a prose typo reaches a repository
 # whose own suite forbids it; rebuilding and re-testing for a typo is how a
 # person learns to reach for --no-verify. So --docs omits the compiler legs and
-# NOTHING ELSE: every check that does not need a compiler runs in both modes,
-# because ci.yml calls this script with no argument and GitHub therefore applies
-# the full run to a documentation-only push. A mode cheaper than the pipeline is
-# fine; one that checks LESS of what the pipeline checks is a green that lies.
+# NOTHING ELSE: every check that does not need a compiler runs in both modes.
+# Both gates pick the mode from one list, scripts/docs-only.sh -- the local
+# hook as ants.gate.docsCommand, ci.yml over the push's range (UTA-0236) -- and
+# GitHub runs the full gate whenever that range is unknown. A mode cheaper than
+# the pipeline is fine; one that checks LESS of what it checks is a green that
+# lies.
 # The quarantine guard's path checks are in both modes for their own reason --
 # a path under content/ can be a .md file and would otherwise ride in on a
 # "docs-only" push.
@@ -100,7 +102,7 @@ step "quarantine guard"
 if [[ $MODE == docs ]]; then
     # UTA-0013's third check reads each tracked bundle's header through
     # ut-origin, which this mode does not build. No push can use the gap:
-    # ants.gate.docsGlob never classifies a push carrying a .utab as
+    # scripts/docs-only.sh never classifies a push carrying a .utab as
     # documentation-only, so the full run checks it.
     skip "the quarantine guard's bundle-origin check needs ut-origin, which --docs does not build"
 fi
@@ -134,12 +136,10 @@ printf '   %d markdown files, every relative link resolves.\n' "$(git ls-files '
 
 # ── Static analysis ─ also BOTH modes ─────────────────────────────
 #
-# These are here, above the documentation-only exit, because GitHub runs them
-# on a documentation-only push: ci.yml calls this script with NO argument, so
-# there is no docs mode on that side. Anything cheap enough to run on a typo
-# therefore belongs in both modes, or a local green means less than the green
-# the pipeline will apply. They cost about a second between them; the compiler
-# legs are what --docs exists to skip.
+# These are here, above the documentation-only exit, because a typo can break
+# them too. Anything cheap enough to run on a typo belongs in both modes, or a
+# docs-only green means less than a full one. They cost about a second between
+# them; the compiler legs are what --docs exists to skip.
 
 step "umap holds no per-player state"
 # UTA-0007 INV-7, and design rule 18 is what it protects: a `visited` flag on
@@ -213,16 +213,13 @@ fi
 if [[ $MODE == docs ]]; then
     step "documentation-only run complete"
     [[ ${#skipped[@]} -gt 0 ]] && printf '   %d check(s) skipped, listed above.\n' "${#skipped[@]}"
-    # GITHUB DOES NOT TAKE THIS MODE -- ci.yml calls this script with no
-    # argument -- so what this mode omits is worth naming rather than leaving to
-    # be inferred. It is now exactly the compiler legs and the bundle-origin check
-    # that needs their output, and a change matching the documentation glob
-    # cannot reach them. Said out loud for the same reason a
-    # missing tool is: a green narrower than the pipeline's must not read as the
-    # same green.
+    # What this mode omits is named rather than left to be inferred: exactly the
+    # compiler legs and the bundle-origin check that needs their output, which a
+    # change scripts/docs-only.sh accepts cannot reach. Said out loud for the
+    # same reason a missing tool is: a green narrower than the pipeline's must
+    # not read as the same green.
     printf '   Omitted, and ONLY these: configure, build, bundle origin, test, race detector.\n'
-    printf '   GitHub runs the full gate on every push. Reproduce it with\n'
-    printf '   scripts/ci.sh and no argument.\n'
+    printf '   Reproduce the full gate with scripts/ci.sh and no argument.\n'
     exit 0
 fi
 

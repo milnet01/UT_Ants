@@ -11,4 +11,7 @@ cd "$(dirname "$0")/.."
 git config core.hooksPath .githooks
 git config ants.gate.command ./scripts/ci-matrix.sh
 git config ants.gate.docsMode --docs
-git config ants.gate.docsGlob 'docs/*|*.md|LICENSE'
+# One list of what counts as documentation, shared with ci.yml (UTA-0236).
+# docsGlob would be a second copy, so it is removed.
+git config ants.gate.docsCommand ./scripts/docs-only.sh
+git config --unset ants.gate.docsGlob || true

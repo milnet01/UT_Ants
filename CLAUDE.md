@@ -174,8 +174,9 @@ checked nothing, and only two announce themselves: `NOTHING WAS CHECKED`
 means `core.hooksPath` naming a directory with no `pre-push` rather than
 being unset, and **`.githooks/pre-push` not being executable** — git skips
 a non-executable hook in silence.
-An unset `docsGlob` is silent too, and widens what counts as
-documentation.
+An unset `docsCommand` is silent too, and falls back to the hook's own
+list, which is wider. `scripts/docs-only.sh` is the one list of what counts
+as documentation; GitHub reads it too (`UTA-0236`).
 
 **Config alone cannot answer this, because the mode is not config.** Check
 both:
