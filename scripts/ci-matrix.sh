@@ -102,7 +102,10 @@ cd ~/uta-gate
 cd repo
 git fetch -q ~/uta-gate.bundle $SHA
 git checkout -q -f --detach $SHA
-git clean -qffdx -e /build-ci/
+# MSYS_NO_PATHCONV: Git Bash rewrites an argument starting with / into a path
+# under its install directory, so "-e /build-ci/" excluded nothing and every
+# run deleted the warm build tree -- a cold 528 s MSVC build each push.
+MSYS_NO_PATHCONV=1 git clean -qffdx -e /build-ci/
 ./scripts/ci.sh
 EOF
     ) >"$WIN_LOG" 2>&1 &
