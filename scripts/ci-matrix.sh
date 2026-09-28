@@ -51,6 +51,15 @@ GCC14_DIR=/usr/lib64/gcc/x86_64-suse-linux/14
 STATE=${XDG_CACHE_HOME:-$HOME/.cache}/uta-gate
 mkdir -p "$STATE"
 SHA=$(git rev-parse HEAD)
+
+# One gate at a time (UTA-0222). Two share the Windows machine's checkout, so
+# a second run's `checkout -f` could land mid-build of the first -- a false
+# green -- and in place they share the Linux build trees too. The second waits.
+exec 9>"$STATE/gate.lock"
+if ! flock -n 9; then
+    printf '== another gate is running; waiting for it to finish\n'
+    flock 9
+fi
 WIN_LOG="$STATE/windows-${SHA:0:12}.log"
 WIN_DONE=UTA-GATE-DONE # the remote script's completion marker (UTA-0233)
 
@@ -72,7 +81,28 @@ done
 # ── Windows: start it first ─────────────────────────────────────────────────
 
 win_pid=
-if ssh -o BatchMode=yes -o ConnectTimeout=5 "$WIN_HOST" exit 2>/dev/null; then
+# Ctrl-C or a killed push stops the Windows leg rather than leaving it running
+# (UTA-0222); the remote script also clears what an aborted run left.
+stop_windows() {
+    if [[ -n $win_pid ]]; then
+        pkill -TERM -P "$win_pid" 2>/dev/null # its ssh and scp
+        kill "$win_pid" 2>/dev/null
+    fi
+    return 0
+}
+trap stop_windows EXIT
+trap 'stop_windows; exit 130' INT
+trap 'stop_windows; exit 143' TERM
+
+# Unreachable is not misconfigured (UTA-0222). A machine that is off or away
+# lets the push go (user decision, 2026-09-25); an alias, key or host key that
+# is wrong would drop MSVC from every push in silence, so it fails the gate.
+probe_err=$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$WIN_HOST" exit 2>&1 >/dev/null) && reachable=true || reachable=false
+if ! $reachable && grep -qiE 'permission denied|host key verification failed|could not resolve hostname|no such identity|bad configuration|unknown option' <<<"$probe_err"; then
+    banner "WINDOWS LEG MISCONFIGURED: ssh $WIN_HOST refused, not unreachable: $probe_err"
+    exit 1
+fi
+if $reachable; then
     printf '== Windows (MSVC) leg starting on %s; log: %s\n' "$WIN_HOST" "$WIN_LOG"
     # Keep-alives, so a link that dies without a reset (the machine sleeps, Wi-Fi
     # drops) ends in about a minute as WINDOWS LEG NOT RUN instead of hanging the
@@ -80,9 +110,11 @@ if ssh -o BatchMode=yes -o ConnectTimeout=5 "$WIN_HOST" exit 2>/dev/null; then
     alive=(-o ServerAliveInterval=15 -o ServerAliveCountMax=4)
     (
         set -e
-        bundle="$STATE/push.bundle"
+        bundle="$STATE/push-${SHA:0:12}.bundle"
         git bundle create "$bundle" HEAD 2>/dev/null
         scp -q "${alive[@]}" "$bundle" "$WIN_HOST:uta-gate.bundle" || exit 255 # the link, not the build
+        scp -q "${alive[@]}" scripts/windows-gate-reap.sh "$WIN_HOST:uta-gate-reap.sh" || exit 255
+        rm -f "$bundle"
         # Piped on stdin: the machine's SSH shell is cmd.exe, which mangles any
         # quoting a script passed as an argument would need. $SHA expands here,
         # on purpose; nothing else in the script does.
@@ -100,6 +132,10 @@ mkdir -p ~/uta-gate
 cd ~/uta-gate
 [ -d repo/.git ] || git init -q repo
 cd repo
+# A dropped connection does NOT end the remote script (measured), so what the
+# last aborted run left is stopped before this one touches the checkout
+# (UTA-0222).
+bash ~/uta-gate-reap.sh
 git fetch -q ~/uta-gate.bundle $SHA
 git checkout -q -f --detach $SHA
 # MSYS_NO_PATHCONV: Git Bash rewrites an argument starting with / into a path
@@ -161,6 +197,7 @@ if [[ -n $win_pid ]]; then
     printf '\n== waiting for the Windows (MSVC) leg\n'
     win_status=0
     wait "$win_pid" || win_status=$?
+    win_pid= # collected: nothing left for the EXIT trap to stop
     tr -d '\r' <"$WIN_LOG" | tail -n 25
     # The remote script's own status, if it finished; empty if it never did.
     win_rc=$(tr -d '\r' <"$WIN_LOG" | sed -n "s/^$WIN_DONE rc=\([0-9]*\)\$/\1/p" | tail -n 1)
