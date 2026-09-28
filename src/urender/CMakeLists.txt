@@ -63,22 +63,21 @@ function(uta_embed_shaders target)
         string(MAKE_C_IDENTIFIER "${name}_spv" identifier)
         set(spirv "${out_dir}/${name}.spv")
         set(header "${out_dir}/${name}.spv.h")
+        # ONE command, compile then embed. As two commands the embed depended
+        # on the compile's output, and MSBuild's multi-tool task -- which the
+        # ccache route in the root CMakeLists.txt turns on (UTA-0235) -- ran
+        # them side by side, so the embed read a .spv not yet written.
         add_custom_command(
-            OUTPUT "${spirv}"
+            OUTPUT "${spirv}" "${header}"
             COMMAND Vulkan::glslc --target-env=vulkan1.3 -O
                     -I "${UTA_SHADER_DIR}" -I "${UTA_FSR1_DIR}"
                     -MD -MF "${spirv}.d" -MT "${spirv}"
                     -o "${spirv}" "${path}"
-            DEPENDS "${path}"
-            DEPFILE "${spirv}.d"
-            COMMENT "glslc ${name}"
-            VERBATIM)
-        add_custom_command(
-            OUTPUT "${header}"
             COMMAND "${CMAKE_COMMAND}" -DINPUT=${spirv} -DOUTPUT=${header} -DNAME=${identifier}
                     -P "${UTA_EMBED_SPIRV}"
-            DEPENDS "${spirv}" "${UTA_EMBED_SPIRV}"
-            COMMENT "embed ${name}"
+            DEPENDS "${path}" "${UTA_EMBED_SPIRV}"
+            DEPFILE "${spirv}.d"
+            COMMENT "glslc and embed ${name}"
             VERBATIM)
         target_sources(${target} PRIVATE "${header}")
     endforeach()
