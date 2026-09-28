@@ -189,23 +189,57 @@ TEST_CASE("UTA-0208: the baker version is read from ut-bake's game-type run", "[
 TEST_CASE("UTA-0208: a bake is current only when today's baker made it", "[client]") {
     const TempDir data;
     const stdfs::path results = data.path() / "results";
-    REQUIRE(writeResult(results, "MH-A", {.bakerVersion = "r21-f14-l0a"}));
+    const stdfs::path map = data.path() / "MH-A.unr";
+    const stdfs::path bundle = data.path() / "MH-A.utab";
+    std::ofstream(map) << "map";
+    std::ofstream(bundle) << "bundle";
+    REQUIRE(writeResult(results, "MH-A",
+                        {.bakerVersion = "r21-f14-l0a", .bundle = bundle, .mapStamp = mapStampOf(map)}));
     const auto baked = readResult(results, "MH-A");
     REQUIRE(baked.has_value());
     CHECK(baked->bakerVersion == "r21-f14-l0a");
+    CHECK(baked->bundle == bundle);
 
-    CHECK(isCurrentBake(*baked, "r21-f14-l0a"));
-    CHECK_FALSE(isCurrentBake(*baked, "r22-f14-l0a")); // the baker moved
-    CHECK_FALSE(isCurrentBake(*baked, "r21-f15-l0a")); // the format moved
-    CHECK_FALSE(isCurrentBake(*baked, ""));            // ut-bake gave no answer
-    CHECK_FALSE(isCurrentBake({.failed = true, .bakerVersion = "r21-f14-l0a"}, "r21-f14-l0a"));
+    CHECK(isCurrentBake(*baked, "r21-f14-l0a", map));
+    CHECK_FALSE(isCurrentBake(*baked, "r22-f14-l0a", map)); // the baker moved
+    CHECK_FALSE(isCurrentBake(*baked, "r21-f15-l0a", map)); // the format moved
+    CHECK_FALSE(isCurrentBake(*baked, "", map));            // ut-bake gave no answer
+    CHECK(bakeState(*baked, "r22-f14-l0a", map) == BakeState::OlderBaker);
+    CHECK_FALSE(isCurrentBake({.failed = true, .bakerVersion = "r21-f14-l0a"}, "r21-f14-l0a", map));
 
     // A result written before UTA-0208 names no baker, so nothing says it is current.
     std::ofstream(results / "MH-B.txt") << "baked\n";
     const auto old = readResult(results, "MH-B");
     REQUIRE(old.has_value());
     CHECK_FALSE(old->failed);
-    CHECK_FALSE(isCurrentBake(*old, "r21-f14-l0a"));
+    CHECK_FALSE(isCurrentBake(*old, "r21-f14-l0a", map));
+}
+
+TEST_CASE("UTA-0220: a bake whose bundle is gone or whose map changed is not current", "[client]") {
+    const TempDir data;
+    const stdfs::path results = data.path() / "results";
+    const stdfs::path map = data.path() / "MH-A.unr";
+    const stdfs::path bundle = data.path() / "MH-A.utab";
+    std::ofstream(map) << "map";
+    std::ofstream(bundle) << "bundle";
+    const MapResult result{.bakerVersion = "r21-f14-l0a", .bundle = bundle, .mapStamp = mapStampOf(map)};
+    REQUIRE(bakeState(result, "r21-f14-l0a", map) == BakeState::Current);
+
+    // A result written before UTA-0220 names no bundle, so nothing says one exists.
+    stdfs::create_directories(results);
+    std::ofstream(results / "MH-C.txt") << "baked\nr21-f14-l0a\n";
+    const auto old = readResult(results, "MH-C");
+    REQUIRE(old.has_value());
+    CHECK(bakeState(*old, "r21-f14-l0a", map) == BakeState::BundleGone);
+
+    // The map edited since the bake: its size moves.
+    std::ofstream(map, std::ios::app) << "edited";
+    CHECK(bakeState(result, "r21-f14-l0a", map) == BakeState::MapChanged);
+
+    // The cache cleared: the bundle is gone, whatever the map did.
+    stdfs::remove(bundle);
+    CHECK(bakeState(result, "r21-f14-l0a", map) == BakeState::BundleGone);
+    CHECK_FALSE(isCurrentBake(result, "r21-f14-l0a", map));
 }
 
 TEST_CASE("UTA-0170: notes round-trip and empty notes remove the file", "[client]") {

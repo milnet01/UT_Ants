@@ -312,11 +312,23 @@ Result<LauncherPaths> launcherPaths() {
 std::optional<MapResult> readResult(const std::filesystem::path& results, std::string_view map) {
     const std::string text = readText(fileFor(results, map)).value_or(std::string());
     if (text.starts_with("baked")) {
-        // UTA-0208: the second line names the baker. A file written before
-        // that has none.
-        std::string baker = text.substr(std::min(text.size(), std::string_view("baked\n").size()));
-        if (const std::size_t end = baker.find_first_of("\r\n"); end != std::string::npos) baker.resize(end);
-        return MapResult{.bakerVersion = std::move(baker)};
+        // Line 2 names the baker (UTA-0208), line 3 the bundle and line 4 the
+        // map's stamp (UTA-0220). A file written before either lacks them.
+        std::vector<std::string> lines;
+        std::size_t start = 0;
+        while (start <= text.size()) {
+            std::size_t end = text.find('\n', start);
+            if (end == std::string::npos) end = text.size();
+            std::string line = text.substr(start, end - start);
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            lines.push_back(std::move(line));
+            start = end + 1;
+        }
+        const auto at = [&](std::size_t i) { return i < lines.size() ? lines[i] : std::string(); };
+        const std::string bundle = at(2); // written as UTF-8, whatever the platform's narrow encoding
+        return MapResult{.bakerVersion = at(1),
+                         .bundle = std::filesystem::path(std::u8string(bundle.begin(), bundle.end())),
+                         .mapStamp = at(3)};
     }
     if (!text.starts_with("failed")) return std::nullopt;
     std::string why = text.substr(std::min(text.size(), std::string_view("failed\n").size()));
@@ -325,12 +337,33 @@ std::optional<MapResult> readResult(const std::filesystem::path& results, std::s
 }
 
 Result<void> writeResult(const std::filesystem::path& results, std::string_view map, const MapResult& result) {
-    return writeText(fileFor(results, map),
-                     result.failed ? "failed\n" + result.failure + "\n" : "baked\n" + result.bakerVersion + "\n");
+    if (result.failed) return writeText(fileFor(results, map), "failed\n" + result.failure + "\n");
+    const std::u8string bundle = result.bundle.u8string();
+    return writeText(fileFor(results, map), "baked\n" + result.bakerVersion + "\n" +
+                                                std::string(bundle.begin(), bundle.end()) + "\n" +
+                                                result.mapStamp + "\n");
 }
 
-bool isCurrentBake(const MapResult& result, std::string_view currentBaker) {
-    return !result.failed && !currentBaker.empty() && result.bakerVersion == currentBaker;
+std::string mapStampOf(const std::filesystem::path& map) {
+    std::error_code ec;
+    const auto size = std::filesystem::file_size(map, ec);
+    if (ec) return {};
+    const auto time = std::filesystem::last_write_time(map, ec);
+    if (ec) return {};
+    return std::to_string(size) + ":" + std::to_string(time.time_since_epoch().count());
+}
+
+BakeState bakeState(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map) {
+    if (currentBaker.empty() || result.bakerVersion != currentBaker) return BakeState::OlderBaker;
+    std::error_code ec;
+    if (result.bundle.empty() || !std::filesystem::is_regular_file(result.bundle, ec)) return BakeState::BundleGone;
+    const std::string stamp = mapStampOf(map);
+    if (stamp.empty() || stamp != result.mapStamp) return BakeState::MapChanged;
+    return BakeState::Current;
+}
+
+bool isCurrentBake(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map) {
+    return !result.failed && bakeState(result, currentBaker, map) == BakeState::Current;
 }
 
 Result<std::string> readNotes(const std::filesystem::path& notes, std::string_view map) {

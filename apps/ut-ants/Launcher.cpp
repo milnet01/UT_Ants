@@ -255,6 +255,8 @@ private:
         const MapFile* const map = selected();
         if (map == nullptr || busy_ != Busy::No) return;
         opening_ = map->name;
+        // UTA-0220: the map as the baker is about to read it.
+        openingStamp_ = mapStampOf(map->path);
         busy_ = Busy::Baking;
         started_ = SDL_GetTicks();
         child_.start({besideThisProgram("ut-bake"), "--install", options_.install.string(), "--out",
@@ -272,7 +274,9 @@ private:
                 busy_ = Busy::No;
                 return;
             }
-            record(opening_, {.bakerVersion = answer.bakerVersion});
+            record(opening_, {.bakerVersion = answer.bakerVersion,
+                              .bundle = answer.path,
+                              .mapStamp = openingStamp_});
             std::vector<std::string> args{besideThisProgram("ut-ants")};
             if (options_.windowed) args.emplace_back("--windowed");
             if (options_.validation) args.emplace_back("--validation");
@@ -490,7 +494,10 @@ private:
             const std::optional<MapResult>& result = results_[index];
             // UTA-0208: a stale bake is not called baked. It bakes again when picked.
             std::string_view tag;
-            if (result) tag = result->failed ? "FAILED" : isCurrentBake(*result, bakerVersion_) ? "baked" : "";
+            if (result)
+                tag = result->failed                                            ? "FAILED"
+                      : isCurrentBake(*result, bakerVersion_, maps_[index].path) ? "baked"
+                                                                                : "";
             colour(235, 235, 235);
             text(column, row + i, clipped(maps_[index].name, width - 7));
             if (!tag.empty()) {
@@ -521,13 +528,17 @@ private:
         } else if (result->failed) {
             colour(245, 120, 110);
             paragraph("Failed: " + result->failure);
-        } else if (isCurrentBake(*result, bakerVersion_)) {
+        } else if (const BakeState state = bakeState(*result, bakerVersion_, map->path); state == BakeState::Current) {
             colour(130, 210, 130);
             paragraph("Baked. Enter opens it.");
         } else {
+            // UTA-0220: say why it must be baked again, not only that it must.
             colour(170, 170, 185);
-            paragraph("Baked by an older ut-bake, so it must be baked again. Enter bakes it, which can take a "
-                      "minute, then opens it.");
+            const char* const why = state == BakeState::OlderBaker   ? "Baked by an older ut-bake"
+                                    : state == BakeState::BundleGone ? "Its baked copy is gone (a cleared cache?)"
+                                                                     : "The map changed since it was baked";
+            paragraph(std::string(why) + ", so it must be baked again. Enter bakes it, which can take a minute, "
+                      "then opens it.");
         }
         line += 1;
 
@@ -569,6 +580,7 @@ private:
 
     Busy busy_ = Busy::No;
     std::string opening_;
+    std::string openingStamp_; ///< UTA-0220: mapStampOf the map when its bake began
     Uint64 started_ = 0;
     Child child_;
 };

@@ -84,13 +84,32 @@ struct MapResult {
     bool failed = false;
     std::string failure;       ///< why, when failed
     std::string bakerVersion;  ///< UTA-0208: the baker that made it; empty when unknown
+    std::filesystem::path bundle; ///< UTA-0220: where the bake was written; empty when unknown
+    std::string mapStamp;         ///< UTA-0220: mapStampOf the map when it was baked
 };
 
-/// UTA-0208: whether `result` is a bake today's baker would reuse. A bake goes
-/// stale when the baker revision, the bundle format or the material library
-/// moves, and `bakerVersion` names all three. An unknown version on either side
-/// is not current: nothing then says the bake is.
-[[nodiscard]] bool isCurrentBake(const MapResult& result, std::string_view currentBaker);
+/// UTA-0220: the map file's size and modification time, as one string, or
+/// empty when it cannot be read. A bake records it, so an edited map shows.
+[[nodiscard]] std::string mapStampOf(const std::filesystem::path& map);
+
+/// Why a successful bake is or is not the one Enter would open.
+enum class BakeState {
+    Current,    ///< today's baker made it, its bundle is there, the map is unchanged
+    OlderBaker, ///< UTA-0208: the baker, bundle format or material library moved
+    BundleGone, ///< UTA-0220: the bundle is not where the bake wrote it -- a cleared cache
+    MapChanged, ///< UTA-0220: the map's size or time moved since the bake
+};
+
+/// The state of a successful bake of `map`, checked in that order. An unknown
+/// value on either side is never Current: nothing then says the bake is. A
+/// changed IMPORT with the map unchanged is not seen; the baker still rebakes
+/// it, since its bake name hashes the imports.
+[[nodiscard]] BakeState bakeState(const MapResult& result, std::string_view currentBaker,
+                                  const std::filesystem::path& map);
+
+/// Whether Enter opens `result`'s bake as it is: a success that is Current.
+[[nodiscard]] bool isCurrentBake(const MapResult& result, std::string_view currentBaker,
+                                 const std::filesystem::path& map);
 
 /// The last outcome recorded for `map`, or nothing when it was never opened.
 [[nodiscard]] std::optional<MapResult> readResult(const std::filesystem::path& results, std::string_view map);
