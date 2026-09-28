@@ -13047,18 +13047,22 @@ stays with movement in 0.2.0.
   Kind: chore.
   Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
 
-- 📋 [UTA-0233] **A Windows leg that fails with status 255 is reported as not run.**
+- ✅ [UTA-0233] **A Windows leg that fails with status 255 is reported as not run.**
   scripts/ci-matrix.sh's collect step maps exit 255 to "NOT RUN
   (connection lost)". ssh passes the remote command's status through,
   so ci.sh exiting 255 on Windows reads as a lost link and passes the
   push. Tell the two apart by something only the transport produces,
   for example a marker the remote script prints on completion, with its
   own exit status.
+  Resolved (2026-09-28, 377e6f9): the remote script prints UTA-GATE-DONE
+  rc=N from an EXIT trap; a marker decides, no marker with 255 is a lost
+  link, anything else RED. Probed live on wintest-gate. Green on
+  GitHub's matrix.
   **Layman:** If the Windows test fails in one rare way, the pre-push check wrongly treats it as 'could not connect' and lets the push through.
   Kind: fix.
   Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
 
-- 📋 [UTA-0234] **Print how long each ci.sh step takes, so gate speed-ups aim at measurement.**
+- ✅ [UTA-0234] **Print how long each ci.sh step takes, so gate speed-ups aim at measurement.**
   ci.sh prints each step's name but no time. GitHub gives only a whole
   "Run the gate" figure per leg, and the local gate prints nothing. So
   whether configure, build, test or the race detector dominates is not
@@ -13066,6 +13070,10 @@ stays with movement in 0.2.0.
   elapsed seconds after each step, and a table at the end. Do this first:
   the items filed beside it read their payoff off its output.
   Not part of 0.1.0's cut.
+  Resolved (2026-09-28, edd4a57): ci.sh prints each step's seconds and a
+  table on exit, red runs included. Green on GitHub's matrix. First
+  reading: the local Windows leg spent 528 s building, which exposed the
+  clean bug fixed in f749593.
   **Layman:** Make the checks report how long each part takes, so we speed up the slow parts rather than guessing.
   Kind: perf.
   Source: user-request-2026-09-27.
@@ -13124,7 +13132,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-27.
   Lanes: ci.
 
-- 📋 [UTA-0238] **Keep the local gate's Linux build folders between pushes.**
+- ✅ [UTA-0238] **Keep the local gate's Linux build folders between pushes.**
   The machine-wide pre-push hook runs the gate in a fresh
   ~/.cache/pre-push/tmp.XXXXXX worktree, so ci-matrix.sh's build-ci-gcc14
   and build-ci-clang19 (and their -tsan twins) start empty on every push.
@@ -13136,12 +13144,16 @@ stays with movement in 0.2.0.
   Guard against a stale CMakeCache: reconfigure fresh when CMakeLists or
   the toolchain changes. Check against local-gate.md § 5, which requires
   the run to answer for the pushed commit, not for leftovers.
+  Resolved (2026-09-28, 47a4c9d): ants.gate.inPlace via setup-hooks.sh,
+  plus a ci-matrix.sh guard that fails the gate if the tree changes
+  mid-run. Linux legs 89 s / 96 s cold -> 32 s / 39 s warm (with
+  UTA-0242). Green on GitHub's matrix.
   **Layman:** Before every push the local check starts from empty build folders; reusing them would skip the setup work it repeats each time.
   Kind: perf.
   Source: user-request-2026-09-27.
   Lanes: ci.
 
-- 📋 [UTA-0239] **Save the Linux compiler cache even when the gate fails, and prune old entries.**
+- ✅ [UTA-0239] **Save the Linux compiler cache even when the gate fails, and prune old entries.**
   local-gate.md § 9's cache row: save with if: always(), since a job
   that fails or times out skips actions/cache's post-step save and every
   later run starts colder. ci.yml's "Keep the compiler cache between
@@ -13153,12 +13165,16 @@ stays with movement in 0.2.0.
   Refute: a failed run followed by a run that restores the failed run's
   cache and is no faster than one restoring an older cache.
   Not part of 0.1.0's cut.
+  Resolved (2026-09-28, 9a11a00): restore + always() save + a prune that
+  deletes the same compiler's older entries once this commit's is
+  stored. Repository caches 12.4 GB in 13 entries -> 3 entries, about 2
+  GB. Green on GitHub's matrix.
   **Layman:** GitHub only keeps the build cache when a run passes, so one failure makes the next run slower; keep it either way and tidy old copies.
   Kind: perf.
   Source: user-request-2026-09-28.
   Lanes: ci.
 
-- 📋 [UTA-0240] **Key GitHub's concurrency group on the event, and stop cancelling runs on main.**
+- ✅ [UTA-0240] **Key GitHub's concurrency group on the event, and stop cancelling runs on main.**
   ci.yml's group is ci-${{ github.ref }} with cancel-in-progress: true.
   local-gate.md § 9 says the key holds the workflow, the event and the
   ref, and cancels on non-default branches only: on main a cancelled
@@ -13169,6 +13185,9 @@ stays with movement in 0.2.0.
   'refs/heads/main' }}. Pairs with UTA-0236, which makes the queued
   docs-only run cheap.
   Not part of 0.1.0's cut.
+  Resolved (2026-09-28, d9032b8): group is workflow-event-ref;
+  cancel-in-progress only off main. Green on GitHub's matrix; later main
+  runs queued rather than cancelled.
   **Layman:** On the main branch, a new push cancels the previous check, which hides which change broke things; only cancel on side branches.
   Kind: fix.
   Source: user-request-2026-09-28.
@@ -13188,7 +13207,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-28.
   Lanes: ci.
 
-- 📋 [UTA-0242] **Run ctest in parallel, with a per-test timeout.**
+- ✅ [UTA-0242] **Run ctest in parallel, with a per-test timeout.**
   scripts/ci.sh runs both ctest calls serially with no --timeout.
   local-gate.md § 9: safe only when tests share no state (ports, temp
   paths, config directories) and each has a timeout. Check the device
@@ -13198,6 +13217,11 @@ stays with movement in 0.2.0.
   not CPU count. Repeat-run with --repeat until-fail:5 before trusting
   it. Size the payoff with UTA-0234 first.
   Not part of 0.1.0's cut.
+  Resolved (2026-09-28, ae41c9d): ctest -j $(nproc) --timeout 300,
+  UTA_CI_TEST_JOBS overrides. TSan tier 31.7 s -> 4.9 s at -j12, Release
+  8.4 s -> 2.3 s, Windows 27 s -> 18 s. Repeat-run until-fail:5 green on
+  every tier and on lavapipe. Two clock-salted temp dirs now use
+  random_device. Green on GitHub's matrix.
   **Layman:** The tests run one at a time; running several at once could make the check faster, once we know they don't trip over each other.
   Kind: perf.
   Source: user-request-2026-09-28.
