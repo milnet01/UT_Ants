@@ -10835,6 +10835,9 @@ stays with movement in 0.2.0.
   (~/.cache/uta-census/after/run.sh, output after/census.ndjson). When
   it ends, tally what still skips and file the one-offs; the Format case
   is UTA-0118's. Flip this item once fb93a38 is green on GitHub.
+  Deferred (2026-09-28): rule-1 review fixes are being taken ahead of it
+  (UTA-0219..0223 shipped; UTA-0224..0229 open). Clear this note when
+  UTA-0177 is picked up.
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
