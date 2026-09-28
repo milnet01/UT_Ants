@@ -38,9 +38,13 @@ on:
 permissions:
   contents: read
 
+# UTA-0240, local-gate.md § 9. The key holds the workflow, the event and the
+# ref, so a push and a manual run never cancel each other. On main nothing is
+# cancelled: a cancelled run there hides which commit broke the build, and a
+# documentation-only push now costs seconds (UTA-0236). Other branches cancel.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   gate:
