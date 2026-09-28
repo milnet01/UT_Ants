@@ -12834,7 +12834,7 @@ stays with movement in 0.2.0.
   Kind: perf.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0219] **Settle whether a walking bot may take an R_PLAYERONLY reach spec.**
+- ✅ [UTA-0219] **Settle whether a walking bot may take an R_PLAYERONLY reach spec.**
   src/unav/Reach.h:31/:50 says R_PLAYERONLY is never a bot's, and
   mayTraverse defaults player=false; tools/ut-paths/Seeds.cpp:47,58-61
   BOT_MOVE_FLAGS grants it, citing APawn::calcMoveFlags. mayTraverse has
@@ -12843,27 +12843,43 @@ stays with movement in 0.2.0.
   or correct Reach.h. Related: unav/Build.cpp:131,150,315-316 match
   class and Tag/Event names case-sensitively, and :51 folds with the
   locale's tolower.
+  Resolved (2026-09-28, 36b2fdc): a Bot sets bIsPlayer
+  (Bot.PreBeginPlay), flags 125, so R_PLAYERONLY is a bot's; Reach.h
+  corrected and PawnMoves' default is the walking Bot; ut-paths routes
+  through mayTraverse. unav/Build.cpp matches class, ancestor and
+  Tag/Event property names ASCII case-insensitively. The Tag-to-Event
+  value match stays exact per UTA-0121's spec § 4.4. Real-asset tier
+  19/19. Green on GitHub's matrix.
   **Layman:** Two parts of the code disagree about which paths bots may use, so one of them is routing bots wrongly.
   Kind: investigate.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0220] **The launcher's Baked tag survives a cache clear and a changed map.**
+- ✅ [UTA-0220] **The launcher's Baked tag survives a cache clear and a changed map.**
   apps/ut-ants/Launcher.cpp:514-516 and :483 read the result file in
   the state directory, which a cache clear does not remove
   (MapList.h:74-75), and ignore a changed .unr or import (the bake name
   hashes both, ubake/Name.cpp:78-130). Record the bundle path in the
   result and check it exists, or word the tag as baked before. A
   neighbour of UTA-0208.
+  Resolved (2026-09-28, 805e54d): results record the bundle path and the
+  map's size+mtime; bakeState says Current / OlderBaker / BundleGone /
+  MapChanged, and the detail pane names which. Not seen: an imported
+  package changing with the map untouched. Green on GitHub's matrix.
   **Layman:** The map list can say a map is ready to open when its baked copy is gone or out of date, so picking it starts a long bake instead.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0221] **Pass paths to SDL and ut-bake as UTF-8 on Windows.**
+- ✅ [UTA-0221] **Pass paths to SDL and ut-bake as UTF-8 on Windows.**
   path::string() is the ANSI code page on Windows: apps/ut-ants/
   Launcher.cpp:250-251, :275, :284-285, :39 and main.cpp:55-60 hand it
   to SDL, which expects UTF-8, and path(const char*) reads SDL's base
   path as ANSI. MapList.cpp:273 already uses u8string. Also
   ut-dump/Cli.cpp:910.
+  Resolved (2026-09-28, 4021be1, 0288d20): fs::utf8/pathFromUtf8 at
+  every SDL, command-line and JSON path; cmake/utf8.manifest links
+  activeCodePage UTF-8 into every MSVC executable (user's choice; needs
+  Windows 10 1903). The narrow-encoding test failed on wintest-gate
+  before the manifest and passed after. Green on GitHub's matrix.
   **Layman:** On Windows, an install folder or user name with accented letters can reach the baker garbled.
   Kind: fix.
   Source: review-code-2026-09-26.
@@ -13035,7 +13051,7 @@ stays with movement in 0.2.0.
   Kind: chore.
   Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
 
-- 📋 [UTA-0232] **Check that ci-matrix.sh's legs match ci.yml's matrix.**
+- ✅ [UTA-0232] **Check that ci-matrix.sh's legs match ci.yml's matrix.**
   local-gate.md § 3 (034c1be): a wrapper that loops legs over the
   script the workflow calls is not a mirror, provided a check compares
   its leg list with the workflow's. None exists. Add a step to ci.sh so
@@ -13043,6 +13059,9 @@ stays with movement in 0.2.0.
   ci.yml's matrix.include against ci-matrix.sh's run_leg lines and its
   Windows leg. Compare compilers, not display names. ~/.claude/tools/ci-gate
   still reports NOT MAPPED for the wrapper; claude-config was told.
+  Resolved (2026-09-28, 199a1a9): scripts/check-legs.sh, run by ci.sh in
+  both modes, compares cc/cxx pairs plus msvc on both sides; a changed
+  compiler and a dropped leg each fail it. Green on GitHub's matrix.
   **Layman:** The local pre-push check and GitHub's check should always test the same compilers; add a check that says so when they drift.
   Kind: chore.
   Source: review-code-2026-09-27 (local-gate.md field pass for claude-config).
@@ -13249,7 +13268,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-28.
   Lanes: ci, tests.
 
-- 🚧 [UTA-0243] **Keep the fetched libraries' sources between GitHub runs.**
+- ✅ [UTA-0243] **Keep the fetched libraries' sources between GitHub runs.**
   GitHub's configure step took 33-50 s per job, every run from nothing.
   Measured locally: a fresh configure takes 29 s with the glm, SDL3 and
   Catch2 clones and 17 s with their sources already present. ci.sh takes
@@ -13259,6 +13278,12 @@ stays with movement in 0.2.0.
   EXACT key over CMakeLists.txt and tests/CMakeLists.txt, which pin the
   tags, saves on always(), prunes superseded keys, and skips it on tags.
   Not part of 0.1.0's cut.
+  Resolved (2026-09-28, 3ebf88c): configure with kept sources -- Windows
+  62 -> 35 s, Clang 49 -> 32 s, GCC unchanged within noise. The first
+  run after the move missed every library object in ccache (the sources
+  moved outside base_dir); a re-run showed jobs at 1:56-2:16. The miss
+  recurs once per library tag bump or CMakeLists.txt change. Green on
+  GitHub's matrix.
   **Layman:** GitHub downloads the same three libraries on every run; keep a copy so its setup step is faster.
   Kind: perf.
   Source: user-request-2026-09-28.
