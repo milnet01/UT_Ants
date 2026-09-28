@@ -318,7 +318,9 @@ jobs:
               echo "$KEEP is not stored; nothing pruned."
               continue
             fi
-            jq -r '.[] | select(.key != env.KEEP) | .id' <<<"$keys" |
+            # tr: jq on Windows ends lines with CR, which gh then reads as part
+            # of the id ("Could not find a cache matching 8220280016").
+            jq -r '.[] | select(.key != env.KEEP) | .id' <<<"$keys" | tr -d '\r' |
               while read -r id; do
                 gh cache delete --repo "$GITHUB_REPOSITORY" "$id"
               done
