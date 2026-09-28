@@ -28,7 +28,7 @@ enum ReachFlag : std::int32_t {
     R_JUMP = 8,         ///< a jump
     R_DOOR = 16,        ///< a door that must be opened
     R_SPECIAL = 32,     ///< special handling: a teleporter, a lift
-    R_PLAYERONLY = 64,  ///< players only, never a bot
+    R_PLAYERONLY = 64,  ///< pawns with bIsPlayer: players and bots, never a monster
 };
 
 /// Every bit a flag above names.
@@ -39,7 +39,8 @@ inline constexpr std::int32_t KNOWN_REACH_FLAGS = R_WALK | R_FLY | R_SWIM | R_JU
     return reachFlags & ~KNOWN_REACH_FLAGS;
 }
 
-/// What a pawn can do and how big it is: APawn::calcMoveFlags' inputs.
+/// What a pawn can do and how big it is: APawn::calcMoveFlags' inputs. The
+/// defaults are a walking Botpack.Bot, measured at flags 125 (UTA-0219).
 struct PawnMoves {
     bool walk = true;
     bool fly = false;
@@ -47,7 +48,7 @@ struct PawnMoves {
     bool jump = true;
     bool openDoors = true;
     bool special = true;  ///< may use teleporters and lifts
-    bool player = false;  ///< a player, so R_PLAYERONLY is allowed
+    bool player = true;   ///< bIsPlayer: a player or a bot (Bot.PreBeginPlay sets it); false for a monster
     std::int32_t collisionRadius = 17;
     std::int32_t collisionHeight = 39;
 };

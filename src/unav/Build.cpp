@@ -3,7 +3,6 @@
 #include "upkg/Properties.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cstddef>
 #include <limits>
 #include <map>
@@ -45,12 +44,26 @@ bool isClassExport(const ExportEntry& entry) {
     return entry.objectClass.kind() == ObjectReferenceKind::Null;
 }
 
+/// ASCII lower case. Not std::tolower, whose answer depends on the process
+/// locale (UTA-0219); UE1's names are ASCII-folded whatever the machine.
+char asciiLower(char character) {
+    return character >= 'A' && character <= 'Z' ? static_cast<char>(character - 'A' + 'a') : character;
+}
+
 std::string foldCase(std::string_view value) {
     std::string folded{value};
     for (char& character : folded) {
-        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+        character = asciiLower(character);
     }
     return folded;
+}
+
+/// Whether two names are the same FName. UE1 stores each name once, in the
+/// spelling first seen, and compares names ignoring case -- so a package may
+/// hold `navigationpoint` or `tag` for the name every other package spells
+/// `NavigationPoint` or `Tag` (UTA-0219).
+bool sameName(std::string_view left, std::string_view right) {
+    return std::ranges::equal(left, right, [](char a, char b) { return asciiLower(a) == asciiLower(b); });
 }
 
 /// The package an import ultimately lives in: follow its outer chain to the
@@ -128,7 +141,7 @@ Result<bool> descendsFromNavigationPoint(const Package& package, const ExportEnt
                     continue;
                 }
                 UTA_TRY(const std::string_view name, resolved->name(candidate.objectName));
-                if (name == className) {
+                if (sameName(name, className)) {
                     classHome = resolved;
                     classExport = &candidate;
                     break;
@@ -147,7 +160,7 @@ Result<bool> descendsFromNavigationPoint(const Package& package, const ExportEnt
                 upkg::readAncestry(*classHome, *classExport, resolver));
         for (const upkg::ResolvedClass& link : ancestry.chain) {
             UTA_TRY(const std::string_view name, link.package->name(link.entry->objectName));
-            if (name == NAVIGATION_POINT) {
+            if (sameName(name, NAVIGATION_POINT)) {
                 descends = true;
                 break;
             }
@@ -312,8 +325,8 @@ Result<WiringGraph> buildWiringGraph(const Package& package) {
                 continue;
             }
             UTA_TRY(const std::string_view name, package.name(property.nameIndex));
-            const bool isTag = name == TAG_PROPERTY;
-            if (!isTag && name != EVENT_PROPERTY) {
+            const bool isTag = sameName(name, TAG_PROPERTY);
+            if (!isTag && !sameName(name, EVENT_PROPERTY)) {
                 continue;
             }
             UTA_TRY(const std::string_view value,

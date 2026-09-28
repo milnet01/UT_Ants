@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <string>
 #include <vector>
 
 using uta::test::asBytes;
@@ -97,11 +98,11 @@ void addMapLocalClass(UnrealPackageBuilder& builder) {
 
 /// One switch firing a tag three doors share, one class export in the middle of
 /// the actors, and one actor firing at nothing.
-std::vector<std::uint8_t> wiringFixture() {
+std::vector<std::uint8_t> wiringFixture(std::string_view tag = "Tag", std::string_view event = "Event") {
     UnrealPackageBuilder builder;
     builder.addName("None");
-    builder.addName("Tag");
-    builder.addName("Event");
+    builder.addName(std::string{tag});
+    builder.addName(std::string{event});
     builder.addName("SwitchTag");
     builder.addName("DoorTag");
     builder.addName("MissingTag");
@@ -162,6 +163,17 @@ TEST_CASE("SS 4.3: a node is an actor carrying an explicit Tag or Event, and a c
     CHECK(graph.nodes[0].tag == "SwitchTag");
     CHECK(graph.nodes[1].tag == "DoorTag");
     CHECK(graph.nodes[4].tag.empty());
+}
+
+TEST_CASE("UTA-0219: the Tag and Event properties are found in any case, as UE1 finds them",
+          "[unav]") {
+    // UE1 keeps one spelling per name, the first a package met, so a map may
+    // store the property names as `tag` and `EVENT`.
+    const WiringGraph graph = graphOf(wiringFixture("tag", "EVENT"));
+    REQUIRE(graph.nodes.size() == 5);
+    CHECK(graph.nodes[0].tag == "SwitchTag");
+    CHECK(graph.nodes[1].tag == "DoorTag");
+    CHECK(graph.dangling.size() == 1);
 }
 
 TEST_CASE("INV-3: an Event reaches EVERY actor carrying the tag, not the first", "[unav]") {

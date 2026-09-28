@@ -11,6 +11,7 @@
 #include "ubake/Collision.h"
 #include "ubake/Movers.h"
 #include "unav/Build.h"
+#include "unav/Reach.h"
 #include "upkg/Geometry.h"
 #include "upkg/Level.h"
 
@@ -41,10 +42,11 @@ using ubundle::ValueKind;
 constexpr double LONGEST_HOP = 350;
 constexpr double TOO_NEAR = 50;
 
-/// SS 3 decision 10: the movement flags APawn::calcMoveFlags gives a walking
-/// bot -- R_WALK 1, R_SWIM 4, R_JUMP 8, R_DOOR 16, R_SPECIAL 32 and
-/// R_PLAYERONLY 64, every EReachSpecFlags value but R_FLY, 2.
-constexpr std::int32_t BOT_MOVE_FLAGS = 1 | 4 | 8 | 16 | 32 | 64;
+/// SS 3 decision 10: a walking bot at SS 3 decision 4's body. unav's default
+/// PawnMoves is that bot -- every EReachSpecFlags value but R_FLY, measured at
+/// 125 -- so ut-paths and unav cannot disagree about it again (UTA-0219).
+constexpr unav::PawnMoves BOT{};
+static_assert(BOT.collisionRadius == RADIUS && BOT.collisionHeight == HALF_HEIGHT);
 
 /// SS 4.6's touching test: inside the exit's collision cylinder grown by the
 /// body. SS 4.7 applies it to a navigation point by the same test a spot uses,
@@ -56,8 +58,7 @@ bool touches(const Vec3& p, const Cylinder& exit) {
 
 /// FReachSpec::supports for that bot at SS 3 decision 4's body.
 bool walkable(const unav::NavEdge& edge) {
-    return edge.collisionRadius >= RADIUS && edge.collisionHeight >= HALF_HEIGHT
-           && (edge.reachFlags & BOT_MOVE_FLAGS) == edge.reachFlags;
+    return unav::mayTraverse(edge, BOT);
 }
 
 constexpr std::array<double, 3> HEIGHTS = {-HALF_HEIGHT + STEP + 1, 0, HALF_HEIGHT - 1};

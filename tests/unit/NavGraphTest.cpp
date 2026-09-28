@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -117,10 +118,10 @@ void addActor(UnrealPackageBuilder& builder, std::int32_t nameIndex, std::int32_
 /// The classes are declared AFTER the actors that name them, which real content
 /// also does -- an object reference names a table slot and implies no ordering.
 /// It is what lets a navigation point sit at export 0.
-UnrealPackageBuilder navFixture() {
+UnrealPackageBuilder navFixture(std::string_view navigationPoint = "NavigationPoint") {
     UnrealPackageBuilder builder;
     builder.addName("None");
-    builder.addName("NavigationPoint");
+    builder.addName(std::string{navigationPoint});
     builder.addName("PathNode");
     builder.addName("Light");
     builder.addName("NodeA");
@@ -161,8 +162,9 @@ UnrealPackageBuilder navFixture() {
 
 /// Close the fixture with a Level export carrying whatever reach specs the case
 /// needs.
-std::vector<std::uint8_t> levelWith(const std::function<void(LevelExportWriter&)>& addSpecs) {
-    UnrealPackageBuilder builder = navFixture();
+std::vector<std::uint8_t> levelWith(const std::function<void(LevelExportWriter&)>& addSpecs,
+                                    std::string_view navigationPoint = "NavigationPoint") {
+    UnrealPackageBuilder builder = navFixture(navigationPoint);
 
     LevelExportWriter writer;
     writer.setProperties(emptyProperties());
@@ -230,6 +232,11 @@ TEST_CASE("SS 4.3: a node is an actor whose class DESCENDS from NavigationPoint"
     CHECK_FALSE(uta::unav::nodeOf(graph, EXPORT_LAMP).has_value());
     CHECK(graph.edges.empty());
     CHECK(graph.discardedEndpoints == 0u);
+}
+
+TEST_CASE("UTA-0219: NavigationPoint is matched as UE1 matches names, ignoring case", "[unav]") {
+    // A package may spell a class name in any case; FName comparison ignores it.
+    checkNodeSet(graphOf(levelWith([](LevelExportWriter&) {}, "navigationPOINT")));
 }
 
 TEST_CASE("INV-1: an edge carries the EXPORT indices its reach spec named", "[unav]") {

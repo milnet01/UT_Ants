@@ -33,20 +33,24 @@ TEST_CASE("UTA-0085: the flags carry UT99's EReachSpecFlags values", "[unav][rea
     CHECK(unknownReachBits(128 | 1) == 128);
 }
 
-TEST_CASE("UTA-0085: a walking bot takes walks and jumps and not flights", "[unav][reach]") {
+TEST_CASE("UTA-0085: a walking bot takes walks, jumps and player-only edges, not flights", "[unav][reach]") {
     const PawnMoves bot;
     CHECK(mayTraverse(edge(R_WALK), bot));
     CHECK(mayTraverse(edge(R_WALK | R_JUMP), bot));
     CHECK(mayTraverse(edge(R_WALK | R_SWIM | R_DOOR | R_SPECIAL), bot));
     CHECK_FALSE(mayTraverse(edge(R_FLY), bot));
-    CHECK_FALSE(mayTraverse(edge(R_WALK | R_PLAYERONLY), bot));
+    // UTA-0219: Bot.PreBeginPlay sets bIsPlayer, and calcMoveFlags adds
+    // R_PLAYERONLY for it -- a Botpack.Bot measured 125, every flag but R_FLY.
+    CHECK(mayTraverse(edge(R_WALK | R_PLAYERONLY), bot));
+    CHECK(moveFlagsOf(bot) == 125);
     CHECK_FALSE(mayTraverse(edge(R_WALK | 128), bot)); // an unknown bit is never satisfied
 }
 
-TEST_CASE("UTA-0085: a player may take a player-only edge and a flyer a flight", "[unav][reach]") {
-    PawnMoves player;
-    player.player = true;
-    CHECK(mayTraverse(edge(R_WALK | R_PLAYERONLY), player));
+TEST_CASE("UTA-0219: a monster may not take a player-only edge; a flyer may fly", "[unav][reach]") {
+    PawnMoves monster;
+    monster.player = false;
+    CHECK_FALSE(mayTraverse(edge(R_WALK | R_PLAYERONLY), monster));
+    CHECK(mayTraverse(edge(R_WALK), monster));
     PawnMoves flyer;
     flyer.fly = true;
     CHECK(mayTraverse(edge(R_FLY), flyer));
