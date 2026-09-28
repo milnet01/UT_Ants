@@ -247,12 +247,42 @@ step "configure ($GENERATOR, $CONFIG)"
 #   CC=clang-19 CXX=clang++-19 ./scripts/ci.sh
 printf '   compiler: %s\n' "${CXX:-the CMake default}"
 
-configure=(-S . -B "$BUILD_DIR" -G "$GENERATOR")
+# UTA_CI_DEPS_DIR: a directory of the fetched libraries' sources, kept between
+# GitHub runs so each configure does not clone them again (about 12 s of a
+# 29 s fresh configure, measured 2026-09-28). ci.yml keys it on the files
+# that pin the libraries' tags, so a new tag starts it empty. Complete, it is
+# handed to FetchContent; anything less and FetchContent downloads as usual,
+# and the sources it fetched are copied in afterwards. Unset -- every local
+# run -- changes nothing.
+DEPS=(glm sdl3 catch2)
+deps_args=()
+if [[ -n ${UTA_CI_DEPS_DIR:-} ]]; then
+    # .complete is written last, after every copy landed, so a directory a
+    # killed run half-filled is never mistaken for a whole one.
+    if [[ -f $UTA_CI_DEPS_DIR/.complete ]]; then
+        for dep in "${DEPS[@]}"; do
+            deps_args+=("-DFETCHCONTENT_SOURCE_DIR_${dep^^}=$UTA_CI_DEPS_DIR/$dep-src")
+        done
+        printf '   libraries: the kept sources in %s\n' "$UTA_CI_DEPS_DIR"
+    else
+        printf '   libraries: %s is incomplete, so they are downloaded\n' "$UTA_CI_DEPS_DIR"
+    fi
+fi
+
+configure=(-S . -B "$BUILD_DIR" -G "$GENERATOR" "${deps_args[@]}")
 case $GENERATOR in
     "Visual Studio"* | Xcode | "Ninja Multi-Config") ;; # multi-config: the config is chosen at build time
     *) configure+=(-DCMAKE_BUILD_TYPE="$CONFIG") ;;
 esac
 cmake "${configure[@]}"
+if [[ -n ${UTA_CI_DEPS_DIR:-} && ${#deps_args[@]} -eq 0 ]]; then
+    rm -rf "${UTA_CI_DEPS_DIR:?}"
+    mkdir -p "$UTA_CI_DEPS_DIR"
+    for dep in "${DEPS[@]}"; do
+        cp -R "$BUILD_DIR/_deps/$dep-src" "$UTA_CI_DEPS_DIR/"
+    done
+    touch "$UTA_CI_DEPS_DIR/.complete"
+fi
 
 step "build"
 # --parallel: Ninja builds in parallel by default, but the Visual Studio
@@ -312,7 +342,7 @@ else
     # say why it failed is not a gate.
     # The client is left out: its subject is this project's threads, and the
     # client adds only SDL3, which would be compiled instrumented for nothing.
-    cmake -S . -B "$TSAN_DIR" -G "$GENERATOR" \
+    cmake -S . -B "$TSAN_DIR" -G "$GENERATOR" "${deps_args[@]}" \
         -DCMAKE_BUILD_TYPE=Debug -DUTA_SANITIZE=thread -DUTA_BUILD_CLIENT=OFF
     cmake --build "$TSAN_DIR"
     # The unit tier alone, which is every test this step ran before the device

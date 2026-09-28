@@ -102,7 +102,13 @@ jobs:
           REF: ${{ github.ref }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
+          # The library-source cache's key (UTA-0243): per job, on the files
+          # that pin the libraries' tags.
+          JOB: ${{ matrix.cxx || 'msvc' }}
+          DEPS_HASH: >-
+            ${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
         run: |
+          echo "deps_key=deps-$JOB-$DEPS_HASH" >>"$GITHUB_OUTPUT"
           mode=full
           if [[ $EVENT == push && $REF == refs/heads/* && -n $BEFORE && ! $BEFORE =~ ^0+$ ]] &&
             git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null &&
@@ -229,11 +235,30 @@ jobs:
           key: ccache-${{ matrix.cxx || 'msvc' }}-${{ github.sha }}
           restore-keys: ccache-${{ matrix.cxx || 'msvc' }}-
 
+      # The fetched libraries' sources (UTA-0243), so configure does not clone
+      # them each run. EXACT key only, on the files that pin their tags: an
+      # older entry holds another tag's sources and must never be restored.
+      # ci.sh uses the directory only when it is complete, and fills it when
+      # it is not. Tags skip it for the same reason they skip ccache.
+      - name: Restore the library sources
+        id: deps
+        if: >-
+          steps.mode.outputs.mode == 'full'
+          && !startsWith(github.ref, 'refs/tags/')
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/uta-deps
+          key: ${{ steps.mode.outputs.deps_key }}
+
       - name: Run the gate
         shell: bash
         env:
           MODE: ${{ steps.mode.outputs.mode }}
+          DEPS_RESTORED: ${{ steps.deps.conclusion }}
         run: |
+          # The directory is handed over only when its restore step ran; the
+          # tilde is expanded here, by the shell, not by ci.sh.
+          if [[ $DEPS_RESTORED == success ]]; then export UTA_CI_DEPS_DIR=~/.cache/uta-deps; fi
           if [[ $MODE == docs ]]; then ./scripts/ci.sh --docs; else ./scripts/ci.sh; fi
 
       - name: Show the compiler cache's hit rate
@@ -253,32 +278,48 @@ jobs:
           path: ~/.cache/ccache
           key: ccache-${{ matrix.cxx || 'msvc' }}-${{ github.sha }}
 
+      - name: Save the library sources
+        if: >-
+          always() && steps.deps.conclusion == 'success'
+          && steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/uta-deps
+          key: ${{ steps.mode.outputs.deps_key }}
+
       # Keys are per commit, so without this they pile up past GitHub's 10 GB
       # per repository and it evicts by age -- the Vulkan SDK's entry included.
       # Once this commit's entry is saved, the same compiler's older ones are
       # dead weight. Pushes to main only; a failed prune never fails the job.
-      - name: Prune older compiler caches
+      - name: Prune older caches
         if: >-
           always() && steps.ccache.conclusion == 'success'
           && github.event_name == 'push' && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-          PREFIX: ccache-${{ matrix.cxx || 'msvc' }}-
-          KEEP: ccache-${{ matrix.cxx || 'msvc' }}-${{ github.sha }}
+          # "<prefix> <key to keep>" per line: the compiler cache, and the
+          # library sources (UTA-0243), whose superseded tags are dead weight.
+          PAIRS: |
+            ccache-${{ matrix.cxx || 'msvc' }}- ccache-${{ matrix.cxx || 'msvc' }}-${{ github.sha }}
+            deps-${{ matrix.cxx || 'msvc' }}- ${{ steps.mode.outputs.deps_key }}
         run: |
-          keys=$(gh cache list --repo "$GITHUB_REPOSITORY" --key "$PREFIX" \
-            --limit 100 --json id,key)
-          # Never prune down to nothing: if this commit's entry is not stored,
-          # the older ones are all the next run has.
-          if ! jq -e 'any(.[]; .key == env.KEEP)' <<<"$keys" >/dev/null; then
-            echo "$KEEP is not stored; nothing pruned."
-            exit 0
-          fi
-          jq -r '.[] | select(.key != env.KEEP) | .id' <<<"$keys" |
-            while read -r id; do
-              gh cache delete --repo "$GITHUB_REPOSITORY" "$id"
-            done
+          while read -r prefix KEEP; do
+            [[ -z $prefix ]] && continue
+            export KEEP
+            keys=$(gh cache list --repo "$GITHUB_REPOSITORY" --key "$prefix" \
+              --limit 100 --json id,key)
+            # Never prune down to nothing: if the entry to keep is not stored,
+            # the older ones are all the next run has.
+            if ! jq -e 'any(.[]; .key == env.KEEP)' <<<"$keys" >/dev/null; then
+              echo "$KEEP is not stored; nothing pruned."
+              continue
+            fi
+            jq -r '.[] | select(.key != env.KEEP) | .id' <<<"$keys" |
+              while read -r id; do
+                gh cache delete --repo "$GITHUB_REPOSITORY" "$id"
+              done
+          done <<<"$PAIRS"
 
       # UTA-0077. Built AFTER the gate and never as part of it: this binary is
       # not run here, so it proves nothing about this commit and must not be

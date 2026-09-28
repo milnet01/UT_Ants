@@ -13249,6 +13249,21 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-28.
   Lanes: ci, tests.
 
+- 🚧 [UTA-0243] **Keep the fetched libraries' sources between GitHub runs.**
+  GitHub's configure step took 33-50 s per job, every run from nothing.
+  Measured locally: a fresh configure takes 29 s with the glm, SDL3 and
+  Catch2 clones and 17 s with their sources already present. ci.sh takes
+  UTA_CI_DEPS_DIR: when it holds a .complete marker, the sources are
+  passed to FetchContent_SOURCE_DIR_*; otherwise FetchContent downloads
+  and ci.sh copies the sources in, marker last. ci.yml restores it on an
+  EXACT key over CMakeLists.txt and tests/CMakeLists.txt, which pin the
+  tags, saves on always(), prunes superseded keys, and skips it on tags.
+  Not part of 0.1.0's cut.
+  **Layman:** GitHub downloads the same three libraries on every run; keep a copy so its setup step is faster.
+  Kind: perf.
+  Source: user-request-2026-09-28.
+  Lanes: ci.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
