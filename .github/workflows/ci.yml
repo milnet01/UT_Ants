@@ -188,22 +188,17 @@ jobs:
           echo "$runtime" >> "$GITHUB_PATH"
 
       # UTA-0235. The Windows leg compiled cold every run -- 311 s of a 383 s
-      # gate. ccache is fetched pinned and checked, the release's published
-      # digest verified locally before it was written here; CMakeLists.txt
-      # routes MSBuild through it. The settings mirror the Linux ones above.
+      # gate. ccache is fetched pinned and checked by scripts/ccache-windows.sh;
+      # CMakeLists.txt routes MSBuild through it. The settings mirror the Linux
+      # ones above.
       - name: Install ccache
         if: runner.os == 'Windows' && steps.mode.outputs.mode == 'full'
         shell: bash
-        env:
-          CCACHE_VERSION: 4.14.1
-          CCACHE_SHA256: 6219f3865ca59aec41ee4b678df171d5d35855ecb2b6dbbbd20690b3a68af7b4
         run: |
-          name="ccache-$CCACHE_VERSION-windows-x86_64"
-          curl -fsSL -o "$RUNNER_TEMP/ccache.zip" \
-            "https://github.com/ccache/ccache/releases/download/v$CCACHE_VERSION/$name.zip"
-          echo "$CCACHE_SHA256  $RUNNER_TEMP/ccache.zip" | sha256sum -c -
-          unzip -q "$RUNNER_TEMP/ccache.zip" -d "$RUNNER_TEMP"
-          cygpath -w "$RUNNER_TEMP/$name" >>"$GITHUB_PATH"
+          # The same script, version and checksum the local Windows leg uses,
+          # so both take the same build route (scripts/ccache-windows.sh).
+          dir=$(./scripts/ccache-windows.sh "$RUNNER_TEMP/ccache")
+          cygpath -w "$dir" >>"$GITHUB_PATH"
           {
             echo "CCACHE_DIR=$(cygpath -w "$HOME/.cache/ccache")"
             echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"

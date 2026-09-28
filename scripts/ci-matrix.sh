@@ -106,6 +106,12 @@ git checkout -q -f --detach $SHA
 # under its install directory, so "-e /build-ci/" excluded nothing and every
 # run deleted the warm build tree -- a cold 528 s MSVC build each push.
 MSYS_NO_PATHCONV=1 git clean -qffdx -e /build-ci/
+# The pinned ccache GitHub's Windows leg uses, so this leg takes the same
+# MSBuild route (UTA-0235) -- without it, 5b23ec5 passed here and failed there.
+ccache_bin=\$(./scripts/ccache-windows.sh ~/uta-gate/ccache-bin)
+export PATH="\$ccache_bin:\$PATH"
+export CCACHE_DIR="\$(cygpath -w ~/uta-gate/ccache)" CCACHE_BASEDIR="\$(cygpath -w "\$PWD")"
+export CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=1G
 ./scripts/ci.sh
 EOF
     ) >"$WIN_LOG" 2>&1 &
