@@ -9141,7 +9141,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14 memory pass.
   Lanes: ci.
 
-- 🚧 [UTA-0148] **ut-bake spends most of a bake enlarging and compressing textures one at a time, with no reuse between maps.**
+- ✅ [UTA-0148] **ut-bake spends most of a bake enlarging and compressing textures one at a time, with no reuse between maps.**
   Measured 2026-09-14 (ut-ants-db) on MH-Sk_Godz, the largest map.
   /usr/bin/time: 21.7 s elapsed, 95 s user on 12 threads, 1.21 GB peak.
   perf record -g (flat, by symbol): about 75% in BC7/BC4 block encoding
@@ -9187,6 +9187,14 @@ stays with movement in 0.2.0.
   from several threads. They now lock, and Bake.h says the lookup is
   called concurrently. The item stays open for finding (2).
   Picked up (2026-09-29) for finding (2), after the open fix set.
+  Resolved (2026-09-29, 197d00e, GitHub CI green): finding (2) built as
+  an opt-in disk cache of made materials (ut-bake --texture-cache <dir>),
+  keyed on generate's inputs and bakerVersion(), 4 GB cap, least recently
+  used removed first. DM-Deck16][ 5.8 s cold, 3.1 s warm, bundles
+  byte-identical. Measured that maps share few materials (11 of 491 over
+  six random Monster Hunt maps), so the user chose opt-in over on for
+  everyone. Nothing uses it by default; the real-asset tier bakes in
+  memory and could take it up if UTA-0151 shows its bake case matters.
   **Layman:** Baking a map is slow mostly because every texture is shrunk into game format again for every map, even the stock textures many maps share, and only one texture is worked on at a time.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.
