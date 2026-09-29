@@ -530,6 +530,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A missing standard header now fails every leg, not only MSVC**
+  scripts/std-includes.sh, run by scripts/ci.sh, fails when a file calls a
+  standard function without including its header. GCC and Clang find
+  those headers indirectly and MSVC does not, so with the Windows machine
+  unreachable only GitHub caught it (runs 36574630875, 36575289692).
+
 - **ut-dump survives unreadable files and says which actors it could not read** (UTA-0224)
   A folder it may not list, or a file it may not open, is reported as
   one failed entry instead of ending the run; a large stray file is
