@@ -13000,7 +13000,7 @@ stays with movement in 0.2.0.
   Kind: test.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0228] **Close the renderer core's remaining peer-review findings.**
+- 🚧 [UTA-0228] **Close the renderer core's remaining peer-review findings.**
   From retroarch-1c's cold read (the lane Pass A cleared); H1, H2, M1,
   M2 and L6 are fixed in f02396c. Verify each before fixing:
   - M3 Pipelines.cpp:358-361 textureCapacity keeps one slot back for the

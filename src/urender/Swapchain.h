@@ -45,6 +45,9 @@ public:
     [[nodiscard]] bool empty() const noexcept { return handle_ == VK_NULL_HANDLE; }
     /// Set once acquire or present has said this no longer matches its surface.
     [[nodiscard]] bool stale() const noexcept { return stale_; }
+    /// Rebuild before the next frame: a frame that failed holding an acquired
+    /// image never presents it, and only a rebuild gives it back.
+    void markStale() noexcept { stale_ = true; }
 
     /// The image the next frame goes to, or none when the surface is out of
     /// date -- the frame is then skipped and the swapchain rebuilt first.

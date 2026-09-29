@@ -354,11 +354,13 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     vkGetPhysicalDeviceProperties(gpu.physical(), &properties);
     const VkPhysicalDeviceLimits& limits = properties.limits;
     // A combined image sampler counts against both the sampled-image and the
-    // sampler limits; one of each is kept back for the shadow atlas.
+    // sampler limits; two of each are kept back, for the shadow atlas and the
+    // fog volume, which the fragment stage reads beside the textures.
+    constexpr std::uint32_t RESERVED = 2;
     p->textureCapacity_ = std::min({limits.maxPerStageDescriptorSampledImages, limits.maxPerStageDescriptorSamplers,
                                     limits.maxDescriptorSetSampledImages, limits.maxDescriptorSetSamplers,
-                                    TEXTURE_CEILING + 1})
-                          - 1;
+                                    TEXTURE_CEILING + RESERVED})
+                          - RESERVED;
 
     // -- The scene set ------------------------------------------------------
     const VkShaderStageFlags everyStage =

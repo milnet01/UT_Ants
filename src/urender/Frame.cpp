@@ -393,6 +393,11 @@ struct Renderer::Impl {
     /// return a later time than the frame actually used.
     double lastLightSeconds = 0;
     bool drawn = false;
+    /// The last draw() drew nothing -- minimised, out of date, or failed -- so
+    /// the targets hold an older frame (UTA-0228 L5).
+    bool lastDrawSkipped = false;
+    /// A failed Swapchain::create retired the current handle (UTA-0228 L2).
+    bool swapchainRetired = false;
     FrameStats stats;
     /// UTA-0051 SS 4.3: chosen once, at create.
     Tier tier = Tier::Low;
@@ -477,8 +482,16 @@ Result<void> Renderer::Impl::createTargets() {
 Result<void> Renderer::Impl::createShadowAtlas() {
     const std::uint32_t side = shadowPlanner.detail().atlasSize; // UTA-0175: the tier's
     UTA_TRY(shadowAtlas, Image::create(*gpu, {DEPTH_FORMAT, side, side, 1,
-                                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
+                                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+                                                  | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
+    // Cleared to the far plane, which shadows nothing, so no tile is ever read
+    // holding whatever the allocation held.
     return gpu->run([&](VkCommandBuffer commands) {
+        shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        const VkClearDepthStencilValue far{1.0f, 0};
+        const VkImageSubresourceRange depth{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+        vkCmdClearDepthStencilImage(commands, shadowAtlas.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &far, 1,
+                                    &depth);
         shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
     });
 }
@@ -865,7 +878,9 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     const VkRect2D regionScissor{{0, 0}, region};
 
     // -- Shadow tiles: only those this frame's plan says to draw (SS 4.8) ------
-    if (!shadows.draws.empty() && !geometry->draws.empty()) {
+    // Run for a level with no geometry too: the plan counts its tiles as drawn,
+    // so each is at least cleared, and nothing it says is drawn is left stale.
+    if (!shadows.draws.empty()) {
         shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
         VkRenderingAttachmentInfo atlasAttachment{};
         atlasAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -882,10 +897,13 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadow());
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadowLayout(), 0, 1,
                                 &sceneSet, 0, nullptr);
-        const VkBuffer vertexBuffer = geometry->vertices.handle();
-        const VkDeviceSize zero = 0;
-        vkCmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &zero);
-        vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
+        const bool anyGeometry = !geometry->draws.empty();
+        if (anyGeometry) {
+            const VkBuffer vertexBuffer = geometry->vertices.handle();
+            const VkDeviceSize zero = 0;
+            vkCmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &zero);
+            vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
+        }
         for (const ShadowDraw& draw : shadows.draws) {
             const VkRect2D tile{{static_cast<std::int32_t>(draw.tile.x), static_cast<std::int32_t>(draw.tile.y)},
                                 {draw.tile.size, draw.tile.size}};
@@ -1195,10 +1213,19 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     // SS 4.3: the swapchain is rebuilt after a resize, when acquire or present
     // said it no longer matches its surface, and while the window is minimised
     // -- so it notices the window coming back.
+    impl.lastDrawSkipped = true; // until a frame is drawn below
     if (impl.swapchain && (impl.resized || impl.swapchain->stale() || impl.swapchain->empty())) {
-        UTA_TRY(std::unique_ptr<Swapchain> rebuilt,
-                Swapchain::create(*impl.gpu, impl.config.width, impl.config.height, impl.swapchain->handle()));
-        impl.swapchain = std::move(rebuilt);
+        // A failed create still retires `old`, and a retired swapchain may not
+        // be passed as `old` again, so the next attempt passes none.
+        Result<std::unique_ptr<Swapchain>> rebuilt = Swapchain::create(
+            *impl.gpu, impl.config.width, impl.config.height,
+            impl.swapchainRetired ? VK_NULL_HANDLE : impl.swapchain->handle());
+        if (!rebuilt) {
+            impl.swapchainRetired = true;
+            return std::unexpected(rebuilt.error());
+        }
+        impl.swapchainRetired = false;
+        impl.swapchain = std::move(*rebuilt);
         if (impl.adoptSwapchainExtent()) impl.resized = true;
     }
     if (impl.swapchain && impl.swapchain->empty()) return {}; // a minimised window draws nothing
@@ -1219,11 +1246,12 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     // UTA-0163: a new level's sky, drawn once, before its first frame. Nothing
     // is presented; the faces go into the sky texture.
     if (impl.skyPending) {
-        impl.skyPending = false;
         for (std::uint32_t face = 0; face < 6; ++face) {
             const Camera faceCamera = skyFaceCamera(*impl.skyView, face, impl.config.width, impl.config.height);
             UTA_CHECK(impl.drawView(bundle, faceCamera, std::nullopt, face));
         }
+        // Cleared once every face is in, so a failed face is drawn again.
+        impl.skyPending = false;
         impl.skyReady = true;
         impl.previousViewProj.reset(); // the faces' views are not the player's last
     }
@@ -1235,7 +1263,10 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         if (!image) return {}; // out of date: rebuilt at the top of the next frame
     }
 
-    return impl.drawView(bundle, camera, image, std::nullopt);
+    Result<void> drawn = impl.drawView(bundle, camera, image, std::nullopt);
+    if (!drawn && image) impl.swapchain->markStale();
+    if (drawn) impl.lastDrawSkipped = false;
+    return drawn;
 }
 
 Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camera& camera,
@@ -1370,8 +1401,12 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
     // leaves out present, which waits for the display under FIFO.
     const auto started = std::chrono::steady_clock::now();
-    UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
+    const Result<void> ran = impl.gpu->run([&](VkCommandBuffer commands) {
         impl.recordFrame(commands, plan, region, fog);
+        // SS 6's counts are read on the host once this finishes; the fence
+        // alone does not make the compute pass's writes visible to it.
+        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT);
         if (image) impl.swapchain->recordBlit(commands, impl.output, *image);
         if (skyFace) {
             // UTA-0163: the target's central square, which the face camera made
@@ -1395,7 +1430,13 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
             impl.sky.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
-    }));
+    });
+    // The plan already counts its tiles as drawn; after a failed submission
+    // they were not, so every tile is placed and drawn again.
+    if (!ran) {
+        impl.shadowPlanner.reset();
+        return ran;
+    }
     const double milliseconds =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
     if (image) UTA_CHECK(impl.swapchain->present(impl.gpu->queue(), *image));
@@ -1437,6 +1478,9 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
     // either way. UTA-0191's capture folder is what needed the presented frame.
     Impl& impl = *impl_;
     if (!impl.drawn) return fail(ErrorCode::InvalidArgument, "readback before any frame was drawn");
+    if (impl.lastDrawSkipped)
+        return fail(ErrorCode::InvalidArgument,
+                    "readback after a skipped frame: the pixels are an older frame's, not the last draw's");
     if (target == Target::Velocity && impl.drawnScale < 1.0)
         return fail(ErrorCode::InvalidArgument,
                     std::format("velocity readback after a frame drawn at scale {}: its region is smaller than the "
@@ -1454,6 +1498,8 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
         copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         copy.imageExtent = {impl.config.width, impl.config.height, 1};
         vkCmdCopyImageToBuffer(commands, image.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, host.handle(), 1, &copy);
+        memoryBarrier(commands, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT);
     }));
 
     if (target == Target::Colour) return std::vector<std::byte>(host.mapped(), host.mapped() + pixels * 4);
