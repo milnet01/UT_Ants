@@ -12929,7 +12929,7 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0224] **ut-dump and ut-paths survive and count what they cannot read.**
+- ✅ [UTA-0224] **ut-dump and ut-paths survive and count what they cannot read.**
   - ut-dump/Cli.cpp:778 (:869, :565): an actor whose properties fail to
     read is emitted with class defaults, uncounted; UTA-0172 SS 6 says
     skipped and its INV-8 says every actor is emitted (spec conflict).
@@ -12940,6 +12940,9 @@ stays with movement in 0.2.0.
   - ut-shot/main.cpp:169-175 checks the stream before close; :152 never
     range-checks the field of view; Cli.cpp:204 sizes are unbounded.
   - ut-paths exits 2 on an unreadable census; 2 is bad arguments.
+  Resolved (2026-09-29): 29d6799, green on GitHub's matrix (run 36551818083,
+  MSVC included). Spec conflict settled for INV-8; the wiring-graph refusal it
+  exposed is UTA-0244.
   **Layman:** A few unreadable items can end a whole dump early or be reported as though they were fine.
   Kind: fix.
   Source: review-code-2026-09-26.
@@ -13316,6 +13319,8 @@ stays with movement in 0.2.0.
   as a clean map. Decide whether the graph should skip and count the
   actor instead; that changes UTA-0006's contract and every caller
   (ut-bake included), so measure first whether any library map has one.
+  Asked UT_MonsterHunt (2026-09-29, message 269) whether any census map
+  has level.propertiesUnread > 0; their answer sets this item's priority.
   **Layman:** A single damaged switch or trigger in a map hides every other switch and trigger's wiring from the map-inspection tool.
   Kind: fix.
   Source: review-code-2026-09-26.
