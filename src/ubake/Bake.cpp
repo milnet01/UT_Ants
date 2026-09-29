@@ -877,6 +877,17 @@ Result<std::vector<PackageClash>> clashesOf(const std::vector<const upkg::Packag
                 // The whole group chain and the class, as the texture step
                 // resolves an import: a same-named object in another group is
                 // a different object.
+                // A member of a class -- a property, a function -- is skipped:
+                // an engine release may reshape its own classes' members, and
+                // the game adapts old maps to that itself. UT 469's Engine.u
+                // made Actor.Touching an ArrayProperty; maps built for 436
+                // import it as an ObjectProperty and load fine.
+                if (import.outer.kind() == upkg::ObjectReferenceKind::Import
+                    && import.outer.index() < reader->imports().size()) {
+                    const upkg::ImportEntry& outer = reader->imports()[import.outer.index()];
+                    const auto outerClass = reader->name(outer.className);
+                    if (outerClass.has_value() && detail::fold(*outerClass) == "class") continue;
+                }
                 const ImportedObject imported = walkImport(*reader, import);
                 if (!imported.broken.empty() || imported.names.empty()) continue;
                 if (winner != nullptr && exportNamed(*winner, imported) != nullptr) continue;
