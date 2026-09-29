@@ -10698,7 +10698,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0177] **A surface whose texture the bake skipped should not show magenta to a player.**
+- ✅ [UTA-0177] **A surface whose texture the bake skipped should not show magenta to a player.**
   Split from UTA-0176 on 2026-09-17. That item fixed the report that raised
   this -- AS-Frigate's torches bake now -- and left this part: urender draws
   magenta, its built-in colour for a material with no picture, on any
@@ -10835,9 +10835,14 @@ stays with movement in 0.2.0.
   (~/.cache/uta-census/after/run.sh, output after/census.ndjson). When
   it ends, tally what still skips and file the one-offs; the Format case
   is UTA-0118's. Flip this item once fb93a38 is green on GitHub.
-  Deferred (2026-09-28): rule-1 review fixes are being taken ahead of it
-  (UTA-0219..0223 shipped; UTA-0224..0229 open). Clear this note when
-  UTA-0177 is picked up.
+  Resolved (2026-09-29). The re-census of the 127 maps at revision 24
+  finished: 35 still skip a texture, all now drawn as a flat fill or
+  neutral grey, never magenta. Of those, 21 maps lack a package the
+  install does not have, and 8 hold a package of a different version
+  (not the baker's to fix). One-offs filed: UTA-0245 (MH-RiseOfEvil_V2
+  over budget, the one map not written), UTA-0246 (non-power-of-two
+  textures, 2 maps), UTA-0247 (property tag type 0, 2 maps). The Format
+  case (1 map) is UTA-0118's.
   **Layman:** When a map's texture cannot be converted, the game shows bright pink in its place; players should see something sensible instead.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -12994,7 +12999,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0227] **Run the device tier under synchronization validation.**
+- ✅ [UTA-0227] **Run the device tier under synchronization validation.**
   With VK_VALIDATION_VALIDATE_SYNC=true, 50 of 52 device tests failed
   on a WRITE_AFTER_WRITE at the fog volume's first clear (fixed in
   f02396c); the default layer settings never reported it. Turn sync
@@ -13002,11 +13007,16 @@ stays with movement in 0.2.0.
   error), in ci.sh and the gate. Measure the time cost on lavapipe first.
   Note it did not flag the compute-to-draw buffer hazards f02396c also
   fixed, so it is not a substitute for reading the barriers.
+  Resolved (2026-09-29) in 9754884; GitHub run 36566099281 green, MSVC
+  included. ci.sh exports VK_VALIDATION_VALIDATE_SYNC=true for the test
+  step; cost on lavapipe about 0.1 s over 4 s. On first run it caught a
+  WRITE_AFTER_WRITE in UTA-0228's new atlas clear; transfer layouts now
+  take ALL_TRANSFER.
   **Layman:** Turn on the graphics driver checker's timing checks in the automatic tests, since today they caught a real race the normal checks missed.
   Kind: test.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0228] **Close the renderer core's remaining peer-review findings.**
+- ✅ [UTA-0228] **Close the renderer core's remaining peer-review findings.**
   From retroarch-1c's cold read (the lane Pass A cleared); H1, H2, M1,
   M2 and L6 are fixed in f02396c. Verify each before fixing:
   - M3 Pipelines.cpp:358-361 textureCapacity keeps one slot back for the
@@ -13022,6 +13032,11 @@ stays with movement in 0.2.0.
     before the submission; a skipped tile pass (:849) counts tiles drawn
     and the atlas is never cleared at creation (:462-464).
   - L5 readback after a skipped frame returns never-drawn output.
+  Resolved (2026-09-29) in a6694cd, with the race its atlas clear
+  introduced fixed in 9754884 (found by UTA-0227); GitHub run
+  36566099281 green, MSVC included. No new tests: the swapchain and
+  skipped-frame paths need a window, M3 a device with lower limits, L4 a
+  failing submission.
   **Layman:** A handful of smaller graphics-driver usage problems found by another session's review of the renderer.
   Kind: review-fix.
   Source: review-code-2026-09-26.
@@ -13333,9 +13348,46 @@ stays with movement in 0.2.0.
   (ut-bake included), so measure first whether any library map has one.
   Asked UT_MonsterHunt (2026-09-29, message 269) whether any census map
   has level.propertiesUnread > 0; their answer sets this item's priority.
+  Priority (2026-09-29): UT_MonsterHunt ran all 1460 installed maps
+  through ut-dump built 2026-09-29 (message 276). Zero have
+  level.propertiesUnread > 0 and zero have a null wiring graph, so no
+  map in the library hits this. Stays low priority, behind UTA-0177 and
+  the 0.1.0 items.
   **Layman:** A single damaged switch or trigger in a map hides every other switch and trigger's wiring from the map-inspection tool.
   Kind: fix.
   Source: review-code-2026-09-26.
+
+- 🚧 [UTA-0245] **MH-RiseOfEvil_V2 does not bake: its textures exceed the memory budget.**
+  UTA-0177's re-census at baker revision 24 (~/.cache/uta-census/after/census.ndjson)
+  reports verdict over-budget for MH-RiseOfEvil_V2, the only map of the 127
+  re-run that did not write. UTA-0052's rule is to refuse rather than
+  degrade. Find which textures carry the size, and decide whether the budget,
+  the upscale cap or the map is the thing to change.
+  Taken 2026-09-29, the user's pick after the rule-1 fixes closed.
+  **Layman:** One map in the library cannot be opened at all, because its pictures need more memory than the baker allows.
+  Kind: fix.
+  Source: in-session-2026-09-29.
+  Lanes: ubake, umat.
+
+- 📋 [UTA-0246] **Textures that are not a power of two a side are skipped by the bake.**
+  Three textures in two maps of UTA-0177's re-census, e.g. MH-Catwalk_r1a_u's
+  doom2tex.texture1.sw1comm at 64x72: umat::generate refuses anything not a
+  power of two in both axes. Check what UT99 itself does with one (it loads
+  these maps), then resample or pad rather than skip.
+  **Layman:** A few textures with unusual sizes are left out of maps, so those surfaces show plain grey.
+  Kind: fix.
+  Source: in-session-2026-09-29.
+  Lanes: umat.
+
+- 📋 [UTA-0247] **Two textures' properties carry a tag of type 0, which the reader refuses.**
+  UTA-0177's re-census: MH-PurpleChristmas-BP and one other map skip a
+  texture with "a property tag declares type 0, which the format does not
+  define". Find whether type 0 is a real encoding the engine accepts or
+  damage in those packages, before changing the reader.
+  **Layman:** Two textures cannot be read because their files contain a value the reader does not recognise; they show plain grey.
+  Kind: investigate.
+  Source: in-session-2026-09-29.
+  Lanes: upkg.
 
 ## 0.2.0 — Movement and weapons
 
