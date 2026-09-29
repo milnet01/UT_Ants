@@ -11900,7 +11900,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-20.
   Lanes: ut-paths.
 
-- 📋 [UTA-0197] **Refit the fog and haze constants, which were fitted at an EXPOSURE two items ago.**
+- 🚧 [UTA-0197] **Refit the fog and haze constants, which were fitted at an EXPOSURE two items ago.**
   Found by UTA-0192, 2026-09-20, and it predates it. fog.glsl's comments
   fit each constant at a named exposure: the haze scale "at EXPOSURE 5.4",
   refitted by UTA-0165 "at EXPOSURE 5.5", the glow rechecked by UTA-0168
