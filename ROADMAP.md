@@ -13374,21 +13374,31 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-29.
   Lanes: ubake, umat.
 
-- 📋 [UTA-0246] **Textures that are not a power of two a side are skipped by the bake.**
+- ✅ [UTA-0246] **Textures that are not a power of two a side are skipped by the bake.**
   Three textures in two maps of UTA-0177's re-census, e.g. MH-Catwalk_r1a_u's
   doom2tex.texture1.sw1comm at 64x72: umat::generate refuses anything not a
   power of two in both axes. Check what UT99 itself does with one (it loads
   these maps), then resample or pad rather than skip.
+  Resolved (2026-09-29) in 66478a4, with two MSVC include fixes
+  (e8af3d8, 8dad094); GitHub run 36575743214 green, MSVC included.
+  umat::toPowerOfTwo stretches to the next power of two up (integer
+  bilinear, wrapping). MH-Catwalk_r1a_u and MH-Geryon_r1_u bake with
+  nothing skipped. BAKER_REVISION 26.
   **Layman:** A few textures with unusual sizes are left out of maps, so those surfaces show plain grey.
   Kind: fix.
   Source: in-session-2026-09-29.
   Lanes: umat.
 
-- 📋 [UTA-0247] **Two textures' properties carry a tag of type 0, which the reader refuses.**
+- ✅ [UTA-0247] **Two textures' properties carry a tag of type 0, which the reader refuses.**
   UTA-0177's re-census: MH-PurpleChristmas-BP and one other map skip a
   texture with "a property tag declares type 0, which the format does not
   define". Find whether type 0 is a real encoding the engine accepts or
   damage in those packages, before changing the reader.
+  Resolved (2026-09-29): an Int or Float tag declaring under four bytes
+  reads four (UTA-0003 INV-10 amended). GitHub run 36575743214 green.
+  MH-PurpleChristmas bakes with nothing skipped. That UT99 reads known
+  properties by type is recalled, not checked against engine source.
+  BAKER_REVISION 27.
   **Layman:** Two textures cannot be read because their files contain a value the reader does not recognise; they show plain grey.
   Kind: investigate.
   Source: in-session-2026-09-29.
