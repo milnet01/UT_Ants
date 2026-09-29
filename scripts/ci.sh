@@ -176,6 +176,13 @@ if inv7=$(grep -nE '\b(visited|explored|seen|player|team)\b' src/umap/Rooms.h |
 fi
 printf '   src/umap/Rooms.h clean.\n'
 
+step "every standard function has its header"
+# libstdc++ reaches <bit> and <algorithm> through other headers and MSVC does
+# not, so a missing include is green on both Linux legs and red only on
+# Windows. When the Windows machine is unreachable this is the local gate's
+# only defence against that (runs 36574630875 and 36575289692).
+./scripts/std-includes.sh
+
 step "shell scripts"
 # Two lists, and the difference is deliberate. shellcheck finds DEFECTS, so it
 # reads the git hooks too -- they run on every commit and push, and its first

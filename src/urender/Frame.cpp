@@ -45,6 +45,7 @@
 #include <cstring>
 #include <format>
 #include <limits>
+#include <memory>
 #include <numbers>
 #include <optional>
 #include <span>
