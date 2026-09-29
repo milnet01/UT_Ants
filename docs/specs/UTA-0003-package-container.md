@@ -543,7 +543,10 @@ produce. It remains an encoder with no decode path.
 
 - **INV-10** — A `Bool` property takes its value from bit 7 of the info
   byte and consumes no value bytes; every other type consumes exactly the
-  bytes its size field declares.
+  bytes its size field declares, except that an `Int` or a `Float` whose tag
+  declares fewer than four consumes four (`UTA-0247`: a texture writer
+  tagged every Int with size code 0, and UT99, which reads a property it
+  knows by its own type, loads those files).
   *Test:* `tests/unit/PackagePropertiesTest.cpp` reads a list with a
   `Bool` between two known properties and asserts all three, which is
   what makes the cursor position observable.

@@ -375,3 +375,21 @@ TEST_CASE("readPropertiesAt reads a list at the cursor's current position") {
     // a class reader check that it ended exactly where its export ends.
     CHECK(reader.position() == data->size());
 }
+
+TEST_CASE("an Int whose tag declares one byte still reads its four", "[package-properties]") {
+    // UTA-0247: dUXmas.utx's texture tags every Int with size code 0 while
+    // four value bytes follow. UT99 reads a known property by its own type, so
+    // the map loads; taking the declared byte put the list three bytes out and
+    // the next "tag" read as type 0.
+    TaggedPropertyWriter writer;
+    writer.addInt(NAME_FIRST, 777).addIntDeclaringOneByte(NAME_MIDDLE, 400).addInt(NAME_LAST, -777);
+
+    const std::vector<std::uint8_t> bytes = packageWithObject(writer.build(NAME_NONE)).build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    const auto properties = readProperties(*package, package->exports()[0]);
+    REQUIRE(properties.has_value());
+    REQUIRE(properties->size() == 3);
+    CHECK(std::get<std::int32_t>((*properties)[1].value) == 400);
+    CHECK(std::get<std::int32_t>((*properties)[2].value) == -777);
+}

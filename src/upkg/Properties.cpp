@@ -247,7 +247,12 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
         // Step 4 runs for a Bool too: only its VALUE bytes are skipped, never
         // the size field, because every Bool tag measured in real content
         // carries size code 5 and so a trailing size byte is present.
-        UTA_TRY(const std::size_t size, readSize(reader, sizeCode));
+        UTA_TRY(std::size_t size, readSize(reader, sizeCode));
+        // UTA-0247: an Int or a Float is four bytes whatever its tag declares.
+        // UT99 reads a property its class knows by the property's own type,
+        // so a writer that tagged Ints as one byte (dUXmas.utx) still loads
+        // there; taking the declared byte here desynchronised the list.
+        if ((property.type == PropertyType::Int || property.type == PropertyType::Float) && size < 4) size = 4;
 
         if (property.type == PropertyType::Bool) {
             // The value is bit 7 of the info byte, and no value bytes follow.

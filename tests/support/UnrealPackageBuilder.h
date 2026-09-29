@@ -146,6 +146,10 @@ public:
                                              std::int32_t structNameIndex,
                                              const std::vector<std::uint8_t>& raw);
 
+    /// UTA-0247: an Int whose tag declares size code 0 -- one byte -- while its
+    /// four value bytes follow, as dUXmas.utx's texture writer did.
+    TaggedPropertyWriter& addIntDeclaringOneByte(std::int32_t nameIndex, std::int32_t value);
+
     /// A property of any type with a body this writer does not compose --
     /// the escape hatch for a shape a test needs once.
     TaggedPropertyWriter& addRaw(std::int32_t nameIndex, PropertyType type,

@@ -160,6 +160,14 @@ TaggedPropertyWriter& TaggedPropertyWriter::addInt(std::int32_t nameIndex,
     return addRaw(nameIndex, PropertyType::Int, body);
 }
 
+TaggedPropertyWriter& TaggedPropertyWriter::addIntDeclaringOneByte(std::int32_t nameIndex,
+                                                                   std::int32_t value) {
+    appendIndex(body_, nameIndex);
+    body_.push_back(static_cast<std::uint8_t>(PropertyType::Int)); // size code 0: one byte
+    appendI32(body_, value);
+    return *this;
+}
+
 TaggedPropertyWriter& TaggedPropertyWriter::addFloat(std::int32_t nameIndex, float value) {
     std::vector<std::uint8_t> body;
     appendFloat(body, value);
