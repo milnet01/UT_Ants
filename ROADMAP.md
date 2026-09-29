@@ -9141,7 +9141,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14 memory pass.
   Lanes: ci.
 
-- 📋 [UTA-0148] **ut-bake spends most of a bake enlarging and compressing textures one at a time, with no reuse between maps.**
+- 🚧 [UTA-0148] **ut-bake spends most of a bake enlarging and compressing textures one at a time, with no reuse between maps.**
   Measured 2026-09-14 (ut-ants-db) on MH-Sk_Godz, the largest map.
   /usr/bin/time: 21.7 s elapsed, 95 s user on 12 threads, 1.21 GB peak.
   perf record -g (flat, by symbol): about 75% in BC7/BC4 block encoding
@@ -9186,9 +9186,7 @@ stays with movement in 0.2.0.
   ThreadSanitizer run: three BakeTest curated lookups recorded into a set
   from several threads. They now lock, and Bake.h says the lookup is
   called concurrently. The item stays open for finding (2).
-  Deferred (2026-09-29): the user's pick for Next, taken after the open
-  fix set (UTA-0195, 0196, 0197, 0244) per their priority order.
-  Clear this note when the item is picked up.
+  Picked up (2026-09-29) for finding (2), after the open fix set.
   **Layman:** Baking a map is slow mostly because every texture is shrunk into game format again for every map, even the stock textures many maps share, and only one texture is worked on at a time.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.
@@ -13380,7 +13378,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-28.
   Lanes: ci.
 
-- 🚧 [UTA-0244] **One unreadable actor nulls a map's whole wiring graph.**
+- ✅ [UTA-0244] **One unreadable actor nulls a map's whole wiring graph.**
   Found fixing UTA-0224. unav::buildWiringGraph (src/unav/Build.cpp)
   UTA_TRYs readProperties on every non-class export, so one actor whose
   property block does not read refuses the package: ut-dump then prints
@@ -13398,6 +13396,11 @@ stays with movement in 0.2.0.
   the 0.1.0 items.
   Decided (user, 2026-09-29): skip an actor whose properties do not
   read, count it, and let the map bake; the bake report says how many.
+  Resolved (2026-09-29, 71cc0a5, GitHub CI green): buildWiringGraph
+  skips an actor whose properties do not read and counts it in
+  WiringGraph::propertiesUnread. ut-dump builds the wiring graph for such
+  a map and lists the actor. A bake still refuses it at actor placement;
+  that is UTA-0249, parked by the user.
   **Layman:** A single damaged switch or trigger in a map hides every other switch and trigger's wiring from the map-inspection tool.
   Kind: fix.
   Source: review-code-2026-09-26.
@@ -13448,22 +13451,6 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: in-session-2026-09-29.
   Lanes: upkg.
-
-- 📋 [UTA-0249] **One unreadable actor still refuses a map's bake, at actor placement.**
-  Found finishing UTA-0244 (2026-09-29). The user chose skip-and-count for
-  an actor whose property block does not read, expecting the map to still
-  bake. UTA-0244 did that for the wiring graph only: ubake::buildActors
-  (src/ubake/Actors.cpp, step 2) also reads every actor's properties and
-  refuses the map on the first that fails, so the bake still stops, one
-  step later. src/ubake/Movers.cpp and the probes read properties too.
-  Making PLAC skip and count changes UTA-0110's contract: a skipped actor
-  vanishes from the level, and a skipped mover loses its geometry. No map
-  in the reference library has such an actor (UT_MonsterHunt census,
-  2026-09-29), so this matters only for maps added later.
-  **Layman:** A single damaged object in a map still stops the whole map from being prepared; decide whether to leave it out and carry on.
-  Kind: fix.
-  Source: review-code-2026-09-26 split-from-UTA-0244.
-  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 
@@ -14761,6 +14748,25 @@ to.
   Kind: feature.
   Source: user-request-2026-09-10.
   Lanes: uui, ugame.
+
+- 📋 [UTA-0249] **One unreadable actor still refuses a map's bake, at actor placement.**
+  Found finishing UTA-0244 (2026-09-29). The user chose skip-and-count for
+  an actor whose property block does not read, expecting the map to still
+  bake. UTA-0244 did that for the wiring graph only: ubake::buildActors
+  (src/ubake/Actors.cpp, step 2) also reads every actor's properties and
+  refuses the map on the first that fails, so the bake still stops, one
+  step later. src/ubake/Movers.cpp and the probes read properties too.
+  Making PLAC skip and count changes UTA-0110's contract: a skipped actor
+  vanishes from the level, and a skipped mover loses its geometry. No map
+  in the reference library has such an actor (UT_MonsterHunt census,
+  2026-09-29), so this matters only for maps added later.
+  Parked (user, 2026-09-29): no library map has a damaged actor, so it
+  waits for content download (UTA-0030, 0.4.0), when maps from elsewhere
+  can bring one. Moved out of 0.1.0 for that reason.
+  **Layman:** A single damaged object in a map still stops the whole map from being prepared; decide whether to leave it out and carry on.
+  Kind: fix.
+  Source: review-code-2026-09-26 split-from-UTA-0244.
+  Lanes: ubake.
 
 ## 0.5.0 — Map editor
 
