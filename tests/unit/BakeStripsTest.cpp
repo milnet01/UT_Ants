@@ -93,6 +93,20 @@ TEST_CASE("INV-3: a row that breaks one rule is no strip", "[ubake][strips]") {
     }
 }
 
+TEST_CASE("SS 4.2 rule 3: a row's ends are its two lights furthest apart", "[ubake][strips]") {
+    // The third light sits 0.1 short of the second along x but 15.9 off the
+    // line, so it is 400.22 from the first while the second is 400. Ends first
+    // and second would put two members further apart than the ends, so the
+    // ends must be first and third. Without rule 3 the tie-break prefers the
+    // lower end index and picks first and second.
+    std::vector<Light> lights = {cylinder(1, 0, 0), cylinder(2, 400, 0), cylinder(3, 399.9F, 15.9F)};
+    const std::vector<Light> before = lights;
+    markStrips(lights);
+    CHECK(lights[0].strip == STRIP_LEADER);
+    CHECK(lights[0].stripFrom == before[0].location);
+    CHECK(lights[0].stripTo == before[2].location);
+}
+
 TEST_CASE("INV-4: a row of five is one strip and a shared light goes to the larger row", "[ubake][strips]") {
     SECTION("a row of five") {
         std::vector<Light> lights = {cylinder(1, 0, 0), cylinder(2, 250, 5), cylinder(3, 480, -5),

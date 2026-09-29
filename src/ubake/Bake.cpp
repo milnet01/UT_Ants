@@ -839,22 +839,6 @@ std::pair<std::string, bool> homeOf(const upkg::Package& package, const upkg::Im
     return {};
 }
 
-/// Whether `package` exports an object named `name` of class `className`,
-/// both compared folded. A class object's own class reference is null.
-bool holds(const upkg::Package& package, std::string_view name, std::string_view className) {
-    const std::string wantName = detail::fold(name);
-    const std::string wantClass = detail::fold(className);
-    for (const upkg::ExportEntry& entry : package.exports()) {
-        const auto exported = package.name(entry.objectName);
-        if (!exported.has_value() || detail::fold(*exported) != wantName) continue;
-        const std::string cls = entry.objectClass.kind() == upkg::ObjectReferenceKind::Null
-                                    ? std::string{"class"}
-                                    : detail::fold(package.objectName(entry.objectClass).value_or("?"));
-        if (cls == wantClass) return true;
-    }
-    return false;
-}
-
 /// UTA-0141: the clashes that change what `readers` get, over the names in
 /// `closure`. A shadowed file is opened here only, never through the resolver.
 Result<std::vector<PackageClash>> clashesOf(const std::vector<const upkg::Package*>& readers,
@@ -868,13 +852,21 @@ Result<std::vector<PackageClash>> clashesOf(const std::vector<const upkg::Packag
         // Reserved up front: each Package views its bytes, which must not move.
         std::vector<std::vector<std::byte>> bytes;
         std::vector<std::pair<std::filesystem::path, upkg::Package>> losers;
+        // A shadowed file that does not read or open may hold what the winner
+        // lacks, so it is named with the holders rather than dropped unseen.
+        std::vector<std::filesystem::path> unreadable;
         bytes.reserve(shadowed.size());
         for (const std::filesystem::path& file : shadowed) {
             auto read = uta::fs::readFile(file);
-            if (!read.has_value()) continue;
+            if (!read.has_value()) {
+                unreadable.push_back(file);
+                continue;
+            }
             bytes.push_back(std::move(*read));
             if (auto opened = upkg::Package::open(bytes.back()); opened.has_value())
                 losers.emplace_back(file, std::move(*opened));
+            else
+                unreadable.push_back(file);
         }
         std::optional<std::string> object;
         std::vector<std::filesystem::path> holders;
@@ -882,14 +874,17 @@ Result<std::vector<PackageClash>> clashesOf(const std::vector<const upkg::Packag
             for (const upkg::ImportEntry& import : reader->imports()) {
                 const auto [home, isPackage] = homeOf(*reader, import);
                 if (isPackage || home != package) continue;
-                const auto name = reader->name(import.objectName);
-                const auto className = reader->name(import.className);
-                if (!name.has_value() || !className.has_value()) continue;
-                if (winner != nullptr && holds(*winner, *name, *className)) continue;
+                // The whole group chain and the class, as the texture step
+                // resolves an import: a same-named object in another group is
+                // a different object.
+                const ImportedObject imported = walkImport(*reader, import);
+                if (!imported.broken.empty() || imported.names.empty()) continue;
+                if (winner != nullptr && exportNamed(*winner, imported) != nullptr) continue;
                 for (const auto& [file, loser] : losers)
-                    if (holds(loser, *name, *className)) holders.push_back(file);
+                    if (exportNamed(loser, imported) != nullptr) holders.push_back(file);
+                holders.insert(holders.end(), unreadable.begin(), unreadable.end());
                 if (!holders.empty()) {
-                    object = package + "." + std::string{*name};
+                    object = package + "." + imported.path();
                     break;
                 }
             }

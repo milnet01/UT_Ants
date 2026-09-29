@@ -138,7 +138,9 @@ struct Point2 {
 };
 
 Point2 clampToPolygon(const std::vector<Point2>& polygon, double area, Point2 q) {
-    bool inside = true;
+    // A zero-area polygon has no inside: every sign test passes, so without
+    // this every point would count as on it.
+    bool inside = area != 0;
     for (std::size_t k = 0; k < polygon.size(); ++k) {
         const Point2 a = polygon[k], b = polygon[(k + 1) % polygon.size()];
         const double side = (b.u - a.u) * (q.v - a.v) - (b.v - a.v) * (q.u - a.u);

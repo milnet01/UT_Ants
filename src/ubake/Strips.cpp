@@ -77,9 +77,18 @@ std::optional<Row> rowBetween(const std::vector<ubundle::Light>& lights, const s
         const double gap = along[m].first - along[m - 1].first;
         if (!(gap > 0 && gap <= gapBound)) return std::nullopt;
     }
+    // Rule 3. Every member lies within the tolerance of the line, so two whose
+    // spread along it is at most sqrt(span^2 - 4 tolerance^2) cannot be further
+    // apart than the ends. `along` is sorted, so each member checks only the far
+    // members, nearest-last -- linear for a row of even gaps, where checking
+    // every pair made a group of m lights cost m^4 over all its pairs.
+    const double safe = span * span - 4 * STRIP_LINE_TOLERANCE * STRIP_LINE_TOLERANCE;
     for (std::size_t m = 0; m < along.size(); ++m)
-        for (std::size_t n = m + 1; n < along.size(); ++n)
+        for (std::size_t n = along.size() - 1; n > m; --n) {
+            const double spread = along[n].first - along[m].first;
+            if (safe > 0 && spread * spread <= safe) break;
             if (length(at(lights[along[m].second]) - at(lights[along[n].second])) > span) return std::nullopt;
+        }
 
     Row row;
     for (const auto& entry : along) row.members.push_back(entry.second);

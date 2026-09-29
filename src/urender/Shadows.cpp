@@ -136,10 +136,17 @@ void ShadowAtlas::release(const AtlasTile& tile) {
 // -- Lights ---------------------------------------------------------------------
 
 bool isSpot(const ubundle::Light& light) noexcept {
-    return light.effect == LE_SPOTLIGHT || light.effect == LE_STATIC_SPOT;
+    if (light.effect != LE_SPOTLIGHT && light.effect != LE_STATIC_SPOT) return false;
+    // A cone wider than one tile's frustum is shadowed as a point light: past
+    // WIDEST_SPOT_DEGREES the rim would be lit with no shadow at all.
+    const double c = std::max(1.0 - light.cone / 256.0, 0.0);
+    return 2.0 * std::acos(c) * 180.0 / std::numbers::pi <= WIDEST_SPOT_DEGREES;
 }
 
 std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept {
+    // UTA-0169: brightness 0 lights nothing, so it has nothing to shadow. A fog
+    // volume keeps such a light in directLights, and its tiles were wasted.
+    if (light.brightness == 0) return 0;
     if (isSpot(light)) return light.cone == 0 ? 0 : 1;
     return 6;
 }

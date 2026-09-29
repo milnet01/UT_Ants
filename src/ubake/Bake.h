@@ -5,10 +5,9 @@
 // BAKE-SIDE ONLY: uta_ubake links the package reader, so docs/design.md rule 2
 // keeps it out of both runtime targets.
 //
-// SCOPE: the sections that exist today -- ROOM, NAVG, WIRG, TEXS, MATS, and
-// GEOM from UTA-0109. Lights and placements, collision, baked light and the
-// recipe are UTA-0110 to UTA-0113, each plugging into this baker rather than
-// starting a second one. Until UTA-0113 lands every map bakes with no recipe.
+// SCOPE: every section ubundle defines, each step plugging into this baker
+// rather than starting a second one. The recipe is UTA-0113's; until it lands
+// every map bakes with no recipe.
 //
 // NEVER DEGRADES. Over budget, nothing is written -- UTA-0052's rule. A texture
 // that cannot be made is skipped and named; the bake goes on without it.
@@ -76,9 +75,11 @@ struct BakeRequest {
 /// several (user decision, 2026-09-25).
 struct PackageClash {
     std::string package; ///< folded
-    std::string object;  ///< the first import found that `used` cannot serve, as `Package.Name`
+    std::string object;  ///< the first import found that `used` cannot serve, as `package.Group.Name`
     std::filesystem::path used;
-    std::vector<std::filesystem::path> shadowed; ///< the shadowed files that hold `object`
+    /// The shadowed files that hold `object`, and any that could not be read or
+    /// opened, which might.
+    std::vector<std::filesystem::path> shadowed;
 };
 
 struct BakeOutcome {

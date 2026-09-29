@@ -1314,9 +1314,8 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
 
     // SS 4.8: each light's tiles, and which must be drawn this frame -- a mover
     // that moved redraws the lights whose radius its box, before or after, reaches.
-    // Planned at the full target size, never the region's: a tile's size follows
-    // its light's size on the target, so a change of scale must not re-place it
-    // (UTA-0051 SS 4.4).
+    // A tile's size follows its light's reach alone (UTA-0166), so neither the
+    // camera nor the region moves it.
     std::vector<Box> moved;
     for (std::size_t i = 1; i < models.size(); ++i) {
         if (models[i] == impl.previousModels[i]) continue;

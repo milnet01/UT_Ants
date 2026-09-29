@@ -189,14 +189,15 @@ namespace {
 /// file carries one, which is an install that has never been run.
 std::optional<std::uint32_t> recordedVersion(const fsys::path& root) {
     std::optional<std::uint32_t> version;
+    // Stepped with increment(ec): a range-for's ++ throws on a failed read.
     std::error_code ec;
-    for (const fsys::directory_entry& dir : fsys::directory_iterator(root, ec)) {
-        const std::string dirName = detail::fold(detail::utf8(dir.path().filename()));
+    for (fsys::directory_iterator dir(root, ec), end; !ec && dir != end; dir.increment(ec)) {
+        const std::string dirName = detail::fold(detail::utf8(dir->path().filename()));
         if (dirName != "system" && dirName != "system64") continue;
         std::error_code inner;
-        for (const fsys::directory_entry& file : fsys::directory_iterator(dir.path(), inner)) {
-            if (detail::fold(detail::utf8(file.path().filename())) != "unrealtournament.ini") continue;
-            const auto bytes = uta::fs::readFile(file.path());
+        for (fsys::directory_iterator file(dir->path(), inner), stop; !inner && file != stop; file.increment(inner)) {
+            if (detail::fold(detail::utf8(file->path().filename())) != "unrealtournament.ini") continue;
+            const auto bytes = uta::fs::readFile(file->path());
             if (!bytes.has_value()) continue;
             std::string line;
             const auto take = [&] {

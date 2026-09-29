@@ -367,6 +367,20 @@ TEST_CASE("a bounding box that would not sample is refused", "[umap]") {
     CHECK(built.error().code() == uta::ErrorCode::MalformedData);
 }
 
+TEST_CASE("a flat bounding box too wide to hold its columns is refused", "[umap]") {
+    // One sample high, so the lattice's samples stay under the cube's cap --
+    // but the column arrays are sized by width times depth alone, and this
+    // many columns would take gigabytes.
+    Model model = twoZoneModel();
+    model.boundsMin.x = model.boundsMin.y = -500000.0F;
+    model.boundsMax.x = model.boundsMax.y = 500000.0F;
+    model.boundsMin.z = model.boundsMax.z = 0.0F;
+
+    const auto built = buildRoomMap(model);
+    REQUIRE_FALSE(built.has_value());
+    CHECK(built.error().code() == uta::ErrorCode::MalformedData);
+}
+
 TEST_CASE("every sampled room has a closed footprint, and every unsampled one is reported",
           "[umap]") {
     SECTION("a room filling the level traces one square") {

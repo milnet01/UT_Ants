@@ -4,7 +4,7 @@
 //
 // ONE DEPTH ATLAS FOR EVERY SHADOWING LIGHT. A point light takes six tiles,
 // one per cube face; a spotlight takes one. Tile size follows the light's
-// projected size on screen, in powers of two.
+// reach alone, in powers of two (UTA-0166).
 //
 // A LIGHT THAT DOES NOT MOVE HAS ITS TILES DRAWN ONCE AND KEPT (SS 4.8). A
 // tile is drawn when it is placed, when its light's numbers change, and when a
@@ -12,7 +12,7 @@
 // still camera over a still level draws no shadow tile at all.
 //
 // WHEN THE ATLAS CANNOT HOLD THE FRAME'S LIGHTS (SS 6), lights are admitted in
-// descending projected size until it is full; the rest are lit unshadowed and
+// descending tile size until it is full; the rest are lit unshadowed and
 // counted.
 //
 // INTERNAL, device-free: the allocation, the admission and the matrices are
@@ -50,9 +50,10 @@ struct ShadowDetail {
     double unitsPerTexel = SHADOW_UNITS_PER_TEXEL;
 };
 
-/// Medium and up: twice the atlas's side and half the texel, so every map's
-/// share of the atlas is what it is at Low -- 0.24 for AS-Frigate, 0.34 for
-/// DM-Fetid, 1.06 for DM-Deck16][ -- and a shadow edge is twice as fine. At 64
+/// Medium and up: twice the atlas's side and half the texel, so a shadow edge
+/// is twice as fine and a map's share of the atlas is never larger than at Low:
+/// a tile at most doubles its side in an atlas four times the area, and one
+/// held at LARGEST_SHADOW_TILE or SMALLEST_SHADOW_TILE takes less. At 64
 /// units a thin occluder, such as the ledge over AS-Frigate's cabin doors,
 /// fell between texels and lit the wall under it. Measured against a reference
 /// eight times finer over 135 views of the three maps: the mean error fell
@@ -89,11 +90,12 @@ private:
 };
 
 /// Whether `light` is shadowed as a spotlight -- one tile -- rather than as a
-/// point light's six.
+/// point light's six. A spotlight whose cone is wider than one tile's frustum
+/// opens is shadowed as a point light.
 [[nodiscard]] bool isSpot(const ubundle::Light& light) noexcept;
 
-/// How many tiles `light` takes: 6, 1, or 0 for a spotlight whose cone is 0,
-/// which lights nothing.
+/// How many tiles `light` takes: 6, 1, or 0 for a light that lights nothing --
+/// brightness 0, or a spotlight whose cone is 0.
 [[nodiscard]] std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept;
 
 /// The tile size `light` wants: its sphere of influence at

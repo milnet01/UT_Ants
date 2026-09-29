@@ -220,7 +220,9 @@ bool SurfaceRays::anyInFront(const Vec3& origin, const Vec3& normal, double radi
 bool SurfaceRays::blocked(const Vec3& a, const Vec3& b) const {
     if (nodes_.empty()) return false;
     const Vec3 direction = b - a;
-    std::vector<std::uint32_t> stack{0};
+    // One stack a thread, reused, as the queries above keep theirs.
+    thread_local std::vector<std::uint32_t> stack;
+    stack.assign(1, 0);
     while (!stack.empty()) {
         const Node& node = nodes_[stack.back()];
         stack.pop_back();

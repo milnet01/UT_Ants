@@ -12947,7 +12947,7 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0225] **Bring six specs into line with the code that shipped after them.**
+- ✅ [UTA-0225] **Bring six specs into line with the code that shipped after them.**
   Each time the code is right and the document is stale:
   - UTA-0008: format version given as 8/7/3 (code 14); SS 4.2 sizes
     GeometryVertex 32 and Light 44 (code 33, 73); ZONE and AOCC missing.
@@ -12960,11 +12960,13 @@ stays with movement in 0.2.0.
   - UTA-0015 SS 4.3: sigma > 0 (code > NO_EXTINCTION); FOG_NEAR wording.
   This project's rule 14 gate is cancelled; recording shipped behaviour
   needs no review.
+  Shipped in 576ed09; GitHub run 36562778933 green (MSVC included).
+  UTA-0172 SS 6 had already been reconciled by UTA-0224.
   **Layman:** Several design documents still describe older behaviour, so anyone building from them would build the wrong thing.
   Kind: doc-fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0226] **Close review-code 2026-09-26's LOW findings.**
+- 🚧 [UTA-0226] **Close review-code 2026-09-26's LOW findings.**
   Full text of each is in the review's lane returns (message 1 of the
   session, and commit bodies); verify against source before fixing:
   renderer - Lights.cpp:58 brightness-0 volume light takes shadow tiles;

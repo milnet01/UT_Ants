@@ -36,8 +36,8 @@ struct Rgb {
     double r = 0, g = 0, b = 0;
 };
 
-/// SS 4.3's colour, FGetHSV's hue: three sectors whose channels sum to 1,
-/// moved toward white by `saturation`, so saturation 255 is white at every hue.
+/// SS 4.3's colour, FGetHSV's hue: three sectors whose channels sum to 1 --
+/// the last to just over 1, its blue dividing by 84 -- moved toward white by `saturation`, so saturation 255 is white at every hue.
 [[nodiscard]] Rgb lightColour(std::uint8_t hue, std::uint8_t saturation) noexcept;
 
 /// SS 4.3's intensity: FGetHSV's brightness curve over its value at 255, so

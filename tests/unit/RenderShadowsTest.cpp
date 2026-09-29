@@ -167,6 +167,32 @@ TEST_CASE("SS 4.8: a point light takes six tiles and a spotlight one", "[render]
     CHECK(urender::shadowFacesOf(spot) == 0u);
 }
 
+TEST_CASE("a spotlight wider than one frustum holds is shadowed as a point light", "[render]") {
+    // One tile opens at most 170 degrees. Cone 233 is a half-angle just under
+    // 85 degrees and 234 just over, so past 233 a single tile would leave the
+    // cone's rim lit with no shadow.
+    Light spot = pointLight({0, 0, 0}, 20);
+    spot.effect = 12;
+    spot.cone = 233;
+    CHECK(urender::shadowFacesOf(spot) == 1u);
+    spot.cone = 234;
+    CHECK(urender::shadowFacesOf(spot) == 6u);
+    spot.cone = 255;
+    CHECK(urender::shadowFacesOf(spot) == 6u);
+}
+
+TEST_CASE("a light of brightness 0 casts no shadow", "[render]") {
+    // UTA-0169: it lights nothing, though a fog volume keeps it in the list.
+    Light light = pointLight({0, 0, 0}, 20);
+    light.brightness = 0;
+    light.volumeRadius = 40;
+    CHECK(urender::shadowFacesOf(light) == 0u);
+    ShadowPlanner planner;
+    const auto plan = planner.plan({light}, {});
+    CHECK(plan.faces.empty());
+    CHECK(plan.draws.empty());
+}
+
 TEST_CASE("UTA-0166: a light's tile size follows its reach and never the camera", "[render]") {
     const Light small = pointLight({600, 0, 0}, 20);   // R = 525
     const Light large = pointLight({600, 0, 0}, 200);  // R = 5025

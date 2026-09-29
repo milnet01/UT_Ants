@@ -270,8 +270,10 @@ TEST_CASE("UTA-0141: a clash that hides what the map asks for is warned about", 
 
     // A shared name the map does not suffer from: Engine.u wins the name and
     // holds every Engine object the map asks for. Stock installs are full of
-    // these (BotPack, Engine, UnrealShare), so they stay quiet.
-    uta::test::bake::writeFile(fixture.install / "Textures" / "Engine.utx", std::vector<std::uint8_t>{'x'});
+    // these (BotPack, Engine, UnrealShare), so they stay quiet. The shadow must
+    // open: one that does not is named whenever the winner falls short, and
+    // this fixture's Engine.u lacks the Palette class the map imports.
+    uta::test::bake::writeFile(fixture.install / "Textures" / "Engine.utx", uta::test::bake::tinyPackage("Unrelated"));
     const Run quiet = run(fixture.bake());
     REQUIRE(quiet.code == 0);
     CHECK(says(quiet.out, "\"packageClashes\": []"));
@@ -296,6 +298,35 @@ TEST_CASE("UTA-0141: a clash that hides what the map asks for is warned about", 
     const Run cached = run(fixture.bake());
     CHECK(says(cached.out, "\"verdict\": \"cached\""));
     CHECK(says(cached.out, "\"packageClashes\": [{\"package\": \"texpkg\""));
+}
+
+TEST_CASE("UTA-0141: a winner holding the name in another group still clashes", "[ubake][cli]") {
+    const Install fixture;
+    // The winner holds Metal.Door and a Plate, but in the group Other; the map
+    // asks for Metal.Plate, which only the shadowed Textures/TexPkg.utx holds.
+    // Matched by name and class alone, the winner's Other.Plate hid the clash.
+    const uta::test::bake::Picture art = uta::test::bake::picture(7);
+    uta::test::bake::writeFile(fixture.install / "System" / "TexPkg.u",
+                               uta::test::bake::texturePackage({{.name = "Plate", .group = "Other", .picture = art},
+                                                                {.name = "Door", .group = "Metal", .picture = art}}));
+    const Run clash = run(fixture.bake());
+    INFO(clash.out << clash.err);
+    CHECK(clash.code == 0);
+    CHECK(says(clash.out, "\"packageClashes\": [{\"package\": \"texpkg\", \"object\": \"texpkg.Metal.Plate\""));
+}
+
+TEST_CASE("UTA-0141: a shadowed file that cannot be read is named when the winner falls short", "[ubake][cli]") {
+    const Install fixture;
+    // The winner lacks Metal.Plate, and the only other TexPkg does not open, so
+    // whether it holds the object cannot be known. It was dropped in silence.
+    uta::test::bake::writeFile(fixture.install / "System" / "TexPkg.u", uta::test::bake::classPackage("Unrelated"));
+    uta::test::bake::writeFile(fixture.install / "Textures" / "TexPkg.utx", std::vector<std::uint8_t>{'x'});
+    const Run clash = run(fixture.bake());
+    INFO(clash.out << clash.err);
+    CHECK(clash.code == 0);
+    const std::size_t shadowed = clash.out.find("\"shadowed\": [");
+    REQUIRE(shadowed != std::string::npos);
+    CHECK(clash.out.find("TexPkg.utx", shadowed) != std::string::npos);
 }
 
 TEST_CASE("UTA-0117: the install check names the version and warns unless it is 469", "[ubake][cli]") {

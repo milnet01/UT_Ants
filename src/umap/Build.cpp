@@ -23,6 +23,12 @@ namespace {
 /// would report a level that reached it.
 constexpr std::size_t MAX_SAMPLES = std::size_t{1} << 30;
 
+/// The most columns -- width times depth -- one lattice may hold. The column
+/// arrays are sized by these alone, so MAX_SAMPLES does not bound them: a box
+/// one sample high passes it with 2^30 columns, gigabytes of labels. At the
+/// default spacing this admits 4096 columns a side, 131072 units.
+constexpr std::size_t MAX_COLUMNS = std::size_t{1} << 24;
+
 /// One lattice column's cell, in the grid `traceComponent` walks.
 ///
 /// A cell is the square of side `sampleSpacing` CENTRED on its column's
@@ -412,6 +418,11 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
                             " samples at a spacing of " + std::to_string(spacing));
         }
         count[static_cast<std::size_t>(axis)] = static_cast<std::size_t>(steps);
+        if (axis == 1 && total > static_cast<double>(MAX_COLUMNS)) {
+            return fail(ErrorCode::MalformedData,
+                        "a level bounding box needs " + std::to_string(total) +
+                            " columns at a spacing of " + std::to_string(spacing));
+        }
     }
 
     lattice.nx = count[0];

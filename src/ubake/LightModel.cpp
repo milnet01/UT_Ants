@@ -109,8 +109,9 @@ constexpr std::array<double, 256> SRGB_TO_LINEAR = {
 } // namespace
 
 Rgb lightColour(std::uint8_t hue, std::uint8_t saturation) noexcept {
-    // UTA-0165: FGetHSV's three sectors, whose channels sum to 1; the last
-    // divides by 84, as the engine does.
+    // UTA-0165: FGetHSV's three sectors, whose channels sum to 1, except that
+    // the last divides its blue by 84, as the engine does, so it sums to just
+    // over 1 (1.012 at hue 171).
     const double h = hue;
     Rgb pure;
     if (hue < 86) pure = {(85 - h) / 85, h / 85, 0};
