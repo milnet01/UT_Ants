@@ -11849,7 +11849,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-09-20.
   Lanes: ut-paths.
 
-- 📋 [UTA-0196] **ut-paths: MH-NivenSB needs a node chain anchored at PathNodeSeed8 heading to the exit.**
+- 🚧 [UTA-0196] **ut-paths: MH-NivenSB needs a node chain anchored at PathNodeSeed8 heading to the exit.**
   Carried out of UTA-0126 so it survives that item closing; UTA-0126
   diagnosed it and its body holds the full measurement.
 
@@ -11878,6 +11878,23 @@ stays with movement in 0.2.0.
 
   Never compare a saved node count against a runtime one: the engine
   creates InventorySpots at load, so 494 saved reads as 679 at runtime.
+  Re-diagnosed (2026-09-29) from ut-dump --nav-graph and throwaway
+  probes on our collision tree. Over walking specs alone (R_FLY
+  excluded) the start part is 119 nodes and its frontier PathNode20 is
+  2853 from the exit, matching UT_MonsterHunt's 2852. The part that
+  reaches the exit already holds PathNode32 (-103, -412, 147) on a ramp
+  top, with the map's own drop spec PathNode32 to PathNode7968 into the
+  lower floor. Only two Spawnpoints enter PathNode32; nothing of the
+  start part does. The floor from PathNode20 up that ramp is one walk
+  region, so the gap is about 800 units of floor, not 2784.
+  Current ut-paths output (PARTITIONED) is three nodes ending about 60
+  from PathNode32: (-800, -492, 27), (-480, -492, 27), (-160, -428,
+  125). It postdates the fallback fix, so the 2026-09-12 UTP arm did not
+  test it. Sent to UT_MonsterHunt for a two-arm run (message 293).
+  Also measured: the walk graph has no one-way drops, so in walking
+  mode ut-paths finds no route here (noRoute mover); adding drops up to
+  340 units reaches the exit through a 313-unit drop off that ramp.
+  Waiting-on: UT_MonsterHunt's two-arm result for the three-node chain.
   **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
   Kind: fix.
   Source: in-session-2026-09-20.
