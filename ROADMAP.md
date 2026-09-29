@@ -9272,7 +9272,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14 performance pass.
   Lanes: tests, ci.
 
-- 🚧 [UTA-0151] **Time each real-asset tier case, so the 20-minute bake case is measured rather than assumed.**
+- ✅ [UTA-0151] **Time each real-asset tier case, so the 20-minute bake case is measured rather than assumed.**
   Noted 2026-09-14 (ut-ants-db). The tier's bake-name case (every map
   takes a bake name and a stock map bakes the same twice) is recorded as
   20+ minutes, and UTA-0103's filtered comparison ran the whole tier in
@@ -9281,6 +9281,17 @@ stays with movement in 0.2.0.
   the times here, and file what they show. The bake case is likely the
   same texture work as the ut-bake item above, so a compressed-texture
   cache would help both.
+  Resolved (2026-09-29): every case timed through ctest, one test per
+  case, on build-real. CONTENDED: load average 16 to 17 throughout, and
+  the tier took 5714 s against about 40 minutes before, so the seconds
+  are inflated; the ranking is what holds. Monster Hunt scene census
+  2524 s (44%); bake names over every map plus two DM-Deck16][ bakes
+  1048 s (18%); actors 353; collision 322; movers 255; class exports
+  203; packages 178; Paths index 135; both graphs 134; modelled exports
+  130; curated seed 120; the rest under 90 each. All 19 passed.
+  The premise above was wrong: the bake case's time is bakeName over
+  every map, not texture work, so the texture cache does not help it.
+  Filed as UTA-0250, with the census case's repeated per-map work.
   **Layman:** The slow real-game test suite has never had each of its checks timed, so nobody knows exactly which parts take the time.
   Kind: investigate.
   Source: user-request-2026-09-14 performance pass.
@@ -13459,6 +13470,26 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: in-session-2026-09-29.
   Lanes: upkg.
+
+- 📋 [UTA-0250] **The real-asset tier's two slowest cases redo shared work for every map.**
+  Found timing the tier (UTA-0151, 2026-09-29). Two cases take over
+  three fifths of it.
+  "every Monster Hunt map's scene reads and the census prints"
+  (tests/real/RealPathSeedsTest.cpp, censusOf) is 44%. Per map it opens
+  the install afresh, builds the walk graph once to count spots and again
+  inside propose(), and runs maps one after another. Build it once and
+  hand it on, open the install once, and spread maps over the job system.
+  "every map takes a bake name and a stock map bakes the same twice"
+  (RealBakeTest.cpp) is 18%. Its bulk is bakeName over every map, one
+  Install per map by design (the comment there says why); the two
+  DM-Deck16][ bakes are a few seconds. Measure how much is re-digesting
+  shared packages before changing the design; the texture cache
+  (UTA-0148) does not reach this case.
+  Keep every assertion and census line unchanged; only the time moves.
+  **Layman:** The two slowest real-game tests repeat the same setup for every map; doing it once would cut the suite's run time by a large share.
+  Kind: perf.
+  Source: user-request-2026-09-14 performance pass, UTA-0151.
+  Lanes: tests, ut-paths, ubake.
 
 ## 0.2.0 — Movement and weapons
 
