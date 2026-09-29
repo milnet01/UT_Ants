@@ -9272,7 +9272,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14 performance pass.
   Lanes: tests, ci.
 
-- 📋 [UTA-0151] **Time each real-asset tier case, so the 20-minute bake case is measured rather than assumed.**
+- 🚧 [UTA-0151] **Time each real-asset tier case, so the 20-minute bake case is measured rather than assumed.**
   Noted 2026-09-14 (ut-ants-db). The tier's bake-name case (every map
   takes a bake name and a stock map bakes the same twice) is recorded as
   20+ minutes, and UTA-0103's filtered comparison ran the whole tier in
