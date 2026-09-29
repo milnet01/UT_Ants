@@ -30,10 +30,13 @@ Use useOf(VkImageLayout layout) noexcept {
     case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
         return {VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
                 VK_ACCESS_2_SHADER_SAMPLED_READ_BIT};
+    // Every transfer command, not only copies: a blit and a clear run at stages
+    // of their own, and a COPY-only scope left them unordered after the
+    // transition (sync validation, UTA-0227).
     case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        return {VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_READ_BIT};
+        return {VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_READ_BIT};
     case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        return {VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT};
+        return {VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT};
     case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
         return {VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 0};
     case VK_IMAGE_LAYOUT_GENERAL:

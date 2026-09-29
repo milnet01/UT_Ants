@@ -136,7 +136,7 @@ the label `device`; INV-5's refusal test carries `device-absent`.
 not. Run it headlessly on Mesa's CPU driver, which is what CI's Linux legs have:
 
 ```sh
-VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
+VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json VK_VALIDATION_VALIDATE_SYNC=true \
   ctest --test-dir build -L '^device$'
 ```
 
@@ -144,7 +144,9 @@ Without that variable the tier runs on this machine's GPU. **A device test that
 finds no device fails; it never skips** —
 `docs/specs/UTA-0014-vulkan-draw-path.md` § 3 decision 6. **It also runs under
 the Khronos validation layer, and fails on any layer error or when the layer
-is not installed** (`UTA-0138`).
+is not installed** (`UTA-0138`). `scripts/ci.sh` turns on the layer's
+synchronization checks with `VK_VALIDATION_VALIDATE_SYNC=true` (`UTA-0227`);
+set it by hand too, or a local run misses what the gate catches.
 
 `.githooks/pre-push` runs neither directly. It delegates to
 `$ANTS_GLOBAL_HOOKS/pre-push` whenever that variable is set to a

@@ -330,6 +330,12 @@ if $IS_WINDOWS; then
 else
     labels='^(unit|device|device-absent)$'
 fi
+# UTA-0227: the device tier runs under the validation layer's synchronization
+# checks too. The default settings missed a race these found at once (50 of 52
+# tests, f02396c), and later an unordered clear. Measured on lavapipe: about
+# 0.1 s over a 4 s tier. Not a substitute for reading the barriers -- it did
+# not flag the compute-to-draw buffer hazards f02396c also fixed.
+export VK_VALIDATION_VALIDATE_SYNC=true
 ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure --no-tests=error -L "$labels" \
     -j "$TEST_JOBS" --timeout "$TEST_TIMEOUT"
 
