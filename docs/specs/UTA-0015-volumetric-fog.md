@@ -447,6 +447,12 @@ Each is seen to fail against the code before this item.
    its whole view with haze. The rule is now applied on each of DM-Deck16][,
    AS-Frigate and DM-Fetid, and the value kept is the largest within `1.0` of
    no haze on all three: `2.5e-5`.
+   *Refitted again (2026-09-29), at `EXPOSURE` `5.03`:* UTA-0197, after
+   UTA-0187 and UTA-0192 moved the exposure twice and removed the tone map's
+   toe. Scored per pixel, as UTA-0192 ships, and per block, since every earlier
+   fit used blocks. The largest value within `1.0` of no haze on all three maps
+   under both scorings is `5e-5`. The scores are beside the constant in
+   `shaders/fog.glsl`.
 2. **Volumetric lights.** A scratch probe beside `ambient-census/` lists the
    stock maps' `PlayerStart`s that are in a fog zone and within a volumetric
    light's volume radius plus 1000 units. Capture one such map with
@@ -469,6 +475,9 @@ Each is seen to fail against the code before this item.
    *Refitted again (2026-09-17):* at `EXPOSURE` `5.5` with that haze, glow
    `2e-3` and fog `2e-1`, the lowest point of a grid bracketing both. The scores
    are beside the constants in `shaders/fog.glsl`.
+   *Rechecked (2026-09-29), at `EXPOSURE` `5.03`:* UTA-0197, with the haze at
+   `5e-5`. Glow `2e-3` at fog `2e-1` is still the lowest point of a grid
+   bracketing both, so neither moves.
 3. **Nothing else moves.** DM-Deck16][ at `hazeScale` `0` keeps the block RMS
    it had before this item.
    *Result (2026-09-15):* `46.2` at exposure 3.2, as before.
@@ -480,6 +489,9 @@ Each is seen to fail against the code before this item.
    *Re-checked under UTA-0165 (2026-09-17):* `38.0` at exposure `5.5` with the
    shipped constants, the same as its haze-only score, so the refitted glow and
    fog move nothing on a map with no volumetric light.
+   *Re-checked under UTA-0197 (2026-09-29):* pixel `40.8`, block `37.0` at
+   exposure `5.03` at every glow and fog swept, the same as its haze-only
+   score, so the glow and fog still move nothing there.
 
 ## 8. Alternatives considered (and rejected)
 

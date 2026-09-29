@@ -419,6 +419,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Haze is refitted to today's brightness and doubles, to 5e-5** (UTA-0197)
+  Measured against the original game on DM-Deck16][, AS-Frigate and
+  DM-Fetid at EXPOSURE 5.03. The volumetric glow and fog were rechecked
+  and stay where they were.
+
 - **The renderer reads its per-frame light statistics back from cached memory, saving about a third of a millisecond of CPU time every frame.** (UTA-0209)
 
 - **ut-bake makes several texture variants at once, a fifth to a quarter faster, with identical bundles** (UTA-0148)

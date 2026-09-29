@@ -37,7 +37,15 @@ const float HAZE_EXTINCTION = 1.28614e-5;
 // DM-Fetid with volumetric lighting on 34.7, 34.5, 34.3 at the first three.
 // The largest within 1.0 of no haze on every map is 0.25. At 2.5e-5 itself,
 // 36.8, 36.9 and 34.5 (ut-ants-uta0178/haze3.sh).
-const float HAZE_SCATTER = 2.5e-5;
+// Refitted by UTA-0197 at EXPOSURE 5.03 with UTA-0192's toe-less tone map, on
+// baker revision 27 bakes, light time pinned. Pixel RMS then block RMS on
+// DM-Deck16][, AS-Frigate (blank pose 11 dropped) and DM-Fetid without
+// volumetric lighting. No haze 41.4/37.2, 26.2/18.7, 52.1/48.2; 2.5e-5
+// 40.8/36.9, 25.0/17.9, 52.1/48.3; 5e-5 40.8/37.0, 25.4/18.9, 52.1/48.4; 7.5e-5
+// 41.0/37.3, 26.8/20.8, 52.2/48.5; 1e-4 41.3/37.8, 28.6/23.1, 52.3/48.7. The
+// largest within 1.0 of no haze on every map under BOTH scorings is 5e-5;
+// 7.5e-5 passes pixel scoring and fails block (ut-ants-uta0197/sweep.sh).
+const float HAZE_SCATTER = 5.0e-5;
 // SS 7 step 2, on DM-Fetid with volumetric lighting on, the same measure and
 // exposure, refitted by UTA-0166 on top of the haze above. By glow at fog
 // 6.4e-2: none 68.2; 2e-3 46.7; 2.5e-3 43.6; 3e-3 41.4; 4e-3 39.2; 5e-3 39.1;
@@ -59,6 +67,11 @@ const float HAZE_SCATTER = 2.5e-5;
 // (ut-ants-uta0156/fogglow18.sh). HAZE_SCATTER was not re-swept at 5.4: it was
 // fitted on DM-Deck16][, whose lightmap agreement UTA-0168 moved only from
 // 99.2% to 99.6%.
+// Rechecked by UTA-0197 as HAZE_SCATTER's refit was, with it at 5e-5, on
+// DM-Fetid with volumetric lighting on; none 64.9/60.8. Pixel RMS by glow and
+// fog: 1e-3 at 1e-1, 2e-1, 4e-1 38.7, 40.3, 43.1; 2e-3 36.7, 36.5, 37.2; 4e-3
+// 48.8, 45.6, 41.5. Glow 2e-3 at fog 2e-1 is the minimum, inside the grid on
+// both axes (block 31.4), so both stay. DM-Deck16][ scored 40.8 at every point.
 const float VOLUME_GLOW_SCALE = 2.0e-3;
 const float VOLUME_FOG_SCALE = 2.0e-1;
 
