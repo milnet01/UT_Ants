@@ -91,6 +91,7 @@ add_executable(uta_unit_tests
     unit/RenderVolumeLightsTest.cpp
     unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
+    unit/TextureCacheTest.cpp
     unit/ToolsJsonTest.cpp
     unit/WiringGraphTest.cpp)
 target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav_build

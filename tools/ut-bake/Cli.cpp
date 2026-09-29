@@ -42,7 +42,8 @@ void writeArray(std::ostream& out, const std::vector<T>& values, Write write) {
 void usage(std::ostream& err) {
     err << "usage: ut-bake --check <install>\n"
            "       ut-bake --game-types <install>\n"
-           "       ut-bake --install <install> --out <dir> [--force] [--fit-budget] <map>\n"
+           "       ut-bake --install <install> --out <dir> [--force] [--fit-budget]\n"
+           "               [--texture-cache <dir>] <map>\n"
            "       ut-bake --help\n"
            "\n"
            "--check says whether a directory is a usable Unreal Tournament install,\n"
@@ -50,7 +51,10 @@ void usage(std::ostream& err) {
            "SHA-256 of what it was baked from, and reuses a bake already there\n"
            "unless --force is given. A map whose textures exceed the budget is refused;\n"
            "with --fit-budget its textures are shrunk until they fit instead, and the\n"
-           "bake is named apart from a full one (UTA-0245). --game-types lists the game types the install's\n"
+           "bake is named apart from a full one (UTA-0245). --texture-cache keeps\n"
+           "made textures in <dir> between bakes, capped at 4 GB, so baking a map\n"
+           "again is faster; the output is the same either way (UTA-0148).\n"
+           "--game-types lists the game types the install's\n"
            ".int files register, each with the MapPrefix its maps' names start with\n"
            "(UTA-0179). Standard output is one JSON object.\n";
 }
@@ -59,6 +63,7 @@ struct Arguments {
     bool help = false;
     bool force = false;
     bool fitBudget = false;
+    std::optional<std::string_view> textureCache;
     std::optional<std::string_view> check;
     std::optional<std::string_view> gameTypes;
     std::optional<std::string_view> install;
@@ -90,6 +95,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             parsed.force = true;
         } else if (arg == "--fit-budget") {
             parsed.fitBudget = true;
+        } else if (arg == "--texture-cache") {
+            if (!takeValue(parsed.textureCache)) return std::nullopt;
         } else if (arg == "--check") {
             if (!takeValue(parsed.check)) return std::nullopt;
         } else if (arg == "--game-types") {
@@ -111,7 +118,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
 
     if (parsed.help) return parsed;
     if (parsed.check.has_value() || parsed.gameTypes.has_value()) {
-        if ((parsed.check && parsed.gameTypes) || parsed.install || parsed.out || parsed.map || parsed.force) {
+        if ((parsed.check && parsed.gameTypes) || parsed.install || parsed.out || parsed.map || parsed.force
+            || parsed.textureCache) {
             err << "ut-bake: " << (parsed.check ? "--check" : "--game-types")
                 << " takes an install and nothing else\n";
             return std::nullopt;
@@ -215,7 +223,8 @@ void writeResult(std::ostream& out, const BakeResult& result) {
         writeJsonString(out, cost.name);
         out << ", \"bytes\": " << cost.bytes << '}';
     });
-    out << "}, \"skipped\": ";
+    out << "}, \"textureCache\": {\"hits\": " << result.textureCacheHits
+        << ", \"misses\": " << result.textureCacheMisses << "}, \"skipped\": ";
     writeArray(out, result.skipped, [&out](const SkippedTexture& skipped) {
         out << "{\"material\": ";
         writeJsonString(out, skipped.material);
@@ -234,6 +243,9 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
     request.outDir = std::filesystem::path(*args.out);
     request.force = args.force;
     request.fitBudget = args.fitBudget;
+    // UTA-0148: only when asked (user, 2026-09-29) -- maps share few
+    // textures, so the cache pays on baking one map again, not on a new one.
+    if (args.textureCache) request.textureCache = std::filesystem::path(*args.textureCache);
     request.budgetBytes = budgetBytes;
     const auto outcome = bakeToDirectory(request, jobs);
 

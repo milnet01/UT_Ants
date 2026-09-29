@@ -15,8 +15,11 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <charconv>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -100,12 +103,32 @@ struct Install {
     }
 
     [[nodiscard]] std::vector<std::string> bake(bool force = false) const {
-        std::vector<std::string> args = {"--install", install.string(), "--out", out.string()};
+        // UTA-0148: never the user's own texture cache.
+        std::vector<std::string> args = {"--install", install.string(), "--out", out.string(),
+                                         "--texture-cache", (dir.path() / "textures").string()};
         if (force) args.emplace_back("--force");
         args.push_back(map.string());
         return args;
     }
 };
+
+/// The number after `"<key>": ` inside the report's textureCache object.
+std::uint32_t cacheCount(const std::string& json, std::string_view key) {
+    const std::size_t block = json.find("\"textureCache\": {");
+    REQUIRE(block != std::string::npos);
+    const std::string label = "\"" + std::string(key) + "\": ";
+    const std::size_t at = json.find(label, block);
+    REQUIRE(at != std::string::npos);
+    std::uint32_t value = 0;
+    const char* const first = json.data() + at + label.size();
+    REQUIRE(std::from_chars(first, json.data() + json.size(), value).ec == std::errc{});
+    return value;
+}
+
+std::string bytesOf(const fs::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
 
 std::size_t filesIn(const fs::path& directory) {
     std::size_t count = 0;
@@ -147,7 +170,7 @@ TEST_CASE("a bake prints written and then cached and exits 0", "[ubake][cli]") {
     CHECK(isOneObject(written.out));
     CHECK(says(written.out, "\"verdict\": \"written\""));
     for (const std::string_view key : {"schema", "map", "bakerVersion", "name", "path", "rooms",
-                                       "budget", "skipped"}) {
+                                       "budget", "skipped", "textureCache"}) {
         INFO("key: " << key);
         CHECK(hasKey(written.out, key));
     }
@@ -160,7 +183,7 @@ TEST_CASE("a bake prints written and then cached and exits 0", "[ubake][cli]") {
     CHECK(says(cached.out, "\"verdict\": \"cached\""));
     CHECK(hasKey(cached.out, "name"));
     CHECK(hasKey(cached.out, "path"));
-    for (const std::string_view key : {"rooms", "budget", "skipped", "error"}) {
+    for (const std::string_view key : {"rooms", "budget", "skipped", "textureCache", "error"}) {
         INFO("key: " << key);
         CHECK_FALSE(hasKey(cached.out, key));
     }
@@ -178,7 +201,7 @@ TEST_CASE("a refused bake prints its error and exits 1", "[ubake][cli]") {
     CHECK(isOneObject(refused.out));
     CHECK(says(refused.out, "\"verdict\": \"refused\""));
     CHECK(hasKey(refused.out, "error"));
-    for (const std::string_view key : {"name", "path", "rooms", "budget", "skipped"}) {
+    for (const std::string_view key : {"name", "path", "rooms", "budget", "skipped", "textureCache"}) {
         INFO("key: " << key);
         CHECK_FALSE(hasKey(refused.out, key));
     }
@@ -191,7 +214,7 @@ TEST_CASE("an over-budget bake exits 1 and leaves no file", "[ubake][cli]") {
     CHECK(over.code == 1);
     CHECK(isOneObject(over.out));
     CHECK(says(over.out, "\"verdict\": \"over-budget\""));
-    for (const std::string_view key : {"name", "path", "rooms", "budget", "skipped"}) {
+    for (const std::string_view key : {"name", "path", "rooms", "budget", "skipped", "textureCache"}) {
         INFO("key: " << key);
         CHECK(hasKey(over.out, key));
     }
@@ -387,4 +410,38 @@ TEST_CASE("UTA-0117: the install check names the version and warns unless it is 
     CHECK(says(tested.out, "\"version\": 469"));
     CHECK(says(tested.out, "\"warnings\": []"));
     CHECK_FALSE(says(tested.err, "warning"));
+}
+
+TEST_CASE("UTA-0148: a second bake takes every material from the texture cache, byte for byte",
+          "[ubake][cli]") {
+    const Install fixture;
+    const Run cold = run(fixture.bake());
+    REQUIRE(cold.code == 0);
+    CHECK(cacheCount(cold.out, "hits") == 0);
+    const std::uint32_t made = cacheCount(cold.out, "misses");
+    REQUIRE(made > 0);
+    std::string first;
+    for (const auto& entry : fs::directory_iterator(fixture.out)) first = bytesOf(entry.path());
+    REQUIRE_FALSE(first.empty());
+
+    // Forced, so the bundle is made again: every material now comes from the
+    // cache, and the file is the same to the byte.
+    const Run warm = run(fixture.bake(true));
+    REQUIRE(warm.code == 0);
+    CHECK(cacheCount(warm.out, "hits") == made);
+    CHECK(cacheCount(warm.out, "misses") == 0);
+    std::string second;
+    for (const auto& entry : fs::directory_iterator(fixture.out)) second = bytesOf(entry.path());
+    CHECK(second == first);
+
+    // And with the cache off the same bytes again, and nothing counted.
+    std::vector<std::string> off = {"--install", fixture.install.string(), "--out",
+                                    fixture.out.string(), "--force", fixture.map.string()};
+    const Run plain = run(off);
+    REQUIRE(plain.code == 0);
+    CHECK(cacheCount(plain.out, "hits") == 0);
+    CHECK(cacheCount(plain.out, "misses") == 0);
+    std::string third;
+    for (const auto& entry : fs::directory_iterator(fixture.out)) third = bytesOf(entry.path());
+    CHECK(third == first);
 }

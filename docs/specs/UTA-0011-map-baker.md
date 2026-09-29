@@ -471,7 +471,7 @@ choose between them (§ 15).
 ```text
 ut-bake --check <install>
 ut-bake --game-types <install>
-ut-bake --install <install> --out <dir> [--force] [--fit-budget] <map>
+ut-bake --install <install> --out <dir> [--force] [--fit-budget] [--texture-cache <dir>] <map>
 ut-bake --help
 ```
 
@@ -537,12 +537,19 @@ A bake prints:
  "rooms": {"withoutFootprint": [0], "refusedZones": [0]},
  "budget": {"workingSetBytes": 0, "budgetBytes": 0,
             "byTexture": [{"name": "<map name>", "bytes": 0}]},
+ "textureCache": {"hits": 0, "misses": 0},
  "skipped": [{"material": "<id>", "why": "<a sentence>"}]}
 ```
 
 - `error` appears only on `refused`.
 - `name` and `path` appear on `written`, `cached` and `over-budget`.
-- `rooms`, `budget` and `skipped` appear on `written` and `over-budget`.
+- `rooms`, `budget`, `textureCache` and `skipped` appear on `written` and
+  `over-budget`.
+- `textureCache` counts the materials `--texture-cache <dir>` served and the
+  ones it had to make; both `0` without that option, which is the default.
+  Added by `UTA-0148`: the cache holds `umat::generate`'s result keyed on its
+  inputs and the baker version, so the bundle is byte-identical with it cold,
+  warm or absent.
 - `packageClashes` appears with `name`. Added by `UTA-0141`. A row is a
   package name more than one install file carries, where the file the
   game's `Paths` order picks (`used`) lacks an object an import asks for,

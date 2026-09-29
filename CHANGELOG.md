@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-bake --texture-cache keeps made textures between bakes** (UTA-0148)
+  Baking a map again takes about half the time, byte for byte the same
+  bundle. Off unless asked: maps share few textures, so a new map gains
+  little.
+
 - **A map whose textures exceed the memory budget can be opened with smaller textures, on request** (UTA-0245)
   ut-bake --fit-budget, or Ctrl+F in the launcher after a refusal, shrinks
   the textures until they fit: invented upscale detail goes first, original

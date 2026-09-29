@@ -20,7 +20,8 @@ add_library(uta_ubake STATIC
     Strips.cpp
     Zones.cpp
     FireStill.cpp
-    GameTypes.cpp)
+    GameTypes.cpp
+    TextureCache.cpp)
 target_link_libraries(uta_ubake PUBLIC uta_core uta_upkg uta_umat uta_unav_build uta_umap_build
                                        uta_ubundle uta_uworld)
 

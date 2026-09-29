@@ -343,7 +343,8 @@ struct MadeVariant {
 std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                                     const std::string& id, bool masked,
                                                     const upkg::PackageResolver& resolver, JobSystem& jobs,
-                                                    const detail::CuratedLookup& curated) {
+                                                    const detail::CuratedLookup& curated,
+                                                    TextureCache* textureCache) {
     if (site.holder == nullptr) return std::unexpected(site.unresolved);
     const upkg::Package& holder = *site.holder;
 
@@ -493,7 +494,18 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     const auto rgba = umat::toPowerOfTwo(*resolved);
     if (!rgba.has_value())
         return std::unexpected("umat::toPowerOfTwo refused it: " + std::string(rgba.error().message()));
-    auto material = umat::generate(id, *rgba, settings, jobs);
+    // UTA-0148: generate is a pure function of id, picture and settings, so a
+    // material made by an earlier bake is taken from the cache instead.
+    std::optional<TextureCacheKey> key;
+    std::optional<umat::Material> kept;
+    if (textureCache != nullptr) {
+        key = textureCacheKey(id, *rgba, settings);
+        kept = textureCache->find(*key, id);
+    }
+    auto material = kept.has_value() ? Result<umat::Material>(std::move(*kept))
+                                     : umat::generate(id, *rgba, settings, jobs);
+    if (textureCache != nullptr && !kept.has_value() && material.has_value())
+        textureCache->store(*key, *material);
     if (!material.has_value())
         return std::unexpected("umat::generate refused it: "
                                + std::string(material.error().message()));
@@ -518,7 +530,7 @@ struct Materials {
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
                                 const std::vector<const upkg::Model*>& models,
                                 const upkg::PackageResolver& resolver, JobSystem& jobs,
-                                const detail::CuratedLookup& curated) {
+                                const detail::CuratedLookup& curated, TextureCache* textureCache) {
     // Which variants each distinct reference needs. A map's surfaces name a
     // few hundred textures thousands of times, so each is resolved once. The
     // level's Model and every mover's contribute alike -- UTA-0119 SS 4.6.
@@ -588,7 +600,8 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         std::vector<std::optional<std::expected<MadeVariant, std::string>>> batch(count);
         const std::size_t threw = jobs.parallelFor(count, [&](std::size_t i) {
             const auto& [id, variant] = ordered[first + i];
-            batch[i].emplace(makeVariant(*variant->site, *id, variant->masked, locked, jobs, curated));
+            batch[i].emplace(makeVariant(*variant->site, *id, variant->masked, locked, jobs, curated,
+                                         textureCache));
         });
         if (threw != 0) return fail(ErrorCode::Unknown, "making a material threw");
 #ifdef __GLIBC__
@@ -698,7 +711,8 @@ Result<TextureExport> resolveTexture(const upkg::Package& map, std::string_view 
 
 Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                         const upkg::PackageResolver& resolver, JobSystem& jobs,
-                        const CuratedLookup& curated, std::uint64_t budgetBytes) {
+                        const CuratedLookup& curated, std::uint64_t budgetBytes,
+                        TextureCache* textureCache) {
     // 1. The level, and 2. its world.
     UTA_TRY(const upkg::ExportEntry* const levelExport, findLevel(map, mapName));
     UTA_TRY(const upkg::Level level, naming(upkg::readLevel(map, *levelExport), mapName));
@@ -743,7 +757,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // 7. TEXS and MATS, over the level's Model and every mover's.
     std::vector<const upkg::Model*> surfaced{&model};
     for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
-    UTA_TRY(Materials materials, bakeMaterials(map, mapName, surfaced, resolver, jobs, curated));
+    UTA_TRY(Materials materials, bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache));
 
     // 8. GEOM, each surface wearing the variant step 7 made for it --
     // UTA-0109 SS 4.4.
@@ -958,8 +972,16 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
 
     // 3. Bake, then the budget. Over it, nothing is written -- UTA-0052's
     // never-degrade rule.
-    UTA_TRY(BakeResult result, detail::bake(map, mapName, install.resolver(), jobs,
-                                            &umat::curated, request.budgetBytes));
+    std::optional<TextureCache> textureCache;
+    if (!request.textureCache.empty()) textureCache.emplace(request.textureCache);
+    UTA_TRY(BakeResult result, detail::bake(map, mapName, install.resolver(), jobs, &umat::curated,
+                                            request.budgetBytes,
+                                            textureCache ? &*textureCache : nullptr));
+    if (textureCache) {
+        result.textureCacheHits = textureCache->hits();
+        result.textureCacheMisses = textureCache->misses();
+        textureCache->trim();
+    }
     if (!umat::enforceBudget(result.budget).has_value()) {
         // UTA-0245: asked to, shrink until it fits, under its own name.
         if (request.fitBudget && result.bundle.textures) {

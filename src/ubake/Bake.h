@@ -17,6 +17,7 @@
 #include "core/Error.h"
 #include "core/Jobs.h"
 #include "ubake/Install.h"
+#include "ubake/TextureCache.h"
 #include "ubundle/Bundle.h"
 #include "umap/Build.h"
 #include "umat/Library.h"
@@ -48,6 +49,10 @@ struct BakeResult {
     umap::RoomBuildReport rooms;
     umat::BudgetReport budget;
     std::vector<SkippedTexture> skipped;
+    /// UTA-0148: materials the texture cache served, and ones it had to make.
+    /// Both 0 when the bake ran without one.
+    std::uint32_t textureCacheHits = 0;
+    std::uint32_t textureCacheMisses = 0;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.
@@ -71,6 +76,9 @@ struct BakeRequest {
     /// A fitted bake is named apart (detail::fittedName), so a request
     /// without this is never served one.
     bool fitBudget = false;
+    /// UTA-0148: where made materials are kept between bakes (TextureCache).
+    /// Empty keeps none, the default; ut-bake's --texture-cache sets it.
+    std::filesystem::path textureCache;
 };
 
 /// UTA-0141: a package name more than one install file carries, where the
@@ -119,7 +127,8 @@ using CuratedLookup = std::function<const umat::CuratedOverride*(std::uint64_t f
 /// `budgetBytes`.
 [[nodiscard]] Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                       const upkg::PackageResolver& resolver, JobSystem& jobs,
-                                      const CuratedLookup& curated, std::uint64_t budgetBytes);
+                                      const CuratedLookup& curated, std::uint64_t budgetBytes,
+                                      TextureCache* textureCache = nullptr);
 
 /// SS 4.5 step 1: the map's one Level export. MalformedData, naming the map,
 /// when it has none or more than one. ut-paths reads a map's level the bake's
