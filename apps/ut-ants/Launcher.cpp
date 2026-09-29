@@ -11,6 +11,7 @@
 
 #include "MapList.h"
 #include "core/FileSystem.h"
+#include "core/Log.h"
 
 #include <SDL3/SDL.h>
 
@@ -67,21 +68,28 @@ public:
     void start(std::vector<std::string> args, bool readOutput) {
         stop();
         done_ = false;
+        stopping_ = false;
         output_.clear();
         exitCode_ = -1;
+        startError_.clear();
         worker_ = std::jthread([this, args = std::move(args), readOutput] {
             std::vector<const char*> argv;
             for (const std::string& arg : args) argv.push_back(arg.c_str());
             argv.push_back(nullptr);
             SDL_Process* const process = SDL_CreateProcess(argv.data(), readOutput);
             if (process == nullptr) {
-                std::cerr << "ut-ants: could not run " << args.front() << ": " << SDL_GetError() << "\n";
+                const std::scoped_lock lock(mutex_);
+                startError_ = "could not run " + args.front() + ": " + SDL_GetError();
+                std::cerr << "ut-ants: " << uta::sanitised(startError_) << "\n";
                 done_ = true;
                 return;
             }
             {
+                // A stop() that came before this saw no process to kill, so
+                // the kill is done here rather than waiting the child out.
                 const std::scoped_lock lock(mutex_);
                 process_ = process;
+                if (stopping_) SDL_KillProcess(process, true);
             }
             int exitCode = -1;
             std::string output;
@@ -114,11 +122,19 @@ public:
         return {std::move(output_), exitCode_};
     }
 
+    /// Why the child never started, once finished; empty when it did. Its exit
+    /// code is then -1, which a child that ran can also return.
+    [[nodiscard]] std::string startError() {
+        const std::scoped_lock lock(mutex_);
+        return startError_;
+    }
+
     /// Kill a running child and wait for its thread.
     void stop() {
         if (!worker_.joinable()) return;
         {
             const std::scoped_lock lock(mutex_);
+            stopping_ = true;
             if (process_ != nullptr) SDL_KillProcess(process_, true);
         }
         worker_.join();
@@ -128,9 +144,11 @@ private:
     std::jthread worker_;
     std::mutex mutex_;
     SDL_Process* process_ = nullptr;
+    bool stopping_ = false; ///< under mutex_
     std::atomic<bool> done_ = false;
     std::string output_;
     int exitCode_ = -1;
+    std::string startError_;
 };
 
 /// UTA-0179: the maps UT99's own lists offer, by the game types ut-bake reads
@@ -217,10 +235,12 @@ private:
         if (name == notesFor_) return;
         notesFor_ = name;
         notes_.clear();
+        notesOnDisk_.clear();
         notesReadable_ = true;
         if (map == nullptr) return;
         if (auto read = readNotes(paths_.notes, name)) {
             notes_ = std::move(*read);
+            notesOnDisk_ = notes_;
         } else {
             // Editing would write empty notes over the ones that are there.
             notesReadable_ = false;
@@ -238,9 +258,20 @@ private:
 
     void editNotes(std::string text) {
         if (notesFor_.empty() || !notesReadable_) return;
+        // Every keystroke writes the whole text, so a second launcher -- or the
+        // viewer's P -- writing the same file would be saved over unseen.
+        // Read it again instead, and drop this keystroke.
+        if (auto disk = readNotes(paths_.notes, notesFor_); disk && *disk != notesOnDisk_) {
+            notes_ = std::move(*disk);
+            notesOnDisk_ = notes_;
+            status_ = "The notes were changed elsewhere, so they were read again.";
+            return;
+        }
         notes_ = std::move(text);
         if (const auto saved = writeNotes(paths_.notes, notesFor_, notes_); !saved)
             status_ = "The notes did not save: " + std::string(saved.error().message());
+        else
+            notesOnDisk_ = notes_;
     }
 
     void record(const std::string& map, const MapResult& result) {
@@ -248,7 +279,7 @@ private:
             if (maps_[i].name == map) results_[i] = result;
         }
         if (const auto written = writeResult(paths_.results, map, result); !written)
-            std::cerr << "ut-ants: " << written.error().message() << "\n";
+            std::cerr << "ut-ants: " << uta::sanitised(written.error().message()) << "\n";
     }
 
     // --- opening a map ---
@@ -268,10 +299,11 @@ private:
 
     void finishChild() {
         auto [output, exitCode] = child_.collect();
+        const std::string startError = child_.startError();
         if (busy_ == Busy::Baking) {
             const BakeAnswer answer = readBakeAnswer(output, exitCode);
             if (!answer.baked) {
-                record(opening_, {.failed = true, .failure = answer.failure});
+                record(opening_, {.failed = true, .failure = startError.empty() ? answer.failure : startError});
                 status_ = opening_ + " did not bake.";
                 busy_ = Busy::No;
                 return;
@@ -306,7 +338,9 @@ private:
         }
 
         // Back from the viewer: straight to the notes, which is what it was for.
-        if (exitCode != 0) {
+        if (!startError.empty()) {
+            record(opening_, {.failed = true, .failure = "it baked, but the viewer " + startError});
+        } else if (exitCode != 0) {
             record(opening_, {.failed = true,
                               .failure = "it baked, but the viewer stopped with exit code " +
                                          std::to_string(exitCode)});
@@ -350,7 +384,9 @@ private:
                 refilter();
             }
             break;
-        case SDL_EVENT_MOUSE_WHEEL: move(event.wheel.y > 0 ? -3 : 3); break;
+        case SDL_EVENT_MOUSE_WHEEL:
+            if (event.wheel.y != 0) move(event.wheel.y > 0 ? -3 : 3); // a sideways scroll moves nothing
+            break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
             focus_ = Focus::List;
             if (event.gbutton.button == SDL_GAMEPAD_BUTTON_DPAD_UP) move(-1);
@@ -574,6 +610,7 @@ private:
     std::string filter_;
     std::string notesFor_;
     std::string notes_;
+    std::string notesOnDisk_; ///< what this window last read from or wrote to the notes file
     bool notesReadable_ = true; ///< false when the file is there and could not be read
     Focus focus_ = Focus::List;
     int scale_ = 2;

@@ -21,8 +21,9 @@
 # ignores VK_DRIVER_FILES, so INV-5's no-driver tests find the machine's real
 # GPU and fail. GitHub's runner has no GPU, so it never sees this.
 #
-# It checks HEAD, not the working tree. The pre-push hook runs it in a
-# worktree of the pushed commit, where the two are the same.
+# It checks HEAD, not the working tree. The pre-push hook runs it where HEAD is
+# the pushed commit: the checkout itself when that is clean at it (UTA-0238),
+# otherwise a detached worktree of it.
 #
 # THE LINUX LEGS run one after the other, with UTA_CI_JOBS parallel jobs
 # (default 4), because RAM on this machine is tight. Each has its own build

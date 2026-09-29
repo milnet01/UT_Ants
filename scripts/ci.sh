@@ -4,8 +4,8 @@
 # .github/workflows/ci.yml CALLS this file and duplicates none of it, because a
 # hand-written mirror of a pipeline is correct on the day it is written and
 # drifts from then on -- and a drifted mirror returns green for a pipeline that
-# will fail (local-gate.md § 3). .githooks/pre-push runs the same file, over the
-# commits being pushed, before they go.
+# will fail (local-gate.md § 3). The push gate runs the same file too, once per
+# compiler, through scripts/ci-matrix.sh, over the commit being pushed.
 #
 #   scripts/ci.sh          everything
 #   scripts/ci.sh --docs   the documentation checks only
@@ -128,8 +128,9 @@ while IFS= read -r -d '' file; do
         target=${target%%#*} # drop an anchor; the path is what must exist
         target=${target%% *} # drop a "path 'title'" suffix
         [[ -z $target ]] && continue
-        resolved=$target
-        [[ $target != /* ]] && resolved="$dir/$target"
+        # A leading / is the repository's root, as GitHub renders it, never
+        # this machine's.
+        if [[ $target == /* ]]; then resolved=".$target"; else resolved="$dir/$target"; fi
         if [[ ! -e $resolved ]]; then
             printf '   %s -> %s does not exist\n' "$file" "$target" >&2
             link_failures=$((link_failures + 1))
@@ -250,7 +251,8 @@ step "configure ($GENERATOR, $CONFIG)"
 #
 # To run another leg locally, set CC and CXX the way the workflow does:
 #   CC=clang-19 CXX=clang++-19 ./scripts/ci.sh
-printf '   compiler: %s\n' "${CXX:-the CMake default}"
+# Named after the configure, from the cache: an unset CXX says nothing about
+# which compiler CMake then found.
 
 # UTA_CI_DEPS_DIR: a directory of the fetched libraries' sources, kept between
 # GitHub runs so each configure does not clone them again (about 12 s of a
@@ -280,6 +282,9 @@ case $GENERATOR in
     *) configure+=(-DCMAKE_BUILD_TYPE="$CONFIG") ;;
 esac
 cmake "${configure[@]}"
+compiler=$(sed -n 's/^CMAKE_CXX_COMPILER:[A-Z]*=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null)
+compiler=${compiler:-${CXX:-the generator\'s own}} # a Visual Studio generator caches none
+printf '   compiler: %s\n' "$compiler"
 if [[ -n ${UTA_CI_DEPS_DIR:-} && ${#deps_args[@]} -eq 0 ]]; then
     rm -rf "${UTA_CI_DEPS_DIR:?}"
     mkdir -p "$UTA_CI_DEPS_DIR"
@@ -365,5 +370,5 @@ if [[ ${#skipped[@]} -gt 0 ]]; then
 fi
 if [[ -z ${GITHUB_ACTIONS:-} ]]; then
     printf '   This was ONE leg (%s). GitHub runs GCC, Clang and MSVC.\n' \
-        "${CXX:-the CMake default}"
+        "$compiler"
 fi

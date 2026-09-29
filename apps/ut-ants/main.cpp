@@ -15,6 +15,7 @@
 #include "MapList.h"
 
 #include "core/FileSystem.h"
+#include "core/Log.h"
 #include "ubundle/Bundle.h"
 #include "urender/Renderer.h"
 
@@ -78,7 +79,7 @@ bool installIsUsable(const std::filesystem::path& install) {
     }
     if (exitCode == 0) return true;
     if (exitCode == 1) {
-        std::cerr << "ut-ants: " << installText << " is not a usable Unreal Tournament install\n";
+        std::cerr << "ut-ants: " << uta::sanitised(installText) << " is not a usable Unreal Tournament install\n";
     } else {
         std::cerr << "ut-ants: ut-bake could not check the install (exit code " << exitCode << ")\n";
     }
@@ -298,7 +299,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
             std::cerr << "ut-ants: the capture did not save: " << folder.error().message() << "\n";
             return;
         }
-        std::cerr << "ut-ants: capture written to " << folder->string() << "\n";
+        std::cerr << "ut-ants: capture written to " << uta::sanitised(folder->string()) << "\n";
     };
 
     Uint64 last = SDL_GetTicksNS();
@@ -366,8 +367,10 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         };
         input.forward = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
         input.right = axis(SDL_SCANCODE_D, SDL_SCANCODE_A);
-        input.up = axis(SDL_SCANCODE_SPACE, SDL_SCANCODE_LCTRL);
-        input.fast = keys[SDL_SCANCODE_LSHIFT];
+        // Either Ctrl and either Shift, as a player expects of them.
+        input.up = static_cast<float>(keys[SDL_SCANCODE_SPACE])
+                   - static_cast<float>(keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL]);
+        input.fast = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
 
         const Uint64 now = SDL_GetTicksNS();
         const double seconds = static_cast<double>(now - last) / 1e9;
@@ -423,7 +426,7 @@ int main(int argc, char** argv) {
     }
     const auto bundle = uta::ubundle::read(*bytes);
     if (!bundle) {
-        std::cerr << "ut-ants: " << options->bundle.string() << " did not read: " << bundle.error().message()
+        std::cerr << "ut-ants: " << uta::sanitised(options->bundle.string()) << " did not read: " << bundle.error().message()
                   << "\n";
         return EXIT_FAILED;
     }
@@ -432,7 +435,7 @@ int main(int argc, char** argv) {
     const std::string bundleHash = uta::client::bundleHashHex(*bytes);
     *bytes = {}; // the decoded bundle is all that is drawn from
     if (bundle->header.kind != uta::ubundle::BundleKind::Map) {
-        std::cerr << "ut-ants: " << options->bundle.string() << " is not a map\n";
+        std::cerr << "ut-ants: " << uta::sanitised(options->bundle.string()) << " is not a map\n";
         return EXIT_FAILED;
     }
 

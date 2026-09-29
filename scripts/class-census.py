@@ -14,7 +14,6 @@ executed: a compiled script is walked only to learn its length. Nothing is
 written anywhere, and no package content is copied.
 """
 
-import glob
 import os
 import struct
 import sys
@@ -352,11 +351,26 @@ class Installation:
 
     def __init__(self, root):
         self.index = {}
-        for directory in ("System", "Maps", "Textures", "Sounds", "Music"):
-            for pattern in EXTENSIONS:
-                for path in glob.glob(os.path.join(root, directory, pattern)):
-                    key = os.path.basename(path).rsplit(".", 1)[0].lower()
-                    self.index.setdefault(key, path)
+        # Folder names are matched ignoring case, as the engine's are: a Linux
+        # install may hold system/ rather than System/.
+        wanted = ("system", "maps", "textures", "sounds", "music")
+        try:
+            present = {name.lower(): name for name in os.listdir(root)}
+        except OSError:
+            present = {}
+        suffixes = tuple(pattern[1:] for pattern in EXTENSIONS)  # "*.u" -> ".u"
+        for directory in (present[name] for name in wanted if name in present):
+            folder = os.path.join(root, directory)
+            try:
+                files = sorted(os.listdir(folder))
+            except OSError:
+                continue
+            # By extension in EXTENSIONS' order, as the globs did, ignoring case.
+            for suffix in suffixes:
+                for filename in files:
+                    if filename.lower().endswith(suffix):
+                        key = filename.rsplit(".", 1)[0].lower()
+                        self.index.setdefault(key, os.path.join(folder, filename))
         self.opened = {}
 
     def package(self, name):
@@ -402,8 +416,11 @@ def walk_ancestry(installation, package, entry):
         if -reference - 1 >= len(package.imports):
             return "malformed", depth
         _, _, _, object_name = package.imports[-reference - 1]
-        owner = package.import_package(reference)
-        found = installation.find_class(owner, package.names[object_name]) if owner else None
+        try:
+            owner = package.import_package(reference)
+            found = installation.find_class(owner, package.names[object_name]) if owner else None
+        except (ValueError, IndexError, struct.error):
+            return "malformed", depth
         if found is None:
             return "missing", depth
         package, entry = found

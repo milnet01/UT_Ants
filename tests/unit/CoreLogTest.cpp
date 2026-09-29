@@ -273,3 +273,11 @@ TEST_CASE("fileSink returns a working sink when it can open", "[core][log]") {
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
+
+TEST_CASE("sanitised shows every control byte as an escape and leaves the rest alone", "[core][log]") {
+    // A map's file name is not this program's to choose: an escape sequence in
+    // one would otherwise rewrite the terminal it is printed to.
+    CHECK(uta::sanitised("DM-\x1b[2JDeck\n16") == "DM-\\x1b[2JDeck\\x0a16");
+    CHECK(uta::sanitised("\x7f") == "\\x7f");
+    CHECK(uta::sanitised("CTF-Face][ \xc3\xa9") == "CTF-Face][ \xc3\xa9");
+}

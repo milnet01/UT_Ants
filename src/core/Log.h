@@ -41,6 +41,13 @@ enum class LogLevel : std::uint8_t {
 /// The short, stable name of a level. Never empty.
 [[nodiscard]] std::string_view logLevelName(LogLevel level) noexcept;
 
+/// `text` safe to put on one line of a log or a terminal (CWE-117): each
+/// control byte becomes `\xNN`. Message text carries filesystem paths and
+/// bytes out of somebody else's package -- a map's own file name among them --
+/// so an embedded newline could forge a line and an escape sequence could
+/// rewrite the terminal or hide the very message being reported.
+[[nodiscard]] std::string sanitised(std::string_view text);
+
 /// One per part, declared once at that part's own scope. The minimum is
 /// settable at runtime and read on every log call, so it is atomic.
 class LogCategory {

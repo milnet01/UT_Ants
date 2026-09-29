@@ -12,14 +12,9 @@ namespace uta {
 // initialisation order at all.
 constinit LogCategory logCore{"core"};
 
-namespace {
-
-/// Render text safe to put on one log line (CWE-117). Message text carries
-/// filesystem paths and, once upkg lands, bytes out of somebody else's
-/// package -- so an embedded newline could forge a log line and an embedded
-/// escape sequence could rewrite the terminal or hide the very message being
-/// reported. Shared by both sinks: fixing one would half-fix it.
-[[nodiscard]] std::string sanitised(std::string_view text) {
+/// Shared by both sinks, and by any program printing a name it did not
+/// choose: fixing one would half-fix it.
+std::string sanitised(std::string_view text) {
     std::string out;
     out.reserve(text.size());
     for (const unsigned char c : text) {
@@ -34,8 +29,6 @@ namespace {
     }
     return out;
 }
-
-}  // namespace
 
 std::string_view logLevelName(LogLevel level) noexcept {
     switch (level) {

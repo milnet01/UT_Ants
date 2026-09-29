@@ -22,6 +22,16 @@ execute_process(
 # -- the capture's bundle hash and baker version still say what was drawn.
 if(NOT _status EQUAL 0 OR UTA_BUILD_COMMIT STREQUAL "")
     set(UTA_BUILD_COMMIT "unknown")
+else()
+    # A tree with uncommitted changes to tracked files did not compile that
+    # commit, so it says so rather than naming it outright.
+    execute_process(
+        COMMAND git -C "${SOURCE_DIR}" diff --quiet HEAD --
+        ERROR_QUIET
+        RESULT_VARIABLE _dirty)
+    if(_dirty EQUAL 1)
+        string(APPEND UTA_BUILD_COMMIT "-dirty")
+    endif()
 endif()
 
 configure_file("${TEMPLATE}" "${OUTPUT}" @ONLY)
