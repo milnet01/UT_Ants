@@ -219,6 +219,17 @@ TEST_CASE("INV-5: a route found is a chain of allowed hops each node H above the
     for (const Vec3& node : proposal.nodes)
         CHECK(static_cast<float>(node.z) == static_cast<float>(HALF_HEIGHT));
     CHECK(touches(proposal.nodes.back(), scene.exits[0]));
+
+    // UTA-0250: handed the graph it would have built, propose answers the same.
+    const Proposal handed = propose(scene, graph, false);
+    CHECK(handed.routes == proposal.routes);
+    CHECK(handed.noRoutes == proposal.noRoutes);
+    REQUIRE(handed.nodes.size() == proposal.nodes.size());
+    for (std::size_t i = 0; i < handed.nodes.size(); ++i) {
+        CHECK(handed.nodes[i].x == proposal.nodes[i].x);
+        CHECK(handed.nodes[i].y == proposal.nodes[i].y);
+        CHECK(handed.nodes[i].z == proposal.nodes[i].z);
+    }
 }
 
 TEST_CASE("INV-5: no hop crosses a pit the walk goes round", "[paths][seeds]") {

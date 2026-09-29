@@ -540,7 +540,10 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
 }
 
 Proposal propose(const Scene& scene, bool partitioned) {
-    const WalkGraph graph = walkGraph(scene.tree);
+    return propose(scene, walkGraph(scene.tree), partitioned);
+}
+
+Proposal propose(const Scene& scene, const WalkGraph& graph, bool partitioned) {
     Proposal proposal;
 
     // A spot whose body box overlaps a mover's box is a mover spot.

@@ -13471,14 +13471,16 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-29.
   Lanes: upkg.
 
-- 📋 [UTA-0250] **The real-asset tier's two slowest cases redo shared work for every map.**
+- 🚧 [UTA-0250] **The real-asset tier's two slowest cases redo shared work for every map.**
   Found timing the tier (UTA-0151, 2026-09-29). Two cases take over
   three fifths of it.
   "every Monster Hunt map's scene reads and the census prints"
   (tests/real/RealPathSeedsTest.cpp, censusOf) is 44%. Per map it opens
   the install afresh, builds the walk graph once to count spots and again
   inside propose(), and runs maps one after another. Build it once and
-  hand it on, open the install once, and spread maps over the job system.
+  hand it on. Do NOT open the install once or run maps in parallel: an
+  Install keeps every package it opened, and one shared across the
+  library ran this machine out of memory (RealBakeTest.cpp, 2026-09-10).
   "every map takes a bake name and a stock map bakes the same twice"
   (RealBakeTest.cpp) is 18%. Its bulk is bakeName over every map, one
   Install per map by design (the comment there says why); the two
@@ -13486,6 +13488,12 @@ stays with movement in 0.2.0.
   shared packages before changing the design; the texture cache
   (UTA-0148) does not reach this case.
   Keep every assertion and census line unchanged; only the time moves.
+  Progress (2026-09-29): the census half is built. censusOf builds the
+  walk graph once and hands it to a new propose(scene, graph,
+  partitioned) overload. Measured on build-real, the case alone, load
+  average 5 to 14 on both runs so rough: 1534 s to 1063 s (31% less),
+  peak 768 to 789 MB, census output byte-identical but for Catch2's seed
+  line. Open: the bake-name case.
   **Layman:** The two slowest real-game tests repeat the same setup for every map; doing it once would cut the suite's run time by a large share.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass, UTA-0151.

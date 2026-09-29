@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Trace.h"
+#include "Walkable.h"
 #include "core/Error.h"
 #include "ubundle/Bundle.h"
 #include "upkg/Class.h"
@@ -60,6 +61,9 @@ struct Proposal {
 
 /// `partitioned` is whether the map's census group is PARTITIONED (SS 4.7).
 [[nodiscard]] Proposal propose(const Scene& scene, bool partitioned);
+/// The same, over `graph`, which must be walkGraph(scene.tree): for a caller
+/// that already built it, which is most of a map's cost (UTA-0250).
+[[nodiscard]] Proposal propose(const Scene& scene, const WalkGraph& graph, bool partitioned);
 
 /// SS 4.3's file.
 [[nodiscard]] std::string toJson(std::string_view map, std::string_view md5, std::string_view group,

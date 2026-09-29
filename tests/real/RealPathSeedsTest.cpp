@@ -157,9 +157,11 @@ void censusOf(const fs::path& root, const fs::path& path, Totals& totals) {
     }
     ++totals.withExit;
 
-    totals.spots += walkGraph(scene->tree).spots.size();
+    // UTA-0250: built once and handed to propose, which built it again.
+    const WalkGraph graph = walkGraph(scene->tree);
+    totals.spots += graph.spots.size();
     floorsOf(*map, mapName, install->resolver(), *scene, totals);
-    for (const Route route : propose(*scene, false).routes) ++totals.routes[static_cast<std::size_t>(route)];
+    for (const Route route : propose(*scene, graph, false).routes) ++totals.routes[static_cast<std::size_t>(route)];
 }
 
 } // namespace
