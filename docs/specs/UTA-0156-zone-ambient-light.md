@@ -180,9 +180,12 @@ struct Zone {                   // std430, 16 bytes, offsets asserted
 
   It is UTA-0112 § 4.3's colour and intensity with no falloff, incidence, spot,
   shadow or flicker. UTA-0165 later made that intensity FGetHSV's curve rather
-  than `brightness / 255`, and refitted `AMBIENT_SCALE` to `1.5`.
-- **Shading.** A lit surface shows `base × (direct + indirect + ambient)`. A
-  `PF_Unlit` or `PF_FakeBackdrop` surface is unchanged.
+  than `brightness / 255`, and refitted `AMBIENT_SCALE` to `1.5`; UTA-0187 and
+  UTA-0192 refitted it again. `light.glsl` holds the current value.
+- **Shading.** A lit surface shows `base × (g × (direct + indirect + ambient))^p`,
+  UTA-0112 § 4.9's display-value combine since UTA-0187, `g` and `p` being
+  `LIGHT_GAIN` and `DISPLAY_LIGHT_POWER`. A `PF_Unlit` or
+  `PF_FakeBackdrop` surface is unchanged.
 
 The shadow pipeline does not read `zone`.
 
@@ -266,7 +269,8 @@ lightmap units rather than linear light scored worse still, `40.8` and
 
 - **INV-6** — with no lights and no probes, a lit surface of base colour white
   in a zone of brightness `40`, hue `0` and saturation `255` draws
-  `AMBIENT_SCALE × 40 / 255` linear under `linearOutput`. At brightness `0` it
+  `(AMBIENT_SCALE × B(40) / B(255))^p` linear under `linearOutput`, with
+  § 4.4's `p` and UTA-0112 § 4.3's `B`. At brightness `0` it
   draws `0`. A `PF_Unlit` surface in the same zone draws its base colour.
   *Test:* `tests/device/RenderLightingTest.cpp`, a new case.
   *Breaks when:* ambient is not added; it is added to an unlit surface; the

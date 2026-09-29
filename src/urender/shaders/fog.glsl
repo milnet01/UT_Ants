@@ -7,7 +7,7 @@
 #define UTA_FOG_GLSL
 
 const uvec3 FOG_GRID = uvec3(160u, 90u, 64u);
-const float FOG_NEAR = 16.0;  // where slice 1 starts
+const float FOG_NEAR = 16.0;  // the slices' base depth, where fogCoordinate is 0; slice 0 runs from 0 to z(1)
 const float FOG_FAR = 8192.0; // where the last slice ends
 
 // Henyey-Greenstein's asymmetry: a little forward scattering. This spec's call.

@@ -381,10 +381,21 @@ Source: <https://wiki.beyondunreal.com/Legacy:PolyFlags>.
 1. The texture's properties, by `upkg::readProperties`. **A `Format`
    property skips the texture** — UTA-0010 § 4.2's rule, and nothing here
    decodes a format other than palettised.
-2. Its `Palette` property must name an export of the same package, read by
-   `upkg::readPalette`.
+2. Its `Palette` property must name a palette, read by `upkg::readPalette`.
+   An import is followed into the package it names through the same
+   resolver the textures take (`UTA-0155`): many textures keep their palette
+   in another package.
 3. `upkg::readTexture`. Its base level is `mips[0]`. For a procedural texture
-   that is its stored still picture (§ 3 decision 5).
+   that is its stored still picture (§ 3 decision 5). A base level that
+   stores no pixels is replaced, and still sets the size a repeat spans:
+   - a `FireTexture` is simulated to a still from its sparks, through its own
+     palette (`UTA-0176`);
+   - any other texture shows its `SourceTexture`'s base level through that
+     texture's own palette, one hop only (`UTA-0155`);
+   - with no source, or a source that stores no pixels either, it is a flat
+     fill of the palette entry nearest the palette's mean (`UTA-0177`).
+   A texture with no pixels that claims more than 8192 texels a side is
+   skipped rather than filled, since nothing else bounds the allocation.
 4. `settings` is `MaterialSettings{}`, then `umat::applied` with the entry
    the curated lookup returns for `umat::pictureFingerprint(base, palette)`, where it
    returns one. That is UTA-0010 § 4.5's order with no recipe.
@@ -396,8 +407,8 @@ Source: <https://wiki.beyondunreal.com/Legacy:PolyFlags>.
 
 **A texture that cannot be made is skipped, and the bake goes on.** An
 unresolved import, a texture of an absent package, a `Format` property, a
-missing or imported palette, and a refusal from any `upkg` or `umat` call
-above each add one `SkippedTexture` naming the variant and the reason.
+missing or unresolvable palette, an oversized picture-less texture, and a
+refusal from any `upkg` or `umat` call above each add one `SkippedTexture` naming the variant and the reason.
 
 **`TEXS` holds each material's maps**: materials in ascending material id,
 each one's maps in `MapKind` order as `umat::Material::maps` holds them. Two

@@ -244,7 +244,8 @@ vertex has no `AOCC`. The texel size and atlas size are in the section itself.
   *Breaks when:* the row is missing or names another tier.
 
 - **INV-8** — a square lit by zone ambient alone, reading an atlas texel of
-  128, draws its ambient times 128/255. Lit by a light alone, it draws the
+  128, draws as if its ambient light were 128/255 of itself: the light is
+  scaled before UTA-0112 § 4.9 raises it to the display power. Lit by a light alone, it draws the
   same with and without `AOCC`.
   *Test:* `tests/device/RenderOcclusionTest.cpp`, new.
   *Breaks when:* the atlas is not bound; the fingerprint ignores `AOCC`;

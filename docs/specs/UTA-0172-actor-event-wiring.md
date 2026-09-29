@@ -256,7 +256,12 @@ verbatim (scope decision 4) and the consumer folds case.
 
 ### 4.6 Which actors are emitted
 
-**Every actor in the export table is emitted. There is no filter.**
+**Every actor the Level's actor list names is emitted. There is no filter.**
+
+The list is `Level.actors`. A slot that is not an export of the map, or whose
+index is past the export table, names no actor here and is skipped. A map can
+name one actor in two slots (UTA-0124), so the set is deduplicated and emitted
+in export-table order, which is what makes `index` an identity (§ 4.3).
 
 The array is large — MH-GolgothaAL_fix has 2905 actors — and that is what
 scope decision 3's flag is for, mirroring `--nav-graph`.
@@ -331,8 +336,8 @@ shows the filter was dropping almost nothing.
   *Breaks when:* a name is written to the stream by any route other than
   `writeJsonString`.
 
-- **INV-8** — Every actor in the export table is emitted; no actor is
-  filtered out.
+- **INV-8** — Every actor the Level's actor list names is emitted once;
+  no actor is filtered out (§ 4.6).
   *Test:* `tests/unit/DumpCliTest.cpp`: a synthetic package holding an actor
   with no `Tag` and no event of any kind; assert it still appears in `actors`,
   and that the array's length equals the package's actor count.

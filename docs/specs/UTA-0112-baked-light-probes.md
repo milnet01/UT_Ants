@@ -165,6 +165,7 @@ struct Rgb {
 };
 
 [[nodiscard]] Rgb lightColour(std::uint8_t hue, std::uint8_t saturation) noexcept;
+[[nodiscard]] double lightIntensity(std::uint8_t brightness) noexcept;
 [[nodiscard]] double lightRadius(std::uint8_t radius) noexcept;
 [[nodiscard]] double falloff(double distance, double radius) noexcept;
 /// `angle` in UT units, 65536 to a turn. These three are defined in the
@@ -198,14 +199,18 @@ struct Rgb {
 - **Intensity** is `B(brightness) / B(255)`, where with `b = V × 1.4 / 255`,
   `B(V) = clamp(b × 0.7 / (0.01 + √b), 0, 1)`. Dividing by `B(255)` keeps the
   units below; the engine's own scale is absorbed by UTA-0014's exposure.
+- **Level brightness.** The intensity is multiplied by the light's
+  `levelBrightness`, the level's `LevelInfo.Brightness`, as UT99 multiplies
+  every light's colour by it (UTA-0156 § 4.5, built by UTA-0165).
 - **Radius.** `R = 25 × (radius + 1)`, `AActor::WorldLightRadius`.
 - **Falloff.** With `v = d / R` for a distance `d` below `R`:
-  `min(1, (1 + 2v³ − 3v²) / v)`, which is `1` out to half the radius; `1` at
-  the light; `0` at `R` and beyond. This is UE1's own shape, as SurrealEngine's
-  `Light/LightEffect.cpp` carries it. It replaced `(1 − (d / R)²)²` on
-  2026-09-14 (UTA-0156), which measured far darker than the original game.
-  UT99's `Render.so` itself uses incidence × `(1 + 2v³ − 3v²)`; that measured
-  worse in this model and was not taken (UTA-0156 § 4.5).
+  `1 + 2v³ − 3v²`, with no division by `v` and no cap; `1` at the light; `0`
+  at `R` and beyond. This is UT99's own shape, as `Render.so`'s
+  `spatial_None` applies it (UTA-0187). It replaced SurrealEngine's
+  `min(1, (1 + 2v³ − 3v²) / v)`, taken on 2026-09-14 (UTA-0156), which had
+  replaced `(1 − (d / R)²)²`. **It is right only with UTA-0187's display-value
+  combine** (§ 4.9): while light met texture linearly, UTA-0156 § 4.5 measured
+  this shape worse than SurrealEngine's.
 - **Two effects reshape it**, both only inside `R` and both with no incidence
   or spot factor (UTA-0156, from the same source). `LE_Cylinder` (17) is
   `max(0, 1 − (dx² + dy²) / R²)`, the horizontal distance alone, times a
@@ -232,8 +237,8 @@ struct Rgb {
 - **A strip light.** A strip leader is evaluated from its segment's nearest
   point, and an absorbed light puts nothing. `docs/specs/UTA-0162-strip-lights.md`
   § 4.3 owns the rule.
-- **`lightAt`** is colour × intensity × falloff × incidence × spot, channel by
-  channel.
+- **`lightAt`** is colour × intensity × level brightness × falloff × incidence
+  × spot, channel by channel.
 - **Sine and cosine.** `sineOf` reduces its angle with integer arithmetic to
   the first eighth of a turn. There it evaluates fixed polynomials by Horner's
   rule, using only addition and multiplication. `cosineOf(a)` is
@@ -416,9 +421,14 @@ indirect(n) = n.x² × cube[n.x ≥ 0 ? +X : −X]
 ```
 
 That is the evaluation Valve's paper gives for an ambient cube (§ 3 decision 1).
-A surface of reflectance `ρ` shows `ρ × (direct + indirect)`, where `direct` is
-§ 4.3's `lightAt` summed over every light drawn, with its shadow map in place of
-§ 4.7's `blocked`. `lightAt` is a light's steady value: how its `type` varies it
+A surface of reflectance `ρ` shows `ρ × (g × (direct + indirect))^p`, where
+`direct` is § 4.3's `lightAt` summed over every light drawn, with its shadow
+map in place of § 4.7's `blocked`. UT99 combines light and texture on display
+values, so the light is raised to `p` before it meets `ρ` (UTA-0187, which
+replaced this section's `ρ × (direct + indirect)`). `g` and `p` are
+`LIGHT_GAIN` and `DISPLAY_LIGHT_POWER` in `src/urender/shaders/light.glsl`,
+fitted against the original game's frames; `indirect` also adds UTA-0156's zone
+ambient, and the sum is scaled by UTA-0164's occlusion, as `scene.frag` shows. `lightAt` is a light's steady value: how its `type` varies it
 over time, and what the effects § 4.3 bakes as `LE_None` add, are UTA-0014's.
 The bake uses the steady value, so bounced light does not flicker.
 
@@ -478,8 +488,8 @@ tests change no line.
   sectors shift; or a channel peaks at 1 instead of the three summing to 1, as
   the six-sector wheel did.
 - **INV-3** — `lightRadius(0)` is `25` and `lightRadius(64)` is `1625`.
-  `falloff` is `1` at distance 0, `1` at half the radius, and `0` at the
-  radius and beyond.
+  `falloff` is `1` at distance 0, `0.84375`, `0.5` and `0.15625` at a quarter,
+  half and three quarters of the radius, and `0` at the radius and beyond.
   *Test:* `tests/unit/BakeLightModelTest.cpp`, "radius and falloff".
   *Breaks when:* the radius drops its `+ 1`, or the falloff is linear.
 - **INV-4** — A white light of brightness 255 gives `(1, 1, 1)` at its own

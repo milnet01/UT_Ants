@@ -22,7 +22,7 @@ namespace uta::urender {
 
 /// SS 4.3's froxel grid, which shaders/fog.glsl states too.
 inline constexpr std::array<std::uint32_t, 3> FOG_GRID{160, 90, 64};
-inline constexpr float FOG_NEAR = 16.0f; ///< where slice 1 starts
+inline constexpr float FOG_NEAR = 16.0f; ///< the slices' base depth, where fogCoordinate is 0; slice 0 runs from 0 to z(1)
 inline constexpr float FOG_FAR = 8192.0f; ///< where the last slice ends
 inline constexpr std::uint32_t VOLUME_LIGHT_CAPACITY = 64;
 

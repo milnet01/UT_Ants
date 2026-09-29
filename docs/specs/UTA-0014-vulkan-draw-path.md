@@ -634,8 +634,9 @@ That spec leaves this item two decisions, naming them as ours:
    guess there produces light leaking through a wall, which is the artefact a
    probe lattice exists to avoid.
 
-A surface of reflectance `ρ` shows `ρ × (direct + indirect)`, UTA-0112 § 4.9's
-formula, with the shadow map standing in for its `blocked`.
+A surface of reflectance `ρ` shows `ρ × (g × (direct + indirect))^p`,
+UTA-0112 § 4.9's formula since UTA-0187 moved the combine onto display values,
+with the shadow map standing in for its `blocked`.
 
 **Probes are found through a hash table, not a dense grid.** `UTA-0112` seeds
 probes near geometry at 128-unit spacing. A grid over their bounding box grows

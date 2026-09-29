@@ -12947,7 +12947,7 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0225] **Bring six specs into line with the code that shipped after them.**
+- 🚧 [UTA-0225] **Bring six specs into line with the code that shipped after them.**
   Each time the code is right and the document is stale:
   - UTA-0008: format version given as 8/7/3 (code 14); SS 4.2 sizes
     GeometryVertex 32 and Light 44 (code 33, 73); ZONE and AOCC missing.

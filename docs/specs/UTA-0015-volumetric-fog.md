@@ -119,7 +119,7 @@ in `GENERAL` layout:
 namespace uta::urender {
 
 inline constexpr std::array<std::uint32_t, 3> FOG_GRID{160, 90, 64};
-inline constexpr float FOG_NEAR = 16.0f;   ///< where slice 1 starts
+inline constexpr float FOG_NEAR = 16.0f;   ///< the slices' base depth, where fogCoordinate is 0; slice 0 runs from 0 to z(1)
 inline constexpr float FOG_FAR = 8192.0f;  ///< where the last slice ends
 inline constexpr std::uint32_t VOLUME_LIGHT_CAPACITY = 64;
 
@@ -170,11 +170,14 @@ length along the column's ray:
 
 ```glsl
 float sliceT = exp(-sigma * delta);
-vec3 sliceS = sigma > 0.0 ? (S - S * sliceT) / sigma : S * delta;
+vec3 sliceS = sigma > NO_EXTINCTION ? (S - S * sliceT) / sigma : S * delta;
 scattered += transmittance * sliceS;
 transmittance *= sliceT;
 // texel k = vec4(scattered, transmittance)
 ```
+
+`NO_EXTINCTION` is `1e-7`: below it `(S − S × T) / σ` loses its precision, so
+the slice is treated as clear.
 
 This is the energy-conserving form from Hillaire's "Physically Based and
 Unified Volumetric Rendering in Frostbite", SIGGRAPH 2015.
