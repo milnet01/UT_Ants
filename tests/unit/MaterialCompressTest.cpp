@@ -428,3 +428,78 @@ TEST_CASE("measure orders every texture by size and then by name", "[umat][budge
     // The default is the project's budget, not zero.
     CHECK(measure(set).budgetBytes == TEXTURE_BUDGET_BYTES);
 }
+
+namespace {
+
+/// A texture record of the given shape with correctly sized, zeroed blocks --
+/// fitToBudget reads only the shape and the byte count.
+CompressedTexture shaped(std::string name, std::uint16_t side, std::uint16_t source, std::uint8_t mips) {
+    CompressedTexture texture;
+    texture.name = std::move(name);
+    texture.format = BlockFormat::BC7;
+    texture.width = texture.height = side;
+    texture.sourceWidth = texture.sourceHeight = source;
+    texture.mipCount = mips;
+    texture.blocks.assign(uta::ubundle::expectedBlockBytes(texture), std::byte{0});
+    return texture;
+}
+
+/// UTA-0052 INV-2, which the bundle reader would otherwise refuse.
+void checkValid(const CompressedTexture& texture) {
+    INFO(texture.name);
+    CHECK(texture.blocks.size() == uta::ubundle::expectedBlockBytes(texture));
+    CHECK(texture.width % texture.sourceWidth == 0);
+    const std::uint32_t factor = texture.width / texture.sourceWidth;
+    CHECK((factor & (factor - 1)) == 0);
+    CHECK(texture.height / texture.sourceHeight == factor);
+}
+
+} // namespace
+
+TEST_CASE("UTA-0245: fitting drops invented upscale detail before any source detail", "[umat][budget]") {
+    // One texture upscaled 4x from 64, one stored at its source's 256.
+    std::vector<CompressedTexture> textures{shaped("upscaled", 256, 64, 9), shaped("native", 256, 256, 9)};
+    const std::uint64_t before = workingSet(textures);
+    // Just under the whole: one round of dropping the upscaled one's top level
+    // is enough, so the native one must be untouched.
+    const auto fit = uta::umat::fitToBudget(textures, before - 1);
+    CHECK(fit.fits);
+    CHECK(fit.upscaleRounds == 1);
+    CHECK(fit.sourceRounds == 0);
+    CHECK(textures[0].width == 128);
+    CHECK(textures[0].sourceWidth == 64);
+    CHECK(textures[1].width == 256);
+    for (const auto& texture : textures) checkValid(texture);
+}
+
+TEST_CASE("UTA-0245: once nothing is upscaled fitting halves the sources too", "[umat][budget]") {
+    std::vector<CompressedTexture> textures{shaped("upscaled", 256, 128, 9), shaped("native", 256, 256, 9)};
+    // Far under: the upscale goes first, then both halve together.
+    const std::uint64_t budget = workingSet(textures) / 8;
+    const auto fit = uta::umat::fitToBudget(textures, budget);
+    CHECK(fit.fits);
+    CHECK(fit.upscaleRounds == 1);
+    CHECK(fit.sourceRounds >= 1);
+    CHECK(textures[1].width == 2 * textures[0].width); // once both are at 1x they halve in step
+    CHECK(textures[0].sourceWidth == textures[0].width);
+    CHECK(workingSet(textures) <= budget);
+    for (const auto& texture : textures) checkValid(texture);
+}
+
+TEST_CASE("UTA-0245: a budget nothing can reach is reported as not fitting", "[umat][budget]") {
+    std::vector<CompressedTexture> textures{shaped("tiny", 4, 4, 3)};
+    const auto fit = uta::umat::fitToBudget(textures, 0);
+    CHECK_FALSE(fit.fits);
+    CHECK(textures[0].mipCount == 1);
+    checkValid(textures[0]);
+}
+
+TEST_CASE("UTA-0245: a map within its budget is left exactly as it was", "[umat][budget]") {
+    std::vector<CompressedTexture> textures{shaped("upscaled", 256, 64, 9)};
+    const std::vector<CompressedTexture> before = textures;
+    const auto fit = uta::umat::fitToBudget(textures, workingSet(textures));
+    CHECK(fit.fits);
+    CHECK(fit.upscaleRounds + fit.sourceRounds == 0);
+    CHECK(textures[0].blocks == before[0].blocks);
+    CHECK(textures[0].width == before[0].width);
+}

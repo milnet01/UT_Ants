@@ -150,6 +150,9 @@ TEST_CASE("UTA-0170: an over-budget bake says so", "[client]") {
         readBakeAnswer(R"({"verdict": "over-budget", "name": "ab", "path": "/c/ab.utab", "budget": {}})", 1);
     CHECK_FALSE(answer.baked);
     CHECK(answer.failure.find("budget") != std::string::npos);
+    // UTA-0245: what lets the launcher offer to fit it.
+    CHECK(answer.overBudget);
+    CHECK_FALSE(readBakeAnswer(R"({"verdict": "refused", "error": "x"})", 1).overBudget);
 }
 
 TEST_CASE("UTA-0170: no JSON or a bad exit is a failure naming the exit code", "[client]") {

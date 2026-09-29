@@ -81,6 +81,25 @@ struct BudgetReport {
 /// re-compressed: this takes the report and never sees a texture.
 [[nodiscard]] Result<void> enforceBudget(const BudgetReport& report);
 
+/// What fitToBudget did -- UTA-0245.
+struct FitReport {
+    std::uint32_t upscaleRounds = 0; ///< rounds that took back upscaling alone
+    std::uint32_t sourceRounds = 0;  ///< rounds that halved stored source detail
+    bool fits = false;               ///< whether the working set ended within budget
+};
+
+/// UTA-0245 -- the opt-in `--fit-budget` (user, 2026-09-29, reversing UTA-0052
+/// SS 3 decision 3 for an explicit request only). Drops the top mip level of
+/// textures, a round at a time, until the working set is within
+/// `budgetBytes`: first every texture that is upscaled (invented detail, none
+/// of the source's), then, once none is, every texture that has a level to
+/// drop. Deterministic: the same textures and budget always give the same
+/// result, so two people fitting one map get one bake. No re-encoding -- the
+/// lower levels are already stored. Each texture stays valid under UTA-0052
+/// INV-2: a drop at 1x halves the recorded source size with it. Nothing is
+/// changed when the set already fits.
+[[nodiscard]] FitReport fitToBudget(std::vector<ubundle::CompressedTexture>& textures, std::uint64_t budgetBytes);
+
 /// One level of a source image, 8-bit, row-major, no row padding. `channels`
 /// is 1, 2 or 4; `pixels` holds width * height * channels bytes.
 struct Image {

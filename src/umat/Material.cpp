@@ -195,6 +195,47 @@ Result<void> enforceBudget(const BudgetReport& report) {
     return {};
 }
 
+namespace {
+
+/// Drops `texture`'s top level in place. At 1x the recorded source halves
+/// with it, since the stored picture is then a resample of the source.
+void dropTopLevel(ubundle::CompressedTexture& texture) {
+    ubundle::CompressedTexture top = texture;
+    top.mipCount = 1;
+    const auto topBytes = static_cast<std::ptrdiff_t>(ubundle::expectedBlockBytes(top));
+    texture.blocks.erase(texture.blocks.begin(), texture.blocks.begin() + topBytes);
+    if (texture.width == texture.sourceWidth) {
+        texture.sourceWidth = static_cast<std::uint16_t>(std::max(1, texture.sourceWidth / 2));
+        texture.sourceHeight = static_cast<std::uint16_t>(std::max(1, texture.sourceHeight / 2));
+    }
+    texture.width = static_cast<std::uint16_t>(std::max(1, texture.width / 2));
+    texture.height = static_cast<std::uint16_t>(std::max(1, texture.height / 2));
+    --texture.mipCount;
+}
+
+} // namespace
+
+FitReport fitToBudget(std::vector<ubundle::CompressedTexture>& textures, std::uint64_t budgetBytes) {
+    FitReport report;
+    const auto upscaled = [](const ubundle::CompressedTexture& t) { return t.width > t.sourceWidth; };
+    const auto droppable = [](const ubundle::CompressedTexture& t) { return t.mipCount > 1; };
+    while (workingSet(textures) > budgetBytes) {
+        const bool anyUpscaled = std::any_of(textures.begin(), textures.end(), [&](const auto& t) {
+            return upscaled(t) && droppable(t);
+        });
+        bool dropped = false;
+        for (ubundle::CompressedTexture& texture : textures) {
+            if (!droppable(texture) || (anyUpscaled && !upscaled(texture))) continue;
+            dropTopLevel(texture);
+            dropped = true;
+        }
+        if (!dropped) break;
+        ++(anyUpscaled ? report.upscaleRounds : report.sourceRounds);
+    }
+    report.fits = workingSet(textures) <= budgetBytes;
+    return report;
+}
+
 Result<ubundle::CompressedTexture> compress(std::string name, std::span<const Image> levels,
                                             ubundle::BlockFormat format,
                                             std::uint16_t sourceWidth,

@@ -48,6 +48,9 @@ struct BakeAnswer {
     bool baked = false;          ///< written or cached, with a path
     std::filesystem::path path;  ///< the bundle, when baked
     std::string failure;         ///< why not, when not baked
+    /// UTA-0245: refused for its texture budget alone, which --fit-budget can
+    /// get past, so the launcher offers it.
+    bool overBudget = false;
     /// UTA-0191: ut-bake's own `bakerVersion`, kept because nothing else can
     /// reach it. The bundle does not store it -- BundleHeader carries
     /// formatVersion, origin and kind and no more -- and docs/design.md rule 2

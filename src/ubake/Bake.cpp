@@ -939,15 +939,33 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
         outcome.verdict = Verdict::Cached;
         return outcome;
     }
+    // UTA-0245: one asking to fit takes a fitted bake already there too.
+    const std::string fitted = detail::fittedName(outcome.name);
+    const std::filesystem::path fittedPath = request.outDir / (fitted + ".utab");
+    if (request.fitBudget && !request.force && isCachedBake(fittedPath)) {
+        outcome.verdict = Verdict::Cached;
+        outcome.name = fitted;
+        outcome.path = fittedPath;
+        return outcome;
+    }
 
     // 3. Bake, then the budget. Over it, nothing is written -- UTA-0052's
     // never-degrade rule.
     UTA_TRY(BakeResult result, detail::bake(map, mapName, install.resolver(), jobs,
                                             &umat::curated, request.budgetBytes));
     if (!umat::enforceBudget(result.budget).has_value()) {
-        outcome.verdict = Verdict::OverBudget;
-        outcome.result = std::move(result);
-        return outcome;
+        // UTA-0245: asked to, shrink until it fits, under its own name.
+        if (request.fitBudget && result.bundle.textures) {
+            outcome.fitted = umat::fitToBudget(*result.bundle.textures, request.budgetBytes);
+            result.budget = umat::measure(*result.bundle.textures, request.budgetBytes);
+        }
+        if (!outcome.fitted || !outcome.fitted->fits) {
+            outcome.verdict = Verdict::OverBudget;
+            outcome.result = std::move(result);
+            return outcome;
+        }
+        outcome.name = fitted;
+        outcome.path = fittedPath;
     }
 
     // 4. Written atomically: a crash leaves the old file or none (SS 6).

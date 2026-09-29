@@ -200,6 +200,35 @@ TEST_CASE("an over-budget bake exits 1 and leaves no file", "[ubake][cli]") {
     CHECK(filesIn(fixture.out) == 0);
 }
 
+TEST_CASE("UTA-0245: --fit-budget shrinks an over-budget bake and names it apart", "[ubake][cli]") {
+    const Install fixture;
+    const Run over = run(fixture.bake(), 1);
+    REQUIRE(says(over.out, "\"verdict\": \"over-budget\""));
+    const std::size_t at = over.out.find("\"workingSetBytes\": ");
+    REQUIRE(at != std::string::npos);
+    const std::uint64_t full = std::stoull(over.out.substr(at + 19));
+    const std::string overName = over.out.substr(over.out.find("\"name\": \"") + 9, 64);
+
+    // One byte under the whole: a round of fitting is enough.
+    std::vector<std::string> fitArgs = fixture.bake();
+    fitArgs.insert(fitArgs.begin(), "--fit-budget");
+    const Run fitted = run(fitArgs, full - 1);
+    INFO(fitted.out << fitted.err);
+    CHECK(fitted.code == 0);
+    CHECK(says(fitted.out, "\"verdict\": \"written\""));
+    CHECK(says(fitted.out, "\"fitted\": {\"upscaleRounds\": "));
+    CHECK_FALSE(says(fitted.out, overName)); // a fitted bake never takes the full bake's name
+    CHECK(filesIn(fixture.out) == 1);
+
+    // Without the switch the same budget still refuses: nobody gets the
+    // fitted bake without asking for it (user, 2026-09-29).
+    const Run plain = run(fixture.bake(), full - 1);
+    CHECK(says(plain.out, "\"verdict\": \"over-budget\""));
+    // Asked again, it is the cached fitted bake.
+    const Run again = run(fitArgs, full - 1);
+    CHECK(says(again.out, "\"verdict\": \"cached\""));
+}
+
 TEST_CASE("UTA-0179: the game-type list prints each type and the distinct prefixes", "[ubake][cli]") {
     const TempDir dir;
     using uta::test::bake::Packer;

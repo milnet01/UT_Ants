@@ -91,7 +91,13 @@ that breaks content addressing before it breaks a test.
    not silently get different quality, and a reduction nobody was told about
    is the failure that surfaces months later on somebody else's laptop. An
    opt-in `--fit-budget` was offered and **not** taken; do not add one
-   without asking again.
+   without asking again. **Asked again, and taken: user, 2026-09-29
+   (`UTA-0245`)**, when a map needing 1.9 GB could not be opened at all.
+   The default is unchanged -- over budget still refuses -- and only an
+   explicit `--fit-budget` (or the launcher's Ctrl+F, offered after a
+   refusal) shrinks. It is deterministic: upscaling is taken back first,
+   source detail halved only after, so two people fitting one map get one
+   bake, named apart from the full one. `UTA-0011` § 4.8 records the switch.
 
 4. **The block encoder is `bc7enc`, vendored.** **User, 2026-09-09.**
    `bc7enc.c`/`.h` for BC7 and `rgbcx.h` for BC1–BC5, from

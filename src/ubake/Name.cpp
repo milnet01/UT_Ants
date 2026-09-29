@@ -64,6 +64,14 @@ std::string hex(std::span<const std::byte> bytes) {
     return out;
 }
 
+std::string fittedName(std::string_view name) {
+    Sha256 hasher;
+    addText(hasher, "uta-bake-fitted-1");
+    addByte(hasher, LF);
+    addText(hasher, name);
+    return hex(hasher.finish());
+}
+
 std::string mapNameOf(const std::filesystem::path& map) {
     return fold(utf8(map.stem()));
 }

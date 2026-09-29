@@ -471,9 +471,17 @@ choose between them (§ 15).
 ```text
 ut-bake --check <install>
 ut-bake --game-types <install>
-ut-bake --install <install> --out <dir> [--force] <map>
+ut-bake --install <install> --out <dir> [--force] [--fit-budget] <map>
 ut-bake --help
 ```
+
+**`--fit-budget` was added by `UTA-0245`** (user, 2026-09-29). Over budget,
+the bake shrinks its textures with `umat::fitToBudget` until they fit rather
+than refusing, and is named `detail::fittedName` of the full bake's name, so a
+request without the switch is never served it. The report gains
+`"fitted": {"upscaleRounds": N, "sourceRounds": N, "fits": true|false}`; a
+set that cannot fit is still `over-budget`. Without the switch nothing
+changes.
 
 **`--game-types` was added by `UTA-0179`**, after this item shipped. It
 lists the game types the install's `.int` files register, each with the

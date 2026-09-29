@@ -77,6 +77,10 @@ namespace detail {
 [[nodiscard]] Result<std::string> bakeName(std::span<const std::byte> mapBytes,
                                            std::string_view mapName, Install& install);
 
+/// UTA-0245: the name a bake fitted to its budget takes, from its full bake's
+/// `name` -- 64 lower-case hex digits, never equal to `name`.
+[[nodiscard]] std::string fittedName(std::string_view name);
+
 /// Lower-case hex, two digits a byte.
 [[nodiscard]] std::string hex(std::span<const std::byte> bytes);
 

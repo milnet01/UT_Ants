@@ -284,7 +284,8 @@ private:
 
     // --- opening a map ---
 
-    void open() {
+    /// `fit`: UTA-0245's --fit-budget, only ever on the player's request.
+    void open(bool fit = false) {
         const MapFile* const map = selected();
         if (map == nullptr || busy_ != Busy::No) return;
         opening_ = map->name;
@@ -292,9 +293,11 @@ private:
         openingStamp_ = mapStampOf(map->path);
         busy_ = Busy::Baking;
         started_ = SDL_GetTicks();
-        child_.start({besideThisProgram("ut-bake"), "--install", fs::utf8(options_.install), "--out",
-                      fs::utf8(paths_.bakes), fs::utf8(map->path)},
-                     true);
+        std::vector<std::string> args{besideThisProgram("ut-bake"), "--install", fs::utf8(options_.install), "--out",
+                                      fs::utf8(paths_.bakes)};
+        if (fit) args.emplace_back("--fit-budget");
+        args.push_back(fs::utf8(map->path));
+        child_.start(std::move(args), true);
     }
 
     void finishChild() {
@@ -304,7 +307,10 @@ private:
             const BakeAnswer answer = readBakeAnswer(output, exitCode);
             if (!answer.baked) {
                 record(opening_, {.failed = true, .failure = startError.empty() ? answer.failure : startError});
-                status_ = opening_ + " did not bake.";
+                status_ = answer.overBudget && startError.empty()
+                              ? opening_ + " needs more texture memory than the budget. "
+                                           "Ctrl+F opens it with smaller textures."
+                              : opening_ + " did not bake.";
                 busy_ = Busy::No;
                 return;
             }
@@ -403,6 +409,7 @@ private:
         if ((key.mod & SDL_KMOD_CTRL) != 0) {
             if (key.key == SDLK_EQUALS || key.key == SDLK_PLUS || key.key == SDLK_KP_PLUS) scale_ = std::min(scale_ + 1, 12);
             if (key.key == SDLK_MINUS || key.key == SDLK_KP_MINUS) scale_ = std::max(scale_ - 1, 1);
+            if (key.key == SDLK_F && focus_ == Focus::List) open(true); // UTA-0245
             return;
         }
         if (key.key == SDLK_TAB) {

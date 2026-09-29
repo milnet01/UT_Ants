@@ -42,13 +42,15 @@ void writeArray(std::ostream& out, const std::vector<T>& values, Write write) {
 void usage(std::ostream& err) {
     err << "usage: ut-bake --check <install>\n"
            "       ut-bake --game-types <install>\n"
-           "       ut-bake --install <install> --out <dir> [--force] <map>\n"
+           "       ut-bake --install <install> --out <dir> [--force] [--fit-budget] <map>\n"
            "       ut-bake --help\n"
            "\n"
            "--check says whether a directory is a usable Unreal Tournament install,\n"
            "and why not. The second form bakes one map into <dir>, named by the\n"
            "SHA-256 of what it was baked from, and reuses a bake already there\n"
-           "unless --force is given. --game-types lists the game types the install's\n"
+           "unless --force is given. A map whose textures exceed the budget is refused;\n"
+           "with --fit-budget its textures are shrunk until they fit instead, and the\n"
+           "bake is named apart from a full one (UTA-0245). --game-types lists the game types the install's\n"
            ".int files register, each with the MapPrefix its maps' names start with\n"
            "(UTA-0179). Standard output is one JSON object.\n";
 }
@@ -56,6 +58,7 @@ void usage(std::ostream& err) {
 struct Arguments {
     bool help = false;
     bool force = false;
+    bool fitBudget = false;
     std::optional<std::string_view> check;
     std::optional<std::string_view> gameTypes;
     std::optional<std::string_view> install;
@@ -85,6 +88,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             parsed.help = true;
         } else if (arg == "--force") {
             parsed.force = true;
+        } else if (arg == "--fit-budget") {
+            parsed.fitBudget = true;
         } else if (arg == "--check") {
             if (!takeValue(parsed.check)) return std::nullopt;
         } else if (arg == "--game-types") {
@@ -228,6 +233,7 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
     request.map = std::filesystem::path(*args.map);
     request.outDir = std::filesystem::path(*args.out);
     request.force = args.force;
+    request.fitBudget = args.fitBudget;
     request.budgetBytes = budgetBytes;
     const auto outcome = bakeToDirectory(request, jobs);
 
@@ -269,10 +275,18 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
         err << "\n";
     }
     if (outcome->result.has_value()) writeResult(out, *outcome->result);
+    if (outcome->fitted.has_value())
+        out << ", \"fitted\": {\"upscaleRounds\": " << outcome->fitted->upscaleRounds
+            << ", \"sourceRounds\": " << outcome->fitted->sourceRounds
+            << ", \"fits\": " << (outcome->fitted->fits ? "true" : "false") << '}';
     out << "}\n";
 
     switch (outcome->verdict) {
     case Verdict::Written:
+        if (outcome->fitted.has_value())
+            err << "ut-bake: textures shrunk to fit the budget: " << outcome->fitted->upscaleRounds
+                << " round(s) of upscaling taken back, " << outcome->fitted->sourceRounds
+                << " of source detail halved\n";
         err << "ut-bake: wrote " << detail::utf8(outcome->path) << "\n";
         return EXIT_OK;
     case Verdict::Cached:

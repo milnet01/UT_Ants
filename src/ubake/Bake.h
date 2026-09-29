@@ -66,6 +66,11 @@ struct BakeRequest {
     std::filesystem::path outDir;
     bool force = false;
     std::uint64_t budgetBytes = umat::TEXTURE_BUDGET_BYTES;
+    /// UTA-0245: over budget, shrink the textures until they fit (umat::
+    /// fitToBudget) rather than refuse -- only when asked (user, 2026-09-29).
+    /// A fitted bake is named apart (detail::fittedName), so a request
+    /// without this is never served one.
+    bool fitBudget = false;
 };
 
 /// UTA-0141: a package name more than one install file carries, where the
@@ -87,6 +92,9 @@ struct BakeOutcome {
     std::string name;
     std::filesystem::path path;         ///< outDir / (name + ".utab")
     std::optional<BakeResult> result;   ///< absent when Cached
+    /// UTA-0245: set when this bake was fitted to its budget. Absent for a
+    /// cached fitted bake, whose rounds were counted when it was written.
+    std::optional<umat::FitReport> fitted;
     /// Found for a cached bake too: a clash is a fact about the install. The
     /// user's decision (UTA-0141, 2026-09-13) is to warn and carry on.
     std::vector<PackageClash> clashes;

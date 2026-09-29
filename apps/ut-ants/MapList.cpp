@@ -290,6 +290,7 @@ BakeAnswer readBakeAnswer(std::string_view output, int exitCode) {
     }
     if (*verdict == "over-budget") {
         answer.failure = "its textures are over the memory budget";
+        answer.overBudget = true;
         return answer;
     }
     answer.failure = "ut-bake gave an unknown verdict: " + *verdict;

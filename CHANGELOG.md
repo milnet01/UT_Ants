@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A map whose textures exceed the memory budget can be opened with smaller textures, on request** (UTA-0245)
+  ut-bake --fit-budget, or Ctrl+F in the launcher after a refusal, shrinks
+  the textures until they fit: invented upscale detail goes first, original
+  detail only after. The default still refuses, and a fitted bake is named
+  apart from a full one. MH-RiseOfEvil_V2 now opens at 476 MiB, losing no
+  original detail.
+
 - **ut-dump --surface-list lists every BSP surface with its built flags, owning brush and position.** (UTA-0213)
   A new option makes the map-reading tool list every wall and floor face on its own, so the sister project can check whether one particular wall is solid.
 
