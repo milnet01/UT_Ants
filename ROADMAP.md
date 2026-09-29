@@ -13026,7 +13026,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0229] **Close the core layer's peer-review findings.**
+- ✅ [UTA-0229] **Close the core layer's peer-review findings.**
   From ai-prompts-9a's cold read of src/core (Pass A had cleared it).
   F1-F3 were re-opened on disk by that session:
   - F1 FileSystem.cpp:53-58 syncToDevice discards fsync's result, so an
@@ -13047,6 +13047,10 @@ stays with movement in 0.2.0.
   Decided (user, 2026-09-26): F1 fails the write. A device error at
   sync (EIO, ENOSPC) refuses the save and leaves the old file; a platform
   that cannot sync at all still renames, as now.
+  Resolved (2026-09-29) in the UTA-0229 commit; GitHub run 36565476503
+  green, MSVC included. F1 as decided: a device error at sync refuses
+  the save. Not changed: temporaries keep 0666 & ~umask. COM0/LPT0 are
+  now refused, reversing an older test that listed LPT0 as ordinary.
   **Layman:** Issues in how files are saved and read, found by another session's review of the foundation code; most matter only on Windows or on failing disks.
   Kind: review-fix.
   Source: review-code-2026-09-26.
