@@ -349,6 +349,17 @@ TEST_CASE("INV-9: only EXIT_OFF_NET and PARTITIONED rows are work and a missing 
     CHECK(named.out.find("{\"map\": \"MH-Built\", \"status\": \"refused\"") != std::string::npos);
 }
 
+TEST_CASE("UTA-0224: a census that does not read fails the run, not the arguments", "[paths][seeds]") {
+    // 2 is bad arguments (SS 4.2). A census path the caller named well but
+    // that cannot be read is a failed run, like a refused map.
+    const uta::test::bake::TempDir dir;
+    const Run result = run({"--install", (dir.path() / "install").string(), "--census",
+                            (dir.path() / "absent.tsv").string(), "--out", (dir.path() / "out").string()});
+    INFO(result.err);
+    CHECK(result.code == 1);
+    CHECK(result.err.find("the census does not read") != std::string::npos);
+}
+
 TEST_CASE("a census map name that is a path is refused and nothing is read", "[paths][seeds]") {
     // review-code 2026-09-26: the census comes from another project, and a
     // "../" or rooted name would read outside Maps/ and write outside --out.

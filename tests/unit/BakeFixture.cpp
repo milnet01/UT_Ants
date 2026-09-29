@@ -374,6 +374,12 @@ MapBuilder& MapBuilder::addActor(std::string_view name, std::int32_t classRefere
     return *this;
 }
 
+MapBuilder& MapBuilder::addRawActor(std::string_view name, std::int32_t classReference,
+                                    std::vector<std::uint8_t> data) {
+    actors_.push_back(Actor{std::string(name), classReference, {}, std::move(data)});
+    return *this;
+}
+
 MapBuilder& MapBuilder::addReachSpec(std::size_t from, std::size_t to,
                                      std::int32_t collisionRadius, std::int32_t collisionHeight,
                                      std::int32_t reachFlags) {
@@ -459,7 +465,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     std::vector<std::int32_t> actors;
     for (const Actor& actor : actors_)
         actors.push_back(packer.addExport(actor.classReference, 0, actor.name,
-                                          packer.properties(actor.properties)));
+                                          actor.raw ? *actor.raw : packer.properties(actor.properties)));
 
     // The level's world: one plane with a zone on each side, inside a cube the
     // room builder samples at its default spacing -- RoomBuildTest.cpp's

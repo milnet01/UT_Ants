@@ -24,6 +24,7 @@
 #include <clocale>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -268,4 +269,26 @@ TEST_CASE("UTA-0199: a decimal field reads the same under a comma locale", "[sho
     CHECK(*details.renderScale == 0.5);
     REQUIRE(details.lightSeconds.has_value());
     CHECK(*details.lightSeconds == 12.25);
+}
+
+TEST_CASE("UTA-0224: a size past MAX_DIMENSION is refused before anything is allocated", "[shot]") {
+    CHECK(parse({"map.utab", "16384", "16384", "out"}).options.has_value());
+    CHECK_FALSE(parse({"map.utab", "16385", "240", "out"}).options.has_value());
+    CHECK_FALSE(parse({"map.utab", "320", "4294967295", "out"}).options.has_value());
+
+    const TempDir temp;
+    const auto folder = temp.path() / "shot";
+    fs::create_directories(folder);
+    std::ofstream(folder / "details.txt") << "render-size: 100000x360\n";
+    CHECK_FALSE(parse({"--from-capture", folder.string(), "map.utab", "out"}).options.has_value());
+}
+
+TEST_CASE("UTA-0224: a field of view is usable only strictly between 0 and 180 degrees", "[shot]") {
+    CHECK(uta::shot::usableHorizontalFov(90));
+    CHECK(uta::shot::usableHorizontalFov(179.9));
+    CHECK_FALSE(uta::shot::usableHorizontalFov(0));
+    CHECK_FALSE(uta::shot::usableHorizontalFov(180));
+    CHECK_FALSE(uta::shot::usableHorizontalFov(-90));
+    CHECK_FALSE(uta::shot::usableHorizontalFov(std::numeric_limits<double>::quiet_NaN()));
+    CHECK_FALSE(uta::shot::usableHorizontalFov(std::numeric_limits<double>::infinity()));
 }

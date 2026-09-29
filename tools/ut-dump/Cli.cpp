@@ -38,6 +38,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <system_error>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -68,14 +69,6 @@ std::string foldCase(std::string_view text) {
     return folded;
 }
 
-/// The whole file in one read, or empty when it cannot be read. uta::fs owns
-/// the reading; a character-at-a-time stream was over half of this tool's
-/// CPU on a library run (UTA-0094).
-std::vector<std::byte> readWhole(const fs::path& path) {
-    auto bytes = uta::fs::readFile(path);
-    return bytes.has_value() ? std::move(*bytes) : std::vector<std::byte>{};
-}
-
 // ------------------------------------------------------------- the resolver
 //
 // Class ancestry crosses packages -- a map's `Teleporter` descends from
@@ -85,12 +78,14 @@ std::vector<std::byte> readWhole(const fs::path& path) {
 class SystemPackages {
 public:
     explicit SystemPackages(const fs::path& systemDir) {
-        if (!fs::is_directory(systemDir)) {
-            return;
-        }
-        for (const fs::directory_entry& entry : fs::directory_iterator{systemDir}) {
-            if (entry.is_regular_file() && foldCase(entry.path().extension().string()) == ".u") {
-                paths_.emplace(foldCase(entry.path().stem().string()), entry.path());
+        // error_code forms throughout: a System folder that does not list is
+        // an empty one, which runCli already warns about (UTA-0224).
+        std::error_code listing;
+        for (fs::directory_iterator entry{systemDir, listing}, end; !listing && entry != end;
+             entry.increment(listing)) {
+            std::error_code ignored;
+            if (entry->is_regular_file(ignored) && foldCase(entry->path().extension().string()) == ".u") {
+                paths_.emplace(foldCase(entry->path().stem().string()), entry->path());
             }
         }
     }
@@ -532,6 +527,24 @@ long long unresolvedChains(const uta::upkg::Package& map, std::string_view mapNa
     return unresolved;
 }
 
+/// UTA-0224: the level's actors, each export once, whose property block does
+/// not read. Each is still reported -- UTA-0172 INV-8 forbids dropping one --
+/// with its class defaults, so this count and an exit's `propertiesRead` are
+/// what say those values are not the actor's own. Present without a flag, as
+/// `chainsUnresolved` is: unav's wiring graph refuses a package holding such
+/// an actor, so `wiring` is null and cannot say it (UTA-0244).
+long long unreadProperties(const uta::upkg::Package& map, const uta::upkg::Level& level) {
+    long long unread = 0;
+    std::set<std::uint32_t> seen;
+    for (const uta::upkg::ObjectReference slot : level.actors) {
+        if (slot.kind() != uta::upkg::ObjectReferenceKind::Export || slot.index() >= map.exports().size()
+            || !seen.insert(slot.index()).second)
+            continue;
+        if (!uta::upkg::readProperties(map, map.exports()[slot.index()]).has_value()) ++unread;
+    }
+    return unread;
+}
+
 /// The whole-map monster total: the capacity of every ThingFactory descendant
 /// whose prototype is a monster, the actor's own else its class family's, and
 /// every monster placed in the map. A monster is a ScriptedPawn descended from
@@ -877,7 +890,8 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
                 }
             }
         }
-        if (const auto properties = uta::upkg::readProperties(map, entry); properties.has_value()) {
+        const auto properties = uta::upkg::readProperties(map, entry);
+        if (properties.has_value()) {
             for (const uta::upkg::Property& property : *properties) {
                 if (const auto name = map.name(property.nameIndex); name.has_value())
                     takeWiringProperty(fields, map, *name, property);
@@ -908,6 +922,7 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
         out << ", \"bInitiallyActive\": ";
         if (fields.initiallyActive.has_value()) out << (*fields.initiallyActive ? "true" : "false");
         else out << "null";
+        out << ", \"propertiesRead\": " << (properties.has_value() ? "true" : "false");
         out << "}";
     }
     out << "]";
@@ -921,7 +936,10 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     out << " {\n  \"file\": ";
     writeJsonString(out, uta::fs::utf8(path)); // JSON is UTF-8 (UTA-0221)
 
-    const std::vector<std::byte> raw = readWhole(path);
+    // Mapped, not read: a directory target can hold any file, and a large one
+    // that is not a package costs an open, not its whole size (UTA-0224).
+    const auto mapped = uta::fs::MappedFile::open(path);
+    const std::span<const std::byte> raw = mapped.has_value() ? mapped->bytes() : std::span<const std::byte>{};
     if (raw.empty()) {
         out << ",\n  \"ok\": false,\n  \"error\": \"unreadable or empty\"\n }";
         return;
@@ -1014,6 +1032,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     out << ", \"rawSlots\": " << level->rawSlotCount;
     out << ", \"reachSpecs\": " << level->reachSpecs.size();
     out << ", \"chainsUnresolved\": " << unresolvedChains(*package, path.stem().string(), *level, kinds);
+    out << ", \"propertiesUnread\": " << unreadProperties(*package, *level);
     out << "}";
 
     writeSurfaces(out, *package, *level, surfaceList);
@@ -1202,15 +1221,25 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
 
     std::vector<fs::path> files;
     for (const fs::path& target : targets) {
-        if (fs::is_directory(target)) {
-            for (const fs::directory_entry& entry : fs::directory_iterator{target}) {
-                if (entry.is_regular_file()) {
-                    files.push_back(entry.path());
-                }
-            }
-        } else {
+        // error_code forms: a permission error must not end the run
+        // (UTA-0224). A directory that does not list becomes its own element,
+        // which fails to open and so reports `ok: false` rather than vanishing.
+        std::error_code probe;
+        if (!fs::is_directory(target, probe)) {
             files.push_back(target);
+            continue;
         }
+        std::error_code listing;
+        fs::directory_iterator entry{target, listing};
+        if (listing) {
+            files.push_back(target);
+            continue;
+        }
+        for (const fs::directory_iterator end; !listing && entry != end; entry.increment(listing)) {
+            std::error_code ignored;
+            if (entry->is_regular_file(ignored)) files.push_back(entry->path());
+        }
+        if (listing) err << "ut-dump: " << uta::fs::utf8(target) << ": listing stopped: " << listing.message() << "\n";
     }
     std::sort(files.begin(), files.end());
 

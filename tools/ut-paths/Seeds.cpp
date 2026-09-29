@@ -448,6 +448,10 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
     bool started = false;
     std::set<std::int32_t> seenSlots;
     for (const upkg::ObjectReference slot : level.actors) {
+        // An import or null slot's index() counts another table. buildActors
+        // refuses an import slot first today; this keeps the loop honest alone
+        // (UTA-0224).
+        if (slot.kind() != upkg::ObjectReferenceKind::Export) continue;
         if (!seenSlots.insert(slot.raw()).second) continue;
         const ActorPlacement* actor = placementOf(placements, slot.index());
         if (actor == nullptr) continue;

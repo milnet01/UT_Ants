@@ -42,6 +42,10 @@ bool parseDouble(std::string_view text, double& out) {
 /// to 1, so the boundary this refuses is the one clamping cannot rescue.
 bool usableScale(double scale) { return std::isfinite(scale) && scale > 0; }
 
+bool usableSize(std::uint32_t width, std::uint32_t height) {
+    return width > 0 && height > 0 && width <= MAX_DIMENSION && height <= MAX_DIMENSION;
+}
+
 void usage(std::ostream& err) {
     err << "usage: ut-shot [options] <bundle> <width> <height> <out prefix> < cameras\n"
            "       ut-shot --from-capture <folder> [options] <bundle> <out prefix>\n"
@@ -63,6 +67,8 @@ void usage(std::ostream& err) {
 }
 
 } // namespace
+
+bool usableHorizontalFov(double degrees) { return std::isfinite(degrees) && degrees > 0 && degrees < 180; }
 
 CaptureDetails parseCaptureDetails(std::string_view text) {
     CaptureDetails details;
@@ -90,7 +96,7 @@ CaptureDetails parseCaptureDetails(std::string_view text) {
             if (by == std::string_view::npos) continue;
             std::uint32_t width = 0, height = 0;
             if (parseUnsigned(value.substr(0, by), width) &&
-                parseUnsigned(value.substr(by + 1), height) && width > 0 && height > 0) {
+                parseUnsigned(value.substr(by + 1), height) && usableSize(width, height)) {
                 details.width = width;
                 details.height = height;
             }
@@ -202,7 +208,7 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
     }
     options.bundle = std::string(rest[0]);
     if (!parseUnsigned(rest[1], options.width) || !parseUnsigned(rest[2], options.height) ||
-        options.width == 0 || options.height == 0) {
+        !usableSize(options.width, options.height)) {
         usage(err);
         return std::nullopt;
     }

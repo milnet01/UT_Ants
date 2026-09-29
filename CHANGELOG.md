@@ -523,6 +523,20 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **ut-dump survives unreadable files and says which actors it could not read** (UTA-0224)
+  A folder it may not list, or a file it may not open, is reported as
+  one failed entry instead of ending the run; a large stray file is
+  mapped, not read whole. New `level.propertiesUnread` counts actors
+  whose settings do not read, and each exit carries `propertiesRead`.
+
+- **ut-paths refuses one failing map instead of ending the library run** (UTA-0224)
+  A census that does not read now exits 1 (a failed run), not 2 (bad
+  arguments).
+
+- **ut-shot refuses an unusable field of view or frame size, and catches a failed write** (UTA-0224)
+  A field of view outside 0-180 degrees, or a width or height above
+  16384, is refused; a full disk is caught when the image file closes.
+
 - **The map list no longer says a map is baked when its baked copy was cleared or the map file changed.** (UTA-0220)
   The detail pane now says why a map must be baked again: an older baker,
   a missing baked copy, or a changed map.

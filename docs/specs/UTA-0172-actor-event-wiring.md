@@ -360,9 +360,11 @@ shows the filter was dropping almost nothing.
 - **A package with no Level.** `wiring` is already `null` there and stays so.
 - **An ancestry the resolver cannot complete.** Not an error; `chainEnd` says
   so (INV-5).
-- **A malformed property block.** `readProperties` already reports it; the
-  actor is skipped and the rest of the array is emitted, matching how the
-  existing keys behave. It is not a whole-file failure.
+- **A malformed property block.** INV-8 governs: no actor is dropped.
+  Today `unav::buildWiringGraph` refuses the package, so `wiring` is `null`
+  and `actors` is not emitted; `level.propertiesUnread` counts the actor, so
+  the null is not read as a clean map (UTA-0224). Whether the graph should
+  instead skip and count it is UTA-0244. It is not a whole-file failure.
 - **An `OutEvents` index beyond any expected width.** No cap is applied. The
   roadmap item said `OutEvents[0..7]`; UT_MonsterHunt match `OutEvents(\d+)`
   with no bound and have not checked whether the library exceeds 7. A cap

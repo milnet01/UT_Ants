@@ -12929,7 +12929,7 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0224] **ut-dump and ut-paths survive and count what they cannot read.**
+- 🚧 [UTA-0224] **ut-dump and ut-paths survive and count what they cannot read.**
   - ut-dump/Cli.cpp:778 (:869, :565): an actor whose properties fail to
     read is emitted with class defaults, uncounted; UTA-0172 SS 6 says
     skipped and its INV-8 says every actor is emitted (spec conflict).
@@ -13306,6 +13306,19 @@ stays with movement in 0.2.0.
   Kind: perf.
   Source: user-request-2026-09-28.
   Lanes: ci.
+
+- 📋 [UTA-0244] **One unreadable actor nulls a map's whole wiring graph.**
+  Found fixing UTA-0224. unav::buildWiringGraph (src/unav/Build.cpp)
+  UTA_TRYs readProperties on every non-class export, so one actor whose
+  property block does not read refuses the package: ut-dump then prints
+  `wiring: null` and --wiring-graph emits no `actors` at all. UTA-0224
+  counts such actors in `level.propertiesUnread` so the null is not read
+  as a clean map. Decide whether the graph should skip and count the
+  actor instead; that changes UTA-0006's contract and every caller
+  (ut-bake included), so measure first whether any library map has one.
+  **Layman:** A single damaged switch or trigger in a map hides every other switch and trigger's wiring from the map-inspection tool.
+  Kind: fix.
+  Source: review-code-2026-09-26.
 
 ## 0.2.0 — Movement and weapons
 

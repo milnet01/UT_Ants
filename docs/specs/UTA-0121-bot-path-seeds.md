@@ -192,7 +192,7 @@ ut-paths --install <dir> --census <tsv> --out <dir> [<map> ...]
   ]}
   ```
 - Exit status: 0 when every map was written or skipped, 1 when any was
-  refused, 2 for bad arguments.
+  refused or the census does not read, 2 for bad arguments (UTA-0224).
 
 ### 4.3 The per-map file
 

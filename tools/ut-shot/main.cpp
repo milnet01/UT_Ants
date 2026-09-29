@@ -149,6 +149,11 @@ int main(int argc, char** argv) {
             std::cerr << "ut-shot: camera line " << index << " does not read: " << line << "\n";
             return 2;
         }
+        if (!uta::shot::usableHorizontalFov(horizontalFov)) {
+            std::cerr << "ut-shot: camera line " << index << " has a field of view outside (0, 180): " << line
+                      << "\n";
+            return 2;
+        }
         const double halfRadians = horizontalFov * std::numbers::pi / 360.0;
         camera.verticalFovDegrees =
             static_cast<float>(std::atan(std::tan(halfRadians) * aspect) * 360.0 / std::numbers::pi);
@@ -169,6 +174,7 @@ int main(int argc, char** argv) {
         std::ofstream out(path, std::ios::binary);
         out << "P6\n" << config.width << " " << config.height << "\n255\n";
         for (std::size_t i = 0; i < pixels->size(); i += 4) out.write(reinterpret_cast<const char*>(&(*pixels)[i]), 3);
+        out.close(); // a full disk shows at the final flush, not before it (UTA-0224)
         if (!out) {
             std::cerr << "ut-shot: could not write " << path << "\n";
             return 1;

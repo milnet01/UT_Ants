@@ -23,6 +23,16 @@
 
 namespace uta::shot {
 
+/// The widest or tallest frame ut-shot will draw. Desktop devices report a
+/// maxImageDimension2D of 16384; past it the frame cannot be made, and an
+/// unchecked value sized the readback before the device said so (UTA-0224).
+inline constexpr std::uint32_t MAX_DIMENSION = 16384;
+
+/// Whether a camera line's horizontal field of view, in degrees, can be drawn:
+/// finite and strictly between 0 and 180. tan() of half of anything else is
+/// zero, negative or infinite (UTA-0224).
+[[nodiscard]] bool usableHorizontalFov(double degrees);
+
 /// The fields of a capture folder's details.txt that ut-shot can draw with.
 /// Every one is optional: a key the file does not carry, or carries in a form
 /// that does not read, is left unset rather than guessed at.

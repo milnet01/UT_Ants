@@ -915,7 +915,8 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     REQUIRE(plain.code == 0);
     const std::string map = packagesOf(plain.out).at(0);
     CHECK(keysOf(map) == mapKeys);
-    CHECK(keysOf(member(map, "level")) == Keys{"actors", "rawSlots", "reachSpecs", "chainsUnresolved"});
+    CHECK(keysOf(member(map, "level"))
+          == Keys{"actors", "rawSlots", "reachSpecs", "chainsUnresolved", "propertiesUnread"});
     CHECK(keysOf(member(map, "surfaces")) == Keys{"total", "byTextureAndFlags"});
     CHECK(keysOf(member(map, "monsters"))
           == Keys{"factories", "capacity", "unlimitedFactories", "unknownCapacityFactories", "placedPawns",
@@ -1167,10 +1168,10 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     REQUIRE(result.code == 0);
     CHECK(result.out.find("\"name\": \"MonsterEnd0\", \"class\": \"MonsterEnd\", \"location\": [-400, 0, 0], "
                           "\"tag\": \"finalexit\", \"triggerType\": 4, \"damageThreshold\": 50.5, "
-                          "\"bInitiallyActive\": false}")
+                          "\"bInitiallyActive\": false, \"propertiesRead\": true}")
           != std::string::npos);
     // UTA-0130: nothing in the fixture sets these for the arena end.
-    CHECK(result.out.find("\"triggerType\": null, \"damageThreshold\": null, \"bInitiallyActive\": null}")
+    CHECK(result.out.find("\"triggerType\": null, \"damageThreshold\": null, \"bInitiallyActive\": null, ")
           != std::string::npos);
     CHECK(result.out.find("\"name\": \"MonsterArenaEnd2\", \"class\": \"MonsterArenaEnd\", "
                           "\"location\": [1.5, 2, 3], \"tag\": ")
@@ -1179,4 +1180,28 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     const std::size_t exits = result.out.find("\"exits\": [");
     REQUIRE(exits != std::string::npos);
     CHECK(result.out.find("PathNode1", exits) == std::string::npos);
+}
+
+TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and counted", "[dump]") {
+    // UTA-0172 INV-8 wins over its SS 6: an exit stays in the list, since
+    // dropping one shrinks a consumer's denominator, but its class defaults
+    // are marked as not its own.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t bare = map.addClass("Bare");
+    map.addActor("Good0", bare);
+    map.addRawActor("Broken0", bare, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF});
+    map.addRawActor("BrokenEnd", map.importClass("MonsterHunt", "MonsterEnd"), {0xFF, 0xFF, 0xFF, 0xFF, 0xFF});
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run plain = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    INFO(plain.err);
+    REQUIRE(plain.code == 0);
+    CHECK(integerOf(member(packagesOf(plain.out).at(0), "level"), "propertiesUnread") == 2);
+    CHECK(plain.out.find("\"name\": \"BrokenEnd\", ") != std::string::npos);
+    CHECK(plain.out.find("\"bInitiallyActive\": null, \"propertiesRead\": false}") != std::string::npos);
+
+    // The wiring graph refuses the package today (UTA-0244), so the count is
+    // what reports these actors; it must not be read as a clean map.
+    CHECK(plain.out.find("\"wiring\": null") != std::string::npos);
 }

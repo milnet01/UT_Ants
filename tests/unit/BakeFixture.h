@@ -227,6 +227,9 @@ public:
     /// An actor named `name` of the class `classReference` names.
     MapBuilder& addActor(std::string_view name, std::int32_t classReference,
                          std::vector<PropertySpec> properties = {});
+    /// An actor in the level's list whose export holds `data` as it is -- a
+    /// property block that does not read, for UTA-0224.
+    MapBuilder& addRawActor(std::string_view name, std::int32_t classReference, std::vector<std::uint8_t> data);
     /// A reach spec from actor `from` to actor `to`, by their positions among
     /// the actors, carrying the collision size and flags given -- UTA-0121
     /// INV-11.
@@ -275,6 +278,8 @@ private:
         std::string name;
         std::int32_t classReference = 0;
         std::vector<PropertySpec> properties;
+        /// Set: the export's bytes as they are, in place of `properties`.
+        std::optional<std::vector<std::uint8_t>> raw;
     };
     /// Exported after everything else the builder holds, so an actor's export
     /// index is never its position among the actors.

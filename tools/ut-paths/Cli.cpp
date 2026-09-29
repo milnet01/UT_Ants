@@ -12,6 +12,7 @@
 #include "upkg/Package.h"
 
 #include <algorithm>
+#include <exception>
 #include <filesystem>
 #include <optional>
 #include <sstream>
@@ -264,6 +265,17 @@ Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& r
     return Entry{row.map, "written", {}, scene->exits.size(), proposal.nodes.size()};
 }
 
+/// runMap, with anything it throws refused as that map's failure. walkGraph
+/// rethrows a worker's exception, and one map must not end a library run
+/// (UTA-0224).
+Entry runMapGuarded(const stdfs::path& install, const stdfs::path& outDir, const Row& row, std::ostream& err) {
+    try {
+        return runMap(install, outDir, row, err);
+    } catch (const std::exception& thrown) {
+        return refusal(row.map, std::string("threw: ") + thrown.what(), err);
+    }
+}
+
 std::string summaryOf(const std::vector<Entry>& entries) {
     std::ostringstream out;
     out << "{\"schema\": " << SCHEMA << ", \"maps\": [";
@@ -310,7 +322,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         return EXIT_OK;
     }
     const std::optional<std::vector<Row>> rows = readCensus(stdfs::path(*parsed->census), err);
-    if (!rows.has_value()) return EXIT_USAGE;
+    if (!rows.has_value()) return EXIT_FAILED; // well-formed arguments; the file failed
 
     const stdfs::path install(*parsed->install);
     const stdfs::path outDir(*parsed->out);
@@ -321,7 +333,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     std::vector<Entry> entries;
     if (parsed->maps.empty()) {
         for (const Row& row : *rows)
-            if (isWork(row)) entries.push_back(runMap(install, outDir, row, err));
+            if (isWork(row)) entries.push_back(runMapGuarded(install, outDir, row, err));
     } else {
         // A named map is matched as the resolver matches a package, folded.
         for (const std::string_view name : parsed->maps) {
@@ -332,7 +344,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
                 entries.push_back(refusal(std::string(name),
                                           "not an EXIT_OFF_NET or PARTITIONED row of the census", err));
             else
-                entries.push_back(runMap(install, outDir, *row, err));
+                entries.push_back(runMapGuarded(install, outDir, *row, err));
         }
     }
 

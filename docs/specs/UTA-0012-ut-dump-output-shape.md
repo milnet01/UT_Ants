@@ -176,8 +176,9 @@ to § 4.7a give them.
 ### 4.5 Level, surfaces, credits and monsters
 
 - **`level`**: `actors`, the Level actor list's populated entries; `rawSlots`,
-  its raw length; `reachSpecs`, the length of its ReachSpec array; and
-  `chainsUnresolved`, § 4.8's new count. All integers.
+  its raw length; `reachSpecs`, the length of its ReachSpec array;
+  `chainsUnresolved`, § 4.8's new count; and `propertiesUnread`, § 4.8's
+  count added by UTA-0224. All integers.
 - **`surfaces`**: `{total, byTextureAndFlags}`. `total` is the Model's
   surface count. `byTextureAndFlags` is one row per distinct (texture name,
   `polyFlags`) pair, ascending by that pair: `{texture, polyFlags, surfaces,
@@ -250,7 +251,7 @@ both. This document restates neither.
 
 Added by `UTA-0189`. A map's element carries `exits` after `wiring`, with no
 flag. It is `[{export, name, class, location, tag, triggerType,
-damageThreshold, bInitiallyActive}]`, in ascending `export`
+damageThreshold, bInitiallyActive, propertiesRead}]`, in ascending `export`
 order: every level actor whose own class name is `MonsterEnd`,
 `MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. `class`
 keeps the stored case: MH-MayhemCastleV2 stores `monsterend`, so a consumer
@@ -267,6 +268,10 @@ its class family sets one. MonsterEndSB's `TakeDamage` wins the map only when
 `bInitiallyActive` holds, `triggerType` is 4 and a hit reaches
 `damageThreshold`.
 
+`propertiesRead` (a boolean) was added by `UTA-0224`. It is `false` when the
+actor's own property block does not read. The exit is still listed, and its
+fields are then its class family's defaults, not its own.
+
 ### 4.8 Counting what was dropped
 
 Scope decision 5's rule, applied:
@@ -277,6 +282,7 @@ Scope decision 5's rule, applied:
 | A reach-spec endpoint that resolves to no node | `nav.discardedEndpoints` |
 | An actor or prototype whose class family cannot be sorted into the monster rule | `monsters.unresolvedActors` |
 | An actor whose class chain does not reach the root | **`level.chainsUnresolved`** (new) |
+| An actor whose property block does not read | `level.propertiesUnread` (UTA-0224) |
 
 **`level.chainsUnresolved`** counts the level's actors, each export once,
 whose class chain does not end at the root. An actor with no class does not
