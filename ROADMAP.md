@@ -9186,6 +9186,9 @@ stays with movement in 0.2.0.
   ThreadSanitizer run: three BakeTest curated lookups recorded into a set
   from several threads. They now lock, and Bake.h says the lookup is
   called concurrently. The item stays open for finding (2).
+  Deferred (2026-09-29): the user's pick for Next, taken after the open
+  fix set (UTA-0195, 0196, 0197, 0244) per their priority order.
+  Clear this note when the item is picked up.
   **Layman:** Baking a map is slow mostly because every texture is shrunk into game format again for every map, even the stock textures many maps share, and only one texture is worked on at a time.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass.
