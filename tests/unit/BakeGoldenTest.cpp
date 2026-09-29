@@ -66,7 +66,9 @@ namespace {
 // BakeLightProbesTest grades the reach.
 // 25: UTA-0226 gave a zero-area occlusion chart no inside. Same digest as 24:
 // the fixture has no zero-area chart.
-constexpr std::uint32_t RECORDED_UNDER = 25;
+// 26: UTA-0246 stretched textures not a power of two a side. Same digest as
+// 25: the fixture's pictures are all 4x4.
+constexpr std::uint32_t RECORDED_UNDER = 26;
 constexpr std::string_view GOLDEN =
     "0469a7e3df8c13790861b610ef473693503fa3e0a383ca6c33459db204dbfae5";
 

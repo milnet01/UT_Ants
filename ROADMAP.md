@@ -13357,13 +13357,18 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0245] **MH-RiseOfEvil_V2 does not bake: its textures exceed the memory budget.**
+- ✅ [UTA-0245] **MH-RiseOfEvil_V2 does not bake: its textures exceed the memory budget.**
   UTA-0177's re-census at baker revision 24 (~/.cache/uta-census/after/census.ndjson)
   reports verdict over-budget for MH-RiseOfEvil_V2, the only map of the 127
   re-run that did not write. UTA-0052's rule is to refuse rather than
   degrade. Find which textures carry the size, and decide whether the budget,
   the upscale cap or the map is the thing to change.
   Taken 2026-09-29, the user's pick after the rule-1 fixes closed.
+  Resolved (2026-09-29): opt-in --fit-budget (user's choice), launcher
+  Ctrl+F after an over-budget refusal. GitHub run 36572857234 green,
+  MSVC included. MH-RiseOfEvil_V2 fits in one upscale round at 476 MiB
+  with no source detail lost. Also fixed a false clash warning
+  (engine.Actor.Touching) introduced by UTA-0226's chain match.
   **Layman:** One map in the library cannot be opened at all, because its pictures need more memory than the baker allows.
   Kind: fix.
   Source: in-session-2026-09-29.
@@ -13697,6 +13702,28 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-09-25.
   Lanes: uworld, app.
+
+- 📋 [UTA-0248] **Investigate texture compression that decompresses on the fly, fast enough to draw from.**
+  The user, 2026-09-29, after UTA-0245: a scheme that shrinks textures
+  further and still decompresses fast enough to render from would be a
+  significant win against the 1 GB budget (UTA-0052), which today forces
+  a refusal or UTA-0245's opt-in shrink.
+
+  Starting point, unverified: textures are already stored as BC4/BC5/BC7,
+  which the GPU decodes in hardware at sample time, about 4:1 to 8:1 over
+  RGBA8. A further win needs something the shader decodes itself -- for
+  example neural texture compression, which samples a small network per
+  texel -- or a denser GPU format. Also separate: supercompression on disk
+  (Basis/KTX2 with zstd) shrinks the bundle but not the working set, since
+  it is unpacked to BC at load. Measure quality per bit and the per-frame
+  decode cost against the 16 ms budget on the GTX 1050 before choosing.
+
+  Placed in 0.2.0 by the session: close enough to the budget work that
+  created it, and not a blocker for 0.1.0.
+  **Layman:** Pack map pictures much smaller in memory and unpack them while drawing, so big maps fit the budget without looking worse.
+  Kind: research.
+  Source: user-request-2026-09-29.
+  Lanes: umat, urender, ubundle.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

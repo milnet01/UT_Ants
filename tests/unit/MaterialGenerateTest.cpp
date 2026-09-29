@@ -675,3 +675,52 @@ TEST_CASE("UTA-0040 INV-2: generate carries the settings' parallax depth", "[uma
     REQUIRE(curated.has_value());
     CHECK(curated->parallaxDepth == 37);
 }
+
+namespace {
+
+uta::umat::Image rgbaOf(std::uint32_t width, std::uint32_t height, auto texel) {
+    uta::umat::Image image{width, height, 4, {}};
+    for (std::uint32_t y = 0; y < height; ++y)
+        for (std::uint32_t x = 0; x < width; ++x)
+            for (std::uint8_t c = 0; c < 4; ++c) image.pixels.push_back(std::byte{texel(x, y, c)});
+    return image;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0246: a texture not a power of two a side is stretched to the next one up", "[umat][generate]") {
+    // doom2tex's switch textures are 64x72; UT99 maps them over the same
+    // wall whatever their stored size, so the picture is stretched, not cut.
+    const auto odd = rgbaOf(64, 72, [](std::uint32_t, std::uint32_t, std::uint8_t) { return std::uint8_t{90}; });
+    const auto resized = uta::umat::toPowerOfTwo(odd);
+    REQUIRE(resized.has_value());
+    CHECK(resized->width == 64);
+    CHECK(resized->height == 128);
+    CHECK(resized->pixels.size() == std::size_t{64} * 128 * 4);
+    // A flat picture stays flat: the weights sum to one exactly.
+    CHECK(std::all_of(resized->pixels.begin(), resized->pixels.end(), [](std::byte b) { return b == std::byte{90}; }));
+}
+
+TEST_CASE("UTA-0246: stretching keeps the picture's order and wraps at its edges", "[umat][generate]") {
+    // Rows 0..2 dark, light, dark: stretched 3 -> 4, the middle stays the
+    // lightest and the ends, which wrap onto each other, the darkest.
+    const auto rows = rgbaOf(1, 3, [](std::uint32_t, std::uint32_t y, std::uint8_t) {
+        return static_cast<std::uint8_t>(y == 1 ? 200 : 0);
+    });
+    const auto resized = uta::umat::toPowerOfTwo(rows);
+    REQUIRE(resized.has_value());
+    REQUIRE(resized->height == 4);
+    const auto at = [&](std::uint32_t y) { return std::to_integer<int>(resized->pixels[y * 4]); };
+    CHECK(at(1) > at(0));
+    CHECK(at(2) > at(3));
+    CHECK(at(1) + at(2) > at(0) + at(3));
+}
+
+TEST_CASE("UTA-0246: a power-of-two picture is returned byte for byte", "[umat][generate]") {
+    const auto square = rgbaOf(4, 8, [](std::uint32_t x, std::uint32_t y, std::uint8_t c) {
+        return static_cast<std::uint8_t>(x * 16 + y * 3 + c);
+    });
+    const auto resized = uta::umat::toPowerOfTwo(square);
+    REQUIRE(resized.has_value());
+    CHECK(resized->pixels == square.pixels);
+}

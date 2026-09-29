@@ -58,4 +58,14 @@ inline constexpr std::array<Phase, 4> kWeights4{{
 /// other than 1, 2 or 4.
 [[nodiscard]] Result<Image> enlarge(const Image& rgba, std::uint32_t factor, JobSystem& jobs);
 
+/// UTA-0246: `rgba` stretched to the next power of two up in each axis, which
+/// everything after resolve requires; a power-of-two picture is returned as
+/// it is. Bilinear, in 16-bit fixed point, so integer arithmetic alone and
+/// the same bytes everywhere, like `enlarge`; edges wrap for the same reason.
+/// Upward only, so no source texel is dropped. The surface's mapping comes
+/// from the texture's own size, not this one, so the stretched picture covers
+/// the same area of wall. InvalidArgument for an image that is not
+/// well-formed RGBA or is larger than 8192 a side.
+[[nodiscard]] Result<Image> toPowerOfTwo(const Image& rgba);
+
 } // namespace uta::umat

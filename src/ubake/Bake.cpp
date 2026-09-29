@@ -13,6 +13,7 @@
 #include "ubake/Name.h"
 #include "ubake/Strips.h"
 #include "ubake/Zones.h"
+#include "umat/Enlarge.h"
 #include "umat/Fingerprint.h"
 #include "umat/Generate.h"
 #include "umat/Resolve.h"
@@ -483,9 +484,15 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     }
 
     // Step 5.
-    const auto rgba = umat::resolve(*shown, *shownPalette, masked);
+    const auto resolved = umat::resolve(*shown, *shownPalette, masked);
+    if (!resolved.has_value())
+        return std::unexpected("umat::resolve refused it: " + std::string(resolved.error().message()));
+    // UTA-0246: a picture that is not a power of two a side -- doom2tex's
+    // 64x72 -- is stretched to the next one up; generate takes no other.
+    // uSize and vSize below still come from `base`, so it maps as before.
+    const auto rgba = umat::toPowerOfTwo(*resolved);
     if (!rgba.has_value())
-        return std::unexpected("umat::resolve refused it: " + std::string(rgba.error().message()));
+        return std::unexpected("umat::toPowerOfTwo refused it: " + std::string(rgba.error().message()));
     auto material = umat::generate(id, *rgba, settings, jobs);
     if (!material.has_value())
         return std::unexpected("umat::generate refused it: "

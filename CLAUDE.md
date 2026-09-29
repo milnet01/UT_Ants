@@ -5,7 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0245`.
+**Next:** `UTA-0246`.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
@@ -42,7 +42,7 @@ deferred out of that release's cut.
 ### Standing facts
 
 **A bake goes stale when the baker or the format moves.** A bundle is
-format 14 (`UTA-0164`) and the baker is at revision 25 (`UTA-0226`), so a
+format 14 (`UTA-0164`) and the baker is at revision 26 (`UTA-0246`), so a
 map baked before either must be baked again.
 
 **The renderer's first iteration uses the cheapest methods that still look

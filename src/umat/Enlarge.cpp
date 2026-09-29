@@ -114,4 +114,52 @@ Result<Image> enlarge(const Image& rgba, std::uint32_t factor, JobSystem& jobs) 
     return out;
 }
 
+namespace {
+
+/// One axis of toPowerOfTwo: `count` lines of `length` texels, `stride`
+/// bytes apart along the axis and `step` bytes between lines, to `outLength`.
+std::vector<std::byte> stretchAxis(const std::vector<std::byte>& in, std::uint32_t length, std::uint32_t outLength,
+                                   std::uint32_t count, bool alongRows) {
+    std::vector<std::byte> out(std::size_t{outLength} * count * 4);
+    const auto index = [alongRows](std::uint32_t along, std::uint32_t line, std::uint32_t lineLength,
+                                   std::uint32_t lines) -> std::size_t {
+        (void)lines;
+        return alongRows ? (std::size_t{line} * lineLength + along) * 4 : (std::size_t{along} * lines + line) * 4;
+    };
+    constexpr std::int64_t ONE = 1 << 16;
+    for (std::uint32_t j = 0; j < outLength; ++j) {
+        // The source position of output texel j's centre, less half a texel.
+        const std::int64_t position = (std::int64_t{2 * j + 1} * length * ONE) / (std::int64_t{2} * outLength) - ONE / 2;
+        const std::int64_t whole = position >= 0 ? position / ONE : -((-position + ONE - 1) / ONE);
+        const std::int64_t fraction = position - whole * ONE;
+        const auto wrap = [length](std::int64_t i) {
+            return static_cast<std::uint32_t>(((i % length) + length) % length);
+        };
+        const std::uint32_t a = wrap(whole), b = wrap(whole + 1);
+        for (std::uint32_t line = 0; line < count; ++line)
+            for (std::size_t c = 0; c < 4; ++c) {
+                const std::int64_t pa = std::to_integer<int>(in[index(a, line, length, count) + c]);
+                const std::int64_t pb = std::to_integer<int>(in[index(b, line, length, count) + c]);
+                out[index(j, line, outLength, count) + c] =
+                    static_cast<std::byte>((pa * (ONE - fraction) + pb * fraction + ONE / 2) >> 16);
+            }
+    }
+    return out;
+}
+
+} // namespace
+
+Result<Image> toPowerOfTwo(const Image& rgba) {
+    if (rgba.channels != 4 || rgba.width == 0 || rgba.height == 0 || rgba.width > 8192 || rgba.height > 8192
+        || rgba.pixels.size() != std::size_t{rgba.width} * rgba.height * 4)
+        return fail(ErrorCode::InvalidArgument, "toPowerOfTwo: not a well-formed RGBA image up to 8192 a side");
+    const std::uint32_t width = std::bit_ceil(rgba.width), height = std::bit_ceil(rgba.height);
+    if (width == rgba.width && height == rgba.height) return rgba;
+    // Rows first (width), then columns (height), through an 8-bit image.
+    Image out{width, height, 4, {}};
+    const std::vector<std::byte> across = stretchAxis(rgba.pixels, rgba.width, width, rgba.height, true);
+    out.pixels = stretchAxis(across, rgba.height, height, width, false);
+    return out;
+}
+
 } // namespace uta::umat
