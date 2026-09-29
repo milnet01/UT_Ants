@@ -8,6 +8,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cerrno>
 #include <cstdlib>
 #include <filesystem>
 #include <algorithm>
@@ -313,6 +314,23 @@ TEST_CASE("resolveUnder refuses an escape through a symlink", "[core][fs]") {
     REQUIRE_FALSE(result.has_value());
     CHECK(result.error().code() == ErrorCode::InvalidArgument);
 }
+
+TEST_CASE("resolveUnder refuses a dangling symlink that is not the last element", "[core][fs]") {
+    // UTA-0229: the dangling-link check looked at the final element only, so
+    // "dangling/inside.unr" -- whose first element points outside at nothing
+    // yet -- passed, and creating through it writes outside root.
+    const TempDir dir;
+    const fs::path root = dir.path() / "root";
+    fs::create_directory(root);
+
+    std::error_code ec;
+    fs::create_directory_symlink(dir.path() / "outside-not-yet", root / "dangling", ec);
+    if (ec) SUCCEED("symlinks unavailable here");
+
+    const auto result = uta::fs::resolveUnder(root, "dangling/inside.unr");
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code() == ErrorCode::InvalidArgument);
+}
 #endif
 
 // ------------------------------------------------------------------- INV-8
@@ -505,6 +523,14 @@ TEST_CASE("a Win32 reserved device name is refused, on every platform", "[core][
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::InvalidArgument);
     }
+    // UTA-0229: the rest of Win32's list -- COM0 and LPT0, the console's two
+    // names, and the superscript digits it reads as digits.
+    for (const char* relative : {"COM0", "lpt0.log", "CONIN$", "conout$.txt", "COM\xC2\xB9", "lpt\xC2\xB3.x"}) {
+        const auto result = uta::fs::resolveUnder(dir.path(), uta::fs::pathFromUtf8(relative));
+        INFO("relative = " << relative);
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().code() == ErrorCode::InvalidArgument);
+    }
 }
 
 TEST_CASE("a component ending in a dot or a space is refused", "[core][fs]") {
@@ -553,7 +579,7 @@ TEST_CASE("ordinary names still resolve", "[core][fs]") {
 
     for (const char* relative : {"maps/DM-Deck16.unr", "Textures/SkyCity.utx",
                                  "a.b.c", "CONSOLE", "COM10", "com1x",
-                                 "LPT0", "nullify.unr"}) {
+                                 "LPT10", "nullify.unr"}) {
         const auto result = uta::fs::resolveUnder(dir.path(), relative);
         INFO("relative = " << relative);
         CHECK(result.has_value());
@@ -576,4 +602,15 @@ TEST_CASE("UTA-0221: the narrow encoding is UTF-8 on every platform", "[core][fs
     // manifest every program embeds makes the narrow encoding UTF-8 there too,
     // so argv, path::string() and fopen agree with SDL and JSON.
     CHECK(fs::path(u8"Ωmega").string() == "\xCE\xA9mega");
+}
+
+TEST_CASE("UTA-0229: a device error at sync refuses the save and an unsupported sync does not", "[core][fs]") {
+    // User decision, 2026-09-26: EIO or ENOSPC at fsync means the bytes may not
+    // be on the device, so the rename must not replace the old file. A file
+    // that cannot be synced at all still renames, as before.
+    CHECK(uta::fs::detail::syncErrorRefuses(EIO));
+    CHECK(uta::fs::detail::syncErrorRefuses(ENOSPC));
+    CHECK_FALSE(uta::fs::detail::syncErrorRefuses(0));
+    CHECK_FALSE(uta::fs::detail::syncErrorRefuses(EINVAL));
+    CHECK_FALSE(uta::fs::detail::syncErrorRefuses(ENOTSUP));
 }

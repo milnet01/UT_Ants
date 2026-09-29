@@ -82,6 +82,16 @@ private:
 [[nodiscard]] Result<void> writeFileAtomically(const std::filesystem::path& path,
                                                std::span<const std::byte> bytes);
 
+namespace detail {
+
+/// Whether a sync that failed with `error` refuses the save (UTA-0229, user
+/// decision 2026-09-26): a device error -- EIO, ENOSPC, EDQUOT -- does, since
+/// the bytes may not be on the device; an error meaning the file cannot be
+/// synced at all does not, and the rename goes ahead. 0 is no error.
+[[nodiscard]] bool syncErrorRefuses(int error) noexcept;
+
+}  // namespace detail
+
 /// A path as UTF-8, which is what SDL, JSON and the command lines this project
 /// builds expect. path::string() is the ANSI code page on Windows, so a name
 /// outside it arrives garbled (UTA-0221).

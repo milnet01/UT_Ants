@@ -357,8 +357,9 @@ Windows.** Three shapes are safe on Linux and are not names at all on
 Windows, and `resolveUnder` is where a remote server's chosen filename
 arrives:
 
-- **Reserved device names** — `CON`, `NUL`, `AUX`, `PRN`, `COM1`–`COM9`,
-  `LPT1`–`LPT9` — resolve to devices in *any* directory on Win32, and do
+- **Reserved device names** — `CON`, `NUL`, `AUX`, `PRN`, `CONIN$`,
+  `CONOUT$`, `COM0`–`COM9`, `LPT0`–`LPT9`, and `COM` or `LPT` followed by a
+  superscript `¹`, `²` or `³`, which Win32 reads as a digit — resolve to devices in *any* directory on Win32, and do
   so with an extension too, so `COM1.txt` is the same device. A remote
   file named `COM1` passes containment and then reads from a serial
   port, which can block with no timeout. Matched case-insensitively, on

@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <memory>
 #include <numeric>
 #include <stdexcept>
 #include <thread>
@@ -264,4 +265,25 @@ TEST_CASE("failed() is visible as soon as done() is", "[core][jobs]") {
 
         REQUIRE_FALSE(observedDoneWithoutFailure.load());
     }
+}
+
+TEST_CASE("a job helped along inside wait is destroyed without the pool's lock", "[core][jobs]") {
+    // UTA-0229: the helping loop in wait() destroyed a job after taking the
+    // lock again, so a capture whose destructor submits -- which takes that
+    // same lock -- deadlocked the worker.
+    JobSystem jobs(1);
+    std::atomic<int> ran{0};
+    const JobHandle outer = jobs.submit([&jobs, &ran] {
+        // Destroyed with the nested job's function, after the job has run.
+        // The nested job holds the only reference, so it goes with the job.
+        std::shared_ptr<void> submitsOnDestruction(nullptr, [&jobs, &ran](void*) {
+            (void)jobs.submit([&ran] { ++ran; });
+        });
+        const JobHandle nested = jobs.submit([held = std::move(submitsOnDestruction), &ran] { ++ran; });
+        jobs.wait(nested);
+    });
+    jobs.wait(outer);
+    // The job the destructor submitted may still be queued; the destructor of
+    // `jobs` drains it. Reaching here is the assertion.
+    CHECK(ran.load() >= 1);
 }

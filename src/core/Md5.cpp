@@ -39,6 +39,9 @@ constexpr std::size_t LENGTH_AT = 56;
 Md5::Md5() noexcept : state_(INITIAL) {}
 
 void Md5::update(std::span<const std::byte> bytes) noexcept {
+    // An empty span may carry a null pointer, and memcpy from null is
+    // undefined even for zero bytes.
+    if (bytes.empty()) return;
     length_ += bytes.size();
     std::size_t offset = 0;
 

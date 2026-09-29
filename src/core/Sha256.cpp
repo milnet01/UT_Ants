@@ -37,6 +37,9 @@ constexpr std::size_t LENGTH_AT = 56;
 Sha256::Sha256() noexcept : state_(INITIAL) {}
 
 void Sha256::add(std::span<const std::byte> bytes) noexcept {
+    // An empty span may carry a null pointer, and memcpy from null is
+    // undefined even for zero bytes.
+    if (bytes.empty()) return;
     length_ += bytes.size();
     std::size_t offset = 0;
 

@@ -280,4 +280,8 @@ TEST_CASE("sanitised shows every control byte as an escape and leaves the rest a
     CHECK(uta::sanitised("DM-\x1b[2JDeck\n16") == "DM-\\x1b[2JDeck\\x0a16");
     CHECK(uta::sanitised("\x7f") == "\\x7f");
     CHECK(uta::sanitised("CTF-Face][ \xc3\xa9") == "CTF-Face][ \xc3\xa9");
+    // UTA-0229: a C1 control -- U+009B is CSI, an escape in its own right --
+    // is escaped too; a letter whose UTF-8 merely contains such a byte is not.
+    CHECK(uta::sanitised("a\xc2\x9b" "2J") == "a\\xc2\\x9b2J");
+    CHECK(uta::sanitised("\xc4\x85") == "\xc4\x85");
 }

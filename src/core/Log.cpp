@@ -17,12 +17,24 @@ constinit LogCategory logCore{"core"};
 std::string sanitised(std::string_view text) {
     std::string out;
     out.reserve(text.size());
-    for (const unsigned char c : text) {
+    static constexpr char kHex[] = "0123456789abcdef";
+    const auto escape = [&out](unsigned char c) {
+        out += "\\x";
+        out += kHex[c >> 4];
+        out += kHex[c & 0x0f];
+    };
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const auto c = static_cast<unsigned char>(text[i]);
+        const auto next = i + 1 < text.size() ? static_cast<unsigned char>(text[i + 1]) : 0;
         if (c < 0x20 || c == 0x7f) {
-            static constexpr char kHex[] = "0123456789abcdef";
-            out += "\\x";
-            out += kHex[c >> 4];
-            out += kHex[c & 0x0f];
+            escape(c);
+        } else if (c == 0xc2 && next >= 0x80 && next <= 0x9f) {
+            // A C1 control, U+0080 to U+009F, as UTF-8 spells it: U+009B is
+            // CSI, which a terminal obeys as it does ESC [ (UTA-0229). Only the
+            // pair is escaped; the same byte inside another letter is not C1.
+            escape(c);
+            escape(next);
+            ++i;
         } else {
             out += static_cast<char>(c);
         }

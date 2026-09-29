@@ -12966,7 +12966,7 @@ stays with movement in 0.2.0.
   Kind: doc-fix.
   Source: review-code-2026-09-26.
 
-- 🚧 [UTA-0226] **Close review-code 2026-09-26's LOW findings.**
+- ✅ [UTA-0226] **Close review-code 2026-09-26's LOW findings.**
   Full text of each is in the review's lane returns (message 1 of the
   session, and commit bodies); verify against source before fixing:
   renderer - Lights.cpp:58 brightness-0 volume light takes shadow tiles;
@@ -12984,6 +12984,12 @@ stays with movement in 0.2.0.
   stderr; two launchers' notes. scripts - class-census.py IndexError and
   case-sensitive dirs; ci.sh:209 prints $CXX; ci.sh:94 leading-/ links;
   ci-matrix.sh:24 and ci.sh:7 doc lines.
+  Resolved (2026-09-29) in 2cec706 and 238869f; GitHub run 36564502114
+  green, MSVC included. Not changed, with reasons in 2cec706: GameTypes'
+  FE FF (UTF-16BE) .int files -- whether UT99 reads them is unverified,
+  and today they register nothing; Occlusion "seed area" -- not
+  reproduced, the seed only picks a starting width. BAKER_REVISION 25
+  (zero-area occlusion charts).
   **Layman:** A list of small correctness and tidiness issues found by the code review, each minor on its own.
   Kind: review-fix.
   Source: review-code-2026-09-26.
@@ -13020,7 +13026,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-code-2026-09-26.
 
-- 📋 [UTA-0229] **Close the core layer's peer-review findings.**
+- 🚧 [UTA-0229] **Close the core layer's peer-review findings.**
   From ai-prompts-9a's cold read of src/core (Pass A had cleared it).
   F1-F3 were re-opened on disk by that session:
   - F1 FileSystem.cpp:53-58 syncToDevice discards fsync's result, so an

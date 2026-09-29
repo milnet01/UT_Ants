@@ -192,6 +192,9 @@ void JobSystem::wait(const JobHandle& handle) {
 
             lock.unlock();
             runJob(job);
+            // Destroyed before the lock is taken again: its captures may run
+            // anything, a submit among them, which takes this lock (UTA-0229).
+            job = Job{};
             lock.lock();
         }
         return;

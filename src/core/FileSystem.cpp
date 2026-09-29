@@ -1,5 +1,6 @@
 #include "core/FileSystem.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <cstdint>
@@ -8,6 +9,7 @@
 #include <new>
 #include <optional>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -36,7 +38,10 @@ namespace {
 /// so a cap is what turns "too big" into a reported error rather than an
 /// allocation failure or a 32-bit truncation. Well above any package or
 /// bundle this engine expects, and deliberately far below address-space size.
-constexpr std::uintmax_t kMaxReadBytes = 4ULL * 1024 * 1024 * 1024;
+/// Never above what a std::size_t holds: on a 32-bit build 4 GiB itself would
+/// cast to 0 and pass the short-read guard on nothing (UTA-0229).
+constexpr std::uintmax_t kMaxReadBytes =
+    std::min<std::uintmax_t>(4ULL * 1024 * 1024 * 1024, std::numeric_limits<std::size_t>::max());
 
 /// Identifies this process in a temporary filename, so two processes writing
 /// the same destination cannot choose the same name.
@@ -48,23 +53,31 @@ constexpr std::uintmax_t kMaxReadBytes = 4ULL * 1024 * 1024 * 1024;
 #endif
 }
 
-/// Push a written file to the device. Best effort: a platform that cannot do
-/// it still gets the rename, which is strictly better than not writing.
-void syncToDevice(std::FILE* file) noexcept {
-    if (std::fflush(file) != 0) return;
+/// Push a flushed file to the device, returning errno on failure and 0 on
+/// success, for detail::syncErrorRefuses to judge.
+[[nodiscard]] int syncToDevice(std::FILE* file) noexcept {
 #ifdef _WIN32
-    (void)_commit(_fileno(file));
+    if (_commit(_fileno(file)) != 0) return errno;
 #else
-    (void)::fsync(::fileno(file));
+    if (::fsync(::fileno(file)) != 0) return errno;
 #endif
+    return 0;
 }
 
 /// An environment variable, or nullopt when unset or empty. An empty value is
 /// treated as unset: XDG says a relative or empty value must be ignored, and
 /// an empty %APPDATA% is no more usable than a missing one.
 [[nodiscard]] std::optional<std::filesystem::path> envPath(const char* name) {
+#ifdef _WIN32
+    // The wide variable: getenv narrows to the ANSI code page, so a profile
+    // path outside it -- a non-ASCII user name -- arrived garbled (UTA-0229).
+    const std::wstring wideName(name, name + std::char_traits<char>::length(name));
+    const wchar_t* value = _wgetenv(wideName.c_str());
+    if (value == nullptr || *value == L'\0') return std::nullopt;
+#else
     const char* value = std::getenv(name);
     if (value == nullptr || *value == '\0') return std::nullopt;
+#endif
 
     // A relative value is ignored, which XDG requires and INV-8 needs: a
     // relative HOME would otherwise make the fallback relative to the current
@@ -91,6 +104,23 @@ void syncToDevice(std::FILE* file) noexcept {
 #endif
 }
 
+}  // namespace
+
+bool detail::syncErrorRefuses(int error) noexcept {
+    switch (error) {
+    case EIO:
+    case ENOSPC:
+#ifdef EDQUOT
+    case EDQUOT:
+#endif
+        return true;
+    default:
+        return false;
+    }
+}
+
+namespace {
+
 /// Map errno to a code chosen for the failure. One code standing for every
 /// cause does not satisfy INV-1. Lives in Error.h because fileSink reports an
 /// fopen failure through the same rule, and two copies would disagree.
@@ -107,9 +137,12 @@ using uta::errorCodeFromErrno;
 /// is on the component's text up to its first '.', case-insensitively.
 [[nodiscard]] bool isReservedDeviceName(std::string_view component) noexcept {
     static constexpr std::string_view kReserved[] = {
-        "CON", "PRN", "AUX", "NUL",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
+        "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        // Windows reads Latin-1's superscript digits as digits here, so these
+        // are devices too -- written as UTF-8, as the component arrives.
+        "COM\xC2\xB9", "COM\xC2\xB2", "COM\xC2\xB3", "LPT\xC2\xB9", "LPT\xC2\xB2", "LPT\xC2\xB3",
     };
 
     const std::string_view stem = component.substr(0, component.find('.'));
@@ -146,7 +179,9 @@ using uta::errorCodeFromErrno;
     };
 
     for (const std::filesystem::path& part : relative) {
-        const std::string component = part.string();
+        // As UTF-8 on every platform: string() is the ANSI code page on
+        // Windows, where the superscript device names would never match.
+        const std::string component = utf8(part);
 
         // An empty component is a trailing separator; "." and ".." are
         // navigation, and ".." would otherwise trip the trailing-dot rule.
@@ -240,12 +275,23 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     if (ec) return fail(ErrorCode::IoFailure, "cannot stat " + path.string() + ": " + ec.message());
     if (status.type() == std::filesystem::file_type::directory)
         return fail(ErrorCode::InvalidArgument, path.string() + " is a directory, not a file");
+    // A FIFO or a device would block the open or map something that is not a
+    // file's bytes, so only a regular file is mapped (UTA-0229).
+    if (status.type() != std::filesystem::file_type::regular)
+        return fail(ErrorCode::InvalidArgument, path.string() + " is not a regular file");
 
     MappedFile mapped;
 #ifdef _WIN32
     const HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                     FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return fail(ErrorCode::IoFailure, "cannot open " + path.string());
+    if (file == INVALID_HANDLE_VALUE) {
+        const DWORD error = GetLastError();
+        const ErrorCode code = error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? ErrorCode::NotFound
+                               : error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION
+                                   ? ErrorCode::PermissionDenied
+                                   : ErrorCode::IoFailure;
+        return fail(code, "cannot open " + path.string());
+    }
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(file, &size)) {
         CloseHandle(file);
@@ -268,11 +314,18 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     mapped.size_ = static_cast<std::size_t>(size.QuadPart);
 #else
     const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
-    if (fd < 0) return fail(ErrorCode::IoFailure, "cannot open " + path.string() + ": " + std::strerror(errno));
+    if (fd < 0) {
+        const int error = errno;
+        return fail(errorCodeFromErrno(error), "cannot open " + path.string() + ": " + std::strerror(error));
+    }
     struct stat info {};
     if (::fstat(fd, &info) != 0) {
         ::close(fd);
         return fail(ErrorCode::IoFailure, "cannot stat " + path.string());
+    }
+    if (static_cast<std::uintmax_t>(info.st_size) > std::numeric_limits<std::size_t>::max()) {
+        ::close(fd);
+        return fail(ErrorCode::InvalidArgument, "file is larger than this build can map: " + path.string());
     }
     const auto size = static_cast<std::size_t>(info.st_size);
     if (size == 0) {
@@ -394,8 +447,11 @@ Result<void> writeFileAtomically(const std::filesystem::path& path,
     std::FILE* file = nullptr;
     std::filesystem::path temporary;
     for (int attempt = 0; attempt < 64 && file == nullptr; ++attempt) {
-        temporary = parent / (path.filename().string() + ".tmp-" + processTag() + "-" +
-                              std::to_string(counter.fetch_add(1, std::memory_order_relaxed)));
+        // Appended to the native name, never through path::string(), which
+        // narrows to the ANSI code page on Windows (UTA-0229).
+        std::filesystem::path name = path.filename();
+        name += ".tmp-" + processTag() + "-" + std::to_string(counter.fetch_add(1, std::memory_order_relaxed));
+        temporary = parent / name;
         errno = 0;
         file = openNative(temporary, "wbx");
         if (file == nullptr && errno != EEXIST)
@@ -410,28 +466,43 @@ Result<void> writeFileAtomically(const std::filesystem::path& path,
     // That is INV-7, and it is why this is not written as early returns.
     const std::size_t written =
         bytes.empty() ? 0 : std::fwrite(bytes.data(), 1, bytes.size(), file);
-    const bool writeFailed = written != bytes.size() || std::ferror(file) != 0;
+    bool writeFailed = written != bytes.size() || std::ferror(file) != 0;
 
     // Flush to the DEVICE before the rename. fclose only reaches the page
     // cache, so a power loss could commit the rename while the data blocks
     // were still unwritten -- leaving the destination empty and the old bytes
-    // gone, which is the opposite of what this function promises.
-    if (!writeFailed) syncToDevice(file);
+    // gone, which is the opposite of what this function promises. A device
+    // error there refuses the save and keeps the old file (UTA-0229).
+    // A failed flush is the write's own failure, whatever errno says.
+    if (!writeFailed) writeFailed = std::fflush(file) != 0 || detail::syncErrorRefuses(syncToDevice(file));
     const bool closeFailed = std::fclose(file) != 0;
 
     std::error_code ec;
-    if (writeFailed || closeFailed) {
-        std::filesystem::remove(temporary, ec);
-        return fail(ErrorCode::IoFailure, "cannot write " + path.string());
-    }
+    // INV-7 unlinks the temporary on every failure; one that will not go is
+    // named, rather than left behind unmentioned (UTA-0229).
+    const auto discard = [&temporary]() -> std::string {
+        std::error_code removeError;
+        std::filesystem::remove(temporary, removeError);
+        return removeError ? "; the temporary " + utf8(temporary) + " could not be removed: " + removeError.message()
+                           : std::string();
+    };
+    if (writeFailed || closeFailed) return fail(ErrorCode::IoFailure, "cannot write " + path.string() + discard());
 
     std::filesystem::rename(temporary, path, ec);
     if (ec) {
-        std::filesystem::remove(temporary, ec);
-        return fail(ErrorCode::IoFailure,
-                    "cannot replace " + path.string() + ": " + ec.message());
+        const std::string why = ec.message();
+        return fail(ErrorCode::IoFailure, "cannot replace " + path.string() + ": " + why + discard());
     }
 
+#ifndef _WIN32
+    // The rename is an entry in the directory, which reaches the device only
+    // when the directory itself is synced. Best effort: the new bytes are in
+    // place either way, and a crash before this keeps the old file whole.
+    if (const int dir = ::open(parent.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC); dir >= 0) {
+        (void)::fsync(dir);
+        ::close(dir);
+    }
+#endif
     return {};
 }
 
@@ -486,12 +557,18 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
     // writeFileAtomically happens to be immune because it renames over the
     // name rather than opening through it, but the promise is made to every
     // caller, and readFile does open through it.
-    if (std::filesystem::symlink_status(candidate, ec).type() ==
-            std::filesystem::file_type::symlink &&
-        std::filesystem::status(candidate, ec).type() ==
-            std::filesystem::file_type::not_found) {
-        return fail(ErrorCode::InvalidArgument,
-                    relative.string() + " is an unresolved symlink under " + root.string());
+    //
+    // EVERY element below root, not only the last (UTA-0229): a dangling link
+    // earlier in the path stops the resolution there, and the rest is appended
+    // after it. Any link still present was one weakly_canonical could not
+    // resolve, since it resolves every link whose target exists.
+    std::filesystem::path prefix;
+    for (auto it = candidate.begin(); it != candidateIt; ++it) prefix /= *it;
+    for (; candidateIt != candidate.end(); ++candidateIt) {
+        prefix /= *candidateIt;
+        if (std::filesystem::symlink_status(prefix, ec).type() == std::filesystem::file_type::symlink)
+            return fail(ErrorCode::InvalidArgument,
+                        relative.string() + " passes an unresolved symlink under " + root.string());
     }
 
     return candidate;  // not const: a const local cannot be moved out
