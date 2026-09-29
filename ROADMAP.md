@@ -11804,7 +11804,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-09-20.
   Lanes: ut-paths.
 
-- 📋 [UTA-0195] **ut-paths: MH-Skaarj_ReactorTest-v1's exit sits 43 units from the network and still does not route.**
+- 🚧 [UTA-0195] **ut-paths: MH-Skaarj_ReactorTest-v1's exit sits 43 units from the network and still does not route.**
   Named by UT_MonsterHunt (session ut-monsterhunt-5d, 2026-09-20) as the
   one repair candidate among UTA-0126's five write-offs.
 
@@ -11829,6 +11829,21 @@ stays with movement in 0.2.0.
 
   Not started. The cheap first step is to read this map's specs around
   the exit with ut-dump --nav-graph and ask which direction is missing.
+  Diagnosed (2026-09-29), by ut-dump --nav-graph and a throwaway trace
+  probe on our collision tree. The exit (CollisionRadius 20, height 80)
+  stands on a ledge 32 high and 32 wide against a wall: riser face at
+  y=6560, wall at about y=6592, floor -1024, ledge top -992. From the low
+  floor a TMale1's centre gets no closer than 44 horizontally, and touching
+  needs under 37, so only a pawn ON the ledge touches it, and reaching the
+  ledge takes a jump (32 is over the 25 step). PathNode151 is at the foot
+  of the riser, does not touch, and has no spec into it: PathNode150 to
+  PathNode151 is the missing direction. ut-paths says exitOffGraph because
+  its 32-unit rows land at y 6557 and 6589, each within 17 of a face, so
+  no spot sits on the ledge. Even with one there, no walking join crosses
+  the 32 riser, so the tool cannot propose this repair (walking only, SS 3
+  decision 4). Proposed repair sent to UT_MonsterHunt (message 2026-09-29):
+  one PathNode on the ledge at about (3845, 6568, -953), paths rebuilt.
+  Waiting-on: UT_MonsterHunt's two-arm result for that node.
   **Layman:** On one map the exit is almost touching a path the bots use, yet they still cannot reach it; find out what is refusing.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-20.
