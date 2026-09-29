@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cstddef>
 #include <mutex>
 #include <string>
 #include <utility>

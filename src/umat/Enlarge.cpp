@@ -3,6 +3,7 @@
 #include "umat/Enlarge.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <span>
 #include <string>
