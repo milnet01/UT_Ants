@@ -11900,7 +11900,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-20.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0197] **Refit the fog and haze constants, which were fitted at an EXPOSURE two items ago.**
+- ✅ [UTA-0197] **Refit the fog and haze constants, which were fitted at an EXPOSURE two items ago.**
   Found by UTA-0192, 2026-09-20, and it predates it. fog.glsl's comments
   fit each constant at a named exposure: the haze scale "at EXPOSURE 5.4",
   refitted by UTA-0165 "at EXPOSURE 5.5", the glow rechecked by UTA-0168
@@ -11931,6 +11931,14 @@ stays with movement in 0.2.0.
   constant absorbs whatever defect was live when it was fitted" a red
   test instead of a memory note. Their reference cases are
   tools/formula_workbench/reference_cases/<name>.json in Vestige.
+  Resolved (2026-09-29, 73f4d59, GitHub CI green): re-swept on baker
+  revision 27 bakes at EXPOSURE 5.03 with UTA-0192's toe-less tone map,
+  light time pinned, scored in pixel and block RMS. HAZE_SCATTER 2.5e-5
+  becomes 5e-5, the largest within 1.0 of no haze on all three maps
+  under both scorings. VOLUME_GLOW_SCALE 2e-3 and VOLUME_FOG_SCALE 2e-1
+  are still the grid minimum on DM-Fetid and stay. Scores in fog.glsl;
+  harness at ut-ants-uta0197/. Not done: Vestige's dataset-plus-test
+  guard, and the toe's effect on haze hue, which luma cannot see.
   **Layman:** Our fog was tuned for a brightness setting we have since changed twice; measure it again so it matches the original game.
   Kind: fix.
   Source: in-session-2026-09-20.
@@ -13372,7 +13380,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-28.
   Lanes: ci.
 
-- 📋 [UTA-0244] **One unreadable actor nulls a map's whole wiring graph.**
+- 🚧 [UTA-0244] **One unreadable actor nulls a map's whole wiring graph.**
   Found fixing UTA-0224. unav::buildWiringGraph (src/unav/Build.cpp)
   UTA_TRYs readProperties on every non-class export, so one actor whose
   property block does not read refuses the package: ut-dump then prints
@@ -13388,6 +13396,8 @@ stays with movement in 0.2.0.
   level.propertiesUnread > 0 and zero have a null wiring graph, so no
   map in the library hits this. Stays low priority, behind UTA-0177 and
   the 0.1.0 items.
+  Decided (user, 2026-09-29): skip an actor whose properties do not
+  read, count it, and let the map bake; the bake report says how many.
   **Layman:** A single damaged switch or trigger in a map hides every other switch and trigger's wiring from the map-inspection tool.
   Kind: fix.
   Source: review-code-2026-09-26.
@@ -13438,6 +13448,22 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: in-session-2026-09-29.
   Lanes: upkg.
+
+- 📋 [UTA-0249] **One unreadable actor still refuses a map's bake, at actor placement.**
+  Found finishing UTA-0244 (2026-09-29). The user chose skip-and-count for
+  an actor whose property block does not read, expecting the map to still
+  bake. UTA-0244 did that for the wiring graph only: ubake::buildActors
+  (src/ubake/Actors.cpp, step 2) also reads every actor's properties and
+  refuses the map on the first that fails, so the bake still stops, one
+  step later. src/ubake/Movers.cpp and the probes read properties too.
+  Making PLAC skip and count changes UTA-0110's contract: a skipped actor
+  vanishes from the level, and a skipped mover loses its geometry. No map
+  in the reference library has such an actor (UT_MonsterHunt census,
+  2026-09-29), so this matters only for maps added later.
+  **Layman:** A single damaged object in a map still stops the whole map from being prepared; decide whether to leave it out and carry on.
+  Kind: fix.
+  Source: review-code-2026-09-26 split-from-UTA-0244.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 

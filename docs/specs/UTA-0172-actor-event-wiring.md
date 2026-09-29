@@ -366,10 +366,10 @@ shows the filter was dropping almost nothing.
 - **An ancestry the resolver cannot complete.** Not an error; `chainEnd` says
   so (INV-5).
 - **A malformed property block.** INV-8 governs: no actor is dropped.
-  Today `unav::buildWiringGraph` refuses the package, so `wiring` is `null`
-  and `actors` is not emitted; `level.propertiesUnread` counts the actor, so
-  the null is not read as a clean map (UTA-0224). Whether the graph should
-  instead skip and count it is UTA-0244. It is not a whole-file failure.
+  `unav::buildWiringGraph` skips and counts it (UTA-0244), so `wiring` is
+  built and `actors` lists it, its fields its class defaults since its own
+  did not read; `level.propertiesUnread` counts it (UTA-0224). It is not a
+  whole-file failure.
 - **An `OutEvents` index beyond any expected width.** No cap is applied. The
   roadmap item said `OutEvents[0..7]`; UT_MonsterHunt match `OutEvents(\d+)`
   with no bound and have not checked whether the library exceeds 7. A cap

@@ -238,3 +238,53 @@ TEST_CASE("SS 4.7: firing is the reverse grouping, and nodeOf is the only bridge
     CHECK(uta::unav::firedBy(graph, 999u).empty());
     CHECK(uta::unav::firing(graph, 999u).empty());
 }
+
+TEST_CASE("UTA-0244: an actor whose properties do not read is skipped and counted", "[unav]") {
+    // A switch, an actor whose property block does not parse, and the door the
+    // switch fires at -- the broken one BETWEEN them, so a scan that stopped at
+    // it, rather than skipping it, loses the door. Refusing the whole package
+    // made one damaged actor hide every other actor's wiring, and ut-bake then
+    // refused the map (user decision, 2026-09-29: skip and count).
+    UnrealPackageBuilder builder;
+    builder.addName("None");
+    builder.addName("Tag");
+    builder.addName("Event");
+    builder.addName("SwitchTag");
+    builder.addName("DoorTag");
+    builder.addName("Switch");
+    builder.addName("Broken");
+    builder.addName("Door");
+    builder.addName("Class");
+    builder.addName("SomeClass");
+
+    ImportEntry import;
+    import.classPackage = NAME_NONE;
+    import.className = 8;
+    import.objectName = 9;
+    builder.addImport(import);
+
+    addActor(builder, 5, 3, 4); // Switch: tag SwitchTag, fires DoorTag
+    ExportEntry broken;
+    broken.objectClass = -1;
+    broken.objectName = 6;
+    broken.serialData = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    builder.addExport(broken);
+    addActor(builder, 7, 4, NAME_NONE); // Door: tag DoorTag
+
+    const std::vector<std::uint8_t> bytes = builder.build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    const auto graph = buildWiringGraph(*package);
+    REQUIRE(graph.has_value());
+
+    const auto switchNode = uta::unav::nodeOf(*graph, 0u);
+    REQUIRE(switchNode.has_value());
+    CHECK_FALSE(uta::unav::nodeOf(*graph, 1u).has_value());
+    const auto fired = uta::unav::firedBy(*graph, *switchNode);
+    REQUIRE(fired.size() == 1);
+    CHECK(graph->nodes[fired[0].to].exportIndex == 2u);
+    CHECK(graph->propertiesUnread == 1u);
+
+    // And a map with nothing broken counts nothing.
+    CHECK(graphOf(wiringFixture()).propertiesUnread == 0u);
+}

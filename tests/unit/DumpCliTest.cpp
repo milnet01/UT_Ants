@@ -1201,7 +1201,19 @@ TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and 
     CHECK(plain.out.find("\"name\": \"BrokenEnd\", ") != std::string::npos);
     CHECK(plain.out.find("\"bInitiallyActive\": null, \"propertiesRead\": false}") != std::string::npos);
 
-    // The wiring graph refuses the package today (UTA-0244), so the count is
-    // what reports these actors; it must not be read as a clean map.
-    CHECK(plain.out.find("\"wiring\": null") != std::string::npos);
+    // UTA-0244: the wiring graph skips these actors rather than refusing the
+    // package, so it is built; the count is what says it is missing two.
+    CHECK(plain.out.find("\"wiring\": null") == std::string::npos);
+    CHECK(plain.out.find("\"wiring\": {") != std::string::npos);
+
+    // And with the graph built, UTA-0172 INV-8's list reaches these actors
+    // for the first time: neither is dropped.
+    const Run wired =
+        run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(wired.err);
+    REQUIRE(wired.code == 0);
+    const std::size_t actors = wired.out.find("\"actors\": [");
+    REQUIRE(actors != std::string::npos);
+    CHECK(wired.out.find("\"name\": \"Broken0\"", actors) != std::string::npos);
+    CHECK(wired.out.find("\"name\": \"BrokenEnd\"", actors) != std::string::npos);
 }

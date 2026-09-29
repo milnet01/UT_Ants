@@ -282,7 +282,7 @@ Scope decision 5's rule, applied:
 | A reach-spec endpoint that resolves to no node | `nav.discardedEndpoints` |
 | An actor or prototype whose class family cannot be sorted into the monster rule | `monsters.unresolvedActors` |
 | An actor whose class chain does not reach the root | **`level.chainsUnresolved`** (new) |
-| An actor whose property block does not read | `level.propertiesUnread` (UTA-0224) |
+| An actor whose property block does not read | `level.propertiesUnread` (UTA-0224); `wiring` is still built (UTA-0244) |
 
 **`level.chainsUnresolved`** counts the level's actors, each export once,
 whose class chain does not end at the root. An actor with no class does not

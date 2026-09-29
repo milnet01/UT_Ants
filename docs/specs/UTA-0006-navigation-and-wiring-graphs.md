@@ -204,6 +204,7 @@ struct WiringGraph {
     std::vector<WiringEdge> edges;      // grouped by `from`
     std::vector<WiringEdge> incoming;   // the same edges, grouped by `to`
     std::vector<DanglingEvent> dangling;
+    std::uint32_t propertiesUnread = 0; // actors skipped, § 4.5
 };
 ```
 
@@ -363,6 +364,13 @@ agrees are sound.
 **But a count of zero is not the same as an absence**, which is why both are
 counted rather than silently skipped: a consumer that gets an empty graph
 needs to tell "this level was never pathed" from "every edge was discarded".
+
+**An actor whose property block does not read is skipped and counted in
+`WiringGraph::propertiesUnread`**, not a refusal of the package (UTA-0244, user
+decision 2026-09-29). Refusing let one damaged actor hide every other actor's
+wiring. The count is a build-time report: WIRG does not store it, so a graph
+read back from a bundle holds `0`. No map in the reference library has such an
+actor (UT_MonsterHunt's census, 2026-09-29).
 
 ### 4.6 The graphs own their strings
 

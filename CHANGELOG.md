@@ -535,6 +535,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **One damaged actor no longer hides a map's whole wiring graph** (UTA-0244)
+  The graph skips an actor whose properties do not read and counts it,
+  so ut-dump shows every other switch and trigger. A bake still refuses
+  such a map at actor placement; that is filed separately.
+
 - **A missing standard header now fails every leg, not only MSVC**
   scripts/std-includes.sh, run by scripts/ci.sh, fails when a file calls a
   standard function without including its header. GCC and Clang find

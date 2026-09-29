@@ -310,8 +310,15 @@ Result<WiringGraph> buildWiringGraph(const Package& package) {
         if (isClassExport(actor)) {
             continue;
         }
-        UTA_TRY(const std::vector<upkg::Property> properties,
-                upkg::readProperties(package, actor));
+        // SS 4.5, UTA-0244: an actor whose property block does not read is
+        // skipped and counted. Refusing the package let one damaged actor hide
+        // every other actor's wiring, and refused the map's bake with it.
+        const auto read = upkg::readProperties(package, actor);
+        if (!read.has_value()) {
+            ++graph.propertiesUnread;
+            continue;
+        }
+        const std::vector<upkg::Property>& properties = *read;
 
         // SS 4.3: an actor's OWN property list and nothing else. SS 2.1 tested
         // and killed the inherited-tag hypothesis, so no ancestry walk here and

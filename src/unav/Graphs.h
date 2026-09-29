@@ -120,6 +120,11 @@ struct WiringGraph {
     /// this second order earns its storage is SS 14's open question.
     std::vector<WiringEdge> incoming;
     std::vector<DanglingEvent> dangling;
+    /// Actors whose property block did not read, left out of the graph rather
+    /// than refusing the package -- SS 4.5, UTA-0244. Counted, so a graph
+    /// missing an actor is not read as a complete one. A build-time report:
+    /// WIRG does not store it, so a graph read back from a bundle holds 0.
+    std::uint32_t propertiesUnread = 0;
 };
 
 /// The node position of an actor, or nothing when it is not a node.
