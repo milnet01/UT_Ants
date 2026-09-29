@@ -13471,7 +13471,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-29.
   Lanes: upkg.
 
-- 🚧 [UTA-0250] **The real-asset tier's two slowest cases redo shared work for every map.**
+- ✅ [UTA-0250] **The real-asset tier's two slowest cases redo shared work for every map.**
   Found timing the tier (UTA-0151, 2026-09-29). Two cases take over
   three fifths of it.
   "every Monster Hunt map's scene reads and the census prints"
@@ -13494,6 +13494,13 @@ stays with movement in 0.2.0.
   average 5 to 14 on both runs so rough: 1534 s to 1063 s (31% less),
   peak 768 to 789 MB, census output byte-identical but for Catch2's seed
   line. Open: the bake-name case.
+  Resolved (2026-09-29, ea29b58, GitHub CI green): the census half is
+  built. The bake-name half was measured and left as it is, by the
+  user's choice: naming one map takes about 0.7 s through ut-bake, 78%
+  of it Sha256::compress over the map's closure packages, re-digested
+  for every map; over 1460 maps that is the case's time. Options then
+  were reusing digests within a test run, or hardware SHA-256 for every
+  naming call; neither was taken, since only the rarely run tier pays.
   **Layman:** The two slowest real-game tests repeat the same setup for every map; doing it once would cut the suite's run time by a large share.
   Kind: perf.
   Source: user-request-2026-09-14 performance pass, UTA-0151.
