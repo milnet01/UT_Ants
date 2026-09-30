@@ -40,13 +40,14 @@ waterfall, lightning — looks as it does today.
 7. **FireTexture is not the same as flame.** UT99 uses the class for any
    spark-driven effect. A census of the reference install found 624 of its
    1,445 maps drawing 41,801 surfaces with a FireTexture of a package the map
-   imports, across 139 textures. The most common are flames (`ancflame2`,
+   imports, across 145 textures, counting a package and name once however
+   they are capitalised. The most common are flames (`ancflame2`,
    `TORCHES2`, `ancflame4`, `TORCHES3`, `SmallFireH3`), but the list also holds
-   `waterfall`, `Snow_1`, `lightning6`, `bolt`, `BlueShield` and `Energy1`.
+   `waterfall`, `Snow_1`, `Storm2`, `bolt`, `BlueShield` and `Energy1`.
    Measured with the scratch scripts in `~/.cache/uta-scratch/u263/`:
    `firenames.py` lists each package's FireTexture exports from its tables,
    `ut-dump --install <install> --surface-list --ndjson Maps/*.unr` lists the
-   surfaces, and the census matches a surface's texture name against the
+   surfaces, and `census2.py` matches a surface's texture name against the
    FireTextures of the map and the packages it imports. Matching by name
    alone, without the package, over-counts: names such as `Black` and `Invis`
    also belong to plain textures.
@@ -78,20 +79,27 @@ waterfall, lightning — looks as it does today.
 ### 4.1 Which FireTextures are flames — `ubake`
 
 The bake decides, once, per FireTexture material. **A FireTexture is a flame
-when a curated entry says so, or, with no entry, when its `bRising` is true and
-at least half of its sparks are of a burning type**: `BURN`, `BLAZE`,
-`BLAZE_LEFT`, `BLAZE_RIGHT`, `CONE` or `EMIT`, the constants in
-`ubake/FireStill.cpp`. A curated entry wins either way.
+when a curated entry names it, and not otherwise.** There is no rule for a
+texture the list does not name.
 
 The curated entries live beside UTA-0010's table, keyed the same way, by
-picture fingerprint, as a new `umat` list of `{fingerprint, name, isFlame}`.
+picture fingerprint, as a new `umat` list of `{fingerprint, name}`. A
+FireTexture's picture is the still `fireStill` makes, so a change to
+`ubake/FireStill.cpp` changes every flame's key. INV-3 is what notices.
 
-The rule is fitted against a labelled list, not assumed. The implementation's
-first step labels each of the census's 139 textures flame or not, by its name
-and its still picture, and ships that list as a test fixture
-(`tests/real/flame-labels.txt`: package, name, `flame` or `other`). A texture
-the rule gets wrong gets a curated entry. The list is labelled by the
-implementer, never by asking the user.
+The list comes from a labelled fixture, `tests/real/flame-labels.txt`: one
+line per census texture giving its package, its name, and `flame` or `other`.
+Each texture was labelled by its name and its still picture, and the unclear
+ones by how maps use them. The implementer labelled them, never the user.
+
+**Why no rule.** A rule on the stored properties was fitted against those
+labels and none was good enough. The candidate was `bRising` plus at least
+half the sparks of a burning type. It missed 17 of the 34 flames, among them
+`TORCHES2` and `TORCHES3`, whose sparks are all `OzHasSpoken`, and it called a
+smoke texture a flame. The best rule with no false flames, over every set of
+spark types the flames use, found 15 of the 34. A false flame turns a shield
+or a waterfall into fire; a missed flame keeps today's still. So a texture
+outside the list keeps its still.
 
 A FireTexture that is not a flame keeps today's still, unchanged (UTA-0176).
 
@@ -243,8 +251,9 @@ constants do.
   as it is labelled.
   *Test:* `tests/real/RealFlamesTest.cpp`, new, in the real-asset tier: for
   each labelled texture, the bake's judgement equals the label.
-  *Breaks when:* the rule or a curated entry calls a labelled waterfall a
-  flame, or a labelled torch not one.
+  *Breaks when:* a curated entry calls a labelled waterfall a flame, a
+  labelled torch has no entry, or a change to `fireStill` moves a flame's
+  fingerprint away from its entry.
 
 - **INV-4** — a flame sheet leaves `GEOM` and yields one `FLAM` record; two
   crossed sheets of one material yield one record; a solid flame surface stays
@@ -283,8 +292,8 @@ constants do.
 
 ## 6. Failure modes
 
-- **A FireTexture with no sparks.** Fewer than half its sparks can burn, so
-  it is not a flame unless curated, and keeps its still.
+- **A flame the list does not name** — a FireTexture from a library outside
+  the reference install. It keeps its still, as a non-flame does.
 - **A degenerate sheet** — zero width or height after the bake's extents. It
   makes no record and stays in `GEOM`; the bake reports it as it reports a
   skipped material. `FLAM`'s refusal of a non-positive extent is the backstop.
@@ -331,6 +340,8 @@ recorded beside their constants, not asserted by a test.
 - **A noise texture instead of shader noise** — one fetch cheaper per sample,
   but a new asset and a new upload for a cost two octaves of value noise do not
   need.
+- **A rule on spark types and `bRising`** — fitted and rejected; § 4.1 gives
+  the measurement.
 - **Every FireTexture a flame** — the census's list of non-flame FireTextures
   (§ 2 item 7) would turn waterfalls and shields to fire.
 - **Soft depth fade** where a flame meets geometry. No shader samples the

@@ -14143,6 +14143,18 @@ stays with movement in 0.2.0.
   maps' ut-dump --surface-list; delete once labelling is done). Match a
   surface's texture within the packages its map imports; name-only
   matching over-counts (Black, Invis).
+  Progress (2026-10-01): labelling done. tests/real/flame-labels.txt
+  holds 145 textures (the census's 139 was not reproducible: 145
+  package+name pairs once case is folded; maps and surfaces match the
+  spec), 34 of them flame. The spec 4.1 rule fitted badly: it missed 17
+  of 34 flames (TORCHES2/TORCHES3 sparks are all OzHasSpoken) and called
+  Bl_Smoke a flame; the best rule with no false flames finds 15 of 34.
+  So spec 4.1 now decides by curated list alone (fingerprint of the
+  still). Next: compute the 34 flames' fingerprints and add the umat
+  list, then INV-3. Scratch in ~/.cache/uta-scratch/u263/: census2.py
+  (package-matched), pairs.tsv, dump.tsv (bRising, spark types),
+  firedump/ (tool writing stills), stills/, sheets/. surfaces.ndjson
+  deleted; ut-dump --surface-list regenerates it.
   **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
   Kind: feature.
   Source: user-request-2026-10-01 split-from-UTA-0105.
