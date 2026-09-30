@@ -13678,6 +13678,9 @@ stays with movement in 0.2.0.
   the frame lit a strip from the nearest point of its segment; the
   renderer shadows a strip from the segment's midpoint, which for
   light 7 was a deck below. The bounce fix made here stands.
+  2026-09-30 (UTA-0257): this item's "linear" figures were read
+  from `ut-shot --linear` bytes, which are sRGB-encoded; they were
+  not re-measured.
   **Layman:** Inside the ship, sunlight hits the floor but none of it spreads to the walls and ceiling, so the room is pitch black next to a bright patch.
   Kind: fix.
   Source: user-request-2026-09-30.
@@ -13710,12 +13713,40 @@ stays with movement in 0.2.0.
   The user also asked for a ray-traced bake of the scene to look at;
   a multi-bounce CPU reference is planned here to grade these, with
   a furnace check first (Vestige's advice). UTA-0256 follows this.
+  Ray-traced reference, built and run 2026-09-30 (scratch:
+  ~/.cache/uta-scratch/second-bounce/rt.cpp; `rt check` holds its
+  three hand-worked cases: a closed box, one lit face against its
+  form factor, and an open top to a sky).
+  AS-Frigate r29, the capture's view, 640x360, 128 paths a pixel,
+  4 bounces, per-material albedo dumped from the baker by a
+  scratch worktree (/mnt/Games/Scripts/Linux/ut-ants-uta0254):
+  - direct light shown, S: mean 0.162;
+  - indirect from the engine's probes 0.00377; ray traced, one
+    bounce 0.00390; all bounces 0.00400. So the probes hold one
+    bounce to within about 3% in the mean, and every further
+    bounce together adds 3%;
+  - where direct light is under 0.01 (15% of the view) the probes
+    give 0.00365 against 0.00466 traced;
+  - mean albedo of what is in view is 0.031, and of the map's 65
+    materials 0.079 (median 0.036). That is why bounce is small:
+    UT99's textures are dark in linear light;
+  - sky light, were a ray that reaches sky to return the sky's
+    colour (measured 0.079 0.081 0.118 linear from our own sky
+    pixels): indirect mean rises from 0.0040 to 0.0105.
+  Shown through exposure and the tone map, the dark share averages
+  3.2 of 255 with probes, 3.6 ray traced, 3.9 with sky light. None
+  of the levers lifts a surface with no direct light out of black.
+  What would: exposure that adapts to the room, or a light (UTA-0256).
+  Also seen: ut-shot reports PROBES coverage 0.557 of triangle area
+  on this map, so 44% of surface area has no probe; not examined.
+  Figures above quoted from `--linear` pictures before this note
+  are encoded values (UTA-0257).
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0255] **ubake: three alike lights on three decks are baked as one row, so a wall fixture in AS-Frigate lights nothing.**
+- ✅ [UTA-0255] **ubake: three alike lights on three decks are baked as one row, so a wall fixture in AS-Frigate lights nothing.**
   Reported by the user from the launcher, 2026-09-30: in AS-Frigate
   "the light in the screenshot doesn't seem to be emitting any
   light", and only the sun lights that room. Camera (ut-shot):
@@ -13751,6 +13782,14 @@ stays with movement in 0.2.0.
   Seen and left alone: AS-Frigate's row led by light 20 has gaps of
   976 and 416 units at radius 750, so it lights a band between lamps
   that stand further apart than they reach. Rule 4's bound allows it.
+  Shipped in f4c85bd (2026-09-30). GitHub green on GCC 14, Clang 19
+  and MSVC. The user captured the view again on the fixed bake and
+  reported the room now looks right.
+  Correction (2026-09-30, UTA-0257): the "linear" means above are
+  means of stored bytes, which are sRGB-encoded. Decoded, the view is
+  0.0034 before and 0.0058 after, and its upper left 0.0028 and
+  0.0056: about twice, not five times. The fix and its tests are
+  unaffected.
   **Layman:** A wall lamp glows but lights nothing, because the baker mistook it and two identical lamps on other decks for one long strip light; the room it should light is left black.
   Kind: fix.
   Source: user-request-2026-09-30.
@@ -13780,6 +13819,50 @@ stays with movement in 0.2.0.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
+  Lanes: ubake, urender.
+
+- 📋 [UTA-0257] **ut-shot: --linear says it writes linear light, and the picture it writes is sRGB-encoded.**
+  Found 2026-09-30 while grading UTA-0254's ray-traced reference. The
+  renderer's output target is `VK_FORMAT_R8G8B8A8_SRGB`
+  (src/urender/Frame.cpp, OUTPUT_FORMAT), so the store encodes, and
+  `--linear` skips only exposure and the tone map. A byte of the
+  .ppm over 255 is therefore an encoded value. Seen as: the
+  renderer's base colour for a wall read 0.235 0.174 0.135 where the
+  baker's albedo for that material is 0.045 0.027 0.018, the same
+  values through the sRGB curve.
+  Figures this touched: UTA-0255's "mean linear light 0.0241 before
+  and 0.0483 after" (its commit f4c85bd says the same) are means of
+  stored bytes. Decoded, that view is 0.0034 before and 0.0058
+  after; its upper left 0.0028 and 0.0056. UTA-0253's and UTA-0254's
+  "linear" figures were read the same way by an earlier session and
+  are probably encoded too; not re-measured.
+  To decide: decode in the tool and write true linear, or keep the
+  bytes and say so in the usage text and in every script that reads
+  them (ut-ants-uta0197/score.py and its kin score encoded values on
+  purpose, against the original's frames).
+  **Layman:** A measuring option in a developer tool labels its numbers as plain light levels when they are actually stored in the screen's brightness curve, so figures read from it were mislabelled.
+  Kind: fix.
+  Source: in-session-2026-09-30.
+  Lanes: tools.
+
+- 📋 [UTA-0258] **Strip lights: a row may be wider than its lamps reach, and a strip is lit from one point and shadowed from another.**
+  Left by UTA-0255, 2026-09-30. Neither is changed yet.
+  1. UTA-0162 SS 4.2 rule 4 allows a gap of 1.5 radii. AS-Frigate's
+     row led by light 20 has gaps of 976 and 416 units at radius
+     750, effect 0: plain point lights further apart than they
+     reach, lit as one band. The rule was measured on DM-Deck16]['s
+     LE_Cylinder fixtures, whose gaps are 131 to 397 at radius 275.
+     Whether a plain light row that wide is one fitting wants the
+     original's frames.
+  2. A leader is lit from the nearest point of its segment (SS 4.3)
+     and shadowed from the segment's midpoint (SS 4.5). Near one end
+     of a long row the two differ by up to half its length. Raised
+     by the Vestige session the same day. The probe bake casts its
+     shadow ray toward the nearest point, so the bake and the
+     renderer disagree here too.
+  **Layman:** Two leftover doubts about rows of lamps treated as one long light: some rows have lamps too far apart to be one fitting, and the shadow is worked out from the middle of the row while the light comes from its nearest point.
+  Kind: investigate.
+  Source: in-session-2026-09-30.
   Lanes: ubake, urender.
 
 ## 0.2.0 — Movement and weapons

@@ -102,9 +102,21 @@ real room has that ours lacks.
 
 The room in the user's capture was dark for a different reason: `UTA-0255`.
 Its lamp had been joined into a false strip with lights on two other decks.
-With that fixed, mean linear light in the view doubled. Bounce light then
-adds about 3% of the view's mean, so the ranking above is still open work
-(`UTA-0254`).
+With that fixed, mean light in the view rose about 1.7 times in linear
+terms.
+
+A ray-traced reference built the same day (`UTA-0254` holds the figures)
+then graded the ranking above on that view:
+
+- The engine's probes already hold one bounce to within about 3% in the
+  mean.
+- Every bounce after the first adds 3% together. The mean linear albedo of
+  the surfaces in view is 0.031, so `1 / (1 - albedo)` is about 1.03.
+- Sky light would raise the indirect mean about 2.6 times, and that is
+  still too little to see: a surface with no direct light stays near black.
+
+So of the five, only exposure changes what such a room looks like. An added
+lamp (`UTA-0256`) is the other route.
 
 ## Not found
 
