@@ -117,6 +117,19 @@ enum class BakeState {
 /// The last outcome recorded for `map`, or nothing when it was never opened.
 [[nodiscard]] std::optional<MapResult> readResult(const std::filesystem::path& results, std::string_view map);
 
+/// UTA-0251: the bundles in `bakes` that no record in `results` made by
+/// `currentBaker` names, sorted. The baker's version is hashed into a bake's
+/// name, so a bake an older baker made is never looked for again, and a bundle
+/// does not store the version: the records are the only thing that says which
+/// baker made which. Only a regular `.utab` file directly in `bakes` is ever
+/// listed -- no link, no directory, nothing deeper. A record names its bundle
+/// by file name alone, so one spelled through a link still counts. Nothing is
+/// listed when `currentBaker` is empty or the records cannot be read. A bake
+/// made outside the launcher has no record, and is listed.
+[[nodiscard]] std::vector<std::filesystem::path> unreachableBakes(const std::filesystem::path& bakes,
+                                                                  const std::filesystem::path& results,
+                                                                  std::string_view currentBaker);
+
 /// Record that `map` opened ("baked") or failed and why.
 [[nodiscard]] Result<void> writeResult(const std::filesystem::path& results, std::string_view map,
                                        const MapResult& result);

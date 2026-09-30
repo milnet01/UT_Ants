@@ -22,6 +22,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 
@@ -189,6 +190,13 @@ public:
         : options_(options), paths_(std::move(paths)), window_(window), renderer_(renderer) {
         std::string note;
         maps_ = offeredMaps(options.install, note, bakerVersion_);
+        // UTA-0251: a bake today's baker will never look for only fills the disk.
+        std::size_t removed = 0;
+        for (const std::filesystem::path& bake : unreachableBakes(paths_.bakes, paths_.results, bakerVersion_)) {
+            std::error_code ec;
+            if (std::filesystem::remove(bake, ec)) ++removed;
+        }
+        if (removed != 0) note += "Baked maps from an older baker removed: " + std::to_string(removed) + ". ";
         results_.reserve(maps_.size());
         for (const MapFile& map : maps_) results_.push_back(readResult(paths_.results, map.name));
         refilter();

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <set>
 #include <span>
 #include <system_error>
 
@@ -365,6 +366,33 @@ BakeState bakeState(const MapResult& result, std::string_view currentBaker, cons
 
 bool isCurrentBake(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map) {
     return !result.failed && bakeState(result, currentBaker, map) == BakeState::Current;
+}
+
+std::vector<std::filesystem::path> unreachableBakes(const std::filesystem::path& bakes,
+                                                    const std::filesystem::path& results,
+                                                    std::string_view currentBaker) {
+    if (currentBaker.empty()) return {};
+    // No results directory is no records. One that is there and cannot be
+    // walked to its end leaves the records unknown, so nothing is listed.
+    std::set<std::filesystem::path> named;
+    std::error_code ec;
+    if (std::filesystem::status(results, ec).type() != std::filesystem::file_type::not_found) {
+        std::error_code walk;
+        for (std::filesystem::directory_iterator it(results, walk), end; !walk && it != end; it.increment(walk)) {
+            const std::optional<MapResult> result = readResult(results, it->path().stem().string());
+            if (result && result->bakerVersion == currentBaker) named.insert(result->bundle.filename());
+        }
+        if (walk) return {};
+    }
+    std::vector<std::filesystem::path> unreachable;
+    for (std::filesystem::directory_iterator it(bakes, ec), end; !ec && it != end; it.increment(ec)) {
+        std::error_code unread;
+        if (it->symlink_status(unread).type() != std::filesystem::file_type::regular) continue;
+        if (it->path().extension() != ".utab" || named.contains(it->path().filename())) continue;
+        unreachable.push_back(it->path());
+    }
+    std::ranges::sort(unreachable);
+    return unreachable;
 }
 
 Result<std::string> readNotes(const std::filesystem::path& notes, std::string_view map) {

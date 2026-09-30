@@ -540,6 +540,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **The launcher removes baked maps an older baker made.** (UTA-0251)
+  A baked map made by an older baker is never opened again, and until
+  now it stayed on disk. On start the launcher deletes each such file
+  from its bake folder, and says how many it removed. It deletes
+  nothing when ut-bake does not report its version.
+
 - **Bounced light no longer all but vanishes in a dark room beside a lit surface** (UTA-0253)
   It was dimmed twice on its way to the screen. Every map is baked
   again when next opened.

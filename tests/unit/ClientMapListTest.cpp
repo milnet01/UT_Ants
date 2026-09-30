@@ -245,6 +245,45 @@ TEST_CASE("UTA-0220: a bake whose bundle is gone or whose map changed is not cur
     CHECK_FALSE(isCurrentBake(result, "r21-f14-l0a", map));
 }
 
+TEST_CASE("UTA-0251: a bake no record of today's baker names is listed for removal", "[client]") {
+    const TempDir data;
+    const stdfs::path bakes = data.path() / "bakes";
+    const stdfs::path results = data.path() / "results";
+    touch(bakes / "current.utab");
+    touch(bakes / "linked.utab");
+    touch(bakes / "older.utab");
+    touch(bakes / "orphan.utab");
+    touch(bakes / "failed.utab");
+    touch(bakes / "notes.txt");
+    touch(bakes / "textures" / "deeper.utab");
+    stdfs::create_directories(bakes / "folder.utab");
+    // Not every Windows account may make a link; the rule is graded where one can.
+    std::error_code noLink;
+    stdfs::create_symlink(bakes / "notes.txt", bakes / "pointer.utab", noLink);
+
+    REQUIRE(writeResult(results, "MH-A", {.bakerVersion = "r28", .bundle = bakes / "current.utab"}));
+    // The same directory under another spelling, as a cache reached through a link is.
+    REQUIRE(writeResult(results, "MH-B", {.bakerVersion = "r28", .bundle = data.path() / "alias" / "linked.utab"}));
+    REQUIRE(writeResult(results, "MH-C", {.bakerVersion = "r27", .bundle = bakes / "older.utab"}));
+    REQUIRE(writeResult(results, "MH-D", {.failed = true, .failure = "refused", .bundle = bakes / "failed.utab"}));
+
+    const std::vector<stdfs::path> every{bakes / "current.utab", bakes / "failed.utab", bakes / "linked.utab",
+                                         bakes / "older.utab", bakes / "orphan.utab"};
+    CHECK(unreachableBakes(bakes, results, "r28") ==
+          std::vector<stdfs::path>{bakes / "failed.utab", bakes / "older.utab", bakes / "orphan.utab"});
+    CHECK(unreachableBakes(bakes, results, "r29") == every); // the baker moved: none can be found
+    CHECK(unreachableBakes(bakes, data.path() / "no-results", "r28") == every);
+
+    // Unknown is never a reason to delete: no baker version, or records that cannot be read.
+    CHECK(unreachableBakes(bakes, results, "").empty());
+    touch(data.path() / "a-file");
+    CHECK(unreachableBakes(bakes, data.path() / "a-file", "r28").empty());
+    CHECK(unreachableBakes(data.path() / "no-bakes", results, "r28").empty());
+
+    // Listing removes nothing.
+    CHECK(stdfs::exists(bakes / "orphan.utab"));
+}
+
 TEST_CASE("UTA-0170: notes round-trip and empty notes remove the file", "[client]") {
     const TempDir data;
     const stdfs::path notes = data.path() / "notes";

@@ -13506,7 +13506,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14 performance pass, UTA-0151.
   Lanes: tests, ut-paths, ubake.
 
-- 📋 [UTA-0251] **The launcher's bake cache never deletes a bake no current baker can find.**
+- 🚧 [UTA-0251] **The launcher's bake cache never deletes a bake no current baker can find.**
   Measured 2026-09-30: the per-user cache under content/bakes held
   193 bundles, 23 GB, on the system drive. None was usable. 115 were
   format 13, which `ubundle::read` refuses. The other 78 were format 14
@@ -13533,6 +13533,17 @@ stays with movement in 0.2.0.
   delete each other's bakes.
   UTA-0253 moved the baker to revision 28, so every r27 bake in the
   cache is unreachable now.
+  Built (2026-09-30): `unreachableBakes` in apps/ut-ants/MapList.cpp
+  lists; the launcher's constructor deletes and says how many.
+  A record names its bundle by file name alone, so a cache reached
+  through a link still matches. No results directory counts as no
+  records; one that cannot be walked lists nothing.
+  Ten hand mutations of the lister, each killed by its unit case.
+  Run once against a throwaway cache: the older-baker bake and the
+  unrecorded one went; the current bake, a link, a sub-folder and a
+  non-bundle file stayed.
+  Left as designed: a current bake with no record, such as one made
+  by ut-bake by hand into that folder, is removed too.
   **Layman:** Every time the baker changes, all earlier baked maps become unusable but stay on disk; they should be removed automatically.
   Kind: fix.
   Source: user-request-2026-09-30.
