@@ -13905,7 +13905,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-30.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0259] **ubake: a bake spends nearly all its time casting rays, for the occlusion atlas and the probes.**
+- ✅ [UTA-0259] **ubake: a bake spends nearly all its time casting rays, for the occlusion atlas and the probes.**
   Asked for by the user, 2026-09-30: faster baking. Aimed by
   UTA-0129's first measurement: of AS-Frigate's 92.6 s, occlusion is
   68.5 and the probes 10.2; of CTF-Face's 25.0 s, the probes 12.2
@@ -13951,6 +13951,9 @@ stays with movement in 0.2.0.
   and the same profile put 25% in the tree's box test; texture
   making is next (DM-Deck16][ 2.1 of 3.7 s). Occlusion's job sizes
   were not measured.
+  Shipped in f9d4ce1 (2026-09-30). GitHub green on GCC 14, Clang 19
+  and MSVC. What is left above is not queued; it wants a new item and
+  a fresh measurement when picked.
   **Layman:** Baking a map is slow because of how it fires test rays through the level; firing them more cleverly makes baking faster without changing the baked map at all.
   Kind: perf.
   Source: user-request-2026-09-30.
