@@ -14,6 +14,7 @@
 #include "core/Timing.h"
 
 #include <cstdint>
+#include <optional>
 #include <ostream>
 #include <span>
 #include <string>
@@ -38,6 +39,13 @@ struct BuildInfo {
                          const BuildInfo& build = {});
 
 namespace detail {
+
+/// Warns on `err` when the build or the machine makes the figures ones not to
+/// compare, and returns the one-minute load average where there is one.
+std::optional<double> conditions(const BuildInfo& build, std::ostream& err);
+
+/// The `machine` and `build` members, as both workloads print them.
+void writeMachineAndBuild(std::ostream& out, const BuildInfo& build, std::optional<double> load);
 
 /// One run of one map, as summarise reads it.
 struct Run {

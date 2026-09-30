@@ -1549,6 +1549,8 @@ double Renderer::lightSeconds() const noexcept { return impl_->lastLightSeconds;
 
 bool Renderer::validating() const noexcept { return impl_->gpu->validating(); }
 
+std::string Renderer::deviceName() const { return impl_->gpu->name(); }
+
 void Renderer::pinLightSeconds(double seconds) noexcept { impl_->pinnedLightSeconds = seconds; }
 
 void Renderer::unpinLightSeconds() noexcept { impl_->pinnedLightSeconds.reset(); }

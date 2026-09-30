@@ -6,8 +6,10 @@
 # A TOOL, so docs/design.md rule 2 permits it to link uta_ubake, as ut-bake
 # does. Cli.cpp is the command line as a function; tests/CMakeLists.txt
 # compiles it into the unit tests too.
-add_executable(ut-bench main.cpp Cli.cpp)
-target_link_libraries(ut-bench PRIVATE uta_ubake uta_tools_common)
+add_executable(ut-bench main.cpp Cli.cpp Frame.cpp)
+# uta_urender for the frame workload, which draws on the surfaceless path as
+# ut-shot does.
+target_link_libraries(ut-bench PRIVATE uta_ubake uta_urender uta_ubundle uta_tools_common)
 
 # What compiled it rides beside every figure: a number with no build named
 # cannot be compared with a later one. $<CONFIG> and not CMAKE_BUILD_TYPE, which

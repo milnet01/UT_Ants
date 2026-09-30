@@ -2,6 +2,8 @@
 
 #include "Cli.h"
 
+#include "Frame.h"
+
 #include "common/Json.h"
 #include "core/FileSystem.h"
 #include "core/Jobs.h"
@@ -34,6 +36,8 @@ using uta::tools::writeJsonString;
 void usage(std::ostream& err) {
     err << "usage: ut-bench bake --install <install> --scratch <dir> [--runs <n>]\n"
            "               [--workers <n>] [--texture-cache <dir>] <map>...\n"
+           "       ut-bench frame --cameras <file> [--tier <low|medium|high|ultra>]\n"
+           "               [--size <width>x<height>] [--still <n>] [--steps <n>] <bundle>\n"
            "       ut-bench --help\n"
            "\n"
            "Bakes each map --runs times (3 unless given), never from a cache, and\n"
@@ -44,7 +48,15 @@ void usage(std::ostream& err) {
            "--workers sets the job system's worker count. --texture-cache is handed\n"
            "to the bake, as ut-bake's is. Standard output is one JSON object, naming\n"
            "the machine and the build beside the figures; a table for a person goes\n"
-           "to standard error.\n";
+           "to standard error.\n"
+           "\n"
+           "frame draws a baked map with no window, from the cameras in <file>, one a\n"
+           "line as ut-shot reads them: --still frames at each (60 unless given), then\n"
+           "--steps frames moving to the next (120). It prints each view's and each\n"
+           "move's frame time -- smallest, median, 99th percentile, largest -- and the\n"
+           "shadow tiles redrawn a frame. It needs a Vulkan device. Compare on the\n"
+           "median and the 99th percentile. --tier is high and --size 1920x1080 unless\n"
+           "given.\n";
 }
 
 struct Arguments {
@@ -106,7 +118,7 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
     }
     if (parsed.help) return parsed;
     if (!bake) {
-        err << "ut-bench: the only workload is bake\n";
+        err << "ut-bench: name a workload first: bake or frame\n";
         return std::nullopt;
     }
     if (!parsed.install || !parsed.scratch || parsed.maps.empty()) {
@@ -245,6 +257,35 @@ void writeTable(std::ostream& err, const MapReport& report, const detail::MapSum
 
 namespace detail {
 
+std::optional<double> conditions(const BuildInfo& build, std::ostream& err) {
+    const std::optional<double> load = loadAverage();
+    const unsigned cores = std::thread::hardware_concurrency();
+    if (build.buildType != "Release")
+        err << "ut-bench: warning: built as " << build.buildType << ", so these are not figures to compare\n";
+    if (build.sanitizer != "none")
+        err << "ut-bench: warning: built with the " << build.sanitizer << " sanitizer, so these are not figures to compare\n";
+    if (load && *load > cores)
+        err << "ut-bench: warning: the machine is busy (load " << fixed(*load) << " over " << cores
+            << " cores), so these figures are slow by an unknown amount\n";
+    return load;
+}
+
+void writeMachineAndBuild(std::ostream& out, const BuildInfo& build, std::optional<double> load) {
+    out << "\"machine\": {\"cpu\": ";
+    writeJsonString(out, cpuName());
+    out << ", \"logicalCores\": " << std::thread::hardware_concurrency() << ", \"os\": ";
+    writeJsonString(out, osName());
+    out << ", \"load1\": " << (load ? fixed(*load) : std::string("null")) << "}, \"build\": {\"compiler\": ";
+    writeJsonString(out, build.compiler);
+    out << ", \"buildType\": ";
+    writeJsonString(out, build.buildType);
+    out << ", \"sanitizer\": ";
+    writeJsonString(out, build.sanitizer);
+    out << ", \"commit\": ";
+    writeJsonString(out, build.commit);
+    out << '}';
+}
+
 Spread spreadOf(std::vector<double> values) {
     if (values.empty()) return {};
     std::ranges::sort(values);
@@ -299,6 +340,12 @@ MapSummary summarise(const std::vector<Run>& runs) {
 } // namespace detail
 
 int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err, const BuildInfo& build) {
+    // SS 4.4: the frame workload has its own arguments, after its name.
+    if (!args.empty() && args.front() == "frame") {
+        const int code = runFrame(args.subspan(1), out, err, build);
+        if (code == EXIT_USAGE) usage(err);
+        return code;
+    }
     const std::optional<Arguments> parsed = parse(args, err);
     if (!parsed.has_value()) {
         usage(err);
@@ -309,33 +356,15 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         return EXIT_OK;
     }
 
-    const std::optional<double> load = loadAverage();
-    const unsigned cores = std::thread::hardware_concurrency();
-    if (build.buildType != "Release")
-        err << "ut-bench: warning: built as " << build.buildType << ", so these are not figures to compare\n";
-    if (build.sanitizer != "none")
-        err << "ut-bench: warning: built with the " << build.sanitizer << " sanitizer, so these are not figures to compare\n";
-    if (load && *load > cores)
-        err << "ut-bench: warning: the machine is busy (load " << fixed(*load) << " over " << cores
-            << " cores), so these figures are slow by an unknown amount\n";
+    const std::optional<double> load = detail::conditions(build, err);
 
     JobSystem jobs(parsed->workers);
     std::vector<MapReport> reports;
     for (const std::string_view map : parsed->maps) reports.push_back(measure(map, *parsed, jobs, err));
 
-    out << "{\"schema\": " << SCHEMA << ", \"workload\": \"bake\", \"machine\": {\"cpu\": ";
-    writeJsonString(out, cpuName());
-    out << ", \"logicalCores\": " << cores << ", \"os\": ";
-    writeJsonString(out, osName());
-    out << ", \"load1\": " << (load ? fixed(*load) : std::string("null")) << "}, \"build\": {\"compiler\": ";
-    writeJsonString(out, build.compiler);
-    out << ", \"buildType\": ";
-    writeJsonString(out, build.buildType);
-    out << ", \"sanitizer\": ";
-    writeJsonString(out, build.sanitizer);
-    out << ", \"commit\": ";
-    writeJsonString(out, build.commit);
-    out << "}, \"bakerVersion\": ";
+    out << "{\"schema\": " << SCHEMA << ", \"workload\": \"bake\", ";
+    detail::writeMachineAndBuild(out, build, load);
+    out << ", \"bakerVersion\": ";
     writeJsonString(out, ubake::bakerVersion());
     out << ", \"workers\": " << jobs.workerCount() << ", \"runs\": " << parsed->runs
         << ", \"textureCache\": " << (parsed->textureCache ? "true" : "false") << ", \"maps\": [";

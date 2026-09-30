@@ -164,6 +164,10 @@ public:
     /// any frame is drawn.
     [[nodiscard]] double lightSeconds() const noexcept;
 
+    /// UTA-0129: the device's own name for itself. A frame time with no device
+    /// named cannot be compared with another.
+    [[nodiscard]] std::string deviceName() const;
+
     /// UTA-0138: whether the Vulkan validation layer is loaded and reporting.
     /// False when it was not asked for, or asked for and not installed.
     [[nodiscard]] bool validating() const noexcept;

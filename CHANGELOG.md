@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-bench also times frames: still at each camera, and moving between them.** (UTA-0129)
+  It draws a baked map with no window and prints each view's and
+  each move's frame time, beside the graphics device, the machine and
+  the build. A developer's tool; nothing a player sees changes.
+
 - **A developer's tool, ut-bench, that says which step of baking a map takes the time.** (UTA-0129)
   It bakes each map several times and prints each step's time beside
   the machine and the build it was measured on, and checks that every

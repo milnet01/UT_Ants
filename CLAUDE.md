@@ -232,6 +232,16 @@ build/tools/ut-bench/ut-bench bake --install <install> --scratch <dir> <map>...
 here. Compare on the smallest figure. It warns when the build is not Release
 or the machine is busy, and it is never a gate.
 
+**`ut-bench frame` times frames with no window**, still at each camera and
+moving between them, on this machine's GPU:
+
+```sh
+build/tools/ut-bench/ut-bench frame --cameras <file> --tier ultra --size 3840x2160 <bundle>
+```
+
+A capture folder's `camera.txt` is one camera line. Compare on the median and
+the 99th percentile.
+
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
 measured; the gate runs it as its own step on Linux, and refuses on

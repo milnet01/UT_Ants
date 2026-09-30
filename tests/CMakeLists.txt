@@ -120,7 +120,8 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.c
 # writer that produces a capture folder, apps/ut-ants/Capture.cpp below.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")
 # And ut-bench's -- UTA-0129.
-target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp")
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp"
+                                      "${PROJECT_SOURCE_DIR}/tools/ut-bench/Frame.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 # And the client's parts that need no window -- UTA-0016. Compiled in whether or
 # not UTA_BUILD_CLIENT is on, because neither links SDL.
@@ -184,12 +185,16 @@ add_executable(uta_device_tests
     device/RenderProbeTest.cpp
     device/RenderShadowTest.cpp
     device/RenderSurfaceFlagsTest.cpp
-    device/RenderTiersTest.cpp)
+    device/RenderTiersTest.cpp
+    # UTA-0129 SS 4.4: ut-bench's frame workload draws, so it is graded here.
+    device/BenchFrameTest.cpp
+    "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp"
+    "${PROJECT_SOURCE_DIR}/tools/ut-bench/Frame.cpp")
 # uta_ubake beside uta_urender: INV-6 holds the shader's light to ubake's
 # lightAt, which UTA-0112 SS 4.9 says a test of this item may link.
 target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle uta_ubake Vulkan::Vulkan
                                                Catch2::Catch2WithMain)
-target_include_directories(uta_device_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(uta_device_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/tools")
 # The kernels include urender's own GLSL -- the files the shading pass does.
 uta_embed_shaders(uta_device_tests device/shaders/light_parity.comp device/shaders/probe_eval.comp)
 # Two registrations of one binary, split by tag. The TIMEOUT is for Mesa's CPU

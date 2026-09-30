@@ -1,7 +1,7 @@
-# UTA-0129 — a benchmark tool that says where a bake's time goes
+# UTA-0129 — a benchmark tool that says where a bake's time and a frame's go
 
 **Status:** spec draft (2026-09-30). No review: the user chose a spec with no
-cold read, 2026-09-30. The bake half is built; § 4 records it as built.
+cold read, 2026-09-30. Both halves are built; § 4 records them as built.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0129 (user-request-2026-09-12).
 
@@ -36,7 +36,7 @@ of a map produced the same bundle.
 
 - **A spec, with no review** — user, 2026-09-30.
 - **The bake half first.** Frame time follows as this item's second step and
-  extends this spec — user, 2026-09-30.
+  extends this spec — user, 2026-09-30. § 4.4 is that step.
 - **The reporting shape follows Vestige's**, as the roadmap item requires:
   a named scope that nests, one row per phase with its depth, the minimum as
   the figure to compare on, and no timing gate in CI. What was taken and what
@@ -290,6 +290,77 @@ struct MapSummary {
 `tools/ut-bench/Cli.cpp` is compiled into the tool and into the unit tests,
 as `tools/ut-bake/Cli.cpp` is.
 
+### 4.4 The frame workload
+
+```text
+ut-bench frame --cameras <file> [--tier <low|medium|high|ultra>]
+               [--size <width>x<height>] [--still <n>] [--steps <n>] <bundle>
+```
+
+It draws a baked map on the surfaceless path, as `ut-shot` does, and reads
+`urender::FrameStats::frameMilliseconds` after each frame: the wall time of
+the frame's GPU work, submit and wait, with no present.
+
+- `--cameras` names a file with one camera a line, as `ut-shot` reads one:
+  `x y z pitch yaw roll horizontalFovDegrees`. Blank lines are skipped. A
+  capture folder's `camera.txt` is one such line.
+- At each camera: four frames that are not timed, which draw the view's
+  shadow tiles, then `--still` frames that are. `--still` defaults to 60.
+- Between each camera and the next: `--steps` timed frames, the camera moving
+  in a straight line and turning the short way round. `--steps` defaults to
+  120.
+- `--tier` defaults to `high` and `--size` to `1920x1080`. The render scale
+  is fixed at 1 and the light time pinned at 0, so two runs draw the same
+  frames.
+
+Standard output is one JSON object; standard error carries a table.
+
+```json
+{"schema": 1, "workload": "frame",
+ "machine": {}, "build": {},
+ "device": "<the Vulkan device's own name>", "tier": "high",
+ "width": 1920, "height": 1080, "bundle": "<as given>",
+ "stillFrames": 60, "moveFrames": 120,
+ "views": [{"camera": "<its line>",
+            "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
+            "shadowTiles": 0.0}],
+ "moves": [{"from": 0, "to": 1,
+            "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
+            "shadowTiles": 0.0}],
+ "still": {"milliseconds": {}, "shadowTiles": 0.0},
+ "moving": {"milliseconds": {}, "shadowTiles": 0.0}}
+```
+
+- `machine` and `build` are § 4.3's.
+- `p99` is the nearest-rank 99th percentile: of `n` sorted values, the one at
+  position `ceil(0.99 n)`, counting from 1. Below a hundred frames it is the
+  largest.
+- `shadowTiles` is the mean of `FrameStats::renderedShadowTiles` over the
+  frames.
+- `still` and `moving` are over every still frame and every moving frame.
+- Compare frames on the median and the 99th percentile. The smallest says
+  little: one fast frame does not make a view smooth.
+
+The exit code is `0` when every frame drew, `1` when the bundle, the cameras
+or the renderer failed, and `2` when the arguments were wrong.
+
+```cpp
+namespace uta::bench {
+
+/// `args` are what follows the word `frame`.
+[[nodiscard]] int runFrame(std::span<const std::string_view> args, std::ostream& out,
+                           std::ostream& err, const BuildInfo& build);
+
+namespace detail {
+struct FrameSpread { double min = 0, median = 0, p99 = 0, max = 0; };
+[[nodiscard]] FrameSpread frameSpreadOf(std::vector<double> milliseconds);
+}
+}
+```
+
+`urender::Renderer` gains `deviceName()`. `tools/ut-bench/Frame.cpp` is
+compiled into the tool, the unit tests and the device tests.
+
 ## 5. Invariants
 
 - **INV-1** — with a clock a test steps by hand, a phase's `seconds` is its
@@ -356,6 +427,20 @@ as `tools/ut-bake/Cli.cpp` is.
   *Breaks when:* the bundle is removed only on the last run, or only when
   the runs were identical.
 
+- **INV-9** — `ut-bench frame` over a bundle and three cameras, one blank
+  line among them, prints one JSON object with `workload` `frame`, the device
+  named, three views and two moves, each with its four figures, and exits `0`.
+  The table counts `--still` frames a view and `--steps` a move.
+  *Test:* `tests/device/BenchFrameTest.cpp`, new. It needs a Vulkan device.
+  *Breaks when:* a blank line is read as a camera; a move is a frame short;
+  the four settling frames are timed; the device is not named.
+
+- **INV-10** — `frameSpreadOf` over 100 down to 1 gives 1, 50.5, 99 and 100.
+  Wrong `frame` arguments exit `2` and print nothing on standard output, and
+  a bundle that is not there exits `1`, both before any device is asked for.
+  *Test:* `tests/unit/BenchCliTest.cpp`.
+  *Breaks when:* the percentile is the largest value; `--still 0` is taken.
+
 ## 6. Failure modes
 
 - **The clock is read on a busy machine.** The figures are real and wrong
@@ -379,7 +464,8 @@ as `tools/ut-bake/Cli.cpp` is.
 | INV-1, INV-2 | `tests/unit/TimingTest.cpp` | `unit` |
 | INV-3 | `tests/unit/BakePhasesTest.cpp` | `unit` |
 | INV-4 | UTA-0011 INV-5's golden bake | `unit` |
-| INV-5, INV-6, INV-7, INV-8 | `tests/unit/BenchCliTest.cpp` | `unit` |
+| INV-5, INV-6, INV-7, INV-8, INV-10 | `tests/unit/BenchCliTest.cpp` | `unit` |
+| INV-9 | `tests/device/BenchFrameTest.cpp` | `device` |
 
 No test asserts a duration. Each new test is seen failing first, by mutating
 the rule it names (`CLAUDE.md` § Build and test).
@@ -406,8 +492,10 @@ UTA-0098 names, at the default worker count.
 
 ## 9. Out of scope
 
-- Frame time for the renderer — UTA-0129's second step; this spec is
-  extended then.
+- A frame's time split by pass (shadows, fog, the forward pass) — deferred;
+  not yet queued. It wants GPU timestamp queries in `urender`.
+- The viewer's own time a frame, and how frames are presented — deferred;
+  not yet queued. § 4.4 measures the renderer alone.
 - A baseline file and a comparison between two results — deferred; not yet
   queued.
 - Timing `ut-paths` and the package readers on their own — deferred; not
@@ -422,7 +510,9 @@ UTA-0098 names, at the default worker count.
 | INV-1, INV-2 | `tests/unit/TimingTest.cpp` |
 | INV-3 | `tests/unit/BakePhasesTest.cpp` |
 | INV-4 | UTA-0011 INV-5's golden bake |
-| INV-5, INV-6, INV-7, INV-8 | `tests/unit/BenchCliTest.cpp` |
+| INV-5, INV-6, INV-7, INV-8, INV-10 | `tests/unit/BenchCliTest.cpp` |
+| INV-9 | `tests/device/BenchFrameTest.cpp`, where a device is |
+| A move turns the short way and in a straight line | **nothing** — no test reads a moving frame's camera |
 | Every bake step is inside a phase | **nothing** — `unattributed` and `bake`'s own row show the gap to a reader |
 | A figure was measured on a quiet machine | **nothing** — `load1` is recorded and warned on |
 | The `machine` and `build` values are true | **nothing** — INV-7 checks they are present |

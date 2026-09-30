@@ -7318,6 +7318,17 @@ stays with movement in 0.2.0.
   Every run of each map gave one bundle. Time in no phase: 0.005 s.
   So a bake's time is ray casting: the occlusion atlas and the
   probes. Hashing the closure for the name is under 2%.
+  Frame half built (2026-09-30): `ut-bench frame`, spec SS 4.4. It
+  draws on the surfaceless path and reads the renderer's own frame
+  time. Eight hand mutations, each killed; INV-9 is a device case.
+  First measurement, AS-Frigate r29 after UTA-0260, ultra 3840x2160,
+  AMD Radeon RX 6600 on RADV, load 4.5, four captured views, 60 still
+  and 120 moving frames each: every still frame median 13.84 ms, 99th
+  percentile 14.22; every moving frame median 13.91, 99th 18.15. The
+  outdoor view is 6.2 ms; the move from it through the hull to the
+  first indoor view holds the slowest frame, 19.8 ms.
+  Not in it, and not queued: a frame's time split by pass, and the
+  viewer's own time and presentation.
   **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
   Kind: implement.
   Source: user-request-2026-09-12.

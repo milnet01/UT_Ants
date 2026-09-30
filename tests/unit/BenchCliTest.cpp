@@ -11,6 +11,7 @@
 #include "BakeFixture.h"
 
 #include "ut-bench/Cli.h"
+#include "ut-bench/Frame.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -23,6 +24,8 @@
 #include <vector>
 
 namespace fs = std::filesystem;
+using uta::bench::detail::FrameSpread;
+using uta::bench::detail::frameSpreadOf;
 using uta::bench::detail::MapSummary;
 using uta::bench::detail::Run;
 using uta::bench::detail::Spread;
@@ -209,6 +212,47 @@ TEST_CASE("UTA-0129 INV-7: wrong arguments exit 2 and print nothing on standard 
     const Ran help = run({"--help"});
     CHECK(help.code == 0);
     CHECK(help.out.empty());
+}
+
+TEST_CASE("UTA-0129 INV-10: a frame's spread is its smallest median 99th percentile and largest", "[bench]") {
+    std::vector<double> hundred;
+    for (int i = 100; i >= 1; --i) hundred.push_back(i); // 100 down to 1
+    const FrameSpread spread = frameSpreadOf(hundred);
+    CHECK(spread.min == 1);
+    CHECK(spread.median == 50.5);
+    CHECK(spread.p99 == 99); // nearest rank: the 99th of 100
+    CHECK(spread.max == 100);
+    // Fewer than a hundred frames: the 99th percentile is the slowest.
+    const FrameSpread few = frameSpreadOf({3, 9, 1});
+    CHECK(few.median == 3);
+    CHECK(few.p99 == 9);
+    CHECK(frameSpreadOf({}).max == 0);
+}
+
+TEST_CASE("UTA-0129 INV-10: wrong frame arguments exit 2 and a missing bundle exits 1", "[bench][cli]") {
+    // None of these reaches a Vulkan device: the arguments and the bundle are read first.
+    const TempDir dir;
+    const std::string cameras = (dir.path() / "cameras.txt").string();
+    const std::string missing = (dir.path() / "no-such.utab").string();
+    const std::vector<std::vector<std::string>> wrong = {
+        {"frame", "--cameras", cameras},                                   // no bundle
+        {"frame", missing},                                                // no --cameras
+        {"frame", "--cameras", cameras, "--size", "640", missing},         // not <w>x<h>
+        {"frame", "--cameras", cameras, "--size", "0x480", missing},
+        {"frame", "--cameras", cameras, "--tier", "fastest", missing},
+        {"frame", "--cameras", cameras, "--still", "0", missing},
+        {"frame", "--cameras", cameras, missing, missing},                 // two bundles
+    };
+    for (const std::vector<std::string>& args : wrong) {
+        CAPTURE(args.size(), args.back());
+        const Ran ran = run(args);
+        CHECK(ran.code == 2);
+        CHECK(ran.out.empty());
+        CHECK_FALSE(ran.err.empty());
+    }
+    const Ran absent = run({"frame", "--cameras", cameras, missing});
+    CHECK(absent.code == 1);
+    CHECK(absent.out.empty());
 }
 
 TEST_CASE("UTA-0129 INV-8: ut-bench leaves nothing in its scratch directory", "[bench][cli]") {
