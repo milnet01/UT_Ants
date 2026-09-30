@@ -13956,6 +13956,66 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: ubake.
 
+- 🚧 [UTA-0260] **urender: indoors a frame lights surfaces that end up hidden, and takes three times as long as outdoors.**
+  Asked for by the user, 2026-09-30: faster frames, and smoother
+  movement. Measured the same day with a scratch program
+  (~/.cache/uta-scratch/frames.cpp) that draws AS-Frigate r29 on the
+  surfaceless path and reads `FrameStats::frameMilliseconds`, 60
+  still frames at each of four captured views and 120 moving frames
+  between each pair. RX-class AMD card on RADV; machine load 5.
+    3840x2160: ultra 24.4 ms median, high 23.6, medium 23.1, low
+      20.3. The outdoor view alone is 7.0 ms at ultra; the three
+      indoor views are 24.0, 25.2 and 26.0.
+    1920x1080 ultra: 7.3 ms.
+    Moving against still, ultra 4K: 24.9 ms against 24.4, and no
+      shadow tile is redrawn in either. So a moving camera costs
+      nothing extra on the GPU; what is slow is every indoor frame.
+  So the cost is per pixel, is not in anything a tier turns off, and
+  follows how much lies behind each pixel. Counted on the CPU
+  (layers.cpp): the drawn, camera-facing surfaces along a pixel's
+  ray average 0.70 outdoors and 3.1 to 3.5 indoors, with 6 to 9% of
+  pixels behind eight or more.
+  Cause: `recordFrame`'s forward pass (src/urender/Frame.cpp) draws
+  every batch with the whole lighting shader, in material order,
+  with no depth drawn first. A nearer surface drawn later shades
+  the pixel again.
+  Planned: draw the opaque, unmasked batches' depth first with the
+  scene's own vertex shader, `gl_Position` declared invariant, then
+  the forward pass as now over that depth. Masked surfaces stay out
+  of the first pass; they cut holes the depth must not fill.
+  The frame must not change: compare ut-shot's pictures before and
+  after.
+  Not examined: the viewer's own CPU time per frame and how frames
+  are presented. At 24 ms a frame under vsync, a 60 Hz display shows
+  30 frames a second, which may be what reads as slow movement.
+  Built (2026-09-30): a depth pass ahead of the forward pass, over
+  the opaque unmasked batches, with the scene's own vertex stage and
+  no fragment stage; `scene.vert` declares `gl_Position` invariant.
+  UTA-0014 SS 4.5 records it.
+  Measured with the same program, before and after in one sitting,
+  ultra 3840x2160, 60 still frames a view:
+    outdoor view 7.00 ms before, 6.79 after;
+    the three indoor views 24.1, 25.3 and 26.8 before; 13.6, 13.3
+      and 12.6 after.
+    All still frames: median 24.5 to 12.7, 99th percentile 29.0 to
+      17.1. Moving frames: median 24.9 to 12.6.
+  The frame did not change: four views at ultra and at low,
+  1920x1080, old tool against new, not one pixel differs.
+  Device tier 54 of 54 on lavapipe and on the GPU, with the layer's
+  synchronization checks on. A new device case puts a square behind
+  a masked surface's hole; drawing masked batches in the depth pass
+  fails it.
+  Not graded here: that `invariant` is needed. Without it this
+  driver may well still agree with itself; another need not.
+  Left: the viewer's own per-frame CPU time and presentation are
+  still unmeasured, and frame time is still not in ut-bench
+  (UTA-0129's second half). The indoor frames at about 13 ms are
+  under a 60 Hz frame; the 99th percentile at 17 ms is not.
+  **Layman:** Inside a building the game fully lights walls that are hidden behind nearer walls, several times per pixel; working out first what is in front lets it light each pixel once, so frames are much faster.
+  Kind: perf.
+  Source: user-request-2026-09-30.
+  Lanes: urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

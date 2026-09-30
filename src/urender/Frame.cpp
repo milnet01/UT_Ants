@@ -1006,7 +1006,8 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     rendering.pColorAttachments = colours.data();
     rendering.pDepthAttachment = &depthAttachment;
 
-    const auto drawBatches = [&](bool translucent) {
+    enum class Pass { Depth, Opaque, Translucent };
+    const auto drawBatches = [&](Pass pass) {
         vkCmdSetViewport(commands, 0, 1, &regionViewport);
         vkCmdSetScissor(commands, 0, 1, &regionScissor);
         if (geometry->draws.empty()) return;
@@ -1018,8 +1019,13 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
                                 0, nullptr);
         for (const DrawItem& item : geometry->draws) {
-            if (((item.polyFlags & gpu::PF_TRANSLUCENT) != 0) != translucent) continue;
-            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneFor(item.polyFlags));
+            if (((item.polyFlags & gpu::PF_TRANSLUCENT) != 0) != (pass == Pass::Translucent)) continue;
+            // A masked surface's holes are its shader's to cut, so its depth is
+            // not drawn ahead; it is tested and written in the forward pass.
+            if (pass == Pass::Depth && (item.polyFlags & gpu::PF_MASKED) != 0) continue;
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              pass == Pass::Depth ? pipelines->depthFor(item.polyFlags)
+                                                  : pipelines->sceneFor(item.polyFlags));
             // A mirrored mover winds the other way on screen, so its front face is the other one.
             const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
             vkCmdSetFrontFace(commands, front);
@@ -1031,8 +1037,26 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         }
     };
 
+    // UTA-0260: the opaque surfaces' depth first. Indoors several surfaces lie
+    // behind most pixels, and the forward pass lit each one a nearer surface
+    // later covered. With the depth drawn, it lights what is seen and no more.
+    // The same vertex stage draws both, its position declared invariant, so a
+    // surface meets its own depth exactly.
+    VkRenderingInfo depthOnly = rendering;
+    depthOnly.colorAttachmentCount = 0;
+    depthOnly.pColorAttachments = nullptr;
+    vkCmdBeginRendering(commands, &depthOnly);
+    drawBatches(Pass::Depth);
+    vkCmdEndRendering(commands);
+    memoryBarrier(commands,
+                  VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
     vkCmdBeginRendering(commands, &rendering);
-    drawBatches(false);
+    drawBatches(Pass::Opaque);
     vkCmdEndRendering(commands);
 
     // -- 2. The translucent pass -----------------------------------------------
@@ -1051,7 +1075,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     rendering.colorAttachmentCount = 1;
     vkCmdBeginRendering(commands, &rendering);
-    drawBatches(true);
+    drawBatches(Pass::Translucent);
     vkCmdEndRendering(commands);
 
     // -- 3. Emissive bloom (UTA-0053) -----------------------------------------

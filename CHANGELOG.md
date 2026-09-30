@@ -430,6 +430,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Frames indoors draw about twice as fast, and look exactly the same.** (UTA-0260)
+  The renderer used to light walls that ended up hidden behind nearer
+  walls. It now works out what is in front first and lights each
+  pixel once. At 3840x2160 on the highest tier AS-Frigate's indoor
+  views went from about 25 to about 13 milliseconds a frame.
+
 - **Baking a map is several times faster, and bakes exactly the same map.** (UTA-0259)
   The soft corner shadows and the bounce light are worked out with
   far fewer wasted steps. No baked map changes, so nothing is baked

@@ -51,6 +51,8 @@ VkPipelineShaderStageCreateInfo stage(VkShaderStageFlagBits kind, VkShaderModule
 struct SceneVariant {
     bool translucent;
     bool twoSided;
+    /// UTA-0260: the vertex stage alone, writing depth and no colour.
+    bool depthOnly = false;
 };
 
 Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
@@ -144,7 +146,9 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     const std::array opaqueAttachments = {opaque, opaque, opaque};
     VkPipelineColorBlendStateCreateInfo blend{};
     blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    if (variant.translucent) {
+    if (variant.depthOnly) {
+        blend.attachmentCount = 0;
+    } else if (variant.translucent) {
         blend.attachmentCount = 1;
         blend.pAttachments = &blended;
     } else {
@@ -164,14 +168,16 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     const std::array colourFormats = {formats.hdr, formats.velocity, formats.emission};
     VkPipelineRenderingCreateInfo rendering{};
     rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.colorAttachmentCount = variant.translucent ? 1 : 3;
+    rendering.colorAttachmentCount = variant.depthOnly ? 0 : variant.translucent ? 1 : 3;
     rendering.pColorAttachmentFormats = colourFormats.data();
     rendering.depthAttachmentFormat = formats.depth;
 
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &rendering; // dynamic rendering: no VkRenderPass
-    info.stageCount = static_cast<std::uint32_t>(stages.size());
+    // UTA-0260: depth alone needs no fragment stage, and the vertex stage is
+    // the forward pass's own, so both passes place a surface at one depth.
+    info.stageCount = variant.depthOnly ? 1 : static_cast<std::uint32_t>(stages.size());
     info.pStages = stages.data();
     info.pVertexInputState = &vertexInput;
     info.pInputAssemblyState = &assembly;
@@ -443,6 +449,11 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
                                   {translucent == 1, twoSided == 1}, parallaxStepsOf(tier)));
         }
     }
+    for (int twoSided = 0; twoSided < 2; ++twoSided) {
+        UTA_TRY(p->depth_[twoSided],
+                scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
+                              {false, twoSided == 1, true}, parallaxStepsOf(tier)));
+    }
     UTA_TRY(p->post_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));
     // UTA-0154: FSR 1's stages. The upscale input and EASU's output are
     // HDR-format images; RCAS writes the output.
@@ -540,7 +551,7 @@ Pipelines::~Pipelines() {
     for (const auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
+    for (VkPipeline pipeline : {depth_[0], depth_[1], post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
@@ -561,6 +572,10 @@ VkPipeline Pipelines::sceneFor(std::uint32_t polyFlags) const noexcept {
     const bool translucent = (polyFlags & gpu::PF_TRANSLUCENT) != 0;
     const bool twoSided = (polyFlags & gpu::PF_TWO_SIDED) != 0;
     return scene_[translucent ? 1 : 0][twoSided ? 1 : 0];
+}
+
+VkPipeline Pipelines::depthFor(std::uint32_t polyFlags) const noexcept {
+    return depth_[(polyFlags & gpu::PF_TWO_SIDED) != 0 ? 1 : 0];
 }
 
 } // namespace uta::urender

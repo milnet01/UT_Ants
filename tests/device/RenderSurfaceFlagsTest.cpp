@@ -154,6 +154,38 @@ TEST_CASE("UTA-0252: a sky surface hides what lies behind it", "[device]") {
     CHECK(pixelAt(*pixels, WIDTH, columnOf(0), HEIGHT / 2) == drawn(BEHIND));
 }
 
+TEST_CASE("UTA-0260: a masked surface's holes show what lies behind it", "[device]") {
+    // The depth pass draws the opaque surfaces ahead of the forward pass. A
+    // masked surface's texels below the threshold are holes, so its depth must
+    // not be drawn ahead: it would hide the square seen through them. Each far
+    // square is twice as far and twice as far off-axis, so it lands inside the
+    // near one's outline, once added before it and once after.
+    removeDisplay();
+    Renderer renderer = requireRenderer(smallFrame());
+    constexpr Rgba BEHIND{41, 81, 161, 255};
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 200, -200, 0, 40, "behind", PF_UNLIT);
+    addSquare(geometry, 100, -100, 0, 30, "cut", PF_MASKED | PF_UNLIT);
+    addSquare(geometry, 100, 100, 0, 30, "cut", PF_MASKED | PF_UNLIT);
+    addSquare(geometry, 200, 200, 0, 40, "behind", PF_UNLIT);
+    // A masked texel above the threshold still hides what is behind it, and an
+    // opaque surface in front of one still hides it.
+    addSquare(geometry, 200, 0, 0, 40, "behind", PF_UNLIT);
+    addSquare(geometry, 100, 0, 0, 30, "kept", PF_MASKED | PF_UNLIT);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "behind", BEHIND);
+    addSolidMaterial(bundle, "cut", CUT);
+    addSolidMaterial(bundle, "kept", KEPT);
+
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    CHECK(pixelAt(*pixels, WIDTH, columnOf(-100), HEIGHT / 2) == drawn(BEHIND));
+    CHECK(pixelAt(*pixels, WIDTH, columnOf(100), HEIGHT / 2) == drawn(BEHIND));
+    CHECK(pixelAt(*pixels, WIDTH, columnOf(0), HEIGHT / 2) == drawn(KEPT));
+}
+
 TEST_CASE("INV-11: a translucent batch writes no motion vector", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(smallFrame());

@@ -12,6 +12,10 @@ layout(location = 2) in vec2 inUv;
 layout(location = 3) in uint inZone; // UTA-0156 SS 4.4
 layout(location = 4) in vec2 inOcclusionUv; // UTA-0164 SS 4.5
 
+// UTA-0260: the depth pass and the forward pass both run this stage, and a
+// surface must land on exactly the depth it was first drawn at.
+invariant gl_Position;
+
 layout(location = 0) out vec3 worldPosition;
 layout(location = 1) out vec3 worldNormal;
 layout(location = 2) out vec2 uv;

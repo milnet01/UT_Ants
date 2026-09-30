@@ -532,6 +532,17 @@ reverses a mover's screen winding. Front face is dynamic state, core in Vulkan
 1.3, set per draw from the sign of the model's determinant, so such a mover is
 drawn rather than culled.
 
+**The opaque surfaces' depth is drawn first** (`UTA-0260`). Before the forward
+pass, every batch that is neither `PF_Translucent` nor `PF_Masked` is drawn
+with the forward pass's own vertex stage and no fragment stage, writing depth
+alone. The forward pass then loads that depth and draws as before. A surface
+hidden behind a nearer one fails the depth test before it is lit, whatever
+order the batches come in. `scene.vert` declares `gl_Position` invariant, so
+a surface meets its own depth exactly. A masked batch is left out: its holes
+are its shader's to cut, and its depth would hide what shows through them. It
+is tested and written in the forward pass, as before. The frame's pixels do
+not change.
+
 **When a bundle is uploaded again.** `draw` uploads geometry, materials and
 probes when it sees a bundle it has not: another object, another size of any
 section, or another hash of a bounded sample of their bytes. The sample is what
