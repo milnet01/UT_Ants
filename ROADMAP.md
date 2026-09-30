@@ -12850,7 +12850,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-26.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
+- 🚧 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
   Decided by the user 2026-09-10: the first version shows these
   as a still picture where one exists, and real animation is its own
   item, linked to the water-and-glass rendering work (UTA-0089).
@@ -12893,6 +12893,7 @@ stays with movement in 0.2.0.
   now read, and it and the sourceless WetTextures store no pixels, so
   the motion must be generated (from each texture's own parameters),
   not played back. UTA-0215 carries the underwater view.
+  Picked up 2026-10-01 (user).
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -13814,6 +13815,9 @@ stays with movement in 0.2.0.
   User decision (2026-10-01): dark rooms are left as they are; no
   added light. UTA-0256 is parked. The open gap is the opposite one,
   DM-Fetid too bright, carried by UTA-0261.
+  Correction (2026-10-01, UTA-0261): the DM-Fetid figures above were
+  scored against the fog-OFF original frames and overstate the gap.
+  Against the fog-on frames the means are 76.8 original, 79.9 ours.
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
@@ -14062,7 +14066,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: urender.
 
-- 🚧 [UTA-0261] **DM-Fetid's dark areas draw far brighter than the original's: 75 of 255 where it shows 11.**
+- ✅ [UTA-0261] **DM-Fetid's dark areas draw far brighter than the original's: 75 of 255 where it shows 11.**
   Found 2026-09-30 while scoring r29 against the original's frames
   (UTA-0254's note has every figure and the method: ut-ants-uta0197's
   render.sh and score.py over ut-ants-uta0156/orig-fetid-novol).
@@ -14077,10 +14081,36 @@ stays with movement in 0.2.0.
   fog zones, which are the next. Not investigated yet.
   Recommended to the user as the next item, 2026-09-30; not picked.
   Picked up 2026-10-01 (user).
+  Resolved 2026-10-01: a reference mix-up, not a fault. The figures
+  compared our frames, which draw DM-Fetid's volumetric fog, with the
+  original's frames taken with that fog OFF (orig-fetid-novol). Against
+  the fog-on frames (orig-fetid-vol, the set VOLUME_*_SCALE were fitted
+  on), same r29 bake 8d60bde5: pixel RMS 51.89 falls to 33.44, block
+  48.90 to 29.02; mean displayed luma original 76.8, ours 79.9. What
+  remains is the fog's look, split to UTA-0262.
   **Layman:** On one map the shadowy parts come out much brighter than in the original game, far more than on other maps, which points at a fault specific to that map.
   Kind: investigate.
   Source: in-session-2026-09-30.
   Lanes: urender, ubake.
+
+- 📋 [UTA-0262] **urender: DM-Fetid's fog draws as an even grey haze where the original's is a green glow that leaves near walls clear.**
+  Found by UTA-0261, 2026-10-01, r29 against the original's frames
+  WITH volumetric fog (ut-ants-uta0156/orig-fetid-vol). Mean displayed
+  luma over the eight poses is close (original 76.8, ours 79.9), but
+  where the original is under 20 of 255 ours reads 27 to 99. Seen on
+  poses 1 and 4: the original's walls within a few metres stay crisp
+  and dark and the fog is green; ours veils the nearest walls too, and
+  is paler. The map's one volumetric light is Light69 (b=132 h=96
+  s=208 r=252, below the floor). VOLUME_GLOW_SCALE and
+  VOLUME_FOG_SCALE in fog.glsl were fitted on this map as single
+  constants, so they cannot shape the fog by depth or colour.
+  Measure before changing: luma of the original against ours by view
+  depth, and the fog's colour, per pose. Harness:
+  ~/.cache/uta-scratch/u261/{render.sh,stats.py}.
+  **Layman:** On the foggy map the fog looks like a flat grey mist over everything, where the original shows a green glow that thickens with distance.
+  Kind: enhancement.
+  Source: in-session-2026-10-01 split-from-UTA-0261.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 

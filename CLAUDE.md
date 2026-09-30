@@ -5,7 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0261` (user, 2026-10-01) — DM-Fetid's dark areas draw far brighter than the original's. Dark rooms are left as they are; `UTA-0256`'s added lamps are parked.
+**Next:** `UTA-0105` (user, 2026-10-01) — animated textures. `UTA-0261` closed as a reference mix-up; the fog's look is `UTA-0262`. Dark rooms are left as they are; `UTA-0256`'s added lamps are parked.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
