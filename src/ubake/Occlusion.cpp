@@ -27,6 +27,11 @@ constexpr std::uint32_t UNLIT_FLAGS = PF_INVISIBLE | PF_FAKE_BACKDROP | PF_UNLIT
 /// of jobs small.
 constexpr std::size_t CHARTS_PER_JOB = 32;
 
+/// UTA-0259: past this many gathered occluders a ray searches the tree, as
+/// before. Any value gives the same bytes; this one is where the two cost
+/// about the same.
+constexpr std::size_t GATHERED_LIMIT = 64;
+
 Vec3 cross(const Vec3& a, const Vec3& b) noexcept {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
@@ -166,13 +171,26 @@ double opennessAt(const Vec3& origin, const Vec3& n, const SurfaceRays& rays) {
     // Nothing in front within reach: every ray misses, so skip them. Exact --
     // the value is what casting them would give.
     if (!rays.anyInFront(origin, n, OCCLUSION_DISTANCE)) return 1.0;
+    // UTA-0259: every ray below leaves this one point and stops at the same
+    // reach, so the occluders any of them can meet are gathered once. Where
+    // they are few, each ray is met against them alone; the nearest t is the
+    // one the whole tree gives, so no texel changes.
+    thread_local std::vector<std::uint32_t> near;
+    near.clear();
+    rays.gatherInFront(origin, n, OCCLUSION_DISTANCE, near);
+    const bool few = near.size() <= GATHERED_LIMIT;
     double weights = 0, occluded = 0;
     for (const Vec3& w : directions()) {
         const double c = dot(w, n);
         if (c <= 0) continue;
         weights += c;
-        const std::optional<SurfaceRays::Hit> hit = rays.first(origin, w, OCCLUSION_DISTANCE);
-        if (hit && hit->t <= OCCLUSION_DISTANCE) occluded += c * (1.0 - hit->t / OCCLUSION_DISTANCE);
+        std::optional<double> t;
+        if (few) {
+            t = rays.nearestAmong(near, origin, w, OCCLUSION_DISTANCE);
+        } else if (const std::optional<SurfaceRays::Hit> hit = rays.first(origin, w, OCCLUSION_DISTANCE)) {
+            t = hit->t;
+        }
+        if (t && *t <= OCCLUSION_DISTANCE) occluded += c * (1.0 - *t / OCCLUSION_DISTANCE);
     }
     return weights > 0 ? std::clamp(1.0 - occluded / weights, 0.0, 1.0) : 1.0;
 }

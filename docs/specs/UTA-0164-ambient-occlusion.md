@@ -291,6 +291,13 @@ All carry the `unit` label but INV-8, which carries `device`.
   that distance skips its rays (`SurfaceRays::anyInFront`). Both are exact:
   the three reference maps baked to the same bytes with and without them.
   The bake times are in UTA-0164's roadmap body.
+- **`UTA-0259` gathers a texel's occluders once.** Every ray of a texel
+  leaves one point and stops at `OCCLUSION_DISTANCE`, so
+  `SurfaceRays::gatherInFront` collects the occluders any of them can meet,
+  and `nearestAmong` meets each ray against those alone; past 64 of them a
+  ray searches the tree as before. The nearest `t` is the same either way:
+  AS-Frigate, CTF-Face and DM-Deck16][ baked to the same bytes, and
+  `tests/unit/BakeOcclusionTest.cpp` compares the two ray by ray.
 - INV-8 found a defect before it passed: the fingerprint did not sample
   `AOCC`, so the renderer kept the first bundle's atlas.
 

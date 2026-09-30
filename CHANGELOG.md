@@ -430,6 +430,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Baking a map is several times faster, and bakes exactly the same map.** (UTA-0259)
+  The soft corner shadows and the bounce light are worked out with
+  far fewer wasted steps. No baked map changes, so nothing is baked
+  again because of this.
+
 - **Haze is refitted to today's brightness and doubles, to 5e-5** (UTA-0197)
   Measured against the original game on DM-Deck16][, AS-Frigate and
   DM-Fetid at EXPOSURE 5.03. The volumetric glow and fog were rechecked

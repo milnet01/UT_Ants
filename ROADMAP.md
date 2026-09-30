@@ -13905,6 +13905,57 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-30.
   Lanes: ubake, urender.
 
+- 🚧 [UTA-0259] **ubake: a bake spends nearly all its time casting rays, for the occlusion atlas and the probes.**
+  Asked for by the user, 2026-09-30: faster baking. Aimed by
+  UTA-0129's first measurement: of AS-Frigate's 92.6 s, occlusion is
+  68.5 and the probes 10.2; of CTF-Face's 25.0 s, the probes 12.2
+  and occlusion 8.0.
+  Rule for every change here: no bundle byte moves, so
+  BAKER_REVISION stays and no map is baked again. Proof each time:
+  the golden bake, and the r29 fingerprints of AS-Frigate
+  (9a4b94e0...) and CTF-Face (07167a96...) before and after.
+  Planned, cheapest first:
+  1. Occlusion. Each texel casts its hemisphere of rays through the
+     whole tree, to a reach of 64 units. Gather once the occluders
+     in front of the texel and within reach -- `anyInFront`'s own
+     test, collected -- and meet the rays against those alone.
+     Every occluder a ray can meet within the reach is in that set,
+     so the nearest t is the same.
+  2. `SurfaceRays::first`. It visits a node's left child first
+     whichever way the ray runs, and divides six times a box. Visit
+     the nearer child first and multiply by the direction's
+     reciprocal. Boxes only prune, so the answer does not change.
+  3. Occlusion's jobs are 32 charts each, tallest first, so the
+     first jobs hold most of the texels. To measure before touching.
+  Not planned: a wider or single-precision tree, Embree, a faster
+  hash. docs/research-2026-09-30-performance.md says why each risks
+  the identical-bake rule or buys little here.
+  Done so far (2026-09-30). Every figure is the best of runs taken
+  turn and turn about with the version before it, on a busy machine
+  (load 7 to 18 on 12 cores), so read the ratios, not the seconds.
+  1. Occlusion gathers a texel's occluders once
+     (`SurfaceRays::gatherInFront`, `nearestAmong`). AS-Frigate's
+     occlusion 68.5 s to 3.7; CTF-Face's 8.0 to 0.8.
+  2. `lightAt` answers nothing as soon as a point is at or past the
+     light's radius, before working out colour and intensity. A
+     profile of CTF-Face had 42% of the whole bake in `lightAt`.
+     Its probes 11.6 s to 7.4; AS-Frigate's 5.3 to 5.0.
+  Whole bake, from the first measurement to now: AS-Frigate 92.6 s
+  to 13.5; CTF-Face 25.0 to 11.9; DM-Deck16][ 3.7, mostly textures.
+  No byte moved: all three maps' fingerprints are the same before
+  and after each step, and the golden bake did not move.
+  Tried and taken back out: searching a ray's nearer child first
+  and dividing once a ray. Turn and turn about it measured 0.99 to
+  1.07 of the version without it, so it was not worth its lines.
+  Left: the probes are now the largest step (CTF-Face 7.4 of 11.9 s)
+  and the same profile put 25% in the tree's box test; texture
+  making is next (DM-Deck16][ 2.1 of 3.7 s). Occlusion's job sizes
+  were not measured.
+  **Layman:** Baking a map is slow because of how it fires test rays through the level; firing them more cleverly makes baking faster without changing the baked map at all.
+  Kind: perf.
+  Source: user-request-2026-09-30.
+  Lanes: ubake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

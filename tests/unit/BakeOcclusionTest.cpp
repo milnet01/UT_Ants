@@ -11,6 +11,8 @@
 #include "ubake/Occlusion.h"
 
 #include "core/Jobs.h"
+#include "ubake/LightProbes.h"
+#include "ubake/SurfaceRays.h"
 #include "ubundle/Bundle.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -20,10 +22,15 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <optional>
 #include <vector>
 
 using uta::JobSystem;
 using uta::ubake::bakeOcclusion;
+using uta::ubake::directions;
+using uta::ubake::OCCLUSION_DISTANCE;
+using uta::ubake::SurfaceRays;
+using uta::ubake::Vec3;
 using uta::ubake::OCCLUSION_TEXEL_SIZE;
 using uta::ubundle::Geometry;
 using uta::ubundle::GeometryBatch;
@@ -126,6 +133,82 @@ TEST_CASE("INV-2: open floor is unoccluded and a wall's foot and a corner are da
     CHECK(centre == 255);
     CHECK(foot < centre);
     CHECK(corner < foot);
+}
+
+TEST_CASE("UTA-0259: the gathered occluders give each ray the hit the whole tree gives", "[ubake][occlusion]") {
+    // A box room with a slab leaning across one corner and a post, so origins
+    // near them gather several occluders at different distances and angles.
+    Scene scene;
+    boxRoom(scene);
+    addQuad(scene, {0, 96, 0}, {96, 0, 0}, {96, 0, 128}, {0, 96, 128}, {0.7071f, 0.7071f, 0});
+    addQuad(scene, {200, 200, 0}, {216, 200, 0}, {216, 200, 96}, {200, 200, 96}, {0, -1, 0});
+    addQuad(scene, {200, 216, 0}, {216, 216, 0}, {216, 216, 96}, {200, 216, 96}, {0, 1, 0});
+    addQuad(scene, {180, 180, 40}, {240, 180, 40}, {240, 240, 40}, {180, 240, 40}, {0, 0, -1});
+    const Geometry geometry = finish(scene);
+    const SurfaceRays rays(geometry);
+
+    struct From {
+        Vec3 origin, normal;
+    };
+    std::vector<From> froms;
+    for (double x = 4; x < 512; x += 20.5)
+        for (double y = 4; y < 512; y += 20.5) froms.push_back({{x, y, 0.5}, {0, 0, 1}});
+    for (double y = 4; y < 512; y += 17.25)
+        for (double z = 4; z < 256; z += 17.25) froms.push_back({{0.5, y, z}, {1, 0, 0}});
+
+    std::size_t compared = 0, hits = 0, gathering = 0;
+    std::vector<std::uint32_t> near;
+    for (const From& from : froms) {
+        near.clear();
+        rays.gatherInFront(from.origin, from.normal, OCCLUSION_DISTANCE, near);
+        if (!near.empty()) ++gathering;
+        // anyInFront is gatherInFront without the margin, so it never says yes to nothing gathered.
+        if (rays.anyInFront(from.origin, from.normal, OCCLUSION_DISTANCE)) CHECK_FALSE(near.empty());
+        for (const Vec3& w : directions()) {
+            if (dot(w, from.normal) <= 0) continue;
+            const auto whole = rays.first(from.origin, w, OCCLUSION_DISTANCE);
+            const std::optional<double> among = rays.nearestAmong(near, from.origin, w, OCCLUSION_DISTANCE);
+            ++compared;
+            if (whole) ++hits;
+            if (whole.has_value() != among.has_value() || (whole && whole->t != *among)) {
+                CAPTURE(from.origin.x, from.origin.y, from.origin.z, w.x, w.y, w.z);
+                FAIL_CHECK("a ray's hit differs");
+            }
+        }
+    }
+    // The comparison is over rays that do hit, and origins that do gather.
+    CHECK(compared > 40000);
+    CHECK(hits > 2000);
+    CHECK(gathering > 100);
+
+    // With no limit, against every occluder in front: the search's order and
+    // its box test may prune, and must not change which hit is nearest.
+    std::size_t unlimited = 0;
+    for (std::size_t k = 0; k < froms.size(); k += 7) {
+        const From& from = froms[k];
+        near.clear();
+        rays.gatherInFront(from.origin, from.normal, 1e9, near);
+        for (const Vec3& w : directions()) {
+            if (dot(w, from.normal) <= 0) continue;
+            const auto whole = rays.first(from.origin, w);
+            const std::optional<double> among =
+                rays.nearestAmong(near, from.origin, w, std::numeric_limits<double>::infinity());
+            ++unlimited;
+            if (whole.has_value() != among.has_value() || (whole && whole->t != *among)) {
+                CAPTURE(from.origin.x, from.origin.y, from.origin.z, w.x, w.y, w.z);
+                FAIL_CHECK("an unlimited ray's hit differs");
+            }
+        }
+    }
+    CHECK(unlimited > 5000);
+
+    // A ray past the limit meets nothing, as first() with that limit does.
+    near.clear();
+    rays.gatherInFront({256, 256, 0.5}, {0, 0, 1}, 512, near);
+    REQUIRE_FALSE(near.empty());
+    const Vec3 toWall{1, 0, 0.001};
+    CHECK(rays.nearestAmong(near, {256, 256, 0.5}, toWall, 300).has_value());
+    CHECK_FALSE(rays.nearestAmong(near, {256, 256, 0.5}, toWall, 200).has_value());
 }
 
 TEST_CASE("INV-2: a nearer occluder darkens more than a farther one", "[ubake][occlusion]") {

@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace uta::ubake {
@@ -46,6 +47,19 @@ public:
     /// not, no ray from `origin` with a positive component along `normal`
     /// meets an occluder within `radius` -- UTA-0164 SS 4.3's shortcut.
     [[nodiscard]] bool anyInFront(const Vec3& origin, const Vec3& normal, double radius) const;
+
+    /// UTA-0259: every occluder a ray from `origin` with a positive component
+    /// along `normal` could meet within `radius`, appended to `into` --
+    /// anyInFront's test with a margin, so rounding leaves none of them out.
+    /// The entries mean something to nearestAmong alone.
+    void gatherInFront(const Vec3& origin, const Vec3& normal, double radius,
+                       std::vector<std::uint32_t>& into) const;
+
+    /// UTA-0259: the smallest t in (0, `limit`] at which the ray meets one of
+    /// `gathered`, or none. It is first()'s t wherever every occluder the ray
+    /// can meet within `limit` is among them, at a fraction of the search.
+    [[nodiscard]] std::optional<double> nearestAmong(std::span<const std::uint32_t> gathered, const Vec3& origin,
+                                                     const Vec3& direction, double limit) const;
 
     /// Whether an occluder crosses the segment from `a` to `b` strictly between
     /// them.

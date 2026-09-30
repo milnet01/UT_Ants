@@ -217,6 +217,50 @@ bool SurfaceRays::anyInFront(const Vec3& origin, const Vec3& normal, double radi
     return false;
 }
 
+void SurfaceRays::gatherInFront(const Vec3& origin, const Vec3& normal, double radius,
+                                std::vector<std::uint32_t>& into) const {
+    if (nodes_.empty()) return;
+    // anyInFront's two tests, each loosened by PAD: a ray's hit is computed by
+    // meet(), these by other arithmetic, and the two must never disagree about
+    // an occluder the ray does meet.
+    const double reach = (radius + PAD) * (radius + PAD);
+    thread_local std::vector<std::uint32_t> stack;
+    stack.assign(1, 0);
+    while (!stack.empty()) {
+        const Node& node = nodes_[stack.back()];
+        stack.pop_back();
+        if (boxDistanceSquared(origin, node.min, node.max) > reach) continue;
+        if (boxReach(origin, normal, node.min, node.max) <= -PAD) continue;
+        if (node.count == 0) {
+            stack.push_back(node.right);
+            stack.push_back(node.left);
+            continue;
+        }
+        for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
+            const Triangle& t = triangles_[i];
+            const Vec3 b = t.a + t.ab, c = t.a + t.ac;
+            const Vec3 lo{std::min({t.a.x, b.x, c.x}), std::min({t.a.y, b.y, c.y}), std::min({t.a.z, b.z, c.z})};
+            const Vec3 hi{std::max({t.a.x, b.x, c.x}), std::max({t.a.y, b.y, c.y}), std::max({t.a.z, b.z, c.z})};
+            if (boxDistanceSquared(origin, lo, hi) > reach) continue;
+            if (std::max({dot(t.a - origin, normal), dot(b - origin, normal), dot(c - origin, normal)}) <= -PAD) continue;
+            into.push_back(i);
+        }
+    }
+}
+
+std::optional<double> SurfaceRays::nearestAmong(std::span<const std::uint32_t> gathered, const Vec3& origin,
+                                                const Vec3& direction, double limit) const {
+    std::optional<double> best;
+    for (const std::uint32_t i : gathered) {
+        const Triangle& t = triangles_[i];
+        const std::optional<double> at = meet(origin, direction, t.a, t.ab, t.ac);
+        // first()'s own test of a hit, and the smallest of them is its t.
+        if (!at || !(*at > 0) || *at > limit) continue;
+        if (!best || *at < *best) best = at;
+    }
+    return best;
+}
+
 bool SurfaceRays::blocked(const Vec3& a, const Vec3& b) const {
     if (nodes_.empty()) return false;
     const Vec3 direction = b - a;

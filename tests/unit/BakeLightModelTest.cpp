@@ -241,6 +241,28 @@ TEST_CASE("intensity incidence and spot", "[ubake][lightmodel]") {
     }
 }
 
+TEST_CASE("UTA-0259: a light gives nothing at its radius and beyond whatever its effect", "[ubake][lightmodel]") {
+    // Radius byte 64 is 1625 units. Each point faces the light squarely, and
+    // a spot points along x, so on that axis distance alone decides.
+    for (const std::uint8_t effect :
+         {std::uint8_t{0}, LE_STATIC_SPOT, LE_SPOTLIGHT, LE_NON_INCIDENCE, LE_CYLINDER}) {
+        Light light = whiteLight(255);
+        light.effect = effect;
+        light.cone = 128;
+        const double radius = lightRadius(light.radius);
+        CAPTURE(int(effect), radius);
+        sameRgb(lightAt(light, {radius, 0, 0}, {-1, 0, 0}), {0, 0, 0});
+        sameRgb(lightAt(light, {radius + 1, 0, 0}, {-1, 0, 0}), {0, 0, 0});
+        sameRgb(lightAt(light, {0, 0, radius * 3}, {0, 0, -1}), {0, 0, 0});
+        // A unit inside it, every effect but a cylinder still lights. A
+        // cylinder's own rule is its distance from its axis, which is x here.
+        if (effect != LE_CYLINDER) CHECK(lightAt(light, {radius - 1, 0, 0}, {-1, 0, 0}).r > 0);
+        // Up its axis a cylinder lights, and a spot's cone does not reach.
+        if (effect != LE_STATIC_SPOT && effect != LE_SPOTLIGHT)
+            CHECK(lightAt(light, {0, 0, radius - 1}, {0, 0, -1}).r > 0);
+    }
+}
+
 TEST_CASE("UTA-0253: shown light is the light raised to the display power", "[ubake][lightmodel]") {
     using uta::ubake::shownLight;
     CHECK(shownLight(0.0) == 0.0);

@@ -169,6 +169,11 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     const Vec3 toLight = litFrom(light, x) - x;
     const double d = length(toLight);
     const double radius = lightRadius(light.radius);
+    // UTA-0259: every effect below gives nothing at the radius and beyond, and
+    // a bake asks each light about each point a ray hits, nearly all of them
+    // out of reach. Said here, before the colour and the intensity are worked
+    // out, it is the same zero at a fraction of the cost.
+    if (d >= radius) return {};
     const Rgb colour = lightColour(light.hue, light.saturation);
     // UTA-0156 SS 4.5: the level's brightness scales every effect alike.
     const double intensity = lightIntensity(light.brightness) * light.levelBrightness;
