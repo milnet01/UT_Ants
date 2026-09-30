@@ -70,9 +70,11 @@ namespace {
 // 25: the fixture's pictures are all 4x4.
 // 27: UTA-0247 read an Int tag declaring under four bytes as four. Same digest
 // as 26: the fixture writes every tag's true size.
+// 29, format 15: UTA-0263 gave each MATS record a flame byte. A new digest
+// under the same revision: the bytes moved, the baker did not.
 constexpr std::uint32_t RECORDED_UNDER = 29;
 constexpr std::string_view GOLDEN =
-    "0469a7e3df8c13790861b610ef473693503fa3e0a383ca6c33459db204dbfae5";
+    "b514560f3a91f0b3715906bb606af72146f3967d3cbe18e6b2060c115a7450e9";
 
 } // namespace
 

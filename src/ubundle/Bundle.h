@@ -54,7 +54,9 @@ namespace uta::ubundle {
 /// 12 since UTA-0015 SS 4.1 gave each ZONE entry its fog flag.
 /// 13 since UTA-0156 SS 4.5 gave each LITE record its level brightness.
 /// 14 since UTA-0164 SS 4.1 added AOCC.
-inline constexpr std::uint32_t FORMAT_VERSION = 14;
+/// 15 since UTA-0263 SS 4.2 gave each MATS record its flame look, and SS 4.3
+/// added FLAM.
+inline constexpr std::uint32_t FORMAT_VERSION = 15;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -145,6 +147,13 @@ struct CompressedTexture {
 /// refuses first. A caller must not read a zero as "no bytes required".
 [[nodiscard]] std::uint64_t expectedBlockBytes(const CompressedTexture& texture) noexcept;
 
+/// A flame material's colours -- UTA-0263 SS 4.2.
+struct FlameLook {
+    /// The palette sampled at eight evenly spaced heats, coldest first, as
+    /// linear RGB. Entry 7 is the hottest. Every value finite.
+    std::array<std::array<float, 3>, 8> ramp{};
+};
+
 /// One material's own values -- UTA-0011 SS 4.10. Its maps are the TEXS
 /// entries named `<id>:<map>`.
 ///
@@ -157,6 +166,8 @@ struct MaterialRecord {
     /// UTA-0040 SS 4.1: how deep the height map's full range reaches below the
     /// surface, in texels of the material's base level. 0: no parallax.
     std::uint8_t parallaxDepth = 0;
+    /// UTA-0263 SS 4.2: set when the bake judged this material a flame.
+    std::optional<FlameLook> flame;
 };
 
 /// One corner of a triangle -- UTA-0109 SS 4.2.
@@ -395,6 +406,16 @@ struct Occlusion {
     std::vector<std::uint8_t> texels;     ///< width * height
 };
 
+/// One flame the renderer draws facing the camera -- UTA-0263 SS 4.3.
+struct Flame {
+    std::uint32_t material = 0;      ///< an index into MATS; that record has a flame look
+    std::array<float, 3> base{};     ///< the flame's foot, world units; finite
+    float width = 0;                 ///< world units; finite and positive
+    float height = 0;                ///< world units, up from `base`; finite and positive
+    std::uint32_t seed = 0;          ///< decorrelates two flames of one material
+    std::int32_t light = -1;         ///< an index into LITE, or -1 for none (SS 4.5)
+};
+
 /// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds
 /// none or the zone is not below `zoneCount` -- UTA-0156 SS 4.3's mover rule,
 /// here so the renderer can find the camera's zone too (UTA-0015 SS 4.1).
@@ -430,6 +451,8 @@ struct Bundle {
     std::optional<std::vector<Zone>> zones;
     /// One uv per GEOM vertex -- UTA-0164 SS 4.1.
     std::optional<Occlusion> occlusion;
+    /// UTA-0263 SS 4.3.
+    std::optional<std::vector<Flame>> flames;
 };
 
 /// Decode a whole bundle.
@@ -442,7 +465,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

@@ -88,7 +88,7 @@ struct Descriptor {
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
            || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
-           || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC;
+           || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM;
 }
 
 } // namespace
@@ -230,6 +230,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_AOCC) {
             UTA_TRY(bundle.occlusion, readOcclusion(payload));
             UTA_CHECK(validateOcclusion(*bundle.occlusion, ErrorCode::MalformedData));
+        } else if (descriptor.id == ID_FLAM) {
+            UTA_TRY(bundle.flames, readFlames(payload));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -250,6 +252,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
     UTA_CHECK(validateVertexZones(bundle, ErrorCode::MalformedData));
     // UTA-0164 SS 4.1: AOCC's uv count is GEOM's vertex count.
     UTA_CHECK(validateOcclusionVertices(bundle, ErrorCode::MalformedData));
+    // UTA-0263 SS 4.3: a record names MATS and LITE, so it waits for both.
+    UTA_CHECK(validateFlames(bundle, ErrorCode::MalformedData));
     return bundle;
 }
 
@@ -279,8 +283,9 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     UTA_CHECK(validateVertexZones(bundle, ErrorCode::InvalidArgument));
     if (bundle.occlusion) UTA_CHECK(validateOcclusion(*bundle.occlusion, ErrorCode::InvalidArgument));
     UTA_CHECK(validateOcclusionVertices(bundle, ErrorCode::InvalidArgument));
+    UTA_CHECK(validateFlames(bundle, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC. Fixed rather than incidental because
+    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -329,6 +334,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.zones) encoded(ID_ZONE, encodeZones(*bundle.zones));
     // AOCC is appended after ZONE -- UTA-0164 SS 4.1.
     if (bundle.occlusion) encoded(ID_AOCC, encodeOcclusion(*bundle.occlusion));
+    // FLAM is appended after AOCC -- UTA-0263 SS 4.3.
+    if (bundle.flames) encoded(ID_FLAM, encodeFlames(*bundle.flames));
 
     if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows

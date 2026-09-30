@@ -41,6 +41,7 @@ constexpr SectionId ID_COLL = {'C', 'O', 'L', 'L'};
 constexpr SectionId ID_LPRB = {'L', 'P', 'R', 'B'};
 constexpr SectionId ID_ZONE = {'Z', 'O', 'N', 'E'};
 constexpr SectionId ID_AOCC = {'A', 'O', 'C', 'C'};
+constexpr SectionId ID_FLAM = {'F', 'L', 'A', 'M'};
 
 // Structural validation -- SS 4.9.
 //
@@ -139,5 +140,12 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 [[nodiscard]] Result<void> validateOcclusion(const Occlusion& occlusion, ErrorCode code);
 [[nodiscard]] Result<std::vector<std::byte>> encodeOcclusion(const Occlusion& occlusion);
 [[nodiscard]] Result<void> validateOcclusionVertices(const Bundle& bundle, ErrorCode code);
+
+// FLAM -- FlameSection.cpp, UTA-0263 SS 4.3. Each record names a MATS
+// record and a LITE index, so validateFlames is a rule across sections and
+// runs once every section is decoded.
+[[nodiscard]] Result<std::vector<Flame>> readFlames(Cursor& cursor);
+[[nodiscard]] Result<std::vector<std::byte>> encodeFlames(const std::vector<Flame>& flames);
+[[nodiscard]] Result<void> validateFlames(const Bundle& bundle, ErrorCode code);
 
 } // namespace uta::ubundle::detail

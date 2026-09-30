@@ -140,8 +140,8 @@ struct Flame {
 ```
 
 `read` and `write` refuse a record whose `material` is out of range or names a
-record with no flame look, a `light` below -1 or out of range, or a width or
-height that is not finite and positive.
+record with no flame look, a `light` below -1 or out of range, a width or
+height that is not finite and positive, or a `base` that is not finite.
 
 **Which surfaces become records.** A surface whose material is a flame, and
 whose polyFlags carry `PF_NOT_SOLID` and one of `PF_TRANSLUCENT` or

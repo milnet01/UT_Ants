@@ -67,7 +67,7 @@ Bytes aoccPayload(const Occlusion& occlusion) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(14); // formatVersion -- 14 since UTA-0164 SS 4.1
+    out.u32(15); // formatVersion -- 15 since UTA-0263 SS 4.3
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved

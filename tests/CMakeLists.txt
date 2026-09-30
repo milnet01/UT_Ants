@@ -40,6 +40,7 @@ add_executable(uta_unit_tests
     unit/BakeZonesTest.cpp
     unit/BundleActorsTest.cpp
     unit/BundleCollisionTest.cpp
+    unit/BundleFlamesTest.cpp
     unit/BundleMoversTest.cpp
     unit/BundleOcclusionTest.cpp
     unit/BundleFormatTest.cpp

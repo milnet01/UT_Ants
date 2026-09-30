@@ -23,6 +23,7 @@ add_library(uta_ubundle STATIC
     CollisionSection.cpp
     LightProbeSection.cpp
     ZoneSection.cpp
+    FlameSection.cpp
     OcclusionSection.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
 
