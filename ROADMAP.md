@@ -13527,6 +13527,67 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: ubake, launcher.
 
+- 📋 [UTA-0252] **urender: AS-Frigate's skybox room shows in the sky as a dark box.**
+  Reported by the user from the launcher, 2026-09-30, ultra tier,
+  baker r27. Camera (ut-shot): 1986.72 -1237.43 1284.67 5213 22412 0
+  121.28.
+  Confirmed by projection: `ut-dump --surface-list` gives the sky
+  room as Brush257, textured pSky1b, spanning x -3072..3072,
+  y 5120..12288, z 7168..7680. Its eight corners, projected through
+  that camera, land on the box's corners in the frame. The bright
+  spot on its underside is where the sky room's own light, export
+  798, lights the room's ceiling.
+  The room sits above the level's sky ceiling (Brush4's Skyblu
+  surface, FakeBackdrop, z 6464). `scene.vert` writes a FakeBackdrop
+  surface's depth at the far plane, so geometry behind the sky
+  surface passes the depth test and draws over it. A map whose sky
+  room sits behind solid walls hides the same fault.
+  Shape to decide: leave the sky zone's geometry out of the main
+  view, which is what UT99's zone visibility does; or keep the sky
+  surface's own depth and mark sky pixels another way. The first
+  also saves drawing it.
+  Not checked: whether other maps in the library show it.
+  Placed in 0.1.0: it is a visible fault on a reference map in the
+  release whose subject is drawing maps.
+  **Layman:** Looking up in AS-Frigate, a dark slab hangs in the sky; it is the hidden room the map keeps its sky in, which a player should never see.
+  Kind: fix.
+  Source: user-request-2026-09-30.
+  Lanes: urender.
+  Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-073419
+
+- 📋 [UTA-0253] **urender: bounce light adds almost nothing in AS-Frigate's ship interior, which draws black beside a sunlit floor.**
+  Reported by the user from the launcher, 2026-09-30, as no light
+  bounce at all. Ultra tier, baker r27. Camera (ut-shot): 120.50
+  57.13 957.48 -221 41144 0 121.28.
+  Measured with `ut-shot --from-capture --linear`, with and without
+  `--no-probes`, at the capture's size. Mean linear light over the
+  frame: 0.0318 with probes, 0.0314 without. Over the dark upper
+  left: 0.00686 against 0.00681. The sunlit floor reads about 0.12.
+  More than half the frame is exactly zero without probes, and
+  nearly all of those pixels stay exactly zero with them. The
+  probes do add light to about a quarter of the pixels, so they are
+  present; what they add is about a hundredth of the floor's light.
+  Limit of the measurement: `--linear` writes eight bits, so nothing
+  under one step of 255 can be told from zero.
+  Not checked: what UT99 shows at this pose. `bounce-light` shares
+  measured earlier put this map at mostly zone ambient, yet this
+  room has none, so its zone and ambient want reading first.
+  Causes to test, cheapest first: whether the lights that reach the
+  floor pass `bakedLights` (it drops a light that is not bStatic);
+  whether probes exist in the cells around the dark surfaces;
+  whether the nine lights within reach of the camera are wrongly
+  shadowed, which would be a direct-light fault and not a bounce
+  one; whether one bounce from a patch this size is simply small,
+  in which case probe reach or a second bounce is the lever, not a
+  multiplier (user, 2026-09-20).
+  Placed in 0.1.0: bounce light is a standing requirement and this
+  is a reference map.
+  **Layman:** Inside the ship, sunlight hits the floor but none of it spreads to the walls and ceiling, so the room is pitch black next to a bright patch.
+  Kind: fix.
+  Source: user-request-2026-09-30.
+  Lanes: ubake, urender.
+  Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-073437
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
