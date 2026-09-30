@@ -7291,6 +7291,13 @@ stays with movement in 0.2.0.
   - The Formula Workbench fits curves to data (bake time against map
     size, say). It has no mean, median or percentile over samples, so
     it is not what summarises timing runs.
+  2026-09-30: the user asked for performance work in four areas --
+  the code, baking, frame time, and moving the camera -- and for
+  online research, recorded in docs/research-2026-09-30-performance.md
+  with its ranked ten. The spec is drafted
+  (docs/specs/UTA-0129-benchmark-tool.md); nothing is built yet.
+  The frame-time half is now wanted soon, with a fixed camera path,
+  since two of the four areas are frame time.
   **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
   Kind: implement.
   Source: user-request-2026-09-12.
@@ -13666,6 +13673,11 @@ stays with movement in 0.2.0.
   and MSVC. Closed by the user; what is left is UTA-0254. The scratch
   folder is deleted; its two tools moved to
   ~/.cache/uta-scratch/second-bounce.
+  Correction (2026-09-30, UTA-0255): "direct light is right" above
+  was wrong for the lamp in this room. The CPU trace that agreed with
+  the frame lit a strip from the nearest point of its segment; the
+  renderer shadows a strip from the segment's midpoint, which for
+  light 7 was a deck below. The bounce fix made here stands.
   **Layman:** Inside the ship, sunlight hits the floor but none of it spreads to the walls and ceiling, so the room is pitch black next to a bright patch.
   Kind: fix.
   Source: user-request-2026-09-30.
@@ -13688,9 +13700,86 @@ stays with movement in 0.2.0.
   The CPU ray trace and the light-list reader used there are kept
   at ~/.cache/uta-scratch/second-bounce (truth.cpp, lmtruth.cpp).
   A change here moves the baker revision.
+  2026-09-30: the room this was split for was dark because of
+  UTA-0255, not bounce. After that fix bounce adds about 3% of that
+  view's mean. Research the user asked for the same day is in
+  docs/research-2026-09-30-bounce-light.md; it, DOOM_Ants and Vestige
+  rank the levers alike: sky light through openings first (the bake
+  returns black for a ray that reaches sky), exposure second, per-
+  texel indirect third, more bounces fourth (gain 1/(1 - albedo)).
+  The user also asked for a ray-traced bake of the scene to look at;
+  a multi-bounce CPU reference is planned here to grade these, with
+  a furnace check first (Vestige's advice). UTA-0256 follows this.
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
+  Lanes: ubake, urender.
+
+- 🚧 [UTA-0255] **ubake: three alike lights on three decks are baked as one row, so a wall fixture in AS-Frigate lights nothing.**
+  Reported by the user from the launcher, 2026-09-30: in AS-Frigate
+  "the light in the screenshot doesn't seem to be emitting any
+  light", and only the sun lights that room. Camera (ut-shot):
+  201.27 45.81 1014.50 -448 37662 0 121.28, baker r28, ultra.
+  Found: light 7, at -232 -74 1016 beside that fixture, is a strip
+  leader. Its segment runs to light 14 at -515 -310 -64 through
+  light 25 at -418 -223 293: three lights with equal fields on three
+  decks, in line to within 9.6 units. `markStrips`
+  (src/ubake/Strips.cpp, UTA-0162 SS 4.2) accepts them: its gap
+  bound is 1.5 radii, 1125 units here, and it never asks whether a
+  member can see the next. The renderer casts a leader's shadow
+  from the segment's midpoint (UTA-0162 SS 4.5), which is a deck
+  below, so the room is in that light's shadow.
+  Measured with a test copy of the bundle in which those three are
+  ordinary lights again, same view, `ut-shot --from-capture`: mean
+  linear light 0.0241 before and 0.0481 after; over the upper left
+  of the frame 0.0071 before and 0.0387 after. Probes were not
+  re-baked for that test, so bounce from the lamp is not in it.
+  This corrects UTA-0253: its "direct light is right" was checked
+  with a CPU trace that lights from the nearest point of the
+  segment, which the renderer's shadow does not do.
+  Scratch: ~/.cache/uta-scratch/second-bounce (unstrip.cpp,
+  lights.cpp, truth.cpp, before-after.jpg).
+  Built (2026-09-30). `markStrips` gains rule 5: each member sees the
+  next, asked of the level's drawn surfaces; `bake` calls it after
+  `buildGeometry`. Baker revision 29. UTA-0162's spec is amended.
+  AS-Frigate: five rows before, three of them through a wall; three
+  rows after, none through one, and light 7 is an ordinary light.
+  DM-Deck16][: 23 rows before, three through a wall; 20 after.
+  Same view, full r29 bake: mean linear light 0.0483, upper left
+  0.0390; without probes 0.0470 and 0.0375.
+  Three hand mutations of the rule, each killed by the unit case.
+  Seen and left alone: AS-Frigate's row led by light 20 has gaps of
+  976 and 416 units at radius 750, so it lights a band between lamps
+  that stand further apart than they reach. Rule 4's bound allows it.
+  **Layman:** A wall lamp glows but lights nothing, because the baker mistook it and two identical lamps on other decks for one long strip light; the room it should light is left black.
+  Kind: fix.
+  Source: user-request-2026-09-30.
+  Lanes: ubake, urender.
+  Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-124302
+
+- 📋 [UTA-0256] **ubake: a room that stays too dark once its light is accurate gets a lamp of its own, with a fixture to hold it.**
+  Asked for by the user, 2026-09-30, in their words: "I want the
+  scenes to be lit accurately. If a room is too dark add in a light
+  (with the light geometry) that will help with emitting more
+  light." They noted it may go against what they said earlier. It
+  does not reopen the 2026-09-20 ruling against a brightness
+  multiplier on bounce light: this adds a source, not a gain.
+  Order matters. Accurate first: UTA-0255 found one dark room was a
+  direct-light fault, and UTA-0254 lists what bounce still lacks
+  (sky light, exposure, per-texel indirect). Only a room still dark
+  after those is this item's.
+  To design before building, none decided:
+  - what "too dark" is as a measured figure, and over what (a room
+    of the ROOM section, a zone, a view);
+  - where the lamp goes and what it looks like, given the map's own
+    fixtures and textures;
+  - whether added lamps are recorded per map so a person can remove
+    one, and how a recipe (UTA-0113) would carry that.
+  It meets a spec trigger: a design choice, and more than one
+  subsystem.
+  **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
+  Kind: feature.
+  Source: user-request-2026-09-30.
   Lanes: ubake, urender.
 
 ## 0.2.0 — Movement and weapons
