@@ -14155,6 +14155,12 @@ stays with movement in 0.2.0.
   (package-matched), pairs.tsv, dump.tsv (bRising, spark types),
   firedump/ (tool writing stills), stills/, sheets/. surfaces.ndjson
   deleted; ut-dump --surface-list regenerates it.
+  Progress (2026-10-01): 6a1518d (flame list, INV-3) green on GitHub,
+  all three legs. Next commit, ubundle format 15 (MATS flame look + FLAM,
+  INV-1 and INV-2), is committed locally, NOT pushed; unit 803/803.
+  Next: push it, then the ubake step: fill MATS flame looks (palette at
+  8 heats, linear) and FLAM records (sheet extraction and merge, nearest
+  light), BAKER_REVISION 30, INV-4 in tests/unit/BakeFlamesTest.cpp.
   **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
   Kind: feature.
   Source: user-request-2026-10-01 split-from-UTA-0105.
