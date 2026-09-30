@@ -13959,7 +13959,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: ubake.
 
-- 🚧 [UTA-0260] **urender: indoors a frame lights surfaces that end up hidden, and takes three times as long as outdoors.**
+- ✅ [UTA-0260] **urender: indoors a frame lights surfaces that end up hidden, and takes three times as long as outdoors.**
   Asked for by the user, 2026-09-30: faster frames, and smoother
   movement. Measured the same day with a scratch program
   (~/.cache/uta-scratch/frames.cpp) that draws AS-Frigate r29 on the
@@ -14014,6 +14014,8 @@ stays with movement in 0.2.0.
   still unmeasured, and frame time is still not in ut-bench
   (UTA-0129's second half). The indoor frames at about 13 ms are
   under a 60 Hz frame; the 99th percentile at 17 ms is not.
+  Shipped in 30e57ea (2026-09-30). GitHub green on GCC 14, Clang 19
+  and MSVC at 1381a1f, which holds it.
   **Layman:** Inside a building the game fully lights walls that are hidden behind nearer walls, several times per pixel; working out first what is in front lets it light each pixel once, so frames are much faster.
   Kind: perf.
   Source: user-request-2026-09-30.

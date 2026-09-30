@@ -5,7 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** `UTA-0129` (2026-09-30), picked by the user — read Vestige's reporting shape first, as the item says. `UTA-0253` is closed; what it left is `UTA-0254`.
+**Next:** `UTA-0129`'s second half (2026-09-30), frame time in `ut-bench` — the bake half is built. The user also asked that day for exposure or added lamps for dark rooms (`UTA-0254`, `UTA-0256`); which comes first is theirs to say.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
