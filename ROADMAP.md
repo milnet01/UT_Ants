@@ -7194,7 +7194,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-12.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0129] **A benchmark tool that says where the time goes, so optimisation aims at measurement.**
+- ✅ [UTA-0129] **A benchmark tool that says where the time goes, so optimisation aims at measurement.**
   Asked for by the user 2026-09-12: map out the engine's bottlenecks so
   the right parts get optimised.
 
@@ -7329,6 +7329,8 @@ stays with movement in 0.2.0.
   first indoor view holds the slowest frame, 19.8 ms.
   Not in it, and not queued: a frame's time split by pass, and the
   viewer's own time and presentation.
+  Shipped in 44149ea and a5d1f45 (2026-09-30). GitHub green on
+  GCC 14, Clang 19 and MSVC at a5d1f45.
   **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
   Kind: implement.
   Source: user-request-2026-09-12.
@@ -13792,6 +13794,23 @@ stays with movement in 0.2.0.
   and one constant fitted against it would be more defensible than
   an added light. That bears on UTA-0256 and on what albedo
   `radianceAlong` should use.
+  Against the original's own frames, 2026-09-30, after UTA-0255.
+  ut-ants-uta0197's score.py (it decodes the pictures; lower is
+  closer), the r27 reference bakes against r29:
+    AS-Frigate block RMS 19.22 to 17.26, pixel 25.60 to 24.29;
+    DM-Deck16][ 37.00 to 36.20, 40.76 to 39.63;
+    DM-Fetid 48.44 to 48.90, 52.10 to 51.89.
+  r27 to r29 spans UTA-0252, UTA-0253 and UTA-0255.
+  Displayed luma, 0 to 255, r29, over each map's reference poses:
+    AS-Frigate mean: original 72.1, ours 71.2. Where the original
+      is under 20: original 7.0, ours 19.3.
+    DM-Deck16][ mean: 68.2 and 68.0. Under 20: 4.5 and 32.9.
+    DM-Fetid mean: 53.0 and 79.9. Under 20: 11.0 and 74.7.
+    Pixels under 8: original 4.3%, 20.5%, 6.4%; ours 2.0%, 5.2%, 0%.
+  So our dark areas are lighter than the original's, not darker,
+  and the original has more contrast. By that measure nothing here
+  should add light: not sky light, not a gain, not a lamp. What is
+  open is the opposite, most of all on DM-Fetid. Put to the user.
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
@@ -13867,6 +13886,11 @@ stays with movement in 0.2.0.
     one, and how a recipe (UTA-0113) would carry that.
   It meets a spec trigger: a design choice, and more than one
   subsystem.
+  2026-09-30: measured against the original's frames (UTA-0254's
+  note), our dark areas are already lighter than the original's on
+  all three reference maps. An added lamp would move a room away
+  from the original. Put to the user with a recommendation to park
+  this until a room proves unplayable.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
