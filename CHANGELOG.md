@@ -540,6 +540,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Bounced light no longer all but vanishes in a dark room beside a lit surface** (UTA-0253)
+  It was dimmed twice on its way to the screen. Every map is baked
+  again when next opened.
+
 - **The hidden room a map keeps its sky in no longer shows in the sky** (UTA-0252)
   AS-Frigate showed it as a dark slab overhead. A sky surface now hides
   whatever lies behind it, as any wall does.

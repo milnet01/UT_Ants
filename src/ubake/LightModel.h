@@ -58,6 +58,17 @@ struct Rgb {
 /// matched the original game better than SurrealEngine's.
 [[nodiscard]] double falloff(double distance, double radius) noexcept;
 
+/// UTA-0253: the linear light a surface shows under light `light`, which is
+/// `light` raised to light.glsl's DISPLAY_LIGHT_POWER, 1.6. UT99 combines
+/// light and texture on display values (UTA-0187), so that power is what turns
+/// a light value into light a surface sends on. Zero at and below zero.
+///
+/// NO PLATFORM MATHS LIBRARY. The fifth root is Newton's iteration from a
+/// square-root guess, a fixed count of steps, and the eighth power of it is
+/// three squarings; `sqrt` is correctly rounded, so every compiler computes
+/// the same bits. Changed with DISPLAY_LIGHT_POWER, and BAKER_REVISION with it.
+[[nodiscard]] double shownLight(double light) noexcept;
+
 namespace detail {
 
 /// One UT angle unit in radians. Dividing by a power of two is exact, so this

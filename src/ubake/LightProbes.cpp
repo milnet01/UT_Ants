@@ -140,8 +140,10 @@ Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
         e.g += lit.g;
         e.b += lit.b;
     }
-    const Rgb a = albedo(batch.material);                                   // 6
-    return {a.r * e.r, a.g * e.g, a.b * e.b};
+    // 6. UTA-0253: the surface sends on the light it shows, not the light's
+    // own value -- so a probe holds light as scene.frag adds it, after the power.
+    const Rgb a = albedo(batch.material);
+    return {a.r * shownLight(e.r), a.g * shownLight(e.g), a.b * shownLight(e.b)};
 }
 
 } // namespace

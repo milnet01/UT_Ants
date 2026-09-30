@@ -175,11 +175,14 @@ double srgbByte(double c) {
     return 255.0 * encoded;
 }
 
-double litByte(double light) {
-    constexpr double LIGHT_GAIN = 1.0;
-    constexpr double DISPLAY_LIGHT_POWER = 1.6;
-    return srgbByte(std::pow(LIGHT_GAIN * light, DISPLAY_LIGHT_POWER));
-}
+namespace {
+constexpr double LIGHT_GAIN = 1.0;
+constexpr double DISPLAY_LIGHT_POWER = 1.6;
+} // namespace
+
+double litByte(double light) { return srgbByte(std::pow(LIGHT_GAIN * light, DISPLAY_LIGHT_POWER)); }
+
+double bouncedByte(double indirect) { return srgbByte(std::pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER) * indirect); }
 
 std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width, std::uint32_t x,
                                 std::uint32_t y) {

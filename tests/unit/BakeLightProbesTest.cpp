@@ -381,18 +381,20 @@ TEST_CASE("faces", "[ubake][probes]") {
         CHECK(cube[5].r / cube[5].g > cube[4].r / cube[4].g);
     }
 
-    SECTION("every value scales with the light's intensity") {
+    SECTION("every value scales as a surface's shown light does") {
         // UTA-0165: brightness goes through FGetHSV's curve, so 128 is not
-        // twice 64; the gather must still be linear in the intensity that
-        // curve gives. Not exact, as doubling was: the ratio is no power of two.
+        // twice 64. UTA-0253: a surface sends on the light it shows, which is
+        // its light raised to DISPLAY_LIGHT_POWER, so the gather scales by the
+        // intensity ratio raised to that power and not by the ratio.
         const auto once = gatherProbe(probe, rays, redFloorRoom,
                                       {steadyLight(1, {256, 256, 480}, 64)}, albedo);
         const auto scaled = gatherProbe(probe, rays, redFloorRoom,
                                         {steadyLight(1, {256, 256, 480}, 128)}, albedo);
-        const double ratio = uta::ubake::lightIntensity(128) / uta::ubake::lightIntensity(64);
-        CHECK(ratio < 2.0);
+        const double lights = uta::ubake::lightIntensity(128) / uta::ubake::lightIntensity(64);
+        CHECK(lights < 2.0);
+        const double ratio = std::pow(lights, 1.6);
         const auto near = [](double actual, double expected) {
-            return std::abs(actual - expected) <= 1e-12 * std::abs(expected);
+            return std::abs(actual - expected) <= 1e-9 * std::abs(expected);
         };
         for (std::size_t face = 0; face < 6; ++face) {
             CAPTURE(face, scaled[face].r, once[face].r, ratio);

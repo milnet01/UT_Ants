@@ -201,7 +201,12 @@ void main() {
         // UTA-0187: UT99 combines light and texture on display values, so the
         // light is taken to DISPLAY_LIGHT_POWER before it meets reflectance rho.
         // It replaced UTA-0112 SS 4.9's rho * (direct + indirect).
-        colour = base.rgb * pow(LIGHT_GAIN * (direct + (indirect + ambient) * open), vec3(DISPLAY_LIGHT_POWER));
+        // UTA-0253: a probe holds bounced light as a surface shows it, already
+        // through the power, so it is added after it. Inside it, a share and an
+        // albedo well under 1 were raised to the power as well, and a dark room
+        // beside a lit floor got a tenth of the bounce.
+        colour = base.rgb * (pow(LIGHT_GAIN * (direct + ambient * open), vec3(DISPLAY_LIGHT_POWER))
+                             + indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)));
     }
     // Emission is added to a lit surface only, as before UTA-0040, and at the
     // displaced coordinate like every other map.

@@ -13522,12 +13522,23 @@ stays with movement in 0.2.0.
   Placed in 0.1.0 because the launcher ships there and the cost lands
   on the user's disk with no sign of it. Deleted by hand that day; the
   cache directory on this machine is now a link to the Emulators drive.
+  Shape chosen (2026-09-30), not yet built: the first one. At
+  launcher start, once ut-bake has reported its version, delete each
+  regular `.utab` file directly in the bakes directory that no
+  map-results record of the current baker names. `readResult` already
+  gives each record's baker and bundle path (apps/ut-ants/MapList.cpp).
+  Delete nothing when the current baker is unknown. A pure function
+  lists the files and a unit test grades it; the delete is separate.
+  Known cost: two builds with different bakers sharing one cache
+  delete each other's bakes.
+  UTA-0253 moved the baker to revision 28, so every r27 bake in the
+  cache is unreachable now.
   **Layman:** Every time the baker changes, all earlier baked maps become unusable but stay on disk; they should be removed automatically.
   Kind: fix.
   Source: user-request-2026-09-30.
   Lanes: ubake, launcher.
 
-- 🚧 [UTA-0252] **urender: AS-Frigate's skybox room shows in the sky as a dark box.**
+- ✅ [UTA-0252] **urender: AS-Frigate's skybox room shows in the sky as a dark box.**
   Reported by the user from the launcher, 2026-09-30, ultra tier,
   baker r27. Camera (ut-shot): 1986.72 -1237.43 1284.67 5213 22412 0
   121.28.
@@ -13555,13 +13566,15 @@ stays with movement in 0.2.0.
   reads the far-plane depth. A device case in RenderSurfaceFlagsTest.cpp
   failed before and passes after, on lavapipe and the GPU. The captured
   view redrawn shows no box. Awaiting GitHub's matrix before the flip.
+  Shipped in 1823381 (2026-09-30); GitHub's matrix green on that commit.
+  Still not checked: whether other maps in the library showed it.
   **Layman:** Looking up in AS-Frigate, a dark slab hangs in the sky; it is the hidden room the map keeps its sky in, which a player should never see.
   Kind: fix.
   Source: user-request-2026-09-30.
   Lanes: urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-073419
 
-- 📋 [UTA-0253] **urender: bounce light adds almost nothing in AS-Frigate's ship interior, which draws black beside a sunlit floor.**
+- 🚧 [UTA-0253] **urender: bounce light adds almost nothing in AS-Frigate's ship interior, which draws black beside a sunlit floor.**
   Reported by the user from the launcher, 2026-09-30, as no light
   bounce at all. Ultra tier, baker r27. Camera (ut-shot): 120.50
   57.13 957.48 -221 41144 0 121.28.
@@ -13588,6 +13601,30 @@ stays with movement in 0.2.0.
   multiplier (user, 2026-09-20).
   Placed in 0.1.0: bounce light is a standing requirement and this
   is a reference map.
+  Findings (2026-09-30), by the item's own list.
+  Direct light is right. A CPU ray trace of the view agrees with the
+  frame, and the map's own light build agrees with both: surface 203,
+  the wall at x -240, lists light 7 and three texels of light 1 and no
+  other. Light 7 sits 8 units off that wall, so it grazes it.
+  The original game draws such a room black too. At PlayerStart11, in
+  the same zero-ambient zone, 63 percent of the original's frame is
+  under 0.02 against 28 percent of ours
+  (ut-ants-uta0156/orig-asfrigate, pose 4).
+  Cause found for the weak bounce: the baker stored albedo times the
+  light's value, and scene.frag raised direct plus indirect to the
+  display power together, so the albedo and the share of the view a
+  lit patch fills were raised to 1.6 as well.
+  Changed: the baker stores albedo times `shownLight`, the value to
+  the power, with no maths library; scene.frag adds indirect after
+  the power. Baker revision 28.
+  Measured at the capture, linear, upper-left quarter: bounce added
+  0.00005 before and 0.00116 after. Pixels exactly zero fell from 52
+  to 15 percent. Against the original's 22 frames the block RMS went
+  29.24 to 29.14.
+  Still small beside the floor's 0.12. Levers left, neither taken: a
+  second bounce, and probe reach. Both want the user's word first.
+  Scratch tools kept in ~/.cache/uta-scratch/u253: truth.cpp (the
+  ray trace) and lmtruth.cpp (the map's light lists).
   **Layman:** Inside the ship, sunlight hits the floor but none of it spreads to the walls and ceiling, so the room is pitch black next to a bright patch.
   Kind: fix.
   Source: user-request-2026-09-30.

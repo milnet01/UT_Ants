@@ -99,6 +99,11 @@ void addEmissiveMaterial(ubundle::Bundle& bundle, const std::string& id, const R
 /// DISPLAY_LIGHT_POWER, mirrored here and changed with them.
 [[nodiscard]] double litByte(double light);
 
+/// UTA-0253: what scene.frag shows for bounced light `indirect` alone on a
+/// white lit surface. A probe holds light as a surface shows it, so it is
+/// added after the power and takes only LIGHT_GAIN's share of it.
+[[nodiscard]] double bouncedByte(double indirect);
+
 /// The two floats at (x, y) of a Velocity readback `width` pixels wide.
 [[nodiscard]] std::array<float, 2> velocityAt(std::span<const std::byte> image, std::uint32_t width,
                                               std::uint32_t x, std::uint32_t y);

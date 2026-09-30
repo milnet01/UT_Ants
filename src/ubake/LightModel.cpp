@@ -137,6 +137,22 @@ double falloff(double distance, double radius) noexcept {
     return 1 + 2 * v * v * v - 3 * v * v;
 }
 
+double shownLight(double light) noexcept {
+    if (!(light > 0)) return 0;
+    // The guess is light^(3/16), within a factor of two of the fifth root from
+    // 1e-24 up, and on the side Newton's steps close from fastest.
+    const double sixteenth = std::sqrt(std::sqrt(std::sqrt(std::sqrt(light))));
+    double root = sixteenth * sixteenth * sixteenth;
+    for (int step = 0; step < 8; ++step) {
+        const double square = root * root;
+        root = (4 * root + light / (square * square)) / 5;
+    }
+    // light^(8/5) is the fifth root's eighth power.
+    const double square = root * root;
+    const double fourth = square * square;
+    return fourth * fourth;
+}
+
 Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept {
     const Vec3 location{light.location[0], light.location[1], light.location[2]};
     if (light.strip != ubundle::STRIP_LEADER) return location;

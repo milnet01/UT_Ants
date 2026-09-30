@@ -70,7 +70,7 @@ namespace {
 // 25: the fixture's pictures are all 4x4.
 // 27: UTA-0247 read an Int tag declaring under four bytes as four. Same digest
 // as 26: the fixture writes every tag's true size.
-constexpr std::uint32_t RECORDED_UNDER = 27;
+constexpr std::uint32_t RECORDED_UNDER = 28;
 constexpr std::string_view GOLDEN =
     "0469a7e3df8c13790861b610ef473693503fa3e0a383ca6c33459db204dbfae5";
 

@@ -388,7 +388,12 @@ directions, taken in ascending order of `z`, then `y`, then `x`.
 5. With `x = p + t × ω`, `E` is the sum over the baked lights, in their order,
    of `lightAt(light, x, n)`. A light counts `0` when
    `blocked(x + 0.5 × n, light.location)`.
-6. `L` is the batch's albedo times `E`, channel by channel.
+6. `L` is the batch's albedo times `shownLight(E)`, channel by channel.
+   **Amended by `UTA-0253`, recording what was built:** `shownLight(E)` is
+   `E^p`, § 4.9's power, computed with no platform maths library
+   (`src/ubake/LightModel.h`). A surface sends on the light it shows. The
+   step used `E` itself, which § 4.9 then raised to `p` together with the
+   albedo and the share of the view the surface fills.
 
 **Face `k`**, with axis `a_k`, is `Σ L × max(0, ω · a_k) / Σ max(0, ω · a_k)`,
 both sums taken in the directions' order. It is stored as the nearest float.
@@ -421,14 +426,17 @@ indirect(n) = n.x² × cube[n.x ≥ 0 ? +X : −X]
 ```
 
 That is the evaluation Valve's paper gives for an ambient cube (§ 3 decision 1).
-A surface of reflectance `ρ` shows `ρ × (g × (direct + indirect))^p`, where
+A surface of reflectance `ρ` shows `ρ × ((g × direct)^p + g^p × indirect)`
+(amended by `UTA-0253`, recording what was built; it was
+`ρ × (g × (direct + indirect))^p`), where
 `direct` is § 4.3's `lightAt` summed over every light drawn, with its shadow
 map in place of § 4.7's `blocked`. UT99 combines light and texture on display
 values, so the light is raised to `p` before it meets `ρ` (UTA-0187, which
 replaced this section's `ρ × (direct + indirect)`). `g` and `p` are
 `LIGHT_GAIN` and `DISPLAY_LIGHT_POWER` in `src/urender/shaders/light.glsl`,
-fitted against the original game's frames; `indirect` also adds UTA-0156's zone
-ambient, and the sum is scaled by UTA-0164's occlusion, as `scene.frag` shows. `lightAt` is a light's steady value: how its `type` varies it
+fitted against the original game's frames; UTA-0156's zone ambient is added
+to `direct`, inside the power, and both it and `indirect` are scaled by
+UTA-0164's occlusion, as `scene.frag` shows. `lightAt` is a light's steady value: how its `type` varies it
 over time, and what the effects § 4.3 bakes as `LE_None` add, are UTA-0014's.
 The bake uses the steady value, so bounced light does not flicker.
 
@@ -550,8 +558,11 @@ tests change no line.
   radiance on every face, within `1e-12`.
   *Test:* `tests/unit/BakeLightProbesTest.cpp`, "faces". The doubling is exact
   because scaling one factor by two scales every rounded product, sum and
-  quotient by two.
-  *Breaks when:* the faces are swapped, or the weights are not divided out.
+  quotient by two. **Amended by `UTA-0253`, recording what was built:** the
+  test scales one light's intensity by a ratio `r` and checks every stored
+  value scales by `r^p`, within `1e-9`, since § 4.7 step 6 stores shown light.
+  *Breaks when:* the faces are swapped, the weights are not divided out, or
+  step 6 stores `E` unraised.
 - **INV-10** — A bake with one worker and a bake with four write identical
   `LPRB` bytes. UTA-0011 INV-5's golden bake matches on every CI leg under
   `BAKER_REVISION` `6`.

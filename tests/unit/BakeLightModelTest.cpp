@@ -241,6 +241,20 @@ TEST_CASE("intensity incidence and spot", "[ubake][lightmodel]") {
     }
 }
 
+TEST_CASE("UTA-0253: shown light is the light raised to the display power", "[ubake][lightmodel]") {
+    using uta::ubake::shownLight;
+    CHECK(shownLight(0.0) == 0.0);
+    CHECK(shownLight(-1.0) == 0.0);
+    CHECK(shownLight(1.0) == 1.0);
+    // From far below anything a light puts on a surface to far above it.
+    double worst = 0;
+    for (double light = 1e-9; light < 100.0; light *= 1.07) {
+        const double exact = std::pow(light, 1.6);
+        worst = std::max(worst, std::abs(shownLight(light) - exact) / exact);
+    }
+    CHECK(worst < 1e-13);
+}
+
 TEST_CASE("sRGB", "[ubake][lightmodel]") {
     for (int byte = 0; byte < 256; ++byte) {
         const double c = byte / 255.0;
