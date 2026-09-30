@@ -317,6 +317,9 @@ constants do.
 - INV-2 — `tests/unit/BundleFlamesTest.cpp`, new.
 - INV-3 — `tests/real/RealFlamesTest.cpp`, new, `-DUTA_REAL_ASSET_TESTS=ON`
   only.
+- The flame list's digest — `tests/unit/FlameLibraryTest.cpp` pins it, so an
+  edit to the list fails until `BAKER_REVISION` is bumped and the new digest
+  recorded. A cached bake is reused until the revision moves.
 - INV-4 — `tests/unit/BakeFlamesTest.cpp`, new.
 - INV-5 — `tests/unit/RenderLightsTest.cpp`, extended.
 - INV-6, INV-7, INV-8 — `tests/device/RenderFlamesTest.cpp`, new, label

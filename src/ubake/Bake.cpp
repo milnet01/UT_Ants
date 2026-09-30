@@ -216,18 +216,6 @@ std::expected<ObjectSite, std::string> objectAt(const upkg::Package& from, upkg:
     return ObjectSite{*found, entry};
 }
 
-/// The value of type T a property list carries under `wanted` (folded), or
-/// `absent` -- a property left at its class default is not stored.
-template <class T>
-T propertyOr(const upkg::Package& holder, std::span<const upkg::Property> properties, std::string_view wanted,
-             T absent) {
-    for (const upkg::Property& property : properties) {
-        if (detail::fold(nameOf(holder, property.nameIndex)) != wanted) continue;
-        if (const auto* const value = std::get_if<T>(&property.value)) return *value;
-    }
-    return absent;
-}
-
 /// The object reference a property list carries under `wanted` (folded), if any.
 std::optional<upkg::ObjectReference> objectProperty(const upkg::Package& holder,
                                                     std::span<const upkg::Property> properties,
@@ -429,11 +417,7 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                            base.width, base.height, MADE_EDGE_LIMIT));
     if (const auto className = holder.objectName(site.entry->objectClass);
         storesNoPixels && className.has_value() && detail::fold(*className) == "firetexture") {
-        const FireSettings fire{
-            .renderHeat = propertyOr<std::uint8_t>(holder, *properties, "renderheat", 0),
-            .rising = propertyOr<bool>(holder, *properties, "brising", false),
-            .sparksLimit = propertyOr<std::int32_t>(holder, *properties, "sparkslimit", 0)};
-        madeIndices = fireStill(base.width, base.height, texture->sparks, fire);
+        madeIndices = fireStill(base.width, base.height, texture->sparks, fireSettingsOf(holder, *properties));
         madeLevel = base;
         madeLevel.pixels = madeIndices;
         shown = &madeLevel;

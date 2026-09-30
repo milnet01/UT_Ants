@@ -3,8 +3,14 @@
 
 #include "FireStill.h"
 
+#include "Install.h"
+
 #include <algorithm>
 #include <array>
+#include <optional>
+#include <string>
+#include <type_traits>
+#include <variant>
 
 namespace uta::ubake {
 namespace {
@@ -208,6 +214,28 @@ std::vector<std::byte> fireStill(std::uint32_t width, std::uint32_t height, std:
     std::vector<std::byte> indices(field.heat().size());
     std::ranges::transform(field.heat(), indices.begin(), [](std::uint8_t heat) { return std::byte{heat}; });
     return indices;
+}
+
+FireSettings fireSettingsOf(const upkg::Package& holder, std::span<const upkg::Property> properties) {
+    // The first property of the name and type counts, as the bake always read it.
+    std::optional<std::uint8_t> renderHeat;
+    std::optional<bool> rising;
+    std::optional<std::int32_t> sparksLimit;
+    const auto take = [](auto& slot, const upkg::PropertyValue& value) {
+        using T = typename std::remove_reference_t<decltype(slot)>::value_type;
+        if (const auto* const held = std::get_if<T>(&value); held && !slot.has_value()) slot = *held;
+    };
+    for (const upkg::Property& property : properties) {
+        const auto name = holder.name(property.nameIndex);
+        if (!name.has_value()) continue;
+        const std::string folded = detail::fold(*name);
+        if (folded == "renderheat") take(renderHeat, property.value);
+        else if (folded == "brising") take(rising, property.value);
+        else if (folded == "sparkslimit") take(sparksLimit, property.value);
+    }
+    return {.renderHeat = renderHeat.value_or(0),
+            .rising = rising.value_or(false),
+            .sparksLimit = sparksLimit.value_or(0)};
 }
 
 } // namespace uta::ubake

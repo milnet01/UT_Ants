@@ -20,6 +20,7 @@ add_library(uta_umat STATIC
     Fingerprint.cpp
     Library.cpp
     CuratedMaterials.cpp
+    CuratedFlames.cpp
     "${_uta_bc7enc_dir}/bc7enc.c")
 target_link_libraries(uta_umat PUBLIC uta_core uta_ubundle uta_upkg)
 target_include_directories(uta_umat PRIVATE "${_uta_bc7enc_dir}")

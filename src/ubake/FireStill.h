@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include "upkg/Package.h"
+#include "upkg/Properties.h"
 #include "upkg/Texture.h"
 
 #include <cstddef>
@@ -43,6 +45,13 @@ struct FireSettings {
     bool rising = false;         ///< the field moves up a row a frame
     std::int32_t sparksLimit = 0; ///< sparks and live particles together
 };
+
+/// UTA-0263: the settings a FireTexture's property list gives, each at the
+/// class default where the export does not store it. The bake and INV-3's
+/// real-asset test both read a FireTexture through this, so both judge the
+/// same still.
+[[nodiscard]] FireSettings fireSettingsOf(const upkg::Package& holder,
+                                          std::span<const upkg::Property> properties);
 
 /// The heat of every pixel after FIRE_STILL_FRAMES frames, row by row, top
 /// first: `width` times `height` palette indices. Empty when either is 0.
