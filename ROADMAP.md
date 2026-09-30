@@ -13811,6 +13811,9 @@ stays with movement in 0.2.0.
   and the original has more contrast. By that measure nothing here
   should add light: not sky light, not a gain, not a lamp. What is
   open is the opposite, most of all on DM-Fetid. Put to the user.
+  User decision (2026-10-01): dark rooms are left as they are; no
+  added light. UTA-0256 is parked. The open gap is the opposite one,
+  DM-Fetid too bright, carried by UTA-0261.
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
@@ -13866,7 +13869,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-124302
 
-- 📋 [UTA-0256] **ubake: a room that stays too dark once its light is accurate gets a lamp of its own, with a fixture to hold it.**
+- 💭 [UTA-0256] **ubake: a room that stays too dark once its light is accurate gets a lamp of its own, with a fixture to hold it.**
   Asked for by the user, 2026-09-30, in their words: "I want the
   scenes to be lit accurately. If a room is too dark add in a light
   (with the light geometry) that will help with emitting more
@@ -13891,6 +13894,9 @@ stays with movement in 0.2.0.
   all three reference maps. An added lamp would move a room away
   from the original. Put to the user with a recommendation to park
   this until a room proves unplayable.
+  Parked (user, 2026-10-01): dark rooms stay as they are, since ours
+  are already lighter than the original's (UTA-0254). Reopen only if a
+  room proves unplayable.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
@@ -14056,7 +14062,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: urender.
 
-- 📋 [UTA-0261] **DM-Fetid's dark areas draw far brighter than the original's: 75 of 255 where it shows 11.**
+- 🚧 [UTA-0261] **DM-Fetid's dark areas draw far brighter than the original's: 75 of 255 where it shows 11.**
   Found 2026-09-30 while scoring r29 against the original's frames
   (UTA-0254's note has every figure and the method: ut-ants-uta0197's
   render.sh and score.py over ut-ants-uta0156/orig-fetid-novol).
@@ -14070,6 +14076,7 @@ stays with movement in 0.2.0.
   LevelInfo.Brightness 1.4 (UTA-0156 SS 4.5), zone ambient and
   fog zones, which are the next. Not investigated yet.
   Recommended to the user as the next item, 2026-09-30; not picked.
+  Picked up 2026-10-01 (user).
   **Layman:** On one map the shadowy parts come out much brighter than in the original game, far more than on other maps, which points at a fault specific to that map.
   Kind: investigate.
   Source: in-session-2026-09-30.
