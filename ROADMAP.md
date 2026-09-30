@@ -13506,6 +13506,27 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14 performance pass, UTA-0151.
   Lanes: tests, ut-paths, ubake.
 
+- 📋 [UTA-0251] **The launcher's bake cache never deletes a bake no current baker can find.**
+  Measured 2026-09-30: the per-user cache under content/bakes held
+  193 bundles, 23 GB, on the system drive. None was usable. 115 were
+  format 13, which `ubundle::read` refuses. The other 78 were format 14
+  from baker r24 or earlier; `detail::nameOf` hashes `bakerVersion()`
+  into the name, so a baker at r27 never looks for them.
+  The texture cache already trims itself (`TextureCache::trim`); the
+  bake cache has no counterpart.
+  Shape to decide: remove on launcher start every bundle whose header
+  the current build refuses, and every one not named by a current
+  map-results record; or cap the directory by size as the texture
+  cache does. A bundle does not store its baker version, so the header
+  alone cannot identify an older-baker bake of the current format.
+  Placed in 0.1.0 because the launcher ships there and the cost lands
+  on the user's disk with no sign of it. Deleted by hand that day; the
+  cache directory on this machine is now a link to the Emulators drive.
+  **Layman:** Every time the baker changes, all earlier baked maps become unusable but stay on disk; they should be removed automatically.
+  Kind: fix.
+  Source: user-request-2026-09-30.
+  Lanes: ubake, launcher.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
