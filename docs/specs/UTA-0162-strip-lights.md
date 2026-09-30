@@ -104,16 +104,21 @@ namespace uta::ubake {
 inline constexpr double STRIP_LINE_TOLERANCE = 16.0; ///< units from the row's line
 inline constexpr double STRIP_GAP_REACH = 1.5;       ///< a gap's bound, in radii
 
+/// Whether something solid crosses the straight line between two points.
+using Blocked = std::function<bool(const Vec3& from, const Vec3& to)>;
+
 /// Marks each row of `lights` as one strip, in place. `lights` is strictly
-/// ascending by exportIndex, as LITE holds it.
-void markStrips(std::vector<ubundle::Light>& lights);
+/// ascending by exportIndex, as LITE holds it. `blocked` answers rule 5.
+void markStrips(std::vector<ubundle::Light>& lights, const Blocked& blocked);
 
 }  // namespace uta::ubake
 ```
 
-`bake` calls it on `actors.lights` after `buildActors` and before
+`bake` calls it on `actors.lights` after `buildGeometry` and before
 `bakedLights` feeds `bakeLightProbes`, so the probes and the bundle see the
-same strips.
+same strips. `blocked` is `SurfaceRays::blocked` over the level's `GEOM`, the
+surfaces § 4.5's shadow is drawn from. **`UTA-0255` moved the call from after
+`buildActors` and added rule 5.**
 
 **A row** is a set of three or more lights where all of these hold:
 
@@ -128,6 +133,11 @@ same strips.
 4. **No gap is too wide.** Ordered by position along the line, each
    neighbour's distance along it is above `0` and at most `STRIP_GAP_REACH ×
    R`, with `R` UTA-0112 § 4.3's radius.
+5. **Each member sees the next.** Ordered as in rule 4, `blocked` is false
+   between each member's `location` and its neighbour's. Added by `UTA-0255`:
+   in AS-Frigate three alike lights on three decks were in line to within
+   the tolerance, and § 4.5 cast their shadow from a deck none of them lit.
+   Only neighbours are asked, so a row that bends past a pillar is still one.
 
 **Every row is maximal, and no light is in two.** Where two candidate rows
 share a light, the one with more members is kept, and on a tie the one whose
@@ -139,7 +149,7 @@ alone, so a bake stays deterministic.
 members, lower `exportIndex` first. The rest become `STRIP_ABSORBED`. No
 `location` moves.
 
-`BAKER_REVISION` becomes `12`.
+`BAKER_REVISION` becomes `12`. `UTA-0255`'s rule 5 made it `29`.
 
 ### 4.3 The light model
 
@@ -248,6 +258,16 @@ still gives six.
   *Breaks when:* what the baker writes changes with no bump, or the bump lands
   without re-recording.
 
+- **INV-11** — a row is refused where a wall lies between two neighbours, and
+  only there: INV-2's row with a wall between its second and third lights
+  marks no strip; with a wall on the line between its two ends alone it is
+  still one strip; a row of five with a wall after the third marks the first
+  three and leaves the other two.
+  *Test:* `tests/unit/BakeStripsTest.cpp`, the rule 5 case. Added by
+  `UTA-0255`.
+  *Breaks when:* the ends are asked in place of the neighbours; only the
+  first pair is asked; the rule is dropped.
+
 ## 6. Failure modes
 
 - **A row the rules miss** stays a string of point lights, as today. Nothing
@@ -280,6 +300,7 @@ All carry the `unit` label but INV-6 and INV-8, which carry `device`.
 - INV-8 — `tests/device/RenderLightingTest.cpp`, extended.
 - INV-9 — `tests/unit/RenderShadowsTest.cpp`, extended.
 - INV-10 — `tests/unit/BakeGoldenTest.cpp`, re-recorded.
+- INV-11 — `tests/unit/BakeStripsTest.cpp`, extended by `UTA-0255`.
 
 Each extended test is seen to fail against the code before this item.
 
@@ -327,6 +348,8 @@ fit moves, by UTA-0156's rule.
 | INV-8 | `tests/device/RenderLightingTest.cpp` |
 | INV-9 | `tests/unit/RenderShadowsTest.cpp` |
 | INV-10 | `tests/unit/BakeGoldenTest.cpp` |
+| INV-11 | `tests/unit/BakeStripsTest.cpp` |
+| `bake` hands `markStrips` the level's own surfaces | `tests/real/RealBakeTest.cpp`, DM-Deck16]['s row count — only where an install is given |
 | How strips look against the original | **nothing** — § 7's measurement is run by hand |
 
 ## 11. Cross-doc impact

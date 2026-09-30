@@ -48,10 +48,11 @@ struct Row {
 
 /// The row whose ends are lights `i` and `j`: every light of `group` on the
 /// segment between them and within the line tolerance of it, when there are
-/// at least three, no gap along the line is too wide (rule 4), and the ends
-/// are the two members furthest apart (rule 3).
+/// at least three, no gap along the line is too wide (rule 4), each member
+/// sees the next (rule 5), and the ends are the two members furthest apart
+/// (rule 3).
 std::optional<Row> rowBetween(const std::vector<ubundle::Light>& lights, const std::vector<std::size_t>& group,
-                              std::size_t i, std::size_t j, double gapBound) {
+                              std::size_t i, std::size_t j, double gapBound, const Blocked& blocked) {
     const Vec3 a = at(lights[i]);
     const Vec3 s = at(lights[j]) - a;
     const double span = length(s);
@@ -76,6 +77,10 @@ std::optional<Row> rowBetween(const std::vector<ubundle::Light>& lights, const s
     for (std::size_t m = 1; m < along.size(); ++m) {
         const double gap = along[m].first - along[m - 1].first;
         if (!(gap > 0 && gap <= gapBound)) return std::nullopt;
+        // Rule 5 (UTA-0255). Alike lights in line through a floor or a wall are
+        // not one fixture, and SS 4.5 would cast their shadow from a point no
+        // member lights from.
+        if (blocked(at(lights[along[m - 1].second]), at(lights[along[m].second]))) return std::nullopt;
     }
     // Rule 3. Every member lies within the tolerance of the line, so two whose
     // spread along it is at most sqrt(span^2 - 4 tolerance^2) cannot be further
@@ -100,7 +105,7 @@ std::optional<Row> rowBetween(const std::vector<ubundle::Light>& lights, const s
 
 } // namespace
 
-void markStrips(std::vector<ubundle::Light>& lights) {
+void markStrips(std::vector<ubundle::Light>& lights, const Blocked& blocked) {
     using Key = decltype(keyOf(std::declval<const ubundle::Light&>()));
     std::map<Key, std::vector<std::size_t>> groups;
     for (std::size_t i = 0; i < lights.size(); ++i)
@@ -115,7 +120,7 @@ void markStrips(std::vector<ubundle::Light>& lights) {
         for (std::size_t p = 0; p < group.size(); ++p)
             for (std::size_t q = p + 1; q < group.size(); ++q) {
                 if (length(at(lights[group[q]]) - at(lights[group[p]])) > longest) continue;
-                if (auto row = rowBetween(lights, group, group[p], group[q], gapBound))
+                if (auto row = rowBetween(lights, group, group[p], group[q], gapBound, blocked))
                     candidates.push_back(std::move(*row));
             }
     }

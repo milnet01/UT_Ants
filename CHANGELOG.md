@@ -540,6 +540,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A lamp is no longer joined into one strip light with alike lamps behind a wall or on another deck.** (UTA-0255)
+  A wall lamp in AS-Frigate glowed and lit nothing: it had been
+  joined with two alike lamps on other decks, and its shadow was
+  cast from a deck below. A row of lamps now ends at a wall. Every
+  map is baked again when next opened.
+
 - **The launcher removes baked maps an older baker made.** (UTA-0251)
   A baked map made by an older baker is never opened again, and until
   now it stayed on disk. On start the launcher deletes each such file

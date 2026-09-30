@@ -13,6 +13,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -117,6 +118,10 @@ TEST_CASE("every map takes a bake name and a stock map bakes the same twice",
             CAPTURE(light.exportIndex);
             CHECK(light.levelBrightness == 0.8F);
         }
+        // UTA-0255: a row ends at a wall. The stock map has 20 rows; asked of
+        // no wall it has 23, three of them through one. This is what grades
+        // the bake handing markStrips the level's own surfaces.
+        CHECK(std::ranges::count(*result->bundle.lights, uta::ubundle::STRIP_LEADER, &uta::ubundle::Light::strip) == 20);
         if (run == 0)
             WARN("DM-Deck16][ -- materials " << result->bundle.materials->size() << ", skipped "
                                             << result->skipped.size() << ", rooms "

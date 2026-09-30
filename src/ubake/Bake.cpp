@@ -12,6 +12,7 @@
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "ubake/Strips.h"
+#include "ubake/SurfaceRays.h"
 #include "ubake/Zones.h"
 #include "umat/Enlarge.h"
 #include "umat/Fingerprint.h"
@@ -729,9 +730,6 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // 5. PLAC and LITE -- UTA-0110 SS 4.7, moved ahead of the materials by
     // UTA-0119 SS 4.6: the movers are found from them.
     UTA_TRY(Actors actors, naming(buildActors(map, mapName, level, resolver), mapName));
-    // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
-    // probes gather them, so the probes and LITE see the same strips.
-    markStrips(actors.lights);
     // UTA-0156 SS 4.3: each zone's ambient and fog flag, from the actors step 5 placed.
     std::vector<ubundle::Zone> zones = buildZones(model, actors.placements);
     // UTA-0156 SS 4.5: the level's brightness rides on every light, ahead of
@@ -767,6 +765,16 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         return found == materials.bySurface.end() ? nullptr : &found->second;
     };
     UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup, zones.size()), mapName));
+
+    // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
+    // probes gather them, so the probes and LITE see the same strips. After
+    // step 8, because rule 5 asks the drawn surfaces whether a member sees
+    // the next (UTA-0255).
+    {
+        const SurfaceRays surfaces(geometry);
+        markStrips(actors.lights,
+                   [&surfaces](const Vec3& from, const Vec3& to) { return surfaces.blocked(from, to); });
+    }
 
     // 9. MOVR, in export order -- UTA-0119 SS 4.5.
     std::vector<ubundle::MoverShape> shapes;
