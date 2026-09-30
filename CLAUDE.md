@@ -5,7 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** undecided (2026-09-30) — `UTA-0251` shipped; the user picks the next `0.1.0` item, and `UTA-0253` awaits the user on how to close it.
+**Next:** `UTA-0129` (2026-09-30), picked by the user — read Vestige's reporting shape first, as the item says. `UTA-0253` is closed; what it left is `UTA-0254`.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:

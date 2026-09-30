@@ -7191,7 +7191,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-12.
   Lanes: ut-paths.
 
-- 📋 [UTA-0129] **A benchmark tool that says where the time goes, so optimisation aims at measurement.**
+- 🚧 [UTA-0129] **A benchmark tool that says where the time goes, so optimisation aims at measurement.**
   Asked for by the user 2026-09-12: map out the engine's bottlenecks so
   the right parts get optimised.
 
@@ -13587,7 +13587,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-073419
 
-- 🚧 [UTA-0253] **urender: bounce light adds almost nothing in AS-Frigate's ship interior, which draws black beside a sunlit floor.**
+- ✅ [UTA-0253] **urender: bounce light adds almost nothing in AS-Frigate's ship interior, which draws black beside a sunlit floor.**
   Reported by the user from the launcher, 2026-09-30, as no light
   bounce at all. Ultra tier, baker r27. Camera (ut-shot): 120.50
   57.13 957.48 -221 41144 0 121.28.
@@ -13638,11 +13638,36 @@ stays with movement in 0.2.0.
   second bounce, and probe reach. Both want the user's word first.
   Scratch tools kept in ~/.cache/uta-scratch/u253: truth.cpp (the
   ray trace) and lmtruth.cpp (the map's light lists).
+  Shipped in ef15ccc (2026-09-30). GitHub green on GCC 14, Clang 19
+  and MSVC. Closed by the user; what is left is UTA-0254. The scratch
+  folder is deleted; its two tools moved to
+  ~/.cache/uta-scratch/second-bounce.
   **Layman:** Inside the ship, sunlight hits the floor but none of it spreads to the walls and ceiling, so the room is pitch black next to a bright patch.
   Kind: fix.
   Source: user-request-2026-09-30.
   Lanes: ubake, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-073437
+
+- 📋 [UTA-0254] **ubake: bounced light stays faint where one bounce from a small lit patch is all a room gets.**
+  Split from UTA-0253 when the user closed it (2026-09-30). That item
+  fixed how bounce light is stored and shown (baker revision 28). At
+  its AS-Frigate capture the upper-left quarter then gained 0.00116
+  linear from bounce, against about 0.12 on the sunlit floor.
+  Levers, neither taken: a second bounce in the baker, and the reach
+  of a probe. Ruled out: a brightness multiplier on bounce light
+  (user, 2026-09-20).
+  The original game draws that room black too (UTA-0253), so the
+  target is a measured choice, not a match to UT99.
+  Measure with `ut-shot --from-capture --linear`, with and without
+  `--no-probes`, at the capture named on UTA-0253. Note `--linear`
+  writes eight bits.
+  The CPU ray trace and the light-list reader used there are kept
+  at ~/.cache/uta-scratch/second-bounce (truth.cpp, lmtruth.cpp).
+  A change here moves the baker revision.
+  **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
+  Kind: enhancement.
+  Source: user-request-2026-09-30 split-from-UTA-0253.
+  Lanes: ubake, urender.
 
 ## 0.2.0 — Movement and weapons
 
