@@ -7267,6 +7267,30 @@ stays with movement in 0.2.0.
   Neither is read yet. A session taking this item reads Vestige first and
   records what it took, because an unread reference in a roadmap body is
   indistinguishable from one that was read and rejected.
+  Vestige read (2026-09-30), by a survey of its profiler, perf gate
+  and Formula Workbench. Two of its documents were not opened:
+  docs/research/performance_overlay_research.md and SS 8 of
+  docs/phases/phase_10_meadow_benchmark_scene_design.md.
+  Taken:
+  - A named RAII scope that nests (its `VESTIGE_PROFILE_SCOPE`), and
+    one output row per (category, name, depth, value).
+  - A versioned result file, where an unknown version is an error.
+  - Drop the warm-up, never report a mean alone; its measured spread
+    over five runs was 1.9% on the minimum, 4.7% on the median and
+    67.7% on a 90th percentile, so compare on the minimum.
+  - Too few samples is "inconclusive", never a failure.
+  - Timing is not a push gate: it tests the comparing code in CI and
+    measures on real hardware by hand.
+  Not taken, with the reason:
+  - Its CPU profiler is cleared every frame and is one global with no
+    locking. A bake is not a frame and runs on the job system, so
+    ours must accumulate and be safe across threads.
+  - It records the machine as a hand-typed label. This item requires
+    machine, compiler and build type beside every figure, so ours
+    reads them itself.
+  - The Formula Workbench fits curves to data (bake time against map
+    size, say). It has no mean, median or percentile over samples, so
+    it is not what summarises timing runs.
   **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
   Kind: implement.
   Source: user-request-2026-09-12.
