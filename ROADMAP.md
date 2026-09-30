@@ -12894,6 +12894,9 @@ stays with movement in 0.2.0.
   the motion must be generated (from each texture's own parameters),
   not played back. UTA-0215 carries the underwater view.
   Picked up 2026-10-01 (user).
+  Narrowed by the user (2026-10-01): fire is replaced with modern
+  shader flames rather than replayed, and moves to UTA-0263. This item
+  keeps the liquids and WetTexture, IceTexture and WaveTexture motion.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -14111,6 +14114,28 @@ stays with movement in 0.2.0.
   Kind: enhancement.
   Source: in-session-2026-10-01 split-from-UTA-0261.
   Lanes: urender.
+
+- 🚧 [UTA-0263] **urender: fires drawn the modern way, as moving shader flames that face the player, glow and flicker their light.**
+  Asked for by the user, 2026-10-01: "Please replace fires / flames
+  with modern forms of creating them." So fire is REPLACED, not
+  replayed: UT99's FireTexture simulation (ubake/FireStill's still)
+  is no longer what a player sees.
+  User decision (2026-10-01), of three put to them: shader flames.
+  Each small flame surface (a torch sheet, such as AS-Frigate's
+  TORCHES2) becomes a camera-facing flame drawn from moving noise in
+  the shader, so it is never paper-thin edge on; it feeds bloom, and
+  the light that belongs to it flickers in step. A large fire-covered
+  surface gets the same moving flame on the surface itself. Particle
+  flames were the fuller alternative and were not chosen. Lava stays
+  with the liquids (UTA-0105, UTA-0089).
+  Looks are decided by measurement, not by asking the user.
+  Meets spec triggers: a design choice across ubake, ubundle and
+  urender. Contract reviews are cancelled for this project.
+  Today fire exists only as BSP surfaces; urender draws no sprites.
+  **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
+  Kind: feature.
+  Source: user-request-2026-10-01 split-from-UTA-0105.
+  Lanes: ubake, ubundle, urender.
 
 ## 0.2.0 — Movement and weapons
 
