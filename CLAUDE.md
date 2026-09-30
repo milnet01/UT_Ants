@@ -220,6 +220,18 @@ ccache --set-config base_dir=/
 ccache --set-config hash_dir=false
 ```
 
+**`ut-bench` says which step of a bake took the time** (`UTA-0129`). It bakes
+each map several times, never from a cache, and prints each step's smallest,
+median and largest time beside the machine and the build:
+
+```sh
+build/tools/ut-bench/ut-bench bake --install <install> --scratch <dir> <map>...
+```
+
+`--scratch` must be on a real disk; a bundle is large and `/tmp` is memory
+here. Compare on the smallest figure. It warns when the build is not Release
+or the machine is busy, and it is never a gate.
+
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
 measured; the gate runs it as its own step on Linux, and refuses on

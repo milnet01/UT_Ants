@@ -687,6 +687,10 @@ Recorded after the build; nothing above changed direction.
 - **The `Model` fixture encoder is `ModelExportWriter`** in
   `tests/support/UnrealPackageBuilder.h`. The bake fixtures are
   `tests/unit/BakeFixture.h`.
+- **`UTA-0129` added `phases` to `BakeResult` and `BakeOutcome`**: the steps
+  that ran and how long each took. No bundle byte depends on them, and
+  `ut-bake`'s output does not carry them
+  (`docs/specs/UTA-0129-benchmark-tool.md` § 4.2).
 
 ## 5. Invariants
 

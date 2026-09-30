@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A developer's tool, ut-bench, that says which step of baking a map takes the time.** (UTA-0129)
+  It bakes each map several times and prints each step's time beside
+  the machine and the build it was measured on, and checks that every
+  run made the same bundle. A bake now records how long each of its
+  steps took. Nothing a player sees changes.
+
 - **ut-bake --texture-cache keeps made textures between bakes** (UTA-0148)
   Baking a map again takes about half the time, byte for byte the same
   bundle. Off unless asked: maps share few textures, so a new map gains

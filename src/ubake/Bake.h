@@ -16,6 +16,7 @@
 
 #include "core/Error.h"
 #include "core/Jobs.h"
+#include "core/Timing.h"
 #include "ubake/Install.h"
 #include "ubake/TextureCache.h"
 #include "ubundle/Bundle.h"
@@ -53,6 +54,8 @@ struct BakeResult {
     /// Both 0 when the bake ran without one.
     std::uint32_t textureCacheHits = 0;
     std::uint32_t textureCacheMisses = 0;
+    /// UTA-0129: detail::bake's steps and how long each took, depth 0.
+    std::vector<Phase> phases;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.
@@ -106,6 +109,9 @@ struct BakeOutcome {
     /// Found for a cached bake too: a clash is a fact about the install. The
     /// user's decision (UTA-0141, 2026-09-13) is to warn and carry on.
     std::vector<PackageClash> clashes;
+    /// UTA-0129: every step that ran and how long it took, whatever the
+    /// verdict; detail::bake's steps sit under `bake`, one deeper.
+    std::vector<Phase> phases;
 };
 
 /// Name, look in the cache, bake, check the budget, write -- SS 4.7.

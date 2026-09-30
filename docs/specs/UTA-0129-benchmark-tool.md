@@ -1,7 +1,7 @@
 # UTA-0129 — a benchmark tool that says where a bake's time goes
 
 **Status:** spec draft (2026-09-30). No review: the user chose a spec with no
-cold read, 2026-09-30.
+cold read, 2026-09-30. The bake half is built; § 4 records it as built.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0129 (user-request-2026-09-12).
 
@@ -81,7 +81,7 @@ public:
     explicit PhaseTimes(Clock clock);
 
     /// Every phase closed so far, in the order each was first opened.
-    [[nodiscard]] const std::vector<Phase>& phases() const noexcept;
+    [[nodiscard]] std::vector<Phase> phases() const;
 
     /// Add `child`'s phases under the phase now open, each one deeper by
     /// this one's open depth, after the phases already recorded.
@@ -147,6 +147,7 @@ the comment beside it in `src/ubake/Bake.cpp` names.
 | `movers` | 6, the movers and their Models |
 | `materials` | 7, `bakeMaterials` |
 | `geometry` | 8, `buildGeometry` |
+| `strips` | `markStrips`, which `UTA-0255` moved to after step 8 |
 | `mover-shapes` | 9 |
 | `collision` | 10, `buildCollision` for the level and each mover |
 | `light-probes` | 11 |
@@ -190,7 +191,7 @@ largest first, and any warning.
  "machine": {"cpu": "<model name>", "logicalCores": 0, "os": "<name>",
              "load1": 0.0},
  "build": {"compiler": "<id> <version>", "buildType": "<type>",
-           "sanitizer": "<UTA_SANITIZE>", "commit": "<short hash>"},
+           "sanitizer": "none | thread", "commit": "<short hash>"},
  "bakerVersion": "<UTA-0011 § 4.3>", "workers": 0, "runs": 3,
  "textureCache": false,
  "maps": [
@@ -206,8 +207,10 @@ largest first, and any warning.
 
 - Every `machine` and `build` member is always present. A value the tool
   cannot learn is the string `"unknown"`; `load1` is `null` where the
-  platform has no load average. `commit` is
-  `apps/ut-ants/WriteBuildCommit.cmake`'s value, `-dirty` suffix included.
+  platform has no load average. `cpu` is read from `/proc/cpuinfo` and is
+  `"unknown"` off Linux. `sanitizer` is `UTA_SANITIZE`'s value, or `"none"`.
+  `commit` is `apps/ut-ants/WriteBuildCommit.cmake`'s value, `-dirty` suffix
+  included.
 - `load1` is the one-minute load average read before the first run.
 - `total` is the time of one `bakeToDirectory` call, over the runs.
 - `unattributed` is `total` less the depth-0 phases, per run, over the runs.
@@ -231,15 +234,24 @@ The exit code:
 | `2` | the arguments were wrong |
 
 A warning is printed on standard error, and changes nothing else, when
-`buildType` is not `Release`, when `sanitizer` is not empty, or when `load1`
+`buildType` is not `Release`, when `sanitizer` is not `none`, or when `load1`
 is above `logicalCores`.
 
 ```cpp
 namespace uta::bench {
 
+/// What compiled the program. `main.cpp` fills it; the default is what a
+/// caller that cannot say gets.
+struct BuildInfo {
+    std::string compiler = "unknown";
+    std::string buildType = "unknown";
+    std::string sanitizer = "none";
+    std::string commit = "unknown";
+};
+
 /// `args` excludes the program name. Returns the exit code.
 [[nodiscard]] int runCli(std::span<const std::string_view> args, std::ostream& out,
-                         std::ostream& err);
+                         std::ostream& err, const BuildInfo& build = {});
 
 namespace detail {
 

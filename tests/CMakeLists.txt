@@ -30,9 +30,11 @@ add_executable(uta_unit_tests
     unit/BakeLightModelTest.cpp
     unit/BakeLightProbesTest.cpp
     unit/BakeOcclusionTest.cpp
+    unit/BakePhasesTest.cpp
     unit/BakeMoversTest.cpp
     unit/BakeStripsTest.cpp
     unit/BakeTest.cpp
+    unit/BenchCliTest.cpp
     unit/BakeFireStillTest.cpp
     unit/BakeZonesTest.cpp
     unit/BundleActorsTest.cpp
@@ -67,6 +69,7 @@ add_executable(uta_unit_tests
     unit/NumericContractTest.cpp
     unit/OriginCliTest.cpp
     unit/ShotCliTest.cpp
+    unit/TimingTest.cpp
     unit/PackageAncestryTest.cpp
     unit/PackageBuilderTest.cpp
     unit/PackageClassTest.cpp
@@ -116,6 +119,8 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.c
 # And ut-shot's -- UTA-0199, so --from-capture is graded against the very
 # writer that produces a capture folder, apps/ut-ants/Capture.cpp below.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")
+# And ut-bench's -- UTA-0129.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 # And the client's parts that need no window -- UTA-0016. Compiled in whether or
 # not UTA_BUILD_CLIENT is on, because neither links SDL.

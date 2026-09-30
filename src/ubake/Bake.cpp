@@ -714,6 +714,11 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                         const upkg::PackageResolver& resolver, JobSystem& jobs,
                         const CuratedLookup& curated, std::uint64_t budgetBytes,
                         TextureCache* textureCache) {
+    // UTA-0129: each step below is a phase, in the order docs/specs/
+    // UTA-0129-benchmark-tool.md SS 4.2 lists. No phase is opened inside a job.
+    PhaseTimes times;
+    std::optional<PhaseScope> phase(std::in_place, &times, "level");
+
     // 1. The level, and 2. its world.
     UTA_TRY(const upkg::ExportEntry* const levelExport, findLevel(map, mapName));
     UTA_TRY(const upkg::Level level, naming(upkg::readLevel(map, *levelExport), mapName));
@@ -721,14 +726,18 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     UTA_TRY(const upkg::Model model, naming(upkg::readModel(map, *modelExport), mapName));
 
     // 3. ROOM, with default options; the report rides along.
+    phase.emplace(&times, "rooms");
     UTA_TRY(umap::RoomBuildResult rooms, naming(umap::buildRoomMap(model), mapName));
 
     // 4. NAVG and WIRG.
+    phase.emplace(&times, "nav");
     UTA_TRY(unav::NavGraph nav, naming(unav::buildNavGraph(map, level, resolver), mapName));
+    phase.emplace(&times, "wiring");
     UTA_TRY(unav::WiringGraph wiring, naming(unav::buildWiringGraph(map), mapName));
 
     // 5. PLAC and LITE -- UTA-0110 SS 4.7, moved ahead of the materials by
     // UTA-0119 SS 4.6: the movers are found from them.
+    phase.emplace(&times, "actors");
     UTA_TRY(Actors actors, naming(buildActors(map, mapName, level, resolver), mapName));
     // UTA-0156 SS 4.3: each zone's ambient and fog flag, from the actors step 5 placed.
     std::vector<ubundle::Zone> zones = buildZones(model, actors.placements);
@@ -739,6 +748,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
 
     // 6. The movers, and each one's Model -- UTA-0119 SS 4.6. A Model that
     // does not read keeps its refusal's own code, naming the actor (INV-9).
+    phase.emplace(&times, "movers");
     UTA_TRY(const std::vector<MoverSite> movers, naming(findMovers(map, actors.placements), mapName));
     std::vector<upkg::Model> moverModels;
     moverModels.reserve(movers.size());
@@ -753,12 +763,14 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     }
 
     // 7. TEXS and MATS, over the level's Model and every mover's.
+    phase.emplace(&times, "materials");
     std::vector<const upkg::Model*> surfaced{&model};
     for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
     UTA_TRY(Materials materials, bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache));
 
     // 8. GEOM, each surface wearing the variant step 7 made for it --
     // UTA-0109 SS 4.4.
+    phase.emplace(&times, "geometry");
     const MaterialLookup lookup = [&materials](upkg::ObjectReference texture,
                                                bool masked) -> const SurfaceMaterial* {
         const auto found = materials.bySurface.find({texture.raw(), masked});
@@ -770,6 +782,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // probes gather them, so the probes and LITE see the same strips. After
     // step 8, because rule 5 asks the drawn surfaces whether a member sees
     // the next (UTA-0255).
+    phase.emplace(&times, "strips");
     {
         const SurfaceRays surfaces(geometry);
         markStrips(actors.lights,
@@ -777,6 +790,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     }
 
     // 9. MOVR, in export order -- UTA-0119 SS 4.5.
+    phase.emplace(&times, "mover-shapes");
     std::vector<ubundle::MoverShape> shapes;
     shapes.reserve(movers.size());
     for (std::size_t i = 0; i < movers.size(); ++i) {
@@ -790,6 +804,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
 
     // 10. COLL: the level's tree, then each mover's, in export order, from
     // the Model step 6 read -- UTA-0111 SS 4.6.
+    phase.emplace(&times, "collision");
     ubundle::Collision collision;
     UTA_TRY(collision.level, naming(buildCollision(model), mapName));
     collision.movers.reserve(movers.size());
@@ -802,6 +817,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // 11. LPRB -- UTA-0112 SS 4.8: one bounce of the static lights, gathered at
     // lattice points near the level's surfaces. A batch with no material
     // reflects DEFAULT_ALBEDO, as a material with no opaque pixel does (SS 4.5).
+    phase.emplace(&times, "light-probes");
     const AlbedoLookup albedo = [&materials](std::string_view id) {
         const auto found = materials.albedo.find(id);
         return found == materials.albedo.end() ? Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}
@@ -815,15 +831,20 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
 
     // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit
     // surface is. A level with no GEOM has no AOCC.
+    phase.reset();
     std::optional<ubundle::Occlusion> occlusion;
     if (!geometry.vertices.empty()) {
+        phase.emplace(&times, "occlusion");
         UTA_TRY(ubundle::Occlusion baked, naming(bakeOcclusion(geometry, jobs), mapName));
         occlusion = std::move(baked);
     }
 
     BakeResult result;
     // 12. The budget, over every map of every material.
+    phase.emplace(&times, "budget");
     result.budget = umat::measure(materials.textures, budgetBytes);
+    phase.reset();
+    result.phases = times.phases();
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
 
@@ -938,14 +959,20 @@ Result<std::vector<PackageClash>> clashesOf(const std::vector<const upkg::Packag
 } // namespace
 
 Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs) {
+    // UTA-0129: each step is a phase, and an outcome carries the ones that ran.
+    PhaseTimes times;
+    std::optional<PhaseScope> phase(std::in_place, &times, "open-install");
     UTA_TRY(Install install, Install::open(request.install));
+    phase.emplace(&times, "read-map");
     UTA_TRY(const std::vector<std::byte> mapBytes, uta::fs::readFile(request.map));
     const std::string mapName = detail::mapNameOf(request.map);
 
     // 1. The name, before anything is baked -- it is what finds a cached one.
+    phase.emplace(&times, "name");
     BakeOutcome outcome;
     UTA_TRY(outcome.name, detail::bakeName(mapBytes, mapName, install));
     outcome.path = request.outDir / (outcome.name + ".utab");
+    phase.emplace(&times, "closure");
     UTA_TRY(const upkg::Package map, naming(upkg::Package::open(mapBytes), mapName));
     UTA_TRY(const std::vector<std::string> imported, detail::closure(map, install.resolver()));
     std::vector<const upkg::Package*> readers{&map};
@@ -954,7 +981,13 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
         UTA_TRY(const upkg::Package* const opened, resolver(package));
         if (opened != nullptr) readers.push_back(opened);
     }
+    phase.emplace(&times, "clashes");
     UTA_TRY(outcome.clashes, clashesOf(readers, imported, install));
+    phase.reset();
+    const auto finished = [&] {
+        phase.reset();
+        outcome.phases = times.phases();
+    };
 
     std::error_code ec;
     std::filesystem::create_directories(request.outDir, ec);
@@ -966,6 +999,7 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
     // readHeader refuses is baked over.
     if (!request.force && isCachedBake(outcome.path)) {
         outcome.verdict = Verdict::Cached;
+        finished();
         return outcome;
     }
     // UTA-0245: one asking to fit takes a fitted bake already there too.
@@ -975,30 +1009,37 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
         outcome.verdict = Verdict::Cached;
         outcome.name = fitted;
         outcome.path = fittedPath;
+        finished();
         return outcome;
     }
 
     // 3. Bake, then the budget. Over it, nothing is written -- UTA-0052's
     // never-degrade rule.
+    phase.emplace(&times, "bake");
     std::optional<TextureCache> textureCache;
     if (!request.textureCache.empty()) textureCache.emplace(request.textureCache);
     UTA_TRY(BakeResult result, detail::bake(map, mapName, install.resolver(), jobs, &umat::curated,
                                             request.budgetBytes,
                                             textureCache ? &*textureCache : nullptr));
+    times.adopt(result.phases);
     if (textureCache) {
         result.textureCacheHits = textureCache->hits();
         result.textureCacheMisses = textureCache->misses();
         textureCache->trim();
     }
+    phase.reset();
     if (!umat::enforceBudget(result.budget).has_value()) {
         // UTA-0245: asked to, shrink until it fits, under its own name.
         if (request.fitBudget && result.bundle.textures) {
+            phase.emplace(&times, "fit-budget");
             outcome.fitted = umat::fitToBudget(*result.bundle.textures, request.budgetBytes);
             result.budget = umat::measure(*result.bundle.textures, request.budgetBytes);
+            phase.reset();
         }
         if (!outcome.fitted || !outcome.fitted->fits) {
             outcome.verdict = Verdict::OverBudget;
             outcome.result = std::move(result);
+            finished();
             return outcome;
         }
         outcome.name = fitted;
@@ -1006,10 +1047,13 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
     }
 
     // 4. Written atomically: a crash leaves the old file or none (SS 6).
+    phase.emplace(&times, "encode");
     UTA_TRY(const std::vector<std::byte> bytes, ubundle::write(result.bundle));
+    phase.emplace(&times, "write-file");
     UTA_CHECK(uta::fs::writeFileAtomically(outcome.path, bytes));
     outcome.verdict = Verdict::Written;
     outcome.result = std::move(result);
+    finished();
     return outcome;
 }
 

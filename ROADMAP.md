@@ -5214,6 +5214,9 @@ stays with movement in 0.2.0.
   of its first consumers. "Decide WHICH box to sample first" is a question
   a profile over a real map answers directly, and the 2.72 s on AS-Frigate
   recorded here came from the hand pass UTA-0129 exists to replace.
+  2026-09-30, from UTA-0129's first measurement: room building is
+  0.0001 s of AS-Frigate's 92.6 s bake and under that on CTF-Face,
+  so it is not a cost today. It stays dormant, as the headline says.
   **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.
@@ -7298,6 +7301,23 @@ stays with movement in 0.2.0.
   (docs/specs/UTA-0129-benchmark-tool.md); nothing is built yet.
   The frame-time half is now wanted soon, with a fixed camera path,
   since two of the four areas are frame time.
+  Bake half built (2026-09-30): `uta::PhaseTimes` in core, a bake
+  records its steps in `BakeOutcome::phases`, and `tools/ut-bench`
+  bakes each map several times and prints each step's smallest,
+  median and largest time with its share. Twenty hand mutations,
+  each killed. The frame-time half is still to do, so this stays
+  open.
+  First measurement, SS 7's two maps, three runs each, baker r29,
+  GCC 16.2.0 Release, 11 workers, AMD Ryzen 5 5600. NOT a quiet
+  machine: load 10.7 on 12 cores, other sessions building. Best of
+  three, seconds and share:
+    AS-Frigate 92.6: occlusion 68.5 (74%), light-probes 10.2 (11%),
+      materials 7.3 (8%), name 0.65, write-file 0.63, rooms 0.0001.
+    CTF-Face 25.0: light-probes 12.2 (49%), occlusion 8.0 (32%),
+      materials 2.8 (11%), write-file 0.54, name 0.48.
+  Every run of each map gave one bundle. Time in no phase: 0.005 s.
+  So a bake's time is ray casting: the occlusion atlas and the
+  probes. Hashing the closure for the name is under 2%.
   **Layman:** A tool that times the slow parts of the engine and says which ones are worth speeding up, so effort goes where it actually helps rather than where it looks slow.
   Kind: implement.
   Source: user-request-2026-09-12.
@@ -13741,6 +13761,26 @@ stays with movement in 0.2.0.
   on this map, so 44% of surface area has no probe; not examined.
   Figures above quoted from `--linear` pictures before this note
   are encoded values (UTA-0257).
+  Two cold reads of the reference by the sister sessions, 2026-09-30.
+  DOOM_Ants read rt.cpp and found the maths right: the recurrence,
+  the sampler, the form factor and the furnace target. Left to do in
+  the tracer: count paths that end on a miss or a back face, so the
+  leak rate is a number; and mark a one-sided surface seen from
+  behind as not hit. Its own art decodes to a mean albedo of 0.07 to
+  0.09, so its later bounces add about 9%.
+  Vestige checked six figures by hand and they hold. Its one gap:
+  in the dark share the probes read 22% under the trace, right in
+  total and wrong in distribution; 128-unit spacing gives this room
+  two probe layers. A per-pixel map of probe minus trace would say
+  whether spacing or missing corners is the cause.
+  Vestige's larger point, not yet checked here: a mean linear
+  albedo of 0.031 is darker than charcoal, so these textures are
+  not albedo. UT99 multiplied light by texture on display values,
+  and the art was painted for that. So the measure of "right" for
+  how bright a bounce-lit surface is, is the original's own frame,
+  and one constant fitted against it would be more defensible than
+  an added light. That bears on UTA-0256 and on what albedo
+  `radianceAlong` should use.
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
