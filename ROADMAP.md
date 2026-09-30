@@ -12850,7 +12850,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-26.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
+- 📋 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
   Decided by the user 2026-09-10: the first version shows these
   as a still picture where one exists, and real animation is its own
   item, linked to the water-and-glass rendering work (UTA-0089).
@@ -12897,6 +12897,8 @@ stays with movement in 0.2.0.
   Narrowed by the user (2026-10-01): fire is replaced with modern
   shader flames rather than replayed, and moves to UTA-0263. This item
   keeps the liquids and WetTexture, IceTexture and WaveTexture motion.
+  Set back to planned 2026-10-01: the user redirected the session to
+  fire (UTA-0263) before any work on this item began.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -14132,6 +14134,15 @@ stays with movement in 0.2.0.
   Meets spec triggers: a design choice across ubake, ubundle and
   urender. Contract reviews are cancelled for this project.
   Today fire exists only as BSP surfaces; urender draws no sprites.
+  Spec accepted 2026-10-01, unreviewed (reviews cancelled here):
+  docs/specs/UTA-0263-shader-flames.md, commit a1133e2. No code yet.
+  Next: spec 4.1's first step, labelling the census's 139 FireTextures
+  flame or other into tests/real/flame-labels.txt. Census scratch is in
+  ~/.cache/uta-scratch/u263/: firenames.py (FireTexture exports per
+  package), census.py, firenames.txt, and surfaces.ndjson (1.1 GB, all
+  maps' ut-dump --surface-list; delete once labelling is done). Match a
+  surface's texture within the packages its map imports; name-only
+  matching over-counts (Black, Invis).
   **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
   Kind: feature.
   Source: user-request-2026-10-01 split-from-UTA-0105.
