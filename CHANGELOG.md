@@ -540,6 +540,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **The hidden room a map keeps its sky in no longer shows in the sky** (UTA-0252)
+  AS-Frigate showed it as a dark slab overhead. A sky surface now hides
+  whatever lies behind it, as any wall does.
+
 - **One damaged actor no longer hides a map's whole wiring graph** (UTA-0244)
   The graph skips an actor whose properties do not read and counts it,
   so ut-dump shows every other switch and trigger. A bake still refuses

@@ -34,7 +34,7 @@ void main() {
     currentClip = frame.viewProjUnjittered * world;
     previousClip = frame.previousViewProjUnjittered * (object.previousModel * vec4(inPosition, 1.0));
 
+    // UTA-0252: PF_FakeBackdrop, the level's sky, keeps its own depth like any
+    // surface. Written at the far plane, it let the sky zone's room draw over it.
     gl_Position = frame.viewProj * world;
-    // PF_FakeBackdrop is the level's sky: depth written at the far plane.
-    if ((draw.polyFlags & PF_FAKE_BACKDROP) != 0u) gl_Position.z = gl_Position.w;
 }

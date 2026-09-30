@@ -13527,7 +13527,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: ubake, launcher.
 
-- 📋 [UTA-0252] **urender: AS-Frigate's skybox room shows in the sky as a dark box.**
+- 🚧 [UTA-0252] **urender: AS-Frigate's skybox room shows in the sky as a dark box.**
   Reported by the user from the launcher, 2026-09-30, ultra tier,
   baker r27. Camera (ut-shot): 1986.72 -1237.43 1284.67 5213 22412 0
   121.28.
@@ -13549,6 +13549,12 @@ stays with movement in 0.2.0.
   Not checked: whether other maps in the library show it.
   Placed in 0.1.0: it is a visible fault on a reference map in the
   release whose subject is drawing maps.
+  Fixed locally (2026-09-30): the sky surface keeps its own depth;
+  `scene.vert` no longer writes the far plane's. Chosen over leaving the
+  sky zone out of the main view because it is one line and no shader
+  reads the far-plane depth. A device case in RenderSurfaceFlagsTest.cpp
+  failed before and passes after, on lavapipe and the GPU. The captured
+  view redrawn shows no box. Awaiting GitHub's matrix before the flip.
   **Layman:** Looking up in AS-Frigate, a dark slab hangs in the sky; it is the hidden room the map keeps its sky in, which a player should never see.
   Kind: fix.
   Source: user-request-2026-09-30.

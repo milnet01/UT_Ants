@@ -123,6 +123,37 @@ TEST_CASE("INV-11: masking and two-sidedness and portals are honoured bit by bit
           == pixelAt(*pixels, WIDTH, columnOf(squareY(0)), HEIGHT / 2));
 }
 
+TEST_CASE("UTA-0252: a sky surface hides what lies behind it", "[device]") {
+    // AS-Frigate's sky room sits above the level's sky ceiling. With the sky's
+    // depth written at the far plane the room passed the depth test and drew
+    // over the sky. The far square is twice as far and twice as far off-axis, so
+    // it lands inside the near one's outline, and is
+    // added both before and after it so draw order cannot decide the pixel.
+    removeDisplay();
+    Renderer renderer = requireRenderer(smallFrame());
+    constexpr Rgba BEHIND{41, 81, 161, 255};
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 200, -200, 0, 40, "behind", PF_UNLIT);
+    addSquare(geometry, 100, -100, 0, 30, "solid", PF_FAKE_BACKDROP);
+    addSquare(geometry, 100, 100, 0, 30, "solid", PF_FAKE_BACKDROP);
+    addSquare(geometry, 200, 200, 0, 40, "behind", PF_UNLIT);
+    // In front of the sky, so a sky that hid everything would fail here.
+    addSquare(geometry, 50, 0, 0, 5, "behind", PF_UNLIT);
+    addSquare(geometry, 100, 0, 0, 30, "solid", PF_FAKE_BACKDROP);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "behind", BEHIND);
+    addSolidMaterial(bundle, "solid", SOLID);
+
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    // No SkyZoneInfo: the sky surface shows its own texture, unlit.
+    CHECK(pixelAt(*pixels, WIDTH, columnOf(-100), HEIGHT / 2) == drawn(SOLID));
+    CHECK(pixelAt(*pixels, WIDTH, columnOf(100), HEIGHT / 2) == drawn(SOLID));
+    CHECK(pixelAt(*pixels, WIDTH, columnOf(0), HEIGHT / 2) == drawn(BEHIND));
+}
+
 TEST_CASE("INV-11: a translucent batch writes no motion vector", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(smallFrame());
