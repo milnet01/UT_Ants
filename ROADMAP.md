@@ -14056,6 +14056,25 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: urender.
 
+- 📋 [UTA-0261] **DM-Fetid's dark areas draw far brighter than the original's: 75 of 255 where it shows 11.**
+  Found 2026-09-30 while scoring r29 against the original's frames
+  (UTA-0254's note has every figure and the method: ut-ants-uta0197's
+  render.sh and score.py over ut-ants-uta0156/orig-fetid-novol).
+  DM-Fetid's mean displayed luma is 79.9 against the original's
+  53.0; where the original is under 20 of 255 ours is 74.7 against
+  11.0, and no pixel of ours is under 8 where 6.4% of the
+  original's are. AS-Frigate and DM-Deck16][ match the original's
+  mean to within 1 and are lighter only in their darkest parts.
+  The "-novol" poses were taken with volumetric fog off in the
+  original, so fog is the first thing to rule out; DM-Fetid carries
+  LevelInfo.Brightness 1.4 (UTA-0156 SS 4.5), zone ambient and
+  fog zones, which are the next. Not investigated yet.
+  Recommended to the user as the next item, 2026-09-30; not picked.
+  **Layman:** On one map the shadowy parts come out much brighter than in the original game, far more than on other maps, which points at a fault specific to that map.
+  Kind: investigate.
+  Source: in-session-2026-09-30.
+  Lanes: urender, ubake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
