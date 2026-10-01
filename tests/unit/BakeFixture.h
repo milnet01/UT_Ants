@@ -237,9 +237,10 @@ public:
     MapBuilder& addRawActor(std::string_view name, std::int32_t classReference, std::vector<std::uint8_t> data);
     /// A reach spec from actor `from` to actor `to`, by their positions among
     /// the actors, carrying the collision size and flags given -- UTA-0121
-    /// INV-11.
+    /// INV-11 -- and the file's pruned byte (UTA-0266).
     MapBuilder& addReachSpec(std::size_t from, std::size_t to, std::int32_t collisionRadius,
-                             std::int32_t collisionHeight, std::int32_t reachFlags);
+                             std::int32_t collisionHeight, std::int32_t reachFlags,
+                             std::uint8_t pruned = 0);
     /// One more slot in the level's actor list naming actor `actor`, by its
     /// position among the actors, after every actor's own slot -- UTA-0124.
     MapBuilder& repeatActorSlot(std::size_t actor);
@@ -294,6 +295,7 @@ private:
     struct Reach {
         std::size_t from = 0, to = 0;
         std::int32_t collisionRadius = 0, collisionHeight = 0, reachFlags = 0;
+        std::uint8_t pruned = 0;
     };
     std::vector<Reach> reaches_;
     std::vector<std::size_t> repeatedSlots_;

@@ -23,6 +23,8 @@ with INV-16 added. The census behind it is on ROADMAP UTA-0142.
 Amended for UTA-0267 (2026-10-01): § 4.7's hops and search keep off a slope
 too steep to stand on, with INV-5 gaining a bank. The lattice build behind it
 is on ROADMAP UTA-0267.
+Amended for UTA-0266 (2026-10-01): § 3 decision 10 drops pruned specs, with
+INV-11 gaining a pruned one. The count behind it is on ROADMAP UTA-0266.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -125,6 +127,15 @@ The choices below are mine, the user being away and having left them to me.
     exit only over flying specs, so nodes chained from it helped no bot.
     Source: <https://github.com/stephank/surreal> (UT 4.32's public
     headers) and <https://github.com/Slipyx/UT99> (`Botpack/Bot.uc`).
+
+    **A pruned spec is never followed** (UTA-0266). A spec's pruned byte
+    marks one the path builder moved to `prunedPaths`. UT_MonsterHunt's
+    spec probe walks `Paths` alone, and its reach agrees with the census on
+    every ROUTE map it was checked against. A pruned spec's ends are joined
+    by another route, which may need a move the bot lacks. Measured
+    2026-10-01 over the 861 maps ut-paths wrote: on 38, a pruned walking
+    spec has no walking replacement among the kept specs. So the network
+    drops every spec whose pruned byte is set.
 
     **A teleporter nothing switches on is a dead end** (UTA-0142,
     2026-09-25). `Teleporter.Touch` sends nobody on while the touched
@@ -603,11 +614,12 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   flag among § 3 decision 10's, and a radius and a height at least the
   body's.
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `sceneOf` over INV-10's
-  map with four PathNodes joined by seven reach specs, each on its own
+  map with four PathNodes joined by eight reach specs, each on its own
   ordered pair of nodes: walking (1), walking and jumping (9), special (32),
   and walking, swimming, doors and player-only (85) are kept; flying (2),
-  walking at a radius below 17, and walking at a height below 39 are not.
-  `Scene::edges` holds the first four pairs and not the last three.
+  walking at a radius below 17, walking at a height below 39, and walking
+  but pruned are not. `Scene::edges` holds the first four pairs and not the
+  last four.
   *Breaks when:* every spec is kept whatever its flags, the radius or the
   height is not tested, or a flag the bot has, such as `R_SWIM`, `R_DOOR` or
   `R_PLAYERONLY`, refuses a spec.

@@ -525,7 +525,7 @@ TEST_CASE("INV-11: the scene keeps only the edges a walking bot may use", "[path
     // Four PathNodes, actors 2 to 5, a hundred apart on X.
     for (int i = 0; i < 4; ++i)
         map.addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 100.0F * i, 0, 0)});
-    // Seven specs, each on its own ordered pair. A kept spec is exactly the
+    // Eight specs, each on its own ordered pair. A kept spec is exactly the
     // body's size, so a comparison stricter than supports()'s refuses it.
     constexpr std::size_t A = 2, B = 3, C = 4, D = 5;
     map.addReachSpec(A, B, 17, 39, 1)      // walking
@@ -534,7 +534,8 @@ TEST_CASE("INV-11: the scene keeps only the edges a walking bot may use", "[path
         .addReachSpec(D, A, 17, 39, 85)    // walking, swimming, doors and player-only
         .addReachSpec(A, C, 17, 39, 2)     // flying
         .addReachSpec(B, D, 16, 39, 1)     // walking, narrower than the body
-        .addReachSpec(C, A, 17, 38, 1);    // walking, lower than the body
+        .addReachSpec(C, A, 17, 38, 1)     // walking, lower than the body
+        .addReachSpec(B, A, 17, 39, 1, 1); // walking, but pruned (UTA-0266)
 
     const auto scene = sceneOfBuilt(map);
     INFO((scene.has_value() ? std::string() : std::string(scene.error().message())));

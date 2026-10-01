@@ -11879,7 +11879,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-09-20.
   Lanes: ut-paths.
 
-- 📋 [UTA-0194] **ut-paths: run the seed proposal over the wider NOROUTE population.**
+- ✅ [UTA-0194] **ut-paths: run the seed proposal over the wider NOROUTE population.**
   Asked 2026-09-20 by UT_MonsterHunt (session ut-monsterhunt-5d); their
   matching item is GAME-0095.
 
@@ -11901,6 +11901,19 @@ stays with movement in 0.2.0.
   written outside both repositories, and the directory path sent to
   them. Their md5 gate is live -- they refuse a list whose md5 does not
   match the live Maps/ file.
+  Resolved (2026-10-01): the wider run had mostly happened already, on
+  2026-09-13 against UT_MonsterHunt's offline census (559 maps); the
+  delivered folder covered 800 of their 846 live NOROUTE maps. Re-run on
+  54bb0d8 over both census files (07c and offline, disjoint): 861 written,
+  54 skipped (not in Maps/), at /mnt/Games/Scripts/Linux/
+  ut-paths-output-2026-10-01 with a README of the diff. Yield: 68 maps
+  carry nodes (was 71); UTA-0193 found the empty ones honest, so about 8%
+  is the real yield. 46 of their 47 ROUTES_NOW maps still carry nodes, 39
+  moved by UTA-0196 and UTA-0267. No proven gain lost nodes. New: Hangar,
+  Minas_Tirith, both GardenOfDeath builds (299 nodes each, flagged doubtful:
+  92532 units at z about -30800). 43 live NOROUTE maps have no census row,
+  so ut-paths cannot take them; offered to include them given rows. Sent to
+  ut-monsterhunt.
   **Layman:** Re-run the breadcrumb tool over a much larger set of broken maps than it was first aimed at.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-20.
@@ -14400,7 +14413,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-dump.
 
-- 📋 [UTA-0266] **ut-paths reads the mapper's specs, but a paths rebuild can prune a walking spec in favour of a fly route.**
+- 🚧 [UTA-0266] **ut-paths reads the mapper's specs, but a paths rebuild can prune a walking spec in favour of a fly route.**
   Measured 2026-10-01 on MH-Skaarj_ReactorTest-v1 (UTA-0195): the
   mapper's build keeps PathNode140 -> PathNode141 (walk, 840).
   UT_MonsterHunt's DEFINE rebuild prunes it, because 140 ->
@@ -14410,6 +14423,18 @@ stays with movement in 0.2.0.
   that a rebuild, which any proposed node forces, disconnects. Find how
   many census maps have a walking spec whose kept alternative runs
   through a fly spec, before deciding whether ut-paths should model it.
+  Progress (2026-10-01): counted over the 861 maps of
+  ut-paths-output-2026-10-01, from ut-dump --nav-graph (walking bot flags
+  125, body 17 by 39). 859 have pruned walking specs; on 38 a pruned
+  walking spec has no walking replacement among the kept specs; on 6,
+  dropping pruned specs shrinks what the first PlayerStart reaches (by
+  213 nodes on MH-(_@_)_a_OMG_strikes_back_fix1-BP, 1 to 3 on the rest).
+  UT's route search reads Paths alone, as UT_MonsterHunt's spec probe
+  does, so ut-paths now drops every pruned spec (§ 3 decision 10, INV-11).
+  No proposal changes on those 6 maps today. Not measured, and not
+  measurable from a saved map: how a REBUILD prunes differently from the
+  mapper's build, which is what this item first saw on Skaarj_ReactorTest.
+  Counter: ~/.cache/uta-scratch/uta0266/count.py.
   **Layman:** Adding helper points makes the game rebuild its paths, and the rebuild can quietly drop a walking link our tool was relying on.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.

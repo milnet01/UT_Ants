@@ -534,9 +534,10 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
                      || std::ranges::all_of(found->second, [&](const ActorPlacement* by) { return by == actor; });
     }
 
-    // Only the edges a walking bot may use (SS 3 decision 10).
+    // Only the edges a walking bot may use (SS 3 decision 10), and never a
+    // pruned one: UT's route search does not follow them (UTA-0266).
     for (const unav::NavEdge& edge : nav.edges)
-        if (walkable(edge) && position[edge.from] < nav.nodes.size()
+        if (walkable(edge) && edge.pruned == 0 && position[edge.from] < nav.nodes.size()
             && position[edge.to] < nav.nodes.size() && !((edge.reachFlags & 32) != 0 && deadEnd[edge.from]))
             scene.edges.emplace_back(position[edge.from], position[edge.to]);
 
