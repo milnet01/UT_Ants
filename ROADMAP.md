@@ -11949,6 +11949,12 @@ stays with movement in 0.2.0.
   radius 18, plus the ledge node (3845, 6568, -953). Sent to
   UT_MonsterHunt 2026-10-01.
   Waiting-on: UT_MonsterHunt's two-arm result for the two-node repair.
+  Result (2026-10-01, UT_MonsterHunt work/uta0195b, arm B): still
+  NOROUTE, but not a test of the repair. With their grid seeds in, the
+  walking start part stops at PathNode140 (912,1824,-971), before
+  PathNode144, so the bridge never links. They will add a no-grid
+  option and run CTL0 vs B0 on the original map.
+  Waiting-on: that no-grid two-arm result.
   **Layman:** On one map the exit is almost touching a path the bots use, yet they still cannot reach it; find out what is refusing.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-20.
@@ -12023,6 +12029,15 @@ stays with movement in 0.2.0.
   (UTA-0121 § 4.7). The chain is now (-832,-492,27), (-512,-492,27),
   (-192,-460,115); every hop clears all nine traces.
   Waiting-on: UT_MonsterHunt's two-arm result for the new chain.
+  Result (2026-10-01, UT_MonsterHunt work/uta0196b, arm G): still NOROUTE.
+  The 3acb13b chain links among itself and to PathNode32, but PathNode20
+  has no spec to (-832,-492,27) either way. The floor climbs east in
+  16-unit steps (-48, -32, -16, -12) with plain flags, and no actor
+  blocks it, so our collision model does not explain the refusal. In F,
+  PathNode20 links east only as far as (-848,-518). Asked for one
+  mapping build: a 32-unit lattice of 38 nodes over x -992..-768,
+  y -600..-440, to read which neighbour pairs the engine links.
+  Waiting-on: UT_MonsterHunt's lattice build.
   **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
   Kind: fix.
   Source: in-session-2026-09-20.
@@ -14278,6 +14293,21 @@ stays with movement in 0.2.0.
   Kind: enhancement.
   Source: in-session-2026-10-01.
   Lanes: ut-bake.
+
+- 📋 [UTA-0265] **ut-dump --system on a directory with no Engine.u returns an empty nav graph and says nothing.**
+  Measured 2026-10-01: `ut-dump --system <install>/System64 --nav-graph
+  Maps/MH-NivenSB.unr` exits 0 with nodes 0, edges 0 and
+  discardedEndpoints 25336, and writes nothing to stderr. System64 holds
+  the 64-bit binaries and one .u file; the classes are in System. With
+  --system System or --install the same map gives 671 nodes and 12668
+  edges. UT_MonsterHunt read the zeros as a regression. The usage text
+  says a run without the install says so; this run had a directory and
+  did not. Refuse, or warn, when the class ancestry cannot reach
+  Engine.NavigationPoint.
+  **Layman:** Pointed at the wrong game folder, the map-reading tool reports an empty path network instead of saying the folder is wrong.
+  Kind: fix.
+  Source: ut-monsterhunt-2026-10-01.
+  Lanes: ut-dump.
 
 ## 0.2.0 — Movement and weapons
 
