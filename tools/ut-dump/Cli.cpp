@@ -90,8 +90,6 @@ public:
         }
     }
 
-    [[nodiscard]] bool empty() const noexcept { return paths_.empty(); }
-
     [[nodiscard]] uta::upkg::PackageResolver resolver() {
         return [this](std::string_view name) -> uta::Result<const uta::upkg::Package*> {
             const std::string key{name}; // the caller folds
@@ -1248,17 +1246,18 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     SystemPackages system{systemDir};
     std::optional<uta::ubake::Install> install;
     uta::upkg::PackageResolver resolver = system.resolver();
-    bool found = !system.empty();
     if (!installDir.empty()) {
         if (auto opened = uta::ubake::Install::open(installDir); opened.has_value()) {
             install.emplace(std::move(*opened));
             resolver = install->resolver();
-            const auto core = resolver("core");
-            found = core.has_value() && *core != nullptr;
         }
     }
-    if (!found) {
-        err << "ut-dump: no System packages found; class ancestry will not "
+    // UTA-0265: asked of Engine, not of "any package". NavigationPoint lives
+    // there, so a folder holding other .u files -- 469's System64 -- still
+    // gives every map an empty nav graph, and that must not pass in silence.
+    const auto engine = resolver("engine");
+    if (!engine.has_value() || *engine == nullptr) {
+        err << "ut-dump: Engine.u not found; class ancestry will not "
                "resolve across packages and navigation graphs will be empty\n";
     }
 

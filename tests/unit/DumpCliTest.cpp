@@ -205,6 +205,27 @@ TEST_CASE("UTA-0136: an edge names its nodes by actor name and class", "[dump]")
     CHECK(flying == 1);
 }
 
+TEST_CASE("UTA-0265: a System folder without Engine says the nav graph will be empty", "[dump]") {
+    // UT 469's System64 holds the 64-bit binaries and one .u file; the classes
+    // are in System. Pointed there, the run found SOME packages and so said
+    // nothing, then wrote an empty nav graph that read as a regression.
+    const TempDir dir;
+    const fs::path mapPath = writeMap(dir, inv11Map());
+    for (const auto& [stem, bytes] : installPackages())
+        if (stem == "MonsterHunt") writeFile(dir.path() / "System64" / (stem + ".u"), bytes);
+
+    const Run wrong = run({"--system", (dir.path() / "System64").string(), "--nav-graph", mapPath.string()});
+    REQUIRE(wrong.code == 0);
+    CHECK(nodeRows(wrong.out).empty());
+    CHECK(wrong.err.find("Engine") != std::string::npos);
+
+    // The control: the real System folder resolves Engine, and stays quiet.
+    const Run right = run({"--system", (dir.path() / "System").string(), "--nav-graph", mapPath.string()});
+    REQUIRE(right.code == 0);
+    CHECK(nodeRows(right.out).size() == 5); // the PlayerStart and four PathNodes
+    CHECK(right.err.empty());
+}
+
 namespace {
 
 /// UTA-0101's install. ThingFactory's default capacity is UnrealShare's own,
