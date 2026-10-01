@@ -304,9 +304,9 @@ constants do.
 - **A flame with no light near it.** `light` is -1 and nothing flickers.
 - **Two flames within reach of one light.** Each record names its nearest
   light, so both may name it; the light follows the lower-indexed record.
-- **Many flames.** One map draws 2,052 fire surfaces (the census's
-  `MH-EnterToCore-Part2`). All camera-facing flames are one instanced draw;
-  their pixel cost is measured on that map (§ 13).
+- **Many flames.** `MH-TheFifthVortexV33` bakes 297 flame records. All
+  camera-facing flames are one instanced draw; their cost is measured on that
+  map (§ 13).
 - **A flame inside volumetric fog.** `scene.frag` applies the fog volume to
   each surface it shades, so no later pass would veil a flame. The flame
   shader reads the same fog volume and scales its emission by the
@@ -398,7 +398,7 @@ Rows live in `../reviews/UTA-0263-shader-flames-loop-log.md`.
 - **Bundle:** 32 bytes a `FLAM` record, 96 bytes a flame look.
 - **GPU:** the records and looks as one storage buffer each; no new texture.
 - **Frame time:** measured with `ut-bench frame` at `--tier ultra --size
-  3840x2160` on AS-Frigate and on `MH-EnterToCore-Part2`, before and after,
+  3840x2160` on AS-Frigate and on `MH-TheFifthVortexV33`, before and after,
   turn and turn about. Recorded on the roadmap item. No budget is set in
   advance: a first measurement decides whether one is needed.
 

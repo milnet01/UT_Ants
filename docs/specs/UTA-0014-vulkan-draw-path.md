@@ -544,6 +544,12 @@ are its shader's to cut, and its depth would hide what shows through them. It
 is tested and written in the forward pass, as before. The frame's pixels do
 not change.
 
+**Flames are drawn after the translucent pass** (`UTA-0263` § 4.4, recording
+what was built). One instanced draw covers every `FLAM` record. It binds all
+three forward targets, is depth-tested and not depth-written, and adds into
+colour and emission. A `GEOM` batch whose material has a flame look is drawn
+with the flame shader instead of its picture.
+
 **When a bundle is uploaded again.** `draw` uploads geometry, materials and
 probes when it sees a bundle it has not: another object, another size of any
 section, or another hash of a bounded sample of their bytes. The sample is what

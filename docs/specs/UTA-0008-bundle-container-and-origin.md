@@ -202,7 +202,7 @@ Sixteen bytes, at offset 0.
 | Offset | Size | Field | Value |
 |---|---|---|---|
 | 0 | 4 | `magic` | the bytes `U`, `T`, `A`, `B` — `0x55 0x54 0x41 0x42` |
-| 4 | 4 | `formatVersion` | `u32`, `14` in this version — **raised from `1` to `2` by UTA-0052**, which added the `TEXS` section, **to `3` by UTA-0011**, which added `MATS`, **to `4` by UTA-0109**, which added `GEOM`, **to `5` by UTA-0110**, which added `PLAC` and `LITE`, **to `6` by UTA-0119**, which added `MOVR`, **to `7` by UTA-0111**, which added `COLL`, **to `8` by UTA-0112**, which added `LPRB`, **to `9` by UTA-0040**, which widened a `MATS` record, **to `10` by UTA-0162**, which widened a `LITE` record, **to `11` by UTA-0156**, which added `ZONE`, **to `12` by UTA-0015**, which widened a `ZONE` entry, **to `13` by UTA-0165** under UTA-0156 § 4.5, which widened a `LITE` record, **and to `14` by UTA-0164**, which added `AOCC`. `FORMAT_VERSION` in `src/ubundle/Bundle.h` is the authority |
+| 4 | 4 | `formatVersion` | `u32`, `15` in this version — **raised from `1` to `2` by UTA-0052**, which added the `TEXS` section, **to `3` by UTA-0011**, which added `MATS`, **to `4` by UTA-0109**, which added `GEOM`, **to `5` by UTA-0110**, which added `PLAC` and `LITE`, **to `6` by UTA-0119**, which added `MOVR`, **to `7` by UTA-0111**, which added `COLL`, **to `8` by UTA-0112**, which added `LPRB`, **to `9` by UTA-0040**, which widened a `MATS` record, **to `10` by UTA-0162**, which widened a `LITE` record, **to `11` by UTA-0156**, which added `ZONE`, **to `12` by UTA-0015**, which widened a `ZONE` entry, **to `13` by UTA-0165** under UTA-0156 § 4.5, which widened a `LITE` record, **to `14` by UTA-0164**, which added `AOCC`, **and to `15` by UTA-0263**, which added `FLAM` and widened a `MATS` record. `FORMAT_VERSION` in `src/ubundle/Bundle.h` is the authority |
 | 8 | 1 | `origin` | `u8`, § 4.5 |
 | 9 | 1 | `kind` | `u8`, `0` = map, `1` = character |
 | 10 | 2 | `reserved` | `u16`, must be `0` |
@@ -228,7 +228,7 @@ field, because a field whose value is always 16 is a field that can be wrong.
 
 | Offset | Size | Field | Value |
 |---|---|---|---|
-| 0 | 4 | `id` | four bytes, §§ 4.6–4.8, **UTA-0052 § 4.3** for `TEXS`, **UTA-0011 § 4.10** for `MATS`, **UTA-0109 § 4.2** for `GEOM`, **UTA-0110 § 4.4** for `PLAC` and `LITE`, **UTA-0119 § 4.2** for `MOVR`, **UTA-0111 § 4.2** for `COLL`, **UTA-0112 § 4.2** for `LPRB`, **UTA-0156 § 4.1** for `ZONE`, and **UTA-0164 § 4.1** for `AOCC` |
+| 0 | 4 | `id` | four bytes, §§ 4.6–4.8, **UTA-0052 § 4.3** for `TEXS`, **UTA-0011 § 4.10** for `MATS`, **UTA-0109 § 4.2** for `GEOM`, **UTA-0110 § 4.4** for `PLAC` and `LITE`, **UTA-0119 § 4.2** for `MOVR`, **UTA-0111 § 4.2** for `COLL`, **UTA-0112 § 4.2** for `LPRB`, **UTA-0156 § 4.1** for `ZONE`, **UTA-0164 § 4.1** for `AOCC`, and **UTA-0263 § 4.3** for `FLAM` |
 | 4 | 8 | `offset` | `u64`, from the start of the file |
 | 12 | 8 | `size` | `u64`, payload bytes |
 | 20 | 1 | `compression` | `u8`, `0` = none; no version defines another value. **UTA-0052 § 3 decision 5 kept it zero**: block format is carried per texture, not per section |
@@ -565,11 +565,11 @@ struct Bundle {
 ```
 
 `write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, `TEXS`,
-`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, `LPRB`, `ZONE`, `AOCC`, omitting absent ones. **`TEXS` was
+`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, `LPRB`, `ZONE`, `AOCC`, `FLAM`, omitting absent ones. **`TEXS` was
 APPENDED by UTA-0052 rather than inserted, `MATS` by UTA-0011 after it, `GEOM`
 by UTA-0109 after that, `PLAC` then `LITE` by UTA-0110, `MOVR` by UTA-0119
 after those, `COLL` by UTA-0111 after that, `LPRB` by UTA-0112 after that, `ZONE` by
-UTA-0156 after that, and `AOCC` by UTA-0164 after that**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
+UTA-0156 after that, `AOCC` by UTA-0164 after that, and `FLAM` by UTA-0263 after that**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
 calls requires a `.utab` *"that any tool other than `ubake` wrote"* to be
 named by the hash of its own contents, and a hash over an
 incidentally-ordered file names one world two things. Determinism is not

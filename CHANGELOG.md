@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Fires are drawn the modern way: moving shader flames that face the player, glow, and flicker the light beside them.** (UTA-0263)
+  Torch sheets become upright camera-facing flames, so they are never
+  paper-thin edge on; large fire-covered surfaces get the same moving flame
+  on the surface. Flames feed bloom. Bundle format 15 and baker revision 30:
+  every map must be baked again.
+
 - **ut-bench also times frames: still at each camera, and moving between them.** (UTA-0129)
   It draws a baked map with no window and prints each view's and
   each move's frame time, beside the graphics device, the machine and

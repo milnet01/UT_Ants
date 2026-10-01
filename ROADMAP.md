@@ -14142,7 +14142,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-01 split-from-UTA-0261.
   Lanes: urender.
 
-- 🚧 [UTA-0263] **urender: fires drawn the modern way, as moving shader flames that face the player, glow and flicker their light.**
+- ✅ [UTA-0263] **urender: fires drawn the modern way, as moving shader flames that face the player, glow and flicker their light.**
   Asked for by the user, 2026-10-01: "Please replace fires / flames
   with modern forms of creating them." So fire is REPLACED, not
   replayed: UT99's FireTexture simulation (ubake/FireStill's still)
@@ -14226,6 +14226,21 @@ stays with movement in 0.2.0.
   widest point is mid-height and ours is the foot, unfitted. Next: spec
   13's flame cost on a map with many flames (not MH-EnterToCore-Part2),
   then the remaining INV checks and closing the item.
+  Resolved (2026-10-01): spec 13's cost measured. The many-flames map is
+  MH-TheFifthVortexV33 (297 FLAM records, 25 flame looks; a census of
+  the install's maps by flame-labelled surfaces, MH-BETAThadausV0 next
+  with 212 small candles). ut-bench frame, ultra, 3840x2160, RX 6600,
+  build 37f3435 (same bake, no flame pass) against 9bdc4d7, three rounds
+  turn about over four views, one with 8% of the screen in flame. Median
+  frame time moved by 0.0 to +0.3 ms on frames of 7 to 10 ms, inside the
+  round-to-round spread; AS-Frigate close on a torch, +0.3 ms in both
+  rounds. The 99th percentile was noise (load average near 10 from other
+  work). No budget is needed. Every INV and spec 7 test exists and
+  passes: unit 807/807, the flame device tests on lavapipe with sync
+  validation. Spec 11's cross-doc edits made (UTA-0008, UTA-0011,
+  UTA-0014, CHANGELOG); spec 6 and 13 now name the right map.
+  Open test gaps stay as filed: flame.frag's fog dimming, shapeOf's FLAM
+  sampling.
   **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
   Kind: feature.
   Source: user-request-2026-10-01 split-from-UTA-0105.
