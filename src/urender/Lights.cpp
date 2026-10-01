@@ -3,6 +3,8 @@
 #include "urender/Lights.h"
 
 #include <cmath>
+#include <cstddef>
+#include <optional>
 #include <numbers>
 
 namespace uta::urender {
@@ -19,7 +21,8 @@ double cyclePosition(const ubundle::Light& light, double seconds) noexcept {
     return t - std::floor(t);
 }
 
-/// A repeatable hash of an integer to [0, 1), for LT_Flicker's jitter.
+/// A repeatable hash of an integer to [0, 1), for LT_Flicker's jitter and a
+/// flame's flicker.
 double noise(std::uint64_t n) noexcept {
     n ^= n >> 33;
     n *= 0xff51afd7ed558ccdULL;
@@ -27,6 +30,20 @@ double noise(std::uint64_t n) noexcept {
     n *= 0xc4ceb9fe1a85ec53ULL;
     n ^= n >> 33;
     return static_cast<double>(n >> 11) / static_cast<double>(1ULL << 53);
+}
+
+/// Smooth value noise in [0, 1] at `t`, one random value per whole step,
+/// eased between neighbours. A time past i64's range holds at step 0, as
+/// LT_FLICKER's does (UTA-0217).
+double smoothNoise(std::uint64_t seed, double t) noexcept {
+    const double whole = std::floor(t);
+    const double within = t - whole;
+    const auto step = std::abs(whole) < 0x1p62 ? static_cast<std::uint64_t>(static_cast<std::int64_t>(whole))
+                                                : std::uint64_t{0};
+    const double ease = within * within * (3 - 2 * within);
+    const double a = noise(step * 2654435761ULL + seed);
+    const double b = noise((step + 1) * 2654435761ULL + seed);
+    return a + (b - a) * (std::isfinite(ease) ? ease : 0);
 }
 
 } // namespace
@@ -52,23 +69,50 @@ float flickerOf(const ubundle::Light& light, double seconds) noexcept {
     }
 }
 
+float flameFlickerOf(std::uint32_t seed, double seconds) noexcept {
+    // Two octaves, about three and seven changes a second: a flame's light
+    // breathes rather than jumps. Chosen, not fitted: SS 4.6's fits are the
+    // flame's own, not its light's.
+    const double slow = smoothNoise(std::uint64_t{seed} << 1, seconds * 3.0);
+    const double fast = smoothNoise((std::uint64_t{seed} << 1) | 1, seconds * 7.0);
+    return static_cast<float>(0.8 + 0.2 * (0.65 * slow + 0.35 * fast));
+}
+
+namespace {
+
+/// Whether the direct term draws `light` -- directLights' rule.
+bool drawsDirectly(const ubundle::Light& light) noexcept {
+    // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
+    if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == ubundle::STRIP_ABSORBED) return false;
+    // UTA-0169: brightness 0 never emits -- flicker and TriggerLight only
+    // scale the saved value -- but a fog volume still thickens the fog.
+    return light.brightness != 0 || light.volumeRadius != 0;
+}
+
+} // namespace
+
 std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle) {
     std::vector<ubundle::Light> out;
     if (!bundle.lights) return out;
-    for (const ubundle::Light& light : *bundle.lights) {
-        // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
-        if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == ubundle::STRIP_ABSORBED) continue;
-        // UTA-0169: brightness 0 never emits -- flicker and TriggerLight only
-        // scale the saved value -- but a fog volume still thickens the fog.
-        if (light.brightness == 0 && light.volumeRadius == 0) continue;
-        out.push_back(light);
-    }
+    for (const ubundle::Light& light : *bundle.lights)
+        if (drawsDirectly(light)) out.push_back(light);
     return out;
 }
 
 std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double seconds) {
     std::vector<gpu::Light> out;
-    for (const ubundle::Light& light : directLights(bundle)) {
+    if (!bundle.lights) return out;
+    // UTA-0263 SS 4.5: the seed of the first FLAM record naming each light --
+    // two flames may name one, and it follows the lower-indexed record.
+    std::vector<std::optional<std::uint32_t>> flameSeed(bundle.lights->size());
+    if (bundle.flames)
+        for (const ubundle::Flame& flame : *bundle.flames)
+            if (flame.light >= 0 && static_cast<std::size_t>(flame.light) < flameSeed.size()
+                && !flameSeed[static_cast<std::size_t>(flame.light)])
+                flameSeed[static_cast<std::size_t>(flame.light)] = flame.seed;
+    for (std::size_t index = 0; index < bundle.lights->size(); ++index) {
+        const ubundle::Light& light = (*bundle.lights)[index];
+        if (!drawsDirectly(light)) continue;
         gpu::Light record{};
         record.location = light.location;
         // UTA-0162 SS 4.3: a leader draws from one end of its segment, along the rest.
@@ -76,7 +120,9 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
             record.location = light.stripFrom;
             for (std::size_t axis = 0; axis < 3; ++axis) record.span[axis] = light.stripTo[axis] - light.stripFrom[axis];
         }
-        record.flicker = flickerOf(light, seconds);
+        // Only a steady light: a map's own effect on any other type stays.
+        record.flicker = light.type == LT_STEADY && flameSeed[index] ? flameFlickerOf(*flameSeed[index], seconds)
+                                                                      : flickerOf(light, seconds);
         record.hue = light.hue;
         record.saturation = light.saturation;
         record.brightness = light.brightness;

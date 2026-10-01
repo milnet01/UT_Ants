@@ -33,6 +33,11 @@ inline constexpr std::uint8_t LT_SUBTLE_PULSE = 7;
 /// is deliberately unpinned by the spec; nothing binds to it.
 [[nodiscard]] float flickerOf(const ubundle::Light& light, double seconds) noexcept;
 
+/// UTA-0263 SS 4.5: the scalar of a steady light a FLAM record names, from
+/// that record's seed -- smooth noise in [0.8, 1.0], so the light breathes
+/// with its flame rather than jumping as LT_FLICKER does.
+[[nodiscard]] float flameFlickerOf(std::uint32_t seed, double seconds) noexcept;
+
 /// The LITE lights the direct term draws, in LITE order.
 ///
 /// Every one but three kinds. LT_BackdropLight lights only the sky, which SS 4.5

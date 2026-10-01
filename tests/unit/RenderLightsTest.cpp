@@ -8,6 +8,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 
 using uta::ubundle::Light;
 using uta::urender::drawnLights;
@@ -158,4 +160,78 @@ TEST_CASE("SS 4.9: a varying light varies within 0 and 1", "[render]") {
         CHECK(highest <= 1.0f);
         CHECK(highest - lowest > 0.05f);
     }
+}
+
+TEST_CASE("UTA-0263 INV-5: a steady light a flame names flickers with it and no other does", "[render][flames]") {
+    // docs/specs/UTA-0263-shader-flames.md SS 4.5. Light 0 is steady and a
+    // flame names it; light 1 is steady and none does; light 2 pulses and a
+    // flame names it; light 3 is steady and named only by the second of two
+    // flames, whose seed it must follow -- the lower-indexed record wins.
+    uta::ubundle::Bundle bundle;
+    bundle.lights.emplace();
+    bundle.lights->push_back(lightOfType(1, 10));
+    bundle.lights->push_back(lightOfType(1, 11));
+    bundle.lights->push_back(lightOfType(2, 12));
+    bundle.lights->push_back(lightOfType(1, 13));
+    bundle.flames.emplace();
+    const auto flame = [](std::uint32_t seed, std::int32_t light) {
+        uta::ubundle::Flame out;
+        out.width = 32;
+        out.height = 64;
+        out.seed = seed;
+        out.light = light;
+        return out;
+    };
+    bundle.flames->push_back(flame(5, 0));
+    bundle.flames->push_back(flame(6, 2));
+    bundle.flames->push_back(flame(7, 3));
+    bundle.flames->push_back(flame(8, 3));
+
+    float lowest = 1;
+    float highest = 0;
+    for (int step = 0; step < 400; ++step) {
+        const double seconds = step * 0.01;
+        const auto drawn = drawnLights(bundle, seconds);
+        REQUIRE(drawn.size() == 4u);
+        CHECK(drawn[0].flicker >= 0.8f);
+        CHECK(drawn[0].flicker <= 1.0f);
+        lowest = std::min(lowest, drawn[0].flicker);
+        highest = std::max(highest, drawn[0].flicker);
+        CHECK(drawn[1].flicker == 1.0f);
+        CHECK(drawn[2].flicker == flickerOf((*bundle.lights)[2], seconds));
+        CHECK(drawn[3].flicker == uta::urender::flameFlickerOf(7, seconds));
+    }
+    // It breathes: over four seconds it moves by more than a twentieth.
+    CHECK(highest - lowest > 0.05f);
+}
+
+TEST_CASE("UTA-0263: a flame's flicker is smooth and its own", "[render][flames]") {
+    // SS 4.5: smooth noise, not LT_FLICKER's twenty jumps a second. At 100
+    // samples a second no step moves by more than a fiftieth, and two seeds
+    // do not move together: over ten seconds their correlation is weak.
+    using uta::urender::flameFlickerOf;
+    float largestStep = 0;
+    double sumA = 0, sumB = 0, sumAA = 0, sumBB = 0, sumAB = 0;
+    constexpr int SAMPLES = 1000;
+    for (int step = 1; step <= SAMPLES; ++step) {
+        const double seconds = step * 0.01;
+        largestStep = std::max(largestStep, std::abs(flameFlickerOf(5, seconds) - flameFlickerOf(5, seconds - 0.01)));
+        const double a = flameFlickerOf(5, seconds);
+        const double b = flameFlickerOf(6, seconds);
+        sumA += a, sumB += b, sumAA += a * a, sumBB += b * b, sumAB += a * b;
+    }
+    const double covariance = sumAB / SAMPLES - (sumA / SAMPLES) * (sumB / SAMPLES);
+    const double spreadA = std::sqrt(sumAA / SAMPLES - (sumA / SAMPLES) * (sumA / SAMPLES));
+    const double spreadB = std::sqrt(sumBB / SAMPLES - (sumB / SAMPLES) * (sumB / SAMPLES));
+    const double correlation = covariance / (spreadA * spreadB);
+    INFO("correlation of seeds 5 and 6: " << correlation);
+    CHECK(largestStep < 0.02f);
+    CHECK(std::abs(correlation) < 0.4);
+    // A pinned time may be negative or huge (UTA-0217).
+    for (const double seconds : {-5.0, 1e300, -1e300})
+        for (const std::uint32_t seed : {0u, 5u, 0xffffffffu}) {
+            const float value = flameFlickerOf(seed, seconds);
+            CHECK(value >= 0.8f);
+            CHECK(value <= 1.0f);
+        }
 }
