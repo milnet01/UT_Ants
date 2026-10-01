@@ -573,6 +573,8 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **ut-paths keeps its suggested bot paths off slopes too steep to stand on, so its fix for MH-NivenSB now routes in the game.** (UTA-0267)
+
 - **A lamp is no longer joined into one strip light with alike lamps behind a wall or on another deck.** (UTA-0255)
   A wall lamp in AS-Frigate glowed and lit nothing: it had been
   joined with two alike lamps on other decks, and its shadow was
