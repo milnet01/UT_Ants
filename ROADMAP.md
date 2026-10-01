@@ -14335,7 +14335,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-01 split-from-UTA-0105.
   Lanes: ubake, ubundle, urender.
 
-- 🚧 [UTA-0264] **ut-bake prints its whole texture budget on every bake; add a short summary by default.**
+- ✅ [UTA-0264] **ut-bake prints its whole texture budget on every bake; add a short summary by default.**
   Measured 2026-10-01: one bake of MH-BETAThadausV0 printed its
   budget.byTexture list (every texture's bytes), about 10k tokens, to
   stdout. A session reads the verdict and path. Options: print the
@@ -14343,6 +14343,10 @@ stays with movement in 0.2.0.
   behind a flag, or write the full report to a file beside the bundle.
   Taken 2026-10-01. Rule-1 set checked first: UTA-0098 and UTA-0100
   dormant, UTA-0249 parked.
+  Shipped 2026-10-01 in 56be382: a written bake lists the ten largest
+  budget entries and counts the rest in byTextureOmitted; over-budget
+  and --full-budget list all. DM-Fetid's report fell from 5,978 bytes to
+  1,224. Push gate green on GCC, Clang and MSVC; GitHub CI green.
   **Layman:** The map baker prints far more than anyone reads after each bake, which wastes the assistant's reading budget.
   Kind: enhancement.
   Source: in-session-2026-10-01.
