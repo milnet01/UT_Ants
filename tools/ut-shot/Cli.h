@@ -7,7 +7,8 @@
 // UTA-0191's capture folder writes down everything needed to draw its view
 // again -- the tier, the render scale, the light time and the size. --from-
 // capture reads that file, so a capture redraws to its own linear.png without
-// a field being copied out by hand. An explicit option wins over it, so the
+// a field being copied out by hand. linear.png, like --linear, skips only
+// exposure and the tone map; its bytes are sRGB-encoded (UTA-0257). An explicit option wins over it, so the
 // same view can be drawn at another tier on purpose.
 
 #pragma once
