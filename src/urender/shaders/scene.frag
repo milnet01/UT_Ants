@@ -11,6 +11,7 @@
 
 #include "scene_bindings.glsl"
 #include "clusters.glsl"
+#include "flame.glsl"
 #include "fog.glsl"
 #include "light.glsl"
 #include "probes.glsl"
@@ -156,11 +157,21 @@ void main() {
     // An _SRGB block format: the sampler returns linear (SS 4.10).
     vec4 base = textureGrad(textures[nonuniformEXT(material.base)], shadingUv, duv1, duv2);
 
+    // UTA-0263 SS 4.4: a material with a flame look draws moving flame, from
+    // the texture coordinates, instead of its picture -- unlit, as emission.
+    // A repeat is one flame, its foot at the picture's bottom row.
+    bool flaming = material.flame != NONE;
+    float heat = flaming ? flameHeat(vec2(fract(uv.x), 1.0 - fract(uv.y)), frame.flameSeconds, draw.materialIndex, false)
+                         : 0.0;
+
     // Bit by bit, never by equality: PF_Masked | PF_TwoSided is still masked.
-    if ((draw.polyFlags & PF_MASKED) != 0u && base.a < MASK_THRESHOLD) discard;
+    // A masked flame's holes are where it is cold, not where its still was.
+    if ((draw.polyFlags & PF_MASKED) != 0u && (flaming ? heat <= 0.0 : base.a < MASK_THRESHOLD)) discard;
 
     vec3 colour;
-    if ((draw.polyFlags & PF_FAKE_BACKDROP) != 0u && frame.skyTexture != NONE) {
+    if (flaming) {
+        colour = vec3(0.0); // all of it is emission, added below
+    } else if ((draw.polyFlags & PF_FAKE_BACKDROP) != 0u && frame.skyTexture != NONE) {
         // UTA-0163: a window onto the sky zone, already lit when it was drawn.
         colour = skyAt(normalize(worldPosition - frame.eye));
     } else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) != 0u) {
@@ -211,7 +222,9 @@ void main() {
     // Emission is added to a lit surface only, as before UTA-0040, and at the
     // displaced coordinate like every other map.
     vec3 emitted = vec3(0.0);
-    if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) == 0u && material.emit != NONE)
+    if (flaming)
+        emitted = flameColour(material.flame, heat);
+    else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) == 0u && material.emit != NONE)
         emitted = textureGrad(textures[nonuniformEXT(material.emit)], shadingUv, duv1, duv2).rgb;
     colour += emitted;
     outEmission = vec4(emitted, 1.0);

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <format>
 #include <map>
@@ -82,7 +83,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     sources.push_back(defaultSource(DEFAULT_NORMAL, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_ROUGH, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM));
-    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0};
+    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0, gpu::NONE};
 
     std::unordered_map<std::string_view, const ubundle::CompressedTexture*> byName;
     if (bundle.textures)
@@ -103,8 +104,26 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
         return index;
     };
 
+    // UTA-0263 SS 4.2: each flame look's eight entries, in MATS order. A
+    // look stays reachable even where its maps are missing, since a FLAM
+    // record names the MATS record and not the material drawn.
+    std::vector<gpu::FlameRampEntry> ramps;
     if (bundle.materials) {
         for (const ubundle::MaterialRecord& record : *bundle.materials) {
+            std::uint32_t ramp = gpu::NONE;
+            if (record.flame) {
+                ramp = static_cast<std::uint32_t>(ramps.size());
+                for (const auto& [r, g, b] : record.flame->ramp) ramps.push_back({r, g, b, 0.0f});
+            }
+            set.rampByRecord_.push_back(ramp);
+        }
+    }
+    // The binding is never empty.
+    if (ramps.empty()) ramps.push_back({});
+
+    if (bundle.materials) {
+        for (std::size_t m = 0; m < bundle.materials->size(); ++m) {
+            const ubundle::MaterialRecord& record = (*bundle.materials)[m];
             UTA_TRY(const std::uint32_t base, mapIndex(record.id, "base", true));
             UTA_TRY(const std::uint32_t normal, mapIndex(record.id, "normal", false));
             UTA_TRY(const std::uint32_t rough, mapIndex(record.id, "rough", false));
@@ -123,7 +142,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                                normal == gpu::NONE ? defaults.normal : normal,
                                rough == gpu::NONE ? defaults.rough : rough,
                                height == gpu::NONE ? defaults.height : height, emit,
-                               record.metallic ? 1u : 0u, record.parallaxDepth});
+                               record.metallic ? 1u : 0u, record.parallaxDepth, set.rampByRecord_[m]});
         }
     }
 
@@ -188,7 +207,12 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     }));
 
     UTA_TRY(set.records_, Buffer::upload(gpu, std::as_bytes(std::span(records)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+    UTA_TRY(set.ramps_, Buffer::upload(gpu, std::as_bytes(std::span(ramps)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     return set;
+}
+
+std::uint32_t MaterialSet::rampOf(std::uint32_t record) const noexcept {
+    return record < rampByRecord_.size() ? rampByRecord_[record] : gpu::NONE;
 }
 
 std::uint32_t MaterialSet::indexOf(const std::string& id) {

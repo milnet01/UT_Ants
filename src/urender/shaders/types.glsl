@@ -46,7 +46,8 @@ struct FrameData {
     uint shadowFaceCount;
     uint skyFirstFace; // UTA-0163
     uint occlusionTexture; // UTA-0164: NONE when the bundle has no AOCC or the tier draws none
-    uint reserved1[2];
+    float flameSeconds; // UTA-0263 SS 4.4: the light clock, wrapped
+    uint reserved1;
 };
 
 struct Object {
@@ -63,6 +64,7 @@ struct Material {
     uint emit;
     uint metallic;
     uint parallaxDepth; // UTA-0040: texels of the base level; 0 for none
+    uint flame;         // UTA-0263: its ramp's first entry in flameRamps, or NONE
 };
 
 struct Light {
@@ -112,6 +114,16 @@ struct Zone {
     uint brightness;
     uint hue;
     uint saturation;
+    uint reserved;
+};
+
+// UTA-0263 SS 4.4: one camera-facing flame.
+struct FlameInstance {
+    vec3 base;
+    float width;
+    float height;
+    uint seed;
+    uint ramp;
     uint reserved;
 };
 

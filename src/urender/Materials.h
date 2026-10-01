@@ -43,10 +43,18 @@ public:
     [[nodiscard]] const std::vector<Image>& textures() const noexcept { return textures_; }
     [[nodiscard]] const Buffer& records() const noexcept { return records_; }
 
+    /// UTA-0263 SS 4.2: the first FLAME_RAMPS entry of MATS record `record`'s
+    /// flame look, or gpu::NONE where it has none or there is no such record.
+    [[nodiscard]] std::uint32_t rampOf(std::uint32_t record) const noexcept;
+    /// Every flame look's eight entries; one zero entry where there is none.
+    [[nodiscard]] const Buffer& ramps() const noexcept { return ramps_; }
+
 private:
     std::vector<MemoryBlock> blocks_; ///< declared before the images bound into them
     std::vector<Image> textures_;
     Buffer records_;
+    Buffer ramps_;
+    std::vector<std::uint32_t> rampByRecord_; ///< by MATS index
     std::unordered_map<std::string, std::uint32_t> byId_;
     std::unordered_set<std::string> reported_;
 };

@@ -57,10 +57,12 @@ enum Binding : std::uint32_t {
     PROBE_CELLS = 7,
     PROBES = 8,
     SHADOW_FACES = 9,
-    ZONES = 10,        ///< UTA-0156 SS 4.4: the last storage buffer
-    SHADOW_ATLAS = 11,
-    FOG_VOLUME = 12, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
-    TEXTURES = 13,   ///< last: it is the variable-count binding
+    ZONES = 10,        ///< UTA-0156 SS 4.4
+    FLAMES = 11,       ///< UTA-0263 SS 4.4: one FlameInstance per FLAM record
+    FLAME_RAMPS = 12,  ///< UTA-0263 SS 4.2: eight entries per flame look; the last storage buffer
+    SHADOW_ATLAS = 13,
+    FOG_VOLUME = 14, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
+    TEXTURES = 15,   ///< last: it is the variable-count binding
 };
 
 /// One frame's camera and settings.
@@ -86,7 +88,8 @@ struct FrameData {
     std::uint32_t shadowFaceCount;
     std::uint32_t skyFirstFace;    ///< UTA-0163: the sky's six faces, from here in the face table
     std::uint32_t occlusionTexture; ///< UTA-0164: an index into the texture array, or NONE
-    std::array<std::uint32_t, 2> reserved1;
+    float flameSeconds;          ///< UTA-0263 SS 4.4: the light clock, wrapped
+    std::uint32_t reserved1;
 };
 static_assert(sizeof(FrameData) == 352);
 static_assert(offsetof(FrameData, viewProj) == 0);
@@ -110,7 +113,8 @@ static_assert(offsetof(FrameData, skyTexture) == 328);
 static_assert(offsetof(FrameData, shadowFaceCount) == 332);
 static_assert(offsetof(FrameData, skyFirstFace) == 336);
 static_assert(offsetof(FrameData, occlusionTexture) == 340); // UTA-0164 SS 4.5
-static_assert(offsetof(FrameData, reserved1) == 344);
+static_assert(offsetof(FrameData, flameSeconds) == 344);
+static_assert(offsetof(FrameData, reserved1) == 348);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {
@@ -132,8 +136,9 @@ struct Material {
     std::uint32_t emit;
     std::uint32_t metallic;
     std::uint32_t parallaxDepth; ///< UTA-0040 SS 4.6: texels of the base level; 0 for none
+    std::uint32_t flame;         ///< UTA-0263 SS 4.4: its ramp's first entry in FLAME_RAMPS, or NONE
 };
-static_assert(sizeof(Material) == 28);
+static_assert(sizeof(Material) == 32);
 static_assert(offsetof(Material, base) == 0);
 static_assert(offsetof(Material, normal) == 4);
 static_assert(offsetof(Material, rough) == 8);
@@ -141,6 +146,7 @@ static_assert(offsetof(Material, height) == 12);
 static_assert(offsetof(Material, emit) == 16);
 static_assert(offsetof(Material, metallic) == 20);
 static_assert(offsetof(Material, parallaxDepth) == 24);
+static_assert(offsetof(Material, flame) == 28);
 
 /// One light, as UT99's own numbers -- the shader turns them into light
 /// (SS 3 decision 5), so no part of UTA-0112 SS 4.3's model is computed here.
@@ -233,6 +239,27 @@ static_assert(offsetof(Zone, brightness) == 0);
 static_assert(offsetof(Zone, hue) == 4);
 static_assert(offsetof(Zone, saturation) == 8);
 static_assert(offsetof(Zone, reserved) == 12);
+
+/// One entry of a flame's ramp, linear RGB and an unused fourth -- UTA-0263
+/// SS 4.2. A look is eight in a row, coldest first.
+using FlameRampEntry = std::array<float, 4>;
+
+/// One camera-facing flame, a FLAM record as the shader draws it -- UTA-0263
+/// SS 4.3 and SS 4.4.
+struct FlameInstance {
+    std::array<float, 3> base; ///< the foot, world units
+    float width;
+    float height;
+    std::uint32_t seed;
+    std::uint32_t ramp; ///< its look's first entry in FLAME_RAMPS
+    std::uint32_t reserved;
+};
+static_assert(sizeof(FlameInstance) == 32);
+static_assert(offsetof(FlameInstance, base) == 0);
+static_assert(offsetof(FlameInstance, width) == 12);
+static_assert(offsetof(FlameInstance, height) == 16);
+static_assert(offsetof(FlameInstance, seed) == 20);
+static_assert(offsetof(FlameInstance, ramp) == 24);
 
 /// The scene pipelines' push constants: which object, which material, and the
 /// batch's own flags, which the shaders test bit by bit.

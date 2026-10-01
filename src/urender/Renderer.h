@@ -126,12 +126,13 @@ public:
 
     /// Which target `readback` copies. A plain enum, so no Vulkan type reaches
     /// this header (INV-2) and a test can name a target without holding one.
-    enum class Target { Colour, Velocity };
+    enum class Target { Colour, Velocity, Emission };
 
     /// Copy the last frame's `target` into host memory, tightly packed: RGBA8
-    /// for Colour, two floats per pixel for Velocity.
-    /// Velocity is refused after a frame drawn below scale 1, whose region is
-    /// smaller than the target (UTA-0051 SS 4.4).
+    /// for Colour, two floats per pixel for Velocity, and four for UTA-0053's
+    /// Emission, the bloom's source (UTA-0263 INV-7 reads it).
+    /// Velocity and Emission are refused after a frame drawn below scale 1,
+    /// whose region is smaller than the target (UTA-0051 SS 4.4).
     ///
     /// **Both paths.** This read the surfaceless path's frames only until
     /// UTA-0191, and the restriction was never a limit of the hardware: the

@@ -90,6 +90,8 @@ uta_embed_shaders(uta_urender
     shaders/fog_integrate.comp
     shaders/scene.vert
     shaders/scene.frag
+    shaders/flame.vert
+    shaders/flame.frag
     shaders/post.vert
     shaders/post.frag
     shaders/bloom.frag

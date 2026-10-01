@@ -192,7 +192,9 @@ depth-written. It writes colour and the emission target, both additively.
 
 **Flame on a surface.** A `GEOM` batch whose material has a flame look is
 drawn with the flame shader instead of its picture, `(u, v)` taken from the
-surface's texture coordinates. It writes emission too.
+surface's texture coordinates. It writes emission too, except on a
+translucent surface: the translucent pass binds colour only, so that flame
+shows and does not bloom.
 
 **Time** is the light clock `Frame.cpp` already keeps, so
 `Renderer::pinLightSeconds` and `ut-shot --light-time` pin flames as they pin

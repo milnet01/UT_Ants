@@ -120,6 +120,10 @@ constexpr std::size_t BLOOM_LEVELS = 5;
 constexpr float BLOOM_RADIUS = 0.005f;
 constexpr float BLOOM_STRENGTH = 0.04f;
 
+/// UTA-0263 SS 4.4: the flame clock's period in seconds. At 4096 a float still
+/// resolves half a millisecond; a flame jumps once at each wrap, every 68 min.
+constexpr double FLAME_CLOCK_WRAP = 4096.0;
+
 /// What identifies an uploaded bundle: the object, the size of every section
 /// this renderer uploads, and a hash of a bounded sample of their bytes.
 ///
@@ -137,7 +141,7 @@ constexpr float BLOOM_STRENGTH = 0.04f;
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
     std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
-                lights = 0, probes = 0, zones = 0;
+                lights = 0, probes = 0, zones = 0, flames = 0;
     bool occlusion = false;
     std::uint64_t sample = 0;
     bool operator==(const BundleShape&) const = default;
@@ -187,6 +191,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
             fnv.add(std::as_bytes(std::span(record.id)));
             fnv.addValue(record.metallic);
             fnv.addValue(record.parallaxDepth); // uploaded, so a change must re-upload
+            if (record.flame) fnv.addValue(record.flame->ramp); // UTA-0263 SS 4.2, uploaded too
         }
     }
     // UTA-0156 SS 4.4: a bundle differing only in its zones must re-upload them.
@@ -224,6 +229,11 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
         fnv.addValue(bundle.occlusion->height);
         fnv.addEnds(std::span<const std::array<float, 2>>(bundle.occlusion->uv));
         fnv.addEnds(std::span<const std::uint8_t>(bundle.occlusion->texels));
+    }
+    // UTA-0263 SS 4.3: a bundle differing only in its flames must re-upload them.
+    if (bundle.flames) {
+        shape.flames = bundle.flames->size();
+        fnv.addEnds(std::span<const ubundle::Flame>(*bundle.flames));
     }
     shape.sample = fnv.value();
     if (bundle.geometry) {
@@ -350,6 +360,10 @@ struct Renderer::Impl {
     std::uint32_t probeSpacing = 0, probeCount = 0, probeTableMask = 0, probeLongestRun = 0;
     Buffer shadowFaces;
     Buffer zones; ///< UTA-0156 SS 4.4
+    /// UTA-0263 SS 4.4: the camera-facing flames, one zero record when there
+    /// are none so the binding is never empty, and how many to draw.
+    Buffer flames;
+    std::uint32_t flameCount = 0;
     /// UTA-0015 SS 4.3 and SS 4.4: the fog volume's images, one texel each below
     /// its tier; the volumetric lights a frame glows; the fog stages' set; and
     /// each drawn light's zone, found once per upload.
@@ -461,7 +475,7 @@ Result<void> Renderer::Impl::createTargets() {
     // UTA-0053: the emission target at the output's size, and the bloom chain
     // from half that down.
     const VkImageUsageFlags bloomUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    UTA_TRY(emission, Image::create(*gpu, {HDR_FORMAT, w, h, 1, bloomUsage}));
+    UTA_TRY(emission, Image::create(*gpu, {HDR_FORMAT, w, h, 1, bloomUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
     for (std::size_t k = 0; k < BLOOM_LEVELS; ++k) {
         UTA_TRY(bloom[k], Image::create(*gpu, {HDR_FORMAT, std::max<std::uint32_t>(1, w >> (k + 1)),
                                                std::max<std::uint32_t>(1, h >> (k + 1)), 1, bloomUsage}));
@@ -654,6 +668,17 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     if (zoneRecords.empty()) zoneRecords.push_back(gpu::Zone{});
     UTA_TRY(zones, Buffer::upload(*gpu, std::as_bytes(std::span(zoneRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 
+    // UTA-0263 SS 4.4: each FLAM record whose MATS record has a flame look,
+    // which ubundle's validation already guarantees of every one.
+    std::vector<gpu::FlameInstance> flameRecords;
+    if (bundle.flames)
+        for (const ubundle::Flame& flame : *bundle.flames)
+            if (const std::uint32_t ramp = materials->rampOf(flame.material); ramp != gpu::NONE)
+                flameRecords.push_back({flame.base, flame.width, flame.height, flame.seed, ramp, 0});
+    flameCount = static_cast<std::uint32_t>(flameRecords.size());
+    if (flameRecords.empty()) flameRecords.push_back(gpu::FlameInstance{});
+    UTA_TRY(flames, Buffer::upload(*gpu, std::as_bytes(std::span(flameRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+
     // SS 4.8: no tile shows this bundle's geometry yet, and each light holds at
     // most six faces.
     shadowPlanner.reset();
@@ -688,7 +713,7 @@ Result<void> Renderer::Impl::writeDescriptors() {
                                                          + (occlusion.view() ? 1 : 0));
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::ZONES + 1 + 1},
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::FLAME_RAMPS + 1 + 1},
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
         // each post set, and one source per bloom step; then UTA-0015's fog volume.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -749,10 +774,10 @@ Result<void> Renderer::Impl::writeDescriptors() {
     fogAllocate.pSetLayouts = &fogLayout;
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &fogAllocate, &fogSet), "vkAllocateDescriptorSets (fog)"));
 
-    const std::array<const Buffer*, gpu::ZONES + 1> buffers = {
+    const std::array<const Buffer*, gpu::FLAME_RAMPS + 1> buffers = {
         &frameData, &objects, &materials->records(), &lights, &clusterCounts,
-        &clusterIndices, &clusterBounds, &probeCells, &probes, &shadowFaces, &zones};
-    std::array<VkDescriptorBufferInfo, gpu::ZONES + 1> bufferInfos{};
+        &clusterIndices, &clusterBounds, &probeCells, &probes, &shadowFaces, &zones, &flames, &materials->ramps()};
+    std::array<VkDescriptorBufferInfo, gpu::FLAME_RAMPS + 1> bufferInfos{};
     std::vector<VkWriteDescriptorSet> writes;
     for (std::uint32_t i = 0; i < buffers.size(); ++i) {
         bufferInfos[i] = {buffers[i]->handle(), 0, VK_WHOLE_SIZE};
@@ -1078,6 +1103,32 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     drawBatches(Pass::Translucent);
     vkCmdEndRendering(commands);
 
+    // -- 2.5. Camera-facing flames (UTA-0263 SS 4.4) ---------------------------
+    // Additive, so their order does not matter and nothing is sorted. They
+    // write emission, which the translucent pass binds no target for, so this
+    // pass binds all three; velocity takes the flame's zero, added.
+    if (flameCount != 0) {
+        memoryBarrier(commands,
+                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                          | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                      VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                          | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                      VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+                          | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+        colours[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        colours[2].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        rendering.colorAttachmentCount = 3;
+        vkCmdBeginRendering(commands, &rendering);
+        vkCmdSetViewport(commands, 0, 1, &regionViewport);
+        vkCmdSetScissor(commands, 0, 1, &regionScissor);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->flame());
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
+                                0, nullptr);
+        vkCmdDraw(commands, 6, flameCount, 0, 0); // flame.vert's six corners, one instance a flame
+        vkCmdEndRendering(commands);
+    }
+
     // -- 3. Emissive bloom (UTA-0053) -----------------------------------------
     // Down the chain from the emission target, then back up it, each upsample
     // added into the level above. Every read is clamped to the part of its
@@ -1339,6 +1390,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
             ? *impl.pinnedLightSeconds
             : std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
     impl.lastLightSeconds = seconds;
+    // UTA-0263 SS 4.4: flames run on the same clock. A float holds it to a
+    // millisecond for hours only, so it wraps; a pinned time that is not
+    // finite reads as 0.
+    frame.flameSeconds = std::isfinite(seconds) ? static_cast<float>(std::fmod(seconds, FLAME_CLOCK_WRAP)) : 0.0f;
     std::vector<gpu::Light> frameLights = drawnLights(bundle, seconds);
     const ClusterGrid grid = clusterGrid(camera, region.width, region.height);
     std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
@@ -1506,16 +1561,17 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
     if (impl.lastDrawSkipped)
         return fail(ErrorCode::InvalidArgument,
                     "readback after a skipped frame: the pixels are an older frame's, not the last draw's");
-    if (target == Target::Velocity && impl.drawnScale < 1.0)
+    if (target != Target::Colour && impl.drawnScale < 1.0)
         return fail(ErrorCode::InvalidArgument,
-                    std::format("velocity readback after a frame drawn at scale {}: its region is smaller than the "
+                    std::format("{} readback after a frame drawn at scale {}: its region is smaller than the "
                                 "target (UTA-0051 SS 4.4)",
-                                impl.drawnScale));
+                                target == Target::Velocity ? "velocity" : "emission", impl.drawnScale));
 
-    Image& image = target == Target::Colour ? impl.output : impl.velocity;
+    Image& image = target == Target::Colour ? impl.output : target == Target::Velocity ? impl.velocity : impl.emission;
     const std::size_t pixels = static_cast<std::size_t>(impl.config.width) * impl.config.height;
-    // RGBA8 and RG16F are both four bytes a pixel.
-    UTA_TRY(Buffer host, Buffer::create(*impl.gpu, pixels * 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    // RGBA8 and RG16F are both four bytes a pixel; the emission's RGBA16F is eight.
+    const std::size_t halvesPerPixel = target == Target::Emission ? 4 : 2;
+    UTA_TRY(Buffer host, Buffer::create(*impl.gpu, pixels * halvesPerPixel * 2, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                         BufferMemory::HostRead));
     UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
         image.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -1529,8 +1585,8 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
 
     if (target == Target::Colour) return std::vector<std::byte>(host.mapped(), host.mapped() + pixels * 4);
 
-    std::vector<std::byte> floats(pixels * 2 * sizeof(float));
-    for (std::size_t i = 0; i < pixels * 2; ++i) {
+    std::vector<std::byte> floats(pixels * halvesPerPixel * sizeof(float));
+    for (std::size_t i = 0; i < pixels * halvesPerPixel; ++i) {
         std::uint16_t half = 0;
         std::memcpy(&half, host.mapped() + i * 2, sizeof(half));
         const float value = halfToFloat(half);

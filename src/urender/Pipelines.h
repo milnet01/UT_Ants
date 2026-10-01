@@ -55,6 +55,8 @@ public:
     /// UTA-0260: the pipeline that draws such a batch's depth alone, ahead of
     /// the forward pass. The scene's own vertex stage and no fragment stage.
     [[nodiscard]] VkPipeline depthFor(std::uint32_t polyFlags) const noexcept;
+    /// UTA-0263 SS 4.4: the camera-facing flames, instanced over FLAMES.
+    [[nodiscard]] VkPipeline flame() const noexcept { return flame_; }
     [[nodiscard]] VkPipeline post() const noexcept { return post_; }
     /// UTA-0154's FSR 1 stages, over the post layout: post.frag into the
     /// HDR-format upscale input, EASU into another, and RCAS into the output.
@@ -95,6 +97,7 @@ private:
     std::array<std::array<VkPipeline, 2>, 2> scene_{};
     /// UTA-0260: indexed [twoSided].
     std::array<VkPipeline, 2> depth_{};
+    VkPipeline flame_ = VK_NULL_HANDLE;
     VkPipeline post_ = VK_NULL_HANDLE;
     VkPipeline upscaleInput_ = VK_NULL_HANDLE, easu_ = VK_NULL_HANDLE, rcas_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout bloomSetLayout_ = VK_NULL_HANDLE;

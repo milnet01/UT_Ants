@@ -289,10 +289,11 @@ public:
 
     /// Which target `readback` copies. A plain enum, so no Vulkan type reaches
     /// this header (INV-2) and a test can name a target without holding one.
-    enum class Target { Colour, Velocity };
+    enum class Target { Colour, Velocity, Emission };
 
     /// Copy the last frame's `target` into host memory, tightly packed: RGBA8
-    /// for Colour, two floats per pixel for Velocity. BOTH PATHS -- the
+    /// for Colour, two floats per pixel for Velocity, four for Emission
+    /// (added by UTA-0263, whose INV-7 reads it). BOTH PATHS -- the
     /// presenting path draws into this same colour target and blits THAT into
     /// the acquired swapchain image, and both submit and wait before
     /// presenting, so the pixels are here and finished either way.

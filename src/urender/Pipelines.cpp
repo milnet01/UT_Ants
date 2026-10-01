@@ -11,6 +11,8 @@
 #include "fog_integrate.comp.spv.h"
 #include "fog_scatter.comp.spv.h"
 #include "fsr_easu.frag.spv.h"
+#include "flame.frag.spv.h"
+#include "flame.vert.spv.h"
 #include "fsr_rcas.frag.spv.h"
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
@@ -195,6 +197,95 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     return pipeline;
 }
 
+/// UTA-0263 SS 4.4's camera-facing flames: no vertex input -- flame.vert
+/// builds each quad from its instance -- both faces, depth-tested and not
+/// written, and additive into colour and emission. The pass binds all three
+/// forward targets, so its formats match the opaque pass.
+Result<VkPipeline> flamePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
+                                 VkShaderModule vertex, VkShaderModule fragment) {
+    const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
+
+    VkPipelineVertexInputStateCreateInfo vertexInput{};
+    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    VkPipelineInputAssemblyStateCreateInfo assembly{};
+    assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    VkPipelineViewportStateCreateInfo viewport{};
+    viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport.viewportCount = 1;
+    viewport.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo raster{};
+    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    raster.polygonMode = VK_POLYGON_MODE_FILL;
+    raster.cullMode = VK_CULL_MODE_NONE;
+    raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    raster.lineWidth = 1.0f;
+
+    VkPipelineMultisampleStateCreateInfo multisample{};
+    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineDepthStencilStateCreateInfo depth{};
+    depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth.depthTestEnable = VK_TRUE;
+    depth.depthWriteEnable = VK_FALSE;
+    depth.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+
+    VkPipelineColorBlendAttachmentState additive{};
+    additive.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    additive.blendEnable = VK_TRUE;
+    additive.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    additive.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    additive.colorBlendOp = VK_BLEND_OP_ADD;
+    additive.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    additive.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    additive.alphaBlendOp = VK_BLEND_OP_ADD;
+    // One state for all three: independentBlend is not enabled. Velocity is
+    // added too, and flame.frag writes 0 there, so it stays exactly as it was.
+    const std::array attachments = {additive, additive, additive};
+    VkPipelineColorBlendStateCreateInfo blend{};
+    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    blend.attachmentCount = static_cast<std::uint32_t>(attachments.size());
+    blend.pAttachments = attachments.data();
+
+    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamic{};
+    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());
+    dynamic.pDynamicStates = dynamics.data();
+
+    const std::array colourFormats = {formats.hdr, formats.velocity, formats.emission};
+    VkPipelineRenderingCreateInfo rendering{};
+    rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    rendering.colorAttachmentCount = static_cast<std::uint32_t>(colourFormats.size());
+    rendering.pColorAttachmentFormats = colourFormats.data();
+    rendering.depthAttachmentFormat = formats.depth;
+
+    VkGraphicsPipelineCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    info.pNext = &rendering;
+    info.stageCount = static_cast<std::uint32_t>(stages.size());
+    info.pStages = stages.data();
+    info.pVertexInputState = &vertexInput;
+    info.pInputAssemblyState = &assembly;
+    info.pViewportState = &viewport;
+    info.pRasterizationState = &raster;
+    info.pMultisampleState = &multisample;
+    info.pDepthStencilState = &depth;
+    info.pColorBlendState = &blend;
+    info.pDynamicState = &dynamic;
+    info.layout = layout;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
+                    "vkCreateGraphicsPipelines (flame)"));
+    return pipeline;
+}
+
 /// SS 4.8's tile pass. Both faces cast -- a shadow must not leak through a
 /// wall seen edge-on from its back -- and a slope-scaled rasterisation depth
 /// bias is what keeps a lit surface from shadowing itself. shadows.glsl applies
@@ -373,7 +464,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
     std::array<VkDescriptorSetLayoutBinding, gpu::TEXTURES + 1> bindings{};
     std::array<VkDescriptorBindingFlags, gpu::TEXTURES + 1> bindingFlags{};
-    for (std::uint32_t i = gpu::FRAME; i <= gpu::ZONES; ++i)
+    for (std::uint32_t i = gpu::FRAME; i <= gpu::FLAME_RAMPS; ++i)
         bindings[i] = {i, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, everyStage, nullptr};
     // UTA-0015: the fog's first stage reads shadows too.
     bindings[gpu::SHADOW_ATLAS] = {gpu::SHADOW_ATLAS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
@@ -454,6 +545,11 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
                 scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
                               {false, twoSided == 1, true}, parallaxStepsOf(tier)));
     }
+    // UTA-0263 SS 4.4.
+    Module flameVertex{device}, flameFragment{device};
+    UTA_TRY(flameVertex.handle, shaderModule(device, flame_vert_spv));
+    UTA_TRY(flameFragment.handle, shaderModule(device, flame_frag_spv));
+    UTA_TRY(p->flame_, flamePipeline(device, p->sceneLayout_, formats, flameVertex.handle, flameFragment.handle));
     UTA_TRY(p->post_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));
     // UTA-0154: FSR 1's stages. The upscale input and EASU's output are
     // HDR-format images; RCAS writes the output.
@@ -551,7 +647,7 @@ Pipelines::~Pipelines() {
     for (const auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {depth_[0], depth_[1], post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
+    for (VkPipeline pipeline : {depth_[0], depth_[1], flame_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
