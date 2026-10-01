@@ -11819,7 +11819,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-19.
   Lanes: urender.
 
-- 📋 [UTA-0193] **ut-paths: 34 partitioned maps have a found exit and no proposed bridge node.**
+- ✅ [UTA-0193] **ut-paths: 34 partitioned maps have a found exit and no proposed bridge node.**
   Found 2026-09-20 by UT_MonsterHunt (session ut-monsterhunt-5d) while
   reading the delivered seed output, and confirmed here.
 
@@ -11853,6 +11853,27 @@ stays with movement in 0.2.0.
 
   Not a defect until the re-run says so. An empty list may be the honest
   answer where collision found no walkable bridge.
+  Resolved (2026-10-01): not a dropped result. Re-run on 47587c2 (each
+  map under the census it was first run with: 07c, or offline-2026-09-13
+  for the 16 the later run wrote; GolgothaAL_fix has left Maps/). 5 of
+  the 38 changed: AnnihilationSB, Bridge and UM-SpaceBeacon-V1 now carry
+  nodes, Spacemarsbeta-fix6 reads mover. In all 33 that still read found
+  with no node, the found path is one or two walk spots long: a node of
+  the start's own part already touches the exit, so the chain has
+  nothing to bridge. Two causes:
+  1. 19 maps have an exit cylinder of radius 512 to 34000 (MH-Face
+     10000, FairyValleyVFinal 34000). These MonsterEnds start inactive
+     and are switched on by an event; the start lies inside the cylinder.
+     The census asks for a route to the node nearest the exit's centre
+     (endnodedist 280 to 454 on the three checked), so it reads them as
+     partitioned.
+  2. 14 maps have an ordinary exit (radius 22 to 350) that the map's
+     unpruned walking specs reach from the start. UT_MonsterHunt's spec
+     probe explains 7 (BLOCKEDPATH 5, CLOSEDNODE 1, TELEPORTER 1); the
+     other 7 are unprobed or unexplained there and are sent to them. Dropping
+     pruned specs changes none of the 7.
+  So UTA-0194's yield estimate need not allow for dropped bridges.
+  Probe: ~/.cache/uta-scratch/uta0193 (probe/, run1/).
   **Layman:** On some maps our tool found the exit but suggested no breadcrumbs to reach it; find out whether that is honest or a dropped result.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-20.
@@ -14025,7 +14046,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-30.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0257] **ut-shot: --linear says it writes linear light, and the picture it writes is sRGB-encoded.**
+- ✅ [UTA-0257] **ut-shot: --linear says it writes linear light, and the picture it writes is sRGB-encoded.**
   Found 2026-09-30 while grading UTA-0254's ray-traced reference. The
   renderer's output target is `VK_FORMAT_R8G8B8A8_SRGB`
   (src/urender/Frame.cpp, OUTPUT_FORMAT), so the store encodes, and
@@ -14044,6 +14065,13 @@ stays with movement in 0.2.0.
   bytes and say so in the usage text and in every script that reads
   them (ut-ants-uta0197/score.py and its kin score encoded values on
   purpose, against the original's frames).
+  Resolved (2026-10-01): 9045eb7; GitHub CI green at 47587c2. Kept the
+  bytes, said so: the target is R8G8B8A8_SRGB and INV-10 grades exactly
+  that path, and the scoring scripts compare encoded bytes on purpose.
+  ut-shot's usage text now says --linear skips only exposure and the tone
+  map and writes sRGB-encoded bytes; the capture's linear.png carries the
+  same note in tools/ut-shot/Cli.h. UTA-0255's figures are means of
+  encoded bytes; decoded values are recorded above.
   **Layman:** A measuring option in a developer tool labels its numbers as plain light levels when they are actually stored in the screen's brightness curve, so figures read from it were mislabelled.
   Kind: fix.
   Source: in-session-2026-09-30.
@@ -14352,7 +14380,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-01.
   Lanes: ut-bake.
 
-- 📋 [UTA-0265] **ut-dump --system on a directory with no Engine.u returns an empty nav graph and says nothing.**
+- ✅ [UTA-0265] **ut-dump --system on a directory with no Engine.u returns an empty nav graph and says nothing.**
   Measured 2026-10-01: `ut-dump --system <install>/System64 --nav-graph
   Maps/MH-NivenSB.unr` exits 0 with nodes 0, edges 0 and
   discardedEndpoints 25336, and writes nothing to stderr. System64 holds
@@ -14362,6 +14390,11 @@ stays with movement in 0.2.0.
   says a run without the install says so; this run had a directory and
   did not. Refuse, or warn, when the class ancestry cannot reach
   Engine.NavigationPoint.
+  Resolved (2026-10-01): 47587c2; GitHub CI green there. The warning now
+  asks the resolver for Engine, where NavigationPoint lives, not whether
+  the folder held any .u file. --system <install>/System64 now prints
+  'Engine.u not found'; System and --install stay quiet. Test:
+  tests/unit/DumpCliTest.cpp, seen red first.
   **Layman:** Pointed at the wrong game folder, the map-reading tool reports an empty path network instead of saying the folder is wrong.
   Kind: fix.
   Source: ut-monsterhunt-2026-10-01.
