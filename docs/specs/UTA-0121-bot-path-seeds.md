@@ -429,7 +429,9 @@ struct Proposal {
   walk graph splits (ROADMAP UTA-0123) reads `walled`. `teleporter` comes
   before `mover` because a region holding both is the more specific case.
 - **Hops.** A hop from one position to another is allowed when it is at
-  most 350 long; its three segments at § 4.5's heights trace clear; its
+  most 350 long; at each of § 4.5's three heights, its centre segment and the
+  two parallel to it `R` to either side trace clear, so a body does not clip a
+  corner the centre misses (ROADMAP UTA-0196); its
   centre segment, grown by `R` across and `H` up and down, meets no mover's
   box; and at every 32 along it, a spot of the walk graph that is not a
   mover spot lies within 32 horizontally and within `S` of the hop's own
@@ -504,12 +506,16 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   *Test:* `tests/unit/PathSeedsTest.cpp`, through `propose` over a `Scene`
   built in memory, not partitioned: an L-shaped corridor, each leg 1500
   long, with the start and its network at one end and a MonsterEnd at the
-  other, no navigation point near it. Every hop of the chain is at most 350 and traces clear;
+  other, no navigation point near it. Every hop of the chain is at most 350 and traces clear,
+  its side segments included;
   every node stands `H` above the floor; the last touches the exit. Then
   again with a pit across the middle of one leg, leaving a strip beside it
-  that the walk graph follows: no hop crosses the pit.
+  that the walk graph follows: no hop crosses the pit. That strip is one spot
+  wide, so where it turns the chain may only take the next spot, and there
+  only the centre segments are asked to trace clear.
   *Breaks when:* a hop is not traced, so a node cuts the corner through the
-  wall; the 350 cap is not applied along a straight leg; a hop is not
+  wall; a hop's side segments are not traced, so a body clips the corner;
+  the 350 cap is not applied along a straight leg; a hop is not
   checked for floor, so it crosses the pit; or the last spot is dropped where
   no navigation point takes its place.
 

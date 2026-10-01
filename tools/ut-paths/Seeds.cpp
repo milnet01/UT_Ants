@@ -214,10 +214,15 @@ struct Hops {
         const Vec3 delta = to - from;
         const double span = length(delta);
         if (span > LONGEST_HOP) return false;
-        for (const double height : HEIGHTS) {
-            const Vec3 lift{0, 0, height};
-            if (trace(scene.tree, from + lift, to + lift).fraction < 1) return false;
-        }
+        // The centre segment and one `R` to each side, so a body does not clip
+        // a corner the centre misses (UTA-0196).
+        const double across = std::hypot(delta.x, delta.y);
+        const Vec3 side = across > 0 ? Vec3{-delta.y / across * RADIUS, delta.x / across * RADIUS, 0} : Vec3{};
+        for (const double height : HEIGHTS)
+            for (const double sign : {-1.0, 0.0, 1.0}) {
+                const Vec3 shift = Vec3{0, 0, height} + side * sign;
+                if (trace(scene.tree, from + shift, to + shift).fraction < 1) return false;
+            }
         for (const Box& mover : scene.movers)
             if (meets(from, to, grown(mover))) return false;
         for (double along = 0; along < span; along += COLUMN)

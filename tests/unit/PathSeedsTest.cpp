@@ -48,15 +48,25 @@ namespace {
 /// SS 4.5's three heights from a centre.
 constexpr std::array<double, 3> HEIGHTS = {-HALF_HEIGHT + STEP + 1, 0, HALF_HEIGHT - 1};
 
-/// At most 350 long, and its three segments trace clear -- what INV-5 asks of
-/// every hop. The floor and the mover checks are INV-5's pit case's and
-/// INV-6's to show.
-bool hopClear(const uta::ubundle::CollisionTree& tree, const Vec3& from, const Vec3& to) {
+/// Which segments a hop must trace clear: the centre one alone, or it and
+/// one `R` to each side. Without the side segments a hop past a corner clips
+/// it with a bot's body (UTA-0196).
+enum class Body { Centre, Sides };
+
+/// At most 350 long, and its segments trace clear at each of the three
+/// heights -- what INV-5 asks of every hop. The floor and the mover checks are
+/// INV-5's pit case's and INV-6's to show.
+bool hopClear(const uta::ubundle::CollisionTree& tree, const Vec3& from, const Vec3& to, Body body) {
     if (length(to - from) > 350) return false;
-    for (const double height : HEIGHTS) {
-        const Vec3 lift{0, 0, height};
-        if (trace(tree, from + lift, to + lift).fraction < 1) return false;
-    }
+    const double across = std::hypot(to.x - from.x, to.y - from.y);
+    const Vec3 side = body == Body::Sides && across > 0
+                          ? Vec3{-(to.y - from.y) / across * RADIUS, (to.x - from.x) / across * RADIUS, 0}
+                          : Vec3{};
+    for (const double height : HEIGHTS)
+        for (const double sign : {-1.0, 0.0, 1.0}) {
+            const Vec3 shift = Vec3{0, 0, height} + side * sign;
+            if (trace(tree, from + shift, to + shift).fraction < 1) return false;
+        }
     return true;
 }
 
@@ -70,13 +80,14 @@ std::vector<Vec3> placedAt(const WalkGraph& graph, const std::vector<Vec3>& acto
 
 /// The first node an allowed hop from one of `from`, and each next node one
 /// from the node before it.
-void checkChain(const Scene& scene, const std::vector<Vec3>& from, const std::vector<Vec3>& nodes) {
+void checkChain(const Scene& scene, const std::vector<Vec3>& from, const std::vector<Vec3>& nodes, Body body) {
     REQUIRE_FALSE(nodes.empty());
     CHECK(std::any_of(from.begin(), from.end(),
-                      [&](const Vec3& f) { return hopClear(scene.tree, f, nodes.front()); }));
+                      [&](const Vec3& f) { return hopClear(scene.tree, f, nodes.front(), body); }));
     for (std::size_t i = 1; i < nodes.size(); ++i) {
-        INFO("the hop to node " << i << ", at x " << nodes[i].x << " y " << nodes[i].y);
-        CHECK(hopClear(scene.tree, nodes[i - 1], nodes[i]));
+        INFO("the hop to node " << i << ", at x " << nodes[i].x << " y " << nodes[i].y << " from x "
+                                << nodes[i - 1].x << " y " << nodes[i - 1].y);
+        CHECK(hopClear(scene.tree, nodes[i - 1], nodes[i], body));
     }
 }
 
@@ -215,7 +226,7 @@ TEST_CASE("INV-5: a route found is a chain of allowed hops each node H above the
 
     const WalkGraph graph = walkGraph(scene.tree);
     checkChain(scene, placedAt(graph, {scene.network[0], scene.network[1], scene.start}),
-               proposal.nodes);
+               proposal.nodes, Body::Sides);
     for (const Vec3& node : proposal.nodes)
         CHECK(static_cast<float>(node.z) == static_cast<float>(HALF_HEIGHT));
     CHECK(touches(proposal.nodes.back(), scene.exits[0]));
@@ -238,8 +249,10 @@ TEST_CASE("INV-5: no hop crosses a pit the walk goes round", "[paths][seeds]") {
     REQUIRE(proposal.routes == std::vector<Route>{Route::Found});
 
     const WalkGraph graph = walkGraph(scene.tree);
+    // The corridor is one spot wide, so where it turns the chain may only take
+    // the next spot (SS 4.7), and that move can clip the turn with a body.
     checkChain(scene, placedAt(graph, {scene.network[0], scene.network[1], scene.start}),
-               proposal.nodes);
+               proposal.nodes, Body::Centre);
     CHECK(touches(proposal.nodes.back(), scene.exits[0]));
     // The first hop starts within 350 of X 160, so cannot reach the pit.
     for (std::size_t i = 1; i < proposal.nodes.size(); ++i) {
@@ -285,7 +298,7 @@ TEST_CASE("INV-7: a partitioned chain bridges to the part reaching the exit and 
     // point taking the spot's place would leave a hop past it longer than 350.
     const WalkGraph graph = walkGraph(scene.tree);
     checkChain(scene, placedAt(graph, {scene.network[0], scene.network[1], scene.start}),
-               proposal.nodes);
+               proposal.nodes, Body::Sides);
     // None beyond the spot placed for the exit's part.
     const auto bridge = place(graph, scene.network[2]);
     REQUIRE(bridge.has_value());
