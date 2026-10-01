@@ -14246,6 +14246,17 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-01 split-from-UTA-0105.
   Lanes: ubake, ubundle, urender.
 
+- 📋 [UTA-0264] **ut-bake prints its whole texture budget on every bake; add a short summary by default.**
+  Measured 2026-10-01: one bake of MH-BETAThadausV0 printed its
+  budget.byTexture list (every texture's bytes), about 10k tokens, to
+  stdout. A session reads the verdict and path. Options: print the
+  verdict, path and budget totals by default and keep the full report
+  behind a flag, or write the full report to a file beside the bundle.
+  **Layman:** The map baker prints far more than anyone reads after each bake, which wastes the assistant's reading budget.
+  Kind: enhancement.
+  Source: in-session-2026-10-01.
+  Lanes: ut-bake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
