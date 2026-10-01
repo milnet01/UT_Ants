@@ -72,9 +72,11 @@ namespace {
 // as 26: the fixture writes every tag's true size.
 // 29, format 15: UTA-0263 gave each MATS record a flame byte. A new digest
 // under the same revision: the bytes moved, the baker did not.
-constexpr std::uint32_t RECORDED_UNDER = 29;
+// 30: UTA-0263 baked flame looks and FLAM. The fixture holds no flame, but
+// every bake now writes FLAM, empty where the level has none, so the digest moved.
+constexpr std::uint32_t RECORDED_UNDER = 30;
 constexpr std::string_view GOLDEN =
-    "b514560f3a91f0b3715906bb606af72146f3967d3cbe18e6b2060c115a7450e9";
+    "f962b979337de2d615818176176178883302a8b0fbefe4201eb660dc34aca9a3";
 
 } // namespace
 

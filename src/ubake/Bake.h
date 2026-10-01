@@ -17,10 +17,12 @@
 #include "core/Error.h"
 #include "core/Jobs.h"
 #include "core/Timing.h"
+#include "ubake/Flames.h"
 #include "ubake/Install.h"
 #include "ubake/TextureCache.h"
 #include "ubundle/Bundle.h"
 #include "umap/Build.h"
+#include "umat/Flames.h"
 #include "umat/Library.h"
 #include "umat/Material.h"
 #include "upkg/Class.h"
@@ -50,6 +52,9 @@ struct BakeResult {
     umap::RoomBuildReport rooms;
     umat::BudgetReport budget;
     std::vector<SkippedTexture> skipped;
+    /// UTA-0263 SS 6: flame surfaces carrying a sheet's flags that made no
+    /// FLAM record, and so stay in GEOM.
+    std::vector<SkippedFlame> skippedFlames;
     /// UTA-0148: materials the texture cache served, and ones it had to make.
     /// Both 0 when the bake ran without one.
     std::uint32_t textureCacheHits = 0;
@@ -127,6 +132,10 @@ namespace detail {
 /// the bake calls it from several threads at once, so it must be safe to.
 using CuratedLookup = std::function<const umat::CuratedOverride*(std::uint64_t fingerprint)>;
 
+/// Whether a picture is drawn as a flame -- `umat::isFlame` outside tests
+/// (UTA-0263 SS 4.1). Called from several threads at once, as CuratedLookup is.
+using FlameLookup = std::function<bool(std::uint64_t fingerprint)>;
+
 /// One bake with its dependencies given -- a test seam. Every package lookup
 /// goes through `resolver`. `bake` passes `install.resolver()`, `umat::curated`
 /// and `umat::TEXTURE_BUDGET_BYTES`; `bakeToDirectory` passes its request's
@@ -134,7 +143,8 @@ using CuratedLookup = std::function<const umat::CuratedOverride*(std::uint64_t f
 [[nodiscard]] Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                       const upkg::PackageResolver& resolver, JobSystem& jobs,
                                       const CuratedLookup& curated, std::uint64_t budgetBytes,
-                                      TextureCache* textureCache = nullptr);
+                                      TextureCache* textureCache = nullptr,
+                                      const FlameLookup& isFlame = umat::isFlame);
 
 /// SS 4.5 step 1: the map's one Level export. MalformedData, naming the map,
 /// when it has none or more than one. ut-paths reads a map's level the bake's

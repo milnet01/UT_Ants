@@ -347,6 +347,13 @@ MapBuilder& MapBuilder::addSurface(std::int32_t texture, std::uint32_t polyFlags
     return *this;
 }
 
+MapBuilder& MapBuilder::shapeSurface(const std::array<std::array<float, 3>, 4>& corners,
+                                     const std::array<float, 3>& normal) {
+    surfaces_.back().corners = corners;
+    surfaces_.back().normal = normal;
+    return *this;
+}
+
 MapBuilder& MapBuilder::ownSurface(std::size_t actor, std::int32_t poly) {
     surfaces_.back().brush = actor;
     surfaces_.back().brushPoly = poly;
@@ -483,16 +490,30 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     // room builder's descent from node 0 never reaches it. Vectors 0, 1 and 2
     // are every surface's normal, TextureU and TextureV.
     model.addVector({0.0F, 0.0F, 1.0F}).addVector({1.0F, 0.0F, 0.0F}).addVector({0.0F, 1.0F, 0.0F});
+    // A shaped surface's normal is a vector of its own, after those three.
+    std::int32_t vectors = 3;
     for (std::size_t i = 0; i < surfaces_.size(); ++i) {
         const float z = 8.0F * static_cast<float>(i);
         const auto first = static_cast<std::int32_t>(4 * i);
-        for (const auto& [x, y] : {std::pair{0.0F, 0.0F}, {64.0F, 0.0F}, {64.0F, 64.0F}, {0.0F, 64.0F}})
-            model.addPoint({x, y, z});
+        const Surface& shaped = surfaces_[i];
+        if (shaped.corners.has_value())
+            for (const auto& corner : *shaped.corners) model.addPoint(corner);
+        else
+            for (const auto& [x, y] : {std::pair{0.0F, 0.0F}, {64.0F, 0.0F}, {64.0F, 64.0F}, {0.0F, 64.0F}})
+                model.addPoint({x, y, z});
         for (std::int32_t k = 0; k < 4; ++k) model.addVert(first + k);
+        std::int32_t normal = 0;
+        if (shaped.corners.has_value()) {
+            model.addVector(shaped.normal);
+            normal = vectors++;
+        }
 
         ModelExportWriter::Node square;
-        square.normal = {0.0F, 0.0F, 1.0F};
-        square.w = z;
+        square.normal = shaped.normal;
+        square.w = shaped.corners.has_value()
+                       ? shaped.normal[0] * (*shaped.corners)[0][0] + shaped.normal[1] * (*shaped.corners)[0][1]
+                             + shaped.normal[2] * (*shaped.corners)[0][2]
+                       : z;
         square.iSurf = static_cast<std::int32_t>(i);
         square.iVertPool = first;
         // 0 vertices draws nothing, which is how a surface present in the file
@@ -504,7 +525,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
         surf.texture = surfaces_[i].texture;
         surf.polyFlags = surfaces_[i].polyFlags;
         surf.pBase = first;
-        surf.vNormal = 0;
+        surf.vNormal = normal;
         surf.vTextureU = 1;
         surf.vTextureV = 2;
         if (surfaces_[i].brush.has_value()) surf.actor = actors.at(*surfaces_[i].brush);

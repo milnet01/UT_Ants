@@ -204,7 +204,9 @@ measured (§ 13), not assumed.
 ### 4.5 The light in the flame — `ubake`, `urender`
 
 The bake gives each record the nearest light whose position lies within
-`1.5 × height` of `base`, or -1. Ties go to the lower index.
+`1.5 × height` of `base`, or -1. Ties go to the lower index. A light a strip
+absorbed (UTA-0162) is never named: its row's leader draws it, so it has no
+light of its own to flicker.
 
 In `Lights.cpp`, a light that a `FLAM` record names and whose type is
 `LT_STEADY` gets its flicker from the flame:

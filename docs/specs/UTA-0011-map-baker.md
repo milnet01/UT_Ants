@@ -538,13 +538,17 @@ A bake prints:
  "budget": {"workingSetBytes": 0, "budgetBytes": 0,
             "byTexture": [{"name": "<map name>", "bytes": 0}]},
  "textureCache": {"hits": 0, "misses": 0},
- "skipped": [{"material": "<id>", "why": "<a sentence>"}]}
+ "skipped": [{"material": "<id>", "why": "<a sentence>"}],
+ "skippedFlames": [{"surface": 0, "why": "<a sentence>"}]}
 ```
 
 - `error` appears only on `refused`.
 - `name` and `path` appear on `written`, `cached` and `over-budget`.
-- `rooms`, `budget`, `textureCache` and `skipped` appear on `written` and
-  `over-budget`.
+- `rooms`, `budget`, `textureCache`, `skipped` and `skippedFlames` appear on
+  `written` and `over-budget`.
+- `skippedFlames` names each flame surface with a sheet's flags that made no
+  flame record, by its index in the level's surface list, and why. Added by
+  `UTA-0263` § 6.
 - `textureCache` counts the materials `--texture-cache <dir>` served and the
   ones it had to make; both `0` without that option, which is the default.
   Added by `UTA-0148`: the cache holds `umat::generate`'s result keyed on its

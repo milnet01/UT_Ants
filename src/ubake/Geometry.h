@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <span>
 #include <string>
 
 namespace uta::ubake {
@@ -30,6 +31,8 @@ namespace uta::ubake {
 /// 4.32's public headers.
 inline constexpr std::uint32_t PF_INVISIBLE = 0x00000001u; ///< never drawn
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;    ///< index-0 texels see-through
+inline constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u; ///< blended; a flame sheet's -- UTA-0263
+inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;   ///< nothing collides; a flame sheet's
 
 /// The furthest a drawn point may lie from the origin on any axis
 /// (UTA-0109 SS 4.3 step 4): 2^24, past which an f32 no longer holds whole
@@ -61,8 +64,12 @@ using MaterialLookup =
 ///
 /// Every vertex of node n names zone `n.iZone[1]`, the zone its surface faces,
 /// or 0 where that is not below `zoneCount` -- UTA-0156 SS 4.3.
+///
+/// A surface in `omitted`, ascending, is not drawn: it became a FLAM record
+/// (UTA-0263 SS 4.3). Its nodes are still checked for `iSurf`.
 [[nodiscard]] Result<ubundle::Geometry> buildGeometry(const upkg::Model& model,
                                                       const MaterialLookup& materials,
-                                                      std::size_t zoneCount);
+                                                      std::size_t zoneCount,
+                                                      std::span<const std::uint32_t> omitted = {});
 
 } // namespace uta::ubake

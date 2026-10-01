@@ -14161,6 +14161,17 @@ stays with movement in 0.2.0.
   Next: push it, then the ubake step: fill MATS flame looks (palette at
   8 heats, linear) and FLAM records (sheet extraction and merge, nearest
   light), BAKER_REVISION 30, INV-4 in tests/unit/BakeFlamesTest.cpp.
+  Progress (2026-10-01): format 15 pushed (6e843ef), green on GitHub
+  all three legs. Step 2 (ubake) built: MATS flame looks (palette at 8
+  heats, linear), FLAM records (sheet extraction, crossed-pair merge,
+  nearest light, absorbed strip lights skipped), BAKER_REVISION 30,
+  INV-4 in tests/unit/BakeFlamesTest.cpp, 11 mutations each killed.
+  AS-Frigate bakes 4 torch flames, each with a light.
+  Correction for step 3: spec 6 names MH-EnterToCore-Part2 as the
+  many-flames map, but all 2,052 of its fire surfaces are Belt_fx.Invis,
+  labelled other, so it bakes no flames. Measure flame cost on another
+  map. Next: step 3, urender (flame pass, surface flames, flicker,
+  INV-5..8).
   **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
   Kind: feature.
   Source: user-request-2026-10-01 split-from-UTA-0105.

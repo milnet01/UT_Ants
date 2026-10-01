@@ -57,7 +57,7 @@ struct Drawn {
 } // namespace
 
 Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
-                                        std::size_t zoneCount) {
+                                        std::size_t zoneCount, std::span<const std::uint32_t> omitted) {
     std::vector<Drawn> drawn;
     std::uint64_t vertexTotal = 0;
     std::uint64_t indexTotal = 0;
@@ -78,6 +78,8 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         // refuse GEOM. COLL checks it, since an invisible node can still be
         // solid (UTA-0111 SS 4.3).
         if ((surf.polyFlags & PF_INVISIBLE) != 0) continue;
+        // UTA-0263 SS 4.3: a flame sheet is drawn as a FLAM record instead.
+        if (std::ranges::binary_search(omitted, static_cast<std::uint32_t>(node.iSurf))) continue;
 
         // 4. Its polygon, and its surface's point and vectors. Every index is
         // the file's own and unchecked by upkg (UTA-0069 SS 3.2).

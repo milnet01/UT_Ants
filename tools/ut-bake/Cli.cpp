@@ -232,6 +232,13 @@ void writeResult(std::ostream& out, const BakeResult& result) {
         writeJsonString(out, skipped.reason);
         out << '}';
     });
+    // UTA-0263 SS 6: a flame surface with a sheet's flags that made no record.
+    out << ", \"skippedFlames\": ";
+    writeArray(out, result.skippedFlames, [&out](const SkippedFlame& skipped) {
+        out << "{\"surface\": " << skipped.surface << ", \"why\": ";
+        writeJsonString(out, skipped.reason);
+        out << '}';
+    });
 }
 
 int runBake(const Arguments& args, std::ostream& out, std::ostream& err,

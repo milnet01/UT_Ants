@@ -213,6 +213,11 @@ public:
     /// The last surface added is polygon `poly` of actor `actor`, by its
     /// position among the actors -- UTA-0213.
     MapBuilder& ownSurface(std::size_t actor, std::int32_t poly);
+    /// The last surface added draws this square instead of the next 64-unit
+    /// floor square, its corners wound so their fan runs along `normal` --
+    /// UTA-0263's upright and crossed flame sheets.
+    MapBuilder& shapeSurface(const std::array<std::array<float, 3>, 4>& corners,
+                             const std::array<float, 3>& normal);
 
     /// A class the map imports as `<package>.<className>`; its reference.
     std::int32_t importClass(std::string_view package, std::string_view className);
@@ -272,6 +277,8 @@ private:
         bool drawn = true;
         std::optional<std::size_t> brush;
         std::int32_t brushPoly = 0;
+        std::optional<std::array<std::array<float, 3>, 4>> corners;
+        std::array<float, 3> normal{0, 0, 1};
     };
     std::vector<Surface> surfaces_;
     struct Actor {

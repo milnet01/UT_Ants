@@ -6,7 +6,9 @@
 #include "ubake/Actors.h"
 #include "ubake/Collision.h"
 #include "ubake/FireStill.h"
+#include "ubake/Flames.h"
 #include "ubake/Geometry.h"
+#include "ubake/LightModel.h"
 #include "ubake/LightProbes.h"
 #include "ubake/Occlusion.h"
 #include "ubake/Movers.h"
@@ -315,6 +317,23 @@ std::size_t nearestToMean(const upkg::Palette& palette) {
     return nearest;
 }
 
+/// UTA-0263 SS 4.2: the palette at eight evenly spaced heats, coldest first,
+/// decoded to linear. A fire's texel is its heat, 0 to 255, and indexes the
+/// palette directly; a shorter palette's last entry stands for the heats past
+/// it. `palette` has at least one entry.
+ubundle::FlameLook flameLookOf(const upkg::Palette& palette) {
+    ubundle::FlameLook look;
+    constexpr std::size_t HOTTEST = 255;
+    const std::size_t last = look.ramp.size() - 1;
+    for (std::size_t i = 0; i < look.ramp.size(); ++i) {
+        const std::size_t heat = (i * HOTTEST + last / 2) / last; // rounded
+        const upkg::PaletteEntry& entry = palette.entries[std::min(heat, palette.entries.size() - 1)];
+        look.ramp[i] = {static_cast<float>(linearOf(entry.r)), static_cast<float>(linearOf(entry.g)),
+                        static_cast<float>(linearOf(entry.b))};
+    }
+    return look;
+}
+
 /// A made variant, and the texels one repeat of its texture spans on each axis
 /// -- UTA-0109 SS 4.4.
 struct MadeVariant {
@@ -324,6 +343,8 @@ struct MadeVariant {
     /// The base level's linear mean, for the bounce -- UTA-0112 SS 4.5. Empty
     /// when no pixel of it is opaque.
     std::optional<Rgb> albedo;
+    /// UTA-0263 SS 4.2: set when the picture is a flame's.
+    std::optional<ubundle::FlameLook> flame;
 };
 
 /// One variant, or why it cannot be made. The error arm is a SKIP and never a
@@ -333,7 +354,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                                     const std::string& id, bool masked,
                                                     const upkg::PackageResolver& resolver, JobSystem& jobs,
                                                     const detail::CuratedLookup& curated,
-                                                    TextureCache* textureCache) {
+                                                    TextureCache* textureCache,
+                                                    const detail::FlameLookup& isFlame) {
     if (site.holder == nullptr) return std::unexpected(site.unresolved);
     const upkg::Package& holder = *site.holder;
 
@@ -464,9 +486,13 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     // Step 4. UTA-0010 SS 4.5's order with no recipe: the defaults, then the
     // curated library's entry for this picture.
     umat::MaterialSettings settings{};
+    std::optional<ubundle::FlameLook> flame;
     if (const auto fingerprint = umat::pictureFingerprint(*shown, *shownPalette)) {
         if (const umat::CuratedOverride* const entry = curated(*fingerprint))
             settings = umat::applied(settings, *entry);
+        // UTA-0263 SS 4.1: the flame list is keyed by the same fingerprint. A
+        // flame keeps its still as well, so the steps below run unchanged.
+        if (!shownPalette->entries.empty() && isFlame(*fingerprint)) flame = flameLookOf(*shownPalette);
     }
 
     // Step 5.
@@ -496,7 +522,7 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                + std::string(material.error().message()));
     const double scale = detail::textureScale(holder, *properties);
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
-                       meanAlbedo(*rgba)};
+                       meanAlbedo(*rgba), flame};
 }
 
 struct Materials {
@@ -510,12 +536,15 @@ struct Materials {
     /// SS 4.5. A material whose base level has no opaque pixel holds
     /// DEFAULT_ALBEDO.
     std::map<std::string, Rgb, std::less<>> albedo;
+    /// Each made material's index in `records`, by id -- what FLAM names.
+    std::map<std::string, std::uint32_t, std::less<>> recordIndex;
 };
 
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
                                 const std::vector<const upkg::Model*>& models,
                                 const upkg::PackageResolver& resolver, JobSystem& jobs,
-                                const detail::CuratedLookup& curated, TextureCache* textureCache) {
+                                const detail::CuratedLookup& curated, TextureCache* textureCache,
+                                const detail::FlameLookup& isFlame) {
     // Which variants each distinct reference needs. A map's surfaces name a
     // few hundred textures thousands of times, so each is resolved once. The
     // level's Model and every mover's contribute alike -- UTA-0119 SS 4.6.
@@ -586,7 +615,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         const std::size_t threw = jobs.parallelFor(count, [&](std::size_t i) {
             const auto& [id, variant] = ordered[first + i];
             batch[i].emplace(makeVariant(*variant->site, *id, variant->masked, locked, jobs, curated,
-                                         textureCache));
+                                         textureCache, isFlame));
         });
         if (threw != 0) return fail(ErrorCode::Unknown, "making a material threw");
 #ifdef __GLIBC__
@@ -606,8 +635,10 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             }
             // UTA-0040 SS 4.3: a masked variant is a cut-out, which parallax would
             // move off its geometry, so it carries no depth.
+            out.recordIndex.emplace(id, static_cast<std::uint32_t>(out.records.size()));
             out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
-                                                          variant.masked ? std::uint8_t{0} : made->material.parallaxDepth});
+                                                          variant.masked ? std::uint8_t{0} : made->material.parallaxDepth,
+                                                          made->flame});
             out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
             for (ubundle::CompressedTexture& texture : made->material.maps)
                 out.textures.push_back(std::move(texture));
@@ -697,7 +728,7 @@ Result<TextureExport> resolveTexture(const upkg::Package& map, std::string_view 
 Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                         const upkg::PackageResolver& resolver, JobSystem& jobs,
                         const CuratedLookup& curated, std::uint64_t budgetBytes,
-                        TextureCache* textureCache) {
+                        TextureCache* textureCache, const FlameLookup& isFlame) {
     // UTA-0129: each step below is a phase, in the order docs/specs/
     // UTA-0129-benchmark-tool.md SS 4.2 lists. No phase is opened inside a job.
     PhaseTimes times;
@@ -750,7 +781,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     phase.emplace(&times, "materials");
     std::vector<const upkg::Model*> surfaced{&model};
     for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
-    UTA_TRY(Materials materials, bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache));
+    UTA_TRY(Materials materials,
+            bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache, isFlame));
 
     // 8. GEOM, each surface wearing the variant step 7 made for it --
     // UTA-0109 SS 4.4.
@@ -760,7 +792,21 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         const auto found = materials.bySurface.find({texture.raw(), masked});
         return found == materials.bySurface.end() ? nullptr : &found->second;
     };
-    UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup, zones.size()), mapName));
+
+    // UTA-0263 SS 4.3: the level's flame sheets become FLAM records, and so
+    // leave GEOM. Movers' surfaces are never sheets. Timed as geometry.
+    const FlameMaterialLookup flameMaterial = [&](upkg::ObjectReference texture,
+                                                  bool masked) -> std::optional<std::uint32_t> {
+        const SurfaceMaterial* const made = lookup(texture, masked);
+        if (made == nullptr) return std::nullopt;
+        const auto index = materials.recordIndex.find(made->id);
+        if (index == materials.recordIndex.end() || !materials.records[index->second].flame.has_value())
+            return std::nullopt;
+        return index->second;
+    };
+    FlameSheets flames = findFlameSheets(model, flameMaterial);
+    UTA_TRY(ubundle::Geometry geometry,
+            naming(buildGeometry(model, lookup, zones.size(), flames.surfaces), mapName));
 
     // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
     // probes gather them, so the probes and LITE see the same strips. After
@@ -772,6 +818,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         markStrips(actors.lights,
                    [&surfaces](const Vec3& from, const Vec3& to) { return surfaces.blocked(from, to); });
     }
+    // UTA-0263 SS 4.5: after the strips, so no flame names an absorbed light.
+    assignFlameLights(flames.flames, actors.lights);
 
     // 9. MOVR, in export order -- UTA-0119 SS 4.5.
     phase.emplace(&times, "mover-shapes");
@@ -831,6 +879,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.phases = times.phases();
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
+    result.skippedFlames = std::move(flames.skipped);
 
     // Every section is written, and empty where the level has none, so a
     // present but empty section says the level was examined (UTA-0008 SS 4.4).
@@ -850,6 +899,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.lightProbes = std::move(probes);
     result.bundle.zones = std::move(zones);
     result.bundle.occlusion = std::move(occlusion);
+    result.bundle.flames = std::move(flames.flames);
     return result;
 }
 
