@@ -227,7 +227,32 @@ struct Hops {
             if (meets(from, to, grown(mover))) return false;
         for (double along = 0; along < span; along += COLUMN)
             if (!floorUnder(from + delta * (along / span))) return false;
-        return floorUnder(to);
+        return floorUnder(to) && !nearSlope(from, to);
+    }
+
+    /// UTA-0267: a floor too steep to stand on within `R` + 2 horizontally of
+    /// the centre segment, between the hop's head and a step under its floor,
+    /// read every 2. UT's builder refuses most hops passing within `R` + 1 of
+    /// one, and links those keeping further off; the extra 1 covers what a
+    /// read every 2 misses.
+    bool nearSlope(const Vec3& from, const Vec3& to) const {
+        constexpr double REACH = RADIUS + 2;
+        constexpr double SAMPLE = 2;
+        const double dx = to.x - from.x;
+        const double dy = to.y - from.y;
+        const double across2 = dx * dx + dy * dy;
+        for (double x = std::min(from.x, to.x) - REACH; x <= std::max(from.x, to.x) + REACH; x += SAMPLE)
+            for (double y = std::min(from.y, to.y) - REACH; y <= std::max(from.y, to.y) + REACH; y += SAMPLE) {
+                const double t = across2 > 0
+                                     ? std::clamp(((x - from.x) * dx + (y - from.y) * dy) / across2, 0.0, 1.0)
+                                     : 0.0;
+                if (std::hypot(x - from.x - t * dx, y - from.y - t * dy) > REACH) continue;
+                const double z = from.z + (to.z - from.z) * t;
+                const Hit hit = trace(scene.tree, {x, y, z + HALF_HEIGHT - 1}, {x, y, z - HALF_HEIGHT - STEP});
+                // A start inside solid is a wall, which the traces above own.
+                if (hit.fraction > 0 && hit.fraction < 1 && hit.normal.z < FLOOR_Z) return true;
+            }
+        return false;
     }
 };
 
@@ -599,6 +624,30 @@ Proposal propose(const Scene& scene, const WalkGraph& graph, bool partitioned) {
     };
 
     const Hops hops{scene, graph, moverSpot};
+    // UTA-0267: the mover spots and every spot a slope lies near, worked out
+    // the first time a path passes one.
+    std::optional<std::vector<bool>> moverOrSlope;
+    const auto nearSlope = [&](std::uint32_t s) {
+        return hops.nearSlope(graph.spots[s].centre, graph.spots[s].centre);
+    };
+    const auto aroundSlopes = [&](std::vector<std::uint32_t> path, const std::vector<std::uint32_t>& from,
+                                  const std::vector<bool>& goal) {
+        if (std::none_of(path.begin(), path.end(), nearSlope)) return path;
+        if (!moverOrSlope) {
+            moverOrSlope = moverSpot;
+            for (std::uint32_t s = 0; s < graph.spots.size(); ++s)
+                if (!(*moverOrSlope)[s] && nearSlope(s)) (*moverOrSlope)[s] = true;
+        }
+        // The path's own ends stay usable, so a source or goal beside a slope
+        // does not send the route back to the slope's edge.
+        std::vector<bool> removed = *moverOrSlope;
+        for (std::uint32_t s = 0; s < graph.spots.size(); ++s)
+            if (goal[s] && !moverSpot[s]) removed[s] = false;
+        for (const std::uint32_t s : from)
+            if (!moverSpot[s]) removed[s] = false;
+        std::vector<std::uint32_t> around = shortestPath(graph, from, goal, removed);
+        return around.empty() ? path : around;
+    };
     for (const Cylinder& exit : scene.exits) {
         std::vector<bool> goal(graph.spots.size(), false);
         for (std::size_t s = 0; s < graph.spots.size(); ++s)
@@ -623,7 +672,7 @@ Proposal propose(const Scene& scene, const WalkGraph& graph, bool partitioned) {
         if (const auto path = shortestPath(graph, sources, goal, moverSpot); !path.empty()) {
             proposal.routes.push_back(Route::Found);
             proposal.noRoutes.push_back(NoRoute::Routed);
-            chain(hops, path, proposal.nodes);
+            chain(hops, aroundSlopes(path, sources, goal), proposal.nodes);
         } else if (!shortestPath(graph, sources, goal, keepAll).empty()) {
             proposal.routes.push_back(Route::Mover);
             proposal.noRoutes.push_back(NoRoute::Routed);

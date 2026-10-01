@@ -20,6 +20,9 @@ ROADMAP UTA-0140.
 Amended for UTA-0142 (2026-09-25): § 3 decision 10 drops a special link
 leaving a teleporter that starts switched off and that nothing switches on,
 with INV-16 added. The census behind it is on ROADMAP UTA-0142.
+Amended for UTA-0267 (2026-10-01): § 4.7's hops and search keep off a slope
+too steep to stand on, with INV-5 gaining a bank. The lattice build behind it
+is on ROADMAP UTA-0267.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0121 (user-request-2026-09-11).
 
@@ -409,6 +412,9 @@ struct Proposal {
   network reaches the point nearest the exit, and the chain reaches the exit's
   own spots or the route is not `found`. First with mover spots removed; a path
   found is `found`. Else with them kept; a path found is `mover`. Else `none`.
+  Where a `found` path holds a spot a slope lies near (Hops), the search runs
+  again with those spots removed too, all but the path's sources and goals;
+  a path found replaces the first. The route stays `found` either way.
 - **Why no route.** An exit whose route is `found` or `mover` is `Routed`. For
   one whose route is `none`, the first of these that holds names it:
   1. `startOffGraph`: the search has no source, since neither the start nor
@@ -436,6 +442,12 @@ struct Proposal {
   box; and at every 32 along it, a spot of the walk graph that is not a
   mover spot lies within 32 horizontally and within `S` of the hop's own
   height there. So a hop never spans a pit or a door the path went round.
+  And no slope lies near it: no floor too steep to stand on (normal Z under
+  0.7) within `R` + 2 horizontally of its centre segment, between its head
+  and a step under its floor, read every 2. UT's builder refuses most hops
+  passing within `R` + 1 of one and links those keeping further off; the
+  extra 1 covers what a read every 2 misses (ROADMAP UTA-0267). A spot a
+  slope lies near is one this test fails for a hop of no length at it.
 - **Nodes.** Along a `found` path, from its first spot: the next point is the
   furthest spot along the path with an allowed hop from the chain's last
   point. Where that spot lies within 50 of an existing navigation point, or
@@ -512,12 +524,16 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   again with a pit across the middle of one leg, leaving a strip beside it
   that the walk graph follows: no hop crosses the pit. That strip is one spot
   wide, so where it turns the chain may only take the next spot, and there
-  only the centre segments are asked to trace clear.
+  only the centre segments are asked to trace clear. Then again with the first
+  leg's inner side a bank too steep to stand on, which the shortest walk
+  hugs: no hop passes within `R` + 1 of the bank.
   *Breaks when:* a hop is not traced, so a node cuts the corner through the
   wall; a hop's side segments are not traced, so a body clips the corner;
   the 350 cap is not applied along a straight leg; a hop is not
-  checked for floor, so it crosses the pit; or the last spot is dropped where
-  no navigation point takes its place.
+  checked for floor, so it crosses the pit; the last spot is dropped where
+  no navigation point takes its place; a hop is not checked for a slope near
+  it, so one cuts the bank's end; or the search does not keep off the bank,
+  so the chain must take hops along its edge.
 
 - **INV-6** — A route through a wall is `none`, and one only through a mover
   is `mover`, with no nodes, and `moverOnly` true.

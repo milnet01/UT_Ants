@@ -96,7 +96,13 @@ bool touches(const Vec3& spot, const Cylinder& exit) {
            && std::abs(spot.z - exit.centre.z) <= exit.height + HALF_HEIGHT;
 }
 
-enum class Across { Nothing, Pit, Wall, Mover };
+enum class Across { Nothing, Pit, Wall, Mover, Slope };
+
+/// Where the slope corridor's bank starts: from Y 200 the first leg's floor
+/// rises 1.05 for each 1 across, too steep to stand on (normal Z 0.69), up to
+/// its wall at Y 256. The bank runs to X 1244, where the second leg begins.
+constexpr double BANK_Y = 200;
+constexpr double BANK_END_X = 1244;
 
 /// INV-5's L-shaped corridor, each leg 1500 long and 256 wide and high: the
 /// start and its network at one end, a MonsterEnd at the other with no
@@ -117,6 +123,13 @@ Scene corridor(Across across) {
     } else if (across == Across::Wall) {
         regions.push_back(box({0, 0, 0}, {700, 256, 256}));
         regions.push_back(box({732, 0, 0}, {1500, 256, 256}));
+    } else if (across == Across::Slope) {
+        // The first leg, its inner side a bank the shortest walk hugs.
+        Region leg = box({0, 0, 0}, {BANK_END_X, 256, 256});
+        const double norm = std::hypot(1.05, 1.0);
+        leg.push_back({Vec3{0, -1.05 / norm, 1 / norm}, -1.05 * BANK_Y / norm});
+        regions.push_back(leg);
+        regions.push_back(box({BANK_END_X, 0, 0}, {1500, 256, 256}));
     } else {
         regions.push_back(box({0, 0, 0}, {1500, 256, 256}));
     }
@@ -259,6 +272,35 @@ TEST_CASE("INV-5: no hop crosses a pit the walk goes round", "[paths][seeds]") {
         INFO("the hop to node " << i << ", at x " << proposal.nodes[i].x << " y "
                                 << proposal.nodes[i].y);
         CHECK_FALSE(overPit(proposal.nodes[i - 1], proposal.nodes[i]));
+    }
+}
+
+TEST_CASE("INV-5: no hop passes within a body of a bank the walk can keep off", "[paths][seeds]") {
+    // UTA-0267: UT's builder refuses most hops passing within R + 1 of a floor
+    // too steep to stand on. The shortest walk hugs the bank, so both the
+    // search and the hops have to keep off it.
+    const Scene scene = corridor(Across::Slope);
+    const Proposal proposal = propose(scene, false);
+    REQUIRE(proposal.routes == std::vector<Route>{Route::Found});
+    CHECK(touches(proposal.nodes.back(), scene.exits[0]));
+
+    const WalkGraph graph = walkGraph(scene.tree);
+    const std::vector<Vec3> from = placedAt(graph, {scene.network[0], scene.network[1], scene.start});
+    // Whether the segment keeps more than R + 1 off the bank, read every 2.
+    const auto offBank = [](const Vec3& a, const Vec3& b) {
+        const int steps = static_cast<int>(std::ceil(length(b - a) / 2)) + 1;
+        for (int k = 0; k <= steps; ++k) {
+            const Vec3 p = a + (b - a) * (static_cast<double>(k) / steps);
+            const double off = std::hypot(std::max(0.0, p.x - BANK_END_X), std::max(0.0, BANK_Y - p.y));
+            if (off <= RADIUS + 1) return false;
+        }
+        return true;
+    };
+    CHECK(std::any_of(from.begin(), from.end(), [&](const Vec3& f) { return offBank(f, proposal.nodes.front()); }));
+    for (std::size_t i = 1; i < proposal.nodes.size(); ++i) {
+        INFO("the hop to node " << i << ", at x " << proposal.nodes[i].x << " y " << proposal.nodes[i].y
+                                << " from x " << proposal.nodes[i - 1].x << " y " << proposal.nodes[i - 1].y);
+        CHECK(offBank(proposal.nodes[i - 1], proposal.nodes[i]));
     }
 }
 
