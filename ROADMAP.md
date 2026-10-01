@@ -14382,7 +14382,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
 
-- 📋 [UTA-0267] **ut-paths allows hops on MH-NivenSB that UT's builder refuses, so its chain there does not route.**
+- 🚧 [UTA-0267] **ut-paths allows hops on MH-NivenSB that UT's builder refuses, so its chain there does not route.**
   Measured 2026-10-01 (UTA-0196, UT_MonsterHunt arms G and H). After
   3acb13b, ut-paths proposes (-832,-492,27), (-512,-492,27),
   (-192,-460,115). No spec joins (-832,-492,27) to PathNode20 or to a
@@ -14393,6 +14393,23 @@ stays with movement in 0.2.0.
   to -802, under our lowest trace height. Lead: our hop check ignores
   an unwalkable slope lower than STEP inside the body's footprint.
   Test the lead against the lattice's link map before changing § 4.7.
+  Progress (2026-10-01): the lead is tested against the lattice build
+  (work/uta0196c, walking specs, pruned counted as linked) and is
+  falsified as stated. 30 engine-linked neighbour hops cross the same
+  45-degree slope inside the body's footprint, some with it 39 above
+  the floor. What does separate them: over all 1406 lattice pairs up to
+  350 long, every hop we allow that the engine refuses (66) has its
+  centre line within 18 horizontally of the unwalkable slope; past 18
+  the engine links all but one. Inside 18 it is a mix (65 refused, 123
+  linked), and no height threshold on the slope splits it. Uphill links
+  reach the landing at x -864 and west from 8 or 9 of 9 stair points;
+  (-832,-504) gets 0 of 9, and links INTO it are built only for the
+  two smallest scouts (radius 18, 24). The chain's (-832,-492,27) sits
+  in that zone. Candidate rule for 4.7: refuse a hop whose centre line
+  passes within R+1 of an unwalkable slope (not a wall). Measured cost
+  here: catches 65 of 66 bad hops, drops 123 of 1088 good ones, which
+  the chain can route round. Not yet tried on the full map or the
+  library. Probes: ~/.cache/uta-scratch/uta0267.
   **Layman:** On one map our tool's helper points look reachable to us but not to the game, so its suggested fix does not work there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.
