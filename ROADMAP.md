@@ -11981,7 +11981,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-09-20.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0196] **ut-paths: MH-NivenSB needs a node chain anchored at PathNodeSeed8 heading to the exit.**
+- ✅ [UTA-0196] **ut-paths: MH-NivenSB needs a node chain anchored at PathNodeSeed8 heading to the exit.**
   Carried out of UTA-0126 so it survives that item closing; UTA-0126
   diagnosed it and its body holds the full measurement.
 
@@ -12081,6 +12081,15 @@ stays with movement in 0.2.0.
   Both stay clear of the wedge by our traces, so the engine's test
   reaches something ours does not.
   Waiting-on: UT_MonsterHunt's arm I result.
+  Resolved (2026-10-01, UT_MonsterHunt work/uta0196e, arm I): the map
+  ROUTES with three nodes on the original map, taken from the lattice
+  build: (-960,-600,-9), (-800,-472,27), (-768,-472,27). Walking reach
+  206 of 674, exitreached=yes (control: 119, gap PathNode20);
+  routecensus ENDNODE at HomeBase0, 11 across and 79 above the exit,
+  the same end node as the control. UT_MonsterHunt records the repair
+  on their GAME-0144. 3acb13b's side traces stand, but ut-paths' own
+  chain for this map still does not join the start part; that gap is
+  UTA-0267.
   **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
   Kind: fix.
   Source: in-session-2026-09-20.
@@ -14363,6 +14372,22 @@ stays with movement in 0.2.0.
   many census maps have a walking spec whose kept alternative runs
   through a fly spec, before deciding whether ut-paths should model it.
   **Layman:** Adding helper points makes the game rebuild its paths, and the rebuild can quietly drop a walking link our tool was relying on.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-10-01.
+  Lanes: ut-paths.
+
+- 📋 [UTA-0267] **ut-paths allows hops on MH-NivenSB that UT's builder refuses, so its chain there does not route.**
+  Measured 2026-10-01 (UTA-0196, UT_MonsterHunt arms G and H). After
+  3acb13b, ut-paths proposes (-832,-492,27), (-512,-492,27),
+  (-192,-460,115). No spec joins (-832,-492,27) to PathNode20 or to a
+  node at (-992,-600,-9), 193 away, though all nine of our traces are
+  clear. Hops from (-960,-600,-9) to (-800,-472,27) do link. In the
+  lattice build (work/uta0196c) the refused links cluster beside the
+  45-degree wedge (normal Z 0.69) whose edge runs near y -515, x -850
+  to -802, under our lowest trace height. Lead: our hop check ignores
+  an unwalkable slope lower than STEP inside the body's footprint.
+  Test the lead against the lattice's link map before changing § 4.7.
+  **Layman:** On one map our tool's helper points look reachable to us but not to the game, so its suggested fix does not work there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
