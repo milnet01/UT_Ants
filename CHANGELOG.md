@@ -441,6 +441,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **ut-bake's report lists only the ten largest textures after a successful bake.** (UTA-0264)
+  The rest are counted in a new `byTextureOmitted` field. An over-budget
+  bake still lists every texture, and `--full-budget` asks for the whole
+  list after any bake. A developer's tool; nothing a player sees changes.
+
 - **Frames indoors draw about twice as fast, and look exactly the same.** (UTA-0260)
   The renderer used to light walls that ended up hidden behind nearer
   walls. It now works out what is in front first and lights each

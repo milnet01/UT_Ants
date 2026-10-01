@@ -27,7 +27,9 @@
 #include <vector>
 
 namespace fs = std::filesystem;
+using uta::test::bake::picture;
 using uta::test::bake::standardFixture;
+using uta::test::bake::TextureSpec;
 using uta::test::bake::TempDir;
 using uta::test::bake::writeInstall;
 
@@ -96,9 +98,11 @@ struct Install {
     fs::path map;
     fs::path out;
 
-    Install() {
+    Install() : Install(standardFixture()) {}
+
+    explicit Install(const uta::test::bake::Fixture& fixture) {
         install = dir.path() / "install";
-        map = writeInstall(install, standardFixture());
+        map = writeInstall(install, fixture);
         out = dir.path() / "out";
     }
 
@@ -444,4 +448,49 @@ TEST_CASE("UTA-0148: a second bake takes every material from the texture cache, 
     std::string third;
     for (const auto& entry : fs::directory_iterator(fixture.out)) third = bytesOf(entry.path());
     CHECK(third == first);
+}
+
+/// How many `"name": ` entries the report's byTexture list holds.
+std::size_t listedTextures(const std::string& json) {
+    const std::size_t from = json.find("\"byTexture\": [");
+    const std::size_t to = json.find(']', from);
+    REQUIRE(from != std::string::npos);
+    REQUIRE(to != std::string::npos);
+    std::size_t count = 0;
+    for (std::size_t at = json.find("\"name\": ", from); at < to; at = json.find("\"name\": ", at + 1))
+        ++count;
+    return count;
+}
+
+TEST_CASE("UTA-0264: a written bake lists its ten largest textures unless asked for all",
+          "[ubake][cli]") {
+    // Eight more map textures, each worn by a surface, put the budget list
+    // well past the short list's ten.
+    uta::test::bake::Fixture many = standardFixture();
+    for (std::uint8_t i = 0; i < 8; ++i) {
+        const std::int32_t texture =
+            many.map.addTexture(TextureSpec{"Extra" + std::to_string(i), "", picture(10 + i), false});
+        many.map.addSurface(texture);
+    }
+    const Install fixture(many);
+
+    std::vector<std::string> fullArgs = fixture.bake();
+    fullArgs.insert(fullArgs.begin(), "--full-budget");
+    const Run full = run(fullArgs);
+    REQUIRE(full.code == 0);
+    const std::size_t all = listedTextures(full.out);
+    REQUIRE(all > 10);
+    CHECK(says(full.out, "\"byTextureOmitted\": 0"));
+
+    const Run written = run(fixture.bake(true));
+    REQUIRE(written.code == 0);
+    CHECK(isOneObject(written.out));
+    CHECK(listedTextures(written.out) == 10);
+    CHECK(says(written.out, "\"byTextureOmitted\": " + std::to_string(all - 10)));
+
+    // Over budget, the whole list is what says which texture to cap.
+    const Run over = run(fixture.bake(true), 1);
+    REQUIRE(over.code == 1);
+    CHECK(listedTextures(over.out) == all);
+    CHECK(says(over.out, "\"byTextureOmitted\": 0"));
 }

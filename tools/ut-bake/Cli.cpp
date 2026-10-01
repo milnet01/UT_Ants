@@ -25,6 +25,11 @@ constexpr int EXIT_OK = 0;
 constexpr int EXIT_FAILED = 1;
 constexpr int EXIT_USAGE = 2;
 
+/// UTA-0264: a written bake lists this many of its largest textures. A whole
+/// list runs to thousands of lines and is read only when a bake is over budget,
+/// so that verdict, and --full-budget, still print every texture.
+constexpr std::size_t BUDGET_LIST_SHORT = 10;
+
 /// ut-dump's escapes, which SS 4.8 names -- tools/common/Json.h's, shared by
 /// every tool.
 using uta::tools::writeJsonString;
@@ -43,7 +48,7 @@ void usage(std::ostream& err) {
     err << "usage: ut-bake --check <install>\n"
            "       ut-bake --game-types <install>\n"
            "       ut-bake --install <install> --out <dir> [--force] [--fit-budget]\n"
-           "               [--texture-cache <dir>] <map>\n"
+           "               [--texture-cache <dir>] [--full-budget] <map>\n"
            "       ut-bake --help\n"
            "\n"
            "--check says whether a directory is a usable Unreal Tournament install,\n"
@@ -54,6 +59,8 @@ void usage(std::ostream& err) {
            "bake is named apart from a full one (UTA-0245). --texture-cache keeps\n"
            "made textures in <dir> between bakes, capped at 4 GB, so baking a map\n"
            "again is faster; the output is the same either way (UTA-0148).\n"
+           "A written bake lists its 10 largest textures; --full-budget lists every\n"
+           "one, as an over-budget bake always does (UTA-0264).\n"
            "--game-types lists the game types the install's\n"
            ".int files register, each with the MapPrefix its maps' names start with\n"
            "(UTA-0179). Standard output is one JSON object.\n";
@@ -63,6 +70,7 @@ struct Arguments {
     bool help = false;
     bool force = false;
     bool fitBudget = false;
+    bool fullBudget = false;
     std::optional<std::string_view> textureCache;
     std::optional<std::string_view> check;
     std::optional<std::string_view> gameTypes;
@@ -95,6 +103,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             parsed.force = true;
         } else if (arg == "--fit-budget") {
             parsed.fitBudget = true;
+        } else if (arg == "--full-budget") {
+            parsed.fullBudget = true;
         } else if (arg == "--texture-cache") {
             if (!takeValue(parsed.textureCache)) return std::nullopt;
         } else if (arg == "--check") {
@@ -210,7 +220,9 @@ std::string_view verdictName(Verdict verdict) {
     return "refused"; // unreachable: every enumerator is named above
 }
 
-void writeResult(std::ostream& out, const BakeResult& result) {
+/// `listed` caps how many of byTexture's entries are printed; the rest are
+/// counted in byTextureOmitted (UTA-0264).
+void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed) {
     const auto writeNumber = [&out](std::uint32_t value) { out << value; };
     out << ", \"rooms\": {\"withoutFootprint\": ";
     writeArray(out, result.rooms.roomsWithoutFootprint, writeNumber);
@@ -218,11 +230,16 @@ void writeResult(std::ostream& out, const BakeResult& result) {
     writeArray(out, result.rooms.refusedZones, writeNumber);
     out << "}, \"budget\": {\"workingSetBytes\": " << result.budget.workingSetBytes
         << ", \"budgetBytes\": " << result.budget.budgetBytes << ", \"byTexture\": ";
-    writeArray(out, result.budget.byTexture, [&out](const umat::TextureCost& cost) {
+    const std::vector<umat::TextureCost>& costs = result.budget.byTexture;
+    const std::size_t shown = std::min(listed, costs.size());
+    const std::vector<umat::TextureCost> listedCosts(costs.begin(),
+                                                     costs.begin() + static_cast<std::ptrdiff_t>(shown));
+    writeArray(out, listedCosts, [&out](const umat::TextureCost& cost) {
         out << "{\"name\": ";
         writeJsonString(out, cost.name);
         out << ", \"bytes\": " << cost.bytes << '}';
     });
+    out << ", \"byTextureOmitted\": " << costs.size() - shown;
     out << "}, \"textureCache\": {\"hits\": " << result.textureCacheHits
         << ", \"misses\": " << result.textureCacheMisses << "}, \"skipped\": ";
     writeArray(out, result.skipped, [&out](const SkippedTexture& skipped) {
@@ -293,7 +310,11 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
         for (const std::filesystem::path& file : clash.shadowed) err << " " << detail::utf8(file);
         err << "\n";
     }
-    if (outcome->result.has_value()) writeResult(out, *outcome->result);
+    if (outcome->result.has_value())
+        writeResult(out, *outcome->result,
+                    args.fullBudget || outcome->verdict == Verdict::OverBudget
+                        ? outcome->result->budget.byTexture.size()
+                        : BUDGET_LIST_SHORT);
     if (outcome->fitted.has_value())
         out << ", \"fitted\": {\"upscaleRounds\": " << outcome->fitted->upscaleRounds
             << ", \"sourceRounds\": " << outcome->fitted->sourceRounds

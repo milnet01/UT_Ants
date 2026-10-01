@@ -536,7 +536,8 @@ A bake prints:
  "error": "<a sentence>",
  "rooms": {"withoutFootprint": [0], "refusedZones": [0]},
  "budget": {"workingSetBytes": 0, "budgetBytes": 0,
-            "byTexture": [{"name": "<map name>", "bytes": 0}]},
+            "byTexture": [{"name": "<map name>", "bytes": 0}],
+            "byTextureOmitted": 0},
  "textureCache": {"hits": 0, "misses": 0},
  "skipped": [{"material": "<id>", "why": "<a sentence>"}],
  "skippedFlames": [{"surface": 0, "why": "<a sentence>"}]}
@@ -549,6 +550,10 @@ A bake prints:
 - `skippedFlames` names each flame surface with a sheet's flags that made no
   flame record, by its index in the level's surface list, and why. Added by
   `UTA-0263` § 6.
+- `byTexture` on `written` lists only the ten largest entries, and
+  `byTextureOmitted` counts the rest. `over-budget`, or `--full-budget`, lists
+  every entry, with `byTextureOmitted` `0`: the whole list is read only to
+  find what to cap. Added by `UTA-0264`.
 - `textureCache` counts the materials `--texture-cache <dir>` served and the
   ones it had to make; both `0` without that option, which is the default.
   Added by `UTA-0148`: the cache holds `umat::generate`'s result keyed on its
