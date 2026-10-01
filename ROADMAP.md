@@ -4353,7 +4353,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: docs.
 
-- 📋 [UTA-0083] **Generalise the mutation probe past its hand-written mutation list.**
+- ✅ [UTA-0083] **Generalise the mutation probe past its hand-written mutation list.**
   scripts/mutation-probe.py shipped 2026-09-08 with one subject, ubundle,
   and 57 mutations written out by hand. It earned its place immediately:
   it found four fixtures grading a rule OTHER than the one they named,
@@ -4406,6 +4406,7 @@ stays with movement in 0.2.0.
   left the last mutant built in build/, so the next test run graded it; it
   now rebuilds the restored tree on exit. Direction 1 (generated
   mutations) is not done.
+  Resolved (2026-10-02): 3171056; GitHub CI green there.
   **Layman:** We have a tool that deliberately breaks one rule at a time and checks a test notices. It works, but the list of things to break is written out by hand for one subsystem, so nobody will keep it up.
   Kind: test.
   Source: in-session-2026-09-08.
@@ -13023,7 +13024,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-26.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
+- 🚧 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
   Decided by the user 2026-09-10: the first version shows these
   as a still picture where one exists, and real animation is its own
   item, linked to the water-and-glass rendering work (UTA-0089).
@@ -13072,6 +13073,12 @@ stays with movement in 0.2.0.
   keeps the liquids and WetTexture, IceTexture and WaveTexture motion.
   Set back to planned 2026-10-01: the user redirected the session to
   fire (UTA-0263) before any work on this item began.
+  User decision (2026-10-02), of three put to them: a modern shader, as
+  for fire. Each liquid texture keeps its still picture, and the shader
+  adds moving ripples, flow and shine from noise, with speed and scale
+  taken from that texture's own parameters. Not chosen: replaying UT99's
+  WetTexture/WaveTexture simulation, or both split by surface size. This
+  shapes UTA-0055, UTA-0089 and UTA-0215. Picked up 2026-10-02.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
