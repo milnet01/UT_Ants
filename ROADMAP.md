@@ -11955,6 +11955,16 @@ stays with movement in 0.2.0.
   PathNode144, so the bridge never links. They will add a no-grid
   option and run CTL0 vs B0 on the original map.
   Waiting-on: that no-grid two-arm result.
+  No-grid result (2026-10-01, UT_MonsterHunt work/uta0195c, B0 =
+  bridge + ledge): still NOROUTE, but the bridge links PathNode144 and
+  PathNode147 both ways, and over all walking specs, pruned included,
+  the start part reaches PathNode150. The new break is pruning: the
+  mapper's build keeps PathNode140 -> PathNode141 (walk, 840), and the
+  rebuild prunes it because 140 -> Spawnpoint24 (fly) -> 141 exists.
+  So any paths rebuild can turn a walking route into NOROUTE. Asked:
+  B1 = B0 + a node at (1184,2144,-971), midway between 140 and 141,
+  420 to each, all nine traces clear at radius 18.
+  Waiting-on: UT_MonsterHunt's B1 result.
   **Layman:** On one map the exit is almost touching a path the bots use, yet they still cannot reach it; find out what is refusing.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-20.
@@ -14320,6 +14330,21 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-dump.
+
+- 📋 [UTA-0266] **ut-paths reads the mapper's specs, but a paths rebuild can prune a walking spec in favour of a fly route.**
+  Measured 2026-10-01 on MH-Skaarj_ReactorTest-v1 (UTA-0195): the
+  mapper's build keeps PathNode140 -> PathNode141 (walk, 840).
+  UT_MonsterHunt's DEFINE rebuild prunes it, because 140 ->
+  Spawnpoint24 (flags 2, fly) -> 141 exists, and the walking start part
+  then stops at PathNode140. ut-paths builds its network from the
+  saved map's specs (UTA-0121 § 4.6), so it can call a part connected
+  that a rebuild, which any proposed node forces, disconnects. Find how
+  many census maps have a walking spec whose kept alternative runs
+  through a fly spec, before deciding whether ut-paths should model it.
+  **Layman:** Adding helper points makes the game rebuild its paths, and the rebuild can quietly drop a walking link our tool was relying on.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-10-01.
+  Lanes: ut-paths.
 
 ## 0.2.0 — Movement and weapons
 
