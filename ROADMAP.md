@@ -12001,6 +12001,15 @@ stays with movement in 0.2.0.
   still get flag-32 specs both ways, R500, which the engine follows as
   plain moves; do not drop them as needing a lift. Data:
   UT_MonsterHunt/work/game0158/forcedlinks-2026-09-30.txt.
+  Diagnosed (2026-10-01): the "something" between x -848 and -800 is a
+  45-degree wedge (normal Z 0.69, unwalkable) beside a doorway sill, its
+  edge 0 to 4 units off that line. ut-paths' hop check traced only the
+  centre line, which clears it; traces R to either side hit it. UT's
+  specs here go down to radius 18, so a body that clips is refused.
+  Fixed in 3acb13b: a hop's side segments must also trace clear
+  (UTA-0121 § 4.7). The chain is now (-832,-492,27), (-512,-492,27),
+  (-192,-460,115); every hop clears all nine traces.
+  Waiting-on: UT_MonsterHunt's two-arm result for the new chain.
   **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
   Kind: fix.
   Source: in-session-2026-09-20.
