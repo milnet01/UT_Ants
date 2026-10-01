@@ -14172,6 +14172,17 @@ stays with movement in 0.2.0.
   labelled other, so it bakes no flames. Measure flame cost on another
   map. Next: step 3, urender (flame pass, surface flames, flicker,
   INV-5..8).
+  Progress (2026-10-01): step 2 pushed (37f3435), green on GitHub all
+  three legs. Step 3 built and pushed: 06f67c7 flicker (INV-5), e285bc9
+  flame pass, surface flames, Target::Emission readback (INV-6..8 plus
+  a surface-flame case), all green on lavapipe and the GPU. The four
+  spec 4.6 constants are UNFITTED: an AS-Frigate torch draws, glows and
+  moves, but reads as a smooth, over-bright, flat-topped blob, too wide.
+  Next: spec 4.6's fit. ut-ants-uta0156's UTAShot only poses at
+  PlayerStarts, so a variant aiming at torches and shooting short bursts
+  must be written and built with its ucc. Shape (noise scale, teardrop
+  width) is not among the fitted four; compare flame coverage too.
+  Test gaps: flame.frag's fog dimming and shapeOf's FLAM sampling.
   **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
   Kind: feature.
   Source: user-request-2026-10-01 split-from-UTA-0105.
