@@ -13079,6 +13079,23 @@ stays with movement in 0.2.0.
   taken from that texture's own parameters. Not chosen: replaying UT99's
   WetTexture/WaveTexture simulation, or both split by surface size. This
   shapes UTA-0055, UTA-0089 and UTA-0215. Picked up 2026-10-02.
+  Spec plan (2026-10-02, not yet drafted): docs/specs/UTA-0105-shader-
+  liquids.md, mirroring docs/specs/UTA-0263-shader-flames.md section by
+  section; its loop log already exists at docs/reviews/UTA-0105-shader-
+  liquids-loop-log.md (empty; reviews cancelled here). Scope split: this
+  item moves the liquid's PICTURE (a moving offset to the texture
+  coordinates before scene.frag samples the base picture) and tilts the
+  shading normal with the same moving noise, so lit liquid shows moving
+  ripples. Reflections, Fresnel and depth tint stay UTA-0089; moving
+  geometry UTA-0055; caustics and the underwater view UTA-0215. Shape: a
+  liquid look on the MATS record (as FlameLook), params taken from each
+  WetTexture, IceTexture and WaveTexture's own properties; the GPU
+  Material gains a liquid index as it gained `flame`; FORMAT_VERSION 16,
+  BAKER_REVISION 31, shapeOf samples the new look. Motion constants are
+  fitted against original frames as UTA-0263 § 4.6 did (capture kit in
+  ut-ants-uta0156, ~/.cache/uta-scratch/u263/scripts). Census of the
+  three classes (fields read today, textures, maps, surfaces, test maps):
+  ~/.cache/uta-scratch/u105/REPORT.md, written by a helper run.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
