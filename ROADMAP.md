@@ -14410,6 +14410,14 @@ stays with movement in 0.2.0.
   here: catches 65 of 66 bad hops, drops 123 of 1088 good ones, which
   the chain can route round. Not yet tried on the full map or the
   library. Probes: ~/.cache/uta-scratch/uta0267.
+  Progress (2026-10-01): built in 7651f33. A hop fails when a floor too
+  steep to stand on lies within R + 2 of its centre segment, read every
+  2 (R + 1 read every 4 left seven bad hops at 17.7 to 18.0); a found
+  path passing such a spot is searched again round it. Lattice: all 66
+  bad hops refused, 124 of 1088 good ones lost. Census 2026-09-07c: no
+  route verdict changed; NivenSB's landing node moves to (-864,-492,27)
+  and AnnihilationSB gains three nodes. Waiting-on: UT_MonsterHunt's
+  confirm builds of both (asked 2026-10-01).
   **Layman:** On one map our tool's helper points look reachable to us but not to the game, so its suggested fix does not work there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.
