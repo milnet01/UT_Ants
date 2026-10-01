@@ -14382,7 +14382,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0267] **ut-paths allows hops on MH-NivenSB that UT's builder refuses, so its chain there does not route.**
+- ✅ [UTA-0267] **ut-paths allows hops on MH-NivenSB that UT's builder refuses, so its chain there does not route.**
   Measured 2026-10-01 (UTA-0196, UT_MonsterHunt arms G and H). After
   3acb13b, ut-paths proposes (-832,-492,27), (-512,-492,27),
   (-192,-460,115). No spec joins (-832,-492,27) to PathNode20 or to a
@@ -14418,6 +14418,11 @@ stays with movement in 0.2.0.
   route verdict changed; NivenSB's landing node moves to (-864,-492,27)
   and AnnihilationSB gains three nodes. Waiting-on: UT_MonsterHunt's
   confirm builds of both (asked 2026-10-01).
+  Resolved (2026-10-01): 7651f33; GitHub CI green at dff5a8c. UT_MonsterHunt
+  built MH-NivenSB with the new chain (work/uta0267): census ENDNODE in
+  16 hops, and the unpruned walking spec walk reaches the exit, where the
+  original map is NOROUTE. AnnihilationSB's three nodes link but change no
+  verdict; its own disagreement is UTA-0268.
   **Layman:** On one map our tool's helper points look reachable to us but not to the game, so its suggested fix does not work there.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.
