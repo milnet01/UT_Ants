@@ -11936,6 +11936,19 @@ stays with movement in 0.2.0.
   specs (flags 9) enter it from outside: one can drop in, nothing walks
   back up. Not diagnosed: lift, teleporter, jump pad or dead end at that
   rise. Builds: UT_MonsterHunt/work/uta0195/.
+  Diagnosed (2026-10-01) from ut-dump --nav-graph on the original map
+  and probes on our collision tree. No spec of any kind leaves the
+  69-node walking start part. Its north edge is PathNode144 (3152, 2816,
+  -971); the next node on, PathNode147 (3600, 3776, -971), is 1059 away,
+  past the longest spec built nearby (975), and the floor between is
+  open in our walk graph. PathNode147 walks to PathNode150 via 148 and
+  149. Not a lift, teleporter or door: an earlier door guess failed,
+  since the mover boxes are far too large to be doors and the start
+  part already reaches past them. Proposed repair, two nodes: a bridge
+  at (3376, 3296, -971), 530 to each end, all nine traces clear at
+  radius 18, plus the ledge node (3845, 6568, -953). Sent to
+  UT_MonsterHunt 2026-10-01.
+  Waiting-on: UT_MonsterHunt's two-arm result for the two-node repair.
   **Layman:** On one map the exit is almost touching a path the bots use, yet they still cannot reach it; find out what is refusing.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-20.
