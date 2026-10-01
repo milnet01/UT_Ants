@@ -11925,6 +11925,17 @@ stays with movement in 0.2.0.
   decision 4). Proposed repair sent to UT_MonsterHunt (message 2026-09-29):
   one PathNode on the ledge at about (3845, 6568, -953), paths rebuilt.
   Waiting-on: UT_MonsterHunt's two-arm result for that node.
+  Progress (2026-10-01): UT_MonsterHunt answered (msgs 306, 307,
+  2026-09-30), MH-Skaarj_ReactorTest-v1. A ledge node at
+  (3845,6568,-953) links (PathNode150 -> it flags 9) and the map is
+  still NOROUTE in all four arms. The break is upstream: the 110-node
+  start part never reaches PathNode150. All 16 PlayerStarts are at z
+  -720; the start part spans z ~-700 and ~-1000, and the 45 specs
+  leaving it are fly-only (flags 2), mostly from the low level up to z
+  -676..-723 (Spawnpoint6/8/14/22/24, PathNodeSeed11..19). 99 walking
+  specs (flags 9) enter it from outside: one can drop in, nothing walks
+  back up. Not diagnosed: lift, teleporter, jump pad or dead end at that
+  rise. Builds: UT_MonsterHunt/work/uta0195/.
   **Layman:** On one map the exit is almost touching a path the bots use, yet they still cannot reach it; find out what is refusing.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-20.
@@ -11976,6 +11987,20 @@ stays with movement in 0.2.0.
   mode ut-paths finds no route here (noRoute mover); adding drops up to
   340 units reaches the exit through a 313-unit drop off that ramp.
   Waiting-on: UT_MonsterHunt's two-arm result for the three-node chain.
+  Progress (2026-10-01): UT_MonsterHunt answered (msg 305, 2026-09-30),
+  MH-NivenSB. Still NOROUTE. Our three chain nodes are the tested chain;
+  (-160,-428,125) <-> PathNode32 links, and PathNode32's part reaches
+  HomeBase0. Nothing in the start part has a spec INTO the chain. Arm F
+  added three nodes on the line from PathNode20: they join the start
+  part, but (-848,-518,27) -> (-800,-492,27) gets no spec either way, so
+  the engine's builder sees something between x -848 and -800 at z 27
+  that our collision tree calls one floor. (-800,-492,27) also takes
+  walk specs from z 128-149 nodes, which is odd. Builds:
+  UT_MonsterHunt/work/uta0196/MH-NivenSB-F.unr. Separately (msg 315):
+  1269 of 1270 LiftCenter/LiftExit pairs whose LiftTag matches no mover
+  still get flag-32 specs both ways, R500, which the engine follows as
+  plain moves; do not drop them as needing a lift. Data:
+  UT_MonsterHunt/work/game0158/forcedlinks-2026-09-30.txt.
   **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
   Kind: fix.
   Source: in-session-2026-09-20.
@@ -14183,6 +14208,24 @@ stays with movement in 0.2.0.
   must be written and built with its ucc. Shape (noise scale, teardrop
   width) is not among the fitted four; compare flame coverage too.
   Test gaps: flame.frag's fog dimming and shapeOf's FLAM sampling.
+  Progress (2026-10-01): spec 4.6 fitted against AS-Frigate's torches in
+  the original; the numbers and sweeps sit beside the constants in
+  src/urender/shaders/flame.glsl. Within 10%: mean luma, total light,
+  1/30 s change. Flame pixels 12% short. The flat blob was the heat
+  offset of 0.45 (heat clamped to 1 over most of the flame), now 0, the
+  spec's plain form; shape narrowed to a column (FLAME_WIDTH,
+  FLAME_TAPER). ut-shot --emission writes the emission target as PFM.
+  Capture kit (outside the repo):
+  ut-ants-uta0156/ut/UTAFlame/Classes/UTAFlame.uc, built with ucc make
+  -ini=UTAFlame.ini (kit copy of the ini: FrameRateLimit 30,
+  EditPackages UTAFlame). Run
+  ~/.cache/uta-scratch/u263/scripts/capture-flame.sh AS-Frigate <out>.
+  Measure and sweep scripts: ~/.cache/uta-scratch/u263/fit/ (measure.py
+  orig, sweep.py NAME=V,...). Traps: every burst's 2nd shot is black
+  (dropped); pose 0 is excluded (its mask fills the box); the original's
+  widest point is mid-height and ours is the foot, unfitted. Next: spec
+  13's flame cost on a map with many flames (not MH-EnterToCore-Part2),
+  then the remaining INV checks and closing the item.
   **Layman:** Torch flames and burning walls are drawn the way modern games draw them: moving, glowing, never paper-thin, with the light around them flickering.
   Kind: feature.
   Source: user-request-2026-10-01 split-from-UTA-0105.
