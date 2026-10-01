@@ -12060,6 +12060,16 @@ stays with movement in 0.2.0.
   with no grid seeds. If it routes, ut-paths should start a chain with
   a node at the start part's placed spot.
   Waiting-on: UT_MonsterHunt's arm H result.
+  Arm H (2026-10-01, UT_MonsterHunt work/uta0196d): NOROUTE. The added
+  node (-992,-600,-9) joins the start part but has no spec either way
+  to (-832,-492,27), 193 away, so the floating-PathNode20 hypothesis is
+  wrong. The lattice's own links are pairwise and survive here: arm I
+  asked = (-960,-600,-9), (-800,-472,27), (-768,-472,27), each needed
+  spec built unpruned in the lattice build. Open: why the engine
+  refuses hops ending near (-832,-492) while hops to (-800,-472) pass.
+  Both stay clear of the wedge by our traces, so the engine's test
+  reaches something ours does not.
+  Waiting-on: UT_MonsterHunt's arm I result.
   **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
   Kind: fix.
   Source: in-session-2026-09-20.
