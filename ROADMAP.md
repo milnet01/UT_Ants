@@ -12038,6 +12038,18 @@ stays with movement in 0.2.0.
   mapping build: a 32-unit lattice of 38 nodes over x -992..-768,
   y -600..-440, to read which neighbour pairs the engine links.
   Waiting-on: UT_MonsterHunt's lattice build.
+  Lattice result (2026-10-01, UT_MonsterHunt work/uta0196c): with 38
+  lattice nodes 32 apart, the walking start part reaches PathNode32
+  and HomeBase0 over unpruned specs, via (-960,-600,-9),
+  (-800,-472,27) and (-768,-472,27). The floor is walkable; lattice
+  neighbours link both ways except beside the wedge. Hypothesis:
+  PathNode20 floats 77 above its floor (-48), so the engine links
+  nothing from it onto the higher floors. ut-paths starts a chain from
+  the spot under PathNode20 as if a node stood there. Test asked: the
+  3acb13b chain plus a node at (-992,-600,-9), on the original map
+  with no grid seeds. If it routes, ut-paths should start a chain with
+  a node at the start part's placed spot.
+  Waiting-on: UT_MonsterHunt's arm H result.
   **Layman:** One map needs a line of extra breadcrumbs starting from a specific spot, not the single one we tried.
   Kind: fix.
   Source: in-session-2026-09-20.
