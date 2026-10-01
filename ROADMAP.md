@@ -14423,6 +14423,19 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
 
+- 📋 [UTA-0268] **MH-AS-AnnihilationSB: UT's route search finds no route where its walking specs reach the exit.**
+  Measured 2026-10-01 by UT_MonsterHunt (work/uta0267), on the
+  original map and on a build with UTA-0267's three nodes added. Both
+  census as NOROUTE (endnode PathNode43, pawnnode PlayerStart35), yet
+  the unpruned walking spec walk reaches the exit on both. The added
+  nodes change neither verdict. Find which is wrong: a limit in the
+  census's in-engine search, or a spec the engine will not use at
+  runtime. Placed in 0.1.0 beside UTA-0267, which surfaced it.
+  **Layman:** On one map the game's own route check says bots cannot reach the exit, though its walking links say they can, so we do not yet know which to trust.
+  Kind: investigate.
+  Source: ut-monsterhunt-2026-10-01.
+  Lanes: ut-paths.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
