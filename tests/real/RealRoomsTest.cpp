@@ -198,10 +198,16 @@ TEST_CASE("every node's own zone record agrees with the descent", "[real-assets]
             }
         }
 
-        // The probe: the centroid of a node's own polygon, displaced off the
-        // plane. A small multiple of the level's own scale -- large enough to
-        // clear float precision at level coordinates, small enough to stay in
-        // the cell the node's record describes.
+        // The probe: the centroid of a node's own polygon, put on the node's
+        // plane and then displaced off it. A small multiple of the level's own
+        // scale -- large enough to clear float precision at level coordinates,
+        // small enough to stay in the cell the node's record describes.
+        //
+        // ON THE PLANE FIRST (UTA-0079). A polygon's centroid lies off its
+        // node's plane by a median of two nudges where it lies off at all, so
+        // nudging the centroid as it is put 22,020 probes on the WRONG side of
+        // their own node's plane: the descent then took the node's other child,
+        // and that was the whole unexplained residual.
         const float extent = std::max({std::abs(level->boundsMax.x - level->boundsMin.x),
                                        std::abs(level->boundsMax.y - level->boundsMin.y),
                                        std::abs(level->boundsMax.z - level->boundsMin.z)});
@@ -284,10 +290,13 @@ TEST_CASE("every node's own zone record agrees with the descent", "[real-assets]
                 if (child != -1) continue;
 
                 const float away = side == 1 ? nudge : -nudge;
+                const double off = static_cast<double>(node.plane.normal.x) * (cx / n) +
+                                   static_cast<double>(node.plane.normal.y) * (cy / n) +
+                                   static_cast<double>(node.plane.normal.z) * (cz / n) - node.plane.w;
                 const uta::umap::Point3 probe{
-                    static_cast<float>(cx / n) + node.plane.normal.x * away,
-                    static_cast<float>(cy / n) + node.plane.normal.y * away,
-                    static_cast<float>(cz / n) + node.plane.normal.z * away};
+                    static_cast<float>(cx / n + node.plane.normal.x * (away - off)),
+                    static_cast<float>(cy / n + node.plane.normal.y * (away - off)),
+                    static_cast<float>(cz / n + node.plane.normal.z * (away - off))};
 
                 const std::int32_t leaf = node.iLeaf[static_cast<std::size_t>(side)];
                 std::int64_t recorded = node.iZone[static_cast<std::size_t>(side)];
@@ -333,20 +342,9 @@ TEST_CASE("every node's own zone record agrees with the descent", "[real-assets]
     REQUIRE(census.mapsWithAParsingModel > 0);
     REQUIRE(census.probes > 0);
 
-    // NOT the hard form SS 7 asks for, and the reason is a measurement that
-    // section did not have. Its argument was that "any threshold below 100%
-    // passes exactly the defect being hunted", which assumed a swapped
-    // front/back convention would score near 100%. It does not: measured on
-    // one map with upkg's iFront and iBack the wrong way round, 0 probes of
-    // 11451 agreed. The defect is catastrophic, not marginal, so a ceiling
-    // three hundred times under it still catches it with room to spare.
-    //
-    // What the hard form actually costs is stated rather than hidden: 30399
-    // probes of 11126404 disagree across the install, 0.27%, and NONE of the
-    // hypotheses tested account for them. They are not nodes the descent
-    // cannot reach, not probes outside their own cell, and not leaves or
-    // zones out of range -- each was excluded in turn and the count did not
-    // move. UTA-0079 carries the open question. Until it is answered this
-    // asserts what it can defend and says what it cannot.
-    REQUIRE(census.disagreements * 100 < census.probes);
+    // The HARD form SS 7 asks for. From 2026-09-08 to UTA-0079 this asserted
+    // under 1%, because 0.27% of probes disagreed for no reason then found;
+    // the reason was the probe's placement, fixed above, and measured after
+    // it, 0 of 8,107,369 probes disagree.
+    REQUIRE(census.disagreements == 0);
 }

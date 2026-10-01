@@ -480,7 +480,7 @@ light references are not carried, because the lookup does not read them.
   side resolves through `roomAt` to the room for the zone **that node's own
   record gives for that side** — `leaves[node.iLeaf[side]].iZone` where that
   side is a leaf, otherwise `node.iZone[side]`.
-  *Test:* `tests/real/RealInstallTest.cpp`, "every node's own zone record
+  *Test:* `tests/real/RealRoomsTest.cpp`, "every node's own zone record
   agrees with the descent", over the install.
   *Breaks when:* the descent takes `iFront` on the back side — the front/back
   convention of § 4.3 is an array index, so swapping it compiles, returns a
@@ -498,7 +498,10 @@ light references are not carried, because the lookup does not read them.
 
   **The probe point** is the centroid of the node's polygon — its `numVertices`
   entries from `verts` starting at `iVertPool`, each naming a `points` entry —
-  displaced along `plane.normal` by a small multiple of the level's own scale.
+  moved onto the node's plane, then displaced along `plane.normal` by a small
+  multiple of the level's own scale. The centroid often lies off the plane by
+  more than that displacement, which puts the probe on the wrong side of its
+  own node (UTA-0079).
   Both tables are members of `Model`. A node with no vertex pool is skipped
   rather than probed.
 
@@ -620,29 +623,19 @@ Three tiers, matching the project's existing split.
    `scripts/ci.sh`**, alongside the ones already there; it is not wired
    today, and wiring it is part of this work rather than an existing
    check being relied on.
-3. **`tests/real/RealInstallTest.cpp`** — one case over the install, locking
+3. **`tests/real/RealRoomsTest.cpp`** — one case over the install, locking
    INV-2 and re-asserting INV-6 on real geometry. **It prints § 4.2's table
    rather than asserting transcribed figures**, so those numbers are an output
    of the suite rather than a claim in this document somebody must re-measure
    by hand.
 
-   **INV-2 is asserted at under 1% disagreeing probes, and the HARD form this
-   section asked for is not met.** Amended 2026-09-08 from what building it
-   measured; UTA-0079 carries the open question.
-
-   The argument for the hard form was that "a swapped front/back convention
-   is wrong at *every* probe, so any threshold below 100% passes exactly the
-   defect being hunted". The first half is right and the second does not
-   follow. Measured, that swap scores **zero** agreements — 0 probes of 11451
-   on one map — so it is catastrophic rather than marginal, and a ceiling
-   three hundred times under it still catches it. That measurement is
-   UTA-0078, which the hard form found.
-
-   What it costs: 30399 probes of 11126404 disagree, and no hypothesis tested
-   accounts for them. A rate does not catch a small future regression, which
-   is the price of not yet knowing why. The printed CENSUS is a population
-   figure; the ASSERTION is per-probe. Those are still different things and
-   this tier does both.
+   **INV-2 is asserted in the HARD form: zero disagreeing probes.** From
+   2026-09-08 it was asserted at under 1%, while 0.27% disagreed for no known
+   reason. UTA-0079 found the reason in the probe's placement, not the
+   descent; with the probe moved onto its plane first, 0 of 8,107,369 probes
+   disagree (measured 2026-10-01). The printed CENSUS is a population figure;
+   the ASSERTION is per-probe. Those are different things and this tier does
+   both.
 
 Each test is seen failing against pre-fix code before it is trusted. INV-2's
 case is the one that matters here: written against a descent with the
@@ -695,7 +688,7 @@ front/back convention deliberately swapped, it must go red.
 | Rule | What catches a breach |
 |------|----------------------|
 | INV-1 | `tests/unit/RoomMapTest.cpp`, "a room exists for each zone a leaf names, and for no other" |
-| INV-2 | **Partial:** `tests/real/RealInstallTest.cpp`, "every node's own zone record agrees with the descent" — and that tier is **off by default**, so an ordinary gate run proves this invariant not at all. It is the only check reading geometry this project did not write, and the front/back defect it exists to catch is invisible to every check that does run. Unlike UTA-0004's INV-1 there is no fixture half carrying it on the default gate; adding one is worth doing when the builder lands |
+| INV-2 | **Partial:** `tests/real/RealRoomsTest.cpp`, "every node's own zone record agrees with the descent" — and that tier is **off by default**, so an ordinary gate run proves this invariant not at all. It is the only check reading geometry this project did not write, and the front/back defect it exists to catch is invisible to every check that does run. Unlike UTA-0004's INV-1 there is no fixture half carrying it on the default gate; adding one is worth doing when the builder lands |
 | INV-3 | `tests/unit/RoomMapTest.cpp`, "a cyclic node graph terminates" and "an out-of-range index resolves to no room" |
 | INV-4 | `tests/unit/RoomMapTest.cpp`, "zone zero and an empty map are not rooms" |
 | INV-5 | The configure-time assertions in `src/umap/CMakeLists.txt` |

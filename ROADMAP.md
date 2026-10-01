@@ -4161,7 +4161,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: upkg.
 
-- 📋 [UTA-0079] **0.27% of INV-2 probes disagree for no reason yet found.**
+- 🚧 [UTA-0079] **0.27% of INV-2 probes disagree for no reason yet found.**
   UTA-0007 SS 7 asks INV-2 for the HARD form -- zero disagreeing probes
   across the install. After the UTA-0078 field-order fix the count is 30399
   of 11126404, so the tier-3 case asserts under 1% instead and says so in
@@ -14413,7 +14413,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-dump.
 
-- 🚧 [UTA-0266] **ut-paths reads the mapper's specs, but a paths rebuild can prune a walking spec in favour of a fly route.**
+- ✅ [UTA-0266] **ut-paths reads the mapper's specs, but a paths rebuild can prune a walking spec in favour of a fly route.**
   Measured 2026-10-01 on MH-Skaarj_ReactorTest-v1 (UTA-0195): the
   mapper's build keeps PathNode140 -> PathNode141 (walk, 840).
   UT_MonsterHunt's DEFINE rebuild prunes it, because 140 ->
@@ -14435,6 +14435,9 @@ stays with movement in 0.2.0.
   measurable from a saved map: how a REBUILD prunes differently from the
   mapper's build, which is what this item first saw on Skaarj_ReactorTest.
   Counter: ~/.cache/uta-scratch/uta0266/count.py.
+  Resolved (2026-10-01): c23d859; GitHub CI green there. ut-paths drops
+  every pruned spec (UTA-0121 § 3 decision 10, INV-11 seen red first).
+  What stays open is the rebuild case above, which no saved map can show.
   **Layman:** Adding helper points makes the game rebuild its paths, and the rebuild can quietly drop a walking link our tool was relying on.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.
