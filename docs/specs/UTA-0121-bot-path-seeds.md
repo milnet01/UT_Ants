@@ -638,7 +638,8 @@ class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::b
   `found` for all three. The file then carries `"route": "found"` three times,
   with `offWorld` true on the first two and false on the third. A fourth exit,
   at the world corner on a scene that is not partitioned, is written true with
-  route `none`. A second leg runs through `sceneOf` over a map built with
+  route `none`, and so are two more beside it, at the bound on Y alone and on
+  Z alone below zero. A second leg runs through `sceneOf` over a map built with
   `tests/unit/BakeFixture.h`, carrying a MonsterEnd that sets no `Location` of
   its own, whose class default is at the bound: the scene's exit is read at
   the bound and the file marks it true. That leg is what the class-default

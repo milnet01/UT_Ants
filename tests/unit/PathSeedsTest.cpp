@@ -595,9 +595,18 @@ TEST_CASE("INV-12: an exit at the world bound is marked off the world and keeps 
 
     // A fourth exit, at the corner on a scene that is NOT partitioned: no
     // fallback goal is offered, so the route is `none` and the mark still true.
-    scene.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}};
+    // Two more, at the bound on Y alone and on Z alone (below zero, so the test
+    // is of the magnitude): above, only X is ever alone at the bound, and
+    // dropping Y's or Z's test went unseen (UTA-0083's first ut-paths run).
+    scene.exits = {Cylinder{{32768, 32768, 32768}, 40, 40}, Cylinder{{100, 32767, 40}, 40, 40},
+                   Cylinder{{100, 32, -32767}, 40, 40}};
     const std::string alone = toJson("MH-Test", "md5", "EXIT_OFF_NET", scene, propose(scene, false));
     INFO(alone);
+    std::size_t marked = 0;
+    for (std::size_t at = alone.find("\"offWorld\": true"); at != std::string::npos;
+         at = alone.find("\"offWorld\": true", at + 1))
+        ++marked;
+    CHECK(marked == 3);
     CHECK(alone.find("\"route\": \"none\", \"offWorld\": true") != std::string::npos);
 }
 

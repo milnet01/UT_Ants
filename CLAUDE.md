@@ -276,10 +276,11 @@ place.**
 
 - **Mutate before trusting a green test.** A test that passes and reads
   correctly may still be graded by something other than the rule it names.
-  `./scripts/mutation-probe.py ubundle` asks mechanically, and a new
-  survivor exits non-zero. **`ubundle` is its only subject** — the
-  mutations are written out by hand, so **every other lane is mutated by
-  hand too**, and the rule still applies there. `UTA-0083` generalises it.
+  `./scripts/mutation-probe.py <subject>` asks mechanically, and a new
+  survivor exits non-zero. **Its subjects are the files in
+  `scripts/mutations/`**, each mutation tagged with the invariant it
+  breaks; `--coverage` names the invariants with none. A lane with no file
+  there is mutated by hand, and the rule still applies there.
   Add `--asan` for a rule the Release leg cannot see, such as a bounds
   check.
 - **When a mutation survives under a sanitizer, suspect the FIXTURE before

@@ -441,6 +441,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **ut-paths no longer follows pruned reach specs** (UTA-0266)
+  UT's route search does not use them, and on 38 of 861 census maps a
+  pruned walking spec has no walking replacement.
+
+- **The mutation probe reports per spec invariant and covers ut-paths** (UTA-0083)
+  Each subsystem's mutations live in scripts/mutations/; --coverage
+  names the invariants no mutation reaches.
+
 - **ut-bake's report lists only the ten largest textures after a successful bake.** (UTA-0264)
   The rest are counted in a new `byTextureOmitted` field. An over-budget
   bake still lists every texture, and `--full-budget` asks for the whole
@@ -572,6 +580,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **ut-dump warns when it cannot find Engine.u** (UTA-0265)
+  Pointed at a folder holding other packages but not Engine.u, such as
+  UT 469's System64, it printed an empty path network in silence.
+
+- **ut-shot's help says --linear writes sRGB-encoded bytes** (UTA-0257)
+  It used to claim linear light. The bytes skip exposure and the tone
+  map only; decode them before reading light.
 
 - **ut-paths keeps its suggested bot paths off slopes too steep to stand on, so its fix for MH-NivenSB now routes in the game.** (UTA-0267)
 

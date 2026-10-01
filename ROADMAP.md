@@ -4161,7 +4161,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-08.
   Lanes: upkg.
 
-- 🚧 [UTA-0079] **0.27% of INV-2 probes disagree for no reason yet found.**
+- ✅ [UTA-0079] **0.27% of INV-2 probes disagree for no reason yet found.**
   UTA-0007 SS 7 asks INV-2 for the HARD form -- zero disagreeing probes
   across the install. After the UTA-0078 field-order fix the count is 30399
   of 11126404, so the tier-3 case asserts under 1% instead and says so in
@@ -4222,6 +4222,17 @@ stays with movement in 0.2.0.
 
   Output at /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077. Not chased
   further here; UTA-0077 was running the tier, not this.
+  Resolved (2026-10-01): edb738d; GitHub CI green there. The residual was
+  the TEST's probe, not the descent. Spread over 999 of 1446 maps (half
+  from 114), so not content. A double replay of each disagreeing probe
+  follows the probed node's ancestors and leaves by the node's other
+  side: 22,020 of 22,075 sat on the wrong side of their own node's plane,
+  because a polygon's centroid lies off its plane by a median of two
+  nudges. With the probe moved onto the plane before the nudge, 0 of
+  8,107,369 disagree, and INV-2 is asserted in UTA-0007 § 7's hard form
+  again (seen red first: 22,064 with the old placement). The float-vs-
+  double lead is answered too: no disagreement remains for it to explain.
+  Probe: ~/.cache/uta-scratch/uta0079.
   **Layman:** Our check that the room lookup agrees with the level file is right 99.7% of the time. The last 0.3% is unexplained, so the check is set just below it rather than claiming perfection.
   Kind: investigate.
   Source: in-session-2026-09-08.
@@ -4381,6 +4392,20 @@ stays with movement in 0.2.0.
   Not for CI as it stands: the ubundle run is 57 rebuilds. Per-subsystem,
   on demand, before flipping an item to shipped, is the cadence it was
   used at and is affordable.
+  Built (2026-10-01), direction 2: each subject is a file in
+  scripts/mutations/, every mutation tagged with the invariant it breaks;
+  the report is per invariant and names the spec's invariants with no
+  mutation; --coverage lists that without building. ubundle moved
+  unchanged (55 of 57 killed, the two declared survivors); its coverage
+  shows INV-8 with no mutation. ut-paths added: 12 mutations over 10
+  invariants. Its first run found INV-12 graded on X only (dropping the Z
+  or Y bound test survived); the fixture now has exits at the bound on Y
+  alone and Z alone, and all 12 are killed. Also fixed: the baseline
+  guard needed an exact case count, stale since UTA-0263 added tests, so
+  the probe refused to run; it now needs a non-zero count. And the probe
+  left the last mutant built in build/, so the next test run graded it; it
+  now rebuilds the restored tree on exit. Direction 1 (generated
+  mutations) is not done.
   **Layman:** We have a tool that deliberately breaks one rule at a time and checks a test notices. It works, but the list of things to break is written out by hand for one subsystem, so nobody will keep it up.
   Kind: test.
   Source: in-session-2026-09-08.
