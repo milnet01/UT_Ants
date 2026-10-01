@@ -14428,7 +14428,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
 
-- 📋 [UTA-0268] **MH-AS-AnnihilationSB: UT's route search finds no route where its walking specs reach the exit.**
+- ✅ [UTA-0268] **MH-AS-AnnihilationSB: UT's route search finds no route where its walking specs reach the exit.**
   Measured 2026-10-01 by UT_MonsterHunt (work/uta0267), on the
   original map and on a build with UTA-0267's three nodes added. Both
   census as NOROUTE (endnode PathNode43, pawnnode PlayerStart35), yet
@@ -14436,6 +14436,18 @@ stays with movement in 0.2.0.
   nodes change neither verdict. Find which is wrong: a limit in the
   census's in-engine search, or a spec the engine will not use at
   runtime. Placed in 0.1.0 beside UTA-0267, which surfaced it.
+  Resolved (2026-10-01): neither is wrong. The census search is right at
+  round start: a BlockedPath between start and exit is still closed
+  (ExtraCost 100000000), and the spec walk ignores ExtraCost. Evidence:
+  UT_MonsterHunt's spec probe on the original map (work/uta0267/spec)
+  names BlockedPath3 as a break; zeroing every BlockedPath's ExtraCost, as
+  its Trigger does, opens the exit and 403 of the 404 refused nodes. The
+  exit's graph distance (600038450) is several such costs. UT_MonsterHunt
+  classed the map BLOCKEDPATH on 2026-09-11
+  (analysis/specprobe-partitioned-2026-09-11.tsv, docs/path-graph-finding.md):
+  a Dispatcher opens it, fired by a once-only walk-in Trigger. So the map
+  needs no new nodes from ut-paths; whether a bot sets the Trigger off is
+  UT_MonsterHunt's GAME-0053. No code changed.
   **Layman:** On one map the game's own route check says bots cannot reach the exit, though its walking links say they can, so we do not yet know which to trust.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.
