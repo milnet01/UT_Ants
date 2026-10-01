@@ -56,6 +56,8 @@ void usage(std::ostream& err) {
            "\n"
            "--linear        skip exposure and the tone map, writing linear light.\n"
            "--no-probes     draw without the baked indirect light.\n"
+           "--emission      also write <out prefix>-<line>-emission.pfm, the\n"
+           "                linear emission bloom is drawn from.\n"
            "--tier <name>   low, medium, high or ultra. Default high.\n"
            "--render-scale <s>  draw at this share of the target and upscale.\n"
            "--light-time <s>    pin a pulsing light's phase to this many seconds.\n"
@@ -126,6 +128,8 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
             options.linearOutput = true;
         } else if (flag == "--no-probes") {
             options.probes = false;
+        } else if (flag == "--emission") {
+            options.emission = true;
         } else if (flag == "--tier") {
             const auto name = value(flag);
             if (!name) return std::nullopt;

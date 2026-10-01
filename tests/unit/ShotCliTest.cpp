@@ -103,6 +103,15 @@ TEST_CASE("UTA-0199: the two switches ut-shot already had still set their fields
     CHECK_FALSE(parsed.options->probes);
 }
 
+TEST_CASE("UTA-0263: --emission asks for the emission target, and is off by default", "[shot]") {
+    const auto asked = parse({"--emission", "map.utab", "320", "240", "out"});
+    REQUIRE(asked.options.has_value());
+    CHECK(asked.options->emission);
+    const auto plain = parse({"map.utab", "320", "240", "out"});
+    REQUIRE(plain.options.has_value());
+    CHECK_FALSE(plain.options->emission);
+}
+
 TEST_CASE("UTA-0199: tier render scale and light time are taken from the command line", "[shot]") {
     const auto parsed =
         parse({"--tier", "low", "--render-scale", "0.5", "--light-time", "12.25", "map.utab",

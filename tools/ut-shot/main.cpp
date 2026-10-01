@@ -180,6 +180,29 @@ int main(int argc, char** argv) {
             return 1;
         }
         std::cout << path << "\n";
+
+        if (options->emission) {
+            const auto emission = renderer.readback(uta::urender::Renderer::Target::Emission);
+            if (!emission) {
+                std::cerr << "ut-shot: emission readback failed: " << emission.error().message() << "\n";
+                return 1;
+            }
+            // PFM: RGB floats, little-endian (the -1 scale), rows bottom to top.
+            const std::string emissionPath = options->prefix + "-" + std::to_string(index) + "-emission.pfm";
+            std::ofstream pfm(emissionPath, std::ios::binary);
+            pfm << "PF\n" << config.width << " " << config.height << "\n-1.0\n";
+            const std::size_t rowBytes = static_cast<std::size_t>(config.width) * 4 * sizeof(float);
+            for (std::uint32_t row = config.height; row-- > 0;)
+                for (std::uint32_t x = 0; x < config.width; ++x)
+                    pfm.write(reinterpret_cast<const char*>(emission->data() + row * rowBytes + x * 4 * sizeof(float)),
+                              3 * sizeof(float));
+            pfm.close();
+            if (!pfm) {
+                std::cerr << "ut-shot: could not write " << emissionPath << "\n";
+                return 1;
+            }
+            std::cout << emissionPath << "\n";
+        }
     }
     return 0;
 }

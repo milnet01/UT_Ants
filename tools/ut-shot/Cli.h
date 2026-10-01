@@ -59,6 +59,10 @@ struct Options {
     std::optional<double> lightSeconds;
     bool linearOutput = false;
     bool probes = true;
+    /// Also write each view's emission target, the bloom's source, as
+    /// <prefix>-<line>-emission.pfm: a flame's own pixels, which colour cannot
+    /// give once bloom has spread them (UTA-0263 SS 4.6).
+    bool emission = false;
     /// Set by --from-capture: read the cameras from this file rather than from
     /// standard input, the folder's camera.txt being the view it recorded.
     std::optional<std::string> cameraFile;
