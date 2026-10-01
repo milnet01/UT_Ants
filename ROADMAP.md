@@ -11885,7 +11885,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-09-20.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0195] **ut-paths: MH-Skaarj_ReactorTest-v1's exit sits 43 units from the network and still does not route.**
+- ✅ [UTA-0195] **ut-paths: MH-Skaarj_ReactorTest-v1's exit sits 43 units from the network and still does not route.**
   Named by UT_MonsterHunt (session ut-monsterhunt-5d, 2026-09-20) as the
   one repair candidate among UTA-0126's five write-offs.
 
@@ -11965,6 +11965,17 @@ stays with movement in 0.2.0.
   B1 = B0 + a node at (1184,2144,-971), midway between 140 and 141,
   420 to each, all nine traces clear at radius 18.
   Waiting-on: UT_MonsterHunt's B1 result.
+  Resolved (2026-10-01, UT_MonsterHunt work/uta0195d, arm B1): the map
+  ROUTES with three nodes on the original map: bridge (3376,3296,-971),
+  ledge (3845,6568,-953), and (1184,2144,-971) midway between
+  PathNode140 and PathNode141. routecensus ENDNODE at the ledge node, 30
+  from the exit (19 across, 24 down), which touches its cylinder;
+  walking reach 89 of 436, exitreached=yes (control: 69, no). Three
+  causes stacked: the exit is on a ledge reached only by a jump, the
+  start part ends 1059 short of PathNode147, and a paths rebuild prunes
+  PathNode140 -> PathNode141 in favour of a fly route (UTA-0266).
+  ut-paths cannot propose this repair: the ledge needs a jump and it
+  cannot see the pruning. Applying it is UT_MonsterHunt's call.
   **Layman:** On one map the exit is almost touching a path the bots use, yet they still cannot reach it; find out what is refusing.
   Kind: fix.
   Source: ut-monsterhunt-2026-09-20.
