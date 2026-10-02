@@ -98,12 +98,15 @@ that will disagree.
 (user, 2026-09-26). Where that rule would ask, the commit body records
 **no gate**.
 
-**Practice, stated separately:** a review runs only when the user
-approves one, and only where the payoff is large — a new spec for a
-design across several subsystems, or a real flip of a guarantee. A
-small edit to a contract document is made without a review and
-without asking. The user's words: "Reviews are very token heavy and
-should only be used where the pay off is worthwhile."
+**Practice, stated separately:** building the code is the default
+reviewer. A review runs only where the session judges it will catch
+what building cannot, and cheaply enough to be worth its tokens — the
+user leaves that call to the session (2026-10-02) and need not be
+asked. Say in one line why it was worth it. A small edit to a
+contract document is made without a review and without asking. The
+user's words: "Reviews are very token heavy and should only be used
+where the pay off is worthwhile" and "Often times I find that coding
+it is the best reviewer."
 
 ## This project's own facts
 
