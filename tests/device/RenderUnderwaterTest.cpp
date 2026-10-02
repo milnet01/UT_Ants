@@ -24,7 +24,7 @@ using uta::urender::Tier;
 
 namespace {
 
-constexpr double WATER_VISIBILITY = 600.0; // fog.glsl's
+constexpr double WATER_VISIBILITY = 100.0; // fog.glsl's
 
 double decode(double c) { return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4); }
 double encode(double l) {
@@ -72,21 +72,53 @@ double tinted(double l, double fog) { return 255.0 * std::clamp(encode(l) * 0.8 
 
 } // namespace
 
-TEST_CASE("UTA-0215 INV-3 and INV-4: under water the wall is absorbed by its depth and takes UT99's tint", "[device]") {
+TEST_CASE("UTA-0215 INV-3 and INV-4: under water the wall fades to the water's colour by its depth and takes UT99's tint", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(frameOf(160));
     const double grey = decode(129 / 255.0);
     for (const float distance : {100.0F, 200.0F}) {
         const Rgba dry = centre(renderer, wallAt(distance, false), 160);
         const Rgba wet = centre(renderer, wallAt(distance, true), 160);
-        const double absorbed = grey * std::exp(-distance / WATER_VISIBILITY);
-        CAPTURE(distance, dry, wet, tinted(absorbed, 0.1), tinted(absorbed, 0.2), tinted(absorbed, 0.3));
+        // SS 4.3: what survives the water, and the water's own colour -- its
+        // ViewFog as linear light -- in the rest. linearOutput: no exposure.
+        const double kept = std::exp(-distance / WATER_VISIBILITY);
+        const auto faded = [&](double fog) { return grey * kept + decode(fog) * (1.0 - kept); };
+        CAPTURE(distance, dry, wet, tinted(faded(0.1), 0.1), tinted(faded(0.2), 0.2), tinted(faded(0.3), 0.3));
         CHECK(std::abs(int(dry.r) - 129) <= 1);
         CHECK(std::abs(int(dry.b) - 129) <= 1);
-        CHECK(std::abs(wet.r - tinted(absorbed, 0.1)) <= 2.0);
-        CHECK(std::abs(wet.g - tinted(absorbed, 0.2)) <= 2.0);
-        CHECK(std::abs(wet.b - tinted(absorbed, 0.3)) <= 2.0);
+        CHECK(std::abs(wet.r - tinted(faded(0.1), 0.1)) <= 2.0);
+        CHECK(std::abs(wet.g - tinted(faded(0.2), 0.2)) <= 2.0);
+        CHECK(std::abs(wet.b - tinted(faded(0.3), 0.3)) <= 2.0);
     }
+}
+
+TEST_CASE("UTA-0215 INV-4: under water at the full output a far wall shows the water's colour through the tint", "[device]") {
+    removeDisplay();
+    // Exposure and the tone map apply here, so the faded-to light must be the
+    // light that displays as ViewFog: far off, d' = ViewFog x 0.8 + ViewFog.
+    Config config = frameOf(160);
+    config.linearOutput = false;
+    Renderer renderer = requireRenderer(config);
+    const Rgba far = centre(renderer, wallAt(2000, true), 160);
+    CAPTURE(far);
+    CHECK(std::abs(far.r - 255.0 * 0.1 * 1.8) <= 2.0);
+    CHECK(std::abs(far.g - 255.0 * 0.2 * 1.8) <= 2.0);
+    CHECK(std::abs(far.b - 255.0 * 0.3 * 1.8) <= 2.0);
+}
+
+TEST_CASE("UTA-0215 INV-4: from under water a surface out of the water takes the tint and no fade", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(frameOf(160));
+    // The camera's zone 0 is water; the wall's vertices are in dry zone 1.
+    uta::ubundle::Bundle bundle = wallAt(200, true);
+    for (auto& vertex : bundle.geometry->vertices) vertex.zone = 1;
+    bundle.zones->push_back(zoneOf(false));
+    const Rgba wet = centre(renderer, bundle, 160);
+    const double grey = decode(129 / 255.0);
+    CAPTURE(wet, tinted(grey, 0.1), tinted(grey, 0.2), tinted(grey, 0.3));
+    CHECK(std::abs(wet.r - tinted(grey, 0.1)) <= 2.0);
+    CHECK(std::abs(wet.g - tinted(grey, 0.2)) <= 2.0);
+    CHECK(std::abs(wet.b - tinted(grey, 0.3)) <= 2.0);
 }
 
 TEST_CASE("UTA-0215 INV-5: under water the view wobbles and out of it it does not", "[device]") {

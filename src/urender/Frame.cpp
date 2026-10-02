@@ -1505,6 +1505,13 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         bundle.zones ? (*bundle.zones)[cameraZone < bundle.zones->size() ? cameraZone : 0] : ubundle::Zone{};
     impl.cameraPanSpeed = impl.viewZone.panSpeed;
     frame.cameraUnderwater = impl.viewZone.water; // UTA-0215 SS 4.3
+    // UTA-0215 SS 4.3: the light the output stage shows as ViewFog. The tone map
+    // is the identity this low, so only the sRGB decode and the exposure undo.
+    for (std::size_t c = 0; c < 3; ++c) {
+        const double shown = std::clamp(static_cast<double>(impl.viewZone.viewFog[c]), 0.0, 1.0);
+        const double light = shown <= 0.04045 ? shown / 12.92 : std::pow((shown + 0.055) / 1.055, 2.4);
+        frame.waterFog[c] = static_cast<float>(impl.config.linearOutput ? light : light / EXPOSURE);
+    }
     const std::array<ubundle::Zone, 1> noZone{};
     const std::span<const ubundle::Zone> zoneSpan =
         bundle.zones ? std::span<const ubundle::Zone>(*bundle.zones) : std::span<const ubundle::Zone>(noZone);

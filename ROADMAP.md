@@ -13211,6 +13211,8 @@ stays with movement in 0.2.0.
   from 0.57/0.47/0.44 of the original (R/G/B) to 0.57/0.59/0.59; the blobs
   are gone. Left: light shafts, particles; the pool's darkness is
   UTA-0274's lead.
+  Correction (2026-10-02): the pool's darkness is UTA-0278, not
+  UTA-0274's.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.
@@ -14932,6 +14934,9 @@ stays with movement in 0.2.0.
   pool, at (-602, 63.4), eye z -73, the original's walls under the water
   tint read about four times our display value. Check WaterZone2's ambient
   and the lights inside the pool before blaming the tint.
+  Correction (2026-10-02): the ArcaneTemple pool lead above points the
+  other way -- there ours is darker, here brighter -- so it moved to its
+  own item, UTA-0278. Disregard it for this one.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -14992,6 +14997,34 @@ stays with movement in 0.2.0.
   **Layman:** Rock, dirt and grass surfaces stop showing the same patch over and over, while panels and signs stay exactly where the mapper put them.
   Kind: enhancement.
   Source: in-session-2026-10-02 split-from-UTA-0180.
+  Lanes: urender, ubake.
+
+- 📋 [UTA-0278] **urender: DM-ArcaneTemple's pool walls under water draw at about a quarter of the original's light.**
+  Found by UTA-0215's comparison, 2026-10-02, baker r35, against
+  UT_MonsterHunt's frames (work/uta0269/water/, poses 0-2 at (-602, 63.4),
+  eye z -73). Lower half of the frame, ours/original: about 0.56 in every
+  channel after UTA-0215's fixes; the hue matches. Taking out UT99's tint
+  (d x 0.922 + ViewFog), the original's walls show about (43, 56, 52) as
+  display bytes and ours about 12. Ruled out so far: the tint (the PlayerPawn
+  values logged in game match ours), the distance fade (it costs about an
+  eighth), shadows from the water sheet (translucent surfaces cast none),
+  and zone ambient (WaterZone sets none, and ours reads a map's own). Next,
+  one at a time with ut-shot: --no-probes for the bounce's share; which
+  lights reach the pool walls in UT99's lightmaps that ours shadows or
+  attenuates; the walls' texture at the pool's mip. Kit:
+  ~/.cache/uta-scratch/u215/ (bakes/, water.cams, stats in the UTA-0215
+  note).
+  Resolved in code (2026-10-02), pending GitHub's matrix: not the walls'
+  light. --no-probes changed nothing and shadows off added about 4 bytes.
+  The original's far pixels are one flat colour, 1.922 x ViewFog to 4
+  bytes, so UT99 fades toward the water's colour, not black. UTA-0215 § 4.3
+  now fades surfaces in the water toward ViewFog's light, leaves surfaces
+  out of the water unfaded, and fits WATER_VISIBILITY at 100 (the sweep is
+  beside the constant). Ours/original went from about 0.52 to 0.86-0.93
+  level and down, and 0.85-1.04 looking up.
+  **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
+  Kind: investigate.
+  Source: in-session-2026-10-02 split-from-UTA-0215.
   Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons

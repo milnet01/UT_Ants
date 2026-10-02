@@ -87,22 +87,39 @@ then shows the settled tint, and easing is § 9's.
 `draw` sets from the camera's zone: `1 + viewFlash` and `viewFog` when it is
 water, else `1` and `0`. `flashFog`'s fourth part is the water flag.
 
-### 4.3 Absorption with distance — `urender`, `scene.frag`
+### 4.3 Fading with distance — `urender`, `scene.frag`
 
-With the camera's zone water, every fragment's colour, after its fog, is
-scaled by `exp(−z / WATER_VISIBILITY)`, `z` its view depth. `FrameData`
-carries the flag as `cameraUnderwater`. Far things go
-dark and § 4.2's tint then shows as the water's colour, so far things settle
-on exactly the zone's `ViewFog` and near ones keep their own. A translucent
-surface and a flame take the same factor, as the fog's transmittance does.
+**Amended 2026-10-02, after § 7's comparison.** First built as a fade to
+black, which drew the pool at about half the original's brightness. The
+original's farthest pixels under water are one flat colour, (67, 98, 90),
+and 1.922 × `ViewFog`, the tint applied to a scene showing `ViewFog` itself,
+is (63, 96, 86). So the original fades far things toward the water's colour
+and then tints. What was built:
+
+With the camera's zone water, a fragment of a surface whose own zone is
+water keeps `exp(−z / WATER_VISIBILITY)` of its colour, after its fog, `z`
+its view depth, and the rest becomes the light that the output stage shows
+as `ViewFog`. A translucent surface keeps only its share, as with the fog,
+and a flame is dimmed alike. A surface out of the water, seen through its
+surface, is not faded: the original shows the sky above its pool unfaded.
+`FrameData` carries `cameraUnderwater` and that light as `waterFog`, the
+sRGB decode of `ViewFog` divided by the exposure, which the tone map leaves
+alone at these levels.
 
 ```glsl
 // fog.glsl, which scene.frag and flame.frag both include
-const float WATER_VISIBILITY = 600.0; // UT units over which light falls to 1/e
+const float WATER_VISIBILITY = 100.0; // UT units over which light falls to 1/e
 ```
 
-`WATER_VISIBILITY` is this spec's call, about twelve metres at UT99's scale,
-and is not fitted: the original has no absorption to fit it against.
+**Fitted** against the original's level and looking-down frames from the
+pool: 16-pixel block RMS, 22.95 at 600 units falling to 14.60 at 100 and
+14.05 at 25. Below 100 the far colour fills the frame and the measure cannot
+tell values apart, so the value is the largest within 1.0 of the best, the
+rule `UTA-0015` § 7 step 1 uses. The record is beside the constant. Under
+water the frame went from about 0.52 of the original's brightness to 0.86 to
+0.93. Under lava it reads 1.11 to 1.20 of the original's: there the
+original's far colour is 1.44 to 1.71 times `ViewFog` rather than about 2, so
+the water's colour is the original's fade target only approximately.
 
 ### 4.4 The wobble — `urender`, the output stage
 
@@ -170,10 +187,13 @@ from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
   *Test:* `tests/device/RenderUnderwaterTest.cpp`, new, `device`.
   *Breaks when:* the tint is applied in linear light, or applied out of water.
 
-- **INV-4** — absorption: under water, the same wall at twice the distance
-  is darker by `exp(−z / WATER_VISIBILITY)`'s ratio before the tint.
+- **INV-4** — the fade: under water, a wall in the water at two distances
+  keeps `exp(−z / WATER_VISIBILITY)` of its light, the rest the water's
+  colour, before the tint; at the full output a far one shows `ViewFog`
+  through the tint; a wall out of the water takes the tint and no fade.
   *Test:* `tests/device/RenderUnderwaterTest.cpp`.
-  *Breaks when:* absorption ignores depth, or applies out of water.
+  *Breaks when:* the fade ignores depth, fades to black, skips the
+  exposure, or fades a surface out of the water.
 
 - **INV-5** — the wobble moves the picture under water and not out of it: a
   vertical edge's column differs between two light times under water and
@@ -201,8 +221,8 @@ from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
 - **The camera on the surface** flips between tinted and not as it crosses;
   UT99 eases it (§ 9).
 - **A map with no `ZONE`** has one zero zone: never water.
-- **Things above the water seen from below** are absorbed over their whole
-  distance, though part of it is air. Accepted for this first part.
+- **Things above the water seen from below** are not faded at all, though
+  part of their distance is water. The original shows them so.
 - **A water zone of `ViewFog` 0** goes dark with distance and takes no
   colour. That is the map's own setting.
 

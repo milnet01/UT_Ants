@@ -30,7 +30,7 @@ void main() {
     float viewDepth = (frame.view * vec4(worldPosition, 1.0)).z;
     vec3 fogAt = vec3(gl_FragCoord.xy / frame.viewportSize, fogCoordinate(viewDepth) - 0.5 / float(FOG_GRID.z));
     colour *= textureLod(fogVolume, fogAt, 0.0).a;
-    colour *= waterAbsorption(viewDepth, frame.cameraUnderwater); // UTA-0215 SS 4.3
+    colour *= waterKept(viewDepth, frame.cameraUnderwater); // UTA-0215 SS 4.3
     outColour = vec4(colour, 0.0);
     outVelocity = vec2(0.0);
     outEmission = vec4(colour, 0.0);

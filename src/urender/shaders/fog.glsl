@@ -106,13 +106,19 @@ float sliceDepth(float k) {
 }
 
 // Where view depth `z` sits along the slices, 0 at FOG_NEAR and 1 at FOG_FAR.
-// UTA-0215 SS 4.3: under water, light falls to 1/e over this many UT units --
-// about twelve metres at UT99's scale. The spec's call, not fitted: the
-// original has no absorption to fit it against.
-const float WATER_VISIBILITY = 600.0;
+// UTA-0215 SS 4.3: under water, light from a surface in the water falls to
+// 1/e over this many UT units, the rest becoming the water's colour. Fitted
+// 2026-10-02 against the original's frames from DM-ArcaneTemple's pool, level
+// and looking down (UT_MonsterHunt work/uta0269/water/ 0-1), 16-pixel block
+// RMS below the HUD, mean of the two: 25 14.05, 50 14.10, 75 14.30, 100 14.60,
+// 150 15.60, 200 16.60, 300 18.60, 450 21.05, 600 22.95. Below 100 the far
+// colour fills the frame and the measure cannot tell values apart, so the
+// value is the largest within 1.0 of the best, UTA-0015 SS 7 step 1's rule.
+const float WATER_VISIBILITY = 100.0;
 
-// What survives the water between the eye and a surface `z` deep in view.
-float waterAbsorption(float z, uint underwater) {
+// What survives the water between the eye and a surface `z` deep in view;
+// the rest of what it shows is the water's own colour.
+float waterKept(float z, uint underwater) {
     return underwater != 0u ? exp(-max(z, 0.0) / WATER_VISIBILITY) : 1.0;
 }
 

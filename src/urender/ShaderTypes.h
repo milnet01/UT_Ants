@@ -93,7 +93,10 @@ struct FrameData {
     float flameSeconds;          ///< UTA-0263 SS 4.4: the light clock, wrapped
     std::uint32_t cameraZone;    ///< UTA-0089 SS 4.1: the zone the camera is in
     std::uint32_t cameraUnderwater; ///< UTA-0215 SS 4.3: nonzero where the camera's zone is water
-    std::array<std::uint32_t, 3> reserved; ///< std430 rounds the struct to its mat4's 16
+    /// UTA-0215 SS 4.3: the camera's zone's ViewFog as the light that displays
+    /// as it, which far things fade to under water. Three floats, not a vec3,
+    /// which std430 would move to the next 16.
+    std::array<float, 3> waterFog;
 };
 static_assert(sizeof(FrameData) == 368);
 static_assert(offsetof(FrameData, viewProj) == 0);
