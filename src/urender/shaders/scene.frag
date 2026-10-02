@@ -17,6 +17,7 @@
 #include "liquid.glsl"
 #include "probes.glsl"
 #include "shadows.glsl"
+#include "water.glsl"
 
 layout(location = 0) in vec3 worldPosition;
 layout(location = 1) in vec3 worldNormal;
@@ -166,8 +167,11 @@ void main() {
         && (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) == 0u)
         shadingUv = parallaxUv(material, axes, surface);
 
-    // An _SRGB block format: the sampler returns linear (SS 4.10).
-    vec4 base = textureGrad(textures[nonuniformEXT(material.base)], shadingUv, duv1, duv2);
+    // An _SRGB block format: the sampler returns linear (SS 4.10). UTA-0089
+    // SS 4.4: a Wet liquid's picture is varied so its repeats do not line up.
+    bool wetPicture = liquid && liquids[material.liquid].kind == LIQUID_WET;
+    vec4 base = wetPicture ? waterPicture(material.base, uv, shadingUv, duv1, duv2, draw.materialIndex)
+                           : textureGrad(textures[nonuniformEXT(material.base)], shadingUv, duv1, duv2);
     // A Wave has no picture of its own: its colour is the noise's, through its ramp.
     if (waving) base.rgb = wet.colour;
 
@@ -233,6 +237,21 @@ void main() {
         colour = base.rgb * (pow(LIGHT_GAIN * (direct + ambient * open), vec3(DISPLAY_LIGHT_POWER))
                              + indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)));
     }
+    // UTA-0089 SS 4.2 and SS 4.3: a Wet or Wave liquid reflects the sky or the
+    // probes, by Fresnel's law, about its surface tilted by the ripple alone.
+    if (!flaming && waterReflects(material.liquid) && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u) {
+        vec3 v = normalize(frame.eye - worldPosition);
+        vec3 n = perturbed(surface, axes, vec3(wet.tilt, sqrt(max(0.0, 1.0 - dot(wet.tilt, wet.tilt)))));
+        vec3 r = reflect(-v, n);
+        vec3 reflected = waterSeesSky(r, zone)
+            ? skyAt(r)
+            : waterProbeReflection(worldPosition + surface * (0.5 * float(frame.probeSpacing)), r);
+        float share = waterShare(n, v);
+        // A translucent pass blends ONE, ONE_MINUS_SRC_COLOR, so the added light
+        // also hides more of what is behind, as a reflection does.
+        colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour + reflected * share : mix(colour, reflected, share);
+    }
+
     // Emission is added to a lit surface only, as before UTA-0040, and at the
     // displaced coordinate like every other map.
     vec3 emitted = vec3(0.0);

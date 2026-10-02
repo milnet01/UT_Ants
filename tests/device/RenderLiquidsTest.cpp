@@ -55,6 +55,10 @@ uta::ubundle::Bundle stripedSquare(std::optional<LiquidLook> look) {
 
 /// A white square at x = 100 wearing "pool", lit or not, and a light in front
 /// of it off to one side, so a tilted normal changes how much it receives.
+///
+/// UTA-0089 SS 4.2: the ripple tilts an unlit liquid's reflection too. So the
+/// unlit square has probes of white all round, and reflects the white it is:
+/// only a tilt of its own colour can change it.
 uta::ubundle::Bundle flatSquare(LiquidLook look, bool lit) {
     uta::ubundle::Geometry geometry;
     addSquare(geometry, 100, 0, 0, HALF, "pool", lit ? 0 : PF_UNLIT);
@@ -62,6 +66,18 @@ uta::ubundle::Bundle flatSquare(LiquidLook look, bool lit) {
     addSolidMaterial(bundle, "pool", Rgba{255, 255, 255, 255});
     (*bundle.materials)[0].liquid = look;
     bundle.lights = std::vector{steadyLight({60, 30, 20}, 255, 8)};
+    if (!lit) {
+        bundle.lightProbes.emplace();
+        bundle.lightProbes->spacing = 128;
+        for (int z = -1; z <= 0; ++z)
+            for (int y = -1; y <= 0; ++y)
+                for (int x = 0; x <= 1; ++x) {
+                    uta::ubundle::LightProbe probe;
+                    probe.cell = {x, y, z};
+                    for (auto& face : probe.cube) face = {1.0f, 1.0f, 1.0f};
+                    bundle.lightProbes->probes.push_back(probe);
+                }
+    }
     return bundle;
 }
 

@@ -96,6 +96,7 @@ add_executable(uta_unit_tests
     unit/RenderSkyTest.cpp
     unit/RenderTiersTest.cpp
     unit/RenderVolumeLightsTest.cpp
+    unit/ZonesSeeingSkyTest.cpp
     unit/RoomBuildTest.cpp
     unit/RoomMapTest.cpp
     unit/TextureCacheTest.cpp
@@ -192,6 +193,7 @@ add_executable(uta_device_tests
     device/RenderShadowTest.cpp
     device/RenderSurfaceFlagsTest.cpp
     device/RenderTiersTest.cpp
+    device/RenderWaterTest.cpp
     # UTA-0129 SS 4.4: ut-bench's frame workload draws, so it is graded here.
     device/BenchFrameTest.cpp
     "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp"

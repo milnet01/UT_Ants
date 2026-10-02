@@ -37,6 +37,7 @@
 #include "urender/ShaderTypes.h"
 #include "urender/Swapchain.h"
 #include "urender/Tiers.h"
+#include "urender/Zones.h"
 
 #include <algorithm>
 #include <array>
@@ -671,11 +672,19 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     probeLongestRun = table.longestRun;
 
     // UTA-0156 SS 4.4: a record per ZONE entry, or one zero record with no ZONE,
-    // so the binding is never empty and zone 0 always reads.
+    // so the binding is never empty and zone 0 always reads. UTA-0089 SS 4.1:
+    // each says whether the level's own geometry has a sky window in it; a
+    // mover's does not count.
     std::vector<gpu::Zone> zoneRecords;
-    if (bundle.zones)
-        for (const ubundle::Zone& zone : *bundle.zones)
-            zoneRecords.push_back(gpu::Zone{zone.brightness, zone.hue, zone.saturation, 0});
+    if (bundle.zones) {
+        const std::vector<std::uint8_t> sky =
+            bundle.geometry ? zonesSeeingSky(*bundle.geometry, bundle.zones->size())
+                            : std::vector<std::uint8_t>(bundle.zones->size(), 0);
+        for (std::size_t i = 0; i < bundle.zones->size(); ++i) {
+            const ubundle::Zone& zone = (*bundle.zones)[i];
+            zoneRecords.push_back(gpu::Zone{zone.brightness, zone.hue, zone.saturation, sky[i]});
+        }
+    }
     if (zoneRecords.empty()) zoneRecords.push_back(gpu::Zone{});
     UTA_TRY(zones, Buffer::upload(*gpu, std::as_bytes(std::span(zoneRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 
@@ -1461,6 +1470,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // UTA-0015 SS 4.4: which volumetric lights glow, from the camera's zone.
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
     const std::uint8_t cameraZone = bundle.rooms ? ubundle::zoneAt(*bundle.rooms, camera.location, zoneCount) : 0;
+    frame.cameraZone = cameraZone; // UTA-0089 SS 4.2
     const std::array<ubundle::Zone, 1> noZone{};
     const std::span<const ubundle::Zone> zoneSpan =
         bundle.zones ? std::span<const ubundle::Zone>(*bundle.zones) : std::span<const ubundle::Zone>(noZone);

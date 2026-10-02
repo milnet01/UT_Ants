@@ -47,7 +47,7 @@ struct FrameData {
     uint skyFirstFace; // UTA-0163
     uint occlusionTexture; // UTA-0164: NONE when the bundle has no AOCC or the tier draws none
     float flameSeconds; // UTA-0263 SS 4.4: the light clock, wrapped
-    uint reserved1;
+    uint cameraZone;    // UTA-0089 SS 4.1
 };
 
 struct Object {
@@ -127,7 +127,7 @@ struct Zone {
     uint brightness;
     uint hue;
     uint saturation;
-    uint reserved;
+    uint sky; // UTA-0089 SS 4.1: 1 where the zone holds a sky window
 };
 
 // UTA-0263 SS 4.4: one camera-facing flame.

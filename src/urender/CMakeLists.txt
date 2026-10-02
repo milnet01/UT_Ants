@@ -26,6 +26,7 @@ add_library(uta_urender STATIC
     Shadows.cpp
     Sky.cpp
     Tiers.cpp
+    Zones.cpp
     Frame.cpp
     Swapchain.cpp
     Present.cpp)

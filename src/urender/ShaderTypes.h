@@ -90,7 +90,7 @@ struct FrameData {
     std::uint32_t skyFirstFace;    ///< UTA-0163: the sky's six faces, from here in the face table
     std::uint32_t occlusionTexture; ///< UTA-0164: an index into the texture array, or NONE
     float flameSeconds;          ///< UTA-0263 SS 4.4: the light clock, wrapped
-    std::uint32_t reserved1;
+    std::uint32_t cameraZone;    ///< UTA-0089 SS 4.1: the zone the camera is in
 };
 static_assert(sizeof(FrameData) == 352);
 static_assert(offsetof(FrameData, viewProj) == 0);
@@ -115,7 +115,7 @@ static_assert(offsetof(FrameData, shadowFaceCount) == 332);
 static_assert(offsetof(FrameData, skyFirstFace) == 336);
 static_assert(offsetof(FrameData, occlusionTexture) == 340); // UTA-0164 SS 4.5
 static_assert(offsetof(FrameData, flameSeconds) == 344);
-static_assert(offsetof(FrameData, reserved1) == 348);
+static_assert(offsetof(FrameData, cameraZone) == 348);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {
@@ -235,13 +235,13 @@ struct Zone {
     std::uint32_t brightness;
     std::uint32_t hue;
     std::uint32_t saturation;
-    std::uint32_t reserved;
+    std::uint32_t sky; ///< UTA-0089 SS 4.1: 1 where the zone holds a sky window
 };
 static_assert(sizeof(Zone) == 16);
 static_assert(offsetof(Zone, brightness) == 0);
 static_assert(offsetof(Zone, hue) == 4);
 static_assert(offsetof(Zone, saturation) == 8);
-static_assert(offsetof(Zone, reserved) == 12);
+static_assert(offsetof(Zone, sky) == 12);
 
 /// One liquid look as the shader reads it -- UTA-0105 SS 4.2 and SS 4.4. The
 /// settings stay UT99's bytes, as floats; liquid.glsl maps them.

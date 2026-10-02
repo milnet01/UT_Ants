@@ -215,8 +215,9 @@ and order.
   differ; the same picture as a plain material gives identical blocks.
   *Test:* `tests/device/RenderWaterTest.cpp`, a square spanning many repeats,
   a picture with detail in every texel.
-  *Breaks when:* the second copy is not sampled, or both copies take the same
-  offset everywhere.
+  *Breaks when:* both copies take the same offset everywhere. Dropping the
+  second copy does not break it: the one left still moves with the noise, and
+  shows as hard seams rather than as a repeat.
 
 - **INV-5** — far off, the picture fades to its mean: a black-and-white
   checker on an unlit Wet square, drawn small enough that the sampler picks
