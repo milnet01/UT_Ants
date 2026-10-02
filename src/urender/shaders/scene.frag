@@ -189,6 +189,20 @@ void main() {
     // A masked flame's holes are where it is cold, not where its still was.
     if ((draw.polyFlags & PF_MASKED) != 0u && (flaming ? heat <= 0.0 : base.a < MASK_THRESHOLD)) discard;
 
+    // UTA-0271: UT99 multiplies what is behind a modulated surface by twice
+    // its displayed colour, so mid-grey leaves it as it was. Raised to 2.2,
+    // that factor multiplies the linear light the target holds; the pipeline
+    // blends DST_COLOR, ZERO. Unlit, unfogged and unreflected, as UT99 draws
+    // it, and PF_Translucent wins over it.
+    if ((draw.polyFlags & (PF_MODULATED | PF_TRANSLUCENT)) == PF_MODULATED) {
+        vec3 displayed = mix(base.rgb * 12.92, 1.055 * pow(base.rgb, vec3(1.0 / 2.4)) - 0.055,
+                             greaterThan(base.rgb, vec3(0.0031308)));
+        outColour = vec4(pow(2.0 * displayed, vec3(2.2)), 1.0);
+        outVelocity = vec2(0.0);
+        outEmission = vec4(0.0);
+        return;
+    }
+
     vec3 colour;
     if (flaming) {
         colour = vec3(0.0); // all of it is emission, added below

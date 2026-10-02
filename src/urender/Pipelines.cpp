@@ -51,10 +51,13 @@ VkPipelineShaderStageCreateInfo stage(VkShaderStageFlagBits kind, VkShaderModule
 }
 
 struct SceneVariant {
+    /// Drawn in the blended pass: colour alone, depth tested and not written.
     bool translucent;
     bool twoSided;
     /// UTA-0260: the vertex stage alone, writing depth and no colour.
     bool depthOnly = false;
+    /// UTA-0271: blended by multiplying, as UT99 draws PF_Modulated.
+    bool modulated = false;
 };
 
 /// scene.frag's specialization constants, in constant_id order.
@@ -151,6 +154,11 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     blended.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     blended.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     blended.alphaBlendOp = VK_BLEND_OP_ADD;
+    // UTA-0271: UT99's modulation multiplies what is behind by the surface.
+    // scene.frag outputs the whole factor, so the colour behind takes it once.
+    VkPipelineColorBlendAttachmentState modulating = blended;
+    modulating.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+    modulating.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
 
     // The opaque pass writes colour, velocity and UTA-0053's emission; the
     // translucent pass binds the colour attachment alone, which is how it writes
@@ -162,7 +170,7 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         blend.attachmentCount = 0;
     } else if (variant.translucent) {
         blend.attachmentCount = 1;
-        blend.pAttachments = &blended;
+        blend.pAttachments = variant.modulated ? &modulating : &blended;
     } else {
         blend.attachmentCount = 3;
         blend.pAttachments = opaqueAttachments.data();
@@ -545,11 +553,11 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
 
     const SceneConstants sceneConstants{parallaxStepsOf(tier),
                                         enabled(Feature::WaterLook, tier) ? VK_TRUE : VK_FALSE};
-    for (int translucent = 0; translucent < 2; ++translucent) {
+    for (int blending = 0; blending < 3; ++blending) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
-            UTA_TRY(p->scene_[translucent][twoSided],
+            UTA_TRY(p->scene_[blending][twoSided],
                     scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                                  {translucent == 1, twoSided == 1}, sceneConstants));
+                                  {blending != 0, twoSided == 1, false, blending == 2}, sceneConstants));
         }
     }
     for (int twoSided = 0; twoSided < 2; ++twoSided) {
@@ -677,9 +685,12 @@ Pipelines::~Pipelines() {
 }
 
 VkPipeline Pipelines::sceneFor(std::uint32_t polyFlags) const noexcept {
-    const bool translucent = (polyFlags & gpu::PF_TRANSLUCENT) != 0;
+    // UTA-0271: PF_Translucent wins over PF_Modulated, as in UT99's renderers.
+    const int blending = (polyFlags & gpu::PF_TRANSLUCENT) != 0  ? 1
+                         : (polyFlags & gpu::PF_MODULATED) != 0 ? 2
+                                                                 : 0;
     const bool twoSided = (polyFlags & gpu::PF_TWO_SIDED) != 0;
-    return scene_[translucent ? 1 : 0][twoSided ? 1 : 0];
+    return scene_[blending][twoSided ? 1 : 0];
 }
 
 VkPipeline Pipelines::depthFor(std::uint32_t polyFlags) const noexcept {

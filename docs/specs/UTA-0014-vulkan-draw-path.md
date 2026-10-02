@@ -514,11 +514,12 @@ with it exactly, which is what makes the rest of the enum trustworthy here.
 | `PF_Invisible` | `0x00000001` | Cannot appear — UTA-0109's INV-5 emits no geometry for it |
 | `PF_Masked` | `0x00000002` | Alpha cutout: `discard` where sampled alpha is below **0.5**, opaque otherwise. Writes depth and velocity |
 | `PF_Translucent` | `0x00000004` | Blended, drawn after every opaque batch, depth-tested and not depth-written. **Writes no velocity** — § 4.11. A Wet or Wave liquid in it adds its reflection (`UTA-0089` § 4.3) |
+| `PF_Modulated` | `0x00000040` | **Added by `UTA-0271`, recording what was built.** Without `PF_Translucent`, which wins over it as in UT99's renderers: drawn with the translucent batches, multiplying what lies behind by `(2 × its displayed colour)^2.2` — UT99's `dst × src × 2` on displayed values, carried into linear light. Unlit, unfogged and unreflected, writing no velocity, and casting no shadow |
 | `PF_TwoSided` | `0x00000100` | `VK_CULL_MODE_NONE` |
 | `PF_Unlit` | `0x00400000` | Base colour emitted directly; no direct or indirect light applied |
 | `PF_FakeBackdrop` | `0x00000080` | Drawn as the level's sky: depth written at the far plane, unlit. **Amended by `UTA-0163`, recording what was built:** where the level has a SkyZoneInfo, the surface shows the sky zone as drawn from that actor, sampled by view direction -- `src/urender/Sky.h`. **Amended by `UTA-0252`, recording what was built:** the surface keeps its own depth, not the far plane's, so it hides the sky zone's room where that lies behind it |
 | `PF_Portal` | `0x04000000` | **Drawn, like any other surface. Amended by `UTA-0188`, recording what was built.** It read *"not drawn, it is a visibility marker"* until 2026-09-20, and that cost AS-Frigate its sea: in UT99 the polygon dividing an air zone from a water zone IS the water, wearing the water texture. A portal meant to be unseen carries `PF_Invisible` as well and is dropped by the row above, so the surfaces reaching the renderer are the ones UT99 draws — which made the discard not merely wrong for water but unable to remove anything else |
-| any other bit | — | **Ignored, and ignoring it is a decision.** `PF_Modulated`, `PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and `PF_SpecialLit` all have real UT99 meanings this item does not implement; § 9 says where each goes |
+| any other bit | — | **Ignored, and ignoring it is a decision.** `PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and `PF_SpecialLit` all have real UT99 meanings this item does not implement; § 9 says where each goes |
 
 **Movers.** `MoverShape` holds pivot-space `geometry` plus `location`,
 `rotation` and `postScale`. A point `q` is placed at
@@ -534,15 +535,15 @@ reverses a mover's screen winding. Front face is dynamic state, core in Vulkan
 drawn rather than culled.
 
 **The opaque surfaces' depth is drawn first** (`UTA-0260`). Before the forward
-pass, every batch that is neither `PF_Translucent` nor `PF_Masked` is drawn
-with the forward pass's own vertex stage and no fragment stage, writing depth
-alone. The forward pass then loads that depth and draws as before. A surface
-hidden behind a nearer one fails the depth test before it is lit, whatever
-order the batches come in. `scene.vert` declares `gl_Position` invariant, so
-a surface meets its own depth exactly. A masked batch is left out: its holes
-are its shader's to cut, and its depth would hide what shows through them. It
-is tested and written in the forward pass, as before. The frame's pixels do
-not change.
+pass, every batch that is not `PF_Translucent`, `PF_Modulated` or `PF_Masked`
+is drawn with the forward pass's own vertex stage and no fragment stage,
+writing depth alone. The forward pass then loads that depth and draws as
+before. A surface hidden behind a nearer one fails the depth test before it is
+lit, whatever order the batches come in. `scene.vert` declares `gl_Position`
+invariant, so a surface meets its own depth exactly. A masked batch is left
+out: its holes are its shader's to cut, and its depth would hide what shows
+through them. It is tested and written in the forward pass, as before. The
+frame's pixels do not change.
 
 **Flames are drawn after the translucent pass** (`UTA-0263` § 4.4, recording
 what was built). One instanced draw covers every `FLAM` record. It binds all
@@ -1059,7 +1060,8 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   `PF_Portal | PF_Invisible` one is not; and a batch carrying a bit § 4.5's
   table does not name renders exactly as it would without it.
   *Test:* `tests/device/RenderSurfaceFlagsTest.cpp`, label `device`, one batch
-  per flag plus one carrying `PF_Modulated`, which must be ignored.
+  per flag plus one carrying `PF_NoSmooth`, which must be ignored. That row
+  carried `PF_Modulated` until `UTA-0271` gave the bit a meaning (INV-12).
   *Breaks when:* the flag word is compared for equality rather than tested bit
   by bit, so a surface carrying `PF_Masked | PF_TwoSided` matches neither case
   and silently renders as opaque and single-sided.
@@ -1068,6 +1070,16 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   is the decision that lost AS-Frigate's sea. Asserting only that a portal now
   draws would pass an implementation ignoring the flags altogether, so the
   invisible partner is what says the remaining guard still holds.
+
+- **INV-12** — a `PF_Modulated` batch multiplies what lies behind it. Under
+  `linearOutput`, over an unlit wall of `201`, a modulated square of `129`
+  reads `203 ± 3` and one of `65` reads `102 ± 3`, UT99's `2 × src × dst` on
+  displayed values being `203.4` and `102.5`. A square of `65` carrying
+  `PF_Translucent` as well is drawn translucent and reads `204 ± 3` (`UTA-0271`).
+  *Test:* `tests/device/RenderSurfaceFlagsTest.cpp`, label `device`.
+  *Breaks when:* the bit is ignored, so the squares read `129` and `65`; the
+  factor is not taken to displayed values and back, so the dark one reads near
+  `150`; modulated is tested before translucent, so the third reads near `49`.
 
 ## 6. Failure modes
 
@@ -1123,6 +1135,7 @@ test alone, which is the only way that test can fail.
 | INV-7 | `tests/device/RenderProbeTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-10 | `tests/device/RenderColourTransferTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
+| INV-12 | `tests/device/RenderSurfaceFlagsTest.cpp` | `uta_device_tests` | `device` | unconditionally, wherever `uta_urender` builds |
 | INV-5 | `tests/device/RenderDeviceAbsentTest.cpp`, and the rule's grader registered beside it in `tests/CMakeLists.txt` | `uta_device_tests` | `device-absent` | unconditionally, wherever `uta_urender` builds |
 
 **Beyond the invariants, each part they cannot see has its own case.** In the
@@ -1243,11 +1256,12 @@ their breaking states, each of which produces a plausible image.
   consequence 2 shows why this item could not take them: no bundle section
   carried them, and the renderer may not read a package. UTA-0156 adds the
   `ZONE` section and each vertex's zone.
-- **`PF_Modulated`, `PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and
-  `PF_SpecialLit` — deferred; not yet queued.** Each has a real UT99 meaning
-  and § 4.5 ignores all five deliberately. `PF_Mirrored` and `PF_Environment`
-  are reflection surfaces and belong with `UTA-0045` or `UTA-0089` when either
-  is taken; the other three have no home yet.
+- **`PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and `PF_SpecialLit` —
+  deferred; not yet queued.** Each has a real UT99 meaning and § 4.5 ignores
+  all four deliberately. `PF_Modulated` was the fifth until `UTA-0271`.
+  `PF_Mirrored` and `PF_Environment` are reflection surfaces and belong with
+  `UTA-0045` or `UTA-0089` when either is taken; the other two have no home
+  yet.
 - **`Light::actorShadows`, `Light::corona`, `Light::lensFlare`,
   `Light::volumeBrightness`, `Light::volumeRadius` and `Light::volumeFog` —
   `UTA-0015`** carries the volumetric three. Coronas and lens flares are
@@ -1280,6 +1294,7 @@ their breaking states, each of which produces a plausible image.
 | INV-9 | **Partial:** the `static_assert`s catch a struct that CHANGES — a breach is a compile error on every leg. Nothing catches a struct that is added to the shader interface and never given one, so the invariant's coverage grows only as carefully as the next author is |
 | INV-10 | `tests/device/RenderColourTransferTest.cpp` — same platform limit |
 | INV-11 | `tests/device/RenderSurfaceFlagsTest.cpp` — same platform limit; the velocity half is observable only because § 4.3's `readback` takes a `Target` |
+| INV-12 | `tests/device/RenderSurfaceFlagsTest.cpp` — same platform limit |
 | § 4.2's shader `#include` dependencies | `glslc`'s dependency file, which the build uses as each shader's `DEPFILE` |
 | § 4.9's flicker scalar shape | **nothing** — deliberately unpinned; nothing binds to it |
 | § 4.10's fixed exposure value | **Partial:** INV-10 fixes the transfer at both ends but not the exposure constant between them; a wrong constant is a uniformly dark or bright image no test here rejects |

@@ -1,4 +1,4 @@
-// UTA-0014 INV-11 -- docs/specs/UTA-0014-vulkan-draw-path.md SS 4.5.
+// UTA-0014 INV-11 and INV-12 -- docs/specs/UTA-0014-vulkan-draw-path.md SS 4.5.
 //
 // A PF_Masked batch cuts out below the threshold; a PF_TwoSided batch renders
 // from both sides; a PF_Translucent batch writes no motion vector; a PF_Portal
@@ -96,7 +96,7 @@ TEST_CASE("INV-11: masking and two-sidedness and portals are honoured bit by bit
         {"a portal that is also invisible", "solid", PF_PORTAL | PF_INVISIBLE, false, CLEAR},
         {"masked and two-sided below the threshold from behind", "cut", PF_MASKED | PF_TWO_SIDED, true, CLEAR},
         {"masked and two-sided above the threshold from behind", "kept", PF_MASKED | PF_TWO_SIDED, true, drawn(KEPT)},
-        {"carrying PF_Modulated which SS 4.5 ignores", "solid", PF_MODULATED, false, drawn(SOLID)},
+        {"carrying PF_NoSmooth which SS 4.5 ignores", "solid", PF_NO_SMOOTH, false, drawn(SOLID)},
     };
 
     uta::ubundle::Geometry geometry;
@@ -118,9 +118,51 @@ TEST_CASE("INV-11: masking and two-sidedness and portals are honoured bit by bit
     }
     // The ignored bit renders EXACTLY as the batch without it. Both ends are
     // taken from the table rather than written out, so a row added anywhere
-    // keeps this comparing PF_Modulated against the plain opaque square.
+    // keeps this comparing PF_NoSmooth against the plain opaque square. It was
+    // PF_Modulated until UTA-0271 gave that bit a meaning (INV-12 below).
     CHECK(pixelAt(*pixels, WIDTH, columnOf(squareY(squares.size() - 1)), HEIGHT / 2)
           == pixelAt(*pixels, WIDTH, columnOf(squareY(0)), HEIGHT / 2));
+}
+
+TEST_CASE("UTA-0014 INV-12: a modulated surface multiplies what lies behind it by twice its displayed colour",
+          "[device]") {
+    // UT99 draws PF_Modulated as dst * src * 2 on displayed values, so a
+    // mid-grey square leaves the wall nearly as it was and a darker one darkens
+    // it: 2 * 129/255 * 201 = 203.4 and 2 * 65/255 * 201 = 102.5 of 255. Ours
+    // multiplies linear light by (2 * displayed)^2.2, which lands within a level
+    // of each. Drawn opaque, as before UTA-0271, the squares read 129 and 65.
+    // Odd channels throughout: bc7Solid needs one parity across all four.
+    // A third square carries PF_Translucent as well, which wins as in UT99's
+    // renderers: it adds, 0.053 + 0.584 * (1 - 0.053) of linear light, 204 of
+    // 255, where a modulated one would read 102.
+    removeDisplay();
+    Renderer renderer = requireRenderer(smallFrame());
+    constexpr Rgba WALL{201, 201, 201, 255};
+    constexpr Rgba NEUTRAL{129, 129, 129, 255};
+    constexpr Rgba DARK{65, 65, 65, 255};
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 200, 0, 0, 400, "wall", PF_UNLIT);
+    addSquare(geometry, 100, -60, 0, 15, "neutral", PF_MODULATED | PF_UNLIT);
+    addSquare(geometry, 100, 60, 0, 15, "dark", PF_MODULATED | PF_UNLIT);
+    addSquare(geometry, 100, 120, 0, 15, "dark", PF_TRANSLUCENT | PF_MODULATED | PF_UNLIT);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "wall", WALL);
+    addSolidMaterial(bundle, "neutral", NEUTRAL);
+    addSolidMaterial(bundle, "dark", DARK);
+
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    const Rgba wall = pixelAt(*pixels, WIDTH, columnOf(0), HEIGHT / 2);
+    const Rgba neutral = pixelAt(*pixels, WIDTH, columnOf(-60), HEIGHT / 2);
+    const Rgba dark = pixelAt(*pixels, WIDTH, columnOf(60), HEIGHT / 2);
+    const Rgba both = pixelAt(*pixels, WIDTH, columnOf(120), HEIGHT / 2);
+    CAPTURE(wall, neutral, dark, both);
+    CHECK(wall == WALL);
+    CHECK(std::abs(int(neutral.r) - 203) <= 3);
+    CHECK(std::abs(int(dark.r) - 102) <= 3);
+    CHECK(std::abs(int(both.r) - 204) <= 3);
 }
 
 TEST_CASE("UTA-0252: a sky surface hides what lies behind it", "[device]") {

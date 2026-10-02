@@ -10,6 +10,7 @@ const uint NONE = 0xFFFFFFFFu;
 // UT99's EPolyFlags -- UTA-0014 SS 4.5.
 const uint PF_MASKED = 0x00000002u;
 const uint PF_TRANSLUCENT = 0x00000004u;
+const uint PF_MODULATED = 0x00000040u; // UTA-0271
 const uint PF_FAKE_BACKDROP = 0x00000080u;
 const uint PF_TWO_SIDED = 0x00000100u;
 const uint PF_UNLIT = 0x00400000u;

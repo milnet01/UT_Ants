@@ -14412,7 +14412,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-30.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0262] **urender: DM-Fetid's fog draws as an even grey haze where the original's is a green glow that leaves near walls clear.**
+- ✅ [UTA-0262] **urender: DM-Fetid's fog draws as an even grey haze where the original's is a green glow that leaves near walls clear.**
   Found by UTA-0261, 2026-10-01, r29 against the original's frames
   WITH volumetric fog (ut-ants-uta0156/orig-fetid-vol). Mean displayed
   luma over the eight poses is close (original 76.8, ours 79.9), but
@@ -14443,6 +14443,7 @@ stays with movement in 0.2.0.
   original's read about 10, including poses with no fog at all. Filed as
   UTA-0274. Kit: ~/.cache/uta-scratch/u262 (probe.sh, score.py,
   depth.py, sweep.sh).
+  Shipped in 505dca2; GitHub's matrix green (run 37022923750).
   **Layman:** On the foggy map the fog looks like a flat grey mist over everything, where the original shows a green glow that thickens with distance.
   Kind: enhancement.
   Source: in-session-2026-10-01 split-from-UTA-0261.
@@ -14727,7 +14728,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02.
   Lanes: render, ubake.
 
-- 📋 [UTA-0271] **urender: surfaces flagged PF_Modulated are drawn as ordinary surfaces instead of darkening what lies behind them.**
+- 🚧 [UTA-0271] **urender: surfaces flagged PF_Modulated are drawn as ordinary surfaces instead of darkening what lies behind them.**
   Found 2026-10-02 while researching UTA-0089: workspace_search over src/
   for MODULATED, Modulated and 0x00000040 finds only src/ubake/
   SurfaceRays.{h,cpp}, which skip such surfaces when tracing light. The
@@ -14739,6 +14740,30 @@ stays with movement in 0.2.0.
   surfaces carry it too (2927). Census the whole library before
   building. Cheap: a third blend mode in the translucent pass, dst
   times src times 2.
+  Taken 2026-10-02 by the session that shipped UTA-0262. Rule-1 set
+  unchanged (UTA-0098, UTA-0100, UTA-0249: dormant or 0.4.0).
+  Census over u105's dumps (~/.cache/uta-scratch/u271/census.py): 7594
+  PF_Modulated surfaces on 206 maps; 5791 also carry PF_Translucent,
+  which wins in UT99's renderers (SurrealEngine's GLRenderDevice and
+  RenderPassManager: translucent is tested first, modulated blends
+  DST_COLOR, SRC_COLOR, and only a surface with neither is fogged). So
+  1803 surfaces change, WaterRings2 on 26 maps among them.
+  Done (2026-10-02), amending docs/specs/UTA-0014-vulkan-draw-path.md
+  (§ 4.5 row, INV-12, INV-11's ignored-bit row now PF_NoSmooth, § 9).
+  A modulated surface without PF_Translucent is drawn with the blended
+  batches, multiplying what is behind by (2 x its displayed colour)^2.2,
+  UT99's dst x src x 2 carried into linear light; unlit, unfogged,
+  unreflected, casting no shadow. INV-12's test was red first (squares
+  read 129 and 65), and a mutant testing modulated before translucent
+  was killed (49 where 204). Measured on DM-ArcaneTemple against u105's
+  original frames (u271/compare.py): where the change moved pixels, pose
+  0 reads 72 to the original's 84 (was 238, a white slab over the pool)
+  and pose 1 reads 77 to 29 (was 238); RMS there 166 to 36 and 212 to
+  52. Pose 1's remaining gap is the pool's water, which the original
+  does not show from that camera, perhaps because the camera is under
+  the water line there (UTA-0215's ground), not the ring layer. Whether
+  UT99 lights a modulated surface is not settled by these poses; ours
+  does not, as SurrealEngine's mesh path does not.
   **Layman:** Some see-through overlays in the original tint and darken what is behind them; here they draw as solid pictures instead.
   Kind: fix.
   Source: in-session-2026-10-02.

@@ -965,9 +965,12 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
             vkCmdSetScissor(commands, 0, 1, &tile);
             for (const DrawItem& item : geometry->draws) {
                 // What blocks light: opaque and masked surfaces. A translucent
-                // one lets it through, the sky is not in the level, and UT99's
-                // lighting lets light through a non-solid brush (UTA-0168).
-                if ((item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_NOT_SOLID | gpu::PF_FAKE_BACKDROP)) != 0)
+                // or modulated one lets it through, as ubake's SurfaceRays does
+                // (UTA-0271), the sky is not in the level, and UT99's lighting
+                // lets light through a non-solid brush (UTA-0168).
+                if ((item.polyFlags
+                     & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED | gpu::PF_NOT_SOLID | gpu::PF_FAKE_BACKDROP))
+                    != 0)
                     continue;
                 const gpu::ShadowConstants constants{shadows.faces[draw.face].viewProj, item.objectIndex,
                                                      item.materialIndex, item.polyFlags, 0};
@@ -1065,7 +1068,9 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
                                 0, nullptr);
         for (const DrawItem& item : geometry->draws) {
-            if (((item.polyFlags & gpu::PF_TRANSLUCENT) != 0) != (pass == Pass::Translucent)) continue;
+            // UTA-0271: a modulated surface blends too, so it is drawn with them.
+            const bool blended = (item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED)) != 0;
+            if (blended != (pass == Pass::Translucent)) continue;
             // A masked surface's holes are its shader's to cut, so its depth is
             // not drawn ahead; it is tested and written in the forward pass.
             if (pass == Pass::Depth && (item.polyFlags & gpu::PF_MASKED) != 0) continue;
