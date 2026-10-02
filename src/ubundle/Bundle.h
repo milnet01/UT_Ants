@@ -59,7 +59,8 @@ namespace uta::ubundle {
 /// 16 since UTA-0105 SS 4.2 gave each MATS record its liquid look.
 /// 17 since UTA-0269 gave each GEOM batch its pan rate (UTA-0109 SS 4.2).
 /// 18 since UTA-0276 gave each ZONE entry its pan speeds (UTA-0156 SS 4.1).
-inline constexpr std::uint32_t FORMAT_VERSION = 18;
+/// 19 since UTA-0215 gave each ZONE entry its water flag and view tint.
+inline constexpr std::uint32_t FORMAT_VERSION = 19;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -427,6 +428,9 @@ struct Zone {
     std::uint8_t saturation = 0;
     std::uint8_t fog = 0; ///< 1 where bFogZone is set; never above 1
     std::array<float, 2> panSpeed{1, 1}; ///< UTA-0276: TexUPanSpeed and TexVPanSpeed; finite
+    std::uint8_t water = 0;              ///< UTA-0215: 1 where bWaterZone is set; never above 1
+    std::array<float, 3> viewFog{};      ///< UTA-0215: ViewFog, display units; finite
+    float viewFlash = 0;                 ///< UTA-0215: ViewFlash.X; finite
 };
 
 /// The widest and tallest AOCC atlas, in texels -- UTA-0164 SS 4.1.

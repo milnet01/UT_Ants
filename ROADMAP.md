@@ -13120,7 +13120,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-09-26.
   Lanes: tools/ut-dump, docs.
 
-- 📋 [UTA-0215] **urender: caustics under water surfaces, and a tinted view when the camera is under water.**
+- 🚧 [UTA-0215] **urender: caustics under water surfaces, and a tinted view when the camera is under water.**
   The user, 2026-09-26: "I still want water to be changed to look like
   real water with the usual undulating surface, caustics and tinted view
   when underwater". The surface's look is UTA-0089, its undulation
@@ -13174,6 +13174,20 @@ stays with movement in 0.2.0.
   T3D exports, 624 maps: 435 with water, 2192 water zones. Rule: an
   explicit bWaterZone= line wins, else the stock class default. It misses
   a map-defined zone class that sets bWaterZone in its own defaults.
+  Taken 2026-10-02 after UTA-0089, as the user directed. First part
+  specified in docs/specs/UTA-0215-underwater-view.md: zones carry
+  bWaterZone, ViewFog and ViewFlash; under water the frame takes UT99's
+  own PlayerPawn.ViewFlash tint (d x (1 + ViewFlash.X) + ViewFog, read in
+  Engine.u's UnrealScript), light fades with distance, and the view wobbles
+  gently. Caustics, shafts, the surface from below and particles are later
+  parts. Original underwater frames asked of the UT_MonsterHunt session.
+  Progress (2026-10-02): part 1 built per the spec -- ZONE format 19
+  carries the water flag and tint, baker 35; tint, absorption
+  (WATER_VISIBILITY 600) and wobble in the renderer. Unit and device tiers
+  green on lavapipe and the GPU; three shader mutations killed. Still owed:
+  the spec's comparison against UT_MonsterHunt's frames (work/uta0269/
+  water/ and lava/), then caustics, shafts, the surface from below and
+  particles.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.

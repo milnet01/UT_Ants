@@ -52,6 +52,14 @@ PropertyRecord floatRecord(std::string name, float value) {
     return record;
 }
 
+PropertyRecord vectorRecord(std::string name, std::array<float, 3> value) {
+    PropertyRecord record;
+    record.name = std::move(name);
+    record.kind = ValueKind::Vector;
+    record.value = value;
+    return record;
+}
+
 PropertyRecord boolRecord(std::string name, bool value) {
     PropertyRecord record;
     record.name = std::move(name);
@@ -155,6 +163,26 @@ TEST_CASE("UTA-0276: a zone pans at its actor's speeds else its class's else 1",
     CHECK(zones[0].panSpeed == std::array<float, 2>{1, 1}); // the LevelInfo, storing neither
     CHECK(zones[1].panSpeed == std::array<float, 2>{0.25F, 1});
     CHECK(zones[2].panSpeed == std::array<float, 2>{1, 3.0F});
+}
+
+TEST_CASE("UTA-0215 INV-2: a water zone takes its class's water flag and tint, its own record winning", "[ubake][zone]") {
+    // UnrealShare's WaterZone stores bWaterZone true, ViewFog and ViewFlash in
+    // its defaults (read from the install, 2026-10-02); ZoneInfo none of them.
+    Placements withWater = placements();
+    withWater.classes.push_back(classOf("unrealshare.waterzone", {"engine.zoneinfo", "engine.info", "engine.actor"},
+                                        {boolRecord("bWaterZone", true),
+                                         vectorRecord("ViewFog", {0.1289F, 0.1953F, 0.1758F}),
+                                         vectorRecord("ViewFlash", {-0.078F, -0.078F, -0.078F})}));
+    withWater.actors[2].classIndex = 3;
+    withWater.actors[2].properties.push_back(vectorRecord("ViewFog", {0.3F, 0.2F, 0.1F}));
+    const std::vector<Zone> zones = buildZones(threeZones(), withWater);
+    REQUIRE(zones.size() == 3);
+    CHECK(int(zones[0].water) == 0);
+    CHECK(zones[0].viewFog == std::array<float, 3>{0, 0, 0});
+    CHECK(int(zones[1].water) == 0); // a plain ZoneInfo
+    CHECK(int(zones[2].water) == 1);
+    CHECK(zones[2].viewFog == std::array<float, 3>{0.3F, 0.2F, 0.1F}); // its own record
+    CHECK(zones[2].viewFlash == -0.078F);                              // its class's
 }
 
 TEST_CASE("INV-3: a Model with no zones gives one entry from the LevelInfo", "[ubake][zone]") {

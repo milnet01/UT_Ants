@@ -13,8 +13,8 @@ namespace detail {
 namespace {
 
 /// UTA-0156 SS 4.1's three u8, then UTA-0015's fog flag, then UTA-0276's two
-/// pan speeds.
-constexpr std::uint64_t ZONE_ENTRY = 12;
+/// pan speeds, then UTA-0215's water flag, view fog and view flash.
+constexpr std::uint64_t ZONE_ENTRY = 29;
 
 [[nodiscard]] Result<Zone> readZone(Cursor& cursor) {
     Zone zone;
@@ -25,6 +25,11 @@ constexpr std::uint64_t ZONE_ENTRY = 12;
     for (float& speed : zone.panSpeed) {
         UTA_TRY(speed, cursor.readF32());
     }
+    UTA_TRY(zone.water, cursor.readU8());
+    for (float& part : zone.viewFog) {
+        UTA_TRY(part, cursor.readF32());
+    }
+    UTA_TRY(zone.viewFlash, cursor.readF32());
     return zone;
 }
 
@@ -34,6 +39,9 @@ void putZone(Sink& sink, const Zone& zone) {
     sink.putU8(zone.saturation);
     sink.putU8(zone.fog);
     for (const float speed : zone.panSpeed) sink.putF32(speed);
+    sink.putU8(zone.water);
+    for (const float part : zone.viewFog) sink.putF32(part);
+    sink.putF32(zone.viewFlash);
 }
 
 /// Every vertex of `geometry` names a zone below `bound`.
@@ -66,6 +74,13 @@ Result<void> validateZones(const std::vector<Zone>& zones, ErrorCode code) {
         for (const float speed : zones[i].panSpeed)
             if (!std::isfinite(speed))
                 return fail(code, "ZONE: entry " + std::to_string(i) + "'s pan speed is not finite");
+        if (zones[i].water > 1)
+            return fail(code, "ZONE: entry " + std::to_string(i) + " has a water byte of "
+                                  + std::to_string(zones[i].water) + ", where only 0 and 1 are allowed");
+        const auto& fog = zones[i].viewFog;
+        if (!std::isfinite(fog[0]) || !std::isfinite(fog[1]) || !std::isfinite(fog[2])
+            || !std::isfinite(zones[i].viewFlash))
+            return fail(code, "ZONE: entry " + std::to_string(i) + "'s view tint is not finite");
     }
     return {};
 }

@@ -832,6 +832,13 @@ saturation, and dropping it may move dark hues in a way nothing here measured.
 
 `UTA-0053` owns any later grading.
 
+**Amended by `UTA-0215`, recording what was built.** With the camera's zone
+water, this stage also applies UT99's view tint to the display value, and
+samples the frame at a gently wobbling coordinate. Both apply under
+`linearOutput`, which therefore no longer skips this whole stage: they are view
+effects, not light. Out of water nothing changes, so INV-10 is untouched.
+`UTA-0215` § 4.2 and § 4.4 own them.
+
 ### 4.11 What `UTA-0075` requires of the graph now
 
 `ROADMAP UTA-0075` was deferred out of 0.1.0 by user decision, and its own body

@@ -106,6 +106,16 @@ float sliceDepth(float k) {
 }
 
 // Where view depth `z` sits along the slices, 0 at FOG_NEAR and 1 at FOG_FAR.
+// UTA-0215 SS 4.3: under water, light falls to 1/e over this many UT units --
+// about twelve metres at UT99's scale. The spec's call, not fitted: the
+// original has no absorption to fit it against.
+const float WATER_VISIBILITY = 600.0;
+
+// What survives the water between the eye and a surface `z` deep in view.
+float waterAbsorption(float z, uint underwater) {
+    return underwater != 0u ? exp(-max(z, 0.0) / WATER_VISIBILITY) : 1.0;
+}
+
 float fogCoordinate(float z) {
     return log(max(z, FOG_NEAR) / FOG_NEAR) / log(FOG_FAR / FOG_NEAR);
 }

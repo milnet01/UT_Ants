@@ -8,6 +8,7 @@
 #include "umap/Build.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <string_view>
 #include <variant>
@@ -48,12 +49,29 @@ float speedOf(std::string_view name, const ubundle::ActorPlacement& actor, const
     return std::isfinite(value) ? value : 1.0F;
 }
 
+/// UTA-0215: a Vector property, else 0. A part that is not finite is 0, so
+/// ZONE's refusal of a tint that is not finite is never reached from a map.
+std::array<float, 3> vectorOf(std::string_view name, const ubundle::ActorPlacement& actor,
+                              const ubundle::ActorClass& actorClass) {
+    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Vector, actor, actorClass);
+    if (record == nullptr) return {};
+    std::array<float, 3> value = std::get<std::array<float, 3>>(record->value);
+    for (float& part : value)
+        if (!std::isfinite(part)) part = 0;
+    return value;
+}
+
 ubundle::Zone zoneOf(const ubundle::Placements& placements, const ubundle::ActorPlacement* actor) {
     if (actor == nullptr) return {};
     const ubundle::ActorClass& actorClass = placements.classes[actor->classIndex];
-    return {byteOf("ambientbrightness", *actor, actorClass), byteOf("ambienthue", *actor, actorClass),
-            byteOf("ambientsaturation", *actor, actorClass), flagOf("bfogzone", *actor, actorClass),
-            {speedOf("texupanspeed", *actor, actorClass), speedOf("texvpanspeed", *actor, actorClass)}};
+    ubundle::Zone zone{byteOf("ambientbrightness", *actor, actorClass), byteOf("ambienthue", *actor, actorClass),
+                       byteOf("ambientsaturation", *actor, actorClass), flagOf("bfogzone", *actor, actorClass),
+                       {speedOf("texupanspeed", *actor, actorClass), speedOf("texvpanspeed", *actor, actorClass)}};
+    // UTA-0215 SS 4.1: UT99 tints the view by ViewFlash's X alone.
+    zone.water = flagOf("bwaterzone", *actor, actorClass);
+    zone.viewFog = vectorOf("viewfog", *actor, actorClass);
+    zone.viewFlash = vectorOf("viewflash", *actor, actorClass)[0];
+    return zone;
 }
 
 /// The placement of export `exportIndex`; placements are ascending by it.

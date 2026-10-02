@@ -15,6 +15,9 @@ layout(push_constant) uniform PostBlock {
     uvec2 regionSize; // UTA-0051 SS 4.4: the top-left part of `hdr` this frame drew
     uint upscaleInput; // UTA-0154: write FSR 1's input rather than the output
     float bloomStrength; // UTA-0053: 0 where the tier draws no bloom
+    float flashScale;    // UTA-0215 SS 4.2: 1 + the zone's ViewFlash under water
+    float wobbleSeconds; // UTA-0215 SS 4.4: the light clock, wrapped
+    vec4 flashFog;       // UTA-0215: xyz ViewFog; w nonzero under water
 } post;
 
 layout(location = 0) out vec4 outColour;
@@ -56,16 +59,37 @@ vec3 toneMap(vec3 colour) {
     return mix(colour, newPeak * vec3(1.0), g);
 }
 
+// UTA-0215 SS 4.4: the wobble -- this spec's call, chosen to be faint.
+const float WOBBLE_AMPLITUDE = 0.003; // of the frame
+const float WOBBLE_FREQUENCY = 24.0;
+const float WOBBLE_SPEED = 1.5;
+
+float encodeSrgb(float l) { return l <= 0.0031308 ? l * 12.92 : 1.055 * pow(l, 1.0 / 2.4) - 0.055; }
+float decodeSrgb(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
+
 void main() {
     // Texel for texel, exactly as UTA-0014 reads it. Past a smaller region the
     // region's own edge repeats, so FSR 1's taps beyond it read the edge.
     ivec2 at = min(ivec2(gl_FragCoord.xy), ivec2(post.regionSize) - 1);
+    bool underwater = post.flashFog.w != 0.0;
+    if (underwater) {
+        vec2 uv = gl_FragCoord.xy / vec2(post.regionSize);
+        float phase = post.wobbleSeconds * WOBBLE_SPEED;
+        vec2 shift = WOBBLE_AMPLITUDE * vec2(sin(uv.y * WOBBLE_FREQUENCY + phase), cos(uv.x * WOBBLE_FREQUENCY + phase));
+        at = clamp(at + ivec2(round(shift * vec2(post.regionSize))), ivec2(0), ivec2(post.regionSize) - 1);
+    }
     vec3 colour = texelFetch(hdr, at, 0).rgb;
     // UTA-0053: emission's glow, added before exposure at this texel's own place
     // in the half-size chain. Added rather than mixed: only emission feeds it.
     if (post.bloomStrength > 0.0)
         colour += texture(bloom, (vec2(at) + 0.5) / vec2(textureSize(hdr, 0))).rgb * post.bloomStrength;
     if (post.linearOutput == 0u) colour = toneMap(colour * post.exposure);
+    // UTA-0215 SS 4.2: UT99's own tint, on the display value. It is a view
+    // effect, not light, so it applies under linearOutput too.
+    if (underwater) {
+        for (int c = 0; c < 3; ++c)
+            colour[c] = decodeSrgb(clamp(encodeSrgb(max(colour[c], 0.0)) * post.flashScale + post.flashFog[c], 0.0, 1.0));
+    }
     // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header
     // allows gamma 2.0 for it.
     if (post.upscaleInput != 0u) colour = sqrt(clamp(colour, 0.0, 1.0));

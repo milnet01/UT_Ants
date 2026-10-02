@@ -79,7 +79,7 @@ std::vector<std::byte> fileWith(const Bytes& flam) {
     const std::vector<std::pair<std::string_view, Bytes>> sections = {{"MATS", matsPayload()}, {"FLAM", flam}};
     Bytes out;
     out.id("UTAB");
-    out.u32(18); // formatVersion -- 18 since UTA-0276 gave each ZONE entry its pan speeds
+    out.u32(19); // formatVersion -- 19 since UTA-0215 gave each ZONE entry its water and tint
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

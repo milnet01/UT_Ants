@@ -89,6 +89,14 @@ else `1`, Engine.u's `ZoneInfo` default; a NaN or infinity bakes as `1`.
 each panning batch's rate (`UTA-0109` § 4.3) by the camera's zone's speeds,
 because the original pans by the viewer's zone (measured, `UTA-0276`).
 
+**Amended by `UTA-0215`, recording what was built.** After the pan speeds,
+each entry carries `water` as a `u8` (`bWaterZone`), then `viewFog` as three
+`f32` and `viewFlash` as one (`ViewFlash`'s X). They resolve as § 4.3
+resolves the ambient, else `0`; a part that is not finite bakes as `0`. An
+entry is 29 bytes. `read` and `write` refuse a `water` byte above `1`, and a
+fog or flash that is not finite. `UTA-0215` § 4 owns what the renderer does
+with them.
+
 ### 4.2 A vertex's zone — `ubundle`
 
 ```cpp

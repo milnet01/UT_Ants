@@ -294,6 +294,7 @@ void main() {
     vec3 fogAt = vec3(gl_FragCoord.xy / frame.viewportSize, fogCoordinate(viewDepth) - 0.5 / float(FOG_GRID.z));
     vec4 fogged = textureLod(fogVolume, fogAt, 0.0);
     colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour * fogged.a : colour * fogged.a + fogged.rgb;
+    colour *= waterAbsorption(viewDepth, frame.cameraUnderwater); // UTA-0215 SS 4.3
 
     outColour = vec4(colour, 1.0);
     // Current minus previous, in the target's UV units: +x right, +y down.

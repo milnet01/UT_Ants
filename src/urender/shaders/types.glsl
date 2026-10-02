@@ -49,6 +49,10 @@ struct FrameData {
     uint occlusionTexture; // UTA-0164: NONE when the bundle has no AOCC or the tier draws none
     float flameSeconds; // UTA-0263 SS 4.4: the light clock, wrapped
     uint cameraZone;    // UTA-0089 SS 4.1
+    uint cameraUnderwater; // UTA-0215 SS 4.3: nonzero where the camera's zone is water
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
 };
 
 struct Object {

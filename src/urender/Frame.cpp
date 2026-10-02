@@ -424,6 +424,8 @@ struct Renderer::Impl {
     /// UTA-0276: the camera's zone's pan speeds, u and v, which scale every
     /// panning batch this frame -- the original pans by the viewer's zone.
     std::array<float, 2> cameraPanSpeed{1, 1};
+    /// UTA-0215: the camera's zone, whose water flag and tint the output stage applies.
+    ubundle::Zone viewZone{};
     bool drawn = false;
     /// The last draw() drew nothing -- minimised, out of date, or failed -- so
     /// the targets hold an older frame (UTA-0228 L5).
@@ -1253,7 +1255,16 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &set, 0,
                                 nullptr);
         const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height},
-                                           upscaleInputPass ? 1u : 0u, bloomOn ? BLOOM_STRENGTH : 0.0f};
+                                           upscaleInputPass ? 1u : 0u, bloomOn ? BLOOM_STRENGTH : 0.0f,
+                                           // UTA-0215 SS 4.2 and SS 4.4
+                                           viewZone.water != 0 ? 1.0f + viewZone.viewFlash : 1.0f,
+                                           std::isfinite(lastLightSeconds)
+                                               ? static_cast<float>(std::fmod(lastLightSeconds, FLAME_CLOCK_WRAP))
+                                               : 0.0f,
+                                           viewZone.water != 0
+                                               ? std::array<float, 4>{viewZone.viewFog[0], viewZone.viewFog[1],
+                                                                      viewZone.viewFog[2], 1.0f}
+                                               : std::array<float, 4>{}};
         vkCmdPushConstants(commands, pipelines->postLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
                            &constants);
         vkCmdDraw(commands, 3, 1, 0, 0);
@@ -1489,8 +1500,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
     const std::uint8_t cameraZone = bundle.rooms ? ubundle::zoneAt(*bundle.rooms, camera.location, zoneCount) : 0;
     frame.cameraZone = cameraZone; // UTA-0089 SS 4.2
-    if (bundle.zones) impl.cameraPanSpeed = (*bundle.zones)[cameraZone < bundle.zones->size() ? cameraZone : 0].panSpeed;
-    else impl.cameraPanSpeed = {1, 1};
+    impl.viewZone =
+        bundle.zones ? (*bundle.zones)[cameraZone < bundle.zones->size() ? cameraZone : 0] : ubundle::Zone{};
+    impl.cameraPanSpeed = impl.viewZone.panSpeed;
+    frame.cameraUnderwater = impl.viewZone.water; // UTA-0215 SS 4.3
     const std::array<ubundle::Zone, 1> noZone{};
     const std::span<const ubundle::Zone> zoneSpan =
         bundle.zones ? std::span<const ubundle::Zone>(*bundle.zones) : std::span<const ubundle::Zone>(noZone);

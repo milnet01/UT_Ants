@@ -92,8 +92,10 @@ struct FrameData {
     std::uint32_t occlusionTexture; ///< UTA-0164: an index into the texture array, or NONE
     float flameSeconds;          ///< UTA-0263 SS 4.4: the light clock, wrapped
     std::uint32_t cameraZone;    ///< UTA-0089 SS 4.1: the zone the camera is in
+    std::uint32_t cameraUnderwater; ///< UTA-0215 SS 4.3: nonzero where the camera's zone is water
+    std::array<std::uint32_t, 3> reserved; ///< std430 rounds the struct to its mat4's 16
 };
-static_assert(sizeof(FrameData) == 352);
+static_assert(sizeof(FrameData) == 368);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -117,6 +119,7 @@ static_assert(offsetof(FrameData, skyFirstFace) == 336);
 static_assert(offsetof(FrameData, occlusionTexture) == 340); // UTA-0164 SS 4.5
 static_assert(offsetof(FrameData, flameSeconds) == 344);
 static_assert(offsetof(FrameData, cameraZone) == 348);
+static_assert(offsetof(FrameData, cameraUnderwater) == 352);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {
@@ -327,13 +330,22 @@ struct PostConstants {
     /// UTA-0053: how much of the bloom chain the frame adds; 0 where the tier
     /// draws no bloom.
     float bloomStrength;
+    /// UTA-0215 SS 4.2: the display scale, 1 + the zone's ViewFlash under water, else 1.
+    float flashScale;
+    /// UTA-0215 SS 4.4: the light clock, wrapped as flames' is, for the wobble.
+    float wobbleSeconds;
+    /// UTA-0215: xyz the zone's ViewFog, added to the display value; w nonzero under water.
+    std::array<float, 4> flashFog;
 };
-static_assert(sizeof(PostConstants) == 24);
+static_assert(sizeof(PostConstants) == 48);
 static_assert(offsetof(PostConstants, exposure) == 0);
 static_assert(offsetof(PostConstants, linearOutput) == 4);
 static_assert(offsetof(PostConstants, regionSize) == 8);
 static_assert(offsetof(PostConstants, upscaleInput) == 16);
 static_assert(offsetof(PostConstants, bloomStrength) == 20);
+static_assert(offsetof(PostConstants, flashScale) == 24);
+static_assert(offsetof(PostConstants, wobbleSeconds) == 28);
+static_assert(offsetof(PostConstants, flashFog) == 32);
 
 /// UTA-0053: which step of the bloom chain bloom.frag draws.
 inline constexpr std::uint32_t BLOOM_DOWNSAMPLE_FIRST = 0; ///< from the emission target, Karis-weighted

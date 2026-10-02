@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Under water the view takes the zone's own tint, fades with distance, and wobbles gently** (UTA-0215)
+  Zones now record whether they are water and the original's view tint.
+  With the camera's head in one, the frame is tinted exactly as UT99
+  tints it, far things fade into the water's colour, and the picture
+  wobbles faintly. Bundles are format 19, so every map is baked again.
+
 - **Large walls and floors vary gently in brightness across a room, so a repeated texture no longer reads as one patch stamped in a grid.** (UTA-0180)
   Panels, trims and signs stay exactly where the map's author put them.
   Drawn at the Medium quality setting and above. No map needs baking again.
