@@ -5937,6 +5937,16 @@ stays with movement in 0.2.0.
   curated library (UTA-0010 § 4.5). The recipe format is a breaking
   surface (docs/standards/versioning-overrides.md).
   Blocked-by: UTA-0011.
+  Spec drafted 2026-10-02: docs/specs/UTA-0113-recipe-format.md. Not to
+  be built until the user answers its SS 14, three questions with a
+  recommendation each: what a recipe looks like when written (recommended:
+  the .ini shape UT players already edit), where recipes live and which
+  wins (recommended: a file named on the command line, then the player's
+  own folder, then the ones shipped with the game), and whether version 1
+  carries the haze (recommended: no). Version 1 holds only what the baker
+  reads -- per-texture material assignments -- plus a friendly name, and
+  its bake-relevant fields enter the bundle's name, so every existing bake
+  keeps its name. Unblocks UTA-0106 and UTA-0181.
   **Layman:** The small file of our own changes to somebody else's map -- materials, fog, a friendly name -- which is what players share instead of the map itself.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -11193,6 +11203,21 @@ stays with movement in 0.2.0.
   User decision (2026-09-17): placed with UTA-0180, after UTA-0179 and
   before UTA-0157.
   Placed 2026-09-17: directly after UTA-0180.
+  Researched 2026-10-02 when picked up after UTA-0180; not built, for a
+  decision that is the user's. Blocked-by: UTA-0113 -- the user decided
+  (2026-09-05 and 2026-09-09, UTA-0009 SS 3 decision 4) that a replacement
+  is referenced by the recipe and supplied locally, and design.md's
+  Content addressing bullet requires its bytes to reach the bundle's
+  name through the recipe, which UTA-0113 has not built. This item also
+  overlaps UTA-0106 (PNG decoding and the recipe field), which the user
+  placed AFTER the first version (2026-09-10), while this one was placed
+  in 0.1.0 (2026-09-17). Decision for the user: which release takes
+  downloaded textures. Recommendation: build UTA-0113 in 0.1.0 as filed,
+  and move this item to 0.2.0 to land with UTA-0106 as one feature -- the
+  two are the same folder seen from the bake and from the recipe, and
+  0.1.0 is cut on S1 and S7, which neither serves. Also needs a new
+  dependency to read PNG (none in the tree; docs/standards/
+  dependency-acquisition.md routes it).
   **Layman:** Textures the user downloads can stand in for the game's own when a map is baked.
   Kind: feature.
   Source: user-request-2026-09-17.
