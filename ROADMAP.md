@@ -4970,7 +4970,7 @@ stays with movement in 0.2.0.
   Kind: doc-fix.
   Source: review-contract-2026-09-09.
 
-- 📋 [UTA-0089] **urender: water and glass that look the part, with cheap faked reflections.**
+- 🚧 [UTA-0089] **urender: water and glass that look the part, with cheap faked reflections.**
   The user's requirement (2026-09-10): water sections must actually look
   like water, and glass sections must look like glass, with reflections
   where they fit. Faked or cheap reflections are acceptable, and cheap is
@@ -11994,6 +11994,12 @@ stays with movement in 0.2.0.
   and all 5 that carry nodes were identical apart from `group`. Output:
   /mnt/Games/Scripts/Linux/ut-paths-output-2026-10-02-rowless (README
   inside), 82 written, 5 with nodes. Sent to ut-monsterhunt.
+  Result (UT_MonsterHunt, 2026-10-02): of the 5 rowless maps with nodes,
+  4 route after a build with them, at DWELL 90 -- Ghost][busters,
+  AirportTerrorSB-BP, AMC-DiminutiveV5-BP, UM-Vengeance-vrf1 --
+  against NOROUTE for all four originals; Necromicon still NOROUTE. No
+  control arm, so the credit is not proven per map. Their results:
+  UT_MonsterHunt/work/fastseed-2026-10-02b.
   **Layman:** Re-run the breadcrumb tool over a much larger set of broken maps than it was first aimed at.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-20.
