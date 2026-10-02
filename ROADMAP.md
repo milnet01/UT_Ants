@@ -5035,6 +5035,16 @@ stays with movement in 0.2.0.
   ripple on or off, so the water reads darker than UT99's. A plain
   white patch also lies at the pool's far right edge in our frame, with
   the ripple off too; not yet identified.
+  User, 2026-10-02, after seeing UTA-0105's moving water: "That looks
+  excellent. Any way we can make the texture not look so repeated. Sort
+  of make it look like real water a real lake would look like. The
+  animation is excellent though." So this item also owns the water's
+  tiling: the 256-texel picture repeats visibly across a large pool.
+  Cheap routes, to measure: fade the picture toward its mean colour
+  with distance (where the repeat shows most); sample it at two scales
+  mixed by low-frequency noise; and let the Fresnel reflection take over
+  at grazing angles, which is what a real lake shows far off. UTA-0180
+  is the same problem for every other texture.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
