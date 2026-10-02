@@ -15063,6 +15063,15 @@ stays with movement in 0.2.0.
   dark-area gap. Open: lava overshoots green and blue 1.5-2.3x under the
   same mix; a paired lava capture is asked of UT_MonsterHunt. The commit is
   held from pushing until it arrives.
+  Lava and slime pairs (2026-10-02, UT_MonsterHunt work/uta0269/
+  lavapair/ and slimepair/): slime fits the water model, kept 0.66-0.67
+  by detail and black at 1.90/1.83/2.05 x ViewFog against 1.883
+  predicted; WATER_KEEP set to 0.68, the mean of water and slime. Lava
+  does not fit: black shows at 1.44/1.59/1.71 x ViewFog, not 2, and its
+  kept share is inconsistent (red 0.09-0.19, flattened near clipping).
+  Lava's green ViewFog equals water's yet adds less green, so its add is
+  set by something these frames do not show. Left open for lava only;
+  ours overshoots lava's green and blue 1.5-2.3x.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.

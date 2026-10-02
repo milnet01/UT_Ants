@@ -78,19 +78,23 @@ d' = clamp((d × WATER_KEEP + viewFog) × (1 + viewFlash) + viewFog, 0, 1)
 ```
 
 The outer step is UT99's `PlayerPawn.ViewFlash` (§ 2). **The inner step was
-measured, amended 2026-10-02**: the UT_MonsterHunt session took
-DM-ArcaneTemple's pool at the same pose twice, as it is and with the zone's
-`ViewFog` and `ViewFlash` zeroed in game. Texture detail tinted over bare,
-divided by the flash's 0.922, gave 0.69 on the floor and 0.70 to 0.78 across
-the level view, near wall to far end, with no trend by distance; what is
-left once that share is taken is `ViewFog` times 1.03 to 1.14. So
-`WATER_KEEP` is 0.72, and a black surface shows as 1.922 × `ViewFog`, the
-original's measured far colour to within 4 bytes. It was first built as the
-flash alone, which drew the pool at about half the original's brightness.
+measured, amended 2026-10-02**: the UT_MonsterHunt session took each pose
+twice, as it is and with the zone's `ViewFog` and `ViewFlash` zeroed in game
+(`work/uta0269/floor/`, `slimepair/`, `lavapair/`). Texture detail tinted
+over bare, divided by the flash's scale: DM-ArcaneTemple's water 0.69 on the
+floor and 0.70 level, 0.70 to 0.78 from its near wall to its far end with no
+trend by distance; DM-Deck16]['s slime 0.66 and 0.67. So `WATER_KEEP` is
+0.68. A black surface then shows as (1 + scale) × `ViewFog`; the original
+measures 2.04, 1.97, 2.00 times `ViewFog` for water and 1.90, 1.83, 2.05 for
+slime, against 1.922 and 1.883. It was first built as the flash alone, which
+drew the pool at about half the original's brightness.
 
-**Lava is not yet matched.** Under DM-Conveyor's lava the same inner step
-overshoots green and blue by 1.5 to 2.3 times: the original adds less there.
-A paired lava capture is asked of the UT_MonsterHunt session (`UTA-0278`).
+**Lava does not fit, and is left as it falls.** Under DM-Conveyor's lava a
+black surface shows as 1.44, 1.59 and 1.71 times `ViewFog`, not 2, and the
+kept share is inconsistent (red 0.09 to 0.19, flattened near the top of the
+range). Its green `ViewFog` equals water's yet it adds less green, so what
+sets lava's add is not in these frames. Ours overshoots green and blue
+under lava by 1.5 to 2.3 times. Recorded on `UTA-0278`.
 
 `d` is the sRGB-encoded value; the shader writes `d'`'s linear light, which
 the `_SRGB` target encodes back to `d'`. It applies under

@@ -66,13 +66,15 @@ const float WOBBLE_SPEED = 1.5;
 
 // UTA-0215 SS 4.2: under water, the original keeps this share of what a
 // surface shows and adds the zone's ViewFog, before PlayerPawn's flash. Measured
-// 2026-10-02 from paired frames of DM-ArcaneTemple's pool, the same pose with
-// the zone's ViewFog and ViewFlash zeroed in game and not (UT_MonsterHunt
-// work/uta0269/floor/ and water/): texture detail tinted over bare, divided by
-// the flash's 0.922, gave 0.69 on the floor and 0.71, 0.72, 0.78 and 0.70 over
-// the level view, near wall to far end -- no trend with distance. What is left
-// once that share is taken is ViewFog times 1.03 to 1.14.
-const float WATER_KEEP = 0.72;
+// 2026-10-02 from paired frames, one pose with the zone's ViewFog and
+// ViewFlash zeroed in game and not (UT_MonsterHunt work/uta0269/floor/,
+// water/ and slimepair/): 8-pixel texture detail tinted over bare, divided
+// by the flash's scale, below the HUD. DM-ArcaneTemple's water: floor 0.69,
+// level 0.70, and 0.70 to 0.78 from its near wall to its far end -- no trend
+// with distance. DM-Deck16]['s slime: level 0.66, down 0.67. What a black
+// surface shows, against ViewFog: water 2.04, 1.97, 2.00; slime 1.90, 1.83,
+// 2.05 -- the 1 + scale this mix gives. Lava does not fit (SS 4.2).
+const float WATER_KEEP = 0.68;
 
 float encodeSrgb(float l) { return l <= 0.0031308 ? l * 12.92 : 1.055 * pow(l, 1.0 / 2.4) - 0.055; }
 float decodeSrgb(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }

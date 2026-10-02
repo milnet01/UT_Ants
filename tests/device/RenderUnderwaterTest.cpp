@@ -26,7 +26,7 @@ namespace {
 
 constexpr double WATER_FOG_START = 800.0; // fog.glsl's
 constexpr double WATER_FOG_END = 2400.0;
-constexpr double WATER_KEEP = 0.72; // post.frag's
+constexpr double WATER_KEEP = 0.68; // post.frag's
 
 double decode(double c) { return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4); }
 double encode(double l) {
