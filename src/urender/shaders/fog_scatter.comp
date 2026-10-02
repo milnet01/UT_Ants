@@ -10,6 +10,7 @@
 #define UTA_FOG_PASS
 #include "scene_bindings.glsl"
 #include "clusters.glsl"
+#include "flame.glsl"
 #include "fog.glsl"
 #include "light.glsl"
 #include "shadows.glsl"
@@ -18,6 +19,23 @@ layout(set = 1, binding = 0, rgba16f) uniform writeonly image3D scattering;
 layout(set = 1, binding = 2) readonly buffer VolumeLightBlock { uint volumeLights[]; };
 
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+// UTA-0215: under water, the lights scatter in the water as well as the haze
+// does, this much a unit at a pattern of 1. This item's call, chosen on
+// DM-ArcaneTemple's pool, not fitted: the original draws no shafts.
+const float WATER_SCATTER = 1.0e-3;
+// World units across one cell of the shafts' pattern.
+const float SHAFT_CELL = 96.0;
+
+// How much of the water's scattering a point at world (x, y) takes at light
+// time `t`: two drifting value noises, cubed so light gathers in a few bright
+// columns. It ignores height, so the columns stand upright, as light falling
+// through a rippled surface does. Its mean is about 1.
+float waterShafts(vec2 p, float t) {
+    vec2 q = p / SHAFT_CELL;
+    float n = 0.6 * flameNoise(q + vec2(0.13, 0.07) * t, 41u) + 0.4 * flameNoise(q * 2.3 - vec2(0.05, 0.11) * t, 42u);
+    return 4.0 * n * n * n;
+}
 
 void main() {
     uvec3 id = gl_GlobalInvocationID;
@@ -34,7 +52,9 @@ void main() {
     float extinction = HAZE_EXTINCTION * fog.hazeScale;
     vec3 scattered = vec3(0.0);
 
-    if (fog.hazeScale > 0.0) {
+    // UTA-0215: under water the same lights scatter in the water too.
+    bool water = frame.cameraUnderwater != 0u;
+    if (fog.hazeScale > 0.0 || water) {
         uint cluster = clusterOf(uv * frame.viewportSize, z);
         uint count = clusterCounts[cluster] & ~CLUSTER_OVERFLOW;
         vec3 haze = vec3(0.0);
@@ -47,7 +67,8 @@ void main() {
             float cosTheta = d > 0.0 ? dot(v, toLight / d) : 1.0;
             haze += lightThrough(light, x) * (light.flicker * shadowOf(light, x) * phaseOf(cosTheta));
         }
-        scattered += haze * (HAZE_SCATTER * fog.hazeScale);
+        float share = HAZE_SCATTER * fog.hazeScale + (water ? WATER_SCATTER * waterShafts(x.xy, frame.flameSeconds) : 0.0);
+        scattered += haze * share;
     }
 
     for (uint k = 0u; k < fog.volumeLightCount; ++k) {
@@ -61,5 +82,7 @@ void main() {
         extinction += float(light.volumeFog) / 255.0 * f * VOLUME_FOG_SCALE;
     }
 
+    // UTA-0215 SS 4.3: what the water between the eye and this froxel keeps.
+    scattered *= waterKept(z, frame.cameraUnderwater);
     imageStore(scattering, ivec3(id), vec4(scattered, extinction));
 }

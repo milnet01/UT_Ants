@@ -15,8 +15,8 @@ With the camera inside a water zone, the frame takes the original's tint,
 things fade toward the water's colour with distance, and the view wobbles
 gently. Out of water nothing changes. Surfaces in water carry moving
 caustics (§ 4.5), and the surface seen from below shows as it does from
-above (§ 4.6), both added after the first part. Light shafts from the surface
-and drifting particles follow (§ 9).
+above (§ 4.6), both added after the first part. Light shafts fall through
+the water (§ 4.7). Drifting particles follow (§ 9).
 
 ## 2. Problem
 
@@ -97,29 +97,34 @@ is (63, 96, 86). So the original fades far things toward the water's colour
 and then tints. What was built:
 
 With the camera's zone water, a fragment of a surface whose own zone is
-water keeps `exp(−z / WATER_VISIBILITY)` of its colour, after its fog, `z`
-its view depth, and the rest becomes the light that the output stage shows
-as `ViewFog`. A translucent surface keeps only its share, as with the fog,
-and a flame is dimmed alike. A surface out of the water, seen through its
-surface, is not faded: the original shows the sky above its pool unfaded.
-`FrameData` carries `cameraUnderwater` and that light as `waterFog`, the
-sRGB decode of `ViewFog` divided by the exposure, which the tone map leaves
-alone at these levels.
+water keeps all its colour out to `WATER_FOG_START`, none past
+`WATER_FOG_END`, and a straight line between, `z` its view depth; the rest
+becomes the light that the output stage shows as `ViewFog`. It is applied
+before the fog adds its light. A translucent surface keeps only its share, as
+with the fog, and a flame is dimmed alike. A surface out of the water, seen
+through its surface, is not faded: the original shows the sky above its pool
+unfaded. `FrameData` carries `cameraUnderwater` and that light as
+`waterFog`, the sRGB decode of `ViewFog` divided by the exposure, which the
+tone map leaves alone at these levels.
 
 ```glsl
 // fog.glsl, which scene.frag and flame.frag both include
-const float WATER_VISIBILITY = 100.0; // UT units over which light falls to 1/e
+const float WATER_FOG_START = 300.0; // UT units: all of a surface's light kept
+const float WATER_FOG_END = 1000.0;  // none kept
 ```
 
-**Fitted** against the original's level and looking-down frames from the
-pool: 16-pixel block RMS, 22.95 at 600 units falling to 14.60 at 100 and
-14.05 at 25. Below 100 the far colour fills the frame and the measure cannot
-tell values apart, so the value is the largest within 1.0 of the best, the
-rule `UTA-0015` § 7 step 1 uses. The record is beside the constant. Under
-water the frame went from about 0.52 of the original's brightness to 0.86 to
-0.93. Under lava it reads 1.11 to 1.20 of the original's: there the
-original's far colour is 1.44 to 1.71 times `ViewFog` rather than about 2, so
-the water's colour is the original's fade target only approximately.
+**Linear, and chosen by the original's detail.** The original's near
+surfaces read as ours unfaded while its far ones are one flat colour, which
+an exponential cannot give at once. Two measures on the pool's level and
+looking-down frames disagree, because our pool floor is lit darker than the
+original's (`UTA-0278`): 16-pixel block RMS favours heavy fog (0 to 300
+units scores 11.3, 300 to 1000 scores 19.5), while 8-pixel texture detail,
+the original's 2.9 and 2.0, favours light fog (0.1 and 0.3 at 0 to 300; 0.9
+and 1.8 at 300 to 1000). At 0 to 300 the floor the original shows looking
+down vanished into flat colour; at 300 to 1000 it shows. So the values are
+the detail measure's; the record is beside the constants. Under water the
+frame now reads 0.74 to 1.17 of the original's brightness, at 1.0e-3 of
+§ 4.7's scattering.
 
 ### 4.4 The wobble — `urender`, the output stage
 
@@ -165,6 +170,18 @@ bright patches of it. On DM-ArcaneTemple, looking up from the pool, ours went
 from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
 0.59 and 0.59.
 
+### 4.7 Light shafts — `urender`, `fog_scatter.comp`
+
+**Amended 2026-10-02, recording what was built.** With the camera's zone
+water, the fog pass scatters the same shadowed lights the haze does, at
+`WATER_SCATTER` (1.0e-3) a unit times a pattern of two drifting value noises,
+cubed, that ignores height: so the light gathers in upright columns, as light
+falling through a rippled surface does, and the shadow maps cut them. Each
+froxel's scattered light is faded by `WATER_FOG_START`/`END` at its own depth.
+The scattering is this item's call, chosen on the pool: 1.6e-2 washed the
+view grey and 4e-3 was strong once the fade was linear. From Medium, where
+the fog pass runs.
+
 ## 5. Invariants
 
 - **INV-1** — `ZONE`'s `water`, `viewFog` and `viewFlash` round-trip through
@@ -188,8 +205,8 @@ from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
   *Breaks when:* the tint is applied in linear light, or applied out of water.
 
 - **INV-4** — the fade: under water, a wall in the water at two distances
-  keeps `exp(−z / WATER_VISIBILITY)` of its light, the rest the water's
-  colour, before the tint; at the full output a far one shows `ViewFog`
+  keeps its share of light on § 4.3's line, the rest the water's colour,
+  before the tint; at the full output a far one shows `ViewFog`
   through the tint; a wall out of the water takes the tint and no fade.
   *Test:* `tests/device/RenderUnderwaterTest.cpp`.
   *Breaks when:* the fade ignores depth, fades to black, skips the
@@ -216,6 +233,14 @@ from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
   The sky half has no automated test: no device fixture draws a sky for
   water to reflect. It was checked on DM-ArcaneTemple's frames.
 
+- **INV-8** — shafts: from Medium, under water, a shadowed light adds light
+  in the water before a far wall; out of the water, and below Medium, it
+  adds none with no haze.
+  *Test:* `tests/device/RenderUnderwaterTest.cpp`.
+  *Breaks when:* the water does not scatter, scatters out of water, or the
+  fade is applied after the fog's light. The shafts' own fade by depth has no
+  test: a near light, which a test can place, is not faded.
+
 ## 6. Failure modes
 
 - **The camera on the surface** flips between tinted and not as it crosses;
@@ -234,6 +259,8 @@ from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
   `device`, at `Tier::Low`.
 - INV-6 — the same file, at `Tier::Medium` and `Tier::Low`.
 - INV-7 — `tests/device/RenderWaterTest.cpp`, at `Tier::Low`.
+- INV-8 — `tests/device/RenderUnderwaterTest.cpp`, at `Tier::Medium` and
+  `Tier::Low`.
 
 Each is seen failing before the code it locks exists. **Measured, not
 asserted:** the original's frames under and over water (asked of the
@@ -251,8 +278,7 @@ tint's mean colour shift, per zone class.
 
 ## 9. Out of scope
 
-- Light shafts from the surface and drifting particles — tracked by
-  UTA-0215, later parts.
+- Drifting particles — tracked by UTA-0215, a later part.
 - Easing the tint in and out as UT99 does — deferred; not yet queued.
 - Water volumes that behave like water — tracked by UTA-0090.
 - Per-zone visibility — deferred; not yet queued.
@@ -263,7 +289,7 @@ tint's mean colour shift, per zone class.
 |------|----------------------|
 | INV-1 | `tests/unit/BundleZonesTest.cpp` |
 | INV-2 | `tests/unit/BakeZonesTest.cpp` |
-| INV-3, INV-4, INV-5, INV-6 | `tests/device/RenderUnderwaterTest.cpp` |
+| INV-3, INV-4, INV-5, INV-6, INV-8 | `tests/device/RenderUnderwaterTest.cpp` |
 | INV-7 | `tests/device/RenderWaterTest.cpp` |
 | No sky in a reflection from under water | **nothing** automated — checked on DM-ArcaneTemple's frames |
 | Whether it reads as underwater | **nothing** automated — § 7's comparison against the original's frames, run by hand |

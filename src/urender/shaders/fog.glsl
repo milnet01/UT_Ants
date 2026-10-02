@@ -106,20 +106,26 @@ float sliceDepth(float k) {
 }
 
 // Where view depth `z` sits along the slices, 0 at FOG_NEAR and 1 at FOG_FAR.
-// UTA-0215 SS 4.3: under water, light from a surface in the water falls to
-// 1/e over this many UT units, the rest becoming the water's colour. Fitted
-// 2026-10-02 against the original's frames from DM-ArcaneTemple's pool, level
-// and looking down (UT_MonsterHunt work/uta0269/water/ 0-1), 16-pixel block
-// RMS below the HUD, mean of the two: 25 14.05, 50 14.10, 75 14.30, 100 14.60,
-// 150 15.60, 200 16.60, 300 18.60, 450 21.05, 600 22.95. Below 100 the far
-// colour fills the frame and the measure cannot tell values apart, so the
-// value is the largest within 1.0 of the best, UTA-0015 SS 7 step 1's rule.
-const float WATER_VISIBILITY = 100.0;
+// UTA-0215 SS 4.3: under water, a surface in the water keeps all its light
+// out to WATER_FOG_START UT units, none past WATER_FOG_END, and a straight
+// line between; the rest becomes the water's colour. Linear, as the original's
+// frames show: its near surfaces read as ours unfaded while its far ones are
+// one flat colour, which no exponential gives at once.
+// Chosen 2026-10-02 against the original's frames from DM-ArcaneTemple's pool
+// (UT_MonsterHunt work/uta0269/water/ 0-1). Two measures disagree, because our
+// pool floor is lit darker than the original's (UTA-0278): 16-pixel block RMS
+// favours heavy fog (start-end 0-300 11.3, 0-500 13.8, 100-600 15.8, 300-1000
+// 19.5), while 8-pixel texture detail, the original's 2.9 and 2.0, favours
+// light fog (0.1/0.3 at 0-300, 0.9/1.8 at 300-1000). At 0-300 the floor the
+// original shows looking down vanished into flat colour; at 300-1000 it shows,
+// as there. So the values are the detail measure's.
+const float WATER_FOG_START = 300.0;
+const float WATER_FOG_END = 1000.0;
 
 // What survives the water between the eye and a surface `z` deep in view;
 // the rest of what it shows is the water's own colour.
 float waterKept(float z, uint underwater) {
-    return underwater != 0u ? exp(-max(z, 0.0) / WATER_VISIBILITY) : 1.0;
+    return underwater != 0u ? clamp((WATER_FOG_END - z) / (WATER_FOG_END - WATER_FOG_START), 0.0, 1.0) : 1.0;
 }
 
 float fogCoordinate(float z) {

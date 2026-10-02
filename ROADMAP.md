@@ -13213,6 +13213,10 @@ stays with movement in 0.2.0.
   UTA-0274's lead.
   Correction (2026-10-02): the pool's darkness is UTA-0278, not
   UTA-0274's.
+  Progress (2026-10-02): light shafts (spec § 4.7, INV-8): the fog pass
+  scatters shadowed lights in the water in drifting upright columns,
+  WATER_SCATTER 1e-3. The fade became linear, 300 to 1000 units, chosen by
+  the original's texture detail (§ 4.3). Left: drifting particles.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.
@@ -15022,6 +15026,14 @@ stays with movement in 0.2.0.
   out of the water unfaded, and fits WATER_VISIBILITY at 100 (the sweep is
   beside the constant). Ours/original went from about 0.52 to 0.86-0.93
   level and down, and 0.85-1.04 looking up.
+  Correction (2026-10-02, later): only partly resolved. A linear fade,
+  300 to 1000 units, replaced the exponential (UTA-0215 § 4.3): the
+  original's looking-down frame shows the pool floor clearly, which the
+  exponential hid. With the fade light, a lighting gap remains on the
+  floor: looking down, our unfaded scene under the tint reads about 32
+  display bytes where the original's reads 52 to 62. Level, the near wall
+  matches (62/66/68 against 57/65/56). Ours/original now 0.74-1.17 over
+  the three poses. Still open for the floor's light.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.

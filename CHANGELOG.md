@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Shafts of light fall through the water** (UTA-0215)
+  Under water, lamps above the pool now scatter in the water as soft
+  upright beams that drift slowly, cut by the shadows of anything in their
+  way, from the Medium quality setting up.
+
 - **Light ripples across floors and walls under water** (UTA-0215)
   Surfaces in a water zone now carry a moving net of bright lines, the
   caustics a rippling surface casts, from the Medium quality setting up.
@@ -621,8 +626,9 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 - **Under water, distant things fade into the water's colour, not into black** (UTA-0278)
   Pools seen from inside drew at about half the original game's
   brightness. Far things now fade into the water's own colour, as the
-  original's frames show, and the sky seen through the surface no longer
-  fades. The temple pool now reads within about a tenth of the original.
+  original's frames show, near things stay clear, and the sky seen
+  through the surface no longer fades. The temple pool now reads between
+  three quarters and a little over the original's brightness.
 
 - **Water's surface seen from below shows its colour instead of black with bright patches** (UTA-0215)
   From under water the surface was lit as if facing down, so it went

@@ -24,7 +24,8 @@ using uta::urender::Tier;
 
 namespace {
 
-constexpr double WATER_VISIBILITY = 100.0; // fog.glsl's
+constexpr double WATER_FOG_START = 300.0; // fog.glsl's
+constexpr double WATER_FOG_END = 1000.0;
 
 double decode(double c) { return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4); }
 double encode(double l) {
@@ -76,12 +77,12 @@ TEST_CASE("UTA-0215 INV-3 and INV-4: under water the wall fades to the water's c
     removeDisplay();
     Renderer renderer = requireRenderer(frameOf(160));
     const double grey = decode(129 / 255.0);
-    for (const float distance : {100.0F, 200.0F}) {
+    for (const float distance : {500.0F, 800.0F}) {
         const Rgba dry = centre(renderer, wallAt(distance, false), 160);
         const Rgba wet = centre(renderer, wallAt(distance, true), 160);
         // SS 4.3: what survives the water, and the water's own colour -- its
         // ViewFog as linear light -- in the rest. linearOutput: no exposure.
-        const double kept = std::exp(-distance / WATER_VISIBILITY);
+        const double kept = std::clamp((WATER_FOG_END - distance) / (WATER_FOG_END - WATER_FOG_START), 0.0, 1.0);
         const auto faded = [&](double fog) { return grey * kept + decode(fog) * (1.0 - kept); };
         CAPTURE(distance, dry, wet, tinted(faded(0.1), 0.1), tinted(faded(0.2), 0.2), tinted(faded(0.3), 0.3));
         CHECK(std::abs(int(dry.r) - 129) <= 1);
@@ -110,7 +111,7 @@ TEST_CASE("UTA-0215 INV-4: from under water a surface out of the water takes the
     removeDisplay();
     Renderer renderer = requireRenderer(frameOf(160));
     // The camera's zone 0 is water; the wall's vertices are in dry zone 1.
-    uta::ubundle::Bundle bundle = wallAt(200, true);
+    uta::ubundle::Bundle bundle = wallAt(800, true);
     for (auto& vertex : bundle.geometry->vertices) vertex.zone = 1;
     bundle.zones->push_back(zoneOf(false));
     const Rgba wet = centre(renderer, bundle, 160);
@@ -204,3 +205,42 @@ TEST_CASE("UTA-0215: light ripples across a wall in a water zone from Medium and
     CHECK(dry == 0);
     CHECK(lowWet == 0);
 }
+
+namespace {
+
+/// The centre's green with a shadowed light above the view or none, a black
+/// unlit wall far off, the camera's zone 0 `water` or not, at `tier`, with no
+/// haze -- so any light in the air is the water's.
+int shaftGreen(Tier tier, bool water, bool light) {
+    Config config = frameOf(160);
+    config.tier = tier;
+    Renderer renderer = requireRenderer(config);
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 1000, 0, 0, 3000, "black", PF_UNLIT);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "black", Rgba{1, 1, 1, 255});
+    bundle.zones = std::vector{zoneOf(water)};
+    if (light) bundle.lights = std::vector{steadyLight({60, 0, 40}, 255, 64)};
+    renderer.pinLightSeconds(0);
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    return pixelAt(*pixels, 160, 80, 32).g;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0215: under water a light scatters in the water from Medium and nowhere else", "[device]") {
+    removeDisplay();
+    const int wetLit = shaftGreen(Tier::Medium, true, true);
+    const int wetDark = shaftGreen(Tier::Medium, true, false);
+    const int dryLit = shaftGreen(Tier::Medium, false, true);
+    const int dryDark = shaftGreen(Tier::Medium, false, false);
+    const int lowLit = shaftGreen(Tier::Low, true, true);
+    const int lowDark = shaftGreen(Tier::Low, true, false);
+    CAPTURE(wetLit, wetDark, dryLit, dryDark, lowLit, lowDark);
+    CHECK(wetLit >= wetDark + 10);
+    CHECK(dryLit == dryDark);
+    CHECK(lowLit == lowDark);
+}
+
