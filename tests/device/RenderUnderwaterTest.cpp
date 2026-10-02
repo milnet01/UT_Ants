@@ -26,9 +26,11 @@ namespace {
 
 constexpr double WATER_FOG_START = 800.0; // fog.glsl's
 constexpr double WATER_FOG_END = 2400.0;
-/// post.frag's waterVeil: what the original lays over the view, per
-/// channel, for a ViewFog part `f`.
-double veil(double f) { return f <= 0 ? 0.0 : 1.0 - std::pow(1.0 - f, 2.1 + 0.02 / f); }
+/// post.frag's waterVeil: what the original lays over the view in a channel
+/// whose ViewFog part is `f`, the largest part being `most`.
+double veil(double f, double most) {
+    return f <= 0 ? 0.0 : 1.0 - std::pow(1.0 - f, (2.1 + 0.02 / f) * (1.0 - 0.6 * (most - f)));
+}
 
 double decode(double c) { return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4); }
 double encode(double l) {
@@ -72,8 +74,12 @@ Rgba centre(Renderer& renderer, const uta::ubundle::Bundle& bundle, std::uint32_
 }
 
 /// The byte the original's underwater view gives a channel of linear light
-/// `l` under § 4.2: its veil over the displayed value.
-double tinted(double l, double fog) { return 255.0 * (veil(fog) + (1.0 - veil(fog)) * encode(l)); }
+/// `l` under § 4.2, for zoneOf's ViewFog (0.1, 0.2, 0.3): its veil over the
+/// displayed value, the scene's share cut by the largest part squared.
+double tinted(double l, double fog) {
+    const double v = veil(fog, 0.3);
+    return 255.0 * (v + (1.0 - v) * (1.0 - 0.3 * 0.3) * encode(l));
+}
 
 } // namespace
 
@@ -104,9 +110,33 @@ TEST_CASE("UTA-0215 INV-4: under water at the full output a far wall shows the w
     Renderer renderer = requireRenderer(config);
     const Rgba far = centre(renderer, wallAt(3000, true), 160);
     CAPTURE(far);
-    CHECK(std::abs(far.r - 255.0 * veil(0.1)) <= 2.0);
-    CHECK(std::abs(far.g - 255.0 * veil(0.2)) <= 2.0);
-    CHECK(std::abs(far.b - 255.0 * veil(0.3)) <= 2.0);
+    CHECK(std::abs(far.r - 255.0 * veil(0.1, 0.3)) <= 2.0);
+    CHECK(std::abs(far.g - 255.0 * veil(0.2, 0.3)) <= 2.0);
+    CHECK(std::abs(far.b - 255.0 * veil(0.3, 0.3)) <= 2.0);
+}
+
+TEST_CASE("UTA-0215 INV-3: under water black shows as the original showed it for mixed water colours", "[device]") {
+    removeDisplay();
+    // Measured in the original by the UT_MonsterHunt session, 2026-10-02
+    // (work/uta0269/mixsweep/): the head zone's ViewFog set per shot, the
+    // colour a black surface showed. A wall past the fade is black here.
+    Config config = frameOf(160);
+    config.linearOutput = false;
+    Renderer renderer = requireRenderer(config);
+    struct Case {
+        std::array<float, 3> fog;
+        Rgba shown;
+    };
+    for (const Case& c : {Case{{0.4F, 0.2F, 0.1F}, {170, 90, 48, 255}}, Case{{0.6F, 0.2F, 0.0F}, {218, 80, 0, 255}},
+                          Case{{0.586F, 0.195F, 0.078F}, {215, 79, 34, 255}}, Case{{0.3F, 0.3F, 0.3F}, {138, 138, 138, 255}}}) {
+        uta::ubundle::Bundle bundle = wallAt(3000, true);
+        (*bundle.zones)[0].viewFog = c.fog;
+        const Rgba far = centre(renderer, bundle, 160);
+        CAPTURE(c.fog, far, c.shown);
+        CHECK(std::abs(int(far.r) - int(c.shown.r)) <= 3);
+        CHECK(std::abs(int(far.g) - int(c.shown.g)) <= 3);
+        CHECK(std::abs(int(far.b) - int(c.shown.b)) <= 3);
+    }
 }
 
 TEST_CASE("UTA-0215 INV-4: from under water a surface out of the water takes the tint and no fade", "[device]") {

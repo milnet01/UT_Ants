@@ -71,11 +71,12 @@ finite, is refused both ways. `buildZones` resolves `bwaterzone` (`Bool`),
 ### 4.2 The original's view — `urender`, the output stage
 
 With the camera's zone water, `post.frag` writes, per channel, from the
-display value `d` it would have written and the zone's `viewFog` part `f`:
+display value `d` it would have written, the zone's `viewFog` part `f`, and
+its largest part `m`:
 
 ```text
-veil = 1 − (1 − f) ^ (2.1 + 0.02 / f)
-d'   = veil + (1 − veil) × d
+veil = 1 − (1 − f) ^ ((2.1 + 0.02 / f) × (1 − 0.6 × (m − f)))
+d'   = veil + (1 − veil) × (1 − m²) × d
 ```
 
 **Measured, amended 2026-10-02.** UT99's script gives `PlayerPawn` a flash
@@ -86,19 +87,21 @@ renderer does otherwise. The UT_MonsterHunt session set the head zone's
 0.1, 0.2, 0.4 and 0.6, the same in each channel, and the same whatever
 `ViewFlash` is. The curve above meets those within 1. Moving `ViewFlash` from
 0 to −0.078 scales the scene's share by 0.97, not 0.922, so the flash is not
-applied. Paired frames, each pose with the zone's tint and not
+applied. With parts mixed (`mixsweep/`), a channel shows less beside a larger
+one, 0.2 giving 100 alone, 90 beside 0.4 and 80 beside 0.6, which the
+exponent's second factor meets within 3; and a part of 0 beside a 0.6 keeps
+0.661 of the scene, which `1 − m²` gives. Paired frames, each pose with the zone's tint and not
 (`floor/`, `slimepair/`), give water's black at (67, 98, 90) and slime's at
-(91, 131, 49), both within 3 of the curve, and the scene's share near
-`1 − veil`. Against the original at the pool's poses, at Low, where none of
-this item's additions draw: 0.93 to 0.98 of its brightness, block RMS 4.9
-level and 6.1 looking down. Earlier forms, set aside by these frames: the
+(91, 131, 49), both within 3 of the curve. Against the original at Low,
+where none of this item's additions draw: the pool 0.90 to 0.96 of its
+brightness, block RMS 5.6 level and 7.2 looking down; under lava 0.95 to
+1.31, block RMS 7.4 to 16.1. Earlier forms, set aside by these frames: the
 flash alone (half the original's brightness), and `(d × 0.72 + f) × scale +
 f`, which was right for water and wrong for lava's red.
 
-**Lava's green and blue are not matched.** Under DM-Conveyor's lava a black
-surface shows (215, 79, 34): red on the curve, green and blue below it. A
-strong red pulls the other channels down, which this per-channel curve does
-not model. Recorded on `UTA-0278`.
+The constants 2.1, 0.02 and 0.6 are fitted to those sweeps; `1 − m²` is the
+simplest form meeting both the 0.661 and water's share, and rests on two
+points.
 
 `d` is the sRGB-encoded value; the shader writes `d'`'s linear light, which
 the `_SRGB` target encodes back to `d'`. It applies under

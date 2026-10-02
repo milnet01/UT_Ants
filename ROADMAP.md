@@ -15089,6 +15089,13 @@ stays with movement in 0.2.0.
   power). Bare, with the view off, our pool is 0.4-0.5x the original's:
   the pool IS darker, and the veil hides most of it. Open: lava's green and
   blue (a strong red pulls them down), and the bare pool's light.
+  Lava matched (2026-10-02) from UT_MonsterHunt's mixsweep/: a channel
+  beside a larger one shows less (exponent x (1 - 0.6 (max - f))), and the
+  scene's share falls with the largest part (x (1 - max^2)). A device test
+  now checks four colours the original showed, within 3 bytes. At Low
+  against the original: lava 0.95-1.31, block RMS 7.4-16.1 (from 29-50);
+  the pool 5.6 and 7.2. Open on this item: only the bare pool's light (ours
+  0.4-0.5x the original's), which the veil mostly hides.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.

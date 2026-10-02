@@ -64,17 +64,19 @@ const float WOBBLE_AMPLITUDE = 0.003; // of the frame
 const float WOBBLE_FREQUENCY = 24.0;
 const float WOBBLE_SPEED = 1.5;
 
-// UTA-0215 SS 4.2: what the original lays over the view under water, per
-// channel, for a ViewFog part `f`: out = veil + (1 - veil) x displayed.
-// Measured 2026-10-02 in game by the UT_MonsterHunt session, which set the
-// head zone's ViewFog per shot (work/uta0269/fogsweep/): a black surface shows
-// 31, 56, 100, 170 and 218 for f 0.05, 0.1, 0.2, 0.4 and 0.6, the same in each
-// channel, whatever ViewFlash is (lavaswap/). This curve meets those within 1.
-// It gives water's black (67, 98, 90) and slime's (91, 131, 49) within 3, and
-// the scene's share 1 - veil within the paired frames' spread. Lava's green
-// and blue fall below it (SS 4.2): its strong red pulls them down.
-float waterVeil(float f) {
-    return f <= 0.0 ? 0.0 : 1.0 - pow(1.0 - min(f, 1.0), 2.1 + 0.02 / f);
+// UTA-0215 SS 4.2: what the original lays over the view under water, in a
+// channel whose ViewFog part is `f`, the largest part being `most`:
+// out = veil + (1 - veil) x (1 - most^2) x displayed. Measured 2026-10-02 in
+// game by the UT_MonsterHunt session, which set the head zone's ViewFog per
+// shot (work/uta0269/fogsweep/, mixsweep/, lavaswap/). One part alone: a black
+// surface shows 31, 56, 100, 170 and 218 for f 0.05 to 0.6, whatever ViewFlash
+// is, which 1 - (1 - f)^(2.1 + 0.02 / f) meets within 1. Beside a larger part
+// a channel shows less -- 0.2 gives 100 alone, 90 beside 0.4, 80 beside 0.6 --
+// which the exponent's (1 - 0.6 (most - f)) meets within 3, lava's (215, 79,
+// 34) included. A part of 0 keeps 0.661 of the scene beside a 0.6, and water's
+// keep about 0.95 of 1 - veil: 1 - most^2.
+float waterVeil(float f, float most) {
+    return f <= 0.0 ? 0.0 : 1.0 - pow(1.0 - min(f, 1.0), (2.1 + 0.02 / f) * (1.0 - 0.6 * (most - f)));
 }
 
 float encodeSrgb(float l) { return l <= 0.0031308 ? l * 12.92 : 1.055 * pow(l, 1.0 / 2.4) - 0.055; }
@@ -100,9 +102,11 @@ void main() {
     // UTA-0215 SS 4.2: the original's view under water, on the display value.
     // It is a view effect, not light, so it applies under linearOutput too.
     if (underwater) {
+        float most = max(post.flashFog.r, max(post.flashFog.g, post.flashFog.b));
         for (int c = 0; c < 3; ++c) {
-            float veil = waterVeil(post.flashFog[c]);
-            colour[c] = decodeSrgb(clamp(veil + (1.0 - veil) * encodeSrgb(max(colour[c], 0.0)), 0.0, 1.0));
+            float veil = waterVeil(post.flashFog[c], most);
+            float shown = (1.0 - most * most) * encodeSrgb(max(colour[c], 0.0));
+            colour[c] = decodeSrgb(clamp(veil + (1.0 - veil) * shown, 0.0, 1.0));
         }
     }
     // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header

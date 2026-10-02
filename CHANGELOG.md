@@ -632,8 +632,8 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Pools seen from inside drew at about half the original game's
   brightness. Under water the view now takes the water's colour as a veil
   over what it shows, on a curve measured in the original game itself;
-  the temple pool now reads within a few percent of the original. Only
-  very distant things fade out. Lava's green and blue are not yet matched.
+  the temple pool and the conveyor's lava now read close to the original.
+  Only very distant things fade out.
 
 - **Water's surface seen from below shows its colour instead of black with bright patches** (UTA-0215)
   From under water the surface was lit as if facing down, so it went
