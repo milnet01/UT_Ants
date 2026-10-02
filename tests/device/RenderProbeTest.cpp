@@ -199,6 +199,9 @@ TEST_CASE("a surface with probes and no lights receives indirect light", "[devic
     config.width = 160;
     config.height = 64;
     config.linearOutput = true;
+    // UTA-0180: Low, whose lit surfaces have no large-scale variation to scale
+    // the pixel this compares. Unset, the tier is the device's: High on a GPU.
+    config.tier = uta::urender::Tier::Low;
     uta::urender::Renderer renderer = requireRenderer(config);
 
     uta::ubundle::Geometry geometry;
@@ -240,6 +243,9 @@ TEST_CASE("UTA-0185: a surface on a lattice plane takes the probes on the room's
     config.width = 160;
     config.height = 64;
     config.linearOutput = true;
+    // UTA-0180: Low, whose lit surfaces have no large-scale variation to scale
+    // the pixel this compares. Unset, the tier is the device's: High on a GPU.
+    config.tier = uta::urender::Tier::Low;
     uta::urender::Renderer renderer = requireRenderer(config);
 
     uta::ubundle::Geometry geometry;

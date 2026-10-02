@@ -37,6 +37,9 @@ Config linearFrame() {
     config.linearOutput = true;
     // UTA-0015: no haze, which would add to the pixel this compares.
     config.hazeScale = 0;
+    // UTA-0180: and Low, whose lit surfaces have no large-scale variation to
+    // scale it. Unset, the tier is the device's: High on a GPU.
+    config.tier = uta::urender::Tier::Low;
     return config;
 }
 

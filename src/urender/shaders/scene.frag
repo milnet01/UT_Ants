@@ -17,6 +17,7 @@
 #include "liquid.glsl"
 #include "probes.glsl"
 #include "shadows.glsl"
+#include "variation.glsl"
 #include "water.glsl"
 
 layout(location = 0) in vec3 worldPosition;
@@ -40,6 +41,8 @@ layout(constant_id = 1) const uint PARALLAX_MAX_STEPS = 0u;
 // UTA-0089 SS 4.5: the water look, set by Pipelines.cpp from the tier. Off, a
 // liquid draws as UTA-0105 left it.
 layout(constant_id = 2) const bool WATER_LOOK = false;
+// UTA-0180: large-scale variation, set by Pipelines.cpp from the tier.
+layout(constant_id = 3) const bool TILE_VARIATION = false;
 // UTA-0040 SS 4.5 step 4: parallax fades out over the mip level above this.
 const float PARALLAX_FADE_MIP = 4.0;
 
@@ -251,7 +254,10 @@ void main() {
         // through the power, so it is added after it. Inside it, a share and an
         // albedo well under 1 were raised to the power as well, and a dark room
         // beside a lit floor got a tenth of the bounce.
-        colour = base.rgb * (pow(LIGHT_GAIN * (direct + ambient * open), vec3(DISPLAY_LIGHT_POWER))
+        // UTA-0180: a lit surface's reflectance varies slowly across the world.
+        // A liquid has its own variation (water.glsl), so it is left alone.
+        vec3 reflectance = TILE_VARIATION && !liquid ? base.rgb * variationAt(worldPosition) : base.rgb;
+        colour = reflectance * (pow(LIGHT_GAIN * (direct + ambient * open), vec3(DISPLAY_LIGHT_POWER))
                              + indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)));
     }
     // UTA-0089 SS 4.2 and SS 4.3: a Wet or Wave liquid reflects the sky or the

@@ -14,8 +14,10 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <vector>
 
 using namespace uta::test::render;
 using uta::urender::Camera;
@@ -36,6 +38,9 @@ Config linearFrame() {
     // UTA-0015: no haze. On a device whose tier draws fog, in-scattering adds
     // to a pixel these cases compare against the light model alone.
     config.hazeScale = 0;
+    // UTA-0180: and Low, whose lit surfaces have no large-scale variation, for
+    // the same reason. Unset, the tier is the device's: High on a GPU.
+    config.tier = uta::urender::Tier::Low;
     return config;
 }
 
@@ -131,6 +136,54 @@ TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an u
 
     constexpr std::uint32_t PF_UNLIT = 0x00400000u;
     CHECK(int(redAtCentre(renderer, squareInZone(128, PF_UNLIT))) == 255);
+}
+
+TEST_CASE("UTA-0180: a lit surface's brightness varies slowly across the world from Medium", "[device]") {
+    removeDisplay();
+    // Ambient alone, so a lit square reads the same wherever it stands at Low.
+    // From Medium a slow change in world space moves a lit point's brightness
+    // by at most VARIATION_AMPLITUDE either way, so copies of the square far
+    // apart read differently. Four copies, so two noise values that happen to
+    // match cannot pass the case on their own.
+    constexpr double VARIATION_AMPLITUDE = 0.3; // variation.glsl's
+    const auto squareAt = [](float y) {
+        uta::ubundle::Geometry geometry;
+        addSquare(geometry, 100, y, 0, 40, "white", 0);
+        for (uta::ubundle::GeometryVertex& vertex : geometry.vertices) vertex.zone = 1;
+        uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+        addSolidMaterial(bundle, "white", WHITE);
+        bundle.zones = std::vector<uta::ubundle::Zone>{{0, 0, 0}, {40, 0, 255}};
+        return bundle;
+    };
+    const auto redsOf = [&](Renderer& renderer) {
+        std::vector<int> reds;
+        for (const float y : {0.0F, 2000.0F, 4000.0F, 6000.0F}) {
+            Camera camera;
+            camera.location = {0, y, 0};
+            requireOk(renderer.draw(squareAt(y), camera));
+            const auto pixels = renderer.readback();
+            if (!pixels.has_value()) FAIL(pixels.error().message());
+            reds.push_back(pixelAt(*pixels, WIDTH, 80, 32).r);
+        }
+        return reds;
+    };
+    Renderer low = requireRenderer(linearFrame()); // Low, as linearFrame sets
+    Config mediumFrame = linearFrame();
+    mediumFrame.tier = uta::urender::Tier::Medium;
+    Renderer medium = requireRenderer(mediumFrame);
+    const std::vector<int> still = redsOf(low);
+    const std::vector<int> varied = redsOf(medium);
+    CAPTURE(still, varied);
+    for (const int red : still) CHECK(red == still[0]);
+    CHECK(std::ranges::any_of(varied, [&](int red) { return red != varied[0]; }));
+    // In linear light the change is at most the amplitude; the readback is
+    // sRGB-encoded, so the bound is taken through srgbByte, plus a level.
+    const double c = still[0] / 255.0;
+    const double linear = c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4);
+    for (const int red : varied) {
+        CHECK(red <= srgbByte(linear * (1 + VARIATION_AMPLITUDE)) + 2);
+        CHECK(red >= srgbByte(linear * (1 - VARIATION_AMPLITUDE)) - 2);
+    }
 }
 
 TEST_CASE("a flat normal map lights exactly as the surface's own normal", "[device]") {

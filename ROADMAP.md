@@ -11156,6 +11156,19 @@ stays with movement in 0.2.0.
   The texture-override folder is UTA-0181.
   Placed 2026-09-17: after UTA-0182, UTA-0178 and UTA-0177, so the look
   is measured on frames without those defects.
+  Done (2026-10-02), the cheaper of this body's two techniques:
+  large-scale variation. A lit, non-liquid surface's reflectance is
+  scaled by a slow world-space noise (three value noises, one per axis
+  plane, cells of 1024 units), so a repeated texture stops reading as one
+  patch in a grid. It moves no picture, so panels, trims and signs stay
+  put, and it is continuous across corners. No spec: one shader, cheap
+  to undo. Feature::TileVariation from Medium: each view's fastest frame
+  7% to 9% slower at ultra 4K on DM-Deck16][ (busy machine). Amplitude
+  0.3: swept 0 to 0.3 on the three reference maps, the largest change
+  0.11 pixel RMS (DM-Fetid; AS-Frigate improves 0.24), so the
+  within-1.0 rule never binds and 0.3 is the largest swept and looked
+  at. The per-tile half, which moves the picture and needs a rule for
+  which textures, is UTA-0277.
   **Layman:** Walls and floors stop showing the same patch repeated in a grid.
   Kind: enhancement.
   Source: user-request-2026-09-17.
@@ -14856,7 +14869,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02 split-from-UTA-0262.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0276] **ubake: self-panning textures pan about 1.8 times too fast; UTA-0269's 64 texels a second is not the original's.**
+- ✅ [UTA-0276] **ubake: self-panning textures pan about 1.8 times too fast; UTA-0269's 64 texels a second is not the original's.**
   Measured 2026-10-02 by the UT_MonsterHunt session in the original 469
   client (files: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0269/).
   DM-Conveyor's belt, RainFX.runner (VSize 256, PF_AutoVPan), pans about
@@ -14887,10 +14900,31 @@ stays with movement in 0.2.0.
   speed killed. The clock is still our wall clock: UT99's is game time,
   which TimeDilation scales (DeathMatchPlus 1.1), and we have no game
   time yet.
+  Shipped in 8f02137; GitHub's matrix green (run 37035386380).
   **Layman:** Conveyor belts and rivers that slide by themselves now move, but faster than in the original game.
   Kind: fix.
   Source: in-session-2026-10-02 measured by UT_MonsterHunt.
   Lanes: ubake.
+
+- 📋 [UTA-0277] **urender: per-tile variation for natural textures, so repeats of rock, dirt and grass stop lining up.**
+  Split from UTA-0180, 2026-10-02. UTA-0180 shipped its cheaper half,
+  large-scale variation, which moves no picture and so is safe on every
+  surface. This is the other half its body names: each repeat of a
+  texture sampled at a hashed offset and blended across seams, as
+  water.glsl's waterPicture does for water (UTA-0089). It moves the
+  picture, so it must not reach textures drawn to fit their surface:
+  panels, trims, doors, signs. Deciding which is a real design choice,
+  so it wants a spec. Census (~/.cache/uta-scratch/u180/groups.py, u105's
+  dumps): texture GROUP names do not decide it. Of the surfaces whose
+  texture is in Textures/, 26.6% have a name in several groups, 11.4%
+  none, and "base" (16.5%) mixes walls, trims and panels; "wall" 10.2%,
+  "floor" 4.5%, "rock" 2.3%, "ground" 1.3%. So the rule likely reads the
+  picture: how noise-like it is, or how well it tiles at its wrap.
+  Cost is measured per tier, as UTA-0180's was.
+  **Layman:** Rock, dirt and grass surfaces stop showing the same patch over and over, while panels and signs stay exactly where the mapper put them.
+  Kind: enhancement.
+  Source: in-session-2026-10-02 split-from-UTA-0180.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 

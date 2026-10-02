@@ -46,6 +46,7 @@ enum class Feature : std::uint8_t {
     VolumetricFog,     ///< UTA-0015's fog volume
     AmbientOcclusion,  ///< UTA-0164's baked occlusion atlas
     WaterLook,         ///< UTA-0089's reflections and varied picture on water
+    TileVariation,     ///< UTA-0180's slow brightness change across the world
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -62,6 +63,12 @@ enum class Feature : std::uint8_t {
     // UTA-0089 SS 4.5: measured at 3.0% to 5.6% of the median frame at ultra,
     // past the 3% that would have kept it on every tier.
     case Feature::WaterLook: return Tier::Medium;
+    // UTA-0180: three value noises a lit pixel. Measured 2026-10-02 at ultra,
+    // 3840x2160, DM-Deck16]['s fifteen reference views on the RX 6600: each
+    // view's fastest frame 7% to 9% slower with it (the machine was busy, load
+    // 25 on 12 cores, so medians were not used). Past the 3% that would keep it
+    // on every tier, as WaterLook is.
+    case Feature::TileVariation: return Tier::Medium;
     }
     return Tier::Low; // unreachable
 }

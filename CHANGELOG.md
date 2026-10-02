@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Large walls and floors vary gently in brightness across a room, so a repeated texture no longer reads as one patch stamped in a grid.** (UTA-0180)
+  Panels, trims and signs stay exactly where the map's author put them.
+  Drawn at the Medium quality setting and above. No map needs baking again.
+
 - **Glowing pools of lava, acid and waste, and glowing screens and lamps, now cast their colour onto the walls and floors near them.** (UTA-0161)
   The light is worked out when a map is baked, so it costs nothing while
   playing. Maps lit mostly by full-brightness surfaces are not flooded.
