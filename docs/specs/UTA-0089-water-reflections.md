@@ -1,7 +1,7 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0089 — water reflections and less visible tiling
 
-**Status:** accepted (2026-10-02), unreviewed. Contract reviews are cancelled for this
+**Status:** implemented (2026-10-02); accepted the same day, unreviewed. Contract reviews are cancelled for this
 project (`CLAUDE.md` § Contract reviews); no review runs unless the user asks.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0089 (user-request-2026-09-10; the lake-look and
@@ -157,6 +157,10 @@ The look runs on every tier with the same shader. Its cost is measured
 ultra, it goes behind a new `Feature::WaterLook` in `Tiers.h` at
 `Tier::Medium`, and below that a liquid draws as UTA-0105 left it.
 
+**Measured 2026-10-02: 3.0% to 5.6%, so it is behind `Feature::WaterLook`.**
+`scene.frag` reads it as specialization constant 2, `WATER_LOOK`. The figures
+are on the roadmap item.
+
 ### 4.6 Measured constants
 
 `TILE_VARIATION_REPEATS`, `TILE_FADE_START` and `TILE_FADE_END` are fitted,
@@ -177,6 +181,15 @@ comment beside it.
 The candidate pools are UTA-0105 § 4.6's: DM-ArcaneTemple's central pool and
 AS-OceanFloor's pond (`hubeffects.pond1`). The pool's brightness against the
 original (§ 2 item 6) is measured again and recorded, not fitted (§ 3).
+
+**Not fitted, 2026-10-02.** Both candidate pools are translucent over a floor,
+and the repeat measure finds no repeat of the water's picture on them, with
+this item or without it. The constants are first values; `water.glsl` records
+the measurements beside them. The tiling meets the up-close and motion bounds
+against the same build with the tiling off. The reflection itself does not:
+it raises the up-close luma 9% and the motion measure to 5.88. Those bounds
+were written for the tiling's constants, and the reflection is § 4.2's
+physics, so it is reported rather than fitted (§ 3).
 
 ### 4.7 What does not change
 
@@ -298,6 +311,7 @@ recorded beside their constants, not asserted by a test.
 |------|----------------------|
 | INV-1, INV-2, INV-4, INV-5, INV-6 | `tests/device/RenderWaterTest.cpp` |
 | INV-3 | `tests/unit/ZonesSeeingSkyTest.cpp` |
+| § 4.5's tier: no water look below Medium | `tests/device/RenderWaterTest.cpp`, and `tests/unit/RenderTiersTest.cpp` for `minimumTier` |
 | § 4.2's sky branch: sky where a zone sees it, probes elsewhere | **Partial:** INV-3 checks the flags; no device test draws a sky, so the shader's choice is unchecked |
 | § 4.3's translucent `+=` | **nothing** — every square of INV-1, INV-2, INV-4 and INV-5 is opaque, so a reflection missing from the translucent pass draws no failure |
 | § 4.6's fitted constants | **nothing** — a look fit is recorded, not asserted |

@@ -42,7 +42,7 @@ enforced, not merely described — see *What may depend on what*.
 | `core` | Types, math, memory, error type, logging, filesystem, job system. Depends on nothing |
 | `uinput` | Devices to actions. Keyboard, mouse and gamepad are three sources of one action set, with per-device bindings, dead zones and response curves |
 | `uworld` | The simulation. Entities, collision, movement, physics, the fixed tick, and which room of the level map each body currently occupies. Knows how a body moves; knows nothing about scoring |
-| `urender` | Vulkan. Draws a bundle: dynamic lights and shadows, PBR materials, volumetrics, light shafts, ambient occlusion, post-processing |
+| `urender` | Vulkan. Draws a bundle: dynamic lights and shadows, PBR materials, volumetrics, light shafts, ambient occlusion, faked reflections on water, post-processing |
 | `uaudio` | Sound playback, positional mixing, music |
 | `unet` | Transport, replication, server discovery and query, and content transfer against a fingerprint manifest |
 | `uai` | Bots. Navigation, combat, and the planner that gets them through door puzzles |

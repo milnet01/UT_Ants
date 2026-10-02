@@ -513,7 +513,7 @@ with it exactly, which is what makes the rest of the enum trustworthy here.
 |---|---|---|
 | `PF_Invisible` | `0x00000001` | Cannot appear — UTA-0109's INV-5 emits no geometry for it |
 | `PF_Masked` | `0x00000002` | Alpha cutout: `discard` where sampled alpha is below **0.5**, opaque otherwise. Writes depth and velocity |
-| `PF_Translucent` | `0x00000004` | Blended, drawn after every opaque batch, depth-tested and not depth-written. **Writes no velocity** — § 4.11 |
+| `PF_Translucent` | `0x00000004` | Blended, drawn after every opaque batch, depth-tested and not depth-written. **Writes no velocity** — § 4.11. A Wet or Wave liquid in it adds its reflection (`UTA-0089` § 4.3) |
 | `PF_TwoSided` | `0x00000100` | `VK_CULL_MODE_NONE` |
 | `PF_Unlit` | `0x00400000` | Base colour emitted directly; no direct or indirect light applied |
 | `PF_FakeBackdrop` | `0x00000080` | Drawn as the level's sky: depth written at the far plane, unlit. **Amended by `UTA-0163`, recording what was built:** where the level has a SkyZoneInfo, the surface shows the sky zone as drawn from that actor, sampled by view direction -- `src/urender/Sky.h`. **Amended by `UTA-0252`, recording what was built:** the surface keeps its own depth, not the far plane's, so it hides the sky zone's room where that lies behind it |

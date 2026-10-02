@@ -37,6 +37,9 @@ layout(location = 2) out vec4 outEmission;
 // no steps compiles the march out.
 layout(constant_id = 0) const uint PARALLAX_MIN_STEPS = 0u;
 layout(constant_id = 1) const uint PARALLAX_MAX_STEPS = 0u;
+// UTA-0089 SS 4.5: the water look, set by Pipelines.cpp from the tier. Off, a
+// liquid draws as UTA-0105 left it.
+layout(constant_id = 2) const bool WATER_LOOK = false;
 // UTA-0040 SS 4.5 step 4: parallax fades out over the mip level above this.
 const float PARALLAX_FADE_MIP = 4.0;
 
@@ -169,7 +172,7 @@ void main() {
 
     // An _SRGB block format: the sampler returns linear (SS 4.10). UTA-0089
     // SS 4.4: a Wet liquid's picture is varied so its repeats do not line up.
-    bool wetPicture = liquid && liquids[material.liquid].kind == LIQUID_WET;
+    bool wetPicture = WATER_LOOK && liquid && liquids[material.liquid].kind == LIQUID_WET;
     vec4 base = wetPicture ? waterPicture(material.base, uv, shadingUv, duv1, duv2, draw.materialIndex)
                            : textureGrad(textures[nonuniformEXT(material.base)], shadingUv, duv1, duv2);
     // A Wave has no picture of its own: its colour is the noise's, through its ramp.
@@ -239,7 +242,7 @@ void main() {
     }
     // UTA-0089 SS 4.2 and SS 4.3: a Wet or Wave liquid reflects the sky or the
     // probes, by Fresnel's law, about its surface tilted by the ripple alone.
-    if (!flaming && waterReflects(material.liquid) && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u) {
+    if (WATER_LOOK && !flaming && waterReflects(material.liquid) && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u) {
         vec3 v = normalize(frame.eye - worldPosition);
         vec3 n = perturbed(surface, axes, vec3(wet.tilt, sqrt(max(0.0, 1.0 - dot(wet.tilt, wet.tilt)))));
         vec3 r = reflect(-v, n);

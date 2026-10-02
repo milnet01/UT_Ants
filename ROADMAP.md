@@ -5065,6 +5065,22 @@ stays with movement in 0.2.0.
   only: reflections, Fresnel and less visible tiling, shader-side. Glass
   moved to UTA-0272; refraction, depth tint and the shore fade to
   UTA-0273.
+  Progress (2026-10-02): implemented; all tests green on lavapipe and the
+  GPU. Frame cost (spec 13), ut-bench frame, ultra 3840x2160, RX 6600,
+  medians before -> after, two alternating rounds agreeing within 0.1 ms:
+  DM-ArcaneTemple across the pool 13.71 -> 14.48 ms (+5.6%), over it
+  11.84 -> 12.47 (+5.3%); MH-BattleCrypt's three views +3.0% each, with
+  no water in view. Over the 3% budget, so the look is behind
+  Feature::WaterLook from Medium (spec 4.5). Fit (spec 4.6): not fitted.
+  Both candidate pools are translucent over a floor, and no repeat of the
+  water's picture is measurable on them before or after; first values
+  kept, measurements in water.glsl. The reflection raises Arcane's
+  up-close luma 78.5 -> 85.5 (+9%) and UTA-0105's motion measure
+  3.81 -> 5.88 (original 3.98); the tiling alone moves neither. The
+  pool's mean luma at UTA-0105's pose is now 94.0 (was 81.0; original
+  110.9), reported not fitted. Separately seen: Arcane's waterrings2 is
+  PF_Modulated, and urender has no modulated blend, so it draws as an
+  ordinary unlit surface.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.

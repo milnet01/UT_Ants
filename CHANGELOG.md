@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Water reflects the sky or the room around it, faint looking straight down and strong across it, and its picture no longer repeats in an exact grid.** (UTA-0089)
+  Water and slime under an open sky reflect the sky; elsewhere they
+  reflect the room's own bounced light. Far off, the water's picture fades
+  to its average colour. Drawn at the Medium quality setting and above; on
+  Low, water looks as it did. No map needs baking again.
+
 - **Water, slime, lava and the other textures that moved by themselves in the original move again.** (UTA-0105)
   Rippling textures drift and ripple, and on lit surfaces the light on
   them ripples too; glowing lasers and plasma slide and swirl the way the

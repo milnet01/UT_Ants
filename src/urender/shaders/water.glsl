@@ -20,8 +20,19 @@
 // Not fitted: it is water's own value.
 const float WATER_R0 = 0.02;
 
-// SS 4.4's constants, fitted by SS 4.6's measures -- see the sweep beside each.
-// NOT YET FITTED: first values, before SS 4.6's sweep.
+// SS 4.4's constants. NOT FITTED, 2026-10-02: SS 4.6's repeat measure finds no
+// repeat to reduce. Both candidate pools, DM-ArcaneTemple's swater4a and
+// AS-OceanFloor's pond1, are translucent over a floor that repeats at its own
+// scale. Arcane's central pool (256 units a repeat), straight down at 512, 2048
+// and 3840 units: the water's correlation one repeat apart is no higher than
+// half a repeat apart, ripple on or off, before this item or after; with what
+// varies slower than an eighth of a repeat taken out it is under 0.07 at every
+// shift. Seen across the pool at UTA-0105's pose, likewise. So these are first
+// values, and a fit waits on an opaque Wet pool.
+// What the tiling itself changes, against the same build with it off
+// (TILE_VARIATION_REPEATS 1e6, fade off), on Arcane: up-close mean luma 85.6
+// against 85.5 and contrast 11.7 against 12.2; UTA-0105's motion 5.80 against
+// 5.88. Variation scales 1 to 16 move none of these by more than the noise.
 const float TILE_VARIATION_REPEATS = 4.0; // repeats of the picture across one noise cell
 const float TILE_FADE_START = 3.0;        // the mip level where the fade toward the mean begins
 const float TILE_FADE_END = 6.0;          // the mip level past which the picture is its mean

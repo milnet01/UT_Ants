@@ -157,7 +157,7 @@ struct Zone {                   // std430, 16 bytes, offsets asserted
     std::uint32_t brightness;   // 0
     std::uint32_t hue;          // 4
     std::uint32_t saturation;   // 8
-    std::uint32_t reserved;     // 12
+    std::uint32_t reserved;     // 12; UTA-0089 § 4.1 names it `sky`
 };
 ```
 

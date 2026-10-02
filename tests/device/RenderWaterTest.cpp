@@ -65,13 +65,14 @@ void addProbes(uta::ubundle::Bundle& bundle, std::array<float, 3> colour) {
             }
 }
 
-/// The colour frame of `bundle` seen by `camera`, from a fresh renderer.
-std::vector<std::byte> frameOf(const uta::ubundle::Bundle& bundle, const Camera& camera) {
+/// The colour frame of `bundle` seen by `camera`, from a fresh renderer at
+/// `tier`. Medium is the lowest the water look draws at (SS 4.5).
+std::vector<std::byte> frameOf(const uta::ubundle::Bundle& bundle, const Camera& camera, Tier tier = Tier::Medium) {
     Config config;
     config.width = SIZE;
     config.height = SIZE;
     config.linearOutput = true;
-    config.tier = Tier::Low;
+    config.tier = tier;
     config.hazeScale = 0;
     Renderer renderer = requireRenderer(config);
     renderer.pinLightSeconds(PINNED);
@@ -342,4 +343,16 @@ TEST_CASE("UTA-0089 INV-6: a liquid draws the same twice at a pinned light time"
     removeDisplay();
     const uta::ubundle::Bundle pool = patchworkPool(still(LiquidKind::Wet));
     CHECK(frameOf(pool, narrow()) == frameOf(pool, narrow()));
+}
+
+TEST_CASE("UTA-0089: below Medium a liquid draws as UTA-0105 left it", "[device][water]") {
+    // SS 4.5: the look's cost put it behind Feature::WaterLook. At Low a Wet
+    // square neither reflects nor varies its picture.
+    removeDisplay();
+    const Rgba green = centreOf(frameOf(solidPool(still(LiquidKind::Wet), {0.0f, 0.5f, 0.0f}), viewing(80), Tier::Low));
+    const Rgba blue = centreOf(frameOf(solidPool(still(LiquidKind::Wet), {0.0f, 0.0f, 0.5f}), viewing(80), Tier::Low));
+    CAPTURE(green, blue);
+    CHECK(green == blue);
+    const auto low = [](std::optional<LiquidLook> look) { return frameOf(patchworkPool(look), narrow(), Tier::Low); };
+    CHECK(low(still(LiquidKind::Wet)) == low(std::nullopt));
 }

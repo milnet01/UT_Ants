@@ -57,17 +57,27 @@ struct SceneVariant {
     bool depthOnly = false;
 };
 
+/// scene.frag's specialization constants, in constant_id order.
+struct SceneConstants {
+    ParallaxSteps parallax;
+    VkBool32 waterLook;
+};
+
 Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
                                  VkShaderModule vertex, VkShaderModule fragment, SceneVariant variant,
-                                 ParallaxSteps parallax) {
+                                 SceneConstants constants) {
     // UTA-0040 SS 4.4: scene.frag's constant_id 0 and 1, so a tier with no
-    // steps compiles the march out.
+    // steps compiles the march out. UTA-0089 SS 4.5: constant_id 2, so a tier
+    // without the water look compiles it out.
     const std::array entries = {
-        VkSpecializationMapEntry{0, offsetof(ParallaxSteps, minimum), sizeof(ParallaxSteps::minimum)},
-        VkSpecializationMapEntry{1, offsetof(ParallaxSteps, maximum), sizeof(ParallaxSteps::maximum)},
+        VkSpecializationMapEntry{0, offsetof(SceneConstants, parallax) + offsetof(ParallaxSteps, minimum),
+                                 sizeof(ParallaxSteps::minimum)},
+        VkSpecializationMapEntry{1, offsetof(SceneConstants, parallax) + offsetof(ParallaxSteps, maximum),
+                                 sizeof(ParallaxSteps::maximum)},
+        VkSpecializationMapEntry{2, offsetof(SceneConstants, waterLook), sizeof(VkBool32)},
     };
     const VkSpecializationInfo specialization{static_cast<std::uint32_t>(entries.size()), entries.data(),
-                                              sizeof(parallax), &parallax};
+                                              sizeof(constants), &constants};
     std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
     stages[1].pSpecializationInfo = &specialization;
 
@@ -533,17 +543,19 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_TRY(postVertex.handle, shaderModule(device, post_vert_spv));
     UTA_TRY(postFragment.handle, shaderModule(device, post_frag_spv));
 
+    const SceneConstants sceneConstants{parallaxStepsOf(tier),
+                                        enabled(Feature::WaterLook, tier) ? VK_TRUE : VK_FALSE};
     for (int translucent = 0; translucent < 2; ++translucent) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
             UTA_TRY(p->scene_[translucent][twoSided],
                     scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                                  {translucent == 1, twoSided == 1}, parallaxStepsOf(tier)));
+                                  {translucent == 1, twoSided == 1}, sceneConstants));
         }
     }
     for (int twoSided = 0; twoSided < 2; ++twoSided) {
         UTA_TRY(p->depth_[twoSided],
                 scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                              {false, twoSided == 1, true}, parallaxStepsOf(tier)));
+                              {false, twoSided == 1, true}, sceneConstants));
     }
     // UTA-0263 SS 4.4.
     Module flameVertex{device}, flameFragment{device};

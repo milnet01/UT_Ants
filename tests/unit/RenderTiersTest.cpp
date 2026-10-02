@@ -119,6 +119,13 @@ TEST_CASE("UTA-0164 INV-7: ambient occlusion is drawn from Low", "[render]") {
     CHECK(uta::urender::enabled(Feature::AmbientOcclusion, Tier::Low));
 }
 
+TEST_CASE("UTA-0089 SS 4.5: the water look starts at Medium", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::WaterLook) == Tier::Medium);
+    CHECK_FALSE(uta::urender::enabled(Feature::WaterLook, Tier::Low));
+    CHECK(uta::urender::enabled(Feature::WaterLook, Tier::Medium));
+}
+
 TEST_CASE("UTA-0040 INV-4: parallax occlusion starts at Medium with the spec's step counts", "[render]") {
     using uta::urender::Feature;
     using uta::urender::parallaxStepsOf;

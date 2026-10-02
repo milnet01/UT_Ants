@@ -363,7 +363,7 @@ recorded beside their constants, not asserted by a test.
 
 ## 9. Out of scope
 
-- Reflections, Fresnel and depth tint — UTA-0089.
+- Reflections and Fresnel — UTA-0089. Depth tint — UTA-0273.
 - Moving liquid geometry — UTA-0055.
 - Caustics and the underwater view — UTA-0215.
 - Surfaces that pan by their own flags (`PF_AutoUPan`, `PF_AutoVPan`): no
