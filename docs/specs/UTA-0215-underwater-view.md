@@ -16,7 +16,7 @@ things fade toward the water's colour with distance, and the view wobbles
 gently. Out of water nothing changes. Surfaces in water carry moving
 caustics (§ 4.5), and the surface seen from below shows as it does from
 above (§ 4.6), both added after the first part. Light shafts fall through
-the water (§ 4.7). Drifting particles follow (§ 9).
+the water (§ 4.7), and specks drift in it (§ 4.8).
 
 ## 2. Problem
 
@@ -182,6 +182,20 @@ The scattering is this item's call, chosen on the pool: 1.6e-2 washed the
 view grey and 4e-3 was strong once the fade was linear. From Medium, where
 the fog pass runs.
 
+### 4.8 Drifting specks — `urender`, `mote.vert` and `mote.frag`
+
+**Amended 2026-10-02, recording what was built.** With the camera's zone
+water, 800 specks are drawn in the flames' pass and with their pipeline:
+additive, depth-tested and not written, no vertex buffer. Each speck's
+place is hashed from its index, rises 3 units a second and sways 6 either
+way, and wraps in a 400-unit box about the eye, fading in toward the box's
+edge; so specks hold their place in the world as the eye moves. Each is a
+soft round dot 0.8 units in radius, three times the water's colour plus a
+little white, and adds nothing to the emission target. These are this
+item's calls, chosen on DM-ArcaneTemple's pool, where they read as sparse
+faint specks. `Feature::WaterMotes`, from Medium, with the caustics: the Low
+tier's exact underwater frames carry none.
+
 ## 5. Invariants
 
 - **INV-1** — `ZONE`'s `water`, `viewFog` and `viewFlash` round-trip through
@@ -241,6 +255,11 @@ the fog pass runs.
   fade is applied after the fog's light. The shafts' own fade by depth has no
   test: a near light, which a test can place, is not faded.
 
+- **INV-9** — specks: from Medium, under water, a plain far wall shows
+  specks in front of it; out of the water, and below Medium, it shows none.
+  *Test:* `tests/device/RenderUnderwaterTest.cpp`.
+  *Breaks when:* the specks ignore the zone or the tier, or are not drawn.
+
 ## 6. Failure modes
 
 - **The camera on the surface** flips between tinted and not as it crosses;
@@ -259,8 +278,8 @@ the fog pass runs.
   `device`, at `Tier::Low`.
 - INV-6 — the same file, at `Tier::Medium` and `Tier::Low`.
 - INV-7 — `tests/device/RenderWaterTest.cpp`, at `Tier::Low`.
-- INV-8 — `tests/device/RenderUnderwaterTest.cpp`, at `Tier::Medium` and
-  `Tier::Low`.
+- INV-8, INV-9 — `tests/device/RenderUnderwaterTest.cpp`, at
+  `Tier::Medium` and `Tier::Low`.
 
 Each is seen failing before the code it locks exists. **Measured, not
 asserted:** the original's frames under and over water (asked of the
@@ -278,7 +297,6 @@ tint's mean colour shift, per zone class.
 
 ## 9. Out of scope
 
-- Drifting particles — tracked by UTA-0215, a later part.
 - Easing the tint in and out as UT99 does — deferred; not yet queued.
 - Water volumes that behave like water — tracked by UTA-0090.
 - Per-zone visibility — deferred; not yet queued.
@@ -289,7 +307,7 @@ tint's mean colour shift, per zone class.
 |------|----------------------|
 | INV-1 | `tests/unit/BundleZonesTest.cpp` |
 | INV-2 | `tests/unit/BakeZonesTest.cpp` |
-| INV-3, INV-4, INV-5, INV-6, INV-8 | `tests/device/RenderUnderwaterTest.cpp` |
+| INV-3, INV-4, INV-5, INV-6, INV-8, INV-9 | `tests/device/RenderUnderwaterTest.cpp` |
 | INV-7 | `tests/device/RenderWaterTest.cpp` |
 | No sky in a reflection from under water | **nothing** automated — checked on DM-ArcaneTemple's frames |
 | Whether it reads as underwater | **nothing** automated — § 7's comparison against the original's frames, run by hand |

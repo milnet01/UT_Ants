@@ -13217,6 +13217,11 @@ stays with movement in 0.2.0.
   scatters shadowed lights in the water in drifting upright columns,
   WATER_SCATTER 1e-3. The fade became linear, 300 to 1000 units, chosen by
   the original's texture detail (§ 4.3). Left: drifting particles.
+  Progress (2026-10-02): drifting specks (spec § 4.8, INV-9), 800 in a
+  400-unit box about the eye, from Medium. Every part of the bar is now
+  built; flip when GitHub's matrix is green. Tier placements of Caustics
+  and WaterMotes were not timed with ut-bench; both sit at Medium with the
+  other per-pixel looks.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.

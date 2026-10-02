@@ -57,6 +57,8 @@ public:
     [[nodiscard]] VkPipeline depthFor(std::uint32_t polyFlags) const noexcept;
     /// UTA-0263 SS 4.4: the camera-facing flames, instanced over FLAMES.
     [[nodiscard]] VkPipeline flame() const noexcept { return flame_; }
+    /// UTA-0215: the specks in the water about the eye, drawn as the flames are.
+    [[nodiscard]] VkPipeline mote() const noexcept { return mote_; }
     [[nodiscard]] VkPipeline post() const noexcept { return post_; }
     /// UTA-0154's FSR 1 stages, over the post layout: post.frag into the
     /// HDR-format upscale input, EASU into another, and RCAS into the output.
@@ -98,6 +100,7 @@ private:
     /// UTA-0260: indexed [twoSided].
     std::array<VkPipeline, 2> depth_{};
     VkPipeline flame_ = VK_NULL_HANDLE;
+    VkPipeline mote_ = VK_NULL_HANDLE;
     VkPipeline post_ = VK_NULL_HANDLE;
     VkPipeline upscaleInput_ = VK_NULL_HANDLE, easu_ = VK_NULL_HANDLE, rcas_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout bloomSetLayout_ = VK_NULL_HANDLE;

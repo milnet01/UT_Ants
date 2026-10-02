@@ -48,6 +48,7 @@ enum class Feature : std::uint8_t {
     WaterLook,         ///< UTA-0089's reflections and varied picture on water
     TileVariation,     ///< UTA-0180's slow brightness change across the world
     Caustics,          ///< UTA-0215's rippling light on what lies under water
+    WaterMotes,        ///< UTA-0215's specks drifting in the water around the eye
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -73,6 +74,9 @@ enum class Feature : std::uint8_t {
     // UTA-0215: two value noises a lit pixel, in water zones only. Not
     // measured; it costs less than TileVariation's three, and sits with it.
     case Feature::Caustics: return Tier::Medium;
+    // UTA-0215: a few hundred tiny quads, under water only. With Caustics, so
+    // the Low tier's exact underwater frames carry no specks.
+    case Feature::WaterMotes: return Tier::Medium;
     }
     return Tier::Low; // unreachable
 }

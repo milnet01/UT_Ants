@@ -124,6 +124,9 @@ constexpr float BLOOM_STRENGTH = 0.04f;
 /// UTA-0263 SS 4.4: the flame clock's period in seconds. At 4096 a float still
 /// resolves half a millisecond; a flame jumps once at each wrap, every 68 min.
 constexpr double FLAME_CLOCK_WRAP = 4096.0;
+/// UTA-0215: how many specks drift in the water about the eye, which
+/// mote.vert places from their index alone.
+constexpr std::uint32_t MOTE_COUNT = 800;
 
 /// What identifies an uploaded bundle: the object, the size of every section
 /// this renderer uploads, and a hash of a bounded sample of their bytes.
@@ -1148,8 +1151,10 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     // -- 2.5. Camera-facing flames (UTA-0263 SS 4.4) ---------------------------
     // Additive, so their order does not matter and nothing is sorted. They
     // write emission, which the translucent pass binds no target for, so this
-    // pass binds all three; velocity takes the flame's zero, added.
-    if (flameCount != 0) {
+    // pass binds all three; velocity takes the flame's zero, added. UTA-0215:
+    // the water's specks are drawn in the same pass, under water only.
+    const bool motes = viewZone.water != 0 && enabled(Feature::WaterMotes, tier);
+    if (flameCount != 0 || motes) {
         memoryBarrier(commands,
                       VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
                           | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -1164,10 +1169,16 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBeginRendering(commands, &rendering);
         vkCmdSetViewport(commands, 0, 1, &regionViewport);
         vkCmdSetScissor(commands, 0, 1, &regionScissor);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->flame());
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
                                 0, nullptr);
-        vkCmdDraw(commands, 6, flameCount, 0, 0); // flame.vert's six corners, one instance a flame
+        if (flameCount != 0) {
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->flame());
+            vkCmdDraw(commands, 6, flameCount, 0, 0); // flame.vert's six corners, one instance a flame
+        }
+        if (motes) {
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->mote());
+            vkCmdDraw(commands, 6, MOTE_COUNT, 0, 0); // mote.vert's six corners, one instance a speck
+        }
         vkCmdEndRendering(commands);
     }
 

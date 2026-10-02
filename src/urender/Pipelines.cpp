@@ -13,6 +13,8 @@
 #include "fsr_easu.frag.spv.h"
 #include "flame.frag.spv.h"
 #include "flame.vert.spv.h"
+#include "mote.frag.spv.h"
+#include "mote.vert.spv.h"
 #include "fsr_rcas.frag.spv.h"
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
@@ -576,6 +578,11 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_TRY(flameVertex.handle, shaderModule(device, flame_vert_spv));
     UTA_TRY(flameFragment.handle, shaderModule(device, flame_frag_spv));
     UTA_TRY(p->flame_, flamePipeline(device, p->sceneLayout_, formats, flameVertex.handle, flameFragment.handle));
+    // UTA-0215: the water's specks are drawn as the flames are.
+    Module moteVertex{device}, moteFragment{device};
+    UTA_TRY(moteVertex.handle, shaderModule(device, mote_vert_spv));
+    UTA_TRY(moteFragment.handle, shaderModule(device, mote_frag_spv));
+    UTA_TRY(p->mote_, flamePipeline(device, p->sceneLayout_, formats, moteVertex.handle, moteFragment.handle));
     UTA_TRY(p->post_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));
     // UTA-0154: FSR 1's stages. The upscale input and EASU's output are
     // HDR-format images; RCAS writes the output.
@@ -673,7 +680,7 @@ Pipelines::~Pipelines() {
     for (const auto& row : scene_)
         for (VkPipeline pipeline : row)
             if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
-    for (VkPipeline pipeline : {depth_[0], depth_[1], flame_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
+    for (VkPipeline pipeline : {depth_[0], depth_[1], flame_, mote_, post_, upscaleInput_, easu_, rcas_, bloomDownsample_, bloomUpsample_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);

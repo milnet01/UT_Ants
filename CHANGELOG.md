@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Specks drift in the water around you** (UTA-0215)
+  Under water, faint specks float and rise slowly around the player and
+  stay put in the world as you swim past them, from the Medium quality
+  setting up.
+
 - **Shafts of light fall through the water** (UTA-0215)
   Under water, lamps above the pool now scatter in the water as soft
   upright beams that drift slowly, cut by the shadows of anything in their

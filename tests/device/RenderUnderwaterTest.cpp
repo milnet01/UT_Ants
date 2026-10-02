@@ -244,3 +244,42 @@ TEST_CASE("UTA-0215: under water a light scatters in the water from Medium and n
     CHECK(lowLit == lowDark);
 }
 
+namespace {
+
+/// How many pixels of a 160x64 frame stand out from a plain far wall: the
+/// camera's zone 0 `water` or not, at `tier`. The wall fills the view, so
+/// anything brighter than its own colour is a speck in front of it.
+int specks(Tier tier, bool water) {
+    Config config = frameOf(160);
+    config.tier = tier;
+    Renderer renderer = requireRenderer(config);
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 2000, 0, 0, 6000, "black", PF_UNLIT);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "black", Rgba{1, 1, 1, 255});
+    bundle.zones = std::vector{zoneOf(water)};
+    renderer.pinLightSeconds(0);
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    const Rgba plain = pixelAt(*pixels, 160, 0, 0);
+    int count = 0;
+    for (std::uint32_t y = 0; y < 64; ++y)
+        for (std::uint32_t x = 0; x < 160; ++x)
+            if (pixelAt(*pixels, 160, x, y).g > plain.g + 6) ++count;
+    return count;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0215: specks drift in the water around the eye from Medium and nowhere else", "[device]") {
+    removeDisplay();
+    const int wet = specks(Tier::Medium, true);
+    const int dry = specks(Tier::Medium, false);
+    const int low = specks(Tier::Low, true);
+    CAPTURE(wet, dry, low);
+    CHECK(wet > 0);
+    CHECK(dry == 0);
+    CHECK(low == 0);
+}
+
