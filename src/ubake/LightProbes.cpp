@@ -22,6 +22,7 @@ namespace {
 constexpr std::uint8_t LT_BACKDROP_LIGHT = 6;
 constexpr std::uint32_t PF_FAKE_BACKDROP = 0x80;
 constexpr std::uint32_t PF_TWO_SIDED = 0x100;
+constexpr std::uint32_t PF_UNLIT = 0x400000; // UTA-0161
 
 /// SS 4.7 step 5: a shadow ray starts this far off the surface, along its normal.
 constexpr double SHADOW_OFFSET = 0.5;
@@ -116,7 +117,7 @@ std::vector<Vec3> buildDirections() {
 /// SS 4.7's radiance along one direction, its steps numbered as there.
 Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
                   const ubundle::Geometry& geometry, const std::vector<ubundle::Light>& lights,
-                  const AlbedoLookup& albedo) {
+                  const AlbedoLookup& albedo, const OwnLightLookup& own) {
     const std::optional<SurfaceRays::Hit> hit = rays.first(p, w);
     if (!hit) return {};                                                   // 1
     const ubundle::GeometryBatch& batch = batchOf(geometry, hit->triangle);
@@ -126,6 +127,11 @@ Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
         n = n * -1.0;
     }
     if ((batch.polyFlags & PF_FAKE_BACKDROP) != 0) return {};               // 4
+    // UTA-0161: an unlit liquid -- acid, waste, lava -- shows its picture at
+    // full brightness and sends that on. Other unlit surfaces do not: SS 8
+    // rejects it, a map made fullbright for its look flooding its neighbours.
+    const OwnLight mine = own ? own(batch.material) : OwnLight{};
+    if ((batch.polyFlags & PF_UNLIT) != 0 && mine.unlitGlows) return albedo(batch.material);
 
     const Vec3 x = p + w * hit->t;                                          // 5
     Rgb e;
@@ -143,7 +149,12 @@ Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
     // 6. UTA-0253: the surface sends on the light it shows, not the light's
     // own value -- so a probe holds light as scene.frag adds it, after the power.
     const Rgb a = albedo(batch.material);
-    return {a.r * shownLight(e.r), a.g * shownLight(e.g), a.b * shownLight(e.b)};
+    Rgb sent{a.r * shownLight(e.r), a.g * shownLight(e.g), a.b * shownLight(e.b)};
+    // UTA-0161: and a glowing one adds its emission, as scene.frag adds its emit map.
+    sent.r += mine.emission.r;
+    sent.g += mine.emission.g;
+    sent.b += mine.emission.b;
+    return sent;
 }
 
 } // namespace
@@ -250,11 +261,11 @@ std::array<Rgb, 6> cubeOf(std::span<const Rgb> radiance) {
 std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
                                const ubundle::Geometry& geometry,
                                const std::vector<ubundle::Light>& lights,
-                               const AlbedoLookup& albedo) {
+                               const AlbedoLookup& albedo, const OwnLightLookup& own) {
     const std::vector<Vec3>& all = directions();
     std::vector<Rgb> radiance;
     radiance.reserve(all.size());
-    for (const Vec3& w : all) radiance.push_back(radianceAlong(p, w, rays, geometry, lights, albedo));
+    for (const Vec3& w : all) radiance.push_back(radianceAlong(p, w, rays, geometry, lights, albedo, own));
     return cubeOf(radiance);
 }
 
@@ -262,7 +273,8 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
                                              const ubundle::CollisionTree& level,
                                              const std::vector<ubundle::Light>& lights,
                                              const AlbedoLookup& albedo, JobSystem& jobs,
-                                             const std::optional<ProbeReach>& reach) {
+                                             const std::optional<ProbeReach>& reach,
+                                             const OwnLightLookup& own) {
     const auto spacing = static_cast<double>(PROBE_SPACING);
     const auto pointOf = [spacing](const Cell& cell) {
         return Vec3{cell[0] * spacing, cell[1] * spacing, cell[2] * spacing};
@@ -320,7 +332,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
         const std::size_t end = std::min(out.probes.size(), (job + 1) * PROBES_PER_JOB);
         for (std::size_t p = job * PROBES_PER_JOB; p < end; ++p) {
             ubundle::LightProbe& probe = out.probes[p];
-            const std::array<Rgb, 6> cube = gatherProbe(pointOf(probe.cell), rays, geometry, lights, albedo);
+            const std::array<Rgb, 6> cube = gatherProbe(pointOf(probe.cell), rays, geometry, lights, albedo, own);
             for (std::size_t face = 0; face < 6; ++face)
                 probe.cube[face] = {static_cast<float>(cube[face].r), static_cast<float>(cube[face].g),
                                     static_cast<float>(cube[face].b)};

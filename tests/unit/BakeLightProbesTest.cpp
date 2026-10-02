@@ -16,6 +16,7 @@
 #include "ubundle/Bundle.h"
 #include "umat/Material.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
@@ -40,6 +41,8 @@ using uta::ubake::bakedLights;
 using uta::ubake::bakeLightProbes;
 using uta::ubake::cubeOf;
 using uta::ubake::directions;
+using uta::ubake::OwnLight;
+using uta::ubake::OwnLightLookup;
 using uta::ubake::gatherProbe;
 using uta::ubake::meanAlbedo;
 using uta::ubake::PROBE_REACH_MARGIN;
@@ -350,6 +353,43 @@ TEST_CASE("what a ray sees", "[ubake][probes]") {
         const auto unlit = withRoof(PF_UNLIT);
         const SurfaceRays unlitRays(unlit);
         CHECK(total(gatherProbe({0, 0, 100}, unlitRays, unlit, light, grey)) == 0.0);
+    }
+
+    SECTION("UTA-0161: a surface sends on the light it shows, lit or not") {
+        // No light at all, so whatever reaches the probe the surface sent
+        // itself. A glowing material adds its mean emission, as scene.frag
+        // adds its emit map; an unlit liquid shows its picture at full
+        // brightness and sends that, with no emission, as scene.frag draws it.
+        // An unlit surface that is not a liquid sends nothing of its own:
+        // SS 8 rejects it, so a fullbright map does not flood its neighbours.
+        const AlbedoLookup orange = albedoOf({{"glow", {0.6, 0.2, 0.0}}, {"panel", {0.6, 0.2, 0.0}}});
+        const OwnLightLookup glowing = [](std::string_view material) {
+            return material == "glow" ? OwnLight{{0.4, 0.2, 0.0}, true} : OwnLight{};
+        };
+        const auto channels = [](const std::array<Rgb, 6>& cube) {
+            Rgb sum;
+            for (const Rgb& face : cube) {
+                sum.r += face.r;
+                sum.g += face.g;
+            }
+            return sum;
+        };
+        const auto lit = geometryOf(floorQuad("glow"));
+        const SurfaceRays litRays(lit);
+        const Rgb fromGlow = channels(gatherProbe({0, 0, 100}, litRays, lit, {}, orange, glowing));
+        CHECK(fromGlow.r > 0.0);
+        CHECK(fromGlow.r == Catch::Approx(2.0 * fromGlow.g)); // the emission's 0.4 : 0.2
+        CHECK(total(gatherProbe({0, 0, 100}, litRays, lit, {}, orange)) == 0.0); // no emission given
+
+        const auto unlit = geometryOf(floorQuad("glow", PF_UNLIT));
+        const SurfaceRays unlitRays(unlit);
+        const Rgb fromUnlit = channels(gatherProbe({0, 0, 100}, unlitRays, unlit, {}, orange, glowing));
+        CHECK(fromUnlit.r > 0.0);
+        CHECK(fromUnlit.r == Catch::Approx(3.0 * fromUnlit.g)); // the picture's 0.6 : 0.2, not the emission's
+
+        const auto unlitPanel = geometryOf(floorQuad("panel", PF_UNLIT));
+        const SurfaceRays panelRays(unlitPanel);
+        CHECK(total(gatherProbe({0, 0, 100}, panelRays, unlitPanel, {}, orange, glowing)) == 0.0);
     }
 
     SECTION("a sky surface") {

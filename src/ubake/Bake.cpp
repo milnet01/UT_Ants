@@ -17,6 +17,7 @@
 #include "ubake/Strips.h"
 #include "ubake/SurfaceRays.h"
 #include "ubake/Zones.h"
+#include "umat/Derive.h"
 #include "umat/Enlarge.h"
 #include "umat/Fingerprint.h"
 #include "umat/Generate.h"
@@ -373,6 +374,10 @@ struct MadeVariant {
     std::optional<ubundle::LiquidLook> liquid;
     /// UTA-0105 SS 6: why a liquid class carries no look; empty otherwise.
     std::string liquidSkipped;
+    /// UTA-0161: the emit map's linear mean, which the bounce adds as the
+    /// surface's own light. Empty for a material that does not glow, and for a
+    /// flame, which scene.frag draws without its emit map.
+    std::optional<Rgb> emission;
 };
 
 /// One variant, or why it cannot be made. The error arm is a SKIP and never a
@@ -576,8 +581,14 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         return std::unexpected("umat::generate refused it: "
                                + std::string(material.error().message()));
     const double scale = detail::textureScale(holder, *properties);
+    // UTA-0161: the emit map is the picture where its height reaches the
+    // threshold (umat's emissiveOf); its mean is taken at the picture's own
+    // size, before generate's upscale, as the albedo is.
+    std::optional<Rgb> emission;
+    if (settings.emissive && !flame.has_value())
+        emission = meanAlbedo(umat::emissiveOf(*rgba, umat::heightOf(*rgba), settings.emissiveThreshold));
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
-                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped)};
+                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), emission};
 }
 
 struct Materials {
@@ -593,6 +604,9 @@ struct Materials {
     /// SS 4.5. A material whose base level has no opaque pixel holds
     /// DEFAULT_ALBEDO.
     std::map<std::string, Rgb, std::less<>> albedo;
+    /// UTA-0161: each glowing material's mean emission, by id. A material
+    /// that does not glow has no entry.
+    std::map<std::string, Rgb, std::less<>> emission;
     /// Each made material's index in `records`, by id -- what FLAM names.
     std::map<std::string, std::uint32_t, std::less<>> recordIndex;
 };
@@ -699,6 +713,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             if (!made->liquidSkipped.empty())
                 out.skippedLiquids.push_back(SkippedTexture{id, std::move(made->liquidSkipped)});
             out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
+            if (made->emission.has_value()) out.emission.emplace(id, *made->emission);
             for (ubundle::CompressedTexture& texture : made->material.maps)
                 out.textures.push_back(std::move(texture));
             for (const std::int32_t raw : variant.references)
@@ -916,10 +931,20 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         return found == materials.albedo.end() ? Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}
                                                : found->second;
     };
+    // UTA-0161: a glowing material adds its mean emission to what it sends
+    // on, and a liquid drawn PF_Unlit sends on its picture.
+    const OwnLightLookup own = [&materials](std::string_view id) {
+        OwnLight out;
+        if (const auto found = materials.emission.find(id); found != materials.emission.end())
+            out.emission = found->second;
+        if (const auto index = materials.recordIndex.find(id); index != materials.recordIndex.end())
+            out.unlitGlows = materials.records[index->second].liquid.has_value();
+        return out;
+    };
     UTA_TRY(ubundle::LightProbes probes,
             naming(bakeLightProbes(geometry, collision.level,
                                    bakedLights(actors.lights, actors.placements), albedo, jobs,
-                                   probeReachOf(actors.placements)),
+                                   probeReachOf(actors.placements), own),
                    mapName));
 
     // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit

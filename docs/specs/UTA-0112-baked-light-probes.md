@@ -385,6 +385,11 @@ directions, taken in ascending order of `z`, then `y`, then `x`.
 3. If `ω · n ≥ 0`, the ray met the surface from behind: `n` becomes `−n` when
    the batch has `PF_TwoSided` (`0x100`), and otherwise `L = 0`.
 4. A batch with `PF_FakeBackdrop`: `L = 0`.
+   **Added by `UTA-0161`, recording what was built:** a batch with `PF_Unlit`
+   (`0x400000`) whose material is a liquid (it carries a `MATS` liquid look,
+   `UTA-0105`): `L` is its albedo. It shows its picture at full brightness,
+   unlit, and sends that on. Any other unlit batch goes on to step 5, as
+   before; § 8 says why.
 5. With `x = p + t × ω`, `E` is the sum over the baked lights, in their order,
    of `lightAt(light, x, n)`. A light counts `0` when
    `blocked(x + 0.5 × n, light.location)`.
@@ -394,6 +399,10 @@ directions, taken in ascending order of `z`, then `y`, then `x`.
    (`src/ubake/LightModel.h`). A surface sends on the light it shows. The
    step used `E` itself, which § 4.9 then raised to `p` together with the
    albedo and the share of the view the surface fills.
+   **Amended by `UTA-0161`, recording what was built:** `L` adds the
+   material's mean emission, the linear mean of its emit map as `umat`
+   derives it (`emissiveOf`) at the picture's own size, before any upscale.
+   A material without an emit map, and a flame, add `0`.
 
 **Face `k`**, with axis `a_k`, is `Σ L × max(0, ω · a_k) / Σ max(0, ω · a_k)`,
 both sums taken in the directions' order. It is stored as the nearest float.
@@ -583,6 +592,18 @@ tests change no line.
   *Breaks when:* either clip bound is dropped, a non-navigation actor
   counts, or the margin is not applied.
 
+- **INV-13** — A surface sends on the light it shows, lit or not. With no
+  light, a floor whose material has emission `(0.4, 0.2, 0)` reaches a probe
+  with red twice its green, and without its emission reaches it with nothing;
+  an unlit liquid floor of albedo `(0.6, 0.2, 0)` reaches it with red three
+  times its green, its emission not added; an unlit floor that is not a liquid
+  reaches it with nothing. *Added by UTA-0161.*
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "what a ray sees" section
+  "UTA-0161: a surface sends on the light it shows, lit or not".
+  *Breaks when:* the emission is not added, or is added to an unlit liquid;
+  an unlit surface that is not a liquid sends its picture, which floods a
+  fullbright map's neighbours.
+
 ## 6. Failure modes
 
 - **A light inside solid.** The surfaces around it block its shadow rays, so it
@@ -604,7 +625,7 @@ Each test is seen to fail before the code it grades exists.
 |---|---|---|
 | `tests/unit/BundleLightProbesTest.cpp` | `unit` | INV-1 |
 | `tests/unit/BakeLightModelTest.cpp` | `unit` | INV-2, INV-3, INV-4, INV-5 |
-| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12 |
+| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12, INV-13 |
 | `tests/unit/BakeGoldenTest.cpp` | `unit` | INV-10, recorded again |
 | `tests/unit/PathTraceTest.cpp` | `unit` | INV-11, unchanged |
 | `tests/real/RealLightProbesTest.cpp` | real tier | prints each stock map's probe count, baked light count and step time; checks every value is finite and not negative |
@@ -642,7 +663,10 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 - **Per-light transfer**, so a light a script switches keeps a true bounce. It
   stores a cube per light per probe.
 - **Emission from `PF_Unlit` surfaces.** A map made fullbright for its look
-  would flood its neighbours with light.
+  would flood its neighbours with light. **Narrowed by `UTA-0161`:** an unlit
+  LIQUID does send on its picture (§ 4.7 step 4), since acid, waste and lava
+  pools are drawn unlit to glow, and the user asked that they light what is
+  near them. Every other unlit surface is still rejected for this reason.
 - **Colours converted only in the renderer**, UTA-0110 § 8's choice. A bake of
   bounced light cannot wait for the renderer.
 - **The platform's `sin`, under a recorded reading as UTA-0052 did for `sqrt`.**
@@ -668,7 +692,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 | INV-1 | `tests/unit/BundleLightProbesTest.cpp` |
 | INV-2, INV-3, INV-4 | `tests/unit/BakeLightModelTest.cpp` |
 | INV-5 | `tests/unit/BakeLightModelTest.cpp` and `tests/unit/BakeLightProbesTest.cpp` |
-| INV-6, INV-7, INV-8, INV-9, INV-12 | `tests/unit/BakeLightProbesTest.cpp` |
+| INV-6, INV-7, INV-8, INV-9, INV-12, INV-13 | `tests/unit/BakeLightProbesTest.cpp` |
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |
 | § 4.3's model looking like UT99's | **nothing** — UT99's model is in no source this spec draws on; § 15 |

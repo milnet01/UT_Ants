@@ -64,6 +64,12 @@ inline constexpr double DEFAULT_ALBEDO = 0.5;
 [[nodiscard]] std::optional<Rgb> meanAlbedo(const umat::Image& rgba) noexcept;
 
 using AlbedoLookup = std::function<Rgb(std::string_view materialId)>;
+/// UTA-0161: what a material sends on of its own, beyond the light it reflects.
+struct OwnLight {
+    Rgb emission;            ///< its emit map's linear mean; zero when it does not glow
+    bool unlitGlows = false; ///< a liquid: drawn PF_Unlit, it sends on its picture
+};
+using OwnLightLookup = std::function<OwnLight(std::string_view materialId)>;
 
 /// SS 4.7: the ray directions -- an icosahedron's vertices with each edge split
 /// at its midpoint twice -- ascending by z, then y, then x.
@@ -77,13 +83,13 @@ using AlbedoLookup = std::function<Rgb(std::string_view materialId)>;
 [[nodiscard]] std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
                                              const ubundle::Geometry& geometry,
                                              const std::vector<ubundle::Light>& lights,
-                                             const AlbedoLookup& albedo);
+                                             const AlbedoLookup& albedo, const OwnLightLookup& own = {});
 
 /// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
 /// there is one. A job that throws refuses it.
 [[nodiscard]] Result<ubundle::LightProbes> bakeLightProbes(
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,
     const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo, JobSystem& jobs,
-    const std::optional<ProbeReach>& reach = std::nullopt);
+    const std::optional<ProbeReach>& reach = std::nullopt, const OwnLightLookup& own = {});
 
 } // namespace uta::ubake

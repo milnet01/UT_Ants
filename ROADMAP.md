@@ -9902,7 +9902,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: apps, uworld, ubake.
 
-- 📋 [UTA-0161] **Glowing surfaces light their surroundings: acid, nuclear waste and television screens.**
+- 🚧 [UTA-0161] **Glowing surfaces light their surroundings: acid, nuclear waste and television screens.**
   The user asked on 2026-09-14, while UTA-0156 was being worked:
   "please include emissive lighting. Like certain pools of acid or
   nuclear waste should glow", and "Television screens should be emissive
@@ -9922,6 +9922,21 @@ stays with movement in 0.2.0.
   glows with its still picture until UTA-0105 lands.
   User direction (2026-09-14): cheapest methods that still look modern
   first; fully modern features after.
+  Taken 2026-10-02 after UTA-0269, by the route this body names first:
+  the probe bake gathers a glowing surface's light as it gathers a lit
+  one. Census of which surfaces glow comes first.
+  Done (2026-10-02), amending docs/specs/UTA-0112-baked-light-probes.md
+  (SS 4.7 steps 4 and 6, SS 8, INV-13). The probe bake now sends on what a
+  surface shows: a glowing material adds its emit map's linear mean, and
+  an unlit LIQUID (acid, waste, lava) sends its picture. Other unlit
+  surfaces do not, as SS 8 rejects, so a fullbright map does not flood.
+  Baker revision 33; no format change. Measured (~/.cache/uta-scratch/
+  u161): the three reference maps score as before against the original
+  (DM-Deck16][ 39.63/36.20 and AS-Frigate 24.40/17.08 unchanged, DM-Fetid
+  31.58 to 31.56). From every PlayerStart, four ways: CTF-HallOfGiants'
+  102 unlit wormhole surfaces add +0.02 mean luma (no flood); DM-Conveyor
+  +0.37 mean, +4.3 beside its lava, the added light warm (r:g:b 1 : 0.83 :
+  0.56 linear); DM-Cybrosis][ +0.23; DM-Mojo]['s lava is not in view.
   **Layman:** Pools of acid, nuclear waste and TV screens should glow and cast their colour onto nearby walls and floors.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -14832,6 +14847,25 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
   Lanes: urender, ubake.
+
+- 📋 [UTA-0276] **ubake: self-panning textures pan about 1.8 times too fast; UTA-0269's 64 texels a second is not the original's.**
+  Measured 2026-10-02 by the UT_MonsterHunt session in the original 469
+  client (files: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0269/).
+  DM-Conveyor's belt, RainFX.runner (VSize 256, PF_AutoVPan), pans about
+  82.5 texels per GAME second along V, the pattern moving toward -V, as
+  ours does. Ours: PAN_TEXELS_PER_SECOND 64 x the zone's TexVPanSpeed,
+  about 148 there. Per unit of speed the original gives 35.6 if the
+  camera's zone (LevelInfo0, 2.32) applies or 37.5 if a 2.2 ZoneInfo's
+  does; which zone applies is not yet settled. The pan follows game time,
+  so TimeDilation scales it (DeathMatchPlus runs at 1.1).
+  Waiting-on: a second run in a zone of speed 1.0, asked of that session,
+  to give the per-unit constant directly. Then change
+  PAN_TEXELS_PER_SECOND, bump the baker revision, and record the
+  measurement in UTA-0109 SS 4.3.
+  **Layman:** Conveyor belts and rivers that slide by themselves now move, but faster than in the original game.
+  Kind: fix.
+  Source: in-session-2026-10-02 measured by UT_MonsterHunt.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 

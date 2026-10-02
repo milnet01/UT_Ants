@@ -78,7 +78,9 @@ namespace {
 // looks. The fixture holds no liquid, so only the byte moved the digest.
 // 32, format 17: UTA-0269 gave each GEOM and MOVR batch a pan rate. The
 // fixture pans nothing, so only the rate's zero bytes moved the digest.
-constexpr std::uint32_t RECORDED_UNDER = 32;
+// 33: UTA-0161 sends a glowing or unlit surface's own light into the probes.
+// The fixture has neither, so the digest is 32's.
+constexpr std::uint32_t RECORDED_UNDER = 33;
 constexpr std::string_view GOLDEN =
     "66a74f1c3e0f39eddbba00ab93e059f5a37bbbcc765ea1fabde52924a112078d";
 

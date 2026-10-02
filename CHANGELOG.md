@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Glowing pools of lava, acid and waste, and glowing screens and lamps, now cast their colour onto the walls and floors near them.** (UTA-0161)
+  The light is worked out when a map is baked, so it costs nothing while
+  playing. Maps lit mostly by full-brightness surfaces are not flooded.
+  Baker revision 33: every map must be baked again.
+
 - **Rivers, conveyor belts and scrolling signs that slid along in the original slide again, each at its own area's speed.** (UTA-0269)
   A surface the original panned by itself now pans at the same rate,
   faster or slower where the map's author set its area's speed.
