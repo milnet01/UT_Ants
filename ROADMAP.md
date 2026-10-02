@@ -4970,7 +4970,7 @@ stays with movement in 0.2.0.
   Kind: doc-fix.
   Source: review-contract-2026-09-09.
 
-- 🚧 [UTA-0089] **urender: water and glass that look the part, with cheap faked reflections.**
+- ✅ [UTA-0089] **urender: water and glass that look the part, with cheap faked reflections.**
   The user's requirement (2026-09-10): water sections must actually look
   like water, and glass sections must look like glass, with reflections
   where they fit. Faked or cheap reflections are acceptable, and cheap is
@@ -5081,6 +5081,9 @@ stays with movement in 0.2.0.
   110.9), reported not fitted. Separately seen: Arcane's waterrings2 is
   PF_Modulated, and urender has no modulated blend, so it draws as an
   ordinary unlit surface.
+  Shipped (2026-10-02): 1fdf5c5 and aaf3905. GitHub's matrix green on
+  aaf3905 (run 37007639954): GCC 14, Clang 19, MSVC. The real-asset tier
+  was not run: no real test draws, and the change is urender's alone.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
