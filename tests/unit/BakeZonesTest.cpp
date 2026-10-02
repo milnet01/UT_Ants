@@ -22,7 +22,6 @@
 #include <utility>
 #include <vector>
 
-using uta::ubake::buildZonePanSpeeds;
 using uta::ubake::buildZones;
 using uta::ubake::levelBrightnessOf;
 using uta::ubundle::ActorClass;
@@ -145,17 +144,17 @@ TEST_CASE("INV-3: a zone naming an export with no placement takes the LevelInfo'
     CHECK(int(zones[1].brightness) == 90);
 }
 
-TEST_CASE("UTA-0269: a zone pans at its actor's speeds else its class's else 1", "[ubake][zone]") {
+TEST_CASE("UTA-0276: a zone pans at its actor's speeds else its class's else 1", "[ubake][zone]") {
     // ZoneInfo's compiled defaults are 1 and 1 (Engine.u, read 2026-10-02), so
     // a zone whose actor and class store neither pans at 1.
     Placements withSpeeds = placements();
     withSpeeds.actors[1].properties.push_back(floatRecord("TexUPanSpeed", 0.25F));
     withSpeeds.classes[2].defaults.push_back(floatRecord("TexVPanSpeed", 3.0F));
-    const std::vector<std::array<float, 2>> speeds = buildZonePanSpeeds(threeZones(), withSpeeds);
-    REQUIRE(speeds.size() == 3);
-    CHECK(speeds[0] == std::array<float, 2>{1, 1}); // the LevelInfo, storing neither
-    CHECK(speeds[1] == std::array<float, 2>{0.25F, 1});
-    CHECK(speeds[2] == std::array<float, 2>{1, 3.0F});
+    const std::vector<Zone> zones = buildZones(threeZones(), withSpeeds);
+    REQUIRE(zones.size() == 3);
+    CHECK(zones[0].panSpeed == std::array<float, 2>{1, 1}); // the LevelInfo, storing neither
+    CHECK(zones[1].panSpeed == std::array<float, 2>{0.25F, 1});
+    CHECK(zones[2].panSpeed == std::array<float, 2>{1, 3.0F});
 }
 
 TEST_CASE("INV-3: a Model with no zones gives one entry from the LevelInfo", "[ubake][zone]") {

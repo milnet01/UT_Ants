@@ -81,6 +81,14 @@ order `ubundle::write` documents. The codec lives in a new
 **Validation**, `MalformedData` on `read` and `InvalidArgument` on `write`: a
 count of `0`, or above `ZONE_LIMIT`.
 
+**Amended by `UTA-0276`, recording what was built.** Each entry ends, after
+`UTA-0015`'s fog byte, with `panSpeed`: the zone's `TexUPanSpeed` and
+`TexVPanSpeed` as two `f32`. They resolve as § 4.3 resolves the ambient,
+else `1`, Engine.u's `ZoneInfo` default; a NaN or infinity bakes as `1`.
+`read` and `write` refuse a speed that is not finite. The renderer multiplies
+each panning batch's rate (`UTA-0109` § 4.3) by the camera's zone's speeds,
+because the original pans by the viewer's zone (measured, `UTA-0276`).
+
 ### 4.2 A vertex's zone — `ubundle`
 
 ```cpp
@@ -311,6 +319,17 @@ lightmap units rather than linear light scored worse still, `40.8` and
   *Test:* `tests/real/RealBakeTest.cpp`, extended; real-asset tier only.
   *Breaks when:* `bake` does not write the value onto the lights.
 
+- **INV-13** — § 4.1's pan speeds. `ZONE`'s speeds round-trip through their
+  bits and a speed that is not finite is refused both ways. `buildZones` gives
+  a zone its actor's speed, else its class's, else `1`. A panning batch's
+  texture moves by its rate times the CAMERA's zone's speed: at a rate of
+  `0.25` and a speed of `2`, a point a quarter across shows at second `1`
+  what lay three quarters across. *Added by UTA-0276.*
+  *Test:* `tests/unit/BundleZonesTest.cpp`, `tests/unit/BakeZonesTest.cpp`,
+  and `tests/device/RenderSurfaceFlagsTest.cpp`'s pan case.
+  *Breaks when:* the speeds are not written or not checked; a speed defaults
+  to `0`; the renderer drops the camera's speed, or uses the surface's zone.
+
 ## 6. Failure modes
 
 - **A node's front side is not its surface's side** on some map. Its surface
@@ -342,6 +361,8 @@ All carry the `unit` label but INV-6, which carries `device`.
 - INV-11 — `tests/unit/BakeLightModelTest.cpp` and
   `tests/device/RenderLightParityTest.cpp`, extended.
 - INV-12 — `tests/real/RealBakeTest.cpp`, extended.
+- INV-13 — `tests/unit/BundleZonesTest.cpp`, `tests/unit/BakeZonesTest.cpp` and
+  `tests/device/RenderSurfaceFlagsTest.cpp`, extended (UTA-0276).
 
 Each extended test is seen to fail against the code before this item. For
 INV-9 to INV-12 that was done by breaking each part of § 4.5 alone and
@@ -399,6 +420,7 @@ this spec is amended first.
 | INV-6 | `tests/device/RenderLightingTest.cpp` |
 | INV-7 | `src/urender/ShaderTypes.h`'s `static_assert`s |
 | INV-8 | `tests/unit/BakeGoldenTest.cpp` |
+| INV-13 | `tests/unit/BundleZonesTest.cpp`, `tests/unit/BakeZonesTest.cpp`, `tests/device/RenderSurfaceFlagsTest.cpp` |
 | The front-side rule holds on real maps | **nothing** — § 7's probe is run by hand, once |
 | How ambient looks against the original | **nothing** — § 7's measurement is run by hand |
 

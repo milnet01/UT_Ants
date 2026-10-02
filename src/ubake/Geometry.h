@@ -19,7 +19,6 @@
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 
-#include <array>
 #include <cstdint>
 #include <functional>
 #include <span>
@@ -37,9 +36,11 @@ inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;   ///< nothing collid
 inline constexpr std::uint32_t PF_AUTO_U_PAN = 0x00000200u;  ///< pans along u -- UTA-0269
 inline constexpr std::uint32_t PF_AUTO_V_PAN = 0x00000400u;  ///< pans along v -- UTA-0269
 
-/// UTA-0269: how far a flagged surface pans a second at a zone speed of 1, in
-/// texels -- SurrealEngine's RenderSubsystem (`AutoUV`), read 2026-10-02.
-inline constexpr double PAN_TEXELS_PER_SECOND = 64.0;
+/// UTA-0276: how far a flagged surface pans a game second at a zone speed of
+/// 1, in texels. Measured in the original 469 client on DM-Conveyor's belt by
+/// the UT_MonsterHunt session, 2026-10-02: 34.4, 35.3 and 35.6 over three
+/// runs. It replaced UTA-0269's 64, read from SurrealEngine's source.
+inline constexpr double PAN_TEXELS_PER_SECOND = 35.0;
 
 /// The furthest a drawn point may lie from the origin on any axis
 /// (UTA-0109 SS 4.3 step 4): 2^24, past which an f32 no longer holds whole
@@ -76,13 +77,13 @@ using MaterialLookup =
 /// (UTA-0263 SS 4.3). Its nodes are still checked for `iSurf`.
 ///
 /// UTA-0269: a batch flagged PF_AutoUPan or PF_AutoVPan pans
-/// PAN_TEXELS_PER_SECOND times its zone's speed over the texture's size, in
-/// repeats a second. `panSpeeds` holds each zone's u and v speed; a zone past
-/// it pans at 1, ZoneInfo's default. Batches split by rate.
+/// PAN_TEXELS_PER_SECOND over the texture's size, in repeats a second at a
+/// zone speed of 1. UTA-0276: the speed is the VIEWER's zone's, so the
+/// renderer applies it each frame and the rate here carries none. Batches
+/// split by rate.
 [[nodiscard]] Result<ubundle::Geometry> buildGeometry(const upkg::Model& model,
                                                       const MaterialLookup& materials,
                                                       std::size_t zoneCount,
-                                                      std::span<const std::uint32_t> omitted = {},
-                                                      std::span<const std::array<float, 2>> panSpeeds = {});
+                                                      std::span<const std::uint32_t> omitted = {});
 
 } // namespace uta::ubake

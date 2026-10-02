@@ -8,7 +8,6 @@
 #include "umap/Build.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <string_view>
 #include <variant>
@@ -39,11 +38,22 @@ std::uint8_t flagOf(std::string_view name, const ubundle::ActorPlacement& actor,
     return record != nullptr && std::get<bool>(record->value) ? 1 : 0;
 }
 
+/// UTA-0276: a pan speed is the actor's own record, else its class's default,
+/// else 1, Engine.u's ZoneInfo default. A NaN or infinity is 1, so ZONE's
+/// refusal of a speed that is not finite is never reached from a map.
+float speedOf(std::string_view name, const ubundle::ActorPlacement& actor, const ubundle::ActorClass& actorClass) {
+    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Float, actor, actorClass);
+    if (record == nullptr) return 1;
+    const float value = std::get<float>(record->value);
+    return std::isfinite(value) ? value : 1.0F;
+}
+
 ubundle::Zone zoneOf(const ubundle::Placements& placements, const ubundle::ActorPlacement* actor) {
     if (actor == nullptr) return {};
     const ubundle::ActorClass& actorClass = placements.classes[actor->classIndex];
     return {byteOf("ambientbrightness", *actor, actorClass), byteOf("ambienthue", *actor, actorClass),
-            byteOf("ambientsaturation", *actor, actorClass), flagOf("bfogzone", *actor, actorClass)};
+            byteOf("ambientsaturation", *actor, actorClass), flagOf("bfogzone", *actor, actorClass),
+            {speedOf("texupanspeed", *actor, actorClass), speedOf("texvpanspeed", *actor, actorClass)}};
 }
 
 /// The placement of export `exportIndex`; placements are ascending by it.
@@ -67,36 +77,6 @@ const ubundle::ActorPlacement* levelInfoOf(const ubundle::Placements& placements
 }
 
 } // namespace
-
-std::vector<std::array<float, 2>> buildZonePanSpeeds(const upkg::Model& model, const ubundle::Placements& placements) {
-    // Resolved as buildZones resolves the ambient: a zone's own actor, else
-    // the LevelInfo. Engine.u's ZoneInfo stores 1 and 1 as its defaults.
-    const auto speedsOf = [&placements](const ubundle::ActorPlacement* actor) {
-        std::array<float, 2> speeds{1, 1};
-        if (actor == nullptr) return speeds;
-        const ubundle::ActorClass& actorClass = placements.classes[actor->classIndex];
-        const std::array<std::string_view, 2> names = {"texupanspeed", "texvpanspeed"};
-        for (std::size_t axis = 0; axis < 2; ++axis) {
-            const ubundle::PropertyRecord* record = recordOf(names[axis], ubundle::ValueKind::Float, *actor, actorClass);
-            // A NaN or infinity pans at the default, so GEOM's refusal of a rate
-            // that is not finite is never reached from a map.
-            if (record != nullptr && std::isfinite(std::get<float>(record->value)))
-                speeds[axis] = std::get<float>(record->value);
-        }
-        return speeds;
-    };
-    const std::array<float, 2> level = speedsOf(levelInfoOf(placements));
-    std::vector<std::array<float, 2>> speeds;
-    speeds.reserve(std::max<std::size_t>(model.zones.size(), 1));
-    for (const upkg::ZoneProperties& zone : model.zones) {
-        const ubundle::ActorPlacement* actor = zone.zoneActor.kind() == upkg::ObjectReferenceKind::Export
-                                                   ? placementOf(placements, zone.zoneActor.index())
-                                                   : nullptr;
-        speeds.push_back(actor != nullptr ? speedsOf(actor) : level);
-    }
-    if (speeds.empty()) speeds.push_back(level);
-    return speeds;
-}
 
 float levelBrightnessOf(const ubundle::Placements& placements) {
     const ubundle::ActorPlacement* level = levelInfoOf(placements);

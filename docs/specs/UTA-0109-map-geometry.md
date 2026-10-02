@@ -228,21 +228,21 @@ can still be solid (UTA-0111 § 4.3).
 
 **Batches.** A drawn node belongs to the batch keyed by its material id
 (empty for none), its surface's `polyFlags` and its pan rate. Batches are
-emitted in ascending key order — id bytewise, then flags, then rate.
+emitted in ascending key order — id bytewise, then flags, then rate. Within a
+batch, nodes keep node order. Vertices and indices are appended in the order
+their nodes are emitted, so each batch's vertices are contiguous too.
 
-**Pan rate** (`UTA-0269`, recording what was built). A node whose surface
-carries `PF_AutoUPan` (`0x200`) or `PF_AutoVPan` (`0x400`) pans along that
-axis by `PAN_TEXELS_PER_SECOND` (`64`) times its zone's `TexUPanSpeed` or
-`TexVPanSpeed`, over the material's `uSize` or `vSize`, in repeats a
-second; an axis not flagged, or a node with no material, has `0`. The zone is
-the vertices' own, `iZone[1]`. Its speeds are its actor's records, else its
-class's defaults, else `1`, Engine.u's `ZoneInfo` default, resolved as
-UTA-0156 § 4.3 resolves the ambient; a NaN or infinity is `1`. The rule is
-SurrealEngine's (`RenderSubsystem`, `AutoUV`, read 2026-10-02); it was not
-measured against an original frame. A mover's nodes take speed `1`: its Model
-has no zones. Within a batch, nodes keep
-node order. Vertices and indices are appended in the order their nodes are
-emitted, so each batch's vertices are contiguous too.
+**Pan rate** (`UTA-0269`, corrected by `UTA-0276`, recording what was
+built). A node whose surface carries `PF_AutoUPan` (`0x200`) or
+`PF_AutoVPan` (`0x400`) pans along that axis by `PAN_TEXELS_PER_SECOND`
+(`35`) over the material's `uSize` or `vSize`, in repeats a second at a zone
+speed of `1`; an axis not flagged, or a node with no material, has `0`. The
+speed is the VIEWER's zone's, which the renderer applies each frame
+(UTA-0156 § 4.1), so nodes in different zones share a rate. Measured in the
+original 469 client on DM-Conveyor's belt by the UT_MonsterHunt session,
+2026-10-02: `34.4`, `35.3` and `35.6` texels a game second per unit of
+speed, and doubling only the camera's zone speed doubled the pan. UTA-0269
+had `64` times the surface's zone, from SurrealEngine's source.
 
 **Why the pan is added.** The UT 4.32 OpenGL driver computes
 `(MapCoords.XAxis · (P - MapCoords.Origin) - Info.Pan.X) * UMult`, where
@@ -435,19 +435,16 @@ Recorded after the build; nothing above changed direction.
   where a NaN makes `s` neither zero nor negative.
 
 - **INV-13** — A batch's pan rate is § 4.3's. Two nodes flagged
-  `PF_AutoUPan | PF_AutoVPan` in zones of speeds `(2, 0.5)` and `(4, 4)`,
-  over a `128` by `64` material, are two batches of rates `(1, 0.5)` and
-  `(2, 4)`; an unflagged node's rate is `(0, 0)` and a node flagged along u
-  only has none along v; with no speeds given, the first is `(0.5, 1)`. A
-  zone's speeds are its actor's, else its class's, else `1`. `GEOM` and `MOVR`
-  carry the rate through their bits, and refuse one that is not finite.
-  *Added by UTA-0269.*
-  *Test:* `tests/unit/BakeGeometryTest.cpp` and `tests/unit/BakeZonesTest.cpp`
-  for the rate and the speeds; `tests/unit/BundleGeometryTest.cpp` for the
-  bytes, the order and the refusal.
-  *Breaks when:* the rate leaves the batch key, so nodes of different rates
-  share a batch; the speed is read from the wrong zone or defaults to `0`; the
-  rate is not written, or a NaN reaches the order check.
+  `PF_AutoUPan | PF_AutoVPan` in different zones, over a `128` by `64`
+  material, are one batch of rate `(35/128, 35/64)`; an unflagged node's rate
+  is `(0, 0)` and a node flagged along u only has none along v. `GEOM` and
+  `MOVR` carry the rate through their bits, and refuse one that is not
+  finite. *Added by UTA-0269; corrected by UTA-0276.*
+  *Test:* `tests/unit/BakeGeometryTest.cpp` for the rate;
+  `tests/unit/BundleGeometryTest.cpp` for the bytes, the order and the refusal.
+  *Breaks when:* the rate leaves the batch key; a zone's speed is folded into
+  the rate, which splits the batch and pans by the surface's zone; the rate is
+  not written, or a NaN reaches the order check.
 
 ## 6. Failure modes
 
@@ -470,8 +467,9 @@ Recorded after the build; nothing above changed direction.
 `tests/unit/BakeGeometryTest.cpp` for INV-3, INV-4, INV-5, INV-6, INV-7,
 INV-8 and INV-9, calling
 `buildGeometry` on a `upkg::Model` built in memory; `tests/unit/BakeTest.cpp`
-for INV-10 and INV-11; and, for INV-13, `tests/unit/BakeGeometryTest.cpp`,
-`tests/unit/BakeZonesTest.cpp` and `tests/unit/BundleGeometryTest.cpp`. Each is
+for INV-10 and INV-11; `tests/unit/BakeGeometryTest.cpp` for INV-12, with
+`tests/real/RealGeometryTest.cpp` over every map; and, for INV-13,
+`tests/unit/BakeGeometryTest.cpp` and `tests/unit/BundleGeometryTest.cpp`. Each is
 seen failing before the code it locks exists.
 
 **The fixtures grow.** `ModelExportWriter` in
@@ -556,7 +554,7 @@ Each must be killed by the invariant that names it.
 | INV-4 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, a real-asset test, over every map |
 | INV-10, INV-11 | `tests/unit/BakeTest.cpp`, a unit test |
 | INV-12 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, over every map |
-| INV-13 | `tests/unit/BakeGeometryTest.cpp`, `tests/unit/BakeZonesTest.cpp` and `tests/unit/BundleGeometryTest.cpp`, unit tests. Whether 64 texels a second matches the original's frames: **nothing** |
+| INV-13 | `tests/unit/BakeGeometryTest.cpp` and `tests/unit/BundleGeometryTest.cpp`, unit tests. The constant `35` against the original: **nothing** automated -- UTA-0276's measurement, run by hand once |
 | `BAKER_REVISION` covering geometry | **Partial:** `tests/unit/BakeGoldenTest.cpp`, a golden-hash test, catches what its fixture draws; a change reached only by real content passes |
 | The PolyFlags bit values being UT99's | **nothing** — the tests use the constants the code uses, and the values rest on the cited header |
 | The pan's sign matching UT99 | **Partial:** `tests/real/RealGeometryTest.cpp`, a real-asset test, prints the seam tally; nothing asserts it, and no CI leg runs it |

@@ -80,9 +80,11 @@ namespace {
 // fixture pans nothing, so only the rate's zero bytes moved the digest.
 // 33: UTA-0161 sends a glowing or unlit surface's own light into the probes.
 // The fixture has neither, so the digest is 32's.
-constexpr std::uint32_t RECORDED_UNDER = 33;
+// 34, format 18: UTA-0276 gave each ZONE entry its pan speeds and moved the
+// pan constant to 35. The fixture pans nothing, so the zone bytes moved it.
+constexpr std::uint32_t RECORDED_UNDER = 34;
 constexpr std::string_view GOLDEN =
-    "66a74f1c3e0f39eddbba00ab93e059f5a37bbbcc765ea1fabde52924a112078d";
+    "1d173bd136f1ca4c84a6a194e8089bf8804db6f52b0b348bcdba5e9950dae07d";
 
 } // namespace
 

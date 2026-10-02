@@ -603,6 +603,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Self-moving textures such as conveyor belts now slide at the original game's speed, which depends on the area you are standing in.** (UTA-0276)
+  They had moved almost twice as fast. The speed was measured in the
+  original game. Bundle format 18 and baker revision 34: every map must
+  be baked again.
+
 - **On the sewer map the fog glows green and thickens with distance, instead of laying a flat grey mist over everything.** (UTA-0262)
   Walls close to you stay clear and the far end of a room fades into
   green, as in the original. No map needs baking again.

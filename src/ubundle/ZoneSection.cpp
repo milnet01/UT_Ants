@@ -5,14 +5,16 @@
 
 #include "Sections.h"
 
+#include <cmath>
 #include <string>
 
 namespace uta::ubundle {
 namespace detail {
 namespace {
 
-/// UTA-0156 SS 4.1's three u8, then UTA-0015's fog flag.
-constexpr std::uint64_t ZONE_ENTRY = 4;
+/// UTA-0156 SS 4.1's three u8, then UTA-0015's fog flag, then UTA-0276's two
+/// pan speeds.
+constexpr std::uint64_t ZONE_ENTRY = 12;
 
 [[nodiscard]] Result<Zone> readZone(Cursor& cursor) {
     Zone zone;
@@ -20,6 +22,9 @@ constexpr std::uint64_t ZONE_ENTRY = 4;
     UTA_TRY(zone.hue, cursor.readU8());
     UTA_TRY(zone.saturation, cursor.readU8());
     UTA_TRY(zone.fog, cursor.readU8());
+    for (float& speed : zone.panSpeed) {
+        UTA_TRY(speed, cursor.readF32());
+    }
     return zone;
 }
 
@@ -28,6 +33,7 @@ void putZone(Sink& sink, const Zone& zone) {
     sink.putU8(zone.hue);
     sink.putU8(zone.saturation);
     sink.putU8(zone.fog);
+    for (const float speed : zone.panSpeed) sink.putF32(speed);
 }
 
 /// Every vertex of `geometry` names a zone below `bound`.
@@ -53,10 +59,14 @@ Result<void> validateZones(const std::vector<Zone>& zones, ErrorCode code) {
     if (zones.empty() || zones.size() > ZONE_LIMIT)
         return fail(code, "ZONE: " + std::to_string(zones.size()) + " entries, where 1 to "
                               + std::to_string(ZONE_LIMIT) + " are allowed");
-    for (std::size_t i = 0; i < zones.size(); ++i)
+    for (std::size_t i = 0; i < zones.size(); ++i) {
         if (zones[i].fog > 1)
             return fail(code, "ZONE: entry " + std::to_string(i) + " has a fog byte of "
                                   + std::to_string(zones[i].fog) + ", where only 0 and 1 are allowed");
+        for (const float speed : zones[i].panSpeed)
+            if (!std::isfinite(speed))
+                return fail(code, "ZONE: entry " + std::to_string(i) + "'s pan speed is not finite");
+    }
     return {};
 }
 

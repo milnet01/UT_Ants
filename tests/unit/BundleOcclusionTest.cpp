@@ -67,7 +67,7 @@ Bytes aoccPayload(const Occlusion& occlusion) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(17); // formatVersion -- 17 since UTA-0269 gave each GEOM batch a pan rate
+    out.u32(18); // formatVersion -- 18 since UTA-0276 gave each ZONE entry its pan speeds
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved

@@ -215,6 +215,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
             fnv.addValue(zone.hue);
             fnv.addValue(zone.saturation);
             fnv.addValue(zone.fog); // UTA-0015
+            fnv.addValue(zone.panSpeed); // UTA-0276
         }
     }
     if (bundle.textures) {
@@ -420,6 +421,9 @@ struct Renderer::Impl {
     /// records. Kept rather than recomputed: reading the clock again would
     /// return a later time than the frame actually used.
     double lastLightSeconds = 0;
+    /// UTA-0276: the camera's zone's pan speeds, u and v, which scale every
+    /// panning batch this frame -- the original pans by the viewer's zone.
+    std::array<float, 2> cameraPanSpeed{1, 1};
     bool drawn = false;
     /// The last draw() drew nothing -- minimised, out of date, or failed -- so
     /// the targets hold an older frame (UTA-0228 L5).
@@ -1083,11 +1087,13 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
             vkCmdSetFrontFace(commands, front);
             // UTA-0269: the pan in double, then its fraction, so a float never
             // holds rate * seconds, which loses the fraction within the hour.
-            const auto panned = [this](float rate) {
-                return static_cast<float>(std::fmod(static_cast<double>(rate) * lastLightSeconds, 1.0));
+            // UTA-0276: times the camera's zone's speed on that axis.
+            const auto panned = [this](float rate, std::size_t axis) {
+                return static_cast<float>(std::fmod(
+                    static_cast<double>(rate) * static_cast<double>(cameraPanSpeed[axis]) * lastLightSeconds, 1.0));
             };
             const gpu::DrawConstants constants{item.objectIndex, item.materialIndex, item.polyFlags, 0,
-                                               {panned(item.panRate[0]), panned(item.panRate[1])}};
+                                               {panned(item.panRate[0], 0), panned(item.panRate[1], 1)}};
             vkCmdPushConstants(commands, pipelines->sceneLayout(),
                                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
                                &constants);
@@ -1483,6 +1489,8 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
     const std::uint8_t cameraZone = bundle.rooms ? ubundle::zoneAt(*bundle.rooms, camera.location, zoneCount) : 0;
     frame.cameraZone = cameraZone; // UTA-0089 SS 4.2
+    if (bundle.zones) impl.cameraPanSpeed = (*bundle.zones)[cameraZone < bundle.zones->size() ? cameraZone : 0].panSpeed;
+    else impl.cameraPanSpeed = {1, 1};
     const std::array<ubundle::Zone, 1> noZone{};
     const std::span<const ubundle::Zone> zoneSpan =
         bundle.zones ? std::span<const ubundle::Zone>(*bundle.zones) : std::span<const ubundle::Zone>(noZone);

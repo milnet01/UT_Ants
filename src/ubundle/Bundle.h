@@ -58,7 +58,8 @@ namespace uta::ubundle {
 /// added FLAM.
 /// 16 since UTA-0105 SS 4.2 gave each MATS record its liquid look.
 /// 17 since UTA-0269 gave each GEOM batch its pan rate (UTA-0109 SS 4.2).
-inline constexpr std::uint32_t FORMAT_VERSION = 17;
+/// 18 since UTA-0276 gave each ZONE entry its pan speeds (UTA-0156 SS 4.1).
+inline constexpr std::uint32_t FORMAT_VERSION = 18;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -221,7 +222,7 @@ struct GeometryBatch {
     std::uint32_t polyFlags = 0;  ///< UT99's PolyFlags, verbatim
     std::uint32_t firstIndex = 0;
     std::uint32_t indexCount = 0; ///< three per triangle
-    std::array<float, 2> panRate{}; ///< UTA-0269: repeats a second along u and v; finite
+    std::array<float, 2> panRate{}; ///< UTA-0269: repeats a second along u and v at a zone speed of 1; finite
 };
 
 /// The level's drawable surfaces as triangles -- UTA-0109 SS 4.2.
@@ -425,6 +426,7 @@ struct Zone {
     std::uint8_t hue = 0;
     std::uint8_t saturation = 0;
     std::uint8_t fog = 0; ///< 1 where bFogZone is set; never above 1
+    std::array<float, 2> panSpeed{1, 1}; ///< UTA-0276: TexUPanSpeed and TexVPanSpeed; finite
 };
 
 /// The widest and tallest AOCC atlas, in texels -- UTA-0164 SS 4.1.

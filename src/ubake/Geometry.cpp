@@ -58,8 +58,7 @@ struct Drawn {
 } // namespace
 
 Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
-                                        std::size_t zoneCount, std::span<const std::uint32_t> omitted,
-                                        std::span<const std::array<float, 2>> panSpeeds) {
+                                        std::size_t zoneCount, std::span<const std::uint32_t> omitted) {
     std::vector<Drawn> drawn;
     std::uint64_t vertexTotal = 0;
     std::uint64_t indexTotal = 0;
@@ -145,15 +144,14 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         out.corners.reserve(count);
         // UTA-0156 SS 4.3: the zone on the plane's front, the side the surface faces.
         const auto zone = static_cast<std::uint8_t>(node.iZone[1] < zoneCount ? node.iZone[1] : 0);
-        // UTA-0269: UT99 pans PAN_TEXELS_PER_SECOND times the zone's speed,
-        // which in repeats a second is that over the texture's size. A zone
-        // with no speed given pans at ZoneInfo's default, 1.
-        if (made != nullptr && (surf.polyFlags & (PF_AUTO_U_PAN | PF_AUTO_V_PAN)) != 0) {
-            const std::array<float, 2> speed = zone < panSpeeds.size() ? panSpeeds[zone] : std::array<float, 2>{1, 1};
+        // UTA-0269: UT99 pans PAN_TEXELS_PER_SECOND, which in repeats a second
+        // is that over the texture's size. UTA-0276: times the viewer's zone
+        // speed, which the renderer applies.
+        if (made != nullptr) {
             if ((surf.polyFlags & PF_AUTO_U_PAN) != 0)
-                out.panRate[0] = static_cast<float>(PAN_TEXELS_PER_SECOND * speed[0] / made->uSize);
+                out.panRate[0] = static_cast<float>(PAN_TEXELS_PER_SECOND / made->uSize);
             if ((surf.polyFlags & PF_AUTO_V_PAN) != 0)
-                out.panRate[1] = static_cast<float>(PAN_TEXELS_PER_SECOND * speed[1] / made->vSize);
+                out.panRate[1] = static_cast<float>(PAN_TEXELS_PER_SECOND / made->vSize);
         }
         for (const Vec& point : points) {
             ubundle::GeometryVertex vertex;

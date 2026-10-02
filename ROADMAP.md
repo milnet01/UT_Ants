@@ -9902,7 +9902,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: apps, uworld, ubake.
 
-- 🚧 [UTA-0161] **Glowing surfaces light their surroundings: acid, nuclear waste and television screens.**
+- ✅ [UTA-0161] **Glowing surfaces light their surroundings: acid, nuclear waste and television screens.**
   The user asked on 2026-09-14, while UTA-0156 was being worked:
   "please include emissive lighting. Like certain pools of acid or
   nuclear waste should glow", and "Television screens should be emissive
@@ -9937,6 +9937,7 @@ stays with movement in 0.2.0.
   102 unlit wormhole surfaces add +0.02 mean luma (no flood); DM-Conveyor
   +0.37 mean, +4.3 beside its lava, the added light warm (r:g:b 1 : 0.83 :
   0.56 linear); DM-Cybrosis][ +0.23; DM-Mojo]['s lava is not in view.
+  Shipped in 47a53b1; GitHub's matrix green (run 37032655136).
   **Layman:** Pools of acid, nuclear waste and TV screens should glow and cast their colour onto nearby walls and floors.
   Kind: feature.
   Source: user-request-2026-09-14.
@@ -14771,6 +14772,13 @@ stays with movement in 0.2.0.
   kit (UTALiquidIce poses, motion.py). Decision for the user, if they
   know of a licensed description of IceTexture's drawing: say so before
   the fit is built.
+  Original frames captured 2026-10-02 by the UT_MonsterHunt session, OpenGL
+  on llvmpipe: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0269/
+  ice-slow/ (TimeDilation 0.1) and ice-normal/ (1.1), 12 shots each at
+  the camera above, game time and clock per shot in client-ice-*.log.
+  The camera's zone is LevelInfo0 (TexUPanSpeed 0.2, TexVPanSpeed 1.0).
+  The plasma's shape changes between shots: it churns, as this item
+  says, rather than sliding. The fit is still to do.
   **Layman:** Glowing plasma and warp effects swirl and churn in the original but only slide here; drawing their second layer fixes that.
   Kind: feature.
   Source: in-session-2026-10-02.
@@ -14848,7 +14856,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02 split-from-UTA-0262.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0276] **ubake: self-panning textures pan about 1.8 times too fast; UTA-0269's 64 texels a second is not the original's.**
+- 🚧 [UTA-0276] **ubake: self-panning textures pan about 1.8 times too fast; UTA-0269's 64 texels a second is not the original's.**
   Measured 2026-10-02 by the UT_MonsterHunt session in the original 469
   client (files: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0269/).
   DM-Conveyor's belt, RainFX.runner (VSize 256, PF_AutoVPan), pans about
@@ -14862,6 +14870,23 @@ stays with movement in 0.2.0.
   to give the per-unit constant directly. Then change
   PAN_TEXELS_PER_SECOND, bump the baker revision, and record the
   measurement in UTA-0109 SS 4.3.
+  Waiting-on met 2026-10-02: the UT_MonsterHunt session's runs A and B
+  (work/uta0269/runA, runB, measure.py). Every zone at 1.0: 34.41
+  texels a game second; every zone 1.0 but the camera's LevelInfo0 at
+  2.0: 70.69, so the VIEWER's zone scales the pan, not the surface's
+  (the belt is in ZoneInfo2). Per unit 34.4, 35.3, 35.6 over three runs:
+  35. Taken: the bake stores 35 / size per flagged axis, ZONE carries
+  each zone's two speeds, and each frame multiplies by the camera's.
+  Done (2026-10-02). PAN_TEXELS_PER_SECOND is 35, and the bake stores
+  35 / size with no zone in it, so nodes in different zones share a
+  batch. ZONE carries each zone's TexUPanSpeed and TexVPanSpeed (format
+  18, baker 34), and each frame the renderer multiplies a batch's rate by
+  the camera's zone's speeds. Amends UTA-0109 SS 4.3 and INV-13, UTA-0156
+  SS 4.1 with INV-13, and UTA-0014 SS 4.5's row. Tests red first (bake,
+  zone and bundle cases); the device case's mutant without the camera
+  speed killed. The clock is still our wall clock: UT99's is game time,
+  which TimeDilation scales (DeathMatchPlus 1.1), and we have no game
+  time yet.
   **Layman:** Conveyor belts and rivers that slide by themselves now move, but faster than in the original game.
   Kind: fix.
   Source: in-session-2026-10-02 measured by UT_MonsterHunt.
@@ -15247,6 +15272,12 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the original's frames; not from UnFractal-style leaked engine source.
   Placed in 0.2.0: 0.1.0 is cut on S1 and S7, and the user deferred extra
   surface detail out of it (UTA-0054, 2026-09-08).
+  Original frames captured 2026-10-02 by the UT_MonsterHunt session,
+  DetailTextures on: .../UT_MonsterHunt/work/uta0269/detail/, DM-Fetid,
+  the Y=+512 wall of Brush3 straight on from 32, 64, 128, 256, 512 and
+  1023 units (client-detail.log). Their caveat: other brushes wearing
+  bmdirtyt cut that wall, so check the centre pixels are it before
+  reading a cutoff.
   **Layman:** Up close, walls in the original show fine grime and scratches over their main picture; here that layer is missing, so they look flatter.
   Kind: feature.
   Source: in-session-2026-10-02 from UTA-0274.

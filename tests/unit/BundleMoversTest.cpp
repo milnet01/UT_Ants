@@ -90,7 +90,7 @@ Bytes emptyLite() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(17); // formatVersion -- 17 since UTA-0269 gave each GEOM batch a pan rate
+    out.u32(18); // formatVersion -- 18 since UTA-0276 gave each ZONE entry its pan speeds
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -204,7 +204,7 @@ void refusedBothWays(const std::vector<MoverShape>& shapes, std::string_view say
 TEST_CASE("the MOVR golden bytes decode to the shapes they encode", "[ubundle][movr]") {
     const auto result = read(fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 17);
+    CHECK(result->header.formatVersion == 18);
     REQUIRE(result->lights.has_value());
     REQUIRE(result->movers.has_value());
     sameShapes(*result->movers, golden());
@@ -265,6 +265,8 @@ Bytes zonesOf(std::uint32_t count) {
         out.u8(0);
         out.u8(0);
         out.u8(0); // fog
+        out.f32(1.0F); // UTA-0276: ZoneInfo's default pan speeds
+        out.f32(1.0F);
     }
     return out;
 }

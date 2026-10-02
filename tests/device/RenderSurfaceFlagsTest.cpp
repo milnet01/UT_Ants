@@ -168,7 +168,8 @@ TEST_CASE("UTA-0014 INV-12: a modulated surface multiplies what lies behind it b
 
 TEST_CASE("UTA-0269: a batch's pan rate slides its texture with the light clock", "[device]") {
     // An 8 by 4 texture, red on its left half and green on its right, across
-    // a square whose u runs 0 to 1 left to right. At half a repeat a second, at
+    // a square whose u runs 0 to 1 left to right. A quarter repeat a second
+    // in a camera zone of u speed 2 (UTA-0276) is half a repeat a second: at
     // second 1 a point a quarter across shows what lay three quarters across,
     // and at second 2 the whole repeat has passed. Odd channels: bc7Solid.
     removeDisplay();
@@ -178,8 +179,9 @@ TEST_CASE("UTA-0269: a batch's pan rate slides its texture with the light clock"
 
     uta::ubundle::Geometry geometry;
     addSquare(geometry, 100, 0, 0, 30, "halves", PF_UNLIT);
-    geometry.batches.back().panRate = {0.5F, 0.0F};
+    geometry.batches.back().panRate = {0.25F, 0.0F};
     uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    bundle.zones = std::vector<uta::ubundle::Zone>{{0, 0, 0, 0, {2.0F, 1.0F}}};
     bundle.materials.emplace();
     bundle.textures.emplace();
     bundle.materials->push_back({"halves", false});
