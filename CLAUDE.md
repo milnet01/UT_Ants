@@ -5,7 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** open — § Which item comes next decides. `UTA-0263` (shader flames) shipped 2026-10-01. `UTA-0105` keeps the liquids. The fog's look is `UTA-0262`. Dark rooms are left as they are; `UTA-0256`'s added lamps are parked.
+**Next:** open — § Which item comes next decides. `UTA-0089` keeps the water's and glass's look. The fog's look is `UTA-0262`. Dark rooms are left as they are; `UTA-0256`'s added lamps are parked.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
