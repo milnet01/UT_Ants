@@ -14,8 +14,9 @@ the original tinted it and more.
 With the camera inside a water zone, the frame takes the original's tint,
 things fade toward the water's colour with distance, and the view wobbles
 gently. Out of water nothing changes. Surfaces in water carry moving
-caustics (§ 4.5, added after the first part). Light shafts from the surface,
-the surface seen from below and drifting particles follow (§ 9).
+caustics (§ 4.5), and the surface seen from below shows as it does from
+above (§ 4.6), both added after the first part. Light shafts from the surface
+and drifting particles follow (§ 9).
 
 ## 2. Problem
 
@@ -133,6 +134,20 @@ from above the water too. `Feature::Caustics`, from Medium. Each zone's
 `water` reaches the GPU in its zone record, and the bundle fingerprint
 samples it.
 
+### 4.6 The surface seen from below — `scene.frag`
+
+**Amended 2026-10-02, recording what was built.** UT99 lights a liquid's
+sheet once and shows it so from both sides; ours lit its back as a surface
+facing down, which the lights above never reach, so from below the sheet was
+nearly black where the original's is cyan. Now a liquid seen from behind
+mirrors its shading normal back to its front, and reads its probes half a
+spacing in front of it. Any other two-sided surface is still lit on the side
+you see. And from under water a reflection never takes the sky
+(`UTA-0089` § 4.3, amended): ripples had tilted the back of the sheet into
+bright patches of it. On DM-ArcaneTemple, looking up from the pool, ours went
+from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
+0.59 and 0.59.
+
 ## 5. Invariants
 
 - **INV-1** — `ZONE`'s `water`, `viewFog` and `viewFlash` round-trip through
@@ -173,6 +188,14 @@ samples it.
   *Breaks when:* caustics ignore the zone, the clock or the tier, or a
   re-bake differing only in `water` keeps the old zone records.
 
+- **INV-7** — a liquid seen from behind is lit as its front, from probes
+  in front of it; any other surface seen from behind is lit as its back.
+  *Test:* `tests/device/RenderWaterTest.cpp`.
+  *Breaks when:* the normal or the probe point is not mirrored, or every
+  two-sided surface is mirrored.
+  The sky half has no automated test: no device fixture draws a sky for
+  water to reflect. It was checked on DM-ArcaneTemple's frames.
+
 ## 6. Failure modes
 
 - **The camera on the surface** flips between tinted and not as it crosses;
@@ -190,6 +213,7 @@ samples it.
 - INV-3, INV-4, INV-5 — `tests/device/RenderUnderwaterTest.cpp`, new;
   `device`, at `Tier::Low`.
 - INV-6 — the same file, at `Tier::Medium` and `Tier::Low`.
+- INV-7 — `tests/device/RenderWaterTest.cpp`, at `Tier::Low`.
 
 Each is seen failing before the code it locks exists. **Measured, not
 asserted:** the original's frames under and over water (asked of the
@@ -207,8 +231,8 @@ tint's mean colour shift, per zone class.
 
 ## 9. Out of scope
 
-- Light shafts from the surface, the surface seen from below, drifting
-  particles — tracked by UTA-0215, later parts.
+- Light shafts from the surface and drifting particles — tracked by
+  UTA-0215, later parts.
 - Easing the tint in and out as UT99 does — deferred; not yet queued.
 - Water volumes that behave like water — tracked by UTA-0090.
 - Per-zone visibility — deferred; not yet queued.
@@ -220,6 +244,8 @@ tint's mean colour shift, per zone class.
 | INV-1 | `tests/unit/BundleZonesTest.cpp` |
 | INV-2 | `tests/unit/BakeZonesTest.cpp` |
 | INV-3, INV-4, INV-5, INV-6 | `tests/device/RenderUnderwaterTest.cpp` |
+| INV-7 | `tests/device/RenderWaterTest.cpp` |
+| No sky in a reflection from under water | **nothing** automated — checked on DM-ArcaneTemple's frames |
 | Whether it reads as underwater | **nothing** automated — § 7's comparison against the original's frames, run by hand |
 
 ## 11. Cross-doc impact

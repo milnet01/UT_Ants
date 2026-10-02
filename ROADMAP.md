@@ -13205,6 +13205,12 @@ stays with movement in 0.2.0.
   DM-ArcaneTemple's pool (64-unit cell; first tries at 192 units and as a
   multiplier read as smears or as nothing in the dim pool). Four mutations
   killed. Left: light shafts, the surface seen from below, particles.
+  Progress (2026-10-02): the surface seen from below (spec § 4.6, INV-7).
+  A liquid's back is lit as its front, and from under water a reflection
+  never takes the sky. Looking up from DM-ArcaneTemple's pool, ours moved
+  from 0.57/0.47/0.44 of the original (R/G/B) to 0.57/0.59/0.59; the blobs
+  are gone. Left: light shafts, particles; the pool's darkness is
+  UTA-0274's lead.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.

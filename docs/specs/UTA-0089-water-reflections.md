@@ -127,6 +127,11 @@ fog:
 
 Fog then applies as today, so a reflection fades with distance in fog.
 
+**Amended by `UTA-0215`, recording what was built.** With the camera under
+water, § 4.2's sky test is false whatever the ripple does, so a surface seen
+from below mirrors the probes, never the sky. Tilted by its ripple, the sheet
+had sent rays up into a bright sky in patches.
+
 ### 4.4 Less visible tiling — `water.glsl`
 
 For a Wet liquid only. A Wave has no picture: its colour is noise through its

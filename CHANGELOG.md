@@ -618,6 +618,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Water's surface seen from below shows its colour instead of black with bright patches** (UTA-0215)
+  From under water the surface was lit as if facing down, so it went
+  nearly black, and its ripples reflected patches of bright sky. It is now
+  lit as from above, as the original shows it, and from under water it
+  never reflects the sky.
+
 - **Self-moving textures such as conveyor belts now slide at the original game's speed, which depends on the area you are standing in.** (UTA-0276)
   They had moved almost twice as fast. The speed was measured in the
   original game. Bundle format 18 and baker revision 34: every map must

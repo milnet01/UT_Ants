@@ -356,3 +356,35 @@ TEST_CASE("UTA-0089: below Medium a liquid draws as UTA-0105 left it", "[device]
     const auto low = [](std::optional<LiquidLook> look) { return frameOf(patchworkPool(look), narrow(), Tier::Low); };
     CHECK(low(still(LiquidKind::Wet)) == low(std::nullopt));
 }
+
+// -- UTA-0215: a liquid's sheet is lit as its front from both sides --
+
+/// A two-sided square at x = 100, its front facing -X, lit only by the probes
+/// in front of it, at x <= 0, whose -X faces are green; every other face and
+/// probe is black. So it is lit only where read as its front, from in front:
+/// half a spacing behind it, the probes are black too.
+uta::ubundle::Bundle frontLitSheet(std::optional<LiquidLook> look) {
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 60, "sheet", PF_TWO_SIDED);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "sheet", Rgba{255, 255, 255, 255});
+    (*bundle.materials)[0].liquid = look;
+    addProbes(bundle, {0.0f, 0.0f, 0.0f});
+    for (auto& probe : bundle.lightProbes->probes)
+        if (probe.cell[0] <= 0) probe.cube[1] = {0.0f, 0.5f, 0.0f}; // -X
+    return bundle;
+}
+
+TEST_CASE("UTA-0215: a liquid seen from behind is lit as its front and any other surface as its back", "[device][water]") {
+    removeDisplay();
+    Camera behind;
+    behind.location = {200.0f, 0.0f, 0.0f};
+    behind.rotation = {0, 32768, 0};
+    const Rgba liquidFront = centreOf(frameOf(frontLitSheet(still(LiquidKind::Wet)), Camera{}, Tier::Low));
+    const Rgba liquidBack = centreOf(frameOf(frontLitSheet(still(LiquidKind::Wet)), behind, Tier::Low));
+    const Rgba plainBack = centreOf(frameOf(frontLitSheet(std::nullopt), behind, Tier::Low));
+    CAPTURE(liquidFront, liquidBack, plainBack);
+    CHECK(liquidFront.g > 40);
+    CHECK(std::abs(int(liquidBack.g) - int(liquidFront.g)) <= 2);
+    CHECK(plainBack.g < 5);
+}

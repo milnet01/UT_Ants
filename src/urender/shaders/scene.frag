@@ -221,6 +221,13 @@ void main() {
         vec2 stored = textureGrad(textures[nonuniformEXT(material.normal)], shadingUv, duv1, duv2).rg;
         vec2 tilt = vec2(normalComponent(stored.x), normalComponent(stored.y)) + wet.tilt;
         vec3 n = perturbed(surface, axes, vec3(tilt, sqrt(max(0.0, 1.0 - dot(tilt, tilt)))));
+        // UTA-0215: UT99 lights a liquid's sheet once, as its front, and shows
+        // it so from both sides. Seen from behind, the normal is mirrored back.
+        vec3 litSurface = surface;
+        if (liquid && !gl_FrontFacing) {
+            n -= 2.0 * dot(n, surface) * surface;
+            litSurface = -surface;
+        }
 
         // SS 4.6: only this fragment's own cluster's lights. SS 4.9: the
         // flicker scalar multiplies the direct term and never the indirect.
@@ -240,7 +247,7 @@ void main() {
         // blend gives the probes inside the room no weight and only the probes
         // on the plane count -- which sit on the surface itself and are often
         // not probes at all. Such a wall got no indirect light in stepped patches.
-        vec3 probePoint = worldPosition + surface * (0.5 * float(frame.probeSpacing));
+        vec3 probePoint = worldPosition + litSurface * (0.5 * float(frame.probeSpacing));
         vec3 indirect = indirectAt(lattice, probePoint, n);
         // UTA-0156 SS 4.4: the zone's ambient, on every lit surface in it.
         vec3 ambient = zoneAmbient(zones[zone]);
@@ -272,7 +279,9 @@ void main() {
         vec3 v = normalize(frame.eye - worldPosition);
         vec3 n = perturbed(surface, axes, vec3(wet.tilt, sqrt(max(0.0, 1.0 - dot(wet.tilt, wet.tilt)))));
         vec3 r = reflect(-v, n);
-        vec3 reflected = waterSeesSky(r, zone)
+        // UTA-0215: from under water a surface mirrors the water, never the
+        // sky, however its ripples tilt it.
+        vec3 reflected = frame.cameraUnderwater == 0u && waterSeesSky(r, zone)
             ? skyAt(r)
             : waterProbeReflection(worldPosition + surface * (0.5 * float(frame.probeSpacing)), r);
         float share = waterShare(n, v);
