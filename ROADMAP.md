@@ -14691,7 +14691,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
 
-- 🚧 [UTA-0269] **urender: surfaces flagged to pan by themselves (PF_AutoUPan, PF_AutoVPan) do not move.**
+- ✅ [UTA-0269] **urender: surfaces flagged to pan by themselves (PF_AutoUPan, PF_AutoVPan) do not move.**
   Found drafting UTA-0105's spec (2026-10-02): no part of src/ reads
   PF_AutoUPan or PF_AutoVPan (workspace_search over src/ for AutoUPan,
   AutoVPan and PanSpeed: no matches). UT99 pans any texture on such a
@@ -14727,6 +14727,8 @@ stays with movement in 0.2.0.
   against an original frame: the rate rests on SurrealEngine's source.
   To check it, capture a flagged non-liquid surface twice a known time
   apart and compare its shift.
+  Shipped in 3a72252; GitHub's matrix green (run 37028626667). The rate
+  against an original frame is still unmeasured; see above.
   **Layman:** Rivers, conveyor belts and scrolling signs that slid along in the original stand still; this makes them slide again.
   Kind: feature.
   Source: in-session-2026-10-02.
@@ -14745,6 +14747,15 @@ stays with movement in 0.2.0.
   at the panned coordinate and combined as UT99 does; how it combines
   needs reading first. Capture kit: ~/.cache/uta-scratch/u105/scripts
   (UTALiquidIce poses, sweep.sh, motion.py).
+  Researched 2026-10-02: SurrealEngine's UIceTexture copies the source
+  and draws no glass layer, so it holds no rule to follow. The only
+  implementations GitHub finds are copies of Epic's own engine source
+  (UnFractal.cpp) posted without a licence; they were not read, and
+  nothing from them may enter this public repository. So how the glass
+  combines must be fitted from the original's frames, with u105's capture
+  kit (UTALiquidIce poses, motion.py). Decision for the user, if they
+  know of a licensed description of IceTexture's drawing: say so before
+  the fit is built.
   **Layman:** Glowing plasma and warp effects swirl and churn in the original but only slide here; drawing their second layer fixes that.
   Kind: feature.
   Source: in-session-2026-10-02.
@@ -14806,6 +14817,17 @@ stays with movement in 0.2.0.
   ~/.cache/uta-scratch/u261/{render.sh,stats.py}; the bake is
   ~/.cache/uta-scratch/u262/bakes. Bounce light stays (user, 2026-09-20):
   it may be tuned, not removed.
+  Progress (2026-10-02), measured against orig-fetid-novol with our fog
+  off (~/.cache/uta-scratch/u262, ut-ants-uta0262 at 505dca2). It is not
+  the bounce light: --no-probes lowers the dark areas by about 1 level.
+  It is not the zone ambient: AMBIENT_SCALE 0 changes nothing, DM-Fetid's
+  zones carrying none. The original's frames include the player's gun,
+  whose dark parts were in the measure; with that corner left out the gap
+  stands (pose 0: 11.3 against 48.9). Looking at pose 0, the dark pixels
+  are fine detail: the grooves between pipes and the grate's holes, near
+  black there and grey here. Next, one at a time: texture detail softened
+  by mip choice, filtering or BC7; UT99's DetailTexture overlay, which we
+  do not draw; and lightmap texel shadows in the grooves.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -15177,6 +15199,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-10-02 split-from-UTA-0089.
   Lanes: urender.
+
+- 📋 [UTA-0275] **urender: UT99's detail textures, the fine grain a surface shows up close, are not drawn.**
+  Found investigating UTA-0274, 2026-10-02. No code reads a texture's
+  DetailTexture (workspace_search: no match in src/). In UTtech1.utx 143
+  of 164 textures name one; DM-Fetid's five main textures all do (dirty,
+  metalfine, fuzzy; ~/.cache/uta-scratch/u262/detail_check.py). UT99 draws
+  a detail texture over the surface near the camera only, multiplied in,
+  so it adds fine dark grain. It is a lead for UTA-0274's grooves reading
+  grey where the original's are near black, not yet shown to be the cause.
+  Needs MATS to name the detail picture (a bake format bump) and the rule
+  for its distance and blend, read from a licensed source or measured from
+  the original's frames; not from UnFractal-style leaked engine source.
+  Placed in 0.2.0: 0.1.0 is cut on S1 and S7, and the user deferred extra
+  surface detail out of it (UTA-0054, 2026-09-08).
+  **Layman:** Up close, walls in the original show fine grime and scratches over their main picture; here that layer is missing, so they look flatter.
+  Kind: feature.
+  Source: in-session-2026-10-02 from UTA-0274.
+  Lanes: urender, ubake, umat.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
