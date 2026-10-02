@@ -5029,6 +5029,12 @@ stays with movement in 0.2.0.
   look like real water." Taken up straight after UTA-0105, which
   supplies the moving ripple normal this item's reflections and
   refraction read.
+  Measured during UTA-0105's fit (2026-10-02), DM-ArcaneTemple central
+  pool, camera -400,-500,150 pitch -3300 yaw 16384, ultra: the pool's
+  mean displayed luma is 81 here against 111 in the original, with the
+  ripple on or off, so the water reads darker than UT99's. A plain
+  white patch also lies at the pool's far right edge in our frame, with
+  the ripple off too; not yet identified.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -14605,6 +14611,24 @@ stays with movement in 0.2.0.
   Kind: feature.
   Source: in-session-2026-10-02.
   Lanes: render.
+
+- 📋 [UTA-0270] **urender: an IceTexture's glass layer is not drawn, so plasma and warp effects slide instead of churning.**
+  Found fitting UTA-0105 (2026-10-02). UT99 draws an IceTexture by
+  sliding its GlassTexture over its SourceTexture; UTA-0105 shows the
+  source alone (its spec SS 3) and pans it. Measured on DOM-MetalDream's
+  XbpFX.blueplasma, camera -20000,25000,3300 pitch -3640 yaw 16384: the
+  original's mean luma change between consecutive frames over the
+  plasma is 6.98; ours is 0.03 to 0.09 at pan rates 32 to 128 texels a
+  second, and adding the water's noise warp on top reached 0.22. So the
+  churn is the glass layer. All 32 census IceTextures name a
+  GlassTexture. The fix is a second picture per Ice material, sampled
+  at the panned coordinate and combined as UT99 does; how it combines
+  needs reading first. Capture kit: ~/.cache/uta-scratch/u105/scripts
+  (UTALiquidIce poses, sweep.sh, motion.py).
+  **Layman:** Glowing plasma and warp effects swirl and churn in the original but only slide here; drawing their second layer fixes that.
+  Kind: feature.
+  Source: in-session-2026-10-02.
+  Lanes: render, ubake.
 
 ## 0.2.0 — Movement and weapons
 

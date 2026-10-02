@@ -241,6 +241,14 @@ The fits:
 
 Each constant records its sweep in a comment beside it, as `fog.glsl`'s do.
 
+**As built (2026-10-02).** The four water constants are fitted on
+DM-ArcaneTemple's central pool: the motion measure is 3.81 against the
+original's 3.98. The Ice and Wave constants are not fitted. The
+IceTexture's churn in the original comes from its GlassTexture, which this
+item does not draw, so no pan rate matches it (UTA-0270). The only
+captured WaveTexture is an unlit modulated layer over water, which no view
+separates from the water beneath. `liquid.glsl` records the sweeps.
+
 ## 5. Invariants
 
 - **INV-1** — `MATS` round-trips a material with each kind of liquid look and
@@ -347,7 +355,9 @@ recorded beside their constants, not asserted by a test.
   every re-fit of § 4.6 would bump `BAKER_REVISION` and re-bake every map.
 - **Drawing the GlassTexture over the source** — closer to UT99's IceTexture,
   but a second picture per material and a blend nothing else needs; the
-  still already shows the source alone (UTA-0155).
+  still already shows the source alone (UTA-0155). **The premise moved
+  when the item was built:** the fit found the glass is what makes an
+  IceTexture churn, which panning cannot imitate. Tracked by UTA-0270.
 - **Colour cycling** — the user's idea of 2026-09-14, set aside by the user
   the same day.
 

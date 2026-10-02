@@ -25,16 +25,36 @@ const uint PANNING_GESTATION = 2u;
 const uint PANNING_WAVY_X = 3u;
 const uint PANNING_WAVY_Y = 4u;
 
-// SS 4.6's fitted constants. NOT YET FITTED: these are first values, set so
-// the motion is visible; the sweep against original frames replaces them and
-// records itself here, as flame.glsl's do.
-const float LIQUID_RIPPLE_TEXELS = 48.0; // one noise cell's span, texels of the picture
-const float LIQUID_DRIFT = 0.25;         // cells a second the field drifts, at FX_Frequency 8
-const float LIQUID_WARP_TEXELS = 3.0;    // the picture's largest shift at WaveAmp 128, texels
-const float LIQUID_TILT = 0.8;           // the normal's slope at WaveAmp 128, per unit of noise slope
+// SS 4.6's constants. The four LIQUID_ ones are fitted, 2026-10-02, against
+// DM-ArcaneTemple's central pool (RainFX.swater4a: WaveAmp 255, FX_Frequency
+// 9) in the original: camera -400,-500,150, pitch -3300, yaw 16384, 90
+// degrees, 1280x720 measured at 640x360, ultra tier. The pool's pixels are
+// those whose luma moves over 12 across the original's ten consecutive
+// frames (59937 of 230400); the measure is the mean luma change over them
+// between consecutive frames, ours drawn 1/30 s apart, as flame.glsl's.
+//   original 3.98; these values 3.81 (-4%). Ripple off: 0.01.
+// Sweeps (ripple / drift / warp / tilt -> change):
+//   48 / 0.25 / 3 / 0.8 (first values) -> 1.81, the pool blotched dark by the tilt
+//   48 / 0.25 / 3 / 0 -> 0.17; warp 1.5 -> 0.10, 0.75 -> 0.06
+//   16 / 1 / 3 / 0 -> 0.56; 16 / 3 / 3 / 0 -> 1.42; 32 / 2 / 3 / 0 -> 1.12
+//   16 / 3 / 6 / 0 -> 2.15; 16 / 5 / 4 / 0 -> 2.50; 24 / 4 / 6 / 0 -> 2.84
+//   24 / 4 / 6 / 0.15 -> 3.41; 0.3 -> 4.87, and the pool darkens (82.5 -> 79.2)
+// The pool's mean luma is 81.0 against the original's 110.9 with the ripple
+// on or off: that is the water's look, UTA-0089's, not its motion.
+const float LIQUID_RIPPLE_TEXELS = 24.0; // one noise cell's span, texels of the picture
+const float LIQUID_DRIFT = 4.0;          // cells a second the field drifts, at FX_Frequency 8
+const float LIQUID_WARP_TEXELS = 6.0;    // the picture's largest shift at WaveAmp 128, texels
+const float LIQUID_TILT = 0.2;           // the normal's slope at WaveAmp 128, per unit of noise slope
+// NOT FITTED. DOM-MetalDream's XbpFX.blueplasma changes 6.98 a frame in the
+// original against 0.03 to 0.09 here at pan rates 32 to 128, and a noise warp
+// on top reached 0.22 at most: the original's churn is its GlassTexture
+// sliding over the source, which is not drawn (SS 3; UTA-0270).
 const float ICE_PAN_TEXELS = 32.0;       // texels a second at a pan speed of 255 (127 from still)
 const float ICE_CYCLES = 0.02;           // circular and wavy cycles a second per unit of Frequency
 const float ICE_SWING_TEXELS = 0.1;      // circular and wavy reach, texels per unit of Amplitude
+// NOT FITTED. DM-ArcaneTemple's HubEffects.waterrings2 is an unlit modulated
+// layer over the pool's water, so no view separates its motion from the
+// water's; no other census map was captured.
 const float WAVE_BUMP = 0.6;             // the shade's swing from its middle, at BumpMapLight 128
 const float WAVE_HIGHLIGHT = 0.5;        // the highlight's peak, added to the shade
 
