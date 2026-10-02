@@ -14426,6 +14426,23 @@ stays with movement in 0.2.0.
   Measure before changing: luma of the original against ours by view
   depth, and the fog's colour, per pose. Harness:
   ~/.cache/uta-scratch/u261/{render.sh,stats.py}.
+  Done (2026-10-02), amending docs/specs/UTA-0015-volumetric-fog.md
+  (§ 4.3, INV-11, § 7 step 2). Measured first, with view depth from a
+  probe build: both DM-Fetid zones are fog zones and every camera is in
+  one, so the zone gate was not the cause. The fog was too thick near
+  the eye (adds 25.9 in the nearest 128 units where the original adds
+  10.1), too thin far off (74.9 past 1024 units against 135.5), and grey
+  because the glow's colour was added as linear light where UT99 lays it
+  on screen. Now the colour is decoded from sRGB, and glow and fog are
+  refitted to 1e-3 and 1.25e-2: near 16.1, far 97.8, far green over red
+  1.20 to the original's 1.21 (was 1.09). Depth-band RMS 16.8 to 8.3,
+  pixel RMS 33.8 to 31.8. The far fog stays thinner than the original's;
+  a single density scale cannot make it rise as steeply, and the item's
+  complaint was the near haze and the colour. The dark areas under 20
+  are mostly not fog: with our fog off they read 18 to 49 where the
+  original's read about 10, including poses with no fog at all. Filed as
+  UTA-0274. Kit: ~/.cache/uta-scratch/u262 (probe.sh, score.py,
+  depth.py, sweep.sh).
   **Layman:** On the foggy map the fog looks like a flat grey mist over everything, where the original shows a green glow that thickens with distance.
   Kind: enhancement.
   Source: in-session-2026-10-01 split-from-UTA-0261.
@@ -14726,6 +14743,24 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: in-session-2026-10-02.
   Lanes: render.
+
+- 📋 [UTA-0274] **urender: DM-Fetid's darkest areas draw two to five times brighter than the original's, with or without fog.**
+  Found by UTA-0262, 2026-10-02, baker r31, light time 0, EXPOSURE
+  5.03, ours rendered with volumetric fog off against the original's
+  frames with volumetric lighting off (ut-ants-uta0156/orig-fetid-novol).
+  Where the original's displayed luma is under 20 (about 10 on average),
+  ours reads 49, 28, 29, 28, 19, 20, 18 and 35 over poses 0 to 7. Poses 0
+  and 3 have no fog in either game, so this is the lighting, not the fog.
+  Unknown which term: ambient, the probes' bounce, the shadow or the tone
+  map's low end. Measure one at a time with ut-shot (--no-probes, and a
+  zero-ambient probe build) before changing anything. Harness:
+  ~/.cache/uta-scratch/u261/{render.sh,stats.py}; the bake is
+  ~/.cache/uta-scratch/u262/bakes. Bounce light stays (user, 2026-09-20):
+  it may be tuned, not removed.
+  **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
+  Kind: investigate.
+  Source: in-session-2026-10-02 split-from-UTA-0262.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 

@@ -1,5 +1,5 @@
 // UTA-0015's fog and flashlight through the draw path --
-// docs/specs/UTA-0015-volumetric-fog.md INV-4 to INV-7. Which lights glow, and
+// docs/specs/UTA-0015-volumetric-fog.md INV-4 to INV-7 and INV-11. Which lights glow, and
 // the flashlight's numbers, are graded device-free in
 // tests/unit/RenderVolumeLightsTest.cpp.
 //
@@ -33,7 +33,7 @@ constexpr Rgba BLACK{0, 0, 0, 0};
 // shaders/fog.glsl's, which SS 7 sets; a case using one says so.
 constexpr double HAZE_EXTINCTION = 1.28614e-5;
 constexpr double HAZE_SCATTER = 5.0e-5;     // UTA-0197's refit at EXPOSURE 5.03
-constexpr double VOLUME_GLOW_SCALE = 2.0e-3; // the same
+constexpr double VOLUME_GLOW_SCALE = 1.0e-3; // UTA-0262's refit
 
 Config fogFrame(Tier tier, float hazeScale) {
     Config config;
@@ -173,6 +173,36 @@ TEST_CASE("UTA-0015 INV-6: a volumetric light glows in front of the wall that hi
     CAPTURE(hidden, int(light.volumeBrightness), renderer.lastFrameStats().unshadowedLights);
     CHECK(renderer.lastFrameStats().unshadowedLights == 0u);
     CHECK(hidden > 180);
+}
+
+TEST_CASE("UTA-0015 INV-11: a volumetric light glows in its colour decoded from sRGB", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(fogFrame(Tier::Medium, 0.0f));
+    // Hue 85 at saturation 128 is (0.502, 1, 0.502). Decoded from sRGB, as
+    // UT99's on-screen fog colour is, red is 0.216 of green; undecoded it is
+    // 0.502. A glow of 6e-4 a unit over the 1000 units to a black wall keeps
+    // green under the clip, so the ratio is read where both channels are linear.
+    uta::ubundle::Bundle bundle = wallAt(1000, 3000, BLACK);
+    uta::ubundle::Light light = steadyLight({500, 0, 0}, 255, 1);
+    light.hue = 85;
+    light.saturation = 128;
+    light.volumeRadius = 255;
+    light.volumeBrightness = static_cast<std::uint8_t>(std::lround(6.0e-4 / VOLUME_GLOW_SCALE * 64.0));
+    bundle.lights = std::vector{light};
+    bundle.zones = std::vector<uta::ubundle::Zone>{{0, 0, 0, 1}};
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    const Rgba glow = pixelAt(*pixels, WIDTH, 80, 32);
+    const auto linear = [](std::uint8_t byte) {
+        const double c = byte / 255.0;
+        return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4);
+    };
+    const double ratio = linear(glow.r) / linear(glow.g);
+    CAPTURE(glow, ratio);
+    CHECK(glow.g > 100);
+    CHECK(glow.g < 250);
+    CHECK(std::abs(ratio - 0.216) <= 0.03);
 }
 
 TEST_CASE("UTA-0015 INV-7: a light's shaft is cut by an occluder's shadow", "[device]") {

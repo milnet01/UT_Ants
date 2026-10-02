@@ -72,10 +72,33 @@ const float HAZE_SCATTER = 5.0e-5;
 // fog: 1e-3 at 1e-1, 2e-1, 4e-1 38.7, 40.3, 43.1; 2e-3 36.7, 36.5, 37.2; 4e-3
 // 48.8, 45.6, 41.5. Glow 2e-3 at fog 2e-1 is the minimum, inside the grid on
 // both axes (block 31.4), so both stay. DM-Deck16][ scored 40.8 at every point.
-const float VOLUME_GLOW_SCALE = 2.0e-3;
-const float VOLUME_FOG_SCALE = 2.0e-1;
+// Refitted by UTA-0262, once the glow's colour was decoded from sRGB
+// (displayedToLinear below), scored by the fog each depth band adds against
+// the original's (RMS over the eight poses) and by pixel RMS; today's 16.8/33.8.
+// By glow and fog: 5e-4 at 2.5e-2, 5e-2, 1e-1, 2e-1 17.3/35.6, 18.7/36.3,
+// 21.0/37.6, 24.7/39.8; 1e-3 8.9/31.9, 10.2/32.3, 12.6/33.1, 16.5/34.9; 1.5e-3
+// 11.3/31.9, 11.1/31.8, 11.6/32.1, 13.6/33.0; 2e-3 17.7/33.8, 17.0/33.5,
+// 15.9/33.0, 15.4/33.0. Wider, at 0, 6.25e-3, 1.25e-2, 2.5e-2: 7.5e-4 10.4/32.7,
+// 10.8/32.8, 11.2/32.9, 11.9/33.2; 1e-3 7.8/31.6, 8.0/31.7, 8.3/31.8, 8.9/31.9;
+// 1.25e-3 8.8/31.5, 8.8/31.5, 8.8/31.5, 8.9/31.6. A repeated point scored the
+// same. Glow 1e-3 is the band score's minimum inside the grid, its pixel RMS
+// within 0.1 of the best. Fog moves the scores little
+// below 2.5e-2 and least at 0, which would leave a light's VolumeFog drawing
+// nothing, so SS 7 step 1's rule picks it: the largest within 1.0 of the best.
+// The fog then adds 16.1 near the eye where the original adds 10.1 (was 25.9),
+// and 97.8 past 1024 units where it adds 135.5 (was 74.9); far green over red
+// is 1.20 to the original's 1.21 (was 1.09) (ut-ants-uta0262 probe, u262/).
+const float VOLUME_GLOW_SCALE = 1.0e-3;
+const float VOLUME_FOG_SCALE = 1.25e-2;
 
 const float FOG_PI = 3.141592653589793;
+
+// UTA-0262: UT99 lays a volumetric light's colour over the frame as a colour
+// already on screen, so its hue is decoded from sRGB into the linear light the
+// fog adds. Undecoded, DM-Fetid's pale green glow displays nearly grey.
+vec3 displayedToLinear(vec3 c) {
+    return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), greaterThan(c, vec3(0.04045)));
+}
 
 // The view depth slice `k` starts at: 0 for the first, then exponential.
 float sliceDepth(float k) {

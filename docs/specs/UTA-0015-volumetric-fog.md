@@ -151,11 +151,13 @@ point `x`, with `v` the unit direction from `frame.eye` to `x`:
   forward scattering.
 - *Volumetric lights.* For each index in `VOLUME_LIGHTS`, with
   `f = lightFalloff(distance(litFrom(light, x), x), lightRadius(light.volumeRadius))`:
-  in-scattering `lightColour(hue, saturation) × brightness / 255 ×
+  in-scattering `displayedToLinear(lightColour(hue, saturation)) × brightness / 255 ×
   volumeBrightness / 64 × f × VOLUME_GLOW_SCALE`, and extinction
   `volumeFog / 255 × f × VOLUME_FOG_SCALE`. Neither is shadowed: § 7 step 2
   measured a shadowed glow drawing nothing on DM-Fetid where the original
-  draws its glow.
+  draws its glow. `displayedToLinear` is the sRGB decode, in `fog.glsl`:
+  UT99 lays the fog's colour over the frame as an on-screen colour, so it is
+  decoded before it is added as light (UTA-0262).
 
 `lightThrough` is new in `light.glsl`: `lightAt` with the normal pointing at
 the light, so the incidence factor is 1 and no part of the model is written
@@ -376,6 +378,13 @@ repeat. `Cli.cpp`'s help text and `README.md` name the key.
   *Breaks when:* what the baker writes changes with no bump, or the bump lands
   without re-recording.
 
+- **INV-11** — a volumetric light glows in its `lightColour` decoded from sRGB.
+  At `Tier::Medium` and `hazeScale` `0`, a light of hue `85` and saturation
+  `128` in a fog zone draws an unlit black wall, under `linearOutput`, with red
+  at `0.216 ± 0.03` of green in linear light (UTA-0262).
+  *Test:* `tests/device/RenderFogTest.cpp`, extended.
+  *Breaks when:* the colour is added undecoded, which draws `0.502`.
+
 ## 6. Failure modes
 
 - **Banding.** Sixty-four slices with no jitter step visibly on a strong beam.
@@ -416,6 +425,7 @@ The `unit` label on the unit tests, `device` on the device tests.
 - INV-8 — `src/urender/ShaderTypes.h`'s `static_assert`s.
 - INV-9 — `tests/unit/RenderTiersTest.cpp`, extended.
 - INV-10 — `tests/unit/BakeGoldenTest.cpp`, re-recorded.
+- INV-11 — `tests/device/RenderFogTest.cpp`, extended.
 
 Each is seen to fail against the code before this item.
 
@@ -478,6 +488,14 @@ Each is seen to fail against the code before this item.
    *Rechecked (2026-09-29), at `EXPOSURE` `5.03`:* UTA-0197, with the haze at
    `5e-5`. Glow `2e-3` at fog `2e-1` is still the lowest point of a grid
    bracketing both, so neither moves.
+   *Refitted again (2026-10-02), with a second score:* UTA-0262 found the fog
+   too thick near the eye, too thin far off, and grey where the original is
+   green. The glow's colour is now decoded (INV-11). Block RMS cannot see the
+   fog's shape, so each point is also scored by the fog each depth band adds
+   against what the original's adds. Glow `1e-3` is that score's minimum
+   inside the grid, and within `0.1` of the best pixel RMS. The fog scores
+   best at `0`, which would leave `VolumeFog` drawing nothing, so step 1's
+   rule picks it: the largest within `1.0` of the best, `1.25e-2`. The scores are beside the constants in `shaders/fog.glsl`.
 3. **Nothing else moves.** DM-Deck16][ at `hazeScale` `0` keeps the block RMS
    it had before this item.
    *Result (2026-09-15):* `46.2` at exposure 3.2, as before.
@@ -535,6 +553,7 @@ Each is seen to fail against the code before this item.
 | INV-8 | `src/urender/ShaderTypes.h`'s `static_assert`s |
 | INV-9 | `tests/unit/RenderTiersTest.cpp` |
 | INV-10 | `tests/unit/BakeGoldenTest.cpp` |
+| INV-11 | `tests/device/RenderFogTest.cpp` |
 | The `F` key toggles the flashlight | **nothing** — `main.cpp` is run by hand (UTA-0016) |
 | How the fog looks against the original | **nothing** — § 7's measurement is run by hand |
 

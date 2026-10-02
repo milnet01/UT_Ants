@@ -9,3 +9,4 @@ never edited.
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| amend-UTA-0262 | 2026-10-02 | none — no reviewer was dispatched; the gate is cancelled for this project | – | – | – | – | Amended by UTA-0262, not a review loop: the glow's colour is decoded from sRGB (§ 4.3, INV-11), and § 7 step 2 refits glow to `1e-3` and fog to `1.25e-2`, scored by depth band as well as by pixel. |
