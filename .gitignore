@@ -110,3 +110,7 @@ compile_commands.json
 # The audit tool's lock beside its tracked calibration file. Transient; an
 # untracked file here would stop the push gate running in place (UTA-0238).
 /.audit_cache/*.lock
+
+# Python bytecode, written beside scripts/ when a scratch tool imports one of
+# them. Transient; an untracked file here fails the in-place push gate.
+__pycache__/
