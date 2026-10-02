@@ -3,6 +3,7 @@
 
 #include "Sections.h"
 
+#include <cmath>
 #include <string>
 #include <tuple>
 
@@ -13,7 +14,7 @@ namespace {
 constexpr std::uint64_t MIN_GEOMETRY_VERTEX = 33;
 
 /// SS 4.2: a u32 length for an empty material, then three u32.
-constexpr std::uint64_t MIN_GEOMETRY_BATCH = 16;
+constexpr std::uint64_t MIN_GEOMETRY_BATCH = 24; // UTA-0269 added the pan rate's 8
 
 [[nodiscard]] Result<GeometryVertex> readVertex(Cursor& cursor) {
     GeometryVertex vertex;
@@ -36,6 +37,9 @@ constexpr std::uint64_t MIN_GEOMETRY_BATCH = 16;
     UTA_TRY(batch.polyFlags, cursor.readU32());
     UTA_TRY(batch.firstIndex, cursor.readU32());
     UTA_TRY(batch.indexCount, cursor.readU32());
+    for (float& part : batch.panRate) {
+        UTA_TRY(part, cursor.readF32());
+    }
     return batch;
 }
 
@@ -52,6 +56,7 @@ void putBatch(Sink& sink, const GeometryBatch& batch) {
     sink.putU32(batch.polyFlags);
     sink.putU32(batch.firstIndex);
     sink.putU32(batch.indexCount);
+    for (const float part : batch.panRate) sink.putF32(part);
 }
 
 } // namespace
@@ -89,13 +94,17 @@ Result<void> validateGeometry(const Geometry& geometry, ErrorCode code) {
     std::uint64_t end = 0;
     for (std::size_t i = 0; i < geometry.batches.size(); ++i) {
         const GeometryBatch& batch = geometry.batches[i];
+        // UTA-0269: checked before the order, which a NaN would make meaningless.
+        for (const float part : batch.panRate)
+            if (!std::isfinite(part))
+                return fail(code, "GEOM: batch " + std::to_string(i) + "'s pan rate is not finite");
         // Strictly ascending, which also makes each key unique. std::string's
         // `<` compares as unsigned char, so this is SS 4.2's bytewise order on
         // every compiler, as MATS's check is.
         if (i > 0) {
             const GeometryBatch& before = geometry.batches[i - 1];
-            if (!(std::tie(before.material, before.polyFlags)
-                  < std::tie(batch.material, batch.polyFlags)))
+            if (!(std::tie(before.material, before.polyFlags, before.panRate)
+                  < std::tie(batch.material, batch.polyFlags, batch.panRate)))
                 return fail(code, "GEOM: batch " + std::to_string(i)
                                       + "'s key does not sort strictly after the one before it");
         }

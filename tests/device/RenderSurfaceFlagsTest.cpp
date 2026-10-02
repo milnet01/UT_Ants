@@ -28,6 +28,7 @@
 
 #include <cmath>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace uta::test::render;
@@ -163,6 +164,54 @@ TEST_CASE("UTA-0014 INV-12: a modulated surface multiplies what lies behind it b
     CHECK(std::abs(int(neutral.r) - 203) <= 3);
     CHECK(std::abs(int(dark.r) - 102) <= 3);
     CHECK(std::abs(int(both.r) - 204) <= 3);
+}
+
+TEST_CASE("UTA-0269: a batch's pan rate slides its texture with the light clock", "[device]") {
+    // An 8 by 4 texture, red on its left half and green on its right, across
+    // a square whose u runs 0 to 1 left to right. At half a repeat a second, at
+    // second 1 a point a quarter across shows what lay three quarters across,
+    // and at second 2 the whole repeat has passed. Odd channels: bc7Solid.
+    removeDisplay();
+    Renderer renderer = requireRenderer(smallFrame());
+    constexpr Rgba LEFT{201, 31, 31, 255};
+    constexpr Rgba RIGHT{31, 201, 31, 255};
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 30, "halves", PF_UNLIT);
+    geometry.batches.back().panRate = {0.5F, 0.0F};
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    bundle.materials.emplace();
+    bundle.textures.emplace();
+    bundle.materials->push_back({"halves", false});
+    uta::ubundle::CompressedTexture texture;
+    texture.name = "halves:base";
+    texture.format = uta::ubundle::BlockFormat::BC7;
+    texture.width = texture.sourceWidth = 8;
+    texture.height = texture.sourceHeight = 4;
+    texture.mipCount = 1;
+    texture.blocks = bc7Solid(LEFT);
+    const std::vector<std::byte> right = bc7Solid(RIGHT);
+    texture.blocks.insert(texture.blocks.end(), right.begin(), right.end());
+    bundle.textures->push_back(std::move(texture));
+
+    const auto quarters = [&](double seconds) {
+        renderer.pinLightSeconds(seconds);
+        requireOk(renderer.draw(bundle, Camera{}));
+        const auto pixels = renderer.readback();
+        if (!pixels.has_value()) FAIL(pixels.error().message());
+        return std::pair{pixelAt(*pixels, WIDTH, columnOf(-15), HEIGHT / 2),
+                         pixelAt(*pixels, WIDTH, columnOf(15), HEIGHT / 2)};
+    };
+    const auto [still, stillRight] = quarters(0);
+    const auto [half, halfRight] = quarters(1);
+    const auto [whole, wholeRight] = quarters(2);
+    CAPTURE(still, stillRight, half, halfRight, whole, wholeRight);
+    CHECK(still == LEFT);
+    CHECK(stillRight == RIGHT);
+    CHECK(half == RIGHT);
+    CHECK(halfRight == LEFT);
+    CHECK(whole == LEFT);
+    CHECK(wholeRight == RIGHT);
 }
 
 TEST_CASE("UTA-0252: a sky surface hides what lies behind it", "[device]") {

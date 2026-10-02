@@ -97,6 +97,7 @@ struct GeometryBatch {
     std::uint32_t polyFlags = 0;   ///< UT99's PolyFlags, verbatim
     std::uint32_t firstIndex = 0;
     std::uint32_t indexCount = 0;  ///< three per triangle
+    std::array<float, 2> panRate{}; ///< repeats a second along u and v -- UTA-0269
 };
 
 struct Geometry {
@@ -121,21 +122,24 @@ as `u32`, `batches`.
 |---|---|
 | `GeometryVertex` | six `f32` — `position` x, y, z, then `normal` x, y, z — then `u` and `v` as `f32` |
 | index | `u32` |
-| `GeometryBatch` | `material` as `string`, then `polyFlags`, `firstIndex`, `indexCount` as `u32` |
+| `GeometryBatch` | `material` as `string`, then `polyFlags`, `firstIndex`, `indexCount` as `u32`, then `panRate` u and v as `f32` (`UTA-0269`) |
 
 **Minimum encoded sizes**, joining UTA-0008 § 4.2's table: `GeometryVertex`
-33 bytes, fixed (32 until UTA-0156 § 4.2 added the zone byte); `GeometryBatch` 16 bytes, a `u32` length for an empty
-`material` then three `u32`.
+33 bytes, fixed (32 until UTA-0156 § 4.2 added the zone byte); `GeometryBatch` 24 bytes, a `u32` length for an empty
+`material`, three `u32` and two `f32` (16 until `UTA-0269` added the pan rate).
 
-**`GEOM`'s floats are not validated.** They are moved through their bits,
-as UTA-0008 § 4.2 moves every `f32`.
+**`GEOM`'s floats are not validated, except a batch's pan rate.** They are
+moved through their bits, as UTA-0008 § 4.2 moves every `f32`. A `panRate`
+that is not finite is refused (`UTA-0269`): it keys the batch order below,
+which a NaN would make meaningless.
 
 **Validation, in UTA-0008 § 4.9's manner.** `read` refuses with
 `MalformedData`, and `write` refuses the same with `InvalidArgument`:
 
 - an index not less than `vertices.size()`;
+- a batch whose `panRate` is not finite (`UTA-0269`);
 - batches not in strictly ascending order of `material` bytewise, then
-  `polyFlags` — which also makes each key unique;
+  `polyFlags`, then `panRate` u then v — which also makes each key unique;
 - a batch whose `indexCount` is zero or not a multiple of three;
 - batches that do not tile `indices`: the first starts at `0`, each next
   starts where the last ended, and the last ends at `indices.size()`. With no
@@ -223,8 +227,20 @@ never draws cannot refuse `GEOM`. `COLL` checks it, since an invisible node
 can still be solid (UTA-0111 § 4.3).
 
 **Batches.** A drawn node belongs to the batch keyed by its material id
-(empty for none) and its surface's `polyFlags`. Batches are emitted in
-ascending key order — id bytewise, then flags. Within a batch, nodes keep
+(empty for none), its surface's `polyFlags` and its pan rate. Batches are
+emitted in ascending key order — id bytewise, then flags, then rate.
+
+**Pan rate** (`UTA-0269`, recording what was built). A node whose surface
+carries `PF_AutoUPan` (`0x200`) or `PF_AutoVPan` (`0x400`) pans along that
+axis by `PAN_TEXELS_PER_SECOND` (`64`) times its zone's `TexUPanSpeed` or
+`TexVPanSpeed`, over the material's `uSize` or `vSize`, in repeats a
+second; an axis not flagged, or a node with no material, has `0`. The zone is
+the vertices' own, `iZone[1]`. Its speeds are its actor's records, else its
+class's defaults, else `1`, Engine.u's `ZoneInfo` default, resolved as
+UTA-0156 § 4.3 resolves the ambient; a NaN or infinity is `1`. The rule is
+SurrealEngine's (`RenderSubsystem`, `AutoUV`, read 2026-10-02); it was not
+measured against an original frame. A mover's nodes take speed `1`: its Model
+has no zones. Within a batch, nodes keep
 node order. Vertices and indices are appended in the order their nodes are
 emitted, so each batch's vertices are contiguous too.
 
@@ -370,8 +386,9 @@ Recorded after the build; nothing above changed direction.
   what it was asked and answers only the masked variant.
   *Breaks when:* the variant follows anything but the surface's own flag.
 
-- **INV-8** — Batches are in ascending `(material, polyFlags)` order with
-  each key once; within a batch, nodes keep node order.
+- **INV-8** — Batches are in ascending `(material, polyFlags, panRate)`
+  order with each key once; within a batch, nodes keep node order.
+  `panRate` joined the key with `UTA-0269`.
   *Test:* `tests/unit/BakeGeometryTest.cpp`: nodes whose materials descend
   in node order; two nodes of one material with different flags; and two
   nodes of one key, which must keep node order inside their batch.
@@ -417,6 +434,21 @@ Recorded after the build; nothing above changed direction.
   *Breaks when:* a point is used unchecked, or the check runs after step 5,
   where a NaN makes `s` neither zero nor negative.
 
+- **INV-13** — A batch's pan rate is § 4.3's. Two nodes flagged
+  `PF_AutoUPan | PF_AutoVPan` in zones of speeds `(2, 0.5)` and `(4, 4)`,
+  over a `128` by `64` material, are two batches of rates `(1, 0.5)` and
+  `(2, 4)`; an unflagged node's rate is `(0, 0)` and a node flagged along u
+  only has none along v; with no speeds given, the first is `(0.5, 1)`. A
+  zone's speeds are its actor's, else its class's, else `1`. `GEOM` and `MOVR`
+  carry the rate through their bits, and refuse one that is not finite.
+  *Added by UTA-0269.*
+  *Test:* `tests/unit/BakeGeometryTest.cpp` and `tests/unit/BakeZonesTest.cpp`
+  for the rate and the speeds; `tests/unit/BundleGeometryTest.cpp` for the
+  bytes, the order and the refusal.
+  *Breaks when:* the rate leaves the batch key, so nodes of different rates
+  share a batch; the speed is read from the wrong zone or defaults to `0`; the
+  rate is not written, or a NaN reaches the order check.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -438,7 +470,9 @@ Recorded after the build; nothing above changed direction.
 `tests/unit/BakeGeometryTest.cpp` for INV-3, INV-4, INV-5, INV-6, INV-7,
 INV-8 and INV-9, calling
 `buildGeometry` on a `upkg::Model` built in memory; `tests/unit/BakeTest.cpp`
-for INV-10 and INV-11. Each is seen failing before the code it locks exists.
+for INV-10 and INV-11; and, for INV-13, `tests/unit/BakeGeometryTest.cpp`,
+`tests/unit/BakeZonesTest.cpp` and `tests/unit/BundleGeometryTest.cpp`. Each is
+seen failing before the code it locks exists.
 
 **The fixtures grow.** `ModelExportWriter` in
 `tests/support/UnrealPackageBuilder.h` gains `points`, `vectors` and `verts`,
@@ -522,6 +556,7 @@ Each must be killed by the invariant that names it.
 | INV-4 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, a real-asset test, over every map |
 | INV-10, INV-11 | `tests/unit/BakeTest.cpp`, a unit test |
 | INV-12 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, over every map |
+| INV-13 | `tests/unit/BakeGeometryTest.cpp`, `tests/unit/BakeZonesTest.cpp` and `tests/unit/BundleGeometryTest.cpp`, unit tests. Whether 64 texels a second matches the original's frames: **nothing** |
 | `BAKER_REVISION` covering geometry | **Partial:** `tests/unit/BakeGoldenTest.cpp`, a golden-hash test, catches what its fixture draws; a change reached only by real content passes |
 | The PolyFlags bit values being UT99's | **nothing** — the tests use the constants the code uses, and the values rest on the cited header |
 | The pan's sign matching UT99 | **Partial:** `tests/real/RealGeometryTest.cpp`, a real-asset test, prints the seam tally; nothing asserts it, and no CI leg runs it |

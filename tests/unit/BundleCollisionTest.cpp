@@ -114,7 +114,7 @@ Bytes emptyMovr() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(16); // formatVersion -- 16 since UTA-0105 SS 4.2
+    out.u32(17); // formatVersion -- 17 since UTA-0269 gave each GEOM batch a pan rate
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -277,7 +277,7 @@ void readRefuses(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the COLL golden bytes decode to the collision they encode", "[ubundle][coll]") {
     const auto result = read(fileWith({{"MOVR", emptyMovr()}, {"COLL", collPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 16);
+    CHECK(result->header.formatVersion == 17);
     REQUIRE(result->movers.has_value());
     REQUIRE(result->collision.has_value());
     sameCollision(*result->collision, golden());

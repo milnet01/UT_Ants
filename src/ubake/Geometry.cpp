@@ -51,13 +51,15 @@ std::unexpected<Error> refuse(std::size_t node, std::string_view what, std::int6
 struct Drawn {
     std::string material;
     std::uint32_t polyFlags = 0;
+    std::array<float, 2> panRate{}; ///< UTA-0269
     std::vector<ubundle::GeometryVertex> corners;
 };
 
 } // namespace
 
 Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
-                                        std::size_t zoneCount, std::span<const std::uint32_t> omitted) {
+                                        std::size_t zoneCount, std::span<const std::uint32_t> omitted,
+                                        std::span<const std::array<float, 2>> panSpeeds) {
     std::vector<Drawn> drawn;
     std::uint64_t vertexTotal = 0;
     std::uint64_t indexTotal = 0;
@@ -143,6 +145,16 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         out.corners.reserve(count);
         // UTA-0156 SS 4.3: the zone on the plane's front, the side the surface faces.
         const auto zone = static_cast<std::uint8_t>(node.iZone[1] < zoneCount ? node.iZone[1] : 0);
+        // UTA-0269: UT99 pans PAN_TEXELS_PER_SECOND times the zone's speed,
+        // which in repeats a second is that over the texture's size. A zone
+        // with no speed given pans at ZoneInfo's default, 1.
+        if (made != nullptr && (surf.polyFlags & (PF_AUTO_U_PAN | PF_AUTO_V_PAN)) != 0) {
+            const std::array<float, 2> speed = zone < panSpeeds.size() ? panSpeeds[zone] : std::array<float, 2>{1, 1};
+            if ((surf.polyFlags & PF_AUTO_U_PAN) != 0)
+                out.panRate[0] = static_cast<float>(PAN_TEXELS_PER_SECOND * speed[0] / made->uSize);
+            if ((surf.polyFlags & PF_AUTO_V_PAN) != 0)
+                out.panRate[1] = static_cast<float>(PAN_TEXELS_PER_SECOND * speed[1] / made->vSize);
+        }
         for (const Vec& point : points) {
             ubundle::GeometryVertex vertex;
             vertex.zone = zone;
@@ -162,7 +174,7 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
     // Batches in ascending key order; a stable sort keeps node order within a
     // key (INV-8).
     std::stable_sort(drawn.begin(), drawn.end(), [](const Drawn& a, const Drawn& b) {
-        return std::tie(a.material, a.polyFlags) < std::tie(b.material, b.polyFlags);
+        return std::tie(a.material, a.polyFlags, a.panRate) < std::tie(b.material, b.polyFlags, b.panRate);
     });
 
     ubundle::Geometry geometry;
@@ -170,9 +182,10 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
     geometry.indices.reserve(static_cast<std::size_t>(indexTotal));
     for (Drawn& node : drawn) {
         if (geometry.batches.empty() || geometry.batches.back().material != node.material
-            || geometry.batches.back().polyFlags != node.polyFlags)
-            geometry.batches.push_back(ubundle::GeometryBatch{
-                node.material, node.polyFlags, static_cast<std::uint32_t>(geometry.indices.size()), 0});
+            || geometry.batches.back().polyFlags != node.polyFlags || geometry.batches.back().panRate != node.panRate)
+            geometry.batches.push_back(ubundle::GeometryBatch{node.material, node.polyFlags,
+                                                              static_cast<std::uint32_t>(geometry.indices.size()),
+                                                              0, node.panRate});
 
         // 8. A fan from the first vertex.
         const auto first = static_cast<std::uint32_t>(geometry.vertices.size());

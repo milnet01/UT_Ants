@@ -60,6 +60,8 @@ void putGeometry(Bytes& out, const Geometry& geometry) {
         out.u32(batch.polyFlags);
         out.u32(batch.firstIndex);
         out.u32(batch.indexCount);
+        out.f32(batch.panRate[0]); // UTA-0269
+        out.f32(batch.panRate[1]);
     }
 }
 
@@ -88,7 +90,7 @@ Bytes emptyLite() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(16); // formatVersion -- 16 since UTA-0105 SS 4.2
+    out.u32(17); // formatVersion -- 17 since UTA-0269 gave each GEOM batch a pan rate
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -174,6 +176,7 @@ void sameShapes(const std::vector<MoverShape>& actual, const std::vector<MoverSh
             CHECK(a.geometry.batches[b].polyFlags == e.geometry.batches[b].polyFlags);
             CHECK(a.geometry.batches[b].firstIndex == e.geometry.batches[b].firstIndex);
             CHECK(a.geometry.batches[b].indexCount == e.geometry.batches[b].indexCount);
+            CHECK(a.geometry.batches[b].panRate == e.geometry.batches[b].panRate);
         }
     }
 }
@@ -201,7 +204,7 @@ void refusedBothWays(const std::vector<MoverShape>& shapes, std::string_view say
 TEST_CASE("the MOVR golden bytes decode to the shapes they encode", "[ubundle][movr]") {
     const auto result = read(fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 16);
+    CHECK(result->header.formatVersion == 17);
     REQUIRE(result->lights.has_value());
     REQUIRE(result->movers.has_value());
     sameShapes(*result->movers, golden());

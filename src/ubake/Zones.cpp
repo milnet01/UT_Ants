@@ -8,6 +8,7 @@
 #include "umap/Build.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <string_view>
 #include <variant>
@@ -66,6 +67,36 @@ const ubundle::ActorPlacement* levelInfoOf(const ubundle::Placements& placements
 }
 
 } // namespace
+
+std::vector<std::array<float, 2>> buildZonePanSpeeds(const upkg::Model& model, const ubundle::Placements& placements) {
+    // Resolved as buildZones resolves the ambient: a zone's own actor, else
+    // the LevelInfo. Engine.u's ZoneInfo stores 1 and 1 as its defaults.
+    const auto speedsOf = [&placements](const ubundle::ActorPlacement* actor) {
+        std::array<float, 2> speeds{1, 1};
+        if (actor == nullptr) return speeds;
+        const ubundle::ActorClass& actorClass = placements.classes[actor->classIndex];
+        const std::array<std::string_view, 2> names = {"texupanspeed", "texvpanspeed"};
+        for (std::size_t axis = 0; axis < 2; ++axis) {
+            const ubundle::PropertyRecord* record = recordOf(names[axis], ubundle::ValueKind::Float, *actor, actorClass);
+            // A NaN or infinity pans at the default, so GEOM's refusal of a rate
+            // that is not finite is never reached from a map.
+            if (record != nullptr && std::isfinite(std::get<float>(record->value)))
+                speeds[axis] = std::get<float>(record->value);
+        }
+        return speeds;
+    };
+    const std::array<float, 2> level = speedsOf(levelInfoOf(placements));
+    std::vector<std::array<float, 2>> speeds;
+    speeds.reserve(std::max<std::size_t>(model.zones.size(), 1));
+    for (const upkg::ZoneProperties& zone : model.zones) {
+        const ubundle::ActorPlacement* actor = zone.zoneActor.kind() == upkg::ObjectReferenceKind::Export
+                                                   ? placementOf(placements, zone.zoneActor.index())
+                                                   : nullptr;
+        speeds.push_back(actor != nullptr ? speedsOf(actor) : level);
+    }
+    if (speeds.empty()) speeds.push_back(level);
+    return speeds;
+}
 
 float levelBrightnessOf(const ubundle::Placements& placements) {
     const ubundle::ActorPlacement* level = levelInfoOf(placements);

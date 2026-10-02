@@ -177,6 +177,7 @@ void sampleGeometry(Fnv& fnv, const ubundle::Geometry& geometry) {
         fnv.addValue(batch.polyFlags);
         fnv.addValue(batch.firstIndex);
         fnv.addValue(batch.indexCount);
+        fnv.addValue(batch.panRate); // UTA-0269, uploaded with the draws
     }
 }
 
@@ -1080,7 +1081,13 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
             // A mirrored mover winds the other way on screen, so its front face is the other one.
             const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
             vkCmdSetFrontFace(commands, front);
-            const gpu::DrawConstants constants{item.objectIndex, item.materialIndex, item.polyFlags};
+            // UTA-0269: the pan in double, then its fraction, so a float never
+            // holds rate * seconds, which loses the fraction within the hour.
+            const auto panned = [this](float rate) {
+                return static_cast<float>(std::fmod(static_cast<double>(rate) * lastLightSeconds, 1.0));
+            };
+            const gpu::DrawConstants constants{item.objectIndex, item.materialIndex, item.polyFlags, 0,
+                                               {panned(item.panRate[0]), panned(item.panRate[1])}};
             vkCmdPushConstants(commands, pipelines->sceneLayout(),
                                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
                                &constants);

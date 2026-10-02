@@ -29,7 +29,7 @@ void main() {
     vec4 world = object.model * vec4(inPosition, 1.0);
     worldPosition = world.xyz;
     worldNormal = mat3(object.normalMatrix) * inNormal;
-    uv = inUv;
+    uv = inUv + draw.panOffset; // UTA-0269
     zone = inZone;
     occlusionUv = inOcclusionUv;
 

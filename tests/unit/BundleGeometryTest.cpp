@@ -24,6 +24,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -70,6 +71,8 @@ Bytes geomPayload(const Geometry& geometry) {
         out.u32(batch.polyFlags);
         out.u32(batch.firstIndex);
         out.u32(batch.indexCount);
+        out.f32(batch.panRate[0]); // UTA-0269
+        out.f32(batch.panRate[1]);
     }
     return out;
 }
@@ -78,7 +81,7 @@ Bytes geomPayload(const Geometry& geometry) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(16); // formatVersion -- 16 since UTA-0105 SS 4.2
+    out.u32(17); // formatVersion -- 17 since UTA-0269 gave each GEOM batch a pan rate
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -114,7 +117,7 @@ Geometry golden() {
                          vertexAt(0.0F, 64.0F, 0.0F, 1.0F)};
     geometry.indices = {0, 1, 2, 0, 2, 3};
     geometry.batches = {GeometryBatch{"", 0, 0, 3},
-                        GeometryBatch{"dm-fixture.floor", 0x04000000u, 3, 3}};
+                        GeometryBatch{"dm-fixture.floor", 0x04000000u, 3, 3, {0.5F, -0.25F}}};
     return geometry;
 }
 
@@ -138,6 +141,8 @@ void sameBits(const Geometry& actual, const Geometry& expected) {
         CHECK(actual.batches[i].polyFlags == expected.batches[i].polyFlags);
         CHECK(actual.batches[i].firstIndex == expected.batches[i].firstIndex);
         CHECK(actual.batches[i].indexCount == expected.batches[i].indexCount);
+        CHECK(bitsOf(actual.batches[i].panRate[0]) == bitsOf(expected.batches[i].panRate[0]));
+        CHECK(bitsOf(actual.batches[i].panRate[1]) == bitsOf(expected.batches[i].panRate[1]));
     }
 }
 
@@ -172,7 +177,7 @@ TEST_CASE("the GEOM golden bytes decode to the geometry they encode", "[ubundle]
     // INV-1, the reader's half.
     const auto result = read(fileWith(geomPayload(golden())));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 16);
+    CHECK(result->header.formatVersion == 17);
     REQUIRE(result->geometry.has_value());
     sameBits(*result->geometry, golden());
 }
@@ -275,7 +280,9 @@ TEST_CASE("GEOM batches that tile only when summed in 32 bits are refused", "[ub
 
 TEST_CASE("a GEOM count the section cannot hold is refused before an element is read",
           "[ubundle][geom]") {
-    // SS 4.2's minimums: 33 bytes a vertex (UTA-0156's zone byte), 16 a batch.
+    // SS 4.2's minimums: 33 bytes a vertex (UTA-0156's zone byte), 24 a batch
+    // (UTA-0269's pan rate). The batch payload holds one whole batch and eight
+    // bytes more, so a minimum of 16 would admit the count of two.
     // Each payload declares two elements and holds one plus less than a second,
     // so the count is refused up front. A smaller minimum admits the count and
     // fails later on a short read -- a different refusal, which is what these
@@ -299,10 +306,34 @@ TEST_CASE("a GEOM count the section cannot hold is refused before an element is 
     batches.u32(0);
     batches.u32(0);
     batches.u32(0);
+    batches.f32(0.0F);
+    batches.f32(0.0F);
+    batches.u32(0);
+    batches.u32(0);
     const auto tooManyBatches = read(fileWith(batches));
     REQUIRE_FALSE(tooManyBatches.has_value());
     CHECK(tooManyBatches.error().message().find("exceeds the bytes remaining")
           != std::string_view::npos);
+}
+
+TEST_CASE("UTA-0269: a GEOM batch whose pan rate is not finite is refused", "[ubundle][geom]") {
+    refusedBothWays(shaped({0, 1, 2}, {GeometryBatch{"a", 0, 0, 3, {std::numeric_limits<float>::infinity(), 0}}}),
+                    "pan rate is not finite");
+    refusedBothWays(shaped({0, 1, 2}, {GeometryBatch{"a", 0, 0, 3, {0, std::numeric_limits<float>::quiet_NaN()}}}),
+                    "pan rate is not finite");
+}
+
+TEST_CASE("UTA-0269: GEOM batches of one material and flags ascend by pan rate", "[ubundle][geom]") {
+    // Two batches differing only in rate are two keys; out of order they are refused.
+    refusedBothWays(shaped({0, 1, 2, 0, 1, 2}, {GeometryBatch{"a", 0, 0, 3, {1, 0}}, GeometryBatch{"a", 0, 3, 3, {0.5F, 0}}}),
+                    "does not sort strictly after");
+    Bundle bundle;
+    bundle.geometry = shaped({0, 1, 2, 0, 1, 2}, {GeometryBatch{"a", 0, 0, 3, {0.5F, 0}}, GeometryBatch{"a", 0, 3, 3, {1, 0}}});
+    const auto written = write(bundle);
+    REQUIRE(written.has_value());
+    const auto back = read(*written);
+    REQUIRE(back.has_value());
+    sameBits(*back->geometry, *bundle.geometry);
 }
 
 // ------------------------------------------- UTA-0156 INV-2: a vertex's zone
@@ -322,7 +353,7 @@ std::vector<std::byte> fileWithZones(const Bytes& geom, std::uint32_t count) {
     }
     Bytes out;
     out.id("UTAB");
-    out.u32(16); // formatVersion -- 16 since UTA-0105 SS 4.2
+    out.u32(17); // formatVersion -- 17 since UTA-0269 gave each GEOM batch a pan rate
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved

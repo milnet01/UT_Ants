@@ -15,6 +15,7 @@
 #include "urender/Materials.h"
 #include "urender/Resources.h"
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -28,6 +29,7 @@ struct DrawItem {
     std::uint32_t firstIndex = 0;
     std::uint32_t indexCount = 0;
     std::int32_t firstVertex = 0;
+    std::array<float, 2> panRate{}; ///< UTA-0269: repeats a second along u and v
 };
 
 struct SceneGeometry {

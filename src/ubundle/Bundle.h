@@ -57,7 +57,8 @@ namespace uta::ubundle {
 /// 15 since UTA-0263 SS 4.2 gave each MATS record its flame look, and SS 4.3
 /// added FLAM.
 /// 16 since UTA-0105 SS 4.2 gave each MATS record its liquid look.
-inline constexpr std::uint32_t FORMAT_VERSION = 16;
+/// 17 since UTA-0269 gave each GEOM batch its pan rate (UTA-0109 SS 4.2).
+inline constexpr std::uint32_t FORMAT_VERSION = 17;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -220,13 +221,15 @@ struct GeometryBatch {
     std::uint32_t polyFlags = 0;  ///< UT99's PolyFlags, verbatim
     std::uint32_t firstIndex = 0;
     std::uint32_t indexCount = 0; ///< three per triangle
+    std::array<float, 2> panRate{}; ///< UTA-0269: repeats a second along u and v; finite
 };
 
 /// The level's drawable surfaces as triangles -- UTA-0109 SS 4.2.
 struct Geometry {
     std::vector<GeometryVertex> vertices;
     std::vector<std::uint32_t> indices;
-    /// Strictly ascending by `material` bytewise, then `polyFlags`, and tiling
+    /// Strictly ascending by `material` bytewise, then `polyFlags`, then
+    /// `panRate` (UTA-0269), and tiling
     /// `indices` from its first element to its last.
     std::vector<GeometryBatch> batches;
 };

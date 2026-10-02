@@ -865,7 +865,9 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     };
     FlameSheets flames = findFlameSheets(model, flameMaterial);
     UTA_TRY(ubundle::Geometry geometry,
-            naming(buildGeometry(model, lookup, zones.size(), flames.surfaces), mapName));
+            naming(buildGeometry(model, lookup, zones.size(), flames.surfaces,
+                                 buildZonePanSpeeds(model, actors.placements)),
+                   mapName));
 
     // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
     // probes gather them, so the probes and LITE see the same strips. After

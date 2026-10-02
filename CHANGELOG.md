@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Rivers, conveyor belts and scrolling signs that slid along in the original slide again, each at its own area's speed.** (UTA-0269)
+  A surface the original panned by itself now pans at the same rate,
+  faster or slower where the map's author set its area's speed.
+  Bundle format 17 and baker revision 32: every map must be baked again.
+
 - **Water reflects the sky or the room around it, faint looking straight down and strong across it, and its picture no longer repeats in an exact grid.** (UTA-0089)
   Water and slime under an open sky reflect the sky; elsewhere they
   reflect the room's own bounced light. Far off, the water's picture fades
@@ -592,6 +597,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **On the sewer map the fog glows green and thickens with distance, instead of laying a flat grey mist over everything.** (UTA-0262)
+  Walls close to you stay clear and the far end of a room fades into
+  green, as in the original. No map needs baking again.
+
+- **See-through overlays that tint what lies behind them now do so, instead of drawing as solid pictures.** (UTA-0271)
+  The ripple rings over the temple pool no longer show as a white slab.
+  No map needs baking again.
 
 - **ut-dump warns when it cannot find Engine.u** (UTA-0265)
   Pointed at a folder holding other packages but not Engine.u, such as

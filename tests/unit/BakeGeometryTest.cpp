@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cmath>
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -28,6 +29,8 @@
 using uta::ErrorCode;
 using uta::ubake::buildGeometry;
 using uta::ubake::MaterialLookup;
+using uta::ubake::PF_AUTO_U_PAN;
+using uta::ubake::PF_AUTO_V_PAN;
 using uta::ubake::PF_INVISIBLE;
 using uta::ubake::PF_MASKED;
 using uta::ubake::SurfaceMaterial;
@@ -367,6 +370,43 @@ TEST_CASE("a skipped node is not checked past what its skip needed", "[ubake][ge
     const Geometry geometry = built(scene, stub);
     CHECK(geometry.vertices.empty());
     CHECK(geometry.batches.empty());
+}
+
+TEST_CASE("UTA-0269: a surface flagged to pan moves 64 texels a second times its zone's speed",
+          "[ubake][geom]") {
+    // UT99 pans by 64 texels a second times the zone's TexUPanSpeed or
+    // TexVPanSpeed (SurrealEngine's RenderSubsystem), so in repeats a second
+    // that is 64 * speed / size. Two flagged nodes in zones of different
+    // speeds are two batches; an unflagged one has no rate, and a node flagged
+    // along u only has none along v.
+    Scene scene;
+    const std::size_t slow = scene.add(square(0), PF_AUTO_U_PAN | PF_AUTO_V_PAN);
+    const std::size_t fast = scene.add(square(1), PF_AUTO_U_PAN | PF_AUTO_V_PAN);
+    const std::size_t still = scene.add(square(2), 0);
+    const std::size_t across = scene.add(square(3), PF_AUTO_U_PAN, 2);
+    scene.model.nodes[slow].iZone[1] = 2;
+    scene.model.nodes[fast].iZone[1] = 3;
+    scene.model.nodes[still].iZone[1] = 2;
+    scene.model.nodes[across].iZone[1] = 2;
+    Stub stub;
+    stub.uSize = 128;
+    stub.vSize = 64;
+    const std::vector<std::array<float, 2>> speeds = {{1, 1}, {1, 1}, {2, 0.5F}, {4, 4}};
+    const auto geometry = buildGeometry(scene.model, stub.lookup(), 4, {}, speeds);
+    REQUIRE(geometry.has_value());
+    REQUIRE(geometry->batches.size() == 4);
+    // Ascending by material, then flags, then rate.
+    CHECK(geometry->batches[0].polyFlags == 0);
+    CHECK(geometry->batches[0].panRate == std::array<float, 2>{0, 0});
+    CHECK(geometry->batches[1].panRate == std::array<float, 2>{1.0F, 0.5F});
+    CHECK(geometry->batches[2].panRate == std::array<float, 2>{2.0F, 4.0F});
+    CHECK(geometry->batches[3].material == "t2");
+    CHECK(geometry->batches[3].panRate == std::array<float, 2>{1.0F, 0});
+
+    // With no speeds given every zone pans at ZoneInfo's default, 1.
+    const auto unspeeded = buildGeometry(scene.model, stub.lookup(), 4);
+    REQUIRE(unspeeded.has_value());
+    CHECK(unspeeded->batches[1].panRate == std::array<float, 2>{0.5F, 1.0F});
 }
 
 TEST_CASE("UTA-0156 INV-4: a node's vertices take the zone on its plane's front", "[ubake][geom][zone]") {

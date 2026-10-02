@@ -51,6 +51,8 @@ layout(push_constant) uniform DrawBlock {
     uint objectIndex;
     uint materialIndex;
     uint polyFlags;
+    uint reserved;
+    vec2 panOffset; // UTA-0269: repeats panned, under 1
 } draw;
 #endif
 

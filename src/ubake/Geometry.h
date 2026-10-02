@@ -19,6 +19,7 @@
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <span>
@@ -33,6 +34,12 @@ inline constexpr std::uint32_t PF_INVISIBLE = 0x00000001u; ///< never drawn
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;    ///< index-0 texels see-through
 inline constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u; ///< blended; a flame sheet's -- UTA-0263
 inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;   ///< nothing collides; a flame sheet's
+inline constexpr std::uint32_t PF_AUTO_U_PAN = 0x00000200u;  ///< pans along u -- UTA-0269
+inline constexpr std::uint32_t PF_AUTO_V_PAN = 0x00000400u;  ///< pans along v -- UTA-0269
+
+/// UTA-0269: how far a flagged surface pans a second at a zone speed of 1, in
+/// texels -- SurrealEngine's RenderSubsystem (`AutoUV`), read 2026-10-02.
+inline constexpr double PAN_TEXELS_PER_SECOND = 64.0;
 
 /// The furthest a drawn point may lie from the origin on any axis
 /// (UTA-0109 SS 4.3 step 4): 2^24, past which an f32 no longer holds whole
@@ -67,9 +74,15 @@ using MaterialLookup =
 ///
 /// A surface in `omitted`, ascending, is not drawn: it became a FLAM record
 /// (UTA-0263 SS 4.3). Its nodes are still checked for `iSurf`.
+///
+/// UTA-0269: a batch flagged PF_AutoUPan or PF_AutoVPan pans
+/// PAN_TEXELS_PER_SECOND times its zone's speed over the texture's size, in
+/// repeats a second. `panSpeeds` holds each zone's u and v speed; a zone past
+/// it pans at 1, ZoneInfo's default. Batches split by rate.
 [[nodiscard]] Result<ubundle::Geometry> buildGeometry(const upkg::Model& model,
                                                       const MaterialLookup& materials,
                                                       std::size_t zoneCount,
-                                                      std::span<const std::uint32_t> omitted = {});
+                                                      std::span<const std::uint32_t> omitted = {},
+                                                      std::span<const std::array<float, 2>> panSpeeds = {});
 
 } // namespace uta::ubake

@@ -284,16 +284,21 @@ static_assert(offsetof(FlameInstance, seed) == 20);
 static_assert(offsetof(FlameInstance, ramp) == 24);
 
 /// The scene pipelines' push constants: which object, which material, and the
-/// batch's own flags, which the shaders test bit by bit.
+/// batch's own flags, which the shaders test bit by bit. UTA-0269: how far its
+/// texture has panned, in repeats and under 1, worked out on the CPU in double
+/// so a long-running clock does not lose the fraction.
 struct DrawConstants {
     std::uint32_t objectIndex;
     std::uint32_t materialIndex;
     std::uint32_t polyFlags;
+    std::uint32_t reserved;            ///< so panOffset sits on the vec2's 8 bytes
+    std::array<float, 2> panOffset;
 };
-static_assert(sizeof(DrawConstants) == 12);
+static_assert(sizeof(DrawConstants) == 24);
 static_assert(offsetof(DrawConstants, objectIndex) == 0);
 static_assert(offsetof(DrawConstants, materialIndex) == 4);
 static_assert(offsetof(DrawConstants, polyFlags) == 8);
+static_assert(offsetof(DrawConstants, panOffset) == 16);
 
 /// A shadow tile's push constants: the face it is drawn from, and the batch.
 struct ShadowConstants {

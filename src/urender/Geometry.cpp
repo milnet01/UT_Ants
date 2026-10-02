@@ -71,7 +71,7 @@ Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bun
             if ((batch.polyFlags & gpu::PF_INVISIBLE) != 0) continue;
             if (batch.indexCount == 0) continue;
             scene.draws.push_back({objectIndex, materials.indexOf(batch.material), batch.polyFlags,
-                                   firstIndex + batch.firstIndex, batch.indexCount, firstVertex});
+                                   firstIndex + batch.firstIndex, batch.indexCount, firstVertex, batch.panRate});
         }
         vertices.insert(vertices.end(), geometry.vertices.begin(), geometry.vertices.end());
         if (objectIndex == 0 && bundle.occlusion && bundle.occlusion->uv.size() == geometry.vertices.size())

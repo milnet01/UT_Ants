@@ -14691,7 +14691,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
 
-- 📋 [UTA-0269] **urender: surfaces flagged to pan by themselves (PF_AutoUPan, PF_AutoVPan) do not move.**
+- 🚧 [UTA-0269] **urender: surfaces flagged to pan by themselves (PF_AutoUPan, PF_AutoVPan) do not move.**
   Found drafting UTA-0105's spec (2026-10-02): no part of src/ reads
   PF_AutoUPan or PF_AutoVPan (workspace_search over src/ for AutoUPan,
   AutoVPan and PanSpeed: no matches). UT99 pans any texture on such a
@@ -14705,6 +14705,28 @@ stays with movement in 0.2.0.
   rivers flow; it is one offset in scene.frag plus the zone's two
   speeds, so it needs no spec. Kept out of UTA-0105 because it is not a
   liquid look and applies to every texture.
+  Taken 2026-10-02. The rule, read in SurrealEngine's RenderSubsystem
+  and VisibleNode (2026-10-02): a surface flagged PF_AutoUPan or
+  PF_AutoVPan pans by 64 texels a second times its zone's TexUPanSpeed or
+  TexVPanSpeed, the zone being the node's front side's. ZoneInfo's
+  compiled defaults are 1.0 and 1.0, and no zone class in Engine,
+  UnrealShare, UnrealI or Botpack stores its own
+  (~/.cache/uta-scratch/u269/class_defaults.py). Census
+  (u269/pan_census.py): 1093 zone actors on 531 of 1488 maps store a
+  speed, from 0.02 to 80, so the zone's speed must be carried. The bundle
+  does not carry a texture's size, so the baker turns each panning
+  surface's rate into texture units itself.
+  Done (2026-10-02), amending docs/specs/UTA-0109-map-geometry.md (§ 4.2,
+  § 4.3, INV-8, INV-13) and UTA-0014 § 4.5. The baker turns each flagged
+  surface's pan into repeats a second (64 x zone speed / texture size) and
+  keys its batch by it; GEOM and MOVR batches carry it (format 17, baker
+  32). Each draw pushes fract(rate x seconds), worked in double on the
+  CPU, and scene.vert adds it to uv; a mover pans at speed 1, its Model
+  having no zones. Tests: bake, zone and bundle cases red first; the
+  device case's mutant without the shader offset killed. NOT measured
+  against an original frame: the rate rests on SurrealEngine's source.
+  To check it, capture a flagged non-liquid surface twice a known time
+  apart and compare its shift.
   **Layman:** Rivers, conveyor belts and scrolling signs that slid along in the original stand still; this makes them slide again.
   Kind: feature.
   Source: in-session-2026-10-02.
@@ -14728,7 +14750,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02.
   Lanes: render, ubake.
 
-- 🚧 [UTA-0271] **urender: surfaces flagged PF_Modulated are drawn as ordinary surfaces instead of darkening what lies behind them.**
+- ✅ [UTA-0271] **urender: surfaces flagged PF_Modulated are drawn as ordinary surfaces instead of darkening what lies behind them.**
   Found 2026-10-02 while researching UTA-0089: workspace_search over src/
   for MODULATED, Modulated and 0x00000040 finds only src/ubake/
   SurfaceRays.{h,cpp}, which skip such surfaces when tracing light. The
@@ -14764,6 +14786,8 @@ stays with movement in 0.2.0.
   the water line there (UTA-0215's ground), not the ring layer. Whether
   UT99 lights a modulated surface is not settled by these poses; ours
   does not, as SurrealEngine's mesh path does not.
+  Shipped in c990a04 (pushed with 21089bb); GitHub's matrix green
+  (run 37025204398).
   **Layman:** Some see-through overlays in the original tint and darken what is behind them; here they draw as solid pictures instead.
   Kind: fix.
   Source: in-session-2026-10-02.

@@ -13,6 +13,7 @@
 #include "ubundle/Bundle.h"
 #include "upkg/Geometry.h"
 
+#include <array>
 #include <vector>
 
 namespace uta::ubake {
@@ -23,6 +24,13 @@ namespace uta::ubake {
 /// level's LevelInfo; with neither, the entry is zero. Each value is the
 /// actor's own record, else its class's default, else 0 (false for bFogZone).
 [[nodiscard]] std::vector<ubundle::Zone> buildZones(const upkg::Model& model, const ubundle::Placements& placements);
+
+/// Each zone's TexUPanSpeed and TexVPanSpeed -- UTA-0269. One entry per zone
+/// of `model`, and one when it has none, the actor chosen as buildZones
+/// chooses it. Each speed is the actor's own record, else its class's default,
+/// else 1, Engine.u's ZoneInfo default; a NaN or infinity is 1.
+[[nodiscard]] std::vector<std::array<float, 2>> buildZonePanSpeeds(const upkg::Model& model,
+                                                                  const ubundle::Placements& placements);
 
 /// The level's LevelInfo.Brightness -- UTA-0156 SS 4.5. UT99's Render.so
 /// (FLightInfo::ComputeFromActor) multiplies every light's colour by it.
