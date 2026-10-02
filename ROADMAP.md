@@ -14965,6 +14965,28 @@ stays with movement in 0.2.0.
   pool, darker, not brighter. The 1.3x under water came from UTA-0215's
   caustics and shafts. So the pool is UTA-0278's (too dark), and DM-Fetid
   stays this item's only case (too bright).
+  Re-measured (2026-10-02) at baker r35, Low tier, with the u261 kit
+  (render.sh, stats.py; bake ~/.cache/uta-scratch/u274/bakes). Dark areas
+  (original under 20), ours against the original: poses 0-7 = 43.5/10.9,
+  18.0/9.3, 18.1/8.2, 17.2/13.1, 12.4/12.9, 10.3/11.2, 9.9/10.1,
+  29.4/11.9. Poses 4-6 now match; 0 and 7 carry the gap. Ruled out, one at
+  a time: mip choice (textures one mip sharper: 43.3), bump maps (off:
+  46.4). Shadows carry the darkness: off, pose 0 goes to 83.7. Pose 0's
+  dark pixels are the grooves between the wall pipes, black in the
+  original and grey in ours, so the lead is how far our shadows reach
+  into narrow grooves: tile resolution (64-1024 per light) or the
+  UTA-0182 biases. Touch the biases only with UTA-0182's two acne cases
+  re-checked.
+  Narrowed (2026-10-02): not shadow resolution either -- Low given 32 and
+  16 units a texel left pose 0 at 43.6. A close-up of pose 0's wall pipes
+  shows they are painted in the texture on a flat sloped wall, not
+  geometry, so no shadow setting reaches them. The original's pipes are
+  darker over their whole lower halves, not only in the grooves, and ours
+  carry thin white streaks. So the gap is how our light model treats a
+  texture's dark texels at moderate light -- UTA-0187's display-power rule
+  at the low end -- and possibly the streaks' source. Next: one wall
+  texel of known value under one known light, ours against the
+  original's 2x display multiply, to see where the low end parts.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
