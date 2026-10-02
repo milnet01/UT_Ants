@@ -177,6 +177,7 @@ add_executable(uta_device_tests
     device/DeviceFixture.cpp
     device/RenderColourTransferTest.cpp
     device/RenderFlamesTest.cpp
+    device/RenderLiquidsTest.cpp
     device/RenderFogTest.cpp
     device/RenderDeviceAbsentTest.cpp
     device/RenderLightParityTest.cpp
@@ -249,7 +250,8 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealBakeTest.cpp real/RealGeometryTest.cpp
                                         real/RealActorsTest.cpp real/RealMoversTest.cpp
                                         real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp
-                                        real/RealLightProbesTest.cpp real/RealFlamesTest.cpp)
+                                        real/RealLightProbesTest.cpp real/RealFlamesTest.cpp
+                                        real/RealLiquidsTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.

@@ -59,10 +59,11 @@ enum Binding : std::uint32_t {
     SHADOW_FACES = 9,
     ZONES = 10,        ///< UTA-0156 SS 4.4
     FLAMES = 11,       ///< UTA-0263 SS 4.4: one FlameInstance per FLAM record
-    FLAME_RAMPS = 12,  ///< UTA-0263 SS 4.2: eight entries per flame look; the last storage buffer
-    SHADOW_ATLAS = 13,
-    FOG_VOLUME = 14, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
-    TEXTURES = 15,   ///< last: it is the variable-count binding
+    FLAME_RAMPS = 12,  ///< UTA-0263 SS 4.2: eight entries per flame look
+    LIQUIDS = 13,      ///< UTA-0105 SS 4.4: one Liquid per liquid look; the last storage buffer
+    SHADOW_ATLAS = 14,
+    FOG_VOLUME = 15, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
+    TEXTURES = 16,   ///< last: it is the variable-count binding
 };
 
 /// One frame's camera and settings.
@@ -137,8 +138,9 @@ struct Material {
     std::uint32_t metallic;
     std::uint32_t parallaxDepth; ///< UTA-0040 SS 4.6: texels of the base level; 0 for none
     std::uint32_t flame;         ///< UTA-0263 SS 4.4: its ramp's first entry in FLAME_RAMPS, or NONE
+    std::uint32_t liquid;        ///< UTA-0105 SS 4.4: its look's index in LIQUIDS, or NONE
 };
-static_assert(sizeof(Material) == 32);
+static_assert(sizeof(Material) == 36);
 static_assert(offsetof(Material, base) == 0);
 static_assert(offsetof(Material, normal) == 4);
 static_assert(offsetof(Material, rough) == 8);
@@ -147,6 +149,7 @@ static_assert(offsetof(Material, emit) == 16);
 static_assert(offsetof(Material, metallic) == 20);
 static_assert(offsetof(Material, parallaxDepth) == 24);
 static_assert(offsetof(Material, flame) == 28);
+static_assert(offsetof(Material, liquid) == 32);
 
 /// One light, as UT99's own numbers -- the shader turns them into light
 /// (SS 3 decision 5), so no part of UTA-0112 SS 4.3's model is computed here.
@@ -239,6 +242,24 @@ static_assert(offsetof(Zone, brightness) == 0);
 static_assert(offsetof(Zone, hue) == 4);
 static_assert(offsetof(Zone, saturation) == 8);
 static_assert(offsetof(Zone, reserved) == 12);
+
+/// One liquid look as the shader reads it -- UTA-0105 SS 4.2 and SS 4.4. The
+/// settings stay UT99's bytes, as floats; liquid.glsl maps them.
+struct Liquid {
+    std::uint32_t kind;    ///< ubundle::LiquidKind: 1 Wet, 2 Ice, 3 Wave
+    std::uint32_t panning; ///< Ice: PanningStyle
+    float amplitude;
+    float frequency;
+    std::array<float, 2> pan;  ///< Ice: HorizPanSpeed, VertPanSpeed
+    std::array<float, 2> size; ///< texels
+    std::array<float, 4> bump; ///< Wave: BumpMapLight, BumpMapAngle, PhongSize, unused
+    std::array<std::array<float, 4>, 8> ramp; ///< Wave: linear RGB, darkest first
+};
+static_assert(sizeof(Liquid) == 176);
+static_assert(offsetof(Liquid, pan) == 16);
+static_assert(offsetof(Liquid, size) == 24);
+static_assert(offsetof(Liquid, bump) == 32);
+static_assert(offsetof(Liquid, ramp) == 48);
 
 /// One entry of a flame's ramp, linear RGB and an unused fourth -- UTA-0263
 /// SS 4.2. A look is eight in a row, coldest first.

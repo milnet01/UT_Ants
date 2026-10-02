@@ -192,6 +192,17 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
             fnv.addValue(record.metallic);
             fnv.addValue(record.parallaxDepth); // uploaded, so a change must re-upload
             if (record.flame) fnv.addValue(record.flame->ramp); // UTA-0263 SS 4.2, uploaded too
+            if (record.liquid) { // UTA-0105 SS 4.2, uploaded too
+                const ubundle::LiquidLook& look = *record.liquid;
+                fnv.addValue(static_cast<std::uint8_t>(look.kind));
+                fnv.addValue(look.amplitude);
+                fnv.addValue(look.frequency);
+                fnv.addValue(look.panning);
+                fnv.addValue(look.pan);
+                fnv.addValue(look.bump);
+                fnv.addValue(look.size);
+                fnv.addValue(look.ramp);
+            }
         }
     }
     // UTA-0156 SS 4.4: a bundle differing only in its zones must re-upload them.
@@ -713,7 +724,7 @@ Result<void> Renderer::Impl::writeDescriptors() {
                                                          + (occlusion.view() ? 1 : 0));
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::FLAME_RAMPS + 1 + 1},
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::LIQUIDS + 1 + 1},
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
         // each post set, and one source per bloom step; then UTA-0015's fog volume.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -774,10 +785,11 @@ Result<void> Renderer::Impl::writeDescriptors() {
     fogAllocate.pSetLayouts = &fogLayout;
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &fogAllocate, &fogSet), "vkAllocateDescriptorSets (fog)"));
 
-    const std::array<const Buffer*, gpu::FLAME_RAMPS + 1> buffers = {
-        &frameData, &objects, &materials->records(), &lights, &clusterCounts,
-        &clusterIndices, &clusterBounds, &probeCells, &probes, &shadowFaces, &zones, &flames, &materials->ramps()};
-    std::array<VkDescriptorBufferInfo, gpu::FLAME_RAMPS + 1> bufferInfos{};
+    const std::array<const Buffer*, gpu::LIQUIDS + 1> buffers = {
+        &frameData,     &objects,       &materials->records(), &lights, &clusterCounts,
+        &clusterIndices, &clusterBounds, &probeCells,          &probes, &shadowFaces,
+        &zones,          &flames,        &materials->ramps(),  &materials->liquids()};
+    std::array<VkDescriptorBufferInfo, gpu::LIQUIDS + 1> bufferInfos{};
     std::vector<VkWriteDescriptorSet> writes;
     for (std::uint32_t i = 0; i < buffers.size(); ++i) {
         bufferInfos[i] = {buffers[i]->handle(), 0, VK_WHOLE_SIZE};

@@ -118,6 +118,8 @@ In `scene.frag`, before any material map is sampled:
 2. **Parallax runs only where** the maximum step count is above 0,
    `material.parallaxDepth` is above 0, and the batch is neither `PF_Masked` nor
    `PF_FakeBackdrop`. `PF_Unlit` surfaces take it: light fixtures are unlit.
+   **A material with a liquid look takes none** (`UTA-0105` § 4.4): its
+   picture moves off the height map the march would read.
 3. The tangent frame is the one `perturbed` already builds from screen
    derivatives, factored into a function both use. The view direction goes into
    that frame.

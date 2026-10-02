@@ -5025,6 +5025,10 @@ stays with movement in 0.2.0.
   User direction (2026-09-14): the engine's first iteration uses the
   cheapest methods that still make it look like a modern game. Fully
   modern features come after.
+  User, 2026-10-02, restated during UTA-0105's build: "I want water to
+  look like real water." Taken up straight after UTA-0105, which
+  supplies the moving ripple normal this item's reflections and
+  refraction read.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -11900,6 +11904,16 @@ stays with movement in 0.2.0.
      pruned specs changes none of the 7.
   So UTA-0194's yield estimate need not allow for dropped bridges.
   Probe: ~/.cache/uta-scratch/uta0193 (probe/, run1/).
+  UT_MonsterHunt's specprobe on the 7 maps (message 402, 2026-10-02;
+  table at /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0193spec/
+  classes-2026-10-02.tsv). Egyptica and ScrewedUpMonstersV3: ONESIDED,
+  open once the missing back-links are written. BunchOfHPSBFix: ROUTES
+  by the engine's search though our census said PARTITIONED. Malus_
+  KeepSBMod-BP: CUT, possibly the event-gated big-exit case, unchecked.
+  Sk_Cryptrunners: still unexplained. ValleyOfTheBrave and RiseOfEvil_
+  V2: the search reaches the exit, then their probe hit the engine's
+  runaway-loop limit, a limit of their probe. No action owed here
+  until they test the big-exit finding.
   **Layman:** On some maps our tool found the exit but suggested no breadcrumbs to reach it; find out whether that is honest or a dropped result.
   Kind: investigate.
   Source: ut-monsterhunt-2026-09-20.
@@ -13019,6 +13033,9 @@ stays with movement in 0.2.0.
   change, so docs/standards/versioning-overrides.md's 0.1.0 row now names
   water, fire and the underwater view as part of the cut condition. The
   roadmap and the cut condition agree again.
+  User, 2026-10-02, restated during UTA-0105's build: "when you [are]
+  underwater it must look like you [are] under water." The bar above
+  stands; taken up after UTA-0089.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.

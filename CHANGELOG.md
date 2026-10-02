@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Water, slime, lava and the other textures that moved by themselves in the original move again.** (UTA-0105)
+  Rippling textures drift and ripple, and on lit surfaces the light on
+  them ripples too; glowing lasers and plasma slide and swirl the way the
+  original moved them. Each texture moves by its own original settings.
+  Bundle format 16 and baker revision 31: every map must be baked again.
+
 - **Fires are drawn the modern way: moving shader flames that face the player, glow, and flicker the light beside them.** (UTA-0263)
   Torch sheets become upright camera-facing flames, so they are never
   paper-thin edge on; large fire-covered surfaces get the same moving flame

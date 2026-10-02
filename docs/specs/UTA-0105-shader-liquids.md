@@ -300,7 +300,7 @@ Each constant records its sweep in a comment beside it, as `fog.glsl`'s do.
 
 - **A liquid whose class default cannot be read** — `Fire.u` is missing or
   does not read. The material keeps its still and no look, and the bake
-  reports it as it reports a skipped material.
+  names it, and why, in its report's `skippedLiquids`.
 - **A liquid with no picture** — a WetTexture whose source is itself
   procedural takes UTA-0177's flat fill. The warp of a flat colour shows
   nothing; on a lit surface the tilt still ripples the light.

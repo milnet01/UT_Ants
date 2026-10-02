@@ -48,12 +48,16 @@ public:
     [[nodiscard]] std::uint32_t rampOf(std::uint32_t record) const noexcept;
     /// Every flame look's eight entries; one zero entry where there is none.
     [[nodiscard]] const Buffer& ramps() const noexcept { return ramps_; }
+    /// UTA-0105 SS 4.4: every liquid look, in MATS order; one zero entry where
+    /// there is none.
+    [[nodiscard]] const Buffer& liquids() const noexcept { return liquids_; }
 
 private:
     std::vector<MemoryBlock> blocks_; ///< declared before the images bound into them
     std::vector<Image> textures_;
     Buffer records_;
     Buffer ramps_;
+    Buffer liquids_;
     std::vector<std::uint32_t> rampByRecord_; ///< by MATS index
     std::unordered_map<std::string, std::uint32_t> byId_;
     std::unordered_set<std::string> reported_;

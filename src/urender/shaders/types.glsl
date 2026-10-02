@@ -65,6 +65,19 @@ struct Material {
     uint metallic;
     uint parallaxDepth; // UTA-0040: texels of the base level; 0 for none
     uint flame;         // UTA-0263: its ramp's first entry in flameRamps, or NONE
+    uint liquid;        // UTA-0105: its look's index in liquids, or NONE
+};
+
+// UTA-0105 SS 4.4: ShaderTypes.h's Liquid. UT99's settings, as floats.
+struct Liquid {
+    uint kind;     // 1 Wet, 2 Ice, 3 Wave
+    uint panning;  // Ice: PanningStyle
+    float amplitude;
+    float frequency;
+    vec2 pan;      // Ice: HorizPanSpeed, VertPanSpeed
+    vec2 size;     // texels
+    vec4 bump;     // Wave: BumpMapLight, BumpMapAngle, PhongSize
+    vec4 ramp[8];  // Wave: linear RGB, darkest first
 };
 
 struct Light {

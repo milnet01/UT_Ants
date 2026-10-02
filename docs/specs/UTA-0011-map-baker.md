@@ -540,16 +540,19 @@ A bake prints:
             "byTextureOmitted": 0},
  "textureCache": {"hits": 0, "misses": 0},
  "skipped": [{"material": "<id>", "why": "<a sentence>"}],
- "skippedFlames": [{"surface": 0, "why": "<a sentence>"}]}
+ "skippedFlames": [{"surface": 0, "why": "<a sentence>"}],
+ "skippedLiquids": [{"material": "<id>", "why": "<a sentence>"}]}
 ```
 
 - `error` appears only on `refused`.
 - `name` and `path` appear on `written`, `cached` and `over-budget`.
-- `rooms`, `budget`, `textureCache`, `skipped` and `skippedFlames` appear on
-  `written` and `over-budget`.
+- `rooms`, `budget`, `textureCache`, `skipped`, `skippedFlames` and
+  `skippedLiquids` appear on `written` and `over-budget`.
 - `skippedFlames` names each flame surface with a sheet's flags that made no
   flame record, by its index in the level's surface list, and why. Added by
   `UTA-0263` § 6.
+- `skippedLiquids` names each liquid material made with no liquid look, and
+  why. Added by `UTA-0105` § 6.
 - `byTexture` on `written` lists only the ten largest entries, and
   `byTextureOmitted` counts the rest. `over-budget`, or `--full-budget`, lists
   every entry, with `byTextureOmitted` `0`: the whole list is read only to
@@ -651,12 +654,14 @@ The section id is the bytes `M`, `A`, `T`, `S`. Its payload is one
 | `metallic` | `u8` | `0` or `1`. No other value is defined |
 | `parallaxDepth` | `u8` | **Added by `UTA-0040` § 4.1.** Parallax depth in texels of the base level, `0` for none. Every value is defined |
 | `flame` | `u8`, then 24 `f32` when `1` | **Added by `UTA-0263` § 4.2.** `1` for a flame, followed by its ramp: eight linear RGB entries, coldest first. `0` for none. Any other byte, or a ramp value that is not finite, is refused |
+| `liquid` | `u8`, then the look when not `0` | **Added by `UTA-0105` § 4.2.** `0` for none, else the kind: `1` Wet, `2` Ice, `3` Wave. The look follows: `amplitude`, `frequency`, `panning`, two `pan` and three `bump` bytes, two `u16` sides, then the ramp's 24 `f32`. A kind past 3, a `panning` past 4, a side of 0 or past 8192, or a ramp value that is not finite is refused |
 
 **The minimum encoded size of one element is 5 bytes**: a `u32` length for
 an empty `id`, then one `u8`. It joins UTA-0008 § 4.2's minimum-size table.
 **`UTA-0040` § 4.1 appends the `parallaxDepth` byte**, making it 6 and the
 format version 9. **`UTA-0263` § 4.2 appends the `flame` byte**, making it 7
-and the format version 15.
+and the format version 15. **`UTA-0105` § 4.2 appends the `liquid` byte**,
+making it 8 and the format version 16.
 
 **Validation, in UTA-0008 § 4.9's manner.** A `metallic` byte other than `0`
 or `1` is `MalformedData`, never defaulted. The `id`s are in strictly

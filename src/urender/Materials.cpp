@@ -83,7 +83,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     sources.push_back(defaultSource(DEFAULT_NORMAL, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_ROUGH, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM));
-    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0, gpu::NONE};
+    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0, gpu::NONE, gpu::NONE};
 
     std::unordered_map<std::string_view, const ubundle::CompressedTexture*> byName;
     if (bundle.textures)
@@ -121,6 +121,33 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     // The binding is never empty.
     if (ramps.empty()) ramps.push_back({});
 
+    // UTA-0105 SS 4.4: each liquid look, in MATS order, its settings as floats.
+    std::vector<gpu::Liquid> liquids;
+    std::vector<std::uint32_t> liquidByRecord;
+    if (bundle.materials) {
+        for (const ubundle::MaterialRecord& record : *bundle.materials) {
+            if (!record.liquid) {
+                liquidByRecord.push_back(gpu::NONE);
+                continue;
+            }
+            const ubundle::LiquidLook& look = *record.liquid;
+            gpu::Liquid liquid{};
+            liquid.kind = static_cast<std::uint32_t>(look.kind);
+            liquid.panning = look.panning;
+            liquid.amplitude = look.amplitude;
+            liquid.frequency = look.frequency;
+            liquid.pan = {static_cast<float>(look.pan[0]), static_cast<float>(look.pan[1])};
+            liquid.size = {static_cast<float>(look.size[0]), static_cast<float>(look.size[1])};
+            liquid.bump = {static_cast<float>(look.bump[0]), static_cast<float>(look.bump[1]),
+                           static_cast<float>(look.bump[2]), 0.0f};
+            for (std::size_t i = 0; i < look.ramp.size(); ++i)
+                liquid.ramp[i] = {look.ramp[i][0], look.ramp[i][1], look.ramp[i][2], 0.0f};
+            liquidByRecord.push_back(static_cast<std::uint32_t>(liquids.size()));
+            liquids.push_back(liquid);
+        }
+    }
+    if (liquids.empty()) liquids.push_back({});
+
     if (bundle.materials) {
         for (std::size_t m = 0; m < bundle.materials->size(); ++m) {
             const ubundle::MaterialRecord& record = (*bundle.materials)[m];
@@ -142,7 +169,8 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                                normal == gpu::NONE ? defaults.normal : normal,
                                rough == gpu::NONE ? defaults.rough : rough,
                                height == gpu::NONE ? defaults.height : height, emit,
-                               record.metallic ? 1u : 0u, record.parallaxDepth, set.rampByRecord_[m]});
+                               record.metallic ? 1u : 0u, record.parallaxDepth, set.rampByRecord_[m],
+                               liquidByRecord[m]});
         }
     }
 
@@ -208,6 +236,8 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
 
     UTA_TRY(set.records_, Buffer::upload(gpu, std::as_bytes(std::span(records)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     UTA_TRY(set.ramps_, Buffer::upload(gpu, std::as_bytes(std::span(ramps)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+    UTA_TRY(set.liquids_,
+            Buffer::upload(gpu, std::as_bytes(std::span(liquids)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     return set;
 }
 

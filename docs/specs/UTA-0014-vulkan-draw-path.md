@@ -550,6 +550,13 @@ three forward targets, is depth-tested and not depth-written, and adds into
 colour and emission. A `GEOM` batch whose material has a flame look is drawn
 with the flame shader instead of its picture.
 
+**A liquid moves its picture** (`UTA-0105` § 4.4, recording what was built).
+A batch whose material has a liquid look samples its maps at a coordinate
+shifted by moving noise, skips parallax, and on a lit surface tilts its
+normal by the same noise; a WaveTexture's colour comes from that noise
+through its ramp. The looks sit in the `LIQUIDS` storage buffer, binding 13,
+which moved the shadow atlas, the fog volume and the texture array up one.
+
 **When a bundle is uploaded again.** `draw` uploads geometry, materials and
 probes when it sees a bundle it has not: another object, another size of any
 section, or another hash of a bounded sample of their bytes. The sample is what

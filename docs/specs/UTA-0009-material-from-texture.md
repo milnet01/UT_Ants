@@ -474,7 +474,9 @@ Recorded after the build. None of it changes a contract above.
   `src/upkg/Texture.cpp`. `generate` cannot tell a class apart. *Decided
   by the user, 2026-09-10*: the first version shows each procedural
   texture as a still picture where one exists. Which image stands in is
-  UTA-0011's; motion is UTA-0105's.
+  UTA-0011's. The still of a `WetTexture`, `IceTexture` or `WaveTexture`
+  moves in the renderer since `UTA-0105`; `FireTexture`'s flames are
+  `UTA-0263`'s.
 - **A palette shorter than the indices.** `resolve` refuses; nothing
   reads past it.
 - **A base that is not a power of two.** Refused, naming the texture
@@ -534,8 +536,8 @@ on then come out of the tree, not a scratch run.
 - Decoding a replacement PNG into an `Image`, and the recipe field naming
   it — tracked by UTA-0106.
 - The optional AI upscaling tool — tracked by UTA-0107.
-- Animating procedural textures (`FireTexture`, `WaveTexture` and kin) —
-  tracked by UTA-0105.
+- Animating procedural textures — `WetTexture`, `IceTexture` and
+  `WaveTexture` by UTA-0105, `FireTexture` by UTA-0263's flames.
 
 ## 10. What checks this
 

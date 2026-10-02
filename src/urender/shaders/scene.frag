@@ -14,6 +14,7 @@
 #include "flame.glsl"
 #include "fog.glsl"
 #include "light.glsl"
+#include "liquid.glsl"
 #include "probes.glsl"
 #include "shadows.glsl"
 
@@ -149,13 +150,26 @@ void main() {
     if (!gl_FrontFacing) surface = -surface;
     TextureAxes axes = textureAxes(surface, worldPosition, duv1, duv2);
 
-    vec2 shadingUv = uv;
-    if (PARALLAX_MAX_STEPS > 0u && material.parallaxDepth != 0u
+    // UTA-0105 SS 4.4: a liquid shifts its picture by moving noise, and skips
+    // parallax, whose march would chase a height map the picture has left.
+    // The derivatives stay the undisplaced coordinate's.
+    bool liquid = material.liquid != NONE;
+    LiquidSample wet;
+    wet.offset = vec2(0.0);
+    wet.tilt = vec2(0.0);
+    wet.colour = vec3(0.0);
+    if (liquid) wet = liquidAt(liquids[material.liquid], uv, frame.flameSeconds, draw.materialIndex);
+    bool waving = liquid && liquids[material.liquid].kind == LIQUID_WAVE;
+
+    vec2 shadingUv = uv + wet.offset;
+    if (!liquid && PARALLAX_MAX_STEPS > 0u && material.parallaxDepth != 0u
         && (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) == 0u)
         shadingUv = parallaxUv(material, axes, surface);
 
     // An _SRGB block format: the sampler returns linear (SS 4.10).
     vec4 base = textureGrad(textures[nonuniformEXT(material.base)], shadingUv, duv1, duv2);
+    // A Wave has no picture of its own: its colour is the noise's, through its ramp.
+    if (waving) base.rgb = wet.colour;
 
     // UTA-0263 SS 4.4: a material with a flame look draws moving flame, from
     // the texture coordinates, instead of its picture -- unlit, as emission.
@@ -179,7 +193,7 @@ void main() {
         colour = base.rgb;
     } else {
         vec2 stored = textureGrad(textures[nonuniformEXT(material.normal)], shadingUv, duv1, duv2).rg;
-        vec2 tilt = vec2(normalComponent(stored.x), normalComponent(stored.y));
+        vec2 tilt = vec2(normalComponent(stored.x), normalComponent(stored.y)) + wet.tilt;
         vec3 n = perturbed(surface, axes, vec3(tilt, sqrt(max(0.0, 1.0 - dot(tilt, tilt)))));
 
         // SS 4.6: only this fragment's own cluster's lights. SS 4.9: the
