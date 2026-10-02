@@ -5061,6 +5061,10 @@ stays with movement in 0.2.0.
     AmbientOcclusion; a new feature needs its own minimumTier row.
   - docs/design.md's urender row does not mention reflections.
   - PF_Modulated is not drawn as UT99 draws it: UTA-0271.
+  Scope (user, 2026-10-02): this item is water only, and the cheap part
+  only: reflections, Fresnel and less visible tiling, shader-side. Glass
+  moved to UTA-0272; refraction, depth tint and the shore fade to
+  UTA-0273.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -14696,6 +14700,38 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: in-session-2026-10-02.
   Lanes: render.
+
+- 📋 [UTA-0272] **urender: glass that looks like glass, with a cheap faked reflection.**
+  Split from UTA-0089 by the user, 2026-10-02: water first, glass as
+  its own item. The user's original ask (2026-09-10) covered both.
+
+  Nothing marks glass today: no material tag, and PolyFlags alone cannot
+  say it, since PF_Translucent also covers beams, force fields and
+  holograms. By name is weak too: 66% of glass-named surfaces carry 0x4
+  (UTA-0009's measurement, 2026-09-10). So the first step is a census of
+  how glass can be told apart, then a tag in the bake (a format bump).
+  The reflection itself should reuse whatever UTA-0089 builds for water.
+  Whether it is part of 0.1.0's cut is the user's call.
+  **Layman:** Windows and glass panes should look like glass, with a faint reflection, once we can tell which surfaces are glass.
+  Kind: feature.
+  Source: user-request-2026-10-02 split-from-UTA-0089.
+  Lanes: urender, ubake.
+
+- 📋 [UTA-0273] **urender: see-through water that wobbles, and deep water that darkens.**
+  Split from UTA-0089 by the user, 2026-10-02: the cheap part first
+  (reflections, Fresnel, less tiling), this after it, measured.
+
+  Refraction, depth tint and a soft fade where water meets the shore
+  all need what the translucent pass lacks today (read 2026-10-02): a
+  copy of hdr after the opaque pass, and a depth image created with
+  SAMPLED usage (it has DEPTH_STENCIL_ATTACHMENT only). Both cost every
+  frame, so it wants its own tier row in Tiers.h and a ut-bench frame
+  measurement. Builds on UTA-0089's water normal.
+  Whether it is part of 0.1.0's cut is the user's call.
+  **Layman:** Looking into water should show what is under it bent by the ripples, with deeper water looking darker, like a real lake.
+  Kind: feature.
+  Source: user-request-2026-10-02 split-from-UTA-0089.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
