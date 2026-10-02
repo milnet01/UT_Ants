@@ -26,7 +26,9 @@ namespace {
 
 constexpr double WATER_FOG_START = 800.0; // fog.glsl's
 constexpr double WATER_FOG_END = 2400.0;
-constexpr double WATER_KEEP = 0.68; // post.frag's
+/// post.frag's waterVeil: what the original lays over the view, per
+/// channel, for a ViewFog part `f`.
+double veil(double f) { return f <= 0 ? 0.0 : 1.0 - std::pow(1.0 - f, 2.1 + 0.02 / f); }
 
 double decode(double c) { return c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4); }
 double encode(double l) {
@@ -70,10 +72,8 @@ Rgba centre(Renderer& renderer, const uta::ubundle::Bundle& bundle, std::uint32_
 }
 
 /// The byte the original's underwater view gives a channel of linear light
-/// `l` under § 4.2: its constant mix, then PlayerPawn's flash.
-double tinted(double l, double fog) {
-    return 255.0 * std::clamp((encode(l) * WATER_KEEP + fog) * 0.8 + fog, 0.0, 1.0);
-}
+/// `l` under § 4.2: its veil over the displayed value.
+double tinted(double l, double fog) { return 255.0 * (veil(fog) + (1.0 - veil(fog)) * encode(l)); }
 
 } // namespace
 
@@ -98,15 +98,15 @@ TEST_CASE("UTA-0215 INV-3 and INV-4: under water the wall fades by its depth and
 TEST_CASE("UTA-0215 INV-4: under water at the full output a far wall shows the water's colour through the tint", "[device]") {
     removeDisplay();
     // Exposure and the tone map apply here. Far off, the wall is gone and the
-    // view is the original's for black: d' = (0 x KEEP + ViewFog) x 0.8 + ViewFog.
+    // view is the original's for black: the veil alone.
     Config config = frameOf(160);
     config.linearOutput = false;
     Renderer renderer = requireRenderer(config);
     const Rgba far = centre(renderer, wallAt(3000, true), 160);
     CAPTURE(far);
-    CHECK(std::abs(far.r - 255.0 * 0.1 * 1.8) <= 2.0);
-    CHECK(std::abs(far.g - 255.0 * 0.2 * 1.8) <= 2.0);
-    CHECK(std::abs(far.b - 255.0 * 0.3 * 1.8) <= 2.0);
+    CHECK(std::abs(far.r - 255.0 * veil(0.1)) <= 2.0);
+    CHECK(std::abs(far.g - 255.0 * veil(0.2)) <= 2.0);
+    CHECK(std::abs(far.b - 255.0 * veil(0.3)) <= 2.0);
 }
 
 TEST_CASE("UTA-0215 INV-4: from under water a surface out of the water takes the tint and no fade", "[device]") {

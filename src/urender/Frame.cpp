@@ -1268,8 +1268,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
                                 nullptr);
         const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height},
                                            upscaleInputPass ? 1u : 0u, bloomOn ? BLOOM_STRENGTH : 0.0f,
-                                           // UTA-0215 SS 4.2 and SS 4.4
-                                           viewZone.water != 0 ? 1.0f + viewZone.viewFlash : 1.0f,
+                                           0.0f, // reserved; UTA-0215 SS 4.4's clock follows
                                            std::isfinite(lastLightSeconds)
                                                ? static_cast<float>(std::fmod(lastLightSeconds, FLAME_CLOCK_WRAP))
                                                : 0.0f,

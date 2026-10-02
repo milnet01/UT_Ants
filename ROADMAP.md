@@ -14959,6 +14959,12 @@ stays with movement in 0.2.0.
   our dark areas too bright. This pair is a direct lighting comparison, no
   fog or tint in it: render the same poses with UTA-0215's view switched
   off and compare.
+  Correction (2026-10-02, later): the "second case" note above is wrong.
+  Rendered bare at Low with UTA-0215's view off, at the same poses as
+  UT_MonsterHunt's untinted frames, ours is 0.4-0.5x the original's in the
+  pool, darker, not brighter. The 1.3x under water came from UTA-0215's
+  caustics and shafts. So the pool is UTA-0278's (too dark), and DM-Fetid
+  stays this item's only case (too bright).
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -15072,6 +15078,17 @@ stays with movement in 0.2.0.
   Lava's green ViewFog equals water's yet adds less green, so its add is
   set by something these frames do not show. Left open for lava only;
   ours overshoots lava's green and blue 1.5-2.3x.
+  Model replaced (2026-10-02) by a measured veil: UT_MonsterHunt's
+  fogsweep/ and lavaswap/ show a black surface's colour depends on ViewFog
+  alone, on one curve (31/56/100/170/218 for f 0.05-0.6), whatever
+  ViewFlash is; the flash moves the scene's share 0.97, not 0.922. Now
+  d' = veil + (1 - veil) d, veil = 1 - (1-f)^(2.1 + 0.02/f) (UTA-0215 §
+  4.2). At Low, against the original: 0.93-0.98, block RMS 4.9 level and
+  6.1 down. The additions at High (caustics, shafts) lift the level view
+  10-19% after the shafts were sharpened (WATER_SCATTER 3e-4, sixth
+  power). Bare, with the view off, our pool is 0.4-0.5x the original's:
+  the pool IS darker, and the veil hides most of it. Open: lava's green and
+  blue (a strong red pulls them down), and the bare pool's light.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.

@@ -15,7 +15,7 @@ layout(push_constant) uniform PostBlock {
     uvec2 regionSize; // UTA-0051 SS 4.4: the top-left part of `hdr` this frame drew
     uint upscaleInput; // UTA-0154: write FSR 1's input rather than the output
     float bloomStrength; // UTA-0053: 0 where the tier draws no bloom
-    float flashScale;    // UTA-0215 SS 4.2: 1 + the zone's ViewFlash under water
+    float reserved;      // keeps flashFog on its 16 bytes
     float wobbleSeconds; // UTA-0215 SS 4.4: the light clock, wrapped
     vec4 flashFog;       // UTA-0215: xyz ViewFog; w nonzero under water
 } post;
@@ -64,17 +64,18 @@ const float WOBBLE_AMPLITUDE = 0.003; // of the frame
 const float WOBBLE_FREQUENCY = 24.0;
 const float WOBBLE_SPEED = 1.5;
 
-// UTA-0215 SS 4.2: under water, the original keeps this share of what a
-// surface shows and adds the zone's ViewFog, before PlayerPawn's flash. Measured
-// 2026-10-02 from paired frames, one pose with the zone's ViewFog and
-// ViewFlash zeroed in game and not (UT_MonsterHunt work/uta0269/floor/,
-// water/ and slimepair/): 8-pixel texture detail tinted over bare, divided
-// by the flash's scale, below the HUD. DM-ArcaneTemple's water: floor 0.69,
-// level 0.70, and 0.70 to 0.78 from its near wall to its far end -- no trend
-// with distance. DM-Deck16]['s slime: level 0.66, down 0.67. What a black
-// surface shows, against ViewFog: water 2.04, 1.97, 2.00; slime 1.90, 1.83,
-// 2.05 -- the 1 + scale this mix gives. Lava does not fit (SS 4.2).
-const float WATER_KEEP = 0.68;
+// UTA-0215 SS 4.2: what the original lays over the view under water, per
+// channel, for a ViewFog part `f`: out = veil + (1 - veil) x displayed.
+// Measured 2026-10-02 in game by the UT_MonsterHunt session, which set the
+// head zone's ViewFog per shot (work/uta0269/fogsweep/): a black surface shows
+// 31, 56, 100, 170 and 218 for f 0.05, 0.1, 0.2, 0.4 and 0.6, the same in each
+// channel, whatever ViewFlash is (lavaswap/). This curve meets those within 1.
+// It gives water's black (67, 98, 90) and slime's (91, 131, 49) within 3, and
+// the scene's share 1 - veil within the paired frames' spread. Lava's green
+// and blue fall below it (SS 4.2): its strong red pulls them down.
+float waterVeil(float f) {
+    return f <= 0.0 ? 0.0 : 1.0 - pow(1.0 - min(f, 1.0), 2.1 + 0.02 / f);
+}
 
 float encodeSrgb(float l) { return l <= 0.0031308 ? l * 12.92 : 1.055 * pow(l, 1.0 / 2.4) - 0.055; }
 float decodeSrgb(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
@@ -96,13 +97,12 @@ void main() {
     if (post.bloomStrength > 0.0)
         colour += texture(bloom, (vec2(at) + 0.5) / vec2(textureSize(hdr, 0))).rgb * post.bloomStrength;
     if (post.linearOutput == 0u) colour = toneMap(colour * post.exposure);
-    // UTA-0215 SS 4.2: the original's view under water, on the display value:
-    // its constant mix, then PlayerPawn's flash. It is a view effect, not
-    // light, so it applies under linearOutput too.
+    // UTA-0215 SS 4.2: the original's view under water, on the display value.
+    // It is a view effect, not light, so it applies under linearOutput too.
     if (underwater) {
         for (int c = 0; c < 3; ++c) {
-            float mixed = encodeSrgb(max(colour[c], 0.0)) * WATER_KEEP + post.flashFog[c];
-            colour[c] = decodeSrgb(clamp(mixed * post.flashScale + post.flashFog[c], 0.0, 1.0));
+            float veil = waterVeil(post.flashFog[c]);
+            colour[c] = decodeSrgb(clamp(veil + (1.0 - veil) * encodeSrgb(max(colour[c], 0.0)), 0.0, 1.0));
         }
     }
     // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header

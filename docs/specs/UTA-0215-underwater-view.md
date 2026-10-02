@@ -71,30 +71,34 @@ finite, is refused both ways. `buildZones` resolves `bwaterzone` (`Bool`),
 ### 4.2 The original's view — `urender`, the output stage
 
 With the camera's zone water, `post.frag` writes, per channel, from the
-display value `d` it would have written:
+display value `d` it would have written and the zone's `viewFog` part `f`:
 
 ```text
-d' = clamp((d × WATER_KEEP + viewFog) × (1 + viewFlash) + viewFog, 0, 1)
+veil = 1 − (1 − f) ^ (2.1 + 0.02 / f)
+d'   = veil + (1 − veil) × d
 ```
 
-The outer step is UT99's `PlayerPawn.ViewFlash` (§ 2). **The inner step was
-measured, amended 2026-10-02**: the UT_MonsterHunt session took each pose
-twice, as it is and with the zone's `ViewFog` and `ViewFlash` zeroed in game
-(`work/uta0269/floor/`, `slimepair/`, `lavapair/`). Texture detail tinted
-over bare, divided by the flash's scale: DM-ArcaneTemple's water 0.69 on the
-floor and 0.70 level, 0.70 to 0.78 from its near wall to its far end with no
-trend by distance; DM-Deck16]['s slime 0.66 and 0.67. So `WATER_KEEP` is
-0.68. A black surface then shows as (1 + scale) × `ViewFog`; the original
-measures 2.04, 1.97, 2.00 times `ViewFog` for water and 1.90, 1.83, 2.05 for
-slime, against 1.922 and 1.883. It was first built as the flash alone, which
-drew the pool at about half the original's brightness.
+**Measured, amended 2026-10-02.** UT99's script gives `PlayerPawn` a flash
+of `1 + ViewFlash.X` and a fog of `ViewFog` (§ 2), but the frames show the
+renderer does otherwise. The UT_MonsterHunt session set the head zone's
+`ViewFog` and `ViewFlash` per shot in game (`work/uta0269/fogsweep/` and
+`lavaswap/`): a black surface shows 31, 56, 100, 170 and 218 for `f` 0.05,
+0.1, 0.2, 0.4 and 0.6, the same in each channel, and the same whatever
+`ViewFlash` is. The curve above meets those within 1. Moving `ViewFlash` from
+0 to −0.078 scales the scene's share by 0.97, not 0.922, so the flash is not
+applied. Paired frames, each pose with the zone's tint and not
+(`floor/`, `slimepair/`), give water's black at (67, 98, 90) and slime's at
+(91, 131, 49), both within 3 of the curve, and the scene's share near
+`1 − veil`. Against the original at the pool's poses, at Low, where none of
+this item's additions draw: 0.93 to 0.98 of its brightness, block RMS 4.9
+level and 6.1 looking down. Earlier forms, set aside by these frames: the
+flash alone (half the original's brightness), and `(d × 0.72 + f) × scale +
+f`, which was right for water and wrong for lava's red.
 
-**Lava does not fit, and is left as it falls.** Under DM-Conveyor's lava a
-black surface shows as 1.44, 1.59 and 1.71 times `ViewFog`, not 2, and the
-kept share is inconsistent (red 0.09 to 0.19, flattened near the top of the
-range). Its green `ViewFog` equals water's yet it adds less green, so what
-sets lava's add is not in these frames. Ours overshoots green and blue
-under lava by 1.5 to 2.3 times. Recorded on `UTA-0278`.
+**Lava's green and blue are not matched.** Under DM-Conveyor's lava a black
+surface shows (215, 79, 34): red on the curve, green and blue below it. A
+strong red pulls the other channels down, which this per-channel curve does
+not model. Recorded on `UTA-0278`.
 
 `d` is the sRGB-encoded value; the shader writes `d'`'s linear light, which
 the `_SRGB` target encodes back to `d'`. It applies under
@@ -102,9 +106,9 @@ the `_SRGB` target encodes back to `d'`. It applies under
 light model. It is instant where UT99 eases at 10 a second: a still capture
 then shows the settled tint, and easing is § 9's.
 
-`PostConstants` gains `flashScale`, `wobbleSeconds` and `flashFog`, which
-`draw` sets from the camera's zone: `1 + viewFlash` and `viewFog` when it is
-water, else `1` and `0`. `flashFog`'s fourth part is the water flag.
+`PostConstants` gains `wobbleSeconds` and `flashFog`, which `draw` sets from
+the camera's zone: `viewFog` when it is water, else `0`; `flashFog`'s fourth
+part is the water flag. `viewFlash` is baked but not drawn.
 
 ### 4.3 Fading with distance — `urender`, `scene.frag`
 
@@ -129,10 +133,9 @@ const float WATER_FOG_END = 2400.0;  // none kept
 Earlier forms, each set aside by a measurement: an exponential to black at
 600 units (the pool at half the original's brightness), an exponential and
 then a linear fade toward `ViewFog` (the original's floor, looking down,
-vanished into flat colour). With § 4.2's mix, the pool looking down scores
-9.9 block RMS against the original, its best yet. Looking level ours is
-1.3 times the original: our pool walls, bare, are brighter than its nearly
-black ones, which is `UTA-0274`'s dark-area gap.
+vanished into flat colour). Bare, with this item's view off, our pool is 0.4
+to 0.5 times the original's (`UTA-0278`); under water the veil hides most of
+that.
 
 ### 4.4 The wobble — `urender`, the output stage
 
@@ -182,12 +185,14 @@ from 0.57, 0.47 and 0.44 of the original in red, green and blue to 0.57,
 
 **Amended 2026-10-02, recording what was built.** With the camera's zone
 water, the fog pass scatters the same shadowed lights the haze does, at
-`WATER_SCATTER` (1.0e-3) a unit times a pattern of two drifting value noises,
-cubed, that ignores height: so the light gathers in upright columns, as light
+`WATER_SCATTER` (3.0e-4) a unit times a pattern of two drifting value
+noises, raised to the sixth, that ignores height: so the light gathers in upright columns, as light
 falling through a rippled surface does, and the shadow maps cut them. Each
 froxel's scattered light is faded by `WATER_FOG_START`/`END` at its own depth.
 The scattering is this item's call, chosen on the pool: 1.6e-2 washed the
-view grey and 4e-3 was strong once the fade was linear. From Medium, where
+view grey, and at 1.0e-3 with a cubed pattern the shafts lifted the level
+view 30 to 50% over the original's. Sharper and weaker, with the caustics
+the additions lift it 10 to 19% and the view looking down not at all. From Medium, where
 the fog pass runs.
 
 ### 4.8 Drifting specks — `urender`, `mote.vert` and `mote.frag`
@@ -221,8 +226,8 @@ tier's exact underwater frames carry none.
 
 - **INV-3** — the view: with the camera in a water zone of `viewFog`
   `(0.1, 0.2, 0.3)` and `viewFlash` `−0.2`, an unlit grey wall's displayed
-  value is `(d × WATER_KEEP + fog) × 0.8 + fog` per channel, after § 4.3's
-  fade at its distance; with the zone not water, the wall reads as before.
+  value is `veil + (1 − veil) × d` per channel, `veil` § 4.2's curve of
+  `fog`, after § 4.3's fade at its distance; with the zone not water, the wall reads as before.
   *Test:* `tests/device/RenderUnderwaterTest.cpp`, new, `device`.
   *Breaks when:* the tint is applied in linear light, or applied out of water.
 
@@ -231,8 +236,9 @@ tier's exact underwater frames carry none.
   output a wall past the fade shows as the original shows black; a wall out
   of the water takes the view and no fade.
   *Test:* `tests/device/RenderUnderwaterTest.cpp`.
-  *Breaks when:* the fade ignores depth or is missing, the mix keeps all of
-  `d` or adds no `ViewFog`, or a surface out of the water fades.
+  *Breaks when:* the fade ignores depth or is missing, the veil is not
+  § 4.2's curve or leaves the scene uncovered, or a surface out of the water
+  fades.
 
 - **INV-5** — the wobble moves the picture under water and not out of it: a
   vertical edge's column differs between two light times under water and

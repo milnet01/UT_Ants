@@ -334,11 +334,10 @@ struct PostConstants {
     /// UTA-0053: how much of the bloom chain the frame adds; 0 where the tier
     /// draws no bloom.
     float bloomStrength;
-    /// UTA-0215 SS 4.2: the display scale, 1 + the zone's ViewFlash under water, else 1.
-    float flashScale;
+    float reserved; ///< keeps flashFog on its 16 bytes
     /// UTA-0215 SS 4.4: the light clock, wrapped as flames' is, for the wobble.
     float wobbleSeconds;
-    /// UTA-0215: xyz the zone's ViewFog, added to the display value; w nonzero under water.
+    /// UTA-0215 SS 4.2: xyz the zone's ViewFog, which sets the view's veil; w nonzero under water.
     std::array<float, 4> flashFog;
 };
 static_assert(sizeof(PostConstants) == 48);
@@ -347,7 +346,7 @@ static_assert(offsetof(PostConstants, linearOutput) == 4);
 static_assert(offsetof(PostConstants, regionSize) == 8);
 static_assert(offsetof(PostConstants, upscaleInput) == 16);
 static_assert(offsetof(PostConstants, bloomStrength) == 20);
-static_assert(offsetof(PostConstants, flashScale) == 24);
+static_assert(offsetof(PostConstants, reserved) == 24);
 static_assert(offsetof(PostConstants, wobbleSeconds) == 28);
 static_assert(offsetof(PostConstants, flashFog) == 32);
 

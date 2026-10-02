@@ -110,9 +110,9 @@ float sliceDepth(float k) {
 // out to WATER_FOG_START UT units, none past WATER_FOG_END, and a straight
 // line between. The original fades nothing with distance: paired frames of
 // DM-ArcaneTemple's pool keep the same share from its near wall to its far end
-// (post.frag's WATER_KEEP). So the fade starts past the farthest wall those
+// (post.frag's waterVeil). So the fade starts past the farthest wall those
 // frames show, and is this item's call, for the user's "visibility drops"
-// in large water; with the output stage's mix a faded-out surface shows as
+// in large water; under the output stage's veil a faded-out surface shows as
 // the original shows a black one.
 const float WATER_FOG_START = 800.0;
 const float WATER_FOG_END = 2400.0;

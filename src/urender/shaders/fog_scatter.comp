@@ -23,18 +23,20 @@ layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 // UTA-0215: under water, the lights scatter in the water as well as the haze
 // does, this much a unit at a pattern of 1. This item's call, chosen on
 // DM-ArcaneTemple's pool, not fitted: the original draws no shafts.
-const float WATER_SCATTER = 1.0e-3;
+const float WATER_SCATTER = 3.0e-4;
 // World units across one cell of the shafts' pattern.
 const float SHAFT_CELL = 96.0;
 
 // How much of the water's scattering a point at world (x, y) takes at light
-// time `t`: two drifting value noises, cubed so light gathers in a few bright
-// columns. It ignores height, so the columns stand upright, as light falling
-// through a rippled surface does. Its mean is about 1.
+// time `t`: two drifting value noises, raised to the sixth so light gathers in
+// a few narrow bright columns. It ignores height, so the columns stand
+// upright, as light falling through a rippled surface does. Its mean is about
+// 1, pow(n, 6) averaging about 1/7 over the noise.
 float waterShafts(vec2 p, float t) {
     vec2 q = p / SHAFT_CELL;
     float n = 0.6 * flameNoise(q + vec2(0.13, 0.07) * t, 41u) + 0.4 * flameNoise(q * 2.3 - vec2(0.05, 0.11) * t, 42u);
-    return 4.0 * n * n * n;
+    float n3 = n * n * n;
+    return 7.0 * n3 * n3;
 }
 
 void main() {
