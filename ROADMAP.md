@@ -13188,6 +13188,18 @@ stays with movement in 0.2.0.
   the spec's comparison against UT_MonsterHunt's frames (work/uta0269/
   water/ and lava/), then caustics, shafts, the surface from below and
   particles.
+  Measured (2026-10-02), the spec's § 7 comparison: UT_MonsterHunt's
+  frames against ours at the same poses, baker 35, lower half of the
+  frame, mean sRGB bytes. Above water, sky view: ours/original 1.01. Under
+  lava (DM-Conveyor): 1.00 and 0.94 -- the fog-only tint matches. Under
+  water (DM-ArcaneTemple pool): about 0.52 in every channel, the hue
+  right (G/R 1.46 against 1.40). With the distance fade off, 0.60: the
+  fade costs about an eighth. The rest is the pool's own light -- under the
+  tint, our walls are about a quarter of the original's display value --
+  so it is a lighting gap, a lead for UTA-0274, not a tint defect. The
+  surface seen from below shows bright highlight blobs where the original
+  shows the cyan water texture; that is this item's surface-from-below
+  part. Kit: ~/.cache/uta-scratch/u215/.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.
@@ -14905,6 +14917,10 @@ stays with movement in 0.2.0.
   black there and grey here. Next, one at a time: texture detail softened
   by mip choice, filtering or BC7; UT99's DetailTexture overlay, which we
   do not draw; and lightmap texel shadows in the grooves.
+  Lead (2026-10-02, from UTA-0215's comparison): in DM-ArcaneTemple's
+  pool, at (-602, 63.4), eye z -73, the original's walls under the water
+  tint read about four times our display value. Check WaterZone2's ambient
+  and the lights inside the pool before blaming the tint.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
