@@ -14842,7 +14842,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02.
   Lanes: render.
 
-- 📋 [UTA-0270] **urender: an IceTexture's glass layer is not drawn, so plasma and warp effects slide instead of churning.**
+- ✅ [UTA-0270] **urender: an IceTexture's glass layer is not drawn, so plasma and warp effects slide instead of churning.**
   Found fitting UTA-0105 (2026-10-02). UT99 draws an IceTexture by
   sliding its GlassTexture over its SourceTexture; UTA-0105 shows the
   source alone (its spec SS 3) and pans it. Measured on DOM-MetalDream's
@@ -14904,6 +14904,7 @@ stays with movement in 0.2.0.
   at 0.9 x (pan - 128) texels a second toward +u. Tests seen red first;
   four mutations killed. DOM-MetalDream rebaked: blueplasma's edge
   reshapes along its length over two seconds. Flip on GitHub's matrix.
+  Shipped (2026-10-02) on GitHub's green matrix at 12b1f88.
   **Layman:** Glowing plasma and warp effects swirl and churn in the original but only slide here; drawing their second layer fixes that.
   Kind: feature.
   Source: in-session-2026-10-02.
