@@ -11140,7 +11140,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants, ut-bake, ubake.
 
-- 📋 [UTA-0180] **urender: break up the tiled look of repeated textures, on every map.**
+- ✅ [UTA-0180] **urender: break up the tiled look of repeated textures, on every map.**
   The user asked on 2026-09-17, with a screenshot of a jungle map: walls
   and plank floors show each texture's small square repeated, and its dark
   patches line up into a visible grid. Asked for every option available.
@@ -11179,6 +11179,8 @@ stays with movement in 0.2.0.
   within-1.0 rule never binds and 0.3 is the largest swept and looked
   at. The per-tile half, which moves the picture and needs a rule for
   which textures, is UTA-0277.
+  Shipped in 0a7442f; GitHub's matrix green (run 37038384444). The
+  per-tile half is UTA-0277.
   **Layman:** Walls and floors stop showing the same patch repeated in a grid.
   Kind: enhancement.
   Source: user-request-2026-09-17.
