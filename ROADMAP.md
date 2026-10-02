@@ -5045,6 +5045,22 @@ stays with movement in 0.2.0.
   mixed by low-frequency noise; and let the Fresnel reflection take over
   at grazing angles, which is what a real lake shows far off. UTA-0180
   is the same problem for every other texture.
+  Renderer facts for the spec (read 2026-10-02):
+  - The translucent pass loads hdr and depth, binds hdr alone, and blends
+    ONE, ONE_MINUS_SRC_COLOR. depth has no SAMPLED usage and hdr is the
+    bound attachment there, so refraction and depth tint need a copy of
+    hdr and a sampleable depth after the opaque pass.
+  - skyAt(direction) samples the one sky atlas (3x2 faces captured from
+    the SkyZoneInfo); it takes any direction, so a reflected ray can use
+    it. There is no per-room environment image.
+  - The probes are ambient cubes (six colours); indirectAt with the
+    reflected direction as n gives a rough indoor reflection colour.
+  - ubundle::Zone carries no water flag or fog colour; Zones.cpp reads
+    ambient and bFogZone only. UTA-0215 needs bWaterZone added.
+  - Tiers.h Feature has ParallaxOcclusion, Bloom, VolumetricFog and
+    AmbientOcclusion; a new feature needs its own minimumTier row.
+  - docs/design.md's urender row does not mention reflections.
+  - PF_Modulated is not drawn as UT99 draws it: UTA-0271.
   **Layman:** Water should look like water and glass like glass, with reflections that are cheap tricks rather than expensive real ones.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -14639,6 +14655,23 @@ stays with movement in 0.2.0.
   Kind: feature.
   Source: in-session-2026-10-02.
   Lanes: render, ubake.
+
+- 📋 [UTA-0271] **urender: surfaces flagged PF_Modulated are drawn as ordinary surfaces instead of darkening what lies behind them.**
+  Found 2026-10-02 while researching UTA-0089: workspace_search over src/
+  for MODULATED, Modulated and 0x00000040 finds only src/ubake/
+  SurfaceRays.{h,cpp}, which skip such surfaces when tracing light. The
+  renderer picks a pass on PF_TRANSLUCENT alone, so a modulated surface
+  is drawn opaque. UT99 multiplies the framebuffer by a modulated
+  surface's colour (brightness 128 leaves it unchanged). UTA-0105's
+  census counts 44 WaveTexture surfaces carrying it, among them
+  DM-ArcaneTemple's HubEffects.waterrings2 over its pool; FireTexture
+  surfaces carry it too (2927). Census the whole library before
+  building. Cheap: a third blend mode in the translucent pass, dst
+  times src times 2.
+  **Layman:** Some see-through overlays in the original tint and darken what is behind them; here they draw as solid pictures instead.
+  Kind: fix.
+  Source: in-session-2026-10-02.
+  Lanes: render.
 
 ## 0.2.0 — Movement and weapons
 
