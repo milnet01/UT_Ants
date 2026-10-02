@@ -11986,6 +11986,14 @@ stays with movement in 0.2.0.
   92532 units at z about -30800). 43 live NOROUTE maps have no census row,
   so ut-paths cannot take them; offered to include them given rows. Sent to
   ut-monsterhunt.
+  Follow-up (2026-10-02): the "43 rowless" figure above could not be
+  reproduced (no script kept). UT_MonsterHunt counted 82 by a stated
+  filter: live, latest mapcheck reading NOROUTE, in neither split file.
+  Their 82 ran with every group forced to PARTITIONED, after measuring
+  that forcing it changes nothing on EXIT_OFF_NET maps: 40 random ones
+  and all 5 that carry nodes were identical apart from `group`. Output:
+  /mnt/Games/Scripts/Linux/ut-paths-output-2026-10-02-rowless (README
+  inside), 82 written, 5 with nodes. Sent to ut-monsterhunt.
   **Layman:** Re-run the breadcrumb tool over a much larger set of broken maps than it was first aimed at.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-20.
