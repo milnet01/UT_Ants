@@ -628,12 +628,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
-- **Under water, distant things fade into the water's colour, not into black** (UTA-0278)
+- **Under water, the view mixes in the water's colour as the original does** (UTA-0278)
   Pools seen from inside drew at about half the original game's
-  brightness. Far things now fade into the water's own colour, as the
-  original's frames show, near things stay clear, and the sky seen
-  through the surface no longer fades. The temple pool now reads between
-  three quarters and a little over the original's brightness.
+  brightness. Under water the view now keeps about three quarters of what
+  it shows and adds the water's own colour, measured from the original
+  game itself, before its tint; only very distant things fade out.
 
 - **Water's surface seen from below shows its colour instead of black with bright patches** (UTA-0215)
   From under water the surface was lit as if facing down, so it went

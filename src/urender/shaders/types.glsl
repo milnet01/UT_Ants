@@ -50,7 +50,7 @@ struct FrameData {
     float flameSeconds; // UTA-0263 SS 4.4: the light clock, wrapped
     uint cameraZone;    // UTA-0089 SS 4.1
     uint cameraUnderwater; // UTA-0215 SS 4.3: nonzero where the camera's zone is water
-    float waterFogR;       // UTA-0215 SS 4.3: what far things fade to under water, as light
+    float waterFogR;       // UTA-0215 SS 4.8: the water's colour as light, for its specks
     float waterFogG;
     float waterFogB;
 };

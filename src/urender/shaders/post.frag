@@ -64,6 +64,16 @@ const float WOBBLE_AMPLITUDE = 0.003; // of the frame
 const float WOBBLE_FREQUENCY = 24.0;
 const float WOBBLE_SPEED = 1.5;
 
+// UTA-0215 SS 4.2: under water, the original keeps this share of what a
+// surface shows and adds the zone's ViewFog, before PlayerPawn's flash. Measured
+// 2026-10-02 from paired frames of DM-ArcaneTemple's pool, the same pose with
+// the zone's ViewFog and ViewFlash zeroed in game and not (UT_MonsterHunt
+// work/uta0269/floor/ and water/): texture detail tinted over bare, divided by
+// the flash's 0.922, gave 0.69 on the floor and 0.71, 0.72, 0.78 and 0.70 over
+// the level view, near wall to far end -- no trend with distance. What is left
+// once that share is taken is ViewFog times 1.03 to 1.14.
+const float WATER_KEEP = 0.72;
+
 float encodeSrgb(float l) { return l <= 0.0031308 ? l * 12.92 : 1.055 * pow(l, 1.0 / 2.4) - 0.055; }
 float decodeSrgb(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
 
@@ -84,11 +94,14 @@ void main() {
     if (post.bloomStrength > 0.0)
         colour += texture(bloom, (vec2(at) + 0.5) / vec2(textureSize(hdr, 0))).rgb * post.bloomStrength;
     if (post.linearOutput == 0u) colour = toneMap(colour * post.exposure);
-    // UTA-0215 SS 4.2: UT99's own tint, on the display value. It is a view
-    // effect, not light, so it applies under linearOutput too.
+    // UTA-0215 SS 4.2: the original's view under water, on the display value:
+    // its constant mix, then PlayerPawn's flash. It is a view effect, not
+    // light, so it applies under linearOutput too.
     if (underwater) {
-        for (int c = 0; c < 3; ++c)
-            colour[c] = decodeSrgb(clamp(encodeSrgb(max(colour[c], 0.0)) * post.flashScale + post.flashFog[c], 0.0, 1.0));
+        for (int c = 0; c < 3; ++c) {
+            float mixed = encodeSrgb(max(colour[c], 0.0)) * WATER_KEEP + post.flashFog[c];
+            colour[c] = decodeSrgb(clamp(mixed * post.flashScale + post.flashFog[c], 0.0, 1.0));
+        }
     }
     // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header
     // allows gamma 2.0 for it.

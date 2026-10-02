@@ -13120,7 +13120,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-2026-09-26.
   Lanes: tools/ut-dump, docs.
 
-- 🚧 [UTA-0215] **urender: caustics under water surfaces, and a tinted view when the camera is under water.**
+- ✅ [UTA-0215] **urender: caustics under water surfaces, and a tinted view when the camera is under water.**
   The user, 2026-09-26: "I still want water to be changed to look like
   real water with the usual undulating surface, caustics and tinted view
   when underwater". The surface's look is UTA-0089, its undulation
@@ -13222,6 +13222,10 @@ stays with movement in 0.2.0.
   built; flip when GitHub's matrix is green. Tier placements of Caustics
   and WaterMotes were not timed with ut-bench; both sit at Medium with the
   other per-pixel looks.
+  Shipped (2026-10-02) on GitHub's green matrix at 6f16e5d: tint, fade,
+  wobble, caustics, the surface from below, light shafts and specks. The
+  look against the original continues under UTA-0278 (the original's
+  constant underwater mix, measured from paired frames) and UTA-0274.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.
@@ -14946,6 +14950,15 @@ stays with movement in 0.2.0.
   Correction (2026-10-02): the ArcaneTemple pool lead above points the
   other way -- there ours is darker, here brighter -- so it moved to its
   own item, UTA-0278. Disregard it for this one.
+  Second case (2026-10-02), with clean data: UT_MonsterHunt's untinted
+  pool frames (work/uta0269/floor/Shot00001 and 00002, ViewFog and
+  ViewFlash zeroed in game) show DM-ArcaneTemple's pool walls and floor
+  bare. The original's level view averages (5.4, 4.0, 2.7) display bytes
+  and its floor (21.5, 15.6, 10.1); ours is brighter there, so under water
+  the level view reads 1.3x the original's. Same direction as DM-Fetid:
+  our dark areas too bright. This pair is a direct lighting comparison, no
+  fog or tint in it: render the same poses with UTA-0215's view switched
+  off and compare.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -15039,6 +15052,17 @@ stays with movement in 0.2.0.
   display bytes where the original's reads 52 to 62. Level, the near wall
   matches (62/66/68 against 57/65/56). Ours/original now 0.74-1.17 over
   the three poses. Still open for the floor's light.
+  Answered (2026-10-02, from UT_MonsterHunt's paired frames,
+  work/uta0269/floor/): the original has no distance fade. It keeps about
+  0.72 of each surface's detail everywhere and adds ViewFog before the
+  PlayerPawn flash; its bare floor is darker than ours, not brighter.
+  UTA-0215 § 4.2 now applies that mix (WATER_KEEP 0.72); § 4.3's fade moved
+  to 800-2400 units, past every wall the frames show. Looking down: block
+  RMS 9.9, ours/original 1.05-1.13. Level: 1.3x, because our bare pool
+  walls are brighter than the original's nearly black ones -- UTA-0274's
+  dark-area gap. Open: lava overshoots green and blue 1.5-2.3x under the
+  same mix; a paired lava capture is asked of UT_MonsterHunt. The commit is
+  held from pushing until it arrives.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.

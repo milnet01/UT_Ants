@@ -68,14 +68,29 @@ finite, is refused both ways. `buildZones` resolves `bwaterzone` (`Bool`),
 `bfogzone`: the actor's record, else its class's default, else `0`.
 `BAKER_REVISION` moves.
 
-### 4.2 The original's tint — `urender`, the output stage
+### 4.2 The original's view — `urender`, the output stage
 
 With the camera's zone water, `post.frag` writes, per channel, from the
 display value `d` it would have written:
 
 ```text
-d' = clamp(d × (1 + viewFlash) + viewFog, 0, 1)
+d' = clamp((d × WATER_KEEP + viewFog) × (1 + viewFlash) + viewFog, 0, 1)
 ```
+
+The outer step is UT99's `PlayerPawn.ViewFlash` (§ 2). **The inner step was
+measured, amended 2026-10-02**: the UT_MonsterHunt session took
+DM-ArcaneTemple's pool at the same pose twice, as it is and with the zone's
+`ViewFog` and `ViewFlash` zeroed in game. Texture detail tinted over bare,
+divided by the flash's 0.922, gave 0.69 on the floor and 0.70 to 0.78 across
+the level view, near wall to far end, with no trend by distance; what is
+left once that share is taken is `ViewFog` times 1.03 to 1.14. So
+`WATER_KEEP` is 0.72, and a black surface shows as 1.922 × `ViewFog`, the
+original's measured far colour to within 4 bytes. It was first built as the
+flash alone, which drew the pool at about half the original's brightness.
+
+**Lava is not yet matched.** Under DM-Conveyor's lava the same inner step
+overshoots green and blue by 1.5 to 2.3 times: the original adds less there.
+A paired lava capture is asked of the UT_MonsterHunt session (`UTA-0278`).
 
 `d` is the sRGB-encoded value; the shader writes `d'`'s linear light, which
 the `_SRGB` target encodes back to `d'`. It applies under
@@ -89,42 +104,31 @@ water, else `1` and `0`. `flashFog`'s fourth part is the water flag.
 
 ### 4.3 Fading with distance — `urender`, `scene.frag`
 
-**Amended 2026-10-02, after § 7's comparison.** First built as a fade to
-black, which drew the pool at about half the original's brightness. The
-original's farthest pixels under water are one flat colour, (67, 98, 90),
-and 1.922 × `ViewFog`, the tint applied to a scene showing `ViewFog` itself,
-is (63, 96, 86). So the original fades far things toward the water's colour
-and then tints. What was built:
-
-With the camera's zone water, a fragment of a surface whose own zone is
-water keeps all its colour out to `WATER_FOG_START`, none past
-`WATER_FOG_END`, and a straight line between, `z` its view depth; the rest
-becomes the light that the output stage shows as `ViewFog`. It is applied
-before the fog adds its light. A translucent surface keeps only its share, as
-with the fog, and a flame is dimmed alike. A surface out of the water, seen
-through its surface, is not faded: the original shows the sky above its pool
-unfaded. `FrameData` carries `cameraUnderwater` and that light as
-`waterFog`, the sRGB decode of `ViewFog` divided by the exposure, which the
-tone map leaves alone at these levels.
+**Amended 2026-10-02, after § 7's comparison.** The original fades nothing
+with distance (§ 4.2's paired frames). The user's bar asks that visibility
+drop, so this fade is this item's call, set past the farthest wall those
+frames show so it changes none of them. With the camera's zone water, a
+fragment of a surface whose own zone is water keeps all its colour out to
+`WATER_FOG_START`, none past `WATER_FOG_END`, and a straight line between,
+`z` its view depth. It fades to black, which § 4.2's mix then shows exactly
+as the original shows a black surface. It is applied before the fog adds its
+light. A flame is dimmed alike. A surface out of the water, seen through its
+surface, is not faded: the original shows the sky above its pool unfaded.
+`FrameData` carries `cameraUnderwater`.
 
 ```glsl
 // fog.glsl, which scene.frag and flame.frag both include
-const float WATER_FOG_START = 300.0; // UT units: all of a surface's light kept
-const float WATER_FOG_END = 1000.0;  // none kept
+const float WATER_FOG_START = 800.0; // UT units: all of a surface's light kept
+const float WATER_FOG_END = 2400.0;  // none kept
 ```
 
-**Linear, and chosen by the original's detail.** The original's near
-surfaces read as ours unfaded while its far ones are one flat colour, which
-an exponential cannot give at once. Two measures on the pool's level and
-looking-down frames disagree, because our pool floor is lit darker than the
-original's (`UTA-0278`): 16-pixel block RMS favours heavy fog (0 to 300
-units scores 11.3, 300 to 1000 scores 19.5), while 8-pixel texture detail,
-the original's 2.9 and 2.0, favours light fog (0.1 and 0.3 at 0 to 300; 0.9
-and 1.8 at 300 to 1000). At 0 to 300 the floor the original shows looking
-down vanished into flat colour; at 300 to 1000 it shows. So the values are
-the detail measure's; the record is beside the constants. Under water the
-frame now reads 0.74 to 1.17 of the original's brightness, at 1.0e-3 of
-§ 4.7's scattering.
+Earlier forms, each set aside by a measurement: an exponential to black at
+600 units (the pool at half the original's brightness), an exponential and
+then a linear fade toward `ViewFog` (the original's floor, looking down,
+vanished into flat colour). With § 4.2's mix, the pool looking down scores
+9.9 block RMS against the original, its best yet. Looking level ours is
+1.3 times the original: our pool walls, bare, are brighter than its nearly
+black ones, which is `UTA-0274`'s dark-area gap.
 
 ### 4.4 The wobble — `urender`, the output stage
 
@@ -211,20 +215,20 @@ tier's exact underwater frames carry none.
   *Breaks when:* class defaults are ignored, or the flag is read from the
   wrong actor.
 
-- **INV-3** — the tint: with the camera in a water zone of `viewFog`
+- **INV-3** — the view: with the camera in a water zone of `viewFog`
   `(0.1, 0.2, 0.3)` and `viewFlash` `−0.2`, an unlit grey wall's displayed
-  value is `d × 0.8 + fog` per channel, after § 4.3's absorption at its
-  distance; with the zone not water, the wall reads as before.
+  value is `(d × WATER_KEEP + fog) × 0.8 + fog` per channel, after § 4.3's
+  fade at its distance; with the zone not water, the wall reads as before.
   *Test:* `tests/device/RenderUnderwaterTest.cpp`, new, `device`.
   *Breaks when:* the tint is applied in linear light, or applied out of water.
 
 - **INV-4** — the fade: under water, a wall in the water at two distances
-  keeps its share of light on § 4.3's line, the rest the water's colour,
-  before the tint; at the full output a far one shows `ViewFog`
-  through the tint; a wall out of the water takes the tint and no fade.
+  keeps its share of light on § 4.3's line, before the view; at the full
+  output a wall past the fade shows as the original shows black; a wall out
+  of the water takes the view and no fade.
   *Test:* `tests/device/RenderUnderwaterTest.cpp`.
-  *Breaks when:* the fade ignores depth, fades to black, skips the
-  exposure, or fades a surface out of the water.
+  *Breaks when:* the fade ignores depth or is missing, the mix keeps all of
+  `d` or adds no `ViewFog`, or a surface out of the water fades.
 
 - **INV-5** — the wobble moves the picture under water and not out of it: a
   vertical edge's column differs between two light times under water and

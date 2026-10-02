@@ -108,19 +108,14 @@ float sliceDepth(float k) {
 // Where view depth `z` sits along the slices, 0 at FOG_NEAR and 1 at FOG_FAR.
 // UTA-0215 SS 4.3: under water, a surface in the water keeps all its light
 // out to WATER_FOG_START UT units, none past WATER_FOG_END, and a straight
-// line between; the rest becomes the water's colour. Linear, as the original's
-// frames show: its near surfaces read as ours unfaded while its far ones are
-// one flat colour, which no exponential gives at once.
-// Chosen 2026-10-02 against the original's frames from DM-ArcaneTemple's pool
-// (UT_MonsterHunt work/uta0269/water/ 0-1). Two measures disagree, because our
-// pool floor is lit darker than the original's (UTA-0278): 16-pixel block RMS
-// favours heavy fog (start-end 0-300 11.3, 0-500 13.8, 100-600 15.8, 300-1000
-// 19.5), while 8-pixel texture detail, the original's 2.9 and 2.0, favours
-// light fog (0.1/0.3 at 0-300, 0.9/1.8 at 300-1000). At 0-300 the floor the
-// original shows looking down vanished into flat colour; at 300-1000 it shows,
-// as there. So the values are the detail measure's.
-const float WATER_FOG_START = 300.0;
-const float WATER_FOG_END = 1000.0;
+// line between. The original fades nothing with distance: paired frames of
+// DM-ArcaneTemple's pool keep the same share from its near wall to its far end
+// (post.frag's WATER_KEEP). So the fade starts past the farthest wall those
+// frames show, and is this item's call, for the user's "visibility drops"
+// in large water; with the output stage's mix a faded-out surface shows as
+// the original shows a black one.
+const float WATER_FOG_START = 800.0;
+const float WATER_FOG_END = 2400.0;
 
 // What survives the water between the eye and a surface `z` deep in view;
 // the rest of what it shows is the water's own colour.

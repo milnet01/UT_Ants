@@ -308,13 +308,11 @@ void main() {
     float viewDepth = (frame.view * vec4(worldPosition, 1.0)).z;
     vec3 fogAt = vec3(gl_FragCoord.xy / frame.viewportSize, fogCoordinate(viewDepth) - 0.5 / float(FOG_GRID.z));
     vec4 fogged = textureLod(fogVolume, fogAt, 0.0);
-    // UTA-0215 SS 4.3: under water, far things in the water fade to its colour;
-    // what is seen through its surface does not, as in the original. A
-    // translucent surface takes what survives only, as with the fog. This
-    // comes before the fog adds its light, which the fog pass has faded itself.
-    float kept = zones[zone].water != 0u ? waterKept(viewDepth, frame.cameraUnderwater) : 1.0;
-    vec3 waterFog = vec3(frame.waterFogR, frame.waterFogG, frame.waterFogB);
-    colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour * kept : colour * kept + waterFog * (1.0 - kept);
+    // UTA-0215 SS 4.3: under water, far things in the water fade out, and the
+    // output stage's mix then shows them as the water's colour; what is seen
+    // through its surface does not fade. This comes before the fog adds its
+    // light, which the fog pass has faded itself.
+    colour *= zones[zone].water != 0u ? waterKept(viewDepth, frame.cameraUnderwater) : 1.0;
     colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour * fogged.a : colour * fogged.a + fogged.rgb;
 
     outColour = vec4(colour, 1.0);
