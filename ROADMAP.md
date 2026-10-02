@@ -13096,6 +13096,13 @@ stays with movement in 0.2.0.
   ut-ants-uta0156, ~/.cache/uta-scratch/u263/scripts). Census of the
   three classes (fields read today, textures, maps, surfaces, test maps):
   ~/.cache/uta-scratch/u105/REPORT.md, written by a helper run.
+  Spec drafted 2026-10-02: docs/specs/UTA-0105-shader-liquids.md
+  (accepted, unreviewed; reviews cancelled here). Every Wet, Ice and
+  Wave texture gets a liquid look by class; the bundle carries each
+  texture's own setting bytes and the shader maps them, so re-fits need
+  no re-bake. Ice gets panning only, no tilt. Auto-panning surfaces
+  split out to UTA-0269. Next: build it (FORMAT_VERSION 16,
+  BAKER_REVISION 31), then fit per the spec's § 4.6.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
@@ -14562,6 +14569,25 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: ut-monsterhunt-2026-10-01.
   Lanes: ut-paths.
+
+- 📋 [UTA-0269] **urender: surfaces flagged to pan by themselves (PF_AutoUPan, PF_AutoVPan) do not move.**
+  Found drafting UTA-0105's spec (2026-10-02): no part of src/ reads
+  PF_AutoUPan or PF_AutoVPan (workspace_search over src/ for AutoUPan,
+  AutoVPan and PanSpeed: no matches). UT99 pans any texture on such a
+  surface, liquid or not; UTA-0105's census counts 2769 WetTexture
+  surfaces with AutoVPan and 2271 with AutoUPan, and FireTexture
+  surfaces carry them too. ZoneInfo declares TexUPanSpeed and
+  TexVPanSpeed (Engine.u's source text); that they set the rate is
+  unverified, so check it against an original frame before building.
+  Placed in 0.1.0 because the user made
+  moving water a 0.1.0 requirement (2026-09-26) and this is how UT99's
+  rivers flow; it is one offset in scene.frag plus the zone's two
+  speeds, so it needs no spec. Kept out of UTA-0105 because it is not a
+  liquid look and applies to every texture.
+  **Layman:** Rivers, conveyor belts and scrolling signs that slid along in the original stand still; this makes them slide again.
+  Kind: feature.
+  Source: in-session-2026-10-02.
+  Lanes: render.
 
 ## 0.2.0 — Movement and weapons
 
