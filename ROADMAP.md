@@ -13068,6 +13068,12 @@ stays with movement in 0.2.0.
   User, 2026-10-02, restated during UTA-0105's build: "when you [are]
   underwater it must look like you [are] under water." The bar above
   stands; taken up after UTA-0089.
+  UT_MonsterHunt water census (2026-10-02), to cross-check when bWaterZone
+  is baked: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/watercensus/
+  water-zones-t3d.tsv (script run.py beside it). From their 2026-09-04
+  T3D exports, 624 maps: 435 with water, 2192 water zones. Rule: an
+  explicit bWaterZone= line wins, else the stock class default. It misses
+  a map-defined zone class that sets bWaterZone in its own defaults.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.
