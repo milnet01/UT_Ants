@@ -13087,7 +13087,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-26.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
+- ✅ [UTA-0105] **Animated textures: fire, rippling water, wet and ice textures move again.**
   Decided by the user 2026-09-10: the first version shows these
   as a still picture where one exists, and real animation is its own
   item, linked to the water-and-glass rendering work (UTA-0089).
@@ -13166,6 +13166,10 @@ stays with movement in 0.2.0.
   no re-bake. Ice gets panning only, no tilt. Auto-panning surfaces
   split out to UTA-0269. Next: build it (FORMAT_VERSION 16,
   BAKER_REVISION 31), then fit per the spec's § 4.6.
+  Shipped (2026-10-02): GitHub CI green on 9059f76 (run 36990612812),
+  the push carrying 550f3ee, ff5e0ed and 13c8fe7. Local gate green on GCC
+  14, Clang 19 and MSVC; device tier on lavapipe and the GPU with sync
+  validation; the real-asset tier 22/22 in build-real.
   **Layman:** Fire, rippling water and other textures that moved by themselves in the original move again, instead of showing as still pictures.
   Kind: feature.
   Source: user-request-2026-09-10.
