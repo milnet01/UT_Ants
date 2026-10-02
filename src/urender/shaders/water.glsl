@@ -90,4 +90,36 @@ vec4 waterPicture(uint base, vec2 uv, vec2 at, vec2 duv1, vec2 duv2, uint seed) 
     return vec4(mix(picture.rgb, mean, fade), picture.a);
 }
 
+// UTA-0215: caustics -- the net of bright lines light makes on what lies
+// under a rippling surface. Two layers of value noise, each drifting its own
+// way and bent by a slow wave, are bright where they cross their middle value,
+// which draws thin curved lines as focused light does. This item's call, not
+// fitted: the original draws none.
+const float CAUSTIC_CELL = 64.0;     // world units across one noise cell
+const float CAUSTIC_SPEED = 0.25;    // cells a second each layer drifts
+// The focused light's mean, as a share of the surface's reflectance; its
+// lines reach about nine times it. Added, not multiplied: caustics are light
+// arriving from the surface, so they show in a pool the map leaves dim.
+const float CAUSTIC_LIGHT = 0.03;
+
+float causticLines(vec2 q, float t, uint seed, vec2 drift) {
+    vec2 w = q + drift * (t * CAUSTIC_SPEED);
+    w += 0.35 * vec2(sin(w.y * 3.1 + t * 0.9), cos(w.x * 2.7 - t * 0.7));
+    return pow(1.0 - abs(2.0 * flameNoise(w, seed) - 1.0), 8.0);
+}
+
+// The light the caustics add, per unit reflectance, at world point `p`,
+// facing `normal`, at light time `t`. pow(1 - |x|, 8) averages 1/9 over an
+// even x, so its mean is CAUSTIC_LIGHT. The pattern lies on the axis plane the
+// surface faces most, so a slope never smears it; floors take it whole and
+// walls half.
+float causticLight(vec3 p, vec3 normal, float t) {
+    vec3 a = abs(normal);
+    vec2 plane = a.z >= a.x && a.z >= a.y ? p.xy : (a.x >= a.y ? p.yz : p.xz);
+    vec2 q = plane / CAUSTIC_CELL;
+    float lines = 0.5 * (causticLines(q, t, 31u, vec2(1.0, 0.4)) + causticLines(q * 1.37, t, 32u, vec2(-0.5, 0.9)));
+    float facing = mix(0.5, 1.0, max(normal.z, 0.0));
+    return CAUSTIC_LIGHT * facing * 9.0 * lines;
+}
+
 #endif

@@ -121,3 +121,54 @@ TEST_CASE("UTA-0215 INV-5: under water the view wobbles and out of it it does no
     CHECK(dryEarly == dryLate);
     CHECK(wetEarly != wetLate);
 }
+
+namespace {
+
+/// A lit grey wall whose vertices are in zone 1, `water` or not, seen from a
+/// dry zone 0 -- so the view's own tint and wobble stay off -- at `seconds`.
+std::vector<std::byte> litWallFrame(Renderer& renderer, bool water, double seconds) {
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 200, 0, 0, 3000, "grey", 0);
+    for (auto& vertex : geometry.vertices) vertex.zone = 1;
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "grey", Rgba{129, 129, 129, 255});
+    uta::ubundle::Zone dry;
+    dry.brightness = 128;
+    uta::ubundle::Zone wall = dry;
+    wall.water = water ? 1 : 0;
+    bundle.zones = std::vector{dry, wall};
+    renderer.pinLightSeconds(seconds);
+    requireOk(renderer.draw(bundle, Camera{}));
+    auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    return std::move(*pixels);
+}
+
+/// The largest change in any channel between two frames.
+int largestChange(const std::vector<std::byte>& a, const std::vector<std::byte>& b) {
+    int largest = 0;
+    for (std::size_t i = 0; i < a.size() && i < b.size(); ++i)
+        largest = std::max(largest, std::abs(int(a[i]) - int(b[i])));
+    return largest;
+}
+
+Config causticFrame(Tier tier) {
+    Config config = frameOf(160);
+    config.tier = tier;
+    return config;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0215: light ripples across a wall in a water zone from Medium and nowhere else", "[device]") {
+    removeDisplay();
+    Renderer medium = requireRenderer(causticFrame(Tier::Medium));
+    const int wet = largestChange(litWallFrame(medium, true, 0.0), litWallFrame(medium, true, 1.0));
+    const int dry = largestChange(litWallFrame(medium, false, 0.0), litWallFrame(medium, false, 1.0));
+    Renderer low = requireRenderer(causticFrame(Tier::Low));
+    const int lowWet = largestChange(litWallFrame(low, true, 0.0), litWallFrame(low, true, 1.0));
+    CAPTURE(wet, dry, lowWet);
+    CHECK(wet > 10);
+    CHECK(dry == 0);
+    CHECK(lowWet == 0);
+}

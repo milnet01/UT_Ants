@@ -13,9 +13,9 @@ the original tinted it and more.
 
 With the camera inside a water zone, the frame takes the original's tint,
 things fade toward the water's colour with distance, and the view wobbles
-gently. Out of water nothing changes. This is the cheapest part of the
-item's bar; caustics, light shafts from the surface, the surface seen from
-below and drifting particles follow (§ 9).
+gently. Out of water nothing changes. Surfaces in water carry moving
+caustics (§ 4.5, added after the first part). Light shafts from the surface,
+the surface seen from below and drifting particles follow (§ 9).
 
 ## 2. Problem
 
@@ -117,6 +117,22 @@ WOBBLE_AMPLITUDE × (sin(v × WOBBLE_FREQUENCY + t × WOBBLE_SPEED),
 flames' are. Constants: amplitude `0.003` of the frame, frequency `24`,
 speed `1.5` — this spec's call, chosen to be faint.
 
+### 4.5 Caustics — `urender`, `scene.frag`
+
+**Amended 2026-10-02, recording what was built.** A lit surface whose own
+zone is water, and is not a liquid, gains focused light: reflectance times
+`causticLight`, two drifting value-noise layers bright where they cross
+their middle value. The pattern lies on the axis plane the surface faces
+most, so a slope never smears it; walls take half. `water.glsl` holds the
+constants: a 64-unit cell, 0.25 cells a second, a mean of 0.03 of the
+reflectance. They are this item's call, chosen on DM-ArcaneTemple's pool,
+since the original draws none. It is added rather than multiplied, so it
+shows in a pool the map leaves dim; there it raised the pool's mean by two
+to five bytes. The surface's zone decides, not the camera's: caustics show
+from above the water too. `Feature::Caustics`, from Medium. Each zone's
+`water` reaches the GPU in its zone record, and the bundle fingerprint
+samples it.
+
 ## 5. Invariants
 
 - **INV-1** — `ZONE`'s `water`, `viewFog` and `viewFlash` round-trip through
@@ -150,6 +166,13 @@ speed `1.5` — this spec's call, chosen to be faint.
   *Test:* `tests/device/RenderUnderwaterTest.cpp`.
   *Breaks when:* the wobble is always on, or never.
 
+- **INV-6** — caustics: from Medium, a lit wall in a water zone changes
+  between two light times; a dry wall does not, and below Medium neither
+  does.
+  *Test:* `tests/device/RenderUnderwaterTest.cpp`.
+  *Breaks when:* caustics ignore the zone, the clock or the tier, or a
+  re-bake differing only in `water` keeps the old zone records.
+
 ## 6. Failure modes
 
 - **The camera on the surface** flips between tinted and not as it crosses;
@@ -166,6 +189,7 @@ speed `1.5` — this spec's call, chosen to be faint.
 - INV-2 — `tests/unit/BakeZonesTest.cpp`, extended; `unit`.
 - INV-3, INV-4, INV-5 — `tests/device/RenderUnderwaterTest.cpp`, new;
   `device`, at `Tier::Low`.
+- INV-6 — the same file, at `Tier::Medium` and `Tier::Low`.
 
 Each is seen failing before the code it locks exists. **Measured, not
 asserted:** the original's frames under and over water (asked of the
@@ -183,7 +207,6 @@ tint's mean colour shift, per zone class.
 
 ## 9. Out of scope
 
-- Caustics on surfaces under water — tracked by UTA-0215, its next part.
 - Light shafts from the surface, the surface seen from below, drifting
   particles — tracked by UTA-0215, later parts.
 - Easing the tint in and out as UT99 does — deferred; not yet queued.
@@ -196,7 +219,7 @@ tint's mean colour shift, per zone class.
 |------|----------------------|
 | INV-1 | `tests/unit/BundleZonesTest.cpp` |
 | INV-2 | `tests/unit/BakeZonesTest.cpp` |
-| INV-3, INV-4, INV-5 | `tests/device/RenderUnderwaterTest.cpp` |
+| INV-3, INV-4, INV-5, INV-6 | `tests/device/RenderUnderwaterTest.cpp` |
 | Whether it reads as underwater | **nothing** automated — § 7's comparison against the original's frames, run by hand |
 
 ## 11. Cross-doc impact

@@ -240,8 +240,9 @@ struct Zone {
     std::uint32_t hue;
     std::uint32_t saturation;
     std::uint32_t sky; ///< UTA-0089 SS 4.1: 1 where the zone holds a sky window
+    std::uint32_t water; ///< UTA-0215: 1 where the zone is water, for its caustics
 };
-static_assert(sizeof(Zone) == 16);
+static_assert(sizeof(Zone) == 20);
 static_assert(offsetof(Zone, brightness) == 0);
 static_assert(offsetof(Zone, hue) == 4);
 static_assert(offsetof(Zone, saturation) == 8);

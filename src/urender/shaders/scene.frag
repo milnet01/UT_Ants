@@ -43,6 +43,8 @@ layout(constant_id = 1) const uint PARALLAX_MAX_STEPS = 0u;
 layout(constant_id = 2) const bool WATER_LOOK = false;
 // UTA-0180: large-scale variation, set by Pipelines.cpp from the tier.
 layout(constant_id = 3) const bool TILE_VARIATION = false;
+// UTA-0215: Feature::Caustics, from Medium.
+layout(constant_id = 4) const bool CAUSTICS = false;
 // UTA-0040 SS 4.5 step 4: parallax fades out over the mip level above this.
 const float PARALLAX_FADE_MIP = 4.0;
 
@@ -259,6 +261,10 @@ void main() {
         vec3 reflectance = TILE_VARIATION && !liquid ? base.rgb * variationAt(worldPosition) : base.rgb;
         colour = reflectance * (pow(LIGHT_GAIN * (direct + ambient * open), vec3(DISPLAY_LIGHT_POWER))
                              + indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)));
+        // UTA-0215: under a rippling surface, the light reaching a lit surface
+        // in a water zone gathers into moving lines. The water itself is not.
+        if (CAUSTICS && !liquid && zones[zone].water != 0u)
+            colour += reflectance * causticLight(worldPosition, surface, frame.flameSeconds);
     }
     // UTA-0089 SS 4.2 and SS 4.3: a Wet or Wave liquid reflects the sky or the
     // probes, by Fresnel's law, about its surface tilted by the ripple alone.

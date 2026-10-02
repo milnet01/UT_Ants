@@ -133,6 +133,7 @@ struct Zone {
     uint hue;
     uint saturation;
     uint sky; // UTA-0089 SS 4.1: 1 where the zone holds a sky window
+    uint water; // UTA-0215: 1 where the zone is water, for its caustics
 };
 
 // UTA-0263 SS 4.4: one camera-facing flame.

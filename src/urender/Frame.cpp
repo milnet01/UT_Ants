@@ -216,6 +216,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
             fnv.addValue(zone.saturation);
             fnv.addValue(zone.fog); // UTA-0015
             fnv.addValue(zone.panSpeed); // UTA-0276
+            fnv.addValue(zone.water);    // UTA-0215: the caustics read it
         }
     }
     if (bundle.textures) {
@@ -689,7 +690,7 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
                             : std::vector<std::uint8_t>(bundle.zones->size(), 0);
         for (std::size_t i = 0; i < bundle.zones->size(); ++i) {
             const ubundle::Zone& zone = (*bundle.zones)[i];
-            zoneRecords.push_back(gpu::Zone{zone.brightness, zone.hue, zone.saturation, sky[i]});
+            zoneRecords.push_back(gpu::Zone{zone.brightness, zone.hue, zone.saturation, sky[i], zone.water});
         }
     }
     if (zoneRecords.empty()) zoneRecords.push_back(gpu::Zone{});

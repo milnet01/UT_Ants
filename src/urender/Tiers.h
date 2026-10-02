@@ -47,6 +47,7 @@ enum class Feature : std::uint8_t {
     AmbientOcclusion,  ///< UTA-0164's baked occlusion atlas
     WaterLook,         ///< UTA-0089's reflections and varied picture on water
     TileVariation,     ///< UTA-0180's slow brightness change across the world
+    Caustics,          ///< UTA-0215's rippling light on what lies under water
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -69,6 +70,9 @@ enum class Feature : std::uint8_t {
     // 25 on 12 cores, so medians were not used). Past the 3% that would keep it
     // on every tier, as WaterLook is.
     case Feature::TileVariation: return Tier::Medium;
+    // UTA-0215: two value noises a lit pixel, in water zones only. Not
+    // measured; it costs less than TileVariation's three, and sits with it.
+    case Feature::Caustics: return Tier::Medium;
     }
     return Tier::Low; // unreachable
 }

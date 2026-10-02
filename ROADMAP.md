@@ -13200,6 +13200,11 @@ stays with movement in 0.2.0.
   surface seen from below shows bright highlight blobs where the original
   shows the cyan water texture; that is this item's surface-from-below
   part. Kit: ~/.cache/uta-scratch/u215/.
+  Progress (2026-10-02): caustics built (spec § 4.5, INV-6): added light
+  on lit surfaces in water zones, Feature::Caustics from Medium, tuned on
+  DM-ArcaneTemple's pool (64-unit cell; first tries at 192 units and as a
+  multiplier read as smears or as nothing in the dim pool). Four mutations
+  killed. Left: light shafts, the surface seen from below, particles.
   **Layman:** Light rippling across the floor under water, and the view turning murky and tinted when the player's head goes under.
   Kind: feature.
   Source: user-request-2026-09-26.

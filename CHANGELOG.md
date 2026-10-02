@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Light ripples across floors and walls under water** (UTA-0215)
+  Surfaces in a water zone now carry a moving net of bright lines, the
+  caustics a rippling surface casts, from the Medium quality setting up.
+  They show from above the water as well as from below.
+
 - **Under water the view takes the zone's own tint, fades with distance, and wobbles gently** (UTA-0215)
   Zones now record whether they are water and the original's view tint.
   With the camera's head in one, the frame is tinted exactly as UT99
