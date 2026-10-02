@@ -12004,6 +12004,13 @@ stays with movement in 0.2.0.
   against NOROUTE for all four originals; Necromicon still NOROUTE. No
   control arm, so the credit is not proven per map. Their results:
   UT_MonsterHunt/work/fastseed-2026-10-02b.
+  Correction (UT_MonsterHunt control arm, 2026-10-02): each of the 44
+  routing maps from both deliveries was rebuilt WITHOUT our nodes. 40
+  stay NOROUTE, so the nodes earned those 40. A plain rebuild alone
+  routes the other 4: MH-400K-Slope+SBFix1, AirportTerrorSB-BP,
+  AMC-DiminutiveV5-BP and UM-Vengeance-vrf1. So of the rowless run's
+  four gains above, only Ghost][busters is ours. Data:
+  UT_MonsterHunt/work/control-2026-10-02a and -b.
   **Layman:** Re-run the breadcrumb tool over a much larger set of broken maps than it was first aimed at.
   Kind: feature.
   Source: ut-monsterhunt-2026-09-20.
