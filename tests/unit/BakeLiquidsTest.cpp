@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <string>
 #include <vector>
@@ -80,11 +81,18 @@ BakeResult bakeLiquids(bool withFire) {
     shield.picture.palette.clear();
     for (int heat = 0; heat < 256; ++heat)
         shield.picture.palette.push_back({0, std::uint8_t(heat / 2), std::uint8_t(heat), 255});
+    // UTA-0270: the Laser's glass, one grey of 110 throughout, on no surface.
+    TextureSpec mist{"Mist", "", picture(10), false};
+    mist.picture.indices.assign(mist.picture.indices.size(), 0);
+    mist.picture.palette = {{110, 110, 110, 255}};
+    const auto glass = map.addTexture(mist);
+    TextureSpec laser = procedural("Laser", "IceTexture", 6,
+                                   {{"PanningStyle", 1}, {"HorizPanSpeed", 64}, {"Amplitude", 44}, {"Frequency", 11}});
+    laser.glassTexture = glass;
+    laser.moveIce = true;
     for (const TextureSpec& texture :
          {procedural("Pool", "WetTexture", 4, {{"WaveAmp", 200}, {"FX_Frequency", 8}}),
-          procedural("Drip", "WetTexture", 5, {{"FX_Frequency", 3}}),
-          procedural("Laser", "IceTexture", 6,
-                     {{"PanningStyle", 1}, {"HorizPanSpeed", 64}, {"Amplitude", 44}, {"Frequency", 11}}),
+          procedural("Drip", "WetTexture", 5, {{"FX_Frequency", 3}}), laser,
           ripple, TextureSpec{"Wall", "", picture(9), false}, shield})
         map.addSurface(map.addTexture(texture));
 
@@ -139,6 +147,7 @@ TEST_CASE("UTA-0105 INV-2: each liquid class carries its own settings over its c
         CHECK(look->pan == std::array<std::uint8_t, 2>{64, 128});
         CHECK(look->amplitude == 44);
         CHECK(look->frequency == 11);
+        CHECK(int(look->moveIce) == 1); // UTA-0270
     }
     SECTION("a Wave texture carries its bump settings") {
         const auto& look = recordNamed(result, "dm-fixture.ripple").liquid;
@@ -173,3 +182,35 @@ TEST_CASE("UTA-0105 SS 6: a liquid whose class is not in the install keeps its s
     CHECK(std::ranges::any_of(result.skippedLiquids, [](const auto& s) { return s.material == "dm-fixture.pool"; }));
     CHECK_FALSE(result.skippedLiquids[0].reason.empty());
 }
+
+TEST_CASE("UTA-0270: an Ice texture's glass bakes as a one-level BC4 picture of its grey", "[ubake][bake][liquids]") {
+    const BakeResult result = bakeLiquids(true);
+    REQUIRE(result.bundle.textures.has_value());
+    const auto& textures = *result.bundle.textures;
+    const auto found = std::ranges::find(textures, std::string("dm-fixture.laser:glass"),
+                                         &uta::ubundle::CompressedTexture::name);
+    REQUIRE(found != textures.end());
+    CHECK(found->format == uta::ubundle::BlockFormat::BC4);
+    CHECK(found->mipCount == 1);
+    CHECK(found->width == 4);
+    CHECK(found->height == 4);
+    REQUIRE(found->blocks.size() == 8);
+    // BC4: two endpoints, then sixteen 3-bit indices. Every texel 110.
+    const auto e0 = int(found->blocks[0]), e1 = int(found->blocks[1]);
+    std::uint64_t bits = 0;
+    for (int i = 0; i < 6; ++i) bits |= std::uint64_t(found->blocks[2 + i]) << (8 * i);
+    for (int t = 0; t < 16; ++t) {
+        const int index = int((bits >> (3 * t)) & 7);
+        int value = 0;
+        if (index == 0) value = e0;
+        else if (index == 1) value = e1;
+        else if (e0 > e1) value = ((8 - index) * e0 + (index - 1) * e1) / 7;
+        else if (index < 6) value = ((6 - index) * e0 + (index - 1) * e1) / 5;
+        else value = index == 6 ? 0 : 255;
+        CHECK(std::abs(value - 110) <= 1);
+    }
+    // A liquid naming no glass bakes none.
+    CHECK(std::ranges::find(textures, std::string("dm-fixture.pool:glass"), &uta::ubundle::CompressedTexture::name)
+          == textures.end());
+}
+

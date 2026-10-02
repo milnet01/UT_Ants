@@ -84,9 +84,11 @@ namespace {
 // pan constant to 35. The fixture pans nothing, so the zone bytes moved it.
 // 35, format 19: UTA-0215 gave each ZONE entry its water flag and view tint.
 // The fixture has no water, so the zone's zero bytes moved it.
-constexpr std::uint32_t RECORDED_UNDER = 35;
+// 36, format 20: UTA-0270 gave each Ice look its MoveIce and bakes its glass.
+// The fixture has no Ice, so the format bump alone moved it.
+constexpr std::uint32_t RECORDED_UNDER = 36;
 constexpr std::string_view GOLDEN =
-    "14586867b00d399f61e46fefa563c3fef6f8065870251c7d787b32d935e593e8";
+    "cfc7dd0c67857924c6e53356a43db8d9cb364df15ac140f92a274ee9ac9f1a21";
 
 } // namespace
 

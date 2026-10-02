@@ -60,6 +60,7 @@ LiquidLook liquidOf(LiquidKind kind, std::uint8_t first) {
     look.amplitude = first;
     look.frequency = static_cast<std::uint8_t>(first + 1);
     look.panning = 3;
+    look.moveIce = 1;
     look.pan = {static_cast<std::uint8_t>(first + 2), static_cast<std::uint8_t>(first + 3)};
     look.bump = {static_cast<std::uint8_t>(first + 4), static_cast<std::uint8_t>(first + 5),
                  static_cast<std::uint8_t>(first + 6)};
@@ -75,6 +76,7 @@ void putLiquid(Bytes& out, const LiquidLook& look) {
     out.u8(look.amplitude);
     out.u8(look.frequency);
     out.u8(look.panning);
+    out.u8(look.moveIce); // UTA-0270
     for (const std::uint8_t pan : look.pan) out.u8(pan);
     for (const std::uint8_t bump : look.bump) out.u8(bump);
     for (const std::uint16_t side : look.size) out.u16(side);
@@ -116,7 +118,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(19); // formatVersion -- 19 since UTA-0215 gave each ZONE entry its water and tint
+    out.u32(20); // formatVersion -- 20 since UTA-0270 gave each Ice look its MoveIce
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -164,7 +166,7 @@ void refused(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][mats]") {
     const auto result = read(fileWith(matsPayload(GOLDEN)));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 19);
+    CHECK(result->header.formatVersion == 20);
     CHECK_FALSE(result->textures.has_value());
 
     REQUIRE(result->materials.has_value());
@@ -313,6 +315,7 @@ TEST_CASE("UTA-0105 INV-1: an invalid liquid look is refused by read and write",
     };
     const Case cases[] = {
         {"a panning style past WavyY", "panning", [](LiquidLook& l) { l.panning = 5; }},
+        {"a MoveIce byte of 2", "MoveIce", [](LiquidLook& l) { l.moveIce = 2; }},
         {"a width of 0", "size", [](LiquidLook& l) { l.size[0] = 0; }},
         {"a height above 8192", "size", [](LiquidLook& l) { l.size[1] = 8193; }},
         {"a ramp value that is not finite", "not finite",

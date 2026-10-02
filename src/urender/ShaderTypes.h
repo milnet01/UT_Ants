@@ -146,8 +146,9 @@ struct Material {
     std::uint32_t parallaxDepth; ///< UTA-0040 SS 4.6: texels of the base level; 0 for none
     std::uint32_t flame;         ///< UTA-0263 SS 4.4: its ramp's first entry in FLAME_RAMPS, or NONE
     std::uint32_t liquid;        ///< UTA-0105 SS 4.4: its look's index in LIQUIDS, or NONE
+    std::uint32_t glass;         ///< UTA-0270: an Ice look's glass picture, or NONE
 };
-static_assert(sizeof(Material) == 36);
+static_assert(sizeof(Material) == 40);
 static_assert(offsetof(Material, base) == 0);
 static_assert(offsetof(Material, normal) == 4);
 static_assert(offsetof(Material, rough) == 8);
@@ -260,7 +261,7 @@ struct Liquid {
     float frequency;
     std::array<float, 2> pan;  ///< Ice: HorizPanSpeed, VertPanSpeed
     std::array<float, 2> size; ///< texels
-    std::array<float, 4> bump; ///< Wave: BumpMapLight, BumpMapAngle, PhongSize, unused
+    std::array<float, 4> bump; ///< Wave: BumpMapLight, BumpMapAngle, PhongSize; Ice: w MoveIce (UTA-0270)
     std::array<std::array<float, 4>, 8> ramp; ///< Wave: linear RGB, darkest first
 };
 static_assert(sizeof(Liquid) == 176);

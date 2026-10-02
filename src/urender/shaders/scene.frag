@@ -167,7 +167,7 @@ void main() {
     wet.offset = vec2(0.0);
     wet.tilt = vec2(0.0);
     wet.colour = vec3(0.0);
-    if (liquid) wet = liquidAt(liquids[material.liquid], uv, frame.flameSeconds, draw.materialIndex);
+    if (liquid) wet = liquidAt(liquids[material.liquid], uv, frame.flameSeconds, draw.materialIndex, material.glass);
     bool waving = liquid && liquids[material.liquid].kind == LIQUID_WAVE;
 
     vec2 shadingUv = uv + wet.offset;

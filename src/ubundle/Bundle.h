@@ -60,7 +60,8 @@ namespace uta::ubundle {
 /// 17 since UTA-0269 gave each GEOM batch its pan rate (UTA-0109 SS 4.2).
 /// 18 since UTA-0276 gave each ZONE entry its pan speeds (UTA-0156 SS 4.1).
 /// 19 since UTA-0215 gave each ZONE entry its water flag and view tint.
-inline constexpr std::uint32_t FORMAT_VERSION = 19;
+/// 20 since UTA-0270 gave each MATS liquid look its MoveIce byte.
+inline constexpr std::uint32_t FORMAT_VERSION = 20;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -175,6 +176,7 @@ struct LiquidLook {
     std::uint8_t amplitude = 0; ///< Wet, Wave: WaveAmp. Ice: Amplitude.
     std::uint8_t frequency = 0; ///< Wet, Wave: FX_Frequency. Ice: Frequency.
     std::uint8_t panning = 0;   ///< Ice: PanningStyle, 0 to 4. Otherwise 0.
+    std::uint8_t moveIce = 0;   ///< UTA-0270: Ice: 1 where MoveIce, the glass slides; 0 the source does.
     std::array<std::uint8_t, 2> pan{128, 128}; ///< Ice: HorizPanSpeed, VertPanSpeed. Otherwise 128.
     std::array<std::uint8_t, 3> bump{};        ///< Wave: BumpMapLight, BumpMapAngle, PhongSize. Otherwise 0.
     std::array<std::uint16_t, 2> size{};       ///< the texture's own width and height, texels

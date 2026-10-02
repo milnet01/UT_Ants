@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Glowing plasma and warp effects churn as in the original instead of sliding** (UTA-0270)
+  Ice-style effects now draw their second, rippled layer, which bends the
+  picture beneath it as it slides, measured from the original game. Maps
+  are baked again (format 20).
+
 - **Specks drift in the water around you** (UTA-0215)
   Under water, faint specks float and rise slowly around the player and
   stay put in the world as you swim past them, from the Medium quality

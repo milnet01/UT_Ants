@@ -203,6 +203,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
                 fnv.addValue(look.amplitude);
                 fnv.addValue(look.frequency);
                 fnv.addValue(look.panning);
+                fnv.addValue(look.moveIce); // UTA-0270
                 fnv.addValue(look.pan);
                 fnv.addValue(look.bump);
                 fnv.addValue(look.size);

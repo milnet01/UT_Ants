@@ -21,6 +21,7 @@
 #include "umat/Enlarge.h"
 #include "umat/Fingerprint.h"
 #include "umat/Generate.h"
+#include "umat/Material.h"
 #include "umat/Resolve.h"
 #include "unav/Build.h"
 #include "upkg/Class.h"
@@ -32,6 +33,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <span>
 #include <expected>
 #include <format>
 #include <mutex>
@@ -378,7 +380,49 @@ struct MadeVariant {
     /// surface's own light. Empty for a material that does not glow, and for a
     /// flame, which scene.frag draws without its emit map.
     std::optional<Rgb> emission;
+    /// UTA-0270: an Ice texture's GlassTexture, `<id>:glass`; empty otherwise.
+    std::optional<ubundle::CompressedTexture> glass;
 };
+
+/// UTA-0270: an Ice texture's GlassTexture as a one-level BC4 picture of each
+/// texel's grey -- its palette colour's Rec. 709 luma, the value the original's
+/// frames show the shift follows. None when it names none, does not read, or
+/// is not the Ice texture's own size, which Epic's manual requires; the look
+/// then pans its source alone, as before.
+std::optional<ubundle::CompressedTexture> glassOf(const upkg::Package& holder,
+                                                  const std::vector<upkg::Property>& properties,
+                                                  const upkg::PackageResolver& resolver, const std::string& id,
+                                                  std::uint32_t width, std::uint32_t height, JobSystem& jobs) {
+    const auto reference = objectProperty(holder, properties, "glasstexture");
+    if (!reference.has_value() || reference->kind() == upkg::ObjectReferenceKind::Null) return std::nullopt;
+    const auto site = objectAt(holder, *reference, resolver, "GlassTexture");
+    if (!site.has_value()) return std::nullopt;
+    const auto glassProperties = upkg::readProperties(*site->holder, *site->entry);
+    if (!glassProperties.has_value()) return std::nullopt;
+    const auto paletteReference = objectProperty(*site->holder, *glassProperties, "palette");
+    if (!paletteReference.has_value() || paletteReference->kind() == upkg::ObjectReferenceKind::Null)
+        return std::nullopt;
+    const auto paletteSite = objectAt(*site->holder, *paletteReference, resolver, "GlassTexture's palette");
+    if (!paletteSite.has_value()) return std::nullopt;
+    const auto palette = upkg::readPalette(*paletteSite->holder, *paletteSite->entry);
+    if (!palette.has_value()) return std::nullopt;
+    const auto texture = upkg::readTexture(*site->holder, *site->entry);
+    if (!texture.has_value() || texture->mips.empty()) return std::nullopt;
+    const upkg::Mip& level = texture->mips[0];
+    const std::size_t count = std::size_t{width} * height;
+    if (level.width != width || level.height != height || level.pixels.size() < count) return std::nullopt;
+    umat::Image grey{width, height, 1, std::vector<std::byte>(count)};
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto index = static_cast<std::size_t>(level.pixels[i]);
+        if (index >= palette->entries.size()) continue; // 0, as a missing colour
+        const upkg::PaletteEntry& e = palette->entries[index];
+        grey.pixels[i] = static_cast<std::byte>(std::lround(0.2126 * e.r + 0.7152 * e.g + 0.0722 * e.b));
+    }
+    auto compressed = umat::compress(id + ":glass", std::span<const umat::Image>(&grey, 1), ubundle::BlockFormat::BC4,
+                                     static_cast<std::uint16_t>(width), static_cast<std::uint16_t>(height), jobs);
+    if (!compressed.has_value()) return std::nullopt;
+    return std::move(*compressed);
+}
 
 /// One variant, or why it cannot be made. The error arm is a SKIP and never a
 /// refusal of the bake: every failure SS 4.6 lists belongs to one texture, and
@@ -549,6 +593,18 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                 return std::nullopt;
             };
             liquid = liquidLookOf(*kind, setting, base.width, base.height, *palette);
+            // UTA-0270: MoveIce is a Bool, so the byte lookup above cannot read it.
+            if (liquid.has_value() && liquid->kind == ubundle::LiquidKind::Ice) {
+                std::optional<bool> moveIce;
+                for (const upkg::Property& property : *properties)
+                    if (property.arrayIndex == 0 && detail::fold(nameOf(holder, property.nameIndex)) == "moveice")
+                        if (const auto* value = std::get_if<bool>(&property.value)) moveIce = *value;
+                if (!moveIce.has_value())
+                    for (const upkg::EffectiveProperty& effective : *defaults)
+                        if (effective.property.arrayIndex == 0 && detail::fold(effective.name) == "moveice")
+                            if (const auto* value = std::get_if<bool>(&effective.property.value)) moveIce = *value;
+                liquid->moveIce = moveIce.value_or(false) ? 1 : 0;
+            }
             if (!liquid.has_value())
                 liquidSkipped = std::format("its size {}x{} is outside 1 to {} a side", base.width, base.height,
                                             ubundle::LIQUID_SIZE_MAX);
@@ -587,8 +643,11 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     std::optional<Rgb> emission;
     if (settings.emissive && !flame.has_value())
         emission = meanAlbedo(umat::emissiveOf(*rgba, umat::heightOf(*rgba), settings.emissiveThreshold));
+    std::optional<ubundle::CompressedTexture> glass;
+    if (liquid.has_value() && liquid->kind == ubundle::LiquidKind::Ice)
+        glass = glassOf(holder, *properties, resolver, id, base.width, base.height, jobs);
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
-                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), emission};
+                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), emission, std::move(glass)};
 }
 
 struct Materials {
@@ -716,6 +775,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             if (made->emission.has_value()) out.emission.emplace(id, *made->emission);
             for (ubundle::CompressedTexture& texture : made->material.maps)
                 out.textures.push_back(std::move(texture));
+            if (made->glass.has_value()) out.textures.push_back(std::move(*made->glass)); // UTA-0270
             for (const std::int32_t raw : variant.references)
                 out.bySurface.emplace(std::pair{raw, variant.masked},
                                       SurfaceMaterial{id, made->uSize, made->vSize});

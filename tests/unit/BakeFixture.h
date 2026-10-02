@@ -57,6 +57,10 @@ struct TextureSpec {
     /// UTA-0155: a reference, in the package this texture is added to, to the
     /// texture it names as its SourceTexture; 0 for none.
     std::int32_t sourceTexture = 0;
+    /// UTA-0270: a reference to the texture it names as its GlassTexture; 0
+    /// for none. And its MoveIce, written only when true.
+    std::int32_t glassTexture = 0;
+    bool moveIce = false;
     /// UTA-0155: the base level keeps its size but stores no pixels, as a
     /// procedural texture's does.
     bool emptyLevel = false;

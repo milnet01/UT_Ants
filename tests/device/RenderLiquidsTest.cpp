@@ -160,3 +160,89 @@ TEST_CASE("UTA-0105 INV-7: the ripple tilts the light on a lit surface only", "[
     const uta::ubundle::Bundle unlit = flatSquare(wet(), false);
     CHECK(changed(frameAt(unlit, PINNED), frameAt(unlit, PINNED + 0.25)) == 0);
 }
+
+// -- UTA-0270: the Ice look's glass --
+
+namespace {
+
+/// A square wearing "ice": a 16x4 picture of four BC7 blocks, red then three
+/// blue, so a shift either way puts the red block somewhere else; with
+/// `glass`, a one-level BC4 glass of that grey throughout.
+uta::ubundle::Bundle icePicture(std::optional<LiquidLook> look, std::optional<std::uint8_t> glass,
+                                int redBlock = 0) {
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, HALF, "ice", PF_UNLIT);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    uta::ubundle::MaterialRecord record{"ice", false, 0};
+    record.liquid = look;
+    bundle.materials = std::vector<uta::ubundle::MaterialRecord>{record};
+    uta::ubundle::CompressedTexture base;
+    base.name = "ice:base";
+    base.format = uta::ubundle::BlockFormat::BC7;
+    base.width = base.sourceWidth = 16;
+    base.height = base.sourceHeight = 4;
+    base.mipCount = 1;
+    for (int b = 0; b < 4; ++b)
+        for (const std::byte x : bc7Solid(b == redBlock ? RED : BLUE)) base.blocks.push_back(x);
+    std::vector<uta::ubundle::CompressedTexture> textures{std::move(base)};
+    if (glass) {
+        uta::ubundle::CompressedTexture g;
+        g.name = "ice:glass";
+        g.format = uta::ubundle::BlockFormat::BC4;
+        g.width = g.sourceWidth = 16;
+        g.height = g.sourceHeight = 4;
+        g.mipCount = 1;
+        for (int b = 0; b < 4; ++b) {
+            // Both endpoints the grey and every index 0: each texel is it exactly.
+            g.blocks.push_back(std::byte{*glass});
+            g.blocks.push_back(std::byte{*glass});
+            for (int i = 0; i < 6; ++i) g.blocks.push_back(std::byte{0});
+        }
+        textures.push_back(std::move(g));
+    }
+    bundle.textures = std::move(textures);
+    return bundle;
+}
+
+LiquidLook iceLook(std::uint8_t horizontal, bool moveIce) {
+    LiquidLook look = ice(horizontal);
+    look.size = {16, 4};
+    look.moveIce = moveIce ? 1 : 0;
+    return look;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0270: the source is read glass minus 46 texels along u", "[device][liquids]") {
+    removeDisplay();
+    // Glass 50 throughout: each texel shows the source 4 texels on, so the red
+    // block moves from the first to the last. Still: pan 128, glass uniform.
+    const auto shifted = frameAt(icePicture(iceLook(128, true), 50), PINNED);
+    const auto expected = frameAt(icePicture(std::nullopt, std::nullopt, 3), PINNED);
+    const std::size_t off = changed(shifted, expected);
+    INFO("pixels unlike the moved picture " << off);
+    CHECK(off * 100 <= std::size_t{WIDTH} * HEIGHT);
+    // Glass 46: no shift.
+    CHECK(changed(frameAt(icePicture(iceLook(128, true), 46), PINNED),
+                  frameAt(icePicture(std::nullopt, std::nullopt, 0), PINNED)) * 100
+          <= std::size_t{WIDTH} * HEIGHT);
+}
+
+TEST_CASE("UTA-0270: without MoveIce the source slides toward plus u at 0.9 texels a second a unit", "[device][liquids]") {
+    removeDisplay();
+    // Pan 138: 9 texels a second. In 4/9 s the picture moves 4 texels on, so
+    // the red block is the second; read 4 texels back, each texel shows it.
+    const auto moved = frameAt(icePicture(iceLook(138, false), 46), 4.0 / 9.0);
+    const auto expected = frameAt(icePicture(std::nullopt, std::nullopt, 1), PINNED);
+    const std::size_t off = changed(moved, expected);
+    INFO("pixels unlike the moved picture " << off);
+    CHECK(off * 100 <= std::size_t{WIDTH} * HEIGHT);
+}
+
+TEST_CASE("UTA-0270: with MoveIce the source stays and only the glass slides", "[device][liquids]") {
+    removeDisplay();
+    // A uniform glass sliding changes nothing.
+    const auto bundle = icePicture(iceLook(138, true), 46);
+    CHECK(changed(frameAt(bundle, PINNED), frameAt(bundle, PINNED + 0.3)) * 100 <= std::size_t{WIDTH} * HEIGHT);
+}
+

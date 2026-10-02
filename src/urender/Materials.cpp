@@ -139,7 +139,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
             liquid.pan = {static_cast<float>(look.pan[0]), static_cast<float>(look.pan[1])};
             liquid.size = {static_cast<float>(look.size[0]), static_cast<float>(look.size[1])};
             liquid.bump = {static_cast<float>(look.bump[0]), static_cast<float>(look.bump[1]),
-                           static_cast<float>(look.bump[2]), 0.0f};
+                           static_cast<float>(look.bump[2]), static_cast<float>(look.moveIce)};
             for (std::size_t i = 0; i < look.ramp.size(); ++i)
                 liquid.ramp[i] = {look.ramp[i][0], look.ramp[i][1], look.ramp[i][2], 0.0f};
             liquidByRecord.push_back(static_cast<std::uint32_t>(liquids.size()));
@@ -156,6 +156,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
             UTA_TRY(const std::uint32_t rough, mapIndex(record.id, "rough", false));
             UTA_TRY(const std::uint32_t height, mapIndex(record.id, "height", false));
             UTA_TRY(const std::uint32_t emit, mapIndex(record.id, "emit", true));
+            UTA_TRY(const std::uint32_t glass, mapIndex(record.id, "glass", false)); // UTA-0270
             if (base == gpu::NONE && normal == gpu::NONE && rough == gpu::NONE && height == gpu::NONE) {
                 // SS 6: ubundle does not check the pairing, so the renderer must.
                 UTA_LOG(logRender, LogLevel::Warning,
@@ -170,7 +171,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                                rough == gpu::NONE ? defaults.rough : rough,
                                height == gpu::NONE ? defaults.height : height, emit,
                                record.metallic ? 1u : 0u, record.parallaxDepth, set.rampByRecord_[m],
-                               liquidByRecord[m]});
+                               liquidByRecord[m], glass});
         }
     }
 

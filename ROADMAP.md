@@ -14882,6 +14882,28 @@ stays with movement in 0.2.0.
   angle constrain it poorly, so texture-space captures (a face-on unlit
   sprite of blueplasma at known times, plus inoxBlu1 and gmist2 alone)
   are asked of UT_MonsterHunt. Fit from those, then build.
+  Fitted (2026-10-02) from UT_MonsterHunt's texture-space captures
+  (work/uta0269/iceflatA/ MoveIce true, iceflatB/ MoveIce false; a
+  face-on unlit sprite at 2.56 px a texel). The source inoxBlu1 is a
+  ramp in u alone, so each pixel's colour names the source column it was
+  read from. Rule, per texel: the source is read at u + (G - 46), G the
+  glass's own value 0-255 as exported (gmist2.bmp, grey), v unchanged;
+  binned by G the shift is linear with slope 1.0 and the same in every
+  frame. With MoveIce true the glass slides in u by about 65 texels a
+  second at TimeDilation 1 (0.9 x (HorizPanSpeed 200 - 128)), on the real
+  clock (at TimeDilation 0.1 it still moved ~60 a real second); every
+  frame fits with a median error of 2 texels. With MoveIce false the glass
+  stays and the source slides ~62 a second the other way, spread 1.6.
+  Kit: ~/.cache/uta-scratch/u270/. Building it needs the glass as a
+  second picture per Ice material (its raw value, not a compressed
+  colour) and MoveIce in LiquidLook: a bundle format change.
+  Built (2026-10-02), UTA-0105 § 4.4a and INV-8: the bake stores each
+  Ice texture's glass as `<id>:glass` (one BC4 level of its grey) and its
+  MoveIce (MATS format 20, baker 36); the shader reads the source
+  glass - 46 texels on along u, sliding the glass (MoveIce) or the source
+  at 0.9 x (pan - 128) texels a second toward +u. Tests seen red first;
+  four mutations killed. DOM-MetalDream rebaked: blueplasma's edge
+  reshapes along its length over two seconds. Flip on GitHub's matrix.
   **Layman:** Glowing plasma and warp effects swirl and churn in the original but only slide here; drawing their second layer fixes that.
   Kind: feature.
   Source: in-session-2026-10-02.
@@ -15048,6 +15070,12 @@ stays with movement in 0.2.0.
   which TimeDilation scales (DeathMatchPlus 1.1), and we have no game
   time yet.
   Shipped in 8f02137; GitHub's matrix green (run 37035386380).
+  Re-tested in open air (2026-10-02, UT_MonsterHunt work/uta0269/zone1/
+  and zone2/): the pan follows the viewer's EYE zone (HeadRegion), not the
+  surface's or the body's -- near and far belt parts in different zones
+  moved together at 35 x the eye zone's speed (35.0 and 104.4 measured
+  against 35 and 105). The earlier camera was inside solid but gave the
+  same rule. The renderer's camera.location is the eye, so nothing changes.
   **Layman:** Conveyor belts and rivers that slide by themselves now move, but faster than in the original game.
   Kind: fix.
   Source: in-session-2026-10-02 measured by UT_MonsterHunt.

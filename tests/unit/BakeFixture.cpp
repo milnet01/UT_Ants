@@ -209,6 +209,8 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     if (texture.format) properties.addByte(name("Format"), 1);
     if (texture.drawScale != 0) properties.addFloat(name("DrawScale"), texture.drawScale);
     if (texture.sourceTexture != 0) properties.addObject(name("SourceTexture"), texture.sourceTexture);
+    if (texture.glassTexture != 0) properties.addObject(name("GlassTexture"), texture.glassTexture); // UTA-0270
+    if (texture.moveIce) properties.addBool(name("MoveIce"), true);
     if (texture.renderHeat != 0) properties.addByte(name("RenderHeat"), texture.renderHeat);
     if (texture.rising) properties.addBool(name("bRising"), true);
     if (texture.sparksLimit != 0) properties.addInt(name("SparksLimit"), texture.sparksLimit);

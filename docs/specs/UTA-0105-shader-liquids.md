@@ -208,6 +208,28 @@ flames.
 **Tiers.** Liquids move on every tier with the same shader. Their cost is
 measured (§ 13).
 
+### 4.4a An Ice look's glass — `ubake`, `ubundle`, `urender`
+
+**Amended by `UTA-0270`, recording what was built.** UT99 draws an
+IceTexture by shifting where its SourceTexture is read by its GlassTexture,
+which Epic's manual calls "an 8-bit distortion vector field". How a value
+becomes a shift was measured from UT_MonsterHunt's face-on captures of
+DOM-MetalDream's `blueplasma` (`work/uta0269/iceflatA/` and `iceflatB/`),
+whose source is a ramp in u alone: each texel shows the source
+`glass − 46` texels on along u, slope 1.0, the same in every frame to a
+median of 2 texels.
+
+The bake reads the GlassTexture, converts each texel to its palette colour's
+Rec. 709 luma, and stores it as `<id>:glass`, one BC4 level, when it is the
+Ice texture's own size; and reads `MoveIce`, a Bool, into the look's
+`moveIce` byte, written in `MATS` after `panning` (format 20). The shader
+reads the glass at the texel's coordinate and adds `(glass − 46) / width`
+along u. With `moveIce` the glass slides and the source stays; without, the
+source slides. Either slides toward +u at `0.9 × (pan − 128)` texels a second
+on each axis: the glass measured 65 a second at `HorizPanSpeed` 200, the
+source 62. This replaced § 4.4's guessed 32 at 255, which slid toward −u.
+With no glass the look slides its source as before.
+
 ### 4.5 What does not change
 
 The geometry does not move, so velocity is unchanged. A translucent liquid
@@ -304,6 +326,16 @@ separates from the water beneath. `liquid.glsl` records the sweeps.
   *Breaks when:* the slope does not tilt the normal, or tilts an unlit
   surface's colour.
 
+- **INV-8** — the glass: a uniform glass of 50 shows the source 4 texels on
+  along u and one of 46 shows it unshifted; without `moveIce` the source slides
+  toward +u at `0.9 × (pan − 128)` texels a second; with it, a uniform glass
+  sliding changes nothing; and the bake stores an Ice texture's glass as one
+  BC4 level of its grey.
+  *Test:* `tests/device/RenderLiquidsTest.cpp` and
+  `tests/unit/BakeLiquidsTest.cpp`.
+  *Breaks when:* the zero point is not 46, the slide runs toward −u, `moveIce`
+  is ignored, or the glass is not read.
+
 ## 6. Failure modes
 
 - **A liquid whose class default cannot be read** — `Fire.u` is missing or
@@ -381,6 +413,8 @@ recorded beside their constants, not asserted by a test.
 | INV-2, INV-3 | `tests/unit/BakeLiquidsTest.cpp` |
 | INV-4 | `tests/real/RealLiquidsTest.cpp` — real-asset tier only, so the gate on a machine without the install does not run it |
 | INV-5, INV-6, INV-7 | `tests/device/RenderLiquidsTest.cpp` |
+| INV-8 | `tests/device/RenderLiquidsTest.cpp`, `tests/unit/BakeLiquidsTest.cpp` |
+| Circular, Gestation and Wavy panning applied to a moving glass | **nothing** — only Linear was captured |
 | § 4.6's fitted constants | **nothing** — a look fit is recorded, not asserted |
 | `shapeOf` samples the liquid look | **Partial:** a stale upload shows only on a re-bake in a running viewer; no test re-bakes under a live renderer |
 | Wave's highlight and Circular, Gestation and Wavy panning | **nothing** — no device test isolates them; § 4.6's fit is the only check |

@@ -49,7 +49,15 @@ const float LIQUID_TILT = 0.2;           // the normal's slope at WaveAmp 128, p
 // original against 0.03 to 0.09 here at pan rates 32 to 128, and a noise warp
 // on top reached 0.22 at most: the original's churn is its GlassTexture
 // sliding over the source, which is not drawn (SS 3; UTA-0270).
-const float ICE_PAN_TEXELS = 32.0;       // texels a second at a pan speed of 255 (127 from still)
+// UTA-0270: texels a second per unit of pan speed past 128, toward +u. Measured
+// on DOM-MetalDream's blueplasma (UT_MonsterHunt work/uta0269/iceflatA/ and B/):
+// at HorizPanSpeed 200 its glass slid 65 a second, and with MoveIce false its
+// source 62, both toward +u. It replaced a guessed 32 at 255 toward -u.
+const float ICE_PAN_PER_UNIT = 0.9;
+// UTA-0270: the glass value that shifts the source by nothing. Each texel shows
+// the source (glass - this) texels on along u: measured, slope 1.0, the same in
+// every frame of the captures above.
+const float ICE_GLASS_ZERO = 46.0;
 const float ICE_CYCLES = 0.02;           // circular and wavy cycles a second per unit of Frequency
 const float ICE_SWING_TEXELS = 0.1;      // circular and wavy reach, texels per unit of Amplitude
 // NOT FITTED. DM-ArcaneTemple's HubEffects.waterrings2 is an unlit modulated
@@ -84,7 +92,7 @@ vec3 liquidRamp(Liquid liquid, float shade) {
 vec2 icePan(Liquid liquid, vec2 uv, float seconds) {
     vec2 size = max(liquid.size, vec2(1.0));
     // Epic's manual: 128 is still. fract keeps a long-running pan precise.
-    vec2 linear = fract((liquid.pan - 128.0) / 127.0 * (ICE_PAN_TEXELS * seconds) / size);
+    vec2 linear = fract(-(liquid.pan - 128.0) * (ICE_PAN_PER_UNIT * seconds) / size);
     float phase = TWO_PI * fract(ICE_CYCLES * liquid.frequency * seconds);
     vec2 swing = vec2(ICE_SWING_TEXELS * liquid.amplitude) / size;
     vec2 within = fract(uv);
@@ -97,14 +105,24 @@ vec2 icePan(Liquid liquid, vec2 uv, float seconds) {
     }
 }
 
-// SS 4.4: a liquid's offset, tilt and (for a Wave) colour at `uv`.
-LiquidSample liquidAt(Liquid liquid, vec2 uv, float seconds, uint seed) {
+// SS 4.4: a liquid's offset, tilt and (for a Wave) colour at `uv`. `glass`,
+// an Ice look's glass picture or NONE (UTA-0270).
+LiquidSample liquidAt(Liquid liquid, vec2 uv, float seconds, uint seed, uint glass) {
     LiquidSample result;
     result.offset = vec2(0.0);
     result.tilt = vec2(0.0);
     result.colour = vec3(0.0);
     if (liquid.kind == LIQUID_ICE) {
-        result.offset = icePan(liquid, uv, seconds);
+        vec2 slide = icePan(liquid, uv, seconds);
+        if (glass == NONE) {
+            result.offset = slide;
+            return result;
+        }
+        // UTA-0270: the glass shifts where the source is read, along u. With
+        // MoveIce the glass slides and the source stays; without, the reverse.
+        bool moveIce = liquid.bump.w > 0.5;
+        float g = 255.0 * textureLod(textures[nonuniformEXT(glass)], moveIce ? uv + slide : uv, 0.0).r;
+        result.offset = vec2((g - ICE_GLASS_ZERO) / max(liquid.size.x, 1.0), 0.0) + (moveIce ? vec2(0.0) : slide);
         return result;
     }
     vec2 size = max(liquid.size, vec2(1.0));

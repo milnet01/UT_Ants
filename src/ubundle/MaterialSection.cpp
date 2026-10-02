@@ -17,6 +17,7 @@ constexpr std::uint64_t MIN_MATERIAL = 8;
 /// UTA-0105 SS 4.2's refusals, shared by read and write. Empty when the look
 /// is valid; otherwise what is wrong with it.
 [[nodiscard]] std::string liquidFault(const LiquidLook& look) {
+    if (look.moveIce > 1) return "MoveIce byte " + std::to_string(look.moveIce) + " is not 0 or 1"; // UTA-0270
     if (look.panning > LIQUID_PANNING_MAX)
         return "panning style " + std::to_string(look.panning) + " is past "
                + std::to_string(LIQUID_PANNING_MAX);
@@ -66,6 +67,7 @@ constexpr std::uint64_t MIN_MATERIAL = 8;
         UTA_TRY(look.amplitude, cursor.readU8());
         UTA_TRY(look.frequency, cursor.readU8());
         UTA_TRY(look.panning, cursor.readU8());
+        UTA_TRY(look.moveIce, cursor.readU8()); // UTA-0270
         for (std::uint8_t& pan : look.pan) {
             UTA_TRY(pan, cursor.readU8());
         }
@@ -97,6 +99,7 @@ void putMaterialRecord(Sink& sink, const MaterialRecord& record) {
     sink.putU8(look.amplitude);
     sink.putU8(look.frequency);
     sink.putU8(look.panning);
+    sink.putU8(look.moveIce); // UTA-0270
     for (const std::uint8_t pan : look.pan) sink.putU8(pan);
     for (const std::uint8_t bump : look.bump) sink.putU8(bump);
     for (const std::uint16_t side : look.size) sink.putU16(side);
