@@ -56,7 +56,8 @@ namespace uta::ubundle {
 /// 14 since UTA-0164 SS 4.1 added AOCC.
 /// 15 since UTA-0263 SS 4.2 gave each MATS record its flame look, and SS 4.3
 /// added FLAM.
-inline constexpr std::uint32_t FORMAT_VERSION = 15;
+/// 16 since UTA-0105 SS 4.2 gave each MATS record its liquid look.
+inline constexpr std::uint32_t FORMAT_VERSION = 16;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -154,6 +155,33 @@ struct FlameLook {
     std::array<std::array<float, 3>, 8> ramp{};
 };
 
+/// Which of UT99's three liquid classes a liquid look came from -- UTA-0105
+/// SS 4.2. 0 on the wire is "no look", so no kind takes it.
+enum class LiquidKind : std::uint8_t { Wet = 1, Ice = 2, Wave = 3 };
+
+/// The largest IceTexture PanningStyle, SLIDE_WavyY -- UTA-0105 SS 4.4.
+inline constexpr std::uint8_t LIQUID_PANNING_MAX = 4;
+/// The largest side a liquid look may state, as umat's own picture limit.
+inline constexpr std::uint16_t LIQUID_SIZE_MAX = 8192;
+
+/// A liquid material's own settings -- UTA-0105 SS 4.2. Each byte is the
+/// texture's stored property, or its class's default where it stores none;
+/// the shader turns them into motion, so a re-fit needs no re-bake.
+struct LiquidLook {
+    LiquidKind kind = LiquidKind::Wet;
+    std::uint8_t amplitude = 0; ///< Wet, Wave: WaveAmp. Ice: Amplitude.
+    std::uint8_t frequency = 0; ///< Wet, Wave: FX_Frequency. Ice: Frequency.
+    std::uint8_t panning = 0;   ///< Ice: PanningStyle, 0 to 4. Otherwise 0.
+    std::array<std::uint8_t, 2> pan{128, 128}; ///< Ice: HorizPanSpeed, VertPanSpeed. Otherwise 128.
+    std::array<std::uint8_t, 3> bump{};        ///< Wave: BumpMapLight, BumpMapAngle, PhongSize. Otherwise 0.
+    std::array<std::uint16_t, 2> size{};       ///< the texture's own width and height, texels
+    /// Wave: eight of its palette's colours at evenly spaced brightness,
+    /// darkest first, as linear RGB (SS 4.3). Otherwise zero. Every value finite.
+    std::array<std::array<float, 3>, 8> ramp{};
+
+    friend bool operator==(const LiquidLook&, const LiquidLook&) = default;
+};
+
 /// One material's own values -- UTA-0011 SS 4.10. Its maps are the TEXS
 /// entries named `<id>:<map>`.
 ///
@@ -168,6 +196,8 @@ struct MaterialRecord {
     std::uint8_t parallaxDepth = 0;
     /// UTA-0263 SS 4.2: set when the bake judged this material a flame.
     std::optional<FlameLook> flame;
+    /// UTA-0105 SS 4.2: set for a WetTexture, IceTexture or WaveTexture.
+    std::optional<LiquidLook> liquid;
 };
 
 /// One corner of a triangle -- UTA-0109 SS 4.2.

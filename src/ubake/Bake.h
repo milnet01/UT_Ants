@@ -55,6 +55,9 @@ struct BakeResult {
     /// UTA-0263 SS 6: flame surfaces carrying a sheet's flags that made no
     /// FLAM record, and so stay in GEOM.
     std::vector<SkippedFlame> skippedFlames;
+    /// UTA-0105 SS 6: liquid materials made with no liquid look -- their
+    /// class's defaults did not read -- so they show their still.
+    std::vector<SkippedTexture> skippedLiquids;
     /// UTA-0148: materials the texture cache served, and ones it had to make.
     /// Both 0 when the bake ran without one.
     std::uint32_t textureCacheHits = 0;

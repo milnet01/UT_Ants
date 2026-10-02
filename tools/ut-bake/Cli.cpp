@@ -256,6 +256,15 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
         writeJsonString(out, skipped.reason);
         out << '}';
     });
+    // UTA-0105 SS 6: a liquid made with no liquid look.
+    out << ", \"skippedLiquids\": ";
+    writeArray(out, result.skippedLiquids, [&out](const SkippedTexture& skipped) {
+        out << "{\"material\": ";
+        writeJsonString(out, skipped.material);
+        out << ", \"why\": ";
+        writeJsonString(out, skipped.reason);
+        out << '}';
+    });
 }
 
 int runBake(const Arguments& args, std::ostream& out, std::ostream& err,

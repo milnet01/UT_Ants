@@ -44,11 +44,13 @@ Bytes matsPayload() {
     out.u8(0); // metallic
     out.u8(0); // parallaxDepth
     out.u8(0); // flame: none
+    out.u8(0); // liquid: none -- UTA-0105 SS 4.2
     out.str("b");
     out.u8(0);
     out.u8(0);
     out.u8(1); // flame: a look follows
     for (int i = 0; i < 24; ++i) out.f32(0.0f);
+    out.u8(0); // liquid: none
     return out;
 }
 
@@ -77,7 +79,7 @@ std::vector<std::byte> fileWith(const Bytes& flam) {
     const std::vector<std::pair<std::string_view, Bytes>> sections = {{"MATS", matsPayload()}, {"FLAM", flam}};
     Bytes out;
     out.id("UTAB");
-    out.u32(15); // formatVersion -- 15 since UTA-0263 SS 4.3
+    out.u32(16); // formatVersion -- 16 since UTA-0105 SS 4.2
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

@@ -212,6 +212,7 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     if (texture.renderHeat != 0) properties.addByte(name("RenderHeat"), texture.renderHeat);
     if (texture.rising) properties.addBool(name("bRising"), true);
     if (texture.sparksLimit != 0) properties.addInt(name("SparksLimit"), texture.sparksLimit);
+    for (const auto& [property, value] : texture.bytes) properties.addByte(name(property), value);
 
     std::vector<std::uint8_t> data = properties.build(0);
     appendU8(data, 1); // one mip
@@ -611,6 +612,18 @@ std::vector<std::uint8_t> enginePackage() {
     const std::int32_t brush = packer.addClass("Brush", 0, {boolProperty("bStatic", true)});
     packer.addClass("Mover", brush, {boolProperty("bStatic", false)});
     packer.addExport(0, 0, "Actor", {});
+    return packer.build();
+}
+
+std::vector<std::uint8_t> firePackage() {
+    Packer packer;
+    const std::int32_t fractal = packer.addClass("FractalTexture");
+    const std::int32_t water =
+        packer.addClass("WaterTexture", fractal, {byteProperty("WaveAmp", FIRE_DEFAULT_WAVEAMP)});
+    packer.addClass("WetTexture", water);
+    packer.addClass("WaveTexture", water);
+    packer.addClass("IceTexture", fractal,
+                    {byteProperty("HorizPanSpeed", 128), byteProperty("VertPanSpeed", 128)});
     return packer.build();
 }
 

@@ -1,7 +1,7 @@
 // UTA-0011's container cases: the MATS section.
 //
-// docs/specs/UTA-0011-map-baker.md SS 4.10, INV-18, and UTA-0263 SS 4.2's flame
-// look, that spec's INV-1. The baker's own cases are
+// docs/specs/UTA-0011-map-baker.md SS 4.10, INV-18, UTA-0263 SS 4.2's flame
+// look, that spec's INV-1, and UTA-0105 SS 4.2's liquid look, that spec's INV-1. The baker's own cases are
 // tests/unit/BakeTest.cpp; nothing here reaches ubake.
 //
 // THE GOLDEN ARRAY IS AUTHORED FROM SS 4.10, never produced by `write`, for
@@ -31,6 +31,8 @@ using uta::ErrorCode;
 using uta::testing::Bytes;
 using uta::ubundle::Bundle;
 using uta::ubundle::FlameLook;
+using uta::ubundle::LiquidKind;
+using uta::ubundle::LiquidLook;
 using uta::ubundle::MaterialRecord;
 using uta::ubundle::Origin;
 using uta::ubundle::read;
@@ -46,7 +48,39 @@ struct RecordSpec {
     std::uint8_t parallaxDepth = 0; ///< UTA-0040 SS 4.1
     std::uint8_t flameByte = 0;     ///< UTA-0263 SS 4.2; a byte, so 2 can be stated
     std::optional<FlameLook> flame; ///< written after flameByte when present
+    std::uint8_t liquidByte = 0;      ///< UTA-0105 SS 4.2: the kind, or 0; a byte, so 4 can be stated
+    std::optional<LiquidLook> liquid; ///< written after liquidByte when present
 };
+
+/// A look whose every field differs from its neighbour's and from the
+/// defaults, so a reader that swapped two fields disagrees somewhere.
+LiquidLook liquidOf(LiquidKind kind, std::uint8_t first) {
+    LiquidLook look;
+    look.kind = kind;
+    look.amplitude = first;
+    look.frequency = static_cast<std::uint8_t>(first + 1);
+    look.panning = 3;
+    look.pan = {static_cast<std::uint8_t>(first + 2), static_cast<std::uint8_t>(first + 3)};
+    look.bump = {static_cast<std::uint8_t>(first + 4), static_cast<std::uint8_t>(first + 5),
+                 static_cast<std::uint8_t>(first + 6)};
+    look.size = {256, 128};
+    float value = static_cast<float>(first);
+    for (auto& colour : look.ramp)
+        for (float& channel : colour) channel = (value += 0.25f);
+    return look;
+}
+
+/// The look's fields in SS 4.2's wire order, after its kind byte.
+void putLiquid(Bytes& out, const LiquidLook& look) {
+    out.u8(look.amplitude);
+    out.u8(look.frequency);
+    out.u8(look.panning);
+    for (const std::uint8_t pan : look.pan) out.u8(pan);
+    for (const std::uint8_t bump : look.bump) out.u8(bump);
+    for (const std::uint16_t side : look.size) out.u16(side);
+    for (const auto& colour : look.ramp)
+        for (const float channel : colour) out.f32(channel);
+}
 
 /// A ramp whose 24 values all differ, so a reader that swapped two channels or
 /// two entries disagrees somewhere.
@@ -72,6 +106,8 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
         if (record.flame)
             for (const auto& colour : record.flame->ramp)
                 for (const float channel : colour) out.f32(channel);
+        out.u8(record.liquidByte);
+        if (record.liquid) putLiquid(out, *record.liquid);
     }
     return out;
 }
@@ -80,7 +116,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(15); // formatVersion -- 15 since UTA-0263 SS 4.3
+    out.u32(16); // formatVersion -- 16 since UTA-0105 SS 4.2
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -101,17 +137,18 @@ std::vector<std::byte> fileWith(const Bytes& payload) {
 /// Three records in ascending id order, their metallic values not all equal and
 /// their depths all different -- the top byte among them -- so a reader that
 /// dropped, reordered, defaulted or swapped a field disagrees somewhere. The
-/// middle one is a flame, so a look read into its neighbour disagrees too.
+/// middle one is a flame, so a look read into its neighbour disagrees too. The
+/// first and last are liquids of different kinds (UTA-0105), for the same reason.
 const std::vector<RecordSpec> GOLDEN = {
-    {"dm-fixture.base.wall", 0, 4},
+    {"dm-fixture.base.wall", 0, 4, 0, std::nullopt, 1, liquidOf(LiquidKind::Wet, 10)},
     {"dm-fixture.base.wall#masked", 1, 0, 1, rampFrom(0.5f)},
-    {"texpkg.floor", 0, 255},
+    {"texpkg.floor", 0, 255, 0, std::nullopt, 3, liquidOf(LiquidKind::Wave, 40)},
 };
 
 std::vector<MaterialRecord> recordsOf(const std::vector<RecordSpec>& specs) {
     std::vector<MaterialRecord> out;
     for (const RecordSpec& spec : specs)
-        out.push_back(MaterialRecord{spec.id, spec.metallic == 1, spec.parallaxDepth, spec.flame});
+        out.push_back(MaterialRecord{spec.id, spec.metallic == 1, spec.parallaxDepth, spec.flame, spec.liquid});
     return out;
 }
 
@@ -127,7 +164,7 @@ void refused(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][mats]") {
     const auto result = read(fileWith(matsPayload(GOLDEN)));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 15);
+    CHECK(result->header.formatVersion == 16);
     CHECK_FALSE(result->textures.has_value());
 
     REQUIRE(result->materials.has_value());
@@ -146,6 +183,11 @@ TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][
     CHECK(materials[2].id == "texpkg.floor");
     CHECK_FALSE(materials[2].metallic);
     CHECK(materials[2].parallaxDepth == 255);
+    CHECK_FALSE(materials[1].liquid.has_value());
+    REQUIRE(materials[0].liquid.has_value());
+    CHECK(*materials[0].liquid == liquidOf(LiquidKind::Wet, 10));
+    REQUIRE(materials[2].liquid.has_value());
+    CHECK(*materials[2].liquid == liquidOf(LiquidKind::Wave, 40));
 }
 
 TEST_CASE("write emits the MATS golden bytes", "[ubundle][mats]") {
@@ -177,6 +219,7 @@ TEST_CASE("MATS round-trips through write and read", "[ubundle][mats]") {
             CHECK((*back->materials)[i].parallaxDepth == specs[i].parallaxDepth);
             REQUIRE((*back->materials)[i].flame.has_value() == specs[i].flame.has_value());
             if (specs[i].flame) CHECK((*back->materials)[i].flame->ramp == specs[i].flame->ramp);
+            CHECK((*back->materials)[i].liquid == specs[i].liquid);
         }
     }
 }
@@ -203,18 +246,20 @@ TEST_CASE("write refuses MATS records out of order", "[ubundle][mats]") {
 
 TEST_CASE("a MATS count the section cannot hold is refused before an element is read",
           "[ubundle][mats]") {
-    // UTA-0263 SS 4.2's minimum element is 7 bytes. This payload declares two
-    // records and holds one whole record and six bytes more: 13 / 7 is one,
-    // so the count is refused up front. A minimum of 6, the size before the
-    // flame byte, would admit the count and fail later on a short read instead
-    // -- a different refusal, which is what this case tells apart.
+    // UTA-0105 SS 4.2's minimum element is 8 bytes. This payload declares two
+    // records and holds one whole record and seven bytes more: 15 / 8 is one,
+    // so the count is refused up front. A minimum of 7, the size before the
+    // liquid byte, would admit the count and fail later on a short read
+    // instead -- a different refusal, which is what this case tells apart.
     Bytes payload;
     payload.u32(2);
     payload.str("");
     payload.u8(0);
     payload.u8(0);
     payload.u8(0);
+    payload.u8(0);
     payload.u32(0);
+    payload.u8(0);
     payload.u8(0);
     payload.u8(0);
     refused(fileWith(payload), "exceeds the bytes remaining");
@@ -253,4 +298,50 @@ TEST_CASE("UTA-0263 INV-1: a flame ramp value that is not finite is refused", "[
         REQUIRE_FALSE(written.has_value());
         CHECK(written.error().code() == ErrorCode::InvalidArgument);
     }
+}
+
+TEST_CASE("UTA-0105 INV-1: a MATS liquid kind of 4 is refused", "[ubundle][mats][liquids]") {
+    refused(fileWith(matsPayload({{"a", 0, 0, 0, std::nullopt, 4, liquidOf(LiquidKind::Wet, 1)}})),
+            "liquid byte 4");
+}
+
+TEST_CASE("UTA-0105 INV-1: an invalid liquid look is refused by read and write", "[ubundle][mats][liquids]") {
+    struct Case {
+        std::string_view what;
+        std::string_view says;
+        void (*breakIt)(LiquidLook&);
+    };
+    const Case cases[] = {
+        {"a panning style past WavyY", "panning", [](LiquidLook& l) { l.panning = 5; }},
+        {"a width of 0", "size", [](LiquidLook& l) { l.size[0] = 0; }},
+        {"a height above 8192", "size", [](LiquidLook& l) { l.size[1] = 8193; }},
+        {"a ramp value that is not finite", "not finite",
+         [](LiquidLook& l) { l.ramp[7][2] = std::numeric_limits<float>::quiet_NaN(); }},
+    };
+    for (const Case& c : cases) {
+        INFO(c.what);
+        LiquidLook look = liquidOf(LiquidKind::Ice, 1);
+        c.breakIt(look);
+        refused(fileWith(matsPayload({{"a", 0, 0, 0, std::nullopt, 2, look}})), c.says);
+
+        Bundle bundle;
+        bundle.materials = recordsOf({{"a", 0, 0, 0, std::nullopt, 2, look}});
+        const auto written = write(bundle);
+        REQUIRE_FALSE(written.has_value());
+        CHECK(written.error().code() == ErrorCode::InvalidArgument);
+    }
+}
+
+TEST_CASE("UTA-0105 INV-1: the largest permitted look round-trips", "[ubundle][mats][liquids]") {
+    // The edges of each refused range, so an off-by-one bound refuses these.
+    LiquidLook look = liquidOf(LiquidKind::Ice, 1);
+    look.panning = 4;
+    look.size = {1, 8192};
+    Bundle bundle;
+    bundle.materials = recordsOf({{"a", 0, 0, 0, std::nullopt, 2, look}});
+    const auto written = write(bundle);
+    REQUIRE(written.has_value());
+    const auto back = read(*written);
+    REQUIRE(back.has_value());
+    CHECK((*back->materials)[0].liquid == look);
 }

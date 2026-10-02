@@ -37,6 +37,7 @@ add_executable(uta_unit_tests
     unit/BenchCliTest.cpp
     unit/BakeFireStillTest.cpp
     unit/BakeFlamesTest.cpp
+    unit/BakeLiquidsTest.cpp
     unit/FlameLibraryTest.cpp
     unit/BakeZonesTest.cpp
     unit/BundleActorsTest.cpp

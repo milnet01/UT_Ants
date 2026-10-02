@@ -74,9 +74,11 @@ namespace {
 // under the same revision: the bytes moved, the baker did not.
 // 30: UTA-0263 baked flame looks and FLAM. The fixture holds no flame, but
 // every bake now writes FLAM, empty where the level has none, so the digest moved.
-constexpr std::uint32_t RECORDED_UNDER = 30;
+// 31, format 16: UTA-0105 gave each MATS record a liquid byte and baked liquid
+// looks. The fixture holds no liquid, so only the byte moved the digest.
+constexpr std::uint32_t RECORDED_UNDER = 31;
 constexpr std::string_view GOLDEN =
-    "f962b979337de2d615818176176178883302a8b0fbefe4201eb660dc34aca9a3";
+    "09c02b12339a44b56aa5478c6c29e996039c5a7247c422ea846ab8fc0003caa8";
 
 } // namespace
 

@@ -22,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace uta::test::bake {
@@ -69,6 +70,9 @@ struct TextureSpec {
     std::uint8_t renderHeat = 0;
     bool rising = false;
     std::int32_t sparksLimit = 0;
+    /// UTA-0105: Byte properties the texture stores, by name -- a liquid's
+    /// settings. Written after the rest, in order.
+    std::vector<std::pair<std::string, std::uint8_t>> bytes;
 };
 
 /// One tagged property an actor or a class default carries -- UTA-0110 SS 7.
@@ -322,6 +326,13 @@ private:
 /// root class whose bStatic default is true; `Mover` under it, whose default
 /// is false; and the sizeless `Actor` export tinyPackage("Actor") holds.
 [[nodiscard]] std::vector<std::uint8_t> enginePackage();
+
+/// UTA-0105 SS 7: the Fire package the liquid cases resolve -- FractalTexture,
+/// a root class; WaterTexture under it, whose WaveAmp default is
+/// FIRE_DEFAULT_WAVEAMP; WetTexture and WaveTexture under that; and IceTexture
+/// under FractalTexture, whose pan speeds default to 128.
+[[nodiscard]] std::vector<std::uint8_t> firePackage();
+inline constexpr std::uint8_t FIRE_DEFAULT_WAVEAMP = 77;
 
 /// A package that opens and holds one sizeless export named `exportName`.
 [[nodiscard]] std::vector<std::uint8_t> tinyPackage(std::string_view exportName);

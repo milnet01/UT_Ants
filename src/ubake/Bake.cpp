@@ -9,6 +9,7 @@
 #include "ubake/Flames.h"
 #include "ubake/Geometry.h"
 #include "ubake/LightModel.h"
+#include "ubake/Liquids.h"
 #include "ubake/LightProbes.h"
 #include "ubake/Occlusion.h"
 #include "ubake/Movers.h"
@@ -21,6 +22,7 @@
 #include "umat/Generate.h"
 #include "umat/Resolve.h"
 #include "unav/Build.h"
+#include "upkg/Class.h"
 #include "upkg/Geometry.h"
 #include "upkg/Level.h"
 #include "upkg/Properties.h"
@@ -334,6 +336,28 @@ ubundle::FlameLook flameLookOf(const upkg::Palette& palette) {
     return look;
 }
 
+/// UTA-0105 SS 4.2: the merged defaults of the class `entry` is an instance
+/// of, or why they cannot be read. A chain that did not reach its root -- its
+/// package missing, Fire.u among them -- is refused, since a default it would
+/// have set reads as 0.
+std::expected<std::vector<upkg::EffectiveProperty>, std::string> classDefaultsOf(
+    const upkg::Package& holder, std::string_view packageName, const upkg::ExportEntry& entry,
+    const upkg::PackageResolver& resolver) {
+    const auto site = upkg::resolveClass(holder, packageName, entry.objectClass, resolver);
+    if (!site.has_value()) return std::unexpected("its class does not resolve: " + std::string(site.error().message()));
+    if (site->resolved.package == nullptr)
+        return std::unexpected("its class " + site->package + "." + site->name + " is not in the install");
+    const auto ancestry = upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
+    if (!ancestry.has_value())
+        return std::unexpected("its class's ancestry does not read: " + std::string(ancestry.error().message()));
+    if (ancestry->end != upkg::AncestryEnd::Root)
+        return std::unexpected("its class's ancestry stops short of its root");
+    auto defaults = upkg::effectiveDefaults(*ancestry);
+    if (!defaults.has_value())
+        return std::unexpected("its class's defaults do not read: " + std::string(defaults.error().message()));
+    return std::move(*defaults);
+}
+
 /// A made variant, and the texels one repeat of its texture spans on each axis
 /// -- UTA-0109 SS 4.4.
 struct MadeVariant {
@@ -345,6 +369,10 @@ struct MadeVariant {
     std::optional<Rgb> albedo;
     /// UTA-0263 SS 4.2: set when the picture is a flame's.
     std::optional<ubundle::FlameLook> flame;
+    /// UTA-0105 SS 4.2: set for a liquid class whose settings read.
+    std::optional<ubundle::LiquidLook> liquid;
+    /// UTA-0105 SS 6: why a liquid class carries no look; empty otherwise.
+    std::string liquidSkipped;
 };
 
 /// One variant, or why it cannot be made. The error arm is a SKIP and never a
@@ -437,8 +465,9 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     if (storesNoPixels && (base.width > MADE_EDGE_LIMIT || base.height > MADE_EDGE_LIMIT))
         return std::unexpected(std::format("it has no picture and says it is {}x{}, above {} a side",
                                            base.width, base.height, MADE_EDGE_LIMIT));
-    if (const auto className = holder.objectName(site.entry->objectClass);
-        storesNoPixels && className.has_value() && detail::fold(*className) == "firetexture") {
+    const auto className = holder.objectName(site.entry->objectClass);
+    const std::string foldedClass = className.has_value() ? detail::fold(*className) : std::string();
+    if (storesNoPixels && foldedClass == "firetexture") {
         madeIndices = fireStill(base.width, base.height, texture->sparks, fireSettingsOf(holder, *properties));
         madeLevel = base;
         madeLevel.pixels = madeIndices;
@@ -495,6 +524,32 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         if (!shownPalette->entries.empty() && isFlame(*fingerprint)) flame = flameLookOf(*shownPalette);
     }
 
+    // UTA-0105 SS 4.1: a liquid class carries its own settings, its class's
+    // defaults under them. The still above is unchanged by it.
+    std::optional<ubundle::LiquidLook> liquid;
+    std::string liquidSkipped;
+    if (const auto kind = liquidKindOf(foldedClass)) {
+        const auto defaults = classDefaultsOf(holder, site.package, *site.entry, resolver);
+        if (!defaults.has_value()) {
+            liquidSkipped = defaults.error();
+        } else {
+            // Array index 0 only: every setting read here is a scalar.
+            const LiquidSetting setting = [&](std::string_view wanted) -> std::optional<std::uint8_t> {
+                for (const upkg::Property& property : *properties)
+                    if (property.arrayIndex == 0 && detail::fold(nameOf(holder, property.nameIndex)) == wanted)
+                        if (const auto* value = std::get_if<std::uint8_t>(&property.value)) return *value;
+                for (const upkg::EffectiveProperty& effective : *defaults)
+                    if (effective.property.arrayIndex == 0 && detail::fold(effective.name) == wanted)
+                        if (const auto* value = std::get_if<std::uint8_t>(&effective.property.value)) return *value;
+                return std::nullopt;
+            };
+            liquid = liquidLookOf(*kind, setting, base.width, base.height, *palette);
+            if (!liquid.has_value())
+                liquidSkipped = std::format("its size {}x{} is outside 1 to {} a side", base.width, base.height,
+                                            ubundle::LIQUID_SIZE_MAX);
+        }
+    }
+
     // Step 5.
     const auto resolved = umat::resolve(*shown, *shownPalette, masked);
     if (!resolved.has_value())
@@ -522,13 +577,15 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                + std::string(material.error().message()));
     const double scale = detail::textureScale(holder, *properties);
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
-                       meanAlbedo(*rgba), flame};
+                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped)};
 }
 
 struct Materials {
     std::vector<ubundle::CompressedTexture> textures;
     std::vector<ubundle::MaterialRecord> records;
     std::vector<SkippedTexture> skipped;
+    /// UTA-0105 SS 6: liquid variants made with no liquid look, and why.
+    std::vector<SkippedTexture> skippedLiquids;
     /// What a surface wears, by (texture reference, masked) -- the lookup GEOM
     /// is built with (UTA-0109 SS 4.4). A variant not made has no entry.
     std::map<std::pair<std::int32_t, bool>, SurfaceMaterial> bySurface;
@@ -638,7 +695,9 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             out.recordIndex.emplace(id, static_cast<std::uint32_t>(out.records.size()));
             out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
                                                           variant.masked ? std::uint8_t{0} : made->material.parallaxDepth,
-                                                          made->flame});
+                                                          made->flame, made->liquid});
+            if (!made->liquidSkipped.empty())
+                out.skippedLiquids.push_back(SkippedTexture{id, std::move(made->liquidSkipped)});
             out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
             for (ubundle::CompressedTexture& texture : made->material.maps)
                 out.textures.push_back(std::move(texture));
@@ -880,6 +939,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
     result.skippedFlames = std::move(flames.skipped);
+    result.skippedLiquids = std::move(materials.skippedLiquids);
 
     // Every section is written, and empty where the level has none, so a
     // present but empty section says the level was examined (UTA-0008 SS 4.4).
