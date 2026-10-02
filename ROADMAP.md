@@ -14871,6 +14871,17 @@ stays with movement in 0.2.0.
   The camera's zone is LevelInfo0 (TexUPanSpeed 0.2, TexVPanSpeed 1.0).
   The plasma's shape changes between shots: it churns, as this item
   says, rather than sliding. The fit is still to do.
+  Plan (2026-10-02). blueplasma's own properties (XbpFX.utx):
+  HorizPanSpeed 200, VertPanSpeed 128 (zero at 128, so it slides in u
+  only), Frequency 20, Amplitude 50, MoveIce true, bRealtime, 256x256.
+  Epic's public manual (unreal.epicgames.com Fire/AnimatingTextures,
+  mirrored at zx.net.nz) describes behaviour only: the glass is "an
+  8-bit distortion vector field" shifting where the source is read;
+  panning styles SLIDE_Linear/Circular/Gestation/WavyX/WavyY. How a value
+  becomes a shift is not stated, and screen shots of the plasma at an
+  angle constrain it poorly, so texture-space captures (a face-on unlit
+  sprite of blueplasma at known times, plus inoxBlu1 and gmist2 alone)
+  are asked of UT_MonsterHunt. Fit from those, then build.
   **Layman:** Glowing plasma and warp effects swirl and churn in the original but only slide here; drawing their second layer fixes that.
   Kind: feature.
   Source: in-session-2026-10-02.
@@ -14987,6 +14998,19 @@ stays with movement in 0.2.0.
   at the low end -- and possibly the streaks' source. Next: one wall
   texel of known value under one known light, ours against the
   original's 2x display multiply, to see where the low end parts.
+  Two more ruled out, and the light found (2026-10-02). A pure power-2.2
+  decode and encode in place of sRGB's (testing whether sRGB's offset
+  lifts darks under a linear-light multiply) left pose 0 at 42.8.
+  specialLit lights are already left undrawn. One light at a time (a
+  throwaway UTA_ONLY_LIGHT switch over pose 0's 58 drawn lights, at Low):
+  with none, the dark mask reads 3.7; three dim ceiling lights carry it --
+  frame lights 2 (export 4, (-434, 1, 374), b 32, r 64), 41 ((-319, -390,
+  514)) and 1 (export 3, (43, 7, 357), b 40, r 64) -- adding 22.7, 19.9
+  and 14.3 on the mask, and about the same elsewhere. The original keeps
+  the pipe walls near 11 while lighting the rest, so in the original those
+  lights barely reach those walls. Next: those walls' normals against the
+  lights, and UT99's own result for them (the lightmap's LightBits for
+  that surface, via ut-dump --surface-list), before any change.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
