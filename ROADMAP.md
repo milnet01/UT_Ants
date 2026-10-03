@@ -15034,6 +15034,25 @@ stays with movement in 0.2.0.
   lights barely reach those walls. Next: those walls' normals against the
   lights, and UT99's own result for them (the lightmap's LightBits for
   that surface, via ut-dump --surface-list), before any change.
+  Progress (2026-10-03), baker r36 (bake ~/.cache/uta-scratch/u274/bakes36;
+  r36 renders match r35: pose 0 dark 43.5 against 10.9). Which surfaces:
+  a ray per dark pixel of pose 0 (ut-ants-uta0156/ambient-census/pix-probe)
+  hits the painted pipe walls (inxb1, normals (0,+-0.71,0.71), ~30%), the
+  sloped upper panels (inxb4, ~21%) and the grate's end wall (inxb8,
+  ~21%); on all of them nearly all our light is e3 (Light91, b 40) and e4
+  (Light14, b 32). Ruled out: (1) UT99 attaches both lights to those
+  surfaces (surf-lights), and its LightBits agree with our shadow rays on
+  99.1% and 99.2% of their texels (texel-vis). (2) Lights UT99 leaves off
+  a surface add only 2.7% to the map's light (new scratch tool
+  unlisted.cpp); the biggest case is the ceiling at z 640 (inxb8), not
+  these walls. (3) DISPLAY_LIGHT_POWER 2.2 in place of 1.6, exposure
+  refitted (7.5 to 11.5): pose 0's dark 51.4 to 48.7, pose 7 unchanged,
+  whole-set RMS 27.7 to 28.2. So the original gets far less from each of
+  those two lights than our model gives, or the walls differ some other
+  way. Asked UT_MonsterHunt (session_message 433) for pose-0 captures
+  with Light14 and Light91 at 0 and at double brightness; the answer
+  says how much the two lights give in UT99.
+  Waiting-on: UT_MonsterHunt's paired captures (message 433).
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -15566,6 +15585,51 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: in-session-2026-10-02 from UTA-0274.
   Lanes: urender, ubake, umat.
+
+- 📋 [UTA-0279] **urender: replace every map's painted water texture with our own realistic water material.**
+  User (2026-10-03): "can you replace their water texture for water in any
+  map and make it look like real water?" Today UTA-0089 keeps the map's
+  own water texture and lays a faked reflection and Fresnel over it.
+  This item drops the painted texture on water surfaces and draws a
+  material of ours instead: moving normal maps, reflection, a water
+  colour, and -- for it to read as real -- UTA-0273's refraction and
+  depth darkening, with UTA-0055's undulation.
+  Open before building: which surfaces count as water. A water zone's
+  surfaces are the start (UTA-0215 added bWaterZone); a texture-name
+  list from the curated library (UTA-0010) may be needed where a map
+  draws water outside a water zone. Some maps use animated or coloured
+  water (slime, lava-like pools) that must not become clear water.
+  Placed in 0.2.0 beside UTA-0273 (session's call, 2026-10-03): the
+  realistic look depends on its refraction and depth tint, which the
+  user already moved after 0.1.0.
+  **Layman:** Instead of the old game's flat painted water picture, every pool and river should be drawn as modern-looking water.
+  Kind: feature.
+  Source: user-request-2026-10-03.
+  Lanes: urender, umat, ubake.
+
+- 📋 [UTA-0280] **urender: harmful liquids bubble and splash, so danger reads from the surface, not just the colour.**
+  User (2026-10-03): "for the liquids that do the player harm, like acid,
+  please add bubbling and splashes (like a constant chemical reaction is
+  taking place). I want us to be able to see what liquid is dangerous and
+  what is safe to swim in by looking at the surface of the liquid, not
+  just its colour."
+  Which liquids: the bake can read it rather than guess from a texture.
+  UT99 marks a hurting zone on its ZoneInfo (bPainZone, DamagePerSec,
+  DamageType); lava and slime zones are its subclasses. Census the
+  reference library before relying on it: some maps may hurt by a
+  trigger or a kill zone instead (bKillZone), which reads differently.
+  The look: bubbles rising and popping on the surface, small splashes
+  thrown up, the surface agitated -- distinct in motion from safe
+  water's slow undulation (UTA-0055) even where the colours are alike.
+  Cheap methods first (CLAUDE.md standing facts): shader-side bubbles
+  and particles, measured with ut-bench frame.
+  Placed in 0.2.0 beside UTA-0279 (session's call, 2026-10-03): both
+  replace how a liquid's surface draws and share its water-surface
+  detection.
+  **Layman:** Acid, slime and other liquids that hurt you should fizz, bubble and spit, so you can tell at a glance which pools are safe to swim in.
+  Kind: feature.
+  Source: user-request-2026-10-03.
+  Lanes: urender, ubake.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
