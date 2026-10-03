@@ -15256,6 +15256,28 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-03.
   Lanes: ubake.
 
+- 📋 [UTA-0285] **urender: DM-Crane's skyline cutout sheets draw as solid black quads.**
+  Found by the user in the viewer, 2026-10-03 (twelve F12 captures from one
+  spot, -550.92 425.90 8232.07, turning through about 200 degrees). Black
+  trapezoids cut into the skyline beside the EPIC tower and above the
+  crane. Still present at HEAD 1524f0d: re-rendered with ut-shot
+  --from-capture on a revision-38 bake, same shapes.
+  Traced through two black pixels of the 091020 capture: the first
+  surface hit is a masked, non-solid cutout sheet (SkylineA2 on Brush618,
+  SkylineA1 on Brush608, polyFlags 0x0040800a), with the city sheet
+  behind it (SkylineA2 on Brush529, 0x00408080). A normal pixel hits
+  Conc19 first. So the masked sheet draws black over its whole quad
+  instead of letting its index-0 texels through. Suspects to rule out
+  first: the masked path for an unlit (0x8000) surface, and whether
+  these surfaces get a lightmap or occlusion value of zero (UTA-0284
+  changed occlusion the same day). Placed in 0.1.0: a stock map's sky
+  looks broken, which the first release's look depends on.
+  **Layman:** On DM-Crane, the flat cardboard-cutout city buildings in the distance show up as black slabs against the night sky.
+  Kind: fix.
+  Source: user-request-2026-10-03.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-090952, ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-091053
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
