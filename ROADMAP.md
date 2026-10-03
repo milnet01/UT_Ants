@@ -16790,6 +16790,17 @@ to.
   room's exit. GAME-0187: a known positive to test the finder on is
   Maps/MH-()mG-TheBoat-V2mini.unr, a smearing wall in the bottom section
   of the boat. Order (user, 2026-10-03): after UTA-0281.
+  UT_MonsterHunt rendered TheBoat-V2mini's spot in the original
+  (2026-10-03; UT_MonsterHunt/work/uta0269/boat0187/ and boat0187/sweep/,
+  1280x720, OpenGLDrv on llvmpipe). Method: each pose shot twice, after
+  looking at floor then ceiling; a pixel differing between the two was
+  not drawn. At the user's capture pose (cam -9299.81,-263.01,-24524.06
+  rot 581,45045,0) the two are pixel-identical: no hole. Of 12 sweep
+  poses, 2 show hairline cracks (1 px and 4 px, both at yaw 42045), seam
+  sparkle consistent with UTA-0284's non-planar and overlapping hull
+  faces, but no smear. So the user's smear is elsewhere in the boat's
+  lower section; the census should find it. Use the same two-shot method
+  to confirm any candidate.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
