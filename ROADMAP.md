@@ -15210,7 +15210,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02 split-from-UTA-0215.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0281] **urender: sky surfaces draw with bumps and lighting, so clouds look like embossed plaster.**
+- ✅ [UTA-0281] **urender: sky surfaces draw with bumps and lighting, so clouds look like embossed plaster.**
   User screenshot 2026-10-03
   (~/Pictures/Screenshots/Screenshot_20261003_085005.png; map not named,
   an outdoor rock map): the clouds show raised edges and shading, the
@@ -15237,6 +15237,8 @@ stays with movement in 0.2.0.
   device 88/88 on lavapipe and the GPU. AS-Frigate re-rendered at the
   2026-09-30 073419 capture pose: 11.8% of pixels change, all sky, now
   soft cloud. Waits on GitHub's matrix to flip.
+  Shipped 2026-10-03: GitHub run 37108500961 at f0b0feb, green on GCC 14,
+  Clang 19 and MSVC.
   **Layman:** The sky looks like a bumpy painted ceiling instead of open sky, because it is being lit and textured like a wall.
   Kind: fix.
   Source: user-request-2026-10-03.
