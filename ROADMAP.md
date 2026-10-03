@@ -16765,7 +16765,7 @@ to.
   Source: review-code-2026-09-26 split-from-UTA-0244.
   Lanes: ubake.
 
-- 📋 [UTA-0283] **Help UT_MonsterHunt fix maps: a hall-of-mirrors finder (GAME-0187) and a reachability check for GAME-0006's wall.**
+- 🚧 [UTA-0283] **Help UT_MonsterHunt fix maps: a hall-of-mirrors finder (GAME-0187) and a reachability check for GAME-0006's wall.**
   Asked by the UT_MonsterHunt session 2026-10-03 (user: work together on
   map fixes).
   1) GAME-0187: some maps show "hall of mirrors" smearing at a wall or
@@ -16803,6 +16803,26 @@ to.
   faces, but no smear. So the user's smear is elsewhere in the boat's
   lower section; the census should find it. Use the same two-shot method
   to confirm any candidate.
+  Progress (2026-10-03). GAME-0006 answered and sent. Engine graph
+  (saved ReachSpecs, cut by MHWallFix.ini's blocker cylinders) reproduces
+  UT_MonsterHunt's NightmareHouse figures exactly (12 links, 256 of 888).
+  No other way round: NightmareHouse (spawn room 34/38 is the only way into
+  256 nodes), AncientCaves (198 nodes split 92/107), TowerOfDeath
+  (InventorySpot854 cut off), MonsterBedAndBath (12-node corridor's only
+  exit is teleporter 18). AllGoodThings 2/5/6 with all nine blockers:
+  walkable round; PathNode1044 and 1046 become orphans in Paths[], no
+  trap. UT_MonsterHunt recorded all of it on GAME-0006.
+  GAME-0187: the three suggested signs find nothing. No map has sky
+  surfaces without a SkyZoneInfo or an unzoned leaf, and the see-through
+  check is noise (24009 surfaces, mostly invisible faces on solid
+  brushes). TheBoat scores zero on all three. A ray-cast hole finder
+  (rays from walk spots; a solid hit with no drawn polygon on it) flags
+  TheBoat's lower hull, but two ordinary maps score as high, so it is
+  uncalibrated. Three cameras (two boat, one control) were sent for
+  UT_MonsterHunt's two-shot check; the result decides a library run.
+  Scratch tools, outside the repo:
+  ut-ants-uta0156/ambient-census/{hom-census,hole-find,wall-walk}.cpp;
+  data and scripts in ~/.cache/uta-scratch/u283/.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
