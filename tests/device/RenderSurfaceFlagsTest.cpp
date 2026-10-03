@@ -247,6 +247,55 @@ TEST_CASE("UTA-0252: a sky surface hides what lies behind it", "[device]") {
     CHECK(pixelAt(*pixels, WIDTH, columnOf(0), HEIGHT / 2) == drawn(BEHIND));
 }
 
+TEST_CASE("UTA-0281: a sky is drawn without its relief", "[device]") {
+    // A lit white square in a sky zone, seen through a sky surface filling the
+    // view. Once its normal map leans hard to one side and once it has none:
+    // with a light off to that side, relief would light the two differently.
+    // A sky is painted light and depth, so the window shows them alike.
+    removeDisplay();
+    const auto skyWindow = [](bool relief) {
+        uta::ubundle::Geometry geometry;
+        addSquare(geometry, 100, 0, 0, 60, "window", PF_FAKE_BACKDROP);
+        addSquare(geometry, 10100, 0, 0, 300, "cloud", 0); // seen from the sky's view at x = 10000
+        uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+        addSolidMaterial(bundle, "window", SOLID);
+        addSolidMaterial(bundle, "cloud", Rgba{255, 255, 255, 255});
+        if (relief) {
+            uta::ubundle::CompressedTexture normal;
+            normal.name = "cloud:normal";
+            normal.format = uta::ubundle::BlockFormat::BC5;
+            normal.width = normal.height = normal.sourceWidth = normal.sourceHeight = 4;
+            normal.mipCount = 1;
+            normal.blocks = bc5Solid(230, 128);
+            bundle.textures->push_back(std::move(normal));
+        }
+        bundle.lights = std::vector{steadyLight({10060, 0, 0}, 255, 8)};
+        uta::ubundle::Placements placements;
+        placements.classes = {{.path = "engine.skyzoneinfo", .ancestry = {"engine.zoneinfo", "engine.info"}}};
+        placements.actors = {{.exportIndex = 1,
+                              .classIndex = 0,
+                              .properties = {{.name = "Location",
+                                              .kind = uta::ubundle::ValueKind::Vector,
+                                              .value = std::array<float, 3>{10000, 0, 0}}}}};
+        bundle.placements = std::move(placements);
+        return bundle;
+    };
+    const auto centre = [](const uta::ubundle::Bundle& bundle) {
+        Renderer renderer = requireRenderer(smallFrame());
+        requireOk(renderer.draw(bundle, Camera{}));
+        const auto pixels = renderer.readback();
+        if (!pixels.has_value()) FAIL(pixels.error().message());
+        return pixelAt(*pixels, WIDTH, WIDTH / 2, HEIGHT / 2);
+    };
+    const Rgba flat = centre(skyWindow(false));
+    const Rgba leaning = centre(skyWindow(true));
+    CAPTURE(flat, leaning);
+    CHECK(flat != drawn(SOLID)); // the window shows the sky, not its own texture
+    CHECK(std::abs(int(flat.r) - int(leaning.r)) <= 1);
+    CHECK(std::abs(int(flat.g) - int(leaning.g)) <= 1);
+    CHECK(std::abs(int(flat.b) - int(leaning.b)) <= 1);
+}
+
 TEST_CASE("UTA-0260: a masked surface's holes show what lies behind it", "[device]") {
     // The depth pass draws the opaque surfaces ahead of the forward pass. A
     // masked surface's texels below the threshold are holes, so its depth must

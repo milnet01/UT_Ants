@@ -15210,7 +15210,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02 split-from-UTA-0215.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0281] **urender: sky surfaces draw with bumps and lighting, so clouds look like embossed plaster.**
+- 🚧 [UTA-0281] **urender: sky surfaces draw with bumps and lighting, so clouds look like embossed plaster.**
   User screenshot 2026-10-03
   (~/Pictures/Screenshots/Screenshot_20261003_085005.png; map not named,
   an outdoor rock map): the clouds show raised edges and shading, the
@@ -15224,12 +15224,25 @@ stays with movement in 0.2.0.
   "recognisable" on every outdoor map, and cheap.
   Paused (2026-10-03) for UTA-0284, the black hull patches the user's
   TheBoat captures showed; resumes next.
+  Built (2026-10-03). The map in the user's screenshot is AS-Frigate (the
+  only bake that morning before it). The sky is UTA-0163's capture of the
+  SkyZoneInfo's view through the ordinary scene shader, so the sky zone's
+  cloud surfaces got umat's generated normal map and parallax: every cloud
+  edge embossed. Fix: FrameData gains skyCapture (nonzero while the six
+  faces are captured); scene.frag then skips parallax and the normal map's
+  tilt, keeping UT99's lighting. Device test (RenderSurfaceFlagsTest
+  "UTA-0281: a sky is drawn without its relief"): a lit cloud square in
+  the sky zone, with and without a leaning normal map, matches through a
+  sky window; with the fix off it reads 239 against 160. Unit 833/833;
+  device 88/88 on lavapipe and the GPU. AS-Frigate re-rendered at the
+  2026-09-30 073419 capture pose: 11.8% of pixels change, all sky, now
+  soft cloud. Waits on GitHub's matrix to flip.
   **Layman:** The sky looks like a bumpy painted ceiling instead of open sky, because it is being lit and textured like a wall.
   Kind: fix.
   Source: user-request-2026-10-03.
   Lanes: urender, umat.
 
-- 🚧 [UTA-0284] **ubake: occlusion samples fall behind a large face whose stored normal is slightly off, and draw it black.**
+- ✅ [UTA-0284] **ubake: occlusion samples fall behind a large face whose stored normal is slightly off, and draw it black.**
   From the user's F12 captures of MH-()mG-TheBoat-V2mini, 2026-10-03
   (~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-20261003-072835/
   and -072753): solid black, stair-edged patches on the boat's lower hull,
@@ -15268,6 +15281,9 @@ stays with movement in 0.2.0.
   case), no facing (the 0.3-degree case's reversed-winding floor over a
   slab). Unit 833/833; device 87/87 on lavapipe and the GPU.
   UTA-0281 (sky) was paused for this and resumes next.
+  Shipped (2026-10-03) in 98883ea, green on GitHub's matrix (run
+  37107653462: GCC 14, Clang 19, MSVC); the local gate's Windows leg was
+  unreachable. Rebake maps to see it (baker revision 38).
   **Layman:** Some big walls came out pitch black in patches, because the baked shading thought those spots were buried inside the wall.
   Kind: fix.
   Source: user-request-2026-10-03.

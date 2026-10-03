@@ -639,6 +639,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Skies no longer look like embossed plaster** (UTA-0281)
+  The sky is now captured flat, with no generated bumps or depth, as
+  UT99 paints it; its lighting is unchanged. Seen on AS-Frigate.
+
 - **Large walls no longer show pitch-black patches from the baked shading** (UTA-0284)
   The occlusion bake now places each sample on the face itself rather than
   on one plane per face, which on uneven or slightly misaligned faces sat

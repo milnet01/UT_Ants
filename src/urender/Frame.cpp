@@ -1516,6 +1516,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         bundle.zones ? (*bundle.zones)[cameraZone < bundle.zones->size() ? cameraZone : 0] : ubundle::Zone{};
     impl.cameraPanSpeed = impl.viewZone.panSpeed;
     frame.cameraUnderwater = impl.viewZone.water; // UTA-0215 SS 4.3
+    frame.skyCapture = skyFace ? 1u : 0u;          // UTA-0281
     // UTA-0215 SS 4.8: the light the output stage shows as ViewFog. The tone map
     // is the identity this low, so only the sRGB decode and the exposure undo.
     for (std::size_t c = 0; c < 3; ++c) {

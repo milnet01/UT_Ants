@@ -97,8 +97,9 @@ struct FrameData {
     /// as it, which the water's specks are drawn in. Three floats, not a vec3,
     /// which std430 would move to the next 16.
     std::array<float, 3> waterFog;
+    std::uint32_t skyCapture; ///< UTA-0281: nonzero while UTA-0163 captures the sky's faces
 };
-static_assert(sizeof(FrameData) == 368);
+static_assert(sizeof(FrameData) == 372);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -123,6 +124,7 @@ static_assert(offsetof(FrameData, occlusionTexture) == 340); // UTA-0164 SS 4.5
 static_assert(offsetof(FrameData, flameSeconds) == 344);
 static_assert(offsetof(FrameData, cameraZone) == 348);
 static_assert(offsetof(FrameData, cameraUnderwater) == 352);
+static_assert(offsetof(FrameData, skyCapture) == 368);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {

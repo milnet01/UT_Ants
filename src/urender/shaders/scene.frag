@@ -201,7 +201,10 @@ void main() {
     bool waving = liquid && liquids[material.liquid].kind == LIQUID_WAVE;
 
     vec2 shadingUv = uv + wet.offset;
-    if (!liquid && PARALLAX_MAX_STEPS > 0u && material.parallaxDepth != 0u
+    // UTA-0281: a sky is painted light and depth, so it is drawn flat --
+    // generated relief raised every cloud's edge, like embossed plaster.
+    bool skyFlat = frame.skyCapture != 0u;
+    if (!liquid && !skyFlat && PARALLAX_MAX_STEPS > 0u && material.parallaxDepth != 0u
         && (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) == 0u)
         shadingUv = parallaxUv(material, axes, surface);
 
@@ -253,7 +256,7 @@ void main() {
         colour = base.rgb;
     } else {
         vec2 stored = textureGrad(textures[nonuniformEXT(material.normal)], shadingUv, duv1, duv2).rg;
-        vec2 tilt = vec2(normalComponent(stored.x), normalComponent(stored.y)) + wet.tilt;
+        vec2 tilt = skyFlat ? vec2(0.0) : vec2(normalComponent(stored.x), normalComponent(stored.y)) + wet.tilt;
         vec3 n = perturbed(surface, axes, vec3(tilt, sqrt(max(0.0, 1.0 - dot(tilt, tilt)))));
         // UTA-0215: UT99 lights a liquid's sheet once, as its front, and shows
         // it so from both sides. Seen from behind, the normal is mirrored back.

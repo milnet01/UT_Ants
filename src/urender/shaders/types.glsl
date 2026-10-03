@@ -53,6 +53,7 @@ struct FrameData {
     float waterFogR;       // UTA-0215 SS 4.8: the water's colour as light, for its specks
     float waterFogG;
     float waterFogB;
+    uint skyCapture;       // UTA-0281: nonzero while the sky's faces are captured
 };
 
 struct Object {
