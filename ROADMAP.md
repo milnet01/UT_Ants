@@ -16842,6 +16842,21 @@ to.
   closed and live through MHWallFix's new ForceClose setting. Their probe
   matches ours: 9 of 9 faces closed, 10 links cut, reach 1833 -> 1831.
   GAME-0187 remains.
+  GAME-0187 progress (2026-10-03). UT_MonsterHunt reproduced TheBoat's
+  smear from the user's logged position: camera (-2506,-1087,-24617),
+  yaws 315-90 leave the lower frame undrawn. Our readers: the camera is
+  in an ordinary leaf (3445, zone 1); every downward ray lands on floor
+  node 1448 (Brush26), facing the camera, inside its render bound. So
+  the geometry is fine. Lead: the eye is 1.2 UU from the plane of
+  zero-width sliver polygons on Brush172 (nodes 1796, 1797, 1893, 1913).
+  Their second bad spot is 1.0 UU from a Brush171 sliver (node 1662).
+  Nine test cameras with predictions were sent; result pending.
+  Separate finding: 31 maps have standing spots whose eye is in leafless,
+  zoneless empty space in the render BSP, the AncientCaves control's
+  condition (largest: Miam, MonstersOfTheCaribbean). The list went to
+  UT_MonsterHunt as candidates. Tool:
+  ut-ants-uta0156/ambient-census/bsp-point.cpp (--spots, --near,
+  --bounds, --zones); data in ~/.cache/uta-scratch/u283/.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
