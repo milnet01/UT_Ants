@@ -16910,6 +16910,17 @@ to.
   with the exit) and 390 bridge nodes on the two decks the one-way
   teleporter chain uses (15 -> 17, 18 -> 19 into the hull). No walkable
   hull-to-deck link exists in our grid.
+  GAME-0188 closed on our side (2026-10-03). UT_MonsterHunt's build3/4:
+  1,067+ nodes route to the exit, including the hull, the z -23273 and
+  -23849 decks and the user's spots. The z -22353 deck has no bot route
+  down: the 96-UU-rise staircase (x -11784..-10856, y -328..184) is
+  roofed at deck height by a slab (z -22384..-22320, x -11756..-10680),
+  so the top drop never links, and a drop search over our walk grid
+  (drops to 1500 UU, 96 UU reach, a 55 UU hop allowed) finds no other
+  way. Only the map's JumpBoots or MHBotSkill's carry get bots down.
+  Scratch tool bsp-point.cpp gained --gaps, --whichcomp, --droproute and
+  --slice for this. Still open: GAME-0187, waiting on UT_MonsterHunt's
+  Location+Region log at each shot against our leaf 3445, zone 1.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
