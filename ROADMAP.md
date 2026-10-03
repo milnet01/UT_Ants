@@ -15594,7 +15594,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-02 split-from-UTA-0089.
   Lanes: urender.
 
-- 📋 [UTA-0275] **urender: UT99's detail textures, the fine grain a surface shows up close, are not drawn.**
+- ✅ [UTA-0275] **urender: UT99's detail textures, the fine grain a surface shows up close, are not drawn.**
   Found investigating UTA-0274, 2026-10-02. No code reads a texture's
   DetailTexture (workspace_search: no match in src/). In UTtech1.utx 143
   of 164 textures name one; DM-Fetid's five main textures all do (dirty,
@@ -15633,6 +15633,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Tests: the bake test went red first; three device tests each killed
   their mutant (detail ignored, grey not doubled, no fade).
   Unit 831/831, device 87/87 on lavapipe and the GPU.
+  Shipped (2026-10-03) in a718735, green on GitHub's matrix (run
+  37106057751: GCC 14, Clang 19, MSVC). The local gate ran GCC and Clang;
+  its Windows leg was not run (machine unreachable), so this run was the
+  first MSVC build. Rebake maps to see it (baker revision 37).
   **Layman:** Up close, walls in the original show fine grime and scratches over their main picture; here that layer is missing, so they look flatter.
   Kind: feature.
   Source: in-session-2026-10-02 from UTA-0274.
@@ -16696,6 +16700,28 @@ to.
   Kind: fix.
   Source: review-code-2026-09-26 split-from-UTA-0244.
   Lanes: ubake.
+
+- 📋 [UTA-0283] **Help UT_MonsterHunt fix maps: a hall-of-mirrors finder (GAME-0187) and a reachability check for GAME-0006's wall.**
+  Asked by the UT_MonsterHunt session 2026-10-03 (user: work together on
+  map fixes).
+  1) GAME-0187: some maps show "hall of mirrors" smearing at a wall or
+  object; maps not yet named. A census over the reference library from
+  our BSP and zone reader: Fake Backdrop (sky) surfaces in a level with
+  no SkyZoneInfo; portal or invisible surfaces whose back leaf has no
+  zone; leaves with no zone that a node still faces. A new tool, not a
+  query, so it waits on the user's scheduling.
+  2) GAME-0006: on MH-NightmareHouse-beta, making face Brush1152
+  (sWarDr30, PF_NotSolid, x=1860, y -6896..-6768, z -944..-816, normal +X)
+  solid cuts 12 bot links and strands 256 of 888 path points. Is there
+  another walkable way in? ut-paths with that face made solid, reachable
+  sets from the PlayerStarts compared. Waiting on UT_MonsterHunt for the
+  cut link endpoints.
+  Placed in 0.4.0, the Monster Hunt release, which these maps serve
+  (session's call); the user may pull either sooner.
+  **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
+  Kind: investigate.
+  Source: ut-monsterhunt-request-2026-10-03.
+  Lanes: upkg, unav.
 
 ## 0.5.0 — Map editor
 
