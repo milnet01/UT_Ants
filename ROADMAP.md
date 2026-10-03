@@ -5947,6 +5947,10 @@ stays with movement in 0.2.0.
   reads -- per-texture material assignments -- plus a friendly name, and
   its bake-relevant fields enter the bundle's name, so every existing bake
   keeps its name. Unblocks UTA-0106 and UTA-0181.
+  User decision (2026-10-03): the recommended answer to all three of
+  SS 14's questions. A recipe is the .ini shape; its order is the command
+  line, then the player's folder, then the shipped ones; version 1 has no
+  haze. The spec stands as written and is ready to build.
   **Layman:** The small file of our own changes to somebody else's map -- materials, fog, a friendly name -- which is what players share instead of the map itself.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
@@ -11186,45 +11190,6 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: urender.
 
-- 📋 [UTA-0181] **ubake: a local folder of replacement textures the bake uses in place of the install's.**
-  The user asked on 2026-09-17, with UTA-0180, for every option against
-  the tiled look, including replacing textures with ones downloaded from
-  the internet.
-
-  Shape to settle when picked up: a per-user folder, never in the
-  repository, keyed by the texture's package, group and name; which image
-  formats are read; how a replacement's size meets UTA-0052's budget and
-  upscale cap; and that a replacement changes the bake's SHA-256 name, so a
-  stale bake is not reused.
-
-  ADR-0003 and design.md rule 15 bound it: the project ships no one else's
-  textures, and a bundle baked with replacements is the player's own. Each
-  download's licence is the user's to check. A replacement still tiles;
-  UTA-0180 is what breaks the repeat.
-
-  User decision (2026-09-17): placed with UTA-0180, after UTA-0179 and
-  before UTA-0157.
-  Placed 2026-09-17: directly after UTA-0180.
-  Researched 2026-10-02 when picked up after UTA-0180; not built, for a
-  decision that is the user's. Blocked-by: UTA-0113 -- the user decided
-  (2026-09-05 and 2026-09-09, UTA-0009 SS 3 decision 4) that a replacement
-  is referenced by the recipe and supplied locally, and design.md's
-  Content addressing bullet requires its bytes to reach the bundle's
-  name through the recipe, which UTA-0113 has not built. This item also
-  overlaps UTA-0106 (PNG decoding and the recipe field), which the user
-  placed AFTER the first version (2026-09-10), while this one was placed
-  in 0.1.0 (2026-09-17). Decision for the user: which release takes
-  downloaded textures. Recommendation: build UTA-0113 in 0.1.0 as filed,
-  and move this item to 0.2.0 to land with UTA-0106 as one feature -- the
-  two are the same folder seen from the bake and from the recipe, and
-  0.1.0 is cut on S1 and S7, which neither serves. Also needs a new
-  dependency to read PNG (none in the tree; docs/standards/
-  dependency-acquisition.md routes it).
-  **Layman:** Textures the user downloads can stand in for the game's own when a map is baked.
-  Kind: feature.
-  Source: user-request-2026-09-17.
-  Lanes: ubake, umat.
-
 - ✅ [UTA-0182] **urender: a dark triangle crosses a lit wall at a distance and goes away up close.**
   Reported by the user on 2026-09-17 in MH-!!![2-Much-Health-FIXED], with a
   screenshot looking up a tall stone room: a darker triangle with straight
@@ -15780,6 +15745,47 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-03.
   Lanes: urender, ubake.
 
+- 📋 [UTA-0181] **ubake: a local folder of replacement textures the bake uses in place of the install's.**
+  The user asked on 2026-09-17, with UTA-0180, for every option against
+  the tiled look, including replacing textures with ones downloaded from
+  the internet.
+
+  Shape to settle when picked up: a per-user folder, never in the
+  repository, keyed by the texture's package, group and name; which image
+  formats are read; how a replacement's size meets UTA-0052's budget and
+  upscale cap; and that a replacement changes the bake's SHA-256 name, so a
+  stale bake is not reused.
+
+  ADR-0003 and design.md rule 15 bound it: the project ships no one else's
+  textures, and a bundle baked with replacements is the player's own. Each
+  download's licence is the user's to check. A replacement still tiles;
+  UTA-0180 is what breaks the repeat.
+
+  User decision (2026-09-17): placed with UTA-0180, after UTA-0179 and
+  before UTA-0157.
+  Placed 2026-09-17: directly after UTA-0180.
+  Researched 2026-10-02 when picked up after UTA-0180; not built, for a
+  decision that is the user's. Blocked-by: UTA-0113 -- the user decided
+  (2026-09-05 and 2026-09-09, UTA-0009 SS 3 decision 4) that a replacement
+  is referenced by the recipe and supplied locally, and design.md's
+  Content addressing bullet requires its bytes to reach the bundle's
+  name through the recipe, which UTA-0113 has not built. This item also
+  overlaps UTA-0106 (PNG decoding and the recipe field), which the user
+  placed AFTER the first version (2026-09-10), while this one was placed
+  in 0.1.0 (2026-09-17). Decision for the user: which release takes
+  downloaded textures. Recommendation: build UTA-0113 in 0.1.0 as filed,
+  and move this item to 0.2.0 to land with UTA-0106 as one feature -- the
+  two are the same folder seen from the bake and from the recipe, and
+  0.1.0 is cut on S1 and S7, which neither serves. Also needs a new
+  dependency to read PNG (none in the tree; docs/standards/
+  dependency-acquisition.md routes it).
+  User decision (2026-10-03): moved to 0.2.0, to land with UTA-0106 as one
+  feature. Still blocked by UTA-0113.
+  **Layman:** Textures the user downloads can stand in for the game's own when a map is baked.
+  Kind: feature.
+  Source: user-request-2026-09-17.
+  Lanes: ubake, umat.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
@@ -16823,6 +16829,14 @@ to.
   Scratch tools, outside the repo:
   ut-ants-uta0156/ambient-census/{hom-census,hole-find,wall-walk}.cpp;
   data and scripts in ~/.cache/uta-scratch/u283/.
+  Hole finder falsified (2026-10-03). UT_MonsterHunt's two-shot check:
+  all three camera centres are drawn in the original (TheBoat clusters A
+  and B: hull planks identical; the AncientCaves control is clean at the
+  centre). So a ray hit with no polygon on it is not a hole the original
+  shows. Their lead: the control's frame shows undrawn patches at its
+  left edge, near the camera, where a brush sits close by. The smear may
+  come from the camera being against or inside geometry, not from a
+  far hole. Shots: UT_MonsterHunt/work/uta0269/hole0283/.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.

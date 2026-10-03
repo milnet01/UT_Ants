@@ -1,7 +1,7 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0113 — the recipe format, read and write
 
-**Status:** spec draft (2026-10-02), not to be built until the user answers § 14.
+**Status:** spec draft (2026-10-02); § 14 answered by the user 2026-10-03, ready to build.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0113 (user request 2026-09-10, split from UTA-0011).
 
@@ -49,8 +49,8 @@ for two different worlds.
   — the user, 2026-09-05 and 2026-09-09 (UTA-0009 § 3 decision 4).
 - **A recipe expresses defaults; the server decides** — `docs/design.md`
   rule 14. Nothing in version 1 sets a rule.
-- **Not yet agreed: § 14's three questions.** The design below follows the
-  recommended answer to each and changes where the user answers otherwise.
+- **§ 14's three questions** — the user took the recommended answer to
+  each, 2026-10-03, so the design below stands as written.
 
 ## 4. Design
 
@@ -307,8 +307,8 @@ rather than misreading it.
 
 ## 14. Open questions
 
-Each is the user's, since players will live with the answer. The design
-above follows the recommendation.
+Answered by the user on 2026-10-03: the recommended answer to each, so
+the design above stands. Kept for the reasoning behind each choice.
 
 1. **What a recipe looks like when someone writes one.** Recommended: the
    `.ini` shape of § 4.2, because Unreal Tournament's players already edit
