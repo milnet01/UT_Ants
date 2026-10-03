@@ -15256,7 +15256,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-03.
   Lanes: ubake.
 
-- 📋 [UTA-0285] **urender: DM-Crane's skyline cutout sheets draw as solid black quads.**
+- ✅ [UTA-0285] **urender: DM-Crane's skyline cutout sheets draw as solid black quads.**
   Found by the user in the viewer, 2026-10-03 (twelve F12 captures from one
   spot, -550.92 425.90 8232.07, turning through about 200 degrees). Black
   trapezoids cut into the skyline beside the EPIC tower and above the
@@ -15283,6 +15283,10 @@ stays with movement in 0.2.0.
   UT_MonsterHunt's original capture (work/uta0269/hole0283/side-crane.png).
   Reverted; the fix still needs the depth-precision and cluster-slicing
   consequences of a longer far plane checked, and a test.
+  Shipped 2026-10-03 in 2ebb4e3: the far plane is 131072, past the
+  113,512 UU diagonal of UT's world. The user's DM-Crane captures go
+  from 220k-520k pure-black pixels to none and match the original. GitHub
+  run 37114752384 green on GCC 14, Clang 19 and MSVC.
   **Layman:** On DM-Crane, the flat cardboard-cutout city buildings in the distance show up as black slabs against the night sky.
   Kind: fix.
   Source: user-request-2026-10-03.
@@ -16890,6 +16894,22 @@ to.
   UT_MonsterHunt as candidates. Tool:
   ut-ants-uta0156/ambient-census/bsp-point.cpp (--spots, --near,
   --bounds, --zones); data in ~/.cache/uta-scratch/u283/.
+  GAME-0187 update (2026-10-03): two leads ruled out by UT_MonsterHunt's
+  tests. The sliver-plane distance doesn't predict the undrawn frame,
+  and neither does patching TheBoat's 956 inside-out render bounds (as
+  front-subtree or whole-subtree boxes); both left the frames
+  pixel-identical. The renderer does read iRenderBound as whole-subtree
+  boxes, though: front-only boxes added new holes. Under gdb the glitch
+  does not reproduce (floor surface 601 is sent every frame), so it is
+  timing-dependent; UT_MonsterHunt will log the view actor's Location
+  and Region at each shot against our leaf 3445, zone 1. Miam
+  (3072,-9184,-318), walkable, also shows an undrawn lower frame.
+  GAME-0188 (TheBoat bot nodes): ut-paths proposed none because the start
+  platform has no walkable route to the hull's MonsterEnd. We sent 526
+  walk-grid nodes covering the lower hull (now one 568-node component
+  with the exit) and 390 bridge nodes on the two decks the one-way
+  teleporter chain uses (15 -> 17, 18 -> 19 into the hull). No walkable
+  hull-to-deck link exists in our grid.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
