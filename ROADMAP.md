@@ -16837,6 +16837,11 @@ to.
   left edge, near the camera, where a brush sits close by. The smear may
   come from the camera being against or inside geometry, not from a
   far hole. Shots: UT_MonsterHunt/work/uta0269/hole0283/.
+  GAME-0006 closed on UT_MonsterHunt's side (2026-10-03): the user
+  accepted the two orphaned swim nodes, and AllGoodThings faces 2/5/6 are
+  closed and live through MHWallFix's new ForceClose setting. Their probe
+  matches ours: 9 of 9 faces closed, 10 links cut, reach 1833 -> 1831.
+  GAME-0187 remains.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
