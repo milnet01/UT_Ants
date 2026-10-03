@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Walls show the original's fine grime and scratches up close (UT99 detail textures)** (UTA-0275)
+  The bake stores each texture's DetailTexture as `<id>:detail`, and the
+  renderer multiplies it in near the camera, fading out by 520 units, with
+  grain size and fade fitted to paired captures of the original. Maps need
+  re-baking (baker revision 37).
+
 - **Glowing plasma and warp effects churn as in the original instead of sliding** (UTA-0270)
   Ice-style effects now draw their second, rippled layer, which bends the
   picture beneath it as it slides, measured from the original game. Maps

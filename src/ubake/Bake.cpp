@@ -382,6 +382,8 @@ struct MadeVariant {
     std::optional<Rgb> emission;
     /// UTA-0270: an Ice texture's GlassTexture, `<id>:glass`; empty otherwise.
     std::optional<ubundle::CompressedTexture> glass;
+    /// UTA-0275: the texture's DetailTexture, `<id>:detail`; empty otherwise.
+    std::optional<ubundle::CompressedTexture> detail;
 };
 
 /// UTA-0270: an Ice texture's GlassTexture as a one-level BC4 picture of each
@@ -420,6 +422,50 @@ std::optional<ubundle::CompressedTexture> glassOf(const upkg::Package& holder,
     }
     auto compressed = umat::compress(id + ":glass", std::span<const umat::Image>(&grey, 1), ubundle::BlockFormat::BC4,
                                      static_cast<std::uint16_t>(width), static_cast<std::uint16_t>(height), jobs);
+    if (!compressed.has_value()) return std::nullopt;
+    return std::move(*compressed);
+}
+
+/// UTA-0275: a texture's DetailTexture as a BC4 picture of each texel's grey,
+/// its palette colour's Rec. 709 luma, with the whole mip chain: UT99 draws it
+/// over the surface near the camera, multiplied in, so only its light and dark
+/// matter and it is seen at many sizes. At its own size, which is not the
+/// surface's. None when it names none or does not read; the surface is then
+/// drawn without one, as before.
+std::optional<ubundle::CompressedTexture> detailOf(const upkg::Package& holder,
+                                                   const std::vector<upkg::Property>& properties,
+                                                   const upkg::PackageResolver& resolver, const std::string& id,
+                                                   JobSystem& jobs) {
+    const auto reference = objectProperty(holder, properties, "detailtexture");
+    if (!reference.has_value() || reference->kind() == upkg::ObjectReferenceKind::Null) return std::nullopt;
+    const auto site = objectAt(holder, *reference, resolver, "DetailTexture");
+    if (!site.has_value()) return std::nullopt;
+    const auto detailProperties = upkg::readProperties(*site->holder, *site->entry);
+    if (!detailProperties.has_value()) return std::nullopt;
+    const auto paletteReference = objectProperty(*site->holder, *detailProperties, "palette");
+    if (!paletteReference.has_value() || paletteReference->kind() == upkg::ObjectReferenceKind::Null)
+        return std::nullopt;
+    const auto paletteSite = objectAt(*site->holder, *paletteReference, resolver, "DetailTexture's palette");
+    if (!paletteSite.has_value()) return std::nullopt;
+    const auto palette = upkg::readPalette(*paletteSite->holder, *paletteSite->entry);
+    if (!palette.has_value()) return std::nullopt;
+    const auto texture = upkg::readTexture(*site->holder, *site->entry);
+    if (!texture.has_value() || texture->mips.empty()) return std::nullopt;
+    const upkg::Mip& level = texture->mips[0];
+    const std::size_t count = std::size_t{level.width} * level.height;
+    if (count == 0 || level.pixels.size() < count || level.width > 0xFFFF || level.height > 0xFFFF)
+        return std::nullopt;
+    umat::Image grey{level.width, level.height, 1, std::vector<std::byte>(count)};
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto index = static_cast<std::size_t>(level.pixels[i]);
+        if (index >= palette->entries.size()) continue; // 0, as a missing colour
+        const upkg::PaletteEntry& e = palette->entries[index];
+        grey.pixels[i] = static_cast<std::byte>(std::lround(0.2126 * e.r + 0.7152 * e.g + 0.0722 * e.b));
+    }
+    const std::vector<umat::Image> levels = umat::mipChain(grey);
+    auto compressed = umat::compress(id + ":detail", levels, ubundle::BlockFormat::BC4,
+                                     static_cast<std::uint16_t>(level.width), static_cast<std::uint16_t>(level.height),
+                                     jobs);
     if (!compressed.has_value()) return std::nullopt;
     return std::move(*compressed);
 }
@@ -646,8 +692,10 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     std::optional<ubundle::CompressedTexture> glass;
     if (liquid.has_value() && liquid->kind == ubundle::LiquidKind::Ice)
         glass = glassOf(holder, *properties, resolver, id, base.width, base.height, jobs);
+    std::optional<ubundle::CompressedTexture> detail = detailOf(holder, *properties, resolver, id, jobs);
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
-                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), emission, std::move(glass)};
+                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), emission, std::move(glass),
+                       std::move(detail)};
 }
 
 struct Materials {
@@ -776,6 +824,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             for (ubundle::CompressedTexture& texture : made->material.maps)
                 out.textures.push_back(std::move(texture));
             if (made->glass.has_value()) out.textures.push_back(std::move(*made->glass)); // UTA-0270
+            if (made->detail.has_value()) out.textures.push_back(std::move(*made->detail)); // UTA-0275
             for (const std::int32_t raw : variant.references)
                 out.bySurface.emplace(std::pair{raw, variant.masked},
                                       SurfaceMaterial{id, made->uSize, made->vSize});

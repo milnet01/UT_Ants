@@ -61,6 +61,9 @@ struct TextureSpec {
     /// for none. And its MoveIce, written only when true.
     std::int32_t glassTexture = 0;
     bool moveIce = false;
+    /// UTA-0275: a reference to the texture it names as its DetailTexture; 0
+    /// for none.
+    std::int32_t detailTexture = 0;
     /// UTA-0155: the base level keeps its size but stores no pixels, as a
     /// procedural texture's does.
     bool emptyLevel = false;

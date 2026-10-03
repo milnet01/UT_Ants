@@ -471,8 +471,9 @@ translucent batch gets drawn with the opaque state.
 
 **Materials.** `MaterialRecord` carries only `id` and `metallic`
 (`docs/specs/UTA-0011-map-baker.md` § 4.10: *"Its maps are the TEXS entries
-named `<id>:<map>`"*). The five suffixes and their formats are
-`src/umat/Generate.cpp`'s `MAPS` table, read rather than recalled:
+named `<id>:<map>`"*). The first five suffixes and their formats are
+`src/umat/Generate.cpp`'s `MAPS` table, read rather than recalled; `:detail`
+is the bake's own (`src/ubake/Bake.cpp`):
 
 | TEXS name | `BlockFormat` | Sampled as |
 |---|---|---|
@@ -481,6 +482,20 @@ named `<id>:<map>`"*). The five suffixes and their formats are
 | `<id>:rough` | `BC4` | `VK_FORMAT_BC4_UNORM_BLOCK` |
 | `<id>:height` | `BC4` | `VK_FORMAT_BC4_UNORM_BLOCK` |
 | `<id>:emit` | `BC7` | `VK_FORMAT_BC7_SRGB_BLOCK` — absent unless the material is emissive |
+| `<id>:detail` | `BC4` | `VK_FORMAT_BC4_UNORM_BLOCK` — absent unless the texture names a DetailTexture (UTA-0275, below) |
+
+**A texture's DetailTexture (UTA-0275).** The bake stores it as `<id>:detail`:
+its palette grey (Rec. 709 luma), at the detail's own size, with its whole mip
+chain, by `ubake`'s `detailOf`. `scene.frag`'s `detailOver` multiplies it into
+the base colour on displayed values, as twice its grey, so 128 changes nothing.
+Its weight falls linearly from whole at the eye to nothing at `DETAIL_FAR`, and
+its texels are `DETAIL_SCALE` times finer than the two pictures' source sizes
+give; `Materials.cpp` passes that size ratio as `detailRepeatU` and
+`detailRepeatV`. A liquid takes none. Both constants were fitted on paired
+on/off captures of the original, and their comments hold the measurements.
+*Test:* `tests/unit/BakeTest.cpp` (the bake) and `tests/device/RenderDetailTest.cpp`
+(mid-grey changes nothing, dark darkens and bright brightens near, a far
+surface shows none).
 
 `umat::materialId` is `<package>.<path>` lowercased, with `#masked` appended
 for a masked variant (`src/umat/Generate.cpp`). A batch's `material` is opaque

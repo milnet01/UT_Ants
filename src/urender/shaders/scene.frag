@@ -147,6 +147,36 @@ vec3 skyAt(vec3 d) {
     return textureLod(textures[nonuniformEXT(frame.skyTexture)], sky.atlasRect.xy + cell * sky.atlasRect.zw, 0.0).rgb;
 }
 
+// UTA-0275: a detail texture's weight falls linearly from whole at the eye to
+// nothing at DETAIL_FAR, in UT units; and its texels are DETAIL_SCALE times
+// finer than the two pictures' size ratio alone gives. Fitted on UT_MonsterHunt's
+// paired on/off captures of DM-Fetid (work/uta0269/detail2/, nine poses 64 to
+// 1023 units, 1280x720), scoring the spread of log(on/off) by distance on
+// every surface that names a detail: whole-then-cut (0 to 380, gone at 440)
+// scored rms 0.021; a linear fade from the eye, 0.0074 to 0.0045 for FAR 400
+// to 520, rising again past it (0.0062 at 640). Scale by how much of the
+// grain sits under 3 px against 15 px: 0.41 to 0.47 in the original, 0.15 to
+// 0.35 at scale 1, 0.37 to 0.47 at 8, 0.41 to 0.53 at 16 (scratch:
+// ~/.cache/uta-scratch/u275/prof.py, fine.py). Surfaces naming no detail
+// changed by 0.000 in the original at every distance.
+const float DETAIL_FAR = 520.0;
+const float DETAIL_SCALE = 8.0;
+
+// UTA-0275: `colour` (linear) with its detail multiplied in, as UT99 does on
+// displayed values: twice the detail's grey, so 128 leaves it as it was. The
+// detail's coordinates are the base's, scaled by how many detail repeats one
+// base repeat holds.
+vec3 detailOver(vec3 colour, Material material, vec2 uv, vec2 duv1, vec2 duv2, float distanceToEye) {
+    float weight = clamp(1.0 - distanceToEye / DETAIL_FAR, 0.0, 1.0);
+    if (weight <= 0.0) return colour;
+    vec2 repeats = vec2(material.detailRepeatU, material.detailRepeatV) * DETAIL_SCALE;
+    float grey = textureGrad(textures[nonuniformEXT(material.detail)], uv * repeats, duv1 * repeats, duv2 * repeats).r;
+    vec3 displayed = mix(colour * 12.92, 1.055 * pow(colour, vec3(1.0 / 2.4)) - 0.055,
+                         greaterThan(colour, vec3(0.0031308)));
+    displayed = clamp(displayed * mix(1.0, 2.0 * grey, weight), 0.0, 1.0);
+    return mix(displayed / 12.92, pow((displayed + 0.055) / 1.055, vec3(2.4)), greaterThan(displayed, vec3(0.04045)));
+}
+
 void main() {
     Material material = materials[draw.materialIndex];
 
@@ -182,6 +212,10 @@ void main() {
                            : textureGrad(textures[nonuniformEXT(material.base)], shadingUv, duv1, duv2);
     // A Wave has no picture of its own: its colour is the noise's, through its ramp.
     if (waving) base.rgb = wet.colour;
+    // UTA-0275: UT99 multiplies a texture's DetailTexture into it near the
+    // camera, twice its displayed grey, so mid-grey changes nothing.
+    if (material.detail != NONE && !liquid)
+        base.rgb = detailOver(base.rgb, material, shadingUv, duv1, duv2, distance(frame.eye, worldPosition));
 
     // UTA-0263 SS 4.4: a material with a flame look draws moving flame, from
     // the texture coordinates, instead of its picture -- unlit, as emission.

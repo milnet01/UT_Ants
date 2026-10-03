@@ -179,6 +179,7 @@ add_executable(uta_device_tests
     device/RenderColourTransferTest.cpp
     device/RenderFlamesTest.cpp
     device/RenderLiquidsTest.cpp
+    device/RenderDetailTest.cpp
     device/RenderFogTest.cpp
     device/RenderDeviceAbsentTest.cpp
     device/RenderLightParityTest.cpp

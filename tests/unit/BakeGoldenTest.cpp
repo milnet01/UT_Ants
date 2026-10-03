@@ -86,7 +86,9 @@ namespace {
 // The fixture has no water, so the zone's zero bytes moved it.
 // 36, format 20: UTA-0270 gave each Ice look its MoveIce and bakes its glass.
 // The fixture has no Ice, so the format bump alone moved it.
-constexpr std::uint32_t RECORDED_UNDER = 36;
+// 37, format 20: UTA-0275 bakes each texture's DetailTexture as <id>:detail.
+// The fixture names no detail, so the digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 37;
 constexpr std::string_view GOLDEN =
     "cfc7dd0c67857924c6e53356a43db8d9cb364df15ac140f92a274ee9ac9f1a21";
 

@@ -15053,6 +15053,21 @@ stays with movement in 0.2.0.
   with Light14 and Light91 at 0 and at double brightness; the answer
   says how much the two lights give in UT99.
   Waiting-on: UT_MonsterHunt's paired captures (message 433).
+  Answered (2026-10-03), UT_MonsterHunt's paired captures
+  (UT_MonsterHunt/work/uta0269/fetid0274, 2560x720, eye height zeroed):
+  at that exact pose ours matches the original. Dark pixels 12.6 against
+  11.0, pipe-wall strips 38 against 39-41, and Light14's share close
+  (Light14 off: 4.7 against 5.4). Pose 0's "4x" was a misaligned
+  reference: orig-fetid-novol/pose-0.png was shot 8 UU below its logged
+  cam. Rendered 8 units down, ours lines up with it (pixel correlation
+  0.92, against 0.42 at the logged z) and dark reads 14.6 against 11.3.
+  Poses 1-7 line up at their logged cams (0.7-0.85) and worse 8 units
+  down, so only pose 0 is off; the exposure fits on that set stand.
+  Still real, at exposure 4.5: pose 7's dark areas, 19.5 against 12.4
+  (aligned, correlation 0.85). And a scaling gap: doubling both lamps
+  gives x1.8 in the original and x1.35 in ours, so our brightness curve
+  is too flat at the top. It is invisible at the map's own settings.
+  Waiting-on cleared.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -15194,6 +15209,23 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.
   Lanes: urender, ubake.
+
+- 📋 [UTA-0281] **urender: sky surfaces draw with bumps and lighting, so clouds look like embossed plaster.**
+  User screenshot 2026-10-03
+  (~/Pictures/Screenshots/Screenshot_20261003_085005.png; map not named,
+  an outdoor rock map): the clouds show raised edges and shading, the
+  look of a generated normal and height map lit like a wall. A sky is
+  painted light: it wants no normal map, no parallax and no lighting.
+  Check first which path draws it -- the sky zone's own surfaces as seen
+  through UTA-0163's capture, or ordinary surfaces in the sky zone -- and
+  whether PF_Unlit is set on them, before choosing the fix (a bake-time
+  flat material for sky-zone surfaces, or a draw-time rule).
+  Placed in 0.1.0 (session's call): it is a defect that breaks S1's
+  "recognisable" on every outdoor map, and cheap.
+  **Layman:** The sky looks like a bumpy painted ceiling instead of open sky, because it is being lit and textured like a wall.
+  Kind: fix.
+  Source: user-request-2026-10-03.
+  Lanes: urender, umat.
 
 ## 0.2.0 — Movement and weapons
 
@@ -15581,6 +15613,26 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   1023 units (client-detail.log). Their caveat: other brushes wearing
   bmdirtyt cut that wall, so check the centre pixels are it before
   reading a cutoff.
+  Built (2026-10-03). Bake: each texture's DetailTexture as
+  `<id>:detail`, BC4 palette grey with its mip chain, at its own size
+  (baker revision 37; format stays 20). DM-Fetid carries 18, 0.3 MB.
+  Render: scene.frag multiplies twice the grey in on displayed values,
+  weight 1 - distance/520, grain 8x finer than the pictures' size ratio.
+  Fitted on UT_MonsterHunt's paired on/off captures
+  (UT_MonsterHunt/work/uta0269/detail2/, 1280x720, nine poses 64 to
+  1023 units). Surfaces naming no detail changed by 0.000 in the
+  original, which confirms the per-pixel surface map. A linear fade
+  from the eye scored rms 0.0045 on the log(on/off) spread by distance;
+  full-then-cut scored 0.021. Scale by grain fineness (3 px against
+  15 px): original 0.41-0.47; ours 0.15-0.35 at scale 1, 0.37-0.47 at 8.
+  Pixel-exact pattern alignment was not achievable (correlation ~0 at
+  every scale), so scale rests on that size statistic. The 32-unit shot
+  did not line up with our camera and was left out. Frame cost: about
+  0.2 ms at ultra 3840x2160 on the RX 6600 by per-view minimum (~2%);
+  the medians move by +-1 ms between rounds, so they can't resolve it.
+  Tests: the bake test went red first; three device tests each killed
+  their mutant (detail ignored, grey not doubled, no fade).
+  Unit 831/831, device 87/87 on lavapipe and the GPU.
   **Layman:** Up close, walls in the original show fine grime and scratches over their main picture; here that layer is missing, so they look flatter.
   Kind: feature.
   Source: in-session-2026-10-02 from UTA-0274.
@@ -15602,6 +15654,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Placed in 0.2.0 beside UTA-0273 (session's call, 2026-10-03): the
   realistic look depends on its refraction and depth tint, which the
   user already moved after 0.1.0.
+  User (2026-10-03), with a screenshot of a water trough against a wall
+  (~/Pictures/Screenshots/Screenshot_20261003_082142.png): water in a
+  container like this may keep a still surface, but loses its painted
+  texture and looks like real water. Small containers count, not only
+  pools; a trough with no water zone may need the texture-name route.
   **Layman:** Instead of the old game's flat painted water picture, every pool and river should be drawn as modern-looking water.
   Kind: feature.
   Source: user-request-2026-10-03.
@@ -15626,7 +15683,31 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Placed in 0.2.0 beside UTA-0279 (session's call, 2026-10-03): both
   replace how a liquid's surface draws and share its water-surface
   detection.
+  User (2026-10-03): containers holding dangerous liquid show the same
+  chemical reaction. Lava boils and splashes, so it reads as lava.
+  Dangerous liquids and lava also glow and cast light on their
+  surroundings, except in sunshine, where the sun would drown it out.
+  So the cast light is skipped (or fades out) where the liquid is in
+  sunlight. One open point: whether a map that already places lights
+  over its lava gets ours on top, which would double them.
   **Layman:** Acid, slime and other liquids that hurt you should fizz, bubble and spit, so you can tell at a glance which pools are safe to swim in.
+  Kind: feature.
+  Source: user-request-2026-10-03.
+  Lanes: urender, ubake.
+
+- 📋 [UTA-0282] **urender: replace each map's skybox with a proper-looking sky inspired by its original sky texture.**
+  User (2026-10-03), with the screenshot on the sky-surface fix filed
+  beside this: "replace these sky boxes with a proper looking sky that
+  takes inspiration from the original sky texture." Cheap methods first:
+  a sky built from the original's colours (zenith, horizon, cloud tint
+  and coverage read from its sky textures at bake time) drawn as layered
+  procedural clouds with soft lighting and slow drift, rather than the
+  painted texture itself. Keep each map recognisable: the sky's colour
+  and mood should still match the original. Needs the sky-surface fix
+  first, so the comparison is against a sky drawn as sky.
+  Placed in 0.2.0 beside UTA-0279 (session's call): a replacement look,
+  like the water, rather than a defect.
+  **Layman:** Outdoor maps should get a real-looking sky -- soft clouds with depth and light -- that keeps the colours and mood of the original's painted sky.
   Kind: feature.
   Source: user-request-2026-10-03.
   Lanes: urender, ubake.

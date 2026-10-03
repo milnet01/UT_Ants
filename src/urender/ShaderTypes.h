@@ -147,8 +147,10 @@ struct Material {
     std::uint32_t flame;         ///< UTA-0263 SS 4.4: its ramp's first entry in FLAME_RAMPS, or NONE
     std::uint32_t liquid;        ///< UTA-0105 SS 4.4: its look's index in LIQUIDS, or NONE
     std::uint32_t glass;         ///< UTA-0270: an Ice look's glass picture, or NONE
+    std::uint32_t detail;        ///< UTA-0275: its DetailTexture picture, or NONE
+    std::array<float, 2> detailRepeats; ///< UTA-0275: detail repeats per repeat of the base, u and v
 };
-static_assert(sizeof(Material) == 40);
+static_assert(sizeof(Material) == 52);
 static_assert(offsetof(Material, base) == 0);
 static_assert(offsetof(Material, normal) == 4);
 static_assert(offsetof(Material, rough) == 8);
@@ -158,6 +160,9 @@ static_assert(offsetof(Material, metallic) == 20);
 static_assert(offsetof(Material, parallaxDepth) == 24);
 static_assert(offsetof(Material, flame) == 28);
 static_assert(offsetof(Material, liquid) == 32);
+static_assert(offsetof(Material, glass) == 36);
+static_assert(offsetof(Material, detail) == 40);
+static_assert(offsetof(Material, detailRepeats) == 44);
 
 /// One light, as UT99's own numbers -- the shader turns them into light
 /// (SS 3 decision 5), so no part of UTA-0112 SS 4.3's model is computed here.

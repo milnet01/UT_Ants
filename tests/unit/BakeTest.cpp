@@ -798,6 +798,55 @@ TEST_CASE("every MATS record has maps and every map has a record", "[ubake][bake
     }
 }
 
+TEST_CASE("UTA-0275: a texture's DetailTexture bakes as a BC4 grey picture at its own size, with its mips",
+          "[ubake][bake]") {
+    // An 8x8 detail, grey 40 on its left half and 200 on its right, under a
+    // 4x4 surface texture: its own size, not the surface's.
+    MapBuilder map;
+    Picture grain{8, 8, {}, {{40, 40, 40, 255}, {200, 200, 200, 255}}};
+    for (std::uint32_t texel = 0; texel < 64; ++texel) grain.indices.push_back(texel % 8 < 4 ? 0 : 1);
+    const std::int32_t detail = map.addTexture(TextureSpec{"Grain", "", grain, false});
+    TextureSpec wall{"Wall", "", picture(6), false};
+    wall.detailTexture = detail;
+    map.addSurface(map.addTexture(wall));
+    map.addSurface(map.addTexture(TextureSpec{"Floor", "", picture(7), false}));
+
+    JobSystem jobs(2);
+    const BakeResult result = baked(map.build(), NOTHING_AVAILABLE, jobs);
+    REQUIRE(result.bundle.textures.has_value());
+    const auto& textures = *result.bundle.textures;
+    const auto found = std::ranges::find(textures, std::string("dm-fixture.wall:detail"),
+                                         &uta::ubundle::CompressedTexture::name);
+    REQUIRE(found != textures.end());
+    CHECK(found->format == uta::ubundle::BlockFormat::BC4);
+    CHECK(found->width == 8);
+    CHECK(found->height == 8);
+    CHECK(found->mipCount == 4);
+    // The base level's two blocks, left then right: every texel 40, then 200.
+    REQUIRE(found->blocks.size() >= 16);
+    for (int block = 0; block < 2; ++block) {
+        const std::size_t at = static_cast<std::size_t>(block) * 8;
+        const int e0 = int(found->blocks[at]), e1 = int(found->blocks[at + 1]);
+        std::uint64_t bits = 0;
+        for (int i = 0; i < 6; ++i) bits |= std::uint64_t(found->blocks[at + 2 + i]) << (8 * i);
+        for (int t = 0; t < 16; ++t) {
+            const int index = int((bits >> (3 * t)) & 7);
+            int value = 0;
+            if (index == 0) value = e0;
+            else if (index == 1) value = e1;
+            else if (e0 > e1) value = ((8 - index) * e0 + (index - 1) * e1) / 7;
+            else if (index < 6) value = ((6 - index) * e0 + (index - 1) * e1) / 5;
+            else value = index == 6 ? 0 : 255;
+            INFO("block " << block << " texel " << t);
+            CHECK(std::abs(value - (block == 0 ? 40 : 200)) <= 1);
+        }
+    }
+    // A texture naming no detail bakes none.
+    CHECK(std::ranges::find(textures, std::string("dm-fixture.floor:detail"),
+                            &uta::ubundle::CompressedTexture::name)
+          == textures.end());
+}
+
 TEST_CASE("every GEOM material is a MATS id and a skipped texture's surface wears none",
           "[ubake][geom]") {
     // UTA-0109 INV-10. The standard fixture's four surfaces each make a

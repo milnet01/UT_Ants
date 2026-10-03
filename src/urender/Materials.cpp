@@ -83,7 +83,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     sources.push_back(defaultSource(DEFAULT_NORMAL, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_ROUGH, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM));
-    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0, gpu::NONE, gpu::NONE};
+    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0, gpu::NONE, gpu::NONE, gpu::NONE, gpu::NONE, {0, 0}};
 
     std::unordered_map<std::string_view, const ubundle::CompressedTexture*> byName;
     if (bundle.textures)
@@ -157,6 +157,18 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
             UTA_TRY(const std::uint32_t height, mapIndex(record.id, "height", false));
             UTA_TRY(const std::uint32_t emit, mapIndex(record.id, "emit", true));
             UTA_TRY(const std::uint32_t glass, mapIndex(record.id, "glass", false)); // UTA-0270
+            UTA_TRY(const std::uint32_t detail, mapIndex(record.id, "detail", false)); // UTA-0275
+            // UTA-0275: detail repeats per repeat of the surface's texture, from
+            // the two pictures' sizes in the original, before any upscale.
+            std::array<float, 2> detailRepeats{0, 0};
+            if (detail != gpu::NONE) {
+                const auto picture = byName.find(std::format("{}:base", record.id));
+                const auto grain = byName.find(std::format("{}:detail", record.id));
+                if (picture != byName.end() && grain != byName.end() && grain->second->sourceWidth != 0
+                    && grain->second->sourceHeight != 0)
+                    detailRepeats = {float(picture->second->sourceWidth) / float(grain->second->sourceWidth),
+                                     float(picture->second->sourceHeight) / float(grain->second->sourceHeight)};
+            }
             if (base == gpu::NONE && normal == gpu::NONE && rough == gpu::NONE && height == gpu::NONE) {
                 // SS 6: ubundle does not check the pairing, so the renderer must.
                 UTA_LOG(logRender, LogLevel::Warning,
@@ -171,7 +183,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                                rough == gpu::NONE ? defaults.rough : rough,
                                height == gpu::NONE ? defaults.height : height, emit,
                                record.metallic ? 1u : 0u, record.parallaxDepth, set.rampByRecord_[m],
-                               liquidByRecord[m], glass});
+                               liquidByRecord[m], glass, detail, detailRepeats});
         }
     }
 

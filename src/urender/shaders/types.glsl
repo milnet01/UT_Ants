@@ -72,6 +72,9 @@ struct Material {
     uint flame;         // UTA-0263: its ramp's first entry in flameRamps, or NONE
     uint liquid;        // UTA-0105: its look's index in liquids, or NONE
     uint glass;         // UTA-0270: an Ice look's glass picture, or NONE
+    uint detail;        // UTA-0275: its DetailTexture picture, or NONE
+    float detailRepeatU; // UTA-0275: detail repeats per repeat of the base, along u
+    float detailRepeatV; // and along v (a vec2 would align to 8 and move the stride)
 };
 
 // UTA-0105 SS 4.4: ShaderTypes.h's Liquid. UT99's settings, as floats.
