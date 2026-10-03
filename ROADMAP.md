@@ -15222,10 +15222,56 @@ stays with movement in 0.2.0.
   flat material for sky-zone surfaces, or a draw-time rule).
   Placed in 0.1.0 (session's call): it is a defect that breaks S1's
   "recognisable" on every outdoor map, and cheap.
+  Paused (2026-10-03) for UTA-0284, the black hull patches the user's
+  TheBoat captures showed; resumes next.
   **Layman:** The sky looks like a bumpy painted ceiling instead of open sky, because it is being lit and textured like a wall.
   Kind: fix.
   Source: user-request-2026-10-03.
   Lanes: urender, umat.
+
+- 🚧 [UTA-0284] **ubake: occlusion samples fall behind a large face whose stored normal is slightly off, and draw it black.**
+  From the user's F12 captures of MH-()mG-TheBoat-V2mini, 2026-10-03
+  (~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-20261003-072835/
+  and -072753): solid black, stair-edged patches on the boat's lower hull,
+  inside and out. Every black pixel hits real geometry (adeserts.25, flags
+  0), front-facing; probes change nothing; with the occlusion map forced
+  open they read 72.6 against 83.5 around them. The atlas holds 0 to 15
+  on that chart (texel coarsened to 64 for the map's size).
+  Cause: Occlusion.cpp's chartsOf takes a chart's plane from its first
+  vertex and the STORED normal. Chart 34700..34703, an 800-unit quad, is
+  flat to 0.007 units about its own Newell plane, but its stored normal is
+  0.23 degrees off it, so its corners sit up to 2.7 units off the plane
+  the bake uses, against a 0.5-unit OCCLUSION_LIFT. Samples on the far
+  side lie behind the real face, and their rays hit the chart's own
+  triangle from behind. Re-running the bake's arithmetic reproduces the
+  stored values texel for texel. Scratch tools:
+  ut-ants-uta0156/ambient-census/{ao-probe,rebake,dumpchart,chartover}.cpp.
+  Fix: the chart's plane from its own corners (Newell normal, mean
+  offset), the stored normal deciding only which way it faces.
+  UT_MonsterHunt reports hall-of-mirrors smearing on the original at the
+  same spot (GAME-0187, UTA-0283); not yet shown to be the same cause.
+  Built (2026-10-03). A second cause turned up once the plane was fitted
+  to the corners: chart 36002..36008 is not flat at all, its seven
+  corners 3 units either side of any plane (fan triangles 0.4-0.8 degrees
+  apart). So no single plane per chart works. Fix instead: each texel's
+  sample goes onto the fan triangle under it (or the nearest), lifted
+  from there (Occlusion.cpp surfaceAt); the first plane-fitting attempt
+  was dropped. Baker revision 38; format stays 20. TheBoat at the user's
+  two capture poses, black share 3.55% -> 0.02% inside the hull and
+  0.45% -> 0.19% outside; the old patches read 72.5 against 83.3 around
+  them. What stays dark outside is the stern's underside at the
+  waterline, which reads fully open (255) in the new atlas, so it is
+  lighting, not occlusion: unconfirmed against the original.
+  Tests: two new unit cases (stored normal 0.3 degrees off; a quad with
+  two corners raised 4 units), both red under the old placement; mutants
+  killed: old placement (both), always the first triangle (non-flat
+  case), no facing (the 0.3-degree case's reversed-winding floor over a
+  slab). Unit 833/833; device 87/87 on lavapipe and the GPU.
+  UTA-0281 (sky) was paused for this and resumes next.
+  **Layman:** Some big walls came out pitch black in patches, because the baked shading thought those spots were buried inside the wall.
+  Kind: fix.
+  Source: user-request-2026-10-03.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 
@@ -16718,6 +16764,16 @@ to.
   cut link endpoints.
   Placed in 0.4.0, the Monster Hunt release, which these maps serve
   (session's call); the user may pull either sooner.
+  Inputs arrived (2026-10-03). GAME-0006: UT_MonsterHunt's cut-link
+  lists for the five faces MHWallFix left open (NightmareHouse-beta,
+  MHF-AncientCavesHard_RMD, TowerOfDeath1-R02, mG-MonsterBedAndBathfixed,
+  FNB-AllGoodThingsV0 faces 2/5/6), endpoints and reach flags, copied
+  to ~/.cache/uta-scratch/u283/wallfix-open-faces.md. They want the
+  full unreachable-node list per face. Their lead: NightmareHouse's cut
+  links run to PlayerStart34 and 38, so that face is likely the spawn
+  room's exit. GAME-0187: a known positive to test the finder on is
+  Maps/MH-()mG-TheBoat-V2mini.unr, a smearing wall in the bottom section
+  of the boat. Order (user, 2026-10-03): after UTA-0281.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.

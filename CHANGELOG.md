@@ -639,6 +639,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Large walls no longer show pitch-black patches from the baked shading** (UTA-0284)
+  The occlusion bake now places each sample on the face itself rather than
+  on one plane per face, which on uneven or slightly misaligned faces sat
+  behind the wall. Seen on MH-()mG-TheBoat-V2mini's hull. Maps need
+  re-baking (baker revision 38).
+
 - **Under water, the view mixes in the water's colour as the original does** (UTA-0278)
   Pools seen from inside drew at about half the original game's
   brightness. Under water the view now takes the water's colour as a veil

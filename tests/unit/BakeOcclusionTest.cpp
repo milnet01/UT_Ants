@@ -135,6 +135,52 @@ TEST_CASE("INV-2: open floor is unoccluded and a wall's foot and a corner are da
     CHECK(corner < foot);
 }
 
+TEST_CASE("UTA-0284: a large face whose stored normal is a little off is still open", "[ubake][occlusion]") {
+    // One 1024-unit floor alone, its stored normal tilted 0.3 degrees toward
+    // +x, as a map's rounded vNormal can be. Through its first vertex that
+    // plane sinks 5.4 units at x = 1024, ten times OCCLUSION_LIFT, so a chart
+    // taking its plane from the stored normal samples under its own far side.
+    Scene scene;
+    const float tilt = 0.3f * 3.14159265f / 180.0f;
+    const std::uint32_t floor = addQuad(scene, {0, 0, 0}, {1024, 0, 0}, {1024, 1024, 0}, {0, 1024, 0},
+                                        {std::sin(tilt), 0, std::cos(tilt)});
+    // The same floor 4096 units off, its corners wound the other way: the
+    // stored normal, not the winding, says which way a face looks.
+    const std::uint32_t wound = addQuad(scene, {5120, 0, 0}, {5120, 1024, 0}, {6144, 1024, 0}, {6144, 0, 0},
+                                        {std::sin(tilt), 0, std::cos(tilt)});
+    // A slab under it, which only a floor looking the wrong way, down, meets.
+    addQuad(scene, {5120, 0, -32}, {6144, 0, -32}, {6144, 1024, -32}, {5120, 1024, -32}, {0, 0, 1}, false);
+    const Geometry geometry = finish(scene);
+    JobSystem jobs(2);
+    const auto baked = bakeOcclusion(geometry, jobs);
+    REQUIRE(baked.has_value());
+    for (const float x : {8.0f, 512.0f, 1016.0f})
+        for (const float y : {8.0f, 512.0f, 1016.0f}) {
+            INFO("at " << x << ", " << y);
+            CHECK(texelAt(geometry, *baked, floor, {x, y, 0}) == 255);
+            CHECK(texelAt(geometry, *baked, wound, {5120 + y, x, 0}) == 255);
+        }
+}
+
+TEST_CASE("UTA-0284: a face that is not flat is open over all of it", "[ubake][occlusion]") {
+    // Two opposite corners of a 1024-unit floor raised 4 units, eight times
+    // OCCLUSION_LIFT, its stored normal straight up: as MH-()mG-TheBoat-V2mini's
+    // hull holds one 3 units either side of any plane. Its fan's two
+    // triangles both rise toward those corners, above the first corner's plane.
+    Scene scene;
+    const std::uint32_t floor =
+        addQuad(scene, {0, 0, 0}, {1024, 0, 4}, {1024, 1024, 0}, {0, 1024, 4}, {0, 0, 1});
+    const Geometry geometry = finish(scene);
+    JobSystem jobs(2);
+    const auto baked = bakeOcclusion(geometry, jobs);
+    REQUIRE(baked.has_value());
+    for (const float x : {8.0f, 512.0f, 1016.0f})
+        for (const float y : {8.0f, 512.0f, 1016.0f}) {
+            INFO("at " << x << ", " << y);
+            CHECK(texelAt(geometry, *baked, floor, {x, y, 0}) == 255);
+        }
+}
+
 TEST_CASE("UTA-0259: the gathered occluders give each ray the hit the whole tree gives", "[ubake][occlusion]") {
     // A box room with a slab leaning across one corner and a post, so origins
     // near them gather several occluders at different distances and angles.

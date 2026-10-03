@@ -88,7 +88,9 @@ namespace {
 // The fixture has no Ice, so the format bump alone moved it.
 // 37, format 20: UTA-0275 bakes each texture's DetailTexture as <id>:detail.
 // The fixture names no detail, so the digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 37;
+// 38, format 20: UTA-0284 takes each occlusion chart's plane from its corners.
+// The fixture's stored normals are exact, so the digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 38;
 constexpr std::string_view GOLDEN =
     "cfc7dd0c67857924c6e53356a43db8d9cb364df15ac140f92a274ee9ac9f1a21";
 

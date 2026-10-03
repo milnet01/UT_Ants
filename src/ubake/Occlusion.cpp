@@ -46,7 +46,6 @@ struct Chart {
     std::uint32_t first = 0, last = 0;
     bool lit = false;
     Vec3 n{}, u{}, v{};          ///< the plane's normal and its texel axes
-    double d = 0;                ///< n . p on the plane
     std::int64_t loU = 0, loV = 0; ///< the rectangle's first texel, on the world grid
     std::uint32_t w = 0, h = 0;  ///< the rectangle, in texels
     std::uint32_t x = 0, y = 0;  ///< where it is placed in the atlas
@@ -93,10 +92,7 @@ std::vector<Chart> chartsOf(const ubundle::Geometry& geometry) {
     }
     std::sort(charts.begin(), charts.end(), [](const Chart& a, const Chart& b) { return a.first < b.first; });
     for (Chart& chart : charts)
-        if (chart.lit) {
-            chart.lit = setBasis(chart, geometry.vertices[chart.first].normal);
-            if (chart.lit) chart.d = dot(chart.n, positionOf(geometry, chart.first));
-        }
+        if (chart.lit) chart.lit = setBasis(chart, geometry.vertices[chart.first].normal);
     return charts;
 }
 
@@ -195,14 +191,37 @@ double opennessAt(const Vec3& origin, const Vec3& n, const SurfaceRays& rays) {
     return weights > 0 ? std::clamp(1.0 - occluded / weights, 0.0, 1.0) : 1.0;
 }
 
+/// UTA-0284: how far along the chart's normal the surface itself lies at `q`:
+/// on the fan triangle (first, k, k + 1) under it, or the nearest one when q is
+/// on an edge. A map's polygon is not always flat, nor its stored normal true:
+/// MH-()mG-TheBoat-V2mini's hull holds a seven-cornered face 3 units either side
+/// of any one plane, and a quad whose stored normal is 0.23 degrees off it, both
+/// well past OCCLUSION_LIFT. A sample on the chart's plane fell behind such a
+/// face and saw its back; one on the triangle under it cannot.
+double surfaceAt(const std::vector<Point2>& polygon, const std::vector<double>& heights, Point2 q) {
+    double best = -std::numeric_limits<double>::infinity(), height = heights.front();
+    for (std::size_t k = 1; k + 1 < polygon.size(); ++k) {
+        const Point2 a = polygon[0], b = polygon[k], c = polygon[k + 1];
+        const double det = (b.u - a.u) * (c.v - a.v) - (c.u - a.u) * (b.v - a.v);
+        if (det == 0) continue;
+        const double s = ((q.u - a.u) * (c.v - a.v) - (c.u - a.u) * (q.v - a.v)) / det;
+        const double t = ((b.u - a.u) * (q.v - a.v) - (q.u - a.u) * (b.v - a.v)) / det;
+        const double inside = std::min({1 - s - t, s, t}); // 0 or more on the triangle
+        if (inside > best) best = inside, height = (1 - s - t) * heights[0] + s * heights[k] + t * heights[k + 1];
+    }
+    return height;
+}
+
 /// SS 4.3: every texel of one lit chart, into its rectangle of the atlas.
 void bakeChart(const Chart& chart, const ubundle::Geometry& geometry, const SurfaceRays& rays,
                double texelSize, ubundle::Occlusion& out) {
     std::vector<Point2> polygon;
+    std::vector<double> heights; // each corner along the chart's normal
     double area = 0;
     for (std::uint32_t k = chart.first; k <= chart.last; ++k) {
         const Vec3 p = positionOf(geometry, k);
         polygon.push_back({dot(p, chart.u), dot(p, chart.v)});
+        heights.push_back(dot(p, chart.n));
     }
     for (std::size_t k = 0; k < polygon.size(); ++k) {
         const Point2 a = polygon[k], b = polygon[(k + 1) % polygon.size()];
@@ -214,7 +233,8 @@ void bakeChart(const Chart& chart, const ubundle::Geometry& geometry, const Surf
                 polygon, area,
                 {(static_cast<double>(chart.loU + i) + 0.5) * texelSize,
                  (static_cast<double>(chart.loV + j) + 0.5) * texelSize});
-            const Vec3 origin = chart.u * q.u + chart.v * q.v + chart.n * (chart.d + OCCLUSION_LIFT);
+            const Vec3 origin =
+                chart.u * q.u + chart.v * q.v + chart.n * (surfaceAt(polygon, heights, q) + OCCLUSION_LIFT);
             const double value = opennessAt(origin, chart.n, rays);
             out.texels[static_cast<std::size_t>(chart.y + j) * out.width + chart.x + i] =
                 static_cast<std::uint8_t>(std::lround(255.0 * value));

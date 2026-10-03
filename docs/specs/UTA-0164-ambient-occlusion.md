@@ -147,7 +147,11 @@ For a lit chart's texel at `(i, j)`:
    `(i + 0.5, j + 0.5)`.
 2. If `q` lies outside the polygon, it moves to the nearest point of the
    polygon, measured in the plane.
-3. The ray origin is `q + n * OCCLUSION_LIFT`.
+3. The ray origin is `q` moved along `n` onto the surface itself, then
+   `n * OCCLUSION_LIFT` further: onto the triangle of the polygon's fan from
+   its first corner that lies under `q`, or the nearest one when `q` is on an
+   edge (UTA-0284). A map's polygon is not always flat, nor its stored normal
+   true, so the chart's plane alone can put `q` behind the face.
 4. For each `w` in `ubake::directions()` with `c = dot(w, n) > 0`, cast
    `rays.first(origin, w)`. A hit at `t <= OCCLUSION_DISTANCE` occludes by
    `1 - t / OCCLUSION_DISTANCE`; a miss or a farther hit by 0.
@@ -285,7 +289,11 @@ All carry the `unit` label but INV-8, which carries `device`.
   skipping either vertex-count check, and not checking the uv range.
 - Setting `OCCLUSION_LIFT` to 0 fails no test. The rays leave the plane, so
   a surface does not meet itself in these fixtures. The lift stays as a
-  margin against rounding, and no test grades it.
+  margin against rounding, and no test grades it. Real maps do meet
+  themselves when `q` sits on the chart's plane: UTA-0284 found
+  MH-()mG-TheBoat-V2mini's hull drawn black where that plane ran up to
+  3 units behind the face. Step 3 now places `q` on the face, and
+  `tests/unit/BakeOcclusionTest.cpp`'s two UTA-0284 cases fail without it.
 - A ray searches only to `OCCLUSION_DISTANCE` (`SurfaceRays::first`'s
   `limit`), and a texel with no occluder corner in front of its plane within
   that distance skips its rays (`SurfaceRays::anyInFront`). Both are exact:
