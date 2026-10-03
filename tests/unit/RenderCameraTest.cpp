@@ -9,6 +9,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
+#include <cmath>
 
 using Catch::Matchers::WithinAbs;
 using uta::urender::Camera;
@@ -55,6 +56,18 @@ TEST_CASE("the projection maps near to depth 0 and far to depth 1 with +Y down",
     CHECK_THAT(farPoint[2] / farPoint[3], WithinAbs(1, 1e-6));
     const auto up = transform(projection, {0, 10, 100, 1});
     CHECK(up[1] / up[3] < 0);
+}
+
+TEST_CASE("the default far plane reaches across the whole of UT's world", "[render]") {
+    // UTA-0285: UT99 draws to any distance, and its world spans -32768 to
+    // 32768 on every axis, so no two points lie further apart than its
+    // diagonal. DM-Crane's skyline sheets sit 39,800 UU from a rooftop.
+    const Camera camera;
+    const Mat4 projection = uta::urender::projectionOf(camera, 64, 64);
+    const double diagonal = 2 * 32768 * std::sqrt(3.0);
+
+    const auto corner = transform(projection, {0, 0, diagonal, 1});
+    CHECK(corner[2] / corner[3] <= 1.0);
 }
 
 TEST_CASE("the jitter is a Halton sequence of base 2 and 3 over eight frames", "[render]") {

@@ -15272,6 +15272,17 @@ stays with movement in 0.2.0.
   these surfaces get a lightmap or occlusion value of zero (UTA-0284
   changed occlusion the same day). Placed in 0.1.0: a stock map's sky
   looks broken, which the first release's look depends on.
+  Cause found (2026-10-03): the far plane. Camera::farPlane defaults to
+  32768 (src/urender/Renderer.h), and the cutout sheets and the
+  sky-window sheet behind them sit 39,500 to 39,800 UU from the user's
+  eye, so neither is drawn and the clear colour shows black. UT99 has no
+  far limit. Not the material: the masked variant bakes fine and the fill
+  stops index-0 bleed. Not fog: black at every tier, low included.
+  Experiment: farPlane 131072, the same capture re-rendered, pure-black
+  share in the region 0.373 -> 0.0, and the buildings match
+  UT_MonsterHunt's original capture (work/uta0269/hole0283/side-crane.png).
+  Reverted; the fix still needs the depth-precision and cluster-slicing
+  consequences of a longer far plane checked, and a test.
   **Layman:** On DM-Crane, the flat cardboard-cutout city buildings in the distance show up as black slabs against the night sky.
   Kind: fix.
   Source: user-request-2026-10-03.

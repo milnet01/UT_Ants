@@ -270,7 +270,7 @@ struct Camera {
     std::array<float, 3> location{};
     std::array<std::int32_t, 3> rotation{}; ///< pitch, yaw, roll; 65536 to a turn
     float verticalFovDegrees = 90;
-    float nearPlane = 1, farPlane = 32768;
+    float nearPlane = 1, farPlane = 131072; // UTA-0285: was 32768, which cut off distant geometry
 };
 
 /// What the last frame had to give up (SS 6), and what it drew.

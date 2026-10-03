@@ -92,7 +92,10 @@ struct Camera {
     std::array<float, 3> location{};
     std::array<std::int32_t, 3> rotation{}; ///< pitch, yaw, roll; 65536 to a turn
     float verticalFovDegrees = 90;
-    float nearPlane = 1, farPlane = 32768;
+    /// UTA-0285: far enough for the diagonal of UT's world, 65536 a side, as
+    /// UT99 draws at any distance. Depth precision is the near plane's, so
+    /// this costs none.
+    float nearPlane = 1, farPlane = 131072;
     bool flashlight = false; ///< UTA-0015 SS 4.5: a spotlight from the eye
 };
 
