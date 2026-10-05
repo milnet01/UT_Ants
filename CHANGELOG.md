@@ -647,6 +647,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Fire textures that are not flames now move: sparks, sprays and lightning replay UT99's own animation instead of standing frozen** (UTA-0286)
+  CTF-Beatitude's blue fire basins are the plain case. The bake keeps
+  each such texture's sparks and settings, and the renderer runs the
+  original animation from them as the clock advances.
+
 - **Small black specks no longer appear in the sky and on surfaces at the edge of a light's reach** (UTA-0288)
   A light's fade-out could round to a hair below zero just inside its
   reach, and the renderer turned that into broken black pixels.

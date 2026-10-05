@@ -15344,6 +15344,17 @@ stays with movement in 0.2.0.
   Left: tests/device/RenderFireReplayTest.cpp (INV-7); re-bake
   CTF-Beatitude and look at the capture with ut-shot; ut-bench frame
   before/after; push and flip on GitHub's matrix.
+  Progress (2026-10-05): INV-7 built,
+  tests/device/RenderFireReplayTest.cpp; seen red with advanceFires
+  returning at once (0 pixels changed). Device 90/90 on lavapipe under
+  sync validation, unit 865/865. CTF-Beatitude re-baked (r39-f21, no
+  fires skipped); ut-shot of the 12:19 capture at light times 107.214
+  and 107.714 changes 617,721 pixels, all over the two basins, and the
+  blue spray's shape differs between them. ut-bench frame, ultra,
+  3840x2160, RX 6600, the capture's view: median 25.163 ms and 99th
+  30.822 before (fc8dad9, the r38 bake), 25.041 and 30.407 after. That
+  measures drawing the replayed picture only: ut-bench pins the light
+  time to 0, so no step or upload ran, and their cost is unmeasured.
   **Layman:** The blue sparks rising from fire basins hang still in mid-air instead of drifting up and fading as they do in the original.
   Kind: feature.
   Source: user-request-2026-10-05.
