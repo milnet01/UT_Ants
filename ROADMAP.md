@@ -17362,6 +17362,19 @@ to.
   pose; (B) no-shot hold length in frames vs seconds, with fps capped; (C)
   one prior pose swept by pitch and yaw. Files:
   UT_MonsterHunt/work/uta0269/hole0283/ (flatsettle, flathold, flatuser).
+  GAME-0187 (2026-10-05, A/B/C answered): the original's renderer there is
+  OpenGLDrv on llvmpipe. A frame at the bad pose, compared with a known-good
+  one: FLUSH before the shot makes the floor black; a long hold alone does
+  not; the prior pose decides it (pitch -15000/-8000/-4000 empty, +4000
+  and +15000 hold wrong content, yaw 32768 clean). They asked whether surf
+  601 is a mirror. Our readers: its polyFlags are 0; no surface in
+  TheBoat is mirrored (only one carries any flag, 0x200); texture
+  AdesertS "25" saves no flags; the zones are 5 plain ZoneInfo. Sent: the
+  wrong content fits double-buffer age (a skipped area shows that buffer's
+  frame from two swaps back), with a parity test (two magenta frames, or
+  two plain ones) to tell "not drawn" from drawn. Candidate cause if not
+  drawn: 601's lightmap or cache entry and what the cache holds. Files:
+  ~/.cache/uta-scratch/u283/boat-surfaces.json, adesert-props.txt.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
