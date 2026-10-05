@@ -17397,6 +17397,15 @@ to.
   which fits up drawn, down empty. The 10-03 patch test of these bounds
   ran under buffer age, so asked: patch bound 928 alone (FIX 928 in
   ~/.cache/uta-scratch/u283/boat-bounds-whole.txt) and re-run.
+  GAME-0187 (2026-10-05, bound patch): patching bound 928 alone, or all 956,
+  changes nothing (two-magenta method), so the inside-out bound is out
+  unless the engine rebuilds bounds at load. Our trace at the user's
+  spot: node 1448 (surf 601, a convex 7-gon, eye directly above) fills
+  42-44% of the frame at every yaw and all of it looking down; the
+  original draws it facing yaws 135-315 and drops it facing 0-90, with no
+  position or history in it. Sent: break a good bound (1448's 660) to
+  learn whether stored bounds are read, and a fine yaw sweep to pin the
+  switching angle.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
