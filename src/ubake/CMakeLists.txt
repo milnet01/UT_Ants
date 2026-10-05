@@ -25,7 +25,7 @@ add_library(uta_ubake STATIC
     GameTypes.cpp
     TextureCache.cpp)
 target_link_libraries(uta_ubake PUBLIC uta_core uta_upkg uta_umat uta_unav_build uta_umap_build
-                                       uta_ubundle uta_uworld)
+                                       uta_ubundle uta_uworld uta_urecipe)
 
 # SS 4.1's list, asserted at configure time in the form every sibling uses. The
 # _build libraries are the bake-side halves of unav and umap, which hold the
@@ -33,11 +33,11 @@ target_link_libraries(uta_ubake PUBLIC uta_core uta_upkg uta_umat uta_unav_build
 # link-closure test on those targets: apps/ut-ants/CMakeLists.txt's (UTA-0016).
 get_target_property(_uta_ubake_links uta_ubake LINK_LIBRARIES)
 if(NOT _uta_ubake_links STREQUAL
-   "uta_core;uta_upkg;uta_umat;uta_unav_build;uta_umap_build;uta_ubundle;uta_uworld")
+   "uta_core;uta_upkg;uta_umat;uta_unav_build;uta_umap_build;uta_ubundle;uta_uworld;uta_urecipe")
     message(FATAL_ERROR
         "uta_ubake links '${_uta_ubake_links}'. SS 4.1 of "
         "docs/specs/UTA-0011-map-baker.md allows uta_core, uta_upkg, uta_umat, "
-        "uta_unav_build, uta_umap_build, uta_ubundle and, since UTA-0158, "
-        "uta_uworld, in that order, and nothing else.")
+        "uta_unav_build, uta_umap_build, uta_ubundle, since UTA-0158 uta_uworld "
+        "and, since UTA-0113, uta_urecipe, in that order, and nothing else.")
 endif()
 unset(_uta_ubake_links)

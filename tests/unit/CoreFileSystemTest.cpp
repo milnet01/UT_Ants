@@ -378,20 +378,24 @@ TEST_CASE("the platform's own variables are honoured where set", "[core][fs]") {
     const EnvScope config("XDG_CONFIG_HOME", dir.path().string().c_str());
     const EnvScope cache("XDG_CACHE_HOME", dir.path().string().c_str());
     const EnvScope state("XDG_STATE_HOME", dir.path().string().c_str());
+    const EnvScope data("XDG_DATA_HOME", dir.path().string().c_str());
 #endif
 
     const auto configDir = uta::fs::configDirectory();
     const auto cacheDir = uta::fs::cacheDirectory();
     const auto logDir = uta::fs::logDirectory();
+    const auto dataDir = uta::fs::dataDirectory();
 
     REQUIRE(configDir.has_value());
     REQUIRE(cacheDir.has_value());
     REQUIRE(logDir.has_value());
+    REQUIRE(dataDir.has_value());
 
     const std::string root = dir.path().string();
     CHECK(configDir->string().starts_with(root));
     CHECK(cacheDir->string().starts_with(root));
     CHECK(logDir->string().starts_with(root));
+    CHECK(dataDir->string().starts_with(root));
 }
 
 #ifndef _WIN32
@@ -401,21 +405,25 @@ TEST_CASE("an unset XDG variable falls back to an absolute path", "[core][fs]") 
     const EnvScope config("XDG_CONFIG_HOME", nullptr);
     const EnvScope cache("XDG_CACHE_HOME", nullptr);
     const EnvScope state("XDG_STATE_HOME", nullptr);
+    const EnvScope data("XDG_DATA_HOME", nullptr);
     const EnvScope home("HOME", dir.path().string().c_str());
 
     const auto configDir = uta::fs::configDirectory();
     const auto cacheDir = uta::fs::cacheDirectory();
     const auto logDir = uta::fs::logDirectory();
+    const auto dataDir = uta::fs::dataDirectory();
 
     REQUIRE(configDir.has_value());
     REQUIRE(cacheDir.has_value());
     REQUIRE(logDir.has_value());
+    REQUIRE(dataDir.has_value());
 
     // The point of the invariant: never relative to the current working
     // directory, which for a test run is the build tree.
     CHECK(configDir->is_absolute());
     CHECK(cacheDir->is_absolute());
     CHECK(logDir->is_absolute());
+    CHECK(*dataDir == dir.path() / ".local/share" / "ut-ants");
 }
 #endif
 
@@ -443,19 +451,23 @@ TEST_CASE("no variable and no fallback is NotFound", "[core][fs]") {
     const EnvScope config("XDG_CONFIG_HOME", nullptr);
     const EnvScope cache("XDG_CACHE_HOME", nullptr);
     const EnvScope state("XDG_STATE_HOME", nullptr);
+    const EnvScope data("XDG_DATA_HOME", nullptr);
     const EnvScope home("HOME", nullptr);
 #endif
 
     const auto configDir = uta::fs::configDirectory();
     const auto cacheDir = uta::fs::cacheDirectory();
     const auto logDir = uta::fs::logDirectory();
+    const auto dataDir = uta::fs::dataDirectory();
 
     REQUIRE_FALSE(configDir.has_value());
     REQUIRE_FALSE(cacheDir.has_value());
     REQUIRE_FALSE(logDir.has_value());
+    REQUIRE_FALSE(dataDir.has_value());
     CHECK(configDir.error().code() == ErrorCode::NotFound);
     CHECK(cacheDir.error().code() == ErrorCode::NotFound);
     CHECK(logDir.error().code() == ErrorCode::NotFound);
+    CHECK(dataDir.error().code() == ErrorCode::NotFound);
 }
 
 // (d) Both platforms: a variable that is SET but RELATIVE is treated as

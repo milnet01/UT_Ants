@@ -24,6 +24,7 @@
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 #include "upkg/Texture.h"
+#include "urecipe/Recipe.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -95,10 +96,11 @@ std::string hexOf(const std::array<std::byte, 32>& digest) {
     return out;
 }
 
-std::string nameIn(const fs::path& root, const fs::path& map) {
+std::string nameIn(const fs::path& root, const fs::path& map,
+                   const uta::urecipe::Recipe* recipe = nullptr) {
     auto install = Install::open(root);
     REQUIRE(install.has_value());
-    const auto name = uta::ubake::bakeName(map, *install);
+    const auto name = uta::ubake::bakeName(map, *install, recipe);
     if (!name.has_value()) FAIL("no name: " << name.error().message());
     return *name;
 }
@@ -273,6 +275,117 @@ TEST_CASE("nameOf is the SHA-256 of the byte string SS 4.4 defines", "[ubake][na
     NameInputs other = inputs;
     other.closure = {{"bc", std::nullopt}, {"a", abDigest}};
     CHECK(detail::nameOf(other) != detail::nameOf(inputs));
+}
+
+TEST_CASE("UTA-0113 INV-4: a recipe enters the name as 0x01 and its bake digest", "[ubake][name]") {
+    // The byte string of the case above with item 3 replaced.
+    std::array<std::byte, 32> mapDigest{};
+    std::array<std::byte, 32> recipeDigest{};
+    mapDigest.fill(std::byte{0x11});
+    recipeDigest.fill(std::byte{0x33});
+
+    NameInputs inputs;
+    inputs.bakerVersion = "r1-f3-l0123456789abcdef";
+    inputs.mapName = "dm-x";
+    inputs.mapDigest = mapDigest;
+    inputs.recipeDigest = recipeDigest;
+
+    std::string expected = "uta-bake-name-1\n";
+    expected += "r1-f3-l0123456789abcdef\n";
+    expected += '\x01';
+    for (const std::byte part : recipeDigest) expected += static_cast<char>(part);
+    expected += "dm-x\n";
+    for (const std::byte part : mapDigest) expected += static_cast<char>(part);
+
+    const auto digest =
+        uta::sha256(std::as_bytes(std::span<const char>(expected.data(), expected.size())));
+    CHECK(detail::nameOf(inputs) == hexOf(digest));
+}
+
+TEST_CASE("UTA-0113 INV-4: a recipe renames a bake and one bake digest gives one name", "[ubake][name]") {
+    const TempDir dir;
+    const fs::path map = writeInstall(dir.path(), standardFixture());
+
+    uta::urecipe::Recipe recipe;
+    recipe.map = std::string(MAP_NAME);
+    uta::urecipe::MaterialAssignment floor;
+    floor.texture = "dm-fixture.floor";
+    floor.metallic = true;
+    recipe.materials = {floor};
+
+    // Only the friendly name differs, so the bake digest does not.
+    uta::urecipe::Recipe renamed = recipe;
+    renamed.friendlyName = "a friendlier name";
+    uta::urecipe::Recipe other = recipe;
+    other.materials[0].metallic = false;
+
+    const std::string none = nameIn(dir.path(), map);
+    const std::string with = nameIn(dir.path(), map, &recipe);
+    CHECK(with != none);
+    CHECK(nameIn(dir.path(), map, &renamed) == with);
+    CHECK(nameIn(dir.path(), map, &other) != with);
+}
+
+TEST_CASE("UTA-0113 INV-5: a recipe applies after the library field by field", "[ubake][bake]") {
+    // The library makes every material emissive; the recipe sets only the
+    // floor's metallic and upscale. The floor keeps the library's glow.
+    const Fixture fixture = standardFixture();
+    uta::umat::CuratedOverride glowing;
+    glowing.emissive = true;
+    glowing.emissiveThreshold = 0;
+    const detail::CuratedLookup library = [&](std::uint64_t) { return &glowing; };
+
+    uta::urecipe::Recipe recipe;
+    recipe.map = std::string(MAP_NAME);
+    uta::urecipe::MaterialAssignment floor;
+    floor.texture = "dm-fixture.floor";
+    floor.metallic = true;
+    floor.upscale = 1;
+    uta::urecipe::MaterialAssignment unused;
+    unused.texture = "otherpkg.nothing";
+    unused.metallic = true;
+    recipe.materials = {unused, floor};
+
+    JobSystem jobs(2);
+    const auto bakeWith = [&](const uta::urecipe::Recipe* given) {
+        MemoryPackages packages = memoryPackagesFor(fixture);
+        const std::vector<std::uint8_t> bytes = fixture.map.build(); // Package::open views them
+        const auto mapPackage = Package::open(uta::test::asBytes(bytes));
+        REQUIRE(mapPackage.has_value());
+        auto result = detail::bake(*mapPackage, MAP_NAME, packages.resolver(), jobs, library,
+                                   uta::umat::TEXTURE_BUDGET_BYTES, nullptr, uta::umat::isFlame, given);
+        if (!result.has_value()) FAIL("the bake was refused: " << result.error().message());
+        return std::move(*result);
+    };
+    const auto textureNamed = [](const BakeResult& result, std::string_view name) {
+        REQUIRE(result.bundle.textures.has_value());
+        const auto& textures = *result.bundle.textures;
+        const auto found = std::ranges::find(textures, name, &uta::ubundle::CompressedTexture::name);
+        return found == textures.end() ? nullptr : &*found;
+    };
+
+    const BakeResult plain = bakeWith(nullptr);
+    const BakeResult withRecipe = bakeWith(&recipe);
+
+    REQUIRE(withRecipe.bundle.materials.has_value());
+    for (const auto& record : *withRecipe.bundle.materials) {
+        INFO("material: " << record.id);
+        CHECK(record.metallic == (record.id == "dm-fixture.floor"));
+        // The library's emissive survives the recipe's metallic.
+        CHECK(textureNamed(withRecipe, record.id + ":emit") != nullptr);
+    }
+
+    // upscale is set directly: 1 draws the floor at its own size, where the
+    // bake without a recipe enlarges it.
+    const auto* const before = textureNamed(plain, "dm-fixture.floor:base");
+    const auto* const after = textureNamed(withRecipe, "dm-fixture.floor:base");
+    REQUIRE(before != nullptr);
+    REQUIRE(after != nullptr);
+    REQUIRE(before->width > before->sourceWidth);
+    CHECK(after->width == after->sourceWidth);
+
+    CHECK(plain.recipeUnused.empty());
+    CHECK(withRecipe.recipeUnused == std::vector<std::string>{"otherpkg.nothing"});
 }
 
 TEST_CASE("bakerVersion names the revision and the format and the library digest",

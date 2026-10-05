@@ -14,6 +14,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Map recipes: a small hand-written file of our own changes to a map, which the baker applies** (UTA-0113)
+  A recipe sets which of a map's surfaces are metal or glow, how rough
+  they are, how much to enlarge them, and a friendly name. `ut-bake`
+  takes one with `--recipe`, else from your own recipes folder, else
+  from the game's. Its settings apply after the built-in material
+  library, and the bake is named apart from one without it. A misspelt
+  line stops the bake and names the line.
+
 - **Walls show the original's fine grime and scratches up close (UT99 detail textures)** (UTA-0275)
   The bake stores each texture's DetailTexture as `<id>:detail`, and the
   renderer multiplies it in near the camera, fading out by 520 units, with

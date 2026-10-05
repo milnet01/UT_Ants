@@ -494,3 +494,32 @@ TEST_CASE("UTA-0264: a written bake lists its ten largest textures unless asked 
     CHECK(listedTextures(over.out) == all);
     CHECK(says(over.out, "\"byTextureOmitted\": 0"));
 }
+
+TEST_CASE("UTA-0113: a recipe given by --recipe renames the bake and is reported", "[ubake][cli]") {
+    const Install fixture;
+    const fs::path recipe = fixture.dir.path() / "mine.recipe";
+    std::ofstream(recipe, std::ios::binary) << "ut-ants recipe 1\n[map]\nfile = DM-Fixture\n"
+                                               "[material dm-fixture.floor]\nmetallic = true\n"
+                                               "[material otherpkg.nothing]\nmetallic = true\n";
+
+    const Run plain = run(fixture.bake());
+    REQUIRE(plain.code == 0);
+    CHECK(says(plain.out, "\"recipe\": null"));
+
+    std::vector<std::string> args = fixture.bake();
+    args.insert(args.end() - 1, {"--recipe", recipe.string()});
+    const Run with = run(args);
+    REQUIRE(with.code == 0);
+    CHECK(isOneObject(with.out));
+    CHECK(says(with.out, "\"verdict\": \"written\""));
+    CHECK(says(with.out, "mine.recipe\""));
+    CHECK(says(with.out, "\"recipeUnused\": [\"otherpkg.nothing\"]"));
+    CHECK(says(with.err, "otherpkg.nothing"));
+    CHECK(filesIn(fixture.out) == 2); // a second name, beside the plain bake
+
+    std::ofstream(recipe, std::ios::binary) << "ut-ants recipe 1\n[map]\nfile = dm-other\n";
+    const Run wrongMap = run(args);
+    CHECK(wrongMap.code == 1);
+    CHECK(says(wrongMap.out, "\"verdict\": \"refused\""));
+    CHECK(says(wrongMap.err, "dm-other"));
+}

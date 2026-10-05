@@ -1,7 +1,9 @@
 <!-- ants-spec-format: 1 -->
 # UTA-0113 — the recipe format, read and write
 
-**Status:** spec draft (2026-10-02); § 14 answered by the user 2026-10-03, ready to build.
+**Status:** built 2026-10-05; § 14 answered by the user 2026-10-03. The build
+settled four details, recorded in place: § 4.1's own fields, § 4.2's version
+refusal code, § 4.3's named file and shipped directory.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0113 (user request 2026-09-10, split from UTA-0011).
 
@@ -67,10 +69,15 @@ namespace uta::urecipe {
 inline constexpr std::uint32_t RECIPE_VERSION = 1;
 
 /// One texture's assignment: UTA-0010's override fields, any subset, and
-/// the requested upscale factor UTA-0010 § 4.5 sets directly.
+/// the requested upscale factor UTA-0010 § 4.5 sets directly. In § 4.2's
+/// key order.
 struct MaterialAssignment {
     std::string texture;                     ///< `<package>.<path>`, folded, no `#masked`
-    umat::CuratedOverride settings;          ///< only the fields the recipe sets
+    std::optional<bool> metallic;
+    std::optional<bool> emissive;
+    std::optional<std::uint8_t> baseRoughness;
+    std::optional<std::uint8_t> emissiveThreshold;
+    std::optional<std::uint8_t> parallaxDepth;
     std::optional<std::uint32_t> upscale;    ///< 1, 2 or 4
 };
 
@@ -93,6 +100,12 @@ struct Recipe {
 `texture` names a texture the way `umat::materialId` does, without its
 masked suffix: a recipe assigns to a texture, and both of its variants
 take the assignment.
+
+**`urecipe` links `uta_core` and nothing else**, asserted in its
+`CMakeLists.txt`. `docs/design.md` rule 3 makes it a vocabulary the runtime
+reads, and `umat` links the package reader, so the assignment mirrors
+`umat::CuratedOverride`'s five fields rather than holding one; `ubake`
+converts it.
 
 ### 4.2 The text format
 
@@ -120,11 +133,13 @@ upscale = 2
 ```
 
 - **Header:** `ut-ants recipe <version>`. A version above `RECIPE_VERSION`
-  is refused naming both, so an old game says it is old rather than misread
-  a newer recipe.
+  is refused with `UnsupportedVersion`, naming the line and both versions, so
+  an old game says it is old rather than misread a newer recipe. A UTF-8
+  byte-order mark before it is skipped, since Windows editors write one.
 - **`[map]`:** `file` required, `sha256` and `name` optional. A quoted
   value may hold `#` and `=`; `\"` and `\\` are its only escapes.
-- **`[material <texture>]`:** the keys `metallic`, `emissive` (`true` or
+- **`[material <texture>]`:** `<texture>` is `<package>.<path>`, with no
+  space and no `#`, and is lower-cased as `file` is. The keys `metallic`, `emissive` (`true` or
   `false`), `base-roughness`, `emissive-threshold`, `parallax-depth` (0 to
   255) and `upscale` (`1`, `2` or `4`), each at most once.
 - **Strict.** An unknown section, an unknown key, a repeated key, a repeated
@@ -135,7 +150,8 @@ upscale = 2
 
 `write` emits the canonical form: the header, `[map]`, then each material
 in ascending `texture` order, keys in the order above, values unquoted
-except `name`. `parse(write(r))` equals `r`.
+except `name`, and `file` where it holds a `#` or a quote. `parse(write(r))`
+equals `r`.
 
 ### 4.3 Finding a map's recipe (§ 14 question 2)
 
@@ -148,6 +164,14 @@ The bake takes at most one recipe. In order, the first that exists:
    `%APPDATA%\UT_Ants\data`.
 3. The shipped one: `recipes/<folded map stem>.recipe` in this repository,
    installed beside the game.
+
+**A `--recipe` file that does not exist is refused**, not passed over: the
+player named it, and a bake that ignored it would change nothing in silence
+(§ 4.2's reason). Steps 2 and 3 are skipped where the file is absent.
+
+**Step 3's directory is the repository's own `recipes/`**, compiled into
+`urecipe::shippedDirectory()`, because no install step exists yet;
+packaging moves it beside the game.
 
 None is "no recipe". A recipe whose `file` is not the map's folded stem, or
 whose `sha256` is set and differs from the map's, is refused, so a recipe
@@ -219,7 +243,7 @@ recipe may be shared between versions of a map.
 
 - **INV-6** — the lookup: `--recipe` beats the player's own, which beats the
   shipped one; a recipe for another map stem, or with a `sha256` the map
-  does not have, is refused.
+  does not have, or a `--recipe` file that does not exist, is refused.
   *Test:* `tests/unit/RecipeLookupTest.cpp`, new, over a scratch data
   directory.
   *Breaks when:* the order differs, or a recipe applies to the wrong map.
@@ -240,6 +264,9 @@ nothing, and bounds every value (§ 4.2). A recipe cannot reach any field
 - **A recipe for a map the player does not have** is never read: lookup is
   by the map being baked.
 - **A texture the map does not use** is reported, not refused (§ 4.5).
+- **The launcher keeps a map's old bake after its recipe changes**: it
+  remembers a bake by baker version, bundle and map stamp, none of which a
+  recipe moves. Tracked by UTA-0287.
 
 ## 7. Tests
 
@@ -249,6 +276,8 @@ Unit tier, every CI leg, no Unreal Tournament needed:
 - INV-4 — `tests/unit/BakeTest.cpp`, extended.
 - INV-5 — `tests/unit/BakeTest.cpp`, extended.
 - INV-6 — `tests/unit/RecipeLookupTest.cpp`, new.
+- `--recipe` and the report's `recipe` and `recipeUnused` —
+  `tests/unit/BakeCliTest.cpp`, extended.
 
 Each is seen failing before the code it locks exists.
 

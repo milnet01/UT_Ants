@@ -6,8 +6,8 @@
 // keeps it out of both runtime targets.
 //
 // SCOPE: every section ubundle defines, each step plugging into this baker
-// rather than starting a second one. The recipe is UTA-0113's; until it lands
-// every map bakes with no recipe.
+// rather than starting a second one. A map's recipe (UTA-0113) is found here,
+// enters the name, and sets material settings after the curated library.
 //
 // NEVER DEGRADES. Over budget, nothing is written -- UTA-0052's rule. A texture
 // that cannot be made is skipped and named; the bake goes on without it.
@@ -29,6 +29,8 @@
 #include "upkg/Level.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
+#include "urecipe/Lookup.h"
+#include "urecipe/Recipe.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -64,6 +66,9 @@ struct BakeResult {
     std::uint32_t textureCacheMisses = 0;
     /// UTA-0129: detail::bake's steps and how long each took, depth 0.
     std::vector<Phase> phases;
+    /// UTA-0113 SS 4.5: the recipe's assignments naming a texture the map does
+    /// not use, ascending. Reported, never refused.
+    std::vector<std::string> recipeUnused;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.
@@ -90,6 +95,9 @@ struct BakeRequest {
     /// UTA-0148: where made materials are kept between bakes (TextureCache).
     /// Empty keeps none, the default; ut-bake's --texture-cache sets it.
     std::filesystem::path textureCache;
+    /// UTA-0113 SS 4.3: where the map's recipe is looked for. Empty looks
+    /// nowhere, the default; ut-bake passes urecipe::standardSources.
+    urecipe::Sources recipes;
 };
 
 /// UTA-0141: a package name more than one install file carries, where the
@@ -120,6 +128,8 @@ struct BakeOutcome {
     /// UTA-0129: every step that ran and how long it took, whatever the
     /// verdict; detail::bake's steps sit under `bake`, one deeper.
     std::vector<Phase> phases;
+    /// UTA-0113: the recipe file the bake used, cached or not. Absent: none.
+    std::optional<std::filesystem::path> recipe;
 };
 
 /// Name, look in the cache, bake, check the budget, write -- SS 4.7.
@@ -142,12 +152,13 @@ using FlameLookup = std::function<bool(std::uint64_t fingerprint)>;
 /// One bake with its dependencies given -- a test seam. Every package lookup
 /// goes through `resolver`. `bake` passes `install.resolver()`, `umat::curated`
 /// and `umat::TEXTURE_BUDGET_BYTES`; `bakeToDirectory` passes its request's
-/// `budgetBytes`.
+/// `budgetBytes` and the recipe it found. A null `recipe` is no recipe.
 [[nodiscard]] Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                       const upkg::PackageResolver& resolver, JobSystem& jobs,
                                       const CuratedLookup& curated, std::uint64_t budgetBytes,
                                       TextureCache* textureCache = nullptr,
-                                      const FlameLookup& isFlame = umat::isFlame);
+                                      const FlameLookup& isFlame = umat::isFlame,
+                                      const urecipe::Recipe* recipe = nullptr);
 
 /// SS 4.5 step 1: the map's one Level export. MalformedData, naming the map,
 /// when it has none or more than one. ut-paths reads a map's level the bake's

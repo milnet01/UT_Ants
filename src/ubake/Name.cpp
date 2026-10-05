@@ -45,9 +45,10 @@ std::string bakerVersion() {
                        umat::libraryDigest());
 }
 
-Result<std::string> bakeName(const std::filesystem::path& map, Install& install) {
+Result<std::string> bakeName(const std::filesystem::path& map, Install& install,
+                             const urecipe::Recipe* recipe) {
     UTA_TRY(const std::vector<std::byte> bytes, uta::fs::readFile(map));
-    return detail::bakeName(bytes, detail::mapNameOf(map), install);
+    return detail::bakeName(bytes, detail::mapNameOf(map), install, recipe);
 }
 
 namespace detail {
@@ -85,7 +86,14 @@ std::string nameOf(const NameInputs& inputs) {
     addByte(hasher, LF);
     addText(hasher, inputs.bakerVersion);
     addByte(hasher, LF);
-    addByte(hasher, std::byte{0x00}); // no recipe; UTA-0113 defines what follows 0x01
+    // Item 3: 0x00 for no recipe, so a bake without one keeps its name, else
+    // 0x01 and the recipe's bake digest (UTA-0113 SS 4.4).
+    if (inputs.recipeDigest.has_value()) {
+        addByte(hasher, std::byte{0x01});
+        hasher.add(*inputs.recipeDigest);
+    } else {
+        addByte(hasher, std::byte{0x00});
+    }
     addText(hasher, inputs.mapName);
     addByte(hasher, LF);
     hasher.add(inputs.mapDigest);
@@ -124,7 +132,7 @@ Result<std::vector<std::string>> closure(const upkg::Package& map,
 }
 
 Result<std::string> bakeName(std::span<const std::byte> mapBytes, std::string_view mapName,
-                             Install& install) {
+                             Install& install, const urecipe::Recipe* recipe) {
     auto map = upkg::Package::open(mapBytes);
     if (!map.has_value())
         return std::unexpected(map.error().withContext("the map " + std::string(mapName)));
@@ -136,6 +144,7 @@ Result<std::string> bakeName(std::span<const std::byte> mapBytes, std::string_vi
     inputs.bakerVersion = bakerVersion();
     inputs.mapName = std::string(mapName);
     inputs.mapDigest = sha256(mapBytes);
+    if (recipe != nullptr) inputs.recipeDigest = urecipe::bakeDigest(*recipe);
     for (const std::string& name : names) {
         if (name == mapName) continue; // SS 4.4: the map itself is left out
         ClosureEntry entry{name, std::nullopt};

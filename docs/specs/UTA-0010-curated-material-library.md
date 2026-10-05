@@ -394,8 +394,7 @@ too.
 - Locally supplied replacement images — tracked by UTA-0106.
 - Licensed art shipped in the library, and the upscale figure it brings —
   a later extension of this item; not yet queued.
-- The recipe format and its material assignments — deferred; not yet
-  queued.
+- The recipe format and its material assignments — tracked by UTA-0113.
 - The baker version itself, and folding the digest into it — tracked by
   UTA-0011.
 - Per-surface flags — tracked by UTA-0104.

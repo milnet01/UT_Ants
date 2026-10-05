@@ -3,12 +3,14 @@
 #include "Cli.h"
 
 #include "common/Json.h"
+#include "core/FileSystem.h"
 #include "core/Jobs.h"
 #include "ubake/Bake.h"
 #include "ubake/GameTypes.h"
 #include "ubake/Install.h"
 #include "ubake/Name.h"
 #include "umat/Material.h"
+#include "urecipe/Lookup.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -48,7 +50,7 @@ void usage(std::ostream& err) {
     err << "usage: ut-bake --check <install>\n"
            "       ut-bake --game-types <install>\n"
            "       ut-bake --install <install> --out <dir> [--force] [--fit-budget]\n"
-           "               [--texture-cache <dir>] [--full-budget] <map>\n"
+           "               [--texture-cache <dir>] [--full-budget] [--recipe <file>] <map>\n"
            "       ut-bake --help\n"
            "\n"
            "--check says whether a directory is a usable Unreal Tournament install,\n"
@@ -61,6 +63,9 @@ void usage(std::ostream& err) {
            "again is faster; the output is the same either way (UTA-0148).\n"
            "A written bake lists its 10 largest textures; --full-budget lists every\n"
            "one, as an over-budget bake always does (UTA-0264).\n"
+           "--recipe bakes with that recipe file; without it the bake takes the\n"
+           "map's recipe from your own recipes folder, else the game's, if either\n"
+           "has one (UTA-0113).\n"
            "--game-types lists the game types the install's\n"
            ".int files register, each with the MapPrefix its maps' names start with\n"
            "(UTA-0179). Standard output is one JSON object.\n";
@@ -72,6 +77,7 @@ struct Arguments {
     bool fitBudget = false;
     bool fullBudget = false;
     std::optional<std::string_view> textureCache;
+    std::optional<std::string_view> recipe;
     std::optional<std::string_view> check;
     std::optional<std::string_view> gameTypes;
     std::optional<std::string_view> install;
@@ -107,6 +113,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             parsed.fullBudget = true;
         } else if (arg == "--texture-cache") {
             if (!takeValue(parsed.textureCache)) return std::nullopt;
+        } else if (arg == "--recipe") {
+            if (!takeValue(parsed.recipe)) return std::nullopt;
         } else if (arg == "--check") {
             if (!takeValue(parsed.check)) return std::nullopt;
         } else if (arg == "--game-types") {
@@ -129,7 +137,7 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
     if (parsed.help) return parsed;
     if (parsed.check.has_value() || parsed.gameTypes.has_value()) {
         if ((parsed.check && parsed.gameTypes) || parsed.install || parsed.out || parsed.map || parsed.force
-            || parsed.textureCache) {
+            || parsed.textureCache || parsed.recipe) {
             err << "ut-bake: " << (parsed.check ? "--check" : "--game-types")
                 << " takes an install and nothing else\n";
             return std::nullopt;
@@ -265,6 +273,9 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
         writeJsonString(out, skipped.reason);
         out << '}';
     });
+    // UTA-0113 SS 4.5: a recipe's texture the map does not use.
+    out << ", \"recipeUnused\": ";
+    writeArray(out, result.recipeUnused, [&out](const std::string& texture) { writeJsonString(out, texture); });
 }
 
 int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
@@ -279,6 +290,8 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
     // UTA-0148: only when asked (user, 2026-09-29) -- maps share few
     // textures, so the cache pays on baking one map again, not on a new one.
     if (args.textureCache) request.textureCache = std::filesystem::path(*args.textureCache);
+    request.recipes = urecipe::standardSources(
+        args.recipe ? std::optional(uta::fs::pathFromUtf8(*args.recipe)) : std::nullopt);
     request.budgetBytes = budgetBytes;
     const auto outcome = bakeToDirectory(request, jobs);
 
@@ -299,6 +312,9 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
     writeJsonString(out, outcome->name);
     out << ", \"path\": ";
     writeJsonString(out, detail::utf8(outcome->path));
+    out << ", \"recipe\": ";
+    if (outcome->recipe) writeJsonString(out, detail::utf8(*outcome->recipe));
+    else out << "null";
     // UTA-0141: warn and carry on. The bake used the file the game would.
     out << ", \"packageClashes\": ";
     writeArray(out, outcome->clashes, [&out](const PackageClash& clash) {
@@ -319,6 +335,9 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
         for (const std::filesystem::path& file : clash.shadowed) err << " " << detail::utf8(file);
         err << "\n";
     }
+    if (outcome->result.has_value())
+        for (const std::string& texture : outcome->result->recipeUnused)
+            err << "ut-bake: warning: the recipe names " << texture << ", which this map does not use\n";
     if (outcome->result.has_value())
         writeResult(out, *outcome->result,
                     args.fullBudget || outcome->verdict == Verdict::OverBudget

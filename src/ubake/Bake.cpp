@@ -3,6 +3,7 @@
 #include "ubake/Bake.h"
 
 #include "core/FileSystem.h"
+#include "core/Sha256.h"
 #include "ubake/Actors.h"
 #include "ubake/Collision.h"
 #include "ubake/FireStill.h"
@@ -29,6 +30,7 @@
 #include "upkg/Level.h"
 #include "upkg/Properties.h"
 #include "upkg/Texture.h"
+#include "urecipe/Lookup.h"
 
 #include <algorithm>
 #include <array>
@@ -44,6 +46,7 @@
 #include <fstream>
 #include <limits>
 #include <map>
+#include <set>
 #include <system_error>
 #include <utility>
 #include <variant>
@@ -75,6 +78,16 @@ std::string classOf(const upkg::Package& package, const upkg::ExportEntry& entry
 
 std::string nameOf(const upkg::Package& package, std::uint32_t nameIndex) {
     return std::string(package.name(nameIndex).value_or(""));
+}
+
+/// A recipe assignment as the override umat::applied takes. urecipe mirrors
+/// the fields rather than linking umat, which the runtime may not (UTA-0113).
+umat::CuratedOverride overrideOf(const urecipe::MaterialAssignment& assignment) {
+    return {.metallic = assignment.metallic,
+            .baseRoughness = assignment.baseRoughness,
+            .emissive = assignment.emissive,
+            .emissiveThreshold = assignment.emissiveThreshold,
+            .parallaxDepth = assignment.parallaxDepth};
 }
 
 // ------------------------------------------------------------------ SS 4.6
@@ -477,6 +490,7 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                                     const std::string& id, bool masked,
                                                     const upkg::PackageResolver& resolver, JobSystem& jobs,
                                                     const detail::CuratedLookup& curated,
+                                                    const urecipe::MaterialAssignment* assignment,
                                                     TextureCache* textureCache,
                                                     const detail::FlameLookup& isFlame) {
     if (site.holder == nullptr) return std::unexpected(site.unresolved);
@@ -607,8 +621,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         }
     }
 
-    // Step 4. UTA-0010 SS 4.5's order with no recipe: the defaults, then the
-    // curated library's entry for this picture.
+    // Step 4. UTA-0010 SS 4.5's order: the defaults, then the curated
+    // library's entry for this picture, then the map recipe's assignment.
     umat::MaterialSettings settings{};
     std::optional<ubundle::FlameLook> flame;
     if (const auto fingerprint = umat::pictureFingerprint(*shown, *shownPalette)) {
@@ -617,6 +631,12 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         // UTA-0263 SS 4.1: the flame list is keyed by the same fingerprint. A
         // flame keeps its still as well, so the steps below run unchanged.
         if (!shownPalette->entries.empty() && isFlame(*fingerprint)) flame = flameLookOf(*shownPalette);
+    }
+    // UTA-0113 SS 4.5: field by field, so a recipe setting only `metallic`
+    // keeps a library `emissive`; its upscale is set directly.
+    if (assignment != nullptr) {
+        settings = umat::applied(settings, overrideOf(*assignment));
+        if (assignment->upscale.has_value()) settings.requestedUpscale = *assignment->upscale;
     }
 
     // UTA-0105 SS 4.1: a liquid class carries its own settings, its class's
@@ -700,6 +720,9 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
 
 struct Materials {
     std::vector<ubundle::CompressedTexture> textures;
+    /// UTA-0113 SS 4.5: each recipe assignment naming a texture the map does
+    /// not use, ascending.
+    std::vector<std::string> recipeUnused;
     std::vector<ubundle::MaterialRecord> records;
     std::vector<SkippedTexture> skipped;
     /// UTA-0105 SS 6: liquid variants made with no liquid look, and why.
@@ -722,7 +745,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
                                 const std::vector<const upkg::Model*>& models,
                                 const upkg::PackageResolver& resolver, JobSystem& jobs,
                                 const detail::CuratedLookup& curated, TextureCache* textureCache,
-                                const detail::FlameLookup& isFlame) {
+                                const detail::FlameLookup& isFlame, const urecipe::Recipe* recipe) {
     // Which variants each distinct reference needs. A map's surfaces name a
     // few hundred textures thousands of times, so each is resolved once. The
     // level's Model and every mover's contribute alike -- UTA-0119 SS 4.6.
@@ -747,7 +770,15 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         const TextureSite* site = nullptr;
         bool masked = false;
         std::vector<std::int32_t> references; ///< every reference resolving to it
+        const urecipe::MaterialAssignment* assignment = nullptr; ///< the recipe's, for both variants
     };
+    // UTA-0113: a recipe names a texture without #masked, so both of its
+    // variants take the assignment.
+    std::map<std::string, const urecipe::MaterialAssignment*, std::less<>> assigned;
+    if (recipe != nullptr)
+        for (const urecipe::MaterialAssignment& assignment : recipe->materials)
+            assigned.emplace(assignment.texture, &assignment);
+    std::set<std::string, std::less<>> used; // each texture's unmasked id
     std::vector<TextureSite> sites;
     sites.reserve(byReference.size());
     std::map<std::string, Variant> variants; // by material id: ascending bytewise
@@ -755,15 +786,19 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         UTA_TRY(TextureSite site, siteOf(map, mapName, upkg::ObjectReference{raw}, resolver));
         sites.push_back(std::move(site));
         const TextureSite* const placed = &sites.back();
+        const std::string texture = umat::materialId(placed->package, placed->path, false);
+        const auto found = assigned.find(texture);
+        const urecipe::MaterialAssignment* const assignment = found == assigned.end() ? nullptr : found->second;
+        used.insert(texture);
         // Two references can resolve to one texture, so a variant keeps every
         // reference naming it and each surface still finds its material.
         if (needs.opaque)
             variants.try_emplace(umat::materialId(placed->package, placed->path, false),
-                                 Variant{placed, false, {}})
+                                 Variant{placed, false, {}, assignment})
                 .first->second.references.push_back(raw);
         if (needs.masked)
             variants.try_emplace(umat::materialId(placed->package, placed->path, true),
-                                 Variant{placed, true, {}})
+                                 Variant{placed, true, {}, assignment})
                 .first->second.references.push_back(raw);
     }
 
@@ -787,13 +822,15 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
     for (const auto& [id, variant] : variants) ordered.emplace_back(&id, &variant);
 
     Materials out;
+    for (const auto& [texture, assignment] : assigned)
+        if (!used.contains(texture)) out.recipeUnused.push_back(texture);
     for (std::size_t first = 0; first < ordered.size(); first += IN_FLIGHT) {
         const std::size_t count = std::min(IN_FLIGHT, ordered.size() - first);
         std::vector<std::optional<std::expected<MadeVariant, std::string>>> batch(count);
         const std::size_t threw = jobs.parallelFor(count, [&](std::size_t i) {
             const auto& [id, variant] = ordered[first + i];
             batch[i].emplace(makeVariant(*variant->site, *id, variant->masked, locked, jobs, curated,
-                                         textureCache, isFlame));
+                                         variant->assignment, textureCache, isFlame));
         });
         if (threw != 0) return fail(ErrorCode::Unknown, "making a material threw");
 #ifdef __GLIBC__
@@ -911,7 +948,8 @@ Result<TextureExport> resolveTexture(const upkg::Package& map, std::string_view 
 Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                         const upkg::PackageResolver& resolver, JobSystem& jobs,
                         const CuratedLookup& curated, std::uint64_t budgetBytes,
-                        TextureCache* textureCache, const FlameLookup& isFlame) {
+                        TextureCache* textureCache, const FlameLookup& isFlame,
+                        const urecipe::Recipe* recipe) {
     // UTA-0129: each step below is a phase, in the order docs/specs/
     // UTA-0129-benchmark-tool.md SS 4.2 lists. No phase is opened inside a job.
     PhaseTimes times;
@@ -965,7 +1003,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     std::vector<const upkg::Model*> surfaced{&model};
     for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
     UTA_TRY(Materials materials,
-            bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache, isFlame));
+            bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache, isFlame, recipe));
 
     // 8. GEOM, each surface wearing the variant step 7 made for it --
     // UTA-0109 SS 4.4.
@@ -1074,6 +1112,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.skipped = std::move(materials.skipped);
     result.skippedFlames = std::move(flames.skipped);
     result.skippedLiquids = std::move(materials.skippedLiquids);
+    result.recipeUnused = std::move(materials.recipeUnused);
 
     // Every section is written, and empty where the level has none, so a
     // present but empty section says the level was examined (UTA-0008 SS 4.4).
@@ -1194,11 +1233,16 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
     phase.emplace(&times, "read-map");
     UTA_TRY(const std::vector<std::byte> mapBytes, uta::fs::readFile(request.map));
     const std::string mapName = detail::mapNameOf(request.map);
+    // UTA-0113 SS 4.3: the recipe, before the name, which covers it.
+    UTA_TRY(const std::optional<urecipe::Found> recipe,
+            urecipe::find(request.recipes, mapName, sha256(mapBytes)));
+    const urecipe::Recipe* const recipeIn = recipe.has_value() ? &recipe->recipe : nullptr;
 
     // 1. The name, before anything is baked -- it is what finds a cached one.
     phase.emplace(&times, "name");
     BakeOutcome outcome;
-    UTA_TRY(outcome.name, detail::bakeName(mapBytes, mapName, install));
+    UTA_TRY(outcome.name, detail::bakeName(mapBytes, mapName, install, recipeIn));
+    if (recipe.has_value()) outcome.recipe = recipe->path;
     outcome.path = request.outDir / (outcome.name + ".utab");
     phase.emplace(&times, "closure");
     UTA_TRY(const upkg::Package map, naming(upkg::Package::open(mapBytes), mapName));
@@ -1248,7 +1292,8 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
     if (!request.textureCache.empty()) textureCache.emplace(request.textureCache);
     UTA_TRY(BakeResult result, detail::bake(map, mapName, install.resolver(), jobs, &umat::curated,
                                             request.budgetBytes,
-                                            textureCache ? &*textureCache : nullptr));
+                                            textureCache ? &*textureCache : nullptr, umat::isFlame,
+                                            recipeIn));
     times.adopt(result.phases);
     if (textureCache) {
         result.textureCacheHits = textureCache->hits();

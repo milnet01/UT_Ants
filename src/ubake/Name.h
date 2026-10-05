@@ -16,6 +16,7 @@
 #include "ubake/Install.h"
 #include "upkg/Class.h"
 #include "upkg/Package.h"
+#include "urecipe/Recipe.h"
 
 #include <array>
 #include <cstddef>
@@ -53,10 +54,13 @@ struct NameInputs {
     std::string mapName;               ///< the map file's folded stem
     std::array<std::byte, 32> mapDigest{};
     std::vector<ClosureEntry> closure; ///< any order; the name sorts it
+    /// urecipe::bakeDigest of the map's recipe; absent when it has none.
+    std::optional<std::array<std::byte, 32>> recipeDigest;
 };
 
-/// 64 lower-case hex digits.
-[[nodiscard]] Result<std::string> bakeName(const std::filesystem::path& map, Install& install);
+/// 64 lower-case hex digits. A null `recipe` is no recipe.
+[[nodiscard]] Result<std::string> bakeName(const std::filesystem::path& map, Install& install,
+                                           const urecipe::Recipe* recipe = nullptr);
 
 namespace detail {
 
@@ -75,7 +79,8 @@ namespace detail {
 /// `bakeName` for a map whose bytes the caller already holds, so a bake does
 /// not read the map twice.
 [[nodiscard]] Result<std::string> bakeName(std::span<const std::byte> mapBytes,
-                                           std::string_view mapName, Install& install);
+                                           std::string_view mapName, Install& install,
+                                           const urecipe::Recipe* recipe = nullptr);
 
 /// UTA-0245: the name a bake fitted to its budget takes, from its full bake's
 /// `name` -- 64 lower-case hex digits, never equal to `name`.

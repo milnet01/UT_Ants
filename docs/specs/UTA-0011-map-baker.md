@@ -101,8 +101,8 @@ of a bundle plugs into this baker rather than starting a second one.
 | `tools/ut-bake/main.cpp` | calls it |
 
 `uta_ubake` links `uta_core`, `uta_upkg`, `uta_umat`, `uta_unav_build`,
-`uta_umap_build`, `uta_ubundle` and, since `UTA-0158`, `uta_uworld`, which holds
-the collision-tree query. The two `_build` libraries hold the
+`uta_umap_build`, `uta_ubundle`, since `UTA-0158` `uta_uworld`, which holds
+the collision-tree query, and, since `UTA-0113`, `uta_urecipe`. The two `_build` libraries hold the
 graph and room builders. `docs/design.md` rule 2 keeps it out of both
 runtime targets. The link-closure test that asserts so belongs to the first
 item that builds a runtime target (§ 9).
@@ -239,8 +239,8 @@ is the byte `0x0A`:
 1. The ASCII text `uta-bake-name-1`, then `LF`. It separates this layout from
    any other hashed string.
 2. `bakerVersion()`, then `LF`.
-3. The recipe: the one byte `0x00`, meaning no recipe. UTA-0113 defines what
-   follows a `0x01`.
+3. The recipe: the one byte `0x00` when the bake has none, else `0x01` and
+   the 32 bytes of its bake digest (`UTA-0113` § 4.4).
 4. The map's folded file stem, `LF`, then the 32 bytes of the SHA-256 of the
    map file.
 5. For each closure entry in ascending bytewise order of name: the name,
@@ -398,7 +398,8 @@ Source: <https://wiki.beyondunreal.com/Legacy:PolyFlags>.
    skipped rather than filled, since nothing else bounds the allocation.
 4. `settings` is `MaterialSettings{}`, then `umat::applied` with the entry
    the curated lookup returns for `umat::pictureFingerprint(base, palette)`, where it
-   returns one. That is UTA-0010 § 4.5's order with no recipe.
+   returns one, then the map recipe's assignment for the texture, if any
+   (`UTA-0113` § 4.5). That is UTA-0010 § 4.5's order.
 5. `umat::resolve(base, palette, masked)`, then `umat::generate` under the id
    `umat::materialId(package, path, masked)`. `package` is the map's folded
    stem for an export of the map, and the outermost import's name for an
@@ -471,9 +472,16 @@ choose between them (§ 15).
 ```text
 ut-bake --check <install>
 ut-bake --game-types <install>
-ut-bake --install <install> --out <dir> [--force] [--fit-budget] [--texture-cache <dir>] <map>
+ut-bake --install <install> --out <dir> [--force] [--fit-budget] [--texture-cache <dir>]
+        [--full-budget] [--recipe <file>] <map>
 ut-bake --help
 ```
+
+**`--recipe` was added by `UTA-0113`.** It names the map's recipe; without
+it the bake looks for one as `UTA-0113` § 4.3 orders. A bake's report gains
+`"recipe"` beside `path`, the file used or `null`, and on `written` and
+`over-budget` `"recipeUnused"`, the recipe's textures the map does not use
+(`UTA-0113` § 4.5).
 
 **`--fit-budget` was added by `UTA-0245`** (user, 2026-09-29). Over budget,
 the bake shrinks its textures with `umat::fitToBudget` until they fit rather

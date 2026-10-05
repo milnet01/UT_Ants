@@ -238,6 +238,12 @@ Result<std::filesystem::path> configDirectory() {
     return *appData / "UT_Ants";
 }
 
+Result<std::filesystem::path> dataDirectory() {
+    const auto appData = envPath("APPDATA");
+    if (!appData) return std::unexpected(missing("data"));
+    return *appData / "UT_Ants" / "data";
+}
+
 Result<std::filesystem::path> cacheDirectory() {
     const auto localAppData = envPath("LOCALAPPDATA");
     if (!localAppData) return std::unexpected(missing("cache"));
@@ -254,6 +260,10 @@ Result<std::filesystem::path> logDirectory() {
 
 Result<std::filesystem::path> configDirectory() {
     return xdgDirectory("XDG_CONFIG_HOME", ".config", "configuration");
+}
+
+Result<std::filesystem::path> dataDirectory() {
+    return xdgDirectory("XDG_DATA_HOME", ".local/share", "data");
 }
 
 Result<std::filesystem::path> cacheDirectory() {

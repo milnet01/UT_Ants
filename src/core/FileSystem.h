@@ -26,6 +26,11 @@ namespace uta::fs {
 /// under "ut-ants". Windows: %APPDATA%\UT_Ants.
 [[nodiscard]] Result<std::filesystem::path> configDirectory();
 
+/// Per-user data the player adds -- their own recipes (UTA-0113 SS 4.3).
+/// Linux: $XDG_DATA_HOME, else ~/.local/share, each under "ut-ants".
+/// Windows: %APPDATA%\UT_Ants\data.
+[[nodiscard]] Result<std::filesystem::path> dataDirectory();
+
 /// Per-user cache -- baked bundles and the host-download cache.
 /// Linux: $XDG_CACHE_HOME, else ~/.cache. Windows: %LOCALAPPDATA%\UT_Ants\cache.
 [[nodiscard]] Result<std::filesystem::path> cacheDirectory();
@@ -34,7 +39,7 @@ namespace uta::fs {
 /// Windows: %LOCALAPPDATA%\UT_Ants\logs.
 [[nodiscard]] Result<std::filesystem::path> logDirectory();
 //
-// For all three: the variable is honoured as the user set it, provided it is
+// For all four: the variable is honoured as the user set it, provided it is
 // ABSOLUTE -- core does not otherwise police the platform's own
 // configuration. One that is set but relative is treated as unset, so the
 // platform's fallback applies, or NotFound where it has none. What is

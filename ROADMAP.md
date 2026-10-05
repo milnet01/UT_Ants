@@ -5927,7 +5927,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle, urender.
 
-- 📋 [UTA-0113] **urecipe: the recipe format, read and write.**
+- 🚧 [UTA-0113] **urecipe: the recipe format, read and write.**
   Split out of UTA-0011 by the user on 2026-09-10. Until this
   lands, the baker bakes every map with no recipe.
   docs/design.md § The parts gives urecipe its fields, and ADR-0003 makes
@@ -15848,6 +15848,25 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-09-17.
   Lanes: ubake, umat.
+
+- 📋 [UTA-0287] **ut-ants: the map launcher keeps a map's old bake after its recipe changes.**
+  Found building UTA-0113. A recipe enters the bake name, so ut-bake
+  gives a map with a new or edited recipe a new bake. The launcher does not
+  ask: apps/ut-ants/MapList.cpp's bakeState calls a remembered result
+  Current when its baker version, bundle file and map stamp still match, and
+  none of those moves when a recipe in the player's recipes folder changes.
+
+  Fix: remember which recipe file a bake used (ut-bake's report now prints
+  `recipe`) and its stamp, and treat a change in either as stale, as a
+  changed map already is.
+
+  Placed in 0.2.0: no recipe ships yet and nobody writes one in 0.1.0, so
+  nothing is stale until recipes are in use; UTA-0181 and UTA-0106, the
+  first features that write them, are 0.2.0 too.
+  **Layman:** After you add or edit a map's recipe, the launcher should re-prepare the map; today it keeps opening the old copy.
+  Kind: fix.
+  Source: in-session-2026-10-05 split-from-UTA-0113.
+  Lanes: ut-ants.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

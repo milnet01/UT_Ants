@@ -133,6 +133,27 @@ is named from everything it was baked from, so baking the same map again finds
 the first bake instead of repeating it; add `--force` to bake it anyway. Each
 command prints one line of JSON saying what happened.
 
+A map can carry a **recipe**: a small text file of our own changes to it,
+such as which surfaces are metal or glow. Put yours in your recipes folder,
+named after the map file in lower case — on Linux
+`~/.local/share/ut-ants/recipes/dm-deck16][.recipe`, on Windows
+`%APPDATA%\UT_Ants\data\recipes\` — or name one with `--recipe <file>`.
+The bake uses it, and is named apart from a bake without it.
+
+```ini
+ut-ants recipe 1
+
+[map]
+file = DM-Deck16][
+
+[material uttech1.floor.bmfloor4]   # a texture, as the bake report names it
+metallic = true
+```
+
+A misspelt line stops the bake and says which line, rather than being
+ignored. [`docs/specs/UTA-0113-recipe-format.md`](docs/specs/UTA-0113-recipe-format.md)
+lists everything a recipe may hold.
+
 The game itself, `ut-ants`, opens a baked map and lets you fly through it. It
 is built into `build/apps/ut-ants/`, with a copy of `ut-bake` beside it, which
 it uses to check the install before it starts.
