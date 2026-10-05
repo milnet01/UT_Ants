@@ -15121,6 +15121,16 @@ stays with movement in 0.2.0.
   r 16, at 0 -- asked of UT_MonsterHunt 2026-10-05. Unchanged means UT99 does
   not light that underside at all. Lamps add within 5-9%
   (UT_MonsterHunt's item 4).
+  Pose-7 pair, first try (2026-10-05, UT_MonsterHunt
+  work/uta0269/fetid0274-p7/): shot at 2560x720, FOV 90, so the vertical
+  view is about 31 degrees and the overhang underside (above about 16
+  degrees up; top right of a 1280x720 frame) is out of frame. It cannot
+  answer the question. It does show Light11 and Light10 lighting the
+  right-hand wall strongly in the original (4x4 grid, right column:
+  134-160 with them on, 6-13 off). Re-shoot asked at 1280x720, same pose,
+  into a new folder; reply expected by SendMessage to ut-ants-04. Mask
+  the animated object at x767-888, y646-719 (in 2560x720 pixels) when
+  comparing.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
