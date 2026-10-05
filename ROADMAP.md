@@ -15131,6 +15131,21 @@ stays with movement in 0.2.0.
   into a new folder; reply expected by SendMessage to ut-ants-04. Mask
   the animated object at x767-888, y646-719 (in 2560x720 pixels) when
   comparing.
+  Pose-7 re-shoot answered (2026-10-05, UT_MonsterHunt
+  work/uta0269/fetid0274-p7-1280/, 1280x720, logged fov 90; ignore its
+  bad-match-began/ subfolder). UT99 DOES light the overhang underside,
+  weakly. Mean display byte, box x1100-1240 y5-100: original 24.4 with
+  Light11+Light10 on, 6.4 with both at 0; the repeat shot is identical
+  and a left-wall control (x50-300 y50-300) holds at 49.4/49.2. Ours
+  (r39 bake bakes39/bd29b1a5..., ut-shot --light-time 0, default tier,
+  scratch u274/p7ours-0.ppm) gives 58.9 there, about 2.4x the original,
+  while the right wall (x1100-1270 y450-650) is 97.6 against 120.8 and
+  the left wall 43.7 against 49.4. So the excess is on that one surface
+  and the lamp-lit wall beside it is too dark: per surface, as above.
+  Next: find why the underside takes 2.4x -- the lamps sit about 33
+  units above the camera and just under the overhang, so check its
+  lightmap texels against each lamp's distance and angle in our bake,
+  and whether light 220 (b 160, r 4, at z 453) reaches it in ours.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
