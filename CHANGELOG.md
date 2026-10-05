@@ -14,6 +14,16 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Natural textures (rock, dirt, plaster) no longer show the same patch repeating in a grid** (UTA-0277)
+  The bake judges each texture from its picture: natural ones are drawn
+  so their repeats do not line up, from the Medium tier; bricks, planks,
+  panels, trims and signs stay exactly where the mapper put them. A
+  texture it cannot judge is drawn as before and listed in the bake
+  report; scripts/tile-questions.py makes a picture of it and of where
+  it sits, and the answer goes in tile-kinds.txt in the data folder,
+  read each time a map loads. Bundles are format 22, baker revision 40,
+  so every map bakes again.
+
 - **Map recipes: a small hand-written file of our own changes to a map, which the baker applies** (UTA-0113)
   A recipe sets which of a map's surfaces are metal or glow, how rough
   they are, how much to enlarge them, and a friendly name. `ut-bake`

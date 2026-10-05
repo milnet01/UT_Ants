@@ -144,6 +144,8 @@ Quilez's third technique, with his noise texture replaced by the noise
 UTA-0263 and UTA-0105 already use. Both samples use the undisplaced
 derivatives, so filtering is unchanged. Source:
 https://iquilezles.org/articles/texturerepetition/
+The offsets and the blend live in `variation.glsl` since UTA-0277, which draws
+natural textures with the same blend; water's arithmetic is unchanged.
 
 **The fade.** Where the picture is drawn small, its repeats line up across
 the screen. The level of detail the sampler picks, `textureQueryLod`, says how

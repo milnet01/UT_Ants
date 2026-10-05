@@ -15194,7 +15194,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02 measured by UT_MonsterHunt.
   Lanes: ubake.
 
-- 📋 [UTA-0277] **urender: per-tile variation for natural textures, so repeats of rock, dirt and grass stop lining up.**
+- 🚧 [UTA-0277] **urender: per-tile variation for natural textures, so repeats of rock, dirt and grass stop lining up.**
   Split from UTA-0180, 2026-10-02. UTA-0180 shipped its cheaper half,
   large-scale variation, which moves no picture and so is safe on every
   surface. This is the other half its body names: each repeat of a
@@ -15220,6 +15220,18 @@ stays with movement in 0.2.0.
   we must find a way for you to ask me what it is"). Prototype figures
   in ~/.cache/uta-scratch/u277/ (tex-dump, score.py, lines.tsv). Next:
   build it with write-code.
+  Built (2026-10-05), to the spec as amended by implementation (its
+  loop log's impl row): format 22, baker revision 40. The bake scores each
+  material's picture (lines over rows, columns and diagonals; spots by
+  autocorrelation), limits fitted on the reference install's 400 most-used
+  textures, all 56 under the Shuffle limits natural by eye. Answers apply
+  where a bundle loads (viewer, ut-shot, ut-bench), so answering needs no
+  re-bake. Feature::TileShuffle from Medium: worst case at ultra 4K on
+  DM-Deck16][ 8.0 to 9.0 ms median. DM-Fetid 0 Shuffle and 2 Unsure;
+  DM-Deck16][ 2 Shuffle and 4 Unsure. Unit 880/880; device 92/92 on
+  lavapipe and the GPU; mutation-probe tilekind 10 of 10 killed, three
+  shader mutations killed by hand. Waits on GitHub's matrix to flip. The
+  user has not been asked any texture yet: tile-questions.py is ready.
   **Layman:** Rock, dirt and grass surfaces stop showing the same patch over and over, while panels and signs stay exactly where the mapper put them.
   Kind: enhancement.
   Source: in-session-2026-10-02 split-from-UTA-0180.
