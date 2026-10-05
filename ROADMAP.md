@@ -14260,7 +14260,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-124302
 
-- 💭 [UTA-0256] **ubake: a room that stays too dark once its light is accurate gets a lamp of its own, with a fixture to hold it.**
+- 📋 [UTA-0256] **ubake: a room that stays too dark once its light is accurate gets a lamp of its own, with a fixture to hold it.**
   Asked for by the user, 2026-09-30, in their words: "I want the
   scenes to be lit accurately. If a room is too dark add in a light
   (with the light geometry) that will help with emitting more
@@ -14288,6 +14288,18 @@ stays with movement in 0.2.0.
   Parked (user, 2026-10-01): dark rooms stay as they are, since ours
   are already lighter than the original's (UTA-0254). Reopen only if a
   room proves unplayable.
+  Un-parked (user, 2026-10-05): "where rooms are too dark, we can add
+  in additional lights (with associated geometry) whether that be point
+  lights, emissive lights or whatever other types of light fit the room /
+  map." This supersedes the 2026-10-01 park. Light behaves realistically
+  and each room lands about as bright as the original, so "too dark" is
+  now measured against the original: darker than its frame once the
+  light is accurate. Any light type fits -- a point lamp, an emissive
+  surface, whatever suits the room -- always with a fitting to hold it.
+  UTA-0278's pool (0.4-0.5x the original, shadows ruled out) is a
+  candidate; settle UTA-0274's brightness curve first, since a wrong
+  curve makes rooms read dark that are not. Part of UTA-0292's lighting
+  pass.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
@@ -15465,6 +15477,33 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123437/frame.png, ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123429/frame.png
 
+- 📋 [UTA-0292] **ubake and urender: lighting that looks ray-traced, baked ahead of time so it runs on modest machines.**
+  The user, 2026-10-05: "I want the lighting (and resulting shadows)
+  to be realistic (looks like ray tracing but without ray tracing; the
+  machines this game will run on are less powerful than my machine)."
+  And: "Probably as part of v0.1.0 as it is part of the baking process
+  ... I would assume we would have to use probes to get this right."
+  Ruling the same day: light BEHAVES realistically (soft shadows,
+  bounce, falloff), and each room lands about as bright as the
+  original, so maps play as designed. Where a room is still too dark,
+  add a light with its fitting (UTA-0256), never a brightness gain.
+  This is the umbrella that names the goal and the cost limit; the
+  pieces stay their own items: baked bounce on probes (UTA-0112,
+  shipped; UTA-0254 open), ambient occlusion (UTA-0164), contact
+  shadows (UTA-0054), roughness-weighted reflections (UTA-0045), many
+  shadowed lights (UTA-0160), characters lit like the level
+  (UTA-0159). Calibration: UTA-0274 and UTA-0278. The runtime
+  budget is the frame-rate floor (UTA-0039) on hardware weaker than
+  the user's; what is costly is baked, what moves is cheap at draw.
+  First job: compare a few reference views against a path-traced
+  reference (ut-ants-uta0175's harness) and list which piece closes
+  the largest gap. A design choice across ubake and urender, so a
+  spec once the gaps are measured.
+  **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
+  Kind: feature.
+  Source: user-request-2026-10-05.
+  Lanes: ubake, urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -16038,6 +16077,25 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-10-05.
   Lanes: ubake, render.
+
+- 📋 [UTA-0293] **urender and ubake: real-looking vegetation on maps that call for it, by cheap methods.**
+  The user, 2026-10-05: "I would also like cheap methods of creating
+  real vegitation on relevant maps."
+  Placed in 0.2.0 by ut-ants-04: it adds scenery rather than making the
+  original's look right, so it sits beside glass (UTA-0272) and water
+  (UTA-0273), which the user put after 0.1.0.
+  Open, none decided: which maps are "relevant" (likely surfaces whose
+  texture is grass or earth and which see the sky, read at bake time);
+  which cheap methods (instanced grass cards with wind sway, alpha-
+  tested billboards fading to impostors at range, scattering density
+  from the texture); that a plant never blocks a player's path or
+  hides a pickup; and the cost per tier. Lit by the same baked light
+  as the level (UTA-0292's goal). A spec: a design choice across the
+  bake and the renderer.
+  **Layman:** Outdoor maps get grass, plants and leaves that look real, made with tricks cheap enough for ordinary computers.
+  Kind: feature.
+  Source: user-request-2026-10-05.
+  Lanes: urender, ubake.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
