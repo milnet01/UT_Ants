@@ -14300,6 +14300,13 @@ stays with movement in 0.2.0.
   candidate; settle UTA-0274's brightness curve first, since a wrong
   curve makes rooms read dark that are not. Part of UTA-0292's lighting
   pass.
+  Clarified (user, 2026-10-05): no blanket rule. "We have to judge
+  whether a light is needed first ... Once we have rebaked the map and
+  tested the lighting, then we can decide whether to put an extra light
+  in or not." So each added light is a per-map, per-room decision, taken
+  only after the map is re-baked with the corrected light model and its
+  lighting checked. Being darker than the original is a reason to look,
+  not a verdict.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
@@ -15088,6 +15095,23 @@ stays with movement in 0.2.0.
   Separately, with the gun masked our whole-frame mean is 15-40% BELOW
   the original's on every pose (e.g. pose 5: 31.3 against 51.3), so on
   DM-Fetid ours is too dark overall, not too bright in the darks.
+  Brightness sweep (2026-10-05, UT_MonsterHunt work/uta0269/
+  fetid0274-sweep/, Mesa 26.2.4; do not mix with the 10-03 frames, see
+  its fetid0274-redo/). A lamp's added display bytes, over its add at
+  255, per-pixel median (text box and gun area masked, saturated pixels
+  dropped, ~1.4M pixels): Light14 at 8/16/32/48/64/96/128/192 gives
+  0.058/0.116/0.221/0.317/0.406/0.567/0.703/0.901; Light91 at
+  20/40/80/160 gives 0.102/0.200/0.379/0.690. So the curve is about
+  LINEAR in brightness at the low end (1.85x and 1.3x of V/255 for the
+  two lamps), flattening near the top, NOT sqrt(V/255): at V 8 sqrt
+  predicts 0.177 against 0.058 measured, so ours makes dim lamps about
+  three times too strong -- the "darks too bright" shape. A saturating
+  (1 - e^(-a V/255)) / (1 - e^(-a)) with a = 1.72 fits Light14 within
+  0.02; the flattening differs per lamp, so it is the light total
+  saturating, not the brightness curve. The 2026-10-05 tests swapped
+  sqrt for squared, which is too steep; linear was not tried. Next: a
+  linear brightness with saturation of the summed light, re-baked and
+  scored on DM-Fetid. Lamps add within 5-9% (UT_MonsterHunt's item 4).
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -15485,8 +15509,9 @@ stays with movement in 0.2.0.
   ... I would assume we would have to use probes to get this right."
   Ruling the same day: light BEHAVES realistically (soft shadows,
   bounce, falloff), and each room lands about as bright as the
-  original, so maps play as designed. Where a room is still too dark,
-  add a light with its fitting (UTA-0256), never a brightness gain.
+  original, so maps play as designed. Whether a dark room gets an
+  added light (UTA-0256) is decided per room, after the map is
+  re-baked and its lighting checked; never a brightness gain.
   This is the umbrella that names the goal and the cost limit; the
   pieces stay their own items: baked bounce on probes (UTA-0112,
   shipped; UTA-0254 open), ambient occlusion (UTA-0164), contact
