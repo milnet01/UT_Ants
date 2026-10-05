@@ -359,12 +359,12 @@ recorded beside their constants, not asserted by a test.
 
 ## 9. Out of scope
 
-- Sparks, embers and smoke above a flame — deferred; not yet queued.
+- Sparks, embers and smoke above a flame — tracked by UTA-0291.
 - Soft depth fade where a flame meets geometry — deferred; not yet queued.
 - Flames on actors (sprites, meshes, decorations): `urender` draws no actors
   yet. Deferred; not yet queued.
 - Lava and liquid motion — tracked by UTA-0105 and UTA-0089.
-- Non-flame FireTextures moving (shields, lightning) — tracked by UTA-0105.
+- Non-flame FireTextures moving (shields, lightning) — tracked by UTA-0286.
 
 ## 10. What checks this
 

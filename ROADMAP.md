@@ -15295,7 +15295,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-090952, ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-091053
 
-- 📋 [UTA-0286] **urender: fire textures' sparks and spray stand frozen in the air; CTF-Beatitude's blue fire basins show it.**
+- 🚧 [UTA-0286] **urender: fire textures' sparks and spray stand frozen in the air; CTF-Beatitude's blue fire basins show it.**
   The user's F12 capture CTF-Beatitude-20261005-121904 (commit bed3da7)
   looks at the two blue fire basins under the three blue N emblems. Blue
   spray and spark shapes stand frozen above and around both basins.
@@ -15327,6 +15327,12 @@ stays with movement in 0.2.0.
   contract keeps out of the baker. So the frozen shapes are that
   still. A fix moves the effect at draw time, where the renderer may
   use sine and cosine; the baker's still stays as it is.
+  Decided (user, 2026-10-05): the non-flame FireTextures — 111 labelled
+  `other` in tests/real/flame-labels.txt, offred among them — move by
+  replaying UT99's own FireTexture animation live; flames keep
+  UTA-0263's shader. Modern replacements are UTA-0290, later. Sparks,
+  embers and smoke above flames split out to UTA-0291, so this item
+  now covers the non-flame FireTextures only.
   **Layman:** The blue sparks rising from fire basins hang still in mid-air instead of drifting up and fading as they do in the original.
   Kind: feature.
   Source: user-request-2026-10-05.
@@ -15921,6 +15927,29 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: fix.
   Source: in-session-2026-10-05 split-from-UTA-0113.
   Lanes: ut-ants.
+
+- 📋 [UTA-0290] **urender: modern effects in place of UT99's replayed non-flame FireTextures — lightning, shields, sparkles, waterfalls.**
+  The user, 2026-10-05, choosing how UTA-0286 moves the non-flame
+  FireTextures: replay UT99's own animation for now, "but I would like
+  this project to create better looking effects using modern techniques
+  later." This is that later step. It replaces UTA-0286's replay family
+  by family, as UTA-0263 replaced flames. Placed in 0.2.0 beside the
+  other after-0.1.0 look items (UTA-0272, UTA-0273).
+  **Layman:** Lightning, shields and sparkle effects get a modern look instead of the original game's 1999 pixel animation.
+  Kind: feature.
+  Source: user-request-2026-10-05.
+  Lanes: umat, ubake, render.
+
+- 📋 [UTA-0291] **urender: sparks, embers and smoke rise above shader flames.**
+  Split out of UTA-0286 by the user, 2026-10-05. UTA-0263 § 9 deferred
+  sparks, embers and smoke above a flame and queued nothing; UTA-0286
+  had claimed it alongside the non-flame FireTextures, which it now
+  covers alone. Placed in 0.2.0 beside the other after-0.1.0 look items
+  (UTA-0272, UTA-0273).
+  **Layman:** Real fires throw off sparks and wisps of smoke instead of burning as a bare flame shape.
+  Kind: feature.
+  Source: user-request-2026-10-05.
+  Lanes: ubake, render.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
