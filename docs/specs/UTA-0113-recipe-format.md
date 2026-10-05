@@ -264,9 +264,9 @@ nothing, and bounds every value (§ 4.2). A recipe cannot reach any field
 - **A recipe for a map the player does not have** is never read: lookup is
   by the map being baked.
 - **A texture the map does not use** is reported, not refused (§ 4.5).
-- **The launcher keeps a map's old bake after its recipe changes**: it
-  remembers a bake by baker version, bundle and map stamp, none of which a
-  recipe moves. Tracked by UTA-0287.
+- **A recipe added, edited or removed after a bake**: the launcher records
+  which recipe file a bake took and its stamp, and offers the bake again
+  when either moves (UTA-0287).
 
 ## 7. Tests
 

@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace uta::urecipe {
@@ -36,6 +37,15 @@ struct Found {
 /// SS 4.3's three places. The player's is left empty where the platform names
 /// no data directory.
 [[nodiscard]] Sources standardSources(std::optional<std::filesystem::path> named);
+
+/// The map file's stem, ASCII lower-cased -- the `mapName` a bake and `find`
+/// take, and the stem of a recipe's file name.
+[[nodiscard]] std::string mapNameOf(const std::filesystem::path& map);
+
+/// The file `find` reads for `mapName`, opening none: `named` when given,
+/// else the first `<mapName>.recipe` present in `player`, then `shipped`.
+/// Nothing when neither has one. UTA-0287: the launcher stamps this file.
+[[nodiscard]] std::optional<std::filesystem::path> located(const Sources& sources, std::string_view mapName);
 
 /// The recipe for `mapName` (a folded file stem) whose file has `mapDigest`,
 /// or nothing. `named` is used when given and refused when it does not exist:

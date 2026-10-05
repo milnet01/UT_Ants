@@ -4,7 +4,7 @@
 # and tests/CMakeLists.txt compiles them into the unit tests. main.cpp and
 # Launcher.cpp are the SDL half, run by hand: no CI leg has a display.
 add_executable(ut-ants main.cpp Cli.cpp FlyCamera.cpp Launcher.cpp MapList.cpp Png.cpp Capture.cpp)
-target_link_libraries(ut-ants PRIVATE uta_urender uta_uworld uta_ubundle uta_core SDL3::SDL3)
+target_link_libraries(ut-ants PRIVATE uta_urender uta_uworld uta_ubundle uta_urecipe uta_core SDL3::SDL3)
 
 # UTA-0191's capture folder writes PNG, and Png.cpp is the one translation unit
 # that instantiates the vendored encoder. third_party/stb/README.md records the

@@ -52,19 +52,27 @@ Sources standardSources(std::optional<std::filesystem::path> named) {
     return sources;
 }
 
+std::string mapNameOf(const std::filesystem::path& map) {
+    std::string name = fs::utf8(map.stem());
+    for (char& character : name)
+        if (character >= 'A' && character <= 'Z') character = static_cast<char>(character - 'A' + 'a');
+    return name;
+}
+
+std::optional<std::filesystem::path> located(const Sources& sources, std::string_view mapName) {
+    if (sources.named.has_value()) return sources.named;
+    const std::filesystem::path file = fs::pathFromUtf8(std::string(mapName) + ".recipe");
+    for (const std::filesystem::path* directory : {&sources.player, &sources.shipped})
+        if (!directory->empty() && isPresent(*directory / file)) return *directory / file;
+    return std::nullopt;
+}
+
 Result<std::optional<Found>> find(const Sources& sources, std::string_view mapName,
                                   const std::array<std::byte, 32>& mapDigest) {
-    if (sources.named.has_value()) {
-        UTA_TRY(Found found, load(*sources.named, mapName, mapDigest));
-        return std::optional<Found>(std::move(found));
-    }
-    const std::filesystem::path file = fs::pathFromUtf8(std::string(mapName) + ".recipe");
-    for (const std::filesystem::path* directory : {&sources.player, &sources.shipped}) {
-        if (directory->empty() || !isPresent(*directory / file)) continue;
-        UTA_TRY(Found found, load(*directory / file, mapName, mapDigest));
-        return std::optional<Found>(std::move(found));
-    }
-    return std::optional<Found>();
+    const std::optional<std::filesystem::path> path = located(sources, mapName);
+    if (!path.has_value()) return std::optional<Found>();
+    UTA_TRY(Found found, load(*path, mapName, mapDigest));
+    return std::optional<Found>(std::move(found));
 }
 
 } // namespace uta::urecipe

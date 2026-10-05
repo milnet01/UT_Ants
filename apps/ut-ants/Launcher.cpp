@@ -299,6 +299,7 @@ private:
         opening_ = map->name;
         // UTA-0220: the map as the baker is about to read it.
         openingStamp_ = mapStampOf(map->path);
+        openingRecipeStamp_ = recipeStampOf(map->path); // UTA-0287: what ut-bake will take
         busy_ = Busy::Baking;
         started_ = SDL_GetTicks();
         std::vector<std::string> args{besideThisProgram("ut-bake"), "--install", fs::utf8(options_.install), "--out",
@@ -324,7 +325,8 @@ private:
             }
             record(opening_, {.bakerVersion = answer.bakerVersion,
                               .bundle = answer.path,
-                              .mapStamp = openingStamp_});
+                              .mapStamp = openingStamp_,
+                              .recipeStamp = openingRecipeStamp_});
             std::vector<std::string> args{besideThisProgram("ut-ants")};
             if (options_.windowed) args.emplace_back("--windowed");
             if (options_.validation) args.emplace_back("--validation");
@@ -589,7 +591,9 @@ private:
             colour(170, 170, 185);
             const char* const why = state == BakeState::OlderBaker   ? "Baked by an older ut-bake"
                                     : state == BakeState::BundleGone ? "Its baked copy is gone (a cleared cache?)"
-                                                                     : "The map changed since it was baked";
+                                    : state == BakeState::RecipeChanged
+                                        ? "Its recipe changed since it was baked"
+                                        : "The map changed since it was baked";
             paragraph(std::string(why) + ", so it must be baked again. Enter bakes it, which can take a minute, "
                       "then opens it.");
         }
@@ -635,6 +639,7 @@ private:
     Busy busy_ = Busy::No;
     std::string opening_;
     std::string openingStamp_; ///< UTA-0220: mapStampOf the map when its bake began
+    std::string openingRecipeStamp_; ///< UTA-0287: recipeStampOf the map when its bake began
     Uint64 started_ = 0;
     Child child_;
 };

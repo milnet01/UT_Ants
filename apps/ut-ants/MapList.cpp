@@ -315,7 +315,9 @@ std::optional<MapResult> readResult(const std::filesystem::path& results, std::s
     const std::string text = readText(fileFor(results, map)).value_or(std::string());
     if (text.starts_with("baked")) {
         // Line 2 names the baker (UTA-0208), line 3 the bundle and line 4 the
-        // map's stamp (UTA-0220). A file written before either lacks them.
+        // map's stamp (UTA-0220), line 5 the recipe's (UTA-0287). A file
+        // written before any of them lacks it; with no line 5 the bake had no
+        // recipe, as every bake before UTA-0113 did.
         std::vector<std::string> lines;
         std::size_t start = 0;
         while (start <= text.size()) {
@@ -330,7 +332,8 @@ std::optional<MapResult> readResult(const std::filesystem::path& results, std::s
         const std::string bundle = at(2); // written as UTF-8, whatever the platform's narrow encoding
         return MapResult{.bakerVersion = at(1),
                          .bundle = std::filesystem::path(std::u8string(bundle.begin(), bundle.end())),
-                         .mapStamp = at(3)};
+                         .mapStamp = at(3),
+                         .recipeStamp = at(4)};
     }
     if (!text.starts_with("failed")) return std::nullopt;
     std::string why = text.substr(std::min(text.size(), std::string_view("failed\n").size()));
@@ -343,7 +346,7 @@ Result<void> writeResult(const std::filesystem::path& results, std::string_view 
     const std::u8string bundle = result.bundle.u8string();
     return writeText(fileFor(results, map), "baked\n" + result.bakerVersion + "\n" +
                                                 std::string(bundle.begin(), bundle.end()) + "\n" +
-                                                result.mapStamp + "\n");
+                                                result.mapStamp + "\n" + result.recipeStamp + "\n");
 }
 
 std::string mapStampOf(const std::filesystem::path& map) {
@@ -355,17 +358,28 @@ std::string mapStampOf(const std::filesystem::path& map) {
     return std::to_string(size) + ":" + std::to_string(time.time_since_epoch().count());
 }
 
-BakeState bakeState(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map) {
+std::string recipeStampOf(const std::filesystem::path& map, const urecipe::Sources& recipes) {
+    const std::optional<std::filesystem::path> recipe = urecipe::located(recipes, urecipe::mapNameOf(map));
+    if (!recipe) return {};
+    // The path as well as the stamp: a player's recipe replacing the shipped
+    // one can match it in size and time.
+    return fs::utf8(*recipe) + "|" + mapStampOf(*recipe);
+}
+
+BakeState bakeState(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map,
+                    const urecipe::Sources& recipes) {
     if (currentBaker.empty() || result.bakerVersion != currentBaker) return BakeState::OlderBaker;
     std::error_code ec;
     if (result.bundle.empty() || !std::filesystem::is_regular_file(result.bundle, ec)) return BakeState::BundleGone;
     const std::string stamp = mapStampOf(map);
     if (stamp.empty() || stamp != result.mapStamp) return BakeState::MapChanged;
+    if (recipeStampOf(map, recipes) != result.recipeStamp) return BakeState::RecipeChanged;
     return BakeState::Current;
 }
 
-bool isCurrentBake(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map) {
-    return !result.failed && bakeState(result, currentBaker, map) == BakeState::Current;
+bool isCurrentBake(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map,
+                   const urecipe::Sources& recipes) {
+    return !result.failed && bakeState(result, currentBaker, map, recipes) == BakeState::Current;
 }
 
 std::vector<std::filesystem::path> unreachableBakes(const std::filesystem::path& bakes,

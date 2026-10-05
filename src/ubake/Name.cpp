@@ -7,6 +7,7 @@
 #include "core/Sha256.h"
 #include "ubundle/Bundle.h"
 #include "umat/Library.h"
+#include "urecipe/Lookup.h"
 
 #include <algorithm>
 #include <format>
@@ -74,7 +75,7 @@ std::string fittedName(std::string_view name) {
 }
 
 std::string mapNameOf(const std::filesystem::path& map) {
-    return fold(utf8(map.stem()));
+    return urecipe::mapNameOf(map); // one rule: a recipe's file is found by it
 }
 
 std::string nameOf(const NameInputs& inputs) {

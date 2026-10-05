@@ -245,6 +245,64 @@ TEST_CASE("UTA-0220: a bake whose bundle is gone or whose map changed is not cur
     CHECK_FALSE(isCurrentBake(result, "r21-f14-l0a", map));
 }
 
+TEST_CASE("UTA-0287: a bake whose recipe was added or edited or removed is not current", "[client]") {
+    const TempDir data;
+    const stdfs::path results = data.path() / "results";
+    const stdfs::path map = data.path() / "MH-A.unr";
+    const stdfs::path bundle = data.path() / "MH-A.utab";
+    std::ofstream(map) << "map";
+    std::ofstream(bundle) << "bundle";
+    uta::urecipe::Sources recipes;
+    recipes.player = data.path() / "player";
+    recipes.shipped = data.path() / "shipped";
+    const auto baked = [&] {
+        return MapResult{.bakerVersion = "r21-f14-l0a", .bundle = bundle, .mapStamp = mapStampOf(map),
+                         .recipeStamp = recipeStampOf(map, recipes)};
+    };
+
+    // No recipe anywhere: nothing to stamp, and the bake is current.
+    MapResult result = baked();
+    CHECK(result.recipeStamp.empty());
+    CHECK(bakeState(result, "r21-f14-l0a", map, recipes) == BakeState::Current);
+
+    // A recipe added for the map -- found by its lower-cased stem.
+    touch(recipes.shipped / "mh-a.recipe");
+    CHECK(bakeState(result, "r21-f14-l0a", map, recipes) == BakeState::RecipeChanged);
+    CHECK_FALSE(isCurrentBake(result, "r21-f14-l0a", map, recipes));
+    result = baked();
+    CHECK(bakeState(result, "r21-f14-l0a", map, recipes) == BakeState::Current);
+
+    // Edited: its size moves.
+    std::ofstream(recipes.shipped / "mh-a.recipe", std::ios::app) << "edited";
+    CHECK(bakeState(result, "r21-f14-l0a", map, recipes) == BakeState::RecipeChanged);
+    result = baked();
+
+    // The player's own now wins over the shipped one, same bytes or not.
+    stdfs::create_directories(recipes.player);
+    std::ofstream(recipes.player / "mh-a.recipe") << "xedited";
+    CHECK(bakeState(result, "r21-f14-l0a", map, recipes) == BakeState::RecipeChanged);
+    result = baked();
+
+    // Removed: no recipe is a change too.
+    stdfs::remove(recipes.player / "mh-a.recipe");
+    stdfs::remove(recipes.shipped / "mh-a.recipe");
+    CHECK(bakeState(result, "r21-f14-l0a", map, recipes) == BakeState::RecipeChanged);
+
+    // The stamp survives the record, and a record written before UTA-0287,
+    // when no bake had a recipe, is current while there is still none.
+    touch(recipes.shipped / "mh-a.recipe");
+    result = baked();
+    REQUIRE(writeResult(results, "MH-A", result));
+    const auto read = readResult(results, "MH-A");
+    REQUIRE(read.has_value());
+    CHECK(read->recipeStamp == result.recipeStamp);
+    stdfs::remove(recipes.shipped / "mh-a.recipe");
+    std::ofstream(results / "MH-B.txt") << "baked\nr21-f14-l0a\n" << bundle.string() << "\n" << mapStampOf(map) << "\n";
+    const auto old = readResult(results, "MH-B");
+    REQUIRE(old.has_value());
+    CHECK(bakeState(*old, "r21-f14-l0a", map, recipes) == BakeState::Current);
+}
+
 TEST_CASE("UTA-0251: a bake no record of today's baker names is listed for removal", "[client]") {
     const TempDir data;
     const stdfs::path bakes = data.path() / "bakes";
