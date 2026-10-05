@@ -15057,6 +15057,25 @@ stays with movement in 0.2.0.
   Light91 is drafted for UT_MonsterHunt in
   ~/.local/share/claude-handoff/ut-ants-uta0274-brightness-sweep-2026-10-05.md;
   no UT_MonsterHunt session was running to send it to.
+  Narrowed (2026-10-05), r39, Low, EXPOSURE 5.03, u261 kit (run
+  r39-low): most of the gap is the player's gun. The original frames carry
+  it bottom right and ours have none; with that corner masked (x over
+  0.66, y over 0.55), the dark areas (original under 20) of poses 1-6 read
+  ours/original 13.3/9.8, 11.6/8.1, 12.8/13.5, 9.2/12.6, 8.9/11.9,
+  6.8/10.1, so within about 3 levels and as often darker. Pose 0 is the
+  known 8-unit misaligned reference. Pose 7 keeps 20.3 against 12.4, and
+  all of that excess sits in its top-right cell: the underside of the
+  overhang near (-1190, 3 to 64, 223), xbpfx.inxb5 facing down, is black in
+  the original and lit in ours by e55 and e61 (b 128, r 16, at z 139,
+  about 0.4 each). UT99's own data agrees with ours there: surf-lights
+  lists both lamps on those inxb5 faces, texel-vis agrees with our shadow
+  rays on 99.8% (e55) and 99.7% (e61) of their texels, and both are plain
+  Light actors (no TriggerLight in the map). Cause unknown. Next, if
+  pursued: a pose-7 capture with Light e55 and e61 at 0 in the original;
+  no change there means the game does not light that underside at all.
+  Separately, with the gun masked our whole-frame mean is 15-40% BELOW
+  the original's on every pose (e.g. pose 5: 31.3 against 51.3), so on
+  DM-Fetid ours is too dark overall, not too bright in the darks.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
