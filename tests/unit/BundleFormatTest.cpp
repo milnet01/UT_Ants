@@ -294,7 +294,7 @@ std::vector<std::byte> goldenBytes() {
 
     Bytes out;
     out.id("UTAB");
-    out.u32(21); // formatVersion -- 21 since UTA-0286 gave a non-flame FireTexture its fire look
+    out.u32(22); // formatVersion -- 22 since UTA-0277 gave each material its tile kind
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -513,7 +513,7 @@ TEST_CASE("the header is sixteen little-endian bytes naming the file", "[ubundle
 
     const std::uint8_t expected[16] = {
         'U', 'T', 'A', 'B',    // magic -- a hex dump of a bundle names itself
-        0x15, 0x00, 0x00, 0x00, // formatVersion = 21 -- UTA-0286's fire look
+        0x16, 0x00, 0x00, 0x00, // formatVersion = 22 -- UTA-0277's tile kind
         0x01,                   // origin = Authored
         0x00,                   // kind = Map
         0x00, 0x00,             // reserved
@@ -537,9 +537,9 @@ TEST_CASE("a bad magic and an unsupported version are refused before anything el
     }
 
     SECTION("a later version") {
-        // 22, not 21: 21 is the current version since UTA-0286 gave a
-        // non-flame FireTexture its fire look.
-        const std::vector<std::byte> bytes = goldenWithByte(4, 22);
+        // 23, not 22: 22 is the current version since UTA-0277 gave each
+        // material its tile kind.
+        const std::vector<std::byte> bytes = goldenWithByte(4, 23);
         const auto result = read(bytes);
         REQUIRE_FALSE(result.has_value());
         CHECK(result.error().code() == ErrorCode::UnsupportedVersion);
@@ -603,7 +603,7 @@ TEST_CASE("readHeader reads the first sixteen bytes and stops", "[ubundle]") {
 
     const auto header = readHeader(justTheHeader);
     REQUIRE(header.has_value());
-    CHECK(header->formatVersion == 21);
+    CHECK(header->formatVersion == 22);
     CHECK(header->origin == Origin::Authored);
     CHECK(header->kind == BundleKind::Map);
 
@@ -619,7 +619,7 @@ TEST_CASE("the golden bytes decode field by field to the values they encode", "[
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 21);
+    CHECK(bundle.header.formatVersion == 22);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 

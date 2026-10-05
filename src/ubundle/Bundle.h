@@ -61,7 +61,9 @@ namespace uta::ubundle {
 /// 18 since UTA-0276 gave each ZONE entry its pan speeds (UTA-0156 SS 4.1).
 /// 19 since UTA-0215 gave each ZONE entry its water flag and view tint.
 /// 20 since UTA-0270 gave each MATS liquid look its MoveIce byte.
-inline constexpr std::uint32_t FORMAT_VERSION = 21;
+/// 21 since UTA-0286 gave each MATS record its fire look.
+/// 22 since UTA-0277 SS 4.1 gave each MATS record its tile kind.
+inline constexpr std::uint32_t FORMAT_VERSION = 22;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -221,6 +223,14 @@ struct FireLook {
     friend bool operator==(const FireLook&, const FireLook&) = default;
 };
 
+/// How a material's picture repeats across a surface -- UTA-0277 SS 4.1. A
+/// byte past Unsure is refused, as the liquid byte past Wave is.
+enum class TileKind : std::uint8_t {
+    Fixed = 0,   ///< drawn as UT99 tiles it: judged structured, flat or excluded
+    Shuffle = 1, ///< each repeat drawn at a hashed offset, blended across seams
+    Unsure = 2,  ///< drawn as Fixed; listed in the bake report for the user
+};
+
 /// One material's own values -- UTA-0011 SS 4.10. Its maps are the TEXS
 /// entries named `<id>:<map>`.
 ///
@@ -239,6 +249,8 @@ struct MaterialRecord {
     std::optional<LiquidLook> liquid;
     /// UTA-0286 SS 4.2: set for a FireTexture that is not a flame.
     std::optional<FireLook> fire;
+    /// UTA-0277 SS 4.1: the bake's judgement of whether its repeats may move.
+    TileKind tileKind = TileKind::Fixed;
 };
 
 /// One corner of a triangle -- UTA-0109 SS 4.2.

@@ -11,8 +11,8 @@ namespace {
 
 /// UTA-0011 SS 4.10: a u32 length for an empty id, then one u8; UTA-0040
 /// SS 4.1's depth byte; UTA-0263 SS 4.2's flame byte; UTA-0105 SS 4.2's
-/// liquid byte; and UTA-0286 SS 4.2's fire byte.
-constexpr std::uint64_t MIN_MATERIAL = 9;
+/// liquid byte; UTA-0286 SS 4.2's fire byte; and UTA-0277 SS 4.1's tile kind.
+constexpr std::uint64_t MIN_MATERIAL = 10;
 
 /// UTA-0105 SS 4.2's refusals, shared by read and write. Empty when the look
 /// is valid; otherwise what is wrong with it.
@@ -126,6 +126,12 @@ constexpr std::uint64_t MIN_MATERIAL = 9;
                 UTA_TRY(*byte, cursor.readU8());
             }
     }
+    // UTA-0277 SS 4.1: refused past Unsure, as the liquid byte is past Wave.
+    UTA_TRY(const std::uint8_t tileKind, cursor.readU8());
+    if (tileKind > static_cast<std::uint8_t>(TileKind::Unsure))
+        return fail(ErrorCode::MalformedData,
+                    "MATS: tile kind byte " + std::to_string(tileKind) + " is not 0 to 2");
+    record.tileKind = static_cast<TileKind>(tileKind);
     return record;
 }
 
@@ -168,6 +174,7 @@ void putMaterialRecord(Sink& sink, const MaterialRecord& record) {
                                             spark.byteC, spark.byteD})
                 sink.putU8(byte);
     }
+    sink.putU8(static_cast<std::uint8_t>(record.tileKind)); // UTA-0277
 }
 
 } // namespace
@@ -209,6 +216,9 @@ Result<void> validateMaterials(const std::vector<MaterialRecord>& materials, Err
         if (const std::string fault = fireFault(*materials[i].fire); !fault.empty())
             return fail(code, "MATS: material " + std::to_string(i) + "'s fire look: " + fault);
     }
+    for (std::size_t i = 0; i < materials.size(); ++i)
+        if (static_cast<std::uint8_t>(materials[i].tileKind) > static_cast<std::uint8_t>(TileKind::Unsure))
+            return fail(code, "MATS: material " + std::to_string(i) + "'s tile kind is not 0 to 2");
     return {};
 }
 

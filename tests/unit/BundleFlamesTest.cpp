@@ -46,6 +46,7 @@ Bytes matsPayload() {
     out.u8(0); // flame: none
     out.u8(0); // liquid: none -- UTA-0105 SS 4.2
     out.u8(0); // fire: none -- UTA-0286 SS 4.2
+    out.u8(0); // tile kind: Fixed -- UTA-0277 SS 4.1
     out.str("b");
     out.u8(0);
     out.u8(0);
@@ -53,6 +54,7 @@ Bytes matsPayload() {
     for (int i = 0; i < 24; ++i) out.f32(0.0f);
     out.u8(0); // liquid: none
     out.u8(0); // fire: none
+    out.u8(0); // tile kind: Fixed
     return out;
 }
 
@@ -81,7 +83,7 @@ std::vector<std::byte> fileWith(const Bytes& flam) {
     const std::vector<std::pair<std::string_view, Bytes>> sections = {{"MATS", matsPayload()}, {"FLAM", flam}};
     Bytes out;
     out.id("UTAB");
-    out.u32(21); // formatVersion -- 21 since UTA-0286 gave a non-flame FireTexture its fire look
+    out.u32(22); // formatVersion -- 22 since UTA-0277 gave each material its tile kind
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

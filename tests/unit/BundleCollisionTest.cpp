@@ -114,7 +114,7 @@ Bytes emptyMovr() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(21); // formatVersion -- 21 since UTA-0286 gave a non-flame FireTexture its fire look
+    out.u32(22); // formatVersion -- 22 since UTA-0277 gave each material its tile kind
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -277,7 +277,7 @@ void readRefuses(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the COLL golden bytes decode to the collision they encode", "[ubundle][coll]") {
     const auto result = read(fileWith({{"MOVR", emptyMovr()}, {"COLL", collPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 21);
+    CHECK(result->header.formatVersion == 22);
     REQUIRE(result->movers.has_value());
     REQUIRE(result->collision.has_value());
     sameCollision(*result->collision, golden());

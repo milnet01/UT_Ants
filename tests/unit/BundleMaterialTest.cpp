@@ -2,7 +2,8 @@
 //
 // docs/specs/UTA-0011-map-baker.md SS 4.10, INV-18, UTA-0263 SS 4.2's flame
 // look, that spec's INV-1, UTA-0105 SS 4.2's liquid look, that spec's INV-1, and UTA-0286 SS 4.2's
-// fire look, that spec's INV-1. The baker's own cases are
+// fire look, that spec's INV-1, and UTA-0277 SS 4.1's tile kind, that spec's
+// INV-7. The baker's own cases are
 // tests/unit/BakeTest.cpp; nothing here reaches ubake.
 //
 // THE GOLDEN ARRAY IS AUTHORED FROM SS 4.10, never produced by `write`, for
@@ -39,6 +40,7 @@ using uta::ubundle::LiquidLook;
 using uta::ubundle::MaterialRecord;
 using uta::ubundle::Origin;
 using uta::ubundle::read;
+using uta::ubundle::TileKind;
 using uta::ubundle::write;
 
 namespace {
@@ -55,6 +57,7 @@ struct RecordSpec {
     std::optional<LiquidLook> liquid; ///< written after liquidByte when present
     std::uint8_t fireByte = 0;        ///< UTA-0286 SS 4.2; a byte, so 2 can be stated
     std::optional<FireLook> fire;     ///< written after fireByte when present
+    std::uint8_t tileKindByte = 0;    ///< UTA-0277 SS 4.1; a byte, so 3 can be stated
 };
 
 /// A look whose every field differs from its neighbour's and from the
@@ -135,7 +138,8 @@ FlameLook rampFrom(float first) {
 
 /// A MATS payload: SS 4.2's vector<MaterialRecord>, in SS 4.10's field order,
 /// with UTA-0040 SS 4.1's depth byte after `metallic`, then UTA-0263 SS 4.2's
-/// flame byte and, where it is 1, the ramp's 24 floats.
+/// flame byte and, where it is 1, the ramp's 24 floats; the liquid and fire
+/// looks; and last UTA-0277 SS 4.1's tile kind byte.
 Bytes matsPayload(const std::vector<RecordSpec>& records) {
     Bytes out;
     out.u32(static_cast<std::uint32_t>(records.size()));
@@ -151,6 +155,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
         if (record.liquid) putLiquid(out, *record.liquid);
         out.u8(record.fireByte);
         if (record.fire) putFire(out, *record.fire);
+        out.u8(record.tileKindByte);
     }
     return out;
 }
@@ -159,7 +164,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(21); // formatVersion -- 21 since UTA-0286 gave a non-flame FireTexture its fire look
+    out.u32(22); // formatVersion -- 22 since UTA-0277 gave each material its tile kind
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -182,19 +187,20 @@ std::vector<std::byte> fileWith(const Bytes& payload) {
 /// dropped, reordered, defaulted or swapped a field disagrees somewhere. The
 /// middle one is a flame, so a look read into its neighbour disagrees too. The
 /// first and third are liquids of different kinds (UTA-0105), for the same reason,
-/// and the last carries a fire look (UTA-0286).
+/// and the last carries a fire look (UTA-0286). Three tile kinds, all different
+/// from their neighbours' (UTA-0277).
 const std::vector<RecordSpec> GOLDEN = {
-    {"dm-fixture.base.wall", 0, 4, 0, std::nullopt, 1, liquidOf(LiquidKind::Wet, 10)},
+    {"dm-fixture.base.wall", 0, 4, 0, std::nullopt, 1, liquidOf(LiquidKind::Wet, 10), 0, std::nullopt, 2},
     {"dm-fixture.base.wall#masked", 1, 0, 1, rampFrom(0.5f)},
-    {"texpkg.floor", 0, 255, 0, std::nullopt, 3, liquidOf(LiquidKind::Wave, 40)},
-    {"texpkg.spray", 0, 7, 0, std::nullopt, 0, std::nullopt, 1, fireOf(9)},
+    {"texpkg.floor", 0, 255, 0, std::nullopt, 3, liquidOf(LiquidKind::Wave, 40), 0, std::nullopt, 1},
+    {"texpkg.spray", 0, 7, 0, std::nullopt, 0, std::nullopt, 1, fireOf(9), 2},
 };
 
 std::vector<MaterialRecord> recordsOf(const std::vector<RecordSpec>& specs) {
     std::vector<MaterialRecord> out;
     for (const RecordSpec& spec : specs)
         out.push_back(MaterialRecord{spec.id, spec.metallic == 1, spec.parallaxDepth, spec.flame, spec.liquid,
-                                     spec.fire});
+                                     spec.fire, static_cast<TileKind>(spec.tileKindByte)});
     return out;
 }
 
@@ -210,7 +216,7 @@ void refused(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][mats]") {
     const auto result = read(fileWith(matsPayload(GOLDEN)));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 21);
+    CHECK(result->header.formatVersion == 22);
     CHECK_FALSE(result->textures.has_value());
 
     REQUIRE(result->materials.has_value());
@@ -238,6 +244,10 @@ TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][
     CHECK(materials[3].id == "texpkg.spray");
     REQUIRE(materials[3].fire.has_value());
     CHECK(*materials[3].fire == fireOf(9));
+    CHECK(materials[0].tileKind == TileKind::Unsure);
+    CHECK(materials[1].tileKind == TileKind::Fixed);
+    CHECK(materials[2].tileKind == TileKind::Shuffle);
+    CHECK(materials[3].tileKind == TileKind::Unsure);
 }
 
 TEST_CASE("write emits the MATS golden bytes", "[ubundle][mats]") {
@@ -271,6 +281,7 @@ TEST_CASE("MATS round-trips through write and read", "[ubundle][mats]") {
             if (specs[i].flame) CHECK((*back->materials)[i].flame->ramp == specs[i].flame->ramp);
             CHECK((*back->materials)[i].liquid == specs[i].liquid);
             CHECK((*back->materials)[i].fire == specs[i].fire);
+            CHECK((*back->materials)[i].tileKind == static_cast<TileKind>(specs[i].tileKindByte));
         }
     }
 }
@@ -297,17 +308,17 @@ TEST_CASE("write refuses MATS records out of order", "[ubundle][mats]") {
 
 TEST_CASE("a MATS count the section cannot hold is refused before an element is read",
           "[ubundle][mats]") {
-    // UTA-0286 SS 4.2's minimum element is 9 bytes. This payload declares two
-    // records and holds one whole record and eight bytes more: 17 / 9 is one,
-    // so the count is refused up front. A minimum of 8, the size before the
-    // fire byte, would admit the count and fail later on a short read
+    // UTA-0277 SS 4.1's minimum element is 10 bytes. This payload declares two
+    // records and holds one whole record and nine bytes more: 19 / 10 is one,
+    // so the count is refused up front. A minimum of 9, the size before the
+    // tile kind byte, would admit the count and fail later on a short read
     // instead -- a different refusal, which is what this case tells apart.
     Bytes payload;
     payload.u32(2);
     payload.str("");
-    for (int i = 0; i < 5; ++i) payload.u8(0);
+    for (int i = 0; i < 6; ++i) payload.u8(0);
     payload.u32(0);
-    for (int i = 0; i < 4; ++i) payload.u8(0);
+    for (int i = 0; i < 5; ++i) payload.u8(0);
     refused(fileWith(payload), "exceeds the bytes remaining");
 }
 
@@ -450,4 +461,14 @@ TEST_CASE("UTA-0286 INV-1: the largest permitted fire look round-trips", "[ubund
     const auto back = read(*written);
     REQUIRE(back.has_value());
     CHECK((*back->materials)[0].fire == look);
+}
+
+TEST_CASE("UTA-0277 INV-7: a MATS tile kind byte of 3 is refused by read and write", "[ubundle][mats][tilekind]") {
+    refused(fileWith(matsPayload({{"a", 0, 0, 0, std::nullopt, 0, std::nullopt, 0, std::nullopt, 3}})),
+            "tile kind byte 3");
+    Bundle bundle;
+    bundle.materials = recordsOf({{"a", 0, 0, 0, std::nullopt, 0, std::nullopt, 0, std::nullopt, 3}});
+    const auto written = write(bundle);
+    REQUIRE_FALSE(written.has_value());
+    CHECK(written.error().code() == ErrorCode::InvalidArgument);
 }
