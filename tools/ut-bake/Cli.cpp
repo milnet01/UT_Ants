@@ -280,6 +280,23 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
     // UTA-0113 SS 4.5: a recipe's texture the map does not use.
     out << ", \"recipeUnused\": ";
     writeArray(out, result.recipeUnused, [&out](const std::string& texture) { writeJsonString(out, texture); });
+    // UTA-0277 SS 4.5: the materials the bake could not judge, for the player.
+    out << ", \"tileQuestions\": ";
+    writeArray(out, result.tileQuestions, [&out](const TileQuestion& question) {
+        const auto triple = [&out](const std::array<double, 3>& v) {
+            out << '[' << v[0] << ", " << v[1] << ", " << v[2] << ']';
+        };
+        out << "{\"material\": ";
+        writeJsonString(out, question.material);
+        out << ", \"hash\": ";
+        writeJsonString(out, question.hash);
+        out << ", \"lines\": " << question.lines << ", \"spots\": " << question.spots
+            << ", \"surfaces\": " << question.surfaces << ", \"view\": {\"at\": ";
+        triple(question.at);
+        out << ", \"normal\": ";
+        triple(question.normal);
+        out << ", \"extent\": " << question.extent << "}}";
+    });
 }
 
 int runBake(const Arguments& args, std::ostream& out, std::ostream& err,

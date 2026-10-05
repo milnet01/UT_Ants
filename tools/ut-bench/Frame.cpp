@@ -5,6 +5,7 @@
 #include "common/Json.h"
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
+#include "ubundle/TileAnswers.h"
 #include "urender/Renderer.h"
 
 #include <algorithm>
@@ -212,11 +213,13 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
         err << "ut-bench: " << bytes.error().message() << "\n";
         return EXIT_FAILED;
     }
-    const auto bundle = ubundle::read(*bytes);
+    auto bundle = ubundle::read(*bytes);
     if (!bundle) {
         err << "ut-bench: " << *parsed->bundle << " did not read: " << bundle.error().message() << "\n";
         return EXIT_FAILED;
     }
+    // UTA-0277 SS 4.5: timed as the viewer draws it, with the player's answers.
+    for (const std::string& warning : ubundle::applyTileAnswersFile(*bundle)) err << "ut-bench: " << warning << "\n";
     *bytes = {};
     const std::optional<std::vector<View>> views =
         readCameras(std::filesystem::path(*parsed->cameras), static_cast<double>(parsed->height) / parsed->width, err);

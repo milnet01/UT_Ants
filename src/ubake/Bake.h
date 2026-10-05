@@ -20,6 +20,7 @@
 #include "ubake/Flames.h"
 #include "ubake/Install.h"
 #include "ubake/TextureCache.h"
+#include "ubake/TileKind.h"
 #include "ubundle/Bundle.h"
 #include "umap/Build.h"
 #include "umat/Flames.h"
@@ -32,6 +33,7 @@
 #include "urecipe/Lookup.h"
 #include "urecipe/Recipe.h"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -47,6 +49,19 @@ namespace uta::ubake {
 struct SkippedTexture {
     std::string material; ///< umat::materialId of the variant not made
     std::string reason;
+};
+
+/// UTA-0277 SS 4.5: a material the bake could not judge, for the player to
+/// answer. `view` is the largest surface wearing it.
+struct TileQuestion {
+    std::string material;
+    std::string hash; ///< 64 lower-case hex digits, as the answers file keys it
+    double lines = 0;
+    double spots = 0;
+    std::uint32_t surfaces = 0;
+    std::array<double, 3> at{};
+    std::array<double, 3> normal{}; ///< unit length
+    double extent = 0;
 };
 
 struct BakeResult {
@@ -73,6 +88,8 @@ struct BakeResult {
     /// UTA-0113 SS 4.5: the recipe's assignments naming a texture the map does
     /// not use, ascending. Reported, never refused.
     std::vector<std::string> recipeUnused;
+    /// UTA-0277 SS 4.5: every Unsure material, once, most surfaces first.
+    std::vector<TileQuestion> tileQuestions;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.
@@ -157,12 +174,14 @@ using FlameLookup = std::function<bool(std::uint64_t fingerprint)>;
 /// goes through `resolver`. `bake` passes `install.resolver()`, `umat::curated`
 /// and `umat::TEXTURE_BUDGET_BYTES`; `bakeToDirectory` passes its request's
 /// `budgetBytes` and the recipe it found. A null `recipe` is no recipe.
+/// `tileLimits` are UTA-0277 SS 4.2's, which a test moves to force a kind.
 [[nodiscard]] Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                       const upkg::PackageResolver& resolver, JobSystem& jobs,
                                       const CuratedLookup& curated, std::uint64_t budgetBytes,
                                       TextureCache* textureCache = nullptr,
                                       const FlameLookup& isFlame = umat::isFlame,
-                                      const urecipe::Recipe* recipe = nullptr);
+                                      const urecipe::Recipe* recipe = nullptr,
+                                      const TileLimits& tileLimits = {});
 
 /// SS 4.5 step 1: the map's one Level export. MalformedData, naming the map,
 /// when it has none or more than one. ut-paths reads a map's level the bake's

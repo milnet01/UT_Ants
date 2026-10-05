@@ -251,6 +251,10 @@ struct MaterialRecord {
     std::optional<FireLook> fire;
     /// UTA-0277 SS 4.1: the bake's judgement of whether its repeats may move.
     TileKind tileKind = TileKind::Fixed;
+    /// UTA-0277 SS 4.5: the picture's content hash, which the player's answers
+    /// are keyed on. All zero where no answer may apply -- SS 4.2 step 1's
+    /// exclusions -- so applyTileAnswers leaves that material as baked.
+    std::array<std::byte, 32> tileHash{};
 };
 
 /// One corner of a triangle -- UTA-0109 SS 4.2.

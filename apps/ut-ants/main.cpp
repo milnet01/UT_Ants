@@ -17,6 +17,7 @@
 #include "core/FileSystem.h"
 #include "core/Log.h"
 #include "ubundle/Bundle.h"
+#include "ubundle/TileAnswers.h"
 #include "urender/Renderer.h"
 
 #include <SDL3/SDL.h>
@@ -424,12 +425,15 @@ int main(int argc, char** argv) {
         std::cerr << "ut-ants: " << bytes.error().message() << "\n";
         return EXIT_FAILED;
     }
-    const auto bundle = uta::ubundle::read(*bytes);
+    auto bundle = uta::ubundle::read(*bytes);
     if (!bundle) {
         std::cerr << "ut-ants: " << uta::sanitised(options->bundle.string()) << " did not read: " << bundle.error().message()
                   << "\n";
         return EXIT_FAILED;
     }
+    // UTA-0277 SS 4.5: the player's answers about which pictures may move.
+    for (const std::string& warning : uta::ubundle::applyTileAnswersFile(*bundle))
+        std::cerr << "ut-ants: " << warning << "\n";
     // UTA-0191: the bundle's identity, taken before the bytes go. A capture
     // records it so a frame can be tied to the exact bundle that drew it.
     const std::string bundleHash = uta::client::bundleHashHex(*bytes);

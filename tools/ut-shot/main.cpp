@@ -16,6 +16,7 @@
 
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
+#include "ubundle/TileAnswers.h"
 #include "urender/Renderer.h"
 
 #include <algorithm>
@@ -51,6 +52,9 @@ int main(int argc, char** argv) {
         std::cerr << "ut-shot: " << options->bundle << " did not read: " << bundle.error().message() << "\n";
         return 1;
     }
+    // UTA-0277 SS 4.5: drawn as the viewer draws it, with the player's answers.
+    for (const std::string& warning : uta::ubundle::applyTileAnswersFile(*bundle))
+        std::cerr << "ut-shot: " << warning << "\n";
     *bytes = {};
     // What the baked indirect light holds, so a weak bounce can be told from a
     // missing one.

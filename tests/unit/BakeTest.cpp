@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -1014,4 +1015,54 @@ TEST_CASE("a texture's DrawScale sets how far one repeat of it spans", "[ubake][
     CHECK(farU(2) == 8.0F);
     CHECK(farU(-1) == 16.0F);
     CHECK(farU(std::numeric_limits<float>::quiet_NaN()) == 16.0F);
+}
+
+TEST_CASE("UTA-0277 INV-9: tileQuestions lists every Unsure material once with most surfaces first",
+          "[ubake][bake][tilekind]") {
+    const Fixture fixture = standardFixture();
+    MemoryPackages packages = memoryPackagesFor(fixture);
+    const std::vector<std::uint8_t> bytes = fixture.map.build();
+    const auto map = Package::open(uta::test::asBytes(bytes));
+    REQUIRE(map.has_value());
+    // Limits no score reaches either way, so every judged material is Unsure;
+    // the masked variant and the mover's are excluded and stay Fixed.
+    const uta::ubake::TileLimits unsure{0, std::numeric_limits<double>::infinity(), 0,
+                                        std::numeric_limits<double>::infinity()};
+    JobSystem jobs(2);
+    const auto result = detail::bake(*map, MAP_NAME, packages.resolver(), jobs, &uta::umat::curated,
+                                     uta::umat::TEXTURE_BUDGET_BYTES, nullptr, uta::umat::isFlame, nullptr, unsure);
+    REQUIRE(result.has_value());
+    REQUIRE(result->bundle.materials.has_value());
+
+    std::set<std::string> unsureIds;
+    std::size_t fixed = 0;
+    for (const uta::ubundle::MaterialRecord& record : *result->bundle.materials) {
+        if (record.tileKind == uta::ubundle::TileKind::Unsure) unsureIds.insert(record.id);
+        if (record.tileKind == uta::ubundle::TileKind::Fixed) ++fixed;
+    }
+    REQUIRE_FALSE(unsureIds.empty());
+    REQUIRE(fixed > 0); // so a Fixed material listed would show
+
+    std::set<std::string> listed;
+    for (std::size_t i = 0; i < result->tileQuestions.size(); ++i) {
+        const uta::ubake::TileQuestion& question = result->tileQuestions[i];
+        INFO(question.material);
+        CHECK(listed.insert(question.material).second); // once
+        CHECK(question.hash.size() == 64);
+        CHECK(question.surfaces > 0);
+        const auto& n = question.normal;
+        CHECK(std::abs(n[0] * n[0] + n[1] * n[1] + n[2] * n[2] - 1.0) < 1e-9);
+        if (i > 0) CHECK(result->tileQuestions[i - 1].surfaces >= question.surfaces);
+    }
+    CHECK(listed == unsureIds);
+
+    // At the shipped limits the same bake lists exactly its Unsure materials.
+    const auto shipped = detail::bake(*map, MAP_NAME, packages.resolver(), jobs, &uta::umat::curated,
+                                      uta::umat::TEXTURE_BUDGET_BYTES);
+    REQUIRE(shipped.has_value());
+    std::set<std::string> shippedUnsure, shippedListed;
+    for (const uta::ubundle::MaterialRecord& record : *shipped->bundle.materials)
+        if (record.tileKind == uta::ubundle::TileKind::Unsure) shippedUnsure.insert(record.id);
+    for (const uta::ubake::TileQuestion& question : shipped->tileQuestions) shippedListed.insert(question.material);
+    CHECK(shippedListed == shippedUnsure);
 }

@@ -52,6 +52,7 @@ add_executable(uta_unit_tests
     unit/BundleLightProbesTest.cpp
     unit/BundleMalformedTest.cpp
     unit/BundleMaterialTest.cpp
+    unit/TileKindTest.cpp
     unit/BundleTextureTest.cpp
     unit/BundleZonesTest.cpp
     unit/ClientCliTest.cpp

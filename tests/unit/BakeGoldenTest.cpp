@@ -94,9 +94,11 @@ namespace {
 // fixture has no FireTexture, so the format bump and the fire byte moved it.
 // 39, format 22: UTA-0277 gives each MATS record its tile kind byte, every
 // one Fixed until the judgement lands, so the format bump and the byte moved it.
-constexpr std::uint32_t RECORDED_UNDER = 39;
+// 40, format 22: UTA-0277 judges each material's tile kind and stores its
+// picture hash.
+constexpr std::uint32_t RECORDED_UNDER = 40;
 constexpr std::string_view GOLDEN =
-    "d4978e35a76823a6438d63f2f70678e44c1b79728befb43391a39e3fe5e60d65";
+    "7636e747fbbe8fd76ab96f329f875d88fd22cd79cc55bf90d45527c5cec8cd4a";
 
 } // namespace
 

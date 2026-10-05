@@ -11,8 +11,9 @@ namespace {
 
 /// UTA-0011 SS 4.10: a u32 length for an empty id, then one u8; UTA-0040
 /// SS 4.1's depth byte; UTA-0263 SS 4.2's flame byte; UTA-0105 SS 4.2's
-/// liquid byte; UTA-0286 SS 4.2's fire byte; and UTA-0277 SS 4.1's tile kind.
-constexpr std::uint64_t MIN_MATERIAL = 10;
+/// liquid byte; UTA-0286 SS 4.2's fire byte; and UTA-0277 SS 4.1's tile kind
+/// and its 32-byte picture hash.
+constexpr std::uint64_t MIN_MATERIAL = 42;
 
 /// UTA-0105 SS 4.2's refusals, shared by read and write. Empty when the look
 /// is valid; otherwise what is wrong with it.
@@ -132,6 +133,10 @@ constexpr std::uint64_t MIN_MATERIAL = 10;
         return fail(ErrorCode::MalformedData,
                     "MATS: tile kind byte " + std::to_string(tileKind) + " is not 0 to 2");
     record.tileKind = static_cast<TileKind>(tileKind);
+    for (std::byte& byte : record.tileHash) {
+        UTA_TRY(const std::uint8_t value, cursor.readU8());
+        byte = static_cast<std::byte>(value);
+    }
     return record;
 }
 
@@ -175,6 +180,7 @@ void putMaterialRecord(Sink& sink, const MaterialRecord& record) {
                 sink.putU8(byte);
     }
     sink.putU8(static_cast<std::uint8_t>(record.tileKind)); // UTA-0277
+    for (const std::byte byte : record.tileHash) sink.putU8(std::to_integer<std::uint8_t>(byte));
 }
 
 } // namespace

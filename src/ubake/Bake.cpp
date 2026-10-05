@@ -430,6 +430,10 @@ struct MadeVariant {
     std::optional<ubundle::CompressedTexture> glass;
     /// UTA-0275: the texture's DetailTexture, `<id>:detail`; empty otherwise.
     std::optional<ubundle::CompressedTexture> detail;
+    /// UTA-0277 SS 4.2: the picture's scores and SS 4.5's hash. Empty, and the
+    /// hash all zero, where step 1 excludes the material whatever its picture.
+    std::optional<TileScores> tileScores;
+    std::array<std::byte, 32> tileHash{};
 };
 
 /// UTA-0270: an Ice texture's GlassTexture as a one-level BC4 picture of each
@@ -755,9 +759,20 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     if (liquid.has_value() && liquid->kind == ubundle::LiquidKind::Ice)
         glass = glassOf(holder, *properties, resolver, id, base.width, base.height, jobs);
     std::optional<ubundle::CompressedTexture> detail = detailOf(holder, *properties, resolver, id, jobs);
+    // UTA-0277 SS 4.2 step 1: a liquid, flame or fire carries its own look, and
+    // a masked variant's holes would move. Judged on the picture as resolved,
+    // before any stretch or upscale.
+    std::optional<TileScores> tileScores;
+    std::array<std::byte, 32> tileHash{};
+    const bool fireClass = storesNoPixels && foldedClass == "firetexture";
+    if (!masked && !flame.has_value() && !liquidKindOf(foldedClass).has_value() && !fireClass) {
+        tileScores = ubake::tileScores(*resolved);
+        tileHash = pictureHash(*resolved);
+    }
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
                        meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), std::move(fire),
-                       std::move(fireSkipped), emission, std::move(glass), std::move(detail)};
+                       std::move(fireSkipped), emission, std::move(glass), std::move(detail), tileScores,
+                       tileHash};
 }
 
 struct Materials {
@@ -783,6 +798,9 @@ struct Materials {
     std::map<std::string, Rgb, std::less<>> emission;
     /// Each made material's index in `records`, by id -- what FLAM names.
     std::map<std::string, std::uint32_t, std::less<>> recordIndex;
+    /// UTA-0277 SS 4.2: each material's scores, by id; none where step 1
+    /// excludes it.
+    std::map<std::string, TileScores, std::less<>> tileScores;
 };
 
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
@@ -897,7 +915,9 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             out.recordIndex.emplace(id, static_cast<std::uint32_t>(out.records.size()));
             out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
                                                           variant.masked ? std::uint8_t{0} : made->material.parallaxDepth,
-                                                          made->flame, made->liquid, std::move(made->fire)});
+                                                          made->flame, made->liquid, std::move(made->fire),
+                                                          ubundle::TileKind::Fixed, made->tileHash});
+            if (made->tileScores.has_value()) out.tileScores.emplace(id, *made->tileScores);
             if (!made->liquidSkipped.empty())
                 out.skippedLiquids.push_back(SkippedTexture{id, std::move(made->liquidSkipped)});
             if (!made->fireSkipped.empty())
@@ -914,6 +934,36 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         }
     }
     return out;
+}
+
+/// UTA-0277 SS 4.2 and SS 4.5: each material's tile kind, once the level's
+/// surfaces are known, and the questions for the Unsure ones. A material no
+/// surface spans two repeats of is excluded (step 1), so its hash is cleared
+/// and no answer can move it.
+std::vector<TileQuestion> judgeTileKinds(Materials& materials,
+                                         const std::map<std::string, TileSurfaces, std::less<>>& surfaces,
+                                         const TileLimits& limits) {
+    std::vector<TileQuestion> questions;
+    for (ubundle::MaterialRecord& record : materials.records) {
+        const auto scores = materials.tileScores.find(record.id);
+        const auto found = surfaces.find(record.id);
+        if (scores == materials.tileScores.end() || found == surfaces.end() || !found->second.spansTwo) {
+            record.tileKind = ubundle::TileKind::Fixed;
+            record.tileHash = {};
+            continue;
+        }
+        record.tileKind = judgeTile(scores->second, limits);
+        if (record.tileKind != ubundle::TileKind::Unsure) continue;
+        const TileSurfaces& where = found->second;
+        questions.push_back(TileQuestion{record.id, detail::hex(record.tileHash), scores->second.lines,
+                                         scores->second.spots, where.surfaces, where.at, where.normal,
+                                         where.extent});
+    }
+    // Most surfaces first; the id breaks a tie, so the order is the bake's own.
+    std::ranges::stable_sort(questions, [](const TileQuestion& a, const TileQuestion& b) {
+        return a.surfaces > b.surfaces;
+    });
+    return questions;
 }
 
 // ------------------------------------------------------------------ SS 4.7
@@ -995,7 +1045,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                         const upkg::PackageResolver& resolver, JobSystem& jobs,
                         const CuratedLookup& curated, std::uint64_t budgetBytes,
                         TextureCache* textureCache, const FlameLookup& isFlame,
-                        const urecipe::Recipe* recipe) {
+                        const urecipe::Recipe* recipe, const TileLimits& tileLimits) {
     // UTA-0129: each step below is a phase, in the order docs/specs/
     // UTA-0129-benchmark-tool.md SS 4.2 lists. No phase is opened inside a job.
     PhaseTimes times;
@@ -1074,6 +1124,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     FlameSheets flames = findFlameSheets(model, flameMaterial);
     UTA_TRY(ubundle::Geometry geometry,
             naming(buildGeometry(model, lookup, zones.size(), flames.surfaces), mapName));
+    std::vector<TileQuestion> tileQuestions = judgeTileKinds(materials, tileSurfaces(model, lookup), tileLimits);
 
     // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
     // probes gather them, so the probes and LITE see the same strips. After
@@ -1160,6 +1211,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.skippedLiquids = std::move(materials.skippedLiquids);
     result.skippedFires = std::move(materials.skippedFires);
     result.recipeUnused = std::move(materials.recipeUnused);
+    result.tileQuestions = std::move(tileQuestions);
 
     // Every section is written, and empty where the level has none, so a
     // present but empty section says the level was examined (UTA-0008 SS 4.4).

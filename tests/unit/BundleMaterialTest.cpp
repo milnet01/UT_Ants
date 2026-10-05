@@ -58,7 +58,16 @@ struct RecordSpec {
     std::uint8_t fireByte = 0;        ///< UTA-0286 SS 4.2; a byte, so 2 can be stated
     std::optional<FireLook> fire;     ///< written after fireByte when present
     std::uint8_t tileKindByte = 0;    ///< UTA-0277 SS 4.1; a byte, so 3 can be stated
+    std::uint8_t tileHashFirst = 0;   ///< UTA-0277 SS 4.5: the hash is this, this + 1, ..., or all zero
 };
+
+/// A hash whose 32 bytes all differ, starting at `first`; all zero for 0.
+std::array<std::byte, 32> hashFrom(std::uint8_t first) {
+    std::array<std::byte, 32> out{};
+    if (first != 0)
+        for (std::size_t i = 0; i < out.size(); ++i) out[i] = static_cast<std::byte>(first + i);
+    return out;
+}
 
 /// A look whose every field differs from its neighbour's and from the
 /// defaults, so a reader that swapped two fields disagrees somewhere.
@@ -139,7 +148,7 @@ FlameLook rampFrom(float first) {
 /// A MATS payload: SS 4.2's vector<MaterialRecord>, in SS 4.10's field order,
 /// with UTA-0040 SS 4.1's depth byte after `metallic`, then UTA-0263 SS 4.2's
 /// flame byte and, where it is 1, the ramp's 24 floats; the liquid and fire
-/// looks; and last UTA-0277 SS 4.1's tile kind byte.
+/// looks; and last UTA-0277 SS 4.1's tile kind byte and SS 4.5's picture hash.
 Bytes matsPayload(const std::vector<RecordSpec>& records) {
     Bytes out;
     out.u32(static_cast<std::uint32_t>(records.size()));
@@ -156,6 +165,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
         out.u8(record.fireByte);
         if (record.fire) putFire(out, *record.fire);
         out.u8(record.tileKindByte);
+        for (const std::byte byte : hashFrom(record.tileHashFirst)) out.u8(std::to_integer<std::uint8_t>(byte));
     }
     return out;
 }
@@ -188,19 +198,20 @@ std::vector<std::byte> fileWith(const Bytes& payload) {
 /// middle one is a flame, so a look read into its neighbour disagrees too. The
 /// first and third are liquids of different kinds (UTA-0105), for the same reason,
 /// and the last carries a fire look (UTA-0286). Three tile kinds, all different
-/// from their neighbours' (UTA-0277).
+/// from their neighbours', and hashes all different, one all zero (UTA-0277).
 const std::vector<RecordSpec> GOLDEN = {
-    {"dm-fixture.base.wall", 0, 4, 0, std::nullopt, 1, liquidOf(LiquidKind::Wet, 10), 0, std::nullopt, 2},
+    {"dm-fixture.base.wall", 0, 4, 0, std::nullopt, 1, liquidOf(LiquidKind::Wet, 10), 0, std::nullopt, 2, 7},
     {"dm-fixture.base.wall#masked", 1, 0, 1, rampFrom(0.5f)},
-    {"texpkg.floor", 0, 255, 0, std::nullopt, 3, liquidOf(LiquidKind::Wave, 40), 0, std::nullopt, 1},
-    {"texpkg.spray", 0, 7, 0, std::nullopt, 0, std::nullopt, 1, fireOf(9), 2},
+    {"texpkg.floor", 0, 255, 0, std::nullopt, 3, liquidOf(LiquidKind::Wave, 40), 0, std::nullopt, 1, 100},
+    {"texpkg.spray", 0, 7, 0, std::nullopt, 0, std::nullopt, 1, fireOf(9), 2, 200},
 };
 
 std::vector<MaterialRecord> recordsOf(const std::vector<RecordSpec>& specs) {
     std::vector<MaterialRecord> out;
     for (const RecordSpec& spec : specs)
         out.push_back(MaterialRecord{spec.id, spec.metallic == 1, spec.parallaxDepth, spec.flame, spec.liquid,
-                                     spec.fire, static_cast<TileKind>(spec.tileKindByte)});
+                                     spec.fire, static_cast<TileKind>(spec.tileKindByte),
+                                     hashFrom(spec.tileHashFirst)});
     return out;
 }
 
@@ -248,6 +259,10 @@ TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][
     CHECK(materials[1].tileKind == TileKind::Fixed);
     CHECK(materials[2].tileKind == TileKind::Shuffle);
     CHECK(materials[3].tileKind == TileKind::Unsure);
+    CHECK(materials[0].tileHash == hashFrom(7));
+    CHECK(materials[1].tileHash == hashFrom(0));
+    CHECK(materials[2].tileHash == hashFrom(100));
+    CHECK(materials[3].tileHash == hashFrom(200));
 }
 
 TEST_CASE("write emits the MATS golden bytes", "[ubundle][mats]") {
@@ -282,6 +297,7 @@ TEST_CASE("MATS round-trips through write and read", "[ubundle][mats]") {
             CHECK((*back->materials)[i].liquid == specs[i].liquid);
             CHECK((*back->materials)[i].fire == specs[i].fire);
             CHECK((*back->materials)[i].tileKind == static_cast<TileKind>(specs[i].tileKindByte));
+            CHECK((*back->materials)[i].tileHash == hashFrom(specs[i].tileHashFirst));
         }
     }
 }
@@ -308,17 +324,18 @@ TEST_CASE("write refuses MATS records out of order", "[ubundle][mats]") {
 
 TEST_CASE("a MATS count the section cannot hold is refused before an element is read",
           "[ubundle][mats]") {
-    // UTA-0277 SS 4.1's minimum element is 10 bytes. This payload declares two
-    // records and holds one whole record and nine bytes more: 19 / 10 is one,
-    // so the count is refused up front. A minimum of 9, the size before the
-    // tile kind byte, would admit the count and fail later on a short read
-    // instead -- a different refusal, which is what this case tells apart.
+    // UTA-0277's minimum element is 42 bytes: the tile kind and its hash. This
+    // payload declares two records and holds one whole record and 41 bytes
+    // more: 83 / 42 is one, so the count is refused up front. A minimum of 10,
+    // the size before the hash, would admit the count and fail later on a
+    // short read instead -- a different refusal, which is what this case
+    // tells apart.
     Bytes payload;
     payload.u32(2);
     payload.str("");
-    for (int i = 0; i < 6; ++i) payload.u8(0);
+    for (int i = 0; i < 38; ++i) payload.u8(0);
     payload.u32(0);
-    for (int i = 0; i < 5; ++i) payload.u8(0);
+    for (int i = 0; i < 37; ++i) payload.u8(0);
     refused(fileWith(payload), "exceeds the bytes remaining");
 }
 

@@ -23,7 +23,8 @@ add_library(uta_ubake STATIC
     Flames.cpp
     Liquids.cpp
     GameTypes.cpp
-    TextureCache.cpp)
+    TextureCache.cpp
+    TileKind.cpp)
 target_link_libraries(uta_ubake PUBLIC uta_core uta_upkg uta_umat uta_unav_build uta_umap_build
                                        uta_ubundle uta_uworld uta_urecipe uta_ufire)
 

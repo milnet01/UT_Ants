@@ -47,6 +47,7 @@ Bytes matsPayload() {
     out.u8(0); // liquid: none -- UTA-0105 SS 4.2
     out.u8(0); // fire: none -- UTA-0286 SS 4.2
     out.u8(0); // tile kind: Fixed -- UTA-0277 SS 4.1
+    for (int i = 0; i < 32; ++i) out.u8(0); // its picture hash: none -- SS 4.5
     out.str("b");
     out.u8(0);
     out.u8(0);
@@ -55,6 +56,7 @@ Bytes matsPayload() {
     out.u8(0); // liquid: none
     out.u8(0); // fire: none
     out.u8(0); // tile kind: Fixed
+    for (int i = 0; i < 32; ++i) out.u8(0); // its picture hash: none
     return out;
 }
 

@@ -24,7 +24,8 @@ add_library(uta_ubundle STATIC
     LightProbeSection.cpp
     ZoneSection.cpp
     FlameSection.cpp
-    OcclusionSection.cpp)
+    OcclusionSection.cpp
+    TileAnswers.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)
 
 # INV-10, asserted at configure time in the form src/umap/CMakeLists.txt uses
