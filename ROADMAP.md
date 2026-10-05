@@ -15194,7 +15194,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02 measured by UT_MonsterHunt.
   Lanes: ubake.
 
-- 🚧 [UTA-0277] **urender: per-tile variation for natural textures, so repeats of rock, dirt and grass stop lining up.**
+- ✅ [UTA-0277] **urender: per-tile variation for natural textures, so repeats of rock, dirt and grass stop lining up.**
   Split from UTA-0180, 2026-10-02. UTA-0180 shipped its cheaper half,
   large-scale variation, which moves no picture and so is safe on every
   surface. This is the other half its body names: each repeat of a
@@ -15232,6 +15232,10 @@ stays with movement in 0.2.0.
   lavapipe and the GPU; mutation-probe tilekind 10 of 10 killed, three
   shader mutations killed by hand. Waits on GitHub's matrix to flip. The
   user has not been asked any texture yet: tile-questions.py is ready.
+  Shipped 2026-10-05: GitHub run 37341045119 at c4ad9ec, green on GCC 14,
+  Clang 19 and MSVC; the local gate ran all three legs too. Rebake maps
+  to see it (baker revision 40). DM-Deck16]['s four Unsure textures are
+  ready to show the user with scripts/tile-questions.py.
   **Layman:** Rock, dirt and grass surfaces stop showing the same patch over and over, while panels and signs stay exactly where the mapper put them.
   Kind: enhancement.
   Source: in-session-2026-10-02 split-from-UTA-0180.
