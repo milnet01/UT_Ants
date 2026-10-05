@@ -15319,6 +15319,31 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-05.
   Lanes: umat, ubake, render.
 
+- 📋 [UTA-0288] **urender: small black rectangles hang in AS-Overlord's sky.**
+  From the user's F12 captures AS-Overlord-20261005-123404 to -123437
+  (commit bed3da7), flying up the beach channel facing the bunker. In the
+  last two, small black rectangles sit in the sky at left, centre and
+  right.
+
+  Still there on 28399d3: ut-shot --from-capture of -123437 draws them in
+  the same places, so UTA-0285's far-plane change did not cover them.
+
+  Lead, unverified: they hold the same screen positions in -123429 and
+  -123437, 600 units apart, so they behave as if infinitely far -- the
+  skybox room, not the level. UTA-0252 (AS-Frigate's skybox room drawn
+  as a dark box) is the nearest precedent. AS-Overlord's masked or
+  translucent BSP surfaces are only DavWire1, shore20, Glassf and moon-5,
+  so the specks are probably not a cutout drawn without its mask. First
+  step: strip the skybox zone in a ut-shot probe and see whether they go.
+
+  Also seen in the same captures and already tracked: the sea drawn as an
+  opaque floor (UTA-0273, UTA-0279).
+  **Layman:** A few small black shapes float in the sky above AS-Overlord's beach, which the original does not show.
+  Kind: fix.
+  Source: user-request-2026-10-05.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123437/frame.png, ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123429/frame.png
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -16848,6 +16873,8 @@ to.
   Parked (user, 2026-09-29): no library map has a damaged actor, so it
   waits for content download (UTA-0030, 0.4.0), when maps from elsewhere
   can bring one. Moved out of 0.1.0 for that reason.
+  Parking reconfirmed by the user on 2026-10-05, when their priority list
+  took in backlogged findings: it stays parked until UTA-0030.
   **Layman:** A single damaged object in a map still stops the whole map from being prepared; decide whether to leave it out and carry on.
   Kind: fix.
   Source: review-code-2026-09-26 split-from-UTA-0244.
