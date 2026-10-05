@@ -15108,10 +15108,13 @@ stays with movement in 0.2.0.
   three times too strong -- the "darks too bright" shape. A saturating
   (1 - e^(-a V/255)) / (1 - e^(-a)) with a = 1.72 fits Light14 within
   0.02; the flattening differs per lamp, so it is the light total
-  saturating, not the brightness curve. The 2026-10-05 tests swapped
-  sqrt for squared, which is too steep; linear was not tried. Next: a
-  linear brightness with saturation of the summed light, re-baked and
-  scored on DM-Fetid. Lamps add within 5-9% (UT_MonsterHunt's item 4).
+  saturating, not the brightness curve. Correction, same day: FGetHSV squared
+  IS about linear, and the four variants above tried it (power 1.6 and 2.2)
+  with no gain -- poses 3 and 4 too dark while 1, 2 and 7 stay too bright. So
+  the sweep confirms that variant's SHAPE (plus saturation near the top) but
+  not a fix: the excess is per surface or per lamp, as noted above. Next is
+  unchanged: pose-0's method on poses 1, 2 and 7. Lamps add within 5-9%
+  (UT_MonsterHunt's item 4).
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
