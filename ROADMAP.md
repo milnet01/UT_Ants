@@ -15112,8 +15112,12 @@ stays with movement in 0.2.0.
   IS about linear, and the four variants above tried it (power 1.6 and 2.2)
   with no gain -- poses 3 and 4 too dark while 1, 2 and 7 stay too bright. So
   the sweep confirms that variant's SHAPE (plus saturation near the top) but
-  not a fix: the excess is per surface or per lamp, as noted above. Next is
-  unchanged: pose-0's method on poses 1, 2 and 7. Lamps add within 5-9%
+  not a fix: the excess is per surface or per lamp, as noted above. That "Next"
+  was already done by the 2026-10-05 narrowing above (poses 1-6 within about 3
+  levels with the gun masked; pose 7's excess is the inxb5 overhang underside).
+  Next: pose 7 in the original with e55 (Light11) and e61 (Light10), both b 128
+  r 16, at 0 -- asked of UT_MonsterHunt 2026-10-05. Unchanged means UT99 does
+  not light that underside at all. Lamps add within 5-9%
   (UT_MonsterHunt's item 4).
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
