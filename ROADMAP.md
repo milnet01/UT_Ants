@@ -5927,7 +5927,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-10 split-from-UTA-0011.
   Lanes: ubake, ubundle, urender.
 
-- 🚧 [UTA-0113] **urecipe: the recipe format, read and write.**
+- ✅ [UTA-0113] **urecipe: the recipe format, read and write.**
   Split out of UTA-0011 by the user on 2026-09-10. Until this
   lands, the baker bakes every map with no recipe.
   docs/design.md § The parts gives urecipe its fields, and ADR-0003 makes
@@ -5951,6 +5951,8 @@ stays with movement in 0.2.0.
   SS 14's questions. A recipe is the .ini shape; its order is the command
   line, then the player's folder, then the shipped ones; version 1 has no
   haze. The spec stands as written and is ready to build.
+  Resolved (2026-10-05): GitHub run 37311693757 on 28399d3 green on GCC
+  14, Clang 19 and MSVC.
   **Layman:** The small file of our own changes to somebody else's map -- materials, fog, a friendly name -- which is what players share instead of the map itself.
   Kind: implement.
   Source: user-request-2026-09-10 split-from-UTA-0011.
