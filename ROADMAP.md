@@ -17375,6 +17375,17 @@ to.
   two plain ones) to tell "not drawn" from drawn. Candidate cause if not
   drawn: 601's lightmap or cache entry and what the cache holds. Files:
   ~/.cache/uta-scratch/u283/boat-surfaces.json, adesert-props.txt.
+  GAME-0187 (2026-10-05, parity test): buffer age confirmed. With two
+  magenta frames, surf 601 is NEVER drawn at the user's spot facing yaw 0,
+  whatever the prior pose; 380,802 px undrawn every time. At pitch -15000
+  NOTHING is drawn (786,432 px). Every earlier "depends on history"
+  result, ours and theirs since 10-03, was buffer age; the yaw-0 reference
+  frame was itself stale. So the 10-03 sliver-plane test is reopened:
+  Brush172's slivers (nodes 1796, 1797, 1893, 1913) share one plane, normal
+  (-0.77, 0, -0.63), with the eye 1.203 units in front; it is not on the
+  eye's own descent path. Grid sent: offsets ACROSS the plane (d along n,
+  -3 to +16) against offsets ALONG it (y, +-1 to +-16) as the control.
+  Data: ~/.cache/uta-scratch/u283/near-user-spot.txt (bsp-point --near).
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
