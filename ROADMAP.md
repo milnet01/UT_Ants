@@ -15321,7 +15321,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-05.
   Lanes: umat, ubake, render.
 
-- 📋 [UTA-0288] **urender: small black rectangles hang in AS-Overlord's sky.**
+- ✅ [UTA-0288] **urender: small black rectangles hang in AS-Overlord's sky.**
   From the user's F12 captures AS-Overlord-20261005-123404 to -123437
   (commit bed3da7), flying up the beach channel facing the bunker. In the
   last two, small black rectangles sit in the sky at left, centre and
@@ -15352,6 +15352,8 @@ stays with movement in 0.2.0.
   NaN). Test: UTA-0288 case in tests/device/RenderLightParityTest.cpp,
   red on lavapipe and the GPU before the fix. ubake::falloff is the
   same formula in double and is left as it is. Flip on GitHub's matrix.
+  Resolved (2026-10-05): GitHub run 37314412593 on 11373ae green on GCC
+  14, Clang 19 and MSVC.
   **Layman:** A few small black shapes float in the sky above AS-Overlord's beach, which the original does not show.
   Kind: fix.
   Source: user-request-2026-10-05.
