@@ -15096,8 +15096,10 @@ stays with movement in 0.2.0.
   the original's on every pose (e.g. pose 5: 31.3 against 51.3), so on
   DM-Fetid ours is too dark overall, not too bright in the darks.
   Brightness sweep (2026-10-05, UT_MonsterHunt work/uta0269/
-  fetid0274-sweep/, Mesa 26.2.4; do not mix with the 10-03 frames, see
-  its fetid0274-redo/). A lamp's added display bytes, over its add at
+  fetid0274-sweep/, Mesa 26.2.4 and FOV 121.28 -- not 90, a rig User.ini left
+  over from 10-03 -- so its pixels match neither the 10-03 frames nor a FOV-90
+  render; its fetid0274-redo/ shares both. The ratios below are within one run,
+  so FOV does not move them). A lamp's added display bytes, over its add at
   255, per-pixel median (text box and gun area masked, saturated pixels
   dropped, ~1.4M pixels): Light14 at 8/16/32/48/64/96/128/192 gives
   0.058/0.116/0.221/0.317/0.406/0.567/0.703/0.901; Light91 at
@@ -15182,6 +15184,17 @@ stays with movement in 0.2.0.
   "floor" 4.5%, "rock" 2.3%, "ground" 1.3%. So the rule likely reads the
   picture: how noise-like it is, or how well it tiles at its wrap.
   Cost is measured per tier, as UTA-0180's was.
+  Spec accepted (2026-10-05), unreviewed (gate cancelled):
+  docs/specs/UTA-0277-per-tile-variation.md. The bake judges each
+  material from its picture -- a "lines" score (whole-width bands) and a
+  "spots" score (repeating features) -- into Shuffle, Fixed or Unsure,
+  stored in MATS (format 22, baker 40). Unsure draws unchanged and is
+  listed in the bake report with a texture view and a map view for the
+  user, whose answers live in <data>/tile-kinds.txt keyed by the
+  picture's content hash (user, 2026-10-05: "leave it alone for now but
+  we must find a way for you to ask me what it is"). Prototype figures
+  in ~/.cache/uta-scratch/u277/ (tex-dump, score.py, lines.tsv). Next:
+  build it with write-code.
   **Layman:** Rock, dirt and grass surfaces stop showing the same patch over and over, while panels and signs stay exactly where the mapper put them.
   Kind: enhancement.
   Source: in-session-2026-10-02 split-from-UTA-0180.
