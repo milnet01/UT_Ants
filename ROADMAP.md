@@ -15293,6 +15293,32 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-090952, ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-091053
 
+- 📋 [UTA-0286] **urender: fire textures' sparks and spray stand frozen in the air; CTF-Beatitude's blue fire basins show it.**
+  The user's F12 capture CTF-Beatitude-20261005-121904 (commit bed3da7)
+  looks at the two blue fire basins under the three blue N emblems. Blue
+  spray and spark shapes stand frozen above and around both basins.
+
+  Surfaces near that camera carry GreatFire.ancflame2, a flame on
+  UTA-0263's list, and GreatFire2.offred, labelled `other` in
+  tests/real/flame-labels.txt; both are masked, translucent and unlit.
+  Which of the two draws the frozen shapes is unconfirmed: settle it
+  first with a ut-shot probe that strips one texture at a time.
+
+  Nothing owns this today. UTA-0263 § 9 points non-flame FireTextures
+  moving (shields, lightning) at UTA-0105, but UTA-0105 was narrowed to
+  liquids on 2026-10-01 and shipped. The same § 9 leaves sparks, embers
+  and smoke above a flame deferred and not yet queued. This item takes
+  both, in the shader-flame spirit the user chose (replace, not replay).
+
+  Placed in 0.1.0 because the user made moving fire a 0.1.0 requirement
+  on 2026-09-26 (UTA-0105's body). The N emblems (Anc2_blue) carry no
+  pan or effect flags and are not part of this item unless the original
+  shows them moving.
+  **Layman:** The blue sparks rising from fire basins hang still in mid-air instead of drifting up and fading as they do in the original.
+  Kind: feature.
+  Source: user-request-2026-10-05.
+  Lanes: umat, ubake, render.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
