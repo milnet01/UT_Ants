@@ -17416,6 +17416,13 @@ to.
   the top of the view. Asked: flag those surfs PF_Invisible in a copy and
   re-shoot yaw 0 and pitch -15000. Scratch: bsp-point --wedge,
   ~/.cache/uta-scratch/u283/wedge.txt.
+  GAME-0187 (2026-10-05): PF_Invisible on surfs 449-455 (copy -F, offsets
+  from bsp-point --surfoff, which re-encodes the whole Surfs table and
+  finds it once in the file) does not bring 601 back. Sent a cleaner test
+  of the angle match: predicted switching yaws at two other eye points in
+  leaf 3445, (-1506,-1087): 333.8 .. 122.5 deg and (-2506,-1400): 328.6 ..
+  113.9 deg. If the edges move as predicted, the strips stay implicated;
+  if not, the match was a coincidence.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
