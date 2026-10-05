@@ -17406,6 +17406,16 @@ to.
   position or history in it. Sent: break a good bound (1448's 660) to
   learn whether stored bounds are read, and a fine yaw sweep to pin the
   switching angle.
+  GAME-0187 (2026-10-05, yaw edges): stored bounds ARE read (breaking
+  1448's bound 660 drops the floor at yaw 180). 601 is dropped at pitch 0
+  for yaws 324.3-111.0 deg, i.e. whenever a horizontal direction between
+  24.9 and 50.4 deg from the eye is inside the view's side planes. Only
+  seven polygons span exactly that wedge (within 0.6 deg at both ends):
+  Brush20 surfs 449-455 (nodes 3621, 3644, 3648, 3666, 3765, 3770, 3773),
+  thin strips at z -16173..-16051, about 8,500 UU above the eye and above
+  the top of the view. Asked: flag those surfs PF_Invisible in a copy and
+  re-shoot yaw 0 and pitch -15000. Scratch: bsp-point --wedge,
+  ~/.cache/uta-scratch/u283/wedge.txt.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
