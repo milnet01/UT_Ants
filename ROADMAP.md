@@ -17395,6 +17395,44 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: user-request-2026-09-14.
   Lanes: urender.
 
+- 📋 [UTA-0289] **Test-session logs: every play session leaves a log and a performance record a developer can find bugs and slowdowns from.**
+  The user, 2026-10-05: when development nears its final stages and they
+  start testing the game, it must produce logs that help find bugs to fix,
+  performance issues included. Build it before that testing starts; the
+  user is the tester, so the files must explain a problem without them
+  having to describe it.
+
+  What exists today: core's logger and its file sink (src/core/Log.h), the
+  F12 capture folder that names the map, bundle, build commit and settings
+  (UTA-0191), and ut-bench frame's offline median and 99th percentile
+  (UTA-0129). Missing: a log file per play session, any timing from a real
+  session, and a crash handler.
+
+  Methods to copy, from a survey of the sister projects on 2026-10-05:
+  - Vestige: one timestamped log file per run, flushed on every warning
+    and error so it survives a crash (engine/core/logger.cpp); a 1 Hz CSV
+    of frame, GPU-pass, CPU-scope and memory averages, off unless asked
+    (profile_log.cpp, `time_s,category,name,depth,ms,fps`); GPU timestamps
+    read two frames late so they never stall; tools/fps_floor.py, which
+    checks every sample against the floor because an average hides
+    hitches; tools/perf_gate.py, which drops warm-up, takes the median,
+    warns at 10 % and fails at 25 % with absolute floors, and has a
+    separate exit code for an inconclusive run.
+  - DOOM_Ants: an on-screen avg/low FPS showing the slowest frame in each
+    half second; DOOM-0431's sidecar recording the scene, tier asked and
+    drawn, render scale and settings beside the numbers.
+  Neither has a crash handler, percentiles from a live session, automatic
+  capture of a hitch, or the build commit in its logs; this item adds all
+  four. On a hitch, write the frame's per-pass timings and the camera, as
+  F12 does, so the slow spot can be revisited with ut-bench.
+
+  Placed in 1.0.0 because the user ties it to their testing phase near
+  the end; it must land before that phase begins, not at its end.
+  **Layman:** When you start testing the game for real, each session writes down what happened and how fast it ran, so problems can be found and fixed from the files alone.
+  Kind: feature.
+  Source: user-request-2026-10-05.
+  Lanes: core, ut-ants, urender, ut-bench.
+
 ## After 1.0.0
 
 Work the user wants once 1.0.0 has replaced the live server, not before it.
