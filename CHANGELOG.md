@@ -647,6 +647,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Small black specks no longer appear in the sky and on surfaces at the edge of a light's reach** (UTA-0288)
+  A light's fade-out could round to a hair below zero just inside its
+  reach, and the renderer turned that into broken black pixels.
+  AS-Overlord's sky showed it most.
+
 - **Skies no longer look like embossed plaster** (UTA-0281)
   The sky is now captured flat, with no generated bumps or depth, as
   UT99 paints it; its lighting is unchanged. Seen on AS-Frigate.

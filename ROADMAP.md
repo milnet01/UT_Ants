@@ -15340,6 +15340,18 @@ stays with movement in 0.2.0.
 
   Also seen in the same captures and already tracked: the sea drawn as an
   opaque floor (UTA-0273, UTA-0279).
+  Progress (2026-10-05): root-caused; the skybox lead was wrong. The
+  specks are NaN pixels, which move with render size. lightFalloff's
+  1 + 2v^3 - 3v^2 rounds a few 1e-8 below zero just inside a light's
+  radius in float; where the zone has no ambient, scene.frag's pow of
+  the negative direct sum gives NaN. About a dozen source pixels became
+  some 280 NaN pixels in small blocks; what spreads them is unconfirmed
+  (temporal smoothing is the guess). Fixed by clamping lightFalloff at
+  zero. The
+  re-rendered capture -123437 went from 2848 black pixels to 1 (not
+  NaN). Test: UTA-0288 case in tests/device/RenderLightParityTest.cpp,
+  red on lavapipe and the GPU before the fix. ubake::falloff is the
+  same formula in double and is left as it is. Flip on GitHub's matrix.
   **Layman:** A few small black shapes float in the sky above AS-Overlord's beach, which the original does not show.
   Kind: fix.
   Source: user-request-2026-10-05.

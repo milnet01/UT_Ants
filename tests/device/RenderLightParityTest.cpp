@@ -208,3 +208,74 @@ TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", 
     }
     CHECK(atTheLight >= 4);
 }
+
+// UTA-0288: UT99's falloff is exactly 0 at a light's radius, but in float
+// 1 + 2v^3 - 3v^2 can round to a few 1e-8 below it just inside. The shading
+// pass raises the summed light to a power, and a negative base gave NaN pixels
+// -- black specks on AS-Overlord. No light may put negative light anywhere.
+TEST_CASE("UTA-0288: no light is negative just inside its radius", "[device]") {
+    uta::test::render::removeDisplay();
+
+    // Far from the origin, as a map's lights are, so the point's coordinates
+    // round the way a real surface's do.
+    const std::array<float, 3> at = {444.84f, 4536.89f, -1053.56f};
+    uta::ubundle::Bundle bundle;
+    bundle.lights.emplace();
+    std::vector<LightCase> cases;
+    std::size_t nearEdge = 0;
+    for (std::uint32_t radius = 0; radius < 256; ++radius) {
+        Light light;
+        light.exportIndex = radius;
+        light.type = 1;
+        light.brightness = 255;
+        light.saturation = 255;
+        light.radius = static_cast<std::uint8_t>(radius);
+        light.location = at;
+        bundle.lights->push_back(light);
+    }
+    const std::vector<gpu::Light> uploaded = uta::urender::drawnLights(bundle, 0.0);
+    REQUIRE(uploaded.size() == 256);
+    for (std::uint32_t radius = 0; radius < 256; ++radius) {
+        const double reach = uta::ubake::lightRadius(static_cast<std::uint8_t>(radius));
+        for (std::uint32_t direction = 0; direction < 8; ++direction) {
+            const std::array<float, 3> away = normalised(std::cos(direction * 0.9), std::sin(direction * 0.9),
+                                                         std::sin(direction * 1.7) * 0.5);
+            // Stepping in from the radius a float ulp at a time.
+            float distance = static_cast<float>(reach);
+            for (std::uint32_t step = 0; step < 32; ++step) {
+                distance = std::nextafter(distance, 0.0f);
+                const std::array<float, 3> x = {static_cast<float>(at[0] + away[0] * double(distance)),
+                                                static_cast<float>(at[1] + away[1] * double(distance)),
+                                                static_cast<float>(at[2] + away[2] * double(distance))};
+                const double dx = double(x[0]) - at[0], dy = double(x[1]) - at[1], dz = double(x[2]) - at[2];
+                const double d = std::sqrt(dx * dx + dy * dy + dz * dz);
+                if (d < reach && d > 0.999 * reach) ++nearEdge;
+                // Facing the light, so the incidence is 1 and only the falloff
+                // decides the sign.
+                cases.push_back({uploaded[radius], {x[0], x[1], x[2], 1}, {-away[0], -away[1], -away[2], 0}});
+            }
+        }
+    }
+
+    const std::vector<std::byte> output = uta::test::render::runCompute(
+        light_parity_comp_spv, {std::as_bytes(std::span(cases))}, cases.size() * 4 * sizeof(float),
+        static_cast<std::uint32_t>(cases.size()));
+
+    std::size_t negative = 0;
+    std::size_t first = cases.size();
+    std::array<float, 4> worst{};
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        std::array<float, 4> actual{};
+        std::memcpy(actual.data(), output.data() + i * sizeof(actual), sizeof(actual));
+        if (actual[0] >= 0 && actual[1] >= 0 && actual[2] >= 0) continue;
+        ++negative;
+        if (first == cases.size()) {
+            first = i;
+            worst = actual;
+        }
+    }
+    CAPTURE(cases.size(), first, worst[0], worst[1], worst[2]);
+    CHECK(negative == 0);
+    // The sweep is not vacuous: most of its points sit just inside a radius.
+    CHECK(nearEdge >= cases.size() / 2);
+}

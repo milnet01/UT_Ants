@@ -47,11 +47,13 @@ float lightRadius(uint radius) {
 }
 
 // UT99's own falloff -- UTA-0187: 1 + 2v^3 - 3v^2, as ubake::falloff says.
+// UTA-0288: in float it rounds a few 1e-8 below zero just inside the radius,
+// and the shading pass's power turned that into NaN pixels; so it is clamped.
 float lightFalloff(float distance, float radius) {
     if (distance >= radius) return 0.0;
     if (distance <= 0.0) return 1.0;
     float v = distance / radius;
-    return 1.0 + 2.0 * v * v * v - 3.0 * v * v;
+    return max(0.0, 1.0 + 2.0 * v * v * v - 3.0 * v * v);
 }
 
 // UTA-0156: the share of an LE_Cylinder light's reach over which it fades to
