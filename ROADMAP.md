@@ -15316,6 +15316,17 @@ stays with movement in 0.2.0.
   on 2026-09-26 (UTA-0105's body). The N emblems (Anc2_blue) carry no
   pan or effect flags and are not part of this item unless the original
   shows them moving.
+  Progress (2026-10-05): GreatFire2.offred draws every frozen shape. A
+  throwaway ut-shot probe on the capture dropped one material at a
+  time: without offred's geometry batches (two, 569 triangles near the
+  basins) the spray and sparks are gone; without the ancflame2 flame
+  sprites the view is unchanged. tests/real/flame-labels.txt calls
+  offred blue sphere lightning, and FireStill.h says SphereLightning
+  is not modelled: the still heats a scattered point per frame
+  instead, because its angles need sine and cosine, which the numeric
+  contract keeps out of the baker. So the frozen shapes are that
+  still. A fix moves the effect at draw time, where the renderer may
+  use sine and cosine; the baker's still stays as it is.
   **Layman:** The blue sparks rising from fire basins hang still in mid-air instead of drifting up and fading as they do in the original.
   Kind: feature.
   Source: user-request-2026-10-05.
