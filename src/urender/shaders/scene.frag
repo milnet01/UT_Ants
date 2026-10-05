@@ -45,6 +45,8 @@ layout(constant_id = 2) const bool WATER_LOOK = false;
 layout(constant_id = 3) const bool TILE_VARIATION = false;
 // UTA-0215: Feature::Caustics, from Medium.
 layout(constant_id = 4) const bool CAUSTICS = false;
+// UTA-0277 SS 4.4: Feature::TileShuffle. Off, a Shuffle material draws as Fixed.
+layout(constant_id = 5) const bool SHUFFLE_TILES = false;
 // UTA-0040 SS 4.5 step 4: parallax fades out over the mip level above this.
 const float PARALLAX_FADE_MIP = 4.0;
 
@@ -85,11 +87,29 @@ vec3 perturbed(vec3 n, TextureAxes axes, vec3 tangentNormal) {
     return normalize(axes.u * tangentNormal.x - axes.v * tangentNormal.y + n * tangentNormal.z);
 }
 
+// The depth below the surface at `at`, white being high. UTA-0277 SS 4.4: a
+// shuffled material's height is its two copies' blend, so the march finds the
+// depth of the picture drawn there. The blend is the noise's alone: the
+// contrast term needs both base samples, which the march does not take.
+float depthAt(Material material, vec2 at, float lod, bool shuffled, TileBlend tile) {
+    if (!shuffled) return 1.0 - textureLod(textures[nonuniformEXT(material.height)], at, lod).r;
+    float a = textureLod(textures[nonuniformEXT(material.height)], at + tile.offsetA, lod).r;
+    float b = textureLod(textures[nonuniformEXT(material.height)], at + tile.offsetB, lod).r;
+    return 1.0 - mix(a, b, smoothstep(0.2, 0.8, tile.along));
+}
+
+// The map `map` at `at`, its two copies blended by `weight` when shuffled.
+vec4 tiled(uint map, vec2 at, vec2 duv1, vec2 duv2, bool shuffled, TileBlend tile, float weight) {
+    if (!shuffled) return textureGrad(textures[nonuniformEXT(map)], at, duv1, duv2);
+    return mix(textureGrad(textures[nonuniformEXT(map)], at + tile.offsetA, duv1, duv2),
+               textureGrad(textures[nonuniformEXT(map)], at + tile.offsetB, duv1, duv2), weight);
+}
+
 // UTA-0040 SS 4.5: the coordinate the view meets the height field at. White is
 // high and depth is pushed inward. The height map is sampled at one mip level
 // fixed before the loop: implicit derivatives inside a loop with an early exit
 // are undefined.
-vec2 parallaxUv(Material material, TextureAxes axes, vec3 n) {
+vec2 parallaxUv(Material material, TextureAxes axes, vec3 n, bool shuffled, TileBlend tile) {
     // Before any per-fragment return: the caller branches only on per-draw
     // values, so this is still uniform control flow (review-code 2026-09-26).
     float lod = textureQueryLod(textures[nonuniformEXT(material.height)], uv).x;
@@ -113,18 +133,18 @@ vec2 parallaxUv(Material material, TextureAxes axes, vec3 n) {
 
     vec2 at = uv;
     float layerDepth = 0.0;
-    float depthHere = 1.0 - textureLod(textures[nonuniformEXT(material.height)], at, lod).r;
+    float depthHere = depthAt(material, at, lod, shuffled, tile);
     for (uint i = 0u; i < PARALLAX_MAX_STEPS; ++i) {
         if (i >= steps || layerDepth >= depthHere) break;
         at -= stepUv;
         layerDepth += layer;
-        depthHere = 1.0 - textureLod(textures[nonuniformEXT(material.height)], at, lod).r;
+        depthHere = depthAt(material, at, lod, shuffled, tile);
     }
 
     // One linear interpolation between the last two samples, as Godot does.
     vec2 before = at + stepUv;
     float after = depthHere - layerDepth;
-    float previous = (1.0 - textureLod(textures[nonuniformEXT(material.height)], before, lod).r) - (layerDepth - layer);
+    float previous = depthAt(material, before, lod, shuffled, tile) - (layerDepth - layer);
     float weight = after / min(after - previous, -1e-6);
     return mix(at, before, clamp(weight, 0.0, 1.0));
 }
@@ -204,15 +224,30 @@ void main() {
     // UTA-0281: a sky is painted light and depth, so it is drawn flat --
     // generated relief raised every cloud's edge, like embossed plaster.
     bool skyFlat = frame.skyCapture != 0u;
+    // UTA-0277 SS 4.4: a material the bake judged natural is drawn so its
+    // repeats do not line up -- every map at the same two offsets and weight,
+    // so the lighting stays on the picture it belongs to. No fade toward the
+    // mean, as water has: a wall would flatten to one colour. Decided per draw,
+    // so the flow stays uniform.
+    bool shuffled = SHUFFLE_TILES && material.tileKind == TILE_SHUFFLE && !liquid && !skyFlat
+                    && (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) == 0u;
+    TileBlend tile = tileBlendAt(uv, draw.materialIndex);
     if (!liquid && !skyFlat && PARALLAX_MAX_STEPS > 0u && material.parallaxDepth != 0u
         && (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) == 0u)
-        shadingUv = parallaxUv(material, axes, surface);
+        shadingUv = parallaxUv(material, axes, surface, shuffled, tile);
 
     // An _SRGB block format: the sampler returns linear (SS 4.10). UTA-0089
     // SS 4.4: a Wet liquid's picture is varied so its repeats do not line up.
     bool wetPicture = WATER_LOOK && liquid && liquids[material.liquid].kind == LIQUID_WET;
     vec4 base = wetPicture ? waterPicture(material.base, uv, shadingUv, duv1, duv2, draw.materialIndex)
-                           : textureGrad(textures[nonuniformEXT(material.base)], shadingUv, duv1, duv2);
+                           : textureGrad(textures[nonuniformEXT(material.base)], shadingUv + (shuffled ? tile.offsetA : vec2(0.0)),
+                                         duv1, duv2);
+    float tileMix = 0.0;
+    if (shuffled) {
+        vec4 second = textureGrad(textures[nonuniformEXT(material.base)], shadingUv + tile.offsetB, duv1, duv2);
+        tileMix = tileWeight(tile, base.rgb, second.rgb);
+        base = mix(base, second, tileMix);
+    }
     // A Wave has no picture of its own: its colour is the noise's, through its ramp.
     if (waving) base.rgb = wet.colour;
     // UTA-0275: UT99 multiplies a texture's DetailTexture into it near the
@@ -255,7 +290,7 @@ void main() {
         // No light applied -- but the output stage still applies (SS 4.10).
         colour = base.rgb;
     } else {
-        vec2 stored = textureGrad(textures[nonuniformEXT(material.normal)], shadingUv, duv1, duv2).rg;
+        vec2 stored = tiled(material.normal, shadingUv, duv1, duv2, shuffled, tile, tileMix).rg;
         vec2 tilt = skyFlat ? vec2(0.0) : vec2(normalComponent(stored.x), normalComponent(stored.y)) + wet.tilt;
         vec3 n = perturbed(surface, axes, vec3(tilt, sqrt(max(0.0, 1.0 - dot(tilt, tilt)))));
         // UTA-0215: UT99 lights a liquid's sheet once, as its front, and shows
@@ -333,7 +368,7 @@ void main() {
     if (flaming)
         emitted = flameColour(material.flame, heat);
     else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) == 0u && material.emit != NONE)
-        emitted = textureGrad(textures[nonuniformEXT(material.emit)], shadingUv, duv1, duv2).rgb;
+        emitted = tiled(material.emit, shadingUv, duv1, duv2, shuffled, tile, tileMix).rgb;
     colour += emitted;
     outEmission = vec4(emitted, 1.0);
 

@@ -196,6 +196,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
             fnv.add(std::as_bytes(std::span(record.id)));
             fnv.addValue(record.metallic);
             fnv.addValue(record.parallaxDepth); // uploaded, so a change must re-upload
+            fnv.addValue(record.tileKind);      // UTA-0277 SS 4.1, uploaded too
             if (record.flame) fnv.addValue(record.flame->ramp); // UTA-0263 SS 4.2, uploaded too
             if (record.liquid) { // UTA-0105 SS 4.2, uploaded too
                 const ubundle::LiquidLook& look = *record.liquid;

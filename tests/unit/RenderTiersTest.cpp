@@ -147,6 +147,13 @@ TEST_CASE("UTA-0215: water motes start at Medium", "[render]") {
     CHECK(uta::urender::enabled(Feature::WaterMotes, Tier::Medium));
 }
 
+TEST_CASE("UTA-0277: shuffled tiles start at Medium", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::TileShuffle) == Tier::Medium);
+    CHECK_FALSE(uta::urender::enabled(Feature::TileShuffle, Tier::Low));
+    CHECK(uta::urender::enabled(Feature::TileShuffle, Tier::Medium));
+}
+
 TEST_CASE("UTA-0040 INV-4: parallax occlusion starts at Medium with the spec's step counts", "[render]") {
     using uta::urender::Feature;
     using uta::urender::parallaxStepsOf;

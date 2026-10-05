@@ -76,7 +76,12 @@ struct Material {
     uint detail;        // UTA-0275: its DetailTexture picture, or NONE
     float detailRepeatU; // UTA-0275: detail repeats per repeat of the base, along u
     float detailRepeatV; // and along v (a vec2 would align to 8 and move the stride)
+    uint tileKind;       // UTA-0277: ubundle's TileKind; only TILE_SHUFFLE moves its repeats
 };
+
+// UTA-0277 SS 4.1: the tile kind whose repeats are drawn at hashed offsets.
+// Fixed (0) and Unsure (2) both draw as UT99 tiles.
+const uint TILE_SHUFFLE = 1u;
 
 // UTA-0105 SS 4.4: ShaderTypes.h's Liquid. UT99's settings, as floats.
 struct Liquid {

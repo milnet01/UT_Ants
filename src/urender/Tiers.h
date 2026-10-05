@@ -49,6 +49,7 @@ enum class Feature : std::uint8_t {
     TileVariation,     ///< UTA-0180's slow brightness change across the world
     Caustics,          ///< UTA-0215's rippling light on what lies under water
     WaterMotes,        ///< UTA-0215's specks drifting in the water around the eye
+    TileShuffle,       ///< UTA-0277's natural textures drawn so their repeats do not line up
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -77,6 +78,14 @@ enum class Feature : std::uint8_t {
     // UTA-0215: a few hundred tiny quads, under water only. With Caustics, so
     // the Low tier's exact underwater frames carry no specks.
     case Feature::WaterMotes: return Tier::Medium;
+    // UTA-0277 SS 4.4: a second sample of each map, and of the height in the
+    // parallax march, on a shuffled material's pixels. Measured 2026-10-05 at
+    // ultra, 3840x2160, DM-Deck16]['s fifteen reference views on the RX 6600,
+    // quiet machine, with every judged material answered shuffle (14, against
+    // the 2 the bake shuffles): median frame 8.0 ms to 9.0 ms, twice each. A
+    // worst case past the 3% that would keep it on every tier, as
+    // TileVariation's is.
+    case Feature::TileShuffle: return Tier::Medium;
     }
     return Tier::Low; // unreachable
 }

@@ -207,7 +207,7 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                 set.byId_.emplace(record.id, static_cast<std::uint32_t>(records.size()));
                 records.push_back({fireBase, defaults.normal, defaults.rough, defaults.height, gpu::NONE,
                                    record.metallic ? 1u : 0u, 0, set.rampByRecord_[m], liquidByRecord[m], glass,
-                                   detail, detailRepeats});
+                                   detail, detailRepeats, 0u});
                 continue;
             }
             if (base == gpu::NONE && normal == gpu::NONE && rough == gpu::NONE && height == gpu::NONE) {
@@ -224,7 +224,8 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                                rough == gpu::NONE ? defaults.rough : rough,
                                height == gpu::NONE ? defaults.height : height, emit,
                                record.metallic ? 1u : 0u, record.parallaxDepth, set.rampByRecord_[m],
-                               liquidByRecord[m], glass, detail, detailRepeats});
+                               liquidByRecord[m], glass, detail, detailRepeats,
+                               static_cast<std::uint32_t>(record.tileKind)});
         }
     }
 

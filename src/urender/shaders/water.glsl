@@ -15,6 +15,7 @@
 #include "light.glsl" // LIGHT_GAIN, DISPLAY_LIGHT_POWER
 #include "probes.glsl"
 #include "types.glsl"
+#include "variation.glsl" // the two-copy blend, TILE_VARIATION_REPEATS
 
 // SS 4.2: water's reflectance looking straight down, ((1 - 1.333) / (1 + 1.333))^2.
 // Not fitted: it is water's own value.
@@ -33,11 +34,9 @@ const float WATER_R0 = 0.02;
 // (TILE_VARIATION_REPEATS 1e6, fade off), on Arcane: up-close mean luma 85.6
 // against 85.5 and contrast 11.7 against 12.2; UTA-0105's motion 5.80 against
 // 5.88. Variation scales 1 to 16 move none of these by more than the noise.
-const float TILE_VARIATION_REPEATS = 4.0; // repeats of the picture across one noise cell
+// TILE_VARIATION_REPEATS and TILE_OFFSETS live in variation.glsl (UTA-0277).
 const float TILE_FADE_START = 3.0;        // the mip level where the fade toward the mean begins
 const float TILE_FADE_END = 6.0;          // the mip level past which the picture is its mean
-// Quilez's own value, not fitted: how many offsets the noise picks between.
-const float TILE_OFFSETS = 8.0;
 
 // True for the liquids SS 3 says reflect: Wet and Wave, never Ice.
 bool waterReflects(uint liquid) {
@@ -67,20 +66,15 @@ vec3 waterProbeReflection(vec3 x, vec3 r) {
     return indirectAt(lattice, x, r) * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER);
 }
 
-// SS 4.4, Quilez's third technique: the picture `base` sampled at `at` plus two
-// offsets the noise at `uv` picks, and blended by it, then faded toward its
-// mean colour as it is drawn small. `duv1` and `duv2` are the undisplaced
-// derivatives. Call in uniform control flow: textureQueryLod needs it.
+// SS 4.4, Quilez's third technique (variation.glsl): the picture `base` sampled
+// at `at` plus two offsets the noise at `uv` picks, and blended by it, then
+// faded toward its mean colour as it is drawn small. `duv1` and `duv2` are the
+// undisplaced derivatives. Call in uniform control flow: textureQueryLod needs it.
 vec4 waterPicture(uint base, vec2 uv, vec2 at, vec2 duv1, vec2 duv2, uint seed) {
-    float k = flameNoise(uv / TILE_VARIATION_REPEATS, seed) * TILE_OFFSETS;
-    float ia = floor(k);
-    float f = k - ia;
-    vec2 offsetA = sin(vec2(3.0, 7.0) * ia);
-    vec2 offsetB = sin(vec2(3.0, 7.0) * (ia + 1.0));
-    vec4 a = textureGrad(textures[nonuniformEXT(base)], at + offsetA, duv1, duv2);
-    vec4 b = textureGrad(textures[nonuniformEXT(base)], at + offsetB, duv1, duv2);
-    vec3 difference = a.rgb - b.rgb;
-    vec4 picture = mix(a, b, smoothstep(0.2, 0.8, f - 0.1 * (difference.r + difference.g + difference.b)));
+    TileBlend blend = tileBlendAt(uv, seed);
+    vec4 a = textureGrad(textures[nonuniformEXT(base)], at + blend.offsetA, duv1, duv2);
+    vec4 b = textureGrad(textures[nonuniformEXT(base)], at + blend.offsetB, duv1, duv2);
+    vec4 picture = mix(a, b, tileWeight(blend, a.rgb, b.rgb));
 
     float lod = textureQueryLod(textures[nonuniformEXT(base)], uv).x;
     float smallest = float(textureQueryLevels(textures[nonuniformEXT(base)]) - 1);

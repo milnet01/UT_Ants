@@ -201,6 +201,7 @@ add_executable(uta_device_tests
     device/RenderSurfaceFlagsTest.cpp
     device/RenderTiersTest.cpp
     device/RenderWaterTest.cpp
+    device/RenderTileShuffleTest.cpp
     device/RenderUnderwaterTest.cpp
     # UTA-0129 SS 4.4: ut-bench's frame workload draws, so it is graded here.
     device/BenchFrameTest.cpp

@@ -68,6 +68,7 @@ struct SceneConstants {
     VkBool32 waterLook;
     VkBool32 tileVariation; ///< UTA-0180
     VkBool32 caustics;      ///< UTA-0215
+    VkBool32 tileShuffle;   ///< UTA-0277
 };
 
 Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
@@ -84,6 +85,7 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         VkSpecializationMapEntry{2, offsetof(SceneConstants, waterLook), sizeof(VkBool32)},
         VkSpecializationMapEntry{3, offsetof(SceneConstants, tileVariation), sizeof(VkBool32)}, // UTA-0180
         VkSpecializationMapEntry{4, offsetof(SceneConstants, caustics), sizeof(VkBool32)},      // UTA-0215
+        VkSpecializationMapEntry{5, offsetof(SceneConstants, tileShuffle), sizeof(VkBool32)},   // UTA-0277
     };
     const VkSpecializationInfo specialization{static_cast<std::uint32_t>(entries.size()), entries.data(),
                                               sizeof(constants), &constants};
@@ -560,7 +562,8 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     const SceneConstants sceneConstants{parallaxStepsOf(tier),
                                         enabled(Feature::WaterLook, tier) ? VK_TRUE : VK_FALSE,
                                         enabled(Feature::TileVariation, tier) ? VK_TRUE : VK_FALSE,
-                                        enabled(Feature::Caustics, tier) ? VK_TRUE : VK_FALSE};
+                                        enabled(Feature::Caustics, tier) ? VK_TRUE : VK_FALSE,
+                                        enabled(Feature::TileShuffle, tier) ? VK_TRUE : VK_FALSE};
     for (int blending = 0; blending < 3; ++blending) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
             UTA_TRY(p->scene_[blending][twoSided],
