@@ -61,7 +61,7 @@ namespace uta::ubundle {
 /// 18 since UTA-0276 gave each ZONE entry its pan speeds (UTA-0156 SS 4.1).
 /// 19 since UTA-0215 gave each ZONE entry its water flag and view tint.
 /// 20 since UTA-0270 gave each MATS liquid look its MoveIce byte.
-inline constexpr std::uint32_t FORMAT_VERSION = 20;
+inline constexpr std::uint32_t FORMAT_VERSION = 21;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -187,6 +187,40 @@ struct LiquidLook {
     friend bool operator==(const LiquidLook&, const LiquidLook&) = default;
 };
 
+/// UTA-0286 SS 4.2: the largest side and the most sparks a fire look may state.
+inline constexpr std::uint16_t FIRE_SIZE_MAX = 1024;
+inline constexpr std::uint16_t FIRE_SPARKS_MAX = 4096;
+
+/// One stored spark, as `ufire::Spark` holds it. ubundle keeps its own type so
+/// its link list stays uta_core, uta_umap and uta_unav (UTA-0008 INV-10).
+struct FireSpark {
+    std::uint8_t type = 0;
+    std::uint8_t heat = 0;
+    std::uint8_t x = 0;
+    std::uint8_t y = 0;
+    std::uint8_t byteA = 0;
+    std::uint8_t byteB = 0;
+    std::uint8_t byteC = 0;
+    std::uint8_t byteD = 0;
+
+    friend bool operator==(const FireSpark&, const FireSpark&) = default;
+};
+
+/// A non-flame FireTexture's own values -- UTA-0286 SS 4.2. The renderer runs
+/// UT99's animation from them, so the picture moves.
+struct FireLook {
+    std::array<std::uint16_t, 2> size{}; ///< the texture's own width and height, texels
+    std::uint8_t renderHeat = 0;
+    std::uint8_t rising = 0;             ///< 0 or 1
+    std::uint8_t masked = 0;             ///< 1: heat 0 is see-through, as the material's variant
+    std::int32_t sparksLimit = 0;
+    float maxFrameRate = 0;              ///< as stored; finite, 0 or more
+    std::array<std::array<std::uint8_t, 3>, 256> palette{}; ///< sRGB bytes, index = heat
+    std::vector<FireSpark> sparks;       ///< in stored order
+
+    friend bool operator==(const FireLook&, const FireLook&) = default;
+};
+
 /// One material's own values -- UTA-0011 SS 4.10. Its maps are the TEXS
 /// entries named `<id>:<map>`.
 ///
@@ -203,6 +237,8 @@ struct MaterialRecord {
     std::optional<FlameLook> flame;
     /// UTA-0105 SS 4.2: set for a WetTexture, IceTexture or WaveTexture.
     std::optional<LiquidLook> liquid;
+    /// UTA-0286 SS 4.2: set for a FireTexture that is not a flame.
+    std::optional<FireLook> fire;
 };
 
 /// One corner of a triangle -- UTA-0109 SS 4.2.

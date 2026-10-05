@@ -90,9 +90,11 @@ namespace {
 // The fixture names no detail, so the digest did not move.
 // 38, format 20: UTA-0284 takes each occlusion chart's plane from its corners.
 // The fixture's stored normals are exact, so the digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 38;
+// 39, format 21: UTA-0286 gives a non-flame FireTexture its fire look. The
+// fixture has no FireTexture, so the format bump and the fire byte moved it.
+constexpr std::uint32_t RECORDED_UNDER = 39;
 constexpr std::string_view GOLDEN =
-    "cfc7dd0c67857924c6e53356a43db8d9cb364df15ac140f92a274ee9ac9f1a21";
+    "4848d2dcef2e13f183fbc18327629dd046330d6a0b7aba859d3f5361cad72d28";
 
 } // namespace
 

@@ -114,6 +114,10 @@ Every other type behaves as under `Scatter`.
 inline constexpr std::uint16_t FIRE_SIZE_MAX = 1024;
 inline constexpr std::uint16_t FIRE_SPARKS_MAX = 4096;
 
+/// One stored spark, as `ufire::Spark` holds it; ubundle keeps its own type
+/// so its link list stays uta_core, uta_umap and uta_unav (UTA-0008 INV-10).
+struct FireSpark { std::uint8_t type, heat, x, y, byteA, byteB, byteC, byteD; };
+
 /// A non-flame FireTexture's own values -- UTA-0286 SS 4.2.
 struct FireLook {
     std::array<std::uint16_t, 2> size{}; ///< the texture's own width and height, texels
@@ -123,7 +127,7 @@ struct FireLook {
     std::int32_t sparksLimit = 0;
     float maxFrameRate = 0;              ///< as stored; finite, 0 or more
     std::array<std::array<std::uint8_t, 3>, 256> palette{}; ///< sRGB bytes, index = heat
-    std::vector<ufire::Spark> sparks;    ///< in stored order
+    std::vector<FireSpark> sparks;       ///< in stored order
     friend bool operator==(const FireLook&, const FireLook&) = default;
 };
 ```
@@ -136,7 +140,8 @@ than `FIRE_SPARKS_MAX` sparks, a `rising` or `masked` byte above 1, a
 `maxFrameRate` that is negative or not finite, and a record carrying both a
 flame look and a fire look.
 
-`ubundle` gains a dependency on `uta_ufire` for `Spark`.
+`ubake` and `urender` each link `uta_ufire`, and their configure-time link
+lists (UTA-0011 § 4.1, UTA-0014) name it.
 
 `FORMAT_VERSION` becomes `21` and `BAKER_REVISION` becomes `39`. `shapeOf`
 in `urender/Frame.cpp` samples each fire look, since the renderer uploads it
@@ -152,9 +157,10 @@ where the export stores none, as `fireSettingsOf` reads the first three
 today; the texture's sparks; its palette's first 256 entries; and whether the
 material is the masked variant.
 
-A palette with fewer than 256 entries, or a size or spark count past § 4.2's
-limits, leaves the material with no fire look and its still; the bake
-reports it as it reports a skipped liquid look (§ 6).
+A palette with fewer than 256 entries, or a size, spark count or
+`MaxFrameRate` past § 4.2's limits, leaves the material with no fire look and
+its still; the bake's report names it in `skippedFires`, beside
+`skippedLiquids` (UTA-0011's report, § 6).
 
 ### 4.4 Drawing — `urender`
 
@@ -220,8 +226,9 @@ drawn by an actor, which `urender` does not draw yet.
 
 - **INV-4** — under `Turning::Model`, one step from cold of a lone
   `SphereLightning` spark with `byteD` 0 heats a texel at least 8 texels from
-  the spark, and a lone `Wheel` spark's twirl moves from the spark within its
-  `byteB` steps; under `Scatter` neither heats anything over 2 texels away.
+  the spark, where under `Scatter` it heats nothing over 2 texels away; and a
+  lone `Wheel` spark at angle 0 heats its column at least 6 rows below it
+  within 16 steps, a field `Scatter` does not give.
   *Test:* `tests/unit/FireReplayTest.cpp`, new.
   *Breaks when:* the two types fall back to scatter under `Model`, or `Model`
   leaks into `Scatter`.
@@ -250,8 +257,8 @@ drawn by an actor, which `urender` does not draw yet.
 ## 6. Failure modes
 
 - **A palette short of 256 entries, or a look past § 4.2's limits** — no fire
-  look; the still is drawn; the bake's report names the material and why, as
-  for a skipped liquid look.
+  look; the still is drawn; the bake's report names the material and why in
+  `skippedFires`.
 - **A bundle with a fire look whose TEXS maps are missing** — the material
   draws the replayed picture with default normal, roughness and height; the
   look does not depend on the maps.

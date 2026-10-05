@@ -339,6 +339,35 @@ std::size_t nearestToMean(const upkg::Palette& palette) {
 /// decoded to linear. A fire's texel is its heat, 0 to 255, and indexes the
 /// palette directly; a shorter palette's last entry stands for the heats past
 /// it. `palette` has at least one entry.
+/// UTA-0286 SS 4.3: a non-flame FireTexture's fire look, or why it has none.
+std::expected<ubundle::FireLook, std::string> fireLookOf(const upkg::Mip& base, std::span<const upkg::Spark> sparks,
+                                                         const FireSettings& settings, const upkg::Palette& palette,
+                                                         bool masked) {
+    if (palette.entries.size() < 256)
+        return std::unexpected(std::format("its palette has {} entries, not 256", palette.entries.size()));
+    if (base.width == 0 || base.height == 0 || base.width > ubundle::FIRE_SIZE_MAX
+        || base.height > ubundle::FIRE_SIZE_MAX)
+        return std::unexpected(std::format("its size {}x{} is outside 1 to {} a side", base.width, base.height,
+                                           ubundle::FIRE_SIZE_MAX));
+    if (sparks.size() > ubundle::FIRE_SPARKS_MAX)
+        return std::unexpected(std::format("it has {} sparks, more than {}", sparks.size(), ubundle::FIRE_SPARKS_MAX));
+    if (!std::isfinite(settings.maxFrameRate) || settings.maxFrameRate < 0)
+        return std::unexpected(std::string("its MaxFrameRate is negative or not finite"));
+    ubundle::FireLook look;
+    look.size = {static_cast<std::uint16_t>(base.width), static_cast<std::uint16_t>(base.height)};
+    look.renderHeat = settings.renderHeat;
+    look.rising = settings.rising ? 1 : 0;
+    look.masked = masked ? 1 : 0;
+    look.sparksLimit = settings.sparksLimit;
+    look.maxFrameRate = settings.maxFrameRate;
+    for (std::size_t i = 0; i < look.palette.size(); ++i)
+        look.palette[i] = {palette.entries[i].r, palette.entries[i].g, palette.entries[i].b};
+    for (const upkg::Spark& spark : sparks)
+        look.sparks.push_back({spark.type, spark.heat, spark.x, spark.y, spark.byteA, spark.byteB, spark.byteC,
+                               spark.byteD});
+    return look;
+}
+
 ubundle::FlameLook flameLookOf(const upkg::Palette& palette) {
     ubundle::FlameLook look;
     constexpr std::size_t HOTTEST = 255;
@@ -389,6 +418,10 @@ struct MadeVariant {
     std::optional<ubundle::LiquidLook> liquid;
     /// UTA-0105 SS 6: why a liquid class carries no look; empty otherwise.
     std::string liquidSkipped;
+    /// UTA-0286 SS 4.3: set for a FireTexture that is not a flame.
+    std::optional<ubundle::FireLook> fire;
+    /// UTA-0286 SS 6: why such a FireTexture carries no look; empty otherwise.
+    std::string fireSkipped;
     /// UTA-0161: the emit map's linear mean, which the bounce adds as the
     /// surface's own light. Empty for a material that does not glow, and for a
     /// flame, which scene.frag draws without its emit map.
@@ -632,6 +665,15 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         // flame keeps its still as well, so the steps below run unchanged.
         if (!shownPalette->entries.empty() && isFlame(*fingerprint)) flame = flameLookOf(*shownPalette);
     }
+    // UTA-0286 SS 4.3: a FireTexture the flame list does not name replays in
+    // the renderer from its sparks; it keeps its still as well.
+    std::optional<ubundle::FireLook> fire;
+    std::string fireSkipped;
+    if (storesNoPixels && foldedClass == "firetexture" && !flame.has_value()) {
+        auto look = fireLookOf(base, texture->sparks, fireSettingsOf(holder, *properties), *palette, masked);
+        if (look.has_value()) fire = std::move(*look);
+        else fireSkipped = std::move(look).error();
+    }
     // UTA-0113 SS 4.5: field by field, so a recipe setting only `metallic`
     // keeps a library `emissive`; its upscale is set directly.
     if (assignment != nullptr) {
@@ -714,8 +756,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
         glass = glassOf(holder, *properties, resolver, id, base.width, base.height, jobs);
     std::optional<ubundle::CompressedTexture> detail = detailOf(holder, *properties, resolver, id, jobs);
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
-                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), emission, std::move(glass),
-                       std::move(detail)};
+                       meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), std::move(fire),
+                       std::move(fireSkipped), emission, std::move(glass), std::move(detail)};
 }
 
 struct Materials {
@@ -727,6 +769,8 @@ struct Materials {
     std::vector<SkippedTexture> skipped;
     /// UTA-0105 SS 6: liquid variants made with no liquid look, and why.
     std::vector<SkippedTexture> skippedLiquids;
+    /// UTA-0286 SS 6: non-flame FireTextures made with no fire look, and why.
+    std::vector<SkippedTexture> skippedFires;
     /// What a surface wears, by (texture reference, masked) -- the lookup GEOM
     /// is built with (UTA-0109 SS 4.4). A variant not made has no entry.
     std::map<std::pair<std::int32_t, bool>, SurfaceMaterial> bySurface;
@@ -853,9 +897,11 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             out.recordIndex.emplace(id, static_cast<std::uint32_t>(out.records.size()));
             out.records.push_back(ubundle::MaterialRecord{made->material.id, made->material.metallic,
                                                           variant.masked ? std::uint8_t{0} : made->material.parallaxDepth,
-                                                          made->flame, made->liquid});
+                                                          made->flame, made->liquid, std::move(made->fire)});
             if (!made->liquidSkipped.empty())
                 out.skippedLiquids.push_back(SkippedTexture{id, std::move(made->liquidSkipped)});
+            if (!made->fireSkipped.empty())
+                out.skippedFires.push_back(SkippedTexture{id, std::move(made->fireSkipped)});
             out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
             if (made->emission.has_value()) out.emission.emplace(id, *made->emission);
             for (ubundle::CompressedTexture& texture : made->material.maps)
@@ -1112,6 +1158,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.skipped = std::move(materials.skipped);
     result.skippedFlames = std::move(flames.skipped);
     result.skippedLiquids = std::move(materials.skippedLiquids);
+    result.skippedFires = std::move(materials.skippedFires);
     result.recipeUnused = std::move(materials.recipeUnused);
 
     // Every section is written, and empty where the level has none, so a

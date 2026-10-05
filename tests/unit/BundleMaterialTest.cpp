@@ -1,7 +1,8 @@
 // UTA-0011's container cases: the MATS section.
 //
 // docs/specs/UTA-0011-map-baker.md SS 4.10, INV-18, UTA-0263 SS 4.2's flame
-// look, that spec's INV-1, and UTA-0105 SS 4.2's liquid look, that spec's INV-1. The baker's own cases are
+// look, that spec's INV-1, UTA-0105 SS 4.2's liquid look, that spec's INV-1, and UTA-0286 SS 4.2's
+// fire look, that spec's INV-1. The baker's own cases are
 // tests/unit/BakeTest.cpp; nothing here reaches ubake.
 //
 // THE GOLDEN ARRAY IS AUTHORED FROM SS 4.10, never produced by `write`, for
@@ -30,6 +31,8 @@
 using uta::ErrorCode;
 using uta::testing::Bytes;
 using uta::ubundle::Bundle;
+using uta::ubundle::FireLook;
+using uta::ubundle::FireSpark;
 using uta::ubundle::FlameLook;
 using uta::ubundle::LiquidKind;
 using uta::ubundle::LiquidLook;
@@ -50,6 +53,8 @@ struct RecordSpec {
     std::optional<FlameLook> flame; ///< written after flameByte when present
     std::uint8_t liquidByte = 0;      ///< UTA-0105 SS 4.2: the kind, or 0; a byte, so 4 can be stated
     std::optional<LiquidLook> liquid; ///< written after liquidByte when present
+    std::uint8_t fireByte = 0;        ///< UTA-0286 SS 4.2; a byte, so 2 can be stated
+    std::optional<FireLook> fire;     ///< written after fireByte when present
 };
 
 /// A look whose every field differs from its neighbour's and from the
@@ -84,6 +89,40 @@ void putLiquid(Bytes& out, const LiquidLook& look) {
         for (const float channel : colour) out.f32(channel);
 }
 
+/// A fire look whose fields all differ from each other and from the defaults,
+/// with two sparks whose eight bytes all differ, so a reader that swapped two
+/// fields or two sparks disagrees somewhere.
+FireLook fireOf(std::uint8_t first) {
+    FireLook look;
+    look.size = {128, 64};
+    look.renderHeat = first;
+    look.rising = 1;
+    look.masked = 1;
+    look.sparksLimit = -3;
+    look.maxFrameRate = 12.5f;
+    for (std::size_t i = 0; i < look.palette.size(); ++i)
+        look.palette[i] = {std::uint8_t(i), std::uint8_t(i + first), std::uint8_t(255 - i)};
+    look.sparks = {{25, 200, 1, 2, 3, 4, 5, 6}, {26, 100, 7, 8, 9, 10, 11, 12}};
+    return look;
+}
+
+/// The look's fields in SS 4.2's wire order, after its fire byte.
+void putFire(Bytes& out, const FireLook& look) {
+    for (const std::uint16_t side : look.size) out.u16(side);
+    out.u8(look.renderHeat);
+    out.u8(look.rising);
+    out.u8(look.masked);
+    out.u32(static_cast<std::uint32_t>(look.sparksLimit));
+    out.f32(look.maxFrameRate);
+    for (const auto& entry : look.palette)
+        for (const std::uint8_t channel : entry) out.u8(channel);
+    out.u16(static_cast<std::uint16_t>(look.sparks.size()));
+    for (const FireSpark& spark : look.sparks)
+        for (const std::uint8_t byte :
+             {spark.type, spark.heat, spark.x, spark.y, spark.byteA, spark.byteB, spark.byteC, spark.byteD})
+            out.u8(byte);
+}
+
 /// A ramp whose 24 values all differ, so a reader that swapped two channels or
 /// two entries disagrees somewhere.
 FlameLook rampFrom(float first) {
@@ -110,6 +149,8 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
                 for (const float channel : colour) out.f32(channel);
         out.u8(record.liquidByte);
         if (record.liquid) putLiquid(out, *record.liquid);
+        out.u8(record.fireByte);
+        if (record.fire) putFire(out, *record.fire);
     }
     return out;
 }
@@ -118,7 +159,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(20); // formatVersion -- 20 since UTA-0270 gave each Ice look its MoveIce
+    out.u32(21); // formatVersion -- 21 since UTA-0286 gave a non-flame FireTexture its fire look
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -140,17 +181,20 @@ std::vector<std::byte> fileWith(const Bytes& payload) {
 /// their depths all different -- the top byte among them -- so a reader that
 /// dropped, reordered, defaulted or swapped a field disagrees somewhere. The
 /// middle one is a flame, so a look read into its neighbour disagrees too. The
-/// first and last are liquids of different kinds (UTA-0105), for the same reason.
+/// first and third are liquids of different kinds (UTA-0105), for the same reason,
+/// and the last carries a fire look (UTA-0286).
 const std::vector<RecordSpec> GOLDEN = {
     {"dm-fixture.base.wall", 0, 4, 0, std::nullopt, 1, liquidOf(LiquidKind::Wet, 10)},
     {"dm-fixture.base.wall#masked", 1, 0, 1, rampFrom(0.5f)},
     {"texpkg.floor", 0, 255, 0, std::nullopt, 3, liquidOf(LiquidKind::Wave, 40)},
+    {"texpkg.spray", 0, 7, 0, std::nullopt, 0, std::nullopt, 1, fireOf(9)},
 };
 
 std::vector<MaterialRecord> recordsOf(const std::vector<RecordSpec>& specs) {
     std::vector<MaterialRecord> out;
     for (const RecordSpec& spec : specs)
-        out.push_back(MaterialRecord{spec.id, spec.metallic == 1, spec.parallaxDepth, spec.flame, spec.liquid});
+        out.push_back(MaterialRecord{spec.id, spec.metallic == 1, spec.parallaxDepth, spec.flame, spec.liquid,
+                                     spec.fire});
     return out;
 }
 
@@ -166,12 +210,12 @@ void refused(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][mats]") {
     const auto result = read(fileWith(matsPayload(GOLDEN)));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 20);
+    CHECK(result->header.formatVersion == 21);
     CHECK_FALSE(result->textures.has_value());
 
     REQUIRE(result->materials.has_value());
     const std::vector<MaterialRecord>& materials = *result->materials;
-    REQUIRE(materials.size() == 3);
+    REQUIRE(materials.size() == 4);
     CHECK(materials[0].id == "dm-fixture.base.wall");
     CHECK_FALSE(materials[0].metallic);
     CHECK(materials[0].parallaxDepth == 4);
@@ -190,6 +234,10 @@ TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][
     CHECK(*materials[0].liquid == liquidOf(LiquidKind::Wet, 10));
     REQUIRE(materials[2].liquid.has_value());
     CHECK(*materials[2].liquid == liquidOf(LiquidKind::Wave, 40));
+    for (std::size_t i = 0; i < 3; ++i) CHECK_FALSE(materials[i].fire.has_value());
+    CHECK(materials[3].id == "texpkg.spray");
+    REQUIRE(materials[3].fire.has_value());
+    CHECK(*materials[3].fire == fireOf(9));
 }
 
 TEST_CASE("write emits the MATS golden bytes", "[ubundle][mats]") {
@@ -222,6 +270,7 @@ TEST_CASE("MATS round-trips through write and read", "[ubundle][mats]") {
             REQUIRE((*back->materials)[i].flame.has_value() == specs[i].flame.has_value());
             if (specs[i].flame) CHECK((*back->materials)[i].flame->ramp == specs[i].flame->ramp);
             CHECK((*back->materials)[i].liquid == specs[i].liquid);
+            CHECK((*back->materials)[i].fire == specs[i].fire);
         }
     }
 }
@@ -248,22 +297,17 @@ TEST_CASE("write refuses MATS records out of order", "[ubundle][mats]") {
 
 TEST_CASE("a MATS count the section cannot hold is refused before an element is read",
           "[ubundle][mats]") {
-    // UTA-0105 SS 4.2's minimum element is 8 bytes. This payload declares two
-    // records and holds one whole record and seven bytes more: 15 / 8 is one,
-    // so the count is refused up front. A minimum of 7, the size before the
-    // liquid byte, would admit the count and fail later on a short read
+    // UTA-0286 SS 4.2's minimum element is 9 bytes. This payload declares two
+    // records and holds one whole record and eight bytes more: 17 / 9 is one,
+    // so the count is refused up front. A minimum of 8, the size before the
+    // fire byte, would admit the count and fail later on a short read
     // instead -- a different refusal, which is what this case tells apart.
     Bytes payload;
     payload.u32(2);
     payload.str("");
-    payload.u8(0);
-    payload.u8(0);
-    payload.u8(0);
-    payload.u8(0);
+    for (int i = 0; i < 5; ++i) payload.u8(0);
     payload.u32(0);
-    payload.u8(0);
-    payload.u8(0);
-    payload.u8(0);
+    for (int i = 0; i < 4; ++i) payload.u8(0);
     refused(fileWith(payload), "exceeds the bytes remaining");
 }
 
@@ -347,4 +391,63 @@ TEST_CASE("UTA-0105 INV-1: the largest permitted look round-trips", "[ubundle][m
     const auto back = read(*written);
     REQUIRE(back.has_value());
     CHECK((*back->materials)[0].liquid == look);
+}
+
+TEST_CASE("UTA-0286 INV-1: a MATS fire byte of 2 is refused", "[ubundle][mats][fire]") {
+    refused(fileWith(matsPayload({{"a", 0, 0, 0, std::nullopt, 0, std::nullopt, 2}})), "fire byte 2");
+}
+
+TEST_CASE("UTA-0286 INV-1: an invalid fire look is refused by read and write", "[ubundle][mats][fire]") {
+    struct Case {
+        std::string_view what;
+        std::string_view says;
+        void (*breakIt)(FireLook&);
+    };
+    const Case cases[] = {
+        {"a width of 0", "size", [](FireLook& l) { l.size[0] = 0; }},
+        {"a height above FIRE_SIZE_MAX", "size", [](FireLook& l) { l.size[1] = 1025; }},
+        {"a rising byte of 2", "rising", [](FireLook& l) { l.rising = 2; }},
+        {"a masked byte of 2", "masked", [](FireLook& l) { l.masked = 2; }},
+        {"a negative MaxFrameRate", "MaxFrameRate", [](FireLook& l) { l.maxFrameRate = -1.0f; }},
+        {"a MaxFrameRate that is not finite", "MaxFrameRate",
+         [](FireLook& l) { l.maxFrameRate = std::numeric_limits<float>::infinity(); }},
+        {"more sparks than FIRE_SPARKS_MAX", "sparks", [](FireLook& l) { l.sparks.resize(4097); }},
+    };
+    for (const Case& c : cases) {
+        INFO(c.what);
+        FireLook look = fireOf(1);
+        c.breakIt(look);
+        refused(fileWith(matsPayload({{"a", 0, 0, 0, std::nullopt, 0, std::nullopt, 1, look}})), c.says);
+
+        Bundle bundle;
+        bundle.materials = recordsOf({{"a", 0, 0, 0, std::nullopt, 0, std::nullopt, 1, look}});
+        const auto written = write(bundle);
+        REQUIRE_FALSE(written.has_value());
+        CHECK(written.error().code() == ErrorCode::InvalidArgument);
+    }
+}
+
+TEST_CASE("UTA-0286 INV-1: a record with both a flame look and a fire look is refused", "[ubundle][mats][fire]") {
+    const std::vector<RecordSpec> both{{"a", 0, 0, 1, rampFrom(0.0f), 0, std::nullopt, 1, fireOf(1)}};
+    refused(fileWith(matsPayload(both)), "both a flame look and a fire look");
+    Bundle bundle;
+    bundle.materials = recordsOf(both);
+    const auto written = write(bundle);
+    REQUIRE_FALSE(written.has_value());
+    CHECK(written.error().code() == ErrorCode::InvalidArgument);
+}
+
+TEST_CASE("UTA-0286 INV-1: the largest permitted fire look round-trips", "[ubundle][mats][fire]") {
+    // The edges of each refused range, so an off-by-one bound refuses these.
+    FireLook look = fireOf(1);
+    look.size = {1, 1024};
+    look.maxFrameRate = 0.0f;
+    look.sparks.resize(4096, {13, 1, 2, 3, 4, 5, 6, 7});
+    Bundle bundle;
+    bundle.materials = recordsOf({{"a", 0, 0, 0, std::nullopt, 0, std::nullopt, 1, look}});
+    const auto written = write(bundle);
+    REQUIRE(written.has_value());
+    const auto back = read(*written);
+    REQUIRE(back.has_value());
+    CHECK((*back->materials)[0].fire == look);
 }

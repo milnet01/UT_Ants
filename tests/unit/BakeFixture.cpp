@@ -215,6 +215,7 @@ std::int32_t Packer::addTexture(const TextureSpec& texture) {
     if (texture.renderHeat != 0) properties.addByte(name("RenderHeat"), texture.renderHeat);
     if (texture.rising) properties.addBool(name("bRising"), true);
     if (texture.sparksLimit != 0) properties.addInt(name("SparksLimit"), texture.sparksLimit);
+    if (texture.maxFrameRate != 0) properties.addFloat(name("MaxFrameRate"), texture.maxFrameRate); // UTA-0286
     for (const auto& [property, value] : texture.bytes) properties.addByte(name(property), value);
 
     std::vector<std::uint8_t> data = properties.build(0);

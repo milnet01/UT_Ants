@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <format>
@@ -148,6 +149,11 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     }
     if (liquids.empty()) liquids.push_back({});
 
+    // UTA-0286 SS 4.4: each fire look's primed picture, uploaded beside the
+    // maps; its bytes outlive the staging copy below.
+    std::vector<std::vector<std::byte>> firePictures;
+    VkDeviceSize fireStagingBytes = 0;
+
     if (bundle.materials) {
         for (std::size_t m = 0; m < bundle.materials->size(); ++m) {
             const ubundle::MaterialRecord& record = (*bundle.materials)[m];
@@ -168,6 +174,41 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                     && grain->second->sourceHeight != 0)
                     detailRepeats = {float(picture->second->sourceWidth) / float(grain->second->sourceWidth),
                                      float(picture->second->sourceHeight) / float(grain->second->sourceHeight)};
+            }
+            // UTA-0286 SS 4.4: a fire look draws its replayed picture, and the
+            // maps the bake made from its still give way to the defaults.
+            std::uint32_t fireBase = gpu::NONE;
+            if (record.fire) {
+                const ubundle::FireLook& look = *record.fire;
+                std::vector<ufire::Spark> sparks;
+                for (const ubundle::FireSpark& spark : look.sparks)
+                    sparks.push_back({spark.type, spark.heat, spark.x, spark.y, spark.byteA, spark.byteB,
+                                      spark.byteC, spark.byteD});
+                ufire::Fire fire(look.size[0], look.size[1], std::move(sparks),
+                                 {.renderHeat = look.renderHeat, .rising = look.rising == 1,
+                                  .sparksLimit = look.sparksLimit},
+                                 ufire::Turning::Model);
+                for (int step = 0; step < ufire::PRIME_STEPS; ++step) fire.step();
+                std::vector<std::byte>& picture = firePictures.emplace_back(fire.heat().size() * 4);
+                ufire::colour(fire.heat(), look.palette, look.masked == 1, picture);
+                Source source;
+                source.desc = {VK_FORMAT_R8G8B8A8_SRGB, look.size[0], look.size[1], 1, SAMPLED};
+                source.bytes = picture;
+                source.levelSizes = {picture.size()};
+                fireBase = static_cast<std::uint32_t>(sources.size());
+                sources.push_back(std::move(source));
+                set.fires_.push_back({.texture = fireBase, .primed = fire, .fire = fire, .palette = look.palette,
+                                      .masked = look.masked == 1,
+                                      .stepsPerSecond = ufire::stepsPerSecond(look.maxFrameRate),
+                                      .stagingOffset = fireStagingBytes});
+                fireStagingBytes += picture.size();
+            }
+            if (fireBase != gpu::NONE) {
+                set.byId_.emplace(record.id, static_cast<std::uint32_t>(records.size()));
+                records.push_back({fireBase, defaults.normal, defaults.rough, defaults.height, gpu::NONE,
+                                   record.metallic ? 1u : 0u, 0, set.rampByRecord_[m], liquidByRecord[m], glass,
+                                   detail, detailRepeats});
+                continue;
             }
             if (base == gpu::NONE && normal == gpu::NONE && rough == gpu::NONE && height == gpu::NONE) {
                 // SS 6: ubundle does not check the pairing, so the renderer must.
@@ -247,11 +288,52 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
         }
     }));
 
+    if (fireStagingBytes != 0) { // braced: UTA_TRY is three statements
+        UTA_TRY(set.fireStaging_,
+                Buffer::create(gpu, fireStagingBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
+    }
     UTA_TRY(set.records_, Buffer::upload(gpu, std::as_bytes(std::span(records)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     UTA_TRY(set.ramps_, Buffer::upload(gpu, std::as_bytes(std::span(ramps)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     UTA_TRY(set.liquids_,
             Buffer::upload(gpu, std::as_bytes(std::span(liquids)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     return set;
+}
+
+void MaterialSet::advanceFires(double seconds, bool pinned) {
+    // A light time that is not finite reads as 0, as the flames' clock does.
+    const double clock = std::isfinite(seconds) && seconds > 0 ? seconds : 0;
+    for (FireReplay& replay : fires_) {
+        const auto target = static_cast<std::uint64_t>(std::floor(clock * replay.stepsPerSecond));
+        if (target == replay.stepsRun) continue;
+        if (target < replay.stepsRun) {
+            replay.fire = replay.primed;
+            replay.stepsRun = 0;
+        }
+        std::uint64_t due = target - replay.stepsRun;
+        if (!pinned) due = std::min(due, FIRE_CATCH_UP_STEPS);
+        for (; due > 0; --due) replay.fire.step();
+        replay.stepsRun = target; // what the cap left unrun counts as run
+        const std::size_t bytes = replay.fire.heat().size() * 4;
+        ufire::colour(replay.fire.heat(), replay.palette, replay.masked,
+                      std::span(fireStaging_.mapped() + replay.stagingOffset, bytes));
+        replay.changed = true;
+    }
+}
+
+void MaterialSet::recordFireUploads(VkCommandBuffer commands) {
+    for (FireReplay& replay : fires_) {
+        if (!replay.changed) continue;
+        Image& image = textures_[replay.texture];
+        image.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkBufferImageCopy copy{};
+        copy.bufferOffset = replay.stagingOffset;
+        copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copy.imageExtent = {replay.fire.width(), replay.fire.height(), 1};
+        vkCmdCopyBufferToImage(commands, fireStaging_.handle(), image.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               1, &copy);
+        image.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        replay.changed = false;
+    }
 }
 
 std::uint32_t MaterialSet::rampOf(std::uint32_t record) const noexcept {

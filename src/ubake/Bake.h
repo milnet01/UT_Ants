@@ -60,6 +60,10 @@ struct BakeResult {
     /// UTA-0105 SS 6: liquid materials made with no liquid look -- their
     /// class's defaults did not read -- so they show their still.
     std::vector<SkippedTexture> skippedLiquids;
+    /// UTA-0286 SS 6: non-flame FireTexture materials made with no fire look
+    /// -- a short palette or a look past ubundle's limits -- so they show
+    /// their still.
+    std::vector<SkippedTexture> skippedFires;
     /// UTA-0148: materials the texture cache served, and ones it had to make.
     /// Both 0 when the bake ran without one.
     std::uint32_t textureCacheHits = 0;

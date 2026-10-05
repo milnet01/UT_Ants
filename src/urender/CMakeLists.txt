@@ -32,7 +32,7 @@ add_library(uta_urender STATIC
     Present.cpp)
 # Vulkan and glm are PRIVATE: Renderer.h names neither, so a consumer compiles
 # with no Vulkan headers on its path (INV-2).
-target_link_libraries(uta_urender PUBLIC uta_core uta_ubundle PRIVATE Vulkan::Vulkan glm::glm)
+target_link_libraries(uta_urender PUBLIC uta_core uta_ubundle PRIVATE uta_ufire Vulkan::Vulkan glm::glm)
 
 # -- Shaders ---------------------------------------------------------------
 #
@@ -114,11 +114,12 @@ uta_embed_shaders(uta_urender
 # uta_ubake are build-time only (docs/design.md rule 2), and ut-ants will link
 # this library.
 get_target_property(_uta_urender_links uta_urender LINK_LIBRARIES)
-if(NOT _uta_urender_links STREQUAL "uta_core;uta_ubundle;Vulkan::Vulkan;glm::glm")
+if(NOT _uta_urender_links STREQUAL "uta_core;uta_ubundle;uta_ufire;Vulkan::Vulkan;glm::glm")
     message(FATAL_ERROR
         "uta_urender links '${_uta_urender_links}'. INV-1 in "
         "docs/specs/UTA-0014-vulkan-draw-path.md allows uta_core, uta_ubundle, "
-        "Vulkan::Vulkan and glm::glm, in that order, and nothing else: the "
+        "since UTA-0286 uta_ufire, Vulkan::Vulkan and glm::glm, in that order, "
+        "and nothing else: the "
         "renderer is linked by the game, and docs/design.md rule 2 keeps the "
         "package reader, the material maker and the baker out of it.")
 endif()

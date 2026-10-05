@@ -77,6 +77,8 @@ struct TextureSpec {
     std::uint8_t renderHeat = 0;
     bool rising = false;
     std::int32_t sparksLimit = 0;
+    /// UTA-0286: its MaxFrameRate, written only when not 0.
+    float maxFrameRate = 0;
     /// UTA-0105: Byte properties the texture stores, by name -- a liquid's
     /// settings. Written after the rest, in order.
     std::vector<std::pair<std::string, std::uint8_t>> bytes;

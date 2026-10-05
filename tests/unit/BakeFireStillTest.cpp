@@ -6,6 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -88,4 +89,31 @@ TEST_CASE("UTA-0176: a lower RenderHeat cools the fire faster", "[ubake][fire]")
     const long hot = totalHeat(fireStill(SIZE, SIZE, burn, {.renderHeat = 250, .rising = true, .sparksLimit = 0}));
     const long cool = totalHeat(fireStill(SIZE, SIZE, burn, {.renderHeat = 200, .rising = true, .sparksLimit = 0}));
     CHECK(hot > cool);
+}
+
+TEST_CASE("UTA-0286 INV-3: each spark type's still is unchanged by the move to ufire", "[ubake][fire]") {
+    // FNV-1a of the still of one spark of each type, recorded from the build
+    // before the animation moved out of ubake. A changed random sequence,
+    // particle rule, fade table or spark order changes one of them.
+    constexpr std::array<std::uint64_t, 29> EXPECTED{
+        0xc2aba9ebca649af1ull, 0xaa8bb0835555cfd3ull, 0x4dc2168f5629246full,
+        0xb8237db9b830701ull, 0x9e9e35dd0f8cd97bull, 0xde5aaea6b5035ef1ull,
+        0xf060494183826fecull, 0x72eea4c7cfce2a22ull, 0x417fcadc22017257ull,
+        0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull,
+        0xaa8bb0835555cfd3ull, 0xb014cb6d14386f78ull, 0xaa8bb0835555cfd3ull,
+        0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull,
+        0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull,
+        0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull,
+        0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull,
+        0xaa8bb0835555cfd3ull, 0xaa8bb0835555cfd3ull,
+    };
+    for (std::uint8_t type = 0; type < EXPECTED.size(); ++type) {
+        const std::vector<Spark> sparks{
+            {.type = type, .heat = 200, .x = 16, .y = 24, .byteA = 40, .byteB = 30, .byteC = 60, .byteD = 3}};
+        const auto still = fireStill(32, 32, sparks, {.renderHeat = 230, .rising = true, .sparksLimit = 512});
+        std::uint64_t hash = 14695981039346656037ull;
+        for (const std::byte b : still) hash = (hash ^ std::to_integer<std::uint64_t>(b)) * 1099511628211ull;
+        INFO("type " << int(type) << " hash 0x" << std::hex << hash);
+        CHECK(hash == EXPECTED[type]);
+    }
 }

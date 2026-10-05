@@ -209,6 +209,17 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
                 fnv.addValue(look.size);
                 fnv.addValue(look.ramp);
             }
+            if (record.fire) { // UTA-0286 SS 4.2, uploaded too
+                const ubundle::FireLook& look = *record.fire;
+                fnv.addValue(look.size);
+                fnv.addValue(look.renderHeat);
+                fnv.addValue(look.rising);
+                fnv.addValue(look.masked);
+                fnv.addValue(look.sparksLimit);
+                fnv.addValue(look.maxFrameRate);
+                fnv.addValue(look.palette);
+                fnv.add(std::as_bytes(std::span(look.sparks)));
+            }
         }
     }
     // UTA-0156 SS 4.4: a bundle differing only in its zones must re-upload them.
@@ -1452,6 +1463,8 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
             ? *impl.pinnedLightSeconds
             : std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
     impl.lastLightSeconds = seconds;
+    // UTA-0286 SS 4.4: the fire looks run on the same clock.
+    impl.materials->advanceFires(seconds, impl.pinnedLightSeconds.has_value());
     // UTA-0263 SS 4.4: flames run on the same clock. A float holds it to a
     // millisecond for hours only, so it wraps; a pinned time that is not
     // finite reads as 0.
@@ -1557,6 +1570,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // leaves out present, which waits for the display under FIFO.
     const auto started = std::chrono::steady_clock::now();
     const Result<void> ran = impl.gpu->run([&](VkCommandBuffer commands) {
+        impl.materials->recordFireUploads(commands); // UTA-0286 SS 4.4, before anything samples them
         impl.recordFrame(commands, plan, region, fog);
         // SS 6's counts are read on the host once this finishes; the fence
         // alone does not make the compute pass's writes visible to it.

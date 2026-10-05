@@ -10,9 +10,9 @@ namespace uta::ubundle::detail {
 namespace {
 
 /// UTA-0011 SS 4.10: a u32 length for an empty id, then one u8; UTA-0040
-/// SS 4.1's depth byte; UTA-0263 SS 4.2's flame byte; and UTA-0105 SS 4.2's
-/// liquid byte.
-constexpr std::uint64_t MIN_MATERIAL = 8;
+/// SS 4.1's depth byte; UTA-0263 SS 4.2's flame byte; UTA-0105 SS 4.2's
+/// liquid byte; and UTA-0286 SS 4.2's fire byte.
+constexpr std::uint64_t MIN_MATERIAL = 9;
 
 /// UTA-0105 SS 4.2's refusals, shared by read and write. Empty when the look
 /// is valid; otherwise what is wrong with it.
@@ -27,6 +27,21 @@ constexpr std::uint64_t MIN_MATERIAL = 8;
     for (const auto& colour : look.ramp)
         for (const float channel : colour)
             if (!std::isfinite(channel)) return "ramp holds a value that is not finite";
+    return {};
+}
+
+/// UTA-0286 SS 4.2's refusals, shared by read and write. Empty when the look
+/// is valid; otherwise what is wrong with it.
+[[nodiscard]] std::string fireFault(const FireLook& look) {
+    for (const std::uint16_t side : look.size)
+        if (side == 0 || side > FIRE_SIZE_MAX)
+            return "size side " + std::to_string(side) + " is not 1 to " + std::to_string(FIRE_SIZE_MAX);
+    if (look.rising > 1) return "rising byte " + std::to_string(look.rising) + " is not 0 or 1";
+    if (look.masked > 1) return "masked byte " + std::to_string(look.masked) + " is not 0 or 1";
+    if (!std::isfinite(look.maxFrameRate) || look.maxFrameRate < 0)
+        return "MaxFrameRate is negative or not finite";
+    if (look.sparks.size() > FIRE_SPARKS_MAX)
+        return std::to_string(look.sparks.size()) + " sparks is more than " + std::to_string(FIRE_SPARKS_MAX);
     return {};
 }
 
@@ -82,6 +97,35 @@ constexpr std::uint64_t MIN_MATERIAL = 8;
                 UTA_TRY(channel, cursor.readF32());
             }
     }
+    // UTA-0286 SS 4.2: 0, or 1 and the look's fields, its sparks counted by a
+    // u16. The count is refused before anything is reserved for it.
+    UTA_TRY(const std::uint8_t fire, cursor.readU8());
+    if (fire > 1) return fail(ErrorCode::MalformedData, "MATS: fire byte " + std::to_string(fire) + " is not 0 or 1");
+    if (fire == 1) {
+        FireLook& look = record.fire.emplace();
+        for (std::uint16_t& side : look.size) {
+            UTA_TRY(side, cursor.readU16());
+        }
+        UTA_TRY(look.renderHeat, cursor.readU8());
+        UTA_TRY(look.rising, cursor.readU8());
+        UTA_TRY(look.masked, cursor.readU8());
+        UTA_TRY(look.sparksLimit, cursor.readI32());
+        UTA_TRY(look.maxFrameRate, cursor.readF32());
+        for (auto& entry : look.palette)
+            for (std::uint8_t& channel : entry) {
+                UTA_TRY(channel, cursor.readU8());
+            }
+        UTA_TRY(const std::uint16_t count, cursor.readU16());
+        if (count > FIRE_SPARKS_MAX)
+            return fail(ErrorCode::MalformedData, "MATS: fire look's " + std::to_string(count)
+                                                      + " sparks is more than " + std::to_string(FIRE_SPARKS_MAX));
+        look.sparks.resize(count);
+        for (FireSpark& spark : look.sparks)
+            for (std::uint8_t* byte : {&spark.type, &spark.heat, &spark.x, &spark.y, &spark.byteA, &spark.byteB,
+                                       &spark.byteC, &spark.byteD}) {
+                UTA_TRY(*byte, cursor.readU8());
+            }
+    }
     return record;
 }
 
@@ -94,17 +138,36 @@ void putMaterialRecord(Sink& sink, const MaterialRecord& record) {
         for (const auto& colour : record.flame->ramp)
             for (const float channel : colour) sink.putF32(channel);
     sink.putU8(record.liquid ? static_cast<std::uint8_t>(record.liquid->kind) : 0);
-    if (!record.liquid) return;
-    const LiquidLook& look = *record.liquid;
-    sink.putU8(look.amplitude);
-    sink.putU8(look.frequency);
-    sink.putU8(look.panning);
-    sink.putU8(look.moveIce); // UTA-0270
-    for (const std::uint8_t pan : look.pan) sink.putU8(pan);
-    for (const std::uint8_t bump : look.bump) sink.putU8(bump);
-    for (const std::uint16_t side : look.size) sink.putU16(side);
-    for (const auto& colour : look.ramp)
-        for (const float channel : colour) sink.putF32(channel);
+    if (record.liquid) {
+        const LiquidLook& look = *record.liquid;
+        sink.putU8(look.amplitude);
+        sink.putU8(look.frequency);
+        sink.putU8(look.panning);
+        sink.putU8(look.moveIce); // UTA-0270
+        for (const std::uint8_t pan : look.pan) sink.putU8(pan);
+        for (const std::uint8_t bump : look.bump) sink.putU8(bump);
+        for (const std::uint16_t side : look.size) sink.putU16(side);
+        for (const auto& colour : look.ramp)
+            for (const float channel : colour) sink.putF32(channel);
+    }
+    sink.putU8(record.fire ? 1 : 0); // UTA-0286
+    if (record.fire) {
+        const FireLook& look = *record.fire;
+        for (const std::uint16_t side : look.size) sink.putU16(side);
+        sink.putU8(look.renderHeat);
+        sink.putU8(look.rising);
+        sink.putU8(look.masked);
+        sink.putI32(look.sparksLimit);
+        sink.putF32(look.maxFrameRate);
+        for (const auto& entry : look.palette)
+            for (const std::uint8_t channel : entry) sink.putU8(channel);
+        // validateMaterials has refused a count past FIRE_SPARKS_MAX.
+        sink.putU16(static_cast<std::uint16_t>(look.sparks.size()));
+        for (const FireSpark& spark : look.sparks)
+            for (const std::uint8_t byte : {spark.type, spark.heat, spark.x, spark.y, spark.byteA, spark.byteB,
+                                            spark.byteC, spark.byteD})
+                sink.putU8(byte);
+    }
 }
 
 } // namespace
@@ -138,6 +201,13 @@ Result<void> validateMaterials(const std::vector<MaterialRecord>& materials, Err
             return fail(code, "MATS: material " + std::to_string(i) + "'s liquid kind is not 1 to 3");
         if (const std::string fault = liquidFault(*materials[i].liquid); !fault.empty())
             return fail(code, "MATS: material " + std::to_string(i) + "'s liquid look: " + fault);
+    }
+    for (std::size_t i = 0; i < materials.size(); ++i) {
+        if (!materials[i].fire) continue;
+        if (materials[i].flame)
+            return fail(code, "MATS: material " + std::to_string(i) + " carries both a flame look and a fire look");
+        if (const std::string fault = fireFault(*materials[i].fire); !fault.empty())
+            return fail(code, "MATS: material " + std::to_string(i) + "'s fire look: " + fault);
     }
     return {};
 }

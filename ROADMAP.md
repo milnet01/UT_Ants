@@ -15333,6 +15333,17 @@ stays with movement in 0.2.0.
   UTA-0263's shader. Modern replacements are UTA-0290, later. Sparks,
   embers and smoke above flames split out to UTA-0291, so this item
   now covers the non-flame FireTextures only.
+  Progress (2026-10-05): built to docs/specs/UTA-0286-replayed-fire-textures.md
+  except INV-7. New library src/ufire (the animation, moved out of
+  FireStill byte for byte: INV-3's 29 hashes held and a seeded mutation
+  failed all 29); MATS fire look, format 21; bake fills it (ut-bake
+  report gains skippedFires); baker revision 39; urender replays each
+  look in MaterialSet::advanceFires / recordFireUploads, called from
+  Frame.cpp. Unit 865/865, device 89/89 on lavapipe under sync
+  validation; INV-1, INV-2 and INV-4 each seen red by a hand mutation.
+  Left: tests/device/RenderFireReplayTest.cpp (INV-7); re-bake
+  CTF-Beatitude and look at the capture with ut-shot; ut-bench frame
+  before/after; push and flip on GitHub's matrix.
   **Layman:** The blue sparks rising from fire basins hang still in mid-air instead of drifting up and fading as they do in the original.
   Kind: feature.
   Source: user-request-2026-10-05.

@@ -264,15 +264,19 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
         writeJsonString(out, skipped.reason);
         out << '}';
     });
-    // UTA-0105 SS 6: a liquid made with no liquid look.
-    out << ", \"skippedLiquids\": ";
-    writeArray(out, result.skippedLiquids, [&out](const SkippedTexture& skipped) {
-        out << "{\"material\": ";
-        writeJsonString(out, skipped.material);
-        out << ", \"why\": ";
-        writeJsonString(out, skipped.reason);
-        out << '}';
-    });
+    // UTA-0105 SS 6: a liquid made with no liquid look; UTA-0286 SS 6: a
+    // non-flame FireTexture made with no fire look.
+    for (const auto& [key, list] : {std::pair{"skippedLiquids", &result.skippedLiquids},
+                                    std::pair{"skippedFires", &result.skippedFires}}) {
+        out << ", \"" << key << "\": ";
+        writeArray(out, *list, [&out](const SkippedTexture& skipped) {
+            out << "{\"material\": ";
+            writeJsonString(out, skipped.material);
+            out << ", \"why\": ";
+            writeJsonString(out, skipped.reason);
+            out << '}';
+        });
+    }
     // UTA-0113 SS 4.5: a recipe's texture the map does not use.
     out << ", \"recipeUnused\": ";
     writeArray(out, result.recipeUnused, [&out](const std::string& texture) { writeJsonString(out, texture); });

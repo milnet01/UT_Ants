@@ -549,18 +549,21 @@ A bake prints:
  "textureCache": {"hits": 0, "misses": 0},
  "skipped": [{"material": "<id>", "why": "<a sentence>"}],
  "skippedFlames": [{"surface": 0, "why": "<a sentence>"}],
- "skippedLiquids": [{"material": "<id>", "why": "<a sentence>"}]}
+ "skippedLiquids": [{"material": "<id>", "why": "<a sentence>"}],
+ "skippedFires": [{"material": "<id>", "why": "<a sentence>"}]}
 ```
 
 - `error` appears only on `refused`.
 - `name` and `path` appear on `written`, `cached` and `over-budget`.
-- `rooms`, `budget`, `textureCache`, `skipped`, `skippedFlames` and
-  `skippedLiquids` appear on `written` and `over-budget`.
+- `rooms`, `budget`, `textureCache`, `skipped`, `skippedFlames`,
+  `skippedLiquids` and `skippedFires` appear on `written` and `over-budget`.
 - `skippedFlames` names each flame surface with a sheet's flags that made no
   flame record, by its index in the level's surface list, and why. Added by
   `UTA-0263` § 6.
 - `skippedLiquids` names each liquid material made with no liquid look, and
   why. Added by `UTA-0105` § 6.
+- `skippedFires` names each non-flame FireTexture material made with no fire
+  look, and why. Added by `UTA-0286` § 6.
 - `byTexture` on `written` lists only the ten largest entries, and
   `byTextureOmitted` counts the rest. `over-budget`, or `--full-budget`, lists
   every entry, with `byTextureOmitted` `0`: the whole list is read only to
