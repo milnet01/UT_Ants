@@ -15295,7 +15295,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-090952, ~/.local/state/ut-ants/map-captures/DM-Crane-20261003-091053
 
-- 🚧 [UTA-0286] **urender: fire textures' sparks and spray stand frozen in the air; CTF-Beatitude's blue fire basins show it.**
+- ✅ [UTA-0286] **urender: fire textures' sparks and spray stand frozen in the air; CTF-Beatitude's blue fire basins show it.**
   The user's F12 capture CTF-Beatitude-20261005-121904 (commit bed3da7)
   looks at the two blue fire basins under the three blue N emblems. Blue
   spray and spark shapes stand frozen above and around both basins.
@@ -15355,6 +15355,8 @@ stays with movement in 0.2.0.
   30.822 before (fc8dad9, the r38 bake), 25.041 and 30.407 after. That
   measures drawing the replayed picture only: ut-bench pins the light
   time to 0, so no step or upload ran, and their cost is unmeasured.
+  Shipped (2026-10-05): GitHub's matrix green on 0262ef0 (GCC, Clang,
+  MSVC); the local gate's three legs green before the push.
   **Layman:** The blue sparks rising from fire basins hang still in mid-air instead of drifting up and fading as they do in the original.
   Kind: feature.
   Source: user-request-2026-10-05.

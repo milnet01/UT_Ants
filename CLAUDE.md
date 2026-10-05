@@ -5,7 +5,7 @@
 **State:** 4 if nothing is 🚧, or if every 🚧 is parked on `Waiting-on:`
 — `workflow.md` § 1 puts a project whose every 🚧 is parked between
 items. Else 5.
-**Next:** the user's priority list of 2026-10-05: help other sessions, then every open fix-kind or review-sourced item oldest first, then 0.1.0. No fix-kind item is open to work: `UTA-0186` and `UTA-0249` are parked (`UTA-0249` reconfirmed by the user 2026-10-05); `UTA-0098` and `UTA-0100` defer themselves. So 0.1.0 is next: `UTA-0286` (frozen fire sparks; first step on its body), then `UTA-0274`, `UTA-0278` and `UTA-0277` (needs a spec). `UTA-0283` waits on UT_MonsterHunt. Glass (`UTA-0272`) and see-through water (`UTA-0273`) come after 0.1.0. Dark rooms are left as they are; `UTA-0256`'s added lamps are parked.
+**Next:** the user's priority list of 2026-10-05: help other sessions, then every open fix-kind or review-sourced item oldest first, then 0.1.0. No fix-kind item is open to work: `UTA-0186` and `UTA-0249` are parked (`UTA-0249` reconfirmed by the user 2026-10-05); `UTA-0098` and `UTA-0100` defer themselves. So 0.1.0 is next: `UTA-0274`, then `UTA-0278` and `UTA-0277` (needs a spec). `UTA-0283` waits on UT_MonsterHunt. Glass (`UTA-0272`) and see-through water (`UTA-0273`) come after 0.1.0. Dark rooms are left as they are; `UTA-0256`'s added lamps are parked.
 **In flight:** whatever the roadmap marks 🚧.
 
 > **`In flight:` is not kept by hand.** Ask the roadmap:
