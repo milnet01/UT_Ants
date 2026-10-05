@@ -15224,6 +15224,18 @@ stays with movement in 0.2.0.
   <install> DM-ArcaneTemple <bundle> 40) with the r35 bake in
   ~/.cache/uta-scratch/u215/bakes/, to see whether UT99 lights pool texels
   that our shadow rays block; then surf-lights near (-602, 63.4, -73).
+  Shadows ruled out (2026-10-05). The census tools were rebuilt against
+  main and DM-ArcaneTemple baked fresh (r39-f21, ~/.cache/uta-scratch/
+  u278/). texel-vis: our shadow rays agree with UT99's own visibility bits
+  on 98.4% of texels map-wide and let through 98.5% of the energy UT99
+  does; the pool's lamps e2 and e19 agree on 97.7% and 95.8%. That is a
+  few percent, not 2x. surf-lights: UT99 lights the pool's Wrcka3 walls
+  from e2 (brightness 166) and e19 (64) only, both dim, so the gap rides
+  on how a dim lamp's brightness maps to screen light -- the curve
+  UTA-0274's sweep request asks UT_MonsterHunt to measure (sent 2026-10-05
+  to its running session). The original's floor/ frames carry no player
+  gun, so that trap does not apply here. Next: when the sweep arrives,
+  fit the curve, then re-measure this pool with it.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.
