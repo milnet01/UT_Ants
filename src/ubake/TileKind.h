@@ -63,8 +63,9 @@ struct TileSurfaces {
     bool spansTwo = false;
     std::uint32_t surfaces = 0;
     double largestArea = 0;
-    /// The largest surface: its area-weighted centre, its unit normal, and the
-    /// largest side of its box, in world units.
+    /// The largest surface's largest polygon: its centre, which lies on it, the
+    /// surface's unit normal, and the largest side of the polygon's box, in
+    /// world units.
     std::array<double, 3> at{};
     std::array<double, 3> normal{};
     double extent = 0;

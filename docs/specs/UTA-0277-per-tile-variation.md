@@ -190,9 +190,11 @@ on it.
 ```
 
 most surfaces first, the material id breaking a tie. `view` is the largest
-surface wearing it: its area-weighted centre, its unit normal and the largest
-side of its box, in world units. A surface with no area or no normal does not
-count.
+surface wearing it, seen at its largest polygon: that polygon's centre, the
+surface's unit normal and the largest side of the polygon's box, in world
+units. A surface of separate pieces has its middle in whatever lies between
+them, which drew the wrong surface on DM-Deck16][. A surface with no area or
+no normal does not count.
 
 **The ask.** `scripts/tile-questions.py <report.json> <bundle> <out dir>`
 skips the questions the answers file already answers and writes, per question

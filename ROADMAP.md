@@ -15590,6 +15590,39 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-05.
   Lanes: ubake, urender.
 
+- 📋 [UTA-0294] **ubake: a tile question's camera can land in the next room; place it where the view is clear, then ask AS-Frigate's.**
+  Found asking the user DM-Deck16]['s four questions (UTA-0277 SS 4.5).
+  Fixed already (uncommitted at this writing, committed with this item):
+  the view aims at the largest surface's largest POLYGON, not the middle
+  of all its pieces, which drew the wrong surface for questions 2 and 4.
+  Still wrong: decayeds.base.base2a (hash 97763e89...) lies in a space
+  lower than the 192-unit camera distance, so tile-questions.py's camera
+  sits in the room above and shows its floor. Fix: in detail::bake, where
+  SurfaceRays exists (the strips step), give each TileQuestion the
+  distance out along its normal before the view meets geometry, capped at
+  192 (step down 192, 128, 96, 64, 32), as a `clear` field in `view`; the
+  script uses min(1.5 x extent, clear). Report-only, so no baker bump.
+  Then: DM-Deck16][ question 4 again, and AS-Frigate's seven Unsure
+  (bake in ~/.cache/uta-scratch/u277/bakes/frigate.json): basicw5,
+  psky1b, skyblu, concrete, rmetl, rmetl2, sh_b8. Make one big labelled
+  picture per question (texture left, view right, yellow 48 px text),
+  copy to ~/Pictures/UT_Ants-texture-questions/, xdg-open the first, ask
+  with AskUserQuestion with a recommendation. The user identifies what a
+  texture IS; the session turns that into shuffle/fixed (moss = natural).
+  User's answers so far are in ~/.local/share/ut-ants/tile-kinds.txt:
+  Deck16 rclfflr9x fixed, rclfclg2 fixed, base1c shuffle; base2a left
+  unanswered on purpose. The user's 2026-10-05 Frigate F12 captures
+  (map-captures/AS-Frigate-20261005-1639*) were drawn at 50716af, before
+  the shader stage, so nothing in them is shuffled; their banded rock
+  walls and sand repeat. Re-shoot those poses with ut-shot at HEAD before
+  judging. rock9 and dirt1 are already Shuffle. Banded natural rock reads
+  as lines (Unsure or Fixed), which an answer can override: answers reach
+  any judged material, Fixed included, though the script asks only Unsure.
+  **Layman:** The picture that shows the player where an unsure texture sits sometimes shows a different room, so the player cannot tell what the texture is.
+  Kind: fix.
+  Source: user-request-2026-10-05.
+  Lanes: ubake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

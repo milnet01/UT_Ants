@@ -202,10 +202,14 @@ std::map<std::string, TileSurfaces, std::less<>> tileSurfaces(const upkg::Model&
     struct Gathered {
         const SurfaceMaterial* made = nullptr;
         double uMin = INFINITY, uMax = -INFINITY, vMin = INFINITY, vMax = -INFINITY;
-        Vec lo{INFINITY, INFINITY, INFINITY}, hi{-INFINITY, -INFINITY, -INFINITY};
-        Vec weighted{};
         double area = 0;
         Vec normal{};
+        // The surface's largest polygon, which the view looks at: its centre
+        // lies on it, where a surface of separate pieces has its middle in
+        // whatever lies between them.
+        double pieceArea = 0;
+        Vec pieceCentre{};
+        double pieceExtent = 0;
     };
     std::map<std::int32_t, Gathered> bySurf; // ascending, so the result does not depend on node order
     for (const upkg::BspNode& node : model.nodes) {
@@ -241,16 +245,26 @@ std::map<std::string, TileSurfaces, std::less<>> tileSurfaces(const upkg::Model&
             g.uMax = std::max(g.uMax, u);
             g.vMin = std::min(g.vMin, v);
             g.vMax = std::max(g.vMax, v);
-            for (std::size_t a = 0; a < 3; ++a) {
-                g.lo[a] = std::min(g.lo[a], p[a]);
-                g.hi[a] = std::max(g.hi[a], p[a]);
-            }
         }
+        double pieceArea = 0;
+        Vec weighted{};
+        Vec lo{INFINITY, INFINITY, INFINITY}, hi{-INFINITY, -INFINITY, -INFINITY};
+        for (const Vec& p : points)
+            for (std::size_t a = 0; a < 3; ++a) {
+                lo[a] = std::min(lo[a], p[a]);
+                hi[a] = std::max(hi[a], p[a]);
+            }
         for (std::size_t k = 1; k + 1 < points.size(); ++k) {
             const Vec c = cross(minus(points[k], points[0]), minus(points[k + 1], points[0]));
             const double area = std::sqrt(dot(c, c)) / 2;
-            g.area += area;
-            for (std::size_t a = 0; a < 3; ++a) g.weighted[a] += area * (points[0][a] + points[k][a] + points[k + 1][a]) / 3;
+            pieceArea += area;
+            for (std::size_t a = 0; a < 3; ++a) weighted[a] += area * (points[0][a] + points[k][a] + points[k + 1][a]) / 3;
+        }
+        g.area += pieceArea;
+        if (pieceArea > g.pieceArea) {
+            g.pieceArea = pieceArea;
+            for (std::size_t a = 0; a < 3; ++a) g.pieceCentre[a] = weighted[a] / pieceArea;
+            g.pieceExtent = std::max({hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]});
         }
     }
     std::map<std::string, TileSurfaces, std::less<>> out;
@@ -265,10 +279,10 @@ std::map<std::string, TileSurfaces, std::less<>> tileSurfaces(const upkg::Model&
         if (!(g.area > t.largestArea)) continue;
         t.largestArea = g.area;
         for (std::size_t a = 0; a < 3; ++a) {
-            t.at[a] = g.weighted[a] / g.area;
+            t.at[a] = g.pieceCentre[a];
             t.normal[a] = g.normal[a] / length;
         }
-        t.extent = std::max({g.hi[0] - g.lo[0], g.hi[1] - g.lo[1], g.hi[2] - g.lo[2]});
+        t.extent = g.pieceExtent;
     }
     return out;
 }
