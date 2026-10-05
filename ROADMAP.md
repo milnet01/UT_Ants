@@ -17386,6 +17386,17 @@ to.
   eye's own descent path. Grid sent: offsets ACROSS the plane (d along n,
   -3 to +16) against offsets ALONG it (y, +-1 to +-16) as the control.
   Data: ~/.cache/uta-scratch/u283/near-user-spot.txt (bsp-point --near).
+  GAME-0187 (2026-10-05, grid): the sliver plane is out (no flip across or
+  along it). From anywhere in leaf 3445 (x -3711..2738, y -2128..-704, z
+  -24688..-23024, the lower hull room) looking down draws nothing; from
+  leaf 3592 the near floor draws. Both leaves are zone 1 with every zone
+  visible, so zone data is not the difference. Lead: node 1307 (Brush172,
+  on 3445's path, eye 503 in front) has render bound 928 inside-out
+  (65536 .. -65536, invalid), the only bad bound on that path; 3592's path
+  avoids 1307. An inside-out box's frustum test depends on view direction,
+  which fits up drawn, down empty. The 10-03 patch test of these bounds
+  ran under buffer age, so asked: patch bound 928 alone (FIX 928 in
+  ~/.cache/uta-scratch/u283/boat-bounds-whole.txt) and re-run.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
