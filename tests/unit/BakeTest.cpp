@@ -17,6 +17,7 @@
 #include "ubake/Bake.h"
 #include "ubake/Install.h"
 #include "ubake/Name.h"
+#include "ubake/SurfaceRays.h"
 #include "ubundle/Bundle.h"
 #include "umap/Build.h"
 #include "umat/Fingerprint.h"
@@ -34,6 +35,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <iterator>
 #include <limits>
 #include <mutex>
 #include <set>
@@ -1052,6 +1054,15 @@ TEST_CASE("UTA-0277 INV-9: tileQuestions lists every Unsure material once with m
         CHECK(question.surfaces > 0);
         const auto& n = question.normal;
         CHECK(std::abs(n[0] * n[0] + n[1] * n[1] + n[2] * n[2] - 1.0) < 1e-9);
+        // UTA-0294: the furthest step the drawn surfaces leave clear.
+        const uta::ubake::SurfaceRays rays(*result->bundle.geometry);
+        const uta::ubake::Vec3 at{question.at[0], question.at[1], question.at[2]};
+        const uta::ubake::Vec3 normal{n[0], n[1], n[2]};
+        const std::array<double, 5> steps{32, 64, 96, 128, 192};
+        const auto step = std::ranges::find(steps, question.clear);
+        REQUIRE(step != steps.end());
+        if (step != steps.begin()) CHECK_FALSE(rays.blocked(at + normal, at + normal * question.clear));
+        if (std::next(step) != steps.end()) CHECK(rays.blocked(at + normal, at + normal * *std::next(step)));
         if (i > 0) CHECK(result->tileQuestions[i - 1].surfaces >= question.surfaces);
     }
     CHECK(listed == unsureIds);

@@ -295,7 +295,7 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
         triple(question.at);
         out << ", \"normal\": ";
         triple(question.normal);
-        out << ", \"extent\": " << question.extent << "}}";
+        out << ", \"extent\": " << question.extent << ", \"clear\": " << question.clear << "}}";
     });
 }
 

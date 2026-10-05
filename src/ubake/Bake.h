@@ -62,6 +62,9 @@ struct TileQuestion {
     std::array<double, 3> at{};
     std::array<double, 3> normal{}; ///< unit length
     double extent = 0;
+    /// UTA-0294: the furthest of 192, 128, 96, 64 and 32 units out along
+    /// `normal` from `at` that no drawn surface blocks; 32 when none is clear.
+    double clear = 0;
 };
 
 struct BakeResult {

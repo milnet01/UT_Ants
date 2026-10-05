@@ -11,7 +11,7 @@ the player's answers file this writes, into <out dir>:
                    to at least 512 texels across, nearest-neighbour
   <n>-view.png     ut-shot's picture of the largest surface wearing it, from
                    out along its normal: 1.5 times its size, but never past
-                   VIEW_MAX units, so a big floor is seen from inside its room
+                   the bake's clear distance, so it is seen from its own room
 
 and answers.txt, one line a question with "?" where the answer goes. Show the
 user both pictures -- this is asking what a thing IS, not judging a look -- then
@@ -38,7 +38,6 @@ UT_SHOT = pathlib.Path("build/tools/ut-shot/ut-shot")
 VIEW_SIZE = (1280, 720)
 VIEW_FOV = 90.0
 VIEW_DISTANCE = 1.5  # times the surface's extent
-VIEW_MAX = 192.0     # world units: further, and a floor's view leaves the level
 SMALLEST_SIDE = 512
 BC7 = 2  # ubundle::BlockFormat
 
@@ -96,7 +95,7 @@ def base_levels(bundle):
 def camera_line(view):
     """ut-shot's camera: on the surface's normal, looking back at its centre."""
     at, normal, extent = view["at"], view["normal"], view["extent"]
-    distance = min(VIEW_DISTANCE * extent, VIEW_MAX)
+    distance = min(VIEW_DISTANCE * extent, view["clear"])  # UTA-0294: the bake's clear distance
     eye = [a + n * distance for a, n in zip(at, normal)]
     look = [-n for n in normal]
     yaw = math.atan2(look[1], look[0])

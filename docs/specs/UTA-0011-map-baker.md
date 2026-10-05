@@ -552,7 +552,8 @@ A bake prints:
  "skippedLiquids": [{"material": "<id>", "why": "<a sentence>"}],
  "skippedFires": [{"material": "<id>", "why": "<a sentence>"}],
  "tileQuestions": [{"material": "<id>", "hash": "<64 hex>", "lines": 0.0, "spots": 0.0,
-                    "surfaces": 0, "view": {"at": [0, 0, 0], "normal": [0, 0, 0], "extent": 0.0}}]}
+                    "surfaces": 0, "view": {"at": [0, 0, 0], "normal": [0, 0, 0], "extent": 0.0,
+                                            "clear": 0.0}}]}
 ```
 
 - `error` appears only on `refused`.

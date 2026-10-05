@@ -1135,6 +1135,19 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         const SurfaceRays surfaces(geometry);
         markStrips(actors.lights,
                    [&surfaces](const Vec3& from, const Vec3& to) { return surfaces.blocked(from, to); });
+        // UTA-0294: a question's camera stays on the surface's side of the
+        // geometry. The ray starts one unit off the surface, so the surface
+        // itself never blocks it.
+        for (TileQuestion& question : tileQuestions) {
+            const Vec3 at{question.at[0], question.at[1], question.at[2]};
+            const Vec3 normal{question.normal[0], question.normal[1], question.normal[2]};
+            question.clear = 32;
+            for (const double step : {192.0, 128.0, 96.0, 64.0})
+                if (!surfaces.blocked(at + normal, at + normal * step)) {
+                    question.clear = step;
+                    break;
+                }
+        }
     }
     // UTA-0263 SS 4.5: after the strips, so no flame names an absorbed light.
     assignFlameLights(flames.flames, actors.lights);

@@ -186,7 +186,8 @@ on it.
 ```json
 "tileQuestions": [{"material": "<id>", "hash": "<64 hex>", "lines": 0.0,
                    "spots": 0.0, "surfaces": 0,
-                   "view": {"at": [0,0,0], "normal": [0,0,0], "extent": 0.0}}]
+                   "view": {"at": [0,0,0], "normal": [0,0,0], "extent": 0.0,
+                            "clear": 0.0}}]
 ```
 
 most surfaces first, the material id breaking a tie. `view` is the largest
@@ -194,15 +195,17 @@ surface wearing it, seen at its largest polygon: that polygon's centre, the
 surface's unit normal and the largest side of the polygon's box, in world
 units. A surface of separate pieces has its middle in whatever lies between
 them, which drew the wrong surface on DM-Deck16][. A surface with no area or
-no normal does not count.
+no normal does not count. `clear` is the furthest of 192, 128, 96, 64
+and 32 units out along the normal that no drawn surface blocks, from one unit
+off the surface; 32 when none is (UTA-0294). Without it a camera 192 units off
+a low room's wall sat in the room beyond.
 
 **The ask.** `scripts/tile-questions.py <report.json> <bundle> <out dir>`
 skips the questions the answers file already answers and writes, per question
 left, `<n>-texture.png` (the base level as the bundle stores it, scaled up to
 at least 512 texels across, nearest-neighbour) and `<n>-view.png` (`ut-shot`
 from a camera on the surface's normal at 1.5 × its extent but no further than
-192 units, looking at its centre — further, and a large floor's camera leaves
-the level), and an `answers.txt` with `?` where each answer goes. An unedited
+`clear`, looking at its centre), and an `answers.txt` with `?` where each answer goes. An unedited
 `?` line is malformed, so appending one answers nothing. A session shows the
 user both pictures — this is identifying a thing, not judging a look — and
 appends the answered lines to the answers file.
