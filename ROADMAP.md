@@ -15590,7 +15590,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-05.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0294] **ubake: a tile question's camera can land in the next room; place it where the view is clear, then ask AS-Frigate's.**
+- ✅ [UTA-0294] **ubake: a tile question's camera can land in the next room; place it where the view is clear, then ask AS-Frigate's.**
   Found asking the user DM-Deck16]['s four questions (UTA-0277 SS 4.5).
   Fixed already (uncommitted at this writing, committed with this item):
   the view aims at the largest surface's largest POLYGON, not the middle
@@ -15618,8 +15618,31 @@ stays with movement in 0.2.0.
   judging. rock9 and dirt1 are already Shuffle. Banded natural rock reads
   as lines (Unsure or Fixed), which an answer can override: answers reach
   any judged material, Fixed included, though the script asks only Unsure.
+  Resolved (2026-10-05): 598780c gives each question a `clear` distance,
+  and tile-questions.py stands its camera at min(1.5 x extent, clear).
+  GitHub run 37341045119's successor 37345014063 is green; unit 880/880.
+  base2a got 32 and now shows its own floor. All 11 questions on
+  DM-Deck16][ and AS-Frigate are answered in tile-kinds.txt: sh_b8
+  fixed, the rest shuffle. Limit seen: the clear test reads GEOM only,
+  so a mover can still sit between camera and surface. rmetl's close
+  view was blurred by the boat's gun barrels; a wider ut-shot set
+  settled it. File a fix only if it recurs. The user asked to launch the
+  viewer at a spot, but ut-ants has no start-camera option.
   **Layman:** The picture that shows the player where an unsure texture sits sometimes shows a different room, so the player cannot tell what the texture is.
   Kind: fix.
+  Source: user-request-2026-10-05.
+  Lanes: ubake.
+
+- 📋 [UTA-0295] **AS-Frigate: check the wooden walkway's side wears the ground texture in the original too.**
+  The user, identifying UTA-0294's picture 5, says genearth.ground.basicw5
+  (dark rough ground) sits on the side of a wooden walkway and "might not
+  have the right texture". Our bake takes each surface's texture from the
+  map, so first read that surface's texture in the .unr. If the map names
+  basicw5 there, it is the author's choice and nothing to fix. If not, find
+  where our bake swaps it. The bake's report gives the spot: view at
+  [-512, 1536, 96], normal [0, -1, 0].
+  **Layman:** One side of a wooden walkway on AS-Frigate looks like ground. Check whether the original map does the same.
+  Kind: investigate.
   Source: user-request-2026-10-05.
   Lanes: ubake.
 
