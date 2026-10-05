@@ -17351,6 +17351,17 @@ to.
   drops node 1448. Answered them with the tally, plus three ways to see
   what was drawn without gdb: a bpftrace uprobe, a flat-colour frame
   before each shot, and settle time as a variable.
+  GAME-0187 (2026-10-05, later): UT_MonsterHunt's probes 2 and 3. A
+  magenta frame before each shot makes undrawn pixels exact. The hole is
+  all or nothing (about 0 px, or all of surf 601) at one identical pose,
+  and depends on the view's history, not the pose: after pitch -15000 at
+  yaw 0, yes; after a turn in from yaw 32768, no; holds of 225+ frames with
+  no shot, yes; a shot every 50 frames for 1,000 frames, no. So "fades with
+  time" is out. Our reply: it reads like cached state going stale while
+  nothing disturbs it. Next probes sent: (A) FLUSH in the console at a bad
+  pose; (B) no-shot hold length in frames vs seconds, with fps capped; (C)
+  one prior pose swept by pitch and yaw. Files:
+  UT_MonsterHunt/work/uta0269/hole0283/ (flatsettle, flathold, flatuser).
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
