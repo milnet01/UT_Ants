@@ -15213,6 +15213,17 @@ stays with movement in 0.2.0.
   against the original: lava 0.95-1.31, block RMS 7.4-16.1 (from 29-50);
   the pool 5.6 and 7.2. Open on this item: only the bare pool's light (ours
   0.4-0.5x the original's), which the veil mostly hides.
+  Lead (2026-10-05, from UTA-0274): with the original's gun masked,
+  DM-Fetid at EXPOSURE 5.03 draws 15-40% BELOW the original's whole-frame
+  mean on every pose, so "ours too dark" may be wider than this pool. And
+  UT_MonsterHunt's fetid0274 pair shows a lamp's on-screen share grows
+  about 1.8x when its brightness doubles, against 1.34-1.56x in ours. A
+  straight swap of the brightness curve did not help DM-Fetid (UTA-0274's
+  note), so do not retry that blind. Next here: texel-vis on
+  DM-ArcaneTemple (ut-ants-uta0156/ambient-census/build/texel-vis
+  <install> DM-ArcaneTemple <bundle> 40) with the r35 bake in
+  ~/.cache/uta-scratch/u215/bakes/, to see whether UT99 lights pool texels
+  that our shadow rays block; then surf-lights near (-602, 63.4, -73).
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.
