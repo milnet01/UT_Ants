@@ -17267,6 +17267,18 @@ to.
   Scratch tool bsp-point.cpp gained --gaps, --whichcomp, --droproute and
   --slice for this. Still open: GAME-0187, waiting on UT_MonsterHunt's
   Location+Region log at each shot against our leaf 3445, zone 1.
+  GAME-0187 (2026-10-05): UT_MonsterHunt's region log matches ours
+  (leaf 3445, zone 1 at every shot), so the start region is ruled out.
+  New scratch mode hole-find --view (x y z yaw pitch hfov W H step)
+  traces one ray per pixel block at a real camera. At their spot, yaw
+  0, pitch 0, floor surf 601 on node 1448 should fill 43.8% of a
+  1024x768 frame at FOV 121.28 (43.6% at FOV 90). Every sample hits a
+  drawn polygon that faces the camera, so the geometry has no hole. Their
+  undrawn 382,639 px matches that share, and their frames keep the
+  previous shot exactly where the floor belongs. So the original's walk
+  drops node 1448. Answered them with the tally, plus three ways to see
+  what was drawn without gdb: a bpftrace uprobe, a flat-colour frame
+  before each shot, and settle time as a variable.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
