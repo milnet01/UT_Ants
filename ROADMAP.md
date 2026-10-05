@@ -17423,6 +17423,14 @@ to.
   leaf 3445, (-1506,-1087): 333.8 .. 122.5 deg and (-2506,-1400): 328.6 ..
   113.9 deg. If the edges move as predicted, the strips stay implicated;
   if not, the match was a coincidence.
+  GAME-0187 (2026-10-05): the Brush20 strips are out; the switching yaws
+  did not move as their wedge predicted at two other eyes in leaf 3445.
+  Measured edges: user 324.3..111.0, (-1506,-1087) 322.4..113.6,
+  (-2506,-1400) 324.0..104.4 deg; the right frustum side sits at 23-25 deg
+  at all three. New lead: bound 660 (and 661, identical) contain the eye,
+  whose bottom face is the floor plane 71 UU below it; the next box up
+  (665) reaches 383 below and does not misbehave. Asked for copy -H: min z
+  of 660 and 661 lowered to -25000.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
