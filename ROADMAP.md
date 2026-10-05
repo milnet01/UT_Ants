@@ -15035,6 +15035,28 @@ stays with movement in 0.2.0.
   gives x1.8 in the original and x1.35 in ours, so our brightness curve
   is too flat at the top. It is invisible at the map's own settings.
   Waiting-on cleared.
+  Progress (2026-10-05), from UT_MonsterHunt's fetid0274 frames
+  (a baseline, b both lamps 0, c lamps doubled): in the original the
+  lamps' share (c-b)/(a-b) is 1.80-1.86 whatever share of the pixel the
+  other lights give (bins 0-80%), so lights ADD in display bytes and a
+  doubled brightness gives about 1.8x. FGetHSV alone gives 1.42x; ours
+  measures 1.34-1.56. A power curve on the final picture is ruled out
+  (the ratio would sink toward 1.42 as other light grows). So UT99
+  applies brightness more steeply than FGetHSV, somewhere not yet found.
+  But that is not what lifts the darks. Four variants in a scratch
+  worktree (DM-Fetid r39, Low, exposure refitted on poses 1-7, scripts
+  ~/.cache/uta-scratch/u274/{variant.sh,curve-fit.py}): power 1.6 or
+  2.2, FGetHSV or its square. RMS 29.6 (today's), 29.9, 30.3, 31.4;
+  pose 7's dark 39.3, 42.8, 39.0, 43.4 against 11.9. In the variant that
+  matches the doubling (2.2, squared) poses 3 and 4 go too dark (8.1 vs
+  13.1, 6.5 vs 12.9) while 1, 2 and 7 stay too bright, so the excess is
+  per surface or per lamp, not a global curve. The falloff is ruled out:
+  it was read from Render.so (UTA-0187). Next: pose-0's method on poses 1,
+  2 and 7 (a ray per dark pixel: which surfaces, which lamps), then
+  paired captures of the lamps found. A brightness sweep of Light14 and
+  Light91 is drafted for UT_MonsterHunt in
+  ~/.local/share/claude-handoff/ut-ants-uta0274-brightness-sweep-2026-10-05.md;
+  no UT_MonsterHunt session was running to send it to.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
