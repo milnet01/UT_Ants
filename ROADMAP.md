@@ -15876,7 +15876,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-09-17.
   Lanes: ubake, umat.
 
-- 📋 [UTA-0287] **ut-ants: the map launcher keeps a map's old bake after its recipe changes.**
+- ✅ [UTA-0287] **ut-ants: the map launcher keeps a map's old bake after its recipe changes.**
   Found building UTA-0113. A recipe enters the bake name, so ut-bake
   gives a map with a new or edited recipe a new bake. The launcher does not
   ask: apps/ut-ants/MapList.cpp's bakeState calls a remembered result
@@ -15890,6 +15890,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Placed in 0.2.0: no recipe ships yet and nobody writes one in 0.1.0, so
   nothing is stale until recipes are in use; UTA-0181 and UTA-0106, the
   first features that write them, are 0.2.0 too.
+  Resolved (2026-10-05): GitHub run 37313061548 on 1324cdb green on GCC
+  14, Clang 19 and MSVC.
   **Layman:** After you add or edit a map's recipe, the launcher should re-prepare the map; today it keeps opening the old copy.
   Kind: fix.
   Source: in-session-2026-10-05 split-from-UTA-0113.
