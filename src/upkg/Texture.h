@@ -77,6 +77,12 @@ struct Palette {
 [[nodiscard]] Result<Texture> readTexture(const Package& package,
                                           const ExportEntry& entry);
 
+/// UTA-0314: true when a texture export's own `bMasked` property is true. The
+/// original applies it to every surface wearing the texture, whatever the
+/// surface's own flags say. Reads the property list only, not the mips.
+[[nodiscard]] Result<bool> isMaskedTexture(const Package& package,
+                                           const ExportEntry& entry);
+
 /// A `Palette` export: the colours a palettised texture's indices name.
 [[nodiscard]] Result<Palette> readPalette(const Package& package,
                                           const ExportEntry& entry);

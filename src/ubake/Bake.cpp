@@ -803,6 +803,32 @@ struct Materials {
     std::map<std::string, TileScores, std::less<>> tileScores;
 };
 
+/// UTA-0314: a texture's own bMasked masks every surface wearing it, as the
+/// original's renderer does, so PF_MASKED is set on those surfaces before any
+/// step reads their flags. A reference that does not resolve, or whose
+/// properties do not read, is left alone: step 7 reports it.
+Result<void> maskByTexture(const upkg::Package& map, std::string_view mapName,
+                           const std::vector<upkg::Model*>& models,
+                           const upkg::PackageResolver& resolver) {
+    std::map<std::int32_t, bool> masked; // by texture reference, each resolved once
+    for (upkg::Model* model : models)
+        for (upkg::BspSurf& surf : model->surfs) {
+            if (surf.texture.kind() == upkg::ObjectReferenceKind::Null) continue;
+            auto found = masked.find(surf.texture.raw());
+            if (found == masked.end()) {
+                UTA_TRY(const TextureSite site, siteOf(map, mapName, surf.texture, resolver));
+                bool flag = false;
+                if (site.holder != nullptr && site.entry != nullptr) {
+                    const Result<bool> read = upkg::isMaskedTexture(*site.holder, *site.entry);
+                    flag = read.has_value() && *read;
+                }
+                found = masked.emplace(surf.texture.raw(), flag).first;
+            }
+            if (found->second) surf.polyFlags |= PF_MASKED;
+        }
+    return {};
+}
+
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
                                 const std::vector<const upkg::Model*>& models,
                                 const upkg::PackageResolver& resolver, JobSystem& jobs,
@@ -820,8 +846,10 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
         for (const upkg::BspSurf& surf : model->surfs) {
             if (surf.texture.kind() == upkg::ObjectReferenceKind::Null) continue;
             Needs& needs = byReference[surf.texture.raw()];
-            // The SURFACE decides, not the texture's own bMasked: surfaces
-            // sharing one texture disagree about index 0 (UTA-0009 SS 2 item 4).
+            // The surface's PF_MASKED decides, which maskByTexture has already
+            // set wherever the texture's own bMasked is true (UTA-0314). Surfaces
+            // sharing any other texture disagree about index 0 (UTA-0009 SS 2
+            // item 4).
             if ((surf.polyFlags & PF_MASKED) != 0)
                 needs.masked = true;
             else
@@ -1055,7 +1083,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     UTA_TRY(const upkg::ExportEntry* const levelExport, findLevel(map, mapName));
     UTA_TRY(const upkg::Level level, naming(upkg::readLevel(map, *levelExport), mapName));
     UTA_TRY(const upkg::ExportEntry* const modelExport, findModel(map, level, mapName));
-    UTA_TRY(const upkg::Model model, naming(upkg::readModel(map, *modelExport), mapName));
+    UTA_TRY(upkg::Model model, naming(upkg::readModel(map, *modelExport), mapName));
 
     // 3. ROOM, with default options; the report rides along.
     phase.emplace(&times, "rooms");
@@ -1096,6 +1124,11 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
 
     // 7. TEXS and MATS, over the level's Model and every mover's.
     phase.emplace(&times, "materials");
+    {
+        std::vector<upkg::Model*> masking{&model};
+        for (upkg::Model& moverModel : moverModels) masking.push_back(&moverModel);
+        UTA_CHECK(maskByTexture(map, mapName, masking, resolver));
+    }
     std::vector<const upkg::Model*> surfaced{&model};
     for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
     UTA_TRY(Materials materials,

@@ -466,6 +466,28 @@ TEST_CASE("the surfaces decide which variants a texture gets", "[ubake][bake]") 
     CHECK(result.skipped.empty());
 }
 
+TEST_CASE("UTA-0314: a texture's own bMasked masks every surface wearing it", "[ubake][bake]") {
+    // DM-Agony's genfx.Mask.moss2 is bMasked and no surface wearing it carries
+    // PF_Masked; the original draws its index-0 texels see-through. Wall is not
+    // bMasked, so a rule masking every texture would mask it too.
+    MapBuilder map;
+    TextureSpec moss{"Moss", "", picture(4), false};
+    moss.masked = true;
+    const std::int32_t mossRef = map.addTexture(moss);
+    const std::int32_t wall = map.addTexture(TextureSpec{"Wall", "", picture(5), false});
+    map.addSurface(mossRef).addSurface(wall);
+
+    JobSystem jobs(2);
+    const BakeResult result = baked(map.build(), NOTHING_AVAILABLE, jobs);
+    CHECK(idsOf(result) == std::vector<std::string>{"dm-fixture.moss#masked", "dm-fixture.wall"});
+    REQUIRE(result.bundle.geometry.has_value());
+    REQUIRE(result.bundle.geometry->batches.size() == 2);
+    for (const auto& batch : result.bundle.geometry->batches) {
+        INFO("batch material " << batch.material);
+        CHECK(((batch.polyFlags & MASKED) != 0) == (batch.material == "dm-fixture.moss#masked"));
+    }
+}
+
 TEST_CASE("UTA-0040 INV-3: an opaque variant carries its depth and a masked one none", "[ubake][bake]") {
     // Alpha is named by a masked and an unmasked surface. Every picture's
     // curated entry sets a depth, so the opaque record's value can only come

@@ -371,9 +371,12 @@ export:
   `UTA-0176` after the build: by name alone a FireTexture import found its
   Palette of the same name first.
 
-**Which variants.** A texture gets the masked variant where any surface
-naming it has `PF_MASKED`, and the opaque variant where any surface naming it
-does not. `PF_MASKED` is `0x00000002` of `BspSurf::polyFlags`.
+**Which variants.** A surface is masked where its own `PF_MASKED` is set or
+its texture's own `bMasked` property is true (UTA-0314). The bake sets
+`PF_MASKED` on the second kind before any step reads a surface's flags, so
+`GEOM`, `MOVR` and `COLL` carry it. A texture gets the masked variant where
+any masked surface names it, and the opaque variant where any other surface
+does. `PF_MASKED` is `0x00000002` of `BspSurf::polyFlags`.
 Source: <https://wiki.beyondunreal.com/Legacy:PolyFlags>.
 
 **Each variant, in ascending bytewise order of its material id:**
@@ -795,13 +798,15 @@ Recorded after the build; nothing above changed direction.
   applied, or `MATS` records a value other than the one the material was
   generated with.
 
-- **INV-8** — A texture named by a surface with `PF_MASKED` and by one without
+- **INV-8** — A texture named by a masked surface and by one not masked
   gives two materials, `<id>` and `<id>#masked`. Named only by unmasked
-  surfaces, it gives `<id>` alone.
+  surfaces, it gives `<id>` alone. A surface wearing a texture whose own
+  `bMasked` is true is masked, and its batch carries `PF_MASKED`.
   *Test:* `tests/unit/BakeTest.cpp`, a fixture `Model` with three surfaces
-  over two textures.
-  *Breaks when:* the variant follows the texture's own `bMasked` property
-  rather than the surface, or tests the wrong bit.
+  over two textures, and one with two unmasked surfaces, one wearing a
+  `bMasked` texture.
+  *Breaks when:* the variant ignores the texture's own `bMasked`, masks a
+  texture without it, or tests the wrong bit.
 
 - **INV-9** — A texture carrying a `Format` property gives no material and one
   `SkippedTexture` naming it.
@@ -907,7 +912,7 @@ one `Level` export and how many level `Model` references differ from the
 largest `Model`. It bakes one stock map twice and compares the bytes.
 
 **Mutation, by hand** (`CLAUDE.md` § Build and test): drop the `PF_MASKED`
-test, drop a closure entry's digest, skip the `Format` check, emit `TEXS`
+test, skip `maskByTexture`, drop a closure entry's digest, skip the `Format` check, emit `TEXS`
 in resolution order, and read a `MATS` `metallic` byte of `2` as `true`. Each must be killed by the invariant that names it.
 
 ## 8. Alternatives considered (and rejected)

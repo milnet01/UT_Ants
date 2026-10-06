@@ -16842,11 +16842,32 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   playable space (sky and void). Open: how a map's open edge is found
   (sky surfaces, zones with no floor below, or the level's bounds), and
   which maps call for it.
+  User, 2026-10-06, MH-()mG-ValleyOfHellV13 (two F12 captures,
+  110954 and 111007): the lava sea ends in a hard straight edge
+  against the starry sky. A night scene wants DARK fog at the edge,
+  not the pinkish haze drawn now, so the edge fog's colour must follow
+  the scene (sky and zone) rather than one fixed tint.
   **Layman:** Where a map ends in open sky or a void, fill the edge with heavy, uneven mist, like Silent Hill 2's but thicker, instead of showing a flat edge.
   Kind: enhancement.
   Source: user-request-2026-10-06.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/DM-Pyramid-20261006-100420
+
+- 📋 [UTA-0315] **urender: break up the repeat on regular textures such as brick floors, and on large liquid surfaces.**
+  User's two F12 captures on MH-()mG-ValleyOfHellV13, 2026-10-06:
+  the brick floor's repeat is plain across the whole courtyard, and the
+  lava sea repeats too. UTA-0277 varies natural textures per tile
+  (rock, dirt, grass); a brick or other regular pattern is judged
+  Fixed and gets none, since shifting it would break its mortar lines.
+  Needs a method that keeps a regular pattern's lines: low-frequency
+  tint and wear variation over the surface (a large-scale noise or
+  macro texture), not per-tile offset. Placed after 0.1.0 beside
+  UTA-0313, because 0.1.0 was trimmed on 2026-10-06 (UTA-0204).
+  **Layman:** On big floors the same brick pattern repeats so often it looks like wallpaper; the lava sea repeats too.
+  Kind: enhancement.
+  Source: user-request-2026-10-06.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-110954, ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-111007
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

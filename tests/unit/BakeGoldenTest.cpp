@@ -98,7 +98,9 @@ namespace {
 // picture hash.
 // 41, format 22: UTA-0310 stops drawing a sheet an invisible zone portal
 // covers. The fixture has no portal, so the digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 41;
+// 42, format 22: UTA-0314 masks every surface whose texture is bMasked. No
+// fixture texture is, so the digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 42;
 constexpr std::string_view GOLDEN =
     "7636e747fbbe8fd76ab96f329f875d88fd22cd79cc55bf90d45527c5cec8cd4a";
 

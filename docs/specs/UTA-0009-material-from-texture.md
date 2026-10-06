@@ -42,9 +42,13 @@ Nothing here runs an AI model.
    `upkg::BspSurf::polyFlags` and `upkg::Polygon::polyFlags`. So a water or
    glass tag on a material would be wrong for many of its surfaces, and
    this item derives none (§ 9).
-4. **See-through texels depend on the surface, not the texture.** Palette
-   index 0 is see-through on a masked surface. Most textures also use it as
-   an ordinary colour. Measured 2026-09-10 in a scratch run: textures
+4. **See-through texels depend on the surface, and on the texture's own
+   `bMasked`.** Palette index 0 is see-through on a masked surface. Most
+   textures also use it as an ordinary colour. A texture whose own
+   `bMasked` is true masks every surface wearing it (UTA-0314): the 469
+   SDK's `Texture.uc` packs the surface bools into `UnTex.h`'s
+   `PolyFlags`, *"Polygon flags to be applied to Bsp polys with
+   texture"*. Measured 2026-09-10 in a scratch run: textures
    marked `bMasked` hold far more index-0 texels than the rest. That run is
    not in this repository, so the figure is unverified here until § 7's
    census reproduces it. § 4.2 answers with a masked variant.
@@ -134,7 +138,7 @@ nothing changes. A texture with no opaque texel keeps its palette
 colours.
 
 The bake asks for the masked variant only where a surface uses the
-texture masked. The two variants are two materials (§ 4.6).
+texture masked, by its own flag or the texture's `bMasked` (§ 2 item 4). The two variants are two materials (§ 4.6).
 
 **A replacement image carries its own alpha, and no fill runs on it.**
 Its masked variant keeps that alpha as given; its opaque variant has

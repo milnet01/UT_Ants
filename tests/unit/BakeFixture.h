@@ -61,6 +61,8 @@ struct TextureSpec {
     /// for none. And its MoveIce, written only when true.
     std::int32_t glassTexture = 0;
     bool moveIce = false;
+    /// UTA-0314: carries a true bMasked property.
+    bool masked = false;
     /// UTA-0275: a reference to the texture it names as its DetailTexture; 0
     /// for none.
     std::int32_t detailTexture = 0;

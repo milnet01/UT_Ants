@@ -661,6 +661,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Hanging vines and other textures the original marks see-through no longer draw as black sheets** (UTA-0314)
+  A texture's own masked flag now applies to every surface wearing
+  it, as in the original. Maps baked before baker revision 42 need
+  baking again.
+
 - **A moving part lying flush with the floor or a wall no longer flickers against it** (UTA-0311)
   The level's surface now wins, as in the original game; DM-HealPod]['s
   floor plate shows plain from every angle.

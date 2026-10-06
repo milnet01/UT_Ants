@@ -90,11 +90,12 @@ Result<std::vector<Mip>> readChain(ByteReader& reader, std::uint16_t packageVers
     return mips;
 }
 
-/// True when the export's property list says a compressed chain follows.
-bool hasCompressedChain(const std::vector<Property>& properties, const Package& package) {
+/// True when the property list holds a Bool property `wanted` that is true.
+bool boolProperty(const std::vector<Property>& properties, const Package& package,
+                  std::string_view wanted) {
     for (const Property& property : properties) {
         const Result<std::string_view> name = package.name(property.nameIndex);
-        if (!name.has_value() || *name != "bHasComp") {
+        if (!name.has_value() || *name != wanted) {
             continue;
         }
         if (const auto* flag = std::get_if<bool>(&property.value)) {
@@ -102,6 +103,11 @@ bool hasCompressedChain(const std::vector<Property>& properties, const Package& 
         }
     }
     return false;
+}
+
+/// True when the export's property list says a compressed chain follows.
+bool hasCompressedChain(const std::vector<Property>& properties, const Package& package) {
+    return boolProperty(properties, package, "bHasComp");
 }
 
 } // namespace
@@ -172,6 +178,11 @@ Result<Texture> readTexture(const Package& package, const ExportEntry& entry) {
             " bytes unread; the layout does not match the export"));
     }
     return texture;
+}
+
+Result<bool> isMaskedTexture(const Package& package, const ExportEntry& entry) {
+    UTA_TRY(const PropertyList list, readPropertyList(package, entry));
+    return boolProperty(list.properties, package, "bMasked");
 }
 
 Result<Palette> readPalette(const Package& package, const ExportEntry& entry) {
