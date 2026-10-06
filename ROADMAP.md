@@ -15822,6 +15822,27 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: /home/ants/Pictures/ClaudePaste/paste_20261006_092702_286_43a29b16.png
 
+- 📋 [UTA-0305] **DM-Cybrosis][: a dark octagon on a floor reads as a shadow, but is a darker floor texture.**
+  The user, 2026-10-06 (viewer F12 capture, camera 2826.18 -694.10
+  -22.75 -5246 24057 0 121.28): an octagon on the floor looks like a
+  shadow that makes no sense.
+  Measured the same day: it is not a shadow. It reproduces in ut-shot
+  with --no-probes (r40 bake, ~/.cache/uta-scratch/cyb/), and pix-probe
+  finds the octagon is a separate floor surface textured
+  UTtech1.bmfloor, mean albedo luma 0.023, inside a floor of
+  vlxtextures1.bmfloor2, luma 0.077: 3.3 times brighter. The same lamp,
+  e118, reaches both, unblocked (0.29 and 0.40 per pixel).
+  Next: see whether the original shows the octagon as dark (ask
+  UT_MonsterHunt for a shot at the same camera). If it does, it is the
+  map's design and stays unless the user wants it evened out through the
+  map's recipe (editable, UTA-0034). If it does not, find why our
+  texture for it is darker than the original's.
+  **Layman:** A dark eight-sided patch on a Cybrosis floor looks like a shadow nothing casts; it is actually a darker floor tile, and we need to see whether the original shows it the same way.
+  Kind: investigate.
+  Source: user-request-2026-10-06.
+  Lanes: umat, urender.
+  Evidence: /home/ants/.local/state/ut-ants/map-captures/DM-Cybrosis][-20261006-073827/frame.png
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
