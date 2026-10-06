@@ -15961,6 +15961,22 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-06.
   Lanes: ubake, urender.
 
+- 📋 [UTA-0308] **MH-!SD0!ForbiddenMansion has no lights yet draws very bright; render it unlit, then add real lights.**
+  The user, 2026-10-06, from a viewer F12 capture: "ForbiddenMansion
+  is a map without any lights, yet, it is very bright. So, that is a map
+  we would have to fix by rendering it without lights and then adding in
+  lights." Capture: ~/.local/state/ut-ants/map-captures/
+  MH-!SD0!ForbiddenMansion-20261006-082921 (camera 151.61 256.20 -210.15
+  4426 -12483 0 121.28). First confirm it has no light actors, and find
+  where the brightness comes from (zone ambient, unlit surfaces, or our
+  own ambient floor); then draw it without that, and add lamps with
+  fittings by UTA-0256's mechanism. The user's per-map decision here
+  is what UTA-0256 asks for before a light is added.
+  **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: ubake, urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
