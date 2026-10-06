@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-bound-scan lists the spots in a map where the original game can fail to draw part of the picture** (UTA-0328)
+  It finds walls and floors left outside the box the game uses to decide
+  whether to draw them, one JSON line per spot, for UT_MonsterHunt's map
+  checker.
+
 - **map-pic saves the picture a map ships with as a PNG.** (UTA-0316)
   `map-pic <install> <map.unr> <out.png>` reads the map's LevelInfo
   Screenshot texture, in the map or in another package, and prints

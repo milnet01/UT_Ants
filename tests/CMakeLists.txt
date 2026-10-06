@@ -35,6 +35,7 @@ add_executable(uta_unit_tests
     unit/BakeStripsTest.cpp
     unit/BakeTest.cpp
     unit/BenchCliTest.cpp
+    unit/BoundScanTest.cpp
     unit/BakeFireStillTest.cpp
     unit/FireReplayTest.cpp
     unit/BakeFireLookTest.cpp
@@ -129,6 +130,9 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.cpp")
 # And map-pic's -- UTA-0316.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/map-pic/Cli.cpp")
+# And ut-bound-scan's -- UTA-0328.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bound-scan/Cli.cpp"
+                                      "${PROJECT_SOURCE_DIR}/tools/ut-bound-scan/Scan.cpp")
 # And ut-shot's -- UTA-0199, so --from-capture is graded against the very
 # writer that produces a capture folder, apps/ut-ants/Capture.cpp below.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")
