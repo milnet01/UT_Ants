@@ -667,6 +667,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Shadow edges no longer step in a jagged saw-tooth up close** (UTA-0307)
+  A lit surface now reads its light's shadow map nine times, weighted
+  in a smooth hill, instead of once, so a shadow edge slanting across
+  the map's coarse squares is a soft straight line. Seen on
+  DM-Deck16]['s slime under the catwalk. It costs about 1 ms a frame
+  at 1920x1080 on an RX 6600.
+
 - **Hanging vines and other textures the original marks see-through no longer draw as black sheets** (UTA-0314)
   A texture's own masked flag now applies to every surface wearing
   it, as in the original. Maps baked before baker revision 42 need

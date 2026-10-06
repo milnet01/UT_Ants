@@ -757,9 +757,28 @@ up: `DM-Deck16][`'s lights took 0.08 of the atlas, and its coarsest lights put
 map too dense for a finer texel is planned exactly as before.
 
 **A lit surface is kept from shadowing itself by the tile pass's slope-scaled
-depth bias, and by nothing else.** A normal offset on the sample was built and
+depth bias, and, for `UTA-0307`'s soft reads below, by the depth each read is
+compared at.** A normal offset on the sample was built and
 removed: taking it away changed no pixel, even for a grazing light on the
 smallest tile. That grazing case is what grades the bias.
+
+**Amended by `UTA-0307`, recording what was built: a lit surface reads the
+map nine times, weighted.** One read followed the texels on a slanting edge in
+a stair a texel deep, plain up close on `DM-Deck16][`'s slime. `softShadowOf`
+is Ignacio Castaño's optimised PCF: nine of the sampler's 2x2 compares, placed
+and weighted so together they weigh a 5x5 block of texels in a hill. On the
+slanting-edge test at the coarsest tile, the edge's worst distance from a
+straight line is 7.3 rows with one read, 3.7 with four weighted reads, 2.4
+with an even 3x3 square of reads, and 1.8 with these nine. `UTA-0175`'s 3x3
+filter measured worse against a sharp reference; the user's direction since
+2026-10-06 is a remaster's light, which a soft edge serves. Each read is
+compared at the surface's own depth there, carried from the surface's plane
+through the face's projection, and capped at the far plane: without the first
+a grazed surface shadowed itself in stripes, and without the second it shadowed
+itself where its slope ran on into empty texels. The fog's reads stay single
+(§ 4.3). Measured on `DM-Deck16][` on an RX 6600, a frame takes 3.2 ms with
+one read and 4.2 with nine at 1920x1080 on High, and 12.7 and 16.9 at
+3840x2160 on Ultra; four reads cost nearly as much as nine.
 
 `Light::actorShadows` is carried verbatim by the bundle and is **not**
 interpreted by this item. `Light::specialLit` is read only to leave such a

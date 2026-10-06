@@ -20,6 +20,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <numbers>
@@ -102,6 +103,23 @@ uta::ubundle::Light pointAt(std::array<float, 3> location) {
     return steadyLight(location, 255, 64); // radius 1625
 }
 
+/// Adds far-off lights reaching nothing in view until even twice finer than
+/// the tier's texel does not fit, so UTA-0303 plans `bundle`'s own lights at
+/// the tier's texel. A tier's tile and atlas sides scale together, so the
+/// count holds at each. Returns how many it added.
+std::uint32_t crowdAtlas(uta::ubundle::Bundle& bundle) {
+    const uta::ubundle::Light far = steadyLight({-100000, 0, 0}, 255, 255);
+    const double half = uta::urender::shadowTileSize(far, uta::urender::SHADOW_UNITS_PER_TEXEL / 2);
+    const auto fillers = static_cast<std::uint32_t>(
+        double(uta::urender::SHADOW_ATLAS_SIZE) * uta::urender::SHADOW_ATLAS_SIZE / (6 * half * half)) + 1;
+    for (std::uint32_t i = 0; i < fillers; ++i) {
+        uta::ubundle::Light filler = far;
+        filler.location[1] = 20000.0f * static_cast<float>(i);
+        bundle.lights->push_back(filler);
+    }
+    return fillers;
+}
+
 } // namespace
 
 TEST_CASE("SS 4.8: a surface behind an occluder is in a point light's shadow on its -Y face", "[device]") {
@@ -115,8 +133,9 @@ TEST_CASE("SS 4.8: a surface behind an occluder is in a point light's shadow on 
 TEST_CASE("SS 4.8: a surface behind an occluder is in a point light's shadow on its -Z face", "[device]") {
     removeDisplay();
     // Light above; the line crosses x = 80 at z = 30. The control point
-    // (100, 1.6, -14.1) crosses it at z = 23, below the occluder's 24 to 36.
-    checkShadow({"point light, -Z face", pointAt({60, 0, 60}), 0, 30, {80, 32}, {80, 36}});
+    // (100, 1.6, -26.6) crosses it at z = 16.7, below the occluder's 24 to 36
+    // by more than UTA-0307's soft edge reaches past the hard one.
+    checkShadow({"point light, -Z face", pointAt({60, 0, 60}), 0, 30, {80, 32}, {80, 40}});
 }
 
 TEST_CASE("UTA-0168: a non-solid occluder casts no shadow and an unlit one still does", "[device]") {
@@ -158,6 +177,85 @@ TEST_CASE("SS 4.8: a still frame draws its tiles once and keeps showing the shad
     CHECK(second == first);
 }
 
+TEST_CASE("UTA-0307: a shadow edge slanting across the atlas texels is a straight line", "[device]") {
+    // DM-Deck16]['s slime: an edge running diagonally over the shadow map's
+    // texels followed them in a sawtooth, because a surface read the map once.
+    // The occluder's top edge runs along the -Y face's view axis, so it lands
+    // on the map as a line through the face's centre of slope 0.3, stepping
+    // one texel in every three. On the square it is the straight line z = 12,
+    // which the camera looks at close up, at the tier's coarsest texel.
+    //
+    // The occluder is three of squareLitBy's squares side by side, so its
+    // shadow runs from y = -32 to 32 and its blurred sides stay well clear of
+    // the 20 units in view: one square's reach to y = +-12 darkened the view's
+    // edge columns less than fully and moved the edge found there.
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    const uta::ubundle::Light light = pointAt({60, 60, 0});
+    uta::ubundle::Bundle open = squareLitBy(light, false, 0, 0);
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 40, "white", 0);
+    for (const float y : {20.0f, 30.0f, 40.0f}) addSquare(geometry, 80, y, 0, 6, "white", 0);
+    uta::ubundle::Bundle blocked = bundleOf(std::move(geometry));
+    addSolidMaterial(blocked, "white", WHITE);
+    blocked.lights = std::vector{light};
+    const std::uint32_t fillers = crowdAtlas(blocked);
+    crowdAtlas(open);
+    Camera camera;
+    camera.rotation = {1245, 0, 0}; // up to z = 12 at x = 100: atan(12 / 100)
+    camera.verticalFovDegrees = 4.6f; // 8 units of the square tall, 20 across
+    requireOk(renderer.draw(open, camera));
+    const auto unshadowed = renderer.readback();
+    if (!unshadowed.has_value()) FAIL(unshadowed.error().message());
+    requireOk(renderer.draw(blocked, camera));
+    CHECK(renderer.lastFrameStats().renderedShadowTiles == 6u * (fillers + 1));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+
+    // Per column, the row where the light let through falls to half, to a
+    // fraction of a row. Nothing but the one light lights the square, so the
+    // shadowed frame over the unshadowed one is that fraction -- read from any
+    // two rows, it would be off wherever a wide filter blurs either of them.
+    const auto through = [&](std::uint32_t column, std::uint32_t row) {
+        const double lit = pixelAt(*unshadowed, WIDTH, column, row).r;
+        REQUIRE(lit > 60);
+        return pixelAt(*pixels, WIDTH, column, row).r / lit;
+    };
+    std::vector<double> edge;
+    for (std::uint32_t column = 0; column < WIDTH; ++column) {
+        REQUIRE(through(column, 0) > 0.9);
+        REQUIRE(through(column, HEIGHT - 1) < 0.1);
+        for (std::uint32_t row = 1; row < HEIGHT; ++row) {
+            const double below = through(column, row);
+            if (below >= 0.5) continue;
+            const double above = through(column, row - 1);
+            edge.push_back(row - 1 + (above - 0.5) / (above - below));
+            break;
+        }
+    }
+    REQUIRE(edge.size() == WIDTH);
+
+    // Its distance from the best straight line through it.
+    double sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (std::size_t i = 0; i < edge.size(); ++i) {
+        sx += double(i);
+        sy += edge[i];
+        sxx += double(i) * double(i);
+        sxy += double(i) * edge[i];
+    }
+    const double n = double(edge.size());
+    const double slope = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const double offset = (sy - slope * sx) / n;
+    double worst = 0;
+    for (std::size_t i = 0; i < edge.size(); ++i)
+        worst = std::max(worst, std::abs(edge[i] - (offset + slope * double(i))));
+    // A texel is about 15 rows here. Measured on lavapipe: one read 7.3, four
+    // weighted reads 3.7, an even 3x3 square of reads 2.4, the nine weighted
+    // reads shadows.glsl takes 1.8 (1.1 on an RX 6600).
+    CAPTURE(slope, offset, edge);
+    CHECK(worst < 3.0);
+}
+
 TEST_CASE("SS 4.8: a grazing light with a coarse tile leaves a lit surface lit", "[device]") {
     // The case where a surface shadows itself. The light is nearly in the wall's
     // plane, and far enough from the camera to get the smallest tile, so one
@@ -176,18 +274,8 @@ TEST_CASE("SS 4.8: a grazing light with a coarse tile leaves a lit surface lit",
 
     // The fixture is only as hard as its tile is coarse, so that is asserted.
     CHECK(uta::urender::shadowTileSize(light) == uta::urender::SMALLEST_SHADOW_TILE);
-    // UTA-0303 would plan a lone light finer, so far-off lights reaching
-    // nothing in view crowd the atlas until even twice finer does not fit. A
-    // tier's tile and atlas sides scale together, so the count holds at each.
-    const uta::ubundle::Light far = steadyLight({-100000, 0, 0}, 255, 255);
-    const double half = uta::urender::shadowTileSize(far, uta::urender::SHADOW_UNITS_PER_TEXEL / 2);
-    const auto fillers = static_cast<std::uint32_t>(
-        double(uta::urender::SHADOW_ATLAS_SIZE) * uta::urender::SHADOW_ATLAS_SIZE / (6 * half * half)) + 1;
-    for (std::uint32_t i = 0; i < fillers; ++i) {
-        uta::ubundle::Light filler = far;
-        filler.location[1] = 20000.0f * static_cast<float>(i);
-        bundle.lights->push_back(filler);
-    }
+    // UTA-0303 would plan a lone light finer.
+    const std::uint32_t fillers = crowdAtlas(bundle);
 
     requireOk(renderer.draw(bundle, Camera{}));
     CHECK(renderer.lastFrameStats().unshadowedLights == 0u);

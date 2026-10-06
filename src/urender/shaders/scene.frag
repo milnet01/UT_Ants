@@ -309,7 +309,8 @@ void main() {
         for (uint k = 0u; k < count; ++k) {
             Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
             // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
-            direct += lightAt(light, worldPosition, n) * (light.flicker * shadowOf(light, worldPosition));
+            direct += lightAt(light, worldPosition, n) *
+                      (light.flicker * softShadowOf(light, worldPosition, surface));
         }
         // SS 4.7: the probes, through the same normal the lights use.
         ProbeLattice lattice =
