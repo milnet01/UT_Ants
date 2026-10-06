@@ -17597,6 +17597,16 @@ to.
   copied into this repo from UT_MonsterHunt's and kept in step by those
   rows (agreed 2026-10-06). The vote screen gets the same names
   (their GAME-0198).
+  Decision (user, 2026-10-06): UT_Ants shows each map ONCE, with no
+  variant labels, and bakes its best-fixed copy (a BP / UTP / PATH file
+  carries better bot routes, and the baker takes routes from the file it
+  is given). UT_MonsterHunt keeps its labels, because a real UT server
+  needs them. The variant codes still rank the copies here. Shared files,
+  on UT_MonsterHunt master d7992d8: launcher/mapnames.json (rules as
+  numbered prose, variants, lead_tags, trail_tags) and
+  launcher/mapnames-rows.tsv (stem, title, labels); copy both in when
+  this is built. Their GAME-0199 (best copy among duplicates) is the
+  ranking to share.
   **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
   Kind: implement.
   Source: design-2026-09-03.
