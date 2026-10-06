@@ -17431,6 +17431,14 @@ to.
   whose bottom face is the floor plane 71 UU below it; the next box up
   (665) reaches 383 below and does not misbehave. Asked for copy -H: min z
   of 660 and 661 lowered to -25000.
+  GAME-0187 (2026-10-06): the floor face of bounds 660/661 is out.
+  Copies -H (both min z -25000), -H2 (-24750) and -H660 (660 only) leave
+  the floor undrawn; magenta counts match the original at every pose.
+  Sent one batch to settle the whole box: -W (all six faces out 2000 UU,
+  the control; if it changes nothing the bounds line is dropped), then
+  single-face copies -Ymax, -Ymin, -Xmin, -Xmax, -Zmax. Bound layout: 25
+  bytes, min xyz at +0/+4/+8, max xyz at +12/+16/+20, valid byte +24.
+  UT_MonsterHunt data: work/uta0269/hole0283/flatBreakH*/.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
