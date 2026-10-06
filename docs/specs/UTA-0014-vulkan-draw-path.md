@@ -633,8 +633,9 @@ list; the shading pass iterates only its own cluster's. **The grid is 16 × 8 ×
 and the per-cluster light cap is 64**, both settings, and both stated here
 rather than left as "a default" — § 6's overflow rule and § 10's coverage row
 each rest on the cap being a number, and `UTA-0051` will bind to the grid when
-it adds quality tiers. A cluster that overflows its cap drops the lights
-furthest from its centre and records that it did — § 6. Determinism is not required of any of this: `ADR-0002`'s one-bundle
+it adds quality tiers. A cluster that overflows its cap drops the lights that
+can put the least light on it — brightness times the falloff at the cluster's
+nearest point (`UTA-0309`) — and records that it did — § 6. Determinism is not required of any of this: `ADR-0002`'s one-bundle
 rule is about the baker, and nothing here writes a bundle.
 
 **A strip light** reaches a cluster by its segment rather than its sphere, and
@@ -1129,9 +1130,9 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   recorded an invariant going unexercised for exactly this reason (*"validation
   layer not installed on the dev box this run, so INV-8 unexercised here"*). A
   silent absence turns a validation-clean claim into an unfalsifiable one.
-- **A cluster overflows its light cap.** The lights furthest from the cluster
-  centre are dropped and the frame records how many clusters overflowed, so the
-  cap can be judged against a real map rather than guessed. Lighting degrades;
+- **A cluster overflows its light cap.** The lights that can put the least
+  light on the cluster are dropped and the frame records how many clusters
+  overflowed, so the cap can be judged against a real map rather than guessed. Lighting degrades;
   nothing fails.
 - **The shadow atlas cannot hold the frame's shadowing lights.** Lights are
   admitted in descending projected size until the atlas is full; the rest are

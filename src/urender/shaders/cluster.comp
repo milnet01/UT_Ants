@@ -3,9 +3,12 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 // Clustered light culling -- UTA-0014 SS 4.6. One invocation per cluster: the
-// lights whose sphere of influence reaches the cluster's view-space box, nearest
-// the box's centre first, at most CLUSTER_CAPACITY of them. A cluster that had
-// more drops the furthest and sets CLUSTER_OVERFLOW on its count (SS 6).
+// lights whose sphere of influence reaches the cluster's view-space box, at most
+// CLUSTER_CAPACITY of them. A cluster that had more keeps those that can put the
+// most light on the box -- brightness times the falloff at the box's nearest
+// point -- and sets CLUSTER_OVERFLOW on its count (SS 6). UTA-0309: dropping by
+// distance from the box's centre lost bright lights, and as the camera turned a
+// far wall's large clusters kept a different set, so its light came and went.
 //
 // A sphere is conservative for a spotlight, which only ever lights less.
 
@@ -47,42 +50,45 @@ void main() {
     vec3 centre = (lo + hi) * 0.5;
 
     uint chosen[CLUSTER_CAPACITY];
-    float nearness[CLUSTER_CAPACITY];
+    float reach[CLUSTER_CAPACITY];
     uint count = 0u;
     bool overflowed = false;
 
     for (uint i = 0u; i < frame.lightCount; ++i) {
         vec3 p = (frame.view * vec4(lights[i].location, 1.0)).xyz;
         float radius = lightRadius(lights[i].radius);
-        float key;
+        float gap;
         if (lights[i].span == vec3(0.0)) {
-            vec3 gap = clamp(p, lo, hi) - p;
+            vec3 toBox = clamp(p, lo, hi) - p;
             // The falloff is zero at the radius, so touching is not reaching.
-            if (dot(gap, gap) >= radius * radius) continue;
-            key = distance(p, centre);
+            if (dot(toBox, toBox) >= radius * radius) continue;
+            gap = length(toBox);
         } else {
             // UTA-0162 SS 4.4: a strip reaches where its segment meets the box
             // grown by its radius -- conservative at the grown box's corners.
             vec3 q = (frame.view * vec4(lights[i].location + lights[i].span, 1.0)).xyz;
             if (!segmentMeetsBox(p, q, lo - vec3(radius), hi + vec3(radius))) continue;
+            // Measured from the segment's point nearest the box's centre.
             vec3 s = q - p;
-            key = distance(p + s * clamp(dot(centre - p, s) / dot(s, s), 0.0, 1.0), centre);
+            vec3 m = p + s * clamp(dot(centre - p, s) / dot(s, s), 0.0, 1.0);
+            gap = distance(clamp(m, lo, hi), m);
         }
+        float key = lightIntensity(lights[i].brightness) * lights[i].levelBrightness * lightFalloff(gap, radius);
         uint slot;
         if (count < CLUSTER_CAPACITY) {
             slot = count++;
         } else {
             overflowed = true;
-            if (key >= nearness[CLUSTER_CAPACITY - 1u]) continue;
+            if (key <= reach[CLUSTER_CAPACITY - 1u]) continue;
             slot = CLUSTER_CAPACITY - 1u;
         }
-        // Insertion into a list kept nearest first.
-        while (slot > 0u && nearness[slot - 1u] > key) {
-            nearness[slot] = nearness[slot - 1u];
+        // Insertion into a list kept strongest first.
+        while (slot > 0u && reach[slot - 1u] < key) {
+            reach[slot] = reach[slot - 1u];
             chosen[slot] = chosen[slot - 1u];
             --slot;
         }
-        nearness[slot] = key;
+        reach[slot] = key;
         chosen[slot] = i;
     }
 
