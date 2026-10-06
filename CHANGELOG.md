@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A developer's tool, ut-compare, that puts the original game's frame beside ours from the same camera.** (UTA-0306)
+  It runs the original client headless from a read-only copy of the
+  install, then draws ours with ut-shot at the same camera and size.
+
 - **Natural textures (rock, dirt, plaster) no longer show the same patch repeating in a grid** (UTA-0277)
   The bake judges each texture from its picture: natural ones are drawn
   so their repeats do not line up, from the Medium tier; bricks, planks,

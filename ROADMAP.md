@@ -15890,7 +15890,7 @@ stays with movement in 0.2.0.
   Lanes: umat, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/DM-Cybrosis][-20261006-073827/frame.png
 
-- 📋 [UTA-0306] **A tool that renders any map in the original game at given camera positions, beside our own frame of the same view.**
+- ✅ [UTA-0306] **A tool that renders any map in the original game at given camera positions, beside our own frame of the same view.**
   The user, 2026-10-06: "We need a new tool that allows us to render each
   map in its original form like it did in the original game but at
   specific camera positions so that we can compare between the original
@@ -15935,10 +15935,31 @@ stays with movement in 0.2.0.
   EditPackages plus UTACam only, or it rebuilds third-party packages.
   First finding: at that camera the original shows no shadow band on
   the slime where ours draws one.
+  Shipped (2026-10-06): tools/ut-compare/, documented in CLAUDE.md
+  § Build and test. Rerun headless from the repo copy on the DM-Deck16][
+  capture at 1280x720: one pair, the original frame clean (no HUD,
+  console line or start text), and find -newer on the live install
+  listed only Music/Gomorra.umx. Closed on that run rather than on
+  GitHub's matrix, which never runs this tool. Its first finding is
+  filed as UTA-0307.
   **Layman:** Pick a spot in a map and get two pictures from exactly the same place: one from the original 1999 game and one from ours, so differences are easy to see.
   Kind: feature.
   Source: user-request-2026-10-06.
   Lanes: tools.
+
+- 📋 [UTA-0307] **DM-Deck16][: we draw a jagged shadow band across the slime under a catwalk where the original draws none.**
+  Found by ut-compare (UTA-0306) on the 2026-10-03 viewer capture,
+  camera -1174.96 -1365.58 -718.13 -9471 -17907 0 121.28, 1280x720:
+  ~/.cache/uta-scratch/u306/run2/pair-0.png. The original's slime is
+  evenly lit; ours has a dark band with a sawtooth edge beside the
+  catwalk. Check first whether the slime surface is unlit or the light
+  casts no shadow in the original (flags in the map), then whether the
+  sawtooth edge is the shadow atlas texel after UTA-0303. Placed in
+  0.1.0 because UTA-0292's lighting pass would meet it anyway.
+  **Layman:** In one spot of Deck16, our version paints a dark stripe across the green slime that the original game does not have.
+  Kind: investigate.
+  Source: in-session-2026-10-06.
+  Lanes: ubake, urender.
 
 ## 0.2.0 — Movement and weapons
 
@@ -17800,6 +17821,18 @@ to.
   not match (--vertaz). Sent two class tests: the same sweep at fov 90
   (a direction band predicts edges near 339.9 and 95.4; a view-direction
   cause leaves them put) and a pitch sweep at yaw 180.
+  GAME-0187 (2026-10-06, fov and pitch): fov 90 drops 601 at every
+  yaw sampled (26 poses), so a narrower view drops it MORE; the
+  direction-band model is out. Pitch at yaw 180, fov 121.28: drawn from
+  0 to -15360, and the whole frame is empty at -15872 and -16384 (a
+  separate near-vertical failure, as at yaw 0, pitch -15000). 601's own
+  corners are out: at yaw 0 four are in view (az 354.6, 2.7, 4.5, 7.1,
+  about 6 deg down) and it is dropped. New lead: the view's downward
+  reach (36.9 deg at fov 90, 53.2 at fov 121.28, 4:3). Sent: fov 90
+  pitching down 0..-3584 (predict 601 returns before about -2967), fov
+  121.28 pitching up 0..+3584 (predict a drop before about +2967), and
+  an optional 30-deg yaw sweep at fov 90. UT_MonsterHunt data:
+  work/uta0269/hole0283/flatPitch/, flatFov/.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.

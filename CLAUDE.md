@@ -245,6 +245,22 @@ build/tools/ut-bench/ut-bench frame --cameras <file> --tier ultra --size 3840x21
 A capture folder's `camera.txt` is one camera line. Compare on the median and
 the 99th percentile.
 
+**`ut-compare` puts the original game's frame beside ours, from the same
+camera** (`UTA-0306`). It runs the original client headless, then draws ours
+with `ut-shot`:
+
+```sh
+python3 -I tools/ut-compare/ut-compare.py --install <install> --capture <viewer capture folder> --size 1280x720
+```
+
+`--map <name> --cameras <file>` takes `ut-shot` camera lines instead, and
+`--help` lists the rest. It needs Xvfb, bwrap and ImageMagick. **It must never
+write to the install.** The client runs from a copy in
+`~/.cache/ut-ants/compare/`, under bwrap with the install read-only. Wayland
+is hidden from it, so no window reaches the desktop. The run fails if a file
+in the install's `System` directories changed. The original's lights pulse on
+their own clock; ours are pinned at time 0.
+
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
 measured; the gate runs it as its own step on Linux, and refuses on
