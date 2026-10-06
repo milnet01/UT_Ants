@@ -15246,7 +15246,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 📋 [UTA-0310] **ubake: DM-Cybrosis][ draws a wall from one side where the original draws none; UT99 hides surfaces coplanar behind an invisible zone portal.**
+- ✅ [UTA-0310] **ubake: DM-Cybrosis][ draws a wall from one side where the original draws none; UT99 hides surfaces coplanar behind an invisible zone portal.**
   Viewer captures 2026-10-06: a dark drtpanelBASE wall blocks the
   corridor seen facing -x; from the far side it is not drawn, and the
   player walks through it. ut-compare: the original draws no wall from
@@ -15283,6 +15283,8 @@ stays with movement in 0.2.0.
   untested. After the fix ut-compare matches the original on all three
   (~/.cache/uta-scratch/u310/cyb2, slayer2, wtc2). Flip once GitHub is
   green.
+  Resolved (2026-10-06): shipped at 1a05459, GitHub green (run
+  37448757391).
   **Layman:** In one Cybrosis corridor we show a dark wall you can walk through; the original shows an open corridor.
   Kind: fix.
   Source: user-request-2026-10-06.
@@ -18072,6 +18074,17 @@ to.
   work/wallfix/backup/; it will message when done. The bound scan must
   cover -BP files and key results on md5, not name. Also filed there:
   GAME-0193 (teleporters on TheBoat); it may ask for viewer help.
+  GAME-0187 (2026-10-06, bound scan): the per-map scan ran over every
+  installed map, keyed on md5 (~/.cache/uta-scratch/u283b/scan.txt; tool
+  ut-ants-uta0156/ambient-census/bound-scan.cpp). It flags a node whose
+  valid render bound misses drawn geometry under it (own, coplanars,
+  front, back). It flags node 1305 on both unpatched backups and not on
+  the patched files. Stock DM-Deck16][ misses by at most 96, so size is
+  severity. Both PATCHED TheBoat files still flag node 2567 (bound 1170,
+  excess 22351, same shape as 1305), 9775 (6223) and 1316 (5394). 14
+  maps miss by 4096 or more, 198 by 512 or more. Inverted boxes (valid 0)
+  are assumed to mean no box; unmeasured. Sent to UT_MonsterHunt (message
+  447, handoff file ut-ants-bound-scan-2026-10-06.md).
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
