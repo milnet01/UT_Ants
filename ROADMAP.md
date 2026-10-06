@@ -16381,6 +16381,23 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-05.
   Lanes: urender, ubake.
 
+- 📋 [UTA-0302] **urender: hide a map's hard outer edge, by a horizon beyond it or by fog thick enough to end the view.**
+  The user, 2026-10-06: on some maps a hard edge of the map can be seen;
+  mask it, either by showing the map continuing to the horizon or by fog
+  so thick at the edge that you cannot see past it. Which suits is map
+  dependent.
+  So the choice is per map, stored in the map's recipe (urecipe), with no
+  treatment as the default. Cheap methods: (a) distance haze that thickens
+  toward the edge, tinted to the sky; (b) a horizon backdrop past the
+  edge, either a low-detail ring of land or a painted horizon band in
+  the sky, drawn behind everything so it costs almost nothing. (b) fits
+  with UTA-0282's new skies, which is why this sits in the same release.
+  First: ask the user which maps they saw it on, and list them here.
+  **Layman:** On outdoor maps where you can see the world simply stop, the land seems to carry on to the horizon, or haze closes in so the edge cannot be seen.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urecipe, urender.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
