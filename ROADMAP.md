@@ -18028,6 +18028,15 @@ to.
   flatN1305O/, flatEdge90/; recorded on GAME-0187 at f9f4727. Next: a
   scan for every node whose render bound misses geometry it guards, so
   other maps can be checked without screenshots.
+  GAME-0187 (2026-10-06, later): the user chose to ship the world-box
+  patch. The PLAYED map is MH-()mG-TheBoat-V2mini-BP.unr (MHAdmin hides
+  the original once a -BP exists); it holds the same 50-byte bound block
+  once, at offset 2052432 (original 1716518). UT_MonsterHunt is testing
+  its patched copy (-N1305, md5 cfad31d7), then promotes both files and
+  repoints its rig's control links to the unpatched backups in
+  work/wallfix/backup/; it will message when done. The bound scan must
+  cover -BP files and key results on md5, not name. Also filed there:
+  GAME-0193 (teleporters on TheBoat); it may ask for viewer help.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
