@@ -15740,6 +15740,54 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
+- 📋 [UTA-0299] **urender: mirror floors and walls reflect the room, as the original's mirrored surfaces do.**
+  The user, 2026-10-06: some original maps have a mirror floor, and we
+  should use whatever method the original used for it. UT99 marks such a
+  surface with the PF_Mirrored poly flag and draws the scene again
+  reflected about the surface's plane. Our code names no such flag yet
+  (no PF_Mirrored in src/), so mirrored surfaces draw as ordinary ones.
+  Cheap method, the original's own: a planar reflection. When a mirrored
+  surface is on screen, draw the scene once more reflected about its
+  plane and clipped to it, at a lower resolution on a lower tier, and
+  show it on the surface. Most maps pay nothing because they have no such
+  surface.
+  First: census which maps carry PF_Mirrored surfaces and how many
+  planes each has, since one extra pass per plane is the cost. Its own
+  switch (UTA-0297).
+  **Layman:** Maps whose floor is a mirror in the original show the room reflected in it again, instead of a plain floor.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: ubake, urender.
+
+- 📋 [UTA-0300] **urender: the view adapts to brightness, as eyes do, when moving between dark and bright places.**
+  Proposed 2026-10-06 and accepted by the user as part of the realism
+  work (UTA-0292). Cheap method: measure the frame's average brightness
+  from a small downsampled copy, and move the exposure slowly toward the
+  value that brings it to a target, faster when it brightens than when it
+  darkens. Clamped to a narrow range around the calibrated exposure, so
+  it never becomes a brightness gain that hides a room's real light
+  (UTA-0274's calibration stays the anchor). Its own switch (UTA-0297),
+  and off in any capture or comparison run so frames stay comparable.
+  **Layman:** Stepping from a dark tunnel into a bright hall dazzles for a moment, then settles, the way your eyes adjust.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
+- 📋 [UTA-0301] **ubake and urender: baked reflections, so shiny floors and metal reflect their surroundings everywhere.**
+  Proposed 2026-10-06 and accepted by the user as part of the realism
+  work (UTA-0292). Cheap method, the standard one in modern games: at
+  bake time capture small cubemaps at chosen points (per room, from
+  umap's rooms), pre-blurred into a few roughness levels; at draw time a
+  shiny surface samples the nearest one, box-projected onto the room so
+  the reflection lines up. Pairs with UTA-0298's highlights, which give
+  the glint from lights while this gives the room; UTA-0045's
+  screen-space reflections refine it where the screen holds the answer.
+  Its own switch (UTA-0297).
+  **Layman:** Shiny surfaces show a soft reflection of the room around them, prepared ahead of time so it costs almost nothing while playing.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: ubake, urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
