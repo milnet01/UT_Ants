@@ -73,6 +73,10 @@ using MaterialLookup =
 /// Every vertex of node n names zone `n.iZone[1]`, the zone its surface faces,
 /// or 0 where that is not below `zoneCount` -- UTA-0156 SS 4.3.
 ///
+/// UTA-0310 SS 4.3 step 3a: a node is not drawn when invisible zone portals
+/// in its coplanar chain (joined through `iPlane`) cover it, it lies on their
+/// plane, and both its zones are open. Measured in the original client.
+///
 /// A surface in `omitted`, ascending, is not drawn: it became a FLAM record
 /// (UTA-0263 SS 4.3). Its nodes are still checked for `iSurf`.
 ///

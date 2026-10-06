@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
+#include <map>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -47,6 +49,148 @@ std::unexpected<Error> refuse(std::size_t node, std::string_view what, std::int6
                     + std::string(table));
 }
 
+constexpr std::uint32_t PF_PORTAL = 0x04000000u;
+
+/// A node's polygon, or none where an index it needs leaves its table -- that
+/// node is left to buildGeometry's loop, which refuses it.
+std::vector<Vec> polygonOf(const upkg::Model& model, const upkg::BspNode& node) {
+    const std::size_t count = node.numVertices;
+    if (count < 3 || node.iVertPool < 0
+        || static_cast<std::uint64_t>(node.iVertPool) + count > model.verts.size())
+        return {};
+    std::vector<Vec> points;
+    points.reserve(count);
+    for (std::size_t k = 0; k < count; ++k) {
+        const std::int32_t point = model.verts[static_cast<std::size_t>(node.iVertPool) + k].pVertex;
+        if (!within(point, model.points.size())) return {};
+        points.push_back(toDouble(model.points[static_cast<std::size_t>(point)]));
+    }
+    return points;
+}
+
+using Flat = std::vector<std::array<double, 2>>;
+
+/// A polygon seen along `axis`, which is dropped.
+Flat flatten(const std::vector<Vec>& points, std::size_t axis) {
+    Flat flat;
+    flat.reserve(points.size());
+    for (const Vec& p : points) flat.push_back({p[axis == 0 ? 1 : 0], p[axis == 2 ? 1 : 2]});
+    return flat;
+}
+
+double signedArea(const Flat& polygon) {
+    double twice = 0;
+    for (std::size_t k = 0; k < polygon.size(); ++k) {
+        const auto& a = polygon[k];
+        const auto& b = polygon[(k + 1) % polygon.size()];
+        twice += a[0] * b[1] - b[0] * a[1];
+    }
+    return twice / 2;
+}
+
+/// The area two convex polygons share: `subject` clipped by each edge of
+/// `clip` in turn (Sutherland-Hodgman).
+double overlapArea(Flat subject, Flat clip) {
+    if (signedArea(clip) < 0) std::ranges::reverse(clip);
+    for (std::size_t k = 0; k < clip.size() && !subject.empty(); ++k) {
+        const auto& a = clip[k];
+        const auto& b = clip[(k + 1) % clip.size()];
+        const auto side = [&](const std::array<double, 2>& p) {
+            return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+        };
+        Flat kept;
+        for (std::size_t j = 0; j < subject.size(); ++j) {
+            const auto& p = subject[j];
+            const auto& q = subject[(j + 1) % subject.size()];
+            const double sp = side(p);
+            const double sq = side(q);
+            if (sp >= 0) kept.push_back(p);
+            if ((sp >= 0) != (sq >= 0)) {
+                const double t = sp / (sp - sq);
+                kept.push_back({p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])});
+            }
+        }
+        subject = std::move(kept);
+    }
+    return subject.size() < 3 ? 0 : std::abs(signedArea(subject));
+}
+
+/// UTA-0310 SS 4.3 step 3a: the nodes UT99 does not draw because invisible
+/// zone portals in their coplanar chain cover them, with an open zone on both
+/// sides. Measured in the original client, not read from its source -- the
+/// cases are tests/unit/BakeGeometryTest.cpp's.
+std::vector<bool> hiddenBehindPortals(const upkg::Model& model) {
+    const std::size_t count = model.nodes.size();
+    std::vector<bool> hidden(count, false);
+
+    // The coplanar chains, joined through iPlane. The smaller index is kept
+    // as a chain's root, so the grouping does not depend on visiting order.
+    std::vector<std::size_t> root(count);
+    for (std::size_t n = 0; n < count; ++n) root[n] = n;
+    const auto find = [&](std::size_t n) {
+        while (root[n] != n) n = root[n] = root[root[n]];
+        return n;
+    };
+    for (std::size_t n = 0; n < count; ++n) {
+        if (!within(model.nodes[n].iPlane, count)) continue;
+        const std::size_t a = find(n);
+        const std::size_t b = find(static_cast<std::size_t>(model.nodes[n].iPlane));
+        root[std::max(a, b)] = std::min(a, b);
+    }
+
+    struct Portal {
+        std::vector<Vec> points;
+        Vec normal;
+        std::size_t axis = 0;
+    };
+    std::map<std::size_t, std::vector<Portal>> portals; // by chain root
+    for (std::size_t n = 0; n < count; ++n) {
+        const upkg::BspNode& node = model.nodes[n];
+        if (!within(node.iSurf, model.surfs.size())) continue;
+        const upkg::BspSurf& surf = model.surfs[static_cast<std::size_t>(node.iSurf)];
+        if ((surf.polyFlags & (PF_PORTAL | PF_INVISIBLE)) != (PF_PORTAL | PF_INVISIBLE)) continue;
+        if (!within(surf.vNormal, model.vectors.size())) continue;
+        std::vector<Vec> points = polygonOf(model, node);
+        Vec normal = toDouble(model.vectors[static_cast<std::size_t>(surf.vNormal)]);
+        const double length = std::sqrt(dot(normal, normal));
+        if (points.empty() || !(length > 0)) continue;
+        for (double& part : normal) part /= length;
+        std::size_t axis = 0;
+        for (std::size_t k = 1; k < 3; ++k)
+            if (std::abs(normal[k]) > std::abs(normal[axis])) axis = k;
+        portals[find(n)].push_back(Portal{std::move(points), normal, axis});
+    }
+    if (portals.empty()) return hidden;
+
+    for (std::size_t n = 0; n < count; ++n) {
+        const upkg::BspNode& node = model.nodes[n];
+        if (node.iZone[0] == 0 || node.iZone[1] == 0) continue; // rock behind it
+        if (!within(node.iSurf, model.surfs.size())) continue;
+        if ((model.surfs[static_cast<std::size_t>(node.iSurf)].polyFlags & (PF_PORTAL | PF_INVISIBLE)) != 0)
+            continue;
+        const auto chain = portals.find(find(n));
+        if (chain == portals.end()) continue;
+        const std::vector<Vec> points = polygonOf(model, node);
+        if (points.empty()) continue;
+
+        double own = 0;
+        double covered = 0;
+        for (const Portal& portal : chain->second) {
+            // On the portal's plane, to within a unit.
+            const bool onPlane = std::ranges::all_of(points, [&](const Vec& p) {
+                return std::abs(dot(minus(p, portal.points[0]), portal.normal)) <= 1;
+            });
+            if (!onPlane) continue;
+            const Flat flat = flatten(points, portal.axis);
+            own = std::abs(signedArea(flat));
+            covered += overlapArea(flat, flatten(portal.points, portal.axis));
+        }
+        // NaN compares false, so a node with a non-finite point is drawn and refused.
+        if (own > 0 && covered >= 0.99 * own) hidden[n] = true;
+    }
+    return hidden;
+}
+
 /// One drawn node, before it is batched.
 struct Drawn {
     std::string material;
@@ -62,6 +206,7 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
     std::vector<Drawn> drawn;
     std::uint64_t vertexTotal = 0;
     std::uint64_t indexTotal = 0;
+    const std::vector<bool> hidden = hiddenBehindPortals(model);
 
     for (std::size_t n = 0; n < model.nodes.size(); ++n) {
         const upkg::BspNode& node = model.nodes[n];
@@ -79,6 +224,8 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         // refuse GEOM. COLL checks it, since an invisible node can still be
         // solid (UTA-0111 SS 4.3).
         if ((surf.polyFlags & PF_INVISIBLE) != 0) continue;
+        // 3a. UTA-0310: nor one an invisible zone portal covers.
+        if (hidden[n]) continue;
         // UTA-0263 SS 4.3: a flame sheet is drawn as a FLAM record instead.
         if (std::ranges::binary_search(omitted, static_cast<std::uint32_t>(node.iSurf))) continue;
 

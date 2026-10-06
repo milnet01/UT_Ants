@@ -422,3 +422,41 @@ TEST_CASE("UTA-0156 INV-4: a node's vertices take the zone on its plane's front"
     REQUIRE(dropped->vertices.size() == 8);
     for (const auto& vertex : dropped->vertices) CHECK(int(vertex.zone) == 0);
 }
+
+TEST_CASE("UTA-0310: a sheet an invisible portal covers between two open zones is not drawn",
+          "[ubake][geom][portal]") {
+    // INV-14. Measured in the original 469 client (ut-compare, 2026-10-06):
+    // DM-Cybrosis]['s drtpanelBASE sheets, MH-MonsterSlayerTFO's liquid3 and
+    // MH-WTC-104's Sglass, each lying in an invisible zone portal's opening,
+    // are not drawn; DM-Conveyor's floor under one, rock behind it, is.
+    // Each scene is a portal at z = 0 chained to the one node after it.
+    constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;
+    const auto scene = [](const std::vector<Vector3>& portal, std::uint32_t portalFlags,
+                          const std::vector<Vector3>& sheet, std::array<std::uint8_t, 2> sheetZones) {
+        Scene made;
+        const std::size_t p = made.add(portal, portalFlags);
+        const std::size_t s = made.add(sheet, PF_NOT_SOLID);
+        made.model.nodes[p].iZone = {2, 3};
+        made.model.nodes[p].iPlane = static_cast<std::int32_t>(s);
+        made.model.nodes[s].iZone = sheetZones;
+        made.model.nodes[s].iPlane = -1;
+        return made;
+    };
+    const auto vertices = [](const Scene& made) {
+        Stub stub;
+        return built(made, stub).vertices.size();
+    };
+    const std::vector<Vector3> left = {at(0, 0, 0), at(32, 0, 0), at(32, 64, 0), at(0, 64, 0)};
+
+    // Covered, open on both sides: hidden.
+    CHECK(vertices(scene(square(0), PF_PORTAL | PF_INVISIBLE, square(0), {2, 3})) == 0);
+    CHECK(vertices(scene(square(0), PF_PORTAL | PF_INVISIBLE, square(0), {3, 2})) == 0);
+    // Rock behind it: drawn.
+    CHECK(vertices(scene(square(0), PF_PORTAL | PF_INVISIBLE, square(0), {0, 3})) == 4);
+    // Half covered: drawn.
+    CHECK(vertices(scene(left, PF_PORTAL | PF_INVISIBLE, square(0), {2, 3})) == 4);
+    // In the chain but not on the portal's plane: drawn.
+    CHECK(vertices(scene(square(0), PF_PORTAL | PF_INVISIBLE, square(8), {2, 3})) == 4);
+    // A portal that is itself drawn hides nothing: both are drawn.
+    CHECK(vertices(scene(square(0), PF_PORTAL, square(0), {2, 3})) == 8);
+}

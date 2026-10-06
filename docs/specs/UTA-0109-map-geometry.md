@@ -193,6 +193,16 @@ UT 4.32's public headers.
    Skip it.
 2. **Its surface.** `iSurf` must index `surfs`.
 3. **`PF_Invisible`** on the surface's `polyFlags` — skip the node.
+3a. **Covered by an invisible zone portal** — skip the node when all of
+   these hold (UTA-0310): its surface carries neither `PF_Invisible` nor
+   `PF_Portal`; both its zones are non-zero; and nodes whose surfaces carry
+   both `PF_Portal` and `PF_Invisible`, in its coplanar chain (nodes joined
+   through `iPlane`), cover at least 99% of its area while every one of its
+   points lies within one unit of their plane. Measured in the original 469
+   client on 2026-10-06, not read from its source: DM-Cybrosis][,
+   MH-MonsterSlayerTFO and MH-WTC-104 hide such a sheet, and DM-Conveyor
+   draws a covered floor with rock behind it. A partly covered sheet and one
+   behind a drawn portal are drawn, untested in the original.
 4. **Its polygon.** `iVertPool` to `iVertPool + numVertices` must lie within
    `verts`, and each entry's `pVertex` must index `points`. The polygon is
    those points, `P0` to `Pn-1`, in the pool's order. The surface's `pBase`
@@ -446,6 +456,14 @@ Recorded after the build; nothing above changed direction.
   the rate, which splits the batch and pans by the surface's zone; the rate is
   not written, or a NaN reaches the order check.
 
+- **INV-14** — A node § 4.3 step 3a covers emits nothing. The same sheet
+  with zone 0 on one side, half covered, off the portal's plane, or behind
+  a portal without `PF_Invisible` is drawn. *Added by UTA-0310.*
+  *Test:* `tests/unit/BakeGeometryTest.cpp`.
+  *Breaks when:* the chain is not followed through `iPlane`; a sheet with
+  rock behind it is hidden; partial cover hides a node; a drawn portal
+  hides what lies on it.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -554,6 +572,7 @@ Each must be killed by the invariant that names it.
 | INV-4 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, a real-asset test, over every map |
 | INV-10, INV-11 | `tests/unit/BakeTest.cpp`, a unit test |
 | INV-12 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, over every map |
+| INV-14 | `tests/unit/BakeGeometryTest.cpp`, a unit test. The rule against the original: **nothing** automated -- UTA-0310's `ut-compare` runs, by hand once |
 | INV-13 | `tests/unit/BakeGeometryTest.cpp` and `tests/unit/BundleGeometryTest.cpp`, unit tests. The constant `35` against the original: **nothing** automated -- UTA-0276's measurement, run by hand once |
 | `BAKER_REVISION` covering geometry | **Partial:** `tests/unit/BakeGoldenTest.cpp`, a golden-hash test, catches what its fixture draws; a change reached only by real content passes |
 | The PolyFlags bit values being UT99's | **nothing** — the tests use the constants the code uses, and the values rest on the cited header |

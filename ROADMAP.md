@@ -15268,6 +15268,21 @@ stays with movement in 0.2.0.
   and a drawn surface, to settle whether the rule is "behind an
   invisible portal head" or "anywhere in a chain with a portal"; the
   Deck16 slime (Portal | Translucent, not Invisible) is drawn by UT99.
+  Progress (2026-10-06): fixed, baker revision 41. Census
+  (~/.cache/uta-scratch/u310/census.txt, scratch tool
+  ut-ants-uta0156/ambient-census/chain-census.cpp, true polygon overlap):
+  119 sheets on 28 maps lie inside an invisible portal's opening with an
+  open zone on both sides; 92 are fully covered. ut-compare settled the
+  rule. The original hides MH-MonsterSlayerTFO's liquid3 sheet (after its
+  portal in the chain) AND MH-WTC-104's Sglass (before its portal), so
+  chain order is not the rule. It draws DM-Conveyor's floor that a portal
+  covers with rock behind it. Rule (UTA-0109 SS 4.3 step 3a, INV-14): skip a
+  node that invisible portals in its iPlane chain cover by 99% or more,
+  lying on their plane, with both zones open. Partly covered sheets (13,
+  mostly edge slivers) and sheets behind a drawn portal stay drawn,
+  untested. After the fix ut-compare matches the original on all three
+  (~/.cache/uta-scratch/u310/cyb2, slayer2, wtc2). Flip once GitHub is
+  green.
   **Layman:** In one Cybrosis corridor we show a dark wall you can walk through; the original shows an open corridor.
   Kind: fix.
   Source: user-request-2026-10-06.

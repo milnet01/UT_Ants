@@ -96,7 +96,9 @@ namespace {
 // one Fixed until the judgement lands, so the format bump and the byte moved it.
 // 40, format 22: UTA-0277 judges each material's tile kind and stores its
 // picture hash.
-constexpr std::uint32_t RECORDED_UNDER = 40;
+// 41, format 22: UTA-0310 stops drawing a sheet an invisible zone portal
+// covers. The fixture has no portal, so the digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 41;
 constexpr std::string_view GOLDEN =
     "7636e747fbbe8fd76ab96f329f875d88fd22cd79cc55bf90d45527c5cec8cd4a";
 
