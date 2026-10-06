@@ -18567,12 +18567,18 @@ to.
   229e62c5 (V2mini), c8bc7ea5 (-BP); originals unchanged in
   work/wallfix/backup. bound-scan on the live files no longer lists 2567;
   2611, 1316, 1477 and 9775 remain.
+  GAME-0205 calibration from UT_MonsterHunt (2026-10-06), with
+  ut-bound-scan over the whole install: 1477 maps read, 1 refused
+  (MH-SPNaliRescue, model v61 layout). Stock maps miss by up to 5632
+  units (AS-OceanFloor; CTF-Kosov 5125), so 7 of the 9 maps at 4096+
+  (4431 to 6523) are in the stock range. Only MH-SeriousSam-Dunes-T1
+  (1631341) and MH-TrifeaOutpostMore (469888) are above 8192.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
   Lanes: upkg, unav.
 
-- 📋 [UTA-0328] **ut-bound-scan: ship UTA-0283's bound scan as a repo tool with one JSON line per finding.**
+- ✅ [UTA-0328] **ut-bound-scan: ship UTA-0283's bound scan as a repo tool with one JSON line per finding.**
   UT_MonsterHunt's GAME-0205 adds a render-bound check to its
   analysis/mapcheck, run on every map, results stored per map md5. It
   asks for: (1) a stable binary path, not under ~/.cache/uta-scratch
@@ -18591,6 +18597,14 @@ to.
   answer to one map per call vs a whole folder. Their TheBoat md5 check
   is the acceptance test. Source to port:
   /mnt/Games/Scripts/Linux/ut-ants-uta0156/ambient-census/bound-scan.cpp.
+  Shipped (2026-10-06, 4127a7f, GitHub green):
+  build/tools/ut-bound-scan/ut-bound-scan. Kinds miss, inverted,
+  invalid, summary, refused; one JSON line each. Acceptance held: the
+  backups flag 1305 and 2567, the live files flag neither. Findings
+  match the scratch tool node for node. A whole folder took 3.25-3.46 s
+  for 200 maps, one call per map 4.63-4.69 s. UT_MonsterHunt built
+  GAME-0205 part 1 on it (their 548fe20): batches of 10, SUSPECT above
+  8192.
   **Layman:** Turn the throwaway hall-of-mirrors finder into a proper tool UT_MonsterHunt's map checker can run on every map.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-10-06.
