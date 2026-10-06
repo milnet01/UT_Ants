@@ -16432,7 +16432,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urecipe, urender.
 
-- 📋 [UTA-0304] **urender: acid as a clear green-tinted liquid that bubbles, pops and steams.**
+- 📋 [UTA-0304] **urender: every dangerous liquid bubbles, pops and steams; acid also turns clear green.**
   The user, 2026-10-06, on DM-Deck16][: "The acid looks great, please
   remove the green texture they have and add a green tint to the acid.
   Please also add bubbling and steam to the surface. Perhaps popping
@@ -16448,7 +16448,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (UTA-0297). Which liquids are acid is the liquid kind UTA-0105 already
   bakes; a per-map override goes in the recipe so the editor can set it
   (UTA-0034).
-  **Layman:** Acid pools lose their painted blotches and become clear green liquid, with bubbles rising and popping and steam drifting off the top.
+  Widened by the user (2026-10-06): this is how ALL dangerous liquids
+  are to be managed. Every one bubbles, has popping bubbles and gives off
+  steam, showing a constant reaction that makes it dangerous. So the
+  trigger is the danger, not the acid: a liquid zone that hurts (UT99's
+  pain zone, its damage per second above zero) gets the effect, whatever
+  its texture, which catches slime, lava and waste alongside acid. Each
+  kind keeps its own colour for bubbles and steam (lava's reads as smoke
+  and heat). Removing the painted texture in favour of a clear tint was
+  asked for acid only; other liquids keep their look unless the user says
+  otherwise.
+  **Layman:** Every pool that hurts you, such as acid, slime or lava, bubbles, pops and steams so it looks dangerous; acid also turns into clear green liquid.
   Kind: feature.
   Source: user-request-2026-10-06.
   Lanes: urender, umat.
