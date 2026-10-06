@@ -15146,6 +15146,24 @@ stays with movement in 0.2.0.
   units above the camera and just under the overhang, so check its
   lightmap texels against each lamp's distance and angle in our bake,
   and whether light 220 (b 160, r 4, at z 453) reaches it in ours.
+  Pose-7 overhang, cause found (2026-10-06, r40 bake
+  u274/bakes40/e54dde68..., scratch tools in ut-ants-uta0156/ambient-census:
+  pix-probe DUMP_HITS, surf-lights PLANE, texel-vis DUMP_NEAR). 90% of the
+  box x1100-1240 y5-100 is surf 36 (inxb2, the 45-degree slope, normal
+  (0,0.71,-0.71)), lit by e55 (Light11) alone; e61 does not reach it. UT's
+  own run lists e55, and its visibility bits agree with our rays at every
+  texel centre. The difference is resolution: surf 36's lightmap texels
+  are about 67 UU apart, and only ONE e55 texel, (-1149,80,224), is lit;
+  its neighbours fall in shadow. UT bilinearly smears that one texel, we
+  shadow per pixel, and the lit band sits between texel centres. Over the
+  box's slope pixels, e55 delivers 0.274 per pixel in ours against 0.152
+  under UT's grid (bilinear of the texel values, edge-clamped): 1.80x. The
+  rest of the 2.4x in display bytes is unmeasured; the display curve noted
+  above is the likely share. The right wall (bmpanels8, z about 1, e61 and
+  e55 both lit) is not near a shadow edge, so its 97.6 against 120.8 is a
+  separate question. Decision: keep per-pixel shadows. UT's smear is an
+  artifact of a coarse grid, and the target is realistic light with rooms
+  about as bright as the original, so this surface is not a defect to copy.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
