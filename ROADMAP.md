@@ -15447,6 +15447,45 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-request-2026-10-06.
   Lanes: upkg, tools.
 
+- 📋 [UTA-0318] **DM-Phobos: we draw a glowing white panel between two wall lights where the original shows a dark wall.**
+  The user's viewer capture, compared with ut-compare at HEAD (1280x720,
+  camera -338.21 102.41 -373.85 1318 -33722 0 121.28). The panel is
+  evenly lit, brightest at its middle, and fills the recess between the
+  two strip lights. First: name the surface or actor there (ut-dump
+  --surface-list, a keep-one-light ut-shot probe); likely a closed
+  mover or a sheet drawn with the wrong flags or texture.
+  **Layman:** In one Phobos room a bright white rectangle shows on a wall that should be dark.
+  Kind: investigate.
+  Source: user-request-2026-10-06.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Phobos-20261006-100152, ~/.cache/uta-scratch/capreview/DM-Phobos-20261006-100152/pair-0.png
+
+- 📋 [UTA-0319] **DM-KGalleon: the hold floor's water warp is far stronger than the original's, which reads as plain planks.**
+  The other half of the user's report on UTA-0312 ("it should be
+  stiller than normal"). After UTA-0312 the speed is normal; the size
+  of the swirl is not: ours warps wetbeams1 by LIQUID_WARP_TEXELS at
+  WaveAmp 128, the original's planks show almost none in this frame.
+  UT_MonsterHunt is shooting consecutive frames of this floor and of
+  the same map's pond1 (asked 2026-10-06). Next: compare how much each
+  moves between frames there, then decide whether the warp should
+  follow something the hold sets (its drops, its WaveAmp) or be capped.
+  **Layman:** The flooded floor in the galleon's hold swirls a lot in ours and barely at all in the original.
+  Kind: investigate.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-KGalleon-20261006-094222, ~/.cache/uta-scratch/capreview/DM-KGalleon-20261006-094222/pair-0.png
+
+- 📋 [UTA-0320] **DM-Fetid: a pale pipe across the top of a corridor view is missing in ours.**
+  ut-compare at HEAD, camera -1012.61 -43.52 16.59 -3704 48508 0 121.28.
+  Everything else in the view matches closely. First: is the pipe BSP
+  or a mesh actor? A mesh is not drawn yet and this is then not a
+  defect for 0.1.0; BSP missing would be.
+  **Layman:** A pipe the original draws along the ceiling of one Fetid corridor does not appear in ours.
+  Kind: investigate.
+  Source: user-request-2026-10-06.
+  Lanes: ubake, urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Fetid-20261006-074143, ~/.cache/uta-scratch/capreview/DM-Fetid-20261006-074143/pair-0.png
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -16940,6 +16979,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-110954, ~/.local/state/ut-ants/map-captures/MH-()mG-ValleyOfHellV13-20261006-111007
+
+- 📋 [UTA-0321] **urender: light coronas, the soft glow UT99 draws around lamps flagged bCorona.**
+  UTA-0014 section 9 records coronas and lens flares as deferred, not
+  queued; this queues coronas. Seen on AS-Frigate (user capture, ut-compare
+  at HEAD): the original draws a bright glow at a lamp low in the left of
+  the frame, ours a small flat rectangle. The bake already carries
+  Light::corona (UTA-0110). Placed after 0.1.0 with glass and water,
+  being look polish rather than a defect. The same capture also frames a
+  dark block at the lower right that the original does not show; check
+  whether it is the camera or geometry before filing it.
+  **Layman:** Lamps get the soft halo the original game draws around them.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/AS-Frigate-20260930-131735, ~/.cache/uta-scratch/capreview/AS-Frigate-20260930-131735/pair-0.png
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
