@@ -15159,6 +15159,13 @@ stays with movement in 0.2.0.
   casts no shadow in the original (flags in the map), then whether the
   sawtooth edge is the shadow atlas texel after UTA-0303. Placed in
   0.1.0 because UTA-0292's lighting pass would meet it anyway.
+  Progress (2026-10-06): the slime is not unlit. ut-dump --surface-list:
+  its top surface Goop3 has polyFlags 0x0400010C (Translucent, NotSolid,
+  TwoSided, Portal), and the bed below it, dSlimeBs, has none. Next:
+  find which geometry casts our band (a throwaway ut-shot probe or the
+  pix-probe trace), and whether it is something the original's lightmap
+  ignores, such as a NotSolid or Semisolid brush or a mesh. Dump:
+  ~/.cache/uta-scratch/u307-surfaces.json.
   **Layman:** In one spot of Deck16, our version paints a dark stripe across the green slime that the original game does not have.
   Kind: investigate.
   Source: in-session-2026-10-06.
