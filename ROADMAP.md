@@ -15166,6 +15166,18 @@ stays with movement in 0.2.0.
   pix-probe trace), and whether it is something the original's lightmap
   ignores, such as a NotSolid or Semisolid brush or a mesh. Dump:
   ~/.cache/uta-scratch/u307-surfaces.json.
+  Progress (2026-10-06, later): still present at HEAD (ut-compare,
+  ~/.cache/uta-scratch/u307/compare1). The band is light 34's real-time
+  shadow of the catwalk: a keep-one-light ut-shot probe (worktree
+  ~/.cache/uta-scratch/u307/wt, env UTA_KEEP_LIGHTS) shows it with
+  light 34 alone and not with 5 or 107; --no-probes keeps it; at Low
+  the teeth are twice as coarse, so the sawtooth is the shadow texel
+  read with one tap (UTA-0296's filtering). The original shows a faint
+  soft darker patch in the same place, so it likely casts this shadow
+  too. Open: is the original's shadow there near the camera, and how
+  dark. Two steeper ut-compare views (compare2) did NOT line up: the
+  original's camera sat elsewhere, so check ut-compare's pose at steep
+  pitch before trusting it for this.
   **Layman:** In one spot of Deck16, our version paints a dark stripe across the green slime that the original game does not have.
   Kind: investigate.
   Source: in-session-2026-10-06.
@@ -15233,6 +15245,82 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: user-request-2026-10-06.
   Lanes: urender.
+
+- 📋 [UTA-0310] **ubake: DM-Cybrosis][ draws a wall from one side where the original draws none; UT99 hides surfaces coplanar behind an invisible zone portal.**
+  Viewer captures 2026-10-06: a dark drtpanelBASE wall blocks the
+  corridor seen facing -x; from the far side it is not drawn, and the
+  player walks through it. ut-compare: the original draws no wall from
+  either side.
+  Cause: three identical sheets at x = -1040 between zones 3 and 2
+  (bsp-point --polys, --leafinfo surf): surf 1472 (Brush486, Portal |
+  Invisible | NotSolid | TwoSided) heads the coplanar chain, nodes 3171 ->
+  3172 -> 3173 and 3197 -> 3198 -> 3199; surfs 1473 and 1474 (Brush487,
+  488) are plain NotSolid sheets chained behind it, likely copies of the
+  portal brush that lost its flags. buildGeometry skips only Invisible
+  surfaces, so we draw 1473 and 1474.
+  Proved by patch: a renamed copy of the map (DM-CybA) reproduces the
+  original's open corridor; the same copy with only PF_Portal cleared on
+  surf 1472 (byte 550918, DM-CybB) makes the original draw the wall.
+  Stand-in install: ~/.cache/uta-scratch/cyb/inst (System64, System,
+  Logs and Maps must be real folders of links, not links to folders, or
+  the client writes into the live install past bwrap).
+  Before fixing: census every map for coplanar chains holding a portal
+  and a drawn surface, to settle whether the rule is "behind an
+  invisible portal head" or "anywhere in a chain with a portal"; the
+  Deck16 slime (Portal | Translucent, not Invisible) is drawn by UT99.
+  **Layman:** In one Cybrosis corridor we show a dark wall you can walk through; the original shows an open corridor.
+  Kind: fix.
+  Source: user-request-2026-10-06.
+  Lanes: ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Cybrosis][-20261006-092856, ~/.local/state/ut-ants/map-captures/reviewed/DM-Cybrosis][-20261006-092905, ~/.cache/uta-scratch/cyb/patch.png
+
+- 📋 [UTA-0311] **urender: DM-HealPod][ floor plate flickers where Mover1's inner face lies flush with the floor; the original always shows the floor.**
+  Viewer captures 2026-10-06 (four, camera -7.40 -797.17 -263.13):
+  the recess inside Mover1's riveted plate shows a plain plate at some
+  angles and a four-squares pattern at others. ut-compare
+  (~/.cache/uta-scratch/heal/compare): the original shows the plain
+  plate at all four. Probe (worktree ~/.cache/uta-scratch/u307/wt,
+  UTA_KEEP_MOVERS): dropping any mover but Mover1 (export 1244, tag
+  megabrethx, StandOpenTimed) changes nothing; dropping Mover1 removes
+  both the plate and the squares. So Mover1's inner face is coplanar
+  with the world floor (node 3331, surf 37, rClfFlr6x, z = -400) and
+  the depth test ties.
+  Likely rule, shared with UTA-0310: UT99 adds a mover's polygons to the
+  world BSP each frame as coplanar nodes after the world's, and in a
+  coplanar chain the first node drawn claims the pixels. So the world
+  wins a tie with a mover, and an invisible zone portal heading a chain
+  hides what follows it. Cheapest candidate here: draw movers with a
+  small depth bias away from the camera so the world wins ties. Check
+  first that no map has a mover face meant to show over a flush world
+  face. Dependencies: UTA-0310.
+  **Layman:** In a HealPod floor recess, two surfaces in the same spot flicker as the camera moves; the original shows one steady plate.
+  Kind: fix.
+  Source: user-request-2026-10-06.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-HealPod][-20261006-093218, ~/.cache/uta-scratch/heal/compare, ~/.cache/uta-scratch/heal/drop.png
+
+- 📋 [UTA-0312] **urender: DM-KGalleon's flooded hold ripples about 15 times too fast; liquid drift scales with FX_Frequency, which is 125 there.**
+  The user, 2026-10-06, in the viewer: the water at the bottom of the
+  boat animates extremely fast, as if shocked; where it is, it should be
+  stiller than normal. The surface is the floor itself, surf 826
+  (Brush79), texture indus6.wetstuff.wetbeams1, a WetTexture. Its baked
+  LiquidLook (probe UTA_LIST_LIQUIDS in ~/.cache/uta-scratch/u307/wt):
+  amplitude 128, frequency 125, 128x128. liquid.glsl drifts the field at
+  LIQUID_DRIFT (4 cells/s) x frequency / 8, so 62.5 cells/s here against
+  4 for the common FX_Frequency 8; the same map's pond1 is 6, goop3 10.
+  UTA-0105 section 4.6 fitted the drift at typical values only.
+  Likely cause, unchecked against the original: in UT99's water textures
+  FX_Frequency drives the drop emitters (how often drips or oscillating
+  spots fire), and the wave propagation runs at a fixed rate, so drift
+  should not scale with it. First: shoot the original's hold twice a
+  short time apart (or ask UT_MonsterHunt for paired captures) and
+  compare how far the ripples move against pond1's; then hold drift
+  constant, or cap it, and amend UTA-0105 section 4.4.
+  **Layman:** The water in the galleon's hold shivers wildly; it should be calmer than normal water.
+  Kind: fix.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-KGalleon-20261006-094225
 
 ## 0.2.0 — Movement and weapons
 
@@ -17929,6 +18017,17 @@ to.
   Sent: patch bounds 1173 and 1174 to the world box; predict 601 drawn
   at every yaw. Data: ~/.cache/uta-scratch/u283/boxwedge-drawn.txt,
   path-bounds.txt.
+  GAME-0187 (2026-10-06, node 1305 test): every prediction held. With
+  bounds 1173/1174 patched to the world box, 601 is drawn at yaw 0, 30,
+  60, 90 and 180 (0 undrawn px; the unpatched control drops it at the
+  first four). At fov 90 the unpatched edges fall where predicted
+  (126.7..308.8): yaw 124 dropped, 129 drawn, 306 drawn, 311 dropped.
+  Cause proven: node 1305's render bound covers only its back side, so
+  the original culls the eye's own subtree whenever that box leaves the
+  view. UT_MonsterHunt data: work/uta0269/hole0283/flatN1305/,
+  flatN1305O/, flatEdge90/; recorded on GAME-0187 at f9f4727. Next: a
+  scan for every node whose render bound misses geometry it guards, so
+  other maps can be checked without screenshots.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
