@@ -15804,6 +15804,24 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
 
+- 📋 [UTA-0303] **urender: DM-Deck16][ shadows draw at very low resolution, with blurred, stair-stepped edges.**
+  The user, 2026-10-06, in the viewer: a pillar's shadow across the floor
+  is far too coarse; the edge steps in blocks a few texels wide and
+  smears.
+  Likely cause, unchecked: the lamp casting it reaches far, and its shadow
+  faces get a small tile of the atlas, so one texel covers many units on
+  the floor. First: find the lamp (ut-shot at that spot, or a viewer F12
+  capture for its camera) and print its tile size in texels and its reach,
+  then decide between a bigger tile for a light whose shadow is on screen
+  and near the camera, tighter faces (fit to what the light can reach in
+  its room rather than its whole radius), or both. UTA-0296's filtering
+  softens a coarse edge but cannot add detail, so this comes first.
+  **Layman:** On Deck16 a pillar's shadow on the floor is a blurry, jagged smear instead of a clean shape.
+  Kind: fix.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+  Evidence: /home/ants/Pictures/ClaudePaste/paste_20261006_092702_286_43a29b16.png
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -16413,6 +16431,28 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-10-06.
   Lanes: urecipe, urender.
+
+- 📋 [UTA-0304] **urender: acid as a clear green-tinted liquid that bubbles, pops and steams.**
+  The user, 2026-10-06, on DM-Deck16][: "The acid looks great, please
+  remove the green texture they have and add a green tint to the acid.
+  Please also add bubbling and steam to the surface. Perhaps popping
+  bubbles as well."
+  So: drop the acid's own painted texture from its surface, keep the
+  look's lighting and reflection, and colour what shows through by a
+  green tint that deepens with depth (the see-through path is UTA-0273's,
+  which is why this sits beside it). Cheap tricks: bubbles as a few
+  small rising sprites per pool, spawned at random points, each growing
+  and popping into a brief ring on the surface; steam as soft
+  camera-facing sprites drifting up and fading, sparse, lit by the
+  room. Both are capped per pool and switch off with their own setting
+  (UTA-0297). Which liquids are acid is the liquid kind UTA-0105 already
+  bakes; a per-map override goes in the recipe so the editor can set it
+  (UTA-0034).
+  **Layman:** Acid pools lose their painted blotches and become clear green liquid, with bubbles rising and popping and steam drifting off the top.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender, umat.
+  Evidence: /home/ants/Pictures/Screenshots/Screenshot_20261006_092759.png
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
