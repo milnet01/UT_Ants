@@ -241,6 +241,36 @@ TEST_CASE("SS 6: a cluster reached by more lights than its cap drops some and sa
     CHECK(pixelAt(*pixels, WIDTH, 80, 32).r > 0);
 }
 
+TEST_CASE("UTA-0309: an overflowing cluster drops the lights that give it least", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Bundle bundle = litSquare("white");
+    addSolidMaterial(bundle, "white", WHITE);
+
+    // 64 dim lights just behind the square, inside the centre pixel's cluster:
+    // they reach it and fill its cap, and light nothing, since the surface
+    // faces away from them. One brighter light 80 units in front lights the
+    // pixel. It is the furthest from the cluster's centre, so dropping by
+    // distance loses it and the pixel goes black; dropping the faintest keeps
+    // it. Turning the camera moves a cluster, so a rule by distance changes
+    // which lights a far wall keeps -- what MH-'Z-FALKENSTINE showed.
+    std::vector<uta::ubundle::Light> lights;
+    for (std::size_t row = 0; row < 8; ++row)
+        for (std::size_t column = 0; column < 8; ++column)
+            lights.push_back(steadyLight({104.0f, 0.5f + static_cast<float>(column) * 0.375f,
+                                          -1.0f - static_cast<float>(row) * 0.375f},
+                                         4, 64));
+    const uta::ubundle::Light front = steadyLight({20, 0, 0}, 128, 64);
+    lights.push_back(front);
+    bundle.lights = lights;
+
+    const std::uint8_t red = redAtCentre(renderer, bundle);
+    CHECK(renderer.lastFrameStats().overflowedClusters > 0u);
+    const double expected = litByte(uta::ubake::lightAt(front, centrePixelOnSquare(), {-1, 0, 0}).r);
+    CAPTURE(int(red), expected);
+    CHECK(std::abs(red - expected) <= 2.0);
+}
+
 TEST_CASE("a normal map tilts the lit side the way umat encodes it", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(linearFrame());
