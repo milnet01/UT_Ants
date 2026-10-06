@@ -16770,6 +16770,26 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
 
+- 📋 [UTA-0313] **urender: heavy, patchy mist at a map's open edge, thicker in places and thinner in others.**
+  User, 2026-10-06, from a viewer capture of DM-Pyramid (camera 202.75
+  568.16 507.59 -1704 -53636 0 121.28): the map's edge shows flat sky
+  panels hanging over an empty void. "This one will require mist but it
+  mustn't be uniformly white, the mist must be inconsistent and thicker
+  in places and slightly lighter in others. Like how Silent Hill 2 does
+  it but much heavier."
+  Not a fidelity fix: the original has no such mist. A look upgrade, so
+  it sits with glass, water and vegetation after 0.1.0.
+  Cheapest candidate: drive the existing volumetric fog (UTA-0015) with a
+  slowly drifting 3D noise density, strongest where the view leaves the
+  playable space (sky and void). Open: how a map's open edge is found
+  (sky surfaces, zones with no floor below, or the level's bounds), and
+  which maps call for it.
+  **Layman:** Where a map ends in open sky or a void, fill the edge with heavy, uneven mist, like Silent Hill 2's but thicker, instead of showing a flat edge.
+  Kind: enhancement.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/DM-Pyramid-20261006-100420
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and
