@@ -15216,6 +15216,34 @@ stays with movement in 0.2.0.
   slime sheet is shadowed at all (the yellow tint may be the shadowed
   bed seen through it), and what our shadow test does on a Translucent
   Portal sheet.
+  Reframed (user, 2026-10-06): aim for a remaster's light, not the
+  original's. The band is a real shadow of light 34 and stays; the defect
+  is its sawtooth edge only. Do not lighten it to match the original.
+  Work in progress, UNCOMMITTED in the tree (copy:
+  ~/.cache/uta-scratch/u307/uta0307-soft-shadow-wip.patch):
+  - shadows.glsl: shadowLookup / shadowTap / shadowStep split out;
+    shadowOf stays one read (fog, UTA-0015 needs it); new
+    softShadowOf(light, x, dpdx, dpdy) reads a SHADOW_SOFT_SIDE square
+    grid of taps SHADOW_SOFT_TEXELS apart, each compared at the surface's
+    own depth there (receiver-plane depth from the screen derivatives).
+  - scene.frag: dpdx/dpdy taken beside duv1/duv2; the light loop calls
+    softShadowOf.
+  - RenderShadowTest.cpp: crowdAtlas helper (shared with the grazing
+    case) and a new case, UTA-0307 slanting edge: zoomed camera on the
+    shadow's top edge z = 12, coarsest tile; per column the half-bright
+    row; asserts the worst distance from the best-fit line. Its CHECK is
+    a placeholder (worst < 0.0) and two PROBE blocks (PPM dump via
+    UTA_PROBE_PPM, CAPTURE of edge) must go before commit.
+  Measured worst (rows, lavapipe): one read 7.45. 2x2 taps without the
+  depth tilt: 6.33 and the lit side self-shadowed in stripes. With the
+  tilt the stripes are gone but the wobble stays: 2x2 at 1.0 / 0.5 /
+  0.25 spacing 5.48 / 6.58 / 6.73, 3x3 at 1.0 5.82, 3x3 at 0.75 6.67,
+  4x4 at 0.67 6.07. Frames: ~/.cache/uta-scratch/u307/edge-*.ppm.
+  Open: a 3-4 texel filter should flatten a stair of period ~3 texels,
+  and does not. Check first that the tile really is the coarse one
+  (CAPTURE shadowTileSize and the planned texel) and that the teeth are
+  texel stairs, before tuning taps. Then time the change (ut-bench
+  frame), since the user flagged performance.
   **Layman:** In one spot of Deck16, our version paints a dark stripe across the green slime that the original game does not have.
   Kind: investigate.
   Source: in-session-2026-10-06.
@@ -15521,6 +15549,31 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Fetid-20261006-074143, ~/.cache/uta-scratch/capreview/DM-Fetid-20261006-074143/pair-0.png
+
+- 📋 [UTA-0322] **urender: give shadows more detail where video memory allows, after UTA-0307's smoothing.**
+  The user chose both halves of "shadow map upscaling" on 2026-10-06:
+  smooth the edge (UTA-0307) and then sharpen it. UTA-0303 already plans
+  up to FINEST_SHADOW_REFINEMENT (4) times finer when a map's lights fit
+  the atlas. Options: a larger atlas at Ultra, or a finer cap for the
+  lights nearest the camera. Measure memory and frame time; an edge-aware
+  upscaler of a small map was offered and not chosen for now.
+  **Layman:** Shadows get finer detail on machines with memory to spare, so their edges stay crisp up close.
+  Kind: enhancement.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
+- 📋 [UTA-0323] **Time the largest maps on a camera fly-through and fix the biggest costs.**
+  The user sees slowdowns on some bigger maps, 2026-10-06, with only
+  the camera flying: no enemies, gameplay or pickups yet, so every cost
+  now eats the headroom those will need. Plan agreed: after UTA-0307,
+  run ut-bench frame over the largest maps, find which step takes the
+  time (lights, shadows, fog, geometry), file the worst, fix the cheap
+  ones first. Ask the user which maps felt slow; they may name some.
+  UTA-0039 (frame-rate floor, 1.0.0) is the long-term goal.
+  **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
+  Kind: perf.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
