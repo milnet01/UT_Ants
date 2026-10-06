@@ -15381,6 +15381,9 @@ stays with movement in 0.2.0.
   the install are bMasked on surfaces without PF_Masked. Baker revision
   42. ut-compare DM-Agony at the three captures: moss see-through, as
   in the original. GitHub green at 9a75c4c.
+  Correction (2026-10-06): the 511 in the close note and in 9a75c4c's
+  message came from the census part-way through. Finished: 671 bMasked
+  textures are worn by surfaces without PF_Masked, on 739 maps.
   **Layman:** On DM-Agony the hanging moss under wooden beams shows a solid black panel behind it; in the original the black part is see-through.
   Kind: fix.
   Source: user-request-2026-10-06.
@@ -18190,6 +18193,12 @@ to.
   triangle near the horizon, seen from out over the sea, not from the
   user's spot. Patch not shipped; the user's call. Their files:
   work/uta0269/hole0283/{subtree.py,patchbound.py,n2567.sh,n2567-sheet.png}.
+  GAME-0187 (2026-10-06, node 2567 shipped): the user chose to ship it.
+  Bound 1170 is set to the world box on both TheBoat files (24 bytes
+  each); promote_wallfix load test LOADS, 0 Accessed None. Live md5s
+  229e62c5 (V2mini), c8bc7ea5 (-BP); originals unchanged in
+  work/wallfix/backup. bound-scan on the live files no longer lists 2567;
+  2611, 1316, 1477 and 9775 remain.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
