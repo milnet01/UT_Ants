@@ -15390,7 +15390,7 @@ stays with movement in 0.2.0.
   Lanes: upkg, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104446, ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104452, ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104800, ~/.cache/uta-scratch/agony/compare
 
-- 📋 [UTA-0316] **map-pic: save each map's own preview picture as a PNG, for UT_MonsterHunt's server launcher and our own map browser.**
+- ✅ [UTA-0316] **map-pic: save each map's own preview picture as a PNG, for UT_MonsterHunt's server launcher and our own map browser.**
   UT_MonsterHunt GAME-0196 (message 450): `map-pic <install> <map.unr>
   <out.png>`, printing which route it took (preview / render / none).
   Preview route: LevelInfo.Screenshot, an object property naming a
@@ -15403,6 +15403,11 @@ stays with movement in 0.2.0.
   shoots those for now; ours can take over once maps are baked anyway
   for UTA-0031's browser. Rule 1 does not reach it; placed first as
   help for another session, the user's top priority (2026-10-05).
+  Resolved 2026-10-06 (b61489e): preview route only; GitHub green
+  on GCC, Clang and MSVC. Reference install: 1033 of 1489 maps give a
+  picture, 454 name none, MH-Pupae's stores no pixels, and
+  MH-HTD-LiandriCorp-Part2's sits in a package that install lacks. The
+  render route stays deferred.
   **Layman:** A small tool that pulls the picture each map ships with out of the map file, so launchers can show what a map looks like.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-10-06.
@@ -17582,6 +17587,16 @@ to.
   bake at a PlayerStart. Both come from map-pic (filed today for
   UT_MonsterHunt's server launcher). A separate server manager is filed
   for 1.0.0.
+  Names (UT_MonsterHunt GAME-0197, user decisions 2026-10-06): keep
+  "MH" first, drop the clan or author tag, split CamelCase, "][" to
+  "II", versions as v13, all-caps words kept. Variant suffixes BP, UTP,
+  LIFT, WALL, PATH come off the end only and show as labels: "MH
+  Advanced II · BP UTP". Sort and search on the shown name; search the
+  file name too; the file name never changes. Rules: one shared data
+  file of tags and labels plus the shared before/after test rows,
+  copied into this repo from UT_MonsterHunt's and kept in step by those
+  rows (agreed 2026-10-06). The vote screen gets the same names
+  (their GAME-0198).
   **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
   Kind: implement.
   Source: design-2026-09-03.
