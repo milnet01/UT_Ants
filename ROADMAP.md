@@ -15187,6 +15187,30 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
 
+- 🚧 [UTA-0309] **MH-'Z-FALKENSTINE: shadows on a far tower change as the camera turns, with the camera standing still.**
+  The user, 2026-10-06: "shadows keep changing on a far wall as the
+  camera moves." Five viewer captures, 08:37:30 to 08:37:48; four from
+  one position (2371.13 -1689.97 -1010.09) turning only, yaw -18036 to
+  -20285. The square tower's lower face goes lit, half dark, lit, dark
+  between them, and the round tower's top flips bright. The viewer was
+  built at 7dc8bfd, before UTA-0303's shadow planner change, so first
+  reproduce at HEAD with ut-shot at those cameras, lights pinned at time
+  0. Placed in 0.1.0 because S1 asks for shadows that move as you move,
+  and these move as you look.
+  Evidence: ~/.local/state/ut-ants/map-captures/MH-'Z-FALKENSTINE-20261006-083730..083748
+  Progress (2026-10-06): reproduced at HEAD (b44cdcd), fresh bake,
+  ut-shot --light-time 0 at the four turning cameras, 1280x720
+  (~/.cache/uta-scratch/falk/head-*.ppm): the square tower's lower face
+  still goes lit, dark, lit, dark. Not light pulses. Lead: cluster.comp
+  keeps at most CLUSTER_CAPACITY lights per view-space cluster and drops
+  those furthest from the cluster centre; far clusters are large and turn
+  with the view, so the dropped set changes. Test: raise the capacity in a
+  throwaway build and re-render; if the face stops changing, that is it.
+  **Layman:** On one castle map, the shadows on a distant tower appear and disappear just by turning to look around, which real shadows never do.
+  Kind: fix.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
