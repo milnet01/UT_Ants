@@ -15632,6 +15632,12 @@ stays with movement in 0.2.0.
   reference (ut-ants-uta0175's harness) and list which piece closes
   the largest gap. A design choice across ubake and urender, so a
   spec once the gaps are measured.
+  User direction (2026-10-06), softening the 2026-10-05 ruling above:
+  lighting grounded in reality matters more than matching the original's
+  brightness; where a spot ends up too dark, a light can be added. Sharp
+  shadows instead of the original's blur are fine. Every effect is
+  emulated with cheap tricks, not the costly real thing. Soft shadows that
+  harden near contact are UTA-0296.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
@@ -15692,6 +15698,27 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: user-request-2026-10-05.
   Lanes: ubake.
+
+- 📋 [UTA-0296] **urender: soft shadows that stay sharp where an object touches and soften with distance.**
+  The user, 2026-10-06, asked whether we have contact hardening and
+  agreed to add it "when it is relevant", by "whatever cheap methods we
+  can". Today shadowOf (src/urender/shaders/shadows.glsl) reads the
+  shadow atlas once with hardware compare, so every shadow edge is
+  equally sharp at any distance from its caster.
+  Cheap method: percentage-closer soft shadows on the existing atlas. A
+  small blocker search (a few taps) finds the average caster depth, the
+  penumbra width follows from it and an assumed lamp size, and a
+  fixed-count filter (8-16 taps, rotated per pixel and resolved by the
+  anti-aliasing) blurs by that width. UT99 lights have no size, so one
+  size per lamp is a choice to make and record (from its fixture, or a
+  constant). Tap counts by quality tier, so a modest machine pays little.
+  Part of UTA-0292's realistic-lighting goal; complements UTA-0054's
+  screen-space contact shadows, which ground small objects the atlas is
+  too coarse to see.
+  **Layman:** A shadow is crisp right where a thing meets the floor and grows softer further away, as it does in real light.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
