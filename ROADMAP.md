@@ -15291,7 +15291,7 @@ stays with movement in 0.2.0.
   Lanes: ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Cybrosis][-20261006-092856, ~/.local/state/ut-ants/map-captures/reviewed/DM-Cybrosis][-20261006-092905, ~/.cache/uta-scratch/cyb/patch.png
 
-- 📋 [UTA-0311] **urender: DM-HealPod][ floor plate flickers where Mover1's inner face lies flush with the floor; the original always shows the floor.**
+- ✅ [UTA-0311] **urender: DM-HealPod][ floor plate flickers where Mover1's inner face lies flush with the floor; the original always shows the floor.**
   Viewer captures 2026-10-06 (four, camera -7.40 -797.17 -263.13):
   the recess inside Mover1's riveted plate shows a plain plate at some
   angles and a four-squares pattern at others. ut-compare
@@ -15310,6 +15310,15 @@ stays with movement in 0.2.0.
   small depth bias away from the camera so the world wins ties. Check
   first that no map has a mover face meant to show over a flush world
   face. Dependencies: UTA-0310.
+  Resolved (2026-10-06, 9882481, GitHub green): every mover draw carries a
+  dynamic depth bias (constant 2, slope 1), the level's zero, so the level
+  wins a coplanar tie as in UT99. No census of flush mover faces: under the
+  original's rule a flush mover face never shows. Device test "UTA-0311: the
+  level wins over a mover face lying flush with it" red 14/14 before, green
+  after; device 94/94 lavapipe and GPU; unit 883/883. ut-compare
+  DM-HealPod][ at the four capture cameras: plain plate in all four. Hand
+  mutations: five killed; dropping the slope term survived (neutral at 45
+  degrees, kept for grazing views). UTA-0014 SS 4.5 amended.
   **Layman:** In a HealPod floor recess, two surfaces in the same spot flicker as the camera moves; the original shows one steady plate.
   Kind: fix.
   Source: user-request-2026-10-06.
@@ -15338,6 +15347,38 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-KGalleon-20261006-094225
+
+- 🚧 [UTA-0314] **ubake: hanging vines draw as black sheets; a texture's own bMasked is ignored, and the original honours it.**
+  User's three F12 captures on DM-Agony, 2026-10-06. ut-compare at all
+  three cameras: the original draws the moss see-through, ours draws its
+  index-0 texels black. ut-dump --surface-list: the four sheets (textures
+  moss-hng and moss2) carry polyFlags 0x128 (TwoSided, Semisolid,
+  NotSolid) and no PF_Masked. So the original takes PF_Masked from the
+  texture: UT99's Texture.uc surface bools (bMasked, bTransparent,
+  bModulate, bUnlit...) mirror the PolyFlags bits and are OR-ed into the
+  surface's at render. ubake (Bake.cpp, the masked-variant choice) lets the
+  surface alone decide, per UTA-0009 SS 2 item 4 and UTA-0011's invariant
+  whose Breaks-when names the texture's bMasked; upkg::Texture keeps no
+  texture flags at all. First: census every map for texture bits a surface
+  lacks, per bit, then decide whether the fix takes bMasked alone or every
+  bit, and amend both specs.
+  Progress (2026-10-06): probe confirms genfx.Mask.moss2 and moss-hng have
+  the texture's own bMasked true while every surface using them lacks
+  PF_Masked. Census running as cc-job u314-census
+  (~/.cache/uta-scratch/u314/census.sh): a throwaway ut-bake probe in the
+  scratch worktree ~/.cache/uta-scratch/u307/wt (env UTA_TEXFLAGS, exits
+  before baking) prints, per map and texture, every true bool property with
+  opaqueUse/maskedUse, into ~/.cache/uta-scratch/u314/texflags.txt. Next:
+  tally by property where opaqueUse=1 to decide bMasked-only or every
+  surface bit; then read the texture's surface bools in upkg::Texture, OR
+  them into the surface flags in ubake, amend UTA-0009 SS 2 item 4 and the
+  UTA-0011 invariant, bump BAKER_REVISION, check with ut-compare at the
+  three DM-Agony captures. Keep the u307 worktree until this is done.
+  **Layman:** On DM-Agony the hanging moss under wooden beams shows a solid black panel behind it; in the original the black part is see-through.
+  Kind: fix.
+  Source: user-request-2026-10-06.
+  Lanes: upkg, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104446, ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104452, ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104800, ~/.cache/uta-scratch/agony/compare
 
 ## 0.2.0 — Movement and weapons
 
