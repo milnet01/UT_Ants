@@ -15607,7 +15607,45 @@ stays with movement in 0.2.0.
   tier: 55 ms (tier saves only ~25%, so the cost is not an Ultra-only
   feature). Shadow tiles redrawn: 0 on every map. Next: find which
   per-pixel step Bishop pays for.
+  Progress (2026-10-06): one-step-off probes on DM-Bishop, ultra
+  4K,\nalternated with baseline in one cc-job (~80 ms baseline): shadows
+  off\n27 ms; one shadow read 48 ms; no direct lights 12 ms; flat
+  colour\n19 ms; probes, fog sample, fog compute, depth-equal opaque
+  pass and\nparallax each within noise. So lights and their shadow reads
+  are the\ncost. Shipped: skip the shadow reads of a light that gives
+  the point\nnothing, 80 -> 65 ms, Bishop shots byte-identical. Filed
+  the rest:\nUTA-0324 (edge-only nine reads), UTA-0325 (scalar light
+  loop),\nUTA-0326 (baked shadow mask), UTA-0327 (variable rate
+  shading).\nUpscaling is UTA-0075/UTA-0076. Throwaway probe
+  worktree:\n~/.cache/uta-scratch/u323/wt (UTA_PROBE bits;
+  probe-run.sh).
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
+  Kind: perf.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
+- 📋 [UTA-0324] **urender: read a light's shadow nine times only near a shadow's edge.**
+  Found by UTA-0323 on DM-Bishop (ultra, 3840x2160, RX 6600): shadows
+  off took a frame from ~80 ms to ~27 ms; one shadow read instead of
+  UTA-0307's nine, ~48 ms. Take the four outer reads first; where all
+  four agree the point is fully lit or fully shadowed, stop, else take
+  the rest. The usual early-out for filtered shadows (NVIDIA GDC08 soft
+  shadow mapping). Check: the slanting-edge test UTA-0307 measured still
+  holds, and time Bishop alternating old and new in one cc-job.
+  **Layman:** Shadows cost the same everywhere today; most of a picture is plainly lit or plainly dark and needs one quick look, not nine.
+  Kind: perf.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
+- 📋 [UTA-0325] **urender: make the cluster light loop scalar on AMD-style hardware.**
+  UTA-0323: with shadows off, DM-Bishop still took ~27 ms against
+  ~12 ms with no lights at all, so the light loop itself is a cost.
+  Neighbouring pixels share a cluster, so the light index is the same
+  across most of a wave; subgroup operations (GL_KHR_shader_subgroup)
+  let the loop read it once per wave. AMD's GDC 2017 wave-programming
+  talk reports DOOM 1.43x faster from wave operations. Measure first: a
+  wave can span two clusters, and the loop must stay correct then.
+  **Layman:** Let the graphics card fetch each light once for a group of pixels instead of once per pixel.
   Kind: perf.
   Source: user-request-2026-10-06.
   Lanes: urender.
@@ -17120,6 +17158,32 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/AS-Frigate-20260930-131735, ~/.cache/uta-scratch/capreview/AS-Frigate-20260930-131735/pair-0.png
+
+- 📋 [UTA-0326] **ubake: bake the shadows of lights that never move into a per-surface mask.**
+  UTA-0323: shadow reads are most of DM-Bishop's frame, and almost
+  every UT99 light and wall is static. A shadow mask holds, per
+  surface texel, how much each nearby static light is blocked: Unity's
+  shadowmask packs four overlapping lights per texel, one per colour
+  channel, and falls back where more overlap. Moving things (players,
+  movers) would still need the shadow map. Needs a spec: the texel
+  density, the channel budget, and how a mover's shadow combines
+  without shadowing twice.
+  **Layman:** Most lights and walls never move, so their shadows can be worked out once when the map is prepared instead of every frame.
+  Kind: perf.
+  Source: user-request-2026-10-06.
+  Lanes: ubake, urender.
+
+- 📋 [UTA-0327] **urender: shade at a coarser rate where the picture is flat, on cards that support it.**
+  Variable rate shading (VK_KHR_fragment_shading_rate): one shader
+  run per 2x2 pixels where the picture is flat or blurred. RADV
+  supports it on RDNA2 (the RX 6600); Phoronix measured about 8%
+  overall and up to 30% with 2x2 everywhere. UTA-0323 found DM-Bishop's
+  cost is per pixel, which is what this saves. Optional per card;
+  measure the look on edges and text before turning it on.
+  **Layman:** Work out the colour once for a small block of pixels where nothing would look different, which newer graphics cards can do.
+  Kind: perf.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

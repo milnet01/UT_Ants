@@ -308,9 +308,13 @@ void main() {
         vec3 direct = vec3(0.0);
         for (uint k = 0u; k < count; ++k) {
             Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
+            // UTA-0323: a cluster lists every light whose sphere meets its box,
+            // so many give this point nothing. Their nine shadow reads were a
+            // fifth of DM-Bishop's frame; skipping them changes no pixel.
+            vec3 lit = lightAt(light, worldPosition, n);
+            if (all(equal(lit, vec3(0.0)))) continue;
             // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
-            direct += lightAt(light, worldPosition, n) *
-                      (light.flicker * softShadowOf(light, worldPosition, surface));
+            direct += lit * (light.flicker * softShadowOf(light, worldPosition, surface));
         }
         // SS 4.7: the probes, through the same normal the lights use.
         ProbeLattice lattice =
