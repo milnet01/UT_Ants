@@ -15622,6 +15622,17 @@ stays with movement in 0.2.0.
   Next (user agreed 2026-10-06): UTA-0324 (nine shadow reads only
   near\nan edge) first, then the same one-step-off probes on
   DM-Closer\n(bundle ff67d09b... in ~/.cache/uta-scratch/u323/bake).
+  Progress (2026-10-06): UTA-0324 dropped, measured slower (82 vs
+  67 ms on Bishop; figures there). One-step-off probes on DM-Closer,
+  ultra 4K, first six closer-fly.txt cameras, each against the shipped
+  state (skip unlit shadow reads) in one cc-job; still-frame medians:
+  shipped 25.6-28.1 ms; without the skip-unlit fix 36.0 (so it saves
+  ~10 ms here too); shadows off 16.8; one shadow read 19.4; no direct
+  lights 10.1; flat colour 6.3; no parallax 23.0; no probes 24.4; fog
+  compute off 24.4; depth-equal 24.9; fog sample off 26.3. Same shape as
+  Bishop: direct lights and their shadow reads are most of the frame;
+  parallax, probes and fog are 2-3.5 ms each. Next: UTA-0325 (scalar
+  light loop) or UTA-0326 (baked shadow mask), both aimed at the lights.
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -18543,6 +18554,22 @@ to.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
   Lanes: upkg, unav.
+
+- 📋 [UTA-0328] **ut-bound-scan: ship UTA-0283's bound scan as a repo tool with one JSON line per finding.**
+  UT_MonsterHunt's GAME-0205 adds a render-bound check to its
+  analysis/mapcheck, run on every map, results stored per map md5. It
+  asks for: (1) a stable binary path, not under ~/.cache/uta-scratch
+  (today ut-ants-uta0156/ambient-census/build/bound-scan); (2) NDJSON
+  per finding: map, md5, node, brush, texture, bound index, excess, and
+  an inverted box (valid=0) reported as its own case rather than
+  dropped; (3) the calibration as a citable number (stock DM-Deck16][
+  misses by at most 96) and whether a whole-folder run beats one map
+  per call. Their proving check: TheBoat backups 93258ff4 and 8047bff7
+  flag nodes 1305 and 2567; live files 229e62c5 and c8bc7ea5 do not.
+  **Layman:** Turn the throwaway hall-of-mirrors finder into a proper tool UT_MonsterHunt's map checker can run on every map.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-10-06.
+  Lanes: upkg.
 
 ## 0.5.0 — Map editor
 
