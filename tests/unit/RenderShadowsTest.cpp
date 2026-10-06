@@ -145,15 +145,51 @@ TEST_CASE("UTA-0175: at the fine detail a light keeps its share of the atlas", "
     REQUIRE(coarse < urender::LARGEST_SHADOW_TILE);
     CHECK(fine == 2 * coarse);
 
+    // UTA-0303 refines a lone light alike at either tier, so its planned tiles
+    // keep the ratio. A smaller light, so the refined tiles stay under the
+    // largest.
+    const Light small = pointLight({0, 0, 0}, 20);
     ShadowPlanner coarsePlanner, finePlanner(urender::FINE_SHADOW_DETAIL);
-    const auto coarsePlan = coarsePlanner.plan({light}, {});
-    const auto finePlan = finePlanner.plan({light}, {});
+    const auto coarsePlan = coarsePlanner.plan({small}, {});
+    const auto finePlan = finePlanner.plan({small}, {});
     REQUIRE(coarsePlan.faces.size() == 6);
     REQUIRE(finePlan.faces.size() == 6);
-    CHECK(coarsePlan.draws[0].tile.size == coarse);
-    CHECK(finePlan.draws[0].tile.size == fine);
+    REQUIRE(finePlan.draws[0].tile.size < urender::LARGEST_SHADOW_TILE);
+    CHECK(finePlan.draws[0].tile.size == 2 * coarsePlan.draws[0].tile.size);
     // The rectangle a shader samples is the same share of either atlas.
     CHECK_THAT(finePlan.faces[0].atlasRect[2], WithinAbs(coarsePlan.faces[0].atlasRect[2], 1e-6));
+}
+
+TEST_CASE("UTA-0303: a map whose lights fit is shadowed four times finer than its tier", "[render]") {
+    const Light light = pointLight({0, 0, 0}, 20);
+    for (const urender::ShadowDetail detail : {urender::ShadowDetail{}, urender::FINE_SHADOW_DETAIL}) {
+        CAPTURE(detail.atlasSize);
+        ShadowPlanner planner(detail);
+        const auto plan = planner.plan({light}, {});
+        CHECK(plan.unitsPerTexel == detail.unitsPerTexel / urender::FINEST_SHADOW_REFINEMENT);
+        REQUIRE(plan.draws.size() == 6);
+        CHECK(plan.draws[0].tile.size == urender::shadowTileSize(light, plan.unitsPerTexel));
+        CHECK(plan.draws[0].tile.size > urender::shadowTileSize(light, detail.unitsPerTexel));
+    }
+}
+
+TEST_CASE("UTA-0303: a map that fits only twice finer is shadowed twice finer", "[render]") {
+    // Widest-radius point lights: one more than fit at a quarter of the texel,
+    // and few enough to fit at half.
+    const Light light = pointLight({0, 0, 0}, 200);
+    const double atlas = double(urender::SHADOW_ATLAS_SIZE) * urender::SHADOW_ATLAS_SIZE;
+    const double quarter = urender::shadowTileSize(light, urender::SHADOW_UNITS_PER_TEXEL / 4);
+    const double half = urender::shadowTileSize(light, urender::SHADOW_UNITS_PER_TEXEL / 2);
+    const auto count = static_cast<std::uint32_t>(atlas / (6 * quarter * quarter)) + 1;
+    REQUIRE(count * 6 * half * half <= atlas);
+
+    std::vector<Light> lights;
+    for (std::uint32_t i = 0; i < count; ++i) lights.push_back(pointLight({10.0f * static_cast<float>(i), 0, 0}, 200));
+    ShadowPlanner planner;
+    const auto plan = planner.plan(lights, {});
+    CHECK(plan.unitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL / 2);
+    CHECK(plan.unshadowed == 0u);
+    CHECK(plan.draws.size() == lights.size() * 6);
 }
 
 TEST_CASE("SS 4.8: a point light takes six tiles and a spotlight one", "[render]") {
@@ -336,6 +372,8 @@ TEST_CASE("SS 6: a point light the atlas cannot give all six faces gets none", "
         lights.push_back(pointLight({10.0f + static_cast<float>(i), 0, 0}, 200));
     const auto plan = planner.plan(lights, {});
     CHECK(plan.unshadowed == 3u);
+    // UTA-0303: a map too dense for any finer texel keeps the tier's.
+    CHECK(plan.unitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL);
     for (std::size_t i = 0; i < lights.size(); ++i) {
         CAPTURE(i);
         CHECK((plan.faceCount[i] == 0u || plan.faceCount[i] == 6u));

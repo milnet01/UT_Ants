@@ -737,6 +737,17 @@ reference eight times finer over 135 views of the three maps: the mean error
 fell by about a third on each, while less slope bias or a 3x3 filter each
 measured worse. The tile limits, admission and the bias are unchanged.
 
+**Amended by `UTA-0303`, recording what was built: the tier's texel is the
+coarsest, and a map whose lights fit is shadowed up to
+`FINEST_SHADOW_REFINEMENT` (4) times finer.** The planner halves the texel
+while every light's tiles still fit the atlas, and keeps the tier's texel when
+none does. Tiles are powers of two placed largest first, so they fit exactly
+when their areas sum to no more than the atlas's. The choice reads the lights
+alone, so `UTA-0166`'s stability holds. Measured on 2026-10-06 at Medium and
+up: `DM-Deck16][`'s lights took 0.08 of the atlas, and its coarsest lights put
+26 units under a texel at their reach; at 8 units a texel they take 0.48. A
+map too dense for a finer texel is planned exactly as before.
+
 **A lit surface is kept from shadowing itself by the tile pass's slope-scaled
 depth bias, and by nothing else.** A normal offset on the sample was built and
 removed: taking it away changed no pixel, even for a grazing light on the

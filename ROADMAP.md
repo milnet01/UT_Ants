@@ -15845,6 +15845,18 @@ stays with movement in 0.2.0.
   and near the camera, tighter faces (fit to what the light can reach in
   its room rather than its whole radius), or both. UTA-0296's filtering
   softens a coarse edge but cannot add detail, so this comes first.
+  Fix (2026-10-06): the user's exact spot had no capture, so every
+  light was censused instead (scratch shadow-texel in
+  ut-ants-uta0156/ambient-census). At Medium and up Deck16's lights used
+  0.08 of the shadow atlas, the coarsest putting 26 units under a texel.
+  The planner now halves the texel up to FINEST_SHADOW_REFINEMENT (4)
+  times while every light still fits, reading the lights alone, and keeps
+  the tier's texel when none fits; Deck16 now plans at 8 units (0.48 of
+  the atlas). Across 20 cached bakes, 17 fit at least twice finer. A
+  before/after ut-shot of the 2026-10-03 capture shows the smear replaced
+  by a sharp edge; a fine stair-step remains along it, which is
+  UTA-0296's filtering. Tighter faces were not needed. Spec UTA-0014
+  section 4.8 amended.
   **Layman:** On Deck16 a pillar's shadow on the floor is a blurry, jagged smear instead of a clean shape.
   Kind: fix.
   Source: user-request-2026-10-06.
@@ -17739,6 +17751,15 @@ to.
   single-face copies -Ymax, -Ymin, -Xmin, -Xmax, -Zmax. Bound layout: 25
   bytes, min xyz at +0/+4/+8, max xyz at +12/+16/+20, valid byte +24.
   UT_MonsterHunt data: work/uta0269/hole0283/flatBreakH*/.
+  GAME-0187 (2026-10-06): the -W control (all six faces of bounds
+  660/661 out 2000 UU) changes nothing, so the bounds line is dropped.
+  New lead: the edge does not move with the eye, so it is a plane
+  orientation. On the eye's BSP path, nodes 1447 and 1450 (Brush26)
+  have their horizontal line at azimuth 24.7 deg, the measured edge.
+  Sent copies -P1447 (offset 362771) and -P1450 (offset 362913), each
+  plane turned 10 deg about a vertical axis by 601's centroid; the
+  culprit's copy should move the lower edge to about yaw 334.3. The
+  50.4 deg upper end has no match yet. Tool: bsp-point --nodeplane.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.

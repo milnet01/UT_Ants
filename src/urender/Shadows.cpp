@@ -191,6 +191,27 @@ gpu::Mat4 shadowViewProj(const ubundle::Light& light, std::uint32_t face) noexce
 
 // -- ShadowPlanner --------------------------------------------------------------
 
+namespace {
+
+/// UTA-0303: the finest texel, from `detail`'s down to FINEST_SHADOW_REFINEMENT
+/// times finer by halves, at which every light's tiles fit the atlas; the
+/// tier's own when none does.
+double unitsPerTexelFor(const std::vector<ubundle::Light>& lights, const ShadowDetail& detail) noexcept {
+    const double atlas = static_cast<double>(detail.atlasSize) * detail.atlasSize;
+    for (std::uint32_t refinement = FINEST_SHADOW_REFINEMENT; refinement > 1; refinement /= 2) {
+        const double unitsPerTexel = detail.unitsPerTexel / refinement;
+        double texels = 0;
+        for (const auto& light : lights) {
+            const double tile = shadowTileSize(light, unitsPerTexel);
+            texels += shadowFacesOf(light) * tile * tile;
+        }
+        if (texels <= atlas) return unitsPerTexel;
+    }
+    return detail.unitsPerTexel;
+}
+
+} // namespace
+
 void ShadowPlanner::reset() {
     held_.clear();
     atlas_.clear();
@@ -198,8 +219,9 @@ void ShadowPlanner::reset() {
 
 ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
                                const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds) {
+    const double unitsPerTexel = unitsPerTexelFor(lights, detail_);
     std::vector<std::uint32_t> wanted(lights.size());
-    for (std::size_t i = 0; i < lights.size(); ++i) wanted[i] = shadowTileSize(lights[i], detail_.unitsPerTexel);
+    for (std::size_t i = 0; i < lights.size(); ++i) wanted[i] = shadowTileSize(lights[i], unitsPerTexel);
 
     // Any light whose wanted size changed -- or a different set of lights --
     // re-admits every light, largest first, and draws all their tiles again.
@@ -240,6 +262,7 @@ ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
     }
 
     ShadowPlan plan;
+    plan.unitsPerTexel = unitsPerTexel;
     plan.firstFace.assign(lights.size(), -1);
     plan.faceCount.assign(lights.size(), 0);
     for (std::size_t i = 0; i < lights.size(); ++i) {

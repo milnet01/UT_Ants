@@ -4,7 +4,8 @@
 //
 // ONE DEPTH ATLAS FOR EVERY SHADOWING LIGHT. A point light takes six tiles,
 // one per cube face; a spotlight takes one. Tile size follows the light's
-// reach alone, in powers of two (UTA-0166).
+// reach alone, in powers of two (UTA-0166), at the finest texel at which
+// every light of the map fits the atlas (UTA-0303).
 //
 // A LIGHT THAT DOES NOT MOVE HAS ITS TILES DRAWN ONCE AND KEPT (SS 4.8). A
 // tile is drawn when it is placed, when its light's numbers change, and when a
@@ -37,14 +38,20 @@ inline constexpr std::uint32_t SMALLEST_SHADOW_TILE = 64;
 
 /// World units one texel of a light's tile covers across a cube face --
 /// UTA-0166. A face spans twice the light's reach, so the tile is
-/// `2 * reach / SHADOW_UNITS_PER_TEXEL`. Measured over the three fitting maps:
-/// at 64 the whole of DM-Deck16][ costs 0.93 of the atlas, DM-Fetid 0.33 and
-/// AS-Frigate 0.22, so every light keeps a tile and none is ever dropped for
-/// want of room.
+/// `2 * reach / SHADOW_UNITS_PER_TEXEL`. UTA-0303: this is the coarsest a
+/// tier's shadows get; a map whose lights fit is shadowed finer.
 inline constexpr double SHADOW_UNITS_PER_TEXEL = 64.0;
 
+/// UTA-0303: how many times finer than its tier a map's shadows may be. The
+/// planner halves the texel up to this many times over while every light of
+/// the map still fits the atlas. Four times finer than Medium's texel is 8
+/// world units. Past it few maps fit, and each halving makes a mover redraw
+/// four times the texels per tile it touches.
+inline constexpr std::uint32_t FINEST_SHADOW_REFINEMENT = 4;
+
 /// UTA-0175: how fine a tier's shadows are -- the atlas's side and the world
-/// units under one texel. SHADOW_ATLAS_SIZE and SHADOW_UNITS_PER_TEXEL are Low's.
+/// units under one texel at the coarsest (UTA-0303). SHADOW_ATLAS_SIZE and
+/// SHADOW_UNITS_PER_TEXEL are Low's.
 struct ShadowDetail {
     std::uint32_t atlasSize = SHADOW_ATLAS_SIZE;
     double unitsPerTexel = SHADOW_UNITS_PER_TEXEL;
@@ -128,6 +135,7 @@ struct ShadowPlan {
     std::vector<std::uint32_t> faceCount;  ///< per light
     std::vector<ShadowDraw> draws;         ///< the tiles to draw this frame
     std::uint32_t unshadowed = 0;          ///< lights wanting shadows the atlas could not hold
+    double unitsPerTexel = 0;              ///< UTA-0303: the texel every tile was sized at
 };
 
 /// Keeps each light's tiles between frames, which is what makes a static
@@ -145,6 +153,13 @@ public:
     /// UTA-0166: the camera is not an argument. The plan depends on the lights
     /// alone, so a static level is placed and drawn once however the camera
     /// moves.
+    ///
+    /// UTA-0303: every tile is sized at the finest of the tier's texel and its
+    /// halvings down to FINEST_SHADOW_REFINEMENT times finer at which all the
+    /// lights' tiles fit the atlas, and at the tier's texel when none does.
+    /// Tiles are powers of two placed largest first, so they fit exactly when
+    /// their areas sum to no more than the atlas's. That too reads the lights
+    /// alone.
     [[nodiscard]] ShadowPlan plan(const std::vector<ubundle::Light>& lights,
                                   const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds);
 

@@ -176,9 +176,22 @@ TEST_CASE("SS 4.8: a grazing light with a coarse tile leaves a lit surface lit",
 
     // The fixture is only as hard as its tile is coarse, so that is asserted.
     CHECK(uta::urender::shadowTileSize(light) == uta::urender::SMALLEST_SHADOW_TILE);
+    // UTA-0303 would plan a lone light finer, so far-off lights reaching
+    // nothing in view crowd the atlas until even twice finer does not fit. A
+    // tier's tile and atlas sides scale together, so the count holds at each.
+    const uta::ubundle::Light far = steadyLight({-100000, 0, 0}, 255, 255);
+    const double half = uta::urender::shadowTileSize(far, uta::urender::SHADOW_UNITS_PER_TEXEL / 2);
+    const auto fillers = static_cast<std::uint32_t>(
+        double(uta::urender::SHADOW_ATLAS_SIZE) * uta::urender::SHADOW_ATLAS_SIZE / (6 * half * half)) + 1;
+    for (std::uint32_t i = 0; i < fillers; ++i) {
+        uta::ubundle::Light filler = far;
+        filler.location[1] = 20000.0f * static_cast<float>(i);
+        bundle.lights->push_back(filler);
+    }
 
     requireOk(renderer.draw(bundle, Camera{}));
-    CHECK(renderer.lastFrameStats().renderedShadowTiles == 6u);
+    CHECK(renderer.lastFrameStats().unshadowedLights == 0u);
+    CHECK(renderer.lastFrameStats().renderedShadowTiles == 6u * (fillers + 1));
     const auto pixels = renderer.readback();
     if (!pixels.has_value()) FAIL(pixels.error().message());
 
