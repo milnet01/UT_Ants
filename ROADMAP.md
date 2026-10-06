@@ -17893,6 +17893,16 @@ to.
   shown title, compare tier by tier, highest wins; a tie with no pick is
   reported, never guessed. Order chosen by the user 2026-10-06. Use it
   when the map browser picks which duplicate to bake.
+  Progress (2026-10-06): UT_MonsterHunt GAME-0198 (their
+  commit\nb94691b) gave every launcher/mapnames.json variant a short
+  text\nbeside its meaning (mapnames.py exposes it as SHORT); their
+  test\nrequires one per code. Not copied here yet: this repo holds no
+  copy\nof the file until the browser is built; take b94691b or later
+  then.\n~/.utpg/System/MHVoteData.ini changed shape the same day: Facts
+  lines\nend in |title|labels, plus Labels[] and Hidden[]
+  sections\n(NumFacts=1069, 312 copies hidden). It is now Latin-1, so
+  grep needs\n-a; docs/discovery.md's rotation command was fixed for
+  that.
   **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
   Kind: implement.
   Source: design-2026-09-03.

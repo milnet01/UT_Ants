@@ -47,7 +47,7 @@ UTA-0038 are measured against the rotation.
 
 ```sh
 find "<install>/Maps" -maxdepth 1 -iname 'MH-*.unr' | wc -l  # library
-grep '^NumFacts=' ~/.utpg/System/MHVoteData.ini              # rotation
+grep -a '^NumFacts=' ~/.utpg/System/MHVoteData.ini           # rotation
 ```
 
 `Maps-broken/` is a **sibling** of `Maps/` and holds maps that are
