@@ -68,6 +68,7 @@ add_executable(uta_unit_tests
     unit/CoreSha256Test.cpp
     unit/DumpCliTest.cpp
     unit/LightFixture.cpp
+    unit/MapPicCliTest.cpp
     unit/MaterialCompressTest.cpp
     unit/MaterialGenerateTest.cpp
     unit/MaterialLibraryTest.cpp
@@ -126,6 +127,8 @@ target_sources(uta_unit_tests PRIVATE
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli.cpp")
 # And ut-dump's -- UTA-0136's navigation graph.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-dump/Cli.cpp")
+# And map-pic's -- UTA-0316.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/map-pic/Cli.cpp")
 # And ut-shot's -- UTA-0199, so --from-capture is graded against the very
 # writer that produces a capture folder, apps/ut-ants/Capture.cpp below.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")

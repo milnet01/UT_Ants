@@ -1,6 +1,6 @@
 # stb — vendored
 
-`stb_image_write.h`, the PNG encoder `uta_core`'s `core/Png.h` wraps.
+`stb_image_write.h`, the PNG encoder `apps/ut-ants/Png.h` wraps.
 `UTA-0191` needs the viewer's capture folder to hold a picture the user can
 open, and nothing in this tree wrote PNG before it.
 `docs/standards/dependency-acquisition.md` § 2 question 4 is why it is
@@ -38,7 +38,7 @@ file, and the header repeats the same dual grant at its own end.
 
 ## How it is compiled, and what is switched off
 
-`src/core/Png.cpp` is the single translation unit that defines
+`apps/ut-ants/Png.cpp` is the one translation unit in each binary that defines
 `STB_IMAGE_WRITE_IMPLEMENTATION`. It also defines:
 
 - `STBI_WRITE_NO_STDIO`, so the copy declares no `FILE`-taking entry point.
@@ -46,16 +46,16 @@ file, and the header repeats the same dual grant at its own end.
   an `Error` rather than setting `errno`, and a second file-writing path
   would report failures a different way.
 - `STBIW_ASSERT(x) ((void)0)`, so a malformed call cannot `abort()` the
-  client. `writePng` validates its own arguments and returns an `Error`
+  client. `encodePng` validates its own arguments and returns an `Error`
   instead.
 
 ## The maths, and why it does not reach `ADR-0002`
 
 `docs/design.md`'s Determinism bullet rules out *"no platform maths library
 in the simulation or the baker"*. This copy is in neither: it is called by
-the viewer's capture path, which writes a debug folder and contributes
-nothing to a bundle. So `ADR-0002`'s ground — one map, recipe and baker
-version hashing to one bundle on any machine — is not in question here.
+the viewer's capture path and by `map-pic` (`UTA-0316`), which write a debug
+folder and a map's own picture, and contribute nothing to a bundle. So
+`ADR-0002`'s ground — one map, recipe and baker version hashing to one bundle on any machine — is not in question here.
 
 **It is worth stating anyway, because the answer is stronger than the rule
 needs.** Measured over the vendored copy at the commit above, the only libm

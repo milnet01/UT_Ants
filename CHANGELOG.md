@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **map-pic saves the picture a map ships with as a PNG.** (UTA-0316)
+  `map-pic <install> <map.unr> <out.png>` reads the map's LevelInfo
+  Screenshot texture, in the map or in another package, and prints
+  `preview`; a map with none prints `none` and writes nothing. For
+  UT_MonsterHunt's server launcher and our own map browser.
+
 - **A developer's tool, ut-compare, that puts the original game's frame beside ours from the same camera.** (UTA-0306)
   It runs the original client headless from a read-only copy of the
   install, then draws ours with ut-shot at the same camera and size.
