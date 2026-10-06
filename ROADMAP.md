@@ -15186,6 +15186,11 @@ stays with movement in 0.2.0.
   refit EXPOSURE and AMBIENT_SCALE over the three reference maps, since
   every lamp below 255 gets dimmer. Ours is already 15-40% too dark on
   DM-Fetid, so the refit is not optional.
+  User direction (2026-10-06): matching the original's lighting closely
+  matters less than lighting grounded in reality; where a spot ends up
+  too dark, a light can be added. Sharp per-pixel shadows instead of the
+  original's blur are fine. So the score against the original's frames is
+  a guide here, not the acceptance test.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
