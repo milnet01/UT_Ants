@@ -15482,6 +15482,29 @@ stays with movement in 0.2.0.
   the same map's pond1 (asked 2026-10-06). Next: compare how much each
   moves between frames there, then decide whether the warp should
   follow something the hold sets (its drops, its WaveAmp) or be capped.
+  Progress (2026-10-06): UT_MonsterHunt's frames arrived (10 per surface,
+  ~0.044 s game time apart, 1024x768, fov 90; kept in
+  ~/.cache/uta-scratch/u319/frames). Ours drawn from the same poses at the
+  same times (ut-shot --light-time, which also pins the liquid clock).
+  Mean change, 0-255, on matched crops (floor below the crates; pool
+  inside, pickup masked), one frame / frames 0 to 9:
+    hold floor: original 1.32 / 1.49, ours 6.83 / 8.31
+    pond:       original 0.54 / 1.62, ours 5.72 / 11.26
+  So ours moves 5 to 10 times more on both. The original's floor change
+  does not grow with time: a shimmer in place, not a drifting warp.
+  Cause: a throwaway ut-bake probe printed each liquid's saved settings.
+  ArcaneTemple Swater4a (the fit): WaveAmp 255, 37 drops, type 1 (phase
+  spot) at depth 188 and 248 plus whirlers. KGalleon WetBeams1: WaveAmp
+  128, 52 drops, all type 1 at depth 52 in one line (X 32). KGalleon
+  Pond1: WaveAmp 128, 251 drops, type 2 (shallow spot). The drops' type
+  and depth set how much UT's water moves; WaveAmp and the count do not.
+  Ours scales by WaveAmp only, so every liquid moves like the fit pool.
+  Decision (session, 2026-10-06): the warp follows the drops. The baker
+  reads Drops[0..NumDrops) and stores one stir factor per liquid that
+  scales LIQUID_WARP_TEXELS and LIQUID_TILT; a format bump. A global cut
+  would break the ArcaneTemple fit. Next: paired captures from
+  UT_MonsterHunt of the hold floor varying one drop setting (asked
+  2026-10-06), then fit the factor on all three surfaces.
   **Layman:** The flooded floor in the galleon's hold swirls a lot in ours and barely at all in the original.
   Kind: investigate.
   Source: user-request-2026-10-06.
