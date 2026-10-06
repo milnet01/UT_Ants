@@ -15731,7 +15731,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-05.
   Lanes: ubake.
 
-- 📋 [UTA-0295] **AS-Frigate: check the wooden walkway's side wears the ground texture in the original too.**
+- ✅ [UTA-0295] **AS-Frigate: check the wooden walkway's side wears the ground texture in the original too.**
   The user, identifying UTA-0294's picture 5, says genearth.ground.basicw5
   (dark rough ground) sits on the side of a wooden walkway and "might not
   have the right texture". Our bake takes each surface's texture from the
@@ -15739,6 +15739,11 @@ stays with movement in 0.2.0.
   basicw5 there, it is the author's choice and nothing to fix. If not, find
   where our bake swaps it. The bake's report gives the spot: view at
   [-512, 1536, 96], normal [0, -1, 0].
+  Resolved 2026-10-06: the map itself names it. ut-dump --surface-list
+  of AS-Frigate.unr: surface 246 (Brush19) wears Basicw5 with normal [0,
+  -1, 0], on the plane y 1536 from x -1536 to 512 and z 64 up, which
+  holds the reported spot [-512, 1536, 96]. The author's choice; nothing
+  to fix.
   **Layman:** One side of a wooden walkway on AS-Frigate looks like ground. Check whether the original map does the same.
   Kind: investigate.
   Source: user-request-2026-10-05.
@@ -15833,7 +15838,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0303] **urender: DM-Deck16][ shadows draw at very low resolution, with blurred, stair-stepped edges.**
+- ✅ [UTA-0303] **urender: DM-Deck16][ shadows draw at very low resolution, with blurred, stair-stepped edges.**
   The user, 2026-10-06, in the viewer: a pillar's shadow across the floor
   is far too coarse; the edge steps in blocks a few texels wide and
   smears.
@@ -15857,6 +15862,7 @@ stays with movement in 0.2.0.
   by a sharp edge; a fine stair-step remains along it, which is
   UTA-0296's filtering. Tighter faces were not needed. Spec UTA-0014
   section 4.8 amended.
+  Shipped 2026-10-06 in 89db2ad; GitHub's matrix green on that commit.
   **Layman:** On Deck16 a pillar's shadow on the floor is a blurry, jagged smear instead of a clean shape.
   Kind: fix.
   Source: user-request-2026-10-06.
@@ -15904,6 +15910,31 @@ stays with movement in 0.2.0.
   original-game captures (Xvfb grabs are black, use the engine's shot;
   -nosound; bracket pkill patterns). Needed by UTA-0292, UTA-0303 and
   UTA-0305, which is why it sits in this release.
+  Progress (2026-10-06): a working draft, not yet in the repo, at
+  ~/.cache/uta-scratch/u306/tool/ (ut-compare.py and
+  UTACam/Classes/UTACam.uc). Verified on the 2026-10-03 DM-Deck16][
+  viewer capture at 1280x720: original and ours from the same camera,
+  side by side. Next: move it to tools/ut-compare/, rerun once (the
+  Wayland-socket hide in read_only() was added after the last run),
+  document it in CLAUDE.md beside ut-bench, commit, push.
+  Traps it now handles, each paid for today: (1) UT 469 finds its base
+  dir from where its programs and libraries really are, so linked
+  ut-bin/ucc-bin or *.so make -nohomedir runs write into the LIVE
+  System64 (it overwrote the live ucc.log; stray files removed). The
+  copy holds real ut-bin, ucc-bin and all *.so, and every run is under
+  bwrap with the live install read-only, plus a check that nothing
+  there changed. (2) SDL picks Wayland when WAYLAND_DISPLAY is set,
+  ignoring DISPLAY: the client opened on the user's desktop. The env
+  drops WAYLAND_DISPLAY and sets SDL_VIDEODRIVER=x11. (3) The
+  waiting-for-match state drifts the player and resets pitch, so the
+  mutator re-holds the pose every Tick. (4) The HUD and the start text
+  (a progress message) are removed; one run that also reset the console's
+  typing line drew a black frame, so that reset was dropped; whether it
+  or the Wayland leak caused the black is not settled. Check the
+  original frame for a stray console line before calling the tool done. (5) ucc make gets the stock
+  EditPackages plus UTACam only, or it rebuilds third-party packages.
+  First finding: at that camera the original shows no shadow band on
+  the slime where ours draws one.
   **Layman:** Pick a spot in a map and get two pictures from exactly the same place: one from the original 1999 game and one from ours, so differences are easy to see.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -17760,6 +17791,15 @@ to.
   plane turned 10 deg about a vertical axis by 601's centroid; the
   culprit's copy should move the lower edge to about yaw 334.3. The
   50.4 deg upper end has no match yet. Tool: bsp-point --nodeplane.
+  GAME-0187 (2026-10-06): the plane lead is out; turning node 1447's
+  or 1450's plane 10 deg leaves the edge at yaw 324.3. Checked every
+  render bound and node polygon against all three eyes' edges at once
+  (bsp-point --boxwedge): none fits within 3 deg, and the edges move the
+  wrong way for any fixed point (eye +1000 x lowers the low edge 1.9
+  deg; eye -313 y lowers the high edge 6.6 deg). 601's own corners do
+  not match (--vertaz). Sent two class tests: the same sweep at fov 90
+  (a direction band predicts edges near 339.9 and 95.4; a view-direction
+  cause leaves them put) and a pitch sweep at yaw 180.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
