@@ -21,11 +21,6 @@ Read a UT package, bake a level into a .utab bundle, and walk through it with
 modern lighting. Closes S1 and S7. Nothing here plays: there is no movement
 model, no weapon and no opponent until 0.2.0.
 
-Items deferred out of this release's cut condition still sit here: UTA-0044,
-UTA-0045, UTA-0053, UTA-0054, UTA-0075 and UTA-0076. Counting this
-section's open items therefore over-reports what the release is waiting on.
-Each of them says so in its own body.
-
 Water and fire are IN this release (user, 2026-09-26): UTA-0089 (water
 and glass look), UTA-0055 (the undulating surface, no longer deferred),
 UTA-0105 (moving water and fire textures) and UTA-0215 (caustics and an
@@ -1611,90 +1606,6 @@ stays with movement in 0.2.0.
   Source: design-gate-2026-09-04.
   Lanes: core, ci.
 
-- 📋 [UTA-0044] **urender and umat: subsurface scattering on curated materials.**
-  Blocked by a design change: docs/design.md lists urender's
-  responsibilities and subsurface scattering is not among them, so adding
-  it changes what a conformer builds and the design edit runs the rule 14
-  gate first.
-
-  The constraint that shapes this: a 1999 texture carries no thickness
-  data, and thickness is what SSS needs. It cannot be derived the way
-  roughness and normals are (UTA-0009). So the parameters live in umat's
-  CURATED library (UTA-0010), which ships with the baker and is versioned
-  with it -- our own material definitions opt in, generated ones default
-  to none. That also keeps the bake hash honest, since the curated
-  library is already a baker input.
-
-  Scope when it is written: a thickness/transmission parameter on a
-  curated material, its slot in the bundle's material section, and one
-  screen-space or wrap-lighting pass in urender. Note that adding a
-  material parameter is a ubundle format change and therefore a baker
-  version bump, which invalidates every cached bake (see
-  versioning-overrides.md).
-
-  Blocked-by: the design edit, and UTA-0010 for the library it lands in.
-  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
-  default chosen here. Curated materials only, so the cost is bounded by
-  how many of them exist -- but on the target laptops it is still a tier
-  decision rather than an always-on effect.
-  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
-  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
-  S7 alone, and S1 asks only that the map be recognisable, that shadows
-  move as you move, that surfaces have real depth, and that light shafts
-  cut through fog. Do not count this item when judging what is left for
-  the release. It remains filed under 0.1.0 only because no roadmap verb
-  moves an item between sections and the store reverts a hand edit to
-  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
-  file. This item is additionally blocked by a design edit that has not
-  been made -- design.md does not list subsurface scattering among
-  urender's responsibilities.
-  **Layman:** Skin, wax, marble and leaves stop looking like painted plastic -- light passes a little way through them instead of stopping dead at the surface.
-  Kind: feature.
-  Source: user-request-2026-09-04.
-  Lanes: urender, umat.
-
-- 📋 [UTA-0045] **urender: screen-space reflections, weighted by material roughness.**
-  Screen-space, per the user's direction: reflections are traced against
-  the depth and colour buffers already on hand, not against the world.
-  That is deliberate and its limits are known -- anything off-screen or
-  behind another surface cannot reflect, and the usual fallback is a
-  cubemap or simply nothing. ADR-0001's no-ray-tracing rule makes SSR the
-  only option that fits the design rather than one of several.
-
-  Roughness drives it. umat already generates a roughness map (UTA-0009
-  lists base colour, normal, roughness, metallic, height and emissive),
-  so unlike UTA-0044 this needs no new material channel and no bundle
-  format change: a smooth surface gets a sharp ray, a rough one a widened
-  cone or a blurred mip, and a fully rough one is not worth tracing.
-
-  Blocked by a design change: docs/design.md lists urender's
-  responsibilities -- dynamic lights and shadows, PBR materials,
-  volumetrics, light shafts, ambient occlusion, post-processing -- and
-  reflections are not among them, so adding them changes what a conformer
-  builds and the edit runs the rule 14 gate first. The same gate covers
-  UTA-0044, and one pass can carry both.
-
-  Depends on UTA-0014 for the deferred buffers it reads.
-  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
-  default chosen here. Screen-space reflections are the most likely of the
-  four expensive effects to be off at every tier the target hardware
-  reaches, and on 1999 geometry they can read worse than no reflection at
-  all -- which is a quality judgement to make when it is built, not now.
-  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
-  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
-  S7 alone, and S1 asks only that the map be recognisable, that shadows
-  move as you move, that surfaces have real depth, and that light shafts
-  cut through fog. Do not count this item when judging what is left for
-  the release. It remains filed under 0.1.0 only because no roadmap verb
-  moves an item between sections and the store reverts a hand edit to
-  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
-  file. Blocked behind UTA-0014 regardless, so it is not selectable
-  before the renderer exists.
-  **Layman:** Wet floors, polished metal and glass pick up the room around them -- sharply where the surface is smooth, blurred where it is rough -- instead of being flatly lit.
-  Kind: feature.
-  Source: user-request-2026-09-04.
-  Lanes: urender.
-
 - ✅ [UTA-0046] **core: the Windows path hazards resolveUnder does not yet cover.**
   resolveUnder is the trust boundary unet and ubake bind to, and its
   Linux behaviour is now tested. Three Windows-specific shapes are not
@@ -2281,100 +2192,6 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: umat, ubundle.
 
-- 📋 [UTA-0053] **urender: the cheap post-processing set -- bloom, colour grading, anti-aliasing and sharpening.**
-  Four effects that together do most of the visual modernisation and cost
-  under a millisecond between them on the development card.
-
-  - Emissive-only bloom at quarter resolution. UT99 is full of glowing
-    panels, lava, ammo and muzzle flashes, and the PolyFlags UTA-0009
-    already reads say which surfaces are self-lit, so the mask is free.
-  - A colour grading lookup table chosen per map at bake time. One texture
-    fetch, and the largest single change in how modern the result reads.
-  - Anti-aliasing. 1999 geometry is hard edges and thin railings, which
-    alias badly. FXAA or SMAA rather than a temporal filter, which needs
-    motion vectors and history the first draw path does not have.
-  - A sharpening pass. This is what makes rendering below native
-    resolution acceptable, so it is the enabler for the quality tiers
-    rather than an effect in its own right.
-
-  Blocked-by: the bundle draw path.
-  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
-  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
-  S7 alone, and S1 asks only that the map be recognisable, that shadows
-  move as you move, that surfaces have real depth, and that light shafts
-  cut through fog. Do not count this item when judging what is left for
-  the release. It remains filed under 0.1.0 only because no roadmap verb
-  moves an item between sections and the store reverts a hand edit to
-  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
-  file. Blocked behind UTA-0014 regardless, so it is not selectable
-  before the renderer exists.
-  Partly met by UTA-0154 (2026-09-14): a frame drawn below scale 1 is now
-  upscaled by FSR 1's EASU and sharpened by its RCAS at 0.25 stops. That is
-  the "enabler for the quality tiers" this item's sharpening bullet names.
-  A frame at scale 1 is still unsharpened, so whether this item still
-  needs its own sharpening pass is for whoever picks it up to decide.
-  User direction (2026-09-14): the engine's first iteration uses the
-  cheapest methods that still make it look like a modern game. Fully
-  modern features come after.
-  User decision (2026-09-15), asked after UTA-0156 shipped: bring bloom
-  forward for UTA-0157's ceiling lights. Only this item's emissive bloom
-  is built now; colour grading, anti-aliasing and sharpening stay deferred
-  out of 0.1.0 as decided on 2026-09-08.
-  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
-  (/mnt/Games/Scripts/Linux/UT_Ants), for the bloom part only.
-  Emissive bloom built (2026-09-15, ut-ants-08). The forward pass writes
-  emission to a third target; bloom.frag takes it down five half-size
-  levels and back up, LearnOpenGL's physically based bloom after Jimenez's
-  SIGGRAPH 2014 talk (13-tap downsample, Karis-weighted first; 3x3 tent
-  upsample, radius 0.005, added); post.frag adds 0.04 of it before
-  exposure. Feature::Bloom is on from Low. No spec: urender alone, no
-  bundle change, cheap to redo. Unit 570/570 and device 36/36 on
-  lavapipe, one local leg. Two new device cases were each seen red under a
-  mutation: bloom strength 0 fails the glow case, and bloom fed the lit
-  colour fails the no-emission case. DM-Deck16][ at r14 with bloom fits
-  as without: exposure 3.18, block RMS 46.23 at 3.2.
-  Bloom shipped (2026-09-15, ut-ants-08), green on the matrix: commit
-  6ad38af, GitHub run 34976613942 completed with success after the local
-  pre-push gate passed. Back to planned with nothing else under way:
-  colour grading, anti-aliasing and sharpening stay deferred out of 0.1.0,
-  as decided on 2026-09-08. UTA-0157 is next.
-  **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
-  Kind: implement.
-  Source: user-request-2026-09-04.
-  Lanes: urender.
-
-- 📋 [UTA-0054] **urender: cheap surface detail -- detail normals, dithered alpha, contact shadows and interior windows.**
-  Four more sub-millisecond effects, each aimed at one way 1999 content
-  reads as old.
-
-  - A single shared tiling detail normal applied close to the camera, so a
-    256x256 wall stops looking flat when you stand against it. One extra
-    fetch, and negligible memory because every material shares the one
-    texture.
-  - Dithered alpha for masked surfaces, resolved so it does not shimmer.
-    UT99 uses masked textures for every grate, fence and tree, and the
-    shimmer is a large part of why they read as cheap.
-  - Screen-space contact shadows: a short ray march that grounds an object
-    where a shadow map's resolution runs out. Much cheaper than adding a
-    cascade.
-  - Interior cubemap parallax on windows, so a window is not a flat pane.
-
-  Blocked-by: the bundle draw path.
-  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
-  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
-  S7 alone, and S1 asks only that the map be recognisable, that shadows
-  move as you move, that surfaces have real depth, and that light shafts
-  cut through fog. Do not count this item when judging what is left for
-  the release. It remains filed under 0.1.0 only because no roadmap verb
-  moves an item between sections and the store reverts a hand edit to
-  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
-  file. Blocked behind UTA-0014 regardless, so it is not selectable
-  before the renderer exists.
-  **Layman:** Walls look detailed close up, fences stop shimmering, objects stop looking like they float, and windows gain depth.
-  Kind: implement.
-  Source: user-request-2026-09-04.
-  Lanes: urender, umat.
-
 - 📋 [UTA-0055] **urender: vertex-animated banners, flags and water.**
   Movement costs nothing on the GPU and reads as life. UT99 hangs banners
   and flags throughout its maps and its water surfaces are static
@@ -2772,214 +2589,6 @@ stays with movement in 0.2.0.
   Kind: doc.
   Source: review-contract-2026-09-06 ADR-0007 cap.
   Lanes: docs.
-
-- 📋 [UTA-0065] **Drive a player through any map unattended, and report what happened.**
-  A harness that walks a player through a map with no human at the
-  keyboard, captures screenshots, writes a machine-readable record of
-  what it did and saw, and reports whether the map behaved.
-
-  **It drives the real game, not a model of it.** That is the whole
-  design constraint and the one thing that would quietly waste the
-  work: a harness that simulates movement against the bundle validates
-  something nobody plays, and would pass a map the actual engine falls
-  through. It feeds the same input path a player uses -- which is why
-  uinput is a lane here -- and reads the same world.
-
-  **Automated, because the target is 610 maps.** A tool needing a person
-  per map is a debugging aid, not a test system, and the rotation is the
-  scale that matters. That points at two modes rather than one. A
-  HEADLESS pass with no rendering, cheap enough to run over the whole
-  library: is the exit reachable, does the navigation graph connect, did
-  anything error, did the player fall out of the world. And a RENDERED
-  pass that captures frames, necessarily slower and run over a sample or
-  on demand, because nobody will run a gate that renders 610 maps.
-
-  **Capture must be in-engine.** A desktop screen grab is not a fallback
-  for it: under Wayland the X11 tools fail silently or hang against a
-  native window, and a full-screen grab captures the user's own desktop
-  rather than the game. The engine writes the frame itself, to a named
-  path, at a moment the script asked for.
-
-  **The consumer is a session like this one, so the output is for
-  reading by machine first.** Structured records that grep and diff --
-  position, room, what was reached, what was not, what errored, with
-  timings -- alongside images. A GUI report would be the wrong artifact:
-  the point is that a run can be compared against the previous run
-  without a person in the loop, and that a failure names its own
-  location.
-
-  **The criteria are not all written yet, so the check set has to be
-  open.** The frame-rate floor is UTA-0039's, the Monster Hunt
-  progression rules are UTA-0029's, and neither exists. Building this
-  against today's list would mean rebuilding it for each one that
-  arrives; it wants a shape where a new check is added rather than the
-  harness rewritten.
-
-  **Three items already need this and none of them owns it.** UTA-0039
-  holds a frame-rate floor across the map library, which is a
-  measurement over every map. UTA-0038 runs the live rotation and keeps
-  it running. UTA-0011's --check validates an install. All three assume
-  something that can exercise a map unattended, and this is that thing --
-  which is the argument for building it early rather than at the point
-  the first of them needs it.
-
-  **Reproducibility comes free and is worth protecting.** ADR-0002 and
-  the numeric contract already require one machine's results to match
-  another's, so a replayed input sequence that diverges across machines
-  is a contract failure rather than harness flakiness -- which makes
-  this a useful detector for that contract as well as a consumer of it.
-
-  **Where it lives is a real decision, not a detail.** design.md rule 2
-  constrains what a runtime target may link, and test scaffolding must
-  not end up on a shipped path. A mode of the game binary, a separate
-  target, and an external driver process are three different answers
-  with different consequences for that rule.
-
-  **What it cannot do, stated so a green run is not over-trusted.** It
-  can say a map is traversable, does not error, holds a frame rate and
-  opens its progression gates. It cannot say the map is any good.
-
-  Blocked-by: something to drive -- the game loading a bundle and
-  walking through it.
-  User clarification (2026-09-06), two parts, both about how far this
-  has to reach.
-
-  **It must be able to put the game into a STATE, not only move a
-  player through a level.** The example given was checking that the
-  map-vote window appears when a match ends, which no amount of walking
-  reaches. That is filed as UTA-0066, because it cannot exist before
-  there are matches to drive and this item is wanted long before then.
-  What lands HERE is the constraint: this harness's shape must not
-  preclude it. A design that assumes the only input is movement will be
-  rewritten rather than extended, which is the same reasoning that keeps
-  the check set open.
-
-  **A scripted route is a first-class way to drive the player**, not a
-  lesser one, and the item should not assume autonomous navigation. The
-  three ways differ in what they are good for and the harness wants more
-  than one. An authored route is deterministic and reviewable, so a
-  failure is reproducible and a diff against the last run means
-  something. A recorded human run is realistic in a way an authored one
-  is not, and catches what a straight line misses. Autonomous navigation
-  is the only one that scales to maps nobody has scripted, which is most
-  of 610. Hand-scripting the rotation is not on; scripting the maps that
-  matter most and letting navigation cover the rest is.
-
-  **The standing principle behind both, in the user's own framing:** the
-  deliverable is that anything worth checking can be reached and
-  observed, and the mechanism is chosen per case rather than fixed in
-  advance. That is a reason to keep the driving surface and the check
-  surface separate -- a new way to drive should not need a new way to
-  report, and a new check should not care how the state was reached.
-  **Layman:** A way to send a robot player through a level on its own, take pictures along the way, and write down what it found -- so a map can be checked without somebody playing it, and so the answer is something a machine can read rather than a person's impression.
-  Kind: test.
-  Source: user-request-2026-09-06.
-  Lanes: ugame, ci, uinput.
-
-- 📋 [UTA-0067] **A developer console that takes typed commands, and a script of them.**
-  A command surface in the running game: type a command, it happens.
-  UT99 has one on the tilde key, so this is an expected shape rather
-  than an invention, and players already know to look for it.
-
-  Proposed by the user as the way to reach a game state without playing
-  to it -- start a match, then issue a command to finish the map. That
-  use is UTA-0066's; this item is the surface those commands arrive on.
-
-  **Filed separately from UTA-0066, and in an earlier release, because
-  it pays before matches exist.** Walking a baked map is already the
-  point of 0.1.0, and the first things wanted there are a console's
-  ordinary fare: put me at that spot, show me the collision, tell me
-  which room this is, take a screenshot. Tying the console to
-  match-state control would hold it until 0.3.0 and leave the earlier
-  work with no way to ask the engine anything.
-
-  **The authority question is the real design constraint, not the
-  parser.** This engine has an authoritative server. A console command
-  that changes the world must be EXECUTED by the server, with the client
-  console only a way to ask -- a console that mutates client state
-  directly produces a client that disagrees with the server, which is
-  the classic bug this shape invites and the hardest kind to
-  diagnose later.
-
-  **So the commands fall into two classes and they are not alike.**
-  Local ones change only what this client shows -- a debug view, a
-  screenshot, a stat readout -- and need nobody's permission. World ones
-  change the game and must be asked of the server, refused by default,
-  and gated behind something a player cannot present. UTA-0066 records
-  why: "end the round now" on a server meant to run unattended is a
-  grief vector, and the gating belongs with the command surface rather
-  than with each command.
-
-  **It has to be usable without a keyboard.** A session driving this
-  reads and writes text, not a screen, so commands want to arrive from a
-  file, from standard input or over a local socket as well as from the
-  tilde key -- and each command should say what it did in a form that
-  can be read back. That is what makes UTA-0065's harness able to use
-  this rather than needing a second control path, and a `screenshot`
-  command is the obvious trigger for the in-engine capture that item
-  requires.
-
-  **What ships is a decision, not an afterthought.** UT99 shipped its
-  console and the game is better for it; the question is which commands
-  survive into a release build and which are gated out, and it is
-  cheaper to answer while the classes above are being drawn than to
-  audit a command list later.
-
-  Blocked-by: something to run the commands against -- the game loading
-  a bundle.
-  User decision (2026-09-06), corrected the same day: there are TWO
-  consoles and only one of them is this item's. A NORMAL console, the
-  kind UT99 ships, stays available to players. A DEV console -- the
-  state-driving commands this bullet is about -- is for testing only and
-  must not be available to players after 1.0.0. Until then testers use
-  it, which is the whole reason it exists.
-
-  That settles the "what ships is a decision" line above: the surface
-  ships, the dev commands do not. An earlier version of this note said
-  the answer was "none of it", which would have taken the player console
-  with it; the distinction is recorded rather than quietly rewritten
-  because it changes what somebody builds.
-
-  **Compile it out rather than hide it.** A console behind an
-  undocumented key, a hidden flag or a stripped menu entry is still in
-  the binary, and this is a community that has been finding things in
-  UT99 binaries for twenty-five years. "Not available to players" means
-  the dev COMMANDS are not in the build they run -- the console itself
-  stays, carrying the player commands. That also collapses the authority
-  problem this bullet spends most of its length on for the shipped
-  build: a command that does not exist cannot be gated wrongly. It does
-  NOT collapse it before 1.0.0, or for the player commands, which still
-  need the local-versus-world split above.
-
-  **The cost is real and is worth stating rather than discovering.** If
-  the console is absent from release builds, then UTA-0065 and UTA-0066
-  drive a binary players do not run, and a test suite that only
-  exercises the dev build is testing something nobody plays. Two things
-  keep that honest. The difference between the two builds should be
-  exactly this one thing, so nothing else diverges under cover of it.
-  And whatever the harness can do through a path a player also has --
-  scripted input, which is just keys -- should be run against the
-  RELEASE build too, so the shipped artifact is exercised rather than
-  assumed.
-
-  **Before 1.0.0 it is available, which is the point.** Every release up
-  to it is where this earns its keep, and the deadline is what stops
-  "we'll strip it later" becoming "it shipped".
-
-  **The server case does not go away.** A dedicated server may run a dev
-  build during development, and UTA-0038's runs unattended, so the
-  refuse-by-default gating on world commands is still needed for the
-  period the console exists rather than being made moot by its eventual
-  removal.
-
-  The check that this actually happened is filed against 1.0.0, where it
-  bites, rather than left in this bullet -- an obligation recorded only
-  in a 0.1.0 item shipped long before the deadline is one nobody is
-  reading on the day.
-  **Layman:** The drop-down command box UT99 has on the tilde key. Type a command and something happens -- jump to a spot, show a debug view, take a screenshot, end the match. It is how a test reaches a situation directly instead of playing until it happens.
-  Kind: implement.
-  Source: user-request-2026-09-06.
-  Lanes: uui, ugame, unet.
 
 - ✅ [UTA-0069] **upkg: derive the Model BSP tables.**
   Split from UTA-0057 on 2026-09-06; that item keeps the `Level` tail.
@@ -3833,106 +3442,6 @@ stays with movement in 0.2.0.
   **Layman:** A design document points at a test file by the wrong name, so nobody can check the promises it makes.
   Kind: doc-fix.
   Source: in-session-2026-09-08.
-
-- 📋 [UTA-0075] **urender: jitter the camera and produce a motion-vector buffer.**
-  The prerequisite every temporal upscaler shares, filed separately from the
-  integration because it is a constraint on UTA-0014's render graph rather
-  than a feature.
-
-  FSR, XeSS and DLSS take the SAME three inputs: a sub-pixel camera jitter
-  applied to the projection matrix each frame, a per-pixel motion-vector
-  buffer, and depth. All three also want a negative texture mip bias to match
-  the lower render resolution, and all three need the UI composited AFTER
-  upscaling rather than drawn into the upscaled image. Verified against
-  Intel's XeSS-SR developer guide and AMD's FSR documentation, which agree on
-  the input set and on motion vectors excluding jitter-induced motion.
-
-  So the choice of upscaler decides almost nothing here, and picking one
-  later costs nothing extra. What costs is building the first draw path
-  without provision for these: a velocity buffer is not a post-process bolted
-  on at the end, it is written by every draw that moves, and adding it after
-  the render graph is settled touches every pass.
-
-  It pays even if no upscaler is ever integrated: these are also exactly the
-  inputs temporal anti-aliasing needs, and TAA is wanted regardless.
-
-  Blocked-by: UTA-0014.
-  Note (2026-09-08): filed in 0.1.0 because it constrains the renderer built
-  there. It may move to a later milestone freely PROVIDED it lands before the
-  render graph has passes built on top of it -- the ordering is the point,
-  not the milestone.
-  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
-  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
-  S7 alone, and S1 says nothing about resolution or frame rate. Do not
-  count this item when judging what is left for the release. It remains
-  filed under 0.1.0 only because no roadmap verb moves an item between
-  sections and the store reverts a hand edit to ROADMAP.md; a re-section
-  op is requested in the Ants MCP feedback file. Its own body argues it
-  is cheap now and expensive to retrofit; that argument is worth
-  revisiting when UTA-0014 lands, and it is an argument about ordering
-  rather than about the release condition.
-  **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit.
-  Kind: implement.
-  Source: user-request-2026-09-08.
-  Lanes: urender.
-
-- 📋 [UTA-0076] **Temporal upscaling: FSR 3.1 first, XeSS second.**
-  Integration, once the inputs item has landed. Researched 2026-09-08; the
-  ordering below is forced by this project's own constraints, not by quality
-  rankings.
-
-  **FSR 4 is ruled out and this is the load-bearing finding.** It is
-  DirectX 12 only and cannot be integrated into a Vulkan title. design.md
-  pins Vulkan 1.3 with no OpenGL fallback, so the newest and best-looking
-  AMD upscaler is simply unavailable to us. Do not spend time on it; check
-  whether that has changed before acting on this item, since it is the one
-  fact here most likely to move.
-
-  **FSR 3.1 is the first choice.** It is the release that added Vulkan
-  support, it is cross-vendor, and it is permissively licensed and shipped as
-  source rather than a signed binary -- which matters for a project that
-  builds on Linux and Windows from one tree.
-
-  **XeSS is the second.** It has a Vulkan path, and from SDK 2.1 its
-  networks run on non-Intel GPUs through DP4a, so it is not Arc-only. Its
-  Vulkan path does not support the external-descriptor-heap flag; that is a
-  note for whoever integrates, not an obstacle.
-
-  **DLSS is optional and last.** Vulkan-capable but NVIDIA hardware only and
-  proprietary, so it can never be the baseline -- it is an addition for the
-  players who have the hardware, worth doing only once one cross-vendor path
-  is working.
-
-  **Honest caveat on the premise.** Upscaling buys frames by rendering fewer
-  pixels, so it repays only where the GPU is the bottleneck. A UT99 map at
-  1999 geometry densities may well not be, and the renderer does not exist
-  yet to measure. What makes it plausible here is what UTA-0014 plans on top
-  of that geometry -- dynamic lights with shadow maps, PBR, volumetrics,
-  light shafts, ambient occlusion. Measure before integrating; the
-  prerequisite item is worth doing either way, this one is not.
-
-  Blocked-by: the motion-vector and jitter item, and UTA-0014.
-  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
-  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
-  S7 alone, and S1 says nothing about resolution or frame rate. Do not
-  count this item when judging what is left for the release. It remains
-  filed under 0.1.0 only because no roadmap verb moves an item between
-  sections and the store reverts a hand edit to ROADMAP.md; a re-section
-  op is requested in the Ants MCP feedback file. Blocked behind UTA-0075
-  for its inputs.
-  User request (2026-09-14): FSR 1 first, as its own item beside
-  UTA-0051's dynamic resolution. Then the temporal upscalers, FSR 2 and
-  FSR 3.1, and DLSS for players with NVIDIA cards. This item already
-  ranks FSR 3.1 before XeSS and DLSS; the user adds FSR 2 to the list.
-  Whether FSR 2 is still worth integrating separately, given FSR 3.1's
-  upscaler succeeds it, is for this item to settle when it starts.
-  User direction (2026-09-14): the engine's first iteration uses the
-  cheapest methods that still make it look like a modern game. Fully
-  modern features, this item among them, come after.
-  **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
-  Kind: implement.
-  Source: user-request-2026-09-08.
-  Lanes: urender.
 
 - ✅ [UTA-0077] **Run the real-asset tier on Windows, against a real install.**
   The real-asset tier is the ONLY check on upkg's readers against content this
@@ -5089,42 +4598,6 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-10.
   Lanes: urender, umat.
 
-- 📋 [UTA-0090] **uworld: water volumes that behave like water.**
-  The user's requirement (2026-09-10): water sections must behave like
-  water, not only look like it. Nothing on the roadmap covered the
-  behaviour: UTA-0017's movement model does not mention water, and the
-  render item filed beside this one covers only appearance.
-
-  UT99 marks water with a zone. Inside one a player swims rather than
-  walks, moves more slowly, can rise and sink, and can climb out at the
-  surface. A zone may also set a current or cause damage. The behaviour is
-  measured from the original, not guessed, on the same terms as UTA-0017.
-
-  Reading which zones are water is upkg's side of this. It may already be
-  covered by UTA-0004's actor placements, and whoever picks this up checks
-  that first.
-
-  Blocked-by: UTA-0017.
-  Required, not optional (user, 2026-09-10): this project has to play the
-  maps UT99 already plays, and water maps cannot be played without
-  swimming.
-
-  Filed under 0.1.0 by mistake. It belongs with the movement release,
-  0.2.0, beside UTA-0017, which it is blocked by. The batch call that
-  filed it took one section for both items, and no roadmap verb moves an
-  item between sections. Do not count it when judging what is left for
-  0.1.0.
-  Asked UT_MonsterHunt (2026-09-10) to measure UT99's real water-zone
-  behaviour with its in-game probe pattern: swim speed, climbing out,
-  zone velocity. That is how this item gets measured, not guessed.
-  Linked (2026-09-10): UT_MonsterHunt GAME-0078 carries the six water
-  numbers asked for and will measure them in the running game, reporting
-  which its probe pattern cannot reach reliably rather than guessing.
-  **Layman:** Jumping into water should mean swimming, slower movement and a way to climb back out, the way the original game does it.
-  Kind: feature.
-  Source: user-request-2026-09-10.
-  Lanes: uworld.
-
 - ✅ [UTA-0091] **ubundle: split Bundle.cpp by section, so work on one section does not share a file with another.**
   The user's standing request (2026-09-10): refactor files at every
   opportunity, because Ants Terminal is building a way for several sessions
@@ -5271,41 +4744,6 @@ stays with movement in 0.2.0.
   Kind: chore.
   Source: review-code-2026-09-10 optimisation pass.
   Lanes: ci.
-
-- 📋 [UTA-0098] **umap room sampling grows with the level box and runs on one thread; dormant until the box is real.**
-  Found by the optimisation pass of 2026-09-10. The mechanism is checked
-  against the source: src/umap/Build.cpp samples a lattice over the
-  level's box, calls `roomAt` per point on one thread, and samples nothing
-  when `boundsValid` is false.
-
-  Measured by the pass on copies given a real box: AS-Frigate 2.72 s at
-  the default 32-unit spacing, and CTF-Face refused outright at 3.3e9
-  samples, its box being mostly sky. Its census found 1,258 maps would
-  need over 1e8 samples.
-
-  Decide WHICH box to sample first -- the playable area, not the sky --
-  because that matters more than any code change. Then split the loop into
-  y-row bands with `JobSystem::parallelFor`, merged in band order, one job
-  per band. Determinism must hold byte for byte at 1, 2 and N workers.
-
-  Defers itself: nothing to do until a real box reaches this code. Not
-  part of 0.1.0's cut condition.
-  Also arms a test (2026-09-10): measured, the real-asset tier's INV-6
-  ring checks examine zero footprints on every map, because the lattice
-  is empty without a valid box. Whatever box this item settles on is what
-  turns those checks from vacuous into real. UTA-0099 makes the count
-  visible in the meantime.
-  UTA-0129 (filed 2026-09-12) is the benchmark tool, and this item is one
-  of its first consumers. "Decide WHICH box to sample first" is a question
-  a profile over a real map answers directly, and the 2.72 s on AS-Frigate
-  recorded here came from the hand pass UTA-0129 exists to replace.
-  2026-09-30, from UTA-0129's first measurement: room building is
-  0.0001 s of AS-Frigate's 92.6 s bake and under that on CTF-Face,
-  so it is not a cost today. It stays dormant, as the headline says.
-  **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
-  Kind: investigate.
-  Source: review-code-2026-09-10 optimisation pass.
-  Lanes: umap.
 
 - ✅ [UTA-0099] **A real-asset umap test has ring checks that examine nothing, on every map, because no sample is ever taken.**
   Found by the optimisation pass of 2026-09-10. The mechanism is checked
@@ -5611,84 +5049,6 @@ stays with movement in 0.2.0.
   Kind: refactor.
   Source: user-request-2026-09-10 standing refactor rule.
   Lanes: tests.
-
-- 📋 [UTA-0104] **One map standard: every baked map stores and applies its textures, surfaces and everything else the same defined way, so maps from different creators never conflict.**
-  The user's requirement (2026-09-10), given in response to the PolyFlags
-  finding recorded on UTA-0009: the maps we create from the import must all
-  follow a standard, so that updating and fixing them is seamless.
-
-  What the finding showed. UT99 carries a surface's kind only as a raw
-  32-bit PolyFlags word on each surface. Over the reference install,
-  surfaces sharing one texture disagree often (translucent 30%, portal
-  51%, wavy 54%, sky 72%), texture objects carry no PolyFlags of their
-  own, and several heavily used bits have no meaning in any source this
-  project holds. Passing that word through to the bundle would make every
-  baked map a different dialect.
-
-  The reading of the requirement, stated so the user can correct it:
-
-  - Every baked map stores each surface in ONE documented form of this
-    project's own: a fixed set of surface kinds, each with a written
-    meaning, rather than UT99's raw bits.
-  - One conversion rule set, applied identically to every map at bake
-    time, so two maps with the same UT99 surface get the same result.
-  - The original raw PolyFlags kept beside it, so a conversion can be
-    audited and re-derived.
-  - One sanctioned way to FIX a surface after the fact -- through the
-    map's recipe, never by editing a bake -- which is what makes a fix
-    survive a re-bake.
-  - A check that fails any baked map not conforming, so the standard is
-    enforced rather than hoped for.
-
-  Needs a spec: it is an on-disk contract in the bundle that the renderer
-  (UTA-0089's water and glass), the editor (UTA-0034) and every future
-  fix bind to. The surface kinds are grounded in the bit meanings measured
-  for UTA-0009, and only in bits with a known meaning.
-
-  Belongs with the baker (UTA-0011), which writes the geometry into the
-  bundle.
-  Scope clarified by the user (2026-09-10), in their words: "What I meant
-  is that the way we store and apply textures and anything else in the
-  map is following some sort of standard that we have defined for maps so
-  that two maps from different creators don't have conflicts in how it is
-  interpreted."
-
-  So this is a MAP STANDARD, wider than the surface-flag reading above,
-  which it absorbs: surfaces are one part of it, not the whole. It covers
-  how every baked map stores and applies its materials and textures, its
-  surfaces, and everything else it carries, defined once by this project,
-  so no creator's private convention changes how another creator's map
-  is read.
-
-  A conflict of exactly this kind is already measured. UT_MonsterHunt
-  found Textures/wonderland.utx shadowing Sounds/wonderland.uax on ten
-  maps, because two unrelated packages share a name and UT99 resolves by
-  search order. So identity is part of the standard: anything a map
-  refers to is identified by the package it came from, never by a bare
-  name.
-
-  Needs a spec, and probably a project standard beside it, since
-  everything the baker writes is built under it. UTA-0009's materials are
-  the first thing bound by it.
-  Decided by the user (2026-09-10): two packages sharing a name are
-  told apart by a short fingerprint of each package's contents, so two
-  different files get different names automatically and identical
-  copies are recognised as one. The fingerprint's form is this item's
-  to fix; UTA-0009's material names carry it in their package segment.
-
-  Open question for this item's spec, raised by the UTA-0009 contract
-  review: textures carry bool flags such as bMasked, and whether the
-  engine combines those with each surface's own PolyFlags is
-  unmeasured here. Settle it before fixing how a surface's kind is
-  derived.
-  Decided by the user (2026-09-11), for UTA-0109: the geometry section
-  stores each surface's raw PolyFlags now. This item adds the project's
-  own surface kinds beside them later, which changes the bundle format
-  once more.
-  **Layman:** Every imported map follows the same rules for how its textures, surfaces and everything else are stored and used, so two maps by different creators are never read differently or clash.
-  Kind: feature.
-  Source: user-request-2026-09-10.
-  Lanes: ubake, ubundle, urecipe.
 
 - ✅ [UTA-0109] **ubake: turn the level's BSP tables into triangles, and write the geometry section.**
   Split out of UTA-0011 by the user on 2026-09-10.
@@ -9805,61 +9165,6 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-14.
   Lanes: ubake, ubundle, urender.
 
-- 📋 [UTA-0157] **Light fixtures gain real depth instead of reading as flat glowing textures.**
-  The user flew DM-Deck16][ on 2026-09-14: "The lights look like flat
-  textures (I know this is how the base game did it), is it possible to
-  add some geometry there to make it look like actual lights on the
-  ceiling?"
-
-  The bake already knows which surfaces are lights: their materials carry
-  an emit map (decayeds.light.light5, uttech2.light.rclflit2x and
-  uttech3.light.rnd_lite2 on that map). Three routes, cheapest first, for
-  this item's design to choose between by measurement:
-  1. Parallax occlusion on light materials (UTA-0040), so the tube sits
-     inside a recess. No new geometry.
-  2. Emissive bloom (UTA-0053), so the fixture glows past its edge.
-  3. Bake-time geometry: a housing and diffuser generated over each
-     surface wearing a light material. New geometry in the bundle, which
-     touches the format, collision and shadows, so it needs a spec.
-  Routes 1 and 2 are already filed; this item is route 3, or the decision
-  that 1 and 2 are enough.
-  User decision (2026-09-14): cheap tricks first. Routes 1 and 2
-  (parallax, UTA-0040, and bloom, UTA-0053) are tried before any
-  geometry, and whether route 3 is still needed is judged by measurement
-  after they land. The same day the user ordered FSR 1 (UTA-0154) ahead of
-  UTA-0155 and UTA-0156.
-  User direction (2026-09-14): the engine's first iteration uses the
-  cheapest methods that still make it look like a modern game. Fully
-  modern features come after. The cheap-tricks-first choice for this
-  item already fits it.
-  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
-  (/mnt/Games/Scripts/Linux/UT_Ants), after UTA-0156 shipped. Next per
-  CLAUDE.md, in the order the user set on 2026-09-14.
-  Released 2026-09-15 by ut-ants-08 with nothing built. This item's own
-  user decision (2026-09-14) tries parallax (UTA-0040, shipped) and bloom
-  (UTA-0053, still planned) before any geometry, and judges route 3 by
-  measurement after both land. So this item waits on UTA-0053.
-  User decision (2026-09-15): bring bloom forward. Only the glow part of
-  UTA-0053 is built now; then this item returns, and whether real 3D
-  housings are still needed is judged after the ceiling lights glow.
-  User decision (2026-09-15), after parallax (UTA-0040) and emissive bloom
-  (UTA-0053, 6ad38af) both landed: park this item for the user's review
-  over real matches with friends. No measurement can decide it, because
-  the original game's lights are flat. Next is UTA-0015.
-  User direction (2026-09-17), the review this item was parked for:
-  build route 3. Where a texture paints something that should have
-  depth, such as the lights on a ceiling, the bake turns that part into
-  real geometry. Wider than light fixtures: any painted detail where it
-  makes sense, which this item's design must define and decide by
-  measurement, lights first. The same day the user noted that an area left
-  too dark can be fixed by adding a light, which the map editor
-  (UTA-0034) covers.
-  Queued (2026-09-17) by the user: after UTA-0170, the map launcher.
-  **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
-  Kind: feature.
-  Source: user-request-2026-09-14.
-  Lanes: ubake, urender, umat.
-
 - ✅ [UTA-0158] **ut-ants: the flying camera stops at the level's walls, as UT99's pre-match spectator does.**
   The user flew DM-Deck16][ on 2026-09-14: "the camera can move in and out
   of geometry which means it can move outside of the map. Please prevent
@@ -11291,33 +10596,6 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: ut-ants.
 
-- 📋 [UTA-0184] **ut-ants: give the map launcher a modern look, keeping its large text.**
-  The user asked on 2026-09-17: the launcher looks like it was developed in
-  the 1990s; modernise it. They like its font size, which suits their
-  eyes, and the controller support, which works in the launcher; both stay.
-
-  Today Launcher.cpp draws with SDL's renderer and SDL_RenderDebugText, SDL's small built-in bitmap font scaled up, in a character grid with box outlines.
-  A modern look needs at least a real scalable font with antialiasing,
-  which means a text library (SDL3_ttf is the likely one) and a font file
-  under a licence that allows shipping, such as the SIL Open Font Licence.
-  Both go through docs/standards/dependency-acquisition.md. Then spacing,
-  a restrained palette, rounded selection and panels, and a clear
-  focus highlight a controller can follow.
-
-  How it looks is decided by research into current launcher and
-  storefront layouts, not by asking the user to compare pictures (memory:
-  no visual-judgement asks). Text never shrinks below today's size. Menus
-  proper are uui's and later (Launcher.cpp's header), so this stays the
-  launcher's own drawing and must not grow into a UI toolkit.
-
-  Placed 2026-09-17 (the user leaves placement to the session): after
-  UTA-0181 and before UTA-0157. The launcher works as it is, so the
-  drawing defects and the tiling work come first.
-  **Layman:** The map list looks like a 1990s program; make it look like a current app while keeping the text big.
-  Kind: ux.
-  Source: user-request-2026-09-17.
-  Lanes: ut-ants.
-
 - ✅ [UTA-0185] **urender: pure black stepped gaps on MH-!SD0!ForbiddenMansion's walls change shape as the camera turns.**
   Reported by the user on 2026-09-17 with three screenshots of one small
   room: wood walls and ceiling, a red carpet floor. A black region with
@@ -12718,7 +11996,7 @@ stays with movement in 0.2.0.
   Source: consumer-request-2026-09-21 UT_MonsterHunt.
   Lanes: tools/ut-dump.
 
-- 📋 [UTA-0204] **0.1.0's heading holds work the release is not waiting on.**
+- ✅ [UTA-0204] **0.1.0's heading holds work the release is not waiting on.**
   Measured 2026-09-21 while advising the ~/.claude v2 workflow effort,
   whose new roadmap standard was drawn partly from this project.
 
@@ -12748,6 +12026,14 @@ stays with movement in 0.2.0.
 
   Waiting-on: the ~/.claude v2 roadmap standard being promoted, or 0.1.0
   approaching its cut.
+  Resolved (2026-10-06, user approved the split): 18 items moved to
+  0.2.0 with their ids: the six deferred on 2026-09-08 (UTA-0044, 0045,
+  0053, 0054, 0075, 0076); swimming UTA-0090, which the intro already put
+  in 0.2.0; tools UTA-0065, 0067, 0098; UTA-0184, 0157, 0104; and the
+  2026-10-06 picture upgrades UTA-0296, 0298, 0299, 0300, 0301. 0.1.0
+  keeps ten, all about the map looking right: UTA-0055, 0186, 0254,
+  0256, 0258, 0278, 0292, 0305, 0307, 0308. The intro paragraph about
+  deferred items sitting here is removed.
   **Layman:** Our first release's to-do list counts work that does not have to finish before we can ship it, so the release looks further away than it is.
   Kind: doc.
   Source: in-session-2026-09-21.
@@ -15749,95 +15035,6 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-05.
   Lanes: ubake.
 
-- 📋 [UTA-0296] **urender: soft shadows that stay sharp where an object touches and soften with distance.**
-  The user, 2026-10-06, asked whether we have contact hardening and
-  agreed to add it "when it is relevant", by "whatever cheap methods we
-  can". Today shadowOf (src/urender/shaders/shadows.glsl) reads the
-  shadow atlas once with hardware compare, so every shadow edge is
-  equally sharp at any distance from its caster.
-  Cheap method: percentage-closer soft shadows on the existing atlas. A
-  small blocker search (a few taps) finds the average caster depth, the
-  penumbra width follows from it and an assumed lamp size, and a
-  fixed-count filter (8-16 taps, rotated per pixel and resolved by the
-  anti-aliasing) blurs by that width. UT99 lights have no size, so one
-  size per lamp is a choice to make and record (from its fixture, or a
-  constant). Tap counts by quality tier, so a modest machine pays little.
-  Part of UTA-0292's realistic-lighting goal; complements UTA-0054's
-  screen-space contact shadows, which ground small objects the atlas is
-  too coarse to see.
-  **Layman:** A shadow is crisp right where a thing meets the floor and grows softer further away, as it does in real light.
-  Kind: feature.
-  Source: user-request-2026-10-06.
-  Lanes: urender.
-
-- 📋 [UTA-0298] **urender: specular highlights, so metal, wet and polished surfaces shine where a light catches them.**
-  The user, 2026-10-06: "Specular highlights, yes please, add that in
-  too." Today every surface but water is matte: the shaders' only
-  Fresnel or roughness term is the water look (scene.frag, water.glsl).
-  The materials already carry roughness and metalness (umat, the bundle's
-  material section, urender's Materials), so the inputs exist and only
-  the shading is missing.
-  Cheap method: one normalised Blinn-Phong or GGX lobe per shadowed light,
-  weighted by the material's roughness and metalness, with Schlick's
-  Fresnel; for the room's own reflected light, the baked probes as a rough
-  glossy fill, if they hold a direction (unchecked; no new bake either
-  way). Energy kept so a
-  surface does not get brighter overall. Its own on/off switch (UTA-0297)
-  and a tier. Part of UTA-0292; UTA-0045's screen-space reflections are
-  the sharper, costlier step after it.
-  **Layman:** Shiny surfaces catch the light: metal panels, wet floors and polished stone show a bright glint that moves as you move.
-  Kind: feature.
-  Source: user-request-2026-10-06.
-  Lanes: urender.
-
-- 📋 [UTA-0299] **urender: mirror floors and walls reflect the room, as the original's mirrored surfaces do.**
-  The user, 2026-10-06: some original maps have a mirror floor, and we
-  should use whatever method the original used for it. UT99 marks such a
-  surface with the PF_Mirrored poly flag and draws the scene again
-  reflected about the surface's plane. Our code names no such flag yet
-  (no PF_Mirrored in src/), so mirrored surfaces draw as ordinary ones.
-  Cheap method, the original's own: a planar reflection. When a mirrored
-  surface is on screen, draw the scene once more reflected about its
-  plane and clipped to it, at a lower resolution on a lower tier, and
-  show it on the surface. Most maps pay nothing because they have no such
-  surface.
-  First: census which maps carry PF_Mirrored surfaces and how many
-  planes each has, since one extra pass per plane is the cost. Its own
-  switch (UTA-0297).
-  **Layman:** Maps whose floor is a mirror in the original show the room reflected in it again, instead of a plain floor.
-  Kind: feature.
-  Source: user-request-2026-10-06.
-  Lanes: ubake, urender.
-
-- 📋 [UTA-0300] **urender: the view adapts to brightness, as eyes do, when moving between dark and bright places.**
-  Proposed 2026-10-06 and accepted by the user as part of the realism
-  work (UTA-0292). Cheap method: measure the frame's average brightness
-  from a small downsampled copy, and move the exposure slowly toward the
-  value that brings it to a target, faster when it brightens than when it
-  darkens. Clamped to a narrow range around the calibrated exposure, so
-  it never becomes a brightness gain that hides a room's real light
-  (UTA-0274's calibration stays the anchor). Its own switch (UTA-0297),
-  and off in any capture or comparison run so frames stay comparable.
-  **Layman:** Stepping from a dark tunnel into a bright hall dazzles for a moment, then settles, the way your eyes adjust.
-  Kind: feature.
-  Source: user-request-2026-10-06.
-  Lanes: urender.
-
-- 📋 [UTA-0301] **ubake and urender: baked reflections, so shiny floors and metal reflect their surroundings everywhere.**
-  Proposed 2026-10-06 and accepted by the user as part of the realism
-  work (UTA-0292). Cheap method, the standard one in modern games: at
-  bake time capture small cubemaps at chosen points (per room, from
-  umap's rooms), pre-blurred into a few roughness levels; at draw time a
-  shiny surface samples the nearest one, box-projected onto the room so
-  the reflection lines up. Pairs with UTA-0298's highlights, which give
-  the glint from lights while this gives the room; UTA-0045's
-  screen-space reflections refine it where the screen holds the answer.
-  Its own switch (UTA-0297).
-  **Layman:** Shiny surfaces show a soft reflection of the room around them, prepared ahead of time so it costs almost nothing while playing.
-  Kind: feature.
-  Source: user-request-2026-10-06.
-  Lanes: ubake, urender.
-
 - ✅ [UTA-0303] **urender: DM-Deck16][ shadows draw at very low resolution, with blurred, stair-stepped edges.**
   The user, 2026-10-06, in the viewer: a pillar's shadow across the floor
   is far too coarse; the edge steps in blocks a few texels wide and
@@ -16618,6 +15815,812 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urender, umat.
   Evidence: /home/ants/Pictures/Screenshots/Screenshot_20261006_092759.png
+
+- 📋 [UTA-0044] **urender and umat: subsurface scattering on curated materials.**
+  Blocked by a design change: docs/design.md lists urender's
+  responsibilities and subsurface scattering is not among them, so adding
+  it changes what a conformer builds and the design edit runs the rule 14
+  gate first.
+
+  The constraint that shapes this: a 1999 texture carries no thickness
+  data, and thickness is what SSS needs. It cannot be derived the way
+  roughness and normals are (UTA-0009). So the parameters live in umat's
+  CURATED library (UTA-0010), which ships with the baker and is versioned
+  with it -- our own material definitions opt in, generated ones default
+  to none. That also keeps the bake hash honest, since the curated
+  library is already a baker input.
+
+  Scope when it is written: a thickness/transmission parameter on a
+  curated material, its slot in the bundle's material section, and one
+  screen-space or wrap-lighting pass in urender. Note that adding a
+  material parameter is a ubundle format change and therefore a baker
+  version bump, which invalidates every cached bake (see
+  versioning-overrides.md).
+
+  Blocked-by: the design edit, and UTA-0010 for the library it lands in.
+  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
+  default chosen here. Curated materials only, so the cost is bounded by
+  how many of them exist -- but on the target laptops it is still a tier
+  decision rather than an always-on effect.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. This item is additionally blocked by a design edit that has not
+  been made -- design.md does not list subsurface scattering among
+  urender's responsibilities.
+  **Layman:** Skin, wax, marble and leaves stop looking like painted plastic -- light passes a little way through them instead of stopping dead at the surface.
+  Kind: feature.
+  Source: user-request-2026-09-04.
+  Lanes: urender, umat.
+
+- 📋 [UTA-0045] **urender: screen-space reflections, weighted by material roughness.**
+  Screen-space, per the user's direction: reflections are traced against
+  the depth and colour buffers already on hand, not against the world.
+  That is deliberate and its limits are known -- anything off-screen or
+  behind another surface cannot reflect, and the usual fallback is a
+  cubemap or simply nothing. ADR-0001's no-ray-tracing rule makes SSR the
+  only option that fits the design rather than one of several.
+
+  Roughness drives it. umat already generates a roughness map (UTA-0009
+  lists base colour, normal, roughness, metallic, height and emissive),
+  so unlike UTA-0044 this needs no new material channel and no bundle
+  format change: a smooth surface gets a sharp ray, a rough one a widened
+  cone or a blurred mip, and a fully rough one is not worth tracing.
+
+  Blocked by a design change: docs/design.md lists urender's
+  responsibilities -- dynamic lights and shadows, PBR materials,
+  volumetrics, light shafts, ambient occlusion, post-processing -- and
+  reflections are not among them, so adding them changes what a conformer
+  builds and the edit runs the rule 14 gate first. The same gate covers
+  UTA-0044, and one pass can carry both.
+
+  Depends on UTA-0014 for the deferred buffers it reads.
+  Note (2026-09-04): needs a tier assigned by UTA-0051 rather than a
+  default chosen here. Screen-space reflections are the most likely of the
+  four expensive effects to be off at every tier the target hardware
+  reaches, and on 1999 geometry they can read worse than no reflection at
+  all -- which is a quality judgement to make when it is built, not now.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. Blocked behind UTA-0014 regardless, so it is not selectable
+  before the renderer exists.
+  **Layman:** Wet floors, polished metal and glass pick up the room around them -- sharply where the surface is smooth, blurred where it is rough -- instead of being flatly lit.
+  Kind: feature.
+  Source: user-request-2026-09-04.
+  Lanes: urender.
+
+- 📋 [UTA-0053] **urender: the cheap post-processing set -- bloom, colour grading, anti-aliasing and sharpening.**
+  Four effects that together do most of the visual modernisation and cost
+  under a millisecond between them on the development card.
+
+  - Emissive-only bloom at quarter resolution. UT99 is full of glowing
+    panels, lava, ammo and muzzle flashes, and the PolyFlags UTA-0009
+    already reads say which surfaces are self-lit, so the mask is free.
+  - A colour grading lookup table chosen per map at bake time. One texture
+    fetch, and the largest single change in how modern the result reads.
+  - Anti-aliasing. 1999 geometry is hard edges and thin railings, which
+    alias badly. FXAA or SMAA rather than a temporal filter, which needs
+    motion vectors and history the first draw path does not have.
+  - A sharpening pass. This is what makes rendering below native
+    resolution acceptable, so it is the enabler for the quality tiers
+    rather than an effect in its own right.
+
+  Blocked-by: the bundle draw path.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. Blocked behind UTA-0014 regardless, so it is not selectable
+  before the renderer exists.
+  Partly met by UTA-0154 (2026-09-14): a frame drawn below scale 1 is now
+  upscaled by FSR 1's EASU and sharpened by its RCAS at 0.25 stops. That is
+  the "enabler for the quality tiers" this item's sharpening bullet names.
+  A frame at scale 1 is still unsharpened, so whether this item still
+  needs its own sharpening pass is for whoever picks it up to decide.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after.
+  User decision (2026-09-15), asked after UTA-0156 shipped: bring bloom
+  forward for UTA-0157's ceiling lights. Only this item's emissive bloom
+  is built now; colour grading, anti-aliasing and sharpening stay deferred
+  out of 0.1.0 as decided on 2026-09-08.
+  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants), for the bloom part only.
+  Emissive bloom built (2026-09-15, ut-ants-08). The forward pass writes
+  emission to a third target; bloom.frag takes it down five half-size
+  levels and back up, LearnOpenGL's physically based bloom after Jimenez's
+  SIGGRAPH 2014 talk (13-tap downsample, Karis-weighted first; 3x3 tent
+  upsample, radius 0.005, added); post.frag adds 0.04 of it before
+  exposure. Feature::Bloom is on from Low. No spec: urender alone, no
+  bundle change, cheap to redo. Unit 570/570 and device 36/36 on
+  lavapipe, one local leg. Two new device cases were each seen red under a
+  mutation: bloom strength 0 fails the glow case, and bloom fed the lit
+  colour fails the no-emission case. DM-Deck16][ at r14 with bloom fits
+  as without: exposure 3.18, block RMS 46.23 at 3.2.
+  Bloom shipped (2026-09-15, ut-ants-08), green on the matrix: commit
+  6ad38af, GitHub run 34976613942 completed with success after the local
+  pre-push gate passed. Back to planned with nothing else under way:
+  colour grading, anti-aliasing and sharpening stay deferred out of 0.1.0,
+  as decided on 2026-09-08. UTA-0157 is next.
+  **Layman:** The cheap finishing touches: glowing things glow, each map gets its own colour treatment, edges stop looking jagged, and the picture stays sharp.
+  Kind: implement.
+  Source: user-request-2026-09-04.
+  Lanes: urender.
+
+- 📋 [UTA-0054] **urender: cheap surface detail -- detail normals, dithered alpha, contact shadows and interior windows.**
+  Four more sub-millisecond effects, each aimed at one way 1999 content
+  reads as old.
+
+  - A single shared tiling detail normal applied close to the camera, so a
+    256x256 wall stops looking flat when you stand against it. One extra
+    fetch, and negligible memory because every material shares the one
+    texture.
+  - Dithered alpha for masked surfaces, resolved so it does not shimmer.
+    UT99 uses masked textures for every grate, fence and tree, and the
+    shimmer is a large part of why they read as cheap.
+  - Screen-space contact shadows: a short ray march that grounds an object
+    where a shadow map's resolution runs out. Much cheaper than adding a
+    cascade.
+  - Interior cubemap parallax on windows, so a window is not a flat pane.
+
+  Blocked-by: the bundle draw path.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 asks only that the map be recognisable, that shadows
+  move as you move, that surfaces have real depth, and that light shafts
+  cut through fog. Do not count this item when judging what is left for
+  the release. It remains filed under 0.1.0 only because no roadmap verb
+  moves an item between sections and the store reverts a hand edit to
+  ROADMAP.md; a re-section op is requested in the Ants MCP feedback
+  file. Blocked behind UTA-0014 regardless, so it is not selectable
+  before the renderer exists.
+  **Layman:** Walls look detailed close up, fences stop shimmering, objects stop looking like they float, and windows gain depth.
+  Kind: implement.
+  Source: user-request-2026-09-04.
+  Lanes: urender, umat.
+
+- 📋 [UTA-0075] **urender: jitter the camera and produce a motion-vector buffer.**
+  The prerequisite every temporal upscaler shares, filed separately from the
+  integration because it is a constraint on UTA-0014's render graph rather
+  than a feature.
+
+  FSR, XeSS and DLSS take the SAME three inputs: a sub-pixel camera jitter
+  applied to the projection matrix each frame, a per-pixel motion-vector
+  buffer, and depth. All three also want a negative texture mip bias to match
+  the lower render resolution, and all three need the UI composited AFTER
+  upscaling rather than drawn into the upscaled image. Verified against
+  Intel's XeSS-SR developer guide and AMD's FSR documentation, which agree on
+  the input set and on motion vectors excluding jitter-induced motion.
+
+  So the choice of upscaler decides almost nothing here, and picking one
+  later costs nothing extra. What costs is building the first draw path
+  without provision for these: a velocity buffer is not a post-process bolted
+  on at the end, it is written by every draw that moves, and adding it after
+  the render graph is settled touches every pass.
+
+  It pays even if no upscaler is ever integrated: these are also exactly the
+  inputs temporal anti-aliasing needs, and TAA is wanted regardless.
+
+  Blocked-by: UTA-0014.
+  Note (2026-09-08): filed in 0.1.0 because it constrains the renderer built
+  there. It may move to a later milestone freely PROVIDED it lands before the
+  render graph has passes built on top of it -- the ordering is the point,
+  not the milestone.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 says nothing about resolution or frame rate. Do not
+  count this item when judging what is left for the release. It remains
+  filed under 0.1.0 only because no roadmap verb moves an item between
+  sections and the store reverts a hand edit to ROADMAP.md; a re-section
+  op is requested in the Ants MCP feedback file. Its own body argues it
+  is cheap now and expensive to retrofit; that argument is worth
+  revisiting when UTA-0014 lands, and it is an argument about ordering
+  rather than about the release condition.
+  **Layman:** Groundwork that lets the game render at a lower resolution and scale it up cleanly later. Cheap to build in now, expensive to retrofit.
+  Kind: implement.
+  Source: user-request-2026-09-08.
+  Lanes: urender.
+
+- 📋 [UTA-0076] **Temporal upscaling: FSR 3.1 first, XeSS second.**
+  Integration, once the inputs item has landed. Researched 2026-09-08; the
+  ordering below is forced by this project's own constraints, not by quality
+  rankings.
+
+  **FSR 4 is ruled out and this is the load-bearing finding.** It is
+  DirectX 12 only and cannot be integrated into a Vulkan title. design.md
+  pins Vulkan 1.3 with no OpenGL fallback, so the newest and best-looking
+  AMD upscaler is simply unavailable to us. Do not spend time on it; check
+  whether that has changed before acting on this item, since it is the one
+  fact here most likely to move.
+
+  **FSR 3.1 is the first choice.** It is the release that added Vulkan
+  support, it is cross-vendor, and it is permissively licensed and shipped as
+  source rather than a signed binary -- which matters for a project that
+  builds on Linux and Windows from one tree.
+
+  **XeSS is the second.** It has a Vulkan path, and from SDK 2.1 its
+  networks run on non-Intel GPUs through DP4a, so it is not Arc-only. Its
+  Vulkan path does not support the external-descriptor-heap flag; that is a
+  note for whoever integrates, not an obstacle.
+
+  **DLSS is optional and last.** Vulkan-capable but NVIDIA hardware only and
+  proprietary, so it can never be the baseline -- it is an addition for the
+  players who have the hardware, worth doing only once one cross-vendor path
+  is working.
+
+  **Honest caveat on the premise.** Upscaling buys frames by rendering fewer
+  pixels, so it repays only where the GPU is the bottleneck. A UT99 map at
+  1999 geometry densities may well not be, and the renderer does not exist
+  yet to measure. What makes it plausible here is what UTA-0014 plans on top
+  of that geometry -- dynamic lights with shadow maps, PBR, volumetrics,
+  light shafts, ambient occlusion. Measure before integrating; the
+  prerequisite item is worth doing either way, this one is not.
+
+  Blocked-by: the motion-vector and jitter item, and UTA-0014.
+  Deferred out of 0.1.0 (2026-09-08, user decision). Not required by the
+  release's cut condition: versioning-overrides.md cuts 0.1.0 on S1 and
+  S7 alone, and S1 says nothing about resolution or frame rate. Do not
+  count this item when judging what is left for the release. It remains
+  filed under 0.1.0 only because no roadmap verb moves an item between
+  sections and the store reverts a hand edit to ROADMAP.md; a re-section
+  op is requested in the Ants MCP feedback file. Blocked behind UTA-0075
+  for its inputs.
+  User request (2026-09-14): FSR 1 first, as its own item beside
+  UTA-0051's dynamic resolution. Then the temporal upscalers, FSR 2 and
+  FSR 3.1, and DLSS for players with NVIDIA cards. This item already
+  ranks FSR 3.1 before XeSS and DLSS; the user adds FSR 2 to the list.
+  Whether FSR 2 is still worth integrating separately, given FSR 3.1's
+  upscaler succeeds it, is for this item to settle when it starts.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features, this item among them, come after.
+  **Layman:** Render the game smaller and scale it up, so it runs faster without looking soft. AMD's version first because it is the only good one that works with our graphics setup.
+  Kind: implement.
+  Source: user-request-2026-09-08.
+  Lanes: urender.
+
+- 📋 [UTA-0090] **uworld: water volumes that behave like water.**
+  The user's requirement (2026-09-10): water sections must behave like
+  water, not only look like it. Nothing on the roadmap covered the
+  behaviour: UTA-0017's movement model does not mention water, and the
+  render item filed beside this one covers only appearance.
+
+  UT99 marks water with a zone. Inside one a player swims rather than
+  walks, moves more slowly, can rise and sink, and can climb out at the
+  surface. A zone may also set a current or cause damage. The behaviour is
+  measured from the original, not guessed, on the same terms as UTA-0017.
+
+  Reading which zones are water is upkg's side of this. It may already be
+  covered by UTA-0004's actor placements, and whoever picks this up checks
+  that first.
+
+  Blocked-by: UTA-0017.
+  Required, not optional (user, 2026-09-10): this project has to play the
+  maps UT99 already plays, and water maps cannot be played without
+  swimming.
+
+  Filed under 0.1.0 by mistake. It belongs with the movement release,
+  0.2.0, beside UTA-0017, which it is blocked by. The batch call that
+  filed it took one section for both items, and no roadmap verb moves an
+  item between sections. Do not count it when judging what is left for
+  0.1.0.
+  Asked UT_MonsterHunt (2026-09-10) to measure UT99's real water-zone
+  behaviour with its in-game probe pattern: swim speed, climbing out,
+  zone velocity. That is how this item gets measured, not guessed.
+  Linked (2026-09-10): UT_MonsterHunt GAME-0078 carries the six water
+  numbers asked for and will measure them in the running game, reporting
+  which its probe pattern cannot reach reliably rather than guessing.
+  **Layman:** Jumping into water should mean swimming, slower movement and a way to climb back out, the way the original game does it.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: uworld.
+
+- 📋 [UTA-0065] **Drive a player through any map unattended, and report what happened.**
+  A harness that walks a player through a map with no human at the
+  keyboard, captures screenshots, writes a machine-readable record of
+  what it did and saw, and reports whether the map behaved.
+
+  **It drives the real game, not a model of it.** That is the whole
+  design constraint and the one thing that would quietly waste the
+  work: a harness that simulates movement against the bundle validates
+  something nobody plays, and would pass a map the actual engine falls
+  through. It feeds the same input path a player uses -- which is why
+  uinput is a lane here -- and reads the same world.
+
+  **Automated, because the target is 610 maps.** A tool needing a person
+  per map is a debugging aid, not a test system, and the rotation is the
+  scale that matters. That points at two modes rather than one. A
+  HEADLESS pass with no rendering, cheap enough to run over the whole
+  library: is the exit reachable, does the navigation graph connect, did
+  anything error, did the player fall out of the world. And a RENDERED
+  pass that captures frames, necessarily slower and run over a sample or
+  on demand, because nobody will run a gate that renders 610 maps.
+
+  **Capture must be in-engine.** A desktop screen grab is not a fallback
+  for it: under Wayland the X11 tools fail silently or hang against a
+  native window, and a full-screen grab captures the user's own desktop
+  rather than the game. The engine writes the frame itself, to a named
+  path, at a moment the script asked for.
+
+  **The consumer is a session like this one, so the output is for
+  reading by machine first.** Structured records that grep and diff --
+  position, room, what was reached, what was not, what errored, with
+  timings -- alongside images. A GUI report would be the wrong artifact:
+  the point is that a run can be compared against the previous run
+  without a person in the loop, and that a failure names its own
+  location.
+
+  **The criteria are not all written yet, so the check set has to be
+  open.** The frame-rate floor is UTA-0039's, the Monster Hunt
+  progression rules are UTA-0029's, and neither exists. Building this
+  against today's list would mean rebuilding it for each one that
+  arrives; it wants a shape where a new check is added rather than the
+  harness rewritten.
+
+  **Three items already need this and none of them owns it.** UTA-0039
+  holds a frame-rate floor across the map library, which is a
+  measurement over every map. UTA-0038 runs the live rotation and keeps
+  it running. UTA-0011's --check validates an install. All three assume
+  something that can exercise a map unattended, and this is that thing --
+  which is the argument for building it early rather than at the point
+  the first of them needs it.
+
+  **Reproducibility comes free and is worth protecting.** ADR-0002 and
+  the numeric contract already require one machine's results to match
+  another's, so a replayed input sequence that diverges across machines
+  is a contract failure rather than harness flakiness -- which makes
+  this a useful detector for that contract as well as a consumer of it.
+
+  **Where it lives is a real decision, not a detail.** design.md rule 2
+  constrains what a runtime target may link, and test scaffolding must
+  not end up on a shipped path. A mode of the game binary, a separate
+  target, and an external driver process are three different answers
+  with different consequences for that rule.
+
+  **What it cannot do, stated so a green run is not over-trusted.** It
+  can say a map is traversable, does not error, holds a frame rate and
+  opens its progression gates. It cannot say the map is any good.
+
+  Blocked-by: something to drive -- the game loading a bundle and
+  walking through it.
+  User clarification (2026-09-06), two parts, both about how far this
+  has to reach.
+
+  **It must be able to put the game into a STATE, not only move a
+  player through a level.** The example given was checking that the
+  map-vote window appears when a match ends, which no amount of walking
+  reaches. That is filed as UTA-0066, because it cannot exist before
+  there are matches to drive and this item is wanted long before then.
+  What lands HERE is the constraint: this harness's shape must not
+  preclude it. A design that assumes the only input is movement will be
+  rewritten rather than extended, which is the same reasoning that keeps
+  the check set open.
+
+  **A scripted route is a first-class way to drive the player**, not a
+  lesser one, and the item should not assume autonomous navigation. The
+  three ways differ in what they are good for and the harness wants more
+  than one. An authored route is deterministic and reviewable, so a
+  failure is reproducible and a diff against the last run means
+  something. A recorded human run is realistic in a way an authored one
+  is not, and catches what a straight line misses. Autonomous navigation
+  is the only one that scales to maps nobody has scripted, which is most
+  of 610. Hand-scripting the rotation is not on; scripting the maps that
+  matter most and letting navigation cover the rest is.
+
+  **The standing principle behind both, in the user's own framing:** the
+  deliverable is that anything worth checking can be reached and
+  observed, and the mechanism is chosen per case rather than fixed in
+  advance. That is a reason to keep the driving surface and the check
+  surface separate -- a new way to drive should not need a new way to
+  report, and a new check should not care how the state was reached.
+  **Layman:** A way to send a robot player through a level on its own, take pictures along the way, and write down what it found -- so a map can be checked without somebody playing it, and so the answer is something a machine can read rather than a person's impression.
+  Kind: test.
+  Source: user-request-2026-09-06.
+  Lanes: ugame, ci, uinput.
+
+- 📋 [UTA-0067] **A developer console that takes typed commands, and a script of them.**
+  A command surface in the running game: type a command, it happens.
+  UT99 has one on the tilde key, so this is an expected shape rather
+  than an invention, and players already know to look for it.
+
+  Proposed by the user as the way to reach a game state without playing
+  to it -- start a match, then issue a command to finish the map. That
+  use is UTA-0066's; this item is the surface those commands arrive on.
+
+  **Filed separately from UTA-0066, and in an earlier release, because
+  it pays before matches exist.** Walking a baked map is already the
+  point of 0.1.0, and the first things wanted there are a console's
+  ordinary fare: put me at that spot, show me the collision, tell me
+  which room this is, take a screenshot. Tying the console to
+  match-state control would hold it until 0.3.0 and leave the earlier
+  work with no way to ask the engine anything.
+
+  **The authority question is the real design constraint, not the
+  parser.** This engine has an authoritative server. A console command
+  that changes the world must be EXECUTED by the server, with the client
+  console only a way to ask -- a console that mutates client state
+  directly produces a client that disagrees with the server, which is
+  the classic bug this shape invites and the hardest kind to
+  diagnose later.
+
+  **So the commands fall into two classes and they are not alike.**
+  Local ones change only what this client shows -- a debug view, a
+  screenshot, a stat readout -- and need nobody's permission. World ones
+  change the game and must be asked of the server, refused by default,
+  and gated behind something a player cannot present. UTA-0066 records
+  why: "end the round now" on a server meant to run unattended is a
+  grief vector, and the gating belongs with the command surface rather
+  than with each command.
+
+  **It has to be usable without a keyboard.** A session driving this
+  reads and writes text, not a screen, so commands want to arrive from a
+  file, from standard input or over a local socket as well as from the
+  tilde key -- and each command should say what it did in a form that
+  can be read back. That is what makes UTA-0065's harness able to use
+  this rather than needing a second control path, and a `screenshot`
+  command is the obvious trigger for the in-engine capture that item
+  requires.
+
+  **What ships is a decision, not an afterthought.** UT99 shipped its
+  console and the game is better for it; the question is which commands
+  survive into a release build and which are gated out, and it is
+  cheaper to answer while the classes above are being drawn than to
+  audit a command list later.
+
+  Blocked-by: something to run the commands against -- the game loading
+  a bundle.
+  User decision (2026-09-06), corrected the same day: there are TWO
+  consoles and only one of them is this item's. A NORMAL console, the
+  kind UT99 ships, stays available to players. A DEV console -- the
+  state-driving commands this bullet is about -- is for testing only and
+  must not be available to players after 1.0.0. Until then testers use
+  it, which is the whole reason it exists.
+
+  That settles the "what ships is a decision" line above: the surface
+  ships, the dev commands do not. An earlier version of this note said
+  the answer was "none of it", which would have taken the player console
+  with it; the distinction is recorded rather than quietly rewritten
+  because it changes what somebody builds.
+
+  **Compile it out rather than hide it.** A console behind an
+  undocumented key, a hidden flag or a stripped menu entry is still in
+  the binary, and this is a community that has been finding things in
+  UT99 binaries for twenty-five years. "Not available to players" means
+  the dev COMMANDS are not in the build they run -- the console itself
+  stays, carrying the player commands. That also collapses the authority
+  problem this bullet spends most of its length on for the shipped
+  build: a command that does not exist cannot be gated wrongly. It does
+  NOT collapse it before 1.0.0, or for the player commands, which still
+  need the local-versus-world split above.
+
+  **The cost is real and is worth stating rather than discovering.** If
+  the console is absent from release builds, then UTA-0065 and UTA-0066
+  drive a binary players do not run, and a test suite that only
+  exercises the dev build is testing something nobody plays. Two things
+  keep that honest. The difference between the two builds should be
+  exactly this one thing, so nothing else diverges under cover of it.
+  And whatever the harness can do through a path a player also has --
+  scripted input, which is just keys -- should be run against the
+  RELEASE build too, so the shipped artifact is exercised rather than
+  assumed.
+
+  **Before 1.0.0 it is available, which is the point.** Every release up
+  to it is where this earns its keep, and the deadline is what stops
+  "we'll strip it later" becoming "it shipped".
+
+  **The server case does not go away.** A dedicated server may run a dev
+  build during development, and UTA-0038's runs unattended, so the
+  refuse-by-default gating on world commands is still needed for the
+  period the console exists rather than being made moot by its eventual
+  removal.
+
+  The check that this actually happened is filed against 1.0.0, where it
+  bites, rather than left in this bullet -- an obligation recorded only
+  in a 0.1.0 item shipped long before the deadline is one nobody is
+  reading on the day.
+  **Layman:** The drop-down command box UT99 has on the tilde key. Type a command and something happens -- jump to a spot, show a debug view, take a screenshot, end the match. It is how a test reaches a situation directly instead of playing until it happens.
+  Kind: implement.
+  Source: user-request-2026-09-06.
+  Lanes: uui, ugame, unet.
+
+- 📋 [UTA-0098] **umap room sampling grows with the level box and runs on one thread; dormant until the box is real.**
+  Found by the optimisation pass of 2026-09-10. The mechanism is checked
+  against the source: src/umap/Build.cpp samples a lattice over the
+  level's box, calls `roomAt` per point on one thread, and samples nothing
+  when `boundsValid` is false.
+
+  Measured by the pass on copies given a real box: AS-Frigate 2.72 s at
+  the default 32-unit spacing, and CTF-Face refused outright at 3.3e9
+  samples, its box being mostly sky. Its census found 1,258 maps would
+  need over 1e8 samples.
+
+  Decide WHICH box to sample first -- the playable area, not the sky --
+  because that matters more than any code change. Then split the loop into
+  y-row bands with `JobSystem::parallelFor`, merged in band order, one job
+  per band. Determinism must hold byte for byte at 1, 2 and N workers.
+
+  Defers itself: nothing to do until a real box reaches this code. Not
+  part of 0.1.0's cut condition.
+  Also arms a test (2026-09-10): measured, the real-asset tier's INV-6
+  ring checks examine zero footprints on every map, because the lattice
+  is empty without a valid box. Whatever box this item settles on is what
+  turns those checks from vacuous into real. UTA-0099 makes the count
+  visible in the meantime.
+  UTA-0129 (filed 2026-09-12) is the benchmark tool, and this item is one
+  of its first consumers. "Decide WHICH box to sample first" is a question
+  a profile over a real map answers directly, and the 2.72 s on AS-Frigate
+  recorded here came from the hand pass UTA-0129 exists to replace.
+  2026-09-30, from UTA-0129's first measurement: room building is
+  0.0001 s of AS-Frigate's 92.6 s bake and under that on CTF-Face,
+  so it is not a cost today. It stays dormant, as the headline says.
+  **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
+  Kind: investigate.
+  Source: review-code-2026-09-10 optimisation pass.
+  Lanes: umap.
+
+- 📋 [UTA-0184] **ut-ants: give the map launcher a modern look, keeping its large text.**
+  The user asked on 2026-09-17: the launcher looks like it was developed in
+  the 1990s; modernise it. They like its font size, which suits their
+  eyes, and the controller support, which works in the launcher; both stay.
+
+  Today Launcher.cpp draws with SDL's renderer and SDL_RenderDebugText, SDL's small built-in bitmap font scaled up, in a character grid with box outlines.
+  A modern look needs at least a real scalable font with antialiasing,
+  which means a text library (SDL3_ttf is the likely one) and a font file
+  under a licence that allows shipping, such as the SIL Open Font Licence.
+  Both go through docs/standards/dependency-acquisition.md. Then spacing,
+  a restrained palette, rounded selection and panels, and a clear
+  focus highlight a controller can follow.
+
+  How it looks is decided by research into current launcher and
+  storefront layouts, not by asking the user to compare pictures (memory:
+  no visual-judgement asks). Text never shrinks below today's size. Menus
+  proper are uui's and later (Launcher.cpp's header), so this stays the
+  launcher's own drawing and must not grow into a UI toolkit.
+
+  Placed 2026-09-17 (the user leaves placement to the session): after
+  UTA-0181 and before UTA-0157. The launcher works as it is, so the
+  drawing defects and the tiling work come first.
+  **Layman:** The map list looks like a 1990s program; make it look like a current app while keeping the text big.
+  Kind: ux.
+  Source: user-request-2026-09-17.
+  Lanes: ut-ants.
+
+- 📋 [UTA-0157] **Light fixtures gain real depth instead of reading as flat glowing textures.**
+  The user flew DM-Deck16][ on 2026-09-14: "The lights look like flat
+  textures (I know this is how the base game did it), is it possible to
+  add some geometry there to make it look like actual lights on the
+  ceiling?"
+
+  The bake already knows which surfaces are lights: their materials carry
+  an emit map (decayeds.light.light5, uttech2.light.rclflit2x and
+  uttech3.light.rnd_lite2 on that map). Three routes, cheapest first, for
+  this item's design to choose between by measurement:
+  1. Parallax occlusion on light materials (UTA-0040), so the tube sits
+     inside a recess. No new geometry.
+  2. Emissive bloom (UTA-0053), so the fixture glows past its edge.
+  3. Bake-time geometry: a housing and diffuser generated over each
+     surface wearing a light material. New geometry in the bundle, which
+     touches the format, collision and shadows, so it needs a spec.
+  Routes 1 and 2 are already filed; this item is route 3, or the decision
+  that 1 and 2 are enough.
+  User decision (2026-09-14): cheap tricks first. Routes 1 and 2
+  (parallax, UTA-0040, and bloom, UTA-0053) are tried before any
+  geometry, and whether route 3 is still needed is judged by measurement
+  after they land. The same day the user ordered FSR 1 (UTA-0154) ahead of
+  UTA-0155 and UTA-0156.
+  User direction (2026-09-14): the engine's first iteration uses the
+  cheapest methods that still make it look like a modern game. Fully
+  modern features come after. The cheap-tricks-first choice for this
+  item already fits it.
+  Claimed 2026-09-15 by session ut-ants-08, working in the main checkout
+  (/mnt/Games/Scripts/Linux/UT_Ants), after UTA-0156 shipped. Next per
+  CLAUDE.md, in the order the user set on 2026-09-14.
+  Released 2026-09-15 by ut-ants-08 with nothing built. This item's own
+  user decision (2026-09-14) tries parallax (UTA-0040, shipped) and bloom
+  (UTA-0053, still planned) before any geometry, and judges route 3 by
+  measurement after both land. So this item waits on UTA-0053.
+  User decision (2026-09-15): bring bloom forward. Only the glow part of
+  UTA-0053 is built now; then this item returns, and whether real 3D
+  housings are still needed is judged after the ceiling lights glow.
+  User decision (2026-09-15), after parallax (UTA-0040) and emissive bloom
+  (UTA-0053, 6ad38af) both landed: park this item for the user's review
+  over real matches with friends. No measurement can decide it, because
+  the original game's lights are flat. Next is UTA-0015.
+  User direction (2026-09-17), the review this item was parked for:
+  build route 3. Where a texture paints something that should have
+  depth, such as the lights on a ceiling, the bake turns that part into
+  real geometry. Wider than light fixtures: any painted detail where it
+  makes sense, which this item's design must define and decide by
+  measurement, lights first. The same day the user noted that an area left
+  too dark can be fixed by adding a light, which the map editor
+  (UTA-0034) covers.
+  Queued (2026-09-17) by the user: after UTA-0170, the map launcher.
+  **Layman:** Ceiling lights are flat pictures, as in the 1999 game; give them a real recessed housing so they look like actual lights.
+  Kind: feature.
+  Source: user-request-2026-09-14.
+  Lanes: ubake, urender, umat.
+
+- 📋 [UTA-0104] **One map standard: every baked map stores and applies its textures, surfaces and everything else the same defined way, so maps from different creators never conflict.**
+  The user's requirement (2026-09-10), given in response to the PolyFlags
+  finding recorded on UTA-0009: the maps we create from the import must all
+  follow a standard, so that updating and fixing them is seamless.
+
+  What the finding showed. UT99 carries a surface's kind only as a raw
+  32-bit PolyFlags word on each surface. Over the reference install,
+  surfaces sharing one texture disagree often (translucent 30%, portal
+  51%, wavy 54%, sky 72%), texture objects carry no PolyFlags of their
+  own, and several heavily used bits have no meaning in any source this
+  project holds. Passing that word through to the bundle would make every
+  baked map a different dialect.
+
+  The reading of the requirement, stated so the user can correct it:
+
+  - Every baked map stores each surface in ONE documented form of this
+    project's own: a fixed set of surface kinds, each with a written
+    meaning, rather than UT99's raw bits.
+  - One conversion rule set, applied identically to every map at bake
+    time, so two maps with the same UT99 surface get the same result.
+  - The original raw PolyFlags kept beside it, so a conversion can be
+    audited and re-derived.
+  - One sanctioned way to FIX a surface after the fact -- through the
+    map's recipe, never by editing a bake -- which is what makes a fix
+    survive a re-bake.
+  - A check that fails any baked map not conforming, so the standard is
+    enforced rather than hoped for.
+
+  Needs a spec: it is an on-disk contract in the bundle that the renderer
+  (UTA-0089's water and glass), the editor (UTA-0034) and every future
+  fix bind to. The surface kinds are grounded in the bit meanings measured
+  for UTA-0009, and only in bits with a known meaning.
+
+  Belongs with the baker (UTA-0011), which writes the geometry into the
+  bundle.
+  Scope clarified by the user (2026-09-10), in their words: "What I meant
+  is that the way we store and apply textures and anything else in the
+  map is following some sort of standard that we have defined for maps so
+  that two maps from different creators don't have conflicts in how it is
+  interpreted."
+
+  So this is a MAP STANDARD, wider than the surface-flag reading above,
+  which it absorbs: surfaces are one part of it, not the whole. It covers
+  how every baked map stores and applies its materials and textures, its
+  surfaces, and everything else it carries, defined once by this project,
+  so no creator's private convention changes how another creator's map
+  is read.
+
+  A conflict of exactly this kind is already measured. UT_MonsterHunt
+  found Textures/wonderland.utx shadowing Sounds/wonderland.uax on ten
+  maps, because two unrelated packages share a name and UT99 resolves by
+  search order. So identity is part of the standard: anything a map
+  refers to is identified by the package it came from, never by a bare
+  name.
+
+  Needs a spec, and probably a project standard beside it, since
+  everything the baker writes is built under it. UTA-0009's materials are
+  the first thing bound by it.
+  Decided by the user (2026-09-10): two packages sharing a name are
+  told apart by a short fingerprint of each package's contents, so two
+  different files get different names automatically and identical
+  copies are recognised as one. The fingerprint's form is this item's
+  to fix; UTA-0009's material names carry it in their package segment.
+
+  Open question for this item's spec, raised by the UTA-0009 contract
+  review: textures carry bool flags such as bMasked, and whether the
+  engine combines those with each surface's own PolyFlags is
+  unmeasured here. Settle it before fixing how a surface's kind is
+  derived.
+  Decided by the user (2026-09-11), for UTA-0109: the geometry section
+  stores each surface's raw PolyFlags now. This item adds the project's
+  own surface kinds beside them later, which changes the bundle format
+  once more.
+  **Layman:** Every imported map follows the same rules for how its textures, surfaces and everything else are stored and used, so two maps by different creators are never read differently or clash.
+  Kind: feature.
+  Source: user-request-2026-09-10.
+  Lanes: ubake, ubundle, urecipe.
+
+- 📋 [UTA-0296] **urender: soft shadows that stay sharp where an object touches and soften with distance.**
+  The user, 2026-10-06, asked whether we have contact hardening and
+  agreed to add it "when it is relevant", by "whatever cheap methods we
+  can". Today shadowOf (src/urender/shaders/shadows.glsl) reads the
+  shadow atlas once with hardware compare, so every shadow edge is
+  equally sharp at any distance from its caster.
+  Cheap method: percentage-closer soft shadows on the existing atlas. A
+  small blocker search (a few taps) finds the average caster depth, the
+  penumbra width follows from it and an assumed lamp size, and a
+  fixed-count filter (8-16 taps, rotated per pixel and resolved by the
+  anti-aliasing) blurs by that width. UT99 lights have no size, so one
+  size per lamp is a choice to make and record (from its fixture, or a
+  constant). Tap counts by quality tier, so a modest machine pays little.
+  Part of UTA-0292's realistic-lighting goal; complements UTA-0054's
+  screen-space contact shadows, which ground small objects the atlas is
+  too coarse to see.
+  **Layman:** A shadow is crisp right where a thing meets the floor and grows softer further away, as it does in real light.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
+- 📋 [UTA-0298] **urender: specular highlights, so metal, wet and polished surfaces shine where a light catches them.**
+  The user, 2026-10-06: "Specular highlights, yes please, add that in
+  too." Today every surface but water is matte: the shaders' only
+  Fresnel or roughness term is the water look (scene.frag, water.glsl).
+  The materials already carry roughness and metalness (umat, the bundle's
+  material section, urender's Materials), so the inputs exist and only
+  the shading is missing.
+  Cheap method: one normalised Blinn-Phong or GGX lobe per shadowed light,
+  weighted by the material's roughness and metalness, with Schlick's
+  Fresnel; for the room's own reflected light, the baked probes as a rough
+  glossy fill, if they hold a direction (unchecked; no new bake either
+  way). Energy kept so a
+  surface does not get brighter overall. Its own on/off switch (UTA-0297)
+  and a tier. Part of UTA-0292; UTA-0045's screen-space reflections are
+  the sharper, costlier step after it.
+  **Layman:** Shiny surfaces catch the light: metal panels, wet floors and polished stone show a bright glint that moves as you move.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
+- 📋 [UTA-0299] **urender: mirror floors and walls reflect the room, as the original's mirrored surfaces do.**
+  The user, 2026-10-06: some original maps have a mirror floor, and we
+  should use whatever method the original used for it. UT99 marks such a
+  surface with the PF_Mirrored poly flag and draws the scene again
+  reflected about the surface's plane. Our code names no such flag yet
+  (no PF_Mirrored in src/), so mirrored surfaces draw as ordinary ones.
+  Cheap method, the original's own: a planar reflection. When a mirrored
+  surface is on screen, draw the scene once more reflected about its
+  plane and clipped to it, at a lower resolution on a lower tier, and
+  show it on the surface. Most maps pay nothing because they have no such
+  surface.
+  First: census which maps carry PF_Mirrored surfaces and how many
+  planes each has, since one extra pass per plane is the cost. Its own
+  switch (UTA-0297).
+  **Layman:** Maps whose floor is a mirror in the original show the room reflected in it again, instead of a plain floor.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: ubake, urender.
+
+- 📋 [UTA-0300] **urender: the view adapts to brightness, as eyes do, when moving between dark and bright places.**
+  Proposed 2026-10-06 and accepted by the user as part of the realism
+  work (UTA-0292). Cheap method: measure the frame's average brightness
+  from a small downsampled copy, and move the exposure slowly toward the
+  value that brings it to a target, faster when it brightens than when it
+  darkens. Clamped to a narrow range around the calibrated exposure, so
+  it never becomes a brightness gain that hides a room's real light
+  (UTA-0274's calibration stays the anchor). Its own switch (UTA-0297),
+  and off in any capture or comparison run so frames stay comparable.
+  **Layman:** Stepping from a dark tunnel into a bright hall dazzles for a moment, then settles, the way your eyes adjust.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
+- 📋 [UTA-0301] **ubake and urender: baked reflections, so shiny floors and metal reflect their surroundings everywhere.**
+  Proposed 2026-10-06 and accepted by the user as part of the realism
+  work (UTA-0292). Cheap method, the standard one in modern games: at
+  bake time capture small cubemaps at chosen points (per room, from
+  umap's rooms), pre-blurred into a few roughness levels; at draw time a
+  shiny surface samples the nearest one, box-projected onto the room so
+  the reflection lines up. Pairs with UTA-0298's highlights, which give
+  the glint from lights while this gives the room; UTA-0045's
+  screen-space reflections refine it where the screen holds the answer.
+  Its own switch (UTA-0297).
+  **Layman:** Shiny surfaces show a soft reflection of the room around them, prepared ahead of time so it costs almost nothing while playing.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: ubake, urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
