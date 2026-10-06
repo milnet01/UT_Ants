@@ -15164,6 +15164,28 @@ stays with movement in 0.2.0.
   separate question. Decision: keep per-pixel shadows. UT's smear is an
   artifact of a coarse grid, and the target is realistic light with rooms
   about as bright as the original, so this surface is not a defect to copy.
+  Lamp curve, ours against the original's, same camera (2026-10-06).
+  UT_MonsterHunt's Light14/Light91 sweep frames, re-rendered in ours
+  (r40 bake, --no-probes since UT has no bounce, FOV 121.28, 2560x720,
+  Light14 = e4, Light91 = e3, brightness overridden at draw time in a
+  scratch worktree, ~/.cache/uta-scratch/wt-0274b, UTA_SCRATCH_LIGHT).
+  Statistic: per pixel (frame V - frame 0) / (frame 255 - frame 0) on
+  luma, median, rows 600+ and saturated pixels dropped (u274/sweepstat.py;
+  it gives the original 0.052 at V 8 against the 0.058 reported, so the
+  mask differs slightly but the shape holds). Light14 at V 8..192:
+  original 0.052 0.103 0.199 0.287 0.370 0.519 0.647 0.884; ours as
+  shipped 0.206 0.289 0.401 0.484 0.550 0.659 0.747 0.889, so a dim lamp is
+  four times too strong. Variants, curve RMS against the original, Light14
+  then Light91: shipped 0.158 / 0.209; power 2.4 0.092 / -; power 3.2 0.034
+  / 0.152; lightIntensity = V/255 with power 1.6 0.056 / 0.009; V/255 with
+  power 2.4 0.148 / -. Only the linear intensity fits both lamps, so
+  FGetHSV's sqrt-like curve (UTA-0165) is the wrong lamp response for the
+  display; power 3.2 fitting Light14 alone was a coincidence of one lamp.
+  Next: make lightIntensity linear in V (it also drives zone ambient),
+  find every mirror of the curve (ubake's probes, the device tests), then
+  refit EXPOSURE and AMBIENT_SCALE over the three reference maps, since
+  every lamp below 255 gets dimmer. Ours is already 15-40% too dark on
+  DM-Fetid, so the refit is not optional.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
