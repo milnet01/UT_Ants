@@ -15207,6 +15207,18 @@ stays with movement in 0.2.0.
   original's own lamp-dimming response (Light91 curve RMS 0.009 against
   0.209) and is the physically sensible rule; per the user's direction,
   matching is a guide, not the target.
+  Refit 2 (2026-10-06): a higher EXPOSURE would also brighten PF_Unlit
+  surfaces, which no lamp reaches, so the lamp scale goes into the
+  intensity instead (intensity = c * V/255 in ubake and light.glsl, so
+  fog and probes get it too), AMBIENT_SCALE 1.5 (u274/refit2.sh). Pooled
+  RMS at k, then asfrigate, deck16, fetid-vol: c 1.2 32.51 at 6.67 (31.8,
+  35.5, 28.4); c 1.35 32.37 at 5.74 (31.7, 35.3, 28.2); c 1.5 32.32 at
+  4.96 (31.6, 35.2, 28.6, fetid bias -12.2). At c 1.5 the exposure is
+  the shipped 5.03 within the fit's step, so unlit surfaces are
+  unchanged. Shipped curve for comparison: 31.61 at 5.28, fetid 26.9.
+  Held, not built: the user then said DM-Fetid's lighting looks perfect
+  as shipped (viewer capture, 2026-10-06), and this change moves Fetid
+  further from the original; asked whether to hold it.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
