@@ -15348,7 +15348,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-KGalleon-20261006-094225
 
-- 🚧 [UTA-0314] **ubake: hanging vines draw as black sheets; a texture's own bMasked is ignored, and the original honours it.**
+- ✅ [UTA-0314] **ubake: hanging vines draw as black sheets; a texture's own bMasked is ignored, and the original honours it.**
   User's three F12 captures on DM-Agony, 2026-10-06. ut-compare at all
   three cameras: the original draws the moss see-through, ours draws its
   index-0 texels black. ut-dump --surface-list: the four sheets (textures
@@ -15374,11 +15374,36 @@ stays with movement in 0.2.0.
   them into the surface flags in ubake, amend UTA-0009 SS 2 item 4 and the
   UTA-0011 invariant, bump BAKER_REVISION, check with ut-compare at the
   three DM-Agony captures. Keep the u307 worktree until this is done.
+  Resolved (2026-10-06): 9a75c4c. A texture's own bMasked now sets
+  PF_MASKED on every surface wearing it, level and mover, before any
+  bake step reads a surface's flags; bMasked only, as the 469 SDK's
+  render devices honour no other texture bit that way. 511 textures in
+  the install are bMasked on surfaces without PF_Masked. Baker revision
+  42. ut-compare DM-Agony at the three captures: moss see-through, as
+  in the original. GitHub green at 9a75c4c.
   **Layman:** On DM-Agony the hanging moss under wooden beams shows a solid black panel behind it; in the original the black part is see-through.
   Kind: fix.
   Source: user-request-2026-10-06.
   Lanes: upkg, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104446, ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104452, ~/.local/state/ut-ants/map-captures/DM-Agony-20261006-104800, ~/.cache/uta-scratch/agony/compare
+
+- 📋 [UTA-0316] **map-pic: save each map's own preview picture as a PNG, for UT_MonsterHunt's server launcher and our own map browser.**
+  UT_MonsterHunt GAME-0196 (message 450): `map-pic <install> <map.unr>
+  <out.png>`, printing which route it took (preview / render / none).
+  Preview route: LevelInfo.Screenshot, an object property naming a
+  texture, mostly in MyLevel, sometimes an outside package; decode with
+  upkg::readTexture and its palette. Their name-table count: 952 of 1389
+  MH maps name Screenshot. ut-dump's level-props skips object
+  properties today, so it reports none. Render route, for maps with no
+  preview: a view from a PlayerStart, 512x384, fov 90. Ours needs a
+  full bake per map first (minutes each), so their headless UT rig
+  shoots those for now; ours can take over once maps are baked anyway
+  for UTA-0031's browser. Rule 1 does not reach it; placed first as
+  help for another session, the user's top priority (2026-10-05).
+  **Layman:** A small tool that pulls the picture each map ships with out of the map file, so launchers can show what a map looks like.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-10-06.
+  Lanes: upkg, tools.
 
 ## 0.2.0 — Movement and weapons
 
@@ -17543,6 +17568,12 @@ to.
   nobody to ask and the map vote opens directly. What carries the consent
   step, and whether it is a majority or a threshold, is undecided and is
   this item's to settle.
+  User, 2026-10-06: the in-game map browser and vote show a picture
+  of each map, so players recognise it: the map's own preview
+  (LevelInfo.Screenshot) where it has one, else a shot rendered from our
+  bake at a PlayerStart. Both come from map-pic (filed today for
+  UT_MonsterHunt's server launcher). A separate server manager is filed
+  for 1.0.0.
   **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
   Kind: implement.
   Source: design-2026-09-03.
@@ -18147,6 +18178,18 @@ to.
   maps miss by 4096 or more, 198 by 512 or more. Inverted boxes (valid 0)
   are assumed to mean no box; unmeasured. Sent to UT_MonsterHunt (message
   447, handoff file ut-ants-bound-scan-2026-10-06.md).
+  GAME-0187 (2026-10-06, node 2567, UT_MonsterHunt message 449):
+  tested from their rig with our build's bsp-point and bound-scan,
+  read-only. Node 2567's subtree (81 nodes) reaches DayskyB sky panels
+  in open air (zone 1); bound 1170 does not even hold the node's own
+  polygon. A copy with bound 1170 set to the world box (24 bytes) drops
+  2567 from bound-scan and keeps 2611, 1316, 1477 and 9775. Rig, undrawn
+  px unpatched / patched: eye (-5600,-8000,-23400) yaw 270: 91 / 0; eye
+  (-5600,-20000,-23400) yaw 270: 1136 / 0; yaw 90 at both, and the
+  user's spot at yaw 207/275/290: 0 / 0. So 2567 causes a small sky
+  triangle near the horizon, seen from out over the sea, not from the
+  user's spot. Patch not shipped; the user's call. Their files:
+  work/uta0269/hole0283/{subtree.py,patchbound.py,n2567.sh,n2567-sheet.png}.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
@@ -18613,6 +18656,21 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-10-06.
   Lanes: uui, urender.
+
+- 📋 [UTA-0317] **A server manager, separate from the game: start and stop the dedicated server, edit the map rotation with map pictures, see who is on.**
+  User, 2026-10-06: map pictures belong in the game's own map screen
+  (UTA-0031), and a separate launcher may also be worth having because
+  it keeps the running game apart from the server. Agreed: the server
+  runs headless as its own process, so a game crash, close or update
+  never drops the players on it, and it can run on another machine.
+  The manager is only a front end over that process and its rotation
+  file; it holds no game state. Pictures come from map-pic. Placed in
+  1.0.0 beside UTA-0038, which is when we run the live server ourselves;
+  UT_MonsterHunt's launcher serves the UT99 server until then.
+  **Layman:** A separate program for running the server, so the server keeps going when the game itself is closed, crashes or updates.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: ut-ants, unet.
 
 ## After 1.0.0
 
