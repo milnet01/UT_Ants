@@ -15638,6 +15638,8 @@ stays with movement in 0.2.0.
   since it removes shadow reads outright for lights that never move.
   UTA-0328 (UT_MonsterHunt's tool) comes first: helping other sessions
   leads the priority list.
+  Decided (user, 2026-10-06): UTA-0326 (baked shadow mask) next, ahead
+  of UTA-0325.
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -18573,6 +18575,14 @@ to.
   units (AS-OceanFloor; CTF-Kosov 5125), so 7 of the 9 maps at 4096+
   (4431 to 6523) are in the stock range. Only MH-SeriousSam-Dunes-T1
   (1631341) and MH-TrifeaOutpostMore (469888) are above 8192.
+  GAME-0217 (2026-10-06, sky-blue through TheBoat's planking): all 956
+  inverted bounds on the live -BP are one shape, min +65536 and max
+  -65536 with valid 0, an empty box. 949 are on Barco. Live and backup
+  differ only in the data bytes of bounds 1170, 1173 and 1174, so the
+  inverted boxes are the author's. Floor node 1448 sits under node 1307
+  (bound 928, inverted) and is drawn with the eye inside 1307's subtree,
+  so an inverted box does not cull there. A view from outside such a
+  subtree is untested. Scratch: ambient-census/inv-check.cpp.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
