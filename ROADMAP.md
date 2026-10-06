@@ -15206,6 +15206,18 @@ stays with movement in 0.2.0.
   those furthest from the cluster centre; far clusters are large and turn
   with the view, so the dropped set changes. Test: raise the capacity in a
   throwaway build and re-render; if the face stops changing, that is it.
+  Progress (2026-10-06): cause confirmed. Throwaway worktree
+  ~/.cache/uta-scratch/wt-0309, same bake and cameras: at
+  CLUSTER_CAPACITY 64, 153-177 clusters overflow per view; the busiest
+  cluster holds 119-139 lights. At 256 none overflows and the square
+  tower's face and the round tower's top look the same in all four
+  views (falk/cmp.png; top row 64, bottom 256). Cost of 256, ut-bench
+  frame, ultra 3840x2160, RX 6600: median 32.2 to 40.3 ms still, 32.8 to
+  40.2 moving (falk/bench64.txt, bench256.txt). Too dear as the fix.
+  Next: rank the dropped lights by their reach at the cluster rather
+  than by distance, so an overflow drops the faintest, and find where
+  the 8 ms goes. User asked about MegaLights the same day; it is
+  UTA-0160, after 0.1.0.
   **Layman:** On one castle map, the shadows on a distant tower appear and disappear just by turning to look around, which real shadows never do.
   Kind: fix.
   Source: user-request-2026-10-06.
