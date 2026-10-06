@@ -14939,7 +14939,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02.
   Lanes: render.
 
-- 📋 [UTA-0274] **urender: DM-Fetid's darkest areas draw two to five times brighter than the original's, with or without fog.**
+- ✅ [UTA-0274] **urender: DM-Fetid's darkest areas draw two to five times brighter than the original's, with or without fog.**
   Found by UTA-0262, 2026-10-02, baker r31, light time 0, EXPOSURE
   5.03, ours rendered with volumetric fog off against the original's
   frames with volumetric lighting off (ut-ants-uta0156/orig-fetid-novol).
@@ -15219,6 +15219,16 @@ stays with movement in 0.2.0.
   Held, not built: the user then said DM-Fetid's lighting looks perfect
   as shipped (viewer capture, 2026-10-06), and this change moves Fetid
   further from the original; asked whether to hold it.
+  Decision, user 2026-10-06: hold. DM-Fetid looks great as shipped; the
+  original they played had no fog and was brighter, but bright enough to
+  see is what matters, and every player carries a flashlight. So the
+  shipped lamp curve and constants stay; the linear-intensity finding and
+  both refits above remain on record for UTA-0292 to revisit against a
+  path-traced reference, not against the original.
+  Closed (2026-10-06) as an investigation answered: the pose-7 excess is
+  UT99's coarse lightmap smearing a shadow edge, which we do not copy;
+  the lamp-response finding is recorded above for UTA-0292; and the user
+  accepts DM-Fetid's look as shipped. No code changed.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
@@ -15406,6 +15416,13 @@ stays with movement in 0.2.0.
   to its running session). The original's floor/ frames carry no player
   gun, so that trap does not apply here. Next: when the sweep arrives,
   fit the curve, then re-measure this pool with it.
+  UTA-0274 closed (2026-10-06) with the lamp curve held as shipped, by
+  the user's decision. Its sweep showed the original's lamp response is
+  linear in brightness, so a dim lamp is even weaker there than here, and
+  the curve does not explain this pool being darker in ours. The user's
+  direction the same day applies: match the original as a guide; where a
+  spot is too dark, a light may be added (UTA-0256). Compare it with
+  UTA-0306's tool when that lands.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.
@@ -15854,6 +15871,31 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: umat, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/DM-Cybrosis][-20261006-073827/frame.png
+
+- 📋 [UTA-0306] **A tool that renders any map in the original game at given camera positions, beside our own frame of the same view.**
+  The user, 2026-10-06: "We need a new tool that allows us to render each
+  map in its original form like it did in the original game but at
+  specific camera positions so that we can compare between the original
+  and the baked maps."
+  Most of it exists as scratch: ut-ants-uta0156/capture-original.sh runs
+  the original client headless on a private Xvfb display with our
+  UTAShot mutator, from an install copy and a private preference tree,
+  but only at PlayerStarts; UT_MonsterHunt's MHPanProbe takes shots at
+  named cameras and can vary a light. Promote that into a supported tool:
+  take cameras in the same line format as ut-shot and the viewer's F12
+  camera.txt (so a viewer capture folder can be named directly), write
+  the original's frame for each, render ours with ut-shot at the same
+  camera and size, and lay the pair side by side with the camera and
+  settings written beside them. Options: volumetric lighting on or off,
+  resolution, FOV. It never touches the live install or another
+  project's trees. Traps already paid for are in the memory notes on
+  original-game captures (Xvfb grabs are black, use the engine's shot;
+  -nosound; bracket pkill patterns). Needed by UTA-0292, UTA-0303 and
+  UTA-0305, which is why it sits in this release.
+  **Layman:** Pick a spot in a map and get two pictures from exactly the same place: one from the original 1999 game and one from ours, so differences are easy to see.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: tools.
 
 ## 0.2.0 — Movement and weapons
 
