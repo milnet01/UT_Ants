@@ -15187,7 +15187,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0309] **MH-'Z-FALKENSTINE: shadows on a far tower change as the camera turns, with the camera standing still.**
+- ✅ [UTA-0309] **MH-'Z-FALKENSTINE: shadows on a far tower change as the camera turns, with the camera standing still.**
   The user, 2026-10-06: "shadows keep changing on a far wall as the
   camera moves." Five viewer captures, 08:37:30 to 08:37:48; four from
   one position (2371.13 -1689.97 -1010.09) turning only, yaw -18036 to
@@ -15227,6 +15227,8 @@ stays with movement in 0.2.0.
   101 levels to 3-21; what is left is a thin strip on one tower in a far
   cluster, and goes with UTA-0160. Frame time unchanged. Test: UTA-0309
   in RenderLightingTest, red before the fix. Flip once GitHub is green.
+  Shipped (2026-10-06): GitHub's matrix green at af3234c, which carries
+  the fix (b6991e2). The faint leftover strip goes with UTA-0160.
   **Layman:** On one castle map, the shadows on a distant tower appear and disappear just by turning to look around, which real shadows never do.
   Kind: fix.
   Source: user-request-2026-10-06.
