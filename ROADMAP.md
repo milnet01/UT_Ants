@@ -14610,7 +14610,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-02 split-from-UTA-0180.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0278] **urender: DM-ArcaneTemple's pool walls under water draw at about a quarter of the original's light.**
+- ✅ [UTA-0278] **urender: DM-ArcaneTemple's pool walls under water draw at about a quarter of the original's light.**
   Found by UTA-0215's comparison, 2026-10-02, baker r35, against
   UT_MonsterHunt's frames (work/uta0269/water/, poses 0-2 at (-602, 63.4),
   eye z -73). Lower half of the frame, ours/original: about 0.56 in every
@@ -14709,6 +14709,15 @@ stays with movement in 0.2.0.
   direction the same day applies: match the original as a guide; where a
   spot is too dark, a light may be added (UTA-0256). Compare it with
   UTA-0306's tool when that lands.
+  Closed (2026-10-06): with the water's view drawn, as a player sees it,
+  the gap is gone. ut-compare at -602 63.4 -73, level, 1280x720
+  (~/.cache/uta-scratch/u278/cmp/out): below the surface line ours
+  averages 106 grey against the original's 95, 11% brighter. The quarter
+  figure was the bare pool with the veil off. By the user's direction of
+  2026-10-06, the original's brightness is a guide, not a target, so the
+  bare pool is not chased. Above water from 67 the walls are 20-25%
+  darker in ours (46 vs 62 top band): that is UTA-0292's lighting pass.
+  Note: the original's PNGs carry alpha; measure with -alpha off.
   **Layman:** Under water in the temple map, the pool's walls look about four times darker than in the original game.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0215.
@@ -15178,6 +15187,22 @@ stays with movement in 0.2.0.
   dark. Two steeper ut-compare views (compare2) did NOT line up: the
   original's camera sat elsewhere, so check ut-compare's pose at steep
   pitch before trusting it for this.
+  Progress (2026-10-06, pose check): ut-compare from camera -1175 -1366
+  -600, yaw -17907, fov 90, at pitch -9471, -12000 and -14000
+  (~/.cache/uta-scratch/u307/pitch/out). None of the three lines up,
+  the shallow one included, though run2's -9471 view from z -718.13
+  did. So the mismatch is not steep pitch. The original logs the pose
+  it was asked for each time (UTACAM SHOT), and its frame looks
+  magnified, catwalk near the same relative place. ut-shot's camera
+  math matches UT's yaw-pitch-roll (Placement.cpp rotationOf). Next:
+  find what differs at this spot; the original's frame never shows the
+  slime surface, ours does, so check the original's zone at the camera
+  (a water zone's view) before trusting any frame from here. Until
+  then, judge the band from run2 only.
+  Correction (2026-10-06, later): liquid is not the cause. On
+  DM-ArcaneTemple ut-compare lines up both under the water (z -73) and
+  above it (z 67) (~/.cache/uta-scratch/u278/cmp/out). So the Deck16
+  mismatch at z -600 is something at that spot; drop the zone lead.
   **Layman:** In one spot of Deck16, our version paints a dark stripe across the green slime that the original game does not have.
   Kind: investigate.
   Source: in-session-2026-10-06.
@@ -15325,7 +15350,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-HealPod][-20261006-093218, ~/.cache/uta-scratch/heal/compare, ~/.cache/uta-scratch/heal/drop.png
 
-- 📋 [UTA-0312] **urender: DM-KGalleon's flooded hold ripples about 15 times too fast; liquid drift scales with FX_Frequency, which is 125 there.**
+- ✅ [UTA-0312] **urender: DM-KGalleon's flooded hold ripples about 15 times too fast; liquid drift scales with FX_Frequency, which is 125 there.**
   The user, 2026-10-06, in the viewer: the water at the bottom of the
   boat animates extremely fast, as if shocked; where it is, it should be
   stiller than normal. The surface is the floor itself, surf 826
@@ -15342,6 +15367,15 @@ stays with movement in 0.2.0.
   short time apart (or ask UT_MonsterHunt for paired captures) and
   compare how far the ripples move against pond1's; then hold drift
   constant, or cap it, and amend UTA-0105 section 4.4.
+  Resolved (2026-10-06, b08e53a, GitHub green): the drift is one
+  constant, 4.5 cells a second, no longer scaled by FX_Frequency.
+  UT99's WaterTexture.uc (SDK 469e) documents FX_Frequency as a drop
+  setting, not a wave speed. 4.5 is what the fitted DM-ArcaneTemple pool
+  already ran at (4 x 9/8), so that fit is unchanged. UTA-0105 sections
+  4.4 and 4.6 amended. Device test: frames at FX_Frequency 8 and 125
+  are identical (red on the old shader, 3162 pixels apart). Not checked
+  against the original: whether this hold is calmer than normal water,
+  as the user saw it; paired captures asked of UT_MonsterHunt.
   **Layman:** The water in the galleon's hold shivers wildly; it should be calmer than normal water.
   Kind: fix.
   Source: user-request-2026-10-06.
