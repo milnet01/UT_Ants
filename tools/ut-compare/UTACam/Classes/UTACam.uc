@@ -107,7 +107,11 @@ function Timer()
 		PP.ConsoleCommand("shot");
 		log("UTACAM SHOT "$Index$" cam="$CamLoc.X$","$CamLoc.Y$","$CamLoc.Z
 			$" rot="$CamRot.Pitch$","$CamRot.Yaw$","$CamRot.Roll$" view="$ViewActor$" state="$PP.GetStateName()
-			$" target="$PP.ViewTarget$" loc="$PP.Location.X$","$PP.Location.Y$","$PP.Location.Z);
+			$" target="$PP.ViewTarget$" loc="$PP.Location.X$","$PP.Location.Y$","$PP.Location.Z
+			// Where the eye is in the BSP: a leaf of -1 and zone 0 is solid,
+			// from which the original draws a view ours does not.
+			$" headZone="$PP.HeadRegion.Zone$" headZoneNumber="$PP.HeadRegion.ZoneNumber$" headLeaf="$PP.HeadRegion.iLeaf
+			$" zone="$PP.Region.Zone$" leaf="$PP.Region.iLeaf);
 		SetTimer(ShotSeconds, false);
 		return;
 	}

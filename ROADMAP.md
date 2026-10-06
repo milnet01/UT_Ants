@@ -15203,6 +15203,19 @@ stays with movement in 0.2.0.
   DM-ArcaneTemple ut-compare lines up both under the water (z -73) and
   above it (z 67) (~/.cache/uta-scratch/u278/cmp/out). So the Deck16
   mismatch at z -600 is something at that spot; drop the zone lead.
+  Progress (2026-10-06, zone check): the z -600 views are invalid. UTACam
+  now logs the eye's BSP leaf and zone: at -1175 -1366 -600 it is leaf -1,
+  zone 0 (inside solid), at run2's z -718.13 it is leaf 20, zone 1
+  (~/.cache/uta-scratch/u307/zone/out). Judge from run2 only.
+  Measured on run2 (rows 236-276 original, 364-404 ours; R/G per 20 px
+  column): ours darkens the slime green from ~212 to ~112 in the band;
+  the original's green stays ~165-172 across its patch, which is only a
+  little yellower (R 44 to 62). So the original shows the patch at a few
+  percent at most, ours at about half. Next: why our light-34 shadow on
+  Goop3 is so much darker; check whether the original's lightmap on the
+  slime sheet is shadowed at all (the yellow tint may be the shadowed
+  bed seen through it), and what our shadow test does on a Translucent
+  Portal sheet.
   **Layman:** In one spot of Deck16, our version paints a dark stripe across the green slime that the original game does not have.
   Kind: investigate.
   Source: in-session-2026-10-06.
