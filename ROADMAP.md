@@ -17953,6 +17953,23 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: user-request-2026-10-05.
   Lanes: core, ut-ants, urender, ut-bench.
 
+- 📋 [UTA-0297] **uui and urender: a graphics settings menu where each visual effect can be turned on and off.**
+  The user, 2026-10-06: "We will also need to offer a graphics menu in
+  settings allowing users to turn things on and off."
+  This changes UTA-0051's rule that a visual feature only declares the
+  tier it switches on at and owns no toggle of its own
+  (docs/specs/UTA-0051-quality-tiers.md). The tiers stay, as presets: picking
+  one sets every effect, and the player may then override single effects,
+  shown as a custom setting. So from now on every new effect (UTA-0296,
+  UTA-0053, UTA-0054, UTA-0045 and the rest) should get its own on/off
+  switch in the renderer when it is built, which is cheap then and costly
+  to retrofit; the menu itself belongs with the game menus, UTA-0120.
+  Amend UTA-0051's spec when the switches are first built.
+  **Layman:** A graphics page in the settings lets players pick a quality level and then switch individual effects on or off to suit their computer.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: uui, urender.
+
 ## After 1.0.0
 
 Work the user wants once 1.0.0 has replaced the live server, not before it.
