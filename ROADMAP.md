@@ -15675,6 +15675,18 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
+- 📋 [UTA-0329] **Codebase audit on Thursday 2026-10-08, when the weekly limit resets.**
+  The user asked 2026-10-06 for a codebase audit on Thursday, when the
+  weekly usage limit resets. Not before 2026-10-08. Run review-code over
+  the whole tree (one subsystem per lane), with check-code first for what
+  the tools decide. File each verified finding as its own item with a
+  review-code-2026-10-08 Source, so CLAUDE.md's priority rule 1 picks
+  them up.
+  **Layman:** A full independent check of the code for bugs, scheduled for the day the weekly usage allowance renews.
+  Kind: chore.
+  Source: user-request-2026-10-06.
+  Lanes: upkg, unav, urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
