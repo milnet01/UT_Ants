@@ -168,8 +168,9 @@ value noise drifting in different directions, their size set in texels of
 the texture (`size`) so a ripple spans the same share of a picture however
 often it repeats. Its gradient is the **slope**. The noise is computed in the
 shader; no noise texture is added. It is seeded by the material index, as
-UTA-0263's flames are. For Wet and Wave it drifts at a speed scaled by
-`frequency`; Ice does not use it.
+UTA-0263's flames are. For Wet and Wave it drifts at one fixed speed:
+`frequency` paces UT99's drops, not its waves (UTA-0312). Ice does not use
+the field.
 
 **Per kind:**
 
@@ -239,7 +240,7 @@ today.
 ### 4.6 Measured constants
 
 The constants in `liquid.glsl` are fitted, not chosen: the ripple size in
-texels, the drift speed per unit of `frequency`, the warp per unit of
+texels, the drift speed, the warp per unit of
 `amplitude`, the tilt per unit of `amplitude`, the Ice pan rate per unit of
 `pan − 128`, the circular and wavy size and rate, and the Wave bump and
 highlight strengths. They are fitted against original frames, as UTA-0263

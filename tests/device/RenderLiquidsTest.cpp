@@ -140,6 +140,16 @@ TEST_CASE("UTA-0105 INV-5: a pinned liquid is still and a moving one moves", "[d
     CHECK(changed(frameAt(plain, PINNED), frameAt(plain, PINNED + 0.25)) == 0);
 }
 
+TEST_CASE("UTA-0312: a Wet liquid's ripple speed does not follow FX_Frequency", "[device][liquids]") {
+    removeDisplay();
+    // DM-KGalleon's hold is FX_Frequency 125; scaling the drift by it rippled
+    // that floor about 15 times too fast. The setting paces drops, not waves.
+    LiquidLook fast = wet();
+    fast.frequency = 125;
+    const double later = PINNED + 0.25;
+    CHECK(changed(frameAt(stripedSquare(wet()), later), frameAt(stripedSquare(fast), later)) == 0);
+}
+
 TEST_CASE("UTA-0105 INV-6: an Ice look pans from a zero point of 128", "[device][liquids]") {
     removeDisplay();
     const uta::ubundle::Bundle still = stripedSquare(ice(128));

@@ -42,7 +42,12 @@ const uint PANNING_WAVY_Y = 4u;
 // The pool's mean luma is 81.0 against the original's 110.9 with the ripple
 // on or off: that is the water's look, UTA-0089's, not its motion.
 const float LIQUID_RIPPLE_TEXELS = 24.0; // one noise cell's span, texels of the picture
-const float LIQUID_DRIFT = 4.0;          // cells a second the field drifts, at FX_Frequency 8
+// UTA-0312: the drift no longer scales with FX_Frequency. In UT99 that
+// setting paces a WaterTexture's drops (WaterTexture.uc's WDrop notes), not
+// how fast its waves move; scaled, DM-KGalleon's hold (FX_Frequency 125)
+// rippled about 15 times too fast. The sweeps' drift values above are at
+// FX_Frequency 8; the fitted 4 ran at the pool's 9, so 4.5 keeps that pool.
+const float LIQUID_DRIFT = 4.5;          // cells a second the field drifts
 const float LIQUID_WARP_TEXELS = 6.0;    // the picture's largest shift at WaveAmp 128, texels
 const float LIQUID_TILT = 0.2;           // the normal's slope at WaveAmp 128, per unit of noise slope
 // NOT FITTED. DOM-MetalDream's XbpFX.blueplasma changes 6.98 a frame in the
@@ -127,7 +132,7 @@ LiquidSample liquidAt(Liquid liquid, vec2 uv, float seconds, uint seed, uint gla
     }
     vec2 size = max(liquid.size, vec2(1.0));
     vec2 p = uv * size / LIQUID_RIPPLE_TEXELS;
-    float drift = LIQUID_DRIFT * liquid.frequency / 8.0;
+    float drift = LIQUID_DRIFT;
     // The slope by forward differences, a tenth of a cell apart.
     const float STEP = 0.1;
     float h = liquidHeight(p, seconds, drift, seed);
