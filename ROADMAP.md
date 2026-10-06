@@ -17910,6 +17910,23 @@ to.
   121.28 pitching up 0..+3584 (predict a drop before about +2967), and
   an optional 30-deg yaw sweep at fov 90. UT_MonsterHunt data:
   work/uta0269/hole0283/flatPitch/, flatFov/.
+  GAME-0187 (2026-10-06, sweeps A-C): A and B were shot at yaw 180,
+  where 601 is always drawn, so they tested nothing; the reach lead is
+  out with its premise (fov 90 does not drop 601 at every yaw). C: at
+  fov 90, 601 is dropped at 330-120 deg and drawn at 150-300. Model that
+  fits both fovs: 601 is drawn only while a fixed band of directions is
+  in view; at the user's spot it is 171.6..263.7 deg. bsp-point
+  --boxwedge with each eye's band finds one match within 0.4 deg at all
+  three eyes: render bounds 1173 and 1174 (identical bytes), x -7284..
+  -5124, y -25000..-704, z -26209..-22768. Bound 1174 belongs to node
+  1305 (Brush27, plane x = -5124, on the eye's path, the eye on its
+  front side), but it covers only the BACK side of that plane. So the
+  original skips node 1305 and the front subtree holding the eye's room
+  whenever that box leaves the view. It predicts drawn yaws 111.0..324.4
+  at fov 121.28 (measured 111.0..324.3) and 126.7..308.8 at fov 90.
+  Sent: patch bounds 1173 and 1174 to the world box; predict 601 drawn
+  at every yaw. Data: ~/.cache/uta-scratch/u283/boxwedge-drawn.txt,
+  path-bounds.txt.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
