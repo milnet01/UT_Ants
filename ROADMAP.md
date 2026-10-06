@@ -17628,6 +17628,16 @@ here is hosted, downloaded and played by someone else.
   requirement on this item, not a polish pass afterwards: it decides the
   defaults, how much is hidden, and whether a wrong action is possible at
   all rather than merely undoable.
+  User requirement (2026-10-06): whatever we apply to the maps must also
+  be doable in the map editor. So every per-map treatment the baker or
+  renderer gains is stored as map data (the recipe, urecipe) rather than
+  hard-coded, and the editor reads and writes it. Open per-map
+  treatments so far: hiding the map's edge by horizon or haze (UTA-0302),
+  an added lamp with its fixture in a dark room (UTA-0256), mirror
+  surfaces (UTA-0299), where reflection captures sit (UTA-0301), each
+  lamp's size for soft shadows (UTA-0296), a map's colour treatment
+  (UTA-0053) and a map's new sky (UTA-0282). A new per-map treatment adds
+  itself to this list.
   **Layman:** The map editor. Open a converted level, change it, or build one from nothing -- and save it in our own format.
   Kind: implement.
   Source: design-2026-09-03.
