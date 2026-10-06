@@ -15720,6 +15720,26 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
+- 📋 [UTA-0298] **urender: specular highlights, so metal, wet and polished surfaces shine where a light catches them.**
+  The user, 2026-10-06: "Specular highlights, yes please, add that in
+  too." Today every surface but water is matte: the shaders' only
+  Fresnel or roughness term is the water look (scene.frag, water.glsl).
+  The materials already carry roughness and metalness (umat, the bundle's
+  material section, urender's Materials), so the inputs exist and only
+  the shading is missing.
+  Cheap method: one normalised Blinn-Phong or GGX lobe per shadowed light,
+  weighted by the material's roughness and metalness, with Schlick's
+  Fresnel; for the room's own reflected light, the baked probes as a rough
+  glossy fill, if they hold a direction (unchecked; no new bake either
+  way). Energy kept so a
+  surface does not get brighter overall. Its own on/off switch (UTA-0297)
+  and a tier. Part of UTA-0292; UTA-0045's screen-space reflections are
+  the sharper, costlier step after it.
+  **Layman:** Shiny surfaces catch the light: metal panels, wet floors and polished stone show a bright glint that moves as you move.
+  Kind: feature.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
