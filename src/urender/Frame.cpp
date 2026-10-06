@@ -1104,6 +1104,13 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
             // A mirrored mover winds the other way on screen, so its front face is the other one.
             const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
             vkCmdSetFrontFace(commands, front);
+            // UTA-0311: UT99 adds a mover's polygons to the level's BSP after the
+            // level's own, so a coplanar level surface is drawn and the mover's is
+            // not. Pushing a mover's depth back by about a step of the depth
+            // buffer, plus one pixel's slope, makes the level win that tie here.
+            // Both passes set the same bias, so a mover still meets its own depth.
+            const bool mover = item.objectIndex != 0;
+            vkCmdSetDepthBias(commands, mover ? 2.0f : 0.0f, 0.0f, mover ? 1.0f : 0.0f);
             // UTA-0269: the pan in double, then its fraction, so a float never
             // holds rate * seconds, which loses the fraction within the hour.
             // UTA-0276: times the camera's zone's speed on that axis.

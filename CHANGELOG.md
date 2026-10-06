@@ -661,6 +661,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A moving part lying flush with the floor or a wall no longer flickers against it** (UTA-0311)
+  The level's surface now wins, as in the original game; DM-HealPod]['s
+  floor plate shows plain from every angle.
+
 - **Fire textures that are not flames now move: sparks, sprays and lightning replay UT99's own animation instead of standing frozen** (UTA-0286)
   CTF-Beatitude's blue fire basins are the plain case. The bake keeps
   each such texture's sparks and settings, and the renderer runs the

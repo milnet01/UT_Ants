@@ -550,6 +550,13 @@ reverses a mover's screen winding. Front face is dynamic state, core in Vulkan
 1.3, set per draw from the sign of the model's determinant, so such a mover is
 drawn rather than culled.
 
+**The level wins a tie with a mover** (`UTA-0311`). UT99 adds a mover's
+polygons to the level's BSP after the level's own, so where a mover face lies
+flush with a level face, the level's is drawn. Here every mover draw carries a
+depth bias pushing it away, two steps of the depth buffer plus one pixel's
+slope; the level's is zero. It is dynamic state, set per draw and the same in
+the depth and forward passes, so a mover still meets its own depth.
+
 **The opaque surfaces' depth is drawn first** (`UTA-0260`). Before the forward
 pass, every batch that is not `PF_Translucent`, `PF_Modulated` or `PF_Masked`
 is drawn with the forward pass's own vertex stage and no fragment stage,

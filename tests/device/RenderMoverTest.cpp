@@ -6,7 +6,8 @@
 // mover -- a negative postScale reverses its winding on screen -- is still drawn
 // rather than culled; that a mover that moved writes motion vectors from where
 // it was, while the still level beside it writes none; and that a mover that
-// moved inside a light's radius redraws that light's shadow tiles.
+// moved inside a light's radius redraws that light's shadow tiles; and that a
+// mover face flush with the level's loses the tie to it (UTA-0311).
 //
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator.
 
@@ -129,4 +130,32 @@ TEST_CASE("SS 4.8: a mover that moved inside a light's radius redraws that light
     CHECK(renderer.lastFrameStats().renderedShadowTiles == 6u);
     requireOk(renderer.draw(bundle, Camera{}));
     CHECK(renderer.lastFrameStats().renderedShadowTiles == 0u);
+}
+
+TEST_CASE("UTA-0311: the level wins over a mover face lying flush with it", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    // UT99 adds a mover's polygons to the level's BSP after the level's own,
+    // so in a coplanar tie the level's surface is drawn. Head-on, then at 45
+    // degrees, where the slope of the depth across a pixel is what decides it.
+    constexpr Rgba PLATE{61, 121, 201, 255};
+    uta::ubundle::Bundle bundle = withMover(squareMover({100, 0, 0}, {1, 1, 1}, PF_UNLIT));
+    (*bundle.movers)[0].geometry.batches[0].material = "plate";
+    addSolidMaterial(bundle, "plate", PLATE);
+    bundle.geometry.emplace();
+    addSquare(*bundle.geometry, 100, 0, 0, 60, "paint", PF_UNLIT);
+
+    const Camera headOn{};
+    Camera oblique{};
+    oblique.location = {20, -80, 0};
+    oblique.rotation = {0, 8192, 0}; // 45 degrees of yaw: along +X+Y, at the plate's centre
+    for (const Camera& camera : {headOn, oblique}) {
+        requireOk(renderer.draw(bundle, camera));
+        const auto pixels = renderer.readback();
+        if (!pixels.has_value()) FAIL(pixels.error().message());
+        for (std::uint32_t x = 77; x <= 83; ++x) {
+            CAPTURE(camera.rotation[1], x);
+            CHECK(pixelAt(*pixels, WIDTH, x, HEIGHT / 2) == PAINT);
+        }
+    }
 }
