@@ -15218,6 +15218,15 @@ stays with movement in 0.2.0.
   than by distance, so an overflow drops the faintest, and find where
   the 8 ms goes. User asked about MegaLights the same day; it is
   UTA-0160, after 0.1.0.
+  Built (2026-10-06, b6991e2): an overflowing cluster now drops the
+  lights that can put the least light on it (brightness times the
+  falloff at the box's nearest point), not the furthest from its centre.
+  The user chose this over a larger cap (about 11% of frame time; the
+  earlier 8 ms figure was one run, the 3.4 ms one was three interleaved).
+  Against a no-drop render the largest pixel difference falls from about
+  101 levels to 3-21; what is left is a thin strip on one tower in a far
+  cluster, and goes with UTA-0160. Frame time unchanged. Test: UTA-0309
+  in RenderLightingTest, red before the fix. Flip once GitHub is green.
   **Layman:** On one castle map, the shadows on a distant tower appear and disappear just by turning to look around, which real shadows never do.
   Kind: fix.
   Source: user-request-2026-10-06.
