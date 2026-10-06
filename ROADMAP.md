@@ -15627,7 +15627,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 📋 [UTA-0324] **urender: read a light's shadow nine times only near a shadow's edge.**
+- 🚫 [UTA-0324] **urender: read a light's shadow nine times only near a shadow's edge.**
   Found by UTA-0323 on DM-Bishop (ultra, 3840x2160, RX 6600): shadows
   off took a frame from ~80 ms to ~27 ms; one shadow read instead of
   UTA-0307's nine, ~48 ms. Take the four outer reads first; where all
@@ -15635,6 +15635,17 @@ stays with movement in 0.2.0.
   the rest. The usual early-out for filtered shadows (NVIDIA GDC08 soft
   shadow mapping). Check: the slanting-edge test UTA-0307 measured still
   holds, and time Bishop alternating old and new in one cc-job.
+  Dropped (2026-10-06): measured slower. Four corner reads first,
+  stop where all four agree, else the other five. DM-Bishop, ultra
+  3840x2160, RX 6600, old and new alternated in one cc-job (still
+  frames): old 66.5 / 68.7 / 67.8 ms, new 83.6 / 80.4 / 83.0 ms. RADV
+  shader stats for the scene pixel shader were alike (128 VGPRs, 8
+  subgroups per SIMD, no scratch), so not a compile-shape cost: the
+  nine reads were issued together and waited on once; split, they
+  wait twice, and the five skipped reads were close to free. Bishop
+  ut-shot frames: 0.6-2.1% of pixels differed, max 19/255. Unit and
+  device tests (lavapipe and GPU) passed. Patch kept at
+  ~/.cache/uta-scratch/u324/uta0324-corner-first.diff.
   **Layman:** Shadows cost the same everywhere today; most of a picture is plainly lit or plainly dark and needs one quick look, not nine.
   Kind: perf.
   Source: user-request-2026-10-06.
