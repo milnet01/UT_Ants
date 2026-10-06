@@ -15619,6 +15619,9 @@ stays with movement in 0.2.0.
   shading).\nUpscaling is UTA-0075/UTA-0076. Throwaway probe
   worktree:\n~/.cache/uta-scratch/u323/wt (UTA_PROBE bits;
   probe-run.sh).
+  Next (user agreed 2026-10-06): UTA-0324 (nine shadow reads only
+  near\nan edge) first, then the same one-step-off probes on
+  DM-Closer\n(bundle ff67d09b... in ~/.cache/uta-scratch/u323/bake).
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
   Kind: perf.
   Source: user-request-2026-10-06.
