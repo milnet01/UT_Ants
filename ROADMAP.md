@@ -15159,7 +15159,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: tools.
 
-- 📋 [UTA-0307] **DM-Deck16][: we draw a jagged shadow band across the slime under a catwalk where the original draws none.**
+- ✅ [UTA-0307] **DM-Deck16][: we draw a jagged shadow band across the slime under a catwalk where the original draws none.**
   Found by ut-compare (UTA-0306) on the 2026-10-03 viewer capture,
   camera -1174.96 -1365.58 -718.13 -9471 -17907 0 121.28, 1280x720:
   ~/.cache/uta-scratch/u306/run2/pair-0.png. The original's slime is
@@ -15244,6 +15244,18 @@ stays with movement in 0.2.0.
   (CAPTURE shadowTileSize and the planned texel) and that the teeth are
   texel stairs, before tuning taps. Then time the change (ut-bench
   frame), since the user flagged performance.
+  Resolved (2026-10-06, 163e2d6, GitHub green): a lit surface reads
+  the shadow map nine times, weighted into a 5x5 hill (Castano's
+  optimised PCF), each read at the surface's own depth, capped at the far
+  plane. Why wider grids "did not help" before: the test's fixture. One
+  occluder's sides blurred into view and its fixed lit/dark rows sat
+  inside a wide blur. Fixed (three squares wide, edge read against the
+  unshadowed frame), the worst wobble on lavapipe is: one read 7.3 rows,
+  four weighted 3.7, even 3x3 2.4, nine weighted 1.8 (1.1 on the RX 6600).
+  Test limit 3.0. Cost on Deck16, RX 6600: 3.2 to 4.2 ms at 1080p High,
+  12.7 to 16.9 ms at 4K Ultra. Four reads cost nearly the same as nine,
+  so the time goes on having the soft path at all, not on the reads.
+  UTA-0014 § 4.8 amended.
   **Layman:** In one spot of Deck16, our version paints a dark stripe across the green slime that the original game does not have.
   Kind: investigate.
   Source: in-session-2026-10-06.
@@ -15533,6 +15545,21 @@ stays with movement in 0.2.0.
   would break the ArcaneTemple fit. Next: paired captures from
   UT_MonsterHunt of the hold floor varying one drop setting (asked
   2026-10-06), then fit the factor on all three surfaces.
+  Progress (2026-10-06, paired captures): UT_MonsterHunt shot the hold
+  floor twice from one pose, 10 frames each (kept in
+  ~/.cache/uta-scratch/u319/kgalleon-wetbeams1-AC, README there). A:
+  unchanged, WaveAmp 128. C: WaveAmp 255. A vs C differs by 1.1-1.3
+  (mean abs, 0-255), the same as frame-to-frame change within one run,
+  so WaveAmp does not set how much the water moves. No B: a phase spot's
+  Depth is not a setting. The engine rewrites it every frame (+119 mod
+  256 per shot), and UT's own drop list reads "DROP_PhaseSpot: phased
+  depth spot, A=frequency B=phase" (Fire.WaterTexture). So the 52 read at
+  bake is one moment of a phase. The decision above stands (the warp
+  follows the drops, not WaveAmp), but its basis changes: Depth and
+  WaveAmp are both ruled out. Left as candidates: the drops' count for
+  the texture's size, their frequency (ByteA) and their type (ShallowSpot
+  is weaker by definition). Next: compare those three across the three
+  measured surfaces before choosing what the baker stores.
   **Layman:** The flooded floor in the galleon's hold swirls a lot in ours and barely at all in the original.
   Kind: investigate.
   Source: user-request-2026-10-06.
