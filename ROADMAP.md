@@ -16013,6 +16013,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the sky, drawn behind everything so it costs almost nothing. (b) fits
   with UTA-0282's new skies, which is why this sits in the same release.
   First: ask the user which maps they saw it on, and list them here.
+  Another case (user, F12 capture 2026-10-06 11:34,
+  MH-(_@_)_Aliens_Xmas_Beta1SP, camera 31951.77 14623.47 794.00 -2776
+  5315 0): a flat snowfield ends in a square corner against the mountain
+  backdrop, with the floor's straight edges plain to see through the
+  existing haze.
   **Layman:** On outdoor maps where you can see the world simply stop, the land seems to carry on to the horizon, or haze closes in so the edge cannot be seen.
   Kind: feature.
   Source: user-request-2026-10-06.
