@@ -15633,6 +15633,11 @@ stays with movement in 0.2.0.
   Bishop: direct lights and their shadow reads are most of the frame;
   parallax, probes and fog are 2-3.5 ms each. Next: UTA-0325 (scalar
   light loop) or UTA-0326 (baked shadow mask), both aimed at the lights.
+  Next pick, suggested 2026-10-06, not yet the user's decision:
+  UTA-0326 (baked shadow mask) before UTA-0325 (scalar light loop),
+  since it removes shadow reads outright for lights that never move.
+  UTA-0328 (UT_MonsterHunt's tool) comes first: helping other sessions
+  leads the priority list.
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -18578,6 +18583,14 @@ to.
   misses by at most 96) and whether a whole-folder run beats one map
   per call. Their proving check: TheBoat backups 93258ff4 and 8047bff7
   flag nodes 1305 and 2567; live files 229e62c5 and c8bc7ea5 do not.
+  Agreed with UT_MonsterHunt (2026-10-06, reply sent): the tool lands at
+  build/tools/ut-bound-scan/ut-bound-scan in this repo; one JSON line
+  per finding (map, md5, node, brush, texture, bound index, excess) and
+  an inverted box (valid=0) as its own record. When it lands, message
+  that session the exact field names, a sample line, and a measured
+  answer to one map per call vs a whole folder. Their TheBoat md5 check
+  is the acceptance test. Source to port:
+  /mnt/Games/Scripts/Linux/ut-ants-uta0156/ambient-census/bound-scan.cpp.
   **Layman:** Turn the throwaway hall-of-mirrors finder into a proper tool UT_MonsterHunt's map checker can run on every map.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-10-06.
