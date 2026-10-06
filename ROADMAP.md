@@ -15066,7 +15066,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: /home/ants/Pictures/ClaudePaste/paste_20261006_092702_286_43a29b16.png
 
-- 📋 [UTA-0305] **DM-Cybrosis][: a dark octagon on a floor reads as a shadow, but is a darker floor texture.**
+- ✅ [UTA-0305] **DM-Cybrosis][: a dark octagon on a floor reads as a shadow, but is a darker floor texture.**
   The user, 2026-10-06 (viewer F12 capture, camera 2826.18 -694.10
   -22.75 -5246 24057 0 121.28): an octagon on the floor looks like a
   shadow that makes no sense.
@@ -15081,6 +15081,12 @@ stays with movement in 0.2.0.
   map's design and stays unless the user wants it evened out through the
   map's recipe (editable, UTA-0034). If it does not, find why our
   texture for it is darker than the original's.
+  Resolved (2026-10-06): the original draws the octagon dark too.
+  ut-compare at the user's camera, 1280x720
+  (~/.cache/uta-scratch/u305/cmp/pair-0.png): same shape, similar
+  darkness, so it is the map's design and stays. Evening it out would be
+  a recipe edit (UTA-0034), only if the user asks. The pickups missing on
+  our side are expected; 0.1.0 draws no items.
   **Layman:** A dark eight-sided patch on a Cybrosis floor looks like a shadow nothing casts; it is actually a darker floor tile, and we need to see whether the original shows it the same way.
   Kind: investigate.
   Source: user-request-2026-10-06.
