@@ -15191,6 +15191,22 @@ stays with movement in 0.2.0.
   too dark, a light can be added. Sharp per-pixel shadows instead of the
   original's blur are fine. So the score against the original's frames is
   a guide here, not the acceptance test.
+  Refit (2026-10-06), three reference maps, 45 poses, scored per pixel
+  then 40-px blocks as ut-ants-uta0192/crosscheck2.py does, joint exposure
+  k fitted (u274/refit.sh, u274/refit-score.py; renders and bakes in
+  u274/refit/; base from a clean HEAD worktree wt-0274c, linear from
+  wt-0274b). Pooled RMS at k, then asfrigate, deck16, fetid-vol:
+  shipped curve A 0.75: 31.61 at k 5.28 (30.7, 35.1, 26.9). Linear lamp
+  intensity: A 0.75 34.05 at 9.59; A 1 33.43 at 9.18; A 1.5 32.94 at 8.42
+  (32.0, 35.8, 29.6); A 2 33.19 at 7.57; A 3 34.91 at 6.20. Note the
+  harness fits 5.28 for the shipped pair where Frame.cpp ships 5.03, so
+  the shipped EXPOSURE had drifted from its own fit.
+  Decision, user 2026-10-06 (on the recommendation): adopt the linear lamp
+  intensity at AMBIENT_SCALE 1.5 and EXPOSURE 8.42. It scores 4% further
+  from the original's frames than the shipped curve but matches the
+  original's own lamp-dimming response (Light91 curve RMS 0.009 against
+  0.209) and is the physically sensible rule; per the user's direction,
+  matching is a guide, not the target.
   **Layman:** On the sewer map, corners and shadows that are nearly black in the original game look grey in ours, even where there is no fog.
   Kind: investigate.
   Source: in-session-2026-10-02 split-from-UTA-0262.
