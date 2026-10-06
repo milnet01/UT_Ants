@@ -15597,6 +15597,16 @@ stays with movement in 0.2.0.
   time (lights, shadows, fog, geometry), file the worst, fix the cheap
   ones first. Ask the user which maps felt slow; they may name some.
   UTA-0039 (frame-rate floor, 1.0.0) is the long-term goal.
+  Progress (2026-10-06): user named DM-Crane ("Craine"; drops when
+  turning), DM-Bishop (drops when moving), DM-Closer. ut-bench frame,
+  ultra, 3840x2160, RX 6600, fresh r42 bakes, player-start cameras,
+  quiet card (one job, scratch ~/.cache/uta-scratch/u323). Medians:
+  Bishop 72-79 ms everywhere (fastest frame 62 ms); Closer 30-34 ms;
+  Crane 22-25 ms (99th ~35 ms). Bishop at 1920x1080 ultra: 24.5 ms
+  (3x faster for 4x fewer pixels, so mostly per-pixel cost); at 4K low
+  tier: 55 ms (tier saves only ~25%, so the cost is not an Ultra-only
+  feature). Shadow tiles redrawn: 0 on every map. Next: find which
+  per-pixel step Bishop pays for.
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -17811,6 +17821,14 @@ to.
   launcher/mapnames-rows.tsv (stem, title, labels); copy both in when
   this is built. Their GAME-0199 (best copy among duplicates) is the
   ranking to share.
+  Progress (2026-10-06): UT_MonsterHunt shipped GAME-0199's best-copy
+  ranking (their commit c5ae92f): key "best_copy" in
+  launcher/mapnames.json (rules, tiers [[UTP,LIFT,WALL,PATH],[BP]],
+  picks for ties, shared examples), reference code
+  mapnames.best_copy(stems) in launcher/mapnames.py. Group copies by
+  shown title, compare tier by tier, highest wins; a tie with no pick is
+  reported, never guessed. Order chosen by the user 2026-10-06. Use it
+  when the map browser picks which duplicate to bake.
   **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
   Kind: implement.
   Source: design-2026-09-03.
