@@ -15490,6 +15490,8 @@ stays with movement in 0.2.0.
   113,512 UU diagonal of UT's world. The user's DM-Crane captures go
   from 220k-520k pure-black pixels to none and match the original. GitHub
   run 37114752384 green on GCC 14, Clang 19 and MSVC.
+  Confirmed by the user in the viewer (2026-10-06): the DM-Crane
+  graphical glitches they reported are gone.
   **Layman:** On DM-Crane, the flat cardboard-cutout city buildings in the distance show up as black slabs against the night sky.
   Kind: fix.
   Source: user-request-2026-10-03.
