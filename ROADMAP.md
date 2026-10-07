@@ -14949,7 +14949,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123437/frame.png, ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123429/frame.png
 
-- 📋 [UTA-0292] **ubake and urender: lighting that looks ray-traced, baked ahead of time so it runs on modest machines.**
+- 🚧 [UTA-0292] **ubake and urender: lighting that looks ray-traced, baked ahead of time so it runs on modest machines.**
   The user, 2026-10-05: "I want the lighting (and resulting shadows)
   to be realistic (looks like ray tracing but without ray tracing; the
   machines this game will run on are less powerful than my machine)."
@@ -14978,6 +14978,39 @@ stays with movement in 0.2.0.
   shadows instead of the original's blur are fine. Every effect is
   emulated with cheap tricks, not the costly real thing. Soft shadows that
   harden near contact are UTA-0296.
+  Progress (2026-10-08): first job done. A scratch CPU path tracer
+  (ut-ref, ~/.cache/uta-scratch/u292/wt, never committed) computes the
+  light a surface shows in scene.frag's units: exact direct with every
+  baked light ray-tested, cosine-sampled bounces to depth 4, skybox
+  hits as sky light. A patched ut-shot writes the renderer's direct,
+  indirect and zone-ambient terms; score.py compares 8x8 blocks. Baker
+  r44; 28 views: 10 random player-eye views each on DM-Fetid,
+  DM-Deck16][ and DM-ArcaneTemple, plus UTA-0175's lamp-side views.
+  Within the current light model the renderer is close to exact:
+  direct 1.5-10% mean block error, unbiased (shadow-edge blur);
+  probes plus AO against an exact single bounce, 1-5%. Gaps, largest
+  first:
+  1. Reflectance. Bounce is 2-5% of the light shown, because the
+  bake's albedo is the stored texture's linear mean, 0.05-0.07 on all
+  three maps, where real materials are 0.2-0.5. The display brightens
+  everything by EXPOSURE 5.03 but the bounce never gets that boost. With
+  albedo x4 (capped at 0.9) the reference gives bounce 15-17% plus
+  2-4% from later bounces, and 4-5x the fill light in shadow. The
+  1.6 power is not the cause: a linear combine changes the shares by
+  under 1 point. Inference, not proven: UT99 textures are stored about
+  4-5x darker than the materials they depict.
+  2. Zone ambient. ArcaneTemple's flat fill adds 0.35-1.6x the true
+  light on most views and is all of the light at a pitch-dark spot
+  (view 9). Fetid and Deck16 have none.
+  3. Sky light. Probes take none from the skybox; on ArcaneTemple it
+  is 4% of the true light on average and 22% at one open view.
+  4. Later bounces: 0.2-0.3% now, 2-4% once reflectance is fixed
+  (UTA-0254's second bounce matters only then).
+  Not scorable from static views: contact shadows (UTA-0054),
+  reflections (UTA-0045), characters (UTA-0159), many lights
+  (UTA-0160). The 2026-09-20 finding that a bounce multiplier is the
+  wrong lever was measured against the original's frames, which are
+  now a guide only. Next: the spec, taking 1-3 together.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
