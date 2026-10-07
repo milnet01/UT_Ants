@@ -9,3 +9,4 @@ row is never edited.
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| impl | 2026-10-07 | none — implementation, no reviewer dispatched | - | - | - | - | Building SS 4.3 found no decoder for the bundle's BC7 alpha; SS 4.3 now records the Cutouts argument bakeShadowMask takes |

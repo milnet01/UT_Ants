@@ -181,6 +181,12 @@ hit, at pan time 0, is below 0.5 (`MASK_THRESHOLD`), as `shadow.frag`
 discards. `SurfaceRays` today hits `PF_FakeBackdrop` and ignores alpha, so
 the bake needs a variant that matches this rule.
 
+*As built:* nothing decodes the bundle's BC7 textures, so the alpha comes
+from the picture the bake decodes for each masked material. `bakeShadowMask`
+takes a third argument, `const Cutouts& cutouts = {}`: per MATS id, 1 where
+that picture's alpha is at least half, read at the hit's wrapped coordinate.
+A `PF_Masked` surface with no cutout is solid.
+
 **A pair is a chart and a `litDirectly` light that can light it**: the
 light's sphere — `lightRadius`, grown by half a strip leader's segment —
 meets the polygon, and either the light's effect has no incidence term

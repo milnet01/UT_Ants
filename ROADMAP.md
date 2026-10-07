@@ -17232,6 +17232,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   ~/.cache/uta-scratch/u326/overlap). A pair moving geometry can reach
   keeps today's shadow map, so nothing is shadowed twice. Next: build
   it, then time Bishop, Closer and Crane against the mask switched off.
+  Progress (2026-10-07): steps 1 and 2 of 5 built. 69e0009 adds SMSK and
+  litDirectly, bundle format 23. 0f6cdf4 moves the occlusion charts into
+  ubake/Charts.h, with the occlusion bytes unchanged. 32c69ef adds
+  ubake::bakeShadowMask with INV-2 to INV-7 in BakeShadowMaskTest; it is
+  not yet called by the bake. 929/929 unit tests pass, and each rule was
+  broken by hand to see its test fail. Next: step 3, call bakeShadowMask
+  from bake() after bakeOcclusion and bump BAKER_REVISION to 43. Fill a
+  Cutouts map from each masked material's decoded picture (MadeVariant
+  in Bake.cpp, beside albedo) and re-record the golden digest. Then the
+  renderer (spec SS 4.5 and INV-8 to INV-10), then the SS 7 hand
+  timings.
   **Layman:** Most lights and walls never move, so their shadows can be worked out once when the map is prepared instead of every frame.
   Kind: perf.
   Source: user-request-2026-10-06.
