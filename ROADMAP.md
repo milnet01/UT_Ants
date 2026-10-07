@@ -15694,6 +15694,30 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: upkg, unav, urender.
 
+- 🚧 [UTA-0332] **ut-dump: list each map's MonsterWaypoint-family actors with their Position.**
+  Asked by UT_MonsterHunt (GAME-0208), 2026-10-07. A top-level
+  `waypoints` list beside `exits`: every actor whose class name contains
+  MonsterWaypoint (MonsterWaypoint, MonsterWaypointSB,
+  TriggerMonsterWaypoint), with `position` resolved through the class
+  defaults (MonsterWaypoint defaults it to 1). MonsterHunt bots seek the
+  waypoint numbered one past the last, so a gap or repeat strands them;
+  their map checker gains a waypoints check from it. Reference maps from
+  their T3D survey: MH-ZMMACHINEEndFix (5, gap after 3), MH-HellFireV3
+  (19, gap after 16), MH-Cantilever_UTremix_V2 (14, gaps after 8 and 15).
+  Reply with the field names when it lands.
+  Placed 2026-10-07 by the session: helping other sessions leads the
+  priority list; taken during UTA-0326's quiet bakes.
+  Built 2026-10-07: tools/ut-dump/Cli.cpp writeWaypoints; contract in
+  docs/specs/UTA-0012-ut-dump-output-shape.md SS 4.7b. The UTA-0332 case
+  in DumpCliTest was seen red before the code. On the install it matches
+  their survey: ZMMACHINEEndFix 5 (gap after 3), HellFireV3 19 (gap after
+  16), Cantilever_UTremix_V2 14 (gaps after 8 and 15); OperationBlackWidow
+  14, 10 TriggerMonsterWaypoint, 1 to 14. Ships on GitHub's matrix.
+  **Layman:** The map-inspection tool lists the numbered waypoints monsters follow, so the sister project can spot a missing or repeated number.
+  Kind: enhancement.
+  Source: user-request-2026-10-07 via UT_MonsterHunt.
+  Lanes: ut-dump.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and

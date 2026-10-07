@@ -272,6 +272,21 @@ its class family sets one. MonsterEndSB's `TakeDamage` wins the map only when
 actor's own property block does not read. The exit is still listed, and its
 fields are then its class family's defaults, not its own.
 
+### 4.7b `waypoints`
+
+Added by `UTA-0332`. A map's element carries `waypoints` after `exits`, with
+no flag. It is `[{export, name, class, location, position, propertiesRead}]`,
+in ascending `export` order: every level actor whose own class name contains
+`MonsterWaypoint`, compared case-insensitively — `MonsterWaypoint`,
+`MonsterWaypointSB` and `TriggerMonsterWaypoint` among them. `class`,
+`location` and `propertiesRead` are as in `exits`.
+
+`position` is the actor's `Position`, an integer, resolved through the class
+family's defaults as `exits`' `tag` is: `MonsterWaypoint` defaults it to 1, so
+an actor storing none is 1. It is `null` when neither the actor nor its class
+family sets one. MonsterHunt's bots seek the waypoint numbered one past the
+last they reached, so a gap or a repeat in `position` strands them.
+
 ### 4.8 Counting what was dropped
 
 Scope decision 5's rule, applied:
@@ -322,6 +337,7 @@ them on 2026-09-25, checked by them against § 4 and UTA-0172 § 4.3 to § 4.4.
 | `analysis/exitsurvey.py` (GAME-0032) | `wiring.chainsUnresolved`; `wiring.actors`' `index`, `class`, `classChain`, `chainEnd`, `tag`, `events` (`OutEvents` as an index-to-name object) and `bInitiallyActive`, with `null` read as unknown | The exit survey. UTA-0172 contracts these fields |
 | GAME-0124, the second reader (`analysis/mapcheck/facts.py`, `walking_adjacency`) | `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight`, `distance`, `pruned`; `nodeList`'s `name`, `class` | It reads the file by a route other than the engine's. A change here breaks the only independent check on a path build |
 | GAME-0160, the route check's placement (`analysis/mapcheck/facts.py`, `placed()`) | `exits`' `class` (compared case-insensitively) and `location`; `nodeList`'s `location`, `paths` and `upstreamPaths` | It places nav points and the exit without a T3D export. The UTA-0189 and UTA-0198 cases in `tests/unit/DumpCliTest.cpp` assert these fields' exact text, so a rename or drop fails them (UTA-0214) |
+| GAME-0208, the waypoints check | `waypoints`' `class`, `name`, `position` and `location` | It finds a gap or repeat in a map's waypoint numbers. The UTA-0332 case in `tests/unit/DumpCliTest.cpp` asserts these fields' exact text |
 | `analysis/mapcheck` checks | `nodeList`'s `name`, `class`; `edgeList`'s `from`, `to`, `reachFlags`, `collisionRadius`, `collisionHeight` (the route check); `classCounts` (paths, starts); `importedPackages` (load) | Per-map checks |
 | `analysis/pathtriage.py` | `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit`; `classCounts`; `wiring.dangling` | Path triage |
 | `analysis/pathverify.py` | `classCounts`; `level.actors`; `nav.nodes`, `nav.edges`, `nav.nodesWithNoExit` | Path verification |

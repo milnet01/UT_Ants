@@ -926,6 +926,71 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
     out << "]";
 }
 
+/// A Position property's value into `position`; any other property is not ours.
+void takePosition(std::optional<int>& position, std::string_view name, const uta::upkg::Property& property) {
+    if (property.arrayIndex != 0 || foldCase(name) != "position") return;
+    if (const auto* set = std::get_if<std::int32_t>(&property.value)) position = *set;
+    else if (const auto* byte = std::get_if<std::uint8_t>(&property.value)) position = *byte;
+}
+
+/// UTA-0332: every actor whose own class name contains MonsterWaypoint --
+/// MonsterWaypoint, MonsterWaypointSB, TriggerMonsterWaypoint. MonsterHunt's
+/// bots seek the waypoint numbered one past the last they reached, so a gap or
+/// a repeat strands them. `position` is resolved through the class family's
+/// defaults, as `exits`' tag is: MonsterWaypoint defaults it to 1, so an actor
+/// storing none is 1, not 0. null where neither the actor nor its class sets one.
+void writeWaypoints(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
+                    const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
+    std::set<std::uint32_t> actorExports;
+    for (const uta::upkg::ObjectReference slot : level.actors) {
+        if (slot.kind() == uta::upkg::ObjectReferenceKind::Export && slot.index() < map.exports().size())
+            actorExports.insert(slot.index());
+    }
+    out << ",\n  \"waypoints\": [";
+    bool first = true;
+    for (const std::uint32_t exportIndex : actorExports) {
+        const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
+        const auto className = map.objectName(entry.objectClass);
+        if (!className.has_value() || !foldCase(*className).contains("monsterwaypoint")) continue;
+
+        std::optional<int> position;
+        if (const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
+            site.has_value() && site->resolved.package != nullptr) {
+            if (const auto ancestry =
+                    uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
+                ancestry.has_value()) {
+                if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value()) {
+                    for (const uta::upkg::EffectiveProperty& effective : *defaults)
+                        takePosition(position, effective.name, effective.property);
+                }
+            }
+        }
+        const auto properties = uta::upkg::readProperties(map, entry);
+        if (properties.has_value()) {
+            for (const uta::upkg::Property& property : *properties) {
+                if (const auto name = map.name(property.nameIndex); name.has_value())
+                    takePosition(position, *name, property);
+            }
+        }
+
+        std::string actorName = "?";
+        if (const auto found = map.name(entry.objectName); found.has_value()) actorName = std::string{*found};
+        out << (first ? "" : ", ") << "{\"export\": " << exportIndex << ", \"name\": ";
+        first = false;
+        writeJsonString(out, actorName);
+        out << ", \"class\": ";
+        writeJsonString(out, std::string{*className});
+        out << ", \"location\": ";
+        writeLocation(out, storedFacts(map, exportIndex).location);
+        out << ", \"position\": ";
+        if (position.has_value()) out << *position;
+        else out << "null";
+        out << ", \"propertiesRead\": " << (properties.has_value() ? "true" : "false");
+        out << "}";
+    }
+    out << "]";
+}
+
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
                  bool navGraph, bool wiringGraph, bool surfaceList, bool first) {
     if (!first) {
@@ -1104,6 +1169,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
         out << ",\n  \"wiring\": null";
     }
     writeExits(out, *package, path.stem().string(), *level, resolver);
+    writeWaypoints(out, *package, path.stem().string(), *level, resolver);
 
     out << "\n }";
 }

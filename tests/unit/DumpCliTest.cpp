@@ -931,7 +931,7 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
 
     const Keys mapKeys{"file",    "ok",        "bytes",        "exports",  "imports",
                        "importedPackages", "classCounts", "level", "surfaces", "levelInfo",
-                       "levelSummary", "monsters", "nav", "wiring", "exits"};
+                       "levelSummary", "monsters", "nav", "wiring", "exits", "waypoints"};
     const Run plain = run({"--system", system, mapPath.string()});
     REQUIRE(plain.code == 0);
     const std::string map = packagesOf(plain.out).at(0);
@@ -1201,6 +1201,51 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     const std::size_t exits = result.out.find("\"exits\": [");
     REQUIRE(exits != std::string::npos);
     CHECK(result.out.find("PathNode1", exits) == std::string::npos);
+}
+
+TEST_CASE("UTA-0332: waypoints lists each MonsterWaypoint-family actor with its Position", "[dump]") {
+    const TempDir dir;
+    MapBuilder map;
+    // MonsterWaypoint defaults Position to 1, so an actor storing none is 1.
+    const std::int32_t waypoint = map.addClass("MonsterWaypoint", 0, {intProperty("Position", 1)});
+    const std::int32_t trigger = map.addClass("TriggerMonsterWaypoint", waypoint);
+    const std::int32_t unset = map.addClass("MonsterWaypointSB");
+    map.addActor("MonsterWaypoint0", waypoint, {vectorProperty("Location", 1, 2, 3)})
+        .addActor("MonsterWaypoint1", waypoint, {intProperty("Position", 3)})
+        .addActor("TriggerMonsterWaypoint0", trigger, {intProperty("Position", 2)})
+        .addActor("TriggerMonsterWaypoint1", trigger)
+        .addActor("MonsterWaypointSB0", unset)
+        .addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 0, 0, 0)});
+    const fs::path mapPath = writeMap(dir, map);
+    // No flag, as for exits.
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    const std::size_t waypoints = result.out.find("\"waypoints\": [");
+    REQUIRE(waypoints != std::string::npos);
+    CHECK(result.out.find("\"name\": \"MonsterWaypoint0\", \"class\": \"MonsterWaypoint\", \"location\": [1, 2, 3], "
+                          "\"position\": 1, \"propertiesRead\": true}",
+                          waypoints)
+          != std::string::npos);
+    CHECK(result.out.find("\"name\": \"MonsterWaypoint1\", \"class\": \"MonsterWaypoint\", \"location\": null, "
+                          "\"position\": 3, ",
+                          waypoints)
+          != std::string::npos);
+    // A subclass whose name merely contains MonsterWaypoint, and its inherited default.
+    CHECK(result.out.find("\"name\": \"TriggerMonsterWaypoint0\", \"class\": \"TriggerMonsterWaypoint\", "
+                          "\"location\": null, \"position\": 2, ",
+                          waypoints)
+          != std::string::npos);
+    CHECK(result.out.find("\"name\": \"TriggerMonsterWaypoint1\", \"class\": \"TriggerMonsterWaypoint\", "
+                          "\"location\": null, \"position\": 1, ",
+                          waypoints)
+          != std::string::npos);
+    // A family that sets no Position says null, never a guessed 0 or 1.
+    CHECK(result.out.find("\"name\": \"MonsterWaypointSB0\", \"class\": \"MonsterWaypointSB\", "
+                          "\"location\": null, \"position\": null, ",
+                          waypoints)
+          != std::string::npos);
+    CHECK(result.out.find("PathNode", waypoints) == std::string::npos);
 }
 
 TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and counted", "[dump]") {
