@@ -660,6 +660,10 @@ fragment's cluster with the same slicing in GLSL, and the per-cluster cap is
 stated in both languages. The device tier's lighting cases are what catch a
 disagreement.
 
+**`UTA-0326` changes this for level surfaces**: a fragment on a polygon the
+bake listed lights from that polygon's list, not its cluster's
+(`docs/specs/UTA-0326-baked-shadow-mask.md` § 4.5).
+
 ### 4.7 Indirect light from probes
 
 `LightProbes` carries `spacing` and probes *"strictly ascending by z, then y,
@@ -700,6 +704,10 @@ crosses, and INV-7's fixture evaluates at a probe stored past its hash slot.
 One depth atlas for every shadowing light, tiles allocated by the light's
 projected screen size. A point light takes six tiles, one per cube face; a
 spotlight takes one.
+
+**`UTA-0326` changes who reads it**: a level surface reads a baked shadow mask
+instead, except where moving geometry can come between it and the light
+(`docs/specs/UTA-0326-baked-shadow-mask.md` § 4.4 and § 4.5).
 
 **A light whose actor does not move has its tiles rendered once and kept.** UT99
 lights are overwhelmingly static — `ubundle::Light` carries no velocity and its

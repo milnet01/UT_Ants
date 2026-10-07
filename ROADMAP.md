@@ -16304,6 +16304,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   5315 0): a flat snowfield ends in a square corner against the mountain
   backdrop, with the floor's straight edges plain to see through the
   existing haze.
+  Case (user, 2026-10-07): MH-()mG-TheBoat-V2mini-BP "just looks like a
+  huge box that we are in". The viewer captures show flat sky-blue walls
+  all round. Captures in ~/.local/state/ut-ants/map-captures/reviewed/,
+  stamped 20261007-131945 to -132125. Its sea is UTA-0330.
   **Layman:** On outdoor maps where you can see the world simply stop, the land seems to carry on to the horizon, or haze closes in so the edge cannot be seen.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -17182,6 +17186,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   tint and wear variation over the surface (a large-scale noise or
   macro texture), not per-tile offset. Placed after 0.1.0 beside
   UTA-0313, because 0.1.0 was trimmed on 2026-10-06 (UTA-0204).
+  Case (user, 2026-10-07, "somehow cater for the repeating texture"):
+  MH-()mG-TheBoat-V2mini-BP. Its water plane repeats a small ripple
+  texture, and the boat's planks repeat inside the hull; the plank
+  captures also show the wood smeared in streaks at grazing angles,
+  worth checking against texture filtering when this is picked up.
+  Captures in ~/.local/state/ut-ants/map-captures/reviewed/, stamped
+  20261007-131945 to -132125.
   **Layman:** On big floors the same brick pattern repeats so often it looks like wallpaper; the lava sea repeats too.
   Kind: enhancement.
   Source: user-request-2026-10-06.
@@ -17212,6 +17223,15 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   movers) would still need the shadow map. Needs a spec: the texel
   density, the channel budget, and how a mover's shadow combines
   without shadowing twice.
+  Spec (2026-10-07): docs/specs/UTA-0326-baked-shadow-mask.md, accepted,
+  unreviewed. A per-polygon list of the lights that reach it, each with
+  its own patch of a baked visibility atlas; a level surface loops that
+  list instead of its cluster. Unity's four channels a texel ruled out:
+  area-weighted lights per polygon median/90th/max Bishop 38/55/67,
+  Closer 12/20/39, Crane 5/19/32 (scratch probe
+  ~/.cache/uta-scratch/u326/overlap). A pair moving geometry can reach
+  keeps today's shadow map, so nothing is shadowed twice. Next: build
+  it, then time Bishop, Closer and Crane against the mask switched off.
   **Layman:** Most lights and walls never move, so their shadows can be worked out once when the map is prepared instead of every frame.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -17228,6 +17248,43 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: perf.
   Source: user-request-2026-10-06.
   Lanes: urender.
+
+- 📋 [UTA-0330] **urender: open water that looks like a real sea and runs on to the horizon, first on TheBoat.**
+  The user, 2026-10-07, from nine viewer captures of
+  MH-()mG-TheBoat-V2mini-BP: "The water texture they used in the map
+  is not great. If we can make that look like an actual sea, that would
+  be great." The captures show one flat plane wearing a small ripple
+  texture that repeats, ending at the map's sky-blue walls. Wanted: a
+  sea surface (waves, a colour that darkens with depth and distance,
+  reflected sky) that carries on past the map's box to a horizon.
+  Neighbours: UTA-0302 (hide the hard edge), UTA-0273 (see-through
+  water), UTA-0089 (water look), UTA-0282 (proper skies), UTA-0315
+  (repeats on liquids). Cheapest methods first (user, 2026-09-14).
+  Placed in 0.2.0 beside UTA-0302 and UTA-0315, which it builds on;
+  not needed for 0.1.0 (session's call).
+  **Layman:** On maps set at sea, the water should look like a real sea stretching away to the sky, not a flat patterned floor inside a box.
+  Kind: feature.
+  Source: user-request-2026-10-07.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-132002/frame.png
+
+- 📋 [UTA-0331] **ubake: add geometry a map lacks, starting with supports under TheBoat's floating platforms.**
+  The user, 2026-10-07: "I would also like geometry added that helps
+  keep up the various platforms they have." On
+  MH-()mG-TheBoat-V2mini-BP, sand-coloured platforms hang in the air
+  with nothing under them (captures 131945, 131954, 132034, 132125).
+  Nothing in the bake adds geometry today; UTA-0181 replaces textures
+  only and UTA-0034 is the full editor. Needs a per-map list of added
+  shapes, kept outside the install, that the bake places as level
+  geometry, collision included, and must not block a route the map's
+  own paths use (check with ut-paths). Placed in 0.2.0 beside
+  UTA-0181, its texture counterpart (session's call). Tell
+  UT_MonsterHunt, whose map this is (memory: sister project).
+  **Layman:** Add posts or beams under platforms that float in mid-air, so the map looks built rather than hanging in space.
+  Kind: feature.
+  Source: user-request-2026-10-07.
+  Lanes: ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-132125/frame.png
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
