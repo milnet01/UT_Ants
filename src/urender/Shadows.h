@@ -101,8 +101,9 @@ private:
 /// opens is shadowed as a point light.
 [[nodiscard]] bool isSpot(const ubundle::Light& light) noexcept;
 
-/// How many tiles `light` takes: 6, 1, or 0 for a light that lights nothing --
-/// brightness 0, or a spotlight whose cone is 0.
+/// How many tiles `light` takes: 6, 1, or 0 for a light that lights no
+/// surface -- one ubundle::litDirectly refuses, such as brightness 0 or a
+/// spotlight whose cone is 0.
 [[nodiscard]] std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept;
 
 /// The tile size `light` wants: its sphere of influence at

@@ -4,7 +4,8 @@
 // NavSection.cpp, WiringSection.cpp, TextureSection.cpp, MaterialSection.cpp,
 // GeometrySection.cpp, PlacementSection.cpp, LightSection.cpp,
 // MoverSection.cpp, CollisionSection.cpp, LightProbeSection.cpp,
-// ZoneSection.cpp and OcclusionSection.cpp, declared in Sections.h
+// ZoneSection.cpp, OcclusionSection.cpp, FlameSection.cpp and
+// ShadowMaskSection.cpp, declared in Sections.h
 // (UTA-0091). What stays here is what every section shares: where it sits in
 // the file, and in what order.
 
@@ -88,7 +89,7 @@ struct Descriptor {
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
            || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
-           || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM;
+           || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM || id == ID_SMSK;
 }
 
 } // namespace
@@ -232,6 +233,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             UTA_CHECK(validateOcclusion(*bundle.occlusion, ErrorCode::MalformedData));
         } else if (descriptor.id == ID_FLAM) {
             UTA_TRY(bundle.flames, readFlames(payload));
+        } else if (descriptor.id == ID_SMSK) {
+            UTA_TRY(bundle.shadowMask, readShadowMask(payload));
+            UTA_CHECK(validateShadowMask(*bundle.shadowMask, ErrorCode::MalformedData));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -254,6 +258,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
     UTA_CHECK(validateOcclusionVertices(bundle, ErrorCode::MalformedData));
     // UTA-0263 SS 4.3: a record names MATS and LITE, so it waits for both.
     UTA_CHECK(validateFlames(bundle, ErrorCode::MalformedData));
+    // UTA-0326 SS 4.2: SMSK's vertices are GEOM's and its lights LITE's.
+    UTA_CHECK(validateShadowMaskAcross(bundle, ErrorCode::MalformedData));
     return bundle;
 }
 
@@ -284,8 +290,10 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.occlusion) UTA_CHECK(validateOcclusion(*bundle.occlusion, ErrorCode::InvalidArgument));
     UTA_CHECK(validateOcclusionVertices(bundle, ErrorCode::InvalidArgument));
     UTA_CHECK(validateFlames(bundle, ErrorCode::InvalidArgument));
+    if (bundle.shadowMask) UTA_CHECK(validateShadowMask(*bundle.shadowMask, ErrorCode::InvalidArgument));
+    UTA_CHECK(validateShadowMaskAcross(bundle, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM. Fixed rather than incidental because
+    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -336,6 +344,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.occlusion) encoded(ID_AOCC, encodeOcclusion(*bundle.occlusion));
     // FLAM is appended after AOCC -- UTA-0263 SS 4.3.
     if (bundle.flames) encoded(ID_FLAM, encodeFlames(*bundle.flames));
+    // SMSK is appended after FLAM -- UTA-0326 SS 4.2.
+    if (bundle.shadowMask) encoded(ID_SMSK, encodeShadowMask(*bundle.shadowMask));
 
     if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows

@@ -85,7 +85,7 @@ std::vector<std::byte> fileWith(const Bytes& flam) {
     const std::vector<std::pair<std::string_view, Bytes>> sections = {{"MATS", matsPayload()}, {"FLAM", flam}};
     Bytes out;
     out.id("UTAB");
-    out.u32(22); // formatVersion -- 22 since UTA-0277 gave each material its tile kind
+    out.u32(23); // formatVersion -- 23 since UTA-0326 added SMSK
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

@@ -63,7 +63,8 @@ namespace uta::ubundle {
 /// 20 since UTA-0270 gave each MATS liquid look its MoveIce byte.
 /// 21 since UTA-0286 gave each MATS record its fire look.
 /// 22 since UTA-0277 SS 4.1 gave each MATS record its tile kind.
-inline constexpr std::uint32_t FORMAT_VERSION = 22;
+/// 23 since UTA-0326 SS 4.2 added SMSK.
+inline constexpr std::uint32_t FORMAT_VERSION = 23;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -381,6 +382,12 @@ struct Light {
     float levelBrightness = 1;        ///< UTA-0156 SS 4.5: LevelInfo.Brightness
 };
 
+/// Whether the renderer draws `light` in its direct term and it can put light
+/// on a surface: not LT_BackdropLight, not specialLit, not an absorbed strip
+/// light, brightness not 0, and not a spot effect with cone 0 --
+/// UTA-0326 SS 4.1. The baker pairs only these lights with a polygon.
+[[nodiscard]] bool litDirectly(const Light& light) noexcept;
+
 /// One mover's shape, in its pivot space -- UTA-0119 SS 4.2 and SS 4.5.
 ///
 /// `geometry` holds the brush's points with PrePivot subtracted and MainScale
@@ -499,6 +506,39 @@ struct Occlusion {
     std::vector<std::uint8_t> texels;     ///< width * height
 };
 
+/// The widest and tallest SMSK atlas, in texels -- UTA-0326 SS 4.2.
+inline constexpr std::uint32_t SHADOW_MASK_ATLAS_LIMIT = 4096;
+/// A GEOM vertex no chart covers: a surface the mask does not light.
+inline constexpr std::uint32_t MASK_NO_CHART = 0xFFFFFFFF;
+/// A pair's `x` and `y` when every texel of its rectangle would be 255.
+inline constexpr std::uint16_t MASK_ALL_LIT = 0xFFFF;
+
+/// One light on one polygon -- UTA-0326 SS 4.2.
+struct MaskPair {
+    std::uint32_t light = 0;     ///< an index into LITE
+    std::uint16_t x = 0, y = 0;  ///< the rectangle's corner in the atlas, or both MASK_ALL_LIT
+    std::uint8_t moverReach = 0; ///< 1 where moving geometry can come between (SS 4.4)
+    std::array<std::uint8_t, 3> reserved{}; ///< always zero
+};
+
+/// One lit polygon of GEOM -- UTA-0326 SS 4.2.
+struct MaskChart {
+    std::uint32_t firstPair = 0, pairCount = 0; ///< a run of ShadowMask::pairs
+    std::uint16_t width = 0, height = 0;        ///< its rectangle, border included
+};
+
+/// The level's baked shadow mask -- UTA-0326 SS 4.2. A texel is the share of
+/// its pair's light it sees past the level's own geometry, 255 for all of it.
+struct ShadowMask {
+    float texelSize = 0;                           ///< UT units a texel spans; finite and positive
+    std::uint32_t width = 0, height = 0;           ///< 1 to SHADOW_MASK_ATLAS_LIMIT each
+    std::vector<std::uint32_t> vertexChart;        ///< per GEOM vertex; MASK_NO_CHART where unlit
+    std::vector<std::array<float, 2>> vertexTexel; ///< per GEOM vertex, in its rectangle's texels
+    std::vector<MaskChart> charts;
+    std::vector<MaskPair> pairs;      ///< per chart, strictly ascending by `light`
+    std::vector<std::uint8_t> texels; ///< width * height, row-major
+};
+
 /// One flame the renderer draws facing the camera -- UTA-0263 SS 4.3.
 struct Flame {
     std::uint32_t material = 0;      ///< an index into MATS; that record has a flame look
@@ -546,6 +586,8 @@ struct Bundle {
     std::optional<Occlusion> occlusion;
     /// UTA-0263 SS 4.3.
     std::optional<std::vector<Flame>> flames;
+    /// One chart and texel per GEOM vertex -- UTA-0326 SS 4.2.
+    std::optional<ShadowMask> shadowMask;
 };
 
 /// Decode a whole bundle.
@@ -558,7 +600,7 @@ struct Bundle {
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

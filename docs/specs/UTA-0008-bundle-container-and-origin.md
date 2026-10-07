@@ -228,7 +228,7 @@ field, because a field whose value is always 16 is a field that can be wrong.
 
 | Offset | Size | Field | Value |
 |---|---|---|---|
-| 0 | 4 | `id` | four bytes, §§ 4.6–4.8, **UTA-0052 § 4.3** for `TEXS`, **UTA-0011 § 4.10** for `MATS`, **UTA-0109 § 4.2** for `GEOM`, **UTA-0110 § 4.4** for `PLAC` and `LITE`, **UTA-0119 § 4.2** for `MOVR`, **UTA-0111 § 4.2** for `COLL`, **UTA-0112 § 4.2** for `LPRB`, **UTA-0156 § 4.1** for `ZONE`, **UTA-0164 § 4.1** for `AOCC`, and **UTA-0263 § 4.3** for `FLAM` |
+| 0 | 4 | `id` | four bytes, §§ 4.6–4.8, **UTA-0052 § 4.3** for `TEXS`, **UTA-0011 § 4.10** for `MATS`, **UTA-0109 § 4.2** for `GEOM`, **UTA-0110 § 4.4** for `PLAC` and `LITE`, **UTA-0119 § 4.2** for `MOVR`, **UTA-0111 § 4.2** for `COLL`, **UTA-0112 § 4.2** for `LPRB`, **UTA-0156 § 4.1** for `ZONE`, **UTA-0164 § 4.1** for `AOCC`, **UTA-0263 § 4.3** for `FLAM`, and **UTA-0326 § 4.2** for `SMSK` |
 | 4 | 8 | `offset` | `u64`, from the start of the file |
 | 12 | 8 | `size` | `u64`, payload bytes |
 | 20 | 1 | `compression` | `u8`, `0` = none; no version defines another value. **UTA-0052 § 3 decision 5 kept it zero**: block format is carried per texture, not per section |
@@ -565,11 +565,11 @@ struct Bundle {
 ```
 
 `write` emits sections in the fixed order `ROOM`, `NAVG`, `WIRG`, `TEXS`,
-`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, `LPRB`, `ZONE`, `AOCC`, `FLAM`, omitting absent ones. **`TEXS` was
+`MATS`, `GEOM`, `PLAC`, `LITE`, `MOVR`, `COLL`, `LPRB`, `ZONE`, `AOCC`, `FLAM`, `SMSK`, omitting absent ones. **`TEXS` was
 APPENDED by UTA-0052 rather than inserted, `MATS` by UTA-0011 after it, `GEOM`
 by UTA-0109 after that, `PLAC` then `LITE` by UTA-0110, `MOVR` by UTA-0119
 after those, `COLL` by UTA-0111 after that, `LPRB` by UTA-0112 after that, `ZONE` by
-UTA-0156 after that, `AOCC` by UTA-0164 after that, and `FLAM` by UTA-0263 after that**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
+UTA-0156 after that, `AOCC` by UTA-0164 after that, `FLAM` by UTA-0263 after that, and `SMSK` by UTA-0326 after that**, so this clause is extended rather than contradicted. Fixed rather than incidental because `docs/design.md` § Close
 calls requires a `.utab` *"that any tool other than `ubake` wrote"* to be
 named by the hash of its own contents, and a hash over an
 incidentally-ordered file names one world two things. Determinism is not

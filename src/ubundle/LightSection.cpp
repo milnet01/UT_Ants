@@ -109,3 +109,25 @@ Result<std::vector<std::byte>> encodeLights(const std::vector<Light>& lights) {
 }
 
 } // namespace uta::ubundle::detail
+
+namespace uta::ubundle {
+namespace {
+
+// UT99's ELightType and ELightEffect values litDirectly reads.
+constexpr std::uint8_t LT_BACKDROP_LIGHT = 6;
+constexpr std::uint8_t LE_STATIC_SPOT = 8;
+constexpr std::uint8_t LE_SPOTLIGHT = 12;
+
+} // namespace
+
+bool litDirectly(const Light& light) noexcept {
+    // LT_BackdropLight lights only the sky; a specialLit light only surfaces
+    // the renderer does not draw; an absorbed strip light is lit by its row's
+    // leader (UTA-0162 SS 4.3).
+    if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == STRIP_ABSORBED) return false;
+    // UTA-0169: brightness 0 never emits. A spot of cone 0 lights no point.
+    if (light.brightness == 0) return false;
+    return !((light.effect == LE_SPOTLIGHT || light.effect == LE_STATIC_SPOT) && light.cone == 0);
+}
+
+} // namespace uta::ubundle

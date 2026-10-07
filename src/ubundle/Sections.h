@@ -2,7 +2,7 @@
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
 // with umap, NAVG and WIRG with unav, TEXS with umat, MATS, GEOM, PLAC, LITE,
-// MOVR, COLL, LPRB, ZONE and AOCC with ubake -- so each lives in its own
+// MOVR, COLL, LPRB, ZONE, AOCC and SMSK with ubake -- so each lives in its own
 // file, and work on one does not share a file with work on another
 // (UTA-0091). Bundle.cpp keeps the
 // framing: the header, the section table, and read and write.
@@ -15,7 +15,8 @@
 // and LITE, docs/specs/UTA-0119-mover-shapes.md SS 4.2 for MOVR, and
 // docs/specs/UTA-0111-level-collision.md SS 4.2 for COLL, and
 // docs/specs/UTA-0112-baked-light-probes.md SS 4.2 for LPRB, and UTA-0156
-// and UTA-0164's specs, SS 4.1 each, for ZONE and AOCC.
+// and UTA-0164's specs, SS 4.1 each, for ZONE and AOCC, and
+// docs/specs/UTA-0326-baked-shadow-mask.md SS 4.2 for SMSK.
 
 #pragma once
 
@@ -42,6 +43,7 @@ constexpr SectionId ID_LPRB = {'L', 'P', 'R', 'B'};
 constexpr SectionId ID_ZONE = {'Z', 'O', 'N', 'E'};
 constexpr SectionId ID_AOCC = {'A', 'O', 'C', 'C'};
 constexpr SectionId ID_FLAM = {'F', 'L', 'A', 'M'};
+constexpr SectionId ID_SMSK = {'S', 'M', 'S', 'K'};
 
 // Structural validation -- SS 4.9.
 //
@@ -147,5 +149,14 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 [[nodiscard]] Result<std::vector<Flame>> readFlames(Cursor& cursor);
 [[nodiscard]] Result<std::vector<std::byte>> encodeFlames(const std::vector<Flame>& flames);
 [[nodiscard]] Result<void> validateFlames(const Bundle& bundle, ErrorCode code);
+
+// SMSK -- ShadowMaskSection.cpp, UTA-0326 SS 4.2. Its own rules are the
+// validator's. Its vertex counts against GEOM and its lights against LITE are
+// rules across sections, so validateShadowMaskAcross runs once every section
+// is decoded.
+[[nodiscard]] Result<ShadowMask> readShadowMask(Cursor& cursor);
+[[nodiscard]] Result<void> validateShadowMask(const ShadowMask& mask, ErrorCode code);
+[[nodiscard]] Result<std::vector<std::byte>> encodeShadowMask(const ShadowMask& mask);
+[[nodiscard]] Result<void> validateShadowMaskAcross(const Bundle& bundle, ErrorCode code);
 
 } // namespace uta::ubundle::detail

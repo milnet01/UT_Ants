@@ -81,7 +81,7 @@ Bytes geomPayload(const Geometry& geometry) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(22); // formatVersion -- 22 since UTA-0277 gave each material its tile kind
+    out.u32(23); // formatVersion -- 23 since UTA-0326 added SMSK
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -177,7 +177,7 @@ TEST_CASE("the GEOM golden bytes decode to the geometry they encode", "[ubundle]
     // INV-1, the reader's half.
     const auto result = read(fileWith(geomPayload(golden())));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 22);
+    CHECK(result->header.formatVersion == 23);
     REQUIRE(result->geometry.has_value());
     sameBits(*result->geometry, golden());
 }
@@ -357,7 +357,7 @@ std::vector<std::byte> fileWithZones(const Bytes& geom, std::uint32_t count) {
     }
     Bytes out;
     out.id("UTAB");
-    out.u32(22); // formatVersion -- 22 since UTA-0277 gave each material its tile kind
+    out.u32(23); // formatVersion -- 23 since UTA-0326 added SMSK
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved

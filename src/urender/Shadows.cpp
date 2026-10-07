@@ -146,9 +146,9 @@ bool isSpot(const ubundle::Light& light) noexcept {
 std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept {
     // UTA-0169: brightness 0 lights nothing, so it has nothing to shadow. A fog
     // volume keeps such a light in directLights, and its tiles were wasted.
-    if (light.brightness == 0) return 0;
-    if (isSpot(light)) return light.cone == 0 ? 0 : 1;
-    return 6;
+    // Nor does a spot of cone 0 -- the rule is litDirectly's (UTA-0326 SS 4.1).
+    if (!ubundle::litDirectly(light)) return 0;
+    return isSpot(light) ? 1 : 6;
 }
 
 std::uint32_t shadowTileSize(const ubundle::Light& light, double unitsPerTexel) noexcept {

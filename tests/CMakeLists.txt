@@ -48,6 +48,7 @@ add_executable(uta_unit_tests
     unit/BundleFlamesTest.cpp
     unit/BundleMoversTest.cpp
     unit/BundleOcclusionTest.cpp
+    unit/BundleShadowMaskTest.cpp
     unit/BundleFormatTest.cpp
     unit/BundleGeometryTest.cpp
     unit/BundleLightProbesTest.cpp
