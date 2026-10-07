@@ -18640,6 +18640,13 @@ to.
   (bound 928, inverted) and is drawn with the eye inside 1307's subtree,
   so an inverted box does not cull there. A view from outside such a
   subtree is untested. Scratch: ambient-census/inv-check.cpp.
+  GAME-0217 (2026-10-07): ut-compare at the user's nine TheBoat viewer
+  marks, map md5 c8bc7ea5, 1920x1080; pairs in
+  ~/.cache/ut-ants/compare/theboat-0217/. Eight match UT99, gun-port
+  openings and the sky box included. Mark 132125 (-4969.07 2057.17
+  -23092.52, pitch -1850, yaw -12547) shows sky and sea through the hull
+  in UT99 only; ours draws planking. So the fault is UT99's drawing of
+  the map, theirs to fix; sent to UT_MonsterHunt with the paths.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
