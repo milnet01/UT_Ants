@@ -15640,6 +15640,20 @@ stays with movement in 0.2.0.
   leads the priority list.
   Decided (user, 2026-10-06): UTA-0326 (baked shadow mask) next, ahead
   of UTA-0325.
+  Progress (2026-10-07): after UTA-0326, one-step-off probes on the r44
+  bakes, ultra 3840x2160, all fly cameras (30 still, 30 moving), each
+  probe between two baselines in one cc-job. Baselines (still median):
+  Bishop 17.7 ms, Closer 13.6, Crane 10.3 (were 72-79 / 30-34 / 22-25 on
+  2026-10-06). Savings, Bishop / Closer / Crane: flat colour 8.1 / 7.5 /
+  5.8; no direct light 4.5 / 4.6 / 3.1; shadows off 2.5 / 2.5 / 1.9;
+  mover-shadow reads off 1.5 / 0.3 / 0.35; fog compute off 4.2 / 1.6 /
+  1.3; parallax off 2.2 / 2.7 / 1.6; probes off 2.0 / 1.9 / 1.7; fog
+  sample off 0.3 / 0.3 / 0.1. No single step dominates any more except
+  fog on Bishop: its cluster haze loop is ~5 ms there (filed UTA-0333).
+  Tried and reverted: skipping fog lights whose lightThrough is zero;
+  50 frames byte-identical, no speed change. Probe worktree moved to
+  7078486; old probe diff kept at ~/.cache/uta-scratch/u323/
+  probe-f52df63.patch; figures in u323/probe44 and u323/fogprobe.
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -17378,6 +17392,22 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-07.
   Lanes: ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-132125/frame.png
+
+- 📋 [UTA-0333] **urender: cut the fog pass's per-light cost, the largest single step on DM-Bishop.**
+  UTA-0323, 2026-10-07, r44 bakes, ultra 3840x2160, RX 6600, alternated
+  in one job: switching off fog_scatter.comp's cluster haze loop saves
+  ~5 ms of DM-Bishop's ~19 ms frame (Closer ~2, Crane ~1). Bishop has no
+  volumetric lights, so the glowing-light loop is not it. Skipping lights
+  whose lightThrough is zero changed no frame and saved nothing, so the
+  lights in each froxel's cluster really do reach it: the cost is shadowed
+  lights x 160x90x64 froxels x a shadow-map read each. Candidates, measure
+  before choosing: count lights per froxel first; update half the froxels
+  a frame and reproject; keep only each froxel's brightest few lights;
+  read a coarser shadow-map mip for haze.
+  **Layman:** The haze that shows light beams costs a quarter of the time on the slowest map; find a cheaper way to work it out.
+  Kind: perf.
+  Source: user-request-2026-10-06.
+  Lanes: urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
