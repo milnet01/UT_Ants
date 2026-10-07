@@ -170,8 +170,8 @@ A package whose `Level` export does not read carries `level: null` and
 `levelError`, a string, and no key below it.
 
 Otherwise, after `level`: `surfaces` (and `surfacesError` when it is null),
-`levelInfo`, `levelSummary`, `monsters`, `nav`, `wiring`, `exits`, as § 4.5
-to § 4.7a give them.
+`levelInfo`, `levelSummary`, `monsters`, `nav`, `wiring`, `exits`,
+`waypoints`, as § 4.5 to § 4.7b give them.
 
 ### 4.5 Level, surfaces, credits and monsters
 
