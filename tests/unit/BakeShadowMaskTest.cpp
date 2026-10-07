@@ -219,6 +219,59 @@ TEST_CASE("INV-2: the pillar's face turned from the light has no pair for it", "
 
 namespace {
 
+constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
+const P BELOW{256, 256, 20};
+
+/// A 112-unit solid sheet at z 100 facing up under `flags` and `material`, and
+/// optionally a 32-unit solid square at z 60 under its middle. Returns the
+/// geometry and the sheet's first vertex.
+std::pair<Geometry, std::uint32_t> sheetScene(std::uint32_t flags, const std::string& material, bool blocker) {
+    Scene scene;
+    const std::uint32_t sheet =
+        addQuad(scene, {200, 200, 100}, {312, 200, 100}, {312, 312, 100}, {200, 312, 100}, {0, 0, 1}, flags, material);
+    if (blocker) addQuad(scene, {240, 240, 60}, {272, 240, 60}, {272, 272, 60}, {240, 272, 60}, {0, 0, -1});
+    return {finish(std::move(scene)), sheet};
+}
+
+} // namespace
+
+TEST_CASE("SS 4.3: a two-sided sheet lit only from behind is lit from that side", "[ubake][shadowmask]") {
+    // scene.frag turns a two-sided surface's normal to the viewer, so a light
+    // behind it lights the side it is on. DM-Crane's sky clouds are lit so.
+    JobSystem jobs(2);
+    const auto [geometry, sheet] = sheetScene(PF_TWO_SIDED, "", false);
+    const auto mask = bakeShadowMask(bundleOf(geometry, {pointLight(BELOW)}), jobs);
+    REQUIRE(mask.has_value());
+    // Solid, so a ray lifted to the far side would meet the sheet itself.
+    CHECK(valueAt(geometry, *mask, sheet, 0, {256, 256, 100}) == 255);
+}
+
+TEST_CASE("SS 4.3: what lies behind a two-sided sheet still shadows it", "[ubake][shadowmask]") {
+    JobSystem jobs(2);
+    const auto [geometry, sheet] = sheetScene(PF_TWO_SIDED, "", true);
+    const auto mask = bakeShadowMask(bundleOf(geometry, {pointLight(BELOW)}), jobs);
+    REQUIRE(mask.has_value());
+    CHECK(valueAt(geometry, *mask, sheet, 0, {256, 256, 100}) == 0);
+    // From this corner the segment to the light passes the square at x 233.
+    CHECK(valueAt(geometry, *mask, sheet, 0, {210, 210, 100}) == 255);
+}
+
+TEST_CASE("SS 4.3: a two-sided liquid lit only from behind has no pair", "[ubake][shadowmask]") {
+    // UTA-0215: scene.frag lights a liquid's sheet as its front from both sides.
+    JobSystem jobs(2);
+    const auto [geometry, sheet] = sheetScene(PF_TWO_SIDED, "water", false);
+    Bundle bundle = bundleOf(geometry, {pointLight(BELOW)});
+    uta::ubundle::MaterialRecord water;
+    water.id = "water";
+    water.liquid.emplace();
+    bundle.materials = std::vector<uta::ubundle::MaterialRecord>{water};
+    const auto mask = bakeShadowMask(bundle, jobs);
+    REQUIRE(mask.has_value());
+    CHECK(pairOf(*mask, sheet, 0) == nullptr);
+}
+
+namespace {
+
 /// INV-3's scene: a floor, a light overhead, and a 112-unit pane between them
 /// at z 100 wearing `material` under `flags`. Returns the floor's first vertex.
 std::pair<Geometry, std::uint32_t> paneScene(std::uint32_t flags, const std::string& material = "pane") {
