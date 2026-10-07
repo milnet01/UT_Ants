@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-dump lists a map's MonsterWaypoint actors with their Position** (UTA-0332)
+  For UT_MonsterHunt, which reads the order a map's monsters are meant
+  to be hunted in.
+
 - **ut-bound-scan lists the spots in a map where the original game can fail to draw part of the picture** (UTA-0328)
   It finds walls and floors left outside the box the game uses to decide
   whether to draw them, one JSON line per spot, for UT_MonsterHunt's map
@@ -531,6 +535,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   CMake + Ninja, C++23, Catch2 v3.16.0 fetched by the build rather than installed. The suite passes on a clone with no Unreal Tournament present, which is what S7 is measured on; a second tier behind UTA_REAL_ASSET_TESTS runs against a real install and refuses to configure without a path.
 
 ### Changed
+
+- **Shadows on a map's walls and floors are baked ahead of time, so frames draw faster** (UTA-0326)
+  The baker now records, for each light, which parts of each surface it
+  reaches. The renderer reads that instead of working shadows out every
+  frame; moving parts such as doors and lifts still use the live method.
+  A surface seen from both sides, such as DM-Crane's sky clouds, is lit
+  from whichever side its light is on. Maps must be baked again.
 
 - **ut-paths no longer follows pruned reach specs** (UTA-0266)
   UT's route search does not use them, and on 38 of 861 census maps a
