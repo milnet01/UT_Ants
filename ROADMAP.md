@@ -15694,7 +15694,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: upkg, unav, urender.
 
-- 🚧 [UTA-0332] **ut-dump: list each map's MonsterWaypoint-family actors with their Position.**
+- ✅ [UTA-0332] **ut-dump: list each map's MonsterWaypoint-family actors with their Position.**
   Asked by UT_MonsterHunt (GAME-0208), 2026-10-07. A top-level
   `waypoints` list beside `exits`: every actor whose class name contains
   MonsterWaypoint (MonsterWaypoint, MonsterWaypointSB,
@@ -15713,6 +15713,8 @@ stays with movement in 0.2.0.
   their survey: ZMMACHINEEndFix 5 (gap after 3), HellFireV3 19 (gap after
   16), Cantilever_UTremix_V2 14 (gaps after 8 and 15); OperationBlackWidow
   14, 10 TriggerMonsterWaypoint, 1 to 14. Ships on GitHub's matrix.
+  Shipped 2026-10-07, green on GitHub's matrix at 4c9174f. UT_MonsterHunt
+  told the field names; they confirmed it on their maps.
   **Layman:** The map-inspection tool lists the numbered waypoints monsters follow, so the sister project can spot a missing or repeated number.
   Kind: enhancement.
   Source: user-request-2026-10-07 via UT_MonsterHunt.
@@ -17274,6 +17276,31 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the spec lacked: a masked surface also takes the flashlight (SS 4.5
   as built). Next: step 5, SS 7's hand measurements on DM-Bishop,
   DM-Closer and DM-Crane; the item ships only if all three are faster.
+  Measured (2026-10-07), spec SS 7 item 1, revision 43. Bake time
+  added (ut-bench bake, best of 3, texture cache warm): Bishop 14.1 s of
+  16.6 s, Closer 5.3 s of 7.8 s, Crane 50.6 s of 94.1 s. Texel and atlas:
+  Bishop 8 units, 4096x1452; Closer 8, 4096x1276; Crane coarsened to 16,
+  4096x2160 (at 8 it did not fit, so that attempt was thrown away inside
+  the 50.6 s). Pairs kept / candidates: Bishop 20390 / 127054, Closer
+  16238 / 37138, Crane 15155 / 46903. Share of candidate pairs dropped,
+  all-lit, moverReach: Bishop 84.0 / 7.3 / 1.6 %; Closer 56.3 / 19.8 /
+  2.5 %; Crane 67.7 / 16.0 / 11.2 %. Of kept pairs, moverReach is 10.1 %
+  on Bishop, 5.6 % on Closer, 34.7 % on Crane, which still read the
+  shadow map. Counts from a scratch baker printing them to stderr
+  (~/.cache/uta-scratch/u326/wt), bundles otherwise identical.
+  Measured (2026-10-07), spec SS 7 item 2: ut-bench frame, ultra,
+  3840x2160, RX 6600, UTA-0323's player-start cameras (u323/*-fly.txt),
+  mask on (main build) vs off (scratch build, scene.frag's mask branch
+  forced false), ON OFF ON OFF per map in one cc-job. Median of the
+  still views' medians, round 1 / round 2: Bishop on 17.7 / 17.4 ms, off
+  59.4 / 62.9; Closer on 15.4 / 15.1, off 23.8 / 25.6; Crane on 11.3 /
+  10.6, off 21.8 / 18.8. Worst 99th percentile over views and moves:
+  Bishop on 81.7 / 28.3 (one hitch in round 1 only), off 88.5 / 102.0;
+  Closer on 25.0 / 24.4, off 44.7 / 43.7; Crane on 22.9 / 18.1, off 40.9
+  / 33.6. Every map is faster, so SS 7's ship condition holds. Figures in
+  ~/.cache/uta-scratch/u326/frame, summarise.py beside it. Next: SS 7
+  item 3, ut-shot the same views with and without the mask and compare
+  numerically; then flip on GitHub's matrix.
   **Layman:** Most lights and walls never move, so their shadows can be worked out once when the map is prepared instead of every frame.
   Kind: perf.
   Source: user-request-2026-10-06.
