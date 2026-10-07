@@ -9,8 +9,13 @@
 
 #include "ubake/ShadowMask.h"
 
+#include "BakeFixture.h"
 #include "core/Jobs.h"
+#include "support/UnrealPackageBuilder.h"
+#include "ubake/Bake.h"
 #include "ubundle/Bundle.h"
+#include "umat/Library.h"
+#include "umat/Material.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -423,4 +428,42 @@ TEST_CASE("INV-7: the mask is the same at 1 and 2 and 4 workers", "[ubake][shado
     const auto one = encoded(1);
     CHECK(encoded(2) == one);
     CHECK(encoded(4) == one);
+}
+
+namespace {
+
+/// The standard fixture's level and lamp, the lamp at `brightness`.
+uta::test::bake::Fixture litLevel(std::uint8_t brightness) {
+    using namespace uta::test::bake;
+    Fixture fixture;
+    MapBuilder& map = fixture.map;
+    const std::int32_t wall = map.addTexture(TextureSpec{"Wall", "Base", picture(1), false});
+    const std::int32_t floor = map.addTexture(TextureSpec{"Floor", "", picture(2), false});
+    map.addSurface(wall).addSurface(wall, MASKED).addSurface(floor);
+    map.addActorOfClass("ActorPkg", "Lamp",
+                        {vectorProperty("Location", 16.0F, 32.0F, 48.0F), byteProperty("LightBrightness", brightness)});
+    return fixture;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0326 SS 4.6: a bake writes SMSK only for a litDirectly light", "[ubake][shadowmask]") {
+    using namespace uta::test::bake;
+    for (const std::uint8_t brightness : {std::uint8_t{0}, std::uint8_t{64}}) {
+        CAPTURE(int{brightness});
+        const Fixture fixture = litLevel(brightness);
+        MemoryPackages packages = memoryPackagesFor(fixture);
+        const std::vector<std::uint8_t> bytes = fixture.map.build();
+        const auto map = uta::upkg::Package::open(uta::test::asBytes(bytes));
+        REQUIRE(map.has_value());
+        JobSystem jobs(2);
+        const auto result = uta::ubake::detail::bake(*map, MAP_NAME, packages.resolver(), jobs, &uta::umat::curated,
+                                                     uta::umat::TEXTURE_BUDGET_BYTES);
+        REQUIRE(result.has_value());
+        // The lamp is placed either way, and the level has surfaces to light.
+        REQUIRE(result->bundle.lights.has_value());
+        REQUIRE(result->bundle.lights->size() == 1);
+        REQUIRE_FALSE(result->bundle.geometry->vertices.empty());
+        CHECK(result->bundle.shadowMask.has_value() == (brightness != 0));
+    }
 }

@@ -42,7 +42,7 @@ deferred out of that release's cut.
 ### Standing facts
 
 **A bake goes stale when the baker or the format moves.** A bundle is
-format 23 (`UTA-0326`) and the baker is at revision 42 (`UTA-0314`), so a
+format 23 (`UTA-0326`) and the baker is at revision 43 (`UTA-0326`), so a
 map baked before either must be baked again.
 
 **The renderer's first iteration uses the cheapest methods that still look

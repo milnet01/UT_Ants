@@ -152,6 +152,7 @@ the comment beside it in `src/ubake/Bake.cpp` names.
 | `collision` | 10, `buildCollision` for the level and each mover |
 | `light-probes` | 11 |
 | `occlusion` | 11b, `bakeOcclusion` |
+| `shadow-mask` | 11c, `bakeShadowMask` |
 | `budget` | 12 |
 
 A bake that stops early carries the phases that closed before it stopped. A

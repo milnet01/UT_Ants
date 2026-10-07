@@ -51,8 +51,8 @@ TEST_CASE("UTA-0129 INV-3: a bake lists its steps in order and a cached one stop
     for (const Row& row : std::vector<Row>{{"bake", 0},         {"level", 1},    {"rooms", 1},        {"nav", 1},
                                            {"wiring", 1},       {"actors", 1},   {"movers", 1},       {"materials", 1},
                                            {"geometry", 1},     {"strips", 1},   {"mover-shapes", 1}, {"collision", 1},
-                                           {"light-probes", 1}, {"occlusion", 1}, {"budget", 1},      {"encode", 0},
-                                           {"write-file", 0}})
+                                           {"light-probes", 1}, {"occlusion", 1}, {"shadow-mask", 1}, {"budget", 1},
+                                           {"encode", 0},       {"write-file", 0}})
         whole.push_back(row);
     CHECK(rowsOf(written->phases) == whole);
     for (const uta::Phase& phase : written->phases) {
@@ -62,7 +62,7 @@ TEST_CASE("UTA-0129 INV-3: a bake lists its steps in order and a cached one stop
     }
     // detail::bake's own list is the same steps, one shallower.
     REQUIRE(written->result.has_value());
-    REQUIRE(written->result->phases.size() == 14);
+    REQUIRE(written->result->phases.size() == 15);
     CHECK(written->result->phases.front().name == "level");
     CHECK(written->result->phases.front().depth == 0);
 

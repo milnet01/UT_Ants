@@ -102,9 +102,10 @@ namespace {
 // fixture texture is, so the digest did not move.
 // 42, format 23: UTA-0326 adds SMSK. Nothing bakes one yet, so the format
 // bump alone moved it.
-constexpr std::uint32_t RECORDED_UNDER = 42;
+// 43, format 23: UTA-0326 bakes SMSK for the fixture's lamp.
+constexpr std::uint32_t RECORDED_UNDER = 43;
 constexpr std::string_view GOLDEN =
-    "3de389826ae392c1aed72d76fd8dfec4b3dcf51b160f02b22f398380261e30b7";
+    "7a61a9e422f32dba4162d3b922003e246d5c9cb99b31c7f8678712504e831aa3";
 
 } // namespace
 
@@ -143,6 +144,8 @@ TEST_CASE("the golden bake hashes to the value recorded for BAKER_REVISION",
     // decide; the digest below pins their values.
     REQUIRE(result->bundle.lightProbes.has_value());
     INFO("the golden bake's probe count: " << result->bundle.lightProbes->probes.size());
+    // And UTA-0326's SMSK, for the fixture's one lamp.
+    REQUIRE(result->bundle.shadowMask.has_value());
 
     const auto written = uta::ubundle::write(result->bundle);
     REQUIRE(written.has_value());

@@ -34,7 +34,7 @@ namespace uta::ubake {
 /// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
 /// tests/unit/BakeGoldenTest.cpp fails a change without a bump, and a bump
 /// without re-recording its golden hash (INV-5).
-inline constexpr std::uint32_t BAKER_REVISION = 42; // 42 since UTA-0314 took bMasked from the texture too
+inline constexpr std::uint32_t BAKER_REVISION = 43; // 43 since UTA-0326 bakes the shadow mask
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex

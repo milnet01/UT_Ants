@@ -13,6 +13,7 @@
 #include "ubake/Liquids.h"
 #include "ubake/LightProbes.h"
 #include "ubake/Occlusion.h"
+#include "ubake/ShadowMask.h"
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "ubake/Strips.h"
@@ -403,6 +404,16 @@ std::expected<std::vector<upkg::EffectiveProperty>, std::string> classDefaultsOf
     return std::move(*defaults);
 }
 
+/// UTA-0326 SS 4.3: a masked picture's cutout -- 1 where its alpha is at least
+/// half, as shadow.frag's MASK_THRESHOLD tests it.
+Cutout cutoutOf(const umat::Image& picture) {
+    Cutout cutout{picture.width, picture.height, {}};
+    cutout.solid.reserve(std::size_t{picture.width} * picture.height);
+    for (std::size_t alpha = 3; alpha < picture.pixels.size(); alpha += picture.channels)
+        cutout.solid.push_back(std::to_integer<std::uint8_t>(picture.pixels[alpha]) >= 128 ? 1 : 0);
+    return cutout;
+}
+
 /// A made variant, and the texels one repeat of its texture spans on each axis
 /// -- UTA-0109 SS 4.4.
 struct MadeVariant {
@@ -434,6 +445,9 @@ struct MadeVariant {
     /// hash all zero, where step 1 excludes the material whatever its picture.
     std::optional<TileScores> tileScores;
     std::array<std::byte, 32> tileHash{};
+    /// UTA-0326 SS 4.3: a masked variant's cutout, from the picture as
+    /// resolved; empty for an opaque one.
+    std::optional<Cutout> cutout;
 };
 
 /// UTA-0270: an Ice texture's GlassTexture as a one-level BC4 picture of each
@@ -772,7 +786,7 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
                        meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), std::move(fire),
                        std::move(fireSkipped), emission, std::move(glass), std::move(detail), tileScores,
-                       tileHash};
+                       tileHash, masked ? std::optional<Cutout>(cutoutOf(*resolved)) : std::nullopt};
 }
 
 struct Materials {
@@ -793,6 +807,8 @@ struct Materials {
     /// SS 4.5. A material whose base level has no opaque pixel holds
     /// DEFAULT_ALBEDO.
     std::map<std::string, Rgb, std::less<>> albedo;
+    /// UTA-0326 SS 4.3: each masked material's cutout, by id.
+    Cutouts cutouts;
     /// UTA-0161: each glowing material's mean emission, by id. A material
     /// that does not glow has no entry.
     std::map<std::string, Rgb, std::less<>> emission;
@@ -952,6 +968,7 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
                 out.skippedFires.push_back(SkippedTexture{id, std::move(made->fireSkipped)});
             out.albedo.emplace(id, made->albedo.value_or(Rgb{DEFAULT_ALBEDO, DEFAULT_ALBEDO, DEFAULT_ALBEDO}));
             if (made->emission.has_value()) out.emission.emplace(id, *made->emission);
+            if (made->cutout.has_value()) out.cutouts.emplace(id, std::move(*made->cutout));
             for (ubundle::CompressedTexture& texture : made->material.maps)
                 out.textures.push_back(std::move(texture));
             if (made->glass.has_value()) out.textures.push_back(std::move(*made->glass)); // UTA-0270
@@ -1246,11 +1263,6 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     }
 
     BakeResult result;
-    // 12. The budget, over every map of every material.
-    phase.emplace(&times, "budget");
-    result.budget = umat::measure(materials.textures, budgetBytes);
-    phase.reset();
-    result.phases = times.phases();
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
     result.skippedFlames = std::move(flames.skipped);
@@ -1278,6 +1290,24 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.zones = std::move(zones);
     result.bundle.occlusion = std::move(occlusion);
     result.bundle.flames = std::move(flames.flames);
+
+    // 11c. SMSK -- UTA-0326 SS 4.6: what each lit texel sees of each light
+    // that never moves. It reads the sections above, so it runs once they are
+    // in the bundle. A level with no GEOM vertex, or no litDirectly light, has
+    // none.
+    if (!result.bundle.geometry->vertices.empty()
+        && std::ranges::any_of(*result.bundle.lights,
+                               [](const ubundle::Light& light) { return ubundle::litDirectly(light); })) {
+        phase.emplace(&times, "shadow-mask");
+        UTA_TRY(ubundle::ShadowMask mask, naming(bakeShadowMask(result.bundle, jobs, materials.cutouts), mapName));
+        result.bundle.shadowMask = std::move(mask);
+    }
+
+    // 12. The budget, over every map of every material.
+    phase.emplace(&times, "budget");
+    result.budget = umat::measure(*result.bundle.textures, budgetBytes);
+    phase.reset();
+    result.phases = times.phases();
     return result;
 }
 
