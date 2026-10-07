@@ -12,13 +12,6 @@
 namespace uta::ubake {
 namespace {
 
-/// PolyFlags that let light through -- the 432 headers' Engine/Inc/UnObj.h.
-/// UTA-0168: PF_NotSolid measured against UT99's own lightmaps, which let light
-/// through a non-solid brush and not through an unlit surface.
-constexpr std::uint32_t PF_TRANSLUCENT = 0x04;
-constexpr std::uint32_t PF_NOT_SOLID = 0x08;
-constexpr std::uint32_t PF_MODULATED = 0x40;
-
 constexpr std::uint32_t LEAF_SIZE = 4;
 
 /// Each node's box is widened by this much, in UT units, so a hit that the box
@@ -41,8 +34,12 @@ Vec3 positionOf(const ubundle::Geometry& geometry, std::uint32_t index) {
 /// triangle with corner `a` and edges `ab`, `ac`, or none. Edges are inclusive,
 /// so a ray through a shared edge meets both triangles, and the caller's tie
 /// rule decides between them.
-std::optional<double> meet(const Vec3& o, const Vec3& d, const Vec3& a, const Vec3& ab,
-                           const Vec3& ac) noexcept {
+struct Meeting {
+    double t = 0, u = 0, v = 0; ///< along d, and the weights of a + ab and a + ac
+};
+
+std::optional<Meeting> meetAt(const Vec3& o, const Vec3& d, const Vec3& a, const Vec3& ab,
+                              const Vec3& ac) noexcept {
     const Vec3 p = cross(d, ac);
     const double det = dot(ab, p);
     if (det == 0) return std::nullopt;
@@ -53,7 +50,14 @@ std::optional<double> meet(const Vec3& o, const Vec3& d, const Vec3& a, const Ve
     const Vec3 q = cross(s, ab);
     const double v = dot(d, q) * inverse;
     if (v < 0 || u + v > 1) return std::nullopt;
-    return dot(ac, q) * inverse;
+    return Meeting{dot(ac, q) * inverse, u, v};
+}
+
+std::optional<double> meet(const Vec3& o, const Vec3& d, const Vec3& a, const Vec3& ab,
+                           const Vec3& ac) noexcept {
+    const std::optional<Meeting> at = meetAt(o, d, a, ab, ac);
+    if (!at) return std::nullopt;
+    return at->t;
 }
 
 /// Whether o + t d, for some t in [lo, hi], lies in the box.
@@ -82,9 +86,14 @@ double component(const Vec3& v, int axis) noexcept {
 
 } // namespace
 
-SurfaceRays::SurfaceRays(const ubundle::Geometry& geometry) {
+// The 432 headers' Engine/Inc/UnObj.h. UTA-0168: PF_NotSolid measured against
+// UT99's own lightmaps, which let light through a non-solid brush and not
+// through an unlit surface.
+SurfaceRays::SurfaceRays(const ubundle::Geometry& geometry) : SurfaceRays(geometry, LIGHT_PASSES_FLAGS) {}
+
+SurfaceRays::SurfaceRays(const ubundle::Geometry& geometry, std::uint32_t passes) {
     for (const ubundle::GeometryBatch& batch : geometry.batches) {
-        if ((batch.polyFlags & (PF_TRANSLUCENT | PF_NOT_SOLID | PF_MODULATED)) != 0) continue;
+        if ((batch.polyFlags & passes) != 0) continue;
         for (std::uint32_t i = batch.firstIndex; i + 3 <= batch.firstIndex + batch.indexCount;
              i += 3) {
             const Vec3 a = positionOf(geometry, geometry.indices[i]);
@@ -280,6 +289,31 @@ bool SurfaceRays::blocked(const Vec3& a, const Vec3& b) const {
             const Triangle& t = triangles_[i];
             const std::optional<double> at = meet(a, direction, t.a, t.ab, t.ac);
             if (at && *at > 0 && *at < 1) return true;
+        }
+    }
+    return false;
+}
+
+bool SurfaceRays::blocked(const Vec3& a, const Vec3& b, const Hole& hole) const {
+    if (nodes_.empty()) return false;
+    const Vec3 direction = b - a;
+    // Any solid crossing blocks, so the order the tree yields them in does not
+    // matter. One stack a thread, as blocked's own; `hole` casts no ray.
+    thread_local std::vector<std::uint32_t> stack;
+    stack.assign(1, 0);
+    while (!stack.empty()) {
+        const Node& node = nodes_[stack.back()];
+        stack.pop_back();
+        if (!reaches(a, direction, node.min, node.max, 0, 1)) continue;
+        if (node.count == 0) {
+            stack.push_back(node.right);
+            stack.push_back(node.left);
+            continue;
+        }
+        for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
+            const Triangle& t = triangles_[i];
+            const std::optional<Meeting> at = meetAt(a, direction, t.a, t.ab, t.ac);
+            if (at && at->t > 0 && at->t < 1 && !hole(t.index, at->u, at->v)) return true;
         }
     }
     return false;

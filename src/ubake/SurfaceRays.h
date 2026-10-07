@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <optional>
 #include <span>
@@ -24,12 +25,23 @@
 
 namespace uta::ubake {
 
+/// PolyFlags that let light through: PF_Translucent (0x04), PF_NotSolid (0x08)
+/// and PF_Modulated (0x40).
+inline constexpr std::uint32_t LIGHT_PASSES_FLAGS = 0x04u | 0x08u | 0x40u;
+
 class SurfaceRays {
 public:
-    /// An occluder is a triangle whose batch's polyFlags lack PF_Translucent
-    /// (0x04), PF_NotSolid (0x08) and PF_Modulated (0x40); nothing else is
-    /// ever hit.
+    /// An occluder is a triangle whose batch's polyFlags lack every one of
+    /// LIGHT_PASSES_FLAGS; nothing else is ever hit.
     explicit SurfaceRays(const ubundle::Geometry& geometry);
+
+    /// The same, the occluders' batches lacking every one of `passes` instead
+    /// -- UTA-0326 SS 4.3 adds PF_FakeBackdrop to LIGHT_PASSES_FLAGS.
+    SurfaceRays(const ubundle::Geometry& geometry, std::uint32_t passes);
+
+    /// Whether a hit on a triangle is a hole light passes through: its number
+    /// in GEOM, and the hit's weights of its second and third corners.
+    using Hole = std::function<bool(std::size_t triangle, double u, double v)>;
 
     struct Hit {
         std::size_t triangle = 0; ///< its first index's position in `indices`, over 3
@@ -64,6 +76,9 @@ public:
     /// Whether an occluder crosses the segment from `a` to `b` strictly between
     /// them.
     [[nodiscard]] bool blocked(const Vec3& a, const Vec3& b) const;
+
+    /// The same, a crossing `hole` names passing -- UTA-0326 SS 4.3's cutouts.
+    [[nodiscard]] bool blocked(const Vec3& a, const Vec3& b, const Hole& hole) const;
 
 private:
     struct Triangle {

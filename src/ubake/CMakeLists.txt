@@ -18,6 +18,7 @@ add_library(uta_ubake STATIC
     LightProbes.cpp
     Charts.cpp
     Occlusion.cpp
+    ShadowMask.cpp
     Strips.cpp
     Zones.cpp
     FireStill.cpp
