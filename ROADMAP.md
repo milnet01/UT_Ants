@@ -15589,7 +15589,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 📋 [UTA-0323] **Time the largest maps on a camera fly-through and fix the biggest costs.**
+- ✅ [UTA-0323] **Time the largest maps on a camera fly-through and fix the biggest costs.**
   The user sees slowdowns on some bigger maps, 2026-10-06, with only
   the camera flying: no enemies, gameplay or pickups yet, so every cost
   now eats the headroom those will need. Plan agreed: after UTA-0307,
@@ -15654,6 +15654,9 @@ stays with movement in 0.2.0.
   50 frames byte-identical, no speed change. Probe worktree moved to
   7078486; old probe diff kept at ~/.cache/uta-scratch/u323/
   probe-f52df63.patch; figures in u323/probe44 and u323/fogprobe.
+  Closed (user, 2026-10-07): the three maps the user named are ~4x
+  faster; remaining costs are filed (UTA-0325, UTA-0327, UTA-0333).
+  Next is UTA-0292.
   **Layman:** Find out why the biggest maps slow down and fix the worst causes first.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -15733,6 +15736,21 @@ stays with movement in 0.2.0.
   Kind: enhancement.
   Source: user-request-2026-10-07 via UT_MonsterHunt.
   Lanes: ut-dump.
+
+- 📋 [UTA-0334] **Bake the 127 maps UT_MonsterHunt added to the install on 2026-10-07.**
+  100 DeathMatch and 27 Monster Hunt maps plus 122 support packages,
+  in the reference install. File lists (one absolute path per line, JSON):
+  /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/intake/
+  promoted-2026-10-07-dm.json and promoted-2026-10-07.json. UT_MonsterHunt
+  reports all 127 load, none is a content copy of a held map; 21 DM maps
+  have lifts with no LiftCenter; DM-(c)RedXmas has sparse paths. Results
+  in UT_MonsterHunt's analysis/mapcheck-results.jsonl.
+  Waits on UTA-0292 (user, 2026-10-07): the lighting pass changes the
+  baker, so baking first would mean baking twice.
+  **Layman:** Prepare the newly added maps so this project can show them, once the lighting work is done.
+  Kind: chore.
+  Source: user-request-2026-10-07.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 
