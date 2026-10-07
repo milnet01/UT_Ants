@@ -17268,7 +17268,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-132002/frame.png
 
-- 📋 [UTA-0331] **ubake: add geometry a map lacks, starting with supports under TheBoat's floating platforms.**
+- 📋 [UTA-0331] **ubake: add geometry a map lacks, starting with TheBoat's cannons and the hangings of its floating platforms.**
   The user, 2026-10-07: "I would also like geometry added that helps
   keep up the various platforms they have." On
   MH-()mG-TheBoat-V2mini-BP, sand-coloured platforms hang in the air
@@ -17280,6 +17280,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   own paths use (check with ut-paths). Placed in 0.2.0 beside
   UTA-0181, its texture counterpart (session's call). Tell
   UT_MonsterHunt, whose map this is (memory: sister project).
+  Clarified (user, 2026-10-07): "the cannons don't have the relevant
+  geometry needed for a cannon. The floating platforms need geometry to
+  show how they are suspended in mid-air." So two jobs on TheBoat:
+  (1) each gun port holds only a dark blob (captures 132022, 132047,
+  132057, 132110); give it a cannon's shape, a barrel on a wheeled
+  carriage. (2) each sand platform gets what visibly holds it up, such
+  as ropes or chains to the rigging above, or posts, chosen per platform
+  from what is above and below it. The original game draws both the
+  same way (ut-compare, UTA-0283's 2026-10-07 note), so this is adding
+  to the map, not fixing our renderer.
   **Layman:** Add posts or beams under platforms that float in mid-air, so the map looks built rather than hanging in space.
   Kind: feature.
   Source: user-request-2026-10-07.
