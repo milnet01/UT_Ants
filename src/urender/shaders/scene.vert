@@ -11,6 +11,8 @@ layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inUv;
 layout(location = 3) in uint inZone; // UTA-0156 SS 4.4
 layout(location = 4) in vec2 inOcclusionUv; // UTA-0164 SS 4.5
+layout(location = 5) in uint inMaskChart;   // UTA-0326 SS 4.5
+layout(location = 6) in vec2 inMaskTexel;
 
 // UTA-0260: the depth pass and the forward pass both run this stage, and a
 // surface must land on exactly the depth it was first drawn at.
@@ -23,6 +25,8 @@ layout(location = 3) out vec4 currentClip;
 layout(location = 4) out vec4 previousClip;
 layout(location = 5) flat out uint zone;
 layout(location = 6) out vec2 occlusionUv;
+layout(location = 7) flat out uint maskChart; // UTA-0326 SS 4.5
+layout(location = 8) out vec2 maskTexel;
 
 void main() {
     Object object = objects[draw.objectIndex];
@@ -32,6 +36,8 @@ void main() {
     uv = inUv + draw.panOffset; // UTA-0269
     zone = inZone;
     occlusionUv = inOcclusionUv;
+    maskChart = inMaskChart;
+    maskTexel = inMaskTexel;
 
     // SS 4.11 provision 2: motion vectors from the current and previous clip
     // positions with the jitter excluded.

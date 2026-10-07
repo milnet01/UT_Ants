@@ -21,6 +21,14 @@
 
 namespace uta::urender {
 
+/// Vertex binding 1: what a vertex carries beside its GeometryVertex --
+/// UTA-0164 SS 4.5's occlusion uv and UTA-0326 SS 4.5's mask chart and texel.
+struct SurfaceVertex {
+    std::array<float, 2> occlusionUv{};
+    std::uint32_t maskChart = ubundle::MASK_NO_CHART;
+    std::array<float, 2> maskTexel{};
+};
+
 /// One batch, ready to draw.
 struct DrawItem {
     std::uint32_t objectIndex = 0; ///< 0 is the level; mover i is i + 1
@@ -34,9 +42,11 @@ struct DrawItem {
 
 struct SceneGeometry {
     Buffer vertices;
-    /// UTA-0164 SS 4.5: one occlusion uv per vertex, in the same order -- the
-    /// level's from AOCC, and the white block's centre for every mover.
-    Buffer occlusionUvs;
+    /// One SurfaceVertex per vertex, in the same order. UTA-0164 SS 4.5: the
+    /// level's occlusion uvs from AOCC, and the white block's centre for every
+    /// mover. UTA-0326 SS 4.5: the level's charts and texels from SMSK, and
+    /// MASK_NO_CHART for every mover and every vertex of a bundle without one.
+    Buffer surfaceVertices;
     Buffer indices;
     /// Every batch that draws, in bundle order. PF_Portal and PF_Invisible
     /// batches are not here (SS 4.5).

@@ -7,6 +7,10 @@
 
 const uint NONE = 0xFFFFFFFFu;
 
+// UTA-0326 SS 4.2: a vertex on no chart, and a pair that stores no texels.
+const uint MASK_NO_CHART = 0xFFFFFFFFu;
+const uint MASK_ALL_LIT = 0xFFFFu;
+
 // UT99's EPolyFlags -- UTA-0014 SS 4.5.
 const uint PF_MASKED = 0x00000002u;
 const uint PF_TRANSLUCENT = 0x00000004u;
@@ -54,6 +58,8 @@ struct FrameData {
     float waterFogG;
     float waterFogB;
     uint skyCapture;       // UTA-0281: nonzero while the sky's faces are captured
+    uint shadowMaskTexture; // UTA-0326 SS 4.5: NONE when the bundle has no SMSK
+    uint flashlight;        // UTA-0326 SS 4.5: an index into lights, or NONE
 };
 
 struct Object {
@@ -135,6 +141,21 @@ struct ProbeCell {
 struct ShadowFace {
     mat4 viewProj;
     vec4 atlasRect;
+};
+
+// UTA-0326 SS 4.5: one SMSK chart and one of its pairs.
+struct MaskChart {
+    uint firstPair;
+    uint pairCount;
+    uint width;
+    uint height;
+};
+
+struct MaskPair {
+    uint light;      // an index into lights
+    uint x;          // MASK_ALL_LIT where the pair stores no texels
+    uint y;
+    uint moverReach; // 1 where the shadow map stands in for the mask (SS 4.4)
 };
 
 // UTA-0156 SS 4.4: one zone's ambient light, as UT99's bytes.

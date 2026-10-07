@@ -258,6 +258,13 @@ pair reads the mask alone. So one pair never has two shadows to combine.
   `SMSK` keeps the old mask (UTA-0164 § 7.1's lesson).
 - The shadow planner, the shadow pass and the fog's reads are unchanged.
 
+*As built:* the charts and pairs are bindings 14 and 15, so the shadow atlas,
+the fog volume and the texture array move to 16, 17 and 18. A fragment lit
+from its chart's pairs also adds the flashlight, which no pair names:
+`FrameData` carries its index beside `shadowMaskTexture`. Without it a masked
+surface would stay dark under the flashlight. Tested in
+`tests/device/RenderShadowMaskTest.cpp`.
+
 ### 4.6 The baker's part — `ubake`
 
 `bake` calls `bakeShadowMask` after `bakeOcclusion`. A level with no GEOM

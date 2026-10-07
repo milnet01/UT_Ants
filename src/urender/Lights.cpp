@@ -99,6 +99,14 @@ std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle) {
     return out;
 }
 
+std::vector<std::uint32_t> drawnIndices(const ubundle::Bundle& bundle) {
+    std::vector<std::uint32_t> out;
+    if (!bundle.lights) return out;
+    std::uint32_t next = 0;
+    for (const ubundle::Light& light : *bundle.lights) out.push_back(drawsDirectly(light) ? next++ : gpu::NONE);
+    return out;
+}
+
 std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double seconds) {
     std::vector<gpu::Light> out;
     if (!bundle.lights) return out;

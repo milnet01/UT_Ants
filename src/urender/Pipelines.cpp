@@ -3,6 +3,7 @@
 #include "urender/Pipelines.h"
 
 #include "ubundle/Bundle.h"
+#include "urender/Geometry.h"
 #include "urender/ShaderTypes.h"
 #include "urender/Tiers.h"
 
@@ -92,11 +93,12 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
     stages[1].pSpecializationInfo = &specialization;
 
-    // ubundle::GeometryVertex, uploaded as it is laid out in memory; then
-    // UTA-0164 SS 4.5's occlusion uvs, a stream of their own.
+    // ubundle::GeometryVertex, uploaded as it is laid out in memory; then a
+    // SurfaceVertex, a stream of its own: UTA-0164 SS 4.5's occlusion uv and
+    // UTA-0326 SS 4.5's mask chart and texel.
     const std::array bindings = {
         VkVertexInputBindingDescription{0, sizeof(ubundle::GeometryVertex), VK_VERTEX_INPUT_RATE_VERTEX},
-        VkVertexInputBindingDescription{1, sizeof(std::array<float, 2>), VK_VERTEX_INPUT_RATE_VERTEX},
+        VkVertexInputBindingDescription{1, sizeof(SurfaceVertex), VK_VERTEX_INPUT_RATE_VERTEX},
     };
     const std::array attributes = {
         VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT,
@@ -106,7 +108,9 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ubundle::GeometryVertex, u)},
         // UTA-0156 SS 4.4: the vertex's zone, for its ambient light.
         VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R8_UINT, offsetof(ubundle::GeometryVertex, zone)},
-        VkVertexInputAttributeDescription{4, 1, VK_FORMAT_R32G32_SFLOAT, 0},
+        VkVertexInputAttributeDescription{4, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(SurfaceVertex, occlusionUv)},
+        VkVertexInputAttributeDescription{5, 1, VK_FORMAT_R32_UINT, offsetof(SurfaceVertex, maskChart)},
+        VkVertexInputAttributeDescription{6, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(SurfaceVertex, maskTexel)},
     };
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -494,7 +498,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
     std::array<VkDescriptorSetLayoutBinding, gpu::TEXTURES + 1> bindings{};
     std::array<VkDescriptorBindingFlags, gpu::TEXTURES + 1> bindingFlags{};
-    for (std::uint32_t i = gpu::FRAME; i <= gpu::LIQUIDS; ++i)
+    for (std::uint32_t i = gpu::FRAME; i <= gpu::MASK_PAIRS; ++i)
         bindings[i] = {i, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, everyStage, nullptr};
     // UTA-0015: the fog's first stage reads shadows too.
     bindings[gpu::SHADOW_ATLAS] = {gpu::SHADOW_ATLAS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,

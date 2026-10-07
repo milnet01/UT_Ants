@@ -47,6 +47,10 @@ inline constexpr std::uint8_t LT_SUBTLE_PULSE = 7;
 /// (UTA-0169).
 [[nodiscard]] std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle);
 
+/// UTA-0326 SS 4.5: each LITE light's index in directLights and drawnLights,
+/// or gpu::NONE where the frame does not draw it.
+[[nodiscard]] std::vector<std::uint32_t> drawnIndices(const ubundle::Bundle& bundle);
+
 /// directLights, as the shader reads them. Index for index the same lights.
 [[nodiscard]] std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double seconds);
 

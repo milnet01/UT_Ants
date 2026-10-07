@@ -142,11 +142,13 @@ constexpr std::uint32_t MOTE_COUNT = 800;
 /// lights and the movers' transforms are read every frame and need no upload.
 /// ZONE is sampled whole: it holds at most ZONE_LIMIT entries (UTA-0156).
 /// AOCC by its size and the ends of its uvs and texels (UTA-0164).
+/// SMSK by its sizes and the ends of its arrays (UTA-0326).
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
     std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
                 lights = 0, probes = 0, zones = 0, flames = 0;
     bool occlusion = false;
+    bool shadowMask = false;
     std::uint64_t sample = 0;
     bool operator==(const BundleShape&) const = default;
 };
@@ -260,6 +262,19 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
         fnv.addValue(bundle.occlusion->height);
         fnv.addEnds(std::span<const std::array<float, 2>>(bundle.occlusion->uv));
         fnv.addEnds(std::span<const std::uint8_t>(bundle.occlusion->texels));
+    }
+    // UTA-0326 SS 4.5: and one differing only in its shadow mask.
+    if (bundle.shadowMask) {
+        const ubundle::ShadowMask& mask = *bundle.shadowMask;
+        shape.shadowMask = true;
+        fnv.addValue(mask.texelSize);
+        fnv.addValue(mask.width);
+        fnv.addValue(mask.height);
+        fnv.addEnds(std::span<const std::uint32_t>(mask.vertexChart));
+        fnv.addEnds(std::span<const std::array<float, 2>>(mask.vertexTexel));
+        fnv.addEnds(std::span<const ubundle::MaskChart>(mask.charts));
+        fnv.addEnds(std::span<const ubundle::MaskPair>(mask.pairs));
+        fnv.addEnds(std::span<const std::uint8_t>(mask.texels));
     }
     // UTA-0263 SS 4.3: a bundle differing only in its flames must re-upload them.
     if (bundle.flames) {
@@ -411,6 +426,12 @@ struct Renderer::Impl {
     /// UTA-0164 SS 4.5: the level's occlusion atlas, empty when the bundle has
     /// no AOCC or the tier draws none. The array's texture after the sky's.
     Image occlusion;
+    /// UTA-0326 SS 4.5: the level's shadow mask atlas, empty when the bundle
+    /// has no SMSK; the array's texture after the occlusion atlas. Its charts
+    /// and pairs hold one zero record each with no SMSK, so neither is empty.
+    Image shadowMask;
+    Buffer maskCharts;
+    Buffer maskPairs;
     bool skyPending = false;
     bool skyReady = false;
     /// Each mover's box in its own pivot space, for SS 4.8's redraw test.
@@ -485,7 +506,9 @@ struct Renderer::Impl {
     Result<void> createStandIns();
     Result<void> createFogVolumes();
     Result<void> upload(const ubundle::Bundle& bundle);
-    Result<void> uploadOcclusion(const ubundle::Occlusion& atlas);
+    Result<void> uploadAtlas(Image& image, std::uint32_t width, std::uint32_t height,
+                             std::span<const std::uint8_t> texels);
+    Result<void> uploadShadowMask(const ubundle::Bundle& bundle);
     Result<void> writeDescriptors();
     /// One view of `bundle` from `camera`, presented to `image` when there is
     /// one. With `skyFace`, UTA-0163's capture: drawn at scale 1 with no sky, and
@@ -626,22 +649,62 @@ Result<void> Renderer::Impl::createFogVolumes() {
     });
 }
 
-/// UTA-0164 SS 4.5: the atlas as one R8 image of one level, through a staging buffer.
-Result<void> Renderer::Impl::uploadOcclusion(const ubundle::Occlusion& atlas) {
-    UTA_TRY(occlusion, Image::create(*gpu, {VK_FORMAT_R8_UNORM, atlas.width, atlas.height, 1,
-                                            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
-    UTA_TRY(Buffer staging, Buffer::create(*gpu, atlas.texels.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+/// UTA-0164 SS 4.5 and UTA-0326 SS 4.5: an atlas as one R8 image of one
+/// level, through a staging buffer.
+Result<void> Renderer::Impl::uploadAtlas(Image& image, std::uint32_t width, std::uint32_t height,
+                                         std::span<const std::uint8_t> texels) {
+    // A Bundle built in memory has not been through ubundle::read's checks.
+    if (width == 0 || height == 0 || texels.size() != std::size_t{width} * height)
+        return fail(ErrorCode::InvalidArgument,
+                    std::format("an atlas of {}x{} holds {} texels", width, height, texels.size()));
+    UTA_TRY(image, Image::create(*gpu, {VK_FORMAT_R8_UNORM, width, height, 1,
+                                        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
+    UTA_TRY(Buffer staging, Buffer::create(*gpu, texels.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                            BufferMemory::HostWrite));
-    std::memcpy(staging.mapped(), atlas.texels.data(), atlas.texels.size());
+    std::memcpy(staging.mapped(), texels.data(), texels.size());
     return gpu->run([&](VkCommandBuffer commands) {
-        occlusion.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        image.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         VkBufferImageCopy copy{};
         copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        copy.imageExtent = {atlas.width, atlas.height, 1};
-        vkCmdCopyBufferToImage(commands, staging.handle(), occlusion.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+        copy.imageExtent = {width, height, 1};
+        vkCmdCopyBufferToImage(commands, staging.handle(), image.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                                &copy);
-        occlusion.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        image.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     });
+}
+
+/// UTA-0326 SS 4.5: SMSK's charts and pairs, each pair's light as its index in
+/// the frame's light buffer and a pair whose light the frame does not draw left
+/// out; then its atlas. With no SMSK, one zero record each and no atlas.
+Result<void> Renderer::Impl::uploadShadowMask(const ubundle::Bundle& bundle) {
+    shadowMask = Image{};
+    std::vector<gpu::MaskChart> charts;
+    std::vector<gpu::MaskPair> pairs;
+    if (bundle.shadowMask) {
+        const ubundle::ShadowMask& mask = *bundle.shadowMask;
+        const std::vector<std::uint32_t> drawn = drawnIndices(bundle);
+        for (const ubundle::MaskChart& chart : mask.charts) {
+            if (std::uint64_t{chart.firstPair} + chart.pairCount > mask.pairs.size())
+                return fail(ErrorCode::InvalidArgument, "an SMSK chart's pairs pass the end of its pairs");
+            gpu::MaskChart placed{static_cast<std::uint32_t>(pairs.size()), 0, chart.width, chart.height};
+            for (std::uint32_t k = chart.firstPair; k < chart.firstPair + chart.pairCount; ++k) {
+                const ubundle::MaskPair& pair = mask.pairs[k];
+                if (pair.light >= drawn.size())
+                    return fail(ErrorCode::InvalidArgument,
+                                std::format("an SMSK pair names light {} of LITE's {}", pair.light, drawn.size()));
+                if (drawn[pair.light] == gpu::NONE) continue;
+                pairs.push_back({drawn[pair.light], pair.x, pair.y, pair.moverReach});
+                ++placed.pairCount;
+            }
+            charts.push_back(placed);
+        }
+        UTA_CHECK(uploadAtlas(shadowMask, mask.width, mask.height, mask.texels));
+    }
+    if (charts.empty()) charts.push_back({});
+    if (pairs.empty()) pairs.push_back({});
+    UTA_TRY(maskCharts, Buffer::upload(*gpu, std::as_bytes(std::span(charts)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+    UTA_TRY(maskPairs, Buffer::upload(*gpu, std::as_bytes(std::span(pairs)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+    return {};
 }
 
 Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
@@ -653,7 +716,9 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     skyView = skyViewOf(bundle);
     // UTA-0164 SS 4.5: and one more for its occlusion atlas, from the tier up.
     const bool occluded = bundle.occlusion.has_value() && enabled(Feature::AmbientOcclusion, tier);
-    const std::size_t textureCount = materials->textures().size() + (skyView ? 1 : 0) + (occluded ? 1 : 0);
+    // UTA-0326 SS 4.5: and one more for its shadow mask, at every tier.
+    const std::size_t textureCount = materials->textures().size() + (skyView ? 1 : 0) + (occluded ? 1 : 0)
+                                     + (bundle.shadowMask ? 1 : 0);
     if (textureCount > pipelines->textureCapacity())
         return fail(ErrorCode::InvalidArgument,
                     std::format("the bundle needs {} textures and {} binds at most {}", textureCount, gpu->name(),
@@ -669,7 +734,9 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
         }));
     }
     occlusion = Image{};
-    if (occluded) UTA_CHECK(uploadOcclusion(*bundle.occlusion));
+    if (occluded)
+        UTA_CHECK(uploadAtlas(occlusion, bundle.occlusion->width, bundle.occlusion->height, bundle.occlusion->texels));
+    UTA_CHECK(uploadShadowMask(bundle));
     UTA_TRY(SceneGeometry uploadedGeometry, SceneGeometry::upload(*gpu, bundle, *materials));
     geometry.emplace(std::move(uploadedGeometry));
     UTA_TRY(objects, Buffer::create(*gpu, sizeof(gpu::Object) * geometry->objectCount,
@@ -751,13 +818,14 @@ Result<void> Renderer::Impl::writeDescriptors() {
     if (pool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, pool, nullptr);
     pool = VK_NULL_HANDLE;
 
-    // UTA-0163: the sky's faces follow the materials' textures, and UTA-0164's
-    // occlusion atlas is the array's last.
+    // UTA-0163: the sky's faces follow the materials' textures, then UTA-0164's
+    // occlusion atlas, and UTA-0326's shadow mask is the array's last.
     const auto textureCount = static_cast<std::uint32_t>(materials->textures().size() + (sky.view() ? 1 : 0)
-                                                         + (occlusion.view() ? 1 : 0));
+                                                         + (occlusion.view() ? 1 : 0)
+                                                         + (shadowMask.view() ? 1 : 0));
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::LIQUIDS + 1 + 1},
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::MASK_PAIRS + 1 + 1},
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
         // each post set, and one source per bloom step; then UTA-0015's fog volume.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -818,11 +886,12 @@ Result<void> Renderer::Impl::writeDescriptors() {
     fogAllocate.pSetLayouts = &fogLayout;
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &fogAllocate, &fogSet), "vkAllocateDescriptorSets (fog)"));
 
-    const std::array<const Buffer*, gpu::LIQUIDS + 1> buffers = {
-        &frameData,     &objects,       &materials->records(), &lights, &clusterCounts,
-        &clusterIndices, &clusterBounds, &probeCells,          &probes, &shadowFaces,
-        &zones,          &flames,        &materials->ramps(),  &materials->liquids()};
-    std::array<VkDescriptorBufferInfo, gpu::LIQUIDS + 1> bufferInfos{};
+    const std::array<const Buffer*, gpu::MASK_PAIRS + 1> buffers = {
+        &frameData,     &objects,       &materials->records(), &lights,     &clusterCounts,
+        &clusterIndices, &clusterBounds, &probeCells,          &probes,     &shadowFaces,
+        &zones,          &flames,        &materials->ramps(),  &materials->liquids(),
+        &maskCharts,     &maskPairs};
+    std::array<VkDescriptorBufferInfo, gpu::MASK_PAIRS + 1> bufferInfos{};
     std::vector<VkWriteDescriptorSet> writes;
     for (std::uint32_t i = 0; i < buffers.size(); ++i) {
         bufferInfos[i] = {buffers[i]->handle(), 0, VK_WHOLE_SIZE};
@@ -883,6 +952,8 @@ Result<void> Renderer::Impl::writeDescriptors() {
     if (sky.view()) textureInfos.push_back({materialSampler, sky.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     if (occlusion.view())
         textureInfos.push_back({materialSampler, occlusion.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+    if (shadowMask.view())
+        textureInfos.push_back({materialSampler, shadowMask.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     VkWriteDescriptorSet textureWrite{};
     textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     textureWrite.dstSet = sceneSet;
@@ -1084,8 +1155,9 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdSetViewport(commands, 0, 1, &regionViewport);
         vkCmdSetScissor(commands, 0, 1, &regionScissor);
         if (geometry->draws.empty()) return;
-        // UTA-0164 SS 4.5: the vertices, then their occlusion uvs.
-        const std::array<VkBuffer, 2> vertexBuffers = {geometry->vertices.handle(), geometry->occlusionUvs.handle()};
+        // The vertices, then their SurfaceVertex stream.
+        const std::array<VkBuffer, 2> vertexBuffers = {geometry->vertices.handle(),
+                                                       geometry->surfaceVertices.handle()};
         const std::array<VkDeviceSize, 2> zeros = {0, 0};
         vkCmdBindVertexBuffers(commands, 0, 2, vertexBuffers.data(), zeros.data());
         vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
@@ -1494,6 +1566,11 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     frame.occlusionTexture = impl.occlusion.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
                                                                                  + (impl.sky.view() ? 1 : 0))
                                                    : gpu::NONE;
+    // UTA-0326 SS 4.5: the mask follows the occlusion atlas.
+    frame.shadowMaskTexture =
+        impl.shadowMask.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
+                                                            + (impl.sky.view() ? 1 : 0) + (impl.occlusion.view() ? 1 : 0))
+                               : gpu::NONE;
 
     std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());
     if (bundle.movers)
@@ -1528,6 +1605,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         frameLights.push_back(flashlightOf(camera));
     }
     frame.lightCount = static_cast<std::uint32_t>(frameLights.size());
+    frame.flashlight = flashlight; // UTA-0326 SS 4.5
 
     // UTA-0015 SS 4.4: which volumetric lights glow, from the camera's zone.
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;

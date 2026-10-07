@@ -27,6 +27,8 @@ layout(location = 3) in vec4 currentClip;
 layout(location = 4) in vec4 previousClip;
 layout(location = 5) flat in uint zone; // UTA-0156 SS 4.4
 layout(location = 6) in vec2 occlusionUv; // UTA-0164 SS 4.5
+layout(location = 7) flat in uint maskChart; // UTA-0326 SS 4.5
+layout(location = 8) in vec2 maskTexel;
 
 layout(location = 0) out vec4 outColour;
 layout(location = 1) out vec2 outVelocity;
@@ -301,20 +303,50 @@ void main() {
             litSurface = -surface;
         }
 
-        // SS 4.6: only this fragment's own cluster's lights. SS 4.9: the
-        // flicker scalar multiplies the direct term and never the indirect.
-        uint cluster = clusterOf(gl_FragCoord.xy, (frame.view * vec4(worldPosition, 1.0)).z);
-        uint count = clusterCounts[cluster] & ~CLUSTER_OVERFLOW;
+        // SS 4.9: the flicker scalar multiplies the direct term and never the
+        // indirect.
         vec3 direct = vec3(0.0);
-        for (uint k = 0u; k < count; ++k) {
-            Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
-            // UTA-0323: a cluster lists every light whose sphere meets its box,
-            // so many give this point nothing. Their nine shadow reads were a
-            // fifth of DM-Bishop's frame; skipping them changes no pixel.
-            vec3 lit = lightAt(light, worldPosition, n);
-            if (all(equal(lit, vec3(0.0)))) continue;
-            // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
-            direct += lit * (light.flicker * softShadowOf(light, worldPosition, surface));
+        if (maskChart != MASK_NO_CHART) {
+            // UTA-0326 SS 4.5: a level fragment lights from its chart's pairs
+            // in place of its cluster's lights, each seen through the baked
+            // mask -- or the shadow map, where a mover can come between.
+            MaskChart chart = maskCharts[maskChart];
+            vec2 chartSize = vec2(chart.width, chart.height);
+            vec2 atlasSize = vec2(textureSize(textures[nonuniformEXT(frame.shadowMaskTexture)], 0));
+            for (uint k = 0u; k < chart.pairCount; ++k) {
+                MaskPair pair = maskPairs[chart.firstPair + k];
+                Light light = lights[pair.light];
+                vec3 lit = lightAt(light, worldPosition, n);
+                if (all(equal(lit, vec3(0.0)))) continue;
+                float seen = 1.0;
+                if (pair.moverReach != 0u) {
+                    seen = softShadowOf(light, worldPosition, surface);
+                } else if (pair.x != MASK_ALL_LIT) {
+                    // The border texel keeps a filtered read inside the rectangle.
+                    vec2 at = vec2(pair.x, pair.y) + clamp(maskTexel, vec2(0.5), chartSize - 0.5);
+                    seen = textureLod(textures[nonuniformEXT(frame.shadowMaskTexture)], at / atlasSize, 0.0).r;
+                }
+                direct += lit * (light.flicker * seen);
+            }
+            // No pair names the flashlight, which moves with the camera.
+            if (frame.flashlight != NONE) {
+                Light light = lights[frame.flashlight];
+                direct += lightAt(light, worldPosition, n) * (light.flicker * softShadowOf(light, worldPosition, surface));
+            }
+        } else {
+            // SS 4.6: only this fragment's own cluster's lights.
+            uint cluster = clusterOf(gl_FragCoord.xy, (frame.view * vec4(worldPosition, 1.0)).z);
+            uint count = clusterCounts[cluster] & ~CLUSTER_OVERFLOW;
+            for (uint k = 0u; k < count; ++k) {
+                Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
+                // UTA-0323: a cluster lists every light whose sphere meets its box,
+                // so many give this point nothing. Their nine shadow reads were a
+                // fifth of DM-Bishop's frame; skipping them changes no pixel.
+                vec3 lit = lightAt(light, worldPosition, n);
+                if (all(equal(lit, vec3(0.0)))) continue;
+                // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
+                direct += lit * (light.flicker * softShadowOf(light, worldPosition, surface));
+            }
         }
         // SS 4.7: the probes, through the same normal the lights use.
         ProbeLattice lattice =

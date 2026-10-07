@@ -61,10 +61,12 @@ enum Binding : std::uint32_t {
     ZONES = 10,        ///< UTA-0156 SS 4.4
     FLAMES = 11,       ///< UTA-0263 SS 4.4: one FlameInstance per FLAM record
     FLAME_RAMPS = 12,  ///< UTA-0263 SS 4.2: eight entries per flame look
-    LIQUIDS = 13,      ///< UTA-0105 SS 4.4: one Liquid per liquid look; the last storage buffer
-    SHADOW_ATLAS = 14,
-    FOG_VOLUME = 15, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
-    TEXTURES = 16,   ///< last: it is the variable-count binding
+    LIQUIDS = 13,      ///< UTA-0105 SS 4.4: one Liquid per liquid look
+    MASK_CHARTS = 14,  ///< UTA-0326 SS 4.5: one MaskChart per SMSK chart
+    MASK_PAIRS = 15,   ///< UTA-0326 SS 4.5: the charts' pairs; the last storage buffer
+    SHADOW_ATLAS = 16,
+    FOG_VOLUME = 17, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
+    TEXTURES = 18,   ///< last: it is the variable-count binding
 };
 
 /// One frame's camera and settings.
@@ -98,8 +100,12 @@ struct FrameData {
     /// which std430 would move to the next 16.
     std::array<float, 3> waterFog;
     std::uint32_t skyCapture; ///< UTA-0281: nonzero while UTA-0163 captures the sky's faces
+    std::uint32_t shadowMaskTexture; ///< UTA-0326 SS 4.5: an index into the texture array, or NONE
+    /// UTA-0326 SS 4.5: the flashlight's index into LIGHTS, or NONE. A level
+    /// fragment lit from its chart's pairs adds it, since no pair names it.
+    std::uint32_t flashlight;
 };
-static_assert(sizeof(FrameData) == 372);
+static_assert(sizeof(FrameData) == 380);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -125,6 +131,8 @@ static_assert(offsetof(FrameData, flameSeconds) == 344);
 static_assert(offsetof(FrameData, cameraZone) == 348);
 static_assert(offsetof(FrameData, cameraUnderwater) == 352);
 static_assert(offsetof(FrameData, skyCapture) == 368);
+static_assert(offsetof(FrameData, shadowMaskTexture) == 372); // UTA-0326 SS 4.5
+static_assert(offsetof(FrameData, flashlight) == 376);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {
@@ -245,6 +253,34 @@ struct ShadowFace {
 static_assert(sizeof(ShadowFace) == 80);
 static_assert(offsetof(ShadowFace, viewProj) == 0);
 static_assert(offsetof(ShadowFace, atlasRect) == 64);
+
+/// UTA-0326 SS 4.5: one SMSK chart -- its run of MASK_PAIRS, left out pairs
+/// already dropped, and its rectangle's size, border included.
+struct MaskChart {
+    std::uint32_t firstPair;
+    std::uint32_t pairCount;
+    std::uint32_t width;
+    std::uint32_t height;
+};
+static_assert(sizeof(MaskChart) == 16);
+static_assert(offsetof(MaskChart, firstPair) == 0);
+static_assert(offsetof(MaskChart, pairCount) == 4);
+static_assert(offsetof(MaskChart, width) == 8);
+static_assert(offsetof(MaskChart, height) == 12);
+
+/// UTA-0326 SS 4.5: one SMSK pair, its light an index into LIGHTS. `x` is
+/// ubundle::MASK_ALL_LIT for a pair that stores no texels.
+struct MaskPair {
+    std::uint32_t light;
+    std::uint32_t x;
+    std::uint32_t y;
+    std::uint32_t moverReach; ///< 1 where the pair reads the shadow map instead (SS 4.4)
+};
+static_assert(sizeof(MaskPair) == 16);
+static_assert(offsetof(MaskPair, light) == 0);
+static_assert(offsetof(MaskPair, x) == 4);
+static_assert(offsetof(MaskPair, y) == 8);
+static_assert(offsetof(MaskPair, moverReach) == 12);
 
 /// One zone's ambient light, as UT99's bytes -- UTA-0156 SS 4.4. The shader
 /// turns them into light, as it does a Light's.

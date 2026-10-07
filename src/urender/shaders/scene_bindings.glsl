@@ -23,9 +23,11 @@ layout(set = 0, binding = 10) readonly buffer ZoneBlock { Zone zones[]; }; // UT
 layout(set = 0, binding = 11) readonly buffer FlameBlock { FlameInstance flameInstances[]; }; // UTA-0263
 layout(set = 0, binding = 12) readonly buffer FlameRampBlock { vec4 flameRamps[]; };          // UTA-0263
 layout(set = 0, binding = 13) readonly buffer LiquidBlock { Liquid liquids[]; };             // UTA-0105
-layout(set = 0, binding = 14) uniform sampler2DShadow shadowAtlas;
-layout(set = 0, binding = 15) uniform sampler3D fogVolume; // UTA-0015 SS 4.3
-layout(set = 0, binding = 16) uniform sampler2D textures[];
+layout(set = 0, binding = 14) readonly buffer MaskChartBlock { MaskChart maskCharts[]; }; // UTA-0326
+layout(set = 0, binding = 15) readonly buffer MaskPairBlock { MaskPair maskPairs[]; };    // UTA-0326
+layout(set = 0, binding = 16) uniform sampler2DShadow shadowAtlas;
+layout(set = 0, binding = 17) uniform sampler3D fogVolume; // UTA-0015 SS 4.3
+layout(set = 0, binding = 18) uniform sampler2D textures[];
 
 #if defined(UTA_SHADOW_PASS)
 // ShaderTypes.h's ShadowConstants: a shadow tile's face, then the batch.
