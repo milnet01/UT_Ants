@@ -17240,7 +17240,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/AS-Frigate-20260930-131735, ~/.cache/uta-scratch/capreview/AS-Frigate-20260930-131735/pair-0.png
 
-- 📋 [UTA-0326] **ubake: bake the shadows of lights that never move into a per-surface mask.**
+- ✅ [UTA-0326] **ubake: bake the shadows of lights that never move into a per-surface mask.**
   UTA-0323: shadow reads are most of DM-Bishop's frame, and almost
   every UT99 light and wall is static. A shadow mask holds, per
   surface texel, how much each nearby static light is blocked: Unity's
@@ -17313,6 +17313,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the original game (ut-compare, cameras 1, 2 and 6) is dark where the
   mask is, and lit only where the old shadow-map path leaks light.
   DM-Closer: no visible shadow difference.
+  Shipped 2026-10-07: all three SS 7 items measured and recorded;
+  GitHub's matrix green at f25e570.
   **Layman:** Most lights and walls never move, so their shadows can be worked out once when the map is prepared instead of every frame.
   Kind: perf.
   Source: user-request-2026-10-06.
