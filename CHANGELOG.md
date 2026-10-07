@@ -536,6 +536,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Large maps draw faster: a light that cannot reach a point no longer has its shadow checked there.** (UTA-0323)
+  On DM-Bishop at 4K this took a frame from about 80 ms to 65 ms
+  with no change to the picture; the baked shadow mask (UTA-0326) then
+  brought it to about 18 ms.
+
 - **Shadows on a map's walls and floors are baked ahead of time, so frames draw faster** (UTA-0326)
   The baker now records, for each light, which parts of each surface it
   reaches. The renderer reads that instead of working shadows out every
