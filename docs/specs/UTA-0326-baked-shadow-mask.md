@@ -193,6 +193,13 @@ meets the polygon, and either the light's effect has no incidence term
 (`LE_NonIncidence`, `LE_Cylinder`) or the point it is lit from lies in front
 of the polygon's plane somewhere.
 
+*As built:* a `PF_TwoSided` chart whose material is not a liquid takes a light
+on either side, and each origin is lifted toward the side its light is on.
+`scene.frag` turns such a surface's normal to the viewer, so it is lit from
+whichever side the light is. A liquid stays one-sided (UTA-0215). Without this,
+DM-Crane's sky clouds, lit only from below, went dark. Tested in
+`tests/unit/BakeShadowMaskTest.cpp`.
+
 **For each texel of a pair's rectangle**, border included:
 
 1. Four points at `(i + 0.25 or 0.75, j + 0.25 or 0.75)` each go through

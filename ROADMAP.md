@@ -17301,6 +17301,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   ~/.cache/uta-scratch/u326/frame, summarise.py beside it. Next: SS 7
   item 3, ut-shot the same views with and without the mask and compare
   numerically; then flip on GitHub's matrix.
+  Spec SS 7 item 3 (2026-10-07): ut-shot of the fly cameras on
+  DM-Bishop, DM-Closer and DM-Crane, ultra, 1280x720, light time 0,
+  with the mask and without (scratch build), compared in 16-pixel blocks
+  (flag: one side over 2x the other, brighter side above 0.02 linear).
+  Found one defect: DM-Crane's sky cloud sheet (Skyblu2, two-sided,
+  lit only from below) was dark with the mask. Fixed at baker revision
+  44: a two-sided non-liquid chart pairs lights on both sides and lifts
+  each ray toward its light. After the fix no Crane view has a block
+  over 2.2x. DM-Bishop's large differences are the mask being right:
+  the original game (ut-compare, cameras 1, 2 and 6) is dark where the
+  mask is, and lit only where the old shadow-map path leaks light.
+  DM-Closer: no visible shadow difference.
   **Layman:** Most lights and walls never move, so their shadows can be worked out once when the map is prepared instead of every frame.
   Kind: perf.
   Source: user-request-2026-10-06.

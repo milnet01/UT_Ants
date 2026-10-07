@@ -10,3 +10,4 @@ row is never edited.
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
 | impl | 2026-10-07 | none — implementation, no reviewer dispatched | - | - | - | - | Building SS 4.3 found no decoder for the bundle's BC7 alpha; SS 4.3 now records the Cutouts argument bakeShadowMask takes |
+| impl-2 | 2026-10-07 | none — implementation, no reviewer dispatched | - | - | - | - | SS 7 item 3's image comparison found DM-Crane's two-sided sky clouds dark under the mask; SS 4.3 now pairs a two-sided non-liquid chart's lights on both sides, baker revision 44 |

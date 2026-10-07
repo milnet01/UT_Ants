@@ -14,7 +14,9 @@
 #include <numbers>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
+#include <vector>
 
 namespace uta::ubake {
 namespace {
@@ -25,6 +27,7 @@ using charts::Chart;
 /// lets light through as well as LIGHT_PASSES_FLAGS.
 constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
 constexpr std::uint32_t PF_MASKED = 0x00000002u;
+constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
 
 /// UT99's ELightEffect values with no incidence term (UTA-0156).
 constexpr std::uint8_t LE_NON_INCIDENCE = 13;
@@ -181,9 +184,11 @@ struct Baked {
 };
 
 /// SS 4.3 and SS 4.4: every pair of one lit chart, ascending by light.
+/// `bothSides`: scene.frag lights the chart from whichever side it is seen,
+/// so a light on either side pairs, and its rays leave from that light's side.
 std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geometry, const std::vector<Site>& sites,
                              const std::vector<Box>& movers, const SurfaceRays& rays, const Holes& holes,
-                             double texelSize) {
+                             double texelSize, bool bothSides) {
     std::vector<Baked> out;
     const charts::Outline outline = charts::outlineOf(chart, geometry);
     const double lowest = *std::min_element(outline.heights.begin(), outline.heights.end());
@@ -196,7 +201,8 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
                                               dot(site.centre, chart.v) / texelSize, texelSize, 0.0);
         if (length(site.centre - nearest) > site.bound) continue;
         // In front of the plane somewhere, unless the light has no incidence term.
-        if (site.incidence && dot(site.from, chart.n) <= lowest && dot(site.from + site.span, chart.n) <= lowest)
+        if (site.incidence && !bothSides && dot(site.from, chart.n) <= lowest
+            && dot(site.from + site.span, chart.n) <= lowest)
             continue;
         Baked pair;
         pair.light = site.index;
@@ -207,9 +213,13 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
                 int visible = 0;
                 for (const double du : {0.25, 0.75})
                     for (const double dv : {0.25, 0.75}) {
-                        const Vec3 origin = charts::originAt(
-                            chart, outline, static_cast<double>(chart.loU + i) + du,
-                            static_cast<double>(chart.loV + j) + dv, texelSize, SHADOW_MASK_LIFT);
+                        Vec3 origin = charts::originAt(chart, outline, static_cast<double>(chart.loU + i) + du,
+                                                       static_cast<double>(chart.loV + j) + dv, texelSize,
+                                                       bothSides ? 0.0 : SHADOW_MASK_LIFT);
+                        if (bothSides) {
+                            const double side = dot(litFrom(site, origin) - origin, chart.n) < 0 ? -1.0 : 1.0;
+                            origin = origin + chart.n * (side * SHADOW_MASK_LIFT);
+                        }
                         if (!rays.blocked(origin, litFrom(site, origin), hole)) ++visible;
                     }
                 const auto value = static_cast<std::uint8_t>(std::lround(255.0 * visible / 4.0));
@@ -276,6 +286,21 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
     for (Chart& chart : all)
         if (chart.lit) lit.push_back(&chart);
 
+    // SS 4.3: a two-sided chart is lit from both sides, but a liquid as its
+    // front only (UTA-0215), as scene.frag lights them.
+    std::vector<std::string_view> liquids;
+    if (bundle.materials)
+        for (const ubundle::MaterialRecord& material : *bundle.materials)
+            if (material.liquid) liquids.push_back(material.id);
+    std::vector<bool> bothSidesAt(geometry.vertices.size(), false);
+    for (const ubundle::GeometryBatch& batch : geometry.batches) {
+        if ((batch.polyFlags & PF_TWO_SIDED) == 0u
+            || std::find(liquids.begin(), liquids.end(), batch.material) != liquids.end())
+            continue;
+        for (std::uint32_t i = batch.firstIndex; i < batch.firstIndex + batch.indexCount; ++i)
+            bothSidesAt[geometry.indices[i]] = true;
+    }
+
     std::vector<std::vector<Baked>> baked;
     std::uint32_t width = 0;
     std::uint64_t height = 0;
@@ -297,7 +322,7 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
             const std::size_t threw = jobs.parallelFor(batches, [&](std::size_t job) {
                 const std::size_t end = std::min(lit.size(), (job + 1) * CHARTS_PER_JOB);
                 for (std::size_t c = job * CHARTS_PER_JOB; c < end; ++c)
-                    baked[c] = bakeChart(*lit[c], geometry, sites, movers, rays, holes, size);
+                    baked[c] = bakeChart(*lit[c], geometry, sites, movers, rays, holes, size, bothSidesAt[lit[c]->first]);
             });
             // A partly baked mask is a wrong bundle presented as a good one.
             if (threw != 0)
