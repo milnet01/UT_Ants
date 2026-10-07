@@ -17243,6 +17243,13 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   in Bake.cpp, beside albedo) and re-record the golden digest. Then the
   renderer (spec SS 4.5 and INV-8 to INV-10), then the SS 7 hand
   timings.
+  Progress (2026-10-07): steps 3 and 4 built. 872916f: bake() writes SMSK
+  (step 11c, phase shadow-mask), BAKER_REVISION 43. d87afb7: the
+  renderer lights level surfaces from the mask, INV-8 to INV-10 in
+  tests/device/RenderShadowMaskTest.cpp, each seen red. One addition
+  the spec lacked: a masked surface also takes the flashlight (SS 4.5
+  as built). Next: step 5, SS 7's hand measurements on DM-Bishop,
+  DM-Closer and DM-Crane; the item ships only if all three are faster.
   **Layman:** Most lights and walls never move, so their shadows can be worked out once when the map is prepared instead of every frame.
   Kind: perf.
   Source: user-request-2026-10-06.
