@@ -18657,6 +18657,13 @@ to.
   -23092.52, pitch -1850, yaw -12547) shows sky and sea through the hull
   in UT99 only; ours draws planking. So the fault is UT99's drawing of
   the map, theirs to fix; sent to UT_MonsterHunt with the paths.
+  Progress (2026-10-07): for GAME-0217, UT_MonsterHunt's patched TheBoat
+  (md5 4e70069c: 28 flagged render bounds and 956 empty boxes set to the
+  world box) was compared at the same nine marks as the live map.
+  Nothing new showed at the eight other marks; at 132125 the hole
+  through the hull is gone. Frames are in
+  ~/.cache/ut-ants/compare/theboat-0217-W/. It ran from a stand-in
+  install under a read-only mount of the real one.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
