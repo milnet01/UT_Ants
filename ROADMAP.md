@@ -15057,6 +15057,11 @@ stays with movement in 0.2.0.
   3. Then UTA-0256: per room, after the re-bake.
   UTA-0337 (sky, sun) must land before UTA-0334's 127 maps are baked:
   a sun is a light, so baking first means baking twice.
+  Spec (2026-10-08): step 1's tool is specified in
+  docs/specs/UTA-0292-reference-path-tracer.md -- a material light file
+  from ut-bake --light-materials, the renderer's light terms through
+  ut-shot --light-terms into the float emission target, and ut-ref
+  tracing with ubake's own per-hit light code and scoring in C++.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
