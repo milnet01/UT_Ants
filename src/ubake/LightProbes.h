@@ -54,6 +54,14 @@ struct ProbeReach {
 /// base level has no opaque pixel.
 inline constexpr double DEFAULT_ALBEDO = 0.5;
 
+/// SS 4.12 item 1 (UTA-0292): a surface sends on this many times the light it
+/// shows. UT99's textures average 0.05-0.07 linear where real materials reflect
+/// 0.2-0.5; the screen makes up for it with EXPOSURE, and the bounce now does too.
+inline constexpr double REFLECTANCE_SCALE = 4;
+
+/// SS 4.12 item 1: the most of the light reaching it that a surface sends on.
+inline constexpr double ALBEDO_CAP = 0.9;
+
 /// SS 4.4: the lights of `lights` that bake, in the order given -- not a
 /// backdrop light, not special-lit, and static by its resolved bStatic.
 [[nodiscard]] std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& lights,
@@ -79,17 +87,20 @@ using OwnLightLookup = std::function<OwnLight(std::string_view materialId)>;
 /// order. Face k is sum(L * max(0, w . a_k)) / sum(max(0, w . a_k)).
 [[nodiscard]] std::array<Rgb, 6> cubeOf(std::span<const Rgb> radiance);
 
-/// SS 4.7: the six faces of one probe at `p`.
+/// SS 4.7: the six faces of one probe at `p`. `sky` is where the level's sky is
+/// seen from (SS 4.12 item 2); with none, a ray meeting the sky brings nothing.
 [[nodiscard]] std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
                                              const ubundle::Geometry& geometry,
                                              const std::vector<ubundle::Light>& lights,
-                                             const AlbedoLookup& albedo, const OwnLightLookup& own = {});
+                                             const AlbedoLookup& albedo, const OwnLightLookup& own = {},
+                                             const std::optional<Vec3>& sky = std::nullopt);
 
 /// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
 /// there is one. A job that throws refuses it.
 [[nodiscard]] Result<ubundle::LightProbes> bakeLightProbes(
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,
     const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo, JobSystem& jobs,
-    const std::optional<ProbeReach>& reach = std::nullopt, const OwnLightLookup& own = {});
+    const std::optional<ProbeReach>& reach = std::nullopt, const OwnLightLookup& own = {},
+    const std::optional<Vec3>& sky = std::nullopt);
 
 } // namespace uta::ubake

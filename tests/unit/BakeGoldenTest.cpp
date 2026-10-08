@@ -105,7 +105,10 @@ namespace {
 // 43, format 23: UTA-0326 bakes SMSK for the fixture's lamp.
 // 44, format 23: UTA-0326 bakes a two-sided surface from both sides. The
 // fixture has none, so the digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 44;
+// 45, format 23: UTA-0292 sends on four times a surface's albedo and takes sky
+// light. The fixture's lamp sets no bStatic, so no light bakes into its probes,
+// and it has no sky view: the digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 45;
 constexpr std::string_view GOLDEN =
     "7a61a9e422f32dba4162d3b922003e246d5c9cb99b31c7f8678712504e831aa3";
 

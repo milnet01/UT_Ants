@@ -358,8 +358,9 @@ void main() {
         // not probes at all. Such a wall got no indirect light in stepped patches.
         vec3 probePoint = worldPosition + litSurface * (0.5 * float(frame.probeSpacing));
         vec3 indirect = indirectAt(lattice, probePoint, n);
-        // UTA-0156 SS 4.4: the zone's ambient, on every lit surface in it.
-        vec3 ambient = zoneAmbient(zones[zone]);
+        // UTA-0292 withdrew UTA-0156 SS 4.4's zone ambient: against exact light
+        // it added up to 1.6 times the true light. Bounce and sky light, in the
+        // probes, take its place (UTA-0112 SS 4.12).
         // UTA-0164 SS 4.5: how open the space above the surface is darkens the
         // light that arrives from all around it, never a light's own.
         float open = frame.occlusionTexture != NONE
@@ -375,7 +376,7 @@ void main() {
         // UTA-0180: a lit surface's reflectance varies slowly across the world.
         // A liquid has its own variation (water.glsl), so it is left alone.
         vec3 reflectance = TILE_VARIATION && !liquid ? base.rgb * variationAt(worldPosition) : base.rgb;
-        colour = reflectance * (pow(LIGHT_GAIN * (direct + ambient * open), vec3(DISPLAY_LIGHT_POWER))
+        colour = reflectance * (pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER))
                              + indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)));
         // UTA-0215: under a rippling surface, the light reaching a lit surface
         // in a water zone gathers into moving lines. The water itself is not.

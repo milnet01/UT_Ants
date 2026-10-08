@@ -43,17 +43,20 @@ Config linearFrame() {
     return config;
 }
 
-/// A white square facing the camera, lit by zone 0's `ambient` and by `light`
-/// when given, with an 8 by 8 atlas of HALF_OPEN when `occluded`. Every vertex
-/// reads texel (6, 6), well inside the half-open region.
-uta::ubundle::Bundle square(std::uint8_t ambient, bool occluded, std::optional<uta::ubundle::Light> light = {}) {
+/// The bounced light a square gets on every face, when it gets any. Kept well
+/// below 1, so the readback does not clip.
+constexpr float BOUNCE = 0.25F;
+
+/// A white square facing the camera, lit by an even field of BOUNCE when
+/// `bounced` and by `light` when given, with an 8 by 8 atlas of HALF_OPEN when
+/// `occluded`. Every vertex reads texel (6, 6), well inside the half-open region.
+uta::ubundle::Bundle square(bool bounced, bool occluded, std::optional<uta::ubundle::Light> light = {}) {
     uta::ubundle::Geometry geometry;
     addSquare(geometry, 100, 0, 0, 40, "white", 0);
     const std::size_t vertices = geometry.vertices.size();
     uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
     addSolidMaterial(bundle, "white", WHITE);
-    // Hue 0 at saturation 255 is white (UTA-0112 SS 4.3).
-    bundle.zones = std::vector<uta::ubundle::Zone>{{ambient, 0, 255}};
+    if (bounced) addEvenProbes(bundle, {100, -40, -40}, {100, 40, 40}, BOUNCE);
     if (light) bundle.lights = std::vector{*light};
     if (occluded) {
         uta::ubundle::Occlusion atlas;
@@ -78,18 +81,16 @@ std::uint8_t redAtCentre(Renderer& renderer, const uta::ubundle::Bundle& bundle)
 
 } // namespace
 
-TEST_CASE("UTA-0164 INV-8: occlusion darkens ambient light by the atlas value", "[device]") {
+TEST_CASE("UTA-0164 INV-8: occlusion darkens bounced light by the atlas value", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(linearFrame());
 
-    // As RenderLightingTest's zone case: AMBIENT_SCALE times brightness 40
-    // through FGetHSV's curve, kept below 1 so the readback does not clip.
-    constexpr double AMBIENT_SCALE = 0.75; // UTA-0192's refit, once the tone map lost its toe
-    const double ambient = AMBIENT_SCALE * 0.391061428321661;
-    const std::uint8_t open = redAtCentre(renderer, square(40, false));
-    const std::uint8_t occluded = redAtCentre(renderer, square(40, true));
-    const double expectedOpen = litByte(ambient);
-    const double expectedOccluded = litByte(ambient * HALF_OPEN / 255.0);
+    // UTA-0292 took zone ambient out of the shader, so the light from all
+    // around that occlusion darkens is the probes' alone.
+    const std::uint8_t open = redAtCentre(renderer, square(true, false));
+    const std::uint8_t occluded = redAtCentre(renderer, square(true, true));
+    const double expectedOpen = bouncedByte(BOUNCE);
+    const double expectedOccluded = bouncedByte(BOUNCE * HALF_OPEN / 255.0);
     CAPTURE(int(open), int(occluded), expectedOpen, expectedOccluded);
     CHECK(std::abs(open - expectedOpen) <= 2.0);
     CHECK(std::abs(occluded - expectedOccluded) <= 2.0);
@@ -98,10 +99,10 @@ TEST_CASE("UTA-0164 INV-8: occlusion darkens ambient light by the atlas value", 
 TEST_CASE("UTA-0164 INV-8: occlusion leaves a light's own contribution alone", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(linearFrame());
-    // No ambient and no probe, so the light is all there is.
+    // No probe, so the light is all there is.
     const uta::ubundle::Light light = steadyLight({95, 0, 0}, 128, 1);
-    const std::uint8_t open = redAtCentre(renderer, square(0, false, light));
-    const std::uint8_t occluded = redAtCentre(renderer, square(0, true, light));
+    const std::uint8_t open = redAtCentre(renderer, square(false, false, light));
+    const std::uint8_t occluded = redAtCentre(renderer, square(false, true, light));
     CAPTURE(int(open), int(occluded));
     CHECK(open > 0);
     CHECK(int(occluded) == int(open));

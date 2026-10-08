@@ -107,11 +107,12 @@ TEST_CASE("UTA-0162 INV-8: a strip lights a pixel near its far end through the c
     CHECK(std::abs(red - expected) <= 2.0);
 }
 
-TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an unlit one alone", "[device]") {
+TEST_CASE("UTA-0156 INV-14: a zone's ambient no longer lights a surface", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(linearFrame());
-    // No light and no probe, so ambient is the only light. The square is in
-    // zone 1, so a vertex attribute or binding that reads zone 0 draws black.
+    // No light and no probe, so the zone's ambient bytes are all there is, and
+    // since UTA-0292 they light nothing. The square is in zone 1, so a shader
+    // still reading zone 0's zeros could not pass for one that dropped the term.
     const auto squareInZone = [](std::uint8_t brightness, std::uint32_t polyFlags) {
         uta::ubundle::Geometry geometry;
         addSquare(geometry, 100, 0, 0, 40, "white", polyFlags);
@@ -123,24 +124,18 @@ TEST_CASE("UTA-0156 INV-6: a zone's ambient lights a lit surface and leaves an u
         return bundle;
     };
 
-    // light.glsl's AMBIENT_SCALE, set by UTA-0156 SS 7's measurement. Brightness
-    // 40 keeps the lit value below 1, where the 8-bit readback would clip it.
-    constexpr double AMBIENT_SCALE = 0.75; // UTA-0192's refit, once the tone map lost its toe
-    // UTA-0165: brightness 40 through FGetHSV's curve is 0.391061428321661.
-    const double expected = litByte(AMBIENT_SCALE * 0.391061428321661);
-    const std::uint8_t lit = redAtCentre(renderer, squareInZone(40, 0));
-    CAPTURE(int(lit), expected);
-    CHECK(std::abs(lit - expected) <= 2.0);
+    // Brightness 40 lit the square to about a third before UTA-0292.
+    CHECK(int(redAtCentre(renderer, squareInZone(40, 0))) == 0);
 
-    CHECK(int(redAtCentre(renderer, squareInZone(0, 0))) == 0);
-
+    // An unlit surface still draws its base colour, ambient or none.
     constexpr std::uint32_t PF_UNLIT = 0x00400000u;
     CHECK(int(redAtCentre(renderer, squareInZone(128, PF_UNLIT))) == 255);
 }
 
 TEST_CASE("UTA-0180: a lit surface's brightness varies slowly across the world from Medium", "[device]") {
     removeDisplay();
-    // Ambient alone, so a lit square reads the same wherever it stands at Low.
+    // Even bounced light alone, so a lit square reads the same wherever it
+    // stands at Low.
     // From Medium a slow change in world space moves a lit point's brightness
     // by at most VARIATION_AMPLITUDE either way, so copies of the square far
     // apart read differently. Four copies, so two noise values that happen to
@@ -149,10 +144,10 @@ TEST_CASE("UTA-0180: a lit surface's brightness varies slowly across the world f
     const auto squareAt = [](float y) {
         uta::ubundle::Geometry geometry;
         addSquare(geometry, 100, y, 0, 40, "white", 0);
-        for (uta::ubundle::GeometryVertex& vertex : geometry.vertices) vertex.zone = 1;
         uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
         addSolidMaterial(bundle, "white", WHITE);
-        bundle.zones = std::vector<uta::ubundle::Zone>{{0, 0, 0}, {40, 0, 255}};
+        // 0.25 keeps the lit value well below 1, where the readback would clip.
+        addEvenProbes(bundle, {100, y - 40, -40}, {100, y + 40, 40}, 0.25F);
         return bundle;
     };
     const auto redsOf = [&](Renderer& renderer) {

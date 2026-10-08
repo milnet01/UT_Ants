@@ -88,6 +88,11 @@ void addNormalMappedMaterial(ubundle::Bundle& bundle, const std::string& id, con
 /// Add material `id`: a solid `base` map and a solid `<id>:emit` map of `emit`.
 void addEmissiveMaterial(ubundle::Bundle& bundle, const std::string& id, const Rgba& base, const Rgba& emit);
 
+/// UTA-0292: an even field of bounced light, `value` on every face of a probe
+/// at every lattice cell (spacing 128) within one spacing of the box `low` to
+/// `high`. What a test once got from zone ambient, which no longer lights.
+void addEvenProbes(ubundle::Bundle& bundle, std::array<float, 3> low, std::array<float, 3> high, float value);
+
 /// A steady white light: LT_Steady, LE_None, full saturation.
 [[nodiscard]] ubundle::Light steadyLight(std::array<float, 3> location, std::uint8_t brightness,
                                          std::uint8_t radius);

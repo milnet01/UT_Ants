@@ -14,8 +14,8 @@
 // otherwise means the output stage moved when nobody meant it to.
 //
 // The colours are PF_Unlit, so no light model reaches them: this grades
-// EXPOSURE and the tone map alone, and is unaffected by DISPLAY_LIGHT_POWER or
-// AMBIENT_SCALE. Every channel is odd, which bc7Solid requires.
+// EXPOSURE and the tone map alone, and is unaffected by DISPLAY_LIGHT_POWER.
+// Every channel is odd, which bc7Solid requires.
 //
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator.
 

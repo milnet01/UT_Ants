@@ -170,6 +170,24 @@ ubundle::Light steadyLight(std::array<float, 3> location, std::uint8_t brightnes
     return light;
 }
 
+void addEvenProbes(ubundle::Bundle& bundle, std::array<float, 3> low, std::array<float, 3> high, float value) {
+    constexpr std::uint32_t SPACING = 128;
+    if (!bundle.lightProbes) {
+        bundle.lightProbes.emplace();
+        bundle.lightProbes->spacing = SPACING;
+    }
+    const auto from = [](float v) { return static_cast<std::int32_t>(std::floor(v / SPACING)) - 1; };
+    const auto to = [](float v) { return static_cast<std::int32_t>(std::ceil(v / SPACING)) + 1; };
+    for (std::int32_t z = from(low[2]); z <= to(high[2]); ++z)
+        for (std::int32_t y = from(low[1]); y <= to(high[1]); ++y)
+            for (std::int32_t x = from(low[0]); x <= to(high[0]); ++x) {
+                ubundle::LightProbe probe;
+                probe.cell = {x, y, z};
+                for (auto& face : probe.cube) face = {value, value, value};
+                bundle.lightProbes->probes.push_back(probe);
+            }
+}
+
 double srgbByte(double c) {
     const double encoded = c <= 0.0031308 ? 12.92 * c : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
     return 255.0 * encoded;

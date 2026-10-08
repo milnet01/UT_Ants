@@ -19,6 +19,7 @@
 #pragma once
 
 #include "ubundle/Bundle.h"
+#include "ubundle/Sky.h"
 #include "urender/Renderer.h"
 #include "urender/ShaderTypes.h"
 
@@ -33,16 +34,10 @@ inline constexpr std::uint32_t SKY_FACE_SIZE = 512;
 inline constexpr std::uint32_t SKY_COLUMNS = 3;
 inline constexpr std::uint32_t SKY_ROWS = 2;
 
-/// Where the sky is drawn from.
-struct SkyView {
-    std::array<float, 3> location{};
-};
-
-/// ZoneInfo.LinkToSkybox's choice, read from Engine.u's script: the last
-/// SkyZoneInfo (or subclass) in the level's actor order, then the last whose
-/// bHighDetail matches the detail mode, which urender always draws at. Nothing
-/// when the level has none.
-[[nodiscard]] std::optional<SkyView> skyViewOf(const ubundle::Bundle& bundle);
+/// Where the sky is drawn from, and which one: ubundle/Sky.h, which the probe
+/// bake reads too (UTA-0292).
+using ubundle::SkyView;
+using ubundle::skyViewOf;
 
 /// Face `face`'s rotation: pitch, yaw, roll.
 [[nodiscard]] std::array<std::int32_t, 3> skyFaceRotation(std::uint32_t face) noexcept;

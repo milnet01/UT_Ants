@@ -2221,6 +2221,8 @@ stays with movement in 0.2.0.
   longer deferred and DOES count toward the release. The deferral note
   above is history. Scope for water: the undulating surface the user
   asked for, beside UTA-0089, UTA-0105 and UTA-0215.
+  Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
+  § UTA-0055 -- pinned sine flags, Gerstner water, bake-time subdivision.
   **Layman:** Make the flags and the water move instead of standing still.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -13647,6 +13649,9 @@ stays with movement in 0.2.0.
      by the Vestige session the same day. The probe bake casts its
      shadow ray toward the nearest point, so the bake and the
      renderer disagree here too.
+  Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
+  § UTA-0258 -- Karis's line-light irradiance and representative point,
+  and when to split a long row.
   **Layman:** Two leftover doubts about rows of lamps treated as one long light: some rows have lamps too far apart to be one fitting, and the shadow is worked out from the middle of the row while the light comes from its nearest point.
   Kind: investigate.
   Source: in-session-2026-09-30.
@@ -15611,6 +15616,9 @@ stays with movement in 0.2.0.
   the texture's size, their frequency (ByteA) and their type (ShallowSpot
   is weaker by definition). Next: compare those three across the three
   measured surfaces before choosing what the baker stores.
+  Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
+  § UTA-0319 -- the drop types and what ByteA and ByteB mean; a
+  per-type weight for the stir factor, to be fitted.
   **Layman:** The flooded floor in the galleon's hold swirls a lot in ours and barely at all in the original.
   Kind: investigate.
   Source: user-request-2026-10-06.
@@ -15635,6 +15643,9 @@ stays with movement in 0.2.0.
   the atlas. Options: a larger atlas at Ultra, or a finer cap for the
   lights nearest the camera. Measure memory and frame time; an edge-aware
   upscaler of a small map was offered and not chosen for now.
+  Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
+  § UTA-0322 -- tiles sized by screen coverage, and caching each shadow
+  map's static BSP part.
   **Layman:** Shadows get finer detail on machines with memory to spare, so their edges stay crisp up close.
   Kind: enhancement.
   Source: user-request-2026-10-06.
@@ -15745,6 +15756,9 @@ stays with movement in 0.2.0.
   let the loop read it once per wave. AMD's GDC 2017 wave-programming
   talk reports DOOM 1.43x faster from wave operations. Measure first: a
   wave can span two clusters, and the loop must stay correct then.
+  Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
+  § UTA-0325 -- three loop shapes, with Drobot 2017's numbers and the
+  fallback a device without subgroup ops needs.
   **Layman:** Let the graphics card fetch each light once for a group of pixels instead of once per pixel.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -15802,6 +15816,35 @@ stays with movement in 0.2.0.
   Kind: chore.
   Source: user-request-2026-10-07.
   Lanes: ubake.
+
+- 📋 [UTA-0337] **urender and ubake: a living sky -- moving clouds, a sun on clear skies -- and outdoor maps that no longer look like a box.**
+  The user, 2026-10-08: "I was also hoping to add a bit more of a dynamic
+  sky (moving clouds if it is a cloudy sky, if it is a blue sky add in a
+  sun). I want us also to try an eliminate the box look of a lot of the
+  maps that are take place outside."
+
+  Today the sky is still: drawn once per bundle into a six-face texture
+  from the SkyZoneInfo (UTA-0163, urender/Sky.h).
+
+  Three parts:
+  1. Moving clouds where the sky is cloudy.
+  2. A sun where the sky is clear: a disc in the sky and a light in the
+     level. As a light it changes the bake, so it lands before the
+     UTA-0292 re-bake and UTA-0334's 127 maps, or they bake twice.
+  3. Outdoor maps lose their box look: distance haze, the sky blended
+     into the far walls, or whatever the research finds cheapest.
+  How to tell cloudy from clear per map is open.
+
+  Placed 2026-10-08 by the session in 0.1.0, next to UTA-0292: part 2
+  is lighting that has to be in the bake before the re-bakes. Research
+  on cheap methods was asked for the same day.
+  Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
+  § UTA-0337 -- cloud layers over the captured sky, judging cloudy from
+  clear, a sun baked as a light, and sky-tinted haze for far walls.
+  **Layman:** Outdoor maps get clouds that drift, a sun where the sky is clear, and edges that fade into the distance instead of looking like the inside of a box.
+  Kind: feature.
+  Source: user-request-2026-10-08.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 

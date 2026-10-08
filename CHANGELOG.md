@@ -536,6 +536,15 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Bounced light is four times stronger, the sky lights the level, and the flat zone fill is gone** (UTA-0292)
+  A surface now sends on four times its texture's brightness, capped at
+  0.9, because UT99's textures are stored about four times darker than
+  the materials they show. A probe ray that meets the sky carries on
+  from the sky view, so open areas get sky light. The flat zone ambient
+  no longer lights anything: measured against a path tracer it added up
+  to 1.6 times the true light. Baker revision 45; every map must be
+  baked again.
+
 - **Large maps draw faster: a light that cannot reach a point no longer has its shadow checked there.** (UTA-0323)
   On DM-Bishop at 4K this took a frame from about 80 ms to 65 ms
   with no change to the picture; the baked shadow mask (UTA-0326) then

@@ -1,5 +1,5 @@
 // UTA-0112's baker cases -- docs/specs/UTA-0112-baked-light-probes.md SS 4.4
-// to SS 4.7: INV-5's albedo half and INV-6 to INV-10.
+// to SS 4.7 and SS 4.12: INV-5's albedo half, INV-6 to INV-10, INV-14 and INV-15.
 //
 // THE ROOMS ARE BUILT IN MEMORY. tests/unit/LightFixture.h makes GEOM, and
 // PathFixture.h's worldOf makes the matching COLL tree, one region per box.
@@ -464,6 +464,91 @@ TEST_CASE("faces", "[ubake][probes]") {
                 CHECK((a.z < b.z || (a.z == b.z && (a.y < b.y || (a.y == b.y && a.x < b.x)))));
             }
         }
+    }
+}
+
+namespace {
+
+/// A quad at height `z` facing up, `half` either side of (x, 0).
+std::vector<Triangle> wideFloor(double x, double z, double half, const std::string& material,
+                                std::uint32_t polyFlags = 0) {
+    return quad({x - half, -half, z}, {x + half, -half, z}, {x + half, half, z}, {x - half, half, z},
+                {0, 0, 1}, material, polyFlags);
+}
+
+/// Face 5 is -Z. A floor wide enough that every downward ray from the probe
+/// meets it makes that face exactly what one downward ray brings.
+constexpr std::size_t DOWN = 5;
+
+} // namespace
+
+TEST_CASE("reflectance", "[ubake][probes]") {
+    // UTA-0112 INV-14 (UTA-0292 SS 4.12 item 1).
+    SECTION("a lit floor sends on four times its albedo, capped at 0.9") {
+        // Each floor is grey of one albedo under the same light, so the gathers
+        // differ only by what the floor sends on: min(4a, 0.9) times the light it
+        // shows. Albedo 0.1 sends 0.4, 0.2 sends 0.8, 0.5 and 0.25 send 0.9.
+        const std::vector<Light> light{steadyLight(1, {0, 0, 300})};
+        const auto floorOf = [&light](double a) {
+            const auto floor = geometryOf(floorQuad("grey"));
+            const SurfaceRays rays(floor);
+            return gatherProbe({0, 0, 100}, rays, floor, light, albedoOf({{"grey", {a, a, a}}}))[DOWN].r;
+        };
+        const double tenth = floorOf(0.1);
+        REQUIRE(tenth > 0.0);
+        CHECK(floorOf(0.2) == Catch::Approx(2.0 * tenth));        // 0.8 : 0.4, under the cap
+        CHECK(floorOf(0.5) == Catch::Approx(2.25 * tenth));       // 0.9 : 0.4, capped; 5x unscaled or uncapped
+        CHECK(floorOf(0.25) == Catch::Approx(floorOf(0.5)));      // both at the cap
+    }
+
+    SECTION("emission and an unlit liquid send four times theirs, uncapped") {
+        // No light, so the floor sends only its own. Emission 0.5 sends 2.0,
+        // past the cap; an unlit liquid of albedo 0.3 sends 1.2.
+        const auto floor = geometryOf(wideFloor(0, 0, 1e6, "glow"));
+        const SurfaceRays rays(floor);
+        const OwnLightLookup glowing = [](std::string_view) { return OwnLight{{0.5, 0.1, 0.0}, false}; };
+        const auto lit = gatherProbe({0, 0, 100}, rays, floor, {}, albedoOf({{"glow", {0.3, 0.3, 0.3}}}), glowing);
+        CHECK(lit[DOWN].r == Catch::Approx(2.0));
+        CHECK(lit[DOWN].g == Catch::Approx(0.4));
+
+        const auto liquid = geometryOf(wideFloor(0, 0, 1e6, "lava", PF_UNLIT));
+        const SurfaceRays liquidRays(liquid);
+        const OwnLightLookup liquidLook = [](std::string_view) { return OwnLight{{}, true}; };
+        const auto unlit = gatherProbe({0, 0, 100}, liquidRays, liquid, {},
+                                       albedoOf({{"lava", {0.3, 0.3, 0.3}}}), liquidLook);
+        CHECK(unlit[DOWN].r == Catch::Approx(1.2));
+    }
+}
+
+TEST_CASE("sky light", "[ubake][probes]") {
+    // UTA-0112 INV-15 (UTA-0292 SS 4.12 item 2). The probe looks down at a sky
+    // surface. The sky view is far to the side, above an unlit lava floor of
+    // albedo 0.2 that only a ray leaving the sky view can reach: a ray carried
+    // on from where it met the sky ends in the dark, so the two cannot agree.
+    const AlbedoLookup lavaGrey = albedoOf({{"lava", {0.2, 0.2, 0.2}}, {"sky", {0.5, 0.5, 0.5}}});
+    const OwnLightLookup lavaGlows = [](std::string_view material) {
+        return material == "lava" ? OwnLight{{}, true} : OwnLight{};
+    };
+    std::vector<Triangle> triangles = wideFloor(0, 0, 1e6, "sky", PF_FAKE_BACKDROP);
+    const auto lava = wideFloor(5e6, -20000, 1e6, "lava", PF_UNLIT);
+    triangles.insert(triangles.end(), lava.begin(), lava.end());
+    const auto level = geometryOf(triangles);
+    const SurfaceRays rays(level);
+    const Vec3 probe{0, 0, 100};
+
+    SECTION("a ray meeting the sky brings what the sky view sees that way") {
+        const auto cube = gatherProbe(probe, rays, level, {}, lavaGrey, lavaGlows, Vec3{5e6, 0, -10000});
+        CHECK(cube[DOWN].r == Catch::Approx(0.8)); // 4 times the lava's 0.2
+    }
+
+    SECTION("with no sky view the sky brings nothing") {
+        CHECK(total(gatherProbe(probe, rays, level, {}, lavaGrey, lavaGlows)) == 0.0);
+    }
+
+    SECTION("a sky the sky view itself meets brings nothing") {
+        // A sky view above the sky surface: its own downward rays meet the sky
+        // again, which is dark rather than followed a second time.
+        CHECK(total(gatherProbe(probe, rays, level, {}, lavaGrey, lavaGlows, Vec3{0, 0, 50})) == 0.0);
     }
 }
 

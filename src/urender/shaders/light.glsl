@@ -130,37 +130,6 @@ vec3 lightThrough(Light light, vec3 x) {
     return lightAt(light, x, d > 0.0 ? toLight / d : vec3(0.0, 0.0, 1.0));
 }
 
-// UTA-0156 SS 4.4: how strongly a zone's ambient bytes light a surface. First
-// set to 2.5 on AS-Frigate with EXPOSURE held. UTA-0165 refitted it with
-// EXPOSURE over three maps once brightness went through FGetHSV: pooled block
-// RMS 42.2 at 1.5, 42.2 at 2, 42.3 at 2.5 and 42.7 at 3; 1.5 has the lower sum
-// over the three maps.
-// Refitted again once lights carried LevelInfo.Brightness (UTA-0156 SS 4.5),
-// on baker revision 17 with fog zeroed: pooled block RMS 37.0 at 0.25, 36.7 at
-// 0.375, 36.6 at 0.5, 36.7 at 0.625 and 36.9 at 0.75
-// (ut-ants-uta0156/sweepamb17b.sh).
-// UTA-0187 refitted it jointly with DISPLAY_LIGHT_POWER once light met texture
-// on display values, on baker revision 21 with the PBR Neutral tone map: at
-// DISPLAY_LIGHT_POWER 1.6 the pooled block RMS is 34.9 at 0.75, 34.8 at 1 and
-// 35.9 at 1.3 (ut-ants-uta0187/sweep187b.py).
-// UTA-0192 took the toe out of that tone map, so the condition above no longer
-// holds and this was re-checked -- NOT re-swept: sweep187b.py's linear renders
-// are still on disk and the display transform is applied offline, so every
-// (c, A) pair it tried was re-scored for free. DISPLAY_LIGHT_POWER 1.6 still
-// wins. This constant's own optimum MOVES, to 0.75: pooled block RMS 32.22 at
-// 0.75 against 32.49 at 1 and 33.46 at 1.3, and per pixel 32.01 against 32.29
-// (ut-ants-uta0192/crosscheck.py, crosscheck2.py). The user settled this value
-// on UTA-0187 and moved it here on 2026-09-20, the condition it was fitted
-// under having gone.
-//
-// That re-score validates itself: under the OLD tone map it reproduces
-// UTA-0187's shipped answer exactly, r21-c1.6-a1 at pooled 34.85 and k 6.16.
-// Only three A values have renders on disk, so 0.75 is the best of the three
-// and not a fitted optimum; finding one needs the sweep re-running.
-// MIRRORED in tests/device/RenderLightingTest.cpp and RenderOcclusionTest.cpp,
-// which hold it as a literal. Change all three together.
-const float AMBIENT_SCALE = 0.75;
-
 // UTA-0187: the gain on light before scene.frag raises it to DISPLAY_LIGHT_POWER.
 // Held at 1: under a power rule a gain only trades with EXPOSURE, since
 // pow(g * light, p) is pow(g, p) times pow(light, p) and the joint fit absorbs
@@ -186,11 +155,5 @@ const float LIGHT_GAIN = 1.0;
 // both displays, so post.frag applies no ramp and this power carries the rule
 // alone (ut-ants-uta0187/ramp.py).
 const float DISPLAY_LIGHT_POWER = 1.6;
-
-// The light a zone's ambient puts on every lit surface in it: a light's colour
-// and intensity with no falloff, incidence, spot, shadow or flicker.
-vec3 zoneAmbient(Zone zone) {
-    return lightColour(zone.hue, zone.saturation) * (lightIntensity(zone.brightness) * AMBIENT_SCALE);
-}
 
 #endif

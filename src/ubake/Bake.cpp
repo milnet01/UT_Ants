@@ -19,6 +19,7 @@
 #include "ubake/Strips.h"
 #include "ubake/SurfaceRays.h"
 #include "ubake/Zones.h"
+#include "ubundle/Sky.h"
 #include "umat/Derive.h"
 #include "umat/Enlarge.h"
 #include "umat/Fingerprint.h"
@@ -1246,10 +1247,15 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
             out.unlitGlows = materials.records[index->second].liquid.has_value();
         return out;
     };
+    // SS 4.12 item 2 (UTA-0292): a ray meeting the sky carries on from where
+    // the renderer draws the sky from.
+    std::optional<Vec3> sky;
+    if (const auto view = ubundle::skyViewOf(actors.placements))
+        sky = Vec3{view->location[0], view->location[1], view->location[2]};
     UTA_TRY(ubundle::LightProbes probes,
             naming(bakeLightProbes(geometry, collision.level,
                                    bakedLights(actors.lights, actors.placements), albedo, jobs,
-                                   probeReachOf(actors.placements), own),
+                                   probeReachOf(actors.placements), own, sky),
                    mapName));
 
     // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit
