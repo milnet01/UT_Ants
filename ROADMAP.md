@@ -18901,10 +18901,35 @@ to.
   Test: the installed NaliBoat_LUCKY should read dry; UT_MonsterHunt is
   finding the pre-fix copy, which must read wet. The wet case is what
   proves the check can fail.
+  Wet case (2026-10-08, from UT_MonsterHunt): /mnt/Games/Scripts/Linux/
+  UT_MonsterHunt/work/naliboat/backup/MH-(_@_)_NaliBoat_LUCKY.unr, md5
+  3b06b30e5a2eb91a6588910f074a3a3e. It has NO other copy: read it in
+  place, never move or write it. The install's dry fix is md5
+  db5ad101ff4724baca84c67c474fd9d2.
   **Layman:** A map check that says which area each player start point is in, so a start placed in water by mistake is caught before players drown.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-10-08.
   Lanes: tools/ut-dump, umap.
+
+- 📋 [UTA-0336] **ut-dump reports lift tags and mover keyframes, for UT_MonsterHunt's GAME-0210.**
+  Asked 2026-10-08 by UT_MonsterHunt (GAME-0210). Their hand tool
+  analysis/liftcheck.py reads T3D exports; they want ut-dump instead.
+
+  Per map:
+  - each LiftCenter and LiftExit's LiftTag, resolved through class
+    defaults, on its nav.nodeList or wiring.actors entry (nodeList's
+    paths/upstreamPaths already let them test a centre reaches an exit);
+  - each mover-family actor's KeyPos[] with NumKeys, and BasePos, to
+    measure vertical travel and tell a lift from a door. Its Tag is
+    already in wiring.actors. Treat anything carrying BasePos/KeyPos as a
+    mover: a mapper's subclass need not end in "Mover".
+  Raw tag strings are fine; they match case-insensitively.
+
+  Answered yes on 2026-10-08.
+  **Layman:** A map check that finds lifts set up wrong, so UT_MonsterHunt can stop reading map export files by hand.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-10-08.
+  Lanes: tools/ut-dump.
 
 ## 0.5.0 — Map editor
 
