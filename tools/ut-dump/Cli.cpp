@@ -641,6 +641,12 @@ struct WiringFields {
     // on `exits` only. nullopt: neither the actor nor its class sets one.
     std::optional<int> triggerType;
     std::optional<float> damageThreshold;
+    // UTA-0336: a LiftCenter's or LiftExit's LiftTag, and a mover's travel.
+    // keyPos holds only the indices stored; one stored nowhere is UT99's zero.
+    std::string liftTag;
+    std::optional<int> numKeys;
+    std::optional<uta::upkg::Vector3> basePos;
+    std::map<std::uint32_t, uta::upkg::Vector3> keyPos;
 };
 
 /// A Name or String property's text, resolved against the package its indices
@@ -663,6 +669,10 @@ std::optional<std::string> textValue(const uta::upkg::Package& origin,
 void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
                         std::string_view name, const uta::upkg::Property& property) {
     const std::string folded = foldCase(name);
+    if (folded == "keypos") {
+        if (const auto* at = std::get_if<uta::upkg::Vector3>(&property.value)) fields.keyPos[property.arrayIndex] = *at;
+        return;
+    }
     if (folded == "outevents") {
         if (auto text = textValue(origin, property.value); text.has_value() && !text->empty())
             fields.outEvents[property.arrayIndex] = std::move(*text);
@@ -682,6 +692,14 @@ void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
         if (const auto* set = std::get_if<float>(&property.value)) fields.damageThreshold = *set;
         return;
     }
+    if (folded == "numkeys") {
+        if (const auto* set = std::get_if<std::uint8_t>(&property.value)) fields.numKeys = *set;
+        return;
+    }
+    if (folded == "basepos") {
+        if (const auto* at = std::get_if<uta::upkg::Vector3>(&property.value)) fields.basePos = *at;
+        return;
+    }
     auto text = textValue(origin, property.value);
     if (!text.has_value()) return;
     if (folded == "tag") fields.tag = std::move(*text);
@@ -691,6 +709,7 @@ void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
     else if (folded == "firsthateplayerevent") fields.firstHatePlayerEvent = std::move(*text);
     else if (folded == "monsterendtag") fields.monsterEndTag = std::move(*text);
     else if (folded == "initialstate") fields.initialState = std::move(*text);
+    else if (folded == "lifttag") fields.liftTag = std::move(*text);
 }
 
 /// What a CLASS contributes: its chain, how the walk ended, and the event
@@ -848,6 +867,34 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
         // off" the same value, and off-ness is half the consumer's rule.
         if (fields.initiallyActive.has_value()) out << (*fields.initiallyActive ? "true" : "false");
         else out << "null";
+        out << ", \"liftTag\": ";
+        writeJsonString(out, fields.liftTag);
+        // UTA-0336: a mover is a class family reaching Mover, or anything
+        // carrying KeyPos or BasePos -- a mapper's subclass need not be named
+        // for it, and a chain cut short (SS 4.4) cannot say.
+        const bool mover = std::any_of(chain.begin(), chain.end(),
+                                       [](const std::string& link) { return foldCase(link) == "mover"; })
+                           || fields.basePos.has_value() || !fields.keyPos.empty();
+        out << ", \"mover\": ";
+        if (mover) {
+            out << "{\"numKeys\": ";
+            if (fields.numKeys.has_value()) out << *fields.numKeys;
+            else out << "null";
+            out << ", \"basePos\": ";
+            writeLocation(out, fields.basePos);
+            out << ", \"keyPos\": {";
+            bool firstKey = true;
+            for (const auto& [index, at] : fields.keyPos) {
+                if (!firstKey) out << ", ";
+                firstKey = false;
+                writeJsonString(out, std::to_string(index));
+                out << ": ";
+                writeLocation(out, at);
+            }
+            out << "}}";
+        } else {
+            out << "null";
+        }
         out << ", \"initialState\": ";
         writeJsonString(out, fields.initialState);
         out << "}";
@@ -1311,10 +1358,11 @@ int usage(std::ostream& err) {
         "collision size each spec carries.\n"
         "\n"
         "--wiring-graph adds every actor to each map's `wiring` object, as\n"
-        "`actors`, with its class chain, Tag and event properties resolved\n"
-        "through the class family's defaults. It answers whether anything in\n"
-        "the map can switch a given actor on. The array is roughly the map's\n"
-        "actor count, which is why it is opt-in.\n"
+        "`actors`, with its class chain, Tag, event properties, LiftTag and\n"
+        "mover keyframes resolved through the class family's defaults. It\n"
+        "answers whether anything in the map can switch a given actor on.\n"
+        "The array is roughly the map's actor count, which is why it is\n"
+        "opt-in.\n"
         "\n"
         "--surface-list adds every BSP surface to each map's `surfaces` object,\n"
         "as `list`, in index order: its texture, built polyFlags, brush actor\n"

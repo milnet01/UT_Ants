@@ -133,6 +133,9 @@ public:
     /// and appends the index in the leading-marker encoding of SS 4.8 step 5.
     TaggedPropertyWriter& addIntAt(std::int32_t nameIndex, std::uint32_t arrayIndex,
                                    std::int32_t value);
+    /// A Vector at `arrayIndex` -- UTA-0336's `KeyPos(n)`, the same way.
+    TaggedPropertyWriter& addVectorAt(std::int32_t nameIndex, std::uint32_t arrayIndex, float x, float y,
+                                      float z);
 
     /// A Name property at `arrayIndex` -- UTA-0172's `OutEvents(1)`, the shape
     /// MH-3072-FloorWaysSBMod stores and which no unindexed writer can

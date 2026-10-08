@@ -1297,6 +1297,44 @@ TEST_CASE("UTA-0335: playerStarts names the zone each start lands in, and whethe
     CHECK(result.out.find("PathNode", starts) == std::string::npos);
 }
 
+TEST_CASE("UTA-0336: wiring.actors carries each lift's LiftTag and each mover's keyframes", "[dump]") {
+    // GAME-0210: a lift centre must reach an exit with its LiftTag, and a
+    // mover's vertical travel tells a lift from a door.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t center = map.addClass("LiftCenter");
+    const std::int32_t exit = map.addClass("LiftExit", 0, {nameProperty("LiftTag", "liftD")});
+    const std::int32_t mover = map.addClass("Mover", 0, {byteProperty("NumKeys", 2)});
+    const std::int32_t elevator = map.addClass("ElevatorMover", mover);
+    const std::int32_t custom = map.addClass("Platform"); // no Mover ancestry, by name or chain
+    map.addActor("LiftCenter0", center, {nameProperty("LiftTag", "lift1")})
+        .addActor("LiftExit0", exit)
+        .addActor("ElevatorMover0", elevator,
+                  {vectorProperty("BasePos", 0, 0, 64), vectorAtProperty("KeyPos", 1, 0, 0, 256)})
+        .addActor("Platform0", custom, {byteProperty("NumKeys", 3), vectorAtProperty("KeyPos", 2, 0, 0, -128)})
+        .addActorOfClass("Engine", "PathNode");
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), "--wiring-graph", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    const std::string actors = actorsArray(result.out);
+    REQUIRE(!actors.empty());
+    CHECK(actorNamed(actors, "LiftCenter0").find("\"liftTag\": \"lift1\", \"mover\": null") != std::string::npos);
+    // Through the class defaults, as Tag is.
+    CHECK(actorNamed(actors, "LiftExit0").find("\"liftTag\": \"liftD\", \"mover\": null") != std::string::npos);
+    // A Mover subclass: NumKeys from the family, the rest its own. KeyPos(0)
+    // stored nowhere is UT99's zero, so it is absent rather than invented.
+    CHECK(actorNamed(actors, "ElevatorMover0")
+              .find("\"liftTag\": \"\", \"mover\": {\"numKeys\": 2, \"basePos\": [0, 0, 64], "
+                    "\"keyPos\": {\"1\": [0, 0, 256]}}")
+          != std::string::npos);
+    // Carrying KeyPos makes a mover, whatever its class is called.
+    CHECK(actorNamed(actors, "Platform0")
+              .find("\"mover\": {\"numKeys\": 3, \"basePos\": null, \"keyPos\": {\"2\": [0, 0, -128]}}")
+          != std::string::npos);
+    CHECK(actorNamed(actors, "PathNode4").find("\"liftTag\": \"\", \"mover\": null") != std::string::npos);
+}
+
 TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and counted", "[dump]") {
     // UTA-0172 INV-8 wins over its SS 6: an exit stays in the list, since
     // dropping one shrinks a consumer's denominator, but its class defaults

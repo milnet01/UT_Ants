@@ -243,6 +243,27 @@ TaggedPropertyWriter& TaggedPropertyWriter::addBool(std::int32_t nameIndex, bool
     return *this;
 }
 
+TaggedPropertyWriter& TaggedPropertyWriter::addVectorAt(std::int32_t nameIndex, std::uint32_t arrayIndex,
+                                                        float x, float y, float z) {
+    appendIndex(body_, nameIndex);
+
+    std::vector<std::uint8_t> body;
+    appendFloat(body, x);
+    appendFloat(body, y);
+    appendFloat(body, z);
+
+    std::vector<std::uint8_t> sizeField;
+    std::uint8_t sizeCode = 0;
+    appendSizeField(sizeField, sizeCode, body.size());
+
+    body_.push_back(static_cast<std::uint8_t>(static_cast<std::uint8_t>(PropertyType::Vector) |
+                                              static_cast<std::uint8_t>(sizeCode << 4) | 0x80u));
+    appendAll(body_, sizeField);
+    appendAll(body_, encodeArrayIndex(arrayIndex));
+    appendAll(body_, body);
+    return *this;
+}
+
 TaggedPropertyWriter& TaggedPropertyWriter::addIntAt(std::int32_t nameIndex,
                                                      std::uint32_t arrayIndex,
                                                      std::int32_t value) {

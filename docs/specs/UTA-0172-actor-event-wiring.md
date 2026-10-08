@@ -136,6 +136,8 @@ One element per emitted actor, in export-table order:
     "MonsterEndTag": ""
   },
   "bInitiallyActive": false,
+  "liftTag": "",
+  "mover": null,
   "initialState": ""
 }
 ```
@@ -169,6 +171,17 @@ One element per emitted actor, in export-table order:
   "no such property" into `false` would make it identical to "switched off",
   and switched-off-ness is half of the consumer's never test. A consumer must
   treat `null` as unknown.
+- `liftTag` — added by `UTA-0336`: the actor's `LiftTag` after the same
+  merge, `""` when unset. `LiftCenter` and `LiftExit` carry it; a centre
+  reaches the exits sharing its tag.
+- `mover` — added by `UTA-0336`: `null` unless the actor is a mover, which is
+  a `classChain` holding `Mover` (compared case-insensitively) or a `KeyPos`
+  or `BasePos` on the actor or its class family. A mapper's subclass need not
+  be named for it. Otherwise `{numKeys, basePos, keyPos}`, each after the
+  same merge: `numKeys` an integer or `null`, `basePos` a vector or `null`,
+  and `keyPos` an object keyed by decimal index as a string, as `OutEvents`
+  is, holding only the indices stored. An index stored nowhere is UT99's
+  zero vector. A vector with a part that is not finite is `null`.
 - `initialState` — after the same merge, `""` when unset. Emitted because it
   is free from the merge; no consumer reads it today.
 
