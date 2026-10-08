@@ -13598,6 +13598,24 @@ stays with movement in 0.2.0.
   only after the map is re-baked with the corrected light model and its
   lighting checked. Being darker than the original is a reason to look,
   not a verdict.
+  Measured (2026-10-08), r46 against the original with ut-compare on the
+  UTA-0292 nav views, 1280x720, mean grey ours over original
+  (~/.cache/uta-scratch/u256, measure.py). DM-Fetid 0.73-1.24 and
+  DM-Deck16][ 0.63-2.16, neither with a near-black share above the
+  original's: no candidates. DM-ArcaneTemple 0.03-0.84 on every view.
+  Views 3, 4, 5 and 6 are 0.35-0.65 and far blacker than the original
+  (pixels under 16: 41/53/11/9% original, 79/85/32/35% ours). View 9 is
+  NOT a candidate: the original is pitch-dark there too (99.5% under 16).
+  Cause: the original's brightness there is its zones' flat ambient fill
+  (UTA-0292's note), which r45 replaced with real bounce by the user's
+  decision; ut-ref puts our renderer within 14% of exact light on this
+  map, so this is accurate light, not a fault.
+  User decisions (2026-10-08): (1) a room gets a lamp where it is under
+  half the original's brightness and the original is not itself dark
+  there; (2) a lamp copies a fitting the map already uses, so it looks
+  as if it was always there; (3) each map keeps a list of its added
+  lamps, and a graphics setting turns them all off. The per-map list of
+  added shapes is the one UTA-0331 needs too. Next: the spec.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
