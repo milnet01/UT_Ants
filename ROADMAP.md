@@ -15062,6 +15062,26 @@ stays with movement in 0.2.0.
   from ut-bake --light-materials, the renderer's light terms through
   ut-shot --light-terms into the float emission target, and ut-ref
   tracing with ubake's own per-hit light code and scoring in C++.
+  Progress (2026-10-08): step 1 done -- ut-ref is a repo tool (d9c6f84,
+  pushed; GCC, Clang and MSVC green; device tier 101/101 on lavapipe and
+  the GPU). Step 2 done: the three maps re-baked at r45 and the 30 nav
+  views scored (ut-ref score, 128 samples, depth 4, 320x180). Mean per
+  map, as a share of exact light:
+  - DM-Fetid: total gap 6.6%, direct 4.0%, indirect 4.1%, later
+    bounces 2.7%, 0.13 stops; renderer 0.189 against exact 0.194.
+  - DM-Deck16][: total 6.6%, direct 0.8%, indirect 4.1%, later 5.1%,
+    0.18 stops; 0.374 against 0.394.
+  - DM-ArcaneTemple: total 13.8%, direct 9.0%, indirect 6.0%, later
+    3.0%, sky 0.4%, 0.31 stops; 0.107 against 0.120. View 9 is
+    near-black in exact light too (0.0019): a UTA-0256 candidate.
+  Finding: sky light is 0.4% on ArcaneTemple, not the scratch's 4%
+  (22% at one view). Its sky pictures (BlueSky, DayskyB, moon-4) are
+  PF_Unlit and not liquids, so sentFrom sends only the lamp light on
+  them, not their picture; the scratch took the backdrop's albedo as
+  light. Whether the skybox holds any lamp is not checked. So the sky
+  wiring in Bake.cpp is still ungraded. Question for the user: should
+  an unlit surface met through the sky view send its picture, as an
+  unlit liquid does?
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
