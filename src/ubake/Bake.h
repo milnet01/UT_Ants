@@ -19,6 +19,7 @@
 #include "core/Timing.h"
 #include "ubake/Flames.h"
 #include "ubake/Install.h"
+#include "ubake/MaterialLight.h"
 #include "ubake/TextureCache.h"
 #include "ubake/TileKind.h"
 #include "ubundle/Bundle.h"
@@ -93,6 +94,10 @@ struct BakeResult {
     std::vector<std::string> recipeUnused;
     /// UTA-0277 SS 4.5: every Unsure material, once, most surfaces first.
     std::vector<TileQuestion> tileQuestions;
+    /// UTA-0292: what the probe bake took as each material's light, one entry
+    /// per MaterialRecord in the bundle's order, for the reference tracer
+    /// (docs/specs/UTA-0292-reference-path-tracer.md SS 4.2).
+    std::vector<MaterialLight> materialLight;
 };
 
 /// Build a bundle from one map. Writes nothing and enforces no budget.

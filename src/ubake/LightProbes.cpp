@@ -24,9 +24,6 @@ constexpr std::uint32_t PF_FAKE_BACKDROP = 0x80;
 constexpr std::uint32_t PF_TWO_SIDED = 0x100;
 constexpr std::uint32_t PF_UNLIT = 0x400000; // UTA-0161
 
-/// SS 4.7 step 5: a shadow ray starts this far off the surface, along its normal.
-constexpr double SHADOW_OFFSET = 0.5;
-
 /// Probes to one job. Any size gives the same bytes; this one keeps the number
 /// of jobs small.
 constexpr std::size_t PROBES_PER_JOB = 64;
@@ -116,35 +113,37 @@ std::vector<Vec3> buildDirections() {
 
 Rgb scaled(const Rgb& c, double k) noexcept { return {c.r * k, c.g * k, c.b * k}; }
 
-/// SS 4.7's radiance along one direction, its steps numbered as there.
-/// `fromSky` marks a ray already sent on from the sky view (SS 4.12 item 2).
-Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
-                  const ubundle::Geometry& geometry, const std::vector<ubundle::Light>& lights,
-                  const AlbedoLookup& albedo, const OwnLightLookup& own,
-                  const std::optional<Vec3>& sky, bool fromSky) {
+/// SS 4.7 steps 1-4, its steps numbered as there. `fromSky` marks a ray
+/// already sent on from the sky view (SS 4.12 item 2).
+std::optional<SurfaceHit> surfaceFrom(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
+                                      const ubundle::Geometry& geometry, const std::optional<Vec3>& sky,
+                                      bool fromSky) {
     const std::optional<SurfaceRays::Hit> hit = rays.first(p, w);
-    if (!hit) return {};                                                   // 1
+    if (!hit) return std::nullopt;                                         // 1
     const ubundle::GeometryBatch& batch = batchOf(geometry, hit->triangle);
     Vec3 n = normalOf(geometry, hit->triangle);                             // 2
     if (dot(w, n) >= 0) {                                                   // 3
-        if ((batch.polyFlags & PF_TWO_SIDED) == 0) return {};
+        if ((batch.polyFlags & PF_TWO_SIDED) == 0) return std::nullopt;
         n = n * -1.0;
     }
     // 4. SS 4.12 item 2: the sky shows what the sky view sees that way, so the
     // ray carries on from there -- once; a sky the sky view itself meets is dark.
     if ((batch.polyFlags & PF_FAKE_BACKDROP) != 0) {
-        if (!sky || fromSky) return {};
-        return radianceAlong(*sky, w, rays, geometry, lights, albedo, own, sky, true);
+        if (!sky || fromSky) return std::nullopt;
+        return surfaceFrom(*sky, w, rays, geometry, sky, true);
     }
-    // UTA-0161: an unlit liquid -- acid, waste, lava -- shows its picture at
-    // full brightness and sends that on. Other unlit surfaces do not: SS 8
-    // rejects it, a map made fullbright for its look flooding its neighbours.
-    // SS 4.12 item 1: a picture shown unlit scales as emission does, uncapped.
-    const OwnLight mine = own ? own(batch.material) : OwnLight{};
-    if ((batch.polyFlags & PF_UNLIT) != 0 && mine.unlitGlows)
-        return scaled(albedo(batch.material), REFLECTANCE_SCALE);
+    return SurfaceHit{p + w * hit->t, n, &batch, fromSky};
+}
 
-    const Vec3 x = p + w * hit->t;                                          // 5
+} // namespace
+
+std::optional<SurfaceHit> surfaceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
+                                       const ubundle::Geometry& geometry, const std::optional<Vec3>& sky) {
+    return surfaceFrom(p, w, rays, geometry, sky, false);
+}
+
+Rgb lightReaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays,
+                  const std::vector<ubundle::Light>& lights) {
     Rgb e;
     for (const ubundle::Light& light : lights) {
         const Rgb lit = lightAt(light, x, n);
@@ -157,15 +156,33 @@ Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
         e.g += lit.g;
         e.b += lit.b;
     }
-    // 6. UTA-0253: the surface sends on the light it shows, not the light's
-    // own value -- so a probe holds light as scene.frag adds it, after the power.
-    // SS 4.12 item 1: at REFLECTANCE_SCALE times its stored albedo, capped.
-    const Rgb a = albedo(batch.material);
+    return e;
+}
+
+Rgb reflectanceOf(const Rgb& albedo) noexcept {
     const auto reflects = [](double albedoChannel) {
         return std::min(REFLECTANCE_SCALE * albedoChannel, ALBEDO_CAP);
     };
-    Rgb sent{reflects(a.r) * shownLight(e.r), reflects(a.g) * shownLight(e.g),
-             reflects(a.b) * shownLight(e.b)};
+    return {reflects(albedo.r), reflects(albedo.g), reflects(albedo.b)};
+}
+
+Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays, const std::vector<ubundle::Light>& lights,
+             const AlbedoLookup& albedo, const OwnLightLookup& own) {
+    const ubundle::GeometryBatch& batch = *hit.batch;
+    // UTA-0161: an unlit liquid -- acid, waste, lava -- shows its picture at
+    // full brightness and sends that on. Other unlit surfaces do not: SS 8
+    // rejects it, a map made fullbright for its look flooding its neighbours.
+    // SS 4.12 item 1: a picture shown unlit scales as emission does, uncapped.
+    const OwnLight mine = own ? own(batch.material) : OwnLight{};
+    if ((batch.polyFlags & PF_UNLIT) != 0 && mine.unlitGlows)
+        return scaled(albedo(batch.material), REFLECTANCE_SCALE);
+
+    const Rgb e = lightReaching(hit.at, hit.normal, rays, lights);         // 5
+    // 6. UTA-0253: the surface sends on the light it shows, not the light's
+    // own value -- so a probe holds light as scene.frag adds it, after the power.
+    // SS 4.12 item 1: at REFLECTANCE_SCALE times its stored albedo, capped.
+    const Rgb k = reflectanceOf(albedo(batch.material));
+    Rgb sent{k.r * shownLight(e.r), k.g * shownLight(e.g), k.b * shownLight(e.b)};
     // UTA-0161: and a glowing one adds its emission, as scene.frag adds its
     // emit map -- scaled as a picture shown unlit is, uncapped.
     const Rgb glow = scaled(mine.emission, REFLECTANCE_SCALE);
@@ -174,8 +191,6 @@ Rgb radianceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
     sent.b += glow.b;
     return sent;
 }
-
-} // namespace
 
 std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& lights,
                                         const ubundle::Placements& placements) {
@@ -284,8 +299,10 @@ std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
     const std::vector<Vec3>& all = directions();
     std::vector<Rgb> radiance;
     radiance.reserve(all.size());
-    for (const Vec3& w : all)
-        radiance.push_back(radianceAlong(p, w, rays, geometry, lights, albedo, own, sky, false));
+    for (const Vec3& w : all) {
+        const std::optional<SurfaceHit> hit = surfaceAlong(p, w, rays, geometry, sky);
+        radiance.push_back(hit ? sentFrom(*hit, rays, lights, albedo, own) : Rgb{});
+    }
     return cubeOf(radiance);
 }
 

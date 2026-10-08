@@ -79,6 +79,42 @@ struct OwnLight {
 };
 using OwnLightLookup = std::function<OwnLight(std::string_view materialId)>;
 
+/// SS 4.7 step 5: a shadow ray starts this far off the surface, along its normal.
+inline constexpr double SHADOW_OFFSET = 0.5;
+
+/// SS 4.7 steps 1-4: the lit side of the surface a ray meets. UTA-0292's
+/// reference tracer shares these four functions with the probe bake, so the
+/// two measure one light model (docs/specs/UTA-0292-reference-path-tracer.md
+/// SS 4.1).
+struct SurfaceHit {
+    Vec3 at;                                       ///< where the ray meets it
+    Vec3 normal;                                   ///< facing the ray
+    const ubundle::GeometryBatch* batch = nullptr; ///< the surface's batch
+    bool viaSky = false;                           ///< met from the sky view (SS 4.12 item 2)
+};
+
+/// SS 4.7 steps 1-4: the first surface a ray from `p` along `w` meets, sent on
+/// once from `sky` where it meets the sky. None where it meets nothing, a
+/// surface's back, or the sky with no sky view or a second time.
+[[nodiscard]] std::optional<SurfaceHit> surfaceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
+                                                     const ubundle::Geometry& geometry,
+                                                     const std::optional<Vec3>& sky);
+
+/// SS 4.7 step 5: the light of `lights` reaching `x`, facing `n`, each one
+/// ray-tested toward the point it is lit from.
+[[nodiscard]] Rgb lightReaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays,
+                                const std::vector<ubundle::Light>& lights);
+
+/// SS 4.12 item 1: the share of the light reaching it a surface of `albedo`
+/// sends on -- REFLECTANCE_SCALE times it, at most ALBEDO_CAP.
+[[nodiscard]] Rgb reflectanceOf(const Rgb& albedo) noexcept;
+
+/// SS 4.7 step 4's unlit liquid and step 6: the light `hit` sends back along
+/// the ray that met it.
+[[nodiscard]] Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays,
+                           const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo,
+                           const OwnLightLookup& own);
+
 /// SS 4.7: the ray directions -- an icosahedron's vertices with each edge split
 /// at its midpoint twice -- ascending by z, then y, then x.
 [[nodiscard]] const std::vector<Vec3>& directions();

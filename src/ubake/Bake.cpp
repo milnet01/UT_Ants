@@ -1269,6 +1269,11 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     }
 
     BakeResult result;
+    // UTA-0292 SS 4.2: the lookups' answers for each record, before the
+    // records move into the bundle.
+    result.materialLight.reserve(materials.records.size());
+    for (const ubundle::MaterialRecord& record : materials.records)
+        result.materialLight.push_back({record.id, albedo(record.id), own(record.id)});
     result.rooms = std::move(rooms.report);
     result.skipped = std::move(materials.skipped);
     result.skippedFlames = std::move(flames.skipped);

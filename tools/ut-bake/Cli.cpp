@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <vector>
@@ -50,7 +51,8 @@ void usage(std::ostream& err) {
     err << "usage: ut-bake --check <install>\n"
            "       ut-bake --game-types <install>\n"
            "       ut-bake --install <install> --out <dir> [--force] [--fit-budget]\n"
-           "               [--texture-cache <dir>] [--full-budget] [--recipe <file>] <map>\n"
+           "               [--texture-cache <dir>] [--full-budget] [--recipe <file>]\n"
+           "               [--light-materials <file>] <map>\n"
            "       ut-bake --help\n"
            "\n"
            "--check says whether a directory is a usable Unreal Tournament install,\n"
@@ -66,6 +68,9 @@ void usage(std::ostream& err) {
            "--recipe bakes with that recipe file; without it the bake takes the\n"
            "map's recipe from your own recipes folder, else the game's, if either\n"
            "has one (UTA-0113).\n"
+           "--light-materials writes <file>: each material's albedo and emission as\n"
+           "the light probes took them, for ut-ref. It bakes afresh, as --force does,\n"
+           "since a bake found already there computed none (UTA-0292).\n"
            "--game-types lists the game types the install's\n"
            ".int files register, each with the MapPrefix its maps' names start with\n"
            "(UTA-0179). Standard output is one JSON object.\n";
@@ -78,6 +83,7 @@ struct Arguments {
     bool fullBudget = false;
     std::optional<std::string_view> textureCache;
     std::optional<std::string_view> recipe;
+    std::optional<std::string_view> lightMaterials; ///< UTA-0292
     std::optional<std::string_view> check;
     std::optional<std::string_view> gameTypes;
     std::optional<std::string_view> install;
@@ -115,6 +121,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             if (!takeValue(parsed.textureCache)) return std::nullopt;
         } else if (arg == "--recipe") {
             if (!takeValue(parsed.recipe)) return std::nullopt;
+        } else if (arg == "--light-materials") {
+            if (!takeValue(parsed.lightMaterials)) return std::nullopt;
         } else if (arg == "--check") {
             if (!takeValue(parsed.check)) return std::nullopt;
         } else if (arg == "--game-types") {
@@ -137,7 +145,7 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
     if (parsed.help) return parsed;
     if (parsed.check.has_value() || parsed.gameTypes.has_value()) {
         if ((parsed.check && parsed.gameTypes) || parsed.install || parsed.out || parsed.map || parsed.force
-            || parsed.textureCache || parsed.recipe) {
+            || parsed.textureCache || parsed.recipe || parsed.lightMaterials) {
             err << "ut-bake: " << (parsed.check ? "--check" : "--game-types")
                 << " takes an install and nothing else\n";
             return std::nullopt;
@@ -306,7 +314,8 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
     request.install = std::filesystem::path(*args.install);
     request.map = std::filesystem::path(*args.map);
     request.outDir = std::filesystem::path(*args.out);
-    request.force = args.force;
+    // UTA-0292 SS 4.2: a bake found already there computed no material light.
+    request.force = args.force || args.lightMaterials.has_value();
     request.fitBudget = args.fitBudget;
     // UTA-0148: only when asked (user, 2026-09-29) -- maps share few
     // textures, so the cache pays on baking one map again, not on a new one.
@@ -372,6 +381,19 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
 
     switch (outcome->verdict) {
     case Verdict::Written:
+        if (args.lightMaterials) {
+            if (!outcome->result.has_value()) {
+                err << "ut-bake: the bake kept no material light to write\n";
+                return EXIT_FAILED;
+            }
+            std::ofstream file(uta::fs::pathFromUtf8(*args.lightMaterials), std::ios::binary);
+            writeMaterialLight(file, outcome->result->materialLight);
+            file.close(); // a full disk shows at the final flush (UTA-0224)
+            if (!file) {
+                err << "ut-bake: could not write " << *args.lightMaterials << "\n";
+                return EXIT_FAILED;
+            }
+        }
         if (outcome->fitted.has_value())
             err << "ut-bake: textures shrunk to fit the budget: " << outcome->fitted->upscaleRounds
                 << " round(s) of upscaling taken back, " << outcome->fitted->sourceRounds

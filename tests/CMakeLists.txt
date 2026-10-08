@@ -75,6 +75,7 @@ add_executable(uta_unit_tests
     unit/MaterialCompressTest.cpp
     unit/MaterialGenerateTest.cpp
     unit/MaterialLibraryTest.cpp
+    unit/MaterialLightTest.cpp
     unit/NavGraphTest.cpp
     unit/NavReachTest.cpp
     unit/NumericContractTest.cpp

@@ -10,7 +10,10 @@
 
 #include "BakeFixture.h"
 
+#include "core/FileSystem.h"
+#include "ubake/MaterialLight.h"
 #include "ubake/Name.h"
+#include "ubundle/Bundle.h"
 #include "ut-bake/Cli.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -522,4 +525,33 @@ TEST_CASE("UTA-0113: a recipe given by --recipe renames the bake and is reported
     CHECK(wrongMap.code == 1);
     CHECK(says(wrongMap.out, "\"verdict\": \"refused\""));
     CHECK(says(wrongMap.err, "dm-other"));
+}
+
+TEST_CASE("UTA-0292 INV-3 and INV-4: --light-materials bakes afresh and names every material",
+          "[ubake][cli]") {
+    const Install fixture;
+    REQUIRE(run(fixture.bake()).code == 0);
+
+    // INV-4: a bake is already there, and the flag still bakes.
+    const fs::path file = fixture.dir.path() / "light.txt";
+    std::vector<std::string> args = fixture.bake();
+    args.insert(args.end() - 1, {"--light-materials", file.string()});
+    const Run lit = run(args);
+    REQUIRE(lit.code == 0);
+    CHECK(says(lit.out, "\"verdict\": \"written\""));
+    REQUIRE(fs::exists(file));
+
+    // INV-3: one line per material record, in the bundle's order.
+    REQUIRE(filesIn(fixture.out) == 1);
+    const auto bytes = uta::fs::readFile(fs::directory_iterator(fixture.out)->path());
+    REQUIRE(bytes.has_value());
+    const auto bundle = uta::ubundle::read(*bytes);
+    REQUIRE(bundle.has_value());
+    REQUIRE(bundle->materials.has_value());
+    std::ifstream in(file, std::ios::binary);
+    const auto light = uta::ubake::readMaterialLight(in);
+    REQUIRE(light.has_value());
+    REQUIRE(light->size() == bundle->materials->size());
+    REQUIRE_FALSE(light->empty());
+    for (std::size_t i = 0; i < light->size(); ++i) CHECK((*light)[i].id == (*bundle->materials)[i].id);
 }
