@@ -18883,6 +18883,29 @@ to.
   Source: ut-monsterhunt-request-2026-10-06.
   Lanes: upkg.
 
+- 📋 [UTA-0335] **ut-dump reports the BSP zone each PlayerStart lands in, for UT_MonsterHunt's GAME-0207.**
+  Asked 2026-10-08 by UT_MonsterHunt (GAME-0207, blocked on this).
+  GAME-0150 fixed MH-(_@_)_NaliBoat_LUCKY, whose stale BSP zone table put
+  the start area in a water zone, so players spawned underwater and
+  drowned. They want a standing offline check for every map.
+
+  Per PlayerStart at least, per nav node if it costs nothing extra:
+  - the zone index the BSP walk lands the location in;
+  - that zone's ZoneInfo actor (name, export index) from the Model's
+    zone table, and its class;
+  - bWaterZone resolved through the class defaults.
+
+  Pieces that exist: umap's point-in-room walk (UTA-0007, Rooms.h) and
+  ubake's zone resolution (Zones.h). Answered yes on 2026-10-08.
+
+  Test: the installed NaliBoat_LUCKY should read dry; UT_MonsterHunt is
+  finding the pre-fix copy, which must read wet. The wet case is what
+  proves the check can fail.
+  **Layman:** A map check that says which area each player start point is in, so a start placed in water by mistake is caught before players drown.
+  Kind: feature.
+  Source: ut-monsterhunt-request-2026-10-08.
+  Lanes: tools/ut-dump, umap.
+
 ## 0.5.0 — Map editor
 
 Edit a baked bundle, build a new level, and author enemies as data. A map built
