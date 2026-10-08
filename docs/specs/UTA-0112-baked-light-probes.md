@@ -521,7 +521,10 @@ is what falls short. The user chose all three changes below (2026-10-08).
    draws, `skyViewOf`, which moves from `urender` to `ubundle` so both share
    one copy. That ray's `L` is steps 1 to 6 at its hit, which is what the
    renderer's sky shows that way; a `PF_FakeBackdrop` hit there gives `0`.
-   With no sky view, `L` is `0` as before. The reference put sky light at 4%
+   An unlit surface that ray meets sends its picture, as step 4's unlit
+   liquid does, whether or not it is a liquid: a sky's picture is the light
+   it gives (user, 2026-10-08, INV-16). Met in the level itself, § 8's
+   rejection stands. With no sky view, `L` is `0` as before. The reference put sky light at 4%
    of the light on DM-ArcaneTemple, and 22% at one open view.
 3. **Zone ambient no longer lights a surface.** `UTA-0156` § 4.4's ambient
    term is withdrawn from `scene.frag`. The reference found it adding 0.34 to
@@ -529,7 +532,8 @@ is what falls short. The user chose all three changes below (2026-10-08).
    light at one pitch-dark spot. `ZONE` keeps the three ambient bytes, so
    undoing this is a shader change.
 
-`BAKER_REVISION` becomes `45`; `LPRB`'s format does not change. A room left
+`BAKER_REVISION` becomes `45`, and `46` with INV-16; `LPRB`'s format does
+not change. A room left
 darker than it should be is judged per room after its map is re-baked, and
 `UTA-0256` adds a lamp where one is wanted. A second bounce, worth 2–4% at
 `K` `4`, is `UTA-0254`'s.
@@ -668,6 +672,14 @@ darker than it should be is judged per room after its map is re-baked, and
   *Test:* `tests/unit/BakeLightProbesTest.cpp`, "sky light".
   *Breaks when:* the backdrop's own material is used, the sky ray starts at
   the hit rather than at the sky view, or a backdrop in the sky zone recurses.
+- **INV-16** — § 4.12 item 2. An unlit surface of albedo `a` that is not a
+  liquid, met by a ray sent on from the sky view, sends `4a`; met by a
+  probe's own ray, it sends only what it reflects.
+  *Added by UTA-0292* (user decision 2026-10-08, after `ut-ref` measured
+  sky light at 0.4% of DM-ArcaneTemple's light without it).
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "sky light".
+  *Breaks when:* only liquids glow through the sky, or every unlit surface
+  in the level glows.
 
 ## 6. Failure modes
 
@@ -690,7 +702,7 @@ Each test is seen to fail before the code it grades exists.
 |---|---|---|
 | `tests/unit/BundleLightProbesTest.cpp` | `unit` | INV-1 |
 | `tests/unit/BakeLightModelTest.cpp` | `unit` | INV-2, INV-3, INV-4, INV-5 |
-| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12, INV-13, INV-14, INV-15 |
+| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12, INV-13, INV-14, INV-15, INV-16 |
 | `tests/unit/BakeGoldenTest.cpp` | `unit` | INV-10, recorded again |
 | `tests/unit/PathTraceTest.cpp` | `unit` | INV-11, unchanged |
 | `tests/real/RealLightProbesTest.cpp` | real tier | prints each stock map's probe count, baked light count and step time; checks every value is finite and not negative |
@@ -757,7 +769,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 | INV-1 | `tests/unit/BundleLightProbesTest.cpp` |
 | INV-2, INV-3, INV-4 | `tests/unit/BakeLightModelTest.cpp` |
 | INV-5 | `tests/unit/BakeLightModelTest.cpp` and `tests/unit/BakeLightProbesTest.cpp` |
-| INV-6, INV-7, INV-8, INV-9, INV-12, INV-13, INV-14, INV-15 | `tests/unit/BakeLightProbesTest.cpp` |
+| INV-6, INV-7, INV-8, INV-9, INV-12, INV-13, INV-14, INV-15, INV-16 | `tests/unit/BakeLightProbesTest.cpp` |
 | § 4.12's light against exact transport | **nothing** in CI — `UTA-0292`'s scratch path tracer, run by hand |
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |

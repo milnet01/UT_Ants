@@ -541,6 +541,17 @@ TEST_CASE("sky light", "[ubake][probes]") {
         CHECK(cube[DOWN].r == Catch::Approx(0.8)); // 4 times the lava's 0.2
     }
 
+    SECTION("UTA-0112 INV-16: an unlit surface the sky view sees sends its picture") {
+        // The lava is no liquid here, so only INV-16 can light it: what the
+        // sky view sees is the sky's picture, whatever kind of surface it is.
+        const OwnLightLookup nothingGlows = [](std::string_view) { return OwnLight{}; };
+        const auto cube = gatherProbe(probe, rays, level, {}, lavaGrey, nothingGlows, Vec3{5e6, 0, -10000});
+        CHECK(cube[DOWN].r == Catch::Approx(0.8));
+        // Met in the level itself, the same surface stays dark (SS 8).
+        const auto direct = gatherProbe(Vec3{5e6, 0, -19900}, rays, level, {}, lavaGrey, nothingGlows);
+        CHECK(total(direct) == 0.0);
+    }
+
     SECTION("with no sky view the sky brings nothing") {
         CHECK(total(gatherProbe(probe, rays, level, {}, lavaGrey, lavaGlows)) == 0.0);
     }

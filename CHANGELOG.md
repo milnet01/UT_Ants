@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **The sky lights open areas softly** (UTA-0292)
+  Light from a map's sky now reaches the rooms open to it, as daylight
+  would. Maps must be baked again.
+
 - **ut-ref measures the game's lighting against exact light** (UTA-0292)
   It traces how light really travels in a map, using the same rules the
   baker uses, and scores the renderer's picture against it view by view, so

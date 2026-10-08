@@ -94,8 +94,9 @@ Reference::Reference(const ubundle::Geometry& geometry, std::vector<ubundle::Lig
 }
 
 bool Reference::reflects(const ubake::SurfaceHit& hit) const {
-    // An unlit liquid sends its picture and nothing it receives (sentFrom).
-    return (hit.batch->polyFlags & PF_UNLIT) == 0 || !own_(hit.batch->material).unlitGlows;
+    // An unlit liquid, or an unlit surface seen through the sky view, sends
+    // its picture and nothing it receives (sentFrom).
+    return (hit.batch->polyFlags & PF_UNLIT) == 0 || (!own_(hit.batch->material).unlitGlows && !hit.viaSky);
 }
 
 Rgb Reference::radiance(const Vec3& p, const Vec3& w, int depth, std::uint64_t& random) const {

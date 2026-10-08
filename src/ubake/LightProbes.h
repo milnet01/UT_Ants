@@ -109,8 +109,9 @@ struct SurfaceHit {
 /// sends on -- REFLECTANCE_SCALE times it, at most ALBEDO_CAP.
 [[nodiscard]] Rgb reflectanceOf(const Rgb& albedo) noexcept;
 
-/// SS 4.7 step 4's unlit liquid and step 6: the light `hit` sends back along
-/// the ray that met it.
+/// SS 4.7 step 4's unlit liquid -- or any unlit surface met through the sky
+/// view (SS 4.12 item 2) -- and step 6: the light `hit` sends back along the
+/// ray that met it.
 [[nodiscard]] Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays,
                            const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo,
                            const OwnLightLookup& own);

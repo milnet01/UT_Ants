@@ -15082,6 +15082,12 @@ stays with movement in 0.2.0.
   wiring in Bake.cpp is still ungraded. Question for the user: should
   an unlit surface met through the sky view send its picture, as an
   unlit liquid does?
+  User decision (2026-10-08): yes, the sky glows. An unlit surface met
+  through the sky view sends its picture, as an unlit liquid does, so
+  open areas under a sky get a soft fill. Limited to light arriving
+  through the sky, so UTA-0112 SS 8's fullbright-flooding rejection
+  still holds for the level itself. Then re-bake and re-score the three
+  maps.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
@@ -15819,6 +15825,9 @@ stays with movement in 0.2.0.
   the tools decide. File each verified finding as its own item with a
   review-code-2026-10-08 Source, so CLAUDE.md's priority rule 1 picks
   them up.
+  User decision (2026-10-08): run this audit after the lighting pass,
+  once UTA-0292 is finished, so it reads the lighting code in its final
+  shape.
   **Layman:** A full independent check of the code for bugs, scheduled for the day the weekly usage allowance renews.
   Kind: chore.
   Source: user-request-2026-10-06.

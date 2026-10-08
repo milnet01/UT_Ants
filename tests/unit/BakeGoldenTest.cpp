@@ -108,7 +108,9 @@ namespace {
 // 45, format 23: UTA-0292 sends on four times a surface's albedo and takes sky
 // light. The fixture's lamp sets no bStatic, so no light bakes into its probes,
 // and it has no sky view: the digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 45;
+// 46: UTA-0292 lets an unlit surface seen through the sky view give light;
+// the fixture has no sky view, so the digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 46;
 constexpr std::string_view GOLDEN =
     "7a61a9e422f32dba4162d3b922003e246d5c9cb99b31c7f8678712504e831aa3";
 

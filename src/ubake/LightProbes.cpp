@@ -173,8 +173,11 @@ Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays, const std::vector<u
     // full brightness and sends that on. Other unlit surfaces do not: SS 8
     // rejects it, a map made fullbright for its look flooding its neighbours.
     // SS 4.12 item 1: a picture shown unlit scales as emission does, uncapped.
+    // SS 4.12 item 2 (user, 2026-10-08): so does any unlit surface met through
+    // the sky view, since a sky's picture is the light it gives. Met in the
+    // level itself, SS 8's rejection stands.
     const OwnLight mine = own ? own(batch.material) : OwnLight{};
-    if ((batch.polyFlags & PF_UNLIT) != 0 && mine.unlitGlows)
+    if ((batch.polyFlags & PF_UNLIT) != 0 && (mine.unlitGlows || hit.viaSky))
         return scaled(albedo(batch.material), REFLECTANCE_SCALE);
 
     const Rgb e = lightReaching(hit.at, hit.normal, rays, lights);         // 5
