@@ -70,6 +70,7 @@ struct SceneConstants {
     VkBool32 tileVariation; ///< UTA-0180
     VkBool32 caustics;      ///< UTA-0215
     VkBool32 tileShuffle;   ///< UTA-0277
+    VkBool32 lightTerms;    ///< UTA-0292: Config::lightTerms
 };
 
 Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
@@ -87,6 +88,7 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         VkSpecializationMapEntry{3, offsetof(SceneConstants, tileVariation), sizeof(VkBool32)}, // UTA-0180
         VkSpecializationMapEntry{4, offsetof(SceneConstants, caustics), sizeof(VkBool32)},      // UTA-0215
         VkSpecializationMapEntry{5, offsetof(SceneConstants, tileShuffle), sizeof(VkBool32)},   // UTA-0277
+        VkSpecializationMapEntry{6, offsetof(SceneConstants, lightTerms), sizeof(VkBool32)},    // UTA-0292
     };
     const VkSpecializationInfo specialization{static_cast<std::uint32_t>(entries.size()), entries.data(),
                                               sizeof(constants), &constants};
@@ -476,7 +478,8 @@ Result<VkShaderModule> shaderModule(VkDevice device, std::span<const std::uint32
     return module;
 }
 
-Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const TargetFormats& formats, Tier tier) {
+Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const TargetFormats& formats, Tier tier,
+                                                     bool lightTerms) {
     std::unique_ptr<Pipelines> p(new Pipelines());
     p->device_ = gpu.device();
     const VkDevice device = p->device_;
@@ -571,7 +574,8 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
                                         enabled(Feature::WaterLook, tier) ? VK_TRUE : VK_FALSE,
                                         enabled(Feature::TileVariation, tier) ? VK_TRUE : VK_FALSE,
                                         enabled(Feature::Caustics, tier) ? VK_TRUE : VK_FALSE,
-                                        enabled(Feature::TileShuffle, tier) ? VK_TRUE : VK_FALSE};
+                                        enabled(Feature::TileShuffle, tier) ? VK_TRUE : VK_FALSE,
+                                        lightTerms ? VK_TRUE : VK_FALSE};
     for (int blending = 0; blending < 3; ++blending) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
             UTA_TRY(p->scene_[blending][twoSided],

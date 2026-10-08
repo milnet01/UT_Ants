@@ -199,6 +199,7 @@ add_executable(uta_device_tests
     device/RenderFogTest.cpp
     device/RenderDeviceAbsentTest.cpp
     device/RenderLightParityTest.cpp
+    device/RenderLightTermsTest.cpp
     device/RenderLightTimeTest.cpp
     device/RenderLightingTest.cpp
     device/RenderOcclusionTest.cpp

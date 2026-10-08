@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
     config.width = options->width;
     config.height = options->height;
     config.linearOutput = options->linearOutput;
+    config.lightTerms = options->lightTerms;
 
     auto bytes = uta::fs::readFile(options->bundle);
     if (!bytes) {
@@ -185,14 +186,16 @@ int main(int argc, char** argv) {
         }
         std::cout << path << "\n";
 
-        if (options->emission) {
+        // UTA-0292 SS 4.3: with --light-terms the emission target holds them.
+        if (options->emission || options->lightTerms) {
             const auto emission = renderer.readback(uta::urender::Renderer::Target::Emission);
             if (!emission) {
                 std::cerr << "ut-shot: emission readback failed: " << emission.error().message() << "\n";
                 return 1;
             }
             // PFM: RGB floats, little-endian (the -1 scale), rows bottom to top.
-            const std::string emissionPath = options->prefix + "-" + std::to_string(index) + "-emission.pfm";
+            const std::string emissionPath = options->prefix + "-" + std::to_string(index)
+                                           + (options->lightTerms ? "-light.pfm" : "-emission.pfm");
             std::ofstream pfm(emissionPath, std::ios::binary);
             pfm << "PF\n" << config.width << " " << config.height << "\n-1.0\n";
             const std::size_t rowBytes = static_cast<std::size_t>(config.width) * 4 * sizeof(float);

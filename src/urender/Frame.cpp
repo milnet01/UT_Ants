@@ -1359,7 +1359,9 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &set, 0,
                                 nullptr);
         const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height},
-                                           upscaleInputPass ? 1u : 0u, bloomOn ? BLOOM_STRENGTH : 0.0f,
+                                           upscaleInputPass ? 1u : 0u,
+                                           // UTA-0292: the emission target holds light terms, not glow.
+                                           bloomOn && !config.lightTerms ? BLOOM_STRENGTH : 0.0f,
                                            0.0f, // reserved; UTA-0215 SS 4.4's clock follows
                                            std::isfinite(lastLightSeconds)
                                                ? static_cast<float>(std::fmod(lastLightSeconds, FLAME_CLOCK_WRAP))
@@ -1423,7 +1425,7 @@ Result<Renderer> Renderer::create(const Config& config) {
     }
     UTA_TRY(impl->pipelines,
             Pipelines::create(*impl->gpu, {HDR_FORMAT, VELOCITY_FORMAT, DEPTH_FORMAT, OUTPUT_FORMAT, HDR_FORMAT},
-                              impl->tier));
+                              impl->tier, config.lightTerms));
     if (presenting) {
         UTA_TRY(impl->swapchain, Swapchain::create(*impl->gpu, config.width, config.height));
         impl->adoptSwapchainExtent();

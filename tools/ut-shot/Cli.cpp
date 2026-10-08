@@ -59,6 +59,9 @@ void usage(std::ostream& err) {
            "--no-probes     draw without the baked indirect light.\n"
            "--emission      also write <out prefix>-<line>-emission.pfm, the\n"
            "                linear emission bloom is drawn from.\n"
+           "--light-terms   also write <out prefix>-<line>-light.pfm: red the direct\n"
+           "                light, green the indirect, each a luma before\n"
+           "                reflectance, for ut-ref score. Not with --emission.\n"
            "--tier <name>   low, medium, high or ultra. Default high.\n"
            "--render-scale <s>  draw at this share of the target and upscale.\n"
            "--light-time <s>    pin a pulsing light's phase to this many seconds.\n"
@@ -131,6 +134,8 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
             options.probes = false;
         } else if (flag == "--emission") {
             options.emission = true;
+        } else if (flag == "--light-terms") {
+            options.lightTerms = true;
         } else if (flag == "--tier") {
             const auto name = value(flag);
             if (!name) return std::nullopt;
@@ -166,6 +171,12 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
             usage(err);
             return std::nullopt;
         }
+    }
+
+    // UTA-0292 SS 4.3: both read the one emission target.
+    if (options.emission && options.lightTerms) {
+        err << "ut-shot: --light-terms and --emission read the same target; ask for one\n";
+        return std::nullopt;
     }
 
     const std::span<const std::string_view> rest = args.subspan(index);

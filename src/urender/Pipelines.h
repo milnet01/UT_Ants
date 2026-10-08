@@ -38,8 +38,9 @@ struct TargetFormats {
 class Pipelines {
 public:
     /// `tier` sets the scene shader's parallax step counts (UTA-0040 SS 4.4).
+    /// `lightTerms` is Config::lightTerms (UTA-0292).
     [[nodiscard]] static Result<std::unique_ptr<Pipelines>> create(const Gpu& gpu, const TargetFormats& formats,
-                                                                    Tier tier);
+                                                                    Tier tier, bool lightTerms = false);
 
     Pipelines(const Pipelines&) = delete;
     Pipelines& operator=(const Pipelines&) = delete;

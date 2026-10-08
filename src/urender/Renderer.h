@@ -83,6 +83,11 @@ struct Config {
     /// conventional colour of something missing, instead of neutral grey. For
     /// developer views and tests; unset in normal play, where a player sees grey.
     bool showMissingMaterials = false;
+    /// UTA-0292 SS 4.3: a lit surface writes its light to the emission target
+    /// instead of its emission -- red the direct term, green the indirect, each
+    /// a luma, as scene.frag adds them before reflectance -- and bloom is off.
+    /// For ut-shot --light-terms; unset in normal play, where it compiles out.
+    bool lightTerms = false;
 };
 
 /// The view a frame is drawn from -- UT99's own units and angle encoding, so a

@@ -64,6 +64,10 @@ struct Options {
     /// <prefix>-<line>-emission.pfm: a flame's own pixels, which colour cannot
     /// give once bloom has spread them (UTA-0263 SS 4.6).
     bool emission = false;
+    /// UTA-0292 SS 4.3: write each view's light terms as
+    /// <prefix>-<line>-light.pfm, for ut-ref score. They take the emission
+    /// target, so --emission with it is refused.
+    bool lightTerms = false;
     /// Set by --from-capture: read the cameras from this file rather than from
     /// standard input, the folder's camera.txt being the view it recorded.
     std::optional<std::string> cameraFile;

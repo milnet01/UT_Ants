@@ -49,6 +49,9 @@ layout(constant_id = 3) const bool TILE_VARIATION = false;
 layout(constant_id = 4) const bool CAUSTICS = false;
 // UTA-0277 SS 4.4: Feature::TileShuffle. Off, a Shuffle material draws as Fixed.
 layout(constant_id = 5) const bool SHUFFLE_TILES = false;
+// UTA-0292 SS 4.3: Config::lightTerms. On, a lit surface writes its two light
+// terms to outEmission for ut-ref to score; off in normal play.
+layout(constant_id = 6) const bool LIGHT_TERMS = false;
 // UTA-0040 SS 4.5 step 4: parallax fades out over the mip level above this.
 const float PARALLAX_FADE_MIP = 4.0;
 
@@ -283,6 +286,7 @@ void main() {
     }
 
     vec3 colour;
+    vec2 lightTerms = vec2(0.0); // UTA-0292 SS 4.3: direct, indirect
     if (flaming) {
         colour = vec3(0.0); // all of it is emission, added below
     } else if ((draw.polyFlags & PF_FAKE_BACKDROP) != 0u && frame.skyTexture != NONE) {
@@ -378,6 +382,11 @@ void main() {
         vec3 reflectance = TILE_VARIATION && !liquid ? base.rgb * variationAt(worldPosition) : base.rgb;
         colour = reflectance * (pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER))
                              + indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)));
+        if (LIGHT_TERMS) {
+            const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+            lightTerms = vec2(dot(pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER)), LUMA),
+                              dot(indirect * (open * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER)), LUMA));
+        }
         // UTA-0215: under a rippling surface, the light reaching a lit surface
         // in a water zone gathers into moving lines. The water itself is not.
         if (CAUSTICS && !liquid && zones[zone].water != 0u)
@@ -408,7 +417,7 @@ void main() {
     else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) == 0u && material.emit != NONE)
         emitted = tiled(material.emit, shadingUv, duv1, duv2, shuffled, tile, tileMix).rgb;
     colour += emitted;
-    outEmission = vec4(emitted, 1.0);
+    outEmission = LIGHT_TERMS ? vec4(lightTerms, 0.0, 1.0) : vec4(emitted, 1.0);
 
     // UTA-0015 SS 4.3: the fog between the eye and this surface. Texel k holds
     // the integral to slice k's far edge, which the half-slice offset lines up.

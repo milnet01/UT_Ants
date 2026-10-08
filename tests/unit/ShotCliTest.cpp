@@ -112,6 +112,16 @@ TEST_CASE("UTA-0263: --emission asks for the emission target, and is off by defa
     CHECK_FALSE(plain.options->emission);
 }
 
+TEST_CASE("UTA-0292 INV-7: --light-terms is refused beside --emission", "[shot]") {
+    const auto asked = parse({"--light-terms", "map.utab", "320", "240", "out"});
+    REQUIRE(asked.options.has_value());
+    CHECK(asked.options->lightTerms);
+    CHECK_FALSE(asked.options->emission);
+    const auto both = parse({"--light-terms", "--emission", "map.utab", "320", "240", "out"});
+    CHECK_FALSE(both.options.has_value());
+    CHECK_THAT(both.err, Catch::Matchers::ContainsSubstring("same target"));
+}
+
 TEST_CASE("UTA-0199: tier render scale and light time are taken from the command line", "[shot]") {
     const auto parsed =
         parse({"--tier", "low", "--render-scale", "0.5", "--light-time", "12.25", "map.utab",
