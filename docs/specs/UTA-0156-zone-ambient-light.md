@@ -14,6 +14,11 @@ A bake writes each zone's `AmbientBrightness`, `AmbientHue` and
 its zone. The renderer adds that zone's ambient light to every lit surface, so
 a map whose author set ambient light draws as its author lit it.
 
+**Amended by `UTA-0292` (2026-10-08):** the renderer no longer adds it.
+Bounced light and sky light take its place
+(`docs/specs/UTA-0112-baked-light-probes.md` § 4.12). The bake still writes
+the three ambient bytes, and every other use of `ZONE` stands.
+
 ## 2. Problem
 
 1. `ZoneInfo`'s three ambient properties are in no bundle section.
@@ -198,9 +203,14 @@ struct Zone {                   // std430, 16 bytes, offsets asserted
   shadow or flicker. UTA-0165 later made that intensity FGetHSV's curve rather
   than `brightness / 255`, and refitted `AMBIENT_SCALE` to `1.5`; UTA-0187 and
   UTA-0192 refitted it again. `light.glsl` holds the current value.
+- **Withdrawn by `UTA-0292`:** the ambient term and `AMBIENT_SCALE` leave
+  `light.glsl` and `scene.frag`, and nothing reads the three ambient fields.
+  `Zone` keeps them, so the layout and binding below do not change. Measured
+  against a path-traced reference, the flat term added 0.34 to 1.6 times the
+  true light on most DM-ArcaneTemple views (`UTA-0292`'s body).
 - **Shading.** A lit surface shows `base × (g × (direct + indirect + ambient))^p`,
   UTA-0112 § 4.9's display-value combine since UTA-0187, `g` and `p` being
-  `LIGHT_GAIN` and `DISPLAY_LIGHT_POWER`. A `PF_Unlit` or
+  `LIGHT_GAIN` and `DISPLAY_LIGHT_POWER`; `ambient` is `0` since `UTA-0292`. A `PF_Unlit` or
   `PF_FakeBackdrop` surface is unchanged.
 
 The shadow pipeline does not read `zone`.
@@ -291,6 +301,7 @@ lightmap units rather than linear light scored worse still, `40.8` and
   *Test:* `tests/device/RenderLightingTest.cpp`, a new case.
   *Breaks when:* ambient is not added; it is added to an unlit surface; the
   vertex attribute or binding `10` is miswired, so every surface reads zone 0.
+  **Withdrawn by `UTA-0292`;** INV-14 replaces it.
 
 - **INV-7** — `gpu::Zone`'s offsets and the `Binding` numbers match
   `types.glsl` and `scene_bindings.glsl`.
@@ -338,6 +349,13 @@ lightmap units rather than linear light scored worse still, `40.8` and
   *Breaks when:* the speeds are not written or not checked; a speed defaults
   to `0`; the renderer drops the camera's speed, or uses the surface's zone.
 
+- **INV-14** — with no lights and no probes, a lit surface of base colour
+  white in a zone of brightness `40`, hue `0` and saturation `255` draws `0`
+  under `linearOutput`. A `PF_Unlit` surface in the same zone draws its base
+  colour. *Added by UTA-0292.*
+  *Test:* `tests/device/RenderLightingTest.cpp`, INV-6's case changed.
+  *Breaks when:* the ambient term is left in the shader.
+
 ## 6. Failure modes
 
 - **A node's front side is not its surface's side** on some map. Its surface
@@ -361,7 +379,8 @@ All carry the `unit` label but INV-6, which carries `device`.
 - INV-3 — `tests/unit/BakeZonesTest.cpp`, new.
 - INV-4 — `tests/unit/BakeGeometryTest.cpp`, extended.
 - INV-5 — `tests/unit/BakeMoversTest.cpp`, extended.
-- INV-6 — `tests/device/RenderLightingTest.cpp`, extended.
+- INV-6 — withdrawn by UTA-0292.
+- INV-14 — `tests/device/RenderLightingTest.cpp`, INV-6's case changed.
 - INV-7 — `src/urender/ShaderTypes.h`'s `static_assert`s.
 - INV-8 — `tests/unit/BakeGoldenTest.cpp`, re-recorded.
 - INV-9 — `tests/unit/BundleActorsTest.cpp`, extended.
@@ -425,7 +444,8 @@ this spec is amended first.
 | INV-3 | `tests/unit/BakeZonesTest.cpp` |
 | INV-4 | `tests/unit/BakeGeometryTest.cpp` |
 | INV-5 | `tests/unit/BakeMoversTest.cpp` |
-| INV-6 | `tests/device/RenderLightingTest.cpp` |
+| INV-6 | withdrawn by UTA-0292 |
+| INV-14 | `tests/device/RenderLightingTest.cpp` |
 | INV-7 | `src/urender/ShaderTypes.h`'s `static_assert`s |
 | INV-8 | `tests/unit/BakeGoldenTest.cpp` |
 | INV-13 | `tests/unit/BundleZonesTest.cpp`, `tests/unit/BakeZonesTest.cpp`, `tests/device/RenderSurfaceFlagsTest.cpp` |

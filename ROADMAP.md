@@ -15011,6 +15011,17 @@ stays with movement in 0.2.0.
   (UTA-0160). The 2026-09-20 finding that a bounce multiplier is the
   wrong lever was measured against the original's frames, which are
   now a guide only. Next: the spec, taking 1-3 together.
+  User decision (2026-10-08): take all three - bounce at realistic
+  reflectance, sky light in the bake, and real bounce replacing the
+  zone-ambient fill. Corners that end up darker are checked per room
+  after re-baking, a lamp added only where needed (UTA-0256).
+  Contract (2026-10-08): no spec at this id. The three changes amend
+  docs/specs/UTA-0112-baked-light-probes.md (new section 4.12, INV-14 and
+  INV-15) and docs/specs/UTA-0156-zone-ambient-light.md (section 4.4's
+  ambient term and INV-6 withdrawn, INV-14 added). Correction to the
+  progress note: zone ambient's low end is 0.34x, not 0.35x. The sky
+  figures there used the backdrop surface's own material as the sky's
+  light; section 4.12 takes the sky view instead, so they are approximate.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.

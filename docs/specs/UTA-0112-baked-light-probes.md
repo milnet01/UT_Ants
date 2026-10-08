@@ -85,7 +85,8 @@ ones most worth it.
 7. **A probe stores linear light as 32-bit floats**, in § 4.3's units. A
    tighter encoding is the renderer's to choose when it loads them.
 8. **A surface's colour for the bounce is the linear mean of its material's
-   base level.**
+   base level.** **Amended by `UTA-0292`:** times `REFLECTANCE_SCALE`, capped
+   (§ 4.12 item 1).
 9. **The lattice spacing is 128 units and a probe casts 162 rays.** Neither is
    measured; § 15.
 10. **The bake computes its own sine**, as a fixed polynomial (§ 4.3). A
@@ -384,7 +385,8 @@ directions, taken in ascending order of `z`, then `y`, then `x`.
 2. `n` is the hit triangle's first vertex's normal, normalised.
 3. If `ω · n ≥ 0`, the ray met the surface from behind: `n` becomes `−n` when
    the batch has `PF_TwoSided` (`0x100`), and otherwise `L = 0`.
-4. A batch with `PF_FakeBackdrop`: `L = 0`.
+4. A batch with `PF_FakeBackdrop`: `L = 0`. **Amended by `UTA-0292`:** the
+   sky's light, § 4.12 item 2.
    **Added by `UTA-0161`, recording what was built:** a batch with `PF_Unlit`
    (`0x400000`) whose material is a liquid (it carries a `MATS` liquid look,
    `UTA-0105`): `L` is its albedo. It shows its picture at full brightness,
@@ -403,6 +405,8 @@ directions, taken in ascending order of `z`, then `y`, then `x`.
    material's mean emission, the linear mean of its emit map as `umat`
    derives it (`emissiveOf`) at the picture's own size, before any upscale.
    A material without an emit map, and a flame, add `0`.
+   **Amended by `UTA-0292`:** the albedo is scaled and capped, and the
+   emission scaled, by § 4.12 item 1.
 
 **Face `k`**, with axis `a_k`, is `Σ L × max(0, ω · a_k) / Σ max(0, ω · a_k)`,
 both sums taken in the directions' order. It is stored as the nearest float.
@@ -443,9 +447,10 @@ map in place of § 4.7's `blocked`. UT99 combines light and texture on display
 values, so the light is raised to `p` before it meets `ρ` (UTA-0187, which
 replaced this section's `ρ × (direct + indirect)`). `g` and `p` are
 `LIGHT_GAIN` and `DISPLAY_LIGHT_POWER` in `src/urender/shaders/light.glsl`,
-fitted against the original game's frames; UTA-0156's zone ambient is added
-to `direct`, inside the power, and both it and `indirect` are scaled by
-UTA-0164's occlusion, as `scene.frag` shows. `lightAt` is a light's steady value: how its `type` varies it
+fitted against the original game's frames; `indirect` is scaled by
+UTA-0164's occlusion, as `scene.frag` shows. UTA-0156's zone ambient was
+added to `direct`, inside the power, until `UTA-0292` withdrew it (§ 4.12
+item 3). `lightAt` is a light's steady value: how its `type` varies it
 over time, and what the effects § 4.3 bakes as `LE_None` add, are UTA-0014's.
 The bake uses the steady value, so bounced light does not flicker.
 
@@ -488,6 +493,46 @@ tests change no line.
 - **Every hand mutation § 7 lists is killed by the invariant it names.** Three
   die at compile time, in INV-4's `static_assert`: flipping pitch's sign
   under GCC, and the two library sines under Clang.
+
+### 4.12 Realistic light — amended by `UTA-0292`
+
+The user's direction (2026-10-06): light that behaves as it does in reality
+matters more than matching the original's brightness. A scratch path tracer
+(`UTA-0292`'s body, 2026-10-08) scored the renderer against exact light
+transport in § 4.3's model on 28 views of DM-Fetid, DM-Deck16][ and
+DM-ArcaneTemple. The renderer follows the model closely; the model's bounce
+is what falls short. The user chose all three changes below (2026-10-08).
+
+1. **A surface sends on `K` times the light it shows.** `K` is
+   `REFLECTANCE_SCALE`, `4`, in `src/ubake/LightProbes.h`. The mean
+   `meanAlbedo` luma is `0.049`, `0.070` and `0.063` over the three maps'
+   materials (the scratch baker's per-material dump, averaged), where real
+   materials reflect `0.2` to `0.5`. The screen makes up for it with
+   `EXPOSURE` `5.03`, but the bounce never did, so bounce was 2–5% of the
+   light shown. At `K` `4` the reference gives 15–17% from the first bounce.
+   So § 4.7 step 6's `L` becomes `min(K × albedo, ALBEDO_CAP) × shownLight(E)`
+   plus `K` times the emission, with `ALBEDO_CAP` `0.9`, so no surface sends
+   on more light than reaches it. Step 4's unlit liquid sends `K` times its
+   albedo: a picture shown unlit is light the surface sends, so it scales
+   like emission and is not capped.
+2. **The sky lights the level.** § 4.7 step 4's `PF_FakeBackdrop` hit no
+   longer gives `0`. Where the level has a sky view, a second ray leaves the
+   sky view's location along `ω`. The bake takes the same view the renderer
+   draws, `skyViewOf`, which moves from `urender` to `ubundle` so both share
+   one copy. That ray's `L` is steps 1 to 6 at its hit, which is what the
+   renderer's sky shows that way; a `PF_FakeBackdrop` hit there gives `0`.
+   With no sky view, `L` is `0` as before. The reference put sky light at 4%
+   of the light on DM-ArcaneTemple, and 22% at one open view.
+3. **Zone ambient no longer lights a surface.** `UTA-0156` § 4.4's ambient
+   term is withdrawn from `scene.frag`. The reference found it adding 0.34 to
+   1.6 times the true light on most DM-ArcaneTemple views, and all of the
+   light at one pitch-dark spot. `ZONE` keeps the three ambient bytes, so
+   undoing this is a shader change.
+
+`BAKER_REVISION` becomes `45`; `LPRB`'s format does not change. A room left
+darker than it should be is judged per room after its map is re-baked, and
+`UTA-0256` adds a lamp where one is wanted. A second bounce, worth 2–4% at
+`K` `4`, is `UTA-0254`'s.
 
 ## 5. Invariants
 
@@ -603,6 +648,26 @@ tests change no line.
   *Breaks when:* the emission is not added, or is added to an unlit liquid;
   an unlit surface that is not a liquid sends its picture, which floods a
   fullbright map's neighbours.
+  **Amended by `UTA-0292`:** the ratios hold; the light sent is `K` times
+  larger (INV-14).
+
+- **INV-14** — § 4.12 item 1. With one light, a floor of albedo `0.1` sends
+  on `0.4 × shownLight(E)`, and a floor of albedo `0.5` sends on
+  `0.9 × shownLight(E)`. With no light, emission `e` reaches a probe as
+  `4e`, and an unlit liquid of albedo `a` as `4a`, neither capped.
+  *Added by UTA-0292.*
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "reflectance".
+  *Breaks when:* the scale is left off, the cap is dropped, or the cap is
+  applied to emission or to an unlit liquid.
+- **INV-15** — § 4.12 item 2. A probe whose ray meets a `PF_FakeBackdrop`
+  surface receives, along it, the light a ray from the sky view's location
+  receives along the same direction: from an unlit liquid of albedo `a` in
+  the sky zone, `4a`. A level with no sky view receives `0` there, and a sky
+  ray that meets a `PF_FakeBackdrop` surface receives `0`.
+  *Added by UTA-0292.*
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "sky light".
+  *Breaks when:* the backdrop's own material is used, the sky ray starts at
+  the hit rather than at the sky view, or a backdrop in the sky zone recurses.
 
 ## 6. Failure modes
 
@@ -625,7 +690,7 @@ Each test is seen to fail before the code it grades exists.
 |---|---|---|
 | `tests/unit/BundleLightProbesTest.cpp` | `unit` | INV-1 |
 | `tests/unit/BakeLightModelTest.cpp` | `unit` | INV-2, INV-3, INV-4, INV-5 |
-| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12, INV-13 |
+| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12, INV-13, INV-14, INV-15 |
 | `tests/unit/BakeGoldenTest.cpp` | `unit` | INV-10, recorded again |
 | `tests/unit/PathTraceTest.cpp` | `unit` | INV-11, unchanged |
 | `tests/real/RealLightProbesTest.cpp` | real tier | prints each stock map's probe count, baked light count and step time; checks every value is finite and not negative |
@@ -681,7 +746,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
   renderer turns into light like any other.
 - Movers in the bake, as surfaces or as shadows — deferred; not yet queued.
 - Bounce from lights a script changes — deferred; not yet queued.
-- More than one bounce — deferred; not yet queued.
+- More than one bounce — tracked by UTA-0254.
 - Light leaking between probes through a thin wall — tracked by UTA-0014, whose
   blending decides it.
 
@@ -692,7 +757,8 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 | INV-1 | `tests/unit/BundleLightProbesTest.cpp` |
 | INV-2, INV-3, INV-4 | `tests/unit/BakeLightModelTest.cpp` |
 | INV-5 | `tests/unit/BakeLightModelTest.cpp` and `tests/unit/BakeLightProbesTest.cpp` |
-| INV-6, INV-7, INV-8, INV-9, INV-12, INV-13 | `tests/unit/BakeLightProbesTest.cpp` |
+| INV-6, INV-7, INV-8, INV-9, INV-12, INV-13, INV-14, INV-15 | `tests/unit/BakeLightProbesTest.cpp` |
+| § 4.12's light against exact transport | **nothing** in CI — `UTA-0292`'s scratch path tracer, run by hand |
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |
 | § 4.3's model looking like UT99's | **nothing** — UT99's model is in no source this spec draws on; § 15 |
@@ -716,6 +782,10 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
   Recorded when built.
 - `CHANGELOG.md` — an `### Added` entry, and a `### Changed` entry for format
   version `8`.
+- **`UTA-0292`:** `docs/specs/UTA-0156-zone-ambient-light.md` § 4.4 and
+  INV-6, the ambient term withdrawn; `src/urender/Sky.h`'s `skyViewOf` moves
+  to `ubundle`; `CLAUDE.md`'s baker revision; the three device tests that
+  mirror `AMBIENT_SCALE`; `CHANGELOG.md`.
 - ROADMAP UTA-0014 — a note naming § 4.3 and § 4.9 as its contract, the test
   that holds its copy of § 4.3 to `ubake`'s, and ZoneInfo's ambient light as
   its own.
