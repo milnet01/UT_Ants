@@ -15088,6 +15088,21 @@ stays with movement in 0.2.0.
   through the sky, so UTA-0112 SS 8's fullbright-flooding rejection
   still holds for the level itself. Then re-bake and re-score the three
   maps.
+  Progress (2026-10-08): r46 (5bd0a84, the sky's unlit picture gives
+  light) re-baked and re-scored, same 30 views and settings as r45. Each
+  report says r46; the light files name 24 of 24, 32 of 32 and 38 of 38
+  materials. Mean per map, as a share of exact light:
+  - DM-Fetid: unchanged -- total 6.6%, direct 4.0%, indirect 4.1%, later
+    2.7%, sky 0, 0.13 stops; renderer 0.189 against exact 0.194.
+  - DM-Deck16][: unchanged -- total 6.6%, direct 0.8%, indirect 4.1%,
+    later 5.1%, sky 0, 0.18 stops; 0.374 against 0.394.
+  - DM-ArcaneTemple: total 13.9%, direct 9.0%, indirect 6.1%, later
+    3.1%, sky 1.0% (r45 0.4%), 0.31 stops; 0.108 against 0.121.
+    The sky share is 6.9% at view 8 and 2.7% at view 3.
+  So the sky wiring now sends light, and the renderer's indirect gap
+  held (6.0% to 6.1%), so the probes carry it. View 9 is still
+  near-black in exact light (0.0019). Next: UTA-0256, per room,
+  ArcaneTemple view 9 first.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
