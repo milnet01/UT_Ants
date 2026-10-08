@@ -18998,7 +18998,7 @@ to.
   Source: ut-monsterhunt-request-2026-10-06.
   Lanes: upkg.
 
-- 📋 [UTA-0335] **ut-dump reports the BSP zone each PlayerStart lands in, for UT_MonsterHunt's GAME-0207.**
+- ✅ [UTA-0335] **ut-dump reports the BSP zone each PlayerStart lands in, for UT_MonsterHunt's GAME-0207.**
   Asked 2026-10-08 by UT_MonsterHunt (GAME-0207, blocked on this).
   GAME-0150 fixed MH-(_@_)_NaliBoat_LUCKY, whose stale BSP zone table put
   the start area in a water zone, so players spawned underwater and
@@ -19021,12 +19021,19 @@ to.
   3b06b30e5a2eb91a6588910f074a3a3e. It has NO other copy: read it in
   place, never move or write it. The install's dry fix is md5
   db5ad101ff4724baca84c67c474fd9d2.
+  Shipped (2026-10-08, bf9cffb; GitHub green on GCC 14, Clang 19 and MSVC,
+  run 37821090879). Each map's element carries `playerStarts`: per
+  PlayerStart or descendant, its zone (umap::roomAt), the zone's actor
+  {export, name, class} or null, and waterZone from ubake::buildZones.
+  The install's NaliBoat_LUCKY (md5 db5ad101...) reads all five starts in
+  zone 2, no zone actor, dry; the pre-fix backup (md5 3b06b30e..., read in
+  place) reads all five in zone 5, a WaterZone, wet. UTA-0012 SS 4.7c.
   **Layman:** A map check that says which area each player start point is in, so a start placed in water by mistake is caught before players drown.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-10-08.
   Lanes: tools/ut-dump, umap.
 
-- 📋 [UTA-0336] **ut-dump reports lift tags and mover keyframes, for UT_MonsterHunt's GAME-0210.**
+- ✅ [UTA-0336] **ut-dump reports lift tags and mover keyframes, for UT_MonsterHunt's GAME-0210.**
   Asked 2026-10-08 by UT_MonsterHunt (GAME-0210). Their hand tool
   analysis/liftcheck.py reads T3D exports; they want ut-dump instead.
 
@@ -19041,6 +19048,13 @@ to.
   Raw tag strings are fine; they match case-insensitively.
 
   Answered yes on 2026-10-08.
+  Shipped (2026-10-08, 7289b51; GitHub green on GCC 14, Clang 19 and MSVC,
+  run 37821090879). Under --wiring-graph each `wiring.actors` element
+  carries `liftTag` ("" when unset) and `mover`: null, or {numKeys,
+  basePos, keyPos} where the chain reaches Mover or the actor or its
+  family carries KeyPos or BasePos; keyPos is keyed by index, as
+  OutEvents is. DM-Deck16][: 15 lift points tagged; both lifts numKeys 2,
+  KeyPos(1) 552 up. UTA-0172 SS 4.3.
   **Layman:** A map check that finds lifts set up wrong, so UT_MonsterHunt can stop reading map export files by hand.
   Kind: feature.
   Source: ut-monsterhunt-request-2026-10-08.
