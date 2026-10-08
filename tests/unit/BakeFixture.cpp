@@ -472,6 +472,11 @@ MapBuilder& MapBuilder::setFloorCoplanar(std::int32_t iPlane) {
     return *this;
 }
 
+MapBuilder& MapBuilder::setZoneActor(std::int32_t zone, std::size_t actor) {
+    zoneActors_.emplace_back(zone, actor);
+    return *this;
+}
+
 std::vector<std::uint8_t> MapBuilder::build() const {
     Packer packer = packer_;
 
@@ -490,6 +495,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     floor.iLeaf = {1, 0};
     floor.iPlane = floorCoplanar_;
     model.addNode(floor).setZoneCount(3).addLeaf(1).addLeaf(2);
+    for (const auto& [zone, actor] : zoneActors_) model.setZoneActor(zone, actors.at(actor));
 
     // Each surface draws a 64-unit square, one above the next, so the golden
     // bake covers GEOM (UTA-0109 SS 7). Its node hangs off no other, so the

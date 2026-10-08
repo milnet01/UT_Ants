@@ -931,7 +931,8 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
 
     const Keys mapKeys{"file",    "ok",        "bytes",        "exports",  "imports",
                        "importedPackages", "classCounts", "level", "surfaces", "levelInfo",
-                       "levelSummary", "monsters", "nav", "wiring", "exits", "waypoints"};
+                       "levelSummary", "monsters", "nav", "wiring", "exits", "waypoints",
+                       "playerStarts"};
     const Run plain = run({"--system", system, mapPath.string()});
     REQUIRE(plain.code == 0);
     const std::string map = packagesOf(plain.out).at(0);
@@ -1246,6 +1247,54 @@ TEST_CASE("UTA-0332: waypoints lists each MonsterWaypoint-family actor with its 
                           waypoints)
           != std::string::npos);
     CHECK(result.out.find("PathNode", waypoints) == std::string::npos);
+}
+
+TEST_CASE("UTA-0335: playerStarts names the zone each start lands in, and whether it is water", "[dump]") {
+    // GAME-0207: MH-(_@_)_NaliBoat_LUCKY's stale zone table put its starts in
+    // a water zone, so players spawned underwater and drowned.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t water = map.addClass("WaterZone", 0, {boolProperty("bWaterZone", true)});
+    const std::int32_t dry = map.addClass("ZoneInfo");
+    const std::int32_t custom = map.addClass("FixtureStart", map.importClass("Engine", "PlayerStart"));
+    map.addActor("WaterZone0", water)
+        .addActor("ZoneInfo0", dry)
+        .addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 8, 8, 16)})
+        .addActorOfClass("Engine", "PlayerStart", {vectorProperty("Location", 8, 8, -16)})
+        .addActor("FixtureStart0", custom, {vectorProperty("Location", 8, 8, 16)})
+        .addActorOfClass("Engine", "PlayerStart")
+        .addActorOfClass("Engine", "PathNode", {vectorProperty("Location", 8, 8, 16)})
+        .setZoneActor(1, 0)  // above the floor: wet
+        .setZoneActor(2, 1); // below it: dry
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    const std::size_t starts = result.out.find("\"playerStarts\": [");
+    REQUIRE(starts != std::string::npos);
+    CHECK(result.out.find("\"name\": \"PlayerStart2\", \"class\": \"PlayerStart\", \"location\": [8, 8, 16], "
+                          "\"zone\": 1, \"zoneActor\": {\"export\": ",
+                          starts)
+          != std::string::npos);
+    CHECK(result.out.find("\"name\": \"WaterZone0\", \"class\": \"WaterZone\"}, \"waterZone\": true}", starts)
+          != std::string::npos);
+    CHECK(result.out.find("\"name\": \"ZoneInfo0\", \"class\": \"ZoneInfo\"}, \"waterZone\": false}", starts)
+          != std::string::npos);
+    CHECK(result.out.find("\"name\": \"PlayerStart3\", \"class\": \"PlayerStart\", \"location\": [8, 8, -16], "
+                          "\"zone\": 2, ",
+                          starts)
+          != std::string::npos);
+    // A subclass is a start too, by ancestry rather than by name.
+    CHECK(result.out.find("\"name\": \"FixtureStart0\", \"class\": \"FixtureStart\", \"location\": [8, 8, 16], "
+                          "\"zone\": 1, ",
+                          starts)
+          != std::string::npos);
+    // No stored Location: no zone, never a guessed one.
+    CHECK(result.out.find("\"name\": \"PlayerStart5\", \"class\": \"PlayerStart\", \"location\": null, "
+                          "\"zone\": null, \"zoneActor\": null, \"waterZone\": null}",
+                          starts)
+          != std::string::npos);
+    CHECK(result.out.find("PathNode", starts) == std::string::npos);
 }
 
 TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and counted", "[dump]") {

@@ -278,6 +278,10 @@ public:
     MapBuilder& setModelTarget(ModelTarget target);
     /// The level's node 0's coplanar link, -1 unless set -- UTA-0111 INV-7.
     MapBuilder& setFloorCoplanar(std::int32_t iPlane);
+    /// Zone `zone`'s zoneActor is actor `actor`, by its position among the
+    /// actors; null unless set -- UTA-0335. Zone 1 is above the floor, zone 2
+    /// below it.
+    MapBuilder& setZoneActor(std::int32_t zone, std::size_t actor);
 
     [[nodiscard]] std::vector<std::uint8_t> build() const;
 
@@ -319,6 +323,7 @@ private:
     bool decoy_ = false;
     ModelTarget target_ = ModelTarget::Model;
     std::int32_t floorCoplanar_ = -1;
+    std::vector<std::pair<std::int32_t, std::size_t>> zoneActors_;
 };
 
 /// A texture package: each texture and its palette.

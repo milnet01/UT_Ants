@@ -21,7 +21,10 @@
 
 #include "common/Json.h"
 #include "core/FileSystem.h"
+#include "ubake/Actors.h"
 #include "ubake/Install.h"
+#include "ubake/Zones.h"
+#include "umap/Build.h"
 #include "unav/Build.h"
 #include "unav/Graphs.h"
 #include "upkg/Class.h"
@@ -991,6 +994,100 @@ void writeWaypoints(std::ostream& out, const uta::upkg::Package& map, std::strin
     out << "]";
 }
 
+/// UTA-0335: every actor of PlayerStart or a class descending from it, and the
+/// zone its stored Location lands in -- GAME-0207's check that no start sits in
+/// water. The zone is the BSP walk the renderer and the baker share
+/// (umap::roomAt), and `waterZone` is the baker's own resolution (buildZones):
+/// the zone's actor, else the LevelInfo, each through its class defaults, as
+/// ULevel::GetZoneActor does. `zone`, `zoneActor` and `waterZone` are null
+/// where the start stores no Location or lands in no zone; `zoneActor` alone is
+/// null where the zone names no actor, and the LevelInfo's flag then applies.
+void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
+                       const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
+    const auto refuse = [&out](std::string_view why) {
+        out << ",\n  \"playerStarts\": null,\n  \"playerStartsError\": ";
+        writeJsonString(out, why);
+    };
+    if (level.model.kind() != uta::upkg::ObjectReferenceKind::Export
+        || level.model.index() >= map.exports().size()) {
+        refuse("the level names no Model export of this map");
+        return;
+    }
+    const auto model = uta::upkg::readModel(map, map.exports()[level.model.index()]);
+    if (!model.has_value()) {
+        refuse("the level's Model did not read");
+        return;
+    }
+    // The lookup reads only the descent tables and the zone-to-room table,
+    // which the build fills before it samples anything, so a coarse spacing
+    // gives the same answer as the bake's at a fraction of the cost.
+    const auto rooms = uta::umap::buildRoomMap(*model, uta::umap::RoomBuildOptions{.sampleSpacing = 4096.0F});
+    if (!rooms.has_value()) {
+        refuse("the level's zones did not build: " + std::string(rooms.error().message()));
+        return;
+    }
+    const auto actors = uta::ubake::buildActors(map, foldCase(mapName), level, resolver);
+    if (!actors.has_value()) {
+        refuse("the level's actors did not build: " + std::string(actors.error().message()));
+        return;
+    }
+    const std::vector<uta::ubundle::Zone> zones = uta::ubake::buildZones(*model, actors->placements);
+
+    constexpr std::string_view PLAYER_START = "engine.playerstart";
+    out << ",\n  \"playerStarts\": [";
+    bool first = true;
+    for (const uta::ubundle::ActorPlacement& actor : actors->placements.actors) {
+        const uta::ubundle::ActorClass& actorClass = actors->placements.classes[actor.classIndex];
+        if (actorClass.path != PLAYER_START
+            && std::find(actorClass.ancestry.begin(), actorClass.ancestry.end(), PLAYER_START)
+                   == actorClass.ancestry.end())
+            continue;
+        const uta::upkg::ExportEntry& entry = map.exports()[actor.exportIndex];
+        const auto location = storedFacts(map, actor.exportIndex).location;
+
+        std::optional<std::uint32_t> zone;
+        if (location.has_value()) {
+            const std::uint32_t room =
+                uta::umap::roomAt(rooms->map, uta::umap::Point3{location->x, location->y, location->z});
+            if (room != uta::umap::NO_ROOM && room < rooms->map.rooms.size())
+                zone = rooms->map.rooms[room].zoneIndex;
+        }
+
+        std::string actorName = "?";
+        if (const auto found = map.name(entry.objectName); found.has_value()) actorName = std::string{*found};
+        out << (first ? "" : ", ") << "{\"export\": " << actor.exportIndex << ", \"name\": ";
+        first = false;
+        writeJsonString(out, actorName);
+        out << ", \"class\": ";
+        writeJsonString(out, nameOr(map, entry.objectClass));
+        out << ", \"location\": ";
+        writeLocation(out, location);
+        out << ", \"zone\": ";
+        if (zone.has_value()) out << *zone;
+        else out << "null";
+        out << ", \"zoneActor\": ";
+        const uta::upkg::ObjectReference zoneActor =
+            zone.has_value() && *zone < model->zones.size() ? model->zones[*zone].zoneActor
+                                                            : uta::upkg::ObjectReference{};
+        if (zoneActor.kind() == uta::upkg::ObjectReferenceKind::Export && zoneActor.index() < map.exports().size()) {
+            const uta::upkg::ExportEntry& zoneEntry = map.exports()[zoneActor.index()];
+            out << "{\"export\": " << zoneActor.index() << ", \"name\": ";
+            const auto zoneName = map.name(zoneEntry.objectName);
+            writeJsonString(out, zoneName.has_value() ? std::string{*zoneName} : std::string{"?"});
+            out << ", \"class\": ";
+            writeJsonString(out, nameOr(map, zoneEntry.objectClass));
+            out << "}";
+        } else {
+            out << "null";
+        }
+        out << ", \"waterZone\": ";
+        if (zone.has_value() && *zone < zones.size()) out << (zones[*zone].water != 0 ? "true" : "false");
+        else out << "null";
+        out << "}";
+    }
+    out << "]";
+}
+
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
                  bool navGraph, bool wiringGraph, bool surfaceList, bool first) {
     if (!first) {
@@ -1170,6 +1267,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     }
     writeExits(out, *package, path.stem().string(), *level, resolver);
     writeWaypoints(out, *package, path.stem().string(), *level, resolver);
+    writePlayerStarts(out, *package, path.stem().string(), *level, resolver);
 
     out << "\n }";
 }

@@ -171,7 +171,8 @@ A package whose `Level` export does not read carries `level: null` and
 
 Otherwise, after `level`: `surfaces` (and `surfacesError` when it is null),
 `levelInfo`, `levelSummary`, `monsters`, `nav`, `wiring`, `exits`,
-`waypoints`, as § 4.5 to § 4.7b give them.
+`waypoints`, `playerStarts` (and `playerStartsError` when it is null), as
+§ 4.5 to § 4.7c give them.
 
 ### 4.5 Level, surfaces, credits and monsters
 
@@ -286,6 +287,27 @@ family's defaults as `exits`' `tag` is: `MonsterWaypoint` defaults it to 1, so
 an actor storing none is 1. It is `null` when neither the actor nor its class
 family sets one. MonsterHunt's bots seek the waypoint numbered one past the
 last they reached, so a gap or a repeat in `position` strands them.
+
+### 4.7c `playerStarts`
+
+Added by `UTA-0335`. A map's element carries `playerStarts` after
+`waypoints`, with no flag. It is `[{export, name, class, location, zone,
+zoneActor, waterZone}]`, in ascending `export` order: every level actor of
+`Engine.PlayerStart` or a class descending from it, by ancestry rather than by
+name. `class` and `location` are as in `exits`.
+
+`zone` is the zone index the BSP walk lands `location` in — `umap::roomAt`,
+which the baker and the renderer share. `zoneActor` is `{export, name,
+class}` for that zone's entry in the Model's zone table, or `null` when the
+entry names no actor of this map; the LevelInfo's settings then apply, as
+`ULevel::GetZoneActor` does. `waterZone` is a boolean: the zone actor's
+`bWaterZone`, else the LevelInfo's, each resolved through its class
+defaults — the baker's own resolution (`ubake::buildZones`). `zone`,
+`zoneActor` and `waterZone` are all `null` when the actor stores no
+`Location` or lands in no zone.
+
+`playerStarts` is `null`, with `playerStartsError` a string, when the level's
+Model does not read, its zones do not build, or its actors do not build.
 
 ### 4.8 Counting what was dropped
 

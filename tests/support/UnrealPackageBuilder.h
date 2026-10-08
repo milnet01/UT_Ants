@@ -408,8 +408,10 @@ public:
     ModelExportWriter& addVector(std::array<float, 3> vector);
     ModelExportWriter& addPoint(std::array<float, 3> point);
     ModelExportWriter& addVert(std::int32_t pVertex);
-    /// Zone records written; their fields are all zero.
+    /// Zone records written; their fields are zero, save a zoneActor set below.
     ModelExportWriter& setZoneCount(std::int32_t count);
+    /// Zone `zone`'s zoneActor, an object reference; null unless set -- UTA-0335.
+    ModelExportWriter& setZoneActor(std::int32_t zone, std::int32_t reference);
     /// A leaf in `iZone`.
     ModelExportWriter& addLeaf(std::int32_t iZone);
     /// One entry of the LeafHulls table, in the order added -- UTA-0111 SS 4.3.
@@ -430,6 +432,7 @@ private:
     std::vector<Surf> surfs_;
     std::vector<std::int32_t> verts_;
     std::int32_t zoneCount_ = 0;
+    std::vector<std::int32_t> zoneActors_;
     std::vector<std::int32_t> leaves_;
     std::vector<std::int32_t> leafHulls_;
     std::int32_t rootOutside_ = 1;

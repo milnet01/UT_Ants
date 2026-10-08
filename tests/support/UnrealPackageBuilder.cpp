@@ -820,6 +820,12 @@ ModelExportWriter& ModelExportWriter::setZoneCount(std::int32_t count) {
     return *this;
 }
 
+ModelExportWriter& ModelExportWriter::setZoneActor(std::int32_t zone, std::int32_t reference) {
+    if (zoneActors_.size() <= static_cast<std::size_t>(zone)) zoneActors_.resize(static_cast<std::size_t>(zone) + 1, 0);
+    zoneActors_[static_cast<std::size_t>(zone)] = reference;
+    return *this;
+}
+
 ModelExportWriter& ModelExportWriter::addLeaf(std::int32_t iZone) {
     leaves_.push_back(iZone);
     return *this;
@@ -898,7 +904,8 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
     appendU32(out, 0);                                // NumSharedSides -- a raw i32
     appendI32(out, zoneCount_);                       // NumZones -- a raw i32
     for (std::int32_t zone = 0; zone < zoneCount_; ++zone) {
-        appendIndex(out, 0);                          // zoneActor
+        const auto at = static_cast<std::size_t>(zone);
+        appendIndex(out, at < zoneActors_.size() ? zoneActors_[at] : 0); // zoneActor
         appendU64(out, 0);                            // connectivity
         appendU64(out, 0);                            // visibility
     }
