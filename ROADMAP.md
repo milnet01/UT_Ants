@@ -15034,6 +15034,29 @@ stays with movement in 0.2.0.
   and waits until after 0.1.0 (UTA-0254). The scratch path tracer
   becomes a permanent tool in the repo, so later lighting items are
   measured against exact light; it lands with this item's build.
+  Built (2026-10-08, 75c26a2, pushed; GCC, Clang and MSVC green):
+  SS 4.12's three changes, baker revision 45. Device tier 100/100 on
+  lavapipe and on the GPU. Hand mutation: 7 of 8 killed; the survivor
+  is Bake.cpp not passing the sky view, since no unit fixture bakes a
+  level with a sky. Still to do, in order:
+  1. Make the scratch path tracer permanent. The scratch copy is
+     ~/.cache/uta-scratch/u292/wt: tools/ut-ref/main.cpp plus three
+     hand patches (`git diff` there). A permanent version needs:
+     (a) each material's albedo, emission and unlit-glow -- the bake
+     computes them (materials.albedo, own) and the bundle does not store
+     them; the scratch dumped them through a UTA_PROBE_ALBEDO env hook in
+     Bake.cpp; (b) a light-terms output from ut-shot, which the scratch
+     got by overwriting scene.frag's outColour; (c) sky rays traced as
+     SS 4.12 item 2 does, from skyViewOf -- the scratch used the
+     backdrop's own albedo. (b) is a renderer debug mode, so weigh
+     whether this needs a spec (spec-format SS 1).
+  2. Re-bake DM-Fetid, DM-Deck16][ and DM-ArcaneTemple at r45 and
+     re-score the 28 views with ~/.cache/uta-scratch/u292/score.py.
+     ArcaneTemple's sky share (4%, 22% at one view) is what grades the
+     untested sky wiring.
+  3. Then UTA-0256: per room, after the re-bake.
+  UTA-0337 (sky, sun) must land before UTA-0334's 127 maps are baked:
+  a sun is a light, so baking first means baking twice.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
