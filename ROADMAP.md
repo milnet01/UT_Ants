@@ -13491,6 +13491,9 @@ stays with movement in 0.2.0.
   Correction (2026-10-01, UTA-0261): the DM-Fetid figures above were
   scored against the fog-OFF original frames and overstate the gap.
   Against the fog-on frames the means are 76.8 original, 79.9 ours.
+  User decision (2026-10-08): deferred until after 0.1.0. Once UTA-0292
+  sends on four times the light a surface shows, the reference puts
+  later bounces at 2-4% of the light shown.
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
@@ -15022,6 +15025,10 @@ stays with movement in 0.2.0.
   progress note: zone ambient's low end is 0.34x, not 0.35x. The sky
   figures there used the backdrop surface's own material as the sky's
   light; section 4.12 takes the sky view instead, so they are approximate.
+  User decisions (2026-10-08): the second bounce stays out of this pass
+  and waits until after 0.1.0 (UTA-0254). The scratch path tracer
+  becomes a permanent tool in the repo, so later lighting items are
+  measured against exact light; it lands with this item's build.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
