@@ -116,6 +116,22 @@ is hidden from it, so no window reaches the desktop. The run fails if a file
 in the install's `System` directories changed. The original's lights pulse on
 their own clock; ours are pinned at time 0.
 
+**`ut-ref` measures our light against exact light** (`UTA-0292`). It traces
+UTA-0112's light model with the probe bake's own code, and scores
+`ut-shot`'s light terms against it, per 8×8 block:
+
+```sh
+build/tools/ut-bake/ut-bake --install <install> --out <dir> --light-materials light.txt <map>
+build/tools/ut-shot/ut-shot --light-terms --light-time 0 --tier ultra <bundle> 320 180 shot < cameras
+build/tools/ut-ref/ut-ref trace <bundle> light.txt 320 180 128 4 ref < cameras
+build/tools/ut-ref/ut-ref score ref shot 320 180 <views>
+```
+
+The material light file must come from the bake that wrote the bundle;
+`trace` says how many of the bundle's materials it names. The trace keeps
+every core but two busy. `docs/specs/UTA-0292-reference-path-tracer.md`
+says what each column means.
+
 Two options worth knowing. `-DUTA_SANITIZE=thread` builds under
 ThreadSanitizer, which is how the job system's thread-safety is
 measured; the gate runs it as its own step on Linux, and refuses on

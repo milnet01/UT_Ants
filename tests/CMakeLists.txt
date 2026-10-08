@@ -95,6 +95,7 @@ add_executable(uta_unit_tests
     unit/PathSeedsTest.cpp
     unit/PathTraceTest.cpp
     unit/PathWalkableTest.cpp
+    unit/ReferenceTest.cpp
     unit/RenderCameraTest.cpp
     unit/RenderClusterTest.cpp
     unit/RenderDeviceTest.cpp
@@ -139,6 +140,8 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bound-scan
 # And ut-shot's -- UTA-0199, so --from-capture is graded against the very
 # writer that produces a capture folder, apps/ut-ants/Capture.cpp below.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")
+# And ut-ref's tracer and scorer -- UTA-0292.
+target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-ref/Reference.cpp")
 # And ut-bench's -- UTA-0129.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp"
                                       "${PROJECT_SOURCE_DIR}/tools/ut-bench/Frame.cpp")

@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-ref measures the game's lighting against exact light** (UTA-0292)
+  It traces how light really travels in a map, using the same rules the
+  baker uses, and scores the renderer's picture against it view by view, so
+  lighting changes are judged by numbers. `ut-bake --light-materials` and
+  `ut-shot --light-terms` give it what it reads.
+
 - **ut-dump lists a map's MonsterWaypoint actors with their Position** (UTA-0332)
   For UT_MonsterHunt, which reads the order a map's monsters are meant
   to be hunted in.

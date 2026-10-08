@@ -102,9 +102,9 @@ void writeMaterialLight(std::ostream&, std::span<const MaterialLight>);
 ```
 
 The file is text, one line per entry:
-`<id> TAB <albedo r g b> <emission r g b> <0|1>`, numbers printed with
-`std::numeric_limits<double>::max_digits10` digits so a read gives back the
-bits written. `ut-bake --light-materials <file>` writes it. The flag bakes
+`<id> TAB <albedo r g b> <emission r g b> <0|1>`, each number followed by a
+space and written by `std::to_chars` in the shortest form that reads back to
+the same bits, with no locale. `ut-bake --light-materials <file>` writes it. The flag bakes
 afresh, as `--force` does, since a reused bake computes no material values.
 
 ### 4.3 The renderer's light terms (urender, ut-shot)
@@ -121,7 +121,7 @@ outEmission = vec4(luma(pow(LIGHT_GAIN * direct, vec3(DISPLAY_LIGHT_POWER))),
 ```
 
 These are the two summands `colour` multiplies by reflectance. Any other
-surface writes `vec4(0.0)`. Bloom strength is 0 while `lightTerms` is set, so
+surface writes zero terms. Bloom strength is 0 while `lightTerms` is set, so
 the colour picture carries no glow of the terms.
 
 `ut-shot --light-terms` sets it and writes `<out prefix>-<line>-light.pfm`
@@ -156,11 +156,14 @@ own light, as the bake's lookups do. The sky view is `ubundle::skyViewOf`.
 Each pixel's random numbers are seeded from its coordinates alone.
 
 `score` reads `<ref prefix>-<n>.f32` and `<shot prefix>-<n>-light.pfm` for
-`n` below `views`, splits each view into 8×8 blocks, keeps a block where at
-least 48 pixels are lit in both, and prints one row per view and a mean row:
-the reference's and the renderer's mean light, the total, direct and
-indirect gaps (mean absolute block difference over the reference's mean),
-the sky and later-bounce shares, and the gap in stops.
+`n` below `views`, splits each view into 8×8 blocks, and keeps a block where
+at least 48 pixels are lit in both: channel 4 set, and the two terms not both
+0. Each block's values are means over those pixels. It prints one row per
+view and a mean row: the reference's and the renderer's mean light; the
+total, direct and indirect gaps (mean absolute block difference over the
+reference's mean), the indirect term set against first bounce plus sky,
+which is what a probe holds (UTA-0112 § 4.12); the sky and later-bounce
+shares; and the gap in stops, over blocks where both are above 0.
 
 ## 5. Invariants
 
@@ -173,14 +176,16 @@ the sky and later-bounce shares, and the gap in stops.
 - **INV-2** — The material light file round-trips: `readMaterialLight` of
   what `writeMaterialLight` wrote gives back every entry, bit for bit.
   *Test:* `tests/unit/MaterialLightTest.cpp`.
-  *Breaks when:* a value is printed with fewer than `max_digits10` digits,
+  *Breaks when:* a value is printed short of its shortest round-trip form,
   or an id holding a space is split.
 
 - **INV-3** — A bake's `materialLight` names each of its `MaterialRecord`
-  ids once, with the values the probe bake's lookups gave it.
-  *Test:* `tests/unit/MaterialLightTest.cpp`, on a fixture bake.
-  *Breaks when:* a record whose picture has no opaque pixel is left out
-  rather than given `DEFAULT_ALBEDO`.
+  ids once, in the bundle's order, with the values the probe bake's lookups
+  gave it. The values come from the same two lookups the probe bake calls.
+  *Test:* `tests/unit/BakeCliTest.cpp`, on the fixture install: the file
+  `--light-materials` writes names the bundle's records in order.
+  *Breaks when:* a record is left out, as one with no opaque pixel would be
+  if the list were built from the albedo table rather than the records.
 
 - **INV-4** — `ut-bake --light-materials` bakes afresh.
   *Test:* `tests/unit/BakeCliTest.cpp`: the flag parses to a forced bake.
@@ -247,8 +252,8 @@ the sky and later-bounce shares, and the gap in stops.
 | Test | Label | Invariants |
 |---|---|---|
 | `tests/unit/BakeLightProbesTest.cpp` (existing) | unit | INV-1 |
-| `tests/unit/MaterialLightTest.cpp` (new) | unit | INV-2, INV-3 |
-| `tests/unit/BakeCliTest.cpp` (existing, one case added) | unit | INV-4 |
+| `tests/unit/MaterialLightTest.cpp` (new) | unit | INV-2 |
+| `tests/unit/BakeCliTest.cpp` (existing, one case added) | unit | INV-3, INV-4 |
 | the device tier (existing) | device | INV-5 |
 | `tests/device/RenderLightTermsTest.cpp` (new) | device | INV-6 |
 | `tests/unit/ShotCliTest.cpp` (existing, one case added) | unit | INV-7 |
@@ -282,7 +287,7 @@ Each new case is seen to fail against the code before its change.
 |------|----------------------|
 | INV-1 | `tests/unit/BakeLightProbesTest.cpp` |
 | INV-2 | `tests/unit/MaterialLightTest.cpp` |
-| INV-3 | `tests/unit/MaterialLightTest.cpp` |
+| INV-3 | `tests/unit/BakeCliTest.cpp` |
 | INV-4 | `tests/unit/BakeCliTest.cpp` |
 | INV-5 | the device tier |
 | INV-6 | `tests/device/RenderLightTermsTest.cpp` |
