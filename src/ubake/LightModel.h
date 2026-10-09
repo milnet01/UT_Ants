@@ -145,7 +145,9 @@ inline constexpr double RADIANS_PER_UNIT = std::numbers::pi / 32768.0;
 /// UTA-0338 SS 4.3: the unit vector toward a SUN_EFFECT light -- against the
 /// way its light travels, which its rotation points.
 [[nodiscard]] constexpr Vec3 towardSun(const ubundle::Light& light) noexcept {
-    return directionOf(light.rotation) * -1.0;
+    // Component by component: Vec3's operator* is not constexpr, and MSVC refuses one that calls it.
+    const Vec3 d = directionOf(light.rotation);
+    return {-d.x, -d.y, -d.z};
 }
 
 /// The point `light` is lit from at `x` -- UTA-0162 SS 4.3: its location, or
