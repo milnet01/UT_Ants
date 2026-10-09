@@ -15014,7 +15014,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123437/frame.png, ~/.local/state/ut-ants/map-captures/AS-Overlord-20261005-123429/frame.png
 
-- 🚧 [UTA-0292] **ubake and urender: lighting that looks ray-traced, baked ahead of time so it runs on modest machines.**
+- ✅ [UTA-0292] **ubake and urender: lighting that looks ray-traced, baked ahead of time so it runs on modest machines.**
   The user, 2026-10-05: "I want the lighting (and resulting shadows)
   to be realistic (looks like ray tracing but without ray tracing; the
   machines this game will run on are less powerful than my machine)."
@@ -15160,6 +15160,12 @@ stays with movement in 0.2.0.
   held (6.0% to 6.1%), so the probes carry it. View 9 is still
   near-black in exact light (0.0019). Next: UTA-0256, per room,
   ArcaneTemple view 9 first.
+  Resolved (2026-10-09): every step listed above is done and green on
+  GitHub's matrix -- SS 4.12's three changes (r45, 75c26a2), ut-ref as a
+  repo tool (d9c6f84), the sky's unlit picture as light (r46, 5bd0a84),
+  the re-score at r46, and UTA-0256's lamps (run 37907968809). The
+  pieces this umbrella names stay their own items. Before UTA-0334's
+  bake, UTA-0337's sun must land: a sun is a light.
   **Layman:** Light and shadows look as real as a ray-traced game, but the hard work is done when a map is prepared, so the game still runs on ordinary computers.
   Kind: feature.
   Source: user-request-2026-10-05.
