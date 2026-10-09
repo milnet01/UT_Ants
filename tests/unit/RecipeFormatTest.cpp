@@ -164,7 +164,8 @@ TEST_CASE("INV-2: every refusal names its line", "[urecipe][format]") {
     const std::vector<Refusal> refusals = {
         {"no header", "[map]\nfile = dm-x\n", 1},
         {"an empty file", "", 1},
-        {"a version above RECIPE_VERSION", "\n# c\nut-ants recipe 3\n[map]\nfile = dm-x\n", 3,
+        {"a version above RECIPE_VERSION",
+         "\n# c\nut-ants recipe " + std::to_string(urecipe::RECIPE_VERSION + 1) + "\n[map]\nfile = dm-x\n", 3,
          ErrorCode::UnsupportedVersion},
         {"version zero", "ut-ants recipe 0\n", 1},
         {"an unknown section", head + "[fog]\n", 4},
@@ -362,6 +363,109 @@ TEST_CASE("UTA-0256 INV-2: every lamp field moves the digest", "[urecipe][format
     changed[4].lamps[0].yaw = 16385;
     changed[5].lamps.pop_back();
     std::swap(changed[6].lamps[0], changed[6].lamps[1]);
+    for (std::size_t i = 0; i < changed.size(); ++i) {
+        INFO("change " << i);
+        CHECK(urecipe::bakeDigest(changed[i]) != digest);
+    }
+}
+
+// UTA-0338 INV-1 and INV-2: the recipe's sun -- docs/specs/UTA-0338-baked-sun.md SS 4.1.
+
+namespace {
+
+Recipe withSun() {
+    Recipe recipe = withLamps();
+    recipe.sun = urecipe::Sun{.yaw = 8192, .pitch = 9000, .hue = 28, .saturation = 210, .brightness = 180};
+    return recipe;
+}
+
+const std::string SUN_HEAD = "ut-ants recipe 3\n[map]\nfile = dm-x\n"
+                             "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+
+} // namespace
+
+TEST_CASE("UTA-0338 INV-1: a recipe with a sun round-trips", "[urecipe][format][sun]") {
+    const Recipe recipe = withSun();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 3\n"));
+    CHECK(text.find("\n[sun]\nyaw = 8192\npitch = 9000\nhue = 28\nsaturation = 210\nbrightness = 180\n")
+          != std::string::npos);
+    CHECK(parsed(text) == recipe);
+    Recipe lampless = withSun();
+    lampless.lamps.clear();
+    CHECK(urecipe::write(lampless).starts_with("ut-ants recipe 3\n"));
+    CHECK(parsed(urecipe::write(lampless)) == lampless);
+}
+
+TEST_CASE("UTA-0338 INV-1: a hand-written sun reads", "[urecipe][format][sun]") {
+    const Recipe recipe = parsed(SUN_HEAD + "[sun]\nbrightness = 1 # dim\nyaw = 65535\nsaturation = 0\n"
+                                            "pitch = 16384\nhue = 255\n");
+    REQUIRE(recipe.sun.has_value());
+    CHECK(*recipe.sun == urecipe::Sun{.yaw = 65535, .pitch = 16384, .hue = 255, .saturation = 0, .brightness = 1});
+    CHECK_FALSE(parsed(SUN_HEAD).sun.has_value());
+}
+
+TEST_CASE("UTA-0338 INV-1: every sun refusal names its line", "[urecipe][format][sun]") {
+    struct Refusal {
+        const char* what;
+        std::string text;
+        std::size_t line;
+    };
+    // Lines 1 to 4; the sun section opens on line 5.
+    const std::string whole = "yaw = 1\npitch = 2\nhue = 3\nsaturation = 4\nbrightness = 5\n"; // lines 6 to 10
+    const auto without = [&](std::string_view key) {
+        std::string text = whole;
+        const std::size_t at = text.find(std::string(key) + " =");
+        text.erase(at, text.find('\n', at) + 1 - at);
+        return SUN_HEAD + "[sun]\n" + text;
+    };
+    const std::vector<Refusal> refusals = {
+        {"a sun in a version-2 recipe", "ut-ants recipe 2\n[map]\nfile = dm-x\n[sun]\n", 4},
+        {"a sun with no yaw", without("yaw"), 5},
+        {"a sun with no pitch", without("pitch"), 5},
+        {"a sun with no hue", without("hue"), 5},
+        {"a sun with no saturation", without("saturation"), 5},
+        {"a sun with no brightness", without("brightness"), 5},
+        {"an unclosed sun before a lamp", without("hue") + "[lamp a]\n", 5},
+        {"an unknown sun key", SUN_HEAD + "[sun]\nradius = 3\n", 6},
+        {"a second sun", SUN_HEAD + "[sun]\n" + whole + "[sun]\n", 11},
+        {"a sun with a name", SUN_HEAD + "[sun noon]\n", 5},
+        {"a yaw of a whole turn", SUN_HEAD + "[sun]\nyaw = 65536\n", 6},
+        {"a pitch of 0", SUN_HEAD + "[sun]\npitch = 0\n", 6},
+        {"a pitch past straight up", SUN_HEAD + "[sun]\npitch = 16385\n", 6},
+        {"a negative pitch", SUN_HEAD + "[sun]\npitch = -5\n", 6},
+        {"a hue of 256", SUN_HEAD + "[sun]\nhue = 256\n", 6},
+        {"a saturation of 256", SUN_HEAD + "[sun]\nsaturation = 256\n", 6},
+        {"a brightness of 0", SUN_HEAD + "[sun]\nbrightness = 0\n", 6},
+        {"a brightness of 256", SUN_HEAD + "[sun]\nbrightness = 256\n", 6},
+        {"a sun with no map sha256", "ut-ants recipe 3\n[map]\nfile = dm-x\n[sun]\n" + whole, 4},
+    };
+    for (const Refusal& refusal : refusals) {
+        DYNAMIC_SECTION(refusal.what) {
+            const auto result = urecipe::parse(refusal.text);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error().code() == ErrorCode::MalformedData);
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.starts_with("recipe line " + std::to_string(refusal.line) + ": "));
+        }
+    }
+}
+
+TEST_CASE("UTA-0338 INV-2: a sun-free digest is unchanged and every sun field moves it",
+          "[urecipe][format][sun]") {
+    // withLamps()' digest under the version-2 code, recorded before the sun existed.
+    CHECK(urecipe::bakeDigest(withLamps())
+          == digestFromHex("eb210e342bc2e34e66e974062226f0989e4202f8fd49d90d259229bb9ad822f7"));
+    const Recipe base = withSun();
+    const auto digest = urecipe::bakeDigest(base);
+    CHECK(digest != urecipe::bakeDigest(withLamps()));
+    std::vector<Recipe> changed(5, base);
+    changed[0].sun->yaw += 1;
+    changed[1].sun->pitch += 1;
+    changed[2].sun->hue += 1;
+    changed[3].sun->saturation += 1;
+    changed[4].sun->brightness += 1;
     for (std::size_t i = 0; i < changed.size(); ++i) {
         INFO("change " << i);
         CHECK(urecipe::bakeDigest(changed[i]) != digest);

@@ -1,5 +1,6 @@
 // The recipe format -- docs/specs/UTA-0113-recipe-format.md SS 4.2 and SS 4.4,
-// and its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1.
+// its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1, and its sun,
+// docs/specs/UTA-0338-baked-sun.md SS 4.1.
 
 #include "urecipe/Recipe.h"
 
@@ -187,6 +188,25 @@ Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string
     return {};
 }
 
+Result<void> setSunKey(Sun& sun, std::string_view key, const std::string& value, std::size_t line) {
+    if (key == "yaw") {
+        UTA_TRY(sun.yaw, numberOf(value, 65535, line));
+    } else if (key == "pitch") {
+        UTA_TRY(sun.pitch, numberOf(value, 16384, line));
+        if (sun.pitch == 0) return refuse(line, "pitch is from 1 to 16384: a sun stands above the horizon");
+    } else if (key == "hue" || key == "saturation") {
+        UTA_TRY(const std::uint32_t number, numberOf(value, 255, line));
+        (key == "hue" ? sun.hue : sun.saturation) = static_cast<std::uint8_t>(number);
+    } else if (key == "brightness") {
+        UTA_TRY(const std::uint32_t number, numberOf(value, 255, line));
+        if (number == 0) return refuse(line, "brightness is from 1 to 255");
+        sun.brightness = static_cast<std::uint8_t>(number);
+    } else {
+        return refuse(line, std::format("[sun] has no key '{}'", key));
+    }
+    return {};
+}
+
 /// Every `key = value` line of one section is handed here.
 Result<void> setMapKey(Recipe& recipe, std::string_view key, const std::string& value, std::size_t line) {
     if (key == "file") {
@@ -248,7 +268,7 @@ std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
 Result<Recipe> parse(std::string_view text) {
     if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
 
-    enum class In { Header, Nothing, Map, Material, Lamp };
+    enum class In { Header, Nothing, Map, Material, Lamp, Sun };
     In in = In::Header;
     Recipe recipe;
     std::size_t headerLine = 1;
@@ -259,12 +279,19 @@ Result<Recipe> parse(std::string_view text) {
     std::set<std::string, std::less<>> keysSeen; // in the current section
     std::uint32_t version = 0;
     std::vector<std::size_t> lampLines;
-    // A lamp's three required keys, checked when its section closes.
-    const auto lampComplete = [&]() -> Result<void> {
-        if (in != In::Lamp) return {};
-        for (const std::string_view key : {"light", "fitting", "at"})
-            if (!keysSeen.contains(key))
-                return refuse(lampLines.back(), std::format("[lamp {}] has no `{}`", recipe.lamps.back().name, key));
+    std::optional<std::size_t> sunLine;
+    // A lamp's three required keys and a sun's five, checked when the
+    // section closes.
+    const auto sectionComplete = [&]() -> Result<void> {
+        if (in == In::Lamp) {
+            for (const std::string_view key : {"light", "fitting", "at"})
+                if (!keysSeen.contains(key))
+                    return refuse(lampLines.back(),
+                                  std::format("[lamp {}] has no `{}`", recipe.lamps.back().name, key));
+        } else if (in == In::Sun) {
+            for (const std::string_view key : {"yaw", "pitch", "hue", "saturation", "brightness"})
+                if (!keysSeen.contains(key)) return refuse(*sunLine, std::format("[sun] has no `{}`", key));
+        }
         return {};
     };
 
@@ -298,7 +325,7 @@ Result<Recipe> parse(std::string_view text) {
             in = In::Nothing;
         } else if (content.front() == '[') {
             UTA_TRY(const std::string_view heading, headingOf(content, line));
-            UTA_CHECK(lampComplete());
+            UTA_CHECK(sectionComplete());
             keysSeen.clear();
             if (heading == "map") {
                 if (mapLine) return refuse(line, std::format("a second [map]; the first is on line {}", *mapLine));
@@ -323,6 +350,12 @@ Result<Recipe> parse(std::string_view text) {
                 recipe.lamps.push_back(AddedLamp{.name = std::move(name)});
                 lampLines.push_back(line);
                 in = In::Lamp;
+            } else if (heading == "sun") {
+                if (version < 3) return refuse(line, "a [sun] needs `ut-ants recipe 3`");
+                if (sunLine) return refuse(line, std::format("a second [sun]; the first is on line {}", *sunLine));
+                sunLine = line;
+                recipe.sun.emplace();
+                in = In::Sun;
             } else {
                 return refuse(line, std::format("there is no [{}] section", heading));
             }
@@ -339,6 +372,8 @@ Result<Recipe> parse(std::string_view text) {
                 if (key == "file") fileSeen = true;
             } else if (in == In::Lamp) {
                 UTA_CHECK(setLampKey(recipe.lamps.back(), key, value, line));
+            } else if (in == In::Sun) {
+                UTA_CHECK(setSunKey(*recipe.sun, key, value, line));
             } else {
                 UTA_CHECK(setMaterialKey(*material, key, value, line));
             }
@@ -350,16 +385,20 @@ Result<Recipe> parse(std::string_view text) {
                                                        HEADER, RECIPE_VERSION));
     if (!mapLine) return refuse(headerLine, "the recipe has no [map] section");
     if (!fileSeen) return refuse(*mapLine, "[map] has no `file`");
-    UTA_CHECK(lampComplete());
+    UTA_CHECK(sectionComplete());
     if (!recipe.lamps.empty() && !recipe.mapDigest)
         return refuse(lampLines.front(), "a recipe with a [lamp] must give the map's sha256 in [map]: actor names "
                                          "and places mean nothing in another file");
+    if (sunLine && !recipe.mapDigest)
+        return refuse(*sunLine, "a recipe with a [sun] must give the map's sha256 in [map]: where the sky is open "
+                                "means nothing in another file");
     for (auto& [texture, assignment] : materials) recipe.materials.push_back(std::move(assignment));
     return recipe;
 }
 
 std::string write(const Recipe& recipe) {
-    std::string out = std::format("{}{}\n\n[map]\nfile = {}\n", HEADER, recipe.lamps.empty() ? 1 : 2,
+    const int version = recipe.sun ? 3 : recipe.lamps.empty() ? 1 : 2;
+    std::string out = std::format("{}{}\n\n[map]\nfile = {}\n", HEADER, version,
                                   quotedIfNeeded(recipe.map, false));
     if (recipe.mapDigest) {
         out += "sha256 = ";
@@ -385,6 +424,10 @@ std::string write(const Recipe& recipe) {
         out += std::format("\nat = {} {} {}\n", lamp.at[0], lamp.at[1], lamp.at[2]);
         if (lamp.yaw != 0) out += std::format("yaw = {}\n", lamp.yaw);
     }
+    if (recipe.sun)
+        out += std::format("\n[sun]\nyaw = {}\npitch = {}\nhue = {}\nsaturation = {}\nbrightness = {}\n",
+                           recipe.sun->yaw, recipe.sun->pitch, recipe.sun->hue, recipe.sun->saturation,
+                           recipe.sun->brightness);
     return out;
 }
 
@@ -403,7 +446,9 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         if (field.has_value()) addByte(static_cast<std::uint32_t>(*field));
     };
 
-    addText(recipe.lamps.empty() ? "uta-recipe-bake-1\n" : "uta-recipe-bake-2\n");
+    addText(recipe.sun                ? "uta-recipe-bake-3\n"
+            : recipe.lamps.empty() ? "uta-recipe-bake-1\n"
+                                   : "uta-recipe-bake-2\n");
     for (const MaterialAssignment& material : sortedMaterials(recipe)) {
         addText(material.texture);
         addText("\n");
@@ -432,6 +477,13 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         }
         for (const float coordinate : lamp.at) addWord(std::bit_cast<std::uint32_t>(coordinate));
         addWord(lamp.yaw);
+    }
+    // UTA-0338 SS 4.1: the sun after the lamps, each field as four bytes.
+    if (recipe.sun) {
+        addText("sun\n");
+        for (const std::uint32_t field : {recipe.sun->yaw, recipe.sun->pitch, std::uint32_t{recipe.sun->hue},
+                                          std::uint32_t{recipe.sun->saturation}, std::uint32_t{recipe.sun->brightness}})
+            addWord(field);
     }
     return hasher.finish();
 }

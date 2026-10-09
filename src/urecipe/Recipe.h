@@ -5,7 +5,8 @@
 // map, and the one thing this project distributes that describes one
 // (ADR-0003). Version 1 holds only what the baker reads -- per-texture
 // material settings -- and a friendly name. Version 2 adds lamps the map lacks
-// (docs/specs/UTA-0256-added-lamps.md SS 4.1).
+// (docs/specs/UTA-0256-added-lamps.md SS 4.1); version 3 a sun
+// (docs/specs/UTA-0338-baked-sun.md SS 4.1).
 //
 // CROSSES THE SEAM. docs/design.md rule 3 makes urecipe a vocabulary the
 // runtime reads too, so it links uta_core and nothing else: no package reader,
@@ -34,7 +35,7 @@
 
 namespace uta::urecipe {
 
-inline constexpr std::uint32_t RECIPE_VERSION = 2;
+inline constexpr std::uint32_t RECIPE_VERSION = 3;
 /// The most `[lamp]` sections one recipe holds -- UTA-0256 SS 4.1.
 inline constexpr std::size_t LAMP_LIMIT = 64;
 
@@ -65,12 +66,26 @@ struct AddedLamp {
     friend bool operator==(const AddedLamp&, const AddedLamp&) = default;
 };
 
+/// The map's sun, standing infinitely far off -- UTA-0338 SS 4.1. UT's own
+/// units: a turn is 65536, and the colour is a LightHue, LightSaturation and
+/// LightBrightness.
+struct Sun {
+    std::uint32_t yaw = 0;   ///< compass direction it stands in; below 65536
+    std::uint32_t pitch = 0; ///< height above the horizon, in (0, 16384]
+    std::uint8_t hue = 0;
+    std::uint8_t saturation = 0;
+    std::uint8_t brightness = 0; ///< 1 to 255
+
+    friend bool operator==(const Sun&, const Sun&) = default;
+};
+
 struct Recipe {
     std::string map; ///< the map file's stem, lower-cased
     std::optional<std::array<std::byte, 32>> mapDigest; ///< when set, the SHA-256 the map must have
     std::string friendlyName; ///< runtime only; never hashed
     std::vector<MaterialAssignment> materials; ///< ascending by `texture`, each once
     std::vector<AddedLamp> lamps; ///< in file order; any lamp needs `mapDigest`
+    std::optional<Sun> sun;       ///< at most one; needs `mapDigest`
 
     friend bool operator==(const Recipe&, const Recipe&) = default;
 };
@@ -78,19 +93,20 @@ struct Recipe {
 /// SS 4.2's text. MalformedData naming the line for every refusal SS 4.2
 /// lists; UnsupportedVersion, naming the line and both versions, for a
 /// header above RECIPE_VERSION. `materials` comes back sorted; `lamps` keep
-/// file order. A `[lamp]` needs header version 2.
+/// file order. A `[lamp]` needs header version 2, a `[sun]` version 3.
 [[nodiscard]] Result<Recipe> parse(std::string_view text);
 
 /// SS 4.2's canonical form. `friendlyName` must hold no line break. The
-/// header is version 1 unless the recipe holds a lamp, so a game that reads
-/// only version 1 still reads a recipe that needs no more.
+/// header is the lowest version that holds the recipe -- 3 with a sun, 2 with
+/// a lamp, else 1 -- so an older game still reads a recipe that needs no more.
 [[nodiscard]] std::string write(const Recipe& recipe);
 
 /// SHA-256 of SS 4.4's canonical bytes: the materials only. The map, its
 /// digest and the friendly name are left out -- the first two are already in
 /// the bake name, and a name changes no pixel. A recipe with a lamp hashes
 /// UTA-0256 SS 4.1's version-2 bytes instead; one with none keeps its
-/// version-1 digest.
+/// version-1 digest. A recipe with a sun hashes UTA-0338 SS 4.1's version-3
+/// bytes; one without keeps its earlier digest.
 [[nodiscard]] std::array<std::byte, 32> bakeDigest(const Recipe& recipe);
 
 } // namespace uta::urecipe
