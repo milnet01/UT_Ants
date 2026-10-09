@@ -29,6 +29,7 @@ add_executable(uta_unit_tests
     unit/BakeGameTypesTest.cpp
     unit/BakeLightModelTest.cpp
     unit/BakeLampsTest.cpp
+    unit/BakeSunTest.cpp
     unit/BakeLightProbesTest.cpp
     unit/BakeOcclusionTest.cpp
     unit/BakeShadowMaskTest.cpp

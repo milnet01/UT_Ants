@@ -80,10 +80,18 @@ public:
     /// The same, a crossing `hole` names passing -- UTA-0326 SS 4.3's cutouts.
     [[nodiscard]] bool blocked(const Vec3& a, const Vec3& b, const Hole& hole) const;
 
+    /// UTA-0338 SS 4.3: whether the nearest occluder a ray from `origin` along
+    /// `direction` meets, a hit `hole` names passing, has any of `flags` in
+    /// its batch's polyFlags. False where it meets none. Ties go to the lower
+    /// triangle number, as first()'s do.
+    [[nodiscard]] bool firstHas(const Vec3& origin, const Vec3& direction, std::uint32_t flags,
+                                const Hole& hole = {}) const;
+
 private:
     struct Triangle {
         Vec3 a, ab, ac;          ///< a corner, and the two edges from it
         std::size_t index = 0;   ///< its triangle number in GEOM
+        std::uint32_t flags = 0; ///< its batch's polyFlags
     };
     struct Node {
         Vec3 min, max;

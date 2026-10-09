@@ -114,9 +114,12 @@ namespace {
 // fixture has no recipe, so only the format bump and the empty count moved it.
 // 47: UTA-0256 bakes a recipe's lamps. The fixture has no recipe, so the
 // digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 47;
+// 48, format 25: UTA-0338 adds SUN and LPRB's sun visibility count, and bakes
+// a recipe's sun. The fixture has no recipe, so only the format bump and the
+// empty count moved it.
+constexpr std::uint32_t RECORDED_UNDER = 48;
 constexpr std::string_view GOLDEN =
-    "eb8c6a5348fac72a257b75eb107e120895439ea016558c7c54da6207a3f7c8f7";
+    "a2f855de9a1ed2b773e468cd37ec548d8544209e389cf7601c4daf23c252f72f";
 
 } // namespace
 

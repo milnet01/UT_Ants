@@ -6,6 +6,8 @@
 
 #include "ubake/Charts.h"
 #include "ubake/Install.h"
+#include "ubake/LightModel.h"
+#include "ubake/LightProbes.h"
 #include "ubake/SurfaceRays.h"
 
 #include <algorithm>
@@ -55,13 +57,14 @@ struct Box {
     }
 };
 
-/// One light the mask pairs: a litDirectly light of LITE or of LAMP.
+/// One light the mask pairs: a litDirectly light of LITE or of LAMP, or the sun.
 struct Site {
-    std::uint32_t index = 0; ///< into LITE, or past it into LAMP (UTA-0256 SS 4.2)
+    std::uint32_t index = 0; ///< into LITE, or past it into LAMP (UTA-0256 SS 4.2), or past both the sun's
     Vec3 from{}, span{};     ///< litFrom's segment: its location, or a leader's strip
     Vec3 centre{};
     double bound = 0;        ///< its sphere: lightRadius grown by half the strip
     bool incidence = true;
+    std::optional<Vec3> sun; ///< UTA-0338 SS 4.4: toward the sun, for the sun's site
 };
 
 Vec3 toVec(const std::array<float, 3>& p) noexcept { return {p[0], p[1], p[2]}; }
@@ -183,12 +186,48 @@ struct Baked {
     std::uint32_t x = 0, y = 0;       ///< where packing put it
 };
 
+/// UTA-0338 SS 4.4: the sun's pair with one chart, as any light's, its texels'
+/// shares from sunSeen. No pair -- `light` left unlike the site's -- where the
+/// chart faces away from it or no texel sees it. Its moverReach is 0 (SS 3).
+Baked bakeSunPair(const Chart& chart, const charts::Outline& outline, const Site& site,
+                  const SurfaceRays& rays, const SurfaceRays::Hole& hole, double texelSize, bool bothSides) {
+    Baked pair;
+    pair.light = site.index + 1;
+    const Vec3 s = *site.sun;
+    const double facing = dot(s, chart.n);
+    if (!bothSides && facing <= 0) return pair;
+    if (facing == 0) return pair; // edge-on, from either side
+    pair.texels.resize(std::size_t{chart.w} * chart.h);
+    bool allLit = true, allDark = true;
+    for (std::uint32_t j = 0; j < chart.h; ++j)
+        for (std::uint32_t i = 0; i < chart.w; ++i) {
+            int visible = 0;
+            for (const double du : {0.25, 0.75})
+                for (const double dv : {0.25, 0.75}) {
+                    Vec3 origin = charts::originAt(chart, outline, static_cast<double>(chart.loU + i) + du,
+                                                   static_cast<double>(chart.loV + j) + dv, texelSize,
+                                                   bothSides ? 0.0 : SHADOW_MASK_LIFT);
+                    if (bothSides) origin = origin + chart.n * ((facing < 0 ? -1.0 : 1.0) * SHADOW_MASK_LIFT);
+                    if (sunSeen(origin, s, rays, hole)) ++visible;
+                }
+            const auto value = static_cast<std::uint8_t>(std::lround(255.0 * visible / 4.0));
+            pair.texels[std::size_t{j} * chart.w + i] = value;
+            allLit = allLit && value == 255;
+            allDark = allDark && value == 0;
+        }
+    if (allDark) return pair;
+    if (allLit) pair.texels.clear();
+    pair.light = site.index;
+    return pair;
+}
+
 /// SS 4.3 and SS 4.4: every pair of one lit chart, ascending by light.
 /// `bothSides`: scene.frag lights the chart from whichever side it is seen,
 /// so a light on either side pairs, and its rays leave from that light's side.
+/// `sunRays` holds backdrop surfaces as occluders, as sunSeen needs.
 std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geometry, const std::vector<Site>& sites,
-                             const std::vector<Box>& movers, const SurfaceRays& rays, const Holes& holes,
-                             double texelSize, bool bothSides) {
+                             const std::vector<Box>& movers, const SurfaceRays& rays, const SurfaceRays* sunRays,
+                             const Holes& holes, double texelSize, bool bothSides) {
     std::vector<Baked> out;
     const charts::Outline outline = charts::outlineOf(chart, geometry);
     const double lowest = *std::min_element(outline.heights.begin(), outline.heights.end());
@@ -196,6 +235,11 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
     for (std::uint32_t k = chart.first; k <= chart.last; ++k) polygon.add(charts::positionOf(geometry, k));
     const SurfaceRays::Hole hole = std::cref(holes);
     for (const Site& site : sites) {
+        if (site.sun) {
+            Baked pair = bakeSunPair(chart, outline, site, *sunRays, hole, texelSize, bothSides);
+            if (pair.light == site.index) out.push_back(std::move(pair));
+            continue;
+        }
         // The sphere meets the polygon: its centre's nearest point of it.
         const Vec3 nearest = charts::originAt(chart, outline, dot(site.centre, chart.u) / texelSize,
                                               dot(site.centre, chart.v) / texelSize, texelSize, 0.0);
@@ -285,6 +329,16 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
             if (ubundle::litDirectly((*bundle.lamps)[k].light))
                 sites.push_back(siteOf(first + k, (*bundle.lamps)[k].light));
     }
+    // UTA-0338 SS 4.4: the sun pairs after the lamps, seen through the sky, so
+    // its rays need backdrop surfaces solid, as SMSK's own set has them not.
+    std::optional<SurfaceRays> sunRays;
+    if (bundle.sun) {
+        Site site;
+        site.index = static_cast<std::uint32_t>(bundle.lights->size() + (bundle.lamps ? bundle.lamps->size() : 0));
+        site.sun = towardSun(ubundle::lightOfSun(*bundle.sun));
+        sites.push_back(site);
+        sunRays.emplace(geometry);
+    }
     const std::vector<Box> movers = moverReaches(bundle);
     const SurfaceRays rays(geometry, LIGHT_PASSES_FLAGS | PF_FAKE_BACKDROP);
     const Holes holes(geometry, cutouts);
@@ -330,7 +384,8 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
             const std::size_t threw = jobs.parallelFor(batches, [&](std::size_t job) {
                 const std::size_t end = std::min(lit.size(), (job + 1) * CHARTS_PER_JOB);
                 for (std::size_t c = job * CHARTS_PER_JOB; c < end; ++c)
-                    baked[c] = bakeChart(*lit[c], geometry, sites, movers, rays, holes, size, bothSidesAt[lit[c]->first]);
+                    baked[c] = bakeChart(*lit[c], geometry, sites, movers, rays, sunRays ? &*sunRays : nullptr, holes,
+                                         size, bothSidesAt[lit[c]->first]);
             });
             // A partly baked mask is a wrong bundle presented as a good one.
             if (threw != 0)

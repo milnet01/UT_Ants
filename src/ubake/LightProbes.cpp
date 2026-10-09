@@ -137,26 +137,59 @@ std::optional<SurfaceHit> surfaceFrom(const Vec3& p, const Vec3& w, const Surfac
 
 } // namespace
 
+bool sunSeen(const Vec3& x, const Vec3& s, const SurfaceRays& rays, const SurfaceRays::Hole& hole) {
+    return rays.firstHas(x, s, PF_FAKE_BACKDROP, hole);
+}
+
+float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays) {
+    std::size_t seen = sunSeen(p, s, rays) ? 1 : 0;
+    std::size_t cast = 1;
+    const double within = std::cos(SUN_RADIUS);
+    for (const Vec3& w : directions()) {
+        if (dot(w, s) < within) continue;
+        ++cast;
+        if (sunSeen(p, w, rays)) ++seen;
+    }
+    return static_cast<float>(static_cast<double>(seen) / static_cast<double>(cast));
+}
+
 std::optional<SurfaceHit> surfaceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
                                        const ubundle::Geometry& geometry, const std::optional<Vec3>& sky) {
     return surfaceFrom(p, w, rays, geometry, sky, false);
 }
 
-Rgb lightReaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays,
-                  const std::vector<ubundle::Light>& lights) {
+namespace {
+
+/// lightReaching, the sun left out where `withSun` is not set.
+Rgb reaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays, const std::vector<ubundle::Light>& lights,
+             bool withSun) {
     Rgb e;
     for (const ubundle::Light& light : lights) {
+        const bool sun = light.effect == ubundle::SUN_EFFECT;
+        if (sun && !withSun) continue;
         const Rgb lit = lightAt(light, x, n);
         // A light that puts nothing here adds nothing either way, so its
         // shadow ray is not worth casting.
         if (lit.r == 0 && lit.g == 0 && lit.b == 0) continue;
+        // UTA-0338 SS 4.4: the sun is seen through the sky, or not at all.
+        if (sun) {
+            if (!sunSeen(x + n * SHADOW_OFFSET, towardSun(light), rays)) continue;
         // Toward the point the light is lit from: a strip's nearest (UTA-0162 SS 4.3).
-        if (rays.blocked(x + n * SHADOW_OFFSET, litFrom(light, x))) continue;
+        } else if (rays.blocked(x + n * SHADOW_OFFSET, litFrom(light, x))) {
+            continue;
+        }
         e.r += lit.r;
         e.g += lit.g;
         e.b += lit.b;
     }
     return e;
+}
+
+} // namespace
+
+Rgb lightReaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays,
+                  const std::vector<ubundle::Light>& lights) {
+    return reaching(x, n, rays, lights, true);
 }
 
 Rgb reflectanceOf(const Rgb& albedo) noexcept {
@@ -180,7 +213,9 @@ Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays, const std::vector<u
     if ((batch.polyFlags & PF_UNLIT) != 0 && (mine.unlitGlows || hit.viaSky))
         return scaled(albedo(batch.material), REFLECTANCE_SCALE);
 
-    const Rgb e = lightReaching(hit.at, hit.normal, rays, lights);         // 5
+    // UTA-0338 SS 4.4: a ray sent on from the sky view never reaches the sun --
+    // the sky the renderer captures from there holds no disc.
+    const Rgb e = reaching(hit.at, hit.normal, rays, lights, !hit.viaSky); // 5
     // 6. UTA-0253: the surface sends on the light it shows, not the light's
     // own value -- so a probe holds light as scene.frag adds it, after the power.
     // SS 4.12 item 1: at REFLECTANCE_SCALE times its stored albedo, capped.
@@ -365,6 +400,10 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
     for (const Cell& cell : candidates)
         if (isEmpty(level, pointOf(cell))) out.probes.push_back(ubundle::LightProbe{cell, {}});
 
+    // UTA-0338 SS 4.4: where a sun is lit, what share of it each probe sees.
+    const auto sun = std::ranges::find(lights, ubundle::SUN_EFFECT, &ubundle::Light::effect);
+    if (sun != lights.end()) out.sunSeen.assign(out.probes.size(), 0.0f);
+
     // SS 4.7: each probe gathered on its own, into its own slot.
     const SurfaceRays rays(geometry);
     const std::size_t batches = (out.probes.size() + PROBES_PER_JOB - 1) / PROBES_PER_JOB;
@@ -376,6 +415,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
             for (std::size_t face = 0; face < 6; ++face)
                 probe.cube[face] = {static_cast<float>(cube[face].r), static_cast<float>(cube[face].g),
                                     static_cast<float>(cube[face].b)};
+            if (sun != lights.end()) out.sunSeen[p] = sunSeenFrom(pointOf(probe.cell), towardSun(*sun), rays);
         }
     });
     // A partly gathered section is a wrong bundle presented as a good one.

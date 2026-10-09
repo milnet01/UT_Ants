@@ -99,7 +99,7 @@ SurfaceRays::SurfaceRays(const ubundle::Geometry& geometry, std::uint32_t passes
             const Vec3 a = positionOf(geometry, geometry.indices[i]);
             const Vec3 b = positionOf(geometry, geometry.indices[i + 1]);
             const Vec3 c = positionOf(geometry, geometry.indices[i + 2]);
-            triangles_.push_back(Triangle{a, b - a, c - a, i / 3});
+            triangles_.push_back(Triangle{a, b - a, c - a, i / 3, batch.polyFlags});
         }
     }
     if (!triangles_.empty()) build(0, static_cast<std::uint32_t>(triangles_.size()));
@@ -292,6 +292,36 @@ bool SurfaceRays::blocked(const Vec3& a, const Vec3& b) const {
         }
     }
     return false;
+}
+
+bool SurfaceRays::firstHas(const Vec3& origin, const Vec3& direction, std::uint32_t flags,
+                           const Hole& hole) const {
+    if (nodes_.empty()) return false;
+    // first()'s search, a hole's hit left out, keeping the winner's flags.
+    std::optional<Hit> best;
+    std::uint32_t bestFlags = 0;
+    thread_local std::vector<std::uint32_t> stack;
+    stack.assign(1, 0);
+    while (!stack.empty()) {
+        const Node& node = nodes_[stack.back()];
+        stack.pop_back();
+        if (!reaches(origin, direction, node.min, node.max, 0, best ? best->t : INFINITE)) continue;
+        if (node.count == 0) {
+            stack.push_back(node.right);
+            stack.push_back(node.left);
+            continue;
+        }
+        for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
+            const Triangle& t = triangles_[i];
+            const std::optional<Meeting> at = meetAt(origin, direction, t.a, t.ab, t.ac);
+            if (!at || !(at->t > 0)) continue;
+            if (best && (at->t > best->t || (at->t == best->t && t.index > best->triangle))) continue;
+            if (hole && hole(t.index, at->u, at->v)) continue;
+            best = Hit{t.index, at->t};
+            bestFlags = t.flags;
+        }
+    }
+    return best && (bestFlags & flags) != 0;
 }
 
 bool SurfaceRays::blocked(const Vec3& a, const Vec3& b, const Hole& hole) const {

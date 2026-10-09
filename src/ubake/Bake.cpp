@@ -1258,14 +1258,25 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
             out.unlitGlows = materials.records[index->second].liquid.has_value();
         return out;
     };
+    // UTA-0338 SS 4.2: the recipe's sun, carrying the level's brightness as
+    // every light does. It is no actor, so bakedLights would not keep it.
+    std::optional<ubundle::Sun> sun;
+    if (recipe != nullptr && recipe->sun)
+        sun = ubundle::Sun{.yaw = static_cast<std::int32_t>(recipe->sun->yaw),
+                           .pitch = static_cast<std::int32_t>(recipe->sun->pitch),
+                           .hue = recipe->sun->hue,
+                           .saturation = recipe->sun->saturation,
+                           .brightness = recipe->sun->brightness,
+                           .levelBrightness = levelBrightness};
+    std::vector<ubundle::Light> probeLights = bakedLights(actors.lights, actors.placements);
+    if (sun) probeLights.push_back(ubundle::lightOfSun(*sun)); // SS 4.4: the base layer, never `added`
     // SS 4.12 item 2 (UTA-0292): a ray meeting the sky carries on from where
     // the renderer draws the sky from.
     std::optional<Vec3> sky;
     if (const auto view = ubundle::skyViewOf(actors.placements))
         sky = Vec3{view->location[0], view->location[1], view->location[2]};
     UTA_TRY(ubundle::LightProbes probes,
-            naming(bakeLightProbes(geometry, collision.level,
-                                   bakedLights(actors.lights, actors.placements), albedo, jobs,
+            naming(bakeLightProbes(geometry, collision.level, probeLights, albedo, jobs,
                                    probeReachOf(actors.placements), own, sky),
                    mapName));
     // UTA-0256 SS 4.3 step 5: the lamps' bounce alone, at the same lattice --
@@ -1331,6 +1342,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.occlusion = std::move(occlusion);
     result.bundle.flames = std::move(flames.flames);
     result.bundle.lamps = std::move(lamps);
+    result.bundle.sun = sun;
 
     // 11c. SMSK -- UTA-0326 SS 4.6: what each lit texel sees of each light
     // that never moves. It reads the sections above, so it runs once they are
@@ -1341,7 +1353,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                 return ubundle::litDirectly(lamp.light);
                             });
     if (!result.bundle.geometry->vertices.empty()
-        && (lampLit || std::ranges::any_of(*result.bundle.lights, [](const ubundle::Light& light) {
+        && (lampLit || result.bundle.sun || std::ranges::any_of(*result.bundle.lights, [](const ubundle::Light& light) {
                return ubundle::litDirectly(light);
            }))) {
         phase.emplace(&times, "shadow-mask");

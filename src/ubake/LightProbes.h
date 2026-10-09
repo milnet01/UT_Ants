@@ -100,8 +100,25 @@ struct SurfaceHit {
                                                      const ubundle::Geometry& geometry,
                                                      const std::optional<Vec3>& sky);
 
+/// UTA-0338 SS 4.4: the sun's angular radius, in radians -- the disc the
+/// renderer draws, and the cone a probe's view of the sun is taken over.
+inline constexpr double SUN_RADIUS = 0.035;
+
+/// UTA-0338 SS 4.3: whether `x` sees the sun along `s` -- the ray first meets a
+/// PF_FakeBackdrop surface, a hit `hole` names passing. `rays` must hold
+/// backdrop surfaces as occluders, as the default set does and SMSK's does
+/// not; a ray that meets nothing is not seen.
+[[nodiscard]] bool sunSeen(const Vec3& x, const Vec3& s, const SurfaceRays& rays,
+                           const SurfaceRays::Hole& hole = {});
+
+/// UTA-0338 SS 4.4: the share of the sun a probe at `p` sees -- over `s` and
+/// every direction of directions() within SUN_RADIUS of it, the share
+/// sunSeen passes.
+[[nodiscard]] float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays);
+
 /// SS 4.7 step 5: the light of `lights` reaching `x`, facing `n`, each one
-/// ray-tested toward the point it is lit from.
+/// ray-tested toward the point it is lit from -- a sun by sunSeen
+/// (UTA-0338 SS 4.4).
 [[nodiscard]] Rgb lightReaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays,
                                 const std::vector<ubundle::Light>& lights);
 
@@ -133,7 +150,8 @@ struct SurfaceHit {
                                              const std::optional<Vec3>& sky = std::nullopt);
 
 /// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
-/// there is one. A job that throws refuses it.
+/// there is one. Where `lights` holds a sun, each probe's `sunSeen` too
+/// (UTA-0338 SS 4.4). A job that throws refuses it.
 [[nodiscard]] Result<ubundle::LightProbes> bakeLightProbes(
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,
     const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo, JobSystem& jobs,
