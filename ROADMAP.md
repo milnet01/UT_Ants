@@ -17685,6 +17685,18 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
+- 📋 [UTA-0339] **urender: doors, lifts and other movers cast sun shadows, after 0.1.0.**
+  The user, 2026-10-09: movers cast no sun shadow in 0.1.0; this comes
+  after it. UTA-0338 ships the sun with level shadows from SMSK and
+  players and movers lit by the probes' baked sunSeen, which cannot
+  show a moving shadow. Likely a sun shadow map (cascaded or one fitted
+  to the movers under open sky); weigh its frame cost against UTA-0039's
+  floor.
+  **Layman:** Moving parts of a map, such as doors and lifts, throw a shadow in sunlight.
+  Kind: feature.
+  Source: user-decision-2026-10-09.
+  Lanes: urender.
+
 ## 0.3.0 — Monsters, bots and Deathmatch
 
 Monsters resolved by ancestry, combat bots on the maps' own waypoints, and

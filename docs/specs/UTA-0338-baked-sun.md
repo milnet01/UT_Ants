@@ -48,16 +48,14 @@ sky. A map whose recipe declares no sun bakes and draws exactly as today.
 - **The sun is split out and goes first** — the session, 2026-10-09; the
   user said that day they would go with the session's recommendations. Only
   the sun changes the bake.
-- **Each map's recipe declares its sun; nothing is guessed** — the session's
-  call. The recipe already carries per-map additions (UTA-0256), and § 2
+- **Each map's recipe declares its sun; nothing is guessed** — the user,
+  2026-10-09, on the session's recommendation. The recipe already carries per-map additions (UTA-0256), and § 2
   item 3 means a guess needs a sky picture the baker lacks. Telling cloudy
   from clear stays with UTA-0337.
 - **Movers cast no sun shadow, and players and movers are sun-shadowed by
-  the probes' baked visibility, not by a shadow map** — the session's call,
-  under the standing rule that the first renderer uses the cheapest methods
-  that still look like a modern game (`CLAUDE.md`, user 2026-09-14).
-- **No setting turns the sun off** — the session's call; none was asked
-  for.
+  the probes' baked visibility, not by a shadow map** — the user,
+  2026-10-09; mover sun shadows come after 0.1.0 (UTA-0339).
+- **No setting turns the sun off** — the user, 2026-10-09.
 
 ## 4. Design
 
@@ -273,8 +271,7 @@ UTA-0338's body.
 
 - Telling cloudy from clear, moving clouds, distance haze — UTA-0337.
 - Suns for any map but § 4.6's — chosen as UTA-0334's maps are baked.
-- Movers casting sun shadows, and a sun shadow map — deferred; not yet
-  queued.
+- Movers casting sun shadows, and a sun shadow map — UTA-0339.
 - Sun shafts in volumetric fog (UTA-0015's `lightThrough`) — deferred; not
   yet queued.
 - A setting to turn the sun off.
