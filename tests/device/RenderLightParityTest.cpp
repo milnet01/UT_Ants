@@ -64,7 +64,8 @@ std::array<float, 3> normalised(double x, double y, double z) {
 TEST_CASE("INV-6: the shading pass's light equals ubake's lightAt within 1e-3", "[device]") {
     uta::test::render::removeDisplay();
 
-    const std::array<std::uint8_t, 5> effects = {0, 8, 12, 13, 17};
+    // 255 is UTA-0338's sun, whose distance is ignored and whose direction is its rotation.
+    const std::array<std::uint8_t, 6> effects = {0, 8, 12, 13, 17, uta::ubundle::SUN_EFFECT};
     const std::array<std::uint8_t, 6> hues = {0, 43, 100, 170, 213, 255};
     const std::array<std::uint8_t, 3> saturations = {0, 90, 255};
     const std::array<std::uint8_t, 4> cones = {0, 32, 128, 250};

@@ -284,3 +284,30 @@ TEST_CASE("sRGB", "[ubake][lightmodel]") {
         CHECK(std::abs(linearOf(static_cast<std::uint8_t>(byte)) - expected) <= 1e-15);
     }
 }
+
+TEST_CASE("UTA-0338 INV-4: the sun is the same at any distance and scales with incidence", "[ubake][lightmodel][sun]") {
+    // A sun standing at yaw 8192 and pitch 9000, as ubundle::lightOfSun turns it.
+    const uta::ubundle::Sun sun{.yaw = 8192, .pitch = 9000, .hue = 28, .saturation = 210, .brightness = 180,
+                                .levelBrightness = 1.25};
+    const Light light = uta::ubundle::lightOfSun(sun);
+    const Vec3 s = uta::ubake::towardSun(light);
+    // Toward where it stands: up by its pitch, round by its yaw.
+    CHECK(std::abs(s.x - cosineOf(9000) * cosineOf(8192)) < 1e-12);
+    CHECK(std::abs(s.y - cosineOf(9000) * sineOf(8192)) < 1e-12);
+    CHECK(std::abs(s.z - sineOf(9000)) < 1e-12);
+
+    const Rgb colour = lightColour(28, 210);
+    const double full = uta::ubake::lightIntensity(180) * 1.25;
+    const Rgb facing = lightAt(light, Vec3{0, 0, 0}, s);
+    CHECK(std::abs(facing.r - colour.r * full) < 1e-12);
+    CHECK(std::abs(facing.g - colour.g * full) < 1e-12);
+    CHECK(std::abs(facing.b - colour.b * full) < 1e-12);
+    // No falloff: far past any radius it is the same light.
+    sameRgb(lightAt(light, Vec3{1e6, -3e5, 4e4}, s), facing);
+    // Incidence: a floor takes sin(pitch) of it.
+    const Rgb floor = lightAt(light, Vec3{5, 5, 5}, Vec3{0, 0, 1});
+    CHECK(std::abs(floor.r - colour.r * full * s.z) < 1e-12);
+    // Facing away it puts nothing.
+    sameRgb(lightAt(light, Vec3{0, 0, 0}, Vec3{0, 0, -1}), Rgb{});
+    sameRgb(lightAt(light, Vec3{0, 0, 0}, s * -1.0), Rgb{});
+}

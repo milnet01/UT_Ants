@@ -164,6 +164,14 @@ Vec3 litFrom(const ubundle::Light& light, const Vec3& x) noexcept {
 }
 
 Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept {
+    // UTA-0338 SS 4.3: the sun is the same at every distance, so it has no
+    // falloff, no radius and no spot; only the incidence changes.
+    if (light.effect == ubundle::SUN_EFFECT) {
+        const Rgb colour = lightColour(light.hue, light.saturation);
+        const double s =
+            lightIntensity(light.brightness) * light.levelBrightness * std::max(0.0, dot(n, towardSun(light)));
+        return {colour.r * s, colour.g * s, colour.b * s};
+    }
     // UTA-0162: its row's leader lights for it.
     if (light.strip == ubundle::STRIP_ABSORBED) return {};
     const Vec3 toLight = litFrom(light, x) - x;

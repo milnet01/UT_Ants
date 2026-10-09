@@ -18,6 +18,8 @@ const uint LE_STATIC_SPOT = 8u;
 const uint LE_SPOTLIGHT = 12u;
 const uint LE_NON_INCIDENCE = 13u;
 const uint LE_CYLINDER = 17u;
+// UTA-0338 SS 4.2: ubundle::SUN_EFFECT, the sun no UT light is.
+const uint SUN_EFFECT = 255u;
 
 const float TWO_PI = 6.283185307179586;
 
@@ -86,8 +88,13 @@ vec3 litFrom(Light light, vec3 x) {
 // shadow test: colour, times its intensity, times the falloff, times the
 // incidence, times the spot factor, all measured from litFrom. LE_Cylinder and
 // LE_NonIncidence replace the falloff and drop the other factors (UTA-0156).
-// An absorbed strip light is never uploaded, so it needs no case here.
+// An absorbed strip light is never uploaded, so it needs no case here. The sun
+// shines from infinitely far against its direction, with incidence alone
+// (UTA-0338 SS 4.3).
 vec3 lightAt(Light light, vec3 x, vec3 n) {
+    if (light.effect == SUN_EFFECT)
+        return lightColour(light.hue, light.saturation) * (lightIntensity(light.brightness) * light.levelBrightness)
+               * max(0.0, dot(n, -lightDirection(light.pitch, light.yaw)));
     vec3 toLight = litFrom(light, x) - x;
     float d = length(toLight);
     float radius = lightRadius(light.radius);
