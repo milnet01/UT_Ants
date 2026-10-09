@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A map with a clear sky can have a sun** (UTA-0338)
+  A map's recipe can place a sun in its sky. It lights the level and casts
+  its shadows from there, lights players and moving parts where they stand
+  in the open, and shows as a bright disc in the sky and in water. Maps
+  must be baked again.
+
 - **The sky lights open areas softly** (UTA-0292)
   Light from a map's sky now reaches the rooms open to it, as daylight
   would. Maps must be baked again.

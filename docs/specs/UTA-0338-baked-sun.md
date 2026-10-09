@@ -91,6 +91,7 @@ after `LAMP`, absent when the recipe declares none:
 struct Sun {
     std::int32_t yaw = 0, pitch = 0;      // where it stands, as SS 4.1
     std::uint8_t hue = 0, saturation = 0, brightness = 0;
+    float levelBrightness = 1;            // the level's, as every LITE record carries it
 };
 ```
 
@@ -100,7 +101,7 @@ struct Sun {
 - **LPRB gains `sunSeen`**: empty, or one float in [0, 1] per probe in
   `probes`' order. It is empty exactly when `sun` is absent.
 - **Refused on read and on write:** a `pitch` outside (0, 16384]; a
-  `brightness` of 0; a `sunSeen` whose size is neither 0 nor `|probes|`, or
+  `brightness` of 0; a `levelBrightness` negative or not finite; a `sunSeen` whose size is neither 0 nor `|probes|`, or
   whose size disagrees with `sun`; a value outside [0, 1]; a sun pair with
   `moverReach` 1.
 - **Folding.** `ubundle::applySun(bundle)` appends the sun to LITE as a
@@ -119,10 +120,11 @@ toward the sun. No falloff, no spot factor, no radius. `light.glsl`'s
 `lightAt` gains the same branch; the parity test (`BakeLightModelTest`,
 `light_parity.comp`) covers it.
 
-**Seen or not.** `sunSeen(x, s, rays)` is whether the ray from `x` along `s`
-first meets a `PF_FakeBackdrop` surface, in a ray set in which backdrop
-surfaces are occluders. A ray that meets nothing is not seen: a map open to
-the void is not lit from it.
+**Seen or not.** `sunSeen(x, s, rays, hole)` is whether the ray from `x`
+along `s` first meets a `PF_FakeBackdrop` surface, in a ray set in which
+backdrop surfaces are occluders, a masked cutout's hole (UTA-0326 § 4.3)
+passing. A ray that meets nothing is not seen: a map open to the void is not
+lit from it.
 
 ### 4.4 Baking it — `ubake`
 
@@ -131,13 +133,16 @@ the void is not lit from it.
   `litFrom`. Polygons facing away from it, or with no texel seeing it, get no
   pair.
 - **Probes.** `lightReaching` and `sentFrom` take the sun as one of their
-  lights, `sunSeen` in place of `rays.blocked(x, litFrom)`. It goes into the
+  lights, `sunSeen` in place of `rays.blocked(x, litFrom)`. `bakedLights`
+  keeps only placed actors and refuses a sun, so the bake, and `ut-ref`,
+  add it after. It goes into the
   base layer, never into LAMP's `added`. A ray restarted from the sky view
   (UTA-0112 § 4.12) never reaches the sun: the baked sky holds no disc.
-- **`sunSeen` per probe.** The share of `directions()`' rays, within the
-  sun's angular radius `SUN_RADIUS` of `s`, that `sunSeen` passes from the
-  probe's point; 1 or 0 where the radius holds one direction. The spread
-  gives soft edges at the cost of a few rays per probe.
+- **`sunSeen` per probe.** The share `sunSeen` passes from the probe's
+  point over `s` itself and every direction of `directions()` within
+  `SUN_RADIUS` of it. `SUN_RADIUS` is 0.035 radians, the disc's size, so
+  the cone usually holds `s` alone and the share is 1 or 0; the lattice's
+  blend gives the soft edge.
 - `BAKER_REVISION` becomes 48.
 
 ### 4.5 Drawing it — `urender`
@@ -147,8 +152,11 @@ the void is not lit from it.
   sun's `lightAt` times `sunSeen` interpolated from the probe lattice at the
   point the probes are sampled. The sun is in no cluster and gets no shadow
   map.
-- **The disc.** The frame block gains the sun's direction and colour, zero
-  when there is none. `skyAt` adds a disc of radius `SUN_RADIUS` and a halo
+- **Probes' view.** Each probe's `sunSeen` rides in its first face's spare
+  fourth float, and `shapeOf` samples it.
+- **The disc.** The frame block gains the sun's index into the light list,
+  `NONE` when there is none; the shader reads its direction and colour from
+  that record. `skyAt` adds a disc of radius `SUN_RADIUS` and a halo
   that falls off around it, in the sun's colour, so water reflections show
   it too. It adds nothing while `frame.skyCapture` is set: the captured cube
   stays the map's own sky.

@@ -298,6 +298,8 @@ Each is seen failing before the code it locks exists.
 
 - Fog volumes, light-shaft placement, bot hints, rule defaults and class
   overrides — deferred; not yet queued. Each is a later `RECIPE_VERSION`.
+- Added lamps and a sun — version 2's `[lamp]` is UTA-0256 § 4.1's, and
+  version 3's `[sun]` is UTA-0338 § 4.1's.
 - Per-map atmosphere such as the haze scale — deferred; not yet queued
   (§ 14 question 3).
 - Replacement textures — tracked by UTA-0106 and UTA-0181.

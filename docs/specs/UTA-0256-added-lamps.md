@@ -162,7 +162,8 @@ the same choice.
   frame by the light list and the shadow maps; `added` is added to each
   probe's cube.
 - **Off:** SMSK loses every pair naming the second range, each chart keeping
-  its own pairs in order; nothing else of the lamps is kept.
+  its own pairs in order; nothing else of the lamps is kept. The sun's pairs,
+  past that range, are renamed to `|LITE|` (UTA-0338 § 4.2).
 
 The folded bundle is for drawing only: LITE and MOVR no longer keep their
 write order.

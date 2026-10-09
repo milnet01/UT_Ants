@@ -99,7 +99,7 @@ inline constexpr std::uint16_t MASK_ALL_LIT = 0xFFFF;
 
 /// One light on one polygon.
 struct MaskPair {
-    std::uint32_t light = 0;     ///< an index into LITE
+    std::uint32_t light = 0;     ///< an index into LITE; past it a LAMP lamp's (UTA-0256) or the sun's (UTA-0338)
     std::uint16_t x = 0, y = 0;  ///< the rectangle's corner in the atlas, or both MASK_ALL_LIT
     std::uint8_t moverReach = 0; ///< 1 where moving geometry can come between (SS 4.4)
     std::array<std::uint8_t, 3> reserved{}; ///< always zero
@@ -141,7 +141,8 @@ its count and then its elements.
   count; a `vertexTexel` component not finite or outside `[0, width]` of its
   chart (`[0, height]` for the second);
 - a chart whose pair run passes the end of `pairs`, or runs that overlap;
-- a pair whose `light` is not below LITE's count, or `SMSK` present with
+- a pair whose `light` is not below LITE's count plus LAMP's, plus one with
+  a sun (UTA-0338 § 4.2), or `SMSK` present with
   `LITE` absent; pairs of one chart not strictly ascending by `light`;
 - a pair whose rectangle, `x` to `x + width` and `y` to `y + height` of its
   chart, passes the atlas, or whose `x` alone is `MASK_ALL_LIT`;
