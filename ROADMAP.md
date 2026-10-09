@@ -15947,10 +15947,13 @@ stays with movement in 0.2.0.
   in UT_MonsterHunt's analysis/mapcheck-results.jsonl.
   Waits on UTA-0292 (user, 2026-10-07): the lighting pass changes the
   baker, so baking first would mean baking twice.
+  Waits on UTA-0338 too (2026-10-09): the sun is a light, so it goes
+  into the bake first.
   **Layman:** Prepare the newly added maps so this project can show them, once the lighting work is done.
   Kind: chore.
   Source: user-request-2026-10-07.
   Lanes: ubake.
+  Blocked-by: UTA-0338.
 
 - 📋 [UTA-0337] **urender and ubake: a living sky -- moving clouds, a sun on clear skies -- and outdoor maps that no longer look like a box.**
   The user, 2026-10-08: "I was also hoping to add a bit more of a dynamic
@@ -15976,10 +15979,30 @@ stays with movement in 0.2.0.
   Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
   § UTA-0337 -- cloud layers over the captured sky, judging cloudy from
   clear, a sun baked as a light, and sky-tinted haze for far walls.
+  Split (2026-10-09): part 2, the sun, is now UTA-0338, which lands
+  before UTA-0334's bake. This item keeps parts 1 and 3.
   **Layman:** Outdoor maps get clouds that drift, a sun where the sky is clear, and edges that fade into the distance instead of looking like the inside of a box.
   Kind: feature.
   Source: user-request-2026-10-08.
   Lanes: urender, ubake.
+
+- 🚧 [UTA-0338] **ubake and urender: a sun on clear skies, baked as a light and drawn as a disc in the sky.**
+  Split from UTA-0337 part 2 (2026-10-09, by the session; the user
+  said on 2026-10-09 they would go with its recommendations). Only
+  this part changes the bake, so it lands before UTA-0334's 127 maps;
+  UTA-0337 keeps the moving clouds and the box look, which do not.
+  The baker has no sunlight today: it knows only the map's own lamps.
+  A sun is a new light kind across ubake, the bundle and urender, and
+  costly to undo once the maps are baked, so it gets a spec
+  (spec-format SS 1). Research: docs/research-2026-10-08-v0.1.0-techniques.md
+  SS UTA-0337 (sun direction from the sky's brightest blob, the sky
+  zone's brightest light, or a per-map table; cloudy or clear judged
+  from the sky cube, with a per-map override).
+  **Layman:** Outdoor maps with a clear sky get a sun, and the ground is lit and shadowed from where it stands.
+  Kind: feature.
+  Source: user-request-2026-10-08.
+  Lanes: ubake, urender.
+  Splits-from: UTA-0337.
 
 ## 0.2.0 — Movement and weapons
 
