@@ -1,0 +1,38 @@
+ut-ants recipe 2
+# DM-ArcaneTemple's added lamps -- UTA-0256. Each copies the wall torch
+# Light9 stands in: holder Brush92 and flame sheets Brush93, Brush94 and
+# Brush96. The holder has no bottom face, so each copy stands on a floor or
+# a sill, its back to a wall. The original faces +X; `yaw` turns it to face
+# out of its own wall.
+
+[map]
+file = dm-arcanetemple
+sha256 = afb104768d891884b3115218d8ec7dec544a55924c81b5dac0217801f3a7572e
+
+# The upper hall's dark north wall (UTA-0256 view 3).
+[lamp upper-hall]
+light = Light9
+fitting = Brush92 Brush93 Brush94 Brush96
+at = -951.8 1138.6 387.6
+yaw = 49152
+
+# The corridor below the ramp, against its north wall (view 4).
+[lamp ramp-corridor]
+light = Light9
+fitting = Brush92 Brush93 Brush94 Brush96
+at = 14.2 1890.6 67.6
+yaw = 49152
+
+# On the sill between two pillars of the pillared passage (view 5).
+[lamp pillar-sill]
+light = Light9
+fitting = Brush92 Brush93 Brush94 Brush96
+at = -333.4 3129.8 739.6
+yaw = 32768
+
+# On the ledge along the small room's north wall (view 6).
+[lamp ledge-room]
+light = Light9
+fitting = Brush92 Brush93 Brush94 Brush96
+at = -1151.8 1010.6 131.6
+yaw = 49152
