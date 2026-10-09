@@ -65,7 +65,8 @@ namespace uta::ubundle {
 /// 22 since UTA-0277 SS 4.1 gave each MATS record its tile kind.
 /// 23 since UTA-0326 SS 4.2 added SMSK.
 /// 24 since UTA-0256 SS 4.2 added LAMP and LPRB's added-lamps cubes.
-inline constexpr std::uint32_t FORMAT_VERSION = 24;
+/// 25 since UTA-0338 SS 4.2 added SUN and LPRB's sun visibility.
+inline constexpr std::uint32_t FORMAT_VERSION = 25;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -479,6 +480,9 @@ struct LightProbes {
     /// probe in `probes`' order -- or none, when LAMP holds no lamp. The
     /// renderer adds it to `probes` only while added lamps are on.
     std::vector<std::array<std::array<float, 3>, 6>> added;
+    /// UTA-0338 SS 4.2: the share of the sun each probe sees, in [0, 1], one
+    /// per probe in `probes`' order -- or none, exactly when SUN is absent.
+    std::vector<float> sunSeen;
 };
 
 /// The most entries ZONE holds: umap::ZONE_CEILING, the engine's own ceiling on
@@ -563,6 +567,27 @@ struct AddedLamp {
     std::vector<Flame> flames; ///< its fitting's flames; FLAM's rules, each `light` -1
 };
 
+/// A LITE effect no UT light has: the sun `applySun` folds in -- UTA-0338
+/// SS 4.2. The light model shines it from infinitely far along its rotation.
+inline constexpr std::uint8_t SUN_EFFECT = 255;
+
+/// The map's sun, from its recipe -- UTA-0338 SS 4.2. Its light index is
+/// LITE's size plus LAMP's, which its SMSK pairs name; none of those pairs
+/// has `moverReach` 1. `levelBrightness` is the level's, as every LITE
+/// record carries it (UTA-0156 SS 4.5), so a map with no light still has it.
+struct Sun {
+    std::int32_t yaw = 0;   ///< compass direction it stands in; 65536 to a turn
+    std::int32_t pitch = 0; ///< height above the horizon, in (0, 16384]
+    std::uint8_t hue = 0, saturation = 0;
+    std::uint8_t brightness = 0; ///< never 0
+    float levelBrightness = 1;   ///< finite and not negative
+};
+
+/// The sun as a LITE record: SUN_EFFECT, steady, and turned the way its light
+/// travels, `(-pitch, yaw + 32768, 0)` -- UTA-0338 SS 4.2. The baker lights
+/// with it and `applySun` appends it, so the two cannot disagree.
+[[nodiscard]] Light lightOfSun(const Sun& sun) noexcept;
+
 /// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds
 /// none or the zone is not below `zoneCount` -- UTA-0156 SS 4.3's mover rule,
 /// here so the renderer can find the camera's zone too (UTA-0015 SS 4.1).
@@ -604,6 +629,8 @@ struct Bundle {
     std::optional<ShadowMask> shadowMask;
     /// The recipe's added lamps -- UTA-0256 SS 4.2. Absent when it adds none.
     std::optional<std::vector<AddedLamp>> lamps;
+    /// The recipe's sun -- UTA-0338 SS 4.2. Absent when it declares none.
+    std::optional<Sun> sun;
 };
 
 /// UTA-0256 SS 4.4: folds LAMP into the sections the renderer already
@@ -612,9 +639,16 @@ struct Bundle {
 /// index -- the index its SMSK pairs name -- its flames join FLAM tied to it,
 /// its shape joins MOVR as a mover standing still where it was baked, and the
 /// added cubes join the probes'. Without, SMSK loses the lamps' pairs, so
-/// what is left draws as a bake without the lamps. The result is for drawing
-/// only: LITE and MOVR no longer keep their write order.
+/// what is left draws as a bake without the lamps, and the sun's pairs are
+/// renamed from LITE's size plus LAMP's to LITE's size (UTA-0338 SS 4.2). The
+/// result is for drawing only: LITE and MOVR no longer keep their write order.
 void applyAddedLamps(Bundle& bundle, bool on);
+
+/// UTA-0338 SS 4.2: appends the sun to LITE as `lightOfSun` makes it, and
+/// empties SUN; nothing else changes, and a bundle with no sun is untouched.
+/// Runs after `applyAddedLamps`, so the sun's index is LITE's last, which is
+/// what its SMSK pairs name. LPRB's `sunSeen` stays for the renderer.
+void applySun(Bundle& bundle);
 
 /// Decode a whole bundle.
 ///
@@ -626,7 +660,7 @@ void applyAddedLamps(Bundle& bundle, bool on);
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///

@@ -174,7 +174,7 @@ Bytes matsPayload(const std::vector<RecordSpec>& records) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(24); // formatVersion -- 24 since UTA-0256 added LAMP
+    out.u32(25); // formatVersion -- 25 since UTA-0338 added SUN
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -227,7 +227,7 @@ void refused(const std::vector<std::byte>& bytes, std::string_view says) {
 TEST_CASE("the MATS golden bytes decode to the records they encode", "[ubundle][mats]") {
     const auto result = read(fileWith(matsPayload(GOLDEN)));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 24);
+    CHECK(result->header.formatVersion == 25);
     CHECK_FALSE(result->textures.has_value());
 
     REQUIRE(result->materials.has_value());

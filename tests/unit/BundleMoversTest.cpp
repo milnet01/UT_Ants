@@ -90,7 +90,7 @@ Bytes emptyLite() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(24); // formatVersion -- 24 since UTA-0256 added LAMP
+    out.u32(25); // formatVersion -- 25 since UTA-0338 added SUN
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -204,7 +204,7 @@ void refusedBothWays(const std::vector<MoverShape>& shapes, std::string_view say
 TEST_CASE("the MOVR golden bytes decode to the shapes they encode", "[ubundle][movr]") {
     const auto result = read(fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 24);
+    CHECK(result->header.formatVersion == 25);
     REQUIRE(result->lights.has_value());
     REQUIRE(result->movers.has_value());
     sameShapes(*result->movers, golden());

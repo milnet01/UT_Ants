@@ -90,7 +90,7 @@ struct Descriptor {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
            || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
            || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM || id == ID_SMSK
-           || id == ID_LAMP;
+           || id == ID_LAMP || id == ID_SUN;
 }
 
 } // namespace
@@ -239,6 +239,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             UTA_CHECK(validateShadowMask(*bundle.shadowMask, ErrorCode::MalformedData));
         } else if (descriptor.id == ID_LAMP) {
             UTA_TRY(bundle.lamps, readLamps(payload));
+        } else if (descriptor.id == ID_SUN) {
+            UTA_TRY(bundle.sun, readSun(payload));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -265,6 +267,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
     UTA_CHECK(validateShadowMaskAcross(bundle, ErrorCode::MalformedData));
     // UTA-0256 SS 4.2: a lamp's flames name MATS, and LPRB's added cubes count LAMP.
     UTA_CHECK(validateLamps(bundle, ErrorCode::MalformedData));
+    // UTA-0338 SS 4.2: LPRB's sun visibility counts SUN, and SMSK holds its pairs.
+    UTA_CHECK(validateSun(bundle, ErrorCode::MalformedData));
     return bundle;
 }
 
@@ -298,6 +302,7 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.shadowMask) UTA_CHECK(validateShadowMask(*bundle.shadowMask, ErrorCode::InvalidArgument));
     UTA_CHECK(validateShadowMaskAcross(bundle, ErrorCode::InvalidArgument));
     UTA_CHECK(validateLamps(bundle, ErrorCode::InvalidArgument));
+    UTA_CHECK(validateSun(bundle, ErrorCode::InvalidArgument));
 
     // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
@@ -354,6 +359,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.shadowMask) encoded(ID_SMSK, encodeShadowMask(*bundle.shadowMask));
     // LAMP is appended after SMSK -- UTA-0256 SS 4.2.
     if (bundle.lamps) encoded(ID_LAMP, encodeLamps(*bundle.lamps));
+    // SUN is appended after LAMP -- UTA-0338 SS 4.2.
+    if (bundle.sun) encoded(ID_SUN, encodeSun(*bundle.sun));
 
     if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows

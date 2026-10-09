@@ -16,7 +16,8 @@
 // docs/specs/UTA-0111-level-collision.md SS 4.2 for COLL, and
 // docs/specs/UTA-0112-baked-light-probes.md SS 4.2 for LPRB, and UTA-0156
 // and UTA-0164's specs, SS 4.1 each, for ZONE and AOCC, and
-// docs/specs/UTA-0326-baked-shadow-mask.md SS 4.2 for SMSK.
+// docs/specs/UTA-0326-baked-shadow-mask.md SS 4.2 for SMSK, and
+// docs/specs/UTA-0338-baked-sun.md SS 4.2 for SUN.
 
 #pragma once
 
@@ -46,6 +47,7 @@ constexpr SectionId ID_AOCC = {'A', 'O', 'C', 'C'};
 constexpr SectionId ID_FLAM = {'F', 'L', 'A', 'M'};
 constexpr SectionId ID_SMSK = {'S', 'M', 'S', 'K'};
 constexpr SectionId ID_LAMP = {'L', 'A', 'M', 'P'};
+constexpr SectionId ID_SUN = {'S', 'U', 'N', ' '};
 
 // Structural validation -- SS 4.9.
 //
@@ -176,5 +178,12 @@ void putFlame(Sink& sink, const Flame& flame);
 [[nodiscard]] Result<std::vector<AddedLamp>> readLamps(Cursor& cursor);
 [[nodiscard]] Result<std::vector<std::byte>> encodeLamps(const std::vector<AddedLamp>& lamps);
 [[nodiscard]] Result<void> validateLamps(const Bundle& bundle, ErrorCode code);
+
+// SUN -- SunSection.cpp, UTA-0338 SS 4.2. LPRB's sun visibility is counted
+// against it and its SMSK pairs checked, so validateSun runs once every
+// section is decoded.
+[[nodiscard]] Result<Sun> readSun(Cursor& cursor);
+[[nodiscard]] Result<std::vector<std::byte>> encodeSun(const Sun& sun);
+[[nodiscard]] Result<void> validateSun(const Bundle& bundle, ErrorCode code);
 
 } // namespace uta::ubundle::detail
