@@ -15704,6 +15704,19 @@ stays with movement in 0.2.0.
   two strip lights. First: name the surface or actor there (ut-dump
   --surface-list, a keep-one-light ut-shot probe); likely a closed
   mover or a sheet drawn with the wrong flags or texture.
+  Fixed (2026-10-09), NOT yet merged: commit 15518e1 on branch uta-0318,
+  worktree /mnt/Games/Scripts/Linux/ut-ants-uta0318 (own build/). Cause:
+  the door is Mover 999 (Tag Secret, Brush Model347); its six BSP surfs
+  name no texture and iBrushPoly -1, its Polys wear
+  uttech1.wall.bmpanels2. Fix: ubake::wearBrushPolygonTextures gives such
+  a surf its brush polygon's texture, by iBrushPoly or else the coplanar
+  polygon facing its way; baker revision 49. Verified in the worktree:
+  ctest -L unit 980/980, five hand mutants killed, DM-Phobos re-baked and
+  ut-shot at the capture camera draws the textured panel. Kept off main
+  so UTA-0334's running batch keeps its r48 ut-bake. Left: once that
+  batch ends, merge to main, rebuild build/, add the CHANGELOG entry and
+  set CLAUDE.md's stale-bake fact to baker 49 (UTA-0318), push, flip on
+  GitHub's matrix, remove the worktree.
   **Layman:** In one Phobos room a bright white rectangle shows on a wall that should be dark.
   Kind: investigate.
   Source: user-request-2026-10-06.
@@ -15968,6 +15981,20 @@ stays with movement in 0.2.0.
   bake folder, as the launcher bakes; scratch ~/.cache/uta-scratch/u338/.
   Each map's sky is surveyed looking up from ten nav nodes, as UTA-0338
   SS 4.6 chose AS-Mazon's, to find the ones that get a sun.
+  Progress (2026-10-09): cc-job batch-bake runs
+  ~/.cache/uta-scratch/u338/tools/batch-bake.sh at baker 48 into
+  ~/.cache/ut-ants/content/bakes; each map's report, stderr and exit
+  code land in ~/.cache/uta-scratch/u338/batch/ (76 of 127 done, all
+  exit 0 so far). These r48 bakes serve the sky survey only: UTA-0318
+  moves the baker to 49, so the final bake is a second batch run after
+  its merge (delete batch/rc-* first; the script skips maps with one).
+  Sun picks: run tools/batch-survey.sh (ten upward views per map, cameras
+  already in batch-up/), then tools/suns.py batch-up <map>... It marks
+  CLEAR the AS-Mazon bar (sky share >= 0.05, blue >= 0.9, mean blue >=
+  180, spread <= 25) and names a painted sun seen in two views at one
+  direction. A clear sky with a painted sun gets a recipe [sun] there,
+  as recipes/as-mazon.recipe; a clear sky with none is a question for
+  the user, since no sun position would be read off the sky.
   **Layman:** Prepare the newly added maps so this project can show them, once the lighting work is done.
   Kind: chore.
   Source: user-request-2026-10-07.
