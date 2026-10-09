@@ -148,6 +148,8 @@ std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept {
     // volume keeps such a light in directLights, and its tiles were wasted.
     // Nor does a spot of cone 0 -- the rule is litDirectly's (UTA-0326 SS 4.1).
     if (!ubundle::litDirectly(light)) return 0;
+    // UTA-0338 SS 3: the sun has no shadow map; the probes' view of it stands in.
+    if (light.effect == ubundle::SUN_EFFECT) return 0;
     return isSpot(light) ? 1 : 6;
 }
 

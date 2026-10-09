@@ -80,4 +80,27 @@ vec3 indirectAt(ProbeLattice lattice, vec3 x, vec3 n) {
     return weights > 0.0 ? sum / weights : vec3(0.0);
 }
 
+// UTA-0338 SS 4.5: the share of the sun seen at `x`, blended over the cell's
+// corners as indirectAt blends their light, from the first face's fourth
+// float. Zero with no corner present.
+float sunSeenAt(ProbeLattice lattice, vec3 x) {
+    if (lattice.count == 0u || lattice.spacing == 0u) return 0.0;
+    vec3 cell = x / float(lattice.spacing);
+    vec3 base = floor(cell);
+    vec3 f = cell - base;
+
+    float sum = 0.0;
+    float weights = 0.0;
+    for (int corner = 0; corner < 8; ++corner) {
+        ivec3 step = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
+        int probe = probeAt(lattice, ivec3(base) + step);
+        if (probe < 0) continue;
+        vec3 share = mix(1.0 - f, f, vec3(step));
+        float weight = share.x * share.y * share.z;
+        sum += weight * probes[probe].faces[0].a;
+        weights += weight;
+    }
+    return weights > 0.0 ? sum / weights : 0.0;
+}
+
 #endif

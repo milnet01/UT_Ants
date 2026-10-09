@@ -154,9 +154,30 @@ vec2 parallaxUv(Material material, TextureAxes axes, vec3 n, bool shuffled, Tile
     return mix(at, before, clamp(weight, 0.0, 1.0));
 }
 
+// UTA-0338 SS 4.5: the disc's angular radius, ubake::SUN_RADIUS; how much
+// brighter than its light the disc shows, so the output stage's bloom takes it;
+// and the halo's strength and width, in radians, around it.
+const float SUN_RADIUS = 0.035;
+const float SUN_DISC_GAIN = 16.0;
+const float SUN_HALO = 0.4;
+const float SUN_HALO_WIDTH = 0.15;
+
+// UTA-0338 SS 4.5: the sun's disc and halo in direction `d`, in its colour --
+// nothing without a sun, or while the sky's faces are captured, which stay the
+// map's own sky.
+vec3 sunInSky(vec3 d) {
+    if (frame.sun == NONE || frame.skyCapture != 0u) return vec3(0.0);
+    Light sun = lights[frame.sun];
+    float angle = acos(clamp(dot(d, -lightDirection(sun.pitch, sun.yaw)), -1.0, 1.0));
+    vec3 colour = lightColour(sun.hue, sun.saturation) * (lightIntensity(sun.brightness) * sun.levelBrightness);
+    float disc = 1.0 - smoothstep(0.8 * SUN_RADIUS, SUN_RADIUS, angle);
+    return colour * (SUN_DISC_GAIN * disc + SUN_HALO * exp(-angle / SUN_HALO_WIDTH));
+}
+
 // UTA-0163: the level's sky in direction `d`, from the six faces urender drew
 // from its SkyZoneInfo -- Sky.h. The face is the axis `d` is longest on, in
-// shadows.glsl's order, and a sample stays half a texel inside its cell.
+// shadows.glsl's order, and a sample stays half a texel inside its cell. The
+// sun's disc is added over it (UTA-0338 SS 4.5), so water reflects it too.
 vec3 skyAt(vec3 d) {
     vec3 a = abs(d);
     uint face;
@@ -169,7 +190,8 @@ vec3 skyAt(vec3 d) {
     vec2 size = vec2(textureSize(textures[nonuniformEXT(frame.skyTexture)], 0));
     vec2 halfTexel = 0.5 / (size * sky.atlasRect.zw);
     cell = clamp(cell, halfTexel, 1.0 - halfTexel);
-    return textureLod(textures[nonuniformEXT(frame.skyTexture)], sky.atlasRect.xy + cell * sky.atlasRect.zw, 0.0).rgb;
+    return textureLod(textures[nonuniformEXT(frame.skyTexture)], sky.atlasRect.xy + cell * sky.atlasRect.zw, 0.0).rgb
+           + sunInSky(d);
 }
 
 // UTA-0275: a detail texture's weight falls linearly from whole at the eye to
@@ -362,6 +384,11 @@ void main() {
         // not probes at all. Such a wall got no indirect light in stepped patches.
         vec3 probePoint = worldPosition + litSurface * (0.5 * float(frame.probeSpacing));
         vec3 indirect = indirectAt(lattice, probePoint, n);
+        // UTA-0338 SS 4.5: a fragment the mask does not light -- a mover, an
+        // actor -- takes the sun through the probes' view of it, read where the
+        // probes are. It has no cluster and no shadow map.
+        if (maskChart == MASK_NO_CHART && frame.sun != NONE)
+            direct += lightAt(lights[frame.sun], worldPosition, n) * sunSeenAt(lattice, probePoint);
         // UTA-0292 withdrew UTA-0156 SS 4.4's zone ambient: against exact light
         // it added up to 1.6 times the true light. Bounce and sky light, in the
         // probes, take its place (UTA-0112 SS 4.12).

@@ -58,6 +58,7 @@ int main(int argc, char** argv) {
         std::cerr << "ut-shot: " << warning << "\n";
     // UTA-0256 SS 4.4: the recipe's added lamps, or the map as it was made.
     uta::ubundle::applyAddedLamps(*bundle, options->addedLamps);
+    uta::ubundle::applySun(*bundle); // UTA-0338 SS 4.2
     *bytes = {};
     // What the baked indirect light holds, so a weak bounce can be told from a
     // missing one.

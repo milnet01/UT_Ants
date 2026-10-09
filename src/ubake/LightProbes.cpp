@@ -238,6 +238,8 @@ std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& light
         // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
         if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == ubundle::STRIP_ABSORBED)
             continue;
+        // UTA-0338 SS 4.4: a sun is no actor; its caller adds it by hand.
+        if (light.effect == ubundle::SUN_EFFECT) continue;
         const auto found = std::lower_bound(
             placements.actors.begin(), placements.actors.end(), light.exportIndex,
             [](const ubundle::ActorPlacement& actor, std::uint32_t slot) { return actor.exportIndex < slot; });

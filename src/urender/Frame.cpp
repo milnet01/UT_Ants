@@ -253,6 +253,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     if (bundle.lightProbes) {
         fnv.addValue(bundle.lightProbes->spacing);
         fnv.addEnds(std::span<const ubundle::LightProbe>(bundle.lightProbes->probes));
+        fnv.addEnds(std::span<const float>(bundle.lightProbes->sunSeen)); // UTA-0338, uploaded with the probes
     }
     // UTA-0164 SS 4.5: a bundle differing only in its occlusion must re-upload it.
     if (bundle.occlusion) {
@@ -1608,6 +1609,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     }
     frame.lightCount = static_cast<std::uint32_t>(frameLights.size());
     frame.flashlight = flashlight; // UTA-0326 SS 4.5
+    // UTA-0338 SS 4.5: applySun put the sun last in LITE, if the bundle has one.
+    frame.sun = gpu::NONE;
+    for (std::size_t i = 0; i < frameLights.size(); ++i)
+        if (frameLights[i].effect == ubundle::SUN_EFFECT) frame.sun = static_cast<std::uint32_t>(i);
 
     // UTA-0015 SS 4.4: which volumetric lights glow, from the camera's zone.
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;

@@ -60,6 +60,7 @@ struct FrameData {
     uint skyCapture;       // UTA-0281: nonzero while the sky's faces are captured
     uint shadowMaskTexture; // UTA-0326 SS 4.5: NONE when the bundle has no SMSK
     uint flashlight;        // UTA-0326 SS 4.5: an index into lights, or NONE
+    uint sun;               // UTA-0338 SS 4.5: an index into lights, or NONE
 };
 
 struct Object {

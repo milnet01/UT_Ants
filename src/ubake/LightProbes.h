@@ -63,7 +63,8 @@ inline constexpr double REFLECTANCE_SCALE = 4;
 inline constexpr double ALBEDO_CAP = 0.9;
 
 /// SS 4.4: the lights of `lights` that bake, in the order given -- not a
-/// backdrop light, not special-lit, and static by its resolved bStatic.
+/// backdrop light, not special-lit, not a sun (UTA-0338 SS 4.4, which its
+/// caller adds), and static by its resolved bStatic.
 [[nodiscard]] std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& lights,
                                                       const ubundle::Placements& placements);
 

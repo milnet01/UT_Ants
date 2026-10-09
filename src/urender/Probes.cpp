@@ -31,6 +31,9 @@ ProbeTable probeTable(const std::optional<ubundle::LightProbes>& lightProbes) {
         for (std::size_t face = 0; face < 6; ++face)
             for (std::size_t channel = 0; channel < 3; ++channel)
                 record.faces[face * 4 + channel] = probe.cube[face][channel];
+        // UTA-0338 SS 4.5: the share of the sun it sees rides in the first
+        // face's spare fourth float; 0 where LPRB holds none.
+        if (i < lightProbes->sunSeen.size()) record.faces[3] = lightProbes->sunSeen[i];
         table.probes.push_back(record);
 
         // Linear probing, as probes.glsl's probeAt searches. LPRB's cells are

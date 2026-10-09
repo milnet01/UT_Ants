@@ -104,8 +104,12 @@ struct FrameData {
     /// UTA-0326 SS 4.5: the flashlight's index into LIGHTS, or NONE. A level
     /// fragment lit from its chart's pairs adds it, since no pair names it.
     std::uint32_t flashlight;
+    /// UTA-0338 SS 4.5: the sun's index into LIGHTS, or NONE. It is in no
+    /// cluster; the shader lights other fragments from it through the probes'
+    /// view of it, and draws its disc in the sky.
+    std::uint32_t sun;
 };
-static_assert(sizeof(FrameData) == 380);
+static_assert(sizeof(FrameData) == 384);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -133,6 +137,7 @@ static_assert(offsetof(FrameData, cameraUnderwater) == 352);
 static_assert(offsetof(FrameData, skyCapture) == 368);
 static_assert(offsetof(FrameData, shadowMaskTexture) == 372); // UTA-0326 SS 4.5
 static_assert(offsetof(FrameData, flashlight) == 376);
+static_assert(offsetof(FrameData, sun) == 380); // UTA-0338 SS 4.5
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {

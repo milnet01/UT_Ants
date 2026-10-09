@@ -221,6 +221,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     // UTA-0277 SS 4.5: timed as the viewer draws it, with the player's answers.
     for (const std::string& warning : ubundle::applyTileAnswersFile(*bundle)) err << "ut-bench: " << warning << "\n";
     ubundle::applyAddedLamps(*bundle, true); // UTA-0256 SS 4.4: as the game draws it by default
+    ubundle::applySun(*bundle);              // UTA-0338 SS 4.2
     *bytes = {};
     const std::optional<std::vector<View>> views =
         readCameras(std::filesystem::path(*parsed->cameras), static_cast<double>(parsed->height) / parsed->width, err);

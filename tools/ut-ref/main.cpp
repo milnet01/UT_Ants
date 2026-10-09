@@ -18,6 +18,7 @@
 #include <string_view>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 using namespace uta;
@@ -98,6 +99,7 @@ int trace(std::vector<std::string_view> args) {
         return 1;
     }
     ubundle::applyAddedLamps(*bundle, addedLamps);
+    ubundle::applySun(*bundle); // UTA-0338 SS 4.2
     std::ifstream file{std::string(args[1]), std::ios::binary};
     auto materials = ubake::readMaterialLight(file);
     if (!file.eof() || !materials) {
@@ -121,8 +123,12 @@ int trace(std::vector<std::string_view> args) {
     std::optional<ubake::Vec3> sky;
     if (const auto view = ubundle::skyViewOf(*bundle))
         sky = ubake::Vec3{view->location[0], view->location[1], view->location[2]};
-    const ref::Reference reference(*bundle->geometry, ubake::bakedLights(*bundle->lights, *bundle->placements), sky,
-                                   *materials);
+    // UTA-0338 SS 4.4: the sun is no actor, so it joins the baked lights by hand,
+    // as the bake adds it.
+    std::vector<ubundle::Light> lights = ubake::bakedLights(*bundle->lights, *bundle->placements);
+    for (const ubundle::Light& light : *bundle->lights)
+        if (light.effect == ubundle::SUN_EFFECT) lights.push_back(light);
+    const ref::Reference reference(*bundle->geometry, std::move(lights), sky, *materials);
     const unsigned workers = std::max(1u, std::thread::hardware_concurrency() - 2);
 
     std::string line;
