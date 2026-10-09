@@ -13622,6 +13622,25 @@ stays with movement in 0.2.0.
   three flame sheets). A new LAMP section keeps them apart, LPRB gains
   an added-lamps probe layer, and --no-added-lamps restores the bake
   without them exactly. Next: build it.
+  Built (2026-10-09), steps 1-4 of 5, pushed at e5c7e2d: recipe
+  [lamp] sections (51db514), LAMP section and format 24 (a0aaca4), baker
+  revision 47 builds lamps (b961ebd), --no-added-lamps via
+  ubundle::applyAddedLamps (e5c7e2d). Local gate: GCC and Clang green
+  (unit 962, device 103 on lavapipe and GPU); MSVC leg NOT run locally
+  (Windows machine unreachable), so read GitHub's run for e5c7e2d before
+  flipping anything. Step 5 left: write recipes/DM-ArcaneTemple.recipe,
+  re-bake, re-measure views 3-6 (0-based lines of
+  ~/.cache/uta-scratch/u292/cams-nav-arcane.txt) with ut-compare. The
+  map's fitting is the wall torch: a 5-face holder brush plus three
+  crossed ancflame2 sheet brushes beside a Light, e.g. holder Brush92 and
+  sheets Brush93, Brush94, Brush96 near (-1315, 890, 128); every flame
+  brush is listed by ut-dump --surface-list (script in
+  ~/.cache/uta-scratch/u256/dump/). Which Light actor pairs with a torch,
+  and the walls of the dark rooms, are not yet found: a scratch tool
+  reading the r47 bundle's LITE, FLAM and GEOM against the map's export
+  names would answer both. Dark areas: view 3 long hall's right side,
+  view 4 corridor's right wall, view 5 pillared passage, view 6 small
+  room; frames in ~/.cache/uta-scratch/u256/cmp-arcane/pair-N.png.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
