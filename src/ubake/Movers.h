@@ -54,6 +54,15 @@ struct PivotSpace {
 [[nodiscard]] Result<PivotSpace> pivotSpaceOf(const MoverSite& mover,
                                               const ubundle::Placements& actors);
 
+/// UTA-0318: each surface of a mover's `model` that wears no texture takes
+/// the texture of its brush polygon in the Model's Polys -- the one UT99
+/// draws. That polygon is `iBrushPoly` where it names one; otherwise the one
+/// lying in the surface's plane and facing its way, as on DM-Phobos's secret
+/// door, whose surfaces name none. A Model with no Polys, Polys that do not
+/// read, or a surface no polygon matches leaves the surface as it was: it is
+/// drawn as before, not refused.
+void wearBrushPolygonTextures(const upkg::Package& map, upkg::Model& model);
+
 /// One mover's shape, by SS 4.4 and SS 4.5, from its Model already read.
 ///
 /// buildGeometry's refusal comes back with its own code, naming the actor

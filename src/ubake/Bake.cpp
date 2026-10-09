@@ -1138,6 +1138,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                 read.error()
                     .withContext("reading mover " + actors.placements.actors[mover.placement].path)
                     .withContext(prefixFor(mapName)));
+        // UTA-0318: a surface wearing no texture wears its brush polygon's.
+        wearBrushPolygonTextures(map, *read);
         moverModels.push_back(std::move(*read));
     }
 

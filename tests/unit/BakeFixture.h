@@ -136,6 +136,13 @@ struct BrushSpec {
     std::uint32_t polyFlags = 0;
     std::int32_t iSurf = 0; ///< the node's surface; past the Model's one, buildGeometry refuses
     std::int32_t iPlane = -1; ///< the node's coplanar link; naming no node, COLL refuses (UTA-0111)
+    /// UTA-0318: when set, the Model's Polys hold one polygon, the square,
+    /// wearing this reference, and the surface names it as its brush polygon.
+    std::int32_t polyTexture = 0;
+    std::int32_t brushPoly = 0; ///< the surface's iBrushPoly; -1 names none, as DM-Phobos's door
+    /// When set, Polys hold first a polygon in the square's plane facing the
+    /// other way, wearing this -- a thin door's back.
+    std::int32_t backTexture = 0;
 };
 
 /// A package under construction: its three tables, kept consistent, and the

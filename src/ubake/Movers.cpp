@@ -149,6 +149,39 @@ Result<PivotSpace> pivotSpaceOf(const MoverSite& mover, const ubundle::Placement
     return pivot;
 }
 
+void wearBrushPolygonTextures(const upkg::Package& map, upkg::Model& model) {
+    if (model.polys.kind() != upkg::ObjectReferenceKind::Export) return;
+    const auto exports = map.exports();
+    if (model.polys.index() >= exports.size()) return;
+    const auto polys = upkg::readPolys(map, exports[model.polys.index()]);
+    if (!polys.has_value()) return;
+    const auto at = [](const std::vector<upkg::Vector3>& table, std::int32_t index) -> const upkg::Vector3* {
+        return index >= 0 && static_cast<std::size_t>(index) < table.size() ? &table[static_cast<std::size_t>(index)]
+                                                                            : nullptr;
+    };
+    const auto dot = [](const upkg::Vector3& a, const upkg::Vector3& b) {
+        return double{a.x} * b.x + double{a.y} * b.y + double{a.z} * b.z;
+    };
+    // Within this of facing alike and of lying in one plane, in UT units.
+    constexpr double SAME_FACING = 0.999, SAME_PLANE = 1.0;
+    for (upkg::BspSurf& surf : model.surfs) {
+        if (surf.texture.kind() != upkg::ObjectReferenceKind::Null) continue;
+        if (surf.iBrushPoly >= 0 && static_cast<std::size_t>(surf.iBrushPoly) < polys->polygons.size()) {
+            surf.texture = polys->polygons[static_cast<std::size_t>(surf.iBrushPoly)].texture;
+            continue;
+        }
+        const upkg::Vector3* const normal = at(model.vectors, surf.vNormal);
+        const upkg::Vector3* const base = at(model.points, surf.pBase);
+        if (normal == nullptr || base == nullptr) continue;
+        for (const upkg::Polygon& polygon : polys->polygons) {
+            const upkg::Vector3 gap{polygon.base.x - base->x, polygon.base.y - base->y, polygon.base.z - base->z};
+            if (dot(polygon.normal, *normal) < SAME_FACING || std::abs(dot(gap, *normal)) > SAME_PLANE) continue;
+            surf.texture = polygon.texture; // the first polygon in the plane, in Polys' order
+            break;
+        }
+    }
+}
+
 Result<ubundle::MoverShape> buildMover(const MoverSite& mover, const upkg::Model& model,
                                        const ubundle::Placements& actors, const MaterialLookup& lookup) {
     const ubundle::ActorPlacement& actor = actors.actors[mover.placement];

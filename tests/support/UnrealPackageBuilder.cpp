@@ -862,6 +862,38 @@ ModelExportWriter& ModelExportWriter::setRootOutside(std::int32_t value) {
     return *this;
 }
 
+ModelExportWriter& ModelExportWriter::setPolys(std::int32_t reference) {
+    polys_ = reference;
+    return *this;
+}
+
+std::vector<std::uint8_t> polysExportData(const std::vector<PolygonSpec>& polygons) {
+    std::vector<std::uint8_t> out;
+    appendIndex(out, 0); // the property list's terminator, `None`
+    appendU32(out, static_cast<std::uint32_t>(polygons.size())); // Num
+    appendU32(out, static_cast<std::uint32_t>(polygons.size())); // Max
+    const auto vector = [&out](const std::array<float, 3>& v) {
+        for (const float part : v) appendFloat(out, part);
+    };
+    for (const PolygonSpec& polygon : polygons) {
+        appendIndex(out, static_cast<std::int32_t>(polygon.vertices.size()));
+        vector(polygon.vertices.empty() ? std::array<float, 3>{} : polygon.vertices.front()); // base
+        vector(polygon.normal);
+        vector(polygon.textureU);
+        vector(polygon.textureV);
+        for (const auto& vertex : polygon.vertices) vector(vertex);
+        appendU32(out, polygon.polyFlags);
+        appendIndex(out, 0);               // actor
+        appendIndex(out, polygon.texture);
+        appendIndex(out, 0);               // item name: None
+        appendIndex(out, 0);               // link
+        appendIndex(out, 0);               // brush polygon
+        appendU16(out, 0);                 // panU
+        appendU16(out, 0);                 // panV
+    }
+    return out;
+}
+
 std::vector<std::uint8_t> ModelExportWriter::build() const {
     const auto appendVector = [](std::vector<std::uint8_t>& out, const std::array<float, 3>& v) {
         appendFloat(out, v[0]);
@@ -930,7 +962,7 @@ std::vector<std::uint8_t> ModelExportWriter::build() const {
         appendU64(out, 0);                            // connectivity
         appendU64(out, 0);                            // visibility
     }
-    appendIndex(out, 0);                              // Polys: null
+    appendIndex(out, polys_);                         // Polys: null unless set
     appendIndex(out, 0);                              // LightMap
     appendIndex(out, 0);                              // LightBits
     appendIndex(out, 0);                              // Bounds

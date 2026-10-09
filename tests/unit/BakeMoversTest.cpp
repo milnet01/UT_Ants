@@ -339,6 +339,85 @@ TEST_CASE("INV-8: a texture only a mover wears gets its material made", "[ubake]
     }
 }
 
+TEST_CASE("UTA-0318: a mover surface wearing no texture wears its brush polygon's", "[ubake][movers]") {
+    // DM-Phobos's secret door: its Model's surfaces name no texture, and its
+    // Polys name bmpanels2, which the original draws.
+    Fixture fixture = standardFixture();
+    fixture.packageTextures.push_back(TextureSpec{"Hatch", "Metal", picture(5), false});
+    MapBuilder& map = fixture.map;
+    BrushSpec door = tiltedSquare(0);
+    door.polyTexture = map.importTexture("TexPkg", "Metal", "Hatch");
+    // After the standard fixture's own door, so its shape is the last.
+    map.addActor("Secret0", map.importClass("Engine", "Mover"), {objectProperty("Brush", map.addBrushModel(door))});
+    MemoryPackages packages = memoryPackagesFor(fixture);
+    packages.add("engine", enginePackage());
+    const std::vector<std::uint8_t> bytes = map.build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    uta::JobSystem jobs(2);
+    const auto result = uta::ubake::detail::bake(*package, MAP_NAME, packages.resolver(), jobs,
+                                                 &uta::umat::curated, uta::umat::TEXTURE_BUDGET_BYTES);
+    if (!result.has_value()) FAIL("refused: " << result.error().message());
+    REQUIRE(result->bundle.movers.has_value());
+    std::vector<std::string> worn;
+    for (const auto& batch : result->bundle.movers->back().geometry.batches) worn.push_back(batch.material);
+    CHECK(worn == std::vector<std::string>{"texpkg.metal.hatch"});
+}
+
+TEST_CASE("UTA-0318: a mover surface naming no brush polygon wears the one in its plane", "[ubake][movers]") {
+    // DM-Phobos's door names none: every surface's iBrushPoly is -1.
+    Fixture fixture = standardFixture();
+    fixture.packageTextures.push_back(TextureSpec{"Hatch", "Metal", picture(5), false});
+    MapBuilder& map = fixture.map;
+    BrushSpec door = tiltedSquare(0);
+    door.polyTexture = map.importTexture("TexPkg", "Metal", "Hatch");
+    door.brushPoly = -1;
+    // Its back, in the same plane and listed first, wears another: facing decides.
+    fixture.packageTextures.push_back(TextureSpec{"Grate", "Metal", picture(6), false});
+    door.backTexture = map.importTexture("TexPkg", "Metal", "Grate");
+    map.addActor("Secret0", map.importClass("Engine", "Mover"), {objectProperty("Brush", map.addBrushModel(door))});
+    MemoryPackages packages = memoryPackagesFor(fixture);
+    packages.add("engine", enginePackage());
+    const std::vector<std::uint8_t> bytes = map.build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    uta::JobSystem jobs(2);
+    const auto result = uta::ubake::detail::bake(*package, MAP_NAME, packages.resolver(), jobs,
+                                                 &uta::umat::curated, uta::umat::TEXTURE_BUDGET_BYTES);
+    if (!result.has_value()) FAIL("refused: " << result.error().message());
+    REQUIRE(result->bundle.movers.has_value());
+    std::vector<std::string> worn;
+    for (const auto& batch : result->bundle.movers->back().geometry.batches) worn.push_back(batch.material);
+    CHECK(worn == std::vector<std::string>{"texpkg.metal.hatch"});
+}
+
+TEST_CASE("UTA-0318: a mover surface keeps its own texture over its brush polygon's", "[ubake][movers]") {
+    Fixture fixture = standardFixture();
+    fixture.packageTextures.push_back(TextureSpec{"Hatch", "Metal", picture(5), false});
+    fixture.packageTextures.push_back(TextureSpec{"Grate", "Metal", picture(6), false});
+    MapBuilder& map = fixture.map;
+    BrushSpec door = tiltedSquare(map.importTexture("TexPkg", "Metal", "Grate"));
+    door.polyTexture = map.importTexture("TexPkg", "Metal", "Hatch");
+    // After the standard fixture's own door, so its shape is the last.
+    map.addActor("Secret0", map.importClass("Engine", "Mover"), {objectProperty("Brush", map.addBrushModel(door))});
+    MemoryPackages packages = memoryPackagesFor(fixture);
+    packages.add("engine", enginePackage());
+    const std::vector<std::uint8_t> bytes = map.build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+
+    uta::JobSystem jobs(2);
+    const auto result = uta::ubake::detail::bake(*package, MAP_NAME, packages.resolver(), jobs,
+                                                 &uta::umat::curated, uta::umat::TEXTURE_BUDGET_BYTES);
+    if (!result.has_value()) FAIL("refused: " << result.error().message());
+    REQUIRE(result->bundle.movers.has_value());
+    std::vector<std::string> worn;
+    for (const auto& batch : result->bundle.movers->back().geometry.batches) worn.push_back(batch.material);
+    CHECK(worn == std::vector<std::string>{"texpkg.metal.grate"});
+}
+
 TEST_CASE("INV-9: a mover whose Brush names no Model refuses the bake", "[ubake][movers]") {
     MapBuilder map;
     const std::int32_t texture = map.addTexture(TextureSpec{"Wall", "", picture(1), false});

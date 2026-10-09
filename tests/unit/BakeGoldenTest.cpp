@@ -117,7 +117,9 @@ namespace {
 // 48, format 25: UTA-0338 adds SUN and LPRB's sun visibility count, and bakes
 // a recipe's sun. The fixture has no recipe, so only the format bump and the
 // empty count moved it.
-constexpr std::uint32_t RECORDED_UNDER = 48;
+// 49: UTA-0318 dresses a mover surface that wears no texture in its brush
+// polygon's. The fixture's mover wears its own, so the digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 49;
 constexpr std::string_view GOLDEN =
     "a2f855de9a1ed2b773e468cd37ec548d8544209e389cf7601c4daf23c252f72f";
 

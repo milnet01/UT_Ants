@@ -438,7 +438,25 @@ std::int32_t MapBuilder::addBrushModel(const BrushSpec& brush) {
     surf.vNormal = 0;
     surf.vTextureU = 1;
     surf.vTextureV = 2;
+    surf.iBrushPoly = brush.brushPoly;
     model.addSurf(surf);
+    if (brush.polyTexture != 0) {
+        PolygonSpec polygon;
+        polygon.vertices.assign(brush.corners.begin(), brush.corners.end());
+        polygon.normal = brush.normal;
+        polygon.textureU = brush.textureU;
+        polygon.textureV = brush.textureV;
+        polygon.texture = brush.polyTexture;
+        std::vector<PolygonSpec> polygons{polygon};
+        if (brush.backTexture != 0) {
+            PolygonSpec back = polygon;
+            back.normal = {-polygon.normal[0], -polygon.normal[1], -polygon.normal[2]};
+            back.texture = brush.backTexture;
+            polygons.insert(polygons.begin(), back);
+        }
+        model.setPolys(packer_.addExport(packer_.importClass("Engine", "Polys"), 0,
+                                         "Polys" + std::to_string(brushes_), polysExportData(polygons)));
+    }
 
     return packer_.addExport(packer_.importClass("Engine", "Model"), 0,
                              "Brush" + std::to_string(brushes_++), model.build());

@@ -364,6 +364,21 @@ private:
 /// spec's SS 7). A table holds what a caller added and nothing else, so an
 /// unconfigured writer builds the smallest complete Model: every table empty,
 /// both trailing i32 present.
+/// One brush polygon of a `Polys` export -- UTA-0004 SS 4.4's layout, which
+/// upkg::readPolys reads. The actor, item name, link and brush polygon are 0.
+struct PolygonSpec {
+    std::vector<std::array<float, 3>> vertices;
+    std::array<float, 3> normal{0, 0, 1};
+    std::array<float, 3> textureU{1, 0, 0};
+    std::array<float, 3> textureV{0, 1, 0};
+    std::int32_t texture = 0; ///< an object reference
+    std::uint32_t polyFlags = 0;
+};
+
+/// A `Polys` export's data: an empty property list ended by name 0, which
+/// every fixture here makes `None`, then the polygons -- UTA-0318.
+[[nodiscard]] std::vector<std::uint8_t> polysExportData(const std::vector<PolygonSpec>& polygons);
+
 class ModelExportWriter {
 public:
     /// One BSP node. Children, the coplanar link, the hull and leaves default
@@ -421,6 +436,8 @@ public:
     ModelExportWriter& addLeafHull(std::int32_t entry);
     /// RootOutside; 1 unless set.
     ModelExportWriter& setRootOutside(std::int32_t value);
+    /// The Polys export the Model names, an object reference; null unless set -- UTA-0318.
+    ModelExportWriter& setPolys(std::int32_t reference);
 
     [[nodiscard]] std::vector<std::uint8_t> build() const;
 
@@ -438,6 +455,7 @@ private:
     std::vector<std::int32_t> zoneActors_;
     std::vector<std::int32_t> leaves_;
     std::vector<std::int32_t> leafHulls_;
+    std::int32_t polys_ = 0;
     std::int32_t rootOutside_ = 1;
 };
 
