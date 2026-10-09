@@ -13616,6 +13616,12 @@ stays with movement in 0.2.0.
   as if it was always there; (3) each map keeps a list of its added
   lamps, and a graphics setting turns them all off. The per-map list of
   added shapes is the one UTA-0331 needs too. Next: the spec.
+  Spec (2026-10-09): docs/specs/UTA-0256-added-lamps.md. Lamps go in
+  the recipe as [lamp] sections; each copies a map Light and named
+  fitting brushes (DM-ArcaneTemple's torches are a holder brush plus
+  three flame sheets). A new LAMP section keeps them apart, LPRB gains
+  an added-lamps probe layer, and --no-added-lamps restores the bake
+  without them exactly. Next: build it.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
