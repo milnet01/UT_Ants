@@ -13641,6 +13641,18 @@ stays with movement in 0.2.0.
   names would answer both. Dark areas: view 3 long hall's right side,
   view 4 corridor's right wall, view 5 pillared passage, view 6 small
   room; frames in ~/.cache/uta-scratch/u256/cmp-arcane/pair-N.png.
+  Step 5 (2026-10-09), b37dcaf: recipes/dm-arcanetemple.recipe adds
+  four copies of Light9's torch (Brush92 holder, Brush93/94/96 flames),
+  each standing on a floor or sill, back to a wall. GitHub's run for
+  e5c7e2d was green on all three compilers. Measured, mean grey ours over
+  the original on the ten nav views (original frames from ut-compare;
+  ours at ultra, --light-time 0, 1280x720), r46 / lamps off / lamps on:
+  v0 0.66/0.66/0.70, v1 0.84/0.84/0.84, v2 0.58/0.58/0.58,
+  v3 0.49/0.49/1.25, v4 0.35/0.35/1.95, v5 0.65/0.65/0.94,
+  v6 0.47/0.47/0.86, v7 0.75/0.75/0.80, v8 0.68/0.68/0.68,
+  v9 0.03/0.03/0.11. Views 3-6 clear half, none falls, lamps off equals
+  r46 on every view. View 4's 1.95 is its lamp standing near that camera.
+  Left: flip once GitHub's matrix is green for b37dcaf.
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
