@@ -15757,11 +15757,17 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-KGalleon-20261006-094222, ~/.cache/uta-scratch/capreview/DM-KGalleon-20261006-094222/pair-0.png
 
-- 📋 [UTA-0320] **DM-Fetid: a pale pipe across the top of a corridor view is missing in ours.**
+- ✅ [UTA-0320] **DM-Fetid: a pale pipe across the top of a corridor view is missing in ours.**
   ut-compare at HEAD, camera -1012.61 -43.52 16.59 -3704 48508 0 121.28.
   Everything else in the view matches closely. First: is the pipe BSP
   or a mesh actor? A mesh is not drawn yet and this is then not a
   defect for 0.1.0; BSP missing would be.
+  Resolved (2026-10-09): the pipe is a mesh actor, so by this item's
+  own rule it is not a 0.1.0 defect. The r48 bake's placements put
+  Botpack.Pipe actor 639 at (-1017, -414, 221): 370 units straight ahead
+  of the camera and 205 above, the top edge of the frame where the
+  original draws it. No BSP surface there carries a pipe texture. Drawing
+  mesh decorations is filed as UTA-0341 in 0.2.0.
   **Layman:** A pipe the original draws along the ceiling of one Fetid corridor does not appear in ours.
   Kind: investigate.
   Source: user-request-2026-10-06.
@@ -17716,6 +17722,16 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-decision-2026-10-09.
   Lanes: urender.
+
+- 📋 [UTA-0341] **urender: draw a map's mesh decorations -- pipes, barrels, tube lights and the like.**
+  Found by UTA-0320 (2026-10-09): DM-Fetid's missing ceiling pipe is
+  Botpack.Pipe actor 639, a mesh decoration, not BSP. The renderer draws
+  no mesh actor, and no item planned it: UTA-0159 lights characters only.
+  DM-Fetid alone places pipe, pipebend, barrel2, tubelight and lightbox
+  actors. Placed in 0.2.0 beside the weapons, which need meshes drawn too.
+  **Layman:** Pipes, barrels and other props placed in a map as models are not drawn yet, so some rooms look emptier than in the original.
+  Kind: feature.
+  Source: in-session-2026-10-09.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
