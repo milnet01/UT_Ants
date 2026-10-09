@@ -15998,6 +15998,12 @@ stays with movement in 0.2.0.
   SS UTA-0337 (sun direction from the sky's brightest blob, the sky
   zone's brightest light, or a per-map table; cloudy or clear judged
   from the sky cube, with a per-map override).
+  Spec (2026-10-09): docs/specs/UTA-0338-baked-sun.md. The recipe
+  declares the sun (RECIPE_VERSION 3); a SUN section (format 25) and
+  LPRB's per-probe sunSeen; seen where a ray toward it first meets a
+  backdrop surface; level lit through SMSK pairs, movers and actors by
+  the probes' sunSeen; a disc in skyAt. Baker 48. No review: building
+  is the reviewer here. Next: build it with write-code.
   **Layman:** Outdoor maps with a clear sky get a sun, and the ground is lit and shadowed from where it stands.
   Kind: feature.
   Source: user-request-2026-10-08.
