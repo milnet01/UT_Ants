@@ -26,7 +26,7 @@ namespace {
 
 void usage() {
     std::cerr
-        << "usage: ut-ref trace <bundle> <material light file> <width> <height> <samples> <depth> <out prefix> < cameras\n"
+        << "usage: ut-ref trace [--no-added-lamps] <bundle> <material light file> <width> <height> <samples> <depth> <out prefix> < cameras\n"
            "       ut-ref score <ref prefix> <shot prefix> <width> <height> <views>\n"
            "\n"
            "trace: each line of standard input is one camera, as ut-shot reads it:\n"
@@ -72,7 +72,13 @@ std::vector<float> readPfm(const std::string& path, std::uint32_t width, std::ui
     return out;
 }
 
-int trace(const std::vector<std::string_view>& args) {
+int trace(std::vector<std::string_view> args) {
+    // UTA-0256 SS 4.4: as ut-shot, the recipe's added lamps unless told not.
+    bool addedLamps = true;
+    if (!args.empty() && args[0] == "--no-added-lamps") {
+        addedLamps = false;
+        args.erase(args.begin());
+    }
     std::uint32_t width = 0, height = 0;
     int samples = 0, depth = 0;
     if (args.size() != 7 || !number(args[2], width) || !number(args[3], height) || !number(args[4], samples)
@@ -91,6 +97,7 @@ int trace(const std::vector<std::string_view>& args) {
                   << "\n";
         return 1;
     }
+    ubundle::applyAddedLamps(*bundle, addedLamps);
     std::ifstream file{std::string(args[1]), std::ios::binary};
     auto materials = ubake::readMaterialLight(file);
     if (!file.eof() || !materials) {

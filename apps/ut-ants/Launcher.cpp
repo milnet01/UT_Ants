@@ -331,6 +331,7 @@ private:
             if (options_.windowed) args.emplace_back("--windowed");
             if (options_.validation) args.emplace_back("--validation");
             if (options_.showMissing) args.emplace_back("--show-missing");
+            if (!options_.addedLamps) args.emplace_back("--no-added-lamps");
             if (options_.tier.has_value()) {
                 args.emplace_back("--tier");
                 args.emplace_back(urender::tierName(*options_.tier));

@@ -31,6 +31,8 @@ struct Options {
     bool validation = false; ///< ask urender for the Vulkan validation layer
     /// UTA-0177: draw a material the bake could not make in magenta, not grey.
     bool showMissing = false;
+    /// UTA-0256 SS 4.4: draw the recipe's added lamps. False: the map as it was made.
+    bool addedLamps = true;
     /// UTA-0153: a resizable window. Unset: borderless fullscreen at the desktop's size.
     bool windowed = false;
     /// UTA-0051: the quality tier. Unset: urender chooses from the device.

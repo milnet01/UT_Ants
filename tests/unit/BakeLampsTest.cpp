@@ -1,4 +1,5 @@
-// UTA-0256: the bake's added lamps -- INV-4, INV-5 and INV-6.
+// UTA-0256: the bake's added lamps -- INV-4, INV-5, INV-6, and INV-7's
+// bundle half: off, a lamp's bundle is a bake without it.
 //
 // docs/specs/UTA-0256-added-lamps.md SS 4.3.
 //
@@ -27,6 +28,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -293,4 +295,47 @@ TEST_CASE("UTA-0256 INV-6: the map's own bake is untouched by a lamp", "[ubake][
     CHECK(pairsBelow(*with.bundle.shadowMask, lite) == pairsBelow(*without.bundle.shadowMask, lite));
     CHECK(std::ranges::any_of(with.bundle.shadowMask->pairs,
                               [lite](const ubundle::MaskPair& pair) { return pair.light == lite; }));
+}
+
+TEST_CASE("UTA-0256 INV-7: off leaves a lamp's bundle as a bake without it", "[ubake][lamp]") {
+    const Room fixture = room();
+    const Recipe recipe = recipeWith({quarterLamp()});
+    BakeResult with = bakedOk(fixture, &recipe);
+    const BakeResult without = bakedOk(fixture, nullptr);
+    ubundle::applyAddedLamps(with.bundle, false);
+
+    CHECK_FALSE(with.bundle.lamps.has_value());
+    CHECK(with.bundle.lights->size() == without.bundle.lights->size());
+    CHECK(with.bundle.flames->size() == without.bundle.flames->size());
+    CHECK(with.bundle.movers->size() == without.bundle.movers->size());
+    CHECK(with.bundle.lightProbes->added.empty());
+    for (std::size_t p = 0; p < with.bundle.lightProbes->probes.size(); ++p)
+        CHECK(with.bundle.lightProbes->probes[p].cube == without.bundle.lightProbes->probes[p].cube);
+    const auto all = std::numeric_limits<std::uint32_t>::max();
+    CHECK(pairsBelow(*with.bundle.shadowMask, all) == pairsBelow(*without.bundle.shadowMask, all));
+    CHECK(with.bundle.shadowMask->pairs.size() == without.bundle.shadowMask->pairs.size());
+}
+
+TEST_CASE("UTA-0256 INV-7: on folds a lamp into what the renderer draws", "[ubake][lamp]") {
+    const Room fixture = room();
+    const Recipe recipe = recipeWith({quarterLamp()});
+    BakeResult with = bakedOk(fixture, &recipe);
+    const auto added = with.bundle.lightProbes->added;
+    const auto before = with.bundle.lightProbes->probes;
+    const std::size_t lite = with.bundle.lights->size();
+    const std::size_t flames = with.bundle.flames->size();
+    const std::size_t movers = with.bundle.movers->size();
+    ubundle::applyAddedLamps(with.bundle, true);
+
+    CHECK_FALSE(with.bundle.lamps.has_value());
+    REQUIRE(with.bundle.lights->size() == lite + 1);
+    CHECK(with.bundle.lights->back().location == std::array<float, 3>{160, 96, 96});
+    REQUIRE(with.bundle.flames->size() == flames + 1);
+    CHECK(with.bundle.flames->back().light == static_cast<std::int32_t>(lite));
+    REQUIRE(with.bundle.movers->size() == movers + 1);
+    CHECK(with.bundle.movers->back().location == std::array<float, 3>{0, 0, 0});
+    CHECK(with.bundle.lightProbes->added.empty());
+    for (std::size_t p = 0; p < before.size(); ++p)
+        for (std::size_t face = 0; face < 6; ++face)
+            CHECK(with.bundle.lightProbes->probes[p].cube[face][0] == before[p].cube[face][0] + added[p][face][0]);
 }

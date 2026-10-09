@@ -13,9 +13,10 @@ namespace uta::client {
 
 void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
-           "               [--show-missing] [--notes <file>] [--baker-version <text>] <install> <bundle>\n"
+           "               [--show-missing] [--no-added-lamps] [--notes <file>]\n"
+           "               [--baker-version <text>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
-           "               <install>\n"
+           "               [--no-added-lamps] <install>\n"
            "       ut-ants --help\n"
            "\n"
            "Given only <install>, opens the map launcher: every playable map in the\n"
@@ -49,6 +50,8 @@ void usage(std::ostream& err) {
            "--validation asks for the Vulkan validation layer.\n"
            "--show-missing draws a texture the bake could not convert in magenta\n"
            "rather than grey, so it stands out.\n"
+           "--no-added-lamps draws the map without the lamps its recipe adds, as\n"
+           "the map was made.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n";
 }
@@ -64,6 +67,8 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
             options.validation = true;
         } else if (arg == "--show-missing") {
             options.showMissing = true;
+        } else if (arg == "--no-added-lamps") {
+            options.addedLamps = false;
         } else if (arg == "--windowed") {
             options.windowed = true;
         } else if (arg == "--tier") {

@@ -434,6 +434,8 @@ int main(int argc, char** argv) {
     // UTA-0277 SS 4.5: the player's answers about which pictures may move.
     for (const std::string& warning : uta::ubundle::applyTileAnswersFile(*bundle))
         std::cerr << "ut-ants: " << warning << "\n";
+    // UTA-0256 SS 4.4: the recipe's added lamps, or the map as it was made.
+    uta::ubundle::applyAddedLamps(*bundle, options->addedLamps);
     // UTA-0191: the bundle's identity, taken before the bytes go. A capture
     // records it so a frame can be tied to the exact bundle that drew it.
     const std::string bundleHash = uta::client::bundleHashHex(*bytes);

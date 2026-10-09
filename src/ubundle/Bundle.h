@@ -606,6 +606,16 @@ struct Bundle {
     std::optional<std::vector<AddedLamp>> lamps;
 };
 
+/// UTA-0256 SS 4.4: folds LAMP into the sections the renderer already
+/// draws, so it needs no lamp code of its own, and empties LAMP and LPRB's
+/// added cubes. With `on`, each lamp's light joins LITE at LITE's size plus its
+/// index -- the index its SMSK pairs name -- its flames join FLAM tied to it,
+/// its shape joins MOVR as a mover standing still where it was baked, and the
+/// added cubes join the probes'. Without, SMSK loses the lamps' pairs, so
+/// what is left draws as a bake without the lamps. The result is for drawing
+/// only: LITE and MOVR no longer keep their write order.
+void applyAddedLamps(Bundle& bundle, bool on);
+
 /// Decode a whole bundle.
 ///
 /// Total: every input returns. Never throws, never reads outside `bytes`,

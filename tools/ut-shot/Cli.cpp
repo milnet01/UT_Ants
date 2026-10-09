@@ -57,6 +57,7 @@ void usage(std::ostream& err) {
            "--linear        skip exposure and the tone map. The bytes written are\n"
            "                still sRGB-encoded: decode them before reading light.\n"
            "--no-probes     draw without the baked indirect light.\n"
+           "--no-added-lamps  draw without the lamps the map's recipe adds.\n"
            "--emission      also write <out prefix>-<line>-emission.pfm, the\n"
            "                linear emission bloom is drawn from.\n"
            "--light-terms   also write <out prefix>-<line>-light.pfm: red the direct\n"
@@ -132,6 +133,8 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
             options.linearOutput = true;
         } else if (flag == "--no-probes") {
             options.probes = false;
+        } else if (flag == "--no-added-lamps") {
+            options.addedLamps = false;
         } else if (flag == "--emission") {
             options.emission = true;
         } else if (flag == "--light-terms") {

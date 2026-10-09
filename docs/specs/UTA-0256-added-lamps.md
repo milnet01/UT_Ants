@@ -147,17 +147,25 @@ After `buildActors`, for each recipe lamp, in file order:
 
 `BAKER_REVISION` becomes 47.
 
-### 4.4 The setting and the renderer — `urender` and the apps
+### 4.4 The setting — `ubundle` and the apps
 
-- `urender::Config::addedLamps`, default `true`. The flag
-  `--no-added-lamps` sets it false in `ut-ants`, `ut-shot` and `ut-ref`.
-  A settings screen, when one exists, carries the same field.
-- **On:** the light list is LITE then each lamp's light; every SMSK pair
-  is used; lamp flames are drawn, tied to their lamp's index; each `shape` is
-  drawn as a mover's geometry is, at the identity placement, lit per frame by
-  the light list and the shadow maps; probes read `cube + added`.
-- **Off:** the light list is LITE alone; pairs naming the second range are
-  skipped; no lamp flame or shape is drawn; probes read `cube`.
+The renderer has no lamp code. `ubundle::applyAddedLamps(bundle, on)` folds
+LAMP into the sections it already draws, once the bundle is read, and
+empties LAMP and LPRB's `added`. `ut-ants` (and its launcher's child),
+`ut-shot`, `ut-ref` and `ut-bench` call it; the first three take
+`--no-added-lamps` to pass `false`. A settings screen, when one exists, sets
+the same choice.
+
+- **On:** each lamp's light joins LITE at index `|LITE| + k`, the index its
+  SMSK pairs name; its flames join FLAM tied to that index; its `shape` joins
+  MOVR as a mover standing still at the identity placement, so it is lit per
+  frame by the light list and the shadow maps; `added` is added to each
+  probe's cube.
+- **Off:** SMSK loses every pair naming the second range, each chart keeping
+  its own pairs in order; nothing else of the lamps is kept.
+
+The folded bundle is for drawing only: LITE and MOVR no longer keep their
+write order.
 
 ### 4.5 ArcaneTemple's lamps — `recipes/`
 
@@ -211,12 +219,15 @@ by § 3's rule, and checked by § 7's measurement.
   *Breaks when:* the fitting enters a ray set; the lamp's light joins the
   base probe gather.
 
-- **INV-7** — with `addedLamps` false, the fixture with its lamp renders the
-  same pixels as the fixture baked without it; with it true, the floor under
-  the lamp is brighter and the flame and holder are drawn.
-  *Test:* `tests/device/RenderLampsTest.cpp`, new, at `--light-time 0`.
-  *Breaks when:* a pair of the second range is used while off; `added` is read
-  while off; a shape is drawn while off.
+- **INV-7** — off, a baked lamp's bundle folds to the lamp-free bake's LITE,
+  FLAM, MOVR, probes and pairs, and draws the same pixels as the same bundle
+  never given the lamp; on, its light, flames, shape and bounce join the
+  sections the renderer draws, the surface it reaches is brighter and its
+  holder is drawn.
+  *Test:* `tests/unit/BakeLampsTest.cpp` for the sections;
+  `tests/device/RenderLampsTest.cpp`, new, for the pixels.
+  *Breaks when:* a pair of the second range is kept while off; a flame is not
+  tied to its lamp; `added` is not summed; a shape or light is dropped.
 
 ## 6. Failure modes
 
@@ -236,7 +247,8 @@ The device test carries the `device` label; the rest carry `unit`.
 - INV-1, INV-2 — `tests/unit/RecipeFormatTest.cpp`.
 - INV-3 — `tests/unit/BundleLampsTest.cpp`, new.
 - INV-4, INV-5, INV-6 — `tests/unit/BakeLampsTest.cpp`, new.
-- INV-7 — `tests/device/RenderLampsTest.cpp`, new.
+- INV-7 — `tests/unit/BakeLampsTest.cpp` and
+  `tests/device/RenderLampsTest.cpp`, new.
 - `tests/unit/BakeGoldenTest.cpp`, re-recorded for the format and revision.
 
 Each new test is seen failing against the code before its rule exists.
@@ -281,7 +293,7 @@ Each new test is seen failing against the code before its rule exists.
 | INV-1, INV-2 | `tests/unit/RecipeFormatTest.cpp` |
 | INV-3 | `tests/unit/BundleLampsTest.cpp` |
 | INV-4, INV-5, INV-6 | `tests/unit/BakeLampsTest.cpp` |
-| INV-7 | `tests/device/RenderLampsTest.cpp` |
+| INV-7 | `tests/unit/BakeLampsTest.cpp`, `tests/device/RenderLampsTest.cpp` |
 | Views 3 to 6 reach half the original | **nothing** — § 7's step 1, run by hand |
 | A copied fitting sits right on its wall | **nothing** — checked by eye on placing |
 

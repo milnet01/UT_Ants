@@ -60,6 +60,9 @@ struct Options {
     std::optional<double> lightSeconds;
     bool linearOutput = false;
     bool probes = true;
+    /// UTA-0256 SS 4.4: draw the recipe's added lamps. False draws the map as
+    /// it was made.
+    bool addedLamps = true;
     /// Also write each view's emission target, the bloom's source, as
     /// <prefix>-<line>-emission.pfm: a flame's own pixels, which colour cannot
     /// give once bloom has spread them (UTA-0263 SS 4.6).
