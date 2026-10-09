@@ -15937,7 +15937,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-07 via UT_MonsterHunt.
   Lanes: ut-dump.
 
-- 📋 [UTA-0334] **Bake the 127 maps UT_MonsterHunt added to the install on 2026-10-07.**
+- 🚧 [UTA-0334] **Bake the 127 maps UT_MonsterHunt added to the install on 2026-10-07.**
   100 DeathMatch and 27 Monster Hunt maps plus 122 support packages,
   in the reference install. File lists (one absolute path per line, JSON):
   /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/intake/
@@ -15949,6 +15949,10 @@ stays with movement in 0.2.0.
   baker, so baking first would mean baking twice.
   Waits on UTA-0338 too (2026-10-09): the sun is a light, so it goes
   into the bake first.
+  Started (2026-10-09): the 127 maps bake at baker 48 into the game's
+  bake folder, as the launcher bakes; scratch ~/.cache/uta-scratch/u338/.
+  Each map's sky is surveyed looking up from ten nav nodes, as UTA-0338
+  SS 4.6 chose AS-Mazon's, to find the ones that get a sun.
   **Layman:** Prepare the newly added maps so this project can show them, once the lighting work is done.
   Kind: chore.
   Source: user-request-2026-10-07.
@@ -15986,7 +15990,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-08.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0338] **ubake and urender: a sun on clear skies, baked as a light and drawn as a disc in the sky.**
+- ✅ [UTA-0338] **ubake and urender: a sun on clear skies, baked as a light and drawn as a disc in the sky.**
   Split from UTA-0337 part 2 (2026-10-09, by the session; the user
   said on 2026-10-09 they would go with its recommendations). Only
   this part changes the bake, so it lands before UTA-0334's 127 maps;
@@ -16018,6 +16022,8 @@ stays with movement in 0.2.0.
   no sun / sun: reference light 0.325 / 0.464; renderer's total gap
   0.128 / 0.107; direct gap 0.058 / 0.059. The gap falls 2.1 points, so
   it stays within SS 7's 2.
+  Shipped (2026-10-09): GitHub's matrix green on GCC 14, Clang 19 and
+  MSVC for 76a0dfb (run 37947523327).
   **Layman:** Outdoor maps with a clear sky get a sun, and the ground is lit and shadowed from where it stands.
   Kind: feature.
   Source: user-request-2026-10-08.
