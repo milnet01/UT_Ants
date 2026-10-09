@@ -1,11 +1,14 @@
-// The recipe format -- docs/specs/UTA-0113-recipe-format.md SS 4.2 and SS 4.4.
+// The recipe format -- docs/specs/UTA-0113-recipe-format.md SS 4.2 and SS 4.4,
+// and its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1.
 
 #include "urecipe/Recipe.h"
 
 #include "core/Sha256.h"
 
 #include <algorithm>
+#include <bit>
 #include <charconv>
+#include <cmath>
 #include <format>
 #include <map>
 #include <set>
@@ -122,6 +125,68 @@ Result<std::string> textureOf(std::string_view name, std::size_t line) {
     return lowered(name);
 }
 
+/// A lamp's name: 1 to 32 of a-z, 0-9 and -.
+Result<std::string> lampNameOf(std::string_view name, std::size_t line) {
+    const bool good = !name.empty() && name.size() <= 32 && std::ranges::all_of(name, [](char character) {
+        return (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-';
+    });
+    if (!good) return refuse(line, std::format("'{}' is not a lamp name: 1 to 32 of a-z, 0-9 and -", name));
+    return std::string(name);
+}
+
+/// An actor's name as the map spells it: letters, digits and _.
+bool isObjectName(std::string_view name) {
+    return !name.empty() && std::ranges::all_of(name, [](char character) {
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z')
+               || (character >= '0' && character <= '9') || character == '_';
+    });
+}
+
+/// The blank-separated words of a value.
+std::vector<std::string_view> wordsOf(std::string_view value) {
+    std::vector<std::string_view> words;
+    while (!(value = trimmed(value)).empty()) {
+        const std::size_t end = std::min(value.find(' '), value.find('\t'));
+        words.push_back(value.substr(0, end));
+        value.remove_prefix(end == std::string_view::npos ? value.size() : end);
+    }
+    return words;
+}
+
+/// Three finite numbers. from_chars, not stod: no locale reaches it.
+Result<std::array<float, 3>> pointOf(std::string_view value, std::size_t line) {
+    const std::vector<std::string_view> words = wordsOf(value);
+    std::array<float, 3> point{};
+    bool good = words.size() == point.size();
+    for (std::size_t i = 0; good && i < point.size(); ++i) {
+        const auto [end, error] = std::from_chars(words[i].data(), words[i].data() + words[i].size(), point[i]);
+        good = error == std::errc{} && end == words[i].data() + words[i].size() && std::isfinite(point[i]);
+    }
+    if (!good) return refuse(line, std::format("'{}' is not three finite numbers", value));
+    return point;
+}
+
+Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string& value, std::size_t line) {
+    if (key == "light") {
+        if (!isObjectName(value)) return refuse(line, std::format("'{}' is not an actor's name", value));
+        lamp.light = value;
+    } else if (key == "fitting") {
+        for (const std::string_view word : wordsOf(value)) {
+            if (!isObjectName(word)) return refuse(line, std::format("'{}' is not an actor's name", word));
+            if (std::ranges::find(lamp.fitting, word) != lamp.fitting.end())
+                return refuse(line, std::format("the fitting names {} twice", word));
+            lamp.fitting.emplace_back(word);
+        }
+    } else if (key == "at") {
+        UTA_TRY(lamp.at, pointOf(value, line));
+    } else if (key == "yaw") {
+        UTA_TRY(lamp.yaw, numberOf(value, 65535, line));
+    } else {
+        return refuse(line, std::format("[lamp] has no key '{}'", key));
+    }
+    return {};
+}
+
 /// Every `key = value` line of one section is handed here.
 Result<void> setMapKey(Recipe& recipe, std::string_view key, const std::string& value, std::size_t line) {
     if (key == "file") {
@@ -183,7 +248,7 @@ std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
 Result<Recipe> parse(std::string_view text) {
     if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
 
-    enum class In { Header, Nothing, Map, Material };
+    enum class In { Header, Nothing, Map, Material, Lamp };
     In in = In::Header;
     Recipe recipe;
     std::size_t headerLine = 1;
@@ -192,6 +257,16 @@ Result<Recipe> parse(std::string_view text) {
     std::map<std::string, MaterialAssignment> materials;
     MaterialAssignment* material = nullptr;
     std::set<std::string, std::less<>> keysSeen; // in the current section
+    std::uint32_t version = 0;
+    std::vector<std::size_t> lampLines;
+    // A lamp's three required keys, checked when its section closes.
+    const auto lampComplete = [&]() -> Result<void> {
+        if (in != In::Lamp) return {};
+        for (const std::string_view key : {"light", "fitting", "at"})
+            if (!keysSeen.contains(key))
+                return refuse(lampLines.back(), std::format("[lamp {}] has no `{}`", recipe.lamps.back().name, key));
+        return {};
+    };
 
     std::size_t line = 0;
     while (!text.empty() || line == 0) {
@@ -211,7 +286,6 @@ Result<Recipe> parse(std::string_view text) {
             if (!header.starts_with(HEADER))
                 return refuse(line, std::format("the first line must be `{}{}`", HEADER, RECIPE_VERSION));
             const std::string_view digits = header.substr(HEADER.size());
-            std::uint32_t version = 0;
             const auto [last, error] = std::from_chars(digits.data(), digits.data() + digits.size(), version);
             if (error != std::errc{} || last != digits.data() + digits.size() || version == 0)
                 return refuse(line, std::format("'{}' is not a recipe version", digits));
@@ -224,6 +298,7 @@ Result<Recipe> parse(std::string_view text) {
             in = In::Nothing;
         } else if (content.front() == '[') {
             UTA_TRY(const std::string_view heading, headingOf(content, line));
+            UTA_CHECK(lampComplete());
             keysSeen.clear();
             if (heading == "map") {
                 if (mapLine) return refuse(line, std::format("a second [map]; the first is on line {}", *mapLine));
@@ -236,6 +311,18 @@ Result<Recipe> parse(std::string_view text) {
                 material = &materials[texture];
                 material->texture = std::move(texture);
                 in = In::Material;
+            } else if (heading == "lamp" || (heading.starts_with("lamp") && isBlank(heading[4]))) {
+                if (version < 2) return refuse(line, "a [lamp] needs `ut-ants recipe 2`");
+                UTA_TRY(std::string name, lampNameOf(trimmed(heading.substr(4)), line));
+                for (std::size_t i = 0; i < recipe.lamps.size(); ++i)
+                    if (recipe.lamps[i].name == name)
+                        return refuse(line, std::format("[lamp {}] is given twice; the first is on line {}", name,
+                                                        lampLines[i]));
+                if (recipe.lamps.size() == LAMP_LIMIT)
+                    return refuse(line, std::format("a recipe holds at most {} lamps", LAMP_LIMIT));
+                recipe.lamps.push_back(AddedLamp{.name = std::move(name)});
+                lampLines.push_back(line);
+                in = In::Lamp;
             } else {
                 return refuse(line, std::format("there is no [{}] section", heading));
             }
@@ -250,6 +337,8 @@ Result<Recipe> parse(std::string_view text) {
             if (in == In::Map) {
                 UTA_CHECK(setMapKey(recipe, key, value, line));
                 if (key == "file") fileSeen = true;
+            } else if (in == In::Lamp) {
+                UTA_CHECK(setLampKey(recipe.lamps.back(), key, value, line));
             } else {
                 UTA_CHECK(setMaterialKey(*material, key, value, line));
             }
@@ -261,12 +350,16 @@ Result<Recipe> parse(std::string_view text) {
                                                        HEADER, RECIPE_VERSION));
     if (!mapLine) return refuse(headerLine, "the recipe has no [map] section");
     if (!fileSeen) return refuse(*mapLine, "[map] has no `file`");
+    UTA_CHECK(lampComplete());
+    if (!recipe.lamps.empty() && !recipe.mapDigest)
+        return refuse(lampLines.front(), "a recipe with a [lamp] must give the map's sha256 in [map]: actor names "
+                                         "and places mean nothing in another file");
     for (auto& [texture, assignment] : materials) recipe.materials.push_back(std::move(assignment));
     return recipe;
 }
 
 std::string write(const Recipe& recipe) {
-    std::string out = std::format("{}{}\n\n[map]\nfile = {}\n", HEADER, RECIPE_VERSION,
+    std::string out = std::format("{}{}\n\n[map]\nfile = {}\n", HEADER, recipe.lamps.empty() ? 1 : 2,
                                   quotedIfNeeded(recipe.map, false));
     if (recipe.mapDigest) {
         out += "sha256 = ";
@@ -286,6 +379,12 @@ std::string write(const Recipe& recipe) {
         if (material.parallaxDepth) out += std::format("parallax-depth = {}\n", *material.parallaxDepth);
         if (material.upscale) out += std::format("upscale = {}\n", *material.upscale);
     }
+    for (const AddedLamp& lamp : recipe.lamps) {
+        out += std::format("\n[lamp {}]\nlight = {}\nfitting =", lamp.name, lamp.light);
+        for (const std::string& brush : lamp.fitting) out += ' ' + brush;
+        out += std::format("\nat = {} {} {}\n", lamp.at[0], lamp.at[1], lamp.at[2]);
+        if (lamp.yaw != 0) out += std::format("yaw = {}\n", lamp.yaw);
+    }
     return out;
 }
 
@@ -304,7 +403,7 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         if (field.has_value()) addByte(static_cast<std::uint32_t>(*field));
     };
 
-    addText("uta-recipe-bake-1\n");
+    addText(recipe.lamps.empty() ? "uta-recipe-bake-1\n" : "uta-recipe-bake-2\n");
     for (const MaterialAssignment& material : sortedMaterials(recipe)) {
         addText(material.texture);
         addText("\n");
@@ -314,6 +413,25 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         addField(material.emissiveThreshold);
         addField(material.parallaxDepth);
         addField(material.upscale);
+    }
+    // UTA-0256 SS 4.1: each lamp in file order, every text ended by a line
+    // break and every number as four little-endian bytes.
+    const auto addWord = [&addByte](std::uint32_t value) {
+        for (int shift = 0; shift < 32; shift += 8) addByte((value >> shift) & 0xFF);
+    };
+    for (const AddedLamp& lamp : recipe.lamps) {
+        addText("lamp\n");
+        addText(lamp.name);
+        addText("\n");
+        addText(lamp.light);
+        addText("\n");
+        addWord(static_cast<std::uint32_t>(lamp.fitting.size()));
+        for (const std::string& brush : lamp.fitting) {
+            addText(brush);
+            addText("\n");
+        }
+        for (const float coordinate : lamp.at) addWord(std::bit_cast<std::uint32_t>(coordinate));
+        addWord(lamp.yaw);
     }
     return hasher.finish();
 }

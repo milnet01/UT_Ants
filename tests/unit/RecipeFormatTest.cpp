@@ -1,6 +1,8 @@
-// UTA-0113's format cases -- INV-1, INV-2 and INV-3.
+// UTA-0113's format cases -- INV-1, INV-2 and INV-3 -- and UTA-0256's lamp
+// cases, its INV-1 and INV-2.
 //
-// docs/specs/UTA-0113-recipe-format.md SS 4.2 and SS 4.4.
+// docs/specs/UTA-0113-recipe-format.md SS 4.2 and SS 4.4;
+// docs/specs/UTA-0256-added-lamps.md SS 4.1.
 //
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator, so
 // a name carrying one silently matches nothing when run by name.
@@ -19,6 +21,7 @@
 #include <vector>
 
 using uta::ErrorCode;
+using uta::urecipe::AddedLamp;
 using uta::urecipe::MaterialAssignment;
 using uta::urecipe::Recipe;
 namespace urecipe = uta::urecipe;
@@ -161,7 +164,7 @@ TEST_CASE("INV-2: every refusal names its line", "[urecipe][format]") {
     const std::vector<Refusal> refusals = {
         {"no header", "[map]\nfile = dm-x\n", 1},
         {"an empty file", "", 1},
-        {"a version above RECIPE_VERSION", "\n# c\nut-ants recipe 2\n[map]\nfile = dm-x\n", 3,
+        {"a version above RECIPE_VERSION", "\n# c\nut-ants recipe 3\n[map]\nfile = dm-x\n", 3,
          ErrorCode::UnsupportedVersion},
         {"version zero", "ut-ants recipe 0\n", 1},
         {"an unknown section", head + "[fog]\n", 4},
@@ -205,7 +208,7 @@ TEST_CASE("INV-2: a newer recipe names both versions", "[urecipe][format]") {
     REQUIRE_FALSE(result.has_value());
     const std::string message(result.error().message());
     CHECK(message.find("version 7") != std::string::npos);
-    CHECK(message.find("version 1") != std::string::npos);
+    CHECK(message.find("version " + std::to_string(urecipe::RECIPE_VERSION)) != std::string::npos);
 }
 
 TEST_CASE("INV-3: bakeDigest covers the materials and nothing else", "[urecipe][format]") {
@@ -259,5 +262,108 @@ TEST_CASE("INV-3: bakeDigest covers the materials and nothing else", "[urecipe][
         bytes += std::string("\x01\x04", 2);      // upscale 4
         CHECK(urecipe::bakeDigest(one)
               == uta::sha256(std::as_bytes(std::span<const char>(bytes.data(), bytes.size()))));
+    }
+}
+
+namespace {
+
+/// A recipe holding two lamps, the second with no yaw, so `write` must keep
+/// file order and leave the default out.
+Recipe withLamps() {
+    Recipe recipe = sample();
+    recipe.lamps = {
+        AddedLamp{.name = "east-hall", .light = "Light23", .fitting = {"Brush95", "Brush99"},
+                  .at = {-1100.5f, 900, 200}, .yaw = 16384},
+        AddedLamp{.name = "a-crypt", .light = "Light7", .fitting = {"Brush12"}, .at = {0, -3.25f, 1e-3f}},
+    };
+    return recipe;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0256 INV-1: a recipe with lamps round-trips", "[urecipe][format][lamp]") {
+    const Recipe recipe = withLamps();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 2\n"));
+    CHECK(text.find("\n[lamp east-hall]\nlight = Light23\nfitting = Brush95 Brush99\nat = -1100.5 900 200\n"
+                    "yaw = 16384\n")
+          != std::string::npos);
+    CHECK(text.find("\n[lamp a-crypt]\nlight = Light7\nfitting = Brush12\nat = 0 -3.25 0.001\n")
+          != std::string::npos);
+    CHECK(text.find("yaw = 0") == std::string::npos);
+    CHECK(parsed(text) == recipe);
+}
+
+TEST_CASE("UTA-0256 INV-1: a recipe with no lamp is still written as version 1", "[urecipe][format][lamp]") {
+    CHECK(urecipe::write(sample()).starts_with("ut-ants recipe 1\n"));
+}
+
+TEST_CASE("UTA-0256 INV-1: a hand-written lamp reads", "[urecipe][format][lamp]") {
+    const Recipe recipe = parsed("ut-ants recipe 2\n[map]\nfile = dm-x\nsha256 = "
+                                 "2f8a000000000000000000000000000000000000000000000000000000000ae1\n"
+                                 "[lamp hall]\n  fitting =  Brush1\tBrush_2   # two\n"
+                                 "at = 1 2.5 -3\nlight = Light1\n");
+    REQUIRE(recipe.lamps.size() == 1);
+    CHECK(recipe.lamps[0] == AddedLamp{.name = "hall", .light = "Light1", .fitting = {"Brush1", "Brush_2"},
+                                       .at = {1, 2.5f, -3}, .yaw = 0});
+}
+
+TEST_CASE("UTA-0256 INV-1: every lamp refusal names its line", "[urecipe][format][lamp]") {
+    struct Refusal {
+        const char* what;
+        std::string text;
+        std::size_t line;
+    };
+    // Lines 1 to 4; a lamp section opens on line 5.
+    const std::string head = "ut-ants recipe 2\n[map]\nfile = dm-x\n"
+                             "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+    const std::string whole = "light = L1\nfitting = B1\nat = 0 0 0\n"; // lines 6 to 8
+    std::string many = head;
+    for (std::size_t i = 0; i <= urecipe::LAMP_LIMIT; ++i) many += "[lamp l" + std::to_string(i) + "]\n" + whole;
+    const std::vector<Refusal> refusals = {
+        {"a lamp in a version-1 recipe", "ut-ants recipe 1\n[map]\nfile = dm-x\n[lamp a]\n", 4},
+        {"a lamp with no light", head + "[lamp a]\nfitting = B1\nat = 0 0 0\n", 5},
+        {"a lamp with no fitting", head + "[lamp a]\nlight = L1\nat = 0 0 0\n", 5},
+        {"a lamp with no place", head + "[lamp a]\nlight = L1\nfitting = B1\n[lamp b]\n" + whole, 5},
+        {"an unknown lamp key", head + "[lamp a]\ncolour = red\n", 6},
+        {"a repeated lamp", head + "[lamp a]\n" + whole + "[lamp a]\n", 9},
+        {"a lamp name with a capital", head + "[lamp Hall]\n", 5},
+        {"a lamp with no name", head + "[lamp]\n", 5},
+        {"a lamp name too long", head + "[lamp " + std::string(33, 'a') + "]\n", 5},
+        {"a yaw of a whole turn", head + "[lamp a]\nyaw = 65536\n", 6},
+        {"a fitting brush given twice", head + "[lamp a]\nfitting = B1 B2 B1\n", 6},
+        {"a fitting that is not a name", head + "[lamp a]\nfitting = B1 B-2\n", 6},
+        {"a place of two numbers", head + "[lamp a]\nat = 1 2\n", 6},
+        {"a place that is not finite", head + "[lamp a]\nat = 1 inf 2\n", 6},
+        {"a lamp with no map sha256", "ut-ants recipe 2\n[map]\nfile = dm-x\n[lamp a]\n" + whole, 4},
+        {"a lamp past the limit", many, 5 + 4 * urecipe::LAMP_LIMIT},
+    };
+    for (const Refusal& refusal : refusals) {
+        DYNAMIC_SECTION(refusal.what) {
+            const auto result = urecipe::parse(refusal.text);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error().code() == ErrorCode::MalformedData);
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.starts_with("recipe line " + std::to_string(refusal.line) + ": "));
+        }
+    }
+}
+
+TEST_CASE("UTA-0256 INV-2: every lamp field moves the digest", "[urecipe][format][lamp]") {
+    const Recipe base = withLamps();
+    const auto digest = urecipe::bakeDigest(base);
+    CHECK(digest != urecipe::bakeDigest(sample()));
+    std::vector<Recipe> changed(7, base);
+    changed[0].lamps[0].name = "west-hall";
+    changed[1].lamps[0].light = "Light24";
+    changed[2].lamps[0].fitting.push_back("Brush100");
+    changed[3].lamps[0].at[2] = 201;
+    changed[4].lamps[0].yaw = 16385;
+    changed[5].lamps.pop_back();
+    std::swap(changed[6].lamps[0], changed[6].lamps[1]);
+    for (std::size_t i = 0; i < changed.size(); ++i) {
+        INFO("change " << i);
+        CHECK(urecipe::bakeDigest(changed[i]) != digest);
     }
 }

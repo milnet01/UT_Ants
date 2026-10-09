@@ -89,9 +89,9 @@ yaw = 16384                          # optional; 65536 to a turn
   `AddedLamp {name, light, fitting, at, yaw}`. `parse` and `write` round-trip
   it. Every refusal is `MalformedData` naming the line, as today.
 - `bakeDigest` of a recipe with no lamp is unchanged. With lamps it is the
-  SHA-256 of `uta-recipe-bake-2\n`, the version-1 digest input, then each
-  lamp's fields in file order in a fixed encoding, so any lamp edit renames
-  the bake.
+  SHA-256 of `uta-recipe-bake-2\n`, the materials as version 1 encodes
+  them, then each lamp's fields in file order in a fixed encoding, so any
+  lamp edit renames the bake.
 
 ### 4.2 The `LAMP` section and the light index — `ubundle`
 
