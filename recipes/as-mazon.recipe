@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# AS-Mazon's sun -- UTA-0338 SS 4.6. Its painted sky is clear and light blue,
+# and shows its own bright sun almost straight overhead; the recipe's sun
+# stands there, warm white.
+
+[map]
+file = as-mazon
+sha256 = e3dfd94c9402defcfbff620175ec5395913a1a260596865cbebd6033db1b7cf0
+
+[sun]
+yaw = 45410
+pitch = 16056
+hue = 28
+saturation = 200
+brightness = 200

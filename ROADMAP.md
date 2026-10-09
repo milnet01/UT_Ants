@@ -16004,6 +16004,20 @@ stays with movement in 0.2.0.
   backdrop surface; level lit through SMSK pairs, movers and actors by
   the probes' sunSeen; a disc in skyAt. Baker 48. No review: building
   is the reviewer here. Next: build it with write-code.
+  Built (2026-10-09), pushed at 6a30e6a, GitHub CI green: recipe [sun]
+  (d1658cf), SUN and format 25 (feb2e87), the light model (35778f6),
+  baker 48 (f48e1ce), the renderer (f66906c), cross-doc edits (44fb781),
+  MSVC fix (6a30e6a). Local gate green on GCC, Clang and MSVC.
+  SS 4.6: AS-Mazon. Of twelve stock maps with a sky zone, surveyed
+  looking straight up from ten nav nodes each, its sky was the clearest
+  blue (sky pixels mean sRGB 163 215 250, spread 14). Its painted sun
+  stands near the zenith (two views 2400 units apart agree), so
+  recipes/as-mazon.recipe puts the sun at yaw 45410, pitch 16056, hue 28,
+  saturation 200, brightness 200. Scratch: ~/.cache/uta-scratch/u338/.
+  SS 7, ut-ref score over ten nav views (320x180, 64 samples, depth 4),
+  no sun / sun: reference light 0.325 / 0.464; renderer's total gap
+  0.128 / 0.107; direct gap 0.058 / 0.059. The gap falls 2.1 points, so
+  it stays within SS 7's 2.
   **Layman:** Outdoor maps with a clear sky get a sun, and the ground is lit and shadowed from where it stands.
   Kind: feature.
   Source: user-request-2026-10-08.
