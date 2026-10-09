@@ -13551,7 +13551,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-124302
 
-- 📋 [UTA-0256] **ubake: a room that stays too dark once its light is accurate gets a lamp of its own, with a fixture to hold it.**
+- ✅ [UTA-0256] **ubake: a room that stays too dark once its light is accurate gets a lamp of its own, with a fixture to hold it.**
   Asked for by the user, 2026-09-30, in their words: "I want the
   scenes to be lit accurately. If a room is too dark add in a light
   (with the light geometry) that will help with emitting more
@@ -13653,6 +13653,8 @@ stays with movement in 0.2.0.
   v9 0.03/0.03/0.11. Views 3-6 clear half, none falls, lamps off equals
   r46 on every view. View 4's 1.95 is its lamp standing near that camera.
   Left: flip once GitHub's matrix is green for b37dcaf.
+  Shipped (2026-10-09): GitHub's matrix green on GCC 14, Clang 19 and
+  MSVC for ce68a68 (run 37907968809).
   **Layman:** Where a room is still too dark after the lighting is made accurate, the game adds a lamp there, complete with a visible light fitting, so the light has a source.
   Kind: feature.
   Source: user-request-2026-09-30.
