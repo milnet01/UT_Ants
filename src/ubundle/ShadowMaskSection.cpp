@@ -175,11 +175,15 @@ Result<void> validateShadowMaskAcross(const Bundle& bundle, ErrorCode code) {
                               + std::to_string(mask.vertexTexel.size()) + " vertex texels, and GEOM "
                               + std::to_string(vertices) + " vertices");
     if (!bundle.lights) return fail(code, "SMSK is present and the bundle has no LITE");
+    // UTA-0256 SS 4.2: past LITE's end, a pair names a LAMP lamp's light.
+    const std::size_t lamps = bundle.lamps ? bundle.lamps->size() : 0;
+    const std::size_t lights = bundle.lights->size() + lamps;
     for (std::size_t k = 0; k < mask.pairs.size(); ++k)
-        if (mask.pairs[k].light >= bundle.lights->size())
+        if (mask.pairs[k].light >= lights)
             return fail(code, "SMSK: pair " + std::to_string(k) + " names light "
                                   + std::to_string(mask.pairs[k].light) + ", and LITE holds "
-                                  + std::to_string(bundle.lights->size()));
+                                  + std::to_string(bundle.lights->size())
+                                  + (lamps == 0 ? "" : " and LAMP " + std::to_string(lamps)));
     return {};
 }
 

@@ -89,7 +89,8 @@ struct Descriptor {
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
            || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
-           || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM || id == ID_SMSK;
+           || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM || id == ID_SMSK
+           || id == ID_LAMP;
 }
 
 } // namespace
@@ -236,6 +237,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_SMSK) {
             UTA_TRY(bundle.shadowMask, readShadowMask(payload));
             UTA_CHECK(validateShadowMask(*bundle.shadowMask, ErrorCode::MalformedData));
+        } else if (descriptor.id == ID_LAMP) {
+            UTA_TRY(bundle.lamps, readLamps(payload));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -260,6 +263,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
     UTA_CHECK(validateFlames(bundle, ErrorCode::MalformedData));
     // UTA-0326 SS 4.2: SMSK's vertices are GEOM's and its lights LITE's.
     UTA_CHECK(validateShadowMaskAcross(bundle, ErrorCode::MalformedData));
+    // UTA-0256 SS 4.2: a lamp's flames name MATS, and LPRB's added cubes count LAMP.
+    UTA_CHECK(validateLamps(bundle, ErrorCode::MalformedData));
     return bundle;
 }
 
@@ -292,8 +297,9 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     UTA_CHECK(validateFlames(bundle, ErrorCode::InvalidArgument));
     if (bundle.shadowMask) UTA_CHECK(validateShadowMask(*bundle.shadowMask, ErrorCode::InvalidArgument));
     UTA_CHECK(validateShadowMaskAcross(bundle, ErrorCode::InvalidArgument));
+    UTA_CHECK(validateLamps(bundle, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK. Fixed rather than incidental because
+    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -346,6 +352,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.flames) encoded(ID_FLAM, encodeFlames(*bundle.flames));
     // SMSK is appended after FLAM -- UTA-0326 SS 4.2.
     if (bundle.shadowMask) encoded(ID_SMSK, encodeShadowMask(*bundle.shadowMask));
+    // LAMP is appended after SMSK -- UTA-0256 SS 4.2.
+    if (bundle.lamps) encoded(ID_LAMP, encodeLamps(*bundle.lamps));
 
     if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows

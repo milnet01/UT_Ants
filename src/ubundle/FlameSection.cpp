@@ -13,7 +13,11 @@ namespace {
 /// u32 seed, i32 light.
 constexpr std::uint64_t FLAME_RECORD = 32;
 
-[[nodiscard]] Result<Flame> readFlame(Cursor& cursor) {
+[[nodiscard]] bool finitePositive(float value) noexcept { return std::isfinite(value) && value > 0; }
+
+} // namespace
+
+Result<Flame> readFlame(Cursor& cursor) {
     Flame flame;
     UTA_TRY(flame.material, cursor.readU32());
     for (float& coordinate : flame.base) {
@@ -36,10 +40,6 @@ void putFlame(Sink& sink, const Flame& flame) {
     sink.putI32(flame.light);
 }
 
-[[nodiscard]] bool finitePositive(float value) noexcept { return std::isfinite(value) && value > 0; }
-
-} // namespace
-
 Result<std::vector<Flame>> readFlames(Cursor& cursor) {
     return readVector<Flame>(cursor, FLAME_RECORD, "flames", readFlame);
 }
@@ -52,25 +52,27 @@ Result<std::vector<std::byte>> encodeFlames(const std::vector<Flame>& flames) {
 
 Result<void> validateFlames(const Bundle& bundle, ErrorCode code) {
     if (!bundle.flames) return {};
-    const std::size_t materials = bundle.materials ? bundle.materials->size() : 0;
     const std::size_t lights = bundle.lights ? bundle.lights->size() : 0;
-    for (std::size_t i = 0; i < bundle.flames->size(); ++i) {
-        const Flame& flame = (*bundle.flames)[i];
-        const std::string where = "FLAM: record " + std::to_string(i);
-        if (flame.material >= materials)
-            return fail(code, where + " names material " + std::to_string(flame.material) + ", and MATS holds "
-                                  + std::to_string(materials));
-        if (!(*bundle.materials)[flame.material].flame)
-            return fail(code, where + " names material " + std::to_string(flame.material)
-                                  + ", which has no flame look");
-        if (flame.light < -1 || (flame.light >= 0 && static_cast<std::size_t>(flame.light) >= lights))
-            return fail(code, where + " names light " + std::to_string(flame.light) + ", and LITE holds "
-                                  + std::to_string(lights));
-        if (!finitePositive(flame.width) || !finitePositive(flame.height))
-            return fail(code, where + "'s width or height is not finite and positive");
-        for (const float coordinate : flame.base)
-            if (!std::isfinite(coordinate)) return fail(code, where + "'s base is not finite");
-    }
+    for (std::size_t i = 0; i < bundle.flames->size(); ++i)
+        UTA_CHECK(validateFlame(bundle, (*bundle.flames)[i], lights, "FLAM: record " + std::to_string(i), code));
+    return {};
+}
+
+Result<void> validateFlame(const Bundle& bundle, const Flame& flame, std::size_t lights, const std::string& where,
+                           ErrorCode code) {
+    const std::size_t materials = bundle.materials ? bundle.materials->size() : 0;
+    if (flame.material >= materials)
+        return fail(code, where + " names material " + std::to_string(flame.material) + ", and MATS holds "
+                              + std::to_string(materials));
+    if (!(*bundle.materials)[flame.material].flame)
+        return fail(code, where + " names material " + std::to_string(flame.material) + ", which has no flame look");
+    if (flame.light < -1 || (flame.light >= 0 && static_cast<std::size_t>(flame.light) >= lights))
+        return fail(code, where + " names light " + std::to_string(flame.light) + ", and only "
+                              + std::to_string(lights) + " may be named");
+    if (!finitePositive(flame.width) || !finitePositive(flame.height))
+        return fail(code, where + "'s width or height is not finite and positive");
+    for (const float coordinate : flame.base)
+        if (!std::isfinite(coordinate)) return fail(code, where + "'s base is not finite");
     return {};
 }
 

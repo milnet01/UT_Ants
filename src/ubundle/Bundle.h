@@ -64,7 +64,8 @@ namespace uta::ubundle {
 /// 21 since UTA-0286 gave each MATS record its fire look.
 /// 22 since UTA-0277 SS 4.1 gave each MATS record its tile kind.
 /// 23 since UTA-0326 SS 4.2 added SMSK.
-inline constexpr std::uint32_t FORMAT_VERSION = 23;
+/// 24 since UTA-0256 SS 4.2 added LAMP and LPRB's added-lamps cubes.
+inline constexpr std::uint32_t FORMAT_VERSION = 24;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -474,6 +475,10 @@ struct LightProbe {
 struct LightProbes {
     std::uint32_t spacing = 0;      ///< UT units between lattice points
     std::vector<LightProbe> probes; ///< strictly ascending by z, then y, then x
+    /// UTA-0256 SS 4.2: the bounce of the added lamps alone, one cube per
+    /// probe in `probes`' order -- or none, when LAMP holds no lamp. The
+    /// renderer adds it to `probes` only while added lamps are on.
+    std::vector<std::array<std::array<float, 3>, 6>> added;
 };
 
 /// The most entries ZONE holds: umap::ZONE_CEILING, the engine's own ceiling on
@@ -515,7 +520,7 @@ inline constexpr std::uint16_t MASK_ALL_LIT = 0xFFFF;
 
 /// One light on one polygon -- UTA-0326 SS 4.2.
 struct MaskPair {
-    std::uint32_t light = 0;     ///< an index into LITE
+    std::uint32_t light = 0;     ///< LITE's index, or LITE's size plus a LAMP index (UTA-0256 SS 4.2)
     std::uint16_t x = 0, y = 0;  ///< the rectangle's corner in the atlas, or both MASK_ALL_LIT
     std::uint8_t moverReach = 0; ///< 1 where moving geometry can come between (SS 4.4)
     std::array<std::uint8_t, 3> reserved{}; ///< always zero
@@ -547,6 +552,15 @@ struct Flame {
     float height = 0;                ///< world units, up from `base`; finite and positive
     std::uint32_t seed = 0;          ///< decorrelates two flames of one material
     std::int32_t light = -1;         ///< an index into LITE, or -1 for none (SS 4.5)
+};
+
+/// A lamp the map lacks, from its recipe -- UTA-0256 SS 4.2. Its light is
+/// light index LITE's size plus its own index in LAMP, which is the index its
+/// SMSK pairs name and its flames are tied to.
+struct AddedLamp {
+    Light light;               ///< its template's record, moved; LITE's rules
+    Geometry shape;            ///< its fitting's drawn surfaces, world space; GEOM's rules
+    std::vector<Flame> flames; ///< its fitting's flames; FLAM's rules, each `light` -1
 };
 
 /// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds
@@ -588,6 +602,8 @@ struct Bundle {
     std::optional<std::vector<Flame>> flames;
     /// One chart and texel per GEOM vertex -- UTA-0326 SS 4.2.
     std::optional<ShadowMask> shadowMask;
+    /// The recipe's added lamps -- UTA-0256 SS 4.2. Absent when it adds none.
+    std::optional<std::vector<AddedLamp>> lamps;
 };
 
 /// Decode a whole bundle.

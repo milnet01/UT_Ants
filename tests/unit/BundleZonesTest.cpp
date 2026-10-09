@@ -59,6 +59,7 @@ Bytes emptyLprb() {
     Bytes out;
     out.u32(32);
     out.u32(0);
+    out.u32(0); // no added-lamp cube -- UTA-0256 SS 4.2
     return out;
 }
 
@@ -66,7 +67,7 @@ Bytes emptyLprb() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(23); // formatVersion -- 23 since UTA-0326 added SMSK
+    out.u32(24); // formatVersion -- 24 since UTA-0256 added LAMP
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -130,7 +131,7 @@ void refusedBothWays(const std::vector<Zone>& zones, std::string_view says) {
 TEST_CASE("INV-1: the ZONE golden bytes decode to the entries they encode", "[ubundle][zone]") {
     const auto result = read(fileWith({{"ZONE", zonePayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 23);
+    CHECK(result->header.formatVersion == 24);
     REQUIRE(result->zones.has_value());
     sameZones(*result->zones, golden());
 }

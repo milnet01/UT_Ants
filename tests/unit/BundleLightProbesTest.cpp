@@ -39,7 +39,8 @@ using uta::ubundle::write;
 namespace {
 
 /// An LPRB payload in SS 4.2's order: the spacing, then the probes, each its
-/// cell's three i32 and then its cube face by face, red, green and blue.
+/// cell's three i32 and then its cube face by face, red, green and blue; then
+/// UTA-0256's added-lamp cubes.
 Bytes lprbPayload(const LightProbes& probes) {
     Bytes out;
     out.u32(probes.spacing);
@@ -49,6 +50,11 @@ Bytes lprbPayload(const LightProbes& probes) {
         for (const auto& face : probe.cube)
             for (const float channel : face) out.f32(channel);
     }
+    // UTA-0256 SS 4.2: the added-lamp cubes, face by face.
+    out.u32(static_cast<std::uint32_t>(probes.added.size()));
+    for (const auto& cube : probes.added)
+        for (const auto& face : cube)
+            for (const float channel : face) out.f32(channel);
     return out;
 }
 
@@ -66,7 +72,7 @@ Bytes emptyColl() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(23); // formatVersion -- 23 since UTA-0326 added SMSK
+    out.u32(24); // formatVersion -- 24 since UTA-0256 added LAMP
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -143,7 +149,7 @@ void refusedBothWays(const LightProbes& probes, std::string_view says) {
 TEST_CASE("the LPRB golden bytes decode to the probes they encode", "[ubundle][lprb]") {
     const auto result = read(fileWith({{"COLL", emptyColl()}, {"LPRB", lprbPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 23);
+    CHECK(result->header.formatVersion == 24);
     REQUIRE(result->collision.has_value());
     REQUIRE(result->lightProbes.has_value());
     sameProbes(*result->lightProbes, golden());
@@ -159,11 +165,12 @@ TEST_CASE("write emits LPRB after COLL as the golden bytes", "[ubundle][lprb]") 
     CHECK(*written == fileWith({{"COLL", emptyColl()}, {"LPRB", lprbPayload(golden())}}));
 }
 
-TEST_CASE("a probe is 84 bytes and an empty section 8", "[ubundle][lprb]") {
+TEST_CASE("a probe is 84 bytes and an empty section 12", "[ubundle][lprb]") {
     LightProbes empty;
     empty.spacing = 128;
-    CHECK(lprbPayload(empty).size() == 8);
-    CHECK(lprbPayload(golden()).size() == 8 + 3 * 84);
+    // UTA-0256 SS 4.2 added the added-lamp cubes' count.
+    CHECK(lprbPayload(empty).size() == 12);
+    CHECK(lprbPayload(golden()).size() == 12 + 3 * 84);
 
     Bundle bundle;
     bundle.header.origin = Origin::Authored;

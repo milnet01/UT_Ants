@@ -18,7 +18,9 @@ namespace {
 /// UTA-0156 SS 4.5's level brightness, one f32 -- fixed.
 constexpr std::uint64_t LIGHT_SIZE = 73;
 
-[[nodiscard]] Result<Light> readLight(Cursor& cursor) {
+} // namespace
+
+Result<Light> readLight(Cursor& cursor) {
     Light light;
     UTA_TRY(light.exportIndex, cursor.readU32());
     for (float& part : light.location) {
@@ -70,8 +72,6 @@ void putLight(Sink& sink, const Light& light) {
     sink.putF32(light.levelBrightness);
 }
 
-} // namespace
-
 Result<std::vector<Light>> readLights(Cursor& cursor) {
     return readVector<Light>(cursor, LIGHT_SIZE, "lights", readLight);
 }
@@ -82,23 +82,24 @@ Result<void> validateLights(const std::vector<Light>& lights, ErrorCode code) {
         if (!(lights[i - 1].exportIndex < lights[i].exportIndex))
             return fail(code, "LITE: light " + std::to_string(i)
                                   + "'s exportIndex does not sort strictly after the one before it");
+    for (std::size_t i = 0; i < lights.size(); ++i)
+        UTA_CHECK(validateLight(lights[i], "LITE: light " + std::to_string(i), code));
+    return {};
+}
+
+Result<void> validateLight(const Light& light, const std::string& where, ErrorCode code) {
     // UTA-0162 SS 4.1. Only a leader carries ends, and a leader's are a segment.
     const auto zero = [](const std::array<float, 3>& v) { return v[0] == 0 && v[1] == 0 && v[2] == 0; };
-    for (std::size_t i = 0; i < lights.size(); ++i) {
-        const Light& light = lights[i];
-        if (light.strip > STRIP_ABSORBED)
-            return fail(code, "LITE: light " + std::to_string(i) + "'s strip byte "
-                                  + std::to_string(light.strip) + " is not 0, 1 or 2");
-        if (light.strip == STRIP_LEADER && light.stripFrom == light.stripTo)
-            return fail(code, "LITE: light " + std::to_string(i) + " leads a strip whose ends are equal");
-        if (light.strip != STRIP_LEADER && !(zero(light.stripFrom) && zero(light.stripTo)))
-            return fail(code, "LITE: light " + std::to_string(i)
-                                  + " carries a strip end but does not lead a strip");
-        // UTA-0156 SS 4.5: a multiplier on light, so no NaN, infinity or sign.
-        if (!(std::isfinite(light.levelBrightness) && light.levelBrightness >= 0))
-            return fail(code, "LITE: light " + std::to_string(i) + "'s level brightness "
-                                  + std::to_string(light.levelBrightness) + " is not a finite, non-negative number");
-    }
+    if (light.strip > STRIP_ABSORBED)
+        return fail(code, where + "'s strip byte " + std::to_string(light.strip) + " is not 0, 1 or 2");
+    if (light.strip == STRIP_LEADER && light.stripFrom == light.stripTo)
+        return fail(code, where + " leads a strip whose ends are equal");
+    if (light.strip != STRIP_LEADER && !(zero(light.stripFrom) && zero(light.stripTo)))
+        return fail(code, where + " carries a strip end but does not lead a strip");
+    // UTA-0156 SS 4.5: a multiplier on light, so no NaN, infinity or sign.
+    if (!(std::isfinite(light.levelBrightness) && light.levelBrightness >= 0))
+        return fail(code, where + "'s level brightness " + std::to_string(light.levelBrightness)
+                              + " is not a finite, non-negative number");
     return {};
 }
 

@@ -101,6 +101,11 @@ Result<void> validateVertexZones(const Bundle& bundle, ErrorCode code) {
             UTA_CHECK(zonesBelow((*bundle.movers)[i].geometry, bound, present,
                                  "MOVR: shape " + std::to_string(i) + "'s geometry", code));
     }
+    if (bundle.lamps) {
+        for (std::size_t i = 0; i < bundle.lamps->size(); ++i)
+            UTA_CHECK(zonesBelow((*bundle.lamps)[i].shape, bound, present,
+                                 "LAMP: lamp " + std::to_string(i) + "'s shape", code));
+    }
     return {};
 }
 

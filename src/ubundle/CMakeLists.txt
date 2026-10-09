@@ -26,6 +26,7 @@ add_library(uta_ubundle STATIC
     FlameSection.cpp
     OcclusionSection.cpp
     ShadowMaskSection.cpp
+    LampSection.cpp
     Sky.cpp
     TileAnswers.cpp)
 target_link_libraries(uta_ubundle PUBLIC uta_core uta_umap uta_unav)

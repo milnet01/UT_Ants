@@ -113,7 +113,8 @@ struct AddedLamp {
   indices and their order. A lamp's flames store `light = -1` on the wire;
   the renderer ties each to its lamp's index.
 - **Refused on read and on write:** a lamp whose `shape` has no triangle and
-  whose `flames` is empty (no fitting); a `MaskPair::light` at or past
+  whose `flames` is empty (no fitting); a lamp light in a strip (UTA-0162),
+  whose other members are LITE's; a `MaskPair::light` at or past
   `|LITE| + |lamps|`; any check `Geometry`, `Light` or `Flame` already makes
   on its own section.
 - **LPRB gains one array.** `LightProbes::added` is empty, or one cube per
@@ -124,8 +125,8 @@ struct AddedLamp {
 
 After `buildActors`, for each recipe lamp, in file order:
 
-1. `light` must name a `Light` placement whose record `litDirectly` accepts;
-   else refuse, naming the lamp. Its location is `L`.
+1. `light` must name a `Light` placement whose record `litDirectly` accepts
+   and that is in no strip; else refuse, naming the lamp. Its location is `L`.
 2. The transform is `p' = at + Rz(yaw) (p - L)`, about the vertical axis.
    The copy's `Light` is the template's record with `location = at` and
    `yaw` added to its rotation's yaw. Nothing else of the record changes.

@@ -25,6 +25,7 @@
 #include "ubundle/Bundle.h"
 
 #include <cstddef>
+#include <string>
 #include <vector>
 
 namespace uta::ubundle::detail {
@@ -44,6 +45,7 @@ constexpr SectionId ID_ZONE = {'Z', 'O', 'N', 'E'};
 constexpr SectionId ID_AOCC = {'A', 'O', 'C', 'C'};
 constexpr SectionId ID_FLAM = {'F', 'L', 'A', 'M'};
 constexpr SectionId ID_SMSK = {'S', 'M', 'S', 'K'};
+constexpr SectionId ID_LAMP = {'L', 'A', 'M', 'P'};
 
 // Structural validation -- SS 4.9.
 //
@@ -107,6 +109,10 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 [[nodiscard]] Result<std::vector<Light>> readLights(Cursor& cursor);
 [[nodiscard]] Result<void> validateLights(const std::vector<Light>& lights, ErrorCode code);
 [[nodiscard]] Result<std::vector<std::byte>> encodeLights(const std::vector<Light>& lights);
+/// One record, and one record's rules other than the order -- also LAMP's.
+[[nodiscard]] Result<Light> readLight(Cursor& cursor);
+void putLight(Sink& sink, const Light& light);
+[[nodiscard]] Result<void> validateLight(const Light& light, const std::string& where, ErrorCode code);
 
 // MOVR -- MoverSection.cpp, UTA-0119 SS 4.2. Every rule is the validator's:
 // the order here, and each shape's geometry by validateGeometry's.
@@ -149,6 +155,11 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 [[nodiscard]] Result<std::vector<Flame>> readFlames(Cursor& cursor);
 [[nodiscard]] Result<std::vector<std::byte>> encodeFlames(const std::vector<Flame>& flames);
 [[nodiscard]] Result<void> validateFlames(const Bundle& bundle, ErrorCode code);
+/// One record -- also LAMP's. `lights` is how many light indices it may name.
+[[nodiscard]] Result<Flame> readFlame(Cursor& cursor);
+void putFlame(Sink& sink, const Flame& flame);
+[[nodiscard]] Result<void> validateFlame(const Bundle& bundle, const Flame& flame, std::size_t lights,
+                                         const std::string& where, ErrorCode code);
 
 // SMSK -- ShadowMaskSection.cpp, UTA-0326 SS 4.2. Its own rules are the
 // validator's. Its vertex counts against GEOM and its lights against LITE are
@@ -158,5 +169,12 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 [[nodiscard]] Result<void> validateShadowMask(const ShadowMask& mask, ErrorCode code);
 [[nodiscard]] Result<std::vector<std::byte>> encodeShadowMask(const ShadowMask& mask);
 [[nodiscard]] Result<void> validateShadowMaskAcross(const Bundle& bundle, ErrorCode code);
+
+// LAMP -- LampSection.cpp, UTA-0256 SS 4.2. A lamp's flames name MATS, and
+// LPRB's added cubes are counted against LAMP, so validateLamps runs once
+// every section is decoded.
+[[nodiscard]] Result<std::vector<AddedLamp>> readLamps(Cursor& cursor);
+[[nodiscard]] Result<std::vector<std::byte>> encodeLamps(const std::vector<AddedLamp>& lamps);
+[[nodiscard]] Result<void> validateLamps(const Bundle& bundle, ErrorCode code);
 
 } // namespace uta::ubundle::detail
