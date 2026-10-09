@@ -15460,6 +15460,15 @@ stays with movement in 0.2.0.
   own ambient floor); then draw it without that, and add lamps with
   fittings by UTA-0256's mechanism. The user's per-map decision here
   is what UTA-0256 asks for before a light is added.
+  Found (2026-10-09): the map is not unlit. Its r49 bake holds ten
+  white lights of brightness 64: seven LE_Cylinder fill lights of radius
+  255 (6400 units) and three plain ones of radius 64, placed to light the
+  whole mansion evenly. The capture's view draws as bright at r49 as at
+  r40, so UTA-0292's removal of zone ambient did not change it. Drawing
+  it "without lights" therefore means switching the mapper's own lights
+  off, which no recipe section can do yet, before adding lamps by
+  UTA-0256's mechanism. Question for the user before building that.
+  Scratch: ~/.cache/uta-scratch/u338/bake-0308/.
   **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
   Kind: feature.
   Source: user-request-2026-10-06.
