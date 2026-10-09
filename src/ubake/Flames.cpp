@@ -26,6 +26,7 @@ using Vec = std::array<double, 3>;
 struct Sheet {
     std::uint32_t material = 0;
     std::uint32_t surface = 0;
+    std::vector<std::uint32_t> members; ///< every sheet merged in
     Vec base{};
     double width = 0;
     double height = 0;
@@ -130,6 +131,9 @@ Sheet merged(const Sheet& a, const Sheet& b) {
     Sheet out;
     out.material = a.material;
     out.surface = std::min(a.surface, b.surface);
+    out.members = a.members;
+    out.members.insert(out.members.end(), b.members.begin(), b.members.end());
+    std::ranges::sort(out.members);
     const double low = std::min(a.base[2], b.base[2]);
     out.base = {(a.base[0] + b.base[0]) / 2, (a.base[1] + b.base[1]) / 2, low};
     out.height = std::max(a.base[2] + a.height, b.base[2] + b.height) - low;
@@ -168,6 +172,7 @@ FlameSheets findFlameSheets(const upkg::Model& model, const FlameMaterialLookup&
         }
         sheet->material = recordOf[surface];
         sheet->surface = surface;
+        sheet->members = {surface};
         sheets.push_back(*sheet);
         out.surfaces.push_back(surface);
     }
@@ -189,6 +194,7 @@ FlameSheets findFlameSheets(const upkg::Model& model, const FlameMaterialLookup&
     }
 
     out.flames.reserve(sheets.size());
+    for (const Sheet& sheet : sheets) out.sources.push_back(sheet.members);
     for (const Sheet& sheet : sheets)
         out.flames.push_back(ubundle::Flame{sheet.material,
                                             {static_cast<float>(sheet.base[0]), static_cast<float>(sheet.base[1]),

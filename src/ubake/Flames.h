@@ -45,6 +45,9 @@ struct FlameSheets {
     /// One per flame, crossed sheets merged, ascending by seed. `light` is -1
     /// until assignFlameLights runs.
     std::vector<ubundle::Flame> flames;
+    /// Per flame, every sheet surface merged into it, ascending -- what
+    /// UTA-0256 SS 4.3 copies a fitting's flames by.
+    std::vector<std::vector<std::uint32_t>> sources;
     /// The surfaces that became records, ascending: GEOM leaves them out.
     std::vector<std::uint32_t> surfaces;
     std::vector<SkippedFlame> skipped;

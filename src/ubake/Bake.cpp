@@ -12,6 +12,7 @@
 #include "ubake/LightModel.h"
 #include "ubake/Liquids.h"
 #include "ubake/LightProbes.h"
+#include "ubake/Lamps.h"
 #include "ubake/Occlusion.h"
 #include "ubake/ShadowMask.h"
 #include "ubake/Movers.h"
@@ -1203,6 +1204,16 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     // UTA-0263 SS 4.5: after the strips, so no flame names an absorbed light.
     assignFlameLights(flames.flames, actors.lights);
 
+    // UTA-0256 SS 4.3: the recipe's lamps, copied from lights with strips
+    // marked and from the flames just found.
+    std::optional<std::vector<ubundle::AddedLamp>> lamps;
+    if (recipe != nullptr && !recipe->lamps.empty()) {
+        phase.emplace(&times, "lamps");
+        UTA_TRY(lamps, naming(buildLamps(map, model, recipe->lamps, actors.lights, lookup, flames, rooms.map,
+                                         zones.size()),
+                              mapName));
+    }
+
     // 9. MOVR, in export order -- UTA-0119 SS 4.5.
     phase.emplace(&times, "mover-shapes");
     std::vector<ubundle::MoverShape> shapes;
@@ -1257,6 +1268,24 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                    bakedLights(actors.lights, actors.placements), albedo, jobs,
                                    probeReachOf(actors.placements), own, sky),
                    mapName));
+    // UTA-0256 SS 4.3 step 5: the lamps' bounce alone, at the same lattice --
+    // no sky and no glow, which the probes above already hold. Light adds.
+    if (lamps) {
+        std::vector<ubundle::Light> lampLights;
+        for (const ubundle::AddedLamp& lamp : *lamps) lampLights.push_back(lamp.light);
+        UTA_TRY(const ubundle::LightProbes added,
+                naming(bakeLightProbes(geometry, collision.level, bakedLights(lampLights, actors.placements), albedo,
+                                       jobs, probeReachOf(actors.placements)),
+                       mapName));
+        if (added.probes.size() != probes.probes.size())
+            return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
+        probes.added.reserve(added.probes.size());
+        for (std::size_t p = 0; p < added.probes.size(); ++p) {
+            if (added.probes[p].cell != probes.probes[p].cell)
+                return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
+            probes.added.push_back(added.probes[p].cube);
+        }
+    }
 
     // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit
     // surface is. A level with no GEOM has no AOCC.
@@ -1301,14 +1330,20 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.zones = std::move(zones);
     result.bundle.occlusion = std::move(occlusion);
     result.bundle.flames = std::move(flames.flames);
+    result.bundle.lamps = std::move(lamps);
 
     // 11c. SMSK -- UTA-0326 SS 4.6: what each lit texel sees of each light
     // that never moves. It reads the sections above, so it runs once they are
     // in the bundle. A level with no GEOM vertex, or no litDirectly light, has
     // none.
+    const bool lampLit = result.bundle.lamps
+                         && std::ranges::any_of(*result.bundle.lamps, [](const ubundle::AddedLamp& lamp) {
+                                return ubundle::litDirectly(lamp.light);
+                            });
     if (!result.bundle.geometry->vertices.empty()
-        && std::ranges::any_of(*result.bundle.lights,
-                               [](const ubundle::Light& light) { return ubundle::litDirectly(light); })) {
+        && (lampLit || std::ranges::any_of(*result.bundle.lights, [](const ubundle::Light& light) {
+               return ubundle::litDirectly(light);
+           }))) {
         phase.emplace(&times, "shadow-mask");
         UTA_TRY(ubundle::ShadowMask mask, naming(bakeShadowMask(result.bundle, jobs, materials.cutouts), mapName));
         result.bundle.shadowMask = std::move(mask);

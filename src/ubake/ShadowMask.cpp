@@ -55,9 +55,9 @@ struct Box {
     }
 };
 
-/// One light the mask pairs: a litDirectly light of LITE.
+/// One light the mask pairs: a litDirectly light of LITE or of LAMP.
 struct Site {
-    std::uint32_t index = 0; ///< into LITE
+    std::uint32_t index = 0; ///< into LITE, or past it into LAMP (UTA-0256 SS 4.2)
     Vec3 from{}, span{};     ///< litFrom's segment: its location, or a leader's strip
     Vec3 centre{};
     double bound = 0;        ///< its sphere: lightRadius grown by half the strip
@@ -277,6 +277,14 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
     std::vector<Site> sites;
     for (std::uint32_t i = 0; i < bundle.lights->size(); ++i)
         if (ubundle::litDirectly((*bundle.lights)[i])) sites.push_back(siteOf(i, (*bundle.lights)[i]));
+    // UTA-0256 SS 4.3 step 4: a lamp's light pairs as any light does, after
+    // LITE's, and its fitting is in no ray set.
+    if (bundle.lamps) {
+        const auto first = static_cast<std::uint32_t>(bundle.lights->size());
+        for (std::uint32_t k = 0; k < bundle.lamps->size(); ++k)
+            if (ubundle::litDirectly((*bundle.lamps)[k].light))
+                sites.push_back(siteOf(first + k, (*bundle.lamps)[k].light));
+    }
     const std::vector<Box> movers = moverReaches(bundle);
     const SurfaceRays rays(geometry, LIGHT_PASSES_FLAGS | PF_FAKE_BACKDROP);
     const Holes holes(geometry, cutouts);
