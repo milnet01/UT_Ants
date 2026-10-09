@@ -19164,6 +19164,16 @@ to.
   Source: ut-monsterhunt-request-2026-10-08.
   Lanes: tools/ut-dump.
 
+- 📋 [UTA-0340] **MH-SPNaliRescue's Model does not read, so ut-dump gives it no player-start zones.**
+  UT_MonsterHunt's GAME-0207 check (their f5fcbc3), built on UTA-0335's
+  playerStarts, returned playerStartsError "the level's Model did not
+  read" for MH-SPNaliRescue, alone of 1406 MH maps. Find whether the map
+  is malformed or our upkg Model reader refuses something UT99 accepts;
+  a reader fault would also stop the map baking.
+  **Layman:** One Monster Hunt map's level data fails to load in our reader, so we cannot tell where its players start.
+  Kind: investigate.
+  Source: ut-monsterhunt-report-2026-10-09.
+
 ## 0.5.0 — Map editor
 
 Edit a baked bundle, build a new level, and author enemies as data. A map built
