@@ -15484,6 +15484,19 @@ stays with movement in 0.2.0.
   own LPRB layer; format 26, baker 50. ForbiddenMansion switches off the
   seven cylinder lights and gets a lamp copying Light4 at each lantern.
   Next: build it.
+  Built (2026-10-10), 3c4509f, not pushed: recipe version 4, LAMP
+  restoring records, LPRB `switched` layer, format 26, baker 50. Unit tier
+  992/992; 10 hand mutants killed. Not yet run: the device tier, the MSVC
+  leg. The spec's first `restored` layer was replaced by `switched`, since
+  bounce does not add across lights (SS 4.7).
+  Left: (1) write recipes/mh-!sd0!forbiddenmansion.recipe -- header 4,
+  [map] file and sha256, [switch-off] lights = Light1 Light2 Light3 Light5
+  Light6 Light7 Light9 (the LE_Cylinder ones), and seven fitting-less
+  [lamp] sections copying Light4, each `at` its cylinder light's location
+  (t3d: UT_MonsterHunt/work/t3d/MH-!SD0!ForbiddenMansion.t3d); check
+  Light1's radius in the bake first. (2) bake it and view it on and off.
+  (3) CLAUDE.md's stale-bake fact to format 26 / baker 50, CHANGELOG.
+  (4) push through the gate. (5) re-bake every map at r50.
   **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -16100,6 +16113,41 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-08.
   Lanes: ubake, urender.
   Splits-from: UTA-0337.
+
+- 📋 [UTA-0343] **MH-()mG-DeathcourseV2: a hard dark wedge of shadow on a wall where nothing stands to cast it.**
+  The user, 2026-10-10, from a viewer F12 capture: "a weird shadow where
+  there shouldn't be". Capture: ~/.local/state/ut-ants/map-captures/
+  MH-()mG-DeathcourseV2-20261010-164317 (camera -6021.63 -838.46 526.78
+  -328 3418 0 121.28, r49-f25). A sharp, near-black triangle falls on the
+  brick wall behind a wooden beam, from the floor to the red frieze; no
+  drawn shape stands between it and any light in view.
+  Candidates, none checked: a brush that casts in the baked shadow mask
+  (SMSK, UTA-0326) or the shadow maps but is not drawn -- invisible,
+  semisolid or a zone portal; a mover's shadow; or a mask texel fault.
+  First step: find the lights reaching that wall and what each one's ray
+  meets, with an isolating ut-shot probe.
+  **Layman:** On one map a sharp shadow falls on a wall although nothing in the room should cast it.
+  Kind: investigate.
+  Source: user-request-2026-10-10.
+  Lanes: ubake, urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-DeathcourseV2-20261010-164317/frame.png
+
+- 📋 [UTA-0344] **MH-()mG-TheBoat-V2mini-BP is too dark to play: a clear blue sky, no sun, and only a few lights.**
+  The user, 2026-10-10: "the map TheBoat is now in darkness. It has no
+  sun now it seems. It looks awesome with the few lights there are, it is
+  just too dark to play that way."
+  Its sky is clear light blue with no sun painted on it (reviewed capture
+  MH-()mG-TheBoat-V2mini-BP-20261007-131945), so under the user's rule of
+  2026-10-10 -- clear skies with no painted sun get no sun -- it has
+  none. It never had a recipe sun; it read brighter before UTA-0292
+  replaced zone ambient fill with real bounce.
+  Open question for the user (asked 2026-10-10): give this map a recipe
+  sun anyway, as an exception to that rule (recommended -- an open-sea
+  daylight map), or add lamps by UTA-0256's per-room rule.
+  **Layman:** The boat map now looks great but is too dark to play, because its sky gives no sunlight.
+  Kind: investigate.
+  Source: user-request-2026-10-10.
+  Lanes: ubake, recipes.
 
 ## 0.2.0 — Movement and weapons
 
