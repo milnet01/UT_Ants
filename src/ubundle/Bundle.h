@@ -66,7 +66,9 @@ namespace uta::ubundle {
 /// 23 since UTA-0326 SS 4.2 added SMSK.
 /// 24 since UTA-0256 SS 4.2 added LAMP and LPRB's added-lamps cubes.
 /// 25 since UTA-0338 SS 4.2 added SUN and LPRB's sun visibility.
-inline constexpr std::uint32_t FORMAT_VERSION = 25;
+/// 26 since UTA-0256 SS 4.7 (UTA-0308) gave each LAMP record its restores
+/// flag and LPRB its switched-off cubes.
+inline constexpr std::uint32_t FORMAT_VERSION = 26;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -478,8 +480,17 @@ struct LightProbes {
     std::vector<LightProbe> probes; ///< strictly ascending by z, then y, then x
     /// UTA-0256 SS 4.2: the bounce of the added lamps alone, one cube per
     /// probe in `probes`' order -- or none, when LAMP holds no lamp. The
-    /// renderer adds it to `probes` only while added lamps are on.
+    /// renderer adds it to `probes` only while added lamps are on. UTA-0256
+    /// SS 4.7: none, too, when LAMP holds no record that adds.
     std::vector<std::array<std::array<float, 3>, 6>> added;
+    /// UTA-0256 SS 4.7: one cube per probe gathered as `probes` is but with
+    /// the switched-off lights out -- or none, exactly when LAMP holds no
+    /// record that restores. `probes` keeps the map's own light whole, so it
+    /// is what the renderer draws while added lamps are off; while they are on,
+    /// these cubes stand in for it. Bounce does not add across lights (a
+    /// surface sends on its light after `shownLight`'s curve), so neither
+    /// could be made from the other.
+    std::vector<std::array<std::array<float, 3>, 6>> switched;
     /// UTA-0338 SS 4.2: the share of the sun each probe sees, in [0, 1], one
     /// per probe in `probes`' order -- or none, exactly when SUN is absent.
     std::vector<float> sunSeen;
@@ -558,13 +569,18 @@ struct Flame {
     std::int32_t light = -1;         ///< an index into LITE, or -1 for none (SS 4.5)
 };
 
-/// A lamp the map lacks, from its recipe -- UTA-0256 SS 4.2. Its light is
-/// light index LITE's size plus its own index in LAMP, which is the index its
-/// SMSK pairs name and its flames are tied to.
+/// A lamp the map lacks, from its recipe -- UTA-0256 SS 4.2 -- or, with
+/// `restores`, one of the map's own lights the recipe switched off (SS 4.7).
+/// Its light is light index LITE's size plus its own index in LAMP, which is
+/// the index its SMSK pairs name and its flames are tied to. Every record that
+/// adds comes before every record that restores.
 struct AddedLamp {
     Light light;               ///< its template's record, moved; LITE's rules
     Geometry shape;            ///< its fitting's drawn surfaces, world space; GEOM's rules
     std::vector<Flame> flames; ///< its fitting's flames; FLAM's rules, each `light` -1
+    /// SS 4.7: the map light itself, unchanged, drawn only while added lamps
+    /// are off; then `shape` and `flames` are empty.
+    bool restores = false;
 };
 
 /// A LITE effect no UT light has: the sun `applySun` folds in -- UTA-0338
@@ -633,15 +649,18 @@ struct Bundle {
     std::optional<Sun> sun;
 };
 
-/// UTA-0256 SS 4.4: folds LAMP into the sections the renderer already
-/// draws, so it needs no lamp code of its own, and empties LAMP and LPRB's
-/// added cubes. With `on`, each lamp's light joins LITE at LITE's size plus its
-/// index -- the index its SMSK pairs name -- its flames join FLAM tied to it,
-/// its shape joins MOVR as a mover standing still where it was baked, and the
-/// added cubes join the probes'. Without, SMSK loses the lamps' pairs, so
-/// what is left draws as a bake without the lamps, and the sun's pairs are
-/// renamed from LITE's size plus LAMP's to LITE's size (UTA-0338 SS 4.2). The
-/// result is for drawing only: LITE and MOVR no longer keep their write order.
+/// UTA-0256 SS 4.4 and SS 4.8: folds LAMP into the sections the renderer
+/// already draws, so it needs no lamp code of its own, and empties LAMP and
+/// LPRB's added and switched cubes. With `on`, each adding record's light joins
+/// LITE at LITE's size plus its index -- the index its SMSK pairs name -- its
+/// flames join FLAM tied to it, its shape joins MOVR as a mover standing still
+/// where it was baked, and the added cubes join the probes'; the restoring
+/// records go with their pairs. Without, the adding records go with their
+/// pairs, and each restoring light joins LITE in order, its pairs renamed to
+/// its new index; the probes are kept. With `on` and a restoring record, the
+/// switched cubes replace the probes' before the added cubes join. Either way the sun's
+/// pairs are renamed to LITE's new size (UTA-0338 SS 4.2). The result is for
+/// drawing only: LITE and MOVR no longer keep their write order.
 void applyAddedLamps(Bundle& bundle, bool on);
 
 /// UTA-0338 SS 4.2: appends the sun to LITE as `lightOfSun` makes it, and

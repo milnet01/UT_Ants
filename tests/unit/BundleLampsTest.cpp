@@ -153,11 +153,13 @@ void putShape(Bytes& out, const Geometry& shape) {
     }
 }
 
-/// SS 4.2's record: the light, the shape, then the flames.
+/// SS 4.2's record: the restores flag (SS 4.7), the light, the shape, then the
+/// flames.
 Bytes lampPayload(const std::vector<AddedLamp>& lamps) {
     Bytes out;
     out.u32(static_cast<std::uint32_t>(lamps.size()));
     for (const AddedLamp& lamp : lamps) {
+        out.u8(lamp.restores ? 1 : 0);
         putLight(out, lamp.light);
         putShape(out, lamp.shape);
         out.u32(static_cast<std::uint32_t>(lamp.flames.size()));
@@ -177,7 +179,7 @@ Bytes lampPayload(const std::vector<AddedLamp>& lamps) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(25); // formatVersion -- 25 since UTA-0338 added SUN
+    out.u32(26); // formatVersion -- 26 since UTA-0308 gave LAMP its restores flag
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved
@@ -205,11 +207,17 @@ Bundle bundleWith(std::vector<AddedLamp> lamps) {
     return bundle;
 }
 
-/// SS 4.2's refusals of a lamp, one each, as a change to a good one.
+/// SS 4.2's and SS 4.7's refusals of a lamp, one each, as a change to a good
+/// one. A lamp with no fitting is no longer one of them (SS 4.7).
 const std::vector<std::pair<std::string_view, std::function<void(AddedLamp&)>>> BAD = {
-    {"no fitting", [](AddedLamp& lamp) {
-         lamp.shape = {};
+    {"a restoring record with a shape", [](AddedLamp& lamp) {
+         lamp.restores = true;
+         lamp.shape = goldenShape();
          lamp.flames.clear();
+     }},
+    {"a restoring record with a flame", [](AddedLamp& lamp) {
+         lamp.restores = true;
+         lamp.shape = {};
      }},
     {"a light in a strip", [](AddedLamp& lamp) {
          lamp.light.strip = uta::ubundle::STRIP_LEADER;
@@ -333,4 +341,141 @@ TEST_CASE("UTA-0256 INV-3: an SMSK pair may name a lamp light and nothing past i
     const auto refused = write(bundle);
     REQUIRE_FALSE(refused.has_value());
     CHECK(refused.error().message().find("names light 3, and LITE holds 1 and LAMP 2") != std::string_view::npos);
+}
+
+// UTA-0256 INV-10 and the bundle half of INV-12: records that restore a
+// switched-off map light -- docs/specs/UTA-0256-added-lamps.md SS 4.7, SS 4.8.
+
+namespace {
+
+/// The golden lamps with a record restoring a map light after them.
+std::vector<AddedLamp> withRestoring() {
+    std::vector<AddedLamp> lamps = golden();
+    AddedLamp restoring;
+    restoring.light = goldenLight();
+    restoring.light.exportIndex = 40;
+    restoring.restores = true;
+    lamps.push_back(restoring);
+    return lamps;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0256 INV-10: a restoring record round-trips, and fitting-less lamps are allowed", "[ubundle][lamp]") {
+    std::vector<AddedLamp> lamps = withRestoring();
+    lamps[0].shape = {}; // a lamp standing at a fitting the map already has
+    lamps[0].flames.clear();
+    const auto written = write(bundleWith(lamps));
+    if (!written.has_value()) FAIL("refused: " << written.error().message());
+    CHECK(*written == fileWith({{"MATS", matsPayload()}, {"LAMP", lampPayload(lamps)}}));
+    const auto back = read(*written);
+    REQUIRE(back.has_value());
+    REQUIRE(back->lamps->size() == 3);
+    CHECK_FALSE((*back->lamps)[0].restores);
+    CHECK_FALSE((*back->lamps)[1].restores);
+    CHECK((*back->lamps)[2].restores);
+    CHECK((*back->lamps)[2].light.exportIndex == 40);
+}
+
+TEST_CASE("UTA-0256 INV-10: a record that adds after one that restores is refused", "[ubundle][lamp]") {
+    std::vector<AddedLamp> lamps = withRestoring();
+    std::swap(lamps[1], lamps[2]);
+    const auto result = read(fileWith({{"MATS", matsPayload()}, {"LAMP", lampPayload(lamps)}}));
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().message().find("LAMP: lamp 2 adds a lamp after a record that restores")
+          != std::string_view::npos);
+    CHECK_FALSE(write(bundleWith(lamps)).has_value());
+
+    // A restores flag that is neither 0 nor 1: the first record's, after the
+    // section's u32 count.
+    std::vector<std::byte> good = lampPayload(golden()).data();
+    good[4] = std::byte{2};
+    Bytes spoilt;
+    for (const std::byte part : good) spoilt.u8(static_cast<std::uint8_t>(part));
+    const auto bad = read(fileWith({{"MATS", matsPayload()}, {"LAMP", spoilt}}));
+    REQUIRE_FALSE(bad.has_value());
+    CHECK(bad.error().message().find("restores flag") != std::string_view::npos);
+}
+
+TEST_CASE("UTA-0256 INV-10: LPRB's switched cubes are counted against LAMP's restoring records", "[ubundle][lamp]") {
+    LightProbes probes;
+    probes.spacing = 32;
+    probes.probes = {LightProbe{{0, 0, 0}, {}}, LightProbe{{1, 0, 0}, {}}};
+    Bundle bundle = bundleWith(withRestoring());
+    bundle.lightProbes = probes;
+    bundle.lightProbes->added.resize(2);
+    bundle.lightProbes->switched.resize(2);
+    bundle.lightProbes->switched[0][5][1] = 0.5f;
+    const auto written = write(bundle);
+    if (!written.has_value()) FAIL("refused: " << written.error().message());
+    const auto back = read(*written);
+    REQUIRE(back.has_value());
+    CHECK(back->lightProbes->switched == bundle.lightProbes->switched);
+
+    SECTION("one switched cube short is refused") {
+        bundle.lightProbes->switched.pop_back();
+        CHECK_FALSE(write(bundle).has_value());
+    }
+    SECTION("switched cubes with no restoring record are refused") {
+        bundle.lamps->pop_back();
+        CHECK_FALSE(write(bundle).has_value());
+    }
+    SECTION("added cubes with only restoring records are refused") {
+        bundle.lamps->erase(bundle.lamps->begin(), bundle.lamps->begin() + 2);
+        CHECK_FALSE(write(bundle).has_value());
+        bundle.lightProbes->added.clear();
+        CHECK(write(bundle).has_value());
+    }
+    SECTION("a negative switched value is refused") {
+        bundle.lightProbes->switched[1][0][0] = -1.0f;
+        CHECK_FALSE(write(bundle).has_value());
+    }
+}
+
+TEST_CASE("UTA-0256 INV-12: the setting keeps one kind of record and renames the pairs", "[ubundle][lamp]") {
+    // LITE's one light (0), LAMP's two adding records (1, 2) and one restoring
+    // record (3), then the sun (4); one all-lit pair for each, in chart 0.
+    Bundle bundle = bundleWith(withRestoring());
+    bundle.lights = std::vector<Light>{goldenLight()};
+    bundle.sun = uta::ubundle::Sun{.yaw = 0, .pitch = 8192, .hue = 0, .saturation = 0, .brightness = 100};
+    uta::ubundle::ShadowMask mask;
+    mask.charts = {uta::ubundle::MaskChart{0, 5, 2, 2}};
+    for (std::uint32_t light = 0; light < 5; ++light)
+        mask.pairs.push_back(uta::ubundle::MaskPair{light, uta::ubundle::MASK_ALL_LIT, uta::ubundle::MASK_ALL_LIT, 0, {}});
+    bundle.shadowMask = mask;
+    LightProbes probes;
+    probes.spacing = 32;
+    probes.probes = {LightProbe{{0, 0, 0}, {}}};
+    probes.probes[0].cube[0][0] = 2.0f; // the map's own light, whole
+    probes.added.resize(1);
+    probes.added[0][0][0] = 1.0f;
+    probes.switched.resize(1);
+    probes.switched[0][0][0] = 4.0f;
+    bundle.lightProbes = probes;
+
+    const auto lightsOf = [](const Bundle& folded) {
+        std::vector<std::uint32_t> out;
+        for (const uta::ubundle::MaskPair& pair : folded.shadowMask->pairs) out.push_back(pair.light);
+        return out;
+    };
+
+    SECTION("on: the adding records join and the restoring one goes") {
+        Bundle on = bundle;
+        uta::ubundle::applyAddedLamps(on, true);
+        REQUIRE(on.lights->size() == 3);
+        CHECK(lightsOf(on) == std::vector<std::uint32_t>{0, 1, 2, 3});
+        CHECK(on.lightProbes->probes[0].cube[0][0] == 5.0f); // switched 4 + added 1
+        CHECK(on.shadowMask->charts[0].pairCount == 4);
+    }
+    SECTION("off: the restoring record's light joins and the adding ones go") {
+        Bundle off = bundle;
+        uta::ubundle::applyAddedLamps(off, false);
+        REQUIRE(off.lights->size() == 2);
+        CHECK((*off.lights)[1].exportIndex == 40);
+        CHECK(lightsOf(off) == std::vector<std::uint32_t>{0, 1, 2});
+        CHECK(off.lightProbes->probes[0].cube[0][0] == 2.0f); // the probes as baked
+        CHECK(off.shadowMask->charts[0].pairCount == 3);
+        CHECK_FALSE(off.flames.has_value());
+        CHECK_FALSE(off.movers.has_value());
+    }
 }

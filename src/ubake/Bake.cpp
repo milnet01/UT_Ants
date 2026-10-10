@@ -1215,6 +1215,16 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                          zones.size()),
                               mapName));
     }
+    // UTA-0256 SS 4.7: the lights the recipe switches off leave LITE after the
+    // lamps are copied, so a lamp may copy one, and come back as LAMP records
+    // that restore them, after the records that add.
+    if (recipe != nullptr && !recipe->switchedOff.empty()) {
+        phase.emplace(&times, "lamps");
+        UTA_TRY(std::vector<ubundle::AddedLamp> restoring,
+                naming(switchOff(map, recipe->switchedOff, actors.lights, flames.flames), mapName));
+        if (!lamps) lamps.emplace();
+        for (ubundle::AddedLamp& record : restoring) lamps->push_back(std::move(record));
+    }
 
     // 9. MOVR, in export order -- UTA-0119 SS 4.5.
     phase.emplace(&times, "mover-shapes");
@@ -1270,7 +1280,15 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                            .saturation = recipe->sun->saturation,
                            .brightness = recipe->sun->brightness,
                            .levelBrightness = levelBrightness};
-    std::vector<ubundle::Light> probeLights = bakedLights(actors.lights, actors.placements);
+    // UTA-0256 SS 4.7: the probes hold the map's own light whole, the
+    // switched-off lights back in their export order, so off draws a bake
+    // with no switch-off.
+    std::vector<ubundle::Light> mapLights = actors.lights;
+    if (lamps)
+        for (const ubundle::AddedLamp& lamp : *lamps)
+            if (lamp.restores) mapLights.push_back(lamp.light);
+    std::ranges::sort(mapLights, {}, &ubundle::Light::exportIndex);
+    std::vector<ubundle::Light> probeLights = bakedLights(mapLights, actors.placements);
     if (sun) probeLights.push_back(ubundle::lightOfSun(*sun)); // SS 4.4: the base layer, never `added`
     // SS 4.12 item 2 (UTA-0292): a ray meeting the sky carries on from where
     // the renderer draws the sky from.
@@ -1281,23 +1299,45 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
             naming(bakeLightProbes(geometry, collision.level, probeLights, albedo, jobs,
                                    probeReachOf(actors.placements), own, sky),
                    mapName));
-    // UTA-0256 SS 4.3 step 5: the lamps' bounce alone, at the same lattice --
-    // no sky and no glow, which the probes above already hold. Light adds.
-    if (lamps) {
-        std::vector<ubundle::Light> lampLights;
-        for (const ubundle::AddedLamp& lamp : *lamps) lampLights.push_back(lamp.light);
-        UTA_TRY(const ubundle::LightProbes added,
+    // Each further layer stands at the probes' own lattice, or the baker is at
+    // fault.
+    const auto cubesOf = [&probes](const ubundle::LightProbes& layer)
+        -> Result<std::vector<std::array<std::array<float, 3>, 6>>> {
+        if (layer.probes.size() != probes.probes.size())
+            return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
+        std::vector<std::array<std::array<float, 3>, 6>> cubes;
+        cubes.reserve(layer.probes.size());
+        for (std::size_t p = 0; p < layer.probes.size(); ++p) {
+            if (layer.probes[p].cell != probes.probes[p].cell)
+                return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
+            cubes.push_back(layer.probes[p].cube);
+        }
+        return cubes;
+    };
+    // SS 4.7: gathered as the probes are, sky, glow and sun included, with the
+    // switched-off lights out. Bounce does not add across lights, so this is
+    // a whole second gather and not a difference.
+    if (lamps && std::ranges::any_of(*lamps, &ubundle::AddedLamp::restores)) {
+        std::vector<ubundle::Light> onLights = bakedLights(actors.lights, actors.placements);
+        if (sun) onLights.push_back(ubundle::lightOfSun(*sun));
+        UTA_TRY(const ubundle::LightProbes layer,
+                naming(bakeLightProbes(geometry, collision.level, onLights, albedo, jobs,
+                                       probeReachOf(actors.placements), own, sky),
+                       mapName));
+        UTA_TRY(probes.switched, cubesOf(layer));
+    }
+    // UTA-0256 SS 4.3 step 5: the adding lamps' bounce alone, at the same
+    // lattice -- no sky and no glow, which the probes above already hold.
+    std::vector<ubundle::Light> lampLights;
+    if (lamps)
+        for (const ubundle::AddedLamp& lamp : *lamps)
+            if (!lamp.restores) lampLights.push_back(lamp.light);
+    if (!lampLights.empty()) {
+        UTA_TRY(const ubundle::LightProbes layer,
                 naming(bakeLightProbes(geometry, collision.level, bakedLights(lampLights, actors.placements), albedo,
                                        jobs, probeReachOf(actors.placements)),
                        mapName));
-        if (added.probes.size() != probes.probes.size())
-            return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
-        probes.added.reserve(added.probes.size());
-        for (std::size_t p = 0; p < added.probes.size(); ++p) {
-            if (added.probes[p].cell != probes.probes[p].cell)
-                return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
-            probes.added.push_back(added.probes[p].cube);
-        }
+        UTA_TRY(probes.added, cubesOf(layer));
     }
 
     // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit

@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -76,13 +77,16 @@ std::uint64_t fingerprintOf(const Picture& shown) {
 /// nine 64-unit squares; "Brush1", a holder plate on the wall side x = 0 from
 /// z = 64 to 80; "Brush2", a crossed pair of flame sheets standing on z = 80.
 /// "Brush3" owns nothing. Surface 0 of the floor sits under the light.
+/// `farLightFirst` puts a second light ahead of every actor, at (160, 160, 96),
+/// so it is "Lamp0", the torch's light is "Lamp1" and every brush moves up one
+/// -- UTA-0256 INV-11's two lights, the flame tied to the second.
 struct Room {
     Fixture fixture;
     std::uint64_t torchKey = 0;
     std::vector<std::byte> bytes;
 };
 
-Room room() {
+Room room(bool farLightFirst = false) {
     Room out;
     MapBuilder& map = out.fixture.map;
     const Picture torchPicture = picture(5);
@@ -90,7 +94,12 @@ Room room() {
     const std::int32_t wall = map.addTexture(TextureSpec{"Wall", "", picture(3), false});
     const std::int32_t torch = map.addTexture(TextureSpec{"Torch", "", torchPicture, false});
     const std::int32_t brushClass = map.importClass("Engine", "Brush");
-    // Actor 0: the light.
+    const std::size_t first = farLightFirst ? 1 : 0;
+    if (farLightFirst)
+        map.addActorOfClass("ActorPkg", "Lamp",
+                            {vectorProperty("Location", 160.0F, 160.0F, 96.0F), boolProperty("bStatic", true),
+                             byteProperty("LightRadius", 16)});
+    // Actor `first`: the light.
     map.addActorOfClass("ActorPkg", "Lamp",
                         {vectorProperty("Location", 32.0F, 32.0F, 96.0F), boolProperty("bStatic", true),
                          byteProperty("LightRadius", 16)});
@@ -100,14 +109,14 @@ Room room() {
     map.addActor("Brush3", brushClass);
     for (int square = 0; square < 9; ++square) map.addSurface(wall);
     // The holder: a plate across y at x = 8, facing +x.
-    map.addSurface(wall).shapeSurface(acrossY(8, 16, 48, 64, 80), {1, 0, 0}).ownSurface(1, 0);
+    map.addSurface(wall).shapeSurface(acrossY(8, 16, 48, 64, 80), {1, 0, 0}).ownSurface(first + 1, 0);
     // The flame: crossed sheets standing on (32, 32, 80).
     map.addSurface(torch, PF_NOT_SOLID | PF_TRANSLUCENT)
         .shapeSurface(acrossX(16, 48, 32, 80, 112), {0, -1, 0})
-        .ownSurface(2, 0);
+        .ownSurface(first + 2, 0);
     map.addSurface(torch, PF_NOT_SOLID | PF_TRANSLUCENT)
         .shapeSurface(acrossY(32, 16, 48, 80, 112), {1, 0, 0})
-        .ownSurface(2, 1);
+        .ownSurface(first + 2, 1);
     out.bytes = asByteVector(map.build());
     return out;
 }
@@ -338,4 +347,138 @@ TEST_CASE("UTA-0256 INV-7: on folds a lamp into what the renderer draws", "[ubak
     for (std::size_t p = 0; p < before.size(); ++p)
         for (std::size_t face = 0; face < 6; ++face)
             CHECK(with.bundle.lightProbes->probes[p].cube[face][0] == before[p].cube[face][0] + added[p][face][0]);
+}
+
+// UTA-0256 INV-11 and INV-12: the map's own lights switched off --
+// docs/specs/UTA-0256-added-lamps.md SS 4.7 and SS 4.8 (UTA-0308).
+
+namespace {
+
+Recipe switchingOff(std::vector<std::string> lights, std::vector<AddedLamp> lamps = {}) {
+    Recipe recipe = recipeWith(std::move(lamps));
+    recipe.switchedOff = std::move(lights);
+    return recipe;
+}
+
+/// Each pair as its chart, its light's export index and its texels, sorted --
+/// what INV-12 compares, whatever index a light holds in LITE.
+std::vector<std::tuple<std::size_t, std::uint32_t, std::vector<std::uint8_t>>> pairsByExport(
+    const ubundle::Bundle& bundle) {
+    auto out = pairsBelow(*bundle.shadowMask, std::numeric_limits<std::uint32_t>::max());
+    for (auto& [chart, light, texels] : out) light = (*bundle.lights)[light].exportIndex;
+    std::ranges::sort(out);
+    return out;
+}
+
+std::vector<std::uint32_t> exportsOf(const std::vector<ubundle::Light>& lights) {
+    std::vector<std::uint32_t> out;
+    for (const ubundle::Light& light : lights) out.push_back(light.exportIndex);
+    std::ranges::sort(out);
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0256 INV-11: a switched-off light leaves LITE and comes back as a restoring record",
+          "[ubake][lamp][switch-off]") {
+    const Room fixture = room(true);
+    const Recipe recipe = switchingOff({"Lamp0"});
+    const BakeResult with = bakedOk(fixture, &recipe);
+    const BakeResult plain = bakedOk(fixture, nullptr);
+    const BakeResult lacking = bakedOk(room(), nullptr); // the fixture without that light actor
+
+    REQUIRE(plain.bundle.lights->size() == 2);
+    REQUIRE(with.bundle.lights->size() == 1);
+    CHECK(with.bundle.lights->front().exportIndex == (*plain.bundle.lights)[1].exportIndex);
+    REQUIRE(with.bundle.lamps.has_value());
+    REQUIRE(with.bundle.lamps->size() == 1);
+    const ubundle::AddedLamp& record = with.bundle.lamps->front();
+    CHECK(record.restores);
+    CHECK(record.light.exportIndex == (*plain.bundle.lights)[0].exportIndex);
+    CHECK(record.light.location == (*plain.bundle.lights)[0].location);
+    CHECK(record.light.radius == (*plain.bundle.lights)[0].radius);
+    CHECK(record.shape.indices.empty());
+    CHECK(record.flames.empty());
+
+    // The flame keeps its light: index 1 of the plain bake, index 0 here.
+    REQUIRE(plain.bundle.flames->size() == 1);
+    REQUIRE(plain.bundle.flames->front().light == 1);
+    CHECK(with.bundle.flames->front().light == 0);
+
+    // The probes keep the map's light whole; the switched cubes are a bake
+    // without the light actor.
+    const auto& probes = *with.bundle.lightProbes;
+    REQUIRE(probes.probes.size() == plain.bundle.lightProbes->probes.size());
+    REQUIRE(probes.switched.size() == probes.probes.size());
+    REQUIRE(lacking.bundle.lightProbes->probes.size() == probes.probes.size());
+    bool differs = false;
+    for (std::size_t p = 0; p < probes.probes.size(); ++p) {
+        CAPTURE(p);
+        CHECK(probes.probes[p].cube == plain.bundle.lightProbes->probes[p].cube);
+        CHECK(probes.switched[p] == lacking.bundle.lightProbes->probes[p].cube);
+        differs = differs || probes.switched[p] != probes.probes[p].cube;
+    }
+    CHECK(differs);
+    CHECK(probes.added.empty());
+}
+
+TEST_CASE("UTA-0256 INV-11: a light that cannot be switched off is refused naming it", "[ubake][lamp][switch-off]") {
+    const Room fixture = room(true);
+    const auto refused = [&fixture](const std::string& name, const std::string& says) {
+        const Recipe recipe = switchingOff({"Lamp0", name});
+        const auto result = baked(fixture, &recipe);
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().code() == uta::ErrorCode::MalformedData);
+        const std::string message(result.error().message());
+        INFO(message);
+        CHECK(message.find("recipe switch-off: " + name + " " + says) != std::string::npos);
+    };
+    SECTION("a light the map lacks") { refused("Lamp9", "is not a light of the map"); }
+    SECTION("a brush") { refused("Brush2", "is not a light of the map"); }
+    SECTION("a light a flame is tied to") { refused("Lamp1", "has a flame tied to it"); }
+}
+
+TEST_CASE("UTA-0256 INV-12: off folds a switched-off bake back to the plain bake", "[ubake][lamp][switch-off]") {
+    const Room fixture = room(true);
+    AddedLamp copy{.name = "copy", .light = "Lamp1", .fitting = {}, .at = {160, 96, 96}, .yaw = 0};
+    const Recipe recipe = switchingOff({"Lamp0"}, {copy});
+    BakeResult with = bakedOk(fixture, &recipe);
+    const BakeResult plain = bakedOk(fixture, nullptr);
+    ubundle::applyAddedLamps(with.bundle, false);
+
+    CHECK(exportsOf(*with.bundle.lights) == exportsOf(*plain.bundle.lights));
+    REQUIRE(with.bundle.flames->size() == plain.bundle.flames->size());
+    CHECK((*with.bundle.lights)[with.bundle.flames->front().light].exportIndex
+          == (*plain.bundle.lights)[plain.bundle.flames->front().light].exportIndex);
+    CHECK(with.bundle.movers->size() == plain.bundle.movers->size());
+    CHECK(pairsByExport(with.bundle) == pairsByExport(plain.bundle));
+    REQUIRE(with.bundle.lightProbes->probes.size() == plain.bundle.lightProbes->probes.size());
+    for (std::size_t p = 0; p < with.bundle.lightProbes->probes.size(); ++p)
+        CHECK(with.bundle.lightProbes->probes[p].cube == plain.bundle.lightProbes->probes[p].cube);
+}
+
+TEST_CASE("UTA-0256 INV-12: on keeps the switched-off light out and the lamp in", "[ubake][lamp][switch-off]") {
+    const Room fixture = room(true);
+    AddedLamp copy{.name = "copy", .light = "Lamp1", .fitting = {}, .at = {160, 96, 96}, .yaw = 0};
+    const Recipe recipe = switchingOff({"Lamp0"}, {copy});
+    BakeResult with = bakedOk(fixture, &recipe);
+    const BakeResult plain = bakedOk(fixture, nullptr);
+    const std::uint32_t off = (*plain.bundle.lights)[0].exportIndex;
+    const auto switched = with.bundle.lightProbes->switched;
+    const auto added = with.bundle.lightProbes->added;
+    REQUIRE_FALSE(switched.empty());
+    REQUIRE(added.size() == switched.size());
+    ubundle::applyAddedLamps(with.bundle, true);
+
+    REQUIRE(with.bundle.lights->size() == 2);
+    CHECK(std::ranges::none_of(*with.bundle.lights, [off](const ubundle::Light& light) {
+        return light.exportIndex == off && light.location == std::array<float, 3>{160, 160, 96};
+    }));
+    CHECK(with.bundle.lights->back().location == std::array<float, 3>{160, 96, 96});
+    for (const ubundle::MaskPair& pair : with.bundle.shadowMask->pairs) CHECK(pair.light < with.bundle.lights->size());
+    // The switched cubes stand in for the probes, and the lamp's bounce adds.
+    for (std::size_t p = 0; p < switched.size(); ++p)
+        for (std::size_t face = 0; face < 6; ++face)
+            CHECK(with.bundle.lightProbes->probes[p].cube[face][0] == switched[p][face][0] + added[p][face][0]);
+    CHECK(with.bundle.lightProbes->switched.empty());
 }

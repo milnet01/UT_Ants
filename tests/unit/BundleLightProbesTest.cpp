@@ -40,7 +40,8 @@ namespace {
 
 /// An LPRB payload in SS 4.2's order: the spacing, then the probes, each its
 /// cell's three i32 and then its cube face by face, red, green and blue; then
-/// UTA-0256's added-lamp cubes; then UTA-0338's sun visibilities.
+/// UTA-0256's added-lamp cubes and switched-off cubes; then UTA-0338's sun
+/// visibilities.
 Bytes lprbPayload(const LightProbes& probes) {
     Bytes out;
     out.u32(probes.spacing);
@@ -53,6 +54,11 @@ Bytes lprbPayload(const LightProbes& probes) {
     // UTA-0256 SS 4.2: the added-lamp cubes, face by face.
     out.u32(static_cast<std::uint32_t>(probes.added.size()));
     for (const auto& cube : probes.added)
+        for (const auto& face : cube)
+            for (const float channel : face) out.f32(channel);
+    // UTA-0256 SS 4.7: the switched-off cubes, the same way.
+    out.u32(static_cast<std::uint32_t>(probes.switched.size()));
+    for (const auto& cube : probes.switched)
         for (const auto& face : cube)
             for (const float channel : face) out.f32(channel);
     // UTA-0338 SS 4.2: one sun visibility per probe, or none.
@@ -75,7 +81,7 @@ Bytes emptyColl() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(25); // formatVersion -- 25 since UTA-0338 added SUN
+    out.u32(26); // formatVersion -- 26 since UTA-0308 gave LAMP its restores flag
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -152,7 +158,7 @@ void refusedBothWays(const LightProbes& probes, std::string_view says) {
 TEST_CASE("the LPRB golden bytes decode to the probes they encode", "[ubundle][lprb]") {
     const auto result = read(fileWith({{"COLL", emptyColl()}, {"LPRB", lprbPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 25);
+    CHECK(result->header.formatVersion == 26);
     REQUIRE(result->collision.has_value());
     REQUIRE(result->lightProbes.has_value());
     sameProbes(*result->lightProbes, golden());
@@ -168,13 +174,13 @@ TEST_CASE("write emits LPRB after COLL as the golden bytes", "[ubundle][lprb]") 
     CHECK(*written == fileWith({{"COLL", emptyColl()}, {"LPRB", lprbPayload(golden())}}));
 }
 
-TEST_CASE("a probe is 84 bytes and an empty section 16", "[ubundle][lprb]") {
+TEST_CASE("a probe is 84 bytes and an empty section 20", "[ubundle][lprb]") {
     LightProbes empty;
     empty.spacing = 128;
     // UTA-0256 SS 4.2 added the added-lamp cubes' count, UTA-0338 SS 4.2 the
     // sun visibilities'.
-    CHECK(lprbPayload(empty).size() == 16);
-    CHECK(lprbPayload(golden()).size() == 16 + 3 * 84);
+    CHECK(lprbPayload(empty).size() == 20);
+    CHECK(lprbPayload(golden()).size() == 20 + 3 * 84);
 
     Bundle bundle;
     bundle.header.origin = Origin::Authored;

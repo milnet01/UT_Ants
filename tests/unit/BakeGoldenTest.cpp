@@ -119,9 +119,12 @@ namespace {
 // empty count moved it.
 // 49: UTA-0318 dresses a mover surface that wears no texture in its brush
 // polygon's. The fixture's mover wears its own, so the digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 49;
+// 50, format 26: UTA-0308 gives LAMP its restores flag and LPRB its switched
+// cubes, and bakes a recipe's switched-off lights. The fixture has no recipe,
+// so only the format bump and the empty count moved it.
+constexpr std::uint32_t RECORDED_UNDER = 50;
 constexpr std::string_view GOLDEN =
-    "a2f855de9a1ed2b773e468cd37ec548d8544209e389cf7601c4daf23c252f72f";
+    "076f86f7b53cf5bb20a173eb54b17e59e9f0994a7f459e21dfd3522dc83bfe9c";
 
 } // namespace
 

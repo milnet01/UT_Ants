@@ -471,3 +471,99 @@ TEST_CASE("UTA-0338 INV-2: a sun-free digest is unchanged and every sun field mo
         CHECK(urecipe::bakeDigest(changed[i]) != digest);
     }
 }
+
+// UTA-0256 INV-8 and INV-9: the map's own lights switched off, and lamps with
+// no fitting -- docs/specs/UTA-0256-added-lamps.md SS 4.6 (UTA-0308).
+
+namespace {
+
+Recipe withSwitchOff() {
+    Recipe recipe = withSun();
+    recipe.switchedOff = {"Light9", "Light2", "Light_3"};
+    return recipe;
+}
+
+const std::string V4_HEAD = "ut-ants recipe 4\n[map]\nfile = dm-x\n"
+                            "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+
+} // namespace
+
+TEST_CASE("UTA-0256 INV-8: a recipe that switches lights off round-trips as version 4",
+          "[urecipe][format][switch-off]") {
+    const Recipe recipe = withSwitchOff();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 4\n"));
+    CHECK(text.find("\n[switch-off]\nlights = Light9 Light2 Light_3\n") != std::string::npos);
+    CHECK(parsed(text) == recipe);
+
+    Recipe bare = sample(); // nothing but materials and the switch-off
+    bare.mapDigest = withSwitchOff().mapDigest;
+    bare.switchedOff = {"Light1"};
+    CHECK(urecipe::write(bare).starts_with("ut-ants recipe 4\n"));
+    CHECK(parsed(urecipe::write(bare)) == bare);
+}
+
+TEST_CASE("UTA-0256 INV-8: a lamp with no fitting round-trips as version 4", "[urecipe][format][switch-off]") {
+    Recipe recipe = withLamps();
+    recipe.lamps[1].fitting.clear();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 4\n"));
+    CHECK(text.find("\n[lamp a-crypt]\nlight = Light7\nat = 0 -3.25 0.001\n") != std::string::npos);
+    CHECK(parsed(text) == recipe);
+    CHECK(parsed(V4_HEAD + "[lamp hall]\nlight = Light1\nat = 1 2 3\n").lamps.at(0).fitting.empty());
+}
+
+TEST_CASE("UTA-0256 INV-8: every switch-off refusal names its line", "[urecipe][format][switch-off]") {
+    struct Refusal {
+        const char* what;
+        std::string text;
+        std::size_t line;
+    };
+    // Lines 1 to 4; a section opens on line 5.
+    const std::string v3 = "ut-ants recipe 3\n[map]\nfile = dm-x\n"
+                           "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+    const std::vector<Refusal> refusals = {
+        {"a switch-off with no lights", V4_HEAD + "[switch-off]\n", 5},
+        {"an unclosed switch-off before a lamp", V4_HEAD + "[switch-off]\n[lamp a]\n", 5},
+        {"an unknown switch-off key", V4_HEAD + "[switch-off]\nlight = L1\n", 6},
+        {"a light named twice", V4_HEAD + "[switch-off]\nlights = L1 L2 L1\n", 6},
+        {"a light that is not a name", V4_HEAD + "[switch-off]\nlights = L-1\n", 6},
+        {"a second switch-off", V4_HEAD + "[switch-off]\nlights = L1\n[switch-off]\n", 7},
+        {"a switch-off with a name", V4_HEAD + "[switch-off hall]\n", 5},
+        {"a switch-off with no map sha256", "ut-ants recipe 4\n[map]\nfile = dm-x\n[switch-off]\nlights = L1\n", 4},
+        {"a switch-off in a version-3 recipe", v3 + "[switch-off]\nlights = L1\n", 5},
+        {"a fitting-less lamp in a version-3 recipe", v3 + "[lamp a]\nlight = L1\nat = 0 0 0\n", 5},
+    };
+    for (const Refusal& refusal : refusals) {
+        DYNAMIC_SECTION(refusal.what) {
+            const auto result = urecipe::parse(refusal.text);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error().code() == ErrorCode::MalformedData);
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.starts_with("recipe line " + std::to_string(refusal.line) + ": "));
+        }
+    }
+}
+
+TEST_CASE("UTA-0256 INV-9: a version-3 digest is unchanged and every switch-off change moves it",
+          "[urecipe][format][switch-off]") {
+    // withSun()'s digest under the version-3 code, recorded before version 4 existed.
+    CHECK(urecipe::bakeDigest(withSun())
+          == digestFromHex("6983e94432d340e80d70d270a41aafbe8fee009528ca772182b9f81856147a1b"));
+    const Recipe base = withSwitchOff();
+    const auto digest = urecipe::bakeDigest(base);
+    CHECK(digest != urecipe::bakeDigest(withSun()));
+    std::vector<Recipe> changed(4, base);
+    changed[0].switchedOff.push_back("Light10");
+    changed[1].switchedOff.pop_back();
+    std::swap(changed[2].switchedOff[0], changed[2].switchedOff[1]);
+    changed[3].switchedOff[0] = "Light8";
+    for (std::size_t i = 0; i < changed.size(); ++i) {
+        INFO("change " << i);
+        CHECK(urecipe::bakeDigest(changed[i]) != digest);
+    }
+    Recipe fittingless = withSun();
+    fittingless.lamps[1].fitting.clear();
+    CHECK(urecipe::bakeDigest(fittingless) != urecipe::bakeDigest(withSun()));
+}

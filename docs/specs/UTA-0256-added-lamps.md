@@ -216,31 +216,36 @@ LAMP record that **restores** it:
 - § 4.2's refusal of a lamp with no shape and no flames now applies to
   neither kind. Refused on read and on write instead: a restoring record
   with a shape or a flame, and a record that adds after one that restores.
-- **LPRB gains a second array.** `LightProbes::restored` is empty, or one
-  cube per probe: the bounce of the restoring lights alone. It is empty
-  exactly when LAMP holds no restoring record, and `added` is now empty
-  exactly when LAMP holds no adding record.
+- **LPRB gains a second array.** `LightProbes::switched` is empty, or one
+  cube per probe, gathered as `probes` is but with the switched-off lights
+  out. It is empty exactly when LAMP holds no restoring record, and `added`
+  is now empty exactly when LAMP holds no adding record. `probes` keeps the
+  map's own light whole. Bounce does not add across lights, since a surface
+  sends on its light after `shownLight`'s curve, so neither layer could be
+  made from the other.
 - **The bake.** Lamps are built from the full light list first (§ 4.3), so a
   lamp may copy a light that is then switched off. Then each switched-off
   name must be a `Light` placement in LITE, in no strip, with no flame tied
   to it; else the bake is refused, naming the light. It leaves LITE, the
   flames of the lights after it keep their ties, and it becomes a restoring
-  record. `probes` is gathered without it. `restored` is gathered from the
-  restoring lights alone, as `added` is from the adding ones. SMSK pairs a
-  restoring light as it would pair that light in LITE.
+  record. `probes` is gathered with it, the lights in export order, so it
+  equals a bake with no switch-off. `switched` is gathered the same way,
+  sky, glow and sun included, without it. SMSK pairs a restoring light as it
+  would pair that light in LITE.
 - `BAKER_REVISION` becomes 50.
 
 ### 4.8 The setting with switched-off lights, and ForbiddenMansion
 
 `applyAddedLamps` keeps one kind of record and drops the other:
 
-- **On:** the adding records join as § 4.4 says. The restoring records go,
-  with their SMSK pairs and `restored`. The sun's pairs are renamed to
-  `|LITE| + A`, where `A` is the number of adding records.
+- **On:** `switched`, where present, replaces each probe's cube, and then
+  the adding records join as § 4.4 says. The restoring records go, with
+  their SMSK pairs. The sun's pairs are renamed to `|LITE| + A`, where `A`
+  is the number of adding records.
 - **Off:** the restoring lights join LITE in order, at `|LITE| + j`, their
-  pairs renamed from `|LITE| + A + j`. `restored` is added to each probe's
-  cube. The adding records go as § 4.4 says. The sun's pairs are renamed to
-  `|LITE| + R`, where `R` is the number of restoring records.
+  pairs renamed from `|LITE| + A + j`. The probes are kept. The adding
+  records go as § 4.4 says. The sun's pairs are renamed to `|LITE| + R`,
+  where `R` is the number of restoring records.
 
 So off draws the map as a bake with no recipe lamps and no switch-off.
 
@@ -321,7 +326,7 @@ same spot, with no fitting, since the lantern stands there already.
   *Breaks when:* the version-4 tag is used for every recipe; the names are
   left out of the encoding.
 
-- **INV-10** — restoring records and LPRB's `restored` round-trip, and `read`
+- **INV-10** — restoring records and LPRB's `switched` round-trip, and `read`
   and `write` each refuse § 4.7's cases.
   *Test:* `tests/unit/BundleLampsTest.cpp`.
   *Breaks when:* the order check runs on one path only; a restoring record
@@ -329,21 +334,23 @@ same spot, with no fitting, since the lantern stands there already.
 
 - **INV-11** — in a fixture with two lights and a flame tied to the second,
   switching off the first gives a LITE without it, a restoring record
-  holding its record unchanged, the flame tied to the second still, and
-  base probes equal to a bake of the fixture without that light actor. The
+  holding its record unchanged, the flame tied to the second still, probes
+  equal to the plain bake's, and `switched` equal to a bake of the fixture
+  without that light actor. The
   bake is refused, naming the light, when a switched-off name is no light,
   is in a strip, or has a flame tied to it.
   *Test:* `tests/unit/BakeLampsTest.cpp`.
-  *Breaks when:* the flame keeps its old index; the light joins the base
-  gather; a missing name is skipped.
+  *Breaks when:* the flame keeps its old index; the light leaves the base
+  gather or joins the switched one; a missing name is skipped.
 
 - **INV-12** — off, the fixture switched off and given a lamp folds to the
-  plain fixture's LITE, FLAM and SMSK pairs exactly, and to its probes within
-  1e-4 of each cube's largest channel. On, LITE lacks the switched-off light
-  and holds the lamp's, and no pair names a light past LITE.
+  plain fixture's lights, flame ties and SMSK pairs, matched by export
+  index, and to its probes exactly. On, LITE lacks the switched-off light
+  and holds the lamp's, no pair names a light past LITE, and each probe is
+  `switched` plus `added`.
   *Test:* `tests/unit/BakeLampsTest.cpp`.
-  *Breaks when:* a restoring pair is kept while on; `restored` is not summed
-  off; the sun is renamed past the wrong range.
+  *Breaks when:* a restoring pair is kept while on; `switched` does not
+  replace the probes on; the sun is renamed past the wrong range.
 
 ## 6. Failure modes
 

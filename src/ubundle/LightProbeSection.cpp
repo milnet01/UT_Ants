@@ -75,6 +75,7 @@ Result<LightProbes> readLightProbes(Cursor& cursor) {
     UTA_TRY(probes.probes,
             readVector<LightProbe>(cursor, LIGHT_PROBE_SIZE, "light probes", readProbe));
     UTA_TRY(probes.added, readVector<Cube>(cursor, CUBE_SIZE, "added-lamp cubes", readCube));
+    UTA_TRY(probes.switched, readVector<Cube>(cursor, CUBE_SIZE, "switched-off cubes", readCube));
     // UTA-0338 SS 4.2: its count and range are SUN's rules, in validateSun.
     UTA_TRY(probes.sunSeen, readVector<float>(cursor, 4, "sun visibilities", readF32Element));
     return probes;
@@ -92,6 +93,8 @@ Result<void> validateLightProbes(const LightProbes& probes, ErrorCode code) {
     // How many there should be is LAMP's rule, in validateLamps.
     for (std::size_t p = 0; p < probes.added.size(); ++p)
         UTA_CHECK(validateCube(probes.added[p], "added-lamp cube " + std::to_string(p), code));
+    for (std::size_t p = 0; p < probes.switched.size(); ++p)
+        UTA_CHECK(validateCube(probes.switched[p], "switched-off cube " + std::to_string(p), code));
     return {};
 }
 
@@ -100,6 +103,7 @@ Result<std::vector<std::byte>> encodeLightProbes(const LightProbes& probes) {
     sink.putU32(probes.spacing);
     sink.putVector(probes.probes, putProbe);
     sink.putVector(probes.added, putCube);
+    sink.putVector(probes.switched, putCube);
     sink.putVector(probes.sunSeen, [](Sink& out, float seen) { out.putF32(seen); });
     return std::move(sink).finish("LPRB");
 }

@@ -1,4 +1,5 @@
-// The lamps a map's recipe adds -- docs/specs/UTA-0256-added-lamps.md SS 4.3.
+// The lamps a map's recipe adds -- docs/specs/UTA-0256-added-lamps.md SS 4.3 --
+// and the map lights it switches off, SS 4.7.
 
 #include "ubake/Lamps.h"
 
@@ -117,6 +118,46 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
         out.push_back(std::move(lamp));
     }
     return out;
+}
+
+Result<std::vector<ubundle::AddedLamp>> switchOff(const upkg::Package& map, const std::vector<std::string>& names,
+                                                  std::vector<ubundle::Light>& lights,
+                                                  std::vector<ubundle::Flame>& flames) {
+    std::vector<bool> off(lights.size(), false);
+    for (const std::string& name : names) {
+        const auto refuse = [&name](std::string_view why) {
+            return fail(ErrorCode::MalformedData, std::format("recipe switch-off: {} {}", name, why));
+        };
+        const auto lightExport = exportNamed(map, name);
+        const auto found = lightExport.has_value()
+                               ? std::ranges::find(lights, *lightExport, &ubundle::Light::exportIndex)
+                               : lights.end();
+        if (found == lights.end()) return refuse("is not a light of the map");
+        if (found->strip != ubundle::STRIP_NONE) return refuse("is part of a strip");
+        const auto index = static_cast<std::int32_t>(found - lights.begin());
+        if (std::ranges::any_of(flames, [index](const ubundle::Flame& flame) { return flame.light == index; }))
+            return refuse("has a flame tied to it");
+        off[static_cast<std::size_t>(index)] = true;
+    }
+
+    std::vector<ubundle::AddedLamp> restoring;
+    std::vector<ubundle::Light> kept;
+    std::vector<std::int32_t> moved(lights.size(), -1); // old index -> new
+    for (std::size_t i = 0; i < lights.size(); ++i) {
+        if (off[i]) {
+            ubundle::AddedLamp record;
+            record.light = lights[i];
+            record.restores = true;
+            restoring.push_back(std::move(record));
+        } else {
+            moved[i] = static_cast<std::int32_t>(kept.size());
+            kept.push_back(lights[i]);
+        }
+    }
+    for (ubundle::Flame& flame : flames)
+        if (flame.light >= 0) flame.light = moved[static_cast<std::size_t>(flame.light)];
+    lights = std::move(kept);
+    return restoring;
 }
 
 } // namespace uta::ubake

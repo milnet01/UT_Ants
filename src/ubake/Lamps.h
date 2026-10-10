@@ -1,5 +1,5 @@
 // ubake: the lamps a map's recipe adds -- docs/specs/UTA-0256-added-lamps.md
-// SS 4.3.
+// SS 4.3 -- and the map lights it switches off, SS 4.7 (UTA-0308).
 //
 // A lamp copies one of the map's lights and the fitting that holds it: the
 // drawn surfaces and the flames of brushes the recipe names, moved to `at` and
@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cstddef>
+#include <string>
 #include <vector>
 
 namespace uta::ubake {
@@ -37,5 +38,15 @@ namespace uta::ubake {
     const upkg::Package& map, const upkg::Model& model, const std::vector<urecipe::AddedLamp>& lamps,
     const std::vector<ubundle::Light>& lights, const MaterialLookup& materials, const FlameSheets& flames,
     const umap::RoomMap& rooms, std::size_t zoneCount);
+
+/// SS 4.7: each light `names` names leaves `lights` and comes back as a LAMP
+/// record that restores it, the records in `lights`' order, so ascending by
+/// exportIndex. Each flame's tie into `lights` follows its light. Refuses
+/// MalformedData naming the light when a name is no light of the map, or one a
+/// strip holds or a flame is tied to.
+[[nodiscard]] Result<std::vector<ubundle::AddedLamp>> switchOff(const upkg::Package& map,
+                                                                const std::vector<std::string>& names,
+                                                                std::vector<ubundle::Light>& lights,
+                                                                std::vector<ubundle::Flame>& flames);
 
 } // namespace uta::ubake

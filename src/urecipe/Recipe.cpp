@@ -1,6 +1,7 @@
 // The recipe format -- docs/specs/UTA-0113-recipe-format.md SS 4.2 and SS 4.4,
-// its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1, and its sun,
-// docs/specs/UTA-0338-baked-sun.md SS 4.1.
+// its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1, its sun,
+// docs/specs/UTA-0338-baked-sun.md SS 4.1, and the map's lights it switches
+// off, UTA-0256 SS 4.6 (UTA-0308).
 
 #include "urecipe/Recipe.h"
 
@@ -207,6 +208,25 @@ Result<void> setSunKey(Sun& sun, std::string_view key, const std::string& value,
     return {};
 }
 
+/// UTA-0256 SS 4.6: `lights`, one or more actor names, none twice.
+Result<void> setSwitchOffKey(std::vector<std::string>& lights, std::string_view key, const std::string& value,
+                             std::size_t line) {
+    if (key != "lights") return refuse(line, std::format("[switch-off] has no key '{}'", key));
+    for (const std::string_view word : wordsOf(value)) {
+        if (!isObjectName(word)) return refuse(line, std::format("'{}' is not an actor's name", word));
+        if (std::ranges::find(lights, word) != lights.end())
+            return refuse(line, std::format("[switch-off] names {} twice", word));
+        lights.emplace_back(word);
+    }
+    return {};
+}
+
+/// UTA-0256 SS 4.6: what only a version-4 recipe can say.
+bool needsVersion4(const Recipe& recipe) {
+    return !recipe.switchedOff.empty()
+           || std::ranges::any_of(recipe.lamps, [](const AddedLamp& lamp) { return lamp.fitting.empty(); });
+}
+
 /// Every `key = value` line of one section is handed here.
 Result<void> setMapKey(Recipe& recipe, std::string_view key, const std::string& value, std::size_t line) {
     if (key == "file") {
@@ -268,7 +288,7 @@ std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
 Result<Recipe> parse(std::string_view text) {
     if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
 
-    enum class In { Header, Nothing, Map, Material, Lamp, Sun };
+    enum class In { Header, Nothing, Map, Material, Lamp, Sun, SwitchOff };
     In in = In::Header;
     Recipe recipe;
     std::size_t headerLine = 1;
@@ -280,17 +300,21 @@ Result<Recipe> parse(std::string_view text) {
     std::uint32_t version = 0;
     std::vector<std::size_t> lampLines;
     std::optional<std::size_t> sunLine;
-    // A lamp's three required keys and a sun's five, checked when the
+    std::optional<std::size_t> switchOffLine;
+    // A lamp's required keys -- `fitting` only below version 4 (UTA-0256
+    // SS 4.6) -- a sun's five and [switch-off]'s one, checked when the
     // section closes.
     const auto sectionComplete = [&]() -> Result<void> {
         if (in == In::Lamp) {
             for (const std::string_view key : {"light", "fitting", "at"})
-                if (!keysSeen.contains(key))
+                if (!keysSeen.contains(key) && (key != "fitting" || version < 4))
                     return refuse(lampLines.back(),
                                   std::format("[lamp {}] has no `{}`", recipe.lamps.back().name, key));
         } else if (in == In::Sun) {
             for (const std::string_view key : {"yaw", "pitch", "hue", "saturation", "brightness"})
                 if (!keysSeen.contains(key)) return refuse(*sunLine, std::format("[sun] has no `{}`", key));
+        } else if (in == In::SwitchOff && !keysSeen.contains("lights")) {
+            return refuse(*switchOffLine, "[switch-off] has no `lights`");
         }
         return {};
     };
@@ -356,6 +380,12 @@ Result<Recipe> parse(std::string_view text) {
                 sunLine = line;
                 recipe.sun.emplace();
                 in = In::Sun;
+            } else if (heading == "switch-off") {
+                if (version < 4) return refuse(line, "a [switch-off] needs `ut-ants recipe 4`");
+                if (switchOffLine)
+                    return refuse(line, std::format("a second [switch-off]; the first is on line {}", *switchOffLine));
+                switchOffLine = line;
+                in = In::SwitchOff;
             } else {
                 return refuse(line, std::format("there is no [{}] section", heading));
             }
@@ -374,6 +404,8 @@ Result<Recipe> parse(std::string_view text) {
                 UTA_CHECK(setLampKey(recipe.lamps.back(), key, value, line));
             } else if (in == In::Sun) {
                 UTA_CHECK(setSunKey(*recipe.sun, key, value, line));
+            } else if (in == In::SwitchOff) {
+                UTA_CHECK(setSwitchOffKey(recipe.switchedOff, key, value, line));
             } else {
                 UTA_CHECK(setMaterialKey(*material, key, value, line));
             }
@@ -392,12 +424,15 @@ Result<Recipe> parse(std::string_view text) {
     if (sunLine && !recipe.mapDigest)
         return refuse(*sunLine, "a recipe with a [sun] must give the map's sha256 in [map]: where the sky is open "
                                 "means nothing in another file");
+    if (switchOffLine && !recipe.mapDigest)
+        return refuse(*switchOffLine, "a recipe with a [switch-off] must give the map's sha256 in [map]: actor names "
+                                      "mean nothing in another file");
     for (auto& [texture, assignment] : materials) recipe.materials.push_back(std::move(assignment));
     return recipe;
 }
 
 std::string write(const Recipe& recipe) {
-    const int version = recipe.sun ? 3 : recipe.lamps.empty() ? 1 : 2;
+    const int version = needsVersion4(recipe) ? 4 : recipe.sun ? 3 : recipe.lamps.empty() ? 1 : 2;
     std::string out = std::format("{}{}\n\n[map]\nfile = {}\n", HEADER, version,
                                   quotedIfNeeded(recipe.map, false));
     if (recipe.mapDigest) {
@@ -419,15 +454,24 @@ std::string write(const Recipe& recipe) {
         if (material.upscale) out += std::format("upscale = {}\n", *material.upscale);
     }
     for (const AddedLamp& lamp : recipe.lamps) {
-        out += std::format("\n[lamp {}]\nlight = {}\nfitting =", lamp.name, lamp.light);
-        for (const std::string& brush : lamp.fitting) out += ' ' + brush;
-        out += std::format("\nat = {} {} {}\n", lamp.at[0], lamp.at[1], lamp.at[2]);
+        out += std::format("\n[lamp {}]\nlight = {}\n", lamp.name, lamp.light);
+        if (!lamp.fitting.empty()) {
+            out += "fitting =";
+            for (const std::string& brush : lamp.fitting) out += ' ' + brush;
+            out += '\n';
+        }
+        out += std::format("at = {} {} {}\n", lamp.at[0], lamp.at[1], lamp.at[2]);
         if (lamp.yaw != 0) out += std::format("yaw = {}\n", lamp.yaw);
     }
     if (recipe.sun)
         out += std::format("\n[sun]\nyaw = {}\npitch = {}\nhue = {}\nsaturation = {}\nbrightness = {}\n",
                            recipe.sun->yaw, recipe.sun->pitch, recipe.sun->hue, recipe.sun->saturation,
                            recipe.sun->brightness);
+    if (!recipe.switchedOff.empty()) {
+        out += "\n[switch-off]\nlights =";
+        for (const std::string& light : recipe.switchedOff) out += ' ' + light;
+        out += '\n';
+    }
     return out;
 }
 
@@ -446,7 +490,8 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         if (field.has_value()) addByte(static_cast<std::uint32_t>(*field));
     };
 
-    addText(recipe.sun                ? "uta-recipe-bake-3\n"
+    addText(needsVersion4(recipe) ? "uta-recipe-bake-4\n"
+            : recipe.sun          ? "uta-recipe-bake-3\n"
             : recipe.lamps.empty() ? "uta-recipe-bake-1\n"
                                    : "uta-recipe-bake-2\n");
     for (const MaterialAssignment& material : sortedMaterials(recipe)) {
@@ -484,6 +529,14 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         for (const std::uint32_t field : {recipe.sun->yaw, recipe.sun->pitch, std::uint32_t{recipe.sun->hue},
                                           std::uint32_t{recipe.sun->saturation}, std::uint32_t{recipe.sun->brightness}})
             addWord(field);
+    }
+    // UTA-0256 SS 4.6: the switched-off names last, in file order.
+    if (!recipe.switchedOff.empty()) {
+        addText("switch-off\n");
+        for (const std::string& light : recipe.switchedOff) {
+            addText(light);
+            addText("\n");
+        }
     }
     return hasher.finish();
 }
