@@ -1,0 +1,16 @@
+ut-ants recipe 3
+# MH-FAZI(V2)+'s sun -- UTA-0334's sky survey. Its painted sky is clear and
+# light blue, and shows its own sun low in the sky; two views aimed at the
+# survey's direction from far-apart spots both centre it. The recipe's sun
+# stands there, warm white as AS-Mazon's.
+
+[map]
+file = mh-fazi(v2)+
+sha256 = e0a27dedcd6b0ac6271fc8afc8383770e85f3a6a1db7a517a668ef354b3ddf2b
+
+[sun]
+yaw = 62719
+pitch = 6391
+hue = 28
+saturation = 200
+brightness = 200
