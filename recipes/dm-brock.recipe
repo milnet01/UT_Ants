@@ -1,0 +1,17 @@
+ut-ants recipe 3
+# DM-Brock's sun -- UTA-0334's sky survey. Its painted sky is clear and
+# light blue, as MH-FAZI(V2)+'s, and shows its own sun low in the sky where
+# the survey's views did not look; two views aimed there from far-apart
+# spots both centre it. The recipe's sun stands there, warm white as
+# AS-Mazon's.
+
+[map]
+file = dm-brock
+sha256 = 3782b149410fb8f42190ed5a63bd75a09d3de6eb13783d9d7f9cb7be28c5284a
+
+[sun]
+yaw = 62678
+pitch = 5560
+hue = 28
+saturation = 200
+brightness = 200
