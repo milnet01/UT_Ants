@@ -9,3 +9,4 @@ never edited.
 
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
+| amend-UTA-0308 | 2026-10-10 | none | - | - | - | - | Amendment for UTA-0308: §§ 4.6 to 4.8 and INV-8 to INV-12, switching a map's own lights off. No reviewer was dispatched: contract reviews are cancelled for this project. |

@@ -5,7 +5,8 @@
 project (`CLAUDE.md` § Contract reviews); no review runs unless the user asks.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0256 (user-request-2026-09-30; decisions of
-2026-10-08).
+2026-10-08). Amended 2026-10-10 for UTA-0308: §§ 4.6 to 4.8 and INV-8 to
+INV-12 switch a map's own lights off.
 
 **Layman:** where a room is far darker than in the original game, the map's
 recipe adds a copy of one of the map's own lamps, flame and holder included.
@@ -51,7 +52,12 @@ them, or, with the setting off, draws the map exactly as a bake without them.
 - **A lamp only where a room is under half the original's brightness and the
   original is not itself dark there** — the user, 2026-10-08.
 - **A lamp copies a fitting the map already uses** — the user, 2026-10-08. So
-  a lamp with no fitting is refused (§ 4.1).
+  a lamp with no fitting is refused (§ 4.1). From recipe version 4 a lamp may
+  name none, where it stands at a fitting the map already has there
+  (§ 4.6).
+- **A map's own lights can be switched off, and come back with the setting
+  off** — the user, 2026-10-10 (UTA-0308), so a player who turns added lamps
+  off never lands in a dark map.
 - **Each map lists its added lamps, and a graphics setting turns them all
   off** — the user, 2026-10-08.
 - **The list lives in the recipe** — the session's call: it is already the
@@ -174,6 +180,75 @@ write order.
 each copying a torch the map already has. Where each goes is chosen by hand,
 by § 3's rule, and checked by § 7's measurement.
 
+### 4.6 Switching the map's own lights off — `urecipe`
+
+`RECIPE_VERSION` becomes 4. A recipe may hold one `[switch-off]` section:
+
+```ini
+[switch-off]
+lights = Light2 Light3 Light6   # the map's Light actors to switch off
+```
+
+- `lights` is required and names one or more object names, no name twice,
+  in the order written. No other key is allowed.
+- A recipe holding `[switch-off]` must carry `[map] sha256`, as a lamp does.
+- In a version-4 recipe a lamp's `fitting` is optional, and a lamp without
+  one is written with no `fitting` line. A version-2 or version-3 recipe
+  still refuses a lamp with no `fitting`.
+- `urecipe::Recipe` gains `std::vector<std::string> switchedOff`, in file
+  order and empty when there is no section. `parse` and `write` round-trip
+  it. `write`'s header is 4 when the recipe switches a light off or holds a
+  lamp with no fitting, otherwise as before.
+- `bakeDigest` of a recipe that needs no version 4 is unchanged. One that
+  does hashes `uta-recipe-bake-4\n`, version 3's encoding, then the
+  switched-off names in file order.
+
+### 4.7 Switched-off lights in the bundle and the bake — `ubundle`, `ubake`
+
+`FORMAT_VERSION` becomes 26. A switched-off light leaves LITE and is kept as a
+LAMP record that **restores** it:
+
+- `AddedLamp` gains `bool restores`. A restoring record holds the map
+  light's record unchanged, an empty `shape` and no flames. Every record
+  that adds comes before every record that restores; the restoring ones
+  are in ascending `exportIndex`. The index rule of § 4.2 is unchanged:
+  record `k` is light `|LITE| + k`, and the sun is `|LITE| + |LAMP|`.
+- § 4.2's refusal of a lamp with no shape and no flames now applies to
+  neither kind. Refused on read and on write instead: a restoring record
+  with a shape or a flame, and a record that adds after one that restores.
+- **LPRB gains a second array.** `LightProbes::restored` is empty, or one
+  cube per probe: the bounce of the restoring lights alone. It is empty
+  exactly when LAMP holds no restoring record, and `added` is now empty
+  exactly when LAMP holds no adding record.
+- **The bake.** Lamps are built from the full light list first (§ 4.3), so a
+  lamp may copy a light that is then switched off. Then each switched-off
+  name must be a `Light` placement in LITE, in no strip, with no flame tied
+  to it; else the bake is refused, naming the light. It leaves LITE, the
+  flames of the lights after it keep their ties, and it becomes a restoring
+  record. `probes` is gathered without it. `restored` is gathered from the
+  restoring lights alone, as `added` is from the adding ones. SMSK pairs a
+  restoring light as it would pair that light in LITE.
+- `BAKER_REVISION` becomes 50.
+
+### 4.8 The setting with switched-off lights, and ForbiddenMansion
+
+`applyAddedLamps` keeps one kind of record and drops the other:
+
+- **On:** the adding records join as § 4.4 says. The restoring records go,
+  with their SMSK pairs and `restored`. The sun's pairs are renamed to
+  `|LITE| + A`, where `A` is the number of adding records.
+- **Off:** the restoring lights join LITE in order, at `|LITE| + j`, their
+  pairs renamed from `|LITE| + A + j`. `restored` is added to each probe's
+  cube. The adding records go as § 4.4 says. The sun's pairs are renamed to
+  `|LITE| + R`, where `R` is the number of restoring records.
+
+So off draws the map as a bake with no recipe lamps and no switch-off.
+
+`recipes/mh-!sd0!forbiddenmansion.recipe` switches off the seven
+`LE_Cylinder` lights that flood the mansion. Each hangs at one of the map's
+`Lantern2` meshes. In its place a lamp copies the plain `Light4` to the
+same spot, with no fitting, since the lantern stands there already.
+
 ## 5. Invariants
 
 - **INV-1** — a recipe with lamps round-trips through `parse` and `write`,
@@ -230,6 +305,46 @@ by § 3's rule, and checked by § 7's measurement.
   *Breaks when:* a pair of the second range is kept while off; a flame is not
   tied to its lamp; `added` is not summed; a shape or light is dropped.
 
+- **INV-8** — a recipe with `[switch-off]`, or with a version-4 lamp with no
+  fitting, round-trips through `parse` and `write` with header 4, and
+  `parse` refuses: a missing `lights`; an unknown key; a name given twice;
+  a second `[switch-off]`; `[switch-off]` without `[map] sha256`, or under a
+  header below 4; a lamp with no fitting under a header below 4.
+  *Test:* `tests/unit/RecipeFormatTest.cpp`.
+  *Breaks when:* `write` gives such a recipe header 3; the header check on a
+  fitting-less lamp is dropped.
+
+- **INV-9** — `bakeDigest` of a recipe that needs no version 4 keeps its
+  earlier value, and adding, removing or reordering a switched-off name
+  changes the digest.
+  *Test:* `tests/unit/RecipeFormatTest.cpp`, against recorded digests.
+  *Breaks when:* the version-4 tag is used for every recipe; the names are
+  left out of the encoding.
+
+- **INV-10** — restoring records and LPRB's `restored` round-trip, and `read`
+  and `write` each refuse § 4.7's cases.
+  *Test:* `tests/unit/BundleLampsTest.cpp`.
+  *Breaks when:* the order check runs on one path only; a restoring record
+  with a shape is accepted.
+
+- **INV-11** — in a fixture with two lights and a flame tied to the second,
+  switching off the first gives a LITE without it, a restoring record
+  holding its record unchanged, the flame tied to the second still, and
+  base probes equal to a bake of the fixture without that light actor. The
+  bake is refused, naming the light, when a switched-off name is no light,
+  is in a strip, or has a flame tied to it.
+  *Test:* `tests/unit/BakeLampsTest.cpp`.
+  *Breaks when:* the flame keeps its old index; the light joins the base
+  gather; a missing name is skipped.
+
+- **INV-12** — off, the fixture switched off and given a lamp folds to the
+  plain fixture's LITE, FLAM and SMSK pairs exactly, and to its probes within
+  1e-4 of each cube's largest channel. On, LITE lacks the switched-off light
+  and holds the lamp's, and no pair names a light past LITE.
+  *Test:* `tests/unit/BakeLampsTest.cpp`.
+  *Breaks when:* a restoring pair is kept while on; `restored` is not summed
+  off; the sun is renamed past the wrong range.
+
 ## 6. Failure modes
 
 - **A player's own recipe for a map hides the shipped one**, lamps included
@@ -250,6 +365,9 @@ The device test carries the `device` label; the rest carry `unit`.
 - INV-4, INV-5, INV-6 — `tests/unit/BakeLampsTest.cpp`, new.
 - INV-7 — `tests/unit/BakeLampsTest.cpp` and
   `tests/device/RenderLampsTest.cpp`, new.
+- INV-8, INV-9 — `tests/unit/RecipeFormatTest.cpp`.
+- INV-10 — `tests/unit/BundleLampsTest.cpp`.
+- INV-11, INV-12 — `tests/unit/BakeLampsTest.cpp`.
 - `tests/unit/BakeGoldenTest.cpp`, re-recorded for the format and revision.
 
 Each new test is seen failing against the code before its rule exists.
@@ -295,6 +413,9 @@ Each new test is seen failing against the code before its rule exists.
 | INV-3 | `tests/unit/BundleLampsTest.cpp` |
 | INV-4, INV-5, INV-6 | `tests/unit/BakeLampsTest.cpp` |
 | INV-7 | `tests/unit/BakeLampsTest.cpp`, `tests/device/RenderLampsTest.cpp` |
+| INV-8, INV-9 | `tests/unit/RecipeFormatTest.cpp` |
+| INV-10 | `tests/unit/BundleLampsTest.cpp` |
+| INV-11, INV-12 | `tests/unit/BakeLampsTest.cpp` |
 | Views 3 to 6 reach half the original | **nothing** — § 7's step 1, run by hand |
 | A copied fitting sits right on its wall | **nothing** — checked by eye on placing |
 
@@ -316,4 +437,6 @@ Rows live in `../reviews/UTA-0256-added-lamps-loop-log.md`.
 
 § 4.2 moves the bundle format and § 4.3 the baker revision, so every map is
 baked again. A version-1 recipe still parses; a version-1 game refuses a version-2
-recipe by its header.
+recipe by its header. § 4.7 moves the format to 26 and the baker to revision
+50 (UTA-0308), so every map is baked again once more; recipes of versions 1
+to 3 keep their digests.

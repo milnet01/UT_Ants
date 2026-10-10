@@ -15449,7 +15449,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-06.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0308] **MH-!SD0!ForbiddenMansion has no lights yet draws very bright; render it unlit, then add real lights.**
+- 🚧 [UTA-0308] **MH-!SD0!ForbiddenMansion has no lights yet draws very bright; render it unlit, then add real lights.**
   The user, 2026-10-06, from a viewer F12 capture: "ForbiddenMansion
   is a map without any lights, yet, it is very bright. So, that is a map
   we would have to fix by rendering it without lights and then adding in
@@ -15471,6 +15471,19 @@ stays with movement in 0.2.0.
   Scratch: ~/.cache/uta-scratch/u338/bake-0308/.
   Decided (user, 2026-10-10): build a recipe feature that switches a
   map's own lights off, then add lamps by UTA-0256's mechanism.
+  Decided (user, 2026-10-10): when added lamps are turned off, the map's
+  own switched-off lights come back, so a player never lands in a dark
+  map. That keeps the switched-off lights and their bounce in the bundle:
+  a format change, and every map baked again.
+  Found (2026-10-10): each of the seven LE_Cylinder lights hangs at one
+  of the map's seven Lantern2 meshes, which urender does not draw yet
+  (UTA-0341). The three plain lights are Light4, Light8 and Light10.
+  Spec (2026-10-10): an amendment of docs/specs/UTA-0256-added-lamps.md,
+  SS 4.6 to 4.8 and INV-8 to INV-12. Recipe version 4 adds [switch-off];
+  a switched-off light becomes a LAMP record that restores it, with its
+  own LPRB layer; format 26, baker 50. ForbiddenMansion switches off the
+  seven cylinder lights and gets a lamp copying Light4 at each lantern.
+  Next: build it.
   **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -17784,6 +17797,24 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   **Layman:** Pipes, barrels and other props placed in a map as models are not drawn yet, so some rooms look emptier than in the original.
   Kind: feature.
   Source: in-session-2026-10-09.
+
+- 📋 [UTA-0342] **ut-ants: the viewer's fly camera passes through some objects, on AS-Frigate a stone block and a steel arch.**
+  The user, 2026-10-10, from a viewer F12 capture: "the camera going
+  through objects". Capture: ~/.local/state/ut-ants/map-captures/
+  AS-Frigate-20261010-163531 (camera 218.91 -38.52 952.00 1433 -27415
+  0 121.28, r49-f25). The camera stands inside a block of stone and
+  beside a steel arch.
+  FlyCamera::update stops only at the level's collision tree
+  (bundle.collision->level, apps/ut-ants/main.cpp). Two candidates, not
+  yet checked: the shapes are movers, whose trees COLL holds but the
+  camera ignores; or they are semisolid or non-solid brushes, which are
+  not in the level's tree. Find which, then decide whether the viewer
+  camera, or UTA-0017's collision model, should stop there.
+  **Layman:** In the map viewer the camera can float through some solid-looking objects instead of stopping at them.
+  Kind: investigate.
+  Source: user-request-2026-10-10.
+  Lanes: ut-ants, uworld, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/AS-Frigate-20261010-163531/frame.png
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
