@@ -15469,6 +15469,8 @@ stays with movement in 0.2.0.
   off, which no recipe section can do yet, before adding lamps by
   UTA-0256's mechanism. Question for the user before building that.
   Scratch: ~/.cache/uta-scratch/u338/bake-0308/.
+  Decided (user, 2026-10-10): build a recipe feature that switches a
+  map's own lights off, then add lamps by UTA-0256's mechanism.
   **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -15697,7 +15699,7 @@ stays with movement in 0.2.0.
   Source: ut-monsterhunt-request-2026-10-06.
   Lanes: upkg, tools.
 
-- 📋 [UTA-0318] **DM-Phobos: we draw a glowing white panel between two wall lights where the original shows a dark wall.**
+- ✅ [UTA-0318] **DM-Phobos: we draw a glowing white panel between two wall lights where the original shows a dark wall.**
   The user's viewer capture, compared with ut-compare at HEAD (1280x720,
   camera -338.21 102.41 -373.85 1318 -33722 0 121.28). The panel is
   evenly lit, brightest at its middle, and fills the recess between the
@@ -15717,6 +15719,8 @@ stays with movement in 0.2.0.
   batch ends, merge to main, rebuild build/, add the CHANGELOG entry and
   set CLAUDE.md's stale-bake fact to baker 49 (UTA-0318), push, flip on
   GitHub's matrix, remove the worktree.
+  Shipped (2026-10-10): merged as c18a9fe; GitHub green on GCC, Clang
+  and MSVC for 73fc827. Worktree and branch removed.
   **Layman:** In one Phobos room a bright white rectangle shows on a wall that should be dark.
   Kind: investigate.
   Source: user-request-2026-10-06.
@@ -15995,6 +15999,13 @@ stays with movement in 0.2.0.
   direction. A clear sky with a painted sun gets a recipe [sun] there,
   as recipes/as-mazon.recipe; a clear sky with none is a question for
   the user, since no sun position would be read off the sky.
+  Survey (2026-10-10): six clear skies. MH-FAZI(V2)+ alone paints a
+  sun (yaw 62719, pitch 6391; two aimed views centre it): recipe in
+  73fc827. DM-Anubis, DM-Brock, DM-CTC-Croon][, DM-CTC-Iraar and
+  MH-UM-BruteValley_beta1 show none. Decided (user, 2026-10-10): a clear
+  sky with no painted sun gets no sun. Brock and BruteValley share
+  FAZI's sky colour, so each gets an aimed check before it is ruled out.
+  UTA-0318 merged (c18a9fe); final batch runs at baker 49.
   **Layman:** Prepare the newly added maps so this project can show them, once the lighting work is done.
   Kind: chore.
   Source: user-request-2026-10-07.
