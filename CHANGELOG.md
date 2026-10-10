@@ -14,6 +14,8 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **The 127 maps added to the install on 2026-10-07 are baked, and MH-FAZI(V2)+ and DM-Brock get a sun where their skies paint one** (UTA-0334)
+
 - **A map with a clear sky can have a sun** (UTA-0338)
   A map's recipe can place a sun in its sky. It lights the level and casts
   its shadows from there, lights players and moving parts where they stand

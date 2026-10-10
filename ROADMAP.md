@@ -15969,7 +15969,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-07 via UT_MonsterHunt.
   Lanes: ut-dump.
 
-- 🚧 [UTA-0334] **Bake the 127 maps UT_MonsterHunt added to the install on 2026-10-07.**
+- ✅ [UTA-0334] **Bake the 127 maps UT_MonsterHunt added to the install on 2026-10-07.**
   100 DeathMatch and 27 Monster Hunt maps plus 122 support packages,
   in the reference install. File lists (one absolute path per line, JSON):
   /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/intake/
@@ -16006,6 +16006,11 @@ stays with movement in 0.2.0.
   sky with no painted sun gets no sun. Brock and BruteValley share
   FAZI's sky colour, so each gets an aimed check before it is ruled out.
   UTA-0318 merged (c18a9fe); final batch runs at baker 49.
+  Shipped (2026-10-10): cc-job batch-bake-49 baked all 127 maps, every
+  exit 0, every report r49-f25. Suns: MH-FAZI(V2)+ and DM-Brock (Brock's
+  painted sun found by an aimed check; c482cb6); both reports name their
+  recipe with nothing unused. MH-UM-BruteValley_beta1 shows plain sky
+  there, so it and the other three clear skies get no sun.
   **Layman:** Prepare the newly added maps so this project can show them, once the lighting work is done.
   Kind: chore.
   Source: user-request-2026-10-07.
