@@ -713,6 +713,9 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **DM-Phobos no longer shows a glowing white panel between two wall lights: a secret door whose surfaces name no texture now wears its brush's texture** (UTA-0318)
+  The baker moves to revision 49, so maps baked before it must be baked again.
+
 - **Shadow edges no longer step in a jagged saw-tooth up close** (UTA-0307)
   A lit surface now reads its light's shadow map nine times, weighted
   in a smooth hill, instead of once, so a shadow edge slanting across
