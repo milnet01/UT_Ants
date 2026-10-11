@@ -16173,7 +16173,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-10.
   Lanes: ubake, recipes.
 
-- 📋 [UTA-0345] **urender: a sky kept in a lit sky room looks like a box; draw the sky room evenly lit.**
+- ✅ [UTA-0345] **urender: a sky kept in a lit sky room looks like a box; draw the sky room evenly lit.**
   The user, 2026-10-11, from F12 capture MH-Flies-BP-20261011-100722
   (r50): "This map looks like you in a box. How do we fix that instead
   of looking like a box, it looks more natural. This map is re-used a
@@ -16225,6 +16225,8 @@ stays with movement in 0.2.0.
   UTA-0345 case, red on the old shader (239 vs 0), green on the fix.
   Unit 992, device 109 on lavapipe and on the GPU, all pass.
   Scratch: ~/.cache/uta-scratch/u345/shots/. Flip after GitHub's matrix.
+  Shipped (2026-10-11): 6f65058, GitHub run 38136821508 green; the
+  push gate green on GCC 14, Clang 19 and MSVC.
   **Layman:** On some outdoor maps the sky looks like the inside of a box, because each side of the hidden room the sky is painted on is lit differently.
   Kind: fix.
   Source: user-request-2026-10-11.
