@@ -130,8 +130,10 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
 
 // UTA-0015 SS 4.3: the light `light` puts on the air at `x` -- lightAt with the
 // normal pointing at the light, so the incidence factor is 1 and no part of the
-// model is written twice. On the light itself lightAt needs no direction.
+// model is written twice. On the light itself lightAt needs no direction. The
+// sun has no place, only a direction, so the normal faces against that.
 vec3 lightThrough(Light light, vec3 x) {
+    if (light.effect == SUN_EFFECT) return lightAt(light, x, -lightDirection(light.pitch, light.yaw));
     vec3 toLight = litFrom(light, x) - x;
     float d = length(toLight);
     return lightAt(light, x, d > 0.0 ? toLight / d : vec3(0.0, 0.0, 1.0));

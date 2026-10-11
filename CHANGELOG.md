@@ -722,6 +722,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A sky kept in a lit sky room no longer looks like the inside of a box** (UTA-0345)
+  While the sky is captured, the sky room's lights reach each point by
+  distance alone, so faces turned toward and away from them draw alike.
+  On MH-Flies-BP the sky is one cloud layer again, and brighter, since
+  the faces turned away had drawn near black.
+
 - **DM-Phobos no longer shows a glowing white panel between two wall lights: a secret door whose surfaces name no texture now wears its brush's texture** (UTA-0318)
   The baker moves to revision 49, so maps baked before it must be baked again.
 

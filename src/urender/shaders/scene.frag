@@ -331,8 +331,14 @@ void main() {
 
         // SS 4.9: the flicker scalar multiplies the direct term and never the
         // indirect.
+        // UTA-0345: while the sky is captured, a light reaches each point of
+        // the sky room by distance alone -- no incidence, shadow or openness,
+        // and from the cluster's lights, never a chart's, which lists only the
+        // lights its face turns toward. Those lit each face of the room apart,
+        // and its edges drew a box.
+        bool charted = maskChart != MASK_NO_CHART && !skyFlat;
         vec3 direct = vec3(0.0);
-        if (maskChart != MASK_NO_CHART) {
+        if (charted) {
             // UTA-0326 SS 4.5: a level fragment lights from its chart's pairs
             // in place of its cluster's lights, each seen through the baked
             // mask -- or the shadow map, where a mover can come between.
@@ -368,10 +374,10 @@ void main() {
                 // UTA-0323: a cluster lists every light whose sphere meets its box,
                 // so many give this point nothing. Their nine shadow reads were a
                 // fifth of DM-Bishop's frame; skipping them changes no pixel.
-                vec3 lit = lightAt(light, worldPosition, n);
+                vec3 lit = skyFlat ? lightThrough(light, worldPosition) : lightAt(light, worldPosition, n);
                 if (all(equal(lit, vec3(0.0)))) continue;
                 // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
-                direct += lit * (light.flicker * softShadowOf(light, worldPosition, surface));
+                direct += lit * (light.flicker * (skyFlat ? 1.0 : softShadowOf(light, worldPosition, surface)));
             }
         }
         // SS 4.7: the probes, through the same normal the lights use.
@@ -382,19 +388,20 @@ void main() {
         // blend gives the probes inside the room no weight and only the probes
         // on the plane count -- which sit on the surface itself and are often
         // not probes at all. Such a wall got no indirect light in stepped patches.
-        vec3 probePoint = worldPosition + litSurface * (0.5 * float(frame.probeSpacing));
-        vec3 indirect = indirectAt(lattice, probePoint, n);
+        vec3 probePoint = skyFlat ? worldPosition : worldPosition + litSurface * (0.5 * float(frame.probeSpacing));
+        vec3 indirect = skyFlat ? indirectAround(lattice, probePoint) : indirectAt(lattice, probePoint, n);
         // UTA-0338 SS 4.5: a fragment the mask does not light -- a mover, an
         // actor -- takes the sun through the probes' view of it, read where the
         // probes are. It has no cluster and no shadow map.
-        if (maskChart == MASK_NO_CHART && frame.sun != NONE)
-            direct += lightAt(lights[frame.sun], worldPosition, n) * sunSeenAt(lattice, probePoint);
+        if (!charted && frame.sun != NONE)
+            direct += (skyFlat ? lightThrough(lights[frame.sun], worldPosition) : lightAt(lights[frame.sun], worldPosition, n))
+                      * sunSeenAt(lattice, probePoint);
         // UTA-0292 withdrew UTA-0156 SS 4.4's zone ambient: against exact light
         // it added up to 1.6 times the true light. Bounce and sky light, in the
         // probes, take its place (UTA-0112 SS 4.12).
         // UTA-0164 SS 4.5: how open the space above the surface is darkens the
         // light that arrives from all around it, never a light's own.
-        float open = frame.occlusionTexture != NONE
+        float open = frame.occlusionTexture != NONE && !skyFlat
             ? textureLod(textures[nonuniformEXT(frame.occlusionTexture)], occlusionUv, 0.0).r
             : 1.0;
         // UTA-0187: UT99 combines light and texture on display values, so the

@@ -296,6 +296,46 @@ TEST_CASE("UTA-0281: a sky is drawn without its relief", "[device]") {
     CHECK(std::abs(int(flat.b) - int(leaning.b)) <= 1);
 }
 
+TEST_CASE("UTA-0345: a sky room is lit alike whichever way its faces turn", "[device]") {
+    // A white square in a sky zone, seen through a sky surface filling the
+    // view: once with a light 40 units in front of it and once 40 behind. A
+    // face lit by its incidence draws the second black, and a sky room's faces
+    // turned to and from its lights drew the room as a box.
+    removeDisplay();
+    const auto skyWindow = [](float lightX) {
+        uta::ubundle::Geometry geometry;
+        addSquare(geometry, 100, 0, 0, 60, "window", PF_FAKE_BACKDROP);
+        addSquare(geometry, 10100, 0, 0, 300, "cloud", 0); // seen from the sky's view at x = 10000
+        uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+        addSolidMaterial(bundle, "window", SOLID);
+        addSolidMaterial(bundle, "cloud", Rgba{255, 255, 255, 255});
+        bundle.lights = std::vector{steadyLight({lightX, 0, 0}, 255, 8)};
+        uta::ubundle::Placements placements;
+        placements.classes = {{.path = "engine.skyzoneinfo", .ancestry = {"engine.zoneinfo", "engine.info"}}};
+        placements.actors = {{.exportIndex = 1,
+                              .classIndex = 0,
+                              .properties = {{.name = "Location",
+                                              .kind = uta::ubundle::ValueKind::Vector,
+                                              .value = std::array<float, 3>{10000, 0, 0}}}}};
+        bundle.placements = std::move(placements);
+        return bundle;
+    };
+    const auto centre = [](const uta::ubundle::Bundle& bundle) {
+        Renderer renderer = requireRenderer(smallFrame());
+        requireOk(renderer.draw(bundle, Camera{}));
+        const auto pixels = renderer.readback();
+        if (!pixels.has_value()) FAIL(pixels.error().message());
+        return pixelAt(*pixels, WIDTH, WIDTH / 2, HEIGHT / 2);
+    };
+    const Rgba facing = centre(skyWindow(10060));
+    const Rgba behind = centre(skyWindow(10140));
+    CAPTURE(facing, behind);
+    CHECK(facing.r > 40); // lit at all, so two blacks cannot pass
+    CHECK(std::abs(int(facing.r) - int(behind.r)) <= 1);
+    CHECK(std::abs(int(facing.g) - int(behind.g)) <= 1);
+    CHECK(std::abs(int(facing.b) - int(behind.b)) <= 1);
+}
+
 TEST_CASE("UTA-0260: a masked surface's holes show what lies behind it", "[device]") {
     // The depth pass draws the opaque surfaces ahead of the forward pass. A
     // masked surface's texels below the threshold are holes, so its depth must

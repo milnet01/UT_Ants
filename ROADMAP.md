@@ -15449,7 +15449,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-06.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0308] **MH-!SD0!ForbiddenMansion has no lights yet draws very bright; render it unlit, then add real lights.**
+- ✅ [UTA-0308] **MH-!SD0!ForbiddenMansion has no lights yet draws very bright; render it unlit, then add real lights.**
   The user, 2026-10-06, from a viewer F12 capture: "ForbiddenMansion
   is a map without any lights, yet, it is very bright. So, that is a map
   we would have to fix by rendering it without lights and then adding in
@@ -15512,6 +15512,12 @@ stays with movement in 0.2.0.
   ~/.cache/uta-scratch/u308-batch/batch-bake.sh over UTA-0334's 127-map
   list, results in ~/.cache/uta-scratch/u308-batch/batch/ (rc-, report-,
   err- per map). Flip when every rc is 0 and every report says r50-f26.
+  Shipped (2026-10-11): all 127 maps re-baked at r50-f26-l9bc9a33edf14bdd6.
+  Every rc is 0; 123 reports say written, 4 say cached (DM-CastleKevin,
+  DM-[JAPAN]-AerialAct, DM-[JAPAN]-Airyglyph, MH-(MHA)megatomic2012FIX:
+  baked at r50 before a machine restart stopped the job, then found
+  current by the resumed run, cc-job batch-bake-50b). Every bundle a
+  report names exists; no .tmp- file is left in the bakes folder.
   **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -16202,6 +16208,23 @@ stays with movement in 0.2.0.
   stays, docs/specs/UTA-0015-volumetric-fog.md's line "Every surface is
   fogged, unlit and sky included" needs the exception (load write-doc
   first; a hook asks for it).
+  Fixed (2026-10-11), by light, not fog. Split at MH-Flies-BP's capture:
+  the fog half changed no pixel past 2%; the unlit half removed the box
+  but drew the sky 4.6 times brighter and brightened DM-Crane's night.
+  So the unlit try was dropped and no fog spec changes. Instead, while
+  skyCapture is set, a sky-room fragment lights from its cluster (a
+  chart lists only the lights its face turns toward), by lightThrough
+  (no incidence), with no shadow, no openness, and indirectAround (the
+  probes' six faces averaged, read at the surface). lightThrough now
+  faces the sun's direction for the sun. Sky-region mean grey at the
+  capture views: MH-Flies-BP 56 to 153, box gone; DM-Crane 96 to 110,
+  still night; AS-Frigate and DM-Brock unchanged to the pixel. No map
+  at hand has a sun AND a lit sky room, so the sun line is unexercised.
+  Left showing: the sky room's floor below the horizon on MH-Flies-BP,
+  where no terrain covers it. Test: tests/device/RenderSurfaceFlagsTest
+  UTA-0345 case, red on the old shader (239 vs 0), green on the fix.
+  Unit 992, device 109 on lavapipe and on the GPU, all pass.
+  Scratch: ~/.cache/uta-scratch/u345/shots/. Flip after GitHub's matrix.
   **Layman:** On some outdoor maps the sky looks like the inside of a box, because each side of the hidden room the sky is painted on is lit differently.
   Kind: fix.
   Source: user-request-2026-10-11.

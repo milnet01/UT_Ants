@@ -80,6 +80,15 @@ vec3 indirectAt(ProbeLattice lattice, vec3 x, vec3 n) {
     return weights > 0.0 ? sum / weights : vec3(0.0);
 }
 
+// UTA-0345: the light arriving at `x` from all around, whichever way a surface
+// there faces -- the mean of the six faces, so two faces meeting at an edge
+// take the same light.
+vec3 indirectAround(ProbeLattice lattice, vec3 x) {
+    return (indirectAt(lattice, x, vec3(1.0, 0.0, 0.0)) + indirectAt(lattice, x, vec3(-1.0, 0.0, 0.0))
+          + indirectAt(lattice, x, vec3(0.0, 1.0, 0.0)) + indirectAt(lattice, x, vec3(0.0, -1.0, 0.0))
+          + indirectAt(lattice, x, vec3(0.0, 0.0, 1.0)) + indirectAt(lattice, x, vec3(0.0, 0.0, -1.0))) / 6.0;
+}
+
 // UTA-0338 SS 4.5: the share of the sun seen at `x`, blended over the cell's
 // corners as indirectAt blends their light, from the first face's fourth
 // float. Zero with no corner present.
