@@ -19726,7 +19726,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: design-2026-09-03.
   Lanes: ugame, unet.
 
-- 📋 [UTA-0039] **Hold a frame-rate floor across the map library.**
+- 🚧 [UTA-0039] **Hold a frame-rate floor across the map library.**
   A UT map carries hundreds of lights and the community maps are not built to a
   budget, so the interesting cases are the outliers rather than the average.
   Measured across a sample of the library on the development machine, with the
@@ -19735,6 +19735,19 @@ docs/standards/versioning-overrides.md. Closes S8.
   High tier, on this machine (RX 6600). Ultra may dip below it on the
   heaviest maps. For scale: UTA-0323 measured DM-Bishop at ~19 ms a
   frame at 4K Ultra (2026-10-07, r44).
+  Progress (2026-10-11): survey started. Sample: the 127 maps of
+  ~/.cache/uta-scratch/u039/maps.txt (UTA-0308's batch list). Step 1,
+  cc-job u039-bake runs ~/.cache/uta-scratch/u039/bake.sh: bakes each
+  map at r51/format 27 into /mnt/Emulators/uta-scratch/u039/bake (not
+  the launcher's folder, UTA-0349; /home lacks room for ~25 GB). It
+  resumes where it stopped (rc-<map> files), ~75 min. No build while it
+  runs: a rebuild swaps the baker mid-batch. Step 2, after it, on a quiet
+  machine: cc-job ~/.cache/uta-scratch/u039/frame.sh, ut-bench frame at
+  High, 3840x2160, --still 30 --steps 60, cameras at each map's first
+  four PlayerStarts looking yaw 0 and 32768 (starts carry no rotation),
+  fov 121.28 as UTA-0323. GPU-heavy, about an hour: tell the user first.
+  Then rank maps by worst view median and worst p99 against 16.7 ms,
+  name the worst, and file or fix what costs them.
   **Layman:** Make sure it runs smoothly on real hardware across the whole map collection, not just on the two maps we kept testing with.
   Kind: perf.
   Source: design-2026-09-03.
