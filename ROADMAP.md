@@ -16370,6 +16370,14 @@ stays with movement in 0.2.0.
   Recipe [sky] (version 5), PSKY section (format 27), baker revision 51,
   the renderer's painted sky, probe daylight, and the analyser's
   paintedSky field.
+  Progress (2026-10-11): step 1 of 6 done at fc25bc1, recipe version 5
+  reads [sky] (spec SS 4.1, INV-1, INV-2); ctest -L unit 996/996, 7 hand
+  mutants killed. Next, in order: 2 PSKY section and paintedSkyLight
+  (ubundle, format 27, BundleSkyTest); 3 baker flag, refusal, probe
+  daylight, BAKER_REVISION 51, golden re-record (BakeSkyTest); 4 renderer
+  painted sky, light_parity.comp, RenderSunTest; 5 analyser paintedSky;
+  6 TheBoat recipe to version 5 with [sky], re-bake into scratch, shoot
+  at the 2026-10-07 cameras. Not pushed yet: the push gate runs at the end.
   **Layman:** On the pirate-ship map the blue sky and the sea now come out black, so the sun added to it has nothing to shine through.
   Kind: fix.
   Source: in-session-2026-10-11.
