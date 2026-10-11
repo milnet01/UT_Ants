@@ -16190,6 +16190,18 @@ stays with movement in 0.2.0.
   in the 127), AS-Frigate, and one night-sky map, so a sky meant to be
   dark is not brightened. Do not build while a batch bake runs: the bake
   uses build/tools/ut-bake.
+  Progress (2026-10-11): the user's capture frame.png shows it: the
+  left face draws light grey and fogged, the right face dark, the face
+  below black. Edit made, NOT built or committed (the batch bake holds
+  the build): scene.frag takes the unlit branch (base.rgb) when skyFlat
+  is set, and skips the fog sample when skyFlat. Not yet done: the
+  diagnosis split (light vs fog) by building each half alone; the
+  before/after ut-shot at the capture pose (--from-capture
+  ~/.local/state/ut-ants/map-captures/MH-Flies-BP-20261011-100722) on a
+  fresh MH-Flies-BP bake; AS-Frigate and a night sky. If the fog half
+  stays, docs/specs/UTA-0015-volumetric-fog.md's line "Every surface is
+  fogged, unlit and sky included" needs the exception (load write-doc
+  first; a hook asks for it).
   **Layman:** On some outdoor maps the sky looks like the inside of a box, because each side of the hidden room the sky is painted on is lit differently.
   Kind: fix.
   Source: user-request-2026-10-11.
@@ -17943,6 +17955,19 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-10.
   Lanes: ut-ants, uworld, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/AS-Frigate-20261010-163531/frame.png
+
+- 📋 [UTA-0348] **urender: volumetric skies, after the cheap sky fixes.**
+  The user, 2026-10-11, while UTA-0345 was being built: "I would like
+  us to work towards volumetric skies as well but first use the cheaper
+  tricks." So UTA-0345 (the sky room drawn evenly) and UTA-0346 (a sun
+  for clear skies) come first; this follows them. Placed after 0.1.0
+  with glass (UTA-0272) and vegetation (UTA-0293). What a volumetric
+  sky means here, and how it meets the map's painted sky, is still to
+  be decided.
+  **Layman:** Skies with real depth, clouds you could fly through, once the cheaper sky fixes are in.
+  Kind: feature.
+  Source: user-request-2026-10-11.
+  Lanes: urender.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
