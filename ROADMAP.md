@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=350 -->
+<!-- ants-roadmap-id-high-water: UTA=352 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -19748,6 +19748,13 @@ docs/standards/versioning-overrides.md. Closes S8.
   fov 121.28 as UTA-0323. GPU-heavy, about an hour: tell the user first.
   Then rank maps by worst view median and worst p99 against 16.7 ms,
   name the worst, and file or fix what costs them.
+  Result (2026-10-11): all 127 maps baked and timed. At fixed scale
+  1.0 (ut-bench's default), 21 miss 16.7 ms on view median and 38 on
+  p99. The game runs dynamic resolution (apps/ut-ants, UTA-0051), which
+  at High drops to 0.75; re-timed there, 6 maps still miss, 3 on the
+  median. The worst is DM-FoT-SimpleX at 23.3 ms. Causes and figures
+  are filed as UTA-0352, which needs UTA-0351 to attribute them.
+  Waiting-on: UTA-0352.
   **Layman:** Make sure it runs smoothly on real hardware across the whole map collection, not just on the two maps we kept testing with.
   Kind: perf.
   Source: design-2026-09-03.
@@ -20118,6 +20125,43 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-10-06.
   Lanes: ut-ants, unet.
+
+- 📋 [UTA-0351] **ut-bench times each render pass on the GPU.**
+  UTA-0039's survey found which maps are slow but cannot say why:
+  ut-bench frame reports only a whole frame's GPU time, and nothing in
+  src/ writes a Vulkan timestamp. Add timestamp queries around each
+  pass (shadow tiles, light clustering, the main draw, fog, bloom,
+  post) and report each pass's median per view beside the frame's.
+  Needed by UTA-0352.
+  **Layman:** Let the benchmark say which drawing step makes a slow map slow, so we fix the right thing.
+  Kind: feature.
+  Source: in-session-2026-10-11.
+  Lanes: urender, ut-bench.
+
+- 📋 [UTA-0352] **Bring the six maps that miss 60 fps at High under the floor.**
+  From UTA-0039's survey (2026-10-11, commit 25014be, RX 6600, High,
+  3840x2160, 4 PlayerStarts x 2 yaws). Measured at fixed scale 0.75
+  (2880x1620), High's lowest dynamic-resolution scale, which is what
+  the game falls back to. Worst view median / worst p99, ms:
+  DM-FoT-SimpleX 23.3 / 29.7, DM-ArchNemesis 18.3 / 25.6,
+  DM-FoT-Styx 17.2 / 19.1, DM-ArcticSiege 16.4 / 17.9,
+  DM-48SC-InversalLiandri 16.2 / 18.5, DM-SchoolDamage 16.0 / 20.6.
+  Two causes. (1) Many lights: SimpleX 1716, Styx 913, InversalLiandri
+  911, against about 250 typical; across 126 maps light count
+  correlates 0.55 with frame time, surface count 0.21. SimpleX still
+  takes 15.7 ms at 960x540, so its cost does not scale with pixels.
+  (2) Per pixel: ArchNemesis and SchoolDamage carry ordinary light
+  counts and fall from about 21-26 ms at 4K to 8.8 and 8.7 ms at 960x540.
+  Even those keep about 8.5 ms at 960x540, a large fixed cost.
+  Attribute with UTA-0351 first, then fix; re-run the survey's slow
+  list to close. Scratch (cameras, scripts, results):
+  ~/.cache/uta-scratch/u039.
+  Dependencies: UTA-0351.
+  **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
+  Kind: perf.
+  Source: in-session-2026-10-11.
+  Lanes: urender.
+  Blocked-by: UTA-0351.
 
 ## After 1.0.0
 
