@@ -109,6 +109,25 @@ TEST_CASE("UTA-0292 INV-9: light through the sky view counts as sky", "[ref]") {
         CHECK(pixel[ref::SKY] == 0.0F);
         CHECK(pixel[ref::FIRST] == 0.0F);
     }
+
+    SECTION("with no sky view and a painted sky") {
+        // UTA-0350 SS 4.2: the sky gives its own light, and no bounce off it.
+        const uta::ubundle::PaintedSky painted{.top = {0.5f, 0.5f, 0.5f}, .horizon = {0.5f, 0.5f, 0.5f}};
+        const Reference reference(geometry, {}, std::nullopt, materials, painted);
+        const auto pixel = reference.pixel({0, 0, 30}, DOWN, 64, 3, 7);
+        CHECK(pixel[ref::SKY] > 1.5F); // 4 times the sky's 0.5, on nearly every ray
+        CHECK(pixel[ref::FIRST] == 0.0F);
+        CHECK(pixel[ref::LATER] == 0.0F);
+    }
+
+    SECTION("with a sky view and a painted sky") {
+        // The sky view wins: the lava, as above.
+        const uta::ubundle::PaintedSky painted{.top = {0.5f, 0.5f, 0.5f}, .horizon = {0.5f, 0.5f, 0.5f}};
+        const Reference reference(geometry, {}, Vec3{5e6, 0, -10000}, materials, painted);
+        const auto pixel = reference.pixel({0, 0, 30}, DOWN, 64, 1, 7);
+        CHECK(pixel[ref::SKY] > 0.7F);
+        CHECK(pixel[ref::SKY] < 1.0F);
+    }
 }
 
 TEST_CASE("UTA-0292 INV-10: a trace is the same at any worker count", "[ref]") {

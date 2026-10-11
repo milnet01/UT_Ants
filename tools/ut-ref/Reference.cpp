@@ -78,8 +78,9 @@ std::uint64_t seedOf(std::uint64_t x, std::uint64_t y) noexcept {
 } // namespace
 
 Reference::Reference(const ubundle::Geometry& geometry, std::vector<ubundle::Light> lights, std::optional<Vec3> sky,
-                     std::span<const ubake::MaterialLight> materials)
-    : geometry_(geometry), rays_(geometry), eyeRays_(geometry, 0u), lights_(std::move(lights)), sky_(sky) {
+                     std::span<const ubake::MaterialLight> materials, std::optional<ubundle::PaintedSky> painted)
+    : geometry_(geometry), rays_(geometry), eyeRays_(geometry, 0u), lights_(std::move(lights)), sky_(sky),
+      painted_(painted) {
     for (const ubake::MaterialLight& material : materials) materials_.emplace(material.id, material);
     albedo_ = [this](std::string_view id) {
         const auto found = materials_.find(std::string(id));
@@ -95,12 +96,13 @@ Reference::Reference(const ubundle::Geometry& geometry, std::vector<ubundle::Lig
 
 bool Reference::reflects(const ubake::SurfaceHit& hit) const {
     // An unlit liquid, or an unlit surface seen through the sky view, sends
-    // its picture and nothing it receives (sentFrom).
+    // its picture and nothing it receives (sentFrom); so does the painted sky.
+    if (hit.paintedSky) return false;
     return (hit.batch->polyFlags & PF_UNLIT) == 0 || (!own_(hit.batch->material).unlitGlows && !hit.viaSky);
 }
 
 Rgb Reference::radiance(const Vec3& p, const Vec3& w, int depth, std::uint64_t& random) const {
-    const std::optional<ubake::SurfaceHit> hit = ubake::surfaceAlong(p, w, rays_, geometry_, sky_);
+    const std::optional<ubake::SurfaceHit> hit = ubake::surfaceAlong(p, w, rays_, geometry_, sky_, painted_);
     if (!hit) return {};
     Rgb light = ubake::sentFrom(*hit, rays_, lights_, albedo_, own_);
     if (depth > 1 && reflects(*hit)) {
@@ -137,10 +139,10 @@ std::array<float, CHANNELS> Reference::pixel(const Vec3& eye, const Vec3& dir, i
     double first = 0, later = 0, sky = 0;
     for (int s = 0; s < samples; ++s) {
         const std::optional<ubake::SurfaceHit> bounce =
-            ubake::surfaceAlong(off, cosineAbout(n, random), rays_, geometry_, sky_);
+            ubake::surfaceAlong(off, cosineAbout(n, random), rays_, geometry_, sky_, painted_);
         if (!bounce) continue;
         const double sent = luma(ubake::sentFrom(*bounce, rays_, lights_, albedo_, own_));
-        (bounce->viaSky ? sky : first) += sent;
+        (bounce->viaSky || bounce->paintedSky ? sky : first) += sent;
         if (depth > 1 && reflects(*bounce)) {
             const Rgb further = radiance(bounce->at + bounce->normal * ubake::SHADOW_OFFSET,
                                          cosineAbout(bounce->normal, random), depth - 1, random);

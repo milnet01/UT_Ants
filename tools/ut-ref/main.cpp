@@ -128,7 +128,7 @@ int trace(std::vector<std::string_view> args) {
     std::vector<ubundle::Light> lights = ubake::bakedLights(*bundle->lights, *bundle->placements);
     for (const ubundle::Light& light : *bundle->lights)
         if (light.effect == ubundle::SUN_EFFECT) lights.push_back(light);
-    const ref::Reference reference(*bundle->geometry, std::move(lights), sky, *materials);
+    const ref::Reference reference(*bundle->geometry, std::move(lights), sky, *materials, bundle->paintedSky);
     const unsigned workers = std::max(1u, std::thread::hardware_concurrency() - 2);
 
     std::string line;

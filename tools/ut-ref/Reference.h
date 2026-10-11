@@ -34,10 +34,13 @@ enum Channel : std::size_t { DIRECT, FIRST, LATER, SKY, LIT, CHANNELS };
 class Reference {
 public:
     /// `lights` are the ones that bake (ubake::bakedLights); `sky` is where the
-    /// sky view stands, or none. A material `materials` does not name takes
-    /// DEFAULT_ALBEDO and sends nothing of its own, as the bake's lookups do.
+    /// sky view stands, or none; `painted` the bundle's painted sky, which
+    /// stands in where there is no sky view (UTA-0350 SS 4.2). A material
+    /// `materials` does not name takes DEFAULT_ALBEDO and sends nothing of its
+    /// own, as the bake's lookups do.
     Reference(const ubundle::Geometry& geometry, std::vector<ubundle::Light> lights, std::optional<ubake::Vec3> sky,
-              std::span<const ubake::MaterialLight> materials);
+              std::span<const ubake::MaterialLight> materials,
+              std::optional<ubundle::PaintedSky> painted = std::nullopt);
     // Its lookups hold `this`, so a copy would read the original's materials.
     Reference(const Reference&) = delete;
     Reference& operator=(const Reference&) = delete;
@@ -62,6 +65,7 @@ private:
     ubake::SurfaceRays eyeRays_;
     std::vector<ubundle::Light> lights_;
     std::optional<ubake::Vec3> sky_;
+    std::optional<ubundle::PaintedSky> painted_;
     std::unordered_map<std::string, ubake::MaterialLight> materials_;
     ubake::AlbedoLookup albedo_;
     ubake::OwnLightLookup own_;

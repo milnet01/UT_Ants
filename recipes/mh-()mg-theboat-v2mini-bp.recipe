@@ -1,8 +1,12 @@
-ut-ants recipe 3
+ut-ants recipe 5
 # MH-()mG-TheBoat-V2mini-BP's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
 # Its sky is clear light blue with no sun painted on it (UTA-0344; the user
 # chose a sun, 2026-10-11). The survey's views stand below deck, so the yaw
 # is a pick.
+#
+# Its sky is only painted: ShaneDay.DayskyB on a closed box, with no sky
+# zone, so it drew black and the sun lit nothing. [sky] opens it (UTA-0350),
+# with the default colours and cloud cover.
 
 [map]
 file = mh-()mg-theboat-v2mini-bp
@@ -14,3 +18,6 @@ pitch = 9102
 hue = 28
 saturation = 200
 brightness = 200
+
+[sky]
+textures = shaneday.dayskyb
