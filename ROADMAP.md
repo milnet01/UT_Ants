@@ -15497,6 +15497,15 @@ stays with movement in 0.2.0.
   Light1's radius in the bake first. (2) bake it and view it on and off.
   (3) CLAUDE.md's stale-bake fact to format 26 / baker 50, CHANGELOG.
   (4) push through the gate. (5) re-bake every map at r50.
+  Done (2026-10-11): steps 1 to 3. The recipe switches off Light1,
+  Light2, Light3, Light5, Light6, Light7 and Light9, with a fitting-less
+  lamp copying Light4 at each. Light1 has no LightRadius in the t3d, so
+  it keeps the class default, not 255; it is still an LE_Cylinder light
+  at a lantern. Baked at r50-f26; the report names the recipe and lists
+  nothing unused. The user's capture view drew 0.50 mean grey with lamps
+  off, as the original did, and 0.20 with lamps on. Scratch:
+  ~/.cache/uta-scratch/u308-r50/. Left: push, re-bake every map at r50,
+  flip after GitHub's matrix is green.
   **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
   Kind: feature.
   Source: user-request-2026-10-06.

@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **A map's recipe can switch the map's own lights off, and MH-!SD0!ForbiddenMansion is lit by lamps at its lanterns instead of flood lights** (UTA-0308)
+  Seven lights that flooded the mansion evenly are switched off, and a
+  lamp at each of its lanterns lights the rooms around it. With added
+  lamps turned off, the switched-off lights come back, so a map is never
+  left dark. A lamp no longer needs a fitting to copy. Maps must be baked
+  again.
+
 - **The 127 maps added to the install on 2026-10-07 are baked, and MH-FAZI(V2)+ and DM-Brock get a sun where their skies paint one** (UTA-0334)
 
 - **A map with a clear sky can have a sun** (UTA-0338)

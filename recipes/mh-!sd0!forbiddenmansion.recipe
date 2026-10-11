@@ -1,0 +1,48 @@
+ut-ants recipe 4
+# MH-!SD0!ForbiddenMansion's lights -- UTA-0308. Seven LE_Cylinder lights,
+# each hung at one of the map's Lantern2 meshes, flood the mansion evenly.
+# They are switched off, and at each one a lamp copies the plain Light4,
+# with no fitting, since the lantern already stands there. With added
+# lamps off, the switched-off lights come back.
+
+[map]
+file = mh-!sd0!forbiddenmansion
+sha256 = 5d06a6414b902958ec2cefa67da379a17df4681b75830d04dbe2e656566f42a2
+
+[switch-off]
+lights = Light1 Light2 Light3 Light5 Light6 Light7 Light9
+
+# At Lantern0, where Light1 hangs.
+[lamp lantern-0]
+light = Light4
+at = -1.136181 -1.224731 232
+
+# At Lantern1, where Light2 hangs.
+[lamp lantern-1]
+light = Light4
+at = 3386.465088 -0.188333 -8.899628
+
+# At Lantern2, where Light3 hangs.
+[lamp lantern-2]
+light = Light4
+at = 3383.624512 0.95225 -526.899658
+
+# At Lantern3, where Light6 hangs.
+[lamp lantern-3]
+light = Light4
+at = 3656.375488 -0.951385 -1038.899658
+
+# At Lantern4, where Light9 hangs.
+[lamp lantern-4]
+light = Light4
+at = 8909.486328 4.24908 -656.899658
+
+# At Lantern5, where Light5 hangs.
+[lamp lantern-5]
+light = Light4
+at = 13481.789062 1.617138 -1067.899658
+
+# At Lantern6, where Light7 hangs.
+[lamp lantern-6]
+light = Light4
+at = 16982.154297 8.625259 -169.899658
