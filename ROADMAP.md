@@ -15985,6 +15985,8 @@ stays with movement in 0.2.0.
   User decision (2026-10-08): run this audit after the lighting pass,
   once UTA-0292 is finished, so it reads the lighting code in its final
   shape.
+  Deferred 2026-10-11: UTA-0350 taken first, by the user's choice. Clear
+  this note when picked up.
   **Layman:** A full independent check of the code for bugs, scheduled for the day the weekly usage allowance renews.
   Kind: chore.
   Source: user-request-2026-10-06.
@@ -16335,7 +16337,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-11.
   Lanes: client, ubake.
 
-- 📋 [UTA-0350] **MH-()mG-TheBoat-V2mini-BP draws its sky and sea black at baker r50, so its sun lights nothing.**
+- 🚧 [UTA-0350] **Painted-sky maps get a real sky: a recipe opens the walls a map paints its sky on, with clouds and its sun; first TheBoat, black since zone ambient went.**
   Found 2026-10-11 checking UTA-0346's suns. The user's viewer captures
   of 2026-10-07 (map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-*,
   baker r42-f22, commit efe0391) show bright blue sky and sea. ut-shot
@@ -16347,6 +16349,27 @@ stays with movement in 0.2.0.
   6f592ba. The probes are near-dark (meanLuma 0.0001). Sun recipe:
   recipes/mh-()mg-theboat-v2mini-bp.recipe. Scratch:
   ~/.cache/uta-scratch/u346/boat/. Related: UTA-0344.
+  Picked up 2026-10-11 ahead of UTA-0329, by the user's choice: it sits
+  in the lighting code the audit will read.
+  Located (2026-10-11): not a regression in the code. TheBoat has no sky:
+  no surface carries PF_FakeBackdrop (ut-dump --surface-list; every flag
+  is 0 but one water surface's). Its sky is the DayskyB texture painted
+  on an ordinary closed box. ZONE entry 1 has ambient brightness 255; the
+  other six have 0. The deck was lit only by that zone ambient, which
+  75c26a2 (UTA-0292, UTA-0112 SS 4.12 item 3, UTA-0156 INV-14) withdrew
+  from scene.frag on purpose. With no sky opening, the sun's shadow rays
+  and the probes' sky rays never get out, so the sun lights nothing. The
+  fix is a design choice, put to the user.
+  Decided (user, 2026-10-11): the recipe marks the painted sky as open
+  sky; zone ambient stays withdrawn. The user's words: "For TheBoat add
+  in a sky and sun, perhaps even a few clouds." So TheBoat's recipe gives
+  it a drawn sky, its UTA-0346 sun, and a light cloud layer.
+  Widened (user, 2026-10-11): "this is an opportunity to build
+  something to cater for these kinds of maps." Spec:
+  docs/specs/UTA-0350-painted-skies.md, accepted 2026-10-11, no gate.
+  Recipe [sky] (version 5), PSKY section (format 27), baker revision 51,
+  the renderer's painted sky, probe daylight, and the analyser's
+  paintedSky field.
   **Layman:** On the pirate-ship map the blue sky and the sea now come out black, so the sun added to it has nothing to shine through.
   Kind: fix.
   Source: in-session-2026-10-11.
