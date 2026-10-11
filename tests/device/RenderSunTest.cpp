@@ -231,6 +231,34 @@ TEST_CASE("UTA-0350 INV-7: a backdrop draws the painted sky where there is no sk
     }
 }
 
+TEST_CASE("UTA-0350 INV-7: a sky view gained or lost is re-uploaded", "[device]") {
+    // One bundle edited in place, so only shapeOf's sample of the sky view can
+    // tell the renderer it changed. GitHub's GCC leg gave frameOf's by-value
+    // bundles one address, and a level that had gained a sky view drew PSKY.
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Bundle bundle = skyWindow(false);
+    const auto placements = bundle.placements;
+    bundle.placements.reset();
+    bundle.paintedSky = redToBlue();
+    uta::ubundle::applyAddedLamps(bundle, true);
+    uta::ubundle::applySun(bundle);
+    const auto centre = [&renderer, &bundle] {
+        requireOk(renderer.draw(bundle, Camera{}));
+        auto pixels = renderer.readback();
+        if (!pixels.has_value()) FAIL(pixels.error().message());
+        return pixelAt(*pixels, WIDTH, WIDTH / 2, HEIGHT / 2);
+    };
+    const Rgba painted = centre();
+    bundle.placements = placements;
+    const Rgba viewed = centre();
+    bundle.placements.reset();
+    const Rgba paintedAgain = centre();
+    CAPTURE(painted, viewed, paintedAgain);
+    CHECK(int(painted.r) > int(painted.b) + 60);
+    CHECK(int(viewed.r) <= int(viewed.b) + 6);
+    CHECK(int(paintedAgain.r) > int(paintedAgain.b) + 60);
+}
+
 TEST_CASE("UTA-0338 INV-8: the sun is in no cluster", "[device]") {
     // The sun's LITE record stands at the origin with radius byte 0, so a
     // cluster test that took it would light a mover within 25 units of there

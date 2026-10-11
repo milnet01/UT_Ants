@@ -149,6 +149,7 @@ struct BundleShape {
                 lights = 0, probes = 0, zones = 0, flames = 0;
     bool occlusion = false;
     bool shadowMask = false;
+    bool skyView = false;
     std::uint64_t sample = 0;
     bool operator==(const BundleShape&) const = default;
 };
@@ -281,6 +282,12 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     if (bundle.flames) {
         shape.flames = bundle.flames->size();
         fnv.addEnds(std::span<const ubundle::Flame>(*bundle.flames));
+    }
+    // UTA-0350 SS 4.4: upload() reads the sky view, and whether there is one
+    // decides between it and the painted sky.
+    if (const std::optional<ubundle::SkyView> view = ubundle::skyViewOf(bundle)) {
+        shape.skyView = true;
+        fnv.addValue(view->location);
     }
     shape.sample = fnv.value();
     if (bundle.geometry) {
