@@ -16265,6 +16265,10 @@ stays with movement in 0.2.0.
   recipe with nothing unused; check the sun lights each map (old bake in
   u346/bakes vs new); commit; push; flip on a green GitHub run. Bakes go to
   scratch, never the game folder (UTA-0349).
+  Checked (2026-10-11): u346-bake3 baked all 11, every rc 0, every
+  report r50-f26-l9bc9a33edf14bdd6, verdict written, `recipe` its own
+  recipes/ file, `recipeUnused` empty. Left: the sun-light comparison,
+  the push, the flip.
   **Layman:** Maps with blue or lightly clouded skies get sunlight and sun shadows, not only the ones with a sun painted in the sky.
   Kind: fix.
   Source: user-request-2026-10-11.
