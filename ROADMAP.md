@@ -16269,6 +16269,15 @@ stays with movement in 0.2.0.
   report r50-f26-l9bc9a33edf14bdd6, verdict written, `recipe` its own
   recipes/ file, `recipeUnused` empty. Left: the sun-light comparison,
   the push, the flip.
+  Sun check (2026-10-11): ~/.cache/uta-scratch/u346/sunlit.py shot 40
+  views per map (ten far-apart nav nodes, four quarters, a little down)
+  from the plain r50 bake and the sun bake. Mean direct light, old to new:
+  Croon][ 0.056 to 0.081, Akuma[LV]+ 0.070 to 0.083, Xmasvillage 0.52
+  to 0.68, Siberia][ 0.29 to 0.42, Eagles 0.23 to 0.33. On Eagles the
+  sunlit faces turn warm and the turned-away faces stay dark. TheBoat:
+  no change at all; its sky and sea now draw black, filed as UTA-0350.
+  The other five sun maps had no plain r50 bake to compare. Left: the
+  push and the flip.
   **Layman:** Maps with blue or lightly clouded skies get sunlight and sun shadows, not only the ones with a sun painted in the sky.
   Kind: fix.
   Source: user-request-2026-10-11.
@@ -16322,6 +16331,23 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: in-session-2026-10-11.
   Lanes: client, ubake.
+
+- 📋 [UTA-0350] **MH-()mG-TheBoat-V2mini-BP draws its sky and sea black at baker r50, so its sun lights nothing.**
+  Found 2026-10-11 checking UTA-0346's suns. The user's viewer captures
+  of 2026-10-07 (map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-*,
+  baker r42-f22, commit efe0391) show bright blue sky and sea. ut-shot
+  at the same eleven cameras on an r50 bake draws them black, and the
+  recipe's [sun] changes no texel: direct light equal to four places,
+  with and without the sun. ut-shot built at 6f592ba (before UTA-0345)
+  draws the same black frames, so UTA-0345 is not the cause; the change
+  lies between baker r42 and r50, or in the renderer between efe0391 and
+  6f592ba. The probes are near-dark (meanLuma 0.0001). Sun recipe:
+  recipes/mh-()mg-theboat-v2mini-bp.recipe. Scratch:
+  ~/.cache/uta-scratch/u346/boat/. Related: UTA-0344.
+  **Layman:** On the pirate-ship map the blue sky and the sea now come out black, so the sun added to it has nothing to shine through.
+  Kind: fix.
+  Source: in-session-2026-10-11.
+  Lanes: ubake, urender.
 
 ## 0.2.0 — Movement and weapons
 
