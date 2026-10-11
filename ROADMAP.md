@@ -16170,6 +16170,13 @@ stays with movement in 0.2.0.
   Answered (user, 2026-10-11): the rule asked was never "no painted
   sun, no sun". Blue skies and skies with a few clouds get a sun; only
   cloudy skies go without. So TheBoat gets a recipe sun, under UTA-0346.
+  Finding (2026-10-11, UTA-0350): with the painted sky open, the deck
+  takes the sun and sky light, but the six below-deck cameras of the
+  user's 2026-10-07 captures stay 85-97% black. The original lit those
+  rooms with zone ambient only (ZONE 1 at 255), which stays withdrawn;
+  daylight reaches them only through small hatches. Whether each room
+  gets an added lamp is decided per room on the r51 bake (UTA-0256's
+  rule). Shots: ~/.cache/uta-scratch/u350/shots/after-3..8.ppm.
   **Layman:** The boat map now looks great but is too dark to play, because its sky gives no sunlight.
   Kind: investigate.
   Source: user-request-2026-10-10.
@@ -16378,6 +16385,19 @@ stays with movement in 0.2.0.
   painted sky, light_parity.comp, RenderSunTest; 5 analyser paintedSky;
   6 TheBoat recipe to version 5 with [sky], re-bake into scratch, shoot
   at the 2026-10-07 cameras. Not pushed yet: the push gate runs at the end.
+  Progress (2026-10-11): steps 2-6 done. db42f52 PSKY (format 27);
+  d168afa baker (revision 51); 9ed58af renderer (sky.glsl; INV-6's
+  shader half is tests/device/shaders/painted_sky.comp, spec amended);
+  25d5dc9 analyser paintedSky (INV-8 by hand: TheBoat lists DayskyB on
+  31 surfaces, DM-Eagles null); dac99ae TheBoat recipe 5 names
+  shaneday.dayskyb, and ut-ref takes the painted sky. Unit 1005/1005;
+  device 111/111 on lavapipe and on the GPU; every hand mutant killed.
+  Shot at the user's nine 2026-10-07 cameras against a bake without
+  [sky]: the three on deck go from 95-100% black to sky-blue with clouds,
+  direct light 0.000-0.003 -> 0.060-0.154. The six below deck stay dark;
+  recorded on UTA-0344. Untested: water reflecting a painted sky, and the
+  switched-off-lights probe layer taking it. Next: the push gate, then
+  flip on GitHub's matrix.
   **Layman:** On the pirate-ship map the blue sky and the sea now come out black, so the sun added to it has nothing to shine through.
   Kind: fix.
   Source: in-session-2026-10-11.
