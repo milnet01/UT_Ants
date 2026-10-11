@@ -1,0 +1,26 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// UTA-0350 INV-6's kernel: shaders/sky.glsl -- the file the shading pass
+// includes -- evaluated at a table of cases, the clouds at their mean cover as
+// ubundle::paintedSkyLight takes them.
+
+#include "sky.glsl"
+
+struct SkyCase {
+    vec4 top;              // xyz
+    vec4 horizonAndClouds; // xyz the horizon, w the cover
+    vec4 d;                // xyz, unit
+};
+
+layout(set = 0, binding = 0) readonly buffer Cases { SkyCase cases[]; };
+layout(set = 0, binding = 1) buffer Results { vec4 results[]; };
+
+layout(local_size_x = 16) in;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uint(cases.length())) return;
+    SkyCase c = cases[i];
+    results[i] = vec4(paintedSkyMean(c.top.xyz, c.horizonAndClouds.xyz, c.horizonAndClouds.w, c.d.xyz), 0.0);
+}

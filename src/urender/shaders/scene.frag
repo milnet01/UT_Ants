@@ -17,6 +17,7 @@
 #include "liquid.glsl"
 #include "probes.glsl"
 #include "shadows.glsl"
+#include "sky.glsl"
 #include "variation.glsl"
 #include "water.glsl"
 
@@ -174,11 +175,44 @@ vec3 sunInSky(vec3 d) {
     return colour * (SUN_DISC_GAIN * disc + SUN_HALO * exp(-angle / SUN_HALO_WIDTH));
 }
 
+// How cloudy direction `d` is, 0 to 1: four octaves of flame.glsl's value
+// noise over the cloud layer's plane, cut where a share near `clouds` lies
+// above. The cut is a cubic fitted 2026-10-11 to 400k samples of this sum's
+// quantiles (mean 0.50, spread 0.13); the covered share it gives at 0.1, 0.2,
+// 0.5 and 0.8 was 0.096, 0.197, 0.500 and 0.803.
+float paintedSkyClouds(vec3 d, float clouds) {
+    if (clouds <= 0.0) return 0.0;
+    vec2 p = d.xy / max(d.z, 0.05) * 1.5;
+    float sum = 0.0;
+    float weight = 0.5;
+    float total = 0.0;
+    for (int octave = 0; octave < 4; ++octave) {
+        sum += weight * flameNoise(p, uint(octave));
+        total += weight;
+        p *= 2.03;
+        weight *= 0.5;
+    }
+    float n = sum / total;
+    float cut = ((-0.6696 * clouds + 1.0018) * clouds - 0.8364) * clouds + 0.7519;
+    return smoothstep(cut - 0.02, cut + 0.02, n);
+}
+
+// UTA-0350 SS 4.4: the painted sky in direction `d` -- its gradient with the
+// clouds over it, fading out toward the horizon.
+vec3 paintedSkyAt(vec3 d) {
+    vec3 top = vec3(frame.paintedSkyTopR, frame.paintedSkyTopG, frame.paintedSkyTopB);
+    vec3 horizon = vec3(frame.paintedSkyHorizonR, frame.paintedSkyHorizonG, frame.paintedSkyHorizonB);
+    float cover = paintedSkyFade(d) * paintedSkyClouds(d, frame.paintedSkyClouds);
+    return mix(paintedSkyGradient(top, horizon, d), vec3(PAINTED_SKY_CLOUD), cover);
+}
+
 // UTA-0163: the level's sky in direction `d`, from the six faces urender drew
 // from its SkyZoneInfo -- Sky.h. The face is the axis `d` is longest on, in
-// shadows.glsl's order, and a sample stays half a texel inside its cell. The
-// sun's disc is added over it (UTA-0338 SS 4.5), so water reflects it too.
+// shadows.glsl's order, and a sample stays half a texel inside its cell. With
+// no sky view, the painted sky (UTA-0350 SS 4.4). The sun's disc is added over
+// either (UTA-0338 SS 4.5), so water reflects it too.
 vec3 skyAt(vec3 d) {
+    if (frame.skyTexture == NONE) return paintedSkyAt(d) + sunInSky(d);
     vec3 a = abs(d);
     uint face;
     if (a.x >= a.y && a.x >= a.z) face = d.x >= 0.0 ? 0u : 1u;
@@ -311,8 +345,9 @@ void main() {
     vec2 lightTerms = vec2(0.0); // UTA-0292 SS 4.3: direct, indirect
     if (flaming) {
         colour = vec3(0.0); // all of it is emission, added below
-    } else if ((draw.polyFlags & PF_FAKE_BACKDROP) != 0u && frame.skyTexture != NONE) {
-        // UTA-0163: a window onto the sky zone, already lit when it was drawn.
+    } else if ((draw.polyFlags & PF_FAKE_BACKDROP) != 0u && (frame.skyTexture != NONE || frame.paintedSky != 0u)) {
+        // UTA-0163: a window onto the sky zone, already lit when it was drawn;
+        // or UTA-0350's painted sky.
         colour = skyAt(normalize(worldPosition - frame.eye));
     } else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) != 0u) {
         // No light applied -- but the output stage still applies (SS 4.10).

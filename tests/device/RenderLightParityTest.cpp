@@ -19,10 +19,12 @@
 #include "device/ComputeFixture.h"
 #include "device/DeviceFixture.h"
 #include "ubake/LightModel.h"
+#include "ubundle/Sky.h"
 #include "urender/Lights.h"
 #include "urender/ShaderTypes.h"
 
 #include "light_parity.comp.spv.h"
+#include "painted_sky.comp.spv.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -279,4 +281,42 @@ TEST_CASE("UTA-0288: no light is negative just inside its radius", "[device]") {
     CHECK(negative == 0);
     // The sweep is not vacuous: most of its points sit just inside a radius.
     CHECK(nearEdge >= cases.size() / 2);
+}
+
+TEST_CASE("UTA-0350 INV-6: the shader's painted sky equals paintedSkyLight", "[device]") {
+    // sky.glsl's gradient and fade, at the clouds' mean cover, against the
+    // C++ the probe bake reads -- below, at and above the horizon, through the
+    // fade, and overhead, under two skies.
+    struct SkyCase {
+        std::array<float, 4> top;
+        std::array<float, 4> horizonAndClouds;
+        std::array<float, 4> d;
+    };
+    const std::array<uta::ubundle::PaintedSky, 2> skies = {
+        uta::ubundle::PaintedSky{.top = {0.04f, 0.19f, 0.58f}, .horizon = {0.45f, 0.66f, 0.85f}, .clouds = 0.2f},
+        uta::ubundle::PaintedSky{.top = {0.9f, 0.1f, 0.3f}, .horizon = {0.0f, 1.0f, 0.5f}, .clouds = 1.0f}};
+    const std::array<double, 9> heights = {-0.5, 0.0, 0.01, 0.05, 0.1, 0.135, 0.2, 0.6, 1.0};
+    std::vector<SkyCase> cases;
+    std::vector<std::array<double, 3>> directions;
+    for (const auto& sky : skies)
+        for (const double z : heights) {
+            const std::array<float, 3> d = normalised(0.6, std::sqrt(std::max(0.0, 1.0 - z * z - 0.36)), z);
+            directions.push_back({d[0], d[1], d[2]});
+            cases.push_back({{sky.top[0], sky.top[1], sky.top[2], 0},
+                             {sky.horizon[0], sky.horizon[1], sky.horizon[2], sky.clouds},
+                             {d[0], d[1], d[2], 0}});
+        }
+
+    const std::vector<std::byte> output = uta::test::render::runCompute(
+        painted_sky_comp_spv, {std::as_bytes(std::span(cases))}, cases.size() * 4 * sizeof(float),
+        static_cast<std::uint32_t>(cases.size()));
+
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        const std::array<float, 3> expected =
+            uta::ubundle::paintedSkyLight(skies[i / heights.size()], directions[i]);
+        std::array<float, 4> actual{};
+        std::memcpy(actual.data(), output.data() + i * sizeof(actual), sizeof(actual));
+        CAPTURE(i, directions[i][2], expected[0], expected[1], expected[2], actual[0], actual[1], actual[2]);
+        for (std::size_t c = 0; c < 3; ++c) CHECK(std::abs(actual[c] - expected[c]) <= 1e-4);
+    }
 }

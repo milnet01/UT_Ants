@@ -189,6 +189,37 @@ TEST_CASE("UTA-0338 INV-8: the sky shows the sun's disc where it stands", "[devi
     CHECK(std::abs(sum(corner) - sum(cornerPlain)) <= 6);
 }
 
+/// UTA-0350 SS 4.4: a painted sky whose horizon is red and top blue, with no
+/// clouds, so a pixel's colour says which it shows.
+uta::ubundle::PaintedSky redToBlue() {
+    return uta::ubundle::PaintedSky{.top = {0.05f, 0.05f, 0.8f}, .horizon = {0.6f, 0.05f, 0.05f}, .clouds = 0};
+}
+
+TEST_CASE("UTA-0350 INV-7: a backdrop draws the painted sky where there is no sky view", "[device]") {
+    Renderer renderer = requireRenderer(linearFrame());
+    // skyWindow's window with no sky view: its own grey picture, as before.
+    uta::ubundle::Bundle bare = skyWindow(false);
+    bare.placements.reset();
+    const std::vector<std::byte> picture = frameOf(renderer, bare);
+    uta::ubundle::Bundle painted = bare;
+    painted.paintedSky = redToBlue();
+    const std::vector<std::byte> sky = frameOf(renderer, painted);
+
+    const Rgba centre = pixelAt(sky, WIDTH, WIDTH / 2, HEIGHT / 2);
+    const Rgba top = pixelAt(sky, WIDTH, WIDTH / 2, 1);
+    const Rgba grey = pixelAt(picture, WIDTH, WIDTH / 2, HEIGHT / 2);
+    CAPTURE(centre, top, grey);
+    CHECK(std::abs(int(grey.r) - int(grey.b)) <= 2); // the grey picture
+    // Level with the eye the horizon shows; higher up the sky is bluer.
+    CHECK(int(centre.r) > int(centre.b) + 60);
+    CHECK(int(top.b) - int(top.r) > int(centre.b) - int(centre.r));
+
+    // A level with a sky view draws that, whatever PSKY holds.
+    uta::ubundle::Bundle viewed = skyWindow(false);
+    viewed.paintedSky = redToBlue();
+    CHECK(frameOf(renderer, viewed) == frameOf(renderer, skyWindow(false)));
+}
+
 TEST_CASE("UTA-0338 INV-8: the sun is in no cluster", "[device]") {
     // The sun's LITE record stands at the origin with radius byte 0, so a
     // cluster test that took it would light a mover within 25 units of there

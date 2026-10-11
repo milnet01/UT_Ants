@@ -54,7 +54,7 @@ float waterShare(vec3 n, vec3 v) {
 // SS 4.2: whether reflected direction `r` meets the sky -- the level has one,
 // `r` points up, and the water's zone or the viewer's has a sky window.
 bool waterSeesSky(vec3 r, uint zone) {
-    return frame.skyTexture != NONE && r.z > 0.0 && (zones[zone].sky != 0u || zones[frame.cameraZone].sky != 0u);
+    return (frame.skyTexture != NONE || frame.paintedSky != 0u) && r.z > 0.0 && (zones[zone].sky != 0u || zones[frame.cameraZone].sky != 0u);
 }
 
 // SS 4.2: what the probes reflect along `r` at `x`, scaled as scene.frag

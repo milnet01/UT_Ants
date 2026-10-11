@@ -108,8 +108,14 @@ struct FrameData {
     /// cluster; the shader lights other fragments from it through the probes'
     /// view of it, and draws its disc in the sky.
     std::uint32_t sun;
+    /// UTA-0350 SS 4.4: nonzero where the bundle has PSKY and no sky view, so
+    /// a backdrop draws the painted sky below. Three floats each, not vec3s.
+    std::uint32_t paintedSky;
+    std::array<float, 3> paintedSkyTop;
+    std::array<float, 3> paintedSkyHorizon;
+    float paintedSkyClouds;
 };
-static_assert(sizeof(FrameData) == 384);
+static_assert(sizeof(FrameData) == 416);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -138,6 +144,10 @@ static_assert(offsetof(FrameData, skyCapture) == 368);
 static_assert(offsetof(FrameData, shadowMaskTexture) == 372); // UTA-0326 SS 4.5
 static_assert(offsetof(FrameData, flashlight) == 376);
 static_assert(offsetof(FrameData, sun) == 380); // UTA-0338 SS 4.5
+static_assert(offsetof(FrameData, paintedSky) == 384); // UTA-0350 SS 4.4
+static_assert(offsetof(FrameData, paintedSkyTop) == 388);
+static_assert(offsetof(FrameData, paintedSkyHorizon) == 400);
+static_assert(offsetof(FrameData, paintedSkyClouds) == 412);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {

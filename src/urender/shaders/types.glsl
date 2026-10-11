@@ -61,6 +61,14 @@ struct FrameData {
     uint shadowMaskTexture; // UTA-0326 SS 4.5: NONE when the bundle has no SMSK
     uint flashlight;        // UTA-0326 SS 4.5: an index into lights, or NONE
     uint sun;               // UTA-0338 SS 4.5: an index into lights, or NONE
+    uint paintedSky;        // UTA-0350 SS 4.4: nonzero to draw the painted sky
+    float paintedSkyTopR;
+    float paintedSkyTopG;
+    float paintedSkyTopB;
+    float paintedSkyHorizonR;
+    float paintedSkyHorizonG;
+    float paintedSkyHorizonB;
+    float paintedSkyClouds;
 };
 
 struct Object {

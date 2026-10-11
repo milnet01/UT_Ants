@@ -151,8 +151,11 @@ Bytes: the seven `f32` in that order. `read` refuses a component outside
   `mix(gradient(d), CLOUD, cloudFade(d) * mask)`, where `mask` is value-noise
   fbm (four octaves) over `d.xy / max(d.z, 0.05)`, thresholded so a share
   near `clouds` of the dome is covered. It is static.
-- Water reflects it through `skyAt`, as now; `waterSeesSky` already keys on
-  backdrop batches.
+- The gradient, the fade and `CLOUD` live in `shaders/sky.glsl`, which reads
+  no binding, so a test kernel includes it whole. The mask stays in
+  `scene.frag`, beside `flame.glsl`'s noise, which reads bindings.
+- Water reflects it through `skyAt`; `waterSeesSky` takes either sky, and its
+  zones key on backdrop batches as before.
 
 ### 4.5 Finding the maps — `scripts/map-analyser.py`
 
@@ -206,7 +209,7 @@ counts them.
   toward `CLOUD` by `clouds` at `d.z = 1`, and `horizon` below the horizon;
   the shader's gradient and fade agree with it within the parity test's
   tolerance.
-  *Test:* `tests/unit/BundleSkyTest.cpp`; `tests/device/shaders/light_parity.comp`.
+  *Test:* `tests/unit/BundleSkyTest.cpp`; `tests/device/shaders/painted_sky.comp`, run by `tests/device/RenderLightParityTest.cpp`.
   *Breaks when:* the shader's gradient or fade drifts from the C++ one.
 
 - **INV-7** — a backdrop surface in a bundle with `PSKY` and no sky view
@@ -241,7 +244,7 @@ counts them.
 | `tests/unit/RecipeFormatTest.cpp` | INV-1, INV-2 |
 | `tests/unit/BundleSkyTest.cpp`, new | INV-3, INV-6 |
 | `tests/unit/BakeSkyTest.cpp`, new | INV-4, INV-5 |
-| `tests/device/shaders/light_parity.comp` | INV-6 |
+| `tests/device/shaders/painted_sky.comp` | INV-6 |
 | `tests/device/RenderSunTest.cpp` | INV-7 |
 | manual analyser run | INV-8 |
 
@@ -279,7 +282,7 @@ r50 frames.
 | INV-3 | `tests/unit/BundleSkyTest.cpp` |
 | INV-4 | `tests/unit/BakeSkyTest.cpp` |
 | INV-5 | `tests/unit/BakeSkyTest.cpp` |
-| INV-6 | `tests/unit/BundleSkyTest.cpp` and `light_parity.comp` |
+| INV-6 | `tests/unit/BundleSkyTest.cpp` and `painted_sky.comp` |
 | INV-7 | `tests/device/RenderSunTest.cpp` |
 | INV-8 | **nothing** — a manual run; the analyser has no tests |
 | § 4.4's cloud cover | **nothing** — judged on TheBoat's frames |

@@ -1565,6 +1565,13 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // UTA-0163: a face of the sky is drawn without the sky, which is not drawn yet.
     frame.skyTexture = impl.skyReady && !skyFace ? static_cast<std::uint32_t>(impl.materials->textures().size())
                                                  : gpu::NONE;
+    // UTA-0350 SS 4.4: a painted sky stands in where there is no sky view.
+    if (bundle.paintedSky && !impl.skyView) {
+        frame.paintedSky = 1;
+        frame.paintedSkyTop = bundle.paintedSky->top;
+        frame.paintedSkyHorizon = bundle.paintedSky->horizon;
+        frame.paintedSkyClouds = bundle.paintedSky->clouds;
+    }
     // UTA-0164 SS 4.5: the atlas follows the sky's faces, when there are any.
     frame.occlusionTexture = impl.occlusion.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
                                                                                  + (impl.sky.view() ? 1 : 0))

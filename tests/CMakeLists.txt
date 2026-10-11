@@ -236,7 +236,8 @@ target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle uta_ubake
                                                Catch2::Catch2WithMain)
 target_include_directories(uta_device_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/tools")
 # The kernels include urender's own GLSL -- the files the shading pass does.
-uta_embed_shaders(uta_device_tests device/shaders/light_parity.comp device/shaders/probe_eval.comp)
+uta_embed_shaders(uta_device_tests device/shaders/light_parity.comp device/shaders/probe_eval.comp
+                  device/shaders/painted_sky.comp)
 # Two registrations of one binary, split by tag. The TIMEOUT is for Mesa's CPU
 # driver, which compiles every pipeline on first use.
 catch_discover_tests(uta_device_tests TEST_SPEC "[device]" PROPERTIES LABELS "device" TIMEOUT 300)
