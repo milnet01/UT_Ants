@@ -27,4 +27,14 @@ struct SkyView {
 [[nodiscard]] std::optional<SkyView> skyViewOf(const Placements& placements);
 [[nodiscard]] std::optional<SkyView> skyViewOf(const Bundle& bundle);
 
+/// A painted sky's clouds, in each linear channel -- UTA-0350 SS 4.3. The
+/// renderer draws with the same value (SS 4.4).
+inline constexpr float PAINTED_SKY_CLOUD = 0.85f;
+
+/// The painted sky's light from direction `d` (unit, z up): the gradient,
+/// clouds blended in at their cover where they show -- UTA-0350 SS 4.3. The
+/// probe bake reads this; the renderer draws the same gradient and fade.
+[[nodiscard]] std::array<float, 3> paintedSkyLight(const PaintedSky& sky,
+                                                   const std::array<double, 3>& d) noexcept;
+
 } // namespace uta::ubundle

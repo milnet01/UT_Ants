@@ -28,6 +28,7 @@ add_library(uta_ubundle STATIC
     ShadowMaskSection.cpp
     LampSection.cpp
     SunSection.cpp
+    PaintedSkySection.cpp
     AddedLamps.cpp
     AddedSun.cpp
     Sky.cpp

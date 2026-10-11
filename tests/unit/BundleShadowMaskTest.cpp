@@ -106,7 +106,7 @@ Bytes smskPayload(const ShadowMask& mask) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(26); // formatVersion -- 26 since UTA-0308 gave LAMP its restores flag
+    out.u32(27); // formatVersion -- 27 since UTA-0350 added PSKY
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

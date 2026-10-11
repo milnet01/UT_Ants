@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -54,6 +55,20 @@ std::optional<SkyView> skyViewOf(const Placements& placements) {
 std::optional<SkyView> skyViewOf(const Bundle& bundle) {
     if (!bundle.placements) return std::nullopt;
     return skyViewOf(*bundle.placements);
+}
+
+std::array<float, 3> paintedSkyLight(const PaintedSky& sky, const std::array<double, 3>& d) noexcept {
+    const double up = std::clamp(d[2], 0.0, 1.0);
+    const double height = std::sqrt(up);
+    // smoothstep(0.02, 0.25, d.z): the clouds thin out toward the horizon.
+    const double x = std::clamp((d[2] - 0.02) / (0.25 - 0.02), 0.0, 1.0);
+    const double cover = sky.clouds * (x * x * (3 - 2 * x));
+    std::array<float, 3> out{};
+    for (std::size_t c = 0; c < 3; ++c) {
+        const double gradient = sky.horizon[c] + (sky.top[c] - sky.horizon[c]) * height;
+        out[c] = static_cast<float>(gradient + (PAINTED_SKY_CLOUD - gradient) * cover);
+    }
+    return out;
 }
 
 } // namespace uta::ubundle

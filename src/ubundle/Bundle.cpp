@@ -90,7 +90,7 @@ struct Descriptor {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
            || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
            || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM || id == ID_SMSK
-           || id == ID_LAMP || id == ID_SUN;
+           || id == ID_LAMP || id == ID_SUN || id == ID_PSKY;
 }
 
 } // namespace
@@ -241,6 +241,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             UTA_TRY(bundle.lamps, readLamps(payload));
         } else if (descriptor.id == ID_SUN) {
             UTA_TRY(bundle.sun, readSun(payload));
+        } else if (descriptor.id == ID_PSKY) {
+            UTA_TRY(bundle.paintedSky, readPaintedSky(payload));
+            UTA_CHECK(validatePaintedSky(*bundle.paintedSky, ErrorCode::MalformedData));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -303,8 +306,9 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     UTA_CHECK(validateShadowMaskAcross(bundle, ErrorCode::InvalidArgument));
     UTA_CHECK(validateLamps(bundle, ErrorCode::InvalidArgument));
     UTA_CHECK(validateSun(bundle, ErrorCode::InvalidArgument));
+    if (bundle.paintedSky) UTA_CHECK(validatePaintedSky(*bundle.paintedSky, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP. Fixed rather than incidental because
+    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -361,6 +365,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.lamps) encoded(ID_LAMP, encodeLamps(*bundle.lamps));
     // SUN is appended after LAMP -- UTA-0338 SS 4.2.
     if (bundle.sun) encoded(ID_SUN, encodeSun(*bundle.sun));
+    // PSKY is appended after SUN -- UTA-0350 SS 4.3.
+    if (bundle.paintedSky) encoded(ID_PSKY, encodePaintedSky(*bundle.paintedSky));
 
     if (refused) return std::unexpected(*std::move(refused));
     // The file's size is known before a byte is written, so the buffer grows

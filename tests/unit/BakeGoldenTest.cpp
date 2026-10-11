@@ -122,9 +122,11 @@ namespace {
 // 50, format 26: UTA-0308 gives LAMP its restores flag and LPRB its switched
 // cubes, and bakes a recipe's switched-off lights. The fixture has no recipe,
 // so only the format bump and the empty count moved it.
+// 50, format 27: UTA-0350 adds PSKY. Nothing bakes one yet, so the format
+// bump alone moved it.
 constexpr std::uint32_t RECORDED_UNDER = 50;
 constexpr std::string_view GOLDEN =
-    "076f86f7b53cf5bb20a173eb54b17e59e9f0994a7f459e21dfd3522dc83bfe9c";
+    "f72bdba544d1af59428dfc18a1f398d4c31b02b648bf8cf33518037feeccf504";
 
 } // namespace
 

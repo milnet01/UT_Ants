@@ -68,7 +68,8 @@ namespace uta::ubundle {
 /// 25 since UTA-0338 SS 4.2 added SUN and LPRB's sun visibility.
 /// 26 since UTA-0256 SS 4.7 (UTA-0308) gave each LAMP record its restores
 /// flag and LPRB its switched-off cubes.
-inline constexpr std::uint32_t FORMAT_VERSION = 26;
+/// 27 since UTA-0350 SS 4.3 added PSKY.
+inline constexpr std::uint32_t FORMAT_VERSION = 27;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -604,6 +605,14 @@ struct Sun {
 /// with it and `applySun` appends it, so the two cannot disagree.
 [[nodiscard]] Light lightOfSun(const Sun& sun) noexcept;
 
+/// The sky a map only painted on its walls, opened -- UTA-0350 SS 4.3. Each
+/// component is finite and in [0, 1].
+struct PaintedSky {
+    std::array<float, 3> top{};     ///< linear RGB straight up
+    std::array<float, 3> horizon{}; ///< linear RGB at the horizon
+    float clouds = 0;               ///< the share of the dome they cover
+};
+
 /// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds
 /// none or the zone is not below `zoneCount` -- UTA-0156 SS 4.3's mover rule,
 /// here so the renderer can find the camera's zone too (UTA-0015 SS 4.1).
@@ -647,6 +656,8 @@ struct Bundle {
     std::optional<std::vector<AddedLamp>> lamps;
     /// The recipe's sun -- UTA-0338 SS 4.2. Absent when it declares none.
     std::optional<Sun> sun;
+    /// The recipe's painted sky -- UTA-0350 SS 4.3. Absent when it declares none.
+    std::optional<PaintedSky> paintedSky;
 };
 
 /// UTA-0256 SS 4.4 and SS 4.8: folds LAMP into the sections the renderer
@@ -679,7 +690,7 @@ void applySun(Bundle& bundle);
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
 /// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, omitting absent ones, and the output is byte-identical for equal
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY, omitting absent ones, and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///
