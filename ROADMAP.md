@@ -1,5 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
+<!-- ants-roadmap-id-high-water: UTA=350 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16348,7 +16349,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-11.
   Lanes: client, ubake.
 
-- 🚧 [UTA-0350] **Painted-sky maps get a real sky: a recipe opens the walls a map paints its sky on, with clouds and its sun; first TheBoat, black since zone ambient went.**
+- ✅ [UTA-0350] **Painted-sky maps get a real sky: a recipe opens the walls a map paints its sky on, with clouds and its sun; first TheBoat, black since zone ambient went.**
   Found 2026-10-11 checking UTA-0346's suns. The user's viewer captures
   of 2026-10-07 (map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-*,
   baker r42-f22, commit efe0391) show bright blue sky and sea. ut-shot
@@ -16409,6 +16410,11 @@ stays with movement in 0.2.0.
   sun-disc case does, and asserts the centre is not the painted red;
   a two-file mutant (Frame.cpp and scene.frag) still fails it. Flip
   when GitHub's matrix is green.
+  Shipped 2026-10-11: GitHub run 38169522459 green on GCC 14, Clang 19
+  and MSVC at 131edfc. Run 38157389416 had shown a real defect, not
+  noise: shapeOf did not sample the sky view, so a bundle gaining one at
+  the last bundle's address kept the painted sky. Fixed in 131edfc with
+  a device test proven red first.
   **Layman:** On the pirate-ship map the blue sky and the sea now come out black, so the sun added to it has nothing to shine through.
   Kind: fix.
   Source: in-session-2026-10-11.
