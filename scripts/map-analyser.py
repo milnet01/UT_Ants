@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """List what graphical features each map needs -- UTA-0347. Version 1 reads
-the sky only, for UTA-0346's sun rule.
+the sky only, for UTA-0346's sun rule and UTA-0350's painted skies.
 
     scripts/map-analyser.py <install> <out dir> <report.json>...
 
@@ -19,8 +19,14 @@ sky, and prints one JSON line:
   why         "measured", or the reason a checked verdict overrides it
   paintedSun  [yaw, pitch] in UT units where the sky paints a sun -- a small
               bright spot seen at one direction from two views -- else null
+  paintedSky  null where the map has a real sky (a PF_FakeBackdrop surface);
+              else {"textures": {name: surfaces}, "brightZones": n} -- the
+              textures whose name holds "sky", each with how many surfaces
+              wear it, and how many ZONE entries in the bundle have an
+              ambient brightness of 128 or more (UTA-0350 SS 4.5). A
+              non-empty texture list marks a candidate for a [sky] recipe.
 
-The last line holds the totals by class. A map whose class is clear,
+The last line holds the totals by class, and `paintedSky`, the candidates. A map whose class is clear,
 fewClouds or warmClear gets a sun (UTA-0346; warmClear added by the user,
 2026-10-11). `other` is any sky the rules do not name: overcast, purple,
 orange, alien.
@@ -42,6 +48,7 @@ import subprocess
 import sys
 
 WIDTH, HEIGHT, FOV = 160, 90, 100.0
+PF_FAKE_BACKDROP = 0x80
 UP_PITCH = 14000  # UT units; nearly straight up, as UTA-0334's survey shot
 SUN_CLASSES = ("clear", "fewClouds", "warmClear")
 
@@ -157,6 +164,34 @@ def classify(m):
     return "other"
 
 
+def bright_zones(bundle):
+    """ZONE entries whose ambient brightness is 128 or more. A ZONE entry is
+    29 bytes, brightness first, after a u32 count (UTA-0156 SS 4.1)."""
+    data = pathlib.Path(bundle).read_bytes()
+    (count,) = struct.unpack_from("<I", data, 12)
+    for i in range(count):
+        ident, offset, _size = struct.unpack_from("<4sQQ", data, 16 + 24 * i)
+        if ident == b"ZONE":
+            (zones,) = struct.unpack_from("<I", data, offset)
+            return sum(data[offset + 4 + 29 * z] >= 128 for z in range(zones))
+    return 0
+
+
+def painted_sky(install, map_file, bundle):
+    """UTA-0350 SS 4.5: null with a real sky; else the sky-named textures."""
+    dump = subprocess.run(["build/tools/ut-dump/ut-dump", "--install", install, "--surface-list", map_file],
+                          capture_output=True, text=True, check=True)
+    surfaces = json.loads(dump.stdout)["packages"][0]["surfaces"]["list"]
+    if any(s["polyFlags"] & PF_FAKE_BACKDROP for s in surfaces):
+        return None
+    textures = {}
+    for s in surfaces:
+        name = s.get("texture") or ""
+        if "sky" in name.lower():
+            textures[name] = textures.get(name, 0) + 1
+    return {"textures": dict(sorted(textures.items())), "brightZones": bright_zones(bundle)}
+
+
 def analyse(install, out, report_path):
     report = json.load(open(report_path))
     map_file, bundle = report["map"], report["path"]
@@ -180,6 +215,7 @@ def analyse(install, out, report_path):
     if name in VERDICTS:
         row["class"], row["why"] = VERDICTS[name]
     row["paintedSun"] = painted_sun(spots)
+    row["paintedSky"] = painted_sky(install, map_file, bundle)
     return row
 
 
@@ -190,11 +226,13 @@ def main(argv):
     install, out = argv[1], pathlib.Path(argv[2])
     out.mkdir(parents=True, exist_ok=True)
     totals = {}
+    painted = 0
     for report_path in argv[3:]:
         row = analyse(install, out, report_path)
         totals[row["class"]] = totals.get(row["class"], 0) + 1
+        painted += bool(row["paintedSky"] and row["paintedSky"]["textures"])
         print(json.dumps(row), flush=True)
-    print(json.dumps({"totals": totals, "sun": sum(totals.get(c, 0) for c in SUN_CLASSES)}))
+    print(json.dumps({"totals": totals, "sun": sum(totals.get(c, 0) for c in SUN_CLASSES), "paintedSky": painted}))
     return 0
 
 
