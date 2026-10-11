@@ -90,7 +90,8 @@ struct BakeResult {
     /// UTA-0129: detail::bake's steps and how long each took, depth 0.
     std::vector<Phase> phases;
     /// UTA-0113 SS 4.5: the recipe's assignments naming a texture the map does
-    /// not use, ascending. Reported, never refused.
+    /// not use, and UTA-0350 SS 4.2 its sky textures no surface wears --
+    /// ascending, each once. Reported, never refused.
     std::vector<std::string> recipeUnused;
     /// UTA-0277 SS 4.5: every Unsure material, once, most surfaces first.
     std::vector<TileQuestion> tileQuestions;

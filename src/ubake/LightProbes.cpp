@@ -5,6 +5,7 @@
 #include "ubake/LightProbes.h"
 
 #include "ubake/Actors.h"
+#include "ubundle/Sky.h"
 
 #include <algorithm>
 #include <cmath>
@@ -117,7 +118,7 @@ Rgb scaled(const Rgb& c, double k) noexcept { return {c.r * k, c.g * k, c.b * k}
 /// already sent on from the sky view (SS 4.12 item 2).
 std::optional<SurfaceHit> surfaceFrom(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
                                       const ubundle::Geometry& geometry, const std::optional<Vec3>& sky,
-                                      bool fromSky) {
+                                      bool fromSky, const std::optional<ubundle::PaintedSky>& painted) {
     const std::optional<SurfaceRays::Hit> hit = rays.first(p, w);
     if (!hit) return std::nullopt;                                         // 1
     const ubundle::GeometryBatch& batch = batchOf(geometry, hit->triangle);
@@ -129,10 +130,13 @@ std::optional<SurfaceHit> surfaceFrom(const Vec3& p, const Vec3& w, const Surfac
     // 4. SS 4.12 item 2: the sky shows what the sky view sees that way, so the
     // ray carries on from there -- once; a sky the sky view itself meets is dark.
     if ((batch.polyFlags & PF_FAKE_BACKDROP) != 0) {
+        // UTA-0350 SS 4.2: a sky the map only paints is met where it is painted.
+        if (!sky && painted)
+            return SurfaceHit{p + w * hit->t, n, &batch, false, ubundle::paintedSkyLight(*painted, {w.x, w.y, w.z})};
         if (!sky || fromSky) return std::nullopt;
-        return surfaceFrom(*sky, w, rays, geometry, sky, true);
+        return surfaceFrom(*sky, w, rays, geometry, sky, true, painted);
     }
-    return SurfaceHit{p + w * hit->t, n, &batch, fromSky};
+    return SurfaceHit{p + w * hit->t, n, &batch, fromSky, std::nullopt};
 }
 
 } // namespace
@@ -154,8 +158,9 @@ float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays) {
 }
 
 std::optional<SurfaceHit> surfaceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
-                                       const ubundle::Geometry& geometry, const std::optional<Vec3>& sky) {
-    return surfaceFrom(p, w, rays, geometry, sky, false);
+                                       const ubundle::Geometry& geometry, const std::optional<Vec3>& sky,
+                                       const std::optional<ubundle::PaintedSky>& painted) {
+    return surfaceFrom(p, w, rays, geometry, sky, false, painted);
 }
 
 namespace {
@@ -201,6 +206,12 @@ Rgb reflectanceOf(const Rgb& albedo) noexcept {
 
 Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays, const std::vector<ubundle::Light>& lights,
              const AlbedoLookup& albedo, const OwnLightLookup& own) {
+    // UTA-0350 SS 4.2: the painted sky sends its own light, at the scale a
+    // sky's picture does (SS 4.12 item 2), and never the sun's.
+    if (hit.paintedSky) {
+        const std::array<float, 3>& c = *hit.paintedSky;
+        return scaled(Rgb{c[0], c[1], c[2]}, REFLECTANCE_SCALE);
+    }
     const ubundle::GeometryBatch& batch = *hit.batch;
     // UTA-0161: an unlit liquid -- acid, waste, lava -- shows its picture at
     // full brightness and sends that on. Other unlit surfaces do not: SS 8
@@ -335,12 +346,12 @@ std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
                                const ubundle::Geometry& geometry,
                                const std::vector<ubundle::Light>& lights,
                                const AlbedoLookup& albedo, const OwnLightLookup& own,
-                               const std::optional<Vec3>& sky) {
+                               const std::optional<Vec3>& sky, const std::optional<ubundle::PaintedSky>& painted) {
     const std::vector<Vec3>& all = directions();
     std::vector<Rgb> radiance;
     radiance.reserve(all.size());
     for (const Vec3& w : all) {
-        const std::optional<SurfaceHit> hit = surfaceAlong(p, w, rays, geometry, sky);
+        const std::optional<SurfaceHit> hit = surfaceAlong(p, w, rays, geometry, sky, painted);
         radiance.push_back(hit ? sentFrom(*hit, rays, lights, albedo, own) : Rgb{});
     }
     return cubeOf(radiance);
@@ -351,7 +362,8 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
                                              const std::vector<ubundle::Light>& lights,
                                              const AlbedoLookup& albedo, JobSystem& jobs,
                                              const std::optional<ProbeReach>& reach,
-                                             const OwnLightLookup& own, const std::optional<Vec3>& sky) {
+                                             const OwnLightLookup& own, const std::optional<Vec3>& sky,
+                                             const std::optional<ubundle::PaintedSky>& painted) {
     const auto spacing = static_cast<double>(PROBE_SPACING);
     const auto pointOf = [spacing](const Cell& cell) {
         return Vec3{cell[0] * spacing, cell[1] * spacing, cell[2] * spacing};
@@ -413,7 +425,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
         const std::size_t end = std::min(out.probes.size(), (job + 1) * PROBES_PER_JOB);
         for (std::size_t p = job * PROBES_PER_JOB; p < end; ++p) {
             ubundle::LightProbe& probe = out.probes[p];
-            const std::array<Rgb, 6> cube = gatherProbe(pointOf(probe.cell), rays, geometry, lights, albedo, own, sky);
+            const std::array<Rgb, 6> cube = gatherProbe(pointOf(probe.cell), rays, geometry, lights, albedo, own, sky, painted);
             for (std::size_t face = 0; face < 6; ++face)
                 probe.cube[face] = {static_cast<float>(cube[face].r), static_cast<float>(cube[face].g),
                                     static_cast<float>(cube[face].b)};

@@ -847,6 +847,35 @@ Result<void> maskByTexture(const upkg::Package& map, std::string_view mapName,
     return {};
 }
 
+/// The polyFlags bit UT99 draws as a window onto the sky.
+constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
+
+/// UTA-0350 SS 4.2: every surface wearing one of `textures` -- unmasked
+/// material ids, as a recipe names them -- becomes sky, before any step reads
+/// the flags. Returns the named textures some surface wears.
+Result<std::set<std::string, std::less<>>> skyByTexture(const upkg::Package& map, std::string_view mapName,
+                                                        const std::vector<upkg::Model*>& models,
+                                                        const upkg::PackageResolver& resolver,
+                                                        const std::vector<std::string>& textures) {
+    const std::set<std::string, std::less<>> named(textures.begin(), textures.end());
+    std::set<std::string, std::less<>> worn;
+    std::map<std::int32_t, bool> isSky; // by texture reference, each resolved once
+    for (upkg::Model* model : models)
+        for (upkg::BspSurf& surf : model->surfs) {
+            if (surf.texture.kind() == upkg::ObjectReferenceKind::Null) continue;
+            auto found = isSky.find(surf.texture.raw());
+            if (found == isSky.end()) {
+                UTA_TRY(const TextureSite site, siteOf(map, mapName, surf.texture, resolver));
+                const std::string id = umat::materialId(site.package, site.path, false);
+                const bool sky = named.contains(id);
+                if (sky) worn.insert(id);
+                found = isSky.emplace(surf.texture.raw(), sky).first;
+            }
+            if (found->second) surf.polyFlags |= PF_FAKE_BACKDROP;
+        }
+    return worn;
+}
+
 Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapName,
                                 const std::vector<const upkg::Model*>& models,
                                 const upkg::PackageResolver& resolver, JobSystem& jobs,
@@ -1145,15 +1174,34 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
 
     // 7. TEXS and MATS, over the level's Model and every mover's.
     phase.emplace(&times, "materials");
+    std::set<std::string, std::less<>> skyWorn;
     {
         std::vector<upkg::Model*> masking{&model};
         for (upkg::Model& moverModel : moverModels) masking.push_back(&moverModel);
         UTA_CHECK(maskByTexture(map, mapName, masking, resolver));
+        // UTA-0350 SS 4.2: a map with a sky of its own needs no painted one.
+        if (recipe != nullptr && recipe->sky) {
+            if (ubundle::skyViewOf(actors.placements))
+                return std::unexpected(Error(ErrorCode::InvalidArgument,
+                                             "the recipe's [sky] is for a map that only paints its sky, "
+                                             "and this map has a sky zone")
+                                           .withContext(prefixFor(mapName)));
+            UTA_TRY(skyWorn, skyByTexture(map, mapName, masking, resolver, recipe->sky->textures));
+        }
     }
     std::vector<const upkg::Model*> surfaced{&model};
     for (const upkg::Model& moverModel : moverModels) surfaced.push_back(&moverModel);
     UTA_TRY(Materials materials,
             bakeMaterials(map, mapName, surfaced, resolver, jobs, curated, textureCache, isFlame, recipe));
+    // UTA-0350 SS 4.2: a sky texture no surface wears is reported as an unused
+    // assignment is.
+    if (recipe != nullptr && recipe->sky) {
+        for (const std::string& texture : recipe->sky->textures)
+            if (!skyWorn.contains(texture)) materials.recipeUnused.push_back(texture);
+        std::ranges::sort(materials.recipeUnused);
+        const auto repeated = std::ranges::unique(materials.recipeUnused);
+        materials.recipeUnused.erase(repeated.begin(), repeated.end());
+    }
 
     // 8. GEOM, each surface wearing the variant step 7 made for it --
     // UTA-0109 SS 4.4.
@@ -1295,9 +1343,20 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     std::optional<Vec3> sky;
     if (const auto view = ubundle::skyViewOf(actors.placements))
         sky = Vec3{view->location[0], view->location[1], view->location[2]};
+    // UTA-0350 SS 4.3: the recipe's painted sky, linear, its cover a share.
+    std::optional<ubundle::PaintedSky> painted;
+    if (recipe != nullptr && recipe->sky) {
+        const auto linear = [](const std::array<std::uint8_t, 3>& srgb) {
+            return std::array<float, 3>{static_cast<float>(linearOf(srgb[0])), static_cast<float>(linearOf(srgb[1])),
+                                        static_cast<float>(linearOf(srgb[2]))};
+        };
+        painted = ubundle::PaintedSky{.top = linear(recipe->sky->top),
+                                      .horizon = linear(recipe->sky->horizon),
+                                      .clouds = static_cast<float>(recipe->sky->clouds) / 100.0f};
+    }
     UTA_TRY(ubundle::LightProbes probes,
             naming(bakeLightProbes(geometry, collision.level, probeLights, albedo, jobs,
-                                   probeReachOf(actors.placements), own, sky),
+                                   probeReachOf(actors.placements), own, sky, painted),
                    mapName));
     // Each further layer stands at the probes' own lattice, or the baker is at
     // fault.
@@ -1322,7 +1381,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         if (sun) onLights.push_back(ubundle::lightOfSun(*sun));
         UTA_TRY(const ubundle::LightProbes layer,
                 naming(bakeLightProbes(geometry, collision.level, onLights, albedo, jobs,
-                                       probeReachOf(actors.placements), own, sky),
+                                       probeReachOf(actors.placements), own, sky, painted),
                        mapName));
         UTA_TRY(probes.switched, cubesOf(layer));
     }
@@ -1385,6 +1444,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.flames = std::move(flames.flames);
     result.bundle.lamps = std::move(lamps);
     result.bundle.sun = sun;
+    result.bundle.paintedSky = painted;
 
     // 11c. SMSK -- UTA-0326 SS 4.6: what each lit texel sees of each light
     // that never moves. It reads the sections above, so it runs once they are

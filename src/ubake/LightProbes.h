@@ -92,14 +92,20 @@ struct SurfaceHit {
     Vec3 normal;                                   ///< facing the ray
     const ubundle::GeometryBatch* batch = nullptr; ///< the surface's batch
     bool viaSky = false;                           ///< met from the sky view (SS 4.12 item 2)
+    /// UTA-0350 SS 4.2: set where the surface is the painted sky's, which
+    /// sends this light along the ray in place of the surface's own.
+    std::optional<std::array<float, 3>> paintedSky;
 };
 
 /// SS 4.7 steps 1-4: the first surface a ray from `p` along `w` meets, sent on
-/// once from `sky` where it meets the sky. None where it meets nothing, a
-/// surface's back, or the sky with no sky view or a second time.
+/// once from `sky` where it meets the sky. With no sky view and a `painted`
+/// sky, the sky hit itself, carrying that sky's light (UTA-0350 SS 4.2). None
+/// where it meets nothing, a surface's back, or the sky with neither, or the
+/// sky a second time.
 [[nodiscard]] std::optional<SurfaceHit> surfaceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
                                                      const ubundle::Geometry& geometry,
-                                                     const std::optional<Vec3>& sky);
+                                                     const std::optional<Vec3>& sky,
+                                                     const std::optional<ubundle::PaintedSky>& painted = std::nullopt);
 
 /// UTA-0338 SS 4.4: the sun's angular radius, in radians -- the disc the
 /// renderer draws, and the cone a probe's view of the sun is taken over.
@@ -128,8 +134,8 @@ inline constexpr double SUN_RADIUS = 0.035;
 [[nodiscard]] Rgb reflectanceOf(const Rgb& albedo) noexcept;
 
 /// SS 4.7 step 4's unlit liquid -- or any unlit surface met through the sky
-/// view (SS 4.12 item 2) -- and step 6: the light `hit` sends back along the
-/// ray that met it.
+/// view (SS 4.12 item 2), or the painted sky (UTA-0350 SS 4.2) -- and step 6:
+/// the light `hit` sends back along the ray that met it.
 [[nodiscard]] Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays,
                            const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo,
                            const OwnLightLookup& own);
@@ -143,12 +149,14 @@ inline constexpr double SUN_RADIUS = 0.035;
 [[nodiscard]] std::array<Rgb, 6> cubeOf(std::span<const Rgb> radiance);
 
 /// SS 4.7: the six faces of one probe at `p`. `sky` is where the level's sky is
-/// seen from (SS 4.12 item 2); with none, a ray meeting the sky brings nothing.
+/// seen from (SS 4.12 item 2); with none, a ray meeting the sky brings the
+/// `painted` sky's light where there is one (UTA-0350 SS 4.2), else nothing.
 [[nodiscard]] std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
                                              const ubundle::Geometry& geometry,
                                              const std::vector<ubundle::Light>& lights,
                                              const AlbedoLookup& albedo, const OwnLightLookup& own = {},
-                                             const std::optional<Vec3>& sky = std::nullopt);
+                                             const std::optional<Vec3>& sky = std::nullopt,
+                                             const std::optional<ubundle::PaintedSky>& painted = std::nullopt);
 
 /// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
 /// there is one. Where `lights` holds a sun, each probe's `sunSeen` too
@@ -157,6 +165,6 @@ inline constexpr double SUN_RADIUS = 0.035;
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,
     const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo, JobSystem& jobs,
     const std::optional<ProbeReach>& reach = std::nullopt, const OwnLightLookup& own = {},
-    const std::optional<Vec3>& sky = std::nullopt);
+    const std::optional<Vec3>& sky = std::nullopt, const std::optional<ubundle::PaintedSky>& painted = std::nullopt);
 
 } // namespace uta::ubake

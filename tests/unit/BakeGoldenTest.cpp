@@ -124,7 +124,9 @@ namespace {
 // so only the format bump and the empty count moved it.
 // 50, format 27: UTA-0350 adds PSKY. Nothing bakes one yet, so the format
 // bump alone moved it.
-constexpr std::uint32_t RECORDED_UNDER = 50;
+// 51: UTA-0350 opens a recipe's painted sky. The fixture has no recipe, so the
+// digest did not move.
+constexpr std::uint32_t RECORDED_UNDER = 51;
 constexpr std::string_view GOLDEN =
     "f72bdba544d1af59428dfc18a1f398d4c31b02b648bf8cf33518037feeccf504";
 
