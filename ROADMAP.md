@@ -16339,6 +16339,10 @@ stays with movement in 0.2.0.
   Choices: record the baker revision in the bundle (a format bump), have
   ut-bake write a sidecar, or keep unrecorded bundles newer than the last
   baker change. Until then, batch bakes go to a scratch folder.
+  Decided (user, 2026-10-11): record the baker revision in the bundle
+  itself (a format bump), so the launcher keeps any bundle the current
+  baker made, recorded or not. Not a sidecar file, not a date guess.
+  Every map needs a re-bake after UTA-0350's format 27 and r51 anyway.
   **Layman:** Opening the game launcher threw away maps that had just been prepared outside it, so they get prepared again.
   Kind: fix.
   Source: in-session-2026-10-11.
@@ -16398,6 +16402,13 @@ stays with movement in 0.2.0.
   recorded on UTA-0344. Untested: water reflecting a painted sky, and the
   switched-off-lights probe layer taking it. Next: the push gate, then
   flip on GitHub's matrix.
+  Pushed f70db4d (2026-10-11): local gate green on all three legs.
+  GitHub run 38155288223 failed on GCC 14 only: INV-7's last check
+  compared two draws byte for byte, and one pixel shade differed (0 vs
+  1). The check now compares the centre and a corner within 6, as the
+  sun-disc case does, and asserts the centre is not the painted red;
+  a two-file mutant (Frame.cpp and scene.frag) still fails it. Flip
+  when GitHub's matrix is green.
   **Layman:** On the pirate-ship map the blue sky and the sea now come out black, so the sun added to it has nothing to shine through.
   Kind: fix.
   Source: in-session-2026-10-11.
@@ -19714,6 +19725,10 @@ docs/standards/versioning-overrides.md. Closes S8.
   budget, so the interesting cases are the outliers rather than the average.
   Measured across a sample of the library on the development machine, with the
   worst maps named rather than averaged away.
+  Decided (user, 2026-10-11): the floor is 60 fps at 3840x2160 on the
+  High tier, on this machine (RX 6600). Ultra may dip below it on the
+  heaviest maps. For scale: UTA-0323 measured DM-Bishop at ~19 ms a
+  frame at 4K Ultra (2026-10-07, r44).
   **Layman:** Make sure it runs smoothly on real hardware across the whole map collection, not just on the two maps we kept testing with.
   Kind: perf.
   Source: design-2026-09-03.
