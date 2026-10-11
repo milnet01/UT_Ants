@@ -16199,6 +16199,22 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-11.
   Lanes: recipes, ubake.
 
+- 📋 [UTA-0347] **A map analyser: list what graphical features each map in the library needs, and count them.**
+  The user, 2026-10-11: "Just like UT MH has to analyse maps for broken
+  items, we can build an analyser that checks what graphical elements a
+  map needs? And we can then build systems that cater for those needs?"
+  Per map: how its sky is made (backdrop, sky room lit per face as
+  UTA-0345, dome), clear / few clouds / cloudy (UTA-0346's rule), lights
+  that flood an area (UTA-0308), meshes urender does not draw yet
+  (UTA-0341), fog, liquids, glass. Totals across the library rank which
+  system to build next. Pieces exist: ut-dump's surface and wiring lists,
+  the bake report, tools/suns.py's sky survey. State the population and
+  compare counts with UT_MonsterHunt before trusting them.
+  **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
+  Kind: feature.
+  Source: user-request-2026-10-11.
+  Lanes: tools, ubake.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
