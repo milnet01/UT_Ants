@@ -567,3 +567,100 @@ TEST_CASE("UTA-0256 INV-9: a version-3 digest is unchanged and every switch-off 
     fittingless.lamps[1].fitting.clear();
     CHECK(urecipe::bakeDigest(fittingless) != urecipe::bakeDigest(withSun()));
 }
+
+// UTA-0350 INV-1 and INV-2: a sky the map only paints on its walls, opened --
+// docs/specs/UTA-0350-painted-skies.md SS 4.1.
+
+namespace {
+
+Recipe withSky() {
+    Recipe recipe = withSwitchOff();
+    recipe.sky = urecipe::Sky{.textures = {"mylevel.dayskyb", "skies.cloudy"},
+                              .top = {0x10, 0x20, 0x30},
+                              .horizon = {0xa0, 0xb0, 0xc0},
+                              .clouds = 35};
+    return recipe;
+}
+
+const std::string V5_HEAD = "ut-ants recipe 5\n[map]\nfile = dm-x\n"
+                            "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+
+} // namespace
+
+TEST_CASE("UTA-0350 INV-1: a recipe with a sky round-trips as version 5", "[urecipe][format][sky]") {
+    const Recipe recipe = withSky();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 5\n"));
+    CHECK(text.find("\n[sky]\ntextures = mylevel.dayskyb skies.cloudy\ntop = 102030\nhorizon = a0b0c0\n"
+                    "clouds = 35\n")
+          != std::string::npos);
+    CHECK(parsed(text) == recipe);
+}
+
+TEST_CASE("UTA-0350 INV-1: a hand-written sky reads, with its defaults", "[urecipe][format][sky]") {
+    const Recipe recipe = parsed(V5_HEAD + "[sky]\ntextures = Skies.Cloudy MyLevel.DayskyB # both\n");
+    REQUIRE(recipe.sky.has_value());
+    CHECK(recipe.sky->textures == std::vector<std::string>{"mylevel.dayskyb", "skies.cloudy"});
+    CHECK(recipe.sky->top == std::array<std::uint8_t, 3>{0x3a, 0x78, 0xc8});
+    CHECK(recipe.sky->horizon == std::array<std::uint8_t, 3>{0xb4, 0xd4, 0xee});
+    CHECK(recipe.sky->clouds == 20);
+    const Recipe set = parsed(V5_HEAD + "[sky]\nclouds = 100\nhorizon = FFfF00\ntop = 000000\ntextures = a.b\n");
+    CHECK(*set.sky == urecipe::Sky{.textures = {"a.b"}, .top = {0, 0, 0}, .horizon = {0xff, 0xff, 0}, .clouds = 100});
+    CHECK_FALSE(parsed(V5_HEAD).sky.has_value());
+}
+
+TEST_CASE("UTA-0350 INV-1: every sky refusal names its line", "[urecipe][format][sky]") {
+    struct Refusal {
+        const char* what;
+        std::string text;
+        std::size_t line;
+    };
+    // Lines 1 to 4; the sky section opens on line 5.
+    const std::vector<Refusal> refusals = {
+        {"a sky in a version-4 recipe", V4_HEAD + "[sky]\ntextures = a.b\n", 5},
+        {"a sky with no textures", V5_HEAD + "[sky]\nclouds = 3\n", 5},
+        {"an unclosed sky before a lamp", V5_HEAD + "[sky]\n[lamp a]\n", 5},
+        {"an unknown sky key", V5_HEAD + "[sky]\ncolour = 102030\n", 6},
+        {"a second sky", V5_HEAD + "[sky]\ntextures = a.b\n[sky]\n", 7},
+        {"a sky with a name", V5_HEAD + "[sky day]\n", 5},
+        {"a texture named twice", V5_HEAD + "[sky]\ntextures = a.b c.d A.B\n", 6},
+        {"a texture with no package", V5_HEAD + "[sky]\ntextures = dayskyb\n", 6},
+        {"nine textures", V5_HEAD + "[sky]\ntextures = a.a a.b a.c a.d a.e a.f a.g a.h a.i\n", 6},
+        {"a colour of five digits", V5_HEAD + "[sky]\ntop = 10203\n", 6},
+        {"a colour of seven digits", V5_HEAD + "[sky]\nhorizon = 1020304\n", 6},
+        {"a colour that is not hex", V5_HEAD + "[sky]\ntop = 10g030\n", 6},
+        {"a colour with a sign", V5_HEAD + "[sky]\ntop = +10203\n", 6},
+        {"clouds of 101", V5_HEAD + "[sky]\nclouds = 101\n", 6},
+        {"a sky with no map sha256", "ut-ants recipe 5\n[map]\nfile = dm-x\n[sky]\ntextures = a.b\n", 4},
+    };
+    for (const Refusal& refusal : refusals) {
+        DYNAMIC_SECTION(refusal.what) {
+            const auto result = urecipe::parse(refusal.text);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error().code() == ErrorCode::MalformedData);
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.starts_with("recipe line " + std::to_string(refusal.line) + ": "));
+        }
+    }
+}
+
+TEST_CASE("UTA-0350 INV-2: a version-4 digest is unchanged and every sky field moves it", "[urecipe][format][sky]") {
+    // withSwitchOff()'s digest under the version-4 code, recorded before version 5 existed.
+    CHECK(urecipe::bakeDigest(withSwitchOff())
+          == digestFromHex("f19b68bf1e291936dd3984999715aaad1cbff9861b28582da057cad11bf26387"));
+    const Recipe base = withSky();
+    const auto digest = urecipe::bakeDigest(base);
+    CHECK(digest != urecipe::bakeDigest(withSwitchOff()));
+    std::vector<Recipe> changed(6, base);
+    changed[0].sky->textures.pop_back();
+    changed[1].sky->textures[0] = "mylevel.dayskya";
+    changed[2].sky->top[1] += 1;
+    changed[3].sky->horizon[2] += 1;
+    changed[4].sky->clouds += 1;
+    changed[5].sky->textures.push_back("zz.sky");
+    for (std::size_t i = 0; i < changed.size(); ++i) {
+        INFO("change " << i);
+        CHECK(urecipe::bakeDigest(changed[i]) != digest);
+    }
+}

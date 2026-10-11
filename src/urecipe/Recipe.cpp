@@ -1,7 +1,8 @@
 // The recipe format -- docs/specs/UTA-0113-recipe-format.md SS 4.2 and SS 4.4,
 // its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1, its sun,
 // docs/specs/UTA-0338-baked-sun.md SS 4.1, and the map's lights it switches
-// off, UTA-0256 SS 4.6 (UTA-0308).
+// off, UTA-0256 SS 4.6 (UTA-0308), and its painted sky opened,
+// docs/specs/UTA-0350-painted-skies.md SS 4.1.
 
 #include "urecipe/Recipe.h"
 
@@ -221,10 +222,53 @@ Result<void> setSwitchOffKey(std::vector<std::string>& lights, std::string_view 
     return {};
 }
 
-/// UTA-0256 SS 4.6: what only a version-4 recipe can say.
-bool needsVersion4(const Recipe& recipe) {
-    return !recipe.switchedOff.empty()
-           || std::ranges::any_of(recipe.lamps, [](const AddedLamp& lamp) { return lamp.fitting.empty(); });
+/// UTA-0350 SS 4.1: six hex digits, an sRGB colour.
+Result<std::array<std::uint8_t, 3>> colourOf(std::string_view value, std::size_t line) {
+    std::array<std::uint8_t, 3> colour{};
+    bool good = value.size() == 2 * colour.size();
+    for (std::size_t i = 0; good && i < colour.size(); ++i) {
+        const auto [end, error] = std::from_chars(value.data() + 2 * i, value.data() + 2 * i + 2, colour[i], 16);
+        good = error == std::errc{} && end == value.data() + 2 * i + 2;
+    }
+    if (!good) return refuse(line, std::format("'{}' is not a colour: six hex digits, rrggbb", value));
+    return colour;
+}
+
+/// UTA-0350 SS 4.1: `textures`, 1 to 8, none twice; `top`, `horizon`, `clouds`.
+Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value, std::size_t line) {
+    if (key == "textures") {
+        for (const std::string_view word : wordsOf(value)) {
+            UTA_TRY(std::string texture, textureOf(word, line));
+            if (std::ranges::find(sky.textures, texture) != sky.textures.end())
+                return refuse(line, std::format("[sky] names {} twice", texture));
+            if (sky.textures.size() == SKY_TEXTURE_LIMIT)
+                return refuse(line, std::format("[sky] names at most {} textures", SKY_TEXTURE_LIMIT));
+            sky.textures.push_back(std::move(texture));
+        }
+        std::ranges::sort(sky.textures);
+    } else if (key == "top") {
+        UTA_TRY(sky.top, colourOf(value, line));
+    } else if (key == "horizon") {
+        UTA_TRY(sky.horizon, colourOf(value, line));
+    } else if (key == "clouds") {
+        UTA_TRY(const std::uint32_t number, numberOf(value, 100, line));
+        sky.clouds = static_cast<std::uint8_t>(number);
+    } else {
+        return refuse(line, std::format("[sky] has no key '{}'", key));
+    }
+    return {};
+}
+
+/// The lowest version that holds `recipe`: 5 with a sky (UTA-0350 SS 4.1),
+/// 4 with a switched-off light or a lamp with no fitting (UTA-0256 SS 4.6),
+/// 3 with a sun, 2 with a lamp, else 1.
+std::uint32_t versionOf(const Recipe& recipe) {
+    if (recipe.sky) return 5;
+    if (!recipe.switchedOff.empty()
+        || std::ranges::any_of(recipe.lamps, [](const AddedLamp& lamp) { return lamp.fitting.empty(); }))
+        return 4;
+    if (recipe.sun) return 3;
+    return recipe.lamps.empty() ? 1 : 2;
 }
 
 /// Every `key = value` line of one section is handed here.
@@ -288,7 +332,7 @@ std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
 Result<Recipe> parse(std::string_view text) {
     if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
 
-    enum class In { Header, Nothing, Map, Material, Lamp, Sun, SwitchOff };
+    enum class In { Header, Nothing, Map, Material, Lamp, Sun, SwitchOff, Sky };
     In in = In::Header;
     Recipe recipe;
     std::size_t headerLine = 1;
@@ -301,6 +345,7 @@ Result<Recipe> parse(std::string_view text) {
     std::vector<std::size_t> lampLines;
     std::optional<std::size_t> sunLine;
     std::optional<std::size_t> switchOffLine;
+    std::optional<std::size_t> skyLine;
     // A lamp's required keys -- `fitting` only below version 4 (UTA-0256
     // SS 4.6) -- a sun's five and [switch-off]'s one, checked when the
     // section closes.
@@ -315,6 +360,8 @@ Result<Recipe> parse(std::string_view text) {
                 if (!keysSeen.contains(key)) return refuse(*sunLine, std::format("[sun] has no `{}`", key));
         } else if (in == In::SwitchOff && !keysSeen.contains("lights")) {
             return refuse(*switchOffLine, "[switch-off] has no `lights`");
+        } else if (in == In::Sky && !keysSeen.contains("textures")) {
+            return refuse(*skyLine, "[sky] has no `textures`");
         }
         return {};
     };
@@ -386,6 +433,12 @@ Result<Recipe> parse(std::string_view text) {
                     return refuse(line, std::format("a second [switch-off]; the first is on line {}", *switchOffLine));
                 switchOffLine = line;
                 in = In::SwitchOff;
+            } else if (heading == "sky") {
+                if (version < 5) return refuse(line, "a [sky] needs `ut-ants recipe 5`");
+                if (skyLine) return refuse(line, std::format("a second [sky]; the first is on line {}", *skyLine));
+                skyLine = line;
+                recipe.sky.emplace();
+                in = In::Sky;
             } else {
                 return refuse(line, std::format("there is no [{}] section", heading));
             }
@@ -406,6 +459,8 @@ Result<Recipe> parse(std::string_view text) {
                 UTA_CHECK(setSunKey(*recipe.sun, key, value, line));
             } else if (in == In::SwitchOff) {
                 UTA_CHECK(setSwitchOffKey(recipe.switchedOff, key, value, line));
+            } else if (in == In::Sky) {
+                UTA_CHECK(setSkyKey(*recipe.sky, key, value, line));
             } else {
                 UTA_CHECK(setMaterialKey(*material, key, value, line));
             }
@@ -427,12 +482,15 @@ Result<Recipe> parse(std::string_view text) {
     if (switchOffLine && !recipe.mapDigest)
         return refuse(*switchOffLine, "a recipe with a [switch-off] must give the map's sha256 in [map]: actor names "
                                       "mean nothing in another file");
+    if (skyLine && !recipe.mapDigest)
+        return refuse(*skyLine, "a recipe with a [sky] must give the map's sha256 in [map]: which textures paint "
+                                "the sky means nothing in another file");
     for (auto& [texture, assignment] : materials) recipe.materials.push_back(std::move(assignment));
     return recipe;
 }
 
 std::string write(const Recipe& recipe) {
-    const int version = needsVersion4(recipe) ? 4 : recipe.sun ? 3 : recipe.lamps.empty() ? 1 : 2;
+    const std::uint32_t version = versionOf(recipe);
     std::string out = std::format("{}{}\n\n[map]\nfile = {}\n", HEADER, version,
                                   quotedIfNeeded(recipe.map, false));
     if (recipe.mapDigest) {
@@ -472,6 +530,15 @@ std::string write(const Recipe& recipe) {
         for (const std::string& light : recipe.switchedOff) out += ' ' + light;
         out += '\n';
     }
+    if (recipe.sky) {
+        out += "\n[sky]\ntextures =";
+        for (const std::string& texture : recipe.sky->textures) out += ' ' + texture;
+        const auto hex = [](const std::array<std::uint8_t, 3>& colour) {
+            return std::format("{:02x}{:02x}{:02x}", colour[0], colour[1], colour[2]);
+        };
+        out += std::format("\ntop = {}\nhorizon = {}\nclouds = {}\n", hex(recipe.sky->top),
+                           hex(recipe.sky->horizon), recipe.sky->clouds);
+    }
     return out;
 }
 
@@ -490,10 +557,7 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         if (field.has_value()) addByte(static_cast<std::uint32_t>(*field));
     };
 
-    addText(needsVersion4(recipe) ? "uta-recipe-bake-4\n"
-            : recipe.sun          ? "uta-recipe-bake-3\n"
-            : recipe.lamps.empty() ? "uta-recipe-bake-1\n"
-                                   : "uta-recipe-bake-2\n");
+    addText(std::format("uta-recipe-bake-{}\n", versionOf(recipe)));
     for (const MaterialAssignment& material : sortedMaterials(recipe)) {
         addText(material.texture);
         addText("\n");
@@ -537,6 +601,18 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
             addText(light);
             addText("\n");
         }
+    }
+    // UTA-0350 SS 4.1: the sky last -- its textures in order, each ended by a
+    // line break, then its seven bytes.
+    if (recipe.sky) {
+        addText("sky\n");
+        for (const std::string& texture : recipe.sky->textures) {
+            addText(texture);
+            addText("\n");
+        }
+        for (const std::uint8_t part : recipe.sky->top) addByte(part);
+        for (const std::uint8_t part : recipe.sky->horizon) addByte(part);
+        addByte(recipe.sky->clouds);
     }
     return hasher.finish();
 }

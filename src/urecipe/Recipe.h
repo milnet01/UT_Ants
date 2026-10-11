@@ -7,7 +7,9 @@
 // material settings -- and a friendly name. Version 2 adds lamps the map lacks
 // (docs/specs/UTA-0256-added-lamps.md SS 4.1); version 3 a sun
 // (docs/specs/UTA-0338-baked-sun.md SS 4.1); version 4 the map's own lights
-// switched off, and lamps with no fitting (UTA-0256 SS 4.6).
+// switched off, and lamps with no fitting (UTA-0256 SS 4.6); version 5 a sky
+// the map only paints on its walls (docs/specs/UTA-0350-painted-skies.md
+// SS 4.1).
 //
 // CROSSES THE SEAM. docs/design.md rule 3 makes urecipe a vocabulary the
 // runtime reads too, so it links uta_core and nothing else: no package reader,
@@ -36,7 +38,7 @@
 
 namespace uta::urecipe {
 
-inline constexpr std::uint32_t RECIPE_VERSION = 4;
+inline constexpr std::uint32_t RECIPE_VERSION = 5;
 /// The most `[lamp]` sections one recipe holds -- UTA-0256 SS 4.1.
 inline constexpr std::size_t LAMP_LIMIT = 64;
 
@@ -80,6 +82,20 @@ struct Sun {
     friend bool operator==(const Sun&, const Sun&) = default;
 };
 
+/// The most textures one `[sky]` names -- UTA-0350 SS 4.1.
+inline constexpr std::size_t SKY_TEXTURE_LIMIT = 8;
+
+/// A sky the map only paints on its walls, opened -- UTA-0350 SS 4.1. The
+/// surfaces wearing `textures` become sky; the rest is how it looks.
+struct Sky {
+    std::vector<std::string> textures; ///< as MaterialAssignment::texture; sorted, each once, 1 to 8
+    std::array<std::uint8_t, 3> top{0x3a, 0x78, 0xc8};     ///< sRGB, overhead
+    std::array<std::uint8_t, 3> horizon{0xb4, 0xd4, 0xee}; ///< sRGB, at the horizon
+    std::uint8_t clouds = 20;                              ///< percent of the sky covered, 0 to 100
+
+    friend bool operator==(const Sky&, const Sky&) = default;
+};
+
 struct Recipe {
     std::string map; ///< the map file's stem, lower-cased
     std::optional<std::array<std::byte, 32>> mapDigest; ///< when set, the SHA-256 the map must have
@@ -90,6 +106,7 @@ struct Recipe {
     /// The map's Light actors switched off, in file order, each once; any
     /// needs `mapDigest` -- UTA-0256 SS 4.6.
     std::vector<std::string> switchedOff;
+    std::optional<Sky> sky; ///< at most one; needs `mapDigest` -- UTA-0350 SS 4.1
 
     friend bool operator==(const Recipe&, const Recipe&) = default;
 };
@@ -97,13 +114,15 @@ struct Recipe {
 /// SS 4.2's text. MalformedData naming the line for every refusal SS 4.2
 /// lists; UnsupportedVersion, naming the line and both versions, for a
 /// header above RECIPE_VERSION. `materials` comes back sorted; `lamps` keep
-/// file order. A `[lamp]` needs header version 2, a `[sun]` version 3, and
-/// a `[switch-off]` or a lamp with no `fitting` version 4.
+/// file order. A `[lamp]` needs header version 2, a `[sun]` version 3,
+/// a `[switch-off]` or a lamp with no `fitting` version 4, and a `[sky]`
+/// version 5.
 [[nodiscard]] Result<Recipe> parse(std::string_view text);
 
 /// SS 4.2's canonical form. `friendlyName` must hold no line break. The
-/// header is the lowest version that holds the recipe -- 4 with a switched-off
-/// light or a lamp with no fitting, 3 with a sun, 2 with a lamp, else 1 -- so
+/// header is the lowest version that holds the recipe -- 5 with a sky, 4 with
+/// a switched-off light or a lamp with no fitting, 3 with a sun, 2 with a
+/// lamp, else 1 -- so
 /// an older game still reads a recipe that needs no more.
 [[nodiscard]] std::string write(const Recipe& recipe);
 
@@ -113,7 +132,8 @@ struct Recipe {
 /// UTA-0256 SS 4.1's version-2 bytes instead; one with none keeps its
 /// version-1 digest. A recipe with a sun hashes UTA-0338 SS 4.1's version-3
 /// bytes; one without keeps its earlier digest. One that needs version 4
-/// hashes UTA-0256 SS 4.6's version-4 bytes, the switched-off names last.
+/// hashes UTA-0256 SS 4.6's version-4 bytes, the switched-off names last. One
+/// with a sky hashes UTA-0350 SS 4.1's version-5 bytes, the sky after those.
 [[nodiscard]] std::array<std::byte, 32> bakeDigest(const Recipe& recipe);
 
 } // namespace uta::urecipe
