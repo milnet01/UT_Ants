@@ -16153,10 +16153,51 @@ stays with movement in 0.2.0.
   Open question for the user (asked 2026-10-10): give this map a recipe
   sun anyway, as an exception to that rule (recommended -- an open-sea
   daylight map), or add lamps by UTA-0256's per-room rule.
+  Answered (user, 2026-10-11): the rule asked was never "no painted
+  sun, no sun". Blue skies and skies with a few clouds get a sun; only
+  cloudy skies go without. So TheBoat gets a recipe sun, under UTA-0346.
   **Layman:** The boat map now looks great but is too dark to play, because its sky gives no sunlight.
   Kind: investigate.
   Source: user-request-2026-10-10.
   Lanes: ubake, recipes.
+
+- 📋 [UTA-0345] **urender: a sky kept in a lit sky room looks like a box; draw the sky room evenly lit.**
+  The user, 2026-10-11, from F12 capture MH-Flies-BP-20261011-100722
+  (r50): "This map looks like you in a box. How do we fix that instead
+  of looking like a box, it looks more natural. This map is re-used a
+  lot though, so, whatever fix we come up with here will apply to a lot
+  of maps."
+  Found: the level's outer walls are Skyblu3, FakeBackdrop and Unlit,
+  and the map has one SkyZoneInfo. Its sky room, Brush98, is a
+  four-sided pyramid textured RSky1 with polyFlags 0, so UTA-0163's
+  capture lights each face on its own: one face draws dark, one bright
+  and fogged, and their edges read as a box.
+  Decided (user, 2026-10-11): draw the sky room evenly first -- no
+  per-face light or fog in the sky capture -- and wrap the clouds onto a
+  dome only if seams still show. Check first whether the face contrast
+  is light, fog or both, by ut-shot at the capture pose.
+  **Layman:** On some outdoor maps the sky looks like the inside of a box, because each side of the hidden room the sky is painted on is lit differently.
+  Kind: fix.
+  Source: user-request-2026-10-11.
+  Lanes: urender.
+
+- 📋 [UTA-0346] **Every map whose sky is clear or has a few clouds gets a sun; only cloudy skies go without.**
+  The user, 2026-10-11, correcting the rule UTA-0334 applied: "I asked
+  for skies to be more natural and for skies that are blue only to get a
+  sun. Those that are cloudy don't need a sun, those with a few clouds
+  here and there should also get a sun. And yes, the sun should cast
+  shadows as well please."
+  UTA-0334 gave a sun only where a sun is painted on the sky (recorded
+  2026-10-10 as "clear skies with no painted sun get no sun"); that was
+  not the user's rule. Re-read UTA-0334's survey (tools/suns.py
+  batch-up) for every clear or lightly clouded sky, and give each a
+  recipe [sun]: at the painted sun where there is one, else at a
+  direction the session picks for the map. TheBoat-V2mini-BP (UTA-0344)
+  is one. The sun already casts shadows (UTA-0338).
+  **Layman:** Maps with blue or lightly clouded skies get sunlight and sun shadows, not only the ones with a sun painted in the sky.
+  Kind: fix.
+  Source: user-request-2026-10-11.
+  Lanes: recipes, ubake.
 
 ## 0.2.0 — Movement and weapons
 
