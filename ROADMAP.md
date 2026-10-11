@@ -15506,6 +15506,12 @@ stays with movement in 0.2.0.
   off, as the original did, and 0.20 with lamps on. Scratch:
   ~/.cache/uta-scratch/u308-r50/. Left: push, re-bake every map at r50,
   flip after GitHub's matrix is green.
+  Pushed (2026-10-11): 067e55c, GitHub run 38131100062 green on GCC
+  14, Clang 19 and MSVC; device tier 0 failures on lavapipe and the GPU
+  (gate). Re-bake running: cc-job batch-bake-50, script
+  ~/.cache/uta-scratch/u308-batch/batch-bake.sh over UTA-0334's 127-map
+  list, results in ~/.cache/uta-scratch/u308-batch/batch/ (rc-, report-,
+  err- per map). Flip when every rc is 0 and every report says r50-f26.
   **Layman:** One haunted-house map has no lamps at all but still looks brightly lit, so we will light it properly with real lamps instead.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -16176,6 +16182,14 @@ stays with movement in 0.2.0.
   per-face light or fog in the sky capture -- and wrap the clouds onto a
   dome only if seams still show. Check first whether the face contrast
   is light, fog or both, by ut-shot at the capture pose.
+  Plan (2026-10-11): src/urender/shaders/scene.frag already knows the
+  capture by frame.skyCapture (UTA-0281, set in Frame.cpp). While it is
+  set, skip the fog volume and draw a lit surface at one level for every
+  face (first try: unlit, base.rgb) instead of its lights and probes.
+  Measure on MH-Flies-BP at the capture's pose (bake it first: it is not
+  in the 127), AS-Frigate, and one night-sky map, so a sky meant to be
+  dark is not brightened. Do not build while a batch bake runs: the bake
+  uses build/tools/ut-bake.
   **Layman:** On some outdoor maps the sky looks like the inside of a box, because each side of the hidden room the sky is painted on is lit differently.
   Kind: fix.
   Source: user-request-2026-10-11.
