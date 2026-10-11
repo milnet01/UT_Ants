@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# DM-CTC-Croon]['s sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is blue with light cloud and no painted sun. The sky is
+# nearly even, so the yaw is a pick.
+
+[map]
+file = dm-ctc-croon][
+sha256 = b01583a906d683ee1a5dd3d8b9a243a7ce35fc462ff455149087de7687f03e75
+
+[sun]
+yaw = 157
+pitch = 9102
+hue = 28
+saturation = 200
+brightness = 200

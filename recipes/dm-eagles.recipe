@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# DM-Eagles's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is blue with white clouds here and there and no painted
+# sun. The sky is nearly even, so the yaw is a pick.
+
+[map]
+file = dm-eagles
+sha256 = f46f1d4191d84612f9dafc5053e4e7bcfd8826e69eda039c09e7a5a6067ab3c7
+
+[sun]
+yaw = 23536
+pitch = 9102
+hue = 28
+saturation = 200
+brightness = 200

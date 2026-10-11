@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# DM-Siberia]['s sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is a deep day blue with clouds and shows its own sun;
+# three survey views centre it. The recipe's sun stands there.
+
+[map]
+file = dm-siberia][
+sha256 = fbfc9e57ee53592355b50864b5807d2de70cf0ddcaec1c2bbdcb66941eeee731
+
+[sun]
+yaw = 56719
+pitch = 12654
+hue = 28
+saturation = 200
+brightness = 200

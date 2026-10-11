@@ -1,0 +1,16 @@
+ut-ants recipe 3
+# DM-RP-Kelvin's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is a clear pink sunset and shows its own sun; two survey
+# views centre it. The recipe's sun stands there, sunset orange (the user,
+# 2026-10-11: a clear sunset sky gets a warm sun).
+
+[map]
+file = dm-rp-kelvin
+sha256 = 1164c3115934a196fe9bb0fa7eda5a2a3b6804cb18cc17aab12402a6c0b1e982
+
+[sun]
+yaw = 4283
+pitch = 10474
+hue = 20
+saturation = 150
+brightness = 200

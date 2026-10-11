@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# DM-Xmasvillage's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is a bright day sky with clouds here and there and no
+# painted sun. The sky is nearly even, so the yaw is a pick.
+
+[map]
+file = dm-xmasvillage
+sha256 = f5d6dbda4920fab9283d3b6f5dc12c103792869485e2d8ebe8502209ea1d2054
+
+[sun]
+yaw = 44832
+pitch = 9102
+hue = 28
+saturation = 200
+brightness = 200

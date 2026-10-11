@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# DM-[JAPAN]-Akuma[LV]+'s sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is a pale, clear dusk sky; the recipe's sun stands low
+# toward its brightest part, sunset orange.
+
+[map]
+file = dm-[japan]-akuma[lv]+
+sha256 = 89f71dc8f2fdf287618da7394bae65617c9835a4eea45c795625c25b2258d1b1
+
+[sun]
+yaw = 50200
+pitch = 2731
+hue = 20
+saturation = 150
+brightness = 200

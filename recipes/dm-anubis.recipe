@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# DM-Anubis's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is clear and light blue with no sun painted on it; the
+# recipe's sun stands high toward the brightest part of the sky.
+
+[map]
+file = dm-anubis
+sha256 = f9b4f4ff778692c6ae426e03c7eac85805d614f5e55bccfc136e3080be522337
+
+[sun]
+yaw = 1132
+pitch = 9102
+hue = 28
+saturation = 200
+brightness = 200

@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# MH-UM-BruteValley_beta1's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is clear and light blue, as MH-FAZI(V2)+'s, with no sun
+# painted on it (UTA-0334's aimed check). The sky is even, so the yaw is a pick.
+
+[map]
+file = mh-um-brutevalley_beta1
+sha256 = bb99406e2774bbc94545a10d45e79a814cba73c818c1d75656364a79ddc2f8ee
+
+[sun]
+yaw = 35754
+pitch = 9102
+hue = 28
+saturation = 200
+brightness = 200

@@ -1,0 +1,16 @@
+ut-ants recipe 3
+# DM-Enemyatthegates's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is a pink sunset with a few small clouds and no painted
+# sun; the recipe's sun stands low toward its brightest part, sunset orange
+# (the user, 2026-10-11: a clear sunset sky gets a warm sun).
+
+[map]
+file = dm-enemyatthegates
+sha256 = e8815fa8d7b352cbebc49c485e9a1810f5de6d6e0fc1f2d33815c3eb57266eb2
+
+[sun]
+yaw = 52447
+pitch = 2731
+hue = 20
+saturation = 150
+brightness = 200

@@ -16232,7 +16232,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-11.
   Lanes: urender.
 
-- 📋 [UTA-0346] **Every map whose sky is clear or has a few clouds gets a sun; only cloudy skies go without.**
+- 🚧 [UTA-0346] **Every map whose sky is clear or has a few clouds gets a sun; only cloudy skies go without.**
   The user, 2026-10-11, correcting the rule UTA-0334 applied: "I asked
   for skies to be more natural and for skies that are blue only to get a
   sun. Those that are cloudy don't need a sun, those with a few clouds
@@ -16245,12 +16245,32 @@ stays with movement in 0.2.0.
   recipe [sun]: at the painted sun where there is one, else at a
   direction the session picks for the map. TheBoat-V2mini-BP (UTA-0344)
   is one. The sun already casts shadows (UTA-0338).
+  Progress (2026-10-11): scope is UTA-0334's 127 maps plus MH-Flies-BP,
+  AS-Frigate, DM-Crane and TheBoat (the item's body scopes it to that
+  survey; the other ~1,000 sky maps in the library would take about 13 h of
+  baking -- left for the analyser's next version). Decided (user,
+  2026-10-11): a clear sunset sky gets a sun too, low and warm
+  (class warmClear). Survey: scripts/map-analyser.py over the old
+  batch-up views (~/.cache/uta-scratch/u338/batch-up), then wider views
+  of the unclear maps (~/.cache/uta-scratch/u346/wide). Sun maps: Anubis,
+  BruteValley, Croon][, Akuma[LV]+, TheBoat (clear); Iraar, Eagles,
+  Xmasvillage, Siberia][ (few clouds); RP-Kelvin, Enemyatthegates
+  (sunset); Brock and FAZI keep theirs. No sun: Traction, aventure2012,
+  AS-Frigate (overcast haze), HyperBoreal, Raiden, Meldrak][, XMAS-TAZ,
+  Crane, Flies, and every night, purple, orange or overcast sky. Eleven
+  recipes written in recipes/ (painted sun where there is one, else toward
+  the brightest sky; day 50 degrees warm white, dusk 15 degrees sunset
+  orange). Re-bake into ~/.cache/uta-scratch/u346/bakes runs as cc-job
+  u346-bake3; reports in u346/rep2. Left: check each report names its
+  recipe with nothing unused; check the sun lights each map (old bake in
+  u346/bakes vs new); commit; push; flip on a green GitHub run. Bakes go to
+  scratch, never the game folder (UTA-0349).
   **Layman:** Maps with blue or lightly clouded skies get sunlight and sun shadows, not only the ones with a sun painted in the sky.
   Kind: fix.
   Source: user-request-2026-10-11.
   Lanes: recipes, ubake.
 
-- 📋 [UTA-0347] **A map analyser: list what graphical features each map in the library needs, and count them.**
+- 🚧 [UTA-0347] **A map analyser: list what graphical features each map in the library needs, and count them.**
   The user, 2026-10-11: "Just like UT MH has to analyse maps for broken
   items, we can build an analyser that checks what graphical elements a
   map needs? And we can then build systems that cater for those needs?"
@@ -16261,10 +16281,43 @@ stays with movement in 0.2.0.
   system to build next. Pieces exist: ut-dump's surface and wiring lists,
   the bake report, tools/suns.py's sky survey. State the population and
   compare counts with UT_MonsterHunt before trusting them.
+  Progress (2026-10-11): version 1 in scripts/map-analyser.py (not yet
+  committed) -- the sky only: shoots ten upward views per map, measures
+  sky brightness and blue, purple, cloud and warm shares, classes the sky
+  (none, night, clear, fewClouds, warmClear, other) and finds a painted
+  sun. VERDICTS holds eye-checked overrides with reasons. Run over the 127
+  maps: 6 clear, 4 fewClouds, 2 warmClear, 42 night, 41 none, 32 other;
+  its classes matched every eye-checked map but DM-Traction. Standing rule
+  (user, 2026-10-11): whenever a new kind of check is needed, add it to
+  the analyser. Not yet done from the body: sky kind, flood lights,
+  undrawn meshes, fog, liquids, glass, and the UT_MonsterHunt count
+  comparison.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
   Lanes: tools, ubake.
+
+- 📋 [UTA-0349] **The launcher deletes current bakes it holds no record of, which the baker would have reused.**
+  Found 2026-10-11 while starting UTA-0346. UTA-0308's batch baked
+  127 maps at r50 straight into ~/.cache/ut-ants/content/bakes with
+  ut-bake. After a later launcher start only 21 bundles remain, every one
+  named by a record in ~/.local/state/ut-ants/map-results; the batch
+  reports (~/.cache/uta-scratch/u308-batch/batch/report-*.json) point at
+  bundles that are gone. The only remover is UTA-0251's
+  unreachableBakes (apps/ut-ants/MapList.cpp), called from the Launcher
+  constructor: it keeps only bundles a current-baker record names.
+  But ut-bake's own cache check (isCachedBake, src/ubake/Bake.cpp) finds
+  a bundle by its content name, so an unrecorded current bundle is not
+  unreachable: the baker would have reused it. A bundle does not record
+  its baker revision (the 16-byte header holds the format only), so the
+  launcher cannot tell a current unrecorded bundle from a stale one.
+  Choices: record the baker revision in the bundle (a format bump), have
+  ut-bake write a sidecar, or keep unrecorded bundles newer than the last
+  baker change. Until then, batch bakes go to a scratch folder.
+  **Layman:** Opening the game launcher threw away maps that had just been prepared outside it, so they get prepared again.
+  Kind: fix.
+  Source: in-session-2026-10-11.
+  Lanes: client, ubake.
 
 ## 0.2.0 — Movement and weapons
 

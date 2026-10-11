@@ -1,0 +1,15 @@
+ut-ants recipe 3
+# DM-CTC-Iraar's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
+# Its painted sky is clear, blue fading to pink; the recipe's sun stands low
+# on the pink side, sunset orange.
+
+[map]
+file = dm-ctc-iraar
+sha256 = fb75bfed82153d58b268229bb0a13b9ebb60c49c76132fa5448f7ace798a19df
+
+[sun]
+yaw = 11779
+pitch = 2731
+hue = 20
+saturation = 150
+brightness = 200
