@@ -16232,7 +16232,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-11.
   Lanes: urender.
 
-- 🚧 [UTA-0346] **Every map whose sky is clear or has a few clouds gets a sun; only cloudy skies go without.**
+- ✅ [UTA-0346] **Every map whose sky is clear or has a few clouds gets a sun; only cloudy skies go without.**
   The user, 2026-10-11, correcting the rule UTA-0334 applied: "I asked
   for skies to be more natural and for skies that are blue only to get a
   sun. Those that are cloudy don't need a sun, those with a few clouds
@@ -16278,6 +16278,9 @@ stays with movement in 0.2.0.
   no change at all; its sky and sea now draw black, filed as UTA-0350.
   The other five sun maps had no plain r50 bake to compare. Left: the
   push and the flip.
+  Shipped (2026-10-11): 34d3373 and 6ef0fd2, GitHub run 38140501622
+  green; the push gate green on GCC 14, Clang 19 and MSVC. TheBoat's
+  sun waits on UTA-0350.
   **Layman:** Maps with blue or lightly clouded skies get sunlight and sun shadows, not only the ones with a sun painted in the sky.
   Kind: fix.
   Source: user-request-2026-10-11.
