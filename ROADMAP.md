@@ -16338,6 +16338,13 @@ stays with movement in 0.2.0.
   geometry, which ut-dump does not give per zone. b017f66 and 6477c6d
   are committed, not pushed. UT_MonsterHunt was told (2026-10-12) the
   per-map counts are coming for comparison.
+  Progress (2026-10-12): census over UTA-0334's 127 maps, re-baked
+  at format 28 / baker r52 into scratch, all bakes rc 0, analyser run
+  with --no-sky, 0 errors. Counts are after recipes (12 maps have one).
+  Decorations 3994 in 91 maps; water zones 179 in 70; fog zones 73 in
+  18; LE_Cylinder lights 1777 in 40. Per-map table sent to
+  UT_MonsterHunt for the cross-check. Output kept at
+  /mnt/Emulators/uta-scratch/u347/needs.jsonl.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
