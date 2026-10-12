@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=352 -->
+<!-- ants-roadmap-id-high-water: UTA=353 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16460,6 +16460,16 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: in-session-2026-10-11.
   Lanes: ubake, urender.
+
+- 📋 [UTA-0353] **Check what MH-UM-BasketBall's backdrop surfaces draw with no sky zone.**
+  Found by UTA-0347's census (needs.jsonl, r52-f28): MH-UM-BasketBall
+  has 5 PF_FakeBackdrop surfaces and no SkyZoneInfo. Nobody has checked
+  what our renderer draws on them. The reverse case, DM-KILLBOXv2 (a
+  SkyZoneInfo with no backdrop surface), draws no sky and needs nothing.
+  **Layman:** One map has sky surfaces but no sky for them to show; check what the game draws there.
+  Kind: investigate.
+  Source: in-session-2026-10-12.
+  Lanes: render.
 
 ## 0.2.0 — Movement and weapons
 
