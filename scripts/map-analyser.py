@@ -33,6 +33,8 @@ sky, and prints one JSON line:
               ambient brightness of 128 or more (UTA-0350 SS 4.5). A
               non-empty texture list marks a candidate for a [sky] recipe.
   needs       what else the map holds that a system draws or must draw:
+                skyZones        SkyZoneInfo actors: where the sky is drawn from
+                backdrop        surfaces with PF_FakeBackdrop: windows onto it
                 lights          the bundle's lights
                 cylinderLights  LE_Cylinder lights: fill lights flooding an
                                 area, as ForbiddenMansion's (UTA-0308)
@@ -237,6 +239,8 @@ def needs(report, package, zones, lights):
             decorations[a["class"]] = decorations.get(a["class"], 0) + 1
     seen = [s for s in surfaces if not s["polyFlags"] & PF_INVISIBLE]
     return {
+        "skyZones": sum("SkyZoneInfo" in a["classChain"] for a in actors),
+        "backdrop": sum(bool(s["polyFlags"] & PF_FAKE_BACKDROP) for s in surfaces),
         "lights": len(lights),
         "cylinderLights": sum(l[LIGHT_EFFECT] == LE_CYLINDER for l in lights),
         "wideLights": sum(l[LIGHT_RADIUS] >= WIDE_RADIUS for l in lights),
@@ -293,7 +297,7 @@ def main(argv):
     install, out = argv[1], pathlib.Path(argv[2])
     out.mkdir(parents=True, exist_ok=True)
     totals, painted, errors = {}, 0, 0
-    maps_with = {k: 0 for k in ("cylinderLights", "wideLights", "fogZones", "waterZones",
+    maps_with = {k: 0 for k in ("skyZones", "backdrop", "cylinderLights", "wideLights", "fogZones", "waterZones",
                                 "skippedLiquids", "decorations", "translucent", "glassNamed")}
     decorations = {}
     for report_path in argv[3:]:
