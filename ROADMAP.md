@@ -16345,6 +16345,10 @@ stays with movement in 0.2.0.
   18; LE_Cylinder lights 1777 in 40. Per-map table sent to
   UT_MonsterHunt for the cross-check. Output kept at
   /mnt/Emulators/uta-scratch/u347/needs.jsonl.
+  Cross-check (2026-10-12): UT_MonsterHunt has no independent count
+  for these 127 maps. It has no T3D exports for them, and its map facts
+  also come from ut-dump. The census stands unchecked by a second
+  reader; a second reader was declined as not worth its cost.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
