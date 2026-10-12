@@ -1445,6 +1445,9 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.bundle.lamps = std::move(lamps);
     result.bundle.sun = sun;
     result.bundle.paintedSky = painted;
+    // UTA-0349: which baker made it, so the launcher keeps a current bake it
+    // holds no record of.
+    result.bundle.baker = bakerVersion();
 
     // 11c. SMSK -- UTA-0326 SS 4.6: what each lit texel sees of each light
     // that never moves. It reads the sections above, so it runs once they are

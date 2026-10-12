@@ -16323,7 +16323,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-11.
   Lanes: tools, ubake.
 
-- 📋 [UTA-0349] **The launcher deletes current bakes it holds no record of, which the baker would have reused.**
+- 🚧 [UTA-0349] **The launcher deletes current bakes it holds no record of, which the baker would have reused.**
   Found 2026-10-11 while starting UTA-0346. UTA-0308's batch baked
   127 maps at r50 straight into ~/.cache/ut-ants/content/bakes with
   ut-bake. After a later launcher start only 21 bundles remain, every one
@@ -16344,6 +16344,14 @@ stays with movement in 0.2.0.
   itself (a format bump), so the launcher keeps any bundle the current
   baker made, recorded or not. Not a sidecar file, not a date guess.
   Every map needs a re-bake after UTA-0350's format 27 and r51 anyway.
+  Progress (2026-10-12): built. A bundle now carries an optional BAKR
+  section, written first, holding ut-bake's whole bakerVersion() (revision,
+  format and material-library digest), not the revision alone: the
+  revision cannot tell two bakes apart when only the library changed, and
+  the launcher already compares the whole string. ubundle::readBaker reads
+  it from a file's first BAKER_PREFIX_SIZE bytes. unreachableBakes keeps a
+  .utab whose BAKR names today's baker, recorded or not. Format 28,
+  revision 52; every map needs a re-bake. Flip on GitHub's matrix.
   **Layman:** Opening the game launcher threw away maps that had just been prepared outside it, so they get prepared again.
   Kind: fix.
   Source: in-session-2026-10-11.

@@ -90,7 +90,46 @@ struct Descriptor {
     return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
            || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
            || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM || id == ID_SMSK
-           || id == ID_LAMP || id == ID_SUN || id == ID_PSKY;
+           || id == ID_LAMP || id == ID_SUN || id == ID_PSKY || id == ID_BAKR;
+}
+
+/// How many section ids this version defines -- the most a table written by
+/// `write` holds, so the most readBaker's prefix must carry.
+constexpr std::size_t KNOWN_SECTIONS = 19;
+static_assert(HEADER_SIZE + KNOWN_SECTIONS * SECTION_DESCRIPTOR_SIZE + 4 + MAX_BAKER_LENGTH
+                  <= BAKER_PREFIX_SIZE,
+              "readBaker's prefix must hold the header, a full table and the longest BAKR");
+
+/// One descriptor, with its own fields checked -- SS 4.4. What it says about
+/// the rest of the table is the caller's to check.
+[[nodiscard]] Result<Descriptor> readDescriptor(Cursor& table) {
+    Descriptor descriptor;
+    for (std::uint8_t& part : descriptor.id) {
+        UTA_TRY(part, table.readU8());
+    }
+    UTA_TRY(descriptor.offset, table.readU64());
+    UTA_TRY(descriptor.size, table.readU64());
+
+    // The byte is DEFINED and its value is not, so this is a version
+    // refusal rather than corruption -- SS 6.
+    UTA_TRY(const std::uint8_t compression, table.readU8());
+    if (compression != 0)
+        return fail(ErrorCode::UnsupportedVersion,
+                    "section compression " + std::to_string(compression)
+                        + " is not defined in format version " + std::to_string(FORMAT_VERSION));
+
+    for (int part = 0; part < 3; ++part) {
+        UTA_TRY(const std::uint8_t reserved, table.readU8());
+        if (reserved != 0)
+            return fail(ErrorCode::MalformedData, "a section descriptor's reserved field is not zero");
+    }
+
+    // Refused, not skipped. Under SS 4.3's exact version match there is
+    // no such thing as a file from a later version this reader should
+    // tolerate, so an unknown id means a corrupt or hand-edited file.
+    if (!knownId(descriptor.id))
+        return fail(ErrorCode::MalformedData, "a section id is not defined in this version");
+    return descriptor;
 }
 
 } // namespace
@@ -117,35 +156,7 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
     std::vector<Descriptor> descriptors;
     descriptors.reserve(raw.sectionCount);
     for (std::uint32_t i = 0; i < raw.sectionCount; ++i) {
-        Descriptor descriptor;
-        for (std::uint8_t& part : descriptor.id) {
-            UTA_TRY(part, table.readU8());
-        }
-        UTA_TRY(descriptor.offset, table.readU64());
-        UTA_TRY(descriptor.size, table.readU64());
-
-        // The byte is DEFINED and its value is not, so this is a version
-        // refusal rather than corruption -- SS 6.
-        UTA_TRY(const std::uint8_t compression, table.readU8());
-        if (compression != 0)
-            return fail(ErrorCode::UnsupportedVersion,
-                        "section compression " + std::to_string(compression)
-                            + " is not defined in format version "
-                            + std::to_string(FORMAT_VERSION));
-
-        for (int part = 0; part < 3; ++part) {
-            UTA_TRY(const std::uint8_t reserved, table.readU8());
-            if (reserved != 0)
-                return fail(ErrorCode::MalformedData,
-                            "a section descriptor's reserved field is not zero");
-        }
-
-        // Refused, not skipped. Under SS 4.3's exact version match there is
-        // no such thing as a file from a later version this reader should
-        // tolerate, so an unknown id means a corrupt or hand-edited file.
-        if (!knownId(descriptor.id))
-            return fail(ErrorCode::MalformedData, "a section id is not defined in this version");
-
+        UTA_TRY(const Descriptor descriptor, readDescriptor(table));
         descriptors.push_back(descriptor);
     }
 
@@ -244,6 +255,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
         } else if (descriptor.id == ID_PSKY) {
             UTA_TRY(bundle.paintedSky, readPaintedSky(payload));
             UTA_CHECK(validatePaintedSky(*bundle.paintedSky, ErrorCode::MalformedData));
+        } else if (descriptor.id == ID_BAKR) {
+            UTA_TRY(bundle.baker, readBakerSection(payload));
+            UTA_CHECK(validateBaker(*bundle.baker, ErrorCode::MalformedData));
         } else {
             // Unreachable: knownId() refused every other id while the table
             // was being validated. Named rather than folded into the WIRG arm
@@ -273,6 +287,28 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
     // UTA-0338 SS 4.2: LPRB's sun visibility counts SUN, and SMSK holds its pairs.
     UTA_CHECK(validateSun(bundle, ErrorCode::MalformedData));
     return bundle;
+}
+
+Result<std::optional<std::string>> readBaker(std::span<const std::byte> prefix) {
+    UTA_TRY(const RawHeader raw, decodeHeader(prefix));
+    // Bounded here, not left to the table running out of bytes: the loop
+    // stops at BAKR, so a count past it would never be read.
+    if (raw.sectionCount > KNOWN_SECTIONS)
+        return fail(ErrorCode::MalformedData, "the section count is more than this version defines");
+    Cursor table(prefix.subspan(HEADER_SIZE));
+    for (std::uint32_t i = 0; i < raw.sectionCount; ++i) {
+        UTA_TRY(const Descriptor descriptor, readDescriptor(table));
+        if (descriptor.id != ID_BAKR) continue;
+        // Computed so offset + size cannot overflow.
+        if (descriptor.offset > prefix.size() || descriptor.size > prefix.size() - descriptor.offset)
+            return fail(ErrorCode::MalformedData, "BAKR lies outside the bytes given");
+        Cursor payload(prefix.subspan(static_cast<std::size_t>(descriptor.offset),
+                                      static_cast<std::size_t>(descriptor.size)));
+        UTA_TRY(std::string baker, readBakerSection(payload));
+        UTA_CHECK(validateBaker(baker, ErrorCode::MalformedData));
+        return std::optional<std::string>(std::move(baker));
+    }
+    return std::optional<std::string>{};
 }
 
 Result<std::vector<std::byte>> write(const Bundle& bundle) {
@@ -307,8 +343,9 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     UTA_CHECK(validateLamps(bundle, ErrorCode::InvalidArgument));
     UTA_CHECK(validateSun(bundle, ErrorCode::InvalidArgument));
     if (bundle.paintedSky) UTA_CHECK(validatePaintedSky(*bundle.paintedSky, ErrorCode::InvalidArgument));
+    if (bundle.baker) UTA_CHECK(validateBaker(*bundle.baker, ErrorCode::InvalidArgument));
 
-    // The fixed order ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY. Fixed rather than incidental because
+    // The fixed order BAKR, ROOM, NAVG, WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY. Fixed rather than incidental because
     // docs/design.md SS Close calls names a bundle written by any tool other
     // than ubake by the hash of its own contents, and a hash over an
     // incidentally-ordered file names one world two things.
@@ -332,6 +369,8 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
         const std::uint64_t size = payload->size();
         sections.push_back(Section{id, std::move(*payload), size});
     };
+    // BAKR first -- UTA-0349 -- so readBaker finds it in the file's first bytes.
+    if (bundle.baker) encoded(ID_BAKR, encodeBaker(*bundle.baker));
     if (bundle.rooms) encoded(ID_ROOM, encodeRoomMap(*bundle.rooms));
     if (bundle.nav) encoded(ID_NAVG, encodeNavGraph(*bundle.nav));
     if (bundle.wiring) encoded(ID_WIRG, encodeWiringGraph(*bundle.wiring));

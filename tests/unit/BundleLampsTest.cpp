@@ -179,7 +179,7 @@ Bytes lampPayload(const std::vector<AddedLamp>& lamps) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(27); // formatVersion -- 27 since UTA-0350 added PSKY
+    out.u32(28); // formatVersion -- 28 since UTA-0349 added BAKR
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

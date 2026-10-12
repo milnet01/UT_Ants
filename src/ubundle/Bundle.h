@@ -69,7 +69,8 @@ namespace uta::ubundle {
 /// 26 since UTA-0256 SS 4.7 (UTA-0308) gave each LAMP record its restores
 /// flag and LPRB its switched-off cubes.
 /// 27 since UTA-0350 SS 4.3 added PSKY.
-inline constexpr std::uint32_t FORMAT_VERSION = 27;
+/// 28 since UTA-0349 added BAKR.
+inline constexpr std::uint32_t FORMAT_VERSION = 28;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -626,6 +627,12 @@ struct PaintedSky {
 /// was examined and had no navigation points; an absent NAVG says nothing.
 struct Bundle {
     BundleHeader header;
+    /// UTA-0349: the version of the baker that wrote this bundle, as ubake's
+    /// bakerVersion() spells it -- the one place a bundle says which baker
+    /// made it, so the launcher keeps a current bake it holds no record of.
+    /// Absent from a bundle no baker wrote. 1 to MAX_BAKER_LENGTH printable
+    /// ASCII characters.
+    std::optional<std::string> baker;
     std::optional<umap::RoomMap> rooms;
     std::optional<unav::NavGraph> nav;
     std::optional<unav::WiringGraph> wiring;
@@ -689,8 +696,9 @@ void applySun(Bundle& bundle);
 /// SS 4.9 lists (INV-3).
 [[nodiscard]] Result<Bundle> read(std::span<const std::byte> bytes);
 
-/// Encode a bundle. Sections are emitted in the fixed order ROOM, NAVG,
-/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY, omitting absent ones, and the output is byte-identical for equal
+/// Encode a bundle. Sections are emitted in the fixed order BAKR, ROOM, NAVG,
+/// WIRG, TEXS, MATS, GEOM, PLAC, LITE, MOVR, COLL, LPRB, ZONE, AOCC, FLAM, SMSK, LAMP, SUN, PSKY, omitting absent ones
+/// (BAKR first so readBaker finds it in the file's first bytes), and the output is byte-identical for equal
 /// inputs on every compiler (INV-7, INV-8) -- docs/design.md SS Close calls
 /// names a bundle by the hash of its own contents.
 ///
@@ -709,5 +717,21 @@ void applySun(Bundle& bundle);
 /// rule every refusal reads as "not authored", so the quarantine guard would
 /// block every push of an authored bundle while looking like it was working.
 [[nodiscard]] Result<BundleHeader> readHeader(std::span<const std::byte> bytes);
+
+/// The longest baker version BAKR holds -- UTA-0349.
+inline constexpr std::size_t MAX_BAKER_LENGTH = 64;
+
+/// How many of a bundle's first bytes readBaker needs: the header, a table
+/// of every section this version defines, and the longest BAKR. A file
+/// shorter than this is passed whole.
+inline constexpr std::size_t BAKER_PREFIX_SIZE = 1024;
+
+/// UTA-0349: the BAKR section's baker version, from a bundle's first bytes
+/// -- the whole file or its first BAKER_PREFIX_SIZE, whichever is shorter --
+/// without reading the rest. Nothing when the bundle carries no BAKR. The
+/// header and every descriptor in `prefix` are checked as `read` checks
+/// them; the sections themselves are not, so a bundle this answers for may
+/// still be one `read` refuses.
+[[nodiscard]] Result<std::optional<std::string>> readBaker(std::span<const std::byte> prefix);
 
 } // namespace uta::ubundle

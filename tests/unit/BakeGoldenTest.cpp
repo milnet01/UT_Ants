@@ -126,9 +126,10 @@ namespace {
 // bump alone moved it.
 // 51: UTA-0350 opens a recipe's painted sky. The fixture has no recipe, so the
 // digest did not move.
-constexpr std::uint32_t RECORDED_UNDER = 51;
+// 52, format 28: UTA-0349 writes BAKR, naming the baker.
+constexpr std::uint32_t RECORDED_UNDER = 52;
 constexpr std::string_view GOLDEN =
-    "f72bdba544d1af59428dfc18a1f398d4c31b02b648bf8cf33518037feeccf504";
+    "412303ed69016f9822ecf91aebbbc89c6896b7f38498c20d836622ba75b20a39";
 
 } // namespace
 
@@ -169,6 +170,8 @@ TEST_CASE("the golden bake hashes to the value recorded for BAKER_REVISION",
     INFO("the golden bake's probe count: " << result->bundle.lightProbes->probes.size());
     // And UTA-0326's SMSK, for the fixture's one lamp.
     REQUIRE(result->bundle.shadowMask.has_value());
+    // And UTA-0349's BAKR, naming this baker.
+    CHECK(result->bundle.baker == uta::ubake::bakerVersion());
 
     const auto written = uta::ubundle::write(result->bundle);
     REQUIRE(written.has_value());

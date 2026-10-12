@@ -18,7 +18,8 @@
 // and UTA-0164's specs, SS 4.1 each, for ZONE and AOCC, and
 // docs/specs/UTA-0326-baked-shadow-mask.md SS 4.2 for SMSK, and
 // docs/specs/UTA-0338-baked-sun.md SS 4.2 for SUN, and
-// docs/specs/UTA-0350-painted-skies.md SS 4.3 for PSKY.
+// docs/specs/UTA-0350-painted-skies.md SS 4.3 for PSKY, and BakerSection.cpp's
+// own header for BAKR (UTA-0349).
 
 #pragma once
 
@@ -50,6 +51,7 @@ constexpr SectionId ID_SMSK = {'S', 'M', 'S', 'K'};
 constexpr SectionId ID_LAMP = {'L', 'A', 'M', 'P'};
 constexpr SectionId ID_SUN = {'S', 'U', 'N', ' '};
 constexpr SectionId ID_PSKY = {'P', 'S', 'K', 'Y'};
+constexpr SectionId ID_BAKR = {'B', 'A', 'K', 'R'};
 
 // Structural validation -- SS 4.9.
 //
@@ -192,5 +194,10 @@ void putFlame(Sink& sink, const Flame& flame);
 [[nodiscard]] Result<PaintedSky> readPaintedSky(Cursor& cursor);
 [[nodiscard]] Result<void> validatePaintedSky(const PaintedSky& sky, ErrorCode code);
 [[nodiscard]] Result<std::vector<std::byte>> encodePaintedSky(const PaintedSky& sky);
+
+// BAKR -- BakerSection.cpp, UTA-0349.
+[[nodiscard]] Result<std::string> readBakerSection(Cursor& cursor);
+[[nodiscard]] Result<void> validateBaker(const std::string& baker, ErrorCode code);
+[[nodiscard]] Result<std::vector<std::byte>> encodeBaker(const std::string& baker);
 
 } // namespace uta::ubundle::detail

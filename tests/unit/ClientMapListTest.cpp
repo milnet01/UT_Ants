@@ -4,6 +4,7 @@
 // NO TEST NAME CONTAINS A COMMA -- BakeCliTest.cpp says why.
 
 #include "ut-ants/MapList.h"
+#include "ubundle/Bundle.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -340,6 +341,32 @@ TEST_CASE("UTA-0251: a bake no record of today's baker names is listed for remov
 
     // Listing removes nothing.
     CHECK(stdfs::exists(bakes / "orphan.utab"));
+}
+
+TEST_CASE("UTA-0349: a bake whose BAKR names today's baker is kept without a record", "[client]") {
+    const TempDir data;
+    const stdfs::path bakes = data.path() / "bakes";
+    const stdfs::path results = data.path() / "results";
+    stdfs::create_directories(bakes);
+    const auto bakeBy = [&bakes](const std::string& name, const std::string& baker) {
+        uta::ubundle::Bundle bundle;
+        bundle.baker = baker;
+        const auto bytes = uta::ubundle::write(bundle);
+        REQUIRE(bytes.has_value());
+        std::ofstream(bakes / name, std::ios::binary)
+            .write(reinterpret_cast<const char*>(bytes->data()), static_cast<std::streamsize>(bytes->size()));
+    };
+    bakeBy("today.utab", "r52-f28-l0a");
+    bakeBy("yesterday.utab", "r51-f27-l0a");
+    // Same revision and format, another material library: not today's baker.
+    bakeBy("library.utab", "r52-f28-l0b");
+    touch(bakes / "unstamped.utab");
+
+    // No record names any of them.
+    CHECK(unreachableBakes(bakes, results, "r52-f28-l0a") ==
+          std::vector<stdfs::path>{bakes / "library.utab", bakes / "unstamped.utab", bakes / "yesterday.utab"});
+    CHECK(unreachableBakes(bakes, results, "r51-f27-l0a") ==
+          std::vector<stdfs::path>{bakes / "library.utab", bakes / "today.utab", bakes / "unstamped.utab"});
 }
 
 TEST_CASE("UTA-0170: notes round-trip and empty notes remove the file", "[client]") {

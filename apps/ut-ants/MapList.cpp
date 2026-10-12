@@ -3,16 +3,31 @@
 #include "MapList.h"
 
 #include "core/FileSystem.h"
+#include "ubundle/Bundle.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <fstream>
 #include <set>
 #include <span>
 #include <system_error>
 
 namespace uta::client {
 namespace {
+
+/// The baker version a bundle's BAKR names -- UTA-0349 -- or nothing when the
+/// file cannot be read or carries none.
+std::optional<std::string> bakerOf(const std::filesystem::path& bundle) {
+    std::ifstream file(bundle, std::ios::binary);
+    if (!file) return std::nullopt;
+    std::vector<char> prefix(ubundle::BAKER_PREFIX_SIZE);
+    file.read(prefix.data(), static_cast<std::streamsize>(prefix.size()));
+    prefix.resize(static_cast<std::size_t>(file.gcount()));
+    const Result<std::optional<std::string>> baker =
+        ubundle::readBaker(std::as_bytes(std::span<const char>(prefix)));
+    return baker ? *baker : std::nullopt;
+}
 
 std::string lowered(std::string_view text) {
     std::string folded(text);
@@ -403,6 +418,9 @@ std::vector<std::filesystem::path> unreachableBakes(const std::filesystem::path&
         std::error_code unread;
         if (it->symlink_status(unread).type() != std::filesystem::file_type::regular) continue;
         if (it->path().extension() != ".utab" || named.contains(it->path().filename())) continue;
+        // UTA-0349: a bundle today's baker wrote is one it would reuse, record
+        // or not.
+        if (bakerOf(it->path()) == currentBaker) continue;
         unreachable.push_back(it->path());
     }
     std::ranges::sort(unreachable);

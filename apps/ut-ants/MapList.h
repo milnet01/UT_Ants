@@ -52,13 +52,10 @@ struct BakeAnswer {
     /// UTA-0245: refused for its texture budget alone, which --fit-budget can
     /// get past, so the launcher offers it.
     bool overBudget = false;
-    /// UTA-0191: ut-bake's own `bakerVersion`, kept because nothing else can
-    /// reach it. The bundle does not store it -- BundleHeader carries
-    /// formatVersion, origin and kind and no more -- and docs/design.md rule 2
-    /// keeps uta_ubake out of a runtime target's link closure, so the viewer
-    /// cannot call bakerVersion() either. This report is the only place it
-    /// appears, so the launcher catches it here or it is lost. Empty when the
-    /// report did not carry one.
+    /// UTA-0191: ut-bake's own `bakerVersion`. docs/design.md rule 2 keeps
+    /// uta_ubake out of a runtime target's link closure, so the viewer cannot
+    /// call bakerVersion(); this report and, since UTA-0349, the bundle's own
+    /// BAKR are where it appears. Empty when the report did not carry one.
     std::string bakerVersion;
 };
 
@@ -130,14 +127,14 @@ enum class BakeState {
 [[nodiscard]] std::optional<MapResult> readResult(const std::filesystem::path& results, std::string_view map);
 
 /// UTA-0251: the bundles in `bakes` that no record in `results` made by
-/// `currentBaker` names, sorted. The baker's version is hashed into a bake's
-/// name, so a bake an older baker made is never looked for again, and a bundle
-/// does not store the version: the records are the only thing that says which
-/// baker made which. Only a regular `.utab` file directly in `bakes` is ever
+/// `currentBaker` names, and whose own BAKR does not name `currentBaker`
+/// either (UTA-0349), sorted. The baker's version is hashed into a bake's
+/// name, so a bake an older baker made is never looked for again. Only a regular `.utab` file directly in `bakes` is ever
 /// listed -- no link, no directory, nothing deeper. A record names its bundle
 /// by file name alone, so one spelled through a link still counts. Nothing is
 /// listed when `currentBaker` is empty or the records cannot be read. A bake
-/// made outside the launcher has no record, and is listed.
+/// made outside the launcher has no record, and is kept when today's baker
+/// wrote it.
 [[nodiscard]] std::vector<std::filesystem::path> unreachableBakes(const std::filesystem::path& bakes,
                                                                   const std::filesystem::path& results,
                                                                   std::string_view currentBaker);
