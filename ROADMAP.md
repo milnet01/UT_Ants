@@ -16318,6 +16318,20 @@ stays with movement in 0.2.0.
   the analyser. Not yet done from the body: sky kind, flood lights,
   undrawn meshes, fog, liquids, glass, and the UT_MonsterHunt count
   comparison.
+  Progress (2026-10-12): version 2 adds `needs`, read from ut-dump
+  and the bundle without drawing: lights, LE_Cylinder lights, lights
+  of LightRadius 128 or more, fog and water zones, liquids the bake
+  skipped, Decoration-class actors by class, translucent and
+  glass-named surfaces. --no-sky skips the views. Checked on r52
+  bakes: DM-Codex 7 water zones (5 LavaZone, 2 WaterZone); DM-Fetid
+  pipe, pipebend, barrel2, tubelight, lightbox (UTA-0341's list);
+  ForbiddenMansion 7 Lantern2. ForbiddenMansion reads 0 cylinder
+  lights because its recipe switches them off; its r49 bake without
+  the recipe reads the seven UTA-0308 found. The r50 library bundles
+  are gone (UTA-0349's launcher), so a re-bake of the 127 maps is
+  running: cc-job u347-bake, into /mnt/Emulators/uta-scratch/u347.
+  Left: run over the library, send UT_MonsterHunt the counts, sky kind
+  (backdrop, sky room, dome).
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.

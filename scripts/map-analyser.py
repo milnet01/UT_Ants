@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""List what graphical features each map needs -- UTA-0347. Version 1 reads
-the sky only, for UTA-0346's sun rule and UTA-0350's painted skies.
+"""List what graphical features each map needs -- UTA-0347. Version 1 read
+the sky, for UTA-0346's sun rule and UTA-0350's painted skies; version 2 adds
+`needs`, read from the map and its bundle without drawing anything.
 
-    scripts/map-analyser.py <install> <out dir> <report.json>...
+    scripts/map-analyser.py [--no-sky] <install> <out dir> <report.json>...
+
+--no-sky skips the views and the sky fields below, keeping `paintedSky` and
+`needs`; it takes seconds a map rather than a render.
 
 Each <report.json> is ut-bake's printed report for one map; its `map` is the
 map file and its `path` the bundle. For each map this shoots ten upward views
@@ -10,6 +14,9 @@ from far-apart navigation nodes into <out dir>, measures the pixels that show
 sky, and prints one JSON line:
 
   map         the map's name
+  recipe      the recipe file the bake applied, else null. `needs` reads the
+              bundle, so it counts what is left after the recipe: a light the
+              recipe switches off is not in `lights`
   skyPixels   how many sky pixels the ten views hold
   luma        their mean brightness, 0-255
   blue, purple, cloud, warm
@@ -25,8 +32,26 @@ sky, and prints one JSON line:
               wear it, and how many ZONE entries in the bundle have an
               ambient brightness of 128 or more (UTA-0350 SS 4.5). A
               non-empty texture list marks a candidate for a [sky] recipe.
+  needs       what else the map holds that a system draws or must draw:
+                lights          the bundle's lights
+                cylinderLights  LE_Cylinder lights: fill lights flooding an
+                                area, as ForbiddenMansion's (UTA-0308)
+                wideLights      lights of LightRadius 128 or more
+                fogZones, waterZones
+                                zones with bFogZone or bWaterZone set
+                skippedLiquids  liquid surfaces the bake report skipped
+                decorations     {class: actors} with Decoration in their class
+                                chain -- meshes urender does not draw yet
+                                (UTA-0341)
+                translucent     seen BSP surfaces with PF_Translucent: glass,
+                                but also beams and force fields (UTA-0272)
+                glassNamed      seen BSP surfaces whose texture name holds
+                                "glass", whatever their flags
+              A map that fails ut-dump prints {"map", "error"} instead.
 
-The last line holds the totals by class, and `paintedSky`, the candidates. A map whose class is clear,
+The last line holds the totals by class, and `paintedSky`, the candidates;
+`mapsWith`, how many maps have each need; and the twenty commonest decoration
+classes across the maps. A map whose class is clear,
 fewClouds or warmClear gets a sun (UTA-0346; warmClear added by the user,
 2026-10-11). `other` is any sky the rules do not name: overcast, purple,
 orange, alien.
@@ -48,7 +73,13 @@ import subprocess
 import sys
 
 WIDTH, HEIGHT, FOV = 160, 90, 100.0
-PF_FAKE_BACKDROP = 0x80
+PF_INVISIBLE, PF_TRANSLUCENT, PF_FAKE_BACKDROP = 0x1, 0x4, 0x80
+# Bundle record sizes and byte offsets: src/ubundle/ZoneSection.cpp and
+# LightSection.cpp. A light's twelve UT99 bytes start at 28: type, effect, ...
+ZONE_SIZE, ZONE_FOG, ZONE_WATER = 29, 3, 12
+LIGHT_SIZE, LIGHT_EFFECT, LIGHT_RADIUS = 73, 29, 33
+LE_CYLINDER = 17       # src/ubake/LightModel.cpp
+WIDE_RADIUS = 128      # LightRadius; AActor::WorldLightRadius makes it 3225 UT units
 UP_PITCH = 14000  # UT units; nearly straight up, as UTA-0334's survey shot
 SUN_CLASSES = ("clear", "fewClouds", "warmClear")
 
@@ -62,9 +93,9 @@ VERDICTS = {
 }
 
 
-def cameras(nav_json):
+def cameras(package):
     """Ten nav nodes, farthest-point sampled from the first, looking up."""
-    nodes = json.loads(nav_json)["packages"][0]["nav"]["nodeList"]
+    nodes = package["nav"]["nodeList"]
     points = [n["location"] for n in nodes]
     if not points:
         return []
@@ -164,24 +195,28 @@ def classify(m):
     return "other"
 
 
-def bright_zones(bundle):
-    """ZONE entries whose ambient brightness is 128 or more. A ZONE entry is
-    29 bytes, brightness first, after a u32 count (UTA-0156 SS 4.1)."""
+def records(bundle, ident, size):
+    """The fixed-size records of one bundle section, which holds a u32 count
+    and then the records; [] where the bundle has no such section."""
     data = pathlib.Path(bundle).read_bytes()
     (count,) = struct.unpack_from("<I", data, 12)
     for i in range(count):
-        ident, offset, _size = struct.unpack_from("<4sQQ", data, 16 + 24 * i)
-        if ident == b"ZONE":
-            (zones,) = struct.unpack_from("<I", data, offset)
-            return sum(data[offset + 4 + 29 * z] >= 128 for z in range(zones))
-    return 0
+        name, offset, length = struct.unpack_from("<4sQQ", data, 16 + 24 * i)
+        if name == ident:
+            (n,) = struct.unpack_from("<I", data, offset)
+            if 4 + n * size != length:
+                raise ValueError(f"{bundle}: {ident} holds {length} bytes, not {n} records of {size}")
+            return [data[offset + 4 + size * k:offset + 4 + size * (k + 1)] for k in range(n)]
+    return []
 
 
-def painted_sky(install, map_file, bundle):
+def bright_zones(zones):
+    """ZONE entries whose ambient brightness, their first byte, is 128 or more."""
+    return sum(z[0] >= 128 for z in zones)
+
+
+def painted_sky(surfaces, zones):
     """UTA-0350 SS 4.5: null with a real sky; else the sky-named textures."""
-    dump = subprocess.run(["build/tools/ut-dump/ut-dump", "--install", install, "--surface-list", map_file],
-                          capture_output=True, text=True, check=True)
-    surfaces = json.loads(dump.stdout)["packages"][0]["surfaces"]["list"]
     if any(s["polyFlags"] & PF_FAKE_BACKDROP for s in surfaces):
         return None
     textures = {}
@@ -189,50 +224,96 @@ def painted_sky(install, map_file, bundle):
         name = s.get("texture") or ""
         if "sky" in name.lower():
             textures[name] = textures.get(name, 0) + 1
-    return {"textures": dict(sorted(textures.items())), "brightZones": bright_zones(bundle)}
+    return {"textures": dict(sorted(textures.items())), "brightZones": bright_zones(zones)}
 
 
-def analyse(install, out, report_path):
+def needs(report, package, zones, lights):
+    """What the map holds beyond its sky -- see the module's `needs`."""
+    surfaces = package["surfaces"]["list"]
+    actors = package["wiring"]["actors"]
+    decorations = {}
+    for a in actors:
+        if "Decoration" in a["classChain"]:
+            decorations[a["class"]] = decorations.get(a["class"], 0) + 1
+    seen = [s for s in surfaces if not s["polyFlags"] & PF_INVISIBLE]
+    return {
+        "lights": len(lights),
+        "cylinderLights": sum(l[LIGHT_EFFECT] == LE_CYLINDER for l in lights),
+        "wideLights": sum(l[LIGHT_RADIUS] >= WIDE_RADIUS for l in lights),
+        "fogZones": sum(z[ZONE_FOG] for z in zones),
+        "waterZones": sum(z[ZONE_WATER] for z in zones),
+        "skippedLiquids": len(report.get("skippedLiquids", [])),
+        "decorations": dict(sorted(decorations.items(), key=lambda kv: -kv[1])),
+        "translucent": sum(bool(s["polyFlags"] & PF_TRANSLUCENT) for s in seen),
+        "glassNamed": sum("glass" in (s.get("texture") or "").lower() for s in seen),
+    }
+
+
+def analyse(install, out, report_path, shoot):
     report = json.load(open(report_path))
     map_file, bundle = report["map"], report["path"]
     name = pathlib.Path(map_file).stem
     prefix = str(out / name)
-    nav = subprocess.run(["build/tools/ut-dump/ut-dump", "--install", install, "--nav-graph", map_file],
-                         capture_output=True, text=True)
-    cams = cameras(nav.stdout) if nav.returncode == 0 else []
+    dump = subprocess.run(["build/tools/ut-dump/ut-dump", "--install", install, "--nav-graph",
+                           "--surface-list", "--wiring-graph", map_file],
+                          capture_output=True, text=True)
+    package = json.loads(dump.stdout)["packages"][0] if dump.returncode == 0 else None
+    cams = cameras(package) if package and shoot else []
     if cams and not os.path.exists(f"{prefix}-{len(cams) - 1}.ppm"):
         subprocess.run(["build/tools/ut-shot/ut-shot", "--light-terms", "--light-time", "0",
                         "--tier", "high", bundle, str(WIDTH), str(HEIGHT), prefix],
                        input="\n".join(cams) + "\n", capture_output=True, text=True)
-    sky, spots = read_views(prefix, cams)
-    row = {"map": name}
-    if sky:
-        row.update(measure(sky))
-        row["class"] = classify(row)
-    else:
-        row.update({"skyPixels": 0, "class": "none"})
-    row["why"] = "measured"
-    if name in VERDICTS:
-        row["class"], row["why"] = VERDICTS[name]
-    row["paintedSun"] = painted_sun(spots)
-    row["paintedSky"] = painted_sky(install, map_file, bundle)
+    row = {"map": name, "recipe": report.get("recipe") and pathlib.Path(report["recipe"]).name}
+    if package is None:
+        row["error"] = "ut-dump failed: " + dump.stderr.strip()[-200:]
+        return row
+    if shoot:
+        sky, spots = read_views(prefix, cams)
+        if sky:
+            row.update(measure(sky))
+            row["class"] = classify(row)
+        else:
+            row.update({"skyPixels": 0, "class": "none"})
+        row["why"] = "measured"
+        if name in VERDICTS:
+            row["class"], row["why"] = VERDICTS[name]
+        row["paintedSun"] = painted_sun(spots)
+    zones = records(bundle, b"ZONE", ZONE_SIZE)
+    row["paintedSky"] = painted_sky(package["surfaces"]["list"], zones)
+    row["needs"] = needs(report, package, zones, records(bundle, b"LITE", LIGHT_SIZE))
     return row
 
 
 def main(argv):
+    shoot = "--no-sky" not in argv
+    argv = [a for a in argv if a != "--no-sky"]
     if len(argv) < 4:
         sys.stderr.write(__doc__)
         return 2
     install, out = argv[1], pathlib.Path(argv[2])
     out.mkdir(parents=True, exist_ok=True)
-    totals = {}
-    painted = 0
+    totals, painted, errors = {}, 0, 0
+    maps_with = {k: 0 for k in ("cylinderLights", "wideLights", "fogZones", "waterZones",
+                                "skippedLiquids", "decorations", "translucent", "glassNamed")}
+    decorations = {}
     for report_path in argv[3:]:
-        row = analyse(install, out, report_path)
-        totals[row["class"]] = totals.get(row["class"], 0) + 1
-        painted += bool(row["paintedSky"] and row["paintedSky"]["textures"])
+        row = analyse(install, out, report_path, shoot)
         print(json.dumps(row), flush=True)
-    print(json.dumps({"totals": totals, "sun": sum(totals.get(c, 0) for c in SUN_CLASSES), "paintedSky": painted}))
+        if "error" in row:
+            errors += 1
+            continue
+        if shoot:
+            totals[row["class"]] = totals.get(row["class"], 0) + 1
+        painted += bool(row["paintedSky"] and row["paintedSky"]["textures"])
+        for key in maps_with:
+            maps_with[key] += bool(row["needs"][key])
+        for cls, n in row["needs"]["decorations"].items():
+            decorations[cls] = decorations.get(cls, 0) + n
+    summary = {"maps": len(argv) - 3, "errors": errors, "paintedSky": painted, "mapsWith": maps_with,
+               "decorations": dict(sorted(decorations.items(), key=lambda kv: -kv[1])[:20])}
+    if shoot:
+        summary.update({"totals": totals, "sun": sum(totals.get(c, 0) for c in SUN_CLASSES)})
+    print(json.dumps(summary))
     return 0
 
 
