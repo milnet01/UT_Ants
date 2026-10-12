@@ -236,7 +236,10 @@ def needs(report, package, zones, lights):
     decorations = {}
     for a in actors:
         if "Decoration" in a["classChain"]:
-            decorations[a["class"]] = decorations.get(a["class"], 0) + 1
+            # `class` is the map's own spelling ("lightbox"); the chain's
+            # first entry is the class's ("LightBox").
+            cls = a["classChain"][0]
+            decorations[cls] = decorations.get(cls, 0) + 1
     seen = [s for s in surfaces if not s["polyFlags"] & PF_INVISIBLE]
     return {
         "skyZones": sum("SkyZoneInfo" in a["classChain"] for a in actors),
