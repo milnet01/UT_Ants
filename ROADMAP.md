@@ -16332,6 +16332,12 @@ stays with movement in 0.2.0.
   running: cc-job u347-bake, into /mnt/Emulators/uta-scratch/u347.
   Left: run over the library, send UT_MonsterHunt the counts, sky kind
   (backdrop, sky room, dome).
+  Progress (2026-10-12, 6477c6d): `needs` also counts skyZones
+  (SkyZoneInfo actors) and backdrop (PF_FakeBackdrop surfaces). A sky
+  room and a dome are not told apart yet: that needs the sky zone's
+  geometry, which ut-dump does not give per zone. b017f66 and 6477c6d
+  are committed, not pushed. UT_MonsterHunt was told (2026-10-12) the
+  per-map counts are coming for comparison.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
