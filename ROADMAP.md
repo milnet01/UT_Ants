@@ -16349,6 +16349,14 @@ stays with movement in 0.2.0.
   for these 127 maps. It has no T3D exports for them, and its map facts
   also come from ut-dump. The census stands unchecked by a second
   reader; a second reader was declined as not worth its cost.
+  Pushed (2026-10-12): 0ab76b0, push gate green on GCC 14, Clang 19
+  and MSVC; acc97ea counts decorations by class (classChain[0]), which
+  merges per-class keys and leaves the totals above unchanged. The
+  census's sky/backdrop mismatch filed as UTA-0353. Left: run the
+  analyser over the whole library, not just the 127 maps; rank which
+  system to build next from the totals; the sky-room-versus-dome check
+  waits on per-zone geometry from ut-dump. Not flipped: flip only on a
+  green GitHub run once that is done.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
