@@ -18221,7 +18221,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-132125/frame.png
 
-- 🚧 [UTA-0333] **urender: cut the fog pass's per-light cost, the largest single step on DM-Bishop.**
+- ✅ [UTA-0333] **urender: cut the fog pass's per-light cost, the largest single step on DM-Bishop.**
   UTA-0323, 2026-10-07, r44 bakes, ultra 3840x2160, RX 6600, alternated
   in one job: switching off fog_scatter.comp's cluster haze loop saves
   ~5 ms of DM-Bishop's ~19 ms frame (Closer ~2, Crane ~1). Bishop has no
@@ -18264,6 +18264,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   so the quarter stays. INV-7's shaft test goes red when the copy never
   shadows (shadowed 121 = open 121). Unit 1011/1011, device 112/112 on
   lavapipe and the RX 6600, sync validation clean.
+  Shipped (2026-10-13): 4a1bf22, GitHub run 38392243454 green on GCC 14,
+  Clang 19 and MSVC.
   **Layman:** The haze that shows light beams costs a quarter of the time on the slowest map; find a cheaper way to work it out.
   Kind: perf.
   Source: user-request-2026-10-06.
