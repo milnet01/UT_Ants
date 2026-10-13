@@ -50,7 +50,14 @@ struct DeviceCandidate {
     /// `VkPhysicalDeviceVulkan11Properties` -- properties, not feature bits.
     VkShaderStageFlags subgroupStages = 0;
     VkSubgroupFeatureFlags subgroupOperations = 0;
+    /// UTA-0327: VK_KHR_fragment_shading_rate's attachment rate, which no
+    /// requirement asks for; when present, the texel sizes its image may use.
+    bool shadingRateAttachment = false;
+    VkExtent2D minShadingRateTexel{}, maxShadingRateTexel{};
 };
+
+/// UTA-0327: the shading rate image's texel, 8 by 8 where the device allows it.
+[[nodiscard]] VkExtent2D shadingRateTexelOf(const DeviceCandidate& candidate) noexcept;
 
 /// The first SS 4.4 requirement `candidate` fails, in that table's order, or
 /// an empty view when it meets every one.
@@ -97,6 +104,9 @@ public:
     [[nodiscard]] std::uint32_t queueFamily() const noexcept { return family_; }
     [[nodiscard]] const std::string& name() const noexcept { return name_; }
     [[nodiscard]] VkPhysicalDeviceType type() const noexcept { return type_; }
+    /// UTA-0327: the shading rate image's texel, or zero by zero where the
+    /// device has no attachment rate and coarse shading is off.
+    [[nodiscard]] VkExtent2D shadingRateTexel() const noexcept { return shadingRateTexel_; }
     /// The summed size of the heaps flagged VK_MEMORY_HEAP_DEVICE_LOCAL_BIT --
     /// UTA-0051 SS 4.3's input to the default tier.
     [[nodiscard]] std::uint64_t deviceLocalBytes() const noexcept {
@@ -141,6 +151,7 @@ private:
     VkCommandPool pool_ = VK_NULL_HANDLE;
     VkPhysicalDeviceMemoryProperties memory_{};
     VkPhysicalDeviceType type_ = VK_PHYSICAL_DEVICE_TYPE_OTHER;
+    VkExtent2D shadingRateTexel_{};
     std::string name_;
     VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
     std::unique_ptr<ValidationLog> log_ = std::make_unique<ValidationLog>();

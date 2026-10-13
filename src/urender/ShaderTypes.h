@@ -431,6 +431,19 @@ static_assert(offsetof(BloomConstants, sourceUvMax) == 16);
 static_assert(offsetof(BloomConstants, radius) == 24);
 static_assert(offsetof(BloomConstants, mode) == 28);
 
+/// UTA-0327: shading_rate.comp's push constants.
+struct ShadingRateConstants {
+    std::array<std::uint32_t, 2> region; ///< the pixels the scene drew, from the top left
+    std::array<std::uint32_t, 2> texel;  ///< one rate texel's pixels
+    float exposure;                      ///< post.frag's, so the step is judged as shown
+    float threshold;                     ///< the largest step across a pixel pair a coarse rate allows
+};
+static_assert(sizeof(ShadingRateConstants) == 24);
+static_assert(offsetof(ShadingRateConstants, region) == 0);
+static_assert(offsetof(ShadingRateConstants, texel) == 8);
+static_assert(offsetof(ShadingRateConstants, exposure) == 16);
+static_assert(offsetof(ShadingRateConstants, threshold) == 20);
+
 /// UTA-0015 SS 4.4: both fog stages' push constants.
 struct FogConstants {
     Mat4 viewToWorld;

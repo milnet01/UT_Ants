@@ -111,6 +111,9 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// other device test sets linearOutput and reads back before the post chain, so
 /// until then nothing in the tier graded this constant at all.
 constexpr float EXPOSURE = 5.03f;
+/// UTA-0327: the largest step between two pixels, as shown, that a coarse
+/// shading rate may merge.
+constexpr float SHADING_RATE_THRESHOLD = 0.02f;
 
 /// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
 /// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's
@@ -407,6 +410,12 @@ struct Renderer::Impl {
     /// UTA-0053: the forward pass's emission, and the bloom chain built from it.
     Image emission;
     std::array<Image, BLOOM_LEVELS> bloom;
+    /// UTA-0327: the next frame's shading rate, built from this frame's colour;
+    /// made only where the pipelines shade coarsely. Ready once a frame has
+    /// written it since the targets were made.
+    Image shadingRate;
+    VkDescriptorSet shadingRateSet = VK_NULL_HANDLE;
+    bool shadingRateReady = false;
 
     Buffer frameData, objects, lights;
     Buffer clusterCounts, clusterIndices, clusterBounds;
@@ -523,8 +532,10 @@ struct Renderer::Impl {
     /// the target's central square copied into that face of the sky texture.
     Result<void> drawView(const ubundle::Bundle& bundle, const Camera& camera, std::optional<std::uint32_t> image,
                           std::optional<std::uint32_t> skyFace);
+    /// `capture` is a sky face's draw, which neither reads nor writes UTA-0327's
+    /// shading rate: its view is not the player's.
     void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region,
-                     const gpu::FogConstants& fog);
+                     const gpu::FogConstants& fog, bool capture);
 };
 
 /// Every target the window's size decides. SS 4.3's resize rebuilds them.
@@ -534,8 +545,11 @@ Result<void> Renderer::Impl::createTargets() {
     UTA_TRY(hdr, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
                                       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
                                           VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
+    // UTA-0327: sampled too, where the shading rate pass reads it.
+    const bool coarse = pipelines->coarseShading();
     UTA_TRY(velocity, Image::create(*gpu, {VELOCITY_FORMAT, w, h, 1,
-                                           VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
+                                           VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                                               | (coarse ? VK_IMAGE_USAGE_SAMPLED_BIT : 0u)}));
     UTA_TRY(depth, Image::create(*gpu, {DEPTH_FORMAT, w, h, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT}));
     UTA_TRY(output, Image::create(*gpu, {OUTPUT_FORMAT, w, h, 1,
                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
@@ -554,6 +568,16 @@ Result<void> Renderer::Impl::createTargets() {
                                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
         UTA_TRY(upscaled, Image::create(*gpu, {HDR_FORMAT, w, h, 1,
                                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT}));
+    }
+    // UTA-0327: one texel per gpu->shadingRateTexel() pixels, rounded up.
+    shadingRateReady = false;
+    if (coarse) {
+        const VkExtent2D texel = gpu->shadingRateTexel();
+        UTA_TRY(shadingRate,
+                Image::create(*gpu, {VK_FORMAT_R8_UINT, (w + texel.width - 1) / texel.width,
+                                     (h + texel.height - 1) / texel.height, 1,
+                                     VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR
+                                         | VK_IMAGE_USAGE_TRANSFER_SRC_BIT}));
     }
     return {};
 }
@@ -837,13 +861,13 @@ Result<void> Renderer::Impl::writeDescriptors() {
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
         // each post set, and one source per bloom step; then UTA-0015's fog volume.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1},
-        // UTA-0015: the fog set's two images.
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
+                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 2},
+        // UTA-0015: the fog set's two images; then UTA-0327's rate image.
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 + 1},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1;
+    poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1;
     poolInfo.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     poolInfo.pPoolSizes = sizes.data();
     UTA_CHECK(check(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), "vkCreateDescriptorPool"));
@@ -893,6 +917,17 @@ Result<void> Renderer::Impl::writeDescriptors() {
     fogAllocate.descriptorSetCount = 1;
     fogAllocate.pSetLayouts = &fogLayout;
     UTA_CHECK(check(vkAllocateDescriptorSets(device, &fogAllocate, &fogSet), "vkAllocateDescriptorSets (fog)"));
+
+    // UTA-0327: the shading rate pass's set, where there is one.
+    shadingRateSet = VK_NULL_HANDLE;
+    if (pipelines->coarseShading()) {
+        const VkDescriptorSetLayout rateLayout = pipelines->shadingRateSetLayout();
+        VkDescriptorSetAllocateInfo rateAllocate = postAllocate;
+        rateAllocate.descriptorSetCount = 1;
+        rateAllocate.pSetLayouts = &rateLayout;
+        UTA_CHECK(check(vkAllocateDescriptorSets(device, &rateAllocate, &shadingRateSet),
+                        "vkAllocateDescriptorSets (shading rate)"));
+    }
 
     const std::array<const Buffer*, gpu::MASK_PAIRS + 1> buffers = {
         &frameData,     &objects,       &materials->records(), &lights,     &clusterCounts,
@@ -1013,12 +1048,28 @@ Result<void> Renderer::Impl::writeDescriptors() {
         writes.push_back(rcasWrite);
     }
 
+    // UTA-0327: the colour and velocity the forward pass drew, and the rate image.
+    const std::array<VkDescriptorImageInfo, 3> rateInfos{
+        VkDescriptorImageInfo{nearestSampler, hdr.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        VkDescriptorImageInfo{nearestSampler, velocity.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        VkDescriptorImageInfo{VK_NULL_HANDLE, shadingRate.view(), VK_IMAGE_LAYOUT_GENERAL}};
+    if (shadingRateSet != VK_NULL_HANDLE) {
+        for (std::uint32_t i = 0; i < rateInfos.size(); ++i) {
+            VkWriteDescriptorSet write = hdrWrite;
+            write.dstSet = shadingRateSet;
+            write.dstBinding = i;
+            if (i == 2) write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            write.pImageInfo = &rateInfos[i];
+            writes.push_back(write);
+        }
+    }
+
     vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
     return {};
 }
 
 void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region,
-                                 const gpu::FogConstants& fog) {
+                                 const gpu::FogConstants& fog, bool capture) {
     const VkExtent2D extent{config.width, config.height};
     const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
     const VkRect2D scissor{{0, 0}, extent};
@@ -1225,9 +1276,23 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
                   VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 
+    // UTA-0327: the opaque pass shades at the rate the last frame's colour
+    // gave. Only it: the translucent pass blends over what is behind, and its
+    // pipelines read no rate.
+    VkRenderingFragmentShadingRateAttachmentInfoKHR rateAttachment{};
+    rateAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR;
+    const bool coarse = shadingRateReady && !capture;
+    if (coarse) {
+        shadingRate.transition(commands, VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR);
+        rateAttachment.imageView = shadingRate.view();
+        rateAttachment.imageLayout = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+        rateAttachment.shadingRateAttachmentTexelSize = gpu->shadingRateTexel();
+        rendering.pNext = &rateAttachment;
+    }
     vkCmdBeginRendering(commands, &rendering);
     drawBatches(Pass::Opaque);
     vkCmdEndRendering(commands);
+    rendering.pNext = nullptr;
 
     // -- 2. The translucent pass -----------------------------------------------
     // Rasterization order holds within one rendering instance, not across two:
@@ -1393,6 +1458,24 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         fullTargetPass(output, pipelines->rcas(), rcasSet, false);
     }
 
+    // -- 4.5. The next frame's shading rate (UTA-0327) -------------------------
+    // From the colour just drawn, which the output stage has left sampled.
+    if (shadingRateSet != VK_NULL_HANDLE && !capture) {
+        velocity.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        shadingRate.transition(commands, VK_IMAGE_LAYOUT_GENERAL);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->shadingRate());
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->shadingRateLayout(), 0, 1,
+                                &shadingRateSet, 0, nullptr);
+        const VkExtent2D texel = gpu->shadingRateTexel();
+        const gpu::ShadingRateConstants constants{
+            {region.width, region.height}, {texel.width, texel.height}, EXPOSURE, SHADING_RATE_THRESHOLD};
+        vkCmdPushConstants(commands, pipelines->shadingRateLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                           sizeof(constants), &constants);
+        const ImageDesc& tiles = shadingRate.desc();
+        vkCmdDispatch(commands, (tiles.width + 7) / 8, (tiles.height + 7) / 8, 1); // local size 8 x 8
+        shadingRateReady = true;
+    }
+
     // -- 5. The UI composite seam ----------------------------------------------
     compositeUi(commands);
 }
@@ -1480,6 +1563,8 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         impl.shape = BundleShape{};
         UTA_CHECK(impl.upload(bundle));
         impl.shape = shape;
+        // UTA-0327: the last frame was another level's, so its rate says nothing.
+        impl.shadingRateReady = false;
     }
 
     // UTA-0163: a new level's sky, drawn once, before its first frame. Nothing
@@ -1678,7 +1763,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     const auto started = std::chrono::steady_clock::now();
     const Result<void> ran = impl.gpu->run([&](VkCommandBuffer commands) {
         impl.materials->recordFireUploads(commands); // UTA-0286 SS 4.4, before anything samples them
-        impl.recordFrame(commands, plan, region, fog);
+        impl.recordFrame(commands, plan, region, fog, skyFace.has_value());
         // SS 6's counts are read on the host once this finishes; the fence
         // alone does not make the compute pass's writes visible to it.
         memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,

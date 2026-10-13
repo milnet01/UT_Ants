@@ -50,6 +50,7 @@ enum class Feature : std::uint8_t {
     Caustics,          ///< UTA-0215's rippling light on what lies under water
     WaterMotes,        ///< UTA-0215's specks drifting in the water around the eye
     TileShuffle,       ///< UTA-0277's natural textures drawn so their repeats do not line up
+    CoarseShading,     ///< UTA-0327's flat parts of the picture shaded once per 2 x 2 pixels
 };
 
 /// The lowest tier that switches `feature` on: one case per enumerator, and no
@@ -86,6 +87,9 @@ enum class Feature : std::uint8_t {
     // worst case past the 3% that would keep it on every tier, as
     // TileVariation's is.
     case Feature::TileShuffle: return Tier::Medium;
+    // UTA-0327: it saves time rather than costing it, so every tier has it
+    // where the device does.
+    case Feature::CoarseShading: return Tier::Low;
     }
     return Tier::Low; // unreachable
 }

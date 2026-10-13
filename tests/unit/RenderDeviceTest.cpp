@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using Catch::Matchers::ContainsSubstring;
@@ -157,4 +158,24 @@ TEST_CASE("an instance with no physical device is refused as having none", "[ren
     const auto chosen = selectDevice({});
     REQUIRE_FALSE(chosen.has_value());
     CHECK_THAT(std::string(chosen.error().message()), ContainsSubstring("no physical device"));
+}
+
+TEST_CASE("UTA-0327: the shading rate texel is 8 by 8 where the device allows it", "[render]") {
+    using uta::urender::shadingRateTexelOf;
+    DeviceCandidate c = qualifying("rate");
+    const auto texel = [&c] {
+        const VkExtent2D t = shadingRateTexelOf(c);
+        return std::pair{t.width, t.height};
+    };
+    // No attachment rate: zero, which turns coarse shading off.
+    c.minShadingRateTexel = {8, 8};
+    c.maxShadingRateTexel = {32, 32};
+    CHECK(texel() == std::pair{0u, 0u});
+    c.shadingRateAttachment = true;
+    CHECK(texel() == std::pair{8u, 8u});
+    c.minShadingRateTexel = {16, 16};
+    CHECK(texel() == std::pair{16u, 16u});
+    c.minShadingRateTexel = {4, 2};
+    c.maxShadingRateTexel = {4, 4};
+    CHECK(texel() == std::pair{4u, 4u});
 }

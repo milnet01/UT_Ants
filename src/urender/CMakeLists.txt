@@ -89,6 +89,7 @@ uta_embed_shaders(uta_urender
     shaders/cluster.comp
     shaders/fog_scatter.comp
     shaders/fog_integrate.comp
+    shaders/shading_rate.comp
     shaders/scene.vert
     shaders/scene.frag
     shaders/flame.vert

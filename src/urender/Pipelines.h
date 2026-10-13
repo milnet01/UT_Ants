@@ -80,6 +80,13 @@ public:
     [[nodiscard]] VkPipelineLayout fogLayout() const noexcept { return fogLayout_; }
     [[nodiscard]] VkPipeline fogScatter() const noexcept { return fogScatter_; }
     [[nodiscard]] VkPipeline fogIntegrate() const noexcept { return fogIntegrate_; }
+    /// UTA-0327: whether the opaque pipelines shade at the rate image's rate --
+    /// the device has an attachment rate and the tier switches it on -- and
+    /// the pass that builds that image from the last frame.
+    [[nodiscard]] bool coarseShading() const noexcept { return coarseShading_; }
+    [[nodiscard]] VkDescriptorSetLayout shadingRateSetLayout() const noexcept { return shadingRateSetLayout_; }
+    [[nodiscard]] VkPipelineLayout shadingRateLayout() const noexcept { return shadingRateLayout_; }
+    [[nodiscard]] VkPipeline shadingRate() const noexcept { return shadingRate_; }
     /// SS 4.8's tile pass: depth only, over the scene set with its own push constants.
     [[nodiscard]] VkPipeline shadow() const noexcept { return shadow_; }
     [[nodiscard]] VkPipelineLayout shadowLayout() const noexcept { return shadowLayout_; }
@@ -113,6 +120,10 @@ private:
     VkPipeline fogScatter_ = VK_NULL_HANDLE, fogIntegrate_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowLayout_ = VK_NULL_HANDLE;
     VkPipeline shadow_ = VK_NULL_HANDLE;
+    bool coarseShading_ = false;
+    VkDescriptorSetLayout shadingRateSetLayout_ = VK_NULL_HANDLE;
+    VkPipelineLayout shadingRateLayout_ = VK_NULL_HANDLE;
+    VkPipeline shadingRate_ = VK_NULL_HANDLE;
 };
 
 } // namespace uta::urender

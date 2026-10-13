@@ -180,3 +180,10 @@ TEST_CASE("UTA-0051: tier names read case-insensitively and write lower case", "
     CHECK_FALSE(uta::urender::tierNamed("lowest").has_value());
     for (const Tier tier : ALL) CHECK(uta::urender::tierNamed(uta::urender::tierName(tier)) == tier);
 }
+
+TEST_CASE("UTA-0327: coarse shading is on at every tier", "[render]") {
+    using uta::urender::Feature;
+    CHECK(uta::urender::minimumTier(Feature::CoarseShading) == Tier::Low);
+    CHECK(uta::urender::enabled(Feature::CoarseShading, Tier::Low));
+    CHECK(uta::urender::enabled(Feature::CoarseShading, Tier::Ultra));
+}

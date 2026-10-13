@@ -1,0 +1,60 @@
+#version 450
+
+// UTA-0327: the next frame's shading rate, one texel per `texel` pixels, from
+// this frame's colour. Where no pixel pair the rate would merge differs by more
+// than `threshold` as shown, that axis shades once per two pixels. The colour
+// is read where the motion carries it, so the image is about the next frame's
+// pixels rather than this one's. The method is AMD FidelityFX Variable Shading's.
+
+layout(set = 0, binding = 0) uniform sampler2D colour;
+layout(set = 0, binding = 1) uniform sampler2D velocity;
+layout(set = 0, binding = 2, r8ui) uniform writeonly uimage2D rate;
+
+layout(push_constant) uniform ShadingRateBlock {
+    uvec2 region;
+    uvec2 texel;
+    float exposure;
+    float threshold;
+} block;
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// VK_KHR_fragment_shading_rate's encoding: log2 of the width, two bits up, and
+// log2 of the height.
+const uint WIDE = 1u << 2;
+const uint TALL = 1u;
+
+// A step as the eye sees it: Reinhard's curve, then near a display's gamma.
+float shown(ivec2 at) {
+    at = clamp(at, ivec2(0), ivec2(block.region) - 1);
+    float luma = dot(texelFetch(colour, at, 0).rgb, vec3(0.2126, 0.7152, 0.0722)) * block.exposure;
+    return sqrt(luma / (1.0 + luma));
+}
+
+void main() {
+    uvec2 tile = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(tile, uvec2(imageSize(rate))))) return;
+    uvec2 first = tile * block.texel;
+    if (any(greaterThanEqual(first, block.region))) {
+        imageStore(rate, ivec2(tile), uvec4(0u));
+        return;
+    }
+    uvec2 last = min(first + block.texel, block.region);
+    // The largest step across a pair the rate would merge, on each axis.
+    float across = 0.0, down = 0.0;
+    for (uint y = first.y; y < last.y; y += 2u) {
+        for (uint x = first.x; x < last.x; x += 2u) {
+            // scene.frag's velocity is this frame's place less the last one's,
+            // in the region's UV; the next frame finds this colour that much on.
+            vec2 moved = texelFetch(velocity, ivec2(x, y), 0).xy * vec2(block.region);
+            ivec2 at = ivec2(x, y) - ivec2(round(moved));
+            float here = shown(at);
+            across = max(across, abs(shown(at + ivec2(1, 0)) - here));
+            down = max(down, abs(shown(at + ivec2(0, 1)) - here));
+            across = max(across, abs(shown(at + ivec2(1, 1)) - shown(at + ivec2(0, 1))));
+            down = max(down, abs(shown(at + ivec2(1, 1)) - shown(at + ivec2(1, 0))));
+        }
+    }
+    uint value = (across < block.threshold ? WIDE : 0u) | (down < block.threshold ? TALL : 0u);
+    imageStore(rate, ivec2(tile), uvec4(value));
+}

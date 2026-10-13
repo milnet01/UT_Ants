@@ -142,21 +142,51 @@ DeviceCandidate describe(VkPhysicalDevice device, VkSurfaceKHR surface) {
         return (f.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
     });
 
+    std::uint32_t extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, extensions.data());
+    const auto lists = [&extensions](const char* wanted) {
+        return std::ranges::any_of(extensions, [wanted](const VkExtensionProperties& e) {
+            return std::strcmp(e.extensionName, wanted) == 0;
+        });
+    };
+
     // SS 4.4: both asked on the presenting path only.
     if (surface != VK_NULL_HANDLE) {
         candidate.presentSupport = familyOf(device, surface).has_value();
-        std::uint32_t extensionCount = 0;
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-        std::vector<VkExtensionProperties> extensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, extensions.data());
-        candidate.swapchainExtension = std::ranges::any_of(extensions, [](const VkExtensionProperties& e) {
-            return std::strcmp(e.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0;
-        });
+        candidate.swapchainExtension = lists(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    }
+
+    // UTA-0327: the struct may only be asked of a device listing the extension.
+    if (properties.apiVersion >= VK_API_VERSION_1_3 && lists(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME)) {
+        VkPhysicalDeviceFragmentShadingRateFeaturesKHR rate{};
+        rate.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+        VkPhysicalDeviceFeatures2 rateFeatures{};
+        rateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        rateFeatures.pNext = &rate;
+        vkGetPhysicalDeviceFeatures2(device, &rateFeatures);
+        VkPhysicalDeviceFragmentShadingRatePropertiesKHR texels{};
+        texels.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
+        VkPhysicalDeviceProperties2 rateProperties{};
+        rateProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        rateProperties.pNext = &texels;
+        vkGetPhysicalDeviceProperties2(device, &rateProperties);
+        candidate.shadingRateAttachment = rate.attachmentFragmentShadingRate == VK_TRUE;
+        candidate.minShadingRateTexel = texels.minFragmentShadingRateAttachmentTexelSize;
+        candidate.maxShadingRateTexel = texels.maxFragmentShadingRateAttachmentTexelSize;
     }
     return candidate;
 }
 
 } // namespace
+
+VkExtent2D shadingRateTexelOf(const DeviceCandidate& candidate) noexcept {
+    if (!candidate.shadingRateAttachment) return {};
+    // Both bounds are powers of two, so the clamp is one too.
+    return {std::clamp(8u, candidate.minShadingRateTexel.width, candidate.maxShadingRateTexel.width),
+            std::clamp(8u, candidate.minShadingRateTexel.height, candidate.maxShadingRateTexel.height)};
+}
 
 std::string_view firstMissingRequirement(const DeviceCandidate& candidate) noexcept {
     for (const Requirement& requirement : REQUIREMENTS)
@@ -343,9 +373,16 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     gpu->family_ = familyOf(gpu->physical_, gpu->surface_).value_or(0);
     vkGetPhysicalDeviceMemoryProperties(gpu->physical_, &gpu->memory_);
 
-    // Enable exactly what SS 4.4 required, and nothing else.
+    // Enable exactly what SS 4.4 required, and nothing else -- but UTA-0327's
+    // attachment rate where the device has it.
+    gpu->shadingRateTexel_ = shadingRateTexelOf(candidates[chosen]);
+    const bool coarse = gpu->shadingRateTexel_.width != 0;
+    VkPhysicalDeviceFragmentShadingRateFeaturesKHR enableRate{};
+    enableRate.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+    enableRate.attachmentFragmentShadingRate = VK_TRUE;
     VkPhysicalDeviceVulkan13Features enable13{};
     enable13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    enable13.pNext = coarse ? &enableRate : nullptr;
     enable13.dynamicRendering = VK_TRUE;
     enable13.synchronization2 = VK_TRUE;
     // glslc targeting Vulkan 1.3 compiles `discard` to OpDemoteToHelperInvocation.
@@ -369,18 +406,18 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     queueInfo.queueCount = 1;
     queueInfo.pQueuePriorities = &priority;
 
-    // VK_KHR_swapchain on the presenting path, and no device extension on the
-    // surfaceless one (INV-4).
-    const char* const swapchainExtension = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    // VK_KHR_swapchain on the presenting path only (INV-4), and UTA-0327's
+    // shading rate where the device has it.
+    std::vector<const char*> deviceExtensions;
+    if (gpu->surface_ != VK_NULL_HANDLE) deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    if (coarse) deviceExtensions.push_back(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
     VkDeviceCreateInfo deviceInfo{};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceInfo.pNext = &enable;
     deviceInfo.queueCreateInfoCount = 1;
     deviceInfo.pQueueCreateInfos = &queueInfo;
-    if (gpu->surface_ != VK_NULL_HANDLE) {
-        deviceInfo.enabledExtensionCount = 1;
-        deviceInfo.ppEnabledExtensionNames = &swapchainExtension;
-    }
+    deviceInfo.enabledExtensionCount = static_cast<std::uint32_t>(deviceExtensions.size());
+    deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
     UTA_CHECK(check(vkCreateDevice(gpu->physical_, &deviceInfo, nullptr, &gpu->device_), "vkCreateDevice"));
     vkGetDeviceQueue(gpu->device_, gpu->family_, 0, &gpu->queue_);
 

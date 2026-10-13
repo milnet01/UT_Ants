@@ -39,6 +39,10 @@ Use useOf(VkImageLayout layout) noexcept {
         return {VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT};
     case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
         return {VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, 0};
+    // UTA-0327: the shading rate image, read by the opaque pass.
+    case VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR:
+        return {VK_PIPELINE_STAGE_2_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR,
+                VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR};
     case VK_IMAGE_LAYOUT_GENERAL:
         // The fog volume's layout: cleared once, then written and read by
         // compute and sampled by the forward pass. An empty scope here left the

@@ -16,6 +16,7 @@
 #include "flame.vert.spv.h"
 #include "mote.frag.spv.h"
 #include "mote.vert.spv.h"
+#include "shading_rate.comp.spv.h"
 #include "fsr_rcas.frag.spv.h"
 #include "post.frag.spv.h"
 #include "post.vert.spv.h"
@@ -61,6 +62,8 @@ struct SceneVariant {
     bool depthOnly = false;
     /// UTA-0271: blended by multiplying, as UT99 draws PF_Modulated.
     bool modulated = false;
+    /// UTA-0327: shaded at the rate the pass's shading rate image gives.
+    bool shadingRate = false;
 };
 
 /// scene.frag's specialization constants, in constant_id order.
@@ -210,9 +213,18 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     rendering.pColorAttachmentFormats = colourFormats.data();
     rendering.depthAttachmentFormat = formats.depth;
 
+    // UTA-0327: the attachment's rate replaces the pipeline's 1 x 1.
+    VkPipelineFragmentShadingRateStateCreateInfoKHR rate{};
+    rate.sType = VK_STRUCTURE_TYPE_PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR;
+    rate.fragmentSize = {1, 1};
+    rate.combinerOps[0] = VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR;
+    rate.combinerOps[1] = VK_FRAGMENT_SHADING_RATE_COMBINER_OP_REPLACE_KHR;
+    if (variant.shadingRate) rendering.pNext = &rate;
+
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &rendering; // dynamic rendering: no VkRenderPass
+    if (variant.shadingRate) info.flags = VK_PIPELINE_CREATE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
     // UTA-0260: depth alone needs no fragment stage, and the vertex stage is
     // the forward pass's own, so both passes place a surface at one depth.
     info.stageCount = variant.depthOnly ? 1 : static_cast<std::uint32_t>(stages.size());
@@ -483,6 +495,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     std::unique_ptr<Pipelines> p(new Pipelines());
     p->device_ = gpu.device();
     const VkDevice device = p->device_;
+    p->coarseShading_ = gpu.shadingRateTexel().width != 0 && enabled(Feature::CoarseShading, tier);
 
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(gpu.physical(), &properties);
@@ -580,7 +593,9 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
             UTA_TRY(p->scene_[blending][twoSided],
                     scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                                  {blending != 0, twoSided == 1, false, blending == 2}, sceneConstants));
+                                  {blending != 0, twoSided == 1, false, blending == 2,
+                                   blending == 0 && p->coarseShading_},
+                                  sceneConstants));
         }
     }
     for (int twoSided = 0; twoSided < 2; ++twoSided) {
@@ -677,6 +692,40 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogIntegrate_),
                     "vkCreateComputePipelines (fog integrate)"));
 
+    // -- The shading rate image (UTA-0327) ------------------------------------
+    // The last frame's colour and velocity, and the image the next frame's
+    // opaque pass reads its rate from.
+    if (p->coarseShading_) {
+        const std::array rateBindings = {
+            VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+                                         nullptr},
+            VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+                                         nullptr},
+            VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        };
+        VkDescriptorSetLayoutCreateInfo rateInfo{};
+        rateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        rateInfo.bindingCount = static_cast<std::uint32_t>(rateBindings.size());
+        rateInfo.pBindings = rateBindings.data();
+        UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &rateInfo, nullptr, &p->shadingRateSetLayout_),
+                        "vkCreateDescriptorSetLayout (shading rate)"));
+        const VkPushConstantRange rateRange{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(gpu::ShadingRateConstants)};
+        VkPipelineLayoutCreateInfo rateLayoutInfo{};
+        rateLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        rateLayoutInfo.setLayoutCount = 1;
+        rateLayoutInfo.pSetLayouts = &p->shadingRateSetLayout_;
+        rateLayoutInfo.pushConstantRangeCount = 1;
+        rateLayoutInfo.pPushConstantRanges = &rateRange;
+        UTA_CHECK(check(vkCreatePipelineLayout(device, &rateLayoutInfo, nullptr, &p->shadingRateLayout_),
+                        "vkCreatePipelineLayout (shading rate)"));
+        Module rateCompute{device};
+        UTA_TRY(rateCompute.handle, shaderModule(device, shading_rate_comp_spv));
+        compute.layout = p->shadingRateLayout_;
+        compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, rateCompute.handle);
+        UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->shadingRate_),
+                        "vkCreateComputePipelines (shading rate)"));
+    }
+
     const VkPushConstantRange shadowRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                           sizeof(gpu::ShadowConstants)};
     VkPipelineLayoutCreateInfo shadowLayoutInfo = sceneLayoutInfo;
@@ -704,6 +753,10 @@ Pipelines::~Pipelines() {
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (fogLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, fogLayout_, nullptr);
     if (fogSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, fogSetLayout_, nullptr);
+    if (shadingRate_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadingRate_, nullptr);
+    if (shadingRateLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shadingRateLayout_, nullptr);
+    if (shadingRateSetLayout_ != VK_NULL_HANDLE)
+        vkDestroyDescriptorSetLayout(device_, shadingRateSetLayout_, nullptr);
     if (shadow_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, shadow_, nullptr);
     if (shadowLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, shadowLayout_, nullptr);
     if (sceneLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, sceneLayout_, nullptr);
