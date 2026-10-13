@@ -18221,7 +18221,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Lanes: ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-132125/frame.png
 
-- 📋 [UTA-0333] **urender: cut the fog pass's per-light cost, the largest single step on DM-Bishop.**
+- 🚧 [UTA-0333] **urender: cut the fog pass's per-light cost, the largest single step on DM-Bishop.**
   UTA-0323, 2026-10-07, r44 bakes, ultra 3840x2160, RX 6600, alternated
   in one job: switching off fog_scatter.comp's cluster haze loop saves
   ~5 ms of DM-Bishop's ~19 ms frame (Closer ~2, Crane ~1). Bishop has no
@@ -18232,6 +18232,27 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   before choosing: count lights per froxel first; update half the froxels
   a frame and reproject; keep only each froxel's brightest few lights;
   read a coarser shadow-map mip for haze.
+  Progress (2026-10-13). r53 bakes of Bishop, Closer, Crane; ultra
+  3840x2160, RX 6600, UTA-0323's fly cameras, each probe twice between
+  baselines in one job, still-frame median. Saved, Bishop / Closer /
+  Crane: no haze loop 3.8 / 1.5 / 1 ms; no shadow reads 2.4 / 1 / 1;
+  first 4 shadowed lights per froxel 3.6 / 1.4 / 1; first 8 1.9 / 1 /
+  0.5; every other 4x4x4 group skipped (a bound for half-rate update)
+  1.4 / 1.8 / 0.7. Shadow reads are most of the cost. A cap is out:
+  worst view moved past 8/255 at cap 4 0.9% / 36% / 9%, at cap 8
+  0% / 31% / 0.6% (ut-shot 1920x1080). Skipping alternate THREADS saved
+  nothing: a wave runs the loop for its busiest thread. Clusters
+  (16x8x24) are much larger than froxels, so a wave shares one list:
+  UTA-0325's subgroup trick does not apply.
+  Round 3 (2026-10-13): skipping a light's shadow read when its
+  unshadowed share is under 2% (or 5%) of the froxel's haze so far
+  moved no pixel past 8/255 on any view, and saved nothing measurable
+  on any of the three maps. What is left is larger work with small
+  ceilings: a cheaper shadow read for haze (at most the 2.4 ms that no
+  shadow reads saves on Bishop, ~1 ms elsewhere), or updating half the
+  froxels a frame with reprojection (at most ~1.4 ms on Bishop, before
+  the reprojection's own cost). Probe patch:
+  /mnt/Emulators/uta-scratch/u333/probe.patch.
   **Layman:** The haze that shows light beams costs a quarter of the time on the slowest map; find a cheaper way to work it out.
   Kind: perf.
   Source: user-request-2026-10-06.
