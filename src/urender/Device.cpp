@@ -23,7 +23,7 @@ struct Requirement {
 
 /// SS 4.4's table, in its order. The first a device fails is the one its
 /// refusal names.
-const std::array<Requirement, 12> REQUIREMENTS = {{
+const std::array<Requirement, 13> REQUIREMENTS = {{
     {"Vulkan 1.3", [](const DeviceCandidate& c) { return c.apiVersion >= VK_API_VERSION_1_3; }},
     {"a graphics queue", [](const DeviceCandidate& c) { return c.graphicsQueue; }},
     {"present support on its graphics queue",
@@ -44,6 +44,11 @@ const std::array<Requirement, 12> REQUIREMENTS = {{
      [](const DeviceCandidate& c) { return c.v12.descriptorBindingVariableDescriptorCount == VK_TRUE; }},
     {"textureCompressionBC",
      [](const DeviceCandidate& c) { return c.core.textureCompressionBC == VK_TRUE; }},
+    {"subgroup ballot in the fragment stage",
+     [](const DeviceCandidate& c) {
+         return (c.subgroupStages & VK_SHADER_STAGE_FRAGMENT_BIT) != 0
+                && (c.subgroupOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT) != 0;
+     }},
 }};
 
 int preference(VkPhysicalDeviceType type) noexcept {
@@ -117,6 +122,14 @@ DeviceCandidate describe(VkPhysicalDevice device, VkSurfaceKHR surface) {
     if (properties.apiVersion >= VK_API_VERSION_1_3) {
         vkGetPhysicalDeviceFeatures2(device, &features);
         candidate.core = features.features;
+        VkPhysicalDeviceVulkan11Properties v11{};
+        v11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES;
+        VkPhysicalDeviceProperties2 properties2{};
+        properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        properties2.pNext = &v11;
+        vkGetPhysicalDeviceProperties2(device, &properties2);
+        candidate.subgroupStages = v11.subgroupSupportedStages;
+        candidate.subgroupOperations = v11.subgroupSupportedOperations;
     }
     candidate.v12.pNext = nullptr;
     candidate.v13.pNext = nullptr;

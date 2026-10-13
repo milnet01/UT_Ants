@@ -405,6 +405,7 @@ device lacking any one of them:
 | `shaderDemoteToHelperInvocation` | `VkPhysicalDeviceVulkan13Features` | `glslc` targeting Vulkan 1.3 compiles `discard` — § 4.5's masked alpha — to `OpDemoteToHelperInvocation`. Found by the validation layer on the presenting path's hand run |
 | `runtimeDescriptorArray`, `shaderSampledImageArrayNonUniformIndexing`, `descriptorBindingPartiallyBound`, `descriptorBindingVariableDescriptorCount` | `VkPhysicalDeviceVulkan12Features` | § 4.5's bindless material array |
 | `textureCompressionBC` | `VkPhysicalDeviceFeatures` | the bundle stores BC4, BC5 and BC7 and nothing else — `ubundle::BlockFormat` |
+| `VK_SHADER_STAGE_FRAGMENT_BIT` in `subgroupSupportedStages`, `VK_SUBGROUP_FEATURE_BALLOT_BIT` in `subgroupSupportedOperations` | `VkPhysicalDeviceVulkan11Properties` | `UTA-0325`: `scene.frag` reads a level fragment's lights one mask chart at a time across the subgroup. Mesa's CPU driver and RADV report both (`vulkaninfo`, 2026-10-13) |
 
 **Read the feature bit, never the extension string** — except for
 `VK_KHR_swapchain`, which has no feature bit. A sibling project states

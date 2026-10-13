@@ -15984,7 +15984,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 📋 [UTA-0325] **urender: make the cluster light loop scalar on AMD-style hardware.**
+- 🚧 [UTA-0325] **urender: read a level surface's lights once per wave, not once per pixel.**
   UTA-0323: with shadows off, DM-Bishop still took ~27 ms against
   ~12 ms with no lights at all, so the light loop itself is a cost.
   Neighbouring pixels share a cluster, so the light index is the same
@@ -15995,6 +15995,20 @@ stays with movement in 0.2.0.
   Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
   § UTA-0325 -- three loop shapes, with Drobot 2017's numbers and the
   fallback a device without subgroup ops needs.
+  Measured (2026-10-13, RX 6600, High, 2880x1620, UTA-0352's six
+  slow maps, one job): since UTA-0326 a level surface lights from its
+  mask chart's pairs, so the cluster loop serves only movers, actors
+  and the sky room. Forcing its count to 0 moved no map past the gap
+  between two base runs. Skipping the chart pair loop saved 2.1 to
+  5.8 ms, lighting included. So the chart loop is the one made
+  scalar: scene.frag takes one chart at a time across the subgroup
+  (subgroupBroadcastFirst). 48 ut-shot views byte-identical. Worst
+  view median, base / new, two runs each: SimpleX 22.8-23.0 /
+  21.3-21.7, ArchNemesis 17.9 / 16.5-16.6, SchoolDamage 15.8-15.9 /
+  15.0-15.1, InversalLiandri 16.2-16.3 / 15.7-15.8; Styx and
+  ArcticSiege within noise. Needs subgroup ballot in the fragment
+  stage, now a UTA-0014 SS 4.4 device requirement (lavapipe and RADV
+  report it). Scratch: ~/.cache/uta-scratch/u325.
   **Layman:** Let the graphics card fetch each light once for a group of pixels instead of once per pixel.
   Kind: perf.
   Source: user-request-2026-10-06.

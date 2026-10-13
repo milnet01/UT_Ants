@@ -46,6 +46,10 @@ struct DeviceCandidate {
     VkPhysicalDeviceFeatures core{};
     VkPhysicalDeviceVulkan12Features v12{};
     VkPhysicalDeviceVulkan13Features v13{};
+    /// UTA-0325: the stages and operations subgroups support, from
+    /// `VkPhysicalDeviceVulkan11Properties` -- properties, not feature bits.
+    VkShaderStageFlags subgroupStages = 0;
+    VkSubgroupFeatureFlags subgroupOperations = 0;
 };
 
 /// The first SS 4.4 requirement `candidate` fails, in that table's order, or

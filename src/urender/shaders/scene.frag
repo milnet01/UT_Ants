@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_KHR_shader_subgroup_ballot : require
 
 // The forward pass's shading -- UTA-0014 SS 4.5 to SS 4.10, with UTA-0040's
 // parallax occlusion.
@@ -377,23 +378,31 @@ void main() {
             // UTA-0326 SS 4.5: a level fragment lights from its chart's pairs
             // in place of its cluster's lights, each seen through the baked
             // mask -- or the shadow map, where a mover can come between.
-            MaskChart chart = maskCharts[maskChart];
-            vec2 chartSize = vec2(chart.width, chart.height);
             vec2 atlasSize = vec2(textureSize(textures[nonuniformEXT(frame.shadowMaskTexture)], 0));
-            for (uint k = 0u; k < chart.pairCount; ++k) {
-                MaskPair pair = maskPairs[chart.firstPair + k];
-                Light light = lights[pair.light];
-                vec3 lit = lightAt(light, worldPosition, n);
-                if (all(equal(lit, vec3(0.0)))) continue;
-                float seen = 1.0;
-                if (pair.moverReach != 0u) {
-                    seen = softShadowOf(light, worldPosition, surface);
-                } else if (pair.x != MASK_ALL_LIT) {
-                    // The border texel keeps a filtered read inside the rectangle.
-                    vec2 at = vec2(pair.x, pair.y) + clamp(maskTexel, vec2(0.5), chartSize - 0.5);
-                    seen = textureLod(textures[nonuniformEXT(frame.shadowMaskTexture)], at / atlasSize, 0.0).r;
+            // UTA-0325: one chart at a time across the subgroup, so its pairs
+            // and their lights load once for the lanes that share it rather
+            // than once a lane. Each lane still lights only from its own chart.
+            for (;;) {
+                uint chartIndex = subgroupBroadcastFirst(maskChart);
+                if (chartIndex != maskChart) continue;
+                MaskChart chart = maskCharts[chartIndex];
+                vec2 chartSize = vec2(chart.width, chart.height);
+                for (uint k = 0u; k < chart.pairCount; ++k) {
+                    MaskPair pair = maskPairs[chart.firstPair + k];
+                    Light light = lights[pair.light];
+                    vec3 lit = lightAt(light, worldPosition, n);
+                    if (all(equal(lit, vec3(0.0)))) continue;
+                    float seen = 1.0;
+                    if (pair.moverReach != 0u) {
+                        seen = softShadowOf(light, worldPosition, surface);
+                    } else if (pair.x != MASK_ALL_LIT) {
+                        // The border texel keeps a filtered read inside the rectangle.
+                        vec2 at = vec2(pair.x, pair.y) + clamp(maskTexel, vec2(0.5), chartSize - 0.5);
+                        seen = textureLod(textures[nonuniformEXT(frame.shadowMaskTexture)], at / atlasSize, 0.0).r;
+                    }
+                    direct += lit * (light.flicker * seen);
                 }
-                direct += lit * (light.flicker * seen);
+                break;
             }
             // No pair names the flashlight, which moves with the camera.
             if (frame.flashlight != NONE) {

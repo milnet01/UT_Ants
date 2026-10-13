@@ -37,6 +37,8 @@ DeviceCandidate qualifying(std::string name, VkPhysicalDeviceType type = VK_PHYS
     c.v12.descriptorBindingPartiallyBound = VK_TRUE;
     c.v12.descriptorBindingVariableDescriptorCount = VK_TRUE;
     c.core.textureCompressionBC = VK_TRUE;
+    c.subgroupStages = VK_SHADER_STAGE_FRAGMENT_BIT;
+    c.subgroupOperations = VK_SUBGROUP_FEATURE_BALLOT_BIT;
     return c;
 }
 
@@ -66,6 +68,10 @@ const std::vector<Missing>& missingOne() {
         {"descriptorBindingVariableDescriptorCount",
          [](DeviceCandidate& c) { c.v12.descriptorBindingVariableDescriptorCount = VK_FALSE; }},
         {"textureCompressionBC", [](DeviceCandidate& c) { c.core.textureCompressionBC = VK_FALSE; }},
+        {"subgroup ballot in the fragment stage",
+         [](DeviceCandidate& c) { c.subgroupStages = VK_SHADER_STAGE_COMPUTE_BIT; }},
+        {"subgroup ballot in the fragment stage",
+         [](DeviceCandidate& c) { c.subgroupOperations = VK_SUBGROUP_FEATURE_BASIC_BIT; }},
     };
     return rows;
 }
