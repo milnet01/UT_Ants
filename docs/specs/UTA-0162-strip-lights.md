@@ -124,10 +124,12 @@ surfaces § 4.5's shadow is drawn from. **`UTA-0255` moved the call from after
 
 1. **Every field but `exportIndex`, `location` and the strip fields is
    equal** — the twelve bytes, `rotation` and the four bools.
-2. **None is excluded.** Excluded: `effect` `LE_Spotlight` (12) or
-   `LE_StaticSpot` (8); `type` `LT_BackdropLight`; `specialLit`; `brightness`
-   `0`. The first two have a direction a segment does not carry. The rest are
-   never drawn or never lit.
+2. **Each is an `LE_Cylinder` light (17) and none is excluded.** Excluded:
+   `type` `LT_BackdropLight`; `specialLit`; `brightness` `0`. Those are never
+   drawn or never lit. **`UTA-0258` narrowed this to `LE_Cylinder`**: over
+   `UTA-0334`'s 127 maps the plain rows' lamps overlap, so the original's sum
+   along a typical row is 1.8 times one lamp, and a strip as bright as one
+   halved it. Cylinder rows sum to about one lamp, the premise § 8 rests on.
 3. **They lie on one line.** The line runs through the two members furthest
    apart. Every member lies within `STRIP_LINE_TOLERANCE` of it.
 4. **No gap is too wide.** Ordered by position along the line, each
@@ -149,7 +151,7 @@ alone, so a bake stays deterministic.
 members, lower `exportIndex` first. The rest become `STRIP_ABSORBED`. No
 `location` moves.
 
-`BAKER_REVISION` becomes `12`. `UTA-0255`'s rule 5 made it `29`.
+`BAKER_REVISION` becomes `12`. `UTA-0255`'s rule 5 made it `29`. `UTA-0258`'s rule 2 made it `53`.
 
 ### 4.3 The light model
 

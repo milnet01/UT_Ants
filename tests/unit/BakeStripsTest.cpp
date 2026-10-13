@@ -25,6 +25,7 @@ using uta::ubundle::STRIP_NONE;
 
 namespace {
 
+constexpr std::uint8_t LE_NONE = 0;
 constexpr std::uint8_t LE_SPOTLIGHT = 12;
 constexpr std::uint8_t LE_CYLINDER = 17;
 constexpr std::array<float, 3> ZERO{};
@@ -94,6 +95,10 @@ TEST_CASE("INV-3: a row that breaks one rule is no strip", "[ubake][strips]") {
     }
     SECTION("a row of spotlights") {
         for (Light& light : lights) light.effect = LE_SPOTLIGHT;
+    }
+    SECTION("a row of plain lights") {
+        // UTA-0258: a plain row's lamps overlap, and their sum is the light.
+        for (Light& light : lights) light.effect = LE_NONE;
     }
     markStrips(lights, OPEN);
     for (const Light& light : lights) {

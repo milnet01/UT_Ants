@@ -18,15 +18,17 @@ namespace {
 
 /// ELightEffect's and ELightType's values -- the 432 headers'
 /// Engine/Inc/EngineClasses.h.
-constexpr std::uint8_t LE_STATIC_SPOT = 8;
-constexpr std::uint8_t LE_SPOTLIGHT = 12;
+constexpr std::uint8_t LE_CYLINDER = 17;
 constexpr std::uint8_t LT_BACKDROP_LIGHT = 6;
 
-/// SS 4.2 rule 2. A spotlight has a direction a segment does not carry; the
+/// SS 4.2 rule 2. Only LE_Cylinder lights: UTA-0258 measured plain rows over
+/// UTA-0334's 127 maps, and their lamps overlap, so the original's sum along a
+/// typical row is 1.8 times one lamp -- the strip, as bright as one, halved
+/// it. Cylinder rows sum to about one lamp, the premise SS 8 rests on. The
 /// rest are never drawn or never lit.
 bool excluded(const ubundle::Light& light) noexcept {
-    return light.effect == LE_SPOTLIGHT || light.effect == LE_STATIC_SPOT || light.type == LT_BACKDROP_LIGHT
-           || light.specialLit || light.brightness == 0;
+    return light.effect != LE_CYLINDER || light.type == LT_BACKDROP_LIGHT || light.specialLit
+           || light.brightness == 0;
 }
 
 /// SS 4.2 rule 1: every field but exportIndex, location and the strip fields.

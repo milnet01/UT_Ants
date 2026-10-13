@@ -127,9 +127,11 @@ namespace {
 // 51: UTA-0350 opens a recipe's painted sky. The fixture has no recipe, so the
 // digest did not move.
 // 52, format 28: UTA-0349 writes BAKR, naming the baker.
-constexpr std::uint32_t RECORDED_UNDER = 52;
+// 53: UTA-0258 makes strips of LE_Cylinder rows only. The fixture has one
+// light, so only BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 53;
 constexpr std::string_view GOLDEN =
-    "412303ed69016f9822ecf91aebbbc89c6896b7f38498c20d836622ba75b20a39";
+    "18c78e72d472d5748271ada129393d5858f44b843ac3f2a9af82b0246a696571";
 
 } // namespace
 

@@ -13710,6 +13710,21 @@ stays with movement in 0.2.0.
   Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
   § UTA-0258 -- Karis's line-light irradiance and representative point,
   and when to split a long row.
+  Progress (2026-10-13): measured over UTA-0334's 127 maps at r52
+  (u347 bakes): 998 strip rows in 86 maps, only 35 of them LE_Cylinder.
+  Along a plain row at 0.25 R the sum of its lamps is 1.8x the strip's
+  light (p90 2.8x), and already even (min/max 0.77); cylinder rows sum
+  to 1.07x. So the strip, as bright as one lamp, halved plain rows, and
+  spec SS 8's premise holds only for cylinders. Point 2 is mostly gone:
+  since UTA-0326 level surfaces read the baked mask, cast from litFrom;
+  the midpoint shadow map now serves only movers' pairs, meshes and fog.
+  Fix (uncommitted): Strips.cpp rule 2 takes LE_Cylinder rows only,
+  BAKER_REVISION 53, golden re-recorded, new INV-3 section (red on the
+  old detector, green now); unit 1011/1011. Spec SS 4.2 and CLAUDE.md
+  updated. Left: A/B against the original frames (scratch
+  /mnt/Emulators/uta-scratch/u258, ab.sh before/after, then
+  ut-ants-uta0197/score.py), DM-Deck16][ strip count in
+  tests/real/RealBakeTest.cpp (was 20), a frame-time check, commit.
   **Layman:** Two leftover doubts about rows of lamps treated as one long light: some rows have lamps too far apart to be one fitting, and the shadow is worked out from the middle of the row while the light comes from its nearest point.
   Kind: investigate.
   Source: in-session-2026-09-30.
@@ -15988,6 +16003,9 @@ stays with movement in 0.2.0.
   shape.
   Deferred 2026-10-11: UTA-0350 taken first, by the user's choice. Clear
   this note when picked up.
+  User decision (2026-10-13): run the audit on the next weekly
+  usage reset day, not before; the rest of 0.1.0 is worked meanwhile,
+  from UTA-0254. Clear this note when picked up.
   **Layman:** A full independent check of the code for bugs, scheduled for the day the weekly usage allowance renews.
   Kind: chore.
   Source: user-request-2026-10-06.
@@ -16357,6 +16375,8 @@ stays with movement in 0.2.0.
   system to build next from the totals; the sky-room-versus-dome check
   waits on per-zone geometry from ut-dump. Not flipped: flip only on a
   green GitHub run once that is done.
+  User decision (2026-10-13): the whole-library run (about 11 h of
+  baking) runs overnight; the user says when to start it.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
