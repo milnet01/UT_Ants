@@ -18136,9 +18136,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   surface or swapchain, not no extension). Upper bound, 2x2 shading
   everywhere on the scene pipeline, UTA-0352's six maps, High,
   2880x1620: worst-view median down 3 to 6 ms.
-  Built, UNCOMMITTED in the main tree (11 files plus new
-  src/urender/shaders/shading_rate.comp; copy at
-  ~/.cache/uta-scratch/u327/vrs.patch): optional
+  Built, kept on the local branch uta-0327-vrs (5b99593, not pushed;
+  main stays clean): optional
   VK_KHR_fragment_shading_rate attachment (DeviceCandidate,
   shadingRateTexelOf, Gpu::shadingRateTexel), Feature::CoarseShading
   at Low, opaque scene pipelines REPLACE from the attachment, and
@@ -18155,12 +18154,21 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   of pixels moved. 0.01: about 1 to 2 ms, 1.1% to 7.2%. 0.005: 0 to
   1.7 ms, 0.7% to 6.0%. Every texel-magnified surface loses its
   within-quad gradient, so even strict thresholds move pixels.
-  Open: the look/speed trade is not settled; options are a finer
-  criterion (texture detail, not colour alone), 2x2 only on very
-  flat tiles, or parking the item. Scratch: ~/.cache/uta-scratch/u327
-  (ab2.sh, sweep.sh, diff.py), worktree
-  /mnt/Games/Scripts/Linux/ut-ants-u327 (patch applied, threshold
-  0.01).
+  Open: the look/speed trade is not settled; see the parking note
+  below.
+  Parked (2026-10-13) by the stop rule: ship only a setting that
+  saves at least 1 ms of worst-view median on most of UTA-0352's six
+  maps AND moves at most 1% of pixels past 8/255 on every map. Speed
+  passes easily; the look never does. Tried: halving scene.frag's
+  texture gradients on each coarse axis (gl_ShadingRateEXT), on the
+  idea that coarse fragments pick a blurrier mip. Refuted: worst-view
+  pixels moved, per threshold 0.005 / 0.01 / 0.02, 1.4-9.7% /
+  1.8-9.3% / 1.8-8.4% (ArcticSiege worst), no better than without it;
+  saved -2.3 to 2.3 / 0.1 to 3.2 / 2.2 to 5.3 ms. The moved share does
+  not fall as the threshold tightens, so the flatness test is not
+  where the moved pixels come from; find that before any new criterion.
+  Base timings drift about 2 ms between runs. Scratch deleted.
+  Waiting-on: a cause for the pixels coarse shading moves on tiles the rate shader judged flat.
   **Layman:** Work out the colour once for a small block of pixels where nothing would look different, which newer graphics cards can do.
   Kind: perf.
   Source: user-request-2026-10-06.
