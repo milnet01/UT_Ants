@@ -18253,6 +18253,17 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   froxels a frame with reprojection (at most ~1.4 ms on Bishop, before
   the reprojection's own cost). Probe patch:
   /mnt/Emulators/uta-scratch/u333/probe.patch.
+  Built (2026-10-13, the user chose the cheaper shadow read): the haze
+  reads shadow_reduce.comp's copy of the atlas, a quarter of its side
+  (2048 at 8192), each texel the nearest depth of its 4x4 so no light
+  leaks through a wall, refreshed for every tile the shadow pass draws.
+  One imageLoad and compare replaces the filtered atlas read. Bishop
+  worst still median 15.9 to 14.6 ms (about 1.4 of the 2.4 ms ceiling),
+  Crane 0.1 ms, Closer within noise; worst view moved past 8/255 0.11%
+  / 0% / 0.12%. An eighth-size copy saved 0.1 ms more and moved 2.1%,
+  so the quarter stays. INV-7's shaft test goes red when the copy never
+  shadows (shadowed 121 = open 121). Unit 1011/1011, device 112/112 on
+  lavapipe and the RX 6600, sync validation clean.
   **Layman:** The haze that shows light beams costs a quarter of the time on the slowest map; find a cheaper way to work it out.
   Kind: perf.
   Source: user-request-2026-10-06.

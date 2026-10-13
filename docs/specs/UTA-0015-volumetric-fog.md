@@ -1,6 +1,8 @@
 # UTA-0015 — volumetric fog, light shafts and the flashlight
 
 **Status:** shipped (2026-09-15), green on the matrix. No review ran, by the user's standing instruction.
+**Amended (2026-10-13)** by `UTA-0333`: the haze reads its shadows from a
+quarter-size copy of the atlas, `hazeShadowOf`, not from the atlas itself.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0015 (design-2026-09-03).
 **Pairs with:** UTA-0164 (ambient occlusion, split out of this item).
@@ -145,10 +147,15 @@ point `x`, with `v` the unit direction from `frame.eye` to `x`:
 
 - *Haze.* Extinction `HAZE_EXTINCTION × hazeScale`. For each light of the
   cluster containing `x` that has shadow faces, or is the flashlight:
-  `lightThrough(light, x) × light.flicker × shadowOf(light, x) ×
+  `lightThrough(light, x) × light.flicker × hazeShadowOf(light, x) ×
   phase(dot(v, u)) × HAZE_SCATTER × hazeScale`, where `u` is the unit
   direction from `x` to `litFrom(light, x)`, so looking into a light is
-  forward scattering.
+  forward scattering. `hazeShadowOf` reads one texel of `shadow_reduce.comp`'s
+  copy of the atlas, a quarter of its side, each texel the nearest depth of
+  the 4 × 4 it covers. `recordFrame` refreshes the copy for every tile the
+  shadow pass draws. UTA-0333 measured DM-Bishop, ultra 3840 × 2160 on the
+  RX 6600: about 1.4 ms of a 16 ms frame saved, at most 0.12% of pixels
+  moved past 8/255 on three maps.
 - *Volumetric lights.* For each index in `VOLUME_LIGHTS`, with
   `f = lightFalloff(distance(litFrom(light, x), x), lightRadius(light.volumeRadius))`:
   in-scattering `displayedToLinear(lightColour(hue, saturation)) × brightness / 255 ×
@@ -361,7 +368,8 @@ repeat. `Cli.cpp`'s help text and `README.md` name the key.
   whose ray passes the light at the same distance unshadowed. With no lights
   and the flashlight on, the backdrop draws above zero; with it off, zero.
   *Test:* `tests/device/RenderFogTest.cpp`, new.
-  *Breaks when:* in-scattering skips `shadowOf`; the flashlight is not let
+  *Breaks when:* in-scattering skips `hazeShadowOf`, or the haze's copy of
+  the atlas is never written; the flashlight is not let
   through the shadow-faces gate.
 
 - **INV-8** — `gpu::FogConstants`' offsets, `gpu::Light`'s renamed fields and

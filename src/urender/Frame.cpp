@@ -58,6 +58,9 @@ namespace {
 constexpr VkFormat HDR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
 constexpr VkFormat VELOCITY_FORMAT = VK_FORMAT_R16G16_SFLOAT;
 constexpr VkFormat DEPTH_FORMAT = VK_FORMAT_D32_SFLOAT;
+/// UTA-0333: atlas texels per texel of the haze's copy, on each axis --
+/// shadow_reduce.comp's HAZE_SHADOW_STEP, which every tile side is a multiple of.
+constexpr std::uint32_t HAZE_SHADOW_STEP = 4;
 /// SS 4.10 names it, because a read-back pixel is compared against a literal
 /// and B8G8R8A8 would swap two channels of it without failing anything else.
 constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
@@ -420,8 +423,9 @@ struct Renderer::Impl {
     std::uint32_t flameCount = 0;
     /// UTA-0015 SS 4.3 and SS 4.4: the fog volume's images, one texel each below
     /// its tier; the volumetric lights a frame glows; the fog stages' set; and
-    /// each drawn light's zone, found once per upload.
-    Image fogScattering, fogIntegrated;
+    /// each drawn light's zone, found once per upload. UTA-0333: the haze's
+    /// copy of the shadow atlas, one texel below the fog's tier.
+    Image fogScattering, fogIntegrated, hazeShadow;
     Buffer volumeLightIndices;
     VkDescriptorSet fogSet = VK_NULL_HANDLE;
     std::vector<std::uint8_t> lightZones;
@@ -647,6 +651,9 @@ Result<void> Renderer::Impl::createFogVolumes() {
                          on ? FOG_GRID[2] : 1};
     UTA_TRY(fogScattering, Image::create(*gpu, desc));
     UTA_TRY(fogIntegrated, Image::create(*gpu, desc));
+    const std::uint32_t hazeSide = on ? shadowPlanner.detail().atlasSize / HAZE_SHADOW_STEP : 1;
+    UTA_TRY(hazeShadow, Image::create(*gpu, {VK_FORMAT_R32_SFLOAT, hazeSide, hazeSide, 1,
+                                             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
     return gpu->run([&](VkCommandBuffer commands) {
         const VkClearColorValue noFog{{0.0f, 0.0f, 0.0f, 1.0f}};
         const VkImageSubresourceRange everything{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
@@ -654,6 +661,11 @@ Result<void> Renderer::Impl::createFogVolumes() {
             image->transition(commands, VK_IMAGE_LAYOUT_GENERAL);
             vkCmdClearColorImage(commands, image->handle(), VK_IMAGE_LAYOUT_GENERAL, &noFog, 1, &everything);
         }
+        // The far plane, as the atlas is cleared: no tile is read before a
+        // frame has drawn it, and then copied it.
+        const VkClearColorValue far{{1.0f, 0.0f, 0.0f, 0.0f}};
+        hazeShadow.transition(commands, VK_IMAGE_LAYOUT_GENERAL);
+        vkCmdClearColorImage(commands, hazeShadow.handle(), VK_IMAGE_LAYOUT_GENERAL, &far, 1, &everything);
     });
 }
 
@@ -838,8 +850,8 @@ Result<void> Renderer::Impl::writeDescriptors() {
         // each post set, and one source per bloom step; then UTA-0015's fog volume.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                              textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1},
-        // UTA-0015: the fog set's two images.
-        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
+        // UTA-0015: the fog set's two images; UTA-0333's haze shadow.
+        VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -943,6 +955,15 @@ Result<void> Renderer::Impl::writeDescriptors() {
         write.pImageInfo = &fogImageInfos[i];
         writes.push_back(write);
     }
+    const VkDescriptorImageInfo hazeShadowInfo{VK_NULL_HANDLE, hazeShadow.view(), VK_IMAGE_LAYOUT_GENERAL};
+    VkWriteDescriptorSet hazeShadowWrite{};
+    hazeShadowWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    hazeShadowWrite.dstSet = fogSet;
+    hazeShadowWrite.dstBinding = 3;
+    hazeShadowWrite.descriptorCount = 1;
+    hazeShadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    hazeShadowWrite.pImageInfo = &hazeShadowInfo;
+    writes.push_back(hazeShadowWrite);
     const VkDescriptorBufferInfo volumeLightInfo{volumeLightIndices.handle(), 0, VK_WHOLE_SIZE};
     VkWriteDescriptorSet volumeLightWrite{};
     volumeLightWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1091,6 +1112,24 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
                       VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                       VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
                       VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+
+        // UTA-0333: each tile just drawn, copied into the haze's quarter-size
+        // atlas, which the fog's scatter pass reads below.
+        if (enabled(Feature::VolumetricFog, tier)) {
+            const std::array<VkDescriptorSet, 2> sets{sceneSet, fogSet};
+            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->hazeShadow());
+            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogLayout(), 0,
+                                    static_cast<std::uint32_t>(sets.size()), sets.data(), 0, nullptr);
+            for (const ShadowDraw& draw : shadows.draws) {
+                const std::array<std::uint32_t, 4> tile{draw.tile.x, draw.tile.y, draw.tile.size, 0};
+                vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(tile),
+                                   tile.data());
+                const std::uint32_t groups = (draw.tile.size / HAZE_SHADOW_STEP + 7) / 8; // local size 8 x 8
+                vkCmdDispatch(commands, groups, groups, 1);
+            }
+            memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+        }
     }
 
     // -- 0. Clustered light culling -------------------------------------------

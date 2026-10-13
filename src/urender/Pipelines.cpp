@@ -22,6 +22,7 @@
 #include "scene.frag.spv.h"
 #include "scene.vert.spv.h"
 #include "shadow.frag.spv.h"
+#include "shadow_reduce.comp.spv.h"
 #include "shadow.vert.spv.h"
 
 #include <algorithm>
@@ -644,11 +645,13 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
                     "vkCreateComputePipelines (clusters)"));
 
     // -- The fog volume (UTA-0015 SS 4.4) --------------------------------------
-    // Set 1: the scattering image, the integrated image, and VOLUME_LIGHTS.
+    // Set 1: the scattering image, the integrated image, VOLUME_LIGHTS, and
+    // UTA-0333's copy of the shadow atlas for the haze.
     const std::array fogBindings = {
         VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
     };
     VkDescriptorSetLayoutCreateInfo fogInfo{};
     fogInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -666,9 +669,10 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     fogLayoutInfo.pPushConstantRanges = &fogRange;
     UTA_CHECK(check(vkCreatePipelineLayout(device, &fogLayoutInfo, nullptr, &p->fogLayout_),
                     "vkCreatePipelineLayout (fog)"));
-    Module scatterCompute{device}, integrateCompute{device};
+    Module scatterCompute{device}, integrateCompute{device}, reduceCompute{device};
     UTA_TRY(scatterCompute.handle, shaderModule(device, fog_scatter_comp_spv));
     UTA_TRY(integrateCompute.handle, shaderModule(device, fog_integrate_comp_spv));
+    UTA_TRY(reduceCompute.handle, shaderModule(device, shadow_reduce_comp_spv));
     compute.layout = p->fogLayout_;
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, scatterCompute.handle);
     UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogScatter_),
@@ -676,6 +680,9 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, integrateCompute.handle);
     UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogIntegrate_),
                     "vkCreateComputePipelines (fog integrate)"));
+    compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, reduceCompute.handle);
+    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->hazeShadow_),
+                    "vkCreateComputePipelines (haze shadow)"));
 
     const VkPushConstantRange shadowRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                           sizeof(gpu::ShadowConstants)};
@@ -700,7 +707,7 @@ Pipelines::~Pipelines() {
     if (bloomLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, bloomLayout_, nullptr);
     if (bloomSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, bloomSetLayout_, nullptr);
     if (clusters_ != VK_NULL_HANDLE) vkDestroyPipeline(device_, clusters_, nullptr);
-    for (VkPipeline pipeline : {fogScatter_, fogIntegrate_})
+    for (VkPipeline pipeline : {fogScatter_, fogIntegrate_, hazeShadow_})
         if (pipeline != VK_NULL_HANDLE) vkDestroyPipeline(device_, pipeline, nullptr);
     if (fogLayout_ != VK_NULL_HANDLE) vkDestroyPipelineLayout(device_, fogLayout_, nullptr);
     if (fogSetLayout_ != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device_, fogSetLayout_, nullptr);

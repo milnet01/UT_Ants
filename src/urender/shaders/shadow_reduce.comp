@@ -1,0 +1,33 @@
+#version 450
+
+// UTA-0333: the haze's copy of the shadow atlas, a quarter of its side. Each
+// texel holds the nearest depth of the 4 x 4 atlas texels it covers, so a
+// block holding any occluder shadows the haze behind it and no light leaks
+// through a wall. fog_scatter.comp reads this where it read the atlas: the
+// whole atlas is too large for the card's caches, and haze has no edge to see.
+// Run once per tile the shadow pass drew, so the copy keeps the atlas's tiles.
+
+// The atlas, fetched and never compared: scene_bindings.glsl's binding.
+layout(set = 0, binding = 16) uniform sampler2D atlas;
+layout(set = 1, binding = 3, r32f) uniform writeonly image2D hazeShadow;
+
+// The tile just drawn: x, y and side, in atlas texels.
+layout(push_constant) uniform TileBlock {
+    uvec4 tile;
+} block;
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// Atlas texels per copy texel, on each axis. Every tile side is a multiple.
+const uint HAZE_SHADOW_STEP = 4u;
+
+void main() {
+    uvec2 local = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(local, uvec2(block.tile.z / HAZE_SHADOW_STEP)))) return;
+    ivec2 at = ivec2(block.tile.xy / HAZE_SHADOW_STEP + local);
+    ivec2 from = at * int(HAZE_SHADOW_STEP);
+    float nearest = 1.0;
+    for (int y = 0; y < int(HAZE_SHADOW_STEP); ++y)
+        for (int x = 0; x < int(HAZE_SHADOW_STEP); ++x) nearest = min(nearest, texelFetch(atlas, from + ivec2(x, y), 0).r);
+    imageStore(hazeShadow, at, vec4(nearest));
+}

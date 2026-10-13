@@ -80,6 +80,9 @@ public:
     [[nodiscard]] VkPipelineLayout fogLayout() const noexcept { return fogLayout_; }
     [[nodiscard]] VkPipeline fogScatter() const noexcept { return fogScatter_; }
     [[nodiscard]] VkPipeline fogIntegrate() const noexcept { return fogIntegrate_; }
+    /// UTA-0333: the haze's copy of one drawn shadow tile, on the fog layout with
+    /// the tile pushed in place of FogConstants.
+    [[nodiscard]] VkPipeline hazeShadow() const noexcept { return hazeShadow_; }
     /// SS 4.8's tile pass: depth only, over the scene set with its own push constants.
     [[nodiscard]] VkPipeline shadow() const noexcept { return shadow_; }
     [[nodiscard]] VkPipelineLayout shadowLayout() const noexcept { return shadowLayout_; }
@@ -110,7 +113,7 @@ private:
     VkPipeline clusters_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout fogSetLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout fogLayout_ = VK_NULL_HANDLE;
-    VkPipeline fogScatter_ = VK_NULL_HANDLE, fogIntegrate_ = VK_NULL_HANDLE;
+    VkPipeline fogScatter_ = VK_NULL_HANDLE, fogIntegrate_ = VK_NULL_HANDLE, hazeShadow_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowLayout_ = VK_NULL_HANDLE;
     VkPipeline shadow_ = VK_NULL_HANDLE;
 };

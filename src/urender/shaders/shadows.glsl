@@ -67,23 +67,13 @@ vec3 shadowStep(ShadowFace shadow, vec4 clip, vec3 d, vec2 atlasSize) {
 
 // One filtered compare at `uv`, kept half a texel inside the tile so filtering
 // never reads a neighbour's. UTA-0175: the atlas's size is the tier's, so it
-// is read off the atlas. An explicit level: UTA-0015's fog pass reads shadows
-// from a compute shader, which has no derivatives. The atlas has one level
-// either way.
+// is read off the atlas. An explicit level, so no derivatives are needed: the
+// atlas has one level. UTA-0333: the fog pass reads its own quarter-size copy
+// instead (fog_scatter.comp's hazeShadowOf).
 float shadowTap(vec4 rect, vec2 uv, float depth) {
     vec2 halfTexel = 0.5 / vec2(textureSize(shadowAtlas, 0));
     uv = clamp(uv, rect.xy + halfTexel, rect.xy + rect.zw - halfTexel);
     return textureLod(shadowAtlas, vec3(uv, depth), 0.0);
-}
-
-// One read. The fog pass's: haze has no edge to see.
-float shadowOf(Light light, vec3 x) {
-    ShadowFace shadow;
-    vec4 clip;
-    vec2 uv;
-    float depth;
-    if (!shadowLookup(light, x, shadow, clip, uv, depth)) return 1.0;
-    return shadowTap(shadow.atlasRect, uv, depth);
 }
 
 // UTA-0307: nine reads, for a surface, whose edges are seen up close. Each is

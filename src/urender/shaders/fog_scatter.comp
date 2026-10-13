@@ -17,6 +17,8 @@
 
 layout(set = 1, binding = 0, rgba16f) uniform writeonly image3D scattering;
 layout(set = 1, binding = 2) readonly buffer VolumeLightBlock { uint volumeLights[]; };
+// UTA-0333: shadow_reduce.comp's copy of the atlas.
+layout(set = 1, binding = 3, r32f) uniform readonly image2D hazeShadow;
 
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
@@ -37,6 +39,22 @@ float waterShafts(vec2 p, float t) {
     float n = 0.6 * flameNoise(q + vec2(0.13, 0.07) * t, 41u) + 0.4 * flameNoise(q * 2.3 - vec2(0.05, 0.11) * t, 42u);
     float n3 = n * n * n;
     return 7.0 * n3 * n3;
+}
+
+// UTA-0333: how lit `x` is by `light`, from one texel of the haze's copy of
+// the atlas -- the nearest depth of the 4 x 4 atlas texels it covers -- kept
+// inside the light's tile. Haze has no edge to see.
+float hazeShadowOf(Light light, vec3 x) {
+    ShadowFace shadow;
+    vec4 clip;
+    vec2 uv;
+    float depth;
+    if (!shadowLookup(light, x, shadow, clip, uv, depth)) return 1.0;
+    vec2 size = vec2(imageSize(hazeShadow));
+    ivec2 first = ivec2(shadow.atlasRect.xy * size + 0.5);
+    ivec2 last = ivec2((shadow.atlasRect.xy + shadow.atlasRect.zw) * size + 0.5) - 1;
+    ivec2 at = clamp(ivec2(uv * size), first, last);
+    return depth <= imageLoad(hazeShadow, at).r ? 1.0 : 0.0;
 }
 
 void main() {
@@ -67,7 +85,7 @@ void main() {
             vec3 toLight = litFrom(light, x) - x;
             float d = length(toLight);
             float cosTheta = d > 0.0 ? dot(v, toLight / d) : 1.0;
-            haze += lightThrough(light, x) * (light.flicker * shadowOf(light, x) * phaseOf(cosTheta));
+            haze += lightThrough(light, x) * (light.flicker * hazeShadowOf(light, x) * phaseOf(cosTheta));
         }
         float share = HAZE_SCATTER * fog.hazeScale + (water ? WATER_SCATTER * waterShafts(x.xy, frame.flameSeconds) : 0.0);
         scattered += haze * share;
