@@ -15984,7 +15984,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 🚧 [UTA-0325] **urender: read a level surface's lights once per wave, not once per pixel.**
+- ✅ [UTA-0325] **urender: read a level surface's lights once per wave, not once per pixel.**
   UTA-0323: with shadows off, DM-Bishop still took ~27 ms against
   ~12 ms with no lights at all, so the light loop itself is a cost.
   Neighbouring pixels share a cluster, so the light index is the same
@@ -16009,6 +16009,8 @@ stays with movement in 0.2.0.
   ArcticSiege within noise. Needs subgroup ballot in the fragment
   stage, now a UTA-0014 SS 4.4 device requirement (lavapipe and RADV
   report it). Scratch: ~/.cache/uta-scratch/u325.
+  Shipped (2026-10-13): 6d7be12, local gate green on GCC 14, Clang
+  19 and MSVC; GitHub run 38376669459 green on all three legs.
   **Layman:** Let the graphics card fetch each light once for a group of pixels instead of once per pixel.
   Kind: perf.
   Source: user-request-2026-10-06.
