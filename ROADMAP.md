@@ -20302,13 +20302,18 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: user-request-2026-10-06.
   Lanes: ut-ants, unet.
 
-- 📋 [UTA-0351] **ut-bench times each render pass on the GPU.**
+- ✅ [UTA-0351] **ut-bench times each render pass on the GPU.**
   UTA-0039's survey found which maps are slow but cannot say why:
   ut-bench frame reports only a whole frame's GPU time, and nothing in
   src/ writes a Vulkan timestamp. Add timestamp queries around each
   pass (shadow tiles, light clustering, the main draw, fog, bloom,
   post) and report each pass's median per view beside the frame's.
   Needed by UTA-0352.
+  Shipped (2026-10-13): 208cbcb. The renderer stamps the GPU's clock
+  between shadows, clusters, fog, scene, bloom and post; FrameStats
+  carries each step's time and ut-bench frame prints each step's median
+  per view, per move and in all. GitHub run 38412635393 green on GCC 14,
+  Clang 19 and MSVC. Device tier 113/113 on lavapipe and RX 6600.
   **Layman:** Let the benchmark say which drawing step makes a slow map slow, so we fix the right thing.
   Kind: feature.
   Source: in-session-2026-10-11.
