@@ -98,7 +98,8 @@ build/tools/ut-bench/ut-bench frame --cameras <file> --tier ultra --size 3840x21
 ```
 
 A capture folder's `camera.txt` is one camera line. Compare on the median and
-the 99th percentile.
+the 99th percentile. Each view also shows each step's median GPU time —
+shadows, clusters, fog, scene, bloom and post (`UTA-0351`).
 
 **`ut-compare` puts the original game's frame beside ours, from the same
 camera** (`UTA-0306`). It runs the original client headless, then draws ours

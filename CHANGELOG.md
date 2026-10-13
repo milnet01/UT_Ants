@@ -14,6 +14,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-bench says which drawing step a frame's time goes to** (UTA-0351)
+  Beside each view's frame time it prints the GPU's own time for the
+  shadows, the light clustering, the fog, the main draw, the bloom and
+  the final image, so a slow map's cost can be pinned on one step.
+
 - **A map's recipe can switch the map's own lights off, and MH-!SD0!ForbiddenMansion is lit by lamps at its lanterns instead of flood lights** (UTA-0308)
   Seven lights that flooded the mansion evenly are switched off, and a
   lamp at each of its lanterns lights the rooms around it. With added

@@ -177,6 +177,36 @@ TEST_CASE("SS 4.8: a still frame draws its tiles once and keeps showing the shad
     CHECK(second == first);
 }
 
+TEST_CASE("UTA-0351: the GPU times each step of a frame, and the shadow step costs what its tiles do", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    const uta::ubundle::Bundle blocked = squareLitBy(pointAt({60, 60, 0}), true, 30, 0);
+    const auto shadows = static_cast<std::size_t>(uta::urender::GpuPass::Shadows);
+
+    (void)redAt(renderer, blocked, {80, 32});
+    const uta::urender::FrameStats drawing = renderer.lastFrameStats();
+    (void)redAt(renderer, blocked, {80, 32});
+    const uta::urender::FrameStats keeping = renderer.lastFrameStats();
+    // Lavapipe and every GPU this project tests on keep timestamps.
+    REQUIRE(drawing.passesTimed);
+    REQUIRE(keeping.passesTimed);
+    CHECK(drawing.renderedShadowTiles == 6u);
+    CHECK(keeping.renderedShadowTiles == 0u);
+    for (const uta::urender::FrameStats& stats : {drawing, keeping}) {
+        double sum = 0;
+        for (const double milliseconds : stats.passMilliseconds) {
+            CHECK(milliseconds >= 0);
+            sum += milliseconds;
+        }
+        // The steps run inside the submission the frame's wall time covers.
+        CAPTURE(sum, stats.frameMilliseconds);
+        CHECK(sum > 0);
+        CHECK(sum <= stats.frameMilliseconds);
+    }
+    CAPTURE(drawing.passMilliseconds[shadows], keeping.passMilliseconds[shadows]);
+    CHECK(drawing.passMilliseconds[shadows] > keeping.passMilliseconds[shadows]);
+}
+
 TEST_CASE("UTA-0307: a shadow edge slanting across the atlas texels is a straight line", "[device]") {
     // DM-Deck16]['s slime: an edge running diagonally over the shadow map's
     // texels followed them in a sawtooth, because a surface read the map once.

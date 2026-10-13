@@ -9,6 +9,7 @@
 #include "urender/Renderer.h"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstdint>
@@ -170,6 +171,15 @@ urender::Camera between(const urender::Camera& from, const urender::Camera& to, 
 struct Timed {
     std::vector<double> milliseconds;
     std::uint64_t shadowTiles = 0;
+    /// UTA-0351: each step's GPU time a frame, empty where the queue kept none.
+    std::array<std::vector<double>, urender::GPU_PASS_COUNT> passes;
+
+    void add(const Timed& other) {
+        milliseconds.insert(milliseconds.end(), other.milliseconds.begin(), other.milliseconds.end());
+        shadowTiles += other.shadowTiles;
+        for (std::size_t pass = 0; pass < passes.size(); ++pass)
+            passes[pass].insert(passes[pass].end(), other.passes[pass].begin(), other.passes[pass].end());
+    }
 };
 
 std::string fixed(double value) { return std::format("{:.3f}", value); }
@@ -180,13 +190,27 @@ void writeTimed(std::ostream& out, const Timed& timed) {
         timed.milliseconds.empty() ? 0 : static_cast<double>(timed.shadowTiles) / static_cast<double>(timed.milliseconds.size());
     out << "\"milliseconds\": {\"min\": " << fixed(spread.min) << ", \"median\": " << fixed(spread.median)
         << ", \"p99\": " << fixed(spread.p99) << ", \"max\": " << fixed(spread.max) << "}, \"shadowTiles\": "
-        << fixed(tiles);
+        << fixed(tiles) << ", \"passes\": ";
+    if (timed.passes[0].empty()) {
+        out << "null";
+        return;
+    }
+    out << '{';
+    for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass)
+        out << (pass == 0 ? "" : ", ") << '"' << urender::GPU_PASS_NAMES[pass]
+            << "\": " << fixed(detail::frameSpreadOf(timed.passes[pass]).median);
+    out << '}';
 }
 
 void tableRow(std::ostream& err, std::string_view what, const Timed& timed) {
     const detail::FrameSpread spread = detail::frameSpreadOf(timed.milliseconds);
     err << std::format("  {:<28} median {:8.3f} ms   99th {:8.3f}   slowest {:8.3f}   over {} frame(s)\n", what,
                        spread.median, spread.p99, spread.max, timed.milliseconds.size());
+    if (timed.passes[0].empty()) return;
+    err << "    median by step:";
+    for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass)
+        err << std::format("  {} {:.3f}", urender::GPU_PASS_NAMES[pass], detail::frameSpreadOf(timed.passes[pass]).median);
+    err << " ms\n";
 }
 
 } // namespace
@@ -252,6 +276,9 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
             const urender::FrameStats stats = renderer.lastFrameStats();
             into->milliseconds.push_back(stats.frameMilliseconds);
             into->shadowTiles += stats.renderedShadowTiles;
+            if (stats.passesTimed)
+                for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass)
+                    into->passes[pass].push_back(stats.passMilliseconds[pass]);
         }
         return true;
     };
@@ -270,14 +297,8 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     }
 
     Timed allStill, allMoving;
-    for (const Timed& timed : still) {
-        allStill.milliseconds.insert(allStill.milliseconds.end(), timed.milliseconds.begin(), timed.milliseconds.end());
-        allStill.shadowTiles += timed.shadowTiles;
-    }
-    for (const Timed& timed : moving) {
-        allMoving.milliseconds.insert(allMoving.milliseconds.end(), timed.milliseconds.begin(), timed.milliseconds.end());
-        allMoving.shadowTiles += timed.shadowTiles;
-    }
+    for (const Timed& timed : still) allStill.add(timed);
+    for (const Timed& timed : moving) allMoving.add(timed);
 
     out << "{\"schema\": 1, \"workload\": \"frame\", ";
     detail::writeMachineAndBuild(out, build, load);

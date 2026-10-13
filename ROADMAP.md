@@ -20333,6 +20333,13 @@ docs/standards/versioning-overrides.md. Closes S8.
   list to close. Scratch (cameras, scripts, results):
   ~/.cache/uta-scratch/u039.
   Dependencies: UTA-0351.
+  Progress (2026-10-13): UTA-0351's first per-step run, RX 6600, High,
+  3840x2160, fresh r53 bakes, the survey's cameras, machine loaded (load
+  average 15-18), so a shape and not a figure. Still-frame medians, ms:
+  DM-FoT-SimpleX frame 24.0, scene 9.8, clusters 7.7, fog 2.8, bloom 0.5,
+  post 0.3; DM-ArchNemesis frame 22.6, scene 13.0, clusters 5.3, fog 2.8,
+  bloom 0.4, post 0.4. Light clustering costs 5-11 ms on both: the first
+  lead. Scratch: /mnt/Emulators/uta-scratch/u351 (run.sh, bakes, JSON).
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.

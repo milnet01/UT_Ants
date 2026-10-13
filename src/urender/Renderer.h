@@ -104,6 +104,16 @@ struct Camera {
     bool flashlight = false; ///< UTA-0015 SS 4.5: a spotlight from the eye
 };
 
+/// UTA-0351: the steps of a frame the GPU's clock times, in the order drawn.
+/// Shadows holds UTA-0333's copy of the tiles into the haze's atlas; Scene the
+/// depth, opaque, translucent and flame passes; Post the output stage,
+/// upscaling included. A light's fire upload and the blit out are in none.
+enum class GpuPass : std::uint8_t { Shadows, Clusters, Fog, Scene, Bloom, Post };
+inline constexpr std::size_t GPU_PASS_COUNT = 6;
+/// Each step's name, lower case, indexed by GpuPass.
+inline constexpr std::array<std::string_view, GPU_PASS_COUNT> GPU_PASS_NAMES{"shadows", "clusters", "fog",
+                                                                              "scene",   "bloom",    "post"};
+
 /// What the last frame had to give up -- SS 6. Lighting and shadows degrade
 /// rather than fail, and these say by how much, so the caps can be judged
 /// against a real map rather than guessed.
@@ -117,6 +127,11 @@ struct FrameStats {
     double renderScale = 1;       ///< the scale this frame was drawn at
     double frameMilliseconds = 0; ///< the wall time of this frame's GPU work (UTA-0051 SS 4.4)
     std::uint32_t droppedVolumeLights = 0; ///< UTA-0015: glowing lights past VOLUME_LIGHT_CAPACITY
+    /// UTA-0351: each step's GPU time, indexed by GpuPass, read from the GPU's
+    /// own clock. A step the frame skipped takes about none. All zero, and
+    /// `passesTimed` false, on a queue that keeps no timestamps.
+    std::array<double, GPU_PASS_COUNT> passMilliseconds{};
+    bool passesTimed = false;
 };
 
 class Renderer {

@@ -324,12 +324,14 @@ Standard output is one JSON object; standard error carries a table.
  "stillFrames": 60, "moveFrames": 120,
  "views": [{"camera": "<its line>",
             "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
-            "shadowTiles": 0.0}],
+            "shadowTiles": 0.0,
+            "passes": {"shadows": 0.0, "clusters": 0.0, "fog": 0.0,
+                       "scene": 0.0, "bloom": 0.0, "post": 0.0}}],
  "moves": [{"from": 0, "to": 1,
             "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
-            "shadowTiles": 0.0}],
- "still": {"milliseconds": {}, "shadowTiles": 0.0},
- "moving": {"milliseconds": {}, "shadowTiles": 0.0}}
+            "shadowTiles": 0.0, "passes": {}}],
+ "still": {"milliseconds": {}, "shadowTiles": 0.0, "passes": {}},
+ "moving": {"milliseconds": {}, "shadowTiles": 0.0, "passes": {}}}
 ```
 
 - `machine` and `build` are § 4.3's.
@@ -338,6 +340,12 @@ Standard output is one JSON object; standard error carries a table.
   largest.
 - `shadowTiles` is the mean of `FrameStats::renderedShadowTiles` over the
   frames.
+- `passes` (`UTA-0351`) is each step's median GPU time in milliseconds, from
+  `FrameStats::passMilliseconds`, named by `urender::GPU_PASS_NAMES`. The
+  GPU's own clock is stamped between the steps, so it leaves out the submit
+  and the wait that `milliseconds` holds, and the steps sum to less. It is
+  `null` on a queue that keeps no timestamps. The table prints the same
+  medians under each row.
 - `still` and `moving` are over every still frame and every moving frame.
 - Compare frames on the median and the 99th percentile. The smallest says
   little: one fast frame does not make a view smooth.

@@ -99,6 +99,10 @@ TEST_CASE("UTA-0129 INV-9: ut-bench frame draws each view and each move and says
     // Each view, each move, and the two totals carry the four figures.
     CHECK(count(json, "\"p99\": ") == 3 + 2 + 2);
     CHECK(count(json, "\"shadowTiles\": ") == 3 + 2 + 2);
+    // UTA-0351: and each step's median, named, on a device that keeps timestamps.
+    CHECK(count(json, "\"passes\": {\"shadows\": ") == 3 + 2 + 2);
+    CHECK(count(json, ", \"post\": ") == 3 + 2 + 2);
+    CHECK(count(err.str(), "median by step:  shadows ") == 3 + 2 + 2);
     CHECK(count(err.str(), "over 3 frame(s)") == 3);
     CHECK(count(err.str(), "over 4 frame(s)") == 2);
     CHECK(count(err.str(), "over 9 frame(s)") == 1);

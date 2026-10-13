@@ -491,12 +491,18 @@ struct Renderer::Impl {
     double renderScale = 1;
     double drawnScale = 1;
     double averagedMilliseconds = 0;
+    /// UTA-0351: GPU_PASS_COUNT + 1 timestamps a frame, the steps' bounds;
+    /// null on a queue that keeps none. A tick's length, and the bits it keeps.
+    VkQueryPool passTimes = VK_NULL_HANDLE;
+    double timestampNanoseconds = 0;
+    std::uint64_t timestampMask = 0;
 
     ~Impl() {
         if (!gpu) return;
         const VkDevice device = gpu->device();
         vkDeviceWaitIdle(device);
         if (pool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, pool, nullptr);
+        if (passTimes != VK_NULL_HANDLE) vkDestroyQueryPool(device, passTimes, nullptr);
         for (VkSampler sampler : {materialSampler, nearestSampler, shadowSampler, bloomSampler})
             if (sampler != VK_NULL_HANDLE) vkDestroySampler(device, sampler, nullptr);
     }
@@ -515,6 +521,7 @@ struct Renderer::Impl {
         return true;
     }
     Result<void> createSamplers();
+    Result<void> createPassTimes();
     Result<void> createStandIns();
     Result<void> createFogVolumes();
     Result<void> upload(const ubundle::Bundle& bundle);
@@ -619,6 +626,27 @@ Result<void> Renderer::Impl::createSamplers() {
     info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     return check(vkCreateSampler(gpu->device(), &info, nullptr, &shadowSampler), "vkCreateSampler");
+}
+
+Result<void> Renderer::Impl::createPassTimes() {
+    std::uint32_t familyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical(), &familyCount, nullptr);
+    std::vector<VkQueueFamilyProperties> families(familyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical(), &familyCount, families.data());
+    const std::uint32_t validBits = families.at(gpu->queueFamily()).timestampValidBits;
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(gpu->physical(), &properties);
+    if (validBits == 0 || !(properties.limits.timestampPeriod > 0)) {
+        UTA_LOG(logRender, LogLevel::Info, "the queue keeps no timestamps, so no step of a frame is timed");
+        return {};
+    }
+    timestampNanoseconds = properties.limits.timestampPeriod;
+    timestampMask = validBits >= 64 ? ~std::uint64_t{0} : (std::uint64_t{1} << validBits) - 1;
+    VkQueryPoolCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    info.queryCount = GPU_PASS_COUNT + 1;
+    return check(vkCreateQueryPool(gpu->device(), &info, nullptr, &passTimes), "vkCreateQueryPool");
 }
 
 Result<void> Renderer::Impl::createStandIns() {
@@ -1048,6 +1076,14 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     const VkViewport regionViewport{0, 0, static_cast<float>(region.width), static_cast<float>(region.height), 0, 1};
     const VkRect2D regionScissor{{0, 0}, region};
 
+    // UTA-0351: a timestamp at each step's end, once everything before it is done.
+    if (passTimes != VK_NULL_HANDLE) vkCmdResetQueryPool(commands, passTimes, 0, GPU_PASS_COUNT + 1);
+    const auto stamp = [&](std::uint32_t bound) {
+        if (passTimes != VK_NULL_HANDLE)
+            vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, passTimes, bound);
+    };
+    stamp(0);
+
     // -- Shadow tiles: only those this frame's plan says to draw (SS 4.8) ------
     // Run for a level with no geometry too: the plan counts its tiles as drawn,
     // so each is at least cleared, and nothing it says is drawn is left stale.
@@ -1131,6 +1167,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
         }
     }
+    stamp(1);
 
     // -- 0. Clustered light culling -------------------------------------------
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->clusters());
@@ -1141,6 +1178,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                   VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+    stamp(2);
 
     // -- 0.5. The fog volume (UTA-0015 SS 4.3) ----------------------------------
     // Each froxel's light and extinction from the lists just culled, then each
@@ -1164,6 +1202,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
                       VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     }
+    stamp(3);
 
     // -- 1. The forward pass --------------------------------------------------
     hdr.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1320,6 +1359,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         }
         vkCmdEndRendering(commands);
     }
+    stamp(4);
 
     // -- 3. Emissive bloom (UTA-0053) -----------------------------------------
     // Down the chain from the emission target, then back up it, each upsample
@@ -1379,6 +1419,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         // post.frag reads nothing from it at strength 0, but its set still names it.
         bloom[0].transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
+    stamp(5);
 
     // -- 4. The output stage ---------------------------------------------------
     // A frame drawn at full size is tone mapped straight into `output`. A
@@ -1431,6 +1472,8 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         upscaled.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         fullTargetPass(output, pipelines->rcas(), rcasSet, false);
     }
+    static_assert(GPU_PASS_COUNT == 6, "each GpuPass ends at one of the stamps above");
+    stamp(6);
 
     // -- 5. The UI composite seam ----------------------------------------------
     compositeUi(commands);
@@ -1483,6 +1526,7 @@ Result<Renderer> Renderer::create(const Config& config) {
     UTA_CHECK(impl->createSamplers());
     UTA_CHECK(impl->createStandIns());
     UTA_CHECK(impl->createFogVolumes());
+    UTA_CHECK(impl->createPassTimes());
     return Renderer(std::move(impl));
 }
 
@@ -1771,6 +1815,19 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     impl.stats.tier = impl.tier;
     impl.stats.renderScale = scale;
     impl.stats.frameMilliseconds = milliseconds;
+    if (impl.passTimes != VK_NULL_HANDLE) {
+        // UTA-0351: the frame has finished, so every bound is written.
+        std::array<std::uint64_t, GPU_PASS_COUNT + 1> ticks{};
+        const VkResult read = vkGetQueryPoolResults(impl.gpu->device(), impl.passTimes, 0, GPU_PASS_COUNT + 1,
+                                                    sizeof(ticks), ticks.data(), sizeof(std::uint64_t),
+                                                    VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+        if (read == VK_SUCCESS) {
+            for (std::size_t pass = 0; pass < GPU_PASS_COUNT; ++pass)
+                impl.stats.passMilliseconds[pass] = static_cast<double>((ticks[pass + 1] - ticks[pass]) & impl.timestampMask)
+                                                    * impl.timestampNanoseconds / 1e6;
+            impl.stats.passesTimed = true;
+        }
+    }
     impl.drawnScale = scale;
     // UTA-0163: a sky face is not the player's frame, so its time steers nothing.
     if (!skyFace && impl.config.dynamicResolution && !impl.config.fixedRenderScale) {
