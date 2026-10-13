@@ -13725,6 +13725,12 @@ stays with movement in 0.2.0.
   /mnt/Emulators/uta-scratch/u258, ab.sh before/after, then
   ut-ants-uta0197/score.py), DM-Deck16][ strip count in
   tests/real/RealBakeTest.cpp (was 20), a frame-time check, commit.
+  Committed (2026-10-13, b48104d), not pushed. Against the original's
+  frames, block RMS: AS-Frigate 34.49 to 34.16, DM-Deck16][ 37.95 to
+  37.96, DM-Fetid 41.18 unchanged. DM-Deck16][ 20 strips to 14; real
+  tier 1/1, unit 1011/1011. Left: push through the gate, flip on a
+  green GitHub run. Frame time not measured; a map with many plain rows
+  is where it would show.
   **Layman:** Two leftover doubts about rows of lamps treated as one long light: some rows have lamps too far apart to be one fitting, and the shadow is worked out from the middle of the row while the light comes from its nearest point.
   Kind: investigate.
   Source: in-session-2026-09-30.
