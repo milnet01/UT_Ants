@@ -18124,13 +18124,43 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0327] **urender: shade at a coarser rate where the picture is flat, on cards that support it.**
+- 🚧 [UTA-0327] **urender: shade at a coarser rate where the picture is flat, on cards that support it.**
   Variable rate shading (VK_KHR_fragment_shading_rate): one shader
   run per 2x2 pixels where the picture is flat or blurred. RADV
   supports it on RDNA2 (the RX 6600); Phoronix measured about 8%
   overall and up to 30% with 2x2 everywhere. UTA-0323 found DM-Bishop's
   cost is per pixel, which is what this saves. Optional per card;
   measure the look on edges and text before turning it on.
+  Progress (2026-10-13). No spec: one subsystem, cheap to redo
+  (spec-format SS 1); UTA-0014 INV-4 is not broken (it promises no
+  surface or swapchain, not no extension). Upper bound, 2x2 shading
+  everywhere on the scene pipeline, UTA-0352's six maps, High,
+  2880x1620: worst-view median down 3 to 6 ms.
+  Built, UNCOMMITTED in the main tree (11 files plus new
+  src/urender/shaders/shading_rate.comp; copy at
+  ~/.cache/uta-scratch/u327/vrs.patch): optional
+  VK_KHR_fragment_shading_rate attachment (DeviceCandidate,
+  shadingRateTexelOf, Gpu::shadingRateTexel), Feature::CoarseShading
+  at Low, opaque scene pipelines REPLACE from the attachment, and
+  shading_rate.comp after the output stage: per 8x8 tile, from this
+  frame's hdr reprojected by velocity, an axis goes coarse when no
+  merged pixel pair steps more than SHADING_RATE_THRESHOLD in
+  sqrt(Reinhard(luma * EXPOSURE)). Off for sky captures; reset when a
+  new level uploads (that fixed UTA-0256 INV-7 on the GPU). Unit
+  1013/1013, device 112/112 on lavapipe and on the RX 6600.
+  No device test of the rate image yet.
+  Measured, worst-view median ms (base / new) and the share of
+  pixels moved past 8/255 in ut-shot 1920x1080 views (base against
+  base: 0 exactly). Threshold 0.02: saves 1.3 to 4.4 ms, 1.5% to 9.2%
+  of pixels moved. 0.01: about 1 to 2 ms, 1.1% to 7.2%. 0.005: 0 to
+  1.7 ms, 0.7% to 6.0%. Every texel-magnified surface loses its
+  within-quad gradient, so even strict thresholds move pixels.
+  Open: the look/speed trade is not settled; options are a finer
+  criterion (texture detail, not colour alone), 2x2 only on very
+  flat tiles, or parking the item. Scratch: ~/.cache/uta-scratch/u327
+  (ab2.sh, sweep.sh, diff.py), worktree
+  /mnt/Games/Scripts/Linux/ut-ants-u327 (patch applied, threshold
+  0.01).
   **Layman:** Work out the colour once for a small block of pixels where nothing would look different, which newer graphics cards can do.
   Kind: perf.
   Source: user-request-2026-10-06.
