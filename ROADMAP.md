@@ -13692,7 +13692,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-09-30.
   Lanes: tools.
 
-- 📋 [UTA-0258] **Strip lights: a row may be wider than its lamps reach, and a strip is lit from one point and shadowed from another.**
+- ✅ [UTA-0258] **Strip lights: a row may be wider than its lamps reach, and a strip is lit from one point and shadowed from another.**
   Left by UTA-0255, 2026-09-30. Neither is changed yet.
   1. UTA-0162 SS 4.2 rule 4 allows a gap of 1.5 radii. AS-Frigate's
      row led by light 20 has gaps of 976 and 416 units at radius
@@ -13731,6 +13731,9 @@ stays with movement in 0.2.0.
   tier 1/1, unit 1011/1011. Left: push through the gate, flip on a
   green GitHub run. Frame time not measured; a map with many plain rows
   is where it would show.
+  Shipped (2026-10-13): b48104d and 202b5d6 pushed through the local
+  gate (GCC 14, Clang 19, MSVC green) and GitHub run 38372695468
+  green on all three legs. Scratch u258 deleted.
   **Layman:** Two leftover doubts about rows of lamps treated as one long light: some rows have lamps too far apart to be one fitting, and the shadow is worked out from the middle of the row while the light comes from its nearest point.
   Kind: investigate.
   Source: in-session-2026-09-30.
