@@ -16530,7 +16530,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-12.
   Lanes: render.
 
-- 📋 [UTA-0355] **urender: the flashlight lights the air as a flat round disc fixed at the middle of the screen.**
+- 🚫 [UTA-0355] **urender: the flashlight lights the air as a flat round disc fixed at the middle of the screen.**
   Seen by the user on MH-(MHA)-TheFortress2012Final-BP, four viewer
   captures 14:12-14:13 (commit 8b6d25f-dirty, ultra, 4K). A dim disc of
   haze with a hard round edge sits at the screen centre in every view,
@@ -16543,13 +16543,16 @@ stays with movement in 0.2.0.
   eye and shows a beam. First guess at a fix: place it off the eye
   (lower right); check against the original first, which may draw no
   flashlight haze at all.
+  Dropped (2026-10-14): filed on a misreading. The user has no issue
+  with the flashlight; what they meant is the fog's copies at the screen
+  sides, UTA-0356.
   **Layman:** In fog, the torch shows as a dull round patch stuck to the centre of the screen instead of a beam.
   Kind: fix.
   Source: user-2026-10-14.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141253
 
-- 📋 [UTA-0356] **urender: MH-TheFortress2012Final's tower lights glow as large white blobs in its fog zone.**
+- 📋 [UTA-0356] **urender: on MH-TheFortress2012Final the fog's light shafts repeat the towers' outlines in bands, worst at the screen sides.**
   Same four captures as the flashlight item. Each tower carries a
   white, rounded glow over its top that ends at the castle wall in
   front. It stays at caace65 with the flashlight off, so it is not the
@@ -16559,6 +16562,21 @@ stays with movement in 0.2.0.
   the original draws them this size and brightness, and whether
   OpenGLDrv draws them over the sky at all. Next: a paired capture of
   the original from UT_MonsterHunt at the capture's camera.
+  Diagnosed (2026-10-14): what the user means is the "mirror redraw" at
+  the screen sides: the glow comes in vertical bands that repeat the
+  towers' and the wall's outlines, less of it towards the middle. Throwaway
+  ut-shot probes at capture 141253 (scratch:
+  /mnt/Emulators/uta-scratch/u352/fog): a still render matches the
+  capture, so it is not motion or the temporal pass; the sky behind the
+  bands is one depth, so no hidden geometry; with fog_scatter.comp's
+  hazeShadowOf returning 1 the bands and copies vanish. They are the haze's
+  light shafts, the towers' and wall's shadows through the fog. Open: are
+  they right? A point light's shadow edges meet at its point on screen,
+  and these run near vertical, which fits only a light far above or below
+  the view. Next: find which light casts them (probe one light at a time),
+  then check hazeShadowOf's face choice and its quarter-size atlas reads
+  for that light. The original game has no fog shadows, so a paired
+  capture (UT_MonsterHunt, accepted) only grades the glow.
   **Layman:** Distant tower lights on one Monster Hunt map are wrapped in big white glowing blobs; check whether the original game shows them.
   Kind: investigate.
   Source: user-2026-10-14.
@@ -20428,6 +20446,21 @@ docs/standards/versioning-overrides.md. Closes S8.
   plus a 9-tap shadow read per light), which empty-map benchmarks barely
   exercise; favour cuts there. The benchmark with stand-in actors on a
   map is UTA-0354.
+  Progress (2026-10-14, evening): ArchNemesis scene step split again
+  (4K, still frames, alternated, two reps, load under 12), 12.1 ms as
+  shipped: softShadowOf's depth-slope setup off 9.1; one shadow tap in
+  place of nine 9.2-9.5; strip path in litFrom off 11.3; spot trig off
+  no change. The slope's 3 ms is occupancy, not arithmetic (RADV
+  shaderstats): with it the scene shader holds 128 VGPRs and 8 waves,
+  without it 96 and 10. Carrying the plane through a per-face matrix
+  made on the CPU (exact: old and new rendered 20 views pixel-identical,
+  where a zero slope moved 10 of 16) kept 128 VGPRs, added a 48-byte
+  load, and was slower (11.7 to 12.2-12.8 ms); reverted, kept at
+  /mnt/Emulators/uta-scratch/u352/fix/plane-save. Next: bring the scene
+  shader under 96 VGPRs by shaderstats alone, then time. Gap found: no
+  device test fails with the slope forced to zero (only UTA-0352's
+  cluster test went red, to be checked for flakiness), so the slope that
+  UTA-0307 added against self-shadow stripes is untested.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
