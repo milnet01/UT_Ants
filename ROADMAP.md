@@ -16552,7 +16552,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141253
 
-- 📋 [UTA-0356] **urender: on MH-TheFortress2012Final the fog's light shafts repeat the towers' outlines in bands, worst at the screen sides.**
+- ✅ [UTA-0356] **urender: on MH-TheFortress2012Final the fog's light shafts repeat the towers' outlines in bands, worst at the screen sides.**
   Same four captures as the flashlight item. Each tower carries a
   white, rounded glow over its top that ends at the castle wall in
   front. It stays at caace65 with the flashlight off, so it is not the
@@ -16626,6 +16626,8 @@ stays with movement in 0.2.0.
   Behaviour to know: fog follows a change in light over about ten
   frames, so a flashlight switched off fades over ~0.15 s at 60 fps.
   Flip on GitHub's matrix.
+  Shipped (2026-10-14) in bacd4b4, green on GitHub's matrix (run
+  38598313927: GCC 14, Clang 19, MSVC).
   **Layman:** Distant tower lights on one Monster Hunt map are wrapped in big white glowing blobs; check whether the original game shows them.
   Kind: fix.
   Source: user-2026-10-14.
@@ -20551,6 +20553,13 @@ docs/standards/versioning-overrides.md. Closes S8.
   exact slope formula from the face matrix's rows is kept at
   /mnt/Emulators/uta-scratch/u352/fix/shadows.slope2 (pre-sched 90 with
   the reorder, against 92); not shipped, as it bought no wave.
+  Survey re-run (2026-10-14): waits for UTA-0347's whole-library bake.
+  The survey's bakes in ~/.cache/uta-scratch/u039/bake are format 27
+  and this build reads 28 (ut-bench refuses them). Tonight's bake
+  writes current bakes of every 469 map to
+  /mnt/Emulators/uta-scratch/u347-lib/bakes; point u039/frame.sh at
+  u347-lib/rep's reports and run it (about 20 min at 4K) once the
+  bake is done.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
