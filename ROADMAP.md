@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=354 -->
+<!-- ants-roadmap-id-high-water: UTA=356 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16529,6 +16529,41 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: in-session-2026-10-12.
   Lanes: render.
+
+- 📋 [UTA-0355] **urender: the flashlight lights the air as a flat round disc fixed at the middle of the screen.**
+  Seen by the user on MH-(MHA)-TheFortress2012Final-BP, four viewer
+  captures 14:12-14:13 (commit 8b6d25f-dirty, ultra, 4K). A dim disc of
+  haze with a hard round edge sits at the screen centre in every view,
+  the same size and brightness whatever lies behind it. Re-rendered
+  with ut-shot at caace65, which has no flashlight, the disc is gone
+  and the rest of the frame matches: it is the flashlight's light in
+  the fog (fog_scatter.comp's haze loop takes fog.flashlight).
+  Likely cause: the light sits at the eye, so its cone is seen from its
+  own apex and its scatter fills a circle. A real torch is held off the
+  eye and shows a beam. First guess at a fix: place it off the eye
+  (lower right); check against the original first, which may draw no
+  flashlight haze at all.
+  **Layman:** In fog, the torch shows as a dull round patch stuck to the centre of the screen instead of a beam.
+  Kind: fix.
+  Source: user-2026-10-14.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141253
+
+- 📋 [UTA-0356] **urender: MH-TheFortress2012Final's tower lights glow as large white blobs in its fog zone.**
+  Same four captures as the flashlight item. Each tower carries a
+  white, rounded glow over its top that ends at the castle wall in
+  front. It stays at caace65 with the flashlight off, so it is not the
+  dirty build. The glows are UTA-0015's volume lights: Fog.cpp's
+  volumeLights draws them only when the camera's zone has bFogZone,
+  as UT99 does, so the camera stands in a fog zone. Not yet known: whether
+  the original draws them this size and brightness, and whether
+  OpenGLDrv draws them over the sky at all. Next: a paired capture of
+  the original from UT_MonsterHunt at the capture's camera.
+  **Layman:** Distant tower lights on one Monster Hunt map are wrapped in big white glowing blobs; check whether the original game shows them.
+  Kind: investigate.
+  Source: user-2026-10-14.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141253, ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141307
 
 ## 0.2.0 — Movement and weapons
 
