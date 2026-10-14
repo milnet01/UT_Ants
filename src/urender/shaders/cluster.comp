@@ -19,7 +19,16 @@
 layout(set = 0, binding = 4) buffer ClusterCountBlock { uint clusterCounts[]; };
 layout(set = 0, binding = 5) buffer ClusterIndexBlock { uint clusterIndices[]; };
 
-layout(local_size_x = 64) in;
+layout(local_size_x = 32) in;
+
+// UTA-0352: each invocation's kept list lives in shared memory, a column per
+// invocation. In registers, a list indexed by a different slot in each lane
+// made AMD's compiler loop over the lanes for every access. 32 invocations
+// keep the two lists to 16 KiB, the least shared memory Vulkan promises.
+shared uint chosenLists[CLUSTER_CAPACITY][32];
+shared float reachLists[CLUSTER_CAPACITY][32];
+#define chosen(k) chosenLists[k][gl_LocalInvocationIndex]
+#define reach(k) reachLists[k][gl_LocalInvocationIndex]
 
 // Whether the segment from `a` to `b` meets the box from `lo` to `hi`: the slab
 // test, clipping the segment's parameter against each axis in turn.
@@ -49,8 +58,6 @@ void main() {
     vec3 hi = clusterBounds[cluster].maximum.xyz;
     vec3 centre = (lo + hi) * 0.5;
 
-    uint chosen[CLUSTER_CAPACITY];
-    float reach[CLUSTER_CAPACITY];
     uint count = 0u;
     bool overflowed = false;
 
@@ -81,19 +88,19 @@ void main() {
             slot = count++;
         } else {
             overflowed = true;
-            if (key <= reach[CLUSTER_CAPACITY - 1u]) continue;
+            if (key <= reach(CLUSTER_CAPACITY - 1u)) continue;
             slot = CLUSTER_CAPACITY - 1u;
         }
         // Insertion into a list kept strongest first.
-        while (slot > 0u && reach[slot - 1u] < key) {
-            reach[slot] = reach[slot - 1u];
-            chosen[slot] = chosen[slot - 1u];
+        while (slot > 0u && reach(slot - 1u) < key) {
+            reach(slot) = reach(slot - 1u);
+            chosen(slot) = chosen(slot - 1u);
             --slot;
         }
-        reach[slot] = key;
-        chosen[slot] = i;
+        reach(slot) = key;
+        chosen(slot) = i;
     }
 
-    for (uint k = 0u; k < count; ++k) clusterIndices[cluster * CLUSTER_CAPACITY + k] = chosen[k];
+    for (uint k = 0u; k < count; ++k) clusterIndices[cluster * CLUSTER_CAPACITY + k] = chosen(k);
     clusterCounts[cluster] = count | (overflowed ? CLUSTER_OVERFLOW : 0u);
 }

@@ -20345,6 +20345,19 @@ docs/standards/versioning-overrides.md. Closes S8.
   post 0.3; DM-ArchNemesis frame 22.6, scene 13.0, clusters 5.3, fog 2.8,
   bloom 0.4, post 0.4. Light clustering costs 5-11 ms on both: the first
   lead. Scratch: /mnt/Emulators/uta-scratch/u351 (run.sh, bakes, JSON).
+  Progress (2026-10-14): re-timed on a quiet machine (load 2-5), the
+  same shape: clusters 7.6-7.9 ms on DM-FoT-SimpleX, 5.3 ms on
+  DM-ArchNemesis. Cause: cluster.comp kept each cluster's two 64-entry
+  lists in registers (168 VGPRs, RADV shaderstats), indexed by a
+  different slot in each lane, so every access looped over the lanes.
+  Fixed by keeping them in shared memory, a column per invocation, in
+  workgroups of 32 (16 KiB, Vulkan's guaranteed minimum). Still-frame
+  clusters step, base against new, alternated, two reps: SimpleX 7.5-7.8
+  to 1.4 ms, ArchNemesis 5.4 to 0.6 ms. Frame medians drift between runs;
+  SimpleX went from about 24.5 to 16-18 ms. New device test: neighbouring
+  clusters keep lists of their own (red on a shader reading a neighbour's
+  column). Next: re-run the survey's six maps; ArchNemesis's scene step
+  (13-14 ms) is the next lead. Scratch: /mnt/Emulators/uta-scratch/u352.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.

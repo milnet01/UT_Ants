@@ -85,6 +85,36 @@ TEST_CASE("a lit surface receives its light through its own cluster's list", "[d
     CHECK(renderer.lastFrameStats().overflowedClusters == 0u);
 }
 
+TEST_CASE("UTA-0352: neighbouring clusters keep lists of their own", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 90, "white", 0);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "white", WHITE);
+    // Two lights of radius 50, 100 units apart. Pixel 60's tile spans y -62.5
+    // to -31.25 and pixel 99's 31.25 to 62.5, so each tile is reached by one
+    // light only. The two clusters are three apart, in one workgroup of 32:
+    // lists its invocations shared would light one pixel with the other's light.
+    const uta::ubundle::Light left = steadyLight({95, -50, 0}, 128, 1);
+    const uta::ubundle::Light right = steadyLight({95, 50, 0}, 128, 1);
+    bundle.lights = std::vector{left, right};
+
+    requireOk(renderer.draw(bundle, Camera{}));
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    const auto onSquare = [](std::uint32_t x) {
+        return uta::ubake::Vec3{100.0, ((x + 0.5) / WIDTH * 2 - 1) * 250.0, -(32.5 / HEIGHT * 2 - 1) * 100.0};
+    };
+    for (const auto& [x, light] : {std::pair{60u, left}, std::pair{99u, right}}) {
+        const std::uint8_t red = pixelAt(*pixels, WIDTH, x, 32).r;
+        const double expected = litByte(uta::ubake::lightAt(light, onSquare(x), {-1, 0, 0}).r);
+        CAPTURE(x, int(red), expected);
+        CHECK(expected > 50);
+        CHECK(std::abs(red - expected) <= 2.0);
+    }
+}
+
 TEST_CASE("UTA-0162 INV-8: a strip lights a pixel near its far end through the cluster lists", "[device]") {
     removeDisplay();
     Renderer renderer = requireRenderer(linearFrame());
