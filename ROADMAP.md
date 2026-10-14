@@ -20364,6 +20364,13 @@ docs/standards/versioning-overrides.md. Closes S8.
   clusters keep lists of their own (red on a shader reading a neighbour's
   column). Next: re-run the survey's six maps; ArchNemesis's scene step
   (13-14 ms) is the next lead. Scratch: /mnt/Emulators/uta-scratch/u352.
+  Unexplained (2026-10-14): DM-ArchNemesis's bloom step varies from
+  0.4 to 3.9 ms between runs of the same binary (SimpleX holds 0.4),
+  and those runs carry a 99th percentile near 42 ms. Not investigated.
+  A hand mutation sharing ONE shared-memory column across all lanes
+  passed every test: with no barrier the compiler may keep a lane's own
+  writes in registers, so only a read of another lane's column is a real
+  breach, and the new test is red on that one.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
