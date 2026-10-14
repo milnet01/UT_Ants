@@ -41,25 +41,25 @@ void checkNear(const std::array<double, 3>& actual, const std::array<double, 3>&
 
 TEST_CASE("UTA-0016: flying forward moves straight ahead in urender's view", "[client]") {
     FlyCamera fly({100, 200, 300}, 4096, 16384); // tipped up, facing +Y
-    const Camera before = fly.camera();
+    const Camera before = fly.camera(1920, 1080);
     fly.update(FlyInput{.forward = 1}, 0.5);
-    checkNear(inView(before, fly.camera().location), {0, 0, FlyCamera::SPEED * 0.5});
+    checkNear(inView(before, fly.camera(1920, 1080).location), {0, 0, FlyCamera::SPEED * 0.5});
 
     fly.update(FlyInput{.forward = -1}, 0.5);
-    checkNear(inView(before, fly.camera().location), {0, 0, 0});
+    checkNear(inView(before, fly.camera(1920, 1080).location), {0, 0, 0});
 }
 
 TEST_CASE("UTA-0016: flying right moves to the right in urender's view", "[client]") {
     FlyCamera fly({-50, 25, 0}, 0, 40000);
-    const Camera before = fly.camera();
+    const Camera before = fly.camera(1920, 1080);
     fly.update(FlyInput{.right = 1}, 0.25);
-    checkNear(inView(before, fly.camera().location), {FlyCamera::SPEED * 0.25, 0, 0});
+    checkNear(inView(before, fly.camera(1920, 1080).location), {FlyCamera::SPEED * 0.25, 0, 0});
 }
 
 TEST_CASE("UTA-0016: rising follows the world's Z whatever the pitch", "[client]") {
     FlyCamera fly({0, 0, 0}, -9000, 1234);
     fly.update(FlyInput{.up = 1}, 1);
-    const Camera after = fly.camera();
+    const Camera after = fly.camera(1920, 1080);
     CHECK_THAT(after.location[0], WithinAbs(0, 1e-3));
     CHECK_THAT(after.location[1], WithinAbs(0, 1e-3));
     CHECK_THAT(after.location[2], WithinAbs(FlyCamera::SPEED, 1e-3));
@@ -68,12 +68,12 @@ TEST_CASE("UTA-0016: rising follows the world's Z whatever the pitch", "[client]
 TEST_CASE("UTA-0016: a diagonal is no faster and Shift is FAST times faster", "[client]") {
     FlyCamera fly;
     fly.update(FlyInput{.forward = 1, .right = 1}, 1);
-    const auto location = fly.camera().location;
+    const auto location = fly.camera(1920, 1080).location;
     CHECK_THAT(std::hypot(location[0], location[1], location[2]), WithinAbs(FlyCamera::SPEED, 1e-2));
 
     FlyCamera fast;
     fast.update(FlyInput{.forward = 1, .fast = true}, 1);
-    CHECK_THAT(fast.camera().location[0], WithinAbs(FlyCamera::SPEED * FlyCamera::FAST, 1e-2));
+    CHECK_THAT(fast.camera(1920, 1080).location[0], WithinAbs(FlyCamera::SPEED * FlyCamera::FAST, 1e-2));
 }
 
 TEST_CASE("UTA-0016: the mouse turns the view toward where it moves", "[client]") {
@@ -81,13 +81,13 @@ TEST_CASE("UTA-0016: the mouse turns the view toward where it moves", "[client]"
     const std::array<float, 3> above{100, 0, 100};
 
     FlyCamera turned;
-    REQUIRE(inView(turned.camera(), toTheRight)[0] > 99); // right of the view before turning
+    REQUIRE(inView(turned.camera(1920, 1080), toTheRight)[0] > 99); // right of the view before turning
     turned.update(FlyInput{.lookRight = 16384 / FlyCamera::LOOK_UNITS_PER_PIXEL}, 0);
-    checkNear(inView(turned.camera(), toTheRight), {0, 0, 100});
+    checkNear(inView(turned.camera(1920, 1080), toTheRight), {0, 0, 100});
 
     FlyCamera tipped;
     tipped.update(FlyInput{.lookUp = 8192 / FlyCamera::LOOK_UNITS_PER_PIXEL}, 0);
-    checkNear(inView(tipped.camera(), above), {0, 0, std::hypot(100.0, 100.0)});
+    checkNear(inView(tipped.camera(1920, 1080), above), {0, 0, std::hypot(100.0, 100.0)});
 }
 
 namespace {
@@ -105,20 +105,20 @@ TEST_CASE("UTA-0158: flying into a wall stops WALL_MARGIN short of it", "[client
     const auto level = room();
     FlyCamera fly({0, 0, 0}, 0, 0); // facing +X, toward the wall at 500
     fly.update(FlyInput{.forward = 1}, 1, &level); // 800 units: would pass it
-    const auto location = fly.camera().location;
+    const auto location = fly.camera(1920, 1080).location;
     CHECK_THAT(location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
     CHECK_THAT(location[1], WithinAbs(0, 1e-3));
     CHECK_THAT(location[2], WithinAbs(0, 1e-3));
 
     fly.update(FlyInput{.forward = 1}, 1, &level); // pressed against it: stays
-    CHECK_THAT(fly.camera().location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+    CHECK_THAT(fly.camera(1920, 1080).location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
 }
 
 TEST_CASE("UTA-0158: a move into a wall at an angle slides along it", "[client]") {
     const auto level = room();
     FlyCamera fly({300, 0, 0}, 0, 8192); // facing between +X and +Y
     fly.update(FlyInput{.forward = 1}, 0.5, &level); // 400 units: 283 on each axis
-    const auto location = fly.camera().location;
+    const auto location = fly.camera(1920, 1080).location;
     CHECK_THAT(location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
     // The part into the wall is lost and the part along it kept: more than the
     // stop alone reaches, never more than the whole move along +Y.
@@ -140,7 +140,7 @@ TEST_CASE("UTA-0174: flying past a corner keeps WALL_MARGIN from its side", "[cl
         // Drift toward the block's face while flying past its corner.
         fly.update(FlyInput{.forward = 1, .right = 0.05f}, 1.0 / 60, &level);
     }
-    const auto location = fly.camera().location;
+    const auto location = fly.camera(1920, 1080).location;
     CHECK(location[0] > 0); // it did pass the corner
     CHECK(location[1] <= -FlyCamera::WALL_MARGIN + 0.5);
 }
@@ -149,20 +149,20 @@ TEST_CASE("UTA-0174: a camera nearer a wall than WALL_MARGIN is eased out to it"
     const auto level = room();
     FlyCamera fly({498, 0, 0}, 0, 0); // 2 units from the wall at 500
     fly.update(FlyInput{}, 1.0 / 60, &level);
-    CHECK_THAT(fly.camera().location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+    CHECK_THAT(fly.camera(1920, 1080).location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
     fly.update(FlyInput{}, 1.0 / 60, &level); // and stays there
-    CHECK_THAT(fly.camera().location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
+    CHECK_THAT(fly.camera(1920, 1080).location[0], WithinAbs(500 - FlyCamera::WALL_MARGIN, 0.5));
 
     FlyCamera low({0, 0, -499}, 0, 0); // 1 unit above the floor
     low.update(FlyInput{}, 1.0 / 60, &level);
-    CHECK_THAT(low.camera().location[2], WithinAbs(-500 + FlyCamera::WALL_MARGIN, 0.5));
+    CHECK_THAT(low.camera(1920, 1080).location[2], WithinAbs(-500 + FlyCamera::WALL_MARGIN, 0.5));
 }
 
 TEST_CASE("UTA-0158: a camera starting in solid flies out freely", "[client]") {
     const auto level = room();
     FlyCamera fly({700, 0, 0}, 0, 32768); // outside the room, facing -X, toward it
     fly.update(FlyInput{.forward = 1}, 0.5, &level);
-    CHECK_THAT(fly.camera().location[0], WithinAbs(300, 1e-2));
+    CHECK_THAT(fly.camera(1920, 1080).location[0], WithinAbs(300, 1e-2));
 }
 
 TEST_CASE("UTA-0158: without a level the camera flies through walls as before", "[client]") {
@@ -170,17 +170,17 @@ TEST_CASE("UTA-0158: without a level the camera flies through walls as before", 
     FlyCamera walled({0, 0, 0}, 0, 0), free({0, 0, 0}, 0, 0);
     walled.update(FlyInput{.forward = 1}, 1, &level);
     free.update(FlyInput{.forward = 1}, 1);
-    CHECK_THAT(free.camera().location[0], WithinAbs(FlyCamera::SPEED, 1e-2));
-    CHECK(walled.camera().location[0] < free.camera().location[0]);
+    CHECK_THAT(free.camera(1920, 1080).location[0], WithinAbs(FlyCamera::SPEED, 1e-2));
+    CHECK(walled.camera(1920, 1080).location[0] < free.camera(1920, 1080).location[0]);
 }
 
 TEST_CASE("UTA-0016: pitch stops short of straight up and straight down", "[client]") {
     FlyCamera fly;
     fly.update(FlyInput{.lookUp = 100000}, 0);
-    CHECK(fly.camera().rotation[0] == FlyCamera::PITCH_LIMIT);
+    CHECK(fly.camera(1920, 1080).rotation[0] == FlyCamera::PITCH_LIMIT);
     fly.update(FlyInput{.lookUp = -100000}, 0);
-    CHECK(fly.camera().rotation[0] == -FlyCamera::PITCH_LIMIT);
-    CHECK(FlyCamera({0, 0, 0}, 20000, 0).camera().rotation[0] == FlyCamera::PITCH_LIMIT);
+    CHECK(fly.camera(1920, 1080).rotation[0] == -FlyCamera::PITCH_LIMIT);
+    CHECK(FlyCamera({0, 0, 0}, 20000, 0).camera(1920, 1080).rotation[0] == FlyCamera::PITCH_LIMIT);
 }
 
 // UTA-0167: a gamepad's sticks and triggers, mapped to the same input the
@@ -228,13 +228,13 @@ TEST_CASE("UTA-0167: the right stick turns at PAD_LOOK_RATE and slower with its 
     FlyInput turn;
     addPad(turn, PadInput{.rightX = 1}, 0.25);
     full.update(turn, 0);
-    CHECK(full.camera().rotation[1] == static_cast<std::int32_t>(PAD_LOOK_RATE * 0.25));
+    CHECK(full.camera(1920, 1080).rotation[1] == static_cast<std::int32_t>(PAD_LOOK_RATE * 0.25));
 
     FlyCamera tipped;
     FlyInput tip;
     addPad(tip, PadInput{.rightY = -1}, 0.25); // pushed away: the view tips up
     tipped.update(tip, 0);
-    CHECK(tipped.camera().rotation[0] == static_cast<std::int32_t>(PAD_LOOK_RATE * 0.25));
+    CHECK(tipped.camera(1920, 1080).rotation[0] == static_cast<std::int32_t>(PAD_LOOK_RATE * 0.25));
 
     FlyInput half;
     addPad(half, PadInput{.rightX = (1 + PAD_DEAD_ZONE) / 2}, 1);
@@ -271,20 +271,20 @@ TEST_CASE("UTA-0190: a pose line is a camera line ut-shot reads", "[client]") {
     CHECK(uta::client::poseLine(camera, 1000, 1000) == "1.50 -2.25 3.00 100 -200 0 90.00");
 }
 
-TEST_CASE("UTA-0357: the camera opens at UT99's FOV 90, kept at a 4:3 screen's height", "[client]") {
+TEST_CASE("UTA-0357: the camera opens at UT99's FOV 90, across the screen's width", "[client]") {
     const FlyCamera fly;
     CHECK(fly.fov() == FlyCamera::DEFAULT_FOV);
     CHECK(FlyCamera::DEFAULT_FOV == 90);
-    // 90 across a 4:3 screen; a 16:9 one is wider at the same height.
-    CHECK(uta::client::poseLine(fly.camera(), 1440, 1080) == "0.00 0.00 0.00 0 0 0 90.00");
-    CHECK(uta::client::poseLine(fly.camera(), 1920, 1080) == "0.00 0.00 0.00 0 0 0 106.26");
+    // UT469 draws FOV 90 on a 16:9 screen as 90 degrees across it, as on 4:3.
+    CHECK(uta::client::poseLine(fly.camera(1440, 1080), 1440, 1080) == "0.00 0.00 0.00 0 0 0 90.00");
+    CHECK(uta::client::poseLine(fly.camera(1920, 1080), 1920, 1080) == "0.00 0.00 0.00 0 0 0 90.00");
 }
 
 TEST_CASE("UTA-0357: the FOV is the player's to change, within limits", "[client]") {
     FlyCamera fly;
     fly.setFov(110);
     CHECK(fly.fov() == 110);
-    CHECK(uta::client::poseLine(fly.camera(), 1440, 1080) == "0.00 0.00 0.00 0 0 0 110.00");
+    CHECK(uta::client::poseLine(fly.camera(1440, 1080), 1440, 1080) == "0.00 0.00 0.00 0 0 0 110.00");
     fly.setFov(FlyCamera::MIN_FOV - 1);
     CHECK(fly.fov() == FlyCamera::MIN_FOV);
     fly.setFov(FlyCamera::MAX_FOV + 1);
@@ -297,7 +297,7 @@ TEST_CASE("a start's pitch is read as a turn, so 63488 is slightly down", "[clie
     // review-code 2026-09-26: a rotator is stored in 0..65535 as often as
     // signed. Clamped raw, a start tilted down looked almost straight up.
     const FlyCamera down({0, 0, 0}, 63488, 0);
-    CHECK(down.camera().rotation[0] == -2048);
+    CHECK(down.camera(1920, 1080).rotation[0] == -2048);
     const FlyCamera up({0, 0, 0}, 2048, 0);
-    CHECK(up.camera().rotation[0] == 2048);
+    CHECK(up.camera(1920, 1080).rotation[0] == 2048);
 }

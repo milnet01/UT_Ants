@@ -333,7 +333,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                         event.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)) {
                 // UTA-0190: where the camera is, so a finding can be drawn again
                 // with ut-shot. Share or Create on a PlayStation pad, View on an Xbox one.
-                const std::string line = "Camera (ut-shot): " + poseLine(camera.camera(), config.width, config.height);
+                const std::string line = "Camera (ut-shot): " + poseLine(camera.camera(config.width, config.height), config.width, config.height);
                 std::cerr << line << "\n";
                 if (!options.notes.empty()) {
                     if (const auto added = appendNote(options.notes, line); !added)
@@ -389,7 +389,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         gamepads.addTo(input, seconds);
         camera.update(input, seconds, level);
 
-        uta::urender::Camera view = camera.camera();
+        uta::urender::Camera view = camera.camera(config.width, config.height);
         view.flashlight = flashlight;
         if (const auto result = renderer.draw(bundle, view); !result) {
             std::cerr << "ut-ants: a frame did not draw: " << result.error().message() << "\n";

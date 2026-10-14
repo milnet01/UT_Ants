@@ -59,9 +59,9 @@ public:
     /// view's near plane of 1, so the wall is never cut open.
     static constexpr double WALL_MARGIN = 8;
 
-    /// UTA-0357: the field of view in UT99's own degrees -- across a 4:3
-    /// screen, and kept at that screen's height on a wider one, so 90 is
-    /// about 106 across 16:9. UT99 opens at 90 (Default.ini's
+    /// UTA-0357: the field of view in degrees across the screen's width, on
+    /// any screen, as UT469 draws it: FOV 90 on 16:9 is 90 across (measured
+    /// by UT_MonsterHunt, 2026-10-14). UT99 opens at 90 (Default.ini's
     /// FovAngleDegrees); the player may change it within the limits.
     static constexpr double DEFAULT_FOV = 90;
     static constexpr double MIN_FOV = 60;
@@ -81,7 +81,9 @@ public:
     /// flies free, so it can leave. Without, it flies through anything.
     void update(const FlyInput& input, double seconds, const ubundle::CollisionTree* level = nullptr) noexcept;
 
-    [[nodiscard]] urender::Camera camera() const noexcept;
+    /// The camera for a `width` by `height` view, which the field of view
+    /// spans across; a view with no pixels is taken as 4:3.
+    [[nodiscard]] urender::Camera camera(std::uint32_t width, std::uint32_t height) const noexcept;
 
 private:
     std::array<double, 3> location_{};

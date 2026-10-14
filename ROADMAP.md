@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=357 -->
+<!-- ants-roadmap-id-high-water: UTA=358 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16653,10 +16653,36 @@ stays with movement in 0.2.0.
   keeps 4:3 height on 16:9 rather than drawing 90 across. Asked of
   UT_MonsterHunt with the UTA-0356 capture; if 469 draws 90 across, only
   FlyCamera::camera()'s 0.75 factor changes. Flip on GitHub's matrix.
+  Changed (2026-10-14): UT469 draws FOV 90 on 16:9 as 90 degrees
+  across the width, not about 106 (UT_MonsterHunt's frame,
+  work/uta0356/fov90/Shot00000.png in that project: a barrel 400 UU
+  away, 40 degrees right of view, centres at x 3546 of 3840; 90 wide
+  predicts 3531, 106.26 predicts 3128). So the FOV now spans the
+  window's width on any screen, and the 0.75 factor is gone:
+  FlyCamera::camera takes the view's size. Unit 1014/1014, the FOV test
+  red on the old code first. The viewer itself was not run.
   **Layman:** The viewer shows a far wider view than a person sees; open at the original game's view and let the player widen or narrow it.
   Kind: fix.
   Source: user-2026-10-14.
   Lanes: client.
+
+- 📋 [UTA-0358] **MH-TheFortress2012Final: the original draws the map in flat daylight under a blue sky; ours draws it dark, with glows.**
+  UT_MonsterHunt rendered 8 poses with the stock UT469 client
+  (2026-10-14, OpenGLDrv on llvmpipe, 3840x2160, FOV 121.28): every
+  surface at full brightness, a blue sky, no dark areas, no glows or
+  shafts. A DM-Deck16][ control in the same rig draws normal lighting.
+  Ours at the same poses is dark, with a black sky and UTA-0015's glows
+  around the towers. Their unverified guess: the map's lighting was
+  never built, so UT draws it unlit. Questions: does the map carry
+  lightmaps at all; what does UT99 do with a level that has none; and
+  why is our sky black where the original's is blue. Not decided here:
+  whether to follow the original. The glows cannot be graded against
+  it, since it draws no lighting at all here.
+  **Layman:** On one Monster Hunt map the original game shows bright daylight and a blue sky, while ours shows a dark night with glowing towers; find out why.
+  Kind: investigate.
+  Source: in-session-2026-10-14.
+  Lanes: ubake, urender.
+  Evidence: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/run1/, /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/client-run1.log, ~/.local/state/ut-ants/map-captures/reviewed/MH-(MHA)-TheFortress2012Final-BP-20261014-141253
 
 ## 0.2.0 — Movement and weapons
 

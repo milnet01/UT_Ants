@@ -170,15 +170,16 @@ void FlyCamera::setFov(double fov) noexcept {
     if (!std::isnan(fov)) fov_ = std::clamp(fov, MIN_FOV, MAX_FOV);
 }
 
-urender::Camera FlyCamera::camera() const noexcept {
+urender::Camera FlyCamera::camera(std::uint32_t width, std::uint32_t height) const noexcept {
     urender::Camera camera;
     camera.location = {static_cast<float>(location_[0]), static_cast<float>(location_[1]),
                        static_cast<float>(location_[2])};
     camera.rotation = {static_cast<std::int32_t>(std::lround(pitch_)),
                        static_cast<std::int32_t>(std::lround(yaw_)), 0};
-    // Across a 4:3 screen, so its height: tan(vertical / 2) = tan(fov / 2) * 3 / 4.
+    // Across the screen's width, as UT469 draws it: tan(vertical / 2) = tan(fov / 2) * height / width.
+    const double tall = width > 0 && height > 0 ? static_cast<double>(height) / width : 0.75;
     camera.verticalFovDegrees =
-        static_cast<float>(2 * std::atan(std::tan(fov_ * std::numbers::pi / 360.0) * 0.75) * 180.0 / std::numbers::pi);
+        static_cast<float>(2 * std::atan(std::tan(fov_ * std::numbers::pi / 360.0) * tall) * 180.0 / std::numbers::pi);
     return camera;
 }
 
