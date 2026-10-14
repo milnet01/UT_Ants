@@ -16408,6 +16408,16 @@ stays with movement in 0.2.0.
   --no-sky. Script, reports and needs.jsonl:
   /mnt/Emulators/uta-scratch/u347-lib. A one-map trial (DM-Deck16][)
   ran end to end, 18 s a map.
+  Progress (2026-10-14, 22:51): the whole-library bake is running as
+  cc-job u347-lib (/mnt/Emulators/uta-scratch/u347-lib/run.sh),
+  started by its own 22:00 wait: 92 of 1611 maps in 51 min, so about
+  14 h in all, done around 13:00 on 2026-10-15. It resumes (a map with
+  rep/rc-<map> is skipped) and ends by running map-analyser.py into
+  u347-lib/needs.jsonl. A desktop launcher, bed-bake.sh beside it
+  (~/Desktop/UT_Ants-Overnight-Bake.desktop), starts the same bake
+  without the wait as job u347-night, or opens the running job's
+  window. No timing or pushing while it runs. UTA-0352's survey waits
+  on these bakes.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
