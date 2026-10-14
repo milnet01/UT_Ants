@@ -16634,7 +16634,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141253, ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141307
 
-- 🚧 [UTA-0357] **ut-ants: open at UT99's field of view, and let the player change it.**
+- ✅ [UTA-0357] **ut-ants: open at UT99's field of view, and let the player change it.**
   The viewer never sets its field of view, so it takes urender's
   default camera: 90 degrees top to bottom, 121.28 across 16:9
   (src/urender/Renderer.h). The user, 2026-10-14: "The fov should be how a
@@ -16661,6 +16661,8 @@ stays with movement in 0.2.0.
   window's width on any screen, and the 0.75 factor is gone:
   FlyCamera::camera takes the view's size. Unit 1014/1014, the FOV test
   red on the old code first. The viewer itself was not run.
+  Shipped (2026-10-14) in 5479d3c and 9ff8048, green on GitHub's
+  matrix (run 38604970808: GCC 14, Clang 19, MSVC).
   **Layman:** The viewer shows a far wider view than a person sees; open at the original game's view and let the player widen or narrow it.
   Kind: fix.
   Source: user-2026-10-14.
