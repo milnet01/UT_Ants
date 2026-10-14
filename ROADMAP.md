@@ -16402,6 +16402,12 @@ stays with movement in 0.2.0.
   green GitHub run once that is done.
   User decision (2026-10-13): the whole-library run (about 11 h of
   baking) runs overnight; the user says when to start it.
+  Progress (2026-10-14): the whole-library run is started, user's go-ahead
+  the same day: cc-job u347-lib, waiting for 22:00, then 1611 maps
+  baked at r53 with a pinned copy of ut-bake, then the analyser with
+  --no-sky. Script, reports and needs.jsonl:
+  /mnt/Emulators/uta-scratch/u347-lib. A one-map trial (DM-Deck16][)
+  ran end to end, 18 s a map.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
