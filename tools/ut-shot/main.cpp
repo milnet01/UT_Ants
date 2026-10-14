@@ -166,8 +166,11 @@ int main(int argc, char** argv) {
         camera.verticalFovDegrees =
             static_cast<float>(std::atan(std::tan(halfRadians) * aspect) * 360.0 / std::numbers::pi);
 
-        // A few frames, so the shadow atlas has drawn this view's tiles.
-        for (int frame = 0; frame < 4; ++frame) {
+        // A few frames, so the shadow atlas has drawn this view's tiles; ten,
+        // so UTA-0356's fog averages ten samples of each froxel. The cut keeps
+        // the last camera's fog out of this one.
+        renderer.cut();
+        for (int frame = 0; frame < 10; ++frame) {
             if (const auto drawn = renderer.draw(*bundle, camera); !drawn) {
                 std::cerr << "ut-shot: a frame did not draw: " << drawn.error().message() << "\n";
                 return 1;

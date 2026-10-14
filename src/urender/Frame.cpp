@@ -424,8 +424,10 @@ struct Renderer::Impl {
     /// UTA-0015 SS 4.3 and SS 4.4: the fog volume's images, one texel each below
     /// its tier; the volumetric lights a frame glows; the fog stages' set; and
     /// each drawn light's zone, found once per upload. UTA-0333: the haze's
-    /// copy of the shadow atlas, one texel below the fog's tier.
-    Image fogScattering, fogIntegrated, hazeShadow;
+    /// copy of the shadow atlas, one texel below the fog's tier. UTA-0356: the
+    /// last frame's scattering, and how many frames it holds since a cut.
+    Image fogScattering, fogIntegrated, hazeShadow, fogHistory;
+    std::uint64_t fogFrames = 0;
     Buffer volumeLightIndices;
     VkDescriptorSet fogSet = VK_NULL_HANDLE;
     std::vector<std::uint8_t> lightZones;
@@ -675,17 +677,19 @@ Result<void> Renderer::Impl::createFogVolumes() {
                          on ? FOG_GRID[0] : 1,
                          on ? FOG_GRID[1] : 1,
                          1,
-                         VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                         VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                             | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                          on ? FOG_GRID[2] : 1};
     UTA_TRY(fogScattering, Image::create(*gpu, desc));
     UTA_TRY(fogIntegrated, Image::create(*gpu, desc));
+    UTA_TRY(fogHistory, Image::create(*gpu, desc));
     const std::uint32_t hazeSide = on ? shadowPlanner.detail().atlasSize / HAZE_SHADOW_STEP : 1;
     UTA_TRY(hazeShadow, Image::create(*gpu, {VK_FORMAT_R32_SFLOAT, hazeSide, hazeSide, 1,
                                              VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
     return gpu->run([&](VkCommandBuffer commands) {
         const VkClearColorValue noFog{{0.0f, 0.0f, 0.0f, 1.0f}};
         const VkImageSubresourceRange everything{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        for (Image* image : {&fogScattering, &fogIntegrated}) {
+        for (Image* image : {&fogScattering, &fogIntegrated, &fogHistory}) {
             image->transition(commands, VK_IMAGE_LAYOUT_GENERAL);
             vkCmdClearColorImage(commands, image->handle(), VK_IMAGE_LAYOUT_GENERAL, &noFog, 1, &everything);
         }
@@ -875,9 +879,10 @@ Result<void> Renderer::Impl::writeDescriptors() {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::MASK_PAIRS + 1 + 1},
         // The atlas and the three post sets' sources, then UTA-0053's: bloom in
-        // each post set, and one source per bloom step; then UTA-0015's fog volume.
+        // each post set, and one source per bloom step; then UTA-0015's fog
+        // volume and UTA-0356's fog history.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1},
+                             textureCount + 4 + 3 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1 + 1},
         // UTA-0015: the fog set's two images; UTA-0333's haze shadow.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
     };
@@ -992,6 +997,13 @@ Result<void> Renderer::Impl::writeDescriptors() {
     hazeShadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     hazeShadowWrite.pImageInfo = &hazeShadowInfo;
     writes.push_back(hazeShadowWrite);
+    // UTA-0356: filtered, so a reprojected centre between texels reads both.
+    const VkDescriptorImageInfo fogHistoryInfo{bloomSampler, fogHistory.view(), VK_IMAGE_LAYOUT_GENERAL};
+    VkWriteDescriptorSet fogHistoryWrite = hazeShadowWrite;
+    fogHistoryWrite.dstBinding = 4;
+    fogHistoryWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    fogHistoryWrite.pImageInfo = &fogHistoryInfo;
+    writes.push_back(fogHistoryWrite);
     const VkDescriptorBufferInfo volumeLightInfo{volumeLightIndices.handle(), 0, VK_WHOLE_SIZE};
     VkWriteDescriptorSet volumeLightWrite{};
     volumeLightWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1193,11 +1205,23 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(fog), &fog);
         // fog_scatter.comp's local size is 4 x 4 x 4; fog_integrate.comp's 8 x 8.
         vkCmdDispatch(commands, (FOG_GRID[0] + 3) / 4, (FOG_GRID[1] + 3) / 4, (FOG_GRID[2] + 3) / 4);
-        // Scattering is written above and read by the integration below.
+        // Scattering is written above and read by the integration and the copy
+        // below; the scatter's read of the history ends before the copy writes it.
         memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+                      VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogIntegrate());
         vkCmdDispatch(commands, (FOG_GRID[0] + 7) / 8, (FOG_GRID[1] + 7) / 8, 1);
+        // UTA-0356: this frame's scattering is the next frame's history. The
+        // next scatter reads the copy, and writes scattering only after it is read.
+        VkImageCopy copy{};
+        copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copy.dstSubresource = copy.srcSubresource;
+        copy.extent = {FOG_GRID[0], FOG_GRID[1], FOG_GRID[2]};
+        vkCmdCopyImage(commands, fogScattering.handle(), VK_IMAGE_LAYOUT_GENERAL, fogHistory.handle(),
+                       VK_IMAGE_LAYOUT_GENERAL, 1, &copy);
+        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
         // The integrated volume is sampled by the forward pass.
         memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
                       VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
@@ -1563,6 +1587,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         impl.shape = BundleShape{};
         UTA_CHECK(impl.upload(bundle));
         impl.shape = shape;
+        impl.fogFrames = 0; // UTA-0356: another level's fog is no history for this one
     }
 
     // UTA-0163: a new level's sky, drawn once, before its first frame. Nothing
@@ -1576,6 +1601,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         impl.skyPending = false;
         impl.skyReady = true;
         impl.previousViewProj.reset(); // the faces' views are not the player's last
+        impl.fogFrames = 0;            // UTA-0356: nor is their fog the history
     }
 
     // Before anything is planned: a skipped frame must change nothing (Swapchain.h).
@@ -1741,6 +1767,17 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     fog.volumeLightCount = static_cast<std::uint32_t>(glowing.indices.size());
     fog.flashlight = flashlight;
     fog.hazeScale = impl.config.hazeScale;
+    // UTA-0356: frame k since a cut samples each froxel at the R3 sequence's
+    // k-th point (Roberts, "The Unreasonable Effectiveness of Quasirandom
+    // Sequences", 2018) from the centre, and keeps a running mean of the first
+    // ten, then 0.1 of each new frame. A sky face is its own single frame.
+    const std::uint64_t fogFrame = skyFace ? 0 : impl.fogFrames;
+    constexpr std::array<double, 3> R3{0.8191725133961645, 0.6710436067037893, 0.5497004779019703};
+    for (std::size_t a = 0; a < R3.size(); ++a) {
+        const double at = 0.5 + static_cast<double>(fogFrame) * R3[a];
+        fog.jitter[a] = static_cast<float>(at - std::floor(at));
+    }
+    fog.historyWeight = static_cast<float>(std::max(1.0 / static_cast<double>(fogFrame + 1), 0.1));
 
     if (!frameLights.empty()) std::memcpy(impl.lights.mapped(), frameLights.data(), frameLights.size() * sizeof(gpu::Light));
     if (!plan.faces.empty())
@@ -1839,6 +1876,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     impl.previousViewProj = viewProj;
     impl.previousModels = std::move(models);
     ++impl.frameIndex;
+    if (!skyFace) ++impl.fogFrames;
     impl.drawn = true;
     return {};
 }
@@ -1890,6 +1928,11 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
 FrameStats Renderer::lastFrameStats() const noexcept { return impl_->stats; }
 
 void Renderer::setJitter(bool enabled) noexcept { impl_->jitter = enabled; }
+
+void Renderer::cut() noexcept {
+    impl_->previousViewProj.reset();
+    impl_->fogFrames = 0;
+}
 
 void Renderer::setLinearOutput(bool enabled) noexcept { impl_->config.linearOutput = enabled; }
 

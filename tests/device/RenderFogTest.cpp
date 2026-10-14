@@ -13,6 +13,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <vector>
@@ -205,25 +206,30 @@ TEST_CASE("UTA-0015 INV-11: a volumetric light glows in its colour decoded from 
     CHECK(std::abs(ratio - 0.216) <= 0.03);
 }
 
-TEST_CASE("UTA-0015 INV-7: a light's shaft is cut by an occluder's shadow", "[device]") {
-    removeDisplay();
-    // Measured on Mesa's software driver: at a scattering of 5e-4 a unit the open
-    // ray drew 58 and the shadowed one 36, so seven times that keeps both well
-    // above the readback's noise and under the clip.
-    const float haze = static_cast<float>(3.5e-3 / HAZE_SCATTER);
-    Renderer renderer = requireRenderer(fogFrame(Tier::Medium, haze));
+// Measured on Mesa's software driver: at a scattering of 5e-4 a unit the open
+// ray drew 58 and the shadowed one 36, so seven times that keeps both well
+// above the readback's noise and under the clip.
+const float SHAFT_HAZE = static_cast<float>(3.5e-3 / HAZE_SCATTER);
 
-    // A light above the view axis, and a small occluder between it and the
-    // rays on the +Y side only. Column 88 looks along y = 0.27 x and passes
-    // under the occluder's shadow from x = 0 to about 375; column 71 is its
-    // mirror, which no shadow crosses. Neither ray meets the occluder itself:
-    // at x = 450 they are 120 units to the side and 67 below it.
+// A light above the view axis, and a small occluder between it and the rays on
+// the +Y side only. Column 88 looks along y = 0.27 x and passes under the
+// occluder's shadow from x = 0 to about 375; column 71 is its mirror, which no
+// shadow crosses. Neither ray meets the occluder itself: at x = 450 they are
+// 120 units to the side and 67 below it.
+uta::ubundle::Bundle shaftScene() {
     uta::ubundle::Geometry geometry;
     addSquare(geometry, 1000, 0, 0, 3000, "black", PF_UNLIT);
     addSquare(geometry, 450, 15, 75, 15, "black", PF_UNLIT);
     uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
     addSolidMaterial(bundle, "black", BLACK);
     bundle.lights = std::vector{steadyLight({500, 0, 100}, 255, 64)};
+    return bundle;
+}
+
+TEST_CASE("UTA-0015 INV-7: a light's shaft is cut by an occluder's shadow", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
+    const uta::ubundle::Bundle bundle = shaftScene();
 
     const int shadowed = redAt(renderer, bundle, Camera{}, 88, 32);
     const int open = redAt(renderer, bundle, Camera{}, 71, 32);
@@ -231,11 +237,69 @@ TEST_CASE("UTA-0015 INV-7: a light's shaft is cut by an occluder's shadow", "[de
     CHECK(open > 100);
     CHECK(shadowed < open - 20);
 
-    // The flashlight has no shadow faces and still scatters.
+    // The flashlight has no shadow faces and still scatters. The cut keeps the
+    // torch's fog out of the frame without it (UTA-0356).
     const uta::ubundle::Bundle unlitRoom = wallAt(1000, 3000, BLACK);
     const int torch = redAt(renderer, unlitRoom, withFlashlight(true));
+    renderer.cut();
     const int none = redAt(renderer, unlitRoom, withFlashlight(false));
     CAPTURE(torch, none);
     CHECK(none == 0);
     CHECK(torch > 20);
+}
+
+std::vector<std::byte> drawn(Renderer& renderer) {
+    const auto pixels = renderer.readback();
+    if (!pixels.has_value()) FAIL(pixels.error().message());
+    return *pixels;
+}
+
+// A camera turned this far left of Camera{}: about a tenth of the view across.
+Camera turned() {
+    Camera camera;
+    camera.rotation[1] = -1024;
+    return camera;
+}
+
+TEST_CASE("UTA-0356: after a cut, a frame draws as a new renderer's first", "[device]") {
+    removeDisplay();
+    const uta::ubundle::Bundle bundle = shaftScene();
+    Renderer used = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
+    for (int frame = 0; frame < 5; ++frame) requireOk(used.draw(bundle, turned()));
+    used.cut();
+    requireOk(used.draw(bundle, Camera{}));
+    Renderer fresh = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
+    requireOk(fresh.draw(bundle, Camera{}));
+    CHECK(drawn(used) == drawn(fresh));
+
+    // And without one, a frame keeps part of the last frame's fog: half, the
+    // second frame after a cut. Drawn alone, it would be black (INV-7).
+    Renderer torch = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
+    const uta::ubundle::Bundle unlitRoom = wallAt(1000, 3000, BLACK);
+    const int on = redAt(torch, unlitRoom, withFlashlight(true));
+    const int after = redAt(torch, unlitRoom, withFlashlight(false));
+    CAPTURE(on, after);
+    CHECK(after > 20);
+    CHECK(after < on);
+}
+
+TEST_CASE("UTA-0356: the fog's history stays where it was in the world when the camera turns", "[device]") {
+    removeDisplay();
+    const uta::ubundle::Bundle bundle = shaftScene();
+    Renderer still = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
+    for (int frame = 0; frame < 10; ++frame) requireOk(still.draw(bundle, Camera{}));
+    Renderer moved = requireRenderer(fogFrame(Tier::Medium, SHAFT_HAZE));
+    for (int frame = 0; frame < 10; ++frame) requireOk(moved.draw(bundle, turned()));
+    requireOk(moved.draw(bundle, Camera{}));
+    const std::vector<std::byte> a = drawn(still), b = drawn(moved);
+    int worst = 0;
+    for (std::uint32_t x = 0; x < WIDTH; ++x) {
+        const int diff = std::abs(int(pixelAt(a, WIDTH, x, 32).r) - int(pixelAt(b, WIDTH, x, 32).r));
+        worst = std::max(worst, diff);
+    }
+    // Measured on Mesa's software driver and an RX 6600: 9 levels, where the
+    // view turned back to shows what the turned one did not, and no history is
+    // read. Read at the same texel rather than reprojected, it is 47.
+    CAPTURE(worst);
+    CHECK(worst <= 20);
 }

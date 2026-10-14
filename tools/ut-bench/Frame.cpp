@@ -285,6 +285,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     std::vector<Timed> still(views->size()), moving(views->size() - 1);
     for (std::size_t v = 0; v < views->size() && failure.empty(); ++v) {
         const urender::Camera& camera = (*views)[v].camera;
+        renderer.cut(); // UTA-0356: each view starts its fog afresh, as ut-shot's do
         for (int frame = 0; frame < SETTLING_FRAMES && failure.empty(); ++frame) draw(camera, nullptr);
         for (unsigned frame = 0; frame < parsed->still && failure.empty(); ++frame) draw(camera, &still[v]);
         if (v + 1 == views->size()) break;

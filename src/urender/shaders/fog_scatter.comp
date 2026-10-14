@@ -19,6 +19,8 @@ layout(set = 1, binding = 0, rgba16f) uniform writeonly image3D scattering;
 layout(set = 1, binding = 2) readonly buffer VolumeLightBlock { uint volumeLights[]; };
 // UTA-0333: shadow_reduce.comp's copy of the atlas.
 layout(set = 1, binding = 3, r32f) uniform readonly image2D hazeShadow;
+// UTA-0356: last frame's scattering, which this frame's blends with.
+layout(set = 1, binding = 4) uniform sampler3D history;
 
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
@@ -61,10 +63,14 @@ void main() {
     uvec3 id = gl_GlobalInvocationID;
     if (any(greaterThanEqual(id, FOG_GRID))) return;
 
-    // The tile's centre ray at the slice's middle depth, in viewOf's axes:
-    // +X right, +Y up, +Z ahead; the region's top-left is uv (0, 0).
-    vec2 uv = (vec2(id.xy) + 0.5) / vec2(FOG_GRID.xy);
-    float z = 0.5 * (sliceDepth(float(id.z)) + sliceDepth(float(id.z + 1u)));
+    // UTA-0356: a ray through the tile at fog.jitter, at that fraction of the
+    // slice's depth -- the centre ray at the middle depth after a cut. In
+    // viewOf's axes: +X right, +Y up, +Z ahead; the region's top-left is uv (0, 0).
+    // A shadow edge sampled at one depth per slice repeats once per slice; the
+    // jitter moves it, and the history averages the copies away.
+    vec2 uv = (vec2(id.xy) + fog.jitter.xy) / vec2(FOG_GRID.xy);
+    float near = sliceDepth(float(id.z)), far = sliceDepth(float(id.z + 1u));
+    float z = 0.5 * (near + far) + (fog.jitter.z - 0.5) * (far - near);
     vec3 viewPoint = vec3((uv.x * 2.0 - 1.0) * fog.tanHalfFov.x * z, (1.0 - uv.y * 2.0) * fog.tanHalfFov.y * z, z);
     vec3 x = (fog.viewToWorld * vec4(viewPoint, 1.0)).xyz;
     vec3 v = normalize(x - frame.eye);
@@ -104,5 +110,22 @@ void main() {
 
     // UTA-0215 SS 4.3: what the water between the eye and this froxel keeps.
     scattered *= waterKept(z, frame.cameraUnderwater);
-    imageStore(scattering, ivec3(id), vec4(scattered, extinction));
+    vec4 sampled = vec4(scattered, extinction);
+
+    // UTA-0356: blended with what last frame held at this texel's centre --
+    // the depth whose fogCoordinate is the texel's -- unless it was outside
+    // last frame's volume. After a cut the weight is 1 and nothing is read.
+    if (fog.historyWeight < 1.0) {
+        vec2 centreUv = (vec2(id.xy) + 0.5) / vec2(FOG_GRID.xy);
+        float centreZ = sliceDepth(float(id.z) + 0.5);
+        vec3 centre = vec3((centreUv.x * 2.0 - 1.0) * fog.tanHalfFov.x * centreZ,
+                           (1.0 - centreUv.y * 2.0) * fog.tanHalfFov.y * centreZ, centreZ);
+        vec4 clip = frame.previousViewProjUnjittered * (fog.viewToWorld * vec4(centre, 1.0));
+        if (clip.w > 0.0) {
+            vec3 at = vec3(clip.xy / clip.w * 0.5 + 0.5, fogCoordinate(clip.w));
+            if (all(greaterThanEqual(at, vec3(0.0))) && all(lessThanEqual(at, vec3(1.0))))
+                sampled = mix(textureLod(history, at, 0.0), sampled, fog.historyWeight);
+        }
+    }
+    imageStore(scattering, ivec3(id), sampled);
 }

@@ -175,6 +175,11 @@ public:
     /// frame is a frame that shimmers.
     void setJitter(bool enabled) noexcept;
 
+    /// The next frame follows no earlier one: it shows no camera motion, and
+    /// UTA-0356's fog keeps no history from before it, so it draws as a single
+    /// frame does. Call it where the camera jumps to an unrelated view.
+    void cut() noexcept;
+
     /// Skip exposure and the tone map from the next frame, as
     /// `Config::linearOutput` does from `create` (SS 4.10). Settable per frame
     /// because the flag is a push constant rather than a pipeline choice, so

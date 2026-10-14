@@ -51,7 +51,9 @@ layout(push_constant) uniform FogBlock {
     uint volumeLightCount;
     uint flashlight;
     float hazeScale;
-    float reserved[3];
+    float historyWeight; // UTA-0356
+    float reserved[2];
+    vec4 jitter;         // UTA-0356; w unused
 } fog;
 #else
 layout(push_constant) uniform DrawBlock {

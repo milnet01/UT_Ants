@@ -3,6 +3,9 @@
 **Status:** shipped (2026-09-15), green on the matrix. No review ran, by the user's standing instruction.
 **Amended (2026-10-13)** by `UTA-0333`: the haze reads its shadows from a
 quarter-size copy of the atlas, `hazeShadowOf`, not from the atlas itself.
+**Amended (2026-10-14)** by `UTA-0356`: each froxel samples at a point that
+moves through its cell from frame to frame, and blends with last frame's
+scattering. A frame after `Renderer::cut` samples the centre, as before.
 **Kind:** implement.
 **Source:** ROADMAP UTA-0015 (design-2026-09-03).
 **Pairs with:** UTA-0164 (ambient occlusion, split out of this item).
@@ -229,20 +232,24 @@ struct Light {
 };
 
 /// The two fog stages' push constants.
-struct FogConstants {               // 96 bytes, offsets asserted
+struct FogConstants {               // 112 bytes, offsets asserted
     Mat4 viewToWorld;               // 0
     std::array<float, 2> tanHalfFov; // 64: across, then down, for the region
     std::uint32_t volumeLightCount; // 72
     std::uint32_t flashlight;       // 76: an index into LIGHTS, or NONE
     float hazeScale;                // 80: Config::hazeScale
-    std::array<float, 3> reserved;  // 84
+    float historyWeight;            // 84: UTA-0356, 1 after a cut
+    std::array<float, 2> reserved;  // 88
+    std::array<float, 4> jitter;    // 96: UTA-0356, where in its cell a froxel samples
 };
 ```
 
 The fog stages bind the scene set as set `0` and a fog set as set `1`: binding
 `0` the scattering image, binding `1` the integrated image, binding `2`
 `VOLUME_LIGHTS`, a storage buffer of `uint` indices into `LIGHTS` with room
-for `VOLUME_LIGHT_CAPACITY`.
+for `VOLUME_LIGHT_CAPACITY`. `UTA-0333` adds binding `3`, the haze's copy of
+the shadow atlas; `UTA-0356` binding `4`, last frame's scattering, which the
+scatter stage blends with.
 
 **Volumetric lights, chosen on the CPU**, in a new `src/urender/Fog.{h,cpp}`:
 

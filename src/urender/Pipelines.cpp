@@ -645,13 +645,15 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
                     "vkCreateComputePipelines (clusters)"));
 
     // -- The fog volume (UTA-0015 SS 4.4) --------------------------------------
-    // Set 1: the scattering image, the integrated image, VOLUME_LIGHTS, and
-    // UTA-0333's copy of the shadow atlas for the haze.
+    // Set 1: the scattering image, the integrated image, VOLUME_LIGHTS,
+    // UTA-0333's copy of the shadow atlas for the haze, and UTA-0356's history.
     const std::array fogBindings = {
         VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        VkDescriptorSetLayoutBinding{4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+                                     nullptr},
     };
     VkDescriptorSetLayoutCreateInfo fogInfo{};
     fogInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

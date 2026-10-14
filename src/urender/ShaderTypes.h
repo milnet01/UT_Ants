@@ -441,14 +441,22 @@ struct FogConstants {
     std::uint32_t volumeLightCount;  ///< entries of VOLUME_LIGHTS in use
     std::uint32_t flashlight;        ///< an index into LIGHTS, or NONE
     float hazeScale;                 ///< Config::hazeScale
-    std::array<float, 3> reserved;
+    /// UTA-0356: the share this frame's scattering takes over the history's; 1
+    /// after a cut, when there is no history to read.
+    float historyWeight;
+    std::array<float, 2> reserved;
+    /// UTA-0356: where in its cell each froxel samples this frame, as a fraction
+    /// across, down and along its slice; the centre, 0.5, after a cut. w unused.
+    std::array<float, 4> jitter;
 };
-static_assert(sizeof(FogConstants) == 96);
+static_assert(sizeof(FogConstants) == 112);
 static_assert(offsetof(FogConstants, viewToWorld) == 0);
 static_assert(offsetof(FogConstants, tanHalfFov) == 64);
 static_assert(offsetof(FogConstants, volumeLightCount) == 72);
 static_assert(offsetof(FogConstants, flashlight) == 76);
 static_assert(offsetof(FogConstants, hazeScale) == 80);
-static_assert(offsetof(FogConstants, reserved) == 84);
+static_assert(offsetof(FogConstants, historyWeight) == 84);
+static_assert(offsetof(FogConstants, reserved) == 88);
+static_assert(offsetof(FogConstants, jitter) == 96);
 
 } // namespace uta::urender::gpu

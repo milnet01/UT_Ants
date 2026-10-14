@@ -16611,6 +16611,21 @@ stays with movement in 0.2.0.
   Check: before/after ut-shot of capture 141253 (scratch
   /mnt/Emulators/uta-scratch/u356 has the z256 probe and a crop
   recipe), device tier with sync validation, fog step timed A/B.
+  Built (2026-10-14), as designed. fog_scatter.comp samples at
+  FogConstants.jitter and blends with fogHistory (fog set binding 4)
+  at historyWeight; FogConstants grows to 112 bytes. Renderer::cut
+  starts afresh; a new level and the sky faces cut too. ut-shot cuts
+  per camera and draws 10 frames; ut-bench cuts per view. Checked:
+  capture 141253 before/after, the outline copies left of the tower
+  and the stepped bands right of it are gone (scratch u356/shots).
+  Fog step at 3840x2160, two runs each: SimpleX 2.53 to 2.64 ms,
+  ArchNemesis 2.50 to 2.62 ms. Unit 1014/1014; device 116/116 on
+  lavapipe and RX 6600 with sync validation. Two new device tests;
+  reading history at the same texel instead of reprojecting it, a
+  history never read, and a cut that does nothing each fail one.
+  Behaviour to know: fog follows a change in light over about ten
+  frames, so a flashlight switched off fades over ~0.15 s at 60 fps.
+  Flip on GitHub's matrix.
   **Layman:** Distant tower lights on one Monster Hunt map are wrapped in big white glowing blobs; check whether the original game shows them.
   Kind: fix.
   Source: user-2026-10-14.
