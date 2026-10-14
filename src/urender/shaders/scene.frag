@@ -342,6 +342,39 @@ void main() {
         return;
     }
 
+    // UTA-0352: what is added after the light loop is worked out before it, so
+    // the loop does not carry what it is made from -- the motion's two clip
+    // positions, the emission map's coordinates and the reflection's texture
+    // axes. Live across the loop, they held the shader at 128 VGPRs and 8
+    // waves.
+    // Current minus previous, in the target's UV units: +x right, +y down.
+    vec2 velocity = (currentClip.xy / currentClip.w - previousClip.xy / previousClip.w) * 0.5;
+
+    // Emission is added to a lit surface only, as before UTA-0040, and at the
+    // displaced coordinate like every other map.
+    vec3 emitted = vec3(0.0);
+    if (flaming)
+        emitted = flameColour(material.flame, heat);
+    else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) == 0u && material.emit != NONE)
+        emitted = tiled(material.emit, shadingUv, duv1, duv2, shuffled, tile, tileMix).rgb;
+
+    // UTA-0089 SS 4.2 and SS 4.3: a Wet or Wave liquid reflects the sky or the
+    // probes, by Fresnel's law, about its surface tilted by the ripple alone.
+    bool reflects = WATER_LOOK && !flaming && waterReflects(material.liquid) && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u;
+    vec3 reflected = vec3(0.0);
+    float share = 0.0;
+    if (reflects) {
+        vec3 v = normalize(frame.eye - worldPosition);
+        vec3 n = perturbed(surface, axes, vec3(wet.tilt, sqrt(max(0.0, 1.0 - dot(wet.tilt, wet.tilt)))));
+        vec3 r = reflect(-v, n);
+        // UTA-0215: from under water a surface mirrors the water, never the
+        // sky, however its ripples tilt it.
+        reflected = frame.cameraUnderwater == 0u && waterSeesSky(r, zone)
+            ? skyAt(r)
+            : waterProbeReflection(worldPosition + surface * (0.5 * float(frame.probeSpacing)), r);
+        share = waterShare(n, v);
+    }
+
     vec3 colour;
     vec2 lightTerms = vec2(0.0); // UTA-0292 SS 4.3: direct, indirect
     if (flaming) {
@@ -470,30 +503,11 @@ void main() {
         if (CAUSTICS && !liquid && zones[zone].water != 0u)
             colour += reflectance * causticLight(worldPosition, surface, frame.flameSeconds);
     }
-    // UTA-0089 SS 4.2 and SS 4.3: a Wet or Wave liquid reflects the sky or the
-    // probes, by Fresnel's law, about its surface tilted by the ripple alone.
-    if (WATER_LOOK && !flaming && waterReflects(material.liquid) && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u) {
-        vec3 v = normalize(frame.eye - worldPosition);
-        vec3 n = perturbed(surface, axes, vec3(wet.tilt, sqrt(max(0.0, 1.0 - dot(wet.tilt, wet.tilt)))));
-        vec3 r = reflect(-v, n);
-        // UTA-0215: from under water a surface mirrors the water, never the
-        // sky, however its ripples tilt it.
-        vec3 reflected = frame.cameraUnderwater == 0u && waterSeesSky(r, zone)
-            ? skyAt(r)
-            : waterProbeReflection(worldPosition + surface * (0.5 * float(frame.probeSpacing)), r);
-        float share = waterShare(n, v);
-        // A translucent pass blends ONE, ONE_MINUS_SRC_COLOR, so the added light
-        // also hides more of what is behind, as a reflection does.
+    // A translucent pass blends ONE, ONE_MINUS_SRC_COLOR, so the added light
+    // also hides more of what is behind, as a reflection does.
+    if (reflects)
         colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour + reflected * share : mix(colour, reflected, share);
-    }
 
-    // Emission is added to a lit surface only, as before UTA-0040, and at the
-    // displaced coordinate like every other map.
-    vec3 emitted = vec3(0.0);
-    if (flaming)
-        emitted = flameColour(material.flame, heat);
-    else if ((draw.polyFlags & (PF_UNLIT | PF_FAKE_BACKDROP)) == 0u && material.emit != NONE)
-        emitted = tiled(material.emit, shadingUv, duv1, duv2, shuffled, tile, tileMix).rgb;
     colour += emitted;
     outEmission = LIGHT_TERMS ? vec4(lightTerms, 0.0, 1.0) : vec4(emitted, 1.0);
 
@@ -513,6 +527,5 @@ void main() {
     colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour * fogged.a : colour * fogged.a + fogged.rgb;
 
     outColour = vec4(colour, 1.0);
-    // Current minus previous, in the target's UV units: +x right, +y down.
-    outVelocity = (currentClip.xy / currentClip.w - previousClip.xy / previousClip.w) * 0.5;
+    outVelocity = velocity;
 }

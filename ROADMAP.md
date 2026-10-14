@@ -20461,6 +20461,21 @@ docs/standards/versioning-overrides.md. Closes S8.
   device test fails with the slope forced to zero (only UTA-0352's
   cluster test went red, to be checked for flakiness), so the slope that
   UTA-0307 added against self-shadow stripes is untested.
+  Progress (2026-10-14, later still): ACO_DEBUG=liveinfo put the scene
+  shader's peak in the shadow taps' setup, with 87 VGPRs already live at
+  its start: values the shader made before the light loop and used after
+  it. Moving the motion vector, the emission read and the water
+  reflection ahead of the loop brought it to 96 VGPRs and 10 waves
+  (pre-sched 107 to 92). Old and new rendered 20 views (ArchNemesis,
+  SimpleX, MH-TheFortress2012Final's captures) byte-identical. Scene step
+  per view, still frames, 4K High, alternated, two reps agreeing within
+  0.1 ms: ArchNemesis 1.1-2.9 ms faster (view 1 11.98 to 10.38), SimpleX
+  0.6-1.8 ms faster (view 0 11.14 to 9.35). Fragile: nothing fails if a
+  later edit pushes the shader back over 96 VGPRs, so check
+  RADV_DEBUG=shaderstats,nocache after editing scene.frag. A cheaper
+  exact slope formula from the face matrix's rows is kept at
+  /mnt/Emulators/uta-scratch/u352/fix/shadows.slope2 (pre-sched 90 with
+  the reorder, against 92); not shipped, as it bought no wave.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
