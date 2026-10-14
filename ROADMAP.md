@@ -16581,6 +16581,36 @@ stays with movement in 0.2.0.
   out and by extension have banding" -- so this is a fix, not a question
   of taste: the light shafts must not repeat outlines in bands. The
   wider-than-normal view (UTA-0357) stretches them further at the sides.
+  Cause found (2026-10-14): depth-slice aliasing. fog_scatter.comp
+  samples each froxel at one point (its slice's middle depth), and deep
+  slices are long (about a tenth of their depth each), so a shadow edge
+  is sampled once per slice and the slices stack as shifted copies of
+  the outline. Probe: FOG_GRID z 64 to 256 (Fog.h and fog.glsl) turned
+  the copies left of the tower into a smooth fade and the right side's
+  bands into many fine stripes. The haze shadow also takes the nearest
+  of 4x4 texels (UTA-0333), which fattens shadows.
+  Decision (user, 2026-10-14): blend over frames, chosen over more
+  samples per frame (costs headroom) and a fixed dither (screen-locked
+  grain). There is no temporal resolve to lean on (Renderer.h setJitter
+  note; TAA is UTA-0076's), so the fog keeps its own history.
+  Design to build: (1) after a cut, frame k samples each froxel at
+  fract(0.5 + k * (0.8191725, 0.6710436, 0.5497005)) of its cell (R3
+  sequence), so frame 0 is the centre and one frame draws as today;
+  (2) blend with history at the froxel centre reprojected through
+  frame.previousViewProjUnjittered (texel z = fogCoordinate(view
+  depth)), weight max(1 / (k + 1), 0.1), no history when it falls off
+  the previous frustum; (3) one history image beside fogScattering,
+  copied from it after fog_integrate, read as a sampled image (new fog
+  set binding 4); barrier before the next scatter for the copy's write
+  and read; (4) a Renderer cut call that clears the history and
+  previousViewProj, also where the sky faces already reset it
+  (Frame.cpp); ut-shot and ut-bench cut at each new camera, and
+  ut-shot draws enough frames to converge (it draws 4 today, for the
+  shadow atlas). FogConstants is 96 bytes of a 128-byte push range:
+  room for the frame count and jitter in `reserved`, not for a matrix.
+  Check: before/after ut-shot of capture 141253 (scratch
+  /mnt/Emulators/uta-scratch/u356 has the z256 probe and a crop
+  recipe), device tier with sync validation, fog step timed A/B.
   **Layman:** Distant tower lights on one Monster Hunt map are wrapped in big white glowing blobs; check whether the original game shows them.
   Kind: fix.
   Source: user-2026-10-14.
@@ -16599,6 +16629,13 @@ stays with movement in 0.2.0.
   against the original; UT_MonsterHunt is asked to confirm it. The slider
   itself belongs to the settings menu (UTA-0297); until then keys and a
   command-line option change it.
+  Built (2026-10-14, 5479d3c, pushed through the gate): opens at FOV 90
+  across 4:3 kept at its height (106.26 across 16:9); [ and ] step 5
+  from 60 to 130; --fov, passed on by the launcher. Unit 1014/1014;
+  viewer driven under Xvfb. Open before shipping: confirm UT469 really
+  keeps 4:3 height on 16:9 rather than drawing 90 across. Asked of
+  UT_MonsterHunt with the UTA-0356 capture; if 469 draws 90 across, only
+  FlyCamera::camera()'s 0.75 factor changes. Flip on GitHub's matrix.
   **Layman:** The viewer shows a far wider view than a person sees; open at the original game's view and let the player widen or narrow it.
   Kind: fix.
   Source: user-2026-10-14.
