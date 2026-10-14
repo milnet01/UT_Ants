@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=353 -->
+<!-- ants-roadmap-id-high-water: UTA=354 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -20391,13 +20391,29 @@ docs/standards/versioning-overrides.md. Closes S8.
   still fit in the frame, so getting an empty map under 16.6 ms is not
   the end of this item. Actors shade through the cluster path (lightAt
   plus a 9-tap shadow read per light), which empty-map benchmarks barely
-  exercise; favour cuts there. Proposed, not yet filed: a benchmark with
-  stand-in actors placed on a map.
+  exercise; favour cuts there. The benchmark with stand-in actors on a
+  map is UTA-0354.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
   Lanes: urender.
   Blocked-by: UTA-0351.
+
+- 📋 [UTA-0354] **Time a frame with stand-in actors on the map, not only the empty level.**
+  ut-bench frame draws the baked level with no gameplay actors. Actors
+  are not charted, so they shade through the cluster path: lightAt plus a
+  9-tap softShadowOf per light (scene.frag), the path UTA-0352's probes
+  found most costly per light. Empty maps barely exercise it. Add a way
+  for ut-bench to place stand-in meshes (monster-, pickup- and
+  weapon-sized) at a map's spawn points and pickup spots, and report the
+  frame and its steps with and without them. Then time the survey's slow
+  maps both ways. The user wants headroom for guns, pickups, monsters and
+  bots (2026-10-14), so this measures what that costs.
+  Dependencies: UTA-0352.
+  **Layman:** Measure how fast a map draws with monsters, pickups and weapons on it, so the speed work leaves room for them.
+  Kind: perf.
+  Source: user-request-2026-10-14.
+  Lanes: urender, ut-bench.
 
 ## After 1.0.0
 
