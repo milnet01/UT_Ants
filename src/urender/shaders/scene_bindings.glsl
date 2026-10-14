@@ -9,7 +9,12 @@
 layout(set = 0, binding = 0) readonly buffer FrameBlock { FrameData frame; };
 layout(set = 0, binding = 1) readonly buffer ObjectBlock { Object objects[]; };
 layout(set = 0, binding = 2) readonly buffer MaterialBlock { Material materials[]; };
+#ifdef UTA_CLUSTER_WRITER
+// UTA-0352: the cluster pass also prepares each light's shade.
+layout(set = 0, binding = 3) buffer LightBlock { Light lights[]; };
+#else
 layout(set = 0, binding = 3) readonly buffer LightBlock { Light lights[]; };
+#endif
 // The cluster pass writes these two and declares them itself.
 #ifndef UTA_CLUSTER_WRITER
 layout(set = 0, binding = 4) readonly buffer ClusterCountBlock { uint clusterCounts[]; };

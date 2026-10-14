@@ -43,6 +43,28 @@ float lightIntensity(uint brightness) {
     return clamp(b * 0.7 / (0.01 + sqrt(b)), 0.0, 1.0) / top;
 }
 
+// UTA-0352: the light's colour times its intensity and the level's brightness
+// -- the same at every point it lights. cluster.comp stores it in the light
+// once a frame, and lightAt reads it back, rather than every fragment working
+// it out again for every light it sums. Measured on DM-ArchNemesis at 4K,
+// that work was 1.7 ms of the shading pass and 0.4 ms of the fog's. A kernel
+// holding a light of its own prepares it with prepareLight.
+vec3 lightShade(Light light) {
+    return lightColour(light.hue, light.saturation) * (lightIntensity(light.brightness) * light.levelBrightness);
+}
+
+Light prepareLight(Light light) {
+    vec3 shade = lightShade(light);
+    light.shadeR = shade.r;
+    light.shadeG = shade.g;
+    light.shadeB = shade.b;
+    return light;
+}
+
+vec3 preparedShade(Light light) {
+    return vec3(light.shadeR, light.shadeG, light.shadeB);
+}
+
 // AActor::WorldLightRadius.
 float lightRadius(uint radius) {
     return 25.0 * float(radius + 1u);
@@ -93,13 +115,13 @@ vec3 litFrom(Light light, vec3 x) {
 // (UTA-0338 SS 4.3).
 vec3 lightAt(Light light, vec3 x, vec3 n) {
     if (light.effect == SUN_EFFECT)
-        return lightColour(light.hue, light.saturation) * (lightIntensity(light.brightness) * light.levelBrightness)
+        return preparedShade(light)
                * max(0.0, dot(n, -lightDirection(light.pitch, light.yaw)));
     vec3 toLight = litFrom(light, x) - x;
     float d = length(toLight);
     float radius = lightRadius(light.radius);
     // UTA-0156 SS 4.5: the level's brightness scales every effect alike.
-    vec3 colour = lightColour(light.hue, light.saturation) * (lightIntensity(light.brightness) * light.levelBrightness);
+    vec3 colour = preparedShade(light);
 
     // UTA-0156: UE1's two effects that change the falloff's shape; neither has
     // an incidence term. A cylinder still reaches only inside its sphere, as

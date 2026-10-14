@@ -171,7 +171,7 @@ vec3 sunInSky(vec3 d) {
     if (frame.sun == NONE || frame.skyCapture != 0u) return vec3(0.0);
     Light sun = lights[frame.sun];
     float angle = acos(clamp(dot(d, -lightDirection(sun.pitch, sun.yaw)), -1.0, 1.0));
-    vec3 colour = lightColour(sun.hue, sun.saturation) * (lightIntensity(sun.brightness) * sun.levelBrightness);
+    vec3 colour = preparedShade(sun);
     float disc = 1.0 - smoothstep(0.8 * SUN_RADIUS, SUN_RADIUS, angle);
     return colour * (SUN_DISC_GAIN * disc + SUN_HALO * exp(-angle / SUN_HALO_WIDTH));
 }

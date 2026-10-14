@@ -20371,6 +20371,22 @@ docs/standards/versioning-overrides.md. Closes S8.
   passed every test: with no barrier the compiler may keep a lane's own
   writes in registers, so only a read of another lane's column is a real
   breach, and the new test is red on that one.
+  Progress (2026-10-14, later): ArchNemesis's scene step, split by
+  throwaway shader probes (4K, still frames, two reps, alternated): 13.0
+  ms as shipped; no direct lights 3.95; base colour only 1.45, so
+  overdraw is not it. Inside the light loop: the light formula replaced
+  by a constant 8.45; shadow-map reads off 9.8; baked-mask reads off
+  11.9; parallax off 11.4; probes off 10.8. The shader holds 128 VGPRs
+  (8 waves) with or without the formula, so the cost is the per-pixel
+  arithmetic, not occupancy. Of it, colour times intensity times level
+  brightness was 1.7 ms of scene and 0.4 of fog. Fixed by preparing
+  that per light once a frame in cluster.comp (still GLSL, so decision 5
+  holds); lightAt reads it. A/B, base against new, alternated, load
+  16-21: ArchNemesis scene 13.3-13.8 to 11.2-11.5 ms, fog 2.85 to 2.53;
+  SimpleX scene down 0.9-1.7 ms, fog 2.92 to 2.53-2.70. Next leads on
+  ArchNemesis: the rest of lightAt per pair (about 2.8 ms), shadow taps
+  (3.2), probes (2.2), parallax (1.6). Scratch:
+  /mnt/Emulators/uta-scratch/u352/probe and fix.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.

@@ -21,5 +21,6 @@ layout(local_size_x = 16) in;
 void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= uint(cases.length())) return;
-    results[i] = vec4(lightAt(cases[i].light, cases[i].x.xyz, cases[i].n.xyz), 0.0);
+    // UTA-0352: as cluster.comp prepares each light before the shading pass reads it.
+    results[i] = vec4(lightAt(prepareLight(cases[i].light), cases[i].x.xyz, cases[i].n.xyz), 0.0);
 }
