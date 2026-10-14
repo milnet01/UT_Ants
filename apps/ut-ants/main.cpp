@@ -87,6 +87,9 @@ bool installIsUsable(const std::filesystem::path& install) {
     return false;
 }
 
+/// UTA-0357: the degrees one press of [ or ] changes the field of view by.
+constexpr double FOV_STEP = 5;
+
 struct Start {
     FlyCamera camera;
     std::string from = "the origin"; ///< for a --frames run's report
@@ -213,6 +216,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     uta::urender::Renderer renderer = std::move(*created);
     Start start = startingCamera(bundle);
     FlyCamera& camera = start.camera;
+    if (options.fov.has_value()) camera.setFov(*options.fov); // UTA-0357
     // UTA-0158: the camera stops at the level's walls, as UT99's spectator does.
     const uta::ubundle::CollisionTree* const level = bundle.collision ? &bundle.collision->level : nullptr;
     SDL_SetWindowRelativeMouseMode(window, true);
@@ -315,6 +319,12 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                 running = false; // UTA-0183: Options on a PlayStation pad, Menu on an Xbox one
             } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) {
                 flashlight = !flashlight;
+            } else if (event.type == SDL_EVENT_KEY_DOWN
+                       && (event.key.key == SDLK_LEFTBRACKET || event.key.key == SDLK_RIGHTBRACKET)) {
+                // UTA-0357: until the settings menu's slider (UTA-0297), the
+                // brackets narrow and widen the view, held down to sweep it.
+                camera.setFov(camera.fov() + (event.key.key == SDLK_RIGHTBRACKET ? FOV_STEP : -FOV_STEP));
+                std::cerr << "ut-ants: field of view " << camera.fov() << "\n";
             } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
                        event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH) {
                 flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one

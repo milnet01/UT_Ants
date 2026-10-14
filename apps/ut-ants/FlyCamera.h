@@ -59,8 +59,20 @@ public:
     /// view's near plane of 1, so the wall is never cut open.
     static constexpr double WALL_MARGIN = 8;
 
+    /// UTA-0357: the field of view in UT99's own degrees -- across a 4:3
+    /// screen, and kept at that screen's height on a wider one, so 90 is
+    /// about 106 across 16:9. UT99 opens at 90 (Default.ini's
+    /// FovAngleDegrees); the player may change it within the limits.
+    static constexpr double DEFAULT_FOV = 90;
+    static constexpr double MIN_FOV = 60;
+    static constexpr double MAX_FOV = 130;
+
     FlyCamera() = default;
     FlyCamera(std::array<float, 3> location, std::int32_t pitch, std::int32_t yaw) noexcept;
+
+    [[nodiscard]] double fov() const noexcept { return fov_; }
+    /// Clamped to MIN_FOV and MAX_FOV; a value that is not a number is ignored.
+    void setFov(double fov) noexcept;
 
     /// Apply one frame's input over `seconds`. With `level`, the move stops
     /// WALL_MARGIN short of a wall and slides along it, the camera is then
@@ -74,6 +86,7 @@ public:
 private:
     std::array<double, 3> location_{};
     double pitch_ = 0, yaw_ = 0; ///< UT angle units
+    double fov_ = DEFAULT_FOV;
 };
 
 /// UTA-0190: `camera` as a line tools/ut-shot reads -- x y z pitch yaw roll

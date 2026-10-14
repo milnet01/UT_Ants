@@ -4,6 +4,8 @@
 
 #include "Cli.h"
 
+#include "FlyCamera.h"
+
 #include <charconv>
 #include <string>
 #include <system_error>
@@ -13,10 +15,10 @@ namespace uta::client {
 
 void usage(std::ostream& err) {
     err << "usage: ut-ants [--tier <low|medium|high|ultra>] [--frames <n>] [--validation] [--windowed]\n"
-           "               [--show-missing] [--no-added-lamps] [--notes <file>]\n"
+           "               [--show-missing] [--no-added-lamps] [--fov <degrees>] [--notes <file>]\n"
            "               [--baker-version <text>] <install> <bundle>\n"
            "       ut-ants [--tier <low|medium|high|ultra>] [--validation] [--windowed] [--show-missing]\n"
-           "               [--no-added-lamps] <install>\n"
+           "               [--no-added-lamps] [--fov <degrees>] <install>\n"
            "       ut-ants --help\n"
            "\n"
            "Given only <install>, opens the map launcher: every playable map in the\n"
@@ -31,8 +33,8 @@ void usage(std::ostream& err) {
            "Checks <install> with ut-bake --check, then opens <bundle>, a baked map,\n"
            "fullscreen at the desktop's resolution; --windowed opens a resizable\n"
            "window instead. The mouse looks; W, A, S and D fly; Space rises and Ctrl\n"
-           "sinks; Shift flies faster; F turns the flashlight on and off; Escape\n"
-           "quits. A gamepad flies too: the left stick moves, the right stick looks,\n"
+           "sinks; Shift flies faster; F turns the flashlight on and off; [ and ]\n"
+           "narrow and widen the view; Escape quits. A gamepad flies too: the left stick moves, the right stick looks,\n"
            "the right trigger or shoulder rises and the left sinks, pressing the left\n"
            "stick flies faster, the top face button turns the flashlight on and off,\n"
            "and the Options or Menu button quits. P, or the pad's Share, Create or\n"
@@ -53,7 +55,10 @@ void usage(std::ostream& err) {
            "--no-added-lamps draws the map without the lamps its recipe adds, as\n"
            "the map was made.\n"
            "--tier picks the quality tier; without it the game picks one from the\n"
-           "graphics card.\n";
+           "graphics card.\n"
+           "--fov opens at that field of view, in UT99's degrees: across a 4:3\n"
+           "screen, kept at its height on a wider one. 90, UT99's own, without it;\n"
+           "60 to 130.\n";
 }
 
 std::optional<Options> parseArguments(std::span<const std::string_view> args, std::ostream& err) {
@@ -103,6 +108,25 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
                 return std::nullopt;
             }
             options.frames = frames;
+        } else if (arg == "--fov") {
+            if (options.fov.has_value()) {
+                err << "ut-ants: --fov is given twice\n";
+                return std::nullopt;
+            }
+            if (i + 1 >= args.size()) {
+                err << "ut-ants: --fov needs a value\n";
+                return std::nullopt;
+            }
+            const std::string_view value = args[++i];
+            double fov = 0;
+            const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), fov);
+            if (error != std::errc{} || end != value.data() + value.size() || !(fov >= FlyCamera::MIN_FOV)
+                || !(fov <= FlyCamera::MAX_FOV)) {
+                err << "ut-ants: --fov takes degrees from " << FlyCamera::MIN_FOV << " to " << FlyCamera::MAX_FOV
+                    << ", not " << value << "\n";
+                return std::nullopt;
+            }
+            options.fov = fov;
         } else if (arg == "--notes") {
             if (!options.notes.empty()) {
                 err << "ut-ants: --notes is given twice\n";

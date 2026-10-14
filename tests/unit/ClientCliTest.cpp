@@ -76,6 +76,21 @@ TEST_CASE("UTA-0016: --frames takes a whole number above zero", "[client]") {
     CHECK_FALSE(parse({"--frames", "2", "--frames", "3", "/games/UT", "map.utab"}).options.has_value());
 }
 
+TEST_CASE("UTA-0357: --fov opens at that field of view, in UT99's degrees", "[client]") {
+    CHECK_FALSE(parse({"/games/UT", "map.utab"}).options->fov.has_value());
+    const Parsed parsed = parse({"--fov", "100.5", "/games/UT", "map.utab"});
+    REQUIRE(parsed.options.has_value());
+    CHECK(parsed.options->fov == 100.5);
+    for (const std::string_view bad : {"", "wide", "100x", "0", "-90", "500", "nan"}) {
+        INFO("--fov " << bad);
+        const Parsed refused = parse({"--fov", bad, "/games/UT", "map.utab"});
+        CHECK_FALSE(refused.options.has_value());
+        CHECK(refused.err.find("--fov") != std::string::npos);
+    }
+    CHECK_FALSE(parse({"/games/UT", "map.utab", "--fov"}).options.has_value());
+    CHECK_FALSE(parse({"--fov", "90", "--fov", "100", "/games/UT", "map.utab"}).options.has_value());
+}
+
 TEST_CASE("UTA-0170: an install alone opens the map launcher", "[client]") {
     const Parsed parsed = parse({"--windowed", "/games/UT", "--tier", "low"});
     REQUIRE(parsed.options.has_value());

@@ -37,6 +37,9 @@ struct Options {
     bool windowed = false;
     /// UTA-0051: the quality tier. Unset: urender chooses from the device.
     std::optional<urender::Tier> tier;
+    /// UTA-0357: the field of view to open at, in UT99's degrees (FlyCamera's
+    /// fov). Unset: FlyCamera::DEFAULT_FOV.
+    std::optional<double> fov;
     /// UTA-0190: the map's notes file, which P appends the camera to. Empty:
     /// the camera goes to standard error only.
     ///

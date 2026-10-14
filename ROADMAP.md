@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=356 -->
+<!-- ants-roadmap-id-high-water: UTA=357 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16577,11 +16577,32 @@ stays with movement in 0.2.0.
   then check hazeShadowOf's face choice and its quarter-size atlas reads
   for that light. The original game has no fog shadows, so a paired
   capture (UT_MonsterHunt, accepted) only grades the glow.
+  User (2026-10-14): the shafts "shouldn't have that redraw stretched
+  out and by extension have banding" -- so this is a fix, not a question
+  of taste: the light shafts must not repeat outlines in bands. The
+  wider-than-normal view (UTA-0357) stretches them further at the sides.
   **Layman:** Distant tower lights on one Monster Hunt map are wrapped in big white glowing blobs; check whether the original game shows them.
-  Kind: investigate.
+  Kind: fix.
   Source: user-2026-10-14.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141253, ~/.local/state/ut-ants/map-captures/MH-(MHA)-TheFortress2012Final-BP-20261014-141307
+
+- 🚧 [UTA-0357] **ut-ants: open at UT99's field of view, and let the player change it.**
+  The viewer never sets its field of view, so it takes urender's
+  default camera: 90 degrees top to bottom, 121.28 across 16:9
+  (src/urender/Renderer.h). The user, 2026-10-14: "The fov should be how a
+  normal persona sees, not expanded", with a slider and the normal view as
+  the default; then "go with what UT99 has but still allow the player to
+  adjust it". UT99's own setting is FOV 90 (Default.ini FovAngleDegrees),
+  read here as across a 4:3 screen and kept at that height on a wider one,
+  about 106 degrees across 16:9. That reading of UT469 is not yet checked
+  against the original; UT_MonsterHunt is asked to confirm it. The slider
+  itself belongs to the settings menu (UTA-0297); until then keys and a
+  command-line option change it.
+  **Layman:** The viewer shows a far wider view than a person sees; open at the original game's view and let the player widen or narrow it.
+  Kind: fix.
+  Source: user-2026-10-14.
+  Lanes: client.
 
 ## 0.2.0 — Movement and weapons
 
@@ -20341,6 +20362,8 @@ docs/standards/versioning-overrides.md. Closes S8.
   switch in the renderer when it is built, which is cheap then and costly
   to retrofit; the menu itself belongs with the game menus, UTA-0120.
   Amend UTA-0051's spec when the switches are first built.
+  Also (user, 2026-10-14): a field-of-view slider, defaulting to UT99's
+  view. UTA-0357 sets the default and gives keys meanwhile.
   **Layman:** A graphics page in the settings lets players pick a quality level and then switch individual effects on or off to suit their computer.
   Kind: feature.
   Source: user-request-2026-10-06.

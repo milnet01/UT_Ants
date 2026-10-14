@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <atomic>
 #include <filesystem>
+#include <format>
 #include <iostream>
 #include <mutex>
 #include <optional>
@@ -332,6 +333,10 @@ private:
             if (options_.validation) args.emplace_back("--validation");
             if (options_.showMissing) args.emplace_back("--show-missing");
             if (!options_.addedLamps) args.emplace_back("--no-added-lamps");
+            if (options_.fov.has_value()) {
+                args.emplace_back("--fov");
+                args.push_back(std::format("{}", *options_.fov));
+            }
             if (options_.tier.has_value()) {
                 args.emplace_back("--tier");
                 args.emplace_back(urender::tierName(*options_.tier));

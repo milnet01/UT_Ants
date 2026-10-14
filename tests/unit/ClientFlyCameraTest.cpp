@@ -271,6 +271,28 @@ TEST_CASE("UTA-0190: a pose line is a camera line ut-shot reads", "[client]") {
     CHECK(uta::client::poseLine(camera, 1000, 1000) == "1.50 -2.25 3.00 100 -200 0 90.00");
 }
 
+TEST_CASE("UTA-0357: the camera opens at UT99's FOV 90, kept at a 4:3 screen's height", "[client]") {
+    const FlyCamera fly;
+    CHECK(fly.fov() == FlyCamera::DEFAULT_FOV);
+    CHECK(FlyCamera::DEFAULT_FOV == 90);
+    // 90 across a 4:3 screen; a 16:9 one is wider at the same height.
+    CHECK(uta::client::poseLine(fly.camera(), 1440, 1080) == "0.00 0.00 0.00 0 0 0 90.00");
+    CHECK(uta::client::poseLine(fly.camera(), 1920, 1080) == "0.00 0.00 0.00 0 0 0 106.26");
+}
+
+TEST_CASE("UTA-0357: the FOV is the player's to change, within limits", "[client]") {
+    FlyCamera fly;
+    fly.setFov(110);
+    CHECK(fly.fov() == 110);
+    CHECK(uta::client::poseLine(fly.camera(), 1440, 1080) == "0.00 0.00 0.00 0 0 0 110.00");
+    fly.setFov(FlyCamera::MIN_FOV - 1);
+    CHECK(fly.fov() == FlyCamera::MIN_FOV);
+    fly.setFov(FlyCamera::MAX_FOV + 1);
+    CHECK(fly.fov() == FlyCamera::MAX_FOV);
+    fly.setFov(std::numeric_limits<double>::quiet_NaN());
+    CHECK(fly.fov() == FlyCamera::MAX_FOV);
+}
+
 TEST_CASE("a start's pitch is read as a turn, so 63488 is slightly down", "[client]") {
     // review-code 2026-09-26: a rotator is stored in 0..65535 as often as
     // signed. Clamped raw, a start tilted down looked almost straight up.
