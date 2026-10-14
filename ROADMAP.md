@@ -20387,6 +20387,12 @@ docs/standards/versioning-overrides.md. Closes S8.
   ArchNemesis: the rest of lightAt per pair (about 2.8 ms), shadow taps
   (3.2), probes (2.2), parallax (1.6). Scratch:
   /mnt/Emulators/uta-scratch/u352/probe and fix.
+  Headroom (user, 2026-10-14): guns, pickups, monsters and bots must
+  still fit in the frame, so getting an empty map under 16.6 ms is not
+  the end of this item. Actors shade through the cluster path (lightAt
+  plus a 9-tap shadow read per light), which empty-map benchmarks barely
+  exercise; favour cuts there. Proposed, not yet filed: a benchmark with
+  stand-in actors placed on a map.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
