@@ -143,6 +143,20 @@ Result<std::vector<CompressedTexture>> readTextures(Cursor& cursor) {
     return readVector<CompressedTexture>(cursor, MIN_TEXTURE, "textures", readCompressedTexture);
 }
 
+Result<void> validateTextures(const std::vector<CompressedTexture>& textures, ErrorCode code) {
+    for (const CompressedTexture& texture : textures) {
+        if (static_cast<std::uint8_t>(texture.format) > static_cast<std::uint8_t>(BlockFormat::BC7))
+            return fail(code, "TEXS: texture '" + texture.name + "' has a block format that is not 0, 1 or 2");
+        if (auto fields = validateTextureFields(texture); !fields)
+            return fail(code, "texture '" + texture.name + "': " + std::string(fields.error().message()));
+        if (texture.blocks.size() != expectedBlockBytes(texture))
+            return fail(code, "TEXS: texture '" + texture.name + "' holds " + std::to_string(texture.blocks.size())
+                                  + " block bytes; its own dimensions require "
+                                  + std::to_string(expectedBlockBytes(texture)));
+    }
+    return {};
+}
+
 std::uint64_t texturesSize(const std::vector<CompressedTexture>& textures) {
     // The count, then per texture putCompressedTexture's fields: the name's
     // u32 length and bytes, format, four u16 sizes, mipCount, the blocks' u32

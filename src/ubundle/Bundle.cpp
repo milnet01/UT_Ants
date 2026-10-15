@@ -299,7 +299,11 @@ Result<std::optional<std::string>> readBaker(std::span<const std::byte> prefix) 
     for (std::uint32_t i = 0; i < raw.sectionCount; ++i) {
         UTA_TRY(const Descriptor descriptor, readDescriptor(table));
         if (descriptor.id != ID_BAKR) continue;
-        // Computed so offset + size cannot overflow.
+        // Computed so offset + size cannot overflow. A BAKR pointing back into
+        // the header or the table would read those bytes as a version, which
+        // read refuses; so does this (review-code 2026-10-15).
+        if (descriptor.offset < HEADER_SIZE + std::uint64_t{raw.sectionCount} * SECTION_DESCRIPTOR_SIZE)
+            return fail(ErrorCode::MalformedData, "BAKR lies inside the header or the section table");
         if (descriptor.offset > prefix.size() || descriptor.size > prefix.size() - descriptor.offset)
             return fail(ErrorCode::MalformedData, "BAKR lies outside the bytes given");
         Cursor payload(prefix.subspan(static_cast<std::size_t>(descriptor.offset),
@@ -328,6 +332,9 @@ Result<std::vector<std::byte>> write(const Bundle& bundle) {
     if (bundle.placements)
         UTA_CHECK(validatePlacements(*bundle.placements, ErrorCode::InvalidArgument));
     if (bundle.lights) UTA_CHECK(validateLights(*bundle.lights, ErrorCode::InvalidArgument));
+    // TEXS is put straight into the file, so its rules run here rather than
+    // in an encoder (review-code 2026-10-15).
+    if (bundle.textures) UTA_CHECK(validateTextures(*bundle.textures, ErrorCode::InvalidArgument));
     if (bundle.movers) UTA_CHECK(validateMovers(*bundle.movers, ErrorCode::InvalidArgument));
     if (bundle.collision)
         UTA_CHECK(validateCollision(*bundle.collision, ErrorCode::InvalidArgument));

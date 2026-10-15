@@ -3,7 +3,6 @@
 #include "ubundle/Sky.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <string>
 #include <string_view>
@@ -20,7 +19,9 @@ bool isSkyZone(const ActorClass& actorClass) {
 /// A property's name folded, since a map spells it as its author typed it.
 std::string folded(std::string_view text) {
     std::string out(text);
-    std::ranges::transform(out, out.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    // ASCII by hand: std::tolower follows the program's locale (review-code
+    // 2026-10-15).
+    std::ranges::transform(out, out.begin(), [](char ch) { return ch >= 'A' && ch <= 'Z' ? static_cast<char>(ch + 32) : ch; });
     return out;
 }
 

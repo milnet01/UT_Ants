@@ -120,6 +120,11 @@ constexpr std::uint64_t MIN_MATERIAL = 42;
         if (count > FIRE_SPARKS_MAX)
             return fail(ErrorCode::MalformedData, "MATS: fire look's " + std::to_string(count)
                                                       + " sparks is more than " + std::to_string(FIRE_SPARKS_MAX));
+        // Eight bytes a spark: refused before the resize, as INV-2 asks of
+        // every count (review-code 2026-10-15).
+        if (count > cursor.remaining() / 8)
+            return fail(ErrorCode::MalformedData, "MATS: fire look's " + std::to_string(count)
+                                                      + " sparks run past the section");
         look.sparks.resize(count);
         for (FireSpark& spark : look.sparks)
             for (std::uint8_t* byte : {&spark.type, &spark.heat, &spark.x, &spark.y, &spark.byteA, &spark.byteB,

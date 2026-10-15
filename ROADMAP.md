@@ -16929,13 +16929,21 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: ubake.
 
-- 📋 [UTA-0368] **ubundle: the writer can emit textures the reader refuses, and other format gaps.**
+- 🚧 [UTA-0368] **ubundle: the writer can emit textures the reader refuses, and other format gaps.**
   Unverified findings of UTA-0329's review:
   - lane-03 L Bundle.cpp:381: write skips TEXS's own rules.
   - lane-03 L Bundle.cpp:301: BAKR read.
   - lane-03 L MaterialSection.cpp:123: sparks.resize(count).
   - lane-03 L Sky.cpp:23: locale-dependent tolower.
   - lane-03 L TileAnswers.cpp:105: file I/O against UTA-0008 SS 4.1.
+  Closed 2026-10-15, each verified at its site. Fixed: write runs
+  validateTextures (block format, INV-2, INV-1) on TEXS, which no
+  encoder checked (test red first, both sections); readBaker refuses a
+  BAKR inside the header or table; MATS refuses a spark count past the
+  section's bytes before the resize; Sky folds ASCII by hand instead of
+  the locale's tolower. Moved to UTA-0373: TileAnswers.cpp:105's file
+  I/O against UTA-0008 SS 4.1 (which side changes is a doc decision).
+  Unit 1024 green. Flip on GitHub's matrix.
   **Layman:** Small gaps between how baked files are written and read.
   Kind: fix.
   Source: review-code-2026-10-15.
@@ -17005,6 +17013,9 @@ stays with movement in 0.2.0.
   - lane-05 L UTA-0014 SS 6 projected size; Geometry.h:51;
     Pipelines.h:9.
   - lane-06 L shadow_reduce.comp:15; ShaderTypes.h:247; fog_scatter.comp:71.
+  Also carries UTA-0368's TileAnswers.cpp:105: applyTileAnswersFile
+  reads a file, where UTA-0008 SS 4.1 and Bundle.h:12 say ubundle does no
+  file I/O. Decide which side moves.
   **Layman:** Several design documents and code comments describe an older version of the code.
   Kind: doc-fix.
   Source: review-code-2026-10-15.

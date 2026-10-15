@@ -402,6 +402,23 @@ TEST_CASE("write reproduces the golden texture bytes exactly", "[ubundle][textur
     CHECK(*written == golden);
 }
 
+TEST_CASE("UTA-0368: write refuses a texture read would refuse", "[ubundle][texture]") {
+    // review-code 2026-10-15: TEXS is put straight into the file, so no
+    // encoder ran its rules and write emitted what read then refused.
+    const auto decoded = read(goldenTextureBundle());
+    REQUIRE(decoded.has_value());
+    SECTION("too few block bytes") {
+        uta::ubundle::Bundle bundle = *decoded;
+        (*bundle.textures)[0].blocks.pop_back();
+        CHECK_FALSE(write(bundle).has_value());
+    }
+    SECTION("a mip count past its size") {
+        uta::ubundle::Bundle bundle = *decoded;
+        (*bundle.textures)[0].mipCount = 40;
+        CHECK_FALSE(write(bundle).has_value());
+    }
+}
+
 TEST_CASE("the TEXS descriptor's compression byte is zero", "[ubundle][texture]") {
     // INV-13. The format is carried per texture and never by the section, so
     // the descriptor byte stays zero. Its position is fixed by UTA-0008
