@@ -146,6 +146,15 @@ share a light, the one with more members is kept, and on a tie the one whose
 lowest `exportIndex` is lower. The result is a function of the light list
 alone, so a bake stays deterministic.
 
+**Bounds.** A group of rule-1 lights larger than `STRIP_GROUP_LIMIT` (1024)
+makes no strip. Nor does a group whose candidate rows, added to those of the
+groups before it in key order, would hold more than `STRIP_MEMBER_BUDGET`
+(2^26) members. The search is cubic in a group's size, so a crafted map could
+otherwise exhaust memory (`UTA-0363`). No library map reaches either bound:
+measured 2026-10-15, MH-OrticanMH's 186-light group holds 39082 members, the
+most of the five maps with the most `LE_Cylinder` lights, and no map stores
+more than 1001 of them.
+
 **Marking.** The member with the lowest `exportIndex` becomes
 `STRIP_LEADER`, with `stripFrom` and `stripTo` the `location`s of the two end
 members, lower `exportIndex` first. The rest become `STRIP_ABSORBED`. No

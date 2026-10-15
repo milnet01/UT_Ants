@@ -114,17 +114,32 @@ void markStrips(std::vector<ubundle::Light>& lights, const Blocked& blocked) {
         if (!excluded(lights[i])) groups[keyOf(lights[i])].push_back(i);
 
     std::vector<Row> candidates;
+    std::size_t held = 0; // members across every candidate kept so far
     for (const auto& [key, group] : groups) {
-        if (group.size() < 3) continue;
+        // STRIP_GROUP_LIMIT and STRIP_MEMBER_BUDGET: past either, the group
+        // makes no strip, in group order, so the result is still the light
+        // list's alone.
+        if (group.size() < 3 || group.size() > STRIP_GROUP_LIMIT) continue;
         const double gapBound = STRIP_GAP_REACH * lightRadius(lights[group.front()].radius);
         // No row is longer than its gaps allow, so farther pairs are not tried.
         const double longest = gapBound * static_cast<double>(group.size() - 1);
-        for (std::size_t p = 0; p < group.size(); ++p)
-            for (std::size_t q = p + 1; q < group.size(); ++q) {
+        const std::size_t first = candidates.size();
+        std::size_t groupHeld = 0;
+        bool over = false;
+        for (std::size_t p = 0; p < group.size() && !over; ++p)
+            for (std::size_t q = p + 1; q < group.size() && !over; ++q) {
                 if (length(at(lights[group[q]]) - at(lights[group[p]])) > longest) continue;
-                if (auto row = rowBetween(lights, group, group[p], group[q], gapBound, blocked))
-                    candidates.push_back(std::move(*row));
+                if (auto row = rowBetween(lights, group, group[p], group[q], gapBound, blocked)) {
+                    groupHeld += row->members.size();
+                    over = held + groupHeld > STRIP_MEMBER_BUDGET;
+                    if (!over) candidates.push_back(std::move(*row));
+                }
             }
+        if (over) {
+            candidates.resize(first);
+            continue;
+        }
+        held += groupHeld;
     }
 
     // Larger first; on a tie the lower lowest member, then the lower ends. Two

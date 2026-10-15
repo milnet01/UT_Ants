@@ -1,6 +1,7 @@
 #include "umap/Build.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -248,22 +249,25 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
 /// keeps one component to one outer ring, which is the shape SS 4.4 step 5
 /// asks for; taking the clockwise edge instead would split the component's
 /// boundary into two rings and leave nothing to call the outer one.
+/// Only the component's own cell box is scanned, `box` as {x0, y0, x1, y1}
+/// inclusive: scanning the whole lattice once per component made a zone
+/// split into many pieces cost pieces times the lattice (review-code
+/// 2026-10-15). `edgeTo` is shared between components and left all false.
 [[nodiscard]] std::vector<std::vector<Point2>> traceComponent(
-    const Lattice& lattice, const std::vector<std::size_t>& label, std::size_t which) {
+    const Lattice& lattice, const std::vector<std::size_t>& label, std::size_t which,
+    const std::array<std::size_t, 4>& box, std::vector<bool>& edgeTo) {
     const std::size_t stride = lattice.nx + 1;
-    const std::size_t corners = stride * (lattice.ny + 1);
 
     // edgeTo[corner * 4 + d] is set where an edge leaves `corner` in
     // direction d. A corner has at most one edge per direction, because two
     // cells sharing that edge cancel it.
-    std::vector<bool> edgeTo(corners * 4, false);
 
     const auto inComponent = [&](std::size_t ix, std::size_t iy) {
         return label[iy * lattice.nx + ix] == which;
     };
 
-    for (std::size_t iy = 0; iy < lattice.ny; ++iy) {
-        for (std::size_t ix = 0; ix < lattice.nx; ++ix) {
+    for (std::size_t iy = box[1]; iy <= box[3]; ++iy) {
+        for (std::size_t ix = box[0]; ix <= box[2]; ++ix) {
             if (!inComponent(ix, iy)) continue;
             const std::size_t lo = iy * stride + ix;         // (ix,   iy)
             const std::size_t loRight = lo + 1;              // (ix+1, iy)
@@ -284,8 +288,12 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
                + (vx + static_cast<std::size_t>(DIR_X[dir]));
     };
 
+    // The box's corners in ascending index, the order a whole-lattice scan
+    // meets them in, so the rings come out as they did.
     std::vector<std::vector<Point2>> rings;
-    for (std::size_t start = 0; start < corners; ++start) {
+    for (std::size_t vy = box[1]; vy <= box[3] + 1; ++vy)
+    for (std::size_t vx = box[0]; vx <= box[2] + 1; ++vx) {
+        const std::size_t start = vy * stride + vx;
         for (int firstDir = 0; firstDir < 4; ++firstDir) {
             if (!edgeTo[start * 4 + firstDir]) continue;
 
@@ -316,6 +324,11 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
             if (ring.size() >= 3) rings.push_back(std::move(ring));
         }
     }
+    // Every edge pairs up, so the walk cleared them all; cleared again here so
+    // the next component starts from all false whatever happened.
+    for (std::size_t vy = box[1]; vy <= box[3] + 1; ++vy)
+        for (std::size_t vx = box[0]; vx <= box[2] + 1; ++vx)
+            for (int d = 0; d < 4; ++d) edgeTo[(vy * stride + vx) * 4 + static_cast<std::size_t>(d)] = false;
     return rings;
 }
 
@@ -330,17 +343,21 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
     // rooms-in-one-zone rather than one pinched region, which is what SS 4.4
     // step 5's "two pools of one water zone" describes.
     std::vector<std::size_t> stack;
+    std::vector<std::array<std::size_t, 4>> boxes; // per component: x0, y0, x1, y1
     std::size_t next = 0;
     for (std::size_t seed = 0; seed < label.size(); ++seed) {
         if (!bucket.in[seed] || label[seed] != UNLABELLED) continue;
         const std::size_t which = next++;
         label[seed] = which;
         stack.push_back(seed);
+        boxes.push_back({seed % lattice.nx, seed / lattice.nx, seed % lattice.nx, seed / lattice.nx});
+        std::array<std::size_t, 4>& box = boxes.back();
         while (!stack.empty()) {
             const std::size_t cell = stack.back();
             stack.pop_back();
             const std::size_t ix = cell % lattice.nx;
             const std::size_t iy = cell / lattice.nx;
+            box = {std::min(box[0], ix), std::min(box[1], iy), std::max(box[2], ix), std::max(box[3], iy)};
             const auto visit = [&](std::size_t nxi, std::size_t nyi) {
                 const std::size_t neighbour = nyi * lattice.nx + nxi;
                 if (!bucket.in[neighbour] || label[neighbour] != UNLABELLED) return;
@@ -354,8 +371,9 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
         }
     }
 
+    std::vector<bool> edgeTo(next == 0 ? 0 : (lattice.nx + 1) * (lattice.ny + 1) * 4, false);
     for (std::size_t which = 0; which < next; ++which) {
-        std::vector<std::vector<Point2>> rings = traceComponent(lattice, label, which);
+        std::vector<std::vector<Point2>> rings = traceComponent(lattice, label, which, boxes[which], edgeTo);
         if (rings.empty()) continue;
 
         // The outer ring is the counter-clockwise one, and a four-connected

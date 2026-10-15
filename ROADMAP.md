@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=374 -->
+<!-- ants-roadmap-id-high-water: UTA=375 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16796,6 +16796,20 @@ stays with movement in 0.2.0.
   - lane-02 L LightProbes.cpp:376-401: no NavigationPoint walks the
     whole bounding box.
   - lane-12 L class-census.py:108: length read then skipped unchecked.
+  Closed 2026-10-15, each verified at its site. Fixed: Strips gains
+  STRIP_GROUP_LIMIT (1024) and STRIP_MEMBER_BUDGET (2^26), UTA-0162
+  SS 4.2 Bounds (test red first for the limit; the budget has no test,
+  it needs 64M members). Measured: no map stores over 1001 LE_Cylinder
+  lights; of the five with most, MH-OrticanMH's largest group is 186
+  lights, 39082 members. umap traceComponent scans only its component's
+  box with one shared edge table (behaviour-preserving; umap tests
+  green). Re-bakes of MH-DKDasaCellars{fix}, DOM-Leadworks and
+  MH-OrticanMH by the new baker are byte-identical to the old one's, so
+  no baker revision bump. Duplicate: umap/Build.cpp:560 is UTA-0098.
+  Split: LightProbes with no reach is UTA-0375 (needs a decision).
+  Dismissed: class-census.py:108 does no unbounded work; a bad length
+  ends in an exception at the next read. Unit tier 1021 green. Flip on
+  GitHub's matrix.
   **Layman:** Some unusual map shapes make map preparation take hours or use all memory; bound the work.
   Kind: security.
   Source: review-code-2026-10-15.
@@ -16965,6 +16979,20 @@ stays with movement in 0.2.0.
   Kind: audit-fix.
   Source: audit-2026-10-15.
   Lanes: ubake, upkg, ufire, ubundle, urender, tools, scripts.
+
+- 📋 [UTA-0375] **ubake: with no navigation point, the probe lattice walks each triangle's whole box, which a huge triangle makes endless.**
+  Split from UTA-0363 (lane-02 L, LightProbes.cpp:376-401). With
+  `reach` absent, low and high are clipped to infinity, so a sloped
+  triangle 500000 units across walks (500000/spacing)^3 cells, and
+  static_cast<int32_t>(ceil(v / spacing)) of a huge v is undefined.
+  Needs a decision, not a guard: what bounds probe placement in a map
+  with no NavigationPoint (the level's own box, the geometry's, or the
+  plane slab walked per row). Hazard of the obvious fix: clipping to the
+  geometry's box changes nothing for the huge-triangle case itself.
+  **Layman:** A map with no paths and one enormous sloped surface could make the baker run for days; decide where probes go in such a map.
+  Kind: security.
+  Source: review-code-2026-10-15.
+  Lanes: ubake.
 
 ## 0.2.0 — Movement and weapons
 
@@ -18169,6 +18197,9 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   2026-09-30, from UTA-0129's first measurement: room building is
   0.0001 s of AS-Frigate's 92.6 s bake and under that on CTF-Face,
   so it is not a cost today. It stays dormant, as the headline says.
+  review-code 2026-10-15 found this again (lane-08 L, umap/Build.cpp:560:
+  up to 2^30 roomAt descents, each bounded only by the node count).
+  Closed there as a duplicate of this item; still dormant.
   **Layman:** Working out the rooms of a big map could take seconds once real map sizes are used; decide which area to sample before speeding it up.
   Kind: investigate.
   Source: review-code-2026-09-10 optimisation pass.

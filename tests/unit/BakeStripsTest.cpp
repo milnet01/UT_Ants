@@ -79,6 +79,17 @@ TEST_CASE("INV-2: an uneven and slightly crooked row is one strip", "[ubake][str
     for (std::size_t i = 0; i < lights.size(); ++i) CHECK(lights[i].location == before[i].location);
 }
 
+TEST_CASE("UTA-0363: a group of identical lights above STRIP_GROUP_LIMIT makes no strip", "[ubake][strips]") {
+    // review-code 2026-10-15: the row search is cubic in a group's size, so a
+    // crafted map of thousands of identical lights would not finish. The rest
+    // sit a million units apart, so each pair is ruled out at once.
+    std::vector<Light> lights = row();
+    for (std::uint32_t k = 0; lights.size() <= uta::ubake::STRIP_GROUP_LIMIT; ++k)
+        lights.push_back(cylinder(100 + k, 0, 1.0e6F * static_cast<float>(k + 1)));
+    markStrips(lights, OPEN);
+    for (const Light& light : lights) CHECK(light.strip == 0);
+}
+
 TEST_CASE("INV-3: a row that breaks one rule is no strip", "[ubake][strips]") {
     std::vector<Light> lights = row();
     SECTION("two lights only") {
