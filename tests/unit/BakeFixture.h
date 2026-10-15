@@ -143,6 +143,9 @@ struct BrushSpec {
     /// When set, Polys hold first a polygon in the square's plane facing the
     /// other way, wearing this -- a thin door's back.
     std::int32_t backTexture = 0;
+    /// The polygon's own authored flags, apart from the surface's built ones
+    /// -- UTA-0361.
+    std::uint32_t polygonFlags = 0;
 };
 
 /// A package under construction: its three tables, kept consistent, and the

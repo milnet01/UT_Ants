@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=360 -->
+<!-- ants-roadmap-id-high-water: UTA=361 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16016,7 +16016,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 📋 [UTA-0329] **Codebase audit on Thursday 2026-10-08, when the weekly limit resets.**
+- 🚧 [UTA-0329] **Codebase audit on Thursday 2026-10-08, when the weekly limit resets.**
   The user asked 2026-10-06 for a codebase audit on Thursday, when the
   weekly usage limit resets. Not before 2026-10-08. Run review-code over
   the whole tree (one subsystem per lane), with check-code first for what
@@ -16031,6 +16031,8 @@ stays with movement in 0.2.0.
   User decision (2026-10-13): run the audit on the next weekly
   usage reset day, not before; the rest of 0.1.0 is worked meanwhile,
   from UTA-0254. Clear this note when picked up.
+  Picked up 2026-10-15, the reset day, with the user's go-ahead the same
+  day. The deferral notes above are cleared by this.
   **Layman:** A full independent check of the code for bugs, scheduled for the day the weekly usage allowance renews.
   Kind: chore.
   Source: user-request-2026-10-06.
@@ -20028,6 +20030,47 @@ to.
   **Layman:** One Monster Hunt map's level data fails to load in our reader, so we cannot tell where its players start.
   Kind: investigate.
   Source: ut-monsterhunt-report-2026-10-09.
+
+- 📋 [UTA-0361] **ut-dump: print each built BSP surface's polygons, so UT_MonsterHunt's wall tools can stop reading T3D exports.**
+  UT_MonsterHunt asked 2026-10-15 whether ut-dump reads the built BSP for
+  its wall, lift and blocker tools (analysis/wallcheck2.py, wallcheck3.py,
+  wallfix.py, liftcheck.py, blockgen.py), which read T3D exports today.
+  Its GAME-0032 (retire the T3D export) turns on the answer.
+  --surface-list (UTA-0213) already gives built polyFlags, brush,
+  brushPoly, base, normal and drawnNodes, but no vertices. upkg's Model
+  holds them: each drawn node (numVertices >= 3) names its surface
+  (iSurf) and its vertex run (verts[iVertPool..], each pVertex into
+  points). Add those polygons to ut-dump's output, in the shape
+  UT_MonsterHunt confirms its tools need, with UTA-0012's contract
+  amended to match. The user asked for it 2026-10-15.
+  UT_MonsterHunt's answer (2026-10-15, recorded on its GAME-0032): the
+  BRUSHES' own pre-BSP polygons, not BSP fragments. (1) wallcheck2,
+  blockgen, wallfix: every top-level Brush actor (class Brush, not
+  movers) with name, CsgOper, the brush's PolyFlags, Location, Rotation,
+  MainScale, PostScale, PrePivot; per polygon its local vertices in
+  order, its authored Flags and its Texture name. Also BlockPlayer and
+  BlockAll: Location, CollisionRadius, CollisionHeight, bBlockActors.
+  (2) liftcheck: each Mover brush's local vertices, MainScale, KeyPos(n),
+  KeyRot(n) presence, BasePos, Tag, Location; LiftCenter and LiftExit
+  LiftTag, Location, Paths. (3) wallcheck3: Location of every top-level
+  actor except brushes and movers. (4) wallfix: count of actors with a
+  Paths(0) slot and of BlockPlayer actors. Not wanted: normals, U/V,
+  pan, link, item, origin, BSP planes. upkg::readPolys already reads
+  a Polys export.
+  Built (2026-10-15): `ut-dump --brushes` adds `brushes` (UTA-0012
+  SS 4.7e): `list`, every Brush-family actor with mover, csgOper,
+  polyFlags, location, rotation, mainScale, postScale, prePivot, keyRot
+  and its own pre-BSP polygons (vertices, authored flags, texture);
+  `blockers`, BlockAll/BlockPlayer/BlockMonsters with collision;
+  `actors`, every other actor's Location. Liftcheck's KeyPos, BasePos,
+  Tag and LiftTag stay in --wiring-graph, Paths in --nav-graph. Unit
+  [dump] 41/41, whole unit tier 1017 green; two hand mutants killed.
+  DM-Deck16][: 187 brushes (150 add, 34 subtract, 3 builder), 1312
+  polygons, none unread. Flip on GitHub's matrix.
+  **Layman:** A map-reading command also lists the corners of every wall face, so the Monster Hunt project no longer needs to export maps by hand.
+  Kind: enhancement.
+  Source: user-request-2026-10-15.
+  Lanes: tools.
 
 ## 0.5.0 — Map editor
 

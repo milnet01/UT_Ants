@@ -34,7 +34,10 @@
 #include "upkg/Properties.h"
 
 #include <algorithm>
+#include <array>
+#include <bit>
 #include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <format>
 #include <map>
@@ -1186,8 +1189,235 @@ void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::st
     out << "]";
 }
 
+// ------------------------------------------------------------------ UTA-0361
+// `--brushes`: what UT_MonsterHunt's wall, lift and blocker tools read from a
+// T3D export (GAME-0032), read from the map. A brush's own polygons, before
+// the BSP cut them, because those tools treat each brush as a convex solid
+// built from its own face planes.
+
+/// An actor's class chain, folded, and its family's defaults: the walk
+/// `writeActorWiring` makes, cached per class for that function's reason.
+struct ClassFacts {
+    std::string className = "?";
+    std::vector<std::string> chain; // folded, leaf first
+    std::vector<uta::upkg::EffectiveProperty> defaults;
+};
+
+/// A property as UT99 reads it, with the package its indices belong to.
+struct Held {
+    const uta::upkg::Package* origin = nullptr;
+    const uta::upkg::Property* property = nullptr;
+};
+
+/// One actor's properties, keyed by folded name and array index: its class
+/// family's defaults, then its own stored values over them (UTA-0172 SS 4.5).
+using ActorProperties = std::map<std::pair<std::string, std::uint32_t>, Held>;
+
+template <typename T>
+std::optional<T> heldAs(const ActorProperties& props, std::string_view folded, std::uint32_t index = 0) {
+    const auto found = props.find({std::string{folded}, index});
+    if (found == props.end()) return std::nullopt;
+    if (const auto* value = std::get_if<T>(&found->second.property->value)) return *value;
+    return std::nullopt;
+}
+
+void writeNumber(std::ostream& out, float value) {
+    if (std::isfinite(value)) out << std::format("{}", value);
+    else out << "null";
+}
+
+/// A struct Scale: three f32, SheerRate as f32 and SheerAxis as a byte, the
+/// seventeen bytes the reader carries undecoded. Where neither the actor nor
+/// its class stores one, UT99's default: unit scale, no shear.
+void writeScale(std::ostream& out, const ActorProperties& props, std::string_view folded) {
+    std::array<float, 4> numbers{1, 1, 1, 0};
+    int axis = 0;
+    const auto found = props.find({std::string{folded}, 0});
+    if (found != props.end()) {
+        const auto* raw = std::get_if<std::span<const std::byte>>(&found->second.property->value);
+        const auto structName = found->second.origin->name(found->second.property->structNameIndex);
+        if (raw != nullptr && raw->size() == 17 && structName.has_value() && foldCase(*structName) == "scale") {
+            for (std::size_t i = 0; i < numbers.size(); ++i) {
+                std::uint32_t bits = 0;
+                for (std::size_t b = 0; b < 4; ++b)
+                    bits |= static_cast<std::uint32_t>(std::to_integer<std::uint8_t>((*raw)[i * 4 + b])) << (8U * b);
+                numbers[i] = std::bit_cast<float>(bits);
+            }
+            axis = std::to_integer<std::uint8_t>((*raw)[16]);
+        }
+    }
+    out << "{\"scale\": [";
+    for (std::size_t i = 0; i < 3; ++i) {
+        if (i != 0) out << ", ";
+        writeNumber(out, numbers[i]);
+    }
+    out << "], \"sheerRate\": ";
+    writeNumber(out, numbers[3]);
+    out << ", \"sheerAxis\": " << axis << "}";
+}
+
+/// A brush's own polygons, through its Brush property's Model and that Model's
+/// Polys. Every index is file data, so each is checked; a brush that names no
+/// readable Polys writes `null` and says why.
+void writeBrushPolygons(std::ostream& out, const uta::upkg::Package& map, const ActorProperties& props) {
+    const auto refuse = [&out](std::string_view why) {
+        out << ", \"polygons\": null, \"polygonsError\": ";
+        writeJsonString(out, why);
+    };
+    const auto found = props.find({"brush", 0});
+    const auto* brush = found == props.end() || found->second.origin != &map
+                            ? nullptr
+                            : std::get_if<uta::upkg::ObjectReference>(&found->second.property->value);
+    if (brush == nullptr || brush->kind() == uta::upkg::ObjectReferenceKind::Null)
+        return refuse("the brush stores no Brush");
+    const auto exports = map.exports();
+    if (brush->kind() != uta::upkg::ObjectReferenceKind::Export || brush->index() >= exports.size())
+        return refuse("the Brush is not an export of the map");
+    const auto model = uta::upkg::readModel(map, exports[brush->index()]);
+    if (!model.has_value()) return refuse(model.error().message());
+    if (model->polys.kind() != uta::upkg::ObjectReferenceKind::Export || model->polys.index() >= exports.size())
+        return refuse("the brush's Model names no Polys export");
+    const auto polys = uta::upkg::readPolys(map, exports[model->polys.index()]);
+    if (!polys.has_value()) return refuse(polys.error().message());
+
+    out << ", \"polygons\": [";
+    for (std::size_t i = 0; i < polys->polygons.size(); ++i) {
+        const uta::upkg::Polygon& polygon = polys->polygons[i];
+        if (i != 0) out << ", ";
+        out << "{\"vertices\": [";
+        for (std::size_t v = 0; v < polygon.vertices.size(); ++v) {
+            if (v != 0) out << ", ";
+            writeLocation(out, polygon.vertices[v]);
+        }
+        out << "], \"flags\": " << polygon.polyFlags << ", \"texture\": ";
+        if (polygon.texture.kind() == uta::upkg::ObjectReferenceKind::Null) out << "null";
+        else writeJsonString(out, nameOr(map, polygon.texture));
+        out << "}";
+    }
+    out << "], \"polygonsError\": null";
+}
+
+/// `brushes`: `list`, every actor of the Brush family with its transform and
+/// its own polygons; `blockers`, every BlockAll, BlockPlayer and BlockMonsters
+/// with its collision; `actors`, every other actor's Location. Values come
+/// through the class family's defaults; where none stores a Location,
+/// Rotation, PrePivot, CsgOper or PolyFlags, UT99's zero applies.
+void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
+                  const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
+    std::map<std::int32_t, ClassFacts> classes;
+    const auto classOf = [&](const uta::upkg::ExportEntry& entry) -> const ClassFacts& {
+        auto found = classes.find(entry.objectClass.raw());
+        if (found != classes.end()) return found->second;
+        ClassFacts built;
+        if (const auto name = map.objectName(entry.objectClass); name.has_value())
+            built.className = std::string{*name};
+        if (entry.objectClass.kind() != uta::upkg::ObjectReferenceKind::Null) {
+            const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
+            if (site.has_value() && site->resolved.package != nullptr) {
+                const auto ancestry =
+                    uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
+                if (ancestry.has_value()) {
+                    for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
+                        const auto name = link.package->name(link.entry->objectName);
+                        built.chain.push_back(name.has_value() ? foldCase(*name) : std::string{"?"});
+                    }
+                    if (auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value())
+                        built.defaults = std::move(*defaults);
+                }
+            }
+        }
+        return classes.emplace(entry.objectClass.raw(), std::move(built)).first->second;
+    };
+
+    std::set<std::uint32_t> actorExports;
+    for (const uta::upkg::ObjectReference slot : level.actors)
+        if (slot.kind() == uta::upkg::ObjectReferenceKind::Export && slot.index() < map.exports().size())
+            actorExports.insert(slot.index());
+
+    std::ostringstream list, blockers, others;
+    bool firstList = true, firstBlocker = true, firstOther = true;
+    for (const std::uint32_t exportIndex : actorExports) {
+        const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
+        const ClassFacts& facts = classOf(entry);
+        const auto inFamily = [&facts](std::string_view folded) {
+            return std::find(facts.chain.begin(), facts.chain.end(), folded) != facts.chain.end();
+        };
+
+        ActorProperties props;
+        for (const uta::upkg::EffectiveProperty& effective : facts.defaults)
+            if (effective.origin != nullptr)
+                props[{foldCase(effective.name), effective.property.arrayIndex}] = {effective.origin,
+                                                                                   &effective.property};
+        const auto own = uta::upkg::readProperties(map, entry);
+        if (own.has_value())
+            for (const uta::upkg::Property& property : *own)
+                if (const auto name = map.name(property.nameIndex); name.has_value())
+                    props[{foldCase(*name), property.arrayIndex}] = {&map, &property};
+
+        std::ostringstream head;
+        head << "{\"index\": " << exportIndex << ", \"name\": ";
+        const auto actorName = map.name(entry.objectName);
+        writeJsonString(head, actorName.has_value() ? std::string{*actorName} : std::string{"?"});
+        head << ", \"class\": ";
+        writeJsonString(head, facts.className);
+        head << ", \"location\": ";
+        writeLocation(head, heldAs<uta::upkg::Vector3>(props, "location").value_or(uta::upkg::Vector3{}));
+
+        if (inFamily("brush")) {
+            const auto rotation = heldAs<uta::upkg::Rotator>(props, "rotation").value_or(uta::upkg::Rotator{});
+            list << (firstList ? "" : ", ") << head.str() << ", \"mover\": " << (inFamily("mover") ? "true" : "false")
+                 << ", \"csgOper\": " << int{heldAs<std::uint8_t>(props, "csgoper").value_or(0)}
+                 << ", \"polyFlags\": " << heldAs<std::int32_t>(props, "polyflags").value_or(0)
+                 << ", \"rotation\": [" << rotation.pitch << ", " << rotation.yaw << ", " << rotation.roll
+                 << "], \"mainScale\": ";
+            writeScale(list, props, "mainscale");
+            list << ", \"postScale\": ";
+            writeScale(list, props, "postscale");
+            list << ", \"prePivot\": ";
+            writeLocation(list, heldAs<uta::upkg::Vector3>(props, "prepivot").value_or(uta::upkg::Vector3{}));
+            list << ", \"keyRot\": [";
+            bool firstKey = true;
+            for (const auto& [key, held] : props) {
+                if (key.first != "keyrot") continue;
+                list << (firstKey ? "" : ", ") << key.second;
+                firstKey = false;
+            }
+            list << "]";
+            writeBrushPolygons(list, map, props);
+            list << "}";
+            firstList = false;
+            continue;
+        }
+
+        if (inFamily("blockall") || inFamily("blockplayer") || inFamily("blockmonsters")) {
+            const auto number = [&](std::string_view folded) {
+                if (const auto value = heldAs<float>(props, folded)) writeNumber(blockers, *value);
+                else blockers << "null";
+            };
+            const auto flag = [&](std::string_view folded) {
+                if (const auto value = heldAs<bool>(props, folded)) blockers << (*value ? "true" : "false");
+                else blockers << "null";
+            };
+            blockers << (firstBlocker ? "" : ", ") << head.str() << ", \"collisionRadius\": ";
+            number("collisionradius");
+            blockers << ", \"collisionHeight\": ";
+            number("collisionheight");
+            blockers << ", \"bBlockActors\": ";
+            flag("bblockactors");
+            blockers << ", \"bBlockPlayers\": ";
+            flag("bblockplayers");
+            blockers << "}";
+            firstBlocker = false;
+        }
+        others << (firstOther ? "" : ", ") << head.str() << "}";
+        firstOther = false;
+    }
+    out << ",\n  \"brushes\": {\"list\": [" << list.str() << "], \"blockers\": [" << blockers.str()
+        << "], \"actors\": [" << others.str() << "]}";
+}
+
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
-                 bool navGraph, bool wiringGraph, bool surfaceList, bool lighting, bool first) {
+                 bool navGraph, bool wiringGraph, bool surfaceList, bool lighting, bool brushes, bool first) {
     if (!first) {
         out << ",\n";
     }
@@ -1367,6 +1597,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     writeWaypoints(out, *package, path.stem().string(), *level, resolver);
     writePlayerStarts(out, *package, path.stem().string(), *level, resolver);
     if (lighting) writeLighting(out, *package, path.stem().string(), *level, resolver);
+    if (brushes) writeBrushes(out, *package, path.stem().string(), *level, resolver);
 
     out << "\n }";
 }
@@ -1394,7 +1625,7 @@ int usage(std::ostream& err) {
     err <<
         "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
         "                [--nav-graph] [--wiring-graph] [--surface-list] [--lighting]\n"
-        "                [--ndjson]\n"
+        "                [--brushes] [--ndjson]\n"
         "                <package|directory>...\n"
         "\n"
         "Writes one JSON object per package to stdout. Class ancestry crosses\n"
@@ -1424,6 +1655,12 @@ int usage(std::ostream& err) {
         "--lighting adds `lighting` to each map: how many surfaces carry the\n"
         "editor's lightmap and light actors, and each zone's ambient light as\n"
         "the baker resolves it. It says where a map's light comes from.\n"
+        "\n"
+        "--brushes adds `brushes` to each map: every brush and mover with its\n"
+        "CSG operation, flags, transform and its own polygons as the editor\n"
+        "made them, before the BSP cut them; every BlockAll, BlockPlayer and\n"
+        "BlockMonsters with its collision; and every other actor's Location.\n"
+        "It is what a T3D export was read for.\n"
         "\n"
         "Packages are listed in path order, not argument order: key on each\n"
         "one's `file`. docs/specs/UTA-0012-ut-dump-output-shape.md is the\n"
@@ -1458,6 +1695,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     bool wiringGraph = false;
     bool surfaceList = false;
     bool lighting = false;
+    bool brushes = false;
     bool ndjson = false;
     std::vector<fs::path> targets;
 
@@ -1481,6 +1719,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             surfaceList = true;
         } else if (arg == "--lighting") {
             lighting = true;
+        } else if (arg == "--brushes") {
+            brushes = true;
         } else if (arg == "--ndjson") {
             ndjson = true;
         } else if (arg == "-h" || arg == "--help") {
@@ -1553,7 +1793,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         out << "{\"schema\":" << SCHEMA << "}\n";
         for (const fs::path& file : files) {
             std::ostringstream package;
-            dumpPackage(package, file, resolver, navGraph, wiringGraph, surfaceList, lighting, true);
+            dumpPackage(package, file, resolver, navGraph, wiringGraph, surfaceList, lighting, brushes, true);
             out << oneLine(package.str()) << '\n' << std::flush;
         }
         return 0;
@@ -1562,7 +1802,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     out << "{\n \"schema\": " << SCHEMA << ",\n \"packages\": [\n";
     bool first = true;
     for (const fs::path& file : files) {
-        dumpPackage(out, file, resolver, navGraph, wiringGraph, surfaceList, lighting, first);
+        dumpPackage(out, file, resolver, navGraph, wiringGraph, surfaceList, lighting, brushes, first);
         first = false;
     }
     out << "\n ]\n}\n";

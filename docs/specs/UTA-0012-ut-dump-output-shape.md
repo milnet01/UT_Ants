@@ -92,7 +92,7 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--lighting] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--lighting] [--brushes] [--ndjson] <package|directory>...
 ```
 
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
@@ -113,6 +113,7 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--su
   (UTA-0172).
 - `--surface-list` adds `surfaces.list` (§ 4.5, UTA-0213).
 - `--lighting` adds `lighting` (§ 4.7d, UTA-0360).
+- `--brushes` adds `brushes` (§ 4.7e, UTA-0361).
 - The exit code is 0 when every package was attempted, including packages
   that did not open. 2 is a usage error, with no output on stdout.
 
@@ -332,6 +333,37 @@ withLightActors, lightMaps, lightBitsBytes, lightActorRefs, zones}`.
 
 `lighting` is `null`, with `lightingError` a string, when the level's Model
 does not read or its actors do not build.
+
+### 4.7e `brushes`
+
+Added by `UTA-0361`, under `--brushes` only, after `lighting`. It holds what
+UT_MonsterHunt's wall, lift and blocker tools read from a T3D export
+(GAME-0032). It is `{list, blockers, actors}`. Each element of the three
+arrays opens `{index, name, class, location}`: the actor's export index,
+its name, its class's name, and `[x, y, z]`. Values come
+from the actor, else its class family's defaults. Where neither stores a
+`Location`, `Rotation`, `PrePivot`, `CsgOper` or `PolyFlags`, UT99's zero
+applies; where neither stores a scale, it is unit with no shear.
+
+- `list` holds every actor whose class chain reaches `Brush`, movers
+  included. After the four keys: `mover` (the chain reaches `Mover`),
+  `csgOper` and `polyFlags` (the brush's own integers; `CsgOper` 0 is the
+  editor's builder brush), `rotation` as `[pitch, yaw, roll]`, `mainScale`
+  and `postScale` as `{scale: [x, y, z], sheerRate, sheerAxis}`, `prePivot`,
+  `keyRot` (the array indices of the `KeyRot` slots stored), `polygons` and
+  `polygonsError`.
+- `polygons` is the brush's own polygons, before the BSP cut them, read
+  through its `Brush` Model's `Polys`: `[{vertices, flags, texture}]`.
+  `vertices` are in brush space, in stored order. `flags` is the polygon's
+  authored `PolyFlags`, not the built surface's (§ 4.5). `texture` is an
+  object name, or `null`. Where the Polys do not read, `polygons` is `null`
+  and `polygonsError` says why; otherwise `polygonsError` is `null`.
+- `blockers` holds every actor whose chain reaches `BlockAll`,
+  `BlockPlayer` or `BlockMonsters`, with `collisionRadius`,
+  `collisionHeight`, `bBlockActors` and `bBlockPlayers`, each `null` where
+  neither the actor nor its class stores it.
+- `actors` holds every actor not in `list`, blockers included, with the four
+  keys alone.
 
 ### 4.8 Counting what was dropped
 

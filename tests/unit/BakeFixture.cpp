@@ -447,6 +447,7 @@ std::int32_t MapBuilder::addBrushModel(const BrushSpec& brush) {
         polygon.textureU = brush.textureU;
         polygon.textureV = brush.textureV;
         polygon.texture = brush.polyTexture;
+        polygon.polyFlags = brush.polygonFlags;
         std::vector<PolygonSpec> polygons{polygon};
         if (brush.backTexture != 0) {
             PolygonSpec back = polygon;

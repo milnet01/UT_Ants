@@ -965,6 +965,14 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     CHECK(keysOf(member(litMap, "lighting"))
           == Keys{"surfaces", "withLightMap", "withLightActors", "lightMaps", "lightBitsBytes", "lightActorRefs",
                   "zones"});
+
+    const Run brushed = run({"--system", system, "--brushes", mapPath.string()});
+    REQUIRE(brushed.code == 0);
+    Keys brushKeys = mapKeys;
+    brushKeys.push_back("brushes");
+    const std::string brushMap = packagesOf(brushed.out).at(0);
+    CHECK(keysOf(brushMap) == brushKeys);
+    CHECK(keysOf(member(brushMap, "brushes")) == Keys{"list", "blockers", "actors"});
 }
 
 TEST_CASE("UTA-0012 INV-5: classCounts counts every export and sums to exports", "[dump]") {
@@ -1402,6 +1410,78 @@ TEST_CASE("UTA-0336: wiring.actors carries each lift's LiftTag and each mover's 
               .find("\"mover\": {\"numKeys\": 3, \"basePos\": null, \"keyPos\": {\"2\": [0, 0, -128]}}")
           != std::string::npos);
     CHECK(actorNamed(actors, "PathNode4").find("\"liftTag\": \"\", \"mover\": null") != std::string::npos);
+}
+
+TEST_CASE("UTA-0361: --brushes gives each brush its own polygons and transform, and each blocker its collision",
+          "[dump]") {
+    // GAME-0032: UT_MonsterHunt's wall, lift and blocker tools read these from
+    // a T3D export; the inside test needs each brush's pre-BSP faces.
+    const TempDir dir;
+    MapBuilder map;
+    BrushSpec square;
+    square.corners = {{{0, 0, 0}, {64, 0, 0}, {64, 64, 0}, {0, 64, 0}}};
+    square.polyTexture = map.importTexture("TexPkg", "", "Wall", "Texture");
+    square.polyFlags = 0x40;      // the surface's built flags, which --brushes does not report
+    square.polygonFlags = 0x0008; // PF_NotSolid, as the editor authored it
+    const std::int32_t wallModel = map.addBrushModel(square);
+    BrushSpec liftSquare = square;
+    liftSquare.polygonFlags = 0;
+    const std::int32_t liftModel = map.addBrushModel(liftSquare);
+
+    const std::int32_t brush = map.addClass("Brush", 0, {scaleProperty("MainScale", 1, 1, 1)});
+    const std::int32_t mover = map.addClass("Mover", brush);
+    const std::int32_t blockPlayer =
+        map.addClass("BlockPlayer", 0, {floatProperty("CollisionRadius", 40), boolProperty("bBlockPlayers", true)});
+    map.addActor("Brush1", brush,
+                 {objectProperty("Brush", wallModel), byteProperty("CsgOper", 2), intProperty("PolyFlags", 32),
+                  vectorProperty("Location", 10, 20, 30), rotatorProperty("Rotation", 0, 16384, 0),
+                  scaleProperty("MainScale", 2, 2, 1), vectorProperty("PrePivot", 32, 32, 0)})
+        .addActor("Mover0", mover,
+                  {objectProperty("Brush", liftModel), rotatorProperty("KeyRot", 0, 0, 0),
+                   vectorProperty("Location", 0, 0, -64)})
+        .addActor("Brush2", brush) // stores no Brush: its polygons cannot be read
+        .addActor("BlockPlayer0", blockPlayer, {floatProperty("CollisionHeight", 80)})
+        .addActorOfClass("Engine", "PathNode");
+    const fs::path mapPath = writeMap(dir, map);
+    const std::string system = (dir.path() / "System").string();
+
+    const Run plain = run({"--system", system, mapPath.string()});
+    REQUIRE(plain.code == 0);
+    CHECK(plain.out.find("\"brushes\"") == std::string::npos);
+
+    const Run result = run({"--system", system, "--brushes", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    // The actor's own transform, its class's MainScale default overridden, and
+    // the polygon's authored flags rather than the surface's built ones.
+    CHECK(result.out.find(R"("name": "Brush1", "class": "Brush", "location": [10, 20, 30], "mover": false, )"
+                          R"("csgOper": 2, "polyFlags": 32, "rotation": [0, 16384, 0], )"
+                          R"("mainScale": {"scale": [2, 2, 1], "sheerRate": 0, "sheerAxis": 0}, )"
+                          R"("postScale": {"scale": [1, 1, 1], "sheerRate": 0, "sheerAxis": 0}, )"
+                          R"("prePivot": [32, 32, 0], "keyRot": [], )"
+                          R"("polygons": [{"vertices": [[0, 0, 0], [64, 0, 0], [64, 64, 0], [0, 64, 0]], )"
+                          R"("flags": 8, "texture": "Wall"}], "polygonsError": null})")
+          != std::string::npos);
+    // A mover is a brush too, with the KeyRot slots it stores.
+    CHECK(result.out.find(R"("name": "Mover0", "class": "Mover", "location": [0, 0, -64], "mover": true, )")
+          != std::string::npos);
+    CHECK(result.out.find(R"("keyRot": [0], "polygons": [{"vertices": [[0, 0, 0], )") != std::string::npos);
+    CHECK(result.out.find(R"("name": "Brush2", )") != std::string::npos);
+    CHECK(result.out.find(R"("polygons": null, "polygonsError": "the brush stores no Brush"})") != std::string::npos);
+    // A blocker: its own height, its class's radius, and null where neither
+    // stores a flag.
+    CHECK(result.out.find(R"("blockers": [{"index": )") != std::string::npos);
+    CHECK(result.out.find(R"("name": "BlockPlayer0", "class": "BlockPlayer", "location": [0, 0, 0], )"
+                          R"("collisionRadius": 40, "collisionHeight": 80, "bBlockActors": null, )"
+                          R"("bBlockPlayers": true})")
+          != std::string::npos);
+    // Every actor that is not a brush, blockers included, with its Location.
+    const std::size_t others = result.out.find(R"("actors": [)", result.out.find("\"brushes\""));
+    REQUIRE(others != std::string::npos);
+    CHECK(result.out.find(R"("name": "BlockPlayer0", "class": "BlockPlayer", "location": [0, 0, 0]})", others)
+          != std::string::npos);
+    CHECK(result.out.find(R"("name": "PathNode4", )", others) != std::string::npos);
+    CHECK(result.out.find(R"("name": "Brush1", )", others) == std::string::npos);
 }
 
 TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and counted", "[dump]") {
