@@ -1264,12 +1264,19 @@ void writeBrushPolygons(std::ostream& out, const uta::upkg::Package& map, const 
         out << ", \"polygons\": null, \"polygonsError\": ";
         writeJsonString(out, why);
     };
+    // A brush that stores no Brush, or a None one, is an empty brush: no
+    // polygons, and nothing failed to read (UT_MonsterHunt, 2026-10-15).
     const auto found = props.find({"brush", 0});
-    const auto* brush = found == props.end() || found->second.origin != &map
-                            ? nullptr
-                            : std::get_if<uta::upkg::ObjectReference>(&found->second.property->value);
-    if (brush == nullptr || brush->kind() == uta::upkg::ObjectReferenceKind::Null)
-        return refuse("the brush stores no Brush");
+    if (found == props.end() || found->second.origin != &map) {
+        out << ", \"polygons\": [], \"polygonsError\": null";
+        return;
+    }
+    const auto* brush = std::get_if<uta::upkg::ObjectReference>(&found->second.property->value);
+    if (brush == nullptr) return refuse("the Brush is not an object reference");
+    if (brush->kind() == uta::upkg::ObjectReferenceKind::Null) {
+        out << ", \"polygons\": [], \"polygonsError\": null";
+        return;
+    }
     const auto exports = map.exports();
     if (brush->kind() != uta::upkg::ObjectReferenceKind::Export || brush->index() >= exports.size())
         return refuse("the Brush is not an export of the map");
@@ -1365,7 +1372,12 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
 
         if (inFamily("brush")) {
             const auto rotation = heldAs<uta::upkg::Rotator>(props, "rotation").value_or(uta::upkg::Rotator{});
-            list << (firstList ? "" : ", ") << head.str() << ", \"mover\": " << (inFamily("mover") ? "true" : "false")
+            // The export's flags, raw: on DM-Bishop 84 brushes the editor's T3D
+            // export leaves out carry 0x2070001, where its 666 others carry
+            // 0x2340001 (UT_MonsterHunt, 2026-10-15). What that means is the
+            // consumer's call; ut-dump only reports it.
+            list << (firstList ? "" : ", ") << head.str() << ", \"objectFlags\": " << entry.objectFlags
+                 << ", \"mover\": " << (inFamily("mover") ? "true" : "false")
                  << ", \"csgOper\": " << int{heldAs<std::uint8_t>(props, "csgoper").value_or(0)}
                  << ", \"polyFlags\": " << heldAs<std::int32_t>(props, "polyflags").value_or(0)
                  << ", \"rotation\": [" << rotation.pitch << ", " << rotation.yaw << ", " << rotation.roll

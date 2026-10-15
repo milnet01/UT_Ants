@@ -1454,7 +1454,9 @@ TEST_CASE("UTA-0361: --brushes gives each brush its own polygons and transform, 
     REQUIRE(result.code == 0);
     // The actor's own transform, its class's MainScale default overridden, and
     // the polygon's authored flags rather than the surface's built ones.
-    CHECK(result.out.find(R"("name": "Brush1", "class": "Brush", "location": [10, 20, 30], "mover": false, )"
+    CHECK(result.out.find(R"("name": "Brush1", "class": "Brush", "location": [10, 20, 30], "objectFlags": )")
+          != std::string::npos);
+    CHECK(result.out.find(R"("mover": false, )"
                           R"("csgOper": 2, "polyFlags": 32, "rotation": [0, 16384, 0], )"
                           R"("mainScale": {"scale": [2, 2, 1], "sheerRate": 0, "sheerAxis": 0}, )"
                           R"("postScale": {"scale": [1, 1, 1], "sheerRate": 0, "sheerAxis": 0}, )"
@@ -1463,11 +1465,16 @@ TEST_CASE("UTA-0361: --brushes gives each brush its own polygons and transform, 
                           R"("flags": 8, "texture": "Wall"}], "polygonsError": null})")
           != std::string::npos);
     // A mover is a brush too, with the KeyRot slots it stores.
-    CHECK(result.out.find(R"("name": "Mover0", "class": "Mover", "location": [0, 0, -64], "mover": true, )")
+    CHECK(result.out.find(R"("name": "Mover0", "class": "Mover", "location": [0, 0, -64], "objectFlags": )")
+          != std::string::npos);
+    CHECK(result.out.find(R"("mover": true, )")
           != std::string::npos);
     CHECK(result.out.find(R"("keyRot": [0], "polygons": [{"vertices": [[0, 0, 0], )") != std::string::npos);
-    CHECK(result.out.find(R"("name": "Brush2", )") != std::string::npos);
-    CHECK(result.out.find(R"("polygons": null, "polygonsError": "the brush stores no Brush"})") != std::string::npos);
+    // A brush storing no Brush is an empty brush, not a read failure.
+    const std::size_t empty = result.out.find(R"("name": "Brush2", )");
+    REQUIRE(empty != std::string::npos);
+    CHECK(result.out.find(R"("polygons": [], "polygonsError": null})", empty)
+          < result.out.find(R"("name": ")", empty + 1));
     // A blocker: its own height, its class's radius, and null where neither
     // stores a flag.
     CHECK(result.out.find(R"("blockers": [{"index": )") != std::string::npos);

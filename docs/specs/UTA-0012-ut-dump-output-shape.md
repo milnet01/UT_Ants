@@ -346,7 +346,8 @@ from the actor, else its class family's defaults. Where neither stores a
 applies; where neither stores a scale, it is unit with no shear.
 
 - `list` holds every actor whose class chain reaches `Brush`, movers
-  included. After the four keys: `mover` (the chain reaches `Mover`),
+  included. After the four keys: `objectFlags` (the export's object flags,
+  raw), `mover` (the chain reaches `Mover`),
   `csgOper` and `polyFlags` (the brush's own integers; `CsgOper` 0 is the
   editor's builder brush), `rotation` as `[pitch, yaw, roll]`, `mainScale`
   and `postScale` as `{scale: [x, y, z], sheerRate, sheerAxis}`, `prePivot`,
@@ -356,8 +357,9 @@ applies; where neither stores a scale, it is unit with no shear.
   through its `Brush` Model's `Polys`: `[{vertices, flags, texture}]`.
   `vertices` are in brush space, in stored order. `flags` is the polygon's
   authored `PolyFlags`, not the built surface's (§ 4.5). `texture` is an
-  object name, or `null`. Where the Polys do not read, `polygons` is `null`
-  and `polygonsError` says why; otherwise `polygonsError` is `null`.
+  object name, or `null`. A brush storing no `Brush`, or a `None` one, has
+  `polygons` `[]`. Where the Polys do not read, `polygons` is `null` and
+  `polygonsError` says why; otherwise `polygonsError` is `null`.
 - `blockers` holds every actor whose chain reaches `BlockAll`,
   `BlockPlayer` or `BlockMonsters`, with `collisionRadius`,
   `collisionHeight`, `bBlockActors` and `bBlockPlayers`, each `null` where

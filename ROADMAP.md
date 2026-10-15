@@ -16785,7 +16785,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: ubundle, ubake, urender, upkg, core, tools.
 
-- 📋 [UTA-0363] **A hostile map can make the baker run out of memory or time.**
+- 🚧 [UTA-0363] **A hostile map can make the baker run out of memory or time.**
   Unverified findings of UTA-0329's review, in
   docs/reviews/review-code-2026-10-15/:
   - lane-02 M Strips.cpp:100-127: m collinear lights give m^2/2 rows of
