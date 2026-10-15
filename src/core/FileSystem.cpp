@@ -174,8 +174,8 @@ using uta::errorCodeFromErrno;
                                                const std::filesystem::path& relative) {
     const auto refuse = [&](const std::string& component, const char* why) {
         return fail(ErrorCode::InvalidArgument,
-                    "component \"" + component + "\" of " + relative.string() +
-                        " " + why + ", under " + root.string());
+                    "component \"" + component + "\" of " + utf8(relative) +
+                        " " + why + ", under " + utf8(root));
     };
 
     for (const std::filesystem::path& part : relative) {
@@ -281,14 +281,14 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     const auto status = std::filesystem::status(path, ec);
     // The type before the error_code, for readFile's reason below.
     if (status.type() == std::filesystem::file_type::not_found)
-        return fail(ErrorCode::NotFound, "no such file: " + path.string());
-    if (ec) return fail(ErrorCode::IoFailure, "cannot stat " + path.string() + ": " + ec.message());
+        return fail(ErrorCode::NotFound, "no such file: " + utf8(path));
+    if (ec) return fail(ErrorCode::IoFailure, "cannot stat " + utf8(path) + ": " + ec.message());
     if (status.type() == std::filesystem::file_type::directory)
-        return fail(ErrorCode::InvalidArgument, path.string() + " is a directory, not a file");
+        return fail(ErrorCode::InvalidArgument, utf8(path) + " is a directory, not a file");
     // A FIFO or a device would block the open or map something that is not a
     // file's bytes, so only a regular file is mapped (UTA-0229).
     if (status.type() != std::filesystem::file_type::regular)
-        return fail(ErrorCode::InvalidArgument, path.string() + " is not a regular file");
+        return fail(ErrorCode::InvalidArgument, utf8(path) + " is not a regular file");
 
     MappedFile mapped;
 #ifdef _WIN32
@@ -300,12 +300,12 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
                                : error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION
                                    ? ErrorCode::PermissionDenied
                                    : ErrorCode::IoFailure;
-        return fail(code, "cannot open " + path.string());
+        return fail(code, "cannot open " + utf8(path));
     }
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(file, &size)) {
         CloseHandle(file);
-        return fail(ErrorCode::IoFailure, "cannot size " + path.string());
+        return fail(ErrorCode::IoFailure, "cannot size " + utf8(path));
     }
     if (size.QuadPart == 0) {
         CloseHandle(file);
@@ -313,11 +313,11 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     }
     const HANDLE mapping = CreateFileMappingW(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
     CloseHandle(file); // the mapping holds the file open
-    if (mapping == nullptr) return fail(ErrorCode::IoFailure, "cannot map " + path.string());
+    if (mapping == nullptr) return fail(ErrorCode::IoFailure, "cannot map " + utf8(path));
     void* view = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
     if (view == nullptr) {
         CloseHandle(mapping);
-        return fail(ErrorCode::IoFailure, "cannot map " + path.string());
+        return fail(ErrorCode::IoFailure, "cannot map " + utf8(path));
     }
     mapped.mapping_ = mapping;
     mapped.data_ = static_cast<const std::byte*>(view);
@@ -329,20 +329,20 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
     if (fd < 0) {
         const int error = errno;
-        return fail(errorCodeFromErrno(error), "cannot open " + path.string() + ": " + std::strerror(error));
+        return fail(errorCodeFromErrno(error), "cannot open " + utf8(path) + ": " + std::strerror(error));
     }
     struct stat info {};
     if (::fstat(fd, &info) != 0) {
         ::close(fd);
-        return fail(ErrorCode::IoFailure, "cannot stat " + path.string());
+        return fail(ErrorCode::IoFailure, "cannot stat " + utf8(path));
     }
     if (!S_ISREG(info.st_mode)) {
         ::close(fd);
-        return fail(ErrorCode::InvalidArgument, path.string() + " is not a regular file");
+        return fail(ErrorCode::InvalidArgument, utf8(path) + " is not a regular file");
     }
     if (static_cast<std::uintmax_t>(info.st_size) > std::numeric_limits<std::size_t>::max()) {
         ::close(fd);
-        return fail(ErrorCode::InvalidArgument, "file is larger than this build can map: " + path.string());
+        return fail(ErrorCode::InvalidArgument, "file is larger than this build can map: " + utf8(path));
     }
     const auto size = static_cast<std::size_t>(info.st_size);
     if (size == 0) {
@@ -351,7 +351,7 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     }
     const void* view = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
     ::close(fd); // the mapping holds its own reference
-    if (view == MAP_FAILED) return fail(ErrorCode::IoFailure, "cannot map " + path.string() + ": " + std::strerror(errno));
+    if (view == MAP_FAILED) return fail(ErrorCode::IoFailure, "cannot map " + utf8(path) + ": " + std::strerror(errno));
     mapped.data_ = static_cast<const std::byte*>(view);
     mapped.size_ = size;
 #endif
@@ -402,15 +402,15 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     // `if (ec)` first would answer IoFailure for every absent path -- which
     // is what this test caught.
     if (status.type() == std::filesystem::file_type::not_found)
-        return fail(ErrorCode::NotFound, "no such file: " + path.string());
+        return fail(ErrorCode::NotFound, "no such file: " + utf8(path));
     if (ec)
         return fail(ErrorCode::IoFailure,
-                    "cannot stat " + path.string() + ": " + ec.message());
+                    "cannot stat " + utf8(path) + ": " + ec.message());
     if (std::filesystem::is_directory(status))
-        return fail(ErrorCode::InvalidArgument, "is a directory, not a file: " + path.string());
+        return fail(ErrorCode::InvalidArgument, "is a directory, not a file: " + utf8(path));
 
     const auto size = std::filesystem::file_size(path, ec);
-    if (ec) return fail(ErrorCode::IoFailure, "cannot size " + path.string() + ": " + ec.message());
+    if (ec) return fail(ErrorCode::IoFailure, "cannot size " + utf8(path) + ": " + ec.message());
 
     // Refuse a file too large to address before ALLOCATING for it. The size
     // is attacker-influenced wherever the path came through resolveUnder, and
@@ -419,13 +419,13 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     // short-read guard below would pass on silently truncated content.
     if (size > static_cast<std::uintmax_t>(kMaxReadBytes))
         return fail(ErrorCode::InvalidArgument,
-                    "file is larger than core will read: " + path.string());
+                    "file is larger than core will read: " + utf8(path));
 
     std::vector<std::byte> bytes;
     try {
         bytes.resize(static_cast<std::size_t>(size));
     } catch (const std::bad_alloc&) {
-        return fail(ErrorCode::OutOfMemory, "cannot allocate to read " + path.string());
+        return fail(ErrorCode::OutOfMemory, "cannot allocate to read " + utf8(path));
     }
 
     // The error_code overloads above keep std::filesystem from throwing;
@@ -433,7 +433,7 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     errno = 0;
     std::FILE* file = openNative(path, "rb");
     if (file == nullptr)
-        return fail(errorCodeFromErrno(errno), "cannot open " + path.string());
+        return fail(errorCodeFromErrno(errno), "cannot open " + utf8(path));
 
     const std::size_t read =
         bytes.empty() ? 0 : std::fread(bytes.data(), 1, bytes.size(), file);
@@ -441,7 +441,7 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     (void)std::fclose(file);  // read path: nothing to flush, nothing to report
 
     if (failed || read != bytes.size())
-        return fail(ErrorCode::IoFailure, "short read on " + path.string());
+        return fail(ErrorCode::IoFailure, "short read on " + utf8(path));
 
     return bytes;
 }
@@ -473,11 +473,11 @@ Result<void> writeFileAtomically(const std::filesystem::path& path,
         file = openNative(temporary, "wbx");
         if (file == nullptr && errno != EEXIST)
             return fail(errorCodeFromErrno(errno),
-                        "cannot create a temporary beside " + path.string());
+                        "cannot create a temporary beside " + utf8(path));
     }
     if (file == nullptr)
         return fail(ErrorCode::AlreadyExists,
-                    "no free temporary name beside " + path.string());
+                    "no free temporary name beside " + utf8(path));
 
     // From here every failure path unlinks the temporary before returning.
     // That is INV-7, and it is why this is not written as early returns.
@@ -503,12 +503,12 @@ Result<void> writeFileAtomically(const std::filesystem::path& path,
         return removeError ? "; the temporary " + utf8(temporary) + " could not be removed: " + removeError.message()
                            : std::string();
     };
-    if (writeFailed || closeFailed) return fail(ErrorCode::IoFailure, "cannot write " + path.string() + discard());
+    if (writeFailed || closeFailed) return fail(ErrorCode::IoFailure, "cannot write " + utf8(path) + discard());
 
     std::filesystem::rename(temporary, path, ec);
     if (ec) {
         const std::string why = ec.message();
-        return fail(ErrorCode::IoFailure, "cannot replace " + path.string() + ": " + why + discard());
+        return fail(ErrorCode::IoFailure, "cannot replace " + utf8(path) + ": " + why + discard());
     }
 
 #ifndef _WIN32
@@ -526,11 +526,11 @@ Result<void> writeFileAtomically(const std::filesystem::path& path,
 Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
                                            const std::filesystem::path& relative) {
     if (relative.empty())
-        return fail(ErrorCode::InvalidArgument, "empty path under " + root.string());
+        return fail(ErrorCode::InvalidArgument, "empty path under " + utf8(root));
     if (relative.is_absolute())
         return fail(ErrorCode::InvalidArgument,
-                    "absolute path not allowed under " + root.string() + ": " +
-                        relative.string());
+                    "absolute path not allowed under " + utf8(root) + ": " +
+                        utf8(relative));
 
     // Before any filesystem call: INV-15. See checkComponentNames for why the
     // order is load-bearing rather than tidy.
@@ -539,12 +539,12 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
     std::error_code ec;
     const auto canonicalRoot = std::filesystem::weakly_canonical(root, ec);
     if (ec)
-        return fail(ErrorCode::IoFailure, "cannot resolve root " + root.string());
+        return fail(ErrorCode::IoFailure, "cannot resolve root " + utf8(root));
 
     auto candidate = std::filesystem::weakly_canonical(root / relative, ec);
     if (ec)
         return fail(ErrorCode::IoFailure,
-                    "cannot resolve " + relative.string() + " under " + root.string());
+                    "cannot resolve " + utf8(relative) + " under " + utf8(root));
 
     // Compare by path elements rather than by string prefix: a string compare
     // would accept "/data-other" as being under "/data".
@@ -560,7 +560,7 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
         if (rootIt->empty()) continue;
         if (candidateIt == candidate.end() || *candidateIt != *rootIt)
             return fail(ErrorCode::InvalidArgument,
-                        relative.string() + " escapes " + root.string());
+                        utf8(relative) + " escapes " + utf8(root));
         ++candidateIt;
     }
 
@@ -585,7 +585,7 @@ Result<std::filesystem::path> resolveUnder(const std::filesystem::path& root,
         prefix /= *candidateIt;
         if (std::filesystem::symlink_status(prefix, ec).type() == std::filesystem::file_type::symlink)
             return fail(ErrorCode::InvalidArgument,
-                        relative.string() + " passes an unresolved symlink under " + root.string());
+                        utf8(relative) + " passes an unresolved symlink under " + utf8(root));
     }
 
     return candidate;  // not const: a const local cannot be moved out

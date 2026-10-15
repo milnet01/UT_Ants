@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
     // copied out by hand.
     std::ifstream captureCameras;
     if (options->cameraFile) {
-        captureCameras.open(*options->cameraFile);
+        captureCameras.open(uta::fs::pathFromUtf8(*options->cameraFile));
         if (!captureCameras) {
             std::cerr << "ut-shot: " << *options->cameraFile << " does not open\n";
             return 1;

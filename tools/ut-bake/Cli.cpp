@@ -311,15 +311,15 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
             std::uint64_t budgetBytes) {
     JobSystem jobs;
     BakeRequest request;
-    request.install = std::filesystem::path(*args.install);
-    request.map = std::filesystem::path(*args.map);
-    request.outDir = std::filesystem::path(*args.out);
+    request.install = uta::fs::pathFromUtf8(*args.install);
+    request.map = uta::fs::pathFromUtf8(*args.map);
+    request.outDir = uta::fs::pathFromUtf8(*args.out);
     // UTA-0292 SS 4.2: a bake found already there computed no material light.
     request.force = args.force || args.lightMaterials.has_value();
     request.fitBudget = args.fitBudget;
     // UTA-0148: only when asked (user, 2026-09-29) -- maps share few
     // textures, so the cache pays on baking one map again, not on a new one.
-    if (args.textureCache) request.textureCache = std::filesystem::path(*args.textureCache);
+    if (args.textureCache) request.textureCache = uta::fs::pathFromUtf8(*args.textureCache);
     request.recipes = urecipe::standardSources(
         args.recipe ? std::optional(uta::fs::pathFromUtf8(*args.recipe)) : std::nullopt);
     request.budgetBytes = budgetBytes;

@@ -217,7 +217,7 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
         }
         options.width = *details.width;
         options.height = *details.height;
-        options.cameraFile = (folder / "camera.txt").string();
+        options.cameraFile = uta::fs::utf8(folder / "camera.txt");
         return options;
     }
 

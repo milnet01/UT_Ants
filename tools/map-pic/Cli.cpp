@@ -155,7 +155,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     }
 
     const upkg::PackageResolver resolver = install->resolver();
-    const auto preview = previewOf(*map, mapPath.stem().string(), resolver);
+    const auto preview = previewOf(*map, uta::fs::utf8(mapPath.stem()), resolver);
     if (!preview.has_value()) {
         err << "map-pic: " << fs::utf8(mapPath) << ": " << preview.error().message() << "\n";
         return 1;

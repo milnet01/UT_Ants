@@ -326,11 +326,11 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         usage(err);
         return EXIT_OK;
     }
-    const std::optional<std::vector<Row>> rows = readCensus(stdfs::path(*parsed->census), err);
+    const std::optional<std::vector<Row>> rows = readCensus(uta::fs::pathFromUtf8(*parsed->census), err);
     if (!rows.has_value()) return EXIT_FAILED; // well-formed arguments; the file failed
 
-    const stdfs::path install(*parsed->install);
-    const stdfs::path outDir(*parsed->out);
+    const stdfs::path install = uta::fs::pathFromUtf8(*parsed->install);
+    const stdfs::path outDir = uta::fs::pathFromUtf8(*parsed->out);
     std::error_code ec;
     stdfs::create_directories(outDir, ec);
     if (ec) err << "ut-paths: cannot create " << ubake::detail::utf8(outDir) << ": " << ec.message() << "\n";

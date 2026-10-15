@@ -16864,7 +16864,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: urender.
 
-- 📋 [UTA-0366] **On Windows, a file name the code page cannot hold makes error messages and ut-dump throw.**
+- 🚧 [UTA-0366] **On Windows, a file name the code page cannot hold makes error messages and ut-dump throw.**
   Unverified findings of UTA-0329's review:
   - lane-07 H core/FileSystem.cpp:284 and others, Log.cpp:153:
     path.string() in every failure message; use utf8(path).
@@ -16873,6 +16873,18 @@ stays with movement in 0.2.0.
     ways; use pathFromUtf8 throughout.
   - lane-11 L map-pic/Cli.cpp:158, ut-shot/Cli.cpp:220.
   UTA-0361's new --brushes call follows the same pattern.
+  Closed 2026-10-15. Verified, and narrower than the review read it:
+  UTA-0221's cmake/utf8.manifest, linked into every MSVC program
+  (CMakeLists.txt /MANIFESTINPUT), makes the narrow code page UTF-8 on
+  Windows 10 1903 and later, so path::string() there neither throws nor
+  garbles, and argv arrives as UTF-8. The findings hold on older Windows,
+  which ignores the manifest; no floor in docs/design.md rules it out.
+  Fixed anyway, as each is a one-token change: every core FileSystem and
+  Log message builds its path with utf8(); ut-bake, ut-dump and ut-paths
+  take every path argument through pathFromUtf8; ut-dump, map-pic and
+  ut-shot name files through utf8, and ut-shot opens its camera file
+  through pathFromUtf8. No red run: the throw needs a Windows older than
+  1903. Unit 1022 green. Flip on GitHub's matrix.
   **Layman:** A Windows user with a non-English name or map file name could see a crash instead of an error message.
   Kind: fix.
   Source: review-code-2026-10-15.

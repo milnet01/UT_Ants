@@ -90,8 +90,8 @@ public:
         for (fs::directory_iterator entry{systemDir, listing}, end; !listing && entry != end;
              entry.increment(listing)) {
             std::error_code ignored;
-            if (entry->is_regular_file(ignored) && foldCase(entry->path().extension().string()) == ".u") {
-                paths_.emplace(foldCase(entry->path().stem().string()), entry->path());
+            if (entry->is_regular_file(ignored) && foldCase(uta::fs::utf8(entry->path().extension())) == ".u") {
+                paths_.emplace(foldCase(uta::fs::utf8(entry->path().stem())), entry->path());
             }
         }
     }
@@ -1531,7 +1531,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     out << "\"actors\": " << level->actors.size();
     out << ", \"rawSlots\": " << level->rawSlotCount;
     out << ", \"reachSpecs\": " << level->reachSpecs.size();
-    out << ", \"chainsUnresolved\": " << unresolvedChains(*package, path.stem().string(), *level, kinds);
+    out << ", \"chainsUnresolved\": " << unresolvedChains(*package, uta::fs::utf8(path.stem()), *level, kinds);
     out << ", \"propertiesUnread\": " << unreadProperties(*package, *level);
     out << "}";
 
@@ -1539,7 +1539,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
 
     writeCredits(out, "levelInfo", *package, levelInfoOf(*package, *level));
     writeCredits(out, "levelSummary", *package, firstExportOf(*package, "LevelSummary"));
-    writeMonsters(out, *package, path.stem().string(), *level, kinds);
+    writeMonsters(out, *package, uta::fs::utf8(path.stem()), *level, kinds);
 
     const auto nav = uta::unav::buildNavGraph(*package, *level, resolver);
     if (nav.has_value()) {
@@ -1598,18 +1598,18 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
             // scanning the head of the object. UTA-0172.
             std::ostringstream actors;
             const long long unresolvedChains =
-                writeActorWiring(actors, *package, path.stem().string(), *level, resolver);
+                writeActorWiring(actors, *package, uta::fs::utf8(path.stem()), *level, resolver);
             out << ", \"chainsUnresolved\": " << unresolvedChains << actors.str();
         }
         out << "}";
     } else {
         out << ",\n  \"wiring\": null";
     }
-    writeExits(out, *package, path.stem().string(), *level, resolver);
-    writeWaypoints(out, *package, path.stem().string(), *level, resolver);
-    writePlayerStarts(out, *package, path.stem().string(), *level, resolver);
-    if (lighting) writeLighting(out, *package, path.stem().string(), *level, resolver);
-    if (brushes) writeBrushes(out, *package, path.stem().string(), *level, resolver);
+    writeExits(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
+    writeWaypoints(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
+    writePlayerStarts(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
+    if (lighting) writeLighting(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
+    if (brushes) writeBrushes(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
 
     out << "\n }";
 }
@@ -1717,12 +1717,12 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             if (i + 1 >= args.size()) {
                 return usage(err);
             }
-            systemDir = fs::path{std::string{args[++i]}};
+            systemDir = uta::fs::pathFromUtf8(args[++i]);
         } else if (arg == "--install") {
             if (i + 1 >= args.size()) {
                 return usage(err);
             }
-            installDir = fs::path{std::string{args[++i]}};
+            installDir = uta::fs::pathFromUtf8(args[++i]);
         } else if (arg == "--nav-graph") {
             navGraph = true;
         } else if (arg == "--wiring-graph") {
@@ -1742,7 +1742,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             err << "ut-dump: unknown option " << arg << "\n";
             return usage(err);
         } else {
-            targets.emplace_back(std::string{arg});
+            targets.push_back(uta::fs::pathFromUtf8(arg));
         }
     }
 

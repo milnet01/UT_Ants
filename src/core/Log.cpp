@@ -1,5 +1,7 @@
 #include "core/Log.h"
 
+#include "core/FileSystem.h"
+
 #include <cerrno>
 #include <cstdio>
 #include <exception>
@@ -167,7 +169,7 @@ Result<LogSink> fileSink(const std::filesystem::path& path) {
 #endif
     if (raw == nullptr)
         return fail(errorCodeFromErrno(errno),
-                    "cannot open log file " + path.string());
+                    "cannot open log file " + fs::utf8(path));
 
     const std::shared_ptr<std::FILE> stream(
         raw, [](std::FILE* f) { if (f != nullptr) (void)std::fclose(f); });
