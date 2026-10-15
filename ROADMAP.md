@@ -16424,6 +16424,15 @@ stays with movement in 0.2.0.
   01:02 with 266 of 1611 maps baked, all rc 0. Restarted with the
   launcher as cc-job u347-night (same script, resumes past done maps);
   about 15 h left, done around midnight.
+  User decision (2026-10-15, evening): the whole-library bake stops at
+  what serves development: bake the 25 maps of UTA-0352's 127-map survey
+  still missing, then run the analyser on what is baked. 561 maps were
+  baked when it was cut (283 of them in use on the live server); the
+  other 1024 got rep/rc-<map> = skipped, which the run skips. Reason:
+  most of the rest would never be played. UT_MonsterHunt's list of the
+  312 superseded MH maps and 197 non-MH maps (1102 in use) is kept at
+  /mnt/Emulators/uta-scratch/u347-lib/unused-maps-2026-10-15.tsv. The
+  census is therefore a sample, weighted to names A to E.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
@@ -16827,6 +16836,11 @@ stays with movement in 0.2.0.
   bumps BAKER_REVISION, which would make UTA-0347's whole-library bake
   (running tonight at r53) stale before UTA-0352's survey reads it. Take
   it up once that survey has run. Clear this note when picked up.
+  Also carries UTA-0367's Geometry.cpp:178 finding (lane-01 M: each
+  portal's overlap is summed, so two overlapping portals can hide a node
+  only half covered, against UTA-0109 SS 4.3 step 3a). Measure first how
+  many library nodes have overlapping portal pieces; the fix changes
+  real bakes, so it lands with this item's revision bump.
   **Layman:** The same map could bake to slightly different files on Linux and Windows; use the project's own exact maths.
   Kind: fix.
   Source: review-code-2026-10-15.
@@ -16890,7 +16904,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: core, tools.
 
-- 📋 [UTA-0367] **ubake: a fitted bake is reused under a smaller budget, and a dependency error is dropped from the bake name.**
+- 🚧 [UTA-0367] **ubake: a fitted bake is reused under a smaller budget, and a dependency error is dropped from the bake name.**
   Unverified findings of UTA-0329's review:
   - lane-01 M Bake.cpp:1616, Name.cpp:69: fittedName ignores
     budgetBytes.
@@ -16898,6 +16912,18 @@ stays with movement in 0.2.0.
   - lane-01 M Geometry.cpp:178: overlapping portals counted twice.
   - lane-01 L TextureCache.cpp:230, Movers.cpp:142 vs 226,
     Bake.cpp:319 (long is 32-bit on MSVC).
+  Closed 2026-10-15, each verified at its site. Fixed: fittedName takes
+  the budget, folded in only when it is not the default, so no fitted
+  bake already made is renamed (test pins the default name; UTA-0011
+  SS 4.8 amended); nearestToMean sums in 64 bits and returns 0 for an
+  empty palette (long is 32 bits on MSVC); a mover's non-finite Location
+  reads as 0 and PostScale as 1; TextureCache reads time and size with
+  their own error codes. Dismissed: Name.cpp:29 is unreachable,
+  Package::open checks every import's name index (Package.cpp:213), and
+  all 4251 installed packages read their imports (census 2026-10-15).
+  Moved to UTA-0364: Geometry.cpp:178 (overlapping portals), which would
+  change real bakes and needs measuring first. Unit 1023 green, the
+  golden bake unchanged. Flip on GitHub's matrix.
   **Layman:** The baker can reuse a stale or over-budget prepared map; key the cache on everything that shapes it.
   Kind: fix.
   Source: review-code-2026-10-15.

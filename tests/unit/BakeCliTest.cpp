@@ -14,6 +14,7 @@
 #include "ubake/MaterialLight.h"
 #include "ubake/Name.h"
 #include "ubundle/Bundle.h"
+#include "umat/Material.h"
 #include "ut-bake/Cli.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -554,4 +555,15 @@ TEST_CASE("UTA-0292 INV-3 and INV-4: --light-materials bakes afresh and names ev
     REQUIRE(light->size() == bundle->materials->size());
     REQUIRE_FALSE(light->empty());
     for (std::size_t i = 0; i < light->size(); ++i) CHECK((*light)[i].id == (*bundle->materials)[i].id);
+}
+
+TEST_CASE("UTA-0367: a fitted bake's name carries its budget unless it is the default", "[bake][cli]") {
+    // review-code 2026-10-15: a bake fitted under one budget was served to a
+    // request under a smaller one. At the default budget the name is the one
+    // UTA-0245 gave it, so no fitted bake already made is orphaned.
+    using uta::ubake::detail::fittedName;
+    CHECK(fittedName("abc", uta::umat::TEXTURE_BUDGET_BYTES)
+          == "0a7c317b4aac83aaeb72340b35c08b3232a48c40fc5f7481658e135b8a9debca");
+    CHECK(fittedName("abc", 512ull * 1024ull * 1024ull) != fittedName("abc", uta::umat::TEXTURE_BUDGET_BYTES));
+    CHECK(fittedName("abc", 512ull * 1024ull * 1024ull) != fittedName("abc", 256ull * 1024ull * 1024ull));
 }

@@ -489,7 +489,9 @@ it the bake looks for one as `UTA-0113` § 4.3 orders. A bake's report gains
 **`--fit-budget` was added by `UTA-0245`** (user, 2026-09-29). Over budget,
 the bake shrinks its textures with `umat::fitToBudget` until they fit rather
 than refusing, and is named `detail::fittedName` of the full bake's name, so a
-request without the switch is never served it. The report gains
+request without the switch is never served it. A budget other than the default
+is part of that name too, so a bake fitted to one budget is never served for
+another; at the default the name is unchanged (`UTA-0367`). The report gains
 `"fitted": {"upscaleRounds": N, "sourceRounds": N, "fits": true|false}`; a
 set that cannot fit is still `over-budget`. Without the switch nothing
 changes.

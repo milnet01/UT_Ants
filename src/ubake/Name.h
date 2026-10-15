@@ -82,9 +82,12 @@ namespace detail {
                                            std::string_view mapName, Install& install,
                                            const urecipe::Recipe* recipe = nullptr);
 
-/// UTA-0245: the name a bake fitted to its budget takes, from its full bake's
-/// `name` -- 64 lower-case hex digits, never equal to `name`.
-[[nodiscard]] std::string fittedName(std::string_view name);
+/// UTA-0245: the name a bake fitted to `budgetBytes` takes, from its full
+/// bake's `name` -- 64 lower-case hex digits, never equal to `name`. A budget
+/// other than the default is part of it, so a bake fitted to one budget is
+/// never served for another; at the default the name is UTA-0245's own
+/// (review-code 2026-10-15).
+[[nodiscard]] std::string fittedName(std::string_view name, std::uint64_t budgetBytes);
 
 /// Lower-case hex, two digits a byte.
 [[nodiscard]] std::string hex(std::span<const std::byte> bytes);

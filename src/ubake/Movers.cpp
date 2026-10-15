@@ -223,10 +223,18 @@ Result<ubundle::MoverShape> buildMover(const MoverSite& mover, const upkg::Model
             std::swap(shape.geometry.indices[i + 1], shape.geometry.indices[i + 2]);
 
     // Step 4.
+    // A part that is not finite reads as 0 for the location and 1 for the
+    // scale, as Zones.cpp's vectorOf reads one: UTA-0217 guarded MainScale
+    // and PrePivot, and these are the same actor's file data (review-code
+    // 2026-10-15).
     shape.location = vectorNamed("location", actor, actorClass);
+    for (float& part : shape.location)
+        if (!std::isfinite(part)) part = 0;
     if (const PropertyRecord* rotation = resolved("rotation", ValueKind::Rotator, actor, actorClass))
         shape.rotation = std::get<std::array<std::int32_t, 3>>(rotation->value);
-    const Vec3 postScale = scaleNamed("postscale", actor, actorClass);
+    Vec3 postScale = scaleNamed("postscale", actor, actorClass);
+    for (double& part : postScale)
+        if (!std::isfinite(part)) part = 1;
     shape.postScale = {static_cast<float>(postScale[0]), static_cast<float>(postScale[1]),
                        static_cast<float>(postScale[2])};
     return shape;

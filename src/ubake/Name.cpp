@@ -7,11 +7,13 @@
 #include "core/Sha256.h"
 #include "ubundle/Bundle.h"
 #include "umat/Library.h"
+#include "umat/Material.h"
 #include "urecipe/Lookup.h"
 
 #include <algorithm>
 #include <format>
 #include <set>
+#include <string>
 #include <utility>
 
 namespace uta::ubake {
@@ -66,11 +68,15 @@ std::string hex(std::span<const std::byte> bytes) {
     return out;
 }
 
-std::string fittedName(std::string_view name) {
+std::string fittedName(std::string_view name, std::uint64_t budgetBytes) {
     Sha256 hasher;
     addText(hasher, "uta-bake-fitted-1");
     addByte(hasher, LF);
     addText(hasher, name);
+    if (budgetBytes != umat::TEXTURE_BUDGET_BYTES) {
+        addByte(hasher, LF);
+        addText(hasher, std::to_string(budgetBytes));
+    }
     return hex(hasher.finish());
 }
 

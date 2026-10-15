@@ -227,11 +227,11 @@ void TextureCache::trim() {
     for (auto it = std::filesystem::recursive_directory_iterator(directory_, error);
          !error && it != std::filesystem::recursive_directory_iterator(); it.increment(error)) {
         if (!it->is_regular_file(error) || it->path().extension() != ".tex") continue;
-        Entry entry{it->path(), it->last_write_time(error), it->file_size(error)};
-        if (error) {
-            error.clear();
-            continue;
-        }
+        // One error_code each: file_size clears the code on success, which hid
+        // a failed time read (review-code 2026-10-15).
+        std::error_code timeError, sizeError;
+        Entry entry{it->path(), it->last_write_time(timeError), it->file_size(sizeError)};
+        if (timeError || sizeError) continue;
         total += entry.size;
         entries.push_back(std::move(entry));
     }

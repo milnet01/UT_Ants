@@ -47,6 +47,7 @@
 #endif
 #include <optional>
 #include <fstream>
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <set>
@@ -316,21 +317,24 @@ Result<TextureSite> siteOf(const upkg::Package& map, std::string_view mapName,
 /// UTA-0177: the palette entry nearest the palette's mean colour, which a
 /// texture with no picture anywhere is filled with. Alpha is not weighed.
 std::size_t nearestToMean(const upkg::Palette& palette) {
-    std::array<long, 3> sum{};
+    // 64-bit: long is 32 on MSVC, so a large palette would overflow there and
+    // not here, and two compilers bake two answers (review-code 2026-10-15).
+    if (palette.entries.empty()) return 0;
+    std::array<std::int64_t, 3> sum{};
     for (const upkg::PaletteEntry& entry : palette.entries) {
         sum[0] += entry.r;
         sum[1] += entry.g;
         sum[2] += entry.b;
     }
-    const auto count = static_cast<long>(palette.entries.size());
+    const auto count = static_cast<std::int64_t>(palette.entries.size());
     std::size_t nearest = 0;
-    long best = std::numeric_limits<long>::max();
+    std::int64_t best = std::numeric_limits<std::int64_t>::max();
     for (std::size_t i = 0; i < palette.entries.size(); ++i) {
         const upkg::PaletteEntry& entry = palette.entries[i];
-        const long dr = entry.r - sum[0] / count;
-        const long dg = entry.g - sum[1] / count;
-        const long db = entry.b - sum[2] / count;
-        if (const long distance = dr * dr + dg * dg + db * db; distance < best) {
+        const std::int64_t dr = entry.r - sum[0] / count;
+        const std::int64_t dg = entry.g - sum[1] / count;
+        const std::int64_t db = entry.b - sum[2] / count;
+        if (const std::int64_t distance = dr * dr + dg * dg + db * db; distance < best) {
             best = distance;
             nearest = i;
         }
@@ -1613,7 +1617,7 @@ Result<BakeOutcome> bakeToDirectory(const BakeRequest& request, JobSystem& jobs)
         return outcome;
     }
     // UTA-0245: one asking to fit takes a fitted bake already there too.
-    const std::string fitted = detail::fittedName(outcome.name);
+    const std::string fitted = detail::fittedName(outcome.name, request.budgetBytes);
     const std::filesystem::path fittedPath = request.outDir / (fitted + ".utab");
     if (request.fitBudget && !request.force && isCachedBake(fittedPath)) {
         outcome.verdict = Verdict::Cached;
