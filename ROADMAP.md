@@ -1256,7 +1256,7 @@ stays with movement in 0.2.0.
   createSurface, resize rebuilds the size-bound targets, and the
   presenting path presents through a FIFO _SRGB swapchain. A hand run
   with an SDL3 probe kept at
-  /mnt/Games/Scripts/Linux/ut-ants-present-probe-uta0014/ drew every
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-present-probe-uta0014/ drew every
   frame on Wayland and X11 with the validation layer on. That run found
   the shaders using OpDemoteToHelperInvocation without
   shaderDemoteToHelperInvocation enabled, now a section 4.4 requirement;
@@ -1469,7 +1469,7 @@ stays with movement in 0.2.0.
   (/mnt/Games/Scripts/Linux/UT_Ants). User decision the same day: a short
   spec with no review, at docs/specs/UTA-0040-parallax-occlusion.md, then
   build under write-code. Research with sources is kept outside the
-  repository at /mnt/Games/Scripts/Linux/ut-ants-uta0040-research.md.
+  repository at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0040-research.md.
   Shipped 2026-09-14 in 06fd05f, green on the matrix (run 34863331392).
   Spec docs/specs/UTA-0040-parallax-occlusion.md, short and unreviewed by
   the user's ruling. Each MATS record carries a parallaxDepth byte (format
@@ -3549,7 +3549,7 @@ stays with movement in 0.2.0.
   binary links the DLL runtime by default.
   RUN, 2026-09-12, and it landed. 19 cases, 16 passed, 3 failed; 640,209
   of 640,213 assertions passed. Full output and method at
-  /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-windows-uta0077.
 
   THE CORPUS IS THE POINT. The Windows install is STOCK Unreal
   Tournament -- 96 maps, DM 38, CTF 24, DOM 16, AS 8, EOL 2, and 83 System
@@ -3627,7 +3627,7 @@ stays with movement in 0.2.0.
   MonsterEnds outside the world.
 
   WHAT TO KEEP. The method is written up at
-  /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077 and is four commands
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-windows-uta0077 and is four commands
   end to end, so re-running this on any future install is cheap. That
   matters more than today's numbers: this tier had never run on Windows
   because the route did not exist, not because anyone decided against it.
@@ -3732,7 +3732,7 @@ stays with movement in 0.2.0.
   spreading evenly -- a concentration would name the thing to look at, and
   an even spread would argue the opposite.
 
-  Output at /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077. Not chased
+  Output at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-windows-uta0077. Not chased
   further here; UTA-0077 was running the tier, not this.
   Resolved (2026-10-01): edb738d; GitHub CI green there. The residual was
   the TEST's probe, not the descent. Spread over 999 of 1446 maps (half
@@ -5439,7 +5439,7 @@ stays with movement in 0.2.0.
   checkout).
   Shipped (2026-09-11), ut-ants-2b, main checkout: 8cabe4e, green on GCC 14,
   Clang 19 and MSVC (run 34626162778). The census run for UT_MonsterHunt
-  writes to /mnt/Games/Scripts/Linux/ut-paths-output, outside both
+  writes to /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output, outside both
   repositories; the path is sent to them (their GAME-0095). Every invariant
   was seen failing first, and every mutation in the spec's SS 7 is killed.
   On the census maps read so far most exits route none: their areas are
@@ -5595,7 +5595,7 @@ stays with movement in 0.2.0.
   refused, and sending UT_MonsterHunt the result.
   Follow-up done (2026-09-12) by ut-ants-84, main checkout. ut-paths was
   re-run on the 14 maps UTA-0121's census refused, into
-  /mnt/Games/Scripts/Linux/ut-paths-output-uta0124 -- a directory of its
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0124 -- a directory of its
   own, so ut-paths-output's whole-census summary is untouched. All 14
   were written, which is what this item bought. UT_MonsterHunt
   (ut-monsterhunt-4c) has the result. What the re-run also showed belongs
@@ -5619,7 +5619,7 @@ stays with movement in 0.2.0.
   the pawn's movement flags.
   Fix: follow only edges a walking bot's supports() admits, amend UTA-0121
   SS 4.6 through its gate, and re-run the census into
-  /mnt/Games/Scripts/Linux/ut-paths-output.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output.
   Picked up (2026-09-11) by ut-ants-2b, main checkout, ahead of UTA-0112
   because UT_MonsterHunt holds its remaining maps until this is settled.
   Shipped (2026-09-11), ut-ants-2b, main checkout: d72b1ab, green on GCC 14,
@@ -5629,9 +5629,9 @@ stays with movement in 0.2.0.
   it as section 3 decision 10 and INV-11, gated by review-contract loops 3
   and 4 and accepted again at the cap. INV-11 was seen failing first, and
   its five mutations and one extra are killed. The census re-run into
-  /mnt/Games/Scripts/Linux/ut-paths-output follows, and UT_MonsterHunt is
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output follows, and UT_MonsterHunt is
   told which maps changed.
-  Census re-run (2026-09-11) into /mnt/Games/Scripts/Linux/ut-paths-output,
+  Census re-run (2026-09-11) into /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output,
   over the same 356 work rows: 297 written, 45 skipped, 14 refused, as
   before. Eight maps changed. MH-AD_Concrete_and_floors_v3 and MH-SeriousSam-Dunes-T1 (EXIT_OFF_NET) lost their found routes, to none and to mover. MH-FREEKYSBFix, MH-OMG-TemplesOfEgypt2012-Ultimate and MH-Thra_FortressSBMod3 (PARTITIONED) went from found to none. MH-Omni-Rage-BP, MH-UM-SpaceBeacon-V1 and MH-UM-SoccerStadium1-BP stayed found with a different chain; the last keeps its route and node count, and a byte comparison of all 297 files is what found it. The other 289 files are byte-identical. Proposed nodes: 98 on 21 maps before, 84 on 16 after, every one
   now on a PARTITIONED map. The comparison is against a snapshot of the
@@ -5682,12 +5682,12 @@ stays with movement in 0.2.0.
   for a repeated actor slot now build and now reach propose(), and every
   one of their 24 exits came back without a route: 23 Route::None and one
   Route::Mover (MH-MHA-With-EgyptianStylefix3). Zero nodes proposed on
-  all 14. Output in /mnt/Games/Scripts/Linux/ut-paths-output-uta0124.
+  all 14. Output in /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0124.
   That is a second population failing, on maps chosen for an unrelated
   reason, so it may share a cause with the eight this item is about. Not
   concluded -- no diagnosis has been run on either set yet.
   MH-NivenSB answered (2026-09-12) by ut-ants-84, main checkout, with a
-  scratch probe kept at /mnt/Games/Scripts/Linux/ut-paths-output-uta0126
+  scratch probe kept at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0126
   (its README says how to rebuild it; it includes Seeds.cpp so it runs the
   real reach, nearestNode and shortestPath rather than copies). Baselined
   on MH-BirdBrainedResearch, where it reproduces the tool's own verdict.
@@ -6067,7 +6067,7 @@ stays with movement in 0.2.0.
   corner: 26 at exactly (32768, 32768, 32768) and MH-GolgothaPEv1 one unit
   inside it. Every one comes back Route::None. The value is the map's own
   record, not a class default -- the probe at
-  /mnt/Games/Scripts/Linux/ut-paths-output-uta0126 reports which, and says
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0126 reports which, and says
   "its own record" for all of them. UT clamps an actor dragged out of the
   world to that corner, so this is map data, not a reading fault.
   UT_MonsterHunt's census corroborates it independently: their
@@ -6092,7 +6092,7 @@ stays with movement in 0.2.0.
   (32768, 32768, 32768) and MH-ProgressV1 at 32767, every one from the
   map's own record. The 31st, MH-ProgressV0, has no file in our reference
   install and is unmeasured rather than contradicting. Per-map results in
-  /mnt/Games/Scripts/Linux/ut-paths-output-uta0126/endnode-locations.tsv.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0126/endnode-locations.tsv.
   That changes what this item must do. 30 of the 58 sit in their ENDNODE
   group, which their docs/route-census-split.md defines as "routed only to
   the nav point nearest the exit" -- a near-miss label, on maps whose exit
@@ -6142,7 +6142,7 @@ stays with movement in 0.2.0.
   implementation -- the offWorld mark in Seeds.cpp toJson, INV-12's test,
   and the matrix.
   Measurement (2026-09-12), checked before shipping rather than recalled.
-  Across all 298 per-map files in /mnt/Games/Scripts/Linux/ut-paths-output
+  Across all 298 per-map files in /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output
   the off-world rule fires on exactly 27 exits, every one with all three
   coordinates at the bound: 26 at 32768 and MH-GolgothaPEv1 at 32767. The
   highest coordinate anywhere BELOW the bound is 32428.6, so there are no
@@ -6506,7 +6506,7 @@ stays with movement in 0.2.0.
   distance-weighted-furthest side by side, per the item's ONE THING TO
   MEASURE BESIDE IT.
   CONTROL GROUP MEASURED (2026-09-12) by ut-ants-40, main checkout. Probes
-  and per-map output kept at /mnt/Games/Scripts/Linux/ut-paths-output-uta0128;
+  and per-map output kept at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0128;
   its README says how to rebuild them. Sent to UT_MonsterHunt.
 
   Transcription checked FIRST, against both reference points they supplied,
@@ -6567,7 +6567,7 @@ stays with movement in 0.2.0.
   What this item became is done -- the rule is measured against the maps
   whose MonsterEnd is placed, and the verdict is scatter. The numbers and
   the transcription check are in the note above; the probes and per-map
-  output are at /mnt/Games/Scripts/Linux/ut-paths-output-uta0128.
+  output are at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0128.
 
   NO CHANGELOG ENTRY, deliberately, and this records why so a later ledger
   review does not read it as one of UTA-0081's omissions. Nothing shipped
@@ -6982,7 +6982,7 @@ stays with movement in 0.2.0.
   over: it is a multi-part design that asks for Vestige to be read first.
   Investigated (2026-09-13, ut-ants-28, main checkout). Read from the
   files. The probe, its inputs and every result TSV are in
-  /mnt/Games/Scripts/Linux/ut-ants-probe-uta0131.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-probe-uta0131.
 
   Sets. Off-world: 58 maps, the census rows at endnodedist >= 33047 (from
   UT_MonsterHunt's routecensus-split-2026-09-07c.tsv) plus
@@ -7064,7 +7064,7 @@ stays with movement in 0.2.0.
 - ✅ [UTA-0132] **The real-asset tier assumes the reference install and cannot run green on another.**
   Found by UTA-0077's first Windows run, 2026-09-12, against a stock
   Unreal Tournament install -- 96 maps, zero MH-, 83 System packages.
-  Output at /mnt/Games/Scripts/Linux/ut-ants-windows-uta0077.
+  Output at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-windows-uta0077.
 
   The readers came back clean on that corpus, which was the question. What
   failed was the tier itself: three assertions silently assume they are
@@ -7312,7 +7312,7 @@ stays with movement in 0.2.0.
      MH-Omni-Rage-BP and MH-UM-Vengeance-EG1 are unchanged.
 
   THE PROBES ARE OUTSIDE THE REPOSITORY at
-  /mnt/Games/Scripts/Linux/ut-paths-output-uta0126, and its README says how
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0126, and its README says how
   to build both. actor-census.cpp is new this session and is what measured
   the exit-to-nearest-node distances; the before/after discriminator is the
   older startpart-probe's `partitioned 0|1` argument.
@@ -8067,7 +8067,7 @@ stays with movement in 0.2.0.
   The review-contract gate converged on loop 2 (commits 2048f04, 37d9fec).
 
   Measured first with a scratch probe that includes the real Seeds.cpp,
-  kept at /mnt/Games/Scripts/Linux/ut-paths-output-uta0139. On the five
+  kept at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0139. On the five
   ranked maps: GreenZone-beta3 and FourGhostsV2 read teleporter,
   DeathcourseV2 mover (its disabled teleporters lie between the start's
   and the exit's regions, so neither sees them), Demondeath walled, and
@@ -8123,7 +8123,7 @@ stays with movement in 0.2.0.
   Corpus tally (2026-09-14, ut-ants-c1). The scratch frontier probe
   includes the shipped Seeds.cpp, and on the five ranked maps it matches
   the shipped ut-paths word for word. It covered every per-map file in
-  /mnt/Games/Scripts/Linux/ut-paths-output holding a none route: 654 of
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output holding a none route: 654 of
   655 maps, 1056 exits.
 
     word            exits   maps carrying it
@@ -8140,7 +8140,7 @@ stays with movement in 0.2.0.
   Caveat: that output directory is frozen at an older commit, so the
   population is the maps that had no route THEN; the words are computed
   with today's code, which is why 32 exits now route. Files:
-  /mnt/Games/Scripts/Linux/ut-paths-output-uta0139/words-final.tsv.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0139/words-final.tsv.
   **Layman:** When the path tool finds no way to an exit, it should say in one word what is in the way, so the other project can send the map to the right fix.
   Kind: enhancement.
   Source: in-session-2026-09-13.
@@ -8357,7 +8357,7 @@ stays with movement in 0.2.0.
   with the R_SPECIAL edges at a bEnabled=False teleporter removed.
   Checked against UT_MonsterHunt's T3D reading on three maps, and against
   a positive control that treats every teleporter as disabled. Files and
-  build command: /mnt/Games/Scripts/Linux/ut-paths-output-uta0142.
+  build command: /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0142.
 
   Over all 559 maps of their routecensus-split-offline-2026-09-13.tsv:
   all ran, no errors. 327 maps have a teleporter, 91 have one starting
@@ -8435,7 +8435,7 @@ stays with movement in 0.2.0.
   § 3 decision 10 amendment. Whether it gets the rule 14 review is
   asked when the amendment is ready.
   Trigger census done (2026-09-25, ut-ants-a5). Files are in
-  /mnt/Games/Scripts/Linux/ut-paths-output-uta0142-triggers, README
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-uta0142-triggers, README
   there. Population: 557 of the 559 census maps. The two absent ones
   have left the install and had no teleporter. Probe counts match the
   first census on every map.
@@ -8915,7 +8915,7 @@ stays with movement in 0.2.0.
   reference that is not an Export, so a texture whose palette is an
   import is skipped and its surfaces wear no material. The map has three
   SlimeZone actors. Evidence kept at
-  /mnt/Games/Scripts/Linux/ut-ants-uta0051/bake.json.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0051/bake.json.
 
   Resolve an imported palette through the install, as class ancestry
   already resolves across packages. Census the corpus first: how many
@@ -8934,7 +8934,7 @@ stays with movement in 0.2.0.
   GenFX and genfluid, so the palette is likely in one of the last three.
   Census (2026-09-14, a scratch program over the reference install's
   Textures/*.utx and Maps/*.unr, kept at
-  /mnt/Games/Scripts/Linux/ut-ants-uta0155-palette-census.txt): 2350
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0155-palette-census.txt): 2350
   packages opened, 48130 texture-class exports. 47805 hold their palette as
   an export of their own package. 175 import it from another package and
   are the ones this item's rule skips: 103 WetTexture, 38 ScriptedTexture,
@@ -8949,7 +8949,7 @@ stays with movement in 0.2.0.
   But it does not bring back the acid. A re-bake of DM-Deck16][ now skips
   hubeffects.goop3 one step later: "the level holds 0 bytes where its
   128x128 texels need 16384". A probe (kept at
-  /mnt/Games/Scripts/Linux/ut-ants-uta0155-procedural-probe.txt) shows goop3
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0155-procedural-probe.txt) shows goop3
   is a WetTexture storing no pixels, with SourceTexture =
   genfluid.Water.r6000w2. Of the 175 textures with an imported palette,
   only 15 plain Textures store pixels; 6 plain Textures and 154 WetTexture
@@ -9022,7 +9022,7 @@ stays with movement in 0.2.0.
   camera and took the engine's gamma-corrected shot. A new tool,
   tools/ut-shot, draws the same cameras headlessly. compare.py fits
   exposure through PBR Neutral over 40-pixel block means. Scripts and
-  frames: /mnt/Games/Scripts/Linux/ut-ants-uta0156/.
+  frames: /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0156/.
   Findings. Mean displayed luma was 9 of 255 against the original's 72.
   Both games load the same 231 lights, so nothing was missing. The cause
   was the light model: 174 of them are LE_Cylinder, which was baked as a
@@ -9858,7 +9858,7 @@ stays with movement in 0.2.0.
   wherever unlit-only surfaces are in the way (MH-dUComatoseFinal 85.7% to
   82.3%). Two picked maps did not run (a JSON-parse slip in the scratch
   script) and were not needed. Tool, list and results:
-  /mnt/Games/Scripts/Linux/ut-ants-uta0168.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0168.
   PF_NotSolid now casts no shadow in the shadow tile pass (Frame.cpp) and
   is no occluder in SurfaceRays; baker revision 18. Four hand mutations
   killed. EXPOSURE refitted from 5.5 to 5.4 on revision-18 bakes, AMBIENT_SCALE
@@ -10162,7 +10162,7 @@ stays with movement in 0.2.0.
   slope bias, a 3x3 filter and a normal offset each measured worse. Medium
   and up now take an 8192 atlas at 32 units (Tiers.h shadowDetailOf), the
   same share of the atlas for every map; Low keeps 4096 at 64. Scratch
-  worktrees and scripts at /mnt/Games/Scripts/Linux/ut-ants-uta0175.
+  worktrees and scripts at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0175.
   **Layman:** Shadows have stair-stepped edges and light shows through where walls meet, which should be fixed.
   Kind: fix.
   Source: user-request-2026-09-17.
@@ -10378,7 +10378,7 @@ stays with movement in 0.2.0.
   lights, export 798 (brightness 255, radius byte 8, 31 units above the
   SkyZoneInfo) and export 376 (brightness 115, hue 180, radius byte 183).
 
-  Scratch at /mnt/Games/Scripts/Linux/ut-ants-uta0163.
+  Scratch at /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0163.
   Placed 2026-09-17 (the user leaves placement of map findings to the
   session): after UTA-0182, before UTA-0177 and UTA-0180. UTA-0180's look
   is fitted by measurement, and a brightness defect still live would be
@@ -11212,7 +11212,7 @@ stays with movement in 0.2.0.
   Found 2026-09-20 by UT_MonsterHunt (session ut-monsterhunt-5d) while
   reading the delivered seed output, and confirmed here.
 
-  Of the 867 files in /mnt/Games/Scripts/Linux/ut-paths-output, 71 carry
+  Of the 867 files in /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output, 71 carry
   at least one proposed node and 796 carry `"nodes": []`. Most of those
   empties are honest: over the 796, the exits read 1025 `none` and 188
   `mover`, and neither can be bridged by a node.
@@ -11319,7 +11319,7 @@ stays with movement in 0.2.0.
   Their 82 ran with every group forced to PARTITIONED, after measuring
   that forcing it changes nothing on EXIT_OFF_NET maps: 40 random ones
   and all 5 that carry nodes were identical apart from `group`. Output:
-  /mnt/Games/Scripts/Linux/ut-paths-output-2026-10-02-rowless (README
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-paths-output-2026-10-02-rowless (README
   inside), 82 written, 5 with nodes. Sent to ut-monsterhunt.
   Result (UT_MonsterHunt, 2026-10-02): of the 5 rowless maps with nodes,
   4 route after a build with them, at DWELL 90 -- Ghost][busters,
@@ -19925,7 +19925,7 @@ to.
   that session the exact field names, a sample line, and a measured
   answer to one map per call vs a whole folder. Their TheBoat md5 check
   is the acceptance test. Source to port:
-  /mnt/Games/Scripts/Linux/ut-ants-uta0156/ambient-census/bound-scan.cpp.
+  /mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0156/ambient-census/bound-scan.cpp.
   Shipped (2026-10-06, 4127a7f, GitHub green):
   build/tools/ut-bound-scan/ut-bound-scan. Kinds miss, inverted,
   invalid, summary, refused; one JSON line each. Acceptance held: the

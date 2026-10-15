@@ -152,7 +152,7 @@ on `UTA-0085`.
 `docs/specs/UTA-0014-vulkan-draw-path.md`. The draw path is graded headlessly
 on Mesa's software driver, so `scripts/ci.sh` selects test labels per platform
 and both CI legs install Vulkan packages; the presenting path is run by hand,
-with the probe at `/mnt/Games/Scripts/Linux/ut-ants-present-probe-uta0014/`.
+with the probe at `/mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-present-probe-uta0014/`.
 (`CLAUDE.md` § Build and test carries that rule, which is why it is only
 recorded here.)
 

@@ -341,7 +341,7 @@ motion.
 **The surfaceless path creates no `VkSurfaceKHR`, opens no swapchain, requests
 no instance extension and no `VK_KHR_swapchain` device extension, and needs no
 display.** Measured 2026-09-12 with a scratch probe kept outside the repository
-at `/mnt/Games/Scripts/Linux/ut-ants-vulkan-probe-uta0014/`, whose `README.md`
+at `/mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-vulkan-probe-uta0014/`, whose `README.md`
 carries the build line, the passing output and the breaking run — against the
 Mesa `lvp` driver with `DISPLAY` and
 `WAYLAND_DISPLAY` both unset. It clears a 64×64 `R8G8B8A8_UNORM` image to red

@@ -30,7 +30,7 @@ the step count, with Low drawing no parallax at all.
    a feature; this item adds the first row, as UTA-0051 § 4.1 foresaw.
 
 Research with sources is kept outside the repository at
-`/mnt/Games/Scripts/Linux/ut-ants-uta0040-research.md`. Where a number below
+`/mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0040-research.md`. Where a number below
 rests on a source it names the source; the rest is judgement and says so.
 
 ## 3. Scope decisions (agreed with the user)

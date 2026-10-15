@@ -22,7 +22,7 @@ placed, with its own values.
    horizontal lights are showing as round lights on the geometry they are
    shining on"*.
 2. Such a fixture is several `LE_Cylinder` lights on one line. Measured with
-   `/mnt/Games/Scripts/Linux/ut-ants-uta0156/rows.py` over that directory's
+   `/mnt/Games/Scripts/Linux/UT_Ants/scratch/linux/ut-ants-uta0156/rows.py` over that directory's
    `ours-lights.txt` (`python3 rows.py ours-lights.txt 16 100
    type,effect,b,h,s,r 1.5`): neighbours on a row are often further apart than
    the lights reach, so each lights its own pool. The original game blurs the
