@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=361 -->
+<!-- ants-roadmap-id-high-water: UTA=373 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16753,6 +16753,180 @@ stays with movement in 0.2.0.
   Kind: enhancement.
   Source: in-session-2026-10-15.
   Lanes: tools.
+
+- 📋 [UTA-0362] **Values read from a map or bundle overflow, index out of range or leak control bytes.**
+  Unverified findings of UTA-0329's review, in
+  docs/reviews/review-code-2026-10-15/ (lane, severity, site):
+  - lane-03 M AddedSun.cpp:20: sun yaw + 32768 overflows; validateSun
+    never checks yaw.
+  - lane-02 L Lamps.cpp:101: rotation[1] += wanted.yaw overflows.
+  - lane-06 M scene.frag:414: textureSize on shadowMaskTexture NONE.
+  - lane-07 M Properties.cpp:286: a value decodes past its declared size.
+  - lane-07 M Log.cpp:31: lone C1 bytes 0x80-0x9F reach the log raw.
+  - lane-11 L ut-bound-scan/Scan.cpp:54: iVertPool + k unchecked.
+  - lane-07 L FileSystem.cpp:290/326: regular-file check before open;
+    a FIFO swapped in blocks.
+  - lane-10 L ut-paths/Cli.cpp:234: Windows device names pass the guard.
+  **Layman:** A damaged or tampered map or baked file could crash the game or the baker; check every number read from one before using it.
+  Kind: security.
+  Source: review-code-2026-10-15.
+  Lanes: ubundle, ubake, urender, upkg, core, tools.
+
+- 📋 [UTA-0363] **A hostile map can make the baker run out of memory or time.**
+  Unverified findings of UTA-0329's review, in
+  docs/reviews/review-code-2026-10-15/:
+  - lane-02 M Strips.cpp:100-127: m collinear lights give m^2/2 rows of
+    m/3 members.
+  - lane-08 M umap/Build.cpp:357: traceComponent scans the whole lattice
+    per component.
+  - lane-08 L umap/Build.cpp:560: up to 2^30 roomAt descents.
+  - lane-02 L LightProbes.cpp:376-401: no NavigationPoint walks the
+    whole bounding box.
+  - lane-12 L class-census.py:108: length read then skipped unchecked.
+  **Layman:** Some unusual map shapes make map preparation take hours or use all memory; bound the work.
+  Kind: security.
+  Source: review-code-2026-10-15.
+  Lanes: ubake, umap, scripts.
+
+- 📋 [UTA-0364] **The baker calls the platform maths library, so a bundle can differ between compilers.**
+  Unverified findings of UTA-0329's review, against design.md and
+  UTA-0049 SS 9 (no platform maths library in the baker):
+  - lane-02 H Lamps.cpp:42: std::cos/std::sin turn lamp vertices.
+  - lane-02 H Flames.cpp:40, 44, 88: std::hypot.
+  - lane-02 M ShadowMask.cpp:94: a local sineOf hides LightModel.h's.
+  - lane-02 L LightProbes.cpp:151: std::cos(SUN_RADIUS).
+  A fix changes baked bytes: bump the baker revision.
+  **Layman:** The same map could bake to slightly different files on Linux and Windows; use the project's own exact maths.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: ubake.
+
+- 📋 [UTA-0365] **Renderer: a reload can overrun the lights buffer, and texture uploads can start misaligned.**
+  Unverified findings of UTA-0329's review:
+  - lane-05 H Materials.cpp:266: staging offsets not 16-byte aligned for
+    BC5/BC7 after a BC4 or RGBA8 texture.
+  - lane-04 M Frame.cpp:144, 1782: shapeOf samples no light data, so a
+    same-count reload can overrun lights and shadowFaces.
+  - lane-05 M Device.cpp, Resources.cpp, Pipelines.cpp: a failed create
+    leaves the member undefined, then destroyed.
+  - lane-05 M Pipelines.cpp:495: maxPerStageResources not in the min.
+  - lane-05 M Materials.cpp:307: a pinned huge light time replays
+    millions of fire steps.
+  - lane-05 L Lights.cpp:20, lane-04 L Frame.cpp:1299: no isfinite.
+  - lane-05 L Device.cpp:234/465: error count before message.
+  - lane-04 L Frame.cpp:1630, lane-05 L Materials.cpp:60.
+  **Layman:** Two ways the renderer can write or read graphics memory it should not; fix both.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: urender.
+
+- 📋 [UTA-0366] **On Windows, a file name the code page cannot hold makes error messages and ut-dump throw.**
+  Unverified findings of UTA-0329's review:
+  - lane-07 H core/FileSystem.cpp:284 and others, Log.cpp:153:
+    path.string() in every failure message; use utf8(path).
+  - lane-10 M ut-dump/Cli.cpp: path.stem().string() and extension().
+  - lane-10 M ut-bake, ut-dump, ut-paths: arguments become paths two
+    ways; use pathFromUtf8 throughout.
+  - lane-11 L map-pic/Cli.cpp:158, ut-shot/Cli.cpp:220.
+  UTA-0361's new --brushes call follows the same pattern.
+  **Layman:** A Windows user with a non-English name or map file name could see a crash instead of an error message.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: core, tools.
+
+- 📋 [UTA-0367] **ubake: a fitted bake is reused under a smaller budget, and a dependency error is dropped from the bake name.**
+  Unverified findings of UTA-0329's review:
+  - lane-01 M Bake.cpp:1616, Name.cpp:69: fittedName ignores
+    budgetBytes.
+  - lane-01 M Name.cpp:29: importedPackages' error dropped.
+  - lane-01 M Geometry.cpp:178: overlapping portals counted twice.
+  - lane-01 L TextureCache.cpp:230, Movers.cpp:142 vs 226,
+    Bake.cpp:319 (long is 32-bit on MSVC).
+  **Layman:** The baker can reuse a stale or over-budget prepared map; key the cache on everything that shapes it.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: ubake.
+
+- 📋 [UTA-0368] **ubundle: the writer can emit textures the reader refuses, and other format gaps.**
+  Unverified findings of UTA-0329's review:
+  - lane-03 L Bundle.cpp:381: write skips TEXS's own rules.
+  - lane-03 L Bundle.cpp:301: BAKR read.
+  - lane-03 L MaterialSection.cpp:123: sparks.resize(count).
+  - lane-03 L Sky.cpp:23: locale-dependent tolower.
+  - lane-03 L TileAnswers.cpp:105: file I/O against UTA-0008 SS 4.1.
+  **Layman:** Small gaps between how baked files are written and read.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: ubundle.
+
+- 📋 [UTA-0369] **Recipes: an empty quoted list is accepted and does not survive a save.**
+  Unverified finding of UTA-0329's review, lane-08 M
+  urecipe/Recipe.cpp:239-248: sky textures, lamp fitting and switchOff
+  accept zero words; write then emits a line parse refuses (UTA-0113
+  SS 4.2 round trip). write never quotes a list word.
+  **Layman:** A recipe line like textures = "" is accepted though it means nothing, and breaks when saved.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: urecipe.
+
+- 📋 [UTA-0370] **Package reader and core: smaller robustness gaps.**
+  Unverified findings of UTA-0329's review:
+  - lane-07 L Package.cpp:134 signature printed in decimal after 0x;
+    :192/202/219 seek on a zero-count table; FileSystem.cpp:405/431 a
+    growing file; Log.cpp:108 lock in noexcept.
+  - lane-08 L unav/Build.cpp:72-83 depth cap returns an empty name;
+    :339 one bad name index fails the whole wiring graph.
+  **Layman:** Small error-handling gaps in reading the original game's files.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: upkg, core, unav.
+
+- 📋 [UTA-0371] **Gate scripts: an edit during the lock wait, a lost scp and a skipped include check pass unseen.**
+  Unverified findings of UTA-0329's review, lane-12:
+  - M ci-matrix.sh:54/167: SHA and tree state read at different times.
+  - M ci-matrix.sh:116: every scp failure counts as a lost link.
+  - M windows-gate-reap.sh:38: ps -W status letter shifts columns.
+  - M std-includes.sh:66: std::ranges:: calls never match.
+  - M map-analyser.py:270: a failed ut-shot is recorded as no sky.
+  - L ci.sh:134, 138; std-includes.sh:37; check-legs.sh:36;
+    map-analyser.py:210, 269; tile-questions.py:142;
+    mutation-probe.py:153; os.path in two scripts.
+  **Layman:** The push checks can miss a few kinds of problem; tighten them.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: scripts.
+
+- 📋 [UTA-0372] **Tools and app: wrong output on odd inputs in ut-ref, ut-bake, ut-paths, ut-compare and the viewer.**
+  Unverified findings of UTA-0329's review:
+  - lane-11 M ut-ref/main.cpp:132 unsigned wrap of the worker count;
+    :139 any field of view accepted; M ut-compare.py:25 writes outside
+    --work and --out; lows at ut-ref:85, ut-bound-scan/Cli.cpp:155,
+    ut-bench/Cli.cpp:237/262, map-pic:147, ut-compare.py:185/30.
+  - lane-10 M ut-bake/Cli.cpp:295 nan in JSON; M ut-paths/Cli.cpp:237
+    case-sensitive map file; lows ut-dump:1535, ut-bake:147/389/407,
+    Seeds.cpp:420.
+  - lane-09 M main.cpp:271 F12 redraw scale not pinned; lows main.cpp:357,
+    Capture.cpp:100/56, MapList.cpp:157, Launcher.cpp:273, main.cpp:304,
+    WriteBuildCommit.cmake:29, Cli.cpp:140.
+  **Layman:** Developer tools and the viewer misbehave on a few unusual inputs.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: tools, app.
+
+- 📋 [UTA-0373] **Specs and header comments that no longer match the code.**
+  Unverified findings of UTA-0329's review:
+  - lane-03 M UTA-0008 stale: format version, ids, sizes, BAKR.
+  - lane-08 L UTA-0006 SS 6 row against SS 4.5; umat/Material.h:16.
+  - lane-10 L UTA-0012 SS 4.1 says Core, code asks Engine; UTA-0011
+    SS 4.8 lacks --light-materials.
+  - lane-11 L UTA-0292 SS 4.4 drift.
+  - lane-05 L UTA-0014 SS 6 projected size; Geometry.h:51;
+    Pipelines.h:9.
+  - lane-06 L shadow_reduce.comp:15; ShaderTypes.h:247; fog_scatter.comp:71.
+  **Layman:** Several design documents and code comments describe an older version of the code.
+  Kind: doc-fix.
+  Source: review-code-2026-10-15.
+  Lanes: docs.
 
 ## 0.2.0 — Movement and weapons
 
