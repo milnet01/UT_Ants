@@ -92,7 +92,7 @@ are put to the consumer in this draft.
 ### 4.1 Invocation
 
 ```
-ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--ndjson] <package|directory>...
+ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--surface-list] [--lighting] [--ndjson] <package|directory>...
 ```
 
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
@@ -112,6 +112,7 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--su
 - `--wiring-graph` adds `wiring.chainsUnresolved` and `wiring.actors`
   (UTA-0172).
 - `--surface-list` adds `surfaces.list` (§ 4.5, UTA-0213).
+- `--lighting` adds `lighting` (§ 4.7d, UTA-0360).
 - The exit code is 0 when every package was attempted, including packages
   that did not open. 2 is a usage error, with no output on stdout.
 
@@ -171,8 +172,9 @@ A package whose `Level` export does not read carries `level: null` and
 
 Otherwise, after `level`: `surfaces` (and `surfacesError` when it is null),
 `levelInfo`, `levelSummary`, `monsters`, `nav`, `wiring`, `exits`,
-`waypoints`, `playerStarts` (and `playerStartsError` when it is null), as
-§ 4.5 to § 4.7c give them.
+`waypoints`, `playerStarts` (and `playerStartsError` when it is null), and
+under `--lighting` only `lighting` (and `lightingError` when it is null), as
+§ 4.5 to § 4.7d give them.
 
 ### 4.5 Level, surfaces, credits and monsters
 
@@ -309,6 +311,28 @@ defaults — the baker's own resolution (`ubake::buildZones`). `zone`,
 `playerStarts` is `null`, with `playerStartsError` a string, when the level's
 Model does not read, its zones do not build, or its actors do not build.
 
+### 4.7d `lighting`
+
+Added by `UTA-0360`, under `--lighting` only, after `playerStarts`. It says
+where a map's light comes from. It is `{surfaces, withLightMap,
+withLightActors, lightMaps, lightBitsBytes, lightActorRefs, zones}`.
+
+- `surfaces` is the Model's surface count.
+- `withLightMap` counts surfaces whose `iLightMap` resolves into the Model's
+  lightmap table.
+- `withLightActors` counts those whose lightmap entry's `iLightActors` is not
+  -1: some light reaches them.
+- `lightMaps`, `lightBitsBytes` and `lightActorRefs` are the sizes of the
+  Model's lightmap table, lightmap bytes and light-actor list.
+- `zones` is `[{zone, zoneActor, ambientBrightness, ambientHue,
+  ambientSaturation}]`, one per zone of the Model, in index order.
+  `zoneActor` is as in `playerStarts`. The three ambient bytes are the
+  baker's own resolution (`ubake::buildZones`): the zone actor's, else the
+  LevelInfo's, each through its class defaults.
+
+`lighting` is `null`, with `lightingError` a string, when the level's Model
+does not read or its actors do not build.
+
 ### 4.8 Counting what was dropped
 
 Scope decision 5's rule, applied:
@@ -397,9 +421,10 @@ A consumer is added to this table when it tells us what it reads.
   key.
 
 - **INV-4** — An opened package's top-level key set is exactly § 4.4's, in
-  each of its three cases: a non-map, a map, and a map with `--nav-graph`,
-  `--wiring-graph` and `--surface-list`. `level`, `surfaces`, `nav` and
-  `wiring` carry exactly § 4.5 to § 4.7's keys.
+  each of its four cases: a non-map, a map, a map with `--nav-graph`,
+  `--wiring-graph` and `--surface-list`, and a map with `--lighting`, which
+  adds `lighting`. `level`, `surfaces`, `nav`, `wiring` and `lighting` carry
+  exactly § 4.5 to § 4.7d's keys.
   *Test:* `tests/unit/DumpCliTest.cpp`, with a small key reader local to the
   test that lists an object's keys at one depth. It runs over a fixture System
   package and a fixture map, and compares each key set with a literal list.

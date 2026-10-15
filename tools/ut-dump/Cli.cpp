@@ -1041,6 +1041,70 @@ void writeWaypoints(std::ostream& out, const uta::upkg::Package& map, std::strin
     out << "]";
 }
 
+/// The actor a zone names, as {export, name, class}; null where the zone is
+/// unknown or names no actor of this map, and the LevelInfo then stands in.
+void writeZoneActor(std::ostream& out, const uta::upkg::Package& map, const uta::upkg::Model& model,
+                    std::optional<std::uint32_t> zone) {
+    const uta::upkg::ObjectReference zoneActor =
+        zone.has_value() && *zone < model.zones.size() ? model.zones[*zone].zoneActor : uta::upkg::ObjectReference{};
+    if (zoneActor.kind() != uta::upkg::ObjectReferenceKind::Export || zoneActor.index() >= map.exports().size()) {
+        out << "null";
+        return;
+    }
+    const uta::upkg::ExportEntry& zoneEntry = map.exports()[zoneActor.index()];
+    out << "{\"export\": " << zoneActor.index() << ", \"name\": ";
+    const auto zoneName = map.name(zoneEntry.objectName);
+    writeJsonString(out, zoneName.has_value() ? std::string{*zoneName} : std::string{"?"});
+    out << ", \"class\": ";
+    writeJsonString(out, nameOr(map, zoneEntry.objectClass));
+    out << "}";
+}
+
+/// UTA-0360: `--lighting` adds `lighting`, for the question UTA-0358 needed a
+/// scratch probe to answer -- where does this map's light come from. The counts
+/// say how much of the editor's own lighting build the map carries; `zones`
+/// gives each zone's ambient light as the baker resolves it (buildZones): the
+/// zone's actor, else the LevelInfo, each through its class defaults. A map
+/// whose surfaces have few light actors and whose zones have a bright ambient
+/// is lit by that ambient, which UTA-0292 withdrew from the renderer.
+void writeLighting(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
+                   const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
+    const auto refuse = [&out](std::string_view why) {
+        out << ",\n  \"lighting\": null,\n  \"lightingError\": ";
+        writeJsonString(out, why);
+    };
+    if (level.model.kind() != uta::upkg::ObjectReferenceKind::Export
+        || level.model.index() >= map.exports().size()) {
+        refuse("the level names no Model export of this map");
+        return;
+    }
+    const auto model = uta::upkg::readModel(map, map.exports()[level.model.index()]);
+    if (!model.has_value()) {
+        refuse("the level's Model did not read");
+        return;
+    }
+    const auto actors = uta::ubake::buildActors(map, foldCase(mapName), level, resolver);
+    if (!actors.has_value()) {
+        refuse("the level's actors did not build: " + std::string(actors.error().message()));
+        return;
+    }
+    const std::vector<uta::ubundle::Zone> zones = uta::ubake::buildZones(*model, actors->placements);
+
+    const LightingCounts counts = countLighting(*model);
+    out << ",\n  \"lighting\": {\"surfaces\": " << counts.surfaces << ", \"withLightMap\": " << counts.withLightMap
+        << ", \"withLightActors\": " << counts.withLightActors << ", \"lightMaps\": " << counts.lightMaps
+        << ", \"lightBitsBytes\": " << counts.lightBitsBytes << ", \"lightActorRefs\": " << counts.lightActorRefs
+        << ", \"zones\": [";
+    for (std::uint32_t zone = 0; zone < zones.size(); ++zone) {
+        out << (zone == 0 ? "" : ", ") << "{\"zone\": " << zone << ", \"zoneActor\": ";
+        writeZoneActor(out, map, *model, zone);
+        out << ", \"ambientBrightness\": " << int{zones[zone].brightness}
+            << ", \"ambientHue\": " << int{zones[zone].hue}
+            << ", \"ambientSaturation\": " << int{zones[zone].saturation} << "}";
+    }
+    out << "]}";
+}
+
 /// UTA-0335: every actor of PlayerStart or a class descending from it, and the
 /// zone its stored Location lands in -- GAME-0207's check that no start sits in
 /// water. The zone is the BSP walk the renderer and the baker share
@@ -1113,20 +1177,7 @@ void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::st
         if (zone.has_value()) out << *zone;
         else out << "null";
         out << ", \"zoneActor\": ";
-        const uta::upkg::ObjectReference zoneActor =
-            zone.has_value() && *zone < model->zones.size() ? model->zones[*zone].zoneActor
-                                                            : uta::upkg::ObjectReference{};
-        if (zoneActor.kind() == uta::upkg::ObjectReferenceKind::Export && zoneActor.index() < map.exports().size()) {
-            const uta::upkg::ExportEntry& zoneEntry = map.exports()[zoneActor.index()];
-            out << "{\"export\": " << zoneActor.index() << ", \"name\": ";
-            const auto zoneName = map.name(zoneEntry.objectName);
-            writeJsonString(out, zoneName.has_value() ? std::string{*zoneName} : std::string{"?"});
-            out << ", \"class\": ";
-            writeJsonString(out, nameOr(map, zoneEntry.objectClass));
-            out << "}";
-        } else {
-            out << "null";
-        }
+        writeZoneActor(out, map, *model, zone);
         out << ", \"waterZone\": ";
         if (zone.has_value() && *zone < zones.size()) out << (zones[*zone].water != 0 ? "true" : "false");
         else out << "null";
@@ -1136,7 +1187,7 @@ void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::st
 }
 
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
-                 bool navGraph, bool wiringGraph, bool surfaceList, bool first) {
+                 bool navGraph, bool wiringGraph, bool surfaceList, bool lighting, bool first) {
     if (!first) {
         out << ",\n";
     }
@@ -1315,6 +1366,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     writeExits(out, *package, path.stem().string(), *level, resolver);
     writeWaypoints(out, *package, path.stem().string(), *level, resolver);
     writePlayerStarts(out, *package, path.stem().string(), *level, resolver);
+    if (lighting) writeLighting(out, *package, path.stem().string(), *level, resolver);
 
     out << "\n }";
 }
@@ -1341,7 +1393,8 @@ std::string oneLine(std::string_view json) {
 int usage(std::ostream& err) {
     err <<
         "usage: ut-dump (--install <UT dir> | --system <UT System dir>)\n"
-        "                [--nav-graph] [--wiring-graph] [--surface-list] [--ndjson]\n"
+        "                [--nav-graph] [--wiring-graph] [--surface-list] [--lighting]\n"
+        "                [--ndjson]\n"
         "                <package|directory>...\n"
         "\n"
         "Writes one JSON object per package to stdout. Class ancestry crosses\n"
@@ -1368,6 +1421,10 @@ int usage(std::ostream& err) {
         "as `list`, in index order: its texture, built polyFlags, brush actor\n"
         "and polygon, base point, normal and drawn node count.\n"
         "\n"
+        "--lighting adds `lighting` to each map: how many surfaces carry the\n"
+        "editor's lightmap and light actors, and each zone's ambient light as\n"
+        "the baker resolves it. It says where a map's light comes from.\n"
+        "\n"
         "Packages are listed in path order, not argument order: key on each\n"
         "one's `file`. docs/specs/UTA-0012-ut-dump-output-shape.md is the\n"
         "output's contract.\n"
@@ -1381,12 +1438,26 @@ int usage(std::ostream& err) {
 
 } // namespace
 
+LightingCounts countLighting(const upkg::Model& model) {
+    LightingCounts counts{.surfaces = model.surfs.size(),
+                          .lightMaps = model.lightMap.size(),
+                          .lightBitsBytes = model.lightBits.size(),
+                          .lightActorRefs = model.lights.size()};
+    for (const upkg::BspSurf& surf : model.surfs) {
+        if (surf.iLightMap < 0 || static_cast<std::size_t>(surf.iLightMap) >= model.lightMap.size()) continue;
+        ++counts.withLightMap;
+        if (model.lightMap[static_cast<std::size_t>(surf.iLightMap)].iLightActors >= 0) ++counts.withLightActors;
+    }
+    return counts;
+}
+
 int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err) {
     fs::path systemDir;
     fs::path installDir;
     bool navGraph = false;
     bool wiringGraph = false;
     bool surfaceList = false;
+    bool lighting = false;
     bool ndjson = false;
     std::vector<fs::path> targets;
 
@@ -1408,6 +1479,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             wiringGraph = true;
         } else if (arg == "--surface-list") {
             surfaceList = true;
+        } else if (arg == "--lighting") {
+            lighting = true;
         } else if (arg == "--ndjson") {
             ndjson = true;
         } else if (arg == "-h" || arg == "--help") {
@@ -1480,7 +1553,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         out << "{\"schema\":" << SCHEMA << "}\n";
         for (const fs::path& file : files) {
             std::ostringstream package;
-            dumpPackage(package, file, resolver, navGraph, wiringGraph, surfaceList, true);
+            dumpPackage(package, file, resolver, navGraph, wiringGraph, surfaceList, lighting, true);
             out << oneLine(package.str()) << '\n' << std::flush;
         }
         return 0;
@@ -1489,7 +1562,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     out << "{\n \"schema\": " << SCHEMA << ",\n \"packages\": [\n";
     bool first = true;
     for (const fs::path& file : files) {
-        dumpPackage(out, file, resolver, navGraph, wiringGraph, surfaceList, first);
+        dumpPackage(out, file, resolver, navGraph, wiringGraph, surfaceList, lighting, first);
         first = false;
     }
     out << "\n ]\n}\n";

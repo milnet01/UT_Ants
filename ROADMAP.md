@@ -16740,6 +16740,13 @@ stays with movement in 0.2.0.
   bake to read each zone's AmbientBrightness, hue and saturation. One
   ut-dump flag would answer both from the map alone. Raised in the
   2026-10-15 token-saving round.
+  Built (2026-10-15): `ut-dump --lighting` adds `lighting` (UTA-0012
+  SS 4.7d): surfaces, withLightMap, withLightActors, lightMaps,
+  lightBitsBytes, lightActorRefs, and per zone its zoneActor and ambient
+  brightness, hue and saturation through ubake::buildZones. Unit [dump]
+  40/40, two new cases; four hand mutants killed. Real maps match the
+  UTA-0358 probe: Fortress-BP 2101/2101/266, zones 1 and 4 at 255 and
+  253; DM-Deck16][ 830/807/680. Flip on GitHub's matrix.
   **Layman:** A quick command that says how a map was lit in the original game, so a lighting question takes one step instead of a home-made tool.
   Kind: enhancement.
   Source: in-session-2026-10-15.

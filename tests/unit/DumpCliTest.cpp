@@ -955,6 +955,16 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     CHECK(keysOf(member(fullMap, "nav"))
           == Keys{"nodes", "edges", "discardedEndpoints", "nodesWithNoExit", "nodeList", "edgeList"});
     CHECK(keysOf(member(fullMap, "wiring")) == Keys{"nodes", "edges", "dangling", "chainsUnresolved", "actors"});
+
+    const Run lit = run({"--system", system, "--lighting", mapPath.string()});
+    REQUIRE(lit.code == 0);
+    Keys litKeys = mapKeys;
+    litKeys.push_back("lighting");
+    const std::string litMap = packagesOf(lit.out).at(0);
+    CHECK(keysOf(litMap) == litKeys);
+    CHECK(keysOf(member(litMap, "lighting"))
+          == Keys{"surfaces", "withLightMap", "withLightActors", "lightMaps", "lightBitsBytes", "lightActorRefs",
+                  "zones"});
 }
 
 TEST_CASE("UTA-0012 INV-5: classCounts counts every export and sums to exports", "[dump]") {
@@ -1295,6 +1305,65 @@ TEST_CASE("UTA-0335: playerStarts names the zone each start lands in, and whethe
                           starts)
           != std::string::npos);
     CHECK(result.out.find("PathNode", starts) == std::string::npos);
+}
+
+TEST_CASE("UTA-0360: countLighting counts only lightmaps that resolve, and their light actors", "[dump]") {
+    uta::upkg::Model model;
+    model.surfs.resize(5);
+    model.surfs[0].iLightMap = -1; // no lightmap
+    model.surfs[1].iLightMap = 0;  // a lightmap no light reaches
+    model.surfs[2].iLightMap = 1;  // a lit one
+    model.surfs[3].iLightMap = 1;  // two surfaces may share an entry
+    model.surfs[4].iLightMap = 2;  // past the table: not a lightmap
+    model.lightMap.resize(2);
+    model.lightMap[0].iLightActors = -1;
+    model.lightMap[1].iLightActors = 0;
+    model.lightBits.resize(7);
+    model.lights.resize(3);
+    const uta::dump::LightingCounts counts = uta::dump::countLighting(model);
+    CHECK(counts.surfaces == 5);
+    CHECK(counts.withLightMap == 3);
+    CHECK(counts.withLightActors == 2);
+    CHECK(counts.lightMaps == 2);
+    CHECK(counts.lightBitsBytes == 7);
+    CHECK(counts.lightActorRefs == 3);
+}
+
+TEST_CASE("UTA-0360: --lighting gives each zone's ambient light through its actor's class", "[dump]") {
+    // UTA-0358: MH-(MHA)-TheFortress2012Final is lit by two zones at ambient
+    // 255, which the original draws as flat daylight.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t bright = map.addClass("BrightZone", 0, {byteProperty("AmbientSaturation", 255)});
+    map.addActor("BrightZone0", bright, {byteProperty("AmbientBrightness", 255), byteProperty("AmbientHue", 12)})
+        .addActorOfClass("Engine", "ZoneInfo")
+        .setZoneActor(1, 0)
+        .setZoneActor(2, 1);
+    const fs::path mapPath = writeMap(dir, map);
+    const std::string system = (dir.path() / "System").string();
+
+    const Run plain = run({"--system", system, mapPath.string()});
+    REQUIRE(plain.code == 0);
+    CHECK(plain.out.find("\"lighting\"") == std::string::npos);
+
+    const Run result = run({"--system", system, "--lighting", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    const std::size_t lighting = result.out.find("\"lighting\": {");
+    REQUIRE(lighting != std::string::npos);
+    // The fixture writes no lightmap table, so no surface's index resolves.
+    CHECK(result.out.find("\"withLightMap\": 0, \"withLightActors\": 0, \"lightMaps\": 0, ", lighting)
+          != std::string::npos);
+    // The actor's own bytes, and its class's default where it stores none.
+    CHECK(result.out.find("{\"zone\": 1, \"zoneActor\": {\"export\": ", lighting) != std::string::npos);
+    CHECK(result.out.find("\"name\": \"BrightZone0\", \"class\": \"BrightZone\"}, \"ambientBrightness\": 255, "
+                          "\"ambientHue\": 12, \"ambientSaturation\": 255}",
+                          lighting)
+          != std::string::npos);
+    CHECK(result.out.find("\"class\": \"ZoneInfo\"}, \"ambientBrightness\": 0, \"ambientHue\": 0, "
+                          "\"ambientSaturation\": 0}",
+                          lighting)
+          != std::string::npos);
 }
 
 TEST_CASE("UTA-0336: wiring.actors carries each lift's LiftTag and each mover's keyframes", "[dump]") {
