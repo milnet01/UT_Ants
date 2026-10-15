@@ -16033,6 +16033,14 @@ stays with movement in 0.2.0.
   from UTA-0254. Clear this note when picked up.
   Picked up 2026-10-15, the reset day, with the user's go-ahead the same
   day. The deferral notes above are cleared by this.
+  State at 2026-10-15 ~21:00: both halves ran and are filed (UTA-0362 to
+  UTA-0375, record in docs/reviews/review-code-2026-10-15/). Closed and
+  committed, unpushed: UTA-0361 (UT_MonsterHunt), 0362, 0363, 0365,
+  0366, 0367, 0368. Push only after cc-job u347-night ends (the gate is
+  heavy and the bake is slow under load); then flip those on GitHub's
+  matrix. Next in order: UTA-0369, 0370, 0371, 0372, 0373, 0374. UTA-0364
+  waits for UTA-0352's survey (it bumps BAKER_REVISION); UTA-0375 waits
+  for the user. The review-code-last tag was not set: no full run.
   **Layman:** A full independent check of the code for bugs, scheduled for the day the weekly usage allowance renews.
   Kind: chore.
   Source: user-request-2026-10-06.
@@ -17055,6 +17063,9 @@ stays with movement in 0.2.0.
   with no NavigationPoint (the level's own box, the geometry's, or the
   plane slab walked per row). Hazard of the obvious fix: clipping to the
   geometry's box changes nothing for the huge-triangle case itself.
+  Recommendation put to the user 2026-10-15, not yet answered: bound
+  probe placement without reach by the level's own bounding box
+  (Model bounds), which is what the game treats as the playable space.
   **Layman:** A map with no paths and one enormous sloped surface could make the baker run for days; decide where probes go in such a map.
   Kind: security.
   Source: review-code-2026-10-15.
