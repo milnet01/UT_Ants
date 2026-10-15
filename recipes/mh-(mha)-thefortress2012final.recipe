@@ -1,0 +1,24 @@
+ut-ants recipe 5
+# MH-(MHA)-TheFortress2012Final's sky and sun -- UTA-0358.
+# The map takes its light from zone ambient: two zones at brightness 255 and
+# 253, white, and only 266 of 2101 surfaces lit by a light. UT99 draws it in
+# flat daylight; with zone ambient withdrawn (UTA-0292) ours drew it dark.
+#
+# Its sky is only painted: ShaneDay.DayskyB, as on TheBoat, with no sky zone,
+# so it drew black. [sky] opens it (UTA-0350) and the sun lights the map in
+# the ambient's place. The original casts no shadows, so the yaw is a pick;
+# the sun's colour is TheBoat's, under the same sky.
+
+[map]
+file = mh-(mha)-thefortress2012final
+sha256 = 96cfcee584a81adfc6d032909cbf5df5d828017025e46bc25a73402ff48241f5
+
+[sun]
+yaw = 40960
+pitch = 9102
+hue = 28
+saturation = 200
+brightness = 200
+
+[sky]
+textures = shaneday.dayskyb

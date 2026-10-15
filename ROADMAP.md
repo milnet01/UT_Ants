@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=358 -->
+<!-- ants-roadmap-id-high-water: UTA=359 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16418,6 +16418,10 @@ stays with movement in 0.2.0.
   without the wait as job u347-night, or opens the running job's
   window. No timing or pushing while it runs. UTA-0352's survey waits
   on these bakes.
+  Progress (2026-10-15, 09:05): a power failure shut the PC down at
+  01:02 with 266 of 1611 maps baked, all rc 0. Restarted with the
+  launcher as cc-job u347-night (same script, resumes past done maps);
+  about 15 h left, done around midnight.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
@@ -16678,7 +16682,7 @@ stays with movement in 0.2.0.
   Source: user-2026-10-14.
   Lanes: client.
 
-- 📋 [UTA-0358] **MH-TheFortress2012Final: the original draws the map in flat daylight under a blue sky; ours draws it dark, with glows.**
+- 🚧 [UTA-0358] **MH-TheFortress2012Final: the original draws the map in flat daylight under a blue sky; ours draws it dark, with glows.**
   UT_MonsterHunt rendered 8 poses with the stock UT469 client
   (2026-10-14, OpenGLDrv on llvmpipe, 3840x2160, FOV 121.28): every
   surface at full brightness, a blue sky, no dark areas, no glows or
@@ -16690,11 +16694,45 @@ stays with movement in 0.2.0.
   why is our sky black where the original's is blue. Not decided here:
   whether to follow the original. The glows cannot be graded against
   it, since it draws no lighting at all here.
+  Found (2026-10-15): the lighting is built, but nearly all of the
+  light is zone ambient. Two of the map's five zones have ambient
+  brightness 255 and 253, white, saturation 255; the camera stands in
+  one. Only 266 of 2101 surfaces have a light actor, against 680 of 807
+  on DM-Deck16][ (scratch probe over Model::lightMap; ut-bake's ZONE
+  records). UT99 adds that ambient to every surface, so the map draws as
+  flat daylight. UTA-0292 withdrew zone ambient, so ours had almost no
+  light. The sky is ShaneDay.DayskyB painted on closed walls with no sky
+  zone, as on TheBoat (UTA-0350), so it drew black.
+  Fix (2026-10-15): recipes for both versions (-BP and plain, same
+  geometry, different hashes) open the painted sky and add TheBoat's
+  sun. Shot at the 8 poses, 1280x720: mean grey over the original went
+  from 0.01-0.08 to 1.16-1.41, with a blue sky and clouds. Sheets in
+  /mnt/Emulators/uta-scratch/u358/. Left over: UTA-0359 (floor sheen,
+  lava strip), trees are UTA-0293. Other maps that lean on bright zone
+  ambient show as brightZones in UTA-0347's census. Flip once a push
+  carries the recipes and GitHub's matrix is green.
   **Layman:** On one Monster Hunt map the original game shows bright daylight and a blue sky, while ours shows a dark night with glowing towers; find out why.
   Kind: investigate.
   Source: in-session-2026-10-14.
   Lanes: ubake, urender.
   Evidence: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/run1/, /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/client-run1.log, ~/.local/state/ut-ants/map-captures/reviewed/MH-(MHA)-TheFortress2012Final-BP-20261014-141253
+
+- 📋 [UTA-0359] **MH-(MHA)-TheFortress2012Final-BP: the sand floor ripples with a bluish sheen, and the lava strip along the castle wall is missing.**
+  Seen while checking UTA-0358's recipe at UT_MonsterHunt's 8 poses
+  (original frames in UT_MonsterHunt work/uta0356/run1; ours in
+  /mnt/Emulators/uta-scratch/u358/sheet0.png and sheet1.png: original,
+  no recipe, recipe). The original's floor is plain sand; ours carries
+  a rippling bluish pattern like UTA-0319's warp on DM-KGalleon. The map
+  has one LavaZone and lava5 on 10 surfaces, 4 of them with polyFlags
+  67108876; the original draws an orange strip at the wall's foot and
+  ours draws none. Check whether both come from the lava zone: what
+  zone the floor sits in, and how lava5's surfaces are baked. The trees
+  missing in ours are UTA-0293's, not this item's.
+  **Layman:** On the Fortress map our sandy ground shimmers as if wet, and a thin line of lava at the foot of the castle wall does not show at all.
+  Kind: investigate.
+  Source: in-session-2026-10-15.
+  Lanes: ubake, urender.
+  Evidence: /mnt/Emulators/uta-scratch/u358/sheet0.png, /mnt/Emulators/uta-scratch/u358/sheet1.png
 
 ## 0.2.0 — Movement and weapons
 
