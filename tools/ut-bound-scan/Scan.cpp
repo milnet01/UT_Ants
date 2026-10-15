@@ -51,8 +51,10 @@ Scan scanModel(const upkg::Model& model, double tolerance) {
             (model.surfs[static_cast<std::size_t>(node.iSurf)].polyFlags & PF_INVISIBLE) != 0)
             continue;
         for (int k = 0; k < node.numVertices; ++k) {
-            const std::int32_t vert = node.iVertPool + k;
-            if (!inTable(vert, model.verts.size())) continue;
+            // Widened: iVertPool is file data, and adding k to one near the top
+            // of i32 would overflow (review-code 2026-10-15).
+            const std::int64_t vert = std::int64_t{node.iVertPool} + k;
+            if (vert < 0 || static_cast<std::uint64_t>(vert) >= model.verts.size()) continue;
             const std::int32_t point = model.verts[static_cast<std::size_t>(vert)].pVertex;
             if (!inTable(point, model.points.size())) continue;
             const upkg::Vector3& p = model.points[static_cast<std::size_t>(point)];

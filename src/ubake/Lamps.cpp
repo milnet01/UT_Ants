@@ -98,7 +98,10 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
         // Step 2: the copy's light.
         lamp.light = *found;
         lamp.light.location = wanted.at;
-        lamp.light.rotation[1] += static_cast<std::int32_t>(wanted.yaw);
+        // The copied rotation is the map's own file data, so the turn wraps as a
+        // UT rotation does rather than overflowing (review-code 2026-10-15).
+        lamp.light.rotation[1] = static_cast<std::int32_t>(static_cast<std::uint32_t>(lamp.light.rotation[1])
+                                                           + static_cast<std::uint32_t>(wanted.yaw));
 
         UTA_TRY(lamp.shape, buildGeometry(model, materials, zoneCount,
                                           allBut(model.surfs.size(), fitting, flames.surfaces)));

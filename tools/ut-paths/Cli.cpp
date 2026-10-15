@@ -232,9 +232,14 @@ Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& r
     // The census is another project's file. A name that is a path would read
     // outside Maps/ and write outside --out (review-code 2026-09-26).
     if (row.map.empty() || row.map == "." || row.map == ".." ||
-        row.map.find_first_of("/\\:") != std::string::npos)
+        row.map.find_first_of(std::string_view{"/\\:\0", 4}) != std::string::npos)
         return refusal(row.map, "not a plain map name", err);
-    const stdfs::path file = install / "Maps" / (row.map + ".unr");
+    // resolveUnder refuses what a plain name can still carry: a Windows
+    // device name such as NUL, which opens a device in any folder
+    // (review-code 2026-10-15).
+    const auto resolved = uta::fs::resolveUnder(install / "Maps", uta::fs::pathFromUtf8(row.map + ".unr"));
+    if (!resolved.has_value()) return refusal(row.map, "not a plain map name", err);
+    const stdfs::path file = *resolved;
     std::error_code ec;
     if (!stdfs::is_regular_file(file, ec)) {
         err << "ut-paths: " << row.map << ": skipped, no file in Maps/\n";

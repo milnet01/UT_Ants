@@ -23,11 +23,14 @@ std::string sanitised(std::string_view text) {
         out += kHex[c >> 4];
         out += kHex[c & 0x0f];
     };
+    // The continuation bytes the current UTF-8 letter still expects.
+    int pending = 0;
     for (std::size_t i = 0; i < text.size(); ++i) {
         const auto c = static_cast<unsigned char>(text[i]);
         const auto next = i + 1 < text.size() ? static_cast<unsigned char>(text[i + 1]) : 0;
         if (c < 0x20 || c == 0x7f) {
             escape(c);
+            pending = 0;
         } else if (c == 0xc2 && next >= 0x80 && next <= 0x9f) {
             // A C1 control, U+0080 to U+009F, as UTF-8 spells it: U+009B is
             // CSI, which a terminal obeys as it does ESC [ (UTA-0229). Only the
@@ -35,7 +38,21 @@ std::string sanitised(std::string_view text) {
             escape(c);
             escape(next);
             ++i;
+            pending = 0;
+        } else if (c >= 0x80 && c <= 0xbf) {
+            // A continuation byte. Where no letter expects one it stands alone,
+            // as a Latin-1 package name's 0x9b does, and an 8-bit terminal
+            // obeys 0x80 to 0x9f as C1 controls (review-code 2026-10-15).
+            if (pending > 0) {
+                --pending;
+                out += static_cast<char>(c);
+            } else if (c <= 0x9f) {
+                escape(c);
+            } else {
+                out += static_cast<char>(c);
+            }
         } else {
+            pending = c >= 0xf0 ? 3 : c >= 0xe0 ? 2 : c >= 0xc0 ? 1 : 0;
             out += static_cast<char>(c);
         }
     }

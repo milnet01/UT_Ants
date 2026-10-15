@@ -283,7 +283,21 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
         // keeps an undecoded property from desynchronising the list, and what
         // stops a decoded one drifting if its width is not what we assumed.
         const std::size_t bodyStart = reader.position();
-        UTA_TRY(property.value, readValue(reader, package, decodeAs, size));
+        Result<PropertyValue> decoded = readValue(reader, package, decodeAs, size);
+        // A Str, Vector or Rotator decodes at its own width, so a tag declaring
+        // fewer bytes would take the rest from the next property, or fail where
+        // that runs past the export. Such a value is not this property's alone:
+        // keep its declared bytes undecoded instead (review-code 2026-10-15).
+        // No map in the reference library carries one (census 2026-10-15).
+        const bool ownWidth = decodeAs == PropertyType::Str || decodeAs == PropertyType::Vector
+                              || decodeAs == PropertyType::Rotator;
+        if (ownWidth && (!decoded.has_value() || reader.position() - bodyStart > size)) {
+            UTA_CHECK(reader.seek(bodyStart));
+            UTA_TRY(const std::span<const std::byte> raw, reader.readBytes(size));
+            property.value = raw;
+        } else {
+            UTA_TRY(property.value, std::move(decoded));
+        }
         // Rewind and skip rather than seeking to bodyStart + size: the sum of
         // two sizes read from the file can wrap, and skip() compares against
         // what remains instead of adding.

@@ -443,6 +443,22 @@ TEST_CASE("a census map name that is a path is refused and nothing is read", "[p
     CHECK_FALSE(fs::exists(dir.path() / "escape.json"));
 }
 
+TEST_CASE("UTA-0362: a census map name that is a Windows device name is refused", "[paths][seeds]") {
+    // NUL.unr opens the NUL device in any folder on Windows, so the name is
+    // refused on every platform, as resolveUnder refuses it.
+    const uta::test::bake::TempDir dir;
+    const fs::path install = dir.path() / "install";
+    fs::create_directories(install / "Maps");
+    const fs::path census = dir.path() / "census.tsv";
+    uta::test::bake::writeFile(census, bytesOf("map\tgroup\nNUL\tPARTITIONED\n"));
+    const fs::path out = dir.path() / "out";
+
+    const Run result = run({"--install", install.string(), "--census", census.string(), "--out", out.string()});
+    INFO(result.err);
+    INFO(result.out);
+    CHECK(result.out.find("\"status\": \"refused\", \"why\": \"not a plain map name\"") != std::string::npos);
+}
+
 TEST_CASE("UTA-0137: a skipped map names files elsewhere and near names and reads neither",
           "[paths][seeds]") {
     const uta::test::bake::TempDir dir;

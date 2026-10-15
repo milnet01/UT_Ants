@@ -323,7 +323,10 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     mapped.data_ = static_cast<const std::byte*>(view);
     mapped.size_ = static_cast<std::size_t>(size.QuadPart);
 #else
-    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    // O_NONBLOCK and the S_ISREG test below close the gap after the status
+    // check: a FIFO swapped in between would otherwise block the open or map
+    // what is not a file's bytes (review-code 2026-10-15).
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
     if (fd < 0) {
         const int error = errno;
         return fail(errorCodeFromErrno(error), "cannot open " + path.string() + ": " + std::strerror(error));
@@ -332,6 +335,10 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     if (::fstat(fd, &info) != 0) {
         ::close(fd);
         return fail(ErrorCode::IoFailure, "cannot stat " + path.string());
+    }
+    if (!S_ISREG(info.st_mode)) {
+        ::close(fd);
+        return fail(ErrorCode::InvalidArgument, path.string() + " is not a regular file");
     }
     if (static_cast<std::uintmax_t>(info.st_size) > std::numeric_limits<std::size_t>::max()) {
         ::close(fd);

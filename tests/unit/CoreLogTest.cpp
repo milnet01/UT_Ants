@@ -284,4 +284,9 @@ TEST_CASE("sanitised shows every control byte as an escape and leaves the rest a
     // is escaped too; a letter whose UTF-8 merely contains such a byte is not.
     CHECK(uta::sanitised("a\xc2\x9b" "2J") == "a\\xc2\\x9b2J");
     CHECK(uta::sanitised("\xc4\x85") == "\xc4\x85");
+    // UTA-0362: a package name is Latin-1, copied byte for byte, so CSI can
+    // arrive as the lone byte 0x9b; an 8-bit terminal obeys it. Inside a
+    // three-byte letter the same byte is a continuation and is left alone.
+    CHECK(uta::sanitised("a\x9b" "2J") == "a\\x9b2J");
+    CHECK(uta::sanitised("\xe2\x80\x9c") == "\xe2\x80\x9c");
 }

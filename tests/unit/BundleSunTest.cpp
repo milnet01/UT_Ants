@@ -276,6 +276,15 @@ TEST_CASE("UTA-0338 INV-7: lightOfSun shines down from where the sun stands", "[
     CHECK(uta::ubundle::litDirectly(light));
 }
 
+TEST_CASE("UTA-0362: a sun yaw at the top of its range wraps rather than overflowing", "[ubundle][sun]") {
+    // The yaw is file data validateSun leaves unbounded; signed overflow here
+    // is undefined, which the address-sanitizer build's UBSan reports.
+    Sun sun = goldenSun();
+    sun.yaw = std::numeric_limits<std::int32_t>::max();
+    const Light light = uta::ubundle::lightOfSun(sun);
+    CHECK(light.rotation[1] == std::numeric_limits<std::int32_t>::min() + 32767);
+}
+
 TEST_CASE("UTA-0338 INV-7: after the lamps either way the sun is LITE's last light", "[ubundle][sun]") {
     const auto folded = [](bool withLamps, bool on) {
         Bundle bundle = bundleWith(goldenSun());

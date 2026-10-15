@@ -393,3 +393,53 @@ TEST_CASE("an Int whose tag declares one byte still reads its four", "[package-p
     CHECK(std::get<std::int32_t>((*properties)[1].value) == 400);
     CHECK(std::get<std::int32_t>((*properties)[2].value) == -777);
 }
+
+TEST_CASE("UTA-0362: a Vector whose tag declares four bytes keeps them undecoded", "[package-properties]") {
+    // review-code 2026-10-15: a Vector decodes twelve bytes, so a tag declaring
+    // four would build its value partly from the next property's bytes. No map
+    // in the reference library carries one (census 2026-10-15); a damaged or
+    // crafted file can.
+    TaggedPropertyWriter writer;
+    writer.addInt(NAME_FIRST, 777)
+        .addRaw(NAME_MIDDLE, uta::test::PropertyType::Vector, {0x00, 0x00, 0x80, 0x3f})
+        .addInt(NAME_LAST, -777);
+
+    const std::vector<std::uint8_t> bytes = packageWithObject(writer.build(NAME_NONE)).build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    const auto properties = readProperties(*package, package->exports()[0]);
+    REQUIRE(properties.has_value());
+    REQUIRE(properties->size() == 3);
+    const auto* raw = std::get_if<std::span<const std::byte>>(&(*properties)[1].value);
+    REQUIRE(raw != nullptr);
+    CHECK(raw->size() == 4);
+    CHECK(std::get<std::int32_t>((*properties)[2].value) == -777);
+
+    // With enough bytes after it, the twelve-byte read succeeds by taking the
+    // next properties' bytes; the value is still kept undecoded.
+    TaggedPropertyWriter longer;
+    longer.addRaw(NAME_MIDDLE, uta::test::PropertyType::Vector, {0x00, 0x00, 0x80, 0x3f})
+        .addInt(NAME_FIRST, 777)
+        .addInt(NAME_LAST, -777);
+    const std::vector<std::uint8_t> longerBytes = packageWithObject(longer.build(NAME_NONE)).build();
+    const auto longerPackage = Package::open(asBytes(longerBytes));
+    REQUIRE(longerPackage.has_value());
+    const auto longerProperties = readProperties(*longerPackage, longerPackage->exports()[0]);
+    REQUIRE(longerProperties.has_value());
+    REQUIRE(longerProperties->size() == 3);
+    CHECK(std::holds_alternative<std::span<const std::byte>>((*longerProperties)[0].value));
+    CHECK(std::get<std::int32_t>((*longerProperties)[1].value) == 777);
+
+    // A Str whose own length (50) runs past the export, inside a tag declaring
+    // two bytes: the decode fails having read only its length byte.
+    TaggedPropertyWriter shortStr;
+    shortStr.addRaw(NAME_MIDDLE, uta::test::PropertyType::Str, {0x32, 'a'}).addInt(NAME_LAST, -777);
+    const std::vector<std::uint8_t> strBytes = packageWithObject(shortStr.build(NAME_NONE)).build();
+    const auto strPackage = Package::open(asBytes(strBytes));
+    REQUIRE(strPackage.has_value());
+    const auto strProperties = readProperties(*strPackage, strPackage->exports()[0]);
+    REQUIRE(strProperties.has_value());
+    REQUIRE(strProperties->size() == 2);
+    CHECK(std::holds_alternative<std::span<const std::byte>>((*strProperties)[0].value));
+    CHECK(std::get<std::int32_t>((*strProperties)[1].value) == -777);
+}

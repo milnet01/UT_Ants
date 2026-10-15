@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=373 -->
+<!-- ants-roadmap-id-high-water: UTA=374 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16754,7 +16754,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-15.
   Lanes: tools.
 
-- 📋 [UTA-0362] **Values read from a map or bundle overflow, index out of range or leak control bytes.**
+- 🚧 [UTA-0362] **Values read from a map or bundle overflow, index out of range or leak control bytes.**
   Unverified findings of UTA-0329's review, in
   docs/reviews/review-code-2026-10-15/ (lane, severity, site):
   - lane-03 M AddedSun.cpp:20: sun yaw + 32768 overflows; validateSun
@@ -16767,6 +16767,19 @@ stays with movement in 0.2.0.
   - lane-07 L FileSystem.cpp:290/326: regular-file check before open;
     a FIFO swapped in blocks.
   - lane-10 L ut-paths/Cli.cpp:234: Windows device names pass the guard.
+  Closed 2026-10-15, each verified at its site first. Fixed: AddedSun
+  yaw wraps (UBSan probe red, then clean; regression test); Lamps yaw
+  wraps (no red run: UB only); Properties keeps a Str, Vector or
+  Rotator undecoded when its decode overruns or fails inside the
+  declared size (test red first; two hand mutants killed; census of
+  1612 maps found no such property, so no real bake changes); Log
+  escapes a lone 0x80-0x9f (test red first); ut-bound-scan widens
+  iVertPool + k (no red run: UB only); FileSystem opens O_NONBLOCK and
+  re-checks S_ISREG (no red run: a race); ut-paths refuses a device name
+  through resolveUnder (test red first). Dismissed: scene.frag:414 is
+  unreachable; a chart index exists only inside SMSK, whose atlas is
+  never empty (validateShadowMask), and upload always makes its view
+  (Frame.cpp:735-753). Unit tier 1020 green. Flip on GitHub's matrix.
   **Layman:** A damaged or tampered map or baked file could crash the game or the baker; check every number read from one before using it.
   Kind: security.
   Source: review-code-2026-10-15.
@@ -16927,6 +16940,31 @@ stays with movement in 0.2.0.
   Kind: doc-fix.
   Source: review-code-2026-10-15.
   Lanes: docs.
+
+- 📋 [UTA-0374] **check-code 2026-10-15: tool findings no calibration explains.**
+  UTA-0329's tool half, full list in
+  docs/reviews/review-code-2026-10-15/check-code.md. Unverified. The
+  likeliest defects first:
+  - cppcheck returnDanglingLifetime: upkg/Class.cpp:77, ubake/Bake.cpp:201,
+    ut-dump/Cli.cpp:409 (and three test files).
+  - cppcheck identicalConditionAfterEarlyExit: ubake/LightModel.cpp:196.
+  - cppcheck containerOutOfBounds: ut-bound-scan/Cli.cpp:193.
+  - clang-analyzer null object pointer: ubake/Flames.cpp:118.
+  - bugprone-misplaced-widening-cast ufire/Fire.cpp:83; float loop
+    counter and incorrect rounding Fire.cpp:178, 180.
+  - bugprone-unchecked-optional-access, 15 sites (ShadowMask.cpp:196,
+    FlameSection, LampSection, MaterialSection, Lights.cpp:132, ut-bench).
+  - ruff/bandit/semgrep on scripts and ut-compare.py; typos (offred,
+    froms, nevers, vegitation).
+  Calibration to add: cppcheck -D__has_cpp_attribute(x)=0 (Catch2 stopped
+  it reading every test); a suppressions line each for
+  comparisonOfFuncReturningBoolError (191, Catch2 CHECK) and
+  bugprone-easily-swappable-parameters (128). The FSR shaders need
+  GL_GOOGLE_include_directive for glslangValidator.
+  **Layman:** The automatic code checkers flagged a few spots that may be real bugs; check each and fix or record it.
+  Kind: audit-fix.
+  Source: audit-2026-10-15.
+  Lanes: ubake, upkg, ufire, ubundle, urender, tools, scripts.
 
 ## 0.2.0 — Movement and weapons
 
