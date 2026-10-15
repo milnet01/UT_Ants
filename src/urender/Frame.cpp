@@ -142,7 +142,10 @@ constexpr std::uint32_t MOTE_COUNT = 800;
 /// vertex and index of each geometry, so it stays cheap per frame.
 ///
 /// What it cannot see: an edit in place that changes only unsampled bytes. The
-/// lights and the movers' transforms are read every frame and need no upload.
+/// movers' transforms are read every frame and need no upload. The lights are
+/// read every frame too, but upload sizes the light and shadow-face buffers by
+/// how many draw directly and finds each one's zone from where it stands, so
+/// both are sampled for every light (review-code 2026-10-15).
 /// ZONE is sampled whole: it holds at most ZONE_LIMIT entries (UTA-0156).
 /// AOCC by its size and the ends of its uvs and texels (UTA-0164).
 /// SMSK by its sizes and the ends of its arrays (UTA-0326).
@@ -292,6 +295,12 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
         shape.skyView = true;
         fnv.addValue(view->location);
     }
+    if (bundle.lights)
+        for (const ubundle::Light& light : *bundle.lights) {
+            fnv.addValue(drawsDirectly(light));
+            fnv.addValue(light.location);
+            fnv.addValue(light.stripFrom);
+        }
     shape.sample = fnv.value();
     if (bundle.geometry) {
         shape.vertices = bundle.geometry->vertices.size();
@@ -416,6 +425,9 @@ struct Renderer::Impl {
     Buffer probeCells, probes;
     std::uint32_t probeSpacing = 0, probeCount = 0, probeTableMask = 0, probeLongestRun = 0;
     Buffer shadowFaces;
+    /// What upload sized `lights` and `shadowFaces` for, in records; draw
+    /// refuses a frame that would write past either (review-code 2026-10-15).
+    std::size_t lightCapacity = 0, shadowFaceCapacity = 0;
     Buffer zones; ///< UTA-0156 SS 4.4
     /// UTA-0263 SS 4.4: the camera-facing flames, one zero record when there
     /// are none so the binding is never empty, and how many to draw.
@@ -798,6 +810,7 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     const std::size_t lightCount = uploaded.size() + 1;
     UTA_TRY(lights, Buffer::create(*gpu, sizeof(gpu::Light) * lightCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                    BufferMemory::HostWrite));
+    lightCapacity = lightCount;
     // UTA-0015 SS 4.4: each drawn light's zone, which decides whether it may glow.
     lightZones.clear();
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
@@ -848,6 +861,7 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     // UTA-0163: and the sky's six after them.
     UTA_TRY(shadowFaces, Buffer::create(*gpu, sizeof(gpu::ShadowFace) * (lightCount * 6 + 6),
                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferMemory::HostWrite));
+    shadowFaceCapacity = lightCount * 6 + 6;
     moverBounds.clear();
     if (bundle.movers) {
         for (const ubundle::MoverShape& mover : *bundle.movers) {
@@ -1297,8 +1311,10 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
             // holds rate * seconds, which loses the fraction within the hour.
             // UTA-0276: times the camera's zone's speed on that axis.
             const auto panned = [this](float rate, std::size_t axis) {
-                return static_cast<float>(std::fmod(
-                    static_cast<double>(rate) * static_cast<double>(cameraPanSpeed[axis]) * lastLightSeconds, 1.0));
+                // A pan that is not finite reads as none (review-code 2026-10-15).
+                const double pan = std::fmod(
+                    static_cast<double>(rate) * static_cast<double>(cameraPanSpeed[axis]) * lastLightSeconds, 1.0);
+                return std::isfinite(pan) ? static_cast<float>(pan) : 0.0F;
             };
             const gpu::DrawConstants constants{item.objectIndex, item.materialIndex, item.polyFlags, 0,
                                                {panned(item.panRate[0], 0), panned(item.panRate[1], 1)}};
@@ -1627,7 +1643,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     if (skyFace) {
         // UTA-0163: a face is cut from the whole target.
     } else if (impl.config.fixedRenderScale) {
-        scale = std::clamp(*impl.config.fixedRenderScale, settings.minimumRenderScale, 1.0);
+        // A scale that is not finite reads as full (review-code 2026-10-15).
+        scale = std::isfinite(*impl.config.fixedRenderScale)
+                    ? std::clamp(*impl.config.fixedRenderScale, settings.minimumRenderScale, 1.0)
+                    : 1.0;
     } else if (impl.config.dynamicResolution) {
         scale = impl.renderScale;
     }
@@ -1779,6 +1798,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     }
     fog.historyWeight = static_cast<float>(std::max(1.0 / static_cast<double>(fogFrame + 1), 0.1));
 
+    // The sky's six faces follow the lights', so they count against the room.
+    if (frameLights.size() > impl.lightCapacity || plan.faces.size() + 6 > impl.shadowFaceCapacity)
+        return fail(ErrorCode::InvalidArgument, "the bundle's drawn lights outgrew the buffers its upload sized; "
+                                                "it changed in place without a reload");
     if (!frameLights.empty()) std::memcpy(impl.lights.mapped(), frameLights.data(), frameLights.size() * sizeof(gpu::Light));
     if (!plan.faces.empty())
         std::memcpy(impl.shadowFaces.mapped(), plan.faces.data(), plan.faces.size() * sizeof(gpu::ShadowFace));

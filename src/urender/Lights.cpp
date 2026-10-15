@@ -18,6 +18,9 @@ double cycleSeconds(std::uint8_t period) noexcept { return (period + 1) / 32.0; 
 /// Where in its cycle a light is at `seconds`, in [0, 1), LightPhase shifting it.
 double cyclePosition(const ubundle::Light& light, double seconds) noexcept {
     const double t = seconds / cycleSeconds(light.period) + light.phase / 256.0;
+    // A time that is not finite reads as the cycle's start, as LT_Flicker's
+    // does (review-code 2026-10-15).
+    if (!std::isfinite(t)) return 0;
     return t - std::floor(t);
 }
 
@@ -78,9 +81,6 @@ float flameFlickerOf(std::uint32_t seed, double seconds) noexcept {
     return static_cast<float>(0.8 + 0.2 * (0.65 * slow + 0.35 * fast));
 }
 
-namespace {
-
-/// Whether the direct term draws `light` -- directLights' rule.
 bool drawsDirectly(const ubundle::Light& light) noexcept {
     // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
     if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == ubundle::STRIP_ABSORBED) return false;
@@ -88,8 +88,6 @@ bool drawsDirectly(const ubundle::Light& light) noexcept {
     // scale the saved value -- but a fog volume still thickens the fog.
     return light.brightness != 0 || light.volumeRadius != 0;
 }
-
-} // namespace
 
 std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle) {
     std::vector<ubundle::Light> out;

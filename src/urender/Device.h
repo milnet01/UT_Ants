@@ -68,6 +68,16 @@ struct DeviceCandidate {
 /// NotFound or Unknown carrying `call` and the VkResult, or success.
 [[nodiscard]] Result<void> check(VkResult result, std::string_view call);
 
+/// check(), for a create or allocate that writes `handle`: on failure the
+/// handle is reset to VK_NULL_HANDLE, since Vulkan leaves an output undefined
+/// then and the owner's destructor would destroy whatever it holds
+/// (review-code 2026-10-15).
+template <typename Handle>
+[[nodiscard]] Result<void> created(VkResult result, Handle& handle, std::string_view call) {
+    if (result != VK_SUCCESS) handle = VK_NULL_HANDLE;
+    return check(result, call);
+}
+
 /// The instance, the chosen device and its one graphics queue.
 ///
 /// Destroying it waits for the device to go idle and destroys the device, then

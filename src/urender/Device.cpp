@@ -231,10 +231,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL onValidationMessage(VkDebugUtilsMessageSeverityFl
     auto* log = static_cast<Gpu::ValidationLog*>(user);
     const char* message = data != nullptr && data->pMessage != nullptr ? data->pMessage : "(no message)";
     if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
-        if (log->errors.fetch_add(1) == 0) {
-            const std::scoped_lock lock(log->mutex);
-            log->first = message;
-        }
+        // Counted under the lock, after `first` is written, so run never reads
+        // a count with no message yet (review-code 2026-10-15).
+        const std::scoped_lock lock(log->mutex);
+        if (log->errors.load() == 0) log->first = message;
+        log->errors.fetch_add(1);
         UTA_LOG(logRender, LogLevel::Error, "validation: {}", message);
     } else {
         UTA_LOG(logRender, LogLevel::Warning, "validation: {}", message);
@@ -381,14 +382,14 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
         deviceInfo.enabledExtensionCount = 1;
         deviceInfo.ppEnabledExtensionNames = &swapchainExtension;
     }
-    UTA_CHECK(check(vkCreateDevice(gpu->physical_, &deviceInfo, nullptr, &gpu->device_), "vkCreateDevice"));
+    UTA_CHECK(created(vkCreateDevice(gpu->physical_, &deviceInfo, nullptr, &gpu->device_), gpu->device_, "vkCreateDevice"));
     vkGetDeviceQueue(gpu->device_, gpu->family_, 0, &gpu->queue_);
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = gpu->family_;
-    UTA_CHECK(check(vkCreateCommandPool(gpu->device_, &poolInfo, nullptr, &gpu->pool_), "vkCreateCommandPool"));
+    UTA_CHECK(created(vkCreateCommandPool(gpu->device_, &poolInfo, nullptr, &gpu->pool_), gpu->pool_, "vkCreateCommandPool"));
 
     UTA_LOG(logRender, LogLevel::Info, "Vulkan device: {}", gpu->name_);
     return gpu;

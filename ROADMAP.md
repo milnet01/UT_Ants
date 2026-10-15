@@ -16823,12 +16823,16 @@ stays with movement in 0.2.0.
   - lane-02 M ShadowMask.cpp:94: a local sineOf hides LightModel.h's.
   - lane-02 L LightProbes.cpp:151: std::cos(SUN_RADIUS).
   A fix changes baked bytes: bump the baker revision.
+  Deferred 2026-10-15 behind UTA-0365: the fix changes baked bytes and
+  bumps BAKER_REVISION, which would make UTA-0347's whole-library bake
+  (running tonight at r53) stale before UTA-0352's survey reads it. Take
+  it up once that survey has run. Clear this note when picked up.
   **Layman:** The same map could bake to slightly different files on Linux and Windows; use the project's own exact maths.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: ubake.
 
-- 📋 [UTA-0365] **Renderer: a reload can overrun the lights buffer, and texture uploads can start misaligned.**
+- 🚧 [UTA-0365] **Renderer: a reload can overrun the lights buffer, and texture uploads can start misaligned.**
   Unverified findings of UTA-0329's review:
   - lane-05 H Materials.cpp:266: staging offsets not 16-byte aligned for
     BC5/BC7 after a BC4 or RGBA8 texture.
@@ -16842,6 +16846,19 @@ stays with movement in 0.2.0.
   - lane-05 L Lights.cpp:20, lane-04 L Frame.cpp:1299: no isfinite.
   - lane-05 L Device.cpp:234/465: error count before message.
   - lane-04 L Frame.cpp:1630, lane-05 L Materials.cpp:60.
+  Closed 2026-10-15, each verified at its site. Fixed: staging starts on
+  16-byte boundaries (stagingLayout; test kills the running-total
+  mutant); shapeOf samples each light's drawsDirectly, location and
+  stripFrom, and draw refuses a frame past the light or shadow-face
+  capacity (device test; without the sample it fails on the bound);
+  created() resets a member handle when its create fails (20 sites; no
+  red run: needs a failing driver); textureCapacity counts
+  maxPerStageResources; a pinned fire replay stops at
+  FIRE_PINNED_STEP_LIMIT (UTA-0286 SS 4.4 amended; no red run: the
+  symptom is a stall); non-finite light time, pan and fixed scale read
+  as 0, 0 and full; the validation log writes its first message before
+  counting; compressedSource checks mipCount as read does. Unit 1022,
+  device 117 on lavapipe with sync validation. Flip on GitHub's matrix.
   **Layman:** Two ways the renderer can write or read graphics memory it should not; fix both.
   Kind: fix.
   Source: review-code-2026-10-15.

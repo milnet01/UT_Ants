@@ -186,6 +186,10 @@ flames read (`Renderer::pinLightSeconds` pins both). A draw's target is
   at most `FIRE_CATCH_UP_STEPS` (16) when it is not, counting the rest as
   run so a stalled frame does not stall the next.
 
+A pinned target is capped at `FIRE_PINNED_STEP_LIMIT` (65536) steps, so a
+huge pinned time replays to the cap rather than stalling the draw
+(`UTA-0365`).
+
 A draw that ran any step uploads the new picture through one host-visible
 staging buffer, recorded before the scene pass. The renderer has one frame
 in flight and waits on it (`Renderer::draw`), so one staging buffer is safe.

@@ -10,6 +10,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstdint>
 #include <cstdlib>
 #include <optional>
 
@@ -72,6 +73,36 @@ TEST_CASE("UTA-0177: a player sees a missing material as neutral grey, not magen
     CHECK(centre.g == centre.b);
     CHECK(centre.r > 20);
     CHECK(centre.r < 235);
+}
+
+TEST_CASE("UTA-0365: lights edited in place to draw more are uploaded again and not overrun", "[device]") {
+    // review-code 2026-10-15: upload sizes the light buffers by how many lights
+    // draw directly, and the shape sampled only how many there are, so the
+    // second draw wrote four lights into room for one and its flashlight.
+    removeDisplay();
+    Config config;
+    config.width = 64;
+    config.height = 64;
+    config.linearOutput = true;
+    Renderer renderer = requireRenderer(config);
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 50, "", PF_UNLIT);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    bundle.lights.emplace();
+    for (std::uint32_t i = 0; i < 4; ++i) {
+        uta::ubundle::Light light;
+        light.exportIndex = i + 1;
+        light.type = 1;
+        light.brightness = i == 0 ? 64 : 0; // brightness 0 draws nothing (UTA-0169)
+        light.radius = 10;
+        light.location = {50.0F, static_cast<float>(i) * 10.0F, 0.0F};
+        bundle.lights->push_back(light);
+    }
+    requireOk(renderer.draw(bundle, Camera{}));
+
+    for (uta::ubundle::Light& light : *bundle.lights) light.brightness = 64;
+    requireOk(renderer.draw(bundle, Camera{}));
 }
 
 TEST_CASE("another bundle of the same sizes in the same storage is drawn and not the one before", "[device]") {

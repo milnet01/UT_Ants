@@ -37,6 +37,23 @@ inline constexpr std::uint32_t DEFAULT_MATERIAL = 0;
 /// frame does not stall the next.
 inline constexpr std::uint64_t FIRE_CATCH_UP_STEPS = 16;
 
+/// The most steps a pinned light time replays a fire to: a pinned time may be
+/// huge (UTA-0217), and replaying it all would stall the draw, or overflow the
+/// cast past 2^64 (review-code 2026-10-15). 65536 steps is over 18 minutes
+/// at the 60-a-second cap.
+inline constexpr std::uint64_t FIRE_PINNED_STEP_LIMIT = 65536;
+
+/// Where each texture's bytes start in the one staging buffer, and the
+/// buffer's size: each start rounded up to 16 bytes, BC5's and BC7's block and
+/// a multiple of every other format's, as vkCmdCopyBufferToImage requires of
+/// bufferOffset. A plain running total put a BC7 texture after a BC4 one 8
+/// bytes off (review-code 2026-10-15).
+struct StagingLayout {
+    std::vector<VkDeviceSize> starts;
+    VkDeviceSize total = 0;
+};
+[[nodiscard]] StagingLayout stagingLayout(const std::vector<std::size_t>& sizes);
+
 class MaterialSet {
 public:
     /// Upload every map `bundle`'s materials name, and the defaults. The

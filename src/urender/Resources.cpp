@@ -100,7 +100,7 @@ Result<Buffer> Buffer::create(const Gpu& gpu, VkDeviceSize size, VkBufferUsageFl
     info.size = size;
     info.usage = usage;
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    UTA_CHECK(check(vkCreateBuffer(buffer.device_, &info, nullptr, &buffer.handle_), "vkCreateBuffer"));
+    UTA_CHECK(created(vkCreateBuffer(buffer.device_, &info, nullptr, &buffer.handle_), buffer.handle_, "vkCreateBuffer"));
 
     VkMemoryRequirements needs{};
     vkGetBufferMemoryRequirements(buffer.device_, buffer.handle_, &needs);
@@ -119,7 +119,7 @@ Result<Buffer> Buffer::create(const Gpu& gpu, VkDeviceSize size, VkBufferUsageFl
     allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate.allocationSize = needs.size;
     allocate.memoryTypeIndex = type;
-    UTA_CHECK(check(vkAllocateMemory(buffer.device_, &allocate, nullptr, &buffer.memory_), "vkAllocateMemory"));
+    UTA_CHECK(created(vkAllocateMemory(buffer.device_, &allocate, nullptr, &buffer.memory_), buffer.memory_, "vkAllocateMemory"));
     UTA_CHECK(check(vkBindBufferMemory(buffer.device_, buffer.handle_, buffer.memory_, 0), "vkBindBufferMemory"));
 
     if (hostVisible) {
@@ -186,7 +186,7 @@ Result<Image> Image::createUnbound(const Gpu& gpu, const ImageDesc& desc) {
     info.usage = desc.usage;
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    UTA_CHECK(check(vkCreateImage(image.device_, &info, nullptr, &image.handle_), "vkCreateImage"));
+    UTA_CHECK(created(vkCreateImage(image.device_, &info, nullptr, &image.handle_), image.handle_, "vkCreateImage"));
     return image;
 }
 
@@ -210,7 +210,7 @@ Result<Image> Image::create(const Gpu& gpu, const ImageDesc& desc) {
     allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate.allocationSize = needs.size;
     allocate.memoryTypeIndex = type;
-    UTA_CHECK(check(vkAllocateMemory(image.device_, &allocate, nullptr, &image.memory_), "vkAllocateMemory"));
+    UTA_CHECK(created(vkAllocateMemory(image.device_, &allocate, nullptr, &image.memory_), image.memory_, "vkAllocateMemory"));
     UTA_CHECK(image.bind(image.memory_, 0));
     return image;
 }
@@ -268,7 +268,7 @@ Result<MemoryBlock> MemoryBlock::allocate(const Gpu& gpu, VkDeviceSize size, std
     allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate.allocationSize = size;
     allocate.memoryTypeIndex = memoryType;
-    UTA_CHECK(check(vkAllocateMemory(block.device_, &allocate, nullptr, &block.memory_), "vkAllocateMemory"));
+    UTA_CHECK(created(vkAllocateMemory(block.device_, &allocate, nullptr, &block.memory_), block.memory_, "vkAllocateMemory"));
     return block;
 }
 

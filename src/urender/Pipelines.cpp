@@ -492,8 +492,15 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     // sampler limits; two of each are kept back, for the shadow atlas and the
     // fog volume, which the fragment stage reads beside the textures.
     constexpr std::uint32_t RESERVED = 2;
+    // maxPerStageResources counts every resource the fragment stage sees
+    // together: the scene set's storage buffers, the two kept back, the
+    // textures and the colour outputs, here bounded by maxColorAttachments
+    // (review-code 2026-10-15).
+    const std::uint32_t besideTextures = (gpu::MASK_PAIRS - gpu::FRAME + 1) + limits.maxColorAttachments;
+    const std::uint32_t stageRoom =
+        limits.maxPerStageResources > besideTextures ? limits.maxPerStageResources - besideTextures : RESERVED;
     p->textureCapacity_ = std::min({limits.maxPerStageDescriptorSampledImages, limits.maxPerStageDescriptorSamplers,
-                                    limits.maxDescriptorSetSampledImages, limits.maxDescriptorSetSamplers,
+                                    limits.maxDescriptorSetSampledImages, limits.maxDescriptorSetSamplers, stageRoom,
                                     TEXTURE_CEILING + RESERVED})
                           - RESERVED;
 
@@ -525,7 +532,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     sceneInfo.pNext = &flagInfo;
     sceneInfo.bindingCount = static_cast<std::uint32_t>(bindings.size());
     sceneInfo.pBindings = bindings.data();
-    UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &sceneInfo, nullptr, &p->sceneSetLayout_),
+    UTA_CHECK(created(vkCreateDescriptorSetLayout(device, &sceneInfo, nullptr, &p->sceneSetLayout_), p->sceneSetLayout_,
                     "vkCreateDescriptorSetLayout (scene)"));
 
     const VkPushConstantRange drawRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
@@ -536,7 +543,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     sceneLayoutInfo.pSetLayouts = &p->sceneSetLayout_;
     sceneLayoutInfo.pushConstantRangeCount = 1;
     sceneLayoutInfo.pPushConstantRanges = &drawRange;
-    UTA_CHECK(check(vkCreatePipelineLayout(device, &sceneLayoutInfo, nullptr, &p->sceneLayout_),
+    UTA_CHECK(created(vkCreatePipelineLayout(device, &sceneLayoutInfo, nullptr, &p->sceneLayout_), p->sceneLayout_,
                     "vkCreatePipelineLayout (scene)"));
 
     // -- The post set -------------------------------------------------------
@@ -552,7 +559,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     postInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     postInfo.bindingCount = static_cast<std::uint32_t>(postBindings.size());
     postInfo.pBindings = postBindings.data();
-    UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &postInfo, nullptr, &p->postSetLayout_),
+    UTA_CHECK(created(vkCreateDescriptorSetLayout(device, &postInfo, nullptr, &p->postSetLayout_), p->postSetLayout_,
                     "vkCreateDescriptorSetLayout (post)"));
     const VkPushConstantRange postRange{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(gpu::PostConstants)};
     VkPipelineLayoutCreateInfo postLayoutInfo{};
@@ -561,7 +568,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     postLayoutInfo.pSetLayouts = &p->postSetLayout_;
     postLayoutInfo.pushConstantRangeCount = 1;
     postLayoutInfo.pPushConstantRanges = &postRange;
-    UTA_CHECK(check(vkCreatePipelineLayout(device, &postLayoutInfo, nullptr, &p->postLayout_),
+    UTA_CHECK(created(vkCreatePipelineLayout(device, &postLayoutInfo, nullptr, &p->postLayout_), p->postLayout_,
                     "vkCreatePipelineLayout (post)"));
 
     // -- The pipelines ------------------------------------------------------
@@ -617,7 +624,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     bloomInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     bloomInfo.bindingCount = 1;
     bloomInfo.pBindings = &sourceBinding;
-    UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &bloomInfo, nullptr, &p->bloomSetLayout_),
+    UTA_CHECK(created(vkCreateDescriptorSetLayout(device, &bloomInfo, nullptr, &p->bloomSetLayout_), p->bloomSetLayout_,
                     "vkCreateDescriptorSetLayout (bloom)"));
     const VkPushConstantRange bloomRange{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(gpu::BloomConstants)};
     VkPipelineLayoutCreateInfo bloomLayoutInfo{};
@@ -626,7 +633,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     bloomLayoutInfo.pSetLayouts = &p->bloomSetLayout_;
     bloomLayoutInfo.pushConstantRangeCount = 1;
     bloomLayoutInfo.pPushConstantRanges = &bloomRange;
-    UTA_CHECK(check(vkCreatePipelineLayout(device, &bloomLayoutInfo, nullptr, &p->bloomLayout_),
+    UTA_CHECK(created(vkCreatePipelineLayout(device, &bloomLayoutInfo, nullptr, &p->bloomLayout_), p->bloomLayout_,
                     "vkCreatePipelineLayout (bloom)"));
     Module bloomFragment{device};
     UTA_TRY(bloomFragment.handle, shaderModule(device, bloom_frag_spv));
@@ -641,7 +648,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     compute.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, clusterCompute.handle);
     compute.layout = p->sceneLayout_;
-    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->clusters_),
+    UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->clusters_), p->clusters_,
                     "vkCreateComputePipelines (clusters)"));
 
     // -- The fog volume (UTA-0015 SS 4.4) --------------------------------------
@@ -659,7 +666,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     fogInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     fogInfo.bindingCount = static_cast<std::uint32_t>(fogBindings.size());
     fogInfo.pBindings = fogBindings.data();
-    UTA_CHECK(check(vkCreateDescriptorSetLayout(device, &fogInfo, nullptr, &p->fogSetLayout_),
+    UTA_CHECK(created(vkCreateDescriptorSetLayout(device, &fogInfo, nullptr, &p->fogSetLayout_), p->fogSetLayout_,
                     "vkCreateDescriptorSetLayout (fog)"));
     const std::array<VkDescriptorSetLayout, 2> fogSets{p->sceneSetLayout_, p->fogSetLayout_};
     const VkPushConstantRange fogRange{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(gpu::FogConstants)};
@@ -669,7 +676,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     fogLayoutInfo.pSetLayouts = fogSets.data();
     fogLayoutInfo.pushConstantRangeCount = 1;
     fogLayoutInfo.pPushConstantRanges = &fogRange;
-    UTA_CHECK(check(vkCreatePipelineLayout(device, &fogLayoutInfo, nullptr, &p->fogLayout_),
+    UTA_CHECK(created(vkCreatePipelineLayout(device, &fogLayoutInfo, nullptr, &p->fogLayout_), p->fogLayout_,
                     "vkCreatePipelineLayout (fog)"));
     Module scatterCompute{device}, integrateCompute{device}, reduceCompute{device};
     UTA_TRY(scatterCompute.handle, shaderModule(device, fog_scatter_comp_spv));
@@ -677,20 +684,20 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_TRY(reduceCompute.handle, shaderModule(device, shadow_reduce_comp_spv));
     compute.layout = p->fogLayout_;
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, scatterCompute.handle);
-    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogScatter_),
+    UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogScatter_), p->fogScatter_,
                     "vkCreateComputePipelines (fog scatter)"));
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, integrateCompute.handle);
-    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogIntegrate_),
+    UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogIntegrate_), p->fogIntegrate_,
                     "vkCreateComputePipelines (fog integrate)"));
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, reduceCompute.handle);
-    UTA_CHECK(check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->hazeShadow_),
+    UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->hazeShadow_), p->hazeShadow_,
                     "vkCreateComputePipelines (haze shadow)"));
 
     const VkPushConstantRange shadowRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                           sizeof(gpu::ShadowConstants)};
     VkPipelineLayoutCreateInfo shadowLayoutInfo = sceneLayoutInfo;
     shadowLayoutInfo.pPushConstantRanges = &shadowRange;
-    UTA_CHECK(check(vkCreatePipelineLayout(device, &shadowLayoutInfo, nullptr, &p->shadowLayout_),
+    UTA_CHECK(created(vkCreatePipelineLayout(device, &shadowLayoutInfo, nullptr, &p->shadowLayout_), p->shadowLayout_,
                     "vkCreatePipelineLayout (shadow)"));
     Module shadowVertex{device}, shadowFragment{device};
     UTA_TRY(shadowVertex.handle, shaderModule(device, shadow_vert_spv));

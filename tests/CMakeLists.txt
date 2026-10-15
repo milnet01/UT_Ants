@@ -108,6 +108,7 @@ add_executable(uta_unit_tests
     unit/RenderDeviceTest.cpp
     unit/RenderLightsTest.cpp
     unit/RenderMoverPlacementTest.cpp
+    unit/RenderMaterialsTest.cpp
     unit/RenderShadowsTest.cpp
     unit/RenderSkyTest.cpp
     unit/RenderTiersTest.cpp

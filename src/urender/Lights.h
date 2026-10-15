@@ -38,6 +38,9 @@ inline constexpr std::uint8_t LT_SUBTLE_PULSE = 7;
 /// with its flame rather than jumping as LT_FLICKER does.
 [[nodiscard]] float flameFlickerOf(std::uint32_t seed, double seconds) noexcept;
 
+/// Whether the direct term draws `light` -- directLights' rule.
+[[nodiscard]] bool drawsDirectly(const ubundle::Light& light) noexcept;
+
 /// The LITE lights the direct term draws, in LITE order.
 ///
 /// Every one but three kinds. LT_BackdropLight lights only the sky, which SS 4.5

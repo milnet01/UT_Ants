@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -57,7 +58,12 @@ VkFormat formatOf(ubundle::BlockFormat format, bool colour) noexcept {
 }
 
 Result<Source> compressedSource(const ubundle::CompressedTexture& texture, bool colour) {
-    if (ubundle::expectedBlockBytes(texture) != texture.blocks.size() || texture.width == 0 || texture.height == 0) {
+    // The mip count as ubundle::read checks it, since a bundle built in memory
+    // skips read: 0 levels makes no image, and 32 or more shifts a width past
+    // its bits (review-code 2026-10-15).
+    const auto levelsAllowed = static_cast<std::uint32_t>(std::bit_width(std::max(texture.width, texture.height)));
+    if (texture.width == 0 || texture.height == 0 || texture.mipCount == 0 || texture.mipCount > levelsAllowed
+        || ubundle::expectedBlockBytes(texture) != texture.blocks.size()) {
         return fail(ErrorCode::InvalidArgument,
                     std::format("TEXS entry '{}' holds {} bytes, which is not what its {}x{} and {} mip levels need",
                                 texture.name, texture.blocks.size(), texture.width, texture.height,
@@ -258,16 +264,15 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
         UTA_CHECK(set.textures_[i].bind(blockOf[placements[i].type], placements[i].offset));
 
     // -- Their contents, through one staging buffer ---------------------------
-    VkDeviceSize total = 0;
-    for (const Source& source : sources) total += source.bytes.size();
-    UTA_TRY(Buffer staging, Buffer::create(gpu, total, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
-    std::vector<VkDeviceSize> starts;
-    VkDeviceSize cursor = 0;
-    for (const Source& source : sources) {
-        std::memcpy(staging.mapped() + cursor, source.bytes.data(), source.bytes.size());
-        starts.push_back(cursor);
-        cursor += source.bytes.size();
-    }
+    std::vector<std::size_t> sizes;
+    sizes.reserve(sources.size());
+    for (const Source& source : sources) sizes.push_back(source.bytes.size());
+    const StagingLayout layout = stagingLayout(sizes);
+    const std::vector<VkDeviceSize>& starts = layout.starts;
+    UTA_TRY(Buffer staging,
+            Buffer::create(gpu, layout.total, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
+    for (std::size_t i = 0; i < sources.size(); ++i)
+        std::memcpy(staging.mapped() + starts[i], sources[i].bytes.data(), sources[i].bytes.size());
     UTA_CHECK(gpu.run([&](VkCommandBuffer commands) {
         for (std::size_t i = 0; i < sources.size(); ++i) {
             Image& image = set.textures_[i];
@@ -300,11 +305,25 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     return set;
 }
 
+StagingLayout stagingLayout(const std::vector<std::size_t>& sizes) {
+    constexpr VkDeviceSize BLOCK = 16;
+    StagingLayout layout;
+    layout.starts.reserve(sizes.size());
+    for (const std::size_t size : sizes) {
+        layout.total = (layout.total + BLOCK - 1) / BLOCK * BLOCK;
+        layout.starts.push_back(layout.total);
+        layout.total += size;
+    }
+    return layout;
+}
+
 void MaterialSet::advanceFires(double seconds, bool pinned) {
     // A light time that is not finite reads as 0, as the flames' clock does.
     const double clock = std::isfinite(seconds) && seconds > 0 ? seconds : 0;
     for (FireReplay& replay : fires_) {
-        const auto target = static_cast<std::uint64_t>(std::floor(clock * replay.stepsPerSecond));
+        double steps = std::floor(clock * replay.stepsPerSecond);
+        if (pinned) steps = std::min(steps, static_cast<double>(FIRE_PINNED_STEP_LIMIT));
+        const auto target = static_cast<std::uint64_t>(steps);
         if (target == replay.stepsRun) continue;
         if (target < replay.stepsRun) {
             replay.fire = replay.primed;
