@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=359 -->
+<!-- ants-roadmap-id-high-water: UTA=360 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16733,6 +16733,17 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-15.
   Lanes: ubake, urender.
   Evidence: /mnt/Emulators/uta-scratch/u358/sheet0.png, /mnt/Emulators/uta-scratch/u358/sheet1.png
+
+- 📋 [UTA-0360] **ut-dump --lighting: print a map's lightmap and light-actor counts and each zone's ambient light.**
+  UTA-0358 needed a throwaway C++ probe over Model::lightMap (surfaces
+  with a lightmap, surfaces with light actors, lightBits size) and a full
+  bake to read each zone's AmbientBrightness, hue and saturation. One
+  ut-dump flag would answer both from the map alone. Raised in the
+  2026-10-15 token-saving round.
+  **Layman:** A quick command that says how a map was lit in the original game, so a lighting question takes one step instead of a home-made tool.
+  Kind: enhancement.
+  Source: in-session-2026-10-15.
+  Lanes: tools.
 
 ## 0.2.0 — Movement and weapons
 
