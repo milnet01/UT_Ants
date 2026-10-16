@@ -17078,6 +17078,22 @@ stays with movement in 0.2.0.
   Also carries UTA-0368's TileAnswers.cpp:105: applyTileAnswersFile
   reads a file, where UTA-0008 SS 4.1 and Bundle.h:12 say ubundle does no
   file I/O. Decide which side moves.
+  Part 1 done 2026-10-16 in 93a9758, unpushed: UTA-0008 (pointers
+  replace copied version, sizes and ids; BAKR first and its encoding;
+  applyTileAnswersFile named as the one file read, UTA-0277 SS 4.3
+  having placed it on purpose), Sections.h, UTA-0006 SS 6,
+  Material.h, UTA-0012 SS 4.1, UTA-0011 SS 4.8, UTA-0292 SS 4.4.
+  Left, each verified as the document's or comment's error by the
+  review and still to re-check at its line: UTA-0014 SS 4.8 opening
+  (line with "projected screen size") and SS 6 ("descending projected
+  size") -- tiles are sized by reach (Shadows.cpp shadowTileSize,
+  UTA-0166); Geometry.h:51 (portals ARE drawn); Pipelines.h:9 (a 3x2
+  scene_ array plus two depth pipelines); ShaderTypes.h:247 (face 0's
+  .w is sunSeen); UTA-0015 SS 4.3 (the froxel sample is jittered,
+  UTA-0356); shadow_reduce.comp:15 push constants want a
+  gpu::ReduceConstants struct with sizeof/offsetof asserts, pushed from
+  Frame.cpp instead of a raw array (a code change: build and run the
+  device tier).
   **Layman:** Several design documents and code comments describe an older version of the code.
   Kind: doc-fix.
   Source: review-code-2026-10-15.
