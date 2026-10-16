@@ -17032,6 +17032,22 @@ stays with movement in 0.2.0.
   - lane-09 M main.cpp:271 F12 redraw scale not pinned; lows main.cpp:357,
     Capture.cpp:100/56, MapList.cpp:157, Launcher.cpp:273, main.cpp:304,
     WriteBuildCommit.cmake:29, Cli.cpp:140.
+  Closed 2026-10-16, unpushed, in three commits by lane. lane-11 (ten,
+  all fixed): ut-ref worker wrap, fov and size caps; ut-bound-scan
+  refuses an unlistable folder; ut-bench keeps each phase's path and
+  writes "unknown" cores; map-pic prints its error; ut-compare's
+  promises narrowed to what is true and a failed Xvfb reported.
+  lane-10 (seven): ut-bake JSON numbers, --check/--game-types flags and
+  an atomic --light-materials; ut-paths folded map lookup and Seeds'
+  range guard; ut-dump prints a failed install open. Dismissed
+  ut-bake:407: OverBudget always carries its result (Bake.cpp).
+  lane-09 (nine, all fixed): the capture redraw pins the render scale
+  (new Renderer::pinRenderScale); a resize clears the shown view;
+  messages sanitised; capture folders claimed by create_directory and
+  named with a Z; surrogate pairs decoded; unreadable notes not written
+  over; git --no-optional-locks; an empty --baker-version refused.
+  Already fixed by UTA-0362: ut-paths device names. Flip on GitHub's
+  matrix.
   **Layman:** Developer tools and the viewer misbehave on a few unusual inputs.
   Kind: fix.
   Source: review-code-2026-10-15.
