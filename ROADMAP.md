@@ -15799,7 +15799,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Phobos-20261006-100152, ~/.cache/uta-scratch/capreview/DM-Phobos-20261006-100152/pair-0.png
 
-- 📋 [UTA-0319] **DM-KGalleon: the hold floor's water warp is far stronger than the original's, which reads as plain planks.**
+- 🚧 [UTA-0319] **DM-KGalleon: the hold floor's water warp is far stronger than the original's, which reads as plain planks.**
   The other half of the user's report on UTA-0312 ("it should be
   stiller than normal"). After UTA-0312 the speed is normal; the size
   of the swirl is not: ours warps wetbeams1 by LIQUID_WARP_TEXELS at
@@ -15849,6 +15849,22 @@ stays with movement in 0.2.0.
   Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
   § UTA-0319 -- the drop types and what ByteA and ByteB mean; a
   per-type weight for the stir factor, to be fitted.
+  Compared (2026-10-16): a throwaway probe
+  (/mnt/Emulators/uta-scratch/u319/drops.cpp, output drops.txt) read the
+  three liquids' Drops. Each is 8 bytes: Type, Depth, X, Y, three zero
+  bytes, then a per-drop speed equal to the texture's FX_Frequency. Only
+  the first NumDrops are live; Swater4a saves 256 and uses 37. X and Y
+  stay within half the texture's size, so UT's water grid is half-size.
+  Live drops: Swater4a 37 PhaseSpot, speed 9-11, phases spread;
+  WetBeams1 52 PhaseSpot, speed 125, one phase; Pond1 251 ShallowSpot,
+  speed 6, one phase. Share of the half-size grid within 8 cells of a
+  drop: 0.10, 0.31, 0.38, against original/ours motion 1.05, 0.19, 0.09.
+  So coverage and drop count run the wrong way and are ruled out. Type,
+  speed and phase spread are left, and three surfaces cannot separate
+  them. Asked UT_MonsterHunt (2026-10-16) for paired captures of
+  WetBeams1 with only the speed changed (125 to 9), only the type
+  changed (1 to 2), and Pond1 with type 2 to 1.
+  Waiting-on: UT_MonsterHunt's paired captures (asked 2026-10-16).
   **Layman:** The flooded floor in the galleon's hold swirls a lot in ours and barely at all in the original.
   Kind: investigate.
   Source: user-request-2026-10-06.
