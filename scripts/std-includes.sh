@@ -58,6 +58,7 @@ for f in "${files[@]}"; do
     pair=
     [[ $f == *.cpp && -f ${f%.cpp}.h ]] && pair=${f%.cpp}.h
     # A name in a // comment is not a call; sed drops the comment first.
+    # std::ranges:: too: its algorithms need <algorithm> as much (UTA-0371).
     while IFS= read -r name; do
         h=${header[$name]:-}
         [[ -z $h ]] && continue
@@ -65,7 +66,6 @@ for f in "${files[@]}"; do
         [[ -n $pair ]] && includes "$pair" "$h" && continue
         printf '   %s uses std::%s but does not include <%s>\n' "$f" "$name" "$h" >&2
         failures=$((failures + 1))
-    # std::ranges:: too: its algorithms need <algorithm> as much (UTA-0371).
     done < <(sed 's|//.*||' "$f" | grep -oE 'std::(ranges::)?[a-z_0-9]+[[:space:]]*[(<]' |
         sed -E 's/^std::(ranges::)?([a-z_0-9]+).*/\2/' | sort -u)
 done
