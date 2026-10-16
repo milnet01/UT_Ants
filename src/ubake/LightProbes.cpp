@@ -148,7 +148,7 @@ bool sunSeen(const Vec3& x, const Vec3& s, const SurfaceRays& rays, const Surfac
 float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays) {
     std::size_t seen = sunSeen(p, s, rays) ? 1 : 0;
     std::size_t cast = 1;
-    const double within = std::cos(SUN_RADIUS);
+    const double within = detail::cosPolynomial(SUN_RADIUS); // LightModel.h's, not the platform's cos
     for (const Vec3& w : directions()) {
         if (dot(w, s) < within) continue;
         ++cast;

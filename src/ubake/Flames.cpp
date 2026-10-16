@@ -36,12 +36,15 @@ bool within(std::int64_t index, std::size_t size) {
     return index >= 0 && static_cast<std::uint64_t>(index) < size;
 }
 
+// sqrt, not hypot: sqrt is correctly rounded, so every compiler bakes the same bits.
 double horizontalDistance(const Vec& a, const Vec& b) {
-    return std::hypot(a[0] - b[0], a[1] - b[1]);
+    const double x = a[0] - b[0], y = a[1] - b[1];
+    return std::sqrt(x * x + y * y);
 }
 
 double distance(const Vec& a, const Vec& b) {
-    return std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    const double x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2];
+    return std::sqrt(x * x + y * y + z * z);
 }
 
 /// The corners of every drawn node of each surface, or nothing for a surface
@@ -85,7 +88,8 @@ std::map<std::uint32_t, std::vector<Vec>> cornersBySurface(const upkg::Model& mo
 /// The sheet `points` span, or why it makes none. The horizontal axis is the
 /// one across the surface: perpendicular to its normal and to the vertical.
 std::expected<Sheet, std::string> sheetOf(const std::vector<Vec>& points, const upkg::Vector3& normal) {
-    const double across = std::hypot(normal.x, normal.y);
+    const double nx = normal.x, ny = normal.y;
+    const double across = std::sqrt(nx * nx + ny * ny);
     if (!(across > 0)) return std::unexpected(std::string("it lies flat, so it has no height"));
     const Vec h{-normal.y / across, normal.x / across, 0};
     const auto along = [&h](const Vec& p) { return p[0] * h[0] + p[1] * h[1]; };

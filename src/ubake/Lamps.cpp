@@ -4,11 +4,10 @@
 #include "ubake/Lamps.h"
 
 #include "ubake/Install.h"
+#include "ubake/LightModel.h"
 
 #include <algorithm>
-#include <cmath>
 #include <format>
-#include <numbers>
 #include <optional>
 #include <set>
 #include <string>
@@ -38,9 +37,9 @@ std::vector<std::uint32_t> allBut(std::size_t surfaces, const std::set<std::uint
 }
 
 std::array<float, 3> turned(const std::array<float, 3>& v, std::uint32_t yaw) noexcept {
-    const double angle = static_cast<double>(yaw) * 2 * std::numbers::pi / 65536.0;
-    const double c = std::cos(angle);
-    const double s = std::sin(angle);
+    // LightModel.h's sine, not the platform's, so every compiler bakes the same bits.
+    const double c = detail::sineOfUnits(yaw + 16384u);
+    const double s = detail::sineOfUnits(yaw);
     return {static_cast<float>(v[0] * c - v[1] * s), static_cast<float>(v[0] * s + v[1] * c), v[2]};
 }
 

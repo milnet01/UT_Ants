@@ -460,3 +460,29 @@ TEST_CASE("UTA-0310: a sheet an invisible portal covers between two open zones i
     // A portal that is itself drawn hides nothing: both are drawn.
     CHECK(vertices(scene(square(0), PF_PORTAL, square(0), {2, 3})) == 8);
 }
+
+TEST_CASE("UTA-0364: the area overlapping portals share is counted once", "[ubake][geom][portal]") {
+    // INV-14, SS 4.3 step 3a: the portals must cover 99% of the sheet. Two
+    // portals over the same half of it cover half, though their areas sum
+    // to the whole; two over its two halves cover it all.
+    constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;
+    const auto vertices = [](const std::vector<Vector3>& first, const std::vector<Vector3>& second) {
+        Scene made;
+        const std::size_t a = made.add(first, PF_PORTAL | PF_INVISIBLE);
+        const std::size_t b = made.add(second, PF_PORTAL | PF_INVISIBLE);
+        const std::size_t s = made.add(square(0), PF_NOT_SOLID);
+        made.model.nodes[a].iZone = {2, 3};
+        made.model.nodes[a].iPlane = static_cast<std::int32_t>(b);
+        made.model.nodes[b].iZone = {2, 3};
+        made.model.nodes[b].iPlane = static_cast<std::int32_t>(s);
+        made.model.nodes[s].iZone = {2, 3};
+        made.model.nodes[s].iPlane = -1;
+        Stub stub;
+        return built(made, stub).vertices.size();
+    };
+    const std::vector<Vector3> left = {at(0, 0, 0), at(32, 0, 0), at(32, 64, 0), at(0, 64, 0)};
+    const std::vector<Vector3> right = {at(32, 0, 0), at(64, 0, 0), at(64, 64, 0), at(32, 64, 0)};
+
+    CHECK(vertices(left, left) == 4);
+    CHECK(vertices(left, right) == 0);
+}

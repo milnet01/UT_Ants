@@ -16844,15 +16844,16 @@ stays with movement in 0.2.0.
   - lane-02 M ShadowMask.cpp:94: a local sineOf hides LightModel.h's.
   - lane-02 L LightProbes.cpp:151: std::cos(SUN_RADIUS).
   A fix changes baked bytes: bump the baker revision.
-  Deferred 2026-10-15 behind UTA-0365: the fix changes baked bytes and
-  bumps BAKER_REVISION, which would make UTA-0347's whole-library bake
-  (running tonight at r53) stale before UTA-0352's survey reads it. Take
-  it up once that survey has run. Clear this note when picked up.
   Also carries UTA-0367's Geometry.cpp:178 finding (lane-01 M: each
   portal's overlap is summed, so two overlapping portals can hide a node
   only half covered, against UTA-0109 SS 4.3 step 3a). Measure first how
   many library nodes have overlapping portal pieces; the fix changes
   real bakes, so it lands with this item's revision bump.
+  Measured 2026-10-16: a throwaway probe ran the summed and the union
+  portal rule over every map in the 469 install (1610 of 1611 read;
+  MH-SPNaliRescue's model refuses). Both hide the same 96 nodes; no node
+  changes. Probe: ~/.cache/uta-scratch/u364/probe.cpp. Under revision 53
+  the golden fixture hashed as before, so only BAKR's revision moved it.
   **Layman:** The same map could bake to slightly different files on Linux and Windows; use the project's own exact maths.
   Kind: fix.
   Source: review-code-2026-10-15.

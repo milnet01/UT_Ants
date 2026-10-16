@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <numbers>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -90,9 +89,6 @@ Vec3 litFrom(const Site& site, const Vec3& o) noexcept {
     if (ss == 0) return site.from;
     return site.from + site.span * std::clamp(dot(o - site.from, site.span) / ss, 0.0, 1.0);
 }
-
-double sineOf(std::int32_t angle) noexcept { return std::sin(angle * 2.0 * std::numbers::pi / 65536.0); }
-double cosineOf(std::int32_t angle) noexcept { return std::cos(angle * 2.0 * std::numbers::pi / 65536.0); }
 
 /// UTA-0119 SS 4.5: location + postScale * (Y P R q).
 Vec3 placed(const Vec3& location, const std::array<std::int32_t, 3>& rotation, const std::array<float, 3>& scale,

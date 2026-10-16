@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <map>
+#include <optional>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -88,31 +89,50 @@ double signedArea(const Flat& polygon) {
     return twice / 2;
 }
 
-/// The area two convex polygons share: `subject` clipped by each edge of
-/// `clip` in turn (Sutherland-Hodgman).
-double overlapArea(Flat subject, Flat clip) {
-    if (signedArea(clip) < 0) std::ranges::reverse(clip);
-    for (std::size_t k = 0; k < clip.size() && !subject.empty(); ++k) {
-        const auto& a = clip[k];
-        const auto& b = clip[(k + 1) % clip.size()];
-        const auto side = [&](const std::array<double, 2>& p) {
-            return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
-        };
-        Flat kept;
-        for (std::size_t j = 0; j < subject.size(); ++j) {
-            const auto& p = subject[j];
-            const auto& q = subject[(j + 1) % subject.size()];
-            const double sp = side(p);
-            const double sq = side(q);
-            if (sp >= 0) kept.push_back(p);
-            if ((sp >= 0) != (sq >= 0)) {
-                const double t = sp / (sp - sq);
-                kept.push_back({p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])});
+/// The part of convex `subject` on the left of the line a to b, or on its
+/// right when `left` is false (one Sutherland-Hodgman step).
+Flat halfOf(const Flat& subject, const std::array<double, 2>& a, const std::array<double, 2>& b, bool left) {
+    const auto side = [&](const std::array<double, 2>& p) {
+        const double s = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+        return left ? s : -s;
+    };
+    Flat kept;
+    for (std::size_t j = 0; j < subject.size(); ++j) {
+        const auto& p = subject[j];
+        const auto& q = subject[(j + 1) % subject.size()];
+        const double sp = side(p);
+        const double sq = side(q);
+        if (sp >= 0) kept.push_back(p);
+        if ((sp >= 0) != (sq >= 0)) {
+            const double t = sp / (sp - sq);
+            kept.push_back({p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])});
+        }
+    }
+    return kept;
+}
+
+/// The area of convex `subject` that no polygon of `covers` (each convex)
+/// reaches. Each cover splits every piece still uncovered into its parts
+/// outside the cover's edges, so an area two covers share is taken once.
+double uncoveredArea(const Flat& subject, std::vector<Flat> covers) {
+    std::vector<Flat> pieces{subject};
+    for (Flat& clip : covers) {
+        if (signedArea(clip) < 0) std::ranges::reverse(clip);
+        std::vector<Flat> outside;
+        for (Flat piece : pieces) {
+            for (std::size_t k = 0; k < clip.size() && piece.size() >= 3; ++k) {
+                const auto& a = clip[k];
+                const auto& b = clip[(k + 1) % clip.size()];
+                Flat out = halfOf(piece, a, b, false);
+                if (out.size() >= 3) outside.push_back(std::move(out));
+                piece = halfOf(piece, a, b, true);
             }
         }
-        subject = std::move(kept);
+        pieces = std::move(outside);
     }
-    return subject.size() < 3 ? 0 : std::abs(signedArea(subject));
+    double area = 0;
+    for (const Flat& piece : pieces) area += std::abs(signedArea(piece));
+    return area;
 }
 
 /// UTA-0310 SS 4.3 step 3a: the nodes UT99 does not draw because invisible
@@ -173,18 +193,23 @@ std::vector<bool> hiddenBehindPortals(const upkg::Model& model) {
         const std::vector<Vec> points = polygonOf(model, node);
         if (points.empty()) continue;
 
-        double own = 0;
-        double covered = 0;
+        // The portals whose plane it lies on, to within a unit, seen along
+        // the first one's axis: coplanar, so they share it.
+        std::optional<std::size_t> axis;
+        std::vector<Flat> covers;
         for (const Portal& portal : chain->second) {
-            // On the portal's plane, to within a unit.
             const bool onPlane = std::ranges::all_of(points, [&](const Vec& p) {
                 return std::abs(dot(minus(p, portal.points[0]), portal.normal)) <= 1;
             });
             if (!onPlane) continue;
-            const Flat flat = flatten(points, portal.axis);
-            own = std::abs(signedArea(flat));
-            covered += overlapArea(flat, flatten(portal.points, portal.axis));
+            if (!axis.has_value()) axis = portal.axis;
+            covers.push_back(flatten(portal.points, *axis));
         }
+        if (!axis.has_value()) continue;
+        const Flat flat = flatten(points, *axis);
+        const double own = std::abs(signedArea(flat));
+        // UTA-0364: the area covered once, however many portals overlap on it.
+        const double covered = own - uncoveredArea(flat, std::move(covers));
         // NaN compares false, so a node with a non-finite point is drawn and refused.
         if (own > 0 && covered >= 0.99 * own) hidden[n] = true;
     }

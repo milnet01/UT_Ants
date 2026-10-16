@@ -731,6 +731,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **The baker no longer uses the compiler's maths library, so a compiler cannot change what it writes** (UTA-0364)
+  Lamps are turned, flames measured and the sun's disc sized with the
+  project's own exact maths. A surface that overlapping invisible portals
+  cover only in part is now drawn. No map in the 469 install has one
+  (1610 of its 1611 maps read, 2026-10-16). The baker moves to revision
+  54, so maps baked before it must be baked again.
+
 - **A sky kept in a lit sky room no longer looks like the inside of a box** (UTA-0345)
   While the sky is captured, the sky room's lights reach each point by
   distance alone, so faces turned toward and away from them draw alike.

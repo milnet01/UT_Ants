@@ -129,9 +129,12 @@ namespace {
 // 52, format 28: UTA-0349 writes BAKR, naming the baker.
 // 53: UTA-0258 makes strips of LE_Cylinder rows only. The fixture has one
 // light, so only BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 53;
+// 54: UTA-0364 drops the platform maths library and counts overlapping
+// portals' area once. Under 53 the fixture hashed as before, so only BAKR's
+// revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 54;
 constexpr std::string_view GOLDEN =
-    "18c78e72d472d5748271ada129393d5858f44b843ac3f2a9af82b0246a696571";
+    "1461e33c7d29b7fa31985d08be9dcdd5c23216d59b99593051a9e531c70b2ca3";
 
 } // namespace
 
