@@ -16969,7 +16969,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: ubundle.
 
-- 📋 [UTA-0369] **Recipes: an empty quoted list is accepted and does not survive a save.**
+- ✅ [UTA-0369] **Recipes: an empty quoted list is accepted and does not survive a save.**
   Unverified finding of UTA-0329's review, lane-08 M
   urecipe/Recipe.cpp:239-248: sky textures, lamp fitting and switchOff
   accept zero words; write then emits a line parse refuses (UTA-0113
@@ -16977,12 +16977,14 @@ stays with movement in 0.2.0.
   Verified and fixed 2026-10-16 in 9645180, unpushed: each list
   setter refuses an empty quoted value, and a texture name holds no
   `"` (write emitted an unclosed quote for one). Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38860981359 green on 5018d97 (GCC
+  14, Clang 19, MSVC).
   **Layman:** A recipe line like textures = "" is accepted though it means nothing, and breaks when saved.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: urecipe.
 
-- 📋 [UTA-0370] **Package reader and core: smaller robustness gaps.**
+- ✅ [UTA-0370] **Package reader and core: smaller robustness gaps.**
   Unverified findings of UTA-0329's review:
   - lane-07 L Package.cpp:134 signature printed in decimal after 0x;
     :192/202/219 seek on a zero-count table; FileSystem.cpp:405/431 a
@@ -16996,12 +16998,14 @@ stays with movement in 0.2.0.
   Dismissed: Build.cpp:339, since readProperties already refuses an
   out-of-range Name value (Properties.cpp, PropertyType::Name) and a
   refused actor is skipped and counted. Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38860981359 green on 5018d97 (GCC
+  14, Clang 19, MSVC).
   **Layman:** Small error-handling gaps in reading the original game's files.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: upkg, core, unav.
 
-- 📋 [UTA-0371] **Gate scripts: an edit during the lock wait, a lost scp and a skipped include check pass unseen.**
+- ✅ [UTA-0371] **Gate scripts: an edit during the lock wait, a lost scp and a skipped include check pass unseen.**
   Unverified findings of UTA-0329's review, lane-12:
   - M ci-matrix.sh:54/167: SHA and tree state read at different times.
   - M ci-matrix.sh:116: every scp failure counts as a lost link.
@@ -17027,12 +17031,14 @@ stays with movement in 0.2.0.
   class-census os.path (os.walk's strings, no defect). Last night's
   needs.jsonl ran --no-sky, so ut-shot's failure path never touched it.
   Flip on GitHub's matrix, after a gate run on the new ci-matrix.sh.
+  Shipped 2026-10-16: GitHub CI run 38860981359 green on 5018d97 (GCC
+  14, Clang 19, MSVC).
   **Layman:** The push checks can miss a few kinds of problem; tighten them.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: scripts.
 
-- 📋 [UTA-0372] **Tools and app: wrong output on odd inputs in ut-ref, ut-bake, ut-paths, ut-compare and the viewer.**
+- ✅ [UTA-0372] **Tools and app: wrong output on odd inputs in ut-ref, ut-bake, ut-paths, ut-compare and the viewer.**
   Unverified findings of UTA-0329's review:
   - lane-11 M ut-ref/main.cpp:132 unsigned wrap of the worker count;
     :139 any field of view accepted; M ut-compare.py:25 writes outside
@@ -17060,6 +17066,8 @@ stays with movement in 0.2.0.
   over; git --no-optional-locks; an empty --baker-version refused.
   Already fixed by UTA-0362: ut-paths device names. Flip on GitHub's
   matrix.
+  Shipped 2026-10-16: GitHub CI run 38860981359 green on 5018d97 (GCC
+  14, Clang 19, MSVC).
   **Layman:** Developer tools and the viewer misbehave on a few unusual inputs.
   Kind: fix.
   Source: review-code-2026-10-15.
