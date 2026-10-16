@@ -16771,7 +16771,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-15.
   Lanes: tools.
 
-- 🚧 [UTA-0362] **Values read from a map or bundle overflow, index out of range or leak control bytes.**
+- ✅ [UTA-0362] **Values read from a map or bundle overflow, index out of range or leak control bytes.**
   Unverified findings of UTA-0329's review, in
   docs/reviews/review-code-2026-10-15/ (lane, severity, site):
   - lane-03 M AddedSun.cpp:20: sun yaw + 32768 overflows; validateSun
@@ -16797,12 +16797,14 @@ stays with movement in 0.2.0.
   unreachable; a chart index exists only inside SMSK, whose atlas is
   never empty (validateShadowMask), and upload always makes its view
   (Frame.cpp:735-753). Unit tier 1020 green. Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38858155839 green on GCC 14, Clang
+  19 and MSVC at dc6b39f.
   **Layman:** A damaged or tampered map or baked file could crash the game or the baker; check every number read from one before using it.
   Kind: security.
   Source: review-code-2026-10-15.
   Lanes: ubundle, ubake, urender, upkg, core, tools.
 
-- 🚧 [UTA-0363] **A hostile map can make the baker run out of memory or time.**
+- ✅ [UTA-0363] **A hostile map can make the baker run out of memory or time.**
   Unverified findings of UTA-0329's review, in
   docs/reviews/review-code-2026-10-15/:
   - lane-02 M Strips.cpp:100-127: m collinear lights give m^2/2 rows of
@@ -16827,6 +16829,8 @@ stays with movement in 0.2.0.
   Dismissed: class-census.py:108 does no unbounded work; a bad length
   ends in an exception at the next read. Unit tier 1021 green. Flip on
   GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38858155839 green on GCC 14, Clang
+  19 and MSVC at dc6b39f.
   **Layman:** Some unusual map shapes make map preparation take hours or use all memory; bound the work.
   Kind: security.
   Source: review-code-2026-10-15.
@@ -16854,7 +16858,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: ubake.
 
-- 🚧 [UTA-0365] **Renderer: a reload can overrun the lights buffer, and texture uploads can start misaligned.**
+- ✅ [UTA-0365] **Renderer: a reload can overrun the lights buffer, and texture uploads can start misaligned.**
   Unverified findings of UTA-0329's review:
   - lane-05 H Materials.cpp:266: staging offsets not 16-byte aligned for
     BC5/BC7 after a BC4 or RGBA8 texture.
@@ -16881,12 +16885,14 @@ stays with movement in 0.2.0.
   as 0, 0 and full; the validation log writes its first message before
   counting; compressedSource checks mipCount as read does. Unit 1022,
   device 117 on lavapipe with sync validation. Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38858155839 green on GCC 14, Clang
+  19 and MSVC at dc6b39f.
   **Layman:** Two ways the renderer can write or read graphics memory it should not; fix both.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: urender.
 
-- 🚧 [UTA-0366] **On Windows, a file name the code page cannot hold makes error messages and ut-dump throw.**
+- ✅ [UTA-0366] **On Windows, a file name the code page cannot hold makes error messages and ut-dump throw.**
   Unverified findings of UTA-0329's review:
   - lane-07 H core/FileSystem.cpp:284 and others, Log.cpp:153:
     path.string() in every failure message; use utf8(path).
@@ -16907,12 +16913,14 @@ stays with movement in 0.2.0.
   ut-shot name files through utf8, and ut-shot opens its camera file
   through pathFromUtf8. No red run: the throw needs a Windows older than
   1903. Unit 1022 green. Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38858155839 green on GCC 14, Clang
+  19 and MSVC at dc6b39f.
   **Layman:** A Windows user with a non-English name or map file name could see a crash instead of an error message.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: core, tools.
 
-- 🚧 [UTA-0367] **ubake: a fitted bake is reused under a smaller budget, and a dependency error is dropped from the bake name.**
+- ✅ [UTA-0367] **ubake: a fitted bake is reused under a smaller budget, and a dependency error is dropped from the bake name.**
   Unverified findings of UTA-0329's review:
   - lane-01 M Bake.cpp:1616, Name.cpp:69: fittedName ignores
     budgetBytes.
@@ -16932,12 +16940,14 @@ stays with movement in 0.2.0.
   Moved to UTA-0364: Geometry.cpp:178 (overlapping portals), which would
   change real bakes and needs measuring first. Unit 1023 green, the
   golden bake unchanged. Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38858155839 green on GCC 14, Clang
+  19 and MSVC at dc6b39f.
   **Layman:** The baker can reuse a stale or over-budget prepared map; key the cache on everything that shapes it.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: ubake.
 
-- 🚧 [UTA-0368] **ubundle: the writer can emit textures the reader refuses, and other format gaps.**
+- ✅ [UTA-0368] **ubundle: the writer can emit textures the reader refuses, and other format gaps.**
   Unverified findings of UTA-0329's review:
   - lane-03 L Bundle.cpp:381: write skips TEXS's own rules.
   - lane-03 L Bundle.cpp:301: BAKR read.
@@ -16952,6 +16962,8 @@ stays with movement in 0.2.0.
   the locale's tolower. Moved to UTA-0373: TileAnswers.cpp:105's file
   I/O against UTA-0008 SS 4.1 (which side changes is a doc decision).
   Unit 1024 green. Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38858155839 green on GCC 14, Clang
+  19 and MSVC at dc6b39f.
   **Layman:** Small gaps between how baked files are written and read.
   Kind: fix.
   Source: review-code-2026-10-15.
@@ -20429,7 +20441,7 @@ to.
   Kind: investigate.
   Source: ut-monsterhunt-report-2026-10-09.
 
-- 📋 [UTA-0361] **ut-dump: print each built BSP surface's polygons, so UT_MonsterHunt's wall tools can stop reading T3D exports.**
+- ✅ [UTA-0361] **ut-dump: print each built BSP surface's polygons, so UT_MonsterHunt's wall tools can stop reading T3D exports.**
   UT_MonsterHunt asked 2026-10-15 whether ut-dump reads the built BSP for
   its wall, lift and blocker tools (analysis/wallcheck2.py, wallcheck3.py,
   wallfix.py, liftcheck.py, blockgen.py), which read T3D exports today.
@@ -20465,6 +20477,8 @@ to.
   [dump] 41/41, whole unit tier 1017 green; two hand mutants killed.
   DM-Deck16][: 187 brushes (150 add, 34 subtract, 3 builder), 1312
   polygons, none unread. Flip on GitHub's matrix.
+  Shipped 2026-10-16: GitHub CI run 38858155839 green on GCC 14, Clang
+  19 and MSVC at dc6b39f.
   **Layman:** A map-reading command also lists the corners of every wall face, so the Monster Hunt project no longer needs to export maps by hand.
   Kind: enhancement.
   Source: user-request-2026-10-15.
