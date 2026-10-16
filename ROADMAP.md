@@ -17152,7 +17152,7 @@ stays with movement in 0.2.0.
   Source: audit-2026-10-15.
   Lanes: ubake, upkg, ufire, ubundle, urender, tools, scripts.
 
-- 🚧 [UTA-0375] **ubake: with no navigation point, the probe lattice walks each triangle's whole box, which a huge triangle makes endless.**
+- ✅ [UTA-0375] **ubake: with no navigation point, the probe lattice walks each triangle's whole box, which a huge triangle makes endless.**
   Split from UTA-0363 (lane-02 L, LightProbes.cpp:376-401). With
   `reach` absent, low and high are clipped to infinity, so a sloped
   triangle 500000 units across walks (500000/spacing)^3 cells, and
@@ -17166,6 +17166,9 @@ stays with movement in 0.2.0.
   (Model bounds), which is what the game treats as the playable space.
   Decided (user, 2026-10-16): with no navigation points, place probes
   through the level's own bounding box.
+  Shipped in 671076a (2026-10-16): Model box reach without navigation
+  points, slab walk, PROBE_WORLD_LIMIT 262144; baker revision 55. GitHub
+  run 38940407307 green.
   **Layman:** A map with no paths and one enormous sloped surface could make the baker run for days; decide where probes go in such a map.
   Kind: security.
   Source: review-code-2026-10-15.
