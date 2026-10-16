@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=379 -->
+<!-- ants-roadmap-id-high-water: UTA=380 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16016,7 +16016,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-06.
   Lanes: urender.
 
-- 🚧 [UTA-0329] **Codebase audit on Thursday 2026-10-08, when the weekly limit resets.**
+- ✅ [UTA-0329] **Codebase audit on Thursday 2026-10-08, when the weekly limit resets.**
   The user asked 2026-10-06 for a codebase audit on Thursday, when the
   weekly usage limit resets. Not before 2026-10-08. Run review-code over
   the whole tree (one subsystem per lane), with check-code first for what
@@ -16041,6 +16041,8 @@ stays with movement in 0.2.0.
   matrix. Next in order: UTA-0369, 0370, 0371, 0372, 0373, 0374. UTA-0364
   waits for UTA-0352's survey (it bumps BAKER_REVISION); UTA-0375 waits
   for the user. The review-code-last tag was not set: no full run.
+  Shipped (2026-10-16): every finding it filed, UTA-0361 to UTA-0376, is
+  shipped on GitHub's matrix; the last, UTA-0376, in run 38942380162.
   **Layman:** A full independent check of the code for bugs, scheduled for the day the weekly usage allowance renews.
   Kind: chore.
   Source: user-request-2026-10-06.
@@ -16349,7 +16351,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-11.
   Lanes: recipes, ubake.
 
-- 🚧 [UTA-0347] **A map analyser: list what graphical features each map in the library needs, and count them.**
+- ✅ [UTA-0347] **A map analyser: list what graphical features each map in the library needs, and count them.**
   The user, 2026-10-11: "Just like UT MH has to analyse maps for broken
   items, we can build an analyser that checks what graphical elements a
   map needs? And we can then build systems that cater for those needs?"
@@ -16441,6 +16443,23 @@ stays with movement in 0.2.0.
   312 superseded MH maps and 197 non-MH maps (1102 in use) is kept at
   /mnt/Emulators/uta-scratch/u347-lib/unused-maps-2026-10-15.tsv. The
   census is therefore a sample, weighted to names A to E.
+  Census (2026-10-16): cc-job u347-night baked the cut list and ran
+  the analyser with --no-sky: 586 maps, 0 errors, in
+  /mnt/Emulators/uta-scratch/u347-lib/needs.jsonl (its last line is the
+  summary). DM-Castle of Doom baked (rc 0) but missed the analyser: the
+  run script's unquoted loop split its name. Bakes are r53; r54 and r55
+  changed portal maths and probe placement, which no count reads.
+  Maps with each need, of 586: translucent surfaces 489, decorations
+  457, sky zones 441, wide lights 438, backdrop 436, water zones 361,
+  LE_Cylinder lights 158, glass-named surfaces 152, fog zones 96.
+  Commonest decorations: UTFlare, LightBox, SeaWeed, Sconce, WSTree34,
+  Lantern, Barrel, Brazier, then plants and trees.
+  Ranking, by maps reached: mesh decorations (UTA-0341, many of them
+  light fittings and plants); the sky (UTA-0337, UTA-0380); water
+  (UTA-0273); glass (UTA-0272); fog last. Which to build next stays the
+  user's call. The sky-room-versus-dome check is split out as UTA-0380.
+  Analyser code shipped in 0ab76b0 and acc97ea, on GitHub's matrix
+  since; latest green run 38942380162.
   **Layman:** A tool reads every map and lists what it needs drawn — its kind of sky, its lights, water, fog, decorations — so we build first what fixes the most maps.
   Kind: feature.
   Source: user-request-2026-10-11.
@@ -16701,7 +16720,7 @@ stays with movement in 0.2.0.
   Source: user-2026-10-14.
   Lanes: client.
 
-- 🚧 [UTA-0358] **MH-TheFortress2012Final: the original draws the map in flat daylight under a blue sky; ours draws it dark, with glows.**
+- ✅ [UTA-0358] **MH-TheFortress2012Final: the original draws the map in flat daylight under a blue sky; ours draws it dark, with glows.**
   UT_MonsterHunt rendered 8 poses with the stock UT469 client
   (2026-10-14, OpenGLDrv on llvmpipe, 3840x2160, FOV 121.28): every
   surface at full brightness, a blue sky, no dark areas, no glows or
@@ -16730,6 +16749,8 @@ stays with movement in 0.2.0.
   lava strip), trees are UTA-0293. Other maps that lean on bright zone
   ambient show as brightZones in UTA-0347's census. Flip once a push
   carries the recipes and GitHub's matrix is green.
+  Shipped (2026-10-16): 732d678 carries both recipes; it is on
+  origin/main, and every GitHub run since is green, latest 38942380162.
   **Layman:** On one Monster Hunt map the original game shows bright daylight and a blue sky, while ours shows a dark night with glowing towers; find out why.
   Kind: investigate.
   Source: in-session-2026-10-14.
@@ -16753,7 +16774,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /mnt/Emulators/uta-scratch/u358/sheet0.png, /mnt/Emulators/uta-scratch/u358/sheet1.png
 
-- 📋 [UTA-0360] **ut-dump --lighting: print a map's lightmap and light-actor counts and each zone's ambient light.**
+- ✅ [UTA-0360] **ut-dump --lighting: print a map's lightmap and light-actor counts and each zone's ambient light.**
   UTA-0358 needed a throwaway C++ probe over Model::lightMap (surfaces
   with a lightmap, surfaces with light actors, lightBits size) and a full
   bake to read each zone's AmbientBrightness, hue and saturation. One
@@ -16766,6 +16787,8 @@ stays with movement in 0.2.0.
   40/40, two new cases; four hand mutants killed. Real maps match the
   UTA-0358 probe: Fortress-BP 2101/2101/266, zones 1 and 4 at 255 and
   253; DM-Deck16][ 830/807/680. Flip on GitHub's matrix.
+  Shipped (2026-10-16): 77b239a is on origin/main, and every GitHub run
+  since is green, latest 38942380162.
   **Layman:** A quick command that says how a map was lit in the original game, so a lighting question takes one step instead of a home-made tool.
   Kind: enhancement.
   Source: in-session-2026-10-15.
@@ -17174,7 +17197,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: ubake.
 
-- 🚧 [UTA-0376] **A looping import chain makes an actor silently not a navigation point.**
+- ✅ [UTA-0376] **A looping import chain makes an actor silently not a navigation point.**
   Split from UTA-0370 (lane-08 M, unav/Build.cpp:72-83), verified
   2026-10-16. importPackageName returns "" when the outer chain passes
   OUTER_DEPTH_CAP, or meets an export; the caller reads "" as "does not
@@ -17187,10 +17210,22 @@ stays with movement in 0.2.0.
   Recommended: the package reader, since a cycle is a package defect.
   Decided (user, 2026-10-16): fix the import loop in the package
   reader, so every tool is covered.
+  Shipped 55875d9; GitHub run 38942380162 green (2026-10-16).
   **Layman:** A damaged map file whose parts point at each other in a circle loses path points without any warning.
   Kind: fix.
   Source: review-code-2026-10-15.
   Lanes: unav, upkg.
+
+- 📋 [UTA-0380] **Map analyser: tell a sky room from a sky dome, from each sky zone's geometry.**
+  Left over from UTA-0347. Its census counts skyZones and backdrop
+  surfaces, but cannot say whether a sky zone is a lit room (UTA-0345's
+  case) or a dome. That needs each zone's surfaces from ut-dump, which
+  it does not give per zone yet. Add it to ut-dump, then to
+  scripts/map-analyser.py's `needs`, and re-run the census.
+  **Layman:** The map checker learns to tell the two ways a map paints its sky apart, so the sky work knows which maps need which fix.
+  Kind: feature.
+  Source: in-session-2026-10-16 split-from-UTA-0347.
+  Lanes: tools.
 
 ## 0.2.0 — Movement and weapons
 

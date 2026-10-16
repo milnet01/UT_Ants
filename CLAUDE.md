@@ -7,14 +7,9 @@
 **Next:** the user's order of 2026-10-05: help other sessions; then every
 open fix-kind or review-sourced item, oldest first; then 0.1.0. Parked fix
 items: `UTA-0186` and `UTA-0249` (reconfirmed 2026-10-05). `UTA-0098` and
-`UTA-0100` defer themselves. Then (user, 2026-10-10) `UTA-0308`: switch
-ForbiddenMansion's own lights off by recipe and add lamps. Then (user,
-2026-10-11) `UTA-0345`, the sky room drawn evenly; then `UTA-0346`, a sun
-for every clear or lightly clouded sky, with the map analyser `UTA-0347`'s
-first version built for its survey. Then the codebase audit `UTA-0329`,
-which waited on the lighting pass so it can read that code. Then the rest
-of 0.1.0 (`UTA-0204`): `UTA-0254`, `UTA-0258`, `UTA-0319`, `UTA-0055`,
-`UTA-0322`, `UTA-0325`, `UTA-0337`. `UTA-0283` waits on UT_MonsterHunt.
+`UTA-0100` defer themselves. Then the rest of 0.1.0 (`UTA-0204`):
+`UTA-0254`, `UTA-0319`, `UTA-0055`, `UTA-0322`, `UTA-0337`.
+`UTA-0283` waits on UT_MonsterHunt.
 After 0.1.0: glass (`UTA-0272`), see-through water (`UTA-0273`),
 vegetation (`UTA-0293`).
 **In flight:** `roadmap_query status:"in-progress"`. Not kept by hand.
