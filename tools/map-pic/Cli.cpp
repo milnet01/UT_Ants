@@ -145,7 +145,8 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     }
     const auto mapped = fs::MappedFile::open(mapPath);
     if (!mapped.has_value() || mapped->bytes().empty()) {
-        err << "map-pic: " << fs::utf8(mapPath) << ": unreadable or empty\n";
+        err << "map-pic: " << fs::utf8(mapPath) << ": "
+            << (mapped.has_value() ? std::string("empty") : mapped.error().message()) << "\n";
         return 1;
     }
     const auto map = upkg::Package::open(mapped->bytes());

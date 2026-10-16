@@ -96,6 +96,21 @@ TEST_CASE("UTA-0129 INV-5: a spread is the smallest the median and the largest",
     CHECK(one.max == 7);
 }
 
+TEST_CASE("UTA-0372: a phase first seen in a later run keeps its own parent's path", "[bench]") {
+    // `walls` appears under `bake` only in the second run, so it is appended
+    // after `fit`; the table once read its parent off that order.
+    const std::vector<Run> runs = {
+        {10.0, "aa", {{"bake", 0, 6.0, 1}, {"rooms", 1, 4.0, 1}, {"fit", 0, 1.0, 1}}},
+        {10.0, "aa", {{"bake", 0, 6.0, 1}, {"rooms", 1, 4.0, 1}, {"walls", 1, 1.0, 1}, {"fit", 0, 1.0, 1}}},
+    };
+    const MapSummary summary = summarise(runs);
+    REQUIRE(summary.phases.size() == 4);
+    CHECK(summary.phases[1].path == "bake/rooms");
+    CHECK(summary.phases[2].path == "fit");
+    CHECK(summary.phases[3].name == "walls");
+    CHECK(summary.phases[3].path == "bake/walls");
+}
+
 TEST_CASE("UTA-0129 INV-6: a map's summary holds its phases its share and whether its runs agree", "[bench]") {
     // Three runs. `bake` holds `rooms`; the first run alone has `fit-budget`.
     const std::vector<Run> runs = {

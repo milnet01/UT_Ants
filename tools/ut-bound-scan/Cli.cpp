@@ -148,10 +148,11 @@ bool scanFile(const stdfs::path& file, double tolerance, std::ostream& out) {
     return true;
 }
 
-/// The `.unr` files directly inside `folder`, in name order.
-std::vector<stdfs::path> mapsIn(const stdfs::path& folder) {
+/// The `.unr` files directly inside `folder`, in name order. `listing` holds
+/// the error that ended the listing early, if one did.
+std::vector<stdfs::path> mapsIn(const stdfs::path& folder, std::error_code& listing) {
     std::vector<stdfs::path> maps;
-    std::error_code listing;
+    listing.clear();
     for (stdfs::directory_iterator entry(folder, listing), end; !listing && entry != end;
          entry.increment(listing)) {
         std::error_code ignored;
@@ -193,8 +194,15 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         const stdfs::path path{std::string(args[a])};
         std::error_code ignored;
         if (stdfs::is_directory(path, ignored)) {
-            for (const stdfs::path& map : mapsIn(path))
+            std::error_code listing;
+            for (const stdfs::path& map : mapsIn(path, listing))
                 refused = !scanFile(map, tolerance, out) || refused;
+            // A folder that would not list is refused, not taken as empty
+            // (UTA-0372): exit 0 means every map was scanned.
+            if (listing) {
+                refuse(out, ubake::detail::utf8(path), std::nullopt, "cannot list the folder: " + listing.message());
+                refused = true;
+            }
         } else {
             refused = !scanFile(path, tolerance, out) || refused;
         }

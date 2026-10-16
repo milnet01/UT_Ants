@@ -22,12 +22,15 @@ Options:
   --work DIR          where the install copy lives (default ~/.cache/ut-ants/compare/install)
   --build DIR         this project's build tree (default ./build)
 
-NOTHING OUTSIDE --work AND --out IS WRITTEN. The client runs from a copy of
+NOTHING IN THE LIVE INSTALL IS WRITTEN. The tool writes to --work and --out,
+and its bake goes to the bake cache in ~/.cache/ut-ants as any bake's does;
+Xvfb takes its display lock in /tmp. The client runs from a copy of
 the install made of links, with real copies of its programs, libraries, ini
 files and the directories it writes to, and with -nohomedir so it keeps its
 settings and logs in the copy rather than in ~/.utpg. It runs under bwrap
 with the live install mounted read-only, so a write that still finds its way
-back fails rather than lands, and the run fails if anything there changed.
+back fails rather than lands, and the run fails if a file in its System
+directories changed.
 
 Differences that are the comparison's, not the renderer's: the original's
 lights pulse on its own clock while ours are pinned at time 0, and the
@@ -208,6 +211,10 @@ def capture_original(copy, system, install, map_name, cameras, width, height, vo
     client = None
     try:
         time.sleep(2)
+        # Another program may have taken the display after free_display chose
+        # it; say so rather than report 0 frames from the original (UTA-0372).
+        if xvfb.poll() is not None:
+            fail(f"Xvfb could not start on {display} (exit {xvfb.returncode})")
         url = f"{map_name}.unr?Game=Botpack.DeathMatchPlus?Mutator={MUTATOR}.{MUTATOR}?SpectatorOnly=1"
         client = subprocess.Popen(
             read_only(install) + ["./ut-bin-amd64", url, "-ini=UnrealTournament.ini", "-userini=User.ini", "-nohomedir", "-nosound",

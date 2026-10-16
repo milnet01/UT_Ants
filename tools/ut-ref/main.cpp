@@ -10,6 +10,8 @@
 #include "ubundle/Sky.h"
 
 #include <charconv>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -43,6 +45,17 @@ void usage() {
            "and later bounces' shares, and the gap in stops. Draw the shots with\n"
            "ut-shot --light-terms --light-time 0 at the same size.\n";
 }
+
+// ut-shot's limits (ut-shot/Cli.h), which this tool copies its camera reading
+// from: a side past MAX_DIMENSION, or a field of view outside (0, 180),
+// would give an overflowing buffer or a garbage image (UTA-0372).
+constexpr std::uint32_t MAX_DIMENSION = 16384;
+
+bool usableSize(std::uint32_t width, std::uint32_t height) {
+    return width >= 1 && height >= 1 && width <= MAX_DIMENSION && height <= MAX_DIMENSION;
+}
+
+bool usableHorizontalFov(double degrees) { return std::isfinite(degrees) && degrees > 0 && degrees < 180; }
 
 bool number(std::string_view text, auto& value) {
     const auto read = std::from_chars(text.data(), text.data() + text.size(), value);
@@ -83,7 +96,7 @@ int trace(std::vector<std::string_view> args) {
     std::uint32_t width = 0, height = 0;
     int samples = 0, depth = 0;
     if (args.size() != 7 || !number(args[2], width) || !number(args[3], height) || !number(args[4], samples)
-        || !number(args[5], depth) || width == 0 || height == 0 || samples < 1 || depth < 1) {
+        || !number(args[5], depth) || !usableSize(width, height) || samples < 1 || depth < 1) {
         usage();
         return 2;
     }
@@ -129,7 +142,10 @@ int trace(std::vector<std::string_view> args) {
     for (const ubundle::Light& light : *bundle->lights)
         if (light.effect == ubundle::SUN_EFFECT) lights.push_back(light);
     const ref::Reference reference(*bundle->geometry, std::move(lights), sky, *materials, bundle->paintedSky);
-    const unsigned workers = std::max(1u, std::thread::hardware_concurrency() - 2);
+    // hardware_concurrency is 0 where it cannot tell; unsigned, so subtracting
+    // first would wrap to billions of threads (UTA-0372).
+    const unsigned cores = std::thread::hardware_concurrency();
+    const unsigned workers = cores > 2 ? cores - 2 : 1;
 
     std::string line;
     for (int index = 0; std::getline(std::cin, line); ++index) {
@@ -140,6 +156,10 @@ int trace(std::vector<std::string_view> args) {
             camera.rotation[1] >> camera.rotation[2] >> fov;
         if (!fields) {
             std::cerr << "ut-ref: camera line " << index << " does not read\n";
+            return 1;
+        }
+        if (!usableHorizontalFov(fov)) {
+            std::cerr << "ut-ref: camera line " << index << ": a field of view is above 0 and below 180\n";
             return 1;
         }
         const auto out = reference.trace(camera, fov, width, height, samples, depth, workers);
@@ -160,7 +180,7 @@ int score(const std::vector<std::string_view>& args) {
     std::uint32_t width = 0, height = 0;
     int views = 0;
     if (args.size() != 5 || !number(args[2], width) || !number(args[3], height) || !number(args[4], views)
-        || views < 1) {
+        || !usableSize(width, height) || views < 1) {
         usage();
         return 2;
     }

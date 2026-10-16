@@ -233,18 +233,11 @@ void writeTable(std::ostream& err, const MapReport& report, const detail::MapSum
         std::string path;
         const detail::PhaseSummary* phase;
     };
+    // The path summarise keyed the phase by. Rebuilding it here from the
+    // order of `phases` put a child first seen in a later run under the
+    // wrong parent (UTA-0372).
     std::vector<Row> rows;
-    std::vector<std::string_view> open;
-    for (const detail::PhaseSummary& phase : summary.phases) {
-        open.resize(std::min<std::size_t>(open.size(), phase.depth));
-        open.push_back(phase.name);
-        std::string path;
-        for (const std::string_view name : open) {
-            if (!path.empty()) path += '/';
-            path += name;
-        }
-        rows.push_back({std::move(path), &phase});
-    }
+    for (const detail::PhaseSummary& phase : summary.phases) rows.push_back({phase.path, &phase});
     std::ranges::stable_sort(rows, [](const Row& a, const Row& b) { return a.phase->share > b.phase->share; });
     err << report.map << ": " << fixed(summary.total.min) << " s at best over " << report.runs.size() << " run(s)\n";
     for (const Row& row : rows)
@@ -264,7 +257,7 @@ std::optional<double> conditions(const BuildInfo& build, std::ostream& err) {
         err << "ut-bench: warning: built as " << build.buildType << ", so these are not figures to compare\n";
     if (build.sanitizer != "none")
         err << "ut-bench: warning: built with the " << build.sanitizer << " sanitizer, so these are not figures to compare\n";
-    if (load && *load > cores)
+    if (load && cores > 0 && *load > cores)
         err << "ut-bench: warning: the machine is busy (load " << fixed(*load) << " over " << cores
             << " cores), so these figures are slow by an unknown amount\n";
     return load;
@@ -273,7 +266,11 @@ std::optional<double> conditions(const BuildInfo& build, std::ostream& err) {
 void writeMachineAndBuild(std::ostream& out, const BuildInfo& build, std::optional<double> load) {
     out << "\"machine\": {\"cpu\": ";
     writeJsonString(out, cpuName());
-    out << ", \"logicalCores\": " << std::thread::hardware_concurrency() << ", \"os\": ";
+    // UTA-0129 SS 4.3: a value the tool cannot learn is "unknown"; 0 is that.
+    if (const unsigned cores = std::thread::hardware_concurrency(); cores > 0)
+        out << ", \"logicalCores\": " << cores << ", \"os\": ";
+    else
+        out << ", \"logicalCores\": \"unknown\", \"os\": ";
     writeJsonString(out, osName());
     out << ", \"load1\": " << (load ? fixed(*load) : std::string("null")) << "}, \"build\": {\"compiler\": ";
     writeJsonString(out, build.compiler);
@@ -318,7 +315,7 @@ MapSummary summarise(const std::vector<Run>& runs) {
             }
             auto at = std::ranges::find(seen, path, &Seen::path);
             if (at == seen.end()) {
-                seen.push_back({path, {phase.name, phase.depth, phase.calls, {}, 0}, {}});
+                seen.push_back({path, {phase.name, phase.depth, phase.calls, {}, 0, path.substr(1)}, {}});
                 at = seen.end() - 1;
             }
             at->seconds.push_back(phase.seconds);

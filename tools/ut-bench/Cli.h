@@ -69,6 +69,7 @@ struct PhaseSummary {
     std::uint64_t calls = 0; ///< the first run's that has the phase
     Spread seconds;          ///< over the runs that have the phase
     double share = 0;        ///< its minimum over the total's minimum
+    std::string path;        ///< its name and its parents', top first, joined by /
 };
 
 struct MapSummary {
