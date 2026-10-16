@@ -1787,6 +1787,9 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         if (auto opened = uta::ubake::Install::open(installDir); opened.has_value()) {
             install.emplace(std::move(*opened));
             resolver = install->resolver();
+        } else {
+            // Say why, or the only word is the Engine.u warning below (UTA-0372).
+            err << "ut-dump: " << uta::fs::utf8(installDir) << ": " << opened.error().message() << "\n";
         }
     }
     // UTA-0265: asked of Engine, not of "any package". NavigationPoint lives

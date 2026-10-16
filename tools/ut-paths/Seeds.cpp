@@ -417,7 +417,9 @@ std::optional<std::size_t> nearestNode(const Scene& scene, const Vec3& to) {
 /// A float's shortest round-trip decimal (SS 4.3's numbers), or null for one
 /// that is not finite: JSON has no nan or inf.
 std::string number(double value) {
-    if (!std::isfinite(static_cast<float>(value))) return "null";
+    // The magnitude first: narrowing a double past FLT_MAX is undefined
+    // (cpp.md SS Range guards; UTA-0372).
+    if (!std::isfinite(value) || std::fabs(value) > std::numeric_limits<float>::max()) return "null";
     std::array<char, 32> text{};
     const auto written = std::to_chars(text.data(), text.data() + text.size(), static_cast<float>(value));
     return std::string(text.data(), written.ptr);

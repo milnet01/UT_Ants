@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=376 -->
+<!-- ants-roadmap-id-high-water: UTA=377 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18915,6 +18915,26 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Kind: feature.
   Source: user-request-2026-10-11.
   Lanes: urender.
+
+- 📋 [UTA-0377] **Props cannot be walked through; one that traps a player is moved or removed.**
+  The user, 2026-10-16: "ensure that props can not be walked though
+  (then need collision detection). If those objects cause a player to
+  get stuck though, we will either need to remove the object or move
+  it. But that I guess will require playtests and we will have the map
+  editor as well."
+  Needs the props drawn (UTA-0341) and the player's collision
+  (UTA-0017), which collides with the level and with bodies, not props.
+  Start from what each map already says: a UT99 actor carries its own
+  collision cylinder and blocking flags, so read those first and
+  measure which props block in the original before adding any.
+  A prop that traps a player is found in playtests and fixed per map,
+  by moving or removing it with the map editor; how a fix is stored
+  (a recipe entry, as lamps are) is decided then.
+  **Layman:** Barrels, pipes and other props in a map become solid, and any prop that leaves a player stuck gets moved or taken out.
+  Kind: feature.
+  Source: user-request-2026-10-16.
+  Lanes: uworld, ubake.
+  Blocked-by: UTA-0017, UTA-0341.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 

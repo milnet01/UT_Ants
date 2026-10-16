@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <ostream>
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace uta::ubake {
@@ -27,6 +28,10 @@ namespace uta::ubake {
                          std::ostream& err);
 
 namespace detail {
+
+/// `value`'s shortest round-trip decimal, or `null` for one that is not
+/// finite: JSON has no nan or inf (UTA-0372).
+[[nodiscard]] std::string jsonNumber(double value);
 
 /// `runCli` with the bake's budget given -- a test seam.
 [[nodiscard]] int runCli(std::span<const std::string_view> args, std::ostream& out,

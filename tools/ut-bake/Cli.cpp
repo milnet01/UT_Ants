@@ -13,9 +13,13 @@
 #include "urecipe/Lookup.h"
 
 #include <algorithm>
+#include <array>
+#include <charconv>
+#include <cmath>
 #include <filesystem>
-#include <fstream>
 #include <optional>
+#include <span>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -145,7 +149,8 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
     if (parsed.help) return parsed;
     if (parsed.check.has_value() || parsed.gameTypes.has_value()) {
         if ((parsed.check && parsed.gameTypes) || parsed.install || parsed.out || parsed.map || parsed.force
-            || parsed.textureCache || parsed.recipe || parsed.lightMaterials) {
+            || parsed.textureCache || parsed.recipe || parsed.lightMaterials || parsed.fitBudget
+            || parsed.fullBudget) {
             err << "ut-bake: " << (parsed.check ? "--check" : "--game-types")
                 << " takes an install and nothing else\n";
             return std::nullopt;
@@ -291,19 +296,24 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
     // UTA-0277 SS 4.5: the materials the bake could not judge, for the player.
     out << ", \"tileQuestions\": ";
     writeArray(out, result.tileQuestions, [&out](const TileQuestion& question) {
+        // Map data is untrusted: a nan is null, not `nan`, and every digit
+        // is kept (UTA-0372).
         const auto triple = [&out](const std::array<double, 3>& v) {
-            out << '[' << v[0] << ", " << v[1] << ", " << v[2] << ']';
+            out << '[' << detail::jsonNumber(v[0]) << ", " << detail::jsonNumber(v[1]) << ", "
+                << detail::jsonNumber(v[2]) << ']';
         };
         out << "{\"material\": ";
         writeJsonString(out, question.material);
         out << ", \"hash\": ";
         writeJsonString(out, question.hash);
-        out << ", \"lines\": " << question.lines << ", \"spots\": " << question.spots
+        out << ", \"lines\": " << detail::jsonNumber(question.lines) << ", \"spots\": "
+            << detail::jsonNumber(question.spots)
             << ", \"surfaces\": " << question.surfaces << ", \"view\": {\"at\": ";
         triple(question.at);
         out << ", \"normal\": ";
         triple(question.normal);
-        out << ", \"extent\": " << question.extent << ", \"clear\": " << question.clear << "}}";
+        out << ", \"extent\": " << detail::jsonNumber(question.extent)
+            << ", \"clear\": " << detail::jsonNumber(question.clear) << "}}";
     });
 }
 
@@ -386,11 +396,16 @@ int runBake(const Arguments& args, std::ostream& out, std::ostream& err,
                 err << "ut-bake: the bake kept no material light to write\n";
                 return EXIT_FAILED;
             }
-            std::ofstream file(uta::fs::pathFromUtf8(*args.lightMaterials), std::ios::binary);
-            writeMaterialLight(file, outcome->result->materialLight);
-            file.close(); // a full disk shows at the final flush (UTA-0224)
-            if (!file) {
-                err << "ut-bake: could not write " << *args.lightMaterials << "\n";
+            // Atomically, so a failure leaves the old file or none, never
+            // half of one (UTA-0372).
+            std::ostringstream text;
+            writeMaterialLight(text, outcome->result->materialLight);
+            const std::string bytes = std::move(text).str();
+            if (const auto written = uta::fs::writeFileAtomically(
+                    uta::fs::pathFromUtf8(*args.lightMaterials), std::as_bytes(std::span(bytes)));
+                !written) {
+                err << "ut-bake: could not write " << *args.lightMaterials << ": " << written.error().message()
+                    << "\n";
                 return EXIT_FAILED;
             }
         }
@@ -421,6 +436,13 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
 }
 
 namespace detail {
+
+std::string jsonNumber(double value) {
+    if (!std::isfinite(value)) return "null";
+    std::array<char, 32> text{};
+    const auto written = std::to_chars(text.data(), text.data() + text.size(), value);
+    return std::string(text.data(), written.ptr);
+}
 
 int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err,
            std::uint64_t budgetBytes) {

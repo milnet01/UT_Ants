@@ -459,6 +459,22 @@ TEST_CASE("UTA-0362: a census map name that is a Windows device name is refused"
     CHECK(result.out.find("\"status\": \"refused\", \"why\": \"not a plain map name\"") != std::string::npos);
 }
 
+TEST_CASE("UTA-0372: a census map is found under another case, as a package is", "[paths][seeds]") {
+    const uta::test::bake::TempDir dir;
+    const fs::path install = dir.path() / "install";
+    // Folder and file both in another case. It is not a package, so a file
+    // this tool found is refused as one -- not skipped as missing.
+    uta::test::bake::writeFile(install / "maps" / "mh-omg-alita.unr", bytesOf("not a package"));
+    const fs::path census = dir.path() / "census.tsv";
+    uta::test::bake::writeFile(census, bytesOf("map\tgroup\nMH-OMG-Alita\tPARTITIONED\n"));
+    const fs::path out = dir.path() / "out";
+
+    const Run result = run({"--install", install.string(), "--census", census.string(), "--out", out.string()});
+    INFO(result.out << result.err);
+    CHECK(result.out.find("\"map\": \"MH-OMG-Alita\"") != std::string::npos);
+    CHECK(result.out.find("no file in Maps/") == std::string::npos);
+}
+
 TEST_CASE("UTA-0137: a skipped map names files elsewhere and near names and reads neither",
           "[paths][seeds]") {
     const uta::test::bake::TempDir dir;

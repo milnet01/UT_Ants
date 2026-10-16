@@ -26,6 +26,7 @@
 #include <iterator>
 #include <optional>
 #include <sstream>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -306,6 +307,8 @@ TEST_CASE("wrong arguments exit 2 and print nothing on standard output", "[ubake
         {"--install", "i", "--out", "o"},
         {"--install", "i", "map"},
         {"--check", "i", "--force"},
+        {"--check", "i", "--fit-budget"},       // UTA-0372
+        {"--game-types", "i", "--full-budget"}, // UTA-0372
         {"--game-types"},
         {"--game-types", "i", "map"},
         {"--game-types", "i", "--check", "j"},
@@ -323,6 +326,14 @@ TEST_CASE("wrong arguments exit 2 and print nothing on standard output", "[ubake
     CHECK(help.code == 0);
     CHECK(help.out.empty());
     CHECK(says(help.err, "usage:"));
+}
+
+TEST_CASE("UTA-0372: a tile question's numbers are JSON numbers, or null", "[ubake][cli]") {
+    using uta::ubake::detail::jsonNumber;
+    CHECK(jsonNumber(0.1) == "0.1");
+    CHECK(jsonNumber(1234.5678901) == "1234.5678901"); // all its digits, not six
+    CHECK(jsonNumber(std::numeric_limits<double>::quiet_NaN()) == "null");
+    CHECK(jsonNumber(-std::numeric_limits<double>::infinity()) == "null");
 }
 
 TEST_CASE("UTA-0141: a clash that hides what the map asks for is warned about", "[ubake][cli]") {

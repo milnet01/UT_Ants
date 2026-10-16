@@ -227,6 +227,28 @@ void lookElsewhere(const stdfs::path& install, const Row& row, Entry& entry) {
     std::sort(entry.differentNames.begin(), entry.differentNames.end());
 }
 
+/// `<name>.unr` in the install's Maps folder, folder and file matched by folded
+/// name as the resolver matches a package (UTA-0372): on Linux a census
+/// `DM-Foo` is `dm-foo.unr`, and an install may spell its folder `maps`. The
+/// first in name order where more than one matches.
+std::optional<stdfs::path> foldedMap(const stdfs::path& install, std::string_view name) {
+    const std::string wanted = ubake::detail::fold(std::string(name) + ".unr");
+    std::vector<stdfs::path> found;
+    std::error_code ignored;
+    std::error_code outer;
+    for (stdfs::directory_iterator dir(install, outer), end; !outer && dir != end; dir.increment(outer)) {
+        if (!dir->is_directory(ignored) || ubake::detail::fold(ubake::detail::utf8(dir->path().filename())) != "maps")
+            continue;
+        std::error_code inner;
+        for (stdfs::directory_iterator file(dir->path(), inner), stop; !inner && file != stop; file.increment(inner))
+            if (file->is_regular_file(ignored)
+                && ubake::detail::fold(ubake::detail::utf8(file->path().filename())) == wanted)
+                found.push_back(file->path());
+    }
+    if (found.empty()) return std::nullopt;
+    return *std::ranges::min_element(found);
+}
+
 /// One map, read from <install>/Maps, its file written to `outDir`.
 Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& row, std::ostream& err) {
     // The census is another project's file. A name that is a path would read
@@ -239,8 +261,10 @@ Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& r
     // (review-code 2026-10-15).
     const auto resolved = uta::fs::resolveUnder(install / "Maps", uta::fs::pathFromUtf8(row.map + ".unr"));
     if (!resolved.has_value()) return refusal(row.map, "not a plain map name", err);
-    const stdfs::path file = *resolved;
+    stdfs::path file = *resolved;
     std::error_code ec;
+    if (!stdfs::is_regular_file(file, ec))
+        if (const auto folded = foldedMap(install, row.map)) file = *folded;
     if (!stdfs::is_regular_file(file, ec)) {
         err << "ut-paths: " << row.map << ": skipped, no file in Maps/\n";
         Entry skipped{row.map, "skipped", "no file in Maps/"};
