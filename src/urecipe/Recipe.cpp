@@ -121,6 +121,8 @@ Result<std::string_view> headingOf(std::string_view text, std::size_t line) {
 Result<std::string> textureOf(std::string_view name, std::size_t line) {
     if (name.empty()) return refuse(line, "[material] names no texture");
     if (std::ranges::any_of(name, isBlank)) return refuse(line, "a texture name holds no spaces");
+    // write never quotes a list word, so one opening with `"` would not read back.
+    if (name.find('"') != std::string_view::npos) return refuse(line, "a texture name holds no quotes");
     if (name.find('#') != std::string_view::npos)
         return refuse(line, "name the texture without #masked: both of its variants take the assignment");
     if (name.find('.') == std::string_view::npos)
@@ -174,6 +176,7 @@ Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string
         if (!isObjectName(value)) return refuse(line, std::format("'{}' is not an actor's name", value));
         lamp.light = value;
     } else if (key == "fitting") {
+        if (wordsOf(value).empty()) return refuse(line, "fitting names no brush: leave the key out instead");
         for (const std::string_view word : wordsOf(value)) {
             if (!isObjectName(word)) return refuse(line, std::format("'{}' is not an actor's name", word));
             if (std::ranges::find(lamp.fitting, word) != lamp.fitting.end())
@@ -213,6 +216,7 @@ Result<void> setSunKey(Sun& sun, std::string_view key, const std::string& value,
 Result<void> setSwitchOffKey(std::vector<std::string>& lights, std::string_view key, const std::string& value,
                              std::size_t line) {
     if (key != "lights") return refuse(line, std::format("[switch-off] has no key '{}'", key));
+    if (wordsOf(value).empty()) return refuse(line, "lights names no light");
     for (const std::string_view word : wordsOf(value)) {
         if (!isObjectName(word)) return refuse(line, std::format("'{}' is not an actor's name", word));
         if (std::ranges::find(lights, word) != lights.end())
@@ -237,6 +241,7 @@ Result<std::array<std::uint8_t, 3>> colourOf(std::string_view value, std::size_t
 /// UTA-0350 SS 4.1: `textures`, 1 to 8, none twice; `top`, `horizon`, `clouds`.
 Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value, std::size_t line) {
     if (key == "textures") {
+        if (wordsOf(value).empty()) return refuse(line, "textures names no texture");
         for (const std::string_view word : wordsOf(value)) {
             UTA_TRY(std::string texture, textureOf(word, line));
             if (std::ranges::find(sky.textures, texture) != sky.textures.end())
