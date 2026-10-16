@@ -193,7 +193,6 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     // 1539 surfaces, 2 of them outside the sphere, and leave them off 4419
     // surfaces inside the horizontal radius but outside the sphere.
     if (light.effect == LE_CYLINDER) {
-        if (d >= radius) return {};
         return scaled(intensity * edgeFade(d, radius)
                       * std::max(0.0, 1 - (toLight.x * toLight.x + toLight.y * toLight.y) / (radius * radius)));
     }

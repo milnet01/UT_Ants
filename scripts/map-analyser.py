@@ -97,7 +97,9 @@ VERDICTS = {
 def cameras(package):
     """Ten nav nodes, farthest-point sampled from the first, looking up."""
     nodes = package["nav"]["nodeList"]
-    points = [n["location"] for n in nodes]
+    # ut-dump writes null for a node with no saved Location or a non-finite
+    # one; neither can place a camera.
+    points = [n["location"] for n in nodes if n["location"] is not None]
     if not points:
         return []
     d2 = lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b))
