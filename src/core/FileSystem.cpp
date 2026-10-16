@@ -437,10 +437,13 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
 
     const std::size_t read =
         bytes.empty() ? 0 : std::fread(bytes.data(), 1, bytes.size(), file);
+    // The size was read before the open, so a file that grew in between
+    // still has bytes left: that is a short read too (UTA-0370).
+    const bool grew = read == bytes.size() && std::fgetc(file) != EOF;
     const bool failed = std::ferror(file) != 0;
     (void)std::fclose(file);  // read path: nothing to flush, nothing to report
 
-    if (failed || read != bytes.size())
+    if (failed || grew || read != bytes.size())
         return fail(ErrorCode::IoFailure, "short read on " + utf8(path));
 
     return bytes;

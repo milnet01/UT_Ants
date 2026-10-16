@@ -2,6 +2,7 @@
 
 #include "upkg/ByteReader.h"
 
+#include <format>
 #include <string>
 #include <unordered_set>
 
@@ -131,8 +132,7 @@ Result<Package> Package::open(std::span<const std::byte> bytes) {
     UTA_TRY(const std::uint32_t signature, reader.readU32());
     if (signature != SIGNATURE) {
         return std::unexpected(malformed(
-            "not an Unreal package: signature is 0x" + std::to_string(signature) +
-            ", expected 0x9E2A83C1"));
+            std::format("not an Unreal package: signature is 0x{:08X}, expected 0x9E2A83C1", signature)));
     }
 
     UTA_TRY(package.header_.packageVersion, reader.readU16());
@@ -188,8 +188,10 @@ Result<Package> Package::open(std::span<const std::byte> bytes) {
 
     // The name table. Read first, because every other table validates its
     // indices against this one's size.
+    // A table of zero entries is not sought: checkTable accepts any offset
+    // for one, and seek refuses an offset past the end (UTA-0370).
     package.names_.reserve(nameCount);
-    UTA_CHECK(reader.seek(nameOffset));
+    if (nameCount != 0) UTA_CHECK(reader.seek(nameOffset));
     for (std::uint32_t i = 0; i < nameCount; ++i) {
         NameEntry entry;
         UTA_TRY(entry.name, readName(reader, version));
@@ -199,7 +201,7 @@ Result<Package> Package::open(std::span<const std::byte> bytes) {
 
     // The import table.
     package.imports_.reserve(importCount);
-    UTA_CHECK(reader.seek(importOffset));
+    if (importCount != 0) UTA_CHECK(reader.seek(importOffset));
     for (std::uint32_t i = 0; i < importCount; ++i) {
         ImportEntry entry;
         UTA_TRY(const std::int32_t classPackage, reader.readIndex());
@@ -216,7 +218,7 @@ Result<Package> Package::open(std::span<const std::byte> bytes) {
 
     // The export table.
     package.exports_.reserve(exportCount);
-    UTA_CHECK(reader.seek(exportOffset));
+    if (exportCount != 0) UTA_CHECK(reader.seek(exportOffset));
     for (std::uint32_t i = 0; i < exportCount; ++i) {
         ExportEntry entry;
         UTA_TRY(const std::int32_t objectClass, reader.readIndex());

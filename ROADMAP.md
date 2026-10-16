@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=375 -->
+<!-- ants-roadmap-id-high-water: UTA=376 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16962,6 +16962,9 @@ stays with movement in 0.2.0.
   urecipe/Recipe.cpp:239-248: sky textures, lamp fitting and switchOff
   accept zero words; write then emits a line parse refuses (UTA-0113
   SS 4.2 round trip). write never quotes a list word.
+  Verified and fixed 2026-10-16 in 9645180, unpushed: each list
+  setter refuses an empty quoted value, and a texture name holds no
+  `"` (write emitted an unclosed quote for one). Flip on GitHub's matrix.
   **Layman:** A recipe line like textures = "" is accepted though it means nothing, and breaks when saved.
   Kind: fix.
   Source: review-code-2026-10-15.
@@ -16974,6 +16977,13 @@ stays with movement in 0.2.0.
     growing file; Log.cpp:108 lock in noexcept.
   - lane-08 L unav/Build.cpp:72-83 depth cap returns an empty name;
     :339 one bad name index fails the whole wiring graph.
+  Closed 2026-10-16, unpushed. Fixed: Package.cpp signature in hex;
+  zero-count tables are not sought; readFile reports a file that grew
+  since it was sized; Logger::write drops a line if the lock throws.
+  Queued: Build.cpp:72-83 as UTA-0376 (needs a where-decision).
+  Dismissed: Build.cpp:339, since readProperties already refuses an
+  out-of-range Name value (Properties.cpp, PropertyType::Name) and a
+  refused actor is skipped and counted. Flip on GitHub's matrix.
   **Layman:** Small error-handling gaps in reading the original game's files.
   Kind: fix.
   Source: review-code-2026-10-15.
@@ -17070,6 +17080,22 @@ stays with movement in 0.2.0.
   Kind: security.
   Source: review-code-2026-10-15.
   Lanes: ubake.
+
+- 📋 [UTA-0376] **A looping import chain makes an actor silently not a navigation point.**
+  Split from UTA-0370 (lane-08 M, unav/Build.cpp:72-83), verified
+  2026-10-16. importPackageName returns "" when the outer chain passes
+  OUTER_DEPTH_CAP, or meets an export; the caller reads "" as "does not
+  descend", so the class's nodes vanish with no count and no error.
+  Not fixed then because it needs a decision on where: either
+  Package::open refuses a cyclic import outer chain (UTA-0003 INV-6
+  grows), or unav counts it beside propertiesUnread (UTA-0006 SS 4.5
+  grows). Returning MalformedData from the builder is unsafe: one bad
+  class would refuse the whole graph, the shape UTA-0244 removed.
+  Recommended: the package reader, since a cycle is a package defect.
+  **Layman:** A damaged map file whose parts point at each other in a circle loses path points without any warning.
+  Kind: fix.
+  Source: review-code-2026-10-15.
+  Lanes: unav, upkg.
 
 ## 0.2.0 — Movement and weapons
 

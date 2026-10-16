@@ -11,6 +11,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 using uta::ErrorCode;
@@ -46,6 +47,22 @@ TEST_CASE("a package with the wrong signature is malformed", "[package-reader]")
 
     REQUIRE_FALSE(package.has_value());
     CHECK(package.error().code() == ErrorCode::MalformedData);
+    // UTA-0370: the signature is printed in hex, as its 0x prefix says.
+    CHECK(std::string(package.error().message()).find("0xDEADBEEF") != std::string::npos);
+}
+
+TEST_CASE("an empty table opens whatever its offset", "[package-reader]") {
+    // UTA-0370: the header check accepts any offset for a count of zero, so
+    // the read must not seek to it either.
+    UnrealPackageBuilder builder = minimalPackage();
+    builder.overrideImportOffset(0xFFFFFF00u).overrideExportOffset(0xFFFFFF00u);
+
+    const std::vector<std::uint8_t> bytes = builder.build();
+    const auto package = Package::open(asBytes(bytes));
+
+    REQUIRE(package.has_value());
+    CHECK(package->imports().empty());
+    CHECK(package->exports().empty());
 }
 
 TEST_CASE("a package shorter than a header is malformed", "[package-reader]") {

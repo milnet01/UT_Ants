@@ -95,6 +95,19 @@ TEST_CASE("a missing file is NotFound, not a throw", "[core][fs]") {
     CHECK_FALSE(result.error().message().empty());
 }
 
+#ifdef __linux__
+TEST_CASE("a file holding more than its size said is a short read, not a success",
+          "[core][fs]") {
+    // UTA-0370: the size is read before the open, so a file that grew in
+    // between was returned cut short. /proc files report size 0 and hold
+    // text, which is that case without a race.
+    const auto result = uta::fs::readFile("/proc/self/status");
+
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code() == ErrorCode::IoFailure);
+}
+#endif
+
 TEST_CASE("a directory passed where a file is expected is InvalidArgument",
           "[core][fs]") {
     const TempDir dir;

@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <exception>
 #include <memory>
+#include <mutex>
+#include <system_error>
 
 namespace uta {
 
@@ -124,7 +126,15 @@ void Logger::write(const LogCategory& category, LogLevel level,
     // The lock is held across every sink call, which is what makes INV-5's
     // no-overlap property true. It also means a slow sink slows every thread
     // that logs -- the trade section 3 took deliberately.
-    const std::lock_guard lock(mutex_);
+    //
+    // mutex::lock may throw system_error, which in this noexcept function is
+    // std::terminate. Drop the line instead, as for a throwing sink (INV-3).
+    std::unique_lock lock(mutex_, std::defer_lock);
+    try {
+        lock.lock();
+    } catch (const std::system_error&) {
+        return;
+    }
     for (const LogSink& sink : sinks_) {
         if (!sink) continue;
         try {
