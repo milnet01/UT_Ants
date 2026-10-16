@@ -16836,7 +16836,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: ubake, umap, scripts.
 
-- 📋 [UTA-0364] **The baker calls the platform maths library, so a bundle can differ between compilers.**
+- ✅ [UTA-0364] **The baker calls the platform maths library, so a bundle can differ between compilers.**
   Unverified findings of UTA-0329's review, against design.md and
   UTA-0049 SS 9 (no platform maths library in the baker):
   - lane-02 H Lamps.cpp:42: std::cos/std::sin turn lamp vertices.
@@ -16854,6 +16854,8 @@ stays with movement in 0.2.0.
   MH-SPNaliRescue's model refuses). Both hide the same 96 nodes; no node
   changes. Probe: ~/.cache/uta-scratch/u364/probe.cpp. Under revision 53
   the golden fixture hashed as before, so only BAKR's revision moved it.
+  Shipped 2026-10-16 in 29fc677; GitHub run 38919884021 green on GCC,
+  Clang and MSVC. Baker revision 54.
   **Layman:** The same map could bake to slightly different files on Linux and Windows; use the project's own exact maths.
   Kind: fix.
   Source: review-code-2026-10-15.
