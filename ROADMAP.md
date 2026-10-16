@@ -17073,7 +17073,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: tools, app.
 
-- 🚧 [UTA-0373] **Specs and header comments that no longer match the code.**
+- ✅ [UTA-0373] **Specs and header comments that no longer match the code.**
   Unverified findings of UTA-0329's review:
   - lane-03 M UTA-0008 stale: format version, ids, sizes, BAKR.
   - lane-08 L UTA-0006 SS 6 row against SS 4.5; umat/Material.h:16.
@@ -17109,12 +17109,13 @@ stays with movement in 0.2.0.
   gpu::ReduceConstants pushed from Frame.cpp. Unit 1031 and device
   118 (lavapipe with sync validation, and the GPU) passed. Awaits
   GitHub's matrix.
+  Shipped 2026-10-16: green on GitHub run 38892122679 (96f7ed8).
   **Layman:** Several design documents and code comments describe an older version of the code.
   Kind: doc-fix.
   Source: review-code-2026-10-15.
   Lanes: docs.
 
-- 🚧 [UTA-0374] **check-code 2026-10-15: tool findings no calibration explains.**
+- ✅ [UTA-0374] **check-code 2026-10-15: tool findings no calibration explains.**
   UTA-0329's tool half, full list in
   docs/reviews/review-code-2026-10-15/check-code.md. Unverified. The
   likeliest defects first:
@@ -17142,6 +17143,7 @@ stays with movement in 0.2.0.
   read: tools/audit/suppressions.md and _typos.toml. Next door, fixed:
   map-analyser.py crashed on a null nav location. Awaits GitHub's
   matrix.
+  Shipped 2026-10-16: green on GitHub run 38892122679 (96f7ed8).
   **Layman:** The automatic code checkers flagged a few spots that may be real bugs; check each and fix or record it.
   Kind: audit-fix.
   Source: audit-2026-10-15.
