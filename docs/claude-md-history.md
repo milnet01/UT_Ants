@@ -143,6 +143,13 @@ checking firmness."**:
 
 > Moved out of § Where this project is on 2026-09-20
 
+## 2026-10-16 — reworded shorter
+
+The user asked for a cheaper session start. Every rule, date and pointer
+was kept, in fewer words. The lighting stance moved from `Next:` to
+§ Standing facts, being a fact rather than an order. "Five rules this
+project paid for" lost its count.
+
 ## § This file's own review history
 
 **2026-09-09.** The pointer named `docs/claude-md-review-2026-09-04.md`
