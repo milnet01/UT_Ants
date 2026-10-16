@@ -212,6 +212,15 @@ public:
     /// Back to the clock, from the next frame.
     void unpinLightSeconds() noexcept;
 
+    /// Draw every later frame at `scale`, clamped as `fixedRenderScale` is,
+    /// and leave dynamic resolution's controller as it stands. A fixed scale
+    /// still wins. UTA-0191's second draw pins the first's scale with it, or
+    /// the two differ in sharpness for no reason of their own (UTA-0372).
+    void pinRenderScale(double scale) noexcept;
+
+    /// Back to the controller, or to full scale, from the next frame.
+    void unpinRenderScale() noexcept;
+
     /// The target's new size in pixels -- the window's drawable size, not its
     /// size in window units. The next `draw` rebuilds every render target at
     /// it, and `readback` is refused until that frame is drawn. A zero width or

@@ -99,6 +99,26 @@ TEST_CASE("UTA-0051 INV-7: a half-scale frame is the whole scene upscaled to the
     }
 }
 
+TEST_CASE("UTA-0372: a pinned render scale draws at that scale and unpins", "[device]") {
+    removeDisplay();
+    Config config = squareConfig();
+    config.tier = Tier::Low;
+    config.dynamicResolution = true;
+    Renderer renderer = requireRenderer(config);
+    requireOk(renderer.draw(halves(), Camera{}));
+    CHECK(renderer.lastFrameStats().renderScale == 1.0); // the controller starts at full
+
+    renderer.pinRenderScale(0.5);
+    requireOk(renderer.draw(halves(), Camera{}));
+    CHECK(renderer.lastFrameStats().renderScale == 0.5);
+    requireOk(renderer.draw(halves(), Camera{}));
+    CHECK(renderer.lastFrameStats().renderScale == 0.5); // held, not re-steered
+
+    renderer.unpinRenderScale();
+    requireOk(renderer.draw(halves(), Camera{}));
+    CHECK(renderer.lastFrameStats().renderScale > 0.5); // the controller's own again
+}
+
 TEST_CASE("UTA-0051 INV-8: velocity readback is refused after a frame below scale 1", "[device]") {
     removeDisplay();
     Config config = squareConfig();

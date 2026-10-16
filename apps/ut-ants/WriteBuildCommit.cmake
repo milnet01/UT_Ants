@@ -26,7 +26,9 @@ else()
     # A tree with uncommitted changes to tracked files did not compile that
     # commit, so it says so rather than naming it outright.
     execute_process(
-        COMMAND git -C "${SOURCE_DIR}" diff --quiet HEAD --
+        # --no-optional-locks: this runs on every build, and refreshing the
+        # index would take index.lock from under a git the user runs (UTA-0372).
+        COMMAND git --no-optional-locks -C "${SOURCE_DIR}" diff --quiet HEAD --
         ERROR_QUIET
         RESULT_VARIABLE _dirty)
     if(_dirty EQUAL 1)

@@ -141,7 +141,8 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
                 err << "ut-ants: --baker-version is given twice\n";
                 return std::nullopt;
             }
-            if (i + 1 >= args.size()) {
+            // Empty is refused, as for --notes: it would hide a second one.
+            if (i + 1 >= args.size() || args[i + 1].empty()) {
                 err << "ut-ants: --baker-version needs a value\n";
                 return std::nullopt;
             }

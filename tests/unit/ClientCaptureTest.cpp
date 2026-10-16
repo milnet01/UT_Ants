@@ -153,7 +153,8 @@ TEST_CASE("bundleHashHex is the SHA-256 of the bytes as lowercase hex", "[client
 }
 
 TEST_CASE("captureFolderName names the map and the time in UTC", "[client][capture]") {
-    CHECK(captureFolderName("MH-Example", WHEN) == "MH-Example-20260920-143005");
+    // UTA-0372: marked Z, or a reader takes it for local time.
+    CHECK(captureFolderName("MH-Example", WHEN) == "MH-Example-20260920-143005Z");
 }
 
 TEST_CASE("captureDetails carries every field the item asks for", "[client][capture]") {
@@ -191,7 +192,7 @@ TEST_CASE("writeCapture writes both images and both text files", "[client][captu
     // The FOLDER's own name, not the whole path: resolveUnder canonicalises,
     // and the Windows runner's temp directory is an 8.3 name that expands --
     // so comparing against dir.path() / name fails there for no real reason.
-    CHECK(folder->filename() == "MH-Example-20260920-143005");
+    CHECK(folder->filename() == "MH-Example-20260920-143005Z");
     CHECK(stdfs::exists(*folder / "frame.png"));
     CHECK(stdfs::exists(*folder / "linear.png"));
     CHECK(stdfs::exists(*folder / "details.txt"));
@@ -238,7 +239,7 @@ TEST_CASE("two captures in one second keep both folders", "[client][capture]") {
     const auto second = writeCapture(dir.path(), info, solidImage(4, 3, 0x60), solidImage(4, 3, 0x80), WHEN);
     REQUIRE(first.has_value());
     REQUIRE(second.has_value());
-    CHECK(first->filename() == "MH-Example-20260920-143005");
-    CHECK(second->filename() == "MH-Example-20260920-143005-2");
+    CHECK(first->filename() == "MH-Example-20260920-143005Z");
+    CHECK(second->filename() == "MH-Example-20260920-143005Z-2");
     CHECK(readWhole(*first / "frame.png") != readWhole(*second / "frame.png"));
 }

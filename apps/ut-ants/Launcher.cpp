@@ -270,7 +270,15 @@ private:
         // Every keystroke writes the whole text, so a second launcher -- or the
         // viewer's P -- writing the same file would be saved over unseen.
         // Read it again instead, and drop this keystroke.
-        if (auto disk = readNotes(paths_.notes, notesFor_); disk && *disk != notesOnDisk_) {
+        auto disk = readNotes(paths_.notes, notesFor_);
+        if (!disk) {
+            // Unreadable is not empty: writing now would replace notes this
+            // could not see (MapList.h, readNotes; UTA-0372).
+            status_ = "The notes could not be read again, so this keystroke was not saved: "
+                      + uta::sanitised(disk.error().message());
+            return;
+        }
+        if (*disk != notesOnDisk_) {
             notes_ = std::move(*disk);
             notesOnDisk_ = notes_;
             status_ = "The notes were changed elsewhere, so they were read again.";

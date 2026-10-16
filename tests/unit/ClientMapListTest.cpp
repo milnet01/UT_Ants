@@ -4,6 +4,7 @@
 // NO TEST NAME CONTAINS A COMMA -- BakeCliTest.cpp says why.
 
 #include "ut-ants/MapList.h"
+#include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -127,6 +128,18 @@ TEST_CASE("UTA-0170: a written or cached bake gives its path", "[client]") {
         readBakeAnswer(R"({"schema": 1, "verdict": "cached", "name": "ab", "path": "C:\\c\\ab.utab"})" "\n", 0);
     CHECK(cached.baked);
     CHECK(cached.path == stdfs::path("C:\\c\\ab.utab"));
+}
+
+TEST_CASE("UTA-0372: a surrogate pair in a path is one character; a lone one is refused", "[client]") {
+    // U+1F600 as JSON writes it outside the Basic Multilingual Plane: two
+    // escapes that make one 4-byte character, not two 3-byte ones (CESU-8).
+    const BakeAnswer pair = readBakeAnswer(
+        R"({"schema": 1, "verdict": "cached", "name": "ab", "path": "/c/\ud83d\ude00.utab"})" "\n", 0);
+    REQUIRE(pair.baked);
+    CHECK(uta::fs::utf8(pair.path) == "/c/\xF0\x9F\x98\x80.utab");
+    const BakeAnswer lone = readBakeAnswer(
+        R"({"schema": 1, "verdict": "cached", "name": "ab", "path": "/c/\ud83d.utab"})" "\n", 0);
+    CHECK_FALSE(lone.baked);
 }
 
 TEST_CASE("UTA-0170: only a top-level path counts", "[client]") {

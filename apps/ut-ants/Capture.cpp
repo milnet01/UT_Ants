@@ -53,7 +53,8 @@ std::string bundleHashHex(std::span<const std::byte> bundleBytes) {
 
 std::string captureFolderName(std::string_view map, std::chrono::system_clock::time_point when) {
     const auto seconds = std::chrono::floor<std::chrono::seconds>(when);
-    return std::format("{}-{:%Y%m%d-%H%M%S}", map, seconds);
+    // Z: the time is UTC, and an unmarked one reads as local (UTA-0372).
+    return std::format("{}-{:%Y%m%d-%H%M%S}Z", map, seconds);
 }
 
 std::string captureDetails(const CaptureInfo& info) {
@@ -97,13 +98,20 @@ Result<std::filesystem::path> writeCapture(const std::filesystem::path& captures
     if (!resolved) return std::unexpected(resolved.error());
     // One folder per press, even two presses in one second: the second gets a
     // -2, and so on, rather than replacing the first (review-code 2026-09-26).
-    const std::filesystem::path folder = [&] {
-        std::filesystem::path candidate = *resolved;
+    // Claimed by creating it, not by asking whether it exists: two viewers in
+    // one second would otherwise both pick it, and a failed check read as
+    // free (UTA-0372).
+    std::error_code made;
+    std::filesystem::create_directories(captures, made);
+    std::filesystem::path folder = *resolved;
+    for (int n = 2;; ++n) {
         std::error_code ec;
-        for (int n = 2; std::filesystem::exists(candidate, ec); ++n)
-            candidate = resolved->parent_path() / (resolved->filename().string() + "-" + std::to_string(n));
-        return candidate;
-    }();
+        if (std::filesystem::create_directory(folder, ec)) break;
+        if (ec)
+            return std::unexpected(
+                Error(ErrorCode::IoFailure, "cannot create " + fs::utf8(folder) + ": " + ec.message()));
+        folder = resolved->parent_path() / fs::pathFromUtf8(fs::utf8(resolved->filename()) + "-" + std::to_string(n));
+    }
 
     if (const auto wrote = writeImage(folder / "frame.png", "the frame as shown", shownRgba,
                                       info.renderWidth, info.renderHeight);

@@ -268,13 +268,17 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         // vectors are measured against this one rather than against the frame
         // before the press. Harmless today: UTA-0075's jitter is off until a
         // pass consumes it, and nothing reads the velocity target yet.
+        // The scale too: dynamic resolution may have moved it since the
+        // shown frame, and the redraw must not steer it (UTA-0372).
         renderer.pinLightSeconds(renderer.lightSeconds());
+        renderer.pinRenderScale(stats.renderScale);
         renderer.setLinearOutput(true);
         const auto redrew = renderer.draw(bundle, *shownView);
         const auto linear = redrew ? renderer.readback()
                                    : uta::Result<std::vector<std::byte>>(
                                          std::unexpected(redrew.error()));
         renderer.setLinearOutput(false);
+        renderer.unpinRenderScale();
         renderer.unpinLightSeconds();
         if (!linear) {
             std::cerr << "ut-ants: the linear view did not draw: " << linear.error().message() << "\n";
@@ -301,7 +305,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         const auto folder = writeCapture(paths->captures, info, *shown, *linear,
                                          std::chrono::system_clock::now());
         if (!folder) {
-            std::cerr << "ut-ants: the capture did not save: " << folder.error().message() << "\n";
+            std::cerr << "ut-ants: the capture did not save: " << uta::sanitised(folder.error().message()) << "\n";
             return;
         }
         std::cerr << "ut-ants: capture written to " << uta::sanitised(folder->string()) << "\n";
@@ -337,7 +341,8 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                 std::cerr << line << "\n";
                 if (!options.notes.empty()) {
                     if (const auto added = appendNote(options.notes, line); !added)
-                        std::cerr << "ut-ants: the camera did not save: " << added.error().message() << "\n";
+                        std::cerr << "ut-ants: the camera did not save: " << uta::sanitised(added.error().message())
+                                  << "\n";
                 }
             } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F12 &&
                         !event.key.repeat) ||
@@ -359,6 +364,10 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                 config.width = static_cast<std::uint32_t>(event.window.data1);
                 config.height = static_cast<std::uint32_t>(event.window.data2);
                 const auto resized = renderer.resize(config.width, config.height);
+                // The targets are rebuilt and not yet drawn, and the shown view
+                // was for the old size: a capture now would read both wrong
+                // (UTA-0372). The next frame sets it again.
+                shownView.reset();
                 if (!resized) {
                     std::cerr << "ut-ants: the renderer could not resize: " << resized.error().message() << "\n";
                     return EXIT_FAILED;

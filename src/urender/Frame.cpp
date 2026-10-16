@@ -481,6 +481,7 @@ struct Renderer::Impl {
     /// (Renderer::pinLightSeconds). UTA-0191 draws one view twice and needs the
     /// two to agree on a pulsing light's phase.
     std::optional<double> pinnedLightSeconds;
+    std::optional<double> pinnedRenderScale; // UTA-0372
     /// The light time the last frame was drawn at, which UTA-0191's capture
     /// records. Kept rather than recomputed: reading the clock again would
     /// return a later time than the frame actually used.
@@ -1647,6 +1648,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         scale = std::isfinite(*impl.config.fixedRenderScale)
                     ? std::clamp(*impl.config.fixedRenderScale, settings.minimumRenderScale, 1.0)
                     : 1.0;
+    } else if (impl.pinnedRenderScale) {
+        scale = std::isfinite(*impl.pinnedRenderScale)
+                    ? std::clamp(*impl.pinnedRenderScale, settings.minimumRenderScale, 1.0)
+                    : 1.0;
     } else if (impl.config.dynamicResolution) {
         scale = impl.renderScale;
     }
@@ -1890,7 +1895,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     }
     impl.drawnScale = scale;
     // UTA-0163: a sky face is not the player's frame, so its time steers nothing.
-    if (!skyFace && impl.config.dynamicResolution && !impl.config.fixedRenderScale) {
+    if (!skyFace && impl.config.dynamicResolution && !impl.config.fixedRenderScale && !impl.pinnedRenderScale) {
         impl.averagedMilliseconds =
             impl.averagedMilliseconds == 0 ? milliseconds : impl.averagedMilliseconds * 0.8 + milliseconds * 0.2;
         impl.renderScale = nextRenderScale(impl.renderScale, impl.averagedMilliseconds, settings);
@@ -1968,6 +1973,10 @@ std::string Renderer::deviceName() const { return impl_->gpu->name(); }
 void Renderer::pinLightSeconds(double seconds) noexcept { impl_->pinnedLightSeconds = seconds; }
 
 void Renderer::unpinLightSeconds() noexcept { impl_->pinnedLightSeconds.reset(); }
+
+void Renderer::pinRenderScale(double scale) noexcept { impl_->pinnedRenderScale = scale; }
+
+void Renderer::unpinRenderScale() noexcept { impl_->pinnedRenderScale.reset(); }
 
 Result<void> Renderer::resize(std::uint32_t width, std::uint32_t height) {
     if (width == 0 || height == 0)

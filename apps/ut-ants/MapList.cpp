@@ -126,11 +126,31 @@ private:
         } else if (code < 0x800) {
             out += static_cast<char>(0xC0 | (code >> 6));
             out += static_cast<char>(0x80 | (code & 0x3F));
-        } else {
+        } else if (code < 0x10000) {
             out += static_cast<char>(0xE0 | (code >> 12));
             out += static_cast<char>(0x80 | ((code >> 6) & 0x3F));
             out += static_cast<char>(0x80 | (code & 0x3F));
+        } else {
+            out += static_cast<char>(0xF0 | (code >> 18));
+            out += static_cast<char>(0x80 | ((code >> 12) & 0x3F));
+            out += static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+            out += static_cast<char>(0x80 | (code & 0x3F));
         }
+    }
+
+    /// Four hex digits, as a `\u` escape carries.
+    std::optional<std::uint32_t> hex4() {
+        if (at_ + 4 > text_.size()) return std::nullopt;
+        std::uint32_t code = 0;
+        for (int i = 0; i < 4; ++i) {
+            const auto digit = static_cast<unsigned char>(text_[at_++]);
+            code <<= 4;
+            if (digit >= '0' && digit <= '9') code |= digit - '0';
+            else if (digit >= 'a' && digit <= 'f') code |= digit - 'a' + 10;
+            else if (digit >= 'A' && digit <= 'F') code |= digit - 'A' + 10;
+            else return std::nullopt;
+        }
+        return code;
     }
 
     std::optional<std::string> string() {
@@ -155,17 +175,21 @@ private:
             case 'r': out += '\r'; break;
             case 't': out += '\t'; break;
             case 'u': {
-                if (at_ + 4 > text_.size()) return std::nullopt;
-                std::uint32_t code = 0;
-                for (int i = 0; i < 4; ++i) {
-                    const auto digit = static_cast<unsigned char>(text_[at_++]);
-                    code <<= 4;
-                    if (digit >= '0' && digit <= '9') code |= digit - '0';
-                    else if (digit >= 'a' && digit <= 'f') code |= digit - 'a' + 10;
-                    else if (digit >= 'A' && digit <= 'F') code |= digit - 'A' + 10;
-                    else return std::nullopt;
+                // A character past U+FFFF is a surrogate pair, two escapes
+                // making one character; a lone surrogate is no character
+                // (UTA-0372).
+                const auto code = hex4();
+                if (!code) return std::nullopt;
+                if (*code >= 0xDC00 && *code <= 0xDFFF) return std::nullopt;
+                if (*code >= 0xD800 && *code <= 0xDBFF) {
+                    if (at_ + 2 > text_.size() || text_[at_] != '\\' || text_[at_ + 1] != 'u') return std::nullopt;
+                    at_ += 2;
+                    const auto low = hex4();
+                    if (!low || *low < 0xDC00 || *low > 0xDFFF) return std::nullopt;
+                    appendUtf8(out, 0x10000 + ((*code - 0xD800) << 10) + (*low - 0xDC00));
+                } else {
+                    appendUtf8(out, *code);
                 }
-                appendUtf8(out, code);
                 break;
             }
             default: return std::nullopt;

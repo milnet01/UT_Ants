@@ -144,6 +144,12 @@ TEST_CASE("UTA-0190: --notes names the file a pose line goes to", "[client]") {
     CHECK_FALSE(parse({"--notes", "a.txt", "--notes", "b.txt", "/games/UT", "map.utab"}).options.has_value());
 }
 
+TEST_CASE("UTA-0372: an empty --baker-version is refused, so a second is seen", "[client]") {
+    CHECK_FALSE(parse({"--baker-version", "", "/games/UT", "map.utab"}).options.has_value());
+    CHECK_FALSE(parse({"--baker-version", "", "--baker-version", "r1", "/games/UT", "map.utab"}).options.has_value());
+    CHECK_FALSE(parse({"--baker-version", "", "/games/UT"}).options.has_value()); // the launcher refuses it
+}
+
 TEST_CASE("UTA-0190: the launcher refuses --notes", "[client]") {
     const Parsed parsed = parse({"--notes", "a.txt", "/games/UT"});
     CHECK_FALSE(parsed.options.has_value());
