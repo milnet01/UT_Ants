@@ -65,7 +65,7 @@ Bytes sunPayload(const Sun& sun) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(28); // formatVersion -- 28 since UTA-0349 added BAKR
+    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

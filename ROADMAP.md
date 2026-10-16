@@ -2227,6 +2227,29 @@ stays with movement in 0.2.0.
   Started 2026-10-16. Scope found: mesh flags wait on UTA-0341 (no mesh
   drawing), so this covers BSP banners and water. Step 1, a census of
   cloth textures on BSP surfaces, kept in ~/.cache/uta-scratch/u055.
+  Progress (2026-10-16, commit "UTA-0055: slice and sway..."): built
+  and green locally, NOT pushed, look NOT checked. Unit 1047 cases pass;
+  device [sway] and [liquids] pass on lavapipe with sync validation and on
+  the GPU; 7 hand mutants all killed (shader: no sway, weight ignored,
+  half-cycle rates; slicer: crossing order, T-corners, per-polygon top,
+  no cover). Format 29, baker 56.
+  Departures from the spec, to fold back into its SS 4.2 to 4.5 and
+  INV-5/6: cloth cut at 32 not 16 (DM-KGalleon's sails took 211k of 241k
+  vertices at 16); budget 524288 not 262144; the budget coarsens the
+  heavier kind first (cloth to 64, water to 256); a third byte swayCell
+  (spacing / 16) is on the wire, so a vertex is 36 bytes; the shader fades
+  waves under 3 cells; water waves 600/340/220/150 at 3 units, cloth
+  224/144/96 at 6. INV-1's tests live in BakeGeometryTest.cpp, not
+  BakeSwayTest.cpp. INV-9 (collision flat) has no test: buildCollision
+  reads the Model only.
+  DM-KGalleon re-baked: water and cloth both at 32, 477117 sliced
+  vertices, 59415 cloth.
+  Left: look check of KGalleon's sails and water and of shadow acne
+  (spec SS 15) with ut-shot; ut-bench frame time before and after;
+  spec fold-back; CLAUDE.md Standing facts (format 29, baker 56);
+  UTA-0109 spec's vertex layout; CHANGELOG; push and flip.
+  Gap found: the census name search missed abbreviated names, e.g.
+  KGalleon's ShpBanr1/ShpBanr2 banners. Not on the cloth list yet.
   **Layman:** Make the flags and the water move instead of standing still.
   Kind: implement.
   Source: user-request-2026-09-04.

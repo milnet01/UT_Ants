@@ -69,6 +69,7 @@ struct FrameData {
     float paintedSkyHorizonG;
     float paintedSkyHorizonB;
     float paintedSkyClouds;
+    float previousFlameSeconds; // UTA-0055 SS 4.5: flameSeconds a frame earlier
 };
 
 struct Object {

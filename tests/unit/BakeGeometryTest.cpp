@@ -98,6 +98,8 @@ struct Stub {
     double uSize = 64;
     double vSize = 64;
     bool onlyMasked = false;
+    bool cloth = false; ///< UTA-0055: every material made is cloth
+    bool water = false; ///< UTA-0055: every material made is water
     std::vector<std::pair<std::int32_t, bool>> asked;
     std::map<std::pair<std::int32_t, bool>, SurfaceMaterial> made;
 
@@ -106,7 +108,7 @@ struct Stub {
             asked.emplace_back(texture.raw(), masked);
             if (onlyMasked && !masked) return nullptr;
             const std::string id = "t" + std::to_string(texture.raw()) + (masked ? "#masked" : "");
-            return &made.try_emplace({texture.raw(), masked}, SurfaceMaterial{id, uSize, vSize})
+            return &made.try_emplace({texture.raw(), masked}, SurfaceMaterial{id, uSize, vSize, cloth, water})
                         .first->second;
         };
     }
@@ -485,4 +487,61 @@ TEST_CASE("UTA-0364: the area overlapping portals share is counted once", "[ubak
 
     CHECK(vertices(left, left) == 4);
     CHECK(vertices(left, right) == 0);
+}
+
+// ------------------------------------------------ UTA-0055 INV-1: what sways
+
+namespace {
+
+/// Every vertex's sway kind is `kind`, and there is more than one quad's worth.
+void allSway(const Geometry& geometry, uta::ubundle::SwayKind kind) {
+    CHECK(geometry.vertices.size() > 4);
+    for (const auto& vertex : geometry.vertices) CHECK(vertex.sway == kind);
+}
+
+/// Drawn as today: the four corners, still.
+void still(const Geometry& geometry) {
+    REQUIRE(geometry.vertices.size() == 4);
+    for (const auto& vertex : geometry.vertices) {
+        CHECK(vertex.sway == uta::ubundle::SwayKind::None);
+        CHECK(vertex.swayWeight == 0);
+    }
+}
+
+} // namespace
+
+TEST_CASE("UTA-0055 INV-1: cloth sways only on a two-sided or not-solid surface", "[ubake][geom][sway]") {
+    for (const std::uint32_t flags : {PF_TWO_SIDED, uta::ubake::PF_NOT_SOLID}) {
+        INFO("flags " << flags);
+        Scene scene;
+        scene.add(square(0), flags);
+        Stub stub;
+        stub.cloth = true;
+        allSway(built(scene, stub), uta::ubundle::SwayKind::Cloth);
+    }
+    Scene solid;
+    solid.add(square(0));
+    Stub stub;
+    stub.cloth = true;
+    still(built(solid, stub));
+}
+
+TEST_CASE("UTA-0055 INV-1: water sways facing up and not on a wall", "[ubake][geom][sway]") {
+    Scene floor;
+    floor.add(square(0));
+    Stub stub;
+    stub.water = true;
+    allSway(built(floor, stub), uta::ubundle::SwayKind::Water);
+
+    Scene wall;
+    const std::size_t node = wall.add({at(0, 0, 0), at(0, 64, 0), at(0, 64, 64), at(0, 0, 64)});
+    wall.surfOf(node).vNormal = 1; // +x
+    still(built(wall, stub));
+}
+
+TEST_CASE("UTA-0055 INV-3: a material that is neither cloth nor water is drawn as before", "[ubake][geom][sway]") {
+    Scene scene;
+    scene.add(square(0), PF_TWO_SIDED | uta::ubake::PF_NOT_SOLID);
+    Stub stub;
+    still(built(scene, stub));
 }

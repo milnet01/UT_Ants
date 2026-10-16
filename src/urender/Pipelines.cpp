@@ -111,6 +111,9 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ubundle::GeometryVertex, u)},
         // UTA-0156 SS 4.4: the vertex's zone, for its ambient light.
         VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R8_UINT, offsetof(ubundle::GeometryVertex, zone)},
+        // UTA-0055 SS 4.5: the zone byte and the three sway bytes after it, as
+        // one four-byte read; three-byte formats are not widely supported.
+        VkVertexInputAttributeDescription{7, 0, VK_FORMAT_R8G8B8A8_UINT, offsetof(ubundle::GeometryVertex, zone)},
         VkVertexInputAttributeDescription{4, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(SurfaceVertex, occlusionUv)},
         VkVertexInputAttributeDescription{5, 1, VK_FORMAT_R32_UINT, offsetof(SurfaceVertex, maskChart)},
         VkVertexInputAttributeDescription{6, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(SurfaceVertex, maskTexel)},

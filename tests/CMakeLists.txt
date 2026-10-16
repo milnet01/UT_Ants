@@ -45,6 +45,8 @@ add_executable(uta_unit_tests
     unit/BakeFireLookTest.cpp
     unit/BakeFlamesTest.cpp
     unit/BakeLiquidsTest.cpp
+    unit/BakeSwayTest.cpp
+    unit/ClothLibraryTest.cpp
     unit/FlameLibraryTest.cpp
     unit/BakeZonesTest.cpp
     unit/BundleActorsTest.cpp
@@ -206,6 +208,7 @@ add_executable(uta_device_tests
     device/RenderFireReplayTest.cpp
     device/RenderFlamesTest.cpp
     device/RenderLiquidsTest.cpp
+    device/RenderSwayTest.cpp
     device/RenderDetailTest.cpp
     device/RenderFogTest.cpp
     device/RenderDeviceAbsentTest.cpp
@@ -288,7 +291,7 @@ if(UTA_REAL_ASSET_TESTS)
                                         real/RealActorsTest.cpp real/RealMoversTest.cpp
                                         real/RealCollisionTest.cpp real/RealPathSeedsTest.cpp
                                         real/RealLightProbesTest.cpp real/RealFlamesTest.cpp
-                                        real/RealLiquidsTest.cpp)
+                                        real/RealLiquidsTest.cpp real/RealClothTest.cpp)
     target_link_libraries(uta_real_asset_tests PRIVATE uta_upkg uta_umap uta_umap_build uta_unav_build
                                                        uta_umat uta_ubake Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.
@@ -301,6 +304,7 @@ if(UTA_REAL_ASSET_TESTS)
     target_compile_definitions(uta_real_asset_tests
         PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}"
                 UTA_FLAME_LABELS="${CMAKE_CURRENT_SOURCE_DIR}/real/flame-labels.txt"
+                UTA_CLOTH_LABELS="${CMAKE_CURRENT_SOURCE_DIR}/real/cloth-labels.txt"
                 UTA_REFERENCE_INSTALL=$<BOOL:${UTA_REFERENCE_INSTALL}>)
     catch_discover_tests(uta_real_asset_tests PROPERTIES LABELS "real-assets;local-only")
 endif()

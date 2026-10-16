@@ -10,8 +10,9 @@
 namespace uta::ubundle::detail {
 namespace {
 
-/// SS 4.2: eight f32, then UTA-0156's zone byte; fixed.
-constexpr std::uint64_t MIN_GEOMETRY_VERTEX = 33;
+/// SS 4.2: eight f32, then UTA-0156's zone byte and UTA-0055's sway kind,
+/// weight and cell; fixed.
+constexpr std::uint64_t MIN_GEOMETRY_VERTEX = 36;
 
 /// SS 4.2: a u32 length for an empty material, then three u32.
 constexpr std::uint64_t MIN_GEOMETRY_BATCH = 24; // UTA-0269 added the pan rate's 8
@@ -26,8 +27,14 @@ constexpr std::uint64_t MIN_GEOMETRY_BATCH = 24; // UTA-0269 added the pan rate'
     }
     UTA_TRY(vertex.u, cursor.readF32());
     UTA_TRY(vertex.v, cursor.readF32());
-    // UTA-0156 SS 4.2: `reserved` is not on the wire and stays zero.
     UTA_TRY(vertex.zone, cursor.readU8());
+    // UTA-0055 SS 4.4: refused past Water, as MATS refuses a liquid byte past Wave.
+    UTA_TRY(const std::uint8_t sway, cursor.readU8());
+    if (sway > static_cast<std::uint8_t>(SwayKind::Water))
+        return fail(ErrorCode::MalformedData, "GEOM: sway byte " + std::to_string(sway) + " is not 0 to 2");
+    vertex.sway = static_cast<SwayKind>(sway);
+    UTA_TRY(vertex.swayWeight, cursor.readU8());
+    UTA_TRY(vertex.swayCell, cursor.readU8());
     return vertex;
 }
 
@@ -49,6 +56,9 @@ void putVertex(Sink& sink, const GeometryVertex& vertex) {
     sink.putF32(vertex.u);
     sink.putF32(vertex.v);
     sink.putU8(vertex.zone);
+    sink.putU8(static_cast<std::uint8_t>(vertex.sway)); // UTA-0055 SS 4.4
+    sink.putU8(vertex.swayWeight);
+    sink.putU8(vertex.swayCell);
 }
 
 void putBatch(Sink& sink, const GeometryBatch& batch) {
@@ -77,9 +87,16 @@ Result<void> validateGeometry(const Geometry& geometry, ErrorCode code) {
     // UTA-0156 SS 4.2. A read vertex's are always zero; a caller's may not be,
     // and the renderer uploads and hashes these bytes.
     for (std::size_t i = 0; i < vertexCount; ++i) {
-        for (const std::uint8_t byte : geometry.vertices[i].reserved)
-            if (byte != 0)
-                return fail(code, "GEOM: vertex " + std::to_string(i) + "'s reserved bytes are not zero");
+        const GeometryVertex& vertex = geometry.vertices[i];
+        // UTA-0055 SS 4.4: a caller's kind may be any byte; a still vertex has
+        // no weight and no cell, and a swaying one's cell is a power of two.
+        if (static_cast<std::uint8_t>(vertex.sway) > static_cast<std::uint8_t>(SwayKind::Water))
+            return fail(code, "GEOM: vertex " + std::to_string(i) + "'s sway kind is not 0 to 2");
+        if (vertex.sway == SwayKind::None && (vertex.swayWeight != 0 || vertex.swayCell != 0))
+            return fail(code, "GEOM: vertex " + std::to_string(i) + " sways none but has a weight or cell");
+        if (vertex.sway != SwayKind::None
+            && (vertex.swayCell == 0 || vertex.swayCell > 16 || (vertex.swayCell & (vertex.swayCell - 1)) != 0))
+            return fail(code, "GEOM: vertex " + std::to_string(i) + "'s sway cell is not 1, 2, 4, 8 or 16");
     }
     for (std::size_t i = 0; i < geometry.indices.size(); ++i) {
         if (geometry.indices[i] >= vertexCount)

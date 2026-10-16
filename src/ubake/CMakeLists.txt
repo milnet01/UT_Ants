@@ -10,6 +10,7 @@ add_library(uta_ubake STATIC
     Name.cpp
     Bake.cpp
     Geometry.cpp
+    Sway.cpp
     Actors.cpp
     Movers.cpp
     Collision.cpp

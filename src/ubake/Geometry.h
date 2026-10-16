@@ -19,12 +19,22 @@
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <span>
 #include <string>
 
 namespace uta::ubake {
+
+/// What sliceSway did to a map's moving surfaces -- UTA-0055 SS 4.2.
+struct SwayReport {
+    double waterSlice = 0;
+    bool waterStill = false;
+    bool clothStill = false;
+    std::size_t vertices = 0;
+    std::size_t clothVertices = 0;
+};
 
 /// The EPolyFlags bits this library reads. Source:
 /// https://github.com/stephank/surreal/blob/master/Engine/Inc/UnObj.h, UT
@@ -33,6 +43,7 @@ inline constexpr std::uint32_t PF_INVISIBLE = 0x00000001u; ///< never drawn
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;    ///< index-0 texels see-through
 inline constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u; ///< blended; a flame sheet's -- UTA-0263
 inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;   ///< nothing collides; a flame sheet's
+inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;   ///< drawn from both sides -- UTA-0055
 inline constexpr std::uint32_t PF_AUTO_U_PAN = 0x00000200u;  ///< pans along u -- UTA-0269
 inline constexpr std::uint32_t PF_AUTO_V_PAN = 0x00000400u;  ///< pans along v -- UTA-0269
 
@@ -56,6 +67,8 @@ struct SurfaceMaterial {
     std::string id;
     double uSize = 0;
     double vSize = 0;
+    bool cloth = false; ///< UTA-0055 SS 4.6: its picture is on umat's cloth list
+    bool water = false; ///< UTA-0055 SS 4.1: it carries a Wet or Wave liquid look
 };
 
 /// The material a surface naming `texture` wears, masked or not, or nullptr
@@ -85,9 +98,15 @@ using MaterialLookup =
 /// zone speed of 1. UTA-0276: the speed is the VIEWER's zone's, so the
 /// renderer applies it each frame and the rate here carries none. Batches
 /// split by rate.
+///
+/// UTA-0055 SS 4.1 to SS 4.3: a polygon wearing cloth on a two-sided or
+/// not-solid surface, or water facing up or down, is cut by sliceSway and
+/// drawn as its pieces, each corner carrying its sway kind and weight. What
+/// the slicing did goes to `sway` where one is given.
 [[nodiscard]] Result<ubundle::Geometry> buildGeometry(const upkg::Model& model,
                                                       const MaterialLookup& materials,
                                                       std::size_t zoneCount,
-                                                      std::span<const std::uint32_t> omitted = {});
+                                                      std::span<const std::uint32_t> omitted = {},
+                                                      SwayReport* sway = nullptr);
 
 } // namespace uta::ubake

@@ -1,0 +1,47 @@
+# UTA-0055 spec 4.6: which textures drawn on BSP surfaces are cloth.
+#
+# One line per texture judged cloth in the census of 2026-10-16, which read
+# every map in the reference install and named every texture a map draws on
+# a BSP surface whose name suggests cloth (banner, flag, sail, curtain,
+# tapestry, rug ...). Labelled by hand from the name and the picture: a
+# banner, flag, sail, curtain, drape or tapestry that could sway. Rugs,
+# carpets and fabric used on solid walls, floors and furniture are not
+# listed; neither are moss, cobwebs and vines (UTA-0293).
+#   <package> <texture>
+# A texture embedded in a map names the map as its package. Being listed
+# makes a picture cloth; whether a surface wearing it sways is the
+# surface's flags' call (spec 4.1). Package and texture names compare
+# case-insensitively.
+genin rug-d
+ddayfx NaziFlag
+trenchesfx NziFlg3
+skycity sAwning2
+trenchesfx NflagB
+indus6 Sail1
+indus6 rBedHang
+MH-MHMVillage-fixed sail
+indus6 Sail1a
+MH-GiranTownSBFix2 dUEpicflag3
+MH-FNB-AllGoodThingsV0 rapBanner500-V
+MH-FNB-AllGoodThingsV0 rapBanner600-V
+MH-UM-CastleArrggh tapesthunt
+MH-UM-CastleArrggh tapestking
+MH-UM-CastleArrggh tapestwar
+botpack JFlag11
+genfx rug-d
+hourpitores_ut Pitoresdecotent1
+hourpitores_ut Pitoresflag1
+hourpitores_ut Pitoresflag1b
+kasarultextures Tapestry
+kasarultextures Tapestry1
+MH-ApproachV0 BannerNE1
+MH-ApproachV0 BannerNE2
+DM-CTC-Eldora HourIndus_decotent_i
+MH-CMC-PartyCrashers flags
+MH-Salmagundi myFlag
+MH-Vale_Evelyn rug-d
+botpack JFlag13
+dmorbit curtains
+hh3_vendetta banner002
+hh3_vendetta banner006
+tyunr2 ty_Flag

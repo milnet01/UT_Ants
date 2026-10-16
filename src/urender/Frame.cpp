@@ -468,6 +468,7 @@ struct Renderer::Impl {
     std::optional<SceneGeometry> geometry;
 
     std::optional<gpu::Mat4> previousViewProj;
+    std::optional<float> previousFlameSeconds; // UTA-0055 SS 4.5, cleared with previousViewProj
     std::vector<gpu::Mat4> previousModels;
     /// Per object, whether its model reverses winding -- SS 4.5's mirrored mover.
     std::vector<bool> mirrored;
@@ -1618,6 +1619,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         impl.skyPending = false;
         impl.skyReady = true;
         impl.previousViewProj.reset(); // the faces' views are not the player's last
+        impl.previousFlameSeconds.reset();
         impl.fogFrames = 0;            // UTA-0356: nor is their fog the history
     }
 
@@ -1692,6 +1694,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // millisecond for hours only, so it wraps; a pinned time that is not
     // finite reads as 0.
     frame.flameSeconds = std::isfinite(seconds) ? static_cast<float>(std::fmod(seconds, FLAME_CLOCK_WRAP)) : 0.0f;
+    frame.previousFlameSeconds = impl.previousFlameSeconds.value_or(frame.flameSeconds);
     std::vector<gpu::Light> frameLights = drawnLights(bundle, seconds);
     const ClusterGrid grid = clusterGrid(camera, region.width, region.height);
     std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
@@ -1902,6 +1905,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     }
 
     impl.previousViewProj = viewProj;
+    impl.previousFlameSeconds = frame.flameSeconds;
     impl.previousModels = std::move(models);
     ++impl.frameIndex;
     if (!skyFace) ++impl.fogFrames;
@@ -1959,6 +1963,7 @@ void Renderer::setJitter(bool enabled) noexcept { impl_->jitter = enabled; }
 
 void Renderer::cut() noexcept {
     impl_->previousViewProj.reset();
+    impl_->previousFlameSeconds.reset();
     impl_->fogFrames = 0;
 }
 

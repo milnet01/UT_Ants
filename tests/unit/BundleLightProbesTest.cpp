@@ -81,7 +81,7 @@ Bytes emptyColl() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(28); // formatVersion -- 28 since UTA-0349 added BAKR
+    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -158,7 +158,7 @@ void refusedBothWays(const LightProbes& probes, std::string_view says) {
 TEST_CASE("the LPRB golden bytes decode to the probes they encode", "[ubundle][lprb]") {
     const auto result = read(fileWith({{"COLL", emptyColl()}, {"LPRB", lprbPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 28);
+    CHECK(result->header.formatVersion == 29);
     REQUIRE(result->collision.has_value());
     REQUIRE(result->lightProbes.has_value());
     sameProbes(*result->lightProbes, golden());

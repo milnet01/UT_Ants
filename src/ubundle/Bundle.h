@@ -72,7 +72,8 @@ namespace uta::ubundle {
 /// flag and LPRB its switched-off cubes.
 /// 27 since UTA-0350 SS 4.3 added PSKY.
 /// 28 since UTA-0349 added BAKR.
-inline constexpr std::uint32_t FORMAT_VERSION = 28;
+/// 29 since UTA-0055 SS 4.4 gave each GEOM vertex its sway kind, weight and cell.
+inline constexpr std::uint32_t FORMAT_VERSION = 29;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -266,6 +267,10 @@ struct MaterialRecord {
     std::array<std::byte, 32> tileHash{};
 };
 
+/// How a vertex may move -- UTA-0055 SS 4.1. A byte past Water is refused,
+/// as the liquid byte past Wave is.
+enum class SwayKind : std::uint8_t { None = 0, Cloth = 1, Water = 2 };
+
 /// One corner of a triangle -- UTA-0109 SS 4.2.
 struct GeometryVertex {
     std::array<float, 3> position{}; ///< UT99's own coordinates and units
@@ -273,7 +278,11 @@ struct GeometryVertex {
     float u = 0;                     ///< 1.0 is one repeat of the texture
     float v = 0;
     std::uint8_t zone = 0;                  ///< an index into ZONE -- UTA-0156 SS 4.2
-    std::array<std::uint8_t, 3> reserved{}; ///< always zero, so no byte of it is padding
+    SwayKind sway = SwayKind::None;         ///< UTA-0055 SS 4.4
+    std::uint8_t swayWeight = 0;            ///< UTA-0055 SS 4.3: 0 pinned .. 255 free; 0 where sway is None
+    /// UTA-0055 SS 4.4: the spacing it was cut at, in 16 units: 1, 2, 4, 8 or
+    /// 16; 0 where sway is None. The shader drops waves too short for it.
+    std::uint8_t swayCell = 0;
 };
 
 /// A run of triangles wearing one material under one set of flags.

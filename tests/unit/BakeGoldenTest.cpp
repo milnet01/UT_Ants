@@ -135,9 +135,12 @@ namespace {
 // 55: UTA-0375 places a level's probes inside its Model's box when it has
 // no navigation point. Under 54 the fixture hashed as before, so only BAKR's
 // revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 55;
+// 56: UTA-0055 gives each GEOM vertex its sway kind, weight and cell (format 29).
+// The fixture wears no cloth and no water, so both are zero on every vertex
+// and its geometry is otherwise as before (INV-3).
+constexpr std::uint32_t RECORDED_UNDER = 56;
 constexpr std::string_view GOLDEN =
-    "ea790d6772eddd2f9f0c2eeba11d7643b4141ecf371137d893387d74f89a929c";
+    "c2d24a94f50f3baba3b7e7aab5772492e7675327888084949fe7d5130a149055";
 
 } // namespace
 
@@ -180,6 +183,12 @@ TEST_CASE("the golden bake hashes to the value recorded for BAKER_REVISION",
     REQUIRE(result->bundle.shadowMask.has_value());
     // And UTA-0349's BAKR, naming this baker.
     CHECK(result->bundle.baker == uta::ubake::bakerVersion());
+    // UTA-0055 INV-3: nothing the fixture wears sways, so nothing is sliced.
+    REQUIRE(result->bundle.geometry.has_value());
+    for (const auto& vertex : result->bundle.geometry->vertices) {
+        CHECK(vertex.sway == uta::ubundle::SwayKind::None);
+        CHECK(vertex.swayWeight == 0);
+    }
 
     const auto written = uta::ubundle::write(result->bundle);
     REQUIRE(written.has_value());

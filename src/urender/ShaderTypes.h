@@ -114,8 +114,11 @@ struct FrameData {
     std::array<float, 3> paintedSkyTop;
     std::array<float, 3> paintedSkyHorizon;
     float paintedSkyClouds;
+    /// UTA-0055 SS 4.5: flameSeconds a frame earlier, so a swaying vertex's
+    /// motion vector carries its sway. Equal to flameSeconds after a cut.
+    float previousFlameSeconds;
 };
-static_assert(sizeof(FrameData) == 416);
+static_assert(sizeof(FrameData) == 420);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -148,6 +151,7 @@ static_assert(offsetof(FrameData, paintedSky) == 384); // UTA-0350 SS 4.4
 static_assert(offsetof(FrameData, paintedSkyTop) == 388);
 static_assert(offsetof(FrameData, paintedSkyHorizon) == 400);
 static_assert(offsetof(FrameData, paintedSkyClouds) == 412);
+static_assert(offsetof(FrameData, previousFlameSeconds) == 416); // UTA-0055 SS 4.5
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {

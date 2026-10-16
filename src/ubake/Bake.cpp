@@ -21,6 +21,7 @@
 #include "ubake/SurfaceRays.h"
 #include "ubake/Zones.h"
 #include "ubundle/Sky.h"
+#include "umat/Cloth.h"
 #include "umat/Derive.h"
 #include "umat/Enlarge.h"
 #include "umat/Fingerprint.h"
@@ -454,6 +455,8 @@ struct MadeVariant {
     /// UTA-0326 SS 4.3: a masked variant's cutout, from the picture as
     /// resolved; empty for an opaque one.
     std::optional<Cutout> cutout;
+    /// UTA-0055 SS 4.6: the picture is on umat's cloth list.
+    bool cloth = false;
 };
 
 /// UTA-0270: an Ice texture's GlassTexture as a one-level BC4 picture of each
@@ -682,7 +685,9 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     // library's entry for this picture, then the map recipe's assignment.
     umat::MaterialSettings settings{};
     std::optional<ubundle::FlameLook> flame;
+    bool cloth = false;
     if (const auto fingerprint = umat::pictureFingerprint(*shown, *shownPalette)) {
+        cloth = umat::isCloth(*fingerprint); // UTA-0055 SS 4.6, keyed as the flame list is
         if (const umat::CuratedOverride* const entry = curated(*fingerprint))
             settings = umat::applied(settings, *entry);
         // UTA-0263 SS 4.1: the flame list is keyed by the same fingerprint. A
@@ -792,7 +797,7 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     return MadeVariant{std::move(*material), base.width * scale, base.height * scale,
                        meanAlbedo(*rgba), flame, liquid, std::move(liquidSkipped), std::move(fire),
                        std::move(fireSkipped), emission, std::move(glass), std::move(detail), tileScores,
-                       tileHash, masked ? std::optional<Cutout>(cutoutOf(*resolved)) : std::nullopt};
+                       tileHash, masked ? std::optional<Cutout>(cutoutOf(*resolved)) : std::nullopt, cloth};
 }
 
 struct Materials {
@@ -1009,8 +1014,10 @@ Result<Materials> bakeMaterials(const upkg::Package& map, std::string_view mapNa
             if (made->glass.has_value()) out.textures.push_back(std::move(*made->glass)); // UTA-0270
             if (made->detail.has_value()) out.textures.push_back(std::move(*made->detail)); // UTA-0275
             for (const std::int32_t raw : variant.references)
-                out.bySurface.emplace(std::pair{raw, variant.masked},
-                                      SurfaceMaterial{id, made->uSize, made->vSize});
+                out.bySurface.emplace(
+                    std::pair{raw, variant.masked},
+                    SurfaceMaterial{id, made->uSize, made->vSize, made->cloth,
+                                    made->liquid.has_value() && made->liquid->kind != ubundle::LiquidKind::Ice});
         }
     }
     return out;
@@ -1228,8 +1235,9 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         return index->second;
     };
     FlameSheets flames = findFlameSheets(model, flameMaterial);
+    SwayReport sway; // UTA-0055 SS 4.2
     UTA_TRY(ubundle::Geometry geometry,
-            naming(buildGeometry(model, lookup, zones.size(), flames.surfaces), mapName));
+            naming(buildGeometry(model, lookup, zones.size(), flames.surfaces, &sway), mapName));
     std::vector<TileQuestion> tileQuestions = judgeTileKinds(materials, tileSurfaces(model, lookup), tileLimits);
 
     // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
@@ -1428,6 +1436,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     result.skippedFlames = std::move(flames.skipped);
     result.skippedLiquids = std::move(materials.skippedLiquids);
     result.skippedFires = std::move(materials.skippedFires);
+    result.sway = sway;
     result.recipeUnused = std::move(materials.recipeUnused);
     result.tileQuestions = std::move(tileQuestions);
 

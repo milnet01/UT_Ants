@@ -38,6 +38,7 @@ using uta::ubundle::GeometryBatch;
 using uta::ubundle::GeometryVertex;
 using uta::ubundle::MaterialRecord;
 using uta::ubundle::Origin;
+using uta::ubundle::SwayKind;
 using uta::ubundle::read;
 using uta::ubundle::write;
 
@@ -62,6 +63,9 @@ Bytes geomPayload(const Geometry& geometry) {
         out.f32(vertex.u);
         out.f32(vertex.v);
         out.u8(vertex.zone); // UTA-0156 SS 4.2
+        out.u8(static_cast<std::uint8_t>(vertex.sway)); // UTA-0055 SS 4.4
+        out.u8(vertex.swayWeight);
+        out.u8(vertex.swayCell);
     }
     out.u32(static_cast<std::uint32_t>(geometry.indices.size()));
     for (const std::uint32_t index : geometry.indices) out.u32(index);
@@ -81,7 +85,7 @@ Bytes geomPayload(const Geometry& geometry) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(28); // formatVersion -- 28 since UTA-0349 added BAKR
+    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -115,6 +119,13 @@ Geometry golden() {
     geometry.vertices = {vertexAt(-0.0F, 0.0F, 0.0F, 0.0F), vertexAt(64.0F, 0.0F, 0.5F, 0.0F),
                          vertexAt(64.0F, 64.0F, SIGNALLING_NAN, 1.0F),
                          vertexAt(0.0F, 64.0F, 0.0F, 1.0F)};
+    // UTA-0055 SS 4.4: one cloth and one water vertex, each with a weight.
+    geometry.vertices[1].sway = SwayKind::Cloth;
+    geometry.vertices[1].swayWeight = 200;
+    geometry.vertices[1].swayCell = 2;
+    geometry.vertices[2].sway = SwayKind::Water;
+    geometry.vertices[2].swayWeight = 255;
+    geometry.vertices[2].swayCell = 16;
     geometry.indices = {0, 1, 2, 0, 2, 3};
     geometry.batches = {GeometryBatch{"", 0, 0, 3},
                         GeometryBatch{"dm-fixture.floor", 0x04000000u, 3, 3, {0.5F, -0.25F}}};
@@ -133,6 +144,9 @@ void sameBits(const Geometry& actual, const Geometry& expected) {
         CHECK(bitsOf(actual.vertices[i].u) == bitsOf(expected.vertices[i].u));
         CHECK(bitsOf(actual.vertices[i].v) == bitsOf(expected.vertices[i].v));
         CHECK(actual.vertices[i].zone == expected.vertices[i].zone);
+        CHECK(actual.vertices[i].sway == expected.vertices[i].sway);
+        CHECK(actual.vertices[i].swayWeight == expected.vertices[i].swayWeight);
+        CHECK(actual.vertices[i].swayCell == expected.vertices[i].swayCell);
     }
     CHECK(actual.indices == expected.indices);
     REQUIRE(actual.batches.size() == expected.batches.size());
@@ -177,7 +191,7 @@ TEST_CASE("the GEOM golden bytes decode to the geometry they encode", "[ubundle]
     // INV-1, the reader's half.
     const auto result = read(fileWith(geomPayload(golden())));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 28);
+    CHECK(result->header.formatVersion == 29);
     REQUIRE(result->geometry.has_value());
     sameBits(*result->geometry, golden());
 }
@@ -280,7 +294,8 @@ TEST_CASE("GEOM batches that tile only when summed in 32 bits are refused", "[ub
 
 TEST_CASE("a GEOM count the section cannot hold is refused before an element is read",
           "[ubundle][geom]") {
-    // SS 4.2's minimums: 33 bytes a vertex (UTA-0156's zone byte), 24 a batch
+    // SS 4.2's minimums: 36 bytes a vertex (UTA-0156's zone byte, UTA-0055's
+    // sway kind, weight and cell), 24 a batch
     // (UTA-0269's pan rate). The batch payload holds one whole batch and eight
     // bytes more, so a minimum of 16 would admit the count of two.
     // Each payload declares two elements and holds one plus less than a second,
@@ -291,6 +306,9 @@ TEST_CASE("a GEOM count the section cannot hold is refused before an element is 
     vertices.u32(2);
     for (int part = 0; part < 8; ++part) vertices.f32(0.0F);
     vertices.u8(0); // zone
+    vertices.u8(0); // UTA-0055: sway
+    vertices.u8(0); // and its weight
+    vertices.u8(0); // and its cell
     vertices.u32(0); // indices
     vertices.u32(0); // batches
     const auto tooManyVertices = read(fileWith(vertices));
@@ -357,7 +375,7 @@ std::vector<std::byte> fileWithZones(const Bytes& geom, std::uint32_t count) {
     }
     Bytes out;
     out.id("UTAB");
-    out.u32(28); // formatVersion -- 28 since UTA-0349 added BAKR
+    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -421,12 +439,23 @@ TEST_CASE("UTA-0156 INV-2: a non-zero GEOM vertex zone with no ZONE is refused",
     refusedBothWays(geometry, "and the bundle has no ZONE");
 }
 
-TEST_CASE("UTA-0156 INV-2: write refuses a vertex whose reserved bytes are not zero", "[ubundle][geom][zone]") {
-    Bundle bundle;
-    bundle.geometry = golden();
-    bundle.geometry->vertices[3].reserved[1] = 1;
-    const auto written = write(bundle);
-    REQUIRE_FALSE(written.has_value());
-    CHECK(written.error().code() == ErrorCode::InvalidArgument);
-    CHECK(written.error().message().find("vertex 3's reserved bytes are not zero") != std::string_view::npos);
+TEST_CASE("UTA-0055 INV-5: a swaying GEOM vertex's cell is a power of two to 16", "[ubundle][geom][sway]") {
+    for (const std::uint8_t cell : {std::uint8_t{0}, std::uint8_t{3}, std::uint8_t{32}}) {
+        INFO("cell " << int(cell));
+        Geometry geometry = golden();
+        geometry.vertices[1].swayCell = cell;
+        refusedBothWays(geometry, "vertex 1's sway cell is not 1, 2, 4, 8 or 16");
+    }
+}
+
+TEST_CASE("UTA-0055 INV-5: a GEOM sway kind past Water is refused", "[ubundle][geom][sway]") {
+    Geometry geometry = golden();
+    geometry.vertices[0].sway = static_cast<SwayKind>(3);
+    refusedBothWays(geometry, "is not 0 to 2");
+}
+
+TEST_CASE("UTA-0055 INV-5: a GEOM vertex that sways none has no weight", "[ubundle][geom][sway]") {
+    Geometry geometry = golden();
+    geometry.vertices[0].swayWeight = 1;
+    refusedBothWays(geometry, "vertex 0 sways none but has a weight or cell");
 }

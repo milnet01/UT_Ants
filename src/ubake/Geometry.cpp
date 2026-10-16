@@ -3,10 +3,13 @@
 
 #include "ubake/Geometry.h"
 
+#include "ubake/Sway.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string_view>
@@ -217,18 +220,50 @@ std::vector<bool> hiddenBehindPortals(const upkg::Model& model) {
 }
 
 /// One drawn node, before it is batched.
+/// How a point of one node's surface becomes a vertex.
+struct Mapping {
+    Vec base{};
+    Vec textureU{};
+    Vec textureV{};
+    double panU = 0;
+    double panV = 0;
+    const SurfaceMaterial* made = nullptr;
+    std::array<float, 3> normal{};
+    std::uint8_t zone = 0;
+
+    [[nodiscard]] ubundle::GeometryVertex vertexAt(const Vec& point) const {
+        ubundle::GeometryVertex vertex;
+        vertex.zone = zone;
+        vertex.position = {static_cast<float>(point[0]), static_cast<float>(point[1]), static_cast<float>(point[2])};
+        vertex.normal = normal;
+        if (made != nullptr) {
+            const Vec offset = minus(point, base);
+            vertex.u = static_cast<float>((dot(offset, textureU) + panU) / made->uSize);
+            vertex.v = static_cast<float>((dot(offset, textureV) + panV) / made->vSize);
+        }
+        return vertex;
+    }
+};
+
 struct Drawn {
     std::string material;
     std::uint32_t polyFlags = 0;
     std::array<float, 2> panRate{}; ///< UTA-0269
     std::vector<ubundle::GeometryVertex> corners;
+    /// UTA-0055 SS 4.2: where it sways, its pieces, each a fan drawn in place
+    /// of `corners`.
+    std::vector<std::vector<ubundle::GeometryVertex>> pieces;
+    Mapping mapping;
+    std::size_t sway = SIZE_MAX; ///< its index among the polygons sliceSway is given
 };
 
 } // namespace
 
 Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
-                                        std::size_t zoneCount, std::span<const std::uint32_t> omitted) {
+                                        std::size_t zoneCount, std::span<const std::uint32_t> omitted,
+                                        SwayReport* sway) {
     std::vector<Drawn> drawn;
+    std::vector<SwayPolygon> swaying;
     std::uint64_t vertexTotal = 0;
     std::uint64_t indexTotal = 0;
     const std::vector<bool> hidden = hiddenBehindPortals(model);
@@ -325,21 +360,52 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
             if ((surf.polyFlags & PF_AUTO_V_PAN) != 0)
                 out.panRate[1] = static_cast<float>(PAN_TEXELS_PER_SECOND / made->vSize);
         }
-        for (const Vec& point : points) {
-            ubundle::GeometryVertex vertex;
-            vertex.zone = zone;
-            vertex.position = {static_cast<float>(point[0]), static_cast<float>(point[1]),
-                               static_cast<float>(point[2])};
-            vertex.normal = {normal.x, normal.y, normal.z};
-            if (made != nullptr) {
-                const Vec offset = minus(point, base);
-                vertex.u = static_cast<float>((dot(offset, textureU) + surf.panU) / made->uSize);
-                vertex.v = static_cast<float>((dot(offset, textureV) + surf.panV) / made->vSize);
-            }
-            out.corners.push_back(vertex);
+        out.mapping = Mapping{base, textureU, textureV, static_cast<double>(surf.panU), static_cast<double>(surf.panV),
+                              made, {normal.x, normal.y, normal.z}, zone};
+        for (const Vec& point : points) out.corners.push_back(out.mapping.vertexAt(point));
+
+        // 7a. UTA-0055 SS 4.1: whether it sways.
+        ubundle::SwayKind kind = ubundle::SwayKind::None;
+        const double alongLength = std::sqrt(dot(along, along));
+        if (made != nullptr && made->cloth && (surf.polyFlags & (PF_TWO_SIDED | PF_NOT_SOLID)) != 0)
+            kind = ubundle::SwayKind::Cloth;
+        else if (made != nullptr && made->water && std::abs(along[2]) >= FACING_UP * alongLength)
+            kind = ubundle::SwayKind::Water;
+        if (kind != ubundle::SwayKind::None && alongLength > 0) {
+            out.sway = swaying.size();
+            swaying.push_back(SwayPolygon{kind, made->id, points,
+                                          {along[0] / alongLength, along[1] / alongLength, along[2] / alongLength}});
         }
         drawn.push_back(std::move(out));
     }
+
+    // 7b. UTA-0055 SS 4.2 and SS 4.3: the swaying polygons cut into pieces,
+    // each corner weighted. One the budget left whole keeps its corners.
+    const SwaySlicing slicing = sliceSway(swaying);
+    if (sway != nullptr)
+        *sway = SwayReport{slicing.waterSlice, slicing.waterStill, slicing.clothStill, slicing.vertices,
+                           slicing.clothVertices};
+    for (Drawn& node : drawn) {
+        if (node.sway == SIZE_MAX || slicing.pieces[node.sway].empty()) continue;
+        vertexTotal -= node.corners.size();
+        indexTotal -= 3 * (node.corners.size() - 2);
+        const ubundle::SwayKind kind = swaying[node.sway].kind;
+        for (const SwayPiece& piece : slicing.pieces[node.sway]) {
+            std::vector<ubundle::GeometryVertex>& fan = node.pieces.emplace_back();
+            for (std::size_t k = 0; k < piece.points.size(); ++k) {
+                ubundle::GeometryVertex vertex = node.mapping.vertexAt(piece.points[k]);
+                vertex.sway = kind;
+                vertex.swayWeight = piece.weights[k];
+                vertex.swayCell = piece.cell;
+                fan.push_back(vertex);
+            }
+            vertexTotal += fan.size();
+            indexTotal += 3 * (fan.size() - 2);
+        }
+    }
+    if (vertexTotal >= COUNT_LIMIT || indexTotal >= COUNT_LIMIT)
+        return fail(ErrorCode::MalformedData,
+                    "the Model's geometry would pass the 2^32 vertices or indices a u32 counts, once sliced");
 
     // Batches in ascending key order; a stable sort keeps node order within a
     // key (INV-8).
@@ -357,16 +423,20 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
                                                               static_cast<std::uint32_t>(geometry.indices.size()),
                                                               0, node.panRate});
 
-        // 8. A fan from the first vertex.
-        const auto first = static_cast<std::uint32_t>(geometry.vertices.size());
-        const auto corners = static_cast<std::uint32_t>(node.corners.size());
-        for (std::uint32_t k = 1; k + 1 < corners; ++k) {
-            geometry.indices.push_back(first);
-            geometry.indices.push_back(first + k);
-            geometry.indices.push_back(first + k + 1);
-        }
-        geometry.batches.back().indexCount += 3 * (corners - 2);
-        geometry.vertices.insert(geometry.vertices.end(), node.corners.begin(), node.corners.end());
+        // 8. A fan from the first vertex; a swaying node's, one a piece.
+        const auto fan = [&](const std::vector<ubundle::GeometryVertex>& corners) {
+            const auto first = static_cast<std::uint32_t>(geometry.vertices.size());
+            const auto count = static_cast<std::uint32_t>(corners.size());
+            for (std::uint32_t k = 1; k + 1 < count; ++k) {
+                geometry.indices.push_back(first);
+                geometry.indices.push_back(first + k);
+                geometry.indices.push_back(first + k + 1);
+            }
+            geometry.batches.back().indexCount += 3 * (count - 2);
+            geometry.vertices.insert(geometry.vertices.end(), corners.begin(), corners.end());
+        };
+        if (node.pieces.empty()) fan(node.corners);
+        for (const std::vector<ubundle::GeometryVertex>& piece : node.pieces) fan(piece);
     }
     return geometry;
 }

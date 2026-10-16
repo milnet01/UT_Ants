@@ -20,7 +20,9 @@ static_assert(offsetof(ubundle::GeometryVertex, normal) == 12);
 static_assert(offsetof(ubundle::GeometryVertex, u) == 24);
 static_assert(offsetof(ubundle::GeometryVertex, v) == 28);
 static_assert(offsetof(ubundle::GeometryVertex, zone) == 32); // UTA-0156 SS 4.4
-static_assert(offsetof(ubundle::GeometryVertex, reserved) == 33);
+static_assert(offsetof(ubundle::GeometryVertex, sway) == 33); // UTA-0055 SS 4.5
+static_assert(offsetof(ubundle::GeometryVertex, swayWeight) == 34);
+static_assert(offsetof(ubundle::GeometryVertex, swayCell) == 35);
 // Binding 1, likewise.
 static_assert(sizeof(SurfaceVertex) == 20);
 static_assert(offsetof(SurfaceVertex, occlusionUv) == 0);

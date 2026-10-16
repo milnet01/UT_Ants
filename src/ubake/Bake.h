@@ -18,6 +18,7 @@
 #include "core/Jobs.h"
 #include "core/Timing.h"
 #include "ubake/Flames.h"
+#include "ubake/Geometry.h"
 #include "ubake/Install.h"
 #include "ubake/MaterialLight.h"
 #include "ubake/TextureCache.h"
@@ -83,6 +84,9 @@ struct BakeResult {
     /// -- a short palette or a look past ubundle's limits -- so they show
     /// their still.
     std::vector<SkippedTexture> skippedFires;
+    /// UTA-0055 SS 4.2: how the swaying surfaces were cut, and whether the
+    /// budget left water or cloth still.
+    SwayReport sway;
     /// UTA-0148: materials the texture cache served, and ones it had to make.
     /// Both 0 when the bake ran without one.
     std::uint32_t textureCacheHits = 0;

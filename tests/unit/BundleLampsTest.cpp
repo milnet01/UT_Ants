@@ -140,6 +140,9 @@ void putShape(Bytes& out, const Geometry& shape) {
         out.f32(vertex.u);
         out.f32(vertex.v);
         out.u8(vertex.zone);
+        out.u8(static_cast<std::uint8_t>(vertex.sway)); // UTA-0055 SS 4.4
+        out.u8(vertex.swayWeight);
+        out.u8(vertex.swayCell);
     }
     out.u32(static_cast<std::uint32_t>(shape.indices.size()));
     for (const std::uint32_t index : shape.indices) out.u32(index);
@@ -179,7 +182,7 @@ Bytes lampPayload(const std::vector<AddedLamp>& lamps) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(28); // formatVersion -- 28 since UTA-0349 added BAKR
+    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

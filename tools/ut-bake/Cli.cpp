@@ -290,6 +290,12 @@ void writeResult(std::ostream& out, const BakeResult& result, std::size_t listed
             out << '}';
         });
     }
+    // UTA-0055 SS 4.2: how the swaying surfaces were cut, and what the budget
+    // left still.
+    out << ", \"sway\": {\"waterSlice\": " << result.sway.waterSlice << ", \"waterStill\": "
+        << (result.sway.waterStill ? "true" : "false") << ", \"clothStill\": "
+        << (result.sway.clothStill ? "true" : "false") << ", \"vertices\": " << result.sway.vertices << ", \"clothVertices\": " << result.sway.clothVertices
+        << '}';
     // UTA-0113 SS 4.5: a recipe's texture the map does not use.
     out << ", \"recipeUnused\": ";
     writeArray(out, result.recipeUnused, [&out](const std::string& texture) { writeJsonString(out, texture); });

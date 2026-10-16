@@ -46,6 +46,9 @@ Bytes geomPayload(std::uint32_t vertices) {
     for (std::uint32_t i = 0; i < vertices; ++i) {
         for (int k = 0; k < 8; ++k) out.f32(0); // position, normal, u, v
         out.u8(0);                             // zone
+        out.u8(0);                             // UTA-0055: sway
+        out.u8(0);                             // and its weight
+        out.u8(0);                             // and its cell
     }
     out.u32(0); // indices
     out.u32(0); // batches
@@ -106,7 +109,7 @@ Bytes smskPayload(const ShadowMask& mask) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(28); // formatVersion -- 28 since UTA-0349 added BAKR
+    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved
