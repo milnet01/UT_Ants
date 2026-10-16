@@ -508,10 +508,13 @@ produce. It remains an encoder with no decode path.
 
 - **INV-6** — Every name index held by an opened `Package` is within its
   name table, and every object reference is within the table it names.
-  Neither can be out of range after `open` succeeds.
+  Neither can be out of range after `open` succeeds. Every import's outer
+  chain ends rather than looping; `open` refuses a loop (UTA-0376, the
+  user's decision of 2026-10-16).
   *Test:* `tests/unit/PackageReaderTest.cpp` builds a package whose
   export names an index past the end of the name table, and asserts
-  `open` fails rather than a later lookup.
+  `open` fails rather than a later lookup; "an import outer chain that
+  loops is refused at open" does the same for a loop.
   *Breaks when:* validation is deferred to the accessors, so a caller
   that indexes directly into `exports()` gets an unchecked value.
 

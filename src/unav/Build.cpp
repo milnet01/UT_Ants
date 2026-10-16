@@ -30,11 +30,6 @@ constexpr std::string_view EVENT_PROPERTY = "Event";
 /// export table, whose count is a signed 32-bit field.
 constexpr std::uint32_t NOT_A_NODE = std::numeric_limits<std::uint32_t>::max();
 
-/// How far an import's outer chain is followed before giving up. The chain is
-/// package/group/object, so this is far more than any real package needs; it is
-/// here because a malformed chain must terminate.
-constexpr int OUTER_DEPTH_CAP = 32;
-
 /// A class export, recognised by a NULL class reference -- exactly the set
 /// `readProperties` refuses with InvalidArgument (`upkg/Properties.h`). SS 4.3
 /// makes skipping these required rather than an optimisation: a map defining
@@ -67,9 +62,10 @@ bool sameName(std::string_view left, std::string_view right) {
 }
 
 /// The package an import ultimately lives in: follow its outer chain to the
-/// root, which is where the package name sits.
+/// root, which is where the package name sits. Package::open refuses a chain
+/// that loops (UTA-0376), so the walk ends.
 Result<std::string> importPackageName(const Package& package, ObjectReference reference) {
-    for (int depth = 0; depth < OUTER_DEPTH_CAP; ++depth) {
+    for (;;) {
         if (reference.kind() != ObjectReferenceKind::Import) {
             return std::string{};
         }
@@ -80,7 +76,6 @@ Result<std::string> importPackageName(const Package& package, ObjectReference re
         }
         reference = import.outer;
     }
-    return std::string{};
 }
 
 /// Whether an actor's class descends from `NavigationPoint`.

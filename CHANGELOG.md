@@ -731,6 +731,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A damaged map whose imports point at each other in a circle is refused instead of silently losing path points** (UTA-0376)
+  Opening the file now names the import whose chain loops. Before, the
+  path builder gave up on such a chain and quietly treated the actor as
+  no path point.
+
 - **The baker no longer uses the compiler's maths library, so a compiler cannot change what it writes** (UTA-0364)
   Lamps are turned, flames measured and the sun's disc sized with the
   project's own exact maths. A surface that overlapping invisible portals

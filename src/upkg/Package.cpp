@@ -91,6 +91,30 @@ Result<ObjectReference> checkReference(std::int32_t raw, std::uint32_t exportCou
     return std::unexpected(malformed(std::string(what) + " has an unreadable reference"));
 }
 
+/// UTA-0376: every import's outer chain ends -- at a root, or where it leaves
+/// the import table -- rather than looping. Each import is walked once: a walk
+/// stops at an import an earlier walk finished, and meeting one on its own
+/// path is a loop.
+Result<void> checkImportOuters(const std::vector<ImportEntry>& imports) {
+    enum class Walk : std::uint8_t { Unseen, OnPath, Ends };
+    std::vector<Walk> state(imports.size(), Walk::Unseen);
+    std::vector<std::size_t> path;
+    for (std::size_t start = 0; start < imports.size(); ++start) {
+        for (std::size_t at = start; state[at] != Walk::Ends;) {
+            if (state[at] == Walk::OnPath)
+                return std::unexpected(malformed("import " + std::to_string(at) + "'s outer chain loops"));
+            state[at] = Walk::OnPath;
+            path.push_back(at);
+            const ObjectReference outer = imports[at].outer;
+            if (outer.kind() != ObjectReferenceKind::Import) break;
+            at = outer.index();
+        }
+        for (const std::size_t walked : path) state[walked] = Walk::Ends;
+        path.clear();
+    }
+    return {};
+}
+
 Result<std::string> readName(ByteReader& reader, std::uint16_t version) {
     if (version >= VERSION_LENGTH_PREFIXED_NAMES) {
         UTA_TRY(const std::int32_t length, reader.readIndex());
@@ -215,6 +239,7 @@ Result<Package> Package::open(std::span<const std::byte> bytes) {
         UTA_TRY(entry.objectName, checkNameIndex(objectName, nameCount, "an import"));
         package.imports_.push_back(entry);
     }
+    UTA_CHECK(checkImportOuters(package.imports_));
 
     // The export table.
     package.exports_.reserve(exportCount);

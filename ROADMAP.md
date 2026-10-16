@@ -17171,7 +17171,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: ubake.
 
-- 📋 [UTA-0376] **A looping import chain makes an actor silently not a navigation point.**
+- 🚧 [UTA-0376] **A looping import chain makes an actor silently not a navigation point.**
   Split from UTA-0370 (lane-08 M, unav/Build.cpp:72-83), verified
   2026-10-16. importPackageName returns "" when the outer chain passes
   OUTER_DEPTH_CAP, or meets an export; the caller reads "" as "does not

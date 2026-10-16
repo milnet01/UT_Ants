@@ -181,6 +181,47 @@ TEST_CASE("an object reference past the table it names is refused at open",
     CHECK(package.error().code() == ErrorCode::MalformedData);
 }
 
+TEST_CASE("an import outer chain that loops is refused at open", "[package-reader]") {
+    // UTA-0376: an import's outer chain must end at a root. One that loops
+    // would leave every reader walking it to guess where it stops.
+    UnrealPackageBuilder builder = minimalPackage();
+    ImportEntry root;
+    root.classPackage = NAME_CORE;
+    root.className = NAME_CORE;
+    root.objectName = NAME_CORE;
+    ImportEntry inner = root;
+    inner.className = NAME_BRUSH;
+    inner.objectName = NAME_BRUSH;
+
+    SECTION("a chain ending at a root opens") {
+        inner.outer = -1; // the root
+        builder.addImport(root).addImport(inner).addImport(inner);
+        const std::vector<std::uint8_t> bytes = builder.build();
+        CHECK(Package::open(asBytes(bytes)).has_value());
+    }
+    SECTION("two imports naming each other") {
+        ImportEntry second = inner;
+        ImportEntry third = inner;
+        second.outer = -3; // import 2
+        third.outer = -2;  // import 1
+        builder.addImport(root).addImport(second).addImport(third);
+        const std::vector<std::uint8_t> bytes = builder.build();
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE_FALSE(package.has_value());
+        CHECK(package.error().code() == ErrorCode::MalformedData);
+    }
+    SECTION("an import naming itself, reached through another") {
+        ImportEntry looped = inner;
+        looped.outer = -3; // itself, import 2
+        inner.outer = -3;  // into the loop
+        builder.addImport(root).addImport(inner).addImport(looped);
+        const std::vector<std::uint8_t> bytes = builder.build();
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE_FALSE(package.has_value());
+        CHECK(package.error().code() == ErrorCode::MalformedData);
+    }
+}
+
 TEST_CASE("an object reference resolves to the table its sign names", "[package-reader]") {
     UnrealPackageBuilder builder = minimalPackage();
 
