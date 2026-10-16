@@ -15799,7 +15799,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Phobos-20261006-100152, ~/.cache/uta-scratch/capreview/DM-Phobos-20261006-100152/pair-0.png
 
-- 🚧 [UTA-0319] **DM-KGalleon: the hold floor's water warp is far stronger than the original's, which reads as plain planks.**
+- ✅ [UTA-0319] **DM-KGalleon: the hold floor's water warp is far stronger than the original's, which reads as plain planks.**
   The other half of the user's report on UTA-0312 ("it should be
   stiller than normal"). After UTA-0312 the speed is normal; the size
   of the swirl is not: ours warps wetbeams1 by LIQUID_WARP_TEXELS at
@@ -15878,6 +15878,7 @@ stays with movement in 0.2.0.
   (Swater4a, speed 9-11) loses about 5%. Not done: drop type is not
   carried, so a fast ShallowSpot liquid still moves about eight times
   too much. This replaces the 2026-10-06 plan of a baked stir factor.
+  Shipped in e053488, green on GitHub run 38960044733 (2026-10-16).
   **Layman:** The flooded floor in the galleon's hold swirls a lot in ours and barely at all in the original.
   Kind: investigate.
   Source: user-request-2026-10-06.
