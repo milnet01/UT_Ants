@@ -17161,6 +17161,8 @@ stays with movement in 0.2.0.
   Recommendation put to the user 2026-10-15, not yet answered: bound
   probe placement without reach by the level's own bounding box
   (Model bounds), which is what the game treats as the playable space.
+  Decided (user, 2026-10-16): with no navigation points, place probes
+  through the level's own bounding box.
   **Layman:** A map with no paths and one enormous sloped surface could make the baker run for days; decide where probes go in such a map.
   Kind: security.
   Source: review-code-2026-10-15.
@@ -17177,6 +17179,8 @@ stays with movement in 0.2.0.
   grows). Returning MalformedData from the builder is unsafe: one bad
   class would refuse the whole graph, the shape UTA-0244 removed.
   Recommended: the package reader, since a cycle is a package defect.
+  Decided (user, 2026-10-16): fix the import loop in the package
+  reader, so every tool is covered.
   **Layman:** A damaged map file whose parts point at each other in a circle loses path points without any warning.
   Kind: fix.
   Source: review-code-2026-10-15.
@@ -21153,6 +21157,19 @@ docs/standards/versioning-overrides.md. Closes S8.
   /mnt/Emulators/uta-scratch/u347-lib/bakes; point u039/frame.sh at
   u347-lib/rep's reports and run it (about 20 min at 4K) once the
   bake is done.
+  Survey re-run (2026-10-16): HEAD ac67f77, u347-lib's format-28 bakes,
+  the survey's cameras, full 3840x2160 High (not the 0.75 scale above),
+  load 2-4. Maps whose worst view median misses 16.7 ms: 21 on
+  2026-10-11's 4K run, 8 now; 107 of 127 maps got faster, mean -2.3 ms.
+  Worst view median, old to new, ms: SimpleX 29.3 to 17.4, ArchNemesis
+  26.0 to 20.1, Styx 23.8 to 12.9, ArcticSiege 22.9 to 15.4,
+  InversalLiandri 24.7 to 20.7, SchoolDamage 21.2 to 16.2. Still over:
+  InversalLiandri, ArchNemesis, MH-UM-DeadCity 18.7, Fool'sBravado 18.5,
+  [JAPAN]-AerialAct 17.6, SimpleX, Siberia][ 17.3, "DM-Castle of...".
+  Unexplained: some worst p99s rose with lower medians (DM-Traction 12.7
+  to 27.4, one view of eight); a one-off hitch until a re-run says
+  otherwise. Scratch: /mnt/Emulators/uta-scratch/u352/survey
+  (frame.sh, rank.sh, rank.txt).
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
