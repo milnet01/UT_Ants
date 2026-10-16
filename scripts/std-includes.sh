@@ -27,7 +27,7 @@ add bit bit_ceil bit_floor bit_width popcount countl_zero countl_one \
 add algorithm all_of any_of none_of for_each find find_if find_if_not \
     find_end find_first_of adjacent_find count count_if mismatch equal \
     search copy copy_if copy_n copy_backward move_backward fill fill_n \
-    transform generate generate_n remove remove_if remove_copy replace \
+    transform generate generate_n remove_if remove_copy replace \
     replace_if unique reverse rotate shuffle sort stable_sort partial_sort \
     nth_element is_sorted lower_bound upper_bound equal_range binary_search \
     merge min_element max_element minmax_element minmax clamp \
@@ -37,6 +37,8 @@ add numeric accumulate reduce transform_reduce inner_product partial_sum \
 add cstring memcpy memmove memcmp memset memchr strlen strcmp strncmp strchr
 add charconv from_chars to_chars
 add format format format_to vformat
+# std::remove is both <algorithm>'s and <cstdio>'s: either header will do.
+add '(algorithm|cstdio)' remove
 add memory make_unique make_shared
 
 if [[ $# -gt 0 ]]; then
@@ -63,8 +65,9 @@ for f in "${files[@]}"; do
         [[ -n $pair ]] && includes "$pair" "$h" && continue
         printf '   %s uses std::%s but does not include <%s>\n' "$f" "$name" "$h" >&2
         failures=$((failures + 1))
-    done < <(sed 's|//.*||' "$f" | grep -oE 'std::[a-z_0-9]+[[:space:]]*[(<]' |
-        sed -E 's/^std::([a-z_0-9]+).*/\1/' | sort -u)
+    # std::ranges:: too: its algorithms need <algorithm> as much (UTA-0371).
+    done < <(sed 's|//.*||' "$f" | grep -oE 'std::(ranges::)?[a-z_0-9]+[[:space:]]*[(<]' |
+        sed -E 's/^std::(ranges::)?([a-z_0-9]+).*/\2/' | sort -u)
 done
 
 if [[ $failures -gt 0 ]]; then

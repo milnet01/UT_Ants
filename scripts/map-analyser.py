@@ -67,7 +67,6 @@ Needs ut-dump and ut-shot under build/. Run from the repository root.
 
 import json
 import math
-import os
 import pathlib
 import statistics
 import struct
@@ -134,7 +133,7 @@ def read_views(prefix, cams):
     sky, spots = [], []
     for v, cam in enumerate(cams):
         pfm, ppm = f"{prefix}-{v}-light.pfm", f"{prefix}-{v}.ppm"
-        if not (os.path.exists(pfm) and os.path.exists(ppm)):
+        if not (pathlib.Path(pfm).exists() and pathlib.Path(ppm).exists()):
             continue
         light = struct.unpack(f"<{WIDTH * HEIGHT * 3}f",
                               open(pfm, "rb").read().split(b"\n", 3)[3][:WIDTH * HEIGHT * 12])
@@ -266,14 +265,21 @@ def analyse(install, out, report_path, shoot):
                           capture_output=True, text=True)
     package = json.loads(dump.stdout)["packages"][0] if dump.returncode == 0 else None
     cams = cameras(package) if package and shoot else []
-    if cams and not os.path.exists(f"{prefix}-{len(cams) - 1}.ppm"):
-        subprocess.run(["build/tools/ut-shot/ut-shot", "--light-terms", "--light-time", "0",
-                        "--tier", "high", bundle, str(WIDTH), str(HEIGHT), prefix],
-                       input="\n".join(cams) + "\n", capture_output=True, text=True)
     row = {"map": name, "recipe": report.get("recipe") and pathlib.Path(report["recipe"]).name}
     if package is None:
         row["error"] = "ut-dump failed: " + dump.stderr.strip()[-200:]
         return row
+    # Views are reused only when drawn from this bake: a re-bake under the same
+    # map name must not be measured from the old one's pictures (UTA-0371).
+    last_view = pathlib.Path(f"{prefix}-{len(cams) - 1}.ppm")
+    if cams and not (last_view.exists() and last_view.stat().st_mtime >= pathlib.Path(bundle).stat().st_mtime):
+        shot = subprocess.run(["build/tools/ut-shot/ut-shot", "--light-terms", "--light-time", "0",
+                               "--tier", "high", bundle, str(WIDTH), str(HEIGHT), prefix],
+                              input="\n".join(cams) + "\n", capture_output=True, text=True)
+        # A failed draw is an error, not a measured "no sky" (UTA-0371).
+        if shot.returncode != 0:
+            row["error"] = "ut-shot failed: " + shot.stderr.strip()[-200:]
+            return row
     if shoot:
         sky, spots = read_views(prefix, cams)
         if sky:
@@ -304,7 +310,10 @@ def main(argv):
                                 "skippedLiquids", "decorations", "translucent", "glassNamed")}
     decorations = {}
     for report_path in argv[3:]:
-        row = analyse(install, out, report_path, shoot)
+        try:
+            row = analyse(install, out, report_path, shoot)
+        except ValueError as error:  # a malformed bundle section: one map, not the batch
+            row = {"map": pathlib.Path(report_path).stem, "error": str(error)}
         print(json.dumps(row), flush=True)
         if "error" in row:
             errors += 1

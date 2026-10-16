@@ -139,7 +139,12 @@ def main():
         lines.append(f"{q['hash']} ?  # {n}: {q['material']} on {q['surfaces']} surface(s)\n")
     if shot.returncode != 0:
         print("ut-shot:", shot.stderr.strip().splitlines()[-1] if shot.stderr.strip() else f"exit {shot.returncode}")
-    (out / "answers.txt").write_text("".join(lines))
+    # Never over an answers file the user may have filled in but not yet
+    # appended (UTA-0371).
+    answers = out / "answers.txt"
+    if answers.exists() and answers.read_text() != "".join(lines):
+        sys.exit(f"{answers} exists and differs from these questions; append or move it, then run again")
+    answers.write_text("".join(lines))
     print(f"wrote {len(asked)} question(s) to {out}; the answers file is {answers_path()}")
 
 

@@ -53,6 +53,14 @@ STATE=${XDG_CACHE_HOME:-$HOME/.cache}/uta-gate
 mkdir -p "$STATE"
 SHA=$(git rev-parse HEAD)
 
+# The pre-push hook may run this in the real checkout (ants.gate.inPlace,
+# UTA-0238), where an edit made mid-run would be built in place of the pushed
+# commit. So the tree's state is snapshotted here, beside SHA and before the
+# lock wait, and compared after the legs; any difference fails the gate
+# (UTA-0371). In a fresh worktree nothing changes it.
+tree_state() { git rev-parse HEAD && git status --porcelain --untracked-files=all; }
+state_before=$(tree_state)
+
 # One gate at a time (UTA-0222). Two share the Windows machine's checkout, so
 # a second run's `checkout -f` could land mid-build of the first -- a false
 # green -- and in place they share the Linux build trees too. The second waits.
@@ -113,8 +121,11 @@ if $reachable; then
         set -e
         bundle="$STATE/push-${SHA:0:12}.bundle"
         git bundle create "$bundle" HEAD 2>/dev/null
-        scp -q "${alive[@]}" "$bundle" "$WIN_HOST:uta-gate.bundle" || exit 255 # the link, not the build
-        scp -q "${alive[@]}" scripts/windows-gate-reap.sh "$WIN_HOST:uta-gate-reap.sh" || exit 255
+        # set -e exits with scp's own status: 255 is a lost link (measured
+        # 2026-10-16), and anything else -- a full disk, a permission -- is RED,
+        # not NOT RUN (UTA-0371).
+        scp -q "${alive[@]}" "$bundle" "$WIN_HOST:uta-gate.bundle"
+        scp -q "${alive[@]}" scripts/windows-gate-reap.sh "$WIN_HOST:uta-gate-reap.sh"
         rm -f "$bundle"
         # Piped on stdin: the machine's SSH shell is cmd.exe, which mangles any
         # quoting a script passed as an argument would need. $SHA expands here,
@@ -158,13 +169,6 @@ else
 fi
 
 # ── Linux: one leg at a time ────────────────────────────────────────────────
-
-# The pre-push hook may run this in the real checkout (ants.gate.inPlace,
-# UTA-0238), where an edit made mid-run would be built in place of the pushed
-# commit. So the tree's state is snapshotted here and compared after the legs;
-# any difference fails the gate. In a fresh worktree nothing changes it.
-tree_state() { git rev-parse HEAD && git status --porcelain --untracked-files=all; }
-state_before=$(tree_state)
 
 results=()
 linux_failed=false

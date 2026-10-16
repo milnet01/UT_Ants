@@ -27,7 +27,9 @@ stopped=0
 # ps -W: PID PPID PGID WINPID TTY UID STIME COMMAND. STIME can be two words
 # and the command can hold spaces, so the command is found by where it
 # starts: a / or a drive letter. Build tools go by image name, other shells
-# by their Git Bash pid.
+# by their Git Bash pid. A row may open with a status letter before the PID
+# -- I waiting for input, S stopped, O waiting on output -- so the columns
+# are counted from the first number (UTA-0371).
 while read -r msys winpid command; do
     if [[ $command =~ /usr/bin/(bash|sh)$ ]]; then
         [[ $spared == *" $msys "* ]] && continue
@@ -35,7 +37,7 @@ while read -r msys winpid command; do
     elif [[ ${command,,} =~ (^|[\\/])(msbuild|cl|link|ctest|cmake|glslc|ccache|uta_[a-z0-9_]+)\.exe$ ]]; then
         /usr/bin/kill -f -W "$winpid" 2>/dev/null && stopped=$((stopped + 1))
     fi
-done < <(ps -W | awk 'NR > 1 && match($0, / (\/|[A-Za-z]:\\)/) { print $1, $4, substr($0, RSTART + 1) }')
+done < <(ps -W | awk 'NR > 1 && match($0, / (\/|[A-Za-z]:\\)/) { f = ($1 ~ /^[0-9]+$/) ? 0 : 1; print $(1 + f), $(4 + f), substr($0, RSTART + 1) }')
 
 if [[ $stopped -gt 0 ]]; then
     printf 'reap: stopped %d process(es) an aborted gate run left running\n' "$stopped"

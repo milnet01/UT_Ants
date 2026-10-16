@@ -16999,6 +16999,22 @@ stays with movement in 0.2.0.
   - L ci.sh:134, 138; std-includes.sh:37; check-legs.sh:36;
     map-analyser.py:210, 269; tile-questions.py:142;
     mutation-probe.py:153; os.path in two scripts.
+  Closed 2026-10-16, unpushed. Fixed: ci-matrix.sh snapshots the tree
+  beside SHA, before the lock wait; scp's own status reaches the
+  verdict (255 a lost link, measured; else RED); the reap script skips
+  a ps -W status letter (tested on sample rows only, not on Windows);
+  std-includes reads std::ranges:: calls (it then found
+  BakeSunTest.cpp missing <algorithm>, fixed) and lets std::remove take
+  <cstdio>; check-legs matches the Windows leg's ssh and ci.sh; ci.sh
+  links must be tracked, and its message says inline links only;
+  map-analyser records a failed ut-shot as an error, redraws views
+  older than the bundle, keeps the batch on a bad bundle, and uses
+  pathlib; tile-questions will not overwrite a changed answers.txt;
+  mutation-probe restores by rename. Dismissed: fenced-code false
+  failures in the link check (they fail loudly; none in the tree);
+  class-census os.path (os.walk's strings, no defect). Last night's
+  needs.jsonl ran --no-sky, so ut-shot's failure path never touched it.
+  Flip on GitHub's matrix, after a gate run on the new ci-matrix.sh.
   **Layman:** The push checks can miss a few kinds of problem; tighten them.
   Kind: fix.
   Source: review-code-2026-10-15.

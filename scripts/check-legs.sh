@@ -33,7 +33,9 @@ local_legs=$(
     {
         grep -E '^run_leg ' "$wrapper" |
             sed -nE 's/.*CC=([^ ]+) CXX=([^ ]+).*/\1\/\2/p'
-        grep -q '"Windows (MSVC): green"' "$wrapper" && echo msvc
+        # The leg's ssh and the ci.sh it pipes there, not a result string,
+        # which proves only that a literal exists (UTA-0371).
+        grep -qE '^ +ssh .*bash\.exe' "$wrapper" && grep -qx '\./scripts/ci\.sh' "$wrapper" && echo msvc
     } | sort
 )
 

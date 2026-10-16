@@ -131,8 +131,11 @@ while IFS= read -r -d '' file; do
         # A leading / is the repository's root, as GitHub renders it, never
         # this machine's.
         if [[ $target == /* ]]; then resolved=".$target"; else resolved="$dir/$target"; fi
-        if [[ ! -e $resolved ]]; then
-            printf '   %s -> %s does not exist\n' "$file" "$target" >&2
+        # Tracked, not merely present: in the in-place gate an ignored or
+        # untracked file resolves here and fails GitHub's fresh checkout
+        # (UTA-0371). A directory is tracked if anything under it is.
+        if [[ -z $(git --literal-pathspecs ls-files -- "$resolved" | head -n 1) ]]; then
+            printf '   %s -> %s is not a tracked file or directory\n' "$file" "$target" >&2
             link_failures=$((link_failures + 1))
         fi
     done < <(grep -oE '\]\([^)]+\)' "$file" | sed -E 's/^\]\(//; s/\)$//')
@@ -141,7 +144,8 @@ if [[ $link_failures -gt 0 ]]; then
     printf 'ci: %d broken relative link(s) in the documentation.\n' "$link_failures" >&2
     exit 1
 fi
-printf '   %d markdown files, every relative link resolves.\n' "$(git ls-files '*.md' | wc -l)"
+# Inline links only: a reference-style `[x]: path` is not read (UTA-0371).
+printf '   %d markdown files, every inline relative link resolves.\n' "$(git ls-files '*.md' | wc -l)"
 
 # ── Static analysis ─ also BOTH modes ─────────────────────────────
 #

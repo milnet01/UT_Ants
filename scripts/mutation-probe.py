@@ -150,7 +150,12 @@ def probe(build_dir, subject, label, rel, old, new, test_cmd, env):
         except subprocess.TimeoutExpired:
             return "KILLED"
     finally:
-        path.write_bytes(original)
+        # Write aside, then rename over: a signal during the restore leaves the
+        # mutant or the original, never a truncated file (UTA-0371).
+        restore = path.with_name(path.name + ".restore")
+        restore.write_bytes(original)
+        os.chmod(restore, path.stat().st_mode)
+        os.replace(restore, path)
         os.utime(path, None)
 
 
