@@ -476,7 +476,7 @@ choose between them (§ 15).
 ut-bake --check <install>
 ut-bake --game-types <install>
 ut-bake --install <install> --out <dir> [--force] [--fit-budget] [--texture-cache <dir>]
-        [--full-budget] [--recipe <file>] <map>
+        [--full-budget] [--recipe <file>] [--light-materials <file>] <map>
 ut-bake --help
 ```
 

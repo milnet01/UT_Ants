@@ -13,9 +13,10 @@
 // compiled under the project's numeric contract, and nothing here adds a flag
 // that undoes it (INV-8).
 //
-// NEVER DEGRADES. Over budget, a bake is refused and the report says why.
-// Nothing here drops, resizes or re-compresses a texture to make it fit --
-// SS 3 decision 3, and enforceBudget's signature is what holds it.
+// NEVER DEGRADES UNASKED. Over budget, a bake is refused and the report says
+// why -- SS 3 decision 3, and enforceBudget's signature is what holds it.
+// Only fitToBudget drops mip levels to fit, and only when --fit-budget asks
+// for it (UTA-0245).
 
 #pragma once
 

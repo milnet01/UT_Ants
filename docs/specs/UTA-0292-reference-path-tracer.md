@@ -134,7 +134,7 @@ writes its file. The two flags together are refused: they read one target.
 `main.cpp`:
 
 ```
-ut-ref trace <bundle> <material light file> <width> <height> <samples> <depth> <out prefix> < cameras
+ut-ref trace [--no-added-lamps] <bundle> <material light file> <width> <height> <samples> <depth> <out prefix> < cameras
 ut-ref score <ref prefix> <shot prefix> <width> <height> <views>
 ```
 
@@ -146,9 +146,9 @@ little-endian floats, row 0 at the top. Per pixel, each a luma:
 | Channel | Holds |
 |---|---|
 | 0 | `shownLight` of `lightReaching` at the eye ray's hit |
-| 1 | first bounce: the mean over `samples` cosine-sampled rays of `sentFrom(surfaceAlong(...))`, where the hit is not `viaSky` |
+| 1 | first bounce: the mean over `samples` cosine-sampled rays of `sentFrom(surfaceAlong(...))`, where the hit is neither `viaSky` nor `paintedSky` |
 | 2 | later bounces: at each first-bounce hit, `reflectanceOf` its albedo times the light along one further cosine-sampled ray, recursively, to `depth` |
-| 3 | sky: channel 1's sum over hits that are `viaSky` |
+| 3 | sky: channel 1's sum over hits that are `viaSky` or `paintedSky` (UTA-0350) |
 | 4 | 1 where the eye ray's first surface is lit and lets no light through (`LIGHT_PASSES_FLAGS`), else 0, and channels 0–3 are 0 |
 
 A material the bundle uses and the file lacks takes `DEFAULT_ALBEDO` and no

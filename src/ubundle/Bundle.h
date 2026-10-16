@@ -9,9 +9,11 @@
 // out of every runtime target, and ut-ants links this library to load a
 // bundle (UTA-0016).
 //
-// NO FILE I/O HAPPENS HERE. `read` takes bytes the caller owns and `write`
-// returns a vector; opening files is uta::fs's. That is what lets every case
-// in tests/unit/ run without a filesystem.
+// NO FILE I/O HAPPENS HERE, but for one call. `read` takes bytes the caller
+// owns and `write` returns a vector; opening files is uta::fs's. That is what
+// lets every case in tests/unit/ run without a filesystem. The one call is
+// TileAnswers.h's applyTileAnswersFile, which reads the player's answers
+// where a bundle is loaded (UTA-0277 SS 4.3; UTA-0008 SS 4.1).
 //
 // FAIL CLOSED. Origin::Derived is the ZERO value, deliberately -- SS 3
 // decision 4. A byte zeroed by a partial write therefore reads as the

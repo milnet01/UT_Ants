@@ -1,8 +1,8 @@
 // The section codecs Bundle.cpp dispatches to, one .cpp file each.
 //
 // INTERNAL to uta_ubundle. Each section changes for its own reason -- ROOM
-// with umap, NAVG and WIRG with unav, TEXS with umat, MATS, GEOM, PLAC, LITE,
-// MOVR, COLL, LPRB, ZONE, AOCC and SMSK with ubake -- so each lives in its own
+// with umap, NAVG and WIRG with unav, TEXS with umat, and the rest with
+// ubake -- so each lives in its own
 // file, and work on one does not share a file with work on another
 // (UTA-0091). Bundle.cpp keeps the
 // framing: the header, the section table, and read and write.
@@ -16,7 +16,9 @@
 // docs/specs/UTA-0111-level-collision.md SS 4.2 for COLL, and
 // docs/specs/UTA-0112-baked-light-probes.md SS 4.2 for LPRB, and UTA-0156
 // and UTA-0164's specs, SS 4.1 each, for ZONE and AOCC, and
+// docs/specs/UTA-0263-shader-flames.md SS 4.3 for FLAM, and
 // docs/specs/UTA-0326-baked-shadow-mask.md SS 4.2 for SMSK, and
+// docs/specs/UTA-0256-added-lamps.md SS 4.2 for LAMP, and
 // docs/specs/UTA-0338-baked-sun.md SS 4.2 for SUN, and
 // docs/specs/UTA-0350-painted-skies.md SS 4.3 for PSKY, and BakerSection.cpp's
 // own header for BAKR (UTA-0349).

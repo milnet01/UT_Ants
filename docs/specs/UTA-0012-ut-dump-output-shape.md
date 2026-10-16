@@ -98,8 +98,8 @@ ut-dump (--install <root> | --system <dir>) [--nav-graph] [--wiring-graph] [--su
 - `--install` names the install's root. Added by `UTA-0206`. It is searched
   through `ubake`'s `Install`, the code `ut-bake` uses: `System`, `Maps`,
   `Textures`, `Sounds` and `Music`, in the game's `Paths` order. Some maps'
-  classes live in a texture package, which only this finds. With no `Core`
-  package found, the tool writes the warning `--system` writes.
+  classes live in a texture package, which only this finds. With no `Engine`
+  package found, the tool writes the warning `--system` writes (UTA-0265).
 - `--system` names a directory scanned, not recursively, for `.u` files, by
   extension case-folded. They resolve class ancestry across packages. With
   none found, the tool writes a warning to stderr and continues.
