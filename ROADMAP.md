@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=378 -->
+<!-- ants-roadmap-id-high-water: UTA=379 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21201,6 +21201,29 @@ docs/standards/versioning-overrides.md. Closes S8.
   **Layman:** The map launcher, --help and the README carry the same piracy and trademark disclaimer as the project's website.
   Kind: doc.
   Source: user-request-2026-10-16.
+
+- 📋 [UTA-0379] **Make the website's original-beside-UT-Ants comparison shots once the sky and sun land.**
+  The user, through the antsprojectshub.co.za website session: pairs
+  from maps other than ArcaneTemple, original left, UT Ants right, same
+  camera, 960x540 each (the site's two are 1920x568 JPEGs with a caption
+  strip), each a MARKED improvement at a glance; fewer strong pairs over
+  many weak. Deliver to /mnt/Games/Trailers/incoming/ut-ants/shots/ with
+  notes.md: per file the map, what changed in plain words (alt text for
+  a partially sighted reader), whether it is released or main-only, and
+  one line on what makes the right side clearly better. No retouching
+  beyond cropping; no version or debug text. Message the
+  ants-projects-hub-website session when in.
+  First try (2026-10-16, 72e66f1): ut-compare on 16 of the user's F12
+  capture spots; none cleared the bar. Sky and fog lose detail the
+  original shows (FALKENSTINE's mountains and stars, ValleyOfHellV13's
+  lava spikes, Pyramid washed out), TheFortress2012Final-BP lacks its
+  palms (UTA-0293), the rest are close calls. Pairs kept at
+  /mnt/Emulators/uta-scratch/u378/cmp. Retry after UTA-0345 and
+  UTA-0346, from fresh spots picked to show light, not bugs.
+  **Layman:** Side-by-side pictures for the project's web page, showing the original game next to UT Ants, taken once UT Ants clearly looks better.
+  Kind: marketing.
+  Source: user-request-2026-10-16.
+  Blocked-by: UTA-0345, UTA-0346.
 
 ## After 1.0.0
 
