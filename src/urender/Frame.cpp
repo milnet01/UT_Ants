@@ -1184,9 +1184,9 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
             vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogLayout(), 0,
                                     static_cast<std::uint32_t>(sets.size()), sets.data(), 0, nullptr);
             for (const ShadowDraw& draw : shadows.draws) {
-                const std::array<std::uint32_t, 4> tile{draw.tile.x, draw.tile.y, draw.tile.size, 0};
+                const gpu::ReduceConstants tile{draw.tile.x, draw.tile.y, draw.tile.size, 0};
                 vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(tile),
-                                   tile.data());
+                                   &tile);
                 const std::uint32_t groups = (draw.tile.size / HAZE_SHADOW_STEP + 7) / 8; // local size 8 x 8
                 vkCmdDispatch(commands, groups, groups, 1);
             }

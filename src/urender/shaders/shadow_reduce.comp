@@ -11,7 +11,7 @@
 layout(set = 0, binding = 16) uniform sampler2D atlas;
 layout(set = 1, binding = 3, r32f) uniform writeonly image2D hazeShadow;
 
-// The tile just drawn: x, y and side, in atlas texels.
+// The tile just drawn: x, y and side, in atlas texels. gpu::ReduceConstants.
 layout(push_constant) uniform TileBlock {
     uvec4 tile;
 } block;

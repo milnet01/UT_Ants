@@ -245,7 +245,8 @@ static_assert(offsetof(ClusterBounds, minimum) == 0);
 static_assert(offsetof(ClusterBounds, maximum) == 16);
 
 /// One probe's ambient cube: six linear-RGB faces, +X -X +Y -Y +Z -Z, each
-/// padded to a vec4 as a std430 array of vec3 would not be.
+/// padded to a vec4 as a std430 array of vec3 would not be. Face 0's w carries
+/// the probe's sunSeen (UTA-0338); the other faces' w is unused.
 struct Probe {
     std::array<float, 24> faces;
 };
@@ -458,5 +459,20 @@ static_assert(offsetof(FogConstants, hazeScale) == 80);
 static_assert(offsetof(FogConstants, historyWeight) == 84);
 static_assert(offsetof(FogConstants, reserved) == 88);
 static_assert(offsetof(FogConstants, jitter) == 96);
+
+/// UTA-0333: shadow_reduce.comp's push constants, the atlas tile just drawn.
+/// Pushed through the fog layout, whose range FogConstants sizes.
+struct ReduceConstants {
+    std::uint32_t x; ///< in atlas texels
+    std::uint32_t y;
+    std::uint32_t side;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(ReduceConstants) == 16);
+static_assert(sizeof(ReduceConstants) <= sizeof(FogConstants));
+static_assert(offsetof(ReduceConstants, x) == 0);
+static_assert(offsetof(ReduceConstants, y) == 4);
+static_assert(offsetof(ReduceConstants, side) == 8);
+static_assert(offsetof(ReduceConstants, reserved) == 12);
 
 } // namespace uta::urender::gpu

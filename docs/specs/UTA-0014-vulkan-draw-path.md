@@ -702,8 +702,9 @@ crosses, and INV-7's fixture evaluates at a probe stored past its hash slot.
 
 ### 4.8 Shadow maps
 
-One depth atlas for every shadowing light, tiles allocated by the light's
-projected screen size. A point light takes six tiles, one per cube face; a
+One depth atlas for every shadowing light, each tile sized by the light's
+reach, not its size on screen (`Shadows.cpp` `shadowTileSize`, `UTA-0166`).
+A point light takes six tiles, one per cube face; a
 spotlight takes one.
 
 **`UTA-0326` changes who reads it**: a level surface reads a baked shadow mask
@@ -1170,7 +1171,7 @@ guarded by exactly this. `static_assert` also survives `-DNDEBUG`, which
   overflowed, so the cap can be judged against a real map rather than guessed. Lighting degrades;
   nothing fails.
 - **The shadow atlas cannot hold the frame's shadowing lights.** Lights are
-  admitted in descending projected size until the atlas is full; the rest are
+  admitted largest tile first until the atlas is full; the rest are
   lit without shadows. Recorded per frame like the cluster overflow.
 - **A `MATS` id with no `TEXS` maps.** `ubundle` does not check the pairing
   (`UTA-0011` INV-17 leaves it to the baker), so the renderer must: the default

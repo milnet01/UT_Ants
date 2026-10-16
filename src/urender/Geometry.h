@@ -48,8 +48,8 @@ struct SceneGeometry {
     /// MASK_NO_CHART for every mover and every vertex of a bundle without one.
     Buffer surfaceVertices;
     Buffer indices;
-    /// Every batch that draws, in bundle order. PF_Portal and PF_Invisible
-    /// batches are not here (SS 4.5).
+    /// Every batch that draws, in bundle order. PF_Invisible batches are not
+    /// here (SS 4.5); a PF_Portal one is, since UTA-0188.
     std::vector<DrawItem> draws;
     std::uint32_t objectCount = 1;
 

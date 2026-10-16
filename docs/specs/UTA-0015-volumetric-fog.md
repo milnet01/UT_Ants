@@ -143,7 +143,9 @@ compute stage is dispatched.
 
 **Slices.** Slice `k` spans view depth `z(k)` to `z(k + 1)`, where `z(0) = 0`
 and `z(k) = FOG_NEAR × (FOG_FAR / FOG_NEAR)^(k / FOG_GRID[2])` for `k ≥ 1`. A
-froxel's sample point is its tile's centre ray at the slice's middle depth.
+froxel's sample point is a ray through its tile at the frame's jitter, at that
+fraction of the slice's depth (`UTA-0356`); after a cut, the centre ray at the
+slice's middle depth.
 
 **Stage 1, `fog_scatter.comp`**, one invocation per froxel. At its world
 point `x`, with `v` the unit direction from `frame.eye` to `x`:

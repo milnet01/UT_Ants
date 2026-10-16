@@ -6,8 +6,9 @@
 // material is a bindless index pushed as a constant, so two batches differing
 // only in material share a pipeline; two sharing a material and differing in
 // flags may not, because the flags select cull mode, blending and depth write.
-// Masking, unlit and sky are tested bit by bit in the shaders instead, so four
-// pipelines cover every flag word.
+// Masking, unlit and sky are tested bit by bit in the shaders instead, so six
+// scene pipelines -- three blends, each one- or two-sided -- and two depth
+// pipelines (UTA-0260) cover every flag word.
 
 #pragma once
 

@@ -17073,7 +17073,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: tools, app.
 
-- 📋 [UTA-0373] **Specs and header comments that no longer match the code.**
+- 🚧 [UTA-0373] **Specs and header comments that no longer match the code.**
   Unverified findings of UTA-0329's review:
   - lane-03 M UTA-0008 stale: format version, ids, sizes, BAKR.
   - lane-08 L UTA-0006 SS 6 row against SS 4.5; umat/Material.h:16.
@@ -17102,6 +17102,13 @@ stays with movement in 0.2.0.
   gpu::ReduceConstants struct with sizeof/offsetof asserts, pushed from
   Frame.cpp instead of a raw array (a code change: build and run the
   device tier).
+  Part 2 done 2026-10-16: UTA-0014 SS 4.8 and SS 6 (tiles sized by
+  reach, admitted largest first), UTA-0015 SS 4.3 (jittered sample),
+  Geometry.h (portals drawn), Pipelines.h (six scene pipelines and
+  two depth), ShaderTypes.h Probe (face 0's w is sunSeen), and
+  gpu::ReduceConstants pushed from Frame.cpp. Unit 1031 and device
+  118 (lavapipe with sync validation, and the GPU) passed. Awaits
+  GitHub's matrix.
   **Layman:** Several design documents and code comments describe an older version of the code.
   Kind: doc-fix.
   Source: review-code-2026-10-15.
