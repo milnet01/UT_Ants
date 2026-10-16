@@ -172,10 +172,14 @@ UTA-0263's flames are. For Wet and Wave it drifts at one fixed speed:
 `frequency` paces UT99's drops, not its waves (UTA-0312). Ice does not use
 the field.
 
+**The calm.** Fast drops stir UT99's water less (UTA-0319). So for Wet and
+Wave, the warp and the tilt shrink as `frequency` nears 128, half a cycle a
+tick. Above 128 the step folds back: 248 is as calm as 8.
+
 **Per kind:**
 
 - **Wet** — the picture is sampled at the texture coordinate plus the slope
-  times a warp scaled by `amplitude`.
+  times a warp scaled by `amplitude` and the calm.
 - **Ice** — the picture is sampled at the texture coordinate plus a panning
   offset. `Linear` (0) moves it at `pan − 128` in each direction; `Circular`
   (1) moves it round a circle whose radius is scaled by `amplitude` and
@@ -189,7 +193,7 @@ the field.
   replaces the picture.
 
 **The tilt.** On a lit surface, Wet and Wave tilt the shading normal by the
-slope, scaled by `amplitude`, on top of the normal map's tilt — so the
+slope, scaled by `amplitude` and the calm, on top of the normal map's tilt — so the
 lights, shadows and probes show moving ripples. An unlit surface is not lit,
 so it shows the motion through the picture only.
 
@@ -241,7 +245,8 @@ today.
 
 The constants in `liquid.glsl` are fitted, not chosen: the ripple size in
 texels, the drift speed, the warp per unit of
-`amplitude`, the tilt per unit of `amplitude`, the Ice pan rate per unit of
+`amplitude`, the tilt per unit of `amplitude`, the calm per unit of
+`frequency`'s folded step, the Ice pan rate per unit of
 `pan − 128`, the circular and wavy size and rate, and the Wave bump and
 highlight strengths. They are fitted against original frames, as UTA-0263
 § 4.6 fitted flames, with `ut-ants-uta0156`'s `capture-original.sh`, at poses

@@ -12,6 +12,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <vector>
 
@@ -124,6 +126,16 @@ std::size_t changed(const std::vector<std::byte>& a, const std::vector<std::byte
     return count;
 }
 
+/// The summed absolute change over every colour channel of two frames.
+std::uint64_t difference(const std::vector<std::byte>& a, const std::vector<std::byte>& b) {
+    REQUIRE(a.size() == b.size());
+    std::uint64_t sum = 0;
+    for (std::size_t i = 0; i < a.size(); i += 4)
+        for (std::size_t c = 0; c < 3; ++c)
+            sum += static_cast<std::uint64_t>(std::abs(std::to_integer<int>(a[i + c]) - std::to_integer<int>(b[i + c])));
+    return sum;
+}
+
 } // namespace
 
 TEST_CASE("UTA-0105 INV-5: a pinned liquid is still and a moving one moves", "[device][liquids]") {
@@ -144,10 +156,29 @@ TEST_CASE("UTA-0312: a Wet liquid's ripple speed does not follow FX_Frequency", 
     removeDisplay();
     // DM-KGalleon's hold is FX_Frequency 125; scaling the drift by it rippled
     // that floor about 15 times too fast. The setting paces drops, not waves.
+    // 248 steps a drop as far as 8 does, the other way round the cycle, so
+    // UTA-0319's calm is the same for both and only the drift could differ.
     LiquidLook fast = wet();
-    fast.frequency = 125;
+    fast.frequency = 248;
     const double later = PINNED + 0.25;
     CHECK(changed(frameAt(stripedSquare(wet()), later), frameAt(stripedSquare(fast), later)) == 0);
+}
+
+TEST_CASE("UTA-0319: fast drops warp a Wet liquid less than slow ones", "[device][liquids]") {
+    removeDisplay();
+    // DM-KGalleon's hold, FX_Frequency 125, moved a third as much as the same
+    // floor with its drops at 9. The warp at 125 is 0.32 of full, 0.96 at 8.
+    LiquidLook fast = wet();
+    fast.frequency = 125;
+    const auto moved = [](const LiquidLook& look) {
+        const uta::ubundle::Bundle pool = stripedSquare(look);
+        return difference(frameAt(pool, PINNED), frameAt(pool, PINNED + 0.25));
+    };
+    const std::uint64_t slow = moved(wet());
+    const std::uint64_t quick = moved(fast);
+    INFO("change at FX_Frequency 8: " << slow << ", at 125: " << quick);
+    CHECK(slow > 0);
+    CHECK(quick * 4 < slow * 3); // under three quarters
 }
 
 TEST_CASE("UTA-0105 INV-6: an Ice look pans from a zero point of 128", "[device][liquids]") {

@@ -15864,7 +15864,20 @@ stays with movement in 0.2.0.
   them. Asked UT_MonsterHunt (2026-10-16) for paired captures of
   WetBeams1 with only the speed changed (125 to 9), only the type
   changed (1 to 2), and Pond1 with type 2 to 1.
-  Waiting-on: UT_MonsterHunt's paired captures (asked 2026-10-16).
+  Fitted (2026-10-16): UT_MonsterHunt's paired captures arrived
+  (work/uta0269/galleon0319, README there). Measure: mean change between
+  consecutive frames over the crop's mean gradient (floor below the
+  crates; pool inside, pickup masked); script and our renders in
+  ~/.cache/uta-scratch/u319. Hold floor: A as shipped (speed 125) 0.31;
+  D speed 9: 0.93; E ShallowSpot: 0.04. Pond: F0 as shipped (speed 6,
+  ShallowSpot) 1.66; F PhaseSpot 1.72. Speed is the lever; type matters
+  only when fast. Every live drop's speed equals FX_Frequency in all
+  three liquids read, so no format bump was needed: liquid.glsl scales
+  the warp and tilt by 1 - 0.7 x the folded step (LIQUID_FAST_CALM).
+  Ours after: floor 0.32 (was 0.63), pond 1.34 (unchanged). The fit pool
+  (Swater4a, speed 9-11) loses about 5%. Not done: drop type is not
+  carried, so a fast ShallowSpot liquid still moves about eight times
+  too much. This replaces the 2026-10-06 plan of a baked stir factor.
   **Layman:** The flooded floor in the galleon's hold swirls a lot in ours and barely at all in the original.
   Kind: investigate.
   Source: user-request-2026-10-06.

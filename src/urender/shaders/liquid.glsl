@@ -50,6 +50,19 @@ const float LIQUID_RIPPLE_TEXELS = 24.0; // one noise cell's span, texels of the
 const float LIQUID_DRIFT = 4.5;          // cells a second the field drifts
 const float LIQUID_WARP_TEXELS = 6.0;    // the picture's largest shift at WaveAmp 128, texels
 const float LIQUID_TILT = 0.2;           // the normal's slope at WaveAmp 128, per unit of noise slope
+// UTA-0319: fast drops stir less. Each drop's phase steps by its speed, a
+// 256th of a cycle a tick; in the three liquids read (Swater4a, WetBeams1,
+// Pond1) every live drop runs at the texture's FX_Frequency. Near half a
+// cycle a step, a drop flips each tick and mostly cancels itself.
+// DM-KGalleon's hold (UT_MonsterHunt galleon0319, mean change over its
+// gradient, ten frames 0.044 s apart): drops at 125 moved 0.31 against 0.93
+// at 9; ours, unscaled, 0.63. The warp and tilt scale by
+// 1 - LIQUID_FAST_CALM * step, the step folded to 0 (still) .. 1 (half a
+// cycle). Sweep (calm -> ours): 0.6 -> 0.40, 0.8 -> 0.23, 0.95 -> 0.08.
+// At 0.7 the scale is 0.32 at 125 and 0.95 at the fit pool's 9.
+// Not fitted: a ShallowSpot drop at 125 moved an eighth of a PhaseSpot's,
+// and the type is not carried. At speed 6 the type made no difference.
+const float LIQUID_FAST_CALM = 0.7;
 // NOT FITTED. DOM-MetalDream's XbpFX.blueplasma changes 6.98 a frame in the
 // original against 0.03 to 0.09 here at pan rates 32 to 128, and a noise warp
 // on top reached 0.22 at most: the original's churn is its GlassTexture
@@ -138,7 +151,8 @@ LiquidSample liquidAt(Liquid liquid, vec2 uv, float seconds, uint seed, uint gla
     float h = liquidHeight(p, seconds, drift, seed);
     vec2 slope = vec2(liquidHeight(p + vec2(STEP, 0.0), seconds, drift, seed) - h,
                       liquidHeight(p + vec2(0.0, STEP), seconds, drift, seed) - h) / STEP;
-    float strength = liquid.amplitude / 128.0;
+    float step = min(liquid.frequency, 256.0 - liquid.frequency) / 128.0;
+    float strength = liquid.amplitude / 128.0 * (1.0 - LIQUID_FAST_CALM * step);
     result.offset = slope * (LIQUID_WARP_TEXELS * strength) / size;
     result.tilt = -slope * (LIQUID_TILT * strength);
     if (liquid.kind == LIQUID_WAVE) {
