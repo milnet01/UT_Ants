@@ -17114,7 +17114,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: docs.
 
-- 📋 [UTA-0374] **check-code 2026-10-15: tool findings no calibration explains.**
+- 🚧 [UTA-0374] **check-code 2026-10-15: tool findings no calibration explains.**
   UTA-0329's tool half, full list in
   docs/reviews/review-code-2026-10-15/check-code.md. Unverified. The
   likeliest defects first:
@@ -17134,6 +17134,14 @@ stays with movement in 0.2.0.
   comparisonOfFuncReturningBoolError (191, Catch2 CHECK) and
   bugprone-easily-swappable-parameters (128). The FSR shaders need
   GL_GOOGLE_include_directive for glslangValidator.
+  Closed 2026-10-16, ledger in
+  docs/reviews/review-code-2026-10-15/close-findings.md. Every site
+  read: no real defect among the findings. Fixed: LightModel.cpp's
+  unreachable cylinder check; cppcheck's Catch2 flag in
+  audit-config.json. Dismissed as tool noise, each row naming the files
+  read: tools/audit/suppressions.md and _typos.toml. Next door, fixed:
+  map-analyser.py crashed on a null nav location. Awaits GitHub's
+  matrix.
   **Layman:** The automatic code checkers flagged a few spots that may be real bugs; check each and fix or record it.
   Kind: audit-fix.
   Source: audit-2026-10-15.

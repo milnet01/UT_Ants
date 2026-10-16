@@ -1,3 +1,19 @@
 {
-    "suppressions_doc": "tools/audit/suppressions.md"
+    "suppressions_doc": "tools/audit/suppressions.md",
+    "tools": {
+        "cppcheck": {
+            "flags": [
+                "--enable=all",
+                "--suppress=missingIncludeSystem",
+                "--suppress=unusedFunction",
+                "--suppress=unknownMacro",
+                "--std=c++23",
+                "--language=c++",
+                "-D__has_cpp_attribute(x)=0"
+            ]
+        },
+        "clang-tidy": {
+            "checks": ["-*", "bugprone-*", "clang-analyzer-*"]
+        }
+    }
 }

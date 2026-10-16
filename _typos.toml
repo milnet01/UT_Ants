@@ -7,7 +7,10 @@ extend-exclude = ["third_party/", ".audit_cache/"]  # the ledger quotes the word
 
 [default]
 # Commit hashes quoted in the roadmap and the review records.
-extend-ignore-re = ["\\b[0-9a-f]{7,40}\\b"]
+extend-ignore-re = [
+    "\\b[0-9a-f]{7,40}\\b",
+    "real vegitation",  # the user's own words, quoted in the roadmap
+]
 
 [default.extend-identifiers]
 # Unreal Engine's own names, as its packages spell them.
@@ -29,3 +32,10 @@ reachers = "reachers"  # nodes that can reach a point
 warnin = "warnin"      # a UT texture's own name, glowpanels.warnin
 parms = "parms"        # UnrealScript's parameter-list naming
 requir = "requir"      # "REQUIREs", Catch2's macro in prose
+offred = "offred"      # a UT texture's own name, GreatFire2.offred
+lightnin = "lightnin"  # a UT texture's own name, NaliFX.lightnin
+anc = "anc"            # a UT texture's own name, Anc2_blue
+nevers = "nevers"      # scripts/docs-only.sh's array of "never" patterns
+hom = "hom"            # hom-census.cpp, a scratch tool's file name
+metalness = "metalness"  # the rendering term, as glTF spells it
+froms = "froms"          # BakeOcclusionTest.cpp, the plural of its struct From
