@@ -2193,7 +2193,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: umat, ubundle.
 
-- 📋 [UTA-0055] **urender: vertex-animated banners, flags and water.**
+- 🚧 [UTA-0055] **urender: vertex-animated banners, flags and water.**
   Movement costs nothing on the GPU and reads as life. UT99 hangs banners
   and flags throughout its maps and its water surfaces are static
   geometry.
@@ -2224,6 +2224,9 @@ stays with movement in 0.2.0.
   asked for, beside UTA-0089, UTA-0105 and UTA-0215.
   Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
   § UTA-0055 -- pinned sine flags, Gerstner water, bake-time subdivision.
+  Started 2026-10-16. Scope found: mesh flags wait on UTA-0341 (no mesh
+  drawing), so this covers BSP banners and water. Step 1, a census of
+  cloth textures on BSP surfaces, kept in ~/.cache/uta-scratch/u055.
   **Layman:** Make the flags and the water move instead of standing still.
   Kind: implement.
   Source: user-request-2026-09-04.
