@@ -19698,6 +19698,9 @@ to.
   sections\n(NumFacts=1069, 312 copies hidden). It is now Latin-1, so
   grep needs\n-a; docs/discovery.md's rotation command was fixed for
   that.
+  The user, 2026-10-16: "There are still a lot of cleanups I would like
+  on the map names as well but that will be a bit later." Not started;
+  the user will say what they want cleaned.
   **Layman:** Between rounds, see what is coming and vote for it -- with names a human can read instead of MH-CanyonOfDoom][v2-final.
   Kind: implement.
   Source: design-2026-09-03.
