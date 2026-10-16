@@ -20,6 +20,12 @@ constexpr int EXIT_OK = 0;
 constexpr int EXIT_FAILED = 1;
 constexpr int EXIT_USAGE = 2;
 
+/// UTA-0378: said by --help and on the launcher's screen, in the project site's wording.
+constexpr std::string_view DISCLAIMER =
+    "We do not condone piracy. UT Ants includes none of Epic's content: it needs your own copy of Unreal "
+    "Tournament. Unreal Tournament is a trademark of Epic Games. UT Ants is not affiliated with or endorsed by "
+    "Epic Games.";
+
 struct Options {
     bool help = false;
     std::filesystem::path install; ///< checked with `ut-bake --check` (docs/design.md rule 16)

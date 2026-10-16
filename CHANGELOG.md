@@ -14,6 +14,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **The launcher, --help and the README carry a disclaimer** (UTA-0378)
+  It says UT Ants includes none of Epic's content, needs your own copy
+  of Unreal Tournament, and is not affiliated with or endorsed by Epic
+  Games.
 - **ut-bench says which drawing step a frame's time goes to** (UTA-0351)
   Beside each view's frame time it prints the GPU's own time for the
   shadows, the light clustering, the fog, the main draw, the bloom and

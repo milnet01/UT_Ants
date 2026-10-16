@@ -5,6 +5,7 @@
 #include "Cli.h"
 
 #include "FlyCamera.h"
+#include "MapList.h"
 
 #include <charconv>
 #include <string>
@@ -57,7 +58,9 @@ void usage(std::ostream& err) {
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n"
            "--fov opens at that field of view, in degrees across the screen, as\n"
-           "UT99 counts it. 90, UT99's own, without it; 60 to 130.\n";
+           "UT99 counts it. 90, UT99's own, without it; 60 to 130.\n"
+           "\n";
+    for (const std::string& line : wrapText(DISCLAIMER, 72)) err << line << '\n';
 }
 
 std::optional<Options> parseArguments(std::span<const std::string_view> args, std::ostream& err) {

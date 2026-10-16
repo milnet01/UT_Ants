@@ -7,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -132,6 +133,16 @@ TEST_CASE("UTA-0016: --help needs no paths", "[client]") {
     const Parsed parsed = parse({"--help"});
     REQUIRE(parsed.options.has_value());
     CHECK(parsed.options->help);
+}
+
+TEST_CASE("UTA-0378: --help says UT Ants holds none of Epic's content", "[client]") {
+    std::ostringstream out;
+    uta::client::usage(out);
+    std::string said = out.str();
+    std::ranges::replace(said, '\n', ' ');
+    CHECK(said.find("We do not condone piracy. UT Ants includes none of Epic's content: it needs your own "
+                         "copy of Unreal Tournament. Unreal Tournament is a trademark of Epic Games. UT Ants is "
+                         "not affiliated with or endorsed by Epic Games.") != std::string::npos);
 }
 
 TEST_CASE("UTA-0190: --notes names the file a pose line goes to", "[client]") {

@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=377 -->
+<!-- ants-roadmap-id-high-water: UTA=378 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21191,6 +21191,15 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: perf.
   Source: user-request-2026-10-14.
   Lanes: urender, ut-bench.
+
+- 🚧 [UTA-0378] **Say in the program and the README that UT Ants holds none of Epic's content.**
+  The user, through the antsprojectshub.co.za website session: the
+  site's and trailers' house wording, checked true for UT Ants (the repo
+  holds no Epic file; the game needs the player's own install). Tell
+  the ants-projects-hub-website mailbox the version it ships in.
+  **Layman:** The map launcher, --help and the README carry the same piracy and trademark disclaimer as the project's website.
+  Kind: doc.
+  Source: user-request-2026-10-16.
 
 ## After 1.0.0
 

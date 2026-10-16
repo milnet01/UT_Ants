@@ -480,7 +480,15 @@ private:
                 static_cast<int>(height / (ROW * static_cast<float>(scale_)))};
     }
 
-    [[nodiscard]] long pageRows() const { return std::max(1, grid().rows - 6); }
+    /// UTA-0378: the disclaimer as drawn above the status line, wrapped, never clipped.
+    [[nodiscard]] static std::vector<std::string> disclaimer(const Grid& g) {
+        return wrapText(DISCLAIMER, static_cast<std::size_t>(std::max(g.columns - 2, 20)));
+    }
+
+    [[nodiscard]] long pageRows() const {
+        const Grid g = grid();
+        return std::max(1, g.rows - 6 - static_cast<int>(disclaimer(g).size()));
+    }
 
     void colour(Uint8 r, Uint8 g, Uint8 b) { SDL_SetRenderDrawColor(renderer_, r, g, b, SDL_ALPHA_OPAQUE); }
 
@@ -521,11 +529,17 @@ private:
                          : "Type your notes; they save as you type. Tab or Esc: back to the list.",
                      g.columns - 2));
 
+        const std::vector<std::string> notice = disclaimer(g);
+        const int disclaimerRows = static_cast<int>(notice.size());
+
         const int listWidth = std::clamp(g.columns / 2, 20, 46);
         const int top = 3;
-        const int visible = std::max(1, g.rows - top - 2);
+        const int visible = std::max(1, g.rows - top - 2 - disclaimerRows);
         drawList(1, top, listWidth, visible);
         drawDetails(listWidth + 3, top, g.columns - listWidth - 4, visible);
+
+        colour(120, 120, 135);
+        for (int i = 0; i < disclaimerRows; ++i) text(1, g.rows - 1 - disclaimerRows + i, notice[i]);
 
         colour(170, 170, 185);
         std::string bottom = status_;

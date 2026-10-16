@@ -220,3 +220,9 @@ in [third_party/bc7enc/](third_party/bc7enc/) and the PNG writer in
 Unlicense. The baker's still picture of a fire texture is adapted from
 SurrealEngine under the zlib licence, whose notice is in
 [third_party/surrealengine/](third_party/surrealengine/).
+
+## Disclaimer
+
+We do not condone piracy. UT Ants includes none of Epic's content: it
+needs your own copy of Unreal Tournament. Unreal Tournament is a trademark
+of Epic Games. UT Ants is not affiliated with or endorsed by Epic Games.
