@@ -318,10 +318,16 @@ The spacing `S` is `128`.
    the reach** (UTA-0212, the user's decision of 2026-09-26): the box around
    the `Location` of every placed actor whose class is
    `Engine.NavigationPoint` or descends from it, grown by `32768` on every
-   side, bounds included. A level with none has no reach. The margin covers
+   side, bounds included. The margin covers
    skyboxes: over 64 sampled maps, a lit surface lay at most 29,408 units
    past the navigation points' box. A map wrapping its level in a 500,000-unit
    floor no longer seeds probes across all of it.
+   A level with no navigation point reaches its Model's own bounding box,
+   grown by `S` (UTA-0375, the user's decision of 2026-10-16). A box the
+   Model marks invalid, or one not finite, gives no reach. Every box is also
+   clipped to `262144` from the origin on each axis, so the walk stays
+   finite at any coordinate the baker accepts. A triangle with a coordinate
+   that is not finite seeds nothing.
 3. **A candidate is a probe when `isEmpty` accepts it** against `COLL`'s level
    tree.
 4. **The probes are ordered by `k`, then `j`, then `i`**, each once.
@@ -635,10 +641,13 @@ darker than it should be is judged per room after its map is re-baked, and
   *Breaks when:* the move changes a line of behaviour.
 - **INV-12** — § 4.6 step 2's reach. `probeReachOf` spans exactly the
   navigation points' Locations, each resolved actor-first then class default,
-  grown by `32768`, and is none without one. A probe never lies outside a
-  reach, and the probes inside it are the unclipped bake's.
-  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "the probes' reach" and
-  "placement" section "a reach cuts the lattice".
+  grown by `32768`, and is none without one; `levelReachOf` is the Model's
+  valid, finite box grown by `128`. A probe never lies outside a reach or
+  the `262144` limit, and the probes inside it are the unclipped bake's.
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "the probes' reach", "a
+  level with no navigation point reaches its own box", and "placement"
+  sections "a reach cuts the lattice", "every facing places what the whole
+  box would" and "past the world limit or not finite seeds nothing".
   *Breaks when:* either clip bound is dropped, a non-navigation actor
   counts, or the margin is not applied.
 

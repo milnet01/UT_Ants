@@ -1358,9 +1358,13 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                       .horizon = linear(recipe->sky->horizon),
                                       .clouds = static_cast<float>(recipe->sky->clouds) / 100.0f};
     }
+    // SS 4.6 step 2: the navigation points' reach, else (UTA-0375) the
+    // level's own bounding box.
+    std::optional<ProbeReach> reach = probeReachOf(actors.placements);
+    if (!reach) reach = levelReachOf(model);
     UTA_TRY(ubundle::LightProbes probes,
             naming(bakeLightProbes(geometry, collision.level, probeLights, albedo, jobs,
-                                   probeReachOf(actors.placements), own, sky, painted),
+                                   reach, own, sky, painted),
                    mapName));
     // Each further layer stands at the probes' own lattice, or the baker is at
     // fault.
@@ -1385,7 +1389,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         if (sun) onLights.push_back(ubundle::lightOfSun(*sun));
         UTA_TRY(const ubundle::LightProbes layer,
                 naming(bakeLightProbes(geometry, collision.level, onLights, albedo, jobs,
-                                       probeReachOf(actors.placements), own, sky, painted),
+                                       reach, own, sky, painted),
                        mapName));
         UTA_TRY(probes.switched, cubesOf(layer));
     }
@@ -1398,7 +1402,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     if (!lampLights.empty()) {
         UTA_TRY(const ubundle::LightProbes layer,
                 naming(bakeLightProbes(geometry, collision.level, bakedLights(lampLights, actors.placements), albedo,
-                                       jobs, probeReachOf(actors.placements)),
+                                       jobs, reach),
                        mapName));
         UTA_TRY(probes.added, cubesOf(layer));
     }

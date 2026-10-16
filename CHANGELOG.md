@@ -1126,6 +1126,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Security
 
+- **A map with no navigation points and one huge sloped surface no longer makes the baker run for days.** (UTA-0375)
+  Such a map's bounce-light probes now stay inside the level's own
+  bounding box, and none lies more than 262,144 units along any axis
+  from the map's origin.
+  Each surface is searched only near its own plane, so its cost follows
+  its area, not the volume of the box around it. The baker moves to
+  revision 55, so maps baked before it must be baked again.
+
 - **A map with impossible coordinates is refused instead of crashing the baker.** (UTA-0217)
   A drawn point that is NaN, infinite or past 2^24 units, and a mover's
   MainScale or PrePivot that is not finite, now refuse the bake with the

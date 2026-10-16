@@ -19,13 +19,16 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 using uta::JobSystem;
@@ -44,6 +47,7 @@ using uta::ubake::directions;
 using uta::ubake::OwnLight;
 using uta::ubake::OwnLightLookup;
 using uta::ubake::gatherProbe;
+using uta::ubake::levelReachOf;
 using uta::ubake::meanAlbedo;
 using uta::ubake::PROBE_REACH_MARGIN;
 using uta::ubake::ProbeReach;
@@ -217,6 +221,28 @@ TEST_CASE("the probes' reach", "[ubake][probes]") {
     }
 }
 
+TEST_CASE("a level with no navigation point reaches its own box", "[ubake][probes]") {
+    // UTA-0375: the Model's bounding box, grown by one spacing.
+    uta::upkg::Model model;
+    model.boundsMin = {-500, -40, 8};
+    model.boundsMax = {700, 60, 900};
+    model.boundsValid = true;
+    const auto reach = levelReachOf(model);
+    REQUIRE(reach.has_value());
+    CHECK(reach->low == Vec3{-628, -168, -120});
+    CHECK(reach->high == Vec3{828, 188, 1028});
+
+    model.boundsValid = false;
+    CHECK_FALSE(levelReachOf(model).has_value());
+
+    model.boundsValid = true;
+    model.boundsMax.y = std::numeric_limits<float>::infinity();
+    CHECK_FALSE(levelReachOf(model).has_value());
+    model.boundsMax.y = 60;
+    model.boundsMin.z = std::numeric_limits<float>::quiet_NaN();
+    CHECK_FALSE(levelReachOf(model).has_value());
+}
+
 TEST_CASE("placement", "[ubake][probes]") {
     const AlbedoLookup grey = albedoOf({});
     JobSystem jobs(2);
@@ -299,6 +325,83 @@ TEST_CASE("placement", "[ubake][probes]") {
                                           ProbeReach{{5000, 5000, 5000}, {6000, 6000, 6000}});
         REQUIRE(away.has_value());
         CHECK(away->probes.empty());
+    }
+
+    SECTION("every facing places what the whole box would") {
+        // UTA-0375 walks only the slab beside each plane. Its candidates are
+        // SS 4.6's, found here by walking each triangle's whole grown box.
+        const auto cross = [](const Vec3& a, const Vec3& b) {
+            return Vec3{a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+        };
+        const std::vector<std::array<Vec3, 3>> corners = {
+            {Vec3{0, 0, 0}, Vec3{600, 100, 50}, Vec3{100, 500, -80}},         // faces z
+            {Vec3{0, 0, 0}, Vec3{100, 500, -80}, Vec3{600, 100, 50}},         // faces -z
+            {Vec3{-300, -200, -400}, Vec3{-250, 400, -350}, Vec3{-200, -100, 300}}, // faces x
+            {Vec3{100, -500, 100}, Vec3{400, -450, -300}, Vec3{-300, -400, 200}},   // faces y
+        };
+        std::vector<Triangle> triangles;
+        std::vector<Cell> expected;
+        for (const auto& c : corners) {
+            const Vec3 raw = cross(c[1] - c[0], c[2] - c[0]);
+            const Vec3 normal = raw * (1.0 / uta::ubake::length(raw));
+            triangles.push_back(Triangle{c, normal, "wall"});
+            // The baker's normal: the stored float one, normalised.
+            const Vec3 stored{static_cast<float>(normal.x), static_cast<float>(normal.y),
+                              static_cast<float>(normal.z)};
+            const double size = uta::ubake::length(stored);
+            const Vec3 n{stored.x / size, stored.y / size, stored.z / size};
+            const auto lo = [&c](double Vec3::*axis) {
+                return static_cast<std::int32_t>(
+                    std::ceil((std::min({c[0].*axis, c[1].*axis, c[2].*axis}) - 128) / 128));
+            };
+            const auto hi = [&c](double Vec3::*axis) {
+                return static_cast<std::int32_t>(
+                    std::floor((std::max({c[0].*axis, c[1].*axis, c[2].*axis}) + 128) / 128));
+            };
+            for (std::int32_t k = lo(&Vec3::z); k <= hi(&Vec3::z); ++k)
+                for (std::int32_t j = lo(&Vec3::y); j <= hi(&Vec3::y); ++j)
+                    for (std::int32_t i = lo(&Vec3::x); i <= hi(&Vec3::x); ++i) {
+                        const Vec3 p{i * 128.0, j * 128.0, k * 128.0};
+                        if (std::abs(uta::ubake::dot(n, p - c[0])) <= 128) expected.push_back({i, j, k});
+                    }
+        }
+        std::sort(expected.begin(), expected.end(),
+                  [](const Cell& p, const Cell& q) { return std::tie(p[2], p[1], p[0]) < std::tie(q[2], q[1], q[0]); });
+        expected.erase(std::unique(expected.begin(), expected.end()), expected.end());
+        const auto tree = worldOf({box({-1000, -1000, -1000}, {1000, 1000, 1000})},
+                                  {-1000, -1000, -1000}, {1000, 1000, 1000});
+        const auto baked = bakeLightProbes(geometryOf(triangles), tree, {}, grey, jobs);
+        REQUIRE(baked.has_value());
+        CHECK(expected.size() > 100);
+        CHECK(cellsOf(*baked) == expected);
+    }
+
+    SECTION("past the world limit or not finite seeds nothing") {
+        // UTA-0375: with no reach, a triangle beyond PROBE_WORLD_LIMIT, or
+        // with a coordinate that is not finite, adds no probe; a sane one
+        // beside them still places its own.
+        const double far = uta::ubake::PROBE_WORLD_LIMIT + 1000;
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        std::vector<Triangle> triangles = {
+            Triangle{{Vec3{far, 0, 0}, Vec3{far + 512, 0, 0}, Vec3{far, 512, 0}}, {0, 0, 1}, "wall"},
+            Triangle{{Vec3{0, 0, 0}, Vec3{nan, 0, 0}, Vec3{0, 512, 0}}, {0, 0, 1}, "wall"},
+            Triangle{{Vec3{0, 0, 1e30}, Vec3{512, 0, 1e30}, Vec3{0, 512, 1e30}}, {0, 0, 1}, "wall"},
+            Triangle{{Vec3{16, 16, 16}, Vec3{200, 16, 16}, Vec3{16, 200, 16}}, {0, 0, 1}, "wall"},
+        };
+        // The far triangle stands in a room of its own, so only the limit
+        // keeps its probes out.
+        const auto tree = worldOf({box({-1000, -1000, -1000}, {1000, 1000, 1000}),
+                                   box({far - 1000, -1000, -1000}, {far + 1000, 1000, 1000})},
+                                  {-1000, -1000, -1000}, {far + 1000, 1000, 1000});
+        const auto baked = bakeLightProbes(geometryOf(triangles), tree, {}, grey, jobs);
+        REQUIRE(baked.has_value());
+        // The sane triangle's grown box, x and y -112 to 328, z -112 to 144:
+        // cells 0 to 2 across, and z 0 and 1, all within 128 of z 16.
+        std::vector<Cell> expected;
+        for (std::int32_t k = 0; k <= 1; ++k)
+            for (std::int32_t j = 0; j <= 2; ++j)
+                for (std::int32_t i = 0; i <= 2; ++i) expected.push_back({i, j, k});
+        CHECK(cellsOf(*baked) == expected);
     }
 
     SECTION("a level with no triangle") {

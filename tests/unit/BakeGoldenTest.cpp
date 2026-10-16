@@ -132,9 +132,12 @@ namespace {
 // 54: UTA-0364 drops the platform maths library and counts overlapping
 // portals' area once. Under 53 the fixture hashed as before, so only BAKR's
 // revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 54;
+// 55: UTA-0375 places a level's probes inside its Model's box when it has
+// no navigation point. Under 54 the fixture hashed as before, so only BAKR's
+// revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 55;
 constexpr std::string_view GOLDEN =
-    "1461e33c7d29b7fa31985d08be9dcdd5c23216d59b99593051a9e531c70b2ca3";
+    "ea790d6772eddd2f9f0c2eeba11d7643b4141ecf371137d893387d74f89a929c";
 
 } // namespace
 

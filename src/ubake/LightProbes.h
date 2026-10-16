@@ -18,6 +18,7 @@
 #include "ubake/SurfaceRays.h"
 #include "ubundle/Bundle.h"
 #include "umat/Material.h"
+#include "upkg/Geometry.h"
 
 #include <array>
 #include <cstdint>
@@ -49,6 +50,16 @@ struct ProbeReach {
 /// is Engine.NavigationPoint or descends from it, grown by PROBE_REACH_MARGIN.
 /// None when the level places no such actor.
 [[nodiscard]] std::optional<ProbeReach> probeReachOf(const ubundle::Placements& placements);
+
+/// UTA-0375: the reach of a level with no navigation point -- its Model's own
+/// bounding box, grown by PROBE_SPACING so no probe beside an outer face is
+/// cut. None when the Model marks the box invalid or a corner is not finite.
+[[nodiscard]] std::optional<ProbeReach> levelReachOf(const upkg::Model& model);
+
+/// UTA-0375: how far from the origin a probe may lie on any axis, in UT units.
+/// A bound of this project's, not the engine's. MAX_COORDINATE lets a point lie
+/// 2^24 units out, where even a slab walk would not end; this keeps it short.
+inline constexpr double PROBE_WORLD_LIMIT = 262144;
 
 /// SS 4.5: the reflectance of a surface with no material, or whose material's
 /// base level has no opaque pixel.
@@ -159,7 +170,7 @@ inline constexpr double SUN_RADIUS = 0.035;
                                              const std::optional<ubundle::PaintedSky>& painted = std::nullopt);
 
 /// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
-/// there is one. Where `lights` holds a sun, each probe's `sunSeen` too
+/// there is one, nor past PROBE_WORLD_LIMIT. Where `lights` holds a sun, each probe's `sunSeen` too
 /// (UTA-0338 SS 4.4). A job that throws refuses it.
 [[nodiscard]] Result<ubundle::LightProbes> bakeLightProbes(
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,

@@ -504,6 +504,12 @@ MapBuilder& MapBuilder::setZoneActor(std::int32_t zone, std::size_t actor) {
     return *this;
 }
 
+MapBuilder& MapBuilder::setLevelBounds(std::array<float, 3> low, std::array<float, 3> high) {
+    levelLow_ = low;
+    levelHigh_ = high;
+    return *this;
+}
+
 std::vector<std::uint8_t> MapBuilder::build() const {
     Packer packer = packer_;
 
@@ -516,7 +522,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
     // room builder samples at its default spacing -- RoomBuildTest.cpp's
     // twoZoneModel, as bytes. Zone 0 is the engine's null zone.
     ModelExportWriter model;
-    model.setBounds({-64.0F, -64.0F, -64.0F}, {64.0F, 64.0F, 64.0F}, true);
+    model.setBounds(levelLow_, levelHigh_, true);
     ModelExportWriter::Node floor;
     floor.normal = {0.0F, 0.0F, 1.0F};
     floor.iLeaf = {1, 0};

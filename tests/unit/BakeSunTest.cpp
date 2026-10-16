@@ -72,6 +72,8 @@ Room room() {
     map.addSurface(wall).shapeSurface(level(196, 316, -60, 60, 20, true), {0, 0, 1});
     map.addSurface(sky, PF_FAKE_BACKDROP).shapeSurface(level(-60, 60, -60, 60, 200, false), {0, 0, -1});
     map.addSurface(wall).shapeSurface(level(196, 316, -60, 60, 200, false), {0, 0, -1});
+    // The box a real map's Model holds: around every surface (UTA-0375).
+    map.setLevelBounds({-60.0F, -60.0F, 20.0F}, {316.0F, 60.0F, 200.0F});
     out.bytes = asByteVector(map.build());
     return out;
 }

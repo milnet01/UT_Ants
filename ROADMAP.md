@@ -17152,7 +17152,7 @@ stays with movement in 0.2.0.
   Source: audit-2026-10-15.
   Lanes: ubake, upkg, ufire, ubundle, urender, tools, scripts.
 
-- 📋 [UTA-0375] **ubake: with no navigation point, the probe lattice walks each triangle's whole box, which a huge triangle makes endless.**
+- 🚧 [UTA-0375] **ubake: with no navigation point, the probe lattice walks each triangle's whole box, which a huge triangle makes endless.**
   Split from UTA-0363 (lane-02 L, LightProbes.cpp:376-401). With
   `reach` absent, low and high are clipped to infinity, so a sloped
   triangle 500000 units across walks (500000/spacing)^3 cells, and

@@ -61,6 +61,10 @@ double component(const Vec3& v, std::size_t axis) noexcept {
     return axis == 0 ? v.x : axis == 1 ? v.y : v.z;
 }
 
+bool isFinite(const Vec3& v) noexcept {
+    return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
 /// SS 4.7's directions: the icosahedron's vertices, its faces found as the
 /// triples of mutually adjacent vertices, then each edge split at its
 /// normalised midpoint twice. A midpoint is the normalised sum of its edge's
@@ -300,6 +304,14 @@ std::optional<ProbeReach> probeReachOf(const ubundle::Placements& placements) {
     return reach;
 }
 
+std::optional<ProbeReach> levelReachOf(const upkg::Model& model) {
+    const Vec3 low{model.boundsMin.x, model.boundsMin.y, model.boundsMin.z};
+    const Vec3 high{model.boundsMax.x, model.boundsMax.y, model.boundsMax.z};
+    if (!model.boundsValid || !isFinite(low) || !isFinite(high)) return std::nullopt;
+    const auto s = static_cast<double>(PROBE_SPACING);
+    return ProbeReach{{low.x - s, low.y - s, low.z - s}, {high.x + s, high.y + s, high.z + s}};
+}
+
 std::optional<Rgb> meanAlbedo(const umat::Image& rgba) noexcept {
     if (rgba.channels != 4) return std::nullopt;
     Rgb sum;
@@ -372,9 +384,15 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
     // SS 4.6 steps 1 and 2: each non-sky triangle's grown box, cut to the
     // lattice points within one spacing of its plane and inside `reach`. The
     // box is clipped before the walk, so a triangle far larger than the play
-    // area costs its share of the reach and no more (UTA-0212).
-    const Vec3 reachLow = reach ? reach->low : Vec3{-HUGE_VAL, -HUGE_VAL, -HUGE_VAL};
-    const Vec3 reachHigh = reach ? reach->high : Vec3{HUGE_VAL, HUGE_VAL, HUGE_VAL};
+    // area costs its share of the reach and no more (UTA-0212). UTA-0375: the
+    // box is clipped to PROBE_WORLD_LIMIT too, so no point is too far out.
+    const double limit = PROBE_WORLD_LIMIT;
+    const Vec3 reachLow = reach ? Vec3{std::fmax(reach->low.x, -limit), std::fmax(reach->low.y, -limit),
+                                       std::fmax(reach->low.z, -limit)}
+                                : Vec3{-limit, -limit, -limit};
+    const Vec3 reachHigh = reach ? Vec3{std::fmin(reach->high.x, limit), std::fmin(reach->high.y, limit),
+                                        std::fmin(reach->high.z, limit)}
+                                 : Vec3{limit, limit, limit};
     std::vector<Cell> candidates;
     for (const ubundle::GeometryBatch& batch : geometry.batches) {
         if ((batch.polyFlags & PF_FAKE_BACKDROP) != 0) continue;
@@ -384,21 +402,53 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
             const Vec3 b = positionOf(geometry, geometry.indices[i + 1]);
             const Vec3 c = positionOf(geometry, geometry.indices[i + 2]);
             const Vec3 n = normalOf(geometry, i / 3);
+            // A coordinate or normal that is not finite seeds no candidate.
+            if (!isFinite(a) || !isFinite(b) || !isFinite(c) || !isFinite(n)) continue;
             const Vec3 low{std::max(std::min({a.x, b.x, c.x}) - spacing, reachLow.x),
                            std::max(std::min({a.y, b.y, c.y}) - spacing, reachLow.y),
                            std::max(std::min({a.z, b.z, c.z}) - spacing, reachLow.z)};
             const Vec3 high{std::min(std::max({a.x, b.x, c.x}) + spacing, reachHigh.x),
                             std::min(std::max({a.y, b.y, c.y}) + spacing, reachHigh.y),
                             std::min(std::max({a.z, b.z, c.z}) + spacing, reachHigh.z)};
-            const auto from = [spacing](double v) { return static_cast<std::int32_t>(std::ceil(v / spacing)); };
-            const auto to = [spacing](double v) { return static_cast<std::int32_t>(std::floor(v / spacing)); };
-            for (std::int32_t k = from(low.z); k <= to(high.z); ++k)
-                for (std::int32_t j = from(low.y); j <= to(high.y); ++j)
-                    for (std::int32_t cell = from(low.x); cell <= to(high.x); ++cell) {
-                        const Cell candidate{cell, j, k};
+            // UTA-0375: along the axis the plane faces most, walk only the
+            // cells near its slab, so a sloped triangle costs its area and not
+            // its box's volume. The slab is widened by a cell either side and
+            // every cell still meets the distance test, so the candidates are
+            // the whole box's.
+            const std::size_t d = std::abs(n.x) >= std::abs(n.y) && std::abs(n.x) >= std::abs(n.z) ? 0
+                                  : std::abs(n.y) >= std::abs(n.z)                                ? 1
+                                                                                                  : 2;
+            const std::size_t u = (d + 1) % 3;
+            const std::size_t v = (d + 2) % 3;
+            const double nd = component(n, d);
+            const double offset = dot(n, a);
+            const auto from = [spacing](double at) { return static_cast<std::int32_t>(std::ceil(at / spacing)); };
+            const auto to = [spacing](double at) { return static_cast<std::int32_t>(std::floor(at / spacing)); };
+            const std::int32_t firstD = from(component(low, d));
+            const std::int32_t lastD = to(component(high, d));
+            for (std::int32_t cu = from(component(low, u)); cu <= to(component(high, u)); ++cu)
+                for (std::int32_t cv = from(component(low, v)); cv <= to(component(high, v)); ++cv) {
+                    std::int32_t slabFirst = firstD;
+                    std::int32_t slabLast = lastD;
+                    if (nd != 0) {
+                        // n_d t + r within spacing of 0, r the rest of n . p - n . a.
+                        const double r = component(n, u) * cu * spacing + component(n, v) * cv * spacing - offset;
+                        const double t0 = (-spacing - r) / nd;
+                        const double t1 = (spacing - r) / nd;
+                        const double first = std::floor(std::min(t0, t1) / spacing) - 1;
+                        const double last = std::ceil(std::max(t0, t1) / spacing) + 1;
+                        if (first > slabFirst) slabFirst = static_cast<std::int32_t>(std::min<double>(first, lastD + 1.0));
+                        if (last < slabLast) slabLast = static_cast<std::int32_t>(std::max<double>(last, firstD - 1.0));
+                    }
+                    for (std::int32_t cd = slabFirst; cd <= slabLast; ++cd) {
+                        Cell candidate{};
+                        candidate[d] = cd;
+                        candidate[u] = cu;
+                        candidate[v] = cv;
                         if (std::abs(dot(n, pointOf(candidate) - a)) <= spacing)
                             candidates.push_back(candidate);
                     }
+                }
         }
     }
     // Step 4: ordered by z, then y, then x, each once.

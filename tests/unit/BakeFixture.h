@@ -293,6 +293,9 @@ public:
     /// actors; null unless set -- UTA-0335. Zone 1 is above the floor, zone 2
     /// below it.
     MapBuilder& setZoneActor(std::int32_t zone, std::size_t actor);
+    /// The level Model's bounding box; -64 to 64 on each axis unless set. A
+    /// map with no navigation point places its probes inside it (UTA-0375).
+    MapBuilder& setLevelBounds(std::array<float, 3> low, std::array<float, 3> high);
 
     [[nodiscard]] std::vector<std::uint8_t> build() const;
 
@@ -335,6 +338,8 @@ private:
     ModelTarget target_ = ModelTarget::Model;
     std::int32_t floorCoplanar_ = -1;
     std::vector<std::pair<std::int32_t, std::size_t>> zoneActors_;
+    std::array<float, 3> levelLow_{-64.0F, -64.0F, -64.0F};
+    std::array<float, 3> levelHigh_{64.0F, 64.0F, 64.0F};
 };
 
 /// A texture package: each texture and its palette.
