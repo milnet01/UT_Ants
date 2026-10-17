@@ -192,6 +192,71 @@ TEST_CASE("UTA-0303: a map that fits only twice finer is shadowed twice finer", 
     CHECK(plan.draws.size() == lights.size() * 6);
 }
 
+TEST_CASE("UTA-0322: a light a surface reads up close is refined before the haze's lights", "[render]") {
+    // Too many lights to refine them all even twice; one of them is the only
+    // light a surface reads the atlas for, and it fits four times finer.
+    const Light light = pointLight({0, 0, 0}, 200);
+    const double atlas = double(urender::SHADOW_ATLAS_SIZE) * urender::SHADOW_ATLAS_SIZE;
+    const double tier = urender::shadowTileSize(light);
+    const double half = urender::shadowTileSize(light, urender::SHADOW_UNITS_PER_TEXEL / 2);
+    const double quarter = urender::shadowTileSize(light, urender::SHADOW_UNITS_PER_TEXEL / 4);
+    const auto count = static_cast<std::uint32_t>(atlas / (6 * half * half)) + 1;
+    REQUIRE(count * 6 * tier * tier + 6 * (quarter * quarter - tier * tier) <= atlas);
+
+    std::vector<Light> lights;
+    for (std::uint32_t i = 0; i < count; ++i) lights.push_back(pointLight({10.0f * static_cast<float>(i), 0, 0}, 200));
+    std::vector<bool> near(count, false);
+    near[0] = true;
+    const auto sizeOf = [](const urender::ShadowPlan& plan, std::size_t i) {
+        return plan.faces[static_cast<std::size_t>(plan.firstFace[i])].atlasRect[2] * urender::SHADOW_ATLAS_SIZE;
+    };
+
+    ShadowPlanner planner;
+    const auto plan = planner.plan(lights, {}, near);
+    CHECK(plan.unitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL / 4);
+    CHECK(plan.restUnitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL);
+    CHECK(plan.unshadowed == 0u);
+    CHECK_THAT(sizeOf(plan, 0), WithinAbs(quarter, 1e-3));
+    CHECK_THAT(sizeOf(plan, 1), WithinAbs(tier, 1e-3));
+
+    // With no light marked, every light is near, as before UTA-0322.
+    ShadowPlanner every;
+    const auto all = every.plan(lights, {});
+    CHECK(all.unitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL);
+    CHECK(all.restUnitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL);
+
+    // Where every light fits finer, the haze's lights are refined too.
+    ShadowPlanner few;
+    const std::vector<Light> two{lights[0], lights[1]};
+    const auto spare = few.plan(two, {}, {true, false});
+    CHECK(spare.unitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL / 4);
+    CHECK(spare.restUnitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL / 4);
+}
+
+TEST_CASE("UTA-0322: a near light is never refined at the cost of the haze's lights", "[render]") {
+    // Lights that all fit twice finer and no finer. The one near light fits
+    // four times finer only if the rest drop to the tier's texel; they keep
+    // twice finer instead, and so does it.
+    const Light light = pointLight({0, 0, 0}, 200);
+    const double atlas = double(urender::SHADOW_ATLAS_SIZE) * urender::SHADOW_ATLAS_SIZE;
+    const double tier = urender::shadowTileSize(light);
+    const double half = urender::shadowTileSize(light, urender::SHADOW_UNITS_PER_TEXEL / 2);
+    const double quarter = urender::shadowTileSize(light, urender::SHADOW_UNITS_PER_TEXEL / 4);
+    const auto count = static_cast<std::uint32_t>(atlas / (6 * half * half));
+    REQUIRE(6 * (quarter * quarter + (count - 1) * half * half) > atlas);
+    REQUIRE(6 * (quarter * quarter + (count - 1) * tier * tier) <= atlas);
+
+    std::vector<Light> lights;
+    for (std::uint32_t i = 0; i < count; ++i) lights.push_back(pointLight({10.0f * static_cast<float>(i), 0, 0}, 200));
+    std::vector<bool> near(count, false);
+    near[0] = true;
+    ShadowPlanner planner;
+    const auto plan = planner.plan(lights, {}, near);
+    CHECK(plan.unitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL / 2);
+    CHECK(plan.restUnitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL / 2);
+    CHECK(plan.unshadowed == 0u);
+}
+
 TEST_CASE("SS 4.8: a point light takes six tiles and a spotlight one", "[render]") {
     Light point = pointLight({0, 0, 0}, 20);
     CHECK(urender::shadowFacesOf(point) == 6u);

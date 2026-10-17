@@ -576,6 +576,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Shadows on doors and lifts are finer on busy maps** (UTA-0322)
+  The shadow map's room now goes first to the lights that shine near a
+  door, lift or other moving part, since only those shadows are drawn
+  from it up close. Lights that only light the haze take what is left.
+  Uses no more video memory.
+
 - **Bounced light is four times stronger, the sky lights the level, and the flat zone fill is gone** (UTA-0292)
   A surface now sends on four times its texture's brightness, capped at
   0.9, because UT99's textures are stored about four times darker than

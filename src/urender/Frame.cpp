@@ -444,6 +444,10 @@ struct Renderer::Impl {
     VkDescriptorSet fogSet = VK_NULL_HANDLE;
     std::vector<std::uint8_t> lightZones;
     ShadowPlanner shadowPlanner;
+    /// UTA-0322: per directLights light, whether a surface reads its tiles up
+    /// close -- one of its SMSK pairs is moverReach. Empty with no SMSK, which
+    /// marks every light near.
+    std::vector<bool> nearLights;
     /// UTA-0163: where the level's sky is drawn from, its six faces three
     /// across and two down, whether a draw has still to fill them, and whether
     /// they are filled. The texture is the last in the scene set's array.
@@ -744,11 +748,13 @@ Result<void> Renderer::Impl::uploadAtlas(Image& image, std::uint32_t width, std:
 /// out; then its atlas. With no SMSK, one zero record each and no atlas.
 Result<void> Renderer::Impl::uploadShadowMask(const ubundle::Bundle& bundle) {
     shadowMask = Image{};
+    nearLights.clear();
     std::vector<gpu::MaskChart> charts;
     std::vector<gpu::MaskPair> pairs;
     if (bundle.shadowMask) {
         const ubundle::ShadowMask& mask = *bundle.shadowMask;
         const std::vector<std::uint32_t> drawn = drawnIndices(bundle);
+        nearLights.assign(directLights(bundle).size(), false);
         for (const ubundle::MaskChart& chart : mask.charts) {
             if (std::uint64_t{chart.firstPair} + chart.pairCount > mask.pairs.size())
                 return fail(ErrorCode::InvalidArgument, "an SMSK chart's pairs pass the end of its pairs");
@@ -760,6 +766,7 @@ Result<void> Renderer::Impl::uploadShadowMask(const ubundle::Bundle& bundle) {
                                 std::format("an SMSK pair names light {} of LITE's {}", pair.light, drawn.size()));
                 if (drawn[pair.light] == gpu::NONE) continue;
                 pairs.push_back({drawn[pair.light], pair.x, pair.y, pair.moverReach});
+                if (pair.moverReach != 0) nearLights[drawn[pair.light]] = true;
                 ++placed.pairCount;
             }
             charts.push_back(placed);
@@ -1746,7 +1753,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         moved.push_back(worldBox(impl.moverBounds[i - 1], impl.previousModels[i]));
         moved.push_back(worldBox(impl.moverBounds[i - 1], models[i]));
     }
-    const ShadowPlan plan = impl.shadowPlanner.plan(directLights(bundle), moved);
+    const ShadowPlan plan = impl.shadowPlanner.plan(directLights(bundle), moved, impl.nearLights);
     for (std::size_t i = 0; i < frameLights.size(); ++i) {
         frameLights[i].shadowFace = plan.firstFace[i];
         frameLights[i].shadowFaceCount = plan.faceCount[i];

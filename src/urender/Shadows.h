@@ -5,7 +5,8 @@
 // ONE DEPTH ATLAS FOR EVERY SHADOWING LIGHT. A point light takes six tiles,
 // one per cube face; a spotlight takes one. Tile size follows the light's
 // reach alone, in powers of two (UTA-0166), at the finest texel at which
-// every light of the map fits the atlas (UTA-0303).
+// every light of the map fits the atlas (UTA-0303), and the lights a surface
+// reads up close finer still where room is left (UTA-0322).
 //
 // A LIGHT THAT DOES NOT MOVE HAS ITS TILES DRAWN ONCE AND KEPT (SS 4.8). A
 // tile is drawn when it is placed, when its light's numbers change, and when a
@@ -136,7 +137,8 @@ struct ShadowPlan {
     std::vector<std::uint32_t> faceCount;  ///< per light
     std::vector<ShadowDraw> draws;         ///< the tiles to draw this frame
     std::uint32_t unshadowed = 0;          ///< lights wanting shadows the atlas could not hold
-    double unitsPerTexel = 0;              ///< UTA-0303: the texel every tile was sized at
+    double unitsPerTexel = 0;              ///< UTA-0303: the texel the near lights' tiles were sized at
+    double restUnitsPerTexel = 0;          ///< UTA-0322: the texel the haze-only lights' tiles were sized at
 };
 
 /// Keeps each light's tiles between frames, which is what makes a static
@@ -161,8 +163,17 @@ public:
     /// Tiles are powers of two placed largest first, so they fit exactly when
     /// their areas sum to no more than the atlas's. That too reads the lights
     /// alone.
+    ///
+    /// UTA-0322: `near` marks, per light, whether a surface reads its tiles up
+    /// close -- a mover, or a level surface a mover can shadow. The rest only
+    /// scatter haze, which reads a copy a quarter of the atlas's side, so their
+    /// detail never shows. The rest keep the texel above; the near lights
+    /// take the finest at which they fit beside them, so no light is coarser
+    /// than it would be unmarked. A light past the end of
+    /// `near` is near, so empty marks every light near.
     [[nodiscard]] ShadowPlan plan(const std::vector<ubundle::Light>& lights,
-                                  const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds);
+                                  const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds,
+                                  const std::vector<bool>& near = {});
 
     /// Forget every tile, so the next plan places and draws them all -- for a
     /// new bundle, whose geometry every tile depicted.

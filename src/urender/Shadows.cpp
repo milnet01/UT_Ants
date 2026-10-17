@@ -195,21 +195,31 @@ gpu::Mat4 shadowViewProj(const ubundle::Light& light, std::uint32_t face) noexce
 
 namespace {
 
+bool isNear(const std::vector<bool>& near, std::size_t i) noexcept { return i >= near.size() || near[i]; }
+
 /// UTA-0303: the finest texel, from `detail`'s down to FINEST_SHADOW_REFINEMENT
 /// times finer by halves, at which every light's tiles fit the atlas; the
-/// tier's own when none does.
-double unitsPerTexelFor(const std::vector<ubundle::Light>& lights, const ShadowDetail& detail) noexcept {
+/// tier's own when none does. UTA-0322: that is the rest's, and the near
+/// lights then take the finest at which they fit beside the rest at it, so
+/// no light is coarser than UTA-0303 alone made it. Returns {near, rest}.
+std::array<double, 2> unitsPerTexelFor(const std::vector<ubundle::Light>& lights, const std::vector<bool>& near,
+                                       const ShadowDetail& detail) noexcept {
     const double atlas = static_cast<double>(detail.atlasSize) * detail.atlasSize;
-    for (std::uint32_t refinement = FINEST_SHADOW_REFINEMENT; refinement > 1; refinement /= 2) {
-        const double unitsPerTexel = detail.unitsPerTexel / refinement;
+    const auto fits = [&](double nearTexel, double restTexel) {
         double texels = 0;
-        for (const auto& light : lights) {
-            const double tile = shadowTileSize(light, unitsPerTexel);
-            texels += shadowFacesOf(light) * tile * tile;
+        for (std::size_t i = 0; i < lights.size(); ++i) {
+            const double tile = shadowTileSize(lights[i], isNear(near, i) ? nearTexel : restTexel);
+            texels += shadowFacesOf(lights[i]) * tile * tile;
         }
-        if (texels <= atlas) return unitsPerTexel;
-    }
-    return detail.unitsPerTexel;
+        return texels <= atlas;
+    };
+    const auto finest = [&](auto&& fitsAt) {
+        for (std::uint32_t refinement = FINEST_SHADOW_REFINEMENT; refinement > 1; refinement /= 2)
+            if (fitsAt(detail.unitsPerTexel / refinement)) return detail.unitsPerTexel / refinement;
+        return detail.unitsPerTexel;
+    };
+    const double restTexel = finest([&](double t) { return fits(t, t); });
+    return {finest([&](double t) { return fits(t, restTexel); }), restTexel};
 }
 
 } // namespace
@@ -220,10 +230,12 @@ void ShadowPlanner::reset() {
 }
 
 ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
-                               const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds) {
-    const double unitsPerTexel = unitsPerTexelFor(lights, detail_);
+                               const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds,
+                               const std::vector<bool>& near) {
+    const auto [unitsPerTexel, restUnitsPerTexel] = unitsPerTexelFor(lights, near, detail_);
     std::vector<std::uint32_t> wanted(lights.size());
-    for (std::size_t i = 0; i < lights.size(); ++i) wanted[i] = shadowTileSize(lights[i], unitsPerTexel);
+    for (std::size_t i = 0; i < lights.size(); ++i)
+        wanted[i] = shadowTileSize(lights[i], isNear(near, i) ? unitsPerTexel : restUnitsPerTexel);
 
     // Any light whose wanted size changed -- or a different set of lights --
     // re-admits every light, largest first, and draws all their tiles again.
@@ -265,6 +277,7 @@ ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
 
     ShadowPlan plan;
     plan.unitsPerTexel = unitsPerTexel;
+    plan.restUnitsPerTexel = restUnitsPerTexel;
     plan.firstFace.assign(lights.size(), -1);
     plan.faceCount.assign(lights.size(), 0);
     for (std::size_t i = 0; i < lights.size(); ++i) {

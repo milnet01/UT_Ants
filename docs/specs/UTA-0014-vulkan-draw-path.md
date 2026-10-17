@@ -766,6 +766,18 @@ up: `DM-Deck16][`'s lights took 0.08 of the atlas, and its coarsest lights put
 26 units under a texel at their reach; at 8 units a texel they take 0.48. A
 map too dense for a finer texel is planned exactly as before.
 
+**Amended by `UTA-0322`, recording what was built: a light a surface reads up
+close is refined further where room is left.** Since `UTA-0326` a level surface
+reads the atlas only for a `moverReach` pair; the haze reads a copy a quarter
+of its side. So a light with a `moverReach` pair is *near*. The other lights
+keep `UTA-0303`'s texel; the near lights take the finest, down to
+`FINEST_SHADOW_REFINEMENT` times the tier's, at which they fit beside them. No
+light is coarser than `UTA-0303` alone made it. A bundle without `SMSK` marks
+every light near, which plans as before. Measured on 2026-10-17 at High over
+the 127 maps of `UTA-0039`'s survey, baker revision 58: of the 85 with a
+`moverReach` pair, 25 shadow their near lights finer, 16 to 8 or 32 to 16 or
+8 units a texel, and none coarser.
+
 **A lit surface is kept from shadowing itself by the tile pass's slope-scaled
 depth bias, and, for `UTA-0307`'s soft reads below, by the depth each read is
 compared at.** A normal offset on the sample was built and
