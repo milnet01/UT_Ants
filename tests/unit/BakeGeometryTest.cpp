@@ -13,6 +13,7 @@
 
 #include "ubake/Geometry.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
@@ -537,6 +538,40 @@ TEST_CASE("UTA-0055 INV-1: water sways facing up and not on a wall", "[ubake][ge
     const std::size_t node = wall.add({at(0, 0, 0), at(0, 64, 0), at(0, 64, 64), at(0, 0, 64)});
     wall.surfOf(node).vNormal = 1; // +x
     still(built(wall, stub));
+}
+
+TEST_CASE("UTA-0055 INV-2: corners shared across a fold move along one direction", "[ubake][geom][sway]") {
+    // Two hanging cloth walls meeting at a right angle along x = 64, y = 0.
+    // The shader moves a corner along its normal, so the fold's corners must
+    // carry one normal on both sides or the seam opens.
+    Scene scene;
+    const std::size_t front = scene.add({at(0, 0, 0), at(64, 0, 0), at(64, 0, 128), at(0, 0, 128)}, PF_TWO_SIDED);
+    scene.surfOf(front).vNormal = 2; // +y
+    const std::size_t side = scene.add({at(64, 0, 0), at(64, 64, 0), at(64, 64, 128), at(64, 0, 128)}, PF_TWO_SIDED);
+    scene.surfOf(side).vNormal = 1; // +x
+    Stub stub;
+    stub.cloth = true;
+    const Geometry geometry = built(scene, stub);
+    allSway(geometry, uta::ubundle::SwayKind::Cloth);
+
+    std::size_t shared = 0;
+    for (const auto& a : geometry.vertices)
+        for (const auto& b : geometry.vertices) {
+            if (&a == &b || a.position != b.position) continue;
+            CHECK(a.normal == b.normal);
+            if (a.position[0] == 64 && a.position[1] == 0) ++shared;
+        }
+    CHECK(shared > 0);
+    const float half = static_cast<float>(std::sqrt(0.5));
+    for (const auto& vertex : geometry.vertices) {
+        INFO(vertex.position[0] << " " << vertex.position[1] << " " << vertex.position[2]);
+        if (vertex.position[0] == 64 && vertex.position[1] == 0) {
+            CHECK(vertex.normal[0] == Catch::Approx(half));
+            CHECK(vertex.normal[1] == Catch::Approx(half));
+        } else if (vertex.position[0] < 64) {
+            CHECK(vertex.normal == std::array<float, 3>{0, 1, 0});
+        }
+    }
 }
 
 TEST_CASE("UTA-0055 INV-3: a material that is neither cloth nor water is drawn as before", "[ubake][geom][sway]") {

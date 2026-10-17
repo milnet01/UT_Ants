@@ -72,7 +72,7 @@ same header.
 Moving polygons with the same kind and material that share an edge form a
 **patch**. Each polygon of a patch is sliced by the world planes
 `x = k·S`, `y = k·S` and `z = k·S`, for every integer `k` between its
-extremes; `S` is 16 units for cloth and 32 for water. Each piece is convex,
+extremes; `S` is 32 units for cloth and for water. Each piece is convex,
 and is fanned as `buildGeometry` fans a polygon today.
 
 **Why world planes.** Two polygons sharing an edge are cut where the same
@@ -82,12 +82,17 @@ order (lexicographic on position), so both polygons compute the same
 bits. A plane within 1/64 unit of a whole polygon cuts nothing.
 
 UVs and the zone are carried to each new vertex by the plane's linear
-interpolation; the normal is the polygon's. AOCC and SMSK are charted
-after slicing, so new vertices get charts as any other.
+interpolation. A swaying vertex's normal is the mean of the normals of
+every moving polygon holding that point, so a fold's two sides move along
+one direction and no seam opens. Where those normals cancel, it is the
+polygon's own. AOCC and SMSK are charted after slicing, so new vertices
+get charts as any other.
 
-**Budget.** At most 262144 sliced vertices a map. Over it, the water `S`
-doubles until the map fits; past 256 units, water stays unsliced and
-None, and the bake report lists it.
+**Budget.** At most 524288 sliced vertices a map. Over it, the kind
+holding more of them has its `S` doubled first, cloth up to 64 units and
+water up to 256; then the other kind. If neither can coarsen further,
+water stays unsliced and still, then cloth. The bake report lists the
+spacings and what was left still.
 
 ### 4.3 How far each vertex may move
 
@@ -104,31 +109,38 @@ Each vertex carries a **weight**, a byte, 0 (pinned) to 255 (free).
 
 ### 4.4 The bundle
 
-`GeometryVertex`'s first two `reserved` bytes become:
+`GeometryVertex` gains three bytes after `zone`:
 
 ```
-std::uint8_t sway = 0;        ///< SwayKind; 0 None
+SwayKind sway = None;         ///< 0 None, 1 Cloth, 2 Water
 std::uint8_t swayWeight = 0;  ///< 0 pinned .. 255 free; 0 where sway is None
-std::uint8_t reserved = 0;    ///< always zero
+std::uint8_t swayCell = 0;    ///< S / 16: 1, 2, 4, 8 or 16; 0 where sway is None
 ```
 
-On the wire both follow the zone byte, so a vertex is 35 bytes
+On the wire the three follow the zone byte, so a vertex is 36 bytes
 (`MIN_GEOMETRY_VERTEX`). A `sway` byte past 2 is refused, as MATS refuses
-a liquid byte past 3. `FORMAT_VERSION` becomes 29 and `BAKER_REVISION` 56.
+a liquid byte past 3. So is a None vertex with a weight or a cell, and a
+swaying vertex whose cell is not a power of two up to 16.
+`FORMAT_VERSION` becomes 29 and `BAKER_REVISION` 57.
 
 ### 4.5 The renderer
 
-A new attribute carries `sway` and `swayWeight` (`R8G8_UINT`). `Frame`
-gains `previousFlameSeconds`, the light clock one frame earlier.
+One attribute (`R8G8B8A8_UINT`, from the zone byte) carries the zone,
+`sway`, `swayWeight` and `swayCell`. `Frame` gains
+`previousFlameSeconds`, the light clock one frame earlier.
 
-`sway.glsl` gives `vec3 swayOffset(vec3 p, vec3 n, uint kind, float w,
-float t)` and `vec3 swayNormal(...)`:
+`sway.glsl` gives `Sway swayAt(vec3 p, vec3 n, uint kind, float weight,
+float cell, float seconds)`, returning the offset and the moved normal:
 
 - **Cloth** — three summed sines of world position along the normal,
-  amplitude `CLOTH_AMPLITUDE · w`, with the normal from their analytic
-  derivative.
-- **Water** — four Gerstner waves of steepness at most 0.3, amplitude
-  `WATER_AMPLITUDE · w`, along the plane's normal and within it.
+  wavelengths 224, 144 and 96 units, amplitude `CLOTH_AMPLITUDE · w`
+  (6 units), with the normal from their analytic derivative.
+- **Water** — four Gerstner waves of steepness at most 0.3, wavelengths
+  600, 340, 220 and 150 units, amplitude `WATER_AMPLITUDE · w` (3 units),
+  along the plane's normal and within it.
+
+A wave shorter than three cells of its surface's spacing fades out by
+two cells, so a coarsened surface does not alias.
 
 Every wave's angular rate is a whole number of cycles per
 `FLAME_CLOCK_WRAP` (4096 s), so the clock's wrap is seamless.
@@ -154,7 +166,7 @@ test pins the table's digest to say so.
 ## 5. Invariants
 
 - **INV-1** — A polygon gets a sway kind only by § 4.1's rules.
-  *Test:* `tests/unit/BakeSwayTest.cpp`, one case per rule and per
+  *Test:* `tests/unit/BakeGeometryTest.cpp`, one case per rule and per
   exclusion: a cloth picture on a solid one-sided wall, a Wet look on a
   wall, an Ice look on a floor.
   *Breaks when:* a rule drops its flag or normal test, or reads the
@@ -162,15 +174,17 @@ test pins the table's digest to say so.
 
 - **INV-2** — Slicing leaves no crack: within a patch, every triangle edge
   is either on the patch's outline or shared by exactly two triangles,
-  with bitwise equal end positions.
+  with bitwise equal end positions; and corners at one position carry
+  one normal.
   *Test:* `tests/unit/BakeSwayTest.cpp`, two polygons sharing an edge,
-  given in opposite winding and in a tilted plane.
+  given in opposite winding and in a tilted plane;
+  `tests/unit/BakeGeometryTest.cpp`, two cloth walls meeting at a fold.
   *Breaks when:* a crossing is computed from the edge's ends in the
-  polygon's own order.
+  polygon's own order, or a vertex takes its polygon's normal.
 
 - **INV-3** — A polygon of kind None is written exactly as today.
   *Test:* `tests/unit/BakeGoldenTest.cpp`, its vertices and indices
-  unchanged apart from the two new zero bytes.
+  unchanged apart from the three new zero bytes.
   *Breaks when:* slicing or weighting runs on a None polygon.
 
 - **INV-4** — Weight is 0 at the pin: on a hanging cloth patch at every
@@ -180,12 +194,13 @@ test pins the table's digest to say so.
   *Breaks when:* the top or the outline is taken per polygon rather than
   per patch.
 
-- **INV-5** — GEOM's codec writes and reads both bytes, and refuses a
-  sway byte past 2.
-  *Test:* `tests/unit/BundleGeometryTest.cpp`, round trip and refusal.
+- **INV-5** — GEOM's codec writes and reads all three bytes, and refuses
+  a sway byte past 2, a None vertex with a weight or cell, and a swaying
+  cell that is not a power of two up to 16.
+  *Test:* `tests/unit/BundleGeometryTest.cpp`, round trip and refusals.
   *Breaks when:* the reader skips the bytes or accepts 3.
 
-- **INV-6** — The budget holds: no map writes more than 262144 sliced
+- **INV-6** — The budget holds: no map writes more than 524288 sliced
   vertices, and a coarsened or dropped map says so in its bake report.
   *Test:* `tests/unit/BakeSwayTest.cpp`, a water plane too big for 32
   units.
@@ -205,7 +220,8 @@ test pins the table's digest to say so.
 - **INV-9** — Collision, AOCC and SMSK are built from flat geometry or
   per-vertex charts only; the collision section of a sway-bearing map is
   the same bytes with and without sway.
-  *Test:* `tests/unit/BakeSwayTest.cpp`.
+  *Test:* none. `buildCollision` reads the Model only, never GEOM, so no
+  test can feed it sliced vertices.
   *Breaks when:* collision reads GEOM's sliced vertices.
 
 - **INV-10** — The cloth list is the labels file's `cloth` lines over the
@@ -257,7 +273,8 @@ CPU driver under the validation layer, label `device`.
 
 | Rule | What catches a breach |
 |------|----------------------|
-| INV-1 to INV-6, INV-9 | `tests/unit/BakeSwayTest.cpp`, `BakeGoldenTest.cpp`, `BundleGeometryTest.cpp` |
+| INV-1 to INV-6 | `tests/unit/BakeSwayTest.cpp`, `BakeGeometryTest.cpp`, `BakeGoldenTest.cpp`, `BundleGeometryTest.cpp` |
+| INV-9 | **nothing** — `buildCollision` reads the Model only |
 | INV-7, INV-8 | `tests/device/RenderSwayTest.cpp` |
 | INV-10 | `tests/real/RealClothTest.cpp`, `tests/unit/ClothLibraryTest.cpp` |
 | The amplitudes look right | **nothing** — chosen, not fitted (§ 4.5) |
@@ -265,7 +282,7 @@ CPU driver under the validation layer, label `device`.
 ## 11. Cross-doc impact
 
 - `CLAUDE.md` § Standing facts: the format and baker revision numbers.
-- `docs/specs/UTA-0109-map-geometry.md`: GEOM's vertex layout gains two bytes.
+- `docs/specs/UTA-0109-map-geometry.md`: GEOM's vertex layout gains three bytes.
 - `CHANGELOG.md`: one entry.
 
 ## 12. Cold-eyes loop log
@@ -276,8 +293,11 @@ Rows live in `../reviews/UTA-0055-swaying-cloth-and-water-loop-log.md`.
 
 Sliced vertices are capped per map (§ 4.2). The vertex stage adds a few
 sines per vertex on moving surfaces only; others branch past it.
-Frame time is measured with `ut-bench` before and after on DM-KGalleon,
-which carries sails, a curtain and water.
+Frame time was measured with `ut-bench frame` on DM-KGalleon, which
+carries sails, a curtain and water (2026-10-17, RX 6600, tier high,
+1920x1080, six views, each build run twice in one job). The scene pass
+rose 0.2 to 0.7 ms a view; the most was over the pond, 6.15 to 6.87 ms.
+The bake held 477117 sliced vertices, 59415 of them cloth.
 
 The census (2026-10-16, a throwaway program linking the build's
 libraries, kept in `~/.cache/uta-scratch/u055/`) read 1610 of the
@@ -291,6 +311,5 @@ format bump.
 
 ## 15. Open questions
 
-- Does flat shadowing show acne on swaying cloth? Answered by a capture of
-  DM-KGalleon's sails after § 4.5 lands. If it does, `shadow.vert` runs
-  `swayOffset` too.
+None. Flat shadowing shows no acne on DM-KGalleon's sails (ut-shot,
+2026-10-17), so shadows stay flat.

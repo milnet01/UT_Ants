@@ -34,7 +34,7 @@ namespace uta::ubake {
 /// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
 /// tests/unit/BakeGoldenTest.cpp fails a change without a bump, and a bump
 /// without re-recording its golden hash (INV-5).
-inline constexpr std::uint32_t BAKER_REVISION = 56; // 56 since UTA-0055 slices and weights swaying surfaces
+inline constexpr std::uint32_t BAKER_REVISION = 57; // 57 since UTA-0055 moves a fold's corners one way
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex

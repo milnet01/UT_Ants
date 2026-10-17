@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Flags, sails, curtains and water move** (UTA-0055)
+  Cloth hung on two-sided or see-through surfaces sways in a breeze,
+  pinned where it hangs from. Water and lava rise and fall in slow
+  waves, still at their edges. Re-bake every map: bundles are now
+  format 29.
+
 - **The launcher, --help and the README carry a disclaimer** (UTA-0378)
   It says UT Ants includes none of Epic's content, needs your own copy
   of Unreal Tournament, and is not affiliated with or endorsed by Epic

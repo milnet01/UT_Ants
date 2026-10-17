@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=380 -->
+<!-- ants-roadmap-id-high-water: UTA=381 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -2250,6 +2250,20 @@ stays with movement in 0.2.0.
   UTA-0109 spec's vertex layout; CHANGELOG; push and flip.
   Gap found: the census name search missed abbreviated names, e.g.
   KGalleon's ShpBanr1/ShpBanr2 banners. Not on the cloth list yet.
+  Look check (2026-10-17, ut-shot at --light-time 0 and 1.3, six
+  views): water, Sail1a and Sail1 move; the bed curtain moves at its hem.
+  No shadow acne on the sails, so shadows stay flat (spec SS 15 closed).
+  Found: hairline cracks along a sail's fold, background showing through.
+  Cause: the shader moves a vertex along its polygon's normal, so a fold's
+  two sides pushed a shared corner two ways. Fix: each swaying point moves
+  along the mean of the normals of every moving polygon holding it,
+  written as the vertex normal; baker 57. The seam count on the sail view
+  went from 42 and 57 to 0 at both times. Slicing itself was watertight
+  (a throwaway probe found only sub-unit slivers).
+  Frame time (ut-bench frame, high, 1920x1080, the parent's own build on
+  the r55 bake vs r57, twice each in one job): scene pass +0.2 to +0.7 ms
+  a view, most over the pond (6.15 to 6.87 ms).
+  Spec, UTA-0109 spec, CLAUDE.md and CHANGELOG folded. Left: push, flip.
   **Layman:** Make the flags and the water move instead of standing still.
   Kind: implement.
   Source: user-request-2026-09-04.
@@ -17282,6 +17296,25 @@ stays with movement in 0.2.0.
   Kind: feature.
   Source: in-session-2026-10-16 split-from-UTA-0347.
   Lanes: tools.
+
+- 📋 [UTA-0381] **urender: on DM-Deck16][ a close shadow is still stair-stepped, and a straight wall casts a curved shadow.**
+  The user, 2026-10-17, F12 in the viewer (ultra, 3840x2160, baker r57,
+  commit 6dee8eb-dirty; the dirt is UTA-0055's baker-only sway edit).
+  Seen in the capture: the floor shadow's edge steps in blocks tens of
+  pixels wide at 4K, coarser than the "fine stair-step" UTA-0303 left
+  for UTA-0296. The shadow on the right-hand wall arcs where the wall
+  casting it is straight; one point light's shadow of a straight edge on
+  a flat wall is straight, so something bends it (receiver bias, the
+  filter's offsets, the face projection, or a caster that is not
+  straight). Unchecked: which lamp casts it, its tile's texel size, and
+  whether the arc survives --light-time 0 and --no-probes.
+  First: ut-shot --from-capture on this folder, then strip to one cause
+  with throwaway probes.
+  **Layman:** A shadow near the camera has jagged steps along its edge, and a straight wall's shadow bends.
+  Kind: fix.
+  Source: user-request-2026-10-17.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Deck16][-20261017-062428Z
 
 ## 0.2.0 — Movement and weapons
 

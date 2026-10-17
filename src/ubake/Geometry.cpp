@@ -397,6 +397,9 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
                 vertex.sway = kind;
                 vertex.swayWeight = piece.weights[k];
                 vertex.swayCell = piece.cell;
+                // SS 4.2: the shader moves it along its normal, one a point.
+                for (std::size_t axis = 0; axis < 3; ++axis)
+                    vertex.normal[axis] = static_cast<float>(piece.directions[k][axis]);
                 fan.push_back(vertex);
             }
             vertexTotal += fan.size();

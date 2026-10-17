@@ -138,9 +138,11 @@ namespace {
 // 56: UTA-0055 gives each GEOM vertex its sway kind, weight and cell (format 29).
 // The fixture wears no cloth and no water, so both are zero on every vertex
 // and its geometry is otherwise as before (INV-3).
-constexpr std::uint32_t RECORDED_UNDER = 56;
+// 57: UTA-0055 moves a fold's corners along one direction. The fixture wears
+// no cloth and no water, so only BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 57;
 constexpr std::string_view GOLDEN =
-    "c2d24a94f50f3baba3b7e7aab5772492e7675327888084949fe7d5130a149055";
+    "b8d99a3e3012483b499b7dfac6c6b0aed2d7dd8045768cdb2f0cb0d8fe04cb34";
 
 } // namespace
 

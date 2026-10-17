@@ -366,6 +366,27 @@ SwaySlicing sliceAll(std::span<const SwayPolygon> polygons, const Prepared& prep
             out.pieces[p].push_back(std::move(made));
         }
     }
+    // SS 4.2: each point's direction, every polygon holding it counted once.
+    std::map<SwayPoint, SwayPoint> summed;
+    for (std::size_t p = 0; p < polygons.size(); ++p) {
+        std::set<SwayPoint> held;
+        for (const SwayPiece& piece : out.pieces[p]) held.insert(piece.points.begin(), piece.points.end());
+        const SwayPoint& normal = polygons[p].normal;
+        for (const SwayPoint& point : held) {
+            SwayPoint& sum = summed[point];
+            sum = {sum[0] + normal[0], sum[1] + normal[1], sum[2] + normal[2]};
+        }
+    }
+    for (std::size_t p = 0; p < polygons.size(); ++p)
+        for (SwayPiece& piece : out.pieces[p]) {
+            piece.directions.reserve(piece.points.size());
+            for (const SwayPoint& point : piece.points) {
+                const SwayPoint& sum = summed[point];
+                const double length = lengthOf(sum);
+                piece.directions.push_back(length > NEAR ? SwayPoint{sum[0] / length, sum[1] / length, sum[2] / length}
+                                                         : polygons[p].normal);
+            }
+        }
     return out;
 }
 

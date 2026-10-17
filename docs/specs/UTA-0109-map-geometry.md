@@ -86,9 +86,13 @@ inline constexpr std::uint32_t FORMAT_VERSION = 4;  // 4 since UTA-0109
 /// One corner of a triangle.
 struct GeometryVertex {
     std::array<float, 3> position{};  ///< UT99's own coordinates and units
-    std::array<float, 3> normal{};    ///< its surface's normal, as the file stores it
+    std::array<float, 3> normal{};    ///< its surface's normal, as the file stores it; a swaying vertex's is UTA-0055 § 4.2's mean
     float u = 0;                      ///< 1.0 is one repeat of the texture
     float v = 0;
+    std::uint8_t zone = 0;            ///< UTA-0156 § 4.2
+    SwayKind sway = SwayKind::None;   ///< UTA-0055 § 4.4, with swayWeight and swayCell
+    std::uint8_t swayWeight = 0;
+    std::uint8_t swayCell = 0;
 };
 
 /// A run of triangles wearing one material under one set of flags.
@@ -120,12 +124,12 @@ as `u32`, `batches`.
 
 | Element | Encoding |
 |---|---|
-| `GeometryVertex` | six `f32` — `position` x, y, z, then `normal` x, y, z — then `u` and `v` as `f32` |
+| `GeometryVertex` | six `f32` — `position` x, y, z, then `normal` x, y, z — then `u` and `v` as `f32`, then `zone`, `sway`, `swayWeight` and `swayCell` as `u8` |
 | index | `u32` |
 | `GeometryBatch` | `material` as `string`, then `polyFlags`, `firstIndex`, `indexCount` as `u32`, then `panRate` u and v as `f32` (`UTA-0269`) |
 
 **Minimum encoded sizes**, joining UTA-0008 § 4.2's table: `GeometryVertex`
-33 bytes, fixed (32 until UTA-0156 § 4.2 added the zone byte); `GeometryBatch` 24 bytes, a `u32` length for an empty
+36 bytes, fixed (32 until UTA-0156 § 4.2 added the zone byte, 33 until UTA-0055 § 4.4 added the three sway bytes); `GeometryBatch` 24 bytes, a `u32` length for an empty
 `material`, three `u32` and two `f32` (16 until `UTA-0269` added the pan rate).
 
 **`GEOM`'s floats are not validated, except a batch's pan rate.** They are
@@ -604,7 +608,7 @@ Rows live in `../reviews/UTA-0109-map-geometry-loop-log.md`.
 ## 13. Resource cost
 
 - No new target and no new dependency.
-- 32 bytes per emitted vertex and 12 per triangle. A node has at most 255
+- 36 bytes per emitted vertex and 12 per triangle. A node has at most 255
   vertices (`numVertices` is a byte), so the section is bounded by the
   `Model`, which is bounded by the file.
 - `buildGeometry` runs on one thread. Not measured; the real-asset case

@@ -60,6 +60,10 @@ struct SwayPolygon {
 struct SwayPiece {
     std::vector<SwayPoint> points;
     std::vector<std::uint8_t> weights; ///< one a point; 0 pinned .. 255 free
+    /// One a point, unit: the way it moves, the mean of the normals of every
+    /// moving polygon holding it, so a fold's two sides move together. The
+    /// polygon's own normal where those cancel.
+    std::vector<SwayPoint> directions;
     std::uint8_t cell = 0;             ///< SS 4.4: the spacing it was cut at, over SWAY_CELL_UNITS
 };
 
