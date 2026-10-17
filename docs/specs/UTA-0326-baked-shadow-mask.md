@@ -93,7 +93,7 @@ fog volume, which lights no surface.
 namespace uta::ubundle {
 
 inline constexpr std::uint32_t FORMAT_VERSION = 23; // 23 since UTA-0326
-inline constexpr std::uint32_t SHADOW_MASK_ATLAS_LIMIT = 4096;
+inline constexpr std::uint32_t SHADOW_MASK_ATLAS_LIMIT = 8192; // 4096 until UTA-0322
 inline constexpr std::uint32_t MASK_NO_CHART = 0xFFFFFFFF;
 inline constexpr std::uint16_t MASK_ALL_LIT = 0xFFFF;
 
@@ -458,10 +458,21 @@ Rows live in `../reviews/UTA-0326-baked-shadow-mask-loop-log.md`.
 
 ## 13. Resource cost
 
-- The atlas is at most `SHADOW_MASK_ATLAS_LIMIT` squared bytes, 16 MiB. The
+- The atlas is at most `SHADOW_MASK_ATLAS_LIMIT` squared bytes, 64 MiB. The
   probe of § 2 put the chart-and-light area, before any pair is dropped or
   found all-lit, at 8.45, 2.19 and 13.25 million texels at 16 units on
   Bishop, Closer and Crane, and four times that at 8.
+
+*As built, amended by `UTA-0322`:* the limit was 4096, 16 MiB. Over
+`UTA-0039`'s 127 survey maps at baker revision 58 (2026-10-17), 25 maps
+coarsened to 16 units a texel and 3 to 32. At 8192, four of them baked
+again: DM-ArchNemesis and MH-UM-DeadCity reached 8 units, DM-FoT-SimpleX
+and DM-Edge][ 16. Each baked faster, restarting at a coarser texel fewer
+times, and its bundle grew 5% to 13%. `ut-bench frame` at
+High, 3840x2160, on the RX 6600, old and new alternated twice in one job:
+the main draw's time per view moved by no more than its run-to-run spread,
+about 0.5 ms. A device must make 2D images 8192 texels a side
+(`UTA-0014` § 4.4); Medium's shadow atlas already needed it.
 - A pair is 12 bytes and a chart 12; Bishop's 3785 lit polygons with at most
   67 pairs each bound its pairs near 3 MB.
 - Each vertex gains 12 bytes on the GPU.

@@ -143,9 +143,12 @@ namespace {
 // 58: UTA-0381 shadows a strip leader by the share of its segment a texel
 // sees. The fixture has one light and no strip, so only BAKR's revision
 // moved it.
-constexpr std::uint32_t RECORDED_UNDER = 58;
+// 59: UTA-0322 lets the shadow mask grow to 8192 texels a side before it
+// coarsens. The fixture's mask is far smaller, so only BAKR's revision moved
+// it.
+constexpr std::uint32_t RECORDED_UNDER = 59;
 constexpr std::string_view GOLDEN =
-    "c8eb4c9ac5437edbfa8a9bfdb4d280b8d4e5036c6ed0d53b7cff66eafd0187e5";
+    "ffd773a90fe5223c3af9748686634b3aea23f28d3389c4db306a147694353ea6";
 
 } // namespace
 

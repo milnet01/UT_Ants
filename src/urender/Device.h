@@ -50,6 +50,9 @@ struct DeviceCandidate {
     /// `VkPhysicalDeviceVulkan11Properties` -- properties, not feature bits.
     VkShaderStageFlags subgroupStages = 0;
     VkSubgroupFeatureFlags subgroupOperations = 0;
+    /// UTA-0322: the widest 2D image the device makes, from
+    /// `VkPhysicalDeviceLimits`.
+    std::uint32_t maxImageDimension2D = 0;
 };
 
 /// The first SS 4.4 requirement `candidate` fails, in that table's order, or

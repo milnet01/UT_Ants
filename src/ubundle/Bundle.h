@@ -540,7 +540,7 @@ struct Occlusion {
 };
 
 /// The widest and tallest SMSK atlas, in texels -- UTA-0326 SS 4.2.
-inline constexpr std::uint32_t SHADOW_MASK_ATLAS_LIMIT = 4096;
+inline constexpr std::uint32_t SHADOW_MASK_ATLAS_LIMIT = 8192; // UTA-0322: at 4096 dense maps baked coarser
 /// A GEOM vertex no chart covers: a surface the mask does not light.
 inline constexpr std::uint32_t MASK_NO_CHART = 0xFFFFFFFF;
 /// A pair's `x` and `y` when every texel of its rectangle would be 255.

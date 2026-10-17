@@ -227,7 +227,7 @@ TEST_CASE("INV-1: an SMSK side of 0 or past the limit is refused", "[ubundle][sh
     ShadowMask wide = golden();
     wide.width = uta::ubundle::SHADOW_MASK_ATLAS_LIMIT + 1;
     wide.texels.assign(std::size_t{wide.width} * wide.height, 255);
-    refusedBothWays(wide, "SMSK: an atlas side of 4097");
+    refusedBothWays(wide, "SMSK: an atlas side of 8193");
 }
 
 TEST_CASE("INV-1: SMSK texels that do not fill the atlas are refused", "[ubundle][shadowmask]") {

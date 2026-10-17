@@ -489,7 +489,9 @@ TEST_CASE("INV-6: placed rectangles do not overlap and hold every lit vertex", "
 
 TEST_CASE("INV-6: pairs past the limit squared bake coarser within the limit", "[ubake][shadowmask]") {
     // Two 256-unit floors, each shadowed by a post, at 1/12 unit a texel:
-    // 3074 texels a side each, 18.9 million in all, past 4096 squared.
+    // 3074 texels a side each, 18.9 million in all, past 4096 squared. The
+    // limit is 4096, not the bundle's, so the fixture stays small (UTA-0322).
+    constexpr std::uint32_t limit = 4096;
     Scene scene;
     addQuad(scene, {0, 0, 0}, {256, 0, 0}, {256, 256, 0}, {0, 256, 0}, {0, 0, 1});
     addQuad(scene, {300, 0, 0}, {556, 0, 0}, {556, 256, 0}, {300, 256, 0}, {0, 0, 1});
@@ -498,11 +500,11 @@ TEST_CASE("INV-6: pairs past the limit squared bake coarser within the limit", "
     const Geometry geometry = finish(std::move(scene));
     JobSystem jobs(4);
     const float start = 1.0f / 12;
-    const auto mask = bakeShadowMask(bundleOf(geometry, {pointLight({278, 128, 200})}), jobs, start);
+    const auto mask = bakeShadowMask(bundleOf(geometry, {pointLight({278, 128, 200})}), jobs, start, {}, limit);
     REQUIRE(mask.has_value());
     CHECK(mask->texelSize >= 2 * start);
-    CHECK(mask->width <= uta::ubundle::SHADOW_MASK_ATLAS_LIMIT);
-    CHECK(mask->height <= uta::ubundle::SHADOW_MASK_ATLAS_LIMIT);
+    CHECK(mask->width <= limit);
+    CHECK(mask->height <= limit);
 }
 
 TEST_CASE("INV-7: the mask is the same at 1 and 2 and 4 workers", "[ubake][shadowmask]") {

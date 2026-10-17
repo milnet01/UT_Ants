@@ -15954,6 +15954,20 @@ stays with movement in 0.2.0.
   Research (2026-10-08): docs/research-2026-10-08-v0.1.0-techniques.md
   § UTA-0322 -- tiles sized by screen coverage, and caching each shadow
   map's static BSP part.
+  Progress (2026-10-17). Since UTA-0326 two things set shadow detail:
+  the baked mask (SMSK) for level surfaces, and the live atlas only for
+  moverReach pairs, movers and the haze. Survey, UTA-0039's 127 maps,
+  baker r58, scratch ~/.cache/uta-scratch/u322 (probe.cpp, variant.cpp,
+  bake.sh), bakes /mnt/Emulators/uta-scratch/u322-bakes.
+  Done, 9ced961: the atlas planner refines lights with a moverReach pair
+  beside the rest at UTA-0303's texel. 25 of 85 maps with movers get
+  finer near shadows, none coarser. A 16384 atlas was rejected: D32,
+  1 GiB.
+  Next: the baked mask. 98 maps keep its 8-unit texel; 25 coarsen to
+  16 and 3 to 32, past SHADOW_MASK_ATLAS_LIMIT (4096). Raising it to
+  8192 costs up to 64 MiB, more bake time, a baker bump, and a
+  fallback for devices whose maxImageDimension2D is below 8192.
+  Measure bake time first.
   **Layman:** Shadows get finer detail on machines with memory to spare, so their edges stay crisp up close.
   Kind: enhancement.
   Source: user-request-2026-10-06.

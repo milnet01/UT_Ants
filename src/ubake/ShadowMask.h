@@ -54,8 +54,10 @@ using Cutouts = std::map<std::string, Cutout, std::less<>>;
 [[nodiscard]] Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSystem& jobs,
                                                          const Cutouts& cutouts = {});
 
-/// As above, starting from `texelSize`, so a test reaches the coarsening rule.
+/// As above, starting from `texelSize` and fitting `atlasLimit`, so a test
+/// reaches the coarsening rule without baking a full-sized atlas.
 [[nodiscard]] Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSystem& jobs,
-                                                         float texelSize, const Cutouts& cutouts = {});
+                                                         float texelSize, const Cutouts& cutouts = {},
+                                                         std::uint32_t atlasLimit = ubundle::SHADOW_MASK_ATLAS_LIMIT);
 
 } // namespace uta::ubake

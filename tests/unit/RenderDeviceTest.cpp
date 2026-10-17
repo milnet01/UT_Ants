@@ -39,6 +39,7 @@ DeviceCandidate qualifying(std::string name, VkPhysicalDeviceType type = VK_PHYS
     c.core.textureCompressionBC = VK_TRUE;
     c.subgroupStages = VK_SHADER_STAGE_FRAGMENT_BIT;
     c.subgroupOperations = VK_SUBGROUP_FEATURE_BALLOT_BIT;
+    c.maxImageDimension2D = 8192;
     return c;
 }
 
@@ -72,6 +73,7 @@ const std::vector<Missing>& missingOne() {
          [](DeviceCandidate& c) { c.subgroupStages = VK_SHADER_STAGE_COMPUTE_BIT; }},
         {"subgroup ballot in the fragment stage",
          [](DeviceCandidate& c) { c.subgroupOperations = VK_SUBGROUP_FEATURE_BASIC_BIT; }},
+        {"2D images 8192 texels a side", [](DeviceCandidate& c) { c.maxImageDimension2D = 8191; }},
     };
     return rows;
 }

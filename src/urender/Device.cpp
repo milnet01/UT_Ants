@@ -3,6 +3,8 @@
 #include "urender/Device.h"
 
 #include "core/Log.h"
+#include "ubundle/Bundle.h"
+#include "urender/Shadows.h"
 
 #include <algorithm>
 #include <array>
@@ -21,9 +23,14 @@ struct Requirement {
     bool (*met)(const DeviceCandidate&);
 };
 
+/// UTA-0322: the widest image the renderer makes -- Medium's shadow atlas, or a
+/// bundle's shadow mask at its largest.
+constexpr std::uint32_t WIDEST_IMAGE = std::max(FINE_SHADOW_DETAIL.atlasSize, ubundle::SHADOW_MASK_ATLAS_LIMIT);
+static_assert(WIDEST_IMAGE == 8192, "the requirement's name below says 8192");
+
 /// SS 4.4's table, in its order. The first a device fails is the one its
 /// refusal names.
-const std::array<Requirement, 13> REQUIREMENTS = {{
+const std::array<Requirement, 14> REQUIREMENTS = {{
     {"Vulkan 1.3", [](const DeviceCandidate& c) { return c.apiVersion >= VK_API_VERSION_1_3; }},
     {"a graphics queue", [](const DeviceCandidate& c) { return c.graphicsQueue; }},
     {"present support on its graphics queue",
@@ -49,6 +56,7 @@ const std::array<Requirement, 13> REQUIREMENTS = {{
          return (c.subgroupStages & VK_SHADER_STAGE_FRAGMENT_BIT) != 0
                 && (c.subgroupOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT) != 0;
      }},
+    {"2D images 8192 texels a side", [](const DeviceCandidate& c) { return c.maxImageDimension2D >= WIDEST_IMAGE; }},
 }};
 
 int preference(VkPhysicalDeviceType type) noexcept {
@@ -130,6 +138,7 @@ DeviceCandidate describe(VkPhysicalDevice device, VkSurfaceKHR surface) {
         vkGetPhysicalDeviceProperties2(device, &properties2);
         candidate.subgroupStages = v11.subgroupSupportedStages;
         candidate.subgroupOperations = v11.subgroupSupportedOperations;
+        candidate.maxImageDimension2D = properties2.properties.limits.maxImageDimension2D;
     }
     candidate.v12.pNext = nullptr;
     candidate.v13.pNext = nullptr;

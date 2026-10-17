@@ -332,7 +332,7 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
 }
 
 Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSystem& jobs, float texelSize,
-                                           const Cutouts& cutouts) {
+                                           const Cutouts& cutouts, std::uint32_t atlasLimit) {
     if (!bundle.geometry || !bundle.lights)
         return fail(ErrorCode::InvalidArgument, "shadow mask: the bundle has no GEOM or no LITE");
     // Coarsening doubles the texel until the level fits, which never ends on
@@ -393,7 +393,7 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
     for (;;) {
         if (texelSize > SHADOW_MASK_TEXEL_CEILING)
             return fail(ErrorCode::MalformedData,
-                        "shadow mask: the level does not fit a " + std::to_string(ubundle::SHADOW_MASK_ATLAS_LIMIT)
+                        "shadow mask: the level does not fit a " + std::to_string(atlasLimit)
                             + "-texel atlas at " + std::to_string(SHADOW_MASK_TEXEL_CEILING) + " units a texel");
         charts::sizeCharts(all, geometry, texelSize);
         // A chart's sides are u16 on the wire.
@@ -428,14 +428,14 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
             std::stable_sort(order.begin(), order.end(),
                              [](const auto& a, const auto& b) { return a.first->h > b.first->h; });
             width = 64;
-            while (std::uint64_t{width} * width < area && width < ubundle::SHADOW_MASK_ATLAS_LIMIT) width *= 2;
+            while (std::uint64_t{width} * width < area && width < atlasLimit) width *= 2;
             for (;;) {
                 height = shelve(order, width);
                 if (height != 0 && height <= width) break;
-                if (order.empty() || width == ubundle::SHADOW_MASK_ATLAS_LIMIT) break;
+                if (order.empty() || width == atlasLimit) break;
                 width *= 2;
             }
-            if (order.empty() || (height != 0 && height <= ubundle::SHADOW_MASK_ATLAS_LIMIT)) break;
+            if (order.empty() || (height != 0 && height <= atlasLimit)) break;
         }
         texelSize *= 2;
     }

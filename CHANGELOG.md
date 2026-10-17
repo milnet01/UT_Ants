@@ -582,6 +582,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   from it up close. Lights that only light the haze take what is left.
   Uses no more video memory.
 
+- **Baked shadows stay sharp on large maps** (UTA-0322)
+  A map's stored shadows may now take up to 64 MiB of video memory
+  instead of 16, so big maps no longer fall back to coarser shadows.
+  The graphics card must handle images 8192 pixels wide, which the
+  Medium setting already needed. Re-bake every map.
+
 - **Bounced light is four times stronger, the sky lights the level, and the flat zone fill is gone** (UTA-0292)
   A surface now sends on four times its texture's brightness, capped at
   0.9, because UT99's textures are stored about four times darker than

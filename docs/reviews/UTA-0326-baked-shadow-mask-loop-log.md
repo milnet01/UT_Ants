@@ -11,3 +11,4 @@ row is never edited.
 |------|------|-------|----|----|----|----|---------|
 | impl | 2026-10-07 | none — implementation, no reviewer dispatched | - | - | - | - | Building SS 4.3 found no decoder for the bundle's BC7 alpha; SS 4.3 now records the Cutouts argument bakeShadowMask takes |
 | impl-2 | 2026-10-07 | none — implementation, no reviewer dispatched | - | - | - | - | SS 7 item 3's image comparison found DM-Crane's two-sided sky clouds dark under the mask; SS 4.3 now pairs a two-sided non-liquid chart's lights on both sides, baker revision 44 |
+| amend-UTA-0322 | 2026-10-17 | none — no reviewer was dispatched; the gate is cancelled for this project | – | – | – | – | Amended by UTA-0322, not a review loop, recording what was built and measured: § 4.2's SHADOW_MASK_ATLAS_LIMIT is 8192, and § 13 its cost. |

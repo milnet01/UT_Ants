@@ -406,6 +406,7 @@ device lacking any one of them:
 | `runtimeDescriptorArray`, `shaderSampledImageArrayNonUniformIndexing`, `descriptorBindingPartiallyBound`, `descriptorBindingVariableDescriptorCount` | `VkPhysicalDeviceVulkan12Features` | § 4.5's bindless material array |
 | `textureCompressionBC` | `VkPhysicalDeviceFeatures` | the bundle stores BC4, BC5 and BC7 and nothing else — `ubundle::BlockFormat` |
 | `VK_SHADER_STAGE_FRAGMENT_BIT` in `subgroupSupportedStages`, `VK_SUBGROUP_FEATURE_BALLOT_BIT` in `subgroupSupportedOperations` | `VkPhysicalDeviceVulkan11Properties` | `UTA-0325`: `scene.frag` reads a level fragment's lights one mask chart at a time across the subgroup. Mesa's CPU driver and RADV report both (`vulkaninfo`, 2026-10-13) |
+| `maxImageDimension2D` at least 8192 | `VkPhysicalDeviceLimits` | `UTA-0322`: Medium's shadow atlas and `UTA-0326`'s shadow mask are up to 8192 texels a side. Mesa's CPU driver and RADV report 16384 (`vulkaninfo`, 2026-10-17) |
 
 **Read the feature bit, never the extension string** — except for
 `VK_KHR_swapchain`, which has no feature bit. A sibling project states
