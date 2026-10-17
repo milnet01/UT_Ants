@@ -256,6 +256,46 @@ TEST_CASE("SS 4.3: what lies behind a two-sided sheet still shadows it", "[ubake
     CHECK(valueAt(geometry, *mask, sheet, 0, {210, 210, 100}) == 255);
 }
 
+TEST_CASE("SS 4.3: a strip shadows a texel by the share of its segment it sees", "[ubake][shadowmask]") {
+    // UTA-0381: a block over one end of a strip hides that end, and only that
+    // end, from the floor under it. Lit from the nearest point alone the floor
+    // went black there, and a straight edge cast a curved shadow.
+    Scene scene;
+    const std::uint32_t floor = addQuad(scene, {0, 0, 0}, {512, 0, 0}, {512, 512, 0}, {0, 512, 0}, {0, 0, 1});
+    addBox(scene, {90, 246, 100}, {110, 266, 110});
+    const Geometry geometry = finish(std::move(scene));
+    Light strip = pointLight({100, 256, 200});
+    strip.effect = 17; // LE_Cylinder, as a real row's lights are
+    strip.strip = uta::ubundle::STRIP_LEADER;
+    strip.stripFrom = {100, 256, 200};
+    strip.stripTo = {400, 256, 200};
+    JobSystem jobs(2);
+    const auto mask = bakeShadowMask(bundleOf(geometry, {strip}), jobs);
+    REQUIRE(mask.has_value());
+    const int under = valueAt(geometry, *mask, floor, 0, {100, 256, 0});
+    CHECK(under > 0);
+    CHECK(under < 255);
+}
+
+TEST_CASE("SS 4.3: a strip's points out of reach of a texel do not shadow it", "[ubake][shadowmask]") {
+    // The strip reaches 125 units. A block hides its west end from the floor
+    // at its east end, beyond that end's reach, so the floor there stays lit.
+    Scene scene;
+    const std::uint32_t floor = addQuad(scene, {0, 0, 0}, {512, 0, 0}, {512, 512, 0}, {0, 512, 0}, {0, 0, 1});
+    addBox(scene, {150, 246, 35}, {170, 266, 45});
+    const Geometry geometry = finish(std::move(scene));
+    Light strip = pointLight({100, 256, 50});
+    strip.radius = 4;
+    strip.effect = 17;
+    strip.strip = uta::ubundle::STRIP_LEADER;
+    strip.stripFrom = {100, 256, 50};
+    strip.stripTo = {400, 256, 50};
+    JobSystem jobs(2);
+    const auto mask = bakeShadowMask(bundleOf(geometry, {strip}), jobs);
+    REQUIRE(mask.has_value());
+    CHECK(valueAt(geometry, *mask, floor, 0, {400, 256, 0}) == 255);
+}
+
 TEST_CASE("SS 4.3: a two-sided liquid lit only from behind has no pair", "[ubake][shadowmask]") {
     // UTA-0215: scene.frag lights a liquid's sheet as its front from both sides.
     JobSystem jobs(2);

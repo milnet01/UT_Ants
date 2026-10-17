@@ -29,6 +29,11 @@ inline constexpr float SHADOW_MASK_TEXEL_SIZE = 8;
 /// SS 4.3: how far above the surface a ray starts, in UT units.
 inline constexpr double SHADOW_MASK_LIFT = 0.5;
 
+/// SS 4.3 step 2 (UTA-0381): the points of a strip leader's segment each of a
+/// texel's four origins looks at. The four take them at offsets a quarter
+/// apart, so a texel sees four times as many.
+inline constexpr int SHADOW_MASK_STRIP_SAMPLES = 8;
+
 /// SS 4.3: the coarsest texel size packing tries before it refuses.
 inline constexpr float SHADOW_MASK_TEXEL_CEILING = 1024;
 

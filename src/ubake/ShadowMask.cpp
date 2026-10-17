@@ -62,6 +62,7 @@ struct Site {
     Vec3 from{}, span{};     ///< litFrom's segment: its location, or a leader's strip
     Vec3 centre{};
     double bound = 0;        ///< its sphere: lightRadius grown by half the strip
+    double reach = 0;        ///< lightRadius, which weighs a strip's points
     bool incidence = true;
     std::optional<Vec3> sun; ///< UTA-0338 SS 4.4: toward the sun, for the sun's site
 };
@@ -78,7 +79,8 @@ Site siteOf(std::uint32_t index, const ubundle::Light& light) {
     }
     site.centre = site.from + site.span * 0.5;
     // AActor::WorldLightRadius, as light.glsl's lightRadius.
-    site.bound = 25.0 * (light.radius + 1) + 0.5 * length(site.span);
+    site.reach = 25.0 * (light.radius + 1);
+    site.bound = site.reach + 0.5 * length(site.span);
     site.incidence = light.effect != LE_NON_INCIDENCE && light.effect != LE_CYLINDER;
     return site;
 }
@@ -88,6 +90,31 @@ Vec3 litFrom(const Site& site, const Vec3& o) noexcept {
     const double ss = dot(site.span, site.span);
     if (ss == 0) return site.from;
     return site.from + site.span * std::clamp(dot(o - site.from, site.span) / ss, 0.0, 1.0);
+}
+
+/// SS 4.3 step 2: how much of `site` the origin `o` sees, 0 to 1. A point
+/// light is seen or not. A strip leader is seen in the share of
+/// SHADOW_MASK_STRIP_SAMPLES points along its segment that `o` sees, each
+/// weighed by UT99's falloff from it, starting a quarter `offset` of a step
+/// in (UTA-0381). Looking at the nearest point alone, that point slid along
+/// the strip as `o` moved, and a straight edge cast a curved shadow. Where
+/// no point reaches `o`, the nearest point decides.
+double seenShare(const Site& site, const Vec3& o, int offset, const SurfaceRays& rays,
+                 const SurfaceRays::Hole& hole) {
+    const Vec3 nearest = litFrom(site, o);
+    if (dot(site.span, site.span) != 0) {
+        double seen = 0, total = 0;
+        for (int k = 0; k < SHADOW_MASK_STRIP_SAMPLES; ++k) {
+            const double t = (k + (offset + 0.5) / 4.0) / SHADOW_MASK_STRIP_SAMPLES;
+            const Vec3 p = site.from + site.span * t;
+            const double weight = falloff(length(p - o), site.reach);
+            if (weight == 0) continue;
+            total += weight;
+            if (!rays.blocked(o, p, hole)) seen += weight;
+        }
+        if (total > 0) return seen / total;
+    }
+    return rays.blocked(o, nearest, hole) ? 0.0 : 1.0;
 }
 
 /// UTA-0119 SS 4.5: location + postScale * (Y P R q).
@@ -250,7 +277,8 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
         bool allLit = true, allDark = true;
         for (std::uint32_t j = 0; j < chart.h; ++j)
             for (std::uint32_t i = 0; i < chart.w; ++i) {
-                int visible = 0;
+                double visible = 0;
+                int offset = 0;
                 for (const double du : {0.25, 0.75})
                     for (const double dv : {0.25, 0.75}) {
                         Vec3 origin = charts::originAt(chart, outline, static_cast<double>(chart.loU + i) + du,
@@ -260,7 +288,7 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
                             const double side = dot(litFrom(site, origin) - origin, chart.n) < 0 ? -1.0 : 1.0;
                             origin = origin + chart.n * (side * SHADOW_MASK_LIFT);
                         }
-                        if (!rays.blocked(origin, litFrom(site, origin), hole)) ++visible;
+                        visible += seenShare(site, origin, offset++, rays, hole);
                     }
                 const auto value = static_cast<std::uint8_t>(std::lround(255.0 * visible / 4.0));
                 pair.texels[std::size_t{j} * chart.w + i] = value;

@@ -737,6 +737,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A row of lamps casts straight, soft-edged shadows** (UTA-0381)
+  A row of lamps along one fixture lights as one long light. Its baked
+  shadows were worked out from the single point of the row nearest each
+  spot, so a straight wall cast a curved shadow with a blocky edge. Each
+  spot now looks at points along the whole row. Re-bake every map: the
+  baker is now revision 58.
+
 - **A damaged map whose imports point at each other in a circle is refused instead of silently losing path points** (UTA-0376)
   Opening the file now names the import whose chain loops. Before, the
   path builder gave up on such a chain and quietly treated the actor as

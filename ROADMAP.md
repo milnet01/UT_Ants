@@ -17299,7 +17299,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-16 split-from-UTA-0347.
   Lanes: tools.
 
-- 📋 [UTA-0381] **urender: on DM-Deck16][ a close shadow is still stair-stepped, and a straight wall casts a curved shadow.**
+- 🚧 [UTA-0381] **urender: on DM-Deck16][ a close shadow is still stair-stepped, and a straight wall casts a curved shadow.**
   The user, 2026-10-17, F12 in the viewer (ultra, 3840x2160, baker r57,
   commit 6dee8eb-dirty; the dirt is UTA-0055's baker-only sway edit).
   Seen in the capture: the floor shadow's edge steps in blocks tens of

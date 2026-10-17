@@ -140,9 +140,12 @@ namespace {
 // and its geometry is otherwise as before (INV-3).
 // 57: UTA-0055 moves a fold's corners along one direction. The fixture wears
 // no cloth and no water, so only BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 57;
+// 58: UTA-0381 shadows a strip leader by the share of its segment a texel
+// sees. The fixture has one light and no strip, so only BAKR's revision
+// moved it.
+constexpr std::uint32_t RECORDED_UNDER = 58;
 constexpr std::string_view GOLDEN =
-    "b8d99a3e3012483b499b7dfac6c6b0aed2d7dd8045768cdb2f0cb0d8fe04cb34";
+    "c8eb4c9ac5437edbfa8a9bfdb4d280b8d4e5036c6ed0d53b7cff66eafd0187e5";
 
 } // namespace
 

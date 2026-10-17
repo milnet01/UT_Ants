@@ -205,11 +205,18 @@ DM-Crane's sky clouds, lit only from below, went dark. Tested in
 
 1. Four points at `(i + 0.25 or 0.75, j + 0.25 or 0.75)` each go through
    UTA-0164 § 4.3's steps 1 to 3, with `SHADOW_MASK_LIFT` as the lift.
-2. From each origin `o`, a segment runs to the point the light is lit from
-   at `o` — its location, or the nearest point of a strip leader's segment,
-   as `litFrom` in `light.glsl` takes it. The point is visible when no
-   occluder meets the segment short of its end.
-3. The texel stores `round(255 * visible / 4)`.
+2. From each origin `o`, a segment runs to the light's location. The point
+   is visible when no occluder meets the segment short of its end. **A strip
+   leader is seen in shares** (`UTA-0381`): segments run to
+   `SHADOW_MASK_STRIP_SAMPLES` points along its strip, each weighed by
+   `falloff` from it, and `o` sees the weighted share whose segments are
+   clear. The four origins start their points a quarter of a step apart.
+   Where no point reaches `o`, the nearest point, as `litFrom` takes it,
+   decides alone. Looking at the nearest point alone, that point slid along
+   the strip as `o` moved, so a straight edge cast a curved shadow with a
+   stepped edge.
+3. The texel stores `round(255 * visible / 4)`, `visible` being the sum of
+   the four origins' shares.
 
 **A pair whose every texel is 255 carries no texels**: its `x` and `y` are
 `MASK_ALL_LIT`. **A pair whose every texel is 0 is dropped**: the light
