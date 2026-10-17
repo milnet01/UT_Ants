@@ -13439,7 +13439,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-073437
 
-- 🚧 [UTA-0254] **ubake: bounced light stays faint where one bounce from a small lit patch is all a room gets.**
+- ✅ [UTA-0254] **ubake: bounced light stays faint where one bounce from a small lit patch is all a room gets.**
   Split from UTA-0253 when the user closed it (2026-09-30). That item
   fixed how bounce light is stored and shown (baker revision 28). At
   its AS-Frigate capture the upper-left quarter then gained 0.00116
@@ -13557,6 +13557,8 @@ stays with movement in 0.2.0.
   as a probe's (UTA-0292 SS 4.4).
   Bake time, AS-Frigate, old and new alternated in one job under load
   15-18: 52.6/47.2 s to 65.9/52.9 s.
+  Shipped 2026-10-17 in 9aad513; GitHub's matrix green on that commit
+  (run 39042811601: GCC 14, Clang 19, MSVC).
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.
