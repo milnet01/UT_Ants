@@ -134,6 +134,10 @@ constexpr double FLAME_CLOCK_WRAP = 4096.0;
 // smoothly after a day on the light clock (about 650 units, a step of 6e-5
 // against 1.2e-4 a frame at 60 fps).
 constexpr std::array<double, 2> PAINTED_SKY_WIND{0.0072, 0.0021};
+/// UTA-0337 part 3: the outdoor haze's start and depth, as shares of the
+/// level's outdoorExtent.
+constexpr float OUTDOOR_HAZE_START_SHARE = 0.1f;
+constexpr float OUTDOOR_HAZE_DEPTH_SHARE = 0.8f;
 /// UTA-0215: how many specks drift in the water about the eye, which
 /// mote.vert places from their index alone.
 constexpr std::uint32_t MOTE_COUNT = 800;
@@ -476,6 +480,8 @@ struct Renderer::Impl {
     /// the faces are captured, skyCapturing is set and skyLayerCapture says
     /// which: 0 the sky without its layers, k + 1 layer k's light alone.
     SkyLayers skyLayers;
+    /// UTA-0337 part 3: outdoorExtent of the level, the outdoor haze's scale.
+    float outdoorExtent = 0;
     std::vector<Image> skyLayerLights;
     bool skyCapturing = false;
     std::uint32_t skyLayerCapture = 0;
@@ -865,6 +871,7 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     // each says whether the level's own geometry has a sky window in it; a
     // mover's does not count.
     std::vector<gpu::Zone> zoneRecords;
+    outdoorExtent = 0;
     if (bundle.zones) {
         const std::vector<std::uint8_t> sky =
             bundle.geometry ? zonesSeeingSky(*bundle.geometry, bundle.zones->size())
@@ -873,6 +880,7 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
             const ubundle::Zone& zone = (*bundle.zones)[i];
             zoneRecords.push_back(gpu::Zone{zone.brightness, zone.hue, zone.saturation, sky[i], zone.water});
         }
+        if (bundle.geometry) outdoorExtent = urender::outdoorExtent(*bundle.geometry, sky);
     }
     if (zoneRecords.empty()) zoneRecords.push_back(gpu::Zone{});
     UTA_TRY(zones, Buffer::upload(*gpu, std::as_bytes(std::span(zoneRecords)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
@@ -1779,6 +1787,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
             frame.paintedSkyDrift[axis] =
                 static_cast<float>(PAINTED_SKY_WIND[axis] * impl.lastLightSeconds);
     }
+    // UTA-0337 part 3: the outdoor haze scales to the level, since one
+    // distance washes out a wide map's near ground or misses a small map's walls.
+    frame.outdoorHazeStart = OUTDOOR_HAZE_START_SHARE * impl.outdoorExtent;
+    frame.outdoorHazeDepth = OUTDOOR_HAZE_DEPTH_SHARE * impl.outdoorExtent;
     // UTA-0164 SS 4.5: the atlas follows the sky's faces, when there are any.
     frame.occlusionTexture = impl.occlusion.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
                                                                                  + (impl.sky.view() ? 1 : 0))

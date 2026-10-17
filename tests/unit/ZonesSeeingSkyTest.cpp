@@ -48,3 +48,20 @@ TEST_CASE("UTA-0089 INV-3: no geometry gives every zone no sky", "[render]") {
     CHECK(zonesSeeingSky(Geometry{}, 2) == std::vector<std::uint8_t>{0, 0});
     CHECK(zonesSeeingSky(Geometry{}, 0).empty());
 }
+
+TEST_CASE("UTA-0337: the outdoor extent is the wider horizontal span of the zones that see the sky", "[render]") {
+    Geometry geometry;
+    const auto at = [&](std::uint8_t zone, float x, float y, float z) {
+        GeometryVertex vertex = inZone(zone);
+        vertex.position = {x, y, z};
+        geometry.vertices.push_back(vertex);
+    };
+    at(1, -100, 50, 0);
+    at(1, 300, -50, 9000); // height is not width
+    at(2, 5000, 5000, 0);  // a zone that does not see the sky
+    at(3, -9000, 0, 0);    // a zone past the flags
+    CHECK(uta::urender::outdoorExtent(geometry, {0, 1, 0}) == 400.0f);
+    at(1, 0, 650, 0); // now Y is the wider
+    CHECK(uta::urender::outdoorExtent(geometry, {0, 1, 0}) == 700.0f);
+    CHECK(uta::urender::outdoorExtent(geometry, {0, 0, 0}) == 0.0f);
+}

@@ -95,6 +95,8 @@ struct FrameData {
     vec4 skyOrigin;             // UTA-0337: where the sky is drawn from
     SkyLayer skyLayers[SKY_LAYER_CAPACITY];
     vec2 paintedSkyDrift;       // UTA-0337: how far the painted sky's clouds have drifted
+    float outdoorHazeStart;     // UTA-0337 part 3: UT units
+    float outdoorHazeDepth;     // UTA-0337 part 3: UT units; 0 with no outdoors
 };
 
 struct Object {

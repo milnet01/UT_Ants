@@ -148,7 +148,10 @@ struct FrameData {
     /// UTA-0337: how far the painted sky's clouds have drifted, over their
     /// plane, kept short of float trouble by being worked out in double.
     std::array<float, 2> paintedSkyDrift;
-    std::array<float, 2> pad;
+    /// UTA-0337 part 3: in UT units, where the outdoor haze begins and how
+    /// far on it keeps 1/e of a surface's light; both 0 with no outdoors.
+    float outdoorHazeStart;
+    float outdoorHazeDepth;
 };
 static_assert(sizeof(FrameData) == 784);
 static_assert(offsetof(FrameData, viewProj) == 0);
@@ -190,6 +193,8 @@ static_assert(offsetof(FrameData, skyPixelAngle) == 428);
 static_assert(offsetof(FrameData, skyOrigin) == 432);
 static_assert(offsetof(FrameData, skyLayers) == 448);
 static_assert(offsetof(FrameData, paintedSkyDrift) == 768);
+static_assert(offsetof(FrameData, outdoorHazeStart) == 776);
+static_assert(offsetof(FrameData, outdoorHazeDepth) == 780);
 static_assert(offsetof(SkyLayer, pan) == 48);
 static_assert(offsetof(SkyLayer, material) == 56);
 

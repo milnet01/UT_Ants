@@ -272,6 +272,44 @@ vec3 skyAt(vec3 d) {
     return skyLayersOver(skyFacesAt(frame.skyTexture, d).rgb, d) + sunInSky(d);
 }
 
+// UTA-0337 part 3: the outdoor haze. Nothing nearer than outdoorHazeStart UT
+// units; past it a surface keeps exp(-(d - start) / outdoorHazeDepth) of its
+// light and the rest is the sky's. Both scale to the level (Frame.cpp).
+//
+// The sky's colour is read without its moving sheets, so the haze does not
+// flicker, and only on a coarse ring: HAZE_RING_STEPS directions round the
+// horizon at two heights, blended by the surface's bearing. A sky box paints
+// hills and cliffs low down; read at a surface's own direction, they showed
+// through the haze as a ghost picture.
+const int HAZE_RING_STEPS = 8;
+const float HAZE_RING_HEIGHTS[2] = float[2](0.14, 0.34); // sines of 8 and 20 degrees
+
+float outdoorHaze(float d) {
+    return 1.0 - exp(-max(d - frame.outdoorHazeStart, 0.0) / frame.outdoorHazeDepth);
+}
+
+vec3 hazeRingAt(int step, float height) {
+    float bearing = float(step) * (6.28318531 / float(HAZE_RING_STEPS));
+    vec3 h = vec3(vec2(cos(bearing), sin(bearing)) * sqrt(1.0 - height * height), height);
+    if (frame.skyTexture == NONE) {
+        vec3 top = vec3(frame.paintedSkyTopR, frame.paintedSkyTopG, frame.paintedSkyTopB);
+        vec3 horizon = vec3(frame.paintedSkyHorizonR, frame.paintedSkyHorizonG, frame.paintedSkyHorizonB);
+        return paintedSkyMean(top, horizon, frame.paintedSkyClouds, h);
+    }
+    return skyFacesAt(frame.skyTexture, h).rgb;
+}
+
+vec3 horizonSkyAt(vec3 d) {
+    float turns = atan(d.y, d.x) * (float(HAZE_RING_STEPS) / 6.28318531);
+    float below = floor(turns);
+    int a = (int(below) % HAZE_RING_STEPS + HAZE_RING_STEPS) % HAZE_RING_STEPS;
+    int b = (a + 1) % HAZE_RING_STEPS;
+    vec3 sky = vec3(0.0);
+    for (int i = 0; i < 2; ++i)
+        sky += mix(hazeRingAt(a, HAZE_RING_HEIGHTS[i]), hazeRingAt(b, HAZE_RING_HEIGHTS[i]), turns - below);
+    return sky * 0.5;
+}
+
 // UTA-0275: a detail texture's weight falls linearly from whole at the eye to
 // nothing at DETAIL_FAR, in UT units; and its texels are DETAIL_SCALE times
 // finer than the two pictures' size ratio alone gives. Fitted on UT_MonsterHunt's
@@ -578,6 +616,16 @@ void main() {
     // light, which the fog pass has faded itself.
     colour *= zones[zone].water != 0u ? waterKept(viewDepth, frame.cameraUnderwater) : 1.0;
     colour = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? colour * fogged.a : colour * fogged.a + fogged.rgb;
+
+    // UTA-0337 part 3: in a zone open to the sky, a far surface gives way to
+    // the sky's colour near the horizon, so a map's outer walls fade into the
+    // sky rather than standing as a box. A sky window is the sky already.
+    if (zones[zone].sky != 0u && frame.outdoorHazeDepth > 0.0 && frame.cameraUnderwater == 0u && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u
+        && (frame.skyTexture != NONE || frame.paintedSky != 0u)) {
+        float hazed = outdoorHaze(distance(frame.eye, worldPosition));
+        vec3 behind = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? vec3(0.0) : horizonSkyAt(normalize(worldPosition - frame.eye));
+        colour = mix(colour, behind, hazed);
+    }
 
     outColour = vec4(colour, 1.0);
     outVelocity = velocity;

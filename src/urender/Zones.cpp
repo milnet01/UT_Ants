@@ -2,6 +2,10 @@
 
 #include "urender/ShaderTypes.h"
 
+#include <algorithm>
+#include <array>
+#include <limits>
+
 namespace uta::urender {
 
 std::vector<std::uint8_t> zonesSeeingSky(const ubundle::Geometry& geometry, std::size_t zoneCount) {
@@ -18,6 +22,20 @@ std::vector<std::uint8_t> zonesSeeingSky(const ubundle::Geometry& geometry, std:
         }
     }
     return sky;
+}
+
+float outdoorExtent(const ubundle::Geometry& geometry, const std::vector<std::uint8_t>& seesSky) {
+    constexpr float FAR = std::numeric_limits<float>::max();
+    std::array<float, 2> low{FAR, FAR}, high{-FAR, -FAR};
+    for (const ubundle::GeometryVertex& vertex : geometry.vertices) {
+        if (vertex.zone >= seesSky.size() || seesSky[vertex.zone] == 0) continue;
+        for (std::size_t axis = 0; axis < 2; ++axis) {
+            low[axis] = std::min(low[axis], vertex.position[axis]);
+            high[axis] = std::max(high[axis], vertex.position[axis]);
+        }
+    }
+    if (low[0] > high[0]) return 0;
+    return std::max(high[0] - low[0], high[1] - low[1]);
 }
 
 } // namespace uta::urender

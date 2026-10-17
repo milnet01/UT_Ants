@@ -19,4 +19,9 @@ namespace uta::urender {
 /// at or past it is ignored.
 [[nodiscard]] std::vector<std::uint8_t> zonesSeeingSky(const ubundle::Geometry& geometry, std::size_t zoneCount);
 
+/// UTA-0337 part 3: how wide the outdoors is, in UT units -- the larger of the
+/// X and Y spans of the vertices in a zone `seesSky` flags. 0 where it flags
+/// none; a vertex zone past `seesSky` is ignored. The outdoor haze scales to it.
+[[nodiscard]] float outdoorExtent(const ubundle::Geometry& geometry, const std::vector<std::uint8_t>& seesSky);
+
 } // namespace uta::urender
