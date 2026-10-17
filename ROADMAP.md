@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=381 -->
+<!-- ants-roadmap-id-high-water: UTA=383 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16262,7 +16262,8 @@ stays with movement in 0.2.0.
   Open: part 3, the box look.
   Part 1 pushed as f620e18; local gate green on GCC, Clang and MSVC
   (1185 each); GitHub run 39036985106 was still running at handoff.
-  Part 3 started 2026-10-17, not committed. Patch:
+  GitHub run 39036985106 went green.
+  Part 3 started 2026-10-17, first try below. Patch:
   ~/.cache/uta-scratch/u337/part3-haze-wip.patch (scene.frag only). It
   mixes a far surface toward the sky's colour 8 degrees above the
   horizon (faces without layers, or paintedSkyMean), only where
@@ -16276,6 +16277,18 @@ stays with movement in 0.2.0.
   upload from the geometry), then judge TheBoat, Aliens_Xmas and
   AS-Mazon frames by eye. Bakes for all three (baker r59):
   ~/.cache/uta-scratch/u337/bakes/.
+  Part 3 built (2026-10-17, 519b89a). Start and depth are 0.1 and 0.8
+  of the level's outdoor extent (wider horizontal span of vertices in
+  zones that see the sky): AS-Mazon 10368, TheBoat 50000, Aliens_Xmas
+  64000. The haze colour comes from a coarse ring of the sky (8
+  bearings, 8 and 20 degrees up); read per direction, AS-Mazon's sky
+  box cliffs showed through as a ghost band.
+  Correction: TheBoat's near-white sand platform is not the haze. A
+  haze-off build of the same tree washes it the same; filed as UTA-0383. Aliens_Xmas renders black at its capture camera with or without
+  haze (the previous session's frame too); filed as UTA-0382.
+  Judged on AS-Mazon (far cliffs recede, near walls keep full colour)
+  and TheBoat (0.5% of pixels change). Cost, RX 6600 1920x1080 High:
+  scene +0.06 ms looking up, +0.2 ms at the horizon.
   **Layman:** Outdoor maps get clouds that drift, a sun where the sky is clear, and edges that fade into the distance instead of looking like the inside of a box.
   Kind: feature.
   Source: user-request-2026-10-08.
@@ -17384,6 +17397,30 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-17.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Deck16][-20261017-062428Z
+
+- 📋 [UTA-0382] **MH-(_@_)_Aliens_Xmas_Beta1SP renders all black from its reviewed capture camera.**
+  Found 2026-10-17 while judging UTA-0337's haze. Baker r59 bake, ut-shot
+  --from-capture reviewed/MH-(_@_)_Aliens_Xmas_Beta1SP-20261006-113408:
+  every pixel 0, sky included, with or without the haze. The original's
+  frame there shows lit snow, white mist and peaks. The bake's probes
+  report meanLuma 7e-5, 147612 of 157461 dark. A camera near light 4
+  (26953 6108 300) renders. Scratch: ~/.cache/uta-scratch/u337/al-*.
+  **Layman:** One snowy outdoor map draws as a black screen from where a player stood; it should show snow, mist and mountains.
+  Kind: investigate.
+  Source: in-session-2026-10-17.
+  Lanes: urender, ubake.
+
+- 📋 [UTA-0383] **MH-()mG-TheBoat-V2mini-BP's sand platform and sky draw washed out, nearly white.**
+  Found 2026-10-17 while judging UTA-0337's haze. From capture
+  reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945, a haze-off build
+  draws the sand platform near white and the sky pale, where the
+  original draws sand yellow and the sky cyan. Not the haze: the same
+  with it off. See UTA-0344 (the map too dark) and UTA-0338 (the sun).
+  Scratch: ~/.cache/uta-scratch/u337/o-boat-b2ad-0.png.
+  **Layman:** On the boat map the sand and sky look bleached compared with the original game.
+  Kind: investigate.
+  Source: in-session-2026-10-17.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 
