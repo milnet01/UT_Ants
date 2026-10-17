@@ -15944,7 +15944,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Fetid-20261006-074143, ~/.cache/uta-scratch/capreview/DM-Fetid-20261006-074143/pair-0.png
 
-- 🚧 [UTA-0322] **urender: give shadows more detail where video memory allows, after UTA-0307's smoothing.**
+- ✅ [UTA-0322] **urender: give shadows more detail where video memory allows, after UTA-0307's smoothing.**
   The user chose both halves of "shadow map upscaling" on 2026-10-06:
   smooth the edge (UTA-0307) and then sharpen it. UTA-0303 already plans
   up to FINEST_SHADOW_REFINEMENT (4) times finer when a map's lights fit
@@ -15968,6 +15968,14 @@ stays with movement in 0.2.0.
   8192 costs up to 64 MiB, more bake time, a baker bump, and a
   fallback for devices whose maxImageDimension2D is below 8192.
   Measure bake time first.
+  Shipped (2026-10-17), GitHub runs 39021615606 (9ced961) and
+  39024552648 (4f9a03d) green. 9ced961: the atlas planner refines lights
+  with a moverReach pair beside the rest at UTA-0303's texel; 25 of 85
+  survey maps with movers finer, none coarser. 4f9a03d:
+  SHADOW_MASK_ATLAS_LIMIT 8192 (64 MiB at most), baker r59, devices must
+  make 8192-wide images. The 28 maps whose mask coarsened get it finer;
+  bakes faster, bundles 5-13% larger, no measurable frame cost. Survey
+  bakes deleted; probes kept in ~/.cache/uta-scratch/u322.
   **Layman:** Shadows get finer detail on machines with memory to spare, so their edges stay crisp up close.
   Kind: enhancement.
   Source: user-request-2026-10-06.
