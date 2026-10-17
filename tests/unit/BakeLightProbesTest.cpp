@@ -1,5 +1,5 @@
 // UTA-0112's baker cases -- docs/specs/UTA-0112-baked-light-probes.md SS 4.4
-// to SS 4.7 and SS 4.12: INV-5's albedo half, INV-6 to INV-10, INV-14 and INV-15.
+// to SS 4.7 and SS 4.12: INV-5's albedo half, INV-6 to INV-10, INV-14, INV-15 and INV-17.
 //
 // THE ROOMS ARE BUILT IN MEMORY. tests/unit/LightFixture.h makes GEOM, and
 // PathFixture.h's worldOf makes the matching COLL tree, one region per box.
@@ -42,6 +42,7 @@ using uta::test::paths::worldOf;
 using uta::ubake::AlbedoLookup;
 using uta::ubake::bakedLights;
 using uta::ubake::bakeLightProbes;
+using uta::ubake::bounceProbe;
 using uta::ubake::cubeOf;
 using uta::ubake::directions;
 using uta::ubake::OwnLight;
@@ -663,6 +664,67 @@ TEST_CASE("sky light", "[ubake][probes]") {
         // A sky view above the sky surface: its own downward rays meet the sky
         // again, which is dark rather than followed a second time.
         CHECK(total(gatherProbe(probe, rays, level, {}, lavaGrey, lavaGlows, Vec3{0, 0, 50})) == 0.0);
+    }
+}
+
+TEST_CASE("later bounces", "[ubake][probes]") {
+    // UTA-0112 INV-17 (UTA-0254, SS 4.7 step 7).
+    const auto greyRoom = geometryOf(room({0, 0, 0}, {512, 512, 512},
+                                          {Face{"grey"}, Face{"grey"}, Face{"grey"}, Face{"grey"},
+                                           Face{"grey"}, Face{"grey"}}));
+    const SurfaceRays rays(greyRoom);
+    const Vec3 probe{256, 256, 256};
+    // Every lattice point of the room holds light c on each face.
+    uta::ubundle::LightProbes lit;
+    lit.spacing = 128;
+    for (std::int32_t z = 0; z <= 4; ++z)
+        for (std::int32_t y = 0; y <= 4; ++y)
+            for (std::int32_t x = 0; x <= 4; ++x) {
+                uta::ubundle::LightProbe point{{x, y, z}, {}};
+                point.cube.fill({0.1f, 0.2f, 0.3f});
+                lit.probes.push_back(point);
+            }
+
+    SECTION("a surface sends on the light the probes give it") {
+        // Albedo 0.1 sends on 0.4 (SS 4.12 item 1), so every face is 0.4 c.
+        const auto cube = bounceProbe(probe, rays, greyRoom, lit, albedoOf({{"grey", {0.1, 0.1, 0.1}}}));
+        for (const Rgb& face : cube) {
+            CHECK(face.r == Catch::Approx(0.4 * 0.1f));
+            CHECK(face.g == Catch::Approx(0.4 * 0.2f));
+            CHECK(face.b == Catch::Approx(0.4 * 0.3f));
+        }
+    }
+
+    SECTION("with no probe near a surface it sends on nothing") {
+        uta::ubundle::LightProbes far = lit;
+        for (auto& point : far.probes) point.cell[0] += 100;
+        CHECK(total(bounceProbe(probe, rays, greyRoom, far, albedoOf({}))) == 0.0);
+    }
+
+    SECTION("an unlit liquid sends its picture and nothing more") {
+        const auto lavaRoom = geometryOf(room({0, 0, 0}, {512, 512, 512},
+                                              {Face{"lava", PF_UNLIT}, Face{"lava", PF_UNLIT}, Face{"lava", PF_UNLIT},
+                                               Face{"lava", PF_UNLIT}, Face{"lava", PF_UNLIT},
+                                               Face{"lava", PF_UNLIT}}));
+        const SurfaceRays lavaRays(lavaRoom);
+        const OwnLightLookup glows = [](std::string_view) { return OwnLight{{}, true}; };
+        CHECK(total(bounceProbe(probe, lavaRays, lavaRoom, lit, albedoOf({}), glows)) == 0.0);
+    }
+
+    SECTION("the bake holds more than the first bounce") {
+        const auto tree = worldOf({box({0, 0, 0}, {512, 512, 512})}, {0, 0, 0}, {512, 512, 512});
+        const std::vector<Light> lights{steadyLight(1, {256, 256, 480}, 64)};
+        const AlbedoLookup grey = albedoOf({{"grey", {0.1, 0.1, 0.1}}});
+        JobSystem jobs(1);
+        const auto baked = bakeLightProbes(greyRoom, tree, lights, grey, jobs);
+        REQUIRE(baked.has_value());
+        const auto at = std::ranges::find(baked->probes, Cell{1, 1, 1}, &uta::ubundle::LightProbe::cell);
+        REQUIRE(at != baked->probes.end());
+        const auto once = gatherProbe(Vec3{128, 128, 128}, rays, greyRoom, lights, grey);
+        for (std::size_t face = 0; face < 6; ++face) {
+            CAPTURE(face);
+            CHECK(at->cube[face][0] > once[face].r * 1.01);
+        }
     }
 }
 

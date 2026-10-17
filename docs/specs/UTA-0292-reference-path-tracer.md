@@ -161,8 +161,9 @@ at least 48 pixels are lit in both: channel 4 set, and the two terms not both
 0. Each block's values are means over those pixels. It prints one row per
 view and a mean row: the reference's and the renderer's mean light; the
 total, direct and indirect gaps (mean absolute block difference over the
-reference's mean), the indirect term set against first bounce plus sky,
-which is what a probe holds (UTA-0112 § 4.12); the sky and later-bounce
+reference's mean), the indirect term set against first bounce, sky and
+later bounces, which is what a probe holds (UTA-0112 § 4.7 step 7 and
+§ 4.12; later bounces since `UTA-0254`); the sky and later-bounce
 shares; and the gap in stops, over blocks where both are above 0.
 
 ## 5. Invariants

@@ -15,7 +15,7 @@ are lit softly and not just by their lamps.
 
 A bake writes a new section, `LPRB`. It holds light probes: points on a lattice
 near the level's surfaces. Each stores the light reaching it after one bounce
-off the level, as six colours, one per axis direction — an ambient cube. The
+off the level (three since `UTA-0254`, § 4.7 step 7), as six colours, one per axis direction — an ambient cube. The
 renderer lights walls and moving bodies from them, with no second texture
 coordinate set. This spec also fixes the light model the bake and the renderer
 share: how a light's UT99 numbers become light at a point.
@@ -68,6 +68,9 @@ ones most worth it.
 2. **One bounce, from static lights.** A probe stores the direct light of the
    level's static lights, reflected once by the surfaces it sees. Direct light
    stays UTA-0014's, drawn every frame with shadow maps.
+   **Amended by `UTA-0254`** (user, 2026-10-17): a probe holds
+   `PROBE_BOUNCES` bounces, the later ones read from the probes themselves
+   (§ 4.7 step 7).
 3. **The light model is this spec's own** (§ 4.3), because UT99's is in no
    source this spec draws on (§ 2 item 4). UTA-0014 draws direct light with it.
    `LITE` keeps UT99's numbers, as UTA-0110 decided. What changes is that a
@@ -414,14 +417,25 @@ directions, taken in ascending order of `z`, then `y`, then `x`.
    A material without an emit map, and a flame, add `0`.
    **Amended by `UTA-0292`:** the albedo is scaled and capped, and the
    emission scaled, by § 4.12 item 1.
+7. **Added by `UTA-0254`:** later bounces. `PROBE_BOUNCES` is `3`, in
+   `src/ubake/LightProbes.h`. After the first gather, each further pass
+   gives every probe its first-gather cube plus `bounceProbe`'s.
+   `bounceProbe` re-casts the probe's rays. A hit that step 6 would light
+   sends on its scaled, capped albedo times the light the last pass's probes
+   give it. That light is § 4.9's lookup, read half a spacing off the
+   surface along `n`, as the renderer reads it (`UTA-0185`). A sky, step 4's
+   unlit liquid, and an unlit surface met through the sky view send `0`
+   here: their light is their picture, already sent. A pass reads a copy of
+   the last, so no probe reads another's new value. It casts no shadow ray.
+   The renderer's occlusion term (`UTA-0164`) is not applied at the hit.
 
 **Face `k`**, with axis `a_k`, is `Σ L × max(0, ω · a_k) / Σ max(0, ω · a_k)`,
 both sums taken in the directions' order. It is stored as the nearest float.
 
 **`bakeLightProbes`** places the probes by § 4.6, then runs `gatherProbe` for
-each one through `jobs.parallelFor`. Each result goes to its probe's slot, and
-nothing a probe computes depends on another, so the bytes do not depend on the
-worker count. A job that throws refuses the bake.
+each one through `jobs.parallelFor`, then step 7's passes the same way. Each
+result goes to its probe's slot, and a probe reads others only from the last
+pass's copy, so the bytes do not depend on the worker count. A job that throws refuses the bake.
 
 ### 4.8 The bake's step
 
@@ -542,8 +556,8 @@ is what falls short. The user chose all three changes below (2026-10-08).
 `BAKER_REVISION` becomes `45`, and `46` with INV-16; `LPRB`'s format does
 not change. A room left
 darker than it should be is judged per room after its map is re-baked, and
-`UTA-0256` adds a lamp where one is wanted. A second bounce, worth 2–4% at
-`K` `4`, is `UTA-0254`'s.
+`UTA-0256` adds a lamp where one is wanted. Later bounces, worth 2–4% at
+`K` `4`, are § 4.7 step 7 (`UTA-0254`).
 
 ## 5. Invariants
 
@@ -690,6 +704,16 @@ darker than it should be is judged per room after its map is re-baked, and
   *Test:* `tests/unit/BakeLightProbesTest.cpp`, "sky light".
   *Breaks when:* only liquids glow through the sky, or every unlit surface
   in the level glows.
+- **INV-17** — § 4.7 step 7. Where every probe holds light `c` on each
+  face, a probe in a closed room of albedo `0.1` gets `0.4c` on every face
+  from `bounceProbe`. With no probe near a surface, or where the surface is
+  an unlit liquid, it gets `0`. A baked probe holds more than its first
+  gather.
+  *Added by UTA-0254.*
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, "later bounces".
+  *Breaks when:* the bounce skips the reflectance, a liquid reflects, or
+  the bake runs no pass after the first. Reading the probes at the hit
+  rather than off it is not caught: every probe here holds the same light.
 
 ## 6. Failure modes
 
@@ -712,7 +736,7 @@ Each test is seen to fail before the code it grades exists.
 |---|---|---|
 | `tests/unit/BundleLightProbesTest.cpp` | `unit` | INV-1 |
 | `tests/unit/BakeLightModelTest.cpp` | `unit` | INV-2, INV-3, INV-4, INV-5 |
-| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12, INV-13, INV-14, INV-15, INV-16 |
+| `tests/unit/BakeLightProbesTest.cpp` | `unit` | INV-5, INV-6, INV-7, INV-8, INV-9, INV-10, INV-12, INV-13, INV-14, INV-15, INV-16, INV-17 |
 | `tests/unit/BakeGoldenTest.cpp` | `unit` | INV-10, recorded again |
 | `tests/unit/PathTraceTest.cpp` | `unit` | INV-11, unchanged |
 | `tests/real/RealLightProbesTest.cpp` | real tier | prints each stock map's probe count, baked light count and step time; checks every value is finite and not negative |
@@ -758,7 +782,9 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
   bounced light cannot wait for the renderer.
 - **The platform's `sin`, under a recorded reading as UTA-0052 did for `sqrt`.**
   UTA-0052 § 15 names `sin` among the functions that differ between libraries.
-- **More than one bounce.** Each costs a pass as large as the first.
+- **More than one bounce, each traced as the first is.** Each costs a pass as
+  large as the first. **Narrowed by `UTA-0254`:** a later bounce read from
+  the probes casts no shadow ray, so it costs far less (§ 4.7 step 7).
 
 ## 9. Out of scope
 
@@ -768,7 +794,6 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
   renderer turns into light like any other.
 - Movers in the bake, as surfaces or as shadows — deferred; not yet queued.
 - Bounce from lights a script changes — deferred; not yet queued.
-- More than one bounce — tracked by UTA-0254.
 - Light leaking between probes through a thin wall — tracked by UTA-0014, whose
   blending decides it.
 
@@ -779,7 +804,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 | INV-1 | `tests/unit/BundleLightProbesTest.cpp` |
 | INV-2, INV-3, INV-4 | `tests/unit/BakeLightModelTest.cpp` |
 | INV-5 | `tests/unit/BakeLightModelTest.cpp` and `tests/unit/BakeLightProbesTest.cpp` |
-| INV-6, INV-7, INV-8, INV-9, INV-12, INV-13, INV-14, INV-15, INV-16 | `tests/unit/BakeLightProbesTest.cpp` |
+| INV-6, INV-7, INV-8, INV-9, INV-12, INV-13, INV-14, INV-15, INV-16, INV-17 | `tests/unit/BakeLightProbesTest.cpp` |
 | § 4.12's light against exact transport | **nothing** in CI — `UTA-0292`'s scratch path tracer, run by hand |
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |

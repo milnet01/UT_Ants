@@ -1,13 +1,13 @@
 // Bounced light, baked into probes --
 // docs/specs/UTA-0112-baked-light-probes.md SS 4.4 to SS 4.7.
 //
-// One bounce of the level's static lights, gathered at lattice points near its
+// PROBE_BOUNCES bounces of the level's static lights, gathered at lattice points near its
 // surfaces and stored as an ambient cube: six colours, one per axis direction.
 // Direct light is UTA-0014's, drawn every frame with shadow maps.
 //
 // DETERMINISTIC AT ANY WORKER COUNT. Each probe's arithmetic depends on that
-// probe alone, its sums run in a fixed order, and its result goes to its own
-// slot (INV-10).
+// probe alone and on the last pass's copy of the others (UTA-0254), its sums
+// run in a fixed order, and its result goes to its own slot (INV-10).
 
 #pragma once
 
@@ -169,8 +169,23 @@ inline constexpr double SUN_RADIUS = 0.035;
                                              const std::optional<Vec3>& sky = std::nullopt,
                                              const std::optional<ubundle::PaintedSky>& painted = std::nullopt);
 
+/// SS 4.7 step 7 (UTA-0254): the bounces a probe holds. The first is
+/// gatherProbe's; each further one is a bounceProbe pass over the last.
+inline constexpr std::size_t PROBE_BOUNCES = 3;
+
+/// SS 4.7 step 7 (UTA-0254): the six faces of the light the probes `lit` give
+/// the surfaces seen from `p`, sent on as step 6 sends direct light. `lit`'s
+/// probes are read as probes.glsl's indirectAt reads them. A sky, and an unlit
+/// surface that sends its picture (step 4), send nothing here.
+[[nodiscard]] std::array<Rgb, 6> bounceProbe(const Vec3& p, const SurfaceRays& rays,
+                                             const ubundle::Geometry& geometry, const ubundle::LightProbes& lit,
+                                             const AlbedoLookup& albedo, const OwnLightLookup& own = {},
+                                             const std::optional<Vec3>& sky = std::nullopt,
+                                             const std::optional<ubundle::PaintedSky>& painted = std::nullopt);
+
 /// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
-/// there is one, nor past PROBE_WORLD_LIMIT. Where `lights` holds a sun, each probe's `sunSeen` too
+/// there is one, nor past PROBE_WORLD_LIMIT, each holding PROBE_BOUNCES bounces.
+/// Where `lights` holds a sun, each probe's `sunSeen` too
 /// (UTA-0338 SS 4.4). A job that throws refuses it.
 [[nodiscard]] Result<ubundle::LightProbes> bakeLightProbes(
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,

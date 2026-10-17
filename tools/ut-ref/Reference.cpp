@@ -235,9 +235,9 @@ Score scoreView(std::span<const float> reference, std::span<const float> terms, 
         score.renderer += ren;
         totalGap += std::abs(ren - ref);
         directGap += std::abs(b.renDirect - b.refDirect);
-        // The renderer's probes hold one bounce, sky light included (UTA-0112
-        // SS 4.12); later bounces are their own column.
-        indirectGap += std::abs(b.renIndirect - (b.refBounce + b.refSky));
+        // The renderer's probes hold every bounce, sky light included (UTA-0112
+        // SS 4.7 step 7 and SS 4.12); later bounces also have their own column.
+        indirectGap += std::abs(b.renIndirect - (b.refBounce + b.refSky + b.refLater));
         sky += b.refSky;
         later += b.refLater;
         if (ref > 0 && ren > 0) {

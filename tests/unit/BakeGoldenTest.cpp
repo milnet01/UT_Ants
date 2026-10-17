@@ -146,9 +146,11 @@ namespace {
 // 59: UTA-0322 lets the shadow mask grow to 8192 texels a side before it
 // coarsens. The fixture's mask is far smaller, so only BAKR's revision moved
 // it.
-constexpr std::uint32_t RECORDED_UNDER = 59;
+// 60: UTA-0254 bakes later bounces into the probes, so the fixture's probes
+// and BAKR's revision both moved it.
+constexpr std::uint32_t RECORDED_UNDER = 60;
 constexpr std::string_view GOLDEN =
-    "ffd773a90fe5223c3af9748686634b3aea23f28d3389c4db306a147694353ea6";
+    "cf12fd731b6555f3847ebc103aeaebd9ca18f07737fb8b12ca38c0940731fcbc";
 
 } // namespace
 

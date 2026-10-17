@@ -13439,7 +13439,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /home/ants/.local/state/ut-ants/map-captures/AS-Frigate-20260930-073437
 
-- 📋 [UTA-0254] **ubake: bounced light stays faint where one bounce from a small lit patch is all a room gets.**
+- 🚧 [UTA-0254] **ubake: bounced light stays faint where one bounce from a small lit patch is all a room gets.**
   Split from UTA-0253 when the user closed it (2026-09-30). That item
   fixed how bounce light is stored and shown (baker revision 28). At
   its AS-Frigate capture the upper-left quarter then gained 0.00116
@@ -13539,6 +13539,24 @@ stays with movement in 0.2.0.
   User decision (2026-10-08): deferred until after 0.1.0. Once UTA-0292
   sends on four times the light a surface shows, the reference puts
   later bounces at 2-4% of the light shown.
+  User decision (2026-10-17): the 2026-10-08 deferral no longer stands;
+  work this now, before 0.1.0 ships.
+  Built (2026-10-17), baker r60: PROBE_BOUNCES 3. After the first
+  gather, two passes add what the last pass's probes send on from each
+  hit (UTA-0112 SS 4.7 step 7, INV-17). No shadow rays in those passes.
+  ut-ref, same traces and settings (320x180, 128 samples, depth 4),
+  cameras from the reviewed F12 captures; scratch ~/.cache/uta-scratch/u254
+  (measure.sh, cams-*.txt, ref-*.f32). Total gap r59 to r60:
+  - AS-Frigate views 0-6: 0.289/0.058/0.250/0.064/0.285/0.252/0.165 to
+    0.101/0.047/0.240/0.051/0.091/0.060/0.126. Stops at the outdoor
+    views 0, 4, 5: 0.56/0.51/0.57 to 0.16/0.14/0.11. Probe mean luma
+    0.039 to 0.070.
+  - DM-Deck16][ views 0-1: 0.018/0.187 to 0.011/0.165.
+  - DM-Fetid view 0: 0.065 to 0.054.
+  No view's gap rose. ut-ref's indirect column now counts later bounces
+  as a probe's (UTA-0292 SS 4.4).
+  Bake time, AS-Frigate, old and new alternated in one job under load
+  15-18: 52.6/47.2 s to 65.9/52.9 s.
   **Layman:** A room lit only by light bouncing off one small sunny patch is still nearly black; letting light bounce a second time, or reach further, would lift it.
   Kind: enhancement.
   Source: user-request-2026-09-30 split-from-UTA-0253.

@@ -160,22 +160,23 @@ TEST_CASE("UTA-0292 INV-11: the score reads an equal renderer as no gap", "[ref]
                 r[ref::DIRECT] = lit ? 0.3F : 0.0F;
                 r[ref::FIRST] = lit ? 0.1F : 0.0F;
                 r[ref::SKY] = lit ? 0.1F : 0.0F;
+                r[ref::LATER] = lit ? 0.05F : 0.0F; // UTA-0254: the probes hold it too
                 r[ref::LIT] = lit ? 1.0F : 0.0F;
                 terms[at * 3] = lit ? 0.3F * scale : 0.0F;
-                terms[at * 3 + 1] = lit ? 0.2F * scale : 0.0F;
+                terms[at * 3 + 1] = lit ? 0.25F * scale : 0.0F;
             }
     };
 
     fill(1);
     const ref::Score same = ref::scoreView(reference, terms, W, H);
     CHECK(same.blocks == 2u);
-    // Each block's mean is over its lit pixels: 0.3 + 0.1 + 0.1 in both.
-    CHECK(same.reference == Catch::Approx(0.5).epsilon(1e-6));
+    // Each block's mean is over its lit pixels: 0.3 + 0.1 + 0.1 + 0.05 in both.
+    CHECK(same.reference == Catch::Approx(0.55).epsilon(1e-6));
     CHECK(same.total == Catch::Approx(0).margin(1e-7));
     CHECK(same.direct == Catch::Approx(0).margin(1e-7));
     CHECK(same.indirect == Catch::Approx(0).margin(1e-7));
     CHECK(same.stops == Catch::Approx(0).margin(1e-7));
-    CHECK(same.sky == Catch::Approx(0.2).epsilon(1e-6));
+    CHECK(same.sky == Catch::Approx(0.1 / 0.55).epsilon(1e-6));
 
     fill(2);
     const ref::Score twice = ref::scoreView(reference, terms, W, H);

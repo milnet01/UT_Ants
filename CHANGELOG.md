@@ -576,6 +576,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Light bounces more than once** (UTA-0254)
+  Bounced light now carries on bouncing: a lit wall lights the next
+  one, which lights the one after. Open, sunlit areas gain the most,
+  and rooms lit only by bounced light get brighter too. Re-bake every
+  map.
+
 - **Shadows on doors and lifts are finer on busy maps** (UTA-0322)
   The shadow map's room now goes first to the lights that shine near a
   door, lift or other moving part, since only those shadows are drawn

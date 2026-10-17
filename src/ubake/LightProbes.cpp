@@ -369,6 +369,78 @@ std::array<Rgb, 6> gatherProbe(const Vec3& p, const SurfaceRays& rays,
     return cubeOf(radiance);
 }
 
+namespace {
+
+/// probes.glsl's ambientCube: each axis's squared component weights the face
+/// that axis's sign selects.
+Rgb ambientCube(const std::array<std::array<float, 3>, 6>& faces, const Vec3& n) noexcept {
+    const auto& x = faces[n.x >= 0 ? 0 : 1];
+    const auto& y = faces[n.y >= 0 ? 2 : 3];
+    const auto& z = faces[n.z >= 0 ? 4 : 5];
+    const auto weighed = [&](std::size_t c) { return n.x * n.x * x[c] + n.y * n.y * y[c] + n.z * n.z * z[c]; };
+    return {weighed(0), weighed(1), weighed(2)};
+}
+
+/// probes.glsl's indirectAt: trilinear over the eight probes of the lattice
+/// cell holding `x`, a missing corner's weight shared among those present, and
+/// zero with none. `lit`'s probes are ascending by z, then y, then x.
+Rgb indirectAt(const ubundle::LightProbes& lit, const Vec3& x, const Vec3& n) {
+    if (lit.probes.empty() || lit.spacing == 0) return {};
+    const auto s = static_cast<double>(lit.spacing);
+    const Vec3 cell{x.x / s, x.y / s, x.z / s};
+    const Vec3 base{std::floor(cell.x), std::floor(cell.y), std::floor(cell.z)};
+    const Vec3 f = cell - base;
+    const auto zyx = [](const ubundle::LightProbe& probe, const Cell& c) {
+        return std::tie(probe.cell[2], probe.cell[1], probe.cell[0]) < std::tie(c[2], c[1], c[0]);
+    };
+    Rgb sum;
+    double weights = 0;
+    for (int corner = 0; corner < 8; ++corner) {
+        const int sx = corner & 1;
+        const int sy = (corner >> 1) & 1;
+        const int sz = (corner >> 2) & 1;
+        const Cell at{static_cast<std::int32_t>(base.x) + sx, static_cast<std::int32_t>(base.y) + sy,
+                      static_cast<std::int32_t>(base.z) + sz};
+        const auto found = std::lower_bound(lit.probes.begin(), lit.probes.end(), at, zyx);
+        if (found == lit.probes.end() || found->cell != at) continue;
+        const double weight = (sx != 0 ? f.x : 1 - f.x) * (sy != 0 ? f.y : 1 - f.y) * (sz != 0 ? f.z : 1 - f.z);
+        const Rgb c = ambientCube(found->cube, n);
+        sum.r += weight * c.r;
+        sum.g += weight * c.g;
+        sum.b += weight * c.b;
+        weights += weight;
+    }
+    return weights > 0 ? Rgb{sum.r / weights, sum.g / weights, sum.b / weights} : Rgb{};
+}
+
+} // namespace
+
+std::array<Rgb, 6> bounceProbe(const Vec3& p, const SurfaceRays& rays, const ubundle::Geometry& geometry,
+                               const ubundle::LightProbes& lit, const AlbedoLookup& albedo,
+                               const OwnLightLookup& own, const std::optional<Vec3>& sky,
+                               const std::optional<ubundle::PaintedSky>& painted) {
+    const std::vector<Vec3>& all = directions();
+    // UTA-0185: the renderer reads the probes half a spacing off the surface.
+    const double off = 0.5 * static_cast<double>(lit.spacing);
+    std::vector<Rgb> radiance;
+    radiance.reserve(all.size());
+    for (const Vec3& w : all) {
+        const std::optional<SurfaceHit> hit = surfaceAlong(p, w, rays, geometry, sky, painted);
+        Rgb sent;
+        if (hit && !hit->paintedSky) {
+            const ubundle::GeometryBatch& batch = *hit->batch;
+            const OwnLight mine = own ? own(batch.material) : OwnLight{};
+            if ((batch.polyFlags & PF_UNLIT) == 0 || !(mine.unlitGlows || hit->viaSky)) {
+                const Rgb k = reflectanceOf(albedo(batch.material));
+                const Rgb e = indirectAt(lit, hit->at + hit->normal * off, hit->normal);
+                sent = {k.r * e.r, k.g * e.g, k.b * e.b};
+            }
+        }
+        radiance.push_back(sent);
+    }
+    return cubeOf(radiance);
+}
+
 Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
                                              const ubundle::CollisionTree& level,
                                              const std::vector<ubundle::Light>& lights,
@@ -486,6 +558,32 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
     if (threw != 0)
         return fail(ErrorCode::Unknown,
                     "light probes: " + std::to_string(threw) + " jobs threw while gathering");
+
+    // SS 4.7 step 7 (UTA-0254): each further bounce adds to the first what the
+    // last pass's probes send on. A pass reads a copy, so no probe reads
+    // another's new value, and the bytes stay the same at any worker count.
+    std::vector<std::array<std::array<float, 3>, 6>> first;
+    first.reserve(out.probes.size());
+    for (const ubundle::LightProbe& probe : out.probes) first.push_back(probe.cube);
+    for (std::size_t bounce = 1; bounce < PROBE_BOUNCES; ++bounce) {
+        ubundle::LightProbes lit;
+        lit.spacing = out.spacing;
+        lit.probes = out.probes;
+        const std::size_t failed = jobs.parallelFor(batches, [&](std::size_t job) {
+            const std::size_t end = std::min(out.probes.size(), (job + 1) * PROBES_PER_JOB);
+            for (std::size_t p = job * PROBES_PER_JOB; p < end; ++p) {
+                const std::array<Rgb, 6> more =
+                    bounceProbe(pointOf(out.probes[p].cell), rays, geometry, lit, albedo, own, sky, painted);
+                for (std::size_t face = 0; face < 6; ++face)
+                    out.probes[p].cube[face] = {static_cast<float>(first[p][face][0] + more[face].r),
+                                                static_cast<float>(first[p][face][1] + more[face].g),
+                                                static_cast<float>(first[p][face][2] + more[face].b)};
+            }
+        });
+        if (failed != 0)
+            return fail(ErrorCode::Unknown,
+                        "light probes: " + std::to_string(failed) + " jobs threw while bouncing");
+    }
     return out;
 }
 
