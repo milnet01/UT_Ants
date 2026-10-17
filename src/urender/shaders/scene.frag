@@ -183,7 +183,7 @@ vec3 sunInSky(vec3 d) {
 // 0.5 and 0.8 was 0.096, 0.197, 0.500 and 0.803.
 float paintedSkyClouds(vec3 d, float clouds) {
     if (clouds <= 0.0) return 0.0;
-    vec2 p = d.xy / max(d.z, 0.05) * 1.5;
+    vec2 p = d.xy / max(d.z, 0.05) * 1.5 + frame.paintedSkyDrift; // UTA-0337: drifting
     float sum = 0.0;
     float weight = 0.5;
     float total = 0.0;
@@ -207,13 +207,15 @@ vec3 paintedSkyAt(vec3 d) {
     return mix(paintedSkyGradient(top, horizon, d), vec3(PAINTED_SKY_CLOUD), cover);
 }
 
-// UTA-0163: the level's sky in direction `d`, from the six faces urender drew
-// from its SkyZoneInfo -- Sky.h. The face is the axis `d` is longest on, in
-// shadows.glsl's order, and a sample stays half a texel inside its cell. With
-// no sky view, the painted sky (UTA-0350 SS 4.4). The sun's disc is added over
-// either (UTA-0338 SS 4.5), so water reflects it too.
-vec3 skyAt(vec3 d) {
-    if (frame.skyTexture == NONE) return paintedSkyAt(d) + sunInSky(d);
+// UTA-0337: how far off a layer's plane, in UT units, a fragment may lie and
+// still be its sheet: room for the float error of a plane far from the origin.
+const float SKY_LAYER_PLANE_SLACK = 2.0;
+
+// UTA-0163: the six faces urender drew from the SkyZoneInfo (Sky.h) into
+// `texture` -- the sky, or a layer's light -- in direction `d`. The face is the
+// axis `d` is longest on, in shadows.glsl's order, and a sample stays half a
+// texel inside its cell.
+vec4 skyFacesAt(uint texture, vec3 d) {
     vec3 a = abs(d);
     uint face;
     if (a.x >= a.y && a.x >= a.z) face = d.x >= 0.0 ? 0u : 1u;
@@ -222,11 +224,52 @@ vec3 skyAt(vec3 d) {
     ShadowFace sky = shadowFaces[frame.skyFirstFace + face];
     vec4 clip = sky.viewProj * vec4(d * 100.0, 1.0);
     vec2 cell = clip.xy / clip.w * 0.5 + 0.5;
-    vec2 size = vec2(textureSize(textures[nonuniformEXT(frame.skyTexture)], 0));
+    vec2 size = vec2(textureSize(textures[nonuniformEXT(texture)], 0));
     vec2 halfTexel = 0.5 / (size * sky.atlasRect.zw);
     cell = clamp(cell, halfTexel, 1.0 - halfTexel);
-    return textureLod(textures[nonuniformEXT(frame.skyTexture)], sky.atlasRect.xy + cell * sky.atlasRect.zw, 0.0).rgb
-           + sunInSky(d);
+    return textureLod(textures[nonuniformEXT(texture)], sky.atlasRect.xy + cell * sky.atlasRect.zw, 0.0);
+}
+
+// UTA-0337: `sky` with the sky zone's panned sheets laid over it, farthest
+// first. Each sheet's texture is found where direction `d` from the sky's eye
+// meets its plane, panned to this frame, and multiplied by the light captured
+// with it painted white -- which is zero where the sheet is not, or something
+// nearer hides it. A translucent sheet blends as the translucent pipeline
+// does; an opaque or masked one covers by its captured alpha.
+vec3 skyLayersOver(vec3 sky, vec3 d) {
+    for (uint i = 0u; i < frame.skyLayerCount; ++i) {
+        SkyLayer layer = frame.skyLayers[i];
+        float facing = dot(layer.plane.xyz, d);
+        float t = (layer.plane.w - dot(layer.plane.xyz, frame.skyOrigin.xyz)) / facing;
+        if (abs(facing) < 1e-4 || t <= 0.0) continue;
+        vec4 light = skyFacesAt(layer.light, d);
+        if (max(max(light.r, light.g), max(light.b, light.a)) <= 0.0) continue;
+        vec3 p = frame.skyOrigin.xyz + t * d;
+        vec2 uv = vec2(dot(layer.u.xyz, p) + layer.u.w, dot(layer.v.xyz, p) + layer.v.w) + layer.pan;
+        // The mip a pixel's footprint on the sheet asks for: the sheet runs
+        // t / |facing| units a radian there.
+        uint base = materials[layer.material].base;
+        vec2 size = vec2(textureSize(textures[nonuniformEXT(base)], 0));
+        float texels = max(size.x * length(layer.u.xyz), size.y * length(layer.v.xyz)) * t / abs(facing)
+                       * frame.skyPixelAngle;
+        vec4 picture = textureLod(textures[nonuniformEXT(base)], uv, log2(max(texels, 1.0)));
+        vec3 lit = picture.rgb * light.rgb;
+        if (layer.kind == SKY_LAYER_TRANSLUCENT) {
+            sky = sky * (1.0 - lit) + lit;
+        } else {
+            float cover = light.a * (layer.kind == SKY_LAYER_MASKED ? step(MASK_THRESHOLD, picture.a) : 1.0);
+            sky = mix(sky, lit, cover);
+        }
+    }
+    return sky;
+}
+
+// The level's sky in direction `d`: the faces with their layers over them, or
+// with no sky view, the painted sky (UTA-0350 SS 4.4). The sun's disc is added
+// over either (UTA-0338 SS 4.5), so water reflects it too.
+vec3 skyAt(vec3 d) {
+    if (frame.skyTexture == NONE) return paintedSkyAt(d) + sunInSky(d);
+    return skyLayersOver(skyFacesAt(frame.skyTexture, d).rgb, d) + sunInSky(d);
 }
 
 // UTA-0275: a detail texture's weight falls linearly from whole at the eye to
@@ -316,6 +359,16 @@ void main() {
     // camera, twice its displayed grey, so mid-grey changes nothing.
     if (material.detail != NONE && !liquid)
         base.rgb = detailOver(base.rgb, material, shadingUv, duv1, duv2, distance(frame.eye, worldPosition));
+
+    // UTA-0337: while a sky layer's light is captured, its sheet is painted
+    // white and whole, and only on the layer's own plane -- another sheet of
+    // the batch is another layer. The light this leaves is what skyAt lays
+    // the panned picture over; an opaque sheet's alpha of 1 says where it is.
+    if (frame.skyLayerCapture != 0u) {
+        SkyLayer layer = frame.skyLayers[frame.skyLayerCapture - 1u];
+        if (abs(dot(layer.plane.xyz, worldPosition) - layer.plane.w) > SKY_LAYER_PLANE_SLACK) discard;
+        base = vec4(1.0);
+    }
 
     // UTA-0263 SS 4.4: a material with a flame look draws moving flame, from
     // the texture coordinates, instead of its picture -- unlit, as emission.

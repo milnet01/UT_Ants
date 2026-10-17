@@ -127,6 +127,13 @@ constexpr float BLOOM_STRENGTH = 0.04f;
 /// UTA-0263 SS 4.4: the flame clock's period in seconds. At 4096 a float still
 /// resolves half a millisecond; a flame jumps once at each wrap, every 68 min.
 constexpr double FLAME_CLOCK_WRAP = 4096.0;
+// UTA-0337: how fast a painted sky's clouds drift, in their plane's units a
+// second -- the plane at height 2/3, so 0.0075 is clouds 2 km up moving
+// 10 m/s: a cloud crosses its own width in about two minutes. Not wrapped:
+// the noise does not repeat, so a wrap would jump. A float still moves it
+// smoothly after a day on the light clock (about 650 units, a step of 6e-5
+// against 1.2e-4 a frame at 60 fps).
+constexpr std::array<double, 2> PAINTED_SKY_WIND{0.0072, 0.0021};
 /// UTA-0215: how many specks drift in the water about the eye, which
 /// mote.vert places from their index alone.
 constexpr std::uint32_t MOTE_COUNT = 800;
@@ -464,6 +471,14 @@ struct Renderer::Impl {
     Buffer maskPairs;
     bool skyPending = false;
     bool skyReady = false;
+    /// UTA-0337: the sky zone's panned sheets, and each one's light, captured
+    /// as the sky's faces are; the array's last textures, after the mask. While
+    /// the faces are captured, skyCapturing is set and skyLayerCapture says
+    /// which: 0 the sky without its layers, k + 1 layer k's light alone.
+    SkyLayers skyLayers;
+    std::vector<Image> skyLayerLights;
+    bool skyCapturing = false;
+    std::uint32_t skyLayerCapture = 0;
     /// Each mover's box in its own pivot space, for SS 4.8's redraw test.
     std::vector<Box> moverBounds;
 
@@ -790,20 +805,29 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     // UTA-0164 SS 4.5: and one more for its occlusion atlas, from the tier up.
     const bool occluded = bundle.occlusion.has_value() && enabled(Feature::AmbientOcclusion, tier);
     // UTA-0326 SS 4.5: and one more for its shadow mask, at every tier.
+    // UTA-0337: and one more for each sky layer's light.
+    skyLayers = skyView ? skyLayersOf(bundle) : SkyLayers{};
     const std::size_t textureCount = materials->textures().size() + (skyView ? 1 : 0) + (occluded ? 1 : 0)
-                                     + (bundle.shadowMask ? 1 : 0);
+                                     + (bundle.shadowMask ? 1 : 0) + skyLayers.layers.size();
     if (textureCount > pipelines->textureCapacity())
         return fail(ErrorCode::InvalidArgument,
                     std::format("the bundle needs {} textures and {} binds at most {}", textureCount, gpu->name(),
                                 pipelines->textureCapacity()));
     sky = Image{};
+    skyLayerLights.clear();
     skyReady = false;
     skyPending = skyView.has_value();
     if (skyView) {
-        UTA_TRY(sky, Image::create(*gpu, {HDR_FORMAT, SKY_FACE_SIZE * SKY_COLUMNS, SKY_FACE_SIZE * SKY_ROWS, 1,
-                                          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT}));
+        const ImageDesc faces{HDR_FORMAT, SKY_FACE_SIZE * SKY_COLUMNS, SKY_FACE_SIZE * SKY_ROWS, 1,
+                              VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT};
+        UTA_TRY(sky, Image::create(*gpu, faces));
+        for (std::size_t i = 0; i < skyLayers.layers.size(); ++i) {
+            UTA_TRY(Image light, Image::create(*gpu, faces));
+            skyLayerLights.push_back(std::move(light));
+        }
         UTA_CHECK(gpu->run([&](VkCommandBuffer commands) {
             sky.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            for (Image& light : skyLayerLights) light.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }));
     }
     occlusion = Image{};
@@ -894,10 +918,11 @@ Result<void> Renderer::Impl::writeDescriptors() {
     pool = VK_NULL_HANDLE;
 
     // UTA-0163: the sky's faces follow the materials' textures, then UTA-0164's
-    // occlusion atlas, and UTA-0326's shadow mask is the array's last.
+    // occlusion atlas, then UTA-0326's shadow mask, and UTA-0337's layer lights
+    // are the array's last.
     const auto textureCount = static_cast<std::uint32_t>(materials->textures().size() + (sky.view() ? 1 : 0)
                                                          + (occlusion.view() ? 1 : 0)
-                                                         + (shadowMask.view() ? 1 : 0));
+                                                         + (shadowMask.view() ? 1 : 0) + skyLayerLights.size());
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::MASK_PAIRS + 1 + 1},
@@ -1046,6 +1071,8 @@ Result<void> Renderer::Impl::writeDescriptors() {
         textureInfos.push_back({materialSampler, occlusion.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     if (shadowMask.view())
         textureInfos.push_back({materialSampler, shadowMask.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+    for (const Image& light : skyLayerLights)
+        textureInfos.push_back({materialSampler, light.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     VkWriteDescriptorSet textureWrite{};
     textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     textureWrite.dstSet = sceneSet;
@@ -1297,6 +1324,18 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
                                 0, nullptr);
         for (const DrawItem& item : geometry->draws) {
+            // UTA-0337: the sky's faces are captured without its layers, and a
+            // layer's light with only that layer coloured in, everything solid
+            // still hiding it.
+            if (skyCapturing && item.objectIndex == 0) {
+                const auto layerOf = [&](const SkyLayer& layer) {
+                    return item.firstIndex == layer.firstIndex;
+                };
+                if (skyLayerCapture == 0 && std::ranges::any_of(skyLayers.layers, layerOf)) continue;
+                if (skyLayerCapture != 0 && pass != Pass::Depth && !layerOf(skyLayers.layers[skyLayerCapture - 1]))
+                    continue;
+            }
+            if (skyCapturing && skyLayerCapture != 0 && item.objectIndex != 0 && pass != Pass::Depth) continue;
             // UTA-0271: a modulated surface blends too, so it is drawn with them.
             const bool blended = (item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED)) != 0;
             if (blended != (pass == Pass::Translucent)) continue;
@@ -1381,7 +1420,8 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     // pass binds all three; velocity takes the flame's zero, added. UTA-0215:
     // the water's specks are drawn in the same pass, under water only.
     const bool motes = viewZone.water != 0 && enabled(Feature::WaterMotes, tier);
-    if (flameCount != 0 || motes) {
+    // UTA-0337: a layer's light holds that layer alone.
+    if ((flameCount != 0 || motes) && !(skyCapturing && skyLayerCapture != 0)) {
         memoryBarrier(commands,
                       VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
                           | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -1618,10 +1658,22 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
     // UTA-0163: a new level's sky, drawn once, before its first frame. Nothing
     // is presented; the faces go into the sky texture.
     if (impl.skyPending) {
-        for (std::uint32_t face = 0; face < 6; ++face) {
-            const Camera faceCamera = skyFaceCamera(*impl.skyView, face, impl.config.width, impl.config.height);
-            UTA_CHECK(impl.drawView(bundle, faceCamera, std::nullopt, face));
+        // UTA-0337: then each layer's light, into its own six faces.
+        impl.skyCapturing = true;
+        for (std::uint32_t capture = 0; capture <= impl.skyLayers.layers.size(); ++capture) {
+            impl.skyLayerCapture = capture;
+            for (std::uint32_t face = 0; face < 6; ++face) {
+                const Camera faceCamera = skyFaceCamera(*impl.skyView, face, impl.config.width, impl.config.height);
+                const Result<void> drawn = impl.drawView(bundle, faceCamera, std::nullopt, face);
+                if (!drawn) {
+                    impl.skyCapturing = false;
+                    impl.skyLayerCapture = 0;
+                }
+                UTA_CHECK(drawn);
+            }
         }
+        impl.skyCapturing = false;
+        impl.skyLayerCapture = 0;
         // Cleared once every face is in, so a failed face is drawn again.
         impl.skyPending = false;
         impl.skyReady = true;
@@ -1721,6 +1773,11 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         frame.paintedSkyTop = bundle.paintedSky->top;
         frame.paintedSkyHorizon = bundle.paintedSky->horizon;
         frame.paintedSkyClouds = bundle.paintedSky->clouds;
+        // UTA-0337: the clouds drift with the light clock; the bake took their
+        // mean, so the light they give does not move.
+        for (std::size_t axis = 0; axis < 2; ++axis)
+            frame.paintedSkyDrift[axis] =
+                static_cast<float>(PAINTED_SKY_WIND[axis] * impl.lastLightSeconds);
     }
     // UTA-0164 SS 4.5: the atlas follows the sky's faces, when there are any.
     frame.occlusionTexture = impl.occlusion.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
@@ -1780,6 +1837,40 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     impl.cameraPanSpeed = impl.viewZone.panSpeed;
     frame.cameraUnderwater = impl.viewZone.water; // UTA-0215 SS 4.3
     frame.skyCapture = skyFace ? 1u : 0u;          // UTA-0281
+    // UTA-0337: the sky's layers, panned at the sky zone's speeds as the faces
+    // would have drawn them now. Laid over the sky only once its faces and
+    // every layer's light are in; while they are captured, the planes still
+    // tell a layer's sheet from the batch's others.
+    if (impl.skyView) {
+        const std::array<float, 2> speed =
+            bundle.zones && impl.skyLayers.zone < bundle.zones->size() ? (*bundle.zones)[impl.skyLayers.zone].panSpeed
+                                                                        : std::array<float, 2>{1, 1};
+        frame.skyOrigin = {impl.skyView->location[0], impl.skyView->location[1], impl.skyView->location[2], 0};
+        frame.skyPixelAngle = static_cast<float>(
+            2.0 * std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0) / static_cast<double>(region.height));
+        frame.skyLayerCapture = skyFace ? impl.skyLayerCapture : 0;
+        frame.skyLayerCount = impl.skyReady && !skyFace ? static_cast<std::uint32_t>(impl.skyLayers.layers.size()) : 0;
+        const auto firstLight = static_cast<std::uint32_t>(impl.materials->textures().size() + 1
+                                                           + (impl.occlusion.view() ? 1 : 0)
+                                                           + (impl.shadowMask.view() ? 1 : 0));
+        for (std::size_t i = 0; i < impl.skyLayers.layers.size(); ++i) {
+            const SkyLayer& layer = impl.skyLayers.layers[i];
+            gpu::SkyLayer& out = frame.skyLayers[i];
+            out.plane = layer.plane;
+            out.u = layer.u;
+            out.v = layer.v;
+            for (std::size_t axis = 0; axis < 2; ++axis) {
+                // As UTA-0269's batches pan: in double, then its fraction.
+                const double pan = std::fmod(static_cast<double>(layer.panRate[axis])
+                                                 * static_cast<double>(speed[axis]) * impl.lastLightSeconds,
+                                             1.0);
+                out.pan[axis] = std::isfinite(pan) ? static_cast<float>(pan) : 0.0F;
+            }
+            out.material = impl.materials->indexOf(layer.material);
+            out.light = firstLight + static_cast<std::uint32_t>(i);
+            out.kind = layer.kind;
+        }
+    }
     // UTA-0215 SS 4.8: the light the output stage shows as ViewFog. The tone map
     // is the identity this low, so only the sRGB decode and the exposure undo.
     for (std::size_t c = 0; c < 3; ++c) {
@@ -1859,10 +1950,12 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
             blit.dstOffsets[0] = {column, row, 0};
             blit.dstOffsets[1] = {column + size, row + size, 1};
             impl.hdr.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-            impl.sky.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            vkCmdBlitImage(commands, impl.hdr.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, impl.sky.handle(),
+            // UTA-0337: or a layer's light into that layer's faces.
+            Image& target = impl.skyLayerCapture == 0 ? impl.sky : impl.skyLayerLights[impl.skyLayerCapture - 1];
+            target.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            vkCmdBlitImage(commands, impl.hdr.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target.handle(),
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
-            impl.sky.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            target.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
     });
     // The plan already counts its tiles as drawn; after a failed submission

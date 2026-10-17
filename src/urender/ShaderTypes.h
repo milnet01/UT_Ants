@@ -69,6 +69,27 @@ enum Binding : std::uint32_t {
     TEXTURES = 18,   ///< last: it is the variable-count binding
 };
 
+/// UTA-0337: at most this many of the sky zone's panned sheets are replayed.
+/// types.glsl states the same.
+inline constexpr std::uint32_t SKY_LAYER_CAPACITY = 4;
+
+/// UTA-0337: how a sky layer lays its sheet over the sky behind it.
+enum : std::uint32_t { SKY_LAYER_TRANSLUCENT = 0, SKY_LAYER_OPAQUE = 1, SKY_LAYER_MASKED = 2 };
+
+/// UTA-0337: one of the sky zone's panned sheets, replayed over the captured
+/// sky (Sky.h). Its light was captured with the sheet painted white.
+struct SkyLayer {
+    std::array<float, 4> plane; ///< unit normal, and the distance along it to the sheet
+    std::array<float, 4> u;     ///< u at point p is dot(u.xyz, p) + u.w
+    std::array<float, 4> v;
+    std::array<float, 2> pan;   ///< this frame's pan, in repeats
+    std::uint32_t material;     ///< an index into MATERIALS
+    std::uint32_t light;        ///< its captured light: an index into the texture array
+    std::uint32_t kind;         ///< SKY_LAYER_*
+    std::array<std::uint32_t, 3> pad;
+};
+static_assert(sizeof(SkyLayer) == 80);
+
 /// One frame's camera and settings.
 struct FrameData {
     Mat4 viewProj;                   ///< jittered -- what gl_Position uses
@@ -117,8 +138,19 @@ struct FrameData {
     /// UTA-0055 SS 4.5: flameSeconds a frame earlier, so a swaying vertex's
     /// motion vector carries its sway. Equal to flameSeconds after a cut.
     float previousFlameSeconds;
+    std::uint32_t skyLayerCount; ///< UTA-0337: how many of skyLayers are in use
+    /// UTA-0337: while the sky is captured, layer k's light is drawn at k + 1;
+    /// 0 draws the sky without its layers.
+    std::uint32_t skyLayerCapture;
+    float skyPixelAngle;               ///< UTA-0337: radians a pixel spans, for a layer's mip
+    std::array<float, 4> skyOrigin;    ///< UTA-0337: where the sky is drawn from; w unused
+    std::array<SkyLayer, SKY_LAYER_CAPACITY> skyLayers;
+    /// UTA-0337: how far the painted sky's clouds have drifted, over their
+    /// plane, kept short of float trouble by being worked out in double.
+    std::array<float, 2> paintedSkyDrift;
+    std::array<float, 2> pad;
 };
-static_assert(sizeof(FrameData) == 420);
+static_assert(sizeof(FrameData) == 784);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -152,6 +184,14 @@ static_assert(offsetof(FrameData, paintedSkyTop) == 388);
 static_assert(offsetof(FrameData, paintedSkyHorizon) == 400);
 static_assert(offsetof(FrameData, paintedSkyClouds) == 412);
 static_assert(offsetof(FrameData, previousFlameSeconds) == 416); // UTA-0055 SS 4.5
+static_assert(offsetof(FrameData, skyLayerCount) == 420);        // UTA-0337
+static_assert(offsetof(FrameData, skyLayerCapture) == 424);
+static_assert(offsetof(FrameData, skyPixelAngle) == 428);
+static_assert(offsetof(FrameData, skyOrigin) == 432);
+static_assert(offsetof(FrameData, skyLayers) == 448);
+static_assert(offsetof(FrameData, paintedSkyDrift) == 768);
+static_assert(offsetof(SkyLayer, pan) == 48);
+static_assert(offsetof(SkyLayer, material) == 56);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {

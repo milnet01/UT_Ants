@@ -231,6 +231,33 @@ TEST_CASE("UTA-0350 INV-7: a backdrop draws the painted sky where there is no sk
     }
 }
 
+TEST_CASE("UTA-0337: a painted sky's clouds drift with the light clock", "[device]") {
+    // Half cover, so clouds and gaps both cross the top of the view. Two
+    // minutes on, about a cloud's width has passed (Frame.cpp's wind).
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Bundle bundle = skyWindow(false);
+    bundle.placements.reset();
+    bundle.paintedSky = uta::ubundle::PaintedSky{.top = {0.05f, 0.05f, 0.8f}, .horizon = {0.6f, 0.05f, 0.05f},
+                                                 .clouds = 0.5f};
+    const auto topRow = [&](double seconds) {
+        renderer.pinLightSeconds(seconds);
+        const std::vector<std::byte> pixels = frameOf(renderer, bundle);
+        std::vector<int> row;
+        for (std::uint32_t x = 0; x < WIDTH; ++x) row.push_back(sum(pixelAt(pixels, WIDTH, x, 1)));
+        return row;
+    };
+    const std::vector<int> still = topRow(0);
+    const std::vector<int> again = topRow(0);
+    const std::vector<int> later = topRow(120);
+    int moved = 0;
+    for (std::uint32_t x = 0; x < WIDTH; ++x) {
+        CHECK(std::abs(still[x] - again[x]) <= 6); // the same moment draws the same sky
+        if (std::abs(still[x] - later[x]) > 30) ++moved;
+    }
+    CAPTURE(moved);
+    CHECK(moved > int(WIDTH) / 8);
+}
+
 TEST_CASE("UTA-0350 INV-7: a sky view gained or lost is re-uploaded", "[device]") {
     // One bundle edited in place, so only shapeOf's sample of the sky view can
     // tell the renderer it changed. GitHub's GCC leg gave frameOf's by-value

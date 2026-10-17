@@ -16216,7 +16216,7 @@ stays with movement in 0.2.0.
   Lanes: ubake.
   Blocked-by: UTA-0338.
 
-- 📋 [UTA-0337] **urender and ubake: a living sky -- moving clouds, a sun on clear skies -- and outdoor maps that no longer look like a box.**
+- 🚧 [UTA-0337] **urender and ubake: a living sky -- moving clouds, a sun on clear skies -- and outdoor maps that no longer look like a box.**
   The user, 2026-10-08: "I was also hoping to add a bit more of a dynamic
   sky (moving clouds if it is a cloudy sky, if it is a blue sky add in a
   sun). I want us also to try an eliminate the box look of a lot of the
@@ -16242,6 +16242,24 @@ stays with movement in 0.2.0.
   clear, a sun baked as a light, and sky-tinted haze for far walls.
   Split (2026-10-09): part 2, the sun, is now UTA-0338, which lands
   before UTA-0334's bake. This item keeps parts 1 and 3.
+  Part 1 built (2026-10-17). Most stock skies already move in UT99: a
+  sky zone's cloud sheets carry PF_AutoUPan/VPan, and our once-only sky
+  capture froze them. Census over the install's Maps with ut-dump
+  (panned non-backdrop surfaces within 4096 units of the SkyZoneInfo):
+  158 of the first 257 maps with a sky zone have one; of 372 such
+  surfaces on 235 maps, 233 translucent, 133 opaque, 5 masked, 1
+  modulated (scratch ~/.cache/uta-scratch/u337/).
+  So the item replays the map's own sheets rather than inventing
+  clouds: urender/Sky.h skyLayersOf finds each panned sheet in the sky
+  zone (one per plane and mapping, at most four, modulated left out);
+  the faces are captured without them, and each sheet's light once more
+  painted white; scene.frag's skyAt slides the sheet's texture over that
+  light at the sky zone's pan speed. Painted skies (UTA-0350) drift too.
+  Checked: AS-Mazon at light time 0 matches the old build (no pixel
+  past 2%); 0 to 20 s moves 42% of pixels (old build 0.8%). RX 6600,
+  1920x1080 High, scene pass +0.06 ms looking up, +0.01 ms at the
+  horizon. Unit 1060, device 123 on lavapipe and the GPU.
+  Open: part 3, the box look.
   **Layman:** Outdoor maps get clouds that drift, a sun where the sky is clear, and edges that fade into the distance instead of looking like the inside of a box.
   Kind: feature.
   Source: user-request-2026-10-08.

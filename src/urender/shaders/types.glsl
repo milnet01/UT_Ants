@@ -29,6 +29,25 @@ const float MASK_THRESHOLD = 0.5;
 const uint CLUSTER_CAPACITY = 64u;
 const uint CLUSTER_OVERFLOW = 0x80000000u;
 
+// UTA-0337: the sky zone's panned sheets, replayed over the captured sky.
+const uint SKY_LAYER_CAPACITY = 4u;
+const uint SKY_LAYER_TRANSLUCENT = 0u;
+const uint SKY_LAYER_OPAQUE = 1u;
+const uint SKY_LAYER_MASKED = 2u;
+
+struct SkyLayer {
+    vec4 plane;    // unit normal, and the distance along it to the sheet
+    vec4 u;        // u at point p is dot(u.xyz, p) + u.w
+    vec4 v;
+    vec2 pan;      // this frame's pan, in repeats
+    uint material;
+    uint light;    // its light, captured with the sheet painted white
+    uint kind;     // SKY_LAYER_*
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
 struct FrameData {
     mat4 viewProj;
     mat4 viewProjUnjittered;
@@ -70,6 +89,12 @@ struct FrameData {
     float paintedSkyHorizonB;
     float paintedSkyClouds;
     float previousFlameSeconds; // UTA-0055 SS 4.5: flameSeconds a frame earlier
+    uint skyLayerCount;         // UTA-0337
+    uint skyLayerCapture;       // UTA-0337: k + 1 while layer k's light is captured
+    float skyPixelAngle;        // UTA-0337: radians a pixel spans
+    vec4 skyOrigin;             // UTA-0337: where the sky is drawn from
+    SkyLayer skyLayers[SKY_LAYER_CAPACITY];
+    vec2 paintedSkyDrift;       // UTA-0337: how far the painted sky's clouds have drifted
 };
 
 struct Object {

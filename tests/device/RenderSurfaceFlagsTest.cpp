@@ -23,10 +23,14 @@
 // NO TEST NAME CONTAINS A COMMA. Catch2 treats one as a filter separator.
 
 #include "device/DeviceFixture.h"
+#include "urender/Sky.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
+#include <array>
 #include <cmath>
+#include <cstdlib>
 #include <string>
 #include <utility>
 #include <vector>
@@ -214,6 +218,89 @@ TEST_CASE("UTA-0269: a batch's pan rate slides its texture with the light clock"
     CHECK(halfRight == LEFT);
     CHECK(whole == LEFT);
     CHECK(wholeRight == RIGHT);
+}
+
+TEST_CASE("UTA-0337: a panned sheet in the sky zone moves in the sky", "[device]") {
+    // UTA-0269's red and green halves, on a sheet in a sky zone seen through a
+    // sky window. The sky's eye at x = 10000 sees the sheet 100 ahead, as the
+    // camera sees the window, and the sheet is 120 across, so a point 15
+    // either side of the centre shows u 0.375 and 0.625. The sky zone's u speed
+    // is 2 and the camera's 0, so only the sky zone's speed can move it: half
+    // a repeat a second. Opaque and translucent sheets alike, nothing behind.
+    removeDisplay();
+    Renderer renderer = requireRenderer(smallFrame());
+    constexpr Rgba LEFT{201, 31, 31, 255};
+    constexpr Rgba RIGHT{31, 201, 31, 255};
+    const std::uint32_t flags = GENERATE(PF_UNLIT, PF_UNLIT | PF_TRANSLUCENT);
+    CAPTURE(flags);
+
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 100, 0, 0, 30, "window", PF_FAKE_BACKDROP);
+    addSquare(geometry, 10100, 0, 0, 60, "halves", flags);
+    geometry.batches.back().panRate = {0.25F, 0.0F};
+    for (std::size_t i = 0; i < geometry.vertices.size(); ++i) geometry.vertices[i].zone = i < 4 ? 1 : 2;
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    // One BSP node on x = 5000: zone 2 in front of it, zone 1 behind.
+    uta::umap::RoomMap rooms;
+    uta::umap::RoomMap::Node node;
+    node.normal = {1.0F, 0.0F, 0.0F};
+    node.w = 5000;
+    node.iZone[0] = 1;
+    node.iZone[1] = 2;
+    rooms.nodes = {node};
+    rooms.rooms.resize(2);
+    rooms.rooms[0].zoneIndex = 1;
+    rooms.rooms[1].zoneIndex = 2;
+    rooms.roomForZone = {uta::umap::NO_ROOM, 0, 1};
+    bundle.rooms = std::move(rooms);
+    bundle.zones = std::vector<uta::ubundle::Zone>(3);
+    (*bundle.zones)[1].panSpeed = {0.0F, 0.0F};
+    (*bundle.zones)[2].panSpeed = {2.0F, 1.0F};
+    uta::ubundle::Placements placements;
+    placements.classes = {{.path = "engine.skyzoneinfo", .ancestry = {"engine.zoneinfo", "engine.info"}}};
+    placements.actors = {{.exportIndex = 1,
+                          .classIndex = 0,
+                          .properties = {{.name = "Location",
+                                          .kind = uta::ubundle::ValueKind::Vector,
+                                          .value = std::array<float, 3>{10000, 0, 0}}}}};
+    bundle.placements = std::move(placements);
+    addSolidMaterial(bundle, "window", Rgba{101, 101, 101, 255});
+    bundle.materials->push_back({"halves", false});
+    uta::ubundle::CompressedTexture texture;
+    texture.name = "halves:base";
+    texture.format = uta::ubundle::BlockFormat::BC7;
+    texture.width = texture.sourceWidth = 8;
+    texture.height = texture.sourceHeight = 4;
+    texture.mipCount = 1;
+    texture.blocks = bc7Solid(LEFT);
+    const std::vector<std::byte> right = bc7Solid(RIGHT);
+    texture.blocks.insert(texture.blocks.end(), right.begin(), right.end());
+    bundle.textures->push_back(std::move(texture));
+    REQUIRE(uta::urender::skyLayersOf(bundle).layers.size() == 1);
+
+    const auto quarters = [&](double seconds) {
+        renderer.pinLightSeconds(seconds);
+        requireOk(renderer.draw(bundle, Camera{}));
+        const auto pixels = renderer.readback();
+        if (!pixels.has_value()) FAIL(pixels.error().message());
+        return std::pair{pixelAt(*pixels, WIDTH, columnOf(-15), HEIGHT / 2),
+                         pixelAt(*pixels, WIDTH, columnOf(15), HEIGHT / 2)};
+    };
+    // Within 3 of each channel: the sheet's light is captured at half precision.
+    const auto near = [](const Rgba& a, const Rgba& b) {
+        return std::abs(int(a.r) - int(b.r)) <= 3 && std::abs(int(a.g) - int(b.g)) <= 3
+               && std::abs(int(a.b) - int(b.b)) <= 3;
+    };
+    const auto [still, stillRight] = quarters(0);
+    const auto [half, halfRight] = quarters(1);
+    const auto [whole, wholeRight] = quarters(2);
+    CAPTURE(still, stillRight, half, halfRight, whole, wholeRight);
+    CHECK(near(still, LEFT));
+    CHECK(near(stillRight, RIGHT));
+    CHECK(near(half, RIGHT));
+    CHECK(near(halfRight, LEFT));
+    CHECK(near(whole, LEFT));
+    CHECK(near(wholeRight, RIGHT));
 }
 
 TEST_CASE("UTA-0252: a sky surface hides what lies behind it", "[device]") {

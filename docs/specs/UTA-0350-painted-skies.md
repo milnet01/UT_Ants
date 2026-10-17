@@ -57,8 +57,9 @@ bakes and draws exactly as today.
 - **Zone ambient stays withdrawn** (user, 2026-10-11, choosing this fix over
   restoring flat light for full-bright zones).
 - **The sky has a sun and a few clouds** (user, 2026-10-11: "add in a sky
-  and sun, perhaps even a few clouds"). The clouds are still; moving them is
-  UTA-0337's.
+  and sun, perhaps even a few clouds"). **Amended by `UTA-0337`, recording
+  what was built:** the clouds drift with the light clock; the bake still
+  takes their mean.
 - **The analyser finds the candidates** — new kinds of check go into it
   (user, 2026-10-11, UTA-0347).
 
