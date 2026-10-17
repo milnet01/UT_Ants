@@ -396,6 +396,35 @@ TEST_CASE("UTA-0170: notes round-trip and empty notes remove the file", "[client
     REQUIRE(writeNotes(notes, "MH-B", "")); // nothing to remove is not an error
 }
 
+TEST_CASE("UTA-0386: marks round-trip and no marks remove the file", "[client]") {
+    const TempDir data;
+    const stdfs::path marks = data.path() / "marks";
+    CHECK(readMarks(marks, "MH-A") == MapMarks{});
+
+    const MapMarks both{.visualName = "Canyon of Doom", .duplicateOf = "MH-CanyonOfDoom][v2"};
+    REQUIRE(writeMarks(marks, "MH-A", both));
+    CHECK(readMarks(marks, "MH-A") == both);
+    // The file a session reads says what each line is.
+    CHECK(readNotes(marks, "MH-A") == std::string("name: Canyon of Doom\nduplicate of: MH-CanyonOfDoom][v2\n"));
+
+    const MapMarks nameOnly{.visualName = "Canyon of Doom"};
+    REQUIRE(writeMarks(marks, "MH-A", nameOnly));
+    CHECK(readMarks(marks, "MH-A") == nameOnly);
+
+    REQUIRE(writeMarks(marks, "MH-A", {}));
+    CHECK_FALSE(stdfs::exists(marks / "MH-A.txt"));
+}
+
+TEST_CASE("UTA-0386: a line break in a mark is dropped and other lines are ignored", "[client]") {
+    const TempDir data;
+    const stdfs::path marks = data.path() / "marks";
+    REQUIRE(writeMarks(marks, "MH-A", {.visualName = "Two\nLines", .duplicateOf = "MH-B\r\n"}));
+    CHECK(readMarks(marks, "MH-A") == MapMarks{.visualName = "TwoLines", .duplicateOf = "MH-B"});
+
+    REQUIRE(writeNotes(marks, "MH-C", "kept by hand\r\nduplicate of: MH-D\r\n"));
+    CHECK(readMarks(marks, "MH-C") == MapMarks{.duplicateOf = "MH-D"});
+}
+
 TEST_CASE("UTA-0170: backspace removes one whole UTF-8 character", "[client]") {
     CHECK(withoutLastCharacter("") == "");
     CHECK(withoutLastCharacter("ab") == "a");

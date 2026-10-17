@@ -70,6 +70,7 @@ struct LauncherPaths {
     std::filesystem::path notes;    ///< one <map>.txt per map, written by the user
     std::filesystem::path results;  ///< one <map>.txt per map: the last bake's outcome
     std::filesystem::path captures; ///< UTA-0191: one folder per F12 press
+    std::filesystem::path marks;    ///< UTA-0386: one <map>.txt per map, written by the user
 };
 
 /// Bakes under the per-user cache, notes and results under the per-user
@@ -158,6 +159,24 @@ enum class BakeState {
 /// UTA-0190: add `line` to the notes `file` on a line of its own, making the
 /// file when there is none.
 [[nodiscard]] Result<void> appendNote(const std::filesystem::path& file, std::string_view line);
+
+/// UTA-0386: what the user marked on a map by hand, each one line of text.
+struct MapMarks {
+    std::string visualName;  ///< the name the map shows, to keep track of it
+    std::string duplicateOf; ///< a map this may be a copy of, to investigate; empty when none
+    bool operator==(const MapMarks&) const = default;
+};
+
+/// UTA-0386: a map's marks, from lines "name: ..." and "duplicate of: ...";
+/// none when it has no file. Other lines are ignored. A file that is there and
+/// cannot be read is an error, as readNotes's is.
+[[nodiscard]] Result<MapMarks> readMarks(const std::filesystem::path& marks, std::string_view map);
+
+/// UTA-0386: save a map's marks, a line for each one set, with any line break
+/// in a value dropped. No marks remove the file, so the directory holds only
+/// maps somebody marked.
+[[nodiscard]] Result<void> writeMarks(const std::filesystem::path& marks, std::string_view map,
+                                      const MapMarks& marked);
 
 /// `text` without its last UTF-8 character. Unchanged when empty.
 [[nodiscard]] std::string withoutLastCharacter(std::string text);

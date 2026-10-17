@@ -19,6 +19,7 @@
 #include <atomic>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <optional>
@@ -182,7 +183,7 @@ std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::stri
     return playableMaps(std::move(maps), *prefixes);
 }
 
-enum class Focus { List, Notes };
+enum class Focus { List, Name, Duplicate, Notes }; // Tab's order; UTA-0386 added the middle two
 enum class Busy { No, Baking, Viewing };
 
 class Launcher {
@@ -200,11 +201,15 @@ public:
         if (removed != 0) note += "Baked maps from an older baker removed: " + std::to_string(removed) + ". ";
         results_.reserve(maps_.size());
         for (const MapFile& map : maps_) results_.push_back(readResult(paths_.results, map.name));
+        // UTA-0386: every map's marks, so the list can show them. One that
+        // cannot be read shows none, and is not editable (loadNotes).
+        marks_.reserve(maps_.size());
+        for (const MapFile& map : maps_) marks_.push_back(readMarks(paths_.marks, map.name).value_or(MapMarks{}));
         refilter();
         int height = 0;
         SDL_GetWindowSizeInPixels(window_, nullptr, &height);
         scale_ = std::clamp(static_cast<int>(height / 360.0 + 0.5), 2, 12); // readable at any desktop size
-        status_ = note + "Notes are saved in " + shown(paths_.notes);
+        status_ = note + "Notes are saved in " + shown(paths_.notes) + ", marks in " + shown(paths_.marks);
     }
 
     int run() {
@@ -246,7 +251,15 @@ private:
         notes_.clear();
         notesOnDisk_.clear();
         notesReadable_ = true;
+        marksReadable_ = true;
         if (map == nullptr) return;
+        if (auto read = readMarks(paths_.marks, name)) {
+            marks_[shown_[selection_]] = std::move(*read);
+        } else {
+            marksReadable_ = false; // editing would write over marks this could not see
+            status_ = "The marks could not be read, so they are not editable: " +
+                      std::string(read.error().message());
+        }
         if (auto read = readNotes(paths_.notes, name)) {
             notes_ = std::move(*read);
             notesOnDisk_ = notes_;
@@ -289,6 +302,43 @@ private:
             status_ = "The notes did not save: " + std::string(saved.error().message());
         else
             notesOnDisk_ = notes_;
+    }
+
+    /// UTA-0386: save the selected map's marks as `next`, as editNotes saves
+    /// notes: read again first, and drop the keystroke if they changed elsewhere.
+    void editMarks(const MapMarks& next) {
+        if (notesFor_.empty() || !marksReadable_) return;
+        MapMarks& shownMarks = marks_[shown_[selection_]];
+        auto disk = readMarks(paths_.marks, notesFor_);
+        if (!disk) {
+            status_ = "The marks could not be read again, so this keystroke was not saved: "
+                      + uta::sanitised(disk.error().message());
+            return;
+        }
+        if (*disk != shownMarks) {
+            shownMarks = std::move(*disk);
+            status_ = "The marks were changed elsewhere, so they were read again.";
+            return;
+        }
+        if (const auto saved = writeMarks(paths_.marks, notesFor_, next); !saved)
+            status_ = "The marks did not save: " + std::string(saved.error().message());
+        else
+            shownMarks = next;
+    }
+
+    /// UTA-0386: the mark the focus is on, or none.
+    [[nodiscard]] std::string MapMarks::* focusedMark() const {
+        if (focus_ == Focus::Name) return &MapMarks::visualName;
+        if (focus_ == Focus::Duplicate) return &MapMarks::duplicateOf;
+        return nullptr;
+    }
+
+    void editFocusedMark(const std::function<std::string(const std::string&)>& change) {
+        const auto mark = focusedMark();
+        if (mark == nullptr || selected() == nullptr) return;
+        MapMarks next = marks_[shown_[selection_]];
+        next.*mark = change(next.*mark);
+        editMarks(next);
     }
 
     void record(const std::string& map, const MapResult& result) {
@@ -409,6 +459,8 @@ private:
             if ((SDL_GetModState() & SDL_KMOD_CTRL) != 0) break;
             if (focus_ == Focus::Notes) {
                 editNotes(notes_ + event.text.text);
+            } else if (focusedMark() != nullptr) {
+                editFocusedMark([&](const std::string& mark) { return mark + event.text.text; });
             } else {
                 filter_ += event.text.text;
                 refilter();
@@ -437,7 +489,16 @@ private:
             return;
         }
         if (key.key == SDLK_TAB) {
-            focus_ = focus_ == Focus::List ? Focus::Notes : Focus::List;
+            // UTA-0386: list, name, duplicate, notes, and round; Shift goes back.
+            const int step = (key.mod & SDL_KMOD_SHIFT) != 0 ? 3 : 1;
+            focus_ = static_cast<Focus>((static_cast<int>(focus_) + step) % 4);
+            return;
+        }
+        if (focusedMark() != nullptr) {
+            if (key.key == SDLK_ESCAPE) focus_ = Focus::List;
+            if (key.key == SDLK_BACKSPACE) editFocusedMark([](const std::string& mark) { return withoutLastCharacter(mark); });
+            if (key.key == SDLK_RETURN || key.key == SDLK_KP_ENTER)
+                focus_ = focus_ == Focus::Name ? Focus::Duplicate : Focus::Notes;
             return;
         }
         if (focus_ == Focus::Notes) {
@@ -525,7 +586,11 @@ private:
         text(1, 1,
              clipped(busy_ == Busy::Baking ? "Baking - please wait."
                      : focus_ == Focus::List
-                         ? "Up/Down: pick  Type: filter  Enter: open  Tab: notes  Ctrl+/-: size  Esc: quit"
+                         ? "Up/Down: pick  Type: filter  Enter: open  Tab: fields  Ctrl+/-: size  Esc: quit"
+                     : focus_ == Focus::Name
+                         ? "Type the map's visual name. Enter or Tab: next  Esc: list"
+                     : focus_ == Focus::Duplicate
+                         ? "Type the map this may copy. Enter or Tab: next  Esc: list"
                          : "Type your notes; they save as you type. Tab or Esc: back to the list.",
                      g.columns - 2));
 
@@ -581,8 +646,14 @@ private:
                 tag = result->failed                                            ? "FAILED"
                       : isCurrentBake(*result, bakerVersion_, maps_[index].path) ? "baked"
                                                                                 : "";
-            colour(235, 235, 235);
-            text(column, row + i, clipped(maps_[index].name, width - 7));
+            // UTA-0386: the visual name beside the file's, and amber for a
+            // possible duplicate.
+            const MapMarks& marked = marks_[index];
+            if (marked.duplicateOf.empty()) colour(235, 235, 235);
+            else colour(240, 190, 90);
+            const std::string label =
+                marked.visualName.empty() ? maps_[index].name : maps_[index].name + " - " + marked.visualName;
+            text(column, row + i, clipped(label, width - 7));
             if (!tag.empty()) {
                 if (result->failed) colour(245, 120, 110);
                 else colour(130, 210, 130);
@@ -627,6 +698,28 @@ private:
         }
         line += 1;
 
+        // UTA-0386: the two marks, one line each.
+        const MapMarks& marked = marks_[shown_[selection_]];
+        const auto field = [&](const char* label, const std::string& value, Focus on) {
+            if (line + 1 >= row + rows) return;
+            colour(235, 235, 235);
+            text(column, line++, label);
+            if (focus_ == on) colour(120, 150, 220);
+            else colour(70, 70, 85);
+            box(column, line, width, 1);
+            if (on == Focus::Duplicate && !value.empty()) colour(240, 190, 90);
+            else colour(235, 235, 235);
+            const std::string shownValue = value + (focus_ == on ? "_" : "");
+            // The end of a long value, where the typing is.
+            text(column, line++,
+                 shownValue.size() > static_cast<std::size_t>(width)
+                     ? shownValue.substr(shownValue.size() - static_cast<std::size_t>(width))
+                     : shownValue);
+            line += 1;
+        };
+        field("Visual name:", marked.visualName, Focus::Name);
+        field("Possible duplicate of:", marked.duplicateOf, Focus::Duplicate);
+
         colour(235, 235, 235);
         text(column, line++, "Notes:");
         const int notesTop = line;
@@ -659,6 +752,8 @@ private:
     std::string notes_;
     std::string notesOnDisk_; ///< what this window last read from or wrote to the notes file
     bool notesReadable_ = true; ///< false when the file is there and could not be read
+    std::vector<MapMarks> marks_; ///< UTA-0386: one per map in maps_
+    bool marksReadable_ = true;   ///< false when the selected map's marks file could not be read
     Focus focus_ = Focus::List;
     int scale_ = 2;
     std::string status_;

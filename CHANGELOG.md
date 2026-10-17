@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **The map launcher takes a visual name and a possible duplicate per map** (UTA-0386)
+  Tab from the list reaches two new one-line fields above the notes.
+  The visual name shows beside the map's file name in the list. A map
+  marked as a possible copy of another shows in amber, for a later look
+  at which one to keep. Both save as you type, one file per map in the
+  map-marks folder beside the notes.
+
 - **Flags, sails, curtains and water move** (UTA-0055)
   Cloth hung on two-sided or see-through surfaces sways in a breeze,
   pinned where it hangs from. Water and lava rise and fall in slow

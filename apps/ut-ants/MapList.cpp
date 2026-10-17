@@ -347,6 +347,7 @@ Result<LauncherPaths> launcherPaths() {
         .notes = *state / "map-notes",
         .results = *state / "map-results",
         .captures = *state / "map-captures",
+        .marks = *state / "map-marks",
     };
 }
 
@@ -465,6 +466,45 @@ Result<void> writeNotes(const std::filesystem::path& notes, std::string_view map
         return {};
     }
     return writeText(path, text);
+}
+
+namespace {
+
+constexpr std::string_view NAME_MARK = "name: ";
+constexpr std::string_view DUPLICATE_MARK = "duplicate of: ";
+
+/// One line of text: a value's line breaks would end its line in the file.
+std::string oneLine(std::string_view value) {
+    std::string out;
+    for (const char c : value)
+        if (c != '\n' && c != '\r') out += c;
+    return out;
+}
+
+} // namespace
+
+Result<MapMarks> readMarks(const std::filesystem::path& marks, std::string_view map) {
+    UTA_TRY(const std::string text, readText(fileFor(marks, map)));
+    MapMarks marked;
+    std::size_t at = 0;
+    while (at < text.size()) {
+        const std::size_t end = std::min(text.find('\n', at), text.size());
+        std::string_view line = std::string_view(text).substr(at, end - at);
+        if (line.ends_with('\r')) line.remove_suffix(1);
+        if (line.starts_with(NAME_MARK)) marked.visualName = line.substr(NAME_MARK.size());
+        if (line.starts_with(DUPLICATE_MARK)) marked.duplicateOf = line.substr(DUPLICATE_MARK.size());
+        at = end + 1;
+    }
+    return marked;
+}
+
+Result<void> writeMarks(const std::filesystem::path& marks, std::string_view map, const MapMarks& marked) {
+    std::string text;
+    if (const std::string name = oneLine(marked.visualName); !name.empty())
+        text += std::string(NAME_MARK) + name + "\n";
+    if (const std::string duplicate = oneLine(marked.duplicateOf); !duplicate.empty())
+        text += std::string(DUPLICATE_MARK) + duplicate + "\n";
+    return writeNotes(marks, map, text);
 }
 
 std::filesystem::path notesFile(const std::filesystem::path& notes, std::string_view map) {

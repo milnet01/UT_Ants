@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=385 -->
+<!-- ants-roadmap-id-high-water: UTA=386 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17444,6 +17444,19 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-17.
   Lanes: urender, ubake.
 
+- 🚧 [UTA-0386] **Map launcher: by hand, mark a map as a possible duplicate of another, and note its visual name.**
+  The user, 2026-10-17: finding duplicate maps automatically does not
+  work well yet, so the launcher (UTA-0170) needs two manual fields. One
+  marks a map as a possible duplicate of another, for a session to
+  investigate which copy to keep. The other holds the map's visual name,
+  so the user can keep track of maps as they view them. A session reads
+  the marks from the per-user state directory. The automatic checks stay
+  in 1.0.0: UTA-0384 and UTA-0385.
+  **Layman:** While looking over maps, you can flag one as a possible copy of another for a session to investigate, and write down its proper name to keep track.
+  Kind: feature.
+  Source: user-request-2026-10-17.
+  Lanes: ut-ants.
+
 ## 0.2.0 — Movement and weapons
 
 UT99 movement reproduced by measurement, the core weapon set, gamepad parity and
@@ -21492,8 +21505,9 @@ docs/standards/versioning-overrides.md. Closes S8.
   Known, not yet checked against this item: a map's identity is its
   content (md5 and size), not its file name; UT_MonsterHunt's
   MHVoteData.ini already hides copies and carries titles (UTA-0031's
-  body). The launcher could suggest likely duplicates by content and let
-  the user confirm. Undecided: whether a marked duplicate is hidden from
+  body).
+  The user, 2026-10-17: this item is the automatic check, for maps added
+  later. Marking duplicates and noting names by hand, now, is UTA-0386. Undecided: whether a marked duplicate is hidden from
   the list, and which copy is kept.
   **Layman:** In the map launcher you can flag a map as a copy of another one, and write the proper name you want players to see.
   Kind: feature.
