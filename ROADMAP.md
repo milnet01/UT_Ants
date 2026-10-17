@@ -2193,7 +2193,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-04.
   Lanes: umat, ubundle.
 
-- 🚧 [UTA-0055] **urender: vertex-animated banners, flags and water.**
+- ✅ [UTA-0055] **urender: vertex-animated banners, flags and water.**
   Movement costs nothing on the GPU and reads as life. UT99 hangs banners
   and flags throughout its maps and its water surfaces are static
   geometry.
@@ -2264,6 +2264,8 @@ stays with movement in 0.2.0.
   the r55 bake vs r57, twice each in one job): scene pass +0.2 to +0.7 ms
   a view, most over the pond (6.15 to 6.87 ms).
   Spec, UTA-0109 spec, CLAUDE.md and CHANGELOG folded. Left: push, flip.
+  Shipped 2026-10-17 in 303ba78; GitHub's matrix green on that commit
+  (run 39010751508: GCC 14, Clang 19, MSVC).
   **Layman:** Make the flags and the water move instead of standing still.
   Kind: implement.
   Source: user-request-2026-09-04.
