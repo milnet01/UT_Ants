@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=383 -->
+<!-- ants-roadmap-id-high-water: UTA=385 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -21482,6 +21482,41 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: marketing.
   Source: user-request-2026-10-16.
   Blocked-by: UTA-0345, UTA-0346.
+
+- 📋 [UTA-0384] **Map launcher: mark a map as a duplicate of another, and type in the name it should show.**
+  The user, 2026-10-17: the launcher (UTA-0170) needs a way to point out
+  duplicate maps and a space to enter each map's visual name.
+  The name entered here is the data UTA-0031's friendlier names and
+  UTA-0385's in-game panel show, so it is stored once, beside the recipe
+  as UTA-0031 says, not in the launcher's notes file.
+  Known, not yet checked against this item: a map's identity is its
+  content (md5 and size), not its file name; UT_MonsterHunt's
+  MHVoteData.ini already hides copies and carries titles (UTA-0031's
+  body). The launcher could suggest likely duplicates by content and let
+  the user confirm. Undecided: whether a marked duplicate is hidden from
+  the list, and which copy is kept.
+  **Layman:** In the map launcher you can flag a map as a copy of another one, and write the proper name you want players to see.
+  Kind: feature.
+  Source: user-request-2026-10-17.
+  Lanes: ut-ants.
+
+- 📋 [UTA-0385] **In game: show the map's name, author, size and, on Monster Hunt maps, how many monsters it holds.**
+  The user, 2026-10-17: in game, show the map's visual name, its author,
+  its size (small, medium or large) and, on Monster Hunt maps, the total
+  number of monsters. Map type is left out: the chosen game mode says it.
+  The user expects the list to change over time.
+  The name is the one entered in UTA-0384. The author is the map's own
+  LevelInfo.Author. Undecided: what sets the size -- measured from the
+  playable area, entered by the user, or measured with an override -- and
+  where and when the panel shows (loading, scoreboard, both).
+  The monster total must be the count at play, not the saved count: the
+  engine adds actors at load (seen for other actors; not yet checked for
+  monsters).
+  See UTA-0031 for the in-game browser that shows the same names.
+  **Layman:** When you play a map, the game shows its proper name, who made it, whether it is small, medium or large, and for Monster Hunt how many monsters there are to beat.
+  Kind: feature.
+  Source: user-request-2026-10-17.
+  Lanes: ugame, uui.
 
 ## After 1.0.0
 
