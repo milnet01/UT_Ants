@@ -16260,6 +16260,22 @@ stays with movement in 0.2.0.
   1920x1080 High, scene pass +0.06 ms looking up, +0.01 ms at the
   horizon. Unit 1060, device 123 on lavapipe and the GPU.
   Open: part 3, the box look.
+  Part 1 pushed as f620e18; local gate green on GCC, Clang and MSVC
+  (1185 each); GitHub run 39036985106 was still running at handoff.
+  Part 3 started 2026-10-17, not committed. Patch:
+  ~/.cache/uta-scratch/u337/part3-haze-wip.patch (scene.frag only). It
+  mixes a far surface toward the sky's colour 8 degrees above the
+  horizon (faces without layers, or paintedSkyMean), only where
+  zones[zone].sky, not under water, not on a backdrop; translucent
+  surfaces only lose light. Fixed START 1500 and DEPTH 8000 failed on
+  TheBoat's capture view (reviewed/...-BP-20261007-131945): near water
+  and the sand platform wash out almost white. Map extents differ
+  too much for one distance: from surface base points, TheBoat spans
+  50000, Aliens_Xmas about 60000, AS-Mazon about 20000. Next: scale
+  start and depth to each level's horizontal extent (worked out at
+  upload from the geometry), then judge TheBoat, Aliens_Xmas and
+  AS-Mazon frames by eye. Bakes for all three (baker r59):
+  ~/.cache/uta-scratch/u337/bakes/.
   **Layman:** Outdoor maps get clouds that drift, a sun where the sky is clear, and edges that fade into the distance instead of looking like the inside of a box.
   Kind: feature.
   Source: user-request-2026-10-08.
