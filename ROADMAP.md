@@ -17444,7 +17444,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-17.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0386] **Map launcher: by hand, mark a map as a possible duplicate of another, and note its visual name.**
+- ✅ [UTA-0386] **Map launcher: by hand, mark a map as a possible duplicate of another, and note its visual name.**
   The user, 2026-10-17: finding duplicate maps automatically does not
   work well yet, so the launcher (UTA-0170) needs two manual fields. One
   marks a map as a possible duplicate of another, for a session to
@@ -17452,6 +17452,11 @@ stays with movement in 0.2.0.
   so the user can keep track of maps as they view them. A session reads
   the marks from the per-user state directory. The automatic checks stay
   in 1.0.0: UTA-0384 and UTA-0385.
+  Shipped 2026-10-17 in 3a1df09; GitHub's matrix green on that commit
+  (run 39047276259: GCC 14, Clang 19, MSVC). Marks are saved to
+  <state>/ut-ants/map-marks/<map>.txt, lines "name: " and
+  "duplicate of: ". Checked on a hidden Xvfb display: the fields, the
+  amber mark and the list label drew, and the file was written.
   **Layman:** While looking over maps, you can flag one as a possible copy of another for a session to investigate, and write down its proper name to keep track.
   Kind: feature.
   Source: user-request-2026-10-17.
