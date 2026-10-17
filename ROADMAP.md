@@ -16216,7 +16216,7 @@ stays with movement in 0.2.0.
   Lanes: ubake.
   Blocked-by: UTA-0338.
 
-- 🚧 [UTA-0337] **urender and ubake: a living sky -- moving clouds, a sun on clear skies -- and outdoor maps that no longer look like a box.**
+- ✅ [UTA-0337] **urender and ubake: a living sky -- moving clouds, a sun on clear skies -- and outdoor maps that no longer look like a box.**
   The user, 2026-10-08: "I was also hoping to add a bit more of a dynamic
   sky (moving clouds if it is a cloudy sky, if it is a blue sky add in a
   sun). I want us also to try an eliminate the box look of a lot of the
@@ -16289,6 +16289,8 @@ stays with movement in 0.2.0.
   Judged on AS-Mazon (far cliffs recede, near walls keep full colour)
   and TheBoat (0.5% of pixels change). Cost, RX 6600 1920x1080 High:
   scene +0.06 ms looking up, +0.2 ms at the horizon.
+  Shipped 2026-10-17: parts 1 and 3 green on GitHub's matrix (runs
+  39036985106 and 39038808982). Part 2 is UTA-0338.
   **Layman:** Outdoor maps get clouds that drift, a sun where the sky is clear, and edges that fade into the distance instead of looking like the inside of a box.
   Kind: feature.
   Source: user-request-2026-10-08.
