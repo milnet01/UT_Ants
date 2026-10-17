@@ -17299,7 +17299,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-16 split-from-UTA-0347.
   Lanes: tools.
 
-- 🚧 [UTA-0381] **urender: on DM-Deck16][ a close shadow is still stair-stepped, and a straight wall casts a curved shadow.**
+- ✅ [UTA-0381] **urender: on DM-Deck16][ a close shadow is still stair-stepped, and a straight wall casts a curved shadow.**
   The user, 2026-10-17, F12 in the viewer (ultra, 3840x2160, baker r57,
   commit 6dee8eb-dirty; the dirt is UTA-0055's baker-only sway edit).
   Seen in the capture: the floor shadow's edge steps in blocks tens of
@@ -17312,6 +17312,17 @@ stays with movement in 0.2.0.
   whether the arc survives --light-time 0 and --no-probes.
   First: ut-shot --from-capture on this folder, then strip to one cause
   with throwaway probes.
+  Fix (2026-10-17): both defects were the baked shadow mask, not the
+  shadow map. A throwaway ut-shot reading the mask as 1 removed the arc.
+  Deck16's lamps there are a strip (exports 36, 37, 46, 50), and the
+  mask aimed each texel's ray at the strip's nearest point, which slid
+  along it as the texel moved: a straight edge cast a curved shadow, its
+  hard edge stepped in 8-unit texels. Each origin now looks at
+  SHADOW_MASK_STRIP_SAMPLES points along the strip, weighed by falloff
+  (spec UTA-0326 section 4.3 step 2). The capture re-rendered from a
+  revision 58 bake shows a soft, unstepped edge on floor and wall; Deck16
+  bakes in 10.8 s. Baker revision 58: re-bake every map.
+  Shipped 2026-10-17 in f87f0e8; GitHub run 39014179438 green.
   **Layman:** A shadow near the camera has jagged steps along its edge, and a straight wall's shadow bends.
   Kind: fix.
   Source: user-request-2026-10-17.
