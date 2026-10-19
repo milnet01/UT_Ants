@@ -16358,7 +16358,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Splits-from: UTA-0337.
 
-- 🚧 [UTA-0343] **MH-()mG-DeathcourseV2: a hard dark wedge of shadow on a wall where nothing stands to cast it.**
+- ✅ [UTA-0343] **MH-()mG-DeathcourseV2: a hard dark wedge of shadow on a wall where nothing stands to cast it.**
   The user, 2026-10-10, from a viewer F12 capture: "a weird shadow where
   there shouldn't be". Capture: ~/.local/state/ut-ants/map-captures/
   MH-()mG-DeathcourseV2-20261010-164317 (camera -6021.63 -838.46 526.78
@@ -16385,6 +16385,8 @@ stays with movement in 0.2.0.
   texel inside a polygon whose edge steps back is baked where it lies",
   red before (0 == 255), two hand mutations killed. Re-rendered at the
   capture's camera: the wedge is gone.
+  Shipped 2026-10-19 in 98a6dbe; GitHub's matrix green on GCC 14, Clang
+  19 and MSVC (run 39278808189).
   **Layman:** On one map a sharp shadow falls on a wall although nothing in the room should cast it.
   Kind: investigate.
   Source: user-request-2026-10-10.
