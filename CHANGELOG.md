@@ -762,6 +762,14 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **No more black wedge of shadow on walls with nothing to cast it** (UTA-0343)
+  A wall whose outline has a tiny kink, such as one in
+  MH-()mG-DeathcourseV2, was baked as if every point on it sat at its
+  nearest edge. Points near a corner then took the corner's shadow. The
+  baker now places each point where it lies, for both the shadows and
+  the soft darkening near walls. Re-bake maps baked before baker
+  revision 61.
+
 - **A row of lamps casts straight, soft-edged shadows** (UTA-0381)
   A row of lamps along one fixture lights as one long light. Its baked
   shadows were worked out from the single point of the row nearest each
