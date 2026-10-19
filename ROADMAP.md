@@ -20338,7 +20338,7 @@ to.
   Source: review-code-2026-09-26 split-from-UTA-0244.
   Lanes: ubake.
 
-- 🚧 [UTA-0283] **Help UT_MonsterHunt fix maps: a hall-of-mirrors finder (GAME-0187) and a reachability check for GAME-0006's wall.**
+- 📋 [UTA-0283] **Help UT_MonsterHunt fix maps: a hall-of-mirrors finder (GAME-0187) and a reachability check for GAME-0006's wall.**
   Asked by the UT_MonsterHunt session 2026-10-03 (user: work together on
   map fixes).
   1) GAME-0187: some maps show "hall of mirrors" smearing at a wall or
@@ -20677,6 +20677,14 @@ to.
   install under a read-only mount of the real one.
   2026-10-19: asked UT_MonsterHunt (user's request) where GAME-0217,
   GAME-0006 and GAME-0187 stand and what they still need from us.
+  UT_MonsterHunt's answer (2026-10-19): GAME-0217 is done from our side;
+  both TheBoat files were promoted 2026-10-07. GAME-0006 (item 2 here)
+  is closed: no unreachable-node lists are needed. Four maps' open faces
+  stay open, and MHWallFix's ForceClose closed AllGoodThings' faces.
+  GAME-0187's finder (item 1) is parked at their request: no proven cause
+  for a census to look for yet; they will ask if one is found. Back to
+  planned (user's call on parked items, 2026-10-19).
+  Waiting-on: UT_MonsterHunt finding a cause for GAME-0187's smearing.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
