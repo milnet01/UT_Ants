@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=386 -->
+<!-- ants-roadmap-id-high-water: UTA=389 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16442,6 +16442,12 @@ stays with movement in 0.2.0.
   then the recipe `mesh = Lantern5` key (recipe version 6; the baker checks
   it names a mesh decoration of the map; no bundle change until UTA-0341),
   lamps into recipes/, re-bake, re-measure, push.
+  View 6 (2026-10-19): prototype p3 adds two lamps low in the forward
+  hold, at 0 128 -24100 and 1200 128 -24100 (probe: open space). View 6
+  rises from 0.23 to 0.66; every below-deck view is now 0.62-0.87 of
+  the original, deck views unchanged. Recipe:
+  ~/.cache/uta-scratch/u344/p3/proto.recipe (18 lamps). Next: the
+  recipe `mesh` key. Haze inside the hold is UTA-0387, not this item.
   **Layman:** The boat map now looks great but is too dark to play, because its sky gives no sunlight.
   Kind: investigate.
   Source: user-request-2026-10-10.
@@ -17485,6 +17491,9 @@ stays with movement in 0.2.0.
   original draws sand yellow and the sky cyan. Not the haze: the same
   with it off. See UTA-0344 (the map too dark) and UTA-0338 (the sun).
   Scratch: ~/.cache/uta-scratch/u337/o-boat-b2ad-0.png.
+  Again (user, 2026-10-19): "The starting platform is rather bright
+  now, overly so." Capture reviewed/MH-()mG-TheBoat-V2mini-BP-
+  20261019-165948Z shows the sand platform near white beside the hull.
   **Layman:** On the boat map the sand and sky look bleached compared with the original game.
   Kind: investigate.
   Source: in-session-2026-10-17.
@@ -17507,6 +17516,54 @@ stays with movement in 0.2.0.
   Kind: feature.
   Source: user-request-2026-10-17.
   Lanes: ut-ants.
+
+- 📋 [UTA-0387] **urender: TheBoat's haze fills the closed decks inside the ship and lights them up.**
+  The user, 2026-10-19: "The haze is awesome but it should only show
+  where applicable. Inside the ship the haze shows which in turn lights
+  up the area which is not accurate to how light works." Capture
+  MH-()mG-TheBoat-V2mini-BP-20261019-165909Z (camera 1154 180 -24294,
+  the forward hold of the lowest deck) shows a bright blue-white haze
+  filling the hold, while its walls are near black. Haze should only
+  add what light actually reaches the air: none in a sealed room the
+  sky cannot see. Likely causes to test: the haze's sky term ignores
+  whether a froxel sees the sky; or it reads the outdoor zone's colour
+  everywhere. Placed in 0.1.0 beside UTA-0344 (session's call): it
+  undoes that item's below-deck darkness check.
+  **Layman:** The mist that looks good outdoors also shows inside the ship, where it makes dark rooms glow as if lit.
+  Kind: fix.
+  Source: user-request-2026-10-19.
+  Lanes: urender.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-165909Z/frame.png
+
+- 📋 [UTA-0388] **urender: TheBoat's sun draws as a faint glow behind the clouds, with no disc.**
+  The user, 2026-10-19: "There is no sun in the sky." Checked: a
+  shot from the deck (-5581 -10869 -19591) facing the recipe's sun
+  (yaw 40960, pitch 9102) shows only a faint pale glow behind a
+  cloud, no disc; facing away shows none, as expected. Scratch:
+  ~/.cache/uta-scratch/u344/sun/both.png (left: toward the sun).
+  UTA-0338 draws the disc in skyAt; test whether the clouds cover it,
+  whether its size or brightness is too small, or whether the opened
+  sky box (UTA-0350) draws over it. Placed in 0.1.0 (session's
+  call): UTA-0346 promised a sun on this map.
+  **Layman:** The boat map has a sun lighting it, but you cannot see the sun itself in the sky.
+  Kind: investigate.
+  Source: user-request-2026-10-19.
+  Lanes: urender, ubake.
+
+- 📋 [UTA-0389] **urender: TheBoat's sky still reads as clouds painted on the inside of a box.**
+  The user, 2026-10-19: "I like the new sky but now it looks like
+  clouds painted on the inside of the box." This map's sky is a closed
+  painted box with no sky zone, opened by its recipe's [sky]
+  (UTA-0350). UTA-0337 meant outdoor skies to stop looking like a box.
+  Likely causes to test: the clouds are placed on the box's walls
+  rather than at infinity, so they shift with the camera (parallax);
+  or the cloud layer meets the walls at a visible seam. Compare a shot
+  moved sideways with one turned only. Placed in 0.1.0 (session's
+  call); a replacement sky remains UTA-0282, in 0.2.0.
+  **Layman:** The new sky on the boat map looks good, but it still looks painted on walls around the map instead of far away.
+  Kind: investigate.
+  Source: user-request-2026-10-19.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
@@ -19176,6 +19233,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   (repeats on liquids). Cheapest methods first (user, 2026-09-14).
   Placed in 0.2.0 beside UTA-0302 and UTA-0315, which it builds on;
   not needed for 0.1.0 (session's call).
+  Again (user, 2026-10-19): "The water still has a hard cut off edge,
+  how do we make that look endless?" Capture reviewed/MH-()mG-TheBoat-
+  V2mini-BP-20261019-170022Z: the sea ends in a straight line against
+  the sky. Answer given: this item and UTA-0302 (a horizon past the
+  edge), both in 0.2.0.
   **Layman:** On maps set at sea, the water should look like a real sea stretching away to the sky, not a flat patterned floor inside a box.
   Kind: feature.
   Source: user-request-2026-10-07.
@@ -19204,6 +19266,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   from what is above and below it. The original game draws both the
   same way (ut-compare, UTA-0283's 2026-10-07 note), so this is adding
   to the map, not fixing our renderer.
+  Again (user, 2026-10-19): the platform "(and everything else that
+  is wrong with this map) still requires geometry added to ensure that
+  these platforms / items / boxes aren't just floating in the air."
+  Widened: every floating item and box on the map, not only the
+  platforms. Capture reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-165948Z.
   **Layman:** Add posts or beams under platforms that float in mid-air, so the map looks built rather than hanging in space.
   Kind: feature.
   Source: user-request-2026-10-07.
