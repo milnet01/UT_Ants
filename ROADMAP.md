@@ -16448,6 +16448,13 @@ stays with movement in 0.2.0.
   the original, deck views unchanged. Recipe:
   ~/.cache/uta-scratch/u344/p3/proto.recipe (18 lamps). Next: the
   recipe `mesh` key. Haze inside the hold is UTA-0387, not this item.
+  Built (2026-10-19): recipe version 6's `mesh` key (05e8166; spec
+  UTA-0256 SS 4.1/4.3, INV-13 and INV-14), and the 18 lamps in
+  recipes/mh-()mg-theboat-v2mini-bp.recipe, each copying Light12 and
+  wearing Lantern5. Re-baked with the shipped recipe (r61, bundle
+  81aea088...), ut-compare at the eleven cameras: deck views 1.37-1.45,
+  below deck 0.62-0.87 (views 1, 5-10: 0.87 0.67 0.66 0.70 0.85 0.62
+  0.83). Next: push, then flip on a green GitHub matrix.
   **Layman:** The boat map now looks great but is too dark to play, because its sky gives no sunlight.
   Kind: investigate.
   Source: user-request-2026-10-10.

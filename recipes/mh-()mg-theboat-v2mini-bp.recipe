@@ -1,4 +1,4 @@
-ut-ants recipe 5
+ut-ants recipe 6
 # MH-()mG-TheBoat-V2mini-BP's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
 # Its sky is clear light blue with no sun painted on it (UTA-0344; the user
 # chose a sun, 2026-10-11). The survey's views stand below deck, so the yaw
@@ -7,6 +7,12 @@ ut-ants recipe 5
 # Its sky is only painted: ShaneDay.DayskyB on a closed box, with no sky
 # zone, so it drew black and the sun lit nothing. [sky] opens it (UTA-0350),
 # with the default colours and cloud cover.
+#
+# Below deck the original lit by zone ambient alone, which stays withdrawn,
+# so those decks drew 0.01-0.18 of its mean grey (UTA-0344, 2026-10-19).
+# Each [lamp] copies Light12, the cabin lantern's light, and wears Lantern5,
+# its lantern, as a mesh fitting that draws once UTA-0341 draws meshes. Rows
+# run along the aft lower deck and the forward hold, two low at the bow end.
 
 [map]
 file = mh-()mg-theboat-v2mini-bp
@@ -21,3 +27,93 @@ brightness = 200
 
 [sky]
 textures = shaneday.dayskyb
+
+[lamp aft-1]
+light = Light12
+at = -10500 1028 -24170
+mesh = Lantern5
+
+[lamp aft-2]
+light = Light12
+at = -10500 -772 -24170
+mesh = Lantern5
+
+[lamp aft-3]
+light = Light12
+at = -9000 1028 -24170
+mesh = Lantern5
+
+[lamp aft-4]
+light = Light12
+at = -9000 -772 -24170
+mesh = Lantern5
+
+[lamp aft-5]
+light = Light12
+at = -7500 1028 -24170
+mesh = Lantern5
+
+[lamp aft-6]
+light = Light12
+at = -7500 -772 -24170
+mesh = Lantern5
+
+[lamp aft-7]
+light = Light12
+at = -6000 1028 -24170
+mesh = Lantern5
+
+[lamp aft-8]
+light = Light12
+at = -6000 -772 -24170
+mesh = Lantern5
+
+[lamp hold-1]
+light = Light12
+at = -4800 1628 -23300
+mesh = Lantern5
+
+[lamp hold-2]
+light = Light12
+at = -4800 -1372 -23300
+mesh = Lantern5
+
+[lamp hold-3]
+light = Light12
+at = -3000 1628 -23300
+mesh = Lantern5
+
+[lamp hold-4]
+light = Light12
+at = -3000 -1372 -23300
+mesh = Lantern5
+
+[lamp hold-5]
+light = Light12
+at = -1200 1628 -23300
+mesh = Lantern5
+
+[lamp hold-6]
+light = Light12
+at = -1200 -1372 -23300
+mesh = Lantern5
+
+[lamp hold-7]
+light = Light12
+at = 600 1228 -23300
+mesh = Lantern5
+
+[lamp hold-8]
+light = Light12
+at = 600 -972 -23300
+mesh = Lantern5
+
+[lamp bow-1]
+light = Light12
+at = 0 128 -24100
+mesh = Lantern5
+
+[lamp bow-2]
+light = Light12
+at = 1200 128 -24100
+mesh = Lantern5
