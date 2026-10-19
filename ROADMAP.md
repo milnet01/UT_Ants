@@ -16393,7 +16393,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-DeathcourseV2-20261010-164317/frame.png
 
-- 📋 [UTA-0344] **MH-()mG-TheBoat-V2mini-BP is too dark to play: a clear blue sky, no sun, and only a few lights.**
+- 🚧 [UTA-0344] **MH-()mG-TheBoat-V2mini-BP is too dark to play: a clear blue sky, no sun, and only a few lights.**
   The user, 2026-10-10: "the map TheBoat is now in darkness. It has no
   sun now it seems. It looks awesome with the few lights there are, it is
   just too dark to play that way."
@@ -16415,6 +16415,33 @@ stays with movement in 0.2.0.
   daylight reaches them only through small hatches. Whether each room
   gets an added lamp is decided per room on the r51 bake (UTA-0256's
   rule). Shots: ~/.cache/uta-scratch/u350/shots/after-3..8.ppm.
+  Measured (2026-10-19), r61 bake, ut-compare at the eleven 2026-10-07
+  cameras, 1280x720, mean grey ours over original
+  (~/.cache/uta-scratch/u344): deck views 1.37-1.45; below deck 0.01-0.18,
+  ours 83-98% under 16 where the original has 0-3%. Every below-deck view
+  qualifies under UTA-0256's rule. ut-ref on those seven views: exact light
+  mean 0.0040, ours 0.0051, so the dark is accurate light, not a fault.
+  The map's fittings are Lantern2 and Brazier meshes, which urender does
+  not draw until UTA-0341; lamps copy brushes only.
+  Decided (user, 2026-10-19): a lamp may copy a mesh decoration (the map's
+  Lantern2) as its fitting. The light works now; the lantern draws once
+  UTA-0341 draws meshes.
+  Progress (2026-10-19): two dark spaces. The aft lower deck, floor
+  -24688, ceiling -23920, x -11300 to -5500; and the forward hold, floor
+  -24688, ceiling -22882, x -5300 to 2000, ship centre y +128. Template:
+  Light12 (b 255, r 64, white) with Lantern5 as its fitting (the cabin
+  lantern, 64 above its light). Prototype p2 has 16 light-only lamps, in
+  rows at y 128+-900 (aft, z -24170, x -10500/-9000/-7500/-6000) and y
+  128+-1500 (hold, z -23300, x -4800/-3000/-1200; at x 600, +-1100). It
+  lifts the dark views to 0.62-0.87 of the original, except view 6
+  (-442,-400,-24559, the bow end of the lowest deck) at 0.23. Recipe:
+  ~/.cache/uta-scratch/u344/p2/proto.recipe; rerun with `bash
+  ~/.cache/uta-scratch/u344/proto.sh <dir>` (bakes, shoots cams.txt,
+  measures against cmp0's original frames). The floor/ceiling/wall probe is
+  u344/probe (stdin: x y z; argv: bundle). Next: a lamp or two for view 6,
+  then the recipe `mesh = Lantern5` key (recipe version 6; the baker checks
+  it names a mesh decoration of the map; no bundle change until UTA-0341),
+  lamps into recipes/, re-bake, re-measure, push.
   **Layman:** The boat map now looks great but is too dark to play, because its sky gives no sunlight.
   Kind: investigate.
   Source: user-request-2026-10-10.
@@ -19251,6 +19278,10 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   no mesh actor, and no item planned it: UTA-0159 lights characters only.
   DM-Fetid alone places pipe, pipebend, barrel2, tubelight and lightbox
   actors. Placed in 0.2.0 beside the weapons, which need meshes drawn too.
+  Owed (user, 2026-10-19, UTA-0344): recipe lamps may name a mesh
+  decoration as their fitting (TheBoat's copy Lantern5). When meshes
+  draw, draw each lamp's mesh too, moved as the lamp's light is (UTA-0256
+  SS 4.3's transform), and off with the added-lamps setting.
   **Layman:** Pipes, barrels and other props placed in a map as models are not drawn yet, so some rooms look emptier than in the original.
   Kind: feature.
   Source: in-session-2026-10-09.
