@@ -6,7 +6,7 @@
 (`workflow.md` § 1). Else 5.
 **Next:** the user's order of 2026-10-05: help other sessions; then every
 open fix-kind or review-sourced item, oldest first; then 0.1.0. Parked fix
-items: `UTA-0186` and `UTA-0249` (reconfirmed 2026-10-05). `UTA-0098` and
+item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
 `UTA-0100` defer themselves. Then the rest of 0.1.0 (`UTA-0204`):
 `UTA-0344`, `UTA-0353`, `UTA-0359`, `UTA-0380`, `UTA-0382`,
 `UTA-0383`.

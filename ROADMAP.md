@@ -10680,7 +10680,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-09-17.
   Lanes: urender.
 
-- 🚧 [UTA-0186] **Find why wall faces in a mansion map draw as black holes that move as the camera pans.**
+- 🚫 [UTA-0186] **Find why wall faces in a mansion map draw as black holes that move as the camera pans.**
   Filed 2026-09-18 from three launcher screenshots. The user thinks the map
   is the mansion map; the name is unconfirmed. A wood-panelled room with a
   red carpet shows solid black polygons on a wall near a doorway. Their
@@ -10720,6 +10720,8 @@ stays with movement in 0.2.0.
   exactly zero view depth is dropped. It needs the exact pose, and moving
   0.001 units clears it; lavapipe draws it. It is not the user's hole.
   Evidence and probes in ut-ants-uta0186.
+  Closed by the user, 2026-10-19: never reproduced after the 2026-09-19
+  search. Reopen as a new item if the holes are seen again.
   **Layman:** In what looks like the mansion map, parts of the walls show as black holes, and the holes change shape as the camera turns.
   Kind: fix.
   Source: user-request-2026-09-18.
@@ -19080,7 +19082,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-06.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0327] **urender: shade at a coarser rate where the picture is flat, on cards that support it.**
+- 📋 [UTA-0327] **urender: shade at a coarser rate where the picture is flat, on cards that support it.**
   Variable rate shading (VK_KHR_fragment_shading_rate): one shader
   run per 2x2 pixels where the picture is flat or blurred. RADV
   supports it on RDNA2 (the RX 6600); Phoronix measured about 8%
@@ -19125,6 +19127,8 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   where the moved pixels come from; find that before any new criterion.
   Base timings drift about 2 ms between runs. Scratch deleted.
   Waiting-on: a cause for the pixels coarse shading moves on tiles the rate shader judged flat.
+  Back to planned (user, 2026-10-19): nothing is being done with it. The
+  parking note above still says what would let it resume.
   **Layman:** Work out the colour once for a small block of pixels where nothing would look different, which newer graphics cards can do.
   Kind: perf.
   Source: user-request-2026-10-06.
@@ -20671,6 +20675,8 @@ to.
   through the hull is gone. Frames are in
   ~/.cache/ut-ants/compare/theboat-0217-W/. It ran from a stand-in
   install under a read-only mount of the real one.
+  2026-10-19: asked UT_MonsterHunt (user's request) where GAME-0217,
+  GAME-0006 and GAME-0187 stand and what they still need from us.
   **Layman:** Use our map readers to find the spots where the original game smears the picture, and to check whether closing a see-through wall cuts players off.
   Kind: investigate.
   Source: ut-monsterhunt-request-2026-10-03.
@@ -20924,7 +20930,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: design-2026-09-03.
   Lanes: ugame, unet.
 
-- 🚧 [UTA-0039] **Hold a frame-rate floor across the map library.**
+- 📋 [UTA-0039] **Hold a frame-rate floor across the map library.**
   A UT map carries hundreds of lights and the community maps are not built to a
   budget, so the interesting cases are the outliers rather than the average.
   Measured across a sample of the library on the development machine, with the
@@ -20953,6 +20959,8 @@ docs/standards/versioning-overrides.md. Closes S8.
   median. The worst is DM-FoT-SimpleX at 23.3 ms. Causes and figures
   are filed as UTA-0352, which needs UTA-0351 to attribute them.
   Waiting-on: UTA-0352.
+  Back to planned (user, 2026-10-19) until it can actually be worked; it
+  still waits on UTA-0352.
   **Layman:** Make sure it runs smoothly on real hardware across the whole map collection, not just on the two maps we kept testing with.
   Kind: perf.
   Source: design-2026-09-03.
