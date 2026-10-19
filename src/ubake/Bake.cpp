@@ -1271,8 +1271,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     std::optional<std::vector<ubundle::AddedLamp>> lamps;
     if (recipe != nullptr && !recipe->lamps.empty()) {
         phase.emplace(&times, "lamps");
-        UTA_TRY(lamps, naming(buildLamps(map, model, recipe->lamps, actors.lights, lookup, flames, rooms.map,
-                                         zones.size()),
+        UTA_TRY(lamps, naming(buildLamps(map, model, recipe->lamps, actors.lights, actors.placements, lookup, flames,
+                                         rooms.map, zones.size()),
                               mapName));
     }
     // UTA-0256 SS 4.7: the lights the recipe switches off leave LITE after the

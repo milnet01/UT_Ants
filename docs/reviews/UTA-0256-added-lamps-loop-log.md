@@ -10,3 +10,4 @@ never edited.
 | Loop | Date | Lanes | Q1 | Q2 | Q3 | Q4 | Outcome |
 |------|------|-------|----|----|----|----|---------|
 | amend-UTA-0308 | 2026-10-10 | none | - | - | - | - | Amendment for UTA-0308: §§ 4.6 to 4.8 and INV-8 to INV-12, switching a map's own lights off. No reviewer was dispatched: contract reviews are cancelled for this project. |
+| amend-UTA-0344 | 2026-10-19 | none | - | - | - | - | Amendment for UTA-0344: a lamp's `mesh` key, recipe version 6, in §§ 4.1 and 4.3 and INV-13 and INV-14. No reviewer was dispatched: contract reviews are cancelled for this project. |

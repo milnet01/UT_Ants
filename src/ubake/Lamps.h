@@ -32,12 +32,15 @@ namespace uta::ubake {
 /// SS 4.3, every lamp of `lamps` in order. `lights` are LITE's, strips marked;
 /// `flames` are the level's, with their sources. Refuses MalformedData naming
 /// the lamp when its light names no light of the map, or one litDirectly
-/// rejects or a strip holds, and when a fitting brush is not in the map or
-/// gives neither a drawn surface nor a flame.
+/// rejects or a strip holds, when a fitting brush is not in the map or gives
+/// neither a drawn surface nor a flame, and when its mesh is not a mesh
+/// decoration of `placements`. The mesh is checked and not copied: nothing
+/// draws one yet (UTA-0341).
 [[nodiscard]] Result<std::vector<ubundle::AddedLamp>> buildLamps(
     const upkg::Package& map, const upkg::Model& model, const std::vector<urecipe::AddedLamp>& lamps,
-    const std::vector<ubundle::Light>& lights, const MaterialLookup& materials, const FlameSheets& flames,
-    const umap::RoomMap& rooms, std::size_t zoneCount);
+    const std::vector<ubundle::Light>& lights, const ubundle::Placements& placements,
+    const MaterialLookup& materials, const FlameSheets& flames, const umap::RoomMap& rooms,
+    std::size_t zoneCount);
 
 /// SS 4.7: each light `names` names leaves `lights` and comes back as a LAMP
 /// record that restores it, the records in `lights`' order, so ascending by

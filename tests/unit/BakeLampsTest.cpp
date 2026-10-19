@@ -80,13 +80,28 @@ std::uint64_t fingerprintOf(const Picture& shown) {
 /// `farLightFirst` puts a second light ahead of every actor, at (160, 160, 96),
 /// so it is "Lamp0", the torch's light is "Lamp1" and every brush moves up one
 /// -- UTA-0256 INV-11's two lights, the flame tied to the second.
+/// `decorations` adds, after the brushes, UTA-0256 INV-14's actors: "Lantern4",
+/// a Decoration drawn as a mesh; "Sprite5", one drawn as a sprite;
+/// "Lantern6", a mesh decoration whose own Mesh is None; and "Statue7", drawn
+/// as a mesh but no Decoration.
 struct Room {
     Fixture fixture;
     std::uint64_t torchKey = 0;
     std::vector<std::byte> bytes;
+    bool decorations = false;
 };
 
-Room room(bool farLightFirst = false) {
+/// The fixture's Engine with Engine.Decoration added, for INV-14.
+std::vector<std::uint8_t> engineWithDecoration() {
+    Packer packer;
+    const std::int32_t brush = packer.addClass("Brush", 0, {boolProperty("bStatic", true)});
+    packer.addClass("Mover", brush, {boolProperty("bStatic", false)});
+    packer.addExport(0, 0, "Actor", {});
+    packer.addClass("Decoration");
+    return packer.build();
+}
+
+Room room(bool farLightFirst = false, bool decorations = false) {
     Room out;
     MapBuilder& map = out.fixture.map;
     const Picture torchPicture = picture(5);
@@ -107,6 +122,19 @@ Room room(bool farLightFirst = false) {
     map.addActor("Brush1", brushClass);
     map.addActor("Brush2", brushClass);
     map.addActor("Brush3", brushClass);
+    if (decorations) {
+        out.decorations = true;
+        const std::int32_t decoration = map.importClass("Engine", "Decoration");
+        const std::int32_t mesh = map.importTexture("ActorPkg", "", "LanternMesh", "LodMesh");
+        const std::int32_t lantern =
+            map.addClass("Lantern", decoration, {byteProperty("DrawType", 2), objectProperty("Mesh", mesh)});
+        const std::int32_t sprite =
+            map.addClass("Sprite", decoration, {byteProperty("DrawType", 1), objectProperty("Mesh", mesh)});
+        map.addActor("Lantern4", lantern);
+        map.addActor("Sprite5", sprite);
+        map.addActor("Lantern6", lantern, {objectProperty("Mesh", 0)});
+        map.addActor("Statue7", map.addClass("Statue", 0, {byteProperty("DrawType", 2), objectProperty("Mesh", mesh)}));
+    }
     for (int square = 0; square < 9; ++square) map.addSurface(wall);
     // The holder: a plate across y at x = 8, facing +x.
     map.addSurface(wall).shapeSurface(acrossY(8, 16, 48, 64, 80), {1, 0, 0}).ownSurface(first + 1, 0);
@@ -138,6 +166,7 @@ AddedLamp quarterLamp() {
 
 uta::Result<BakeResult> baked(const Room& room, const Recipe* recipe) {
     MemoryPackages packages = memoryPackagesFor(room.fixture);
+    if (room.decorations) packages.add("engine", engineWithDecoration());
     JobSystem jobs(2);
     const detail::CuratedLookup nothingCurated = [](std::uint64_t) -> const uta::umat::CuratedOverride* {
         return nullptr;
@@ -265,6 +294,40 @@ TEST_CASE("UTA-0256 INV-5: a lamp that cannot be built is refused naming it", "[
         bad.fitting = {"Brush1", "Brush3"};
         refused(bad, "Brush3 gives neither a drawn surface nor a flame");
     }
+}
+
+TEST_CASE("UTA-0256 INV-14: a lamp's mesh must be a mesh decoration of the map", "[ubake][lamp]") {
+    const Room fixture = room(false, true);
+    const auto refused = [&fixture](const std::string& mesh) {
+        AddedLamp bad = quarterLamp();
+        bad.name = "bad";
+        bad.mesh = mesh;
+        const Recipe recipe = recipeWith({quarterLamp(), bad});
+        const auto result = baked(fixture, &recipe);
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().code() == uta::ErrorCode::MalformedData);
+        const std::string message(result.error().message());
+        INFO(message);
+        CHECK(message.find("recipe lamp bad: " + mesh + " is not a mesh decoration of the map") != std::string::npos);
+    };
+    SECTION("an actor the map lacks") { refused("Lantern9"); }
+    SECTION("a brush") { refused("Brush1"); }
+    SECTION("a mesh actor that is no decoration") { refused("Statue7"); }
+    SECTION("a decoration drawn as a sprite") { refused("Sprite5"); }
+    SECTION("a mesh decoration with no mesh") { refused("Lantern6"); }
+}
+
+TEST_CASE("UTA-0256 INV-14: a lamp's mesh is checked and adds nothing to the bundle", "[ubake][lamp]") {
+    const Room fixture = room(false, true);
+    AddedLamp lit = quarterLamp();
+    lit.mesh = "Lantern4";
+    const Recipe withMesh = recipeWith({lit});
+    const Recipe without = recipeWith({quarterLamp()});
+    const auto meshBytes = uta::ubundle::write(bakedOk(fixture, &withMesh).bundle);
+    const auto plainBytes = uta::ubundle::write(bakedOk(fixture, &without).bundle);
+    REQUIRE(meshBytes.has_value());
+    REQUIRE(plainBytes.has_value());
+    CHECK(*meshBytes == *plainBytes);
 }
 
 TEST_CASE("UTA-0256 INV-6: the map's own bake is untouched by a lamp", "[ubake][lamp]") {

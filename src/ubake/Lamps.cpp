@@ -3,6 +3,7 @@
 
 #include "ubake/Lamps.h"
 
+#include "ubake/Actors.h"
 #include "ubake/Install.h"
 #include "ubake/LightModel.h"
 
@@ -43,6 +44,27 @@ std::array<float, 3> turned(const std::array<float, 3>& v, std::uint32_t yaw) no
     return {static_cast<float>(v[0] * c - v[1] * s), static_cast<float>(v[0] * s + v[1] * c), v[2]};
 }
 
+/// SS 4.3 step 3: the actor at `exportIndex` is a Decoration drawn as a mesh
+/// -- its class is Engine.Decoration or descends from it, its DrawType
+/// resolves to DT_Mesh, and its Mesh to an object.
+bool isMeshDecoration(const ubundle::Placements& placements, std::uint32_t exportIndex) {
+    constexpr std::uint8_t DT_MESH = 2;
+    const auto actor = std::ranges::find(placements.actors, exportIndex, &ubundle::ActorPlacement::exportIndex);
+    if (actor == placements.actors.end() || actor->classIndex >= placements.classes.size()) return false;
+    const ubundle::ActorClass& actorClass = placements.classes[actor->classIndex];
+    const bool decoration = actorClass.path == "engine.decoration"
+                            || std::ranges::find(actorClass.ancestry, "engine.decoration") != actorClass.ancestry.end();
+    if (!actorClass.resolved || !decoration) return false;
+    const auto resolved = [&](std::string_view name, ubundle::ValueKind kind) {
+        return detail::resolvedRecord(name, actor->properties, actorClass.defaults,
+                                      [kind](const ubundle::PropertyRecord& record) { return record.kind == kind; });
+    };
+    const ubundle::PropertyRecord* drawType = resolved("drawtype", ubundle::ValueKind::Byte);
+    const ubundle::PropertyRecord* mesh = resolved("mesh", ubundle::ValueKind::Object);
+    return drawType != nullptr && std::get<std::uint8_t>(drawType->value) == DT_MESH && mesh != nullptr
+           && !std::get<std::string>(mesh->value).empty();
+}
+
 } // namespace
 
 std::array<float, 3> placedPoint(const std::array<float, 3>& point, const std::array<float, 3>& pivot,
@@ -54,6 +76,7 @@ std::array<float, 3> placedPoint(const std::array<float, 3>& point, const std::a
 Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, const upkg::Model& model,
                                                    const std::vector<urecipe::AddedLamp>& lamps,
                                                    const std::vector<ubundle::Light>& lights,
+                                                   const ubundle::Placements& placements,
                                                    const MaterialLookup& materials, const FlameSheets& flames,
                                                    const umap::RoomMap& rooms, std::size_t zoneCount) {
     std::vector<ubundle::AddedLamp> out;
@@ -91,6 +114,12 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
             if (drawn.indices.empty() && !flame)
                 return refuse(std::format("{} gives neither a drawn surface nor a flame", brush));
             fitting.insert(own.begin(), own.end());
+        }
+        // Step 3, a mesh fitting: checked only, until UTA-0341 draws meshes.
+        if (!wanted.mesh.empty()) {
+            const auto meshExport = exportNamed(map, wanted.mesh);
+            if (!meshExport.has_value() || !isMeshDecoration(placements, *meshExport))
+                return refuse(std::format("{} is not a mesh decoration of the map", wanted.mesh));
         }
 
         ubundle::AddedLamp lamp;

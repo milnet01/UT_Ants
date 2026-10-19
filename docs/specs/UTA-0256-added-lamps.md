@@ -6,7 +6,8 @@ project (`CLAUDE.md` § Contract reviews); no review runs unless the user asks.
 **Kind:** feature.
 **Source:** ROADMAP UTA-0256 (user-request-2026-09-30; decisions of
 2026-10-08). Amended 2026-10-10 for UTA-0308: §§ 4.6 to 4.8 and INV-8 to
-INV-12 switch a map's own lights off.
+INV-12 switch a map's own lights off. Amended 2026-10-19 for UTA-0344: a
+lamp's mesh fitting, in §§ 4.1 and 4.3 and INV-13 and INV-14.
 
 **Layman:** where a room is far darker than in the original game, the map's
 recipe adds a copy of one of the map's own lamps, flame and holder included.
@@ -98,6 +99,12 @@ yaw = 16384                          # optional; 65536 to a turn
   SHA-256 of `uta-recipe-bake-2\n`, the materials as version 1 encodes
   them, then each lamp's fields in file order in a fixed encoding, so any
   lamp edit renames the bake.
+- **Version 6** (UTA-0344): a lamp may carry `mesh = <name>`, one object
+  name: a mesh decoration of the map that it wears as its fitting.
+  `AddedLamp` gains `mesh`, empty when there is none. `write`'s header is 6
+  when any lamp has one. A recipe with no mesh keeps its digest; a lamp's
+  mesh is hashed after its yaw, as `mesh`, a line break, the name and a
+  line break.
 
 ### 4.2 The `LAMP` section and the light index — `ubundle`
 
@@ -142,6 +149,11 @@ After `buildActors`, for each recipe lamp, in file order:
    transformed into `shape`, normals turned by `Rz(yaw)`, each vertex's zone
    being `zoneAt` the transformed point. Its flame sheets' FLAM records are
    copied, `base` transformed, and stored in `flames`.
+   A `mesh` must name an actor of the map whose class is `Engine.Decoration`
+   or descends from it, whose DrawType resolves to DT_Mesh (2), and whose
+   Mesh resolves to an object; else refuse, naming the lamp and the name. It
+   is checked and not copied: nothing draws a mesh until UTA-0341, so the
+   bundle is that of the same lamp without it.
 4. **Bakes see the lamp's light and never its fitting.** SMSK pairs the
    lamp's light with level polygons as it pairs any light (UTA-0326 § 4.1),
    occluded by the level alone. The pairs of the map's own lights are those a
@@ -352,6 +364,24 @@ same spot, with no fitting, since the lantern stands there already.
   *Breaks when:* a restoring pair is kept while on; `switched` does not
   replace the probes on; the sun is renamed past the wrong range.
 
+- **INV-13** — a lamp with a `mesh` round-trips through `parse` and `write`
+  as version 6, and `parse` refuses, naming the line: a `mesh` below version
+  6; one that is not a single object name; one given twice. `bakeDigest` of
+  a version-5 recipe equals its recorded value, and adding, moving or
+  renaming a lamp's mesh changes it.
+  *Test:* `tests/unit/RecipeFormatTest.cpp`.
+  *Breaks when:* the header stays 5 with a mesh; the mesh is left out of the
+  digest, or hashed for a lamp without one.
+
+- **INV-14** — the bake is refused, naming the lamp and the name, when a
+  lamp's `mesh` names no actor of the map, a brush, a mesh actor that is no
+  Decoration, a Decoration drawn as a sprite, or one whose Mesh is None. A
+  lamp with a mesh decoration bakes a bundle byte-equal to the same lamp's
+  without it.
+  *Test:* `tests/unit/BakeLampsTest.cpp`.
+  *Breaks when:* any one of the three checks is dropped; the check refuses
+  a real mesh decoration.
+
 ## 6. Failure modes
 
 - **A player's own recipe for a map hides the shipped one**, lamps included
@@ -375,6 +405,8 @@ The device test carries the `device` label; the rest carry `unit`.
 - INV-8, INV-9 — `tests/unit/RecipeFormatTest.cpp`.
 - INV-10 — `tests/unit/BundleLampsTest.cpp`.
 - INV-11, INV-12 — `tests/unit/BakeLampsTest.cpp`.
+- INV-13 — `tests/unit/RecipeFormatTest.cpp`.
+- INV-14 — `tests/unit/BakeLampsTest.cpp`.
 - `tests/unit/BakeGoldenTest.cpp`, re-recorded for the format and revision.
 
 Each new test is seen failing against the code before its rule exists.
@@ -423,6 +455,8 @@ Each new test is seen failing against the code before its rule exists.
 | INV-8, INV-9 | `tests/unit/RecipeFormatTest.cpp` |
 | INV-10 | `tests/unit/BundleLampsTest.cpp` |
 | INV-11, INV-12 | `tests/unit/BakeLampsTest.cpp` |
+| INV-13 | `tests/unit/RecipeFormatTest.cpp` |
+| INV-14 | `tests/unit/BakeLampsTest.cpp` |
 | Views 3 to 6 reach half the original | **nothing** — § 7's step 1, run by hand |
 | A copied fitting sits right on its wall | **nothing** — checked by eye on placing |
 
@@ -446,4 +480,5 @@ Rows live in `../reviews/UTA-0256-added-lamps-loop-log.md`.
 baked again. A version-1 recipe still parses; a version-1 game refuses a version-2
 recipe by its header. § 4.7 moves the format to 26 and the baker to revision
 50 (UTA-0308), so every map is baked again once more; recipes of versions 1
-to 3 keep their digests.
+to 3 keep their digests. Version 6's `mesh` (UTA-0344) changes no bake and
+no digest of a recipe without one, so the baker revision stays.

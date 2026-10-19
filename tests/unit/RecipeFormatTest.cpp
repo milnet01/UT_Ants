@@ -668,3 +668,76 @@ TEST_CASE("UTA-0350 INV-2: a version-4 digest is unchanged and every sky field m
         CHECK(urecipe::bakeDigest(changed[i]) != digest);
     }
 }
+
+// UTA-0256 INV-13: a lamp's mesh fitting -- docs/specs/UTA-0256-added-lamps.md
+// SS 4.1, version 6.
+
+namespace {
+
+Recipe withMesh() {
+    Recipe recipe = withSky();
+    recipe.lamps[1].mesh = "Lantern5";
+    return recipe;
+}
+
+const std::string V6_HEAD = "ut-ants recipe 6\n[map]\nfile = dm-x\n"
+                            "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+
+} // namespace
+
+TEST_CASE("UTA-0256 INV-13: a lamp with a mesh round-trips as version 6", "[urecipe][format][lamp]") {
+    const Recipe recipe = withMesh();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 6\n"));
+    CHECK(text.find("\n[lamp a-crypt]\nlight = Light7\nfitting = Brush12\nat = 0 -3.25 0.001\nmesh = Lantern5\n")
+          != std::string::npos);
+    CHECK(parsed(text) == recipe);
+    CHECK(urecipe::write(withSky()).find("mesh") == std::string::npos);
+    CHECK(parsed(V6_HEAD + "[lamp hall]\nlight = Light1\nat = 1 2 3\nmesh = Lantern_2\n").lamps.at(0).mesh
+          == "Lantern_2");
+}
+
+TEST_CASE("UTA-0256 INV-13: every mesh refusal names its line", "[urecipe][format][lamp]") {
+    struct Refusal {
+        const char* what;
+        std::string text;
+        std::size_t line;
+    };
+    // Lines 1 to 4; the lamp opens on line 5 and its mesh is line 8.
+    const std::string lamp = "[lamp hall]\nlight = Light1\nat = 1 2 3\n";
+    const std::vector<Refusal> refusals = {
+        {"a mesh in a version-5 recipe", V5_HEAD + lamp + "mesh = Lantern5\n", 8},
+        {"a mesh that is not a name", V6_HEAD + lamp + "mesh = Lantern-5\n", 8},
+        {"a mesh of two names", V6_HEAD + lamp + "mesh = Lantern5 Lantern4\n", 8},
+        {"an empty mesh", V6_HEAD + lamp + "mesh = \"\"\n", 8},
+        {"a mesh given twice", V6_HEAD + lamp + "mesh = Lantern5\nmesh = Lantern4\n", 9},
+    };
+    for (const Refusal& refusal : refusals) {
+        DYNAMIC_SECTION(refusal.what) {
+            const auto result = urecipe::parse(refusal.text);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error().code() == ErrorCode::MalformedData);
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.starts_with("recipe line " + std::to_string(refusal.line) + ": "));
+        }
+    }
+}
+
+TEST_CASE("UTA-0256 INV-13: a version-5 digest is unchanged and a mesh moves it", "[urecipe][format][lamp]") {
+    // withSky()'s digest under the version-5 code, recorded before version 6 existed.
+    CHECK(urecipe::bakeDigest(withSky())
+          == digestFromHex("c5dfa5a1484ce62b754b34313efb0cf10a1152b5cbcdc6e068a8cfde0e6e42e2"));
+    const Recipe base = withMesh();
+    const auto digest = urecipe::bakeDigest(base);
+    CHECK(digest != urecipe::bakeDigest(withSky()));
+    std::vector<Recipe> changed(3, base);
+    changed[0].lamps[1].mesh = "Lantern4";
+    changed[1].lamps[0].mesh = "Lantern5"; // the same mesh on the other lamp
+    changed[1].lamps[1].mesh.clear();
+    changed[2].lamps[0].mesh = "Lantern9";
+    for (std::size_t i = 0; i < changed.size(); ++i) {
+        INFO("change " << i);
+        CHECK(urecipe::bakeDigest(changed[i]) != digest);
+    }
+}

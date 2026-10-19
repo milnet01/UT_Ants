@@ -171,7 +171,8 @@ Result<std::array<float, 3>> pointOf(std::string_view value, std::size_t line) {
     return point;
 }
 
-Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string& value, std::size_t line) {
+Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string& value, std::uint32_t version,
+                        std::size_t line) {
     if (key == "light") {
         if (!isObjectName(value)) return refuse(line, std::format("'{}' is not an actor's name", value));
         lamp.light = value;
@@ -187,6 +188,10 @@ Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string
         UTA_TRY(lamp.at, pointOf(value, line));
     } else if (key == "yaw") {
         UTA_TRY(lamp.yaw, numberOf(value, 65535, line));
+    } else if (key == "mesh") {
+        if (version < 6) return refuse(line, "a lamp's `mesh` needs `ut-ants recipe 6`");
+        if (!isObjectName(value)) return refuse(line, std::format("'{}' is not an actor's name", value));
+        lamp.mesh = value;
     } else {
         return refuse(line, std::format("[lamp] has no key '{}'", key));
     }
@@ -264,10 +269,12 @@ Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value,
     return {};
 }
 
-/// The lowest version that holds `recipe`: 5 with a sky (UTA-0350 SS 4.1),
+/// The lowest version that holds `recipe`: 6 with a lamp's mesh (UTA-0256
+/// SS 4.1), 5 with a sky (UTA-0350 SS 4.1),
 /// 4 with a switched-off light or a lamp with no fitting (UTA-0256 SS 4.6),
 /// 3 with a sun, 2 with a lamp, else 1.
 std::uint32_t versionOf(const Recipe& recipe) {
+    if (std::ranges::any_of(recipe.lamps, [](const AddedLamp& lamp) { return !lamp.mesh.empty(); })) return 6;
     if (recipe.sky) return 5;
     if (!recipe.switchedOff.empty()
         || std::ranges::any_of(recipe.lamps, [](const AddedLamp& lamp) { return lamp.fitting.empty(); }))
@@ -459,7 +466,7 @@ Result<Recipe> parse(std::string_view text) {
                 UTA_CHECK(setMapKey(recipe, key, value, line));
                 if (key == "file") fileSeen = true;
             } else if (in == In::Lamp) {
-                UTA_CHECK(setLampKey(recipe.lamps.back(), key, value, line));
+                UTA_CHECK(setLampKey(recipe.lamps.back(), key, value, version, line));
             } else if (in == In::Sun) {
                 UTA_CHECK(setSunKey(*recipe.sun, key, value, line));
             } else if (in == In::SwitchOff) {
@@ -525,6 +532,7 @@ std::string write(const Recipe& recipe) {
         }
         out += std::format("at = {} {} {}\n", lamp.at[0], lamp.at[1], lamp.at[2]);
         if (lamp.yaw != 0) out += std::format("yaw = {}\n", lamp.yaw);
+        if (!lamp.mesh.empty()) out += std::format("mesh = {}\n", lamp.mesh);
     }
     if (recipe.sun)
         out += std::format("\n[sun]\nyaw = {}\npitch = {}\nhue = {}\nsaturation = {}\nbrightness = {}\n",
@@ -591,6 +599,13 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         }
         for (const float coordinate : lamp.at) addWord(std::bit_cast<std::uint32_t>(coordinate));
         addWord(lamp.yaw);
+        // UTA-0256 SS 4.1, version 6: the mesh only when there is one, so a
+        // recipe without keeps its digest.
+        if (!lamp.mesh.empty()) {
+            addText("mesh\n");
+            addText(lamp.mesh);
+            addText("\n");
+        }
     }
     // UTA-0338 SS 4.1: the sun after the lamps, each field as four bytes.
     if (recipe.sun) {
