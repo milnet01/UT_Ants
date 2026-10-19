@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **TheBoat's lower decks are lit by lanterns** (UTA-0344)
+  The decks below MH-()mG-TheBoat-V2mini-BP's hull were nearly black.
+  Its recipe now adds 18 lamps, copies of the cabin lantern's light,
+  so those rooms are bright enough to play. A recipe lamp may name a
+  lantern model of the map to wear (recipe version 6); it shows once
+  the renderer draws models. Re-bake TheBoat.
+
 - **The map launcher takes a visual name and a possible duplicate per map** (UTA-0386)
   Tab from the list reaches two new one-line fields above the notes.
   The visual name shows beside the map's file name in the list. A map

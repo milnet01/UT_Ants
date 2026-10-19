@@ -16393,7 +16393,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-DeathcourseV2-20261010-164317/frame.png
 
-- 🚧 [UTA-0344] **MH-()mG-TheBoat-V2mini-BP is too dark to play: a clear blue sky, no sun, and only a few lights.**
+- ✅ [UTA-0344] **MH-()mG-TheBoat-V2mini-BP is too dark to play: a clear blue sky, no sun, and only a few lights.**
   The user, 2026-10-10: "the map TheBoat is now in darkness. It has no
   sun now it seems. It looks awesome with the few lights there are, it is
   just too dark to play that way."
@@ -16455,6 +16455,8 @@ stays with movement in 0.2.0.
   81aea088...), ut-compare at the eleven cameras: deck views 1.37-1.45,
   below deck 0.62-0.87 (views 1, 5-10: 0.87 0.67 0.66 0.70 0.85 0.62
   0.83). Next: push, then flip on a green GitHub matrix.
+  Shipped (2026-10-19): GitHub's matrix green on GCC 14, Clang 19 and
+  MSVC for 038c69d (run 39296045611).
   **Layman:** The boat map now looks great but is too dark to play, because its sky gives no sunlight.
   Kind: investigate.
   Source: user-request-2026-10-10.
