@@ -39,16 +39,25 @@ bool setBasis(Chart& chart, const std::array<float, 3>& stored) {
     return true;
 }
 
-Point2 clampToPolygon(const std::vector<Point2>& polygon, double area, Point2 q) {
-    // A zero-area polygon has no inside: every sign test passes, so without
-    // this every point would count as on it.
-    bool inside = area != 0;
-    for (std::size_t k = 0; k < polygon.size(); ++k) {
-        const Point2 a = polygon[k], b = polygon[(k + 1) % polygon.size()];
-        const double side = (b.u - a.u) * (q.v - a.v) - (b.v - a.v) * (q.u - a.u);
-        if (side * area < 0) inside = false;
+/// UTA-0343: whether `q` is on a triangle of the polygon's fan (first, k,
+/// k + 1), the surface GEOM draws. An outline is not always convex:
+/// MH-()mG-DeathcourseV2's wall runs one corner 0.25 units past the next and
+/// back, and an every-edge sign test then put the whole wall outside it. A
+/// zero-area triangle holds no point.
+bool onFan(const std::vector<Point2>& polygon, Point2 q) {
+    for (std::size_t k = 1; k + 1 < polygon.size(); ++k) {
+        const Point2 a = polygon[0], b = polygon[k], c = polygon[k + 1];
+        const double det = (b.u - a.u) * (c.v - a.v) - (c.u - a.u) * (b.v - a.v);
+        if (det == 0) continue;
+        const double s = ((q.u - a.u) * (c.v - a.v) - (c.u - a.u) * (q.v - a.v)) / det;
+        const double t = ((b.u - a.u) * (q.v - a.v) - (q.u - a.u) * (b.v - a.v)) / det;
+        if (std::min({1 - s - t, s, t}) >= 0) return true;
     }
-    if (inside) return q;
+    return false;
+}
+
+Point2 clampToPolygon(const std::vector<Point2>& polygon, Point2 q) {
+    if (onFan(polygon, q)) return q;
     Point2 best = polygon.front();
     double bestDistance = std::numeric_limits<double>::infinity();
     for (std::size_t k = 0; k < polygon.size(); ++k) {
@@ -141,16 +150,12 @@ Outline outlineOf(const Chart& chart, const ubundle::Geometry& geometry) {
         out.polygon.push_back({dot(p, chart.u), dot(p, chart.v)});
         out.heights.push_back(dot(p, chart.n));
     }
-    for (std::size_t k = 0; k < out.polygon.size(); ++k) {
-        const Point2 a = out.polygon[k], b = out.polygon[(k + 1) % out.polygon.size()];
-        out.area += a.u * b.v - b.u * a.v;
-    }
     return out;
 }
 
 Vec3 originAt(const Chart& chart, const Outline& outline, double gridU, double gridV, double texelSize,
               double lift) {
-    const Point2 q = clampToPolygon(outline.polygon, outline.area, {gridU * texelSize, gridV * texelSize});
+    const Point2 q = clampToPolygon(outline.polygon, {gridU * texelSize, gridV * texelSize});
     return chart.u * q.u + chart.v * q.v + chart.n * (surfaceAt(outline.polygon, outline.heights, q) + lift);
 }
 

@@ -148,9 +148,12 @@ namespace {
 // it.
 // 60: UTA-0254 bakes later bounces into the probes, so the fixture's probes
 // and BAKR's revision both moved it.
-constexpr std::uint32_t RECORDED_UNDER = 60;
+// 61: UTA-0343 reads a chart's inside off its fan. The fixture's polygons are
+// convex, where the old test agreed, so BAKR's revision is expected to be all
+// that moved it.
+constexpr std::uint32_t RECORDED_UNDER = 61;
 constexpr std::string_view GOLDEN =
-    "cf12fd731b6555f3847ebc103aeaebd9ca18f07737fb8b12ca38c0940731fcbc";
+    "dc30fb6be3c5f084b2ff9583fd921c5620b48dbb65b2489ae55a5af72ce5fb2e";
 
 } // namespace
 

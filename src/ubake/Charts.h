@@ -30,12 +30,10 @@ struct Point2 {
     double u = 0, v = 0;
 };
 
-/// A chart's polygon in its plane, each corner's height along its normal, and
-/// twice its signed area.
+/// A chart's polygon in its plane, and each corner's height along its normal.
 struct Outline {
     std::vector<Point2> polygon;
     std::vector<double> heights;
-    double area = 0;
 };
 
 [[nodiscard]] Vec3 positionOf(const ubundle::Geometry& geometry, std::uint32_t index);

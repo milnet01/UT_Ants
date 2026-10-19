@@ -205,6 +205,47 @@ TEST_CASE("INV-2: a wall the pillar cannot shadow has an all-lit pair", "[ubake]
     CHECK(wall->y == MASK_ALL_LIT);
 }
 
+TEST_CASE("UTA-0343: a texel inside a polygon whose edge steps back is baked where it lies", "[ubake][shadowmask]") {
+    // MH-()mG-DeathcourseV2's wall c_wal19d runs one corner 0.25 units past
+    // the next along its bottom edge, then back. An inside test that reads the
+    // outline as convex put every point outside, and moved each onto its
+    // nearest edge: those nearest the corner were baked from behind a post the
+    // wall's own middle sees past, a black wedge with nothing to cast it.
+    Scene scene;
+    const auto wall = static_cast<std::uint32_t>(scene.geometry.vertices.size());
+    for (const P& p : {P{0, 0, 0}, P{256.25f, 0, 0}, P{256, 0, 0}, P{256, 0, 232}, P{0, 0, 232}}) {
+        GeometryVertex vertex;
+        vertex.position = p;
+        vertex.normal = {0, 1, 0};
+        scene.geometry.vertices.push_back(vertex);
+    }
+    std::vector<std::uint32_t>& indices = scene.batches[{"", 0}];
+    for (std::uint32_t j = 1; j + 1 < 5; ++j) indices.insert(indices.end(), {wall, wall + j, wall + j + 1});
+    // A post just off the wall, between the light and the corner edge only.
+    addBox(scene, {240, 4, 0}, {250, 12, 232});
+    const Geometry geometry = finish(std::move(scene));
+
+    JobSystem jobs(2);
+    const auto mask = bakeShadowMask(bundleOf(geometry, {pointLight({128, 200, 116})}), jobs);
+    REQUIRE(mask.has_value());
+    const MaskPair* pair = pairOf(*mask, wall, 0);
+    REQUIRE(pair != nullptr);
+    if (pair->x == MASK_ALL_LIT) return; // every texel lit: nothing was moved behind the post
+    // The wall's texel is affine in x and z: along x from its first corner to
+    // its second, along z from its first to its last.
+    const auto texelOf = [&](float x, float z, int axis) {
+        const auto& t0 = mask->vertexTexel[wall];
+        const auto& t1 = mask->vertexTexel[wall + 1];
+        const auto& t4 = mask->vertexTexel[wall + 4];
+        return t0[axis] + x / 256.25 * (t1[axis] - t0[axis]) + z / 232.0 * (t4[axis] - t0[axis]);
+    };
+    // 56 units from the corner edge and 116 from the floor and the top, so
+    // the corner edge is its nearest; its own ray to the light passes the post.
+    const auto column = static_cast<std::size_t>(std::floor(texelOf(200, 116, 0)));
+    const auto row = static_cast<std::size_t>(std::floor(texelOf(200, 116, 1)));
+    CHECK(int(mask->texels[(pair->y + row) * mask->width + pair->x + column]) == 255);
+}
+
 TEST_CASE("INV-2: the pillar's face turned from the light has no pair for it", "[ubake][shadowmask]") {
     const PillarRoom room = pillarRoom();
     JobSystem jobs(2);
