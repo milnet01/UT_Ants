@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=389 -->
+<!-- ants-roadmap-id-high-water: UTA=390 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17564,6 +17564,26 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: user-request-2026-10-19.
   Lanes: urender.
+
+- 📋 [UTA-0390] **urender: a triangle at TheBoat's bow corner is lit unlike the hull around it from a distance, and corrects up close.**
+  The user, 2026-10-19: "a triangle at the corner of the boat that
+  isn't lit like the rest of the boat. It corrected as I got close but
+  from a distance it doesn't show correctly. Could be because that part
+  is a triangle." In capture 170022 (camera -10878 -8140 -21117) it is
+  the brown wooden triangle where the hull's side meets the bow, just
+  above the water; also at the far right of 165948. Neighbour:
+  UTA-0182 (shipped), a dark triangle on a lit wall at a distance that
+  went away up close. Test first whether this is that cause again or a
+  new one: a distance-switched term (shadow cascade, probe or lightmap
+  mip, ambient occlusion radius) disagreeing on one small polygon.
+  Re-render with ut-shot --from-capture, then step the camera in.
+  Placed in 0.1.0 (session's call): a lighting defect on a map in
+  play, like UTA-0182.
+  **Layman:** One corner piece of the boat looks differently lit from the rest when seen from afar, and only looks right when you walk up to it.
+  Kind: fix.
+  Source: user-request-2026-10-19.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-170022Z/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-165948Z/frame.png
 
 ## 0.2.0 — Movement and weapons
 
