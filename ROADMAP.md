@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=390 -->
+<!-- ants-roadmap-id-high-water: UTA=391 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16989,7 +16989,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/run1/, /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/client-run1.log, ~/.local/state/ut-ants/map-captures/reviewed/MH-(MHA)-TheFortress2012Final-BP-20261014-141253
 
-- 📋 [UTA-0359] **MH-(MHA)-TheFortress2012Final-BP: the sand floor ripples with a bluish sheen, and the lava strip along the castle wall is missing.**
+- 🚧 [UTA-0359] **MH-(MHA)-TheFortress2012Final-BP: the sand floor ripples with a bluish sheen, and the lava strip along the castle wall is missing.**
   Seen while checking UTA-0358's recipe at UT_MonsterHunt's 8 poses
   (original frames in UT_MonsterHunt work/uta0356/run1; ours in
   /mnt/Emulators/uta-scratch/u358/sheet0.png and sheet1.png: original,
@@ -17000,6 +17000,21 @@ stays with movement in 0.2.0.
   ours draws none. Check whether both come from the lava zone: what
   zone the floor sits in, and how lava5's surfaces are baked. The trees
   missing in ours are UTA-0293's, not this item's.
+  Found (2026-10-21, baker r61; scratch ~/.cache/uta-scratch/u359):
+  not a liquid. The floor texture AdesertS.24 is a plain Texture, and
+  zeroing the derived normals barely changed it. The cause is the
+  recipe's sun: at pitch 9102 the canyon walls shade the plain, so at
+  poses 2-7 no direct light reaches the floor (0% of the sampled floor
+  sunlit) and the blue-white painted sky alone lights it; the texture's
+  light patches then read as a bluish ripple. Poses 0 and 1, sunlit,
+  were the warm ones on the sheet. Fix: both recipes put the sun at
+  pitch 14000; sunlit floor share is now 0.87-1.0 at all 8 poses, its
+  colour warm. The floor is still brighter than the original's
+  (pose 2: 194,149,138 with the haze off, against 149,112,89): left to
+  UTA-0383, as TheBoat's same sun and sky.
+  The lava strip draws now, in the original's shape; the outdoor haze
+  washes it pale, filed as UTA-0391. Flip once a push carries the
+  recipes and GitHub's matrix is green.
   **Layman:** On the Fortress map our sandy ground shimmers as if wet, and a thin line of lava at the foot of the castle wall does not show at all.
   Kind: investigate.
   Source: in-session-2026-10-15.
@@ -17601,6 +17616,28 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-19.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-170022Z/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-165948Z/frame.png
+
+- 📋 [UTA-0391] **urender: the outdoor haze swallows a castle 5200 units off on TheFortress, not only the map's outer walls.**
+  Found 2026-10-21 working UTA-0359, on MH-(MHA)-TheFortress2012Final-BP
+  (UT_MonsterHunt's pose 1, camera 1910 -4135 -4587 yaw 15319). UTA-0337
+  part 3's horizon haze (scene.frag outdoorHaze) mixes a surface toward
+  horizonSkyAt. The map's outdoorExtent is 15000, so the haze starts at
+  1500 and keeps exp(-(d - 1500) / 12000): 27% haze for the castle wall,
+  about 5200 units off. Measured, sRGB: the wall is (71, 56, 43) with the
+  haze forced off and (185, 210, 245) with it on, against (188, 213,
+  247) just above it; about 96% of the way to the sky. Likely cause: the
+  mix target is the sky's light, far brighter than a lit stone wall, so
+  a 27% share of it swamps the wall. The lava strip along the wall's foot
+  draws, but is washed pale pink the same way. Mountains at the map's
+  edge, the haze's intended target, go 90% of the way. Test against
+  TheBoat, where the user liked the haze (2026-10-19), before changing
+  the blend or its scale.
+  Scratch: ~/.cache/uta-scratch/u359 (nh-* haze off, high-* on).
+  **Layman:** On the Fortress map the distance mist hides the castle and the lava at its foot, though they stand fairly near; the mist was meant to hide only the map's far edges.
+  Kind: fix.
+  Source: in-session-2026-10-21.
+  Lanes: urender.
+  Evidence: ~/.cache/uta-scratch/u359/nh.png, ~/.cache/uta-scratch/u359/lava-full.png
 
 ## 0.2.0 — Movement and weapons
 

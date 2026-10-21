@@ -8,6 +8,9 @@ ut-ants recipe 5
 # so it drew black. [sky] opens it (UTA-0350) and the sun lights the map in
 # the ambient's place. The original casts no shadows, so the yaw is a pick;
 # the sun's colour is TheBoat's, under the same sky.
+#
+# The sun stands high, near 77 degrees (UTA-0359): at TheBoat's 50 the canyon
+# walls shaded the plain before the castle, which the sky alone then lit blue.
 
 [map]
 file = mh-(mha)-thefortress2012final-bp
@@ -15,7 +18,7 @@ sha256 = d5aa281db9e8a55852ea3de5d6f529a685384134bf03953719bd50537d5c3ddc
 
 [sun]
 yaw = 40960
-pitch = 9102
+pitch = 14000
 hue = 28
 saturation = 200
 brightness = 200
