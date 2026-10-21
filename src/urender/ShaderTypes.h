@@ -295,7 +295,8 @@ static_assert(offsetof(ClusterBounds, maximum) == 16);
 
 /// One probe's ambient cube: six linear-RGB faces, +X -X +Y -Y +Z -Z, each
 /// padded to a vec4 as a std430 array of vec3 would not be. Face 0's w carries
-/// the probe's sunSeen (UTA-0338); the other faces' w is unused.
+/// the probe's sunSeen (UTA-0338), face 1's its skySeen (UTA-0387); the other
+/// faces' w is unused.
 struct Probe {
     std::array<float, 24> faces;
 };

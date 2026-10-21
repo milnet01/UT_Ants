@@ -161,6 +161,12 @@ float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays) {
     return static_cast<float>(static_cast<double>(seen) / static_cast<double>(cast));
 }
 
+float skySeenFrom(const Vec3& p, const SurfaceRays& rays) {
+    const std::vector<Vec3>& all = directions();
+    const auto seen = std::ranges::count_if(all, [&](const Vec3& w) { return sunSeen(p, w, rays); });
+    return static_cast<float>(static_cast<double>(seen) / static_cast<double>(all.size()));
+}
+
 std::optional<SurfaceHit> surfaceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
                                        const ubundle::Geometry& geometry, const std::optional<Vec3>& sky,
                                        const std::optional<ubundle::PaintedSky>& painted) {
@@ -539,6 +545,11 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
     // UTA-0338 SS 4.4: where a sun is lit, what share of it each probe sees.
     const auto sun = std::ranges::find(lights, ubundle::SUN_EFFECT, &ubundle::Light::effect);
     if (sun != lights.end()) out.sunSeen.assign(out.probes.size(), 0.0f);
+    // UTA-0387 SS 4.1: where the level has a sky, what share of it each sees.
+    const bool hasSky = std::ranges::any_of(geometry.batches, [](const ubundle::GeometryBatch& batch) {
+        return (batch.polyFlags & PF_FAKE_BACKDROP) != 0;
+    });
+    if (hasSky) out.skySeen.assign(out.probes.size(), 0.0f);
 
     // SS 4.7: each probe gathered on its own, into its own slot.
     const SurfaceRays rays(geometry);
@@ -552,6 +563,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
                 probe.cube[face] = {static_cast<float>(cube[face].r), static_cast<float>(cube[face].g),
                                     static_cast<float>(cube[face].b)};
             if (sun != lights.end()) out.sunSeen[p] = sunSeenFrom(pointOf(probe.cell), towardSun(*sun), rays);
+            if (hasSky) out.skySeen[p] = skySeenFrom(pointOf(probe.cell), rays);
         }
     });
     // A partly gathered section is a wrong bundle presented as a good one.

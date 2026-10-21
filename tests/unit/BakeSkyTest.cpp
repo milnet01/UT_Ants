@@ -215,3 +215,18 @@ TEST_CASE("UTA-0350 INV-5: the painted roof lets the sun and daylight in", "[uba
     CHECK(probeSum(daylit.bundle, under) > probeSum(dark.bundle, under) + 0.1);
     CHECK(probeSum(open.bundle, under) > probeSum(shut.bundle, under));
 }
+
+TEST_CASE("UTA-0387 INV-2: a probe's sky share counts only rays that meet the sky", "[ubake][paintedsky]") {
+    const Recipe recipe = skyRecipe({std::string(SKY)}, false);
+    const BakeResult none = bakedOk(nullptr);
+    const BakeResult open = bakedOk(&recipe);
+
+    // No backdrop batch, no sky: the list stays empty.
+    CHECK(none.bundle.lightProbes->skySeen.empty());
+    const auto& seen = open.bundle.lightProbes->skySeen;
+    REQUIRE(seen.size() == open.bundle.lightProbes->probes.size());
+    // Under the painted roof, some sky. Below floor 0, whose back hides the
+    // roof, none: the floor is met first, and the sideways rays meet nothing.
+    CHECK(seen[probeIndex(open.bundle, {0, 0, 1})] > 0.1f);
+    CHECK(seen[probeIndex(open.bundle, {0, 0, 0})] == 0.0f);
+}

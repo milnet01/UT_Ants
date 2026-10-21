@@ -70,7 +70,7 @@ Bytes aoccPayload(const Occlusion& occlusion) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
+    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved

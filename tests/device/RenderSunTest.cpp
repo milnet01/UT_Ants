@@ -4,6 +4,9 @@
 //
 // docs/specs/UTA-0338-baked-sun.md SS 4.5. The sun reaches the renderer as
 // the game hands it over, by ubundle::applySun once the bundle is read.
+//
+// Also UTA-0387 INV-3 and INV-4: the outdoor haze only as far as the probes
+// see the sky (docs/specs/UTA-0387-sky-seen-haze.md SS 4.3).
 
 #include "device/DeviceFixture.h"
 
@@ -331,4 +334,69 @@ TEST_CASE("UTA-0338 INV-8: the probes' view of the sun is re-uploaded when it ch
     CAPTURE(seen, unseen, plain);
     CHECK(sum(seen) > sum(unseen) + 30);
     CHECK(unseen == plain);
+}
+
+namespace {
+
+/// UTA-0387: a grey square 3000 units ahead, half 400, before a sky window at
+/// 3500 that only paints redToBlue's sky. One zone holds both, so it sees the
+/// sky, and its outdoorExtent of 1200 hazes the square nearly whole. Probes
+/// stand round the square, each seeing `skySeen` of the sky; with `none`, they
+/// stand at the eye instead, so no corner is near the square.
+uta::ubundle::Bundle farSquare(float skySeen, bool none = false) {
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 3000, 0, 0, 400, "grey", 0);
+    addSquare(geometry, 3500, 0, 0, 600, "window", PF_FAKE_BACKDROP);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "grey", GREY);
+    addSolidMaterial(bundle, "window", GREY);
+    bundle.zones = std::vector{uta::ubundle::Zone{}};
+    bundle.paintedSky = redToBlue();
+    if (none)
+        addEvenProbes(bundle, {0, -128, -64}, {128, 128, 64}, 0.02f);
+    else
+        addEvenProbes(bundle, {2816, -128, -128}, {3072, 128, 128}, 0.02f);
+    bundle.lightProbes->skySeen.assign(bundle.lightProbes->probes.size(), skySeen);
+    return bundle;
+}
+
+} // namespace
+
+TEST_CASE("UTA-0387 INV-3: the outdoor haze reaches only where the sky is seen", "[device]") {
+    Renderer renderer = requireRenderer(linearFrame());
+    const auto centre = [&renderer](uta::ubundle::Bundle bundle) {
+        return pixelAt(frameOf(renderer, std::move(bundle)), WIDTH, WIDTH / 2, HEIGHT / 2);
+    };
+    const Rgba sealed = centre(farSquare(0.0f));
+    const Rgba open = centre(farSquare(0.5f));
+    const Rgba wide = centre(farSquare(1.0f));
+    const Rgba unprobed = centre(farSquare(0.0f, true));
+    CAPTURE(sealed, open, wide, unprobed);
+    // No sky seen: the grey square, unhazed.
+    CHECK(std::abs(int(sealed.r) - int(sealed.b)) <= 6);
+    // Open ground: hazed nearly whole, toward the sky's low ring, which mixes
+    // the red horizon with the blue top; more sky adds none.
+    CHECK(sum(open) > sum(sealed) + 150);
+    CHECK(std::abs(sum(open) - sum(wide)) <= 6);
+    // No probe near: hazed as open ground.
+    CHECK(std::abs(sum(unprobed) - sum(open)) <= 6);
+}
+
+TEST_CASE("UTA-0387 INV-4: the probes' view of the sky is re-uploaded when it changes", "[device]") {
+    // One bundle edited in place, as the sunSeen case above.
+    Renderer renderer = requireRenderer(linearFrame());
+    uta::ubundle::Bundle bundle = farSquare(0.0f);
+    uta::ubundle::applyAddedLamps(bundle, true);
+    uta::ubundle::applySun(bundle);
+    const auto centre = [&renderer, &bundle] {
+        requireOk(renderer.draw(bundle, Camera{}));
+        auto pixels = renderer.readback();
+        if (!pixels.has_value()) FAIL(pixels.error().message());
+        return pixelAt(*pixels, WIDTH, WIDTH / 2, HEIGHT / 2);
+    };
+    const Rgba sealed = centre();
+    std::ranges::fill(bundle.lightProbes->skySeen, 0.5f);
+    const Rgba open = centre();
+    CAPTURE(sealed, open);
+    CHECK(int(open.r) > int(sealed.r) + 60);
 }

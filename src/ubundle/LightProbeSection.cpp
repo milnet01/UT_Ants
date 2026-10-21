@@ -78,6 +78,7 @@ Result<LightProbes> readLightProbes(Cursor& cursor) {
     UTA_TRY(probes.switched, readVector<Cube>(cursor, CUBE_SIZE, "switched-off cubes", readCube));
     // UTA-0338 SS 4.2: its count and range are SUN's rules, in validateSun.
     UTA_TRY(probes.sunSeen, readVector<float>(cursor, 4, "sun visibilities", readF32Element));
+    UTA_TRY(probes.skySeen, readVector<float>(cursor, 4, "sky visibilities", readF32Element));
     return probes;
 }
 
@@ -95,6 +96,13 @@ Result<void> validateLightProbes(const LightProbes& probes, ErrorCode code) {
         UTA_CHECK(validateCube(probes.added[p], "added-lamp cube " + std::to_string(p), code));
     for (std::size_t p = 0; p < probes.switched.size(); ++p)
         UTA_CHECK(validateCube(probes.switched[p], "switched-off cube " + std::to_string(p), code));
+    // UTA-0387 SS 4.2: none, or one in [0, 1] per probe.
+    if (!probes.skySeen.empty() && probes.skySeen.size() != probes.probes.size())
+        return fail(code, "LPRB: " + std::to_string(probes.skySeen.size()) + " sky visibilities for "
+                              + std::to_string(probes.probes.size()) + " probes");
+    for (std::size_t p = 0; p < probes.skySeen.size(); ++p)
+        if (!(probes.skySeen[p] >= 0 && probes.skySeen[p] <= 1))
+            return fail(code, "LPRB: sky visibility " + std::to_string(p) + " is outside [0, 1]");
     return {};
 }
 
@@ -105,6 +113,7 @@ Result<std::vector<std::byte>> encodeLightProbes(const LightProbes& probes) {
     sink.putVector(probes.added, putCube);
     sink.putVector(probes.switched, putCube);
     sink.putVector(probes.sunSeen, [](Sink& out, float seen) { out.putF32(seen); });
+    sink.putVector(probes.skySeen, [](Sink& out, float seen) { out.putF32(seen); });
     return std::move(sink).finish("LPRB");
 }
 

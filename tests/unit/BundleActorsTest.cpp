@@ -174,7 +174,7 @@ Bytes emptyGeom() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
+    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -407,7 +407,7 @@ TEST_CASE("the PLAC and LITE golden bytes decode to what they encode", "[ubundle
                                        {"PLAC", placPayload(golden())},
                                        {"LITE", litePayload(goldenLights())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 29);
+    CHECK(result->header.formatVersion == 30);
     REQUIRE(result->geometry.has_value());
     REQUIRE(result->placements.has_value());
     REQUIRE(result->lights.has_value());

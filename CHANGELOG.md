@@ -769,6 +769,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **The distance mist stays out of rooms the sky cannot reach** (UTA-0387)
+  Inside TheBoat's hull the mist meant for the open air filled the
+  holds and made them glow blue-white. Each map now records how much
+  sky can be seen from each spot, and the mist shows only as far as
+  the sky does. Re-bake every map: bundles are now format 30.
+
 - **No more black wedge of shadow on walls with nothing to cast it** (UTA-0343)
   A wall whose outline has a tiny kink, such as one in
   MH-()mG-DeathcourseV2, was baked as if every point on it sat at its

@@ -151,9 +151,12 @@ namespace {
 // 61: UTA-0343 reads a chart's inside off its fan. The fixture's polygons are
 // convex, where the old test agreed, so BAKR's revision is expected to be all
 // that moved it.
-constexpr std::uint32_t RECORDED_UNDER = 61;
+// 62, format 30: UTA-0387 adds LPRB's sky visibility count. The fixture has
+// no sky, so its list is empty; the count, the format and BAKR's revision
+// moved it.
+constexpr std::uint32_t RECORDED_UNDER = 62;
 constexpr std::string_view GOLDEN =
-    "dc30fb6be3c5f084b2ff9583fd921c5620b48dbb65b2489ae55a5af72ce5fb2e";
+    "dbfe33eb9eea1b5a27e49de82423f56011bd1c2fcc6e53aab75d46ed9c521ddc";
 
 } // namespace
 

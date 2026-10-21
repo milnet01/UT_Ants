@@ -283,6 +283,8 @@ vec3 skyAt(vec3 d) {
 // through the haze as a ghost picture.
 const int HAZE_RING_STEPS = 8;
 const float HAZE_RING_HEIGHTS[2] = float[2](0.14, 0.34); // sines of 8 and 20 degrees
+// UTA-0387 SS 4.3: the share of the sky a probe on open flat ground sees.
+const float OPEN_SKY_SHARE = 0.5;
 
 float outdoorHaze(float d) {
     return 1.0 - exp(-max(d - frame.outdoorHazeStart, 0.0) / frame.outdoorHazeDepth);
@@ -622,7 +624,12 @@ void main() {
     // sky rather than standing as a box. A sky window is the sky already.
     if (zones[zone].sky != 0u && frame.outdoorHazeDepth > 0.0 && frame.cameraUnderwater == 0u && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u
         && (frame.skyTexture != NONE || frame.paintedSky != 0u)) {
-        float hazed = outdoorHaze(distance(frame.eye, worldPosition));
+        // UTA-0387 SS 4.3: only as far as the sky is seen here, so a room
+        // sealed from it draws none. Open ground sees half its directions.
+        ProbeLattice skyLattice =
+            ProbeLattice(frame.probeSpacing, frame.probeCount, frame.probeTableMask, frame.probeLongestRun);
+        float skyOpen = skyOpenAt(skyLattice, worldPosition + surface * (0.5 * float(frame.probeSpacing)));
+        float hazed = outdoorHaze(distance(frame.eye, worldPosition)) * min(1.0, skyOpen / OPEN_SKY_SHARE);
         vec3 behind = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? vec3(0.0) : horizonSkyAt(normalize(worldPosition - frame.eye));
         colour = mix(colour, behind, hazed);
     }

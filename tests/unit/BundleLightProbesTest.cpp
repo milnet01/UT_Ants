@@ -41,7 +41,7 @@ namespace {
 /// An LPRB payload in SS 4.2's order: the spacing, then the probes, each its
 /// cell's three i32 and then its cube face by face, red, green and blue; then
 /// UTA-0256's added-lamp cubes and switched-off cubes; then UTA-0338's sun
-/// visibilities.
+/// visibilities; then UTA-0387's sky visibilities.
 Bytes lprbPayload(const LightProbes& probes) {
     Bytes out;
     out.u32(probes.spacing);
@@ -64,6 +64,9 @@ Bytes lprbPayload(const LightProbes& probes) {
     // UTA-0338 SS 4.2: one sun visibility per probe, or none.
     out.u32(static_cast<std::uint32_t>(probes.sunSeen.size()));
     for (const float seen : probes.sunSeen) out.f32(seen);
+    // UTA-0387 SS 4.2: one sky visibility per probe, or none.
+    out.u32(static_cast<std::uint32_t>(probes.skySeen.size()));
+    for (const float seen : probes.skySeen) out.f32(seen);
     return out;
 }
 
@@ -81,7 +84,7 @@ Bytes emptyColl() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
+    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -135,6 +138,7 @@ void sameProbes(const LightProbes& actual, const LightProbes& expected) {
                 CHECK(std::bit_cast<std::uint32_t>(actual.probes[p].cube[face][channel])
                       == std::bit_cast<std::uint32_t>(expected.probes[p].cube[face][channel]));
     }
+    CHECK(actual.skySeen == expected.skySeen);
 }
 
 /// `read` refuses it with MalformedData, and `write` with InvalidArgument --
@@ -158,7 +162,7 @@ void refusedBothWays(const LightProbes& probes, std::string_view says) {
 TEST_CASE("the LPRB golden bytes decode to the probes they encode", "[ubundle][lprb]") {
     const auto result = read(fileWith({{"COLL", emptyColl()}, {"LPRB", lprbPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 29);
+    CHECK(result->header.formatVersion == 30);
     REQUIRE(result->collision.has_value());
     REQUIRE(result->lightProbes.has_value());
     sameProbes(*result->lightProbes, golden());
@@ -174,13 +178,13 @@ TEST_CASE("write emits LPRB after COLL as the golden bytes", "[ubundle][lprb]") 
     CHECK(*written == fileWith({{"COLL", emptyColl()}, {"LPRB", lprbPayload(golden())}}));
 }
 
-TEST_CASE("a probe is 84 bytes and an empty section 20", "[ubundle][lprb]") {
+TEST_CASE("a probe is 84 bytes and an empty section 24", "[ubundle][lprb]") {
     LightProbes empty;
     empty.spacing = 128;
     // UTA-0256 SS 4.2 added the added-lamp cubes' count, UTA-0338 SS 4.2 the
-    // sun visibilities'.
-    CHECK(lprbPayload(empty).size() == 20);
-    CHECK(lprbPayload(golden()).size() == 20 + 3 * 84);
+    // sun visibilities', UTA-0387 SS 4.2 the sky visibilities'.
+    CHECK(lprbPayload(empty).size() == 24);
+    CHECK(lprbPayload(golden()).size() == 24 + 3 * 84);
 
     Bundle bundle;
     bundle.header.origin = Origin::Authored;
@@ -244,4 +248,39 @@ TEST_CASE("an infinite cube value is refused", "[ubundle][lprb]") {
     LightProbes probes = golden();
     probes.probes[1].cube[5][1] = std::numeric_limits<float>::infinity();
     refusedBothWays(probes, "LPRB: probe 1's face 5 channel 1");
+}
+
+// UTA-0387 INV-1: the sky visibilities round-trip, and read and write each
+// refuse a count that is neither none nor one per probe, and a value outside
+// [0, 1].
+TEST_CASE("LPRB's sky visibilities round-trip", "[ubundle][lprb]") {
+    LightProbes probes = golden();
+    probes.skySeen = {0.0F, 0.375F, 1.0F};
+    const auto result = read(fileWith({{"LPRB", lprbPayload(probes)}}));
+    REQUIRE(result.has_value());
+    REQUIRE(result->lightProbes.has_value());
+    sameProbes(*result->lightProbes, probes);
+
+    Bundle bundle;
+    bundle.header.origin = Origin::Authored;
+    bundle.lightProbes = probes;
+    const auto written = write(bundle);
+    REQUIRE(written.has_value());
+    CHECK(*written == fileWith({{"LPRB", lprbPayload(probes)}}));
+}
+
+TEST_CASE("sky visibilities neither none nor one per probe are refused", "[ubundle][lprb]") {
+    LightProbes probes = golden();
+    probes.skySeen = {0.5F, 0.5F};
+    refusedBothWays(probes, "LPRB: 2 sky visibilities for 3 probes");
+}
+
+TEST_CASE("a sky visibility outside [0, 1] is refused", "[ubundle][lprb]") {
+    LightProbes probes = golden();
+    probes.skySeen = {0.5F, 1.25F, 0.5F};
+    refusedBothWays(probes, "LPRB: sky visibility 1 is outside [0, 1]");
+    probes.skySeen = {-0.25F, 0.5F, 0.5F};
+    refusedBothWays(probes, "LPRB: sky visibility 0 is outside [0, 1]");
+    probes.skySeen = {0.5F, 0.5F, std::numeric_limits<float>::quiet_NaN()};
+    refusedBothWays(probes, "LPRB: sky visibility 2 is outside [0, 1]");
 }

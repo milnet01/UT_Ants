@@ -85,7 +85,7 @@ Bytes geomPayload(const Geometry& geometry) {
 std::vector<std::byte> fileWith(const Bytes& payload) {
     Bytes out;
     out.id("UTAB");
-    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
+    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -191,7 +191,7 @@ TEST_CASE("the GEOM golden bytes decode to the geometry they encode", "[ubundle]
     // INV-1, the reader's half.
     const auto result = read(fileWith(geomPayload(golden())));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 29);
+    CHECK(result->header.formatVersion == 30);
     REQUIRE(result->geometry.has_value());
     sameBits(*result->geometry, golden());
 }
@@ -375,7 +375,7 @@ std::vector<std::byte> fileWithZones(const Bytes& geom, std::uint32_t count) {
     }
     Bytes out;
     out.id("UTAB");
-    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
+    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved

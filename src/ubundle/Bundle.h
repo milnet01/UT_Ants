@@ -73,7 +73,8 @@ namespace uta::ubundle {
 /// 27 since UTA-0350 SS 4.3 added PSKY.
 /// 28 since UTA-0349 added BAKR.
 /// 29 since UTA-0055 SS 4.4 gave each GEOM vertex its sway kind, weight and cell.
-inline constexpr std::uint32_t FORMAT_VERSION = 29;
+/// 30 since UTA-0387 SS 4.2 gave LPRB its sky visibility.
+inline constexpr std::uint32_t FORMAT_VERSION = 30;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -507,6 +508,9 @@ struct LightProbes {
     /// UTA-0338 SS 4.2: the share of the sun each probe sees, in [0, 1], one
     /// per probe in `probes`' order -- or none, exactly when SUN is absent.
     std::vector<float> sunSeen;
+    /// UTA-0387 SS 4.2: the share of directions in which each probe sees the
+    /// sky, in [0, 1], one per probe in `probes`' order -- or none.
+    std::vector<float> skySeen;
 };
 
 /// The most entries ZONE holds: umap::ZONE_CEILING, the engine's own ceiling on

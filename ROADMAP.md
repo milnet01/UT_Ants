@@ -17561,6 +17561,14 @@ stays with movement in 0.2.0.
   whether a froxel sees the sky; or it reads the outdoor zone's colour
   everywhere. Placed in 0.1.0 beside UTA-0344 (session's call): it
   undoes that item's below-deck darkness check.
+  Cause (2026-10-21): not the volumetric haze but UTA-0337 part 3's
+  horizon haze, which tested only the zone, and TheBoat is one zone.
+  Forcing it off in scene.frag left the hold dark. Contract:
+  docs/specs/UTA-0387-sky-seen-haze.md. Each probe now bakes the share of
+  its directions that meet the sky (LPRB skySeen, format 30, baker 62),
+  and the haze scales by it. The hold capture's mean went from (84.6,
+  78.9, 74.5) to (79.8, 72.1, 65.1), against (79.7, 72.0, 65.0) with the
+  haze off. Flip once a push carries it and GitHub's matrix is green.
   **Layman:** The mist that looks good outdoors also shows inside the ship, where it makes dark rooms glow as if lit.
   Kind: fix.
   Source: user-request-2026-10-19.
@@ -17633,6 +17641,10 @@ stays with movement in 0.2.0.
   TheBoat, where the user liked the haze (2026-10-19), before changing
   the blend or its scale.
   Scratch: ~/.cache/uta-scratch/u359 (nh-* haze off, high-* on).
+  Partly met by UTA-0387 (2026-10-21): the plain before the castle sees
+  less than half its directions as sky, so the castle is hazed less and
+  shows through; the 8 poses are 9 to 19 levels darker. Re-judge the
+  remaining wash on the castle and lava after that push.
   **Layman:** On the Fortress map the distance mist hides the castle and the lava at its foot, though they stand fairly near; the mist was meant to hide only the map's far edges.
   Kind: fix.
   Source: in-session-2026-10-21.

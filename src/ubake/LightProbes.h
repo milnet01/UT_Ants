@@ -134,6 +134,10 @@ inline constexpr double SUN_RADIUS = 0.035;
 /// sunSeen passes.
 [[nodiscard]] float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays);
 
+/// UTA-0387 SS 4.1: the share of directions() along which a probe at `p`
+/// sees the sky -- the share sunSeen passes.
+[[nodiscard]] float skySeenFrom(const Vec3& p, const SurfaceRays& rays);
+
 /// SS 4.7 step 5: the light of `lights` reaching `x`, facing `n`, each one
 /// ray-tested toward the point it is lit from -- a sun by sunSeen
 /// (UTA-0338 SS 4.4).

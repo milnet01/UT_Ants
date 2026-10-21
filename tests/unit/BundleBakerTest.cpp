@@ -53,7 +53,7 @@ std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, By
                                 std::uint32_t count) {
     Bytes out;
     out.id("UTAB");
-    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
+    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
     out.u8(0);   // origin: Derived
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

@@ -147,8 +147,8 @@ find, and it lights a ceiling.
 **`LPRB`** is the bytes `L`, `P`, `R`, `B`. Its payload is `spacing` as `u32`,
 then `vector<LightProbe>`. A `LightProbe` is `cell` as three `i32`, then `cube`
 as eighteen `f32`, face by face, red, green and blue within each face: 84
-bytes, fixed. UTA-0256 § 4.2 appends the added-lamp cubes, and UTA-0338
-§ 4.2 each probe's `sunSeen`.
+bytes, fixed. UTA-0256 § 4.2 appends the added-lamp cubes, UTA-0338
+§ 4.2 each probe's `sunSeen`, and UTA-0387 § 4.2 each probe's `skySeen`.
 
 **Validation**, `MalformedData` on `read` and `InvalidArgument` on `write`:
 

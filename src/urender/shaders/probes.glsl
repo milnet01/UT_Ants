@@ -89,11 +89,10 @@ vec3 indirectAround(ProbeLattice lattice, vec3 x) {
           + indirectAt(lattice, x, vec3(0.0, 0.0, 1.0)) + indirectAt(lattice, x, vec3(0.0, 0.0, -1.0))) / 6.0;
 }
 
-// UTA-0338 SS 4.5: the share of the sun seen at `x`, blended over the cell's
-// corners as indirectAt blends their light, from the first face's fourth
-// float. Zero with no corner present.
-float sunSeenAt(ProbeLattice lattice, vec3 x) {
-    if (lattice.count == 0u || lattice.spacing == 0u) return 0.0;
+// The fourth float of face `face`, blended over the cell's corners as
+// indirectAt blends their light; `none` with no corner present.
+float probeShareAt(ProbeLattice lattice, vec3 x, int face, float none) {
+    if (lattice.count == 0u || lattice.spacing == 0u) return none;
     vec3 cell = x / float(lattice.spacing);
     vec3 base = floor(cell);
     vec3 f = cell - base;
@@ -106,10 +105,23 @@ float sunSeenAt(ProbeLattice lattice, vec3 x) {
         if (probe < 0) continue;
         vec3 share = mix(1.0 - f, f, vec3(step));
         float weight = share.x * share.y * share.z;
-        sum += weight * probes[probe].faces[0].a;
+        sum += weight * probes[probe].faces[face].a;
         weights += weight;
     }
-    return weights > 0.0 ? sum / weights : 0.0;
+    return weights > 0.0 ? sum / weights : none;
+}
+
+// UTA-0338 SS 4.5: the share of the sun seen at `x`, from the first face's
+// fourth float. Zero with no corner present.
+float sunSeenAt(ProbeLattice lattice, vec3 x) {
+    return probeShareAt(lattice, x, 0, 0.0);
+}
+
+// UTA-0387 SS 4.3: the share of the sky seen at `x`, from the second face's.
+// One with no corner present: the probes stand near the play area, and past
+// them is the far scenery.
+float skyOpenAt(ProbeLattice lattice, vec3 x) {
+    return probeShareAt(lattice, x, 1, 1.0);
 }
 
 #endif

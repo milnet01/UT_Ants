@@ -62,6 +62,7 @@ Bytes emptyLprb() {
     out.u32(0); // no added-lamp cube -- UTA-0256 SS 4.2
     out.u32(0); // no switched-off cube -- UTA-0256 SS 4.7
     out.u32(0); // no sun visibility -- UTA-0338 SS 4.2
+    out.u32(0); // no sky visibility -- UTA-0387 SS 4.2
     return out;
 }
 
@@ -69,7 +70,7 @@ Bytes emptyLprb() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(29); // formatVersion -- 29 since UTA-0055 gave GEOM vertices their sway
+    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -133,7 +134,7 @@ void refusedBothWays(const std::vector<Zone>& zones, std::string_view says) {
 TEST_CASE("INV-1: the ZONE golden bytes decode to the entries they encode", "[ubundle][zone]") {
     const auto result = read(fileWith({{"ZONE", zonePayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 29);
+    CHECK(result->header.formatVersion == 30);
     REQUIRE(result->zones.has_value());
     sameZones(*result->zones, golden());
 }
