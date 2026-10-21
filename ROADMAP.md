@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=391 -->
+<!-- ants-roadmap-id-high-water: UTA=395 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16989,7 +16989,7 @@ stays with movement in 0.2.0.
   Lanes: ubake, urender.
   Evidence: /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/run1/, /mnt/Games/Scripts/Linux/UT_MonsterHunt/work/uta0356/client-run1.log, ~/.local/state/ut-ants/map-captures/reviewed/MH-(MHA)-TheFortress2012Final-BP-20261014-141253
 
-- 🚧 [UTA-0359] **MH-(MHA)-TheFortress2012Final-BP: the sand floor ripples with a bluish sheen, and the lava strip along the castle wall is missing.**
+- ✅ [UTA-0359] **MH-(MHA)-TheFortress2012Final-BP: the sand floor ripples with a bluish sheen, and the lava strip along the castle wall is missing.**
   Seen while checking UTA-0358's recipe at UT_MonsterHunt's 8 poses
   (original frames in UT_MonsterHunt work/uta0356/run1; ours in
   /mnt/Emulators/uta-scratch/u358/sheet0.png and sheet1.png: original,
@@ -17015,6 +17015,8 @@ stays with movement in 0.2.0.
   The lava strip draws now, in the original's shape; the outdoor haze
   washes it pale, filed as UTA-0391. Flip once a push carries the
   recipes and GitHub's matrix is green.
+  Shipped (2026-10-21): 03a1f09 carries both recipes; GitHub run
+  39671623895 green.
   **Layman:** On the Fortress map our sandy ground shimmers as if wet, and a thin line of lava at the foot of the castle wall does not show at all.
   Kind: investigate.
   Source: in-session-2026-10-15.
@@ -19489,6 +19491,70 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   Source: user-request-2026-10-16.
   Lanes: uworld, ubake.
   Blocked-by: UTA-0017, UTA-0341.
+
+- 📋 [UTA-0392] **ci: run the source-tree checks once, not again on the Windows leg.**
+  Measured in the push gate of 2026-10-21 (~/.cache/uta-scratch/push-0359.log),
+  Windows leg under Git Bash: "documentation: relative links resolve"
+  22 s and "every standard function has its header" 54 s, against 1 s
+  and 3 s on Linux. Both read the tree, not a build, and the Linux legs
+  run them on the same commit. scripts/std-includes.sh exists for an
+  MSVC-only failure, but it greps sources, so a Linux leg catches it.
+  Check GitHub's Windows leg times the same before and after. No
+  resource cost: it removes work.
+  Ruled out for UTA-0392..0395 (user, 2026-10-21: no flaky options, and
+  mind the machine's resources): running the Linux legs at once (the GCC
+  leg already times out under load), test retries, shorter test
+  timeouts, sharding or sampling the suite, and skipping the device
+  tier on any leg.
+  **Layman:** Some checks read the files and do not depend on the compiler; running them on Windows as well costs over a minute for nothing.
+  Kind: perf.
+  Source: user-request-2026-10-21.
+  Lanes: tools.
+
+- 📋 [UTA-0393] **ci: build the race detector's tree optimised rather than Debug.**
+  The race detector step (scripts/ci.sh) is the largest local cost:
+  141 s on the GCC leg and 91 s on Clang's, against 7 s and 6 s for the
+  main build (push gate, 2026-10-21). It configures
+  -DCMAKE_BUILD_TYPE=Debug. ThreadSanitizer's own guidance is -O1 or
+  more for speed. First split the step's time into configure, build
+  and test, then try RelWithDebInfo, and keep it only if the unit tier
+  stays clean and a known race (a hand mutant in the job system) is
+  still reported. Resources: ThreadSanitizer uses several times the
+  memory of a plain run; keep its ctest -j within free RAM (31 GB
+  machine, 14 GB free that day) so the memory guard kills nothing.
+  **Layman:** The thread-safety check is the slowest part of every local push; an optimised build of it should run its tests faster without checking less.
+  Kind: perf.
+  Source: user-request-2026-10-21.
+  Lanes: tools.
+
+- 📋 [UTA-0394] **ci: decide whether the race detector runs on both Linux compilers.**
+  It runs on GCC (141 s locally) and Clang (91 s), and on GitHub it
+  sits in the GCC leg, the run's slowest (474 s of run 39671623895,
+  against 260 s for Clang and 188 s for MSVC). Both instrument the same
+  source with the same runtime family, so a race one sees the other
+  should see. Investigate first: has either leg ever reported a race
+  the other missed (git log and the gate's history)? Then the user
+  decides; recommendation to put to them: keep Clang's, the faster,
+  and drop GCC's. A coverage call, not a flakiness risk.
+  **Layman:** The thread-safety check is built twice, once per Linux compiler; running it once would save minutes per push if it loses nothing.
+  Kind: investigate.
+  Source: user-request-2026-10-21.
+  Lanes: tools.
+
+- 📋 [UTA-0395] **Local gate: the compiler cache is full and hits under half the time.**
+  ccache -s (2026-10-21): 20.0 of 20.0 GB, 1303 cleanups, hits 39.54%
+  of 181101 cacheable calls. The gate builds three trees a leg (main,
+  race detector, docs) for two compilers, and a format change misses
+  all of them. Options, measured by the gate's hit rate and wall time
+  over two pushes: raise max_size (cache on /home, 47 GB free, 77%
+  used; keep 20 GB or more free for the rest of the machine), or give
+  the gate its own CCACHE_DIR so other projects stop evicting it. The
+  large drives (/mnt/Emulators, /mnt/Games) have terabytes free but are
+  likely spinning disks; time a build from there before moving it.
+  **Layman:** The cache that saves recompiling is too small for what is built here, so it throws away work the next push needs again.
+  Kind: perf.
+  Source: user-request-2026-10-21.
+  Lanes: tools.
 
 ## 0.3.0 — Monsters, bots and Deathmatch
 
