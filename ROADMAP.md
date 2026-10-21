@@ -16796,11 +16796,19 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-11.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0353] **Check what MH-UM-BasketBall's backdrop surfaces draw with no sky zone.**
+- 🚧 [UTA-0353] **Check what MH-UM-BasketBall's backdrop surfaces draw with no sky zone.**
   Found by UTA-0347's census (needs.jsonl, r52-f28): MH-UM-BasketBall
   has 5 PF_FakeBackdrop surfaces and no SkyZoneInfo. Nobody has checked
   what our renderer draws on them. The reverse case, DM-KILLBOXv2 (a
   SkyZoneInfo with no backdrop surface), draws no sky and needs nothing.
+  Ours, 2026-10-21 (baker r61, scratch ~/.cache/uta-scratch/u353):
+  the five surfaces are ceilings at z 3456 of five subtracted rooms
+  (Brush21/56/60/63/148), all wearing officwall. With no sky zone and
+  no painted sky, scene.frag's unlit branch draws them: flat, evenly
+  bright pale-green officwall, no lighting. Whether UT99 draws them the
+  same (own texture, lit or unlit) is unknown; asked UT_MonsterHunt for
+  captures at our four cameras (mailbox message 790).
+  Waiting-on: UT_MonsterHunt's captures of the original.
   **Layman:** One map has sky surfaces but no sky for them to show; check what the game draws there.
   Kind: investigate.
   Source: in-session-2026-10-12.
