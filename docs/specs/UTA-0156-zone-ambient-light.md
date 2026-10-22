@@ -153,7 +153,11 @@ result as `Bundle::zones`.
 **A level vertex's zone.** `buildGeometry` gains the zone count and gives every
 vertex of node `n` the value `n.iZone[1]` — the zone on the plane's front, the
 side the surface faces (`umap::RoomMap::Node`'s convention) — or `0` where that
-is not below the count.
+is not below the count. Where that is `0`, the bake's call takes the zone
+`ubundle::zoneAt` finds in front of the polygon's centroid instead (UTA-0390).
+It steps out along the normal 1, 2, 4 units and on to `ZONE_SEARCH_REACH`, and
+keeps the first zone found, else `0`. TheBoat's bow draws a node with zone `0`
+on both sides, which the outdoor haze then skipped.
 
 **A mover vertex's zone.** `bake`'s step 9 gives every vertex of a
 `MoverShape` the `zoneIndex` of the room `umap::roomAt` finds at its placed
@@ -424,7 +428,8 @@ this spec is amended first.
 - **Split `GEOM` batches by zone.** Lost: it breaks UTA-0109's batch order and
   multiplies draws.
 - **Descend from each polygon's centroid at bake.** Kept in reserve: a lookup
-  per node for what `iZone[1]` already states. § 7's probe decides.
+  per node for what `iZone[1]` already states. § 7's probe decides. UTA-0390
+  takes it for the nodes whose `iZone[1]` is `0` only.
 
 ## 9. Out of scope
 

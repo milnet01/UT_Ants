@@ -17609,7 +17609,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-19.
   Lanes: urender.
 
-- 📋 [UTA-0390] **urender: a triangle at TheBoat's bow corner is lit unlike the hull around it from a distance, and corrects up close.**
+- 🚧 [UTA-0390] **urender: a triangle at TheBoat's bow corner is lit unlike the hull around it from a distance, and corrects up close.**
   The user, 2026-10-19: "a triangle at the corner of the boat that
   isn't lit like the rest of the boat. It corrected as I got close but
   from a distance it doesn't show correctly. Could be because that part

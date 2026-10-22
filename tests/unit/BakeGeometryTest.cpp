@@ -36,6 +36,10 @@ using uta::ubake::PF_INVISIBLE;
 using uta::ubake::PF_MASKED;
 using uta::ubake::SurfaceMaterial;
 using uta::ubundle::Geometry;
+using uta::umap::INDEX_NONE;
+using uta::umap::NO_ROOM;
+using uta::umap::Point3;
+using uta::umap::RoomMap;
 using uta::upkg::ObjectReference;
 using uta::upkg::Vector3;
 
@@ -424,6 +428,69 @@ TEST_CASE("UTA-0156 INV-4: a node's vertices take the zone on its plane's front"
     REQUIRE(dropped.has_value());
     REQUIRE(dropped->vertices.size() == 8);
     for (const auto& vertex : dropped->vertices) CHECK(int(vertex.zone) == 0);
+}
+
+TEST_CASE("UTA-0390: an unzoned node takes the zone found in front of it", "[ubake][geom][zone]") {
+    // One plane at z = `depth`: zone 2 in front of it, the null zone behind,
+    // so a square at z = 0 faces a sliver of null zone `depth` units deep.
+    const auto sliver = [](float depth) {
+        RoomMap map;
+        RoomMap::Node node;
+        node.normal = Point3{0.0F, 0.0F, 1.0F};
+        node.w = depth;
+        node.iLeaf[1] = 0;
+        node.iLeaf[0] = 1;
+        map.nodes.push_back(node);
+        map.leafZone = {2, 0};
+        map.roomForZone = {NO_ROOM, NO_ROOM, 0};
+        map.rooms.resize(1);
+        map.rooms[0].zoneIndex = 2;
+        return map;
+    };
+    Scene scene;
+    scene.add(square(0));
+    scene.model.nodes[0].iZone = {0, 0};
+    // A node that names its front zone keeps it, whatever lies in front.
+    scene.add(square(0));
+    scene.model.nodes[1].iZone = {0, 3};
+    Stub stub;
+
+    const auto zonesOf = [&](const RoomMap* rooms) {
+        const auto geometry = buildGeometry(scene.model, stub.lookup(), 4, {}, nullptr, rooms);
+        REQUIRE(geometry.has_value());
+        REQUIRE(geometry->vertices.size() == 8);
+        std::vector<int> zones;
+        for (const auto& vertex : geometry->vertices) zones.push_back(int(vertex.zone));
+        return zones;
+    };
+    const RoomMap within = sliver(8);
+    CHECK(zonesOf(&within) == std::vector<int>{2, 2, 2, 2, 3, 3, 3, 3});
+    const RoomMap atReach = sliver(static_cast<float>(uta::ubake::ZONE_SEARCH_REACH));
+    CHECK(zonesOf(&atReach) == std::vector<int>{2, 2, 2, 2, 3, 3, 3, 3});
+    // Past the reach, and with no rooms at all, it stays unzoned.
+    const RoomMap beyond = sliver(static_cast<float>(uta::ubake::ZONE_SEARCH_REACH) + 1);
+    CHECK(zonesOf(&beyond) == std::vector<int>{0, 0, 0, 0, 3, 3, 3, 3});
+    CHECK(zonesOf(nullptr) == std::vector<int>{0, 0, 0, 0, 3, 3, 3, 3});
+
+    // Zone 4 lies past a second plane at z = 24, within the reach: the
+    // nearest zone in front is taken, not one further out.
+    RoomMap layered = sliver(8);
+    layered.nodes[0].iLeaf[1] = INDEX_NONE;
+    layered.nodes[0].iFront = 1;
+    RoomMap::Node wall;
+    wall.normal = Point3{0.0F, 0.0F, 1.0F};
+    wall.w = 24;
+    wall.iLeaf[1] = 2;
+    wall.iLeaf[0] = 0;
+    layered.nodes.push_back(wall);
+    layered.leafZone.push_back(4);
+    layered.roomForZone = {NO_ROOM, NO_ROOM, 0, NO_ROOM, 1};
+    layered.rooms.resize(2);
+    layered.rooms[1].zoneIndex = 4;
+    const auto geometry = buildGeometry(scene.model, stub.lookup(), 5, {}, nullptr, &layered);
+    REQUIRE(geometry.has_value());
+    REQUIRE(geometry->vertices.size() == 8);
+    for (std::size_t v = 0; v < 4; ++v) CHECK(int(geometry->vertices[v].zone) == 2);
 }
 
 TEST_CASE("UTA-0310: a sheet an invisible portal covers between two open zones is not drawn",

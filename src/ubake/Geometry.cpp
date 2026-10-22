@@ -261,7 +261,7 @@ struct Drawn {
 
 Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
                                         std::size_t zoneCount, std::span<const std::uint32_t> omitted,
-                                        SwayReport* sway) {
+                                        SwayReport* sway, const umap::RoomMap* rooms) {
     std::vector<Drawn> drawn;
     std::vector<SwayPolygon> swaying;
     std::uint64_t vertexTotal = 0;
@@ -350,7 +350,23 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         out.polyFlags = surf.polyFlags;
         out.corners.reserve(count);
         // UTA-0156 SS 4.3: the zone on the plane's front, the side the surface faces.
-        const auto zone = static_cast<std::uint8_t>(node.iZone[1] < zoneCount ? node.iZone[1] : 0);
+        auto zone = static_cast<std::uint8_t>(node.iZone[1] < zoneCount ? node.iZone[1] : 0);
+        const double alongLength = std::sqrt(dot(along, along));
+        // UTA-0390: an unzoned node is looked up in front of its centroid,
+        // stepping out until a step finds a zone.
+        if (zone == 0 && rooms != nullptr && alongLength > 0) {
+            Vec centroid{};
+            for (const Vec& point : points)
+                for (std::size_t k = 0; k < 3; ++k) centroid[k] += point[k] / static_cast<double>(count);
+            for (double step = 1; zone == 0 && step <= ZONE_SEARCH_REACH; step *= 2) {
+                const double reach = step / alongLength;
+                zone = ubundle::zoneAt(*rooms,
+                                       {static_cast<float>(centroid[0] + along[0] * reach),
+                                        static_cast<float>(centroid[1] + along[1] * reach),
+                                        static_cast<float>(centroid[2] + along[2] * reach)},
+                                       zoneCount);
+            }
+        }
         // UTA-0269: UT99 pans PAN_TEXELS_PER_SECOND, which in repeats a second
         // is that over the texture's size. UTA-0276: times the viewer's zone
         // speed, which the renderer applies.
@@ -366,7 +382,6 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
 
         // 7a. UTA-0055 SS 4.1: whether it sways.
         ubundle::SwayKind kind = ubundle::SwayKind::None;
-        const double alongLength = std::sqrt(dot(along, along));
         if (made != nullptr && made->cloth && (surf.polyFlags & (PF_TWO_SIDED | PF_NOT_SOLID)) != 0)
             kind = ubundle::SwayKind::Cloth;
         else if (made != nullptr && made->water && std::abs(along[2]) >= FACING_UP * alongLength)

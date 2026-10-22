@@ -152,13 +152,15 @@ double sumOf(const ubundle::LightProbe& probe) {
     return sum;
 }
 
-/// The written bytes of a bundle holding only `bundle`'s LITE, LAMP, GEOM and AOCC.
+/// The written bytes of a bundle holding only `bundle`'s LITE, LAMP, GEOM, AOCC
+/// and the ZONE that GEOM's zoned vertices need (UTA-0390).
 std::vector<std::byte> unsunned(const ubundle::Bundle& bundle) {
     ubundle::Bundle part;
     part.header = bundle.header;
     part.lights = bundle.lights;
     part.lamps = bundle.lamps;
     part.geometry = bundle.geometry;
+    part.zones = bundle.zones;
     part.occlusion = bundle.occlusion;
     auto written = ubundle::write(part);
     REQUIRE(written.has_value());

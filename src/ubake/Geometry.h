@@ -61,6 +61,10 @@ inline constexpr double PAN_TEXELS_PER_SECOND = 35.0;
 /// furthest real point is MH-SeriousSam-Dunes-T1's, near -1.65 million.
 inline constexpr double MAX_COORDINATE = 16777216.0;
 
+/// UTA-0390: how far in front of an unzoned node buildGeometry looks for its
+/// zone. The polygon on TheBoat's bow bends 18 units off its plane.
+inline constexpr double ZONE_SEARCH_REACH = 64.0;
+
 /// What a surface wears: a made material's id, and the texels one repeat of
 /// its texture spans on each axis.
 struct SurfaceMaterial {
@@ -86,6 +90,11 @@ using MaterialLookup =
 /// Every vertex of node n names zone `n.iZone[1]`, the zone its surface faces,
 /// or 0 where that is not below `zoneCount` -- UTA-0156 SS 4.3.
 ///
+/// UTA-0390: where that is 0 and `rooms` is given, the zone `ubundle::zoneAt`
+/// finds in front of the polygon's centroid instead, stepping out along the
+/// surface's normal 1, 2, 4 and on to ZONE_SEARCH_REACH units; still 0 where
+/// no step finds one. UT99 still draws such a node; TheBoat's bow has one.
+///
 /// UTA-0310 SS 4.3 step 3a: a node is not drawn when invisible zone portals
 /// in its coplanar chain (joined through `iPlane`) cover it, it lies on their
 /// plane, and both its zones are open. Measured in the original client.
@@ -107,6 +116,7 @@ using MaterialLookup =
                                                       const MaterialLookup& materials,
                                                       std::size_t zoneCount,
                                                       std::span<const std::uint32_t> omitted = {},
-                                                      SwayReport* sway = nullptr);
+                                                      SwayReport* sway = nullptr,
+                                                      const umap::RoomMap* rooms = nullptr);
 
 } // namespace uta::ubake

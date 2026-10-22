@@ -34,7 +34,7 @@ namespace uta::ubake {
 /// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
 /// tests/unit/BakeGoldenTest.cpp fails a change without a bump, and a bump
 /// without re-recording its golden hash (INV-5).
-inline constexpr std::uint32_t BAKER_REVISION = 62; // 62 since UTA-0387 bakes each probe's sky share
+inline constexpr std::uint32_t BAKER_REVISION = 63; // 63 since UTA-0390 zones an unzoned node from in front of it
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex

@@ -769,6 +769,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A corner of TheBoat's bow no longer stands out brown from a distance** (UTA-0390)
+  One small triangle at the bow was recorded in the map as belonging
+  to no area at all, so the distance mist skipped it while it greyed
+  the hull around it. The baker now finds such a surface's area by
+  looking just in front of it. Re-bake every map.
+
 - **The distance mist stays out of rooms the sky cannot reach** (UTA-0387)
   Inside TheBoat's hull the mist meant for the open air filled the
   holds and made them glow blue-white. Each map now records how much

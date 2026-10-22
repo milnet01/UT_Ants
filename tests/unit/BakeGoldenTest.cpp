@@ -154,9 +154,11 @@ namespace {
 // 62, format 30: UTA-0387 adds LPRB's sky visibility count. The fixture has
 // no sky, so its list is empty; the count, the format and BAKR's revision
 // moved it.
-constexpr std::uint32_t RECORDED_UNDER = 62;
+// 63: UTA-0390 zones an unzoned node from the room in front of it. Unchecked
+// whether the fixture has one; BAKR's revision moved it either way.
+constexpr std::uint32_t RECORDED_UNDER = 63;
 constexpr std::string_view GOLDEN =
-    "dbfe33eb9eea1b5a27e49de82423f56011bd1c2fcc6e53aab75d46ed9c521ddc";
+    "2f65510a1f298a86fdf5e04b19641bca9034681e8008f615911795489a77df1d";
 
 } // namespace
 
