@@ -17465,7 +17465,7 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: unav, upkg.
 
-- 🚧 [UTA-0380] **Map analyser: tell a sky room from a sky dome, from each sky zone's geometry.**
+- ✅ [UTA-0380] **Map analyser: tell a sky room from a sky dome, from each sky zone's geometry.**
   Left over from UTA-0347. Its census counts skyZones and backdrop
   surfaces, but cannot say whether a sky zone is a lit room (UTA-0345's
   case) or a dome. That needs each zone's surfaces from ut-dump, which
@@ -17485,6 +17485,7 @@ stays with movement in 0.2.0.
   they own. MH-Flies-BP, not in the census, reads as a lit 6-direction
   room. Output: ~/.cache/uta-scratch/u380/needs.jsonl. Test: DumpCliTest
   UTA-0380 case; three hand mutations killed. Flip after GitHub's matrix.
+  GitHub run 39789034562 green on a74ea74 (2026-10-22).
   **Layman:** The map checker learns to tell the two ways a map paints its sky apart, so the sky work knows which maps need which fix.
   Kind: feature.
   Source: in-session-2026-10-16 split-from-UTA-0347.
