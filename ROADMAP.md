@@ -17569,7 +17569,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-17.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0383] **MH-()mG-TheBoat-V2mini-BP's sand platform and sky draw washed out, nearly white.**
+- ✅ [UTA-0383] **MH-()mG-TheBoat-V2mini-BP's sand platform and sky draw washed out, nearly white.**
   Found 2026-10-17 while judging UTA-0337's haze. From capture
   reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945, a haze-off build
   draws the sand platform near white and the sky pale, where the
@@ -17588,6 +17588,8 @@ stays with movement in 0.2.0.
   revision 65. After it, indirect 0.33 against 0.40; below-deck views
   unchanged (mean 66.2, 44.9, 49.3 before; 66.2, 44.5, 49.0 after).
   Scratch: ~/.cache/uta-scratch/u383.
+  Shipped in 7bcfcae; GitHub's matrix green (Clang leg re-run after a
+  28-minute toolchain install timed it out).
   **Layman:** On the boat map the sand and sky look bleached compared with the original game.
   Kind: investigate.
   Source: in-session-2026-10-17.
@@ -17639,7 +17641,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-165909Z/frame.png
 
-- 📋 [UTA-0388] **urender: TheBoat's sun draws as a faint glow behind the clouds, with no disc.**
+- ✅ [UTA-0388] **urender: TheBoat's sun draws as a faint glow behind the clouds, with no disc.**
   The user, 2026-10-19: "There is no sun in the sky." Checked: a
   shot from the deck (-5581 -10869 -19591) facing the recipe's sun
   (yaw 40960, pitch 9102) shows only a faint pale glow behind a
@@ -17649,6 +17651,12 @@ stays with movement in 0.2.0.
   whether its size or brightness is too small, or whether the opened
   sky box (UTA-0350) draws over it. Placed in 0.1.0 (session's
   call): UTA-0346 promised a sun on this map.
+  Cause found 2026-10-22: UTA-0383's. The over-bright painted sky
+  drew the cloud round the sun pure white, so the white disc
+  vanished into it. At 7bcfcae the cloud draws grey and the disc
+  shows. Scratch: ~/.cache/uta-scratch/u388/before.png (old),
+  a.png (left, now).
+  Shipped in 7bcfcae with UTA-0383's fix; GitHub's matrix green.
   **Layman:** The boat map has a sun lighting it, but you cannot see the sun itself in the sky.
   Kind: investigate.
   Source: user-request-2026-10-19.
@@ -17664,6 +17672,11 @@ stays with movement in 0.2.0.
   or the cloud layer meets the walls at a visible seam. Compare a shot
   moved sideways with one turned only. Placed in 0.1.0 (session's
   call); a replacement sky remains UTA-0282, in 0.2.0.
+  Checked 2026-10-22 at 7bcfcae: not parallax. Two shots 2000
+  units apart facing the same way differ by RMSE 0.0001. A wide
+  view shows the sea ending in a straight edge, with a flat pale
+  wall from there down to the horizon; the clouds are flat
+  single-tone cut-outs. Scratch: ~/.cache/uta-scratch/u388/b.png.
   **Layman:** The new sky on the boat map looks good, but it still looks painted on walls around the map instead of far away.
   Kind: investigate.
   Source: user-request-2026-10-19.
