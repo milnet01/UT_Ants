@@ -17551,7 +17551,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-17.
   Lanes: ut-ants.
 
-- 📋 [UTA-0387] **urender: TheBoat's haze fills the closed decks inside the ship and lights them up.**
+- ✅ [UTA-0387] **urender: TheBoat's haze fills the closed decks inside the ship and lights them up.**
   The user, 2026-10-19: "The haze is awesome but it should only show
   where applicable. Inside the ship the haze shows which in turn lights
   up the area which is not accurate to how light works." Capture
@@ -17571,6 +17571,8 @@ stays with movement in 0.2.0.
   and the haze scales by it. The hold capture's mean went from (84.6,
   78.9, 74.5) to (79.8, 72.1, 65.1), against (79.7, 72.0, 65.0) with the
   haze off. Flip once a push carries it and GitHub's matrix is green.
+  Shipped in c80d41d; GitHub matrix run 39676489818 green (GCC, Clang,
+  MSVC).
   **Layman:** The mist that looks good outdoors also shows inside the ship, where it makes dark rooms glow as if lit.
   Kind: fix.
   Source: user-request-2026-10-19.
