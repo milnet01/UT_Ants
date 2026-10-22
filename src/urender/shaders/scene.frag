@@ -563,9 +563,12 @@ void main() {
         // UTA-0338 SS 4.5: a fragment the mask does not light -- a mover, an
         // actor -- takes the sun through the probes' view of it, read where the
         // probes are. It has no cluster and no shadow map.
+        // UTA-0382: the sky room takes it whole, as UTA-0345 takes its lights
+        // without shadow. A closed room hid the sun from its probes, and a
+        // night map's moon left its scenery black.
         if (!charted && frame.sun != NONE)
-            direct += (skyFlat ? lightThrough(lights[frame.sun], worldPosition) : lightAt(lights[frame.sun], worldPosition, n))
-                      * sunSeenAt(lattice, probePoint);
+            direct += skyFlat ? lightThrough(lights[frame.sun], worldPosition)
+                              : lightAt(lights[frame.sun], worldPosition, n) * sunSeenAt(lattice, probePoint);
         // UTA-0292 withdrew UTA-0156 SS 4.4's zone ambient: against exact light
         // it added up to 1.6 times the true light. Bounce and sky light, in the
         // probes, take its place (UTA-0112 SS 4.12).

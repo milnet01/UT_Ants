@@ -1,0 +1,18 @@
+ut-ants recipe 3
+# MH-(_@_)_Aliens_Xmas_Beta1SP's moon -- UTA-0382.
+# The original lit most of this snow map by zone ambient alone: of the
+# surfaces with a light map, about a third are reached by a light. Zone
+# ambient stays withdrawn (UTA-0292), so those areas drew black. Its sky is
+# night, with no moon painted on it, so the yaw is a pick. The user chose a
+# moon, 2026-10-22: a pale blue [sun].
+
+[map]
+file = mh-(_@_)_aliens_xmas_beta1sp
+sha256 = c473c0b1428fd4bbb8fcc70a6f9515b84caacea46a4060329dc02a95388cb84b
+
+[sun]
+yaw = 40960
+pitch = 11000
+hue = 160
+saturation = 210
+brightness = 96

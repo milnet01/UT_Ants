@@ -17521,7 +17521,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Deck16][-20261017-062428Z
 
-- 📋 [UTA-0382] **MH-(_@_)_Aliens_Xmas_Beta1SP renders all black from its reviewed capture camera.**
+- 🚧 [UTA-0382] **MH-(_@_)_Aliens_Xmas_Beta1SP renders all black from its reviewed capture camera.**
   Found 2026-10-17 while judging UTA-0337's haze. Baker r59 bake, ut-shot
   --from-capture reviewed/MH-(_@_)_Aliens_Xmas_Beta1SP-20261006-113408:
   every pixel 0, sky included, with or without the haze. The original's
@@ -17542,6 +17542,26 @@ stays with movement in 0.2.0.
   r42 (zone ambient applied then, now lost?); check whether ambient 32
   reaches the probes and the surface shader on this map; compare the
   original's light source for the area.
+  Located (2026-10-22): not a regression. ut-dump --lighting on the
+  map: 2159 surfaces carry a light map, only 664 are reached by any
+  light actor; the rest were lit in the original only by zone ambient
+  32 (every ZONE record, saturation 255, so white). 75c26a2 (UTA-0292)
+  withdrew zone ambient from scene.frag on purpose, so the capture's
+  area gets no light. r42 predates it. map-analyser.py: night sky
+  (luma 20), one sky zone, kind room, 54 backdrop surfaces, 20 lights,
+  no sun, no recipe. Same class as TheBoat (UTA-0350). The fix is a
+  lighting choice, put to the user.
+  Fixed (2026-10-22), user's choice that day: a moon. The map's recipe
+  gains a pale blue [sun] (hue 160, saturation 210, brightness 96).
+  That lit the near snow, but the sky room (peaks, mist, far snow)
+  stayed black: scene.frag took the sun there through sunSeenAt, and a
+  closed sky room's probes see none. The sky room now takes the sun
+  whole, as UTA-0345 takes its lights; UTA-0338 SS 4.5 says so. At the
+  capture pose: mean grey 165 (r42's frame 190), snow, mist and peaks
+  under a black sky. Test: RenderSunTest's UTA-0382 case, red on the
+  old shader, green on the new (lavapipe). The disc case's far-from-sun
+  check read pixel (2,2), which shows no sky room and is always 0; it
+  now reads column 20 over a black room. Flip after GitHub's matrix.
   **Layman:** One snowy outdoor map draws as a black screen from where a player stood; it should show snow, mist and mountains.
   Kind: investigate.
   Source: in-session-2026-10-17.

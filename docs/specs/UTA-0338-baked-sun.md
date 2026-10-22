@@ -151,7 +151,8 @@ lit from it.
 - **Other fragments** — movers, actors, flames lit by lights — take the
   sun's `lightAt` times `sunSeen` interpolated from the probe lattice at the
   point the probes are sampled. The sun is in no cluster and gets no shadow
-  map.
+  map. **The sky room** takes it whole, as it takes its lights without
+  shadow (UTA-0345): a closed one hides the sun from its probes (UTA-0382).
 - **Probes' view.** Each probe's `sunSeen` rides in its first face's spare
   fourth float, and `shapeOf` samples it.
 - **The disc.** The frame block gains the sun's index into the light list,

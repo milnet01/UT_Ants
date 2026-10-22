@@ -35,6 +35,10 @@ constexpr std::uint16_t CHART_SIZE = 12;
 /// RenderLampsTest's HOLDER_COLUMN puts y = 50.
 constexpr std::uint32_t LEFT_COLUMN = 67;
 constexpr std::uint32_t RIGHT_COLUMN = 93;
+/// A column of skyWindow's view the sun's disc and halo barely reach (a sum
+/// of 3 over a black room), inside the window: the frame's edge columns
+/// show no sky room at all.
+constexpr std::uint32_t FAR_FROM_SUN = 20;
 
 Config linearFrame() {
     Config config;
@@ -109,15 +113,15 @@ uta::ubundle::Bundle twoMovers(bool sun) {
 }
 
 /// A sky window filling the view, the sky zone's view at x = 10000 seeing a
-/// dark square -- UTA-0281's setup. With `sun`, a sun stands just above the
-/// view's centre.
-uta::ubundle::Bundle skyWindow(bool sun) {
+/// square of `room` -- UTA-0281's setup. With `sun`, a sun stands just above
+/// the view's centre, and the probes see none of it, as in a closed sky room.
+uta::ubundle::Bundle skyWindow(bool sun, Rgba room = Rgba{21, 21, 21, 255}) {
     uta::ubundle::Geometry geometry;
     addSquare(geometry, 100, 0, 0, 200, "window", PF_FAKE_BACKDROP);
     addSquare(geometry, 10100, 0, 0, 3000, "cloud", 0);
     uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
     addSolidMaterial(bundle, "window", GREY);
-    addSolidMaterial(bundle, "cloud", Rgba{21, 21, 21, 255});
+    addSolidMaterial(bundle, "cloud", room);
     addEvenProbes(bundle, {10000, -128, -64}, {10128, 128, 64}, 0.05f);
     uta::ubundle::Placements placements;
     placements.classes = {{.path = "engine.skyzoneinfo", .ancestry = {"engine.zoneinfo", "engine.info"}}};
@@ -179,18 +183,32 @@ TEST_CASE("UTA-0338 INV-8: a still mover takes the sun its probes see", "[device
 }
 
 TEST_CASE("UTA-0338 INV-8: the sky shows the sun's disc where it stands", "[device]") {
+    // A black sky room, which the sun's light cannot brighten (UTA-0382), so
+    // away from the sun only a disc the captured cube took could change it.
     Renderer renderer = requireRenderer(linearFrame());
-    const std::vector<std::byte> sunny = frameOf(renderer, skyWindow(true));
-    const std::vector<std::byte> plain = frameOf(renderer, skyWindow(false));
+    constexpr Rgba BLACK{0, 0, 0, 254}; // bc7Solid wants one parity across the channels
+    const std::vector<std::byte> sunny = frameOf(renderer, skyWindow(true, BLACK));
+    const std::vector<std::byte> plain = frameOf(renderer, skyWindow(false, BLACK));
     const Rgba disc = pixelAt(sunny, WIDTH, WIDTH / 2, HEIGHT / 2);
     const Rgba skyThere = pixelAt(plain, WIDTH, WIDTH / 2, HEIGHT / 2);
     CAPTURE(disc, skyThere);
     CHECK(sum(disc) > sum(skyThere) + 200);
     // Far from the sun the sky is the map's own; the captured cube took no disc.
-    const Rgba corner = pixelAt(sunny, WIDTH, 2, 2);
-    const Rgba cornerPlain = pixelAt(plain, WIDTH, 2, 2);
-    CAPTURE(corner, cornerPlain);
-    CHECK(std::abs(sum(corner) - sum(cornerPlain)) <= 6);
+    const Rgba far = pixelAt(sunny, WIDTH, FAR_FROM_SUN, HEIGHT / 2);
+    const Rgba farPlain = pixelAt(plain, WIDTH, FAR_FROM_SUN, HEIGHT / 2);
+    CAPTURE(far, farPlain);
+    CHECK(std::abs(sum(far) - sum(farPlain)) <= 6);
+}
+
+TEST_CASE("UTA-0382: the sun lights a sky room its probes do not see it in", "[device]") {
+    // A sky room is the map's distant scenery, lit evenly (UTA-0345); a closed
+    // one hides the sun from its probes, and a night map's moon left it black.
+    Renderer renderer = requireRenderer(linearFrame());
+    const Rgba sunny = pixelAt(frameOf(renderer, skyWindow(true, GREY)), WIDTH, FAR_FROM_SUN, HEIGHT / 2);
+    const Rgba plain = pixelAt(frameOf(renderer, skyWindow(false, GREY)), WIDTH, FAR_FROM_SUN, HEIGHT / 2);
+    CAPTURE(sunny, plain);
+    REQUIRE(sum(plain) > 0); // the column shows the sky room
+    CHECK(sum(sunny) > sum(plain) + 30);
 }
 
 /// UTA-0350 SS 4.4: a painted sky whose horizon is red and top blue, with no
