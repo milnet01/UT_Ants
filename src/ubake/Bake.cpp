@@ -1356,11 +1356,16 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     if (const auto view = ubundle::skyViewOf(actors.placements))
         sky = Vec3{view->location[0], view->location[1], view->location[2]};
     // UTA-0350 SS 4.3: the recipe's painted sky, linear, its cover a share.
+    // UTA-0383: stored as a picture is, so the screen's exposure shows the
+    // recipe's colours; stored as shown, it drew near white and lit the map
+    // five times over.
     std::optional<ubundle::PaintedSky> painted;
     if (recipe != nullptr && recipe->sky) {
         const auto linear = [](const std::array<std::uint8_t, 3>& srgb) {
-            return std::array<float, 3>{static_cast<float>(linearOf(srgb[0])), static_cast<float>(linearOf(srgb[1])),
-                                        static_cast<float>(linearOf(srgb[2]))};
+            std::array<float, 3> out{};
+            for (std::size_t c = 0; c < 3; ++c)
+                out[c] = static_cast<float>(linearOf(srgb[c]) / ubundle::PAINTED_SKY_EXPOSURE);
+            return out;
         };
         painted = ubundle::PaintedSky{.top = linear(recipe->sky->top),
                                       .horizon = linear(recipe->sky->horizon),

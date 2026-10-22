@@ -39,6 +39,8 @@
 #include "urender/Tiers.h"
 #include "urender/Zones.h"
 
+#include "ubundle/Sky.h"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -114,6 +116,8 @@ constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
 /// other device test sets linearOutput and reads back before the post chain, so
 /// until then nothing in the tier graded this constant at all.
 constexpr float EXPOSURE = 5.03f;
+// UTA-0383: the bake stores a painted sky dimmed by this, so the two move together.
+static_assert(EXPOSURE == ubundle::PAINTED_SKY_EXPOSURE);
 
 /// UTA-0053's emissive bloom, as LearnOpenGL's physically based bloom builds it
 /// (learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom, after Jimenez's

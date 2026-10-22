@@ -11,9 +11,11 @@
 #include "core/Jobs.h"
 #include "ubake/Bake.h"
 #include "ubundle/Bundle.h"
+#include "ubundle/Sky.h"
 #include "upkg/Package.h"
 #include "urecipe/Recipe.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -167,6 +169,9 @@ TEST_CASE("UTA-0350 INV-4: the named texture's surfaces become sky and no others
     // The recipe's defaults, linear: #3a78c8 overhead, and 20 per cent cloud.
     CHECK(painted.bundle.paintedSky->top[2] > painted.bundle.paintedSky->top[0]);
     CHECK(painted.bundle.paintedSky->top[2] < 1.0f);
+    // UTA-0383: stored as a picture is, dimmed by the screen's exposure --
+    // #c8 is 0.578 linear.
+    CHECK(painted.bundle.paintedSky->top[2] == Catch::Approx(0.578 / ubundle::PAINTED_SKY_EXPOSURE).epsilon(0.002));
     CHECK(painted.bundle.paintedSky->clouds == 0.2f);
     CHECK(painted.bundle.paintedSky->hazeStart == 0.1f);
 

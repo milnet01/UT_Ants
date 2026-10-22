@@ -27,9 +27,15 @@ struct SkyView {
 [[nodiscard]] std::optional<SkyView> skyViewOf(const Placements& placements);
 [[nodiscard]] std::optional<SkyView> skyViewOf(const Bundle& bundle);
 
-/// A painted sky's clouds, in each linear channel -- UTA-0350 SS 4.3. The
-/// renderer draws with the same value (SS 4.4).
-inline constexpr float PAINTED_SKY_CLOUD = 0.85f;
+/// UTA-0383: a recipe gives its sky's colours as the screen shows them, but a
+/// map's pictures are stored darker and the screen multiplies them by its
+/// exposure. The bake divides by this to store the sky as a picture is stored.
+/// urender's EXPOSURE, which Frame.cpp asserts it equals.
+inline constexpr float PAINTED_SKY_EXPOSURE = 5.03f;
+
+/// A painted sky's clouds, in each linear channel, as a picture is stored --
+/// UTA-0350 SS 4.3. The renderer draws with the same value (SS 4.4).
+inline constexpr float PAINTED_SKY_CLOUD = 0.85f / PAINTED_SKY_EXPOSURE;
 
 /// The painted sky's light from direction `d` (unit, z up): the gradient,
 /// clouds blended in at their cover where they show -- UTA-0350 SS 4.3. The

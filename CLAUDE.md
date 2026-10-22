@@ -8,8 +8,8 @@
 open fix-kind or review-sourced item, oldest first; then 0.1.0. Parked fix
 item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
 `UTA-0100` defer themselves. Then the rest of 0.1.0 (`UTA-0204`):
-`UTA-0353`, `UTA-0382`, `UTA-0383`, `UTA-0388`,
-`UTA-0389`, `UTA-0396`, `UTA-0397`.
+`UTA-0353`, `UTA-0383`, `UTA-0388`,
+`UTA-0389`, `UTA-0396`, `UTA-0397`, `UTA-0398`.
 `UTA-0283` waits on UT_MonsterHunt.
 After 0.1.0: glass (`UTA-0272`), see-through water (`UTA-0273`),
 vegetation (`UTA-0293`).
@@ -41,7 +41,7 @@ deferred out of that cut.
 ### Standing facts
 
 **A bake goes stale when the baker or the format moves.** Bundles are
-format 31 (`UTA-0391`); the baker is revision 64 (`UTA-0391`). Re-bake any
+format 31 (`UTA-0391`); the baker is revision 65 (`UTA-0383`). Re-bake any
 map baked before either.
 
 **The renderer's first iteration uses the cheapest methods that still look

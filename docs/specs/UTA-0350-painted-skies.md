@@ -140,6 +140,13 @@ std::optional<PaintedSky> Bundle::paintedSky;
 Bytes: the seven `f32` in that order. `read` refuses a component outside
 `[0, 1]` or not finite.
 
+**Amended by `UTA-0383`.** The bake stores `top` and `horizon` as a map's
+pictures are stored: the recipe's colour, linear, divided by
+`PAINTED_SKY_EXPOSURE` (`ubundle/Sky.h`), which equals urender's `EXPOSURE`.
+The screen's exposure then shows the recipe's colours. `CLOUD` is `0.85` over
+it too. Stored as shown, the sky drew near white and lit the map five times
+too strongly.
+
 Format 31 (UTA-0391) adds an eighth `f32`, `hazeStart`: the recipe's `haze`
 over 100, in `[0.1, 0.9]`, which `read` and `write` both check.
 

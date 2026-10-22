@@ -158,9 +158,11 @@ namespace {
 // whether the fixture has one; BAKR's revision moved it either way.
 // 64, format 31: UTA-0391 gives PSKY its haze start. The fixture has no
 // painted sky, so the format and BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 64;
+// 65: UTA-0383 stores PSKY dimmed by the screen's exposure. The fixture has
+// no painted sky, so BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 65;
 constexpr std::string_view GOLDEN =
-    "fb446ccb7feec12b99f13c6072b733c5e9e297411d8d9aa022e267a041cb7538";
+    "c1785eed9a76c2a2b27a9796325d0f49b814d3c54c477e4bd74e2994e92a89ed";
 
 } // namespace
 

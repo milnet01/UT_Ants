@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=397 -->
+<!-- ants-roadmap-id-high-water: UTA=398 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17521,7 +17521,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/DM-Deck16][-20261017-062428Z
 
-- 🚧 [UTA-0382] **MH-(_@_)_Aliens_Xmas_Beta1SP renders all black from its reviewed capture camera.**
+- ✅ [UTA-0382] **MH-(_@_)_Aliens_Xmas_Beta1SP renders all black from its reviewed capture camera.**
   Found 2026-10-17 while judging UTA-0337's haze. Baker r59 bake, ut-shot
   --from-capture reviewed/MH-(_@_)_Aliens_Xmas_Beta1SP-20261006-113408:
   every pixel 0, sky included, with or without the haze. The original's
@@ -17562,12 +17562,14 @@ stays with movement in 0.2.0.
   old shader, green on the new (lavapipe). The disc case's far-from-sun
   check read pixel (2,2), which shows no sky room and is always 0; it
   now reads column 20 over a black room. Flip after GitHub's matrix.
+  Shipped 2026-10-22: GitHub run 39799603127 on 518eec6 green on all
+  three legs.
   **Layman:** One snowy outdoor map draws as a black screen from where a player stood; it should show snow, mist and mountains.
   Kind: investigate.
   Source: in-session-2026-10-17.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0383] **MH-()mG-TheBoat-V2mini-BP's sand platform and sky draw washed out, nearly white.**
+- 🚧 [UTA-0383] **MH-()mG-TheBoat-V2mini-BP's sand platform and sky draw washed out, nearly white.**
   Found 2026-10-17 while judging UTA-0337's haze. From capture
   reviewed/MH-()mG-TheBoat-V2mini-BP-20261007-131945, a haze-off build
   draws the sand platform near white and the sky pale, where the
@@ -17577,6 +17579,15 @@ stays with movement in 0.2.0.
   Again (user, 2026-10-19): "The starting platform is rather bright
   now, overly so." Capture reviewed/MH-()mG-TheBoat-V2mini-BP-
   20261019-165948Z shows the sand platform near white beside the hull.
+  Cause (2026-10-22): the recipe's painted-sky colours are display
+  colours, but the bake stored them as a picture's, which the screen
+  multiplies by EXPOSURE 5.03 and the probes by REFLECTANCE_SCALE 4. On
+  the 2026-10-19 capture's view the sand's indirect light was 1.56
+  against the sun's 0.40. Fix: the bake divides by
+  ubundle::PAINTED_SKY_EXPOSURE (asserted equal to EXPOSURE); baker
+  revision 65. After it, indirect 0.33 against 0.40; below-deck views
+  unchanged (mean 66.2, 44.9, 49.3 before; 66.2, 44.5, 49.0 after).
+  Scratch: ~/.cache/uta-scratch/u383.
   **Layman:** On the boat map the sand and sky look bleached compared with the original game.
   Kind: investigate.
   Source: in-session-2026-10-17.
@@ -17758,6 +17769,19 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-22.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-BP-20261022-131353Z
+
+- 📋 [UTA-0398] **MH-(MHA)-TheFortress2012Final-BP: recheck its daylight now its painted sky no longer over-lights it.**
+  UTA-0383 stores a painted sky at a fifth of its old strength, so it
+  stops lighting a map five times over. UTA-0358's sun and sky were
+  judged on the old strength. On the three 2026-10-14 capture views
+  the frame mean fell from 104.6, 110.2 and 120.7 to 72.7, 77.1 and
+  86.1. Recheck against the original; the recipe's sun brightness
+  is the likely lever. Scratch: ~/.cache/uta-scratch/u383/fort-ab.png
+  (top before, bottom after).
+  **Layman:** A fix to how bright painted skies are made the fortress map darker, so its daylight needs checking against the original again.
+  Kind: investigate.
+  Source: in-session-2026-10-22.
+  Lanes: ubake, urender.
 
 ## 0.2.0 — Movement and weapons
 

@@ -10,8 +10,8 @@
 #ifndef UTA_SKY_GLSL
 #define UTA_SKY_GLSL
 
-// ubundle::PAINTED_SKY_CLOUD.
-const float PAINTED_SKY_CLOUD = 0.85;
+// ubundle::PAINTED_SKY_CLOUD, over ubundle::PAINTED_SKY_EXPOSURE.
+const float PAINTED_SKY_CLOUD = 0.85 / 5.03;
 
 vec3 paintedSkyGradient(vec3 top, vec3 horizon, vec3 d) {
     return mix(horizon, top, sqrt(clamp(d.z, 0.0, 1.0)));
