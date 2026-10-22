@@ -17527,6 +17527,20 @@ stays with movement in 0.2.0.
   frame there shows lit snow, white mist and peaks. The bake's probes
   report meanLuma 7e-5, 147612 of 157461 dark. A camera near light 4
   (26953 6108 300) renders. Scratch: ~/.cache/uta-scratch/u337/al-*.
+  Progress (2026-10-22), r64 / format 31 bake in
+  ~/.cache/uta-scratch/u382 (no recipe): still every pixel 0 at the
+  capture pose, also with --linear, --no-probes and --tier low, and
+  with the camera moved 200 units each way or turned. --light-terms
+  there: direct 0 everywhere, indirect at most 1.2e-7. So no light
+  reaches the area, not an exposure or tone-map fault. Near light 4
+  (26953 6108 300) the map draws: snow, trees, the light's pool. The
+  bundle's seven ZONE records all read ambient 32, hue 0, saturation
+  255, fog 0, water 0, no view fog or flash. Yet the capture's own
+  frame (viewer r42, format 22) drew this view with lit snow, white
+  mist and brown peaks under a black sky. Next: find what lit it at
+  r42 (zone ambient applied then, now lost?); check whether ambient 32
+  reaches the probes and the surface shader on this map; compare the
+  original's light source for the area.
   **Layman:** One snowy outdoor map draws as a black screen from where a player stood; it should show snow, mist and mountains.
   Kind: investigate.
   Source: in-session-2026-10-17.
