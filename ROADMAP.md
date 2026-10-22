@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=395 -->
+<!-- ants-roadmap-id-high-water: UTA=397 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17465,12 +17465,26 @@ stays with movement in 0.2.0.
   Source: review-code-2026-10-15.
   Lanes: unav, upkg.
 
-- 📋 [UTA-0380] **Map analyser: tell a sky room from a sky dome, from each sky zone's geometry.**
+- 🚧 [UTA-0380] **Map analyser: tell a sky room from a sky dome, from each sky zone's geometry.**
   Left over from UTA-0347. Its census counts skyZones and backdrop
   surfaces, but cannot say whether a sky zone is a lit room (UTA-0345's
   case) or a dome. That needs each zone's surfaces from ut-dump, which
   it does not give per zone yet. Add it to ut-dump, then to
   scripts/map-analyser.py's `needs`, and re-run the census.
+  Done (2026-10-22): ut-dump --surface-list gives each surface's
+  `zones` (its drawn nodes' iZone[1]) and `surfaces.zones`, each zone's
+  actor. map-analyser.py version 3 adds needs.skyKinds: per sky zone,
+  its solid shell (not invisible, masked, translucent or modulated),
+  the shell's distinct normals, and its faces without PF_Unlit. Room
+  at 8 directions or fewer, dome at 24 or more, faceted between (mostly
+  8- and 12-sided cylinders, 10 and 14 directions). Census re-run on
+  UTA-0347's 586 r53 bakes, --no-sky, 0 errors: 476 sky zones in 441
+  maps (as UTA-0347's count); 349 rooms, 81 faceted, 46 domes; maps
+  with each: 323, 78, 46. 300 rooms in 282 maps have lit shell faces,
+  UTA-0345's case. Five maps hold more SkyZoneInfo actors than zones
+  they own. MH-Flies-BP, not in the census, reads as a lit 6-direction
+  room. Output: ~/.cache/uta-scratch/u380/needs.jsonl. Test: DumpCliTest
+  UTA-0380 case; three hand mutations killed. Flip after GitHub's matrix.
   **Layman:** The map checker learns to tell the two ways a map paints its sky apart, so the sky work knows which maps need which fix.
   Kind: feature.
   Source: in-session-2026-10-16 split-from-UTA-0347.
@@ -17672,6 +17686,43 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-21.
   Lanes: urender.
   Evidence: ~/.cache/uta-scratch/u359/nh.png, ~/.cache/uta-scratch/u359/lava-full.png
+
+- 📋 [UTA-0396] **urender: a small dark triangle pokes up through TheBoat's open water.**
+  The user, 2026-10-22, F12 capture MH-()mG-TheBoat-V2mini-BP-
+  20261022-131311Z (camera -5750 -9176 -23151, pitch -7688, yaw
+  -3812; baker r64, format 31, tier ultra): "a black triangle in the
+  water that I don't think should be there." It is textured like
+  stone or wood, not black, and sits alone in open sea, mid-frame.
+  Not yet checked. Causes to test: a submerged brush's corner or a
+  BSP sliver the original hides under its opaque water; a surface
+  in the water zone that UT99 draws invisible; a stray triangle of
+  the opened sky box (UTA-0350). Check the original at the same
+  pose, then ut-dump --surface-list for surfaces near that point.
+  Placed in 0.1.0 (session's call): TheBoat is the map the user is
+  reviewing for this release, beside UTA-0383, UTA-0388, UTA-0389.
+  **Layman:** On the boat map a small dark triangle sticks up out of the sea where there should only be water.
+  Kind: investigate.
+  Source: user-request-2026-10-22.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-BP-20261022-131311Z
+
+- 📋 [UTA-0397] **urender: light leaks into a dark low space on TheBoat, onto the sand floor.**
+  The user, 2026-10-22, F12 capture MH-()mG-TheBoat-V2mini-BP-
+  20261022-131353Z (camera 281 278 -24434, pitch 672, yaw 21090;
+  baker r64, format 31, tier ultra): "light leak in this section
+  (great work on the lighting inside the ship though)." A low dark
+  space, ceiling textured like the water's underside; a bright
+  speckled patch on the floor at the bottom centre. Not yet checked.
+  Causes to test: the sun's shadow map missing a thin floor or wall
+  above (peter-panning or depth bias), so sunlight lands below it; a
+  light's radius reaching through a wall with no shadow; a bounce
+  probe placed outside the room. Split by --light-terms at the
+  capture pose. Placed in 0.1.0 beside the item above, same reason.
+  **Layman:** In one dark space on the boat map a patch of light shows on the floor where no light should reach.
+  Kind: investigate.
+  Source: user-request-2026-10-22.
+  Lanes: urender, ubake.
+  Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-BP-20261022-131353Z
 
 ## 0.2.0 — Movement and weapons
 
