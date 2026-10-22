@@ -17633,7 +17633,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-170022Z/frame.png, ~/.local/state/ut-ants/map-captures/reviewed/MH-()mG-TheBoat-V2mini-BP-20261019-165948Z/frame.png
 
-- 🚧 [UTA-0391] **urender: the outdoor haze swallows a castle 5200 units off on TheFortress, not only the map's outer walls.**
+- ✅ [UTA-0391] **urender: the outdoor haze swallows a castle 5200 units off on TheFortress, not only the map's outer walls.**
   Found 2026-10-21 working UTA-0359, on MH-(MHA)-TheFortress2012Final-BP
   (UT_MonsterHunt's pose 1, camera 1910 -4135 -4587 yaw 15319). UTA-0337
   part 3's horizon haze (scene.frag outdoorHaze) mixes a surface toward
@@ -17662,6 +17662,11 @@ stays with movement in 0.2.0.
   Decided (user, 2026-10-22): fix TheFortress only. Keep today's haze
   everywhere; a map's recipe may push the haze further out.
   Scratch: ~/.cache/uta-scratch/u391 (c0, c1, c2 renders).
+  Shipped in 7d16515; GitHub matrix run 39768878068 green. Recipe
+  version 7's [sky] haze key starts the haze further out (PSKY hazeStart,
+  format 31, baker 64); TheFortress's two recipes set 40. Pose 1's castle
+  draws (87, 70, 50), against (144, 155, 177) before. TheBoat unchanged,
+  pixel for pixel.
   **Layman:** On the Fortress map the distance mist hides the castle and the lava at its foot, though they stand fairly near; the mist was meant to hide only the map's far edges.
   Kind: fix.
   Source: in-session-2026-10-21.

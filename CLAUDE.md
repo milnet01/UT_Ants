@@ -8,8 +8,8 @@
 open fix-kind or review-sourced item, oldest first; then 0.1.0. Parked fix
 item: `UTA-0249` (reconfirmed 2026-10-05; `UTA-0186` closed 2026-10-19). `UTA-0098` and
 `UTA-0100` defer themselves. Then the rest of 0.1.0 (`UTA-0204`):
-`UTA-0353`, `UTA-0359`, `UTA-0380`, `UTA-0382`, `UTA-0383`,
-`UTA-0387`, `UTA-0388`, `UTA-0389`, `UTA-0390`, `UTA-0391`.
+`UTA-0353`, `UTA-0380`, `UTA-0382`, `UTA-0383`, `UTA-0388`,
+`UTA-0389`.
 `UTA-0283` waits on UT_MonsterHunt.
 After 0.1.0: glass (`UTA-0272`), see-through water (`UTA-0273`),
 vegetation (`UTA-0293`).
