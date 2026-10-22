@@ -13,8 +13,20 @@
 // ubundle::PAINTED_SKY_CLOUD, over ubundle::PAINTED_SKY_EXPOSURE.
 const float PAINTED_SKY_CLOUD = 0.85 / 5.03;
 
+// UTA-0389: below the horizon a calm sea, so the opened box does not end in a
+// pale wall: the sky above, mirrored by Schlick's share as water.glsl reflects
+// it, over the sea's own colour: the sky's top mixed this far toward its
+// horizon, which lands near a map's bright water picture. ubundle's
+// PAINTED_SEA_R0 and PAINTED_SEA_MIX.
+const float PAINTED_SEA_R0 = 0.02;
+const float PAINTED_SEA_MIX = 0.5;
+
 vec3 paintedSkyGradient(vec3 top, vec3 horizon, vec3 d) {
-    return mix(horizon, top, sqrt(clamp(d.z, 0.0, 1.0)));
+    vec3 sky = mix(horizon, top, sqrt(clamp(abs(d.z), 0.0, 1.0)));
+    if (d.z >= 0.0) return sky;
+    float c = 1.0 + d.z; // 1 - cos, the sea's normal being straight up
+    float mirrored = PAINTED_SEA_R0 + (1.0 - PAINTED_SEA_R0) * (c * c * c * c * c);
+    return mix(mix(top, horizon, PAINTED_SEA_MIX), sky, mirrored);
 }
 
 // The clouds thin out toward the horizon.

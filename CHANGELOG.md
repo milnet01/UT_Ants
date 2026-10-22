@@ -775,6 +775,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **TheBoat's sky no longer looks painted on a box** (UTA-0389)
+  The sea stopped at a straight edge, with a flat pale wall beyond it,
+  and the clouds were flat cut-outs. Below a painted sky's horizon a
+  calm sea now runs to the horizon, mirroring the sky, and clouds have
+  soft edges and darker cores. TheFortress's views are unchanged.
+  Re-bake both maps: the baker is now revision 66.
+
 - **TheFortress's castle stands clear of the distance mist** (UTA-0391)
   The mist turned the castle wall and the cliffs before it pale
   blue-grey, though they stand fairly near. A map's recipe can now say

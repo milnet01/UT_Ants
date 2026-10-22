@@ -160,9 +160,11 @@ namespace {
 // painted sky, so the format and BAKR's revision moved it.
 // 65: UTA-0383 stores PSKY dimmed by the screen's exposure. The fixture has
 // no painted sky, so BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 65;
+// 66: UTA-0389 puts a sea below a painted sky's horizon. The fixture has no
+// painted sky, so BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 66;
 constexpr std::string_view GOLDEN =
-    "c1785eed9a76c2a2b27a9796325d0f49b814d3c54c477e4bd74e2994e92a89ed";
+    "b843d7fa4316532aceaf3cb20857f55767607bc7e888c502e068e3a87b260522";
 
 } // namespace
 

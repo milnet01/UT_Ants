@@ -37,8 +37,16 @@ inline constexpr float PAINTED_SKY_EXPOSURE = 5.03f;
 /// UTA-0350 SS 4.3. The renderer draws with the same value (SS 4.4).
 inline constexpr float PAINTED_SKY_CLOUD = 0.85f / PAINTED_SKY_EXPOSURE;
 
+/// UTA-0389: the sea below a painted sky's horizon -- water's reflectance
+/// looking straight down, and how far its own colour lies from the sky's top
+/// toward its horizon. Halfway lands near TheBoat's water picture
+/// (147, 169, 237 on screen, 2026-10-22), brighter than its horizon sky.
+inline constexpr double PAINTED_SEA_R0 = 0.02;
+inline constexpr double PAINTED_SEA_MIX = 0.5;
+
 /// The painted sky's light from direction `d` (unit, z up): the gradient,
-/// clouds blended in at their cover where they show -- UTA-0350 SS 4.3. The
+/// clouds blended in at their cover where they show -- UTA-0350 SS 4.3. Below
+/// the horizon, a calm sea mirrors the gradient (UTA-0389). The
 /// probe bake reads this; the renderer draws the same gradient and fade.
 [[nodiscard]] std::array<float, 3> paintedSkyLight(const PaintedSky& sky,
                                                    const std::array<double, 3>& d) noexcept;

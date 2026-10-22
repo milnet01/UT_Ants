@@ -40,7 +40,7 @@ deferred out of that cut.
 ### Standing facts
 
 **A bake goes stale when the baker or the format moves.** Bundles are
-format 31 (`UTA-0391`); the baker is revision 65 (`UTA-0383`). Re-bake any
+format 31 (`UTA-0391`); the baker is revision 66 (`UTA-0389`). Re-bake any
 map baked before either.
 
 **The renderer's first iteration uses the cheapest methods that still look
@@ -56,6 +56,9 @@ after the map is re-baked and its lighting checked (`UTA-0256`, user
 is `UTA-0112`'s baked probes. Removing or disabling it is the user's call,
 not a measurement's: its frame share is small enough that a performance
 pass could drop it and show almost nothing.
+
+**Before fitting a map that draws too dark, too bright or wrong
+outdoors, read [`docs/fitting-a-map.md`](docs/fitting-a-map.md).**
 
 ### Routing
 

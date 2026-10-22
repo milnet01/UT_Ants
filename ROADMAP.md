@@ -17662,7 +17662,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-19.
   Lanes: urender, ubake.
 
-- 📋 [UTA-0389] **urender: TheBoat's sky still reads as clouds painted on the inside of a box.**
+- 🚧 [UTA-0389] **urender: TheBoat's sky still reads as clouds painted on the inside of a box.**
   The user, 2026-10-19: "I like the new sky but now it looks like
   clouds painted on the inside of the box." This map's sky is a closed
   painted box with no sky zone, opened by its recipe's [sky]
@@ -17677,6 +17677,14 @@ stays with movement in 0.2.0.
   view shows the sea ending in a straight edge, with a flat pale
   wall from there down to the horizon; the clouds are flat
   single-tone cut-outs. Scratch: ~/.cache/uta-scratch/u388/b.png.
+  Fix 2026-10-22 (user chose both): below a painted sky's horizon a
+  calm sea mirrors the sky by Schlick's share over mix(top, horizon,
+  0.5); clouds get a soft edge and a darker core. Baker revision 66.
+  Sea beside the water's edge on screen: (132, 168, 214) against the
+  water's (147, 169, 237); a dark-sea first try drew (45, 70, 106).
+  TheFortress-BP: six capture views identical with the sea on or off
+  in the shader; probe mean luma 0.139 at r65, 0.130 at r66; frame
+  means unchanged within 0.001. Scratch: ~/.cache/uta-scratch/u388.
   **Layman:** The new sky on the boat map looks good, but it still looks painted on walls around the map instead of far away.
   Kind: investigate.
   Source: user-request-2026-10-19.
@@ -17789,7 +17797,7 @@ stays with movement in 0.2.0.
   judged on the old strength. On the three 2026-10-14 capture views
   the frame mean fell from 104.6, 110.2 and 120.7 to 72.7, 77.1 and
   86.1. Recheck against the original; the recipe's sun brightness
-  is the likely lever. Scratch: ~/.cache/uta-scratch/u383/fort-ab.png
+  is the likely lever. Scratch: ~/.cache/uta-scratch/u398/fort-ab.png
   (top before, bottom after).
   **Layman:** A fix to how bright painted skies are made the fortress map darker, so its daylight needs checking against the original again.
   Kind: investigate.

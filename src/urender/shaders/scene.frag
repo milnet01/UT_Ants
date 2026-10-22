@@ -176,13 +176,24 @@ vec3 sunInSky(vec3 d) {
     return colour * (SUN_DISC_GAIN * disc + SUN_HALO * exp(-angle / SUN_HALO_WIDTH));
 }
 
-// How cloudy direction `d` is, 0 to 1: four octaves of flame.glsl's value
-// noise over the cloud layer's plane, cut where a share near `clouds` lies
-// above. The cut is a cubic fitted 2026-10-11 to 400k samples of this sum's
-// quantiles (mean 0.50, spread 0.13); the covered share it gives at 0.1, 0.2,
-// 0.5 and 0.8 was 0.096, 0.197, 0.500 and 0.803.
-float paintedSkyClouds(vec3 d, float clouds) {
-    if (clouds <= 0.0) return 0.0;
+// UTA-0389: a cloud's edge, as a half-width in the noise sum around the cut;
+// how far past the cut its core is thick; and its brightness at the rim and
+// at a thick core, over PAINTED_SKY_CLOUD. A thick cloud is darker beneath, as
+// a real one is seen from below. This item's call, judged by eye on TheBoat;
+// the edge is symmetric about the cut, so the covered share stays near the fit's.
+const float PAINTED_CLOUD_EDGE = 0.04;
+const float PAINTED_CLOUD_CORE = 0.12;
+const float PAINTED_CLOUD_RIM = 1.1;
+const float PAINTED_CLOUD_BASE = 0.7;
+
+// Direction `d`'s clouds: x how cloudy it is, 0 to 1; y how thick, 0 at the
+// edge to 1 at a core. Four octaves of flame.glsl's value noise over the cloud
+// layer's plane, cut where a share near `clouds` lies above. The cut is a
+// cubic fitted 2026-10-11 to 400k samples of this sum's quantiles (mean 0.50,
+// spread 0.13); the covered share it gives at 0.1, 0.2, 0.5 and 0.8 was 0.096,
+// 0.197, 0.500 and 0.803.
+vec2 paintedSkyClouds(vec3 d, float clouds) {
+    if (clouds <= 0.0) return vec2(0.0);
     vec2 p = d.xy / max(d.z, 0.05) * 1.5 + frame.paintedSkyDrift; // UTA-0337: drifting
     float sum = 0.0;
     float weight = 0.5;
@@ -195,16 +206,18 @@ float paintedSkyClouds(vec3 d, float clouds) {
     }
     float n = sum / total;
     float cut = ((-0.6696 * clouds + 1.0018) * clouds - 0.8364) * clouds + 0.7519;
-    return smoothstep(cut - 0.02, cut + 0.02, n);
+    return vec2(smoothstep(cut - PAINTED_CLOUD_EDGE, cut + PAINTED_CLOUD_EDGE, n),
+                smoothstep(cut, cut + PAINTED_CLOUD_CORE, n));
 }
 
 // UTA-0350 SS 4.4: the painted sky in direction `d` -- its gradient with the
-// clouds over it, fading out toward the horizon.
+// clouds over it, fading out toward the horizon; below it, sky.glsl's sea.
 vec3 paintedSkyAt(vec3 d) {
     vec3 top = vec3(frame.paintedSkyTopR, frame.paintedSkyTopG, frame.paintedSkyTopB);
     vec3 horizon = vec3(frame.paintedSkyHorizonR, frame.paintedSkyHorizonG, frame.paintedSkyHorizonB);
-    float cover = paintedSkyFade(d) * paintedSkyClouds(d, frame.paintedSkyClouds);
-    return mix(paintedSkyGradient(top, horizon, d), vec3(PAINTED_SKY_CLOUD), cover);
+    vec2 clouds = paintedSkyClouds(d, frame.paintedSkyClouds);
+    float shade = mix(PAINTED_CLOUD_RIM, PAINTED_CLOUD_BASE, clouds.y);
+    return mix(paintedSkyGradient(top, horizon, d), vec3(PAINTED_SKY_CLOUD * shade), paintedSkyFade(d) * clouds.x);
 }
 
 // UTA-0337: how far off a layer's plane, in UT units, a fragment may lie and

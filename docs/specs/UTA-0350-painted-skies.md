@@ -159,7 +159,11 @@ over 100, in `[0.1, 0.9]`, which `read` and `write` both check.
                                                    const std::array<double, 3>& d) noexcept;
 ```
 
-- `gradient(d) = mix(horizon, top, sqrt(clamp(d.z, 0, 1)))`.
+- `gradient(d) = mix(horizon, top, sqrt(clamp(d.z, 0, 1)))` at and above
+  the horizon. UTA-0389: below it, a calm sea, `mix(sea, mix(horizon, top,
+  sqrt(-d.z)), F)`, where `sea = mix(top, horizon, 0.5)` and `F` is
+  Schlick's share for water, `0.02 + 0.98 (1 + d.z)^5`. Near the horizon the
+  sea mirrors the sky, so it shows no seam there.
 - `cloudFade(d) = smoothstep(0.02, 0.25, d.z)`.
 - `paintedSkyLight(d) = mix(gradient(d), CLOUD, clouds * cloudFade(d))`,
   with `CLOUD = 0.85` in each channel.
@@ -174,7 +178,10 @@ over 100, in `[0.1, 0.9]`, which `read` and `write` both check.
 - `paintedSkyAt(d)` is `gradient(d)` with clouds over it:
   `mix(gradient(d), CLOUD, cloudFade(d) * mask)`, where `mask` is value-noise
   fbm (four octaves) over `d.xy / max(d.z, 0.05)`, thresholded so a share
-  near `clouds` of the dome is covered. It is static.
+  near `clouds` of the dome is covered. It drifts (UTA-0337). UTA-0389:
+  the threshold's edge is 0.04 wide either side, and `CLOUD` is scaled from
+  1.1 at a cloud's rim to 0.7 where the fbm passes the threshold by 0.12, so
+  a cloud's core draws darker, as its underside does.
 - The gradient, the fade and `CLOUD` live in `shaders/sky.glsl`, which reads
   no binding, so a test kernel includes it whole. The mask stays in
   `scene.frag`, beside `flame.glsl`'s noise, which reads bindings.
@@ -234,7 +241,8 @@ counts them.
   `surfaceFrom` still returns nothing with a painted sky.
 
 - **INV-6** — `paintedSkyLight` is `horizon` at `d.z = 0`, `top` blended
-  toward `CLOUD` by `clouds` at `d.z = 1`, and `horizon` below the horizon;
+  toward `CLOUD` by `clouds` at `d.z = 1`, and below the horizon the sea of
+  § 4.3, matching the sky just above at the horizon;
   the shader's gradient and fade agree with it within the parity test's
   tolerance.
   *Test:* `tests/unit/BundleSkyTest.cpp`; `tests/device/shaders/painted_sky.comp`, run by `tests/device/RenderLightParityTest.cpp`.

@@ -31,6 +31,8 @@ using uta::ErrorCode;
 using uta::testing::Bytes;
 using uta::ubundle::Bundle;
 using uta::ubundle::Origin;
+using uta::ubundle::PAINTED_SEA_R0;
+using uta::ubundle::PAINTED_SEA_MIX;
 using uta::ubundle::PAINTED_SKY_CLOUD;
 using uta::ubundle::PaintedSky;
 using uta::ubundle::paintedSkyLight;
@@ -149,12 +151,10 @@ TEST_CASE("UTA-0350 INV-6: paintedSkyLight is the horizon low down and the cloud
           "[ubundle][paintedsky]") {
     const PaintedSky sky = goldenSky();
     const auto horizon = paintedSkyLight(sky, {1, 0, 0});
-    const auto below = paintedSkyLight(sky, {0, 0.6, -0.8});
     const auto overhead = paintedSkyLight(sky, {0, 0, 1});
     for (std::size_t c = 0; c < 3; ++c) {
         CAPTURE(c);
         CHECK(horizon[c] == Catch::Approx(sky.horizon[c]));
-        CHECK(below[c] == Catch::Approx(sky.horizon[c]));
         CHECK(overhead[c] == Catch::Approx(sky.top[c] + (PAINTED_SKY_CLOUD - sky.top[c]) * sky.clouds));
     }
     // Halfway up the gradient by sqrt(d.z), and above the fade's top the
@@ -173,6 +173,25 @@ TEST_CASE("UTA-0350 INV-6: paintedSkyLight is the horizon low down and the cloud
     for (std::size_t c = 0; c < 3; ++c) {
         const double gradient = sky.horizon[c] + (sky.top[c] - sky.horizon[c]) * std::sqrt(quarter);
         CHECK(fading[c] == Catch::Approx(gradient + (PAINTED_SKY_CLOUD - gradient) * sky.clouds * 0.15625));
+    }
+}
+
+TEST_CASE("UTA-0389: below a painted sky's horizon is a sea that mirrors it", "[ubundle][paintedsky]") {
+    const PaintedSky sky = goldenSky();
+    // Just below the horizon the sea mirrors nearly all the sky just above
+    // it, so the horizon shows no seam; looking down steeply, the sea's own
+    // colour.
+    const auto grazing = paintedSkyLight(sky, {std::sqrt(1 - 1e-6), 0, -1e-3});
+    const auto skyline = paintedSkyLight(sky, {std::sqrt(1 - 1e-6), 0, 1e-3});
+    const double z = -0.8;
+    const auto steep = paintedSkyLight(sky, {0, 0.6, z});
+    const double mirrored = PAINTED_SEA_R0 + (1 - PAINTED_SEA_R0) * std::pow(1 + z, 5);
+    for (std::size_t c = 0; c < 3; ++c) {
+        CAPTURE(c);
+        CHECK(grazing[c] == Catch::Approx(skyline[c]).epsilon(0.01));
+        const double sea = sky.top[c] + (sky.horizon[c] - sky.top[c]) * PAINTED_SEA_MIX;
+        const double above = sky.horizon[c] + (sky.top[c] - sky.horizon[c]) * std::sqrt(-z);
+        CHECK(steep[c] == Catch::Approx(sea + (above - sea) * mirrored));
     }
 }
 
