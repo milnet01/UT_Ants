@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **The map analyser tells a sky room from a sky dome** (UTA-0380)
+  `ut-dump --surface-list` now names the zones each surface faces, and
+  each zone's actor. `scripts/map-analyser.py` uses them to class every
+  sky zone as a room, a faceted room or a dome, and to count its lit
+  faces: lit flat faces are what made a sky look like a box (UTA-0345).
+
 - **TheBoat's lower decks are lit by lanterns** (UTA-0344)
   The decks below MH-()mG-TheBoat-V2mini-BP's hull were nearly black.
   Its recipe now adds 18 lamps, copies of the cabin lantern's light,

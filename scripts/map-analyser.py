@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """List what graphical features each map needs -- UTA-0347. Version 1 read
 the sky, for UTA-0346's sun rule and UTA-0350's painted skies; version 2 adds
-`needs`, read from the map and its bundle without drawing anything.
+`needs`, read from the map and its bundle without drawing anything; version 3
+adds `skyKinds` (UTA-0380).
 
     scripts/map-analyser.py [--no-sky] <install> <out dir> <report.json>...
 
@@ -34,6 +35,16 @@ sky, and prints one JSON line:
               non-empty texture list marks a candidate for a [sky] recipe.
   needs       what else the map holds that a system draws or must draw:
                 skyZones        SkyZoneInfo actors: where the sky is drawn from
+                skyKinds        one {zone, kind, shell, directions, litShell}
+                                per zone a SkyZoneInfo owns. `shell` counts
+                                its solid surfaces -- not invisible, masked,
+                                translucent or modulated -- and `directions`
+                                their distinct normals; `litShell`, those
+                                without PF_Unlit, each lit on its own face
+                                (UTA-0345). kind is room (8 directions or
+                                fewer: a box or pyramid), faceted (9 to 23:
+                                mostly 8- and 12-sided cylinders) or dome
+                                (24 or more)
                 backdrop        surfaces with PF_FakeBackdrop: windows onto it
                 lights          the bundle's lights
                 cylinderLights  LE_Cylinder lights: fill lights flooding an
@@ -52,8 +63,9 @@ sky, and prints one JSON line:
               A map that fails ut-dump prints {"map", "error"} instead.
 
 The last line holds the totals by class, and `paintedSky`, the candidates;
-`mapsWith`, how many maps have each need; and the twenty commonest decoration
-classes across the maps. A map whose class is clear,
+`mapsWith`, how many maps have each need; `mapsWithSkyKind`, how many maps
+have a sky zone of each kind; and the twenty commonest decoration classes
+across the maps. A map whose class is clear,
 fewClouds or warmClear gets a sun (UTA-0346; warmClear added by the user,
 2026-10-11). `other` is any sky the rules do not name: overcast, purple,
 orange, alien.
@@ -74,7 +86,14 @@ import subprocess
 import sys
 
 WIDTH, HEIGHT, FOV = 160, 90, 100.0
-PF_INVISIBLE, PF_TRANSLUCENT, PF_FAKE_BACKDROP = 0x1, 0x4, 0x80
+PF_INVISIBLE, PF_MASKED, PF_TRANSLUCENT, PF_MODULATED = 0x1, 0x2, 0x4, 0x40
+PF_FAKE_BACKDROP, PF_UNLIT = 0x80, 0x400000
+# A sky zone's shell directions: at most ROOM_DIRECTIONS is a room, at least
+# DOME_DIRECTIONS a dome. Over the 476 sky zones of UTA-0347's 586-map census
+# (2026-10-22): 349 have 8 or fewer, 81 have 9 to 23 (56 of them 10 or 14, an
+# 8- or 12-sided cylinder's sides with its top and bottom), and 46 have 24 or
+# more.
+ROOM_DIRECTIONS, DOME_DIRECTIONS = 8, 24
 # Bundle record sizes and byte offsets: src/ubundle/ZoneSection.cpp and
 # LightSection.cpp. A light's twelve UT99 bytes start at 28: type, effect, ...
 ZONE_SIZE, ZONE_FOG, ZONE_WATER = 29, 3, 12
@@ -230,6 +249,24 @@ def painted_sky(surfaces, zones):
     return {"textures": dict(sorted(textures.items())), "brightZones": bright_zones(zones)}
 
 
+def sky_kinds(package):
+    """Each sky zone's shell, and whether it is a room or a dome -- UTA-0380."""
+    chains = {a["index"]: a["classChain"] for a in package["wiring"]["actors"]}
+    surfaces = package["surfaces"]["list"]
+    kinds = []
+    for z in package["surfaces"]["zones"]:
+        actor = z["zoneActor"]
+        if not actor or "SkyZoneInfo" not in chains.get(actor["export"], []):
+            continue
+        shell = [s for s in surfaces if z["zone"] in s["zones"] and s["normal"]
+                 and not s["polyFlags"] & (PF_INVISIBLE | PF_MASKED | PF_TRANSLUCENT | PF_MODULATED)]
+        directions = len({tuple(round(c, 2) for c in s["normal"]) for s in shell})
+        kind = "room" if directions <= ROOM_DIRECTIONS else "dome" if directions >= DOME_DIRECTIONS else "faceted"
+        kinds.append({"zone": z["zone"], "kind": kind, "shell": len(shell), "directions": directions,
+                      "litShell": sum(not s["polyFlags"] & PF_UNLIT for s in shell)})
+    return kinds
+
+
 def needs(report, package, zones, lights):
     """What the map holds beyond its sky -- see the module's `needs`."""
     surfaces = package["surfaces"]["list"]
@@ -244,6 +281,7 @@ def needs(report, package, zones, lights):
     seen = [s for s in surfaces if not s["polyFlags"] & PF_INVISIBLE]
     return {
         "skyZones": sum("SkyZoneInfo" in a["classChain"] for a in actors),
+        "skyKinds": sky_kinds(package),
         "backdrop": sum(bool(s["polyFlags"] & PF_FAKE_BACKDROP) for s in surfaces),
         "lights": len(lights),
         "cylinderLights": sum(l[LIGHT_EFFECT] == LE_CYLINDER for l in lights),
@@ -308,9 +346,9 @@ def main(argv):
     install, out = argv[1], pathlib.Path(argv[2])
     out.mkdir(parents=True, exist_ok=True)
     totals, painted, errors = {}, 0, 0
-    maps_with = {k: 0 for k in ("skyZones", "backdrop", "cylinderLights", "wideLights", "fogZones", "waterZones",
+    maps_with = {k: 0 for k in ("skyZones", "skyKinds", "backdrop", "cylinderLights", "wideLights", "fogZones", "waterZones",
                                 "skippedLiquids", "decorations", "translucent", "glassNamed")}
-    decorations = {}
+    decorations, sky_kinds_total = {}, {}
     for report_path in argv[3:]:
         try:
             row = analyse(install, out, report_path, shoot)
@@ -325,9 +363,12 @@ def main(argv):
         painted += bool(row["paintedSky"] and row["paintedSky"]["textures"])
         for key in maps_with:
             maps_with[key] += bool(row["needs"][key])
+        for k in {k["kind"] for k in row["needs"]["skyKinds"]}:
+            sky_kinds_total[k] = sky_kinds_total.get(k, 0) + 1
         for cls, n in row["needs"]["decorations"].items():
             decorations[cls] = decorations.get(cls, 0) + n
     summary = {"maps": len(argv) - 3, "errors": errors, "paintedSky": painted, "mapsWith": maps_with,
+               "mapsWithSkyKind": dict(sorted(sky_kinds_total.items())),
                "decorations": dict(sorted(decorations.items(), key=lambda kv: -kv[1])[:20])}
     if shoot:
         summary.update({"totals": totals, "sun": sum(totals.get(c, 0) for c in SUN_CLASSES)})

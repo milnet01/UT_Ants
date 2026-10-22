@@ -239,6 +239,9 @@ public:
     /// The last surface added is polygon `poly` of actor `actor`, by its
     /// position among the actors -- UTA-0213.
     MapBuilder& ownSurface(std::size_t actor, std::int32_t poly);
+    /// The last surface added faces zone `zone`: its node's front zone, which
+    /// is 0 unless set -- UTA-0380.
+    MapBuilder& zoneSurface(std::uint8_t zone);
     /// The last surface added draws this square instead of the next 64-unit
     /// floor square, its corners wound so their fan runs along `normal` --
     /// UTA-0263's upright and crossed flame sheets.
@@ -311,6 +314,7 @@ private:
         bool drawn = true;
         std::optional<std::size_t> brush;
         std::int32_t brushPoly = 0;
+        std::uint8_t zone = 0;
         std::optional<std::array<std::array<float, 3>, 4>> corners;
         std::array<float, 3> normal{0, 0, 1};
     };

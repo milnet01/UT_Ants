@@ -556,11 +556,11 @@ TEST_CASE("UTA-0213: --surface-list places each surface and names its built flag
                           R"("brushPoly": 3, "base": [0, 0, 0], "normal": [0, 0, 1], "drawnNodes": )")
           != std::string::npos);
     CHECK(result.out.find(R"({"index": 1, "texture": "Swater4a", "polyFlags": 64, "brush": null, )"
-                          R"("brushPoly": 0, "base": [0, 0, 8], "normal": [0, 0, 1], "drawnNodes": 0})")
+                          R"("brushPoly": 0, "base": [0, 0, 8], "normal": [0, 0, 1], "drawnNodes": 0, "zones": []})")
           != std::string::npos);
 
     // The drawn surface's count is its group's: it is that group's only member.
-    static const std::regex firstRow(R"re("index": 0, [^}]*"drawnNodes": (\d+)\})re");
+    static const std::regex firstRow(R"re("index": 0, [^}]*"drawnNodes": (\d+),)re");
     std::smatch counted;
     REQUIRE(std::regex_search(result.out, counted, firstRow));
     const std::vector<SurfaceRow> groups = surfaceRows(result.out);
@@ -574,6 +574,42 @@ TEST_CASE("UTA-0213: --surface-list places each surface and names its built flag
     const Run plain = run({"--system", system, mapPath.string()});
     REQUIRE(plain.code == 0);
     CHECK(plain.out.find("\"list\"") == std::string::npos);
+}
+
+TEST_CASE("UTA-0380: --surface-list names the zones each surface faces, and each zone's actor", "[dump]") {
+    // A sky zone's own surfaces tell a lit sky room from a dome; the census
+    // needs them by zone, which the list did not give.
+    const TempDir dir;
+    MapBuilder map;
+    const std::int32_t sky = map.addClass("SkyZoneInfo");
+    const std::int32_t cloud = map.importTexture("UTtech1", "", "RSky1", "Texture");
+    map.addActor("SkyZoneInfo0", sky)
+        .addActorOfClass("Engine", "ZoneInfo")
+        .setZoneActor(1, 0)
+        .setZoneActor(2, 1)
+        .addSurface(cloud, 0)
+        .zoneSurface(1)
+        .addSurface(cloud, 0)
+        .zoneSurface(2)
+        .addSurface(cloud, 0, /*drawn=*/false)
+        .zoneSurface(1);
+    const fs::path mapPath = writeMap(dir, map);
+    const Run result = run({"--system", (dir.path() / "System").string(), "--surface-list", mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    CHECK(result.out.find(R"("base": [0, 0, 0], "normal": [0, 0, 1], "drawnNodes": 1, "zones": [1]})")
+          != std::string::npos);
+    CHECK(result.out.find(R"("base": [0, 0, 8], "normal": [0, 0, 1], "drawnNodes": 1, "zones": [2]})")
+          != std::string::npos);
+    // A node that draws nothing places its surface nowhere.
+    CHECK(result.out.find(R"("index": 2, "texture": "RSky1", "polyFlags": 0, "brush": null, )"
+                          R"("brushPoly": 0, "base": [0, 0, 16], "normal": [0, 0, 1], "drawnNodes": 0, "zones": []})")
+          != std::string::npos);
+    const std::size_t zones = result.out.find(R"(], "zones": [{"zone": 0, "zoneActor": null}, )");
+    REQUIRE(zones != std::string::npos);
+    CHECK(result.out.find(R"({"zone": 1, "zoneActor": {"export": )", zones) != std::string::npos);
+    CHECK(result.out.find(R"("name": "SkyZoneInfo0", "class": "SkyZoneInfo"}})", zones) != std::string::npos);
+    CHECK(result.out.find(R"("name": "ZoneInfo1", "class": "ZoneInfo"}}])", zones) != std::string::npos);
 }
 
 // ------------------------------------------------------------------ UTA-0172
@@ -951,7 +987,7 @@ TEST_CASE("UTA-0012 INV-4: the key sets are exactly the contract's", "[dump]") {
     REQUIRE(full.code == 0);
     const std::string fullMap = packagesOf(full.out).at(0);
     CHECK(keysOf(fullMap) == mapKeys);
-    CHECK(keysOf(member(fullMap, "surfaces")) == Keys{"total", "byTextureAndFlags", "list"});
+    CHECK(keysOf(member(fullMap, "surfaces")) == Keys{"total", "byTextureAndFlags", "list", "zones"});
     CHECK(keysOf(member(fullMap, "nav"))
           == Keys{"nodes", "edges", "discardedEndpoints", "nodesWithNoExit", "nodeList", "edgeList"});
     CHECK(keysOf(member(fullMap, "wiring")) == Keys{"nodes", "edges", "dangling", "chainsUnresolved", "actors"});

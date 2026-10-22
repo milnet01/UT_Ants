@@ -167,6 +167,12 @@ void writeLocation(std::ostream& out, const std::optional<uta::upkg::Vector3>& l
 /// flags drift from the flags the map was built with, and `polyFlags` here is
 /// the built one. `brush` and `brushPoly` name the brush actor and its polygon,
 /// which is how a T3D export finds the same face; `base` and `normal` place it.
+///
+/// UTA-0380: each row's `zones` are the zones its drawn nodes face, and the
+/// object's `zones` name each zone's actor, so a reader can take one zone's
+/// surfaces -- a sky zone's, to tell a lit room from a dome.
+void writeZoneActor(std::ostream& out, const uta::upkg::Package& map, const uta::upkg::Model& model,
+                    std::optional<std::uint32_t> zone);
 void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
                    const uta::upkg::Level& level, bool surfaceList) {
     // `Level::model` comes out of the export's DATA, which Package::open did
@@ -191,11 +197,14 @@ void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
 
     // Drawable nodes referencing each surface. Fewer than three vertices draws
     // nothing, which is ubake's own first test over the same array.
+    // A node's surface faces `iZone[1]`, as ubake's Geometry reads it.
     std::vector<long long> nodesOf(model->surfs.size(), 0);
+    std::vector<std::set<int>> zonesOf(model->surfs.size());
     for (const uta::upkg::BspNode& node : model->nodes) {
         if (node.numVertices < 3) continue;
         if (node.iSurf < 0 || static_cast<std::size_t>(node.iSurf) >= nodesOf.size()) continue;
         ++nodesOf[static_cast<std::size_t>(node.iSurf)];
+        zonesOf[static_cast<std::size_t>(node.iSurf)].insert(node.iZone[1]);
     }
 
     // Ordered, so two runs over one map agree and a diff of two maps reads.
@@ -241,7 +250,19 @@ void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
             writeLocation(out, at(model->points, surf.pBase));
             out << ", \"normal\": ";
             writeLocation(out, at(model->vectors, surf.vNormal));
-            out << ", \"drawnNodes\": " << nodesOf[i] << "}";
+            out << ", \"drawnNodes\": " << nodesOf[i] << ", \"zones\": [";
+            bool firstZone = true;
+            for (const int zone : zonesOf[i]) {
+                out << (firstZone ? "" : ", ") << zone;
+                firstZone = false;
+            }
+            out << "]}";
+        }
+        out << "], \"zones\": [";
+        for (std::uint32_t zone = 0; zone < model->zones.size(); ++zone) {
+            out << (zone == 0 ? "" : ", ") << "{\"zone\": " << zone << ", \"zoneActor\": ";
+            writeZoneActor(out, package, *model, zone);
+            out << "}";
         }
         out << "]";
     }
@@ -1662,7 +1683,8 @@ int usage(std::ostream& err) {
         "\n"
         "--surface-list adds every BSP surface to each map's `surfaces` object,\n"
         "as `list`, in index order: its texture, built polyFlags, brush actor\n"
-        "and polygon, base point, normal and drawn node count.\n"
+        "and polygon, base point, normal, drawn node count and the zones it\n"
+        "faces; and each zone's actor, as `zones`.\n"
         "\n"
         "--lighting adds `lighting` to each map: how many surfaces carry the\n"
         "editor's lightmap and light actors, and each zone's ambient light as\n"

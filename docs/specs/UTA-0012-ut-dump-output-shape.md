@@ -192,11 +192,17 @@ under `--lighting` only `lighting` (and `lightingError` when it is null), as
   export or the Model does not read (UTA-0201).
 - **`surfaces.list`**, under `--surface-list` only: one row per surface, in
   index order: `{index, texture, polyFlags, brush, brushPoly, base, normal,
-  drawnNodes}`. `polyFlags` is the flags the map was built with. `brush` is
+  drawnNodes, zones}`. `polyFlags` is the flags the map was built with. `brush` is
   the owning actor's name, or `null` where the surface stores none;
   `brushPoly` is that brush's polygon index. `base` and `normal` are
   `[x, y, z]`, or `null` where the stored index is out of range. `drawnNodes`
-  counts as above, for this surface alone (UTA-0213).
+  counts as above, for this surface alone (UTA-0213). `zones` lists, once
+  each and ascending, the zone each of those nodes faces, its `iZone[1]`;
+  empty where no node draws the surface (UTA-0380).
+- **`surfaces.zones`**, under `--surface-list` only: one `{zone, zoneActor}`
+  per entry of the Model's zone table, in order. `zoneActor` is `{export,
+  name, class}`, or `null` where the zone names no actor of this map
+  (UTA-0380).
 - **`levelInfo`, `levelSummary`**: `{title, author}`, each a string or
   `null`. The values are the map's own stored ones: `null` means the map sets
   none. `levelInfo` reads the LevelInfo named in the level's actor list;

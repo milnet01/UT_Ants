@@ -374,6 +374,11 @@ MapBuilder& MapBuilder::ownSurface(std::size_t actor, std::int32_t poly) {
     return *this;
 }
 
+MapBuilder& MapBuilder::zoneSurface(std::uint8_t zone) {
+    surfaces_.back().zone = zone;
+    return *this;
+}
+
 std::int32_t MapBuilder::importClass(std::string_view package, std::string_view className) {
     return packer_.importClass(package, className);
 }
@@ -561,6 +566,7 @@ std::vector<std::uint8_t> MapBuilder::build() const {
                        : z;
         square.iSurf = static_cast<std::int32_t>(i);
         square.iVertPool = first;
+        square.iZone = {0, surfaces_[i].zone};
         // 0 vertices draws nothing, which is how a surface present in the file
         // reaches nobody's screen (UTA-0201).
         square.numVertices = surfaces_[i].drawn ? 4 : 0;
