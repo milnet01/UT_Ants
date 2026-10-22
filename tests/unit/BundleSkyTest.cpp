@@ -41,15 +41,16 @@ namespace {
 
 /// Every component different, so a swap shows.
 PaintedSky goldenSky() {
-    return PaintedSky{.top = {0.1f, 0.2f, 0.7f}, .horizon = {0.5f, 0.6f, 0.8f}, .clouds = 0.3f};
+    return PaintedSky{.top = {0.1f, 0.2f, 0.7f}, .horizon = {0.5f, 0.6f, 0.8f}, .clouds = 0.3f, .hazeStart = 0.4f};
 }
 
-/// SS 4.3's record: top, horizon, clouds, seven f32.
+/// SS 4.3's record: top, horizon, clouds and (UTA-0391) the haze's start, eight f32.
 Bytes skyPayload(const PaintedSky& sky) {
     Bytes out;
     for (const float channel : sky.top) out.f32(channel);
     for (const float channel : sky.horizon) out.f32(channel);
     out.f32(sky.clouds);
+    out.f32(sky.hazeStart);
     return out;
 }
 
@@ -57,7 +58,7 @@ Bytes skyPayload(const PaintedSky& sky) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
+    out.u32(31); // formatVersion -- 31 since UTA-0391 gave PSKY its haze start
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved
@@ -99,6 +100,7 @@ TEST_CASE("UTA-0350 INV-3: the PSKY golden bytes decode to the sky they encode",
     CHECK(result->paintedSky->top == std::array<float, 3>{0.1f, 0.2f, 0.7f});
     CHECK(result->paintedSky->horizon == std::array<float, 3>{0.5f, 0.6f, 0.8f});
     CHECK(result->paintedSky->clouds == 0.3f);
+    CHECK(result->paintedSky->hazeStart == 0.4f);
     CHECK_FALSE(read(fileWith({})).value().paintedSky.has_value());
 }
 
@@ -171,5 +173,29 @@ TEST_CASE("UTA-0350 INV-6: paintedSkyLight is the horizon low down and the cloud
     for (std::size_t c = 0; c < 3; ++c) {
         const double gradient = sky.horizon[c] + (sky.top[c] - sky.horizon[c]) * std::sqrt(quarter);
         CHECK(fading[c] == Catch::Approx(gradient + (PAINTED_SKY_CLOUD - gradient) * sky.clouds * 0.15625));
+    }
+}
+
+TEST_CASE("UTA-0391: read and write each refuse a haze start outside [0.1 0.9] or not finite",
+          "[ubundle][paintedsky]") {
+    for (const float value : {0.099f, 0.901f, std::numeric_limits<float>::quiet_NaN(),
+                              std::numeric_limits<float>::infinity()}) {
+        CAPTURE(value);
+        PaintedSky sky = goldenSky();
+        sky.hazeStart = value;
+        const auto result = read(fileWith({{"PSKY", skyPayload(sky)}}));
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().code() == ErrorCode::MalformedData);
+        CHECK(result.error().message().starts_with("PSKY: "));
+        const auto written = write(bundleWith(sky));
+        REQUIRE_FALSE(written.has_value());
+        CHECK(written.error().code() == ErrorCode::InvalidArgument);
+    }
+    for (const float edge : {0.1f, 0.9f}) {
+        CAPTURE(edge);
+        PaintedSky sky = goldenSky();
+        sky.hazeStart = edge;
+        CHECK(read(fileWith({{"PSKY", skyPayload(sky)}})).has_value());
+        CHECK(write(bundleWith(sky)).has_value());
     }
 }

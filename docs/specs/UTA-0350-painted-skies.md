@@ -91,6 +91,19 @@ std::optional<Sky> Recipe::sky;
 `write` emits every key. `bakeDigest` adds the section after the sun's
 fields, so a recipe with no `[sky]` keeps its version-4 digest.
 
+**The haze (UTA-0391).** Recipe version 7 adds one optional key:
+
+```
+haze = <10..90>                         ; where the outdoor haze starts, in percent
+                                        ; of the outdoor extent; optional, default 10
+```
+
+It is `Sky::haze`, a byte. `write` emits it, and `bakeDigest` hashes it
+after `clouds`, only where it is not 10, so a recipe without it keeps its
+version and its digest. TheFortress's recipes set 40: at 10 its castle,
+5800 units off, washed toward the sky (user, 2026-10-22: fix that map
+only).
+
 ### 4.2 Baking it — `ubake`
 
 - **Refusals.** A `[sky]` on a map whose `skyViewOf` is set refuses the
@@ -127,6 +140,9 @@ std::optional<PaintedSky> Bundle::paintedSky;
 Bytes: the seven `f32` in that order. `read` refuses a component outside
 `[0, 1]` or not finite.
 
+Format 31 (UTA-0391) adds an eighth `f32`, `hazeStart`: the recipe's `haze`
+over 100, in `[0.1, 0.9]`, which `read` and `write` both check.
+
 `ubundle/Sky.h` gains the one daylight function both sides use:
 
 ```cpp
@@ -157,6 +173,10 @@ Bytes: the seven `f32` in that order. `read` refuses a component outside
   `scene.frag`, beside `flame.glsl`'s noise, which reads bindings.
 - Water reflects it through `skyAt`; `waterSeesSky` takes either sky, and its
   zones key on backdrop batches as before.
+- UTA-0391: the outdoor haze starts at `hazeStart` of the outdoor extent,
+  not `OUTDOOR_HAZE_START_SHARE`'s 0.1, and its depth shrinks with it
+  (`urender::outdoorHazeOf`), so a surface one extent off keeps the light
+  it keeps at 0.1.
 
 ### 4.5 Finding the maps — `scripts/map-analyser.py`
 
@@ -224,6 +244,18 @@ counts them.
   *Test:* run on TheBoat and DM-Eagles, which UTA-0346 gave a sun through its sky — manual.
   *Breaks when:* the backdrop test reads the wrong flag bit.
 
+- **INV-9** — a sky's `haze` round-trips at version 7 and is written only
+  where it is not 10; `parse` refuses it below version 7, below 10 or above
+  90; `bakeDigest` moves with it and not with 10; `PSKY` round-trips
+  `hazeStart` and refuses it outside `[0.1, 0.9]`; the bake carries the
+  recipe's share; `outdoorHazeOf` starts the haze at the share and keeps a
+  surface one extent off at the default's share of its light.
+  *Test:* `tests/unit/RecipeFormatTest.cpp`, `tests/unit/BundleSkyTest.cpp`,
+  `tests/unit/BakeSkyTest.cpp`, `tests/unit/ZonesSeeingSkyTest.cpp`.
+  *Breaks when:* the digest hashes the default, so every sky recipe's bake
+  name moves; the depth stays at 0.8 of the extent, so a later start thins
+  the haze at the map's edge.
+
 ## 6. Failure modes
 
 - **A named texture also paints something that is not sky** — those
@@ -248,6 +280,7 @@ counts them.
 | `tests/device/shaders/painted_sky.comp` | INV-6 |
 | `tests/device/RenderSunTest.cpp` | INV-7 |
 | manual analyser run | INV-8 |
+| `tests/unit/RecipeFormatTest.cpp`, `BundleSkyTest.cpp`, `BakeSkyTest.cpp`, `ZonesSeeingSkyTest.cpp` | INV-9 |
 
 Each new case is seen failing before its code lands. Then TheBoat is
 re-baked into scratch and shot at the user's 2026-10-07 cameras: the sky

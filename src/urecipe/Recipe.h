@@ -9,7 +9,8 @@
 // (docs/specs/UTA-0338-baked-sun.md SS 4.1); version 4 the map's own lights
 // switched off, and lamps with no fitting (UTA-0256 SS 4.6); version 5 a sky
 // the map only paints on its walls (docs/specs/UTA-0350-painted-skies.md
-// SS 4.1); version 6 a lamp's mesh fitting (UTA-0256 SS 4.1).
+// SS 4.1); version 6 a lamp's mesh fitting (UTA-0256 SS 4.1); version 7 a
+// sky's haze (UTA-0391).
 //
 // CROSSES THE SEAM. docs/design.md rule 3 makes urecipe a vocabulary the
 // runtime reads too, so it links uta_core and nothing else: no package reader,
@@ -38,7 +39,7 @@
 
 namespace uta::urecipe {
 
-inline constexpr std::uint32_t RECIPE_VERSION = 6;
+inline constexpr std::uint32_t RECIPE_VERSION = 7;
 /// The most `[lamp]` sections one recipe holds -- UTA-0256 SS 4.1.
 inline constexpr std::size_t LAMP_LIMIT = 64;
 
@@ -85,6 +86,10 @@ struct Sun {
 
 /// The most textures one `[sky]` names -- UTA-0350 SS 4.1.
 inline constexpr std::size_t SKY_TEXTURE_LIMIT = 8;
+/// UTA-0391: a `[sky]`'s `haze` when it gives none, and its bounds.
+inline constexpr std::uint8_t SKY_HAZE_DEFAULT = 10;
+inline constexpr std::uint8_t SKY_HAZE_MIN = 10;
+inline constexpr std::uint8_t SKY_HAZE_MAX = 90;
 
 /// A sky the map only paints on its walls, opened -- UTA-0350 SS 4.1. The
 /// surfaces wearing `textures` become sky; the rest is how it looks.
@@ -93,6 +98,9 @@ struct Sky {
     std::array<std::uint8_t, 3> top{0x3a, 0x78, 0xc8};     ///< sRGB, overhead
     std::array<std::uint8_t, 3> horizon{0xb4, 0xd4, 0xee}; ///< sRGB, at the horizon
     std::uint8_t clouds = 20;                              ///< percent of the sky covered, 0 to 100
+    /// UTA-0391: where the outdoor haze starts, in percent of the outdoor
+    /// extent, 10 to 90; version 7. The default is the haze every map has.
+    std::uint8_t haze = SKY_HAZE_DEFAULT;
 
     friend bool operator==(const Sky&, const Sky&) = default;
 };
@@ -117,11 +125,12 @@ struct Recipe {
 /// header above RECIPE_VERSION. `materials` comes back sorted; `lamps` keep
 /// file order. A `[lamp]` needs header version 2, a `[sun]` version 3,
 /// a `[switch-off]` or a lamp with no `fitting` version 4, a `[sky]`
-/// version 5, and a lamp's `mesh` version 6.
+/// version 5, a lamp's `mesh` version 6, and a sky's `haze` version 7.
 [[nodiscard]] Result<Recipe> parse(std::string_view text);
 
 /// SS 4.2's canonical form. `friendlyName` must hold no line break. The
-/// header is the lowest version that holds the recipe -- 6 with a lamp's mesh,
+/// header is the lowest version that holds the recipe -- 7 with a sky's haze
+/// other than SKY_HAZE_DEFAULT, 6 with a lamp's mesh,
 /// 5 with a sky, 4 with
 /// a switched-off light or a lamp with no fitting, 3 with a sun, 2 with a
 /// lamp, else 1 -- so
@@ -136,7 +145,8 @@ struct Recipe {
 /// bytes; one without keeps its earlier digest. One that needs version 4
 /// hashes UTA-0256 SS 4.6's version-4 bytes, the switched-off names last. One
 /// with a sky hashes UTA-0350 SS 4.1's version-5 bytes, the sky after those.
-/// A lamp's mesh is hashed after its yaw, and only when it has one.
+/// A lamp's mesh is hashed after its yaw, and only when it has one; a sky's
+/// haze after its clouds, and only when it is not the default (UTA-0391).
 [[nodiscard]] std::array<std::byte, 32> bakeDigest(const Recipe& recipe);
 
 } // namespace uta::urecipe

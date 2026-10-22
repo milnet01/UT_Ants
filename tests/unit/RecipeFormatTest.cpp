@@ -205,10 +205,10 @@ TEST_CASE("INV-2: every refusal names its line", "[urecipe][format]") {
 }
 
 TEST_CASE("INV-2: a newer recipe names both versions", "[urecipe][format]") {
-    const auto result = urecipe::parse("ut-ants recipe 7\n");
+    const auto result = urecipe::parse("ut-ants recipe 8\n");
     REQUIRE_FALSE(result.has_value());
     const std::string message(result.error().message());
-    CHECK(message.find("version 7") != std::string::npos);
+    CHECK(message.find("version 8") != std::string::npos);
     CHECK(message.find("version " + std::to_string(urecipe::RECIPE_VERSION)) != std::string::npos);
 }
 
@@ -740,4 +740,71 @@ TEST_CASE("UTA-0256 INV-13: a version-5 digest is unchanged and a mesh moves it"
         INFO("change " << i);
         CHECK(urecipe::bakeDigest(changed[i]) != digest);
     }
+}
+
+// UTA-0391: a painted sky's haze pushed further out, version 7 --
+// docs/specs/UTA-0350-painted-skies.md SS 4.1.
+
+namespace {
+
+Recipe withHaze() {
+    Recipe recipe = withMesh();
+    recipe.sky->haze = 40;
+    return recipe;
+}
+
+const std::string V7_HEAD = "ut-ants recipe 7\n[map]\nfile = dm-x\n"
+                            "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+
+} // namespace
+
+TEST_CASE("UTA-0391: a sky's haze round-trips as version 7", "[urecipe][format][sky]") {
+    const Recipe recipe = withHaze();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 7\n"));
+    CHECK(text.find("\nclouds = 35\nhaze = 40\n") != std::string::npos);
+    CHECK(parsed(text) == recipe);
+    // The default is written as nothing, so a sky without it stays version 5.
+    CHECK(urecipe::write(withSky()).find("haze") == std::string::npos);
+    CHECK(parsed(V7_HEAD + "[sky]\ntextures = a.b\n").sky->haze == 10);
+    CHECK(parsed(V7_HEAD + "[sky]\ntextures = a.b\nhaze = 90\n").sky->haze == 90);
+}
+
+TEST_CASE("UTA-0391: every haze refusal names its line", "[urecipe][format][sky]") {
+    struct Refusal {
+        const char* what;
+        std::string text;
+        std::size_t line;
+    };
+    // Lines 1 to 4; the sky opens on line 5 and its haze is line 7.
+    const std::string sky = "[sky]\ntextures = a.b\n";
+    const std::vector<Refusal> refusals = {
+        {"a haze in a version-6 recipe", V6_HEAD + sky + "haze = 40\n", 7},
+        {"a haze of 9", V7_HEAD + sky + "haze = 9\n", 7},
+        {"a haze of 91", V7_HEAD + sky + "haze = 91\n", 7},
+        {"a haze that is not a number", V7_HEAD + sky + "haze = far\n", 7},
+    };
+    for (const Refusal& refusal : refusals) {
+        DYNAMIC_SECTION(refusal.what) {
+            const auto result = urecipe::parse(refusal.text);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error().code() == ErrorCode::MalformedData);
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.starts_with("recipe line " + std::to_string(refusal.line) + ": "));
+        }
+    }
+}
+
+TEST_CASE("UTA-0391: a version-6 digest is unchanged and a haze moves it", "[urecipe][format][sky]") {
+    // withMesh()'s digest under the version-6 code, recorded before version 7 existed.
+    const auto before = urecipe::bakeDigest(withMesh());
+    CHECK(before == digestFromHex("fe479bdf8931e82d9d6eb0c38513ac475f0a02aa9180ee2a768c6447fb4458ea"));
+    Recipe stated = withMesh();
+    stated.sky->haze = 10; // the default, said aloud
+    CHECK(urecipe::bakeDigest(stated) == before);
+    CHECK(urecipe::bakeDigest(withHaze()) != before);
+    Recipe further = withHaze();
+    further.sky->haze = 41;
+    CHECK(urecipe::bakeDigest(further) != urecipe::bakeDigest(withHaze()));
 }

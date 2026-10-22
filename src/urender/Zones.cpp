@@ -38,4 +38,9 @@ float outdoorExtent(const ubundle::Geometry& geometry, const std::vector<std::ui
     return std::max(high[0] - low[0], high[1] - low[1]);
 }
 
+OutdoorHaze outdoorHazeOf(float extent, float startShare) noexcept {
+    const float depthShare = OUTDOOR_HAZE_DEPTH_SHARE * (1 - startShare) / (1 - OUTDOOR_HAZE_START_SHARE);
+    return {startShare * extent, depthShare * extent};
+}
+
 } // namespace uta::urender

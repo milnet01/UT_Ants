@@ -168,6 +168,12 @@ TEST_CASE("UTA-0350 INV-4: the named texture's surfaces become sky and no others
     CHECK(painted.bundle.paintedSky->top[2] > painted.bundle.paintedSky->top[0]);
     CHECK(painted.bundle.paintedSky->top[2] < 1.0f);
     CHECK(painted.bundle.paintedSky->clouds == 0.2f);
+    CHECK(painted.bundle.paintedSky->hazeStart == 0.1f);
+
+    // UTA-0391: the recipe's haze, as a share.
+    Recipe hazed = recipe;
+    hazed.sky->haze = 40;
+    CHECK(bakedOk(&hazed).bundle.paintedSky->hazeStart == 0.4f);
 }
 
 TEST_CASE("UTA-0350 INV-4: a sky texture no surface wears is reported unused", "[ubake][paintedsky]") {

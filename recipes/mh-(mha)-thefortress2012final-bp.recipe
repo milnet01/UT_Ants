@@ -1,4 +1,4 @@
-ut-ants recipe 5
+ut-ants recipe 7
 # MH-(MHA)-TheFortress2012Final-BP's sky and sun -- UTA-0358.
 # The map takes its light from zone ambient: two zones at brightness 255 and
 # 253, white, and only 266 of 2101 surfaces lit by a light. UT99 draws it in
@@ -11,6 +11,9 @@ ut-ants recipe 5
 #
 # The sun stands high, near 77 degrees (UTA-0359): at TheBoat's 50 the canyon
 # walls shaded the plain before the castle, which the sky alone then lit blue.
+#
+# The haze starts at 40% of the outdoor extent, not 10% (UTA-0391): at 10
+# it washed the castle, 5800 units off, toward the sky.
 
 [map]
 file = mh-(mha)-thefortress2012final-bp
@@ -25,3 +28,4 @@ brightness = 200
 
 [sky]
 textures = shaneday.dayskyb
+haze = 40

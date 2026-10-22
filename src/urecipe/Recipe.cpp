@@ -2,7 +2,7 @@
 // its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1, its sun,
 // docs/specs/UTA-0338-baked-sun.md SS 4.1, and the map's lights it switches
 // off, UTA-0256 SS 4.6 (UTA-0308), and its painted sky opened,
-// docs/specs/UTA-0350-painted-skies.md SS 4.1.
+// docs/specs/UTA-0350-painted-skies.md SS 4.1, with its haze (UTA-0391).
 
 #include "urecipe/Recipe.h"
 
@@ -243,8 +243,10 @@ Result<std::array<std::uint8_t, 3>> colourOf(std::string_view value, std::size_t
     return colour;
 }
 
-/// UTA-0350 SS 4.1: `textures`, 1 to 8, none twice; `top`, `horizon`, `clouds`.
-Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value, std::size_t line) {
+/// UTA-0350 SS 4.1: `textures`, 1 to 8, none twice; `top`, `horizon`, `clouds`;
+/// UTA-0391: `haze`, from version 7.
+Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value, std::uint32_t version,
+                       std::size_t line) {
     if (key == "textures") {
         if (wordsOf(value).empty()) return refuse(line, "textures names no texture");
         for (const std::string_view word : wordsOf(value)) {
@@ -263,17 +265,25 @@ Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value,
     } else if (key == "clouds") {
         UTA_TRY(const std::uint32_t number, numberOf(value, 100, line));
         sky.clouds = static_cast<std::uint8_t>(number);
+    } else if (key == "haze") {
+        if (version < 7) return refuse(line, "a sky's `haze` needs `ut-ants recipe 7`");
+        UTA_TRY(const std::uint32_t number, numberOf(value, SKY_HAZE_MAX, line));
+        if (number < SKY_HAZE_MIN)
+            return refuse(line, std::format("haze {} is below {}", number, SKY_HAZE_MIN));
+        sky.haze = static_cast<std::uint8_t>(number);
     } else {
         return refuse(line, std::format("[sky] has no key '{}'", key));
     }
     return {};
 }
 
-/// The lowest version that holds `recipe`: 6 with a lamp's mesh (UTA-0256
-/// SS 4.1), 5 with a sky (UTA-0350 SS 4.1),
+/// The lowest version that holds `recipe`: 7 with a sky's haze other than the
+/// default (UTA-0391), 6 with a lamp's mesh (UTA-0256 SS 4.1), 5 with a sky
+/// (UTA-0350 SS 4.1),
 /// 4 with a switched-off light or a lamp with no fitting (UTA-0256 SS 4.6),
 /// 3 with a sun, 2 with a lamp, else 1.
 std::uint32_t versionOf(const Recipe& recipe) {
+    if (recipe.sky && recipe.sky->haze != SKY_HAZE_DEFAULT) return 7;
     if (std::ranges::any_of(recipe.lamps, [](const AddedLamp& lamp) { return !lamp.mesh.empty(); })) return 6;
     if (recipe.sky) return 5;
     if (!recipe.switchedOff.empty()
@@ -472,7 +482,7 @@ Result<Recipe> parse(std::string_view text) {
             } else if (in == In::SwitchOff) {
                 UTA_CHECK(setSwitchOffKey(recipe.switchedOff, key, value, line));
             } else if (in == In::Sky) {
-                UTA_CHECK(setSkyKey(*recipe.sky, key, value, line));
+                UTA_CHECK(setSkyKey(*recipe.sky, key, value, version, line));
             } else {
                 UTA_CHECK(setMaterialKey(*material, key, value, line));
             }
@@ -551,6 +561,7 @@ std::string write(const Recipe& recipe) {
         };
         out += std::format("\ntop = {}\nhorizon = {}\nclouds = {}\n", hex(recipe.sky->top),
                            hex(recipe.sky->horizon), recipe.sky->clouds);
+        if (recipe.sky->haze != SKY_HAZE_DEFAULT) out += std::format("haze = {}\n", recipe.sky->haze);
     }
     return out;
 }
@@ -633,6 +644,12 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         for (const std::uint8_t part : recipe.sky->top) addByte(part);
         for (const std::uint8_t part : recipe.sky->horizon) addByte(part);
         addByte(recipe.sky->clouds);
+        // UTA-0391: the haze only where it is not the default, so a sky
+        // without one keeps its version-6 digest.
+        if (recipe.sky->haze != SKY_HAZE_DEFAULT) {
+            addText("haze\n");
+            addByte(recipe.sky->haze);
+        }
     }
     return hasher.finish();
 }

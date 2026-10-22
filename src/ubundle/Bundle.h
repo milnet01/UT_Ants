@@ -73,8 +73,8 @@ namespace uta::ubundle {
 /// 27 since UTA-0350 SS 4.3 added PSKY.
 /// 28 since UTA-0349 added BAKR.
 /// 29 since UTA-0055 SS 4.4 gave each GEOM vertex its sway kind, weight and cell.
-/// 30 since UTA-0387 SS 4.2 gave LPRB its sky visibility.
-inline constexpr std::uint32_t FORMAT_VERSION = 30;
+/// 31 since UTA-0391 gave PSKY its haze start.
+inline constexpr std::uint32_t FORMAT_VERSION = 31;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -627,6 +627,9 @@ struct PaintedSky {
     std::array<float, 3> top{};     ///< linear RGB straight up
     std::array<float, 3> horizon{}; ///< linear RGB at the horizon
     float clouds = 0;               ///< the share of the dome they cover
+    /// UTA-0391: where the outdoor haze starts, as a share of the outdoor
+    /// extent, in [0.1, 0.9]; 0.1 is every other map's.
+    float hazeStart = 0.1f;
 };
 
 /// The zone of the room `umap::roomAt` finds at `location`, or 0 where it finds

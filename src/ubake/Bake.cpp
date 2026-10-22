@@ -1364,7 +1364,8 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         };
         painted = ubundle::PaintedSky{.top = linear(recipe->sky->top),
                                       .horizon = linear(recipe->sky->horizon),
-                                      .clouds = static_cast<float>(recipe->sky->clouds) / 100.0f};
+                                      .clouds = static_cast<float>(recipe->sky->clouds) / 100.0f,
+                                      .hazeStart = static_cast<float>(recipe->sky->haze) / 100.0f};
     }
     // SS 4.6 step 2: the navigation points' reach, else (UTA-0375) the
     // level's own bounding box.

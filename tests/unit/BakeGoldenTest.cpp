@@ -156,9 +156,11 @@ namespace {
 // moved it.
 // 63: UTA-0390 zones an unzoned node from the room in front of it. Unchecked
 // whether the fixture has one; BAKR's revision moved it either way.
-constexpr std::uint32_t RECORDED_UNDER = 63;
+// 64, format 31: UTA-0391 gives PSKY its haze start. The fixture has no
+// painted sky, so the format and BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 64;
 constexpr std::string_view GOLDEN =
-    "2f65510a1f298a86fdf5e04b19641bca9034681e8008f615911795489a77df1d";
+    "fb446ccb7feec12b99f13c6072b733c5e9e297411d8d9aa022e267a041cb7538";
 
 } // namespace
 

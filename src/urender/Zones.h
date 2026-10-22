@@ -24,4 +24,20 @@ namespace uta::urender {
 /// none; a vertex zone past `seesSky` is ignored. The outdoor haze scales to it.
 [[nodiscard]] float outdoorExtent(const ubundle::Geometry& geometry, const std::vector<std::uint8_t>& seesSky);
 
+/// UTA-0337 part 3: the outdoor haze's start and depth, as shares of the
+/// outdoor extent, where a map's recipe moves neither.
+inline constexpr float OUTDOOR_HAZE_START_SHARE = 0.1f;
+inline constexpr float OUTDOOR_HAZE_DEPTH_SHARE = 0.8f;
+
+/// Where the outdoor haze starts and how deep it runs, in UT units.
+struct OutdoorHaze {
+    float start = 0;
+    float depth = 0;
+};
+
+/// UTA-0391: the haze over `extent` starting at `startShare` of it. A later
+/// start runs shallower, so a surface one extent off keeps the share of its
+/// light it keeps at the default start.
+[[nodiscard]] OutdoorHaze outdoorHazeOf(float extent, float startShare) noexcept;
+
 } // namespace uta::urender

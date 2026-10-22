@@ -6,6 +6,7 @@
 #include "urender/ShaderTypes.h"
 #include "urender/Zones.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
@@ -64,4 +65,17 @@ TEST_CASE("UTA-0337: the outdoor extent is the wider horizontal span of the zone
     at(1, 0, 650, 0); // now Y is the wider
     CHECK(uta::urender::outdoorExtent(geometry, {0, 1, 0}) == 700.0f);
     CHECK(uta::urender::outdoorExtent(geometry, {0, 0, 0}) == 0.0f);
+}
+
+TEST_CASE("UTA-0391: a later haze start thickens it to the same haze at the far edge", "[urender][haze]") {
+    using uta::urender::outdoorHazeOf;
+    const auto plain = outdoorHazeOf(15000, uta::urender::OUTDOOR_HAZE_START_SHARE);
+    CHECK(plain.start == 1500.0f);
+    CHECK(plain.depth == Catch::Approx(12000.0f));
+    const auto later = outdoorHazeOf(15000, 0.4f);
+    CHECK(later.start == 6000.0f);
+    CHECK(later.depth < plain.depth);
+    // A surface one extent off keeps the same share of its light either way.
+    CHECK((15000 - later.start) / later.depth == Catch::Approx((15000 - plain.start) / plain.depth));
+    CHECK(outdoorHazeOf(0, 0.4f).depth == 0.0f); // no outdoors, no haze
 }

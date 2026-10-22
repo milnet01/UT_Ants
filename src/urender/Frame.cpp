@@ -134,10 +134,6 @@ constexpr double FLAME_CLOCK_WRAP = 4096.0;
 // smoothly after a day on the light clock (about 650 units, a step of 6e-5
 // against 1.2e-4 a frame at 60 fps).
 constexpr std::array<double, 2> PAINTED_SKY_WIND{0.0072, 0.0021};
-/// UTA-0337 part 3: the outdoor haze's start and depth, as shares of the
-/// level's outdoorExtent.
-constexpr float OUTDOOR_HAZE_START_SHARE = 0.1f;
-constexpr float OUTDOOR_HAZE_DEPTH_SHARE = 0.8f;
 /// UTA-0215: how many specks drift in the water about the eye, which
 /// mote.vert places from their index alone.
 constexpr std::uint32_t MOTE_COUNT = 800;
@@ -1790,8 +1786,12 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     }
     // UTA-0337 part 3: the outdoor haze scales to the level, since one
     // distance washes out a wide map's near ground or misses a small map's walls.
-    frame.outdoorHazeStart = OUTDOOR_HAZE_START_SHARE * impl.outdoorExtent;
-    frame.outdoorHazeDepth = OUTDOOR_HAZE_DEPTH_SHARE * impl.outdoorExtent;
+    // UTA-0391: a painted sky's recipe may start it further out.
+    const OutdoorHaze haze = outdoorHazeOf(impl.outdoorExtent, bundle.paintedSky && !impl.skyView
+                                                                   ? bundle.paintedSky->hazeStart
+                                                                   : OUTDOOR_HAZE_START_SHARE);
+    frame.outdoorHazeStart = haze.start;
+    frame.outdoorHazeDepth = haze.depth;
     // UTA-0164 SS 4.5: the atlas follows the sky's faces, when there are any.
     frame.occlusionTexture = impl.occlusion.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
                                                                                  + (impl.sky.view() ? 1 : 0))

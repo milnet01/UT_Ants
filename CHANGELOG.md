@@ -769,6 +769,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **TheFortress's castle stands clear of the distance mist** (UTA-0391)
+  The mist turned the castle wall and the cliffs before it pale
+  blue-grey, though they stand fairly near. A map's recipe can now say
+  where its mist begins, and TheFortress's starts further out; its far
+  edges still fade. Other maps are unchanged. Re-bake every map:
+  bundles are now format 31.
+
 - **A corner of TheBoat's bow no longer stands out brown from a distance** (UTA-0390)
   One small triangle at the bow was recorded in the map as belonging
   to no area at all, so the distance mist skipped it while it greyed

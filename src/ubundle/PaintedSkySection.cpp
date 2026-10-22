@@ -1,8 +1,8 @@
 // The PSKY section: the painted sky a map's recipe opens --
 // docs/specs/UTA-0350-painted-skies.md SS 4.3 and INV-3.
 //
-// Seven f32: top, horizon, clouds. Its rules are its own, so it is validated
-// as soon as it is decoded.
+// Eight f32: top, horizon, clouds and (UTA-0391) the haze's start. Its rules
+// are its own, so it is validated as soon as it is decoded.
 
 #include "Sections.h"
 
@@ -26,6 +26,7 @@ Result<PaintedSky> readPaintedSky(Cursor& cursor) {
         UTA_TRY(channel, cursor.readF32());
     }
     UTA_TRY(sky.clouds, cursor.readF32());
+    UTA_TRY(sky.hazeStart, cursor.readF32());
     return sky;
 }
 
@@ -37,6 +38,8 @@ Result<void> validatePaintedSky(const PaintedSky& sky, ErrorCode code) {
             return fail(code, "PSKY: horizon channel " + std::to_string(c) + " is not in [0, 1]");
     }
     if (!inUnit(sky.clouds)) return fail(code, "PSKY: the cloud cover is not in [0, 1]");
+    if (!(sky.hazeStart >= 0.1f && sky.hazeStart <= 0.9f))
+        return fail(code, "PSKY: the haze's start is not in [0.1, 0.9]");
     return {};
 }
 
@@ -45,6 +48,7 @@ Result<std::vector<std::byte>> encodePaintedSky(const PaintedSky& sky) {
     for (const float channel : sky.top) sink.putF32(channel);
     for (const float channel : sky.horizon) sink.putF32(channel);
     sink.putF32(sky.clouds);
+    sink.putF32(sky.hazeStart);
     return std::move(sink).finish("PSKY");
 }
 

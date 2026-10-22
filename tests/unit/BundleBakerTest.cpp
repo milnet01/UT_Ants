@@ -44,7 +44,7 @@ Bytes bakerPayload(std::string_view baker) {
 /// PSKY's seven f32, every one different.
 Bytes skyPayload() {
     Bytes out;
-    for (const float channel : {0.1f, 0.2f, 0.7f, 0.5f, 0.6f, 0.8f, 0.3f}) out.f32(channel);
+    for (const float channel : {0.1f, 0.2f, 0.7f, 0.5f, 0.6f, 0.8f, 0.3f, 0.1f}) out.f32(channel);
     return out;
 }
 
@@ -53,7 +53,7 @@ std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, By
                                 std::uint32_t count) {
     Bytes out;
     out.id("UTAB");
-    out.u32(30); // formatVersion -- 30 since UTA-0387 gave LPRB its sky visibility
+    out.u32(31); // formatVersion -- 31 since UTA-0391 gave PSKY its haze start
     out.u8(0);   // origin: Derived
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved
