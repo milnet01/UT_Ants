@@ -19538,6 +19538,11 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   the other missed (git log and the gate's history)? Then the user
   decides; recommendation to put to them: keep Clang's, the faster,
   and drop GCC's. A coverage call, not a flakiness risk.
+  Investigated 2026-10-22: the history records one race this check
+  caught (fb8d02b, September), with no leg named. Nothing shows either
+  compiler finding a race the other missed.
+  Decided (user, 2026-10-22): run the race detector on Clang only; drop
+  GCC's run.
   **Layman:** The thread-safety check is built twice, once per Linux compiler; running it once would save minutes per push if it loses nothing.
   Kind: investigate.
   Source: user-request-2026-10-21.
