@@ -34,6 +34,7 @@ import sys
 
 from PIL import Image
 
+USAGE = "scripts/tile-questions.py <report.json> <bundle.utab> <out dir>"
 UT_SHOT = pathlib.Path("build/tools/ut-shot/ut-shot")
 VIEW_SIZE = (1280, 720)
 VIEW_FOV = 90.0
@@ -111,7 +112,7 @@ def camera_line(view):
 
 def main():
     if len(sys.argv) != 4:
-        sys.exit(__doc__.strip().splitlines()[2].strip())
+        sys.exit(USAGE)
     report, bundle, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
     questions = json.loads(report.read_text()).get("tileQuestions", [])
     done = answered()
