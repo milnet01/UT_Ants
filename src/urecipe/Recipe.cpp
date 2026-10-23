@@ -127,12 +127,15 @@ Result<std::string> textureOf(std::string_view name, std::size_t line) {
     return asciiFolded(name);
 }
 
-/// A lamp's name: 1 to 32 of a-z, 0-9 and -.
-Result<std::string> lampNameOf(std::string_view name, std::size_t line) {
+/// The name in a `[lamp NAME]` or `[hide NAME]` heading: 1 to 32 of a-z, 0-9
+/// and -, the one rule both sections share (UTA-0109 SS 4.6). `section` is the
+/// heading's keyword, so a refusal names the section the player wrote.
+Result<std::string> sectionNameOf(std::string_view section, std::string_view name, std::size_t line) {
     const bool good = !name.empty() && name.size() <= 32 && std::ranges::all_of(name, [](char character) {
         return (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-';
     });
-    if (!good) return refuse(line, std::format("'{}' is not a lamp name: 1 to 32 of a-z, 0-9 and -", name));
+    if (!good)
+        return refuse(line, std::format("'{}' is not a [{}] name: 1 to 32 of a-z, 0-9 and -", name, section));
     return std::string(name);
 }
 
@@ -456,7 +459,7 @@ Result<Recipe> parse(std::string_view text) {
                 in = In::Material;
             } else if (heading == "lamp" || (heading.starts_with("lamp") && isBlank(heading[4]))) {
                 if (version < 2) return refuse(line, "a [lamp] needs `ut-ants recipe 2`");
-                UTA_TRY(std::string name, lampNameOf(trimmed(heading.substr(4)), line));
+                UTA_TRY(std::string name, sectionNameOf("lamp", trimmed(heading.substr(4)), line));
                 for (std::size_t i = 0; i < recipe.lamps.size(); ++i)
                     if (recipe.lamps[i].name == name)
                         return refuse(line, std::format("[lamp {}] is given twice; the first is on line {}", name,
@@ -486,7 +489,7 @@ Result<Recipe> parse(std::string_view text) {
                 in = In::Sky;
             } else if (heading == "hide" || (heading.starts_with("hide") && isBlank(heading[4]))) {
                 if (version < 8) return refuse(line, "a [hide] needs `ut-ants recipe 8`");
-                UTA_TRY(std::string name, lampNameOf(trimmed(heading.substr(4)), line));
+                UTA_TRY(std::string name, sectionNameOf("hide", trimmed(heading.substr(4)), line));
                 for (std::size_t i = 0; i < recipe.hidden.size(); ++i)
                     if (recipe.hidden[i].name == name)
                         return refuse(line, std::format("[hide {}] is given twice; the first is on line {}", name,

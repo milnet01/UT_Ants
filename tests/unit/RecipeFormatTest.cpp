@@ -881,6 +881,23 @@ TEST_CASE("UTA-0396: every [hide] refusal names its line", "[urecipe][format][hi
     }
 }
 
+TEST_CASE("UTA-0406: a bad section name is refused as that section's name", "[urecipe][format][hide]") {
+    // [hide] takes a lamp's naming rule (UTA-0109 SS 4.6), but the player
+    // wrote a [hide], so the refusal must not call it a lamp.
+    const auto messageFor = [](const std::string& text) {
+        const auto result = urecipe::parse(text);
+        REQUIRE_FALSE(result.has_value());
+        return std::string(result.error().message());
+    };
+    const std::string hide = messageFor(V8_HEAD + "[hide Pit]\nbrush = B\ncover = C 0\n");
+    INFO("hide: " << hide);
+    CHECK(hide.find("'Pit' is not a [hide] name") != std::string::npos);
+    CHECK(hide.find("lamp") == std::string::npos);
+    const std::string lamp = messageFor(V8_HEAD + "[lamp Hall]\n");
+    INFO("lamp: " << lamp);
+    CHECK(lamp.find("'Hall' is not a [lamp] name") != std::string::npos);
+}
+
 TEST_CASE("UTA-0396: a version-7 digest is unchanged and each hidden field moves it", "[urecipe][format][hide]") {
     // This text's digest under the version-7 code, recorded before version 8 existed.
     const std::string v7 = V7_HEAD + "[sky]\ntextures = a.b\nhaze = 40\n";
