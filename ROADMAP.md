@@ -17944,10 +17944,11 @@ stays with movement in 0.2.0.
   2026-10-23: not real in the reference install. A name-table scan of
   every package under it (System, Maps, Textures, Sounds, Music; none
   unreadable) found None, Vector, Rotator and the six modelled texture
-  class names only in the spelling the code matches. Each comparison now
-  says so in a comment. Not folded: unav's sameName shows other names
-  (navigationpoint, tag) do arrive in other case, so a package from
-  outside this install could still differ.
+  class names only in the spelling the code matches. Then folded anyway
+  (user, 2026-10-23), as UE1 compares names: all six comparisons, the
+  FireTexture sparks check included, go through core/Ascii.h. Tests in
+  PackageContentTest, PackagePropertiesTest and PackageScriptTest went red
+  first; four maps bake byte-identically.
   **Layman:** A map that spells a built-in name in different case might be refused.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 07.

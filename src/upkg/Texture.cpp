@@ -1,5 +1,6 @@
 #include "upkg/Texture.h"
 
+#include "core/Ascii.h"
 #include "upkg/ByteReader.h"
 #include "upkg/Properties.h"
 #include "upkg/ReadSupport.h"
@@ -102,11 +103,9 @@ bool hasCompressedChain(const std::vector<Property>& properties, const Package& 
 } // namespace
 
 bool isModelledTextureClass(std::string_view className) noexcept {
-    // Exact spelling, though UE1 names ignore case: every one of these
-    // names in every package of the reference install is spelled as
-    // here (a name-table scan, 2026-10-23, UTA-0405).
+    // Ignoring case, as UE1 compares names (UTA-0405).
     for (const std::string_view modelled : MODELLED_CLASSES) {
-        if (className == modelled) {
+        if (equalsIgnoringAsciiCase(className, modelled)) {
             return true;
         }
     }
@@ -140,7 +139,7 @@ Result<Texture> readTexture(const Package& package, const ExportEntry& entry) {
                 readChain(reader, package.header().packageVersion, entry.serialOffset));
     }
 
-    if (className == "FireTexture") {
+    if (equalsIgnoringAsciiCase(className, "FireTexture")) {
         UTA_TRY(const std::int32_t sparks, reader.readIndex());
         UTA_CHECK(detail::checkCount(reader, sparks, SPARK_BYTES, "a FireTexture", "sparks"));
         const auto wanted = static_cast<std::size_t>(sparks);

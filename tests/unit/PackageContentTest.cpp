@@ -940,6 +940,21 @@ TEST_CASE("a texture subclass sharing the layout is read; another is refused",
         CHECK(texture->sparks[1].byteD == 255);
     }
 
+    SECTION("UTA-0405: a class name in other case is the same class") {
+        // UE1 compares names ignoring case, so a package may spell the class
+        // `firetexture`; it is still a FireTexture, sparks and all.
+        std::vector<std::uint8_t> fire = data;
+        appendIndex(fire, 1);
+        for (const std::uint8_t value : {5u, 200u, 64u, 100u, 1u, 2u, 3u, 4u}) appendU8(fire, value);
+        const std::vector<std::uint8_t> bytes = packageWithObject(61, "firetexture", fire);
+        const auto package = Package::open(asBytes(bytes));
+        REQUIRE(package.has_value());
+        const auto texture = uta::upkg::readTexture(*package, package->exports()[0]);
+        INFO((texture.has_value() ? std::string() : std::string(texture.error().message())));
+        REQUIRE(texture.has_value());
+        CHECK(texture->sparks.size() == 1);
+    }
+
     SECTION("UTA-0177: WaveTexture is modelled, its mip read as stored") {
         const std::vector<std::uint8_t> bytes = packageWithObject(61, "WaveTexture", data);
         const auto package = Package::open(asBytes(bytes));

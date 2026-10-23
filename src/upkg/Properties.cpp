@@ -1,5 +1,6 @@
 #include "upkg/Properties.h"
 
+#include "core/Ascii.h"
 #include "upkg/ByteReader.h"
 #include "upkg/ReadSupport.h"
 
@@ -205,10 +206,9 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
         UTA_TRY(const std::string_view tagName, package.name(nameIndex));
         // The list ends at `None` and at no other condition. A loop that
         // stopped at the end of the buffer would return a truncated object as
-        // a complete one (INV-9). Exact spelling, though UE1 names ignore
-        // case: every package in the reference install spells it `None`
-        // (a name-table scan, 2026-10-23, UTA-0405).
-        if (tagName == "None") {
+        // a complete one (INV-9). Matched ignoring case, as UE1 compares
+        // names: a package may spell it `none` (UTA-0405).
+        if (equalsIgnoringAsciiCase(tagName, "None")) {
             return properties;
         }
 
@@ -262,11 +262,10 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
         PropertyType decodeAs = property.type;
         if (property.type == PropertyType::Struct) {
             UTA_TRY(const std::string_view structName, package.name(property.structNameIndex));
-            // Exact spelling, as `None` above: no package in the reference
-            // install spells either otherwise (UTA-0405).
-            if (structName == "Vector") {
+            // Ignoring case, as `None` above.
+            if (equalsIgnoringAsciiCase(structName, "Vector")) {
                 decodeAs = PropertyType::Vector;
-            } else if (structName == "Rotator") {
+            } else if (equalsIgnoringAsciiCase(structName, "Rotator")) {
                 decodeAs = PropertyType::Rotator;
             }
         }

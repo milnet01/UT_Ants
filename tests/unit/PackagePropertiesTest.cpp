@@ -17,6 +17,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <bit>
 #include <cstdint>
 #include <string>
 #include <variant>
@@ -442,4 +443,54 @@ TEST_CASE("UTA-0362: a Vector whose tag declares four bytes keeps them undecoded
     REQUIRE(strProperties->size() == 2);
     CHECK(std::holds_alternative<std::span<const std::byte>>((*strProperties)[0].value));
     CHECK(std::get<std::int32_t>((*strProperties)[1].value) == -777);
+}
+
+TEST_CASE("UTA-0405: None, Vector and Rotator are matched ignoring case", "[package-properties]") {
+    // UE1 compares names ignoring case, so a package's name table may spell
+    // them `none`, `vector` and `rotator`. The list still ends at `none`, and
+    // both structs still decode.
+    UnrealPackageBuilder builder;
+    builder.addName("none")
+        .addName("FirstProperty")
+        .addName("MiddleProperty")
+        .addName("vector")
+        .addName("rotator")
+        .addName("Class");
+    constexpr std::int32_t LOWER_NONE = 0, LOWER_VECTOR = 3, LOWER_ROTATOR = 4, CLASS = 5;
+
+    const auto le32 = [](std::vector<std::uint8_t>& out, std::uint32_t value) {
+        for (int shift = 0; shift < 32; shift += 8) out.push_back(static_cast<std::uint8_t>(value >> shift));
+    };
+    std::vector<std::uint8_t> vectorBytes, rotatorBytes;
+    for (const float component : {1.0F, 2.0F, 3.0F}) le32(vectorBytes, std::bit_cast<std::uint32_t>(component));
+    for (const std::int32_t component : {10, 20, 30}) le32(rotatorBytes, static_cast<std::uint32_t>(component));
+
+    TaggedPropertyWriter writer;
+    writer.addUndecodedStruct(NAME_FIRST, LOWER_VECTOR, vectorBytes)
+        .addUndecodedStruct(NAME_MIDDLE, LOWER_ROTATOR, rotatorBytes);
+
+    ExportEntry entry;
+    entry.objectName = NAME_FIRST;
+    entry.objectClass = -1;
+    entry.serialData = writer.build(LOWER_NONE);
+    builder.addExport(entry);
+    uta::test::ImportEntry import;
+    import.classPackage = LOWER_NONE;
+    import.className = CLASS;
+    import.objectName = NAME_FIRST;
+    builder.addImport(import);
+
+    const std::vector<std::uint8_t> bytes = builder.build();
+    const auto package = Package::open(asBytes(bytes));
+    REQUIRE(package.has_value());
+    const auto properties = readProperties(*package, package->exports()[0]);
+    INFO((properties.has_value() ? std::string() : std::string(properties.error().message())));
+    REQUIRE(properties.has_value());
+    REQUIRE(properties->size() == 2);
+    const auto* vector = std::get_if<uta::upkg::Vector3>(&(*properties)[0].value);
+    REQUIRE(vector != nullptr);
+    CHECK(vector->z == 3.0F);
+    const auto* rotator = std::get_if<uta::upkg::Rotator>(&(*properties)[1].value);
+    REQUIRE(rotator != nullptr);
+    CHECK(rotator->roll == 30);
 }

@@ -1,5 +1,6 @@
 #include "upkg/Script.h"
 
+#include "core/Ascii.h"
 #include "upkg/ByteReader.h"
 #include "upkg/Package.h"
 #include "upkg/ReadSupport.h"
@@ -250,9 +251,8 @@ Result<Walked> skipExpression(const Package& package, ByteReader& reader, int de
                     detail::checkNameIndex(label, package.names().size(),
                                            "a script label table names"));
             UTA_TRY(const std::string_view labelName, package.name(labelIndex));
-            // Exact spelling, as readPropertiesAt matches it: no package in
-            // the reference install spells `None` otherwise (UTA-0405).
-            if (labelName == "None") {
+            // Ignoring case, as readPropertiesAt matches it (UTA-0405).
+            if (equalsIgnoringAsciiCase(labelName, "None")) {
                 return walked;
             }
         }

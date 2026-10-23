@@ -20,6 +20,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 using uta::ErrorCode;
@@ -160,4 +161,22 @@ TEST_CASE("INV-5: a ScriptSize larger than the bytes available is MalformedData"
     const auto walked = skipScript(*package, reader, 4096);
     REQUIRE_FALSE(walked.has_value());
     CHECK(walked.error().code() == ErrorCode::MalformedData);
+}
+
+TEST_CASE("UTA-0405: a label table ends at a `none` spelled in any case") {
+    // UE1 compares names ignoring case, so the terminator may be `none`.
+    UnrealPackageBuilder builder;
+    builder.addName("none");
+    const std::vector<std::uint8_t> packageBytes = builder.build();
+    const auto package = Package::open(asBytes(packageBytes));
+    REQUIRE(package.has_value());
+
+    // EX_LabelTable, then one entry: name index 0 and a four-byte offset.
+    // Memory: the opcode's byte plus a name's four and the offset's four.
+    const std::vector<std::uint8_t> body = {0x0C, 0x00, 0x00, 0x00, 0x00, 0x00};
+    ByteReader reader{asBytes(body)};
+    const auto walked = skipScript(*package, reader, 9);
+    INFO((walked.has_value() ? std::string() : std::string(walked.error().message())));
+    REQUIRE(walked.has_value());
+    CHECK(reader.position() == 6);
 }
