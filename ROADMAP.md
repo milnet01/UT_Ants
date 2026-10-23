@@ -18006,13 +18006,14 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 11.
 
-- 📋 [UTA-0409] **Investigate: developer-tool leads from the readability review.**
+- 🚧 [UTA-0409] **Investigate: developer-tool leads from the readability review.**
   - ut-bench/Cli.cpp:186-190: path from string_view, not pathFromUtf8.
   - ut-bench/Frame.cpp:82-90: `--size` has no upper bound.
   - ut-dump/Cli.cpp:952-971, :1031-1048: a refused ancestry silently
     drops exits' and waypoints' class defaults.
   (ut-bake/Cli.cpp:428 OverBudget lead was refuted; not filed.)
   Lane file: docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md
+  In progress 2026-10-23: the three leads checked in the lane 12 close.
   **Layman:** Tool problems: non-English paths on Windows, an unbounded size option, and silently lost defaults.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 12.
@@ -18150,10 +18151,12 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 11.
 
-- 📋 [UTA-0423] **Readability fixes: C++ developer tools.**
+- 🚧 [UTA-0423] **Readability fixes: C++ developer tools.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md,
   including HIGH ut-shot/main.cpp:150 (three diverged camera-line readers).
   Close with close-findings; ledger beside the lane file.
+  In progress 2026-10-23: lane 12 closing; ledger
+  docs/reviews/review-readability-2026-10-23/close-lane-12.md.
   **Layman:** Make the developer tools' code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 12.
