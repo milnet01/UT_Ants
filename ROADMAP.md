@@ -18041,7 +18041,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 13.
 
-- 🚧 [UTA-0411] **Investigate: gate leads — utab under docs, cut-off help, root links.**
+- ✅ [UTA-0411] **Investigate: gate leads — utab under docs, cut-off help, root links.**
   - docs-only.sh:18: `docs/*` makes docs/x.utab documentation-only, so
     the bundle-origin check skips it. Never-list mirrors the machine
     hook's NEVER_DOCS.
@@ -18055,6 +18055,9 @@ stays with movement in 0.2.0.
   tested change. Found while closing: ci.sh's link step read code spans
   as links and failed the gate; fixed (5031e44). Ship once GitHub's
   matrix is green.
+  Shipped on GitHub's matrix: CI run 39977555717 (75e20e9) for the gate
+  fixes and 39980633165 (f415b85) for the pre-commit hook copied from
+  claude-config 81dea8d, 2026-10-23.
   **Layman:** A bundle placed under docs could skip a safety check; two scripts' help text stops mid-sentence.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 14 (first two confirmed).
