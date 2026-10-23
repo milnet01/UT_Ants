@@ -98,7 +98,9 @@ struct Cover {
 /// The level's drawable surfaces as triangles -- SS 4.3.
 ///
 /// MalformedData, naming the node, when a drawn node's index leaves its table,
-/// and when the vertices or indices emitted would reach 2^32. A node of fewer
+/// when a drawn node's or a cover's point is not finite or lies past
+/// MAX_COORDINATE (UTA-0217, UTA-0404), and when the vertices or indices
+/// emitted would reach 2^32. A node of fewer
 /// than three vertices is checked for nothing; an invisible one for `iSurf`
 /// only.
 ///

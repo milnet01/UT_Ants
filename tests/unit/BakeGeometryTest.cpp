@@ -363,6 +363,38 @@ TEST_CASE("UTA-0217: a drawn point that is not finite or lies past the bound is 
     CHECK(built(edge, stub).vertices.size() == 3u);
 }
 
+TEST_CASE("UTA-0404: a cover's point that is not finite or lies past the bound is refused", "[ubake][geom]") {
+    // INV-12 holds for UTA-0109 SS 4.6's covers too: Hide.cpp builds a cover
+    // from a hidden brush's corners, which no other step checks.
+    const double bound = uta::ubake::MAX_COORDINATE;
+    for (const double bad : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+                             std::nextafter(bound, std::numeric_limits<double>::max()), -2 * bound}) {
+        CAPTURE(bad);
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            CAPTURE(axis);
+            Scene scene;
+            scene.add(square(0));
+            uta::ubake::Cover cover{0, {{0, 0, 0}, {64, 0, 0}, {64, 64, 0}}};
+            cover.points[2][axis] = bad;
+            Stub stub;
+            const std::vector<uta::ubake::Cover> covers{cover};
+            const auto geometry = buildGeometry(scene.model, stub.lookup(), ZONES, {}, nullptr, nullptr, covers);
+            REQUIRE_FALSE(geometry.has_value());
+            CHECK(geometry.error().code() == ErrorCode::MalformedData);
+            CHECK(geometry.error().message().find("node 0") != std::string_view::npos);
+            CHECK(geometry.error().message().find("past the bound") != std::string_view::npos);
+        }
+    }
+    // At the bound itself it is drawn.
+    Scene scene;
+    scene.add(square(0));
+    Stub stub;
+    const std::vector<uta::ubake::Cover> covers{{0, {{-bound, 0, 0}, {bound, 0, 0}, {bound, bound, 0}}}};
+    const auto geometry = buildGeometry(scene.model, stub.lookup(), ZONES, {}, nullptr, nullptr, covers);
+    REQUIRE(geometry.has_value());
+    CHECK(geometry->vertices.size() == 4u + 3u);
+}
+
 TEST_CASE("a skipped node is not checked past what its skip needed", "[ubake][geom]") {
     // INV-9. A two-vertex node is checked for nothing, so its out-of-range
     // iSurf and vertex pool pass. An invisible node is checked for iSurf only,

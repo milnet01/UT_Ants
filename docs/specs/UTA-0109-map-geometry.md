@@ -364,7 +364,9 @@ version and its digest.
    the bake.
 4. § 4.3 draws the cover after the nodes, by steps 5 to 7a, as the cover
    node's polygon. It wears that node's surface and zone, and sways with
-   it.
+   it. Its points meet step 4's bound first, as a node's do (INV-12): the
+   hidden brush's nodes may be invisible, so nothing else checks them
+   (UTA-0404).
 
 Only drawing changes: collision, zones and the bakes' rays read the
 `Model` unchanged. A bake without a `[hide]` is unchanged, so
@@ -476,13 +478,15 @@ Only drawing changes: collision, zones and the bakes' rays read the
   *Breaks when:* the property is not read, is read under the C++ member's
   name `Scale`, or a value that is not finite and positive is used as given.
 
-- **INV-12** — A drawn node with a polygon point that is NaN, infinite or
-  past ±`MAX_COORDINATE` on any axis is refused with `MalformedData` naming
-  the node and the value; a point exactly at the bound is drawn.
-  *Added by UTA-0217.*
+- **INV-12** — A drawn node, or a § 4.6 cover, with a polygon point that is
+  NaN, infinite or past ±`MAX_COORDINATE` on any axis is refused with
+  `MalformedData` naming the node and the value; a point exactly at the
+  bound is drawn.
+  *Added by UTA-0217; covers by UTA-0404.*
   *Test:* `tests/unit/BakeGeometryTest.cpp`: NaN, both infinities and the
   next f32 past each side of the bound, on each axis; and a triangle
-  touching the bound. `tests/real/RealGeometryTest.cpp` refuses no library
+  touching the bound. For a cover, "UTA-0404: a cover's point that is not
+  finite or lies past the bound is refused". `tests/real/RealGeometryTest.cpp` refuses no library
   map for it.
   *Breaks when:* a point is used unchecked, or the check runs after step 5,
   where a NaN makes `s` neither zero nor negative.

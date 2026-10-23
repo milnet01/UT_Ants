@@ -400,7 +400,19 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         UTA_CHECK(draw(n, std::move(points)));
     }
     // UTA-0109 SS 4.6: a recipe's covers, each drawn as its node's surface.
-    for (const Cover& cover : covers) UTA_CHECK(draw(cover.node, cover.points));
+    // UTA-0404: a cover's points meet step 4's bound too. Hide.cpp builds them
+    // from the hidden brush's corners, which may be invisible and so are
+    // never checked as a node's.
+    for (const Cover& cover : covers) {
+        for (const Vec& point : cover.points)
+            for (const double part : point)
+                if (!(std::abs(part) <= MAX_COORDINATE))
+                    return fail(ErrorCode::MalformedData,
+                                "the Model's node " + std::to_string(cover.node) + " has a point at "
+                                    + std::to_string(part) + ", which is not finite or lies past the bound of "
+                                    + std::to_string(MAX_COORDINATE));
+        UTA_CHECK(draw(cover.node, cover.points));
+    }
 
     // 7b. UTA-0055 SS 4.2 and SS 4.3: the swaying polygons cut into pieces,
     // each corner weighted. One the budget left whole keeps its corners.
