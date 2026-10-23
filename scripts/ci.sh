@@ -110,8 +110,8 @@ step "quarantine guard"
 if [[ $MODE == docs ]]; then
     # UTA-0013's third check reads each tracked bundle's header through
     # ut-origin, which this mode does not build. No push can use the gap:
-    # scripts/docs-only.sh never classifies a push carrying a .utab as
-    # documentation-only, so the full run checks it.
+    # *.utab is on scripts/docs-only.sh's never-list, so a push carrying a
+    # bundle anywhere, docs/ included, takes the full run, which checks it.
     skip "the quarantine guard's bundle-origin check needs ut-origin, which --docs does not build"
 fi
 

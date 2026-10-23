@@ -12,9 +12,11 @@
 # was not known, and unknown runs everything.
 set -euo pipefail
 
-# Build files are never documentation, whatever the list below says. The same
-# names the machine-wide hook refuses, so GitHub refuses them too.
-never='CMakeLists.txt|*.cmake|*.lock|*.pro|*.pri|requirements*.txt|constraints*.txt|Makefile|meson.build'
+# Never documentation, whatever the list below says. The build files are the
+# names the machine-wide hook refuses (its NEVER_DOCS), so GitHub refuses them
+# too. *.utab is this project's own: a bundle's origin is read only by the full
+# run (scripts/ci.sh), so a bundle under docs/ must not take the --docs mode.
+never='CMakeLists.txt|*.cmake|*.lock|*.pro|*.pri|requirements*.txt|constraints*.txt|Makefile|meson.build|*.utab'
 docs='docs/*|*.md|LICENSE'
 
 IFS='|' read -r -a nevers <<<"$never"

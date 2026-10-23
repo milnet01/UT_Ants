@@ -801,6 +801,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **A push carrying a bundle under docs/ now runs the full gate, so its origin is checked** (UTA-0411)
+  `scripts/docs-only.sh` classed `docs/<name>.utab` as documentation, so
+  both gates took `ci.sh --docs`, which skips the quarantine guard's
+  bundle-origin check. `*.utab` is now on its never-list.
+
 - **map-analyser reports a map ut-dump cannot read, instead of stopping** (UTA-0410)
   ut-dump exits 0 and marks such a package not ok. The analyser read on
   and stopped the whole batch with a KeyError; that map now prints its
