@@ -303,3 +303,41 @@ TEST_CASE("UTA-0356: the fog's history stays where it was in the world when the 
     CAPTURE(worst);
     CHECK(worst <= 20);
 }
+
+TEST_CASE("UTA-0399: a bundle edited in place only in its rooms re-finds its lights' zones", "[device]") {
+    removeDisplay();
+    // One BSP node on x = 250: the camera behind it, the light in front. Zone 1
+    // is foggy and zone 2 is not, so the light glows only while its room is in
+    // zone 1. The camera's room stays in zone 1 throughout; its zone is found
+    // every frame. The light's is found at upload, so only shapeOf's sample of
+    // the rooms can tell the edited bundle from the one uploaded.
+    uta::ubundle::Bundle bundle = wallAt(1000, 3000, BLACK);
+    uta::ubundle::Light light = steadyLight({500, 0, 0}, 255, 1);
+    light.volumeRadius = 255;
+    light.volumeBrightness = 255;
+    bundle.lights = std::vector{light};
+    bundle.zones = std::vector<uta::ubundle::Zone>{{0, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 0, 0}};
+    uta::umap::RoomMap rooms;
+    uta::umap::RoomMap::Node node;
+    node.normal = {1.0F, 0.0F, 0.0F};
+    node.w = 250;
+    node.iZone[0] = 1;
+    node.iZone[1] = 2;
+    rooms.nodes = {node};
+    rooms.rooms.resize(2);
+    rooms.rooms[0].zoneIndex = 1;
+    rooms.rooms[1].zoneIndex = 2;
+    rooms.roomForZone = {uta::umap::NO_ROOM, 0, 1};
+    bundle.rooms = std::move(rooms);
+
+    Renderer renderer = requireRenderer(fogFrame(Tier::Medium, 0.0f));
+    const int clear = redAt(renderer, bundle, Camera{});
+    bundle.rooms->rooms[1].zoneIndex = 1;
+    const int edited = redAt(renderer, bundle, Camera{});
+    Renderer fresh = requireRenderer(fogFrame(Tier::Medium, 0.0f));
+    const int control = redAt(fresh, bundle, Camera{});
+    CAPTURE(clear, edited, control);
+    CHECK(clear == 0);
+    CHECK(control > 20);
+    CHECK(edited == control);
+}

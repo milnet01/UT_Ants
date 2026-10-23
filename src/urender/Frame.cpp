@@ -160,6 +160,9 @@ constexpr std::uint32_t MOTE_COUNT = 800;
 /// ZONE is sampled whole: it holds at most ZONE_LIMIT entries (UTA-0156).
 /// AOCC by its size and the ends of its uvs and texels (UTA-0164).
 /// SMSK by its sizes and the ends of its arrays (UTA-0326).
+/// ROOM by each room's zone, its zone-to-room table whole, and the ends of its
+/// nodes and leaf zones: upload finds each light's zone and the sky layers'
+/// zone in it (UTA-0399).
 struct BundleShape {
     const ubundle::Bundle* address = nullptr;
     std::size_t vertices = 0, indices = 0, batches = 0, textures = 0, materials = 0, movers = 0, moverIndices = 0,
@@ -307,6 +310,26 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     if (const std::optional<ubundle::SkyView> view = ubundle::skyViewOf(bundle)) {
         shape.skyView = true;
         fnv.addValue(view->location);
+    }
+    // UTA-0399: upload() finds each light's zone, and the sky layers', in the rooms.
+    if (bundle.rooms) {
+        const umap::RoomMap& rooms = *bundle.rooms;
+        fnv.addValue(rooms.rooms.size());
+        for (const umap::Room& room : rooms.rooms) fnv.addValue(room.zoneIndex);
+        fnv.addValue(rooms.roomForZone.size());
+        fnv.add(std::as_bytes(std::span(rooms.roomForZone)));
+        // Field by field: a Node has padding, which a byte hash would read.
+        fnv.addValue(rooms.nodes.size());
+        if (!rooms.nodes.empty())
+            for (const umap::RoomMap::Node* node : {&rooms.nodes.front(), &rooms.nodes.back()}) {
+                fnv.addValue(node->normal);
+                fnv.addValue(node->w);
+                fnv.addValue(node->iFront);
+                fnv.addValue(node->iBack);
+                fnv.addValue(node->iLeaf);
+                fnv.addValue(node->iZone);
+            }
+        fnv.addEnds(std::span<const std::uint8_t>(rooms.leafZone));
     }
     if (bundle.lights)
         for (const ubundle::Light& light : *bundle.lights) {
