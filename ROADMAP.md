@@ -17967,12 +17967,17 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 08.
 
-- 📋 [UTA-0407] **Investigate: readFile FIFO gap and immortal drift sparks.**
+- 🚧 [UTA-0407] **Investigate: readFile FIFO gap and immortal drift sparks.**
   - FileSystem.cpp:434: `readFile` fopen after its type check; the
     FIFO swap gap closed in MappedFile::open only.
   - Fire.cpp:195: Emit with byteD == 0 makes Drift sparks that never
     cool, against Fire.h's "at most 255 steps". May match UT99.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-09-core-uworld-ufire.md
+  2026-10-23, d652b55. readFile FIFO gap real: fixed via
+  detail::openForReading (O_NONBLOCK, S_ISREG on the descriptor), test
+  red then green. Immortal drift sparks: faithful to SurrealEngine's
+  UpdateFrame (Emit copies HeatDecay; Drift subtracts then tests heat >
+  0); kept, PRIME_STEPS comment corrected. Shipped after the matrix.
   **Layman:** A file-read race left open in one place, and fire sparks that may never die.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 09.
@@ -18105,9 +18110,11 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 08.
 
-- 📋 [UTA-0420] **Readability fixes: core, uworld and ufire.**
+- 🚧 [UTA-0420] **Readability fixes: core, uworld and ufire.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-09-core-uworld-ufire.md.
   Close with close-findings; ledger beside the lane file.
+  2026-10-23, cc0e357. All 13 findings fixed; ledger close-lane-09.md.
+  Bake identity held on four maps. Shipped after the matrix.
   **Layman:** Make the groundwork code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 09.
