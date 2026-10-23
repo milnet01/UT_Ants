@@ -43,16 +43,21 @@ BC7 = 2  # ubundle::BlockFormat
 
 
 def answers_path():
-    """The answers file ubundle::tileAnswersPath names, on Linux."""
-    data = os.environ.get("XDG_DATA_HOME", "")
-    base = pathlib.Path(data) if data.startswith("/") else pathlib.Path.home() / ".local" / "share"
-    return base / "ut-ants" / "tile-kinds.txt"
+    """The answers file ubundle::tileAnswersPath names, on Linux, or None where
+    it names none. As src/core/FileSystem.cpp's envPath does, an unset or
+    relative variable is ignored, so a relative HOME is never resolved
+    against the current directory (UTA-0410)."""
+    for variable, under in (("XDG_DATA_HOME", ()), ("HOME", (".local", "share"))):
+        value = os.environ.get(variable, "")
+        if value.startswith("/"):
+            return pathlib.Path(value, *under, "ut-ants", "tile-kinds.txt")
+    return None
 
 
 def answered():
     """Hashes the answers file already answers."""
     path = answers_path()
-    if not path.exists():
+    if path is None or not path.exists():
         return set()
     out = set()
     for line in path.read_text(errors="replace").splitlines():
@@ -145,7 +150,9 @@ def main():
     if answers.exists() and answers.read_text() != "".join(lines):
         sys.exit(f"{answers} exists and differs from these questions; append or move it, then run again")
     answers.write_text("".join(lines))
-    print(f"wrote {len(asked)} question(s) to {out}; the answers file is {answers_path()}")
+    path = answers_path()
+    where = path if path else "named by neither XDG_DATA_HOME nor HOME, so the viewer reads none"
+    print(f"wrote {len(asked)} question(s) to {out}; the answers file is {where}")
 
 
 if __name__ == "__main__":

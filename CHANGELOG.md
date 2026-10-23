@@ -796,6 +796,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **tile-questions reads only the answers file the viewer reads** (UTA-0410)
+  With HOME relative or unset, the script read a file the viewer
+  ignores and skipped questions as answered. It now ignores those
+  values as the viewer does, and asks every question.
+
 - **ut-compare reads the bundle path from ut-bake's report as JSON** (UTA-0410)
   A bake folder whose path held a quote or a backslash came back cut
   short, so the comparison drew from a path that did not exist. The
