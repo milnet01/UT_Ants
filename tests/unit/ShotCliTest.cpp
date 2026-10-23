@@ -18,6 +18,7 @@
 #include "ut-ants/Capture.h"
 #include "ut-shot/Cli.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
@@ -303,11 +304,37 @@ TEST_CASE("UTA-0224: a size past MAX_DIMENSION is refused before anything is all
 }
 
 TEST_CASE("UTA-0224: a field of view is usable only strictly between 0 and 180 degrees", "[shot]") {
-    CHECK(uta::shot::usableHorizontalFov(90));
-    CHECK(uta::shot::usableHorizontalFov(179.9));
-    CHECK_FALSE(uta::shot::usableHorizontalFov(0));
-    CHECK_FALSE(uta::shot::usableHorizontalFov(180));
-    CHECK_FALSE(uta::shot::usableHorizontalFov(-90));
-    CHECK_FALSE(uta::shot::usableHorizontalFov(std::numeric_limits<double>::quiet_NaN()));
-    CHECK_FALSE(uta::shot::usableHorizontalFov(std::numeric_limits<double>::infinity()));
+    CHECK(uta::tools::usableHorizontalFov(90));
+    CHECK(uta::tools::usableHorizontalFov(179.9));
+    CHECK_FALSE(uta::tools::usableHorizontalFov(0));
+    CHECK_FALSE(uta::tools::usableHorizontalFov(180));
+    CHECK_FALSE(uta::tools::usableHorizontalFov(-90));
+    CHECK_FALSE(uta::tools::usableHorizontalFov(std::numeric_limits<double>::quiet_NaN()));
+    CHECK_FALSE(uta::tools::usableHorizontalFov(std::numeric_limits<double>::infinity()));
+}
+
+TEST_CASE("UTA-0423: ut-shot, ut-bench and ut-ref read a camera line alike", "[shot]") {
+    // One reader for the three tools. A blank line, a Windows line end
+    // included, is skipped by each; before, only ut-bench skipped it and
+    // ut-shot and ut-ref refused it.
+    CHECK(uta::tools::isBlankCameraLine(""));
+    CHECK(uta::tools::isBlankCameraLine(" \t\r"));
+    CHECK_FALSE(uta::tools::isBlankCameraLine("0 0 0 0 0 0 90"));
+
+    const auto read = uta::tools::readCameraLine("1 -2 3.5 100 200 -300 75\r");
+    REQUIRE(read.has_value());
+    CHECK(read->camera.location[0] == 1);
+    CHECK(read->camera.location[1] == -2);
+    CHECK(read->camera.location[2] == 3.5F);
+    CHECK(read->camera.rotation[0] == 100);
+    CHECK(read->camera.rotation[1] == 200);
+    CHECK(read->camera.rotation[2] == -300);
+    CHECK(read->horizontalFovDegrees == 75);
+    // Six numbers, or a word among them, do not read.
+    CHECK_FALSE(uta::tools::readCameraLine("1 2 3 4 5 6").has_value());
+    CHECK_FALSE(uta::tools::readCameraLine("1 2 three 4 5 6 90").has_value());
+
+    // A square frame keeps its field of view; a 4:3 one narrows it vertically.
+    CHECK(uta::tools::verticalFovDegrees(90, 1.0) == Catch::Approx(90));
+    CHECK(uta::tools::verticalFovDegrees(90, 0.75) == Catch::Approx(73.7398).epsilon(1e-4));
 }

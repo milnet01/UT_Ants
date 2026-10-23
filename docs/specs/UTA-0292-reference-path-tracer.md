@@ -124,7 +124,7 @@ These are the two summands `colour` multiplies by reflectance. Any other
 surface writes zero terms. Bloom strength is 0 while `lightTerms` is set, so
 the colour picture carries no glow of the terms.
 
-`ut-shot --light-terms` sets it and writes `<out prefix>-<line>-light.pfm`
+`ut-shot --light-terms` sets it and writes `<out prefix>-<n>-light.pfm`
 beside each picture, from `Renderer::Target::Emission`, as `--emission`
 writes its file. The two flags together are refused: they read one target.
 
@@ -138,9 +138,10 @@ ut-ref trace [--no-added-lamps] <bundle> <material light file> <width> <height> 
 ut-ref score <ref prefix> <shot prefix> <width> <height> <views>
 ```
 
-The cameras are `ut-shot`'s: one per line of standard input, in its format.
+The cameras are `ut-shot`'s: one per line of standard input, in its format;
+blank lines are skipped (UTA-0423).
 
-`trace` writes `<out prefix>-<line>.f32` per camera: `width × height × 5`
+`trace` writes `<out prefix>-<n>.f32` for the n-th camera: `width × height × 5`
 little-endian floats, row 0 at the top. Per pixel, each a luma:
 
 | Channel | Holds |

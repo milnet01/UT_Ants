@@ -3,16 +3,16 @@
 // exists so a frame can be measured against the original game's view of the
 // same place, rather than judged by eye.
 //
-// Each input line is one camera, in UT99's own units and angles:
-//   x y z pitch yaw roll horizontalFovDegrees
-// UT99's FOVAngle is horizontal; urender::Camera takes a vertical one, so it is
-// converted at the frame's aspect.
+// Each input line is one camera, in the format common/Camera.h reads for every
+// tool; a blank line is skipped.
 //
 // UTA-0199: the options are parsed by Cli.cpp, so they are tested without a
 // Vulkan device. --from-capture draws a UTA-0191 capture folder's own view at
 // the tier, render scale, light time and size it recorded.
 
 #include "Cli.h"
+
+#include "common/Camera.h"
 
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
@@ -25,9 +25,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <numbers>
 #include <set>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -147,24 +145,23 @@ int main(int argc, char** argv) {
     }
     std::istream& cameras = options->cameraFile ? static_cast<std::istream&>(captureCameras) : std::cin;
 
+    // `index` counts cameras, not lines: a blank line is skipped, as every
+    // tool reading camera lines skips it (tools/common/Camera.h).
     std::string line;
-    for (int index = 0; std::getline(cameras, line); ++index) {
-        std::istringstream fields(line);
-        uta::urender::Camera camera;
-        double horizontalFov = 90;
-        if (!(fields >> camera.location[0] >> camera.location[1] >> camera.location[2] >> camera.rotation[0] >>
-              camera.rotation[1] >> camera.rotation[2] >> horizontalFov)) {
+    for (int index = 0; std::getline(cameras, line);) {
+        if (uta::tools::isBlankCameraLine(line)) continue;
+        const std::optional<uta::tools::CameraLine> read = uta::tools::readCameraLine(line);
+        if (!read) {
             std::cerr << "ut-shot: camera line " << index << " does not read: " << line << "\n";
             return 2;
         }
-        if (!uta::shot::usableHorizontalFov(horizontalFov)) {
+        if (!uta::tools::usableHorizontalFov(read->horizontalFovDegrees)) {
             std::cerr << "ut-shot: camera line " << index << " has a field of view outside (0, 180): " << line
                       << "\n";
             return 2;
         }
-        const double halfRadians = horizontalFov * std::numbers::pi / 360.0;
-        camera.verticalFovDegrees =
-            static_cast<float>(std::atan(std::tan(halfRadians) * aspect) * 360.0 / std::numbers::pi);
+        uta::urender::Camera camera = read->camera;
+        camera.verticalFovDegrees = uta::tools::verticalFovDegrees(read->horizontalFovDegrees, aspect);
 
         // A few frames, so the shadow atlas has drawn this view's tiles; ten,
         // so UTA-0356's fog averages ten samples of each froxel. The cut keeps
@@ -216,6 +213,7 @@ int main(int argc, char** argv) {
             }
             std::cout << emissionPath << "\n";
         }
+        ++index;
     }
     return 0;
 }

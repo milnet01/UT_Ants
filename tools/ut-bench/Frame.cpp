@@ -2,6 +2,7 @@
 
 #include "Frame.h"
 
+#include "common/Camera.h"
 #include "common/Json.h"
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
@@ -16,9 +17,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <numbers>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <system_error>
 
@@ -116,9 +115,9 @@ struct View {
     urender::Camera camera;
 };
 
-/// One camera a line, as ut-shot reads one: x y z pitch yaw roll
-/// horizontalFovDegrees. Blank lines are skipped; a line that does not read is
-/// named on `err` and ends the read with nothing.
+/// One camera a line, read by the tools' shared reader (common/Camera.h).
+/// Blank lines are skipped; a line that does not read is named on `err` and
+/// ends the read with nothing.
 std::optional<std::vector<View>> readCameras(const std::filesystem::path& file, double aspect, std::ostream& err) {
     std::ifstream in(file);
     if (!in) {
@@ -127,19 +126,15 @@ std::optional<std::vector<View>> readCameras(const std::filesystem::path& file, 
     }
     std::vector<View> views;
     for (std::string line; std::getline(in, line);) {
-        if (line.find_first_not_of(" \t\r") == std::string::npos) continue;
-        std::istringstream fields(line);
-        View view;
-        double horizontalFov = 0;
-        if (!(fields >> view.camera.location[0] >> view.camera.location[1] >> view.camera.location[2]
-              >> view.camera.rotation[0] >> view.camera.rotation[1] >> view.camera.rotation[2] >> horizontalFov)
-            || !(horizontalFov > 0 && horizontalFov < 180)) {
+        if (tools::isBlankCameraLine(line)) continue;
+        const std::optional<tools::CameraLine> read = tools::readCameraLine(line);
+        if (!read || !tools::usableHorizontalFov(read->horizontalFovDegrees)) {
             err << "ut-bench: a camera line does not read: " << line << "\n";
             return std::nullopt;
         }
-        // UT99's field of view is horizontal; the renderer takes a vertical one.
-        view.camera.verticalFovDegrees = static_cast<float>(
-            std::atan(std::tan(horizontalFov * std::numbers::pi / 360.0) * aspect) * 360.0 / std::numbers::pi);
+        View view;
+        view.camera = read->camera;
+        view.camera.verticalFovDegrees = tools::verticalFovDegrees(read->horizontalFovDegrees, aspect);
         while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
         view.line = std::move(line);
         views.push_back(std::move(view));

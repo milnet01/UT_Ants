@@ -43,7 +43,7 @@ bool parseDouble(std::string_view text, double& out) {
 bool usableScale(double scale) { return std::isfinite(scale) && scale > 0; }
 
 bool usableSize(std::uint32_t width, std::uint32_t height) {
-    return width > 0 && height > 0 && width <= MAX_DIMENSION && height <= MAX_DIMENSION;
+    return width > 0 && height > 0 && width <= tools::MAX_DIMENSION && height <= tools::MAX_DIMENSION;
 }
 
 void usage(std::ostream& err) {
@@ -51,16 +51,16 @@ void usage(std::ostream& err) {
            "       ut-shot --from-capture <folder> [options] <bundle> <out prefix>\n"
            "\n"
            "Each line of standard input is one camera: x y z pitch yaw roll\n"
-           "horizontalFovDegrees, in UT99 units and angles. Writes\n"
-           "<out prefix>-<line>.ppm for each, counting from 0.\n"
+           "horizontalFovDegrees, in UT99 units and angles; blank lines are\n"
+           "skipped. Writes <out prefix>-<n>.ppm for the n-th camera, from 0.\n"
            "\n"
            "--linear        skip exposure and the tone map. The bytes written are\n"
            "                still sRGB-encoded: decode them before reading light.\n"
            "--no-probes     draw without the baked indirect light.\n"
            "--no-added-lamps  draw without the lamps the map's recipe adds.\n"
-           "--emission      also write <out prefix>-<line>-emission.pfm, the\n"
+           "--emission      also write <out prefix>-<n>-emission.pfm, the\n"
            "                linear emission bloom is drawn from.\n"
-           "--light-terms   also write <out prefix>-<line>-light.pfm: red the direct\n"
+           "--light-terms   also write <out prefix>-<n>-light.pfm: red the direct\n"
            "                light, green the indirect, each a luma before\n"
            "                reflectance, for ut-ref score. Not with --emission.\n"
            "--tier <name>   low, medium, high or ultra. Default high.\n"
@@ -74,8 +74,6 @@ void usage(std::ostream& err) {
 }
 
 } // namespace
-
-bool usableHorizontalFov(double degrees) { return std::isfinite(degrees) && degrees > 0 && degrees < 180; }
 
 CaptureDetails parseCaptureDetails(std::string_view text) {
     CaptureDetails details;

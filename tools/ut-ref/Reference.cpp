@@ -2,6 +2,8 @@
 
 #include "Reference.h"
 
+#include "common/Camera.h"
+
 #include "ubake/LightModel.h"
 #include "urender/Placement.h"
 
@@ -162,9 +164,7 @@ std::vector<float> Reference::trace(const urender::Camera& camera, double horizo
     // ut-shot's own reading of a camera line: the horizontal field of view
     // becomes the vertical one at this aspect.
     urender::Camera view = camera;
-    const double aspect = static_cast<double>(height) / width;
-    const double halfRadians = horizontalFovDegrees * std::numbers::pi / 360.0;
-    view.verticalFovDegrees = static_cast<float>(std::atan(std::tan(halfRadians) * aspect) * 360.0 / std::numbers::pi);
+    view.verticalFovDegrees = tools::verticalFovDegrees(horizontalFovDegrees, static_cast<double>(height) / width);
     const auto m = urender::viewToWorldOf(view);
     const double f = 1.0 / std::tan(view.verticalFovDegrees * std::numbers::pi / 360.0);
     const double across = static_cast<double>(width) / height;

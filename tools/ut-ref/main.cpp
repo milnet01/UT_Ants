@@ -3,6 +3,8 @@
 
 #include "Reference.h"
 
+#include "common/Camera.h"
+
 #include "core/FileSystem.h"
 #include "ubake/LightProbes.h"
 #include "ubake/MaterialLight.h"
@@ -10,12 +12,11 @@
 #include "ubundle/Sky.h"
 
 #include <charconv>
-#include <cmath>
+#include <optional>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -33,7 +34,8 @@ void usage() {
            "       ut-ref score <ref prefix> <shot prefix> <width> <height> <views>\n"
            "\n"
            "trace: each line of standard input is one camera, as ut-shot reads it:\n"
-           "x y z pitch yaw roll horizontalFovDegrees. Writes <out prefix>-<line>.f32,\n"
+           "x y z pitch yaw roll horizontalFovDegrees; blank lines are skipped. Writes\n"
+           "<out prefix>-<n>.f32 for the n-th camera, from 0,\n"
            "width x height x 5 little-endian floats, row 0 at the top: per pixel the\n"
            "direct light, the first bounce, later bounces to <depth>, sky light, and\n"
            "1 where the pixel is a lit surface -- each a luma, as ut-shot --light-terms\n"
@@ -46,16 +48,12 @@ void usage() {
            "ut-shot --light-terms --light-time 0 at the same size.\n";
 }
 
-// ut-shot's limits (ut-shot/Cli.h), which this tool copies its camera reading
-// from: a side past MAX_DIMENSION, or a field of view outside (0, 180),
-// would give an overflowing buffer or a garbage image (UTA-0372).
-constexpr std::uint32_t MAX_DIMENSION = 16384;
-
+// A side past MAX_DIMENSION, or a field of view outside (0, 180), would give
+// an overflowing buffer or a garbage image (UTA-0372). Both limits are the
+// camera-line reader's, common/Camera.h.
 bool usableSize(std::uint32_t width, std::uint32_t height) {
-    return width >= 1 && height >= 1 && width <= MAX_DIMENSION && height <= MAX_DIMENSION;
+    return width >= 1 && height >= 1 && width <= tools::MAX_DIMENSION && height <= tools::MAX_DIMENSION;
 }
-
-bool usableHorizontalFov(double degrees) { return std::isfinite(degrees) && degrees > 0 && degrees < 180; }
 
 bool number(std::string_view text, auto& value) {
     const auto read = std::from_chars(text.data(), text.data() + text.size(), value);
@@ -147,21 +145,23 @@ int trace(std::vector<std::string_view> args) {
     const unsigned cores = std::thread::hardware_concurrency();
     const unsigned workers = cores > 2 ? cores - 2 : 1;
 
+    // `index` counts cameras, not lines: a blank line is skipped, as ut-shot
+    // skips it, so <out prefix>-<n> and ut-shot's <shot prefix>-<n> are the
+    // same view.
     std::string line;
-    for (int index = 0; std::getline(std::cin, line); ++index) {
-        std::istringstream fields(line);
-        urender::Camera camera;
-        double fov = 90;
-        fields >> camera.location[0] >> camera.location[1] >> camera.location[2] >> camera.rotation[0] >>
-            camera.rotation[1] >> camera.rotation[2] >> fov;
-        if (!fields) {
+    for (int index = 0; std::getline(std::cin, line);) {
+        if (tools::isBlankCameraLine(line)) continue;
+        const std::optional<tools::CameraLine> read = tools::readCameraLine(line);
+        if (!read) {
             std::cerr << "ut-ref: camera line " << index << " does not read\n";
             return 1;
         }
-        if (!usableHorizontalFov(fov)) {
+        if (!tools::usableHorizontalFov(read->horizontalFovDegrees)) {
             std::cerr << "ut-ref: camera line " << index << ": a field of view is above 0 and below 180\n";
             return 1;
         }
+        const urender::Camera& camera = read->camera;
+        const double fov = read->horizontalFovDegrees;
         const auto out = reference.trace(camera, fov, width, height, samples, depth, workers);
         const std::string path = std::string(args[6]) + "-" + std::to_string(index) + ".f32";
         std::ofstream write(path, std::ios::binary);
@@ -172,6 +172,7 @@ int trace(std::vector<std::string_view> args) {
             return 1;
         }
         std::cout << path << "\n";
+        ++index;
     }
     return 0;
 }
