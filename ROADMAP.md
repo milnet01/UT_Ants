@@ -18119,9 +18119,12 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 09.
 
-- 📋 [UTA-0421] **Readability fixes: navigation and ut-paths.**
+- 🚧 [UTA-0421] **Readability fixes: navigation and ut-paths.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-10-unav-ut-paths.md.
   Close with close-findings; ledger beside the lane file.
+  Lane 10 closed in d0dc216: 10 fixed, 0 queued, 0 dismissed
+  (one remedy part, lifting propose's lambdas, declined with its reason).
+  Ledger: close-lane-10.md. Ships after GitHub's matrix.
   **Layman:** Make the bot-route code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 10.
