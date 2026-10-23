@@ -15,7 +15,7 @@ UTA-0007 three of four tier-1 cases passed on first writing and each was
 decided by something OTHER than the rule in its title -- a table entry that
 already returned the refusal, a range check that subsumed the guard, and a
 loop bound that rejected the fixture early. None of that is visible from
-reading the test. CLAUDE.md SS Build and test records it, and this script is
+reading the test. .claude/rules/testing.md records it, and this script is
 how the same question gets asked mechanically.
 
 On UTA-0008 it asked 57 times and found FOUR more: a string-overrun case in a
@@ -28,11 +28,14 @@ HOW TO READ THE RESULT.
 
   KILLED       removing the rule turned some test red. The rule is graded.
   SURVIVED     removing the rule changed nothing. Either the fixture grades
-               something else -- suspect this FIRST, per CLAUDE.md -- or the
-               rule is genuinely redundant, in which case declare it in
-               EXPECTED_SURVIVORS with the reason.
+               something else -- suspect this FIRST, per
+               .claude/rules/testing.md -- or the rule is genuinely
+               redundant, in which case declare it in the subject's
+               expected_survivors with the reason.
   NOT-APPLIED  the search text no longer matches. The mutation is stale and
                is telling you nothing; fix it or drop it.
+  NOT-UNIQUE   the search text matches more than once, so which one to
+               mutate is unknown. Same -- lengthen it until it is unique.
   COMPILE-FAIL the mutation does not build. Same -- it is not a result.
 
 Exit status is 0 when the survivors are exactly the declared ones. A NEW
@@ -159,6 +162,30 @@ def probe(build_dir, subject, label, rel, old, new, test_cmd, env):
         os.utime(path, None)
 
 
+def reconcile(subject, results, asan):
+    """The run's (state, label) results against the subject's declared
+    survivors: (expected, survived, broken, unexplained, stale).
+
+    Both --asan rules are here. The rules in killed_under_asan are undefined
+    behaviour to remove, which kills some runs and not others (measured on
+    readBytes' bound: survived, killed, survived). So under --asan they are no
+    longer declared survivors, and must be killed; outside it, one killed is
+    not a stale declaration."""
+    asan_only = set(subject.get("killed_under_asan", ()))
+    expected = subject["expected_survivors"]
+    if asan:
+        expected = {k: v for k, v in expected.items() if k not in asan_only}
+    survived = [label for s, label in results if s == "SURVIVED"]
+    broken = [(s, label) for s, label in results if s in ("NOT-APPLIED", "NOT-UNIQUE", "COMPILE-FAIL")]
+    unexplained = [label for label in survived if label not in expected]
+    # A declared survivor this run KILLED: the declaration is stale, and "the
+    # survivors are exactly the declared ones" is false (UTA-0222).
+    probed = {label for _, label in results}
+    stale = [label for label in expected
+             if label in probed and label not in survived and (asan or label not in asan_only)]
+    return expected, survived, broken, unexplained, stale
+
+
 def main():
     # A SIGTERM (a killed push, a timeout) must still run probe's finally, or
     # the mutated source is left in the tree (UTA-0222). SystemExit unwinds
@@ -220,21 +247,7 @@ def main():
         if run(["cmake", "--build", build_dir, "--target", subject["target"]]).returncode != 0:
             print(f"WARNING: rebuilding the restored tree failed; {build_dir}/ holds a mutant")
 
-    expected = subject["expected_survivors"]
-    if args.asan:
-        expected = {k: v for k, v in expected.items() if k not in subject.get("killed_under_asan", ())}
-    survived = [label for s, label in results if s == "SURVIVED"]
-    broken = [(s, label) for s, label in results if s in ("NOT-APPLIED", "NOT-UNIQUE", "COMPILE-FAIL")]
-    unexplained = [label for label in survived if label not in expected]
-    # A declared survivor this run KILLED: the declaration is stale, and "the
-    # survivors are exactly the declared ones" is false (UTA-0222).
-    probed = {label for _, label in results}
-    # Except, outside --asan, the rules only ASan can grade: their removal is
-    # undefined behaviour, which kills some runs and not others (measured on
-    # readBytes' bound: survived, killed, survived).
-    undefined = () if args.asan else subject.get("killed_under_asan", ())
-    stale = [label for label in expected
-             if label in probed and label not in survived and label not in undefined]
+    expected, survived, broken, unexplained, stale = reconcile(subject, results, args.asan)
 
     per_invariant(subject, dict((label, state) for state, label in results))
     print(f"\n=== {args.subject} in {build_dir}/ ===")

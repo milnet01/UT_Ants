@@ -91,7 +91,7 @@ SUBJECT = {
          '        return fail(ErrorCode::MalformedData, "the header\'s reserved field is not zero");',
          "    // removed"),
 
-        # -- SS 4.4: the section table. INV-11.
+        # -- SS 4.4: the section table. INV-11, but for the compression byte (INV-12).
         ("INV-12", "the compression check is removed", "src/ubundle/Bundle.cpp",
          "        if (compression != 0)", "        if (compression == 0xFFU)"),
         ("INV-11", "a descriptor's reserved check is removed", "src/ubundle/Bundle.cpp",
@@ -249,9 +249,10 @@ SUBJECT = {
          "                                                            : Origin::Derived;",
          "    return static_cast<std::uint8_t>(a) > static_cast<std::uint8_t>(b) ? a : b;"),
     ],
-    # Survivors that are REDUNDANCY rather than a gap. Each was chased to
-    # the point of proving no fixture can isolate it. Adding a line here is
-    # a claim; make it only after trying to build the fixture.
+    # Survivors that are REDUNDANCY rather than a gap, or undefined behaviour
+    # only --asan can grade (killed_under_asan, below). Each was chased to the
+    # point of proving no fixture can isolate it. Adding a line here is a
+    # claim; make it only after trying to build the fixture.
     "expected_survivors": {
         "the ascending-offset check is removed":
             "Subsumed by the tiling rule: a table that is out of order cannot also "
