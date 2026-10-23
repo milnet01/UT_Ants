@@ -1,13 +1,17 @@
 // The Renderer: its targets, and the frame it draws --
 // docs/specs/UTA-0014-vulkan-draw-path.md SS 4.3, SS 4.10 and SS 4.11.
 //
-// THE FRAME, IN ORDER:
+// THE FRAME, IN ORDER -- recordFrame's order, and its section headings':
+//   shadow tiles: those this frame's plan says to draw (SS 4.8), each then
+//      copied into UTA-0333's quarter-size copy for the haze;
 //   0. clustered light culling, a compute pass (SS 4.6);
-//   1. the forward pass: every opaque, masked and sky batch, writing colour,
-//      velocity, emission and depth;
 //   0.5. UTA-0015's fog volume, two compute passes over a froxel grid, from
-//      the tier that draws it;
+//      the tier that draws it; the forward pass reads it;
+//   1. the forward pass: UTA-0260's depth-only pre-pass of the opaque
+//      surfaces, then every opaque, masked and sky batch, writing colour,
+//      velocity, emission and depth;
 //   2. the translucent pass: colour only, depth-tested and not written;
+//   2.5. UTA-0263's camera-facing flames, and UTA-0215's water specks;
 //   3. UTA-0053's emissive bloom: the emission down a chain of half-size
 //      levels and back up it;
 //   4. the output stage: the bloom added, then exposure and the tone map into
@@ -66,6 +70,32 @@ constexpr std::uint32_t HAZE_SHADOW_STEP = 4;
 /// SS 4.10 names it, because a read-back pixel is compared against a literal
 /// and B8G8R8A8 would swap two channels of it without failing anything else.
 constexpr VkFormat OUTPUT_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
+
+/// Where each texture sits in the scene set's TEXTURES array, and how many there
+/// are. The one place the order is decided: the materials' textures, then
+/// UTA-0163's sky faces, UTA-0164's occlusion atlas, UTA-0326's shadow mask, and
+/// UTA-0337's sky-layer lights last. An absent texture takes no slot and reads
+/// gpu::NONE. upload sizes the array from it, writeDescriptors fills the array in
+/// this order, and drawView hands the shaders these indices.
+struct TextureSlots {
+    std::uint32_t sky = gpu::NONE;
+    std::uint32_t occlusion = gpu::NONE;
+    std::uint32_t shadowMask = gpu::NONE;
+    std::uint32_t firstSkyLayerLight = 0; ///< the lights take [firstSkyLayerLight, count)
+    std::uint32_t count = 0;
+};
+
+TextureSlots textureSlotsOf(std::size_t materialTextures, bool sky, bool occlusion, bool shadowMask,
+                            std::size_t skyLayerLights) {
+    TextureSlots slots;
+    auto next = static_cast<std::uint32_t>(materialTextures);
+    if (sky) slots.sky = next++;
+    if (occlusion) slots.occlusion = next++;
+    if (shadowMask) slots.shadowMask = next++;
+    slots.firstSkyLayerLight = next;
+    slots.count = next + static_cast<std::uint32_t>(skyLayerLights);
+    return slots;
+}
 
 /// SS 4.10: fixed, with no adaptation. Measured, not chosen: the exposure whose
 /// displayed frames best match the original game's over DM-Deck16]['s
@@ -595,6 +625,12 @@ struct Renderer::Impl {
                              std::span<const std::uint8_t> texels);
     Result<void> uploadShadowMask(const ubundle::Bundle& bundle);
     Result<void> writeDescriptors();
+    /// The texture slots of what upload made, by which images exist.
+    [[nodiscard]] TextureSlots textureSlots() const {
+        return textureSlotsOf(materials->textures().size(), sky.view() != VK_NULL_HANDLE,
+                              occlusion.view() != VK_NULL_HANDLE, shadowMask.view() != VK_NULL_HANDLE,
+                              skyLayerLights.size());
+    }
     /// One view of `bundle` from `camera`, presented to `image` when there is
     /// one. With `skyFace`, UTA-0163's capture: drawn at scale 1 with no sky, and
     /// the target's central square copied into that face of the sky texture.
@@ -838,8 +874,9 @@ Result<void> Renderer::Impl::upload(const ubundle::Bundle& bundle) {
     // UTA-0326 SS 4.5: and one more for its shadow mask, at every tier.
     // UTA-0337: and one more for each sky layer's light.
     skyLayers = skyView ? skyLayersOf(bundle) : SkyLayers{};
-    const std::size_t textureCount = materials->textures().size() + (skyView ? 1 : 0) + (occluded ? 1 : 0)
-                                     + (bundle.shadowMask ? 1 : 0) + skyLayers.layers.size();
+    const std::uint32_t textureCount = textureSlotsOf(materials->textures().size(), skyView.has_value(), occluded,
+                                                      bundle.shadowMask.has_value(), skyLayers.layers.size())
+                                           .count;
     if (textureCount > pipelines->textureCapacity())
         return fail(ErrorCode::InvalidArgument,
                     std::format("the bundle needs {} textures and {} binds at most {}", textureCount, gpu->name(),
@@ -950,12 +987,8 @@ Result<void> Renderer::Impl::writeDescriptors() {
     if (pool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, pool, nullptr);
     pool = VK_NULL_HANDLE;
 
-    // UTA-0163: the sky's faces follow the materials' textures, then UTA-0164's
-    // occlusion atlas, then UTA-0326's shadow mask, and UTA-0337's layer lights
-    // are the array's last.
-    const auto textureCount = static_cast<std::uint32_t>(materials->textures().size() + (sky.view() ? 1 : 0)
-                                                         + (occlusion.view() ? 1 : 0)
-                                                         + (shadowMask.view() ? 1 : 0) + skyLayerLights.size());
+    const TextureSlots slots = textureSlots();
+    const std::uint32_t textureCount = slots.count;
     const std::array sizes = {
         // The scene set's, then UTA-0015's VOLUME_LIGHTS.
         VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gpu::MASK_PAIRS + 1 + 1},
@@ -1056,56 +1089,48 @@ Result<void> Renderer::Impl::writeDescriptors() {
     fogVolumeWrite.dstBinding = gpu::FOG_VOLUME;
     fogVolumeWrite.pImageInfo = &fogVolumeInfo;
     writes.push_back(fogVolumeWrite);
-    const std::array<VkDescriptorImageInfo, 2> fogImageInfos{
-        VkDescriptorImageInfo{VK_NULL_HANDLE, fogScattering.view(), VK_IMAGE_LAYOUT_GENERAL},
-        VkDescriptorImageInfo{VK_NULL_HANDLE, fogIntegrated.view(), VK_IMAGE_LAYOUT_GENERAL}};
-    for (std::uint32_t i = 0; i < fogImageInfos.size(); ++i) {
+    // The fog set, binding by binding (gpu::FogBinding).
+    const auto fogWrite = [&](gpu::FogBinding binding, VkDescriptorType type, const VkDescriptorImageInfo* image) {
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.dstSet = fogSet;
-        write.dstBinding = i;
+        write.dstBinding = binding;
         write.descriptorCount = 1;
-        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        write.pImageInfo = &fogImageInfos[i];
+        write.descriptorType = type;
+        write.pImageInfo = image;
         writes.push_back(write);
-    }
+    };
+    const VkDescriptorImageInfo scatteringInfo{VK_NULL_HANDLE, fogScattering.view(), VK_IMAGE_LAYOUT_GENERAL};
+    fogWrite(gpu::FOG_SCATTERING, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &scatteringInfo);
+    const VkDescriptorImageInfo integratedInfo{VK_NULL_HANDLE, fogIntegrated.view(), VK_IMAGE_LAYOUT_GENERAL};
+    fogWrite(gpu::FOG_INTEGRATED, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &integratedInfo);
     const VkDescriptorImageInfo hazeShadowInfo{VK_NULL_HANDLE, hazeShadow.view(), VK_IMAGE_LAYOUT_GENERAL};
-    VkWriteDescriptorSet hazeShadowWrite{};
-    hazeShadowWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    hazeShadowWrite.dstSet = fogSet;
-    hazeShadowWrite.dstBinding = 3;
-    hazeShadowWrite.descriptorCount = 1;
-    hazeShadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    hazeShadowWrite.pImageInfo = &hazeShadowInfo;
-    writes.push_back(hazeShadowWrite);
+    fogWrite(gpu::FOG_HAZE_SHADOW, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &hazeShadowInfo);
     // UTA-0356: filtered, so a reprojected centre between texels reads both.
     const VkDescriptorImageInfo fogHistoryInfo{bloomSampler, fogHistory.view(), VK_IMAGE_LAYOUT_GENERAL};
-    VkWriteDescriptorSet fogHistoryWrite = hazeShadowWrite;
-    fogHistoryWrite.dstBinding = 4;
-    fogHistoryWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    fogHistoryWrite.pImageInfo = &fogHistoryInfo;
-    writes.push_back(fogHistoryWrite);
+    fogWrite(gpu::FOG_HISTORY, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &fogHistoryInfo);
     const VkDescriptorBufferInfo volumeLightInfo{volumeLightIndices.handle(), 0, VK_WHOLE_SIZE};
     VkWriteDescriptorSet volumeLightWrite{};
     volumeLightWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     volumeLightWrite.dstSet = fogSet;
-    volumeLightWrite.dstBinding = 2;
+    volumeLightWrite.dstBinding = gpu::FOG_VOLUME_LIGHTS;
     volumeLightWrite.descriptorCount = 1;
     volumeLightWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     volumeLightWrite.pBufferInfo = &volumeLightInfo;
     writes.push_back(volumeLightWrite);
 
-    std::vector<VkDescriptorImageInfo> textureInfos;
-    textureInfos.reserve(textureCount);
-    for (const Image& texture : materials->textures())
-        textureInfos.push_back({materialSampler, texture.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-    if (sky.view()) textureInfos.push_back({materialSampler, sky.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-    if (occlusion.view())
-        textureInfos.push_back({materialSampler, occlusion.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-    if (shadowMask.view())
-        textureInfos.push_back({materialSampler, shadowMask.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-    for (const Image& light : skyLayerLights)
-        textureInfos.push_back({materialSampler, light.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+    // Each texture written at its TextureSlots index, so this array cannot
+    // disagree with the indices drawView hands the shaders.
+    std::vector<VkDescriptorImageInfo> textureInfos(textureCount);
+    const auto sampled = [this](const Image& image) {
+        return VkDescriptorImageInfo{materialSampler, image.view(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    };
+    for (std::size_t i = 0; i < materials->textures().size(); ++i) textureInfos[i] = sampled(materials->textures()[i]);
+    if (slots.sky != gpu::NONE) textureInfos[slots.sky] = sampled(sky);
+    if (slots.occlusion != gpu::NONE) textureInfos[slots.occlusion] = sampled(occlusion);
+    if (slots.shadowMask != gpu::NONE) textureInfos[slots.shadowMask] = sampled(shadowMask);
+    for (std::size_t i = 0; i < skyLayerLights.size(); ++i)
+        textureInfos[slots.firstSkyLayerLight + i] = sampled(skyLayerLights[i]);
     VkWriteDescriptorSet textureWrite{};
     textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     textureWrite.dstSet = sceneSet;
@@ -1344,6 +1369,20 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     rendering.pDepthAttachment = &depthAttachment;
 
     enum class Pass { Depth, Opaque, Translucent };
+    // UTA-0337: while UTA-0163 captures the sky, which batches it leaves out.
+    // The sky's faces (skyLayerCapture 0) are captured without the sky zone's
+    // layers. A layer's light (skyLayerCapture i + 1, for layer i) colours that
+    // layer alone, while everything still draws its depth, so solid things
+    // still hide it. Object 0 is the level, and the layers are its batches
+    // (Geometry.h's DrawItem).
+    const auto skyCaptureLeavesOut = [&](const DrawItem& item, Pass pass) {
+        if (!skyCapturing) return false;
+        const bool level = item.objectIndex == 0;
+        const auto layerOf = [&](const SkyLayer& layer) { return item.firstIndex == layer.firstIndex; };
+        if (skyLayerCapture == 0) return level && std::ranges::any_of(skyLayers.layers, layerOf);
+        if (pass == Pass::Depth) return false;
+        return !level || !layerOf(skyLayers.layers[skyLayerCapture - 1]);
+    };
     const auto drawBatches = [&](Pass pass) {
         vkCmdSetViewport(commands, 0, 1, &regionViewport);
         vkCmdSetScissor(commands, 0, 1, &regionScissor);
@@ -1357,18 +1396,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
                                 0, nullptr);
         for (const DrawItem& item : geometry->draws) {
-            // UTA-0337: the sky's faces are captured without its layers, and a
-            // layer's light with only that layer coloured in, everything solid
-            // still hiding it.
-            if (skyCapturing && item.objectIndex == 0) {
-                const auto layerOf = [&](const SkyLayer& layer) {
-                    return item.firstIndex == layer.firstIndex;
-                };
-                if (skyLayerCapture == 0 && std::ranges::any_of(skyLayers.layers, layerOf)) continue;
-                if (skyLayerCapture != 0 && pass != Pass::Depth && !layerOf(skyLayers.layers[skyLayerCapture - 1]))
-                    continue;
-            }
-            if (skyCapturing && skyLayerCapture != 0 && item.objectIndex != 0 && pass != Pass::Depth) continue;
+            if (skyCaptureLeavesOut(item, pass)) continue;
             // UTA-0271: a modulated surface blends too, so it is drawn with them.
             const bool blended = (item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED)) != 0;
             if (blended != (pass == Pass::Translucent)) continue;
@@ -1797,9 +1825,9 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     frame.probeCount = impl.probeCount;
     frame.probeTableMask = impl.probeTableMask;
     frame.probeLongestRun = impl.probeLongestRun;
+    const TextureSlots slots = impl.textureSlots();
     // UTA-0163: a face of the sky is drawn without the sky, which is not drawn yet.
-    frame.skyTexture = impl.skyReady && !skyFace ? static_cast<std::uint32_t>(impl.materials->textures().size())
-                                                 : gpu::NONE;
+    frame.skyTexture = impl.skyReady && !skyFace ? slots.sky : gpu::NONE;
     // UTA-0350 SS 4.4: a painted sky stands in where there is no sky view.
     if (bundle.paintedSky && !impl.skyView) {
         frame.paintedSky = 1;
@@ -1820,15 +1848,8 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
                                                                    : OUTDOOR_HAZE_START_SHARE);
     frame.outdoorHazeStart = haze.start;
     frame.outdoorHazeDepth = haze.depth;
-    // UTA-0164 SS 4.5: the atlas follows the sky's faces, when there are any.
-    frame.occlusionTexture = impl.occlusion.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
-                                                                                 + (impl.sky.view() ? 1 : 0))
-                                                   : gpu::NONE;
-    // UTA-0326 SS 4.5: the mask follows the occlusion atlas.
-    frame.shadowMaskTexture =
-        impl.shadowMask.view() ? static_cast<std::uint32_t>(impl.materials->textures().size()
-                                                            + (impl.sky.view() ? 1 : 0) + (impl.occlusion.view() ? 1 : 0))
-                               : gpu::NONE;
+    frame.occlusionTexture = slots.occlusion;   // UTA-0164 SS 4.5
+    frame.shadowMaskTexture = slots.shadowMask; // UTA-0326 SS 4.5
 
     std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());
     if (bundle.movers)
@@ -1891,9 +1912,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
             2.0 * std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0) / static_cast<double>(region.height));
         frame.skyLayerCapture = skyFace ? impl.skyLayerCapture : 0;
         frame.skyLayerCount = impl.skyReady && !skyFace ? static_cast<std::uint32_t>(impl.skyLayers.layers.size()) : 0;
-        const auto firstLight = static_cast<std::uint32_t>(impl.materials->textures().size() + 1
-                                                           + (impl.occlusion.view() ? 1 : 0)
-                                                           + (impl.shadowMask.view() ? 1 : 0));
+        const std::uint32_t firstLight = slots.firstSkyLayerLight;
         for (std::size_t i = 0; i < impl.skyLayers.layers.size(); ++i) {
             const SkyLayer& layer = impl.skyLayers.layers[i];
             gpu::SkyLayer& out = frame.skyLayers[i];
@@ -1945,7 +1964,10 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     }
     fog.historyWeight = static_cast<float>(std::max(1.0 / static_cast<double>(fogFrame + 1), 0.1));
 
-    // The sky's six faces follow the lights', so they count against the room.
+    // The lights and shadow faces are the only per-frame writes sized by upload
+    // to what the bundle held then; the cluster, object and volume-light writes
+    // above have sizes fixed at creation or by the geometry. The sky's six faces
+    // follow the lights', so they count against the room.
     if (frameLights.size() > impl.lightCapacity || plan.faces.size() + 6 > impl.shadowFaceCapacity)
         return fail(ErrorCode::InvalidArgument, "the bundle's drawn lights outgrew the buffers its upload sized; "
                                                 "it changed in place without a reload");
@@ -2073,8 +2095,8 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
     Image& image = target == Target::Colour ? impl.output : target == Target::Velocity ? impl.velocity : impl.emission;
     const std::size_t pixels = static_cast<std::size_t>(impl.config.width) * impl.config.height;
     // RGBA8 and RG16F are both four bytes a pixel; the emission's RGBA16F is eight.
-    const std::size_t halvesPerPixel = target == Target::Emission ? 4 : 2;
-    UTA_TRY(Buffer host, Buffer::create(*impl.gpu, pixels * halvesPerPixel * 2, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    const std::size_t bytesPerPixel = target == Target::Emission ? 8 : 4;
+    UTA_TRY(Buffer host, Buffer::create(*impl.gpu, pixels * bytesPerPixel, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                         BufferMemory::HostRead));
     UTA_CHECK(impl.gpu->run([&](VkCommandBuffer commands) {
         image.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -2088,8 +2110,10 @@ Result<std::vector<std::byte>> Renderer::readback(Target target) {
 
     if (target == Target::Colour) return std::vector<std::byte>(host.mapped(), host.mapped() + pixels * 4);
 
-    std::vector<std::byte> floats(pixels * halvesPerPixel * sizeof(float));
-    for (std::size_t i = 0; i < pixels * halvesPerPixel; ++i) {
+    // The float targets: each channel a 16-bit half, widened to a float.
+    const std::size_t halves = pixels * bytesPerPixel / sizeof(std::uint16_t);
+    std::vector<std::byte> floats(halves * sizeof(float));
+    for (std::size_t i = 0; i < halves; ++i) {
         std::uint16_t half = 0;
         std::memcpy(&half, host.mapped() + i * 2, sizeof(half));
         const float value = halfToFloat(half);

@@ -109,9 +109,9 @@ the `_SRGB` target encodes back to `d'`. It applies under
 light model. It is instant where UT99 eases at 10 a second: a still capture
 then shows the settled tint, and easing is § 9's.
 
-`PostConstants` gains `wobbleSeconds` and `flashFog`, which `draw` sets from
-the camera's zone: `viewFog` when it is water, else `0`; `flashFog`'s fourth
-part is the water flag. `viewFlash` is baked but not drawn.
+`PostConstants` gains `wobbleSeconds` and `viewFog`, which `draw` sets from
+the camera's zone: its `viewFog` when it is water, else `0`; the fourth part
+is the water flag. `viewFlash` is baked but not drawn.
 
 ### 4.3 Fading with distance — `urender`, `scene.frag`
 

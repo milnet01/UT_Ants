@@ -9,6 +9,7 @@
 
 // The atlas, fetched and never compared: scene_bindings.glsl's binding.
 layout(set = 0, binding = 16) uniform sampler2D atlas;
+// Set 1's binding numbers are ShaderTypes.h's gpu::FogBinding.
 layout(set = 1, binding = 3, r32f) uniform writeonly image2D hazeShadow;
 
 // The tile just drawn: x, y and side, in atlas texels. gpu::ReduceConstants.

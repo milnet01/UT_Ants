@@ -1,7 +1,8 @@
 // The cluster grid -- docs/specs/UTA-0014-vulkan-draw-path.md SS 4.6.
 //
-// The view frustum is 16 tiles across, 8 down, and 24 slices deep, the slices
-// exponential in depth so a near cluster is as thin as a far one is wide.
+// The view frustum is cut into gpu::CLUSTER_GRID's tiles across, tiles down and
+// slices deep, the slices exponential in depth so a near cluster is as thin as
+// a far one is wide.
 // This file builds each cluster's view-space box, which the culling pass tests
 // lights against, and says which cluster a fragment is in, which the shading
 // pass computes the same way (shaders/scene.frag's clusterOf).
@@ -19,7 +20,7 @@
 namespace uta::urender {
 
 struct ClusterGrid {
-    std::vector<gpu::ClusterBounds> bounds; ///< CLUSTER_COUNT boxes, x + y * 16 + z * 16 * 8
+    std::vector<gpu::ClusterBounds> bounds; ///< CLUSTER_COUNT boxes, x + y * tilesX + z * tilesX * tilesY (Clusters.cpp)
     float depthScale = 0;                   ///< slice = floor(log(z) * depthScale - depthBias)
     float depthBias = 0;
 };

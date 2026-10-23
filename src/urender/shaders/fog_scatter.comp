@@ -15,6 +15,7 @@
 #include "light.glsl"
 #include "shadows.glsl"
 
+// Set 1's binding numbers are ShaderTypes.h's gpu::FogBinding.
 layout(set = 1, binding = 0, rgba16f) uniform writeonly image3D scattering;
 layout(set = 1, binding = 2) readonly buffer VolumeLightBlock { uint volumeLights[]; };
 // UTA-0333: shadow_reduce.comp's copy of the atlas.

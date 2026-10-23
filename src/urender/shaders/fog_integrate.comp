@@ -11,6 +11,7 @@
 #include "scene_bindings.glsl"
 #include "fog.glsl"
 
+// Set 1's binding numbers are ShaderTypes.h's gpu::FogBinding.
 layout(set = 1, binding = 0, rgba16f) uniform readonly image3D scattering;
 layout(set = 1, binding = 1, rgba16f) uniform writeonly image3D integrated;
 

@@ -15,9 +15,9 @@ layout(push_constant) uniform PostBlock {
     uvec2 regionSize; // UTA-0051 SS 4.4: the top-left part of `hdr` this frame drew
     uint upscaleInput; // UTA-0154: write FSR 1's input rather than the output
     float bloomStrength; // UTA-0053: 0 where the tier draws no bloom
-    float reserved;      // keeps flashFog on its 16 bytes
+    float reserved;      // keeps viewFog on its 16 bytes
     float wobbleSeconds; // UTA-0215 SS 4.4: the light clock, wrapped
-    vec4 flashFog;       // UTA-0215: xyz ViewFog; w nonzero under water
+    vec4 viewFog;        // UTA-0215: xyz ViewFog; w nonzero under water
 } post;
 
 layout(location = 0) out vec4 outColour;
@@ -86,7 +86,7 @@ void main() {
     // Texel for texel, exactly as UTA-0014 reads it. Past a smaller region the
     // region's own edge repeats, so FSR 1's taps beyond it read the edge.
     ivec2 at = min(ivec2(gl_FragCoord.xy), ivec2(post.regionSize) - 1);
-    bool underwater = post.flashFog.w != 0.0;
+    bool underwater = post.viewFog.w != 0.0;
     if (underwater) {
         vec2 uv = gl_FragCoord.xy / vec2(post.regionSize);
         float phase = post.wobbleSeconds * WOBBLE_SPEED;
@@ -102,9 +102,9 @@ void main() {
     // UTA-0215 SS 4.2: the original's view under water, on the display value.
     // It is a view effect, not light, so it applies under linearOutput too.
     if (underwater) {
-        float most = max(post.flashFog.r, max(post.flashFog.g, post.flashFog.b));
+        float most = max(post.viewFog.r, max(post.viewFog.g, post.viewFog.b));
         for (int c = 0; c < 3; ++c) {
-            float veil = waterVeil(post.flashFog[c], most);
+            float veil = waterVeil(post.viewFog[c], most);
             float shown = (1.0 - most * most) * encodeSrgb(max(colour[c], 0.0));
             colour[c] = decodeSrgb(clamp(veil + (1.0 - veil) * shown, 0.0, 1.0));
         }

@@ -42,7 +42,7 @@ inline constexpr std::uint32_t PF_PORTAL = 0x04000000u;
 /// cluster's count carries when it dropped some. shaders/types.glsl states the
 /// capacity and the bit too; the grid reaches the shaders through FrameData.
 inline constexpr std::array<std::uint32_t, 3> CLUSTER_GRID{16, 8, 24};
-inline constexpr std::uint32_t CLUSTER_COUNT = 16u * 8u * 24u;
+inline constexpr std::uint32_t CLUSTER_COUNT = CLUSTER_GRID[0] * CLUSTER_GRID[1] * CLUSTER_GRID[2];
 inline constexpr std::uint32_t CLUSTER_CAPACITY = 64;
 inline constexpr std::uint32_t CLUSTER_OVERFLOW = 0x80000000u;
 
@@ -67,6 +67,16 @@ enum Binding : std::uint32_t {
     SHADOW_ATLAS = 16,
     FOG_VOLUME = 17, ///< UTA-0015 SS 4.4: the integrated fog image, as a sampler3D
     TEXTURES = 18,   ///< last: it is the variable-count binding
+};
+
+/// UTA-0015 SS 4.4: the fog set's (set 1) bindings. fog_scatter.comp,
+/// fog_integrate.comp and shadow_reduce.comp number them the same.
+enum FogBinding : std::uint32_t {
+    FOG_SCATTERING = 0,    ///< storage image: each froxel's light and extinction
+    FOG_INTEGRATED = 1,    ///< storage image: each column integrated front to back
+    FOG_VOLUME_LIGHTS = 2, ///< storage buffer: the volumetric lights' indices
+    FOG_HAZE_SHADOW = 3,   ///< storage image: UTA-0333's copy of the shadow atlas
+    FOG_HISTORY = 4,       ///< sampler: UTA-0356's previous frame's scattering
 };
 
 /// UTA-0337: at most this many of the sky zone's panned sheets are replayed.
@@ -195,8 +205,15 @@ static_assert(offsetof(FrameData, skyLayers) == 448);
 static_assert(offsetof(FrameData, paintedSkyDrift) == 768);
 static_assert(offsetof(FrameData, outdoorHazeStart) == 776);
 static_assert(offsetof(FrameData, outdoorHazeDepth) == 780);
+static_assert(offsetof(FrameData, waterFog) == 356);
+static_assert(offsetof(SkyLayer, plane) == 0);
+static_assert(offsetof(SkyLayer, u) == 16);
+static_assert(offsetof(SkyLayer, v) == 32);
 static_assert(offsetof(SkyLayer, pan) == 48);
 static_assert(offsetof(SkyLayer, material) == 56);
+static_assert(offsetof(SkyLayer, light) == 60);
+static_assert(offsetof(SkyLayer, kind) == 64);
+static_assert(offsetof(SkyLayer, pad) == 68);
 
 /// Where one drawn thing is: the level (identity) or a mover.
 struct Object {
@@ -368,6 +385,7 @@ static_assert(offsetof(Zone, brightness) == 0);
 static_assert(offsetof(Zone, hue) == 4);
 static_assert(offsetof(Zone, saturation) == 8);
 static_assert(offsetof(Zone, sky) == 12);
+static_assert(offsetof(Zone, water) == 16);
 
 /// One liquid look as the shader reads it -- UTA-0105 SS 4.2 and SS 4.4. The
 /// settings stay UT99's bytes, as floats; liquid.glsl maps them.
@@ -382,6 +400,10 @@ struct Liquid {
     std::array<std::array<float, 4>, 8> ramp; ///< Wave: linear RGB, darkest first
 };
 static_assert(sizeof(Liquid) == 176);
+static_assert(offsetof(Liquid, kind) == 0);
+static_assert(offsetof(Liquid, panning) == 4);
+static_assert(offsetof(Liquid, amplitude) == 8);
+static_assert(offsetof(Liquid, frequency) == 12);
 static_assert(offsetof(Liquid, pan) == 16);
 static_assert(offsetof(Liquid, size) == 24);
 static_assert(offsetof(Liquid, bump) == 32);
@@ -407,6 +429,7 @@ static_assert(offsetof(FlameInstance, width) == 12);
 static_assert(offsetof(FlameInstance, height) == 16);
 static_assert(offsetof(FlameInstance, seed) == 20);
 static_assert(offsetof(FlameInstance, ramp) == 24);
+static_assert(offsetof(FlameInstance, reserved) == 28);
 
 /// The scene pipelines' push constants: which object, which material, and the
 /// batch's own flags, which the shaders test bit by bit. UTA-0269: how far its
@@ -423,6 +446,7 @@ static_assert(sizeof(DrawConstants) == 24);
 static_assert(offsetof(DrawConstants, objectIndex) == 0);
 static_assert(offsetof(DrawConstants, materialIndex) == 4);
 static_assert(offsetof(DrawConstants, polyFlags) == 8);
+static_assert(offsetof(DrawConstants, reserved) == 12);
 static_assert(offsetof(DrawConstants, panOffset) == 16);
 
 /// A shadow tile's push constants: the face it is drawn from, and the batch.
@@ -452,11 +476,11 @@ struct PostConstants {
     /// UTA-0053: how much of the bloom chain the frame adds; 0 where the tier
     /// draws no bloom.
     float bloomStrength;
-    float reserved; ///< keeps flashFog on its 16 bytes
+    float reserved; ///< keeps viewFog on its 16 bytes
     /// UTA-0215 SS 4.4: the light clock, wrapped as flames' is, for the wobble.
     float wobbleSeconds;
     /// UTA-0215 SS 4.2: xyz the zone's ViewFog, which sets the view's veil; w nonzero under water.
-    std::array<float, 4> flashFog;
+    std::array<float, 4> viewFog;
 };
 static_assert(sizeof(PostConstants) == 48);
 static_assert(offsetof(PostConstants, exposure) == 0);
@@ -466,7 +490,7 @@ static_assert(offsetof(PostConstants, upscaleInput) == 16);
 static_assert(offsetof(PostConstants, bloomStrength) == 20);
 static_assert(offsetof(PostConstants, reserved) == 24);
 static_assert(offsetof(PostConstants, wobbleSeconds) == 28);
-static_assert(offsetof(PostConstants, flashFog) == 32);
+static_assert(offsetof(PostConstants, viewFog) == 32);
 
 /// UTA-0053: which step of the bloom chain bloom.frag draws.
 inline constexpr std::uint32_t BLOOM_DOWNSAMPLE_FIRST = 0; ///< from the emission target, Karis-weighted
