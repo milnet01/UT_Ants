@@ -141,7 +141,7 @@ vec3 lightAt(Light light, vec3 x, vec3 n) {
     float spot = 1.0;
     if (d > 0.0) {
         vec3 l = toLight / d;
-        if (light.effect != LE_NON_INCIDENCE) incidence = max(0.0, dot(n, l));
+        incidence = max(0.0, dot(n, l));
         if (light.effect == LE_SPOTLIGHT || light.effect == LE_STATIC_SPOT) {
             if (light.cone == 0u) return vec3(0.0);
             float c = 1.0 - float(light.cone) / 256.0;

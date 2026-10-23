@@ -25,7 +25,8 @@ const uint PANNING_GESTATION = 2u;
 const uint PANNING_WAVY_X = 3u;
 const uint PANNING_WAVY_Y = 4u;
 
-// SS 4.6's constants. The four LIQUID_ ones are fitted, 2026-10-02, against
+// SS 4.6's constants. LIQUID_RIPPLE_TEXELS, LIQUID_DRIFT, LIQUID_WARP_TEXELS
+// and LIQUID_TILT are fitted, 2026-10-02, against
 // DM-ArcaneTemple's central pool (RainFX.swater4a: WaveAmp 255, FX_Frequency
 // 9) in the original: camera -400,-500,150, pitch -3300, yaw 16384, 90
 // degrees, 1280x720 measured at 640x360, ultra tier. The pool's pixels are
@@ -63,10 +64,12 @@ const float LIQUID_TILT = 0.2;           // the normal's slope at WaveAmp 128, p
 // Not fitted: a ShallowSpot drop at 125 moved an eighth of a PhaseSpot's,
 // and the type is not carried. At speed 6 the type made no difference.
 const float LIQUID_FAST_CALM = 0.7;
-// NOT FITTED. DOM-MetalDream's XbpFX.blueplasma changes 6.98 a frame in the
-// original against 0.03 to 0.09 here at pan rates 32 to 128, and a noise warp
-// on top reached 0.22 at most: the original's churn is its GlassTexture
-// sliding over the source, which is not drawn (SS 3; UTA-0270).
+// The Ice look's churn is NOT FITTED. DOM-MetalDream's XbpFX.blueplasma changes
+// 6.98 a frame in the original against 0.03 to 0.09 here at pan rates 32 to
+// 128, and a noise warp on top reached 0.22 at most: the original's churn is
+// its GlassTexture sliding over the source, which is not drawn (SS 3;
+// UTA-0270). The pan rate below is measured.
+//
 // UTA-0270: texels a second per unit of pan speed past 128, toward +u. Measured
 // on DOM-MetalDream's blueplasma (UT_MonsterHunt work/uta0269/iceflatA/ and B/):
 // at HorizPanSpeed 200 its glass slid 65 a second, and with MoveIce false its
@@ -151,8 +154,8 @@ LiquidSample liquidAt(Liquid liquid, vec2 uv, float seconds, uint seed, uint gla
     float h = liquidHeight(p, seconds, drift, seed);
     vec2 slope = vec2(liquidHeight(p + vec2(STEP, 0.0), seconds, drift, seed) - h,
                       liquidHeight(p + vec2(0.0, STEP), seconds, drift, seed) - h) / STEP;
-    float step = min(liquid.frequency, 256.0 - liquid.frequency) / 128.0;
-    float strength = liquid.amplitude / 128.0 * (1.0 - LIQUID_FAST_CALM * step);
+    float dropStep = min(liquid.frequency, 256.0 - liquid.frequency) / 128.0;
+    float strength = liquid.amplitude / 128.0 * (1.0 - LIQUID_FAST_CALM * dropStep);
     result.offset = slope * (LIQUID_WARP_TEXELS * strength) / size;
     result.tilt = -slope * (LIQUID_TILT * strength);
     if (liquid.kind == LIQUID_WAVE) {

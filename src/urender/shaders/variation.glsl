@@ -56,12 +56,18 @@ TileBlend tileBlendAt(vec2 uv, uint seed) {
     return TileBlend(sin(vec2(3.0, 7.0) * ia), sin(vec2(3.0, 7.0) * (ia + 1.0)), k - ia);
 }
 
+// Where the blend from the first copy to the second starts and ends, along
+// `TileBlend.along`. scene.frag's depthAt blends the height map over the same
+// edges, so the march finds the picture tileWeight draws.
+const float TILE_BLEND_START = 0.2;
+const float TILE_BLEND_END = 0.8;
+
 // The second copy's weight, given what the two copies of the picture show
 // there: where they differ the blend leans to one, so it keeps its contrast
 // rather than averaging both to grey.
 float tileWeight(TileBlend blend, vec3 a, vec3 b) {
     vec3 difference = a - b;
-    return smoothstep(0.2, 0.8, blend.along - 0.1 * (difference.r + difference.g + difference.b));
+    return smoothstep(TILE_BLEND_START, TILE_BLEND_END, blend.along - 0.1 * (difference.r + difference.g + difference.b));
 }
 
 #endif

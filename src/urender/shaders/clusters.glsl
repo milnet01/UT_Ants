@@ -6,8 +6,9 @@
 #ifndef UTA_CLUSTERS_GLSL
 #define UTA_CLUSTERS_GLSL
 
-// The same slicing Clusters.cpp builds the boxes with: 16 tiles across, 8 down,
-// and 24 depth slices exponential in z. `pixel` is in the drawn region.
+// The same slicing Clusters.cpp builds the boxes with: gpu::CLUSTER_GRID's
+// tiles across and down, and its depth slices exponential in z. `pixel` is in
+// the drawn region.
 uint clusterOf(vec2 pixel, float viewZ) {
     uvec3 grid = frame.clusterGrid;
     uint x = min(uint(pixel.x * float(grid.x) / frame.viewportSize.x), grid.x - 1u);

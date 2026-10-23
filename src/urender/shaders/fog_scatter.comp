@@ -45,7 +45,8 @@ float waterShafts(vec2 p, float t) {
 }
 
 // UTA-0333: how lit `x` is by `light`, from one texel of the haze's copy of
-// the atlas -- the nearest depth of the 4 x 4 atlas texels it covers -- kept
+// the atlas -- the nearest depth of the HAZE_SHADOW_STEP square of atlas
+// texels it covers (shadow_reduce.comp) -- kept
 // inside the light's tile. Haze has no edge to see.
 float hazeShadowOf(Light light, vec3 x) {
     ShadowFace shadow;

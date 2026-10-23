@@ -61,9 +61,7 @@ bool waterSeesSky(vec3 r, uint zone) {
 // scales the indirect light a surface of albedo 1 would show. Black where
 // there are none (SS 6).
 vec3 waterProbeReflection(vec3 x, vec3 r) {
-    ProbeLattice lattice =
-        ProbeLattice(frame.probeSpacing, frame.probeCount, frame.probeTableMask, frame.probeLongestRun);
-    return indirectAt(lattice, x, r) * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER);
+    return indirectAt(frameProbeLattice(), x, r) * pow(LIGHT_GAIN, DISPLAY_LIGHT_POWER);
 }
 
 // SS 4.4, Quilez's third technique (variation.glsl): the picture `base` sampled

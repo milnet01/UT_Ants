@@ -102,7 +102,7 @@ float depthAt(Material material, vec2 at, float lod, bool shuffled, TileBlend ti
     if (!shuffled) return 1.0 - textureLod(textures[nonuniformEXT(material.height)], at, lod).r;
     float a = textureLod(textures[nonuniformEXT(material.height)], at + tile.offsetA, lod).r;
     float b = textureLod(textures[nonuniformEXT(material.height)], at + tile.offsetB, lod).r;
-    return 1.0 - mix(a, b, smoothstep(0.2, 0.8, tile.along));
+    return 1.0 - mix(a, b, smoothstep(TILE_BLEND_START, TILE_BLEND_END, tile.along));
 }
 
 // The map `map` at `at`, its two copies blended by `weight` when shuffled.
@@ -304,7 +304,7 @@ float outdoorHaze(float d) {
 }
 
 vec3 hazeRingAt(int step, float height) {
-    float bearing = float(step) * (6.28318531 / float(HAZE_RING_STEPS));
+    float bearing = float(step) * (TWO_PI / float(HAZE_RING_STEPS));
     vec3 h = vec3(vec2(cos(bearing), sin(bearing)) * sqrt(1.0 - height * height), height);
     if (frame.skyTexture == NONE) {
         vec3 top = vec3(frame.paintedSkyTopR, frame.paintedSkyTopG, frame.paintedSkyTopB);
@@ -315,7 +315,7 @@ vec3 hazeRingAt(int step, float height) {
 }
 
 vec3 horizonSkyAt(vec3 d) {
-    float turns = atan(d.y, d.x) * (float(HAZE_RING_STEPS) / 6.28318531);
+    float turns = atan(d.y, d.x) * (float(HAZE_RING_STEPS) / TWO_PI);
     float below = floor(turns);
     int a = (int(below) % HAZE_RING_STEPS + HAZE_RING_STEPS) % HAZE_RING_STEPS;
     int b = (a + 1) % HAZE_RING_STEPS;
@@ -349,10 +349,80 @@ vec3 detailOver(vec3 colour, Material material, vec2 uv, vec2 duv1, vec2 duv2, f
     if (weight <= 0.0) return colour;
     vec2 repeats = vec2(material.detailRepeatU, material.detailRepeatV) * DETAIL_SCALE;
     float grey = textureGrad(textures[nonuniformEXT(material.detail)], uv * repeats, duv1 * repeats, duv2 * repeats).r;
-    vec3 displayed = mix(colour * 12.92, 1.055 * pow(colour, vec3(1.0 / 2.4)) - 0.055,
-                         greaterThan(colour, vec3(0.0031308)));
-    displayed = clamp(displayed * mix(1.0, 2.0 * grey, weight), 0.0, 1.0);
-    return mix(displayed / 12.92, pow((displayed + 0.055) / 1.055, vec3(2.4)), greaterThan(displayed, vec3(0.04045)));
+    vec3 displayed = clamp(linearToDisplayed(colour) * mix(1.0, 2.0 * grey, weight), 0.0, 1.0);
+    return displayedToLinear(displayed);
+}
+
+// UTA-0185: the probe point half a spacing off the surface, on the side
+// `side` faces. UT99 builds on the grid, so walls and floors often lie on a
+// lattice plane, where the blend gives the probes inside the room no weight and
+// only the probes on the plane count -- which sit on the surface itself and are
+// often not probes at all. Such a wall got no indirect light in stepped patches.
+vec3 probePointOn(vec3 side) {
+    return worldPosition + side * (0.5 * float(frame.probeSpacing));
+}
+
+// UTA-0326 SS 4.5: the direct light at a level fragment, from its chart's pairs
+// in place of its cluster's lights, each seen through the baked mask -- or the
+// shadow map, where a mover can come between. `n` is the shading normal.
+vec3 chartedLight(vec3 n, vec3 surface) {
+    vec3 direct = vec3(0.0);
+    vec2 atlasSize = vec2(textureSize(textures[nonuniformEXT(frame.shadowMaskTexture)], 0));
+    // UTA-0325: one chart at a time across the subgroup, so its pairs and their
+    // lights load once for the lanes that share it rather than once a lane.
+    // Each lane still lights only from its own chart. A waterfall loop: each
+    // pass, the lanes whose chart the first active lane names light from it and
+    // break out; the rest go round with the next chart. It ends because every
+    // pass retires at least that first lane. Work for every lane goes after the
+    // loop, never between the light gathering and the break.
+    for (;;) {
+        uint chartIndex = subgroupBroadcastFirst(maskChart);
+        if (chartIndex != maskChart) continue;
+        MaskChart chart = maskCharts[chartIndex];
+        vec2 chartSize = vec2(chart.width, chart.height);
+        for (uint k = 0u; k < chart.pairCount; ++k) {
+            MaskPair pair = maskPairs[chart.firstPair + k];
+            Light light = lights[pair.light];
+            vec3 lit = lightAt(light, worldPosition, n);
+            if (all(equal(lit, vec3(0.0)))) continue;
+            float seen = 1.0;
+            if (pair.moverReach != 0u) {
+                seen = softShadowOf(light, worldPosition, surface);
+            } else if (pair.x != MASK_ALL_LIT) {
+                // The border texel keeps a filtered read inside the rectangle.
+                vec2 at = vec2(pair.x, pair.y) + clamp(maskTexel, vec2(0.5), chartSize - 0.5);
+                seen = textureLod(textures[nonuniformEXT(frame.shadowMaskTexture)], at / atlasSize, 0.0).r;
+            }
+            direct += lit * (light.flicker * seen);
+        }
+        break;
+    }
+    // No pair names the flashlight, which moves with the camera.
+    if (frame.flashlight != NONE) {
+        Light light = lights[frame.flashlight];
+        direct += lightAt(light, worldPosition, n) * (light.flicker * softShadowOf(light, worldPosition, surface));
+    }
+    return direct;
+}
+
+// SS 4.6: the direct light at a fragment no chart lights, from its own
+// cluster's lights only. UTA-0345: the sky room (`skyFlat`) takes each light by
+// distance alone, with no incidence or shadow.
+vec3 clusterLight(vec3 n, vec3 surface, bool skyFlat) {
+    vec3 direct = vec3(0.0);
+    uint cluster = clusterOf(gl_FragCoord.xy, (frame.view * vec4(worldPosition, 1.0)).z);
+    uint count = clusterCounts[cluster] & ~CLUSTER_OVERFLOW;
+    for (uint k = 0u; k < count; ++k) {
+        Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
+        // UTA-0323: a cluster lists every light whose sphere meets its box,
+        // so many give this point nothing. Their nine shadow reads were a
+        // fifth of DM-Bishop's frame; skipping them changes no pixel.
+        vec3 lit = skyFlat ? lightThrough(light, worldPosition) : lightAt(light, worldPosition, n);
+        if (all(equal(lit, vec3(0.0)))) continue;
+        // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
+        direct += lit * (light.flicker * (skyFlat ? 1.0 : softShadowOf(light, worldPosition, surface)));
+    }
+    return direct;
 }
 
 void main() {
@@ -387,11 +457,13 @@ void main() {
     // so the lighting stays on the picture it belongs to. No fade toward the
     // mean, as water has: a wall would flatten to one colour. Decided per draw,
     // so the flow stays uniform.
-    bool shuffled = SHUFFLE_TILES && material.tileKind == TILE_SHUFFLE && !liquid && !skyFlat
-                    && (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) == 0u;
+    // Neither shuffles nor takes parallax: a masked surface is a cut-out, and
+    // moving its coordinates moves its holes off the geometry (UTA-0040 SS 4.3);
+    // a backdrop draws the sky, or stands in for it unlit (UTA-0163).
+    bool cutOutOrBackdrop = (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) != 0u;
+    bool shuffled = SHUFFLE_TILES && material.tileKind == TILE_SHUFFLE && !liquid && !skyFlat && !cutOutOrBackdrop;
     TileBlend tile = tileBlendAt(uv, draw.materialIndex);
-    if (!liquid && !skyFlat && PARALLAX_MAX_STEPS > 0u && material.parallaxDepth != 0u
-        && (draw.polyFlags & (PF_MASKED | PF_FAKE_BACKDROP)) == 0u)
+    if (!liquid && !skyFlat && PARALLAX_MAX_STEPS > 0u && material.parallaxDepth != 0u && !cutOutOrBackdrop)
         shadingUv = parallaxUv(material, axes, surface, shuffled, tile);
 
     // An _SRGB block format: the sampler returns linear (SS 4.10). UTA-0089
@@ -440,9 +512,7 @@ void main() {
     // blends DST_COLOR, ZERO. Unlit, unfogged and unreflected, as UT99 draws
     // it, and PF_Translucent wins over it.
     if ((draw.polyFlags & (PF_MODULATED | PF_TRANSLUCENT)) == PF_MODULATED) {
-        vec3 displayed = mix(base.rgb * 12.92, 1.055 * pow(base.rgb, vec3(1.0 / 2.4)) - 0.055,
-                             greaterThan(base.rgb, vec3(0.0031308)));
-        outColour = vec4(pow(2.0 * displayed, vec3(2.2)), 1.0);
+        outColour = vec4(pow(2.0 * linearToDisplayed(base.rgb), vec3(2.2)), 1.0);
         outVelocity = vec2(0.0);
         outEmission = vec4(0.0);
         return;
@@ -474,10 +544,12 @@ void main() {
         vec3 n = perturbed(surface, axes, vec3(wet.tilt, sqrt(max(0.0, 1.0 - dot(wet.tilt, wet.tilt)))));
         vec3 r = reflect(-v, n);
         // UTA-0215: from under water a surface mirrors the water, never the
-        // sky, however its ripples tilt it.
+        // sky, however its ripples tilt it. The probes are read on the side
+        // the eye is on, unlike the lighting's: what a liquid mirrors is on the
+        // eye's side, the water itself when seen from below.
         reflected = frame.cameraUnderwater == 0u && waterSeesSky(r, zone)
             ? skyAt(r)
-            : waterProbeReflection(worldPosition + surface * (0.5 * float(frame.probeSpacing)), r);
+            : waterProbeReflection(probePointOn(surface), r);
         share = waterShare(n, v);
     }
 
@@ -512,66 +584,11 @@ void main() {
         // lights its face turns toward. Those lit each face of the room apart,
         // and its edges drew a box.
         bool charted = maskChart != MASK_NO_CHART && !skyFlat;
-        vec3 direct = vec3(0.0);
-        if (charted) {
-            // UTA-0326 SS 4.5: a level fragment lights from its chart's pairs
-            // in place of its cluster's lights, each seen through the baked
-            // mask -- or the shadow map, where a mover can come between.
-            vec2 atlasSize = vec2(textureSize(textures[nonuniformEXT(frame.shadowMaskTexture)], 0));
-            // UTA-0325: one chart at a time across the subgroup, so its pairs
-            // and their lights load once for the lanes that share it rather
-            // than once a lane. Each lane still lights only from its own chart.
-            for (;;) {
-                uint chartIndex = subgroupBroadcastFirst(maskChart);
-                if (chartIndex != maskChart) continue;
-                MaskChart chart = maskCharts[chartIndex];
-                vec2 chartSize = vec2(chart.width, chart.height);
-                for (uint k = 0u; k < chart.pairCount; ++k) {
-                    MaskPair pair = maskPairs[chart.firstPair + k];
-                    Light light = lights[pair.light];
-                    vec3 lit = lightAt(light, worldPosition, n);
-                    if (all(equal(lit, vec3(0.0)))) continue;
-                    float seen = 1.0;
-                    if (pair.moverReach != 0u) {
-                        seen = softShadowOf(light, worldPosition, surface);
-                    } else if (pair.x != MASK_ALL_LIT) {
-                        // The border texel keeps a filtered read inside the rectangle.
-                        vec2 at = vec2(pair.x, pair.y) + clamp(maskTexel, vec2(0.5), chartSize - 0.5);
-                        seen = textureLod(textures[nonuniformEXT(frame.shadowMaskTexture)], at / atlasSize, 0.0).r;
-                    }
-                    direct += lit * (light.flicker * seen);
-                }
-                break;
-            }
-            // No pair names the flashlight, which moves with the camera.
-            if (frame.flashlight != NONE) {
-                Light light = lights[frame.flashlight];
-                direct += lightAt(light, worldPosition, n) * (light.flicker * softShadowOf(light, worldPosition, surface));
-            }
-        } else {
-            // SS 4.6: only this fragment's own cluster's lights.
-            uint cluster = clusterOf(gl_FragCoord.xy, (frame.view * vec4(worldPosition, 1.0)).z);
-            uint count = clusterCounts[cluster] & ~CLUSTER_OVERFLOW;
-            for (uint k = 0u; k < count; ++k) {
-                Light light = lights[clusterIndices[cluster * CLUSTER_CAPACITY + k]];
-                // UTA-0323: a cluster lists every light whose sphere meets its box,
-                // so many give this point nothing. Their nine shadow reads were a
-                // fifth of DM-Bishop's frame; skipping them changes no pixel.
-                vec3 lit = skyFlat ? lightThrough(light, worldPosition) : lightAt(light, worldPosition, n);
-                if (all(equal(lit, vec3(0.0)))) continue;
-                // SS 4.8: the shadow map stands in for UTA-0112's `blocked`.
-                direct += lit * (light.flicker * (skyFlat ? 1.0 : softShadowOf(light, worldPosition, surface)));
-            }
-        }
-        // SS 4.7: the probes, through the same normal the lights use.
-        ProbeLattice lattice =
-            ProbeLattice(frame.probeSpacing, frame.probeCount, frame.probeTableMask, frame.probeLongestRun);
-        // UTA-0185: read half a spacing off the surface. UT99 builds on the
-        // grid, so walls and floors often lie on a lattice plane, where the
-        // blend gives the probes inside the room no weight and only the probes
-        // on the plane count -- which sit on the surface itself and are often
-        // not probes at all. Such a wall got no indirect light in stepped patches.
-        vec3 probePoint = skyFlat ? worldPosition : worldPosition + litSurface * (0.5 * float(frame.probeSpacing));
+        vec3 direct = charted ? chartedLight(n, surface) : clusterLight(n, surface, skyFlat);
+        // SS 4.7: the probes, through the same normal the lights use, on the
+        // lit side (UTA-0215).
+        ProbeLattice lattice = frameProbeLattice();
+        vec3 probePoint = skyFlat ? worldPosition : probePointOn(litSurface);
         vec3 indirect = skyFlat ? indirectAround(lattice, probePoint) : indirectAt(lattice, probePoint, n);
         // UTA-0338 SS 4.5: a fragment the mask does not light -- a mover, an
         // actor -- takes the sun through the probes' view of it, read where the
@@ -642,9 +659,8 @@ void main() {
         && (frame.skyTexture != NONE || frame.paintedSky != 0u)) {
         // UTA-0387 SS 4.3: only as far as the sky is seen here, so a room
         // sealed from it draws none. Open ground sees half its directions.
-        ProbeLattice skyLattice =
-            ProbeLattice(frame.probeSpacing, frame.probeCount, frame.probeTableMask, frame.probeLongestRun);
-        float skyOpen = skyOpenAt(skyLattice, worldPosition + surface * (0.5 * float(frame.probeSpacing)));
+        // Read on the side the eye is on, as the reflection is.
+        float skyOpen = skyOpenAt(frameProbeLattice(), probePointOn(surface));
         float hazed = outdoorHaze(distance(frame.eye, worldPosition)) * min(1.0, skyOpen / OPEN_SKY_SHARE);
         vec3 behind = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? vec3(0.0) : horizonSkyAt(normalize(worldPosition - frame.eye));
         colour = mix(colour, behind, hazed);

@@ -1,9 +1,12 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 
 // The output stage -- UTA-0014 SS 4.10. Exposure, then the tone map, into an
 // _SRGB target whose store encodes. It applies to every colour the frame
 // wrote, unlit surfaces and sky included; Config::linearOutput skips it and
 // nothing else.
+
+#include "fog.glsl" // displayedToLinear, linearToDisplayed
 
 layout(set = 0, binding = 0) uniform sampler2D hdr;
 // UTA-0053: the bloom chain's top level, half the target's size.
@@ -79,9 +82,6 @@ float waterVeil(float f, float most) {
     return f <= 0.0 ? 0.0 : 1.0 - pow(1.0 - min(f, 1.0), (2.1 + 0.02 / f) * (1.0 - 0.6 * (most - f)));
 }
 
-float encodeSrgb(float l) { return l <= 0.0031308 ? l * 12.92 : 1.055 * pow(l, 1.0 / 2.4) - 0.055; }
-float decodeSrgb(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
-
 void main() {
     // Texel for texel, exactly as UTA-0014 reads it. Past a smaller region the
     // region's own edge repeats, so FSR 1's taps beyond it read the edge.
@@ -103,11 +103,10 @@ void main() {
     // It is a view effect, not light, so it applies under linearOutput too.
     if (underwater) {
         float most = max(post.viewFog.r, max(post.viewFog.g, post.viewFog.b));
-        for (int c = 0; c < 3; ++c) {
-            float veil = waterVeil(post.viewFog[c], most);
-            float shown = (1.0 - most * most) * encodeSrgb(max(colour[c], 0.0));
-            colour[c] = decodeSrgb(clamp(veil + (1.0 - veil) * shown, 0.0, 1.0));
-        }
+        vec3 veil = vec3(waterVeil(post.viewFog.r, most), waterVeil(post.viewFog.g, most),
+                         waterVeil(post.viewFog.b, most));
+        vec3 shown = (1.0 - most * most) * linearToDisplayed(max(colour, 0.0));
+        colour = displayedToLinear(clamp(veil + (1.0 - veil) * shown, 0.0, 1.0));
     }
     // UTA-0154: FSR 1 takes display-referred colour in [0, 1], and its header
     // allows gamma 2.0 for it.

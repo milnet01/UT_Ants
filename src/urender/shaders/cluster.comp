@@ -19,16 +19,20 @@
 layout(set = 0, binding = 4) buffer ClusterCountBlock { uint clusterCounts[]; };
 layout(set = 0, binding = 5) buffer ClusterIndexBlock { uint clusterIndices[]; };
 
-layout(local_size_x = 32) in;
+// The workgroup's width, which is also the shared lists' column count.
+const uint CLUSTER_GROUP_SIZE = 32u;
+layout(local_size_x = CLUSTER_GROUP_SIZE) in;
 
 // UTA-0352: each invocation's kept list lives in shared memory, a column per
 // invocation. In registers, a list indexed by a different slot in each lane
 // made AMD's compiler loop over the lanes for every access. 32 invocations
-// keep the two lists to 16 KiB, the least shared memory Vulkan promises.
-shared uint chosenLists[CLUSTER_CAPACITY][32];
-shared float reachLists[CLUSTER_CAPACITY][32];
+// keep the two lists to 16 KiB, the least shared memory Vulkan promises; a
+// wider group needs more.
+shared uint chosenLists[CLUSTER_CAPACITY][CLUSTER_GROUP_SIZE];
+// Each kept light's key: its brightness times its falloff at the box.
+shared float strengthLists[CLUSTER_CAPACITY][CLUSTER_GROUP_SIZE];
 #define chosen(k) chosenLists[k][gl_LocalInvocationIndex]
-#define reach(k) reachLists[k][gl_LocalInvocationIndex]
+#define strength(k) strengthLists[k][gl_LocalInvocationIndex]
 
 // Whether the segment from `a` to `b` meets the box from `lo` to `hi`: the slab
 // test, clipping the segment's parameter against each axis in turn.
@@ -99,16 +103,16 @@ void main() {
             slot = count++;
         } else {
             overflowed = true;
-            if (key <= reach(CLUSTER_CAPACITY - 1u)) continue;
+            if (key <= strength(CLUSTER_CAPACITY - 1u)) continue;
             slot = CLUSTER_CAPACITY - 1u;
         }
         // Insertion into a list kept strongest first.
-        while (slot > 0u && reach(slot - 1u) < key) {
-            reach(slot) = reach(slot - 1u);
+        while (slot > 0u && strength(slot - 1u) < key) {
+            strength(slot) = strength(slot - 1u);
             chosen(slot) = chosen(slot - 1u);
             --slot;
         }
-        reach(slot) = key;
+        strength(slot) = key;
         chosen(slot) = i;
     }
 

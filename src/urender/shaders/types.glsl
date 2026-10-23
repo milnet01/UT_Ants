@@ -198,7 +198,9 @@ struct MaskPair {
     uint moverReach; // 1 where the shadow map stands in for the mask (SS 4.4)
 };
 
-// UTA-0156 SS 4.4: one zone's ambient light, as UT99's bytes.
+// One zone's flags the shaders read: `sky` and `water`. The first three
+// fields are UTA-0156 SS 4.4's ambient light, as UT99's bytes; no shader reads
+// them since UTA-0292 withdrew zone ambient.
 struct Zone {
     uint brightness;
     uint hue;

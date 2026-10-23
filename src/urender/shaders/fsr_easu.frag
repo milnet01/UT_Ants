@@ -7,6 +7,8 @@
 
 layout(set = 0, binding = 0) uniform sampler2D source;
 
+// The head of post.frag's PostBlock, which ShaderTypes.h's PostConstants
+// lays out: change all three together.
 layout(push_constant) uniform PostBlock {
     float exposure;
     uint linearOutput;

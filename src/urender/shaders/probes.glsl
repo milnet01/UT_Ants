@@ -30,6 +30,15 @@ struct ProbeLattice {
     uint longestRun;
 };
 
+#ifdef UTA_SCENE_BINDINGS_GLSL
+// The scene set's lattice, from `frame`. Every scene shader builds it here, so a
+// new field is one edit. Only where scene_bindings.glsl was included first:
+// INV-7's kernel has no `frame`.
+ProbeLattice frameProbeLattice() {
+    return ProbeLattice(frame.probeSpacing, frame.probeCount, frame.probeTableMask, frame.probeLongestRun);
+}
+#endif
+
 // Probes.cpp's probeHash, and it must stay identical to it.
 uint probeHash(ivec3 cell) {
     return (uint(cell.x) * 73856093u) ^ (uint(cell.y) * 19349663u) ^ (uint(cell.z) * 83492791u);
@@ -69,13 +78,34 @@ bool probeReaches(Probe probe, vec3 d) {
     return all(lessThanEqual(abs(d), reach + PROBE_SIGHT_SLACK));
 }
 
+// One corner of the lattice cell whose lowest corner is `base`, `f` being
+// where `x` sits in that cell: the probe standing there (negative where none),
+// its trilinear share of `x` (SS 4.7), and whether its reach covers `x`
+// (SS 4.13). indirectAt and probeShareAt both walk the eight corners through
+// this, so the weighting and the reach test are written once.
+struct ProbeCorner {
+    int probe;
+    float weight;
+    bool reaches;
+};
+
+ProbeCorner probeCorner(ProbeLattice lattice, vec3 x, vec3 base, vec3 f, int corner) {
+    ivec3 offset = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
+    int probe = probeAt(lattice, ivec3(base) + offset);
+    if (probe < 0) return ProbeCorner(probe, 0.0, false);
+    vec3 share = mix(1.0 - f, f, vec3(offset));
+    return ProbeCorner(probe, share.x * share.y * share.z,
+                       probeReaches(probes[probe], x - (base + vec3(offset)) * float(lattice.spacing)));
+}
+
 // SS 4.7's two decisions. Trilinear over the eight probes of the lattice cell
 // holding `x`, each weighted by its corner's share; a missing corner
 // contributes nothing and its weight is shared among the corners present. With
 // no corner present the point gets zero -- not the nearest probe's light,
 // which outside the lattice is usually light leaking through a wall. SS 4.13:
 // a corner whose reach falls short of `x` is missing too, unless every
-// present corner's does.
+// present corner's does. probeShareAt below blends one float by the same
+// rules; a change to the fallback here belongs there too.
 vec3 indirectAt(ProbeLattice lattice, vec3 x, vec3 n) {
     if (lattice.count == 0u || lattice.spacing == 0u) return vec3(0.0);
     vec3 cell = x / float(lattice.spacing);
@@ -84,18 +114,15 @@ vec3 indirectAt(ProbeLattice lattice, vec3 x, vec3 n) {
 
     vec3 sum = vec3(0.0), unmasked = vec3(0.0);
     float weights = 0.0, unmaskedWeights = 0.0;
-    for (int corner = 0; corner < 8; ++corner) {
-        ivec3 step = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
-        int probe = probeAt(lattice, ivec3(base) + step);
-        if (probe < 0) continue;
-        vec3 share = mix(1.0 - f, f, vec3(step));
-        float weight = share.x * share.y * share.z;
-        vec3 light = weight * ambientCube(probes[probe], n);
+    for (int i = 0; i < 8; ++i) {
+        ProbeCorner corner = probeCorner(lattice, x, base, f, i);
+        if (corner.probe < 0) continue;
+        vec3 light = corner.weight * ambientCube(probes[corner.probe], n);
         unmasked += light;
-        unmaskedWeights += weight;
-        if (!probeReaches(probes[probe], x - (base + vec3(step)) * float(lattice.spacing))) continue;
+        unmaskedWeights += corner.weight;
+        if (!corner.reaches) continue;
         sum += light;
-        weights += weight;
+        weights += corner.weight;
     }
     if (weights > 0.0) return sum / weights;
     return unmaskedWeights > 0.0 ? unmasked / unmaskedWeights : vec3(0.0);
@@ -120,18 +147,15 @@ float probeShareAt(ProbeLattice lattice, vec3 x, int face, float none) {
 
     float sum = 0.0, unmasked = 0.0;
     float weights = 0.0, unmaskedWeights = 0.0;
-    for (int corner = 0; corner < 8; ++corner) {
-        ivec3 step = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
-        int probe = probeAt(lattice, ivec3(base) + step);
-        if (probe < 0) continue;
-        vec3 share = mix(1.0 - f, f, vec3(step));
-        float weight = share.x * share.y * share.z;
-        float value = weight * probes[probe].faces[face].a;
+    for (int i = 0; i < 8; ++i) {
+        ProbeCorner corner = probeCorner(lattice, x, base, f, i);
+        if (corner.probe < 0) continue;
+        float value = corner.weight * probes[corner.probe].faces[face].a;
         unmasked += value;
-        unmaskedWeights += weight;
-        if (!probeReaches(probes[probe], x - (base + vec3(step)) * float(lattice.spacing))) continue;
+        unmaskedWeights += corner.weight;
+        if (!corner.reaches) continue;
         sum += value;
-        weights += weight;
+        weights += corner.weight;
     }
     if (weights > 0.0) return sum / weights;
     return unmaskedWeights > 0.0 ? unmasked / unmaskedWeights : none;

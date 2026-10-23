@@ -455,8 +455,8 @@ Each is seen to fail against the code before this item.
    is within `1.0` of the same build's at `hazeScale` `0`.
    *Result (2026-09-15):* `HAZE_SCATTER` was `4e-3`, the largest swept value
    within budget. *Refitted (2026-09-16):* UTA-0165's light model moved
-   `EXPOSURE` to `2.2`, and the haze with it, to `6e-3`. The scores are beside
-   the constant in `shaders/fog.glsl`.
+   `EXPOSURE` to `2.2`, and the haze with it, to `6e-3`. The scores are in
+   [`docs/fog-constant-fits-history.md`](../fog-constant-fits-history.md).
    *Refitted again (2026-09-16), and the rule above no longer holds:* UTA-0166
    gave every light a shadow tile, so about fourteen times as many lights
    scatter into the haze. Haze now IMPROVES the match rather than costing
@@ -494,14 +494,15 @@ Each is seen to fail against the code before this item.
    `VOLUME_GLOW_SCALE` was `3e-3` and `VOLUME_FOG_SCALE` `3.2e-2`.
    *Refitted (2026-09-16):* at `EXPOSURE` `2.2` they are `4e-3` and `6.4e-2`,
    the lowest of the grid and the nearest to the original's mean brightness.
-   The scores are beside the constants in `shaders/fog.glsl`.
+   The scores are in
+   [`docs/fog-constant-fits-history.md`](../fog-constant-fits-history.md).
    *Refitted again (2026-09-16):* on top of UTA-0166's haze they are `5e-3` and
    `1.28e-1`. Both are measured minima rather than grid edges: the earlier fog
    value sat at the widest swept and was still gaining, and swept wider it
    turns at `1.28e-1`.
    *Refitted again (2026-09-17):* at `EXPOSURE` `5.5` with that haze, glow
-   `2e-3` and fog `2e-1`, the lowest point of a grid bracketing both. The scores
-   are beside the constants in `shaders/fog.glsl`.
+   `2e-3` and fog `2e-1`, the lowest point of a grid bracketing both. The scores are in
+   [`docs/fog-constant-fits-history.md`](../fog-constant-fits-history.md).
    *Rechecked (2026-09-29), at `EXPOSURE` `5.03`:* UTA-0197, with the haze at
    `5e-5`. Glow `2e-3` at fog `2e-1` is still the lowest point of a grid
    bracketing both, so neither moves.
