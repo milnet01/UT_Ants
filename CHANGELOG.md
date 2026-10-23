@@ -801,6 +801,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **ci.sh --help and ci-matrix.sh --help print their whole header** (UTA-0411)
+  Each printed a fixed range of lines, and both had drifted to stop
+  mid-sentence. They now print the comment block up to the first line of
+  code.
+
 - **A push carrying a bundle under docs/ now runs the full gate, so its origin is checked** (UTA-0411)
   `scripts/docs-only.sh` classed `docs/<name>.utab` as documentation, so
   both gates took `ci.sh --docs`, which skips the quarantine guard's

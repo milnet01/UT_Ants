@@ -36,7 +36,9 @@ cd "$(git rev-parse --show-toplevel)"
 case "${1:-}" in
     --docs) exec ./scripts/ci.sh --docs ;;
     --help | -h)
-        sed -n '2,30p' "$0"
+        # The whole comment block above, up to the first line of code, so an
+        # edit to the header can never cut the help off mid-sentence.
+        awk 'NR == 1 { next } /^#/ { print; next } { exit }' "$0"
         exit 0
         ;;
     "") ;;
