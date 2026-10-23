@@ -71,7 +71,7 @@ for f in "${files[@]}"; do
 done
 
 if [[ $failures -gt 0 ]]; then
-    printf 'ci: %d standard function(s) used without their header -- MSVC will not find them.\n' "$failures" >&2
+    printf 'std-includes: %d standard function(s) used without their header -- MSVC will not find them.\n' "$failures" >&2
     exit 1
 fi
 printf '   %d source files, every listed standard function has its header.\n' "${#files[@]}"

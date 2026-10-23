@@ -25,8 +25,9 @@
 # the pushed commit: the checkout itself when that is clean at it (UTA-0238),
 # otherwise a detached worktree of it.
 #
-# THE LINUX LEGS run one after the other, with UTA_CI_JOBS parallel jobs
-# (default 4), because RAM on this machine is tight. Each has its own build
+# THE LINUX LEGS run one after the other, with UTA_CI_JOBS parallel BUILD jobs
+# (default 4), because RAM on this machine is tight. Tests take their width
+# from UTA_CI_TEST_JOBS instead (scripts/ci.sh). Each has its own build
 # directory. Clang is pinned to GCC 14's standard library, which is what the
 # CI leg compiles against; left alone it picks the newest GCC installed.
 set -Eeuo pipefail
@@ -139,6 +140,9 @@ if $reachable; then
         # A dropped connection cannot print the marker; a finished run always
         # does, whatever ended it.
         # shellcheck disable=SC2087
+        # scripts/check-legs.sh finds the Windows leg by this line's shape
+        # (indented, starting ssh, naming bash.exe) and by the bare
+        # ./scripts/ci.sh line below; reformat either and it reports msvc missing.
         ssh "${alive[@]}" "$WIN_HOST" '"C:\Program Files\Git\bin\bash.exe" -l -s' <<EOF
 trap 'echo "$WIN_DONE rc=\$?"' EXIT
 set -e
@@ -158,6 +162,8 @@ git checkout -q -f --detach $SHA
 MSYS_NO_PATHCONV=1 git clean -qffdx -e /build-ci/
 # The pinned ccache GitHub's Windows leg uses, so this leg takes the same
 # MSBuild route (UTA-0235) -- without it, 5b23ec5 passed here and failed there.
+# The CCACHE_ settings are kept in step by hand with ci.yml's two blocks:
+# "Install the Linux toolchain" and "Install ccache" (Windows).
 ccache_bin=\$(./scripts/ccache-windows.sh ~/uta-gate/ccache-bin)
 export PATH="\$ccache_bin:\$PATH"
 export CCACHE_DIR="\$(cygpath -w ~/uta-gate/ccache)" CCACHE_BASEDIR="\$(cygpath -w "\$PWD")"
@@ -186,6 +192,8 @@ run_leg() {
     fi
 }
 
+# scripts/check-legs.sh reads each leg's compilers from these lines: each must
+# start "run_leg" in column 0 and carry CC=... CXX=... side by side.
 run_leg "Linux (GCC 14)" CC=gcc-14 CXX=g++-14 UTA_CI_BUILD_DIR=build-ci-gcc14
 run_leg "Linux (Clang 19)" CC=clang-19 CXX=clang++-19 UTA_CI_BUILD_DIR=build-ci-clang19 \
     CFLAGS="--gcc-install-dir=$GCC14_DIR" CXXFLAGS="--gcc-install-dir=$GCC14_DIR" \
