@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=431 -->
+<!-- ants-roadmap-id-high-water: UTA=432 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18032,6 +18032,11 @@ stays with movement in 0.2.0.
   - tile-questions.py:48: relative HOME accepted; C++ refuses it.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-13-scripts-python.md
   In progress 2026-10-23: the three leads checked in the lane 13 close.
+  2026-10-23: ut-compare JSON split real, fixed 4290a85. Hash case not
+  real: ut-bake writes lower-case hex (detail::hex). Relative HOME real,
+  fixed a38d8b8. Also found: map-analyser stopped on a map ut-dump could
+  not read, fixed 2321cc6. Ledger close-lane-13.md. Shipped waits for
+  GitHub's matrix.
   **Layman:** Helper scripts may misread a path or re-ask answered questions.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 13.
@@ -18178,6 +18183,9 @@ stays with movement in 0.2.0.
   Close with close-findings; ledger beside the lane file.
   In progress 2026-10-23: every lane 13 finding closed in
   close-lane-13.md.
+  2026-10-23: all 15 lane 13 findings fixed (1cee267, fb99128, 4ba6c65,
+  342590b, 46d8b37); ledger close-lane-13.md. Next door: UTA-0432
+  queued. Shipped waits for GitHub's matrix.
   **Layman:** Make the helper scripts easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 13.
@@ -18268,6 +18276,16 @@ stays with movement in 0.2.0.
   **Layman:** The developer tools each read their command-line options their own way, and disagree on small things.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 12.
+
+- 📋 [UTA-0432] **ubake keeps two hex encoders: TextureCache.cpp's private hex and detail::hex.**
+  src/ubake/TextureCache.cpp's anonymous-namespace hex() repeats
+  src/ubake/Name.cpp's detail::hex (both lower-case digits). Found next
+  door while checking the lane 13 tile-questions hash lead; outside
+  lane 13's Python scope, so not fixed there. Fold it into detail::hex;
+  the cache file names must stay byte-identical.
+  **Layman:** Two copies of the same small routine in the baker; keep one.
+  Kind: refactor.
+  Source: review-readability-2026-10-23 lane 13.
 
 ## 0.2.0 — Movement and weapons
 
