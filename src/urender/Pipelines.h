@@ -100,7 +100,7 @@ private:
     VkDescriptorSetLayout postSetLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout sceneLayout_ = VK_NULL_HANDLE;
     VkPipelineLayout postLayout_ = VK_NULL_HANDLE;
-    /// Indexed [opaque, translucent, modulated][twoSided].
+    /// Indexed [Blending][twoSided]: Blending is Pipelines.cpp's, opaque, translucent, modulated.
     std::array<std::array<VkPipeline, 2>, 3> scene_{};
     /// UTA-0260: indexed [twoSided].
     std::array<VkPipeline, 2> depth_{};

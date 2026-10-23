@@ -27,6 +27,10 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <format>
+#include <span>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace uta::urender {
@@ -54,14 +58,93 @@ VkPipelineShaderStageCreateInfo stage(VkShaderStageFlagBits kind, VkShaderModule
     return info;
 }
 
+/// The states every graphics pipeline here starts from; each builder overrides
+/// only what its pass does differently. Depth is tested or-equal -- so the
+/// sky's depth at exactly the far plane draws where nothing nearer did -- and
+/// written, and applies only where the pass has a depth target. Viewport and
+/// scissor are dynamic, set per pass. The front face is left
+/// counter-clockwise, Vulkan's zero, unless a builder says otherwise.
+struct GraphicsStates {
+    VkPipelineVertexInputStateCreateInfo vertexInput{};
+    VkPipelineInputAssemblyStateCreateInfo assembly{};
+    VkPipelineViewportStateCreateInfo viewport{};
+    VkPipelineRasterizationStateCreateInfo raster{};
+    VkPipelineMultisampleStateCreateInfo multisample{};
+    VkPipelineDepthStencilStateCreateInfo depth{};
+    VkPipelineColorBlendStateCreateInfo blend{};
+    VkPipelineRenderingCreateInfo rendering{}; ///< dynamic rendering: no VkRenderPass
+    std::span<const VkDynamicState> dynamics;
+};
+
+constexpr std::array VIEWPORT_AND_SCISSOR = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+
+GraphicsStates sharedStates() {
+    GraphicsStates states;
+    states.vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    states.assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    states.assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    states.viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    states.viewport.viewportCount = 1;
+    states.viewport.scissorCount = 1;
+    states.raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    states.raster.polygonMode = VK_POLYGON_MODE_FILL;
+    states.raster.cullMode = VK_CULL_MODE_NONE;
+    states.raster.lineWidth = 1.0f;
+    states.multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    states.multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    states.depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    states.depth.depthTestEnable = VK_TRUE;
+    states.depth.depthWriteEnable = VK_TRUE;
+    states.depth.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    states.blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    states.rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    states.dynamics = VIEWPORT_AND_SCISSOR;
+    return states;
+}
+
+/// The pipeline `states` describe; `pass` names it in a failure.
+Result<VkPipeline> graphicsPipeline(VkDevice device, VkPipelineLayout layout,
+                                    std::span<const VkPipelineShaderStageCreateInfo> stages,
+                                    const GraphicsStates& states, std::string_view pass) {
+    VkPipelineDynamicStateCreateInfo dynamic{};
+    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic.dynamicStateCount = static_cast<std::uint32_t>(states.dynamics.size());
+    dynamic.pDynamicStates = states.dynamics.data();
+
+    VkGraphicsPipelineCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    info.pNext = &states.rendering;
+    info.stageCount = static_cast<std::uint32_t>(stages.size());
+    info.pStages = stages.data();
+    info.pVertexInputState = &states.vertexInput;
+    info.pInputAssemblyState = &states.assembly;
+    info.pViewportState = &states.viewport;
+    info.pRasterizationState = &states.raster;
+    info.pMultisampleState = &states.multisample;
+    info.pDepthStencilState =
+        states.rendering.depthAttachmentFormat != VK_FORMAT_UNDEFINED ? &states.depth : nullptr;
+    info.pColorBlendState = &states.blend;
+    info.pDynamicState = &dynamic;
+    info.layout = layout;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
+                    std::format("vkCreateGraphicsPipelines ({})", pass)));
+    return pipeline;
+}
+
+/// How a scene pipeline blends, and scene_'s first index (Pipelines.h).
+enum class Blending : std::uint8_t { Opaque, Translucent, Modulated };
+constexpr std::array BLENDINGS = {Blending::Opaque, Blending::Translucent, Blending::Modulated};
+
 struct SceneVariant {
-    /// Drawn in the blended pass: colour alone, depth tested and not written.
-    bool translucent;
+    /// Opaque writes depth; Translucent and Modulated draw in the blended
+    /// pass: colour alone, depth tested and not written. UTA-0271: Modulated
+    /// multiplies, as UT99 draws PF_Modulated.
+    Blending blending;
     bool twoSided;
     /// UTA-0260: the vertex stage alone, writing depth and no colour.
-    bool depthOnly = false;
-    /// UTA-0271: blended by multiplying, as UT99 draws PF_Modulated.
-    bool modulated = false;
+    bool depthOnly;
 };
 
 /// scene.frag's specialization constants, in constant_id order.
@@ -118,47 +201,24 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
         VkVertexInputAttributeDescription{5, 1, VK_FORMAT_R32_UINT, offsetof(SurfaceVertex, maskChart)},
         VkVertexInputAttributeDescription{6, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(SurfaceVertex, maskTexel)},
     };
-    VkPipelineVertexInputStateCreateInfo vertexInput{};
-    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInput.vertexBindingDescriptionCount = static_cast<std::uint32_t>(bindings.size());
-    vertexInput.pVertexBindingDescriptions = bindings.data();
-    vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
-    vertexInput.pVertexAttributeDescriptions = attributes.data();
+    GraphicsStates states = sharedStates();
+    states.vertexInput.vertexBindingDescriptionCount = static_cast<std::uint32_t>(bindings.size());
+    states.vertexInput.pVertexBindingDescriptions = bindings.data();
+    states.vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
+    states.vertexInput.pVertexAttributeDescriptions = attributes.data();
+    const bool translucent = variant.blending != Blending::Opaque;
 
-    VkPipelineInputAssemblyStateCreateInfo assembly{};
-    assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-    VkPipelineViewportStateCreateInfo viewport{};
-    viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport.viewportCount = 1;
-    viewport.scissorCount = 1;
-
-    VkPipelineRasterizationStateCreateInfo raster{};
-    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = variant.twoSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+    states.raster.cullMode = variant.twoSided ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
     // UTA-0109 SS 4.3 winds each triangle so its corners turn about the stored
     // normal; the projection's +Y-down flip makes that clockwise on screen. It is
     // dynamic state, set per draw: a mirrored mover reverses it (Frame.cpp).
-    raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    states.raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
     // UTA-0311: a mover's depth is biased away so the level wins a coplanar
     // tie. Dynamic too, set per draw: zero for the level (Frame.cpp).
-    raster.depthBiasEnable = VK_TRUE;
-    raster.lineWidth = 1.0f;
+    states.raster.depthBiasEnable = VK_TRUE;
 
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    VkPipelineDepthStencilStateCreateInfo depth{};
-    depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth.depthTestEnable = VK_TRUE;
     // SS 4.5: translucent batches are depth-tested and not depth-written.
-    depth.depthWriteEnable = variant.translucent ? VK_FALSE : VK_TRUE;
-    // Or-equal, so the sky's depth at exactly the far plane draws where
-    // nothing nearer did.
-    depth.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    states.depth.depthWriteEnable = translucent ? VK_FALSE : VK_TRUE;
 
     const VkColorComponentFlags all = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                                       | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -172,6 +232,8 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     blended.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
     blended.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
     blended.colorBlendOp = VK_BLEND_OP_ADD;
+    // The target's alpha is kept. Nothing reads it: post.frag takes the
+    // colour target's .rgb alone.
     blended.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     blended.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     blended.alphaBlendOp = VK_BLEND_OP_ADD;
@@ -185,56 +247,32 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     // translucent pass binds the colour attachment alone, which is how it writes
     // no velocity (SS 4.11).
     const std::array opaqueAttachments = {opaque, opaque, opaque};
-    VkPipelineColorBlendStateCreateInfo blend{};
-    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     if (variant.depthOnly) {
-        blend.attachmentCount = 0;
-    } else if (variant.translucent) {
-        blend.attachmentCount = 1;
-        blend.pAttachments = variant.modulated ? &modulating : &blended;
+        states.blend.attachmentCount = 0;
+    } else if (translucent) {
+        states.blend.attachmentCount = 1;
+        states.blend.pAttachments = variant.blending == Blending::Modulated ? &modulating : &blended;
     } else {
-        blend.attachmentCount = 3;
-        blend.pAttachments = opaqueAttachments.data();
+        states.blend.attachmentCount = 3;
+        states.blend.pAttachments = opaqueAttachments.data();
     }
 
     // Front face is core dynamic state from Vulkan 1.3 (VK_EXT_extended_dynamic_state
     // was promoted), so it needs no feature beyond SS 4.4's.
-    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_FRONT_FACE,
-                                 VK_DYNAMIC_STATE_DEPTH_BIAS};
-    VkPipelineDynamicStateCreateInfo dynamic{};
-    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());
-    dynamic.pDynamicStates = dynamics.data();
+    static constexpr std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR,
+                                            VK_DYNAMIC_STATE_FRONT_FACE, VK_DYNAMIC_STATE_DEPTH_BIAS};
+    states.dynamics = dynamics;
 
     // UTA-0053: the opaque pass also writes emission, for the bloom chain.
     const std::array colourFormats = {formats.hdr, formats.velocity, formats.emission};
-    VkPipelineRenderingCreateInfo rendering{};
-    rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.colorAttachmentCount = variant.depthOnly ? 0 : variant.translucent ? 1 : 3;
-    rendering.pColorAttachmentFormats = colourFormats.data();
-    rendering.depthAttachmentFormat = formats.depth;
+    states.rendering.colorAttachmentCount = variant.depthOnly ? 0 : translucent ? 1 : 3;
+    states.rendering.pColorAttachmentFormats = colourFormats.data();
+    states.rendering.depthAttachmentFormat = formats.depth;
 
-    VkGraphicsPipelineCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    info.pNext = &rendering; // dynamic rendering: no VkRenderPass
     // UTA-0260: depth alone needs no fragment stage, and the vertex stage is
     // the forward pass's own, so both passes place a surface at one depth.
-    info.stageCount = variant.depthOnly ? 1 : static_cast<std::uint32_t>(stages.size());
-    info.pStages = stages.data();
-    info.pVertexInputState = &vertexInput;
-    info.pInputAssemblyState = &assembly;
-    info.pViewportState = &viewport;
-    info.pRasterizationState = &raster;
-    info.pMultisampleState = &multisample;
-    info.pDepthStencilState = &depth;
-    info.pColorBlendState = &blend;
-    info.pDynamicState = &dynamic;
-    info.layout = layout;
-
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
-                    "vkCreateGraphicsPipelines (scene)"));
-    return pipeline;
+    const std::span<const VkPipelineShaderStageCreateInfo> drawn(stages.data(), variant.depthOnly ? 1 : stages.size());
+    return graphicsPipeline(device, layout, drawn, states, "scene");
 }
 
 /// UTA-0263 SS 4.4's camera-facing flames: no vertex input -- flame.vert
@@ -245,34 +283,9 @@ Result<VkPipeline> flamePipeline(VkDevice device, VkPipelineLayout layout, const
                                  VkShaderModule vertex, VkShaderModule fragment) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
 
-    VkPipelineVertexInputStateCreateInfo vertexInput{};
-    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-    VkPipelineInputAssemblyStateCreateInfo assembly{};
-    assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-    VkPipelineViewportStateCreateInfo viewport{};
-    viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport.viewportCount = 1;
-    viewport.scissorCount = 1;
-
-    VkPipelineRasterizationStateCreateInfo raster{};
-    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = VK_CULL_MODE_NONE;
-    raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    raster.lineWidth = 1.0f;
-
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    VkPipelineDepthStencilStateCreateInfo depth{};
-    depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth.depthTestEnable = VK_TRUE;
-    depth.depthWriteEnable = VK_FALSE;
-    depth.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    GraphicsStates states = sharedStates();
+    states.raster.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    states.depth.depthWriteEnable = VK_FALSE;
 
     VkPipelineColorBlendAttachmentState additive{};
     additive.colorWriteMask =
@@ -281,49 +294,22 @@ Result<VkPipeline> flamePipeline(VkDevice device, VkPipelineLayout layout, const
     additive.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
     additive.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
     additive.colorBlendOp = VK_BLEND_OP_ADD;
+    // The target's alpha is kept, as the translucent scene pass keeps it.
+    // Nothing reads it: post.frag and bloom.frag take .rgb alone.
     additive.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     additive.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     additive.alphaBlendOp = VK_BLEND_OP_ADD;
     // One state for all three: independentBlend is not enabled. Velocity is
     // added too, and flame.frag writes 0 there, so it stays exactly as it was.
     const std::array attachments = {additive, additive, additive};
-    VkPipelineColorBlendStateCreateInfo blend{};
-    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blend.attachmentCount = static_cast<std::uint32_t>(attachments.size());
-    blend.pAttachments = attachments.data();
-
-    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamic{};
-    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());
-    dynamic.pDynamicStates = dynamics.data();
+    states.blend.attachmentCount = static_cast<std::uint32_t>(attachments.size());
+    states.blend.pAttachments = attachments.data();
 
     const std::array colourFormats = {formats.hdr, formats.velocity, formats.emission};
-    VkPipelineRenderingCreateInfo rendering{};
-    rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.colorAttachmentCount = static_cast<std::uint32_t>(colourFormats.size());
-    rendering.pColorAttachmentFormats = colourFormats.data();
-    rendering.depthAttachmentFormat = formats.depth;
-
-    VkGraphicsPipelineCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    info.pNext = &rendering;
-    info.stageCount = static_cast<std::uint32_t>(stages.size());
-    info.pStages = stages.data();
-    info.pVertexInputState = &vertexInput;
-    info.pInputAssemblyState = &assembly;
-    info.pViewportState = &viewport;
-    info.pRasterizationState = &raster;
-    info.pMultisampleState = &multisample;
-    info.pDepthStencilState = &depth;
-    info.pColorBlendState = &blend;
-    info.pDynamicState = &dynamic;
-    info.layout = layout;
-
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
-                    "vkCreateGraphicsPipelines (flame)"));
-    return pipeline;
+    states.rendering.colorAttachmentCount = static_cast<std::uint32_t>(colourFormats.size());
+    states.rendering.pColorAttachmentFormats = colourFormats.data();
+    states.rendering.depthAttachmentFormat = formats.depth;
+    return graphicsPipeline(device, layout, stages, states, "flame");
 }
 
 /// SS 4.8's tile pass. Both faces cast -- a shadow must not leak through a
@@ -342,64 +328,16 @@ Result<VkPipeline> shadowPipeline(VkDevice device, VkPipelineLayout layout, VkFo
                                           offsetof(ubundle::GeometryVertex, normal)},
         VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ubundle::GeometryVertex, u)},
     };
-    VkPipelineVertexInputStateCreateInfo vertexInput{};
-    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInput.vertexBindingDescriptionCount = 1;
-    vertexInput.pVertexBindingDescriptions = &binding;
-    vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
-    vertexInput.pVertexAttributeDescriptions = attributes.data();
-    VkPipelineInputAssemblyStateCreateInfo assembly{};
-    assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    VkPipelineViewportStateCreateInfo viewport{};
-    viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport.viewportCount = 1;
-    viewport.scissorCount = 1;
-    VkPipelineRasterizationStateCreateInfo raster{};
-    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = VK_CULL_MODE_NONE;
-    raster.depthBiasEnable = VK_TRUE;
-    raster.depthBiasConstantFactor = 1.25f;
-    raster.depthBiasSlopeFactor = 1.75f;
-    raster.lineWidth = 1.0f;
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    VkPipelineDepthStencilStateCreateInfo depth{};
-    depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth.depthTestEnable = VK_TRUE;
-    depth.depthWriteEnable = VK_TRUE;
-    depth.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    VkPipelineColorBlendStateCreateInfo blend{};
-    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamic{};
-    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());
-    dynamic.pDynamicStates = dynamics.data();
-    VkPipelineRenderingCreateInfo rendering{};
-    rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.depthAttachmentFormat = depthFormat;
-
-    VkGraphicsPipelineCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    info.pNext = &rendering;
-    info.stageCount = static_cast<std::uint32_t>(stages.size());
-    info.pStages = stages.data();
-    info.pVertexInputState = &vertexInput;
-    info.pInputAssemblyState = &assembly;
-    info.pViewportState = &viewport;
-    info.pRasterizationState = &raster;
-    info.pMultisampleState = &multisample;
-    info.pDepthStencilState = &depth;
-    info.pColorBlendState = &blend;
-    info.pDynamicState = &dynamic;
-    info.layout = layout;
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
-                    "vkCreateGraphicsPipelines (shadow)"));
-    return pipeline;
+    GraphicsStates states = sharedStates();
+    states.vertexInput.vertexBindingDescriptionCount = 1;
+    states.vertexInput.pVertexBindingDescriptions = &binding;
+    states.vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
+    states.vertexInput.pVertexAttributeDescriptions = attributes.data();
+    states.raster.depthBiasEnable = VK_TRUE;
+    states.raster.depthBiasConstantFactor = 1.25f;
+    states.raster.depthBiasSlopeFactor = 1.75f;
+    states.rendering.depthAttachmentFormat = depthFormat;
+    return graphicsPipeline(device, layout, stages, states, "shadow");
 }
 
 /// A full-target pass. `additive` adds into what the target holds -- UTA-0053's
@@ -408,23 +346,7 @@ Result<VkPipeline> postPipeline(VkDevice device, VkPipelineLayout layout, VkForm
                                 VkShaderModule fragment, bool additive = false) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex),
                                stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
-    VkPipelineVertexInputStateCreateInfo vertexInput{};
-    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    VkPipelineInputAssemblyStateCreateInfo assembly{};
-    assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    VkPipelineViewportStateCreateInfo viewport{};
-    viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport.viewportCount = 1;
-    viewport.scissorCount = 1;
-    VkPipelineRasterizationStateCreateInfo raster{};
-    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.polygonMode = VK_POLYGON_MODE_FILL;
-    raster.cullMode = VK_CULL_MODE_NONE;
-    raster.lineWidth = 1.0f;
-    VkPipelineMultisampleStateCreateInfo multisample{};
-    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    GraphicsStates states = sharedStates();
     VkPipelineColorBlendAttachmentState attachment{};
     attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT
                                 | VK_COLOR_COMPONENT_A_BIT;
@@ -433,41 +355,17 @@ Result<VkPipeline> postPipeline(VkDevice device, VkPipelineLayout layout, VkForm
         attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
         attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
         attachment.colorBlendOp = VK_BLEND_OP_ADD;
+        // The source's alpha replaces the target's. Nothing reads it:
+        // bloom.frag writes 1 and takes .rgb alone, as post.frag does.
         attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
         attachment.alphaBlendOp = VK_BLEND_OP_ADD;
     }
-    VkPipelineColorBlendStateCreateInfo blend{};
-    blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blend.attachmentCount = 1;
-    blend.pAttachments = &attachment;
-    const std::array dynamics = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamic{};
-    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamics.size());
-    dynamic.pDynamicStates = dynamics.data();
-    VkPipelineRenderingCreateInfo rendering{};
-    rendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    rendering.colorAttachmentCount = 1;
-    rendering.pColorAttachmentFormats = &output;
-
-    VkGraphicsPipelineCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    info.pNext = &rendering;
-    info.stageCount = static_cast<std::uint32_t>(stages.size());
-    info.pStages = stages.data();
-    info.pVertexInputState = &vertexInput;
-    info.pInputAssemblyState = &assembly;
-    info.pViewportState = &viewport;
-    info.pRasterizationState = &raster;
-    info.pMultisampleState = &multisample;
-    info.pColorBlendState = &blend;
-    info.pDynamicState = &dynamic;
-    info.layout = layout;
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
-                    "vkCreateGraphicsPipelines (post)"));
-    return pipeline;
+    states.blend.attachmentCount = 1;
+    states.blend.pAttachments = &attachment;
+    states.rendering.colorAttachmentCount = 1;
+    states.rendering.pColorAttachmentFormats = &output;
+    return graphicsPipeline(device, layout, stages, states, "post");
 }
 
 } // namespace
@@ -500,6 +398,9 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     // textures and the colour outputs, here bounded by maxColorAttachments
     // (review-code 2026-10-15).
     const std::uint32_t besideTextures = (gpu::MASK_PAIRS - gpu::FRAME + 1) + limits.maxColorAttachments;
+    // A stage too small to hold even those leaves room for the two kept back
+    // alone, so the capacity below is 0 and Frame.cpp refuses every bundle at
+    // load rather than binding past the limit.
     const std::uint32_t stageRoom =
         limits.maxPerStageResources > besideTextures ? limits.maxPerStageResources - besideTextures : RESERVED;
     p->textureCapacity_ = std::min({limits.maxPerStageDescriptorSampledImages, limits.maxPerStageDescriptorSamplers,
@@ -587,17 +488,19 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
                                         enabled(Feature::Caustics, tier) ? VK_TRUE : VK_FALSE,
                                         enabled(Feature::TileShuffle, tier) ? VK_TRUE : VK_FALSE,
                                         lightTerms ? VK_TRUE : VK_FALSE};
-    for (int blending = 0; blending < 3; ++blending) {
+    for (const Blending blending : BLENDINGS) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
-            UTA_TRY(p->scene_[blending][twoSided],
+            UTA_TRY(p->scene_[std::to_underlying(blending)][twoSided],
                     scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                                  {blending != 0, twoSided == 1, false, blending == 2}, sceneConstants));
+                                  {.blending = blending, .twoSided = twoSided == 1, .depthOnly = false},
+                                  sceneConstants));
         }
     }
     for (int twoSided = 0; twoSided < 2; ++twoSided) {
         UTA_TRY(p->depth_[twoSided],
                 scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
-                              {false, twoSided == 1, true}, sceneConstants));
+                              {.blending = Blending::Opaque, .twoSided = twoSided == 1, .depthOnly = true},
+                              sceneConstants));
     }
     // UTA-0263 SS 4.4.
     Module flameVertex{device}, flameFragment{device};
@@ -645,13 +548,14 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_TRY(p->bloomUpsample_,
             postPipeline(device, p->bloomLayout_, formats.emission, postVertex.handle, bloomFragment.handle, true));
 
+    // -- The light clusters ---------------------------------------------------
     Module clusterCompute{device};
     UTA_TRY(clusterCompute.handle, shaderModule(device, cluster_comp_spv));
-    VkComputePipelineCreateInfo compute{};
-    compute.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, clusterCompute.handle);
-    compute.layout = p->sceneLayout_;
-    UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->clusters_), p->clusters_,
+    VkComputePipelineCreateInfo clusterInfo{};
+    clusterInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    clusterInfo.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, clusterCompute.handle);
+    clusterInfo.layout = p->sceneLayout_;
+    UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &clusterInfo, nullptr, &p->clusters_), p->clusters_,
                     "vkCreateComputePipelines (clusters)"));
 
     // -- The fog volume (UTA-0015 SS 4.4) --------------------------------------
@@ -684,6 +588,8 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_TRY(scatterCompute.handle, shaderModule(device, fog_scatter_comp_spv));
     UTA_TRY(integrateCompute.handle, shaderModule(device, fog_integrate_comp_spv));
     UTA_TRY(reduceCompute.handle, shaderModule(device, shadow_reduce_comp_spv));
+    VkComputePipelineCreateInfo compute{};
+    compute.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     compute.layout = p->fogLayout_;
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, scatterCompute.handle);
     UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogScatter_), p->fogScatter_,
@@ -695,9 +601,15 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->hazeShadow_), p->hazeShadow_,
                     "vkCreateComputePipelines (haze shadow)"));
 
+    // -- The shadow tiles (SS 4.8) ---------------------------------------------
+    // The scene set, with the tile pass's own push constants.
     const VkPushConstantRange shadowRange{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                           sizeof(gpu::ShadowConstants)};
-    VkPipelineLayoutCreateInfo shadowLayoutInfo = sceneLayoutInfo;
+    VkPipelineLayoutCreateInfo shadowLayoutInfo{};
+    shadowLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    shadowLayoutInfo.setLayoutCount = 1;
+    shadowLayoutInfo.pSetLayouts = &p->sceneSetLayout_;
+    shadowLayoutInfo.pushConstantRangeCount = 1;
     shadowLayoutInfo.pPushConstantRanges = &shadowRange;
     UTA_CHECK(created(vkCreatePipelineLayout(device, &shadowLayoutInfo, nullptr, &p->shadowLayout_), p->shadowLayout_,
                     "vkCreatePipelineLayout (shadow)"));
@@ -732,11 +644,11 @@ Pipelines::~Pipelines() {
 
 VkPipeline Pipelines::sceneFor(std::uint32_t polyFlags) const noexcept {
     // UTA-0271: PF_Translucent wins over PF_Modulated, as in UT99's renderers.
-    const int blending = (polyFlags & gpu::PF_TRANSLUCENT) != 0  ? 1
-                         : (polyFlags & gpu::PF_MODULATED) != 0 ? 2
-                                                                 : 0;
+    const Blending blending = (polyFlags & gpu::PF_TRANSLUCENT) != 0  ? Blending::Translucent
+                              : (polyFlags & gpu::PF_MODULATED) != 0 ? Blending::Modulated
+                                                                      : Blending::Opaque;
     const bool twoSided = (polyFlags & gpu::PF_TWO_SIDED) != 0;
-    return scene_[blending][twoSided ? 1 : 0];
+    return scene_[std::to_underlying(blending)][twoSided ? 1 : 0];
 }
 
 VkPipeline Pipelines::depthFor(std::uint32_t polyFlags) const noexcept {
