@@ -255,6 +255,8 @@ Result<Walked> skipExpression(const Package& package, ByteReader& reader, int de
             }
             UTA_TRY(const std::string_view labelName,
                     package.name(static_cast<std::uint32_t>(label)));
+            // Exact spelling, as readPropertiesAt matches it: no package in
+            // the reference install spells `None` otherwise (UTA-0405).
             if (labelName == "None") {
                 return walked;
             }

@@ -113,6 +113,9 @@ bool hasCompressedChain(const std::vector<Property>& properties, const Package& 
 } // namespace
 
 bool isModelledTextureClass(std::string_view className) noexcept {
+    // Exact spelling, though UE1 names ignore case: every one of these
+    // names in every package of the reference install is spelled as
+    // here (a name-table scan, 2026-10-23, UTA-0405).
     for (const std::string_view modelled : MODELLED_CLASSES) {
         if (className == modelled) {
             return true;

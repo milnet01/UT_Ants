@@ -213,7 +213,9 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
                 package.name(static_cast<std::uint32_t>(rawName)));
         // The list ends at `None` and at no other condition. A loop that
         // stopped at the end of the buffer would return a truncated object as
-        // a complete one (INV-9).
+        // a complete one (INV-9). Exact spelling, though UE1 names ignore
+        // case: every package in the reference install spells it `None`
+        // (a name-table scan, 2026-10-23, UTA-0405).
         if (tagName == "None") {
             return properties;
         }
@@ -271,6 +273,8 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
         PropertyType decodeAs = property.type;
         if (property.type == PropertyType::Struct) {
             UTA_TRY(const std::string_view structName, package.name(property.structNameIndex));
+            // Exact spelling, as `None` above: no package in the reference
+            // install spells either otherwise (UTA-0405).
             if (structName == "Vector") {
                 decodeAs = PropertyType::Vector;
             } else if (structName == "Rotator") {

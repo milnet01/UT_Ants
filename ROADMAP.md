@@ -17936,11 +17936,18 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 05.
 
-- 📋 [UTA-0405] **Investigate: package reader compares engine names case-sensitively.**
+- 🚧 [UTA-0405] **Investigate: package reader compares engine names case-sensitively.**
   Texture.cpp:117 `isModelledTextureClass`; Properties.cpp:217, :274
   and Script.cpp:258 (`None`, `Vector`, `Rotator`). Class.cpp:23-24
   says engine class names are case-insensitive.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-07-upkg-umap.md
+  2026-10-23: not real in the reference install. A name-table scan of
+  every package under it (System, Maps, Textures, Sounds, Music; none
+  unreadable) found None, Vector, Rotator and the six modelled texture
+  class names only in the spelling the code matches. Each comparison now
+  says so in a comment. Not folded: unav's sameName shows other names
+  (navigationpoint, tag) do arrive in other case, so a package from
+  outside this install could still differ.
   **Layman:** A map that spells a built-in name in different case might be refused.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 07.
@@ -18069,7 +18076,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 06.
 
-- 📋 [UTA-0418] **Readability fixes: package reader and room map.**
+- 🚧 [UTA-0418] **Readability fixes: package reader and room map.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-07-upkg-umap.md,
   including HIGH Class.cpp:31 (locale-dependent tolower; five more sites
   outside upkg: Tiers.cpp, map-pic/ut-dump Cli.cpp, ut-ants main.cpp, MapList.cpp).
