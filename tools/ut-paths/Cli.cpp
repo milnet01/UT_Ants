@@ -38,7 +38,7 @@ using uta::tools::writeJsonString;
 
 void usage(std::ostream& err) {
     err << "usage: ut-paths --install <install> --census <tsv> --out <dir> [<map> ...]\n"
-           "       ut-paths --help\n"
+           "       ut-paths --help | -h\n"
            "\n"
            "Proposes bot path nodes for every EXIT_OFF_NET and PARTITIONED map of\n"
            "UT_MonsterHunt's census, or for the maps named, writing <dir>/<map>.json.\n"
@@ -183,7 +183,7 @@ Entry refusal(std::string map, std::string why, std::ostream& err) {
 }
 
 /// A name with everything but ASCII letters and digits removed, folded.
-std::string letters(std::string_view name) {
+std::string alphanumericFolded(std::string_view name) {
     std::string out;
     for (const char ch : name) {
         const auto c = static_cast<unsigned char>(ch);
@@ -203,7 +203,7 @@ std::string letters(std::string_view name) {
 /// directory is searched, so no one install's layout is assumed.
 void lookElsewhere(const stdfs::path& install, const Row& row, Entry& entry) {
     const std::string wanted = ubake::detail::fold(row.map);
-    const std::string wantedLetters = letters(row.map);
+    const std::string wantedAlphanumeric = alphanumericFolded(row.map);
     std::error_code listing;
     for (stdfs::directory_iterator dir(install, listing), end; !listing && dir != end; dir.increment(listing)) {
         std::error_code ignored;
@@ -218,7 +218,7 @@ void lookElsewhere(const stdfs::path& install, const Row& row, Entry& entry) {
             const std::string stem = ubake::detail::utf8(file->path().stem());
             if (!maps && ubake::detail::fold(stem) == wanted) {
                 entry.elsewhere.push_back(dirName + "/" + ubake::detail::utf8(file->path().filename()));
-            } else if (maps && letters(stem) == wantedLetters) {
+            } else if (maps && alphanumericFolded(stem) == wantedAlphanumeric) {
                 entry.differentNames.push_back(stem);
             }
         }

@@ -305,6 +305,11 @@ Result<WiringGraph> buildWiringGraph(const Package& package) {
         // SS 4.3: an actor's OWN property list and nothing else. SS 2.1 tested
         // and killed the inherited-tag hypothesis, so no ancestry walk here and
         // no dependency on `effectiveDefaults`.
+        //
+        // ut-paths' `eventsOf` (tools/ut-paths/Seeds.cpp) answers which actor
+        // fires which Tag differently, under UTA-0121 SS 3 decision 10: it folds
+        // case, reads four event fields and OutEvents, and falls back to class
+        // defaults. A change to either is not a change to the other.
         std::string tag;
         bool carriesTag = false;
         std::vector<std::string> events;
@@ -321,6 +326,9 @@ Result<WiringGraph> buildWiringGraph(const Package& package) {
             UTA_TRY(const std::string_view value,
                     package.name(std::get<upkg::NameRef>(property.value).index));
             if (isTag) {
+                // Actor.Tag is one name, not an array, so a well-formed list
+                // carries one Tag record at most. Should a damaged list carry
+                // more, the first is kept.
                 if (!carriesTag) {
                     tag = std::string{value};
                     carriesTag = true;

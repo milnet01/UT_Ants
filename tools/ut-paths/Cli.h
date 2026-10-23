@@ -15,8 +15,8 @@
 namespace uta::paths {
 
 /// `args` excludes the program name. Returns the exit code: 0 when every map
-/// was written or skipped, 1 when any was refused, 2 when the arguments were
-/// wrong.
+/// was written or skipped; 1 when any was refused, the census did not read, or
+/// the summary was not written; 2 when the arguments were wrong.
 [[nodiscard]] int runCli(std::span<const std::string_view> args, std::ostream& out,
                          std::ostream& err);
 

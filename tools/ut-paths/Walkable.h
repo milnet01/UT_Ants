@@ -56,7 +56,7 @@ struct WalkGraph {
 /// SS 4.5, over the bounding box of `tree`'s points.
 [[nodiscard]] WalkGraph walkGraph(const ubundle::CollisionTree& tree);
 
-/// SS 4.6's placing: the spot nearest `location` among spots within 64 of it
+/// SS 4.6's placing: the spot nearest `location` among spots within PLACE_ACROSS (Walkable.cpp) of it
 /// horizontally whose centre is within HALF_HEIGHT + STEP of it vertically.
 [[nodiscard]] std::optional<std::uint32_t> place(const WalkGraph& graph, const Vec3& location);
 

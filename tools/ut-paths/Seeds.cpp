@@ -35,6 +35,7 @@ namespace {
 using ubundle::ActorClass;
 using ubundle::ActorPlacement;
 using ubundle::PropertyRecord;
+using ubundle::isOrDescendsFrom;
 using ubundle::ValueKind;
 
 /// SS 3 decision 8: a hop's longest, and how near another navigation point a
@@ -72,14 +73,6 @@ Result<T> naming(Result<T> result, std::string_view mapName) {
     return result;
 }
 
-/// The class itself, or one of its ancestry: so a subclass the map declares is
-/// found whatever package declares it (SS 4.6).
-bool descendsFrom(const ActorClass& actorClass, std::string_view path) {
-    return actorClass.path == path
-           || std::find(actorClass.ancestry.begin(), actorClass.ancestry.end(), path)
-                  != actorClass.ancestry.end();
-}
-
 /// The actor's own record, else its class default (UTA-0110 SS 4.6's order).
 const PropertyRecord* resolved(std::string_view name, ValueKind kind, const ActorPlacement& actor,
                                const ActorClass& actorClass) {
@@ -91,6 +84,12 @@ const PropertyRecord* resolved(std::string_view name, ValueKind kind, const Acto
 /// The event names an actor fires, case-folded: its resolved Event, BumpEvent,
 /// PlayerBumpEvent and FirstHatePlayerEvent, and every OutEvents element, the
 /// actor's own element over its class default's (SS 3 decision 10).
+///
+/// unav's `buildWiringGraph` (src/unav/Build.cpp) answers the same question
+/// differently, under UTA-0006: it matches case-exactly, reads `Event` alone,
+/// and reads only the actor's own properties. A change to either is not a
+/// change to the other; swapping this for `unav::firedBy` would change which
+/// teleporters count as dead ends below.
 std::set<std::string> eventsOf(const ActorPlacement& actor, const ActorClass& actorClass) {
     std::set<std::string> fired;
     for (const std::string_view field : {"event", "bumpevent", "playerbumpevent", "firsthateplayerevent"})
@@ -298,7 +297,7 @@ std::vector<std::uint32_t> shortestPath(const WalkGraph& graph, const std::vecto
 /// SS 4.7's nodes along a found path, appended to `nodes`.
 void chain(const Hops& hops, const std::vector<std::uint32_t>& path, std::vector<Vec3>& nodes) {
     const auto spot = [&](std::size_t k) { return hops.graph.spots[path[k]].centre; };
-    // The navigation point or node already proposed nearest `p`, within 50.
+    // The navigation point or node already proposed nearest `p`, within TOO_NEAR.
     const auto nearPoint = [&](const Vec3& p) -> std::optional<Vec3> {
         std::optional<Vec3> nearest;
         double best = TOO_NEAR;
@@ -330,7 +329,7 @@ void chain(const Hops& hops, const std::vector<std::uint32_t>& path, std::vector
                 proposed = false;
             } else {
                 // The furthest spot with an allowed hop and no such point
-                // within 50; failing that, the spot itself.
+                // within TOO_NEAR; failing that, the spot itself.
                 for (std::size_t k = path.size() - 1; k > at; --k)
                     if (hops.allowed(last, spot(k)) && !nearPoint(spot(k))) {
                         next = k;
@@ -488,15 +487,17 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
         const ActorPlacement* actor = placementOf(placements, slot.index());
         if (actor == nullptr) continue;
         const ActorClass& actorClass = placements.classes[actor->classIndex];
-        if (!started && descendsFrom(actorClass, "engine.playerstart")) {
+        // Each test takes the class or a subclass, whatever package declares
+        // it (SS 4.6).
+        if (!started && isOrDescendsFrom(actorClass, "engine.playerstart")) {
             scene.start = locationOf(*actor, actorClass);
             started = true;
         }
-        if (descendsFrom(actorClass, "monsterhunt.monsterend"))
+        if (isOrDescendsFrom(actorClass, "monsterhunt.monsterend"))
             scene.exits.push_back(Cylinder{locationOf(*actor, actorClass),
                                            floatOf("collisionradius", *actor, actorClass),
                                            floatOf("collisionheight", *actor, actorClass)});
-        if (descendsFrom(actorClass, "engine.teleporter"))
+        if (isOrDescendsFrom(actorClass, "engine.teleporter"))
             scene.teleporters.push_back(locationOf(*actor, actorClass));
     }
     if (!started) return fail(ErrorCode::MalformedData, "reading " + std::string(mapName) + ": the map has no PlayerStart");
@@ -505,8 +506,9 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
 
     // The network, each node at its actor's Location. A navigation point that
     // is not one of the level's actors is not in its world, and is dropped
-    // with its edges.
-    std::vector<std::size_t> position(nav.nodes.size(), nav.nodes.size());
+    // with its edges: its position stays `dropped`.
+    const std::size_t dropped = nav.nodes.size();
+    std::vector<std::size_t> position(nav.nodes.size(), dropped);
     for (std::size_t i = 0; i < nav.nodes.size(); ++i) {
         const ActorPlacement* actor = placementOf(placements, nav.nodes[i].exportIndex);
         if (actor == nullptr) continue;
@@ -525,7 +527,7 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
         const ActorPlacement* actor = placementOf(placements, nav.nodes[i].exportIndex);
         if (actor == nullptr) continue;
         const ActorClass& actorClass = placements.classes[actor->classIndex];
-        if (!descendsFrom(actorClass, "engine.teleporter")) continue;
+        if (!isOrDescendsFrom(actorClass, "engine.teleporter")) continue;
         const PropertyRecord* enabled = resolved("benabled", ValueKind::Bool, *actor, actorClass);
         const PropertyRecord* tag = resolved("tag", ValueKind::Name, *actor, actorClass);
         if (enabled == nullptr || std::get<bool>(enabled->value) || tag == nullptr) continue;
@@ -537,10 +539,12 @@ Result<Scene> sceneOf(const upkg::Package& map, std::string_view mapName,
     }
 
     // Only the edges a walking bot may use (SS 3 decision 10), and never a
-    // pruned one: UT's route search does not follow them (UTA-0266).
+    // pruned one: UT's route search does not follow them (UTA-0266). A
+    // teleporter's link to its destination is its R_SPECIAL edge, which a
+    // dead-end teleporter loses (INV-16).
     for (const unav::NavEdge& edge : nav.edges)
-        if (walkable(edge) && edge.pruned == 0 && position[edge.from] < nav.nodes.size()
-            && position[edge.to] < nav.nodes.size() && !((edge.reachFlags & 32) != 0 && deadEnd[edge.from]))
+        if (walkable(edge) && edge.pruned == 0 && position[edge.from] != dropped
+            && position[edge.to] != dropped && !((edge.reachFlags & unav::R_SPECIAL) != 0 && deadEnd[edge.from]))
             scene.edges.emplace_back(position[edge.from], position[edge.to]);
 
     // Each mover's box: its tree placed by its MOVR shape (UTA-0111 SS 4.5).
@@ -627,19 +631,21 @@ Proposal propose(const Scene& scene, const WalkGraph& graph, bool partitioned) {
     };
 
     const Hops hops{scene, graph, moverSpot};
-    // UTA-0267: the mover spots and every spot a slope lies near, worked out
-    // the first time a path passes one.
+    // UTA-0267: a found path passing near a slope is searched again without
+    // the mover spots and every spot a slope lies near; where that search
+    // finds nothing, the first path stands. That set of spots is worked out
+    // the first time a path passes a slope.
     std::optional<std::vector<bool>> moverOrSlope;
-    const auto nearSlope = [&](std::uint32_t s) {
+    const auto spotNearSlope = [&](std::uint32_t s) {
         return hops.nearSlope(graph.spots[s].centre, graph.spots[s].centre);
     };
     const auto aroundSlopes = [&](std::vector<std::uint32_t> path, const std::vector<std::uint32_t>& from,
                                   const std::vector<bool>& goal) {
-        if (std::none_of(path.begin(), path.end(), nearSlope)) return path;
+        if (std::none_of(path.begin(), path.end(), spotNearSlope)) return path;
         if (!moverOrSlope) {
             moverOrSlope = moverSpot;
             for (std::uint32_t s = 0; s < graph.spots.size(); ++s)
-                if (!(*moverOrSlope)[s] && nearSlope(s)) (*moverOrSlope)[s] = true;
+                if (!(*moverOrSlope)[s] && spotNearSlope(s)) (*moverOrSlope)[s] = true;
         }
         // The path's own ends stay usable, so a source or goal beside a slope
         // does not send the route back to the slope's edge.
