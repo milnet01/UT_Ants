@@ -17982,7 +17982,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 09.
 
-- 📋 [UTA-0408] **Investigate: viewer and launcher leads from the readability review.**
+- 🚧 [UTA-0408] **Investigate: viewer and launcher leads from the readability review.**
   - main.cpp:340: P records the live camera, not `shownView`.
   - MapList.cpp:107: empty baker version reads "older ut-bake".
   - path::string()/narrow strings instead of fs::utf8 (UTA-0221):
@@ -17991,6 +17991,8 @@ stays with movement in 0.2.0.
   - Launcher.cpp:447: gamepads opened, handle dropped, failure silent.
   - Capture.cpp:105: create_directories error ignored, reason unstated.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md
+  In progress 2026-10-23: each lead checked in the lane 11 close;
+  outcome per lead in close-lane-11.md.
   **Layman:** Small app problems: a saved camera may not match the screen, a wrong message, and non-English paths on Windows.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 11.
@@ -18129,10 +18131,12 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 10.
 
-- 📋 [UTA-0422] **Readability fixes: the ut-ants app.**
+- 🚧 [UTA-0422] **Readability fixes: the ut-ants app.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md,
   including HIGH Launcher.cpp:389 (third hand copy of viewer options).
   Close with close-findings; ledger beside the lane file.
+  In progress 2026-10-23: closing lane 11 with close-findings; ledger
+  docs/reviews/review-readability-2026-10-23/close-lane-11.md.
   **Layman:** Make the game program's code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 11.
