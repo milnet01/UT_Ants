@@ -796,6 +796,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **ut-compare reads the bundle path from ut-bake's report as JSON** (UTA-0410)
+  A bake folder whose path held a quote or a backslash came back cut
+  short, so the comparison drew from a path that did not exist. The
+  report is now parsed rather than split.
+
 - **ut-bench frame refuses a size no device can draw** (UTA-0409)
   `--size` past 16384 a side used to time frames drawn through invalid
   Vulkan calls and report them as if they were real. It is now refused,

@@ -39,6 +39,7 @@ original draws its own sky and fog from its settings.
 
 import argparse
 import datetime
+import json
 import os
 import shutil
 import subprocess
@@ -252,10 +253,12 @@ def bake(build, install, map_name):
                              str(Path.home() / ".cache/ut-ants/content/bakes"), "--texture-cache",
                              str(Path.home() / ".cache/ut-ants/textures"), str(install / "Maps" / f"{map_name}.unr")],
                             capture_output=True, text=True)
-    for line in result.stdout.splitlines():
-        if '"path":' in line:
-            return line.split('"path": "', 1)[1].split('"', 1)[0]
-    fail(f"ut-bake gave no bundle:\n{result.stdout[-2000:]}{result.stderr[-2000:]}")
+    # Parsed, not split: the path is a JSON string, so a quote or a backslash
+    # in it arrives escaped (UTA-0410).
+    try:
+        return json.loads(result.stdout)["path"]
+    except (ValueError, KeyError, TypeError):
+        fail(f"ut-bake gave no bundle:\n{result.stdout[-2000:]}{result.stderr[-2000:]}")
 
 
 def main():
