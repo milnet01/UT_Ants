@@ -77,6 +77,7 @@ add_executable(uta_unit_tests
     unit/CoreFileSystemTest.cpp
     unit/CoreJobsTest.cpp
     unit/CoreLogTest.cpp
+    unit/CoreAsciiTest.cpp
     unit/CoreMd5Test.cpp
     unit/CoreSha256Test.cpp
     unit/DumpCliTest.cpp

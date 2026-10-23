@@ -15,6 +15,7 @@
 #include "BakeFixture.h"
 
 #include "common/Json.h"
+#include "core/Ascii.h"
 #include "support/UnrealPackageBuilder.h"
 #include "upkg/Package.h"
 #include "ut-dump/Cli.h"
@@ -161,9 +162,7 @@ TEST_CASE("UTA-0136: a walking filter over --nav-graph reproduces the scene's ed
     // The same map through ut-paths, over the same packages.
     MemoryPackages packages;
     for (const auto& [stem, bytes] : installPackages()) {
-        std::string folded = stem;
-        for (char& ch : folded) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-        packages.add(folded, bytes);
+        packages.add(uta::asciiFolded(stem), bytes);
     }
     const std::vector<std::uint8_t> bytes = map.build();
     const auto package = uta::upkg::Package::open(uta::test::asBytes(bytes));

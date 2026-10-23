@@ -35,7 +35,6 @@
 namespace {
 
 using namespace uta;
-using test::real::foldCase;
 
 struct Label {
     std::string package;
@@ -65,12 +64,12 @@ std::map<std::string, std::filesystem::path> packagesByStem() {
         const std::filesystem::path root = std::filesystem::path(UTA_UT_INSTALL_DIR) / directory;
         if (!std::filesystem::is_directory(root)) continue;
         for (const auto& entry : std::filesystem::recursive_directory_iterator(root))
-            if (entry.is_regular_file() && test::real::isPackageExtension(foldCase(entry.path().extension().string())))
+            if (entry.is_regular_file() && test::real::isPackageExtension(uta::asciiFolded(entry.path().extension().string())))
                 all.push_back(entry.path());
     }
     std::ranges::sort(all);
     std::map<std::string, std::filesystem::path> out;
-    for (const auto& path : all) out.emplace(foldCase(path.stem().string()), path);
+    for (const auto& path : all) out.emplace(uta::asciiFolded(path.stem().string()), path);
     return out;
 }
 
@@ -80,14 +79,14 @@ std::optional<std::uint64_t> pictureFingerprintOf(const upkg::Package& package, 
                                                   std::string& why) {
     for (const upkg::ExportEntry& entry : package.exports()) {
         const auto name = package.name(entry.objectName);
-        if (!name || foldCase(*name) != foldCase(texture)) continue;
+        if (!name || uta::asciiFolded(*name) != uta::asciiFolded(texture)) continue;
         const auto properties = upkg::readProperties(package, entry);
         const auto read = upkg::readTexture(package, entry);
         if (!properties || !read || read->mips.empty()) continue; // a same-named non-texture
         std::optional<upkg::ObjectReference> paletteReference;
         for (const upkg::Property& property : *properties)
             if (const auto* const reference = std::get_if<upkg::ObjectReference>(&property.value);
-                reference && foldCase(package.name(property.nameIndex).value_or("")) == "palette")
+                reference && uta::asciiFolded(package.name(property.nameIndex).value_or("")) == "palette")
                 paletteReference = *reference;
         if (!paletteReference || paletteReference->kind() != upkg::ObjectReferenceKind::Export) {
             why = "its palette is not an export of its own package";
@@ -115,7 +114,7 @@ TEST_CASE("each labelled texture is on the cloth list and nothing else is", "[re
     std::set<std::uint64_t> labelled;
     for (const Label& label : labels) {
         INFO(label.package << "." << label.texture);
-        const auto found = packages.find(foldCase(label.package));
+        const auto found = packages.find(uta::asciiFolded(label.package));
         REQUIRE(found != packages.end());
         const std::vector<std::byte> bytes = test::real::readWhole(found->second);
         const auto package = upkg::Package::open(test::real::viewOf(bytes));
@@ -125,8 +124,8 @@ TEST_CASE("each labelled texture is on the cloth list and nothing else is", "[re
         INFO(why);
         REQUIRE(fingerprint.has_value());
         // Printed so a new label's entry can be written from a failing run.
-        INFO(std::format("{{0x{:016x}ULL, \"{}.{}\"}}", *fingerprint, foldCase(label.package),
-                         foldCase(label.texture)));
+        INFO(std::format("{{0x{:016x}ULL, \"{}.{}\"}}", *fingerprint, uta::asciiFolded(label.package),
+                         uta::asciiFolded(label.texture)));
         CHECK(umat::isCloth(*fingerprint));
         labelled.insert(*fingerprint);
     }

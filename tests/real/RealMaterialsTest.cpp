@@ -386,7 +386,7 @@ std::vector<CensusTexture> censusTextures(const uta::upkg::Package& package,
             if ((*name == "FootstepSound" || *name == "HitSound") && reference != nullptr
                 && reference->kind() != uta::upkg::ObjectReferenceKind::Null)
                 if (const auto sound = package.objectName(*reference); sound.has_value())
-                    texture.sounds.push_back(foldCase(*sound));
+                    texture.sounds.push_back(uta::asciiFolded(*sound));
         }
 
         const auto read = uta::upkg::readTexture(package, object);
@@ -419,8 +419,8 @@ std::vector<CensusTexture> censusTextures(const uta::upkg::Package& package,
 
         texture.fingerprint = *fingerprint;
         texture.secondHash = std::hash<std::string>{}(picture);
-        texture.name = foldCase(package.name(object.objectName).value_or(""));
-        texture.group = foldCase(package.objectName(object.outer).value_or(""));
+        texture.name = uta::asciiFolded(package.name(object.objectName).value_or(""));
+        texture.group = uta::asciiFolded(package.objectName(object.outer).value_or(""));
         texture.note = uta::umat::materialId(packageName, exportPath(package, object), false);
         if (isOneOf(texture.group, GLOW_GROUPS)) {
             const auto rgba = uta::umat::resolve(base, *palette, false);

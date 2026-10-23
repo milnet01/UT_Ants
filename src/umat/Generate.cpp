@@ -2,6 +2,7 @@
 
 #include "umat/Generate.h"
 
+#include "core/Ascii.h"
 #include "umat/Derive.h"
 #include "umat/Enlarge.h"
 
@@ -32,18 +33,13 @@ constexpr std::array<MapSpec, 5> MAPS{{
     {MapKind::Emit, "emit", ubundle::BlockFormat::BC7},
 }};
 
-void appendLowered(std::string& out, std::string_view part) {
-    for (const char c : part)
-        out.push_back(c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c);
-}
-
 } // namespace
 
 std::string materialId(std::string_view package, std::string_view path, bool masked) {
     std::string id;
-    appendLowered(id, package);
+    id += asciiFolded(package);
     id.push_back('.');
-    appendLowered(id, path);
+    id += asciiFolded(path);
     if (masked) id += "#masked";
     return id;
 }

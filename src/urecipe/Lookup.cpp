@@ -2,6 +2,7 @@
 
 #include "urecipe/Lookup.h"
 
+#include "core/Ascii.h"
 #include "core/FileSystem.h"
 
 #include <format>
@@ -53,10 +54,7 @@ Sources standardSources(std::optional<std::filesystem::path> named) {
 }
 
 std::string mapNameOf(const std::filesystem::path& map) {
-    std::string name = fs::utf8(map.stem());
-    for (char& character : name)
-        if (character >= 'A' && character <= 'Z') character = static_cast<char>(character - 'A' + 'a');
-    return name;
+    return asciiFolded(fs::utf8(map.stem()));
 }
 
 std::optional<std::filesystem::path> located(const Sources& sources, std::string_view mapName) {

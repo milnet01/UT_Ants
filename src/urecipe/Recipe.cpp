@@ -7,6 +7,7 @@
 
 #include "urecipe/Recipe.h"
 
+#include "core/Ascii.h"
 #include "core/Sha256.h"
 
 #include <algorithm>
@@ -25,14 +26,9 @@ namespace {
 constexpr std::string_view HEADER = "ut-ants recipe ";
 constexpr std::string_view BOM = "\xEF\xBB\xBF";
 
-/// ASCII only, as umat::materialId lowers a texture's id, so a recipe's
+/// The same fold umat::materialId lowers a texture's id with, so a recipe's
 /// texture names compare equal to the ids the bake makes.
-std::string lowered(std::string_view text) {
-    std::string out(text);
-    for (char& character : out)
-        if (character >= 'A' && character <= 'Z') character = static_cast<char>(character - 'A' + 'a');
-    return out;
-}
+using uta::asciiFolded;
 
 bool isBlank(char character) { return character == ' ' || character == '\t'; }
 
@@ -128,7 +124,7 @@ Result<std::string> textureOf(std::string_view name, std::size_t line) {
         return refuse(line, "name the texture without #masked: both of its variants take the assignment");
     if (name.find('.') == std::string_view::npos)
         return refuse(line, "name the texture as <package>.<texture>");
-    return lowered(name);
+    return asciiFolded(name);
 }
 
 /// A lamp's name: 1 to 32 of a-z, 0-9 and -.
@@ -318,7 +314,7 @@ std::uint32_t versionOf(const Recipe& recipe) {
 Result<void> setMapKey(Recipe& recipe, std::string_view key, const std::string& value, std::size_t line) {
     if (key == "file") {
         if (value.empty()) return refuse(line, "file names no map");
-        recipe.map = lowered(value);
+        recipe.map = asciiFolded(value);
     } else if (key == "sha256") {
         UTA_TRY(recipe.mapDigest, digestOf(value, line));
     } else if (key == "name") {

@@ -3,9 +3,10 @@
 
 #include "urender/Tiers.h"
 
+#include "core/Ascii.h"
+
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <utility>
 
 namespace uta::urender {
@@ -17,15 +18,11 @@ constexpr std::uint64_t GIB = 1024ull * 1024ull * 1024ull;
 constexpr std::array<std::pair<Tier, std::string_view>, 4> NAMES = {{
     {Tier::Low, "low"}, {Tier::Medium, "medium"}, {Tier::High, "high"}, {Tier::Ultra, "ultra"}}};
 
-bool equalsIgnoringCase(std::string_view a, std::string_view b) noexcept {
-    return std::ranges::equal(a, b, [](unsigned char x, unsigned char y) { return std::tolower(x) == y; });
-}
-
 } // namespace
 
 std::optional<Tier> tierNamed(std::string_view name) noexcept {
     for (const auto& [tier, spelling] : NAMES)
-        if (equalsIgnoringCase(name, spelling)) return tier;
+        if (equalsIgnoringAsciiCase(name, spelling)) return tier;
     return std::nullopt;
 }
 

@@ -2,6 +2,7 @@
 
 #include "Cli.h"
 
+#include "core/Ascii.h"
 #include "core/FileSystem.h"
 #include "ubake/Bake.h"
 #include "ubake/Install.h"
@@ -11,7 +12,6 @@
 #include "upkg/Texture.h"
 #include "ut-ants/Png.h"
 
-#include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -26,12 +26,6 @@ namespace uta::mappic {
 namespace {
 
 namespace stdfs = std::filesystem;
-
-std::string foldCase(std::string_view text) {
-    std::string folded{text};
-    for (char& ch : folded) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    return folded;
-}
 
 /// The LevelInfo the level's own actor list names, or null -- ut-dump's rule:
 /// an editor can leave other LevelInfo exports behind, and only the level's
@@ -52,7 +46,7 @@ const upkg::Property* propertyNamed(const upkg::Package& holder,
                                     const std::vector<upkg::Property>& properties, std::string_view want) {
     for (const upkg::Property& property : properties) {
         const auto name = holder.name(property.nameIndex);
-        if (name.has_value() && property.arrayIndex == 0 && foldCase(*name) == want) return &property;
+        if (name.has_value() && property.arrayIndex == 0 && asciiFolded(*name) == want) return &property;
     }
     return nullptr;
 }

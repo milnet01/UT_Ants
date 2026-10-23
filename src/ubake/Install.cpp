@@ -3,6 +3,7 @@
 
 #include "ubake/Install.h"
 
+#include "core/Ascii.h"
 #include "core/FileSystem.h"
 
 #include <algorithm>
@@ -43,14 +44,7 @@ constexpr std::array<std::string_view, 3> REQUIRED = {"Core", "Engine", "Botpack
 
 namespace detail {
 
-std::string fold(std::string_view text) {
-    std::string out{text};
-    for (char& character : out) {
-        if (character >= 'A' && character <= 'Z')
-            character = static_cast<char>(character - 'A' + 'a');
-    }
-    return out;
-}
+std::string fold(std::string_view text) { return asciiFolded(text); }
 
 std::string utf8(const fsys::path& path) {
     const std::u8string text = path.u8string();

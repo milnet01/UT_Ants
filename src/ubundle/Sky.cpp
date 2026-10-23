@@ -2,6 +2,8 @@
 
 #include "ubundle/Sky.h"
 
+#include "core/Ascii.h"
+
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -12,15 +14,6 @@ namespace uta::ubundle {
 namespace {
 
 bool isSkyZone(const ActorClass& actorClass) { return isOrDescendsFrom(actorClass, "engine.skyzoneinfo"); }
-
-/// A property's name folded, since a map spells it as its author typed it.
-std::string folded(std::string_view text) {
-    std::string out(text);
-    // ASCII by hand: std::tolower follows the program's locale (review-code
-    // 2026-10-15).
-    std::ranges::transform(out, out.begin(), [](char ch) { return ch >= 'A' && ch <= 'Z' ? static_cast<char>(ch + 32) : ch; });
-    return out;
-}
 
 } // namespace
 
@@ -35,7 +28,7 @@ std::optional<SkyView> skyViewOf(const Placements& placements) {
         const auto takeProperties = [&](const std::vector<PropertyRecord>& properties) {
             for (const PropertyRecord& property : properties) {
                 if (property.arrayIndex != 0) continue;
-                const std::string name = folded(property.name);
+                const std::string name = asciiFolded(property.name); // as the map's author typed it
                 if (const auto* location = std::get_if<std::array<float, 3>>(&property.value);
                     location && name == "location")
                     view.location = *location;

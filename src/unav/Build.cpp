@@ -1,5 +1,6 @@
 #include "unav/Build.h"
 
+#include "core/Ascii.h"
 #include "upkg/Properties.h"
 
 #include <algorithm>
@@ -39,26 +40,12 @@ bool isClassExport(const ExportEntry& entry) {
     return entry.objectClass.kind() == ObjectReferenceKind::Null;
 }
 
-/// ASCII lower case. Not std::tolower, whose answer depends on the process
-/// locale (UTA-0219); UE1's names are ASCII-folded whatever the machine.
-char asciiLower(char character) {
-    return character >= 'A' && character <= 'Z' ? static_cast<char>(character - 'A' + 'a') : character;
-}
-
-std::string foldCase(std::string_view value) {
-    std::string folded{value};
-    for (char& character : folded) {
-        character = asciiLower(character);
-    }
-    return folded;
-}
-
 /// Whether two names are the same FName. UE1 stores each name once, in the
 /// spelling first seen, and compares names ignoring case -- so a package may
 /// hold `navigationpoint` or `tag` for the name every other package spells
 /// `NavigationPoint` or `Tag` (UTA-0219).
 bool sameName(std::string_view left, std::string_view right) {
-    return std::ranges::equal(left, right, [](char a, char b) { return asciiLower(a) == asciiLower(b); });
+    return equalsIgnoringAsciiCase(left, right);
 }
 
 /// The package an import ultimately lives in: follow its outer chain to the
@@ -103,7 +90,7 @@ Result<bool> descendsFromNavigationPoint(const Package& package, const ExportEnt
     std::string home;
     if (imported) {
         UTA_TRY(home, importPackageName(package, actor.objectClass));
-        home = foldCase(home);
+        home = asciiFolded(home);
     } else {
         // Not a package name, so it cannot collide with one. The cache lives
         // for one call, so a map-local class is unambiguous within it.

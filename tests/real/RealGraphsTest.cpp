@@ -99,7 +99,7 @@ bool descendsFromNavigationPoint(const uta::upkg::Package& package,
     }
     const bool imported = actor.objectClass.kind() == uta::upkg::ObjectReferenceKind::Import;
     const std::string home =
-        imported ? foldCase(importPackageName(package, actor.objectClass)) : "<map>";
+        imported ? uta::asciiFolded(importPackageName(package, actor.objectClass)) : "<map>";
     // Cached per CLASS, not per actor: a map holds thousands of actors of a
     // few dozen classes, and the walk is what costs.
     const std::string key = home + "/" + std::string{*className};
@@ -170,7 +170,7 @@ TEST_CASE("a navigation point's Paths entries index the level's reach-spec array
     long long actorsUsingEverySlot = 0;
 
     for (const fs::directory_entry& entry : fs::directory_iterator(maps)) {
-        if (!entry.is_regular_file() || foldCase(entry.path().extension().string()) != ".unr") {
+        if (!entry.is_regular_file() || uta::asciiFolded(entry.path().extension().string()) != ".unr") {
             continue;
         }
         const std::vector<std::byte> raw = readWhole(entry.path());
@@ -309,7 +309,7 @@ TEST_CASE("both graphs build over every map, and the rates SS 2.1 measured hold"
     long long unknownReach = 0;
 
     for (const fs::directory_entry& entry : fs::directory_iterator(maps)) {
-        if (!entry.is_regular_file() || foldCase(entry.path().extension().string()) != ".unr") {
+        if (!entry.is_regular_file() || uta::asciiFolded(entry.path().extension().string()) != ".unr") {
             continue;
         }
         const std::vector<std::byte> raw = readWhole(entry.path());

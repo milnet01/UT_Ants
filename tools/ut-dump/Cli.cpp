@@ -20,6 +20,7 @@
 #include "Cli.h"
 
 #include "common/Json.h"
+#include "core/Ascii.h"
 #include "core/FileSystem.h"
 #include "ubake/Actors.h"
 #include "ubake/Install.h"
@@ -67,14 +68,6 @@ constexpr int SCHEMA = 1;
 // purpose. The string escaper is tools/common/Json.h's, shared by every tool.
 using uta::tools::writeJsonString;
 
-std::string foldCase(std::string_view text) {
-    std::string folded{text};
-    std::transform(folded.begin(), folded.end(), folded.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return folded;
-}
-
 // ------------------------------------------------------------- the resolver
 //
 // Class ancestry crosses packages -- a map's `Teleporter` descends from
@@ -90,8 +83,8 @@ public:
         for (fs::directory_iterator entry{systemDir, listing}, end; !listing && entry != end;
              entry.increment(listing)) {
             std::error_code ignored;
-            if (entry->is_regular_file(ignored) && foldCase(uta::fs::utf8(entry->path().extension())) == ".u") {
-                paths_.emplace(foldCase(uta::fs::utf8(entry->path().stem())), entry->path());
+            if (entry->is_regular_file(ignored) && asciiFolded(uta::fs::utf8(entry->path().extension())) == ".u") {
+                paths_.emplace(asciiFolded(uta::fs::utf8(entry->path().stem())), entry->path());
             }
         }
     }
@@ -291,7 +284,7 @@ StoredFacts storedFacts(const uta::upkg::Package& package, std::uint32_t exportI
     for (const uta::upkg::Property& property : *properties) {
         const auto name = package.name(property.nameIndex);
         if (!name.has_value()) continue;
-        const std::string folded = foldCase(*name);
+        const std::string folded = asciiFolded(*name);
         if (folded == "location" && property.arrayIndex == 0) {
             if (const auto* at = std::get_if<uta::upkg::Vector3>(&property.value)) facts.location = *at;
             continue;
@@ -381,10 +374,10 @@ void writeNavGraph(std::ostream& out, const uta::upkg::Package& package,
 std::optional<std::string> textOf(const uta::upkg::Package& package,
                                   const std::vector<uta::upkg::Property>& properties,
                                   std::string_view want) {
-    const std::string folded = foldCase(want);
+    const std::string folded = asciiFolded(want);
     for (const uta::upkg::Property& property : properties) {
         const auto name = package.name(property.nameIndex);
-        if (!name.has_value() || property.arrayIndex != 0 || foldCase(*name) != folded) continue;
+        if (!name.has_value() || property.arrayIndex != 0 || asciiFolded(*name) != folded) continue;
         if (const auto* text = std::get_if<std::string>(&property.value)) return *text;
     }
     return std::nullopt;
@@ -479,7 +472,7 @@ ActorKind kindOf(const uta::upkg::Package& package, std::string_view packageName
     for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
         const auto name = link.package->name(link.entry->objectName);
         if (!name.has_value()) continue;
-        const std::string folded = foldCase(*name);
+        const std::string folded = asciiFolded(*name);
         kind.factory = kind.factory || folded == "thingfactory";
         kind.pawn = kind.pawn || folded == "scriptedpawn";
         friendly = friendly || folded == "nali" || folded == "cow";
@@ -493,7 +486,7 @@ ActorKind kindOf(const uta::upkg::Package& package, std::string_view packageName
         if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value()) {
             for (const uta::upkg::EffectiveProperty& effective : *defaults) {
                 if (effective.property.arrayIndex != 0) continue;
-                const std::string folded = foldCase(effective.name);
+                const std::string folded = asciiFolded(effective.name);
                 if (folded == "capacity") {
                     if (const auto* value = std::get_if<std::int32_t>(&effective.property.value))
                         kind.defaultCapacity = *value;
@@ -607,7 +600,7 @@ void writeMonsters(std::ostream& out, const uta::upkg::Package& map, std::string
             for (const uta::upkg::Property& property : *properties) {
                 const auto name = map.name(property.nameIndex);
                 if (!name.has_value() || property.arrayIndex != 0) continue;
-                const std::string folded = foldCase(*name);
+                const std::string folded = asciiFolded(*name);
                 if (folded == "capacity") {
                     if (const auto* own = std::get_if<std::int32_t>(&property.value)) value = *own;
                 } else if (folded == "prototype") {
@@ -692,7 +685,7 @@ std::optional<std::string> textValue(const uta::upkg::Package& origin,
 /// Fold one property into `fields`, whichever package it was read in.
 void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
                         std::string_view name, const uta::upkg::Property& property) {
-    const std::string folded = foldCase(name);
+    const std::string folded = asciiFolded(name);
     if (folded == "keypos") {
         if (const auto* at = std::get_if<uta::upkg::Vector3>(&property.value)) fields.keyPos[property.arrayIndex] = *at;
         return;
@@ -897,7 +890,7 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
         // carrying KeyPos or BasePos -- a mapper's subclass need not be named
         // for it, and a chain cut short (SS 4.4) cannot say.
         const bool mover = std::any_of(chain.begin(), chain.end(),
-                                       [](const std::string& link) { return foldCase(link) == "mover"; })
+                                       [](const std::string& link) { return asciiFolded(link) == "mover"; })
                            || fields.basePos.has_value() || !fields.keyPos.empty();
         out << ", \"mover\": ";
         if (mover) {
@@ -946,7 +939,7 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
     for (const std::uint32_t exportIndex : actorExports) {
         const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
         const auto className = map.objectName(entry.objectClass);
-        if (!className.has_value() || !EXIT_CLASSES.contains(foldCase(*className))) continue;
+        if (!className.has_value() || !EXIT_CLASSES.contains(asciiFolded(*className))) continue;
 
         WiringFields fields;
         if (const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
@@ -1002,7 +995,7 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
 
 /// A Position property's value into `position`; any other property is not ours.
 void takePosition(std::optional<int>& position, std::string_view name, const uta::upkg::Property& property) {
-    if (property.arrayIndex != 0 || foldCase(name) != "position") return;
+    if (property.arrayIndex != 0 || asciiFolded(name) != "position") return;
     if (const auto* set = std::get_if<std::int32_t>(&property.value)) position = *set;
     else if (const auto* byte = std::get_if<std::uint8_t>(&property.value)) position = *byte;
 }
@@ -1025,7 +1018,7 @@ void writeWaypoints(std::ostream& out, const uta::upkg::Package& map, std::strin
     for (const std::uint32_t exportIndex : actorExports) {
         const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
         const auto className = map.objectName(entry.objectClass);
-        if (!className.has_value() || !foldCase(*className).contains("monsterwaypoint")) continue;
+        if (!className.has_value() || !asciiFolded(*className).contains("monsterwaypoint")) continue;
 
         std::optional<int> position;
         if (const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
@@ -1107,7 +1100,7 @@ void writeLighting(std::ostream& out, const uta::upkg::Package& map, std::string
         refuse("the level's Model did not read");
         return;
     }
-    const auto actors = uta::ubake::buildActors(map, foldCase(mapName), level, resolver);
+    const auto actors = uta::ubake::buildActors(map, asciiFolded(mapName), level, resolver);
     if (!actors.has_value()) {
         refuse("the level's actors did not build: " + std::string(actors.error().message()));
         return;
@@ -1161,7 +1154,7 @@ void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::st
         refuse("the level's zones did not build: " + std::string(rooms.error().message()));
         return;
     }
-    const auto actors = uta::ubake::buildActors(map, foldCase(mapName), level, resolver);
+    const auto actors = uta::ubake::buildActors(map, asciiFolded(mapName), level, resolver);
     if (!actors.has_value()) {
         refuse("the level's actors did not build: " + std::string(actors.error().message()));
         return;
@@ -1257,7 +1250,7 @@ void writeScale(std::ostream& out, const ActorProperties& props, std::string_vie
     if (found != props.end()) {
         const auto* raw = std::get_if<std::span<const std::byte>>(&found->second.property->value);
         const auto structName = found->second.origin->name(found->second.property->structNameIndex);
-        if (raw != nullptr && raw->size() == 17 && structName.has_value() && foldCase(*structName) == "scale") {
+        if (raw != nullptr && raw->size() == 17 && structName.has_value() && asciiFolded(*structName) == "scale") {
             for (std::size_t i = 0; i < numbers.size(); ++i) {
                 std::uint32_t bits = 0;
                 for (std::size_t b = 0; b < 4; ++b)
@@ -1347,7 +1340,7 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
                 if (ancestry.has_value()) {
                     for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
                         const auto name = link.package->name(link.entry->objectName);
-                        built.chain.push_back(name.has_value() ? foldCase(*name) : std::string{"?"});
+                        built.chain.push_back(name.has_value() ? asciiFolded(*name) : std::string{"?"});
                     }
                     if (auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value())
                         built.defaults = std::move(*defaults);
@@ -1374,13 +1367,13 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
         ActorProperties props;
         for (const uta::upkg::EffectiveProperty& effective : facts.defaults)
             if (effective.origin != nullptr)
-                props[{foldCase(effective.name), effective.property.arrayIndex}] = {effective.origin,
+                props[{asciiFolded(effective.name), effective.property.arrayIndex}] = {effective.origin,
                                                                                    &effective.property};
         const auto own = uta::upkg::readProperties(map, entry);
         if (own.has_value())
             for (const uta::upkg::Property& property : *own)
                 if (const auto name = map.name(property.nameIndex); name.has_value())
-                    props[{foldCase(*name), property.arrayIndex}] = {&map, &property};
+                    props[{asciiFolded(*name), property.arrayIndex}] = {&map, &property};
 
         std::ostringstream head;
         head << "{\"index\": " << exportIndex << ", \"name\": ";

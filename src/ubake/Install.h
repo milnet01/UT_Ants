@@ -105,7 +105,8 @@ struct CheckReport {
 
 namespace detail {
 
-/// SS 4.4's fold: ASCII `A`-`Z` become `a`-`z` and every other byte is kept.
+/// SS 4.4's fold: ASCII `A`-`Z` become `a`-`z` and every other byte is kept,
+/// which is core's asciiFolded.
 /// One fold for the resolver, the closure and the bake name, so a package
 /// cannot be named one way in one and another way in the next.
 [[nodiscard]] std::string fold(std::string_view text);

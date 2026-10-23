@@ -14,6 +14,7 @@
 #include "Launcher.h"
 #include "MapList.h"
 
+#include "core/Ascii.h"
 #include "core/FileSystem.h"
 #include "core/Log.h"
 #include "ubundle/Bundle.h"
@@ -25,7 +26,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -39,13 +39,6 @@
 namespace {
 
 using namespace uta::client;
-
-std::string lowered(std::string_view text) {
-    std::string folded(text);
-    std::ranges::transform(folded, folded.begin(),
-                           [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    return folded;
-}
 
 /// Whether ut-bake, beside this program, says `install` is usable. ut-bake
 /// writes its reasons on standard error, which it shares with this process, so
@@ -110,7 +103,7 @@ Start startingCamera(const uta::ubundle::Bundle& bundle) {
         std::array<std::int32_t, 3> rotation{};
         for (const uta::ubundle::PropertyRecord& property : actor.properties) {
             if (property.arrayIndex != 0) continue;
-            const std::string name = lowered(property.name); // as spelled in the map
+            const std::string name = uta::asciiFolded(property.name); // as spelled in the map
             if (const auto* vector = std::get_if<std::array<float, 3>>(&property.value); vector && name == "location")
                 location = *vector;
             if (const auto* rotator = std::get_if<std::array<std::int32_t, 3>>(&property.value);

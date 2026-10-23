@@ -5,12 +5,12 @@
 
 #pragma once
 
+#include "core/Ascii.h"
 #include "core/FileSystem.h"
 #include "upkg/Class.h"
 #include "upkg/Package.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cstddef>
 #include <filesystem>
 #include <map>
@@ -50,14 +50,6 @@ inline bool isClassExport(const uta::upkg::ExportEntry& entry) {
            entry.serialSize > 0;
 }
 
-inline std::string foldCase(std::string_view value) {
-    std::string folded{value};
-    for (char& character : folded) {
-        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-    }
-    return folded;
-}
-
 /// The package files with `extension` directly under `directory`, sorted, so
 /// "the first copy" names the same one on every run.
 inline std::vector<std::filesystem::path> sortedPackages(const std::filesystem::path& directory,
@@ -82,7 +74,7 @@ public:
     explicit SystemPackages(const std::filesystem::path& system) {
         for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(system)) {
             if (entry.is_regular_file() && entry.path().extension() == ".u") {
-                paths_.emplace(foldCase(entry.path().stem().string()), entry.path());
+                paths_.emplace(uta::asciiFolded(entry.path().stem().string()), entry.path());
             }
         }
     }

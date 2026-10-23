@@ -2,6 +2,7 @@
 
 #include "MapList.h"
 
+#include "core/Ascii.h"
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
 
@@ -29,19 +30,12 @@ std::optional<std::string> bakerOf(const std::filesystem::path& bundle) {
     return baker ? *baker : std::nullopt;
 }
 
-std::string lowered(std::string_view text) {
-    std::string folded(text);
-    std::ranges::transform(folded, folded.begin(),
-                           [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    return folded;
-}
-
 /// The entry of `directory` whose name folds to `name`, or `directory / name`
 /// when none does -- an install's directories are matched ignoring case.
 std::filesystem::path childIgnoringCase(const std::filesystem::path& directory, std::string_view name) {
     std::error_code ec;
     for (std::filesystem::directory_iterator it(directory, ec), end; !ec && it != end; it.increment(ec)) {
-        if (lowered(it->path().filename().string()) == name) return it->path();
+        if (uta::asciiFolded(it->path().filename().string()) == name) return it->path();
     }
     return directory / name;
 }
@@ -262,21 +256,21 @@ std::vector<MapFile> listMaps(const std::filesystem::path& install) {
     for (std::filesystem::directory_iterator it(directory, ec), end; !ec && it != end; it.increment(ec)) {
         if (!it->is_regular_file(ec)) continue;
         const std::filesystem::path& path = it->path();
-        if (lowered(path.extension().string()) != ".unr") continue;
+        if (uta::asciiFolded(path.extension().string()) != ".unr") continue;
         maps.push_back({path.stem().string(), path});
     }
     std::ranges::sort(maps, [](const MapFile& a, const MapFile& b) {
-        const std::string left = lowered(a.name), right = lowered(b.name);
+        const std::string left = uta::asciiFolded(a.name), right = uta::asciiFolded(b.name);
         return left != right ? left < right : a.name < b.name;
     });
     return maps;
 }
 
 std::vector<std::size_t> filterMaps(const std::vector<MapFile>& maps, std::string_view filter) {
-    const std::string needle = lowered(filter);
+    const std::string needle = uta::asciiFolded(filter);
     std::vector<std::size_t> kept;
     for (std::size_t i = 0; i < maps.size(); ++i) {
-        if (lowered(maps[i].name).find(needle) != std::string::npos) kept.push_back(i);
+        if (uta::asciiFolded(maps[i].name).find(needle) != std::string::npos) kept.push_back(i);
     }
     return kept;
 }
@@ -292,9 +286,9 @@ std::string readBakerVersion(std::string_view output) {
 
 std::vector<MapFile> playableMaps(std::vector<MapFile> maps, const std::vector<std::string>& prefixes) {
     std::vector<std::string> folded;
-    for (const std::string& prefix : prefixes) folded.push_back(lowered(prefix));
+    for (const std::string& prefix : prefixes) folded.push_back(uta::asciiFolded(prefix));
     std::erase_if(maps, [&folded](const MapFile& map) {
-        const std::string name = lowered(map.name);
+        const std::string name = uta::asciiFolded(map.name);
         return std::ranges::none_of(folded, [&name](const std::string& prefix) { return name.starts_with(prefix); });
     });
     return maps;

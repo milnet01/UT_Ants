@@ -36,7 +36,6 @@
 namespace {
 
 using namespace uta;
-using test::real::foldCase;
 
 struct Label {
     std::string package;
@@ -69,12 +68,12 @@ std::map<std::string, std::filesystem::path> packagesByStem() {
         const std::filesystem::path root = std::filesystem::path(UTA_UT_INSTALL_DIR) / directory;
         if (!std::filesystem::is_directory(root)) continue;
         for (const auto& entry : std::filesystem::recursive_directory_iterator(root))
-            if (entry.is_regular_file() && test::real::isPackageExtension(foldCase(entry.path().extension().string())))
+            if (entry.is_regular_file() && test::real::isPackageExtension(uta::asciiFolded(entry.path().extension().string())))
                 all.push_back(entry.path());
     }
     std::ranges::sort(all);
     std::map<std::string, std::filesystem::path> out;
-    for (const auto& path : all) out.emplace(foldCase(path.stem().string()), path);
+    for (const auto& path : all) out.emplace(uta::asciiFolded(path.stem().string()), path);
     return out;
 }
 
@@ -85,7 +84,7 @@ std::optional<std::uint64_t> stillFingerprint(const upkg::Package& package, std:
     for (const upkg::ExportEntry& entry : package.exports()) {
         const auto name = package.name(entry.objectName);
         const auto className = package.objectName(entry.objectClass);
-        if (!name || !className || foldCase(*name) != foldCase(texture) || foldCase(*className) != "firetexture")
+        if (!name || !className || uta::asciiFolded(*name) != uta::asciiFolded(texture) || uta::asciiFolded(*className) != "firetexture")
             continue;
         const auto properties = upkg::readProperties(package, entry);
         const auto read = upkg::readTexture(package, entry);
@@ -96,7 +95,7 @@ std::optional<std::uint64_t> stillFingerprint(const upkg::Package& package, std:
         std::optional<upkg::ObjectReference> paletteReference;
         for (const upkg::Property& property : *properties)
             if (const auto* const reference = std::get_if<upkg::ObjectReference>(&property.value);
-                reference && foldCase(package.name(property.nameIndex).value_or("")) == "palette")
+                reference && uta::asciiFolded(package.name(property.nameIndex).value_or("")) == "palette")
                 paletteReference = *reference;
         if (!paletteReference || paletteReference->kind() != upkg::ObjectReferenceKind::Export) {
             why = "its palette is not an export of its own package";
@@ -129,7 +128,7 @@ TEST_CASE("each labelled FireTexture is judged a flame as it is labelled", "[rea
     std::set<std::uint64_t> labelledFlames;
     for (const Label& label : labels) {
         INFO(label.package << "." << label.texture << " is labelled " << (label.flame ? "flame" : "other"));
-        const auto found = packages.find(foldCase(label.package));
+        const auto found = packages.find(uta::asciiFolded(label.package));
         REQUIRE(found != packages.end());
         const std::vector<std::byte> bytes = test::real::readWhole(found->second);
         const auto package = upkg::Package::open(test::real::viewOf(bytes));

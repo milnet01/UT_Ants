@@ -1,11 +1,11 @@
 #include "upkg/Class.h"
 
+#include "core/Ascii.h"
 #include "upkg/ByteReader.h"
 #include "upkg/Script.h"
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <utility>
 
 namespace uta::upkg {
@@ -21,17 +21,9 @@ Error malformed(std::string message) {
 }
 
 /// The engine's own package, class and property names are case-insensitive, so
-/// every comparison across a package boundary folds first. ASCII only, which
-/// is what the format's names are.
-std::string fold(std::string_view text) {
-    std::string folded;
-    folded.reserve(text.size());
-    for (const char character : text) {
-        folded.push_back(static_cast<char>(
-            std::tolower(static_cast<unsigned char>(character))));
-    }
-    return folded;
-}
+/// every comparison across a package boundary folds first, with core's ASCII
+/// fold.
+using uta::asciiFolded;
 
 /// A name index read out of an object's bytes, which nothing has validated.
 Result<std::uint32_t> checkNameIndex(const Package& package, std::int32_t index,
@@ -66,14 +58,14 @@ Result<std::string_view> importPackageName(const Package& package,
 } // namespace
 
 const ExportEntry* findClassExport(const Package& package, std::string_view wanted) {
-    const std::string target = fold(wanted);
+    const std::string target = asciiFolded(wanted);
     for (const ExportEntry& candidate : package.exports()) {
         if (candidate.objectClass.kind() != ObjectReferenceKind::Null ||
             candidate.serialSize == 0) {
             continue;
         }
         const auto name = package.name(candidate.objectName);
-        if (name.has_value() && fold(*name) == target) {
+        if (name.has_value() && asciiFolded(*name) == target) {
             return &candidate;
         }
     }
@@ -251,7 +243,7 @@ Result<Ancestry> readAncestry(const Package& package, const ExportEntry& entry,
 
         // Folded before the resolver sees it, so a resolver may assume folded
         // input rather than each side guessing (INV-7).
-        const std::string folded = fold(packageName);
+        const std::string folded = asciiFolded(packageName);
         UTA_TRY(const Package* const opened, resolver(folded));
         if (opened == nullptr) {
             ancestry.end = AncestryEnd::PackageMissing;
@@ -290,7 +282,7 @@ Result<std::vector<EffectiveProperty>> effectiveDefaults(const Ancestry& ancestr
 
         for (const Property& property : info.defaults) {
             UTA_TRY(const std::string_view name, owner.name(property.nameIndex));
-            const std::string key = fold(name);
+            const std::string key = asciiFolded(name);
 
             // Keyed on the name as TEXT and the array index, never the name
             // index: the same property is a different number in every package,
@@ -299,7 +291,7 @@ Result<std::vector<EffectiveProperty>> effectiveDefaults(const Ancestry& ancestr
             const auto existing = std::find_if(
                 merged.begin(), merged.end(), [&](const EffectiveProperty& candidate) {
                     return candidate.property.arrayIndex == property.arrayIndex &&
-                           fold(candidate.name) == key;
+                           asciiFolded(candidate.name) == key;
                 });
 
             if (existing == merged.end()) {
@@ -334,7 +326,7 @@ Result<ClassSite> resolveClass(const Package& package, std::string_view packageN
         }
         const ExportEntry& entry = package.exports()[classReference.index()];
         UTA_TRY(const std::string_view name, package.name(entry.objectName));
-        site.package = fold(packageName);
+        site.package = asciiFolded(packageName);
         site.name = std::string(name);
         site.resolved = ResolvedClass{&package, &entry};
         return site;
@@ -349,7 +341,7 @@ Result<ClassSite> resolveClass(const Package& package, std::string_view packageN
         const ImportEntry& import = package.imports()[classReference.index()];
         UTA_TRY(const std::string_view name, package.name(import.objectName));
         UTA_TRY(const std::string_view home, importPackageName(package, classReference));
-        site.package = fold(home);
+        site.package = asciiFolded(home);
         site.name = std::string(name);
 
         // Folded before the resolver sees it, as readAncestry's own calls are.
