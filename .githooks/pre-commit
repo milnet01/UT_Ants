@@ -57,7 +57,12 @@ for f in $staged; do
             *'<'*|*'>'*|*'{{'*|*'*'*|http*|'#'*) continue ;;
             *-) continue ;;
         esac
-        [ -e "$p" ] || [ -e "$dir/$p" ] && continue
+        # A leading / is the repository's root, as GitHub renders it; any
+        # other link is relative to the file that holds it.
+        case "$p" in
+            /*) [ -e ".$p" ] && continue ;;
+            *) [ -e "$dir/$p" ] && continue ;;
+        esac
         # A dated line was true when written and is not a claim about now.
         grep -F -- "$p" "$f" | grep -qE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' && continue
         printf 'BLOCK link %s -> %s\n' "$f" "$p"
