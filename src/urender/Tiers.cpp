@@ -38,8 +38,8 @@ std::string_view tierName(Tier tier) noexcept {
 Tier defaultTier(VkPhysicalDeviceType type, std::uint64_t deviceLocalBytes) noexcept {
     // Integrated graphics reports system memory, so its figure says nothing.
     if (type == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU || type == VK_PHYSICAL_DEVICE_TYPE_CPU) return Tier::Low;
-    // Half a GiB below each figure the user gave, since a card reports a little
-    // less than it is sold as.
+    // SS 4.3's table: half a GiB below the 2, 4 and 8 GB a card is sold with
+    // (SS 3 decision 4), since a card reports a little less than that.
     if (deviceLocalBytes < GIB * 3 / 2) return Tier::Low;
     if (deviceLocalBytes < GIB * 7 / 2) return Tier::Medium;
     if (deviceLocalBytes < GIB * 15 / 2) return Tier::High;

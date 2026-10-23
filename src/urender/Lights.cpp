@@ -35,14 +35,19 @@ double noise(std::uint64_t n) noexcept {
     return static_cast<double>(n >> 11) / static_cast<double>(1ULL << 53);
 }
 
+/// The step a whole number of steps names, cast through i64 so a negative one
+/// wraps rather than being undefined. Past i64's range, where the cast is
+/// undefined, it holds at step 0 (UTA-0217).
+std::uint64_t stepOf(double whole) noexcept {
+    return std::abs(whole) < 0x1p63 ? static_cast<std::uint64_t>(static_cast<std::int64_t>(whole)) : std::uint64_t{0};
+}
+
 /// Smooth value noise in [0, 1] at `t`, one random value per whole step,
-/// eased between neighbours. A time past i64's range holds at step 0, as
-/// LT_FLICKER's does (UTA-0217).
+/// eased between neighbours.
 double smoothNoise(std::uint64_t seed, double t) noexcept {
     const double whole = std::floor(t);
     const double within = t - whole;
-    const auto step = std::abs(whole) < 0x1p62 ? static_cast<std::uint64_t>(static_cast<std::int64_t>(whole))
-                                                : std::uint64_t{0};
+    const std::uint64_t step = stepOf(whole);
     const double ease = within * within * (3 - 2 * within);
     const double a = noise(step * 2654435761ULL + seed);
     const double b = noise((step + 1) * 2654435761ULL + seed);
@@ -60,12 +65,8 @@ float flickerOf(const ubundle::Light& light, double seconds) noexcept {
     case LT_STROBE: return position < 0.1 ? 1.0f : 0.0f;
     case LT_FLICKER: {
         // Twenty changes a second, each light on its own sequence. A pinned
-        // time may be negative or huge (UTA-0217); both cast through i64, and
-        // past its range the sequence holds at step 0.
-        const double ticks = std::floor(seconds * 20.0);
-        const auto step = std::abs(ticks) < 0x1p63
-                              ? static_cast<std::uint64_t>(static_cast<std::int64_t>(ticks))
-                              : std::uint64_t{0};
+        // time may be negative or huge (UTA-0217).
+        const std::uint64_t step = stepOf(std::floor(seconds * 20.0));
         return static_cast<float>(0.5 + 0.5 * noise(step * 1315423911ULL + light.exportIndex));
     }
     default: return 1.0f;
