@@ -9,6 +9,7 @@
 // tests/unit/ClothLibraryTest.cpp pins this table's digest to say so.
 
 #include "umat/Cloth.h"
+#include "umat/Fingerprint.h"
 
 #include <algorithm>
 #include <array>
@@ -54,12 +55,7 @@ constexpr auto TABLE = std::to_array<ClothEntry>({
     {0xe96cbbd6f951425cULL, "mh-cmc-partycrashers.flags"},
 });
 
-constexpr bool sortedAndUnique() {
-    for (std::size_t i = 1; i < TABLE.size(); ++i)
-        if (TABLE[i - 1].fingerprint >= TABLE[i].fingerprint) return false;
-    return true;
-}
-static_assert(sortedAndUnique(), "the cloth list must be sorted by fingerprint with none twice");
+static_assert(detail::sortedByFingerprint(TABLE), "the cloth list must be sorted by fingerprint with none twice");
 
 } // namespace
 

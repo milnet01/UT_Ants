@@ -139,6 +139,15 @@ Result<std::string> sectionNameOf(std::string_view section, std::string_view nam
     return std::string(name);
 }
 
+/// The name after `keyword` in a `[keyword NAME]` heading -- empty for a bare
+/// `[keyword]` -- or nullopt where the heading is not that section's.
+std::optional<std::string_view> nameAfter(std::string_view heading, std::string_view keyword) {
+    if (!heading.starts_with(keyword)) return std::nullopt;
+    const std::string_view rest = heading.substr(keyword.size());
+    if (!rest.empty() && !isBlank(rest.front())) return std::nullopt;
+    return trimmed(rest);
+}
+
 /// An actor's name as the map spells it: letters, digits and _.
 bool isObjectName(std::string_view name) {
     return !name.empty() && std::ranges::all_of(name, [](char character) {
@@ -374,6 +383,10 @@ std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
 Result<Recipe> parse(std::string_view text) {
     if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
 
+    // A new section kind is handled in each of: this enum, the heading
+    // branch, sectionComplete, the key dispatch and the map-digest refusals
+    // below; then versionOf, write and bakeDigest, and Recipe.h's version
+    // lists at its header, parse and write.
     enum class In { Header, Nothing, Map, Material, Lamp, Sun, SwitchOff, Sky, Hide };
     In in = In::Header;
     Recipe recipe;
@@ -450,16 +463,16 @@ Result<Recipe> parse(std::string_view text) {
                 if (mapLine) return refuse(line, std::format("a second [map]; the first is on line {}", *mapLine));
                 mapLine = line;
                 in = In::Map;
-            } else if (heading == "material" || (heading.starts_with("material") && isBlank(heading[8]))) {
-                UTA_TRY(std::string texture, textureOf(trimmed(heading.substr(8)), line));
+            } else if (const std::optional<std::string_view> textureName = nameAfter(heading, "material")) {
+                UTA_TRY(std::string texture, textureOf(*textureName, line));
                 if (materials.contains(texture))
                     return refuse(line, std::format("[material {}] is given twice", texture));
                 material = &materials[texture];
                 material->texture = std::move(texture);
                 in = In::Material;
-            } else if (heading == "lamp" || (heading.starts_with("lamp") && isBlank(heading[4]))) {
+            } else if (const std::optional<std::string_view> lampName = nameAfter(heading, "lamp")) {
                 if (version < 2) return refuse(line, "a [lamp] needs `ut-ants recipe 2`");
-                UTA_TRY(std::string name, sectionNameOf("lamp", trimmed(heading.substr(4)), line));
+                UTA_TRY(std::string name, sectionNameOf("lamp", *lampName, line));
                 for (std::size_t i = 0; i < recipe.lamps.size(); ++i)
                     if (recipe.lamps[i].name == name)
                         return refuse(line, std::format("[lamp {}] is given twice; the first is on line {}", name,
@@ -487,9 +500,9 @@ Result<Recipe> parse(std::string_view text) {
                 skyLine = line;
                 recipe.sky.emplace();
                 in = In::Sky;
-            } else if (heading == "hide" || (heading.starts_with("hide") && isBlank(heading[4]))) {
+            } else if (const std::optional<std::string_view> hideName = nameAfter(heading, "hide")) {
                 if (version < 8) return refuse(line, "a [hide] needs `ut-ants recipe 8`");
-                UTA_TRY(std::string name, sectionNameOf("hide", trimmed(heading.substr(4)), line));
+                UTA_TRY(std::string name, sectionNameOf("hide", *hideName, line));
                 for (std::size_t i = 0; i < recipe.hidden.size(); ++i)
                     if (recipe.hidden[i].name == name)
                         return refuse(line, std::format("[hide {}] is given twice; the first is on line {}", name,
@@ -535,21 +548,27 @@ Result<Recipe> parse(std::string_view text) {
     if (!mapLine) return refuse(headerLine, "the recipe has no [map] section");
     if (!fileSeen) return refuse(*mapLine, "[map] has no `file`");
     UTA_CHECK(sectionComplete());
-    if (!recipe.lamps.empty() && !recipe.mapDigest)
-        return refuse(lampLines.front(), "a recipe with a [lamp] must give the map's sha256 in [map]: actor names "
-                                         "and places mean nothing in another file");
-    if (sunLine && !recipe.mapDigest)
-        return refuse(*sunLine, "a recipe with a [sun] must give the map's sha256 in [map]: where the sky is open "
-                                "means nothing in another file");
-    if (switchOffLine && !recipe.mapDigest)
-        return refuse(*switchOffLine, "a recipe with a [switch-off] must give the map's sha256 in [map]: actor names "
-                                      "mean nothing in another file");
-    if (skyLine && !recipe.mapDigest)
-        return refuse(*skyLine, "a recipe with a [sky] must give the map's sha256 in [map]: which textures paint "
-                                "the sky means nothing in another file");
-    if (!hideLines.empty() && !recipe.mapDigest)
-        return refuse(hideLines.front(), "a recipe with a [hide] must give the map's sha256 in [map]: actor names "
-                                         "mean nothing in another file");
+    // Every section naming the map's actors, places or textures needs the
+    // map's digest: those mean nothing in another file. The first such
+    // section, in this order, is the one refused.
+    struct NeedsDigest {
+        std::optional<std::size_t> line;
+        std::string_view section;
+        std::string_view meaningless;
+    };
+    const std::optional<std::size_t> firstLamp =
+        lampLines.empty() ? std::nullopt : std::optional{lampLines.front()};
+    const std::optional<std::size_t> firstHide =
+        hideLines.empty() ? std::nullopt : std::optional{hideLines.front()};
+    for (const NeedsDigest& needs : {NeedsDigest{firstLamp, "lamp", "actor names and places mean"},
+                                     NeedsDigest{sunLine, "sun", "where the sky is open means"},
+                                     NeedsDigest{switchOffLine, "switch-off", "actor names mean"},
+                                     NeedsDigest{skyLine, "sky", "which textures paint the sky means"},
+                                     NeedsDigest{firstHide, "hide", "actor names mean"}})
+        if (needs.line && !recipe.mapDigest)
+            return refuse(*needs.line, std::format("a recipe with a [{}] must give the map's sha256 in [map]: {} "
+                                                   "nothing in another file",
+                                                   needs.section, needs.meaningless));
     for (auto& [texture, assignment] : materials) recipe.materials.push_back(std::move(assignment));
     return recipe;
 }
@@ -612,6 +631,7 @@ std::string write(const Recipe& recipe) {
     return out;
 }
 
+/// The byte order is listed once, at bakeDigest in Recipe.h.
 std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
     Sha256 hasher;
     const auto addText = [&hasher](std::string_view text) {
@@ -671,7 +691,7 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
                                           std::uint32_t{recipe.sun->saturation}, std::uint32_t{recipe.sun->brightness}})
             addWord(field);
     }
-    // UTA-0256 SS 4.6: the switched-off names last, in file order.
+    // UTA-0256 SS 4.6: the switched-off names, in file order.
     if (!recipe.switchedOff.empty()) {
         addText("switch-off\n");
         for (const std::string& light : recipe.switchedOff) {
@@ -679,8 +699,8 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
             addText("\n");
         }
     }
-    // UTA-0350 SS 4.1: the sky last -- its textures in order, each ended by a
-    // line break, then its seven bytes.
+    // UTA-0350 SS 4.1: the sky -- its textures in order, each ended by a line
+    // break, then its seven bytes.
     if (recipe.sky) {
         addText("sky\n");
         for (const std::string& texture : recipe.sky->textures) {
@@ -691,13 +711,13 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
         for (const std::uint8_t part : recipe.sky->horizon) addByte(part);
         addByte(recipe.sky->clouds);
         // UTA-0391: the haze only where it is not the default, so a sky
-        // without one keeps its version-6 digest.
+        // without one keeps the digest it had before haze existed.
         if (recipe.sky->haze != SKY_HAZE_DEFAULT) {
             addText("haze\n");
             addByte(recipe.sky->haze);
         }
     }
-    // UTA-0109 SS 4.6: the hidden brushes last, in file order.
+    // UTA-0109 SS 4.6: the hidden brushes, in file order.
     for (const HiddenBrush& hide : recipe.hidden) {
         addText("hide\n");
         for (const std::string& text : {hide.name, hide.brush, hide.coverBrush}) {

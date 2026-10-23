@@ -7,6 +7,7 @@
 // Play entry at its fingerprint, never corrected in place.
 
 #include "umat/Library.h"
+#include "umat/Fingerprint.h"
 
 #include <array>
 #include <cstddef>
@@ -627,12 +628,7 @@ constexpr auto TABLE = std::to_array<CuratedEntry>({
     {0xff8e8a8d320889caULL, "chronoshift.lights.e8tmtllight2b", CurationSource::GroupName, GLOW},
 });
 
-constexpr bool sortedAndUnique() {
-    for (std::size_t i = 1; i < TABLE.size(); ++i)
-        if (TABLE[i - 1].fingerprint >= TABLE[i].fingerprint) return false;
-    return true;
-}
-static_assert(sortedAndUnique(),
+static_assert(detail::sortedByFingerprint(TABLE),
               "INV-4: the curated table must be sorted by fingerprint with none twice");
 
 } // namespace

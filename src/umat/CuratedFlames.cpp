@@ -8,6 +8,7 @@
 // tests/unit/FlameLibraryTest.cpp pins this table's digest to say so.
 
 #include "umat/Flames.h"
+#include "umat/Fingerprint.h"
 
 #include <algorithm>
 #include <array>
@@ -53,12 +54,7 @@ constexpr auto TABLE = std::to_array<FlameEntry>({
     {0xfc3111a0e868655cULL, "ty_dxeffects.flame_b"},
 });
 
-constexpr bool sortedAndUnique() {
-    for (std::size_t i = 1; i < TABLE.size(); ++i)
-        if (TABLE[i - 1].fingerprint >= TABLE[i].fingerprint) return false;
-    return true;
-}
-static_assert(sortedAndUnique(), "the flame list must be sorted by fingerprint with none twice");
+static_assert(detail::sortedByFingerprint(TABLE), "the flame list must be sorted by fingerprint with none twice");
 
 } // namespace
 

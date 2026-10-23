@@ -117,14 +117,15 @@ Result<Image> enlarge(const Image& rgba, std::uint32_t factor, JobSystem& jobs) 
 
 namespace {
 
-/// One axis of toPowerOfTwo: `count` lines of `length` texels, `stride`
-/// bytes apart along the axis and `step` bytes between lines, to `outLength`.
+/// One axis of toPowerOfTwo: `count` lines of `length` RGBA texels, each
+/// stretched to `outLength` and tiled. `alongRows` true stretches each row (a
+/// line is a row, texels side by side); false stretches each column (a line is
+/// a column, texels a whole row apart).
 std::vector<std::byte> stretchAxis(const std::vector<std::byte>& in, std::uint32_t length, std::uint32_t outLength,
                                    std::uint32_t count, bool alongRows) {
     std::vector<std::byte> out(std::size_t{outLength} * count * 4);
     const auto index = [alongRows](std::uint32_t along, std::uint32_t line, std::uint32_t lineLength,
                                    std::uint32_t lines) -> std::size_t {
-        (void)lines;
         return alongRows ? (std::size_t{line} * lineLength + along) * 4 : (std::size_t{along} * lines + line) * 4;
     };
     constexpr std::int64_t ONE = 1 << 16;
@@ -133,10 +134,8 @@ std::vector<std::byte> stretchAxis(const std::vector<std::byte>& in, std::uint32
         const std::int64_t position = (std::int64_t{2 * j + 1} * length * ONE) / (std::int64_t{2} * outLength) - ONE / 2;
         const std::int64_t whole = position >= 0 ? position / ONE : -((-position + ONE - 1) / ONE);
         const std::int64_t fraction = position - whole * ONE;
-        const auto wrap = [length](std::int64_t i) {
-            return static_cast<std::uint32_t>(((i % length) + length) % length);
-        };
-        const std::uint32_t a = wrap(whole), b = wrap(whole + 1);
+        const auto a = static_cast<std::uint32_t>(wrap(whole, length));
+        const auto b = static_cast<std::uint32_t>(wrap(whole + 1, length));
         for (std::uint32_t line = 0; line < count; ++line)
             for (std::size_t c = 0; c < 4; ++c) {
                 const std::int64_t pa = std::to_integer<int>(in[index(a, line, length, count) + c]);
@@ -151,9 +150,11 @@ std::vector<std::byte> stretchAxis(const std::vector<std::byte>& in, std::uint32
 } // namespace
 
 Result<Image> toPowerOfTwo(const Image& rgba) {
-    if (rgba.channels != 4 || rgba.width == 0 || rgba.height == 0 || rgba.width > 8192 || rgba.height > 8192
+    constexpr std::uint32_t LIMIT = ubundle::MAX_TEXTURE_EDGE;
+    if (rgba.channels != 4 || rgba.width == 0 || rgba.height == 0 || rgba.width > LIMIT || rgba.height > LIMIT
         || rgba.pixels.size() != std::size_t{rgba.width} * rgba.height * 4)
-        return fail(ErrorCode::InvalidArgument, "toPowerOfTwo: not a well-formed RGBA image up to 8192 a side");
+        return fail(ErrorCode::InvalidArgument,
+                    "toPowerOfTwo: not a well-formed RGBA image up to " + std::to_string(LIMIT) + " a side");
     const std::uint32_t width = std::bit_ceil(rgba.width), height = std::bit_ceil(rgba.height);
     if (width == rgba.width && height == rgba.height) return rgba;
     // Rows first (width), then columns (height), through an 8-bit image.

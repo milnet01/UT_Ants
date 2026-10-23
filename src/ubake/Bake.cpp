@@ -701,8 +701,8 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     const bool storesNoPixels = base.pixels.size() < std::size_t{base.width} * base.height;
     // A picture made here is as large as the file says, and nothing else bounds
     // that: 65535 a side with no pixels would allocate gigabytes, refusing the
-    // whole bake (review-code 2026-09-26). umat refuses above 8192 in any case.
-    constexpr std::uint32_t MADE_EDGE_LIMIT = 8192;
+    // whole bake (review-code 2026-09-26). umat refuses above it in any case.
+    constexpr std::uint32_t MADE_EDGE_LIMIT = ubundle::MAX_TEXTURE_EDGE;
     if (storesNoPixels && (base.width > MADE_EDGE_LIMIT || base.height > MADE_EDGE_LIMIT))
         return std::unexpected(std::format("it has no picture and says it is {}x{}, above {} a side",
                                            base.width, base.height, MADE_EDGE_LIMIT));

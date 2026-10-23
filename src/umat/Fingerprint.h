@@ -12,6 +12,8 @@
 
 #include "upkg/Texture.h"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 
@@ -27,6 +29,15 @@ struct Fnv1a {
 
     constexpr void add(std::uint8_t byte) noexcept { value = (value ^ byte) * 0x100000001b3ULL; }
 };
+
+/// Whether `table` is sorted by `fingerprint` ascending with none twice: what
+/// each list keyed by pictureFingerprint holds, so its binary search works.
+template <typename Entry, std::size_t N>
+constexpr bool sortedByFingerprint(const std::array<Entry, N>& table) noexcept {
+    for (std::size_t i = 1; i < N; ++i)
+        if (table[i - 1].fingerprint >= table[i].fingerprint) return false;
+    return true;
+}
 
 } // namespace detail
 

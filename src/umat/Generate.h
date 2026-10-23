@@ -60,7 +60,7 @@ struct Material {
 /// sourceWidth and sourceHeight, and each map is named `<id>:<kind>`.
 ///
 /// InvalidArgument for a base that is not RGBA, not a power of two in [1,
-/// 8192] in each axis, or not the size its dimensions say; and every refusal
+/// ubundle::MAX_TEXTURE_EDGE] in each axis, or not the size its dimensions say; and every refusal
 /// of compress().
 [[nodiscard]] Result<Material> generate(std::string id, const Image& base,
                                         const MaterialSettings& settings, JobSystem& jobs);

@@ -898,6 +898,19 @@ TEST_CASE("UTA-0406: a bad section name is refused as that section's name", "[ur
     CHECK(lamp.find("'Hall' is not a [lamp] name") != std::string::npos);
 }
 
+TEST_CASE("UTA-0113: a heading that only starts with a section's keyword is no section", "[urecipe][format]") {
+    // `[lamps]` is not `[lamp s]`: a named section's keyword ends at a blank.
+    for (const char* heading : {"[materials]", "[lamps]", "[hidea]"}) {
+        DYNAMIC_SECTION(heading) {
+            const auto result = urecipe::parse(V8_HEAD + heading + "\n");
+            REQUIRE_FALSE(result.has_value());
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.find("there is no " + std::string(heading) + " section") != std::string::npos);
+        }
+    }
+}
+
 TEST_CASE("UTA-0396: a version-7 digest is unchanged and each hidden field moves it", "[urecipe][format][hide]") {
     // This text's digest under the version-7 code, recorded before version 8 existed.
     const std::string v7 = V7_HEAD + "[sky]\ntextures = a.b\nhaze = 40\n";

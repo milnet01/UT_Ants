@@ -15,16 +15,14 @@ namespace uta::umat {
 
 namespace {
 
-/// A stored edge's ceiling, as compress() and ubundle's reader hold it.
-constexpr std::uint32_t MAX_BASE_EDGE = 8192;
-
 struct MapSpec {
     MapKind kind;
     const char* suffix;
     ubundle::BlockFormat format;
 };
 
-/// MapKind order and UTA-0052 SS 4.2's formats (INV-8).
+/// MapKind order and UTA-0052 SS 4.2's formats (UTA-0009 INV-8). `chains` in
+/// generate() pairs with this by position.
 constexpr std::array<MapSpec, 5> MAPS{{
     {MapKind::Base, "base", ubundle::BlockFormat::BC7},
     {MapKind::Normal, "normal", ubundle::BlockFormat::BC5},
@@ -50,11 +48,11 @@ Result<Material> generate(std::string id, const Image& base, const MaterialSetti
     if (base.channels != 4)
         return fail(code, "generate: '" + id + "' has " + std::to_string(base.channels)
                               + " channels; a base is RGBA");
-    if (!std::has_single_bit(base.width) || base.width > MAX_BASE_EDGE
-        || !std::has_single_bit(base.height) || base.height > MAX_BASE_EDGE)
+    if (!std::has_single_bit(base.width) || base.width > ubundle::MAX_TEXTURE_EDGE
+        || !std::has_single_bit(base.height) || base.height > ubundle::MAX_TEXTURE_EDGE)
         return fail(code, "generate: '" + id + "' is " + std::to_string(base.width) + "x"
-                              + std::to_string(base.height)
-                              + ", not a power of two in [1, 8192] in both axes");
+                              + std::to_string(base.height) + ", not a power of two in [1, "
+                              + std::to_string(ubundle::MAX_TEXTURE_EDGE) + "] in both axes");
     if (base.pixels.size() != std::size_t{base.width} * base.height * 4)
         return fail(code, "generate: '" + id + "' holds " + std::to_string(base.pixels.size())
                               + " bytes, which its dimensions do not");
@@ -75,6 +73,9 @@ Result<Material> generate(std::string id, const Image& base, const MaterialSetti
         if (settings.emissive)
             emit.push_back(emissiveOf(colour[l], height[l], settings.emissiveThreshold));
     }
+    // In MAPS order, which the static_assert pins to MapKind's.
+    static_assert(MAPS[0].kind == MapKind::Base && MAPS[1].kind == MapKind::Normal && MAPS[2].kind == MapKind::Rough
+                  && MAPS[3].kind == MapKind::Height && MAPS[4].kind == MapKind::Emit);
     const std::array<const std::vector<Image>*, MAPS.size()> chains{&colour, &normal, &rough,
                                                                     &height, &emit};
 

@@ -31,8 +31,6 @@ namespace uta::umat {
 
 namespace {
 
-/// SS 4.3's ceiling on a stored edge.
-constexpr std::uint32_t MAX_EDGE = 8192;
 
 /// The fewest source channels each format can be encoded from -- SS 4.9.
 /// Zero for a value outside the enum, which the caller refuses.
@@ -55,11 +53,11 @@ constexpr std::uint32_t MAX_EDGE = 8192;
 
     const std::uint32_t width = levels[0].width;
     const std::uint32_t height = levels[0].height;
-    if (!std::has_single_bit(width) || width > MAX_EDGE || !std::has_single_bit(height)
-        || height > MAX_EDGE)
-        return fail(code, "compress: base level " + std::to_string(width) + "x"
-                              + std::to_string(height)
-                              + " is not a power of two in [1, 8192] in both axes");
+    if (!std::has_single_bit(width) || width > ubundle::MAX_TEXTURE_EDGE || !std::has_single_bit(height)
+        || height > ubundle::MAX_TEXTURE_EDGE)
+        return fail(code, "compress: base level " + std::to_string(width) + "x" + std::to_string(height)
+                              + " is not a power of two in [1, " + std::to_string(ubundle::MAX_TEXTURE_EDGE)
+                              + "] in both axes");
 
     // log2(max(width, height)) + 1, which for a power of two is its bit width.
     // Checked before the loop, so the shift below never exceeds it.

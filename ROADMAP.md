@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=427 -->
+<!-- ants-roadmap-id-high-water: UTA=429 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17953,11 +17953,16 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 07.
 
-- 📋 [UTA-0406] **Investigate: recipe and curated-material text slips.**
+- 🚧 [UTA-0406] **Investigate: recipe and curated-material text slips.**
   - Recipe.cpp:493: a bad `[hide NAME]` says "is not a lamp name".
   - CuratedMaterials.cpp:264: "fordtext.metals.pumppanel-03 " has a
     trailing space; check whether a label must match it.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-08-umat-urecipe.md
+  2026-10-23, 4e56d97: hide lead real, fixed; sectionNameOf names the
+  section, RecipeFormatTest UTA-0406 case red first, mutations killed.
+  pumppanel lead not a defect: FordText.utx names the texture
+  "PumpPanel-03 " with the space (strings on the package); nothing
+  compares a note. Awaits the matrix.
   **Layman:** A recipe error names the wrong section; one material note has a stray space.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 08.
@@ -18089,9 +18094,13 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 07.
 
-- 📋 [UTA-0419] **Readability fixes: materials and recipes.**
+- 🚧 [UTA-0419] **Readability fixes: materials and recipes.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-08-umat-urecipe.md.
   Close with close-findings; ledger beside the lane file.
+  2026-10-23: all twelve findings closed; ledger
+  docs/reviews/review-readability-2026-10-23/close-lane-08.md. Ten
+  fixed, two fixed in part with the rest queued as UTA-0428 and
+  UTA-0429. Bake identical on four maps. Awaits the matrix.
   **Layman:** Make the materials and recipe code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 08.
@@ -18168,6 +18177,30 @@ stays with movement in 0.2.0.
   **Layman:** Break two long set-up functions in the graphics code into smaller named steps.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 02.
+
+- 📋 [UTA-0428] **Readability: drive urecipe::parse from one table per section kind.**
+  Lane 08 finding at Recipe.cpp parse: each section kind is handled in
+  five places in parse and four outside it. UTA-0419 fixed the specific
+  confusion (a checklist comment at the In enum, the five map-digest
+  refusals folded into one list, keyword lengths taken from the keyword).
+  Left: one table per kind (name, minimum version, singular or multiple,
+  needs digest, required keys) driving heading, completeness and digest
+  checks. Not done now: it rewrites the whole parser; messages and line
+  numbers must stay byte-identical (RecipeFormatTest pins the lines).
+  **Layman:** Make adding a new kind of recipe section a one-place change.
+  Kind: refactor.
+  Source: review-readability-2026-10-23 lane 08.
+
+- 📋 [UTA-0429] **Readability: one tiling wrap helper across umat.**
+  Lane 08 finding at Enlarge.cpp stretchAxis: the tiling wrap is written
+  in Enlarge.cpp (wrap), Derive.cpp (wrapped) and Resolve.cpp (inline,
+  for offsets of one only). UTA-0419 removed the shadowing copy inside
+  stretchAxis. Left: the optional shared helper across the three files.
+  Not done now: the reviewer marked it optional, and Resolve's copy is
+  narrower, so merging needs its callers read first.
+  **Layman:** Write the edge-wrapping arithmetic for textures once.
+  Kind: refactor.
+  Source: review-readability-2026-10-23 lane 08.
 
 ## 0.2.0 — Movement and weapons
 

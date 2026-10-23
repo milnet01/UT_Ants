@@ -120,6 +120,12 @@ struct BundleHeader {
 /// INV-3).
 enum class BlockFormat : std::uint8_t { BC4 = 0, BC5 = 1, BC7 = 2 };
 
+/// The largest edge a stored texture may have, in texels -- UTA-0052 SS 4.3:
+/// width and height are powers of two up to this. Here, beside
+/// MAX_UPSCALE_FACTOR and for its reason: `read` refuses above it, and every
+/// umat and ubake check uses this one copy so nothing writes what it refuses.
+inline constexpr std::uint32_t MAX_TEXTURE_EDGE = 8192;
+
 /// The largest upscale a stored texture may record -- UTA-0052 SS 4.3.
 ///
 /// HERE rather than in umat, because that item's INV-2 is a DECODE-TIME rule:

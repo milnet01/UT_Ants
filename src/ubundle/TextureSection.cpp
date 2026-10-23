@@ -27,15 +27,13 @@ constexpr std::uint64_t MIN_TEXTURE = 18;
 /// touches them and a bundle carrying nonsense there would decode cleanly
 /// under every other rule.
 [[nodiscard]] Result<void> validateTextureFields(const CompressedTexture& texture) {
-    constexpr std::uint32_t MAX_EDGE = 8192;
     const auto code = ErrorCode::MalformedData;
 
-    if (!isPowerOfTwo(texture.width) || texture.width > MAX_EDGE)
-        return fail(code, "TEXS: width " + std::to_string(texture.width)
-                              + " is not a power of two in [1, 8192]");
-    if (!isPowerOfTwo(texture.height) || texture.height > MAX_EDGE)
-        return fail(code, "TEXS: height " + std::to_string(texture.height)
-                              + " is not a power of two in [1, 8192]");
+    const std::string range = " is not a power of two in [1, " + std::to_string(MAX_TEXTURE_EDGE) + "]";
+    if (!isPowerOfTwo(texture.width) || texture.width > MAX_TEXTURE_EDGE)
+        return fail(code, "TEXS: width " + std::to_string(texture.width) + range);
+    if (!isPowerOfTwo(texture.height) || texture.height > MAX_TEXTURE_EDGE)
+        return fail(code, "TEXS: height " + std::to_string(texture.height) + range);
 
     // log2(max(width, height)) + 1, which for a power of two is exactly its
     // bit width. A mipCount past this walks the level loop off the payload.

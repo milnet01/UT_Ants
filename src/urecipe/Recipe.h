@@ -15,8 +15,8 @@
 //
 // CROSSES THE SEAM. docs/design.md rule 3 makes urecipe a vocabulary the
 // runtime reads too, so it links uta_core and nothing else: no package reader,
-// and no umat, whose CuratedOverride the six fields below mirror. ubake makes
-// the one from the other.
+// and no umat, whose CuratedOverride a MaterialAssignment's fields mirror,
+// `upscale` aside. ubake makes the one from the other.
 //
 // STRICT. An unknown section or key, a repeat, a value out of range or a
 // malformed line refuses the whole recipe, naming its line (SS 4.2): a
@@ -155,17 +155,22 @@ struct Recipe {
 /// an older game still reads a recipe that needs no more.
 [[nodiscard]] std::string write(const Recipe& recipe);
 
-/// SHA-256 of SS 4.4's canonical bytes: the materials only. The map, its
-/// digest and the friendly name are left out -- the first two are already in
-/// the bake name, and a name changes no pixel. A recipe with a lamp hashes
-/// UTA-0256 SS 4.1's version-2 bytes instead; one with none keeps its
-/// version-1 digest. A recipe with a sun hashes UTA-0338 SS 4.1's version-3
-/// bytes; one without keeps its earlier digest. One that needs version 4
-/// hashes UTA-0256 SS 4.6's version-4 bytes, the switched-off names last. One
-/// with a sky hashes UTA-0350 SS 4.1's version-5 bytes, the sky after those.
-/// A lamp's mesh is hashed after its yaw, and only when it has one; a sky's
-/// haze after its clouds, and only when it is not the default (UTA-0391). Hidden
-/// brushes come last, in file order (UTA-0109 SS 4.6).
+/// SHA-256 of the recipe's canonical bytes (SS 4.4). The map, its digest and
+/// the friendly name are left out -- the first two are already in the bake
+/// name, and a name changes no pixel. The bytes, in this order; a section the
+/// recipe lacks adds none:
+///   1. `uta-recipe-bake-<N>` and a line break, N the header write gives it.
+///      A recipe using nothing a later version added keeps its older digest.
+///   2. Each material, sorted: its texture, a line break, then each override
+///      field as a presence byte and, when present, its value as one byte.
+///   3. Each lamp, in file order (UTA-0256 SS 4.1): name, light and fitting
+///      as text, then its place and yaw as four-byte words; its mesh, only
+///      when it has one.
+///   4. The sun (UTA-0338 SS 4.1): five four-byte words.
+///   5. The switched-off names, in file order (UTA-0256 SS 4.6).
+///   6. The sky (UTA-0350 SS 4.1): its textures, top, horizon and clouds; its
+///      haze only when it is not SKY_HAZE_DEFAULT (UTA-0391).
+///   7. Each hidden brush, in file order (UTA-0109 SS 4.6).
 [[nodiscard]] std::array<std::byte, 32> bakeDigest(const Recipe& recipe);
 
 } // namespace uta::urecipe

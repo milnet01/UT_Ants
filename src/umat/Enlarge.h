@@ -65,7 +65,7 @@ inline constexpr std::array<Phase, 4> kWeights4{{
 /// Upward only, so no source texel is dropped. The surface's mapping comes
 /// from the texture's own size, not this one, so the stretched picture covers
 /// the same area of wall. InvalidArgument for an image that is not
-/// well-formed RGBA or is larger than 8192 a side.
+/// well-formed RGBA or is larger than ubundle::MAX_TEXTURE_EDGE a side.
 [[nodiscard]] Result<Image> toPowerOfTwo(const Image& rgba);
 
 } // namespace uta::umat
