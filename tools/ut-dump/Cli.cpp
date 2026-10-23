@@ -39,6 +39,7 @@
 #include <bit>
 #include <cmath>
 #include <cstddef>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <map>
@@ -138,6 +139,25 @@ std::string nameOr(const uta::upkg::Package& package, uta::upkg::ObjectReference
 
 void writeLocation(std::ostream& out, const std::optional<uta::upkg::Vector3>& location);
 
+void writeZoneActor(std::ostream& out, const uta::upkg::Package& map, const uta::upkg::Model& model,
+                    std::optional<std::uint32_t> zone);
+
+/// The level's Model, or why not. `Level::model` comes out of the export's
+/// DATA, which Package::open did not validate, so its range is checked rather
+/// than trusted, as ubake's findModel checks it. Each refusal names itself, as
+/// `levelError` does above: a bare null cannot be told from a map with no
+/// BSP, and the first run of `surfaces` hit one of these two and could not
+/// say which.
+std::expected<uta::upkg::Model, std::string> modelOf(const uta::upkg::Package& map,
+                                                     const uta::upkg::Level& level) {
+    if (level.model.kind() != uta::upkg::ObjectReferenceKind::Export || level.model.index() >= map.exports().size())
+        return std::unexpected(std::string("the level names no Model export of this map"));
+    auto model = uta::upkg::readModel(map, map.exports()[level.model.index()]);
+    if (!model.has_value())
+        return std::unexpected("the level's Model did not read: " + std::string(model.error().message()));
+    return std::move(*model);
+}
+
 /// UTA-0201: the map's BSP surfaces, grouped by the texture they use and the
 /// flags they carry.
 ///
@@ -164,27 +184,12 @@ void writeLocation(std::ostream& out, const std::optional<uta::upkg::Vector3>& l
 /// UTA-0380: each row's `zones` are the zones its drawn nodes face, and the
 /// object's `zones` name each zone's actor, so a reader can take one zone's
 /// surfaces -- a sky zone's, to tell a lit room from a dome.
-void writeZoneActor(std::ostream& out, const uta::upkg::Package& map, const uta::upkg::Model& model,
-                    std::optional<std::uint32_t> zone);
 void writeSurfaces(std::ostream& out, const uta::upkg::Package& package,
                    const uta::upkg::Level& level, bool surfaceList) {
-    // `Level::model` comes out of the export's DATA, which Package::open did
-    // not validate, so its range is checked rather than trusted -- the same
-    // guard ubake's findModel applies, restated here because ut-dump does not
-    // link the baker.
-    // Both refusals name themselves, as `levelError` does above. A bare null
-    // cannot be told from a map with no BSP, and the first run of this hit one
-    // of these two branches and could not say which.
-    if (level.model.kind() != uta::upkg::ObjectReferenceKind::Export
-        || level.model.index() >= package.exports().size()) {
-        out << ",\n  \"surfaces\": null,\n  \"surfacesError\": ";
-        writeJsonString(out, "the level names no Model export of this map");
-        return;
-    }
-    const auto model = uta::upkg::readModel(package, package.exports()[level.model.index()]);
+    const auto model = modelOf(package, level);
     if (!model.has_value()) {
         out << ",\n  \"surfaces\": null,\n  \"surfacesError\": ";
-        writeJsonString(out, std::string(model.error().message()));
+        writeJsonString(out, model.error());
         return;
     }
 
@@ -441,6 +446,19 @@ const uta::upkg::ExportEntry* levelInfoOf(const uta::upkg::Package& package,
     return nullptr;
 }
 
+/// The level's actors, as export indices in ascending order. A map can name
+/// one actor in two slots (UTA-0124) and it is one actor, so each export is
+/// here once; a slot naming no export of this map is not an actor of it.
+/// Ordering by export index is what makes `index` an identity a consumer can
+/// key on, which `name` is not (SS 4.3).
+std::set<std::uint32_t> levelActorExports(const uta::upkg::Package& map, const uta::upkg::Level& level) {
+    std::set<std::uint32_t> actors;
+    for (const uta::upkg::ObjectReference slot : level.actors)
+        if (slot.kind() == uta::upkg::ObjectReferenceKind::Export && slot.index() < map.exports().size())
+            actors.insert(slot.index());
+    return actors;
+}
+
 /// A class's family, walked once: the chain `readAncestry` gives, and where
 /// the walk ended, in SS 4.4's words. A chain `readAncestry` refuses (a cycle,
 /// or past its depth cap) has no chain and ends "classMissing": it is not
@@ -494,13 +512,11 @@ ActorKind kindOf(const uta::upkg::Package& package, std::string_view packageName
                  uta::upkg::ObjectReference classReference,
                  const uta::upkg::PackageResolver& resolver) {
     ActorKind kind;
-    const auto site = uta::upkg::resolveClass(package, packageName, classReference, resolver);
-    if (!site.has_value() || site->resolved.package == nullptr) return kind;
-    const auto ancestry =
-        uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
-    if (!ancestry.has_value()) return kind;
+    const ClassFamily family = classFamilyOf(package, packageName, classReference, resolver);
+    if (!family.ancestry.has_value()) return kind;
+    const uta::upkg::Ancestry& ancestry = *family.ancestry;
     bool friendly = false;
-    for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
+    for (const uta::upkg::ResolvedClass& link : ancestry.chain) {
         const auto name = link.package->name(link.entry->objectName);
         if (!name.has_value()) continue;
         const std::string folded = asciiFolded(*name);
@@ -512,9 +528,9 @@ ActorKind kindOf(const uta::upkg::Package& package, std::string_view packageName
     // already passed either.
     kind.monster = kind.pawn && !friendly;
     // A chain cut short by a missing package may lack the ancestor that decides.
-    kind.resolved = ancestry->end == uta::upkg::AncestryEnd::Root;
+    kind.resolved = family.end == "root";
     if (kind.factory) {
-        if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value()) {
+        if (const auto defaults = uta::upkg::effectiveDefaults(ancestry); defaults.has_value()) {
             for (const uta::upkg::EffectiveProperty& effective : *defaults) {
                 if (effective.property.arrayIndex != 0) continue;
                 const std::string folded = asciiFolded(effective.name);
@@ -563,12 +579,8 @@ private:
 long long unresolvedChains(const uta::upkg::Package& map, std::string_view mapName,
                            const uta::upkg::Level& level, ClassKinds& kinds) {
     long long unresolved = 0;
-    std::set<std::uint32_t> seen;
-    for (const uta::upkg::ObjectReference slot : level.actors) {
-        if (slot.kind() != uta::upkg::ObjectReferenceKind::Export || slot.index() >= map.exports().size()
-            || !seen.insert(slot.index()).second)
-            continue;
-        const uta::upkg::ExportEntry& entry = map.exports()[slot.index()];
+    for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
+        const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
         if (entry.objectClass.kind() != uta::upkg::ObjectReferenceKind::Null
             && !kinds.of(map, mapName, entry.objectClass).resolved)
             ++unresolved;
@@ -584,13 +596,8 @@ long long unresolvedChains(const uta::upkg::Package& map, std::string_view mapNa
 /// an actor, so `wiring` is null and cannot say it (UTA-0244).
 long long unreadProperties(const uta::upkg::Package& map, const uta::upkg::Level& level) {
     long long unread = 0;
-    std::set<std::uint32_t> seen;
-    for (const uta::upkg::ObjectReference slot : level.actors) {
-        if (slot.kind() != uta::upkg::ObjectReferenceKind::Export || slot.index() >= map.exports().size()
-            || !seen.insert(slot.index()).second)
-            continue;
-        if (!uta::upkg::readProperties(map, map.exports()[slot.index()]).has_value()) ++unread;
-    }
+    for (const std::uint32_t exportIndex : levelActorExports(map, level))
+        if (!uta::upkg::readProperties(map, map.exports()[exportIndex]).has_value()) ++unread;
     return unread;
 }
 
@@ -610,13 +617,8 @@ void writeMonsters(std::ostream& out, const uta::upkg::Package& map, std::string
                             uta::upkg::ObjectReference reference) -> const ActorKind& {
         return kinds.of(package, packageName, reference);
     };
-    std::set<std::uint32_t> seen;
-    for (const uta::upkg::ObjectReference slot : level.actors) {
-        // A map can name one actor in two slots (UTA-0124); it is one actor.
-        if (slot.kind() != uta::upkg::ObjectReferenceKind::Export || slot.index() >= map.exports().size()
-            || !seen.insert(slot.index()).second)
-            continue;
-        const uta::upkg::ExportEntry& entry = map.exports()[slot.index()];
+    for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
+        const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
         if (entry.objectClass.kind() == uta::upkg::ObjectReferenceKind::Null) continue;
         const ActorKind& kind = kindIn(map, mapName, entry.objectClass);
         if (kind.monster) ++pawns;
@@ -801,18 +803,7 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
     // writeMonsters' key, for writeMonsters' reason.
     std::map<std::pair<const uta::upkg::Package*, std::int32_t>, ClassWiring> classes;
 
-    // One actor per export, in export-table order. A map can name one actor in
-    // two slots (UTA-0124) and it is one actor, so the set is deduplicated --
-    // and ordering by export index is what makes `index` an identity a
-    // consumer can key on, which `name` is not (SS 4.3).
-    std::set<std::uint32_t> actorExports;
-    for (const uta::upkg::ObjectReference slot : level.actors) {
-        if (slot.kind() != uta::upkg::ObjectReferenceKind::Export) continue;
-        if (slot.index() >= map.exports().size()) continue;
-        actorExports.insert(slot.index());
-    }
-
-    for (const std::uint32_t exportIndex : actorExports) {
+    for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
         const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
 
         std::string className = "?";
@@ -946,14 +937,9 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
 void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
                 const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
     static const std::set<std::string> EXIT_CLASSES{"monsterend", "monsterendsb", "monsterarenaend"};
-    std::set<std::uint32_t> actorExports;
-    for (const uta::upkg::ObjectReference slot : level.actors) {
-        if (slot.kind() == uta::upkg::ObjectReferenceKind::Export && slot.index() < map.exports().size())
-            actorExports.insert(slot.index());
-    }
     out << ",\n  \"exits\": [";
     bool first = true;
-    for (const std::uint32_t exportIndex : actorExports) {
+    for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
         const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
         const auto className = map.objectName(entry.objectClass);
         if (!className.has_value() || !EXIT_CLASSES.contains(asciiFolded(*className))) continue;
@@ -1016,14 +1002,9 @@ void takePosition(std::optional<int>& position, std::string_view name, const uta
 /// storing none is 1, not 0. null where neither the actor nor its class sets one.
 void writeWaypoints(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
                     const uta::upkg::Level& level, const uta::upkg::PackageResolver& resolver) {
-    std::set<std::uint32_t> actorExports;
-    for (const uta::upkg::ObjectReference slot : level.actors) {
-        if (slot.kind() == uta::upkg::ObjectReferenceKind::Export && slot.index() < map.exports().size())
-            actorExports.insert(slot.index());
-    }
     out << ",\n  \"waypoints\": [";
     bool first = true;
-    for (const std::uint32_t exportIndex : actorExports) {
+    for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
         const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
         const auto className = map.objectName(entry.objectClass);
         if (!className.has_value() || !asciiFolded(*className).contains("monsterwaypoint")) continue;
@@ -1096,14 +1077,9 @@ void writeLighting(std::ostream& out, const uta::upkg::Package& map, std::string
         out << ",\n  \"lighting\": null,\n  \"lightingError\": ";
         writeJsonString(out, why);
     };
-    if (level.model.kind() != uta::upkg::ObjectReferenceKind::Export
-        || level.model.index() >= map.exports().size()) {
-        refuse("the level names no Model export of this map");
-        return;
-    }
-    const auto model = uta::upkg::readModel(map, map.exports()[level.model.index()]);
+    const auto model = modelOf(map, level);
     if (!model.has_value()) {
-        refuse("the level's Model did not read");
+        refuse(model.error());
         return;
     }
     const auto actors = uta::ubake::buildActors(map, asciiFolded(mapName), level, resolver);
@@ -1142,14 +1118,9 @@ void writePlayerStarts(std::ostream& out, const uta::upkg::Package& map, std::st
         out << ",\n  \"playerStarts\": null,\n  \"playerStartsError\": ";
         writeJsonString(out, why);
     };
-    if (level.model.kind() != uta::upkg::ObjectReferenceKind::Export
-        || level.model.index() >= map.exports().size()) {
-        refuse("the level names no Model export of this map");
-        return;
-    }
-    const auto model = uta::upkg::readModel(map, map.exports()[level.model.index()]);
+    const auto model = modelOf(map, level);
     if (!model.has_value()) {
-        refuse("the level's Model did not read");
+        refuse(model.error());
         return;
     }
     // The lookup reads only the descent tables and the zone-to-room table,
@@ -1326,7 +1297,8 @@ void writeBrushPolygons(std::ostream& out, const uta::upkg::Package& map, const 
 
 /// `brushes`: `list`, every actor of the Brush family with its transform and
 /// its own polygons; `blockers`, every BlockAll, BlockPlayer and BlockMonsters
-/// with its collision; `actors`, every other actor's Location. Values come
+/// with its collision; `actors`, every actor not in `list`, blockers included
+/// (UTA-0012 SS 4.7e), with its Location. Values come
 /// through the class family's defaults; where none stores a Location,
 /// Rotation, PrePivot, CsgOper or PolyFlags, UT99's zero applies.
 void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_view mapName,
@@ -1339,31 +1311,22 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
         if (const auto name = map.objectName(entry.objectClass); name.has_value())
             built.className = std::string{*name};
         if (entry.objectClass.kind() != uta::upkg::ObjectReferenceKind::Null) {
-            const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
-            if (site.has_value() && site->resolved.package != nullptr) {
-                const auto ancestry =
-                    uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
-                if (ancestry.has_value()) {
-                    for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
-                        const auto name = link.package->name(link.entry->objectName);
-                        built.chain.push_back(name.has_value() ? asciiFolded(*name) : std::string{"?"});
-                    }
-                    if (auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value())
-                        built.defaults = std::move(*defaults);
+            const ClassFamily family = classFamilyOf(map, mapName, entry.objectClass, resolver);
+            if (family.ancestry.has_value()) {
+                for (const uta::upkg::ResolvedClass& link : family.ancestry->chain) {
+                    const auto name = link.package->name(link.entry->objectName);
+                    built.chain.push_back(name.has_value() ? asciiFolded(*name) : std::string{"?"});
                 }
+                if (auto defaults = uta::upkg::effectiveDefaults(*family.ancestry); defaults.has_value())
+                    built.defaults = std::move(*defaults);
             }
         }
         return classes.emplace(entry.objectClass.raw(), std::move(built)).first->second;
     };
 
-    std::set<std::uint32_t> actorExports;
-    for (const uta::upkg::ObjectReference slot : level.actors)
-        if (slot.kind() == uta::upkg::ObjectReferenceKind::Export && slot.index() < map.exports().size())
-            actorExports.insert(slot.index());
-
     std::ostringstream list, blockers, others;
     bool firstList = true, firstBlocker = true, firstOther = true;
-    for (const std::uint32_t exportIndex : actorExports) {
+    for (const std::uint32_t exportIndex : levelActorExports(map, level)) {
         const uta::upkg::ExportEntry& entry = map.exports()[exportIndex];
         const ClassFacts& facts = classOf(entry);
         const auto inFamily = [&facts](std::string_view folded) {
@@ -1407,6 +1370,8 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
             writeScale(list, props, "postscale");
             list << ", \"prePivot\": ";
             writeLocation(list, heldAs<uta::upkg::Vector3>(props, "prepivot").value_or(uta::upkg::Vector3{}));
+            // The indices of the KeyRot slots the actor stores, not their
+            // rotations (UTA-0012 SS 4.7e).
             list << ", \"keyRot\": [";
             bool firstKey = true;
             for (const auto& [key, held] : props) {
@@ -1448,8 +1413,17 @@ void writeBrushes(std::ostream& out, const uta::upkg::Package& map, std::string_
         << "], \"actors\": [" << others.str() << "]}";
 }
 
+/// The opt-in sections the command line asked for, one per flag.
+struct Sections {
+    bool navGraph = false;
+    bool wiringGraph = false;
+    bool surfaceList = false;
+    bool lighting = false;
+    bool brushes = false;
+};
+
 void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::PackageResolver& resolver,
-                 bool navGraph, bool wiringGraph, bool surfaceList, bool lighting, bool brushes, bool first) {
+                 const Sections& sections, bool first) {
     if (!first) {
         out << ",\n";
     }
@@ -1555,7 +1529,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     out << ", \"propertiesUnread\": " << unreadProperties(*package, *level);
     out << "}";
 
-    writeSurfaces(out, *package, *level, surfaceList);
+    writeSurfaces(out, *package, *level, sections.surfaceList);
 
     writeCredits(out, "levelInfo", *package, levelInfoOf(*package, *level));
     writeCredits(out, "levelSummary", *package, firstExportOf(*package, "LevelSummary"));
@@ -1576,7 +1550,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
             << ", \"edges\": " << nav->edges.size()
             << ", \"discardedEndpoints\": " << nav->discardedEndpoints
             << ", \"nodesWithNoExit\": " << isolated;
-        if (navGraph) {
+        if (sections.navGraph) {
             writeNavGraph(out, *package, *nav);
         }
         out << "}";
@@ -1613,7 +1587,7 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
             out << "}";
         }
         out << "]";
-        if (wiringGraph) {
+        if (sections.wiringGraph) {
             // Emitted after `dangling` so the counts stay first for a reader
             // scanning the head of the object. UTA-0172.
             std::ostringstream actors;
@@ -1628,8 +1602,8 @@ void dumpPackage(std::ostream& out, const fs::path& path, const uta::upkg::Packa
     writeExits(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
     writeWaypoints(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
     writePlayerStarts(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
-    if (lighting) writeLighting(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
-    if (brushes) writeBrushes(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
+    if (sections.lighting) writeLighting(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
+    if (sections.brushes) writeBrushes(out, *package, uta::fs::utf8(path.stem()), *level, resolver);
 
     out << "\n }";
 }
@@ -1692,7 +1666,8 @@ int usage(std::ostream& err) {
         "--brushes adds `brushes` to each map: every brush and mover with its\n"
         "CSG operation, flags, transform and its own polygons as the editor\n"
         "made them, before the BSP cut them; every BlockAll, BlockPlayer and\n"
-        "BlockMonsters with its collision; and every other actor's Location.\n"
+        "BlockMonsters with its collision; and the Location of every actor\n"
+        "that is not a brush, blockers included.\n"
         "It is what a T3D export was read for.\n"
         "\n"
         "Packages are listed in path order, not argument order: key on each\n"
@@ -1724,11 +1699,7 @@ LightingCounts countLighting(const upkg::Model& model) {
 int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err) {
     fs::path systemDir;
     fs::path installDir;
-    bool navGraph = false;
-    bool wiringGraph = false;
-    bool surfaceList = false;
-    bool lighting = false;
-    bool brushes = false;
+    Sections sections;
     bool ndjson = false;
     std::vector<fs::path> targets;
 
@@ -1745,15 +1716,15 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             }
             installDir = uta::fs::pathFromUtf8(args[++i]);
         } else if (arg == "--nav-graph") {
-            navGraph = true;
+            sections.navGraph = true;
         } else if (arg == "--wiring-graph") {
-            wiringGraph = true;
+            sections.wiringGraph = true;
         } else if (arg == "--surface-list") {
-            surfaceList = true;
+            sections.surfaceList = true;
         } else if (arg == "--lighting") {
-            lighting = true;
+            sections.lighting = true;
         } else if (arg == "--brushes") {
-            brushes = true;
+            sections.brushes = true;
         } else if (arg == "--ndjson") {
             ndjson = true;
         } else if (arg == "-h" || arg == "--help") {
@@ -1829,7 +1800,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
         out << "{\"schema\":" << SCHEMA << "}\n";
         for (const fs::path& file : files) {
             std::ostringstream package;
-            dumpPackage(package, file, resolver, navGraph, wiringGraph, surfaceList, lighting, brushes, true);
+            dumpPackage(package, file, resolver, sections, true);
             out << oneLine(package.str()) << '\n' << std::flush;
         }
         return 0;
@@ -1838,7 +1809,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     out << "{\n \"schema\": " << SCHEMA << ",\n \"packages\": [\n";
     bool first = true;
     for (const fs::path& file : files) {
-        dumpPackage(out, file, resolver, navGraph, wiringGraph, surfaceList, lighting, brushes, first);
+        dumpPackage(out, file, resolver, sections, first);
         first = false;
     }
     out << "\n ]\n}\n";

@@ -25,11 +25,10 @@
 namespace uta::bench {
 namespace {
 
-constexpr int SCHEMA = 1;
-
-constexpr int EXIT_OK = 0;
-constexpr int EXIT_FAILED = 1;
-constexpr int EXIT_USAGE = 2;
+using detail::EXIT_FAILED;
+using detail::EXIT_OK;
+using detail::EXIT_USAGE;
+using detail::SCHEMA;
 
 using uta::tools::writeJsonString;
 
@@ -162,11 +161,11 @@ std::optional<double> loadAverage() {
     return std::nullopt;
 }
 
-std::string fixed(double value) { return std::format("{:.6f}", value); }
+std::string sixPlaces(double value) { return std::format("{:.6f}", value); }
 
 void writeSpread(std::ostream& out, const detail::Spread& spread) {
-    out << "{\"min\": " << fixed(spread.min) << ", \"median\": " << fixed(spread.median) << ", \"max\": "
-        << fixed(spread.max) << '}';
+    out << "{\"min\": " << sixPlaces(spread.min) << ", \"median\": " << sixPlaces(spread.median) << ", \"max\": "
+        << sixPlaces(spread.max) << '}';
 }
 
 /// What one map's runs gave.
@@ -220,7 +219,7 @@ MapReport measure(std::string_view map, const Arguments& args, JobSystem& jobs, 
             measured.bundleSha256 = ubake::detail::hex(sha256(*bytes));
         }
         if (run == 0) report.verdict = outcome->verdict == ubake::Verdict::Written ? "written" : "over-budget";
-        err << "ut-bench: " << map << " run " << (run + 1) << " of " << args.runs << ": " << fixed(measured.total)
+        err << "ut-bench: " << map << " run " << (run + 1) << " of " << args.runs << ": " << sixPlaces(measured.total)
             << " s\n";
         report.runs.push_back(std::move(measured));
     }
@@ -239,7 +238,7 @@ void writeTable(std::ostream& err, const MapReport& report, const detail::MapSum
     std::vector<Row> rows;
     for (const detail::PhaseSummary& phase : summary.phases) rows.push_back({phase.path, &phase});
     std::ranges::stable_sort(rows, [](const Row& a, const Row& b) { return a.phase->share > b.phase->share; });
-    err << report.map << ": " << fixed(summary.total.min) << " s at best over " << report.runs.size() << " run(s)\n";
+    err << report.map << ": " << sixPlaces(summary.total.min) << " s at best over " << report.runs.size() << " run(s)\n";
     for (const Row& row : rows)
         err << std::format("  {:5.1f}%  {:10.4f} s  {}\n", row.phase->share * 100.0, row.phase->seconds.min, row.path);
     const double unattributed = summary.total.min > 0 ? summary.unattributed.min / summary.total.min : 0;
@@ -258,7 +257,7 @@ std::optional<double> conditions(const BuildInfo& build, std::ostream& err) {
     if (build.sanitizer != "none")
         err << "ut-bench: warning: built with the " << build.sanitizer << " sanitizer, so these are not figures to compare\n";
     if (load && cores > 0 && *load > cores)
-        err << "ut-bench: warning: the machine is busy (load " << fixed(*load) << " over " << cores
+        err << "ut-bench: warning: the machine is busy (load " << sixPlaces(*load) << " over " << cores
             << " cores), so these figures are slow by an unknown amount\n";
     return load;
 }
@@ -272,7 +271,7 @@ void writeMachineAndBuild(std::ostream& out, const BuildInfo& build, std::option
     else
         out << ", \"logicalCores\": \"unknown\", \"os\": ";
     writeJsonString(out, osName());
-    out << ", \"load1\": " << (load ? fixed(*load) : std::string("null")) << "}, \"build\": {\"compiler\": ";
+    out << ", \"load1\": " << (load ? sixPlaces(*load) : std::string("null")) << "}, \"build\": {\"compiler\": ";
     writeJsonString(out, build.compiler);
     out << ", \"buildType\": ";
     writeJsonString(out, build.buildType);
@@ -404,7 +403,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
             writeJsonString(out, phase.name);
             out << ", \"depth\": " << phase.depth << ", \"calls\": " << phase.calls << ", \"seconds\": ";
             writeSpread(out, phase.seconds);
-            out << ", \"share\": " << fixed(phase.share) << '}';
+            out << ", \"share\": " << sixPlaces(phase.share) << '}';
         }
         out << "]}";
         writeTable(err, report, summary);

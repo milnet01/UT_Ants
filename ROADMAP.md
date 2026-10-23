@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=430 -->
+<!-- ants-roadmap-id-high-water: UTA=431 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18014,6 +18014,14 @@ stays with movement in 0.2.0.
   (ut-bake/Cli.cpp:428 OverBudget lead was refuted; not filed.)
   Lane file: docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md
   In progress 2026-10-23: the three leads checked in the lane 12 close.
+  2026-10-23, lane 12 close: --size bound real, fixed in 26de15e
+  (refused past 16384; lavapipe's validation layer showed invalid image
+  and viewport calls before). Exits/waypoints lead real, and wider (a
+  missing package too): fixed in 4ffdd81, each element now ends with
+  chainEnd. Path lead dismissed: every MSVC program embeds
+  cmake/utf8.manifest, tools included, so narrow paths are UTF-8 on
+  Windows. Ledger:
+  docs/reviews/review-readability-2026-10-23/close-lane-12.md.
   **Layman:** Tool problems: non-English paths on Windows, an unbounded size option, and silently lost defaults.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 12.
@@ -18157,6 +18165,9 @@ stays with movement in 0.2.0.
   Close with close-findings; ledger beside the lane file.
   In progress 2026-10-23: lane 12 closing; ledger
   docs/reviews/review-readability-2026-10-23/close-lane-12.md.
+  2026-10-23: lane 12 closed; ledger
+  docs/reviews/review-readability-2026-10-23/close-lane-12.md. One
+  finding queued as UTA-0431 (the option-value helper).
   **Layman:** Make the developer tools' code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 12.
@@ -18239,6 +18250,21 @@ stays with movement in 0.2.0.
   **Layman:** Split the viewer's longest function so a newcomer can find each key's job.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 11.
+
+- 📋 [UTA-0431] **One option-value helper for the C++ tools.**
+  Lane 12 (docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md,
+  ut-bake/Cli.cpp:103): "take the next argument as this option's value" is
+  written six times -- ut-bake, ut-paths, ut-bench Cli.cpp and Frame.cpp,
+  ut-shot, ut-dump inline. They diverge: ut-bake and ut-paths refuse an
+  option given twice, the rest keep the last value; ut-dump prints only the
+  usage for a missing value; ut-bench's `number` and `count` differ.
+  Not fixed in the lane 12 close (UTA-0423): it spans ut-paths (lane 10's
+  subject) and changes each tool's refusals, so it is a decision on one
+  rule for all six, not an edit. Home: tools/common/, beside Json.h and
+  Camera.h.
+  **Layman:** The developer tools each read their command-line options their own way, and disagree on small things.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 12.
 
 ## 0.2.0 — Movement and weapons
 

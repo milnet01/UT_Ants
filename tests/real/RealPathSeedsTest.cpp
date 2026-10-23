@@ -50,6 +50,7 @@ namespace {
 namespace fs = std::filesystem;
 using namespace uta::paths;
 using uta::ubundle::ActorClass;
+using uta::ubundle::isOrDescendsFrom;
 using uta::ubundle::PropertyRecord;
 using uta::ubundle::ValueKind;
 
@@ -65,12 +66,6 @@ struct Totals {
     std::array<std::size_t, 3> routes{}; ///< found, mover, none
 };
 
-bool descendsFrom(const ActorClass& actorClass, std::string_view path) {
-    return actorClass.path == path
-           || std::find(actorClass.ancestry.begin(), actorClass.ancestry.end(), path)
-                  != actorClass.ancestry.end();
-}
-
 /// The floor under every PlayerStart and PathNode of `map`.
 void floorsOf(const uta::upkg::Package& map, std::string_view mapName,
               const uta::upkg::PackageResolver& resolver, const Scene& scene, Totals& totals) {
@@ -82,8 +77,8 @@ void floorsOf(const uta::upkg::Package& map, std::string_view mapName,
     if (!actors.has_value()) return;
     for (const uta::ubundle::ActorPlacement& actor : actors->placements.actors) {
         const ActorClass& actorClass = actors->placements.classes[actor.classIndex];
-        const bool start = descendsFrom(actorClass, "engine.playerstart");
-        if (!start && !descendsFrom(actorClass, "engine.pathnode")) continue;
+        const bool start = isOrDescendsFrom(actorClass, "engine.playerstart");
+        if (!start && !isOrDescendsFrom(actorClass, "engine.pathnode")) continue;
         const PropertyRecord* record = uta::ubake::detail::resolvedRecord(
             "location", actor.properties, actorClass.defaults,
             [](const PropertyRecord& candidate) { return candidate.kind == ValueKind::Vector; });

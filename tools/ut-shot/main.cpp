@@ -30,6 +30,70 @@
 #include <string_view>
 #include <vector>
 
+namespace {
+
+/// What the baked indirect light holds, on standard error, so a weak bounce
+/// can be told from a missing one. Diagnostics only: nothing drawn reads it.
+void reportProbes(const uta::ubundle::Bundle& bundle) {
+    if (!bundle.lightProbes.has_value()) return;
+    const auto& all = bundle.lightProbes->probes;
+    double sum = 0, peak = 0;
+    std::size_t dark = 0;
+    for (const uta::ubundle::LightProbe& probe : all) {
+        double here = 0;
+        for (const auto& face : probe.cube) here += (face[0] * 0.2126 + face[1] * 0.7152 + face[2] * 0.0722) / 6;
+        sum += here;
+        peak = std::max(peak, here);
+        if (here < 1e-4) ++dark;
+    }
+    std::cerr << "PROBES count=" << all.size() << " spacing=" << bundle.lightProbes->spacing
+              << " meanLuma=" << (all.empty() ? 0 : sum / all.size()) << " peakLuma=" << peak
+              << " dark=" << dark << "\n";
+
+    // Coverage: the share of triangle area whose centroid's lattice cell
+    // has at least one of its eight corner probes -- what indirectAt needs
+    // to return anything but zero.
+    if (bundle.geometry.has_value() && bundle.lightProbes->spacing != 0) {
+        std::set<std::array<std::int32_t, 3>> present;
+        for (const uta::ubundle::LightProbe& probe : all) present.insert(probe.cell);
+        const auto& g = *bundle.geometry;
+        const double spacing = bundle.lightProbes->spacing;
+        double covered = 0, total = 0;
+        for (std::size_t i = 0; i + 3 <= g.indices.size(); i += 3) {
+            std::array<std::array<double, 3>, 3> p{};
+            for (int k = 0; k < 3; ++k)
+                for (int a = 0; a < 3; ++a) p[k][a] = g.vertices[g.indices[i + k]].position[a];
+            const std::array<double, 3> u{p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]};
+            const std::array<double, 3> v{p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2]};
+            const double area = 0.5 * std::sqrt(std::pow(u[1] * v[2] - u[2] * v[1], 2) +
+                                                std::pow(u[2] * v[0] - u[0] * v[2], 2) +
+                                                std::pow(u[0] * v[1] - u[1] * v[0], 2));
+            std::array<std::int32_t, 3> base{};
+            for (int a = 0; a < 3; ++a)
+                base[a] = static_cast<std::int32_t>(std::floor((p[0][a] + p[1][a] + p[2][a]) / 3 / spacing));
+            bool any = false;
+            for (int c = 0; c < 8 && !any; ++c)
+                any = present.contains({base[0] + (c & 1), base[1] + ((c >> 1) & 1), base[2] + ((c >> 2) & 1)});
+            total += area;
+            if (any) covered += area;
+        }
+        std::cerr << "PROBES coverage=" << (total > 0 ? covered / total : 0) << " of triangle area\n";
+    }
+}
+
+/// The lights the bundle carries, one per line on standard error, so they can
+/// be set against the lights the original game loads.
+void reportLights(const uta::ubundle::Bundle& bundle) {
+    if (!bundle.lights.has_value()) return;
+    for (const uta::ubundle::Light& light : *bundle.lights)
+        std::cerr << "LIGHT export=" << light.exportIndex << " at=" << light.location[0] << ","
+                  << light.location[1] << "," << light.location[2] << " type=" << int(light.type)
+                  << " effect=" << int(light.effect) << " b=" << int(light.brightness) << " h=" << int(light.hue)
+                  << " s=" << int(light.saturation) << " r=" << int(light.radius) << "\n";
+}
+
+} // namespace
+
 int main(int argc, char** argv) {
     const std::vector<std::string_view> args(argv + 1, argv + argc);
     const auto options = uta::shot::parseOptions(args, std::cerr);
@@ -58,63 +122,10 @@ int main(int argc, char** argv) {
     uta::ubundle::applyAddedLamps(*bundle, options->addedLamps);
     uta::ubundle::applySun(*bundle); // UTA-0338 SS 4.2
     *bytes = {};
-    // What the baked indirect light holds, so a weak bounce can be told from a
-    // missing one.
-    if (bundle->lightProbes.has_value()) {
-        const auto& all = bundle->lightProbes->probes;
-        double sum = 0, peak = 0;
-        std::size_t dark = 0;
-        for (const uta::ubundle::LightProbe& probe : all) {
-            double here = 0;
-            for (const auto& face : probe.cube) here += (face[0] * 0.2126 + face[1] * 0.7152 + face[2] * 0.0722) / 6;
-            sum += here;
-            peak = std::max(peak, here);
-            if (here < 1e-4) ++dark;
-        }
-        std::cerr << "PROBES count=" << all.size() << " spacing=" << bundle->lightProbes->spacing
-                  << " meanLuma=" << (all.empty() ? 0 : sum / all.size()) << " peakLuma=" << peak
-                  << " dark=" << dark << "\n";
-
-        // Coverage: the share of triangle area whose centroid's lattice cell
-        // has at least one of its eight corner probes -- what indirectAt needs
-        // to return anything but zero.
-        if (bundle->geometry.has_value() && bundle->lightProbes->spacing != 0) {
-            std::set<std::array<std::int32_t, 3>> present;
-            for (const uta::ubundle::LightProbe& probe : all) present.insert(probe.cell);
-            const auto& g = *bundle->geometry;
-            const double spacing = bundle->lightProbes->spacing;
-            double covered = 0, total = 0;
-            for (std::size_t i = 0; i + 3 <= g.indices.size(); i += 3) {
-                std::array<std::array<double, 3>, 3> p{};
-                for (int k = 0; k < 3; ++k)
-                    for (int a = 0; a < 3; ++a) p[k][a] = g.vertices[g.indices[i + k]].position[a];
-                const std::array<double, 3> u{p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]};
-                const std::array<double, 3> v{p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2]};
-                const double area = 0.5 * std::sqrt(std::pow(u[1] * v[2] - u[2] * v[1], 2) +
-                                                    std::pow(u[2] * v[0] - u[0] * v[2], 2) +
-                                                    std::pow(u[0] * v[1] - u[1] * v[0], 2));
-                std::array<std::int32_t, 3> base{};
-                for (int a = 0; a < 3; ++a)
-                    base[a] = static_cast<std::int32_t>(std::floor((p[0][a] + p[1][a] + p[2][a]) / 3 / spacing));
-                bool any = false;
-                for (int c = 0; c < 8 && !any; ++c)
-                    any = present.contains({base[0] + (c & 1), base[1] + ((c >> 1) & 1), base[2] + ((c >> 2) & 1)});
-                total += area;
-                if (any) covered += area;
-            }
-            std::cerr << "PROBES coverage=" << (total > 0 ? covered / total : 0) << " of triangle area\n";
-        }
-    }
+    reportProbes(*bundle);
     if (!options->probes) bundle->lightProbes.reset();
 
-    // The lights the bundle carries, one per line on standard error, so they
-    // can be set against the lights the original game loads.
-    if (bundle->lights.has_value())
-        for (const uta::ubundle::Light& light : *bundle->lights)
-            std::cerr << "LIGHT export=" << light.exportIndex << " at=" << light.location[0] << ","
-                      << light.location[1] << "," << light.location[2] << " type=" << int(light.type)
-                      << " effect=" << int(light.effect) << " b=" << int(light.brightness) << " h=" << int(light.hue)
-                      << " s=" << int(light.saturation) << " r=" << int(light.radius) << "\n";
+    reportLights(*bundle);
 
     // UTA-0199: unset draws at high and at full scale, as this tool always
     // has; --from-capture or --tier says otherwise.

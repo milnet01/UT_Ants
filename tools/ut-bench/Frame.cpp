@@ -24,9 +24,10 @@
 namespace uta::bench {
 namespace {
 
-constexpr int EXIT_OK = 0;
-constexpr int EXIT_FAILED = 1;
-constexpr int EXIT_USAGE = 2;
+using detail::EXIT_FAILED;
+using detail::EXIT_OK;
+using detail::EXIT_USAGE;
+using detail::SCHEMA;
 
 /// Frames drawn at a view before any is timed: the first ones draw its shadow tiles.
 constexpr int SETTLING_FRAMES = 4;
@@ -180,15 +181,15 @@ struct Timed {
     }
 };
 
-std::string fixed(double value) { return std::format("{:.3f}", value); }
+std::string threePlaces(double value) { return std::format("{:.3f}", value); }
 
 void writeTimed(std::ostream& out, const Timed& timed) {
     const detail::FrameSpread spread = detail::frameSpreadOf(timed.milliseconds);
     const double tiles =
         timed.milliseconds.empty() ? 0 : static_cast<double>(timed.shadowTiles) / static_cast<double>(timed.milliseconds.size());
-    out << "\"milliseconds\": {\"min\": " << fixed(spread.min) << ", \"median\": " << fixed(spread.median)
-        << ", \"p99\": " << fixed(spread.p99) << ", \"max\": " << fixed(spread.max) << "}, \"shadowTiles\": "
-        << fixed(tiles) << ", \"passes\": ";
+    out << "\"milliseconds\": {\"min\": " << threePlaces(spread.min) << ", \"median\": " << threePlaces(spread.median)
+        << ", \"p99\": " << threePlaces(spread.p99) << ", \"max\": " << threePlaces(spread.max) << "}, \"shadowTiles\": "
+        << threePlaces(tiles) << ", \"passes\": ";
     if (timed.passes[0].empty()) {
         out << "null";
         return;
@@ -196,7 +197,7 @@ void writeTimed(std::ostream& out, const Timed& timed) {
     out << '{';
     for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass)
         out << (pass == 0 ? "" : ", ") << '"' << urender::GPU_PASS_NAMES[pass]
-            << "\": " << fixed(detail::frameSpreadOf(timed.passes[pass]).median);
+            << "\": " << threePlaces(detail::frameSpreadOf(timed.passes[pass]).median);
     out << '}';
 }
 
@@ -299,7 +300,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     for (const Timed& timed : still) allStill.add(timed);
     for (const Timed& timed : moving) allMoving.add(timed);
 
-    out << "{\"schema\": 1, \"workload\": \"frame\", ";
+    out << "{\"schema\": " << SCHEMA << ", \"workload\": \"frame\", ";
     detail::writeMachineAndBuild(out, build, load);
     out << ", \"device\": ";
     writeJsonString(out, renderer.deviceName());

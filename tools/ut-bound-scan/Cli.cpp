@@ -15,11 +15,9 @@
 #include "upkg/Package.h"
 
 #include <algorithm>
-#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
-#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -31,16 +29,6 @@ namespace uta::boundscan {
 namespace {
 
 namespace stdfs = std::filesystem;
-
-std::string hex(const std::array<std::byte, 16>& digest) {
-    std::string text;
-    for (const std::byte b : digest) {
-        char pair[3];
-        std::snprintf(pair, sizeof pair, "%02x", static_cast<unsigned>(b));
-        text += pair;
-    }
-    return text;
-}
 
 /// The name a reference resolves to, or "-" for a null one or one that does
 /// not resolve.
@@ -87,7 +75,7 @@ bool scanFile(const stdfs::path& file, double tolerance, std::ostream& out) {
         refuse(out, map, std::nullopt, bytes.error().message());
         return false;
     }
-    const std::string md5 = hex(uta::md5(*bytes));
+    const std::string md5 = uta::ubake::detail::hex(uta::md5(*bytes));
     const auto package = upkg::Package::open(*bytes);
     if (!package) {
         refuse(out, map, md5, package.error().message());

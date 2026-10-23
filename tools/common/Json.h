@@ -1,15 +1,16 @@
 // The one JSON string escaper the tools write with --
 // docs/specs/UTA-0121-bot-path-seeds.md SS 4.8.
 //
-// Header-only. ut-dump, ut-bake and ut-paths each hand-write an output shape
-// they own entirely, and docs/design.md keeps the dependency list short on
-// purpose; this is the one piece of that writing they share.
+// Header-only. Every tool that includes this hand-writes a JSON shape it owns
+// entirely -- ut-bound-scan's among them, the hand-off agreed with
+// UT_MonsterHunt -- and docs/design.md keeps the dependency list short on
+// purpose; this is the one piece of that writing they share. Before changing
+// it, search for this header's includes: each is a consumer.
 //
 // It cannot emit a string that is not valid UTF-8 -- UTA-0202. That guarantee
 // lives here rather than at the call sites because the defect it fixes was a
-// call site picking the wrong writer: the repair existed, as writeJsonText,
-// and every UE1 name in all three tools went through the raw escaper instead.
-// A second entry point is a second chance to choose wrong, so there is one.
+// call site picking the wrong writer. A second entry point is a second chance
+// to choose wrong, so there is one.
 
 #pragma once
 

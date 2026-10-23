@@ -1,8 +1,9 @@
 // The ut-bench command line, as a function --
 // docs/specs/UTA-0129-benchmark-tool.md SS 4.3.
 //
-// Bakes each map several times and says which step of the bake took the time,
-// beside the machine and the build the figures were measured on. A developer's
+// Two workloads, beside the machine and the build the figures were measured
+// on: `bake` bakes each map several times and says which step of the bake
+// took the time; `frame` (Frame.h) times a baked map's frames. A developer's
 // tool: its output carries a schema number, and is not one of
 // docs/standards/versioning-overrides.md's breaking surfaces.
 //
@@ -32,13 +33,23 @@ struct BuildInfo {
     std::string commit = "unknown";    ///< WriteBuildCommit.cmake's value
 };
 
-/// `args` excludes the program name. Returns the exit code: 0 when every map
-/// was written or over budget and every run of a map gave one bundle, 1 when a
-/// map was refused or its runs differed, 2 when the arguments were wrong.
+/// `args` excludes the program name. Returns the exit code. For `bake`: 0 when
+/// every map was written or over budget and every run of a map gave one
+/// bundle, 1 when a map was refused or its runs differed, 2 when the arguments
+/// were wrong. For `frame`, runFrame's (Frame.h).
 [[nodiscard]] int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostream& err,
                          const BuildInfo& build = {});
 
 namespace detail {
+
+/// The output's schema number, both workloads': they share the `machine` and
+/// `build` members, so a change to those is a change to both.
+inline constexpr int SCHEMA = 1;
+
+/// The exit codes, both workloads'.
+inline constexpr int EXIT_OK = 0;
+inline constexpr int EXIT_FAILED = 1;
+inline constexpr int EXIT_USAGE = 2;
 
 /// Warns on `err` when the build or the machine makes the figures ones not to
 /// compare, and returns the one-minute load average where there is one.
@@ -74,7 +85,7 @@ struct PhaseSummary {
 
 struct MapSummary {
     Spread total, unattributed;
-    std::vector<PhaseSummary> phases; ///< in the first run's order
+    std::vector<PhaseSummary> phases; ///< in the order runs first show them: run 1's, then any new in run 2, ...
     bool identical = true;            ///< every run's bundle hashes as the first's
 };
 
