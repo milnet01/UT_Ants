@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=398 -->
+<!-- ants-roadmap-id-high-water: UTA=411 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17836,6 +17836,139 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: in-session-2026-10-22.
   Lanes: ubake, urender.
+
+- 📋 [UTA-0399] **Investigate: the renderer's bundle fingerprint ignores rooms.**
+  src/urender/Frame.cpp `shapeOf` does not sample `bundle.rooms`,
+  but `upload` reads it (light zones via `zoneAt`, `skyLayersOf`).
+  review-code 2026-10-15 asked for the rooms' ends to be sampled;
+  only the lights were added.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-01-urender-frame.md
+  **Layman:** A map whose rooms changed may keep stale light zones and sky layers in the viewer.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 01 (premise confirmed).
+
+- 📋 [UTA-0400] **Investigate: the bake's bounce passes never apply the probe reach mask.**
+  src/ubake/LightProbes.cpp:613: the bounce passes' `lit` copy gets
+  no `reach`, so UTA-0112 § 4.13's mask (item 2: the bake's own copy
+  of the blend) is never applied. `lit.reach` is read near :441.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md
+  **Layman:** Baked bounce light may leak past walls, against what UTA-0112 says the bake does.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 05 (premise confirmed).
+
+- 📋 [UTA-0401] **Investigate: Vulkan plumbing leads from the readability review.**
+  - Resources.cpp:201 and Swapchain.cpp:77 create through `check`,
+    not `created`; a failed create may destroy a garbage handle.
+  - Materials.cpp:219: a liquid/emit/glass-only material falls back
+    to DEFAULT_MATERIAL and drops `liquidByRecord[m]`.
+  - Materials.cpp:166-169: fire materials upload maps then discard.
+  - Pipelines.cpp:284-285 vs :436-437: two additive blends disagree
+    on alpha.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-02-urender-vulkan.md
+  **Layman:** Possible crash on a rare graphics failure, wasted video memory, and a blend that may be wrong.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 02.
+
+- 📋 [UTA-0402] **Investigate: water seen from behind reflects the wrong side's probes.**
+  scene.frag:480 reads probes at `surface` (viewer's side); lighting
+  uses `litSurface` (:574). UTA-0089 § 4.2 says both use one point.
+  Also light.glsl:143: the LE_NON_INCIDENCE test cannot be false.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-03-urender-shaders.md
+  **Layman:** Water viewed from underneath may show the wrong reflection lighting.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 03.
+
+- 📋 [UTA-0403] **Investigate: bake-content input checks from the readability review.**
+  - Actors.cpp:243: a light's location/rotation is copied with no
+    finite check (Movers and Zones replace non-finite values).
+  - Zones.cpp:88, Movers.cpp:88: `classes[actor.classIndex]` unbounded.
+  - GameTypes.cpp:56: only little-endian UTF-16 BOM recognised.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-04-ubake-bake-content.md
+  **Layman:** A broken or hostile map file might slip bad values into the bake.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 04.
+
+- 📋 [UTA-0404] **Investigate: cover points skip the finite-and-in-bounds check.**
+  src/ubake/Geometry.cpp:407: a cover's points skip UTA-0217's check
+  that node points get at :397-402; Hide.cpp:120-162 builds hulls from
+  possibly-invisible nodes.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md
+  **Layman:** A broken map could feed bad points into hidden-brush covers.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 05.
+
+- 📋 [UTA-0405] **Investigate: package reader compares engine names case-sensitively.**
+  Texture.cpp:117 `isModelledTextureClass`; Properties.cpp:217, :274
+  and Script.cpp:258 (`None`, `Vector`, `Rotator`). Class.cpp:23-24
+  says engine class names are case-insensitive.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-07-upkg-umap.md
+  **Layman:** A map that spells a built-in name in different case might be refused.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 07.
+
+- 📋 [UTA-0406] **Investigate: recipe and curated-material text slips.**
+  - Recipe.cpp:493: a bad `[hide NAME]` says "is not a lamp name".
+  - CuratedMaterials.cpp:264: "fordtext.metals.pumppanel-03 " has a
+    trailing space; check whether a label must match it.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-08-umat-urecipe.md
+  **Layman:** A recipe error names the wrong section; one material note has a stray space.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 08.
+
+- 📋 [UTA-0407] **Investigate: readFile FIFO gap and immortal drift sparks.**
+  - FileSystem.cpp:434: `readFile` fopen after its type check; the
+    FIFO swap gap closed in MappedFile::open only.
+  - Fire.cpp:195: Emit with byteD == 0 makes Drift sparks that never
+    cool, against Fire.h's "at most 255 steps". May match UT99.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-09-core-uworld-ufire.md
+  **Layman:** A file-read race left open in one place, and fire sparks that may never die.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 09.
+
+- 📋 [UTA-0408] **Investigate: viewer and launcher leads from the readability review.**
+  - main.cpp:340: P records the live camera, not `shownView`.
+  - MapList.cpp:107: empty baker version reads "older ut-bake".
+  - path::string()/narrow strings instead of fs::utf8 (UTA-0221):
+    main.cpp:238, :449, :464; MapList.cpp:44, :266; Capture.cpp:24;
+    Cli.cpp:141, :166-168.
+  - Launcher.cpp:447: gamepads opened, handle dropped, failure silent.
+  - Capture.cpp:105: create_directories error ignored, reason unstated.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md
+  **Layman:** Small app problems: a saved camera may not match the screen, a wrong message, and non-English paths on Windows.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 11.
+
+- 📋 [UTA-0409] **Investigate: developer-tool leads from the readability review.**
+  - ut-bench/Cli.cpp:186-190: path from string_view, not pathFromUtf8.
+  - ut-bench/Frame.cpp:82-90: `--size` has no upper bound.
+  - ut-dump/Cli.cpp:952-971, :1031-1048: a refused ancestry silently
+    drops exits' and waypoints' class defaults.
+  (ut-bake/Cli.cpp:428 OverBudget lead was refuted; not filed.)
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md
+  **Layman:** Tool problems: non-English paths on Windows, an unbounded size option, and silently lost defaults.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 12.
+
+- 📋 [UTA-0410] **Investigate: Python helper leads from the readability review.**
+  - ut-compare.py:256-257: bundle path split from JSON text.
+  - tile-questions.py:113: report hash compared without lowercasing.
+  - tile-questions.py:48: relative HOME accepted; C++ refuses it.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-13-scripts-python.md
+  **Layman:** Helper scripts may misread a path or re-ask answered questions.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 13.
+
+- 📋 [UTA-0411] **Investigate: gate leads — utab under docs, cut-off help, root links.**
+  - docs-only.sh:18: `docs/*` makes docs/x.utab documentation-only, so
+    the bundle-origin check skips it. Never-list mirrors the machine
+    hook's NEVER_DOCS.
+  - ci.sh:38, ci-matrix.sh:39: `--help` sed ranges end mid-sentence.
+  - .githooks/pre-commit:60: a `/` link is tested against the
+    filesystem root, not the repository.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md
+  **Layman:** A bundle placed under docs could skip a safety check; two scripts' help text stops mid-sentence.
+  Kind: investigate.
+  Source: review-readability-2026-10-23 lane 14 (first two confirmed).
 
 ## 0.2.0 — Movement and weapons
 
