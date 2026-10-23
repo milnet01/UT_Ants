@@ -111,9 +111,13 @@ a Wet or Wave liquid:
 - **The reflected colour** is the sky, `skyAt(r)`, when `frame.skyTexture`
   is not `NONE`, `r` points upward, and `zones[zone].sky` or
   `zones[frame.cameraZone].sky` is set. Otherwise it is the probes,
-  `indirectAt` at the probe point `scene.frag` already uses, with `r` as the
-  normal, scaled as `scene.frag` scales indirect light. Where neither has
-  anything, it is black.
+  `indirectAt` half a spacing off the surface on the side the eye is on,
+  with `r` as the normal, scaled as `scene.frag` scales indirect light.
+  Where neither has anything, it is black. *Amended 2026-10-23
+  (`UTA-0402`), recording what was built:* this said "the probe point
+  `scene.frag` already uses". Since `UTA-0215` the lighting of a liquid seen
+  from behind reads its front's probes; the reflection kept the eye's side,
+  which from below is the water it mirrors.
 
 ### 4.3 Where the reflection goes — `scene.frag`
 

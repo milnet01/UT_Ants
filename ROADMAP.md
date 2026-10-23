@@ -17884,11 +17884,19 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 02.
 
-- 📋 [UTA-0402] **Investigate: water seen from behind reflects the wrong side's probes.**
+- 🚧 [UTA-0402] **Investigate: water seen from behind reflects the wrong side's probes.**
   scene.frag:480 reads probes at `surface` (viewer's side); lighting
   uses `litSurface` (:574). UTA-0089 § 4.2 says both use one point.
   Also light.glsl:143: the LE_NON_INCIDENCE test cannot be false.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-03-urender-shaders.md
+  2026-10-23: both leads checked; neither is a bug.
+  scene.frag reflection: deliberate. 46383af (UTA-0215) moved the
+  lighting's probe point to the lit side and edited this very line's
+  sky test, leaving its probes on the eye's side: from below a liquid
+  mirrors the water the eye is in. UTA-0089 § 4.2's "the probe point
+  scene.frag already uses" predates that; amended to record the build.
+  light.glsl dead test: no effect on output; removed under UTA-0414.
+  Ledger: docs/reviews/review-readability-2026-10-23/close-lane-03.md.
   **Layman:** Water viewed from underneath may show the wrong reflection lighting.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 03.
@@ -18000,7 +18008,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 02.
 
-- 📋 [UTA-0414] **Readability fixes: shaders.**
+- 🚧 [UTA-0414] **Readability fixes: shaders.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-03-urender-shaders.md,
   including HIGH probes.glsl:79 (probe blend twice; UTA-0112 § 4.13 names both).
   Close with close-findings; ledger beside the lane file.
@@ -18023,6 +18031,10 @@ stays with movement in 0.2.0.
   LightSection.cpp use them. ubake's copies (LightModel.cpp's two LE_
   values and lightRadius body, ShadowMask.cpp's reach) were left for
   this item: point them at Bundle.h.
+  2026-10-23, from lane 03's close: src/ubake/LightModel.cpp tests
+  `light.effect != LE_NON_INCIDENCE` after its own early return for that
+  effect, so the test cannot be false. light.glsl's copy was dropped
+  (UTA-0414); this one is yours.
   **Layman:** Make the map converter's light and shape code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 05.
