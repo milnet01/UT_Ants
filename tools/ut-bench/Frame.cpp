@@ -82,9 +82,12 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             const std::optional<std::string_view> size = value();
             if (!size) return std::nullopt;
             const std::size_t by = size->find('x');
+            // UTA-0409: past MAX_DIMENSION the device cannot make the frame,
+            // and an unchecked size draws through invalid Vulkan calls.
             if (by == std::string_view::npos || !whole(size->substr(0, by), parsed.width)
-                || !whole(size->substr(by + 1), parsed.height) || parsed.width == 0 || parsed.height == 0) {
-                err << "ut-bench: --size takes <width>x<height>, each at least 1\n";
+                || !whole(size->substr(by + 1), parsed.height) || parsed.width == 0 || parsed.height == 0
+                || parsed.width > tools::MAX_DIMENSION || parsed.height > tools::MAX_DIMENSION) {
+                err << "ut-bench: --size takes <width>x<height>, each from 1 to " << tools::MAX_DIMENSION << "\n";
                 return std::nullopt;
             }
         } else if (arg == "--still") {

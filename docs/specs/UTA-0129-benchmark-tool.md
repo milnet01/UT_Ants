@@ -310,7 +310,8 @@ the frame's GPU work, submit and wait, with no present.
 - Between each camera and the next: `--steps` timed frames, the camera moving
   in a straight line and turning the short way round. `--steps` defaults to
   120.
-- `--tier` defaults to `high` and `--size` to `1920x1080`. The render scale
+- `--tier` defaults to `high` and `--size` to `1920x1080`; each side is 1
+  to 16384, the largest frame a device makes (UTA-0409). The render scale
   is fixed at 1 and the light time pinned at 0, so two runs draw the same
   frames.
 

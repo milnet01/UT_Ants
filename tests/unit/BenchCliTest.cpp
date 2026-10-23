@@ -254,6 +254,8 @@ TEST_CASE("UTA-0129 INV-10: wrong frame arguments exit 2 and a missing bundle ex
         {"frame", missing},                                                // no --cameras
         {"frame", "--cameras", cameras, "--size", "640", missing},         // not <w>x<h>
         {"frame", "--cameras", cameras, "--size", "0x480", missing},
+        {"frame", "--cameras", cameras, "--size", "16385x480", missing}, // UTA-0409: past MAX_DIMENSION
+        {"frame", "--cameras", cameras, "--size", "640x16385", missing},
         {"frame", "--cameras", cameras, "--tier", "fastest", missing},
         {"frame", "--cameras", cameras, "--still", "0", missing},
         {"frame", "--cameras", cameras, missing, missing},                 // two bundles

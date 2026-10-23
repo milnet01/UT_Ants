@@ -796,6 +796,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **ut-bench frame refuses a size no device can draw** (UTA-0409)
+  `--size` past 16384 a side used to time frames drawn through invalid
+  Vulkan calls and report them as if they were real. It is now refused,
+  as ut-shot refuses it.
+
 - **Baked bounce light now stops at thin floors and walls too** (UTA-0400)
   UTA-0397 taught each light-grid point how far it sees, but only the
   renderer used it. The baker's own later bounces still blended in
