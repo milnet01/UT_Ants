@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=425 -->
+<!-- ants-roadmap-id-high-water: UTA=426 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17837,7 +17837,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-22.
   Lanes: ubake, urender.
 
-- 📋 [UTA-0399] **Investigate: the renderer's bundle fingerprint ignores rooms.**
+- 🚧 [UTA-0399] **Investigate: the renderer's bundle fingerprint ignores rooms.**
   src/urender/Frame.cpp `shapeOf` does not sample `bundle.rooms`,
   but `upload` reads it (light zones via `zoneAt`, `skyLayersOf`).
   review-code 2026-10-15 asked for the rooms' ends to be sampled;
@@ -17970,7 +17970,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 14 (first two confirmed).
 
-- 📋 [UTA-0412] **Readability fixes: renderer frame side.**
+- 🚧 [UTA-0412] **Readability fixes: renderer frame side.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-01-urender-frame.md,
   including HIGH Frame.cpp:1801 (texture slots computed at six sites).
   Close with close-findings; ledger beside the lane file.
@@ -18075,6 +18075,21 @@ stays with movement in 0.2.0.
   **Layman:** Make the build and push-check scripts easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 14.
+
+- 📋 [UTA-0426] **Split recordFrame and drawView into one function per stage.**
+  Two MEDIUM findings of lane 01
+  (docs/reviews/review-readability-2026-10-23/lane-01-urender-frame.md):
+  recordFrame (every stage of the frame) and drawView (scale, FrameData,
+  movers, shadow plan, fog constants, size check, submit, stats).
+  UTA-0412 landed the stuck points: the sky-capture filter is named
+  (skyCaptureLeavesOut) and the size check says what it guards.
+  Queued, not fixed: a split of this size is its own piece of work,
+  needs a device-tier run per stage moved, and UTA-0015, UTA-0089 and
+  UTA-0326 name these functions, so a split must keep those names.
+  **Layman:** Break the two longest renderer functions into named steps so a newcomer can change one step safely.
+  Kind: refactor.
+  Source: review-readability-2026-10-23 lane 01.
+  Lanes: urender.
 
 ## 0.2.0 — Movement and weapons
 
