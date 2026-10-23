@@ -164,9 +164,10 @@ namespace {
 // painted sky, so BAKR's revision moved it.
 // 67, format 32: UTA-0397 gives each probe its reach, which LPRB carries and
 // the bounces read.
-constexpr std::uint32_t RECORDED_UNDER = 67;
+// 68: UTA-0400 makes the bounces read it; until then they did not.
+constexpr std::uint32_t RECORDED_UNDER = 68;
 constexpr std::string_view GOLDEN =
-    "94bb43e09f022abbb3fceb56042c4f623920510ea3f8c72f7fac5ac14602cdfb";
+    "b995a7f32c3690178e3121bdd94cf15de594f430e051727056569b4624ff81e8";
 
 } // namespace
 

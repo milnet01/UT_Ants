@@ -790,6 +790,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Baked bounce light now stops at thin floors and walls too** (UTA-0400)
+  UTA-0397 taught each light-grid point how far it sees, but only the
+  renderer used it. The baker's own later bounces still blended in
+  grid points behind a thin roof, so light from a lit room leaked into
+  the one below it before the renderer ever saw it. The bounces now
+  respect the same limit. Baker revision 68: re-bake every map.
+
 - **TheBoat's sky no longer looks painted on a box** (UTA-0389)
   The sea stopped at a straight edge, with a flat pale wall beyond it,
   and the clouds were flat cut-outs. Below a painted sky's horizon a

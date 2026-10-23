@@ -17847,7 +17847,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 01 (premise confirmed).
 
-- 📋 [UTA-0400] **Investigate: the bake's bounce passes never apply the probe reach mask.**
+- 🚧 [UTA-0400] **Investigate: the bake's bounce passes never apply the probe reach mask.**
   src/ubake/LightProbes.cpp:613: the bounce passes' `lit` copy gets
   no `reach`, so UTA-0112 § 4.13's mask (item 2: the bake's own copy
   of the blend) is never applied. `lit.reach` is read near :441.
@@ -17918,7 +17918,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 04.
 
-- 📋 [UTA-0404] **Investigate: cover points skip the finite-and-in-bounds check.**
+- 🚧 [UTA-0404] **Investigate: cover points skip the finite-and-in-bounds check.**
   src/ubake/Geometry.cpp:407: a cover's points skip UTA-0217's check
   that node points get at :397-402; Hide.cpp:120-162 builds hulls from
   possibly-invisible nodes.
@@ -18033,7 +18033,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 04.
 
-- 📋 [UTA-0416] **Readability fixes: baker, geometry and light.**
+- 🚧 [UTA-0416] **Readability fixes: baker, geometry and light.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md.
   Close with close-findings; ledger beside the lane file.
   From UTA-0413 (2026-10-23): ubundle/Bundle.h now holds LE_STATIC_SPOT,

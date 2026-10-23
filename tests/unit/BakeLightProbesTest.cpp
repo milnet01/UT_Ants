@@ -760,6 +760,35 @@ TEST_CASE("later bounces", "[ubake][probes]") {
             CHECK(at->cube[face][0] > once[face].r * 1.01);
         }
     }
+
+    SECTION("UTA-0400: the bake's bounces apply each probe's reach") {
+        // SS 4.13 item 2, TheBoat's shape: a 10-unit roof parts a dark room
+        // from a lit hold. The hold's lowest probes stand 6 above the roof, so
+        // their reach down stops there, and they light none of the room below.
+        auto triangles = room({0, 0, 0}, {512, 512, 240},
+                              {Face{"grey"}, Face{"grey"}, Face{"grey"}, Face{"grey"}, Face{"grey"},
+                               Face{"grey"}});
+        for (const Triangle& t : room({0, 0, 250}, {512, 512, 512},
+                                      {Face{"grey"}, Face{"grey"}, Face{"grey"}, Face{"grey"},
+                                       Face{"grey"}, Face{"grey"}}))
+            triangles.push_back(t);
+        const auto parted = geometryOf(triangles);
+        const auto tree = worldOf({box({0, 0, 0}, {512, 512, 240}), box({0, 0, 250}, {512, 512, 512})},
+                                  {0, 0, 0}, {512, 512, 512});
+        const std::vector<Light> lights{steadyLight(1, {256, 256, 480})};
+        JobSystem jobs(1);
+        const auto baked = bakeLightProbes(parted, tree, lights, albedoOf({{"grey", {0.8, 0.8, 0.8}}}), jobs);
+        REQUIRE(baked.has_value());
+        const auto cubeAt = [&](const Cell& cell) {
+            const auto at = std::ranges::find(baked->probes, cell, &uta::ubundle::LightProbe::cell);
+            REQUIRE(at != baked->probes.end());
+            double sum = 0;
+            for (const auto& face : at->cube) sum += face[0] + face[1] + face[2];
+            return sum;
+        };
+        CHECK(cubeAt({2, 2, 3}) > 0.01); // the hold is lit
+        CHECK(cubeAt({2, 2, 1}) == 0.0); // the room below is not
+    }
 }
 
 TEST_CASE("workers", "[ubake][probes]") {

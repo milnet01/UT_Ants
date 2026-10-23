@@ -433,6 +433,7 @@ Rgb indirectAt(const ubundle::LightProbes& lit, const Vec3& x, const Vec3& n) {
         unmaskedWeights += weight;
         const auto index = static_cast<std::size_t>(found - lit.probes.begin());
         const Vec3 d = x - Vec3{at[0] * s, at[1] * s, at[2] * s};
+        // SS 4.13 item 3: `lit` with no reach is the blend unmasked.
         if (index < lit.reach.size() && !probeReaches(lit.reach[index], d)) continue;
         sum.r += weight * c.r;
         sum.g += weight * c.g;
@@ -608,6 +609,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
         ubundle::LightProbes lit;
         lit.spacing = out.spacing;
         lit.probes = out.probes;
+        lit.reach = out.reach; // SS 4.13 item 2: the bake's blend masks too (UTA-0400)
         const std::size_t failed = jobs.parallelFor(batches, [&](std::size_t job) {
             const std::size_t end = std::min(out.probes.size(), (job + 1) * PROBES_PER_JOB);
             for (std::size_t p = job * PROBES_PER_JOB; p < end; ++p) {
