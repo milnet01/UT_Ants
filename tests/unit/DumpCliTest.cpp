@@ -1243,7 +1243,7 @@ TEST_CASE("UTA-0189: exits lists each MonsterEnd-family actor with its location 
     REQUIRE(result.code == 0);
     CHECK(result.out.find("\"name\": \"MonsterEnd0\", \"class\": \"MonsterEnd\", \"location\": [-400, 0, 0], "
                           "\"tag\": \"finalexit\", \"triggerType\": 4, \"damageThreshold\": 50.5, "
-                          "\"bInitiallyActive\": false, \"propertiesRead\": true}")
+                          "\"bInitiallyActive\": false, \"propertiesRead\": true, \"chainEnd\": ")
           != std::string::npos);
     // UTA-0130: nothing in the fixture sets these for the arena end.
     CHECK(result.out.find("\"triggerType\": null, \"damageThreshold\": null, \"bInitiallyActive\": null, ")
@@ -1278,7 +1278,7 @@ TEST_CASE("UTA-0332: waypoints lists each MonsterWaypoint-family actor with its 
     const std::size_t waypoints = result.out.find("\"waypoints\": [");
     REQUIRE(waypoints != std::string::npos);
     CHECK(result.out.find("\"name\": \"MonsterWaypoint0\", \"class\": \"MonsterWaypoint\", \"location\": [1, 2, 3], "
-                          "\"position\": 1, \"propertiesRead\": true}",
+                          "\"position\": 1, \"propertiesRead\": true, \"chainEnd\": ",
                           waypoints)
           != std::string::npos);
     CHECK(result.out.find("\"name\": \"MonsterWaypoint1\", \"class\": \"MonsterWaypoint\", \"location\": null, "
@@ -1300,6 +1300,38 @@ TEST_CASE("UTA-0332: waypoints lists each MonsterWaypoint-family actor with its 
                           waypoints)
           != std::string::npos);
     CHECK(result.out.find("PathNode", waypoints) == std::string::npos);
+}
+
+TEST_CASE("UTA-0409: an exit or waypoint whose class chain is cut short says so", "[dump]") {
+    // A refused chain (past the depth cap) and a missing package both leave
+    // the class defaults unread, so a blank tag or a null position is not an
+    // answer. Each element names its chain's end, as wiring.actors does.
+    const TempDir dir;
+    MapBuilder map;
+    std::int32_t super = 0;
+    for (int i = 0; i < 70; ++i) super = map.addClass("Deep" + std::to_string(i), super);
+    const std::int32_t deepExit = map.addClass("MonsterEnd", super);
+    const std::int32_t deepWaypoint = map.addClass("MonsterWaypoint", super);
+    const std::int32_t ghostExit = map.importClass("NoSuchPackage", "MonsterEndSB");
+    const std::int32_t waypoint = map.addClass("MonsterWaypointSB");
+    map.addActor("DeepExit", deepExit)
+        .addActor("GhostExit", ghostExit)
+        .addActor("DeepWaypoint", deepWaypoint)
+        .addActor("Waypoint", waypoint);
+    const fs::path mapPath = writeMap(dir, map);
+
+    const Run result = run({"--system", (dir.path() / "System").string(), mapPath.string()});
+    INFO(result.out);
+    REQUIRE(result.code == 0);
+    const auto element = [&](std::string_view name) {
+        const std::size_t at = result.out.find("\"name\": \"" + std::string(name) + "\"");
+        REQUIRE(at != std::string::npos);
+        return result.out.substr(at, result.out.find('}', at) - at);
+    };
+    CHECK(element("DeepExit").find("\"chainEnd\": \"classMissing\"") != std::string::npos);
+    CHECK(element("GhostExit").find("\"chainEnd\": \"packageMissing\"") != std::string::npos);
+    CHECK(element("DeepWaypoint").find("\"chainEnd\": \"classMissing\"") != std::string::npos);
+    CHECK(element("Waypoint").find("\"chainEnd\": \"root\"") != std::string::npos);
 }
 
 TEST_CASE("UTA-0335: playerStarts names the zone each start lands in, and whether it is water", "[dump]") {
@@ -1543,7 +1575,7 @@ TEST_CASE("UTA-0224: an actor whose properties do not read is kept, flagged and 
     REQUIRE(plain.code == 0);
     CHECK(integerOf(member(packagesOf(plain.out).at(0), "level"), "propertiesUnread") == 2);
     CHECK(plain.out.find("\"name\": \"BrokenEnd\", ") != std::string::npos);
-    CHECK(plain.out.find("\"bInitiallyActive\": null, \"propertiesRead\": false}") != std::string::npos);
+    CHECK(plain.out.find("\"bInitiallyActive\": null, \"propertiesRead\": false, \"chainEnd\": ") != std::string::npos);
 
     // UTA-0244: the wiring graph skips these actors rather than refusing the
     // package, so it is built; the count is what says it is missing two.

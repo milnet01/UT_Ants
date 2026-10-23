@@ -261,7 +261,7 @@ both. This document restates neither.
 
 Added by `UTA-0189`. A map's element carries `exits` after `wiring`, with no
 flag. It is `[{export, name, class, location, tag, triggerType,
-damageThreshold, bInitiallyActive, propertiesRead}]`, in ascending `export`
+damageThreshold, bInitiallyActive, propertiesRead, chainEnd}]`, in ascending `export`
 order: every level actor whose own class name is `MonsterEnd`,
 `MonsterEndSB` or `MonsterArenaEnd`, compared case-insensitively. `class`
 keeps the stored case: MH-MayhemCastleV2 stores `monsterend`, so a consumer
@@ -282,14 +282,19 @@ its class family sets one. MonsterEndSB's `TakeDamage` wins the map only when
 actor's own property block does not read. The exit is still listed, and its
 fields are then its class family's defaults, not its own.
 
+`chainEnd` (a string) was added by `UTA-0409`, last in each element. It is
+`wiring.actors`' `chainEnd` for the exit's class: anything but `root` means
+the class defaults were read in part or not at all, so a `""` tag or a `null`
+field is not an answer.
+
 ### 4.7b `waypoints`
 
 Added by `UTA-0332`. A map's element carries `waypoints` after `exits`, with
-no flag. It is `[{export, name, class, location, position, propertiesRead}]`,
-in ascending `export` order: every level actor whose own class name contains
-`MonsterWaypoint`, compared case-insensitively — `MonsterWaypoint`,
-`MonsterWaypointSB` and `TriggerMonsterWaypoint` among them. `class`,
-`location` and `propertiesRead` are as in `exits`.
+no flag. It is `[{export, name, class, location, position, propertiesRead,
+chainEnd}]`, in ascending `export` order: every level actor whose own class
+name contains `MonsterWaypoint`, compared case-insensitively —
+`MonsterWaypoint`, `MonsterWaypointSB` and `TriggerMonsterWaypoint` among
+them. `class`, `location`, `propertiesRead` and `chainEnd` are as in `exits`.
 
 `position` is the actor's `Position`, an integer, resolved through the class
 family's defaults as `exits`' `tag` is: `MonsterWaypoint` defaults it to 1, so

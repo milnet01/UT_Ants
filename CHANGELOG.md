@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-dump says when an exit's or waypoint's class was not fully read** (UTA-0409)
+  Each `exits` and `waypoints` element now ends with `chainEnd`, as
+  `wiring.actors` has. Anything but `root` means the class defaults were
+  read in part or not at all, so a blank tag or a null position there is
+  not an answer. Before, such an exit looked the same as one with no tag.
+
 - **Bounced light no longer seeps through thin floors and walls** (UTA-0397)
   Bounced light is stored on a grid, and a surface blended in grid points
   on the far side of a thin roof or wall. In TheBoat's sand room the tops

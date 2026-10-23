@@ -441,6 +441,37 @@ const uta::upkg::ExportEntry* levelInfoOf(const uta::upkg::Package& package,
     return nullptr;
 }
 
+/// A class's family, walked once: the chain `readAncestry` gives, and where
+/// the walk ended, in SS 4.4's words. A chain `readAncestry` refuses (a cycle,
+/// or past its depth cap) has no chain and ends "classMissing": it is not
+/// complete, so it is not "root" (UTA-0012 INV-8, review-code 2026-09-26).
+/// Every caller reads its end, so a refused chain is never a silent one
+/// (UTA-0409).
+struct ClassFamily {
+    std::optional<uta::upkg::Ancestry> ancestry; ///< empty where the chain does not read
+    std::string_view end = "classMissing";
+};
+
+ClassFamily classFamilyOf(const uta::upkg::Package& map, std::string_view mapName,
+                          uta::upkg::ObjectReference classReference, const uta::upkg::PackageResolver& resolver) {
+    ClassFamily family;
+    const auto site = uta::upkg::resolveClass(map, mapName, classReference, resolver);
+    if (!site.has_value()) return family;
+    if (site->resolved.package == nullptr) {
+        if (site->end == uta::upkg::AncestryEnd::PackageMissing) family.end = "packageMissing";
+        return family;
+    }
+    auto ancestry = uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
+    if (!ancestry.has_value()) return family;
+    switch (ancestry->end) {
+    case uta::upkg::AncestryEnd::Root: family.end = "root"; break;
+    case uta::upkg::AncestryEnd::PackageMissing: family.end = "packageMissing"; break;
+    case uta::upkg::AncestryEnd::ClassMissing: family.end = "classMissing"; break;
+    }
+    family.ancestry = std::move(*ancestry);
+    return family;
+}
+
 /// ThingFactory's own default capacity. The factory counts down from it and
 /// never reaches zero, so it is no limit and is not summed as a monster count.
 constexpr std::int32_t FACTORY_NO_LIMIT = 1000000;
@@ -729,6 +760,21 @@ void takeWiringProperty(WiringFields& fields, const uta::upkg::Package& origin,
     else if (folded == "lifttag") fields.liftTag = std::move(*text);
 }
 
+/// The event fields a class family defaults. Defaults first, then an actor's
+/// own stored values over the top -- SS 4.5. Reading stored properties alone
+/// would emit "" for every exit's Tag, since Tag defaults to the class name
+/// and is stored on none.
+WiringFields familyWiring(const uta::upkg::Ancestry& ancestry) {
+    WiringFields fields;
+    if (const auto defaults = uta::upkg::effectiveDefaults(ancestry); defaults.has_value()) {
+        for (const uta::upkg::EffectiveProperty& effective : *defaults) {
+            if (effective.origin == nullptr) continue;
+            takeWiringProperty(fields, *effective.origin, effective.name, effective.property);
+        }
+    }
+    return fields;
+}
+
 /// What a CLASS contributes: its chain, how the walk ended, and the event
 /// fields its family defaults. Cached per class reference because a map's
 /// actors share very few classes -- MH-GolgothaAL_fix has 2905 actors, and
@@ -783,46 +829,17 @@ long long writeActorWiring(std::ostream& out, const uta::upkg::Package& map,
             const std::pair key{&map, entry.objectClass.raw()};
             auto found = classes.find(key);
             if (found == classes.end()) {
+                // Walked once per CLASS and used twice -- for the chain and
+                // for the defaults merge.
                 ClassWiring built;
-                const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
-                if (site.has_value() && site->resolved.package != nullptr) {
-                    // Walked once per CLASS and used twice -- for the chain
-                    // and for the defaults merge.
-                    const auto ancestry = uta::upkg::readAncestry(*site->resolved.package,
-                                                                  *site->resolved.entry, resolver);
-                    if (ancestry.has_value()) {
-                        for (const uta::upkg::ResolvedClass& link : ancestry->chain) {
-                            const auto name = link.package->name(link.entry->objectName);
-                            built.chain.emplace_back(name.has_value() ? std::string{*name} : "?");
-                        }
-                        switch (ancestry->end) {
-                        case uta::upkg::AncestryEnd::Root: built.end = "root"; break;
-                        case uta::upkg::AncestryEnd::PackageMissing: built.end = "packageMissing"; break;
-                        case uta::upkg::AncestryEnd::ClassMissing: built.end = "classMissing"; break;
-                        }
-                        // Defaults first, then the actor's own stored values
-                        // over the top -- SS 4.5. Reading stored properties
-                        // alone would emit "" for every exit's Tag, since Tag
-                        // defaults to the class name and is stored on none.
-                        if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry);
-                            defaults.has_value()) {
-                            for (const uta::upkg::EffectiveProperty& effective : *defaults) {
-                                if (effective.origin == nullptr) continue;
-                                takeWiringProperty(built.defaults, *effective.origin, effective.name,
-                                                   effective.property);
-                            }
-                        }
-                    } else {
-                        // A chain readAncestry refuses (a cycle, or past its
-                        // depth cap) is not complete, so it is not "root":
-                        // level.chainsUnresolved counts it too (UTA-0012 INV-8,
-                        // review-code 2026-09-26).
-                        built.end = "classMissing";
+                const ClassFamily family = classFamilyOf(map, mapName, entry.objectClass, resolver);
+                built.end = family.end;
+                if (family.ancestry.has_value()) {
+                    for (const uta::upkg::ResolvedClass& link : family.ancestry->chain) {
+                        const auto name = link.package->name(link.entry->objectName);
+                        built.chain.emplace_back(name.has_value() ? std::string{*name} : "?");
                     }
-                } else if (site.has_value() && site->end == uta::upkg::AncestryEnd::PackageMissing) {
-                    built.end = "packageMissing"; // SS 4.4: the walk's true end
-                } else {
-                    built.end = "classMissing";
+                    built.defaults = familyWiring(*family.ancestry);
                 }
                 found = classes.emplace(key, std::move(built)).first;
             }
@@ -941,20 +958,9 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
         const auto className = map.objectName(entry.objectClass);
         if (!className.has_value() || !EXIT_CLASSES.contains(asciiFolded(*className))) continue;
 
+        const ClassFamily family = classFamilyOf(map, mapName, entry.objectClass, resolver);
         WiringFields fields;
-        if (const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
-            site.has_value() && site->resolved.package != nullptr) {
-            if (const auto ancestry =
-                    uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
-                ancestry.has_value()) {
-                if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value()) {
-                    for (const uta::upkg::EffectiveProperty& effective : *defaults) {
-                        if (effective.origin == nullptr) continue;
-                        takeWiringProperty(fields, *effective.origin, effective.name, effective.property);
-                    }
-                }
-            }
-        }
+        if (family.ancestry.has_value()) fields = familyWiring(*family.ancestry);
         const auto properties = uta::upkg::readProperties(map, entry);
         if (properties.has_value()) {
             for (const uta::upkg::Property& property : *properties) {
@@ -988,6 +994,8 @@ void writeExits(std::ostream& out, const uta::upkg::Package& map, std::string_vi
         if (fields.initiallyActive.has_value()) out << (*fields.initiallyActive ? "true" : "false");
         else out << "null";
         out << ", \"propertiesRead\": " << (properties.has_value() ? "true" : "false");
+        out << ", \"chainEnd\": ";
+        writeJsonString(out, family.end);
         out << "}";
     }
     out << "]";
@@ -1020,16 +1028,12 @@ void writeWaypoints(std::ostream& out, const uta::upkg::Package& map, std::strin
         const auto className = map.objectName(entry.objectClass);
         if (!className.has_value() || !asciiFolded(*className).contains("monsterwaypoint")) continue;
 
+        const ClassFamily family = classFamilyOf(map, mapName, entry.objectClass, resolver);
         std::optional<int> position;
-        if (const auto site = uta::upkg::resolveClass(map, mapName, entry.objectClass, resolver);
-            site.has_value() && site->resolved.package != nullptr) {
-            if (const auto ancestry =
-                    uta::upkg::readAncestry(*site->resolved.package, *site->resolved.entry, resolver);
-                ancestry.has_value()) {
-                if (const auto defaults = uta::upkg::effectiveDefaults(*ancestry); defaults.has_value()) {
-                    for (const uta::upkg::EffectiveProperty& effective : *defaults)
-                        takePosition(position, effective.name, effective.property);
-                }
+        if (family.ancestry.has_value()) {
+            if (const auto defaults = uta::upkg::effectiveDefaults(*family.ancestry); defaults.has_value()) {
+                for (const uta::upkg::EffectiveProperty& effective : *defaults)
+                    takePosition(position, effective.name, effective.property);
             }
         }
         const auto properties = uta::upkg::readProperties(map, entry);
@@ -1053,6 +1057,8 @@ void writeWaypoints(std::ostream& out, const uta::upkg::Package& map, std::strin
         if (position.has_value()) out << *position;
         else out << "null";
         out << ", \"propertiesRead\": " << (properties.has_value() ? "true" : "false");
+        out << ", \"chainEnd\": ";
+        writeJsonString(out, family.end);
         out << "}";
     }
     out << "]";
