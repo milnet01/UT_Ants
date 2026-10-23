@@ -36,6 +36,11 @@ ProbeTable probeTable(const std::optional<ubundle::LightProbes>& lightProbes) {
         if (i < lightProbes->sunSeen.size()) record.faces[3] = lightProbes->sunSeen[i];
         // UTA-0387 SS 4.3: and the share of the sky, in the second face's.
         if (i < lightProbes->skySeen.size()) record.faces[7] = lightProbes->skySeen[i];
+        // UTA-0112 SS 4.13: its reach; a full step on every axis, which masks
+        // nothing, where LPRB holds none.
+        for (std::size_t axis = 0; axis < 6; ++axis)
+            record.reach[axis] = i < lightProbes->reach.size() ? lightProbes->reach[i][axis]
+                                                               : static_cast<float>(lightProbes->spacing);
         table.probes.push_back(record);
 
         // Linear probing, as probes.glsl's probeAt searches. LPRB's cells are

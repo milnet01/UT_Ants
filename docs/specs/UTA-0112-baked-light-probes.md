@@ -559,6 +559,34 @@ darker than it should be is judged per room after its map is re-baked, and
 `UTA-0256` adds a lamp where one is wanted. Later bounces, worth 2–4% at
 `K` `4`, are § 4.7 step 7 (`UTA-0254`).
 
+### 4.13 A probe's reach (UTA-0397)
+
+The blend of § 4.9 reads a cell's eight probes with no test of whether they
+see the point. On TheBoat a 16-unit roof divides a sand room from the lit
+hold above. The room's top 32 units lie in cells whose upper probes stand in
+the hold, so its walls glowed along the top (user, 2026-10-23).
+
+1. **The bake.** Each probe casts one ray along each axis, +X, -X, +Y, -Y,
+   +Z and -Z, against GEOM. Its reach on that axis is the distance to the
+   first surface, capped at the spacing. `LPRB` carries six `f32` a probe,
+   after `skySeen`: none, or one per probe, each in `[0, spacing]`.
+2. **The blend.** A corner probe `p` lights a point `x` only when every axis
+   of `x - p` lies within that probe's reach on the side it points, plus
+   `PROBE_SIGHT_SLACK`, 8 units. A corner that fails is treated as missing.
+   Where every present corner fails, all present corners count, as before.
+   `probes.glsl`'s `indirectAt` and `probeShareAt` apply it, and so does
+   the bake's own copy of the blend in § 4.7 step 7.
+3. **No reach** is the blend of § 4.9 unchanged.
+
+Measured 2026-10-23 with `ut-ref`, the indirect term's error at the user's
+TheBoat capture fell from 0.377 to 0.212. At an AS-Frigate view it rose from
+0.039 to 0.047. The other views of TheBoat, AS-Frigate and
+TheFortress2012Final-BP changed by under 0.1% of their mean. Five parallel
+rays an axis, a quarter step apart, measured 0.287 and 0.045, and were
+dropped.
+
+The format becomes `32`, and `BAKER_REVISION` `67`.
+
 ## 5. Invariants
 
 - **INV-1** — `LPRB` round-trips, and `read` and `write` each refuse every
@@ -715,6 +743,21 @@ darker than it should be is judged per room after its map is re-baked, and
   the bake runs no pass after the first. Reading the probes at the hit
   rather than off it is not caught: every probe here holds the same light.
 
+- **INV-18** — § 4.13. A probe's reach stops at the first surface on each
+  axis and is the spacing where none lies within it. A corner probe whose
+  reach falls short of a point by more than `PROBE_SIGHT_SLACK` on any axis
+  adds nothing to it, in `probes.glsl` and in `bounceProbe`, unless every
+  present corner does. `LPRB` refuses a reach count that is neither none
+  nor one per probe, and an axis outside `[0, spacing]`.
+  *Added by UTA-0397.*
+  *Test:* `tests/unit/BakeLightProbesTest.cpp`, the UTA-0397 cases and
+  "later bounces"; `tests/unit/BundleLightProbesTest.cpp`, the UTA-0397
+  cases; `tests/device/RenderProbeTest.cpp`, "UTA-0397: a probe lights no
+  point past its reach".
+  *Breaks when:* the shader or the bake ignores the reach, the all-masked
+  fallback is lost, the renderer uploads no reach, or the bake writes a
+  full reach everywhere.
+
 ## 6. Failure modes
 
 - **A light inside solid.** The surfaces around it block its shadow rays, so it
@@ -808,6 +851,7 @@ the matching `COLL` tree from `PathFixture.h`'s `worldOf`, one region per box.
 | § 4.12's light against exact transport | **nothing** in CI — `UTA-0292`'s scratch path tracer, run by hand |
 | INV-10 | `tests/unit/BakeLightProbesTest.cpp`; **Partial:** `tests/unit/BakeGoldenTest.cpp` grades only the probes its fixture places |
 | INV-11 | `tests/unit/PathTraceTest.cpp` |
+| INV-18 | `tests/unit/BakeLightProbesTest.cpp`, `tests/unit/BundleLightProbesTest.cpp` and `tests/device/RenderProbeTest.cpp`. Whether it lowers the error on real maps: **nothing** in CI — `ut-ref`, run by hand |
 | § 4.3's model looking like UT99's | **nothing** — UT99's model is in no source this spec draws on; § 15 |
 | § 4.9, and UTA-0014's copy of § 4.3 | **nothing** until the renderer draws; tracked by UTA-0014, whose test compares its lights with `ubake`'s |
 | The bake's cost on real maps | **Partial:** `tests/real/RealLightProbesTest.cpp` prints it; no CI leg runs it |

@@ -18,6 +18,8 @@ namespace {
 constexpr std::uint64_t LIGHT_PROBE_SIZE = 84;
 /// UTA-0256 SS 4.2: an added-lamps cube, eighteen f32.
 constexpr std::uint64_t CUBE_SIZE = 72;
+/// UTA-0112 SS 4.13: a probe's reach, six f32.
+constexpr std::uint64_t REACH_SIZE = 24;
 
 using Cube = std::array<std::array<float, 3>, 6>;
 
@@ -28,6 +30,16 @@ using Cube = std::array<std::array<float, 3>, 6>;
             UTA_TRY(channel, cursor.readF32());
         }
     return cube;
+}
+
+using Reach = std::array<float, 6>;
+
+[[nodiscard]] Result<Reach> readReach(Cursor& cursor) {
+    Reach reach{};
+    for (float& axis : reach) {
+        UTA_TRY(axis, cursor.readF32());
+    }
+    return reach;
 }
 
 void putCube(Sink& sink, const Cube& cube) {
@@ -79,6 +91,7 @@ Result<LightProbes> readLightProbes(Cursor& cursor) {
     // UTA-0338 SS 4.2: its count and range are SUN's rules, in validateSun.
     UTA_TRY(probes.sunSeen, readVector<float>(cursor, 4, "sun visibilities", readF32Element));
     UTA_TRY(probes.skySeen, readVector<float>(cursor, 4, "sky visibilities", readF32Element));
+    UTA_TRY(probes.reach, readVector<Reach>(cursor, REACH_SIZE, "probe reaches", readReach));
     return probes;
 }
 
@@ -103,6 +116,14 @@ Result<void> validateLightProbes(const LightProbes& probes, ErrorCode code) {
     for (std::size_t p = 0; p < probes.skySeen.size(); ++p)
         if (!(probes.skySeen[p] >= 0 && probes.skySeen[p] <= 1))
             return fail(code, "LPRB: sky visibility " + std::to_string(p) + " is outside [0, 1]");
+    // UTA-0112 SS 4.13: none, or one per probe, each axis in [0, spacing].
+    if (!probes.reach.empty() && probes.reach.size() != probes.probes.size())
+        return fail(code, "LPRB: " + std::to_string(probes.reach.size()) + " probe reaches for "
+                              + std::to_string(probes.probes.size()) + " probes");
+    for (std::size_t p = 0; p < probes.reach.size(); ++p)
+        for (const float axis : probes.reach[p])
+            if (!(axis >= 0 && axis <= static_cast<float>(probes.spacing)))
+                return fail(code, "LPRB: probe " + std::to_string(p) + "'s reach is outside [0, spacing]");
     return {};
 }
 
@@ -114,6 +135,9 @@ Result<std::vector<std::byte>> encodeLightProbes(const LightProbes& probes) {
     sink.putVector(probes.switched, putCube);
     sink.putVector(probes.sunSeen, [](Sink& out, float seen) { out.putF32(seen); });
     sink.putVector(probes.skySeen, [](Sink& out, float seen) { out.putF32(seen); });
+    sink.putVector(probes.reach, [](Sink& out, const Reach& reach) {
+        for (const float axis : reach) out.putF32(axis);
+    });
     return std::move(sink).finish("LPRB");
 }
 

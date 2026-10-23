@@ -14,6 +14,15 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **Bounced light no longer seeps through thin floors and walls** (UTA-0397)
+  Bounced light is stored on a grid, and a surface blended in grid points
+  on the far side of a thin roof or wall. In TheBoat's sand room the tops
+  of the walls glowed with light from the lit hold above. Each grid point
+  now records how far it can see along each axis, and lights nothing past
+  that. Measured against exact light, the room's bounce error almost
+  halves; one AS-Frigate view comes out slightly worse. Bundle format 32,
+  baker revision 67: re-bake every map.
+
 - **TheBoat's sea no longer shows a stone triangle** (UTA-0396)
   The map cuts a small pit through its sea floor, and the pit's wall
   showed as a triangle in open water, in the original game too. A recipe

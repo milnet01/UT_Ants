@@ -53,7 +53,7 @@ std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, By
                                 std::uint32_t count) {
     Bytes out;
     out.id("UTAB");
-    out.u32(31); // formatVersion -- 31 since UTA-0391 gave PSKY its haze start
+    out.u32(32); // formatVersion -- 32 since UTA-0397 gave LPRB each probe's reach
     out.u8(0);   // origin: Derived
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

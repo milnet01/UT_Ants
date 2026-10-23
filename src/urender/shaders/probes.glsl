@@ -55,29 +55,50 @@ vec3 ambientCube(Probe probe, vec3 n) {
          + n2.z * probe.faces[n.z >= 0.0 ? 4 : 5].rgb;
 }
 
+// UTA-0112 SS 4.13 (UTA-0397): how far past its reach a point may lie and
+// still be lit by a probe -- LightProbes.h's PROBE_SIGHT_SLACK.
+const float PROBE_SIGHT_SLACK = 8.0;
+
+// SS 4.13: whether `probe` lights a point `d` away from it -- no axis of `d`
+// past that axis's reach plus the slack. A probe across a wall or a floor
+// reaches only to it.
+bool probeReaches(Probe probe, vec3 d) {
+    vec3 reach = vec3(d.x >= 0.0 ? probe.reach[0].x : probe.reach[0].y,
+                      d.y >= 0.0 ? probe.reach[0].z : probe.reach[0].w,
+                      d.z >= 0.0 ? probe.reach[1].x : probe.reach[1].y);
+    return all(lessThanEqual(abs(d), reach + PROBE_SIGHT_SLACK));
+}
+
 // SS 4.7's two decisions. Trilinear over the eight probes of the lattice cell
 // holding `x`, each weighted by its corner's share; a missing corner
 // contributes nothing and its weight is shared among the corners present. With
 // no corner present the point gets zero -- not the nearest probe's light,
-// which outside the lattice is usually light leaking through a wall.
+// which outside the lattice is usually light leaking through a wall. SS 4.13:
+// a corner whose reach falls short of `x` is missing too, unless every
+// present corner's does.
 vec3 indirectAt(ProbeLattice lattice, vec3 x, vec3 n) {
     if (lattice.count == 0u || lattice.spacing == 0u) return vec3(0.0);
     vec3 cell = x / float(lattice.spacing);
     vec3 base = floor(cell);
     vec3 f = cell - base;
 
-    vec3 sum = vec3(0.0);
-    float weights = 0.0;
+    vec3 sum = vec3(0.0), unmasked = vec3(0.0);
+    float weights = 0.0, unmaskedWeights = 0.0;
     for (int corner = 0; corner < 8; ++corner) {
         ivec3 step = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
         int probe = probeAt(lattice, ivec3(base) + step);
         if (probe < 0) continue;
         vec3 share = mix(1.0 - f, f, vec3(step));
         float weight = share.x * share.y * share.z;
-        sum += weight * ambientCube(probes[probe], n);
+        vec3 light = weight * ambientCube(probes[probe], n);
+        unmasked += light;
+        unmaskedWeights += weight;
+        if (!probeReaches(probes[probe], x - (base + vec3(step)) * float(lattice.spacing))) continue;
+        sum += light;
         weights += weight;
     }
-    return weights > 0.0 ? sum / weights : vec3(0.0);
+    if (weights > 0.0) return sum / weights;
+    return unmaskedWeights > 0.0 ? unmasked / unmaskedWeights : vec3(0.0);
 }
 
 // UTA-0345: the light arriving at `x` from all around, whichever way a surface
@@ -90,25 +111,30 @@ vec3 indirectAround(ProbeLattice lattice, vec3 x) {
 }
 
 // The fourth float of face `face`, blended over the cell's corners as
-// indirectAt blends their light; `none` with no corner present.
+// indirectAt blends their light, reach included; `none` with no corner present.
 float probeShareAt(ProbeLattice lattice, vec3 x, int face, float none) {
     if (lattice.count == 0u || lattice.spacing == 0u) return none;
     vec3 cell = x / float(lattice.spacing);
     vec3 base = floor(cell);
     vec3 f = cell - base;
 
-    float sum = 0.0;
-    float weights = 0.0;
+    float sum = 0.0, unmasked = 0.0;
+    float weights = 0.0, unmaskedWeights = 0.0;
     for (int corner = 0; corner < 8; ++corner) {
         ivec3 step = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
         int probe = probeAt(lattice, ivec3(base) + step);
         if (probe < 0) continue;
         vec3 share = mix(1.0 - f, f, vec3(step));
         float weight = share.x * share.y * share.z;
-        sum += weight * probes[probe].faces[face].a;
+        float value = weight * probes[probe].faces[face].a;
+        unmasked += value;
+        unmaskedWeights += weight;
+        if (!probeReaches(probes[probe], x - (base + vec3(step)) * float(lattice.spacing))) continue;
+        sum += value;
         weights += weight;
     }
-    return weights > 0.0 ? sum / weights : none;
+    if (weights > 0.0) return sum / weights;
+    return unmaskedWeights > 0.0 ? unmasked / unmaskedWeights : none;
 }
 
 // UTA-0338 SS 4.5: the share of the sun seen at `x`, from the first face's

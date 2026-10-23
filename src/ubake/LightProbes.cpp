@@ -167,6 +167,25 @@ float skySeenFrom(const Vec3& p, const SurfaceRays& rays) {
     return static_cast<float>(static_cast<double>(seen) / static_cast<double>(all.size()));
 }
 
+std::array<float, 6> reachFrom(const Vec3& p, const SurfaceRays& rays, double spacing) {
+    static constexpr std::array<Vec3, 6> AXES{
+        {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
+    std::array<float, 6> reach{};
+    for (std::size_t axis = 0; axis < AXES.size(); ++axis) {
+        const std::optional<SurfaceRays::Hit> hit = rays.first(p, AXES[axis], spacing);
+        reach[axis] = static_cast<float>(hit ? std::min(hit->t, spacing) : spacing);
+    }
+    return reach;
+}
+
+bool probeReaches(const std::array<float, 6>& reach, const Vec3& d) noexcept {
+    const auto within = [&](double along, std::size_t positive) {
+        return (along >= 0 ? along <= reach[positive] + PROBE_SIGHT_SLACK
+                           : -along <= reach[positive + 1] + PROBE_SIGHT_SLACK);
+    };
+    return within(d.x, 0) && within(d.y, 2) && within(d.z, 4);
+}
+
 std::optional<SurfaceHit> surfaceAlong(const Vec3& p, const Vec3& w, const SurfaceRays& rays,
                                        const ubundle::Geometry& geometry, const std::optional<Vec3>& sky,
                                        const std::optional<ubundle::PaintedSky>& painted) {
@@ -389,7 +408,9 @@ Rgb ambientCube(const std::array<std::array<float, 3>, 6>& faces, const Vec3& n)
 
 /// probes.glsl's indirectAt: trilinear over the eight probes of the lattice
 /// cell holding `x`, a missing corner's weight shared among those present, and
-/// zero with none. `lit`'s probes are ascending by z, then y, then x.
+/// zero with none. SS 4.13: a probe whose reach falls short of `x` is missing
+/// too, unless every present one does. `lit`'s probes are ascending by z,
+/// then y, then x.
 Rgb indirectAt(const ubundle::LightProbes& lit, const Vec3& x, const Vec3& n) {
     if (lit.probes.empty() || lit.spacing == 0) return {};
     const auto s = static_cast<double>(lit.spacing);
@@ -399,8 +420,8 @@ Rgb indirectAt(const ubundle::LightProbes& lit, const Vec3& x, const Vec3& n) {
     const auto zyx = [](const ubundle::LightProbe& probe, const Cell& c) {
         return std::tie(probe.cell[2], probe.cell[1], probe.cell[0]) < std::tie(c[2], c[1], c[0]);
     };
-    Rgb sum;
-    double weights = 0;
+    Rgb sum, unmasked;
+    double weights = 0, unmaskedWeights = 0;
     for (int corner = 0; corner < 8; ++corner) {
         const int sx = corner & 1;
         const int sy = (corner >> 1) & 1;
@@ -411,12 +432,21 @@ Rgb indirectAt(const ubundle::LightProbes& lit, const Vec3& x, const Vec3& n) {
         if (found == lit.probes.end() || found->cell != at) continue;
         const double weight = (sx != 0 ? f.x : 1 - f.x) * (sy != 0 ? f.y : 1 - f.y) * (sz != 0 ? f.z : 1 - f.z);
         const Rgb c = ambientCube(found->cube, n);
+        unmasked.r += weight * c.r;
+        unmasked.g += weight * c.g;
+        unmasked.b += weight * c.b;
+        unmaskedWeights += weight;
+        const auto index = static_cast<std::size_t>(found - lit.probes.begin());
+        const Vec3 d = x - Vec3{at[0] * s, at[1] * s, at[2] * s};
+        if (index < lit.reach.size() && !probeReaches(lit.reach[index], d)) continue;
         sum.r += weight * c.r;
         sum.g += weight * c.g;
         sum.b += weight * c.b;
         weights += weight;
     }
-    return weights > 0 ? Rgb{sum.r / weights, sum.g / weights, sum.b / weights} : Rgb{};
+    if (weights > 0) return {sum.r / weights, sum.g / weights, sum.b / weights};
+    return unmaskedWeights > 0 ? Rgb{unmasked.r / unmaskedWeights, unmasked.g / unmaskedWeights, unmasked.b / unmaskedWeights}
+                               : Rgb{};
 }
 
 } // namespace
@@ -550,6 +580,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
         return (batch.polyFlags & PF_FAKE_BACKDROP) != 0;
     });
     if (hasSky) out.skySeen.assign(out.probes.size(), 0.0f);
+    out.reach.assign(out.probes.size(), {}); // SS 4.13
 
     // SS 4.7: each probe gathered on its own, into its own slot.
     const SurfaceRays rays(geometry);
@@ -564,6 +595,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
                                     static_cast<float>(cube[face].b)};
             if (sun != lights.end()) out.sunSeen[p] = sunSeenFrom(pointOf(probe.cell), towardSun(*sun), rays);
             if (hasSky) out.skySeen[p] = skySeenFrom(pointOf(probe.cell), rays);
+            out.reach[p] = reachFrom(pointOf(probe.cell), rays, static_cast<double>(PROBE_SPACING));
         }
     });
     // A partly gathered section is a wrong bundle presented as a good one.

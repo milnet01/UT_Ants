@@ -37,6 +37,11 @@ item that holds its evidence. The recipe keys are specified in
   pit a brush cut through the sea floor, found by casting the camera ray to
   the water and listing nearby surfaces with `ut-dump --surface-list`
   (UTA-0396).
+- **A glow along the tops of walls: split the light.** In TheBoat's sand
+  room the direct light came only through the door, and the glow was in the
+  indirect term: probes above a thin roof. `--no-added-lamps` showed which
+  lights fed the room, and a ray probe from the lit floor to each light found
+  the door (UTA-0397).
 
 ## 2. Fix in this order
 

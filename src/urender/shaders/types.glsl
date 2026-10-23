@@ -170,6 +170,7 @@ struct ClusterBounds {
 
 struct Probe {
     vec4 faces[6];
+    vec4 reach[2]; // UTA-0112 SS 4.13: +X -X +Y -Y, then +Z -Z and two unused
 };
 
 struct ProbeCell {

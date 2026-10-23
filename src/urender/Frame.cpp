@@ -273,6 +273,7 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
         fnv.addEnds(std::span<const ubundle::LightProbe>(bundle.lightProbes->probes));
         fnv.addEnds(std::span<const float>(bundle.lightProbes->sunSeen)); // UTA-0338, uploaded with the probes
         fnv.addEnds(std::span<const float>(bundle.lightProbes->skySeen)); // UTA-0387, the same
+        fnv.addEnds(std::span<const std::array<float, 6>>(bundle.lightProbes->reach)); // UTA-0397, the same
     }
     // UTA-0164 SS 4.5: a bundle differing only in its occlusion must re-upload it.
     if (bundle.occlusion) {

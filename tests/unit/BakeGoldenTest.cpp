@@ -162,9 +162,11 @@ namespace {
 // no painted sky, so BAKR's revision moved it.
 // 66: UTA-0389 puts a sea below a painted sky's horizon. The fixture has no
 // painted sky, so BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 66;
+// 67, format 32: UTA-0397 gives each probe its reach, which LPRB carries and
+// the bounces read.
+constexpr std::uint32_t RECORDED_UNDER = 67;
 constexpr std::string_view GOLDEN =
-    "b843d7fa4316532aceaf3cb20857f55767607bc7e888c502e068e3a87b260522";
+    "94bb43e09f022abbb3fceb56042c4f623920510ea3f8c72f7fac5ac14602cdfb";
 
 } // namespace
 

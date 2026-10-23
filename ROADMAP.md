@@ -12302,6 +12302,11 @@ stays with movement in 0.2.0.
   indirectAt). UT99's zones or BSP leaves would be the cells. Cost: a
   large open cell gets one flat value. No leak is reported today, so
   this waits for one. Bounce light itself stays (user, 2026-09-20).
+  2026-10-23: the leak this waited for came (UTA-0397, TheBoat's sand
+  room). UTA-0397 took the cheaper route instead: each lattice probe
+  bakes its reach along the axes and lights nothing past it, so the
+  lattice stays smooth. This stays considered, for leaks that route
+  misses.
   **Layman:** A way to make sure bounce light never bleeds through walls, taken from how DOOM_Ants does it.
   Kind: enhancement.
   Source: in-session-2026-09-26 doom-ants exchange.
@@ -17792,6 +17797,15 @@ stays with movement in 0.2.0.
   light's radius reaching through a wall with no shadow; a bounce
   probe placed outside the room. Split by --light-terms at the
   capture pose. Placed in 0.1.0 beside the item above, same reason.
+  2026-10-23: the floor patch is lamp bow-2's light through the sand
+  room's door (Brush113 hollowed by Brush115, a 16-unit roof), not a
+  leak; the original lit the room by zone ambient. The user: light
+  should come only through the doorway, and the tops of the walls glowed
+  (the indirect term: probes above the roof). Fixed by giving each probe
+  its reach (docs/specs/UTA-0112-baked-light-probes.md § 4.13). ut-ref
+  indirect error at the capture 0.377 -> 0.212; one AS-Frigate view
+  0.039 -> 0.047; the other views of TheBoat, AS-Frigate and TheFortress
+  under 0.1%. No lamp was added to the room.
   **Layman:** In one dark space on the boat map a patch of light shows on the floor where no light should reach.
   Kind: investigate.
   Source: user-request-2026-10-22.

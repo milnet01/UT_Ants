@@ -138,6 +138,18 @@ inline constexpr double SUN_RADIUS = 0.035;
 /// sees the sky -- the share sunSeen passes.
 [[nodiscard]] float skySeenFrom(const Vec3& p, const SurfaceRays& rays);
 
+/// SS 4.13 (UTA-0397): how far a probe at `p` sees along +X, -X, +Y, -Y, +Z
+/// and -Z before it meets a surface, each capped at `spacing`.
+[[nodiscard]] std::array<float, 6> reachFrom(const Vec3& p, const SurfaceRays& rays, double spacing);
+
+/// SS 4.13: how far past its reach a point may lie and still be lit by a
+/// probe, so a point on the surface the reach stopped at is lit by it.
+inline constexpr double PROBE_SIGHT_SLACK = 8.0;
+
+/// SS 4.13: whether a probe with `reach` lights a point `d` away from it --
+/// no axis of `d` past that axis's reach plus PROBE_SIGHT_SLACK.
+[[nodiscard]] bool probeReaches(const std::array<float, 6>& reach, const Vec3& d) noexcept;
+
 /// SS 4.7 step 5: the light of `lights` reaching `x`, facing `n`, each one
 /// ray-tested toward the point it is lit from -- a sun by sunSeen
 /// (UTA-0338 SS 4.4).

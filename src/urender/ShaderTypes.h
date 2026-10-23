@@ -296,12 +296,15 @@ static_assert(offsetof(ClusterBounds, maximum) == 16);
 /// One probe's ambient cube: six linear-RGB faces, +X -X +Y -Y +Z -Z, each
 /// padded to a vec4 as a std430 array of vec3 would not be. Face 0's w carries
 /// the probe's sunSeen (UTA-0338), face 1's its skySeen (UTA-0387); the other
-/// faces' w is unused.
+/// faces' w is unused. `reach` is UTA-0112 SS 4.13's, +X -X +Y -Y +Z -Z, then
+/// two unused floats (UTA-0397).
 struct Probe {
     std::array<float, 24> faces;
+    std::array<float, 8> reach;
 };
-static_assert(sizeof(Probe) == 96);
+static_assert(sizeof(Probe) == 128);
 static_assert(offsetof(Probe, faces) == 0);
+static_assert(offsetof(Probe, reach) == 96);
 
 /// One slot of the probe table (Probes.h): a lattice cell and its probe's
 /// index, or -1 where the slot is empty.

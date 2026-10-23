@@ -695,6 +695,40 @@ TEST_CASE("later bounces", "[ubake][probes]") {
         }
     }
 
+    SECTION("UTA-0397: a probe whose reach falls short of a surface sends it nothing") {
+        // UTA-0112 SS 4.13: the top layer bright and reaching nothing down,
+        // as if a floor lay just under it, is the same as no top layer. The
+        // room stops 12 short of that layer, more than PROBE_SIGHT_SLACK.
+        const auto lowRoom = geometryOf(room({0, 0, 0}, {512, 512, 500},
+                                             {Face{"grey"}, Face{"grey"}, Face{"grey"}, Face{"grey"},
+                                              Face{"grey"}, Face{"grey"}}));
+        const SurfaceRays lowRays(lowRoom);
+        uta::ubundle::LightProbes bright = lit;
+        uta::ubundle::LightProbes without;
+        without.spacing = lit.spacing;
+        for (uta::ubundle::LightProbe& point : bright.probes) {
+            std::array<float, 6> reach;
+            reach.fill(128);
+            if (point.cell[2] == 4) {
+                point.cube.fill({1, 1, 1});
+                reach[5] = 0;
+            } else {
+                without.probes.push_back(point);
+            }
+            bright.reach.push_back(reach);
+        }
+        const AlbedoLookup grey = albedoOf({{"grey", {0.1, 0.1, 0.1}}});
+        const auto masked = bounceProbe(probe, lowRays, lowRoom, bright, grey);
+        const auto removed = bounceProbe(probe, lowRays, lowRoom, without, grey);
+        for (std::size_t face = 0; face < 6; ++face) {
+            CHECK(masked[face].r == Catch::Approx(removed[face].r));
+            CHECK(masked[face].b == Catch::Approx(removed[face].b));
+        }
+        uta::ubundle::LightProbes unmasked = bright;
+        unmasked.reach.clear();
+        CHECK(total(bounceProbe(probe, lowRays, lowRoom, unmasked, grey)) > total(masked) + 0.01);
+    }
+
     SECTION("with no probe near a surface it sends on nothing") {
         uta::ubundle::LightProbes far = lit;
         for (auto& point : far.probes) point.cell[0] += 100;
@@ -748,4 +782,37 @@ TEST_CASE("workers", "[ubake][probes]") {
         return *written;
     };
     CHECK(bytesWith(1) == bytesWith(4));
+}
+
+// UTA-0112 SS 4.13 (UTA-0397): a probe's reach is how far it sees along each
+// axis, capped at the spacing, and a probe lights no point past it.
+TEST_CASE("UTA-0397: a probe's reach stops at the first surface on each axis", "[ubake][probes]") {
+    // A floor 40 below the probe and a wall 100 along +X; nothing else.
+    auto triangles = floorQuad("floor");
+    for (Triangle& t : triangles)
+        for (Vec3& corner : t.corners) corner.z = -40;
+    for (const Triangle& t : quad({100, -500, -500}, {100, 500, -500}, {100, 500, 500}, {100, -500, 500},
+                                  {-1, 0, 0}, "wall"))
+        triangles.push_back(t);
+    const SurfaceRays rays(geometryOf(triangles));
+    const std::array<float, 6> reach = uta::ubake::reachFrom({0, 0, 0}, rays, 128);
+    CHECK(reach[0] == Catch::Approx(100)); // +X, the wall
+    CHECK(reach[1] == 128);                // -X, open: capped
+    CHECK(reach[2] == 128);
+    CHECK(reach[3] == 128);
+    CHECK(reach[4] == 128);                // +Z, open
+    CHECK(reach[5] == Catch::Approx(40));  // -Z, the floor
+}
+
+TEST_CASE("UTA-0397: a probe lights a point within its reach and its slack only", "[ubake][probes]") {
+    const std::array<float, 6> reach{100, 128, 128, 128, 128, 40};
+    const double slack = uta::ubake::PROBE_SIGHT_SLACK;
+    using uta::ubake::probeReaches;
+    CHECK(probeReaches(reach, {100 + slack, 0, 0}));
+    CHECK_FALSE(probeReaches(reach, {100 + slack + 0.5, 0, 0}));
+    CHECK(probeReaches(reach, {0, 0, -(40 + slack)}));
+    CHECK_FALSE(probeReaches(reach, {0, 0, -(40 + slack + 0.5)}));
+    CHECK(probeReaches(reach, {-128, 128, 128}));
+    // Each axis on its own: one short axis is enough to leave it out.
+    CHECK_FALSE(probeReaches(reach, {-10, 10, -60}));
 }

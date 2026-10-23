@@ -192,6 +192,94 @@ TEST_CASE("INV-7: indirect light is the trilinear blend of the probes present", 
     CHECK(zero == normals.size());
 }
 
+// UTA-0112 SS 4.13 (UTA-0397): a corner whose reach falls short of the point
+// is left out, unless every present corner's does. Cell (0, 0, 0)'s top four
+// probes reach 40 down, as if a floor lay 48 units below them; cell (4, 0, 0)'s
+// eight reach nothing on any axis.
+TEST_CASE("UTA-0397: a probe lights no point past its reach", "[device]") {
+    uta::test::render::removeDisplay();
+
+    LightProbes lightProbes;
+    lightProbes.spacing = SPACING;
+    std::map<Cell, LightProbe> byCell;
+    std::map<Cell, std::array<float, 6>> reachOf;
+    std::vector<Cell> cells;
+    for (int z = 0; z <= 1; ++z)
+        for (int y = 0; y <= 1; ++y)
+            for (int x : {0, 1, 4, 5}) cells.push_back({x, y, z});
+    for (std::size_t id = 0; id < cells.size(); ++id) {
+        LightProbe probe;
+        probe.cell = cells[id];
+        for (std::size_t face = 0; face < 6; ++face) probe.cube[face] = faceColour(id, face);
+        std::array<float, 6> reach;
+        reach.fill(static_cast<float>(SPACING));
+        if (probe.cell[0] < 4 && probe.cell[2] == 1) reach[5] = 40; // -Z
+        if (probe.cell[0] >= 4) reach.fill(0);
+        lightProbes.probes.push_back(probe);
+        lightProbes.reach.push_back(reach);
+        byCell.emplace(probe.cell, probe);
+        reachOf.emplace(probe.cell, reach);
+    }
+    const uta::urender::ProbeTable table = uta::urender::probeTable(lightProbes);
+
+    // SS 4.13's rule, as that spec writes it.
+    const auto expectedMasked = [&](const Vec& x, const Vec& n) {
+        Vec sum{};
+        double weights = 0;
+        for (int corner = 0; corner < 8; ++corner) {
+            Cell at{};
+            double weight = 1;
+            bool reaches = true;
+            for (int axis = 0; axis < 3; ++axis) {
+                const double cell = x[axis] / SPACING;
+                const double base = std::floor(cell);
+                const int step = (corner >> axis) & 1;
+                at[axis] = static_cast<std::int32_t>(base) + step;
+                weight *= step ? cell - base : 1 - (cell - base);
+                const double d = x[axis] - at[axis] * static_cast<double>(SPACING);
+                const float reach = reachOf.at(at)[axis * 2 + (d >= 0 ? 0 : 1)];
+                if (std::abs(d) > reach + 8.0) reaches = false;
+            }
+            if (!reaches) continue;
+            const Vec value = cubeAt(byCell.at(at), n);
+            for (int c = 0; c < 3; ++c) sum[c] += weight * value[c];
+            weights += weight;
+        }
+        if (weights == 0) return expectedAt(byCell, x, n);
+        return Vec{sum[0] / weights, sum[1] / weights, sum[2] / weights};
+    };
+
+    // Under the floor, so the top four are out; above it, so all eight count;
+    // and in the cell where every corner is out, so all eight count again.
+    const std::vector<Vec> points = {{40, 70, 60}, {90, 30, 100}, {4.5 * SPACING, 50, 64}};
+    const Vec n{0.6, 0, 0.8};
+    std::vector<ProbeCase> cases;
+    std::vector<Vec> expected;
+    for (const Vec& x : points) {
+        cases.push_back({{static_cast<float>(x[0]), static_cast<float>(x[1]), static_cast<float>(x[2]), 1},
+                         {static_cast<float>(n[0]), static_cast<float>(n[1]), static_cast<float>(n[2]), 0}});
+        expected.push_back(expectedMasked(x, n));
+    }
+    // The rule changed the first case and no other.
+    CHECK(expected[0] != expectedAt(byCell, points[0], n));
+    CHECK(expected[1] == expectedAt(byCell, points[1], n));
+    CHECK(expected[2] == expectedAt(byCell, points[2], n));
+
+    const Lattice lattice{table.spacing, static_cast<std::uint32_t>(table.probes.size()), table.tableMask,
+                          table.longestRun};
+    const std::vector<std::byte> output = uta::test::render::runCompute(
+        probe_eval_comp_spv,
+        {std::as_bytes(std::span(&lattice, 1)), std::as_bytes(std::span(table.cells)),
+         std::as_bytes(std::span(table.probes)), std::as_bytes(std::span(cases))},
+        cases.size() * 4 * sizeof(float), static_cast<std::uint32_t>(cases.size()));
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        std::array<float, 4> actual{};
+        std::memcpy(actual.data(), output.data() + i * sizeof(actual), sizeof(actual));
+        CAPTURE(i, expected[i][0], expected[i][1], expected[i][2], actual[0], actual[1], actual[2]);
+        for (int c = 0; c < 3; ++c) CHECK(std::abs(actual[c] - expected[i][c]) <= 1e-4 * std::max(1.0, expected[i][c]));
+    }
+}
+
 TEST_CASE("a surface with probes and no lights receives indirect light", "[device]") {
     using namespace uta::test::render;
     removeDisplay();
