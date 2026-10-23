@@ -17837,7 +17837,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-22.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0399] **Investigate: the renderer's bundle fingerprint ignores rooms.**
+- ✅ [UTA-0399] **Investigate: the renderer's bundle fingerprint ignores rooms.**
   src/urender/Frame.cpp `shapeOf` does not sample `bundle.rooms`,
   but `upload` reads it (light zones via `zoneAt`, `skyLayersOf`).
   review-code 2026-10-15 asked for the rooms' ends to be sampled;
@@ -17847,7 +17847,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 01 (premise confirmed).
 
-- 🚧 [UTA-0400] **Investigate: the bake's bounce passes never apply the probe reach mask.**
+- ✅ [UTA-0400] **Investigate: the bake's bounce passes never apply the probe reach mask.**
   src/ubake/LightProbes.cpp:613: the bounce passes' `lit` copy gets
   no `reach`, so UTA-0112 § 4.13's mask (item 2: the bake's own copy
   of the blend) is never applied. `lit.reach` is read near :441.
@@ -17860,7 +17860,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 05 (premise confirmed).
 
-- 🚧 [UTA-0401] **Investigate: Vulkan plumbing leads from the readability review.**
+- ✅ [UTA-0401] **Investigate: Vulkan plumbing leads from the readability review.**
   - Resources.cpp:201 and Swapchain.cpp:77 create through `check`,
     not `created`; a failed create may destroy a garbage handle.
   - Materials.cpp:219: a liquid/emit/glass-only material falls back
@@ -17888,7 +17888,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 02.
 
-- 🚧 [UTA-0402] **Investigate: water seen from behind reflects the wrong side's probes.**
+- ✅ [UTA-0402] **Investigate: water seen from behind reflects the wrong side's probes.**
   scene.frag:480 reads probes at `surface` (viewer's side); lighting
   uses `litSurface` (:574). UTA-0089 § 4.2 says both use one point.
   Also light.glsl:143: the LE_NON_INCIDENCE test cannot be false.
@@ -17905,7 +17905,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 03.
 
-- 🚧 [UTA-0403] **Investigate: bake-content input checks from the readability review.**
+- ✅ [UTA-0403] **Investigate: bake-content input checks from the readability review.**
   - Actors.cpp:243: a light's location/rotation is copied with no
     finite check (Movers and Zones replace non-finite values).
   - Zones.cpp:88, Movers.cpp:88: `classes[actor.classIndex]` unbounded.
@@ -17922,7 +17922,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 04.
 
-- 🚧 [UTA-0404] **Investigate: cover points skip the finite-and-in-bounds check.**
+- ✅ [UTA-0404] **Investigate: cover points skip the finite-and-in-bounds check.**
   src/ubake/Geometry.cpp:407: a cover's points skip UTA-0217's check
   that node points get at :397-402; Hide.cpp:120-162 builds hulls from
   possibly-invisible nodes.
@@ -17936,7 +17936,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 05.
 
-- 🚧 [UTA-0405] **Investigate: package reader compares engine names case-sensitively.**
+- ✅ [UTA-0405] **Investigate: package reader compares engine names case-sensitively.**
   Texture.cpp:117 `isModelledTextureClass`; Properties.cpp:217, :274
   and Script.cpp:258 (`None`, `Vector`, `Rotator`). Class.cpp:23-24
   says engine class names are case-insensitive.
@@ -17953,7 +17953,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 07.
 
-- 🚧 [UTA-0406] **Investigate: recipe and curated-material text slips.**
+- ✅ [UTA-0406] **Investigate: recipe and curated-material text slips.**
   - Recipe.cpp:493: a bad `[hide NAME]` says "is not a lamp name".
   - CuratedMaterials.cpp:264: "fordtext.metals.pumppanel-03 " has a
     trailing space; check whether a label must match it.
@@ -17967,7 +17967,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 08.
 
-- 🚧 [UTA-0407] **Investigate: readFile FIFO gap and immortal drift sparks.**
+- ✅ [UTA-0407] **Investigate: readFile FIFO gap and immortal drift sparks.**
   - FileSystem.cpp:434: `readFile` fopen after its type check; the
     FIFO swap gap closed in MappedFile::open only.
   - Fire.cpp:195: Emit with byteD == 0 makes Drift sparks that never
@@ -17982,7 +17982,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 09.
 
-- 🚧 [UTA-0408] **Investigate: viewer and launcher leads from the readability review.**
+- ✅ [UTA-0408] **Investigate: viewer and launcher leads from the readability review.**
   - main.cpp:340: P records the live camera, not `shownView`.
   - MapList.cpp:107: empty baker version reads "older ut-bake".
   - path::string()/narrow strings instead of fs::utf8 (UTA-0221):
@@ -18006,7 +18006,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 11.
 
-- 🚧 [UTA-0409] **Investigate: developer-tool leads from the readability review.**
+- ✅ [UTA-0409] **Investigate: developer-tool leads from the readability review.**
   - ut-bench/Cli.cpp:186-190: path from string_view, not pathFromUtf8.
   - ut-bench/Frame.cpp:82-90: `--size` has no upper bound.
   - ut-dump/Cli.cpp:952-971, :1031-1048: a refused ancestry silently
@@ -18026,7 +18026,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 12.
 
-- 🚧 [UTA-0410] **Investigate: Python helper leads from the readability review.**
+- ✅ [UTA-0410] **Investigate: Python helper leads from the readability review.**
   - ut-compare.py:256-257: bundle path split from JSON text.
   - tile-questions.py:113: report hash compared without lowercasing.
   - tile-questions.py:48: relative HOME accepted; C++ refuses it.
@@ -18059,7 +18059,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 14 (first two confirmed).
 
-- 🚧 [UTA-0412] **Readability fixes: renderer frame side.**
+- ✅ [UTA-0412] **Readability fixes: renderer frame side.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-01-urender-frame.md,
   including HIGH Frame.cpp:1801 (texture slots computed at six sites).
   Close with close-findings; ledger beside the lane file.
@@ -18067,14 +18067,14 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 01.
 
-- 🚧 [UTA-0413] **Readability fixes: renderer Vulkan plumbing.**
+- ✅ [UTA-0413] **Readability fixes: renderer Vulkan plumbing.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-02-urender-vulkan.md.
   Close with close-findings; ledger beside the lane file.
   **Layman:** Make the graphics-card plumbing easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 02.
 
-- 🚧 [UTA-0414] **Readability fixes: shaders.**
+- ✅ [UTA-0414] **Readability fixes: shaders.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-03-urender-shaders.md,
   including HIGH probes.glsl:79 (probe blend twice; UTA-0112 § 4.13 names both).
   Close with close-findings; ledger beside the lane file.
@@ -18082,7 +18082,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 03.
 
-- 🚧 [UTA-0415] **Readability fixes: baker, bake and world content.**
+- ✅ [UTA-0415] **Readability fixes: baker, bake and world content.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-04-ubake-bake-content.md.
   Close with close-findings; ledger beside the lane file.
   2026-10-23: all 17 findings fixed; ledger
@@ -18092,7 +18092,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 04.
 
-- 🚧 [UTA-0416] **Readability fixes: baker, geometry and light.**
+- ✅ [UTA-0416] **Readability fixes: baker, geometry and light.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md.
   Close with close-findings; ledger beside the lane file.
   From UTA-0413 (2026-10-23): ubundle/Bundle.h now holds LE_STATIC_SPOT,
@@ -18111,7 +18111,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 05.
 
-- 🚧 [UTA-0417] **Readability fixes: bundle format.**
+- ✅ [UTA-0417] **Readability fixes: bundle format.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-06-ubundle.md,
   including HIGH LampSection.cpp:20 (record sizes copied; UTA-0162 names LIGHT_SIZE).
   Close with close-findings; ledger beside the lane file.
@@ -18119,7 +18119,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 06.
 
-- 🚧 [UTA-0418] **Readability fixes: package reader and room map.**
+- ✅ [UTA-0418] **Readability fixes: package reader and room map.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-07-upkg-umap.md,
   including HIGH Class.cpp:31 (locale-dependent tolower; five more sites
   outside upkg: Tiers.cpp, map-pic/ut-dump Cli.cpp, ut-ants main.cpp, MapList.cpp).
@@ -18131,7 +18131,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 07.
 
-- 🚧 [UTA-0419] **Readability fixes: materials and recipes.**
+- ✅ [UTA-0419] **Readability fixes: materials and recipes.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-08-umat-urecipe.md.
   Close with close-findings; ledger beside the lane file.
   2026-10-23: all twelve findings closed; ledger
@@ -18142,7 +18142,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 08.
 
-- 🚧 [UTA-0420] **Readability fixes: core, uworld and ufire.**
+- ✅ [UTA-0420] **Readability fixes: core, uworld and ufire.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-09-core-uworld-ufire.md.
   Close with close-findings; ledger beside the lane file.
   2026-10-23, cc0e357. All 13 findings fixed; ledger close-lane-09.md.
@@ -18151,7 +18151,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 09.
 
-- 🚧 [UTA-0421] **Readability fixes: navigation and ut-paths.**
+- ✅ [UTA-0421] **Readability fixes: navigation and ut-paths.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-10-unav-ut-paths.md.
   Close with close-findings; ledger beside the lane file.
   Lane 10 closed in d0dc216: 10 fixed, 0 queued, 0 dismissed
@@ -18161,7 +18161,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 10.
 
-- 🚧 [UTA-0422] **Readability fixes: the ut-ants app.**
+- ✅ [UTA-0422] **Readability fixes: the ut-ants app.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md,
   including HIGH Launcher.cpp:389 (third hand copy of viewer options).
   Close with close-findings; ledger beside the lane file.
@@ -18171,7 +18171,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 11.
 
-- 🚧 [UTA-0423] **Readability fixes: C++ developer tools.**
+- ✅ [UTA-0423] **Readability fixes: C++ developer tools.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md,
   including HIGH ut-shot/main.cpp:150 (three diverged camera-line readers).
   Close with close-findings; ledger beside the lane file.
@@ -18184,7 +18184,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 12.
 
-- 🚧 [UTA-0424] **Readability fixes: Python and UnrealScript helpers.**
+- ✅ [UTA-0424] **Readability fixes: Python and UnrealScript helpers.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-13-scripts-python.md.
   Close with close-findings; ledger beside the lane file.
   In progress 2026-10-23: every lane 13 finding closed in
@@ -18196,7 +18196,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 13.
 
-- 🚧 [UTA-0425] **Readability fixes: build and gate scripts.**
+- ✅ [UTA-0425] **Readability fixes: build and gate scripts.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md,
   including HIGH ci.sh:112 (false comment: docs/*.utab counts as docs-only).
   Close with close-findings; ledger beside the lane file.
