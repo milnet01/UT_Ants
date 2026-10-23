@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=426 -->
+<!-- ants-roadmap-id-high-water: UTA=427 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17856,7 +17856,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 05 (premise confirmed).
 
-- 📋 [UTA-0401] **Investigate: Vulkan plumbing leads from the readability review.**
+- 🚧 [UTA-0401] **Investigate: Vulkan plumbing leads from the readability review.**
   - Resources.cpp:201 and Swapchain.cpp:77 create through `check`,
     not `created`; a failed create may destroy a garbage handle.
   - Materials.cpp:219: a liquid/emit/glass-only material falls back
@@ -17865,6 +17865,21 @@ stays with movement in 0.2.0.
   - Pipelines.cpp:284-285 vs :436-437: two additive blends disagree
     on alpha.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-02-urender-vulkan.md
+  Investigated 2026-10-23 (UTA-0413's close-findings run):
+  - check vs created: real. Fixed: Resources.cpp image view and
+    Swapchain.cpp swapchain, plus the same class found beside them:
+    Device.cpp run()'s fence, Frame.cpp's four samplers, query pool
+    and descriptor pool. No red run: no driver here can be made to
+    fail those creates.
+  - liquid-only material: not real for a baked bundle. umat::generate
+    writes a base map for every material (Generate.cpp MAPS), and
+    Bake.cpp runs it for every variant, liquids included. A damaged
+    bundle falls back to the default material, as SS 6 intends.
+  - fire materials upload then discard maps: real. Fixed; test
+    RenderFireReplayTest UTA-0401 (red 6 == 5, green, mutant killed).
+  - additive blends' alpha: not a bug. No shader reads the colour or
+    emission targets' alpha (post.frag, bloom.frag read .rgb; bloom
+    writes 1). Each blend now says so.
   **Layman:** Possible crash on a rare graphics failure, wasted video memory, and a blend that may be wrong.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 02.
@@ -17978,7 +17993,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 01.
 
-- 📋 [UTA-0413] **Readability fixes: renderer Vulkan plumbing.**
+- 🚧 [UTA-0413] **Readability fixes: renderer Vulkan plumbing.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-02-urender-vulkan.md.
   Close with close-findings; ledger beside the lane file.
   **Layman:** Make the graphics-card plumbing easier for a newcomer to change safely.
@@ -18003,6 +18018,11 @@ stays with movement in 0.2.0.
 - 📋 [UTA-0416] **Readability fixes: baker, geometry and light.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md.
   Close with close-findings; ledger beside the lane file.
+  From UTA-0413 (2026-10-23): ubundle/Bundle.h now holds LE_STATIC_SPOT,
+  LE_SPOTLIGHT, isSpotEffect and worldLightRadius; urender and
+  LightSection.cpp use them. ubake's copies (LightModel.cpp's two LE_
+  values and lightRadius body, ShadowMask.cpp's reach) were left for
+  this item: point them at Bundle.h.
   **Layman:** Make the map converter's light and shape code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 05.
@@ -18090,6 +18110,19 @@ stays with movement in 0.2.0.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 01.
   Lanes: urender.
+
+- 📋 [UTA-0427] **Split Pipelines::create and MaterialSet::upload into a function per section.**
+  Lane 02's two size findings (Pipelines.cpp `Pipelines::create`,
+  Materials.cpp `MaterialSet::upload`). UTA-0413 fixed the stuck points:
+  the shadow layout is built explicitly, each compute section has its
+  own create-info, and liquidByRecord states its one-entry-per-record
+  rule. Left: one function per `// --` section of create, and the fire
+  set-up and the two per-record look tables out of upload. Not done
+  in UTA-0413: the sections write Pipelines' private members, so the
+  split needs member helpers in Pipelines.h, a header change of its own.
+  **Layman:** Break two long set-up functions in the graphics code into smaller named steps.
+  Kind: refactor.
+  Source: review-readability-2026-10-23 lane 02.
 
 ## 0.2.0 — Movement and weapons
 

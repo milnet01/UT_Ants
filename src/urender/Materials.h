@@ -3,7 +3,7 @@
 //
 // INTERNAL (includes Vulkan).
 //
-// A MATS record carries only its id and metallic; its maps are the TEXS
+// A MATS record carries no maps of its own; its maps are the TEXS
 // entries named `<id>:<map>` (UTA-0011 SS 4.10). Every map is one entry in a
 // bindless texture array, and a material is a record of indices into it.
 //

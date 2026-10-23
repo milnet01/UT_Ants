@@ -90,7 +90,10 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     sources.push_back(defaultSource(DEFAULT_NORMAL, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_ROUGH, VK_FORMAT_R8G8B8A8_UNORM));
     sources.push_back(defaultSource(DEFAULT_HEIGHT, VK_FORMAT_R8G8B8A8_UNORM));
-    const gpu::Material defaults{0, 1, 2, 3, gpu::NONE, 0, 0, gpu::NONE, gpu::NONE, gpu::NONE, gpu::NONE, {0, 0}};
+    const gpu::Material defaults{.base = 0, .normal = 1, .rough = 2, .height = 3, .emit = gpu::NONE,
+                                 .metallic = 0, .parallaxDepth = 0, .flame = gpu::NONE, .liquid = gpu::NONE,
+                                 .glass = gpu::NONE, .detail = gpu::NONE, .detailRepeats = {0, 0},
+                                 .tileKind = 0};
 
     std::unordered_map<std::string_view, const ubundle::CompressedTexture*> byName;
     if (bundle.textures)
@@ -130,6 +133,8 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
 
     // UTA-0105 SS 4.4: each liquid look, in MATS order, its settings as floats.
     std::vector<gpu::Liquid> liquids;
+    // Exactly one entry per MATS record, as rampByRecord_ has: the pass below
+    // reads both by record position.
     std::vector<std::uint32_t> liquidByRecord;
     if (bundle.materials) {
         for (const ubundle::MaterialRecord& record : *bundle.materials) {
@@ -218,9 +223,11 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
             }
             if (fireBase != gpu::NONE) {
                 set.byId_.emplace(record.id, static_cast<std::uint32_t>(records.size()));
-                records.push_back({fireBase, defaults.normal, defaults.rough, defaults.height, gpu::NONE,
-                                   record.metallic ? 1u : 0u, 0, set.rampByRecord_[m], liquidByRecord[m], glass,
-                                   detail, detailRepeats, 0u});
+                records.push_back({.base = fireBase, .normal = defaults.normal, .rough = defaults.rough,
+                                   .height = defaults.height, .emit = gpu::NONE,
+                                   .metallic = record.metallic ? 1u : 0u, .parallaxDepth = 0,
+                                   .flame = set.rampByRecord_[m], .liquid = liquidByRecord[m], .glass = glass,
+                                   .detail = detail, .detailRepeats = detailRepeats, .tileKind = 0});
                 continue;
             }
             if (base == gpu::NONE && normal == gpu::NONE && rough == gpu::NONE && height == gpu::NONE) {
@@ -232,13 +239,14 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                 continue;
             }
             set.byId_.emplace(record.id, static_cast<std::uint32_t>(records.size()));
-            records.push_back({base == gpu::NONE ? defaults.base : base,
-                               normal == gpu::NONE ? defaults.normal : normal,
-                               rough == gpu::NONE ? defaults.rough : rough,
-                               height == gpu::NONE ? defaults.height : height, emit,
-                               record.metallic ? 1u : 0u, record.parallaxDepth, set.rampByRecord_[m],
-                               liquidByRecord[m], glass, detail, detailRepeats,
-                               static_cast<std::uint32_t>(record.tileKind)});
+            records.push_back({.base = base == gpu::NONE ? defaults.base : base,
+                               .normal = normal == gpu::NONE ? defaults.normal : normal,
+                               .rough = rough == gpu::NONE ? defaults.rough : rough,
+                               .height = height == gpu::NONE ? defaults.height : height, .emit = emit,
+                               .metallic = record.metallic ? 1u : 0u, .parallaxDepth = record.parallaxDepth,
+                               .flame = set.rampByRecord_[m], .liquid = liquidByRecord[m], .glass = glass,
+                               .detail = detail, .detailRepeats = detailRepeats,
+                               .tileKind = static_cast<std::uint32_t>(record.tileKind)});
         }
     }
 

@@ -46,7 +46,7 @@ gpu::Light flashlightOf(const Camera& camera) noexcept {
     light.saturation = FLASHLIGHT_SATURATION;
     light.brightness = FLASHLIGHT_BRIGHTNESS;
     light.radius = FLASHLIGHT_RADIUS;
-    light.effect = LE_SPOTLIGHT;
+    light.effect = ubundle::LE_SPOTLIGHT;
     light.cone = FLASHLIGHT_CONE;
     light.levelBrightness = 1; // UTA-0156 SS 4.5: ours, not the level's, so unscaled
     light.pitch = camera.rotation[0];

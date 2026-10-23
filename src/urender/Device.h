@@ -68,7 +68,7 @@ struct DeviceCandidate {
 /// "VK_ERROR_INCOMPATIBLE_DRIVER (-9)".
 [[nodiscard]] std::string resultName(VkResult result);
 
-/// NotFound or Unknown carrying `call` and the VkResult, or success.
+/// OutOfMemory or Unknown carrying `call` and the VkResult, or success.
 [[nodiscard]] Result<void> check(VkResult result, std::string_view call);
 
 /// check(), for a create or allocate that writes `handle`: on failure the

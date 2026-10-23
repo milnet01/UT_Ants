@@ -92,8 +92,8 @@ public:
     void clear();
 
 private:
+    std::uint32_t size_; ///< the atlas's side, in texels
     /// Free tiles by level: level 0 is LARGEST_SHADOW_TILE, each level half the last.
-    std::uint32_t size_;
     std::vector<std::vector<AtlasTile>> free_;
 };
 
@@ -126,7 +126,7 @@ private:
 
 /// One tile a frame must draw before it shades.
 struct ShadowDraw {
-    std::uint32_t face = 0; ///< into Plan::faces
+    std::uint32_t face = 0; ///< into ShadowPlan::faces
     AtlasTile tile;
 };
 
@@ -137,7 +137,7 @@ struct ShadowPlan {
     std::vector<std::uint32_t> faceCount;  ///< per light
     std::vector<ShadowDraw> draws;         ///< the tiles to draw this frame
     std::uint32_t unshadowed = 0;          ///< lights wanting shadows the atlas could not hold
-    double unitsPerTexel = 0;              ///< UTA-0303: the texel the near lights' tiles were sized at
+    double nearUnitsPerTexel = 0;          ///< UTA-0303: the texel the near lights' tiles were sized at
     double restUnitsPerTexel = 0;          ///< UTA-0322: the texel the haze-only lights' tiles were sized at
 };
 

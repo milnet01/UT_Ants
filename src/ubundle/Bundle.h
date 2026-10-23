@@ -407,6 +407,20 @@ struct Light {
 /// UTA-0326 SS 4.1. The baker pairs only these lights with a polygon.
 [[nodiscard]] bool litDirectly(const Light& light) noexcept;
 
+/// UT99's two spot values of ELightEffect. light.glsl keeps its own copies.
+inline constexpr std::uint8_t LE_STATIC_SPOT = 8;
+inline constexpr std::uint8_t LE_SPOTLIGHT = 12;
+
+/// Whether `effect` is one of UT99's two spot effects.
+[[nodiscard]] constexpr bool isSpotEffect(std::uint8_t effect) noexcept {
+    return effect == LE_SPOTLIGHT || effect == LE_STATIC_SPOT;
+}
+
+/// `AActor::WorldLightRadius`: how far a light of `radius` reaches, in world
+/// units. light.glsl's `lightRadius` is its shader twin; the two must agree,
+/// or a shadow tile ends before the light's falloff does.
+[[nodiscard]] constexpr double worldLightRadius(std::uint8_t radius) noexcept { return 25.0 * (radius + 1); }
+
 /// One mover's shape, in its pivot space -- UTA-0119 SS 4.2 and SS 4.5.
 ///
 /// `geometry` holds the brush's points with PrePivot subtracted and MainScale

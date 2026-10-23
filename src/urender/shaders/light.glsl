@@ -65,7 +65,8 @@ vec3 preparedShade(Light light) {
     return vec3(light.shadeR, light.shadeG, light.shadeB);
 }
 
-// AActor::WorldLightRadius.
+// AActor::WorldLightRadius. Its C++ twin is ubundle::worldLightRadius
+// (Bundle.h); the two must agree, or a shadow tile ends before the falloff.
 float lightRadius(uint radius) {
     return 25.0 * float(radius + 1u);
 }

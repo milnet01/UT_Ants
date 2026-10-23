@@ -13,14 +13,9 @@ namespace uta::urender {
 
 namespace {
 
-constexpr std::uint8_t LE_STATIC_SPOT = 8;
-constexpr std::uint8_t LE_SPOTLIGHT = 12;
-
 /// The widest a spotlight's shadow frustum opens. A cone byte near 255 asks for
 /// nearly a hemisphere, which a single perspective tile cannot hold.
 constexpr double WIDEST_SPOT_DEGREES = 170.0;
-
-double radiusOf(const ubundle::Light& light) noexcept { return 25.0 * (light.radius + 1); }
 
 /// Where a light's shadow is cast from -- UTA-0162 SS 4.5: a strip leader's
 /// segment's midpoint, any other light's location.
@@ -33,13 +28,13 @@ std::array<float, 3> centreOf(const ubundle::Light& light) noexcept {
 /// How far a light's shadow reaches from centreOf: its radius, plus half a
 /// strip leader's length.
 double reachOf(const ubundle::Light& light) noexcept {
-    if (light.strip != ubundle::STRIP_LEADER) return radiusOf(light);
+    if (light.strip != ubundle::STRIP_LEADER) return ubundle::worldLightRadius(light.radius);
     double squared = 0;
     for (std::size_t axis = 0; axis < 3; ++axis) {
         const double d = static_cast<double>(light.stripTo[axis]) - light.stripFrom[axis];
         squared += d * d;
     }
-    return radiusOf(light) + std::sqrt(squared) / 2;
+    return ubundle::worldLightRadius(light.radius) + std::sqrt(squared) / 2;
 }
 
 std::uint32_t levelOf(std::uint32_t size) noexcept {
@@ -136,7 +131,7 @@ void ShadowAtlas::release(const AtlasTile& tile) {
 // -- Lights ---------------------------------------------------------------------
 
 bool isSpot(const ubundle::Light& light) noexcept {
-    if (light.effect != LE_SPOTLIGHT && light.effect != LE_STATIC_SPOT) return false;
+    if (!ubundle::isSpotEffect(light.effect)) return false;
     // A cone wider than one tile's frustum is shadowed as a point light: past
     // WIDEST_SPOT_DEGREES the rim would be lit with no shadow at all.
     const double c = std::max(1.0 - light.cone / 256.0, 0.0);
@@ -232,10 +227,10 @@ void ShadowPlanner::reset() {
 ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
                                const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds,
                                const std::vector<bool>& near) {
-    const auto [unitsPerTexel, restUnitsPerTexel] = unitsPerTexelFor(lights, near, detail_);
+    const auto [nearUnitsPerTexel, restUnitsPerTexel] = unitsPerTexelFor(lights, near, detail_);
     std::vector<std::uint32_t> wanted(lights.size());
     for (std::size_t i = 0; i < lights.size(); ++i)
-        wanted[i] = shadowTileSize(lights[i], isNear(near, i) ? unitsPerTexel : restUnitsPerTexel);
+        wanted[i] = shadowTileSize(lights[i], isNear(near, i) ? nearUnitsPerTexel : restUnitsPerTexel);
 
     // Any light whose wanted size changed -- or a different set of lights --
     // re-admits every light, largest first, and draws all their tiles again.
@@ -276,7 +271,7 @@ ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
     }
 
     ShadowPlan plan;
-    plan.unitsPerTexel = unitsPerTexel;
+    plan.nearUnitsPerTexel = nearUnitsPerTexel;
     plan.restUnitsPerTexel = restUnitsPerTexel;
     plan.firstFace.assign(lights.size(), -1);
     plan.faceCount.assign(lights.size(), 0);

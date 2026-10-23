@@ -4,7 +4,7 @@
 //
 // NO VULKAN MEMORY ALLOCATOR, AND NONE IS CLAIMED (SS 8). A buffer or image
 // made here owns its own allocation. The one class that would exhaust a
-// driver's allocation count -- a bundle's textures, five maps a material --
+// driver's allocation count -- a bundle's textures, up to seven maps a material --
 // is bound into one shared block per memory type instead (Materials.cpp).
 
 #pragma once

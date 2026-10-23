@@ -29,7 +29,6 @@ inline constexpr std::uint32_t VOLUME_LIGHT_CAPACITY = 64;
 /// SS 4.5: the flashlight, in UT99's numbers. Hue, saturation and brightness
 /// are FlashLightBeam's; radius 255 is the farthest a byte reaches; cone 18
 /// spans UT99's 200-unit lit sphere at 500 units.
-inline constexpr std::uint32_t LE_SPOTLIGHT = 12;
 inline constexpr std::uint32_t FLASHLIGHT_HUE = 32;
 inline constexpr std::uint32_t FLASHLIGHT_SATURATION = 142;
 inline constexpr std::uint32_t FLASHLIGHT_BRIGHTNESS = 250;
