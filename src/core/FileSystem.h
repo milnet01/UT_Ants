@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdio>
 #include <filesystem>
 #include <span>
 #include <string>
@@ -94,6 +95,12 @@ namespace detail {
 /// the bytes may not be on the device; an error meaning the file cannot be
 /// synced at all does not, and the rename goes ahead. 0 is no error.
 [[nodiscard]] bool syncErrorRefuses(int error) noexcept;
+
+/// readFile's open: the file at `path` opened for reading, refusing anything
+/// but a regular file as InvalidArgument. The refusal is made on the opened
+/// file itself, so a FIFO or a device swapped in after a status check can
+/// neither block the open nor be read (UTA-0407). The caller closes the file.
+[[nodiscard]] Result<std::FILE*> openForReading(const std::filesystem::path& path);
 
 }  // namespace detail
 

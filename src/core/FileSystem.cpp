@@ -393,6 +393,39 @@ void MappedFile::release() noexcept {
     size_ = 0;
 }
 
+Result<std::FILE*> detail::openForReading(const std::filesystem::path& path) {
+#ifdef _WIN32
+    errno = 0;
+    std::FILE* file = openNative(path, "rb");
+    if (file == nullptr) return fail(errorCodeFromErrno(errno), "cannot open " + utf8(path));
+    return file;
+#else
+    // O_NONBLOCK keeps a FIFO from blocking the open; the S_ISREG test on the
+    // open descriptor then refuses it. A regular file reads the same either way.
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+    if (fd < 0) {
+        const int error = errno;
+        return fail(errorCodeFromErrno(error), "cannot open " + utf8(path) + ": " + std::strerror(error));
+    }
+    struct stat info {};
+    if (::fstat(fd, &info) != 0) {
+        ::close(fd);
+        return fail(ErrorCode::IoFailure, "cannot stat " + utf8(path));
+    }
+    if (!S_ISREG(info.st_mode)) {
+        ::close(fd);
+        return fail(ErrorCode::InvalidArgument, utf8(path) + " is not a regular file");
+    }
+    std::FILE* file = ::fdopen(fd, "rb");
+    if (file == nullptr) {
+        const int error = errno;
+        ::close(fd);
+        return fail(errorCodeFromErrno(error), "cannot open " + utf8(path) + ": " + std::strerror(error));
+    }
+    return file;
+#endif
+}
+
 Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
     std::error_code ec;
     const auto status = std::filesystem::status(path, ec);
@@ -430,10 +463,7 @@ Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
 
     // The error_code overloads above keep std::filesystem from throwing;
     // stdio keeps the read itself from throwing too (INV-3).
-    errno = 0;
-    std::FILE* file = openNative(path, "rb");
-    if (file == nullptr)
-        return fail(errorCodeFromErrno(errno), "cannot open " + utf8(path));
+    UTA_TRY(std::FILE* file, detail::openForReading(path));
 
     const std::size_t read =
         bytes.empty() ? 0 : std::fread(bytes.data(), 1, bytes.size(), file);

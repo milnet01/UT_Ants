@@ -31,9 +31,11 @@
 
 namespace uta::ufire {
 
-/// The steps a fire is run before its first picture. A torch's particles live
-/// at most 255 steps, so this is past the longest-lived one leaving its first
-/// spark.
+/// The steps a fire is run before its first picture. An age-bound particle
+/// lives at most 255 steps, so this is past the longest-lived one leaving its
+/// first spark. A Drift particle is bound by its heat instead, and one whose
+/// heat decay is 0 never dies; SurrealEngine's UpdateFrame does the same, so
+/// it holds its slot against `sparksLimit` (UTA-0407).
 inline constexpr int PRIME_STEPS = 256;
 
 /// One spark as UT99 stores it: a type, its heat, its place on the texture,

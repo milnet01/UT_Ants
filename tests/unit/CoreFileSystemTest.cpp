@@ -9,6 +9,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cerrno>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <algorithm>
@@ -20,6 +21,12 @@
 #include <vector>
 
 #include "core/FileSystem.h"
+
+#ifdef __linux__
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 using uta::ErrorCode;
@@ -105,6 +112,33 @@ TEST_CASE("a file holding more than its size said is a short read, not a success
 
     REQUIRE_FALSE(result.has_value());
     CHECK(result.error().code() == ErrorCode::IoFailure);
+}
+#endif
+
+#ifdef __linux__
+TEST_CASE("UTA-0407: reading opens only a regular file, whatever the status check saw",
+          "[core][fs]") {
+    // readFile checks the type, then opens. A FIFO swapped in between was
+    // opened and read; the open itself must refuse it. The test holds the
+    // FIFO open for writing, so a regressed open reads it rather than hangs.
+    const TempDir dir;
+    const fs::path fifo = dir.path() / "swapped.u";
+    REQUIRE(::mkfifo(fifo.c_str(), 0600) == 0);
+    const int writer = ::open(fifo.c_str(), O_RDWR | O_NONBLOCK);
+    REQUIRE(writer >= 0);
+
+    const auto opened = uta::fs::detail::openForReading(fifo);
+    if (opened.has_value()) (void)std::fclose(*opened);
+    (void)::close(writer);
+
+    REQUIRE_FALSE(opened.has_value());
+    CHECK(opened.error().code() == ErrorCode::InvalidArgument);
+
+    // A regular file still opens.
+    writeText(dir.path() / "plain.u", "bytes");
+    const auto plain = uta::fs::detail::openForReading(dir.path() / "plain.u");
+    REQUIRE(plain.has_value());
+    (void)std::fclose(*plain);
 }
 #endif
 
