@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=411 -->
+<!-- ants-roadmap-id-high-water: UTA=425 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17969,6 +17969,112 @@ stays with movement in 0.2.0.
   **Layman:** A bundle placed under docs could skip a safety check; two scripts' help text stops mid-sentence.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 14 (first two confirmed).
+
+- 📋 [UTA-0412] **Readability fixes: renderer frame side.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-01-urender-frame.md,
+  including HIGH Frame.cpp:1801 (texture slots computed at six sites).
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the renderer's per-frame code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 01.
+
+- 📋 [UTA-0413] **Readability fixes: renderer Vulkan plumbing.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-02-urender-vulkan.md.
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the graphics-card plumbing easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 02.
+
+- 📋 [UTA-0414] **Readability fixes: shaders.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-03-urender-shaders.md,
+  including HIGH probes.glsl:79 (probe blend twice; UTA-0112 § 4.13 names both).
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the graphics-card programs easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 03.
+
+- 📋 [UTA-0415] **Readability fixes: baker, bake and world content.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-04-ubake-bake-content.md.
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the map converter's main code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 04.
+
+- 📋 [UTA-0416] **Readability fixes: baker, geometry and light.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md.
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the map converter's light and shape code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 05.
+
+- 📋 [UTA-0417] **Readability fixes: bundle format.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-06-ubundle.md,
+  including HIGH LampSection.cpp:20 (record sizes copied; UTA-0162 names LIGHT_SIZE).
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the bundle-file code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 06.
+
+- 📋 [UTA-0418] **Readability fixes: package reader and room map.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-07-upkg-umap.md,
+  including HIGH Class.cpp:31 (locale-dependent tolower; five more sites
+  outside upkg: Tiers.cpp, map-pic/ut-dump Cli.cpp, ut-ants main.cpp, MapList.cpp).
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the original-file reader easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 07.
+
+- 📋 [UTA-0419] **Readability fixes: materials and recipes.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-08-umat-urecipe.md.
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the materials and recipe code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 08.
+
+- 📋 [UTA-0420] **Readability fixes: core, uworld and ufire.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-09-core-uworld-ufire.md.
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the groundwork code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 09.
+
+- 📋 [UTA-0421] **Readability fixes: navigation and ut-paths.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-10-unav-ut-paths.md.
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the bot-route code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 10.
+
+- 📋 [UTA-0422] **Readability fixes: the ut-ants app.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md,
+  including HIGH Launcher.cpp:389 (third hand copy of viewer options).
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the game program's code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 11.
+
+- 📋 [UTA-0423] **Readability fixes: C++ developer tools.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md,
+  including HIGH ut-shot/main.cpp:150 (three diverged camera-line readers).
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the developer tools' code easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 12.
+
+- 📋 [UTA-0424] **Readability fixes: Python and UnrealScript helpers.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-13-scripts-python.md.
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the helper scripts easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 13.
+
+- 📋 [UTA-0425] **Readability fixes: build and gate scripts.**
+  Every finding in docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md,
+  including HIGH ci.sh:112 (false comment: docs/*.utab counts as docs-only).
+  Close with close-findings; ledger beside the lane file.
+  **Layman:** Make the build and push-check scripts easier for a newcomer to change safely.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 14.
 
 ## 0.2.0 — Movement and weapons
 
