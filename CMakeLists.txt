@@ -113,8 +113,8 @@ endif()
 # that refuses to configure: the person who passed it does not find out it
 # did nothing until the numbers stop matching across machines, which is
 # exactly the failure this whole contract exists to prevent. Same idiom as
-# the UTA_SANITIZE and compiler-version checks below: explain why, then
-# fail fast.
+# the compiler-version checks above and the UTA_SANITIZE check below: explain
+# why, then fail fast.
 set(_uta_unsafe_fp_pattern "(-ffast-math|-Ofast|/fp:fast|-ffp-contract=fast)")
 foreach(_uta_fp_flags_var IN ITEMS
         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
@@ -200,11 +200,10 @@ if(MSVC)
     add_link_options("/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/cmake/utf8.manifest")
 endif()
 
-# mold saves almost nothing TODAY -- this project links one static library and
-# one test executable, so there is barely a link step to speed up. It is wired
-# now because that stops being true once urender and the third-party
-# dependencies arrive, and a detected flag costs nothing in the meantime.
-# Not on MSVC, which has no -fuse-ld.
+# mold shortens the link step, which covers the engine's libraries, the tools,
+# the client and the test executables. Used only where found, so a machine
+# without it links as before; ci.yml installs it so GitHub links the way the
+# local gate does (UTA-0241). Not on MSVC, which has no -fuse-ld.
 if(NOT MSVC)
     find_program(UTA_MOLD mold)
     if(UTA_MOLD)

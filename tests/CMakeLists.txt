@@ -286,7 +286,8 @@ uta_unoptimised_test_sources(uta_unit_tests)
 uta_unoptimised_test_sources(uta_device_tests)
 
 if(UTA_REAL_ASSET_TESTS)
-    # RealInstallTest.cpp was split by subject into the next four -- UTA-0103.
+    # One file per subject (UTA-0103); RealInstallTest.cpp holds the harness
+    # checks and the read of every package.
     add_executable(uta_real_asset_tests real/RealInstallTest.cpp real/RealGraphsTest.cpp
                                         real/RealRoomsTest.cpp real/RealMaterialsTest.cpp
                                         real/RealBakeTest.cpp real/RealGeometryTest.cpp
