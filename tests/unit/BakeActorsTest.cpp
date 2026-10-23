@@ -21,6 +21,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -257,6 +258,23 @@ TEST_CASE("INV-7: a light is its own value else its class's else zero", "[ubake]
     CHECK(actors->lights[1].exportIndex == placed[1].exportIndex);
     lightIs(actors->lights[0], 1, 200, 3, {1.0F, 2.0F, 3.0F});
     lightIs(actors->lights[1], 1, 0, 0, {0.0F, 0.0F, 0.0F});
+}
+
+// UTA-0403: a light's Location is the actor's file data, as a mover's is, so a
+// part that is not finite reads as 0, as Movers.cpp and Zones.cpp read one.
+TEST_CASE("a light's location part that is not finite reads as 0", "[ubake][actors]") {
+    MapBuilder map;
+    map.addActorOfClass("ActorPkg", "Lamp",
+                        {vectorProperty("Location", std::numeric_limits<float>::quiet_NaN(), 2.0F,
+                                        std::numeric_limits<float>::infinity())});
+    MemoryPackages packages;
+    packages.add("actorpkg", actorPkg());
+
+    const std::vector<std::uint8_t> bytes = map.build();
+    const auto actors = actorsOf(bytes, packages);
+    REQUIRE(actors.has_value());
+    REQUIRE(actors->lights.size() == 1);
+    CHECK(actors->lights[0].location == std::array<float, 3>{0.0F, 2.0F, 0.0F});
 }
 
 TEST_CASE("INV-8: an object value is the folded path of what it names", "[ubake][actors]") {

@@ -17907,6 +17907,13 @@ stays with movement in 0.2.0.
   - Zones.cpp:88, Movers.cpp:88: `classes[actor.classIndex]` unbounded.
   - GameTypes.cpp:56: only little-endian UTF-16 BOM recognised.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-04-ubake-bake-content.md
+  2026-10-23, close-lane-04.md: Actors.cpp:243 real; a light Location part
+  that is not finite now reads as 0, as Movers and Zones read one (test
+  in BakeActorsTest, red then green, mutant killed). Zones/Movers
+  classIndex: not a bug, every caller passes buildActors output and the
+  bundle reader refuses a bad index; precondition stated in the headers.
+  GameTypes big-endian UTF-16: not a bug, no .int in the reference
+  install is UTF-16 at all; GameTypes.h now promises little-endian only.
   **Layman:** A broken or hostile map file might slip bad values into the bake.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 04.
@@ -18019,6 +18026,9 @@ stays with movement in 0.2.0.
 - 🚧 [UTA-0415] **Readability fixes: baker, bake and world content.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-04-ubake-bake-content.md.
   Close with close-findings; ledger beside the lane file.
+  2026-10-23: all 17 findings fixed; ledger
+  docs/reviews/review-readability-2026-10-23/close-lane-04.md. Four maps
+  bake byte-identical before and after.
   **Layman:** Make the map converter's main code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 04.

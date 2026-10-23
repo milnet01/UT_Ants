@@ -17,6 +17,9 @@
 
 namespace uta::ubake {
 
+// Both take `placements` as buildActors gives them, every classIndex naming a
+// class; they do not check it (UTA-0403).
+
 /// One entry per zone of `model`, and one when it has none -- SS 4.3.
 ///
 /// Zone i's actor is its `zoneActor` where that names a placement, else the

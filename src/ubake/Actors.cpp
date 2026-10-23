@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <map>
 #include <optional>
 #include <set>
@@ -230,8 +231,13 @@ std::optional<ubundle::Light> lightOf(std::uint32_t exportIndex,
     if (light.type == 0) return std::nullopt;
 
     light.exportIndex = exportIndex;
+    // A part that is not finite reads as 0, as Movers.cpp and Zones.cpp read
+    // one: a crafted map's NaN would otherwise reach the strips, flames and
+    // probes (UTA-0403).
     if (const PropertyRecord* location = detail::resolvedRecord("location", ValueKind::Vector, own, defaults))
         light.location = std::get<std::array<float, 3>>(location->value);
+    for (float& part : light.location)
+        if (!std::isfinite(part)) part = 0;
     if (const PropertyRecord* rotation = detail::resolvedRecord("rotation", ValueKind::Rotator, own, defaults))
         light.rotation = std::get<std::array<std::int32_t, 3>>(rotation->value);
     light.effect = byteOf("lighteffect");

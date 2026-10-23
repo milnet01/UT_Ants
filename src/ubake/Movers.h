@@ -32,7 +32,9 @@ struct MoverSite {
 /// The movers among `actors`, by SS 4.3, in export order.
 ///
 /// MalformedData, naming the actor, when a mover's own Brush names no Model
-/// export of the map. An actor whose Brush is null is not a mover.
+/// export of the map. An actor whose Brush is null is not a mover. `actors`
+/// is as buildActors gives it, every classIndex naming a class; that is not
+/// checked here (UTA-0403).
 [[nodiscard]] Result<std::vector<MoverSite>> findMovers(const upkg::Package& map,
                                                         const ubundle::Placements& actors);
 
