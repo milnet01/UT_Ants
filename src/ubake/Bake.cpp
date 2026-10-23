@@ -198,10 +198,13 @@ const upkg::ExportEntry* exportNamed(const upkg::Package& holder, const Imported
     for (const std::string& name : imported.names) chain.push_back(detail::fold(name));
     for (const upkg::ExportEntry& candidate : holder.exports()) {
         if (!matchesChain(holder, candidate, chain)) continue;
-        const auto classOf = holder.objectName(candidate.objectClass); // "None" for a class export
-        const std::string className = candidate.objectClass.kind() == upkg::ObjectReferenceKind::Null
-                                          ? std::string("class")
-                                          : detail::fold(classOf.has_value() ? std::string(*classOf) : std::string());
+        // Not classOf(): a class export's own class reference is null, which
+        // classOf() gives as "", while an import of a class names it "Class".
+        const auto instanceClass = holder.objectName(candidate.objectClass);
+        const std::string className =
+            candidate.objectClass.kind() == upkg::ObjectReferenceKind::Null
+                ? std::string("class")
+                : detail::fold(instanceClass.has_value() ? std::string(*instanceClass) : std::string());
         if (className == imported.className) return &candidate;
     }
     return nullptr;
@@ -345,10 +348,6 @@ std::size_t nearestToMean(const upkg::Palette& palette) {
     return nearest;
 }
 
-/// UTA-0263 SS 4.2: the palette at eight evenly spaced heats, coldest first,
-/// decoded to linear. A fire's texel is its heat, 0 to 255, and indexes the
-/// palette directly; a shorter palette's last entry stands for the heats past
-/// it. `palette` has at least one entry.
 /// UTA-0286 SS 4.3: a non-flame FireTexture's fire look, or why it has none.
 std::expected<ubundle::FireLook, std::string> fireLookOf(const upkg::Mip& base, std::span<const upkg::Spark> sparks,
                                                          const FireSettings& settings, const upkg::Palette& palette,
@@ -378,6 +377,10 @@ std::expected<ubundle::FireLook, std::string> fireLookOf(const upkg::Mip& base, 
     return look;
 }
 
+/// UTA-0263 SS 4.2: the palette at eight evenly spaced heats, coldest first,
+/// decoded to linear. A fire's texel is its heat, 0 to 255, and indexes the
+/// palette directly; a shorter palette's last entry stands for the heats past
+/// it. `palette` has at least one entry.
 ubundle::FlameLook flameLookOf(const upkg::Palette& palette) {
     ubundle::FlameLook look;
     constexpr std::size_t HOTTEST = 255;
@@ -461,6 +464,43 @@ struct MadeVariant {
     bool cloth = false;
 };
 
+/// The texture `holder`'s property `property` names, as a grey picture at its
+/// own size: each texel its palette colour's Rec. 709 luma, an index past the
+/// palette 0, as a missing colour. `what` names it in a lookup's message. None
+/// when it names none, does not read, is empty, stores too few pixels, or is
+/// wider or taller than 65535. glassOf and detailOf differ only after this.
+std::optional<umat::Image> greyOfNamed(const upkg::Package& holder, const std::vector<upkg::Property>& properties,
+                                       const upkg::PackageResolver& resolver, std::string_view property,
+                                       const std::string& what) {
+    const auto reference = objectProperty(holder, properties, property);
+    if (!reference.has_value() || reference->kind() == upkg::ObjectReferenceKind::Null) return std::nullopt;
+    const auto site = objectAt(holder, *reference, resolver, what);
+    if (!site.has_value()) return std::nullopt;
+    const auto ownProperties = upkg::readProperties(*site->holder, *site->entry);
+    if (!ownProperties.has_value()) return std::nullopt;
+    const auto paletteReference = objectProperty(*site->holder, *ownProperties, "palette");
+    if (!paletteReference.has_value() || paletteReference->kind() == upkg::ObjectReferenceKind::Null)
+        return std::nullopt;
+    const auto paletteSite = objectAt(*site->holder, *paletteReference, resolver, what + "'s palette");
+    if (!paletteSite.has_value()) return std::nullopt;
+    const auto palette = upkg::readPalette(*paletteSite->holder, *paletteSite->entry);
+    if (!palette.has_value()) return std::nullopt;
+    const auto texture = upkg::readTexture(*site->holder, *site->entry);
+    if (!texture.has_value() || texture->mips.empty()) return std::nullopt;
+    const upkg::Mip& level = texture->mips[0];
+    const std::size_t count = std::size_t{level.width} * level.height;
+    if (count == 0 || level.pixels.size() < count || level.width > 0xFFFF || level.height > 0xFFFF)
+        return std::nullopt;
+    umat::Image grey{level.width, level.height, 1, std::vector<std::byte>(count)};
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto index = static_cast<std::size_t>(level.pixels[i]);
+        if (index >= palette->entries.size()) continue;
+        const upkg::PaletteEntry& e = palette->entries[index];
+        grey.pixels[i] = static_cast<std::byte>(std::lround(0.2126 * e.r + 0.7152 * e.g + 0.0722 * e.b));
+    }
+    return grey;
+}
+
 /// UTA-0270: an Ice texture's GlassTexture as a one-level BC4 picture of each
 /// texel's grey -- its palette colour's Rec. 709 luma, the value the original's
 /// frames show the shift follows. None when it names none, does not read, or
@@ -470,32 +510,9 @@ std::optional<ubundle::CompressedTexture> glassOf(const upkg::Package& holder,
                                                   const std::vector<upkg::Property>& properties,
                                                   const upkg::PackageResolver& resolver, const std::string& id,
                                                   std::uint32_t width, std::uint32_t height, JobSystem& jobs) {
-    const auto reference = objectProperty(holder, properties, "glasstexture");
-    if (!reference.has_value() || reference->kind() == upkg::ObjectReferenceKind::Null) return std::nullopt;
-    const auto site = objectAt(holder, *reference, resolver, "GlassTexture");
-    if (!site.has_value()) return std::nullopt;
-    const auto glassProperties = upkg::readProperties(*site->holder, *site->entry);
-    if (!glassProperties.has_value()) return std::nullopt;
-    const auto paletteReference = objectProperty(*site->holder, *glassProperties, "palette");
-    if (!paletteReference.has_value() || paletteReference->kind() == upkg::ObjectReferenceKind::Null)
-        return std::nullopt;
-    const auto paletteSite = objectAt(*site->holder, *paletteReference, resolver, "GlassTexture's palette");
-    if (!paletteSite.has_value()) return std::nullopt;
-    const auto palette = upkg::readPalette(*paletteSite->holder, *paletteSite->entry);
-    if (!palette.has_value()) return std::nullopt;
-    const auto texture = upkg::readTexture(*site->holder, *site->entry);
-    if (!texture.has_value() || texture->mips.empty()) return std::nullopt;
-    const upkg::Mip& level = texture->mips[0];
-    const std::size_t count = std::size_t{width} * height;
-    if (level.width != width || level.height != height || level.pixels.size() < count) return std::nullopt;
-    umat::Image grey{width, height, 1, std::vector<std::byte>(count)};
-    for (std::size_t i = 0; i < count; ++i) {
-        const auto index = static_cast<std::size_t>(level.pixels[i]);
-        if (index >= palette->entries.size()) continue; // 0, as a missing colour
-        const upkg::PaletteEntry& e = palette->entries[index];
-        grey.pixels[i] = static_cast<std::byte>(std::lround(0.2126 * e.r + 0.7152 * e.g + 0.0722 * e.b));
-    }
-    auto compressed = umat::compress(id + ":glass", std::span<const umat::Image>(&grey, 1), ubundle::BlockFormat::BC4,
+    const auto grey = greyOfNamed(holder, properties, resolver, "glasstexture", "GlassTexture");
+    if (!grey.has_value() || grey->width != width || grey->height != height) return std::nullopt;
+    auto compressed = umat::compress(id + ":glass", std::span<const umat::Image>(&*grey, 1), ubundle::BlockFormat::BC4,
                                      static_cast<std::uint16_t>(width), static_cast<std::uint16_t>(height), jobs);
     if (!compressed.has_value()) return std::nullopt;
     return std::move(*compressed);
@@ -511,38 +528,120 @@ std::optional<ubundle::CompressedTexture> detailOf(const upkg::Package& holder,
                                                    const std::vector<upkg::Property>& properties,
                                                    const upkg::PackageResolver& resolver, const std::string& id,
                                                    JobSystem& jobs) {
-    const auto reference = objectProperty(holder, properties, "detailtexture");
-    if (!reference.has_value() || reference->kind() == upkg::ObjectReferenceKind::Null) return std::nullopt;
-    const auto site = objectAt(holder, *reference, resolver, "DetailTexture");
-    if (!site.has_value()) return std::nullopt;
-    const auto detailProperties = upkg::readProperties(*site->holder, *site->entry);
-    if (!detailProperties.has_value()) return std::nullopt;
-    const auto paletteReference = objectProperty(*site->holder, *detailProperties, "palette");
-    if (!paletteReference.has_value() || paletteReference->kind() == upkg::ObjectReferenceKind::Null)
-        return std::nullopt;
-    const auto paletteSite = objectAt(*site->holder, *paletteReference, resolver, "DetailTexture's palette");
-    if (!paletteSite.has_value()) return std::nullopt;
-    const auto palette = upkg::readPalette(*paletteSite->holder, *paletteSite->entry);
-    if (!palette.has_value()) return std::nullopt;
-    const auto texture = upkg::readTexture(*site->holder, *site->entry);
-    if (!texture.has_value() || texture->mips.empty()) return std::nullopt;
-    const upkg::Mip& level = texture->mips[0];
-    const std::size_t count = std::size_t{level.width} * level.height;
-    if (count == 0 || level.pixels.size() < count || level.width > 0xFFFF || level.height > 0xFFFF)
-        return std::nullopt;
-    umat::Image grey{level.width, level.height, 1, std::vector<std::byte>(count)};
-    for (std::size_t i = 0; i < count; ++i) {
-        const auto index = static_cast<std::size_t>(level.pixels[i]);
-        if (index >= palette->entries.size()) continue; // 0, as a missing colour
-        const upkg::PaletteEntry& e = palette->entries[index];
-        grey.pixels[i] = static_cast<std::byte>(std::lround(0.2126 * e.r + 0.7152 * e.g + 0.0722 * e.b));
-    }
-    const std::vector<umat::Image> levels = umat::mipChain(grey);
+    const auto grey = greyOfNamed(holder, properties, resolver, "detailtexture", "DetailTexture");
+    if (!grey.has_value()) return std::nullopt;
+    const std::vector<umat::Image> levels = umat::mipChain(*grey);
     auto compressed = umat::compress(id + ":detail", levels, ubundle::BlockFormat::BC4,
-                                     static_cast<std::uint16_t>(level.width), static_cast<std::uint16_t>(level.height),
+                                     static_cast<std::uint16_t>(grey->width), static_cast<std::uint16_t>(grey->height),
                                      jobs);
     if (!compressed.has_value()) return std::nullopt;
     return std::move(*compressed);
+}
+
+/// UTA-0294: how far each question's camera may stand off its surface and
+/// stay on the surface's side of the geometry: the first of 192, 128, 96 and
+/// 64 units with nothing between, else 32. The ray starts one unit off the
+/// surface, so the surface itself never blocks it.
+void setCameraClearance(std::vector<TileQuestion>& questions, const SurfaceRays& surfaces) {
+    for (TileQuestion& question : questions) {
+        const Vec3 at{question.at[0], question.at[1], question.at[2]};
+        const Vec3 normal{question.normal[0], question.normal[1], question.normal[2]};
+        question.clear = 32;
+        for (const double step : {192.0, 128.0, 96.0, 64.0})
+            if (!surfaces.blocked(at + normal, at + normal * step)) {
+                question.clear = step;
+                break;
+            }
+    }
+}
+
+/// The picture a variant shows and the palette it is read through. `mip` and
+/// `palette` point at the texture's own, or at this object's members, so it is
+/// never copied or moved.
+struct ShownPicture {
+    const upkg::Mip* mip = nullptr;
+    const upkg::Palette* palette = nullptr;
+    std::optional<upkg::Texture> sourceTexture; ///< UTA-0155's SourceTexture
+    std::optional<upkg::Palette> sourcePalette; ///< and its own palette
+    std::vector<std::byte> madeIndices;         ///< a picture made here: the fire's, or a flat fill
+    upkg::Mip madeLevel;                        ///< `base` with madeIndices as its pixels
+
+    ShownPicture() = default;
+    ShownPicture(const ShownPicture&) = delete;
+    ShownPicture& operator=(const ShownPicture&) = delete;
+};
+
+/// makeVariant's step 3: which picture `texture` shows. Its stored base level,
+/// unless it stores no pixels of its own:
+///
+/// - `fireClass`, a FireTexture: its still is simulated from its sparks,
+///   through its own palette (UTA-0176). Moving it is UTA-0105's.
+/// - else its SourceTexture's picture, through that texture's own palette, as
+///   a still image (UTA-0155; the user's choice, 2026-09-14; moving it is
+///   UTA-0105's). One hop: a source storing no pixels either is filled flat.
+/// - else, naming no source, a flat fill (UTA-0177).
+///
+/// The base level still sets the size a repeat spans.
+std::expected<void, std::string> choosePicture(ShownPicture& shown, const upkg::Package& holder,
+                                               const upkg::Texture& texture, const upkg::Palette& palette,
+                                               std::span<const upkg::Property> properties, bool fireClass,
+                                               const upkg::PackageResolver& resolver) {
+    const upkg::Mip& base = texture.mips[0];
+    shown.mip = &base;
+    shown.palette = &palette;
+    const bool storesNoPixels = base.pixels.size() < std::size_t{base.width} * base.height;
+    if (!storesNoPixels) return {};
+    if (fireClass) {
+        shown.madeIndices = fireStill(base.width, base.height, texture.sparks, fireSettingsOf(holder, properties));
+        shown.madeLevel = base;
+        shown.madeLevel.pixels = shown.madeIndices;
+        shown.mip = &shown.madeLevel;
+        return {};
+    }
+    // UTA-0177: no picture anywhere -- no pixels, and no source that has any.
+    // No engine gives one (SurrealEngine leaves such a texture untouched, and
+    // ucc exports a flat buffer), so it is a flat fill in the texture's own
+    // colours, never magenta.
+    const auto fillFlat = [&]() -> std::expected<void, std::string> {
+        if (palette.entries.empty()) return std::unexpected(std::string("its palette has no entries"));
+        shown.madeIndices.assign(std::size_t{base.width} * base.height,
+                                 static_cast<std::byte>(nearestToMean(palette)));
+        shown.madeLevel = base;
+        shown.madeLevel.pixels = shown.madeIndices;
+        shown.mip = &shown.madeLevel;
+        shown.palette = &palette;
+        return {};
+    };
+    const auto sourceReference = objectProperty(holder, properties, "sourcetexture");
+    if (!sourceReference.has_value() || sourceReference->kind() == upkg::ObjectReferenceKind::Null) return fillFlat();
+    const auto source = objectAt(holder, *sourceReference, resolver, "SourceTexture");
+    if (!source.has_value()) return std::unexpected(source.error());
+    const auto sourceProperties = upkg::readProperties(*source->holder, *source->entry);
+    if (!sourceProperties.has_value())
+        return std::unexpected("its SourceTexture's properties do not read: "
+                               + std::string(sourceProperties.error().message()));
+    const auto sourcePaletteReference = objectProperty(*source->holder, *sourceProperties, "palette");
+    if (!sourcePaletteReference.has_value() || sourcePaletteReference->kind() == upkg::ObjectReferenceKind::Null)
+        return std::unexpected(std::string("its SourceTexture names no palette"));
+    const auto sourcePaletteSite = objectAt(*source->holder, *sourcePaletteReference, resolver, "SourceTexture's palette");
+    if (!sourcePaletteSite.has_value()) return std::unexpected(sourcePaletteSite.error());
+    auto readSourcePalette = upkg::readPalette(*sourcePaletteSite->holder, *sourcePaletteSite->entry);
+    if (!readSourcePalette.has_value())
+        return std::unexpected("its SourceTexture's palette does not read: "
+                               + std::string(readSourcePalette.error().message()));
+    shown.sourcePalette = std::move(*readSourcePalette);
+    auto readSource = upkg::readTexture(*source->holder, *source->entry);
+    if (!readSource.has_value())
+        return std::unexpected("its SourceTexture does not read as a texture: "
+                               + std::string(readSource.error().message()));
+    shown.sourceTexture = std::move(*readSource);
+    if (shown.sourceTexture->mips.empty()) return std::unexpected(std::string("its SourceTexture has no mip levels"));
+    const upkg::Mip& picture = shown.sourceTexture->mips[0];
+    // A source that is itself procedural: DamageWet's is a WaveTexture.
+    if (picture.pixels.size() < std::size_t{picture.width} * picture.height) return fillFlat();
+    shown.mip = &picture;
+    shown.palette = &*shown.sourcePalette;
+    return {};
 }
 
 /// One variant, or why it cannot be made. The error arm is a SKIP and never a
@@ -599,35 +698,6 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     if (texture->mips.empty()) return std::unexpected(std::string("it has no mip levels"));
     const upkg::Mip& base = texture->mips[0];
 
-    // UTA-0155: a procedural texture that stores no pixels of its own -- a
-    // WetTexture, an IceTexture, a ScriptedTexture -- shows its SourceTexture's
-    // picture, through that texture's own palette, as a still image (the user's
-    // choice, 2026-09-14; moving it is UTA-0105's). One hop: a source storing
-    // no pixels either takes UTA-0177's flat fill, as a texture naming no
-    // source does. `base` still sets the size a repeat spans.
-    const upkg::Mip* shown = &base;
-    const upkg::Palette* shownPalette = &*palette;
-    std::optional<upkg::Texture> sourceTexture;
-    std::optional<upkg::Palette> sourcePalette;
-    // UTA-0176: a FireTexture stores no pixels and names no SourceTexture --
-    // UT99 draws it from its sparks every frame -- so its still is simulated,
-    // through its own palette. Moving it is UTA-0105's.
-    // A picture made here rather than read: the fire's, or UTA-0177's fill.
-    std::vector<std::byte> madeIndices;
-    upkg::Mip madeLevel;
-    // UTA-0177: no picture anywhere -- no pixels, and no source that has any.
-    // No engine gives one (SurrealEngine leaves such a texture untouched, and
-    // ucc exports a flat buffer), so it is a flat fill in the texture's own
-    // colours, never magenta.
-    const auto fillFlat = [&]() -> std::expected<void, std::string> {
-        if (palette->entries.empty()) return std::unexpected(std::string("its palette has no entries"));
-        madeIndices.assign(std::size_t{base.width} * base.height, static_cast<std::byte>(nearestToMean(*palette)));
-        madeLevel = base;
-        madeLevel.pixels = madeIndices;
-        shown = &madeLevel;
-        shownPalette = &*palette;
-        return {};
-    };
     const bool storesNoPixels = base.pixels.size() < std::size_t{base.width} * base.height;
     // A picture made here is as large as the file says, and nothing else bounds
     // that: 65535 a side with no pixels would allocate gigabytes, refusing the
@@ -638,69 +708,32 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
                                            base.width, base.height, MADE_EDGE_LIMIT));
     const auto className = holder.objectName(site.entry->objectClass);
     const std::string foldedClass = className.has_value() ? detail::fold(*className) : std::string();
-    if (storesNoPixels && foldedClass == "firetexture") {
-        madeIndices = fireStill(base.width, base.height, texture->sparks, fireSettingsOf(holder, *properties));
-        madeLevel = base;
-        madeLevel.pixels = madeIndices;
-        shown = &madeLevel;
-    } else if (storesNoPixels) {
-        const auto sourceReference = objectProperty(holder, *properties, "sourcetexture");
-        if (!sourceReference.has_value() || sourceReference->kind() == upkg::ObjectReferenceKind::Null) {
-            if (auto filled = fillFlat(); !filled.has_value()) return std::unexpected(filled.error());
-        } else {
-            const auto source = objectAt(holder, *sourceReference, resolver, "SourceTexture");
-            if (!source.has_value()) return std::unexpected(source.error());
-            const auto sourceProperties = upkg::readProperties(*source->holder, *source->entry);
-            if (!sourceProperties.has_value())
-                return std::unexpected("its SourceTexture's properties do not read: "
-                                       + std::string(sourceProperties.error().message()));
-            const auto sourcePaletteReference = objectProperty(*source->holder, *sourceProperties, "palette");
-            if (!sourcePaletteReference.has_value()
-                || sourcePaletteReference->kind() == upkg::ObjectReferenceKind::Null)
-                return std::unexpected(std::string("its SourceTexture names no palette"));
-            const auto sourcePaletteSite =
-                objectAt(*source->holder, *sourcePaletteReference, resolver, "SourceTexture's palette");
-            if (!sourcePaletteSite.has_value()) return std::unexpected(sourcePaletteSite.error());
-            auto readSourcePalette = upkg::readPalette(*sourcePaletteSite->holder, *sourcePaletteSite->entry);
-            if (!readSourcePalette.has_value())
-                return std::unexpected("its SourceTexture's palette does not read: "
-                                       + std::string(readSourcePalette.error().message()));
-            sourcePalette = std::move(*readSourcePalette);
-            auto readSource = upkg::readTexture(*source->holder, *source->entry);
-            if (!readSource.has_value())
-                return std::unexpected("its SourceTexture does not read as a texture: "
-                                       + std::string(readSource.error().message()));
-            sourceTexture = std::move(*readSource);
-            if (sourceTexture->mips.empty()) return std::unexpected(std::string("its SourceTexture has no mip levels"));
-            const upkg::Mip& picture = sourceTexture->mips[0];
-            if (picture.pixels.size() < std::size_t{picture.width} * picture.height) {
-                // A source that is itself procedural: DamageWet's is a WaveTexture.
-                if (auto filled = fillFlat(); !filled.has_value()) return std::unexpected(filled.error());
-            } else {
-                shown = &picture;
-                shownPalette = &*sourcePalette;
-            }
-        }
-    }
+    // UTA-0176: a FireTexture stores no pixels and names no SourceTexture --
+    // UT99 draws it from its sparks every frame.
+    const bool fireClass = storesNoPixels && foldedClass == "firetexture";
+    ShownPicture shown;
+    if (auto chosen = choosePicture(shown, holder, *texture, *palette, *properties, fireClass, resolver);
+        !chosen.has_value())
+        return std::unexpected(chosen.error());
 
     // Step 4. UTA-0010 SS 4.5's order: the defaults, then the curated
     // library's entry for this picture, then the map recipe's assignment.
     umat::MaterialSettings settings{};
     std::optional<ubundle::FlameLook> flame;
     bool cloth = false;
-    if (const auto fingerprint = umat::pictureFingerprint(*shown, *shownPalette)) {
+    if (const auto fingerprint = umat::pictureFingerprint(*shown.mip, *shown.palette)) {
         cloth = umat::isCloth(*fingerprint); // UTA-0055 SS 4.6, keyed as the flame list is
         if (const umat::CuratedOverride* const entry = curated(*fingerprint))
             settings = umat::applied(settings, *entry);
         // UTA-0263 SS 4.1: the flame list is keyed by the same fingerprint. A
         // flame keeps its still as well, so the steps below run unchanged.
-        if (!shownPalette->entries.empty() && isFlame(*fingerprint)) flame = flameLookOf(*shownPalette);
+        if (!shown.palette->entries.empty() && isFlame(*fingerprint)) flame = flameLookOf(*shown.palette);
     }
     // UTA-0286 SS 4.3: a FireTexture the flame list does not name replays in
     // the renderer from its sparks; it keeps its still as well.
     std::optional<ubundle::FireLook> fire;
     std::string fireSkipped;
-    if (storesNoPixels && foldedClass == "firetexture" && !flame.has_value()) {
+    if (fireClass && !flame.has_value()) {
         auto look = fireLookOf(base, texture->sparks, fireSettingsOf(holder, *properties), *palette, masked);
         if (look.has_value()) fire = std::move(*look);
         else fireSkipped = std::move(look).error();
@@ -751,7 +784,7 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     }
 
     // Step 5.
-    const auto resolved = umat::resolve(*shown, *shownPalette, masked);
+    const auto resolved = umat::resolve(*shown.mip, *shown.palette, masked);
     if (!resolved.has_value())
         return std::unexpected("umat::resolve refused it: " + std::string(resolved.error().message()));
     // UTA-0246: a picture that is not a power of two a side -- doom2tex's
@@ -791,7 +824,6 @@ std::expected<MadeVariant, std::string> makeVariant(const TextureSite& site,
     // before any stretch or upscale.
     std::optional<TileScores> tileScores;
     std::array<std::byte, 32> tileHash{};
-    const bool fireClass = storesNoPixels && foldedClass == "firetexture";
     if (!masked && !flame.has_value() && !liquidKindOf(foldedClass).has_value() && !fireClass) {
         tileScores = ubake::tileScores(*resolved);
         tileHash = pictureHash(*resolved);
@@ -1114,9 +1146,7 @@ Result<const upkg::ExportEntry*> findModel(const upkg::Package& map, const upkg:
 
 double textureScale(const upkg::Package& holder, std::span<const upkg::Property> properties) {
     for (const upkg::Property& property : properties) {
-        // Qualified: inside `detail`, a bare nameOf finds Name.h's
-        // detail::nameOf(NameInputs) and stops looking.
-        if (fold(ubake::nameOf(holder, property.nameIndex)) != "drawscale") continue;
+        if (fold(nameOf(holder, property.nameIndex)) != "drawscale") continue;
         const auto* const value = std::get_if<float>(&property.value);
         return value != nullptr && std::isfinite(*value) && *value > 0 ? *value : 1.0;
     }
@@ -1251,28 +1281,19 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                                                mapName));
     std::vector<TileQuestion> tileQuestions = judgeTileKinds(materials, tileSurfaces(model, lookup), tileLimits);
 
-    // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
-    // probes gather them, so the probes and LITE see the same strips. After
-    // step 8, because rule 5 asks the drawn surfaces whether a member sees
-    // the next (UTA-0255).
+    // Two steps ask the drawn surfaces what blocks a ray, so they share one
+    // SurfaceRays, and the "strips" phase times both.
     phase.emplace(&times, "strips");
     {
         const SurfaceRays surfaces(geometry);
+        // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's
+        // probes gather them, so the probes and LITE see the same strips.
+        // After step 8, because rule 5 asks the drawn surfaces whether a
+        // member sees the next (UTA-0255).
         markStrips(actors.lights,
                    [&surfaces](const Vec3& from, const Vec3& to) { return surfaces.blocked(from, to); });
-        // UTA-0294: a question's camera stays on the surface's side of the
-        // geometry. The ray starts one unit off the surface, so the surface
-        // itself never blocks it.
-        for (TileQuestion& question : tileQuestions) {
-            const Vec3 at{question.at[0], question.at[1], question.at[2]};
-            const Vec3 normal{question.normal[0], question.normal[1], question.normal[2]};
-            question.clear = 32;
-            for (const double step : {192.0, 128.0, 96.0, 64.0})
-                if (!surfaces.blocked(at + normal, at + normal * step)) {
-                    question.clear = step;
-                    break;
-                }
-        }
+        // UTA-0294: each tile question's camera clearance, TileQuestion::clear.
+        setCameraClearance(tileQuestions, surfaces);
     }
     // UTA-0263 SS 4.5: after the strips, so no flame names an absorbed light.
     assignFlameLights(flames.flames, actors.lights);
@@ -1393,15 +1414,18 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                    mapName));
     // Each further layer stands at the probes' own lattice, or the baker is at
     // fault.
-    const auto cubesOf = [&probes](const ubundle::LightProbes& layer)
+    // `which` names the layer in the refusal.
+    const auto cubesOf = [&probes](const ubundle::LightProbes& layer, std::string_view which)
         -> Result<std::vector<std::array<std::array<float, 3>, 6>>> {
-        if (layer.probes.size() != probes.probes.size())
-            return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
+        const auto misplaced = [which] {
+            return fail(ErrorCode::MalformedData,
+                        std::format("lamps: the {} probes do not stand where the level's do -- a baker fault", which));
+        };
+        if (layer.probes.size() != probes.probes.size()) return misplaced();
         std::vector<std::array<std::array<float, 3>, 6>> cubes;
         cubes.reserve(layer.probes.size());
         for (std::size_t p = 0; p < layer.probes.size(); ++p) {
-            if (layer.probes[p].cell != probes.probes[p].cell)
-                return fail(ErrorCode::MalformedData, "lamps: the added-lamp probes do not stand where the level's do -- a baker fault");
+            if (layer.probes[p].cell != probes.probes[p].cell) return misplaced();
             cubes.push_back(layer.probes[p].cube);
         }
         return cubes;
@@ -1416,7 +1440,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                 naming(bakeLightProbes(geometry, collision.level, onLights, albedo, jobs,
                                        reach, own, sky, painted),
                        mapName));
-        UTA_TRY(probes.switched, cubesOf(layer));
+        UTA_TRY(probes.switched, cubesOf(layer, "switched-off"));
     }
     // UTA-0256 SS 4.3 step 5: the adding lamps' bounce alone, at the same
     // lattice -- no sky and no glow, which the probes above already hold.
@@ -1429,7 +1453,7 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
                 naming(bakeLightProbes(geometry, collision.level, bakedLights(lampLights, actors.placements), albedo,
                                        jobs, reach),
                        mapName));
-        UTA_TRY(probes.added, cubesOf(layer));
+        UTA_TRY(probes.added, cubesOf(layer, "added-lamp"));
     }
 
     // 11b. AOCC -- UTA-0164 SS 4.4: how enclosed each texel of each lit
@@ -1513,10 +1537,13 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
 namespace {
 
 /// The outermost package an import lives in, and whether the import IS that
-/// package (its outer is null). Empty when the outer chain does not end.
+/// package (its outer is null). Empty when the chain does not end at a
+/// package: an outer that is an export or out of range, or a loop. Bounded by
+/// the import table, as walkImport is: a chain that ends visits each import
+/// once at most.
 std::pair<std::string, bool> homeOf(const upkg::Package& package, const upkg::ImportEntry& import) {
     const upkg::ImportEntry* at = &import;
-    for (std::size_t depth = 0; depth < 64; ++depth) {
+    for (std::size_t hops = 0; hops <= package.imports().size(); ++hops) {
         if (at->outer.kind() == upkg::ObjectReferenceKind::Null) {
             const auto name = package.name(at->objectName);
             return {name.has_value() ? detail::fold(*name) : std::string{}, at == &import};

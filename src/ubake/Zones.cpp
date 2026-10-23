@@ -21,21 +21,17 @@ static_assert(ubundle::ZONE_LIMIT == umap::ZONE_CEILING);
 
 constexpr std::string_view LEVEL_INFO = "engine.levelinfo";
 
-const ubundle::PropertyRecord* recordOf(std::string_view name, ubundle::ValueKind kind,
-                                        const ubundle::ActorPlacement& actor, const ubundle::ActorClass& actorClass) {
-    return detail::resolvedRecord(name, actor.properties, actorClass.defaults,
-                                  [kind](const ubundle::PropertyRecord& candidate) { return candidate.kind == kind; });
-}
-
 std::uint8_t byteOf(std::string_view name, const ubundle::ActorPlacement& actor,
                     const ubundle::ActorClass& actorClass) {
-    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Byte, actor, actorClass);
+    const ubundle::PropertyRecord* record =
+        detail::resolvedRecord(name, ubundle::ValueKind::Byte, actor.properties, actorClass.defaults);
     return record == nullptr ? 0 : std::get<std::uint8_t>(record->value);
 }
 
 std::uint8_t flagOf(std::string_view name, const ubundle::ActorPlacement& actor,
                     const ubundle::ActorClass& actorClass) {
-    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Bool, actor, actorClass);
+    const ubundle::PropertyRecord* record =
+        detail::resolvedRecord(name, ubundle::ValueKind::Bool, actor.properties, actorClass.defaults);
     return record != nullptr && std::get<bool>(record->value) ? 1 : 0;
 }
 
@@ -43,7 +39,8 @@ std::uint8_t flagOf(std::string_view name, const ubundle::ActorPlacement& actor,
 /// else 1, Engine.u's ZoneInfo default. A NaN or infinity is 1, so ZONE's
 /// refusal of a speed that is not finite is never reached from a map.
 float speedOf(std::string_view name, const ubundle::ActorPlacement& actor, const ubundle::ActorClass& actorClass) {
-    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Float, actor, actorClass);
+    const ubundle::PropertyRecord* record =
+        detail::resolvedRecord(name, ubundle::ValueKind::Float, actor.properties, actorClass.defaults);
     if (record == nullptr) return 1;
     const float value = std::get<float>(record->value);
     return std::isfinite(value) ? value : 1.0F;
@@ -53,7 +50,8 @@ float speedOf(std::string_view name, const ubundle::ActorPlacement& actor, const
 /// ZONE's refusal of a tint that is not finite is never reached from a map.
 std::array<float, 3> vectorOf(std::string_view name, const ubundle::ActorPlacement& actor,
                               const ubundle::ActorClass& actorClass) {
-    const ubundle::PropertyRecord* record = recordOf(name, ubundle::ValueKind::Vector, actor, actorClass);
+    const ubundle::PropertyRecord* record =
+        detail::resolvedRecord(name, ubundle::ValueKind::Vector, actor.properties, actorClass.defaults);
     if (record == nullptr) return {};
     std::array<float, 3> value = std::get<std::array<float, 3>>(record->value);
     for (float& part : value)
@@ -85,11 +83,7 @@ const ubundle::ActorPlacement* placementOf(const ubundle::Placements& placements
 /// The lowest-exportIndex placement of LevelInfo or a class descending from it.
 const ubundle::ActorPlacement* levelInfoOf(const ubundle::Placements& placements) {
     for (const ubundle::ActorPlacement& actor : placements.actors) {
-        const ubundle::ActorClass& actorClass = placements.classes[actor.classIndex];
-        if (actorClass.path == LEVEL_INFO
-            || std::find(actorClass.ancestry.begin(), actorClass.ancestry.end(), LEVEL_INFO)
-                   != actorClass.ancestry.end())
-            return &actor;
+        if (ubundle::isOrDescendsFrom(placements.classes[actor.classIndex], LEVEL_INFO)) return &actor;
     }
     return nullptr;
 }
@@ -100,7 +94,8 @@ float levelBrightnessOf(const ubundle::Placements& placements) {
     const ubundle::ActorPlacement* level = levelInfoOf(placements);
     if (level == nullptr) return 1;
     const ubundle::PropertyRecord* record =
-        recordOf("brightness", ubundle::ValueKind::Float, *level, placements.classes[level->classIndex]);
+        detail::resolvedRecord("brightness", ubundle::ValueKind::Float, level->properties,
+                               placements.classes[level->classIndex].defaults);
     if (record == nullptr) return 1;
     const float value = std::get<float>(record->value);
     return std::isfinite(value) ? std::max(value, 0.0F) : 1.0F;

@@ -161,8 +161,8 @@ different settings would then name one map differently (§ 8).
 ```cpp
 namespace uta::ubake {
 
-/// Bumped by hand whenever any code a bake runs -- `ubake`, `umat`, `umap`,
-/// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
+/// Bumped by hand whenever any code a bake runs changes what a bake writes:
+/// `ubake` itself, or any library src/ubake/CMakeLists.txt links it to.
 inline constexpr std::uint32_t BAKER_REVISION = 6;  // 6 since UTA-0112 added LPRB
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
@@ -222,7 +222,7 @@ struct NameInputs {
 [[nodiscard]] Result<std::string> bakeName(const std::filesystem::path& map, Install& install);
 
 namespace detail {
-[[nodiscard]] std::string nameOf(const NameInputs& inputs);
+[[nodiscard]] std::string bakeNameOf(const NameInputs& inputs);
 
 /// The folded names of the map's import closure, ascending. Every lookup goes
 /// through `resolver`.
@@ -756,15 +756,15 @@ Recorded after the build; nothing above changed direction.
   a byte of a closure package, `bakerVersion()`, or a closure package going
   from absent, or from a file that does not open, to one that does.
   *Test:* `tests/unit/BakeTest.cpp`, one case per input, each through
-  `detail::nameOf` or a synthetic install on disk.
+  `detail::bakeNameOf` or a synthetic install on disk.
   *Breaks when:* a closure entry contributes its name without its digest, or
   an absent package is left out of the string, so installing it renames
   nothing.
 
-- **INV-4** — `detail::nameOf` is the SHA-256 of § 4.4's byte string.
+- **INV-4** — `detail::bakeNameOf` is the SHA-256 of § 4.4's byte string.
   *Test:* `tests/unit/BakeTest.cpp` assembles the string literally for a
   closure of names `ab` and `c` given out of order, one absent, and compares
-  `sha256` of it with `nameOf`. A second case with names `a` and `bc`, same
+  `sha256` of it with `bakeNameOf`. A second case with names `a` and `bc`, same
   digests, must give a different name.
   *Breaks when:* the entries are not sorted, or a separator is dropped so
   that closures `{ab, c}` and `{a, bc}` hash the same string.

@@ -288,9 +288,8 @@ std::vector<ubundle::Light> bakedLights(const std::vector<ubundle::Light>& light
                                    ? placements.classes[found->classIndex].defaults
                                    : none;
         // UTA-0110 SS 4.6's order: the actor's own, else its class's default.
-        const ubundle::PropertyRecord* const record = detail::resolvedRecord(
-            "bstatic", found->properties, defaults,
-            [](const ubundle::PropertyRecord& r) { return r.kind == ubundle::ValueKind::Bool; });
+        const ubundle::PropertyRecord* const record =
+            detail::resolvedRecord("bstatic", ubundle::ValueKind::Bool, found->properties, defaults);
         const bool* const isStatic = record == nullptr ? nullptr : std::get_if<bool>(&record->value);
         if (isStatic == nullptr || !*isStatic) continue;
         out.push_back(light);
@@ -304,13 +303,9 @@ std::optional<ProbeReach> probeReachOf(const ubundle::Placements& placements) {
     for (const ubundle::ActorPlacement& actor : placements.actors) {
         if (actor.classIndex >= placements.classes.size()) continue;
         const ubundle::ActorClass& actorClass = placements.classes[actor.classIndex];
-        if (actorClass.path != NAVIGATION_POINT
-            && std::find(actorClass.ancestry.begin(), actorClass.ancestry.end(), NAVIGATION_POINT)
-                   == actorClass.ancestry.end())
-            continue;
-        const ubundle::PropertyRecord* const record = detail::resolvedRecord(
-            "location", actor.properties, actorClass.defaults,
-            [](const ubundle::PropertyRecord& r) { return r.kind == ubundle::ValueKind::Vector; });
+        if (!ubundle::isOrDescendsFrom(actorClass, NAVIGATION_POINT)) continue;
+        const ubundle::PropertyRecord* const record =
+            detail::resolvedRecord("location", ubundle::ValueKind::Vector, actor.properties, actorClass.defaults);
         const auto* const at = record == nullptr ? nullptr : std::get_if<std::array<float, 3>>(&record->value);
         // An actor with no Location of its own sits at the origin, as UT99 places it.
         const Vec3 p = at == nullptr ? Vec3{0, 0, 0} : Vec3{(*at)[0], (*at)[1], (*at)[2]};

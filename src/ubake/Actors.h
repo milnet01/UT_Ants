@@ -46,6 +46,14 @@ namespace detail {
     const std::vector<ubundle::PropertyRecord>& defaults,
     const std::function<bool(const ubundle::PropertyRecord&)>& fits);
 
+/// resolvedRecord's common case: a record fits when it is of `kind`. A float
+/// or a vector comes back as stored, NaN and infinity included: what such a
+/// value becomes is the caller's to say, and each caller says it beside its
+/// read.
+[[nodiscard]] const ubundle::PropertyRecord* resolvedRecord(std::string_view name, ubundle::ValueKind kind,
+                                                            const std::vector<ubundle::PropertyRecord>& own,
+                                                            const std::vector<ubundle::PropertyRecord>& defaults);
+
 } // namespace detail
 
 } // namespace uta::ubake

@@ -1,4 +1,4 @@
-// A still picture of a FireTexture -- UTA-0176. FireStill.h says what is
+// A still picture of a FireTexture -- UTA-0176. ufire/Fire.h says what is
 // adapted from SurrealEngine and what is altered.
 
 #include "FireStill.h"

@@ -29,6 +29,12 @@
 
 namespace uta::ubake {
 
+/// Whether `index`, as a map file stores it, names an entry of a table of
+/// `size` entries: not negative, and below `size`.
+[[nodiscard]] constexpr bool within(std::int64_t index, std::size_t size) noexcept {
+    return index >= 0 && static_cast<std::uint64_t>(index) < size;
+}
+
 /// What sliceSway did to a map's moving surfaces -- UTA-0055 SS 4.2.
 struct SwayReport {
     double waterSlice = 0;

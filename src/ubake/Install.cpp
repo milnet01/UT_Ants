@@ -39,25 +39,6 @@ constexpr std::array<SearchDirectory, 5> SEARCH_ORDER = {{
 /// The packages SS 4.9 requires, spelled as a player's install spells them.
 constexpr std::array<std::string_view, 3> REQUIRED = {"Core", "Engine", "Botpack"};
 
-/// The entries of `directory` that `keep` accepts, sorted bytewise by file
-/// name so "the first" names the same file on every run and every platform.
-template <class Keep>
-Result<std::vector<fsys::path>> listSorted(const fsys::path& directory, Keep keep) {
-    std::vector<fsys::path> out;
-    std::error_code ec;
-    fsys::directory_iterator entry(directory, ec);
-    for (; !ec && entry != fsys::directory_iterator{}; entry.increment(ec)) {
-        if (keep(*entry)) out.push_back(entry->path());
-    }
-    if (ec)
-        return fail(ErrorCode::IoFailure,
-                    "cannot list " + detail::utf8(directory) + ": " + ec.message());
-    std::sort(out.begin(), out.end(), [](const fsys::path& a, const fsys::path& b) {
-        return detail::utf8(a.filename()) < detail::utf8(b.filename());
-    });
-    return out;
-}
-
 } // namespace
 
 namespace detail {
@@ -74,6 +55,23 @@ std::string fold(std::string_view text) {
 std::string utf8(const fsys::path& path) {
     const std::u8string text = path.u8string();
     return std::string(text.begin(), text.end());
+}
+
+Result<std::vector<fsys::path>> listSorted(const fsys::path& directory,
+                                           const std::function<bool(const fsys::directory_entry&)>& keep) {
+    std::vector<fsys::path> out;
+    std::error_code ec;
+    fsys::directory_iterator entry(directory, ec);
+    for (; !ec && entry != fsys::directory_iterator{}; entry.increment(ec)) {
+        if (keep(*entry)) out.push_back(entry->path());
+    }
+    if (ec)
+        return fail(ErrorCode::IoFailure,
+                    "cannot list " + utf8(directory) + ": " + ec.message());
+    std::sort(out.begin(), out.end(), [](const fsys::path& a, const fsys::path& b) {
+        return utf8(a.filename()) < utf8(b.filename());
+    });
+    return out;
 }
 
 } // namespace detail
@@ -108,7 +106,7 @@ Result<Install> Install::open(const fsys::path& root) {
     state->root = root;
 
     UTA_TRY(const std::vector<fsys::path> children,
-            listSorted(root, [](const fsys::directory_entry& entry) {
+            detail::listSorted(root, [](const fsys::directory_entry& entry) {
                 std::error_code ignored;
                 return entry.is_directory(ignored);
             }));
@@ -117,7 +115,7 @@ Result<Install> Install::open(const fsys::path& root) {
         for (const fsys::path& child : children) {
             if (detail::fold(detail::utf8(child.filename())) != search.directory) continue;
             UTA_TRY(const std::vector<fsys::path> files,
-                    listSorted(child, [&search](const fsys::directory_entry& entry) {
+                    detail::listSorted(child, [&search](const fsys::directory_entry& entry) {
                         std::error_code ignored;
                         return entry.is_regular_file(ignored)
                                && detail::fold(detail::utf8(entry.path().extension()))

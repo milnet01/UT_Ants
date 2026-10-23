@@ -27,14 +27,16 @@ struct GameType {
 struct GameTypes {
     /// Every game type whose class was found, sorted by name ignoring case.
     std::vector<GameType> found;
-    /// Names whose package is absent, or does not hold the class.
+    /// Names whose MapPrefix could not be read: the name has no dot, its package
+    /// is absent or does not hold the class, or the class's ancestry or
+    /// defaults do not read.
     std::vector<std::string> unresolved;
 };
 
 /// The game types registered by `System/*.int` and `SystemLocalized/int/*.int`,
 /// directories and extension matched case-insensitively. A name registered
 /// twice is one game type. An .int file may be UTF-8, with or without a byte
-/// order mark, or UTF-16 with one.
+/// order mark, or little-endian UTF-16 with one (FF FE).
 [[nodiscard]] GameTypes readGameTypes(Install& install);
 
 } // namespace uta::ubake

@@ -31,17 +31,13 @@ Error malformed(std::string message) {
 /// class whose walk stopped short of it, at a missing package or class, has
 /// no such path, so it is left out too.
 bool descendsFromBrush(const ubundle::ActorClass& actorClass) {
-    if (!actorClass.resolved) return false;
-    if (actorClass.path == "engine.brush") return true;
-    return std::find(actorClass.ancestry.begin(), actorClass.ancestry.end(), "engine.brush")
-           != actorClass.ancestry.end();
+    return actorClass.resolved && ubundle::isOrDescendsFrom(actorClass, "engine.brush");
 }
 
 const PropertyRecord* resolved(std::string_view name, ValueKind kind,
                                const ubundle::ActorPlacement& actor,
                                const ubundle::ActorClass& actorClass) {
-    return detail::resolvedRecord(name, actor.properties, actorClass.defaults,
-                                  [kind](const PropertyRecord& record) { return record.kind == kind; });
+    return detail::resolvedRecord(name, kind, actor.properties, actorClass.defaults);
 }
 
 /// SS 4.4: a Raw value of struct Scale, seventeen bytes -- three f32, SheerRate

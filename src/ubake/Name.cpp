@@ -84,7 +84,7 @@ std::string mapNameOf(const std::filesystem::path& map) {
     return urecipe::mapNameOf(map); // one rule: a recipe's file is found by it
 }
 
-std::string nameOf(const NameInputs& inputs) {
+std::string bakeNameOf(const NameInputs& inputs) {
     // SS 4.4's byte string, item by item. Every variable-length field ends in
     // LF, so no two different inputs can run into the same string -- INV-4's
     // {ab, c} against {a, bc}.
@@ -159,7 +159,7 @@ Result<std::string> bakeName(std::span<const std::byte> mapBytes, std::string_vi
         if (opened != nullptr) entry.digest = sha256(install.bytesOf(name));
         inputs.closure.push_back(std::move(entry));
     }
-    return nameOf(inputs);
+    return bakeNameOf(inputs);
 }
 
 } // namespace detail

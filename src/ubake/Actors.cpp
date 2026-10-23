@@ -211,27 +211,17 @@ Result<ubundle::ActorClass> classEntry(std::string path, const upkg::ClassSite& 
     return entry;
 }
 
-/// SS 4.6: the actor's own record of `name` at array index 0 and of `kind`,
-/// else its class's default of that name and kind, else none. `name` is
-/// folded; a record of the right name and the wrong kind is passed over.
-const PropertyRecord* lookUp(std::string_view name, ValueKind kind,
-                             const std::vector<PropertyRecord>& own,
-                             const std::vector<PropertyRecord>& defaults) {
-    return detail::resolvedRecord(name, own, defaults,
-                                  [kind](const PropertyRecord& record) { return record.kind == kind; });
-}
-
 /// SS 4.6: the actor's light, if its resolved LightType is not LT_None. A
 /// field neither the actor nor its class sets is Actor.uc's default, zero.
 std::optional<ubundle::Light> lightOf(std::uint32_t exportIndex,
                                       const std::vector<PropertyRecord>& own,
                                       const std::vector<PropertyRecord>& defaults) {
     const auto byteOf = [&](std::string_view name) -> std::uint8_t {
-        const PropertyRecord* record = lookUp(name, ValueKind::Byte, own, defaults);
+        const PropertyRecord* record = detail::resolvedRecord(name, ValueKind::Byte, own, defaults);
         return record == nullptr ? 0 : std::get<std::uint8_t>(record->value);
     };
     const auto flagOf = [&](std::string_view name) {
-        const PropertyRecord* record = lookUp(name, ValueKind::Bool, own, defaults);
+        const PropertyRecord* record = detail::resolvedRecord(name, ValueKind::Bool, own, defaults);
         return record != nullptr && std::get<bool>(record->value);
     };
 
@@ -240,9 +230,9 @@ std::optional<ubundle::Light> lightOf(std::uint32_t exportIndex,
     if (light.type == 0) return std::nullopt;
 
     light.exportIndex = exportIndex;
-    if (const PropertyRecord* location = lookUp("location", ValueKind::Vector, own, defaults))
+    if (const PropertyRecord* location = detail::resolvedRecord("location", ValueKind::Vector, own, defaults))
         light.location = std::get<std::array<float, 3>>(location->value);
-    if (const PropertyRecord* rotation = lookUp("rotation", ValueKind::Rotator, own, defaults))
+    if (const PropertyRecord* rotation = detail::resolvedRecord("rotation", ValueKind::Rotator, own, defaults))
         light.rotation = std::get<std::array<std::int32_t, 3>>(rotation->value);
     light.effect = byteOf("lighteffect");
     light.brightness = byteOf("lightbrightness");
@@ -273,6 +263,11 @@ const PropertyRecord* resolvedRecord(std::string_view name, const std::vector<Pr
         for (const PropertyRecord& record : *list)
             if (record.arrayIndex == 0 && fold(record.name) == name && fits(record)) return &record;
     return nullptr;
+}
+
+const PropertyRecord* resolvedRecord(std::string_view name, ValueKind kind, const std::vector<PropertyRecord>& own,
+                                     const std::vector<PropertyRecord>& defaults) {
+    return resolvedRecord(name, own, defaults, [kind](const PropertyRecord& record) { return record.kind == kind; });
 }
 
 } // namespace detail

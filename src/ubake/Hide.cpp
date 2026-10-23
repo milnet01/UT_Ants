@@ -3,6 +3,7 @@
 
 #include "ubake/Hide.h"
 
+#include "ubake/Geometry.h"
 #include "ubake/Lamps.h"
 
 #include <algorithm>
@@ -29,10 +30,6 @@ double dot(const Vec& a, const Vec& b) {
 
 Vec cross(const Vec& a, const Vec& b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
-}
-
-bool within(std::int64_t index, std::size_t size) {
-    return index >= 0 && static_cast<std::uint64_t>(index) < size;
 }
 
 /// Node `node`'s corners, or none where an index leaves its table.
@@ -100,7 +97,7 @@ Result<Hiding> hideBrushes(const upkg::Package& map, const upkg::Model& model,
         };
 
         // Step 1: the brush, and every surface it gives.
-        const auto brush = exportNamed(map, wanted.brush);
+        const auto brush = exportIndexNamed(map, wanted.brush);
         if (!brush.has_value()) return refuse(std::format("{} is not in the map", wanted.brush));
         std::set<std::uint32_t> own;
         for (std::uint32_t s = 0; s < model.surfs.size(); ++s)
@@ -108,7 +105,7 @@ Result<Hiding> hideBrushes(const upkg::Package& map, const upkg::Model& model,
         if (own.empty()) return refuse(std::format("{} gives no surface", wanted.brush));
 
         // Step 2: the cover -- its brush's polygon, a surface drawn by some node.
-        const auto coverBrush = exportNamed(map, wanted.coverBrush);
+        const auto coverBrush = exportIndexNamed(map, wanted.coverBrush);
         if (!coverBrush.has_value()) return refuse(std::format("{} is not in the map", wanted.coverBrush));
         std::optional<std::size_t> node;
         for (std::size_t n = 0; n < model.nodes.size() && !node; ++n) {

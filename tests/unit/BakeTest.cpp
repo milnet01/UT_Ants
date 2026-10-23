@@ -225,7 +225,7 @@ TEST_CASE("the name changes when any one input changes", "[ubake][name]") {
         inputs.mapName = std::string(MAP_NAME);
         NameInputs bumped = inputs;
         bumped.bakerVersion[1] = static_cast<char>(bumped.bakerVersion[1] + 1); // r1 -> r2
-        CHECK(detail::nameOf(bumped) != detail::nameOf(inputs));
+        CHECK(detail::bakeNameOf(bumped) != detail::bakeNameOf(inputs));
     }
 
     SECTION("a closure package going from absent or unopenable to present") {
@@ -244,7 +244,7 @@ TEST_CASE("the name changes when any one input changes", "[ubake][name]") {
     }
 }
 
-TEST_CASE("nameOf is the SHA-256 of the byte string SS 4.4 defines", "[ubake][name]") {
+TEST_CASE("bakeNameOf is the SHA-256 of the byte string SS 4.4 defines", "[ubake][name]") {
     // INV-4, assembled literally. The closure is given out of order and one
     // entry is absent.
     std::array<std::byte, 32> mapDigest{};
@@ -271,13 +271,13 @@ TEST_CASE("nameOf is the SHA-256 of the byte string SS 4.4 defines", "[ubake][na
 
     const auto digest =
         uta::sha256(std::as_bytes(std::span<const char>(expected.data(), expected.size())));
-    CHECK(detail::nameOf(inputs) == hexOf(digest));
+    CHECK(detail::bakeNameOf(inputs) == hexOf(digest));
 
     // {a, bc} with the same digests: a dropped separator would make the two
     // closures one string.
     NameInputs other = inputs;
     other.closure = {{"bc", std::nullopt}, {"a", abDigest}};
-    CHECK(detail::nameOf(other) != detail::nameOf(inputs));
+    CHECK(detail::bakeNameOf(other) != detail::bakeNameOf(inputs));
 }
 
 TEST_CASE("UTA-0113 INV-4: a recipe enters the name as 0x01 and its bake digest", "[ubake][name]") {
@@ -302,7 +302,7 @@ TEST_CASE("UTA-0113 INV-4: a recipe enters the name as 0x01 and its bake digest"
 
     const auto digest =
         uta::sha256(std::as_bytes(std::span<const char>(expected.data(), expected.size())));
-    CHECK(detail::nameOf(inputs) == hexOf(digest));
+    CHECK(detail::bakeNameOf(inputs) == hexOf(digest));
 }
 
 TEST_CASE("UTA-0113 INV-4: a recipe renames a bake and one bake digest gives one name", "[ubake][name]") {

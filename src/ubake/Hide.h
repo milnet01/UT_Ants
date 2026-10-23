@@ -21,7 +21,7 @@ namespace uta::ubake {
 
 struct Hiding {
     std::vector<std::uint32_t> surfaces; ///< not drawn; ascending, each once
-    std::vector<Cover> covers;           ///< one a hidden brush, in recipe order
+    std::vector<Cover> covers;           ///< one per hidden brush, in recipe order
 };
 
 /// SS 4.6, every brush of `hidden` in order. Refuses MalformedData naming the

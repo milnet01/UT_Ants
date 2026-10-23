@@ -32,6 +32,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -355,6 +356,16 @@ struct ActorClass {
     std::string missing;                  ///< empty exactly when `end` is Root
     std::vector<PropertyRecord> defaults; ///< effective, merged up the chain
 };
+
+/// Whether `actorClass` is the class `path` (folded) or has it in its
+/// ancestry. It does not ask whether the class resolved: a caller that needs
+/// that tests `resolved` as well.
+[[nodiscard]] inline bool isOrDescendsFrom(const ActorClass& actorClass, std::string_view path) {
+    if (actorClass.path == path) return true;
+    for (const std::string& parent : actorClass.ancestry)
+        if (parent == path) return true;
+    return false;
+}
 
 /// One placed actor.
 struct ActorPlacement {

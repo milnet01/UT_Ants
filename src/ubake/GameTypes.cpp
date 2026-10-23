@@ -18,34 +18,30 @@ namespace fsys = std::filesystem; // `fs` is uta::fs, core's file I/O
 namespace {
 
 using detail::fold;
+using detail::listSorted;
 using detail::utf8;
 
-/// The child of `parent` whose name folds to `folded`, or empty.
-fsys::path childFolded(const fsys::path& parent, std::string_view folded, bool directory) {
-    std::vector<fsys::path> matches;
-    std::error_code ec;
-    for (fsys::directory_iterator entry(parent, ec), end; !ec && entry != end; entry.increment(ec)) {
+// Listing here is tolerant: a directory that does not list holds no game
+// types, and is not a refusal.
+
+/// The directory in `parent` whose name folds to `folded`, or empty. Two
+/// spellings of one name: the first by bytewise file name, as SS 4.2 picks.
+fsys::path childFolded(const fsys::path& parent, std::string_view folded) {
+    const auto matches = listSorted(parent, [folded](const fsys::directory_entry& entry) {
         std::error_code ignored;
-        const bool kind = directory ? entry->is_directory(ignored) : entry->is_regular_file(ignored);
-        if (kind && fold(utf8(entry->path().filename())) == folded) matches.push_back(entry->path());
-    }
-    // Two spellings of one name: the first by bytewise file name, as SS 4.2 picks.
-    std::ranges::sort(matches, {}, [](const fsys::path& path) { return utf8(path.filename()); });
-    return matches.empty() ? fsys::path() : matches.front();
+        return entry.is_directory(ignored) && fold(utf8(entry.path().filename())) == folded;
+    });
+    return matches.has_value() && !matches->empty() ? matches->front() : fsys::path();
 }
 
 /// Every `*.int` in `directory`, sorted bytewise by file name.
 std::vector<fsys::path> intFiles(const fsys::path& directory) {
-    std::vector<fsys::path> files;
-    if (directory.empty()) return files;
-    std::error_code ec;
-    for (fsys::directory_iterator entry(directory, ec), end; !ec && entry != end; entry.increment(ec)) {
+    if (directory.empty()) return {};
+    auto files = listSorted(directory, [](const fsys::directory_entry& entry) {
         std::error_code ignored;
-        if (entry->is_regular_file(ignored) && fold(utf8(entry->path().extension())) == ".int")
-            files.push_back(entry->path());
-    }
-    std::ranges::sort(files, {}, [](const fsys::path& path) { return utf8(path.filename()); });
-    return files;
+        return entry.is_regular_file(ignored) && fold(utf8(entry.path().extension())) == ".int";
+    });
+    return files.has_value() ? std::move(*files) : std::vector<fsys::path>{};
 }
 
 /// An .int file's text. UTF-16 with a byte order mark keeps each code unit's
@@ -122,10 +118,10 @@ std::optional<std::string> mapPrefixOf(std::string_view name, const upkg::Packag
 
 GameTypes readGameTypes(Install& install) {
     const fsys::path& root = install.root();
-    std::vector<fsys::path> files = intFiles(childFolded(root, "system", true));
-    const fsys::path localized = childFolded(root, "systemlocalized", true);
+    std::vector<fsys::path> files = intFiles(childFolded(root, "system"));
+    const fsys::path localized = childFolded(root, "systemlocalized");
     if (!localized.empty()) {
-        const std::vector<fsys::path> more = intFiles(childFolded(localized, "int", true));
+        const std::vector<fsys::path> more = intFiles(childFolded(localized, "int"));
         files.insert(files.end(), more.begin(), more.end());
     }
 

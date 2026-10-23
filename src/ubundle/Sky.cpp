@@ -11,10 +11,7 @@
 namespace uta::ubundle {
 namespace {
 
-bool isSkyZone(const ActorClass& actorClass) {
-    constexpr std::string_view SKY = "engine.skyzoneinfo";
-    return actorClass.path == SKY || std::ranges::find(actorClass.ancestry, SKY) != actorClass.ancestry.end();
-}
+bool isSkyZone(const ActorClass& actorClass) { return isOrDescendsFrom(actorClass, "engine.skyzoneinfo"); }
 
 /// A property's name folded, since a map spells it as its author typed it.
 std::string folded(std::string_view text) {

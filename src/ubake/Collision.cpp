@@ -3,6 +3,8 @@
 
 #include "ubake/Collision.h"
 
+#include "ubake/Geometry.h"
+
 #include <array>
 #include <bit>
 #include <cmath>
@@ -20,10 +22,6 @@ constexpr std::uint32_t FLIPPED = 0x40000000u;
 
 std::unexpected<Error> refuse(std::size_t node, const std::string& what) {
     return fail(ErrorCode::MalformedData, "the Model's node " + std::to_string(node) + " " + what);
-}
-
-bool within(std::int64_t index, std::size_t size) {
-    return index >= 0 && static_cast<std::uint64_t>(index) < size;
 }
 
 /// The hull whose run starts at `at`, which `node` names -- SS 4.3. Each entry

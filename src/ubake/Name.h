@@ -30,8 +30,8 @@
 
 namespace uta::ubake {
 
-/// Bumped by hand whenever any code a bake runs -- `ubake`, `umat`, `umap`,
-/// `unav`, `upkg` or `ubundle` -- changes what a bake writes.
+/// Bumped by hand whenever any code a bake runs changes what a bake writes:
+/// `ubake` itself, or any library src/ubake/CMakeLists.txt links it to.
 /// tests/unit/BakeGoldenTest.cpp fails a change without a bump, and a bump
 /// without re-recording its golden hash (INV-5).
 inline constexpr std::uint32_t BAKER_REVISION = 67; // 67 since UTA-0397 gives each probe its reach
@@ -65,7 +65,7 @@ struct NameInputs {
 namespace detail {
 
 /// The lower-case hex SHA-256 of SS 4.4's byte string.
-[[nodiscard]] std::string nameOf(const NameInputs& inputs);
+[[nodiscard]] std::string bakeNameOf(const NameInputs& inputs);
 
 /// The folded names of the map's import closure, ascending. Every lookup goes
 /// through `resolver`.

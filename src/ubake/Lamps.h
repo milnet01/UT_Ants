@@ -27,8 +27,10 @@
 
 namespace uta::ubake {
 
-/// The export of `map` whose object name folds to `name`'s fold, or none.
-[[nodiscard]] std::optional<std::uint32_t> exportNamed(const upkg::Package& map, std::string_view name);
+/// The index of the first export of `map` whose object name folds to `name`'s
+/// fold, or none. Name alone: class and group are not compared, unlike
+/// Bake.cpp's exportNamed, which follows an import (UTA-0176).
+[[nodiscard]] std::optional<std::uint32_t> exportIndexNamed(const upkg::Package& map, std::string_view name);
 
 /// `point` turned by `yaw` (65536 to a turn, +X toward +Y, as UT99 turns) about
 /// the vertical through `pivot`, then moved so `pivot` lands on `at`.

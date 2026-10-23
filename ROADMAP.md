@@ -17901,7 +17901,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 03.
 
-- 📋 [UTA-0403] **Investigate: bake-content input checks from the readability review.**
+- 🚧 [UTA-0403] **Investigate: bake-content input checks from the readability review.**
   - Actors.cpp:243: a light's location/rotation is copied with no
     finite check (Movers and Zones replace non-finite values).
   - Zones.cpp:88, Movers.cpp:88: `classes[actor.classIndex]` unbounded.
@@ -18016,7 +18016,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 03.
 
-- 📋 [UTA-0415] **Readability fixes: baker, bake and world content.**
+- 🚧 [UTA-0415] **Readability fixes: baker, bake and world content.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-04-ubake-bake-content.md.
   Close with close-findings; ledger beside the lane file.
   **Layman:** Make the map converter's main code easier for a newcomer to change safely.

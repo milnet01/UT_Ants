@@ -32,10 +32,6 @@ struct Sheet {
     double height = 0;
 };
 
-bool within(std::int64_t index, std::size_t size) {
-    return index >= 0 && static_cast<std::uint64_t>(index) < size;
-}
-
 // sqrt, not hypot: sqrt is correctly rounded, so every compiler bakes the same bits.
 double horizontalDistance(const Vec& a, const Vec& b) {
     const double x = a[0] - b[0], y = a[1] - b[1];

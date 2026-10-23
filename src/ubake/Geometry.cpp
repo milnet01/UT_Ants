@@ -41,10 +41,6 @@ Vec cross(const Vec& a, const Vec& b) {
 /// Vertices and indices are counted by a u32 -- SS 4.3.
 constexpr std::uint64_t COUNT_LIMIT = std::uint64_t{1} << 32;
 
-bool within(std::int64_t index, std::size_t size) {
-    return index >= 0 && static_cast<std::uint64_t>(index) < size;
-}
-
 std::unexpected<Error> refuse(std::size_t node, std::string_view what, std::int64_t value,
                               std::size_t size, std::string_view table) {
     return fail(ErrorCode::MalformedData,

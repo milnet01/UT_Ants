@@ -4,6 +4,7 @@
 #include "ubake/TileKind.h"
 
 #include "core/Sha256.h"
+#include "ubake/Geometry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -159,11 +160,6 @@ Vec cross(const Vec& a, const Vec& b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
 
-template <typename T>
-bool within(std::int32_t index, const std::vector<T>& table) {
-    return index >= 0 && static_cast<std::size_t>(index) < table.size();
-}
-
 } // namespace
 
 TileScores tileScores(const umat::Image& rgba) {
@@ -213,13 +209,13 @@ std::map<std::string, TileSurfaces, std::less<>> tileSurfaces(const upkg::Model&
     };
     std::map<std::int32_t, Gathered> bySurf; // ascending, so the result does not depend on node order
     for (const upkg::BspNode& node : model.nodes) {
-        if (node.numVertices < 3 || !within(node.iSurf, model.surfs)) continue;
+        if (node.numVertices < 3 || !within(node.iSurf, model.surfs.size())) continue;
         const upkg::BspSurf& surf = model.surfs[static_cast<std::size_t>(node.iSurf)];
         if ((surf.polyFlags & PF_INVISIBLE) != 0 || surf.texture.kind() == upkg::ObjectReferenceKind::Null) continue;
         if (node.iVertPool < 0 || static_cast<std::size_t>(node.iVertPool) + node.numVertices > model.verts.size())
             continue;
-        if (!within(surf.pBase, model.points) || !within(surf.vNormal, model.vectors)
-            || !within(surf.vTextureU, model.vectors) || !within(surf.vTextureV, model.vectors))
+        if (!within(surf.pBase, model.points.size()) || !within(surf.vNormal, model.vectors.size())
+            || !within(surf.vTextureU, model.vectors.size()) || !within(surf.vTextureV, model.vectors.size()))
             continue;
         const SurfaceMaterial* const made = materials(surf.texture, (surf.polyFlags & PF_MASKED) != 0);
         if (made == nullptr || !(made->uSize > 0) || !(made->vSize > 0)) continue;
@@ -227,7 +223,7 @@ std::map<std::string, TileSurfaces, std::less<>> tileSurfaces(const upkg::Model&
         bool inRange = true;
         for (std::size_t k = 0; k < node.numVertices; ++k) {
             const std::int32_t point = model.verts[static_cast<std::size_t>(node.iVertPool) + k].pVertex;
-            if (!within(point, model.points)) inRange = false;
+            if (!within(point, model.points.size())) inRange = false;
             else points.push_back(toDouble(model.points[static_cast<std::size_t>(point)]));
         }
         if (!inRange) continue;

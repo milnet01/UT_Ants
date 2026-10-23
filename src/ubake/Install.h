@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -112,6 +113,12 @@ namespace detail {
 /// A path as UTF-8, whatever the platform's own narrow encoding is -- for
 /// messages, JSON and the bytewise file-name order SS 4.2 names.
 [[nodiscard]] std::string utf8(const std::filesystem::path& path);
+
+/// The entries of `directory` that `keep` accepts, sorted bytewise by file
+/// name (SS 4.2's order), so "the first" names the same file on every run and
+/// every platform. IoFailure when the directory does not list.
+[[nodiscard]] Result<std::vector<std::filesystem::path>> listSorted(
+    const std::filesystem::path& directory, const std::function<bool(const std::filesystem::directory_entry&)>& keep);
 
 } // namespace detail
 

@@ -15,7 +15,7 @@
 
 namespace uta::ubake {
 
-std::optional<std::uint32_t> exportNamed(const upkg::Package& map, std::string_view name) {
+std::optional<std::uint32_t> exportIndexNamed(const upkg::Package& map, std::string_view name) {
     const std::string wanted = detail::fold(name);
     const auto exports = map.exports();
     for (std::uint32_t i = 0; i < exports.size(); ++i) {
@@ -52,12 +52,9 @@ bool isMeshDecoration(const ubundle::Placements& placements, std::uint32_t expor
     const auto actor = std::ranges::find(placements.actors, exportIndex, &ubundle::ActorPlacement::exportIndex);
     if (actor == placements.actors.end() || actor->classIndex >= placements.classes.size()) return false;
     const ubundle::ActorClass& actorClass = placements.classes[actor->classIndex];
-    const bool decoration = actorClass.path == "engine.decoration"
-                            || std::ranges::find(actorClass.ancestry, "engine.decoration") != actorClass.ancestry.end();
-    if (!actorClass.resolved || !decoration) return false;
+    if (!actorClass.resolved || !ubundle::isOrDescendsFrom(actorClass, "engine.decoration")) return false;
     const auto resolved = [&](std::string_view name, ubundle::ValueKind kind) {
-        return detail::resolvedRecord(name, actor->properties, actorClass.defaults,
-                                      [kind](const ubundle::PropertyRecord& record) { return record.kind == kind; });
+        return detail::resolvedRecord(name, kind, actor->properties, actorClass.defaults);
     };
     const ubundle::PropertyRecord* drawType = resolved("drawtype", ubundle::ValueKind::Byte);
     const ubundle::PropertyRecord* mesh = resolved("mesh", ubundle::ValueKind::Object);
@@ -87,7 +84,7 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
         };
 
         // Step 1: the light it copies.
-        const auto lightExport = exportNamed(map, wanted.light);
+        const auto lightExport = exportIndexNamed(map, wanted.light);
         const auto found = lightExport.has_value()
                                ? std::ranges::find(lights, *lightExport, &ubundle::Light::exportIndex)
                                : lights.end();
@@ -99,7 +96,7 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
         // Step 3: each fitting brush, and what it gives.
         std::set<std::uint32_t> fitting; // surface indices
         for (const std::string& brush : wanted.fitting) {
-            const auto brushExport = exportNamed(map, brush);
+            const auto brushExport = exportIndexNamed(map, brush);
             if (!brushExport.has_value()) return refuse(std::format("{} is not in the map", brush));
             std::set<std::uint32_t> own;
             for (std::uint32_t s = 0; s < model.surfs.size(); ++s) {
@@ -117,7 +114,7 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
         }
         // Step 3, a mesh fitting: checked only, until UTA-0341 draws meshes.
         if (!wanted.mesh.empty()) {
-            const auto meshExport = exportNamed(map, wanted.mesh);
+            const auto meshExport = exportIndexNamed(map, wanted.mesh);
             if (!meshExport.has_value() || !isMeshDecoration(placements, *meshExport))
                 return refuse(std::format("{} is not a mesh decoration of the map", wanted.mesh));
         }
@@ -159,7 +156,7 @@ Result<std::vector<ubundle::AddedLamp>> switchOff(const upkg::Package& map, cons
         const auto refuse = [&name](std::string_view why) {
             return fail(ErrorCode::MalformedData, std::format("recipe switch-off: {} {}", name, why));
         };
-        const auto lightExport = exportNamed(map, name);
+        const auto lightExport = exportIndexNamed(map, name);
         const auto found = lightExport.has_value()
                                ? std::ranges::find(lights, *lightExport, &ubundle::Light::exportIndex)
                                : lights.end();
