@@ -617,6 +617,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **class-census names an over-long ancestry chain "too deep", not "cycle"** (UTA-0424)
+  A chain still going after 64 classes with no repeat was counted as a
+  cycle. It now has its own line, as upkg's walker refuses it. The
+  reference install has no such chain, so its census is unchanged.
+
 - **Light bounces more than once** (UTA-0254)
   Bounced light now carries on bouncing: a lit wall lights the next
   one, which lights the one after. Open, sunlit areas gain the most,

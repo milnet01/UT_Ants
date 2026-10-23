@@ -151,12 +151,22 @@ class Package:
 # Walked, never executed. Each instruction reports the MEMORY bytes it
 # occupies, because ScriptSize -- the only length the file stores -- counts
 # the memory form while the file holds a narrower encoding.
+#
+# The opcode values are the EX_ table in src/upkg/Script.cpp, which names each
+# by UnrealScript's own token; each branch below names its token the same way.
 
+# Stop, Nothing, EndFunctionParms, Self, IntZero, IntOne, True, False,
+# NoObject, IteratorPop, IteratorNext.
 NO_OPERANDS = {0x08, 0x0B, 0x16, 0x17, 0x25, 0x26, 0x27, 0x28, 0x2A, 0x30, 0x31}
+# Return, GotoLabel, EatString, BoolVariable.
 ONE_EXPRESSION = {0x04, 0x0D, 0x0E, 0x2D}
+# LocalVariable, InstanceVariable, DefaultVariable, ObjectConst, NativeParm.
 OBJECT_OPERAND = {0x00, 0x01, 0x02, 0x20, 0x29}
+# Let, DynArrayElement, LetBool, ArrayElement.
 TWO_EXPRESSIONS = {0x0F, 0x10, 0x14, 0x1A}
+# MetaCast, DynamicCast, StructMember.
 CAST_OPERAND = {0x13, 0x2E, 0x36}
+# JumpIfNot, Assert, Skip.
 WORD_THEN_EXPRESSION = {0x07, 0x09, 0x18}
 END_OF_PARAMETERS = 0x16
 
@@ -165,9 +175,9 @@ def skip_expression(package, cursor, depth=0):
     if depth > MAX_DEPTH:
         raise ValueError("expression nested too deeply")
     op = cursor.u8()
-    if op >= 0x70:
+    if op >= 0x70:  # FirstNative: a native call, the opcode its index
         return 1 + skip_parameters(package, cursor, depth)
-    if op >= 0x60:
+    if op >= 0x60:  # FirstExtendedNative: the next byte completes the index
         cursor.u8()
         return 2 + skip_parameters(package, cursor, depth)
     def nested():
@@ -175,25 +185,25 @@ def skip_expression(package, cursor, depth=0):
     if op in OBJECT_OPERAND:
         cursor.index()
         return 1 + PTR
-    if op == 0x21:
+    if op == 0x21:  # NameConst
         cursor.index()
         return 1 + NAME
     if op in NO_OPERANDS:
         return 1
     if op in ONE_EXPRESSION:
         return 1 + nested()
-    if op == 0x05:
+    if op == 0x05:  # Switch
         cursor.u8()
         return 2 + nested()
-    if op == 0x06:
+    if op == 0x06:  # Jump
         cursor.u16()
         return 3
     if op in WORD_THEN_EXPRESSION:
         cursor.u16()
         return 3 + nested()
-    if op == 0x0A:
+    if op == 0x0A:  # Case; a switch's default case carries 0xFFFF and no expression
         return 3 + (nested() if cursor.u16() != 0xFFFF else 0)
-    if op == 0x0C:
+    if op == 0x0C:  # LabelTable, ended by the label None
         size = 0
         while True:
             entry = cursor.index()
@@ -203,9 +213,9 @@ def skip_expression(package, cursor, depth=0):
                 return 1 + size
     if op in TWO_EXPRESSIONS:
         return 1 + nested() + nested()
-    if op == 0x11:
+    if op == 0x11:  # New
         return 1 + nested() + nested() + nested() + nested()
-    if op in (0x12, 0x19):
+    if op in (0x12, 0x19):  # ClassContext, Context
         first = nested()
         cursor.u16()
         cursor.u8()
@@ -213,39 +223,39 @@ def skip_expression(package, cursor, depth=0):
     if op in CAST_OPERAND:
         cursor.index()
         return 1 + PTR + nested()
-    if op == 0x1B:
+    if op == 0x1B:  # VirtualFunction, called by name
         cursor.index()
         return 1 + NAME + skip_parameters(package, cursor, depth)
-    if op in (0x1C, 0x38):
+    if op in (0x1C, 0x38):  # FinalFunction, GlobalFunction
         cursor.index()
         return 1 + PTR + skip_parameters(package, cursor, depth)
-    if op in (0x1D, 0x1E):
+    if op in (0x1D, 0x1E):  # IntConst, FloatConst
         cursor.skip(4)
         return 5
-    if op == 0x1F:
+    if op == 0x1F:  # StringConst, ended by a zero byte
         length = 0
         while cursor.u8() != 0:
             length += 1
         return 1 + length + 1
-    if op == 0x34:
+    if op == 0x34:  # UnicodeStringConst, ended by a zero word
         length = 0
         while cursor.u16() != 0:
             length += 2
         return 1 + length + 2
-    if op in (0x22, 0x23):
+    if op in (0x22, 0x23):  # RotationConst, VectorConst
         cursor.skip(12)
         return 13
-    if op in (0x24, 0x2C):
+    if op in (0x24, 0x2C):  # ByteConst, IntConstByte
         cursor.u8()
         return 2
-    if op == 0x2F:
+    if op == 0x2F:  # Iterator
         first = nested()
         cursor.u16()
         return 3 + first
-    if op in (0x32, 0x33):
+    if op in (0x32, 0x33):  # StructCmpEq, StructCmpNe
         cursor.index()
         return 1 + PTR + nested() + nested()
-    if 0x39 <= op <= 0x5F:
+    if 0x39 <= op <= 0x5F:  # FirstConversion to LastConversion: one operand each
         return 1 + nested()
     raise ValueError(f"unknown opcode 0x{op:02X}")
 
@@ -302,9 +312,14 @@ def skip_properties(package, cursor, end):
 
 
 def read_class(package, entry):
-    """Returns (super_reference, bytes_past_the_end, had_script)."""
+    """Returns (super_reference, bytes_past_the_end, had_script).
+
+    The steps are UTA-0005 SS 4.3's, numbered as it numbers them."""
     end = entry["offset"] + entry["size"]
     cursor = Cursor(package.data, entry["offset"])
+    # 1. The execution-stack frame, as UTA-0003 SS 4.8 reads it: two object
+    # references, the probe mask, the latent action, and an offset where the
+    # first reference is set.
     if entry["flags"] & RF_HAS_STACK:
         node = cursor.index()
         cursor.index()
@@ -312,30 +327,39 @@ def read_class(package, entry):
         cursor.i32()
         if node != 0:
             cursor.index()
+    # 2. SuperField; then Next, and 3. ScriptText and Children.
     super_reference = cursor.index()
     for _ in range(3):
         cursor.index()
+    # 4. FriendlyName, Line, TextPos.
     cursor.index()
     cursor.i32()
     cursor.i32()
+    # 5. ScriptSize, then the script.
     script_size = cursor.i32()
     if script_size:
         skip_script(package, cursor, script_size)
+    # 6. ProbeMask, IgnoreMask, LabelTableOffset, StateFlags.
     cursor.i64()
     cursor.i64()
     cursor.i16()
     cursor.i32()
+    # 7. ClassFlags and the GUID.
     cursor.u32()
     cursor.skip(16)
+    # 8. The dependency list.
     for _ in range(cursor.index()):
         cursor.index()
         cursor.i32()
         cursor.u32()
+    # 9. The package-import list.
     for _ in range(cursor.index()):
         cursor.index()
+    # 10. ClassWithin and ClassConfigName, only at package version 62 and above.
     if package.version >= 62:
         cursor.index()
         cursor.index()
+    # 11. The default properties.
     skip_properties(package, cursor, end)
     return super_reference, cursor.pos - end, script_size > 0
 
@@ -365,7 +389,8 @@ class Installation:
                 files = sorted(os.listdir(folder))
             except OSError:
                 continue
-            # By extension in EXTENSIONS' order, as the globs did, ignoring case.
+            # By extension in EXTENSIONS' order, ignoring case: where two files
+            # share a basename, the earlier extension wins (setdefault).
             for suffix in suffixes:
                 for filename in files:
                     if filename.lower().endswith(suffix):
@@ -395,7 +420,10 @@ class Installation:
 
 
 def walk_ancestry(installation, package, entry):
-    """Returns ('root'|'missing'|'cycle'|'malformed', chain length)."""
+    """Returns ('root'|'missing'|'cycle'|'too deep'|'malformed', chain length).
+
+    'too deep' is a chain still going after MAX_DEPTH classes with no repeat;
+    upkg::readAncestry refuses it as "deeper than 64 levels" (src/upkg/Class.cpp)."""
     seen = set()
     for depth in range(1, MAX_DEPTH + 1):
         key = (package.path, entry["name"])
@@ -424,7 +452,7 @@ def walk_ancestry(installation, package, entry):
         if found is None:
             return "missing", depth
         package, entry = found
-    return "cycle", MAX_DEPTH
+    return "too deep", MAX_DEPTH
 
 
 def census(root):
