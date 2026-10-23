@@ -12,7 +12,9 @@
 #include <optional>
 #include <ostream>
 #include <span>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace uta::client {
 
@@ -26,6 +28,9 @@ constexpr std::string_view DISCLAIMER =
     "Tournament. Unreal Tournament is a trademark of Epic Games. UT Ants is not affiliated with or endorsed by "
     "Epic Games.";
 
+/// The command line, parsed. A new option goes in parseArguments and usage(),
+/// and in inheritedArguments() when the viewer the launcher starts should
+/// have it too.
 struct Options {
     bool help = false;
     std::filesystem::path install; ///< checked with `ut-bake --check` (docs/design.md rule 16)
@@ -69,5 +74,11 @@ void usage(std::ostream& err);
 /// `err` what was wrong with them.
 [[nodiscard]] std::optional<Options> parseArguments(std::span<const std::string_view> args,
                                                     std::ostream& err);
+
+/// UTA-0422: the options a viewer started by the launcher inherits, as
+/// arguments parseArguments reads back: the ones both modes take, each only
+/// where it differs from its default. Launcher.cpp's finishChild adds the
+/// map's own: --notes, --baker-version, the install and the bundle.
+[[nodiscard]] std::vector<std::string> inheritedArguments(const Options& options);
 
 } // namespace uta::client

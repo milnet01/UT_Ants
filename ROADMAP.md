@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=429 -->
+<!-- ants-roadmap-id-high-water: UTA=430 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -17993,6 +17993,15 @@ stays with movement in 0.2.0.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md
   In progress 2026-10-23: each lead checked in the lane 11 close;
   outcome per lead in close-lane-11.md.
+  2026-10-23, commit 6c8b04b. P: real only when [ or ] comes earlier in
+  the same batch of events; P now writes shownView, as F12 does. Empty
+  baker version: real; BakeState::BakerUnknown, test red then green. UTF-8
+  leads: not defects; every MSVC program embeds cmake/utf8.manifest, so
+  the narrow encoding is UTF-8 (CoreFileSystemTest checks it); Windows not
+  run here. Launcher gamepads: handle not lost (SDL finds it by ID, closes
+  the rest at SDL_Quit); the silent open failure now reports. Capture
+  create_directories: real, its reason was lost; now refused with its own
+  error, test red then green.
   **Layman:** Small app problems: a saved camera may not match the screen, a wrong message, and non-English paths on Windows.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 11.
@@ -18215,6 +18224,18 @@ stays with movement in 0.2.0.
   **Layman:** Write the edge-wrapping arithmetic for textures once.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 08.
+
+- 📋 [UTA-0430] **Lift the viewer's capture and event dispatch out of run().**
+  apps/ut-ants/main.cpp run() holds renderer setup, a long capture
+  lambda and the event chain. UTA-0422 fixed the specific confusion: each
+  action's key and pad button now share one branch. Not done there: lifting
+  the capture lambda and the event dispatch into named functions. Queued
+  because the lambda captures about ten locals of run(), so the lift is a
+  restructure of its own, not a readability edit.
+  Lane file: docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md
+  **Layman:** Split the viewer's longest function so a newcomer can find each key's job.
+  Kind: review-fix.
+  Source: review-readability-2026-10-23 lane 11.
 
 ## 0.2.0 — Movement and weapons
 

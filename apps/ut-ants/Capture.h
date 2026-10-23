@@ -32,7 +32,7 @@ namespace uta::client {
 /// a device that does not meet a tier is given a lower one and a capture
 /// naming the request would misdescribe the picture beside it.
 struct CaptureInfo {
-    std::string map;                  ///< the map's name, as the launcher lists it
+    std::string map;                  ///< the map's name, as the launcher lists it; the bundle's stem without --notes (Cli.h)
     std::string bundleHash;           ///< SHA-256 of the bundle's bytes, lowercase hex
     std::uint32_t formatVersion = 0;  ///< the bundle header's own field
     std::string bakerVersion;         ///< empty when unknown -- see writeCapture
@@ -61,7 +61,8 @@ struct CaptureInfo {
 /// are dropped: main() frees them once the bundle is decoded.
 [[nodiscard]] std::string bundleHashHex(std::span<const std::byte> bundleBytes);
 
-/// The folder one press gets: `<map>-<YYYYmmdd-HHMMSS>`, the time in UTC.
+/// The folder one press gets: `<map>-<YYYYmmdd-HHMMSS>Z`, the time in UTC.
+/// writeCapture adds `-2`, `-3` and on when that folder is already there.
 ///
 /// UTC rather than local time so two captures sort in the order they were
 /// taken across a daylight-saving change, and so the name does not depend on

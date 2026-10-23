@@ -166,3 +166,31 @@ TEST_CASE("UTA-0190: the launcher refuses --notes", "[client]") {
     CHECK_FALSE(parsed.options.has_value());
     CHECK(parsed.err.find("--notes") != std::string::npos);
 }
+
+TEST_CASE("UTA-0422: the launcher's viewer inherits every option it is given", "[client]") {
+    // The launcher passes these on to the viewer it starts. Each is set away
+    // from its default, so an option the conversion drops reads back as unset.
+    Options given;
+    given.validation = true;
+    given.showMissing = true;
+    given.addedLamps = false;
+    given.windowed = true;
+    given.tier = uta::urender::Tier::Medium;
+    given.fov = 72.5;
+
+    std::vector<std::string> args = uta::client::inheritedArguments(given);
+    args.emplace_back("/games/UT");
+    args.emplace_back("map.utab");
+    const std::vector<std::string_view> views(args.begin(), args.end());
+    const Parsed parsed = parse(views);
+    REQUIRE(parsed.options.has_value());
+    CHECK(parsed.options->validation);
+    CHECK(parsed.options->showMissing);
+    CHECK_FALSE(parsed.options->addedLamps);
+    CHECK(parsed.options->windowed);
+    CHECK(parsed.options->tier == uta::urender::Tier::Medium);
+    CHECK(parsed.options->fov == 72.5);
+
+    // Defaults pass nothing, so the viewer chooses as it would alone.
+    CHECK(uta::client::inheritedArguments(Options{}).empty());
+}

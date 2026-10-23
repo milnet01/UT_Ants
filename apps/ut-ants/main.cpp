@@ -2,10 +2,10 @@
 //
 // Checks the install by running ut-bake (docs/design.md rule 16), opens one
 // baked map, and flies a camera through it -- or, given no map, opens the map
-// launcher (UTA-0170, Launcher.cpp). Everything that needs no window is
-// in Cli.cpp and FlyCamera.cpp, which the unit tests compile too. This file is
-// the SDL half, and it is run by hand: no CI leg has a display
-// (docs/specs/UTA-0014-vulkan-draw-path.md SS 4.12).
+// launcher (UTA-0170, Launcher.cpp). Everything that needs no window is in
+// the files apps/ut-ants/CMakeLists.txt compiles into the unit tests too. This
+// file and Launcher.cpp are the SDL half, run by hand: no CI leg has a
+// display (docs/specs/UTA-0014-vulkan-draw-path.md SS 4.12).
 
 #include "BuildCommit.h" // generated -- UTA-0200
 #include "Capture.h"
@@ -46,13 +46,7 @@ using namespace uta::client;
 /// dropped: the exit code decides, as docs/specs/UTA-0011-map-baker.md SS 4.8
 /// lets a caller.
 bool installIsUsable(const std::filesystem::path& install) {
-    const char* const base = SDL_GetBasePath();
-    // SDL's strings are UTF-8 both ways (UTA-0221).
-    std::filesystem::path baker = uta::fs::pathFromUtf8(base != nullptr ? base : "") / "ut-bake";
-#ifdef _WIN32
-    baker += ".exe";
-#endif
-    const std::string bakerText = uta::fs::utf8(baker);
+    const std::string bakerText = besideThisProgram("ut-bake");
     const std::string installText = uta::fs::utf8(install);
     const char* const argv[] = {bakerText.c_str(), "--check", installText.c_str(), nullptr};
 
@@ -95,9 +89,7 @@ Start startingCamera(const uta::ubundle::Bundle& bundle) {
     for (const uta::ubundle::ActorPlacement& actor : placements.actors) {
         if (actor.classIndex >= placements.classes.size()) continue;
         const uta::ubundle::ActorClass& actorClass = placements.classes[actor.classIndex];
-        const std::string_view start = "engine.playerstart";
-        if (actorClass.path != start && std::ranges::find(actorClass.ancestry, start) == actorClass.ancestry.end())
-            continue;
+        if (!uta::ubundle::isOrDescendsFrom(actorClass, "engine.playerstart")) continue;
 
         std::array<float, 3> location{};
         std::array<std::int32_t, 3> rotation{};
@@ -199,7 +191,7 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     config.validation = options.validation;
     config.showMissingMaterials = options.showMissing;
     config.tier = options.tier;
-    config.dynamicResolution = true; // UTA-0051 SS 4.5
+    config.dynamicResolution = true; // UTA-0051 SS 4.5 always asks; SS 4.4 says what it does
 
     auto created = uta::urender::Renderer::create(config);
     if (!created) {
@@ -253,7 +245,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         // The same view again with the output stage off, so it can be measured.
         // The light time is pinned to the frame above, or a pulsing light is at
         // a different phase in the two images and they disagree for a reason
-        // that has nothing to do with what is being compared.
+        // that has nothing to do with what is being compared. The scale too:
+        // dynamic resolution may have moved it since the shown frame, and the
+        // redraw must not steer it (UTA-0372).
         //
         // This draw PRESENTS, so the screen flashes once -- said in the usage
         // text rather than hidden, since a deliberate keypress that flashes
@@ -262,8 +256,6 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         // vectors are measured against this one rather than against the frame
         // before the press. Harmless today: UTA-0075's jitter is off until a
         // pass consumes it, and nothing reads the velocity target yet.
-        // The scale too: dynamic resolution may have moved it since the
-        // shown frame, and the redraw must not steer it (UTA-0372).
         renderer.pinLightSeconds(renderer.lightSeconds());
         renderer.pinRenderScale(stats.renderScale);
         renderer.setLinearOutput(true);
@@ -310,22 +302,20 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         FlyInput input;
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)) {
-                running = false;
-            } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                       event.gbutton.button == SDL_GAMEPAD_BUTTON_START) {
+            // Each action's key and pad button share one branch.
+            if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) ||
+                (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && event.gbutton.button == SDL_GAMEPAD_BUTTON_START)) {
                 running = false; // UTA-0183: Options on a PlayStation pad, Menu on an Xbox one
-            } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) {
-                flashlight = !flashlight;
+            } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) ||
+                       (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                        event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH)) {
+                flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
             } else if (event.type == SDL_EVENT_KEY_DOWN
                        && (event.key.key == SDLK_LEFTBRACKET || event.key.key == SDLK_RIGHTBRACKET)) {
                 // UTA-0357: until the settings menu's slider (UTA-0297), the
                 // brackets narrow and widen the view, held down to sweep it.
                 camera.setFov(camera.fov() + (event.key.key == SDLK_RIGHTBRACKET ? FOV_STEP : -FOV_STEP));
                 std::cerr << "ut-ants: field of view " << camera.fov() << "\n";
-            } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                       event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH) {
-                flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
             } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_P && !event.key.repeat) ||
                        (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
                         event.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)) {

@@ -5,7 +5,14 @@
 
 #include "Cli.h"
 
+#include <string>
+
 namespace uta::client {
+
+/// The program `name` beside this one, as UTF-8 for SDL_CreateProcess, with
+/// Windows' .exe added. How ut-ants finds ut-bake (docs/design.md rule 16),
+/// and how the launcher finds the viewer.
+[[nodiscard]] std::string besideThisProgram(const char* name);
 
 /// Lists every map in `options.install`, bakes a picked one with ut-bake and
 /// opens it in a second ut-ants, and keeps a notes file per map. Returns an

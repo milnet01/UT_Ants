@@ -1,6 +1,5 @@
-// The ut-ants command line -- UTA-0016. The roadmap item settled its shape:
-// the install and the map are both named on the command line, and nothing is
-// remembered between runs.
+// The ut-ants command line -- UTA-0016: the install, and a baked map to open
+// it, or no map to open the launcher (UTA-0170).
 
 #include "Cli.h"
 
@@ -8,6 +7,7 @@
 #include "MapList.h"
 
 #include <charconv>
+#include <format>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -25,11 +25,12 @@ void usage(std::ostream& err) {
            "Given only <install>, opens the map launcher: every playable map in the\n"
            "install, baked when picked and kept for next time, with a notes box per\n"
            "map.\n"
-           "Up and Down pick, typing filters the list, Enter opens, Tab moves to the\n"
-           "notes and back, Ctrl and + or - change the text size, Escape quits. A\n"
+           "Up and Down pick, typing filters the list, Enter opens, Tab moves on to\n"
+           "the map's visual name, the map it may duplicate, its notes and back to\n"
+           "the list, Ctrl and + or - change the text size, Escape quits. A\n"
            "gamepad's pad picks and its bottom face button opens. Bakes are kept in\n"
-           "the per-user cache; notes and results in the per-user state directory,\n"
-           "one text file per map.\n"
+           "the per-user cache; notes, marks and results in the per-user state\n"
+           "directory, one text file per map.\n"
            "\n"
            "Checks <install> with ut-bake --check, then opens <bundle>, a baked map,\n"
            "fullscreen at the desktop's resolution; --windowed opens a resizable\n"
@@ -58,8 +59,9 @@ void usage(std::ostream& err) {
            "--tier picks the quality tier; without it the game picks one from the\n"
            "graphics card.\n"
            "--fov opens at that field of view, in degrees across the screen, as\n"
-           "UT99 counts it. 90, UT99's own, without it; 60 to 130.\n"
-           "\n";
+           "UT99 counts it. "
+        << FlyCamera::DEFAULT_FOV << ", UT99's own, without it; " << FlyCamera::MIN_FOV << " to "
+        << FlyCamera::MAX_FOV << ".\n\n";
     for (const std::string& line : wrapText(DISCLAIMER, 72)) err << line << '\n';
 }
 
@@ -180,6 +182,23 @@ std::optional<Options> parseArguments(std::span<const std::string_view> args, st
         return std::nullopt;
     }
     return options;
+}
+
+std::vector<std::string> inheritedArguments(const Options& options) {
+    std::vector<std::string> args;
+    if (options.windowed) args.emplace_back("--windowed");
+    if (options.validation) args.emplace_back("--validation");
+    if (options.showMissing) args.emplace_back("--show-missing");
+    if (!options.addedLamps) args.emplace_back("--no-added-lamps");
+    if (options.fov.has_value()) {
+        args.emplace_back("--fov");
+        args.push_back(std::format("{}", *options.fov)); // the shortest text that reads back exactly
+    }
+    if (options.tier.has_value()) {
+        args.emplace_back("--tier");
+        args.emplace_back(urender::tierName(*options.tier));
+    }
+    return args;
 }
 
 } // namespace uta::client

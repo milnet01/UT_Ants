@@ -451,8 +451,11 @@ Result<std::string> readNotes(const std::filesystem::path& notes, std::string_vi
     return readText(fileFor(notes, map));
 }
 
-Result<void> writeNotes(const std::filesystem::path& notes, std::string_view map, std::string_view text) {
-    const std::filesystem::path path = fileFor(notes, map);
+namespace {
+
+/// A map's notes or marks file: `text`, or no file at all when `text` is
+/// empty. Both writeNotes and writeMarks save through this.
+Result<void> writeOrRemove(const std::filesystem::path& path, std::string_view text) {
     if (text.empty()) {
         std::error_code ec;
         std::filesystem::remove(path, ec);
@@ -461,6 +464,12 @@ Result<void> writeNotes(const std::filesystem::path& notes, std::string_view map
         return {};
     }
     return writeText(path, text);
+}
+
+} // namespace
+
+Result<void> writeNotes(const std::filesystem::path& notes, std::string_view map, std::string_view text) {
+    return writeOrRemove(fileFor(notes, map), text);
 }
 
 namespace {
@@ -499,7 +508,7 @@ Result<void> writeMarks(const std::filesystem::path& marks, std::string_view map
         text += std::string(NAME_MARK) + name + "\n";
     if (const std::string duplicate = oneLine(marked.duplicateOf); !duplicate.empty())
         text += std::string(DUPLICATE_MARK) + duplicate + "\n";
-    return writeNotes(marks, map, text);
+    return writeOrRemove(fileFor(marks, map), text);
 }
 
 std::filesystem::path notesFile(const std::filesystem::path& notes, std::string_view map) {

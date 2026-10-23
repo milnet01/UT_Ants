@@ -18,9 +18,9 @@
 #include <algorithm>
 #include <atomic>
 #include <filesystem>
-#include <format>
 #include <functional>
 #include <iostream>
+#include <iterator>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -29,12 +29,7 @@
 #include <vector>
 
 namespace uta::client {
-namespace {
 
-constexpr float GLYPH = static_cast<float>(SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE);
-constexpr float ROW = GLYPH + 3.0f; ///< a text row, in unscaled pixels
-
-/// A program beside this one, as ut-ants finds ut-bake (docs/design.md rule 16).
 std::string besideThisProgram(const char* name) {
     const char* const base = SDL_GetBasePath();
     // SDL's strings are UTF-8 both ways (UTA-0221).
@@ -44,6 +39,18 @@ std::string besideThisProgram(const char* name) {
 #endif
     return fs::utf8(path);
 }
+
+namespace {
+
+constexpr float GLYPH = static_cast<float>(SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE);
+constexpr float ROW = GLYPH + 3.0f; ///< a text row, in unscaled pixels
+
+/// The text scale's range for Ctrl and + or -. The starting scale, picked
+/// from the window's height, is never below MIN_STARTING_SCALE, though a
+/// player may still choose MIN_SCALE.
+constexpr int MIN_SCALE = 1;
+constexpr int MAX_SCALE = 12;
+constexpr int MIN_STARTING_SCALE = 2;
 
 /// `path` for a status line: the home directory as ~, so the part that says
 /// where survives the line's width.
@@ -184,6 +191,9 @@ std::vector<MapFile> offeredMaps(const std::filesystem::path& install, std::stri
 }
 
 enum class Focus { List, Name, Duplicate, Notes }; // Tab's order; UTA-0386 added the middle two
+/// How many stops Tab cycles through: Notes is the last. Shift+Tab steps
+/// FOCUS_STOPS - 1 forward, which is one back.
+constexpr int FOCUS_STOPS = static_cast<int>(Focus::Notes) + 1;
 enum class Busy { No, Baking, Viewing };
 
 class Launcher {
@@ -202,13 +212,14 @@ public:
         results_.reserve(maps_.size());
         for (const MapFile& map : maps_) results_.push_back(readResult(paths_.results, map.name));
         // UTA-0386: every map's marks, so the list can show them. One that
-        // cannot be read shows none, and is not editable (loadNotes).
+        // cannot be read shows none, and is not editable (loadSelectedMap).
         marks_.reserve(maps_.size());
         for (const MapFile& map : maps_) marks_.push_back(readMarks(paths_.marks, map.name).value_or(MapMarks{}));
         refilter();
         int height = 0;
         SDL_GetWindowSizeInPixels(window_, nullptr, &height);
-        scale_ = std::clamp(static_cast<int>(height / 360.0 + 0.5), 2, 12); // readable at any desktop size
+        // Readable at any desktop size.
+        scale_ = std::clamp(static_cast<int>(height / 360.0 + 0.5), MIN_STARTING_SCALE, MAX_SCALE);
         status_ = note + "Notes are saved in " + shown(paths_.notes) + ", marks in " + shown(paths_.marks);
     }
 
@@ -240,14 +251,16 @@ private:
         for (std::size_t i = 0; i < shown_.size(); ++i) {
             if (maps_[shown_[i]].name == previous) selection_ = i;
         }
-        loadNotes();
+        loadSelectedMap();
     }
 
-    void loadNotes() {
+    /// The selected map's notes and marks, read when the selection moves to
+    /// another map.
+    void loadSelectedMap() {
         const MapFile* const map = selected();
         const std::string name = map != nullptr ? map->name : std::string();
-        if (name == notesFor_) return;
-        notesFor_ = name;
+        if (name == loadedMap_) return;
+        loadedMap_ = name;
         notes_.clear();
         notesOnDisk_.clear();
         notesReadable_ = true;
@@ -275,15 +288,15 @@ private:
         if (shown_.empty()) return;
         const long last = static_cast<long>(shown_.size()) - 1;
         selection_ = static_cast<std::size_t>(std::clamp(static_cast<long>(selection_) + by, 0L, last));
-        loadNotes();
+        loadSelectedMap();
     }
 
     void editNotes(std::string text) {
-        if (notesFor_.empty() || !notesReadable_) return;
+        if (loadedMap_.empty() || !notesReadable_) return;
         // Every keystroke writes the whole text, so a second launcher -- or the
         // viewer's P -- writing the same file would be saved over unseen.
         // Read it again instead, and drop this keystroke.
-        auto disk = readNotes(paths_.notes, notesFor_);
+        auto disk = readNotes(paths_.notes, loadedMap_);
         if (!disk) {
             // Unreadable is not empty: writing now would replace notes this
             // could not see (MapList.h, readNotes; UTA-0372).
@@ -298,7 +311,7 @@ private:
             return;
         }
         notes_ = std::move(text);
-        if (const auto saved = writeNotes(paths_.notes, notesFor_, notes_); !saved)
+        if (const auto saved = writeNotes(paths_.notes, loadedMap_, notes_); !saved)
             status_ = "The notes did not save: " + std::string(saved.error().message());
         else
             notesOnDisk_ = notes_;
@@ -307,9 +320,9 @@ private:
     /// UTA-0386: save the selected map's marks as `next`, as editNotes saves
     /// notes: read again first, and drop the keystroke if they changed elsewhere.
     void editMarks(const MapMarks& next) {
-        if (notesFor_.empty() || !marksReadable_) return;
+        if (loadedMap_.empty() || !marksReadable_) return;
         MapMarks& shownMarks = marks_[shown_[selection_]];
-        auto disk = readMarks(paths_.marks, notesFor_);
+        auto disk = readMarks(paths_.marks, loadedMap_);
         if (!disk) {
             status_ = "The marks could not be read again, so this keystroke was not saved: "
                       + uta::sanitised(disk.error().message());
@@ -320,7 +333,7 @@ private:
             status_ = "The marks were changed elsewhere, so they were read again.";
             return;
         }
-        if (const auto saved = writeMarks(paths_.marks, notesFor_, next); !saved)
+        if (const auto saved = writeMarks(paths_.marks, loadedMap_, next); !saved)
             status_ = "The marks did not save: " + std::string(saved.error().message());
         else
             shownMarks = next;
@@ -387,18 +400,7 @@ private:
                               .mapStamp = openingStamp_,
                               .recipeStamp = openingRecipeStamp_});
             std::vector<std::string> args{besideThisProgram("ut-ants")};
-            if (options_.windowed) args.emplace_back("--windowed");
-            if (options_.validation) args.emplace_back("--validation");
-            if (options_.showMissing) args.emplace_back("--show-missing");
-            if (!options_.addedLamps) args.emplace_back("--no-added-lamps");
-            if (options_.fov.has_value()) {
-                args.emplace_back("--fov");
-                args.push_back(std::format("{}", *options_.fov));
-            }
-            if (options_.tier.has_value()) {
-                args.emplace_back("--tier");
-                args.emplace_back(urender::tierName(*options_.tier));
-            }
+            std::ranges::move(inheritedArguments(options_), std::back_inserter(args)); // UTA-0422, Cli.h
             args.emplace_back("--notes"); // UTA-0190: P writes the camera there
             args.push_back(fs::utf8(notesFile(paths_.notes, opening_)));
             // UTA-0191: the report is the only place the baker version appears,
@@ -428,8 +430,8 @@ private:
         busy_ = Busy::No;
         // UTA-0190: the viewer may have added to the notes, so read them again
         // rather than keep the copy a later keystroke would save over them.
-        notesFor_.clear();
-        loadNotes();
+        loadedMap_.clear();
+        loadSelectedMap();
         focus_ = Focus::Notes;
         status_ = "Back from " + opening_ + ". Notes are saved in " + shown(paths_.notes);
         SDL_ShowWindow(window_);
@@ -460,6 +462,7 @@ private:
         switch (event.type) {
         case SDL_EVENT_KEY_DOWN: key(event.key); break;
         case SDL_EVENT_TEXT_INPUT:
+            // Ctrl's keys are commands (key() above): Ctrl and + must not also type a +.
             if ((SDL_GetModState() & SDL_KMOD_CTRL) != 0) break;
             if (focus_ == Focus::Notes) {
                 editNotes(notes_ + event.text.text);
@@ -474,7 +477,7 @@ private:
             if (event.wheel.y != 0) move(event.wheel.y > 0 ? -3 : 3); // a sideways scroll moves nothing
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-            focus_ = Focus::List;
+            focus_ = Focus::List; // a pad cannot type, so it only ever drives the list
             if (event.gbutton.button == SDL_GAMEPAD_BUTTON_DPAD_UP) move(-1);
             if (event.gbutton.button == SDL_GAMEPAD_BUTTON_DPAD_DOWN) move(1);
             if (event.gbutton.button == SDL_GAMEPAD_BUTTON_DPAD_LEFT) move(-pageRows());
@@ -487,15 +490,18 @@ private:
 
     void key(const SDL_KeyboardEvent& key) {
         if ((key.mod & SDL_KMOD_CTRL) != 0) {
-            if (key.key == SDLK_EQUALS || key.key == SDLK_PLUS || key.key == SDLK_KP_PLUS) scale_ = std::min(scale_ + 1, 12);
-            if (key.key == SDLK_MINUS || key.key == SDLK_KP_MINUS) scale_ = std::max(scale_ - 1, 1);
-            if (key.key == SDLK_F && focus_ == Focus::List) open(true); // UTA-0245
+            if (key.key == SDLK_EQUALS || key.key == SDLK_PLUS || key.key == SDLK_KP_PLUS)
+                scale_ = std::min(scale_ + 1, MAX_SCALE);
+            if (key.key == SDLK_MINUS || key.key == SDLK_KP_MINUS) scale_ = std::max(scale_ - 1, MIN_SCALE);
+            // UTA-0245. From the list only, as Enter opens only from there:
+            // in a text field the player is typing, not picking.
+            if (key.key == SDLK_F && focus_ == Focus::List) open(true);
             return;
         }
         if (key.key == SDLK_TAB) {
             // UTA-0386: list, name, duplicate, notes, and round; Shift goes back.
-            const int step = (key.mod & SDL_KMOD_SHIFT) != 0 ? 3 : 1;
-            focus_ = static_cast<Focus>((static_cast<int>(focus_) + step) % 4);
+            const int step = (key.mod & SDL_KMOD_SHIFT) != 0 ? FOCUS_STOPS - 1 : 1;
+            focus_ = static_cast<Focus>((static_cast<int>(focus_) + step) % FOCUS_STOPS);
             return;
         }
         if (focusedMark() != nullptr) {
@@ -550,10 +556,17 @@ private:
         return wrapText(DISCLAIMER, static_cast<std::size_t>(std::max(g.columns - 2, 20)));
     }
 
-    [[nodiscard]] long pageRows() const {
-        const Grid g = grid();
-        return std::max(1, g.rows - 6 - static_cast<int>(disclaimer(g).size()));
+    static constexpr int LIST_TOP = 3; ///< the title, the hint, and a blank row
+
+    /// The rows the list box shows: below LIST_TOP, above the disclaimer, the
+    /// status line and a blank row.
+    [[nodiscard]] static int listRows(const Grid& g) {
+        return std::max(1, g.rows - LIST_TOP - 2 - static_cast<int>(disclaimer(g).size()));
     }
+
+    /// PageUp and PageDown's step: one row short of the list, so the row at
+    /// the edge stays in view as context.
+    [[nodiscard]] long pageRows() const { return std::max(1, listRows(grid()) - 1); }
 
     void colour(Uint8 r, Uint8 g, Uint8 b) { SDL_SetRenderDrawColor(renderer_, r, g, b, SDL_ALPHA_OPAQUE); }
 
@@ -602,10 +615,9 @@ private:
         const int disclaimerRows = static_cast<int>(notice.size());
 
         const int listWidth = std::clamp(g.columns / 2, 20, 46);
-        const int top = 3;
-        const int visible = std::max(1, g.rows - top - 2 - disclaimerRows);
-        drawList(1, top, listWidth, visible);
-        drawDetails(listWidth + 3, top, g.columns - listWidth - 4, visible);
+        const int visible = listRows(g);
+        drawList(1, LIST_TOP, listWidth, visible);
+        drawDetails(listWidth + 3, LIST_TOP, g.columns - listWidth - 4, visible);
 
         colour(120, 120, 135);
         for (int i = 0; i < disclaimerRows; ++i) text(1, g.rows - 1 - disclaimerRows + i, notice[i]);
@@ -657,7 +669,9 @@ private:
             else colour(240, 190, 90);
             const std::string label =
                 marked.visualName.empty() ? maps_[index].name : maps_[index].name + " - " + marked.visualName;
-            text(column, row + i, clipped(label, width - 7));
+            // Room for the longest tag, "FAILED", and a space before it.
+            constexpr int TAG_ROOM = static_cast<int>(std::string_view("FAILED").size()) + 1;
+            text(column, row + i, clipped(label, width - TAG_ROOM));
             if (!tag.empty()) {
                 if (result->failed) colour(245, 120, 110);
                 else colour(130, 210, 130);
@@ -753,7 +767,7 @@ private:
     std::size_t selection_ = 0;
     std::size_t listTop_ = 0;
     std::string filter_;
-    std::string notesFor_;
+    std::string loadedMap_; ///< whose notes and marks are loaded; editMarks saves under it too
     std::string notes_;
     std::string notesOnDisk_; ///< what this window last read from or wrote to the notes file
     bool notesReadable_ = true; ///< false when the file is there and could not be read
