@@ -181,7 +181,10 @@ def compile_mutator(copy, system, install):
 
 
 def changed_since(install, since):
-    """Files in the install's System directories modified after `since`."""
+    """Files in the install's System directories modified after `since`.
+
+    A file stamped more than a minute in the future is left out: its stamp
+    says nothing about this run, and it would fail every run."""
     return [str(p) for d in ("System", "System64") if (install / d).is_dir()
             for p in (install / d).iterdir() if p.is_file() and since < p.stat().st_mtime < time.time() + 60]
 
@@ -222,6 +225,9 @@ def capture_original(copy, system, install, map_name, cameras, width, height, vo
              f"-log={log}", "-forcelogflush"], cwd=system,
             env=headless_env(copy, display),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # 90 s for the client to start and load the map, then 10 a camera.
+        # UTACam's defaultproperties spend StartSeconds (6) once, then
+        # HoldSeconds (4) and ShotSeconds (2) a camera; lengthen these with them.
         deadline = time.time() + 90 + 10 * len(cameras)
         while time.time() < deadline and client.poll() is None:
             time.sleep(1)
@@ -291,7 +297,7 @@ def main():
         cameras = [l for l in args.cameras.read_text().splitlines() if l.strip()]
     else:
         fail("name --capture, or --map with --cameras")
-    if not 1 <= len(cameras) <= 64:
+    if not 1 <= len(cameras) <= 64:  # UTACam's Cameras[64]; change both together
         fail(f"{len(cameras)} cameras; 1 to 64 are taken")
     if args.fov:
         cameras = [" ".join(c.split()[:6] + [str(args.fov)]) for c in cameras]

@@ -9,16 +9,19 @@
 //=============================================================================
 class UTACam expands Mutator config(UTACam);
 
-var config string Cameras[64];
+var config string Cameras[64]; // ut-compare.py refuses more than 64; change both
 var config float StartSeconds; // let the level load and settle
 var config float HoldSeconds;  // a camera is held this long before its shot
 var config float ShotSeconds;  // and this long after, so the file is written
 
 var int Index;
+// True while a camera is held, from its pose until its shot; Tick and Timer
+// test this, not HeldPawn.
 var bool bPosed;
-// The pose being held. The waiting-for-match state drifts the player and
-// resets its pitch, so Tick puts it back every frame until the shot.
-var PlayerPawn Posed;
+// The pawn being held, and the pose it is held at. The waiting-for-match
+// state drifts the player and resets its pitch, so Tick puts it back every
+// frame until the shot.
+var PlayerPawn HeldPawn;
 var vector PawnAt;
 var rotator Aim;
 var float Fov;
@@ -67,8 +70,8 @@ function Hold(PlayerPawn PP)
 
 function Tick(float DeltaTime)
 {
-	if (bPosed && Posed != None)
-		Hold(Posed);
+	if (bPosed && HeldPawn != None)
+		Hold(HeldPawn);
 }
 
 function PostBeginPlay()
@@ -117,7 +120,7 @@ function Timer()
 	}
 
 	Index++;
-	if (Index >= 64 || Cameras[Index] == "")
+	if (Index >= ArrayCount(Cameras) || Cameras[Index] == "")
 	{
 		log("UTACAM DONE "$Index);
 		PP.ConsoleCommand("exit");
@@ -146,7 +149,7 @@ function Timer()
 	PP.PlayerCalcView(ViewActor, CamLoc, CamRot);
 	PawnAt = PP.Location + (Want - CamLoc);
 	Hold(PP);
-	Posed = PP;
+	HeldPawn = PP;
 	PP.PlayerCalcView(ViewActor, CamLoc, CamRot);
 	log("UTACAM POSE "$Index$" cam="$CamLoc.X$","$CamLoc.Y$","$CamLoc.Z
 		$" rot="$CamRot.Pitch$","$CamRot.Yaw$","$CamRot.Roll$" fov="$PP.FOVAngle);
