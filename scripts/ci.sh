@@ -118,10 +118,16 @@ if [[ $MODE == docs ]]; then
 fi
 
 step "documentation: relative links resolve"
+# .githooks/pre-commit runs a looser twin of this check at commit time. It
+# comes from ~/.claude/skeleton and is not edited here, so a link it passes
+# can still fail this step.
 link_failures=0
 # -z, so a non-ASCII file name is not handed over quoted (review-code 2026-09-26).
 while IFS= read -r -d '' file; do
     dir=$(dirname "$file")
+    # The links come from the done line below. Code is not a link: fenced
+    # blocks and inline code spans are dropped first, so a quoted lambda's
+    # [&](const T& x) is not read as one.
     while IFS= read -r target; do
         [[ -z $target ]] && continue
         # Off-tree and in-page links are not this check's business.
@@ -140,7 +146,8 @@ while IFS= read -r -d '' file; do
             printf '   %s -> %s is not a tracked file or directory\n' "$file" "$target" >&2
             link_failures=$((link_failures + 1))
         fi
-    done < <(grep -oE '\]\([^)]+\)' "$file" | sed -E 's/^\]\(//; s/\)$//')
+    done < <(awk '/^[[:space:]]*(```|~~~)/ { fence = !fence; next } !fence' "$file" |
+        sed -E "s/\`[^\`]*\`//g" | grep -oE '\]\([^)]+\)' | sed -E 's/^\]\(//; s/\)$//')
 done < <(git ls-files -z '*.md')
 if [[ $link_failures -gt 0 ]]; then
     printf 'ci: %d broken relative link(s) in the documentation.\n' "$link_failures" >&2
@@ -276,6 +283,8 @@ step "configure ($GENERATOR, $CONFIG)"
 # run -- changes nothing.
 DEPS=(glm sdl3 catch2)
 deps_args=()
+# true: configure fetches the libraries, and the kept copy is refilled after.
+refill_deps=false
 if [[ -n ${UTA_CI_DEPS_DIR:-} ]]; then
     # .complete is written last, after every copy landed, so a directory a
     # killed run half-filled is never mistaken for a whole one.
@@ -286,6 +295,7 @@ if [[ -n ${UTA_CI_DEPS_DIR:-} ]]; then
         printf '   libraries: the kept sources in %s\n' "$UTA_CI_DEPS_DIR"
     else
         printf '   libraries: %s is incomplete, so they are downloaded\n' "$UTA_CI_DEPS_DIR"
+        refill_deps=true
     fi
 fi
 
@@ -298,7 +308,7 @@ cmake "${configure[@]}"
 compiler=$(sed -n 's/^CMAKE_CXX_COMPILER:[A-Z]*=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null)
 compiler=${compiler:-${CXX:-the generator\'s own}} # a Visual Studio generator caches none
 printf '   compiler: %s\n' "$compiler"
-if [[ -n ${UTA_CI_DEPS_DIR:-} && ${#deps_args[@]} -eq 0 ]]; then
+if $refill_deps; then
     rm -rf "${UTA_CI_DEPS_DIR:?}"
     mkdir -p "$UTA_CI_DEPS_DIR"
     for dep in "${DEPS[@]}"; do

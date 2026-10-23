@@ -801,6 +801,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **The gate's link check no longer reads code as a link** (UTA-0411)
+  `scripts/ci.sh` took `[&](const T& x)` inside a quoted code span for a
+  markdown link to `const` and failed the push. Fenced blocks and inline
+  code are now dropped before links are read.
+
 - **ci.sh --help and ci-matrix.sh --help print their whole header** (UTA-0411)
   Each printed a fixed range of lines, and both had drifted to stop
   mid-sentence. They now print the comment block up to the first line of
