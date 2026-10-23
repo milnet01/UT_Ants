@@ -17662,7 +17662,7 @@ stays with movement in 0.2.0.
   Source: user-request-2026-10-19.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0389] **urender: TheBoat's sky still reads as clouds painted on the inside of a box.**
+- ✅ [UTA-0389] **urender: TheBoat's sky still reads as clouds painted on the inside of a box.**
   The user, 2026-10-19: "I like the new sky but now it looks like
   clouds painted on the inside of the box." This map's sky is a closed
   painted box with no sky zone, opened by its recipe's [sky]
