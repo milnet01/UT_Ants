@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""List what graphical features each map needs -- UTA-0347. Version 1 read
-the sky, for UTA-0346's sun rule and UTA-0350's painted skies; version 2 adds
-`needs`, read from the map and its bundle without drawing anything; version 3
-adds `skyKinds` (UTA-0380).
+"""List what graphical features each map needs -- UTA-0347: its sky, for
+UTA-0346's sun rule and UTA-0350's painted skies, and `needs`, read from the
+map and its bundle without drawing anything.
 
     scripts/map-analyser.py [--no-sky] <install> <out dir> <report.json>...
 
@@ -63,9 +62,9 @@ sky, and prints one JSON line:
               A map that fails ut-dump prints {"map", "error"} instead.
 
 The last line holds the totals by class, and `paintedSky`, the candidates;
-`mapsWith`, how many maps have each need; `mapsWithSkyKind`, how many maps
-have a sky zone of each kind; and the twenty commonest decoration classes
-across the maps. A map whose class is clear,
+`mapsWith`, how many maps have each need but `lights`; `mapsWithSkyKind`,
+how many maps have a sky zone of each kind; and the twenty commonest
+decoration classes across the maps. A map whose class is clear,
 fewClouds or warmClear gets a sun (UTA-0346; warmClear added by the user,
 2026-10-11). `other` is any sky the rules do not name: overcast, purple,
 orange, alien.
@@ -337,6 +336,12 @@ def analyse(install, out, report_path, shoot):
     return row
 
 
+# The `needs` keys mapsWith does not count. `lights` was left out when the
+# summary was written (b017f66), with no reason recorded; add it by removing
+# it here.
+NOT_IN_MAPS_WITH = {"lights"}
+
+
 def main(argv):
     shoot = "--no-sky" not in argv
     argv = [a for a in argv if a != "--no-sky"]
@@ -346,8 +351,7 @@ def main(argv):
     install, out = argv[1], pathlib.Path(argv[2])
     out.mkdir(parents=True, exist_ok=True)
     totals, painted, errors = {}, 0, 0
-    maps_with = {k: 0 for k in ("skyZones", "skyKinds", "backdrop", "cylinderLights", "wideLights", "fogZones", "waterZones",
-                                "skippedLiquids", "decorations", "translucent", "glassNamed")}
+    maps_with = {}  # every `needs` key but NOT_IN_MAPS_WITH, in needs()' order
     decorations, sky_kinds_total = {}, {}
     for report_path in argv[3:]:
         try:
@@ -361,8 +365,9 @@ def main(argv):
         if shoot:
             totals[row["class"]] = totals.get(row["class"], 0) + 1
         painted += bool(row["paintedSky"] and row["paintedSky"]["textures"])
-        for key in maps_with:
-            maps_with[key] += bool(row["needs"][key])
+        for key, value in row["needs"].items():
+            if key not in NOT_IN_MAPS_WITH:
+                maps_with[key] = maps_with.get(key, 0) + bool(value)
         for k in {k["kind"] for k in row["needs"]["skyKinds"]}:
             sky_kinds_total[k] = sky_kinds_total.get(k, 0) + 1
         for cls, n in row["needs"]["decorations"].items():
