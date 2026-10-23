@@ -34,6 +34,8 @@ struct Mip {
 
 /// UTA-0176: one of a FireTexture's sparks, as stored: a type, its heat, its
 /// place on the texture, and four bytes whose meaning the type decides.
+/// ufire::Spark and ubundle::FireSpark have the same layout; each part keeps
+/// its own so none links another. A field added here goes in all three.
 struct Spark {
     std::uint8_t type = 0;
     std::uint8_t heat = 0;

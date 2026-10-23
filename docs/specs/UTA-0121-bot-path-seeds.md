@@ -474,7 +474,7 @@ struct Proposal {
 ```cpp
 namespace uta {
 /// RFC 1321 MD5, fed in any number of pieces, as Sha256 is.
-class Md5 { /* update(std::span<const std::byte>), finish() -> std::array<std::byte, 16> */ };
+class Md5 { /* add(std::span<const std::byte>), finish() -> std::array<std::byte, 16> */ };
 [[nodiscard]] std::array<std::byte, 16> md5(std::span<const std::byte> bytes);
 }
 ```

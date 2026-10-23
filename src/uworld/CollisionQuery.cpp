@@ -1,8 +1,6 @@
 // Point and segment checks against a collision tree --
-// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4, INV-2. Moved from
-// tools/ut-paths/Trace.cpp into ubake by docs/specs/UTA-0112-baked-light-probes.md
-// SS 4.10 (its INV-11), and from there here, unchanged but for the namespace,
-// by UTA-0158.
+// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4, INV-2. CollisionQuery.h says
+// what a walk is.
 
 #include "uworld/CollisionQuery.h"
 

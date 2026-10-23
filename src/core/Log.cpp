@@ -11,9 +11,8 @@
 
 namespace uta {
 
-// constinit: the design sanctions exactly one global, so that one is
-// constructed at compile time and cannot participate in static
-// initialisation order at all.
+// constinit: constructed at compile time, so it cannot take part in static
+// initialisation order -- another global's constructor may log through it.
 constinit LogCategory logCore{"core"};
 
 /// Shared by both sinks, and by any program printing a name it did not
@@ -147,17 +146,26 @@ void Logger::write(const LogCategory& category, LogLevel level,
     }
 }
 
+namespace {
+
+/// One record as one line, in the form both sinks write.
+void printLine(std::FILE* out, const LogRecord& record) {
+    const std::string text = sanitised(record.text);
+    (void)std::fprintf(out, "[%.*s] %.*s: %.*s\n",
+                     static_cast<int>(logLevelName(record.level).size()),
+                     logLevelName(record.level).data(),
+                     static_cast<int>(record.category.size()), record.category.data(),
+                     static_cast<int>(text.size()), text.data());
+}
+
+}  // namespace
+
 LogSink consoleSink() {
     return [](const LogRecord& record) {
         // stderr, not stdout: a program's own output is stdout's, and a log
         // line interleaved into it is the thing design rule "no printf"
         // exists to stop.
-        const std::string text = sanitised(record.text);
-        (void)std::fprintf(stderr, "[%.*s] %.*s: %.*s\n",
-                     static_cast<int>(logLevelName(record.level).size()),
-                     logLevelName(record.level).data(),
-                     static_cast<int>(record.category.size()), record.category.data(),
-                     static_cast<int>(text.size()), text.data());
+        printLine(stderr, record);
     };
 }
 
@@ -185,12 +193,7 @@ Result<LogSink> fileSink(const std::filesystem::path& path) {
         raw, [](std::FILE* f) { if (f != nullptr) (void)std::fclose(f); });
 
     return LogSink{[stream](const LogRecord& record) {
-        const std::string text = sanitised(record.text);
-        (void)std::fprintf(stream.get(), "[%.*s] %.*s: %.*s\n",
-                     static_cast<int>(logLevelName(record.level).size()),
-                     logLevelName(record.level).data(),
-                     static_cast<int>(record.category.size()), record.category.data(),
-                     static_cast<int>(text.size()), text.data());
+        printLine(stream.get(), record);
         (void)std::fflush(stream.get());
     }};
 }

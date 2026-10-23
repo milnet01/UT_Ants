@@ -16,6 +16,8 @@
 #include <cstdint>
 #include <span>
 
+#include "core/HashBlocks.h"
+
 namespace uta {
 
 /// RFC 1321 MD5, fed in any number of pieces, as Sha256 is.
@@ -23,7 +25,7 @@ class Md5 {
 public:
     Md5() noexcept;
 
-    void update(std::span<const std::byte> bytes) noexcept;
+    void add(std::span<const std::byte> bytes) noexcept;
 
     /// The digest of everything fed in, which also leaves the object as newly
     /// constructed.
@@ -35,9 +37,7 @@ private:
     void compress(const std::byte* block) noexcept;
 
     std::array<std::uint32_t, 4> state_;
-    std::array<std::byte, BLOCK> buffer_{};
-    std::size_t buffered_ = 0;
-    std::uint64_t length_ = 0; ///< bytes fed in so far
+    detail::HashBlocks<BLOCK> blocks_;
 };
 
 [[nodiscard]] std::array<std::byte, 16> md5(std::span<const std::byte> bytes) noexcept;

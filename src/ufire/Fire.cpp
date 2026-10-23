@@ -211,6 +211,8 @@ void Fire::step() {
             }
             break;
         case Particle::Kind::Twirl:
+            // Tested before the count-down, where the two Drift kinds count
+            // first: SurrealEngine's order, so a twirl draws `age` times.
             if (particle.age > 0) {
                 setWrapped(particle.x, particle.y, particle.heat);
                 particle.x += std::sin(particle.angle) * 0.5f;

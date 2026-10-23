@@ -140,6 +140,21 @@ TEST_CASE("UTA-0407: reading opens only a regular file, whatever the status chec
     REQUIRE(plain.has_value());
     (void)std::fclose(*plain);
 }
+
+TEST_CASE("reading and mapping refuse a FIFO alike, as InvalidArgument", "[core][fs]") {
+    // readFile and MappedFile::open share one type check (lane 09 review,
+    // 2026-10-23); readFile alone used to let a FIFO through to file_size.
+    const TempDir dir;
+    const fs::path fifo = dir.path() / "pipe.u";
+    REQUIRE(::mkfifo(fifo.c_str(), 0600) == 0);
+
+    const auto read = uta::fs::readFile(fifo);
+    REQUIRE_FALSE(read.has_value());
+    CHECK(read.error().code() == ErrorCode::InvalidArgument);
+    const auto mapped = uta::fs::MappedFile::open(fifo);
+    REQUIRE_FALSE(mapped.has_value());
+    CHECK(mapped.error().code() == ErrorCode::InvalidArgument);
+}
 #endif
 
 TEST_CASE("a directory passed where a file is expected is InvalidArgument",

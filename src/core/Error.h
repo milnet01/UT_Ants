@@ -56,7 +56,7 @@ public:
 
     /// Ref-qualified, and the rvalue overload is deleted on purpose. The view
     /// aliases message_, and withContext() returns a prvalue -- so the chained
-    /// shape this header's own example teaches
+    /// shape
     ///     auto m = err.withContext("...").message();
     /// would leave m pointing into an Error destroyed at the end of the full
     /// expression. Measured: it printed nothing, and ASan did not flag it,

@@ -276,19 +276,62 @@ Result<std::filesystem::path> logDirectory() {
 
 #endif
 
-Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
+namespace {
+
+/// The checks readFile and MappedFile::open both make before opening. A FIFO
+/// or a device would block the open, or hand back what is not a file's bytes,
+/// so anything but a regular file is InvalidArgument (UTA-0229).
+[[nodiscard]] Result<void> checkReadable(const std::filesystem::path& path) {
     std::error_code ec;
     const auto status = std::filesystem::status(path, ec);
-    // The type before the error_code, for readFile's reason below.
+    // Read the TYPE before the error_code. libstdc++ sets ec to ENOENT for a
+    // missing file even though it also reports file_type::not_found, so an
+    // `if (ec)` first would answer IoFailure for every absent path.
     if (status.type() == std::filesystem::file_type::not_found)
         return fail(ErrorCode::NotFound, "no such file: " + utf8(path));
     if (ec) return fail(ErrorCode::IoFailure, "cannot stat " + utf8(path) + ": " + ec.message());
     if (status.type() == std::filesystem::file_type::directory)
         return fail(ErrorCode::InvalidArgument, utf8(path) + " is a directory, not a file");
-    // A FIFO or a device would block the open or map something that is not a
-    // file's bytes, so only a regular file is mapped (UTA-0229).
     if (status.type() != std::filesystem::file_type::regular)
         return fail(ErrorCode::InvalidArgument, utf8(path) + " is not a regular file");
+    return {};
+}
+
+#ifndef _WIN32
+/// An open descriptor and the size fstat gave it.
+struct OpenRegular {
+    int fd;
+    std::uintmax_t size;
+};
+
+/// Open `path` read-only, refusing anything but a regular file. The check
+/// above can be outrun: a FIFO swapped in after it would block a plain open.
+/// O_NONBLOCK keeps the open from blocking, and S_ISREG on the open
+/// descriptor refuses what was swapped in (review-code 2026-10-15, UTA-0407).
+/// A regular file reads the same either way. The caller closes `fd`.
+[[nodiscard]] Result<OpenRegular> openRegular(const std::filesystem::path& path) {
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+    if (fd < 0) {
+        const int error = errno;
+        return fail(errorCodeFromErrno(error), "cannot open " + utf8(path) + ": " + std::strerror(error));
+    }
+    struct stat info {};
+    if (::fstat(fd, &info) != 0) {
+        ::close(fd);
+        return fail(ErrorCode::IoFailure, "cannot stat " + utf8(path));
+    }
+    if (!S_ISREG(info.st_mode)) {
+        ::close(fd);
+        return fail(ErrorCode::InvalidArgument, utf8(path) + " is not a regular file");
+    }
+    return OpenRegular{fd, static_cast<std::uintmax_t>(info.st_size)};
+}
+#endif
+
+}  // namespace
+
+Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
+    UTA_CHECK(checkReadable(path));
 
     MappedFile mapped;
 #ifdef _WIN32
@@ -323,28 +366,13 @@ Result<MappedFile> MappedFile::open(const std::filesystem::path& path) {
     mapped.data_ = static_cast<const std::byte*>(view);
     mapped.size_ = static_cast<std::size_t>(size.QuadPart);
 #else
-    // O_NONBLOCK and the S_ISREG test below close the gap after the status
-    // check: a FIFO swapped in between would otherwise block the open or map
-    // what is not a file's bytes (review-code 2026-10-15).
-    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-    if (fd < 0) {
-        const int error = errno;
-        return fail(errorCodeFromErrno(error), "cannot open " + utf8(path) + ": " + std::strerror(error));
-    }
-    struct stat info {};
-    if (::fstat(fd, &info) != 0) {
-        ::close(fd);
-        return fail(ErrorCode::IoFailure, "cannot stat " + utf8(path));
-    }
-    if (!S_ISREG(info.st_mode)) {
-        ::close(fd);
-        return fail(ErrorCode::InvalidArgument, utf8(path) + " is not a regular file");
-    }
-    if (static_cast<std::uintmax_t>(info.st_size) > std::numeric_limits<std::size_t>::max()) {
+    UTA_TRY(const OpenRegular file, openRegular(path));
+    const int fd = file.fd;
+    if (file.size > std::numeric_limits<std::size_t>::max()) {
         ::close(fd);
         return fail(ErrorCode::InvalidArgument, "file is larger than this build can map: " + utf8(path));
     }
-    const auto size = static_cast<std::size_t>(info.st_size);
+    const auto size = static_cast<std::size_t>(file.size);
     if (size == 0) {
         ::close(fd);
         return mapped; // mmap refuses a length of 0; the view is empty
@@ -400,22 +428,8 @@ Result<std::FILE*> detail::openForReading(const std::filesystem::path& path) {
     if (file == nullptr) return fail(errorCodeFromErrno(errno), "cannot open " + utf8(path));
     return file;
 #else
-    // O_NONBLOCK keeps a FIFO from blocking the open; the S_ISREG test on the
-    // open descriptor then refuses it. A regular file reads the same either way.
-    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-    if (fd < 0) {
-        const int error = errno;
-        return fail(errorCodeFromErrno(error), "cannot open " + utf8(path) + ": " + std::strerror(error));
-    }
-    struct stat info {};
-    if (::fstat(fd, &info) != 0) {
-        ::close(fd);
-        return fail(ErrorCode::IoFailure, "cannot stat " + utf8(path));
-    }
-    if (!S_ISREG(info.st_mode)) {
-        ::close(fd);
-        return fail(ErrorCode::InvalidArgument, utf8(path) + " is not a regular file");
-    }
+    UTA_TRY(const OpenRegular opened, openRegular(path));
+    const int fd = opened.fd;
     std::FILE* file = ::fdopen(fd, "rb");
     if (file == nullptr) {
         const int error = errno;
@@ -427,21 +441,9 @@ Result<std::FILE*> detail::openForReading(const std::filesystem::path& path) {
 }
 
 Result<std::vector<std::byte>> readFile(const std::filesystem::path& path) {
+    UTA_CHECK(checkReadable(path));
+
     std::error_code ec;
-    const auto status = std::filesystem::status(path, ec);
-
-    // Read the TYPE before the error_code. libstdc++ sets ec to ENOENT for a
-    // missing file even though it also reports file_type::not_found, so an
-    // `if (ec)` first would answer IoFailure for every absent path -- which
-    // is what this test caught.
-    if (status.type() == std::filesystem::file_type::not_found)
-        return fail(ErrorCode::NotFound, "no such file: " + utf8(path));
-    if (ec)
-        return fail(ErrorCode::IoFailure,
-                    "cannot stat " + utf8(path) + ": " + ec.message());
-    if (std::filesystem::is_directory(status))
-        return fail(ErrorCode::InvalidArgument, "is a directory, not a file: " + utf8(path));
-
     const auto size = std::filesystem::file_size(path, ec);
     if (ec) return fail(ErrorCode::IoFailure, "cannot size " + utf8(path) + ": " + ec.message());
 
@@ -512,8 +514,8 @@ Result<void> writeFileAtomically(const std::filesystem::path& path,
         return fail(ErrorCode::AlreadyExists,
                     "no free temporary name beside " + utf8(path));
 
-    // From here every failure path unlinks the temporary before returning.
-    // That is INV-7, and it is why this is not written as early returns.
+    // From here every failure return must append discard() below, which
+    // unlinks the temporary (INV-7). Nothing does it for a new one.
     const std::size_t written =
         bytes.empty() ? 0 : std::fwrite(bytes.data(), 1, bytes.size(), file);
     bool writeFailed = written != bytes.size() || std::ferror(file) != 0;

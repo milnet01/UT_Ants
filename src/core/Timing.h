@@ -39,7 +39,8 @@ public:
     [[nodiscard]] std::vector<Phase> phases() const;
 
     /// Add `child`'s phases under the phase now open, each one deeper by this
-    /// one's open depth, after the phases already recorded.
+    /// one's open depth, after the phases already recorded. Does nothing on
+    /// any thread but the owner's, as open() does.
     void adopt(const std::vector<Phase>& child);
 
 private:

@@ -8,9 +8,7 @@
 
 #include "core/Md5.h"
 
-#include <algorithm>
 #include <bit>
-#include <cstring>
 
 namespace uta {
 namespace {
@@ -38,46 +36,26 @@ constexpr std::size_t LENGTH_AT = 56;
 
 Md5::Md5() noexcept : state_(INITIAL) {}
 
-void Md5::update(std::span<const std::byte> bytes) noexcept {
-    // An empty span may carry a null pointer, and memcpy from null is
-    // undefined even for zero bytes.
-    if (bytes.empty()) return;
-    length_ += bytes.size();
-    std::size_t offset = 0;
-
-    // Top up a partly filled block first, so every block compressed below is
-    // read straight out of the caller's span.
-    if (buffered_ != 0) {
-        const std::size_t take = std::min(BLOCK - buffered_, bytes.size());
-        std::memcpy(buffer_.data() + buffered_, bytes.data(), take);
-        buffered_ += take;
-        offset = take;
-        if (buffered_ < BLOCK) return;
-        compress(buffer_.data());
-        buffered_ = 0;
-    }
-
-    for (; bytes.size() - offset >= BLOCK; offset += BLOCK) compress(bytes.data() + offset);
-
-    buffered_ = bytes.size() - offset;
-    if (buffered_ != 0) std::memcpy(buffer_.data(), bytes.data() + offset, buffered_);
+void Md5::add(std::span<const std::byte> bytes) noexcept {
+    blocks_.add(bytes, [this](const std::byte* block) { compress(block); });
 }
 
 std::array<std::byte, 16> Md5::finish() noexcept {
-    // The length in BITS, taken before the padding is fed through update().
-    const std::uint64_t bits = length_ * 8;
+    // The length in BITS, taken before the padding is fed through add().
+    const std::uint64_t bits = blocks_.length() * 8;
 
     // One 0x80 byte, zeroes to the length field, then the length
     // LITTLE-endian, where SHA-256 writes it big-endian. Where fewer than nine
     // bytes are left in this block the padding runs on into a second.
+    const std::size_t buffered = blocks_.buffered();
     std::array<std::byte, BLOCK + 8> padding{};
     padding[0] = std::byte{0x80};
     const std::size_t zeroes =
-        buffered_ < LENGTH_AT ? LENGTH_AT - 1 - buffered_ : BLOCK + LENGTH_AT - 1 - buffered_;
+        buffered < LENGTH_AT ? LENGTH_AT - 1 - buffered : BLOCK + LENGTH_AT - 1 - buffered;
     std::size_t used = 1 + zeroes;
     for (int shift = 0; shift < 64; shift += 8)
         padding[used++] = static_cast<std::byte>(static_cast<std::uint8_t>(bits >> shift));
-    update(std::span<const std::byte>(padding.data(), used));
+    add(std::span<const std::byte>(padding.data(), used));
 
     std::array<std::byte, 16> digest{};
     for (std::size_t word = 0; word < state_.size(); ++word)
@@ -123,7 +101,7 @@ void Md5::compress(const std::byte* block) noexcept {
 
 std::array<std::byte, 16> md5(std::span<const std::byte> bytes) noexcept {
     Md5 hasher;
-    hasher.update(bytes);
+    hasher.add(bytes);
     return hasher.finish();
 }
 

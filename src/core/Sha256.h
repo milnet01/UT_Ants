@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <span>
 
+#include "core/HashBlocks.h"
+
 namespace uta {
 
 /// FIPS 180-4 SHA-256, fed in any number of pieces.
@@ -33,9 +35,7 @@ private:
     void compress(const std::byte* block) noexcept;
 
     std::array<std::uint32_t, 8> state_;
-    std::array<std::byte, BLOCK> buffer_{};
-    std::size_t buffered_ = 0;
-    std::uint64_t length_ = 0; ///< bytes added so far
+    detail::HashBlocks<BLOCK> blocks_;
 };
 
 [[nodiscard]] std::array<std::byte, 32> sha256(std::span<const std::byte> bytes) noexcept;

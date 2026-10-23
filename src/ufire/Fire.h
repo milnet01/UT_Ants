@@ -39,7 +39,10 @@ namespace uta::ufire {
 inline constexpr int PRIME_STEPS = 256;
 
 /// One spark as UT99 stores it: a type, its heat, its place on the texture,
-/// and four bytes whose meaning the type decides.
+/// and four bytes whose meaning the type decides. upkg::Spark (read from a
+/// package) and ubundle::FireSpark (stored in a bundle) have the same layout;
+/// each part keeps its own so ufire links uta_core alone. ubake/FireStill.cpp
+/// and urender/Materials.cpp copy one into this, field by field.
 struct Spark {
     std::uint8_t type = 0;
     std::uint8_t heat = 0;

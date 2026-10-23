@@ -33,10 +33,12 @@ namespace uta::fs {
 [[nodiscard]] Result<std::filesystem::path> dataDirectory();
 
 /// Per-user cache -- baked bundles and the host-download cache.
-/// Linux: $XDG_CACHE_HOME, else ~/.cache. Windows: %LOCALAPPDATA%\UT_Ants\cache.
+/// Linux: $XDG_CACHE_HOME, else ~/.cache, each under "ut-ants".
+/// Windows: %LOCALAPPDATA%\UT_Ants\cache.
 [[nodiscard]] Result<std::filesystem::path> cacheDirectory();
 
-/// Per-user logs. Linux: $XDG_STATE_HOME, else ~/.local/state.
+/// Per-user logs. Linux: $XDG_STATE_HOME, else ~/.local/state, each under
+/// "ut-ants".
 /// Windows: %LOCALAPPDATA%\UT_Ants\logs.
 [[nodiscard]] Result<std::filesystem::path> logDirectory();
 //
@@ -50,7 +52,8 @@ namespace uta::fs {
 // whose variable is unset there returns NotFound (INV-8).
 
 /// Read a whole file. NotFound when it is absent, InvalidArgument when the
-/// path names a directory, IoFailure when the read itself fails.
+/// path names a directory or anything else but a regular file, IoFailure when
+/// the read itself fails.
 [[nodiscard]] Result<std::vector<std::byte>> readFile(const std::filesystem::path& path);
 
 /// A file mapped read-only into memory -- UTA-0144. The operating system
@@ -117,7 +120,9 @@ namespace detail {
 /// Absolute inputs, empty inputs, and paths resolving outside `root` --
 /// through "..", a symlink, or both -- are InvalidArgument. Comparison is
 /// against weakly_canonical of both sides, so a symlink escape is caught
-/// along with a lexical one (INV-6).
+/// along with a lexical one (INV-6). Also refused, on every platform: a name
+/// unsafe on Windows -- a colon, a trailing dot or space, a device name such
+/// as aux.txt (INV-15) -- and a path through a dangling symlink.
 ///
 /// This is checked once, not continuously: a symlink swapped between this
 /// call and the open defeats it, and core does not pretend to close that.

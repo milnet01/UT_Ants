@@ -1,16 +1,14 @@
-// Point and segment checks against a collision tree.
-//
-// UTA-0158 moved these here from src/ubake/CollisionQuery.h, unchanged but for
-// the namespace, so a runtime target can use them: docs/design.md gives uworld
-// collision, and rule 2 keeps ubake out of the game. ubake and ut-paths bring
-// them back under their own names. UTA-0112 SS 4.10 had moved them into ubake
-// from tools/ut-paths/Trace.h; docs/specs/UTA-0121-bot-path-seeds.md SS 4.4 is
-// what they were written to.
+// Point and segment checks against a collision tree, to
+// docs/specs/UTA-0121-bot-path-seeds.md SS 4.4. Body-against-level collision
+// for the game is UTA-0017's; this tests points and segments.
 //
 // A reader of UTA-0111's tree, to that item's SS 4.5: a walk starts at node 0
 // with the tree's `outside`, descends by FBspNode::ChildOutside with no extra
-// flags, and a point with normal . p > distance takes `front`. Body-against-
-// level collision for the game is UTA-0017's; this tests points and segments.
+// flags, and a point with normal . p > distance takes `front`.
+//
+// In uworld so a runtime target can use them: docs/design.md gives uworld
+// collision, and rule 2 keeps ubake out of the game. ubake and ut-paths bring
+// them back under their own names.
 
 #pragma once
 

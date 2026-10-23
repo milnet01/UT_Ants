@@ -64,7 +64,7 @@ TEST_CASE("INV-1: Md5 fed one byte at a time gives the one-shot digest", "[core]
         INFO("message: \"" << example.message << "\"");
         uta::Md5 hasher;
         for (const std::byte part : bytesOf(example.message))
-            hasher.update(std::span<const std::byte>(&part, 1));
+            hasher.add(std::span<const std::byte>(&part, 1));
         CHECK(hex(hasher.finish()) == example.digest);
     }
 }
@@ -72,7 +72,7 @@ TEST_CASE("INV-1: Md5 fed one byte at a time gives the one-shot digest", "[core]
 TEST_CASE("Md5::finish leaves the hasher as newly constructed", "[core][md5]") {
     // The header promises this, so a caller may reuse one hasher.
     uta::Md5 hasher;
-    hasher.update(bytesOf("abc"));
+    hasher.add(bytesOf("abc"));
     (void)hasher.finish();
     CHECK(hex(hasher.finish()) == SUITE[0].digest);
 }
