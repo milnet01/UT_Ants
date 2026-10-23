@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=432 -->
+<!-- ants-roadmap-id-high-water: UTA=433 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18049,6 +18049,12 @@ stays with movement in 0.2.0.
   - .githooks/pre-commit:60: a `/` link is tested against the
     filesystem root, not the repository.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md
+  2026-10-23: all three leads real. utab under docs fixed (c992135);
+  --help fixed (a465f4e); the pre-commit root link lives in the
+  skeleton's hook and was sent to the claude-config session with a
+  tested change. Found while closing: ci.sh's link step read code spans
+  as links and failed the gate; fixed (5031e44). Ship once GitHub's
+  matrix is green.
   **Layman:** A bundle placed under docs could skip a safety check; two scripts' help text stops mid-sentence.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 14 (first two confirmed).
@@ -18194,6 +18200,10 @@ stays with movement in 0.2.0.
   Every finding in docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md,
   including HIGH ci.sh:112 (false comment: docs/*.utab counts as docs-only).
   Close with close-findings; ledger beside the lane file.
+  2026-10-23: lane 14 closed locally (ledger close-lane-14.md beside the
+  lane file). 14 fixed, 1 queued (finding 7 as UTA-0433), 1 dismissed
+  (finding 14: the commit-msg hook is the skeleton's; sent to the
+  claude-config session). Ship once GitHub's matrix is green.
   **Layman:** Make the build and push-check scripts easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 14.
@@ -18286,6 +18296,19 @@ stays with movement in 0.2.0.
   **Layman:** Two copies of the same small routine in the baker; keep one.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 13.
+
+- 📋 [UTA-0433] **Build ut-bench's and ut-paths' testable sources once, not per target.**
+  tools/ut-bench's Cli.cpp and Frame.cpp are listed in its own
+  CMakeLists.txt and again in uta_unit_tests and uta_device_tests;
+  ut-paths' Walkable.cpp and Seeds.cpp twice in tests/CMakeLists.txt.
+  Remedy: a library per tool, linked by the tests. Not done in the lane
+  14 pass: UTA-0129 (ut-bench) says Cli.cpp "is compiled into the tool
+  and into the unit tests" and UTA-0121 SS 4.1 places the ut-paths
+  sources, so the spec wording is checked first.
+  Finding: docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md
+  **Layman:** Two tools' source files are listed by hand in several build targets, so adding a file to one can miss the others.
+  Kind: refactor.
+  Source: review-readability-2026-10-23 lane 14.
 
 ## 0.2.0 — Movement and weapons
 
