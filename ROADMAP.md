@@ -17754,7 +17754,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.cache/uta-scratch/u359/nh.png, ~/.cache/uta-scratch/u359/lava-full.png
 
-- 🚧 [UTA-0396] **urender: a small dark triangle pokes up through TheBoat's open water.**
+- ✅ [UTA-0396] **urender: a small dark triangle pokes up through TheBoat's open water.**
   The user, 2026-10-22, F12 capture MH-()mG-TheBoat-V2mini-BP-
   20261022-131311Z (camera -5750 -9176 -23151, pitch -7688, yaw
   -3812; baker r64, format 31, tier ultra): "a black triangle in the
@@ -17780,7 +17780,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-BP-20261022-131311Z
 
-- 📋 [UTA-0397] **urender: light leaks into a dark low space on TheBoat, onto the sand floor.**
+- 🚧 [UTA-0397] **urender: light leaks into a dark low space on TheBoat, onto the sand floor.**
   The user, 2026-10-22, F12 capture MH-()mG-TheBoat-V2mini-BP-
   20261022-131353Z (camera 281 278 -24434, pitch 672, yaw 21090;
   baker r64, format 31, tier ultra): "light leak in this section
