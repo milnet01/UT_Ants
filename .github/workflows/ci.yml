@@ -53,8 +53,8 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     # Sized for a COLD build (local-gate.md § 9), or a cold cache reads as a
-    # hang. The Windows leg has no compiler cache and takes about 8 minutes;
-    # a release tag builds every leg cold. 30 leaves room for a slow runner.
+    # hang. A release tag builds every leg cold, with no compiler cache.
+    # 30 leaves room for a slow runner.
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -102,13 +102,20 @@ jobs:
           REF: ${{ github.ref }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
-          # The library-source cache's key (UTA-0243): per job, on the files
-          # that pin the libraries' tags.
+          # The cache keys, per job, made once here and read by every cache
+          # step, so a restore and its save cannot spell a key differently.
+          # The library sources' keys (UTA-0243) hash the files that pin their
+          # tags.
           JOB: ${{ matrix.cxx || 'msvc' }}
           DEPS_HASH: >-
             ${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
         run: |
-          echo "deps_key=deps-$JOB-$DEPS_HASH" >>"$GITHUB_OUTPUT"
+          {
+            echo "ccache_prefix=ccache-$JOB-"
+            echo "ccache_key=ccache-$JOB-$AFTER"
+            echo "deps_prefix=deps-$JOB-"
+            echo "deps_key=deps-$JOB-$DEPS_HASH"
+          } >>"$GITHUB_OUTPUT"
           mode=full
           if [[ $EVENT == push && $REF == refs/heads/* && -n $BEFORE && ! $BEFORE =~ ^0+$ ]] &&
             git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null &&
@@ -158,7 +165,10 @@ jobs:
           # The root CMakeLists.txt uses ccache whenever it is installed. Untold,
           # ccache hashes the build path into every key and mostly misses, so
           # the base-directory and hash-dir settings are what make it pay --
-          # the same two CLAUDE.md sets locally.
+          # the same two docs/build-and-test.md sets locally, where the base is
+          # `/` rather than this checkout.
+          # Kept in step by hand with "Install ccache" below and the Windows
+          # leg's remote script in scripts/ci-matrix.sh.
           {
             echo "CC=$CC_NAME"
             echo "CXX=$CXX_NAME"
@@ -196,7 +206,7 @@ jobs:
       # UTA-0235. The Windows leg compiled cold every run -- 311 s of a 383 s
       # gate. ccache is fetched pinned and checked by scripts/ccache-windows.sh;
       # CMakeLists.txt routes MSBuild through it. The settings mirror the Linux
-      # ones above.
+      # ones above, and the Windows leg's in scripts/ci-matrix.sh.
       - name: Install ccache
         if: runner.os == 'Windows' && steps.mode.outputs.mode == 'full'
         shell: bash
@@ -213,7 +223,8 @@ jobs:
           } >>"$GITHUB_ENV"
 
       # Catch2 is most of the objects in both Linux trees, the Release one and
-      # the ThreadSanitizer one, and it never changes. Kept per compiler.
+      # the ThreadSanitizer one, and it never changes. Kept per compiler, MSVC
+      # included.
       # ccache keys on source and flags itself, so an out-of-date restore costs
       # misses and never a wrong object -- the numeric contract's flags are
       # part of that key. A pull request's cache is scoped to its own ref, so
@@ -232,8 +243,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ matrix.cxx || 'msvc' }}-${{ github.sha }}
-          restore-keys: ccache-${{ matrix.cxx || 'msvc' }}-
+          key: ${{ steps.mode.outputs.ccache_key }}
+          restore-keys: ${{ steps.mode.outputs.ccache_prefix }}
 
       # The fetched libraries' sources (UTA-0243), so configure does not clone
       # them each run. EXACT key only, on the files that pin their tags: an
@@ -276,7 +287,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ matrix.cxx || 'msvc' }}-${{ github.sha }}
+          key: ${{ steps.mode.outputs.ccache_key }}
 
       - name: Save the library sources
         if: >-
@@ -304,8 +315,8 @@ jobs:
           # "<prefix> <key to keep>" per line: the compiler cache, and the
           # library sources (UTA-0243), whose superseded tags are dead weight.
           PAIRS: |
-            ccache-${{ matrix.cxx || 'msvc' }}- ccache-${{ matrix.cxx || 'msvc' }}-${{ github.sha }}
-            deps-${{ matrix.cxx || 'msvc' }}- ${{ steps.mode.outputs.deps_key }}
+            ${{ steps.mode.outputs.ccache_prefix }} ${{ steps.mode.outputs.ccache_key }}
+            ${{ steps.mode.outputs.deps_prefix }} ${{ steps.mode.outputs.deps_key }}
         run: |
           while read -r prefix KEEP; do
             [[ -z $prefix ]] && continue
