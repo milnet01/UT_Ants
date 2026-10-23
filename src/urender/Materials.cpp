@@ -163,11 +163,18 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
     if (bundle.materials) {
         for (std::size_t m = 0; m < bundle.materials->size(); ++m) {
             const ubundle::MaterialRecord& record = (*bundle.materials)[m];
-            UTA_TRY(const std::uint32_t base, mapIndex(record.id, "base", true));
-            UTA_TRY(const std::uint32_t normal, mapIndex(record.id, "normal", false));
-            UTA_TRY(const std::uint32_t rough, mapIndex(record.id, "rough", false));
-            UTA_TRY(const std::uint32_t height, mapIndex(record.id, "height", false));
-            UTA_TRY(const std::uint32_t emit, mapIndex(record.id, "emit", true));
+            // UTA-0286 SS 4.4: a fire look draws its replayed picture over the
+            // defaults, so the maps the bake made from its still are never
+            // drawn and are not uploaded (UTA-0401).
+            const auto stillMap = [&](std::string_view map, bool colour) -> Result<std::uint32_t> {
+                if (record.fire) return gpu::NONE;
+                return mapIndex(record.id, map, colour);
+            };
+            UTA_TRY(const std::uint32_t base, stillMap("base", true));
+            UTA_TRY(const std::uint32_t normal, stillMap("normal", false));
+            UTA_TRY(const std::uint32_t rough, stillMap("rough", false));
+            UTA_TRY(const std::uint32_t height, stillMap("height", false));
+            UTA_TRY(const std::uint32_t emit, stillMap("emit", true));
             UTA_TRY(const std::uint32_t glass, mapIndex(record.id, "glass", false)); // UTA-0270
             UTA_TRY(const std::uint32_t detail, mapIndex(record.id, "detail", false)); // UTA-0275
             // UTA-0275: detail repeats per repeat of the surface's texture, from

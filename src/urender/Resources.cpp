@@ -198,7 +198,7 @@ Result<void> Image::bind(VkDeviceMemory memory, VkDeviceSize offset) {
     view.viewType = desc_.depth == 0 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_3D;
     view.format = desc_.format;
     view.subresourceRange = {aspectOf(desc_.format), 0, desc_.mipLevels, 0, 1};
-    return check(vkCreateImageView(device_, &view, nullptr, &view_), "vkCreateImageView");
+    return created(vkCreateImageView(device_, &view, nullptr, &view_), view_, "vkCreateImageView");
 }
 
 Result<Image> Image::create(const Gpu& gpu, const ImageDesc& desc) {

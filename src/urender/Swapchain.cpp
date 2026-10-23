@@ -74,8 +74,8 @@ Result<std::unique_ptr<Swapchain>> Swapchain::create(const Gpu& gpu, std::uint32
     info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     info.clipped = VK_TRUE;
     info.oldSwapchain = old;
-    UTA_CHECK(check(vkCreateSwapchainKHR(swapchain->device_, &info, nullptr, &swapchain->handle_),
-                    "vkCreateSwapchainKHR"));
+    UTA_CHECK(created(vkCreateSwapchainKHR(swapchain->device_, &info, nullptr, &swapchain->handle_),
+                      swapchain->handle_, "vkCreateSwapchainKHR"));
 
     std::uint32_t count = 0;
     UTA_CHECK(check(vkGetSwapchainImagesKHR(swapchain->device_, swapchain->handle_, &count, nullptr),

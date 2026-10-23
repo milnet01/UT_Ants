@@ -8,6 +8,9 @@
 
 #include "device/DeviceFixture.h"
 
+#include "urender/Device.h"
+#include "urender/Materials.h"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
@@ -93,4 +96,18 @@ TEST_CASE("UTA-0286 INV-7: a fire material is still at one pinned time and moves
     // The same material with no look draws its maps, which do not move.
     const uta::ubundle::Bundle plain = fireSquare(std::nullopt);
     CHECK(changed(frameAt(plain, PINNED), frameAt(plain, PINNED + 0.5)) == 0);
+}
+
+TEST_CASE("UTA-0401: a fire material uploads its replayed picture in place of its still's maps", "[device][fire]") {
+    removeDisplay();
+    auto gpu = uta::urender::Gpu::create(false);
+    if (!gpu.has_value()) FAIL("no device, so this test cannot pass: " << gpu.error().message());
+    const auto texturesOf = [&](const uta::ubundle::Bundle& bundle) {
+        auto set = uta::urender::MaterialSet::upload(**gpu, bundle, false);
+        if (!set.has_value()) FAIL(set.error().message());
+        return set->textures().size();
+    };
+    // The plain material uploads its base map; the fire material draws its
+    // picture instead, so its still's base map is not uploaded beside it.
+    CHECK(texturesOf(fireSquare(sparkling())) == texturesOf(fireSquare(std::nullopt)));
 }

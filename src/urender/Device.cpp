@@ -456,7 +456,7 @@ Result<void> Gpu::run(const std::function<void(VkCommandBuffer)>& record) {
 
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    if (auto r = check(vkCreateFence(device_, &fenceInfo, nullptr, &fence), "vkCreateFence"); !r) {
+    if (auto r = created(vkCreateFence(device_, &fenceInfo, nullptr, &fence), fence, "vkCreateFence"); !r) {
         release();
         return r;
     }

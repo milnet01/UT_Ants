@@ -703,7 +703,7 @@ Result<void> Renderer::Impl::createSamplers() {
     // SS 4.11: this item renders at output resolution and applies no mip bias.
     info.mipLodBias = 0.0f;
     info.maxLod = VK_LOD_CLAMP_NONE;
-    UTA_CHECK(check(vkCreateSampler(gpu->device(), &info, nullptr, &materialSampler), "vkCreateSampler"));
+    UTA_CHECK(created(vkCreateSampler(gpu->device(), &info, nullptr, &materialSampler), materialSampler, "vkCreateSampler"));
 
     info.magFilter = VK_FILTER_NEAREST;
     info.minFilter = VK_FILTER_NEAREST;
@@ -712,12 +712,12 @@ Result<void> Renderer::Impl::createSamplers() {
     info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     info.maxLod = 0.0f;
-    UTA_CHECK(check(vkCreateSampler(gpu->device(), &info, nullptr, &nearestSampler), "vkCreateSampler"));
+    UTA_CHECK(created(vkCreateSampler(gpu->device(), &info, nullptr, &nearestSampler), nearestSampler, "vkCreateSampler"));
 
     // UTA-0053: the bloom chain filters, and never wraps past an edge.
     info.magFilter = VK_FILTER_LINEAR;
     info.minFilter = VK_FILTER_LINEAR;
-    UTA_CHECK(check(vkCreateSampler(gpu->device(), &info, nullptr, &bloomSampler), "vkCreateSampler"));
+    UTA_CHECK(created(vkCreateSampler(gpu->device(), &info, nullptr, &bloomSampler), bloomSampler, "vkCreateSampler"));
 
     info.magFilter = VK_FILTER_LINEAR;
     info.minFilter = VK_FILTER_LINEAR;
@@ -727,7 +727,7 @@ Result<void> Renderer::Impl::createSamplers() {
     info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    return check(vkCreateSampler(gpu->device(), &info, nullptr, &shadowSampler), "vkCreateSampler");
+    return created(vkCreateSampler(gpu->device(), &info, nullptr, &shadowSampler), shadowSampler, "vkCreateSampler");
 }
 
 Result<void> Renderer::Impl::createPassTimes() {
@@ -748,7 +748,7 @@ Result<void> Renderer::Impl::createPassTimes() {
     info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
     info.queryType = VK_QUERY_TYPE_TIMESTAMP;
     info.queryCount = GPU_PASS_COUNT + 1;
-    return check(vkCreateQueryPool(gpu->device(), &info, nullptr, &passTimes), "vkCreateQueryPool");
+    return created(vkCreateQueryPool(gpu->device(), &info, nullptr, &passTimes), passTimes, "vkCreateQueryPool");
 }
 
 Result<void> Renderer::Impl::createStandIns() {
@@ -1005,7 +1005,7 @@ Result<void> Renderer::Impl::writeDescriptors() {
     poolInfo.maxSets = 4 + 1 + static_cast<std::uint32_t>(BLOOM_LEVELS) + 1;
     poolInfo.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     poolInfo.pPoolSizes = sizes.data();
-    UTA_CHECK(check(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), "vkCreateDescriptorPool"));
+    UTA_CHECK(created(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool), pool, "vkCreateDescriptorPool"));
 
     VkDescriptorSetVariableDescriptorCountAllocateInfo variable{};
     variable.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
