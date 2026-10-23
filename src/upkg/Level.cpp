@@ -2,6 +2,7 @@
 
 #include "upkg/ByteReader.h"
 #include "upkg/Properties.h"
+#include "upkg/ReadSupport.h"
 
 #include <string>
 #include <utility>
@@ -9,15 +10,12 @@
 namespace uta::upkg {
 namespace {
 
-Error malformed(std::string message) {
-    return Error(ErrorCode::MalformedData, std::move(message));
-}
+using detail::malformed;
 
-/// The smallest a reach-spec record can be: three int32s and a byte are fixed,
-/// and the two object references are compact indices of at least one byte.
-/// Checked against what is left before the vector is grown -- the reason is
-/// Geometry.cpp's, that reserving from an unchecked count is how a four-byte
-/// edit asks for gigabytes.
+/// The smallest a reach-spec record can be: four int32s and a byte are fixed,
+/// and the two object references are compact indices of at least one byte --
+/// the fields readLevel reads below. detail::checkCount says why the count is
+/// checked against it.
 constexpr std::size_t REACH_SPEC_MIN_BYTES = 4 + 1 + 1 + 4 + 4 + 4 + 1;
 
 /// Fields following the reach-spec array, before the run of zeroes the export
@@ -45,15 +43,7 @@ Result<void> skipURL(ByteReader& reader) {
         UTA_CHECK(skipString(reader));
     }
     UTA_TRY(const std::int32_t options, reader.readIndex());
-    if (options < 0) {
-        return std::unexpected(malformed("a level's URL declares " + std::to_string(options) +
-                                         " options"));
-    }
-    if (static_cast<std::size_t>(options) > reader.remaining()) {
-        return std::unexpected(malformed(
-            "a level's URL declares " + std::to_string(options) + " options, more than the " +
-            std::to_string(reader.remaining()) + " bytes remaining can hold"));
-    }
+    UTA_CHECK(detail::checkCount(reader, options, 1, "a level's URL", "options"));
     for (std::int32_t option = 0; option < options; ++option) {
         UTA_CHECK(skipString(reader));
     }
@@ -117,16 +107,8 @@ Result<Level> readLevel(const Package& package, const ExportEntry& entry) {
     // read so the cursor lands on the first actor, which SS 4.3 requires.
     UTA_TRY(const std::int32_t slots, reader.readI32());
     UTA_TRY([[maybe_unused]] const std::int32_t capacity, reader.readI32());
-    if (slots < 0) {
-        return std::unexpected(
-            malformed("a Level declares " + std::to_string(slots) + " actor slots"));
-    }
     // One byte per slot is the floor: an object reference is a compact index.
-    if (static_cast<std::size_t>(slots) > reader.remaining()) {
-        return std::unexpected(malformed(
-            "a Level declares " + std::to_string(slots) + " actor slots, more than the " +
-            std::to_string(reader.remaining()) + " bytes remaining can hold"));
-    }
+    UTA_CHECK(detail::checkCount(reader, slots, 1, "a Level", "actor slots"));
     level.rawSlotCount = static_cast<std::uint32_t>(slots);
     for (std::int32_t slot = 0; slot < slots; ++slot) {
         UTA_TRY(const std::int32_t reference, reader.readIndex());
@@ -147,15 +129,7 @@ Result<Level> readLevel(const Package& package, const ExportEntry& entry) {
     level.model = ObjectReference{model};
 
     UTA_TRY(const std::int32_t specs, reader.readIndex());
-    if (specs < 0) {
-        return std::unexpected(
-            malformed("a Level declares " + std::to_string(specs) + " reach specs"));
-    }
-    if (static_cast<std::size_t>(specs) > reader.remaining() / REACH_SPEC_MIN_BYTES) {
-        return std::unexpected(malformed(
-            "a Level declares " + std::to_string(specs) + " reach specs, more than the " +
-            std::to_string(reader.remaining()) + " bytes remaining can hold"));
-    }
+    UTA_CHECK(detail::checkCount(reader, specs, REACH_SPEC_MIN_BYTES, "a Level", "reach specs"));
     level.reachSpecs.reserve(static_cast<std::size_t>(specs));
 
     for (std::int32_t index = 0; index < specs; ++index) {

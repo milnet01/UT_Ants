@@ -1,6 +1,7 @@
 #include "upkg/Geometry.h"
 
 #include "upkg/ByteReader.h"
+#include "upkg/ReadSupport.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -11,10 +12,6 @@
 
 namespace uta::upkg {
 namespace {
-
-Error malformed(std::string message) {
-    return Error(ErrorCode::MalformedData, std::move(message));
-}
 
 // The SMALLEST encoding of each element, for the count checks. A compact
 // index is one to five bytes wide, so a table holding one has a minimum
@@ -44,46 +41,18 @@ Result<Vector3> readVector(ByteReader& reader) {
     return value;
 }
 
-/// Twelve bytes a vertex, and the count comes from the file. Checked against
-/// what is left before the vector is grown, which is INV-4: reserving from an
-/// unchecked count is how a four-byte edit asks for gigabytes.
+/// Twelve bytes a vertex, and the count comes from the file (INV-4).
 Result<void> reserveVertices(const ByteReader& reader, std::vector<Vector3>& into,
                              std::int32_t count) {
-    if (count < 0) {
-        return std::unexpected(
-            malformed("a polygon declares " + std::to_string(count) + " vertices"));
-    }
-    const auto wanted = static_cast<std::size_t>(count);
-    if (wanted > reader.remaining() / VECTOR_BYTES) {
-        return std::unexpected(malformed(
-            "a polygon declares " + std::to_string(count) +
-            " vertices, more than the " + std::to_string(reader.remaining()) +
-            " bytes remaining can hold"));
-    }
-    into.reserve(wanted);
+    UTA_CHECK(detail::checkCount(reader, count, VECTOR_BYTES, "a polygon", "vertices"));
+    into.reserve(static_cast<std::size_t>(count));
     return {};
 }
 
-/// A `Model` table's element count comes from the file, so it is checked
-/// against what is left before anything is reserved -- INV-2, and the reason
-/// is UTA-0004 INV-4's: the four-byte edit that asks for gigabytes.
-///
-/// `elementBytes` is the element's SMALLEST encoding, because a compact index
-/// is one to five bytes wide. The check bounds the allocation; it does not
-/// predict where the table ends.
-Result<void> checkCount(const ByteReader& reader, std::int32_t count,
-                        std::size_t elementBytes, std::string_view what) {
-    if (count < 0) {
-        return std::unexpected(malformed("a Model declares " + std::to_string(count) +
-                                         " " + std::string(what)));
-    }
-    if (static_cast<std::size_t>(count) > reader.remaining() / elementBytes) {
-        return std::unexpected(malformed(
-            "a Model declares " + std::to_string(count) + " " + std::string(what) +
-            ", more than the " + std::to_string(reader.remaining()) +
-            " bytes remaining can hold"));
-    }
-    return {};
+/// A `Model` table's element count, checked as every table's is -- INV-2 here.
+Result<void> checkModelCount(const ByteReader& reader, std::int32_t count,
+                             std::size_t elementBytes, std::string_view what) {
+    return detail::checkCount(reader, count, elementBytes, "a Model", what);
 }
 
 /// Name the part of a `Model` a failure happened in, for SS 4.6's file-order
@@ -107,22 +76,17 @@ Result<std::vector<Element>> readTable(ByteReader& reader, std::size_t elementBy
     // out of bytes HERE rather than inside an element, and an unnamed failure
     // cannot be attributed to a table at all.
     UTA_TRY(const std::int32_t count, inModel(reader.readIndex(), what));
-    UTA_CHECK(checkCount(reader, count, elementBytes, what));
+    UTA_CHECK(checkModelCount(reader, count, elementBytes, what));
     std::vector<Element> table;
     table.reserve(static_cast<std::size_t>(count));
     for (std::int32_t element = 0; element < count; ++element) {
-        auto value = readElement(reader);
-        if (!value.has_value()) {
-            // SS 4.6 derives the residue in FILE ORDER, and that needs to know
-            // which table the walk stopped in. A short read inside an element
-            // otherwise reports ByteReader's own message, which names no
-            // table -- so the failure cannot be attributed and the ordering
-            // rule cannot be applied. The count-check path above already
-            // names the table, so only this one needs the context.
-            return std::unexpected(
-                std::move(value).error().withContext("in a Model's " + std::string(what)));
-        }
-        table.push_back(*std::move(value));
+        // SS 4.6 derives the residue in FILE ORDER, and that needs to know
+        // which table the walk stopped in. A short read inside an element
+        // otherwise reports ByteReader's own message, which names no table --
+        // so the failure cannot be attributed and the ordering rule cannot be
+        // applied. The count check above already names the table.
+        UTA_TRY(auto value, inModel(readElement(reader), what));
+        table.push_back(std::move(value));
     }
     return table;
 }
@@ -154,7 +118,8 @@ Result<BspNode> readBspNode(ByteReader& reader) {
     BspNode node;
     UTA_TRY(node.plane, readPlane(reader));
     // ZoneMask is a 64-bit mask. ByteReader offers readI64 and no readU64, so
-    // it is read signed and reinterpreted, as readPolys does for PanU.
+    // it is read signed and reinterpreted as unsigned -- the reverse of
+    // readPolys's PanU.
     UTA_TRY(const std::int64_t zoneMask, reader.readI64());
     node.zoneMask = static_cast<std::uint64_t>(zoneMask);
     UTA_TRY(node.nodeFlags, reader.readU8());
@@ -293,20 +258,11 @@ Result<Polys> readPolys(const Package& package, const ExportEntry& entry) {
     // read so the cursor lands on the first polygon, which SS 4.3 requires.
     UTA_TRY(const std::int32_t count, reader.readI32());
     UTA_TRY([[maybe_unused]] const std::int32_t capacity, reader.readI32());
-    if (count < 0) {
-        return std::unexpected(
-            malformed("a Polys declares " + std::to_string(count) + " polygons"));
-    }
-
     // A whole polygon is the floor: a polygon with no vertices still carries
     // its four vectors, its flags, five compact indices and its two pans.
     // Checked before reserving -- INV-4 -- so the reservation, about 104 bytes
     // a polygon, stays within twice the bytes that back it (UTA-0216).
-    if (static_cast<std::size_t>(count) > reader.remaining() / MIN_POLYGON_BYTES) {
-        return std::unexpected(malformed(
-            "a Polys declares " + std::to_string(count) + " polygons, more than the " +
-            std::to_string(reader.remaining()) + " bytes remaining can hold"));
-    }
+    UTA_CHECK(detail::checkCount(reader, count, MIN_POLYGON_BYTES, "a Polys", "polygons"));
     polys.polygons.reserve(static_cast<std::size_t>(count));
 
     for (std::int32_t index = 0; index < count; ++index) {
@@ -330,12 +286,8 @@ Result<Polys> readPolys(const Package& package, const ExportEntry& entry) {
         polygon.texture = ObjectReference{texture};
 
         UTA_TRY(const std::int32_t itemName, reader.readIndex());
-        if (itemName < 0 || static_cast<std::size_t>(itemName) >= package.names().size()) {
-            return std::unexpected(malformed(
-                "a polygon names item index " + std::to_string(itemName) +
-                ", which is outside the name table"));
-        }
-        polygon.itemName = static_cast<std::uint32_t>(itemName);
+        UTA_TRY(polygon.itemName,
+                detail::checkNameIndex(itemName, package.names().size(), "a polygon names item"));
 
         UTA_TRY(polygon.link, reader.readIndex());
         UTA_TRY(polygon.brushPoly, reader.readIndex());
@@ -350,14 +302,7 @@ Result<Polys> readPolys(const Package& package, const ExportEntry& entry) {
         polys.polygons.push_back(std::move(polygon));
     }
 
-    // SS 4.3: a reader that models the layout correctly ends exactly here.
-    // Anywhere else means a field's width is wrong or a branch was missed, and
-    // a partial result is never returned (INV-1).
-    if (reader.remaining() != 0) {
-        return std::unexpected(malformed(
-            "a Polys left " + std::to_string(reader.remaining()) +
-            " bytes unread; the layout does not match the export"));
-    }
+    UTA_CHECK(detail::expectConsumed(reader, "a Polys"));
     return polys;
 }
 
@@ -365,7 +310,7 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     // Below version 62 a Model holds no inline BSP tables at all: it holds six
     // object references, to separate Vectors, Points, BspNodes, BspSurfs,
     // Verts and Polys exports, behind a 37-byte prefix rather than 41. Walking
-    // it as the layout below would blames the first table for a difference
+    // it as the layout below would blame the first table for a difference
     // that is the whole shape of the export, so it is refused by name.
     //
     // UTA-0072 is what lifts this, and UTA-0069's ROADMAP bullet carries the
@@ -419,15 +364,11 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     // records that follow it rather than prefixing an array of its own.
     UTA_TRY(model.numSharedSides, inModel(reader.readI32(), "shared-side count"));
     UTA_TRY(const std::int32_t zones, inModel(reader.readI32(), "zone count"));
-    UTA_CHECK(checkCount(reader, zones, ZONE_MIN_BYTES, "zones"));
+    UTA_CHECK(checkModelCount(reader, zones, ZONE_MIN_BYTES, "zones"));
     model.zones.reserve(static_cast<std::size_t>(zones));
     for (std::int32_t zone = 0; zone < zones; ++zone) {
-        auto properties = readZoneProperties(reader);
-        if (!properties.has_value()) {
-            return std::unexpected(
-                std::move(properties).error().withContext("in a Model's zones"));
-        }
-        model.zones.push_back(*properties);
+        UTA_TRY(const auto properties, inModel(readZoneProperties(reader), "zones"));
+        model.zones.push_back(properties);
     }
 
     // INV-5 is what checks this field's position: a byte count that merely
@@ -445,7 +386,7 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     // src/ubundle/TextureSection.cpp reads block data the same way and says why.
     {
         UTA_TRY(const std::int32_t count, inModel(reader.readIndex(), "lightmap bytes"));
-        UTA_CHECK(checkCount(reader, count, LIGHT_BITS_BYTES, "lightmap bytes"));
+        UTA_CHECK(checkModelCount(reader, count, LIGHT_BITS_BYTES, "lightmap bytes"));
         UTA_TRY(const std::span<const std::byte> run,
                 inModel(reader.readBytes(static_cast<std::size_t>(count)), "lightmap bytes"));
         const auto* first = reinterpret_cast<const std::uint8_t*>(run.data());
@@ -464,27 +405,10 @@ Result<Model> readModel(const Package& package, const ExportEntry& entry) {
     UTA_TRY(model.lights,
             readTable<ObjectReference>(reader, LIGHT_MIN_BYTES, "lights", readReference));
 
-    auto rootOutside = reader.readI32();
-    if (!rootOutside.has_value()) {
-        return std::unexpected(
-            std::move(rootOutside).error().withContext("in a Model's trailing fields"));
-    }
-    model.rootOutside = *rootOutside;
-    auto linked = reader.readI32();
-    if (!linked.has_value()) {
-        return std::unexpected(
-            std::move(linked).error().withContext("in a Model's trailing fields"));
-    }
-    model.linked = *linked;
+    UTA_TRY(model.rootOutside, inModel(reader.readI32(), "trailing fields"));
+    UTA_TRY(model.linked, inModel(reader.readI32(), "trailing fields"));
 
-    // SS 4.3: a reader that models the layout correctly ends exactly here.
-    // Anywhere else means a field's width is wrong, and a partial result is
-    // never returned (INV-1).
-    if (reader.remaining() != 0) {
-        return std::unexpected(malformed(
-            "a Model left " + std::to_string(reader.remaining()) +
-            " bytes unread; the layout does not match the export"));
-    }
+    UTA_CHECK(detail::expectConsumed(reader, "a Model"));
     return model;
 }
 

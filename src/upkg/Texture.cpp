@@ -2,6 +2,7 @@
 
 #include "upkg/ByteReader.h"
 #include "upkg/Properties.h"
+#include "upkg/ReadSupport.h"
 
 #include <array>
 #include <string>
@@ -10,24 +11,17 @@
 namespace uta::upkg {
 namespace {
 
-/// The version from which a mip's WidthOffset and a sound's NextOffset are
-/// present. Measured across the reference install: stock content is not all
-/// version 68, so this branch is exercised by real packages rather than being
-/// an edge case (SS 2.1).
-constexpr std::uint16_t OFFSET_FIELD_MIN_VERSION = 63;
-
 /// A spark is eight bytes. FireTexture stores its own count and that many
 /// sparks after the mip chain; the count is the ARRAY's and is not the
 /// `NumSparks` property, which differs (SS 4.6).
 constexpr std::size_t SPARK_BYTES = 8;
 
-Error malformed(std::string message) {
-    return Error(ErrorCode::MalformedData, std::move(message));
-}
+using detail::malformed;
 
-/// The classes SS 4.6 models. Recognised by NAME rather than by ancestry:
-/// resolving "is this class a Texture?" properly needs the class table, which
-/// is UTA-0005 and is not built (SS 3.3 item 4).
+/// The classes SS 4.6 models. Recognised by NAME, not by ancestry, although
+/// readAncestry (Class.h, UTA-0005) could now say "descends from Texture": a
+/// subclass outside this list may serialise more than its parent, so INV-8
+/// refuses it rather than reading it as its nearest modelled ancestor.
 constexpr std::array<std::string_view, 6> MODELLED_CLASSES{
     "Texture", "WetTexture", "IceTexture", "ScriptedTexture", "FireTexture", "WaveTexture"};
 
@@ -39,7 +33,7 @@ Result<Mip> readMip(ByteReader& reader, std::uint16_t packageVersion,
     // mip's data, so it equals the data start plus the size -- which makes it
     // a free cross-check, and INV-5 spends it.
     std::uint32_t widthOffset = 0;
-    const bool hasWidthOffset = packageVersion >= OFFSET_FIELD_MIN_VERSION;
+    const bool hasWidthOffset = packageVersion >= detail::OFFSET_FIELD_MIN_VERSION;
     if (hasWidthOffset) {
         UTA_TRY(widthOffset, reader.readU32());
     }
@@ -75,13 +69,8 @@ Result<std::vector<Mip>> readChain(ByteReader& reader, std::uint16_t packageVers
                                    std::size_t serialOffset) {
     UTA_TRY(const std::uint8_t count, reader.readU8());
     std::vector<Mip> mips;
-    // One byte per mip is the floor, so the count is checked against what
-    // remains before the vector is grown (INV-4).
-    if (static_cast<std::size_t>(count) > reader.remaining()) {
-        return std::unexpected(malformed(
-            "a texture declares " + std::to_string(count) + " mips, more than the " +
-            std::to_string(reader.remaining()) + " bytes remaining can hold"));
-    }
+    // One byte per mip is the floor.
+    UTA_CHECK(detail::checkCount(reader, count, 1, "a texture", "mips"));
     mips.reserve(count);
     for (std::uint8_t index = 0; index < count; ++index) {
         UTA_TRY(Mip mip, readMip(reader, packageVersion, serialOffset));
@@ -153,17 +142,8 @@ Result<Texture> readTexture(const Package& package, const ExportEntry& entry) {
 
     if (className == "FireTexture") {
         UTA_TRY(const std::int32_t sparks, reader.readIndex());
-        if (sparks < 0) {
-            return std::unexpected(
-                malformed("a FireTexture declares " + std::to_string(sparks) + " sparks"));
-        }
+        UTA_CHECK(detail::checkCount(reader, sparks, SPARK_BYTES, "a FireTexture", "sparks"));
         const auto wanted = static_cast<std::size_t>(sparks);
-        if (wanted > reader.remaining() / SPARK_BYTES) {
-            return std::unexpected(malformed(
-                "a FireTexture declares " + std::to_string(sparks) +
-                " sparks, more than the " + std::to_string(reader.remaining()) +
-                " bytes remaining can hold"));
-        }
         texture.sparks.reserve(wanted);
         for (std::size_t i = 0; i < wanted; ++i) {
             std::array<std::uint8_t, SPARK_BYTES> bytes{};
@@ -175,11 +155,7 @@ Result<Texture> readTexture(const Package& package, const ExportEntry& entry) {
         }
     }
 
-    if (reader.remaining() != 0) {
-        return std::unexpected(malformed(
-            "a texture left " + std::to_string(reader.remaining()) +
-            " bytes unread; the layout does not match the export"));
-    }
+    UTA_CHECK(detail::expectConsumed(reader, "a texture"));
     return texture;
 }
 
@@ -201,18 +177,9 @@ Result<Palette> readPalette(const Package& package, const ExportEntry& entry) {
     // The count is read rather than assumed to be 256: it is a value from the
     // file, and SS 2 item 1 governs every one of those.
     UTA_TRY(const std::int32_t count, reader.readIndex());
-    if (count < 0) {
-        return std::unexpected(
-            malformed("a Palette declares " + std::to_string(count) + " entries"));
-    }
     constexpr std::size_t ENTRY_BYTES = 4;
+    UTA_CHECK(detail::checkCount(reader, count, ENTRY_BYTES, "a Palette", "entries"));
     const auto wanted = static_cast<std::size_t>(count);
-    if (wanted > reader.remaining() / ENTRY_BYTES) {
-        return std::unexpected(malformed(
-            "a Palette declares " + std::to_string(count) +
-            " entries, more than the " + std::to_string(reader.remaining()) +
-            " bytes remaining can hold"));
-    }
 
     palette.entries.reserve(wanted);
     for (std::int32_t index = 0; index < count; ++index) {
@@ -224,11 +191,7 @@ Result<Palette> readPalette(const Package& package, const ExportEntry& entry) {
         palette.entries.push_back(colour);
     }
 
-    if (reader.remaining() != 0) {
-        return std::unexpected(malformed(
-            "a Palette left " + std::to_string(reader.remaining()) +
-            " bytes unread; the layout does not match the export"));
-    }
+    UTA_CHECK(detail::expectConsumed(reader, "a Palette"));
     return palette;
 }
 

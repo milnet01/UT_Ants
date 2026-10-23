@@ -17,6 +17,7 @@
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 #include "upkg/Properties.h"
+#include "upkg/ReadSupport.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -535,4 +536,23 @@ TEST_CASE("a class whose ScriptSize exceeds its export is MalformedData") {
     const auto info = uta::upkg::readClass(*package, package->exports()[0]);
     REQUIRE_FALSE(info.has_value());
     CHECK(info.error().code() == uta::ErrorCode::MalformedData);
+}
+
+// Every reader's name index goes through detail::checkNameIndex (UTA-0418),
+// so its two bounds are locked once, here: below zero and at the table's
+// size are refused, the last entry is not.
+TEST_CASE("a name index is refused below zero and at the table's size", "[package-malformed]") {
+    const auto below = uta::upkg::detail::checkNameIndex(-1, 3, "a test names");
+    REQUIRE_FALSE(below.has_value());
+    CHECK(below.error().code() == uta::ErrorCode::MalformedData);
+    CHECK(below.error().message() == "a test names index -1, which is outside the name table's 3 entries");
+
+    const auto at = uta::upkg::detail::checkNameIndex(3, 3, "a test names");
+    REQUIRE_FALSE(at.has_value());
+    CHECK(at.error().code() == uta::ErrorCode::MalformedData);
+
+    const auto last = uta::upkg::detail::checkNameIndex(2, 3, "a test names");
+    REQUIRE(last.has_value());
+    CHECK(*last == 2);
+    CHECK(uta::upkg::detail::checkNameIndex(0, 3, "a test names").value() == 0);
 }

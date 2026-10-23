@@ -2,6 +2,7 @@
 
 #include "core/Ascii.h"
 #include "upkg/ByteReader.h"
+#include "upkg/ReadSupport.h"
 #include "upkg/Script.h"
 
 #include <algorithm>
@@ -16,25 +17,12 @@ namespace {
 /// than of an unusually deep hierarchy. scripts/class-census.py re-derives it.
 constexpr std::size_t MAX_ANCESTRY_DEPTH = 64;
 
-Error malformed(std::string message) {
-    return Error(ErrorCode::MalformedData, std::move(message));
-}
+using detail::malformed;
 
 /// The engine's own package, class and property names are case-insensitive, so
 /// every comparison across a package boundary folds first, with core's ASCII
 /// fold.
 using uta::asciiFolded;
-
-/// A name index read out of an object's bytes, which nothing has validated.
-Result<std::uint32_t> checkNameIndex(const Package& package, std::int32_t index,
-                                     std::string_view field) {
-    if (index < 0 || static_cast<std::size_t>(index) >= package.names().size()) {
-        return std::unexpected(malformed(
-            "a class's " + std::string(field) + " names index " +
-            std::to_string(index) + ", which is outside the name table"));
-    }
-    return static_cast<std::uint32_t>(index);
-}
 
 /// The package an import ultimately lives in: follow its outer chain to the
 /// root, whose name is the package's.
@@ -137,7 +125,8 @@ Result<ClassInfo> readClass(const Package& package, const ExportEntry& entry) {
     UTA_TRY([[maybe_unused]] const std::int32_t children, reader.readIndex());
 
     UTA_TRY(const std::int32_t friendlyName, reader.readIndex());
-    UTA_TRY(info.friendlyName, checkNameIndex(package, friendlyName, "FriendlyName"));
+    UTA_TRY(info.friendlyName, detail::checkNameIndex(friendlyName, package.names().size(),
+                                                         "a class's FriendlyName names"));
     UTA_TRY([[maybe_unused]] const std::int32_t line, reader.readI32());
     UTA_TRY([[maybe_unused]] const std::int32_t textPos, reader.readI32());
 
@@ -185,7 +174,8 @@ Result<ClassInfo> readClass(const Package& package, const ExportEntry& entry) {
         info.within = ObjectReference{within};
         UTA_TRY(const std::int32_t configName, reader.readIndex());
         UTA_TRY(info.configName,
-                checkNameIndex(package, configName, "ClassConfigName"));
+                detail::checkNameIndex(configName, package.names().size(),
+                                       "a class's ClassConfigName names"));
     }
 
     // The defaults are the LAST thing in the export, which is why this cannot
@@ -196,11 +186,7 @@ Result<ClassInfo> readClass(const Package& package, const ExportEntry& entry) {
     // Every reader here ends exactly where its export ends (SS 4.8). It is
     // what makes the field order above checkable against content this project
     // did not write.
-    if (reader.position() != data.size()) {
-        return std::unexpected(malformed(
-            "a class export ended at " + std::to_string(reader.position()) +
-            " of " + std::to_string(data.size()) + " bytes"));
-    }
+    UTA_CHECK(detail::expectConsumed(reader, "a class export"));
     return info;
 }
 

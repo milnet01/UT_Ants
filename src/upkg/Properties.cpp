@@ -1,6 +1,7 @@
 #include "upkg/Properties.h"
 
 #include "upkg/ByteReader.h"
+#include "upkg/ReadSupport.h"
 
 #include <string>
 
@@ -13,9 +14,7 @@ constexpr std::uint8_t SIZE_CODE_MASK = 0x07;
 /// Bit 7 is the array flag for every type but Bool, where it is the value.
 constexpr std::uint8_t HIGH_BIT = 0x80;
 
-Error malformed(std::string message) {
-    return Error(ErrorCode::MalformedData, std::move(message));
-}
+using detail::malformed;
 
 /// Sizes 0 to 4 are fixed widths; 5, 6 and 7 mean the size follows as a u8,
 /// u16 or u32.
@@ -112,7 +111,7 @@ std::string readCountedString16(std::span<const std::byte> units) {
 }
 
 /// Decode the value bytes for the types whose layout the format fixes.
-/// Everything else keeps its bytes -- see this file's header comment.
+/// Everything else keeps its bytes -- see Properties.h's header comment.
 Result<PropertyValue> readValue(ByteReader& reader, const Package& package,
                                 PropertyType type, std::size_t size) {
     switch (type) {
@@ -135,12 +134,9 @@ Result<PropertyValue> readValue(ByteReader& reader, const Package& package,
     }
     case PropertyType::Name: {
         UTA_TRY(const std::int32_t index, reader.readIndex());
-        if (index < 0 || static_cast<std::size_t>(index) >= package.names().size()) {
-            return std::unexpected(malformed(
-                "a Name property names index " + std::to_string(index) +
-                ", which is outside the name table"));
-        }
-        return PropertyValue{NameRef{static_cast<std::uint32_t>(index)}};
+        UTA_TRY(const std::uint32_t name,
+                detail::checkNameIndex(index, package.names().size(), "a Name property names"));
+        return PropertyValue{NameRef{name}};
     }
     case PropertyType::Str: {
         // A length as a compact index, then that many CHARACTERS including the
@@ -203,14 +199,10 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
     std::vector<Property> properties;
     for (;;) {
         UTA_TRY(const std::int32_t rawName, reader.readIndex());
-        if (rawName < 0 || static_cast<std::size_t>(rawName) >= package.names().size()) {
-            return std::unexpected(malformed(
-                "a property tag names index " + std::to_string(rawName) +
-                ", which is outside the name table"));
-        }
+        UTA_TRY(const std::uint32_t nameIndex,
+                detail::checkNameIndex(rawName, package.names().size(), "a property tag names"));
 
-        UTA_TRY(const std::string_view tagName,
-                package.name(static_cast<std::uint32_t>(rawName)));
+        UTA_TRY(const std::string_view tagName, package.name(nameIndex));
         // The list ends at `None` and at no other condition. A loop that
         // stopped at the end of the buffer would return a truncated object as
         // a complete one (INV-9). Exact spelling, though UE1 names ignore
@@ -221,7 +213,7 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
         }
 
         Property property;
-        property.nameIndex = static_cast<std::uint32_t>(rawName);
+        property.nameIndex = nameIndex;
 
         UTA_TRY(const std::uint8_t info, reader.readU8());
         const auto rawType = static_cast<std::uint8_t>(info & TYPE_MASK);
@@ -237,18 +229,15 @@ Result<std::vector<Property>> readPropertiesAt(const Package& package,
         // The struct name comes between the info byte and the size.
         if (property.type == PropertyType::Struct) {
             UTA_TRY(const std::int32_t structName, reader.readIndex());
-            if (structName < 0 ||
-                static_cast<std::size_t>(structName) >= package.names().size()) {
-                return std::unexpected(malformed(
-                    "a Struct property names struct index " + std::to_string(structName) +
-                    ", which is outside the name table"));
-            }
-            property.structNameIndex = static_cast<std::uint32_t>(structName);
+            UTA_TRY(property.structNameIndex,
+                    detail::checkNameIndex(structName, package.names().size(),
+                                           "a Struct property names struct"));
         }
 
-        // Step 4 runs for a Bool too: only its VALUE bytes are skipped, never
-        // the size field, because every Bool tag measured in real content
-        // carries size code 5 and so a trailing size byte is present.
+        // UTA-0003 SS 4.8 step 4, the size, runs for a Bool too: only its
+        // VALUE bytes are skipped, never the size field, because every Bool
+        // tag measured in real content carries size code 5 and so a trailing
+        // size byte is present.
         UTA_TRY(std::size_t size, readSize(reader, sizeCode));
         // UTA-0247: an Int or a Float is four bytes whatever its tag declares.
         // UT99 reads a property its class knows by the property's own type,

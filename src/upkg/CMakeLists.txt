@@ -7,6 +7,7 @@ add_library(uta_upkg STATIC
     Level.cpp
     Package.cpp
     Properties.cpp
+    ReadSupport.cpp
     Script.cpp
     Sound.cpp
     Texture.cpp)

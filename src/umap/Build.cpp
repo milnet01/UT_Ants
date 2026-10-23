@@ -30,7 +30,7 @@ constexpr std::size_t MAX_SAMPLES = std::size_t{1} << 30;
 /// default spacing this admits 4096 columns a side, 131072 units.
 constexpr std::size_t MAX_COLUMNS = std::size_t{1} << 24;
 
-/// One lattice column's cell, in the grid `traceComponent` walks.
+/// The sampling grid `traceComponent` walks: its size, origin and spacing.
 ///
 /// A cell is the square of side `sampleSpacing` CENTRED on its column's
 /// sample. SS 4.4 step 4 says a cell is IN when a sample in that column
@@ -64,7 +64,7 @@ struct Bucket {
 };
 
 /// The four axis directions, in counter-clockwise order: +x, +y, -x, -y.
-/// `traceLoops` rotates through these by index, so the order is a contract.
+/// `traceComponent` rotates through these by index, so the order is a contract.
 constexpr int DIR_X[4] = {1, 0, -1, 0};
 constexpr int DIR_Y[4] = {0, 1, 0, -1};
 
@@ -250,9 +250,9 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
 /// asks for; taking the clockwise edge instead would split the component's
 /// boundary into two rings and leave nothing to call the outer one.
 /// Only the component's own cell box is scanned, `box` as {x0, y0, x1, y1}
-/// inclusive: scanning the whole lattice once per component made a zone
-/// split into many pieces cost pieces times the lattice (review-code
-/// 2026-10-15). `edgeTo` is shared between components and left all false.
+/// inclusive, so a zone split into many pieces costs each piece its own box
+/// rather than the whole lattice. `edgeTo` is shared between components and
+/// left all false.
 [[nodiscard]] std::vector<std::vector<Point2>> traceComponent(
     const Lattice& lattice, const std::vector<std::size_t>& label, std::size_t which,
     const std::array<std::size_t, 4>& box, std::vector<bool>& edgeTo) {
@@ -288,8 +288,8 @@ void simplifyRun(const std::vector<Point2>& pts, std::size_t first, std::size_t 
                + (vx + static_cast<std::size_t>(DIR_X[dir]));
     };
 
-    // The box's corners in ascending index, the order a whole-lattice scan
-    // meets them in, so the rings come out as they did.
+    // The box's corners in ascending index: a fixed corner order gives a
+    // fixed ring order.
     std::vector<std::vector<Point2>> rings;
     for (std::size_t vy = box[1]; vy <= box[3] + 1; ++vy)
     for (std::size_t vx = box[0]; vx <= box[2] + 1; ++vx) {

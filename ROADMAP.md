@@ -18081,6 +18081,9 @@ stays with movement in 0.2.0.
   including HIGH Class.cpp:31 (locale-dependent tolower; five more sites
   outside upkg: Tiers.cpp, map-pic/ut-dump Cli.cpp, ut-ants main.cpp, MapList.cpp).
   Close with close-findings; ledger beside the lane file.
+  2026-10-23: all fifteen lane-07 findings fixed, none queued or
+  dismissed; ledger close-lane-07.md. Bakes byte-identical on four maps.
+  Stays in progress until GitHub's matrix is green.
   **Layman:** Make the original-file reader easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 07.

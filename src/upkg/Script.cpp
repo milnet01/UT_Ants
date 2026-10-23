@@ -2,6 +2,7 @@
 
 #include "upkg/ByteReader.h"
 #include "upkg/Package.h"
+#include "upkg/ReadSupport.h"
 
 #include <cstddef>
 #include <string>
@@ -92,9 +93,7 @@ enum : std::uint8_t {
     EX_FirstNative = 0x70,
 };
 
-Error malformed(std::string message) {
-    return Error(ErrorCode::MalformedData, std::move(message));
-}
+using detail::malformed;
 
 /// An opcode as it is written in the format's own documentation, so a failure
 /// message can be matched against the table above.
@@ -247,14 +246,10 @@ Result<Walked> skipExpression(const Package& package, ByteReader& reader, int de
             UTA_TRY(const std::int32_t label, reader.readIndex());
             UTA_TRY([[maybe_unused]] const std::uint32_t offset, reader.readU32());
             walked.memoryBytes += NAME_BYTES + 4;
-            if (label < 0 ||
-                static_cast<std::size_t>(label) >= package.names().size()) {
-                return std::unexpected(malformed(
-                    "a script label table names index " + std::to_string(label) +
-                    ", which is outside the name table"));
-            }
-            UTA_TRY(const std::string_view labelName,
-                    package.name(static_cast<std::uint32_t>(label)));
+            UTA_TRY(const std::uint32_t labelIndex,
+                    detail::checkNameIndex(label, package.names().size(),
+                                           "a script label table names"));
+            UTA_TRY(const std::string_view labelName, package.name(labelIndex));
             // Exact spelling, as readPropertiesAt matches it: no package in
             // the reference install spells `None` otherwise (UTA-0405).
             if (labelName == "None") {

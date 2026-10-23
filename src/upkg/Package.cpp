@@ -1,6 +1,7 @@
 #include "upkg/Package.h"
 
 #include "upkg/ByteReader.h"
+#include "upkg/ReadSupport.h"
 
 #include <format>
 #include <string>
@@ -27,9 +28,7 @@ constexpr std::size_t MIN_IMPORT_ENTRY_BYTES = 7; // 3 indices + i32 outer
 constexpr std::size_t MIN_EXPORT_ENTRY_BYTES = 12;
 constexpr std::size_t GENERATION_BYTES = 8; // export count + name count
 
-Error malformed(std::string message) {
-    return Error(ErrorCode::MalformedData, std::move(message));
-}
+using detail::malformed;
 
 /// A count is credible only if the bytes after its table's offset could hold
 /// that many minimal entries. Checked before any vector is sized.
@@ -51,16 +50,6 @@ Result<void> checkTable(const char* what, std::uint32_t count, std::uint32_t off
             " bytes that follow its offset"));
     }
     return {};
-}
-
-Result<std::uint32_t> checkNameIndex(std::int32_t index, std::uint32_t nameCount,
-                                     const char* what) {
-    if (index < 0 || static_cast<std::uint32_t>(index) >= nameCount) {
-        return std::unexpected(malformed(
-            std::string(what) + " names index " + std::to_string(index) +
-            ", and the name table holds " + std::to_string(nameCount) + " entries"));
-    }
-    return static_cast<std::uint32_t>(index);
 }
 
 /// Validated against the table the reference's SIGN names, which is what makes
@@ -233,10 +222,10 @@ Result<Package> Package::open(std::span<const std::byte> bytes) {
         UTA_TRY(const std::int32_t outer, reader.readI32());
         UTA_TRY(const std::int32_t objectName, reader.readIndex());
 
-        UTA_TRY(entry.classPackage, checkNameIndex(classPackage, nameCount, "an import"));
-        UTA_TRY(entry.className, checkNameIndex(className, nameCount, "an import"));
+        UTA_TRY(entry.classPackage, detail::checkNameIndex(classPackage, nameCount, "an import names"));
+        UTA_TRY(entry.className, detail::checkNameIndex(className, nameCount, "an import names"));
         UTA_TRY(entry.outer, checkReference(outer, exportCount, importCount, "an import"));
-        UTA_TRY(entry.objectName, checkNameIndex(objectName, nameCount, "an import"));
+        UTA_TRY(entry.objectName, detail::checkNameIndex(objectName, nameCount, "an import names"));
         package.imports_.push_back(entry);
     }
     UTA_CHECK(checkImportOuters(package.imports_));
@@ -257,7 +246,7 @@ Result<Package> Package::open(std::span<const std::byte> bytes) {
                 checkReference(objectClass, exportCount, importCount, "an export"));
         UTA_TRY(entry.super, checkReference(super, exportCount, importCount, "an export"));
         UTA_TRY(entry.outer, checkReference(outer, exportCount, importCount, "an export"));
-        UTA_TRY(entry.objectName, checkNameIndex(objectName, nameCount, "an export"));
+        UTA_TRY(entry.objectName, detail::checkNameIndex(objectName, nameCount, "an export names"));
 
         if (serialSize < 0) {
             return std::unexpected(malformed("an export declares a negative serial size"));
