@@ -303,10 +303,15 @@ def analyse(install, out, report_path, shoot):
                            "--surface-list", "--wiring-graph", map_file],
                           capture_output=True, text=True)
     package = json.loads(dump.stdout)["packages"][0] if dump.returncode == 0 else None
+    failed = dump.stderr.strip()[-200:]
+    # ut-dump exits 0 for a package it could not read, and says so in the
+    # package's own ok and error (UTA-0410).
+    if package is not None and not package.get("ok", False):
+        package, failed = None, str(package.get("error", "not ok"))
     cams = cameras(package) if package and shoot else []
     row = {"map": name, "recipe": report.get("recipe") and pathlib.Path(report["recipe"]).name}
     if package is None:
-        row["error"] = "ut-dump failed: " + dump.stderr.strip()[-200:]
+        row["error"] = "ut-dump failed: " + failed
         return row
     # Views are reused only when drawn from this bake: a re-bake under the same
     # map name must not be measured from the old one's pictures (UTA-0371).

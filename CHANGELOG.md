@@ -801,6 +801,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **map-analyser reports a map ut-dump cannot read, instead of stopping** (UTA-0410)
+  ut-dump exits 0 and marks such a package not ok. The analyser read on
+  and stopped the whole batch with a KeyError; that map now prints its
+  error line and the rest are analysed.
+
 - **tile-questions reads only the answers file the viewer reads** (UTA-0410)
   With HOME relative or unset, the script read a file the viewer
   ignores and skipped questions as answered. It now ignores those
