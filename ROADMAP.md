@@ -18041,7 +18041,7 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 13.
 
-- 📋 [UTA-0411] **Investigate: gate leads — utab under docs, cut-off help, root links.**
+- 🚧 [UTA-0411] **Investigate: gate leads — utab under docs, cut-off help, root links.**
   - docs-only.sh:18: `docs/*` makes docs/x.utab documentation-only, so
     the bundle-origin check skips it. Never-list mirrors the machine
     hook's NEVER_DOCS.
@@ -18190,7 +18190,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 13.
 
-- 📋 [UTA-0425] **Readability fixes: build and gate scripts.**
+- 🚧 [UTA-0425] **Readability fixes: build and gate scripts.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md,
   including HIGH ci.sh:112 (false comment: docs/*.utab counts as docs-only).
   Close with close-findings; ledger beside the lane file.
