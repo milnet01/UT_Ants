@@ -19,10 +19,16 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace uta::ubake {
+
+/// The export of `map` whose object name folds to `name`'s fold, or none.
+[[nodiscard]] std::optional<std::uint32_t> exportNamed(const upkg::Package& map, std::string_view name);
 
 /// `point` turned by `yaw` (65536 to a turn, +X toward +Y, as UT99 turns) about
 /// the vertical through `pivot`, then moved so `pivot` lands on `at`.

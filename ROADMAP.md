@@ -17754,7 +17754,7 @@ stays with movement in 0.2.0.
   Lanes: urender.
   Evidence: ~/.cache/uta-scratch/u359/nh.png, ~/.cache/uta-scratch/u359/lava-full.png
 
-- 📋 [UTA-0396] **urender: a small dark triangle pokes up through TheBoat's open water.**
+- 🚧 [UTA-0396] **urender: a small dark triangle pokes up through TheBoat's open water.**
   The user, 2026-10-22, F12 capture MH-()mG-TheBoat-V2mini-BP-
   20261022-131311Z (camera -5750 -9176 -23151, pitch -7688, yaw
   -3812; baker r64, format 31, tier ultra): "a black triangle in the
@@ -17767,6 +17767,13 @@ stays with movement in 0.2.0.
   pose, then ut-dump --surface-list for surfaces near that point.
   Placed in 0.1.0 (session's call): TheBoat is the map the user is
   reviewing for this release, beside UTA-0383, UTA-0388, UTA-0389.
+  2026-10-23: the original draws it too (ut-compare at the capture
+  camera). It is Brush12, a subtracted wedge cutting a pit through the
+  sea floor (Brush2 polygon 5); the triangle is the pit's wall. The user
+  chose to hide it now. Recipe version 8's [hide] drops a brush's
+  surfaces and covers its opening as the surface it cut
+  (docs/specs/UTA-0109-map-geometry.md § 4.6). TheBoat's recipe hides
+  the pit; the capture view's only changed pixels are the triangle's.
   **Layman:** On the boat map a small dark triangle sticks up out of the sea where there should only be water.
   Kind: investigate.
   Source: user-request-2026-10-22.

@@ -14,6 +14,12 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **TheBoat's sea no longer shows a stone triangle** (UTA-0396)
+  The map cuts a small pit through its sea floor, and the pit's wall
+  showed as a triangle in open water, in the original game too. A recipe
+  may now hide a brush and draw the surface it cut through over the hole
+  (recipe version 8). TheBoat's recipe hides that pit. Re-bake TheBoat.
+
 - **The map analyser tells a sky room from a sky dome** (UTA-0380)
   `ut-dump --surface-list` now names the zones each surface faces, and
   each zone's actor. `scripts/map-analyser.py` uses them to class every

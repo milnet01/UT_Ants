@@ -331,6 +331,45 @@ Recorded after the build; nothing above changed direction.
   reaches them. UTA-0011 INV-13's decoy gains as many undrawn nodes, to stay
   the larger `Model` in every table.
 
+### 4.6 A recipe's hidden brushes (UTA-0396)
+
+A map may carve a brush through a surface it means as whole. TheBoat's
+`Brush12`, a subtracted wedge, cuts a pit through the sea floor, and the
+pit's wall shows as a stone triangle in open water, in the original too.
+The user chose to hide it (2026-10-23).
+
+**The recipe.** Version 8 adds a named section, as many as 64:
+
+```
+[hide <name>]          ; the name as a lamp's: 1 to 32 of a-z, 0-9 and -
+brush = <actor>        ; the brush whose surfaces are not drawn
+cover = <actor> <n>    ; the surface drawn over the opening: polygon n of that brush
+```
+
+Both keys are required, and the recipe must give the map's `sha256`.
+`write` emits each section after the sky, in file order. `bakeDigest`
+hashes each after the sky: `hide\n`, the three names each ended by a line
+break, then `n` as four little-endian bytes. A recipe without one keeps its
+version and its digest.
+
+**The bake** (`src/ubake/Hide.cpp`), per section, before § 4.3 runs:
+
+1. Every surface the brush owns leaves `GEOM`, as a flame sheet does. A
+   brush not in the map, or owning no surface, refuses the bake.
+2. The cover is the first node drawing a surface that the cover brush owns
+   as polygon `n`. None, or one the hidden brush owns, refuses the bake.
+3. Every corner of the hidden brush's nodes within one unit of the cover's
+   plane, and every edge crossing it, gives a point on the plane. Their
+   convex hull is the cover. Fewer than three points in the hull refuses
+   the bake.
+4. § 4.3 draws the cover after the nodes, by steps 5 to 7a, as the cover
+   node's polygon. It wears that node's surface and zone, and sways with
+   it.
+
+Only drawing changes: collision, zones and the bakes' rays read the
+`Model` unchanged. A bake without a `[hide]` is unchanged, so
+`BAKER_REVISION` stays.
+
 ## 5. Invariants
 
 - **INV-1** — `GEOM` round-trips through `ubundle::write` and
@@ -468,6 +507,15 @@ Recorded after the build; nothing above changed direction.
   rock behind it is hidden; partial cover hides a node; a drawn portal
   hides what lies on it.
 
+- **INV-15** — A hidden brush emits nothing, and its cover is drawn: an
+  upright square crossing a floor's plane and one whose top corners lie on
+  it give a cover whose corners are the crossings and those corners, on
+  the plane. Each refusal of § 4.6 names the section. *Added by UTA-0396.*
+  *Test:* `tests/unit/BakeHideTest.cpp`.
+  *Breaks when:* the brush's surfaces stay drawn; a crossing edge or an
+  on-plane corner is dropped; the cover is not drawn; a cover the hidden
+  brush owns is accepted.
+
 ## 6. Failure modes
 
 | When | What happens |
@@ -577,6 +625,7 @@ Each must be killed by the invariant that names it.
 | INV-10, INV-11 | `tests/unit/BakeTest.cpp`, a unit test |
 | INV-12 | `tests/unit/BakeGeometryTest.cpp`, a unit test; and `tests/real/RealGeometryTest.cpp`, over every map |
 | INV-14 | `tests/unit/BakeGeometryTest.cpp`, a unit test. The rule against the original: **nothing** automated -- UTA-0310's `ut-compare` runs, by hand once |
+| INV-15 | `tests/unit/BakeHideTest.cpp`, a unit test; the recipe's half in `tests/unit/RecipeFormatTest.cpp` |
 | INV-13 | `tests/unit/BakeGeometryTest.cpp` and `tests/unit/BundleGeometryTest.cpp`, unit tests. The constant `35` against the original: **nothing** automated -- UTA-0276's measurement, run by hand once |
 | `BAKER_REVISION` covering geometry | **Partial:** `tests/unit/BakeGoldenTest.cpp`, a golden-hash test, catches what its fixture draws; a change reached only by real content passes |
 | The PolyFlags bit values being UT99's | **nothing** — the tests use the constants the code uses, and the values rest on the cited header |

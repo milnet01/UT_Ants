@@ -1,4 +1,4 @@
-ut-ants recipe 6
+ut-ants recipe 8
 # MH-()mG-TheBoat-V2mini-BP's sun -- UTA-0346, from scripts/map-analyser.py's sky survey.
 # Its sky is clear light blue with no sun painted on it (UTA-0344; the user
 # chose a sun, 2026-10-11). The survey's views stand below deck, so the yaw
@@ -13,6 +13,10 @@ ut-ants recipe 6
 # Each [lamp] copies Light12, the cabin lantern's light, and wears Lantern5,
 # its lantern, as a mesh fitting that draws once UTA-0341 draws meshes. Rows
 # run along the aft lower deck and the forward hold, two low at the bow end.
+#
+# Brush12, a subtracted wedge, cuts a pit through the sea floor whose wall
+# shows as a stone triangle in open water, in the original too. [hide pit]
+# drops it and draws the sea over the opening (UTA-0396, user 2026-10-23).
 
 [map]
 file = mh-()mg-theboat-v2mini-bp
@@ -117,3 +121,7 @@ mesh = Lantern5
 light = Light12
 at = 1200 128 -24100
 mesh = Lantern5
+
+[hide pit]
+brush = Brush12
+cover = Brush2 5

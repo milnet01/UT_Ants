@@ -261,55 +261,19 @@ struct Drawn {
 
 Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
                                         std::size_t zoneCount, std::span<const std::uint32_t> omitted,
-                                        SwayReport* sway, const umap::RoomMap* rooms) {
+                                        SwayReport* sway, const umap::RoomMap* rooms,
+                                        std::span<const Cover> covers) {
     std::vector<Drawn> drawn;
     std::vector<SwayPolygon> swaying;
     std::uint64_t vertexTotal = 0;
     std::uint64_t indexTotal = 0;
     const std::vector<bool> hidden = hiddenBehindPortals(model);
 
-    for (std::size_t n = 0; n < model.nodes.size(); ++n) {
+    // Steps 4 to 7a for one polygon, `points`, drawn as node n's surface.
+    const auto draw = [&](std::size_t n, std::vector<Vec> points) -> Result<void> {
         const upkg::BspNode& node = model.nodes[n];
-        const std::size_t count = node.numVertices;
-
-        // 1. Fewer than three vertices draws nothing, and is checked no further.
-        if (count < 3) continue;
-
-        // 2. Its surface.
-        if (!within(node.iSurf, model.surfs.size()))
-            return refuse(n, "iSurf", node.iSurf, model.surfs.size(), "surfs");
+        const std::size_t count = points.size();
         const upkg::BspSurf& surf = model.surfs[static_cast<std::size_t>(node.iSurf)];
-
-        // 3. A surface UT99 never draws is checked no further, so it cannot
-        // refuse GEOM. COLL checks it, since an invisible node can still be
-        // solid (UTA-0111 SS 4.3).
-        if ((surf.polyFlags & PF_INVISIBLE) != 0) continue;
-        // 3a. UTA-0310: nor one an invisible zone portal covers.
-        if (hidden[n]) continue;
-        // UTA-0263 SS 4.3: a flame sheet is drawn as a FLAM record instead.
-        if (std::ranges::binary_search(omitted, static_cast<std::uint32_t>(node.iSurf))) continue;
-
-        // 4. Its polygon, and its surface's point and vectors. Every index is
-        // the file's own and unchecked by upkg (UTA-0069 SS 3.2).
-        if (node.iVertPool < 0
-            || static_cast<std::uint64_t>(node.iVertPool) + count > model.verts.size())
-            return refuse(n, "vertex pool", node.iVertPool, model.verts.size(), "verts");
-        std::vector<Vec> points;
-        points.reserve(count);
-        for (std::size_t k = 0; k < count; ++k) {
-            const std::int32_t point = model.verts[static_cast<std::size_t>(node.iVertPool) + k].pVertex;
-            if (!within(point, model.points.size()))
-                return refuse(n, "pVertex", point, model.points.size(), "points");
-            points.push_back(toDouble(model.points[static_cast<std::size_t>(point)]));
-            // UTA-0217: finite and inside the bound, before step 5 -- a NaN
-            // makes s neither zero nor negative, so it would be drawn.
-            for (const double part : points.back())
-                if (!(std::abs(part) <= MAX_COORDINATE))
-                    return fail(ErrorCode::MalformedData,
-                                "the Model's node " + std::to_string(n) + " has a point at "
-                                    + std::to_string(part) + ", which is not finite or lies past the bound of "
-                                    + std::to_string(MAX_COORDINATE));
-        }
         if (!within(surf.pBase, model.points.size()))
             return refuse(n, "pBase", surf.pBase, model.points.size(), "points");
         for (const auto& [what, index] : {std::pair<std::string_view, std::int32_t>{"vNormal", surf.vNormal},
@@ -329,7 +293,7 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         double s = 0;
         for (std::size_t k = 1; k + 1 < count; ++k)
             s += dot(cross(minus(points[k], points[0]), minus(points[k + 1], points[0])), along);
-        if (s == 0) continue;
+        if (s == 0) return {};
         if (s < 0) std::reverse(points.begin() + 1, points.end()); // P0, Pn-1, ..., P1
 
         vertexTotal += count;
@@ -392,7 +356,55 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
                                           {along[0] / alongLength, along[1] / alongLength, along[2] / alongLength}});
         }
         drawn.push_back(std::move(out));
+        return {};
+    };
+
+    for (std::size_t n = 0; n < model.nodes.size(); ++n) {
+        const upkg::BspNode& node = model.nodes[n];
+        const std::size_t count = node.numVertices;
+
+        // 1. Fewer than three vertices draws nothing, and is checked no further.
+        if (count < 3) continue;
+
+        // 2. Its surface.
+        if (!within(node.iSurf, model.surfs.size()))
+            return refuse(n, "iSurf", node.iSurf, model.surfs.size(), "surfs");
+        const upkg::BspSurf& surf = model.surfs[static_cast<std::size_t>(node.iSurf)];
+
+        // 3. A surface UT99 never draws is checked no further, so it cannot
+        // refuse GEOM. COLL checks it, since an invisible node can still be
+        // solid (UTA-0111 SS 4.3).
+        if ((surf.polyFlags & PF_INVISIBLE) != 0) continue;
+        // 3a. UTA-0310: nor one an invisible zone portal covers.
+        if (hidden[n]) continue;
+        // UTA-0263 SS 4.3: a flame sheet is drawn as a FLAM record instead.
+        if (std::ranges::binary_search(omitted, static_cast<std::uint32_t>(node.iSurf))) continue;
+
+        // 4. Its polygon, and its surface's point and vectors. Every index is
+        // the file's own and unchecked by upkg (UTA-0069 SS 3.2).
+        if (node.iVertPool < 0
+            || static_cast<std::uint64_t>(node.iVertPool) + count > model.verts.size())
+            return refuse(n, "vertex pool", node.iVertPool, model.verts.size(), "verts");
+        std::vector<Vec> points;
+        points.reserve(count);
+        for (std::size_t k = 0; k < count; ++k) {
+            const std::int32_t point = model.verts[static_cast<std::size_t>(node.iVertPool) + k].pVertex;
+            if (!within(point, model.points.size()))
+                return refuse(n, "pVertex", point, model.points.size(), "points");
+            points.push_back(toDouble(model.points[static_cast<std::size_t>(point)]));
+            // UTA-0217: finite and inside the bound, before step 5 -- a NaN
+            // makes s neither zero nor negative, so it would be drawn.
+            for (const double part : points.back())
+                if (!(std::abs(part) <= MAX_COORDINATE))
+                    return fail(ErrorCode::MalformedData,
+                                "the Model's node " + std::to_string(n) + " has a point at "
+                                    + std::to_string(part) + ", which is not finite or lies past the bound of "
+                                    + std::to_string(MAX_COORDINATE));
+        }
+        UTA_CHECK(draw(n, std::move(points)));
     }
+    // UTA-0109 SS 4.6: a recipe's covers, each drawn as its node's surface.
+    for (const Cover& cover : covers) UTA_CHECK(draw(cover.node, cover.points));
 
     // 7b. UTA-0055 SS 4.2 and SS 4.3: the swaying polygons cut into pieces,
     // each corner weighted. One the budget left whole keeps its corners.

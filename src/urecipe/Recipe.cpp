@@ -2,7 +2,8 @@
 // its lamps, docs/specs/UTA-0256-added-lamps.md SS 4.1, its sun,
 // docs/specs/UTA-0338-baked-sun.md SS 4.1, and the map's lights it switches
 // off, UTA-0256 SS 4.6 (UTA-0308), and its painted sky opened,
-// docs/specs/UTA-0350-painted-skies.md SS 4.1, with its haze (UTA-0391).
+// docs/specs/UTA-0350-painted-skies.md SS 4.1, with its haze (UTA-0391), and
+// its hidden brushes, docs/specs/UTA-0109-map-geometry.md SS 4.6 (UTA-0396).
 
 #include "urecipe/Recipe.h"
 
@@ -277,12 +278,32 @@ Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value,
     return {};
 }
 
-/// The lowest version that holds `recipe`: 7 with a sky's haze other than the
+/// UTA-0109 SS 4.6: `brush`, an actor's name; `cover`, an actor's name and
+/// a polygon number.
+Result<void> setHideKey(HiddenBrush& hide, std::string_view key, const std::string& value, std::size_t line) {
+    if (key == "brush") {
+        if (!isObjectName(value)) return refuse(line, std::format("'{}' is not an actor's name", value));
+        hide.brush = value;
+    } else if (key == "cover") {
+        const std::vector<std::string_view> words = wordsOf(value);
+        if (words.size() != 2 || !isObjectName(words[0]))
+            return refuse(line, std::format("'{}' is not a brush's name and a polygon number", value));
+        UTA_TRY(hide.coverPolygon, numberOf(words[1], UINT32_MAX, line));
+        hide.coverBrush = words[0];
+    } else {
+        return refuse(line, std::format("[hide] has no key '{}'", key));
+    }
+    return {};
+}
+
+/// The lowest version that holds `recipe`: 8 with a hidden brush (UTA-0109
+/// SS 4.6), 7 with a sky's haze other than the
 /// default (UTA-0391), 6 with a lamp's mesh (UTA-0256 SS 4.1), 5 with a sky
 /// (UTA-0350 SS 4.1),
 /// 4 with a switched-off light or a lamp with no fitting (UTA-0256 SS 4.6),
 /// 3 with a sun, 2 with a lamp, else 1.
 std::uint32_t versionOf(const Recipe& recipe) {
+    if (!recipe.hidden.empty()) return 8;
     if (recipe.sky && recipe.sky->haze != SKY_HAZE_DEFAULT) return 7;
     if (std::ranges::any_of(recipe.lamps, [](const AddedLamp& lamp) { return !lamp.mesh.empty(); })) return 6;
     if (recipe.sky) return 5;
@@ -354,7 +375,7 @@ std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
 Result<Recipe> parse(std::string_view text) {
     if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
 
-    enum class In { Header, Nothing, Map, Material, Lamp, Sun, SwitchOff, Sky };
+    enum class In { Header, Nothing, Map, Material, Lamp, Sun, SwitchOff, Sky, Hide };
     In in = In::Header;
     Recipe recipe;
     std::size_t headerLine = 1;
@@ -368,6 +389,7 @@ Result<Recipe> parse(std::string_view text) {
     std::optional<std::size_t> sunLine;
     std::optional<std::size_t> switchOffLine;
     std::optional<std::size_t> skyLine;
+    std::vector<std::size_t> hideLines;
     // A lamp's required keys -- `fitting` only below version 4 (UTA-0256
     // SS 4.6) -- a sun's five and [switch-off]'s one, checked when the
     // section closes.
@@ -384,6 +406,11 @@ Result<Recipe> parse(std::string_view text) {
             return refuse(*switchOffLine, "[switch-off] has no `lights`");
         } else if (in == In::Sky && !keysSeen.contains("textures")) {
             return refuse(*skyLine, "[sky] has no `textures`");
+        } else if (in == In::Hide) {
+            for (const std::string_view key : {"brush", "cover"})
+                if (!keysSeen.contains(key))
+                    return refuse(hideLines.back(),
+                                  std::format("[hide {}] has no `{}`", recipe.hidden.back().name, key));
         }
         return {};
     };
@@ -461,6 +488,18 @@ Result<Recipe> parse(std::string_view text) {
                 skyLine = line;
                 recipe.sky.emplace();
                 in = In::Sky;
+            } else if (heading == "hide" || (heading.starts_with("hide") && isBlank(heading[4]))) {
+                if (version < 8) return refuse(line, "a [hide] needs `ut-ants recipe 8`");
+                UTA_TRY(std::string name, lampNameOf(trimmed(heading.substr(4)), line));
+                for (std::size_t i = 0; i < recipe.hidden.size(); ++i)
+                    if (recipe.hidden[i].name == name)
+                        return refuse(line, std::format("[hide {}] is given twice; the first is on line {}", name,
+                                                        hideLines[i]));
+                if (recipe.hidden.size() == HIDE_LIMIT)
+                    return refuse(line, std::format("a recipe holds at most {} [hide] sections", HIDE_LIMIT));
+                recipe.hidden.push_back(HiddenBrush{.name = std::move(name)});
+                hideLines.push_back(line);
+                in = In::Hide;
             } else {
                 return refuse(line, std::format("there is no [{}] section", heading));
             }
@@ -483,6 +522,8 @@ Result<Recipe> parse(std::string_view text) {
                 UTA_CHECK(setSwitchOffKey(recipe.switchedOff, key, value, line));
             } else if (in == In::Sky) {
                 UTA_CHECK(setSkyKey(*recipe.sky, key, value, version, line));
+            } else if (in == In::Hide) {
+                UTA_CHECK(setHideKey(recipe.hidden.back(), key, value, line));
             } else {
                 UTA_CHECK(setMaterialKey(*material, key, value, line));
             }
@@ -507,6 +548,9 @@ Result<Recipe> parse(std::string_view text) {
     if (skyLine && !recipe.mapDigest)
         return refuse(*skyLine, "a recipe with a [sky] must give the map's sha256 in [map]: which textures paint "
                                 "the sky means nothing in another file");
+    if (!hideLines.empty() && !recipe.mapDigest)
+        return refuse(hideLines.front(), "a recipe with a [hide] must give the map's sha256 in [map]: actor names "
+                                         "mean nothing in another file");
     for (auto& [texture, assignment] : materials) recipe.materials.push_back(std::move(assignment));
     return recipe;
 }
@@ -563,6 +607,9 @@ std::string write(const Recipe& recipe) {
                            hex(recipe.sky->horizon), recipe.sky->clouds);
         if (recipe.sky->haze != SKY_HAZE_DEFAULT) out += std::format("haze = {}\n", recipe.sky->haze);
     }
+    for (const HiddenBrush& hide : recipe.hidden)
+        out += std::format("\n[hide {}]\nbrush = {}\ncover = {} {}\n", hide.name, hide.brush, hide.coverBrush,
+                           hide.coverPolygon);
     return out;
 }
 
@@ -650,6 +697,15 @@ std::array<std::byte, 32> bakeDigest(const Recipe& recipe) {
             addText("haze\n");
             addByte(recipe.sky->haze);
         }
+    }
+    // UTA-0109 SS 4.6: the hidden brushes last, in file order.
+    for (const HiddenBrush& hide : recipe.hidden) {
+        addText("hide\n");
+        for (const std::string& text : {hide.name, hide.brush, hide.coverBrush}) {
+            addText(text);
+            addText("\n");
+        }
+        addWord(hide.coverPolygon);
     }
     return hasher.finish();
 }

@@ -19,11 +19,13 @@
 #include "upkg/Geometry.h"
 #include "upkg/Package.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace uta::ubake {
 
@@ -80,6 +82,13 @@ struct SurfaceMaterial {
 using MaterialLookup =
     std::function<const SurfaceMaterial*(upkg::ObjectReference texture, bool masked)>;
 
+/// UTA-0109 SS 4.6: a convex polygon a recipe adds, drawn as though it were
+/// node `node`'s, wearing that node's surface and facing its zone.
+struct Cover {
+    std::size_t node = 0; ///< a node buildGeometry draws
+    std::vector<std::array<double, 3>> points;
+};
+
 /// The level's drawable surfaces as triangles -- SS 4.3.
 ///
 /// MalformedData, naming the node, when a drawn node's index leaves its table,
@@ -112,11 +121,15 @@ using MaterialLookup =
 /// not-solid surface, or water facing up or down, is cut by sliceSway and
 /// drawn as its pieces, each corner carrying its sway kind and weight. What
 /// the slicing did goes to `sway` where one is given.
+///
+/// UTA-0109 SS 4.6: each of `covers` is drawn after the nodes, by the same
+/// steps 5 to 7a, so a cover on water sways with it.
 [[nodiscard]] Result<ubundle::Geometry> buildGeometry(const upkg::Model& model,
                                                       const MaterialLookup& materials,
                                                       std::size_t zoneCount,
                                                       std::span<const std::uint32_t> omitted = {},
                                                       SwayReport* sway = nullptr,
-                                                      const umap::RoomMap* rooms = nullptr);
+                                                      const umap::RoomMap* rooms = nullptr,
+                                                      std::span<const Cover> covers = {});
 
 } // namespace uta::ubake

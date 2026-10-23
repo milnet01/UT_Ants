@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstddef>
+#include <format>
 #include <span>
 #include <string>
 #include <string_view>
@@ -205,10 +206,10 @@ TEST_CASE("INV-2: every refusal names its line", "[urecipe][format]") {
 }
 
 TEST_CASE("INV-2: a newer recipe names both versions", "[urecipe][format]") {
-    const auto result = urecipe::parse("ut-ants recipe 8\n");
+    const auto result = urecipe::parse("ut-ants recipe 9\n");
     REQUIRE_FALSE(result.has_value());
     const std::string message(result.error().message());
-    CHECK(message.find("version 8") != std::string::npos);
+    CHECK(message.find("version 9") != std::string::npos);
     CHECK(message.find("version " + std::to_string(urecipe::RECIPE_VERSION)) != std::string::npos);
 }
 
@@ -807,4 +808,94 @@ TEST_CASE("UTA-0391: a version-6 digest is unchanged and a haze moves it", "[ure
     Recipe further = withHaze();
     further.sky->haze = 41;
     CHECK(urecipe::bakeDigest(further) != urecipe::bakeDigest(withHaze()));
+}
+
+// UTA-0396: a brush hidden and its opening covered, version 8 --
+// docs/specs/UTA-0109-map-geometry.md SS 4.6.
+
+namespace {
+
+Recipe withHide() {
+    Recipe recipe = withHaze();
+    recipe.hidden.push_back(
+        uta::urecipe::HiddenBrush{.name = "pit", .brush = "Brush12", .coverBrush = "Brush2", .coverPolygon = 5});
+    recipe.hidden.push_back(
+        uta::urecipe::HiddenBrush{.name = "ledge", .brush = "Brush40", .coverBrush = "Brush3", .coverPolygon = 0});
+    return recipe;
+}
+
+const std::string V8_HEAD = "ut-ants recipe 8\n[map]\nfile = dm-x\n"
+                            "sha256 = 2f8a000000000000000000000000000000000000000000000000000000000ae1\n";
+
+} // namespace
+
+TEST_CASE("UTA-0396: hidden brushes round-trip as version 8, in file order", "[urecipe][format][hide]") {
+    const Recipe recipe = withHide();
+    const std::string text = urecipe::write(recipe);
+    CHECK(text.starts_with("ut-ants recipe 8\n"));
+    CHECK(text.ends_with("\n[hide pit]\nbrush = Brush12\ncover = Brush2 5\n"
+                         "\n[hide ledge]\nbrush = Brush40\ncover = Brush3 0\n"));
+    CHECK(parsed(text) == recipe);
+    // No [hide] stays below version 8.
+    CHECK(urecipe::write(withHaze()).starts_with("ut-ants recipe 7\n"));
+    const Recipe read = parsed(V8_HEAD + "[hide a]\ncover = Brush2   7\nbrush = Brush9\n");
+    REQUIRE(read.hidden.size() == 1);
+    CHECK(read.hidden[0] == uta::urecipe::HiddenBrush{.name = "a", .brush = "Brush9", .coverBrush = "Brush2",
+                                                      .coverPolygon = 7});
+}
+
+TEST_CASE("UTA-0396: every [hide] refusal names its line", "[urecipe][format][hide]") {
+    struct Refusal {
+        const char* what;
+        std::string text;
+        std::size_t line;
+    };
+    // Lines 1 to 4; a [hide] opens on line 5.
+    const std::string noDigest = "ut-ants recipe 8\n[map]\nfile = dm-x\n\n";
+    std::string full = V8_HEAD;
+    for (std::size_t i = 0; i <= uta::urecipe::HIDE_LIMIT; ++i)
+        full += std::format("[hide h{}]\nbrush = B\ncover = C 0\n", i);
+    const std::vector<Refusal> refusals = {
+        {"a [hide] in a version-7 recipe", V7_HEAD + "[hide a]\nbrush = B\ncover = C 0\n", 5},
+        {"a [hide] without the map's sha256", noDigest + "[hide a]\nbrush = B\ncover = C 0\n", 5},
+        {"a [hide] with no brush", V8_HEAD + "[hide a]\ncover = C 0\n", 5},
+        {"a [hide] with no cover", V8_HEAD + "[hide a]\nbrush = B\n", 5},
+        {"a [hide] with no name", V8_HEAD + "[hide]\nbrush = B\ncover = C 0\n", 5},
+        {"a [hide] given twice", V8_HEAD + "[hide a]\nbrush = B\ncover = C 0\n[hide a]\n", 8},
+        {"a brush that is not a name", V8_HEAD + "[hide a]\nbrush = B.x\n", 6},
+        {"a cover with no polygon", V8_HEAD + "[hide a]\ncover = C\n", 6},
+        {"a cover with a word for its polygon", V8_HEAD + "[hide a]\ncover = C five\n", 6},
+        {"a cover with three words", V8_HEAD + "[hide a]\ncover = C 0 1\n", 6},
+        {"a key [hide] lacks", V8_HEAD + "[hide a]\nfitting = B\n", 6},
+        {"more [hide] sections than the limit", full, 5 + 3 * uta::urecipe::HIDE_LIMIT},
+    };
+    for (const Refusal& refusal : refusals) {
+        DYNAMIC_SECTION(refusal.what) {
+            const auto result = urecipe::parse(refusal.text);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error().code() == ErrorCode::MalformedData);
+            const std::string message(result.error().message());
+            INFO("message: " << message);
+            CHECK(message.starts_with("recipe line " + std::to_string(refusal.line) + ": "));
+        }
+    }
+}
+
+TEST_CASE("UTA-0396: a version-7 digest is unchanged and each hidden field moves it", "[urecipe][format][hide]") {
+    // This text's digest under the version-7 code, recorded before version 8 existed.
+    const std::string v7 = V7_HEAD + "[sky]\ntextures = a.b\nhaze = 40\n";
+    CHECK(urecipe::bakeDigest(parsed(v7))
+          == digestFromHex("29731a559e86a66f11a1fb89ad9ac01104ac8bcceabb58a02642e1d2a2fff89e"));
+    const auto digest = urecipe::bakeDigest(withHide());
+    CHECK(digest != urecipe::bakeDigest(withHaze()));
+    std::vector<Recipe> changed(5, withHide());
+    changed[0].hidden[0].name = "pot";
+    changed[1].hidden[0].brush = "Brush13";
+    changed[2].hidden[0].coverBrush = "Brush1";
+    changed[3].hidden[0].coverPolygon = 6;
+    std::swap(changed[4].hidden[0], changed[4].hidden[1]);
+    for (std::size_t i = 0; i < changed.size(); ++i) {
+        INFO("change " << i);
+        CHECK(urecipe::bakeDigest(changed[i]) != digest);
+    }
 }

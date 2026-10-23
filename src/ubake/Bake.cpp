@@ -9,6 +9,7 @@
 #include "ubake/FireStill.h"
 #include "ubake/Flames.h"
 #include "ubake/Geometry.h"
+#include "ubake/Hide.h"
 #include "ubake/LightModel.h"
 #include "ubake/Liquids.h"
 #include "ubake/LightProbes.h"
@@ -42,6 +43,7 @@
 #include <span>
 #include <expected>
 #include <format>
+#include <iterator>
 #include <mutex>
 #ifdef __GLIBC__
 #include <malloc.h>
@@ -1235,9 +1237,18 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
         return index->second;
     };
     FlameSheets flames = findFlameSheets(model, flameMaterial);
+    // UTA-0109 SS 4.6: the recipe's hidden brushes leave GEOM with the
+    // sheets, and their openings are covered.
+    Hiding hiding;
+    if (recipe != nullptr && !recipe->hidden.empty()) {
+        UTA_TRY(hiding, naming(hideBrushes(map, model, recipe->hidden), mapName));
+    }
+    std::vector<std::uint32_t> omitted;
+    std::ranges::set_union(flames.surfaces, hiding.surfaces, std::back_inserter(omitted));
     SwayReport sway; // UTA-0055 SS 4.2
-    UTA_TRY(ubundle::Geometry geometry,
-            naming(buildGeometry(model, lookup, zones.size(), flames.surfaces, &sway, &rooms.map), mapName));
+    UTA_TRY(ubundle::Geometry geometry, naming(buildGeometry(model, lookup, zones.size(), omitted, &sway,
+                                                             &rooms.map, hiding.covers),
+                                               mapName));
     std::vector<TileQuestion> tileQuestions = judgeTileKinds(materials, tileSurfaces(model, lookup), tileLimits);
 
     // UTA-0162 SS 4.2: rows of lights become strips here, before step 11's

@@ -32,6 +32,11 @@ item that holds its evidence. The recipe keys are specified in
 - **Test zone-based effects on single-zone maps.** TheBoat is one zone, so
   a test by zone could not tell the hold from the deck (UTA-0387), and a
   BSP node with zone 0 on both sides was skipped by the haze (UTA-0390).
+- **A stray shape: check the original at the same camera.** `ut-compare
+  --capture` showed TheBoat's stone triangle in the sea there too. It was a
+  pit a brush cut through the sea floor, found by casting the camera ray to
+  the water and listing nearby surfaces with `ut-dump --surface-list`
+  (UTA-0396).
 
 ## 2. Fix in this order
 
@@ -47,6 +52,9 @@ item that holds its evidence. The recipe keys are specified in
    cabin light, wearing its lantern as their fitting (UTA-0344).
 4. **Haze.** Only where the default washes out distant geometry, with
    `[sky] haze` (UTA-0391). TheBoat keeps the default.
+5. **The map's own faults.** Only at the user's word. A brush that cuts a
+   hole in a surface gets a `[hide]`, which covers the hole as that surface
+   (UTA-0396). `ut-dump --brushes` names its brush and polygon.
 
 ## 3. Measure every change
 

@@ -10,7 +10,8 @@
 // switched off, and lamps with no fitting (UTA-0256 SS 4.6); version 5 a sky
 // the map only paints on its walls (docs/specs/UTA-0350-painted-skies.md
 // SS 4.1); version 6 a lamp's mesh fitting (UTA-0256 SS 4.1); version 7 a
-// sky's haze (UTA-0391).
+// sky's haze (UTA-0391); version 8 a brush hidden and its opening covered
+// (docs/specs/UTA-0109-map-geometry.md SS 4.6, UTA-0396).
 //
 // CROSSES THE SEAM. docs/design.md rule 3 makes urecipe a vocabulary the
 // runtime reads too, so it links uta_core and nothing else: no package reader,
@@ -39,7 +40,7 @@
 
 namespace uta::urecipe {
 
-inline constexpr std::uint32_t RECIPE_VERSION = 7;
+inline constexpr std::uint32_t RECIPE_VERSION = 8;
 /// The most `[lamp]` sections one recipe holds -- UTA-0256 SS 4.1.
 inline constexpr std::size_t LAMP_LIMIT = 64;
 
@@ -105,6 +106,20 @@ struct Sky {
     friend bool operator==(const Sky&, const Sky&) = default;
 };
 
+/// The most `[hide]` sections one recipe holds -- UTA-0109 SS 4.6.
+inline constexpr std::size_t HIDE_LIMIT = 64;
+
+/// A brush of the map not drawn, and the hole it leaves in another surface's
+/// plane drawn as that surface -- UTA-0109 SS 4.6 (UTA-0396).
+struct HiddenBrush {
+    std::string name;          ///< as AddedLamp::name
+    std::string brush;         ///< the brush actor whose surfaces are not drawn, as named in the map
+    std::string coverBrush;    ///< the brush actor of the surface drawn over the opening
+    std::uint32_t coverPolygon = 0; ///< that surface's polygon in its brush, from 0
+
+    friend bool operator==(const HiddenBrush&, const HiddenBrush&) = default;
+};
+
 struct Recipe {
     std::string map; ///< the map file's stem, lower-cased
     std::optional<std::array<std::byte, 32>> mapDigest; ///< when set, the SHA-256 the map must have
@@ -116,6 +131,7 @@ struct Recipe {
     /// needs `mapDigest` -- UTA-0256 SS 4.6.
     std::vector<std::string> switchedOff;
     std::optional<Sky> sky; ///< at most one; needs `mapDigest` -- UTA-0350 SS 4.1
+    std::vector<HiddenBrush> hidden; ///< in file order; any needs `mapDigest` -- UTA-0109 SS 4.6
 
     friend bool operator==(const Recipe&, const Recipe&) = default;
 };
@@ -125,11 +141,13 @@ struct Recipe {
 /// header above RECIPE_VERSION. `materials` comes back sorted; `lamps` keep
 /// file order. A `[lamp]` needs header version 2, a `[sun]` version 3,
 /// a `[switch-off]` or a lamp with no `fitting` version 4, a `[sky]`
-/// version 5, a lamp's `mesh` version 6, and a sky's `haze` version 7.
+/// version 5, a lamp's `mesh` version 6, a sky's `haze` version 7, and a
+/// `[hide]` version 8.
 [[nodiscard]] Result<Recipe> parse(std::string_view text);
 
 /// SS 4.2's canonical form. `friendlyName` must hold no line break. The
-/// header is the lowest version that holds the recipe -- 7 with a sky's haze
+/// header is the lowest version that holds the recipe -- 8 with a hidden
+/// brush, 7 with a sky's haze
 /// other than SKY_HAZE_DEFAULT, 6 with a lamp's mesh,
 /// 5 with a sky, 4 with
 /// a switched-off light or a lamp with no fitting, 3 with a sun, 2 with a
@@ -146,7 +164,8 @@ struct Recipe {
 /// hashes UTA-0256 SS 4.6's version-4 bytes, the switched-off names last. One
 /// with a sky hashes UTA-0350 SS 4.1's version-5 bytes, the sky after those.
 /// A lamp's mesh is hashed after its yaw, and only when it has one; a sky's
-/// haze after its clouds, and only when it is not the default (UTA-0391).
+/// haze after its clouds, and only when it is not the default (UTA-0391). Hidden
+/// brushes come last, in file order (UTA-0109 SS 4.6).
 [[nodiscard]] std::array<std::byte, 32> bakeDigest(const Recipe& recipe);
 
 } // namespace uta::urecipe

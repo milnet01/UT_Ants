@@ -14,9 +14,7 @@
 #include <string>
 
 namespace uta::ubake {
-namespace {
 
-/// The export of `map` whose object name folds to `name`'s fold, or none.
 std::optional<std::uint32_t> exportNamed(const upkg::Package& map, std::string_view name) {
     const std::string wanted = detail::fold(name);
     const auto exports = map.exports();
@@ -26,6 +24,8 @@ std::optional<std::uint32_t> exportNamed(const upkg::Package& map, std::string_v
     }
     return std::nullopt;
 }
+
+namespace {
 
 /// Every surface index NOT in `keep`, ascending, with `alsoOmit` merged in:
 /// buildGeometry's `omitted`, so it draws `keep` and nothing else.

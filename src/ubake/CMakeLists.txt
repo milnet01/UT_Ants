@@ -25,6 +25,7 @@ add_library(uta_ubake STATIC
     Zones.cpp
     FireStill.cpp
     Flames.cpp
+    Hide.cpp
     Lamps.cpp
     Liquids.cpp
     GameTypes.cpp
