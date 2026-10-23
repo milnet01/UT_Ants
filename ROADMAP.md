@@ -17785,7 +17785,7 @@ stays with movement in 0.2.0.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-BP-20261022-131311Z
 
-- 🚧 [UTA-0397] **urender: light leaks into a dark low space on TheBoat, onto the sand floor.**
+- ✅ [UTA-0397] **urender: light leaks into a dark low space on TheBoat, onto the sand floor.**
   The user, 2026-10-22, F12 capture MH-()mG-TheBoat-V2mini-BP-
   20261022-131353Z (camera 281 278 -24434, pitch 672, yaw 21090;
   baker r64, format 31, tier ultra): "light leak in this section
@@ -17806,13 +17806,15 @@ stays with movement in 0.2.0.
   indirect error at the capture 0.377 -> 0.212; one AS-Frigate view
   0.039 -> 0.047; the other views of TheBoat, AS-Frigate and TheFortress
   under 0.1%. No lamp was added to the room.
+  Shipped (2026-10-23): 47f8dd3 is on origin/main; GitHub run
+  39924058471 on it is green.
   **Layman:** In one dark space on the boat map a patch of light shows on the floor where no light should reach.
   Kind: investigate.
   Source: user-request-2026-10-22.
   Lanes: urender, ubake.
   Evidence: ~/.local/state/ut-ants/map-captures/MH-()mG-TheBoat-V2mini-BP-20261022-131353Z
 
-- 📋 [UTA-0398] **MH-(MHA)-TheFortress2012Final-BP: recheck its daylight now its painted sky no longer over-lights it.**
+- ✅ [UTA-0398] **MH-(MHA)-TheFortress2012Final-BP: recheck its daylight now its painted sky no longer over-lights it.**
   UTA-0383 stores a painted sky at a fifth of its old strength, so it
   stops lighting a map five times over. UTA-0358's sun and sky were
   judged on the old strength. On the three 2026-10-14 capture views
@@ -17820,6 +17822,16 @@ stays with movement in 0.2.0.
   86.1. Recheck against the original; the recipe's sun brightness
   is the likely lever. Scratch: ~/.cache/uta-scratch/u398/fort-ab.png
   (top before, bottom after).
+  Found (2026-10-23): no change needed. Re-baked at revision 67 and
+  shot with ut-compare at the four 2026-10-14 viewer captures, 1280x720.
+  Mean stored pixel value, original against ours: 77.2/71.8,
+  79.7/75.5, 78.6/84.1, 81.9/90.8, a ratio of 0.93-1.11. UTA-0358
+  shipped at 1.16-1.41, so UTA-0383 moved the map toward the original.
+  The 104.6-120.7 above were ours alone, never measured against it.
+  ImageMagick's -colorspace gray reads the original's PNG as about
+  twice as bright as our PPM; average the channels instead. Sheet:
+  ~/.cache/uta-scratch/u398/sheet.png. The plain (non-BP) recipe was
+  not shot.
   **Layman:** A fix to how bright painted skies are made the fortress map darker, so its daylight needs checking against the original again.
   Kind: investigate.
   Source: in-session-2026-10-22.
