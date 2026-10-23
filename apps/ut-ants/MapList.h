@@ -105,6 +105,8 @@ struct MapResult {
 /// Why a successful bake is or is not the one Enter would open.
 enum class BakeState {
     Current,    ///< today's baker made it, its bundle is there, the map is unchanged
+    /// UTA-0408: ut-bake reported no version, so no bake can be called today's
+    BakerUnknown,
     OlderBaker, ///< UTA-0208: the baker, bundle format or material library moved
     BundleGone, ///< UTA-0220: the bundle is not where the bake wrote it -- a cleared cache
     MapChanged, ///< UTA-0220: the map's size or time moved since the bake

@@ -402,7 +402,8 @@ std::string recipeStampOf(const std::filesystem::path& map, const urecipe::Sourc
 
 BakeState bakeState(const MapResult& result, std::string_view currentBaker, const std::filesystem::path& map,
                     const urecipe::Sources& recipes) {
-    if (currentBaker.empty() || result.bakerVersion != currentBaker) return BakeState::OlderBaker;
+    if (currentBaker.empty()) return BakeState::BakerUnknown;
+    if (result.bakerVersion != currentBaker) return BakeState::OlderBaker;
     std::error_code ec;
     if (result.bundle.empty() || !std::filesystem::is_regular_file(result.bundle, ec)) return BakeState::BundleGone;
     const std::string stamp = mapStampOf(map);

@@ -103,6 +103,9 @@ Result<std::filesystem::path> writeCapture(const std::filesystem::path& captures
     // free (UTA-0372).
     std::error_code made;
     std::filesystem::create_directories(captures, made);
+    if (made)
+        return std::unexpected(Error(ErrorCode::IoFailure, "cannot make the captures directory " +
+                                                               fs::utf8(captures) + ": " + made.message()));
     std::filesystem::path folder = *resolved;
     for (int n = 2;; ++n) {
         std::error_code ec;

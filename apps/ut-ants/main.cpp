@@ -218,10 +218,11 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
     std::uint64_t drawn = 0;
     bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
 
-    // UTA-0191. The view the frame ON SCREEN was drawn from, which is not the
-    // camera as it stands: a mouse motion earlier in the same batch of events
-    // has already moved that. Capturing this instead is what makes the second
-    // image the same view as the first.
+    // UTA-0191. The view the frame ON SCREEN was drawn from, which is not
+    // always the camera as it stands: [ or ] earlier in the same batch of
+    // events has already changed its field of view. Capturing this instead is
+    // what makes the second image the same view as the first, and P writes it
+    // for the same reason (UTA-0408).
     std::optional<uta::urender::Camera> shownView;
     const auto paths = launcherPaths();
     // The launcher names the notes file after the map it is opening, so its
@@ -330,7 +331,9 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
                         event.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)) {
                 // UTA-0190: where the camera is, so a finding can be drawn again
                 // with ut-shot. Share or Create on a PlayStation pad, View on an Xbox one.
-                const std::string line = "Camera (ut-shot): " + poseLine(camera.camera(config.width, config.height), config.width, config.height);
+                // Before the first frame there is no shown view, so the camera as it stands.
+                const uta::urender::Camera view = shownView ? *shownView : camera.camera(config.width, config.height);
+                const std::string line = "Camera (ut-shot): " + poseLine(view, config.width, config.height);
                 std::cerr << line << "\n";
                 if (!options.notes.empty()) {
                     if (const auto added = appendNote(options.notes, line); !added)

@@ -230,6 +230,17 @@ TEST_CASE("writeCapture refuses a map name that would escape the captures direct
     CHECK_FALSE(folder.has_value());
 }
 
+TEST_CASE("writeCapture says when the captures directory cannot be made", "[client][capture]") {
+    // UTA-0408: its error was dropped, so the refusal named the capture's own
+    // folder and a reason that was about the directory above it.
+    const TempDir dir;
+    std::ofstream(dir.path() / "blocker") << "a file, not a directory";
+    const auto folder = writeCapture(dir.path() / "blocker" / "captures", sampleInfo(), solidImage(4, 3, 0),
+                                     solidImage(4, 3, 0), WHEN);
+    REQUIRE_FALSE(folder.has_value());
+    CHECK(folder.error().message().starts_with("cannot make the captures directory"));
+}
+
 TEST_CASE("two captures in one second keep both folders", "[client][capture]") {
     // review-code 2026-09-26: "one folder per press" (Cli.cpp, Capture.h), yet
     // a second press in the same second replaced the first capture's files.

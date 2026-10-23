@@ -222,6 +222,8 @@ TEST_CASE("UTA-0208: a bake is current only when today's baker made it", "[clien
     CHECK_FALSE(isCurrentBake(*baked, "r21-f15-l0a", map)); // the format moved
     CHECK_FALSE(isCurrentBake(*baked, "", map));            // ut-bake gave no answer
     CHECK(bakeState(*baked, "r22-f14-l0a", map) == BakeState::OlderBaker);
+    // UTA-0408: no answer is not an older baker, and the details pane says which.
+    CHECK(bakeState(*baked, "", map) == BakeState::BakerUnknown);
     CHECK_FALSE(isCurrentBake({.failed = true, .bakerVersion = "r21-f14-l0a"}, "r21-f14-l0a", map));
 
     // A result written before UTA-0208 names no baker, so nothing says it is current.

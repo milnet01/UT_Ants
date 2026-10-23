@@ -444,7 +444,11 @@ private:
             return;
         }
         if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
-            if (SDL_GetGamepadFromID(event.gdevice.which) == nullptr) SDL_OpenGamepad(event.gdevice.which);
+            // SDL keeps the handle: REMOVED below finds it again by its ID, and
+            // SDL_Quit closes any still open. The viewer reports a pad that
+            // did not open (main.cpp's Gamepads), and so does this.
+            if (SDL_GetGamepadFromID(event.gdevice.which) == nullptr && SDL_OpenGamepad(event.gdevice.which) == nullptr)
+                std::cerr << "ut-ants: a gamepad did not open: " << SDL_GetError() << "\n";
             return;
         }
         if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
@@ -688,7 +692,8 @@ private:
         } else {
             // UTA-0220: say why it must be baked again, not only that it must.
             colour(170, 170, 185);
-            const char* const why = state == BakeState::OlderBaker   ? "Baked by an older ut-bake"
+            const char* const why = state == BakeState::BakerUnknown ? "ut-bake did not say its version"
+                                    : state == BakeState::OlderBaker ? "Baked by an older ut-bake"
                                     : state == BakeState::BundleGone ? "Its baked copy is gone (a cleared cache?)"
                                     : state == BakeState::RecipeChanged
                                         ? "Its recipe changed since it was baked"
