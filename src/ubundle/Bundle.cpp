@@ -1,18 +1,15 @@
 // The .utab framing: the header, the section table, and read and write.
 //
-// Each section's own layout is its codec's -- RoomSection.cpp,
-// NavSection.cpp, WiringSection.cpp, TextureSection.cpp, MaterialSection.cpp,
-// GeometrySection.cpp, PlacementSection.cpp, LightSection.cpp,
-// MoverSection.cpp, CollisionSection.cpp, LightProbeSection.cpp,
-// ZoneSection.cpp, OcclusionSection.cpp, FlameSection.cpp and
-// ShadowMaskSection.cpp, declared in Sections.h
-// (UTA-0091). What stays here is what every section shares: where it sits in
-// the file, and in what order.
+// Each section's own layout is its codec's, one file per section, declared in
+// Sections.h (UTA-0091). What stays here is what every section shares: where
+// it sits in the file, and in what order.
 
 #include "ubundle/Bundle.h"
 
 #include "Sections.h"
 
+#include <algorithm>
+#include <array>
 #include <optional>
 #include <string>
 #include <utility>
@@ -86,16 +83,19 @@ struct Descriptor {
     std::uint64_t size = 0;
 };
 
+/// Every section id this version defines. A new section joins this list, the
+/// dispatch in `read` and the order in `write`.
+constexpr std::array KNOWN_IDS = {ID_ROOM, ID_NAVG, ID_WIRG, ID_TEXS, ID_MATS, ID_GEOM, ID_PLAC,
+                                  ID_LITE, ID_MOVR, ID_COLL, ID_LPRB, ID_ZONE, ID_AOCC, ID_FLAM,
+                                  ID_SMSK, ID_LAMP, ID_SUN,  ID_PSKY, ID_BAKR};
+
 [[nodiscard]] bool knownId(const SectionId& id) noexcept {
-    return id == ID_ROOM || id == ID_NAVG || id == ID_WIRG || id == ID_TEXS || id == ID_MATS
-           || id == ID_GEOM || id == ID_PLAC || id == ID_LITE || id == ID_MOVR || id == ID_COLL
-           || id == ID_LPRB || id == ID_ZONE || id == ID_AOCC || id == ID_FLAM || id == ID_SMSK
-           || id == ID_LAMP || id == ID_SUN || id == ID_PSKY || id == ID_BAKR;
+    return std::ranges::find(KNOWN_IDS, id) != KNOWN_IDS.end();
 }
 
 /// How many section ids this version defines -- the most a table written by
 /// `write` holds, so the most readBaker's prefix must carry.
-constexpr std::size_t KNOWN_SECTIONS = 19;
+constexpr std::size_t KNOWN_SECTIONS = KNOWN_IDS.size();
 static_assert(HEADER_SIZE + KNOWN_SECTIONS * SECTION_DESCRIPTOR_SIZE + 4 + MAX_BAKER_LENGTH
                   <= BAKER_PREFIX_SIZE,
               "readBaker's prefix must hold the header, a full table and the longest BAKR");
@@ -210,9 +210,8 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             UTA_TRY(bundle.wiring, readWiringGraph(payload));
             UTA_CHECK(validateWiringGraph(*bundle.wiring, ErrorCode::MalformedData));
         } else if (descriptor.id == ID_TEXS) {
-            // No post-decode validator beside this one, unlike the three
-            // above. UTA-0052's INV-1 and INV-2 are decode-time refusals
-            // applied inside readCompressedTexture, in SS 4.4's class rather
+            // No post-decode validator beside this one. UTA-0052's INV-1 and
+            // INV-2 are decode-time refusals applied inside readCompressedTexture, in SS 4.4's class rather
             // than SS 4.9's -- that item's SS 11 says so and says why the
             // rules are not copied into SS 4.9.
             UTA_TRY(bundle.textures, readTextures(payload));
@@ -244,13 +243,16 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             UTA_TRY(bundle.occlusion, readOcclusion(payload));
             UTA_CHECK(validateOcclusion(*bundle.occlusion, ErrorCode::MalformedData));
         } else if (descriptor.id == ID_FLAM) {
+            // Checked across sections below, as are LAMP and SUN.
             UTA_TRY(bundle.flames, readFlames(payload));
         } else if (descriptor.id == ID_SMSK) {
             UTA_TRY(bundle.shadowMask, readShadowMask(payload));
             UTA_CHECK(validateShadowMask(*bundle.shadowMask, ErrorCode::MalformedData));
         } else if (descriptor.id == ID_LAMP) {
+            // Checked across sections below.
             UTA_TRY(bundle.lamps, readLamps(payload));
         } else if (descriptor.id == ID_SUN) {
+            // Checked across sections below.
             UTA_TRY(bundle.sun, readSun(payload));
         } else if (descriptor.id == ID_PSKY) {
             UTA_TRY(bundle.paintedSky, readPaintedSky(payload));
@@ -260,9 +262,9 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             UTA_CHECK(validateBaker(*bundle.baker, ErrorCode::MalformedData));
         } else {
             // Unreachable: knownId() refused every other id while the table
-            // was being validated. Named rather than folded into the WIRG arm
+            // was being validated. Named rather than folded into the last arm
             // so that each id appears in exactly ONE arm -- an `else` standing
-            // for WIRG decodes a NEW section id as a WiringGraph the moment
+            // for BAKR decodes a NEW section id as a baker record the moment
             // one is added to knownId() and not to this dispatch, and that is
             // silent. Refusing is loud and wrong in the safe direction.
             return fail(ErrorCode::MalformedData, "a section id has no decoder");
@@ -274,7 +276,7 @@ Result<Bundle> read(std::span<const std::byte> bytes) {
             return fail(ErrorCode::MalformedData, "a section ends with bytes unread");
     }
 
-    // UTA-0156 SS 4.2: a rule across GEOM, MOVR and ZONE, so it waits for all three.
+    // UTA-0156 SS 4.2: a rule across GEOM, MOVR, LAMP and ZONE, so it waits for all four.
     UTA_CHECK(validateVertexZones(bundle, ErrorCode::MalformedData));
     // UTA-0164 SS 4.1: AOCC's uv count is GEOM's vertex count.
     UTA_CHECK(validateOcclusionVertices(bundle, ErrorCode::MalformedData));

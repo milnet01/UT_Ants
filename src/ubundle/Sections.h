@@ -117,6 +117,12 @@ void putTextures(Sink& sink, const std::vector<CompressedTexture>& textures);
 
 // LITE -- LightSection.cpp, UTA-0110 SS 4.4. The bool bytes in the element
 // reader, the order in the validator.
+/// SS 4.4: the export index, three f32, three i32, twelve bytes and four
+/// bools; then UTA-0162 SS 4.1's strip byte and two ends of three f32; then
+/// UTA-0156 SS 4.5's level brightness, one f32 -- fixed. Here, not in
+/// LightSection.cpp, because LAMP carries the same record. A third copy,
+/// in Python, is scripts/map-analyser.py's `LIGHT_SIZE`.
+constexpr std::uint64_t LIGHT_SIZE = 73;
 [[nodiscard]] Result<std::vector<Light>> readLights(Cursor& cursor);
 [[nodiscard]] Result<void> validateLights(const std::vector<Light>& lights, ErrorCode code);
 [[nodiscard]] Result<std::vector<std::byte>> encodeLights(const std::vector<Light>& lights);
@@ -145,8 +151,8 @@ void putLight(Sink& sink, const Light& light);
 [[nodiscard]] Result<std::vector<std::byte>> encodeLightProbes(const LightProbes& probes);
 
 // ZONE -- ZoneSection.cpp, UTA-0156 SS 4.1 and SS 4.2. The count is the
-// validator's. Which zone a vertex names is a rule across GEOM, MOVR and ZONE,
-// so validateVertexZones runs once every section is decoded.
+// validator's. Which zone a vertex names is a rule across GEOM, MOVR, LAMP and
+// ZONE, so validateVertexZones runs once every section is decoded.
 [[nodiscard]] Result<std::vector<Zone>> readZones(Cursor& cursor);
 [[nodiscard]] Result<void> validateZones(const std::vector<Zone>& zones, ErrorCode code);
 [[nodiscard]] Result<std::vector<std::byte>> encodeZones(const std::vector<Zone>& zones);
@@ -166,9 +172,13 @@ void putLight(Sink& sink, const Light& light);
 [[nodiscard]] Result<std::vector<Flame>> readFlames(Cursor& cursor);
 [[nodiscard]] Result<std::vector<std::byte>> encodeFlames(const std::vector<Flame>& flames);
 [[nodiscard]] Result<void> validateFlames(const Bundle& bundle, ErrorCode code);
-/// One record -- also LAMP's. `lights` is how many light indices it may name.
+/// SS 4.3's record: u32 material, three f32 of base, f32 width, f32 height,
+/// u32 seed, i32 light. Here because LAMP carries the same record.
+constexpr std::uint64_t FLAME_RECORD = 32;
+/// One record -- also LAMP's.
 [[nodiscard]] Result<Flame> readFlame(Cursor& cursor);
 void putFlame(Sink& sink, const Flame& flame);
+/// `lights` is how many light indices the record may name; 0 allows only -1.
 [[nodiscard]] Result<void> validateFlame(const Bundle& bundle, const Flame& flame, std::size_t lights,
                                          const std::string& where, ErrorCode code);
 

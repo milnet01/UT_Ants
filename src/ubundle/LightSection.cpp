@@ -11,14 +11,6 @@
 #include <utility>
 
 namespace uta::ubundle::detail {
-namespace {
-
-/// SS 4.4: the export index, three f32, three i32, twelve bytes and four
-/// bools; then UTA-0162 SS 4.1's strip byte and two ends of three f32; then
-/// UTA-0156 SS 4.5's level brightness, one f32 -- fixed.
-constexpr std::uint64_t LIGHT_SIZE = 73;
-
-} // namespace
 
 Result<Light> readLight(Cursor& cursor) {
     Light light;

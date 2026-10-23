@@ -17,6 +17,7 @@
 #include <cstring>
 #include <span>
 #include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -229,11 +230,13 @@ public:
     /// A nested encoding's bytes, or its refusal carried into this sink.
     void putEncoded(const Result<std::vector<std::byte>>& encoded) {
         if (encoded) append(*encoded);
-        else overflowed_ = true;
+        else if (!nestedRefusal_) nestedRefusal_ = encoded.error();
     }
 
-    /// The bytes, or InvalidArgument naming `what` when a count overflowed.
+    /// The bytes; or the first nested refusal, prefixed with `what`; or
+    /// InvalidArgument naming `what` when a count overflowed.
     [[nodiscard]] Result<std::vector<std::byte>> finish(std::string_view what) && {
+        if (nestedRefusal_) return std::unexpected(nestedRefusal_->withContext(what));
         if (overflowed_)
             return fail(ErrorCode::InvalidArgument,
                         std::string(what) + ": a count exceeds the format's u32; the reader would refuse it");
@@ -255,6 +258,7 @@ private:
     }
 
     bool overflowed_ = false;
+    std::optional<Error> nestedRefusal_;
     std::vector<std::byte> bytes_;
 };
 

@@ -28,17 +28,17 @@ void addLayer(LightProbes& probes, const std::vector<std::array<std::array<float
 
 void applyAddedLamps(Bundle& bundle, bool on) {
     if (!bundle.lights) bundle.lights.emplace();
-    const auto lite = static_cast<std::uint32_t>(bundle.lights->size());
+    const auto liteSize = static_cast<std::uint32_t>(bundle.lights->size());
     const std::size_t records = bundle.lamps ? bundle.lamps->size() : 0;
 
-    // SS 4.8: every record names light `lite + k`; the kept kind's lights join
+    // SS 4.8: every record names light `liteSize + k`; the kept kind's lights join
     // LITE in record order, so record k's new index is `rename[k]`, or none.
     std::vector<std::optional<std::uint32_t>> rename(records);
     std::uint32_t joined = 0;
     for (std::size_t k = 0; k < records; ++k) {
         AddedLamp& lamp = (*bundle.lamps)[k];
         if (lamp.restores == on) continue;
-        const auto index = lite + joined++;
+        const auto index = liteSize + joined++;
         rename[k] = index;
         for (Flame flame : lamp.flames) {
             flame.light = static_cast<std::int32_t>(index);
@@ -65,7 +65,7 @@ void applyAddedLamps(Bundle& bundle, bool on) {
     // sun's, past LAMP's, are renamed to LITE's new size, so `applySun` puts
     // the sun at the index they name (UTA-0338 SS 4.2).
     if (bundle.shadowMask && records != 0) {
-        const auto sun = static_cast<std::uint32_t>(lite + records);
+        const auto oldSunIndex = static_cast<std::uint32_t>(liteSize + records);
         ShadowMask& mask = *bundle.shadowMask;
         std::vector<MaskPair> kept;
         kept.reserve(mask.pairs.size());
@@ -73,16 +73,16 @@ void applyAddedLamps(Bundle& bundle, bool on) {
             const auto first = static_cast<std::uint32_t>(kept.size());
             for (std::uint32_t k = chart.firstPair; k < chart.firstPair + chart.pairCount; ++k) {
                 const MaskPair& pair = mask.pairs[k];
-                if (pair.light < lite) {
+                if (pair.light < liteSize) {
                     kept.push_back(pair);
-                } else if (pair.light < sun) {
-                    if (const auto index = rename[pair.light - lite]) {
+                } else if (pair.light < oldSunIndex) {
+                    if (const auto index = rename[pair.light - liteSize]) {
                         kept.push_back(pair);
                         kept.back().light = *index;
                     }
-                } else if (bundle.sun && pair.light == sun) {
+                } else if (bundle.sun && pair.light == oldSunIndex) {
                     kept.push_back(pair);
-                    kept.back().light = lite + joined;
+                    kept.back().light = liteSize + joined;
                 }
             }
             chart.firstPair = first;

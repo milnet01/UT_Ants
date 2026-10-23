@@ -17,9 +17,7 @@ namespace {
 
 /// The restores flag, a light record, an empty geometry's three counts and an
 /// empty flame count.
-constexpr std::uint64_t MIN_LAMP = 1 + 73 + 12 + 4;
-/// FLAM's record.
-constexpr std::uint64_t FLAME_RECORD = 32;
+constexpr std::uint64_t MIN_LAMP = 1 + LIGHT_SIZE + 12 + 4;
 
 [[nodiscard]] Result<AddedLamp> readLamp(Cursor& cursor) {
     AddedLamp lamp;
@@ -73,6 +71,8 @@ Result<void> validateLamps(const Bundle& bundle, ErrorCode code) {
         }
         for (std::size_t f = 0; f < lamp.flames.size(); ++f) {
             const std::string flame = where + "'s flame " + std::to_string(f);
+            // No light: applyAddedLamps ties a lamp's flames to its own light,
+            // so a stored one names none (-1).
             UTA_CHECK(validateFlame(bundle, lamp.flames[f], 0, flame, code));
         }
     }

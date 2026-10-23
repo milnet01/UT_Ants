@@ -18061,7 +18061,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 05.
 
-- 📋 [UTA-0417] **Readability fixes: bundle format.**
+- 🚧 [UTA-0417] **Readability fixes: bundle format.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-06-ubundle.md,
   including HIGH LampSection.cpp:20 (record sizes copied; UTA-0162 names LIGHT_SIZE).
   Close with close-findings; ledger beside the lane file.

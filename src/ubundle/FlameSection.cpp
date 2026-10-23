@@ -9,10 +9,6 @@
 namespace uta::ubundle::detail {
 namespace {
 
-/// SS 4.3's record: u32 material, three f32 of base, f32 width, f32 height,
-/// u32 seed, i32 light.
-constexpr std::uint64_t FLAME_RECORD = 32;
-
 [[nodiscard]] bool finitePositive(float value) noexcept { return std::isfinite(value) && value > 0; }
 
 } // namespace

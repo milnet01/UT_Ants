@@ -32,7 +32,7 @@ std::optional<SkyView> skyViewOf(const Placements& placements) {
         SkyView view;
         bool high = false;
         // The class's effective defaults, then the actor's own list over them.
-        const auto read = [&](const std::vector<PropertyRecord>& properties) {
+        const auto takeProperties = [&](const std::vector<PropertyRecord>& properties) {
             for (const PropertyRecord& property : properties) {
                 if (property.arrayIndex != 0) continue;
                 const std::string name = folded(property.name);
@@ -42,8 +42,8 @@ std::optional<SkyView> skyViewOf(const Placements& placements) {
                 if (const auto* flag = std::get_if<bool>(&property.value); flag && name == "bhighdetail") high = *flag;
             }
         };
-        read(placements.classes[actor.classIndex].defaults);
-        read(actor.properties);
+        takeProperties(placements.classes[actor.classIndex].defaults);
+        takeProperties(actor.properties);
         any = view;
         if (high) highDetail = view;
     }

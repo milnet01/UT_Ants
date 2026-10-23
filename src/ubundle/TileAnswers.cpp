@@ -55,7 +55,8 @@ TileAnswers parseTileAnswers(std::string_view text) {
         text.remove_prefix(end == std::string_view::npos ? text.size() : end + 1);
         ++number;
         // A comment runs to the end of the line, after an answer or alone.
-        if (const std::size_t hash = line.find('#'); hash != std::string_view::npos) line = line.substr(0, hash);
+        if (const std::size_t commentStart = line.find('#'); commentStart != std::string_view::npos)
+            line = line.substr(0, commentStart);
         line = trimmed(line);
         if (line.empty()) continue;
         std::size_t gap = 0;

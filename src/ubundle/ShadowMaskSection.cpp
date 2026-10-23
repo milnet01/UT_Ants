@@ -102,7 +102,7 @@ Result<void> validateShadowMask(const ShadowMask& mask, ErrorCode code) {
     if (mask.texels.size() != std::uint64_t{mask.width} * mask.height)
         return fail(code, "SMSK: " + std::to_string(mask.texels.size()) + " texels for a "
                               + std::to_string(mask.width) + " by " + std::to_string(mask.height) + " atlas");
-    // Both are GEOM's vertex count, which validateShadowMaskVertices checks;
+    // Both are GEOM's vertex count, which validateShadowMaskAcross checks;
     // equal here so the loop below indexes neither past its end.
     if (mask.vertexChart.size() != mask.vertexTexel.size())
         return fail(code, "SMSK: " + std::to_string(mask.vertexChart.size()) + " vertex charts and "

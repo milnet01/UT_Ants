@@ -74,6 +74,7 @@ namespace uta::ubundle {
 /// 27 since UTA-0350 SS 4.3 added PSKY.
 /// 28 since UTA-0349 added BAKR.
 /// 29 since UTA-0055 SS 4.4 gave each GEOM vertex its sway kind, weight and cell.
+/// 30 since UTA-0387 gave LPRB each probe's sky visibility.
 /// 31 since UTA-0391 gave PSKY its haze start.
 /// 32 since UTA-0397 gave LPRB each probe's reach.
 inline constexpr std::uint32_t FORMAT_VERSION = 32;
@@ -283,7 +284,7 @@ struct GeometryVertex {
     std::uint8_t zone = 0;                  ///< an index into ZONE -- UTA-0156 SS 4.2
     SwayKind sway = SwayKind::None;         ///< UTA-0055 SS 4.4
     std::uint8_t swayWeight = 0;            ///< UTA-0055 SS 4.3: 0 pinned .. 255 free; 0 where sway is None
-    /// UTA-0055 SS 4.4: the spacing it was cut at, in 16 units: 1, 2, 4, 8 or
+    /// UTA-0055 SS 4.4: the spacing it was cut at divided by 16: 1, 2, 4, 8 or
     /// 16; 0 where sway is None. The shader drops waves too short for it.
     std::uint8_t swayCell = 0;
 };

@@ -94,8 +94,8 @@ PF_FAKE_BACKDROP, PF_UNLIT = 0x80, 0x400000
 # 8- or 12-sided cylinder's sides with its top and bottom), and 46 have 24 or
 # more.
 ROOM_DIRECTIONS, DOME_DIRECTIONS = 8, 24
-# Bundle record sizes and byte offsets: src/ubundle/ZoneSection.cpp and
-# LightSection.cpp. A light's twelve UT99 bytes start at 28: type, effect, ...
+# Bundle record sizes and byte offsets: src/ubundle/ZoneSection.cpp, and
+# Sections.h's LIGHT_SIZE with LightSection.cpp. A light's twelve UT99 bytes start at 28: type, effect, ...
 ZONE_SIZE, ZONE_FOG, ZONE_WATER = 29, 3, 12
 LIGHT_SIZE, LIGHT_EFFECT, LIGHT_RADIUS = 73, 29, 33
 LE_CYLINDER = 17       # src/ubake/LightModel.cpp
