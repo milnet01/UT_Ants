@@ -418,9 +418,12 @@ struct Light {
 /// UTA-0326 SS 4.1. The baker pairs only these lights with a polygon.
 [[nodiscard]] bool litDirectly(const Light& light) noexcept;
 
-/// UT99's two spot values of ELightEffect. light.glsl keeps its own copies.
+/// The values of UT99's ELightEffect that the baker and the renderer read --
+/// the 432 headers' Engine/Inc/EngineClasses.h. light.glsl keeps its own copies.
 inline constexpr std::uint8_t LE_STATIC_SPOT = 8;
 inline constexpr std::uint8_t LE_SPOTLIGHT = 12;
+inline constexpr std::uint8_t LE_NON_INCIDENCE = 13; ///< no incidence term; falls off linearly
+inline constexpr std::uint8_t LE_CYLINDER = 17;      ///< no incidence term; fades by horizontal distance
 
 /// Whether `effect` is one of UT99's two spot effects.
 [[nodiscard]] constexpr bool isSpotEffect(std::uint8_t effect) noexcept {

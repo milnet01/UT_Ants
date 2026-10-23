@@ -5,6 +5,7 @@
 #include "ubake/LightProbes.h"
 
 #include "ubake/Actors.h"
+#include "ubake/Geometry.h"
 #include "ubundle/Sky.h"
 
 #include <algorithm>
@@ -18,12 +19,9 @@
 namespace uta::ubake {
 namespace {
 
-/// LightType's and PolyFlags' values -- the 432 headers'
-/// Engine/Inc/EngineClasses.h and Engine/Inc/UnObj.h.
+/// LightType's value -- the 432 headers' Engine/Inc/EngineClasses.h.
+/// PolyFlags' values are Geometry.h's.
 constexpr std::uint8_t LT_BACKDROP_LIGHT = 6;
-constexpr std::uint32_t PF_FAKE_BACKDROP = 0x80;
-constexpr std::uint32_t PF_TWO_SIDED = 0x100;
-constexpr std::uint32_t PF_UNLIT = 0x400000; // UTA-0161
 
 /// Probes to one job. Any size gives the same bytes; this one keeps the number
 /// of jobs small.
@@ -145,25 +143,25 @@ std::optional<SurfaceHit> surfaceFrom(const Vec3& p, const Vec3& w, const Surfac
 
 } // namespace
 
-bool sunSeen(const Vec3& x, const Vec3& s, const SurfaceRays& rays, const SurfaceRays::Hole& hole) {
+bool meetsSkyFirst(const Vec3& x, const Vec3& s, const SurfaceRays& rays, const SurfaceRays::Hole& hole) {
     return rays.firstHas(x, s, PF_FAKE_BACKDROP, hole);
 }
 
 float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays) {
-    std::size_t seen = sunSeen(p, s, rays) ? 1 : 0;
+    std::size_t seen = meetsSkyFirst(p, s, rays) ? 1 : 0;
     std::size_t cast = 1;
     const double within = detail::cosPolynomial(SUN_RADIUS); // LightModel.h's, not the platform's cos
     for (const Vec3& w : directions()) {
         if (dot(w, s) < within) continue;
         ++cast;
-        if (sunSeen(p, w, rays)) ++seen;
+        if (meetsSkyFirst(p, w, rays)) ++seen;
     }
     return static_cast<float>(static_cast<double>(seen) / static_cast<double>(cast));
 }
 
 float skySeenFrom(const Vec3& p, const SurfaceRays& rays) {
     const std::vector<Vec3>& all = directions();
-    const auto seen = std::ranges::count_if(all, [&](const Vec3& w) { return sunSeen(p, w, rays); });
+    const auto seen = std::ranges::count_if(all, [&](const Vec3& w) { return meetsSkyFirst(p, w, rays); });
     return static_cast<float>(static_cast<double>(seen) / static_cast<double>(all.size()));
 }
 
@@ -207,7 +205,7 @@ Rgb reaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays, const std::v
         if (lit.r == 0 && lit.g == 0 && lit.b == 0) continue;
         // UTA-0338 SS 4.4: the sun is seen through the sky, or not at all.
         if (sun) {
-            if (!sunSeen(x + n * SHADOW_OFFSET, towardSun(light), rays)) continue;
+            if (!meetsSkyFirst(x + n * SHADOW_OFFSET, towardSun(light), rays)) continue;
         // Toward the point the light is lit from: a strip's nearest (UTA-0162 SS 4.3).
         } else if (rays.blocked(x + n * SHADOW_OFFSET, litFrom(light, x))) {
             continue;
@@ -233,6 +231,17 @@ Rgb reflectanceOf(const Rgb& albedo) noexcept {
     return {reflects(albedo.r), reflects(albedo.g), reflects(albedo.b)};
 }
 
+namespace {
+
+/// Whether `hit` sends its own picture in place of the light it reflects: an
+/// unlit surface that glows (UTA-0161) or is met through the sky view (SS 4.12
+/// item 2). sentFrom says why; bounceProbe leaves such a surface out.
+bool sendsItsPicture(const ubundle::GeometryBatch& batch, const OwnLight& mine, const SurfaceHit& hit) noexcept {
+    return (batch.polyFlags & PF_UNLIT) != 0 && (mine.unlitGlows || hit.viaSky);
+}
+
+} // namespace
+
 Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays, const std::vector<ubundle::Light>& lights,
              const AlbedoLookup& albedo, const OwnLightLookup& own) {
     // UTA-0350 SS 4.2: the painted sky sends its own light, at the scale a
@@ -250,7 +259,7 @@ Rgb sentFrom(const SurfaceHit& hit, const SurfaceRays& rays, const std::vector<u
     // the sky view, since a sky's picture is the light it gives. Met in the
     // level itself, SS 8's rejection stands.
     const OwnLight mine = own ? own(batch.material) : OwnLight{};
-    if ((batch.polyFlags & PF_UNLIT) != 0 && (mine.unlitGlows || hit.viaSky))
+    if (sendsItsPicture(batch, mine, hit))
         return scaled(albedo(batch.material), REFLECTANCE_SCALE);
 
     // UTA-0338 SS 4.4: a ray sent on from the sky view never reaches the sun --
@@ -462,7 +471,7 @@ std::array<Rgb, 6> bounceProbe(const Vec3& p, const SurfaceRays& rays, const ubu
         if (hit && !hit->paintedSky) {
             const ubundle::GeometryBatch& batch = *hit->batch;
             const OwnLight mine = own ? own(batch.material) : OwnLight{};
-            if ((batch.polyFlags & PF_UNLIT) == 0 || !(mine.unlitGlows || hit->viaSky)) {
+            if (!sendsItsPicture(batch, mine, *hit)) {
                 const Rgb k = reflectanceOf(albedo(batch.material));
                 const Rgb e = indirectAt(lit, hit->at + hit->normal * off, hit->normal);
                 sent = {k.r * e.r, k.g * e.g, k.b * e.b};
@@ -472,6 +481,59 @@ std::array<Rgb, 6> bounceProbe(const Vec3& p, const SurfaceRays& rays, const ubu
     }
     return cubeOf(radiance);
 }
+
+namespace {
+
+/// SS 4.6 step 2 for one triangle: every lattice cell in the box `low`..`high`
+/// within one spacing of its plane -- through `a`, facing `n` -- appended
+/// to `out`. UTA-0375: along the axis the plane faces most (d), it walks only
+/// the cells near the plane's slab, so a sloped triangle costs its area and
+/// not its box's volume. The slab is widened by a cell each side and every
+/// cell still meets the distance test, so the cells are the whole box's.
+void candidatesOf(const Vec3& a, const Vec3& n, const Vec3& low, const Vec3& high, std::vector<Cell>& out) {
+    const auto spacing = static_cast<double>(PROBE_SPACING);
+    const std::size_t d = std::abs(n.x) >= std::abs(n.y) && std::abs(n.x) >= std::abs(n.z) ? 0
+                          : std::abs(n.y) >= std::abs(n.z)                                ? 1
+                                                                                          : 2;
+    const std::size_t u = (d + 1) % 3;
+    const std::size_t v = (d + 2) % 3;
+    const double nd = component(n, d);
+    const double offset = dot(n, a);
+    // A world coordinate to the first and last cell index at or inside it.
+    const auto from = [spacing](double at) { return static_cast<std::int32_t>(std::ceil(at / spacing)); };
+    const auto to = [spacing](double at) { return static_cast<std::int32_t>(std::floor(at / spacing)); };
+    const std::int32_t firstD = from(component(low, d));
+    const std::int32_t lastD = to(component(high, d));
+    for (std::int32_t cu = from(component(low, u)); cu <= to(component(high, u)); ++cu)
+        for (std::int32_t cv = from(component(low, v)); cv <= to(component(high, v)); ++cv) {
+            std::int32_t slabFirst = firstD;
+            std::int32_t slabLast = lastD;
+            if (nd != 0) {
+                // The plane is n . p = offset. At this (cu, cv), with r the rest
+                // of n . p - offset, a point d-units t along is within one
+                // spacing of it for n_d t + r in [-spacing, spacing]: t0..t1, in
+                // world units. Cells from one before to one past that span, never
+                // outside the box's own (an empty range where the slab misses it).
+                const double r = component(n, u) * cu * spacing + component(n, v) * cv * spacing - offset;
+                const double t0 = (-spacing - r) / nd;
+                const double t1 = (spacing - r) / nd;
+                const double first = std::floor(std::min(t0, t1) / spacing) - 1;
+                const double last = std::ceil(std::max(t0, t1) / spacing) + 1;
+                if (first > slabFirst) slabFirst = static_cast<std::int32_t>(std::min<double>(first, lastD + 1.0));
+                if (last < slabLast) slabLast = static_cast<std::int32_t>(std::max<double>(last, firstD - 1.0));
+            }
+            for (std::int32_t cd = slabFirst; cd <= slabLast; ++cd) {
+                Cell candidate{};
+                candidate[d] = cd;
+                candidate[u] = cu;
+                candidate[v] = cv;
+                const Vec3 point{candidate[0] * spacing, candidate[1] * spacing, candidate[2] * spacing};
+                if (std::abs(dot(n, point - a)) <= spacing) out.push_back(candidate);
+            }
+        }
+}
+
+} // namespace
 
 Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
                                              const ubundle::CollisionTree& level,
@@ -514,45 +576,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
             const Vec3 high{std::min(std::max({a.x, b.x, c.x}) + spacing, reachHigh.x),
                             std::min(std::max({a.y, b.y, c.y}) + spacing, reachHigh.y),
                             std::min(std::max({a.z, b.z, c.z}) + spacing, reachHigh.z)};
-            // UTA-0375: along the axis the plane faces most, walk only the
-            // cells near its slab, so a sloped triangle costs its area and not
-            // its box's volume. The slab is widened by a cell either side and
-            // every cell still meets the distance test, so the candidates are
-            // the whole box's.
-            const std::size_t d = std::abs(n.x) >= std::abs(n.y) && std::abs(n.x) >= std::abs(n.z) ? 0
-                                  : std::abs(n.y) >= std::abs(n.z)                                ? 1
-                                                                                                  : 2;
-            const std::size_t u = (d + 1) % 3;
-            const std::size_t v = (d + 2) % 3;
-            const double nd = component(n, d);
-            const double offset = dot(n, a);
-            const auto from = [spacing](double at) { return static_cast<std::int32_t>(std::ceil(at / spacing)); };
-            const auto to = [spacing](double at) { return static_cast<std::int32_t>(std::floor(at / spacing)); };
-            const std::int32_t firstD = from(component(low, d));
-            const std::int32_t lastD = to(component(high, d));
-            for (std::int32_t cu = from(component(low, u)); cu <= to(component(high, u)); ++cu)
-                for (std::int32_t cv = from(component(low, v)); cv <= to(component(high, v)); ++cv) {
-                    std::int32_t slabFirst = firstD;
-                    std::int32_t slabLast = lastD;
-                    if (nd != 0) {
-                        // n_d t + r within spacing of 0, r the rest of n . p - n . a.
-                        const double r = component(n, u) * cu * spacing + component(n, v) * cv * spacing - offset;
-                        const double t0 = (-spacing - r) / nd;
-                        const double t1 = (spacing - r) / nd;
-                        const double first = std::floor(std::min(t0, t1) / spacing) - 1;
-                        const double last = std::ceil(std::max(t0, t1) / spacing) + 1;
-                        if (first > slabFirst) slabFirst = static_cast<std::int32_t>(std::min<double>(first, lastD + 1.0));
-                        if (last < slabLast) slabLast = static_cast<std::int32_t>(std::max<double>(last, firstD - 1.0));
-                    }
-                    for (std::int32_t cd = slabFirst; cd <= slabLast; ++cd) {
-                        Cell candidate{};
-                        candidate[d] = cd;
-                        candidate[u] = cu;
-                        candidate[v] = cv;
-                        if (std::abs(dot(n, pointOf(candidate) - a)) <= spacing)
-                            candidates.push_back(candidate);
-                    }
-                }
+            candidatesOf(a, n, low, high, candidates);
         }
     }
     // Step 4: ordered by z, then y, then x, each once.
@@ -580,8 +604,8 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
 
     // SS 4.7: each probe gathered on its own, into its own slot.
     const SurfaceRays rays(geometry);
-    const std::size_t batches = (out.probes.size() + PROBES_PER_JOB - 1) / PROBES_PER_JOB;
-    const std::size_t threw = jobs.parallelFor(batches, [&](std::size_t job) {
+    const std::size_t jobCount = (out.probes.size() + PROBES_PER_JOB - 1) / PROBES_PER_JOB;
+    const std::size_t threw = jobs.parallelFor(jobCount, [&](std::size_t job) {
         const std::size_t end = std::min(out.probes.size(), (job + 1) * PROBES_PER_JOB);
         for (std::size_t p = job * PROBES_PER_JOB; p < end; ++p) {
             ubundle::LightProbe& probe = out.probes[p];
@@ -610,7 +634,7 @@ Result<ubundle::LightProbes> bakeLightProbes(const ubundle::Geometry& geometry,
         lit.spacing = out.spacing;
         lit.probes = out.probes;
         lit.reach = out.reach; // SS 4.13 item 2: the bake's blend masks too (UTA-0400)
-        const std::size_t failed = jobs.parallelFor(batches, [&](std::size_t job) {
+        const std::size_t failed = jobs.parallelFor(jobCount, [&](std::size_t job) {
             const std::size_t end = std::min(out.probes.size(), (job + 1) * PROBES_PER_JOB);
             for (std::size_t p = job * PROBES_PER_JOB; p < end; ++p) {
                 const std::array<Rgb, 6> more =

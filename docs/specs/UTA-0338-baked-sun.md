@@ -120,7 +120,7 @@ toward the sun. No falloff, no spot factor, no radius. `light.glsl`'s
 `lightAt` gains the same branch; the parity test (`BakeLightModelTest`,
 `light_parity.comp`) covers it.
 
-**Seen or not.** `sunSeen(x, s, rays, hole)` is whether the ray from `x`
+**Seen or not.** `meetsSkyFirst(x, s, rays, hole)` is whether the ray from `x`
 along `s` first meets a `PF_FakeBackdrop` surface, in a ray set in which
 backdrop surfaces are occluders, a masked cutout's hole (UTA-0326 § 4.3)
 passing. A ray that meets nothing is not seen: a map open to the void is not
@@ -129,16 +129,16 @@ lit from it.
 ### 4.4 Baking it — `ubake`
 
 - **SMSK.** The sun is paired with each lit polygon as UTA-0326 § 4.1 pairs
-  a light, its texel shares from `sunSeen` in place of the segment test to
+  a light, its texel shares from `meetsSkyFirst` in place of the segment test to
   `litFrom`. Polygons facing away from it, or with no texel seeing it, get no
   pair.
 - **Probes.** `lightReaching` and `sentFrom` take the sun as one of their
-  lights, `sunSeen` in place of `rays.blocked(x, litFrom)`. `bakedLights`
+  lights, `meetsSkyFirst` in place of `rays.blocked(x, litFrom)`. `bakedLights`
   keeps only placed actors and refuses a sun, so the bake, and `ut-ref`,
   add it after. It goes into the
   base layer, never into LAMP's `added`. A ray restarted from the sky view
   (UTA-0112 § 4.12) never reaches the sun: the baked sky holds no disc.
-- **`sunSeen` per probe.** The share `sunSeen` passes from the probe's
+- **`sunSeen` per probe.** The share `meetsSkyFirst` passes from the probe's
   point over `s` itself and every direction of `directions()` within
   `SUN_RADIUS` of it. `SUN_RADIUS` is 0.035 radians, the disc's size, so
   the cone usually holds `s` alone and the share is 1 or 0; the lattice's

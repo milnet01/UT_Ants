@@ -13,6 +13,7 @@
 #pragma once
 
 #include "ubake/CollisionQuery.h"
+#include "ubake/Geometry.h"
 #include "ubundle/Bundle.h"
 
 #include <cstddef>
@@ -25,9 +26,10 @@
 
 namespace uta::ubake {
 
-/// PolyFlags that let light through: PF_Translucent (0x04), PF_NotSolid (0x08)
-/// and PF_Modulated (0x40).
-inline constexpr std::uint32_t LIGHT_PASSES_FLAGS = 0x04u | 0x08u | 0x40u;
+/// PolyFlags that let light through -- the 432 headers' Engine/Inc/UnObj.h.
+/// UTA-0168: PF_NotSolid measured against UT99's own lightmaps, which let
+/// light through a non-solid brush and not through an unlit surface.
+inline constexpr std::uint32_t LIGHT_PASSES_FLAGS = PF_TRANSLUCENT | PF_NOT_SOLID | PF_MODULATED;
 
 class SurfaceRays {
 public:
@@ -74,10 +76,11 @@ public:
                                                      const Vec3& direction, double limit) const;
 
     /// Whether an occluder crosses the segment from `a` to `b` strictly between
-    /// them.
+    /// them. One walk serves both overloads.
     [[nodiscard]] bool blocked(const Vec3& a, const Vec3& b) const;
 
     /// The same, a crossing `hole` names passing -- UTA-0326 SS 4.3's cutouts.
+    /// An empty `hole` names none.
     [[nodiscard]] bool blocked(const Vec3& a, const Vec3& b, const Hole& hole) const;
 
     /// UTA-0338 SS 4.3: whether the nearest occluder a ray from `origin` along
@@ -101,6 +104,20 @@ private:
     };
 
     std::uint32_t build(std::uint32_t first, std::uint32_t count);
+
+    /// The nearest hit and its batch's polyFlags: first() and firstHas share
+    /// it, so the tie rule is written once. An empty `hole` names none.
+    struct Nearest {
+        Hit hit;
+        std::uint32_t flags = 0;
+    };
+    [[nodiscard]] std::optional<Nearest> nearest(const Vec3& origin, const Vec3& direction, double limit,
+                                                 const Hole& hole) const;
+
+    /// anyInFront's and gatherInFront's walk, each test loosened by `margin`:
+    /// calls `visit(i)` on every triangle that passes, until it returns false.
+    template <typename Visit>
+    void walkInFront(const Vec3& origin, const Vec3& normal, double radius, double margin, Visit&& visit) const;
 
     std::vector<Triangle> triangles_;
     std::vector<Node> nodes_;

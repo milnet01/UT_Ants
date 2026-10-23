@@ -19,12 +19,6 @@ double engineBrightness(double value) noexcept {
     return std::clamp(b * 0.7 / (0.01 + std::sqrt(b)), 0.0, 1.0);
 }
 
-/// ELightEffect's values -- the 432 headers' Engine/Inc/EngineClasses.h.
-constexpr std::uint8_t LE_STATIC_SPOT = 8;
-constexpr std::uint8_t LE_SPOTLIGHT = 12;
-constexpr std::uint8_t LE_NON_INCIDENCE = 13;
-constexpr std::uint8_t LE_CYLINDER = 17;
-
 /// UTA-0156: the share of an LE_Cylinder light's reach over which it fades to
 /// zero, so its sphere bound draws no hard edge -- the widest the block-RMS fit
 /// against the original game's frames did not worsen.
@@ -127,7 +121,7 @@ double lightIntensity(std::uint8_t brightness) noexcept {
 }
 
 double lightRadius(std::uint8_t radius) noexcept {
-    return 25.0 * (radius + 1);
+    return ubundle::worldLightRadius(radius);
 }
 
 double falloff(double distance, double radius) noexcept {
@@ -192,11 +186,11 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     // DM-Deck16]['s own per-surface light lists attach its cylinder lights to
     // 1539 surfaces, 2 of them outside the sphere, and leave them off 4419
     // surfaces inside the horizontal radius but outside the sphere.
-    if (light.effect == LE_CYLINDER) {
+    if (light.effect == ubundle::LE_CYLINDER) {
         return scaled(intensity * edgeFade(d, radius)
                       * std::max(0.0, 1 - (toLight.x * toLight.x + toLight.y * toLight.y) / (radius * radius)));
     }
-    if (light.effect == LE_NON_INCIDENCE) return scaled(intensity * std::max(0.0, 1 - d / radius));
+    if (light.effect == ubundle::LE_NON_INCIDENCE) return scaled(intensity * std::max(0.0, 1 - d / radius));
 
     const double f = falloff(d, radius);
     if (f == 0) return {};
@@ -206,8 +200,8 @@ Rgb lightAt(const ubundle::Light& light, const Vec3& x, const Vec3& n) noexcept 
     double spot = 1;
     if (d > 0) {
         const Vec3 l{toLight.x / d, toLight.y / d, toLight.z / d};
-        if (light.effect != LE_NON_INCIDENCE) incidence = std::max(0.0, dot(n, l));
-        if (light.effect == LE_SPOTLIGHT || light.effect == LE_STATIC_SPOT) {
+        incidence = std::max(0.0, dot(n, l));
+        if (ubundle::isSpotEffect(light.effect)) {
             if (light.cone == 0) return {};
             const double c = 1 - light.cone / 256.0;
             spot = std::clamp((dot(directionOf(light.rotation), l * -1.0) - c) / (1 - c), 0.0, 1.0);

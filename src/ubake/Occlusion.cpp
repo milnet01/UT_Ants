@@ -27,25 +27,6 @@ constexpr std::size_t CHARTS_PER_JOB = 32;
 /// about the same.
 constexpr std::size_t GATHERED_LIMIT = 64;
 
-/// SS 4.2: shelf packing at `width`, tallest first. The height used, or 0 when
-/// a chart is wider than `width`.
-std::uint64_t shelve(const std::vector<Chart*>& order, std::uint32_t width) {
-    std::uint64_t x = OCCLUSION_WHITE_BLOCK, shelfY = 0, shelfH = OCCLUSION_WHITE_BLOCK;
-    for (Chart* chart : order) {
-        if (chart->w > width) return 0;
-        if (x + chart->w > width) {
-            shelfY += shelfH;
-            x = 0;
-            shelfH = 0;
-        }
-        chart->x = static_cast<std::uint32_t>(x);
-        chart->y = static_cast<std::uint32_t>(shelfY);
-        x += chart->w;
-        shelfH = std::max<std::uint64_t>(shelfH, chart->h);
-    }
-    return shelfY + shelfH;
-}
-
 /// SS 4.3 steps 4 and 5: how open the space above `origin` is, 0 to 1.
 double opennessAt(const Vec3& origin, const Vec3& n, const SurfaceRays& rays) {
     // Nothing in front within reach: every ray misses, so skip them. Exact --
@@ -121,14 +102,18 @@ Result<ubundle::Occlusion> bakeOcclusion(const ubundle::Geometry& geometry, JobS
                 area += std::uint64_t{chart.w} * chart.h;
             }
         std::stable_sort(order.begin(), order.end(), [](const Chart* a, const Chart* b) { return a->h > b->h; });
-        width = 64;
-        while (std::uint64_t{width} * width < area && width < ubundle::OCCLUSION_ATLAS_LIMIT) width *= 2;
-        for (;;) {
-            height = shelve(order, width);
-            if (height != 0 && height <= width) break;
-            if (width == ubundle::OCCLUSION_ATLAS_LIMIT) break;
-            width *= 2;
-        }
+        // Shelf packing, tallest first, after the white block.
+        const charts::AtlasSize atlas =
+            charts::widthFor(area, ubundle::OCCLUSION_ATLAS_LIMIT, false, [&order](std::uint32_t at) {
+                return charts::shelve(
+                    order.size(), at, OCCLUSION_WHITE_BLOCK, [&order](std::size_t k) -> const Chart& { return *order[k]; },
+                    [&order](std::size_t k, std::uint32_t x, std::uint32_t y) {
+                        order[k]->x = x;
+                        order[k]->y = y;
+                    });
+            });
+        width = atlas.width;
+        height = atlas.height;
         if (height != 0 && height <= ubundle::OCCLUSION_ATLAS_LIMIT) break;
         texelSize *= 2;
     }
@@ -156,9 +141,9 @@ Result<ubundle::Occlusion> bakeOcclusion(const ubundle::Geometry& geometry, JobS
 
     // SS 4.3: each chart's texels on their own, into their own rectangle.
     const SurfaceRays rays(geometry);
-    const std::size_t batches = (order.size() + CHARTS_PER_JOB - 1) / CHARTS_PER_JOB;
+    const std::size_t jobCount = (order.size() + CHARTS_PER_JOB - 1) / CHARTS_PER_JOB;
     const double size = texelSize;
-    const std::size_t threw = jobs.parallelFor(batches, [&](std::size_t job) {
+    const std::size_t threw = jobs.parallelFor(jobCount, [&](std::size_t job) {
         const std::size_t end = std::min(order.size(), (job + 1) * CHARTS_PER_JOB);
         for (std::size_t c = job * CHARTS_PER_JOB; c < end; ++c) bakeChart(*order[c], geometry, rays, size, out);
     });

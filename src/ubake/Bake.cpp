@@ -890,9 +890,6 @@ Result<void> maskByTexture(const upkg::Package& map, std::string_view mapName,
     return {};
 }
 
-/// The polyFlags bit UT99 draws as a window onto the sky.
-constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
-
 /// UTA-0350 SS 4.2: every surface wearing one of `textures` -- unmasked
 /// material ids, as a recipe names them -- becomes sky, before any step reads
 /// the flags. Returns the named textures some surface wears.

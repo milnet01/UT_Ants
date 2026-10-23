@@ -175,17 +175,17 @@ TEST_CASE("UTA-0338 INV-5: a point sees the sun only through a backdrop surface"
     const uta::ubake::SurfaceRays rays(geometry);
     const Vec3 up{0, 0, 1};
     // Under the hole: the first surface overhead is the backdrop.
-    CHECK(uta::ubake::sunSeen(Vec3{0, 0, 21}, up, rays));
-    CHECK(uta::ubake::sunSeen(Vec3{-50, 40, 100}, up, rays));
+    CHECK(uta::ubake::meetsSkyFirst(Vec3{0, 0, 21}, up, rays));
+    CHECK(uta::ubake::meetsSkyFirst(Vec3{-50, 40, 100}, up, rays));
     // Under the roof: the first is a plain wall.
-    CHECK_FALSE(uta::ubake::sunSeen(Vec3{256, 0, 21}, up, rays));
+    CHECK_FALSE(uta::ubake::meetsSkyFirst(Vec3{256, 0, 21}, up, rays));
     // Beside both: nothing at all.
-    CHECK_FALSE(uta::ubake::sunSeen(Vec3{120, 0, 21}, up, rays));
+    CHECK_FALSE(uta::ubake::meetsSkyFirst(Vec3{120, 0, 21}, up, rays));
     // Away from the sun the backdrop is not met.
-    CHECK_FALSE(uta::ubake::sunSeen(Vec3{0, 0, 21}, Vec3{0, 0, -1}, rays));
+    CHECK_FALSE(uta::ubake::meetsSkyFirst(Vec3{0, 0, 21}, Vec3{0, 0, -1}, rays));
     // A set letting backdrops through meets nothing above the hole.
     const uta::ubake::SurfaceRays passing(geometry, uta::ubake::LIGHT_PASSES_FLAGS | PF_FAKE_BACKDROP);
-    CHECK_FALSE(uta::ubake::sunSeen(Vec3{0, 0, 21}, up, passing));
+    CHECK_FALSE(uta::ubake::meetsSkyFirst(Vec3{0, 0, 21}, up, passing));
     // A hole in the backdrop lets the ray through to nothing.
     const uta::ubake::SurfaceRays::Hole skyHoles = [&geometry](std::size_t triangle, double, double) {
         for (const ubundle::GeometryBatch& batch : geometry.batches)
@@ -193,8 +193,8 @@ TEST_CASE("UTA-0338 INV-5: a point sees the sun only through a backdrop surface"
                 return (batch.polyFlags & PF_FAKE_BACKDROP) != 0;
         return false;
     };
-    CHECK_FALSE(uta::ubake::sunSeen(Vec3{0, 0, 21}, up, rays, skyHoles));
-    CHECK(uta::ubake::sunSeen(Vec3{0, 0, 21}, up, rays, [](std::size_t, double, double) { return false; }));
+    CHECK_FALSE(uta::ubake::meetsSkyFirst(Vec3{0, 0, 21}, up, rays, skyHoles));
+    CHECK(uta::ubake::meetsSkyFirst(Vec3{0, 0, 21}, up, rays, [](std::size_t, double, double) { return false; }));
 
     // The light reaching a floor: the sun under the hole, none under the roof.
     const std::vector<ubundle::Light> sun{

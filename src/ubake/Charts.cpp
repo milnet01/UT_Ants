@@ -2,6 +2,8 @@
 
 #include "ubake/Charts.h"
 
+#include "ubake/Geometry.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -11,10 +13,6 @@ namespace uta::ubake::charts {
 namespace {
 
 /// PolyFlags a chart must lack to be lit -- UTA-0164 SS 4.2.
-constexpr std::uint32_t PF_INVISIBLE = 0x00000001u;
-constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
-constexpr std::uint32_t PF_UNLIT = 0x00400000u;
-constexpr std::uint32_t PF_PORTAL = 0x04000000u;
 constexpr std::uint32_t UNLIT_FLAGS = PF_INVISIBLE | PF_FAKE_BACKDROP | PF_UNLIT | PF_PORTAL;
 
 Vec3 cross(const Vec3& a, const Vec3& b) noexcept {

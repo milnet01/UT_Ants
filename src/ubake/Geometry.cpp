@@ -49,8 +49,6 @@ std::unexpected<Error> refuse(std::size_t node, std::string_view what, std::int6
                     + std::string(table));
 }
 
-constexpr std::uint32_t PF_PORTAL = 0x04000000u;
-
 /// A node's polygon, or none where an index it needs leaves its table -- that
 /// node is left to buildGeometry's loop, which refuses it.
 std::vector<Vec> polygonOf(const upkg::Model& model, const upkg::BspNode& node) {
@@ -215,7 +213,6 @@ std::vector<bool> hiddenBehindPortals(const upkg::Model& model) {
     return hidden;
 }
 
-/// One drawn node, before it is batched.
 /// How a point of one node's surface becomes a vertex.
 struct Mapping {
     Vec base{};
@@ -241,6 +238,7 @@ struct Mapping {
     }
 };
 
+/// One drawn node, before it is batched.
 struct Drawn {
     std::string material;
     std::uint32_t polyFlags = 0;
@@ -253,107 +251,154 @@ struct Drawn {
     std::size_t sway = SIZE_MAX; ///< its index among the polygons sliceSway is given
 };
 
+/// The vertices and indices GEOM will hold, counted as each fan is added, so
+/// a u32 index cannot wrap (SS 4.3). A fan of n corners is n vertices and
+/// 3 (n - 2) indices.
+struct FanTotals {
+    std::uint64_t vertices = 0;
+    std::uint64_t indices = 0;
+
+    void add(std::size_t corners) noexcept {
+        vertices += corners;
+        indices += 3 * (corners - 2);
+    }
+    void remove(std::size_t corners) noexcept {
+        vertices -= corners;
+        indices -= 3 * (corners - 2);
+    }
+    [[nodiscard]] bool pastLimit() const noexcept { return vertices >= COUNT_LIMIT || indices >= COUNT_LIMIT; }
+};
+
+/// The nodes drawn so far, the polygons that sway among them, and the totals.
+class Drawing {
+public:
+    Drawing(const upkg::Model& model, const MaterialLookup& materials, std::size_t zoneCount,
+            const umap::RoomMap* rooms)
+        : model_(model), materials_(materials), zoneCount_(zoneCount), rooms_(rooms) {}
+
+    /// Steps 4b to 7a for one polygon, `points`, drawn as node n's surface:
+    /// its points' bound, its surface's point and vectors, its orientation,
+    /// material, vertices and sway.
+    Result<void> draw(std::size_t n, std::vector<Vec> points);
+
+    std::vector<Drawn> drawn;
+    std::vector<SwayPolygon> swaying;
+    FanTotals totals;
+
+private:
+    const upkg::Model& model_;
+    const MaterialLookup& materials_;
+    std::size_t zoneCount_;
+    const umap::RoomMap* rooms_;
+};
+
+Result<void> Drawing::draw(std::size_t n, std::vector<Vec> points) {
+    const upkg::Model& model = model_;
+    const upkg::BspNode& node = model.nodes[n];
+    const std::size_t count = points.size();
+    // 4b. UTA-0217: every point finite and inside the bound, before step 5 --
+    // a NaN makes s neither zero nor negative, so it would be drawn. A node's
+    // points and a recipe's cover's alike (UTA-0404).
+    for (const Vec& point : points)
+        for (const double part : point)
+            if (!(std::abs(part) <= MAX_COORDINATE))
+                return fail(ErrorCode::MalformedData,
+                            "the Model's node " + std::to_string(n) + " has a point at " + std::to_string(part)
+                                + ", which is not finite or lies past the bound of " + std::to_string(MAX_COORDINATE));
+    // 4c. Its surface's point and vectors.
+    const upkg::BspSurf& surf = model.surfs[static_cast<std::size_t>(node.iSurf)];
+    if (!within(surf.pBase, model.points.size()))
+        return refuse(n, "pBase", surf.pBase, model.points.size(), "points");
+    for (const auto& [what, index] : {std::pair<std::string_view, std::int32_t>{"vNormal", surf.vNormal},
+                                      {"vTextureU", surf.vTextureU},
+                                      {"vTextureV", surf.vTextureV}}) {
+        if (!within(index, model.vectors.size()))
+            return refuse(n, what, index, model.vectors.size(), "vectors");
+    }
+    const Vec base = toDouble(model.points[static_cast<std::size_t>(surf.pBase)]);
+    const upkg::Vector3& normal = model.vectors[static_cast<std::size_t>(surf.vNormal)];
+    const Vec along = toDouble(normal);
+    const Vec textureU = toDouble(model.vectors[static_cast<std::size_t>(surf.vTextureU)]);
+    const Vec textureV = toDouble(model.vectors[static_cast<std::size_t>(surf.vTextureV)]);
+
+    // 5. Its orientation: the fan's summed cross product along the
+    // surface's normal. Zero is no area; negative is wound the other way.
+    double s = 0;
+    for (std::size_t k = 1; k + 1 < count; ++k)
+        s += dot(cross(minus(points[k], points[0]), minus(points[k + 1], points[0])), along);
+    if (s == 0) return {};
+    if (s < 0) std::reverse(points.begin() + 1, points.end()); // P0, Pn-1, ..., P1
+
+    totals.add(count);
+    if (totals.pastLimit())
+        return fail(ErrorCode::MalformedData,
+                    "the Model's geometry would pass the 2^32 vertices or indices a u32 counts,"
+                    " at node " + std::to_string(n));
+
+    // 6. Its material. A null texture asks nothing and wears none.
+    const SurfaceMaterial* made = nullptr;
+    if (surf.texture.kind() != upkg::ObjectReferenceKind::Null)
+        made = materials_(surf.texture, (surf.polyFlags & PF_MASKED) != 0);
+
+    // 7. Its vertices, in the polygon's order.
+    Drawn out;
+    out.material = made != nullptr ? made->id : std::string{};
+    out.polyFlags = surf.polyFlags;
+    out.corners.reserve(count);
+    // UTA-0156 SS 4.3: the zone on the plane's front, the side the surface faces.
+    auto zone = static_cast<std::uint8_t>(node.iZone[1] < zoneCount_ ? node.iZone[1] : 0);
+    const double alongLength = std::sqrt(dot(along, along));
+    // UTA-0390: an unzoned node is looked up in front of its centroid,
+    // stepping out until a step finds a zone.
+    if (zone == 0 && rooms_ != nullptr && alongLength > 0) {
+        Vec centroid{};
+        for (const Vec& point : points)
+            for (std::size_t k = 0; k < 3; ++k) centroid[k] += point[k] / static_cast<double>(count);
+        for (double step = 1; zone == 0 && step <= ZONE_SEARCH_REACH; step *= 2) {
+            const double reach = step / alongLength;
+            zone = ubundle::zoneAt(*rooms_,
+                                   {static_cast<float>(centroid[0] + along[0] * reach),
+                                    static_cast<float>(centroid[1] + along[1] * reach),
+                                    static_cast<float>(centroid[2] + along[2] * reach)},
+                                   zoneCount_);
+        }
+    }
+    // UTA-0269: UT99 pans PAN_TEXELS_PER_SECOND, which in repeats a second
+    // is that over the texture's size. UTA-0276: times the viewer's zone
+    // speed, which the renderer applies.
+    if (made != nullptr) {
+        if ((surf.polyFlags & PF_AUTO_U_PAN) != 0)
+            out.panRate[0] = static_cast<float>(PAN_TEXELS_PER_SECOND / made->uSize);
+        if ((surf.polyFlags & PF_AUTO_V_PAN) != 0)
+            out.panRate[1] = static_cast<float>(PAN_TEXELS_PER_SECOND / made->vSize);
+    }
+    out.mapping = Mapping{base, textureU, textureV, static_cast<double>(surf.panU), static_cast<double>(surf.panV),
+                          made, {normal.x, normal.y, normal.z}, zone};
+    for (const Vec& point : points) out.corners.push_back(out.mapping.vertexAt(point));
+
+    // 7a. UTA-0055 SS 4.1: whether it sways.
+    ubundle::SwayKind kind = ubundle::SwayKind::None;
+    if (made != nullptr && made->cloth && (surf.polyFlags & (PF_TWO_SIDED | PF_NOT_SOLID)) != 0)
+        kind = ubundle::SwayKind::Cloth;
+    else if (made != nullptr && made->water && std::abs(along[2]) >= FACING_UP * alongLength)
+        kind = ubundle::SwayKind::Water;
+    if (kind != ubundle::SwayKind::None && alongLength > 0) {
+        out.sway = swaying.size();
+        swaying.push_back(SwayPolygon{kind, made->id, points,
+                                      {along[0] / alongLength, along[1] / alongLength, along[2] / alongLength}});
+    }
+    drawn.push_back(std::move(out));
+    return {};
+}
+
 } // namespace
 
 Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const MaterialLookup& materials,
                                         std::size_t zoneCount, std::span<const std::uint32_t> omitted,
                                         SwayReport* sway, const umap::RoomMap* rooms,
                                         std::span<const Cover> covers) {
-    std::vector<Drawn> drawn;
-    std::vector<SwayPolygon> swaying;
-    std::uint64_t vertexTotal = 0;
-    std::uint64_t indexTotal = 0;
+    Drawing drawing(model, materials, zoneCount, rooms);
     const std::vector<bool> hidden = hiddenBehindPortals(model);
-
-    // Steps 4 to 7a for one polygon, `points`, drawn as node n's surface.
-    const auto draw = [&](std::size_t n, std::vector<Vec> points) -> Result<void> {
-        const upkg::BspNode& node = model.nodes[n];
-        const std::size_t count = points.size();
-        const upkg::BspSurf& surf = model.surfs[static_cast<std::size_t>(node.iSurf)];
-        if (!within(surf.pBase, model.points.size()))
-            return refuse(n, "pBase", surf.pBase, model.points.size(), "points");
-        for (const auto& [what, index] : {std::pair<std::string_view, std::int32_t>{"vNormal", surf.vNormal},
-                                          {"vTextureU", surf.vTextureU},
-                                          {"vTextureV", surf.vTextureV}}) {
-            if (!within(index, model.vectors.size()))
-                return refuse(n, what, index, model.vectors.size(), "vectors");
-        }
-        const Vec base = toDouble(model.points[static_cast<std::size_t>(surf.pBase)]);
-        const upkg::Vector3& normal = model.vectors[static_cast<std::size_t>(surf.vNormal)];
-        const Vec along = toDouble(normal);
-        const Vec textureU = toDouble(model.vectors[static_cast<std::size_t>(surf.vTextureU)]);
-        const Vec textureV = toDouble(model.vectors[static_cast<std::size_t>(surf.vTextureV)]);
-
-        // 5. Its orientation: the fan's summed cross product along the
-        // surface's normal. Zero is no area; negative is wound the other way.
-        double s = 0;
-        for (std::size_t k = 1; k + 1 < count; ++k)
-            s += dot(cross(minus(points[k], points[0]), minus(points[k + 1], points[0])), along);
-        if (s == 0) return {};
-        if (s < 0) std::reverse(points.begin() + 1, points.end()); // P0, Pn-1, ..., P1
-
-        vertexTotal += count;
-        indexTotal += 3 * (count - 2);
-        if (vertexTotal >= COUNT_LIMIT || indexTotal >= COUNT_LIMIT)
-            return fail(ErrorCode::MalformedData,
-                        "the Model's geometry would pass the 2^32 vertices or indices a u32 counts,"
-                        " at node " + std::to_string(n));
-
-        // 6. Its material. A null texture asks nothing and wears none.
-        const SurfaceMaterial* made = nullptr;
-        if (surf.texture.kind() != upkg::ObjectReferenceKind::Null)
-            made = materials(surf.texture, (surf.polyFlags & PF_MASKED) != 0);
-
-        // 7. Its vertices, in the polygon's order.
-        Drawn out;
-        out.material = made != nullptr ? made->id : std::string{};
-        out.polyFlags = surf.polyFlags;
-        out.corners.reserve(count);
-        // UTA-0156 SS 4.3: the zone on the plane's front, the side the surface faces.
-        auto zone = static_cast<std::uint8_t>(node.iZone[1] < zoneCount ? node.iZone[1] : 0);
-        const double alongLength = std::sqrt(dot(along, along));
-        // UTA-0390: an unzoned node is looked up in front of its centroid,
-        // stepping out until a step finds a zone.
-        if (zone == 0 && rooms != nullptr && alongLength > 0) {
-            Vec centroid{};
-            for (const Vec& point : points)
-                for (std::size_t k = 0; k < 3; ++k) centroid[k] += point[k] / static_cast<double>(count);
-            for (double step = 1; zone == 0 && step <= ZONE_SEARCH_REACH; step *= 2) {
-                const double reach = step / alongLength;
-                zone = ubundle::zoneAt(*rooms,
-                                       {static_cast<float>(centroid[0] + along[0] * reach),
-                                        static_cast<float>(centroid[1] + along[1] * reach),
-                                        static_cast<float>(centroid[2] + along[2] * reach)},
-                                       zoneCount);
-            }
-        }
-        // UTA-0269: UT99 pans PAN_TEXELS_PER_SECOND, which in repeats a second
-        // is that over the texture's size. UTA-0276: times the viewer's zone
-        // speed, which the renderer applies.
-        if (made != nullptr) {
-            if ((surf.polyFlags & PF_AUTO_U_PAN) != 0)
-                out.panRate[0] = static_cast<float>(PAN_TEXELS_PER_SECOND / made->uSize);
-            if ((surf.polyFlags & PF_AUTO_V_PAN) != 0)
-                out.panRate[1] = static_cast<float>(PAN_TEXELS_PER_SECOND / made->vSize);
-        }
-        out.mapping = Mapping{base, textureU, textureV, static_cast<double>(surf.panU), static_cast<double>(surf.panV),
-                              made, {normal.x, normal.y, normal.z}, zone};
-        for (const Vec& point : points) out.corners.push_back(out.mapping.vertexAt(point));
-
-        // 7a. UTA-0055 SS 4.1: whether it sways.
-        ubundle::SwayKind kind = ubundle::SwayKind::None;
-        if (made != nullptr && made->cloth && (surf.polyFlags & (PF_TWO_SIDED | PF_NOT_SOLID)) != 0)
-            kind = ubundle::SwayKind::Cloth;
-        else if (made != nullptr && made->water && std::abs(along[2]) >= FACING_UP * alongLength)
-            kind = ubundle::SwayKind::Water;
-        if (kind != ubundle::SwayKind::None && alongLength > 0) {
-            out.sway = swaying.size();
-            swaying.push_back(SwayPolygon{kind, made->id, points,
-                                          {along[0] / alongLength, along[1] / alongLength, along[2] / alongLength}});
-        }
-        drawn.push_back(std::move(out));
-        return {};
-    };
 
     for (std::size_t n = 0; n < model.nodes.size(); ++n) {
         const upkg::BspNode& node = model.nodes[n];
@@ -376,8 +421,9 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
         // UTA-0263 SS 4.3: a flame sheet is drawn as a FLAM record instead.
         if (std::ranges::binary_search(omitted, static_cast<std::uint32_t>(node.iSurf))) continue;
 
-        // 4. Its polygon, and its surface's point and vectors. Every index is
-        // the file's own and unchecked by upkg (UTA-0069 SS 3.2).
+        // 4. Its polygon; draw checks its points' bound (4b) and its
+        // surface's point and vectors (4c). Every index is the file's own and
+        // unchecked by upkg (UTA-0069 SS 3.2).
         if (node.iVertPool < 0
             || static_cast<std::uint64_t>(node.iVertPool) + count > model.verts.size())
             return refuse(n, "vertex pool", node.iVertPool, model.verts.size(), "verts");
@@ -388,31 +434,14 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
             if (!within(point, model.points.size()))
                 return refuse(n, "pVertex", point, model.points.size(), "points");
             points.push_back(toDouble(model.points[static_cast<std::size_t>(point)]));
-            // UTA-0217: finite and inside the bound, before step 5 -- a NaN
-            // makes s neither zero nor negative, so it would be drawn.
-            for (const double part : points.back())
-                if (!(std::abs(part) <= MAX_COORDINATE))
-                    return fail(ErrorCode::MalformedData,
-                                "the Model's node " + std::to_string(n) + " has a point at "
-                                    + std::to_string(part) + ", which is not finite or lies past the bound of "
-                                    + std::to_string(MAX_COORDINATE));
         }
-        UTA_CHECK(draw(n, std::move(points)));
+        UTA_CHECK(drawing.draw(n, std::move(points)));
     }
     // UTA-0109 SS 4.6: a recipe's covers, each drawn as its node's surface.
-    // UTA-0404: a cover's points meet step 4's bound too. Hide.cpp builds them
-    // from the hidden brush's corners, which may be invisible and so are
-    // never checked as a node's.
-    for (const Cover& cover : covers) {
-        for (const Vec& point : cover.points)
-            for (const double part : point)
-                if (!(std::abs(part) <= MAX_COORDINATE))
-                    return fail(ErrorCode::MalformedData,
-                                "the Model's node " + std::to_string(cover.node) + " has a point at "
-                                    + std::to_string(part) + ", which is not finite or lies past the bound of "
-                                    + std::to_string(MAX_COORDINATE));
-        UTA_CHECK(draw(cover.node, cover.points));
-    }
+    for (const Cover& cover : covers) UTA_CHECK(drawing.draw(cover.node, cover.points));
+    std::vector<Drawn>& drawn = drawing.drawn;
+    const std::vector<SwayPolygon>& swaying = drawing.swaying;
+    FanTotals& totals = drawing.totals;
 
     // 7b. UTA-0055 SS 4.2 and SS 4.3: the swaying polygons cut into pieces,
     // each corner weighted. One the budget left whole keeps its corners.
@@ -422,8 +451,7 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
                            slicing.clothVertices};
     for (Drawn& node : drawn) {
         if (node.sway == SIZE_MAX || slicing.pieces[node.sway].empty()) continue;
-        vertexTotal -= node.corners.size();
-        indexTotal -= 3 * (node.corners.size() - 2);
+        totals.remove(node.corners.size()); // its pieces are drawn instead
         const ubundle::SwayKind kind = swaying[node.sway].kind;
         for (const SwayPiece& piece : slicing.pieces[node.sway]) {
             std::vector<ubundle::GeometryVertex>& fan = node.pieces.emplace_back();
@@ -437,11 +465,10 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
                     vertex.normal[axis] = static_cast<float>(piece.directions[k][axis]);
                 fan.push_back(vertex);
             }
-            vertexTotal += fan.size();
-            indexTotal += 3 * (fan.size() - 2);
+            totals.add(fan.size());
         }
     }
-    if (vertexTotal >= COUNT_LIMIT || indexTotal >= COUNT_LIMIT)
+    if (totals.pastLimit())
         return fail(ErrorCode::MalformedData,
                     "the Model's geometry would pass the 2^32 vertices or indices a u32 counts, once sliced");
 
@@ -452,8 +479,8 @@ Result<ubundle::Geometry> buildGeometry(const upkg::Model& model, const Material
     });
 
     ubundle::Geometry geometry;
-    geometry.vertices.reserve(static_cast<std::size_t>(vertexTotal));
-    geometry.indices.reserve(static_cast<std::size_t>(indexTotal));
+    geometry.vertices.reserve(static_cast<std::size_t>(totals.vertices));
+    geometry.indices.reserve(static_cast<std::size_t>(totals.indices));
     for (Drawn& node : drawn) {
         if (geometry.batches.empty() || geometry.batches.back().material != node.material
             || geometry.batches.back().polyFlags != node.polyFlags || geometry.batches.back().panRate != node.panRate)

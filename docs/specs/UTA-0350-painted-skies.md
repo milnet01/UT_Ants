@@ -38,7 +38,7 @@ bakes and draws exactly as today.
    from the r50 bundle's `ZONE` bytes, `ubundle::detail::readZone`'s
    layout). UTA-0112 § 4.12 item 3 withdrew zone ambient from `scene.frag`
    (UTA-0156 INV-14), so the deck is dark.
-3. **The sun cannot get in.** `ubake::sunSeen` (`src/ubake/LightProbes.cpp`)
+3. **The sun cannot get in.** `ubake::meetsSkyFirst` (`src/ubake/LightProbes.cpp`)
    and the SMSK sun site (`src/ubake/ShadowMask.cpp`) see the sun only where
    a ray's first hit is a backdrop surface. A closed box has none, so
    TheBoat's UTA-0346 sun lights nothing.

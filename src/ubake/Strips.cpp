@@ -16,9 +16,8 @@
 namespace uta::ubake {
 namespace {
 
-/// ELightEffect's and ELightType's values -- the 432 headers'
-/// Engine/Inc/EngineClasses.h.
-constexpr std::uint8_t LE_CYLINDER = 17;
+/// ELightType's value -- the 432 headers' Engine/Inc/EngineClasses.h.
+/// ELightEffect's are ubundle/Bundle.h's.
 constexpr std::uint8_t LT_BACKDROP_LIGHT = 6;
 
 /// SS 4.2 rule 2. Only LE_Cylinder lights: UTA-0258 measured plain rows over
@@ -27,7 +26,7 @@ constexpr std::uint8_t LT_BACKDROP_LIGHT = 6;
 /// it. Cylinder rows sum to about one lamp, the premise SS 8 rests on. The
 /// rest are never drawn or never lit.
 bool excluded(const ubundle::Light& light) noexcept {
-    return light.effect != LE_CYLINDER || light.type == LT_BACKDROP_LIGHT || light.specialLit
+    return light.effect != ubundle::LE_CYLINDER || light.type == LT_BACKDROP_LIGHT || light.specialLit
            || light.brightness == 0;
 }
 

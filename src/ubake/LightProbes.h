@@ -122,20 +122,21 @@ struct SurfaceHit {
 /// renderer draws, and the cone a probe's view of the sun is taken over.
 inline constexpr double SUN_RADIUS = 0.035;
 
-/// UTA-0338 SS 4.3: whether `x` sees the sun along `s` -- the ray first meets a
-/// PF_FakeBackdrop surface, a hit `hole` names passing. `rays` must hold
-/// backdrop surfaces as occluders, as the default set does and SMSK's does
-/// not; a ray that meets nothing is not seen.
-[[nodiscard]] bool sunSeen(const Vec3& x, const Vec3& s, const SurfaceRays& rays,
+/// UTA-0338 SS 4.3: whether the ray from `x` along `s` first meets sky -- a
+/// PF_FakeBackdrop surface, a hit `hole` names passing. The sun's test and the
+/// sky's alike (UTA-0387), so a rule for the sun alone does not go here.
+/// `rays` must hold backdrop surfaces as occluders, as the default set does
+/// and SMSK's does not; a ray that meets nothing meets no sky.
+[[nodiscard]] bool meetsSkyFirst(const Vec3& x, const Vec3& s, const SurfaceRays& rays,
                            const SurfaceRays::Hole& hole = {});
 
 /// UTA-0338 SS 4.4: the share of the sun a probe at `p` sees -- over `s` and
 /// every direction of directions() within SUN_RADIUS of it, the share
-/// sunSeen passes.
+/// meetsSkyFirst passes.
 [[nodiscard]] float sunSeenFrom(const Vec3& p, const Vec3& s, const SurfaceRays& rays);
 
 /// UTA-0387 SS 4.1: the share of directions() along which a probe at `p`
-/// sees the sky -- the share sunSeen passes.
+/// sees the sky -- the share meetsSkyFirst passes.
 [[nodiscard]] float skySeenFrom(const Vec3& p, const SurfaceRays& rays);
 
 /// SS 4.13 (UTA-0397): how far a probe at `p` sees along +X, -X, +Y, -Y, +Z
@@ -151,7 +152,7 @@ inline constexpr double PROBE_SIGHT_SLACK = 8.0;
 [[nodiscard]] bool probeReaches(const std::array<float, 6>& reach, const Vec3& d) noexcept;
 
 /// SS 4.7 step 5: the light of `lights` reaching `x`, facing `n`, each one
-/// ray-tested toward the point it is lit from -- a sun by sunSeen
+/// ray-tested toward the point it is lit from -- a sun by meetsSkyFirst
 /// (UTA-0338 SS 4.4).
 [[nodiscard]] Rgb lightReaching(const Vec3& x, const Vec3& n, const SurfaceRays& rays,
                                 const std::vector<ubundle::Light>& lights);
@@ -201,8 +202,9 @@ inline constexpr std::size_t PROBE_BOUNCES = 3;
 
 /// SS 4.6 and SS 4.7: every probe of the level, none outside `reach` where
 /// there is one, nor past PROBE_WORLD_LIMIT, each holding PROBE_BOUNCES bounces.
-/// Where `lights` holds a sun, each probe's `sunSeen` too
-/// (UTA-0338 SS 4.4). A job that throws refuses it.
+/// Each probe's `reach` (SS 4.13); where `lights` holds a sun, its `sunSeen`
+/// (UTA-0338 SS 4.4); and where the level has sky, its `skySeen` (UTA-0387).
+/// A job that throws refuses it.
 [[nodiscard]] Result<ubundle::LightProbes> bakeLightProbes(
     const ubundle::Geometry& geometry, const ubundle::CollisionTree& level,
     const std::vector<ubundle::Light>& lights, const AlbedoLookup& albedo, JobSystem& jobs,

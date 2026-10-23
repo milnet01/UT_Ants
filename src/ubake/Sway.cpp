@@ -160,6 +160,45 @@ std::size_t rootOf(std::vector<std::size_t>& parent, std::size_t x) {
     return x;
 }
 
+/// Per edge, keyed by (polygon, index): the stretches a neighbour covers, and
+/// the neighbours' corners inside it, by distance from its start.
+using EdgeKey = std::pair<std::size_t, std::size_t>;
+using Covered = std::map<EdgeKey, std::vector<std::pair<double, double>>>;
+using Inside = std::map<EdgeKey, std::vector<std::pair<double, SwayPoint>>>;
+
+/// Whether edges `a` and `b`, of two polygons, lie on one line and overlap by
+/// more than NEAR. Where they do, each edge -- `self` below, `other` the
+/// one it is joined to -- records the stretch the other covers and the
+/// other's corners that fall inside it.
+bool joinOverlap(const Edge& a, const Edge& b, std::span<const SwayPolygon> polygons, Covered& covered,
+                 Inside& inside) {
+    if (lengthOf(cross(a.direction, b.direction)) > 1e-4) return false;
+    const SwayPoint bEnd = along(b.start, b.direction, b.length);
+    if (lengthOf(cross(minus(b.start, a.start), a.direction)) > ON_LINE
+        || lengthOf(cross(minus(bEnd, a.start), a.direction)) > ON_LINE)
+        return false;
+    const double t0 = dot(minus(b.start, a.start), a.direction);
+    const double t1 = dot(minus(bEnd, a.start), a.direction);
+    const double from = std::max(0.0, std::min(t0, t1));
+    const double to = std::min(a.length, std::max(t0, t1));
+    if (to - from <= NEAR) return false;
+    for (const auto& [self, other] : {std::pair{&a, &b}, std::pair{&b, &a}}) {
+        const SwayPoint otherEnd = along(other->start, other->direction, other->length);
+        const double s0 = dot(minus(other->start, self->start), self->direction);
+        const double s1 = dot(minus(otherEnd, self->start), self->direction);
+        covered[{self->polygon, self->index}].emplace_back(std::max(0.0, std::min(s0, s1)),
+                                                           std::min(self->length, std::max(s0, s1)));
+        // The other's corners exactly as it holds them, so both polygons
+        // carry the same bits.
+        const Polygon& otherPoints = polygons[other->polygon].points;
+        const SwayPoint& otherFirst = otherPoints[other->index];
+        const SwayPoint& otherSecond = otherPoints[(other->index + 1) % otherPoints.size()];
+        for (const auto& [t, corner] : {std::pair{s0, otherFirst}, std::pair{s1, otherSecond}})
+            if (t > NEAR && t < self->length - NEAR) inside[{self->polygon, self->index}].emplace_back(t, corner);
+    }
+    return true;
+}
+
 Prepared prepare(std::span<const SwayPolygon> polygons) {
     Prepared out;
     out.polygons.resize(polygons.size());
@@ -183,10 +222,8 @@ Prepared prepare(std::span<const SwayPolygon> polygons) {
 
     std::vector<std::size_t> parent(polygons.size());
     std::iota(parent.begin(), parent.end(), std::size_t{0});
-    // Per edge, keyed by (polygon, index): the stretches a neighbour covers,
-    // and the neighbours' corners inside it, by distance from its start.
-    std::map<std::pair<std::size_t, std::size_t>, std::vector<std::pair<double, double>>> covered;
-    std::map<std::pair<std::size_t, std::size_t>, std::vector<std::pair<double, SwayPoint>>> inside;
+    Covered covered;
+    Inside inside;
 
     for (auto& [key, edges] : groups) {
         // Edges sharing a cube are the only candidates for overlapping.
@@ -211,34 +248,9 @@ Prepared prepare(std::span<const SwayPolygon> polygons) {
                     const Edge& b = edges[members[j]];
                     if (a.polygon == b.polygon || !tried.insert(std::minmax(members[i], members[j])).second)
                         continue;
-                    if (lengthOf(cross(a.direction, b.direction)) > 1e-4) continue;
-                    const SwayPoint bEnd = along(b.start, b.direction, b.length);
-                    if (lengthOf(cross(minus(b.start, a.start), a.direction)) > ON_LINE
-                        || lengthOf(cross(minus(bEnd, a.start), a.direction)) > ON_LINE)
-                        continue;
-                    const double t0 = dot(minus(b.start, a.start), a.direction);
-                    const double t1 = dot(minus(bEnd, a.start), a.direction);
-                    const double from = std::max(0.0, std::min(t0, t1));
-                    const double to = std::min(a.length, std::max(t0, t1));
-                    if (to - from <= NEAR) continue;
-                    // They overlap: one patch, each covered there, and each
-                    // carries the other's corners that fall inside it.
-                    parent[rootOf(parent, a.polygon)] = rootOf(parent, b.polygon);
-                    for (const auto& [self, other] : {std::pair{&a, &b}, std::pair{&b, &a}}) {
-                        const SwayPoint otherEnd = along(other->start, other->direction, other->length);
-                        const double s0 = dot(minus(other->start, self->start), self->direction);
-                        const double s1 = dot(minus(otherEnd, self->start), self->direction);
-                        covered[{self->polygon, self->index}].emplace_back(
-                            std::max(0.0, std::min(s0, s1)), std::min(self->length, std::max(s0, s1)));
-                        // The other's corners exactly as it holds them, so both
-                        // polygons carry the same bits.
-                        const SwayPoint& otherFirst = polygons[other->polygon].points[other->index];
-                        const SwayPoint& otherSecond =
-                            polygons[other->polygon].points[(other->index + 1) % polygons[other->polygon].points.size()];
-                        for (const auto& [t, corner] : {std::pair{s0, otherFirst}, std::pair{s1, otherSecond}})
-                            if (t > NEAR && t < self->length - NEAR)
-                                inside[{self->polygon, self->index}].emplace_back(t, corner);
-                    }
+                    // Overlapping edges join their polygons in one patch.
+                    if (joinOverlap(a, b, polygons, covered, inside))
+                        parent[rootOf(parent, a.polygon)] = rootOf(parent, b.polygon);
                 }
     }
 
@@ -326,9 +338,15 @@ std::uint8_t weightOf(const Patch& patch, const SwayPoint& point) {
     return static_cast<std::uint8_t>(std::lround(std::clamp(free, 0.0, 1.0) * 255.0));
 }
 
+/// sliceAll's early stop. estimate() is an upper bound, so it can pass the
+/// budget while the real cut fits; only an estimate this many budgets over is
+/// trusted to skip the cut. Lowering it can coarsen a map whose cut would
+/// have fitted, which changes its bake.
+constexpr double ESTIMATE_SKIP_FACTOR = 8.0;
+
 /// Every moving polygon cut and weighted, water at `waterSlice`; a kind
 /// switched off stays whole and still. Stops early, uncut, once the estimate
-/// passes the budget many times over.
+/// passes the budget ESTIMATE_SKIP_FACTOR times over.
 SwaySlicing sliceAll(std::span<const SwayPolygon> polygons, const Prepared& prepared, double waterSlice,
                      double clothSlice, bool water, bool cloth) {
     SwaySlicing out;
@@ -344,7 +362,7 @@ SwaySlicing sliceAll(std::span<const SwayPolygon> polygons, const Prepared& prep
     double estimated = 0;
     for (std::size_t p = 0; p < polygons.size(); ++p)
         if (moves(polygons[p].kind)) estimated += estimate(prepared.polygons[p], spacingOf(polygons[p].kind));
-    if (estimated > 8.0 * static_cast<double>(SWAY_VERTEX_BUDGET)) {
+    if (estimated > ESTIMATE_SKIP_FACTOR * static_cast<double>(SWAY_VERTEX_BUDGET)) {
         out.vertices = static_cast<std::size_t>(estimated);
         for (std::size_t p = 0; p < polygons.size(); ++p)
             if (moves(polygons[p].kind) && polygons[p].kind == SwayKind::Cloth)

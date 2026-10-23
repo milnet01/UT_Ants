@@ -42,7 +42,7 @@ None with the user. The session's calls, each recorded here:
 ### 4.1 `skySeen` per probe — `ubake`
 
 `LightProbes::skySeen` is, for each probe, the share of `directions()` along
-which `sunSeen(p, w, rays)` passes from the probe's point: the ray first meets
+which `meetsSkyFirst(p, w, rays)` passes from the probe's point: the ray first meets
 a `PF_FakeBackdrop` surface. The bake flags a recipe's painted-sky surfaces
 `PF_FakeBackdrop` (UTA-0350), so both kinds of sky count.
 

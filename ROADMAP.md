@@ -17852,6 +17852,10 @@ stays with movement in 0.2.0.
   no `reach`, so UTA-0112 § 4.13's mask (item 2: the bake's own copy
   of the blend) is never applied. `lit.reach` is read near :441.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md
+  2026-10-23: real, fixed in bf7016a. The bounce passes' lit copy now
+  carries reach; red test in BakeLightProbesTest "later bounces". Baker
+  revision 68; all four maps checked re-bake to new probe bytes. Ledger:
+  docs/reviews/review-readability-2026-10-23/close-lane-05.md.
   **Layman:** Baked bounce light may leak past walls, against what UTA-0112 says the bake does.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 05 (premise confirmed).
@@ -17923,6 +17927,11 @@ stays with movement in 0.2.0.
   that node points get at :397-402; Hide.cpp:120-162 builds hulls from
   possibly-invisible nodes.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-05-ubake-geometry-light.md
+  2026-10-23: real, fixed in 9abef96. buildGeometry refuses a cover
+  point that is not finite or past MAX_COORDINATE, as it does a node's;
+  UTA-0109 SS 4.6 and INV-12 amended. Closes lane 04's Hide cornersOf
+  question: what it builds is checked where drawn. Ledger:
+  docs/reviews/review-readability-2026-10-23/close-lane-05.md.
   **Layman:** A broken map could feed bad points into hidden-brush covers.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 05.
@@ -18045,6 +18054,9 @@ stays with movement in 0.2.0.
   `light.effect != LE_NON_INCIDENCE` after its own early return for that
   effect, so the test cannot be false. light.glsl's copy was dropped
   (UTA-0414); this one is yours.
+  2026-10-23: all 22 findings and both notes fixed in one commit; none
+  queued or dismissed. Bake byte-identical on four maps. Ledger:
+  docs/reviews/review-readability-2026-10-23/close-lane-05.md.
   **Layman:** Make the map converter's light and shape code easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 05.

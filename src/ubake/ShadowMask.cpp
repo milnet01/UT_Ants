@@ -5,6 +5,7 @@
 #include "ubake/ShadowMask.h"
 
 #include "ubake/Charts.h"
+#include "ubake/Geometry.h"
 #include "ubake/Install.h"
 #include "ubake/LightModel.h"
 #include "ubake/LightProbes.h"
@@ -23,16 +24,6 @@ namespace uta::ubake {
 namespace {
 
 using charts::Chart;
-
-/// SS 4.3: the occluders are what the shadow pass draws, so PF_FakeBackdrop
-/// lets light through as well as LIGHT_PASSES_FLAGS.
-constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
-constexpr std::uint32_t PF_MASKED = 0x00000002u;
-constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
-
-/// UT99's ELightEffect values with no incidence term (UTA-0156).
-constexpr std::uint8_t LE_NON_INCIDENCE = 13;
-constexpr std::uint8_t LE_CYLINDER = 17;
 
 /// Charts to one job. Any size gives the same bytes.
 constexpr std::size_t CHARTS_PER_JOB = 16;
@@ -78,14 +69,14 @@ Site siteOf(std::uint32_t index, const ubundle::Light& light) {
         site.span = toVec(light.stripTo) - site.from;
     }
     site.centre = site.from + site.span * 0.5;
-    // AActor::WorldLightRadius, as light.glsl's lightRadius.
-    site.reach = 25.0 * (light.radius + 1);
+    site.reach = lightRadius(light.radius);
     site.bound = site.reach + 0.5 * length(site.span);
-    site.incidence = light.effect != LE_NON_INCIDENCE && light.effect != LE_CYLINDER;
+    site.incidence = light.effect != ubundle::LE_NON_INCIDENCE && light.effect != ubundle::LE_CYLINDER;
     return site;
 }
 
-/// SS 4.3 step 2: the point `site` is lit from at `o`, as light.glsl's litFrom.
+/// SS 4.3 step 2: the point `site` is lit from at `o`. LightModel.h's litFrom
+/// is its twin on a Light, and light.glsl's on the GPU; all three must agree.
 Vec3 litFrom(const Site& site, const Vec3& o) noexcept {
     const double ss = dot(site.span, site.span);
     if (ss == 0) return site.from;
@@ -95,8 +86,9 @@ Vec3 litFrom(const Site& site, const Vec3& o) noexcept {
 /// SS 4.3 step 2: how much of `site` the origin `o` sees, 0 to 1. A point
 /// light is seen or not. A strip leader is seen in the share of
 /// SHADOW_MASK_STRIP_SAMPLES points along its segment that `o` sees, each
-/// weighed by UT99's falloff from it, starting a quarter `offset` of a step
-/// in (UTA-0381). Looking at the nearest point alone, that point slid along
+/// weighed by UT99's falloff from it. The first sits (`offset` + 0.5) / 4
+/// of a step in, so the four samples of a texel stagger across one step
+/// (UTA-0381). Looking at the nearest point alone, that point slid along
 /// the strip as `o` moved, and a straight edge cast a curved shadow. Where
 /// no point reaches `o`, the nearest point decides.
 double seenShare(const Site& site, const Vec3& o, int offset, const SurfaceRays& rays,
@@ -136,7 +128,7 @@ std::vector<Box> moverReaches(const ubundle::Bundle& bundle) {
     if (!bundle.movers) return out;
     for (const ubundle::MoverShape& mover : *bundle.movers) {
         std::map<std::uint32_t, std::pair<Vec3, std::array<std::int32_t, 3>>> keys;
-        keys[0];
+        keys.try_emplace(0); // the base position: the mover reaches from where it stands
         if (bundle.placements)
             for (const ubundle::ActorPlacement& actor : bundle.placements->actors) {
                 if (actor.exportIndex != mover.exportIndex) continue;
@@ -209,45 +201,65 @@ struct Baked {
     std::uint32_t x = 0, y = 0;       ///< where packing put it
 };
 
-/// UTA-0338 SS 4.4: the sun's pair with one chart, as any light's, its texels'
-/// shares from sunSeen. No pair -- `light` left unlike the site's -- where the
-/// chart faces away from it or no texel sees it. Its moverReach is 0 (SS 3).
-Baked bakeSunPair(const Chart& chart, const charts::Outline& outline, const Site& site,
-                  const SurfaceRays& rays, const SurfaceRays::Hole& hole, double texelSize, bool bothSides) {
-    Baked pair;
-    pair.light = site.index + 1;
-    const Vec3 s = *site.sun;
-    const double facing = dot(s, chart.n);
-    if (!bothSides && facing <= 0) return pair;
-    if (facing == 0) return pair; // edge-on, from either side
-    pair.texels.resize(std::size_t{chart.w} * chart.h);
+/// Whether a pair's texels came out all lit, all dark, or neither.
+struct Spread {
     bool allLit = true, allDark = true;
+};
+
+/// SS 4.3 step 2: `pair`'s texels on `chart`, each the mean of four samples at
+/// a quarter and three quarters of the texel, rounded to a byte. `seen(origin,
+/// k)` is what share of the light the k-th sample's origin sees; where
+/// `bothSides`, `origin` lies on the plane and `seen` lifts it toward the
+/// light's side. The one texel loop of the sun's pairs and the lights'.
+template <typename Seen>
+Spread bakeTexels(const Chart& chart, const charts::Outline& outline, double texelSize, bool bothSides,
+                  std::vector<std::uint8_t>& texels, Seen&& seen) {
+    Spread spread;
+    texels.resize(std::size_t{chart.w} * chart.h);
     for (std::uint32_t j = 0; j < chart.h; ++j)
         for (std::uint32_t i = 0; i < chart.w; ++i) {
-            int visible = 0;
+            double visible = 0;
+            int sample = 0;
             for (const double du : {0.25, 0.75})
                 for (const double dv : {0.25, 0.75}) {
-                    Vec3 origin = charts::originAt(chart, outline, static_cast<double>(chart.loU + i) + du,
-                                                   static_cast<double>(chart.loV + j) + dv, texelSize,
-                                                   bothSides ? 0.0 : SHADOW_MASK_LIFT);
-                    if (bothSides) origin = origin + chart.n * ((facing < 0 ? -1.0 : 1.0) * SHADOW_MASK_LIFT);
-                    if (sunSeen(origin, s, rays, hole)) ++visible;
+                    const Vec3 origin = charts::originAt(chart, outline, static_cast<double>(chart.loU + i) + du,
+                                                         static_cast<double>(chart.loV + j) + dv, texelSize,
+                                                         bothSides ? 0.0 : SHADOW_MASK_LIFT);
+                    visible += seen(origin, sample++);
                 }
             const auto value = static_cast<std::uint8_t>(std::lround(255.0 * visible / 4.0));
-            pair.texels[std::size_t{j} * chart.w + i] = value;
-            allLit = allLit && value == 255;
-            allDark = allDark && value == 0;
+            texels[std::size_t{j} * chart.w + i] = value;
+            spread.allLit = spread.allLit && value == 255;
+            spread.allDark = spread.allDark && value == 0;
         }
-    if (allDark) return pair;
-    if (allLit) pair.texels.clear();
+    return spread;
+}
+
+/// UTA-0338 SS 4.4: the sun's pair with one chart, as any light's, its texels'
+/// shares from meetsSkyFirst. None where the chart faces away from it or no texel
+/// sees it. Its moverReach is 0 (SS 3).
+std::optional<Baked> bakeSunPair(const Chart& chart, const charts::Outline& outline, const Site& site,
+                                 const SurfaceRays& rays, const SurfaceRays::Hole& hole, double texelSize,
+                                 bool bothSides) {
+    const Vec3 s = *site.sun;
+    const double facing = dot(s, chart.n);
+    if (!bothSides && facing <= 0) return std::nullopt;
+    if (facing == 0) return std::nullopt; // edge-on, from either side
+    Baked pair;
     pair.light = site.index;
+    const Spread spread = bakeTexels(chart, outline, texelSize, bothSides, pair.texels, [&](Vec3 origin, int) {
+        if (bothSides) origin = origin + chart.n * ((facing < 0 ? -1.0 : 1.0) * SHADOW_MASK_LIFT);
+        return meetsSkyFirst(origin, s, rays, hole) ? 1.0 : 0.0;
+    });
+    if (spread.allDark) return std::nullopt;
+    if (spread.allLit) pair.texels.clear();
     return pair;
 }
 
 /// SS 4.3 and SS 4.4: every pair of one lit chart, ascending by light.
 /// `bothSides`: scene.frag lights the chart from whichever side it is seen,
 /// so a light on either side pairs, and its rays leave from that light's side.
-/// `sunRays` holds backdrop surfaces as occluders, as sunSeen needs.
+/// `sunRays` holds backdrop surfaces as occluders, as meetsSkyFirst needs.
 std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geometry, const std::vector<Site>& sites,
                              const std::vector<Box>& movers, const SurfaceRays& rays, const SurfaceRays* sunRays,
                              const Holes& holes, double texelSize, bool bothSides) {
@@ -259,8 +271,8 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
     const SurfaceRays::Hole hole = std::cref(holes);
     for (const Site& site : sites) {
         if (site.sun) {
-            Baked pair = bakeSunPair(chart, outline, site, *sunRays, hole, texelSize, bothSides);
-            if (pair.light == site.index) out.push_back(std::move(pair));
+            if (std::optional<Baked> pair = bakeSunPair(chart, outline, site, *sunRays, hole, texelSize, bothSides))
+                out.push_back(std::move(*pair));
             continue;
         }
         // The sphere meets the polygon: its centre's nearest point of it.
@@ -273,30 +285,16 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
             continue;
         Baked pair;
         pair.light = site.index;
-        pair.texels.resize(std::size_t{chart.w} * chart.h);
-        bool allLit = true, allDark = true;
-        for (std::uint32_t j = 0; j < chart.h; ++j)
-            for (std::uint32_t i = 0; i < chart.w; ++i) {
-                double visible = 0;
-                int offset = 0;
-                for (const double du : {0.25, 0.75})
-                    for (const double dv : {0.25, 0.75}) {
-                        Vec3 origin = charts::originAt(chart, outline, static_cast<double>(chart.loU + i) + du,
-                                                       static_cast<double>(chart.loV + j) + dv, texelSize,
-                                                       bothSides ? 0.0 : SHADOW_MASK_LIFT);
-                        if (bothSides) {
-                            const double side = dot(litFrom(site, origin) - origin, chart.n) < 0 ? -1.0 : 1.0;
-                            origin = origin + chart.n * (side * SHADOW_MASK_LIFT);
-                        }
-                        visible += seenShare(site, origin, offset++, rays, hole);
-                    }
-                const auto value = static_cast<std::uint8_t>(std::lround(255.0 * visible / 4.0));
-                pair.texels[std::size_t{j} * chart.w + i] = value;
-                allLit = allLit && value == 255;
-                allDark = allDark && value == 0;
-            }
-        if (allDark) continue;
-        if (allLit) pair.texels.clear();
+        const Spread spread =
+            bakeTexels(chart, outline, texelSize, bothSides, pair.texels, [&](Vec3 origin, int sample) {
+                if (bothSides) {
+                    const double side = dot(litFrom(site, origin) - origin, chart.n) < 0 ? -1.0 : 1.0;
+                    origin = origin + chart.n * (side * SHADOW_MASK_LIFT);
+                }
+                return seenShare(site, origin, sample, rays, hole);
+            });
+        if (spread.allDark) continue;
+        if (spread.allLit) pair.texels.clear();
         Box between = polygon;
         between.add(site.centre);
         for (const Box& mover : movers)
@@ -306,23 +304,61 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
     return out;
 }
 
-/// SS 4.3: shelf packing at `width`, tallest first. The height used, or 0 when
-/// a rectangle is wider than `width`.
-std::uint64_t shelve(const std::vector<std::pair<const Chart*, Baked*>>& order, std::uint32_t width) {
-    std::uint64_t x = 0, shelfY = 0, shelfH = 0;
-    for (const auto& [chart, pair] : order) {
-        if (chart->w > width) return 0;
-        if (x + chart->w > width) {
-            shelfY += shelfH;
-            x = 0;
-            shelfH = 0;
-        }
-        pair->x = static_cast<std::uint32_t>(x);
-        pair->y = static_cast<std::uint32_t>(shelfY);
-        x += chart->w;
-        shelfH = std::max<std::uint64_t>(shelfH, chart->h);
-    }
-    return shelfY + shelfH;
+/// What every pair is baked against, the same at every texel size.
+struct Scene {
+    const ubundle::Geometry& geometry;
+    const std::vector<Site>& sites;
+    const std::vector<Box>& movers;
+    const SurfaceRays& rays;
+    const SurfaceRays* sunRays;
+    const Holes& holes;
+    const std::vector<bool>& bothSidesAt; ///< by vertex
+};
+
+/// Every lit chart's pairs at one texel size, and the atlas they pack into.
+struct Packed {
+    std::vector<std::vector<Baked>> baked; ///< by lit chart
+    charts::AtlasSize atlas;
+    bool empty = false; ///< no pair carries texels: every one is all lit
+};
+
+/// SS 4.3: bake each chart's pairs at `texelSize`, then shelf-pack the pairs
+/// that carry texels -- tallest first, then by chart, then by light, which the
+/// stable sort keeps.
+Result<Packed> bakeAndPack(const std::vector<Chart*>& lit, const Scene& scene, double texelSize,
+                           std::uint32_t atlasLimit, JobSystem& jobs) {
+    Packed packed;
+    // Each chart's pairs on their own, into their own slot.
+    packed.baked.assign(lit.size(), {});
+    const std::size_t jobCount = (lit.size() + CHARTS_PER_JOB - 1) / CHARTS_PER_JOB;
+    const std::size_t threw = jobs.parallelFor(jobCount, [&](std::size_t job) {
+        const std::size_t end = std::min(lit.size(), (job + 1) * CHARTS_PER_JOB);
+        for (std::size_t c = job * CHARTS_PER_JOB; c < end; ++c)
+            packed.baked[c] = bakeChart(*lit[c], scene.geometry, scene.sites, scene.movers, scene.rays, scene.sunRays,
+                                        scene.holes, texelSize, scene.bothSidesAt[lit[c]->first]);
+    });
+    // A partly baked mask is a wrong bundle presented as a good one.
+    if (threw != 0) return fail(ErrorCode::Unknown, "shadow mask: " + std::to_string(threw) + " jobs threw while baking");
+
+    std::vector<std::pair<const Chart*, Baked*>> order;
+    std::uint64_t area = 0;
+    for (std::size_t c = 0; c < lit.size(); ++c)
+        for (Baked& pair : packed.baked[c])
+            if (!pair.texels.empty()) {
+                order.emplace_back(lit[c], &pair);
+                area += std::uint64_t{lit[c]->w} * lit[c]->h;
+            }
+    std::stable_sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first->h > b.first->h; });
+    packed.empty = order.empty();
+    packed.atlas = charts::widthFor(area, atlasLimit, packed.empty, [&order](std::uint32_t width) {
+        return charts::shelve(
+            order.size(), width, 0, [&order](std::size_t k) -> const Chart& { return *order[k].first; },
+            [&order](std::size_t k, std::uint32_t x, std::uint32_t y) {
+                order[k].second->x = x;
+                order[k].second->y = y;
+            });
+    });
+    return packed;
 }
 
 } // namespace
@@ -364,6 +400,8 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
         sunRays.emplace(geometry);
     }
     const std::vector<Box> movers = moverReaches(bundle);
+    // SS 4.3: the occluders are what the shadow pass draws, so PF_FakeBackdrop
+    // lets light through as well as LIGHT_PASSES_FLAGS.
     const SurfaceRays rays(geometry, LIGHT_PASSES_FLAGS | PF_FAKE_BACKDROP);
     const Holes holes(geometry, cutouts);
 
@@ -387,9 +425,9 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
             bothSidesAt[geometry.indices[i]] = true;
     }
 
-    std::vector<std::vector<Baked>> baked;
-    std::uint32_t width = 0;
-    std::uint64_t height = 0;
+    // Coarsen the texel until the pairs pack into the atlas.
+    const Scene scene{geometry, sites, movers, rays, sunRays ? &*sunRays : nullptr, holes, bothSidesAt};
+    Packed packed;
     for (;;) {
         if (texelSize > SHADOW_MASK_TEXEL_CEILING)
             return fail(ErrorCode::MalformedData,
@@ -401,49 +439,20 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
             return c->w <= std::numeric_limits<std::uint16_t>::max() && c->h <= std::numeric_limits<std::uint16_t>::max();
         });
         if (fitsWire) {
-            // SS 4.3: each chart's pairs on their own, into their own slot.
-            baked.assign(lit.size(), {});
-            const std::size_t batches = (lit.size() + CHARTS_PER_JOB - 1) / CHARTS_PER_JOB;
-            const double size = texelSize;
-            const std::size_t threw = jobs.parallelFor(batches, [&](std::size_t job) {
-                const std::size_t end = std::min(lit.size(), (job + 1) * CHARTS_PER_JOB);
-                for (std::size_t c = job * CHARTS_PER_JOB; c < end; ++c)
-                    baked[c] = bakeChart(*lit[c], geometry, sites, movers, rays, sunRays ? &*sunRays : nullptr, holes,
-                                         size, bothSidesAt[lit[c]->first]);
-            });
-            // A partly baked mask is a wrong bundle presented as a good one.
-            if (threw != 0)
-                return fail(ErrorCode::Unknown, "shadow mask: " + std::to_string(threw) + " jobs threw while baking");
-
-            // SS 4.3: pack the pairs carrying texels -- tallest first, then by
-            // chart, then by light, which the stable sort keeps.
-            std::vector<std::pair<const Chart*, Baked*>> order;
-            std::uint64_t area = 0;
-            for (std::size_t c = 0; c < lit.size(); ++c)
-                for (Baked& pair : baked[c])
-                    if (!pair.texels.empty()) {
-                        order.emplace_back(lit[c], &pair);
-                        area += std::uint64_t{lit[c]->w} * lit[c]->h;
-                    }
-            std::stable_sort(order.begin(), order.end(),
-                             [](const auto& a, const auto& b) { return a.first->h > b.first->h; });
-            width = 64;
-            while (std::uint64_t{width} * width < area && width < atlasLimit) width *= 2;
-            for (;;) {
-                height = shelve(order, width);
-                if (height != 0 && height <= width) break;
-                if (order.empty() || width == atlasLimit) break;
-                width *= 2;
-            }
-            if (order.empty() || (height != 0 && height <= atlasLimit)) break;
+            UTA_TRY(packed, bakeAndPack(lit, scene, texelSize, atlasLimit, jobs));
+            // With no texels to place, any texel size fits.
+            if (packed.empty || (packed.atlas.height != 0 && packed.atlas.height <= atlasLimit)) break;
         }
         texelSize *= 2;
     }
+    const std::vector<std::vector<Baked>>& baked = packed.baked;
 
     ubundle::ShadowMask out;
     out.texelSize = texelSize;
-    out.width = width;
-    out.height = static_cast<std::uint32_t>(std::max<std::uint64_t>((height + 3) / 4 * 4, 4));
+    out.width = packed.atlas.width;
+    // Rows to a multiple of four, as the occlusion atlas's. SMSK refuses a
+    // height of 0, so a mask with nothing packed is four rows of zeros.
+    out.height = static_cast<std::uint32_t>(std::max<std::uint64_t>((packed.atlas.height + 3) / 4 * 4, 4));
     out.texels.assign(std::size_t{out.width} * out.height, 0);
     out.vertexChart.assign(geometry.vertices.size(), ubundle::MASK_NO_CHART);
     out.vertexTexel.assign(geometry.vertices.size(), {0, 0});

@@ -86,9 +86,6 @@ double component(const Vec3& v, int axis) noexcept {
 
 } // namespace
 
-// The 432 headers' Engine/Inc/UnObj.h. UTA-0168: PF_NotSolid measured against
-// UT99's own lightmaps, which let light through a non-solid brush and not
-// through an unlit surface.
 SurfaceRays::SurfaceRays(const ubundle::Geometry& geometry) : SurfaceRays(geometry, LIGHT_PASSES_FLAGS) {}
 
 SurfaceRays::SurfaceRays(const ubundle::Geometry& geometry, std::uint32_t passes) {
@@ -155,7 +152,14 @@ std::uint32_t SurfaceRays::build(std::uint32_t first, std::uint32_t count) {
 }
 
 std::optional<SurfaceRays::Hit> SurfaceRays::first(const Vec3& origin, const Vec3& direction, double limit) const {
-    std::optional<Hit> best;
+    const std::optional<Nearest> found = nearest(origin, direction, limit, Hole{});
+    if (!found) return std::nullopt;
+    return found->hit;
+}
+
+std::optional<SurfaceRays::Nearest> SurfaceRays::nearest(const Vec3& origin, const Vec3& direction, double limit,
+                                                         const Hole& hole) const {
+    std::optional<Nearest> best;
     if (nodes_.empty()) return best;
     // One stack a thread, reused: a bake casts rays by the hundred million.
     thread_local std::vector<std::uint32_t> stack;
@@ -164,7 +168,7 @@ std::optional<SurfaceRays::Hit> SurfaceRays::first(const Vec3& origin, const Vec
         const Node& node = nodes_[stack.back()];
         stack.pop_back();
         // Inclusive at the best t, so a tie at it is still found.
-        if (!reaches(origin, direction, node.min, node.max, 0, best ? best->t : limit)) continue;
+        if (!reaches(origin, direction, node.min, node.max, 0, best ? best->hit.t : limit)) continue;
         if (node.count == 0) {
             stack.push_back(node.right);
             stack.push_back(node.left);
@@ -172,10 +176,12 @@ std::optional<SurfaceRays::Hit> SurfaceRays::first(const Vec3& origin, const Vec
         }
         for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
             const Triangle& t = triangles_[i];
-            const std::optional<double> at = meet(origin, direction, t.a, t.ab, t.ac);
-            if (!at || !(*at > 0) || *at > limit) continue;
-            if (!best || *at < best->t || (*at == best->t && t.index < best->triangle))
-                best = Hit{t.index, *at};
+            const std::optional<Meeting> at = meetAt(origin, direction, t.a, t.ab, t.ac);
+            if (!at || !(at->t > 0) || at->t > limit) continue;
+            // The tie rule: the lower triangle number wins.
+            if (best && (at->t > best->hit.t || (at->t == best->hit.t && t.index > best->hit.triangle))) continue;
+            if (hole && hole(t.index, at->u, at->v)) continue;
+            best = Nearest{Hit{t.index, at->t}, t.flags};
         }
     }
     return best;
@@ -198,16 +204,18 @@ double boxReach(const Vec3& p, const Vec3& n, const Vec3& min, const Vec3& max) 
 
 } // namespace
 
-bool SurfaceRays::anyInFront(const Vec3& origin, const Vec3& normal, double radius) const {
-    if (nodes_.empty()) return false;
-    const double reach = radius * radius;
+template <typename Visit>
+void SurfaceRays::walkInFront(const Vec3& origin, const Vec3& normal, double radius, double margin,
+                              Visit&& visit) const {
+    if (nodes_.empty()) return;
+    const double reach = (radius + margin) * (radius + margin);
     thread_local std::vector<std::uint32_t> stack;
     stack.assign(1, 0);
     while (!stack.empty()) {
         const Node& node = nodes_[stack.back()];
         stack.pop_back();
         if (boxDistanceSquared(origin, node.min, node.max) > reach) continue;
-        if (boxReach(origin, normal, node.min, node.max) <= 0) continue;
+        if (boxReach(origin, normal, node.min, node.max) <= -margin) continue;
         if (node.count == 0) {
             stack.push_back(node.right);
             stack.push_back(node.left);
@@ -219,42 +227,28 @@ bool SurfaceRays::anyInFront(const Vec3& origin, const Vec3& normal, double radi
             const Vec3 lo{std::min({t.a.x, b.x, c.x}), std::min({t.a.y, b.y, c.y}), std::min({t.a.z, b.z, c.z})};
             const Vec3 hi{std::max({t.a.x, b.x, c.x}), std::max({t.a.y, b.y, c.y}), std::max({t.a.z, b.z, c.z})};
             if (boxDistanceSquared(origin, lo, hi) > reach) continue;
-            if (std::max({dot(t.a - origin, normal), dot(b - origin, normal), dot(c - origin, normal)}) <= 0) continue;
-            return true;
+            if (std::max({dot(t.a - origin, normal), dot(b - origin, normal), dot(c - origin, normal)}) <= -margin)
+                continue;
+            if (!visit(i)) return;
         }
     }
-    return false;
+}
+
+bool SurfaceRays::anyInFront(const Vec3& origin, const Vec3& normal, double radius) const {
+    bool found = false;
+    walkInFront(origin, normal, radius, 0.0, [&found](std::uint32_t) { return !(found = true); });
+    return found;
 }
 
 void SurfaceRays::gatherInFront(const Vec3& origin, const Vec3& normal, double radius,
                                 std::vector<std::uint32_t>& into) const {
-    if (nodes_.empty()) return;
-    // anyInFront's two tests, each loosened by PAD: a ray's hit is computed by
+    // anyInFront's walk, each test loosened by PAD: a ray's hit is computed by
     // meet(), these by other arithmetic, and the two must never disagree about
     // an occluder the ray does meet.
-    const double reach = (radius + PAD) * (radius + PAD);
-    thread_local std::vector<std::uint32_t> stack;
-    stack.assign(1, 0);
-    while (!stack.empty()) {
-        const Node& node = nodes_[stack.back()];
-        stack.pop_back();
-        if (boxDistanceSquared(origin, node.min, node.max) > reach) continue;
-        if (boxReach(origin, normal, node.min, node.max) <= -PAD) continue;
-        if (node.count == 0) {
-            stack.push_back(node.right);
-            stack.push_back(node.left);
-            continue;
-        }
-        for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
-            const Triangle& t = triangles_[i];
-            const Vec3 b = t.a + t.ab, c = t.a + t.ac;
-            const Vec3 lo{std::min({t.a.x, b.x, c.x}), std::min({t.a.y, b.y, c.y}), std::min({t.a.z, b.z, c.z})};
-            const Vec3 hi{std::max({t.a.x, b.x, c.x}), std::max({t.a.y, b.y, c.y}), std::max({t.a.z, b.z, c.z})};
-            if (boxDistanceSquared(origin, lo, hi) > reach) continue;
-            if (std::max({dot(t.a - origin, normal), dot(b - origin, normal), dot(c - origin, normal)}) <= -PAD) continue;
-            into.push_back(i);
-        }
-    }
+    walkInFront(origin, normal, radius, PAD, [&into](std::uint32_t i) {
+        into.push_back(i);
+        return true;
+    });
 }
 
 std::optional<double> SurfaceRays::nearestAmong(std::span<const std::uint32_t> gathered, const Vec3& origin,
@@ -271,64 +265,20 @@ std::optional<double> SurfaceRays::nearestAmong(std::span<const std::uint32_t> g
 }
 
 bool SurfaceRays::blocked(const Vec3& a, const Vec3& b) const {
-    if (nodes_.empty()) return false;
-    const Vec3 direction = b - a;
-    // One stack a thread, reused, as the queries above keep theirs.
-    thread_local std::vector<std::uint32_t> stack;
-    stack.assign(1, 0);
-    while (!stack.empty()) {
-        const Node& node = nodes_[stack.back()];
-        stack.pop_back();
-        if (!reaches(a, direction, node.min, node.max, 0, 1)) continue;
-        if (node.count == 0) {
-            stack.push_back(node.right);
-            stack.push_back(node.left);
-            continue;
-        }
-        for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
-            const Triangle& t = triangles_[i];
-            const std::optional<double> at = meet(a, direction, t.a, t.ab, t.ac);
-            if (at && *at > 0 && *at < 1) return true;
-        }
-    }
-    return false;
+    return blocked(a, b, Hole{});
 }
 
 bool SurfaceRays::firstHas(const Vec3& origin, const Vec3& direction, std::uint32_t flags,
                            const Hole& hole) const {
-    if (nodes_.empty()) return false;
-    // first()'s search, a hole's hit left out, keeping the winner's flags.
-    std::optional<Hit> best;
-    std::uint32_t bestFlags = 0;
-    thread_local std::vector<std::uint32_t> stack;
-    stack.assign(1, 0);
-    while (!stack.empty()) {
-        const Node& node = nodes_[stack.back()];
-        stack.pop_back();
-        if (!reaches(origin, direction, node.min, node.max, 0, best ? best->t : INFINITE)) continue;
-        if (node.count == 0) {
-            stack.push_back(node.right);
-            stack.push_back(node.left);
-            continue;
-        }
-        for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
-            const Triangle& t = triangles_[i];
-            const std::optional<Meeting> at = meetAt(origin, direction, t.a, t.ab, t.ac);
-            if (!at || !(at->t > 0)) continue;
-            if (best && (at->t > best->t || (at->t == best->t && t.index > best->triangle))) continue;
-            if (hole && hole(t.index, at->u, at->v)) continue;
-            best = Hit{t.index, at->t};
-            bestFlags = t.flags;
-        }
-    }
-    return best && (bestFlags & flags) != 0;
+    const std::optional<Nearest> found = nearest(origin, direction, INFINITE, hole);
+    return found && (found->flags & flags) != 0;
 }
 
 bool SurfaceRays::blocked(const Vec3& a, const Vec3& b, const Hole& hole) const {
     if (nodes_.empty()) return false;
     const Vec3 direction = b - a;
     // Any solid crossing blocks, so the order the tree yields them in does not
-    // matter. One stack a thread, as blocked's own; `hole` casts no ray.
+    // matter. One stack a thread, as nearest's; `hole` casts no ray.
     thread_local std::vector<std::uint32_t> stack;
     stack.assign(1, 0);
     while (!stack.empty()) {
@@ -343,7 +293,7 @@ bool SurfaceRays::blocked(const Vec3& a, const Vec3& b, const Hole& hole) const 
         for (std::uint32_t i = node.first; i < node.first + node.count; ++i) {
             const Triangle& t = triangles_[i];
             const std::optional<Meeting> at = meetAt(a, direction, t.a, t.ab, t.ac);
-            if (at && at->t > 0 && at->t < 1 && !hole(t.index, at->u, at->v)) return true;
+            if (at && at->t > 0 && at->t < 1 && !(hole && hole(t.index, at->u, at->v))) return true;
         }
     }
     return false;

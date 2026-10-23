@@ -44,16 +44,21 @@ struct SwayReport {
     std::size_t clothVertices = 0;
 };
 
-/// The EPolyFlags bits this library reads. Source:
+/// The EPolyFlags bits this library reads: its one home, so no file keeps a
+/// private copy. Source:
 /// https://github.com/stephank/surreal/blob/master/Engine/Inc/UnObj.h, UT
 /// 4.32's public headers.
 inline constexpr std::uint32_t PF_INVISIBLE = 0x00000001u; ///< never drawn
 inline constexpr std::uint32_t PF_MASKED = 0x00000002u;    ///< index-0 texels see-through
 inline constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u; ///< blended; a flame sheet's -- UTA-0263
 inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;   ///< nothing collides; a flame sheet's
+inline constexpr std::uint32_t PF_MODULATED = 0x00000040u;   ///< multiplies what is behind it
+inline constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u; ///< a window onto the sky
 inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;   ///< drawn from both sides -- UTA-0055
 inline constexpr std::uint32_t PF_AUTO_U_PAN = 0x00000200u;  ///< pans along u -- UTA-0269
 inline constexpr std::uint32_t PF_AUTO_V_PAN = 0x00000400u;  ///< pans along v -- UTA-0269
+inline constexpr std::uint32_t PF_UNLIT = 0x00400000u;       ///< takes no light -- UTA-0161
+inline constexpr std::uint32_t PF_PORTAL = 0x04000000u;      ///< a zone portal, never drawn
 
 /// UTA-0276: how far a flagged surface pans a game second at a zone speed of
 /// 1, in texels. Measured in the original 469 client on DM-Conveyor's belt by
