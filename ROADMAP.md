@@ -18026,11 +18026,12 @@ stays with movement in 0.2.0.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 12.
 
-- 📋 [UTA-0410] **Investigate: Python helper leads from the readability review.**
+- 🚧 [UTA-0410] **Investigate: Python helper leads from the readability review.**
   - ut-compare.py:256-257: bundle path split from JSON text.
   - tile-questions.py:113: report hash compared without lowercasing.
   - tile-questions.py:48: relative HOME accepted; C++ refuses it.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-13-scripts-python.md
+  In progress 2026-10-23: the three leads checked in the lane 13 close.
   **Layman:** Helper scripts may misread a path or re-ask answered questions.
   Kind: investigate.
   Source: review-readability-2026-10-23 lane 13.
@@ -18172,9 +18173,11 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 12.
 
-- 📋 [UTA-0424] **Readability fixes: Python and UnrealScript helpers.**
+- 🚧 [UTA-0424] **Readability fixes: Python and UnrealScript helpers.**
   Every finding in docs/reviews/review-readability-2026-10-23/lane-13-scripts-python.md.
   Close with close-findings; ledger beside the lane file.
+  In progress 2026-10-23: every lane 13 finding closed in
+  close-lane-13.md.
   **Layman:** Make the helper scripts easier for a newcomer to change safely.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 13.
