@@ -71,7 +71,8 @@ TEST_CASE("UTA-0129 INV-9: ut-bench frame draws each view and each move and says
     std::ofstream(cameras) << "0 0 0 0 0 0 90\n\n0 10 0 0 2000 0 90\n0 -10 5 0 -2000 0 100\n";
 
     const std::vector<std::string> args = {"frame",   "--cameras", cameras.string(), "--tier", "low", "--size",
-                                           "64x48",   "--still",   "3",              "--steps", "4",  bundleFile.string()};
+                                           "64x48",   "--still",   "3",              "--steps", "4",
+                                           "--render-scale", "0.25", bundleFile.string()};
     const std::vector<std::string_view> views(args.begin(), args.end());
     std::ostringstream out, err;
     const int code = uta::bench::runCli(views, out, err);
@@ -84,7 +85,8 @@ TEST_CASE("UTA-0129 INV-9: ut-bench frame draws each view and each move and says
     CHECK(count(json, "\n") == 1);
     CHECK(count(json, "\"workload\": \"frame\"") == 1);
     CHECK(count(json, "\"tier\": \"low\"") == 1);
-    CHECK(count(json, "\"width\": 64, \"height\": 48") == 1);
+    // UTA-0352: the scale as drawn, raised from the 0.25 asked to Low's floor.
+    CHECK(count(json, "\"width\": 64, \"height\": 48, \"renderScale\": 0.5,") == 1);
     CHECK(count(json, "\"stillFrames\": 3, \"moveFrames\": 4") == 1);
     // The device is named, and so are the machine and the build.
     CHECK(count(json, "\"device\": \"") == 1);

@@ -37,6 +37,7 @@ using uta::tools::writeJsonString;
 struct Arguments {
     urender::Tier tier = urender::Tier::High;
     std::uint32_t width = 1920, height = 1080;
+    double renderScale = 1; ///< asked for; the renderer raises it to the tier's floor
     unsigned still = 60;
     unsigned steps = 120;
     std::optional<std::string_view> cameras;
@@ -89,6 +90,15 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
                 || !whole(size->substr(by + 1), parsed.height) || parsed.width == 0 || parsed.height == 0
                 || parsed.width > tools::MAX_DIMENSION || parsed.height > tools::MAX_DIMENSION) {
                 err << "ut-bench: --size takes <width>x<height>, each from 1 to " << tools::MAX_DIMENSION << "\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--render-scale") {
+            const std::optional<std::string_view> text = value();
+            if (!text) return std::nullopt;
+            const auto [end, error] = std::from_chars(text->data(), text->data() + text->size(), parsed.renderScale);
+            if (error != std::errc{} || end != text->data() + text->size() || !(parsed.renderScale > 0)
+                || parsed.renderScale > 1) {
+                err << "ut-bench: --render-scale takes a number above 0 and at most 1\n";
                 return std::nullopt;
             }
         } else if (arg == "--still") {
@@ -311,7 +321,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     config.width = parsed->width;
     config.height = parsed->height;
     config.tier = parsed->tier;
-    config.fixedRenderScale = 1.0; // a frame's time at a scale that moves says nothing
+    config.fixedRenderScale = parsed->renderScale; // a frame's time at a scale that moves says nothing
     config.shaderStatistics = true; // UTA-0352: what each pipeline costs in registers
     auto created = urender::Renderer::create(config);
     if (!created) {
@@ -371,7 +381,10 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     writeJsonString(out, renderer.deviceName());
     out << ", \"tier\": ";
     writeJsonString(out, urender::tierName(parsed->tier));
-    out << ", \"width\": " << parsed->width << ", \"height\": " << parsed->height << ", \"bundle\": ";
+    // As drawn, not as asked: the renderer raises a fixed scale to the tier's floor.
+    const double drawnScale = renderer.lastFrameStats().renderScale;
+    out << ", \"width\": " << parsed->width << ", \"height\": " << parsed->height
+        << ", \"renderScale\": " << drawnScale << ", \"bundle\": ";
     writeJsonString(out, *parsed->bundle);
     out << ", \"stillFrames\": " << parsed->still << ", \"moveFrames\": " << parsed->steps << ", \"views\": [";
     for (std::size_t v = 0; v < views->size(); ++v) {
@@ -399,7 +412,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     out << "}\n";
 
     err << *parsed->bundle << ", " << urender::tierName(parsed->tier) << ", " << parsed->width << "x" << parsed->height
-        << ", on " << renderer.deviceName() << "\n";
+        << " at scale " << drawnScale << ", on " << renderer.deviceName() << "\n";
     for (std::size_t v = 0; v < views->size(); ++v) {
         tableRow(err, "still at view " + std::to_string(v), still[v]);
         if (v + 1 < views->size()) tableRow(err, "moving " + std::to_string(v) + " to " + std::to_string(v + 1), moving[v]);

@@ -295,7 +295,8 @@ as `tools/ut-bake/Cli.cpp` is.
 
 ```text
 ut-bench frame --cameras <file> [--tier <low|medium|high|ultra>]
-               [--size <width>x<height>] [--still <n>] [--steps <n>] <bundle>
+               [--size <width>x<height>] [--render-scale <s>]
+               [--still <n>] [--steps <n>] <bundle>
 ```
 
 It draws a baked map on the surfaceless path, as `ut-shot` does, and reads
@@ -311,9 +312,11 @@ the frame's GPU work, submit and wait, with no present.
   in a straight line and turning the short way round. `--steps` defaults to
   120.
 - `--tier` defaults to `high` and `--size` to `1920x1080`; each side is 1
-  to 16384, the largest frame a device makes (UTA-0409). The render scale
-  is fixed at 1 and the light time pinned at 0, so two runs draw the same
-  frames.
+  to 16384, the largest frame a device makes (UTA-0409). The light time is
+  pinned at 0 and the render scale fixed, so two runs draw the same frames.
+- `--render-scale` (`UTA-0352`) is the fixed scale, above 0 and at most 1;
+  it defaults to 1. The renderer raises it to the tier's floor, so the JSON's
+  `renderScale` is the scale the frames were drawn at, not the one asked.
 
 Standard output is one JSON object; standard error carries a table.
 
@@ -321,7 +324,7 @@ Standard output is one JSON object; standard error carries a table.
 {"schema": 2, "workload": "frame",
  "machine": {}, "build": {},
  "device": "<the Vulkan device's own name>", "tier": "high",
- "width": 1920, "height": 1080, "bundle": "<as given>",
+ "width": 1920, "height": 1080, "renderScale": 1, "bundle": "<as given>",
  "stillFrames": 60, "moveFrames": 120,
  "views": [{"camera": "<its line>",
             "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
@@ -462,10 +465,12 @@ compiled into the tool, the unit tests and the device tests.
 - **INV-9** — `ut-bench frame` over a bundle and three cameras, one blank
   line among them, prints one JSON object with `workload` `frame`, the device
   named, three views and two moves, each with its four figures, and exits `0`.
-  The table counts `--still` frames a view and `--steps` a move.
+  The table counts `--still` frames a view and `--steps` a move. A
+  `--render-scale` below the tier's floor reports the floor as `renderScale`.
   *Test:* `tests/device/BenchFrameTest.cpp`, new. It needs a Vulkan device.
   *Breaks when:* a blank line is read as a camera; a move is a frame short;
-  the four settling frames are timed; the device is not named.
+  the four settling frames are timed; the device is not named; the scale
+  asked is reported in place of the scale drawn.
 
 - **INV-10** — `frameSpreadOf` over 100 down to 1 gives 1, 50.5, 99 and 100.
   Wrong `frame` arguments exit `2` and print nothing on standard output, and

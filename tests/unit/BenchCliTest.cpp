@@ -258,6 +258,10 @@ TEST_CASE("UTA-0129 INV-10: wrong frame arguments exit 2 and a missing bundle ex
         {"frame", "--cameras", cameras, "--size", "640x16385", missing},
         {"frame", "--cameras", cameras, "--tier", "fastest", missing},
         {"frame", "--cameras", cameras, "--still", "0", missing},
+        {"frame", "--cameras", cameras, "--render-scale", "0", missing},   // UTA-0352: above 0 and at most 1
+        {"frame", "--cameras", cameras, "--render-scale", "1.01", missing},
+        {"frame", "--cameras", cameras, "--render-scale", "nan", missing},
+        {"frame", "--cameras", cameras, "--render-scale", "0.5x", missing},
         {"frame", "--cameras", cameras, missing, missing},                 // two bundles
     };
     for (const std::vector<std::string>& args : wrong) {
