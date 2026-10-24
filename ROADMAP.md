@@ -22415,6 +22415,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   Still over 16.7: ArchNemesis, InversalLiandri, Fool'sBravado, AerialAct,
   SimpleX. Next: per map, the opaque pass split by throwaway probes.
   Scratch: /mnt/Emulators/uta-scratch/u352/{r1024,ab,haze}.
+  Lead (2026-10-24, from ut-bench's new shader statistics): cluster.comp
+  runs 2 subgroups per SIMD (48 VGPRs), against 10 to 32 for every other
+  stage; its 16 KiB of shared memory per 32-lane group is what limits it
+  (the 2026-10-14 fix). The step is 0.1-0.6 ms on most maps but 1.7 ms on
+  DM-FoT-SimpleX (1716 lights), so it is a SimpleX-specific lead.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.

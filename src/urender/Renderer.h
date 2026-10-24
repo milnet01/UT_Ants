@@ -88,6 +88,22 @@ struct Config {
     /// a luma, as scene.frag adds them before reflectance -- and bloom is off.
     /// For ut-shot --light-terms; unset in normal play, where it compiles out.
     bool lightTerms = false;
+    /// UTA-0352: keep each pipeline's compiler statistics, for
+    /// Renderer::shaderStatistics, where the device offers
+    /// VK_KHR_pipeline_executable_properties. For ut-bench; unset in normal
+    /// play, which enables no extension for it.
+    bool shaderStatistics = false;
+};
+
+/// UTA-0352: what the driver's compiler reports for one stage of one of the
+/// renderer's pipelines, as the driver names it -- RADV's "VGPRs" and
+/// "Subgroups per SIMD", say. `pipeline` is the renderer's own name for it.
+/// Each value is the number written out exactly: a 64-bit hash would not
+/// survive a double.
+struct ShaderStatistics {
+    std::string pipeline;
+    std::string stage;
+    std::vector<std::pair<std::string, std::string>> values;
 };
 
 /// The view a frame is drawn from -- UT99's own units and angle encoding, so a
@@ -205,6 +221,12 @@ public:
     /// UTA-0129: the device's own name for itself. A frame time with no device
     /// named cannot be compared with another.
     [[nodiscard]] std::string deviceName() const;
+
+    /// UTA-0352: every stage of every pipeline's compiler statistics, with
+    /// Config::shaderStatistics set on a device that offers them; otherwise
+    /// none. RADV's register count decides how many waves a stage runs, which
+    /// moved the scene step by 3 ms (UTA-0352, 2026-10-14).
+    [[nodiscard]] std::vector<ShaderStatistics> shaderStatistics() const;
 
     /// UTA-0138: whether the Vulkan validation layer is loaded and reporting.
     /// False when it was not asked for, or asked for and not installed.

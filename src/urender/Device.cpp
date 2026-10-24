@@ -165,6 +165,26 @@ DeviceCandidate describe(VkPhysicalDevice device, VkSurfaceKHR surface) {
     return candidate;
 }
 
+/// UTA-0352: whether `device` reports its compiler's statistics per pipeline.
+/// Not a requirement: a device without it draws the same, and reports none.
+bool offersShaderStatistics(VkPhysicalDevice device) {
+    std::uint32_t count = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
+    std::vector<VkExtensionProperties> extensions(count);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, extensions.data());
+    if (!std::ranges::any_of(extensions, [](const VkExtensionProperties& e) {
+            return std::strcmp(e.extensionName, VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME) == 0;
+        }))
+        return false;
+    VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR executables{};
+    executables.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR;
+    VkPhysicalDeviceFeatures2 features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &executables;
+    vkGetPhysicalDeviceFeatures2(device, &features);
+    return executables.pipelineExecutableInfo == VK_TRUE;
+}
+
 } // namespace
 
 std::string_view firstMissingRequirement(const DeviceCandidate& candidate) noexcept {
@@ -267,7 +287,8 @@ VkDebugUtilsMessengerCreateInfoEXT messengerInfo(Gpu::ValidationLog* log) {
 } // namespace
 
 Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::string> instanceExtensions,
-                                         const std::function<std::uint64_t(std::uint64_t)>& createSurface) {
+                                         const std::function<std::uint64_t(std::uint64_t)>& createSurface,
+                                         bool shaderStatistics) {
     std::unique_ptr<Gpu> gpu(new Gpu());
 
     std::vector<const char*> layers;
@@ -353,13 +374,19 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     gpu->family_ = familyOf(gpu->physical_, gpu->surface_).value_or(0);
     vkGetPhysicalDeviceMemoryProperties(gpu->physical_, &gpu->memory_);
 
-    // Enable exactly what SS 4.4 required, and nothing else.
+    // Enable exactly what SS 4.4 required, and nothing else -- but UTA-0352's
+    // statistics, where the caller asked and the device offers them.
+    gpu->shaderStatistics_ = shaderStatistics && offersShaderStatistics(gpu->physical_);
+    VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR enableExecutables{};
+    enableExecutables.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR;
+    enableExecutables.pipelineExecutableInfo = VK_TRUE;
     VkPhysicalDeviceVulkan13Features enable13{};
     enable13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     enable13.dynamicRendering = VK_TRUE;
     enable13.synchronization2 = VK_TRUE;
     // glslc targeting Vulkan 1.3 compiles `discard` to OpDemoteToHelperInvocation.
     enable13.shaderDemoteToHelperInvocation = VK_TRUE;
+    if (gpu->shaderStatistics_) enable13.pNext = &enableExecutables;
     VkPhysicalDeviceVulkan12Features enable12{};
     enable12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     enable12.pNext = &enable13;
@@ -379,18 +406,18 @@ Result<std::unique_ptr<Gpu>> Gpu::create(bool validation, std::span<const std::s
     queueInfo.queueCount = 1;
     queueInfo.pQueuePriorities = &priority;
 
-    // VK_KHR_swapchain on the presenting path, and no device extension on the
-    // surfaceless one (INV-4).
-    const char* const swapchainExtension = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    // VK_KHR_swapchain on the presenting path only (INV-4), and UTA-0352's
+    // statistics on either path only where asked for.
+    std::vector<const char*> deviceExtensions;
+    if (gpu->surface_ != VK_NULL_HANDLE) deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    if (gpu->shaderStatistics_) deviceExtensions.push_back(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME);
     VkDeviceCreateInfo deviceInfo{};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceInfo.pNext = &enable;
     deviceInfo.queueCreateInfoCount = 1;
     deviceInfo.pQueueCreateInfos = &queueInfo;
-    if (gpu->surface_ != VK_NULL_HANDLE) {
-        deviceInfo.enabledExtensionCount = 1;
-        deviceInfo.ppEnabledExtensionNames = &swapchainExtension;
-    }
+    deviceInfo.enabledExtensionCount = static_cast<std::uint32_t>(deviceExtensions.size());
+    deviceInfo.ppEnabledExtensionNames = deviceExtensions.empty() ? nullptr : deviceExtensions.data();
     UTA_CHECK(created(vkCreateDevice(gpu->physical_, &deviceInfo, nullptr, &gpu->device_), gpu->device_, "vkCreateDevice"));
     vkGetDeviceQueue(gpu->device_, gpu->family_, 0, &gpu->queue_);
 

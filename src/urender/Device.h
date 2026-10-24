@@ -93,9 +93,11 @@ public:
     /// presenting path -- the instance also enables `instanceExtensions`, the
     /// surface is made from it before a device is chosen, and the device must
     /// present to it.
+    /// UTA-0352: with `shaderStatistics`, the device also keeps its
+    /// compiler's statistics per pipeline where it offers them.
     [[nodiscard]] static Result<std::unique_ptr<Gpu>> create(
         bool validation, std::span<const std::string> instanceExtensions = {},
-        const std::function<std::uint64_t(std::uint64_t)>& createSurface = {});
+        const std::function<std::uint64_t(std::uint64_t)>& createSurface = {}, bool shaderStatistics = false);
 
     Gpu(const Gpu&) = delete;
     Gpu& operator=(const Gpu&) = delete;
@@ -110,6 +112,8 @@ public:
     [[nodiscard]] std::uint32_t queueFamily() const noexcept { return family_; }
     [[nodiscard]] const std::string& name() const noexcept { return name_; }
     [[nodiscard]] VkPhysicalDeviceType type() const noexcept { return type_; }
+    /// UTA-0352: whether pipelines made from this can report their statistics.
+    [[nodiscard]] bool capturesShaderStatistics() const noexcept { return shaderStatistics_; }
     /// The summed size of the heaps flagged VK_MEMORY_HEAP_DEVICE_LOCAL_BIT --
     /// UTA-0051 SS 4.3's input to the default tier.
     [[nodiscard]] std::uint64_t deviceLocalBytes() const noexcept {
@@ -158,6 +162,7 @@ private:
     VkDebugUtilsMessengerEXT messenger_ = VK_NULL_HANDLE;
     std::unique_ptr<ValidationLog> log_ = std::make_unique<ValidationLog>();
     bool failOnValidationError_ = false;
+    bool shaderStatistics_ = false;
 };
 
 } // namespace uta::urender

@@ -1666,7 +1666,8 @@ Result<Renderer> Renderer::create(const Config& config) {
                                 config.hazeScale));
     auto impl = std::make_unique<Impl>();
     impl->config = config;
-    UTA_TRY(impl->gpu, Gpu::create(config.validation, config.instanceExtensions, config.createSurface));
+    UTA_TRY(impl->gpu,
+            Gpu::create(config.validation, config.instanceExtensions, config.createSurface, config.shaderStatistics));
     impl->gpu->failOnValidationError(config.failOnValidationError);
     // UTA-0051 SS 4.3: once, from the chosen device, unless the caller named one.
     impl->tier = config.tier.value_or(defaultTier(impl->gpu->type(), impl->gpu->deviceLocalBytes()));
@@ -2163,6 +2164,8 @@ double Renderer::lightSeconds() const noexcept { return impl_->lastLightSeconds;
 bool Renderer::validating() const noexcept { return impl_->gpu->validating(); }
 
 std::string Renderer::deviceName() const { return impl_->gpu->name(); }
+
+std::vector<ShaderStatistics> Renderer::shaderStatistics() const { return impl_->pipelines->statistics(); }
 
 void Renderer::pinLightSeconds(double seconds) noexcept { impl_->pinnedLightSeconds = seconds; }
 

@@ -26,9 +26,12 @@
 #include "shadow.vert.spv.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <format>
+#include <initializer_list>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -57,6 +60,13 @@ VkPipelineShaderStageCreateInfo stage(VkShaderStageFlagBits kind, VkShaderModule
     info.pName = "main";
     return info;
 }
+
+/// The device every pipeline here is made on, and the flags it is made with:
+/// UTA-0352's statistics capture where the Gpu keeps them, else none.
+struct Making {
+    VkDevice device = VK_NULL_HANDLE;
+    VkPipelineCreateFlags flags = 0;
+};
 
 /// The states every graphics pipeline here starts from; each builder overrides
 /// only what its pass does differently. Depth is tested or-equal -- so the
@@ -103,7 +113,7 @@ GraphicsStates sharedStates() {
 }
 
 /// The pipeline `states` describe; `pass` names it in a failure.
-Result<VkPipeline> graphicsPipeline(VkDevice device, VkPipelineLayout layout,
+Result<VkPipeline> graphicsPipeline(const Making& making, VkPipelineLayout layout,
                                     std::span<const VkPipelineShaderStageCreateInfo> stages,
                                     const GraphicsStates& states, std::string_view pass) {
     VkPipelineDynamicStateCreateInfo dynamic{};
@@ -114,6 +124,7 @@ Result<VkPipeline> graphicsPipeline(VkDevice device, VkPipelineLayout layout,
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     info.pNext = &states.rendering;
+    info.flags = making.flags;
     info.stageCount = static_cast<std::uint32_t>(stages.size());
     info.pStages = stages.data();
     info.pVertexInputState = &states.vertexInput;
@@ -128,7 +139,7 @@ Result<VkPipeline> graphicsPipeline(VkDevice device, VkPipelineLayout layout,
     info.layout = layout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    UTA_CHECK(check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
+    UTA_CHECK(check(vkCreateGraphicsPipelines(making.device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline),
                     std::format("vkCreateGraphicsPipelines ({})", pass)));
     return pipeline;
 }
@@ -157,7 +168,7 @@ struct SceneConstants {
     VkBool32 lightTerms;    ///< UTA-0292: Config::lightTerms
 };
 
-Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
+Result<VkPipeline> scenePipeline(const Making& making, VkPipelineLayout layout, const TargetFormats& formats,
                                  VkShaderModule vertex, VkShaderModule fragment, SceneVariant variant,
                                  SceneConstants constants) {
     // UTA-0040 SS 4.4: scene.frag's constant_id 0 and 1, so a tier with no
@@ -272,14 +283,14 @@ Result<VkPipeline> scenePipeline(VkDevice device, VkPipelineLayout layout, const
     // UTA-0260: depth alone needs no fragment stage, and the vertex stage is
     // the forward pass's own, so both passes place a surface at one depth.
     const std::span<const VkPipelineShaderStageCreateInfo> drawn(stages.data(), variant.depthOnly ? 1 : stages.size());
-    return graphicsPipeline(device, layout, drawn, states, "scene");
+    return graphicsPipeline(making, layout, drawn, states, "scene");
 }
 
 /// UTA-0263 SS 4.4's camera-facing flames: no vertex input -- flame.vert
 /// builds each quad from its instance -- both faces, depth-tested and not
 /// written, and additive into colour and emission. The pass binds all three
 /// forward targets, so its formats match the opaque pass.
-Result<VkPipeline> flamePipeline(VkDevice device, VkPipelineLayout layout, const TargetFormats& formats,
+Result<VkPipeline> flamePipeline(const Making& making, VkPipelineLayout layout, const TargetFormats& formats,
                                  VkShaderModule vertex, VkShaderModule fragment) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex), stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
 
@@ -309,14 +320,14 @@ Result<VkPipeline> flamePipeline(VkDevice device, VkPipelineLayout layout, const
     states.rendering.colorAttachmentCount = static_cast<std::uint32_t>(colourFormats.size());
     states.rendering.pColorAttachmentFormats = colourFormats.data();
     states.rendering.depthAttachmentFormat = formats.depth;
-    return graphicsPipeline(device, layout, stages, states, "flame");
+    return graphicsPipeline(making, layout, stages, states, "flame");
 }
 
 /// SS 4.8's tile pass. Both faces cast -- a shadow must not leak through a
 /// wall seen edge-on from its back -- and a slope-scaled rasterisation depth
 /// bias is what keeps a lit surface from shadowing itself. shadows.glsl applies
 /// no normal offset.
-Result<VkPipeline> shadowPipeline(VkDevice device, VkPipelineLayout layout, VkFormat depthFormat,
+Result<VkPipeline> shadowPipeline(const Making& making, VkPipelineLayout layout, VkFormat depthFormat,
                                   VkShaderModule vertex, VkShaderModule fragment) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex),
                                stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
@@ -337,12 +348,12 @@ Result<VkPipeline> shadowPipeline(VkDevice device, VkPipelineLayout layout, VkFo
     states.raster.depthBiasConstantFactor = 1.25f;
     states.raster.depthBiasSlopeFactor = 1.75f;
     states.rendering.depthAttachmentFormat = depthFormat;
-    return graphicsPipeline(device, layout, stages, states, "shadow");
+    return graphicsPipeline(making, layout, stages, states, "shadow");
 }
 
 /// A full-target pass. `additive` adds into what the target holds -- UTA-0053's
 /// bloom upsample -- where every other use replaces it.
-Result<VkPipeline> postPipeline(VkDevice device, VkPipelineLayout layout, VkFormat output, VkShaderModule vertex,
+Result<VkPipeline> postPipeline(const Making& making, VkPipelineLayout layout, VkFormat output, VkShaderModule vertex,
                                 VkShaderModule fragment, bool additive = false) {
     const std::array stages = {stage(VK_SHADER_STAGE_VERTEX_BIT, vertex),
                                stage(VK_SHADER_STAGE_FRAGMENT_BIT, fragment)};
@@ -365,7 +376,7 @@ Result<VkPipeline> postPipeline(VkDevice device, VkPipelineLayout layout, VkForm
     states.blend.pAttachments = &attachment;
     states.rendering.colorAttachmentCount = 1;
     states.rendering.pColorAttachmentFormats = &output;
-    return graphicsPipeline(device, layout, stages, states, "post");
+    return graphicsPipeline(making, layout, stages, states, "post");
 }
 
 } // namespace
@@ -385,6 +396,9 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     std::unique_ptr<Pipelines> p(new Pipelines());
     p->device_ = gpu.device();
     const VkDevice device = p->device_;
+    p->captured_ = gpu.capturesShaderStatistics();
+    const Making making{device, p->captured_ ? VkPipelineCreateFlags{VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR}
+                                             : VkPipelineCreateFlags{0}};
 
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(gpu.physical(), &properties);
@@ -491,14 +505,14 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     for (const Blending blending : BLENDINGS) {
         for (int twoSided = 0; twoSided < 2; ++twoSided) {
             UTA_TRY(p->scene_[std::to_underlying(blending)][twoSided],
-                    scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
+                    scenePipeline(making, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
                                   {.blending = blending, .twoSided = twoSided == 1, .depthOnly = false},
                                   sceneConstants));
         }
     }
     for (int twoSided = 0; twoSided < 2; ++twoSided) {
         UTA_TRY(p->depth_[twoSided],
-                scenePipeline(device, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
+                scenePipeline(making, p->sceneLayout_, formats, sceneVertex.handle, sceneFragment.handle,
                               {.blending = Blending::Opaque, .twoSided = twoSided == 1, .depthOnly = true},
                               sceneConstants));
     }
@@ -506,22 +520,22 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     Module flameVertex{device}, flameFragment{device};
     UTA_TRY(flameVertex.handle, shaderModule(device, flame_vert_spv));
     UTA_TRY(flameFragment.handle, shaderModule(device, flame_frag_spv));
-    UTA_TRY(p->flame_, flamePipeline(device, p->sceneLayout_, formats, flameVertex.handle, flameFragment.handle));
+    UTA_TRY(p->flame_, flamePipeline(making, p->sceneLayout_, formats, flameVertex.handle, flameFragment.handle));
     // UTA-0215: the water's specks are drawn as the flames are.
     Module moteVertex{device}, moteFragment{device};
     UTA_TRY(moteVertex.handle, shaderModule(device, mote_vert_spv));
     UTA_TRY(moteFragment.handle, shaderModule(device, mote_frag_spv));
-    UTA_TRY(p->mote_, flamePipeline(device, p->sceneLayout_, formats, moteVertex.handle, moteFragment.handle));
-    UTA_TRY(p->post_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));
+    UTA_TRY(p->mote_, flamePipeline(making, p->sceneLayout_, formats, moteVertex.handle, moteFragment.handle));
+    UTA_TRY(p->post_, postPipeline(making, p->postLayout_, formats.output, postVertex.handle, postFragment.handle));
     // UTA-0154: FSR 1's stages. The upscale input and EASU's output are
     // HDR-format images; RCAS writes the output.
     Module easuFragment{device}, rcasFragment{device};
     UTA_TRY(easuFragment.handle, shaderModule(device, fsr_easu_frag_spv));
     UTA_TRY(rcasFragment.handle, shaderModule(device, fsr_rcas_frag_spv));
     UTA_TRY(p->upscaleInput_,
-            postPipeline(device, p->postLayout_, formats.hdr, postVertex.handle, postFragment.handle));
-    UTA_TRY(p->easu_, postPipeline(device, p->postLayout_, formats.hdr, postVertex.handle, easuFragment.handle));
-    UTA_TRY(p->rcas_, postPipeline(device, p->postLayout_, formats.output, postVertex.handle, rcasFragment.handle));
+            postPipeline(making, p->postLayout_, formats.hdr, postVertex.handle, postFragment.handle));
+    UTA_TRY(p->easu_, postPipeline(making, p->postLayout_, formats.hdr, postVertex.handle, easuFragment.handle));
+    UTA_TRY(p->rcas_, postPipeline(making, p->postLayout_, formats.output, postVertex.handle, rcasFragment.handle));
 
     // -- The bloom chain (UTA-0053) -------------------------------------------
     const VkDescriptorSetLayoutBinding sourceBinding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
@@ -544,15 +558,16 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     Module bloomFragment{device};
     UTA_TRY(bloomFragment.handle, shaderModule(device, bloom_frag_spv));
     UTA_TRY(p->bloomDownsample_,
-            postPipeline(device, p->bloomLayout_, formats.emission, postVertex.handle, bloomFragment.handle));
+            postPipeline(making, p->bloomLayout_, formats.emission, postVertex.handle, bloomFragment.handle));
     UTA_TRY(p->bloomUpsample_,
-            postPipeline(device, p->bloomLayout_, formats.emission, postVertex.handle, bloomFragment.handle, true));
+            postPipeline(making, p->bloomLayout_, formats.emission, postVertex.handle, bloomFragment.handle, true));
 
     // -- The light clusters ---------------------------------------------------
     Module clusterCompute{device};
     UTA_TRY(clusterCompute.handle, shaderModule(device, cluster_comp_spv));
     VkComputePipelineCreateInfo clusterInfo{};
     clusterInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    clusterInfo.flags = making.flags;
     clusterInfo.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, clusterCompute.handle);
     clusterInfo.layout = p->sceneLayout_;
     UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &clusterInfo, nullptr, &p->clusters_), p->clusters_,
@@ -590,6 +605,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     UTA_TRY(reduceCompute.handle, shaderModule(device, shadow_reduce_comp_spv));
     VkComputePipelineCreateInfo compute{};
     compute.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    compute.flags = making.flags;
     compute.layout = p->fogLayout_;
     compute.stage = stage(VK_SHADER_STAGE_COMPUTE_BIT, scatterCompute.handle);
     UTA_CHECK(created(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute, nullptr, &p->fogScatter_), p->fogScatter_,
@@ -616,7 +632,7 @@ Result<std::unique_ptr<Pipelines>> Pipelines::create(const Gpu& gpu, const Targe
     Module shadowVertex{device}, shadowFragment{device};
     UTA_TRY(shadowVertex.handle, shaderModule(device, shadow_vert_spv));
     UTA_TRY(shadowFragment.handle, shaderModule(device, shadow_frag_spv));
-    UTA_TRY(p->shadow_, shadowPipeline(device, p->shadowLayout_, formats.depth, shadowVertex.handle,
+    UTA_TRY(p->shadow_, shadowPipeline(making, p->shadowLayout_, formats.depth, shadowVertex.handle,
                                        shadowFragment.handle));
     return p;
 }
@@ -653,6 +669,94 @@ VkPipeline Pipelines::sceneFor(std::uint32_t polyFlags) const noexcept {
 
 VkPipeline Pipelines::depthFor(std::uint32_t polyFlags) const noexcept {
     return depth_[(polyFlags & gpu::PF_TWO_SIDED) != 0 ? 1 : 0];
+}
+
+std::vector<std::pair<std::string, VkPipeline>> Pipelines::named() const {
+    std::vector<std::pair<std::string, VkPipeline>> out;
+    constexpr std::array<std::string_view, 3> BLENDING_NAMES{"opaque", "translucent", "modulated"};
+    for (std::size_t blending = 0; blending < scene_.size(); ++blending)
+        for (std::size_t twoSided = 0; twoSided < 2; ++twoSided)
+            out.emplace_back(std::format("scene {}{}", BLENDING_NAMES[blending], twoSided == 1 ? " two-sided" : ""),
+                             scene_[blending][twoSided]);
+    out.emplace_back("depth", depth_[0]);
+    out.emplace_back("depth two-sided", depth_[1]);
+    for (const auto& [name, pipeline] :
+         std::initializer_list<std::pair<std::string_view, VkPipeline>>{
+             {"flame", flame_}, {"mote", mote_}, {"post", post_}, {"upscale input", upscaleInput_}, {"easu", easu_},
+             {"rcas", rcas_}, {"bloom downsample", bloomDownsample_}, {"bloom upsample", bloomUpsample_},
+             {"clusters", clusters_}, {"fog scatter", fogScatter_}, {"fog integrate", fogIntegrate_},
+             {"haze shadow", hazeShadow_}, {"shadow", shadow_}})
+        out.emplace_back(std::string(name), pipeline);
+    return out;
+}
+
+std::vector<ShaderStatistics> Pipelines::statistics() const {
+    if (!captured_) return {};
+    // Extension commands: the loader exports only the core ones.
+    const auto executables = reinterpret_cast<PFN_vkGetPipelineExecutablePropertiesKHR>(
+        vkGetDeviceProcAddr(device_, "vkGetPipelineExecutablePropertiesKHR"));
+    const auto statisticsOf = reinterpret_cast<PFN_vkGetPipelineExecutableStatisticsKHR>(
+        vkGetDeviceProcAddr(device_, "vkGetPipelineExecutableStatisticsKHR"));
+    if (executables == nullptr || statisticsOf == nullptr) return {};
+    std::vector<ShaderStatistics> out;
+    for (const auto& [name, pipeline] : named()) {
+        VkPipelineInfoKHR info{};
+        info.sType = VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR;
+        info.pipeline = pipeline;
+        std::uint32_t count = 0;
+        // A query that fails is reported as such rather than dropped, so a
+        // missing pipeline is seen.
+        if (executables(device_, &info, &count, nullptr) != VK_SUCCESS) {
+            out.push_back({name, "(not reported)", {}});
+            continue;
+        }
+        std::vector<VkPipelineExecutablePropertiesKHR> stages(count);
+        for (VkPipelineExecutablePropertiesKHR& stage : stages)
+            stage.sType = VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR;
+        if (executables(device_, &info, &count, stages.data()) != VK_SUCCESS) {
+            out.push_back({name, "(not reported)", {}});
+            continue;
+        }
+        for (std::uint32_t index = 0; index < count; ++index) {
+            ShaderStatistics stats{name, stages[index].name, {}};
+            VkPipelineExecutableInfoKHR executable{};
+            executable.sType = VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR;
+            executable.pipeline = pipeline;
+            executable.executableIndex = index;
+            std::uint32_t valueCount = 0;
+            if (statisticsOf(device_, &executable, &valueCount, nullptr) == VK_SUCCESS) {
+                std::vector<VkPipelineExecutableStatisticKHR> values(valueCount);
+                for (VkPipelineExecutableStatisticKHR& value : values)
+                    value.sType = VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR;
+                if (statisticsOf(device_, &executable, &valueCount, values.data()) == VK_SUCCESS) {
+                    for (const VkPipelineExecutableStatisticKHR& value : values) {
+                        std::string number;
+                        switch (value.format) {
+                        case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR:
+                            number = value.value.b32 != VK_FALSE ? "1" : "0";
+                            break;
+                        case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_INT64_KHR:
+                            number = std::format("{}", value.value.i64);
+                            break;
+                        case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR:
+                            number = std::format("{}", value.value.u64);
+                            break;
+                        case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_FLOAT64_KHR:
+                            // A value JSON cannot hold is left out with the
+                            // formats this does not know.
+                            if (!std::isfinite(value.value.f64)) continue;
+                            number = std::format("{}", value.value.f64);
+                            break;
+                        default: continue; // a format this does not know is left out
+                        }
+                        stats.values.emplace_back(value.name, std::move(number));
+                    }
+                }
+            }
+            out.push_back(std::move(stats));
+        }
+    }
+    return out;
 }
 
 } // namespace uta::urender

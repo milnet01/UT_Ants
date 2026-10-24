@@ -112,6 +112,8 @@ TEST_CASE("UTA-0129 INV-9: ut-bench frame draws each view and each move and says
     CHECK(count(json, ", \"submitAndWait\": null") == 0);
     CHECK(count(err.str(), "median by step:  fires ") == 3 + 2 + 2);
     CHECK(count(err.str(), "host: prepare ") == 3 + 2 + 2);
+    // UTA-0352: the shaders' statistics, or null on a device that keeps none.
+    CHECK(count(json, ", \"shaders\": ") == 1);
     CHECK(count(err.str(), "over 3 frame(s)") == 3);
     CHECK(count(err.str(), "over 4 frame(s)") == 2);
     CHECK(count(err.str(), "over 9 frame(s)") == 1);

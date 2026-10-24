@@ -16,6 +16,7 @@
 
 #include "device/DeviceFixture.h"
 #include "ubake/LightModel.h"
+#include "urender/Device.h"
 #include "urender/Shadows.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -24,6 +25,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <numbers>
+#include <set>
+#include <string>
 #include <vector>
 
 using namespace uta::test::render;
@@ -223,6 +226,32 @@ TEST_CASE("UTA-0352: the host's steps are timed and the recording and GPU steps 
     // The commands are recorded before they are submitted, so the recording and
     // the GPU's steps do not overlap inside the wall time that holds both.
     CHECK(stats.recordMilliseconds + gpu <= stats.frameMilliseconds);
+}
+
+TEST_CASE("UTA-0352: shader statistics come only when asked and only from a device that keeps them", "[device]") {
+    removeDisplay();
+    Renderer plain = requireRenderer(linearFrame());
+    CHECK(plain.shaderStatistics().empty());
+
+    uta::urender::Config config = linearFrame();
+    config.shaderStatistics = true;
+    Renderer asked = requireRenderer(config);
+    const std::vector<uta::urender::ShaderStatistics> stats = asked.shaderStatistics();
+    auto gpu = uta::urender::Gpu::create(false, {}, {}, true);
+    if (!gpu.has_value()) FAIL(gpu.error().message());
+    INFO("device " << asked.deviceName() << " keeps statistics: " << (*gpu)->capturesShaderStatistics());
+    REQUIRE(stats.empty() == !(*gpu)->capturesShaderStatistics());
+    if (stats.empty()) return; // lavapipe keeps none; RADV does
+
+    // Every pipeline the renderer makes is reported, under its own name.
+    std::set<std::string> pipelines;
+    for (const uta::urender::ShaderStatistics& stage : stats) pipelines.insert(stage.pipeline);
+    CHECK(pipelines.size() == 21); // six scene, two depth, and Pipelines::named's thirteen others
+    const auto sceneFragment = std::ranges::find_if(stats, [](const uta::urender::ShaderStatistics& stage) {
+        return stage.pipeline == "scene opaque" && stage.stage == "fragment";
+    });
+    REQUIRE(sceneFragment != stats.end());
+    CHECK_FALSE(sceneFragment->values.empty());
 }
 
 TEST_CASE("UTA-0307: a shadow edge slanting across the atlas texels is a straight line", "[device]") {

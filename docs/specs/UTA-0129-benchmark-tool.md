@@ -335,7 +335,9 @@ Standard output is one JSON object; standard error carries a table.
             "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
             "shadowTiles": 0.0, "host": {}, "passes": {}}],
  "still": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}},
- "moving": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}}}
+ "moving": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}},
+ "shaders": [{"pipeline": "scene opaque", "stage": "fragment",
+              "statistics": {"VGPRs": 96, "Subgroups per SIMD": 10}}]}
 ```
 
 - `schema` is 2: `UTA-0352` renamed the steps and added `host`. The bake
@@ -361,6 +363,12 @@ Standard output is one JSON object; standard error carries a table.
   `submitAndWait`, each frame's `milliseconds` less `record` and every
   step, so the submit, the blit out and the wait. It is `null` where
   `passes` is.
+- `shaders` (`UTA-0352`) is `Renderer::shaderStatistics`: each stage of
+  each pipeline, under the renderer's name for the pipeline, with every
+  statistic the driver reports, named and valued as the driver gives them.
+  It is `null` on a device without `VK_KHR_pipeline_executable_properties`.
+  The table prints the `VGPRs`, `Spilled VGPRs` and `Subgroups per SIMD`
+  lines, RADV's names; another driver's are in the JSON only.
 - `still` and `moving` are over every still frame and every moving frame.
 - Compare frames on the median and the 99th percentile. The smallest says
   little: one fast frame does not make a view smooth.

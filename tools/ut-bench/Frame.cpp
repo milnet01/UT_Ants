@@ -228,6 +228,47 @@ void tableRow(std::ostream& err, std::string_view what, const Timed& timed) {
     err << " ms\n";
 }
 
+/// UTA-0352: every stage's statistics, as the driver names them; null where
+/// the device reports none.
+void writeShaders(std::ostream& out, const std::vector<urender::ShaderStatistics>& shaders) {
+    if (shaders.empty()) {
+        out << "null";
+        return;
+    }
+    out << '[';
+    for (std::size_t s = 0; s < shaders.size(); ++s) {
+        out << (s == 0 ? "{\"pipeline\": " : ", {\"pipeline\": ");
+        writeJsonString(out, shaders[s].pipeline);
+        out << ", \"stage\": ";
+        writeJsonString(out, shaders[s].stage);
+        out << ", \"statistics\": {";
+        for (std::size_t v = 0; v < shaders[s].values.size(); ++v) {
+            if (v != 0) out << ", ";
+            writeJsonString(out, shaders[s].values[v].first);
+            out << ": " << shaders[s].values[v].second;
+        }
+        out << "}}";
+    }
+    out << ']';
+}
+
+/// The table's lines for the statistics that decide a stage's occupancy. The
+/// names are RADV's; another driver's are in the JSON only.
+void shaderRows(std::ostream& err, const std::vector<urender::ShaderStatistics>& shaders) {
+    if (shaders.empty()) {
+        err << "  shader statistics: the device reports none\n";
+        return;
+    }
+    err << "  shader registers, by pipeline and stage:\n";
+    for (const urender::ShaderStatistics& shader : shaders) {
+        std::string line;
+        for (const auto& [name, value] : shader.values)
+            if (name == "VGPRs" || name == "Subgroups per SIMD" || name == "Spilled VGPRs")
+                line += std::format("  {} {}", name, value);
+        if (!line.empty()) err << std::format("    {:<28} {:<20}{}\n", shader.pipeline, shader.stage, line);
+    }
+}
+
 } // namespace
 
 namespace detail {
@@ -271,6 +312,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     config.height = parsed->height;
     config.tier = parsed->tier;
     config.fixedRenderScale = 1.0; // a frame's time at a scale that moves says nothing
+    config.shaderStatistics = true; // UTA-0352: what each pipeline costs in registers
     auto created = urender::Renderer::create(config);
     if (!created) {
         err << "ut-bench: the renderer did not start: " << created.error().message() << "\n";
@@ -351,7 +393,10 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     writeTimed(out, allStill);
     out << "}, \"moving\": {";
     writeTimed(out, allMoving);
-    out << "}}\n";
+    out << "}, \"shaders\": ";
+    const std::vector<urender::ShaderStatistics> shaders = renderer.shaderStatistics();
+    writeShaders(out, shaders);
+    out << "}\n";
 
     err << *parsed->bundle << ", " << urender::tierName(parsed->tier) << ", " << parsed->width << "x" << parsed->height
         << ", on " << renderer.deviceName() << "\n";
@@ -361,6 +406,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     }
     tableRow(err, "every still frame", allStill);
     if (!moving.empty()) tableRow(err, "every moving frame", allMoving);
+    shaderRows(err, shaders);
     return EXIT_OK;
 }
 

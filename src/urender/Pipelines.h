@@ -22,6 +22,9 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace uta::urender {
 
@@ -91,10 +94,18 @@ public:
     /// How many textures one scene set can bind: the device's limit, capped.
     [[nodiscard]] std::uint32_t textureCapacity() const noexcept { return textureCapacity_; }
 
+    /// UTA-0352: each pipeline's statistics, stage by stage, named as
+    /// `named` names it; none where the Gpu captures none.
+    [[nodiscard]] std::vector<ShaderStatistics> statistics() const;
+
 private:
     Pipelines() = default;
 
+    /// Every pipeline, under a name a reader can find it by.
+    [[nodiscard]] std::vector<std::pair<std::string, VkPipeline>> named() const;
+
     VkDevice device_ = VK_NULL_HANDLE;
+    bool captured_ = false; ///< made with VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR
     std::uint32_t textureCapacity_ = 0;
     VkDescriptorSetLayout sceneSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout postSetLayout_ = VK_NULL_HANDLE;
