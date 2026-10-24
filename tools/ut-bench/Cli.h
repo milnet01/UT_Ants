@@ -45,6 +45,9 @@ namespace detail {
 /// The output's schema number, both workloads': they share the `machine` and
 /// `build` members, so a change to those is a change to both.
 inline constexpr int SCHEMA = 1;
+/// The frame workload's own: UTA-0352 renamed its steps and added `host`.
+/// A change to the shared members raises both.
+inline constexpr int FRAME_SCHEMA = 2;
 
 /// The exit codes, both workloads'.
 inline constexpr int EXIT_OK = 0;

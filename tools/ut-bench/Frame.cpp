@@ -27,7 +27,7 @@ namespace {
 using detail::EXIT_FAILED;
 using detail::EXIT_OK;
 using detail::EXIT_USAGE;
-using detail::SCHEMA;
+using detail::FRAME_SCHEMA;
 
 /// Frames drawn at a view before any is timed: the first ones draw its shadow tiles.
 constexpr int SETTLING_FRAMES = 4;
@@ -172,14 +172,25 @@ struct Timed {
     std::uint64_t shadowTiles = 0;
     /// UTA-0351: each step's GPU time a frame, empty where the queue kept none.
     std::array<std::vector<double>, urender::GPU_PASS_COUNT> passes;
+    /// UTA-0352: the host's steps a frame, and what of `milliseconds` neither
+    /// the recording nor any GPU step holds -- the submit, the blit out and
+    /// the wait. The last is empty where the queue kept no timestamps.
+    std::vector<double> prepare, record, submitAndWait;
 
     void add(const Timed& other) {
-        milliseconds.insert(milliseconds.end(), other.milliseconds.begin(), other.milliseconds.end());
+        const auto append = [](std::vector<double>& to, const std::vector<double>& from) {
+            to.insert(to.end(), from.begin(), from.end());
+        };
+        append(milliseconds, other.milliseconds);
         shadowTiles += other.shadowTiles;
-        for (std::size_t pass = 0; pass < passes.size(); ++pass)
-            passes[pass].insert(passes[pass].end(), other.passes[pass].begin(), other.passes[pass].end());
+        for (std::size_t pass = 0; pass < passes.size(); ++pass) append(passes[pass], other.passes[pass]);
+        append(prepare, other.prepare);
+        append(record, other.record);
+        append(submitAndWait, other.submitAndWait);
     }
 };
+
+double medianOf(const std::vector<double>& values) { return detail::frameSpreadOf(values).median; }
 
 std::string threePlaces(double value) { return std::format("{:.3f}", value); }
 
@@ -189,7 +200,9 @@ void writeTimed(std::ostream& out, const Timed& timed) {
         timed.milliseconds.empty() ? 0 : static_cast<double>(timed.shadowTiles) / static_cast<double>(timed.milliseconds.size());
     out << "\"milliseconds\": {\"min\": " << threePlaces(spread.min) << ", \"median\": " << threePlaces(spread.median)
         << ", \"p99\": " << threePlaces(spread.p99) << ", \"max\": " << threePlaces(spread.max) << "}, \"shadowTiles\": "
-        << threePlaces(tiles) << ", \"passes\": ";
+        << threePlaces(tiles) << ", \"host\": {\"prepare\": " << threePlaces(medianOf(timed.prepare))
+        << ", \"record\": " << threePlaces(medianOf(timed.record)) << ", \"submitAndWait\": "
+        << (timed.submitAndWait.empty() ? "null" : threePlaces(medianOf(timed.submitAndWait))) << "}, \"passes\": ";
     if (timed.passes[0].empty()) {
         out << "null";
         return;
@@ -197,7 +210,7 @@ void writeTimed(std::ostream& out, const Timed& timed) {
     out << '{';
     for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass)
         out << (pass == 0 ? "" : ", ") << '"' << urender::GPU_PASS_NAMES[pass]
-            << "\": " << threePlaces(detail::frameSpreadOf(timed.passes[pass]).median);
+            << "\": " << threePlaces(medianOf(timed.passes[pass]));
     out << '}';
 }
 
@@ -205,10 +218,13 @@ void tableRow(std::ostream& err, std::string_view what, const Timed& timed) {
     const detail::FrameSpread spread = detail::frameSpreadOf(timed.milliseconds);
     err << std::format("  {:<28} median {:8.3f} ms   99th {:8.3f}   slowest {:8.3f}   over {} frame(s)\n", what,
                        spread.median, spread.p99, spread.max, timed.milliseconds.size());
+    err << std::format("    host: prepare {:.3f}  record {:.3f}", medianOf(timed.prepare), medianOf(timed.record));
+    if (!timed.submitAndWait.empty()) err << std::format("  submit and wait {:.3f}", medianOf(timed.submitAndWait));
+    err << " ms\n";
     if (timed.passes[0].empty()) return;
     err << "    median by step:";
     for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass)
-        err << std::format("  {} {:.3f}", urender::GPU_PASS_NAMES[pass], detail::frameSpreadOf(timed.passes[pass]).median);
+        err << std::format("  {} {:.3f}", urender::GPU_PASS_NAMES[pass], medianOf(timed.passes[pass]));
     err << " ms\n";
 }
 
@@ -275,9 +291,16 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
             const urender::FrameStats stats = renderer.lastFrameStats();
             into->milliseconds.push_back(stats.frameMilliseconds);
             into->shadowTiles += stats.renderedShadowTiles;
-            if (stats.passesTimed)
-                for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass)
+            into->prepare.push_back(stats.prepareMilliseconds);
+            into->record.push_back(stats.recordMilliseconds);
+            if (stats.passesTimed) {
+                double gpu = 0;
+                for (std::size_t pass = 0; pass < urender::GPU_PASS_COUNT; ++pass) {
                     into->passes[pass].push_back(stats.passMilliseconds[pass]);
+                    gpu += stats.passMilliseconds[pass];
+                }
+                into->submitAndWait.push_back(stats.frameMilliseconds - stats.recordMilliseconds - gpu);
+            }
         }
         return true;
     };
@@ -300,7 +323,7 @@ int runFrame(std::span<const std::string_view> args, std::ostream& out, std::ost
     for (const Timed& timed : still) allStill.add(timed);
     for (const Timed& timed : moving) allMoving.add(timed);
 
-    out << "{\"schema\": " << SCHEMA << ", \"workload\": \"frame\", ";
+    out << "{\"schema\": " << FRAME_SCHEMA << ", \"workload\": \"frame\", ";
     detail::writeMachineAndBuild(out, build, load);
     out << ", \"device\": ";
     writeJsonString(out, renderer.deviceName());

@@ -105,14 +105,16 @@ struct Camera {
 };
 
 /// UTA-0351: the steps of a frame the GPU's clock times, in the order drawn.
-/// Shadows holds UTA-0333's copy of the tiles into the haze's atlas; Scene the
-/// depth, opaque, translucent and flame passes; Post the output stage,
-/// upscaling included. A light's fire upload and the blit out are in none.
-enum class GpuPass : std::uint8_t { Shadows, Clusters, Fog, Scene, Bloom, Post };
-inline constexpr std::size_t GPU_PASS_COUNT = 6;
+/// Fires is UTA-0286's upload of the replayed fire pictures; Shadows holds
+/// UTA-0333's copy of the tiles into the haze's atlas; Depth is UTA-0260's
+/// pre-pass; Flames UTA-0263's flames and UTA-0215's water specks; Post the
+/// output stage, upscaling included. Only the blit out is in none. UTA-0352
+/// split the old "scene" step into Depth, Opaque, Translucent and Flames.
+enum class GpuPass : std::uint8_t { Fires, Shadows, Clusters, Fog, Depth, Opaque, Translucent, Flames, Bloom, Post };
+inline constexpr std::size_t GPU_PASS_COUNT = 10;
 /// Each step's name, lower case, indexed by GpuPass.
-inline constexpr std::array<std::string_view, GPU_PASS_COUNT> GPU_PASS_NAMES{"shadows", "clusters", "fog",
-                                                                              "scene",   "bloom",    "post"};
+inline constexpr std::array<std::string_view, GPU_PASS_COUNT> GPU_PASS_NAMES{
+    "fires", "shadows", "clusters", "fog", "depth", "opaque", "translucent", "flames", "bloom", "post"};
 
 /// What the last frame had to give up -- SS 6. Lighting and shadows degrade
 /// rather than fail, and these say by how much, so the caps can be judged
@@ -126,6 +128,13 @@ struct FrameStats {
     Tier tier = Tier::Low;        ///< UTA-0051: the tier in use
     double renderScale = 1;       ///< the scale this frame was drawn at
     double frameMilliseconds = 0; ///< the wall time of this frame's GPU work (UTA-0051 SS 4.4)
+    /// UTA-0352: the host's own steps, wall time. `prepareMilliseconds` is
+    /// draw's work before the GPU is given the frame -- the bundle check, the
+    /// lights, the shadow plan, the fires' advance, the buffer writes -- which
+    /// frameMilliseconds leaves out. `recordMilliseconds` is the recording of
+    /// the frame's commands, which frameMilliseconds holds.
+    double prepareMilliseconds = 0;
+    double recordMilliseconds = 0;
     std::uint32_t droppedVolumeLights = 0; ///< UTA-0015: glowing lights past VOLUME_LIGHT_CAPACITY
     /// UTA-0351: each step's GPU time, indexed by GpuPass, read from the GPU's
     /// own clock. A step the frame skipped takes about none. All zero, and

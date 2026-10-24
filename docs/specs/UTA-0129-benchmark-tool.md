@@ -318,7 +318,7 @@ the frame's GPU work, submit and wait, with no present.
 Standard output is one JSON object; standard error carries a table.
 
 ```json
-{"schema": 1, "workload": "frame",
+{"schema": 2, "workload": "frame",
  "machine": {}, "build": {},
  "device": "<the Vulkan device's own name>", "tier": "high",
  "width": 1920, "height": 1080, "bundle": "<as given>",
@@ -326,15 +326,20 @@ Standard output is one JSON object; standard error carries a table.
  "views": [{"camera": "<its line>",
             "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
             "shadowTiles": 0.0,
-            "passes": {"shadows": 0.0, "clusters": 0.0, "fog": 0.0,
-                       "scene": 0.0, "bloom": 0.0, "post": 0.0}}],
+            "host": {"prepare": 0.0, "record": 0.0, "submitAndWait": 0.0},
+            "passes": {"fires": 0.0, "shadows": 0.0, "clusters": 0.0,
+                       "fog": 0.0, "depth": 0.0, "opaque": 0.0,
+                       "translucent": 0.0, "flames": 0.0, "bloom": 0.0,
+                       "post": 0.0}}],
  "moves": [{"from": 0, "to": 1,
             "milliseconds": {"min": 0.0, "median": 0.0, "p99": 0.0, "max": 0.0},
-            "shadowTiles": 0.0, "passes": {}}],
- "still": {"milliseconds": {}, "shadowTiles": 0.0, "passes": {}},
- "moving": {"milliseconds": {}, "shadowTiles": 0.0, "passes": {}}}
+            "shadowTiles": 0.0, "host": {}, "passes": {}}],
+ "still": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}},
+ "moving": {"milliseconds": {}, "shadowTiles": 0.0, "host": {}, "passes": {}}}
 ```
 
+- `schema` is 2: `UTA-0352` renamed the steps and added `host`. The bake
+  workload's stays 1.
 - `machine` and `build` are § 4.3's.
 - `p99` is the nearest-rank 99th percentile: of `n` sorted values, the one at
   position `ceil(0.99 n)`, counting from 1. Below a hundred frames it is the
@@ -346,7 +351,16 @@ Standard output is one JSON object; standard error carries a table.
   GPU's own clock is stamped between the steps, so it leaves out the submit
   and the wait that `milliseconds` holds, and the steps sum to less. It is
   `null` on a queue that keeps no timestamps. The table prints the same
-  medians under each row.
+  medians under each row. `UTA-0352` split the old `scene` step into
+  `depth`, `opaque`, `translucent` and `flames`, and added `fires`, the
+  upload no stamp covered; an old `scene` is the sum of the four.
+- `host` (`UTA-0352`) is the median of the host's own steps, wall time:
+  `prepare`, `FrameStats::prepareMilliseconds`, the work before the GPU is
+  given the frame, which `milliseconds` leaves out; `record`,
+  `FrameStats::recordMilliseconds`, the recording of the commands; and
+  `submitAndWait`, each frame's `milliseconds` less `record` and every
+  step, so the submit, the blit out and the wait. It is `null` where
+  `passes` is.
 - `still` and `moving` are over every still frame and every moving frame.
 - Compare frames on the median and the 99th percentile. The smallest says
   little: one fast frame does not make a view smooth.

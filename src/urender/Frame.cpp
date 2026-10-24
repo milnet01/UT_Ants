@@ -2,6 +2,7 @@
 // docs/specs/UTA-0014-vulkan-draw-path.md SS 4.3, SS 4.10 and SS 4.11.
 //
 // THE FRAME, IN ORDER -- recordFrame's order, and its section headings':
+//   fires: UTA-0286's replayed pictures the frame advanced, uploaded;
 //   shadow tiles: those this frame's plan says to draw (SS 4.8), each then
 //      copied into UTA-0333's quarter-size copy for the haze;
 //   0. clustered light culling, a compute pass (SS 4.6);
@@ -558,6 +559,9 @@ struct Renderer::Impl {
     std::uint64_t frameIndex = 0;
     /// SS 4.9's clock: a flickering light's phase is measured from here.
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    /// UTA-0352: how long the last draw's bundle check took, upload included;
+    /// FrameStats::prepareMilliseconds counts it.
+    std::chrono::steady_clock::duration bundleCheck{};
     /// Set: every frame draws at this light time instead of reading the clock
     /// (Renderer::pinLightSeconds). UTA-0191 draws one view twice and needs the
     /// two to agree on a pulsing light's phase.
@@ -1196,13 +1200,19 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     const VkViewport regionViewport{0, 0, static_cast<float>(region.width), static_cast<float>(region.height), 0, 1};
     const VkRect2D regionScissor{{0, 0}, region};
 
-    // UTA-0351: a timestamp at each step's end, once everything before it is done.
+    // UTA-0351: a timestamp at the frame's start and at each step's end, once
+    // everything before it is done. Query k + 1 is step k's end.
     if (passTimes != VK_NULL_HANDLE) vkCmdResetQueryPool(commands, passTimes, 0, GPU_PASS_COUNT + 1);
-    const auto stamp = [&](std::uint32_t bound) {
+    const auto stamp = [&](std::uint32_t query) {
         if (passTimes != VK_NULL_HANDLE)
-            vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, passTimes, bound);
+            vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, passTimes, query);
     };
+    const auto ended = [&](GpuPass pass) { stamp(static_cast<std::uint32_t>(pass) + 1); };
     stamp(0);
+
+    // -- Fires: UTA-0286 SS 4.4's pictures, before anything samples them ------
+    materials->recordFireUploads(commands);
+    ended(GpuPass::Fires);
 
     // -- Shadow tiles: only those this frame's plan says to draw (SS 4.8) ------
     // Run for a level with no geometry too: the plan counts its tiles as drawn,
@@ -1287,7 +1297,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
         }
     }
-    stamp(1);
+    ended(GpuPass::Shadows);
 
     // -- 0. Clustered light culling -------------------------------------------
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->clusters());
@@ -1298,7 +1308,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                   VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
-    stamp(2);
+    ended(GpuPass::Clusters);
 
     // -- 0.5. The fog volume (UTA-0015 SS 4.3) ----------------------------------
     // Each froxel's light and extinction from the lists just culled, then each
@@ -1334,7 +1344,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
                       VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
     }
-    stamp(3);
+    ended(GpuPass::Fog);
 
     // -- 1. The forward pass --------------------------------------------------
     hdr.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1451,10 +1461,12 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
                   VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                   VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    ended(GpuPass::Depth);
 
     vkCmdBeginRendering(commands, &rendering);
     drawBatches(Pass::Opaque);
     vkCmdEndRendering(commands);
+    ended(GpuPass::Opaque);
 
     // -- 2. The translucent pass -----------------------------------------------
     // Rasterization order holds within one rendering instance, not across two:
@@ -1474,6 +1486,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     vkCmdBeginRendering(commands, &rendering);
     drawBatches(Pass::Translucent);
     vkCmdEndRendering(commands);
+    ended(GpuPass::Translucent);
 
     // -- 2.5. Camera-facing flames (UTA-0263 SS 4.4) ---------------------------
     // Additive, so their order does not matter and nothing is sorted. They
@@ -1509,7 +1522,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         }
         vkCmdEndRendering(commands);
     }
-    stamp(4);
+    ended(GpuPass::Flames);
 
     // -- 3. Emissive bloom (UTA-0053) -----------------------------------------
     // Down the chain from the emission target, then back up it, each upsample
@@ -1569,7 +1582,7 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         // post.frag reads nothing from it at strength 0, but its set still names it.
         bloom[0].transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
-    stamp(5);
+    ended(GpuPass::Bloom);
 
     // -- 4. The output stage ---------------------------------------------------
     // A frame drawn at full size is tone mapped straight into `output`. A
@@ -1622,8 +1635,8 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
         upscaled.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         fullTargetPass(output, pipelines->rcas(), rcasSet, false);
     }
-    static_assert(GPU_PASS_COUNT == 6, "each GpuPass ends at one of the stamps above");
-    stamp(6);
+    ended(GpuPass::Post);
+    static_assert(GPU_PASS_COUNT == static_cast<std::size_t>(GpuPass::Post) + 1, "each GpuPass ends at one stamp above");
 
     // -- 5. The UI composite seam ----------------------------------------------
     compositeUi(commands);
@@ -1709,12 +1722,14 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
         if (impl.materials) UTA_CHECK(impl.writeDescriptors());
         impl.resized = false;
     }
+    const auto checkStarted = std::chrono::steady_clock::now();
     if (const BundleShape shape = shapeOf(bundle); !(shape == impl.shape) || !impl.geometry) {
         impl.shape = BundleShape{};
         UTA_CHECK(impl.upload(bundle));
         impl.shape = shape;
         impl.fogFrames = 0; // UTA-0356: another level's fog is no history for this one
     }
+    impl.bundleCheck = std::chrono::steady_clock::now() - checkStarted;
 
     // UTA-0163: a new level's sky, drawn once, before its first frame. Nothing
     // is presented; the faces go into the sky texture.
@@ -1758,6 +1773,7 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
 
 Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camera& camera,
                                       std::optional<std::uint32_t> image, std::optional<std::uint32_t> skyFace) {
+    const auto viewStarted = std::chrono::steady_clock::now();
     Impl& impl = *this;
     // UTA-0051 SS 4.4: the scale this frame draws at, and the top-left region of
     // the targets it covers. A fixed scale wins over dynamic resolution.
@@ -1988,8 +2004,9 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
     // leaves out present, which waits for the display under FIFO.
     const auto started = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::duration recording{};
     const Result<void> ran = impl.gpu->run([&](VkCommandBuffer commands) {
-        impl.materials->recordFireUploads(commands); // UTA-0286 SS 4.4, before anything samples them
+        const auto recordStarted = std::chrono::steady_clock::now();
         impl.recordFrame(commands, plan, region, fog);
         // SS 6's counts are read on the host once this finishes; the fence
         // alone does not make the compute pass's writes visible to it.
@@ -2020,6 +2037,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
             target.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
+        recording = std::chrono::steady_clock::now() - recordStarted;
     });
     // The plan already counts its tiles as drawn; after a failed submission
     // they were not, so every tile is placed and drawn again.
@@ -2046,6 +2064,12 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     impl.stats.tier = impl.tier;
     impl.stats.renderScale = scale;
     impl.stats.frameMilliseconds = milliseconds;
+    // UTA-0352: a sky face's draw made no bundle check of its own.
+    using Milliseconds = std::chrono::duration<double, std::milli>;
+    impl.stats.prepareMilliseconds =
+        Milliseconds(started - viewStarted + (skyFace ? std::chrono::steady_clock::duration{} : impl.bundleCheck))
+            .count();
+    impl.stats.recordMilliseconds = Milliseconds(recording).count();
     if (impl.passTimes != VK_NULL_HANDLE) {
         // UTA-0351: the frame has finished, so every bound is written.
         std::array<std::uint64_t, GPU_PASS_COUNT + 1> ticks{};

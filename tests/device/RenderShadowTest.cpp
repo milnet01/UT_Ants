@@ -207,6 +207,24 @@ TEST_CASE("UTA-0351: the GPU times each step of a frame, and the shadow step cos
     CHECK(drawing.passMilliseconds[shadows] > keeping.passMilliseconds[shadows]);
 }
 
+TEST_CASE("UTA-0352: the host's steps are timed and the recording and GPU steps fit inside the frame", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    const uta::ubundle::Bundle blocked = squareLitBy(pointAt({60, 60, 0}), true, 30, 0);
+
+    (void)redAt(renderer, blocked, {80, 32});
+    const uta::urender::FrameStats stats = renderer.lastFrameStats();
+    REQUIRE(stats.passesTimed);
+    double gpu = 0;
+    for (const double milliseconds : stats.passMilliseconds) gpu += milliseconds;
+    CAPTURE(stats.prepareMilliseconds, stats.recordMilliseconds, gpu, stats.frameMilliseconds);
+    CHECK(stats.prepareMilliseconds > 0);
+    CHECK(stats.recordMilliseconds > 0);
+    // The commands are recorded before they are submitted, so the recording and
+    // the GPU's steps do not overlap inside the wall time that holds both.
+    CHECK(stats.recordMilliseconds + gpu <= stats.frameMilliseconds);
+}
+
 TEST_CASE("UTA-0307: a shadow edge slanting across the atlas texels is a straight line", "[device]") {
     // DM-Deck16]['s slime: an edge running diagonally over the shadow map's
     // texels followed them in a sawtooth, because a surface read the map once.

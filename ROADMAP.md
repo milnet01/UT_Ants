@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=433 -->
+<!-- ants-roadmap-id-high-water: UTA=436 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22484,6 +22484,51 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-10-17.
   Lanes: ugame, uui.
+
+- 📋 [UTA-0434] **ut-bench frame: each map's facts beside its timings.**
+  Part 4 of the benchmarking tool the user asked for (2026-10-24); parts 1-3
+  (every step timed, the scene step split, shader register use) ride
+  UTA-0352. Per map and per view: lights drawn and shadowing, batches and
+  surfaces, the share of pixels lit by the cluster path against the
+  charted one, overflowed clusters. UTA-0039's survey found light count
+  correlates 0.55 with frame time across 126 maps; this puts the figures in
+  the report instead of a separate script.
+  UTA-0129 governs ut-bench's JSON; amend it with the build.
+  **Layman:** Show how many lights, surfaces and expensive pixels a map has next to how fast it draws, so its slowness can be tied to a cause.
+  Kind: feature.
+  Source: user-request-2026-10-24.
+  Lanes: ut-bench.
+
+- 📋 [UTA-0435] **ut-bench frame: say how far its figures can be trusted.**
+  Part 5 of the benchmarking tool (user, 2026-10-24). Record the load
+  average and the GPU's clock state at each view; repeat each view a set
+  number of times and report the spread between repeats; warn on stderr and
+  in the JSON when the spread or the load says the medians are not
+  comparable. Measured need (2026-10-24, UTA-0352): the same binary's frame
+  median on DM-ArchNemesis moved 32.6 to 24.9 ms between two reps at load
+  6-10, while its scene step held 18.2-18.7.
+  UTA-0129 governs ut-bench's JSON; amend it with the build.
+  **Layman:** Record how busy the machine was and repeat each run, so a slow figure caused by something else running is caught rather than believed.
+  Kind: feature.
+  Source: user-request-2026-10-24.
+  Lanes: ut-bench.
+
+- 📋 [UTA-0436] **ut-bench frame: what each effect costs on a map, by switching it off.**
+  Part 6 of the benchmarking tool (user, 2026-10-24). UTA-0352 split costs
+  by hand-edited throwaway shader probes (shadow taps, baked-mask reads,
+  parallax, probes, the light formula). Make that a ut-bench option: named
+  switches, each a specialisation constant or a FrameData flag that skips
+  one effect, timed against the full frame in the same run, alternated.
+  The switches are a measuring aid only: the game never sets them, and the
+  tier's features stay the one way an effect is turned off for players.
+  Needs a decision per switch on where it lives (constant or flag) so the
+  shader under test is the one that ships; a constant compiles a different
+  shader.
+  UTA-0129 governs ut-bench's JSON; amend it with the build.
+  **Layman:** Measure how much each visual effect costs on each map by drawing the map with that effect turned off, without editing the shaders by hand.
+  Kind: feature.
+  Source: user-request-2026-10-24.
+  Lanes: ut-bench.
 
 ## After 1.0.0
 

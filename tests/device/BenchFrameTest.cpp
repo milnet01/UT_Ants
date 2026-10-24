@@ -100,9 +100,18 @@ TEST_CASE("UTA-0129 INV-9: ut-bench frame draws each view and each move and says
     CHECK(count(json, "\"p99\": ") == 3 + 2 + 2);
     CHECK(count(json, "\"shadowTiles\": ") == 3 + 2 + 2);
     // UTA-0351: and each step's median, named, on a device that keeps timestamps.
-    CHECK(count(json, "\"passes\": {\"shadows\": ") == 3 + 2 + 2);
+    // UTA-0352: from the fire upload, with the scene's four passes, and the
+    // host's steps beside them; the frame's own schema number says so.
+    CHECK(count(json, "\"schema\": 2, \"workload\": \"frame\"") == 1);
+    CHECK(count(json, "\"passes\": {\"fires\": ") == 3 + 2 + 2);
+    CHECK(count(json, ", \"depth\": ") == 3 + 2 + 2);
+    CHECK(count(json, ", \"flames\": ") == 3 + 2 + 2);
     CHECK(count(json, ", \"post\": ") == 3 + 2 + 2);
-    CHECK(count(err.str(), "median by step:  shadows ") == 3 + 2 + 2);
+    CHECK(count(json, "\"scene\": ") == 0);
+    CHECK(count(json, "\"host\": {\"prepare\": ") == 3 + 2 + 2);
+    CHECK(count(json, ", \"submitAndWait\": null") == 0);
+    CHECK(count(err.str(), "median by step:  fires ") == 3 + 2 + 2);
+    CHECK(count(err.str(), "host: prepare ") == 3 + 2 + 2);
     CHECK(count(err.str(), "over 3 frame(s)") == 3);
     CHECK(count(err.str(), "over 4 frame(s)") == 2);
     CHECK(count(err.str(), "over 9 frame(s)") == 1);
