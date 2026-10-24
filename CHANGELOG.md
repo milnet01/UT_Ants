@@ -14,6 +14,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Added
 
+- **ut-bench accounts for every millisecond of a frame** (UTA-0352)
+  `ut-bench frame` now times the fire upload, the depth, solid,
+  see-through and flame passes apart, the work before the GPU is given the
+  frame, its recording, and what is left (submit, blit and wait). It also
+  reports every pipeline's shader statistics where the driver offers them:
+  registers, spills and waves per stage. The frame report's schema is 2.
+
 - **ut-dump says when an exit's or waypoint's class was not fully read** (UTA-0409)
   Each `exits` and `waypoints` element now ends with `chainEnd`, as
   `wiring.actors` has. Anything but `root` means the class defaults were
@@ -800,6 +807,21 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **Water and other see-through zone boundaries cost far less to draw** (UTA-0352)
+  A water sheet is often also a zone portal. The baker left portals out of
+  its baked shadows, so the renderer lit each one by reading every nearby
+  light's shadow map nine times a pixel. They are now charted like any lit
+  surface. At 4K High, DM-Fool'sBravado's worst view went from 20-21 ms to
+  12 ms and DM-[JAPAN]-AerialAct's from 17 ms to 14-15; both now hold
+  60 fps. Under 1.1% of a view's pixels move by more than 2 levels, at
+  water's shadow edges. Baker revision 69: re-bake every map.
+
+- **Outdoor maps draw up to 3 ms faster again** (UTA-0352)
+  The distant haze added on 2026-10-21 read the light probes for every
+  pixel of an outdoor area, even where it adds no haze. It now reads them
+  only where the haze shows. DM-Siberia][ and MH-UM-DeadCity are back
+  under 60 fps at 4K High; every picture is unchanged.
 
 - **The gate's link check no longer reads code as a link** (UTA-0411)
   `scripts/ci.sh` took `[&](const T& x)` inside a quoted code span for a

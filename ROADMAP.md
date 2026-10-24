@@ -22420,6 +22420,34 @@ docs/standards/versioning-overrides.md. Closes S8.
   stage; its 16 KiB of shared memory per 32-lane group is what limits it
   (the 2026-10-14 fix). The step is 0.1-0.6 ms on most maps but 1.7 ms on
   DM-FoT-SimpleX (1716 lights), so it is a SimpleX-specific lead.
+  Per-map breakdown (2026-10-24, worst survey view, 4K High, throwaway
+  shader probes, two reps agreeing within 0.1 ms; scratch
+  /mnt/Emulators/uta-scratch/u352/probe/r1024). ms saved by switching off:
+  ArchNemesis opaque 16.8: direct light 10.3 (shadow map 2.5, mask 2.0),
+  probes 2.6, parallax 1.2, variation 0.5.
+  Fool'sBravado: translucent 9.4 (direct 7.9, shadow map 5.5), opaque 7.1.
+  InversalLiandri: opaque 10.6 + translucent 7.0 (direct 5.6, shadow 3.9).
+  AerialAct: opaque 10.3 + translucent 3.6 (direct 2.8, shadow 2.1).
+  SimpleX: opaque 10.8; host prepare 1.45 and clusters 1.6 (1716 lights).
+  CAUSE of the translucent cost: those surfaces light through the cluster
+  path (cluster path off: Fool'sBravado translucent 9.4 to 1.5 ms), because
+  they have no mask chart. They are zone portals the level draws, flags
+  0x0400010c (PF_Portal | TwoSided | NotSolid | Translucent): AerialAct
+  4160 of 4160 level translucent triangles, Fool'sBravado 1989 of 2760.
+  UTA-0164 SS 4.2 leaves PF_Portal out of lit charts, on the premise that a
+  portal is never drawn; these are. InversalLiandri's translucent surfaces
+  are all on movers, which never carry charts: a map-specific case.
+  Fixed (2026-10-24, baker 69): zone portals the level draws are now
+  charted (UTA-0164 SS 4.2 amended). Old bake against new, one ut-bench,
+  worst view, 4K High, two reps (load 13-18): Fool'sBravado 20.2-21.1 to
+  12.2-12.3 ms (translucent 9.4 to 2.0), AerialAct 16.9-17.4 to 14.3-15.1
+  (translucent 3.6 to 1.1); ArchNemesis and InversalLiandri unchanged.
+  Pixels, 1280x720, survey cameras: ArchNemesis and InversalLiandri
+  byte-identical; the other two at most 1.07% of a view over 2 levels, max
+  22 on under 0.05%, at water's shadow edges.
+  Still over 16.7 ms: ArchNemesis (opaque 16.8: direct light 10.3) and
+  InversalLiandri (translucent 7.0 on movers, which carry no charts; opaque
+  10.6). SimpleX at 16.6-17.5 sits on the line.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
@@ -22567,7 +22595,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   frame's FrameStats: its JSON holds medians only, so no converter can.
   Segments `view:N` and `move:N-M`; header carries tool "ut-bench",
   settling frames, the pinned light time and the GPU tick.
-  Waiting-on: frameledger's format spec, reviewed in its repository.
+  The format is frameledger's FLED-0001, accepted by the three engines on
+  2026-10-24 (docs/specs/FLED-0001-run-file-format.md there). Build to it.
+  ut-bench lacks two required header fields: driver
+  (VkPhysicalDeviceDriverProperties) and dirty. frameledger's `check`
+  command arrives with its FLED-0002; test ut-bench's files against it.
   UTA-0129 governs ut-bench's output; amend it with the build.
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.

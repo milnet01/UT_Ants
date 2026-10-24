@@ -12,8 +12,11 @@
 namespace uta::ubake::charts {
 namespace {
 
-/// PolyFlags a chart must lack to be lit -- UTA-0164 SS 4.2.
-constexpr std::uint32_t UNLIT_FLAGS = PF_INVISIBLE | PF_FAKE_BACKDROP | PF_UNLIT | PF_PORTAL;
+/// PolyFlags a chart must lack to be lit -- UTA-0164 SS 4.2. Not PF_Portal: the
+/// renderer draws and lights a portal that is not invisible (UTA-0188), such
+/// as a water sheet, and with no chart it lit through the cluster path's
+/// shadow-map reads: 7.4 ms of DM-Fool'sBravado's frame at 4K (UTA-0352).
+constexpr std::uint32_t UNLIT_FLAGS = PF_INVISIBLE | PF_FAKE_BACKDROP | PF_UNLIT;
 
 Vec3 cross(const Vec3& a, const Vec3& b) noexcept {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};

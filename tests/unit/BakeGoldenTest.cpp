@@ -165,9 +165,11 @@ namespace {
 // 67, format 32: UTA-0397 gives each probe its reach, which LPRB carries and
 // the bounces read.
 // 68: UTA-0400 makes the bounces read it; until then they did not.
-constexpr std::uint32_t RECORDED_UNDER = 68;
+// 69: UTA-0352 charts the zone portals the level draws. Unchecked whether the
+// fixture has one; BAKR's revision moved it either way.
+constexpr std::uint32_t RECORDED_UNDER = 69;
 constexpr std::string_view GOLDEN =
-    "b995a7f32c3690178e3121bdd94cf15de594f430e051727056569b4624ff81e8";
+    "d8bd858884d3bc600efcc66fb113e6ad09105231016af694d46d4d5c2a25cc08";
 
 } // namespace
 

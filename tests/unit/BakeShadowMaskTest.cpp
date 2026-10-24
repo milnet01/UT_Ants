@@ -50,6 +50,8 @@ constexpr std::uint32_t PF_TRANSLUCENT = 0x00000004u;
 constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;
 constexpr std::uint32_t PF_MODULATED = 0x00000040u;
 constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
+constexpr std::uint32_t PF_INVISIBLE = 0x00000001u;
+constexpr std::uint32_t PF_PORTAL = 0x04000000u;
 
 /// Triangles gathered by batch -- material, then flags -- the key order GEOM keeps.
 struct Scene {
@@ -381,6 +383,25 @@ TEST_CASE("INV-3: a translucent or modulated or non-solid or backdrop pane casts
         REQUIRE(pair != nullptr);
         CHECK(pair->x == MASK_ALL_LIT);
     }
+}
+
+TEST_CASE("UTA-0352: a zone portal the level draws is charted and lit; an invisible one is not",
+          "[ubake][shadowmask]") {
+    // A water sheet is often a zone portal too (flags 0x0400010c on
+    // DM-[JAPAN]-AerialAct). The renderer draws and lights it (UTA-0188), so
+    // with no chart it lit through the cluster path's shadow-map reads.
+    Scene scene;
+    addQuad(scene, {0, 0, 0}, {512, 0, 0}, {512, 512, 0}, {0, 512, 0}, {0, 0, 1});
+    const std::uint32_t water = addQuad(scene, {0, 0, 100}, {200, 0, 100}, {200, 200, 100}, {0, 200, 100}, {0, 0, 1},
+                                        PF_PORTAL | PF_TWO_SIDED | PF_NOT_SOLID | PF_TRANSLUCENT, "water");
+    const std::uint32_t hidden = addQuad(scene, {300, 300, 100}, {500, 300, 100}, {500, 500, 100}, {300, 500, 100},
+                                         {0, 0, 1}, PF_PORTAL | PF_INVISIBLE, "portal");
+    JobSystem jobs(2);
+    const auto mask = bakeShadowMask(bundleOf(finish(std::move(scene)), {pointLight(LIGHT_AT)}), jobs);
+    REQUIRE(mask.has_value());
+    REQUIRE(mask->vertexChart[water] != MASK_NO_CHART);
+    CHECK(pairOf(*mask, water, 0) != nullptr);
+    CHECK(mask->vertexChart[hidden] == MASK_NO_CHART);
 }
 
 TEST_CASE("INV-3: a masked pane casts only its solid half's shadow", "[ubake][shadowmask]") {

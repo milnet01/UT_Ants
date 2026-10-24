@@ -87,8 +87,11 @@ one polygon, by `buildGeometry` step 8. Its vertices are the run from that
 index to the largest index its triangles name.
 
 A chart is **lit** when its batch's `polyFlags` has none of `PF_Unlit`,
-`PF_FakeBackdrop`, `PF_Invisible` or `PF_Portal`. Only lit charts get
-texels.
+`PF_FakeBackdrop` or `PF_Invisible`. Only lit charts get texels. A zone
+portal that is not invisible is lit: the renderer draws and lights it
+(`UTA-0188`), as a water sheet often is one. `UTA-0352` stopped leaving
+`PF_Portal` out; without a chart such a sheet lit through the cluster
+path.
 
 **The plane basis** comes from the chart's first vertex's `normal`, `n`.
 Take the world axis whose component of `n` is smallest in magnitude, lowest
