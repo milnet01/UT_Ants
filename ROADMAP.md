@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=437 -->
+<!-- ants-roadmap-id-high-water: UTA=438 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18312,6 +18312,28 @@ stays with movement in 0.2.0.
   **Layman:** Two tools' source files are listed by hand in several build targets, so adding a file to one can miss the others.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 14.
+
+- 📋 [UTA-0438] **Light PF_SpecialLit surfaces only by bSpecialLit lights, as UT99 does.**
+  UT99 lights a PF_SpecialLit surface only by lights with bSpecialLit, and
+  those lights light nothing else. UTA-0014 SS 9 deferred both ("no home
+  yet"): the renderer lights such a surface with every ordinary light, and
+  directLights drops every specialLit light (Lights.h).
+  Found by UTA-0352 (2026-10-24). DM-48SC-InversalLiandri: 84 of its 911
+  lights are specialLit; 234 level and 62 mover triangles are PF_SpecialLit,
+  the mover ones its large glass panels (22 movers, up to 900 x 300 units).
+  Its translucent pass is 7.0 ms of a 21 ms worst view at 4K High, 5.6 of it
+  direct light and 3.9 the cluster path's shadow-map reads, all from lights
+  UT99 would not apply there. The other three maps measured have 4 to 42
+  such triangles and 2 to 18 such lights.
+  Touches the bake (which lights a surface's SMSK pairs and the probes
+  count: a special light lights no ordinary surface, so bounces none?), the
+  drawn light list and clusters, shadow tiles for special lights, and
+  scene.frag's light loops. Several subsystems: decide on a spec
+  (spec-format SS 1) before building.
+  **Layman:** Some surfaces in UT maps are meant to be lit only by a few special lights; we light them with every light nearby, which is wrong and slow.
+  Kind: fix.
+  Source: in-session-2026-10-24 split-from-UTA-0352.
+  Lanes: urender, ubake.
 
 ## 0.2.0 — Movement and weapons
 
