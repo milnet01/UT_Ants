@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=436 -->
+<!-- ants-roadmap-id-high-water: UTA=437 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22394,6 +22394,27 @@ docs/standards/versioning-overrides.md. Closes S8.
   to 27.4, one view of eight); a one-off hitch until a re-run says
   otherwise. Scratch: /mnt/Emulators/uta-scratch/u352/survey
   (frame.sh, rank.sh, rank.txt).
+  Progress (2026-10-24): fresh format-32 bakes of the 9 maps over the floor,
+  4K High, the survey's cameras. A regression first: DM-ArchNemesis's scene
+  step was 3.3 ms slower than at ac67f77 (2026-10-16), old and new built
+  side by side and timed alternately, two reps. Bisected on that step
+  (scratch /mnt/Emulators/uta-scratch/u352/bisect) to c80d41d, UTA-0387:
+  skyOpenAt's 8-corner probe read ran for every pixel of a sky zone, haze or
+  none. Fixed: the probes and the sky ring are read only where the haze is
+  over 0. 38 views of five maps rendered byte-identical before and after;
+  with the haze forced off 8 of them changed, so the compare covers hazed
+  pixels. Scene shader still 96 VGPRs, 10 waves.
+  ut-bench now times every step (6e4c336): fires, shadows, clusters, fog,
+  depth, opaque, translucent, flames, bloom, post, and host prepare, record,
+  submit and wait. Opaque is the cost: 16-18.5 ms of ArchNemesis's worst
+  view; the other three scene passes under 0.1 ms together.
+  Worst view median, pre-fix to fixed, ms (load 2-7): Siberia][ 18.1 to
+  15.5, MH-UM-DeadCity 18.7 to 16.5, SimpleX 18.7 to 16.8, AerialAct 18.1 to
+  17.2, Fool'sBravado 22.1 to 20.2, ArchNemesis 23.9 to 22.4,
+  InversalLiandri 20.9 to 21.1 (its slow views are indoors; no haze there).
+  Still over 16.7: ArchNemesis, InversalLiandri, Fool'sBravado, AerialAct,
+  SimpleX. Next: per map, the opaque pass split by throwaway probes.
+  Scratch: /mnt/Emulators/uta-scratch/u352/{r1024,ab,haze}.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
@@ -22526,6 +22547,24 @@ docs/standards/versioning-overrides.md. Closes S8.
   shader.
   UTA-0129 governs ut-bench's JSON; amend it with the build.
   **Layman:** Measure how much each visual effect costs on each map by drawing the map with that effect turned off, without editing the shaders by hand.
+  Kind: feature.
+  Source: user-request-2026-10-24.
+  Lanes: ut-bench.
+
+- 📋 [UTA-0437] **ut-bench frame writes frameledger's per-frame file.**
+  frameledger is the benchmarking analyser Vestige, UT Ants and DOOM Ants
+  use (name chosen by the user, 2026-10-24). It is built by its own
+  session at /mnt/Games/Scripts/Linux/frameledger; the three engines are
+  its customers, not its builders (user, 2026-10-24). Its draft format
+  is one CSV per run: a `# frameledger {...}` JSON header line, then
+  run_id,segment,frame,category,name,depth,ms rows, one per measurement
+  per frame. ut-bench writes it itself under `--ledger PATH` from each
+  frame's FrameStats: its JSON holds medians only, so no converter can.
+  Segments `view:N` and `move:N-M`; header carries tool "ut-bench",
+  settling frames, the pinned light time and the GPU tick.
+  Waiting-on: frameledger's format spec, reviewed in its repository.
+  UTA-0129 governs ut-bench's output; amend it with the build.
+  **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.
   Lanes: ut-bench.

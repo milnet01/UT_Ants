@@ -655,13 +655,19 @@ void main() {
     // UTA-0337 part 3: in a zone open to the sky, a far surface gives way to
     // the sky's colour near the horizon, so a map's outer walls fade into the
     // sky rather than standing as a box. A sky window is the sky already.
+    // UTA-0352: a surface nearer than outdoorHazeStart takes none, so it reads
+    // neither the probes nor the sky ring. Read for every such pixel, they
+    // cost up to 3 ms a view at 4K High (DM-Siberia][ 1.4 to 3.1, 2026-10-24).
+    float haze = 0.0;
     if (zones[zone].sky != 0u && frame.outdoorHazeDepth > 0.0 && frame.cameraUnderwater == 0u && (draw.polyFlags & PF_FAKE_BACKDROP) == 0u
-        && (frame.skyTexture != NONE || frame.paintedSky != 0u)) {
+        && (frame.skyTexture != NONE || frame.paintedSky != 0u))
+        haze = outdoorHaze(distance(frame.eye, worldPosition));
+    if (haze > 0.0) {
         // UTA-0387 SS 4.3: only as far as the sky is seen here, so a room
         // sealed from it draws none. Open ground sees half its directions.
         // Read on the side the eye is on, as the reflection is.
         float skyOpen = skyOpenAt(frameProbeLattice(), probePointOn(surface));
-        float hazed = outdoorHaze(distance(frame.eye, worldPosition)) * min(1.0, skyOpen / OPEN_SKY_SHARE);
+        float hazed = haze * min(1.0, skyOpen / OPEN_SKY_SHARE);
         vec3 behind = (draw.polyFlags & PF_TRANSLUCENT) != 0u ? vec3(0.0) : horizonSkyAt(normalize(worldPosition - frame.eye));
         colour = mix(colour, behind, hazed);
     }
