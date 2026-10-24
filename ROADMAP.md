@@ -19928,7 +19928,7 @@ the weapon wheel, and first-person platforming. Closes S2 and S11.
   surface or swapchain, not no extension). Upper bound, 2x2 shading
   everywhere on the scene pipeline, UTA-0352's six maps, High,
   2880x1620: worst-view median down 3 to 6 ms.
-  Built, kept on the local branch uta-0327-vrs (5b99593, not pushed;
+  Built, kept on the branch uta-0327-vrs (5b99593, on GitHub as a backup, user 2026-10-24;
   main stays clean): optional
   VK_KHR_fragment_shading_rate attachment (DeviceCandidate,
   shadingRateTexelOf, Gpu::shadingRateTexel), Feature::CoarseShading
