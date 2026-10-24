@@ -21908,6 +21908,12 @@ docs/standards/versioning-overrides.md. Closes S8.
   Waiting-on: UTA-0352.
   Back to planned (user, 2026-10-19) until it can actually be worked; it
   still waits on UTA-0352.
+  Decided (user, 2026-10-24), replacing the 2026-10-11 decision: the
+  floor is 60 fps on High on this machine (RX 6600) drawing at 2560x1440
+  and upscaled to the 3840x2160 screen (render scale 2/3, FSR 1), not 4K
+  native. The user: "If we can target 1440p with upscaling I am happy.
+  With my eye sight I won't see the difference." Gameplay headroom
+  (user, 2026-10-14) still applies.
   **Layman:** Make sure it runs smoothly on real hardware across the whole map collection, not just on the two maps we kept testing with.
   Kind: perf.
   Source: design-2026-09-03.
@@ -22261,6 +22267,13 @@ docs/standards/versioning-overrides.md. Closes S8.
   Amend UTA-0051's spec when the switches are first built.
   Also (user, 2026-10-14): a field-of-view slider, defaulting to UT99's
   view. UTA-0357 sets the default and gives keys meanwhile.
+  Also (user, 2026-10-24): the menu offers the resolution the game draws at,
+  which upscaler stretches it to the screen, and the quality level (Low,
+  Medium, High, Ultra). Today's renderer has FSR 1 (UTA-0154) and a render
+  scale per tier; UTA-0076 adds FSR 3.1 and XeSS, which the upscaler choice
+  would list as they land. Context: the user set this machine's target the
+  same day as 60 fps on High drawing at 2560x1440 upscaled to its 4K screen
+  (UTA-0039).
   **Layman:** A graphics page in the settings lets players pick a quality level and then switch individual effects on or off to suit their computer.
   Kind: feature.
   Source: user-request-2026-10-06.
@@ -22470,6 +22483,21 @@ docs/standards/versioning-overrides.md. Closes S8.
   Still over 16.7 ms: ArchNemesis (opaque 16.8: direct light 10.3) and
   InversalLiandri (translucent 7.0 on movers, which carry no charts; opaque
   10.6). SimpleX at 16.6-17.5 sits on the line.
+  Target changed (user, 2026-10-24): 60 fps on High drawing at
+  2560x1440, upscaled to the 4K screen (render scale 2/3). Figures above
+  are at 4K native; re-measure at the new target before closing.
+  State at the 2026-10-24 handoff. High's render-scale floor is now 2/3
+  (Tiers.h, UTA-0051 decision 5 and INV-1), so High can draw 2560x1440 of a
+  4K target. Next: give ut-bench frame a --render-scale option (today it
+  fixes the scale at 1, Frame.cpp `config.fixedRenderScale = 1.0`; the
+  renderer clamps a fixed scale to the tier's floor), amend UTA-0129, then
+  time the survey at --size 3840x2160 --render-scale 0.6667 on High.
+  Survey bakes at baker 69 are in /mnt/Emulators/uta-scratch/u352/survey69/
+  bake (cc-job u352-survey69; the watcher u352-survey69-stop stops it once
+  "bakes done" is logged, before its stale 4K timing). Its run.sh resumes
+  from rc-<map> files; reuse its bake step, replace its timing step.
+  Then: UTA-0438 (PF_SpecialLit) for InversalLiandri; ArchNemesis's direct
+  light (10.3 ms at 4K) if it still misses at the new target.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
@@ -22623,6 +22651,10 @@ docs/standards/versioning-overrides.md. Closes S8.
   (VkPhysicalDeviceDriverProperties) and dirty. frameledger's `check`
   command arrives with its FLED-0002; test ut-bench's files against it.
   UTA-0129 governs ut-bench's output; amend it with the build.
+  FLED-0003 (2026-10-24): the static line may carry a top-level "summary"
+  object, which the text report prints whole; the rest goes to --json only
+  (the text caps it at 20 facts). Put each pipeline stage's VGPRs and
+  subgroups per SIMD in "summary" and the full statistics beside it.
   **Layman:** Save every frame's timings in the format shared with Vestige and DOOM Ants, so one analyser can find stutters and compare builds for all three games.
   Kind: feature.
   Source: user-request-2026-10-24.

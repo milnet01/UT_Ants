@@ -47,7 +47,9 @@ All made by the user on 2026-09-14.
    2 GB, is Low; 2 to 4 GB Medium; 4 to 8 GB High; 8 GB or more Ultra. The
    caller may override it. § 4.3 gives the thresholds as measured values.
 5. **The target is 60 frames a second.** The render scale may fall to 0.50 on
-   Low, 0.60 on Medium and 0.75 on High. Ultra never falls below 1.
+   Low, 0.60 on Medium and 2/3 on High. Ultra never falls below 1. High's
+   was 0.75 until the user set this machine's target as 2560x1440 upscaled to
+   its 4K screen, a scale of 2/3 (`UTA-0039`, 2026-10-24).
 6. **Every tier maps to the one baked texture figure.** A smaller figure for a
    low tier needs smaller texture copies at upload, which is `UTA-0152`.
 
@@ -200,7 +202,7 @@ last frame's render scale. `ut-ants`'s command line is not a breaking surface
 
 - **INV-1** — `settingsOf` gives Ultra a floor of exactly 1, each lower tier a
   floor no higher than the tier above it, and every tier a target of
-  1000 / 60 ms. Low 0.50, Medium 0.60, High 0.75.
+  1000 / 60 ms. Low 0.50, Medium 0.60, High 2/3.
   *Test:* `tests/unit/RenderTiersTest.cpp`, one case per tier asserting its
   literal.
   *Breaks when:* a floor rises above its upper neighbour, or Ultra's falls below

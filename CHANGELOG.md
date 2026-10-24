@@ -624,6 +624,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **High may draw at two-thirds of the screen and upscale** (UTA-0039)
+  The target on the development machine is now 2560x1440 upscaled to its
+  4K screen, so High's lowest render scale is 2/3 instead of 0.75. Dynamic
+  resolution can drop that far to hold 60 fps.
+
 - **class-census names an over-long ancestry chain "too deep", not "cycle"** (UTA-0424)
   A chain still going after 64 classes with no repeat was counted as a
   cycle. It now has its own line, as upkg's walker refuses it. The

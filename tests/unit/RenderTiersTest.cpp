@@ -27,7 +27,7 @@ constexpr std::uint64_t GIB = 1024ull * 1024ull * 1024ull;
 TEST_CASE("UTA-0051 INV-1: each tier's floor and target are the spec's", "[render]") {
     CHECK(settingsOf(Tier::Low).minimumRenderScale == 0.50);
     CHECK(settingsOf(Tier::Medium).minimumRenderScale == 0.60);
-    CHECK(settingsOf(Tier::High).minimumRenderScale == 0.75);
+    CHECK(settingsOf(Tier::High).minimumRenderScale == 2.0 / 3.0); // 2560x1440 of a 4K screen
     CHECK(settingsOf(Tier::Ultra).minimumRenderScale == 1.00);
     for (const Tier tier : ALL) CHECK(settingsOf(tier).frameTimeTargetMilliseconds == 1000.0 / 60.0);
     CHECK(settingsOf(Tier::Low).minimumRenderScale <= settingsOf(Tier::Medium).minimumRenderScale);

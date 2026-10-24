@@ -43,6 +43,11 @@ deferred out of that cut.
 format 32 (`UTA-0397`) and the baker revision 69 (`UTA-0352`). Re-bake any
 map baked before either.
 
+**The frame-rate target is 60 fps on High on this machine, drawing at
+2560x1440 and upscaled to its 4K screen** (render scale 2/3), with headroom
+left for gameplay (user, 2026-10-24, replacing 4K native; `UTA-0039`).
+Measure every step of a frame, per map (`ut-bench frame`).
+
 **The renderer's first iteration uses the cheapest methods that still look
 like a modern game**; fully modern features come after (user, 2026-09-14).
 
