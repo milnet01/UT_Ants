@@ -22498,6 +22498,19 @@ docs/standards/versioning-overrides.md. Closes S8.
   from rc-<map> files; reuse its bake step, replace its timing step.
   Then: UTA-0438 (PF_SpecialLit) for InversalLiandri; ArchNemesis's direct
   light (10.3 ms at 4K) if it still misses at the new target.
+  Measured at the new target (2026-10-24, ed10b4e, baker 69): ut-bench
+  frame --tier high --size 3840x2160 --render-scale 0.6667, the survey's
+  cameras, all 127 maps, GPU quiet (a first run shared the card with
+  DOOM_Ants' renderer and was discarded; frame1440-contended/). Output:
+  /mnt/Emulators/uta-scratch/u352/survey69/frame1440/, rank1440.tsv.
+  No map's worst-view median is over 16.7 ms. Over 13.3 ms (80% of the
+  frame): ArchNemesis only, 14.9 (opaque 8.2). Next: InversalLiandri
+  12.8 (translucent 3.3), SimpleX 12.8 (host prepare 1.3, clusters 1.6).
+  p99 over 16.7 ms: ArchNemesis 19.2 and CTC-Croon][ 25.7 (median 8.5;
+  a spike, not yet looked at).
+  Not done: gameplay headroom (CLAUDE.md § Standing facts) is thin on
+  ArchNemesis, and Croon]['s spike is unexplained. Next: find Croon]['s
+  p99 frame; then UTA-0438 for InversalLiandri; ArchNemesis's direct light.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
