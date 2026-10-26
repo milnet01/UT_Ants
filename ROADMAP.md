@@ -22534,6 +22534,17 @@ docs/standards/versioning-overrides.md. Closes S8.
   light is about 2.6 ms of a 3.2 ms translucent pass, and only about
   0.5 ms of that falls on special-lit surfaces. The other ~2 ms is direct
   light on translucent surfaces without the flag.
+  Croon][ (2026-10-26, a5bc107, baker 69 survey bake, the survey's
+  cameras, High, 3840x2160 at scale 0.6667, three reps, GPU quiet, load
+  9-10 with a VM running): no view's slowest frame over 15.4 ms in any
+  rep, against 25.7 on 2026-10-24. The survey's only map with a p99 over
+  twice its median was this one, once. Closed as a one-off hitch.
+  Unexplained: under that load some views' medians moved between about
+  6.5 and 12 ms from rep to rep (view 0: 7.3, 12.7, 7.0). Scratch:
+  /mnt/Emulators/uta-scratch/u352/croon.
+  InversalLiandri's movers (ut-dump --wiring-graph): all 33 have
+  numKeys 1, but key 1 is set on some (Mover3, tag base_floor_glass_02,
+  key 1 at z -384), so whether they can move is not settled by numKeys.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
