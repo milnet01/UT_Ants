@@ -18243,7 +18243,7 @@ stays with movement in 0.2.0.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 02.
 
-- 📋 [UTA-0428] **Readability: drive urecipe::parse from one table per section kind.**
+- ✅ [UTA-0428] **Readability: drive urecipe::parse from one table per section kind.**
   Lane 08 finding at Recipe.cpp parse: each section kind is handled in
   five places in parse and four outside it. UTA-0419 fixed the specific
   confusion (a checklist comment at the In enum, the five map-digest
@@ -18252,22 +18252,24 @@ stays with movement in 0.2.0.
   needs digest, required keys) driving heading, completeness and digest
   checks. Not done now: it rewrites the whole parser; messages and line
   numbers must stay byte-identical (RecipeFormatTest pins the lines).
+  Matrix green on dee0df2 (run 40253064408).
   **Layman:** Make adding a new kind of recipe section a one-place change.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 08.
 
-- 📋 [UTA-0429] **Readability: one tiling wrap helper across umat.**
+- ✅ [UTA-0429] **Readability: one tiling wrap helper across umat.**
   Lane 08 finding at Enlarge.cpp stretchAxis: the tiling wrap is written
   in Enlarge.cpp (wrap), Derive.cpp (wrapped) and Resolve.cpp (inline,
   for offsets of one only). UTA-0419 removed the shadowing copy inside
   stretchAxis. Left: the optional shared helper across the three files.
   Not done now: the reviewer marked it optional, and Resolve's copy is
   narrower, so merging needs its callers read first.
+  Matrix green on dee0df2 (run 40253064408).
   **Layman:** Write the edge-wrapping arithmetic for textures once.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 08.
 
-- 📋 [UTA-0430] **Lift the viewer's capture and event dispatch out of run().**
+- ✅ [UTA-0430] **Lift the viewer's capture and event dispatch out of run().**
   apps/ut-ants/main.cpp run() holds renderer setup, a long capture
   lambda and the event chain. UTA-0422 fixed the specific confusion: each
   action's key and pad button now share one branch. Not done there: lifting
@@ -18275,11 +18277,12 @@ stays with movement in 0.2.0.
   because the lambda captures about ten locals of run(), so the lift is a
   restructure of its own, not a readability edit.
   Lane file: docs/reviews/review-readability-2026-10-23/lane-11-app-ut-ants.md
+  Matrix green on dee0df2 (run 40253064408).
   **Layman:** Split the viewer's longest function so a newcomer can find each key's job.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 11.
 
-- 📋 [UTA-0431] **One option-value helper for the C++ tools.**
+- ✅ [UTA-0431] **One option-value helper for the C++ tools.**
   Lane 12 (docs/reviews/review-readability-2026-10-23/lane-12-tools-cpp.md,
   ut-bake/Cli.cpp:103): "take the next argument as this option's value" is
   written six times -- ut-bake, ut-paths, ut-bench Cli.cpp and Frame.cpp,
@@ -18290,21 +18293,23 @@ stays with movement in 0.2.0.
   subject) and changes each tool's refusals, so it is a decision on one
   rule for all six, not an edit. Home: tools/common/, beside Json.h and
   Camera.h.
+  Matrix green on dee0df2 (run 40253064408).
   **Layman:** The developer tools each read their command-line options their own way, and disagree on small things.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 12.
 
-- 📋 [UTA-0432] **ubake keeps two hex encoders: TextureCache.cpp's private hex and detail::hex.**
+- ✅ [UTA-0432] **ubake keeps two hex encoders: TextureCache.cpp's private hex and detail::hex.**
   src/ubake/TextureCache.cpp's anonymous-namespace hex() repeats
   src/ubake/Name.cpp's detail::hex (both lower-case digits). Found next
   door while checking the lane 13 tile-questions hash lead; outside
   lane 13's Python scope, so not fixed there. Fold it into detail::hex;
   the cache file names must stay byte-identical.
+  Matrix green on dee0df2 (run 40253064408).
   **Layman:** Two copies of the same small routine in the baker; keep one.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 13.
 
-- 📋 [UTA-0433] **Build ut-bench's and ut-paths' testable sources once, not per target.**
+- ✅ [UTA-0433] **Build ut-bench's and ut-paths' testable sources once, not per target.**
   tools/ut-bench's Cli.cpp and Frame.cpp are listed in its own
   CMakeLists.txt and again in uta_unit_tests and uta_device_tests;
   ut-paths' Walkable.cpp and Seeds.cpp twice in tests/CMakeLists.txt.
@@ -18313,6 +18318,7 @@ stays with movement in 0.2.0.
   and into the unit tests" and UTA-0121 SS 4.1 places the ut-paths
   sources, so the spec wording is checked first.
   Finding: docs/reviews/review-readability-2026-10-23/lane-14-build-gate.md
+  Matrix green on dee0df2 (run 40253064408).
   **Layman:** Two tools' source files are listed by hand in several build targets, so adding a file to one can miss the others.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 14.
