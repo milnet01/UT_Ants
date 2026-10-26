@@ -1,6 +1,7 @@
 // umat -- see Enlarge.h.
 
 #include "umat/Enlarge.h"
+#include "umat/Wrap.h"
 
 #include <algorithm>
 #include <bit>
@@ -14,10 +15,7 @@ namespace {
 
 using detail::Phase;
 
-[[nodiscard]] std::size_t wrap(std::int64_t index, std::int64_t size) noexcept {
-    const std::int64_t r = index % size;
-    return static_cast<std::size_t>(r < 0 ? r + size : r);
-}
+using detail::wrap;
 
 /// The first source index output index `j` reads at factor `k`:
 /// floor((2j + 1 - k) / 2k) - (A - 1), without a division of a negative.

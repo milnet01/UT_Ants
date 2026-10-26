@@ -1,6 +1,7 @@
 // umat -- see Resolve.h.
 
 #include "umat/Resolve.h"
+#include "umat/Wrap.h"
 
 #include <array>
 #include <cstddef>
@@ -41,7 +42,7 @@ void fill(Image& image) {
     const auto neighbour = [&](std::size_t i, std::int64_t dx, std::int64_t dy) {
         const std::int64_t x = static_cast<std::int64_t>(i) % width;
         const std::int64_t y = static_cast<std::int64_t>(i) / width;
-        return static_cast<std::size_t>(((y + dy + height) % height) * width + (x + dx + width) % width);
+        return detail::wrap(y + dy, height) * image.width + detail::wrap(x + dx, width);
     };
 
     std::vector<bool> queued(count);

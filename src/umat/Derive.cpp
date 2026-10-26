@@ -1,6 +1,7 @@
 // umat -- see Derive.h.
 
 #include "umat/Derive.h"
+#include "umat/Wrap.h"
 
 #include <algorithm>
 #include <bit>
@@ -49,11 +50,7 @@ namespace {
 
 /// One-channel `height` at (x, y), wrapping at every edge.
 [[nodiscard]] std::int64_t wrapped(const Image& height, std::int64_t x, std::int64_t y) noexcept {
-    const std::int64_t w = height.width;
-    const std::int64_t h = height.height;
-    const auto sx = static_cast<std::size_t>(((x % w) + w) % w);
-    const auto sy = static_cast<std::size_t>(((y % h) + h) % h);
-    return at(height, sx, sy, 0);
+    return at(height, detail::wrap(x, height.width), detail::wrap(y, height.height), 0);
 }
 
 /// A normal component in [-len, len] to a byte: 127.5 * c + 128, rounded
