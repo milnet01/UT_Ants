@@ -80,6 +80,87 @@ Result<Source> compressedSource(const ubundle::CompressedTexture& texture, bool 
     return source;
 }
 
+/// One kind of look a MATS record may carry: every entry, and each record's
+/// first entry or gpu::NONE. byRecord holds exactly one entry per MATS
+/// record, since upload reads it by record position. entries is never
+/// empty: a binding holds at least one.
+template <typename Entry>
+struct LookTable {
+    std::vector<Entry> entries;
+    std::vector<std::uint32_t> byRecord;
+};
+
+/// UTA-0263 SS 4.2: each flame look's eight entries, in MATS order. A look
+/// stays reachable even where its maps are missing, since a FLAM record
+/// names the MATS record and not the material drawn.
+LookTable<gpu::FlameRampEntry> flameRamps(const ubundle::Bundle& bundle) {
+    LookTable<gpu::FlameRampEntry> ramps;
+    if (bundle.materials) {
+        for (const ubundle::MaterialRecord& record : *bundle.materials) {
+            std::uint32_t ramp = gpu::NONE;
+            if (record.flame) {
+                ramp = static_cast<std::uint32_t>(ramps.entries.size());
+                for (const auto& [r, g, b] : record.flame->ramp) ramps.entries.push_back({r, g, b, 0.0f});
+            }
+            ramps.byRecord.push_back(ramp);
+        }
+    }
+    if (ramps.entries.empty()) ramps.entries.push_back({});
+    return ramps;
+}
+
+/// UTA-0105 SS 4.4: each liquid look, in MATS order, its settings as floats.
+LookTable<gpu::Liquid> liquidLooks(const ubundle::Bundle& bundle) {
+    LookTable<gpu::Liquid> liquids;
+    if (bundle.materials) {
+        for (const ubundle::MaterialRecord& record : *bundle.materials) {
+            if (!record.liquid) {
+                liquids.byRecord.push_back(gpu::NONE);
+                continue;
+            }
+            const ubundle::LiquidLook& look = *record.liquid;
+            gpu::Liquid liquid{};
+            liquid.kind = static_cast<std::uint32_t>(look.kind);
+            liquid.panning = look.panning;
+            liquid.amplitude = look.amplitude;
+            liquid.frequency = look.frequency;
+            liquid.pan = {static_cast<float>(look.pan[0]), static_cast<float>(look.pan[1])};
+            liquid.size = {static_cast<float>(look.size[0]), static_cast<float>(look.size[1])};
+            liquid.bump = {static_cast<float>(look.bump[0]), static_cast<float>(look.bump[1]),
+                           static_cast<float>(look.bump[2]), static_cast<float>(look.moveIce)};
+            for (std::size_t i = 0; i < look.ramp.size(); ++i)
+                liquid.ramp[i] = {look.ramp[i][0], look.ramp[i][1], look.ramp[i][2], 0.0f};
+            liquids.byRecord.push_back(static_cast<std::uint32_t>(liquids.entries.size()));
+            liquids.entries.push_back(liquid);
+        }
+    }
+    if (liquids.entries.empty()) liquids.entries.push_back({});
+    return liquids;
+}
+
+/// UTA-0286 SS 4.4: a fire look's simulation, run PRIME_STEPS before its
+/// first picture is taken.
+ufire::Fire primedFire(const ubundle::FireLook& look) {
+    std::vector<ufire::Spark> sparks;
+    for (const ubundle::FireSpark& spark : look.sparks)
+        sparks.push_back(
+            {spark.type, spark.heat, spark.x, spark.y, spark.byteA, spark.byteB, spark.byteC, spark.byteD});
+    ufire::Fire fire(look.size[0], look.size[1], std::move(sparks),
+                     {.renderHeat = look.renderHeat, .rising = look.rising == 1, .sparksLimit = look.sparksLimit},
+                     ufire::Turning::Model);
+    for (int step = 0; step < ufire::PRIME_STEPS; ++step) fire.step();
+    return fire;
+}
+
+/// A fire look's picture as a texture to upload: one level, sRGB.
+Source fireSource(const ubundle::FireLook& look, std::span<const std::byte> picture) {
+    Source source;
+    source.desc = {VK_FORMAT_R8G8B8A8_SRGB, look.size[0], look.size[1], 1, SAMPLED};
+    source.bytes = picture;
+    source.levelSizes = {picture.size()};
+    return source;
+}
+
 } // namespace
 
 Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle, bool showMissing) {
@@ -114,51 +195,10 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
         return index;
     };
 
-    // UTA-0263 SS 4.2: each flame look's eight entries, in MATS order. A
-    // look stays reachable even where its maps are missing, since a FLAM
-    // record names the MATS record and not the material drawn.
-    std::vector<gpu::FlameRampEntry> ramps;
-    if (bundle.materials) {
-        for (const ubundle::MaterialRecord& record : *bundle.materials) {
-            std::uint32_t ramp = gpu::NONE;
-            if (record.flame) {
-                ramp = static_cast<std::uint32_t>(ramps.size());
-                for (const auto& [r, g, b] : record.flame->ramp) ramps.push_back({r, g, b, 0.0f});
-            }
-            set.rampByRecord_.push_back(ramp);
-        }
-    }
-    // The binding is never empty.
-    if (ramps.empty()) ramps.push_back({});
-
-    // UTA-0105 SS 4.4: each liquid look, in MATS order, its settings as floats.
-    std::vector<gpu::Liquid> liquids;
-    // Exactly one entry per MATS record, as rampByRecord_ has: the pass below
-    // reads both by record position.
-    std::vector<std::uint32_t> liquidByRecord;
-    if (bundle.materials) {
-        for (const ubundle::MaterialRecord& record : *bundle.materials) {
-            if (!record.liquid) {
-                liquidByRecord.push_back(gpu::NONE);
-                continue;
-            }
-            const ubundle::LiquidLook& look = *record.liquid;
-            gpu::Liquid liquid{};
-            liquid.kind = static_cast<std::uint32_t>(look.kind);
-            liquid.panning = look.panning;
-            liquid.amplitude = look.amplitude;
-            liquid.frequency = look.frequency;
-            liquid.pan = {static_cast<float>(look.pan[0]), static_cast<float>(look.pan[1])};
-            liquid.size = {static_cast<float>(look.size[0]), static_cast<float>(look.size[1])};
-            liquid.bump = {static_cast<float>(look.bump[0]), static_cast<float>(look.bump[1]),
-                           static_cast<float>(look.bump[2]), static_cast<float>(look.moveIce)};
-            for (std::size_t i = 0; i < look.ramp.size(); ++i)
-                liquid.ramp[i] = {look.ramp[i][0], look.ramp[i][1], look.ramp[i][2], 0.0f};
-            liquidByRecord.push_back(static_cast<std::uint32_t>(liquids.size()));
-            liquids.push_back(liquid);
-        }
-    }
-    if (liquids.empty()) liquids.push_back({});
+    LookTable<gpu::FlameRampEntry> ramps = flameRamps(bundle);
+    set.rampByRecord_ = std::move(ramps.byRecord);
+    const LookTable<gpu::Liquid> liquids = liquidLooks(bundle);
+    const std::vector<std::uint32_t>& liquidByRecord = liquids.byRecord;
 
     // UTA-0286 SS 4.4: each fire look's primed picture, uploaded beside the
     // maps; its bytes outlive the staging copy below.
@@ -198,23 +238,11 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
             std::uint32_t fireBase = gpu::NONE;
             if (record.fire) {
                 const ubundle::FireLook& look = *record.fire;
-                std::vector<ufire::Spark> sparks;
-                for (const ubundle::FireSpark& spark : look.sparks)
-                    sparks.push_back({spark.type, spark.heat, spark.x, spark.y, spark.byteA, spark.byteB,
-                                      spark.byteC, spark.byteD});
-                ufire::Fire fire(look.size[0], look.size[1], std::move(sparks),
-                                 {.renderHeat = look.renderHeat, .rising = look.rising == 1,
-                                  .sparksLimit = look.sparksLimit},
-                                 ufire::Turning::Model);
-                for (int step = 0; step < ufire::PRIME_STEPS; ++step) fire.step();
+                const ufire::Fire fire = primedFire(look);
                 std::vector<std::byte>& picture = firePictures.emplace_back(fire.heat().size() * 4);
                 ufire::colour(fire.heat(), look.palette, look.masked == 1, picture);
-                Source source;
-                source.desc = {VK_FORMAT_R8G8B8A8_SRGB, look.size[0], look.size[1], 1, SAMPLED};
-                source.bytes = picture;
-                source.levelSizes = {picture.size()};
                 fireBase = static_cast<std::uint32_t>(sources.size());
-                sources.push_back(std::move(source));
+                sources.push_back(fireSource(look, picture));
                 set.fires_.push_back({.texture = fireBase, .primed = fire, .fire = fire, .palette = look.palette,
                                       .masked = look.masked == 1,
                                       .stepsPerSecond = ufire::stepsPerSecond(look.maxFrameRate),
@@ -314,9 +342,10 @@ Result<MaterialSet> MaterialSet::upload(Gpu& gpu, const ubundle::Bundle& bundle,
                 Buffer::create(gpu, fireStagingBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, BufferMemory::HostWrite));
     }
     UTA_TRY(set.records_, Buffer::upload(gpu, std::as_bytes(std::span(records)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
-    UTA_TRY(set.ramps_, Buffer::upload(gpu, std::as_bytes(std::span(ramps)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+    UTA_TRY(set.ramps_,
+            Buffer::upload(gpu, std::as_bytes(std::span(ramps.entries)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     UTA_TRY(set.liquids_,
-            Buffer::upload(gpu, std::as_bytes(std::span(liquids)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+            Buffer::upload(gpu, std::as_bytes(std::span(liquids.entries)), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
     return set;
 }
 

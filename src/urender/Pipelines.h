@@ -101,6 +101,17 @@ public:
 private:
     Pipelines() = default;
 
+    // create's steps, in its order. Each fills the members its section names.
+    [[nodiscard]] VkPipelineCreateFlags createFlags() const noexcept;
+    [[nodiscard]] Result<void> createSceneSet();
+    [[nodiscard]] Result<void> createPostSet();
+    [[nodiscard]] Result<void> createScenePipelines(const TargetFormats& formats, Tier tier, bool lightTerms);
+    [[nodiscard]] Result<void> createOutputPipelines(const TargetFormats& formats, VkShaderModule postVertex);
+    [[nodiscard]] Result<void> createBloomChain(const TargetFormats& formats, VkShaderModule postVertex);
+    [[nodiscard]] Result<void> createClusters();
+    [[nodiscard]] Result<void> createFog();
+    [[nodiscard]] Result<void> createShadow(const TargetFormats& formats);
+
     /// Every pipeline, under a name a reader can find it by.
     [[nodiscard]] std::vector<std::pair<std::string, VkPipeline>> named() const;
 
