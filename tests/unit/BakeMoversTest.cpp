@@ -18,6 +18,7 @@
 #include "ubake/Actors.h"
 #include "ubake/Bake.h"
 #include "ubake/Movers.h"
+#include "ubake/StillMovers.h"
 #include "ubake/Zones.h"
 #include "ubundle/Bundle.h"
 #include "umap/Rooms.h"
@@ -534,4 +535,55 @@ TEST_CASE("UTA-0156 INV-5: zoneAt gives 0 where there is no room or the zone is 
     // Zone 2 with no room: roomAt finds NO_ROOM.
     rooms.roomForZone[2] = uta::umap::NO_ROOM;
     CHECK(int(uta::ubundle::zoneAt(rooms, {0.0F, 0.0F, 10.0F}, 3)) == 0);
+}
+
+TEST_CASE("UTA-0439 SS 4.3: a still mover is charted where the engine places it", "[ubake][movers]") {
+    // One triangle, its normal along its front, placed under each rotation
+    // and postScale INV-7 uses, a mirroring one among them.
+    const std::array<fc::Rotator, 4> rotations = {fc::Rotator{0, 0, 0}, fc::Rotator{0, 0, -7001},
+                                                  fc::Rotator{4097, 12345, 0}, fc::Rotator{1234, -5678, 9101}};
+    const std::array<fc::Vec, 3> postScales = {fc::Vec{1, 1, 1}, fc::Vec{1, 1, 2}, fc::Vec{-1, 1, 1}};
+    const fc::Vec location{100, -200, 300};
+    const std::array<fc::Vec, 3> corners = {fc::Vec{64, 0, 0}, fc::Vec{0, 64, 0}, fc::Vec{0, 0, 64}};
+
+    for (const fc::Rotator& rotation : rotations)
+        for (const fc::Vec& post : postScales) {
+            CAPTURE(rotation.pitch, rotation.yaw, rotation.roll, post.x, post.y, post.z);
+            MoverShape mover;
+            mover.still = 1;
+            mover.location = {100, -200, 300};
+            mover.rotation = {rotation.pitch, rotation.yaw, rotation.roll};
+            mover.postScale = {static_cast<float>(post.x), static_cast<float>(post.y), static_cast<float>(post.z)};
+            for (const fc::Vec& c : corners) {
+                uta::ubundle::GeometryVertex vertex;
+                vertex.position = {static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z)};
+                vertex.normal = {0.57735027f, 0.57735027f, 0.57735027f};
+                mover.geometry.vertices.push_back(vertex);
+            }
+            mover.geometry.indices = {0, 1, 2};
+            mover.geometry.batches = {uta::ubundle::GeometryBatch{"", 0, 0, 3}};
+
+            const auto charted = uta::ubake::chartedGeometry(uta::ubundle::Geometry{}, {mover});
+            REQUIRE(charted.has_value());
+            REQUIRE(charted->vertices.size() == 3);
+            const fc::Coords world =
+                fc::toWorld(location, rotation, fc::Vec{}, fc::Scale{fc::Vec{1, 1, 1}}, fc::Scale{post}, fc::Trig::Exact);
+            const auto at = [&](std::uint32_t k) {
+                const auto& position = charted->vertices[charted->indices[k]].position;
+                return fc::Vec{position[0], position[1], position[2]};
+            };
+            for (std::size_t k = 0; k < 3; ++k) {
+                const fc::Vec engine = fc::transformPointBy(corners[k], world);
+                const auto& position = charted->vertices[k].position;
+                CHECK(std::abs(position[0] - engine.x) < 0.01);
+                CHECK(std::abs(position[1] - engine.y) < 0.01);
+                CHECK(std::abs(position[2] - engine.z) < 0.01);
+            }
+            // The placed winding's front is the side the placed normal points to.
+            const fc::Vec e1 = at(1) - at(0), e2 = at(2) - at(0);
+            const fc::Vec front{e1.y * e2.z - e1.z * e2.y, e1.z * e2.x - e1.x * e2.z, e1.x * e2.y - e1.y * e2.x};
+            const auto& n = charted->vertices[0].normal;
+            CHECK(fc::dot(front, fc::Vec{n[0], n[1], n[2]}) > 0);
+            CHECK(std::abs(std::sqrt(double(n[0]) * n[0] + double(n[1]) * n[1] + double(n[2]) * n[2]) - 1) < 1e-5);
+        }
 }
