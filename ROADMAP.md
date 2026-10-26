@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=438 -->
+<!-- ants-roadmap-id-high-water: UTA=439 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22706,6 +22706,33 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: feature.
   Source: user-request-2026-10-24.
   Lanes: ut-bench.
+
+- 🚧 [UTA-0439] **Bake movers the map can never move as level geometry.**
+  From UTA-0352. DM-48SC-InversalLiandri's glass panels are movers: 32
+  of its 33 have InitialState=None (ut-dump --wiring-graph), and
+  Mover.uc (ut-sdk-v469e, Engine) opens a mover only from a state
+  (BumpOpenTimed, TriggerOpenTimed and the rest), so they never move.
+  They carry no charts and light through the cluster path with
+  shadow-map taps: about 2 ms of a 3.2 ms translucent pass on the glass
+  views at 2560x1440 High (UTA-0438's measurement).
+  Decision (user, 2026-10-26): a mover the map can never move is baked
+  as level geometry: charted, masked and an occluder. Charting every
+  mover at rest, with a fallback while one moves, was offered and not
+  chosen; it fits with gameplay, when movers move.
+  Done when: InversalLiandri re-baked, glass views timed before and
+  after, pixels compared.
+  Census (2026-10-26, ut-dump --wiring-graph over the survey's 127
+  maps): 37 of 825 movers have InitialState=None, on 3 maps:
+  InversalLiandri 32, DM-CorpseGrinder 4, MH-MrTitan_V2fix 1. Told so,
+  the user kept the item (2026-10-26): maps to come may need it.
+  Never moves, from Mover.uc (ut-sdk-v469e): class Engine.Mover itself,
+  InitialState None, bSlave false (a slave rides its master), and no
+  AttachMover or MixMover whose AttachTag is its Tag. Anything else stays
+  a mover. Scratch: ~/.cache/uta-scratch/u439.
+  **Layman:** Some maps build fixed glass and decoration out of parts that could move but never do; light them like walls, which is cheaper.
+  Kind: perf.
+  Source: user-request-2026-10-26.
+  Lanes: bake, urender.
 
 ## After 1.0.0
 
