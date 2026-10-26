@@ -57,6 +57,7 @@ inline constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u; ///< a window ont
 inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;   ///< drawn from both sides -- UTA-0055
 inline constexpr std::uint32_t PF_AUTO_U_PAN = 0x00000200u;  ///< pans along u -- UTA-0269
 inline constexpr std::uint32_t PF_AUTO_V_PAN = 0x00000400u;  ///< pans along v -- UTA-0269
+inline constexpr std::uint32_t PF_SPECIAL_LIT = 0x00100000u; ///< lit by special-lit lights only -- UTA-0438
 inline constexpr std::uint32_t PF_UNLIT = 0x00400000u;       ///< takes no light -- UTA-0161
 inline constexpr std::uint32_t PF_PORTAL = 0x04000000u;      ///< a zone portal, never drawn
 

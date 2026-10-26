@@ -22,11 +22,12 @@ draws exactly as today.
    `ubundle::litDirectly`, `urender::drawsDirectly`, `ubake::bakedLights`
    and `Strips.cpp`'s `excluded`. So the lights such a surface should take are
    the ones it never gets.
-3. **It costs frame time.** DM-48SC-InversalLiandri's large mover glass
-   panels carry the flag. Measured by UTA-0352 on 2026-10-24 at 3840x2160
-   High: its translucent pass was 7.0 ms of a 21 ms worst view, 5.6 ms of
-   it direct light and 3.9 ms the cluster path's shadow-map reads, all from
-   ordinary lights UT99 would not apply there.
+3. **It was thought to cost frame time.** DM-48SC-InversalLiandri's large
+   mover glass panels carry the flag. Measured by UTA-0352 on 2026-10-24 at
+   3840x2160 High: its translucent pass was 7.0 ms of a 21 ms worst view,
+   5.6 ms of it direct light and 3.9 ms the cluster path's shadow-map reads.
+   UTA-0352 put all of it down to ordinary lights UT99 would not apply
+   there. INV-6's measurement shows most of it is not.
 
 **The bit is `0x00100000`.** `ut-dump --surface-list` over
 DM-48SC-InversalLiandri finds it on 75 of 3249 surfaces, which matches the
@@ -71,7 +72,7 @@ out does so explicitly:
 | `urender::drawsDirectly` | drawn (§ 4.3) |
 | `ubake::bakedLights` (probes) | unchanged: left out |
 | `Strips.cpp` `excluded` | unchanged: never absorbed into a strip |
-| `urender::volumeLights` (fog) | left out |
+| `urender::drawnLights` (fog) | drawn with no fog volume, so `volumeLights` skips it |
 
 ### 4.2 The bake — `ubake`
 
@@ -135,30 +136,39 @@ special level surface. That is the cost of § 3 decision 3.
   order.
 
 - **INV-3** — no cluster lists a special light.
-  *Test:* `tests/device/RenderSurfaceFlagsTest.cpp`, new case: an ordinary wall
-  beside a bright special light draws exactly as it does with that light
-  removed.
+  *Test:* `tests/device/RenderLightTermsTest.cpp`, "UTA-0438 INV-3 and INV-4":
+  a plain square's direct term from a special light alone is 0.
   *Breaks when:* `cluster.comp` bins the special range.
 
 - **INV-4** — an uncharted `PF_SpecialLit` fragment takes direct light from
   special lights only, and no sun.
-  *Test:* `tests/device/RenderSurfaceFlagsTest.cpp`, new case: a mover face with
-  the flag, an ordinary light and a special light, each with its own hue. The
-  face shows the special hue and not the ordinary one.
+  *Test:* `tests/device/RenderLightTermsTest.cpp`, the same case: an uncharted
+  square with the flag takes a special light's direct term in full and an
+  ordinary light's not at all.
   *Breaks when:* the shader keeps `clusterLight` for the flag.
 
 - **INV-5** — a special light gets no shadow faces, and no volume light slot.
-  *Test:* `tests/unit/RenderShadowsTest.cpp` and
-  `tests/unit/RenderVolumeLightsTest.cpp`, a special-light case in each.
+  *Test:* `tests/unit/RenderShadowsTest.cpp` "UTA-0438 INV-5", and
+  `tests/unit/RenderLightsTest.cpp` "UTA-0438 INV-2": a special light's drawn
+  record has no fog volume, so `volumeLights` never picks it.
   *Breaks when:* `litDirectly`'s widening reaches those consumers.
 
-- **INV-6** — DM-48SC-InversalLiandri's translucent pass costs less after the
-  change than before, on its worst view.
-  *Test:* manual. Run `ut-bench frame` at 2560x1440 (render scale 2/3 of 4K)
-  on High, before and after, inside one `cc-job` (frame timing drifts between
-  runs). Record both medians on the roadmap item.
+- **INV-6** — DM-48SC-InversalLiandri's translucent pass costs no more after
+  the change than before, on its worst views.
+  *Test:* manual. Run `ut-bench frame` at 2560x1440 on High, before and after,
+  alternated inside one `cc-job` (frame timing drifts between runs). Record
+  both medians on the roadmap item.
   *Breaks when:* the special loop costs more than the ordinary light it
   replaces. § 8 names the fallback.
+
+  **Measured 2026-10-26** on eight survey cameras, two alternated runs each,
+  machine load 17 to 21: the two views with glass read 3.17 to 3.23 ms after
+  and 3.06 to 3.19 ms before. No change beyond noise. Probes on those views,
+  each run twice: the special loop returning nothing left 2.6 ms, and all
+  direct light off left 0.6 ms. So the special-lit glass's light costs about
+  0.5 ms either way. Most of the pass is direct light on translucent surfaces
+  without the flag, which is UTA-0352's to take. § 2 consequence 3
+  records the estimate this replaces.
 
 ## 6. Failure modes
 
@@ -177,8 +187,8 @@ special level surface. That is the cost of § 3 decision 3.
 |---|---|---|
 | INV-1 | `BakeShadowMaskTest.cpp` | unit |
 | INV-2 | `RenderLightsTest.cpp` | unit |
-| INV-3, INV-4 | `RenderSurfaceFlagsTest.cpp` | device |
-| INV-5 | `RenderShadowsTest.cpp`, `RenderVolumeLightsTest.cpp` | unit |
+| INV-3, INV-4 | `RenderLightTermsTest.cpp` | device |
+| INV-5 | `RenderShadowsTest.cpp`, `RenderLightsTest.cpp` | unit |
 | INV-6 | manual `ut-bench frame` recipe | — |
 
 `BakeGoldenTest.cpp` is re-recorded for revision 70. Each new case is seen to
@@ -208,9 +218,9 @@ fail against the pre-change code.
 |------|----------------------|
 | INV-1 | `BakeShadowMaskTest.cpp` |
 | INV-2 | `RenderLightsTest.cpp` |
-| INV-3 | `RenderSurfaceFlagsTest.cpp` |
-| INV-4 | `RenderSurfaceFlagsTest.cpp` |
-| INV-5 | `RenderShadowsTest.cpp`, `RenderVolumeLightsTest.cpp` |
+| INV-3 | `RenderLightTermsTest.cpp` |
+| INV-4 | `RenderLightTermsTest.cpp` |
+| INV-5 | `RenderShadowsTest.cpp`, `RenderLightsTest.cpp` |
 | INV-6 | **nothing** automatic — a manual measurement recorded on the roadmap item |
 
 ## 11. Cross-doc impact

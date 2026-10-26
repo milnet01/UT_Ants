@@ -51,9 +51,10 @@ constexpr std::uint8_t HALF_OPEN = 128;
 /// A lit square facing the camera at x = 100, glowing, lit by one steady light,
 /// and with an atlas of HALF_OPEN everywhere when `occluded` -- the shape
 /// RenderOcclusionTest's square takes.
-uta::ubundle::Bundle glowingSquare(const uta::ubundle::Light& light, bool occluded = false) {
+uta::ubundle::Bundle glowingSquare(const uta::ubundle::Light& light, bool occluded = false,
+                                   std::uint32_t flags = 0) {
     uta::ubundle::Geometry geometry;
-    addSquare(geometry, 100, 0, 0, 40, "glow", 0);
+    addSquare(geometry, 100, 0, 0, 40, "glow", flags);
     const std::size_t vertices = geometry.vertices.size();
     uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
     if (occluded) {
@@ -126,5 +127,40 @@ TEST_CASE("UTA-0292 INV-6: the emission target holds the direct and indirect ter
         CAPTURE(terms[0], terms[1], direct, occluded);
         CHECK(std::abs(terms[0] - direct) <= 0.01 * direct);
         CHECK(std::abs(terms[1] - occluded) <= 0.01 * occluded);
+    }
+}
+
+TEST_CASE("UTA-0438 INV-3 and INV-4: special-lit lights light PF_SpecialLit surfaces and nothing else",
+          "[device]") {
+    // The square has no chart, so it takes the cluster path -- or, flagged,
+    // the special-lit range -- which is what both invariants are about.
+    removeDisplay();
+    Renderer renderer = requireRenderer(termsFrame());
+    const uta::ubundle::Light ordinary = steadyLight({60, 0, 0}, 128, 2);
+    uta::ubundle::Light special = ordinary;
+    special.specialLit = true;
+    const double direct =
+        uta::ubake::shownLight(uta::ubake::lightAt(ordinary, centrePixelOnSquare(), {-1, 0, 0}).r);
+    REQUIRE(direct > 0.05);
+
+    struct Row {
+        const char* what;
+        const uta::ubundle::Light* light;
+        std::uint32_t flags;
+        bool lit;
+    };
+    const std::array<Row, 4> rows = {{
+        {"an ordinary light on a plain square", &ordinary, 0, true},
+        {"a special-lit light on a plain square (INV-3)", &special, 0, false},
+        {"an ordinary light on a PF_SpecialLit square (INV-4)", &ordinary, PF_SPECIAL_LIT, false},
+        {"a special-lit light on a PF_SpecialLit square (INV-4)", &special, PF_SPECIAL_LIT, true},
+    }};
+    for (const Row& row : rows) {
+        const auto terms = centreTerms(renderer, glowingSquare(*row.light, false, row.flags));
+        CAPTURE(row.what, terms[0], direct);
+        if (row.lit)
+            CHECK(std::abs(terms[0] - direct) <= 0.01 * direct);
+        else
+            CHECK(terms[0] == 0.0F);
     }
 }

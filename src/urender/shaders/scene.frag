@@ -425,6 +425,23 @@ vec3 clusterLight(vec3 n, vec3 surface, bool skyFlat) {
     return direct;
 }
 
+// UTA-0438 SS 4.4: the direct light at a PF_SpecialLit fragment no chart
+// lights -- a mover's -- from the special-lit lights alone, unshadowed, as they
+// have no shadow map; then the flashlight. No cluster lists them.
+vec3 specialLight(vec3 n, vec3 surface, bool skyFlat) {
+    vec3 direct = vec3(0.0);
+    for (uint k = 0u; k < frame.specialCount; ++k) {
+        Light light = lights[frame.specialFirst + k];
+        vec3 lit = skyFlat ? lightThrough(light, worldPosition) : lightAt(light, worldPosition, n);
+        direct += lit * light.flicker;
+    }
+    if (frame.flashlight != NONE) {
+        Light light = lights[frame.flashlight];
+        direct += lightAt(light, worldPosition, n) * (light.flicker * softShadowOf(light, worldPosition, surface));
+    }
+    return direct;
+}
+
 void main() {
     Material material = materials[draw.materialIndex];
 
@@ -584,7 +601,12 @@ void main() {
         // lights its face turns toward. Those lit each face of the room apart,
         // and its edges drew a box.
         bool charted = maskChart != MASK_NO_CHART && !skyFlat;
-        vec3 direct = charted ? chartedLight(n, surface) : clusterLight(n, surface, skyFlat);
+        // UTA-0438 SS 4.4: a PF_SpecialLit chart's pairs are special-lit lights
+        // already; off a chart, such a fragment takes only those lights.
+        bool special = (draw.polyFlags & PF_SPECIAL_LIT) != 0u;
+        vec3 direct = charted  ? chartedLight(n, surface)
+                      : special ? specialLight(n, surface, skyFlat)
+                                : clusterLight(n, surface, skyFlat);
         // SS 4.7: the probes, through the same normal the lights use, on the
         // lit side (UTA-0215).
         ProbeLattice lattice = frameProbeLattice();
@@ -596,7 +618,8 @@ void main() {
         // UTA-0382: the sky room takes it whole, as UTA-0345 takes its lights
         // without shadow. A closed room hid the sun from its probes, and a
         // night map's moon left its scenery black.
-        if (!charted && frame.sun != NONE)
+        // UTA-0438 SS 3 decision 1: the sun lights no PF_SpecialLit surface.
+        if (!charted && !special && frame.sun != NONE)
             direct += skyFlat ? lightThrough(lights[frame.sun], worldPosition)
                               : lightAt(lights[frame.sun], worldPosition, n) * sunSeenAt(lattice, probePoint);
         // UTA-0292 withdrew UTA-0156 SS 4.4's zone ambient: against exact light

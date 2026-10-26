@@ -542,7 +542,7 @@ with it exactly, which is what makes the rest of the enum trustworthy here.
 | `PF_Unlit` | `0x00400000` | Base colour emitted directly; no direct or indirect light applied |
 | `PF_FakeBackdrop` | `0x00000080` | Drawn as the level's sky: depth written at the far plane, unlit. **Amended by `UTA-0163`, recording what was built:** where the level has a SkyZoneInfo, the surface shows the sky zone as drawn from that actor, sampled by view direction -- `src/urender/Sky.h`. **Amended by `UTA-0252`, recording what was built:** the surface keeps its own depth, not the far plane's, so it hides the sky zone's room where that lies behind it. **Amended by `UTA-0337`, recording what was built:** the sky zone's panned sheets are left out of the faces and laid over them each frame, panned at the sky zone's speeds |
 | `PF_Portal` | `0x04000000` | **Drawn, like any other surface. Amended by `UTA-0188`, recording what was built.** It read *"not drawn, it is a visibility marker"* until 2026-09-20, and that cost AS-Frigate its sea: in UT99 the polygon dividing an air zone from a water zone IS the water, wearing the water texture. A portal meant to be unseen carries `PF_Invisible` as well and is dropped by the row above, so the surfaces reaching the renderer are the ones UT99 draws — which made the discard not merely wrong for water but unable to remove anything else |
-| any other bit | — | **Ignored, and ignoring it is a decision.** `PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and `PF_SpecialLit` all have real UT99 meanings this item does not implement; § 9 says where each goes |
+| any other bit | — | **Ignored, and ignoring it is a decision.** `PF_Environment`, `PF_Mirrored` and `PF_NoSmooth` all have real UT99 meanings this item does not implement; § 9 says where each goes. `PF_SpecialLit` is UTA-0438's |
 
 **Movers.** `MoverShape` holds pivot-space `geometry` plus `location`,
 `rotation` and `postScale`. A point `q` is placed at
@@ -656,9 +656,10 @@ rule is about the baker, and nothing here writes a bundle.
 casts its shadow from its segment's midpoint. `docs/specs/UTA-0162-strip-lights.md`
 § 4.4 and § 4.5 own both.
 
-**Which lights draw.** Every `LITE` light but two kinds. `LT_BackdropLight`
+**Which lights draw.** Every `LITE` light but `LT_BackdropLight`, which
 lights only the sky, which § 4.5 draws unlit. A `specialLit` light lights only
-`PF_SpecialLit` surfaces, which § 4.5 ignores. A `type` byte past the last
+`PF_SpecialLit` surfaces, and no cluster lists it
+(`docs/specs/UTA-0438-special-lit-surfaces.md`). A `type` byte past the last
 `ELightType` is treated as steady.
 
 **Where the cluster arithmetic lives.** `Clusters.cpp` builds the boxes on the
@@ -809,8 +810,8 @@ one read and 4.2 with nine at 1920x1080 on High, and 12.7 and 16.9 at
 3840x2160 on Ultra; four reads cost nearly as much as nine.
 
 `Light::actorShadows` is carried verbatim by the bundle and is **not**
-interpreted by this item. `Light::specialLit` is read only to leave such a
-light out of the direct term (§ 4.6). § 9 records both.
+interpreted by this item, and § 9 records it. A `specialLit` light has no
+shadow map (UTA-0438 § 4.4).
 
 ### 4.9 Flicker and the effects the bake left steady
 
@@ -1345,17 +1346,16 @@ their breaking states, each of which produces a plausible image.
   consequence 2 shows why this item could not take them: no bundle section
   carried them, and the renderer may not read a package. UTA-0156 adds the
   `ZONE` section and each vertex's zone.
-- **`PF_Environment`, `PF_Mirrored`, `PF_NoSmooth` and `PF_SpecialLit` —
-  deferred; not yet queued.** Each has a real UT99 meaning and § 4.5 ignores
-  all four deliberately. `PF_Modulated` was the fifth until `UTA-0271`.
-  `PF_Mirrored` and `PF_Environment` are reflection surfaces and belong with
-  `UTA-0045` or `UTA-0089` when either is taken; the other two have no home
-  yet.
+- **`PF_Environment`, `PF_Mirrored` and `PF_NoSmooth` — deferred; not yet
+  queued.** Each has a real UT99 meaning and § 4.5 ignores all three
+  deliberately. `PF_Modulated` was a fourth until `UTA-0271`, and
+  `PF_SpecialLit` until `UTA-0438`. `PF_Mirrored` and `PF_Environment` are
+  reflection surfaces and belong with `UTA-0045` or `UTA-0089` when either is
+  taken; `PF_NoSmooth` has no home yet.
 - **`Light::actorShadows`, `Light::corona`, `Light::lensFlare`,
   `Light::volumeBrightness`, `Light::volumeRadius` and `Light::volumeFog` —
   `UTA-0015`** carries the volumetric three. Coronas and lens flares are
-  deferred; not yet queued. `Light::specialLit`, which pairs with
-  `PF_SpecialLit`, goes with that flag above.
+  deferred; not yet queued. `Light::specialLit` is `UTA-0438`'s.
 - **Executing the `device` tier on Windows — deferred; not yet queued.** This is
   the gap § 3 decision 1 and § 4.12 both point at, recorded here so it is a
   decision rather than something a reader discovers. The MSVC leg configures,

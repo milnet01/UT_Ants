@@ -2,6 +2,7 @@
 
 #include "urender/Lights.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <optional>
@@ -84,26 +85,49 @@ float flameFlickerOf(std::uint32_t seed, double seconds) noexcept {
 
 bool drawsDirectly(const ubundle::Light& light) noexcept {
     // An absorbed strip light is lit by its row's leader (UTA-0162 SS 4.3).
-    if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == ubundle::STRIP_ABSORBED) return false;
+    if (light.type == LT_BACKDROP_LIGHT || light.strip == ubundle::STRIP_ABSORBED) return false;
     // UTA-0169: brightness 0 never emits -- flicker and TriggerLight only
-    // scale the saved value -- but a fog volume still thickens the fog.
-    return light.brightness != 0 || light.volumeRadius != 0;
+    // scale the saved value -- but a fog volume still thickens the fog. A
+    // special-lit light's never does (UTA-0438 SS 3 decision 3).
+    return light.brightness != 0 || (light.volumeRadius != 0 && !light.specialLit);
 }
+
+namespace {
+
+/// The LITE indices drawn, in drawn order: the ordinary lights, then the
+/// special-lit ones (UTA-0438 SS 4.3), each in LITE order.
+std::vector<std::uint32_t> drawOrder(const ubundle::Bundle& bundle) {
+    std::vector<std::uint32_t> out;
+    if (!bundle.lights) return out;
+    for (const bool special : {false, true})
+        for (std::size_t i = 0; i < bundle.lights->size(); ++i)
+            if ((*bundle.lights)[i].specialLit == special && drawsDirectly((*bundle.lights)[i]))
+                out.push_back(static_cast<std::uint32_t>(i));
+    return out;
+}
+
+} // namespace
 
 std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle) {
     std::vector<ubundle::Light> out;
-    if (!bundle.lights) return out;
-    for (const ubundle::Light& light : *bundle.lights)
-        if (drawsDirectly(light)) out.push_back(light);
+    for (const std::uint32_t index : drawOrder(bundle)) out.push_back((*bundle.lights)[index]);
     return out;
 }
 
 std::vector<std::uint32_t> drawnIndices(const ubundle::Bundle& bundle) {
     std::vector<std::uint32_t> out;
     if (!bundle.lights) return out;
-    std::uint32_t next = 0;
-    for (const ubundle::Light& light : *bundle.lights) out.push_back(drawsDirectly(light) ? next++ : gpu::NONE);
+    out.assign(bundle.lights->size(), gpu::NONE);
+    const std::vector<std::uint32_t> order = drawOrder(bundle);
+    for (std::size_t slot = 0; slot < order.size(); ++slot) out[order[slot]] = static_cast<std::uint32_t>(slot);
     return out;
+}
+
+std::uint32_t specialLightCount(const ubundle::Bundle& bundle) {
+    if (!bundle.lights) return 0;
+    return static_cast<std::uint32_t>(std::ranges::count_if(*bundle.lights, [](const ubundle::Light& light) {
+        return light.specialLit && drawsDirectly(light);
+    }));
 }
 
 std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double seconds) {
@@ -117,9 +141,8 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
             if (flame.light >= 0 && static_cast<std::size_t>(flame.light) < flameSeed.size()
                 && !flameSeed[static_cast<std::size_t>(flame.light)])
                 flameSeed[static_cast<std::size_t>(flame.light)] = flame.seed;
-    for (std::size_t index = 0; index < bundle.lights->size(); ++index) {
+    for (const std::uint32_t index : drawOrder(bundle)) {
         const ubundle::Light& light = (*bundle.lights)[index];
-        if (!drawsDirectly(light)) continue;
         gpu::Light record{};
         record.location = light.location;
         // UTA-0162 SS 4.3: a leader draws from one end of its segment, along the rest.
@@ -140,9 +163,13 @@ std::vector<gpu::Light> drawnLights(const ubundle::Bundle& bundle, double second
         record.yaw = light.rotation[1];
         record.shadowFace = -1;
         record.shadowFaceCount = 0;
-        record.volumeRadius = light.volumeRadius; // UTA-0015 SS 4.4
-        record.volumeBrightness = light.volumeBrightness;
-        record.volumeFog = light.volumeFog;
+        // UTA-0015 SS 4.4. A special-lit light never glows in fog, so no
+        // fog pass picks it (UTA-0438 SS 3 decision 3).
+        if (!light.specialLit) {
+            record.volumeRadius = light.volumeRadius;
+            record.volumeBrightness = light.volumeBrightness;
+            record.volumeFog = light.volumeFog;
+        }
         record.levelBrightness = light.levelBrightness; // UTA-0156 SS 4.5
         out.push_back(record);
     }

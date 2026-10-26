@@ -79,6 +79,10 @@ void main() {
     for (uint i = 0u; i < frame.lightCount; ++i) {
         // UTA-0338 SS 4.5: the sun reaches everywhere and is lit apart.
         if (lights[i].effect == SUN_EFFECT) continue;
+        // UTA-0438 SS 4.3: a special-lit light lights only PF_SpecialLit
+        // surfaces, which loop over its range rather than a cluster. Below
+        // specialFirst the unsigned difference wraps past specialCount.
+        if (i - frame.specialFirst < frame.specialCount) continue;
         vec3 p = (frame.view * vec4(lights[i].location, 1.0)).xyz;
         float radius = lightRadius(lights[i].radius);
         float gap;

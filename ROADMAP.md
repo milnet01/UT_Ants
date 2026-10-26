@@ -18317,7 +18317,7 @@ stays with movement in 0.2.0.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 14.
 
-- 📋 [UTA-0438] **Light PF_SpecialLit surfaces only by bSpecialLit lights, as UT99 does.**
+- 🚧 [UTA-0438] **Light PF_SpecialLit surfaces only by bSpecialLit lights, as UT99 does.**
   UT99 lights a PF_SpecialLit surface only by lights with bSpecialLit, and
   those lights light nothing else. UTA-0014 SS 9 deferred both ("no home
   yet"): the renderer lights such a surface with every ordinary light, and
@@ -18335,6 +18335,14 @@ stays with movement in 0.2.0.
   scene.frag's light loops. Several subsystems: decide on a spec
   (spec-format SS 1) before building.
   **Layman:** Some surfaces in UT maps are meant to be lit only by a few special lights; we light them with every light nearby, which is wrong and slow.
+  Spec: docs/specs/UTA-0438-special-lit-surfaces.md (accepted
+  2026-10-26).
+  Built 2026-10-26 (baker revision 70). Frame cost on DM-48SC-InversalLiandri,
+  2560x1440 High, eight survey cameras, old and new alternated twice in
+  one cc-job (load 17-21): the glass views' translucent pass 3.06-3.19 ms
+  before, 3.17-3.23 after; no change. Probes: the special loop off left
+  2.6 ms; all direct light off left 0.6 ms. The special glass's light is
+  about 0.5 ms either way. See the spec's INV-6.
   Kind: fix.
   Source: in-session-2026-10-24 split-from-UTA-0352.
   Lanes: urender, ubake.
@@ -22515,6 +22523,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   Not done: gameplay headroom (CLAUDE.md § Standing facts) is thin on
   ArchNemesis, and Croon]['s spike is unexplained. Next: find Croon]['s
   p99 frame; then UTA-0438 for InversalLiandri; ArchNemesis's direct light.
+  2026-10-26, from UTA-0438: InversalLiandri's translucent cost is mostly
+  not PF_SpecialLit. At 2560x1440 High on its two glass views, direct
+  light is about 2.6 ms of a 3.2 ms translucent pass, and only about
+  0.5 ms of that falls on special-lit surfaces. The other ~2 ms is direct
+  light on translucent surfaces without the flag.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.

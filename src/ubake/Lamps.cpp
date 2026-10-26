@@ -90,6 +90,7 @@ Result<std::vector<ubundle::AddedLamp>> buildLamps(const upkg::Package& map, con
                                : lights.end();
         if (found == lights.end()) return refuse(std::format("{} is not a light of the map", wanted.light));
         if (!ubundle::litDirectly(*found)) return refuse(std::format("{} gives no direct light", wanted.light));
+        if (found->specialLit) return refuse(std::format("{} lights only special-lit surfaces", wanted.light));
         if (found->strip != ubundle::STRIP_NONE) return refuse(std::format("{} is part of a strip", wanted.light));
         const std::array<float, 3> pivot = found->location;
 

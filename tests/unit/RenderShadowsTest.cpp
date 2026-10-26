@@ -294,6 +294,16 @@ TEST_CASE("a light of brightness 0 casts no shadow", "[render]") {
     CHECK(plan.draws.empty());
 }
 
+TEST_CASE("UTA-0438 INV-5: a special-lit light casts no shadow map", "[render]") {
+    // It lights only PF_SpecialLit surfaces: a level one through its baked
+    // mask, a mover one unshadowed (UTA-0438 SS 4.4).
+    Light light = pointLight({0, 0, 0}, 20);
+    light.specialLit = true;
+    CHECK(urender::shadowFacesOf(light) == 0u);
+    ShadowPlanner planner;
+    CHECK(planner.plan({light}, {}).faces.empty());
+}
+
 TEST_CASE("UTA-0166: a light's tile size follows its reach and never the camera", "[render]") {
     const Light small = pointLight({600, 0, 0}, 20);   // R = 525
     const Light large = pointLight({600, 0, 0}, 200);  // R = 5025

@@ -41,14 +41,17 @@ inline constexpr std::uint8_t LT_SUBTLE_PULSE = 7;
 /// Whether the direct term draws `light` -- directLights' rule.
 [[nodiscard]] bool drawsDirectly(const ubundle::Light& light) noexcept;
 
-/// The LITE lights the direct term draws, in LITE order.
+/// The LITE lights the direct term draws: the ordinary ones in LITE order,
+/// then the specialLit ones in LITE order (UTA-0438 SS 4.3). A specialLit
+/// light lights only PF_SpecialLit surfaces, so the clusters skip that range.
 ///
-/// Every one but three kinds. LT_BackdropLight lights only the sky, which SS 4.5
-/// draws unlit. A specialLit light lights only PF_SpecialLit surfaces, which
-/// SS 4.5 does not implement. And a light of brightness 0 with no fog volume,
-/// which lights nothing yet would take a cluster slot and shadow tiles
-/// (UTA-0169).
+/// Every one but two kinds. LT_BackdropLight lights only the sky, which SS 4.5
+/// draws unlit. And a light of brightness 0 with no fog volume, which lights
+/// nothing yet would take a cluster slot and shadow tiles (UTA-0169).
 [[nodiscard]] std::vector<ubundle::Light> directLights(const ubundle::Bundle& bundle);
+
+/// How many of directLights are specialLit: the last ones (UTA-0438 SS 4.3).
+[[nodiscard]] std::uint32_t specialLightCount(const ubundle::Bundle& bundle);
 
 /// UTA-0326 SS 4.5: each LITE light's index in directLights and drawnLights,
 /// or gpu::NONE where the frame does not draw it.

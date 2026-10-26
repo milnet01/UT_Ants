@@ -35,6 +35,7 @@ inline constexpr std::uint32_t PF_NOT_SOLID = 0x00000008u;
 inline constexpr std::uint32_t PF_MODULATED = 0x00000040u; ///< UTA-0271
 inline constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
 inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
+inline constexpr std::uint32_t PF_SPECIAL_LIT = 0x00100000u; ///< UTA-0438
 inline constexpr std::uint32_t PF_UNLIT = 0x00400000u;
 inline constexpr std::uint32_t PF_PORTAL = 0x04000000u;
 
@@ -162,8 +163,13 @@ struct FrameData {
     /// far on it keeps 1/e of a surface's light; both 0 with no outdoors.
     float outdoorHazeStart;
     float outdoorHazeDepth;
+    /// UTA-0438 SS 4.3: the special-lit lights' range of LIGHTS, which only
+    /// PF_SpecialLit surfaces take and no cluster lists.
+    std::uint32_t specialFirst;
+    std::uint32_t specialCount;
+    std::array<std::uint32_t, 2> pad; ///< std430 rounds the struct to 16 bytes
 };
-static_assert(sizeof(FrameData) == 784);
+static_assert(sizeof(FrameData) == 800);
 static_assert(offsetof(FrameData, viewProj) == 0);
 static_assert(offsetof(FrameData, viewProjUnjittered) == 64);
 static_assert(offsetof(FrameData, previousViewProjUnjittered) == 128);
@@ -205,6 +211,8 @@ static_assert(offsetof(FrameData, skyLayers) == 448);
 static_assert(offsetof(FrameData, paintedSkyDrift) == 768);
 static_assert(offsetof(FrameData, outdoorHazeStart) == 776);
 static_assert(offsetof(FrameData, outdoorHazeDepth) == 780);
+static_assert(offsetof(FrameData, specialFirst) == 784); // UTA-0438 SS 4.3
+static_assert(offsetof(FrameData, specialCount) == 788);
 static_assert(offsetof(FrameData, waterFog) == 356);
 static_assert(offsetof(SkyLayer, plane) == 0);
 static_assert(offsetof(SkyLayer, u) == 16);

@@ -17,6 +17,7 @@ const uint PF_TRANSLUCENT = 0x00000004u;
 const uint PF_MODULATED = 0x00000040u; // UTA-0271
 const uint PF_FAKE_BACKDROP = 0x00000080u;
 const uint PF_TWO_SIDED = 0x00000100u;
+const uint PF_SPECIAL_LIT = 0x00100000u; // UTA-0438
 const uint PF_UNLIT = 0x00400000u;
 
 // UTA-0014 SS 4.5: a masked texel's alpha is binary at the source, so any
@@ -97,6 +98,9 @@ struct FrameData {
     vec2 paintedSkyDrift;       // UTA-0337: how far the painted sky's clouds have drifted
     float outdoorHazeStart;     // UTA-0337 part 3: UT units
     float outdoorHazeDepth;     // UTA-0337 part 3: UT units; 0 with no outdoors
+    uint specialFirst;          // UTA-0438 SS 4.3: the special-lit lights' range
+    uint specialCount;
+    uvec2 pad;
 };
 
 struct Object {

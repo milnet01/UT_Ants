@@ -21,6 +21,7 @@ namespace uta::ubake::charts {
 struct Chart {
     std::uint32_t first = 0, last = 0;
     bool lit = false;
+    bool special = false;          ///< its batch carries PF_SpecialLit -- UTA-0438 SS 4.2
     Vec3 n{}, u{}, v{};            ///< the plane's normal and its texel axes
     std::int64_t loU = 0, loV = 0; ///< the rectangle's first texel, on the world grid
     std::uint32_t w = 0, h = 0;    ///< the rectangle, in texels

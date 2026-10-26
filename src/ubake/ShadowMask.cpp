@@ -55,6 +55,7 @@ struct Site {
     double bound = 0;        ///< its sphere: lightRadius grown by half the strip
     double reach = 0;        ///< lightRadius, which weighs a strip's points
     bool incidence = true;
+    bool special = false;    ///< UTA-0438 SS 4.2: it pairs with PF_SpecialLit charts only
     std::optional<Vec3> sun; ///< UTA-0338 SS 4.4: toward the sun, for the sun's site
 };
 
@@ -72,6 +73,7 @@ Site siteOf(std::uint32_t index, const ubundle::Light& light) {
     site.reach = lightRadius(light.radius);
     site.bound = site.reach + 0.5 * length(site.span);
     site.incidence = light.effect != ubundle::LE_NON_INCIDENCE && light.effect != ubundle::LE_CYLINDER;
+    site.special = light.specialLit;
     return site;
 }
 
@@ -270,6 +272,9 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
     for (std::uint32_t k = chart.first; k <= chart.last; ++k) polygon.add(charts::positionOf(geometry, k));
     const SurfaceRays::Hole hole = std::cref(holes);
     for (const Site& site : sites) {
+        // UTA-0438 SS 4.2: a PF_SpecialLit chart takes special-lit lights
+        // only, and they light no other chart. The sun is not one.
+        if (site.special != chart.special) continue;
         if (site.sun) {
             if (std::optional<Baked> pair = bakeSunPair(chart, outline, site, *sunRays, hole, texelSize, bothSides))
                 out.push_back(std::move(*pair));

@@ -1918,6 +1918,9 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     std::vector<gpu::Light> frameLights = drawnLights(bundle, seconds);
 
     gpu::FrameData frame = frameDataOf(bundle, camera, region, matrices, seconds, skyFace.has_value());
+    // UTA-0438 SS 4.3: drawnLights put the special-lit lights last.
+    frame.specialCount = specialLightCount(bundle);
+    frame.specialFirst = static_cast<std::uint32_t>(frameLights.size()) - frame.specialCount;
     std::vector<gpu::Mat4> models = placeObjects(bundle);
     const ShadowPlan plan = planShadows(bundle, models);
     const std::uint32_t flashlight = placeLights(frame, frameLights, plan, camera);

@@ -167,9 +167,11 @@ namespace {
 // 68: UTA-0400 makes the bounces read it; until then they did not.
 // 69: UTA-0352 charts the zone portals the level draws. Unchecked whether the
 // fixture has one; BAKR's revision moved it either way.
-constexpr std::uint32_t RECORDED_UNDER = 69;
+// 70: UTA-0438 pairs PF_SpecialLit charts with special-lit lights only. The
+// fixture has neither, so BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 70;
 constexpr std::string_view GOLDEN =
-    "d8bd858884d3bc600efcc66fb113e6ad09105231016af694d46d4d5c2a25cc08";
+    "1ad9cf990f0eb989fa0b926636e268b48d435bfc19501ee8016a9519b4b210d4";
 
 } // namespace
 

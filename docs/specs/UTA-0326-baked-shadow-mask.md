@@ -75,8 +75,9 @@ shadow map, and no surface is ever shadowed by both.
 namespace uta::ubundle {
 
 /// Whether the renderer draws `light` in its direct term and it can put
-/// light on a surface: not LT_BackdropLight, not specialLit, not an absorbed
-/// strip light, brightness not 0, and not a spot effect with cone 0.
+/// light on a surface: not LT_BackdropLight, not an absorbed strip light,
+/// brightness not 0, and not a spot effect with cone 0. A specialLit light
+/// pairs with PF_SpecialLit charts only (UTA-0438 § 4.2).
 [[nodiscard]] bool litDirectly(const Light& light) noexcept;
 
 } // namespace uta::ubundle

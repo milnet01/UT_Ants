@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 using uta::ubundle::Light;
 using uta::urender::drawnLights;
@@ -29,14 +30,11 @@ Light lightOfType(std::uint8_t type, std::uint32_t exportIndex) {
 
 } // namespace
 
-TEST_CASE("every LITE light draws but backdrop and special-lit lights", "[render]") {
+TEST_CASE("every LITE light draws but backdrop lights", "[render]") {
     uta::ubundle::Bundle bundle;
     bundle.lights.emplace();
     bundle.lights->push_back(lightOfType(1, 10));  // steady
     bundle.lights->push_back(lightOfType(6, 11));  // LT_BackdropLight: lights only the sky
-    Light special = lightOfType(1, 12);
-    special.specialLit = true;                     // lights only PF_SpecialLit surfaces
-    bundle.lights->push_back(special);
     bundle.lights->push_back(lightOfType(2, 13));  // pulsing
     bundle.lights->push_back(lightOfType(200, 14)); // past the last ELightType
 
@@ -44,6 +42,49 @@ TEST_CASE("every LITE light draws but backdrop and special-lit lights", "[render
     REQUIRE(drawn.size() == 3u);
     CHECK(drawn[0].brightness == 200u);
     CHECK(drawn[1].shadowFace == -1);
+}
+
+TEST_CASE("UTA-0438 INV-2: special-lit lights draw after the ordinary ones", "[render]") {
+    // They light only PF_SpecialLit surfaces, so the clusters skip their range.
+    uta::ubundle::Bundle bundle;
+    bundle.lights.emplace();
+    Light special = lightOfType(1, 10);
+    special.specialLit = true;
+    special.radius = 50;
+    special.volumeRadius = 40; // UTA-0438 SS 3 decision 3: it never glows in fog
+    special.volumeBrightness = 90;
+    bundle.lights->push_back(special);
+    bundle.lights->push_back(lightOfType(1, 11));
+    Light dark = special;
+    dark.brightness = 0; // lights nothing, and its fog volume is dropped
+    bundle.lights->push_back(dark);
+    Light second = special;
+    second.radius = 60;
+    bundle.lights->push_back(second);
+    bundle.lights->push_back(lightOfType(2, 12));
+
+    const auto drawn = drawnLights(bundle, 0.0);
+    REQUIRE(drawn.size() == 4u);
+    CHECK(uta::urender::specialLightCount(bundle) == 2u);
+    CHECK(drawn[0].radius == 32u);
+    CHECK(drawn[1].radius == 32u);
+    CHECK(drawn[2].radius == 50u);
+    CHECK(drawn[3].radius == 60u);
+    CHECK(drawn[2].volumeRadius == 0u);
+    CHECK(drawn[2].volumeBrightness == 0u);
+    CHECK(uta::urender::drawnIndices(bundle)
+          == std::vector<std::uint32_t>{2, 0, uta::urender::gpu::NONE, 3, 1});
+    CHECK(uta::urender::directLights(bundle)[2].specialLit);
+}
+
+TEST_CASE("UTA-0438 INV-2: a bundle with no special-lit light keeps LITE order", "[render]") {
+    uta::ubundle::Bundle bundle;
+    bundle.lights.emplace();
+    bundle.lights->push_back(lightOfType(1, 10));
+    bundle.lights->push_back(lightOfType(6, 11));
+    bundle.lights->push_back(lightOfType(2, 12));
+    CHECK(uta::urender::specialLightCount(bundle) == 0u);
+    CHECK(uta::urender::drawnIndices(bundle) == std::vector<std::uint32_t>{0, uta::urender::gpu::NONE, 1});
 }
 
 TEST_CASE("a drawn light carries its LITE numbers unconverted", "[render]") {

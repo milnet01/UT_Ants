@@ -420,9 +420,10 @@ struct Light {
 };
 
 /// Whether the renderer draws `light` in its direct term and it can put light
-/// on a surface: not LT_BackdropLight, not specialLit, not an absorbed strip
-/// light, brightness not 0, and not a spot effect with cone 0 --
-/// UTA-0326 SS 4.1. The baker pairs only these lights with a polygon.
+/// on a surface: not LT_BackdropLight, not an absorbed strip light,
+/// brightness not 0, and not a spot effect with cone 0 -- UTA-0326 SS 4.1.
+/// The baker pairs only these lights with a polygon. A specialLit one lights
+/// only PF_SpecialLit surfaces (UTA-0438 SS 4.1).
 [[nodiscard]] bool litDirectly(const Light& light) noexcept;
 
 /// The values of UT99's ELightEffect that the baker and the renderer read --

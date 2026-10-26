@@ -145,6 +145,9 @@ std::uint32_t shadowFacesOf(const ubundle::Light& light) noexcept {
     if (!ubundle::litDirectly(light)) return 0;
     // UTA-0338 SS 3: the sun has no shadow map; the probes' view of it stands in.
     if (light.effect == ubundle::SUN_EFFECT) return 0;
+    // UTA-0438 SS 3 decision 3: a special-lit light's level surfaces take its
+    // baked mask, and its movers take it unshadowed.
+    if (light.specialLit) return 0;
     return isSpot(light) ? 1 : 6;
 }
 

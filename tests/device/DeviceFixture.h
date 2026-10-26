@@ -31,6 +31,7 @@ inline constexpr std::uint32_t PF_MODULATED = 0x00000040u;
 inline constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
 inline constexpr std::uint32_t PF_TWO_SIDED = 0x00000100u;
 inline constexpr std::uint32_t PF_NO_SMOOTH = 0x00000800u;
+inline constexpr std::uint32_t PF_SPECIAL_LIT = 0x00100000u; // UTA-0438
 inline constexpr std::uint32_t PF_UNLIT = 0x00400000u;
 inline constexpr std::uint32_t PF_PORTAL = 0x04000000u;
 

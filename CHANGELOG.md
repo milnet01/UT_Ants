@@ -813,6 +813,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Fixed
 
+- **Specially lit surfaces take only their own lights** (UTA-0438)
+  A UT map can mark a surface to be lit only by lights flagged for it, and
+  those lights light nothing else. The renderer lit such surfaces, such as
+  DM-48SC-InversalLiandri's big glass panels, with every light nearby and
+  left the flagged lights out. Now each kind of light reaches only its own
+  surfaces. Maps must be re-baked (baker revision 70).
+
 - **Water and other see-through zone boundaries cost far less to draw** (UTA-0352)
   A water sheet is often also a zone portal. The baker left portals out of
   its baked shadows, so the renderer lit each one by reading every nearby

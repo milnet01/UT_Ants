@@ -112,10 +112,10 @@ constexpr std::uint8_t LT_BACKDROP_LIGHT = 6;
 } // namespace
 
 bool litDirectly(const Light& light) noexcept {
-    // LT_BackdropLight lights only the sky; a specialLit light only surfaces
-    // the renderer does not draw; an absorbed strip light is lit by its row's
-    // leader (UTA-0162 SS 4.3).
-    if (light.type == LT_BACKDROP_LIGHT || light.specialLit || light.strip == STRIP_ABSORBED) return false;
+    // LT_BackdropLight lights only the sky; an absorbed strip light is lit by
+    // its row's leader (UTA-0162 SS 4.3). A specialLit light lights directly,
+    // but only PF_SpecialLit surfaces (UTA-0438 SS 4.1).
+    if (light.type == LT_BACKDROP_LIGHT || light.strip == STRIP_ABSORBED) return false;
     // UTA-0169: brightness 0 never emits. A spot of cone 0 lights no point.
     if (light.brightness == 0) return false;
     return !(isSpotEffect(light.effect) && light.cone == 0);

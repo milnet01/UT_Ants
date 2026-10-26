@@ -52,6 +52,7 @@ constexpr std::uint32_t PF_MODULATED = 0x00000040u;
 constexpr std::uint32_t PF_FAKE_BACKDROP = 0x00000080u;
 constexpr std::uint32_t PF_INVISIBLE = 0x00000001u;
 constexpr std::uint32_t PF_PORTAL = 0x04000000u;
+constexpr std::uint32_t PF_SPECIAL_LIT = 0x00100000u;
 
 /// Triangles gathered by batch -- material, then flags -- the key order GEOM keeps.
 struct Scene {
@@ -442,7 +443,10 @@ TEST_CASE("INV-4: a light the renderer does not draw directly has no pair", "[ub
     Light absorbed = pointLight(LIGHT_AT, 5);
     absorbed.strip = uta::ubundle::STRIP_ABSORBED;
     lights.push_back(absorbed);
-    for (const Light& light : lights) CHECK(uta::ubundle::litDirectly(light) == (light.exportIndex == 0));
+    // UTA-0438 SS 4.1: a special-lit light lights directly, but only a
+    // PF_SpecialLit chart, and this room has none.
+    for (const Light& light : lights)
+        CHECK(uta::ubundle::litDirectly(light) == (light.exportIndex == 0 || light.exportIndex == 2));
 
     const PillarRoom room = pillarRoom();
     JobSystem jobs(2);
@@ -450,6 +454,25 @@ TEST_CASE("INV-4: a light the renderer does not draw directly has no pair", "[ub
     REQUIRE(mask.has_value());
     REQUIRE_FALSE(mask->pairs.empty());
     for (const MaskPair& pair : mask->pairs) CHECK(pair.light == 0);
+}
+
+TEST_CASE("UTA-0438 INV-1: a special-lit chart pairs only special-lit lights", "[ubake][shadowmask]") {
+    // Two walls facing one light of each class: the flagged wall takes only
+    // the special light, the plain wall only the ordinary one.
+    Scene scene;
+    const std::uint32_t plain = addQuad(scene, {0, 0, 0}, {256, 0, 0}, {256, 0, 256}, {0, 0, 256}, {0, 1, 0});
+    const std::uint32_t flagged = addQuad(scene, {0, 300, 0}, {256, 300, 0}, {256, 300, 256}, {0, 300, 256},
+                                          {0, -1, 0}, PF_SPECIAL_LIT);
+    const Geometry geometry = finish(std::move(scene));
+    Light special = pointLight({128, 150, 128}, 1);
+    special.specialLit = true;
+    JobSystem jobs(2);
+    const auto mask = bakeShadowMask(bundleOf(geometry, {pointLight({128, 150, 128}, 0), special}), jobs);
+    REQUIRE(mask.has_value());
+    CHECK(pairOf(*mask, plain, 0) != nullptr);
+    CHECK(pairOf(*mask, plain, 1) == nullptr);
+    CHECK(pairOf(*mask, flagged, 0) == nullptr);
+    CHECK(pairOf(*mask, flagged, 1) != nullptr);
 }
 
 namespace {

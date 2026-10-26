@@ -106,6 +106,7 @@ std::vector<Chart> chartsOf(const ubundle::Geometry& geometry) {
     std::unordered_map<std::uint32_t, std::size_t> byFirst;
     for (const ubundle::GeometryBatch& batch : geometry.batches) {
         const bool lit = (batch.polyFlags & UNLIT_FLAGS) == 0;
+        const bool special = (batch.polyFlags & PF_SPECIAL_LIT) != 0;
         for (std::uint32_t i = batch.firstIndex; i + 2 < batch.firstIndex + batch.indexCount; i += 3) {
             const std::uint32_t first = geometry.indices[i];
             const std::uint32_t last = std::max(geometry.indices[i + 1], geometry.indices[i + 2]);
@@ -115,6 +116,7 @@ std::vector<Chart> chartsOf(const ubundle::Geometry& geometry) {
                 chart.first = first;
                 chart.last = std::max(first, last);
                 chart.lit = lit;
+                chart.special = special;
                 charts.push_back(chart);
             } else {
                 charts[at->second].last = std::max(charts[at->second].last, last);

@@ -421,7 +421,9 @@ repeat. `Cli.cpp`'s help text and `README.md` name the key.
 - **Past `VOLUME_LIGHT_CAPACITY`** the furthest volumetric lights do not glow,
   and `FrameStats::droppedVolumeLights` says how many.
 - **A camera outside every room** is in zone 0.
-- **A `specialLit` or backdrop light** is not drawn, so it does not glow.
+- **A backdrop light** is not drawn, so it does not glow. **A `specialLit`
+  light** is drawn with no fog volume, so it does not glow either (UTA-0438
+  § 3 decision 3).
 - **Bloom is not fogged**, so an emissive surface's glow shows through fog.
 - **The tutorial's zone rule is wrong.** § 7's capture shows a fog ball or
   shows none, which settles it.
