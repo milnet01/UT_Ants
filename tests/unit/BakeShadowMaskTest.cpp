@@ -536,6 +536,29 @@ TEST_CASE("INV-5: a mover beyond the light whose key carries it between marks th
     CHECK(floorMark(keyed) == 0);
 }
 
+TEST_CASE("INV-5: a rolled mover is placed by UTA-0119 SS 4.5's roll", "[ubake][shadowmask]") {
+    // A box 150 out along the mover's own Y, the mover 50 above the light.
+    // R's second row is (0, c, s), so a quarter roll carries +Y to -Z: the
+    // box lands at z 100, between the light and the floor. The other way
+    // round it lands at z 400, beyond the light.
+    uta::ubundle::MoverShape mover;
+    mover.exportIndex = 7;
+    mover.location = {256, 256, 250};
+    Scene scene;
+    addBox(scene, {-10, 140, -10}, {10, 160, 10});
+    mover.geometry = finish(std::move(scene));
+
+    Bundle rolled;
+    mover.rotation = {0, 0, 16384};
+    rolled.movers = std::vector{mover};
+    CHECK(floorMark(rolled) == 1);
+
+    Bundle rolledBack;
+    mover.rotation = {0, 0, -16384};
+    rolledBack.movers = std::vector{mover};
+    CHECK(floorMark(rolledBack) == 0);
+}
+
 TEST_CASE("INV-6: placed rectangles do not overlap and hold every lit vertex", "[ubake][shadowmask]") {
     const PillarRoom room = pillarRoom();
     std::vector<Light> lights{pointLight(LIGHT_AT, 0), pointLight({100, 400, 120}, 1)};

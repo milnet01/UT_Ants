@@ -34,7 +34,7 @@ namespace uta::ubake {
 /// `ubake` itself, or any library src/ubake/CMakeLists.txt links it to.
 /// tests/unit/BakeGoldenTest.cpp fails a change without a bump, and a bump
 /// without re-recording its golden hash (INV-5).
-inline constexpr std::uint32_t BAKER_REVISION = 70; // 70 since UTA-0438 pairs PF_SpecialLit charts with special-lit lights only
+inline constexpr std::uint32_t BAKER_REVISION = 71; // 71 since UTA-0439 turns a mover's reach by the roll UTA-0119 SS 4.5 gives
 
 /// "r<BAKER_REVISION>-f<ubundle::FORMAT_VERSION>-l<umat::libraryDigest()>",
 /// the revision and format in decimal, the digest as sixteen lower-case hex

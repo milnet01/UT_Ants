@@ -117,7 +117,7 @@ Vec3 placed(const Vec3& location, const std::array<std::int32_t, 3>& rotation, c
     const double cp = cosineOf(rotation[0]), sp = sineOf(rotation[0]);
     const double cy = cosineOf(rotation[1]), sy = sineOf(rotation[1]);
     const double cr = cosineOf(rotation[2]), sr = sineOf(rotation[2]);
-    const Vec3 r{q.x, cr * q.y - sr * q.z, sr * q.y + cr * q.z};    // roll, about X
+    const Vec3 r{q.x, cr * q.y + sr * q.z, -sr * q.y + cr * q.z};   // roll, about X
     const Vec3 p{cp * r.x - sp * r.z, r.y, sp * r.x + cp * r.z};    // pitch
     const Vec3 y{cy * p.x - sy * p.y, sy * p.x + cy * p.y, p.z};    // yaw, about Z
     return location + Vec3{scale[0] * y.x, scale[1] * y.y, scale[2] * y.z};

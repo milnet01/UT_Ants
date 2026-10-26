@@ -169,9 +169,11 @@ namespace {
 // fixture has one; BAKR's revision moved it either way.
 // 70: UTA-0438 pairs PF_SpecialLit charts with special-lit lights only. The
 // fixture has neither, so BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 70;
+// 71: UTA-0439 turns a mover's reach by UTA-0119 SS 4.5's roll, not its
+// reverse. The fixture's mover has no roll, so BAKR's revision moved it.
+constexpr std::uint32_t RECORDED_UNDER = 71;
 constexpr std::string_view GOLDEN =
-    "1ad9cf990f0eb989fa0b926636e268b48d435bfc19501ee8016a9519b4b210d4";
+    "0e709965601a135f43cb96c51f0243e8f9c72573aba143d4ab02e23a27bf5572";
 
 } // namespace
 
