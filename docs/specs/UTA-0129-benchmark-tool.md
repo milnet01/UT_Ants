@@ -288,8 +288,8 @@ struct MapSummary {
 }  // namespace uta::bench
 ```
 
-`tools/ut-bench/Cli.cpp` is compiled into the tool and into the unit tests,
-as `tools/ut-bake/Cli.cpp` is.
+`tools/ut-bench/Cli.cpp` is built into `uta_bench`, which the tool and the
+unit tests link (UTA-0433).
 
 ### 4.4 The frame workload
 
@@ -394,7 +394,8 @@ struct FrameSpread { double min = 0, median = 0, p99 = 0, max = 0; };
 ```
 
 `urender::Renderer` gains `deviceName()`. `tools/ut-bench/Frame.cpp` is
-compiled into the tool, the unit tests and the device tests.
+built into `uta_bench`, which the tool, the unit tests and the device tests
+link (UTA-0433).
 
 ## 5. Invariants
 

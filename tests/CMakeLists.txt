@@ -135,11 +135,12 @@ target_link_libraries(uta_unit_tests PRIVATE uta_core uta_upkg uta_unav uta_unav
 # The ut-bake command line, compiled in so INV-15 of
 # docs/specs/UTA-0011-map-baker.md is tested without starting a process.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bake/Cli.cpp")
-# And ut-paths', but for main.cpp -- docs/specs/UTA-0121-bot-path-seeds.md SS 4.1.
-target_sources(uta_unit_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Cli.cpp"
-    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
-    "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
+# And ut-paths', but for main.cpp -- docs/specs/UTA-0121-bot-path-seeds.md
+# SS 4.1 -- and ut-bench's (UTA-0129), each built once as a library
+# (UTA-0433). Included here too, for a build without the tools.
+include("${PROJECT_SOURCE_DIR}/tools/ut-paths/Library.cmake")
+include("${PROJECT_SOURCE_DIR}/tools/ut-bench/Library.cmake")
+target_link_libraries(uta_unit_tests PRIVATE uta_paths uta_bench)
 # And ut-origin's -- UTA-0013's third quarantine check.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-origin/Cli.cpp")
 # And ut-dump's -- UTA-0136's navigation graph.
@@ -154,9 +155,6 @@ target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bound-scan
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-shot/Cli.cpp")
 # And ut-ref's tracer and scorer -- UTA-0292.
 target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-ref/Reference.cpp")
-# And ut-bench's -- UTA-0129.
-target_sources(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp"
-                                      "${PROJECT_SOURCE_DIR}/tools/ut-bench/Frame.cpp")
 target_include_directories(uta_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
 # And the client's parts that need no window -- UTA-0016. Compiled in whether or
 # not UTA_BUILD_CLIENT is on, because neither links SDL.
@@ -234,12 +232,10 @@ add_executable(uta_device_tests
     device/RenderTileShuffleTest.cpp
     device/RenderUnderwaterTest.cpp
     # UTA-0129 SS 4.4: ut-bench's frame workload draws, so it is graded here.
-    device/BenchFrameTest.cpp
-    "${PROJECT_SOURCE_DIR}/tools/ut-bench/Cli.cpp"
-    "${PROJECT_SOURCE_DIR}/tools/ut-bench/Frame.cpp")
+    device/BenchFrameTest.cpp)
 # uta_ubake beside uta_urender: INV-6 holds the shader's light to ubake's
 # lightAt, which UTA-0112 SS 4.9 says a test of this item may link.
-target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle uta_ubake Vulkan::Vulkan
+target_link_libraries(uta_device_tests PRIVATE uta_urender uta_ubundle uta_ubake uta_bench Vulkan::Vulkan
                                                Catch2::Catch2WithMain)
 target_include_directories(uta_device_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/tools")
 # The kernels include urender's own GLSL -- the files the shading pass does.
@@ -299,10 +295,9 @@ if(UTA_REAL_ASSET_TESTS)
                                                        uta_umat uta_ubake Catch2::Catch2WithMain)
     # tests/support/FCoordsPort.h, header-only -- UTA-0119 SS 7.
     target_include_directories(uta_real_asset_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    # ut-paths, but for its command line -- UTA-0121 SS 7.
-    target_sources(uta_real_asset_tests PRIVATE
-            "${PROJECT_SOURCE_DIR}/tools/ut-paths/Walkable.cpp"
-        "${PROJECT_SOURCE_DIR}/tools/ut-paths/Seeds.cpp")
+    # ut-paths, as built once (UTA-0433); the tests use all but its command
+    # line -- UTA-0121 SS 7.
+    target_link_libraries(uta_real_asset_tests PRIVATE uta_paths)
     target_include_directories(uta_real_asset_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools")
     target_compile_definitions(uta_real_asset_tests
         PRIVATE UTA_UT_INSTALL_DIR="${UTA_UT_INSTALL_DIR}"

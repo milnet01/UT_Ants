@@ -2,11 +2,12 @@
 # to link the package reader through uta_ubake --
 # docs/specs/UTA-0121-bot-path-seeds.md SS 4.1.
 #
-# Everything but main.cpp is compiled into the unit tests too, as ut-bake's
-# Cli.cpp is (tests/CMakeLists.txt).
+# Everything but main.cpp is built once, as uta_paths (Library.cmake), and
+# linked by the tests too.
 #
 # Trace.h forwards to src/uworld/CollisionQuery.h, where the collision checks
 # moved so the baker and then the game can use them --
 # docs/specs/UTA-0112-baked-light-probes.md SS 4.10, then UTA-0158.
-add_executable(ut-paths main.cpp Cli.cpp Walkable.cpp Seeds.cpp)
-target_link_libraries(ut-paths PRIVATE uta_ubake uta_tools_common)
+include("${CMAKE_CURRENT_SOURCE_DIR}/Library.cmake")
+add_executable(ut-paths main.cpp)
+target_link_libraries(ut-paths PRIVATE uta_paths uta_tools_common)

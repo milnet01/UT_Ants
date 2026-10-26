@@ -167,14 +167,14 @@ The choices below are mine, the user being away and having left them to me.
 | `tools/ut-paths/Trace.h` | point and segment checks against a tree (§ 4.4), forwarded from `src/uworld/CollisionQuery.h`, where UTA-0112 § 4.10 and then UTA-0158 moved them |
 | `tools/ut-paths/Walkable.h`, `Walkable.cpp` | standing spots and the walk graph (§ 4.5) |
 | `tools/ut-paths/Seeds.h`, `Seeds.cpp` | the start, exits, network part, routes and nodes (§ 4.6, § 4.7) |
-| `tools/ut-paths/CMakeLists.txt` | `ut-paths`, linking `uta_ubake` |
+| `tools/ut-paths/CMakeLists.txt`, `Library.cmake` | `ut-paths`, and `uta_paths`, the library of all but `main.cpp`, linking `uta_ubake` |
 | `tools/common/Json.h` | the shared string escaper (§ 4.8) |
 | `src/core/Md5.h`, `Md5.cpp` | RFC 1321 MD5 (§ 4.8) |
 
 `tools/CMakeLists.txt` adds `ut-paths`, and `uta_tools_common`, the
-interface library carrying `tools/common/`. `tests/CMakeLists.txt` compiles
-`Cli.cpp`, `Walkable.cpp` and `Seeds.cpp` into
-`uta_unit_tests`, as it does ut-bake's `Cli.cpp`. `src/ubake/Bake.h`
+interface library carrying `tools/common/`. `Cli.cpp`, `Walkable.cpp` and `Seeds.cpp` are built once into
+`uta_paths` (`tools/ut-paths/Library.cmake`, UTA-0433), which the tool and
+`uta_unit_tests` link. `src/ubake/Bake.h`
 declares the bake's `findLevel` and `findModel` in `detail`, so `sceneOf`
 finds a map's Level and Model as a bake does.
 
