@@ -85,7 +85,7 @@ std::vector<std::byte> fileWith(const Bytes& flam) {
     const std::vector<std::pair<std::string_view, Bytes>> sections = {{"MATS", matsPayload()}, {"FLAM", flam}};
     Bytes out;
     out.id("UTAB");
-    out.u32(32); // formatVersion -- 32 since UTA-0397 gave LPRB each probe's reach
+    out.u32(33); // formatVersion -- 33 since UTA-0439 gave MOVR each shape's still byte
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved

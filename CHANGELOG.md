@@ -624,6 +624,13 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Movers a map can never move are lit like walls** (UTA-0439)
+  Some maps build fixed glass and decoration from movers, the parts used
+  for doors and lifts, and never let them move. Those now get baked light
+  and shadow, as the level does, and cast baked shadows on it, instead of
+  working out every light per pixel. Maps must be re-baked (format 33,
+  baker revision 72).
+
 - **High may draw at two-thirds of the screen and upscale** (UTA-0039)
   The target on the development machine is now 2560x1440 upscaled to its
   4K screen, so High's lowest render scale is 2/3 instead of 0.75. Dynamic
@@ -812,6 +819,11 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **A rolled mover's baked shadow reach turned the wrong way** (UTA-0439)
+  The bake placed a mover rolled about its long axis mirrored from where
+  the game draws it, so the light it could block was marked on the wrong
+  side. Fixed in baker revision 71.
 
 - **Specially lit surfaces take only their own lights** (UTA-0438)
   A UT map can mark a surface to be lit only by lights flagged for it, and

@@ -70,7 +70,7 @@ Bytes aoccPayload(const Occlusion& occlusion) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(32); // formatVersion -- 32 since UTA-0397 gave LPRB each probe's reach
+    out.u32(33); // formatVersion -- 33 since UTA-0439 gave MOVR each shape's still byte
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -191,6 +191,30 @@ TEST_CASE("INV-1: an AOCC uv outside 0 to 1 is refused", "[ubundle][occlusion]")
 
 TEST_CASE("INV-1: an AOCC uv count unlike GEOM's vertex count is refused", "[ubundle][occlusion]") {
     refusedBothWays(golden(), "AOCC holds 2 uvs, and GEOM 3 vertices", 3);
+}
+
+TEST_CASE("UTA-0439 INV-3: AOCC's uvs cover each still mover after GEOM", "[ubundle][occlusion]") {
+    // GEOM's one vertex and a still mover's one fill golden()'s two.
+    uta::ubundle::MoverShape mover;
+    mover.exportIndex = 5;
+    mover.geometry.vertices.resize(1, GeometryVertex{});
+    mover.still = 1;
+    Bundle still;
+    still.header.origin = Origin::Authored;
+    still.geometry = Geometry{};
+    still.geometry->vertices.resize(1, GeometryVertex{});
+    still.movers = std::vector{mover};
+    still.occlusion = golden();
+    const auto written = write(still);
+    REQUIRE(written.has_value());
+    CHECK(read(*written).has_value());
+
+    // A mover that is not still has no uv, so GEOM's one is short.
+    Bundle moving = still;
+    moving.movers->front().still = 0;
+    const auto refused = write(moving);
+    REQUIRE_FALSE(refused.has_value());
+    CHECK_THAT(std::string(refused.error().message()), Catch::Matchers::ContainsSubstring("GEOM 1 vertices"));
 }
 
 TEST_CASE("INV-1: an AOCC with no GEOM is refused", "[ubundle][occlusion]") {

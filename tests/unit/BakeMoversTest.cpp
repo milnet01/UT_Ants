@@ -171,6 +171,34 @@ fc::Vec placed(fc::Vec q, fc::Vec location, const fc::Rotator& r, fc::Vec postSc
 
 } // namespace
 
+TEST_CASE("UTA-0439 INV-1: a mover is still exactly when the map can never move it", "[ubake][movers]") {
+    MapBuilder map;
+    const std::int32_t brush = map.addBrushModel(tiltedSquare());
+    const std::int32_t mover = map.importClass("Engine", "Mover");
+    const std::int32_t tallDoor = map.importClass("ActorPkg", "TallDoor");
+    const auto none = [](std::string text) { return nameProperty("InitialState", std::move(text)); };
+    map.addActor("Glass0", mover, {objectProperty("Brush", brush), none("None")});
+    map.addActor("Glass1", mover, {objectProperty("Brush", brush), none("none")}); // folded
+    map.addActor("Door2", mover, {objectProperty("Brush", brush)});                 // no InitialState
+    map.addActor("Door3", tallDoor, {objectProperty("Brush", brush), none("None")}); // a subclass
+    map.addActor("Slave4", mover, {objectProperty("Brush", brush), none("None"), boolProperty("bSlave", true)});
+    map.addActor("Rider5", mover, {objectProperty("Brush", brush), none("None"), nameProperty("Tag", "Ride")});
+    map.addActor("Carrier6", mover, {objectProperty("Brush", brush), nameProperty("AttachTag", "Ride")});
+    map.addActor("Glass7", mover,
+                 {objectProperty("Brush", brush), none("None"), boolProperty("bSlave", false), nameProperty("Tag", "Pane")});
+    MemoryPackages packages = installed();
+
+    const std::vector<std::uint8_t> bytes = map.build();
+    const auto outcome = moversOf(bytes, packages);
+    REQUIRE(outcome.has_value());
+    REQUIRE(outcome->shapes.size() == 8);
+    const std::uint8_t expected[8] = {1, 1, 0, 0, 0, 0, 0, 1};
+    for (std::size_t i = 0; i < 8; ++i) {
+        CAPTURE(outcome->placements.actors[outcome->movers[i]].path);
+        CHECK(outcome->shapes[i].still == expected[i]);
+    }
+}
+
 TEST_CASE("INV-3: an actor gets a shape exactly when the engine calls it a moving brush",
           "[ubake][movers]") {
     MapBuilder map;

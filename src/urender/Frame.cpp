@@ -244,7 +244,10 @@ BundleShape shapeOf(const ubundle::Bundle& bundle) {
     Fnv fnv;
     if (bundle.geometry) sampleGeometry(fnv, *bundle.geometry);
     if (bundle.movers)
-        for (const ubundle::MoverShape& mover : *bundle.movers) sampleGeometry(fnv, mover.geometry);
+        for (const ubundle::MoverShape& mover : *bundle.movers) {
+            sampleGeometry(fnv, mover.geometry);
+            fnv.addValue(mover.still); // UTA-0439 SS 4.4: it decides which vertices read AOCC and SMSK
+        }
     if (bundle.materials) {
         for (const ubundle::MaterialRecord& record : *bundle.materials) {
             fnv.add(std::as_bytes(std::span(record.id)));

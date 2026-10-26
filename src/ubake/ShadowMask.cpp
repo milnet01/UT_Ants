@@ -9,6 +9,7 @@
 #include "ubake/Install.h"
 #include "ubake/LightModel.h"
 #include "ubake/LightProbes.h"
+#include "ubake/StillMovers.h"
 #include "ubake/SurfaceRays.h"
 
 #include <algorithm>
@@ -111,24 +112,13 @@ double seenShare(const Site& site, const Vec3& o, int offset, const SurfaceRays&
     return rays.blocked(o, nearest, hole) ? 0.0 : 1.0;
 }
 
-/// UTA-0119 SS 4.5: location + postScale * (Y P R q).
-Vec3 placed(const Vec3& location, const std::array<std::int32_t, 3>& rotation, const std::array<float, 3>& scale,
-            const Vec3& q) noexcept {
-    const double cp = cosineOf(rotation[0]), sp = sineOf(rotation[0]);
-    const double cy = cosineOf(rotation[1]), sy = sineOf(rotation[1]);
-    const double cr = cosineOf(rotation[2]), sr = sineOf(rotation[2]);
-    const Vec3 r{q.x, cr * q.y + sr * q.z, -sr * q.y + cr * q.z};   // roll, about X
-    const Vec3 p{cp * r.x - sp * r.z, r.y, sp * r.x + cp * r.z};    // pitch
-    const Vec3 y{cy * p.x - sy * p.y, sy * p.x + cy * p.y, p.z};    // yaw, about Z
-    return location + Vec3{scale[0] * y.x, scale[1] * y.y, scale[2] * y.z};
-}
-
 /// SS 4.4: each mover's reach -- its shape placed at its own location and at
 /// each key its placement carries, as offsets from its base.
 std::vector<Box> moverReaches(const ubundle::Bundle& bundle) {
     std::vector<Box> out;
     if (!bundle.movers) return out;
     for (const ubundle::MoverShape& mover : *bundle.movers) {
+        if (mover.still != 0) continue; // UTA-0439 SS 4.3: it is in the charted geometry instead
         std::map<std::uint32_t, std::pair<Vec3, std::array<std::int32_t, 3>>> keys;
         keys.try_emplace(0); // the base position: the mover reaches from where it stands
         if (bundle.placements)
@@ -381,7 +371,10 @@ Result<ubundle::ShadowMask> bakeShadowMask(const ubundle::Bundle& bundle, JobSys
     if (!(texelSize > 0.0f) || !std::isfinite(texelSize))
         return fail(ErrorCode::InvalidArgument,
                     "shadow mask: a texel size must be positive and finite, not " + std::to_string(texelSize));
-    const ubundle::Geometry& geometry = *bundle.geometry;
+    // UTA-0439 SS 4.3: GEOM, and each still mover after it, placed.
+    const std::optional<ubundle::Geometry> charted =
+        bundle.movers ? chartedGeometry(*bundle.geometry, *bundle.movers) : std::nullopt;
+    const ubundle::Geometry& geometry = charted ? *charted : *bundle.geometry;
 
     std::vector<Site> sites;
     for (std::uint32_t i = 0; i < bundle.lights->size(); ++i)

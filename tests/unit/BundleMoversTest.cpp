@@ -77,6 +77,7 @@ Bytes movrPayload(const std::vector<MoverShape>& shapes) {
         for (const float part : shape.location) out.f32(part);
         for (const std::int32_t part : shape.rotation) out.i32(part);
         for (const float part : shape.postScale) out.f32(part);
+        out.u8(shape.still); // UTA-0439 SS 4.2
         putGeometry(out, shape.geometry);
     }
     return out;
@@ -93,7 +94,7 @@ Bytes emptyLite() {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(32); // formatVersion -- 32 since UTA-0397 gave LPRB each probe's reach
+    out.u32(33); // formatVersion -- 33 since UTA-0439 gave MOVR each shape's still byte
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -140,6 +141,7 @@ std::vector<MoverShape> golden() {
     door.location = {-0.0F, 8.0F, 16.0F};
     door.rotation = {16384, -1, 3};
     door.postScale = {-1.0F, 2.0F, 0.5F};
+    door.still = 1;
     door.geometry = square();
 
     MoverShape lift;
@@ -156,6 +158,7 @@ void sameShapes(const std::vector<MoverShape>& actual, const std::vector<MoverSh
         const MoverShape& e = expected[i];
         CHECK(a.exportIndex == e.exportIndex);
         CHECK(a.rotation == e.rotation);
+        CHECK(a.still == e.still);
         for (std::size_t axis = 0; axis < 3; ++axis) {
             CHECK(bitsOf(a.location[axis]) == bitsOf(e.location[axis]));
             CHECK(bitsOf(a.postScale[axis]) == bitsOf(e.postScale[axis]));
@@ -207,7 +210,7 @@ void refusedBothWays(const std::vector<MoverShape>& shapes, std::string_view say
 TEST_CASE("the MOVR golden bytes decode to the shapes they encode", "[ubundle][movr]") {
     const auto result = read(fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
     REQUIRE(result.has_value());
-    CHECK(result->header.formatVersion == 32);
+    CHECK(result->header.formatVersion == 33);
     REQUIRE(result->lights.has_value());
     REQUIRE(result->movers.has_value());
     sameShapes(*result->movers, golden());
@@ -223,14 +226,14 @@ TEST_CASE("write emits MOVR after LITE as the golden bytes", "[ubundle][movr]") 
     CHECK(*written == fileWith({{"LITE", emptyLite()}, {"MOVR", movrPayload(golden())}}));
 }
 
-TEST_CASE("a shape with empty geometry encodes to exactly 52 bytes", "[ubundle][movr]") {
+TEST_CASE("a shape with empty geometry encodes to exactly 53 bytes", "[ubundle][movr]") {
     Bundle bundle;
     bundle.header.origin = Origin::Authored;
     bundle.movers = std::vector<MoverShape>{MoverShape{}};
     const auto written = write(bundle);
     REQUIRE(written.has_value());
     // The header, one descriptor, the payload's own count, and the shape.
-    CHECK(written->size() == 16 + 24 + 4 + 52);
+    CHECK(written->size() == 16 + 24 + 4 + 53);
     CHECK(*written == fileWith({{"MOVR", movrPayload({MoverShape{}})}}));
 }
 
@@ -246,6 +249,12 @@ TEST_CASE("shapes out of order are refused", "[ubundle][movr]") {
     std::vector<MoverShape> shapes = golden();
     std::swap(shapes[0], shapes[1]);
     refusedBothWays(shapes, "shape 1's exportIndex");
+}
+
+TEST_CASE("UTA-0439 INV-2: a shape whose still byte is above 1 is refused", "[ubundle][movr]") {
+    std::vector<MoverShape> shapes = golden();
+    shapes[1].still = 2;
+    refusedBothWays(shapes, "shape 1's still");
 }
 
 TEST_CASE("a shape whose geometry has an index past its vertices is refused", "[ubundle][movr]") {

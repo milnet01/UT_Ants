@@ -92,6 +92,8 @@ target or link changes.
 
 ### 4.2 The `MOVR` section
 
+UTA-0439 § 4.2 adds a `still` byte after `postScale` (format 33).
+
 ```cpp
 namespace uta::ubundle {
 

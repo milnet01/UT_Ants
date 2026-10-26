@@ -46,6 +46,7 @@ struct SceneGeometry {
     /// level's occlusion uvs from AOCC, and the white block's centre for every
     /// mover. UTA-0326 SS 4.5: the level's charts and texels from SMSK, and
     /// MASK_NO_CHART for every mover and every vertex of a bundle without one.
+    /// UTA-0439 SS 4.4: a still mover takes its own from both, as the level does.
     Buffer surfaceVertices;
     Buffer indices;
     /// Every batch that draws, in bundle order. PF_Invisible batches are not

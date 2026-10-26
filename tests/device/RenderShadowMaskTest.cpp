@@ -67,9 +67,10 @@ uta::ubundle::ShadowMask maskOf(std::vector<MaskPair> pairs, std::uint8_t value)
     return mask;
 }
 
-/// `mask` over every vertex of `bundle`'s GEOM, each reading the chart's middle texel.
+/// `mask` over every vertex of `bundle`'s GEOM and its still movers
+/// (UTA-0439 SS 4.2), each reading the chart's middle texel.
 void cover(uta::ubundle::Bundle& bundle, uta::ubundle::ShadowMask mask) {
-    const std::size_t vertices = bundle.geometry->vertices.size();
+    const std::size_t vertices = uta::ubundle::chartedVertexCount(bundle);
     mask.vertexChart.assign(vertices, 0);
     mask.vertexTexel.assign(vertices, {CHART_SIZE / 2.0f, CHART_SIZE / 2.0f});
     bundle.shadowMask = std::move(mask);
@@ -171,6 +172,45 @@ TEST_CASE("UTA-0326 INV-9: a moverReach pair reads the shadow map alone", "[devi
     CHECK(std::abs(int(openAfter.r) - int(openBefore.r)) <= 1);
     CHECK(moverBefore.r > 0);
     CHECK(std::abs(int(moverAfter.r) - int(moverBefore.r)) <= 1);
+}
+
+TEST_CASE("UTA-0439 INV-5: a still mover's fragments read its own chart", "[device]") {
+    removeDisplay();
+    Renderer renderer = requireRenderer(linearFrame());
+    // INV-9's scene, its mover still.
+    uta::ubundle::Geometry geometry;
+    addSquare(geometry, 120, 0, 0, 60, "grey", 0);
+    uta::ubundle::Bundle bundle = bundleOf(std::move(geometry));
+    addSolidMaterial(bundle, "grey", GREY);
+    bundle.lights = std::vector{steadyLight({60, 0, 0}, 128, 64)};
+    uta::ubundle::MoverShape mover;
+    mover.exportIndex = 7;
+    mover.location = {100, -30, 0};
+    mover.postScale = {1, 1, 1};
+    mover.still = 1;
+    addSquare(mover.geometry, 0, 0, 0, 20, "grey", 0);
+    bundle.movers = std::vector{mover};
+    const std::uint32_t onMover = columnOf(-30, 100);
+
+    // Each variant a bundle of its own: a new address is what tells the
+    // renderer its lights or mask changed.
+    const Rgba lit = colourAt(renderer, bundle, onMover);
+    uta::ubundle::Bundle switchedOff = bundle;
+    (*switchedOff.lights)[0].brightness = 0;
+    const Rgba off = colourAt(renderer, switchedOff, onMover);
+    // An unmarked pair of 0: a still mover reading its chart goes dark.
+    uta::ubundle::Bundle masked = bundle;
+    cover(masked, maskOf({stored(0)}, 0));
+    const Rgba dark = colourAt(renderer, masked, onMover);
+    // The same bundle edited in place, its mover no longer still: SMSK's
+    // count then matches nothing, so nothing reads it. Only shapeOf's sample
+    // of the still byte can tell the renderer.
+    masked.movers->front().still = 0;
+    const Rgba unread = colourAt(renderer, masked, onMover);
+    CAPTURE(lit, off, dark, unread);
+    CHECK(lit.r > off.r + 8);
+    CHECK(std::abs(int(dark.r) - int(off.r)) <= 1);
+    CHECK(std::abs(int(unread.r) - int(lit.r)) <= 1);
 }
 
 TEST_CASE("UTA-0326 INV-10: a level fragment lights from its chart's pairs alone", "[device]") {

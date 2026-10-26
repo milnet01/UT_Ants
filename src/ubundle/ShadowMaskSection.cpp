@@ -169,11 +169,11 @@ Result<void> validateShadowMaskAcross(const Bundle& bundle, ErrorCode code) {
     if (!bundle.shadowMask) return {};
     const ShadowMask& mask = *bundle.shadowMask;
     if (!bundle.geometry) return fail(code, "SMSK is present and the bundle has no GEOM");
-    const std::size_t vertices = bundle.geometry->vertices.size();
+    const std::size_t vertices = chartedVertexCount(bundle);
     if (mask.vertexChart.size() != vertices || mask.vertexTexel.size() != vertices)
         return fail(code, "SMSK holds " + std::to_string(mask.vertexChart.size()) + " vertex charts and "
-                              + std::to_string(mask.vertexTexel.size()) + " vertex texels, and GEOM "
-                              + std::to_string(vertices) + " vertices");
+                              + std::to_string(mask.vertexTexel.size()) + " vertex texels, and "
+                              + chartedVertexOwners(bundle) + std::to_string(vertices) + " vertices");
     if (!bundle.lights) return fail(code, "SMSK is present and the bundle has no LITE");
     // UTA-0256 SS 4.2: past LITE's end, a pair names a LAMP lamp's light, and
     // past those the sun (UTA-0338 SS 4.2).

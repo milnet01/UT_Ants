@@ -110,7 +110,7 @@ std::vector<std::byte> fileWithTextures(const std::vector<TextureSpec>& textures
 
     Bytes out;
     out.id("UTAB");
-    out.u32(32); // formatVersion -- 32 since UTA-0397 gave LPRB each probe's reach
+    out.u32(33); // formatVersion -- 33 since UTA-0439 gave MOVR each shape's still byte
     out.u8(1);  // origin: Authored
     out.u8(0);  // kind: Map
     out.u16(0); // reserved
@@ -359,7 +359,7 @@ TEST_CASE("the golden texture bytes decode field by field to the values they enc
     REQUIRE(result.has_value());
     const Bundle& bundle = *result;
 
-    CHECK(bundle.header.formatVersion == 32);
+    CHECK(bundle.header.formatVersion == 33);
     CHECK(bundle.header.origin == Origin::Authored);
     CHECK(bundle.header.kind == BundleKind::Map);
 

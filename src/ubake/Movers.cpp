@@ -12,6 +12,7 @@
 #include <bit>
 #include <cmath>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <variant>
@@ -74,11 +75,47 @@ std::array<float, 3> vectorNamed(std::string_view name, const ubundle::ActorPlac
     return record == nullptr ? std::array<float, 3>{} : std::get<std::array<float, 3>>(record->value);
 }
 
+/// A Name property resolved by SS 4.4's order, folded; empty when absent.
+std::string nameNamed(std::string_view name, const ubundle::ActorPlacement& actor,
+                      const ubundle::ActorClass& actorClass) {
+    const PropertyRecord* record = resolved(name, ValueKind::Name, actor, actorClass);
+    return record == nullptr ? std::string{} : detail::fold(std::get<std::string>(record->value));
+}
+
+/// An actor's Tag, folded. One that carries none has its class's name, which
+/// is what UnrealEd gives a placed actor.
+std::string tagOf(const ubundle::ActorPlacement& actor, const ubundle::ActorClass& actorClass) {
+    std::string tag = nameNamed("tag", actor, actorClass);
+    if (!tag.empty()) return tag;
+    const std::size_t dot = actorClass.path.rfind('.');
+    return dot == std::string::npos ? actorClass.path : actorClass.path.substr(dot + 1);
+}
+
+/// UTA-0439 SS 4.1: Engine.Mover itself, InitialState None, not a slave and
+/// carried by no actor's AttachTag. Mover.uc moves a mover only from its
+/// states, and a stateless one only as a slave or an attached actor. Anything
+/// in doubt is not still.
+bool stillMover(const ubundle::ActorPlacement& actor, const ubundle::ActorClass& actorClass,
+                const std::set<std::string>& attachTags) {
+    if (!actorClass.resolved || actorClass.path != "engine.mover") return false;
+    if (nameNamed("initialstate", actor, actorClass) != "none") return false;
+    const PropertyRecord* slave = resolved("bslave", ValueKind::Bool, actor, actorClass);
+    if (slave != nullptr && std::get<bool>(slave->value)) return false;
+    return !attachTags.contains(tagOf(actor, actorClass));
+}
+
 } // namespace
 
 Result<std::vector<MoverSite>> findMovers(const upkg::Package& map, const ubundle::Placements& actors) {
     std::vector<MoverSite> movers;
     const auto exports = map.exports();
+    // UTA-0439 SS 4.1: every Tag some actor's AttachTag carries. None names
+    // no actor.
+    std::set<std::string> attachTags;
+    for (const ubundle::ActorPlacement& actor : actors.actors) {
+        std::string tag = nameNamed("attachtag", actor, actors.classes[actor.classIndex]);
+        if (!tag.empty() && tag != "none") attachTags.insert(std::move(tag));
+    }
     for (std::size_t i = 0; i < actors.actors.size(); ++i) {
         const ubundle::ActorPlacement& actor = actors.actors[i];
         const ubundle::ActorClass& actorClass = actors.classes[actor.classIndex];
@@ -116,7 +153,7 @@ Result<std::vector<MoverSite>> findMovers(const upkg::Package& map, const ubundl
             || detail::fold(*className) != "model")
             return std::unexpected(malformed("mover " + actor.path + "'s Brush names export "
                                              + std::to_string(brush->index()) + ", which is not a Model"));
-        movers.push_back(MoverSite{i, &model});
+        movers.push_back(MoverSite{i, &model, stillMover(actor, actorClass, attachTags)});
     }
     return movers;
 }
@@ -195,6 +232,7 @@ Result<ubundle::MoverShape> buildMover(const MoverSite& mover, const upkg::Model
 
     ubundle::MoverShape shape;
     shape.exportIndex = actor.exportIndex;
+    shape.still = mover.still ? 1 : 0;
     shape.geometry = std::move(*built);
 
     // Step 2: MainScale times (p - PrePivot), and the normal divided by

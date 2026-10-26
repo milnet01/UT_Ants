@@ -192,7 +192,8 @@ vertex has no `AOCC`. The texel size and atlas size are in the section itself.
 - A second vertex buffer, binding 1, holds a `vec2` per vertex in the
   concatenated order `SceneGeometry::upload` builds. The level's come from
   `AOCC`. A mover's vertices all get the white block's centre, and so does
-  the level when `AOCC` is absent.
+  the level when `AOCC` is absent. A mover the map can never move takes its
+  own uvs after GEOM's (UTA-0439 § 4.2).
 - `scene.vert` passes it through. `scene.frag` reads the red channel at
   level 0 through the material sampler, and multiplies `indirect + ambient`
   by it. `direct` and `emitted` are untouched. The one-texel border keeps

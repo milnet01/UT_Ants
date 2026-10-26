@@ -166,6 +166,10 @@ void putLight(Sink& sink, const Light& light);
 [[nodiscard]] Result<std::vector<std::byte>> encodeOcclusion(const Occlusion& occlusion);
 [[nodiscard]] Result<void> validateOcclusionVertices(const Bundle& bundle, ErrorCode code);
 
+// UTA-0439 SS 4.2: whose vertices chartedVertexCount counted, for AOCC's and
+// SMSK's count messages -- "GEOM ", or "GEOM and its still movers ".
+[[nodiscard]] std::string chartedVertexOwners(const Bundle& bundle);
+
 // FLAM -- FlameSection.cpp, UTA-0263 SS 4.3. Each record names a MATS
 // record and a LITE index, so validateFlames is a rule across sections and
 // runs once every section is decoded.

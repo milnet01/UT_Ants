@@ -77,7 +77,8 @@ namespace uta::ubundle {
 /// 30 since UTA-0387 gave LPRB each probe's sky visibility.
 /// 31 since UTA-0391 gave PSKY its haze start.
 /// 32 since UTA-0397 gave LPRB each probe's reach.
-inline constexpr std::uint32_t FORMAT_VERSION = 32;
+/// 33 since UTA-0439 gave each MOVR shape its still byte.
+inline constexpr std::uint32_t FORMAT_VERSION = 33;
 
 /// The header's own size, and the offset the section table begins at. There
 /// is no table-offset field in the format -- SS 4.3 -- because a field whose
@@ -458,6 +459,10 @@ struct MoverShape {
     std::array<std::int32_t, 3> rotation{}; ///< pitch, yaw, roll; 65536 to a turn
     std::array<float, 3> postScale{1, 1, 1};
     Geometry geometry;                      ///< GEOM's shape, in pivot space
+    /// UTA-0439 SS 4.1: 1 where the map can never move it, so AOCC and SMSK
+    /// chart it after GEOM (SS 4.2); never above 1. Last, so that a shape
+    /// built field by field needs no value for it.
+    std::uint8_t still = 0;
 };
 
 /// One node of UT99's collision tree -- UTA-0111 SS 4.2. Every field is the
@@ -739,6 +744,10 @@ struct Bundle {
 /// pairs are renamed to LITE's new size (UTA-0338 SS 4.2). The result is for
 /// drawing only: LITE and MOVR no longer keep their write order.
 void applyAddedLamps(Bundle& bundle, bool on);
+
+/// UTA-0439 SS 4.2: how many vertex entries AOCC and SMSK hold -- GEOM's
+/// vertices, then each still mover's, in MOVR order.
+[[nodiscard]] std::size_t chartedVertexCount(const Bundle& bundle) noexcept;
 
 /// UTA-0338 SS 4.2: appends the sun to LITE as `lightOfSun` makes it, and
 /// empties SUN; nothing else changes, and a bundle with no sun is untouched.

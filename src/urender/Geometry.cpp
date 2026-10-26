@@ -41,7 +41,18 @@ Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bun
                                                 2.0f / static_cast<float>(bundle.occlusion->height)}
                          : std::array<float, 2>{0.0f, 0.0f};
 
-    const auto append = [&](const ubundle::Geometry& geometry, std::uint32_t objectIndex,
+    // UTA-0439 SS 4.4: AOCC and SMSK hold GEOM's vertex entries, then each
+    // still mover's, handed out in that order as `append` reaches them. A
+    // section of any other count is read by nobody.
+    const std::size_t charted = ubundle::chartedVertexCount(bundle);
+    const bool occluded = bundle.occlusion && bundle.occlusion->uv.size() == charted;
+    const ubundle::ShadowMask* const mask = bundle.shadowMask && bundle.shadowMask->vertexChart.size() == charted
+                                                    && bundle.shadowMask->vertexTexel.size() == charted
+                                                ? &*bundle.shadowMask
+                                                : nullptr;
+    std::size_t entry = 0;
+
+    const auto append = [&](const ubundle::Geometry& geometry, std::uint32_t objectIndex, bool chartedHere,
                             std::string_view what) -> Result<void> {
         if (vertices.size() + geometry.vertices.size() > std::numeric_limits<std::int32_t>::max()
             || indices.size() + geometry.indices.size() > std::numeric_limits<std::uint32_t>::max())
@@ -81,36 +92,30 @@ Result<SceneGeometry> SceneGeometry::upload(Gpu& gpu, const ubundle::Bundle& bun
                                    firstIndex + batch.firstIndex, batch.indexCount, firstVertex, batch.panRate});
         }
         vertices.insert(vertices.end(), geometry.vertices.begin(), geometry.vertices.end());
-        // Only the level's own vertices are in AOCC and SMSK.
-        const bool occluded =
-            objectIndex == 0 && bundle.occlusion && bundle.occlusion->uv.size() == geometry.vertices.size();
-        const ubundle::ShadowMask* const mask =
-            objectIndex == 0 && bundle.shadowMask && bundle.shadowMask->vertexChart.size() == geometry.vertices.size()
-                    && bundle.shadowMask->vertexTexel.size() == geometry.vertices.size()
-                ? &*bundle.shadowMask
-                : nullptr;
         for (std::size_t i = 0; i < geometry.vertices.size(); ++i) {
-            SurfaceVertex surface{occluded ? bundle.occlusion->uv[i] : white};
-            if (mask != nullptr) {
+            const std::size_t at = entry + i;
+            SurfaceVertex surface{chartedHere && occluded ? bundle.occlusion->uv[at] : white};
+            if (chartedHere && mask != nullptr) {
                 // A chart past SMSK's would be read past the end of MASK_CHARTS.
-                if (mask->vertexChart[i] != ubundle::MASK_NO_CHART && mask->vertexChart[i] >= mask->charts.size())
+                if (mask->vertexChart[at] != ubundle::MASK_NO_CHART && mask->vertexChart[at] >= mask->charts.size())
                     return fail(ErrorCode::InvalidArgument,
                                 std::format("{} vertex {} names chart {} of SMSK's {}", what, i,
-                                            mask->vertexChart[i], mask->charts.size()));
-                surface.maskChart = mask->vertexChart[i];
-                surface.maskTexel = mask->vertexTexel[i];
+                                            mask->vertexChart[at], mask->charts.size()));
+                surface.maskChart = mask->vertexChart[at];
+                surface.maskTexel = mask->vertexTexel[at];
             }
             surfaceVertices.push_back(surface);
         }
+        if (chartedHere) entry += geometry.vertices.size();
         indices.insert(indices.end(), geometry.indices.begin(), geometry.indices.end());
         return {};
     };
 
-    if (bundle.geometry) UTA_CHECK(append(*bundle.geometry, 0, "GEOM"));
+    if (bundle.geometry) UTA_CHECK(append(*bundle.geometry, 0, true, "GEOM"));
     if (bundle.movers) {
         for (std::size_t i = 0; i < bundle.movers->size(); ++i) {
             const ubundle::MoverShape& mover = (*bundle.movers)[i];
-            UTA_CHECK(append(mover.geometry, static_cast<std::uint32_t>(i + 1),
+            UTA_CHECK(append(mover.geometry, static_cast<std::uint32_t>(i + 1), mover.still != 0,
                              std::format("mover {}", mover.exportIndex)));
         }
         scene.objectCount = static_cast<std::uint32_t>(bundle.movers->size() + 1);

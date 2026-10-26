@@ -559,6 +559,46 @@ TEST_CASE("INV-5: a rolled mover is placed by UTA-0119 SS 4.5's roll", "[ubake][
     CHECK(floorMark(rolledBack) == 0);
 }
 
+TEST_CASE("UTA-0439 INV-4: a still mover shadows the floor and charts its own faces", "[ubake][shadowmask]") {
+    // A 100-unit slab hung between the light and the floor's middle.
+    Scene level;
+    const std::uint32_t floor = addQuad(level, {0, 0, 0}, {512, 0, 0}, {512, 512, 0}, {0, 512, 0}, {0, 0, 1});
+    const Geometry geometry = finish(std::move(level));
+    uta::ubundle::MoverShape slab;
+    slab.exportIndex = 7;
+    slab.location = {256, 256, 100};
+    Scene shape;
+    addBox(shape, {-50, -50, -10}, {50, 50, 10});
+    slab.geometry = finish(std::move(shape));
+    slab.still = 1;
+    JobSystem jobs(2);
+
+    Bundle still = bundleOf(geometry, {pointLight(LIGHT_AT)});
+    still.movers = std::vector{slab};
+    const auto mask = bakeShadowMask(still, jobs);
+    REQUIRE(mask.has_value());
+    CHECK(valueAt(geometry, *mask, floor, 0, {256, 256, 0}) == 0);
+    CHECK(valueAt(geometry, *mask, floor, 0, {20, 20, 0}) == 255);
+    REQUIRE(pairOf(*mask, floor, 0) != nullptr);
+    CHECK(pairOf(*mask, floor, 0)->moverReach == 0);
+    REQUIRE(mask->vertexChart.size() == geometry.vertices.size() + slab.geometry.vertices.size());
+    bool charted = false;
+    for (std::size_t i = geometry.vertices.size(); i < mask->vertexChart.size(); ++i)
+        charted = charted || mask->vertexChart[i] != MASK_NO_CHART;
+    CHECK(charted);
+
+    // The same slab, free to move: the shadow map's to draw, so the pair is
+    // marked and the mask sees nothing in the way.
+    Bundle moving = still;
+    moving.movers->front().still = 0;
+    const auto unmarked = bakeShadowMask(moving, jobs);
+    REQUIRE(unmarked.has_value());
+    CHECK(valueAt(geometry, *unmarked, floor, 0, {256, 256, 0}) == 255);
+    REQUIRE(pairOf(*unmarked, floor, 0) != nullptr);
+    CHECK(pairOf(*unmarked, floor, 0)->moverReach == 1);
+    CHECK(unmarked->vertexChart.size() == geometry.vertices.size());
+}
+
 TEST_CASE("INV-6: placed rectangles do not overlap and hold every lit vertex", "[ubake][shadowmask]") {
     const PillarRoom room = pillarRoom();
     std::vector<Light> lights{pointLight(LIGHT_AT, 0), pointLight({100, 400, 120}, 1)};

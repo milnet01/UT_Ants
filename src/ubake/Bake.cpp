@@ -16,6 +16,7 @@
 #include "ubake/Lamps.h"
 #include "ubake/Occlusion.h"
 #include "ubake/ShadowMask.h"
+#include "ubake/StillMovers.h"
 #include "ubake/Movers.h"
 #include "ubake/Name.h"
 #include "ubake/Strips.h"
@@ -1459,7 +1460,9 @@ Result<BakeResult> bake(const upkg::Package& map, std::string_view mapName,
     std::optional<ubundle::Occlusion> occlusion;
     if (!geometry.vertices.empty()) {
         phase.emplace(&times, "occlusion");
-        UTA_TRY(ubundle::Occlusion baked, naming(bakeOcclusion(geometry, jobs), mapName));
+        // UTA-0439 SS 4.3: over GEOM and each still mover after it, placed.
+        const std::optional<ubundle::Geometry> charted = chartedGeometry(geometry, shapes);
+        UTA_TRY(ubundle::Occlusion baked, naming(bakeOcclusion(charted ? *charted : geometry, jobs), mapName));
         occlusion = std::move(baked);
     }
 

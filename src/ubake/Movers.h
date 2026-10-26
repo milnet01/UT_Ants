@@ -27,9 +27,11 @@ namespace uta::ubake {
 struct MoverSite {
     std::size_t placement = 0;                ///< into Placements::actors
     const upkg::ExportEntry* model = nullptr; ///< a Model export of the map
+    bool still = false;                       ///< UTA-0439 SS 4.1: the map can never move it
 };
 
-/// The movers among `actors`, by SS 4.3, in export order.
+/// The movers among `actors`, by SS 4.3, in export order, each marked still
+/// by UTA-0439 SS 4.1.
 ///
 /// MalformedData, naming the actor, when a mover's own Brush names no Model
 /// export of the map. An actor whose Brush is null is not a mover. `actors`

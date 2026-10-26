@@ -235,7 +235,9 @@ section is the same byte for byte at any worker count.
 
 ### 4.4 Moving geometry — `ubake` and `urender`
 
-The mask's occluders are the level's alone: a mover is not in GEOM. **A pair
+The mask's occluders are the level's alone: a mover is not in GEOM. A mover
+the map can never move is the exception, baked with the level and given no
+reach (UTA-0439 § 4.3). **A pair
 is marked `moverReach` when moving geometry could stand between the light
 and the polygon**: some mover's reach meets the box that holds the light's
 centre and the chart's polygon.
@@ -268,7 +270,8 @@ pair reads the mask alone. So one pair never has two shadows to combine.
   `(corner + clamp(maskTexel, 0.5, size - 0.5)) / atlasSize`, level 0,
   filtered. The border texel keeps the read inside its own rectangle.
 - A fragment with `MASK_NO_CHART` loops its cluster and reads the shadow map,
-  as now. That is every mover and every bundle without `SMSK`.
+  as now. That is every mover and every bundle without `SMSK`. A mover the
+  map can never move carries its own chart after GEOM's (UTA-0439 § 4.4).
 - `shapeOf` in `Frame.cpp` samples `SMSK`: its sizes, and the ends of its
   vertex arrays, pairs and texels. Without it a bundle differing only in
   `SMSK` keeps the old mask (UTA-0164 § 7.1's lesson).

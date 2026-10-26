@@ -109,7 +109,7 @@ Bytes smskPayload(const ShadowMask& mask) {
 std::vector<std::byte> fileWith(const std::vector<std::pair<std::string_view, Bytes>>& sections) {
     Bytes out;
     out.id("UTAB");
-    out.u32(32); // formatVersion -- 32 since UTA-0397 gave LPRB each probe's reach
+    out.u32(33); // formatVersion -- 33 since UTA-0439 gave MOVR each shape's still byte
     out.u8(1);   // origin: Authored
     out.u8(0);   // kind: Map
     out.u16(0);  // reserved
@@ -242,6 +242,34 @@ TEST_CASE("INV-1: SMSK vertex arrays unlike GEOM's vertex count are refused", "[
     ShadowMask texels = golden();
     texels.vertexTexel.pop_back();
     refusedBothWays(texels, "SMSK: 3 vertex charts and 2 vertex texels");
+}
+
+TEST_CASE("UTA-0439 INV-3: SMSK's vertex arrays cover each still mover after GEOM", "[ubundle][shadowmask]") {
+    // GEOM's two vertices and a still mover's one fill golden()'s three.
+    uta::ubundle::MoverShape mover;
+    mover.exportIndex = 5;
+    mover.geometry.vertices.resize(1, GeometryVertex{});
+    mover.still = 1;
+    Bundle still = bundleWith(golden(), 2);
+    still.movers = std::vector{mover};
+    const auto written = write(still);
+    REQUIRE(written.has_value());
+    CHECK(read(*written).has_value());
+
+    // A mover that is not still has no entries, so GEOM's two are short.
+    Bundle moving = still;
+    moving.movers->front().still = 0;
+    const auto refused = write(moving);
+    REQUIRE_FALSE(refused.has_value());
+    CHECK_THAT(std::string(refused.error().message()), Catch::Matchers::ContainsSubstring("GEOM 2 vertices"));
+
+    // A still mover of two vertices makes four, past golden()'s three.
+    Bundle longer = still;
+    longer.movers->front().geometry.vertices.resize(2, GeometryVertex{});
+    const auto past = write(longer);
+    REQUIRE_FALSE(past.has_value());
+    CHECK_THAT(std::string(past.error().message()),
+               Catch::Matchers::ContainsSubstring("GEOM and its still movers 4 vertices"));
 }
 
 TEST_CASE("INV-1: an SMSK with no GEOM or no LITE is refused", "[ubundle][shadowmask]") {

@@ -79,10 +79,10 @@ Result<std::vector<std::byte>> encodeOcclusion(const Occlusion& occlusion) {
 Result<void> validateOcclusionVertices(const Bundle& bundle, ErrorCode code) {
     if (!bundle.occlusion) return {};
     if (!bundle.geometry) return fail(code, "AOCC is present and the bundle has no GEOM");
-    const std::size_t vertices = bundle.geometry->vertices.size();
+    const std::size_t vertices = chartedVertexCount(bundle);
     if (bundle.occlusion->uv.size() != vertices)
-        return fail(code, "AOCC holds " + std::to_string(bundle.occlusion->uv.size()) + " uvs, and GEOM "
-                              + std::to_string(vertices) + " vertices");
+        return fail(code, "AOCC holds " + std::to_string(bundle.occlusion->uv.size()) + " uvs, and "
+                              + chartedVertexOwners(bundle) + std::to_string(vertices) + " vertices");
     return {};
 }
 

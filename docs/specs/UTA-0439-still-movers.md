@@ -69,7 +69,8 @@ session's own, the same day.
   the actor and its class, it is not still;
 - its resolved `bSlave` is absent or false;
 - no actor in PLAC has a resolved `AttachTag` equal to its resolved `Tag`,
-  folded. An `AttachTag` of `None` matches nothing.
+  folded. An `AttachTag` of `None` matches nothing. A mover with no `Tag`
+  has its class's name, which UnrealEd gives a placed actor.
 
 ### 4.2 The bundle — `ubundle`
 

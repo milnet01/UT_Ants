@@ -21,6 +21,7 @@ add_library(uta_ubake STATIC
     Charts.cpp
     Occlusion.cpp
     ShadowMask.cpp
+    StillMovers.cpp
     Strips.cpp
     Zones.cpp
     FireStill.cpp
