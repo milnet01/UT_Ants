@@ -18211,7 +18211,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 14.
 
-- 📋 [UTA-0426] **Split recordFrame and drawView into one function per stage.**
+- 🚧 [UTA-0426] **Split recordFrame and drawView into one function per stage.**
   Two MEDIUM findings of lane 01
   (docs/reviews/review-readability-2026-10-23/lane-01-urender-frame.md):
   recordFrame (every stage of the frame) and drawView (scale, FrameData,

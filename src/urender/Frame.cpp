@@ -1,7 +1,7 @@
 // The Renderer: its targets, and the frame it draws --
 // docs/specs/UTA-0014-vulkan-draw-path.md SS 4.3, SS 4.10 and SS 4.11.
 //
-// THE FRAME, IN ORDER -- recordFrame's order, and its section headings':
+// THE FRAME, IN ORDER -- recordFrame's order, one function a stage:
 //   fires: UTA-0286's replayed pictures the frame advanced, uploaded;
 //   shadow tiles: those this frame's plan says to draw (SS 4.8), each then
 //      copied into UTA-0333's quarter-size copy for the haze;
@@ -452,6 +452,59 @@ void memoryBarrier(VkCommandBuffer commands, VkPipelineStageFlags2 srcStage, VkA
     vkCmdPipelineBarrier2(commands, &dependency);
 }
 
+/// The viewport and scissor over `extent` from the top-left corner.
+void setViewportTo(VkCommandBuffer commands, VkExtent2D extent) {
+    const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
+    const VkRect2D scissor{{0, 0}, extent};
+    vkCmdSetViewport(commands, 0, 1, &viewport);
+    vkCmdSetScissor(commands, 0, 1, &scissor);
+}
+
+/// Which of the scene's passes recordBatches draws for.
+enum class ScenePass : std::uint8_t { Depth, Opaque, Translucent };
+
+/// The scene's targets -- colour, velocity, emission and depth -- over the
+/// drawn region. Each pass after the first loads what the one before stored.
+struct SceneTargets {
+    std::array<VkRenderingAttachmentInfo, 3> colours{};
+    VkRenderingAttachmentInfo depth{};
+    VkRect2D area{};
+
+    /// Rendering into the first `colourCount` colours and the depth. Points
+    /// into this object, so it is used before this object moves.
+    [[nodiscard]] VkRenderingInfo rendering(std::uint32_t colourCount) const {
+        VkRenderingInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        info.renderArea = area;
+        info.layerCount = 1;
+        info.colorAttachmentCount = colourCount;
+        info.pColorAttachments = colourCount != 0 ? colours.data() : nullptr;
+        info.pDepthAttachment = &depth;
+        return info;
+    }
+};
+
+/// A view's camera transforms: SS 4.3's, and the jittered one it draws with.
+struct ViewMatrices {
+    gpu::Mat4 view;
+    gpu::Mat4 viewProj;        ///< unjittered
+    gpu::Mat4 drawnProjection; ///< jittered when the tier jitters
+};
+
+/// UTA-0015's per-frame fog constants, and how many glowing lights missed the cap.
+struct FogSetup {
+    gpu::FogConstants constants{};
+    std::uint32_t droppedVolumeLights = 0;
+};
+
+/// When drawView's steps began and ended, for SS 6's stats.
+struct FrameTimes {
+    std::chrono::steady_clock::time_point viewStarted; ///< drawView entered
+    std::chrono::steady_clock::time_point started;     ///< the GPU work submitted
+    std::chrono::steady_clock::duration recording{};
+    double milliseconds = 0; ///< submit to finished
+};
+
 } // namespace
 
 struct Renderer::Impl {
@@ -640,8 +693,47 @@ struct Renderer::Impl {
     /// the target's central square copied into that face of the sky texture.
     Result<void> drawView(const ubundle::Bundle& bundle, const Camera& camera, std::optional<std::uint32_t> image,
                           std::optional<std::uint32_t> skyFace);
+
+    // drawView's steps, in the order it takes them.
+    [[nodiscard]] double scaleFor(bool skyFace, const TierSettings& settings) const;
+    [[nodiscard]] gpu::FrameData frameDataOf(const ubundle::Bundle& bundle, const Camera& camera, VkExtent2D region,
+                                             const ViewMatrices& matrices, double seconds, bool skyFace);
+    [[nodiscard]] std::vector<gpu::Mat4> placeObjects(const ubundle::Bundle& bundle);
+    [[nodiscard]] ShadowPlan planShadows(const ubundle::Bundle& bundle, std::span<const gpu::Mat4> models);
+    std::uint32_t placeLights(gpu::FrameData& frame, std::vector<gpu::Light>& frameLights, const ShadowPlan& plan,
+                              const Camera& camera);
+    std::uint8_t placeViewZone(gpu::FrameData& frame, const ubundle::Bundle& bundle, const Camera& camera);
+    void placeSkyLayers(gpu::FrameData& frame, const ubundle::Bundle& bundle, const Camera& camera,
+                        VkExtent2D region, bool skyFace);
+    [[nodiscard]] FogSetup fogSetupOf(const ubundle::Bundle& bundle, const Camera& camera, VkExtent2D region,
+                                      std::span<const gpu::Light> frameLights, std::uint8_t cameraZone,
+                                      std::uint32_t flashlight, bool skyFace);
+    Result<void> uploadFrame(gpu::FrameData& frame, std::span<const gpu::Light> frameLights, const ShadowPlan& plan);
+    void recordSkyFaceCopy(VkCommandBuffer commands, VkExtent2D region, std::uint32_t skyFace);
+    void readStats(const ShadowPlan& plan, std::uint32_t droppedVolumeLights, double scale, const FrameTimes& times,
+                   bool skyFace);
+
     void recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region,
                      const gpu::FogConstants& fog);
+
+    // recordFrame's stages, in the order it records them.
+    void stampPassEnd(VkCommandBuffer commands, GpuPass pass);
+    void recordShadowTiles(VkCommandBuffer commands, const ShadowPlan& shadows);
+    void recordClusterCulling(VkCommandBuffer commands);
+    void recordFogVolume(VkCommandBuffer commands, const gpu::FogConstants& fog);
+    [[nodiscard]] SceneTargets prepareSceneTargets(VkCommandBuffer commands, VkExtent2D region);
+    void recordDepthPrePass(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
+    void recordOpaque(VkCommandBuffer commands, const SceneTargets& targets, VkExtent2D region);
+    void recordTranslucent(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
+    void recordFlames(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region);
+    [[nodiscard]] bool skyCaptureLeavesOut(const DrawItem& item, ScenePass pass) const;
+    void recordBatches(VkCommandBuffer commands, ScenePass pass, VkExtent2D region);
+    void recordBloom(VkCommandBuffer commands, VkExtent2D region);
+    void recordBloomLevel(VkCommandBuffer commands, Image& target, VkPipeline pipeline, VkDescriptorSet sourceSet,
+                          const Image& source, std::uint32_t mode, std::array<float, 2> drawnShare);
+    void recordOutput(VkCommandBuffer commands, VkExtent2D region);
+    void recordFullTargetPass(VkCommandBuffer commands, Image& target, VkPipeline pipeline, VkDescriptorSet set,
+                              bool upscaleInputPass, VkExtent2D region);
 };
 
 /// Every target the window's size decides. SS 4.3's resize rebuilds them.
@@ -1192,114 +1284,139 @@ Result<void> Renderer::Impl::writeDescriptors() {
 
 void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& shadows, VkExtent2D region,
                                  const gpu::FogConstants& fog) {
-    const VkExtent2D extent{config.width, config.height};
-    const VkViewport viewport{0, 0, static_cast<float>(extent.width), static_cast<float>(extent.height), 0, 1};
-    const VkRect2D scissor{{0, 0}, extent};
-    // UTA-0051 SS 4.4: the scene draws into the top-left region, and the
-    // output stage upscales it over the whole target (UTA-0154).
-    const VkViewport regionViewport{0, 0, static_cast<float>(region.width), static_cast<float>(region.height), 0, 1};
-    const VkRect2D regionScissor{{0, 0}, region};
-
     // UTA-0351: a timestamp at the frame's start and at each step's end, once
     // everything before it is done. Query k + 1 is step k's end.
-    if (passTimes != VK_NULL_HANDLE) vkCmdResetQueryPool(commands, passTimes, 0, GPU_PASS_COUNT + 1);
-    const auto stamp = [&](std::uint32_t query) {
-        if (passTimes != VK_NULL_HANDLE)
-            vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, passTimes, query);
-    };
-    const auto ended = [&](GpuPass pass) { stamp(static_cast<std::uint32_t>(pass) + 1); };
-    stamp(0);
+    if (passTimes != VK_NULL_HANDLE) {
+        vkCmdResetQueryPool(commands, passTimes, 0, GPU_PASS_COUNT + 1);
+        vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, passTimes, 0);
+    }
 
-    // -- Fires: UTA-0286 SS 4.4's pictures, before anything samples them ------
+    // Fires: UTA-0286 SS 4.4's pictures, before anything samples them.
     materials->recordFireUploads(commands);
-    ended(GpuPass::Fires);
+    stampPassEnd(commands, GpuPass::Fires);
 
-    // -- Shadow tiles: only those this frame's plan says to draw (SS 4.8) ------
-    // Run for a level with no geometry too: the plan counts its tiles as drawn,
-    // so each is at least cleared, and nothing it says is drawn is left stale.
-    if (!shadows.draws.empty()) {
-        shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-        VkRenderingAttachmentInfo atlasAttachment{};
-        atlasAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        atlasAttachment.imageView = shadowAtlas.view();
-        atlasAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-        atlasAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // the kept tiles stay
-        atlasAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        VkRenderingInfo shadowPass{};
-        shadowPass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-        shadowPass.renderArea = {{0, 0}, {shadowPlanner.detail().atlasSize, shadowPlanner.detail().atlasSize}};
-        shadowPass.layerCount = 1;
-        shadowPass.pDepthAttachment = &atlasAttachment;
-        vkCmdBeginRendering(commands, &shadowPass);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadow());
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadowLayout(), 0, 1,
-                                &sceneSet, 0, nullptr);
-        const bool anyGeometry = !geometry->draws.empty();
-        if (anyGeometry) {
-            const VkBuffer vertexBuffer = geometry->vertices.handle();
-            const VkDeviceSize zero = 0;
-            vkCmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &zero);
-            vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
-        }
-        for (const ShadowDraw& draw : shadows.draws) {
-            const VkRect2D tile{{static_cast<std::int32_t>(draw.tile.x), static_cast<std::int32_t>(draw.tile.y)},
-                                {draw.tile.size, draw.tile.size}};
-            VkClearAttachment clear{};
-            clear.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-            clear.clearValue.depthStencil = {1.0f, 0};
-            const VkClearRect clearRect{tile, 0, 1};
-            vkCmdClearAttachments(commands, 1, &clear, 1, &clearRect);
-            const VkViewport tileViewport{static_cast<float>(draw.tile.x), static_cast<float>(draw.tile.y),
-                                          static_cast<float>(draw.tile.size), static_cast<float>(draw.tile.size), 0, 1};
-            vkCmdSetViewport(commands, 0, 1, &tileViewport);
-            vkCmdSetScissor(commands, 0, 1, &tile);
-            for (const DrawItem& item : geometry->draws) {
-                // What blocks light: opaque and masked surfaces. A translucent
-                // or modulated one lets it through, as ubake's SurfaceRays does
-                // (UTA-0271), the sky is not in the level, and UT99's lighting
-                // lets light through a non-solid brush (UTA-0168).
-                if ((item.polyFlags
-                     & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED | gpu::PF_NOT_SOLID | gpu::PF_FAKE_BACKDROP))
-                    != 0)
-                    continue;
-                const gpu::ShadowConstants constants{shadows.faces[draw.face].viewProj, item.objectIndex,
-                                                     item.materialIndex, item.polyFlags, 0};
-                vkCmdPushConstants(commands, pipelines->shadowLayout(),
-                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
-                                   &constants);
-                vkCmdDrawIndexed(commands, item.indexCount, 1, item.firstIndex, item.firstVertex, 0);
-            }
-        }
-        vkCmdEndRendering(commands);
-        shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
-        // The transition's scope ends at the fragment stage; the fog's scatter
-        // pass samples the atlas from compute.
-        memoryBarrier(commands,
-                      VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                      VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                      VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+    recordShadowTiles(commands, shadows);
+    stampPassEnd(commands, GpuPass::Shadows);
 
-        // UTA-0333: each tile just drawn, copied into the haze's quarter-size
-        // atlas, which the fog's scatter pass reads below.
-        if (enabled(Feature::VolumetricFog, tier)) {
-            const std::array<VkDescriptorSet, 2> sets{sceneSet, fogSet};
-            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->hazeShadow());
-            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogLayout(), 0,
-                                    static_cast<std::uint32_t>(sets.size()), sets.data(), 0, nullptr);
-            for (const ShadowDraw& draw : shadows.draws) {
-                const gpu::ReduceConstants tile{draw.tile.x, draw.tile.y, draw.tile.size, 0};
-                vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(tile),
-                                   &tile);
-                const std::uint32_t groups = (draw.tile.size / HAZE_SHADOW_STEP + 7) / 8; // local size 8 x 8
-                vkCmdDispatch(commands, groups, groups, 1);
-            }
-            memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-                          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+    recordClusterCulling(commands); // 0.
+    stampPassEnd(commands, GpuPass::Clusters);
+
+    recordFogVolume(commands, fog); // 0.5.
+    stampPassEnd(commands, GpuPass::Fog);
+
+    // 1. The forward pass: the depth pre-pass, then the opaque surfaces.
+    SceneTargets targets = prepareSceneTargets(commands, region);
+    recordDepthPrePass(commands, targets, region);
+    stampPassEnd(commands, GpuPass::Depth);
+    recordOpaque(commands, targets, region);
+    stampPassEnd(commands, GpuPass::Opaque);
+
+    recordTranslucent(commands, targets, region); // 2.
+    stampPassEnd(commands, GpuPass::Translucent);
+
+    recordFlames(commands, targets, region); // 2.5.
+    stampPassEnd(commands, GpuPass::Flames);
+
+    recordBloom(commands, region); // 3.
+    stampPassEnd(commands, GpuPass::Bloom);
+
+    recordOutput(commands, region); // 4.
+    stampPassEnd(commands, GpuPass::Post);
+    static_assert(GPU_PASS_COUNT == static_cast<std::size_t>(GpuPass::Post) + 1, "each GpuPass ends at one stamp above");
+
+    // 5. The UI composite seam.
+    compositeUi(commands);
+}
+
+void Renderer::Impl::stampPassEnd(VkCommandBuffer commands, GpuPass pass) {
+    if (passTimes != VK_NULL_HANDLE)
+        vkCmdWriteTimestamp2(commands, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, passTimes,
+                             static_cast<std::uint32_t>(pass) + 1);
+}
+
+/// Shadow tiles: only those this frame's plan says to draw (SS 4.8). Run for
+/// a level with no geometry too: the plan counts its tiles as drawn, so each
+/// is at least cleared, and nothing it says is drawn is left stale.
+void Renderer::Impl::recordShadowTiles(VkCommandBuffer commands, const ShadowPlan& shadows) {
+    if (shadows.draws.empty()) return;
+    shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo atlasAttachment{};
+    atlasAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    atlasAttachment.imageView = shadowAtlas.view();
+    atlasAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    atlasAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // the kept tiles stay
+    atlasAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    VkRenderingInfo shadowPass{};
+    shadowPass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    shadowPass.renderArea = {{0, 0}, {shadowPlanner.detail().atlasSize, shadowPlanner.detail().atlasSize}};
+    shadowPass.layerCount = 1;
+    shadowPass.pDepthAttachment = &atlasAttachment;
+    vkCmdBeginRendering(commands, &shadowPass);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadow());
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->shadowLayout(), 0, 1, &sceneSet, 0,
+                            nullptr);
+    if (!geometry->draws.empty()) {
+        const VkBuffer vertexBuffer = geometry->vertices.handle();
+        const VkDeviceSize zero = 0;
+        vkCmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &zero);
+        vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
+    }
+    for (const ShadowDraw& draw : shadows.draws) {
+        const VkRect2D tile{{static_cast<std::int32_t>(draw.tile.x), static_cast<std::int32_t>(draw.tile.y)},
+                            {draw.tile.size, draw.tile.size}};
+        VkClearAttachment clear{};
+        clear.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        clear.clearValue.depthStencil = {1.0f, 0};
+        const VkClearRect clearRect{tile, 0, 1};
+        vkCmdClearAttachments(commands, 1, &clear, 1, &clearRect);
+        const VkViewport tileViewport{static_cast<float>(draw.tile.x), static_cast<float>(draw.tile.y),
+                                      static_cast<float>(draw.tile.size), static_cast<float>(draw.tile.size), 0, 1};
+        vkCmdSetViewport(commands, 0, 1, &tileViewport);
+        vkCmdSetScissor(commands, 0, 1, &tile);
+        for (const DrawItem& item : geometry->draws) {
+            // What blocks light: opaque and masked surfaces. A translucent
+            // or modulated one lets it through, as ubake's SurfaceRays does
+            // (UTA-0271), the sky is not in the level, and UT99's lighting
+            // lets light through a non-solid brush (UTA-0168).
+            if ((item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED | gpu::PF_NOT_SOLID | gpu::PF_FAKE_BACKDROP))
+                != 0)
+                continue;
+            const gpu::ShadowConstants constants{shadows.faces[draw.face].viewProj, item.objectIndex,
+                                                 item.materialIndex, item.polyFlags, 0};
+            vkCmdPushConstants(commands, pipelines->shadowLayout(),
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
+                               &constants);
+            vkCmdDrawIndexed(commands, item.indexCount, 1, item.firstIndex, item.firstVertex, 0);
         }
     }
-    ended(GpuPass::Shadows);
+    vkCmdEndRendering(commands);
+    shadowAtlas.transition(commands, VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL);
+    // The transition's scope ends at the fragment stage; the fog's scatter
+    // pass samples the atlas from compute.
+    memoryBarrier(commands, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                  VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
 
-    // -- 0. Clustered light culling -------------------------------------------
+    // UTA-0333: each tile just drawn, copied into the haze's quarter-size
+    // atlas, which the fog's scatter pass reads.
+    if (enabled(Feature::VolumetricFog, tier)) {
+        const std::array<VkDescriptorSet, 2> sets{sceneSet, fogSet};
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->hazeShadow());
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogLayout(), 0,
+                                static_cast<std::uint32_t>(sets.size()), sets.data(), 0, nullptr);
+        for (const ShadowDraw& draw : shadows.draws) {
+            const gpu::ReduceConstants tile{draw.tile.x, draw.tile.y, draw.tile.size, 0};
+            vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(tile), &tile);
+            const std::uint32_t groups = (draw.tile.size / HAZE_SHADOW_STEP + 7) / 8; // local size 8 x 8
+            vkCmdDispatch(commands, groups, groups, 1);
+        }
+        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+    }
+}
+
+/// 0. Clustered light culling, a compute pass (SS 4.6).
+void Renderer::Impl::recordClusterCulling(VkCommandBuffer commands) {
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->clusters());
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
                             nullptr);
@@ -1308,167 +1425,100 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
     memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                   VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
-    ended(GpuPass::Clusters);
+}
 
-    // -- 0.5. The fog volume (UTA-0015 SS 4.3) ----------------------------------
-    // Each froxel's light and extinction from the lists just culled, then each
-    // column integrated front to back. Both images stay in GENERAL, which the
-    // forward pass samples. The second pipeline shares the layout, so the sets
-    // and the constants stay bound.
-    if (enabled(Feature::VolumetricFog, tier)) {
-        const std::array<VkDescriptorSet, 2> fogSets{sceneSet, fogSet};
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogScatter());
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogLayout(), 0,
-                                static_cast<std::uint32_t>(fogSets.size()), fogSets.data(), 0, nullptr);
-        vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(fog), &fog);
-        // fog_scatter.comp's local size is 4 x 4 x 4; fog_integrate.comp's 8 x 8.
-        vkCmdDispatch(commands, (FOG_GRID[0] + 3) / 4, (FOG_GRID[1] + 3) / 4, (FOG_GRID[2] + 3) / 4);
-        // Scattering is written above and read by the integration and the copy
-        // below; the scatter's read of the history ends before the copy writes it.
-        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
-                      VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogIntegrate());
-        vkCmdDispatch(commands, (FOG_GRID[0] + 7) / 8, (FOG_GRID[1] + 7) / 8, 1);
-        // UTA-0356: this frame's scattering is the next frame's history. The
-        // next scatter reads the copy, and writes scattering only after it is read.
-        VkImageCopy copy{};
-        copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        copy.dstSubresource = copy.srcSubresource;
-        copy.extent = {FOG_GRID[0], FOG_GRID[1], FOG_GRID[2]};
-        vkCmdCopyImage(commands, fogScattering.handle(), VK_IMAGE_LAYOUT_GENERAL, fogHistory.handle(),
-                       VK_IMAGE_LAYOUT_GENERAL, 1, &copy);
-        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
-        // The integrated volume is sampled by the forward pass.
-        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-                      VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
-    }
-    ended(GpuPass::Fog);
+/// 0.5. The fog volume (UTA-0015 SS 4.3): each froxel's light and extinction
+/// from the lists just culled, then each column integrated front to back.
+/// Both images stay in GENERAL, which the forward pass samples. The second
+/// pipeline shares the layout, so the sets and the constants stay bound.
+void Renderer::Impl::recordFogVolume(VkCommandBuffer commands, const gpu::FogConstants& fog) {
+    if (!enabled(Feature::VolumetricFog, tier)) return;
+    const std::array<VkDescriptorSet, 2> fogSets{sceneSet, fogSet};
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogScatter());
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogLayout(), 0,
+                            static_cast<std::uint32_t>(fogSets.size()), fogSets.data(), 0, nullptr);
+    vkCmdPushConstants(commands, pipelines->fogLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(fog), &fog);
+    // fog_scatter.comp's local size is 4 x 4 x 4; fog_integrate.comp's 8 x 8.
+    vkCmdDispatch(commands, (FOG_GRID[0] + 3) / 4, (FOG_GRID[1] + 3) / 4, (FOG_GRID[2] + 3) / 4);
+    // Scattering is written above and read by the integration and the copy
+    // below; the scatter's read of the history ends before the copy writes it.
+    memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_COPY_BIT,
+                  VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines->fogIntegrate());
+    vkCmdDispatch(commands, (FOG_GRID[0] + 7) / 8, (FOG_GRID[1] + 7) / 8, 1);
+    // UTA-0356: this frame's scattering is the next frame's history. The
+    // next scatter reads the copy, and writes scattering only after it is read.
+    VkImageCopy copy{};
+    copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copy.dstSubresource = copy.srcSubresource;
+    copy.extent = {FOG_GRID[0], FOG_GRID[1], FOG_GRID[2]};
+    vkCmdCopyImage(commands, fogScattering.handle(), VK_IMAGE_LAYOUT_GENERAL, fogHistory.handle(),
+                   VK_IMAGE_LAYOUT_GENERAL, 1, &copy);
+    memoryBarrier(commands, VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+    // The integrated volume is sampled by the forward pass.
+    memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+}
 
-    // -- 1. The forward pass --------------------------------------------------
+/// The scene's targets made ready to draw into, each cleared by the first
+/// pass that renders to it. The scene draws into the top-left region, and the
+/// output stage upscales it over the whole target (UTA-0051 SS 4.4, UTA-0154).
+SceneTargets Renderer::Impl::prepareSceneTargets(VkCommandBuffer commands, VkExtent2D region) {
     hdr.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     velocity.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     emission.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     depth.transition(commands, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    std::array<VkRenderingAttachmentInfo, 3> colours{};
-    colours[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colours[0].imageView = hdr.view();
-    colours[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colours[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colours[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colours[1] = colours[0];
-    colours[1].imageView = velocity.view();
-    colours[2] = colours[0];
-    colours[2].imageView = emission.view(); // UTA-0053
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = depth.view();
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil = {1.0f, 0};
+    SceneTargets targets;
+    targets.colours[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    targets.colours[0].imageView = hdr.view();
+    targets.colours[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    targets.colours[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    targets.colours[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    targets.colours[1] = targets.colours[0];
+    targets.colours[1].imageView = velocity.view();
+    targets.colours[2] = targets.colours[0];
+    targets.colours[2].imageView = emission.view(); // UTA-0053
+    targets.depth.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    targets.depth.imageView = depth.view();
+    targets.depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    targets.depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    targets.depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    targets.depth.clearValue.depthStencil = {1.0f, 0};
+    targets.area = {{0, 0}, region};
+    return targets;
+}
 
-    VkRenderingInfo rendering{};
-    rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    rendering.renderArea = regionScissor;
-    rendering.layerCount = 1;
-    rendering.colorAttachmentCount = 3;
-    rendering.pColorAttachments = colours.data();
-    rendering.pDepthAttachment = &depthAttachment;
-
-    enum class Pass { Depth, Opaque, Translucent };
-    // UTA-0337: while UTA-0163 captures the sky, which batches it leaves out.
-    // The sky's faces (skyLayerCapture 0) are captured without the sky zone's
-    // layers. A layer's light (skyLayerCapture i + 1, for layer i) colours that
-    // layer alone, while everything still draws its depth, so solid things
-    // still hide it. Object 0 is the level, and the layers are its batches
-    // (Geometry.h's DrawItem).
-    const auto skyCaptureLeavesOut = [&](const DrawItem& item, Pass pass) {
-        if (!skyCapturing) return false;
-        const bool level = item.objectIndex == 0;
-        const auto layerOf = [&](const SkyLayer& layer) { return item.firstIndex == layer.firstIndex; };
-        if (skyLayerCapture == 0) return level && std::ranges::any_of(skyLayers.layers, layerOf);
-        if (pass == Pass::Depth) return false;
-        return !level || !layerOf(skyLayers.layers[skyLayerCapture - 1]);
-    };
-    const auto drawBatches = [&](Pass pass) {
-        vkCmdSetViewport(commands, 0, 1, &regionViewport);
-        vkCmdSetScissor(commands, 0, 1, &regionScissor);
-        if (geometry->draws.empty()) return;
-        // The vertices, then their SurfaceVertex stream.
-        const std::array<VkBuffer, 2> vertexBuffers = {geometry->vertices.handle(),
-                                                       geometry->surfaceVertices.handle()};
-        const std::array<VkDeviceSize, 2> zeros = {0, 0};
-        vkCmdBindVertexBuffers(commands, 0, 2, vertexBuffers.data(), zeros.data());
-        vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
-                                0, nullptr);
-        for (const DrawItem& item : geometry->draws) {
-            if (skyCaptureLeavesOut(item, pass)) continue;
-            // UTA-0271: a modulated surface blends too, so it is drawn with them.
-            const bool blended = (item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED)) != 0;
-            if (blended != (pass == Pass::Translucent)) continue;
-            // A masked surface's holes are its shader's to cut, so its depth is
-            // not drawn ahead; it is tested and written in the forward pass.
-            if (pass == Pass::Depth && (item.polyFlags & gpu::PF_MASKED) != 0) continue;
-            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                              pass == Pass::Depth ? pipelines->depthFor(item.polyFlags)
-                                                  : pipelines->sceneFor(item.polyFlags));
-            // A mirrored mover winds the other way on screen, so its front face is the other one.
-            const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
-            vkCmdSetFrontFace(commands, front);
-            // UTA-0311: UT99 adds a mover's polygons to the level's BSP after the
-            // level's own, so a coplanar level surface is drawn and the mover's is
-            // not. Pushing a mover's depth back by about a step of the depth
-            // buffer, plus one pixel's slope, makes the level win that tie here.
-            // Both passes set the same bias, so a mover still meets its own depth.
-            const bool mover = item.objectIndex != 0;
-            vkCmdSetDepthBias(commands, mover ? 2.0f : 0.0f, 0.0f, mover ? 1.0f : 0.0f);
-            // UTA-0269: the pan in double, then its fraction, so a float never
-            // holds rate * seconds, which loses the fraction within the hour.
-            // UTA-0276: times the camera's zone's speed on that axis.
-            const auto panned = [this](float rate, std::size_t axis) {
-                // A pan that is not finite reads as none (review-code 2026-10-15).
-                const double pan = std::fmod(
-                    static_cast<double>(rate) * static_cast<double>(cameraPanSpeed[axis]) * lastLightSeconds, 1.0);
-                return std::isfinite(pan) ? static_cast<float>(pan) : 0.0F;
-            };
-            const gpu::DrawConstants constants{item.objectIndex, item.materialIndex, item.polyFlags, 0,
-                                               {panned(item.panRate[0], 0), panned(item.panRate[1], 1)}};
-            vkCmdPushConstants(commands, pipelines->sceneLayout(),
-                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
-                               &constants);
-            vkCmdDrawIndexed(commands, item.indexCount, 1, item.firstIndex, item.firstVertex, 0);
-        }
-    };
-
-    // UTA-0260: the opaque surfaces' depth first. Indoors several surfaces lie
-    // behind most pixels, and the forward pass lit each one a nearer surface
-    // later covered. With the depth drawn, it lights what is seen and no more.
-    // The same vertex stage draws both, its position declared invariant, so a
-    // surface meets its own depth exactly.
-    VkRenderingInfo depthOnly = rendering;
-    depthOnly.colorAttachmentCount = 0;
-    depthOnly.pColorAttachments = nullptr;
+/// UTA-0260: the opaque surfaces' depth first. Indoors several surfaces lie
+/// behind most pixels, and the forward pass lit each one a nearer surface
+/// later covered. With the depth drawn, it lights what is seen and no more.
+/// The same vertex stage draws both, its position declared invariant, so a
+/// surface meets its own depth exactly.
+void Renderer::Impl::recordDepthPrePass(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region) {
+    const VkRenderingInfo depthOnly = targets.rendering(0);
     vkCmdBeginRendering(commands, &depthOnly);
-    drawBatches(Pass::Depth);
+    recordBatches(commands, ScenePass::Depth, region);
     vkCmdEndRendering(commands);
-    memoryBarrier(commands,
-                  VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+    memoryBarrier(commands, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                   VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                   VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                   VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    ended(GpuPass::Depth);
+    targets.depth.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+}
 
+/// Every opaque, masked and sky batch, writing colour, velocity, emission and
+/// depth.
+void Renderer::Impl::recordOpaque(VkCommandBuffer commands, const SceneTargets& targets, VkExtent2D region) {
+    const VkRenderingInfo rendering = targets.rendering(3);
     vkCmdBeginRendering(commands, &rendering);
-    drawBatches(Pass::Opaque);
+    recordBatches(commands, ScenePass::Opaque, region);
     vkCmdEndRendering(commands);
-    ended(GpuPass::Opaque);
+}
 
-    // -- 2. The translucent pass -----------------------------------------------
+/// 2. The translucent pass: colour only, depth-tested and not written.
+void Renderer::Impl::recordTranslucent(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region) {
     // Rasterization order holds within one rendering instance, not across two:
     // the opaque pass's stores must reach this pass's loads and depth tests.
     memoryBarrier(commands,
@@ -1480,166 +1530,230 @@ void Renderer::Impl::recordFrame(VkCommandBuffer commands, const ShadowPlan& sha
                   VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
                       | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
                       | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-    colours[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    rendering.colorAttachmentCount = 1;
+    targets.colours[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    targets.depth.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    const VkRenderingInfo rendering = targets.rendering(1);
     vkCmdBeginRendering(commands, &rendering);
-    drawBatches(Pass::Translucent);
+    recordBatches(commands, ScenePass::Translucent, region);
     vkCmdEndRendering(commands);
-    ended(GpuPass::Translucent);
+}
 
-    // -- 2.5. Camera-facing flames (UTA-0263 SS 4.4) ---------------------------
-    // Additive, so their order does not matter and nothing is sorted. They
-    // write emission, which the translucent pass binds no target for, so this
-    // pass binds all three; velocity takes the flame's zero, added. UTA-0215:
-    // the water's specks are drawn in the same pass, under water only.
+/// 2.5. Camera-facing flames (UTA-0263 SS 4.4). Additive, so their order does
+/// not matter and nothing is sorted. They write emission, which the
+/// translucent pass binds no target for, so this pass binds all three;
+/// velocity takes the flame's zero, added. UTA-0215: the water's specks are
+/// drawn in the same pass, under water only.
+void Renderer::Impl::recordFlames(VkCommandBuffer commands, SceneTargets& targets, VkExtent2D region) {
     const bool motes = viewZone.water != 0 && enabled(Feature::WaterMotes, tier);
     // UTA-0337: a layer's light holds that layer alone.
-    if ((flameCount != 0 || motes) && !(skyCapturing && skyLayerCapture != 0)) {
-        memoryBarrier(commands,
-                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
-                          | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                      VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
-                          | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                      VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
-                          | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
-        colours[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        colours[2].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        rendering.colorAttachmentCount = 3;
-        vkCmdBeginRendering(commands, &rendering);
-        vkCmdSetViewport(commands, 0, 1, &regionViewport);
-        vkCmdSetScissor(commands, 0, 1, &regionScissor);
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet,
-                                0, nullptr);
-        if (flameCount != 0) {
-            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->flame());
-            vkCmdDraw(commands, 6, flameCount, 0, 0); // flame.vert's six corners, one instance a flame
-        }
-        if (motes) {
-            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->mote());
-            vkCmdDraw(commands, 6, MOTE_COUNT, 0, 0); // mote.vert's six corners, one instance a speck
-        }
-        vkCmdEndRendering(commands);
+    if ((flameCount == 0 && !motes) || (skyCapturing && skyLayerCapture != 0)) return;
+    memoryBarrier(commands,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
+                      | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                  VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+                      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+    targets.colours[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    targets.colours[2].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    const VkRenderingInfo rendering = targets.rendering(3);
+    vkCmdBeginRendering(commands, &rendering);
+    setViewportTo(commands, region);
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
+                            nullptr);
+    if (flameCount != 0) {
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->flame());
+        vkCmdDraw(commands, 6, flameCount, 0, 0); // flame.vert's six corners, one instance a flame
     }
-    ended(GpuPass::Flames);
+    if (motes) {
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->mote());
+        vkCmdDraw(commands, 6, MOTE_COUNT, 0, 0); // mote.vert's six corners, one instance a speck
+    }
+    vkCmdEndRendering(commands);
+}
 
-    // -- 3. Emissive bloom (UTA-0053) -----------------------------------------
-    // Down the chain from the emission target, then back up it, each upsample
-    // added into the level above. Every read is clamped to the part of its
-    // source the region drew (UTA-0051 SS 4.4).
-    const bool bloomOn = enabled(Feature::Bloom, tier);
-    if (bloomOn) {
-        const float fractionX = static_cast<float>(region.width) / static_cast<float>(extent.width);
-        const float fractionY = static_cast<float>(region.height) / static_cast<float>(extent.height);
-        emission.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        const auto bloomPass = [&](Image& target, VkPipeline pipeline, VkDescriptorSet sourceSet, const Image& source,
-                                   std::uint32_t mode) {
-            const ImageDesc& to = target.desc();
-            const ImageDesc& from = source.desc();
-            target.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            VkRenderingAttachmentInfo attachment{};
-            attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-            attachment.imageView = target.view();
-            attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            // An upsample adds into what that level's downsample left there.
-            attachment.loadOp =
-                mode == gpu::BLOOM_UPSAMPLE ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            const VkRect2D area{{0, 0}, {to.width, to.height}};
-            const VkViewport levelViewport{0, 0, static_cast<float>(to.width), static_cast<float>(to.height), 0, 1};
-            VkRenderingInfo pass{};
-            pass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-            pass.renderArea = area;
-            pass.layerCount = 1;
-            pass.colorAttachmentCount = 1;
-            pass.pColorAttachments = &attachment;
-            vkCmdBeginRendering(commands, &pass);
-            vkCmdSetViewport(commands, 0, 1, &levelViewport);
-            vkCmdSetScissor(commands, 0, 1, &area);
-            vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->bloomLayout(), 0, 1,
-                                    &sourceSet, 0, nullptr);
-            const auto sourceWidth = static_cast<float>(from.width), sourceHeight = static_cast<float>(from.height);
-            const gpu::BloomConstants constants{
-                {1.0f / sourceWidth, 1.0f / sourceHeight},
-                {1.0f / static_cast<float>(to.width), 1.0f / static_cast<float>(to.height)},
-                {std::max(0.0f, fractionX - 0.5f / sourceWidth), std::max(0.0f, fractionY - 0.5f / sourceHeight)},
-                BLOOM_RADIUS,
-                mode};
-            vkCmdPushConstants(commands, pipelines->bloomLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
-                               &constants);
-            vkCmdDraw(commands, 3, 1, 0, 0);
-            vkCmdEndRendering(commands);
-            target.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        };
-        bloomPass(bloom[0], pipelines->bloomDownsample(), emissionSet, emission, gpu::BLOOM_DOWNSAMPLE_FIRST);
-        for (std::size_t k = 1; k < BLOOM_LEVELS; ++k)
-            bloomPass(bloom[k], pipelines->bloomDownsample(), bloomSets[k - 1], bloom[k - 1], gpu::BLOOM_DOWNSAMPLE);
-        for (std::size_t k = BLOOM_LEVELS - 1; k > 0; --k)
-            bloomPass(bloom[k - 1], pipelines->bloomUpsample(), bloomSets[k], bloom[k], gpu::BLOOM_UPSAMPLE);
-    } else {
+/// UTA-0337: while UTA-0163 captures the sky, which batches it leaves out.
+/// The sky's faces (skyLayerCapture 0) are captured without the sky zone's
+/// layers. A layer's light (skyLayerCapture i + 1, for layer i) colours that
+/// layer alone, while everything still draws its depth, so solid things
+/// still hide it. Object 0 is the level, and the layers are its batches
+/// (Geometry.h's DrawItem).
+bool Renderer::Impl::skyCaptureLeavesOut(const DrawItem& item, ScenePass pass) const {
+    if (!skyCapturing) return false;
+    const bool level = item.objectIndex == 0;
+    const auto layerOf = [&](const SkyLayer& layer) { return item.firstIndex == layer.firstIndex; };
+    if (skyLayerCapture == 0) return level && std::ranges::any_of(skyLayers.layers, layerOf);
+    if (pass == ScenePass::Depth) return false;
+    return !level || !layerOf(skyLayers.layers[skyLayerCapture - 1]);
+}
+
+/// The batches `pass` draws, inside a rendering instance the caller began.
+void Renderer::Impl::recordBatches(VkCommandBuffer commands, ScenePass pass, VkExtent2D region) {
+    setViewportTo(commands, region);
+    if (geometry->draws.empty()) return;
+    // The vertices, then their SurfaceVertex stream.
+    const std::array<VkBuffer, 2> vertexBuffers = {geometry->vertices.handle(), geometry->surfaceVertices.handle()};
+    const std::array<VkDeviceSize, 2> zeros = {0, 0};
+    vkCmdBindVertexBuffers(commands, 0, 2, vertexBuffers.data(), zeros.data());
+    vkCmdBindIndexBuffer(commands, geometry->indices.handle(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->sceneLayout(), 0, 1, &sceneSet, 0,
+                            nullptr);
+    // UTA-0269: the pan in double, then its fraction, so a float never
+    // holds rate * seconds, which loses the fraction within the hour.
+    // UTA-0276: times the camera's zone's speed on that axis.
+    const auto panned = [this](float rate, std::size_t axis) {
+        // A pan that is not finite reads as none (review-code 2026-10-15).
+        const double pan =
+            std::fmod(static_cast<double>(rate) * static_cast<double>(cameraPanSpeed[axis]) * lastLightSeconds, 1.0);
+        return std::isfinite(pan) ? static_cast<float>(pan) : 0.0F;
+    };
+    for (const DrawItem& item : geometry->draws) {
+        if (skyCaptureLeavesOut(item, pass)) continue;
+        // UTA-0271: a modulated surface blends too, so it is drawn with them.
+        const bool blended = (item.polyFlags & (gpu::PF_TRANSLUCENT | gpu::PF_MODULATED)) != 0;
+        if (blended != (pass == ScenePass::Translucent)) continue;
+        // A masked surface's holes are its shader's to cut, so its depth is
+        // not drawn ahead; it is tested and written in the forward pass.
+        if (pass == ScenePass::Depth && (item.polyFlags & gpu::PF_MASKED) != 0) continue;
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          pass == ScenePass::Depth ? pipelines->depthFor(item.polyFlags)
+                                                   : pipelines->sceneFor(item.polyFlags));
+        // A mirrored mover winds the other way on screen, so its front face is the other one.
+        const VkFrontFace front = mirrored[item.objectIndex] ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+        vkCmdSetFrontFace(commands, front);
+        // UTA-0311: UT99 adds a mover's polygons to the level's BSP after the
+        // level's own, so a coplanar level surface is drawn and the mover's is
+        // not. Pushing a mover's depth back by about a step of the depth
+        // buffer, plus one pixel's slope, makes the level win that tie here.
+        // Both passes set the same bias, so a mover still meets its own depth.
+        const bool mover = item.objectIndex != 0;
+        vkCmdSetDepthBias(commands, mover ? 2.0f : 0.0f, 0.0f, mover ? 1.0f : 0.0f);
+        const gpu::DrawConstants constants{item.objectIndex, item.materialIndex, item.polyFlags, 0,
+                                           {panned(item.panRate[0], 0), panned(item.panRate[1], 1)}};
+        vkCmdPushConstants(commands, pipelines->sceneLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           0, sizeof(constants), &constants);
+        vkCmdDrawIndexed(commands, item.indexCount, 1, item.firstIndex, item.firstVertex, 0);
+    }
+}
+
+/// 3. Emissive bloom (UTA-0053): down the chain from the emission target,
+/// then back up it, each upsample added into the level above. Every read is
+/// clamped to the part of its source the region drew (UTA-0051 SS 4.4).
+void Renderer::Impl::recordBloom(VkCommandBuffer commands, VkExtent2D region) {
+    if (!enabled(Feature::Bloom, tier)) {
         // post.frag reads nothing from it at strength 0, but its set still names it.
         bloom[0].transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        return;
     }
-    ended(GpuPass::Bloom);
+    const std::array<float, 2> drawnShare{static_cast<float>(region.width) / static_cast<float>(config.width),
+                                          static_cast<float>(region.height) / static_cast<float>(config.height)};
+    emission.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    recordBloomLevel(commands, bloom[0], pipelines->bloomDownsample(), emissionSet, emission,
+                     gpu::BLOOM_DOWNSAMPLE_FIRST, drawnShare);
+    for (std::size_t k = 1; k < BLOOM_LEVELS; ++k)
+        recordBloomLevel(commands, bloom[k], pipelines->bloomDownsample(), bloomSets[k - 1], bloom[k - 1],
+                         gpu::BLOOM_DOWNSAMPLE, drawnShare);
+    for (std::size_t k = BLOOM_LEVELS - 1; k > 0; --k)
+        recordBloomLevel(commands, bloom[k - 1], pipelines->bloomUpsample(), bloomSets[k], bloom[k],
+                         gpu::BLOOM_UPSAMPLE, drawnShare);
+}
 
-    // -- 4. The output stage ---------------------------------------------------
-    // A frame drawn at full size is tone mapped straight into `output`. A
-    // smaller region is tone mapped into FSR 1's input, which EASU upscales and
-    // RCAS sharpens into `output` (UTA-0154).
+/// One step of the bloom chain: `source` filtered into `target` by `mode`.
+/// `drawnShare` is the share of the target's width and height the region drew.
+void Renderer::Impl::recordBloomLevel(VkCommandBuffer commands, Image& target, VkPipeline pipeline,
+                                      VkDescriptorSet sourceSet, const Image& source, std::uint32_t mode,
+                                      std::array<float, 2> drawnShare) {
+    const ImageDesc& to = target.desc();
+    const ImageDesc& from = source.desc();
+    target.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo attachment{};
+    attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    attachment.imageView = target.view();
+    attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // An upsample adds into what that level's downsample left there.
+    attachment.loadOp = mode == gpu::BLOOM_UPSAMPLE ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    VkRenderingInfo pass{};
+    pass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    pass.renderArea = {{0, 0}, {to.width, to.height}};
+    pass.layerCount = 1;
+    pass.colorAttachmentCount = 1;
+    pass.pColorAttachments = &attachment;
+    vkCmdBeginRendering(commands, &pass);
+    setViewportTo(commands, {to.width, to.height});
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->bloomLayout(), 0, 1, &sourceSet, 0,
+                            nullptr);
+    const auto sourceWidth = static_cast<float>(from.width), sourceHeight = static_cast<float>(from.height);
+    const gpu::BloomConstants constants{
+        {1.0f / sourceWidth, 1.0f / sourceHeight},
+        {1.0f / static_cast<float>(to.width), 1.0f / static_cast<float>(to.height)},
+        {std::max(0.0f, drawnShare[0] - 0.5f / sourceWidth), std::max(0.0f, drawnShare[1] - 0.5f / sourceHeight)},
+        BLOOM_RADIUS,
+        mode};
+    vkCmdPushConstants(commands, pipelines->bloomLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
+                       &constants);
+    vkCmdDraw(commands, 3, 1, 0, 0);
+    vkCmdEndRendering(commands);
+    target.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+/// 4. The output stage: the bloom added, then exposure and the tone map. A
+/// frame drawn at full size is tone mapped straight into `output`. A smaller
+/// region is tone mapped into FSR 1's input, which EASU upscales and RCAS
+/// sharpens into `output` (UTA-0154).
+void Renderer::Impl::recordOutput(VkCommandBuffer commands, VkExtent2D region) {
     hdr.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    const auto fullTargetPass = [&](Image& target, VkPipeline pipeline, VkDescriptorSet set, bool upscaleInputPass) {
-        target.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkRenderingAttachmentInfo attachment{};
-        attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        attachment.imageView = target.view();
-        attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        VkRenderingInfo pass{};
-        pass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-        pass.renderArea = scissor;
-        pass.layerCount = 1;
-        pass.colorAttachmentCount = 1;
-        pass.pColorAttachments = &attachment;
-        vkCmdBeginRendering(commands, &pass);
-        vkCmdSetViewport(commands, 0, 1, &viewport);
-        vkCmdSetScissor(commands, 0, 1, &scissor);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &set, 0,
-                                nullptr);
-        const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height},
-                                           upscaleInputPass ? 1u : 0u,
-                                           // UTA-0292: the emission target holds light terms, not glow.
-                                           bloomOn && !config.lightTerms ? BLOOM_STRENGTH : 0.0f,
-                                           0.0f, // reserved; UTA-0215 SS 4.4's clock follows
-                                           std::isfinite(lastLightSeconds)
-                                               ? static_cast<float>(std::fmod(lastLightSeconds, FLAME_CLOCK_WRAP))
-                                               : 0.0f,
-                                           viewZone.water != 0
-                                               ? std::array<float, 4>{viewZone.viewFog[0], viewZone.viewFog[1],
-                                                                      viewZone.viewFog[2], 1.0f}
-                                               : std::array<float, 4>{}};
-        vkCmdPushConstants(commands, pipelines->postLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
-                           &constants);
-        vkCmdDraw(commands, 3, 1, 0, 0);
-        vkCmdEndRendering(commands);
-    };
-    if (region.width == extent.width && region.height == extent.height) {
-        fullTargetPass(output, pipelines->post(), postSet, false);
-    } else {
-        fullTargetPass(upscaleInput, pipelines->upscaleInput(), postSet, true);
-        upscaleInput.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        fullTargetPass(upscaled, pipelines->easu(), easuSet, false);
-        upscaled.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        fullTargetPass(output, pipelines->rcas(), rcasSet, false);
+    if (region.width == config.width && region.height == config.height) {
+        recordFullTargetPass(commands, output, pipelines->post(), postSet, false, region);
+        return;
     }
-    ended(GpuPass::Post);
-    static_assert(GPU_PASS_COUNT == static_cast<std::size_t>(GpuPass::Post) + 1, "each GpuPass ends at one stamp above");
+    recordFullTargetPass(commands, upscaleInput, pipelines->upscaleInput(), postSet, true, region);
+    upscaleInput.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    recordFullTargetPass(commands, upscaled, pipelines->easu(), easuSet, false, region);
+    upscaled.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    recordFullTargetPass(commands, output, pipelines->rcas(), rcasSet, false, region);
+}
 
-    // -- 5. The UI composite seam ----------------------------------------------
-    compositeUi(commands);
+/// One of the output stage's passes, drawn over the whole of `target`.
+void Renderer::Impl::recordFullTargetPass(VkCommandBuffer commands, Image& target, VkPipeline pipeline,
+                                          VkDescriptorSet set, bool upscaleInputPass, VkExtent2D region) {
+    const VkExtent2D extent{config.width, config.height};
+    target.transition(commands, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo attachment{};
+    attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    attachment.imageView = target.view();
+    attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    VkRenderingInfo pass{};
+    pass.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    pass.renderArea = {{0, 0}, extent};
+    pass.layerCount = 1;
+    pass.colorAttachmentCount = 1;
+    pass.pColorAttachments = &attachment;
+    vkCmdBeginRendering(commands, &pass);
+    setViewportTo(commands, extent);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->postLayout(), 0, 1, &set, 0, nullptr);
+    const bool bloomOn = enabled(Feature::Bloom, tier);
+    const gpu::PostConstants constants{EXPOSURE, config.linearOutput ? 1u : 0u, {region.width, region.height},
+                                       upscaleInputPass ? 1u : 0u,
+                                       // UTA-0292: the emission target holds light terms, not glow.
+                                       bloomOn && !config.lightTerms ? BLOOM_STRENGTH : 0.0f,
+                                       0.0f, // reserved; UTA-0215 SS 4.4's clock follows
+                                       std::isfinite(lastLightSeconds)
+                                           ? static_cast<float>(std::fmod(lastLightSeconds, FLAME_CLOCK_WRAP))
+                                           : 0.0f,
+                                       viewZone.water != 0
+                                           ? std::array<float, 4>{viewZone.viewFog[0], viewZone.viewFog[1],
+                                                                  viewZone.viewFog[2], 1.0f}
+                                           : std::array<float, 4>{}};
+    vkCmdPushConstants(commands, pipelines->postLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants),
+                       &constants);
+    vkCmdDraw(commands, 3, 1, 0, 0);
+    vkCmdEndRendering(commands);
 }
 
 // -- Renderer ------------------------------------------------------------------
@@ -1774,79 +1888,136 @@ Result<void> Renderer::draw(const ubundle::Bundle& bundle, const Camera& camera)
 
 Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camera& camera,
                                       std::optional<std::uint32_t> image, std::optional<std::uint32_t> skyFace) {
-    const auto viewStarted = std::chrono::steady_clock::now();
-    Impl& impl = *this;
+    FrameTimes times;
+    times.viewStarted = std::chrono::steady_clock::now();
     // UTA-0051 SS 4.4: the scale this frame draws at, and the top-left region of
-    // the targets it covers. A fixed scale wins over dynamic resolution.
-    const TierSettings settings = settingsOf(impl.tier);
-    double scale = 1;
-    if (skyFace) {
-        // UTA-0163: a face is cut from the whole target.
-    } else if (impl.config.fixedRenderScale) {
-        // A scale that is not finite reads as full (review-code 2026-10-15).
-        scale = std::isfinite(*impl.config.fixedRenderScale)
-                    ? std::clamp(*impl.config.fixedRenderScale, settings.minimumRenderScale, 1.0)
-                    : 1.0;
-    } else if (impl.pinnedRenderScale) {
-        scale = std::isfinite(*impl.pinnedRenderScale)
-                    ? std::clamp(*impl.pinnedRenderScale, settings.minimumRenderScale, 1.0)
-                    : 1.0;
-    } else if (impl.config.dynamicResolution) {
-        scale = impl.renderScale;
-    }
+    // the targets it covers.
+    const TierSettings settings = settingsOf(tier);
+    const double scale = scaleFor(skyFace.has_value(), settings);
     const auto regionOf = [scale](std::uint32_t full) {
         const auto scaled = static_cast<std::uint32_t>(std::ceil(scale * full));
         return std::clamp<std::uint32_t>(scaled, 1, full);
     };
-    const VkExtent2D region{regionOf(impl.config.width), regionOf(impl.config.height)};
+    const VkExtent2D region{regionOf(config.width), regionOf(config.height)};
 
     // SS 4.3: the projection is this library's, and the previous frame's view
     // is cached here rather than supplied -- so a camera that did not move
     // produces zero motion. It, the jitter and the cluster grid take the region.
     const gpu::Mat4 view = viewOf(camera);
     const gpu::Mat4 projection = projectionOf(camera, region.width, region.height);
-    const gpu::Mat4 viewProj = multiply(projection, view);
-    const gpu::Mat4 drawnProjection =
-        impl.jitter ? jittered(projection, haltonJitter(impl.frameIndex), region.width, region.height) : projection;
+    const ViewMatrices matrices{
+        view, multiply(projection, view),
+        jitter ? jittered(projection, haltonJitter(frameIndex), region.width, region.height) : projection};
 
+    const double seconds = pinnedLightSeconds
+                               ? *pinnedLightSeconds
+                               : std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    lastLightSeconds = seconds;
+    // UTA-0286 SS 4.4: the fire looks run on the same clock.
+    materials->advanceFires(seconds, pinnedLightSeconds.has_value());
+    std::vector<gpu::Light> frameLights = drawnLights(bundle, seconds);
+
+    gpu::FrameData frame = frameDataOf(bundle, camera, region, matrices, seconds, skyFace.has_value());
+    std::vector<gpu::Mat4> models = placeObjects(bundle);
+    const ShadowPlan plan = planShadows(bundle, models);
+    const std::uint32_t flashlight = placeLights(frame, frameLights, plan, camera);
+    const std::uint8_t cameraZone = placeViewZone(frame, bundle, camera);
+    placeSkyLayers(frame, bundle, camera, region, skyFace.has_value());
+    const FogSetup fog = fogSetupOf(bundle, camera, region, frameLights, cameraZone, flashlight, skyFace.has_value());
+    UTA_CHECK(uploadFrame(frame, frameLights, plan));
+
+    // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
+    // leaves out present, which waits for the display under FIFO.
+    times.started = std::chrono::steady_clock::now();
+    const Result<void> ran = gpu->run([&](VkCommandBuffer commands) {
+        const auto recordStarted = std::chrono::steady_clock::now();
+        recordFrame(commands, plan, region, fog.constants);
+        // SS 6's counts are read on the host once this finishes; the fence
+        // alone does not make the compute pass's writes visible to it.
+        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
+                      VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT);
+        if (image) swapchain->recordBlit(commands, output, *image);
+        if (skyFace) recordSkyFaceCopy(commands, region, *skyFace);
+        times.recording = std::chrono::steady_clock::now() - recordStarted;
+    });
+    // The plan already counts its tiles as drawn; after a failed submission
+    // they were not, so every tile is placed and drawn again.
+    if (!ran) {
+        shadowPlanner.reset();
+        return ran;
+    }
+    times.milliseconds =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - times.started).count();
+    if (image) UTA_CHECK(swapchain->present(gpu->queue(), *image));
+
+    readStats(plan, fog.droppedVolumeLights, scale, times, skyFace.has_value());
+    drawnScale = scale;
+    // UTA-0163: a sky face is not the player's frame, so its time steers nothing.
+    if (!skyFace && config.dynamicResolution && !config.fixedRenderScale && !pinnedRenderScale) {
+        averagedMilliseconds =
+            averagedMilliseconds == 0 ? times.milliseconds : averagedMilliseconds * 0.8 + times.milliseconds * 0.2;
+        renderScale = nextRenderScale(renderScale, averagedMilliseconds, settings);
+    }
+
+    previousViewProj = matrices.viewProj;
+    previousFlameSeconds = frame.flameSeconds;
+    previousModels = std::move(models);
+    ++frameIndex;
+    if (!skyFace) ++fogFrames;
+    drawn = true;
+    return {};
+}
+
+/// UTA-0051 SS 4.4: the scale a view draws at. A fixed scale wins over a
+/// pinned one, and both over dynamic resolution. A face of the sky is cut from
+/// the whole target (UTA-0163).
+double Renderer::Impl::scaleFor(bool skyFace, const TierSettings& settings) const {
+    // A scale that is not finite reads as full (review-code 2026-10-15).
+    const auto clamped = [&](double asked) {
+        return std::isfinite(asked) ? std::clamp(asked, settings.minimumRenderScale, 1.0) : 1.0;
+    };
+    if (skyFace) return 1;
+    if (config.fixedRenderScale) return clamped(*config.fixedRenderScale);
+    if (pinnedRenderScale) return clamped(*pinnedRenderScale);
+    if (config.dynamicResolution) return renderScale;
+    return 1;
+}
+
+/// The view's FrameData that the camera, the clock, the clusters, the probes,
+/// the textures and the sky decide. Writes the cluster bounds.
+gpu::FrameData Renderer::Impl::frameDataOf(const ubundle::Bundle& bundle, const Camera& camera, VkExtent2D region,
+                                           const ViewMatrices& matrices, double seconds, bool skyFace) {
     gpu::FrameData frame{};
-    frame.viewProj = multiply(drawnProjection, view);
-    frame.viewProjUnjittered = viewProj;
-    frame.previousViewProjUnjittered = impl.previousViewProj.value_or(viewProj);
-    frame.view = view;
+    frame.viewProj = multiply(matrices.drawnProjection, matrices.view);
+    frame.viewProjUnjittered = matrices.viewProj;
+    frame.previousViewProjUnjittered = previousViewProj.value_or(matrices.viewProj);
+    frame.view = matrices.view;
     frame.eye = camera.location;
     frame.exposure = EXPOSURE;
     frame.nearPlane = camera.nearPlane;
     frame.farPlane = camera.farPlane;
     // scene.frag divides by this to find a pixel's cluster, so it is the region's.
     frame.viewportSize = {static_cast<float>(region.width), static_cast<float>(region.height)};
-    const double seconds =
-        impl.pinnedLightSeconds
-            ? *impl.pinnedLightSeconds
-            : std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
-    impl.lastLightSeconds = seconds;
-    // UTA-0286 SS 4.4: the fire looks run on the same clock.
-    impl.materials->advanceFires(seconds, impl.pinnedLightSeconds.has_value());
-    // UTA-0263 SS 4.4: flames run on the same clock. A float holds it to a
+    // UTA-0263 SS 4.4: flames run on the light clock. A float holds it to a
     // millisecond for hours only, so it wraps; a pinned time that is not
     // finite reads as 0.
     frame.flameSeconds = std::isfinite(seconds) ? static_cast<float>(std::fmod(seconds, FLAME_CLOCK_WRAP)) : 0.0f;
-    frame.previousFlameSeconds = impl.previousFlameSeconds.value_or(frame.flameSeconds);
-    std::vector<gpu::Light> frameLights = drawnLights(bundle, seconds);
+    frame.previousFlameSeconds = previousFlameSeconds.value_or(frame.flameSeconds);
     const ClusterGrid grid = clusterGrid(camera, region.width, region.height);
-    std::memcpy(impl.clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
+    std::memcpy(clusterBounds.mapped(), grid.bounds.data(), grid.bounds.size() * sizeof(gpu::ClusterBounds));
     frame.clusterGrid = gpu::CLUSTER_GRID;
     frame.clusterDepthScale = grid.depthScale;
     frame.clusterDepthBias = grid.depthBias;
-    frame.probeSpacing = impl.probeSpacing;
-    frame.probeCount = impl.probeCount;
-    frame.probeTableMask = impl.probeTableMask;
-    frame.probeLongestRun = impl.probeLongestRun;
-    const TextureSlots slots = impl.textureSlots();
+    frame.probeSpacing = probeSpacing;
+    frame.probeCount = probeCount;
+    frame.probeTableMask = probeTableMask;
+    frame.probeLongestRun = probeLongestRun;
+    const TextureSlots slots = textureSlots();
     // UTA-0163: a face of the sky is drawn without the sky, which is not drawn yet.
-    frame.skyTexture = impl.skyReady && !skyFace ? slots.sky : gpu::NONE;
+    frame.skyTexture = skyReady && !skyFace ? slots.sky : gpu::NONE;
+    frame.skyCapture = skyFace ? 1u : 0u; // UTA-0281
     // UTA-0350 SS 4.4: a painted sky stands in where there is no sky view.
-    if (bundle.paintedSky && !impl.skyView) {
+    if (bundle.paintedSky && !skyView) {
         frame.paintedSky = 1;
         frame.paintedSkyTop = bundle.paintedSky->top;
         frame.paintedSkyHorizon = bundle.paintedSky->horizon;
@@ -1854,47 +2025,58 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         // UTA-0337: the clouds drift with the light clock; the bake took their
         // mean, so the light they give does not move.
         for (std::size_t axis = 0; axis < 2; ++axis)
-            frame.paintedSkyDrift[axis] =
-                static_cast<float>(PAINTED_SKY_WIND[axis] * impl.lastLightSeconds);
+            frame.paintedSkyDrift[axis] = static_cast<float>(PAINTED_SKY_WIND[axis] * lastLightSeconds);
     }
     // UTA-0337 part 3: the outdoor haze scales to the level, since one
     // distance washes out a wide map's near ground or misses a small map's walls.
     // UTA-0391: a painted sky's recipe may start it further out.
-    const OutdoorHaze haze = outdoorHazeOf(impl.outdoorExtent, bundle.paintedSky && !impl.skyView
-                                                                   ? bundle.paintedSky->hazeStart
-                                                                   : OUTDOOR_HAZE_START_SHARE);
+    const OutdoorHaze haze = outdoorHazeOf(
+        outdoorExtent, bundle.paintedSky && !skyView ? bundle.paintedSky->hazeStart : OUTDOOR_HAZE_START_SHARE);
     frame.outdoorHazeStart = haze.start;
     frame.outdoorHazeDepth = haze.depth;
     frame.occlusionTexture = slots.occlusion;   // UTA-0164 SS 4.5
     frame.shadowMaskTexture = slots.shadowMask; // UTA-0326 SS 4.5
+    return frame;
+}
 
-    std::vector<gpu::Mat4> models(impl.geometry->objectCount, identity());
+/// Each object's model this frame -- the level's, then each mover's -- written
+/// with last frame's for the GPU, and which of them mirror.
+std::vector<gpu::Mat4> Renderer::Impl::placeObjects(const ubundle::Bundle& bundle) {
+    std::vector<gpu::Mat4> models(geometry->objectCount, identity());
     if (bundle.movers)
         for (std::size_t i = 0; i < bundle.movers->size(); ++i) models[i + 1] = moverModel((*bundle.movers)[i]);
-    if (impl.previousModels.size() != models.size()) impl.previousModels = models;
-    impl.mirrored.assign(models.size(), false);
-    for (std::size_t i = 0; i < models.size(); ++i) impl.mirrored[i] = mirrors(models[i]);
+    if (previousModels.size() != models.size()) previousModels = models;
+    mirrored.assign(models.size(), false);
+    for (std::size_t i = 0; i < models.size(); ++i) mirrored[i] = mirrors(models[i]);
     for (std::size_t i = 0; i < models.size(); ++i) {
-        const gpu::Object object{models[i], impl.previousModels[i], normalMatrixOf(models[i])};
-        std::memcpy(impl.objects.mapped() + i * sizeof(gpu::Object), &object, sizeof(object));
+        const gpu::Object object{models[i], previousModels[i], normalMatrixOf(models[i])};
+        std::memcpy(objects.mapped() + i * sizeof(gpu::Object), &object, sizeof(object));
     }
+    return models;
+}
 
-    // SS 4.8: each light's tiles, and which must be drawn this frame -- a mover
-    // that moved redraws the lights whose radius its box, before or after, reaches.
-    // A tile's size follows its light's reach alone (UTA-0166), so neither the
-    // camera nor the region moves it.
+/// SS 4.8: each light's tiles, and which must be drawn this frame -- a mover
+/// that moved redraws the lights whose radius its box, before or after,
+/// reaches. A tile's size follows its light's reach alone (UTA-0166), so
+/// neither the camera nor the region moves it.
+ShadowPlan Renderer::Impl::planShadows(const ubundle::Bundle& bundle, std::span<const gpu::Mat4> models) {
     std::vector<Box> moved;
     for (std::size_t i = 1; i < models.size(); ++i) {
-        if (models[i] == impl.previousModels[i]) continue;
-        moved.push_back(worldBox(impl.moverBounds[i - 1], impl.previousModels[i]));
-        moved.push_back(worldBox(impl.moverBounds[i - 1], models[i]));
+        if (models[i] == previousModels[i]) continue;
+        moved.push_back(worldBox(moverBounds[i - 1], previousModels[i]));
+        moved.push_back(worldBox(moverBounds[i - 1], models[i]));
     }
-    const ShadowPlan plan = impl.shadowPlanner.plan(directLights(bundle), moved, impl.nearLights);
+    return shadowPlanner.plan(directLights(bundle), moved, nearLights);
+}
+
+/// Each light's shadow faces from the plan, then the flashlight, last so it
+/// holds no tile (UTA-0015 SS 4.5). Returns the flashlight's index, or NONE.
+std::uint32_t Renderer::Impl::placeLights(gpu::FrameData& frame, std::vector<gpu::Light>& frameLights,
+                                          const ShadowPlan& plan, const Camera& camera) {
     for (std::size_t i = 0; i < frameLights.size(); ++i) {
         frameLights[i].shadowFace = plan.firstFace[i];
         frameLights[i].shadowFaceCount = plan.faceCount[i];
     }
-    // UTA-0015 SS 4.5: the flashlight goes last, after the plan, so it holds no tile.
     std::uint32_t flashlight = gpu::NONE;
     if (camera.flashlight) {
         flashlight = static_cast<std::uint32_t>(frameLights.size());
@@ -1906,199 +2088,186 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
     frame.sun = gpu::NONE;
     for (std::size_t i = 0; i < frameLights.size(); ++i)
         if (frameLights[i].effect == ubundle::SUN_EFFECT) frame.sun = static_cast<std::uint32_t>(i);
+    return flashlight;
+}
 
-    // UTA-0015 SS 4.4: which volumetric lights glow, from the camera's zone.
+/// The zone the camera is in (UTA-0089 SS 4.2): its pan speeds, its water and
+/// its ViewFog. Returns its index.
+std::uint8_t Renderer::Impl::placeViewZone(gpu::FrameData& frame, const ubundle::Bundle& bundle,
+                                           const Camera& camera) {
     const std::size_t zoneCount = bundle.zones ? bundle.zones->size() : 1;
     const std::uint8_t cameraZone = bundle.rooms ? ubundle::zoneAt(*bundle.rooms, camera.location, zoneCount) : 0;
-    frame.cameraZone = cameraZone; // UTA-0089 SS 4.2
-    impl.viewZone =
-        bundle.zones ? (*bundle.zones)[cameraZone < bundle.zones->size() ? cameraZone : 0] : ubundle::Zone{};
-    impl.cameraPanSpeed = impl.viewZone.panSpeed;
-    frame.cameraUnderwater = impl.viewZone.water; // UTA-0215 SS 4.3
-    frame.skyCapture = skyFace ? 1u : 0u;          // UTA-0281
-    // UTA-0337: the sky's layers, panned at the sky zone's speeds as the faces
-    // would have drawn them now. Laid over the sky only once its faces and
-    // every layer's light are in; while they are captured, the planes still
-    // tell a layer's sheet from the batch's others.
-    if (impl.skyView) {
-        const std::array<float, 2> speed =
-            bundle.zones && impl.skyLayers.zone < bundle.zones->size() ? (*bundle.zones)[impl.skyLayers.zone].panSpeed
-                                                                        : std::array<float, 2>{1, 1};
-        frame.skyOrigin = {impl.skyView->location[0], impl.skyView->location[1], impl.skyView->location[2], 0};
-        frame.skyPixelAngle = static_cast<float>(
-            2.0 * std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0) / static_cast<double>(region.height));
-        frame.skyLayerCapture = skyFace ? impl.skyLayerCapture : 0;
-        frame.skyLayerCount = impl.skyReady && !skyFace ? static_cast<std::uint32_t>(impl.skyLayers.layers.size()) : 0;
-        const std::uint32_t firstLight = slots.firstSkyLayerLight;
-        for (std::size_t i = 0; i < impl.skyLayers.layers.size(); ++i) {
-            const SkyLayer& layer = impl.skyLayers.layers[i];
-            gpu::SkyLayer& out = frame.skyLayers[i];
-            out.plane = layer.plane;
-            out.u = layer.u;
-            out.v = layer.v;
-            for (std::size_t axis = 0; axis < 2; ++axis) {
-                // As UTA-0269's batches pan: in double, then its fraction.
-                const double pan = std::fmod(static_cast<double>(layer.panRate[axis])
-                                                 * static_cast<double>(speed[axis]) * impl.lastLightSeconds,
-                                             1.0);
-                out.pan[axis] = std::isfinite(pan) ? static_cast<float>(pan) : 0.0F;
-            }
-            out.material = impl.materials->indexOf(layer.material);
-            out.light = firstLight + static_cast<std::uint32_t>(i);
-            out.kind = layer.kind;
-        }
-    }
+    frame.cameraZone = cameraZone;
+    viewZone = bundle.zones ? (*bundle.zones)[cameraZone < bundle.zones->size() ? cameraZone : 0] : ubundle::Zone{};
+    cameraPanSpeed = viewZone.panSpeed;
+    frame.cameraUnderwater = viewZone.water; // UTA-0215 SS 4.3
     // UTA-0215 SS 4.8: the light the output stage shows as ViewFog. The tone map
     // is the identity this low, so only the sRGB decode and the exposure undo.
     for (std::size_t c = 0; c < 3; ++c) {
-        const double shown = std::clamp(static_cast<double>(impl.viewZone.viewFog[c]), 0.0, 1.0);
+        const double shown = std::clamp(static_cast<double>(viewZone.viewFog[c]), 0.0, 1.0);
         const double light = shown <= 0.04045 ? shown / 12.92 : std::pow((shown + 0.055) / 1.055, 2.4);
-        frame.waterFog[c] = static_cast<float>(impl.config.linearOutput ? light : light / EXPOSURE);
+        frame.waterFog[c] = static_cast<float>(config.linearOutput ? light : light / EXPOSURE);
     }
+    return cameraZone;
+}
+
+/// UTA-0337: the sky's layers, panned at the sky zone's speeds as the faces
+/// would have drawn them now. Laid over the sky only once its faces and every
+/// layer's light are in; while they are captured, the planes still tell a
+/// layer's sheet from the batch's others.
+void Renderer::Impl::placeSkyLayers(gpu::FrameData& frame, const ubundle::Bundle& bundle, const Camera& camera,
+                                    VkExtent2D region, bool skyFace) {
+    if (!skyView) return;
+    const std::array<float, 2> speed = bundle.zones && skyLayers.zone < bundle.zones->size()
+                                           ? (*bundle.zones)[skyLayers.zone].panSpeed
+                                           : std::array<float, 2>{1, 1};
+    frame.skyOrigin = {skyView->location[0], skyView->location[1], skyView->location[2], 0};
+    frame.skyPixelAngle = static_cast<float>(2.0 * std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0)
+                                             / static_cast<double>(region.height));
+    frame.skyLayerCapture = skyFace ? skyLayerCapture : 0;
+    frame.skyLayerCount = skyReady && !skyFace ? static_cast<std::uint32_t>(skyLayers.layers.size()) : 0;
+    const std::uint32_t firstLight = textureSlots().firstSkyLayerLight;
+    for (std::size_t i = 0; i < skyLayers.layers.size(); ++i) {
+        const SkyLayer& layer = skyLayers.layers[i];
+        gpu::SkyLayer& out = frame.skyLayers[i];
+        out.plane = layer.plane;
+        out.u = layer.u;
+        out.v = layer.v;
+        for (std::size_t axis = 0; axis < 2; ++axis) {
+            // As UTA-0269's batches pan: in double, then its fraction.
+            const double pan = std::fmod(
+                static_cast<double>(layer.panRate[axis]) * static_cast<double>(speed[axis]) * lastLightSeconds, 1.0);
+            out.pan[axis] = std::isfinite(pan) ? static_cast<float>(pan) : 0.0F;
+        }
+        out.material = materials->indexOf(layer.material);
+        out.light = firstLight + static_cast<std::uint32_t>(i);
+        out.kind = layer.kind;
+    }
+}
+
+/// UTA-0015 SS 4.4: which volumetric lights glow, from the camera's zone,
+/// written for the fog's passes, and the constants those passes take.
+FogSetup Renderer::Impl::fogSetupOf(const ubundle::Bundle& bundle, const Camera& camera, VkExtent2D region,
+                                    std::span<const gpu::Light> frameLights, std::uint8_t cameraZone,
+                                    std::uint32_t flashlight, bool skyFace) {
     const std::array<ubundle::Zone, 1> noZone{};
     const std::span<const ubundle::Zone> zoneSpan =
         bundle.zones ? std::span<const ubundle::Zone>(*bundle.zones) : std::span<const ubundle::Zone>(noZone);
-    const VolumeLightChoice glowing = volumeLights(frameLights, impl.lightZones, cameraZone, zoneSpan, camera.location);
+    const VolumeLightChoice glowing = volumeLights(frameLights, lightZones, cameraZone, zoneSpan, camera.location);
     if (!glowing.indices.empty())
-        std::memcpy(impl.volumeLightIndices.mapped(), glowing.indices.data(),
+        std::memcpy(volumeLightIndices.mapped(), glowing.indices.data(),
                     glowing.indices.size() * sizeof(std::uint32_t));
     const double tanVertical = std::tan(camera.verticalFovDegrees * std::numbers::pi / 360.0);
-    gpu::FogConstants fog{};
+    FogSetup setup;
+    setup.droppedVolumeLights = glowing.dropped;
+    gpu::FogConstants& fog = setup.constants;
     fog.viewToWorld = viewToWorldOf(camera);
     fog.tanHalfFov = {static_cast<float>(tanVertical * region.width / region.height), static_cast<float>(tanVertical)};
     fog.volumeLightCount = static_cast<std::uint32_t>(glowing.indices.size());
     fog.flashlight = flashlight;
-    fog.hazeScale = impl.config.hazeScale;
+    fog.hazeScale = config.hazeScale;
     // UTA-0356: frame k since a cut samples each froxel at the R3 sequence's
     // k-th point (Roberts, "The Unreasonable Effectiveness of Quasirandom
     // Sequences", 2018) from the centre, and keeps a running mean of the first
     // ten, then 0.1 of each new frame. A sky face is its own single frame.
-    const std::uint64_t fogFrame = skyFace ? 0 : impl.fogFrames;
+    const std::uint64_t fogFrame = skyFace ? 0 : fogFrames;
     constexpr std::array<double, 3> R3{0.8191725133961645, 0.6710436067037893, 0.5497004779019703};
     for (std::size_t a = 0; a < R3.size(); ++a) {
         const double at = 0.5 + static_cast<double>(fogFrame) * R3[a];
         fog.jitter[a] = static_cast<float>(at - std::floor(at));
     }
     fog.historyWeight = static_cast<float>(std::max(1.0 / static_cast<double>(fogFrame + 1), 0.1));
+    return setup;
+}
 
-    // The lights and shadow faces are the only per-frame writes sized by upload
-    // to what the bundle held then; the cluster, object and volume-light writes
-    // above have sizes fixed at creation or by the geometry. The sky's six faces
-    // follow the lights', so they count against the room.
-    if (frameLights.size() > impl.lightCapacity || plan.faces.size() + 6 > impl.shadowFaceCapacity)
+/// The lights, the shadow faces and then the FrameData, written for the GPU.
+/// The lights and shadow faces are the only per-frame writes sized by upload
+/// to what the bundle held then; the cluster, object and volume-light writes
+/// have sizes fixed at creation or by the geometry. The sky's six faces
+/// follow the lights', so they count against the room.
+Result<void> Renderer::Impl::uploadFrame(gpu::FrameData& frame, std::span<const gpu::Light> frameLights,
+                                         const ShadowPlan& plan) {
+    if (frameLights.size() > lightCapacity || plan.faces.size() + 6 > shadowFaceCapacity)
         return fail(ErrorCode::InvalidArgument, "the bundle's drawn lights outgrew the buffers its upload sized; "
                                                 "it changed in place without a reload");
-    if (!frameLights.empty()) std::memcpy(impl.lights.mapped(), frameLights.data(), frameLights.size() * sizeof(gpu::Light));
+    if (!frameLights.empty()) std::memcpy(lights.mapped(), frameLights.data(), frameLights.size() * sizeof(gpu::Light));
     if (!plan.faces.empty())
-        std::memcpy(impl.shadowFaces.mapped(), plan.faces.data(), plan.faces.size() * sizeof(gpu::ShadowFace));
+        std::memcpy(shadowFaces.mapped(), plan.faces.data(), plan.faces.size() * sizeof(gpu::ShadowFace));
     frame.shadowFaceCount = static_cast<std::uint32_t>(plan.faces.size());
     // UTA-0163: the sky's six faces follow the lights'.
     frame.skyFirstFace = frame.shadowFaceCount;
-    if (impl.skyView)
+    if (skyView)
         for (std::uint32_t face = 0; face < 6; ++face) {
             const gpu::ShadowFace sample = skyFaceSample(face);
-            std::memcpy(impl.shadowFaces.mapped() + (frame.skyFirstFace + face) * sizeof(gpu::ShadowFace), &sample,
+            std::memcpy(shadowFaces.mapped() + (frame.skyFirstFace + face) * sizeof(gpu::ShadowFace), &sample,
                         sizeof(sample));
         }
-    std::memcpy(impl.frameData.mapped(), &frame, sizeof(frame));
+    std::memcpy(frameData.mapped(), &frame, sizeof(frame));
+    return {};
+}
 
-    // UTA-0051 SS 4.4: the measurement is this call, which waits for the GPU. It
-    // leaves out present, which waits for the display under FIFO.
-    const auto started = std::chrono::steady_clock::now();
-    std::chrono::steady_clock::duration recording{};
-    const Result<void> ran = impl.gpu->run([&](VkCommandBuffer commands) {
-        const auto recordStarted = std::chrono::steady_clock::now();
-        impl.recordFrame(commands, plan, region, fog);
-        // SS 6's counts are read on the host once this finishes; the fence
-        // alone does not make the compute pass's writes visible to it.
-        memoryBarrier(commands, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-                      VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_READ_BIT);
-        if (image) impl.swapchain->recordBlit(commands, impl.output, *image);
-        if (skyFace) {
-            // UTA-0163: the target's central square, which the face camera made
-            // span 90 degrees, into the face's cell of the sky texture.
-            const std::uint32_t side = std::min(region.width, region.height);
-            const auto x0 = static_cast<std::int32_t>((region.width - side) / 2);
-            const auto y0 = static_cast<std::int32_t>((region.height - side) / 2);
-            const auto column = static_cast<std::int32_t>(*skyFace % SKY_COLUMNS * SKY_FACE_SIZE);
-            const auto row = static_cast<std::int32_t>(*skyFace / SKY_COLUMNS * SKY_FACE_SIZE);
-            const auto size = static_cast<std::int32_t>(SKY_FACE_SIZE);
-            VkImageBlit blit{};
-            blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-            blit.srcOffsets[0] = {x0, y0, 0};
-            blit.srcOffsets[1] = {x0 + static_cast<std::int32_t>(side), y0 + static_cast<std::int32_t>(side), 1};
-            blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-            blit.dstOffsets[0] = {column, row, 0};
-            blit.dstOffsets[1] = {column + size, row + size, 1};
-            impl.hdr.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-            // UTA-0337: or a layer's light into that layer's faces.
-            Image& target = impl.skyLayerCapture == 0 ? impl.sky : impl.skyLayerLights[impl.skyLayerCapture - 1];
-            target.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            vkCmdBlitImage(commands, impl.hdr.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target.handle(),
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
-            target.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        }
-        recording = std::chrono::steady_clock::now() - recordStarted;
-    });
-    // The plan already counts its tiles as drawn; after a failed submission
-    // they were not, so every tile is placed and drawn again.
-    if (!ran) {
-        impl.shadowPlanner.reset();
-        return ran;
-    }
-    const double milliseconds =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
-    if (image) UTA_CHECK(impl.swapchain->present(impl.gpu->queue(), *image));
+/// UTA-0163: the target's central square, which the face camera made span 90
+/// degrees, into the face's cell of the sky texture -- or, UTA-0337, a layer's
+/// light into that layer's faces.
+void Renderer::Impl::recordSkyFaceCopy(VkCommandBuffer commands, VkExtent2D region, std::uint32_t skyFace) {
+    const std::uint32_t side = std::min(region.width, region.height);
+    const auto x0 = static_cast<std::int32_t>((region.width - side) / 2);
+    const auto y0 = static_cast<std::int32_t>((region.height - side) / 2);
+    const auto column = static_cast<std::int32_t>(skyFace % SKY_COLUMNS * SKY_FACE_SIZE);
+    const auto row = static_cast<std::int32_t>(skyFace / SKY_COLUMNS * SKY_FACE_SIZE);
+    const auto size = static_cast<std::int32_t>(SKY_FACE_SIZE);
+    VkImageBlit blit{};
+    blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    blit.srcOffsets[0] = {x0, y0, 0};
+    blit.srcOffsets[1] = {x0 + static_cast<std::int32_t>(side), y0 + static_cast<std::int32_t>(side), 1};
+    blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    blit.dstOffsets[0] = {column, row, 0};
+    blit.dstOffsets[1] = {column + size, row + size, 1};
+    hdr.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    Image& target = skyLayerCapture == 0 ? sky : skyLayerLights[skyLayerCapture - 1];
+    target.transition(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    vkCmdBlitImage(commands, hdr.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target.handle(),
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+    target.transition(commands, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
 
-    // SS 6: how many clusters dropped lights past their cap, read back from the
+/// SS 6's stats of the frame just finished, and UTA-0351's GPU step times.
+void Renderer::Impl::readStats(const ShadowPlan& plan, std::uint32_t droppedVolumeLights, double scale,
+                               const FrameTimes& times, bool skyFace) {
+    // How many clusters dropped lights past their cap, read back from the
     // pass that decided -- the frame has finished, so the counts are final. One
     // sequential copy out of the mapping: where the GPU offers no cached type,
     // each read of it is uncached, so a read per cluster costs thousands.
-    impl.stats = {};
+    stats = {};
     std::array<std::uint32_t, gpu::CLUSTER_COUNT> counts{};
-    std::memcpy(counts.data(), impl.clusterCounts.mapped(), sizeof(counts));
+    std::memcpy(counts.data(), clusterCounts.mapped(), sizeof(counts));
     for (const std::uint32_t count : counts)
-        if ((count & gpu::CLUSTER_OVERFLOW) != 0) ++impl.stats.overflowedClusters;
-    impl.stats.unshadowedLights = plan.unshadowed;
-    impl.stats.renderedShadowTiles = static_cast<std::uint32_t>(plan.draws.size());
-    impl.stats.droppedVolumeLights = glowing.dropped;
-    impl.stats.tier = impl.tier;
-    impl.stats.renderScale = scale;
-    impl.stats.frameMilliseconds = milliseconds;
+        if ((count & gpu::CLUSTER_OVERFLOW) != 0) ++stats.overflowedClusters;
+    stats.unshadowedLights = plan.unshadowed;
+    stats.renderedShadowTiles = static_cast<std::uint32_t>(plan.draws.size());
+    stats.droppedVolumeLights = droppedVolumeLights;
+    stats.tier = tier;
+    stats.renderScale = scale;
+    stats.frameMilliseconds = times.milliseconds;
     // UTA-0352: a sky face's draw made no bundle check of its own.
     using Milliseconds = std::chrono::duration<double, std::milli>;
-    impl.stats.prepareMilliseconds =
-        Milliseconds(started - viewStarted + (skyFace ? std::chrono::steady_clock::duration{} : impl.bundleCheck))
+    stats.prepareMilliseconds =
+        Milliseconds(times.started - times.viewStarted + (skyFace ? std::chrono::steady_clock::duration{} : bundleCheck))
             .count();
-    impl.stats.recordMilliseconds = Milliseconds(recording).count();
-    if (impl.passTimes != VK_NULL_HANDLE) {
+    stats.recordMilliseconds = Milliseconds(times.recording).count();
+    if (passTimes != VK_NULL_HANDLE) {
         // UTA-0351: the frame has finished, so every bound is written.
         std::array<std::uint64_t, GPU_PASS_COUNT + 1> ticks{};
-        const VkResult read = vkGetQueryPoolResults(impl.gpu->device(), impl.passTimes, 0, GPU_PASS_COUNT + 1,
-                                                    sizeof(ticks), ticks.data(), sizeof(std::uint64_t),
+        const VkResult read = vkGetQueryPoolResults(gpu->device(), passTimes, 0, GPU_PASS_COUNT + 1, sizeof(ticks),
+                                                    ticks.data(), sizeof(std::uint64_t),
                                                     VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
         if (read == VK_SUCCESS) {
             for (std::size_t pass = 0; pass < GPU_PASS_COUNT; ++pass)
-                impl.stats.passMilliseconds[pass] = static_cast<double>((ticks[pass + 1] - ticks[pass]) & impl.timestampMask)
-                                                    * impl.timestampNanoseconds / 1e6;
-            impl.stats.passesTimed = true;
+                stats.passMilliseconds[pass] =
+                    static_cast<double>((ticks[pass + 1] - ticks[pass]) & timestampMask) * timestampNanoseconds / 1e6;
+            stats.passesTimed = true;
         }
     }
-    impl.drawnScale = scale;
-    // UTA-0163: a sky face is not the player's frame, so its time steers nothing.
-    if (!skyFace && impl.config.dynamicResolution && !impl.config.fixedRenderScale && !impl.pinnedRenderScale) {
-        impl.averagedMilliseconds =
-            impl.averagedMilliseconds == 0 ? milliseconds : impl.averagedMilliseconds * 0.8 + milliseconds * 0.2;
-        impl.renderScale = nextRenderScale(impl.renderScale, impl.averagedMilliseconds, settings);
-    }
-
-    impl.previousViewProj = viewProj;
-    impl.previousFlameSeconds = frame.flameSeconds;
-    impl.previousModels = std::move(models);
-    ++impl.frameIndex;
-    if (!skyFace) ++impl.fogFrames;
-    impl.drawn = true;
-    return {};
 }
 
 Result<std::vector<std::byte>> Renderer::readback(Target target) {
