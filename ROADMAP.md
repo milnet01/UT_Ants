@@ -18323,7 +18323,7 @@ stays with movement in 0.2.0.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 14.
 
-- 🚧 [UTA-0438] **Light PF_SpecialLit surfaces only by bSpecialLit lights, as UT99 does.**
+- ✅ [UTA-0438] **Light PF_SpecialLit surfaces only by bSpecialLit lights, as UT99 does.**
   UT99 lights a PF_SpecialLit surface only by lights with bSpecialLit, and
   those lights light nothing else. UTA-0014 SS 9 deferred both ("no home
   yet"): the renderer lights such a surface with every ordinary light, and
