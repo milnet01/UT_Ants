@@ -22545,6 +22545,11 @@ docs/standards/versioning-overrides.md. Closes S8.
   InversalLiandri's movers (ut-dump --wiring-graph): all 33 have
   numKeys 1, but key 1 is set on some (Mover3, tag base_floor_glass_02,
   key 1 at z -384), so whether they can move is not settled by numKeys.
+  InversalLiandri (2026-10-26): its translucent cost was its 32
+  never-moving glass movers lighting through the cluster path; UTA-0439
+  charts them. At the target its worst view went 15.2 to 9.8 ms (see
+  UTA-0439). Left: ArchNemesis headroom (14.9 ms worst view at the
+  target, opaque direct light).
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
@@ -22729,6 +22734,28 @@ docs/standards/versioning-overrides.md. Closes S8.
   InitialState None, bSlave false (a slave rides its master), and no
   AttachMover or MixMover whose AttachTag is its Tag. Anything else stays
   a mover. Scratch: ~/.cache/uta-scratch/u439.
+  Built (2026-10-26): bba803b, c01a411 (spec 6069366; roll fix 2f42946).
+  ctest -L unit all pass; device tier on lavapipe 133 of 133. Not pushed.
+  INV-6 measured (2026-10-26, load under 1, GPU quiet, 6069366 base build
+  and bake against bba803b, alternated, two reps, 3840x2160 at 0.6667,
+  High, survey cameras): glass views 0/3/5 frame median 12.2-14.0 to
+  8.0-8.7 ms, translucent 2.2-3.0 to 0.73-1.07 ms; worst view 15.2 to
+  9.8 ms; non-glass views 1-1.5 ms faster.
+  Pixels (1280x720, ut-shot): views 0-6 differ in 1.2-5.0% over 2 levels
+  (max 14-48); view 7 in 55.9% (max 59): a level pillar by the camera is
+  darker. ut-shot --light-terms: pillar direct 0.33 to 0.095, indirect
+  unchanged 0.022. AOCC/SMSK texel sizes unchanged (16, 8). A placement
+  test (c01a411) shows still movers are charted where the engine places
+  them. Light-halving search (bisect_lights.py): light export 27 at
+  (2877,2818,2204), reach 6400, gives 0.124 of the 0.234 gap (the halves
+  did not add up; the rest is unexplained). Its pairs: base 1421 of 2347
+  marked moverReach, new 0, so they now read the mask instead of the
+  shadow map. OPEN before shipping: does light 27 draw shadow tiles? If
+  not, the old lit pillar was a leak through the level and the new one is
+  right; if it does, find what the mask sees between it and the pillar.
+  Scratch: /mnt/Emulators/uta-scratch/u439 (run.sh, terms.sh,
+  bisect_lights.py, movers.py, atlas.py, bake-base, bake-new, base = git
+  worktree at 6069366 with ut-bake, ut-bench, ut-shot built).
   **Layman:** Some maps build fixed glass and decoration out of parts that could move but never do; light them like walls, which is cheaper.
   Kind: perf.
   Source: user-request-2026-10-26.
