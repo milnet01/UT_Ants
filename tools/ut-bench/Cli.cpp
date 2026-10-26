@@ -37,7 +37,8 @@ void usage(std::ostream& err) {
     err << "usage: ut-bench bake --install <install> --scratch <dir> [--runs <n>]\n"
            "               [--workers <n>] [--texture-cache <dir>] <map>...\n"
            "       ut-bench frame --cameras <file> [--tier <low|medium|high|ultra>]\n"
-           "               [--size <width>x<height>] [--still <n>] [--steps <n>] <bundle>\n"
+           "               [--size <width>x<height>] [--render-scale <s>]\n"
+           "               [--still <n>] [--steps <n>] <bundle>\n"
            "       ut-bench --help\n"
            "\n"
            "Bakes each map --runs times (3 unless given), never from a cache, and\n"
@@ -56,7 +57,9 @@ void usage(std::ostream& err) {
            "move's frame time -- smallest, median, 99th percentile, largest -- and the\n"
            "shadow tiles redrawn a frame. It needs a Vulkan device. Compare on the\n"
            "median and the 99th percentile. --tier is high and --size 1920x1080 unless\n"
-           "given.\n";
+           "given. --render-scale is the fixed scale, above 0 and at most 1 (1 unless\n"
+           "given); the renderer raises it to the tier's floor, and the JSON's\n"
+           "renderScale is the scale drawn.\n";
 }
 
 struct Arguments {
