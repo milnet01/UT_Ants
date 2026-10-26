@@ -150,17 +150,6 @@ std::optional<umat::Material> decode(std::span<const std::byte> bytes, const Tex
     return material;
 }
 
-std::string hex(std::span<const std::byte> bytes) {
-    static constexpr char DIGITS[] = "0123456789abcdef";
-    std::string out;
-    out.reserve(bytes.size() * 2);
-    for (const std::byte b : bytes) {
-        out.push_back(DIGITS[std::to_integer<unsigned>(b) >> 4]);
-        out.push_back(DIGITS[std::to_integer<unsigned>(b) & 0xF]);
-    }
-    return out;
-}
-
 } // namespace
 
 TextureCacheKey textureCacheKey(std::string_view id, const umat::Image& base,
@@ -187,7 +176,7 @@ TextureCache::TextureCache(std::filesystem::path directory, std::uint64_t capByt
     : directory_(std::move(directory)), capBytes_(capBytes) {}
 
 std::filesystem::path TextureCache::pathOf(const TextureCacheKey& key) const {
-    const std::string name = hex(key);
+    const std::string name = detail::hex(key);
     // Two hex digits of fan-out keep any one directory to a few hundred files.
     return directory_ / name.substr(0, 2) / (name + ".tex");
 }
