@@ -37,8 +37,8 @@ set on 1791 of those surfaces. The counting command was run on 2026-10-26:
 
 ## 3. Scope decisions (agreed with the user)
 
-Not yet put to the user: the session decided these on 2026-10-26, and each
-is cheap to reverse.
+Decisions 1 and 2 were agreed with the user on 2026-10-26. Decisions 3 and 4
+were the session's own, made the same day. Each is cheap to reverse.
 
 1. **The sun lights no `PF_SpecialLit` surface.** UT99's rule gives such a
    surface direct light from special lights only, and the recipe's sun is
