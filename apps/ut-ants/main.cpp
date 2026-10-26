@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -168,6 +169,177 @@ private:
     std::vector<SDL_Gamepad*> pads_;
 };
 
+/// What a viewer run keeps between frames: the renderer, the camera, and
+/// what the keys change. run() builds one and draws it each frame; F12's
+/// capture and each event's action are its two methods.
+struct Viewer {
+    SDL_Window* const window;
+    const uta::ubundle::Bundle& bundle;
+    const Options& options;
+    const std::string& bundleHash;
+    uta::urender::Config config;
+    uta::urender::Renderer renderer;
+    Start start;
+    Gamepads gamepads;
+    bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
+
+    // UTA-0191. The view the frame ON SCREEN was drawn from, which is not
+    // always the camera as it stands: [ or ] earlier in the same batch of
+    // events has already changed its field of view. Capturing this instead is
+    // what makes the second image the same view as the first, and P writes it
+    // for the same reason (UTA-0408).
+    std::optional<uta::urender::Camera> shownView;
+    decltype(launcherPaths()) paths = launcherPaths();
+    // The launcher names the notes file after the map it is opening, so its
+    // stem is the map's name (Cli.h). A run given no notes has only the
+    // bundle's own name, which is a content hash.
+    std::string mapName =
+        !options.notes.empty() ? options.notes.stem().string() : options.bundle.stem().string();
+
+    /// UTA-0191: the shown frame, and the same view redrawn linear, written
+    /// to a capture folder.
+    void writeCaptureFolder();
+
+    enum class After { Next, Quit, Failed };
+    /// One event's action. Mouse motion adds to `input`, the frame's input.
+    After handle(const SDL_Event& event, FlyInput& input);
+};
+
+void Viewer::writeCaptureFolder() {
+    if (!shownView) {
+        std::cerr << "ut-ants: nothing to capture yet -- no frame has been drawn\n";
+        return;
+    }
+    if (!paths) {
+        std::cerr << "ut-ants: no capture folder: " << paths.error().message() << "\n";
+        return;
+    }
+    // The frame already on screen. readback copies the colour target, which
+    // the presenting path blits from, so this is what the player is looking
+    // at rather than a redraw of it.
+    const auto shown = renderer.readback();
+    if (!shown) {
+        std::cerr << "ut-ants: the frame did not read back: " << shown.error().message() << "\n";
+        return;
+    }
+    const uta::urender::FrameStats stats = renderer.lastFrameStats();
+
+    // The same view again with the output stage off, so it can be measured.
+    // The light time is pinned to the frame above, or a pulsing light is at
+    // a different phase in the two images and they disagree for a reason
+    // that has nothing to do with what is being compared. The scale too:
+    // dynamic resolution may have moved it since the shown frame, and the
+    // redraw must not steer it (UTA-0372).
+    //
+    // This draw PRESENTS, so the screen flashes once -- said in the usage
+    // text rather than hidden, since a deliberate keypress that flashes
+    // reads as feedback where an unexplained one reads as a fault. It also
+    // counts as a frame to the renderer, so the next real frame's motion
+    // vectors are measured against this one rather than against the frame
+    // before the press. Harmless today: UTA-0075's jitter is off until a
+    // pass consumes it, and nothing reads the velocity target yet.
+    renderer.pinLightSeconds(renderer.lightSeconds());
+    renderer.pinRenderScale(stats.renderScale);
+    renderer.setLinearOutput(true);
+    const auto redrew = renderer.draw(bundle, *shownView);
+    const auto linear = redrew ? renderer.readback()
+                               : uta::Result<std::vector<std::byte>>(
+                                     std::unexpected(redrew.error()));
+    renderer.setLinearOutput(false);
+    renderer.unpinRenderScale();
+    renderer.unpinLightSeconds();
+    if (!linear) {
+        std::cerr << "ut-ants: the linear view did not draw: " << linear.error().message() << "\n";
+        return;
+    }
+
+    int windowWidth = 0, windowHeight = 0;
+    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+    const CaptureInfo info{
+        .map = mapName,
+        .bundleHash = bundleHash,
+        .formatVersion = bundle.header.formatVersion,
+        .bakerVersion = options.bakerVersion,
+        .commit = BUILD_COMMIT,
+        .tier = std::string(uta::urender::tierName(stats.tier)),
+        .renderWidth = config.width,
+        .renderHeight = config.height,
+        .renderScale = stats.renderScale,
+        .windowWidth = static_cast<std::uint32_t>(std::max(windowWidth, 0)),
+        .windowHeight = static_cast<std::uint32_t>(std::max(windowHeight, 0)),
+        .lightSeconds = renderer.lightSeconds(),
+        .cameraLine = poseLine(*shownView, config.width, config.height),
+    };
+    const auto folder = writeCapture(paths->captures, info, *shown, *linear,
+                                     std::chrono::system_clock::now());
+    if (!folder) {
+        std::cerr << "ut-ants: the capture did not save: " << uta::sanitised(folder.error().message()) << "\n";
+        return;
+    }
+    std::cerr << "ut-ants: capture written to " << uta::sanitised(folder->string()) << "\n";
+}
+
+Viewer::After Viewer::handle(const SDL_Event& event, FlyInput& input) {
+    // Each action's key and pad button share one branch.
+    if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) ||
+        (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && event.gbutton.button == SDL_GAMEPAD_BUTTON_START)) {
+        return After::Quit; // UTA-0183: Options on a PlayStation pad, Menu on an Xbox one
+    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) ||
+               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH)) {
+        flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
+    } else if (event.type == SDL_EVENT_KEY_DOWN
+               && (event.key.key == SDLK_LEFTBRACKET || event.key.key == SDLK_RIGHTBRACKET)) {
+        // UTA-0357: until the settings menu's slider (UTA-0297), the
+        // brackets narrow and widen the view, held down to sweep it.
+        start.camera.setFov(start.camera.fov() + (event.key.key == SDLK_RIGHTBRACKET ? FOV_STEP : -FOV_STEP));
+        std::cerr << "ut-ants: field of view " << start.camera.fov() << "\n";
+    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_P && !event.key.repeat) ||
+               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                event.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)) {
+        // UTA-0190: where the camera is, so a finding can be drawn again
+        // with ut-shot. Share or Create on a PlayStation pad, View on an Xbox one.
+        // Before the first frame there is no shown view, so the camera as it stands.
+        const uta::urender::Camera view = shownView ? *shownView : start.camera.camera(config.width, config.height);
+        const std::string line = "Camera (ut-shot): " + poseLine(view, config.width, config.height);
+        std::cerr << line << "\n";
+        if (!options.notes.empty()) {
+            if (const auto added = appendNote(options.notes, line); !added)
+                std::cerr << "ut-ants: the camera did not save: " << uta::sanitised(added.error().message())
+                          << "\n";
+        }
+    } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F12 &&
+                !event.key.repeat) ||
+               (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
+                event.gbutton.button == SDL_GAMEPAD_BUTTON_WEST)) {
+        // UTA-0191: everything needed to find and redraw this view.
+        // Square on a PlayStation pad, X on an Xbox one -- the one face
+        // button the viewer does not already use.
+        writeCaptureFolder();
+    } else if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
+        gamepads.open(event.gdevice.which);
+    } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
+        gamepads.close(event.gdevice.which);
+    } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+        input.lookRight += event.motion.xrel;
+        input.lookUp -= event.motion.yrel; // SDL's y grows downward
+    } else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED && event.window.data1 > 0 &&
+               event.window.data2 > 0) {
+        config.width = static_cast<std::uint32_t>(event.window.data1);
+        config.height = static_cast<std::uint32_t>(event.window.data2);
+        const auto resized = renderer.resize(config.width, config.height);
+        // The targets are rebuilt and not yet drawn, and the shown view
+        // was for the old size: a capture now would read both wrong
+        // (UTA-0372). The next frame sets it again.
+        shownView.reset();
+        if (!resized) {
+            std::cerr << "ut-ants: the renderer could not resize: " << resized.error().message() << "\n";
+            return After::Failed;
+        }
+    }
+    return After::Next;
+}
+
 int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Options& options,
         const std::string& bundleHash) {
     uta::urender::Config config;
@@ -198,167 +370,29 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         std::cerr << "ut-ants: the renderer did not start: " << created.error().message() << "\n";
         return EXIT_FAILED;
     }
-    uta::urender::Renderer renderer = std::move(*created);
-    Start start = startingCamera(bundle);
-    FlyCamera& camera = start.camera;
+    SDL_SetWindowRelativeMouseMode(window, true);
+    Viewer viewer{.window = window,
+                  .bundle = bundle,
+                  .options = options,
+                  .bundleHash = bundleHash,
+                  .config = std::move(config),
+                  .renderer = std::move(*created),
+                  .start = startingCamera(bundle)};
+    FlyCamera& camera = viewer.start.camera;
     if (options.fov.has_value()) camera.setFov(*options.fov); // UTA-0357
     // UTA-0158: the camera stops at the level's walls, as UT99's spectator does.
     const uta::ubundle::CollisionTree* const level = bundle.collision ? &bundle.collision->level : nullptr;
-    SDL_SetWindowRelativeMouseMode(window, true);
-    Gamepads gamepads;
 
     std::uint64_t drawn = 0;
-    bool flashlight = false; // UTA-0015 SS 4.5: F toggles it
-
-    // UTA-0191. The view the frame ON SCREEN was drawn from, which is not
-    // always the camera as it stands: [ or ] earlier in the same batch of
-    // events has already changed its field of view. Capturing this instead is
-    // what makes the second image the same view as the first, and P writes it
-    // for the same reason (UTA-0408).
-    std::optional<uta::urender::Camera> shownView;
-    const auto paths = launcherPaths();
-    // The launcher names the notes file after the map it is opening, so its
-    // stem is the map's name (Cli.h). A run given no notes has only the
-    // bundle's own name, which is a content hash.
-    const std::string mapName =
-        !options.notes.empty() ? options.notes.stem().string() : options.bundle.stem().string();
-
-    const auto writeCaptureFolder = [&] {
-        if (!shownView) {
-            std::cerr << "ut-ants: nothing to capture yet -- no frame has been drawn\n";
-            return;
-        }
-        if (!paths) {
-            std::cerr << "ut-ants: no capture folder: " << paths.error().message() << "\n";
-            return;
-        }
-        // The frame already on screen. readback copies the colour target, which
-        // the presenting path blits from, so this is what the player is looking
-        // at rather than a redraw of it.
-        const auto shown = renderer.readback();
-        if (!shown) {
-            std::cerr << "ut-ants: the frame did not read back: " << shown.error().message() << "\n";
-            return;
-        }
-        const uta::urender::FrameStats stats = renderer.lastFrameStats();
-
-        // The same view again with the output stage off, so it can be measured.
-        // The light time is pinned to the frame above, or a pulsing light is at
-        // a different phase in the two images and they disagree for a reason
-        // that has nothing to do with what is being compared. The scale too:
-        // dynamic resolution may have moved it since the shown frame, and the
-        // redraw must not steer it (UTA-0372).
-        //
-        // This draw PRESENTS, so the screen flashes once -- said in the usage
-        // text rather than hidden, since a deliberate keypress that flashes
-        // reads as feedback where an unexplained one reads as a fault. It also
-        // counts as a frame to the renderer, so the next real frame's motion
-        // vectors are measured against this one rather than against the frame
-        // before the press. Harmless today: UTA-0075's jitter is off until a
-        // pass consumes it, and nothing reads the velocity target yet.
-        renderer.pinLightSeconds(renderer.lightSeconds());
-        renderer.pinRenderScale(stats.renderScale);
-        renderer.setLinearOutput(true);
-        const auto redrew = renderer.draw(bundle, *shownView);
-        const auto linear = redrew ? renderer.readback()
-                                   : uta::Result<std::vector<std::byte>>(
-                                         std::unexpected(redrew.error()));
-        renderer.setLinearOutput(false);
-        renderer.unpinRenderScale();
-        renderer.unpinLightSeconds();
-        if (!linear) {
-            std::cerr << "ut-ants: the linear view did not draw: " << linear.error().message() << "\n";
-            return;
-        }
-
-        int windowWidth = 0, windowHeight = 0;
-        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-        const CaptureInfo info{
-            .map = mapName,
-            .bundleHash = bundleHash,
-            .formatVersion = bundle.header.formatVersion,
-            .bakerVersion = options.bakerVersion,
-            .commit = BUILD_COMMIT,
-            .tier = std::string(uta::urender::tierName(stats.tier)),
-            .renderWidth = config.width,
-            .renderHeight = config.height,
-            .renderScale = stats.renderScale,
-            .windowWidth = static_cast<std::uint32_t>(std::max(windowWidth, 0)),
-            .windowHeight = static_cast<std::uint32_t>(std::max(windowHeight, 0)),
-            .lightSeconds = renderer.lightSeconds(),
-            .cameraLine = poseLine(*shownView, config.width, config.height),
-        };
-        const auto folder = writeCapture(paths->captures, info, *shown, *linear,
-                                         std::chrono::system_clock::now());
-        if (!folder) {
-            std::cerr << "ut-ants: the capture did not save: " << uta::sanitised(folder.error().message()) << "\n";
-            return;
-        }
-        std::cerr << "ut-ants: capture written to " << uta::sanitised(folder->string()) << "\n";
-    };
-
     Uint64 last = SDL_GetTicksNS();
     for (bool running = true; running;) {
         FlyInput input;
         SDL_Event event;
+        // Every waiting event is handled, even after a quit.
         while (SDL_PollEvent(&event)) {
-            // Each action's key and pad button share one branch.
-            if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) ||
-                (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && event.gbutton.button == SDL_GAMEPAD_BUTTON_START)) {
-                running = false; // UTA-0183: Options on a PlayStation pad, Menu on an Xbox one
-            } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F && !event.key.repeat) ||
-                       (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                        event.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH)) {
-                flashlight = !flashlight; // Triangle on a PlayStation pad, Y on an Xbox one
-            } else if (event.type == SDL_EVENT_KEY_DOWN
-                       && (event.key.key == SDLK_LEFTBRACKET || event.key.key == SDLK_RIGHTBRACKET)) {
-                // UTA-0357: until the settings menu's slider (UTA-0297), the
-                // brackets narrow and widen the view, held down to sweep it.
-                camera.setFov(camera.fov() + (event.key.key == SDLK_RIGHTBRACKET ? FOV_STEP : -FOV_STEP));
-                std::cerr << "ut-ants: field of view " << camera.fov() << "\n";
-            } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_P && !event.key.repeat) ||
-                       (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                        event.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)) {
-                // UTA-0190: where the camera is, so a finding can be drawn again
-                // with ut-shot. Share or Create on a PlayStation pad, View on an Xbox one.
-                // Before the first frame there is no shown view, so the camera as it stands.
-                const uta::urender::Camera view = shownView ? *shownView : camera.camera(config.width, config.height);
-                const std::string line = "Camera (ut-shot): " + poseLine(view, config.width, config.height);
-                std::cerr << line << "\n";
-                if (!options.notes.empty()) {
-                    if (const auto added = appendNote(options.notes, line); !added)
-                        std::cerr << "ut-ants: the camera did not save: " << uta::sanitised(added.error().message())
-                                  << "\n";
-                }
-            } else if ((event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F12 &&
-                        !event.key.repeat) ||
-                       (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-                        event.gbutton.button == SDL_GAMEPAD_BUTTON_WEST)) {
-                // UTA-0191: everything needed to find and redraw this view.
-                // Square on a PlayStation pad, X on an Xbox one -- the one face
-                // button the viewer does not already use.
-                writeCaptureFolder();
-            } else if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
-                gamepads.open(event.gdevice.which);
-            } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
-                gamepads.close(event.gdevice.which);
-            } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
-                input.lookRight += event.motion.xrel;
-                input.lookUp -= event.motion.yrel; // SDL's y grows downward
-            } else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED && event.window.data1 > 0 &&
-                       event.window.data2 > 0) {
-                config.width = static_cast<std::uint32_t>(event.window.data1);
-                config.height = static_cast<std::uint32_t>(event.window.data2);
-                const auto resized = renderer.resize(config.width, config.height);
-                // The targets are rebuilt and not yet drawn, and the shown view
-                // was for the old size: a capture now would read both wrong
-                // (UTA-0372). The next frame sets it again.
-                shownView.reset();
-                if (!resized) {
-                    std::cerr << "ut-ants: the renderer could not resize: " << resized.error().message() << "\n";
-                    return EXIT_FAILED;
-                }
-            }
+            const Viewer::After after = viewer.handle(event, input);
+            if (after == Viewer::After::Failed) return EXIT_FAILED;
+            if (after == Viewer::After::Quit) running = false;
         }
         if (!running) break;
         if ((SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) != 0) {
@@ -381,28 +415,28 @@ int run(SDL_Window* const window, const uta::ubundle::Bundle& bundle, const Opti
         const Uint64 now = SDL_GetTicksNS();
         const double seconds = static_cast<double>(now - last) / 1e9;
         last = now;
-        gamepads.addTo(input, seconds);
+        viewer.gamepads.addTo(input, seconds);
         camera.update(input, seconds, level);
 
-        uta::urender::Camera view = camera.camera(config.width, config.height);
-        view.flashlight = flashlight;
-        if (const auto result = renderer.draw(bundle, view); !result) {
+        uta::urender::Camera view = camera.camera(viewer.config.width, viewer.config.height);
+        view.flashlight = viewer.flashlight;
+        if (const auto result = viewer.renderer.draw(bundle, view); !result) {
             std::cerr << "ut-ants: a frame did not draw: " << result.error().message() << "\n";
             return EXIT_FAILED;
         }
-        shownView = view; // UTA-0191: what a capture redraws
+        viewer.shownView = view; // UTA-0191: what a capture redraws
         ++drawn;
         if (options.frames.has_value() && drawn >= *options.frames) break;
     }
 
     if (options.frames.has_value()) {
-        const uta::urender::FrameStats stats = renderer.lastFrameStats();
-        std::cout << "ut-ants: started at " << start.from << "; tier " << uta::urender::tierName(stats.tier)
-                  << "; drew " << drawn << " of " << *options.frames << " frames at " << config.width << "x"
-                  << config.height << " pixels; the last was drawn at scale "
+        const uta::urender::FrameStats stats = viewer.renderer.lastFrameStats();
+        std::cout << "ut-ants: started at " << viewer.start.from << "; tier " << uta::urender::tierName(stats.tier)
+                  << "; drew " << drawn << " of " << *options.frames << " frames at " << viewer.config.width << "x"
+                  << viewer.config.height << " pixels; the last was drawn at scale "
                   << stats.renderScale << " in " << stats.frameMilliseconds << " ms and had "
                   << stats.overflowedClusters << " overflowed clusters and " << stats.unshadowedLights
-                  << " unshadowed lights; " << gamepads.count() << " gamepads open\n";
+                  << " unshadowed lights; " << viewer.gamepads.count() << " gamepads open\n";
         if (drawn < *options.frames) return EXIT_FAILED;
     }
     return EXIT_OK;
