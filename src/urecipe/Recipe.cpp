@@ -15,7 +15,6 @@
 #include <charconv>
 #include <cmath>
 #include <format>
-#include <map>
 #include <set>
 #include <span>
 #include <utility>
@@ -180,8 +179,9 @@ Result<std::array<float, 3>> pointOf(std::string_view value, std::size_t line) {
     return point;
 }
 
-Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string& value, std::uint32_t version,
+Result<void> setLampKey(Recipe& recipe, std::string_view key, const std::string& value, std::uint32_t version,
                         std::size_t line) {
+    AddedLamp& lamp = recipe.lamps.back();
     if (key == "light") {
         if (!isObjectName(value)) return refuse(line, std::format("'{}' is not an actor's name", value));
         lamp.light = value;
@@ -207,7 +207,9 @@ Result<void> setLampKey(AddedLamp& lamp, std::string_view key, const std::string
     return {};
 }
 
-Result<void> setSunKey(Sun& sun, std::string_view key, const std::string& value, std::size_t line) {
+Result<void> setSunKey(Recipe& recipe, std::string_view key, const std::string& value, std::uint32_t /*version*/,
+                       std::size_t line) {
+    Sun& sun = *recipe.sun;
     if (key == "yaw") {
         UTA_TRY(sun.yaw, numberOf(value, 65535, line));
     } else if (key == "pitch") {
@@ -227,8 +229,9 @@ Result<void> setSunKey(Sun& sun, std::string_view key, const std::string& value,
 }
 
 /// UTA-0256 SS 4.6: `lights`, one or more actor names, none twice.
-Result<void> setSwitchOffKey(std::vector<std::string>& lights, std::string_view key, const std::string& value,
-                             std::size_t line) {
+Result<void> setSwitchOffKey(Recipe& recipe, std::string_view key, const std::string& value,
+                             std::uint32_t /*version*/, std::size_t line) {
+    std::vector<std::string>& lights = recipe.switchedOff;
     if (key != "lights") return refuse(line, std::format("[switch-off] has no key '{}'", key));
     if (wordsOf(value).empty()) return refuse(line, "lights names no light");
     for (const std::string_view word : wordsOf(value)) {
@@ -254,8 +257,9 @@ Result<std::array<std::uint8_t, 3>> colourOf(std::string_view value, std::size_t
 
 /// UTA-0350 SS 4.1: `textures`, 1 to 8, none twice; `top`, `horizon`, `clouds`;
 /// UTA-0391: `haze`, from version 7.
-Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value, std::uint32_t version,
+Result<void> setSkyKey(Recipe& recipe, std::string_view key, const std::string& value, std::uint32_t version,
                        std::size_t line) {
+    Sky& sky = *recipe.sky;
     if (key == "textures") {
         if (wordsOf(value).empty()) return refuse(line, "textures names no texture");
         for (const std::string_view word : wordsOf(value)) {
@@ -288,7 +292,9 @@ Result<void> setSkyKey(Sky& sky, std::string_view key, const std::string& value,
 
 /// UTA-0109 SS 4.6: `brush`, an actor's name; `cover`, an actor's name and
 /// a polygon number.
-Result<void> setHideKey(HiddenBrush& hide, std::string_view key, const std::string& value, std::size_t line) {
+Result<void> setHideKey(Recipe& recipe, std::string_view key, const std::string& value, std::uint32_t /*version*/,
+                        std::size_t line) {
+    HiddenBrush& hide = recipe.hidden.back();
     if (key == "brush") {
         if (!isObjectName(value)) return refuse(line, std::format("'{}' is not an actor's name", value));
         hide.brush = value;
@@ -322,8 +328,8 @@ std::uint32_t versionOf(const Recipe& recipe) {
     return recipe.lamps.empty() ? 1 : 2;
 }
 
-/// Every `key = value` line of one section is handed here.
-Result<void> setMapKey(Recipe& recipe, std::string_view key, const std::string& value, std::size_t line) {
+Result<void> setMapKey(Recipe& recipe, std::string_view key, const std::string& value, std::uint32_t /*version*/,
+                       std::size_t line) {
     if (key == "file") {
         if (value.empty()) return refuse(line, "file names no map");
         recipe.map = asciiFolded(value);
@@ -337,8 +343,9 @@ Result<void> setMapKey(Recipe& recipe, std::string_view key, const std::string& 
     return {};
 }
 
-Result<void> setMaterialKey(MaterialAssignment& material, std::string_view key, const std::string& value,
-                            std::size_t line) {
+Result<void> setMaterialKey(Recipe& recipe, std::string_view key, const std::string& value,
+                            std::uint32_t /*version*/, std::size_t line) {
+    MaterialAssignment& material = recipe.materials.back();
     if (key == "metallic") {
         UTA_TRY(material.metallic, boolOf(value, line));
     } else if (key == "emissive") {
@@ -378,52 +385,142 @@ std::vector<MaterialAssignment> sortedMaterials(const Recipe& recipe) {
     return sorted;
 }
 
+// Opening a section: each kind's opener checks the heading's name, makes the
+// section in `recipe`, and returns the name it is stored under ("" for a
+// kind with no name). `lines` holds where each earlier section of that kind
+// opened.
+using Opener = Result<std::string> (*)(Recipe& recipe, std::string_view name, std::span<const std::size_t> lines,
+                                       std::size_t line);
+using Setter = Result<void> (*)(Recipe& recipe, std::string_view key, const std::string& value,
+                                std::uint32_t version, std::size_t line);
+
+Result<std::string> openNothing(Recipe&, std::string_view, std::span<const std::size_t>, std::size_t) {
+    return std::string();
+}
+
+Result<std::string> openSun(Recipe& recipe, std::string_view, std::span<const std::size_t>, std::size_t) {
+    recipe.sun.emplace();
+    return std::string();
+}
+
+Result<std::string> openSky(Recipe& recipe, std::string_view, std::span<const std::size_t>, std::size_t) {
+    recipe.sky.emplace();
+    return std::string();
+}
+
+Result<std::string> openMaterial(Recipe& recipe, std::string_view name, std::span<const std::size_t>,
+                                 std::size_t line) {
+    UTA_TRY(std::string texture, textureOf(name, line));
+    if (std::ranges::find(recipe.materials, texture, &MaterialAssignment::texture) != recipe.materials.end())
+        return refuse(line, std::format("[material {}] is given twice", texture));
+    recipe.materials.push_back(MaterialAssignment{.texture = texture});
+    return texture;
+}
+
+/// A `[keyword NAME]` section that repeats, at most `limit` times and each
+/// name once. `tooMany` names them in the refusal past the limit.
+template <typename Section>
+Result<std::string> openNamed(std::vector<Section>& sections, std::string_view keyword, std::size_t limit,
+                              std::string_view tooMany, std::string_view name, std::span<const std::size_t> lines,
+                              std::size_t line) {
+    UTA_TRY(std::string valid, sectionNameOf(keyword, name, line));
+    for (std::size_t i = 0; i < sections.size(); ++i)
+        if (sections[i].name == valid)
+            return refuse(line, std::format("[{} {}] is given twice; the first is on line {}", keyword, valid,
+                                            lines[i]));
+    if (sections.size() == limit) return refuse(line, std::format("a recipe holds at most {} {}", limit, tooMany));
+    sections.push_back(Section{.name = valid});
+    return valid;
+}
+
+Result<std::string> openLamp(Recipe& recipe, std::string_view name, std::span<const std::size_t> lines,
+                             std::size_t line) {
+    return openNamed(recipe.lamps, "lamp", LAMP_LIMIT, "lamps", name, lines, line);
+}
+
+Result<std::string> openHide(Recipe& recipe, std::string_view name, std::span<const std::size_t> lines,
+                             std::size_t line) {
+    return openNamed(recipe.hidden, "hide", HIDE_LIMIT, "[hide] sections", name, lines, line);
+}
+
+/// A key a section must give, checked when the section closes. It is
+/// required only in recipes below version `below`.
+struct RequiredKey {
+    std::string_view key;
+    std::uint32_t below = UINT32_MAX;
+};
+
+/// One kind of section, and everything parse checks about it.
+struct Kind {
+    std::string_view keyword;
+    std::uint32_t version; ///< the lowest recipe version it may appear in
+    bool named;            ///< `[keyword NAME]`, any number; else a bare `[keyword]`, at most one
+    std::span<const RequiredKey> required;
+    /// Not empty: the section needs the map's digest, and this is what
+    /// "means nothing in another file" without it.
+    std::string_view meaningless;
+    Opener open;
+    Setter set;
+};
+
+// UTA-0256 SS 4.6: a lamp's `fitting` is required only below version 4.
+constexpr RequiredKey LAMP_KEYS[] = {{"light"}, {"fitting", 4}, {"at"}};
+constexpr RequiredKey SUN_KEYS[] = {{"yaw"}, {"pitch"}, {"hue"}, {"saturation"}, {"brightness"}};
+constexpr RequiredKey SWITCH_OFF_KEYS[] = {{"lights"}};
+constexpr RequiredKey SKY_KEYS[] = {{"textures"}};
+constexpr RequiredKey HIDE_KEYS[] = {{"brush"}, {"cover"}};
+
+// A new kind of section is a row here, its member in Recipe.h, and its
+// lines in versionOf, write and bakeDigest, and in Recipe.h's version lists
+// at its header, parse and write. Rows needing the map's digest are refused
+// in this order when it is missing. [map]'s `file` is not a required key:
+// it is checked once the whole recipe is read.
+constexpr std::array<Kind, 7> KINDS{{
+    {"map", 1, false, {}, {}, openNothing, setMapKey},
+    {"material", 1, true, {}, {}, openMaterial, setMaterialKey},
+    {"lamp", 2, true, LAMP_KEYS, "actor names and places mean", openLamp, setLampKey},
+    {"sun", 3, false, SUN_KEYS, "where the sky is open means", openSun, setSunKey},
+    {"switch-off", 4, false, SWITCH_OFF_KEYS, "actor names mean", openNothing, setSwitchOffKey},
+    {"sky", 5, false, SKY_KEYS, "which textures paint the sky means", openSky, setSkyKey},
+    {"hide", 8, true, HIDE_KEYS, "actor names mean", openHide, setHideKey},
+}};
+constexpr std::size_t MAP = 0;
+static_assert(KINDS[MAP].keyword == "map");
+
+/// The kind a heading opens, and the name it gives; nullopt for no kind.
+std::optional<std::pair<std::size_t, std::string_view>> kindOf(std::string_view heading) {
+    for (std::size_t kind = 0; kind < KINDS.size(); ++kind) {
+        if (!KINDS[kind].named) {
+            if (heading == KINDS[kind].keyword) return std::pair{kind, std::string_view()};
+        } else if (const std::optional<std::string_view> name = nameAfter(heading, KINDS[kind].keyword)) {
+            return std::pair{kind, *name};
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace
 
 Result<Recipe> parse(std::string_view text) {
     if (text.starts_with(BOM)) text.remove_prefix(BOM.size()); // what Windows editors write
 
-    // A new section kind is handled in each of: this enum, the heading
-    // branch, sectionComplete, the key dispatch and the map-digest refusals
-    // below; then versionOf, write and bakeDigest, and Recipe.h's version
-    // lists at its header, parse and write.
-    enum class In { Header, Nothing, Map, Material, Lamp, Sun, SwitchOff, Sky, Hide };
-    In in = In::Header;
     Recipe recipe;
+    std::uint32_t version = 0; // 0 until the header is read
     std::size_t headerLine = 1;
-    std::optional<std::size_t> mapLine;
-    bool fileSeen = false;
-    std::map<std::string, MaterialAssignment> materials;
-    MaterialAssignment* material = nullptr;
+    // Where each section opened, one list per row of KINDS.
+    std::array<std::vector<std::size_t>, KINDS.size()> opened;
+    std::optional<std::size_t> in; // the open section's row of KINDS
+    std::string inName;            // its name, for a named kind
     std::set<std::string, std::less<>> keysSeen; // in the current section
-    std::uint32_t version = 0;
-    std::vector<std::size_t> lampLines;
-    std::optional<std::size_t> sunLine;
-    std::optional<std::size_t> switchOffLine;
-    std::optional<std::size_t> skyLine;
-    std::vector<std::size_t> hideLines;
-    // A lamp's required keys -- `fitting` only below version 4 (UTA-0256
-    // SS 4.6) -- a sun's five and [switch-off]'s one, checked when the
-    // section closes.
     const auto sectionComplete = [&]() -> Result<void> {
-        if (in == In::Lamp) {
-            for (const std::string_view key : {"light", "fitting", "at"})
-                if (!keysSeen.contains(key) && (key != "fitting" || version < 4))
-                    return refuse(lampLines.back(),
-                                  std::format("[lamp {}] has no `{}`", recipe.lamps.back().name, key));
-        } else if (in == In::Sun) {
-            for (const std::string_view key : {"yaw", "pitch", "hue", "saturation", "brightness"})
-                if (!keysSeen.contains(key)) return refuse(*sunLine, std::format("[sun] has no `{}`", key));
-        } else if (in == In::SwitchOff && !keysSeen.contains("lights")) {
-            return refuse(*switchOffLine, "[switch-off] has no `lights`");
-        } else if (in == In::Sky && !keysSeen.contains("textures")) {
-            return refuse(*skyLine, "[sky] has no `textures`");
-        } else if (in == In::Hide) {
-            for (const std::string_view key : {"brush", "cover"})
-                if (!keysSeen.contains(key))
-                    return refuse(hideLines.back(),
-                                  std::format("[hide {}] has no `{}`", recipe.hidden.back().name, key));
-        }
+        if (!in) return {};
+        const Kind& kind = KINDS[*in];
+        for (const RequiredKey& required : kind.required)
+            if (version < required.below && !keysSeen.contains(required.key)) {
+                const std::string label = kind.named ? std::format("[{} {}]", kind.keyword, inName)
+                                                     : std::format("[{}]", kind.keyword);
+                return refuse(opened[*in].back(), std::format("{} has no `{}`", label, required.key));
+            }
         return {};
     };
 
@@ -440,7 +537,7 @@ Result<Recipe> parse(std::string_view text) {
             continue;
         }
 
-        if (in == In::Header) {
+        if (version == 0) {
             const std::string_view header = trimmed(content.substr(0, content.find('#')));
             if (!header.starts_with(HEADER))
                 return refuse(line, std::format("the first line must be `{}{}`", HEADER, RECIPE_VERSION));
@@ -454,122 +551,52 @@ Result<Recipe> parse(std::string_view text) {
                                         "version {}",
                                         line, version, RECIPE_VERSION));
             headerLine = line;
-            in = In::Nothing;
         } else if (content.front() == '[') {
             UTA_TRY(const std::string_view heading, headingOf(content, line));
             UTA_CHECK(sectionComplete());
             keysSeen.clear();
-            if (heading == "map") {
-                if (mapLine) return refuse(line, std::format("a second [map]; the first is on line {}", *mapLine));
-                mapLine = line;
-                in = In::Map;
-            } else if (const std::optional<std::string_view> textureName = nameAfter(heading, "material")) {
-                UTA_TRY(std::string texture, textureOf(*textureName, line));
-                if (materials.contains(texture))
-                    return refuse(line, std::format("[material {}] is given twice", texture));
-                material = &materials[texture];
-                material->texture = std::move(texture);
-                in = In::Material;
-            } else if (const std::optional<std::string_view> lampName = nameAfter(heading, "lamp")) {
-                if (version < 2) return refuse(line, "a [lamp] needs `ut-ants recipe 2`");
-                UTA_TRY(std::string name, sectionNameOf("lamp", *lampName, line));
-                for (std::size_t i = 0; i < recipe.lamps.size(); ++i)
-                    if (recipe.lamps[i].name == name)
-                        return refuse(line, std::format("[lamp {}] is given twice; the first is on line {}", name,
-                                                        lampLines[i]));
-                if (recipe.lamps.size() == LAMP_LIMIT)
-                    return refuse(line, std::format("a recipe holds at most {} lamps", LAMP_LIMIT));
-                recipe.lamps.push_back(AddedLamp{.name = std::move(name)});
-                lampLines.push_back(line);
-                in = In::Lamp;
-            } else if (heading == "sun") {
-                if (version < 3) return refuse(line, "a [sun] needs `ut-ants recipe 3`");
-                if (sunLine) return refuse(line, std::format("a second [sun]; the first is on line {}", *sunLine));
-                sunLine = line;
-                recipe.sun.emplace();
-                in = In::Sun;
-            } else if (heading == "switch-off") {
-                if (version < 4) return refuse(line, "a [switch-off] needs `ut-ants recipe 4`");
-                if (switchOffLine)
-                    return refuse(line, std::format("a second [switch-off]; the first is on line {}", *switchOffLine));
-                switchOffLine = line;
-                in = In::SwitchOff;
-            } else if (heading == "sky") {
-                if (version < 5) return refuse(line, "a [sky] needs `ut-ants recipe 5`");
-                if (skyLine) return refuse(line, std::format("a second [sky]; the first is on line {}", *skyLine));
-                skyLine = line;
-                recipe.sky.emplace();
-                in = In::Sky;
-            } else if (const std::optional<std::string_view> hideName = nameAfter(heading, "hide")) {
-                if (version < 8) return refuse(line, "a [hide] needs `ut-ants recipe 8`");
-                UTA_TRY(std::string name, sectionNameOf("hide", *hideName, line));
-                for (std::size_t i = 0; i < recipe.hidden.size(); ++i)
-                    if (recipe.hidden[i].name == name)
-                        return refuse(line, std::format("[hide {}] is given twice; the first is on line {}", name,
-                                                        hideLines[i]));
-                if (recipe.hidden.size() == HIDE_LIMIT)
-                    return refuse(line, std::format("a recipe holds at most {} [hide] sections", HIDE_LIMIT));
-                recipe.hidden.push_back(HiddenBrush{.name = std::move(name)});
-                hideLines.push_back(line);
-                in = In::Hide;
-            } else {
-                return refuse(line, std::format("there is no [{}] section", heading));
-            }
+            const auto found = kindOf(heading);
+            if (!found) return refuse(line, std::format("there is no [{}] section", heading));
+            const auto [kind, name] = *found;
+            std::vector<std::size_t>& lines = opened[kind];
+            if (version < KINDS[kind].version)
+                return refuse(line, std::format("a [{}] needs `ut-ants recipe {}`", KINDS[kind].keyword,
+                                                KINDS[kind].version));
+            if (!KINDS[kind].named && !lines.empty())
+                return refuse(line, std::format("a second [{}]; the first is on line {}", KINDS[kind].keyword,
+                                                lines.front()));
+            UTA_TRY(inName, KINDS[kind].open(recipe, name, lines, line));
+            lines.push_back(line);
+            in = kind;
         } else {
             const std::size_t equals = content.find('=');
             if (equals == std::string_view::npos) return refuse(line, "expected `key = value`");
             const std::string_view key = trimmed(content.substr(0, equals));
-            if (in == In::Nothing) return refuse(line, "a key before any [section]");
+            if (!in) return refuse(line, "a key before any [section]");
             if (!keysSeen.insert(std::string(key)).second)
                 return refuse(line, std::format("'{}' is given twice in one section", key));
             UTA_TRY(const std::string value, valueOf(content.substr(equals + 1), line));
-            if (in == In::Map) {
-                UTA_CHECK(setMapKey(recipe, key, value, line));
-                if (key == "file") fileSeen = true;
-            } else if (in == In::Lamp) {
-                UTA_CHECK(setLampKey(recipe.lamps.back(), key, value, version, line));
-            } else if (in == In::Sun) {
-                UTA_CHECK(setSunKey(*recipe.sun, key, value, line));
-            } else if (in == In::SwitchOff) {
-                UTA_CHECK(setSwitchOffKey(recipe.switchedOff, key, value, line));
-            } else if (in == In::Sky) {
-                UTA_CHECK(setSkyKey(*recipe.sky, key, value, version, line));
-            } else if (in == In::Hide) {
-                UTA_CHECK(setHideKey(recipe.hidden.back(), key, value, line));
-            } else {
-                UTA_CHECK(setMaterialKey(*material, key, value, line));
-            }
+            UTA_CHECK(KINDS[*in].set(recipe, key, value, version, line));
         }
         if (text.empty()) break;
     }
 
-    if (in == In::Header) return refuse(1, std::format("the recipe is empty; its first line must be `{}{}`",
-                                                       HEADER, RECIPE_VERSION));
-    if (!mapLine) return refuse(headerLine, "the recipe has no [map] section");
-    if (!fileSeen) return refuse(*mapLine, "[map] has no `file`");
+    if (version == 0) return refuse(1, std::format("the recipe is empty; its first line must be `{}{}`",
+                                                   HEADER, RECIPE_VERSION));
+    if (opened[MAP].empty()) return refuse(headerLine, "the recipe has no [map] section");
+    // setMapKey refuses an empty `file`, so an empty map name means none.
+    if (recipe.map.empty()) return refuse(opened[MAP].front(), "[map] has no `file`");
     UTA_CHECK(sectionComplete());
     // Every section naming the map's actors, places or textures needs the
     // map's digest: those mean nothing in another file. The first such
-    // section, in this order, is the one refused.
-    struct NeedsDigest {
-        std::optional<std::size_t> line;
-        std::string_view section;
-        std::string_view meaningless;
-    };
-    const std::optional<std::size_t> firstLamp =
-        lampLines.empty() ? std::nullopt : std::optional{lampLines.front()};
-    const std::optional<std::size_t> firstHide =
-        hideLines.empty() ? std::nullopt : std::optional{hideLines.front()};
-    for (const NeedsDigest& needs : {NeedsDigest{firstLamp, "lamp", "actor names and places mean"},
-                                     NeedsDigest{sunLine, "sun", "where the sky is open means"},
-                                     NeedsDigest{switchOffLine, "switch-off", "actor names mean"},
-                                     NeedsDigest{skyLine, "sky", "which textures paint the sky means"},
-                                     NeedsDigest{firstHide, "hide", "actor names mean"}})
-        if (needs.line && !recipe.mapDigest)
-            return refuse(*needs.line, std::format("a recipe with a [{}] must give the map's sha256 in [map]: {} "
-                                                   "nothing in another file",
-                                                   needs.section, needs.meaningless));
-    for (auto& [texture, assignment] : materials) recipe.materials.push_back(std::move(assignment));
+    // kind, in KINDS order, is the one refused, at its first section.
+    for (std::size_t kind = 0; kind < KINDS.size(); ++kind)
+        if (!KINDS[kind].meaningless.empty() && !opened[kind].empty() && !recipe.mapDigest)
+            return refuse(opened[kind].front(),
+                          std::format("a recipe with a [{}] must give the map's sha256 in [map]: {} "
+                                      "nothing in another file",
+                                      KINDS[kind].keyword, KINDS[kind].meaningless));
+    std::ranges::sort(recipe.materials, {}, &MaterialAssignment::texture);
     return recipe;
 }
 
