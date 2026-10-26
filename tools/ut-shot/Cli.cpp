@@ -2,6 +2,7 @@
 
 #include "Cli.h"
 
+#include "common/Options.h"
 #include "core/FileSystem.h"
 
 #include <charconv>
@@ -114,16 +115,7 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
     Options options;
     std::optional<std::string> captureFolder;
     std::size_t index = 0;
-
-    // A value-taking option needs the argument after it, so the count is
-    // checked here rather than by a bound on the loop.
-    const auto value = [&](std::string_view name) -> std::optional<std::string_view> {
-        if (index + 1 >= args.size()) {
-            err << "ut-shot: " << name << " needs a value\n";
-            return std::nullopt;
-        }
-        return args[++index];
-    };
+    tools::OptionValues values("ut-shot", args, err);
 
     for (; index < args.size() && args[index].starts_with("--"); ++index) {
         const std::string_view flag = args[index];
@@ -138,7 +130,7 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
         } else if (flag == "--light-terms") {
             options.lightTerms = true;
         } else if (flag == "--tier") {
-            const auto name = value(flag);
+            const auto name = values.take(index);
             if (!name) return std::nullopt;
             options.tier = urender::tierNamed(*name);
             if (!options.tier) {
@@ -146,7 +138,7 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
                 return std::nullopt;
             }
         } else if (flag == "--render-scale") {
-            const auto text = value(flag);
+            const auto text = values.take(index);
             if (!text) return std::nullopt;
             double scale = 0;
             if (!parseDouble(*text, scale) || !usableScale(scale)) {
@@ -155,7 +147,7 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
             }
             options.renderScale = scale;
         } else if (flag == "--light-time") {
-            const auto text = value(flag);
+            const auto text = values.take(index);
             if (!text) return std::nullopt;
             double seconds = 0;
             if (!parseDouble(*text, seconds)) {
@@ -164,7 +156,7 @@ std::optional<Options> parseOptions(std::span<const std::string_view> args, std:
             }
             options.lightSeconds = seconds;
         } else if (flag == "--from-capture") {
-            const auto folder = value(flag);
+            const auto folder = values.take(index);
             if (!folder) return std::nullopt;
             captureFolder = std::string(*folder);
         } else {

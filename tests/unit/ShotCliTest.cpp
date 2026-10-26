@@ -151,6 +151,12 @@ TEST_CASE("UTA-0199: an option wanting a value is refused when it ends the line"
     CHECK_THAT(parsed.err, Catch::Matchers::ContainsSubstring("needs a value"));
 }
 
+TEST_CASE("UTA-0431: an option given twice is refused rather than the last one kept", "[shot]") {
+    const auto parsed = parse({"--tier", "low", "--tier", "high", "map.utab", "320", "240", "out"});
+    CHECK_FALSE(parsed.options.has_value());
+    CHECK_THAT(parsed.err, Catch::Matchers::ContainsSubstring("--tier is given twice"));
+}
+
 TEST_CASE("UTA-0199: an unknown option is refused rather than taken for a bundle", "[shot]") {
     const auto parsed = parse({"--scale", "0.5", "map.utab", "320", "240", "out"});
     CHECK_FALSE(parsed.options.has_value());

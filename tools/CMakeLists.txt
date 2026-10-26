@@ -3,7 +3,8 @@
 
 # What more than one tool shares, header-only: tools/common/Json.h, the JSON
 # string escaper (docs/specs/UTA-0121-bot-path-seeds.md SS 4.8), and
-# tools/common/Camera.h, the camera-line reader (UTA-0423).
+# tools/common/Camera.h, the camera-line reader (UTA-0423), and
+# tools/common/Options.h, the option-value reader (UTA-0431).
 add_library(uta_tools_common INTERFACE)
 target_include_directories(uta_tools_common INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
 

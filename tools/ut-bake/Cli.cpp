@@ -3,6 +3,7 @@
 #include "Cli.h"
 
 #include "common/Json.h"
+#include "common/Options.h"
 #include "core/FileSystem.h"
 #include "core/Jobs.h"
 #include "ubake/Bake.h"
@@ -100,21 +101,9 @@ struct Arguments {
 /// The arguments, or nothing after saying on `err` what was wrong with them.
 std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostream& err) {
     Arguments parsed;
+    tools::OptionValues values("ut-bake", args, err);
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string_view arg = args[i];
-        const auto takeValue = [&](std::optional<std::string_view>& into) {
-            if (into.has_value()) {
-                err << "ut-bake: " << arg << " is given twice\n";
-                return false;
-            }
-            if (i + 1 >= args.size()) {
-                err << "ut-bake: " << arg << " needs a value\n";
-                return false;
-            }
-            into = args[++i];
-            return true;
-        };
-
         if (arg == "--help" || arg == "-h") {
             parsed.help = true;
         } else if (arg == "--force") {
@@ -124,19 +113,19 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
         } else if (arg == "--full-budget") {
             parsed.fullBudget = true;
         } else if (arg == "--texture-cache") {
-            if (!takeValue(parsed.textureCache)) return std::nullopt;
+            if (!(parsed.textureCache = values.take(i))) return std::nullopt;
         } else if (arg == "--recipe") {
-            if (!takeValue(parsed.recipe)) return std::nullopt;
+            if (!(parsed.recipe = values.take(i))) return std::nullopt;
         } else if (arg == "--light-materials") {
-            if (!takeValue(parsed.lightMaterials)) return std::nullopt;
+            if (!(parsed.lightMaterials = values.take(i))) return std::nullopt;
         } else if (arg == "--check") {
-            if (!takeValue(parsed.check)) return std::nullopt;
+            if (!(parsed.check = values.take(i))) return std::nullopt;
         } else if (arg == "--game-types") {
-            if (!takeValue(parsed.gameTypes)) return std::nullopt;
+            if (!(parsed.gameTypes = values.take(i))) return std::nullopt;
         } else if (arg == "--install") {
-            if (!takeValue(parsed.install)) return std::nullopt;
+            if (!(parsed.install = values.take(i))) return std::nullopt;
         } else if (arg == "--out") {
-            if (!takeValue(parsed.out)) return std::nullopt;
+            if (!(parsed.out = values.take(i))) return std::nullopt;
         } else if (arg.starts_with("-")) {
             err << "ut-bake: unknown option " << arg << "\n";
             return std::nullopt;

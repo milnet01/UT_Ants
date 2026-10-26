@@ -4,6 +4,7 @@
 
 #include "common/Camera.h"
 #include "common/Json.h"
+#include "common/Options.h"
 #include "core/FileSystem.h"
 #include "ubundle/Bundle.h"
 #include "ubundle/TileAnswers.h"
@@ -51,28 +52,11 @@ bool whole(std::string_view text, std::uint32_t& into) {
 
 std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostream& err) {
     Arguments parsed;
+    tools::OptionValues values("ut-bench", args, err);
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string_view arg = args[i];
-        const auto value = [&]() -> std::optional<std::string_view> {
-            if (i + 1 >= args.size()) {
-                err << "ut-bench: " << arg << " needs a value\n";
-                return std::nullopt;
-            }
-            return args[++i];
-        };
-        const auto count = [&](unsigned& into) {
-            const std::optional<std::string_view> text = value();
-            std::uint32_t read = 0;
-            if (!text) return false;
-            if (!whole(*text, read) || read < 1) {
-                err << "ut-bench: " << arg << " takes a whole number of at least 1\n";
-                return false;
-            }
-            into = read;
-            return true;
-        };
         if (arg == "--tier") {
-            const std::optional<std::string_view> name = value();
+            const std::optional<std::string_view> name = values.take(i);
             if (!name) return std::nullopt;
             const std::optional<urender::Tier> tier = urender::tierNamed(*name);
             if (!tier) {
@@ -81,7 +65,7 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
             }
             parsed.tier = *tier;
         } else if (arg == "--size") {
-            const std::optional<std::string_view> size = value();
+            const std::optional<std::string_view> size = values.take(i);
             if (!size) return std::nullopt;
             const std::size_t by = size->find('x');
             // UTA-0409: past MAX_DIMENSION the device cannot make the frame,
@@ -93,7 +77,7 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
                 return std::nullopt;
             }
         } else if (arg == "--render-scale") {
-            const std::optional<std::string_view> text = value();
+            const std::optional<std::string_view> text = values.take(i);
             if (!text) return std::nullopt;
             const auto [end, error] = std::from_chars(text->data(), text->data() + text->size(), parsed.renderScale);
             if (error != std::errc{} || end != text->data() + text->size() || !(parsed.renderScale > 0)
@@ -102,11 +86,11 @@ std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostr
                 return std::nullopt;
             }
         } else if (arg == "--still") {
-            if (!count(parsed.still)) return std::nullopt;
+            if (!values.takeWhole(i, parsed.still, 1)) return std::nullopt;
         } else if (arg == "--steps") {
-            if (!count(parsed.steps)) return std::nullopt;
+            if (!values.takeWhole(i, parsed.steps, 1)) return std::nullopt;
         } else if (arg == "--cameras") {
-            if (!(parsed.cameras = value())) return std::nullopt;
+            if (!(parsed.cameras = values.take(i))) return std::nullopt;
         } else if (arg.starts_with("-")) {
             err << "ut-bench: unknown option " << arg << "\n";
             return std::nullopt;

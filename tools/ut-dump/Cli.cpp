@@ -20,6 +20,7 @@
 #include "Cli.h"
 
 #include "common/Json.h"
+#include "common/Options.h"
 #include "core/Ascii.h"
 #include "core/FileSystem.h"
 #include "ubake/Actors.h"
@@ -1703,18 +1704,17 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     bool ndjson = false;
     std::vector<fs::path> targets;
 
+    tools::OptionValues values("ut-dump", args, err);
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string_view arg = args[i];
         if (arg == "--system") {
-            if (i + 1 >= args.size()) {
-                return usage(err);
-            }
-            systemDir = uta::fs::pathFromUtf8(args[++i]);
+            const std::optional<std::string_view> dir = values.take(i);
+            if (!dir) return usage(err);
+            systemDir = uta::fs::pathFromUtf8(*dir);
         } else if (arg == "--install") {
-            if (i + 1 >= args.size()) {
-                return usage(err);
-            }
-            installDir = uta::fs::pathFromUtf8(args[++i]);
+            const std::optional<std::string_view> dir = values.take(i);
+            if (!dir) return usage(err);
+            installDir = uta::fs::pathFromUtf8(*dir);
         } else if (arg == "--nav-graph") {
             sections.navGraph = true;
         } else if (arg == "--wiring-graph") {

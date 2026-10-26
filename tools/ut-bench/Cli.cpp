@@ -5,6 +5,7 @@
 #include "Frame.h"
 
 #include "common/Json.h"
+#include "common/Options.h"
 #include "core/FileSystem.h"
 #include "core/Jobs.h"
 #include "core/Sha256.h"
@@ -72,40 +73,22 @@ struct Arguments {
 std::optional<Arguments> parse(std::span<const std::string_view> args, std::ostream& err) {
     Arguments parsed;
     bool bake = false;
+    tools::OptionValues values("ut-bench", args, err);
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string_view arg = args[i];
-        const auto value = [&]() -> std::optional<std::string_view> {
-            if (i + 1 >= args.size()) {
-                err << "ut-bench: " << arg << " needs a value\n";
-                return std::nullopt;
-            }
-            return args[++i];
-        };
-        const auto number = [&](unsigned& into, unsigned least) {
-            const std::optional<std::string_view> text = value();
-            if (!text) return false;
-            unsigned read = 0;
-            const auto [end, error] = std::from_chars(text->data(), text->data() + text->size(), read);
-            if (error != std::errc{} || end != text->data() + text->size() || read < least) {
-                err << "ut-bench: " << arg << " takes a whole number of at least " << least << "\n";
-                return false;
-            }
-            into = read;
-            return true;
-        };
 
         if (arg == "--help" || arg == "-h") {
             parsed.help = true;
         } else if (arg == "--install") {
-            if (!(parsed.install = value())) return std::nullopt;
+            if (!(parsed.install = values.take(i))) return std::nullopt;
         } else if (arg == "--scratch") {
-            if (!(parsed.scratch = value())) return std::nullopt;
+            if (!(parsed.scratch = values.take(i))) return std::nullopt;
         } else if (arg == "--texture-cache") {
-            if (!(parsed.textureCache = value())) return std::nullopt;
+            if (!(parsed.textureCache = values.take(i))) return std::nullopt;
         } else if (arg == "--runs") {
-            if (!number(parsed.runs, 1)) return std::nullopt;
+            if (!values.takeWhole(i, parsed.runs, 1)) return std::nullopt;
         } else if (arg == "--workers") {
-            if (!number(parsed.workers, 1)) return std::nullopt;
+            if (!values.takeWhole(i, parsed.workers, 1)) return std::nullopt;
         } else if (arg.starts_with("-")) {
             err << "ut-bench: unknown option " << arg << "\n";
             return std::nullopt;
