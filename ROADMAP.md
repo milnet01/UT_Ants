@@ -18229,7 +18229,7 @@ stays with movement in 0.2.0.
   Source: review-readability-2026-10-23 lane 01.
   Lanes: urender.
 
-- 🚧 [UTA-0427] **Split Pipelines::create and MaterialSet::upload into a function per section.**
+- ✅ [UTA-0427] **Split Pipelines::create and MaterialSet::upload into a function per section.**
   Lane 02's two size findings (Pipelines.cpp `Pipelines::create`,
   Materials.cpp `MaterialSet::upload`). UTA-0413 fixed the stuck points:
   the shadow layout is built explicitly, each compute section has its
@@ -18238,6 +18238,7 @@ stays with movement in 0.2.0.
   set-up and the two per-record look tables out of upload. Not done
   in UTA-0413: the sections write Pipelines' private members, so the
   split needs member helpers in Pipelines.h, a header change of its own.
+  Shipped 2026-10-26: GitHub's matrix green on c5586e8.
   **Layman:** Break two long set-up functions in the graphics code into smaller named steps.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 02.
