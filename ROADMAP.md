@@ -18211,7 +18211,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-readability-2026-10-23 lane 14.
 
-- 🚧 [UTA-0426] **Split recordFrame and drawView into one function per stage.**
+- ✅ [UTA-0426] **Split recordFrame and drawView into one function per stage.**
   Two MEDIUM findings of lane 01
   (docs/reviews/review-readability-2026-10-23/lane-01-urender-frame.md):
   recordFrame (every stage of the frame) and drawView (scale, FrameData,
@@ -18221,6 +18221,9 @@ stays with movement in 0.2.0.
   Queued, not fixed: a split of this size is its own piece of work,
   needs a device-tier run per stage moved, and UTA-0015, UTA-0089 and
   UTA-0326 name these functions, so a split must keep those names.
+  2026-10-26: shipped in 693c0cf, GitHub matrix green. recordFrame and
+  drawView each list their stages; output proved unchanged by 45
+  byte-identical ut-shot pictures on lavapipe.
   **Layman:** Break the two longest renderer functions into named steps so a newcomer can change one step safely.
   Kind: refactor.
   Source: review-readability-2026-10-23 lane 01.
