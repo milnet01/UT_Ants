@@ -46,14 +46,13 @@ Result<std::string_view> importPackageName(const Package& package,
 } // namespace
 
 const ExportEntry* findClassExport(const Package& package, std::string_view wanted) {
-    const std::string target = asciiFolded(wanted);
     for (const ExportEntry& candidate : package.exports()) {
         if (candidate.objectClass.kind() != ObjectReferenceKind::Null ||
             candidate.serialSize == 0) {
             continue;
         }
         const auto name = package.name(candidate.objectName);
-        if (name.has_value() && asciiFolded(*name) == target) {
+        if (name.has_value() && equalsIgnoringAsciiCase(*name, wanted)) {
             return &candidate;
         }
     }
@@ -268,7 +267,6 @@ Result<std::vector<EffectiveProperty>> effectiveDefaults(const Ancestry& ancestr
 
         for (const Property& property : info.defaults) {
             UTA_TRY(const std::string_view name, owner.name(property.nameIndex));
-            const std::string key = asciiFolded(name);
 
             // Keyed on the name as TEXT and the array index, never the name
             // index: the same property is a different number in every package,
@@ -277,7 +275,7 @@ Result<std::vector<EffectiveProperty>> effectiveDefaults(const Ancestry& ancestr
             const auto existing = std::find_if(
                 merged.begin(), merged.end(), [&](const EffectiveProperty& candidate) {
                     return candidate.property.arrayIndex == property.arrayIndex &&
-                           asciiFolded(candidate.name) == key;
+                           equalsIgnoringAsciiCase(candidate.name, name);
                 });
 
             if (existing == merged.end()) {
