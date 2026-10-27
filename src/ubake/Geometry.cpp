@@ -320,6 +320,13 @@ Result<void> Drawing::draw(std::size_t n, std::vector<Vec> points) {
     const Vec along = toDouble(normal);
     const Vec textureU = toDouble(model.vectors[static_cast<std::size_t>(surf.vTextureU)]);
     const Vec textureV = toDouble(model.vectors[static_cast<std::size_t>(surf.vTextureV)]);
+    // Refused as a point is: a NaN normal passes step 5's tests, and NaN
+    // texture vectors give NaN uvs that later bake steps cast to integers.
+    for (const Vec* vector : {&base, &along, &textureU, &textureV})
+        for (const double part : *vector)
+            if (!std::isfinite(part))
+                return fail(ErrorCode::MalformedData,
+                            "the Model's node " + std::to_string(n) + " has a surface vector that is not finite");
 
     // 5. Its orientation: the fan's summed cross product along the
     // surface's normal. Zero is no area; negative is wound the other way.
