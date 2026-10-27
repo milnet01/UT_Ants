@@ -1984,7 +1984,9 @@ double Renderer::Impl::scaleFor(bool skyFace, const TierSettings& settings) cons
     };
     if (skyFace) return 1;
     if (config.fixedRenderScale) return clamped(*config.fixedRenderScale);
-    if (pinnedRenderScale) return clamped(*pinnedRenderScale);
+    // Only over dynamic resolution: without it or a fixed scale createTargets
+    // makes no upscale images, so a reduced region would have nowhere to go.
+    if (config.dynamicResolution && pinnedRenderScale) return clamped(*pinnedRenderScale);
     if (config.dynamicResolution) return renderScale;
     return 1;
 }

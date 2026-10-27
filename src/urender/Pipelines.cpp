@@ -98,11 +98,12 @@ std::uint32_t textureCapacityOf(VkPhysicalDevice physical) {
     // textures and the colour outputs, here bounded by maxColorAttachments
     // (review-code 2026-10-15).
     const std::uint32_t besideTextures = (gpu::MASK_PAIRS - gpu::FRAME + 1) + limits.maxColorAttachments;
-    // A stage too small to hold even those leaves room for the two kept back
+    // A stage too small to hold those and the two kept back leaves room for them
     // alone, so the capacity is 0 and Frame.cpp refuses every bundle at load
     // rather than binding past the limit.
     const std::uint32_t stageRoom =
-        limits.maxPerStageResources > besideTextures ? limits.maxPerStageResources - besideTextures : RESERVED;
+        limits.maxPerStageResources >= besideTextures + RESERVED ? limits.maxPerStageResources - besideTextures
+                                                                 : RESERVED;
     return std::min({limits.maxPerStageDescriptorSampledImages, limits.maxPerStageDescriptorSamplers,
                      limits.maxDescriptorSetSampledImages, limits.maxDescriptorSetSamplers, stageRoom,
                      TEXTURE_CEILING + RESERVED})
