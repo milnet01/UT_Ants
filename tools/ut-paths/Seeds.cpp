@@ -329,8 +329,10 @@ void chain(const Hops& hops, const std::vector<std::uint32_t>& path, std::vector
                 proposed = false;
             } else {
                 // The furthest spot with an allowed hop and no such point
-                // within TOO_NEAR; failing that, the spot itself.
-                for (std::size_t k = path.size() - 1; k > at; --k)
+                // within TOO_NEAR; failing that, the spot itself. Below
+                // `next` only: the search above found no allowed hop past it,
+                // and `next` itself has such a point.
+                for (std::size_t k = next; k-- > at + 1;)
                     if (hops.allowed(last, spot(k)) && !nearPoint(spot(k))) {
                         next = k;
                         taken = spot(k);
