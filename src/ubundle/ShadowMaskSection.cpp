@@ -161,7 +161,7 @@ Result<std::vector<std::byte>> encodeShadowMask(const ShadowMask& mask) {
     sink.putVector(mask.charts, putChart);
     sink.putVector(mask.pairs, putPair);
     sink.putCount(mask.texels.size());
-    for (const std::uint8_t texel : mask.texels) sink.putU8(texel);
+    sink.append(mask.texels);
     return std::move(sink).finish("SMSK");
 }
 
