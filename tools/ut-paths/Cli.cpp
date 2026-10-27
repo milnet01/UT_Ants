@@ -239,7 +239,10 @@ std::optional<stdfs::path> foldedMap(const stdfs::path& install, std::string_vie
 }
 
 /// One map, read from <install>/Maps, its file written to `outDir`.
-Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& row, std::ostream& err) {
+/// `installed` is opened by the first map that needs it and kept for the
+/// rest, so a library run lists the install and parses its packages once.
+Entry runMap(const stdfs::path& install, std::optional<ubake::Install>& installed, const stdfs::path& outDir,
+             const Row& row, std::ostream& err) {
     // The census is another project's file. A name that is a path would read
     // outside Maps/ and write outside --out (review-code 2026-09-26).
     if (row.map.empty() || row.map == "." || row.map == ".." ||
@@ -263,8 +266,11 @@ Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& r
 
     const auto bytes = uta::fs::readFile(file);
     if (!bytes.has_value()) return refusal(row.map, std::string(bytes.error().message()), err);
-    auto installed = ubake::Install::open(install);
-    if (!installed.has_value()) return refusal(row.map, std::string(installed.error().message()), err);
+    if (!installed) {
+        auto opened = ubake::Install::open(install);
+        if (!opened.has_value()) return refusal(row.map, std::string(opened.error().message()), err);
+        installed.emplace(std::move(*opened));
+    }
     const auto map = upkg::Package::open(*bytes);
     if (!map.has_value()) return refusal(row.map, std::string(map.error().message()), err);
     const auto scene = sceneOf(*map, ubake::detail::mapNameOf(file), installed->resolver());
@@ -286,9 +292,10 @@ Entry runMap(const stdfs::path& install, const stdfs::path& outDir, const Row& r
 /// runMap, with anything it throws refused as that map's failure. walkGraph
 /// rethrows a worker's exception, and one map must not end a library run
 /// (UTA-0224).
-Entry runMapGuarded(const stdfs::path& install, const stdfs::path& outDir, const Row& row, std::ostream& err) {
+Entry runMapGuarded(const stdfs::path& install, std::optional<ubake::Install>& installed, const stdfs::path& outDir,
+                    const Row& row, std::ostream& err) {
     try {
-        return runMap(install, outDir, row, err);
+        return runMap(install, installed, outDir, row, err);
     } catch (const std::exception& thrown) {
         return refusal(row.map, std::string("threw: ") + thrown.what(), err);
     }
@@ -348,10 +355,11 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
     stdfs::create_directories(outDir, ec);
     if (ec) err << "ut-paths: cannot create " << ubake::detail::utf8(outDir) << ": " << ec.message() << "\n";
 
+    std::optional<ubake::Install> installed;
     std::vector<Entry> entries;
     if (parsed->maps.empty()) {
         for (const Row& row : *rows)
-            if (isWork(row)) entries.push_back(runMapGuarded(install, outDir, row, err));
+            if (isWork(row)) entries.push_back(runMapGuarded(install, installed, outDir, row, err));
     } else {
         // A named map is matched as the resolver matches a package, folded.
         for (const std::string_view name : parsed->maps) {
@@ -362,7 +370,7 @@ int runCli(std::span<const std::string_view> args, std::ostream& out, std::ostre
                 entries.push_back(refusal(std::string(name),
                                           "not an EXIT_OFF_NET or PARTITIONED row of the census", err));
             else
-                entries.push_back(runMapGuarded(install, outDir, *row, err));
+                entries.push_back(runMapGuarded(install, installed, outDir, *row, err));
         }
     }
 
