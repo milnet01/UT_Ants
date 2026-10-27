@@ -213,7 +213,7 @@ void putRecord(Sink& sink, const PropertyRecord& record) {
                 sink.putU8(value.type);
                 sink.putString(value.structName);
                 sink.putCount(value.bytes.size());
-                for (const std::byte part : value.bytes) sink.putU8(static_cast<std::uint8_t>(part));
+                sink.append(value.bytes);
             }
         },
         record.value);

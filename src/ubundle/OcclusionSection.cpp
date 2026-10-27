@@ -72,7 +72,7 @@ Result<std::vector<std::byte>> encodeOcclusion(const Occlusion& occlusion) {
     sink.putU32(occlusion.height);
     sink.putVector(occlusion.uv, putUv);
     sink.putCount(occlusion.texels.size());
-    for (const std::uint8_t texel : occlusion.texels) sink.putU8(texel);
+    sink.append(occlusion.texels);
     return std::move(sink).finish("AOCC");
 }
 

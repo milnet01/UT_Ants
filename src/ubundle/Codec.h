@@ -215,7 +215,7 @@ public:
 
     void putString(const std::string& value) {
         putCount(value.size());
-        for (const char part : value) putU8(static_cast<std::uint8_t>(part));
+        append(std::as_bytes(std::span{value}));
     }
 
     template <class T, class Encode>
@@ -247,9 +247,10 @@ public:
     /// the buffer once rather than doubling it (UTA-0143). Changes no byte.
     void reserve(std::size_t bytes) { bytes_.reserve(bytes); }
 
-    void append(const std::vector<std::byte>& other) {
-        bytes_.insert(bytes_.end(), other.begin(), other.end());
-    }
+    /// A run of single bytes in one insert: a byte has no padding and no
+    /// order, so this is the same output as putU8 for each.
+    void append(std::span<const std::byte> other) { bytes_.insert(bytes_.end(), other.begin(), other.end()); }
+    void append(std::span<const std::uint8_t> other) { append(std::as_bytes(other)); }
 
 private:
     void putLittleEndian(std::uint64_t value, std::size_t count) {
