@@ -199,7 +199,12 @@ namespace {
 /// Drops `texture`'s top level in place. At 1x the recorded source halves
 /// with it, since the stored picture is then a resample of the source.
 void dropTopLevel(ubundle::CompressedTexture& texture) {
-    ubundle::CompressedTexture top = texture;
+    // Only the fields expectedBlockBytes reads: a copy of `texture` would
+    // copy every block to measure one level.
+    ubundle::CompressedTexture top;
+    top.format = texture.format;
+    top.width = texture.width;
+    top.height = texture.height;
     top.mipCount = 1;
     const auto topBytes = static_cast<std::ptrdiff_t>(ubundle::expectedBlockBytes(top));
     texture.blocks.erase(texture.blocks.begin(), texture.blocks.begin() + topBytes);
