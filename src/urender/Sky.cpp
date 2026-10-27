@@ -126,6 +126,8 @@ SkyLayers skyLayersOf(const ubundle::Bundle& bundle) {
                 return coplanar && sameMapping(other.u, sheet.u, p0) && sameMapping(other.v, sheet.v, p0);
             });
             if (!known) sheets.push_back(sheet);
+            // Already too many: the batch is dropped below, so stop scanning.
+            if (result.layers.size() + sheets.size() > gpu::SKY_LAYER_CAPACITY) break;
         }
         if (result.layers.size() + sheets.size() > gpu::SKY_LAYER_CAPACITY) continue;
         result.layers.insert(result.layers.end(), sheets.begin(), sheets.end());
