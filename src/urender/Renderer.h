@@ -246,8 +246,9 @@ public:
     /// Draw every later frame at `scale`, clamped as `fixedRenderScale` is,
     /// and leave dynamic resolution's controller as it stands. A fixed scale
     /// still wins, and without dynamic resolution the pin does nothing: there
-    /// is no upscale pass to draw a reduced region through. UTA-0191's second draw pins the first's scale with it, or
-    /// the two differ in sharpness for no reason of their own (UTA-0372).
+    /// is no upscale pass to draw a reduced region through (UTA-0440).
+    /// UTA-0191's second draw pins the first's scale with it, or the two
+    /// differ in sharpness for no reason of their own (UTA-0372).
     void pinRenderScale(double scale) noexcept;
 
     /// Back to the controller, or to full scale, from the next frame.

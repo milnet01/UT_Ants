@@ -119,6 +119,18 @@ TEST_CASE("UTA-0372: a pinned render scale draws at that scale and unpins", "[de
     CHECK(renderer.lastFrameStats().renderScale > 0.5); // the controller's own again
 }
 
+TEST_CASE("UTA-0440: a pinned render scale does nothing without dynamic resolution", "[device]") {
+    // With neither dynamic resolution nor a fixed scale there are no upscale
+    // images, so a reduced region would draw into nothing.
+    removeDisplay();
+    Config config = squareConfig();
+    config.tier = Tier::Low;
+    Renderer renderer = requireRenderer(config);
+    renderer.pinRenderScale(0.5);
+    requireOk(renderer.draw(halves(), Camera{}));
+    CHECK(renderer.lastFrameStats().renderScale == 1.0);
+}
+
 TEST_CASE("UTA-0051 INV-8: velocity readback is refused after a frame below scale 1", "[device]") {
     removeDisplay();
     Config config = squareConfig();

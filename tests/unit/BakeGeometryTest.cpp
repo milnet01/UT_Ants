@@ -363,6 +363,26 @@ TEST_CASE("UTA-0217: a drawn point that is not finite or lies past the bound is 
     CHECK(built(edge, stub).vertices.size() == 3u);
 }
 
+TEST_CASE("UTA-0440: a drawn node whose surface vector is not finite is refused", "[ubake][geom]") {
+    // A NaN normal passes the orientation test, and a NaN texture vector
+    // gives NaN uvs that later bake steps cast to integers.
+    for (const float bad : {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity(),
+                            -std::numeric_limits<float>::infinity()}) {
+        CAPTURE(bad);
+        for (std::size_t vector = 0; vector < 3; ++vector) { // vNormal, vTextureU, vTextureV
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                CAPTURE(vector, axis);
+                Scene scene;
+                scene.add(square(0));
+                auto& v = scene.model.vectors[vector];
+                float* part[] = {&v.x, &v.y, &v.z};
+                *part[axis] = bad;
+                refused(scene, "surface vector that is not finite");
+            }
+        }
+    }
+}
+
 TEST_CASE("UTA-0404: a cover's point that is not finite or lies past the bound is refused", "[ubake][geom]") {
     // INV-12 holds for UTA-0109 SS 4.6's covers too: Hide.cpp builds a cover
     // from a hidden brush's corners, which no other step checks.
