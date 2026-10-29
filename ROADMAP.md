@@ -18353,7 +18353,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-24 split-from-UTA-0352.
   Lanes: urender, ubake.
 
-- 🚧 [UTA-0440] **Land PR #1's fixes from the 2026-10-27 whole-codebase review.**
+- ✅ [UTA-0440] **Land PR #1's fixes from the 2026-10-27 whole-codebase review.**
   PR #1 (claude/loving-sagan-1b0y2w), six commits. Bugs: a pinned
   render scale without dynamic resolution; textureCapacityOf wrapping
   when maxPerStageResources is besideTextures + 1; non-finite surface
@@ -18361,6 +18361,10 @@ stays with movement in 0.2.0.
   Speed-ups: upkg name folding, ubundle byte runs, umat dropTopLevel,
   ut-paths opening the install once, the sky sheet scan. Each fix that
   can be tested gets a test proven red on the old code.
+  Shipped 2026-10-29, matrix green on 44e1864 (run 40825912672).
+  PR #1's six commits landed on main relabelled, with tests for the
+  surface-vector and pinned-scale fixes, each proven red on the old code.
+  textureCapacityOf's wrap has no test: no conformant device reaches it.
   **Layman:** Four bug fixes and five speed-ups a cloud review found, merged with tests for the bugs.
   Kind: review-fix.
   Source: review-code-2026-10-27.
