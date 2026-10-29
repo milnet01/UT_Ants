@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=439 -->
+<!-- ants-roadmap-id-high-water: UTA=445 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -18352,6 +18352,59 @@ stays with movement in 0.2.0.
   Kind: fix.
   Source: in-session-2026-10-24 split-from-UTA-0352.
   Lanes: urender, ubake.
+
+- 🚧 [UTA-0440] **Land PR #1's fixes from the 2026-10-27 whole-codebase review.**
+  PR #1 (claude/loving-sagan-1b0y2w), six commits. Bugs: a pinned
+  render scale without dynamic resolution; textureCapacityOf wrapping
+  when maxPerStageResources is besideTextures + 1; non-finite surface
+  vectors passing buildGeometry; mmap's errno read after close.
+  Speed-ups: upkg name folding, ubundle byte runs, umat dropTopLevel,
+  ut-paths opening the install once, the sky sheet scan. Each fix that
+  can be tested gets a test proven red on the old code.
+  **Layman:** Four bug fixes and five speed-ups a cloud review found, merged with tests for the bugs.
+  Kind: review-fix.
+  Source: review-code-2026-10-27.
+
+- 📋 [UTA-0441] **Decide whether paintedSkyLight's std::pow breaks bake determinism.**
+  PR #1 reports ubundle/Sky.cpp paintedSkyLight calls std::pow(x, 5.0)
+  at bake time, where the baker otherwise avoids libm pow across
+  compilers. Replacing it changes bake bytes: a baker-revision bump and
+  re-bakes. Unverified: whether GCC, Clang and MSVC differ here.
+  **Layman:** One sky-light calculation may give slightly different bakes on different compilers.
+  Kind: review-fix.
+  Source: review-code-2026-10-27.
+
+- 📋 [UTA-0442] **Keep tracked image layouts right when Gpu::run fails after record.**
+  PR #1 reports that a failed submit in Frame.cpp's Gpu::run leaves
+  image layouts and the fires' changed flags advanced, so the next frame
+  would emit wrong oldLayout barriers. A fix needs reset hooks on Image
+  and MaterialSet.
+  **Layman:** After a rare failed frame, the next frame could draw with wrong image states.
+  Kind: review-fix.
+  Source: review-code-2026-10-27.
+
+- 📋 [UTA-0443] **Decide whether clusterGrid, directLights and unitsPerTexelFor can be cached per bundle.**
+  PR #1 reports all three are recomputed every frame. They are not
+  cached because the renderer allows new bundle contents in the same
+  storage between frames. Measure their frame share before deciding.
+  **Layman:** Three lighting setups are redone every frame; caching them might save time.
+  Kind: review-fix.
+  Source: review-code-2026-10-27.
+
+- 📋 [UTA-0444] **Make ByteReader::readIndex's comment match what it checks.**
+  PR #1 reports readIndex drops bits above 31 on the fifth byte rather
+  than refusing them. UE1 does the same, so the behaviour may be
+  intended; the comment overstates the check.
+  **Layman:** A code comment claims a stricter check than the code makes.
+  Kind: review-fix.
+  Source: review-code-2026-10-27.
+
+- 📋 [UTA-0445] **Stop ubake/Lamps.cpp building whole geometry to test for emptiness.**
+  PR #1 reports Lamps.cpp runs one full buildGeometry per fitting only
+  to test whether the result is empty.
+  **Layman:** The baker does a full geometry build per light fitting just to see if it is empty.
+  Kind: review-fix.
+  Source: review-code-2026-10-27.
 
 ## 0.2.0 — Movement and weapons
 
