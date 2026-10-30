@@ -90,10 +90,17 @@ void main() {
             uint index = clusterIndices[cluster * CLUSTER_CAPACITY + k];
             Light light = lights[index];
             if (light.shadowFaceCount == 0u && index != fog.flashlight) continue;
+            // UTA-0352: a cluster lists every light whose sphere touches it, and
+            // many reach no froxel in it, or do not reach this one past a wall.
+            // Those stop here, before the shadow read that costs the most.
+            vec3 through = lightThrough(light, x);
+            if (max(through.r, max(through.g, through.b)) <= 0.0) continue;
+            float lit = hazeShadowOf(light, x);
+            if (lit == 0.0) continue;
             vec3 toLight = litFrom(light, x) - x;
             float d = length(toLight);
             float cosTheta = d > 0.0 ? dot(v, toLight / d) : 1.0;
-            haze += lightThrough(light, x) * (light.flicker * hazeShadowOf(light, x) * phaseOf(cosTheta));
+            haze += through * (light.flicker * lit * phaseOf(cosTheta));
         }
         float share = HAZE_SCATTER * fog.hazeScale + (water ? WATER_SCATTER * waterShafts(x.xy, frame.flameSeconds) : 0.0);
         scattered += haze * share;

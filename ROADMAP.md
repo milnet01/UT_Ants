@@ -22664,6 +22664,26 @@ docs/standards/versioning-overrides.md. Closes S8.
   Next lead: fog at 2.7 ms, because a cut there helps every map.
   Trap: ut-bake reuses a bake of the same baker string, even with a
   changed baker, so a probe must clear its output folder.
+  Fog split (2026-10-30, 749ec64, baker 73, High, 3840x2160 at scale 0.6667,
+  throwaway shader probes, alternated, two reps, load 7-12; scratch
+  /mnt/Emulators/uta-scratch/u352/fogcost). Worst survey views, ms of the fog
+  step: ArchNemesis 2.65, SimpleX 2.71, CastleDeck16 0.71. Everything but the
+  light loop is 0.16 on all three, and the survey's median map is 0.77, so
+  "a cut helps every map" was too broad: the cost is per light and per froxel.
+  Off, in turn: haze shadow read 1.07, 0.88, 0.27; history under 0.05;
+  lights past slice 32 (about 360 units) 0.97, 1.09, 0.34; past slice 48 0.2,
+  0.3, 0.05.
+  Fixed: a light that adds nothing at a froxel, or is shadowed there, stops
+  before the rest of the sum. Mean fog over 8 views, old to new: ArchNemesis
+  2.57 to 2.26, SimpleX 2.40 to 1.88, CastleDeck16 0.63 to 0.56. 24 views at
+  1280x720, old against new, byte-identical.
+  Tried and dropped: t * sqrt(t) in place of pow in the phase saved nothing and
+  moved pixels by 1. A floor under a light's share (0.01, 0.03, 0.1) saved
+  0.03-0.07, 0.06-0.13, 0.13-0.27 ms and moved SimpleX by up to 2, 6, 17 levels,
+  35% of its pixels over 2 at 0.1. Not worth it.
+  Next leads: froxels behind the nearest wall (needs the depth pre-pass ahead of
+  the fog; at most the slice-32 figure above), then lighting half the froxels a
+  frame and carrying the rest in the history.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
