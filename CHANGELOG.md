@@ -624,6 +624,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Shadow planning takes 12 microseconds a frame, not 660** (UTA-0443)
+  Measured on DM-48SC-InversalLiandri's 859 lights. The plan is kept until the
+  lights change.
+
 - **Movers a map can never move are lit like walls** (UTA-0439)
   Some maps build fixed glass and decoration from movers, the parts used
   for doors and lifts, and never let them move. Those now get baked light
@@ -819,6 +823,10 @@ The `[Unreleased]` block stays at the top, always, even when empty.
   Both are built and tested on every run, Windows with MSVC. The design previously said Windows would not be tested before 1.0; it now says the opposite, and the compiler floor gains MSVC.
 
 ### Fixed
+
+- **A wall near a moving part could be lit by a lamp behind it** (UTA-0446)
+  A lamp with no angle falloff, behind a one-sided wall, lit that wall through
+  the shadow map. The original game never does this. Fixed in baker revision 73.
 
 - **A rolled mover's baked shadow reach turned the wrong way** (UTA-0439)
   The bake placed a mover rolled about its long axis mirrored from where

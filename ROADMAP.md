@@ -18374,6 +18374,9 @@ stays with movement in 0.2.0.
   at bake time, where the baker otherwise avoids libm pow across
   compilers. Replacing it changes bake bytes: a baker-revision bump and
   re-bakes. Unverified: whether GCC, Clang and MSVC differ here.
+  Done (2026-10-30): replaced with c*c*c*c*c, as sky.glsl already does. Whether
+  the compilers differed was not measured: multiplying is cheaper than finding
+  out, and it rode UTA-0446's baker revision 73.
   **Layman:** One sky-light calculation may give slightly different bakes on different compilers.
   Kind: review-fix.
   Source: review-code-2026-10-27.
@@ -18383,6 +18386,10 @@ stays with movement in 0.2.0.
   image layouts and the fires' changed flags advanced, so the next frame
   would emit wrong oldLayout barriers. A fix needs reset hooks on Image
   and MaterialSet.
+  Done (2026-10-30): no reset hooks. Every caller but the viewer's capture already
+  stops on a failed draw, so Gpu::run now refuses all work once a submit fails
+  after recording. The capture then reports it and the next frame ends the viewer.
+  No test: a real device cannot be made to fail a submit, and no fake device exists.
   **Layman:** After a rare failed frame, the next frame could draw with wrong image states.
   Kind: review-fix.
   Source: review-code-2026-10-27.
@@ -18391,6 +18398,10 @@ stays with movement in 0.2.0.
   PR #1 reports all three are recomputed every frame. They are not
   cached because the renderer allows new bundle contents in the same
   storage between frames. Measure their frame share before deciding.
+  Measured (2026-10-30, InversalLiandri's 859 lights, CPU, medians): plan with
+  unitsPerTexelFor 660 us a frame, directLights 12.4 us, clusterGrid 16.3 us. Only
+  the plan earned a cache: ShadowPlanner keeps its last plan while the lights and
+  near marks are unchanged, and it now takes 12.2 us. The other two stay.
   **Layman:** Three lighting setups are redone every frame; caching them might save time.
   Kind: review-fix.
   Source: review-code-2026-10-27.
@@ -18399,13 +18410,20 @@ stays with movement in 0.2.0.
   PR #1 reports readIndex drops bits above 31 on the fifth byte rather
   than refusing them. UE1 does the same, so the behaviour may be
   intended; the comment overstates the check.
+  Done (2026-10-30): the comment and UTA-0003 say the fifth byte's bits past bit
+  31 are dropped, not refused. Behaviour unchanged. That UE1 does the same is
+  PR #1's claim and was not checked.
   **Layman:** A code comment claims a stricter check than the code makes.
   Kind: review-fix.
   Source: review-code-2026-10-27.
 
-- 📋 [UTA-0445] **Stop ubake/Lamps.cpp building whole geometry to test for emptiness.**
+- 🚫 [UTA-0445] **Stop ubake/Lamps.cpp building whole geometry to test for emptiness.**
   PR #1 reports Lamps.cpp runs one full buildGeometry per fitting only
   to test whether the result is empty.
+  Measured (2026-10-30): dropped as not worth the code. One all-omitted
+  buildGeometry on DM-ArcaneTemple (5703 nodes) takes 0.2 ms, its recipe has 16
+  fitting brushes, so about 3 ms of a 16.7 s bake. Only 3 of the recipes name a
+  fitting. A separate test would have to repeat buildGeometry's rules.
   **Layman:** The baker does a full geometry build per light fitting just to see if it is empty.
   Kind: review-fix.
   Source: review-code-2026-10-27.
@@ -22846,6 +22864,12 @@ docs/standards/versioning-overrides.md. Closes S8.
   lit surfaces). One map only; widen the count before relying on it.
   Fix: apply the plane test to every light on a one-sided surface. It changes
   bake bytes, so it bumps the baker revision.
+  Widened (2026-10-30, Model::lights over the survey's 127 maps): 8734 listings
+  behind a two-sided surface, 48 of ordinary lights behind a one-sided one, 0 of
+  no-incidence lights behind a one-sided one. So the rule holds for one-sided
+  surfaces only, and two-sided charts keep both sides. Built: the plane test now
+  applies to every light; baker revision 73. Its test failed on the old code on
+  a non-solid sheet.
   **Layman:** A wall near a moving part can be lit by a lamp on its far side; the original game never does this.
   Kind: fix.
   Source: in-session-2026-10-30.
