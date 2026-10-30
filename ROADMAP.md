@@ -16801,7 +16801,7 @@ stays with movement in 0.2.0.
   Source: in-session-2026-10-11.
   Lanes: ubake, urender.
 
-- 🚧 [UTA-0353] **Check what MH-UM-BasketBall's backdrop surfaces draw with no sky zone.**
+- ✅ [UTA-0353] **Check what MH-UM-BasketBall's backdrop surfaces draw with no sky zone.**
   Found by UTA-0347's census (needs.jsonl, r52-f28): MH-UM-BasketBall
   has 5 PF_FakeBackdrop surfaces and no SkyZoneInfo. Nobody has checked
   what our renderer draws on them. The reverse case, DM-KILLBOXv2 (a
@@ -22643,6 +22643,27 @@ docs/standards/versioning-overrides.md. Closes S8.
   charts them. At the target its worst view went 15.2 to 9.8 ms (see
   UTA-0439). Left: ArchNemesis headroom (14.9 ms worst view at the
   target, opaque direct light).
+  ArchNemesis at the target (2026-10-30, c9091dd, baker r73, fresh bake,
+  High, 3840x2160 at 0.6667, 120 still frames, variants in turn, two reps
+  agreeing within 0.4 ms, load 11-20; scratch
+  /mnt/Emulators/uta-scratch/u352/arch). Two slowest views, frame median
+  ms: 14.9-15.3 and 14.0. Worst view by step: opaque 8.2, fog 2.7, post
+  1.5, clusters 0.7, bloom 0.3 or 1.07 (bimodal, unchanged by any
+  variant, the unexplained note of 2026-10-14), host 0.7. Saved in opaque
+  by switching off, worst view then second: charted light 4.6, 3.6; mask
+  reads 1.0, 0.8; mover-reach shadows 0.45, 0.24; probes 1.2, 1.1;
+  parallax 0.6, 0.6. So about 3.1 ms of the worst view is per-pair
+  arithmetic.
+  Why it is not worth a cut yet. A throwaway baker probe over the whole
+  map, area-weighted (texel 8 units, 5412 charts, 78949 pairs): a chart
+  lists 19.2 pairs per texel; 11.5 reach that texel. Cells of 16 texels
+  would list 15.5 and cells of 64 list 18.5, so cells save 4-19% of that
+  arithmetic, under 1 ms, for a format bump and more waterfall passes.
+  Dropping weak pairs helps little: 11.2 pairs per texel stay above
+  0.002, and only 10% of the pair area peaks under 0.02. Not built.
+  Next lead: fog at 2.7 ms, because a cut there helps every map.
+  Trap: ut-bake reuses a bake of the same baker string, even with a
+  changed baker, so a probe must clear its output folder.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
