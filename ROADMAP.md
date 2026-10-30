@@ -18369,7 +18369,7 @@ stays with movement in 0.2.0.
   Kind: review-fix.
   Source: review-code-2026-10-27.
 
-- 📋 [UTA-0441] **Decide whether paintedSkyLight's std::pow breaks bake determinism.**
+- ✅ [UTA-0441] **Decide whether paintedSkyLight's std::pow breaks bake determinism.**
   PR #1 reports ubundle/Sky.cpp paintedSkyLight calls std::pow(x, 5.0)
   at bake time, where the baker otherwise avoids libm pow across
   compilers. Replacing it changes bake bytes: a baker-revision bump and
@@ -18377,11 +18377,12 @@ stays with movement in 0.2.0.
   Done (2026-10-30): replaced with c*c*c*c*c, as sky.glsl already does. Whether
   the compilers differed was not measured: multiplying is cheaper than finding
   out, and it rode UTA-0446's baker revision 73.
+  Matrix green on ca25ee6.
   **Layman:** One sky-light calculation may give slightly different bakes on different compilers.
   Kind: review-fix.
   Source: review-code-2026-10-27.
 
-- 📋 [UTA-0442] **Keep tracked image layouts right when Gpu::run fails after record.**
+- ✅ [UTA-0442] **Keep tracked image layouts right when Gpu::run fails after record.**
   PR #1 reports that a failed submit in Frame.cpp's Gpu::run leaves
   image layouts and the fires' changed flags advanced, so the next frame
   would emit wrong oldLayout barriers. A fix needs reset hooks on Image
@@ -18390,11 +18391,12 @@ stays with movement in 0.2.0.
   stops on a failed draw, so Gpu::run now refuses all work once a submit fails
   after recording. The capture then reports it and the next frame ends the viewer.
   No test: a real device cannot be made to fail a submit, and no fake device exists.
+  Matrix green on ca25ee6.
   **Layman:** After a rare failed frame, the next frame could draw with wrong image states.
   Kind: review-fix.
   Source: review-code-2026-10-27.
 
-- 📋 [UTA-0443] **Decide whether clusterGrid, directLights and unitsPerTexelFor can be cached per bundle.**
+- ✅ [UTA-0443] **Decide whether clusterGrid, directLights and unitsPerTexelFor can be cached per bundle.**
   PR #1 reports all three are recomputed every frame. They are not
   cached because the renderer allows new bundle contents in the same
   storage between frames. Measure their frame share before deciding.
@@ -18402,17 +18404,19 @@ stays with movement in 0.2.0.
   unitsPerTexelFor 660 us a frame, directLights 12.4 us, clusterGrid 16.3 us. Only
   the plan earned a cache: ShadowPlanner keeps its last plan while the lights and
   near marks are unchanged, and it now takes 12.2 us. The other two stay.
+  Matrix green on ca25ee6.
   **Layman:** Three lighting setups are redone every frame; caching them might save time.
   Kind: review-fix.
   Source: review-code-2026-10-27.
 
-- 📋 [UTA-0444] **Make ByteReader::readIndex's comment match what it checks.**
+- ✅ [UTA-0444] **Make ByteReader::readIndex's comment match what it checks.**
   PR #1 reports readIndex drops bits above 31 on the fifth byte rather
   than refusing them. UE1 does the same, so the behaviour may be
   intended; the comment overstates the check.
   Done (2026-10-30): the comment and UTA-0003 say the fifth byte's bits past bit
   31 are dropped, not refused. Behaviour unchanged. That UE1 does the same is
   PR #1's claim and was not checked.
+  Matrix green on ca25ee6.
   **Layman:** A code comment claims a stricter check than the code makes.
   Kind: review-fix.
   Source: review-code-2026-10-27.
@@ -22854,7 +22858,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: user-request-2026-10-26.
   Lanes: bake, urender.
 
-- 📋 [UTA-0446] **A no-incidence light behind a surface lights it through the shadow map.**
+- ✅ [UTA-0446] **A no-incidence light behind a surface lights it through the shadow map.**
   From UTA-0439's pillar. bakeChart's plane test keeps a pair for a light with
   no incidence term even when the light is behind the polygon. Through the mask
   such a pair reads dark. A moverReach pair reads the shadow map instead, where a
@@ -22870,6 +22874,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   surfaces only, and two-sided charts keep both sides. Built: the plane test now
   applies to every light; baker revision 73. Its test failed on the old code on
   a non-solid sheet.
+  Matrix green on ca25ee6.
   **Layman:** A wall near a moving part can be lit by a lamp on its far side; the original game never does this.
   Kind: fix.
   Source: in-session-2026-10-30.
