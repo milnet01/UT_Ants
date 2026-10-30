@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=446 -->
+<!-- ants-roadmap-id-high-water: UTA=447 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -16814,6 +16814,20 @@ stays with movement in 0.2.0.
   same (own texture, lit or unlit) is unknown; asked UT_MonsterHunt for
   captures at our four cameras (mailbox message 790).
   Waiting-on: UT_MonsterHunt's captures of the original.
+  Answer (2026-10-30, baker r73, ours re-rendered at the four cameras,
+  960x540, High; UT_MonsterHunt's frames from UT 469 OpenGLDrv on
+  llvmpipe, work/uta0269/basket0353 in its tree): the original draws what
+  ours draws. Each of the five ceilings is the surface's own officwall,
+  flat and unlit, not sky and not black. The map's five surfaces have
+  iLightMap -1, and clearing the flag changed no pixel in the original.
+  No code change. Ceiling mean RGB: original 147,155,131 on every camera,
+  ours 181-185,192-196,162-167, so the original is 0.80 of ours. Camera
+  4's back wall matches at 1.01, so that offset belongs to the unlit
+  ceiling, not to the frame. Left as it is: the original's brightness is
+  a guide, not a target (CLAUDE.md), and this is one renderer and one
+  map; the rig did not test a second renderer. Why the ratio is 0.80 was
+  not found. Stairs at camera 4 differ too, filed separately.
+  Waiting-on cleared: the captures came.
   **Layman:** One map has sky surfaces but no sky for them to show; check what the game draws there.
   Kind: investigate.
   Source: in-session-2026-10-12.
@@ -22879,6 +22893,26 @@ docs/standards/versioning-overrides.md. Closes S8.
   Kind: fix.
   Source: in-session-2026-10-30.
   Lanes: bake, urender.
+
+- 📋 [UTA-0447] **Find why MH-UM-BasketBall's stairs draw twice as bright as the original.**
+  Found by UTA-0353's compare (2026-10-30, baker r73). Camera 0 -2048
+  1800, pitch 4000, yaw 0, fov 100, 960x540, region x200-760, y470-530:
+  original mean RGB 76,73,69, ours 150,144,131, ratio 0.50. The back wall
+  in the same frame matches, ratio 1.01. The original also shows black
+  horizontal bands across the stairs and a thin purple line near y 445;
+  ours has neither. Those could come from the rig (UT 469 OpenGLDrv on
+  llvmpipe, a magenta frame before each shot), so first get the same view
+  from a second renderer. Then test: per-tread lightmaps in the original
+  (UTA ut99-lighting-is-per-texel) against our mask texel size on narrow
+  treads; a real shadow the original has and ours lacks.
+  Frames: UT_MonsterHunt work/uta0269/basket0353/MH-UM-BasketBall,
+  Shot00003.png; ours /mnt/Emulators/uta-scratch/u353r.
+  Placed in 1.0.0: one map's look, not yet shown to be a defect of ours,
+  and 0.1.0's items are about look already closed.
+  **Layman:** The steps in one arena look much lighter than in the original game, which also shows dark bands across them.
+  Kind: investigate.
+  Source: in-session-2026-10-30.
+  Lanes: render.
 
 ## After 1.0.0
 
