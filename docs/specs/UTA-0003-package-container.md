@@ -196,7 +196,8 @@ Two rules the encoder does not imply:
 - **At most five bytes.** Six bits plus four times seven exceeds 32, so a
   fifth continuation byte cannot contribute. A sixth byte is
   `MalformedData`, never a longer value. Without the cap, a run of `0xFF`
-  is an unbounded read.
+  is an unbounded read. The fifth byte's bits past bit 31 are dropped, not
+  refused.
 - **Accumulate unsigned.** The final shift places bits at position 27, so
   accumulating into a signed 32-bit value overflows on a hostile input.
   The value is built in `std::uint32_t` and converted once at the end.

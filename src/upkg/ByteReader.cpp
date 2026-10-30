@@ -9,7 +9,8 @@ namespace {
 /// A compact index is at most five bytes: six value bits in the first and
 /// seven in each of at most four more. Six plus four sevens already exceeds
 /// 32, so a fifth continuation byte cannot contribute -- and without the cap a
-/// run of 0xFF is an unbounded read (INV-4).
+/// run of 0xFF is an unbounded read (INV-4). The fourth continuation byte's top
+/// bits fall past bit 31 and are dropped, not refused.
 constexpr int MAX_CONTINUATION_BYTES = 4;
 
 Error shortRead(std::size_t wanted, std::size_t available) {
