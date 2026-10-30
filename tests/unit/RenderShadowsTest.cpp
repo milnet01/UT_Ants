@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <cstring>
 #include <vector>
 
 using Catch::Matchers::WithinAbs;
@@ -345,6 +346,67 @@ TEST_CASE("UTA-0166: a map's worth of lights all keep a tile and are placed once
     CHECK(second.unshadowed == 0u);
     CHECK(second.draws.empty());
     CHECK(second.faces.size() == first.faces.size());
+}
+
+TEST_CASE("UTA-0443: a kept plan says what a fresh plan says", "[render]") {
+    std::vector<Light> lights;
+    for (int i = 0; i < 12; ++i) {
+        const auto f = static_cast<float>(i);
+        lights.push_back(pointLight({f * 130, f * 70, f * 30}, static_cast<std::uint8_t>(2 + 20 * i)));
+    }
+    const std::vector<bool> near = {true, false, true};
+    ShadowPlanner kept;
+    (void)kept.plan(lights, {}, near);
+    const auto again = kept.plan(lights, {}, near);
+    ShadowPlanner fresh;
+    const auto first = fresh.plan(lights, {}, near);
+    REQUIRE(again.faces.size() == first.faces.size());
+    CHECK(std::memcmp(again.faces.data(), first.faces.data(), first.faces.size() * sizeof(first.faces[0])) == 0);
+    CHECK(again.firstFace == first.firstFace);
+    CHECK(again.faceCount == first.faceCount);
+    CHECK(again.nearUnitsPerTexel == first.nearUnitsPerTexel);
+    CHECK(again.restUnitsPerTexel == first.restUnitsPerTexel);
+}
+
+TEST_CASE("UTA-0443: a kept plan gives way to what it was made from changing", "[render]") {
+    const std::vector<Light> lights = {pointLight({0, 0, 0}, 20), pointLight({4000, 0, 0}, 200)};
+    ShadowPlanner planner;
+    const auto first = planner.plan(lights, {});
+    REQUIRE(first.faces.size() == 12u);
+
+    SECTION("brightness, which sameLight leaves out") {
+        std::vector<Light> dark = lights;
+        dark[0].brightness = 0;
+        CHECK(planner.plan(dark, {}).faces.size() == 6u);
+    }
+    SECTION("special-lit, which sameLight leaves out") {
+        std::vector<Light> special = lights;
+        special[0].specialLit = true;
+        CHECK(planner.plan(special, {}).faces.size() == 6u);
+    }
+    SECTION("the light count") {
+        CHECK(planner.plan({lights[0]}, {}).faces.size() == 6u);
+    }
+    SECTION("reset") {
+        planner.reset();
+        CHECK(planner.plan(lights, {}).draws.size() == 12u);
+    }
+}
+
+TEST_CASE("UTA-0443: a kept plan gives way to the near marks changing", "[render]") {
+    // UTA-0322's scene: too many lights to refine them all even twice.
+    const Light light = pointLight({0, 0, 0}, 200);
+    const double half = urender::shadowTileSize(light, urender::SHADOW_UNITS_PER_TEXEL / 2);
+    const double atlas = double(urender::SHADOW_ATLAS_SIZE) * urender::SHADOW_ATLAS_SIZE;
+    const auto count = static_cast<std::uint32_t>(atlas / (6 * half * half)) + 1;
+    std::vector<Light> lights;
+    for (std::uint32_t i = 0; i < count; ++i) lights.push_back(pointLight({10.0f * static_cast<float>(i), 0, 0}, 200));
+    std::vector<bool> near(count, false);
+    near[0] = true;
+
+    ShadowPlanner planner;
+    CHECK(planner.plan(lights, {}).nearUnitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL);
+    CHECK(planner.plan(lights, {}, near).nearUnitsPerTexel == urender::SHADOW_UNITS_PER_TEXEL / 4);
 }
 
 TEST_CASE("a point light's face projects the point along its axis to the tile's centre", "[render]") {

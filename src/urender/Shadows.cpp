@@ -88,6 +88,13 @@ bool sameLight(const ubundle::Light& a, const ubundle::Light& b) noexcept {
            && a.effect == b.effect && a.strip == b.strip && a.stripFrom == b.stripFrom && a.stripTo == b.stripTo;
 }
 
+/// UTA-0443: whether a kept plan still answers for `b`: sameLight, and what else
+/// shadowFacesOf reads. sameLight leaves these out because they never redraw a
+/// tile by themselves.
+bool samePlanInputs(const ubundle::Light& a, const ubundle::Light& b) noexcept {
+    return sameLight(a, b) && a.type == b.type && a.brightness == b.brightness && a.specialLit == b.specialLit;
+}
+
 } // namespace
 
 // -- ShadowAtlas ----------------------------------------------------------------
@@ -225,11 +232,27 @@ std::array<double, 2> unitsPerTexelFor(const std::vector<ubundle::Light>& lights
 void ShadowPlanner::reset() {
     held_.clear();
     atlas_.clear();
+    hasPlanned_ = false;
 }
 
 ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
                                const std::vector<std::array<std::array<float, 3>, 2>>& movedMoverBounds,
                                const std::vector<bool>& near) {
+    if (hasPlanned_ && near == plannedNear_
+        && std::ranges::equal(lights, plannedLights_, samePlanInputs)) {
+        ShadowPlan plan = planned_;
+        for (std::size_t i = 0; i < lights.size(); ++i) {
+            const std::vector<AtlasTile>& tiles = held_[i].tiles;
+            const bool moved = !tiles.empty() && std::ranges::any_of(movedMoverBounds, [&](const auto& box) {
+                return boxReaches(box, centreOf(lights[i]), reachOf(lights[i]));
+            });
+            if (!moved) continue;
+            for (std::uint32_t face = 0; face < tiles.size(); ++face)
+                plan.draws.push_back({static_cast<std::uint32_t>(plan.firstFace[i]) + face, tiles[face]});
+        }
+        return plan;
+    }
+
     const auto [nearUnitsPerTexel, restUnitsPerTexel] = unitsPerTexelFor(lights, near, detail_);
     std::vector<std::uint32_t> wanted(lights.size());
     for (std::size_t i = 0; i < lights.size(); ++i)
@@ -294,6 +317,11 @@ ShadowPlan ShadowPlanner::plan(const std::vector<ubundle::Light>& lights,
                                   {tile.x * scale, tile.y * scale, tile.size * scale, tile.size * scale}});
         }
     }
+    planned_ = plan;
+    planned_.draws.clear();
+    plannedLights_ = lights;
+    plannedNear_ = near;
+    hasPlanned_ = true;
     return plan;
 }
 

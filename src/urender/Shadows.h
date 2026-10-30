@@ -190,6 +190,13 @@ private:
     ShadowDetail detail_;
     ShadowAtlas atlas_;
     std::vector<Held> held_;
+    /// UTA-0443: the last plan, its draws left out, and what it was made from.
+    /// Sizing and matrices cost 0.66 ms a frame over 859 lights, for a plan the
+    /// same lights and marks always give.
+    ShadowPlan planned_;
+    std::vector<ubundle::Light> plannedLights_;
+    std::vector<bool> plannedNear_;
+    bool hasPlanned_ = false;
 };
 
 } // namespace uta::urender
