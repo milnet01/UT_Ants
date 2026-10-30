@@ -130,6 +130,8 @@ public:
     /// Record with `record` into a fresh command buffer, submit it, and wait
     /// for it to finish. UTA-0138: with `failOnValidationError` set, it fails
     /// once the validation layer has reported any error, naming the first.
+    /// UTA-0442: once a submit fails after recording, every later call fails too:
+    /// the recording moved each image's tracked layout and the GPU never did.
     [[nodiscard]] Result<void> run(const std::function<void(VkCommandBuffer)>& record);
 
     /// UTA-0138: whether the validation layer is loaded and reporting here.
@@ -156,6 +158,7 @@ private:
     VkQueue queue_ = VK_NULL_HANDLE;
     std::uint32_t family_ = 0;
     VkCommandPool pool_ = VK_NULL_HANDLE;
+    bool failedAfterRecording_ = false; ///< UTA-0442
     VkPhysicalDeviceMemoryProperties memory_{};
     VkPhysicalDeviceType type_ = VK_PHYSICAL_DEVICE_TYPE_OTHER;
     std::string name_;

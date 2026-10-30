@@ -454,6 +454,8 @@ Result<std::uint32_t> Gpu::memoryType(std::uint32_t allowed, VkMemoryPropertyFla
 }
 
 Result<void> Gpu::run(const std::function<void(VkCommandBuffer)>& record) {
+    if (failedAfterRecording_)
+        return fail(ErrorCode::Unknown, "an earlier GPU submission failed, so the tracked image layouts are wrong");
     VkCommandBufferAllocateInfo allocate{};
     allocate.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocate.commandPool = pool_;
@@ -477,6 +479,7 @@ Result<void> Gpu::run(const std::function<void(VkCommandBuffer)>& record) {
     }
     record(commands);
     if (auto r = check(vkEndCommandBuffer(commands), "vkEndCommandBuffer"); !r) {
+        failedAfterRecording_ = true;
         release();
         return r;
     }
@@ -484,6 +487,7 @@ Result<void> Gpu::run(const std::function<void(VkCommandBuffer)>& record) {
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     if (auto r = created(vkCreateFence(device_, &fenceInfo, nullptr, &fence), fence, "vkCreateFence"); !r) {
+        failedAfterRecording_ = true;
         release();
         return r;
     }
@@ -497,6 +501,7 @@ Result<void> Gpu::run(const std::function<void(VkCommandBuffer)>& record) {
     submit.pCommandBufferInfos = &buffer;
     Result<void> outcome = check(vkQueueSubmit2(queue_, 1, &submit, fence), "vkQueueSubmit2");
     if (outcome) outcome = check(vkWaitForFences(device_, 1, &fence, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+    if (!outcome) failedAfterRecording_ = true;
     release();
     if (outcome && failOnValidationError_) {
         if (const std::uint32_t errors = log_->errors.load(); errors > 0) {

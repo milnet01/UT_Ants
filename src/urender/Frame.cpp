@@ -1946,12 +1946,7 @@ Result<void> Renderer::Impl::drawView(const ubundle::Bundle& bundle, const Camer
         if (skyFace) recordSkyFaceCopy(commands, region, *skyFace);
         times.recording = std::chrono::steady_clock::now() - recordStarted;
     });
-    // The plan already counts its tiles as drawn; after a failed submission
-    // they were not, so every tile is placed and drawn again.
-    if (!ran) {
-        shadowPlanner.reset();
-        return ran;
-    }
+    if (!ran) return ran;
     times.milliseconds =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - times.started).count();
     if (image) UTA_CHECK(swapchain->present(gpu->queue(), *image));
