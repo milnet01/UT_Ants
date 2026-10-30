@@ -22684,6 +22684,19 @@ docs/standards/versioning-overrides.md. Closes S8.
   Next leads: froxels behind the nearest wall (needs the depth pre-pass ahead of
   the fog; at most the slice-32 figure above), then lighting half the froxels a
   frame and carrying the rest in the history.
+  Half-rate probe, built and NOT timed (2026-10-30): each froxel's lights every
+  other frame, the rest copied from the history at their reprojected place,
+  history weight floor 0.2 in place of 0.1, parity in fog.jitter.w. Upper bound
+  from the figures above: half the light loop, about 1 ms on ArchNemesis and
+  SimpleX, 0.2 on CastleDeck16. Scratch: /mnt/Emulators/uta-scratch/u352/fogcost:
+  variant3.py (the patch), build3.sh, run3.sh (timing base against half, then
+  ut-shot at 10 and 20 frames), diff.py (usage: diff.py shots3 <ref> <variants>),
+  bin3 (built at 73246cb). Decide on: ms saved, base10 against half10 (ut-shot's
+  frame count matters: half has 5-6 samples at 10) and base20 against half20.
+  Still frames cannot show motion: if the still figures earn it, also run
+  tests/device/RenderFogTest.cpp's UTA-0356 cases, whose thresholds grade a turn
+  and a cut. Pending that: froxels behind the nearest wall, at most the slice-32
+  figure above.
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.

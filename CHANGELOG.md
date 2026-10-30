@@ -624,6 +624,9 @@ The `[Unreleased]` block stays at the top, always, even when empty.
 
 ### Changed
 
+- **Haze costs up to half a millisecond less on maps with many lights** (UTA-0352)
+  The fog pass stops working on a light as soon as it adds nothing at a point, and the picture is unchanged. Average over 8 views on an RX 6600 at High, 2560x1440: DM-FoT-SimpleX 2.40 to 1.88 ms, DM-ArchNemesis 2.57 to 2.26 ms, DM-CastleDeck16 0.63 to 0.56 ms.
+
 - **Shadow planning takes 12 microseconds a frame, not 660** (UTA-0443)
   Measured on DM-48SC-InversalLiandri's 859 lights. The plan is kept until the
   lights change.
