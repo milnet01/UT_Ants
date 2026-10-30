@@ -174,9 +174,9 @@ namespace {
 // 72, format 33: UTA-0439 charts the movers a map can never move. The
 // fixture's mover has no InitialState, so it is not still; MOVR's still byte
 // and BAKR's revision moved it.
-constexpr std::uint32_t RECORDED_UNDER = 72;
+constexpr std::uint32_t RECORDED_UNDER = 73;
 constexpr std::string_view GOLDEN =
-    "3ac67a29502cc6d03fc2fe03384a9fdf96c4f376afa08472d3c150e8fbd88ba3";
+    "e3bc9e98392ee74f17de56865b8796baf88b23be1bbe3add94f334f7c8953f19";
 
 } // namespace
 

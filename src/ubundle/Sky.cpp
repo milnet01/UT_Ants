@@ -55,7 +55,9 @@ std::array<float, 3> paintedSkyLight(const PaintedSky& sky, const std::array<dou
     const double cover = sky.clouds * (x * x * (3 - 2 * x));
     // UTA-0389: below the horizon, the sea -- the sky mirrored by Schlick's
     // share, over the top mixed toward the horizon.
-    const double c5 = std::pow(1.0 + std::min(d[2], 0.0), 5.0);
+    // UTA-0441: multiplied, as sky.glsl does, so every compiler bakes the same bits.
+    const double c = 1.0 + std::min(d[2], 0.0);
+    const double c5 = c * c * c * c * c;
     const double mirrored = d[2] < 0 ? PAINTED_SEA_R0 + (1 - PAINTED_SEA_R0) * c5 : 1.0;
     std::array<float, 3> out{};
     for (std::size_t c = 0; c < 3; ++c) {

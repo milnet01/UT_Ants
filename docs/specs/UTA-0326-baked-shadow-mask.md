@@ -191,9 +191,10 @@ A `PF_Masked` surface with no cutout is solid.
 
 **A pair is a chart and a `litDirectly` light that can light it**: the
 light's sphere — `lightRadius`, grown by half a strip leader's segment —
-meets the polygon, and either the light's effect has no incidence term
-(`LE_NonIncidence`, `LE_Cylinder`) or the point it is lit from lies in front
-of the polygon's plane somewhere.
+meets the polygon, and the point it is lit from lies in front of the polygon's
+plane somewhere. That holds for a light with no incidence term too
+(`LE_NonIncidence`, `LE_Cylinder`): UT99's lighting build lists none behind a
+one-sided surface on the 127 surveyed maps (UTA-0446).
 
 *As built:* a `PF_TwoSided` chart whose material is not a liquid takes a light
 on either side, and each origin is lifted toward the side its light is on.

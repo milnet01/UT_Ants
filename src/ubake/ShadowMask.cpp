@@ -55,7 +55,6 @@ struct Site {
     Vec3 centre{};
     double bound = 0;        ///< its sphere: lightRadius grown by half the strip
     double reach = 0;        ///< lightRadius, which weighs a strip's points
-    bool incidence = true;
     bool special = false;    ///< UTA-0438 SS 4.2: it pairs with PF_SpecialLit charts only
     std::optional<Vec3> sun; ///< UTA-0338 SS 4.4: toward the sun, for the sun's site
 };
@@ -73,7 +72,6 @@ Site siteOf(std::uint32_t index, const ubundle::Light& light) {
     site.centre = site.from + site.span * 0.5;
     site.reach = lightRadius(light.radius);
     site.bound = site.reach + 0.5 * length(site.span);
-    site.incidence = light.effect != ubundle::LE_NON_INCIDENCE && light.effect != ubundle::LE_CYLINDER;
     site.special = light.specialLit;
     return site;
 }
@@ -274,8 +272,9 @@ std::vector<Baked> bakeChart(const Chart& chart, const ubundle::Geometry& geomet
         const Vec3 nearest = charts::originAt(chart, outline, dot(site.centre, chart.u) / texelSize,
                                               dot(site.centre, chart.v) / texelSize, texelSize, 0.0);
         if (length(site.centre - nearest) > site.bound) continue;
-        // In front of the plane somewhere, unless the light has no incidence term.
-        if (site.incidence && !bothSides && dot(site.from, chart.n) <= lowest
+        // In front of the plane somewhere. UTA-0446: a light with no incidence
+        // term too, as UT99's lighting build lists none behind a one-sided surface.
+        if (!bothSides && dot(site.from, chart.n) <= lowest
             && dot(site.from + site.span, chart.n) <= lowest)
             continue;
         Baked pair;

@@ -18,6 +18,7 @@
 #include "umat/Material.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <array>
 #include <cmath>
@@ -298,6 +299,21 @@ TEST_CASE("SS 4.3: what lies behind a two-sided sheet still shadows it", "[ubake
     CHECK(valueAt(geometry, *mask, sheet, 0, {256, 256, 100}) == 0);
     // From this corner the segment to the light passes the square at x 233.
     CHECK(valueAt(geometry, *mask, sheet, 0, {210, 210, 100}) == 255);
+}
+
+TEST_CASE("UTA-0446: a one-sided sheet has no pair with a no-incidence light behind it", "[ubake][shadowmask]") {
+    // UT99's lighting build lists no such light on any of 127 surveyed maps. A
+    // pair here reads the shadow map where a mover comes near, and a receiver
+    // cannot shadow itself, so a wall was lit through its own back.
+    const std::uint32_t flags = GENERATE(0u, PF_NOT_SOLID);
+    const std::uint8_t effect = GENERATE(uta::ubundle::LE_NON_INCIDENCE, uta::ubundle::LE_CYLINDER);
+    JobSystem jobs(2);
+    const auto [geometry, sheet] = sheetScene(flags, "", false);
+    Light light = pointLight(BELOW);
+    light.effect = effect;
+    const auto mask = bakeShadowMask(bundleOf(geometry, {light}), jobs);
+    REQUIRE(mask.has_value());
+    CHECK(pairOf(*mask, sheet, 0) == nullptr);
 }
 
 TEST_CASE("SS 4.3: a strip shadows a texel by the share of its segment it sees", "[ubake][shadowmask]") {
