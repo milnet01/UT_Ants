@@ -1,6 +1,6 @@
 <!-- ants-roadmap-format: 1 -->
 <!-- Generated from the Ants Terminal roadmap store. Edit it with roadmap_log; hand edits are discarded by the next write. -->
-<!-- ants-roadmap-id-high-water: UTA=445 -->
+<!-- ants-roadmap-id-high-water: UTA=446 -->
 # UT_Ants — Roadmap
 
 > What is planned, in progress and shipped. [CHANGELOG.md](CHANGELOG.md)
@@ -22769,7 +22769,7 @@ docs/standards/versioning-overrides.md. Closes S8.
   Source: user-request-2026-10-24.
   Lanes: ut-bench.
 
-- 🚧 [UTA-0439] **Bake movers the map can never move as level geometry.**
+- ✅ [UTA-0439] **Bake movers the map can never move as level geometry.**
   From UTA-0352. DM-48SC-InversalLiandri's glass panels are movers: 32
   of its 33 have InitialState=None (ut-dump --wiring-graph), and
   Mover.uc (ut-sdk-v469e, Engine) opens a mover only from a state
@@ -22813,9 +22813,42 @@ docs/standards/versioning-overrides.md. Closes S8.
   Scratch: /mnt/Emulators/uta-scratch/u439 (run.sh, terms.sh,
   bisect_lights.py, movers.py, atlas.py, bake-base, bake-new, base = git
   worktree at 6069366 with ut-bake, ut-bench, ut-shot built).
+  Pillar question closed (2026-10-30): the darker pillar is right. Light 27
+  draws six shadow tiles, so it is not an unshadowed light. It sits behind the
+  pillar's wall (plane side -1248) and has no incidence term. A ray from the wall
+  crosses only that wall, then runs clear, and a receiver cannot shadow itself
+  in its own shadow map, so the old render lit the wall from behind. UT99 agrees
+  with the mask: the wall's 17 listed lights (Model::lights) are all in front of
+  it and export 27 is not among them. Over the whole map's 3018 lit surfaces it
+  lists no-incidence lights 558 times in front and 0 behind.
+  Still movers add no darkness here: base with every pair reading the mask draws
+  0.0958 and the new bake draws 0.0958. The new bake with every pair reading the
+  shadow map draws 0.3270, against base's 0.3294. So the whole gap is mask against
+  shadow map.
+  Not explained: at the real atlas the no-incidence lights (0.1590) and the rest
+  (0.1095) do not sum to 0.3294 on the shadow-map path, with the others dimmed to
+  brightness 1 rather than 0, which keeps the plan. The mask path does sum. It no
+  longer matters for this map, whose pillar pairs now read the mask. Measured on
+  Mesa's CPU driver. Follow-up on the same leak: UTA-0446.
+  Matrix green on 44e1864, which holds bba803b and c01a411. Worktree removed.
   **Layman:** Some maps build fixed glass and decoration out of parts that could move but never do; light them like walls, which is cheaper.
   Kind: perf.
   Source: user-request-2026-10-26.
+  Lanes: bake, urender.
+
+- 📋 [UTA-0446] **A no-incidence light behind a surface lights it through the shadow map.**
+  From UTA-0439's pillar. bakeChart's plane test keeps a pair for a light with
+  no incidence term even when the light is behind the polygon. Through the mask
+  such a pair reads dark. A moverReach pair reads the shadow map instead, where a
+  receiver cannot shadow itself, so the wall is lit from behind.
+  UT99 never lists such a light: on DM-48SC-InversalLiandri, 558 listings of
+  no-incidence lights in front of the surface, 0 behind (Model::lights over 3018
+  lit surfaces). One map only; widen the count before relying on it.
+  Fix: apply the plane test to every light on a one-sided surface. It changes
+  bake bytes, so it bumps the baker revision.
+  **Layman:** A wall near a moving part can be lit by a lamp on its far side; the original game never does this.
+  Kind: fix.
+  Source: in-session-2026-10-30.
   Lanes: bake, urender.
 
 ## After 1.0.0
