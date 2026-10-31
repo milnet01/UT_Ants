@@ -22711,6 +22711,18 @@ docs/standards/versioning-overrides.md. Closes S8.
   RX 6600. No in-game motion was looked at.
   Next lead: froxels behind the nearest wall, at most about half the slice-32 figure
   now that half the froxels are lit.
+  Froxels behind the nearest wall, probed and not built (2026-10-31, 2d12d2c's fog,
+  High, 3840x2160 at scale 0.6667, alternated, two reps, load 13-18; scratch
+  /mnt/Emulators/uta-scratch/u352/fogcost: variant6.py, run6.sh, table6.tsv). The fog
+  moved after the depth pre-pass, one depth sample at each tile's centre, a slice to
+  spare. Mean fog, shipped to probe: ArchNemesis 1.27 to 0.87, SimpleX 1.07 to 0.76,
+  CastleDeck16 0.37 to 0.31. That is an upper bound: 24 views at 1280x720 moved by up
+  to 28 levels, 0.85% of pixels over 2. A real version also needs a tile's farthest
+  depth (a reduce pass, and more froxels lit at silhouettes) and an answer for what a
+  turn reveals, which has no history. Not worth it at under 0.4 ms before those costs.
+  Fog is now past the bound this lead set out from (ArchNemesis 2.57 at 73246cb's
+  parent to 1.27), and no listed fog lead remains. Moving it needs a new lead, not this
+  one retried. Opaque is ArchNemesis' largest step (8.2 of its worst view, 2026-10-30).
   **Layman:** Six of the 127 test maps still stutter below 60 fps at 4K; find what each one costs and cut it.
   Kind: perf.
   Source: in-session-2026-10-11.
